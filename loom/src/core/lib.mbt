@@ -908,23 +908,19 @@ pub fn[T, K] parse_with(
 
 ///|
 /// Build the CST from an event buffer using spec metadata for root and trivia kinds.
-/// Generic replacement for the lambda-specific select_build_tree in src/parser/.
+/// Always uses the module-level global interners from core/interners.mbt.
 fn[T, K] build_tree_generic(
   buf : @seam.EventBuffer,
   spec : LanguageSpec[T, K],
-  interner : @seam.Interner?,
-  node_interner : @seam.NodeInterner?,
 ) -> @seam.CstNode {
   let ws = (spec.kind_to_raw)(spec.whitespace_kind)
   let root = (spec.kind_to_raw)(spec.root_kind)
-  match (interner, node_interner) {
-    (Some(i), Some(ni)) =>
-      buf.build_tree_fully_interned(root, i, ni, trivia_kind=Some(ws))
-    (Some(i), None) => buf.build_tree_interned(root, i, trivia_kind=Some(ws))
-    (None, Some(_)) =>
-      abort("build_tree_generic: node_interner requires interner to be Some")
-    (None, None) => buf.build_tree(root, trivia_kind=Some(ws))
-  }
+  buf.build_tree_fully_interned(
+    root,
+    core_interner,
+    core_node_interner,
+    trivia_kind=Some(ws),
+  )
 }
 
 ///|
@@ -946,8 +942,6 @@ pub fn[T, K] parse_tokens_indexed(
   spec : LanguageSpec[T, K],
   cursor? : ReuseCursor[T, K]? = None,
   prev_diagnostics? : Array[Diagnostic[T]]? = None,
-  interner? : @seam.Interner? = None,
-  node_interner? : @seam.NodeInterner? = None,
 ) -> (@seam.CstNode, Array[Diagnostic[T]], Int) {
   let ctx = ParserContext::new_indexed(
     token_count, get_token, get_start, get_end, source, spec,
@@ -971,9 +965,5 @@ pub fn[T, K] parse_tokens_indexed(
       " unclosed nodes",
     )
   }
-  (
-    build_tree_generic(ctx.events, spec, interner, node_interner),
-    ctx.errors,
-    ctx.reuse_count,
-  )
+  (build_tree_generic(ctx.events, spec), ctx.errors, ctx.reuse_count)
 }

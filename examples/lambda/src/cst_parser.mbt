@@ -36,8 +36,6 @@ pub fn parse_cst(source : String) -> @seam.CstNode raise {
 /// Only raises for LexError (unrecoverable).
 pub fn parse_cst_recover(
   source : String,
-  interner? : @seam.Interner? = None,
-  node_interner? : @seam.NodeInterner? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
   let tokens = @lexer.tokenize(source)
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
@@ -47,8 +45,6 @@ pub fn parse_cst_recover(
     fn(i) { tokens[i].start },
     fn(i) { tokens[i].end },
     lambda_spec,
-    interner~,
-    node_interner~,
   )
   (cst, diagnostics)
 }
@@ -80,8 +76,6 @@ pub fn parse_cst_recover_with_tokens(
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
   prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
-  interner? : @seam.Interner? = None,
-  node_interner? : @seam.NodeInterner? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
   @core.parse_tokens_indexed(
     source,
@@ -92,8 +86,6 @@ pub fn parse_cst_recover_with_tokens(
     lambda_spec,
     cursor~,
     prev_diagnostics~,
-    interner~,
-    node_interner~,
   )
 }
 

@@ -303,40 +303,8 @@ test "node_interner - intern_node warm hit" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: Full parse_cst_recover with both interners (end-to-end).
-test "parse_cst_recover - fully interned" (b : @bench.T) {
-  let interner = @seam.Interner::new()
-  let ni = @seam.NodeInterner::new()
-  b.bench(fn() {
-    let result = @lambda.parse_cst_recover(
-      "λf.λx.f (f x)",
-      interner=Some(interner),
-      node_interner=Some(ni),
-    ) catch {
-      _ => abort("benchmark failed")
-    }
-    b.keep(result)
-  })
-}
-
-///|
-/// Benchmark: Full parse_cst_recover with token interner only (comparison).
-test "parse_cst_recover - token interned only" (b : @bench.T) {
-  let interner = @seam.Interner::new()
-  b.bench(fn() {
-    let result = @lambda.parse_cst_recover(
-      "λf.λx.f (f x)",
-      interner=Some(interner),
-    ) catch {
-      _ => abort("benchmark failed")
-    }
-    b.keep(result)
-  })
-}
-
-///|
-/// Benchmark: Full parse_cst_recover with no interning (baseline).
-test "parse_cst_recover - no interning" (b : @bench.T) {
+/// Benchmark: Full parse_cst_recover end-to-end (global interning always active).
+test "parse_cst_recover - end-to-end" (b : @bench.T) {
   b.bench(fn() {
     let result = @lambda.parse_cst_recover("λf.λx.f (f x)") catch {
       _ => abort("benchmark failed")

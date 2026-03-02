@@ -5,23 +5,6 @@ test "panic finish_node without matching start_node" {
 }
 
 ///|
-test "parse_cst_recover: with interner matches without interner" {
-  let source = "λx.x + x"
-  let (plain, _) = parse_cst_recover(source)
-  let interner = @seam.Interner::new()
-  let (interned, _) = parse_cst_recover(source, interner=Some(interner))
-  inspect(plain == interned, content="true")
-}
-
-///|
-test "parse_cst_recover: interner populated after parse" {
-  let source = "x + x"
-  let interner = @seam.Interner::new()
-  let _ = parse_cst_recover(source, interner=Some(interner))
-  inspect(interner.size() > 0, content="true")
-}
-
-///|
 test "parse_cst: raises with offending token, not EOF" {
   // Regression guard: parse_cst must preserve the offending token in
   // ParseError. "λ.x" is missing a parameter; the Dot at offset 1 is the
@@ -112,21 +95,6 @@ test "parse_cst_with_cursor: integer boundary merge matches full reparse" {
   let (full_tree, _) = parse_cst_recover(new_source)
   inspect(new_tree == full_tree, content="true")
   inspect(errors.length(), content="0")
-}
-
-///|
-test "parse_cst_recover_with_tokens: with interner matches without" {
-  let source = "λx.x"
-  let tokens = @lexer.tokenize(source)
-  let (plain, _, _) = parse_cst_recover_with_tokens(source, tokens, None)
-  let interner = @seam.Interner::new()
-  let (interned, _, _) = parse_cst_recover_with_tokens(
-    source,
-    tokens,
-    None,
-    interner=Some(interner),
-  )
-  inspect(plain == interned, content="true")
 }
 
 ///|

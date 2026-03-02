@@ -23,7 +23,7 @@ pub fn[T, K, Ast] new_incremental_parser(
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
   let lang = @incremental.IncrementalLanguage::new(
-    full_parse=(source, interner, node_interner) => {
+    full_parse=source => {
       try {
         let buffer = @core.TokenBuffer::new(
           source,
@@ -39,8 +39,6 @@ pub fn[T, K, Ast] new_incremental_parser(
           fn(i) { tokens[i].start },
           fn(i) { tokens[i].end },
           spec,
-          interner=Some(interner),
-          node_interner=Some(node_interner),
         )
         last_diags.val = diagnostics
         let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -53,7 +51,7 @@ pub fn[T, K, Ast] new_incremental_parser(
         }
       }
     },
-    incremental_parse=(source, old_syntax, edit, interner, node_interner) => {
+    incremental_parse=(source, old_syntax, edit) => {
       let tokens = match token_buf.val {
         Some(buffer) =>
           buffer.update(edit, source) catch {
@@ -104,8 +102,6 @@ pub fn[T, K, Ast] new_incremental_parser(
         spec,
         cursor~,
         prev_diagnostics=Some(last_diags.val),
-        interner=Some(interner),
-        node_interner=Some(node_interner),
       )
       last_diags.val = diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)

@@ -116,9 +116,7 @@ test "IncrementalParser::edit result equals full reparse" {
 
 ///|
 test "tree fragment reuse for unchanged regions" {
-  let parser = @loom.new_incremental_parser(
-    "λf.λx.f (x + 1)", lambda_grammar,
-  )
+  let parser = @loom.new_incremental_parser("λf.λx.f (x + 1)", lambda_grammar)
   let initial_tree = parser.parse()
 
   // Small edit at the end: "1" -> "2"
@@ -173,9 +171,7 @@ test "multiple incremental edits preserve correctness" {
 
 ///|
 test "damage tracking accuracy" {
-  let parser = @loom.new_incremental_parser(
-    "(a + b) + (c + d)", lambda_grammar,
-  )
+  let parser = @loom.new_incremental_parser("(a + b) + (c + d)", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only affects right side: "c" -> "x"
@@ -244,9 +240,7 @@ test "Edge case: replace with longer text" {
 
 ///|
 test "Edge case: replace with shorter text" {
-  let parser = @loom.new_incremental_parser(
-    "λf.λx.f (f (x))", lambda_grammar,
-  )
+  let parser = @loom.new_incremental_parser("λf.λx.f (f (x))", lambda_grammar)
   let _ = parser.parse()
 
   // Replace long expression with single char
@@ -594,9 +588,7 @@ test "Reuse: count is zero on initial parse" {
 
 ///|
 test "Reuse: nodes are reused for non-overlapping edits" {
-  let parser = @loom.new_incremental_parser(
-    "a + b + c + d + e", lambda_grammar,
-  )
+  let parser = @loom.new_incremental_parser("a + b + c + d + e", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only "c" -> "x" (positions 8-9)
