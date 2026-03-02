@@ -47,6 +47,10 @@ Understanding how the layers fit together:
 
 - [plans/2026-03-02-parser-api-design.md](plans/2026-03-02-parser-api-design.md) — parser API simplification: rename ImperativeParser/ReactiveParser, global interners, stateless core, API surface fixes, future typed holes direction
 
+## Active Plans
+
+- [plans/2026-03-02-parser-api-design.md](plans/2026-03-02-parser-api-design.md) — parser API simplification: rename ImperativeParser/ReactiveParser, global interners, stateless core, API surface fixes, future typed holes direction
+
 ## Development
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
