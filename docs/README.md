@@ -46,6 +46,7 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-03-roadmap-separation-design.md](plans/2026-03-03-roadmap-separation-design.md) — separate framework and lambda calculus concerns into two ROADMAP files
+- [plans/2026-03-03-roadmap-separation.md](plans/2026-03-03-roadmap-separation.md) — implementation plan for roadmap separation
 
 ## Development
 
