@@ -1,29 +1,30 @@
-// Bridge factories — build IncrementalParser or ParserDb from a Grammar.
+// Bridge factories — build ImperativeParser or ReactiveParser from a Grammar.
 //
 // These encapsulate all infrastructure wiring: TokenBuffer lifecycle,
 // ReuseCursor construction, parse_tokens_indexed calls, diagnostic
 // formatting. The grammar author provides spec, tokenize, to_ast, and
 // on_lex_error; the factories handle the rest.
 //
-// IncrementalLanguage[Ast] and Language[Ast] are constructed internally
+// ImperativeLanguage[Ast] and Language[Ast] are constructed internally
 // for type erasure — grammar authors never see them.
 
 ///|
-/// Create an IncrementalParser from a Grammar.
+/// Create an ImperativeParser from a Grammar.
 ///
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
-/// Safe to call multiple times — no shared mutable state between parsers.
-pub fn[T, K, Ast] new_incremental_parser(
+/// Interners (token deduplication, node deduplication) are process-global and
+/// shared across all parsers — accumulated, never cleared, not parser-isolated.
+pub fn[T, K, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
-) -> @incremental.IncrementalParser[Ast] {
+) -> @incremental.ImperativeParser[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let to_ast = grammar.to_ast
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
-  let lang = @incremental.IncrementalLanguage::new(
-    full_parse=(source, interner, node_interner) => {
+  let lang = @incremental.ImperativeLanguage::new(
+    full_parse=source => {
       try {
         let buffer = @core.TokenBuffer::new(
           source,
@@ -39,8 +40,6 @@ pub fn[T, K, Ast] new_incremental_parser(
           fn(i) { tokens[i].start },
           fn(i) { tokens[i].end },
           spec,
-          interner=Some(interner),
-          node_interner=Some(node_interner),
         )
         last_diags.val = diagnostics
         let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -53,7 +52,7 @@ pub fn[T, K, Ast] new_incremental_parser(
         }
       }
     },
-    incremental_parse=(source, old_syntax, edit, interner, node_interner) => {
+    incremental_parse=(source, old_syntax, edit) => {
       let tokens = match token_buf.val {
         Some(buffer) =>
           buffer.update(edit, source) catch {
@@ -104,8 +103,6 @@ pub fn[T, K, Ast] new_incremental_parser(
         spec,
         cursor~,
         prev_diagnostics=Some(last_diags.val),
-        interner=Some(interner),
-        node_interner=Some(node_interner),
       )
       last_diags.val = diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
@@ -113,16 +110,17 @@ pub fn[T, K, Ast] new_incremental_parser(
     },
     to_ast~,
     on_lex_error=grammar.on_lex_error,
+    get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
   )
-  @incremental.IncrementalParser::new(source, lang)
+  @incremental.ImperativeParser::new(source, lang)
 }
 
 ///|
-/// Create a ParserDb from a Grammar.
-pub fn[T, K, Ast : Eq] new_parser_db(
+/// Create a ReactiveParser from a Grammar.
+pub fn[T, K, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
-) -> @pipeline.ParserDb[Ast] {
+) -> @pipeline.ReactiveParser[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let to_ast = grammar.to_ast
@@ -130,7 +128,7 @@ pub fn[T, K, Ast : Eq] new_parser_db(
     parse_source=fn(s) {
       try tokenize(s) catch {
         @core.LexError(msg) => {
-          // cst is never read when is_lex_error=true (ParserDb routes to
+          // cst is never read when is_lex_error=true (ReactiveParser routes to
           // on_lex_error); use a cheap error-kind placeholder instead of
           // running parse_tokens_indexed on empty input.
           let cst = @seam.CstNode::new((spec.kind_to_raw)(spec.error_kind), [])
@@ -152,14 +150,7 @@ pub fn[T, K, Ast : Eq] new_parser_db(
           )
           @pipeline.CstStage::{
             cst,
-            diagnostics: diags.map(fn(d) {
-              d.message +
-              " [" +
-              d.start.to_string() +
-              "," +
-              d.end.to_string() +
-              "]"
-            }),
+            diagnostics: diags.map(@core.format_diagnostic),
             is_lex_error: false,
           }
         }
@@ -168,5 +159,5 @@ pub fn[T, K, Ast : Eq] new_parser_db(
     to_ast~,
     on_lex_error=grammar.on_lex_error,
   )
-  @pipeline.ParserDb::new(source, lang)
+  @pipeline.ReactiveParser::new(source, lang)
 }

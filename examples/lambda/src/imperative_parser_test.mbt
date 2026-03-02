@@ -1,23 +1,37 @@
 // Tests for incremental parser
 
 ///|
-test "IncrementalParser::new creates parser" {
-  let parser = @loom.new_incremental_parser("42", lambda_grammar)
+test "ImperativeParser::diagnostics empty on valid source" {
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let _ = parser.parse()
+  inspect(parser.diagnostics(), content="[]")
+}
+
+///|
+test "ImperativeParser::diagnostics non-empty on invalid source" {
+  let parser = @loom.new_imperative_parser("λ.x", lambda_grammar)
+  let _ = parser.parse()
+  inspect(parser.diagnostics().length() > 0, content="true")
+}
+
+///|
+test "ImperativeParser::new creates parser" {
+  let parser = @loom.new_imperative_parser("42", lambda_grammar)
   inspect(parser.get_source(), content="42")
   inspect(parser.get_tree() is None, content="true")
 }
 
 ///|
-test "IncrementalParser::parse initial parse" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+test "ImperativeParser::parse initial parse" {
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let tree = parser.parse()
   inspect(@ast.print_ast_node(tree), content="(λx. x)")
   inspect(parser.get_tree() is None, content="false")
 }
 
 ///|
-test "IncrementalParser::edit simple insertion" {
-  let parser = @loom.new_incremental_parser("42", lambda_grammar)
+test "ImperativeParser::edit simple insertion" {
+  let parser = @loom.new_imperative_parser("42", lambda_grammar)
   let _ = parser.parse()
 
   // Insert " + 1" at the end
@@ -29,8 +43,8 @@ test "IncrementalParser::edit simple insertion" {
 }
 
 ///|
-test "IncrementalParser::edit simple deletion" {
-  let parser = @loom.new_incremental_parser("42 + 1", lambda_grammar)
+test "ImperativeParser::edit simple deletion" {
+  let parser = @loom.new_imperative_parser("42 + 1", lambda_grammar)
   let _ = parser.parse()
 
   // Delete " + 1"
@@ -40,8 +54,8 @@ test "IncrementalParser::edit simple deletion" {
 }
 
 ///|
-test "IncrementalParser::edit replacement" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+test "ImperativeParser::edit replacement" {
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Replace "x" with "y"
@@ -51,8 +65,8 @@ test "IncrementalParser::edit replacement" {
 }
 
 ///|
-test "IncrementalParser::edit with no initial tree" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+test "ImperativeParser::edit with no initial tree" {
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
 
   // Edit without parsing first
   let edit = @core.Edit::replace(0, 1, 1)
@@ -61,8 +75,8 @@ test "IncrementalParser::edit with no initial tree" {
 }
 
 ///|
-test "IncrementalParser::edit preserves structure" {
-  let parser = @loom.new_incremental_parser("λf.λx.f x", lambda_grammar)
+test "ImperativeParser::edit preserves structure" {
+  let parser = @loom.new_imperative_parser("λf.λx.f x", lambda_grammar)
   let initial_tree = parser.parse()
 
   // Insert space (cosmetic change)
@@ -75,8 +89,8 @@ test "IncrementalParser::edit preserves structure" {
 }
 
 ///|
-test "IncrementalParser::multiple edits" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+test "ImperativeParser::multiple edits" {
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // First edit: x -> x + 1
@@ -96,17 +110,8 @@ test "IncrementalParser::multiple edits" {
 }
 
 ///|
-test "IncrementalParser::stats" {
-  let parser = @loom.new_incremental_parser("42", lambda_grammar)
-  let _ = parser.parse()
-  let stats = parser.stats()
-  inspect(stats.contains("IncrementalParser"), content="true")
-  inspect(stats.contains("source_length"), content="true")
-}
-
-///|
-test "IncrementalParser::edit result equals full reparse" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+test "ImperativeParser::edit result equals full reparse" {
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Incremental edit
@@ -125,9 +130,7 @@ test "IncrementalParser::edit result equals full reparse" {
 
 ///|
 test "tree fragment reuse for unchanged regions" {
-  let parser = @loom.new_incremental_parser(
-    "λf.λx.f (x + 1)", lambda_grammar,
-  )
+  let parser = @loom.new_imperative_parser("λf.λx.f (x + 1)", lambda_grammar)
   let initial_tree = parser.parse()
 
   // Small edit at the end: "1" -> "2"
@@ -146,7 +149,7 @@ test "tree fragment reuse for unchanged regions" {
 
 ///|
 test "minimal reparsing for local edits" {
-  let parser = @loom.new_incremental_parser("a + b + c + d", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a + b + c + d", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only affects "c" -> "x"
@@ -161,7 +164,7 @@ test "minimal reparsing for local edits" {
 
 ///|
 test "multiple incremental edits preserve correctness" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse()
 
   // Series of small edits
@@ -182,9 +185,7 @@ test "multiple incremental edits preserve correctness" {
 
 ///|
 test "damage tracking accuracy" {
-  let parser = @loom.new_incremental_parser(
-    "(a + b) + (c + d)", lambda_grammar,
-  )
+  let parser = @loom.new_imperative_parser("(a + b) + (c + d)", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only affects right side: "c" -> "x"
@@ -200,7 +201,7 @@ test "damage tracking accuracy" {
 
 ///|
 test "Edge case: insertion at position 0" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert at the very beginning
@@ -214,7 +215,7 @@ test "Edge case: insertion at position 0" {
 
 ///|
 test "Edge case: insertion at end of document" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert at the very end
@@ -228,7 +229,7 @@ test "Edge case: insertion at end of document" {
 
 ///|
 test "Edge case: delete entire document" {
-  let parser = @loom.new_incremental_parser("x + y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x + y", lambda_grammar)
   let _ = parser.parse()
 
   // Delete everything
@@ -241,7 +242,7 @@ test "Edge case: delete entire document" {
 
 ///|
 test "Edge case: replace with longer text" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Replace single char with much longer expression
@@ -253,9 +254,7 @@ test "Edge case: replace with longer text" {
 
 ///|
 test "Edge case: replace with shorter text" {
-  let parser = @loom.new_incremental_parser(
-    "λf.λx.f (f (x))", lambda_grammar,
-  )
+  let parser = @loom.new_imperative_parser("λf.λx.f (f (x))", lambda_grammar)
   let _ = parser.parse()
 
   // Replace long expression with single char
@@ -267,7 +266,7 @@ test "Edge case: replace with shorter text" {
 
 ///|
 test "Edge case: consecutive insertions at same position" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // First insertion
@@ -283,7 +282,7 @@ test "Edge case: consecutive insertions at same position" {
 
 ///|
 test "Edge case: insertion in middle of lambda parameter" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert in the middle of parameter name (should change structure)
@@ -295,7 +294,7 @@ test "Edge case: insertion in middle of lambda parameter" {
 
 ///|
 test "Edge case: deletion at boundary between nodes" {
-  let parser = @loom.new_incremental_parser("x + y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x + y", lambda_grammar)
   let _ = parser.parse()
 
   // Delete the operator (critical boundary)
@@ -307,7 +306,7 @@ test "Edge case: deletion at boundary between nodes" {
 
 ///|
 test "Edge case: structural change from leaf to compound" {
-  let parser = @loom.new_incremental_parser("42", lambda_grammar)
+  let parser = @loom.new_imperative_parser("42", lambda_grammar)
   let _ = parser.parse()
 
   // Change from simple int to binary operation
@@ -319,7 +318,7 @@ test "Edge case: structural change from leaf to compound" {
 
 ///|
 test "Edge case: structural change from compound to leaf" {
-  let parser = @loom.new_incremental_parser("x + y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x + y", lambda_grammar)
   let _ = parser.parse()
 
   // Change from binary operation to simple variable
@@ -331,7 +330,7 @@ test "Edge case: structural change from compound to leaf" {
 
 ///|
 test "Edge case: nested lambda insertion at start" {
-  let parser = @loom.new_incremental_parser("λx.x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x + 1", lambda_grammar)
   let _ = parser.parse()
 
   // Wrap with another lambda
@@ -343,7 +342,7 @@ test "Edge case: nested lambda insertion at start" {
 
 ///|
 test "Edge case: multiple rapid edits in sequence" {
-  let parser = @loom.new_incremental_parser("a", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a", lambda_grammar)
   let _ = parser.parse()
 
   // Rapid sequence of edits
@@ -359,7 +358,7 @@ test "Edge case: multiple rapid edits in sequence" {
 
 ///|
 test "Edge case: edit that changes operator precedence" {
-  let parser = @loom.new_incremental_parser("a + b * c", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a + b * c", lambda_grammar)
   let _ = parser.parse()
 
   // Change to affect precedence structure
@@ -371,7 +370,7 @@ test "Edge case: edit that changes operator precedence" {
 
 ///|
 test "Edge case: whitespace-only insertion" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert whitespace (should not change structure)
@@ -384,7 +383,7 @@ test "Edge case: whitespace-only insertion" {
 
 ///|
 test "Edge case: validation with identical structure but different content" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse()
 
   // Change variable name (same structure, different content)
@@ -396,7 +395,7 @@ test "Edge case: validation with identical structure but different content" {
 
 ///|
 test "Edge case: insertion that creates error node" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert invalid syntax
@@ -409,7 +408,7 @@ test "Edge case: insertion that creates error node" {
 
 ///|
 test "Edge case: zero-length edit (no-op)" {
-  let parser = @loom.new_incremental_parser("x + y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x + y", lambda_grammar)
   let initial_tree = parser.parse()
 
   // Zero-length insertion (no change)
@@ -425,7 +424,7 @@ test "Edge case: zero-length edit (no-op)" {
 
 ///|
 test "Edge case: position boundary at node start" {
-  let parser = @loom.new_incremental_parser("λx.λy.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.λy.x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert exactly at inner lambda boundary
@@ -437,7 +436,7 @@ test "Edge case: position boundary at node start" {
 
 ///|
 test "Edge case: position boundary at node end" {
-  let parser = @loom.new_incremental_parser("λx.λy.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.λy.x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert exactly at end of inner lambda
@@ -453,7 +452,7 @@ test "Edge case: position boundary at node end" {
 
 ///|
 test "Differential: single token edit in middle" {
-  let parser = @loom.new_incremental_parser("a + b + c", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a + b + c", lambda_grammar)
   let _ = parser.parse()
 
   // Change "b" to "x"
@@ -465,7 +464,7 @@ test "Differential: single token edit in middle" {
 
 ///|
 test "Differential: insert at beginning" {
-  let parser = @loom.new_incremental_parser("y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("y", lambda_grammar)
   let _ = parser.parse()
 
   // Insert "λx." at beginning
@@ -477,7 +476,7 @@ test "Differential: insert at beginning" {
 
 ///|
 test "Differential: delete in middle" {
-  let parser = @loom.new_incremental_parser("λx.x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x + 1", lambda_grammar)
   let _ = parser.parse()
 
   // Delete " + 1"
@@ -489,7 +488,7 @@ test "Differential: delete in middle" {
 
 ///|
 test "Differential: complex nested expression" {
-  let parser = @loom.new_incremental_parser("λf.λx.f (f x)", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λf.λx.f (f x)", lambda_grammar)
   let _ = parser.parse()
 
   // Change inner "f" to "g"
@@ -501,9 +500,7 @@ test "Differential: complex nested expression" {
 
 ///|
 test "Differential: if-then-else modification" {
-  let parser = @loom.new_incremental_parser(
-    "if x then 1 else 2", lambda_grammar,
-  )
+  let parser = @loom.new_imperative_parser("if x then 1 else 2", lambda_grammar)
   let _ = parser.parse()
 
   // Change condition "x" to "y"
@@ -515,7 +512,7 @@ test "Differential: if-then-else modification" {
 
 ///|
 test "Differential: identifier boundary merge" {
-  let parser = @loom.new_incremental_parser("x y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x y", lambda_grammar)
   let _ = parser.parse()
 
   // Delete boundary whitespace: "x y" -> "xy"
@@ -528,7 +525,7 @@ test "Differential: identifier boundary merge" {
 
 ///|
 test "Differential: identifier boundary split" {
-  let parser = @loom.new_incremental_parser("xy", lambda_grammar)
+  let parser = @loom.new_imperative_parser("xy", lambda_grammar)
   let _ = parser.parse()
 
   // Insert boundary whitespace: "xy" -> "x y"
@@ -541,7 +538,7 @@ test "Differential: identifier boundary split" {
 
 ///|
 test "Differential: integer boundary merge" {
-  let parser = @loom.new_incremental_parser("1 2", lambda_grammar)
+  let parser = @loom.new_imperative_parser("1 2", lambda_grammar)
   let _ = parser.parse()
 
   // Delete boundary whitespace: "1 2" -> "12"
@@ -554,7 +551,7 @@ test "Differential: integer boundary merge" {
 
 ///|
 test "Differential: integer boundary split" {
-  let parser = @loom.new_incremental_parser("12", lambda_grammar)
+  let parser = @loom.new_imperative_parser("12", lambda_grammar)
   let _ = parser.parse()
 
   // Insert boundary whitespace: "12" -> "1 2"
@@ -567,7 +564,7 @@ test "Differential: integer boundary split" {
 
 ///|
 test "Differential: multiple consecutive edits" {
-  let parser = @loom.new_incremental_parser("a", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a", lambda_grammar)
   let _ = parser.parse()
 
   // First edit: a -> a b
@@ -595,7 +592,7 @@ test "Differential: multiple consecutive edits" {
 
 ///|
 test "Reuse: count is zero on initial parse" {
-  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse()
   // Initial parse has no reuse (no old tree)
   inspect(parser.get_last_reuse_count(), content="0")
@@ -603,9 +600,7 @@ test "Reuse: count is zero on initial parse" {
 
 ///|
 test "Reuse: nodes are reused for non-overlapping edits" {
-  let parser = @loom.new_incremental_parser(
-    "a + b + c + d + e", lambda_grammar,
-  )
+  let parser = @loom.new_imperative_parser("a + b + c + d + e", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only "c" -> "x" (positions 8-9)
@@ -621,7 +616,7 @@ test "Reuse: nodes are reused for non-overlapping edits" {
 
 ///|
 test "Reuse: edit at end should allow front reuse" {
-  let parser = @loom.new_incremental_parser("a b c d e", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a b c d e", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only at the end: "e" -> "x"
@@ -635,7 +630,7 @@ test "Reuse: edit at end should allow front reuse" {
 
 ///|
 test "Reuse: full replacement has no reuse" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Replace entire document
@@ -649,7 +644,7 @@ test "Reuse: full replacement has no reuse" {
 
 ///|
 test "Reuse: adjacent insert should not incorrectly reuse" {
-  let parser = @loom.new_incremental_parser("x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Insert at end (adjacent to existing node)
@@ -667,7 +662,7 @@ test "Reuse: adjacent insert should not incorrectly reuse" {
 ///|
 test "Reuse: whitespace-containing expressions parse correctly" {
   // Test that internal whitespace in reused nodes is handled correctly
-  let parser = @loom.new_incremental_parser("λx. x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("λx. x + 1", lambda_grammar)
   let _ = parser.parse()
 
   // Edit only the number at the end
@@ -684,7 +679,7 @@ test "Reuse: whitespace-containing expressions parse correctly" {
 
 ///|
 test "Reuse: multiple spaces between tokens" {
-  let parser = @loom.new_incremental_parser("a   +   b", lambda_grammar)
+  let parser = @loom.new_imperative_parser("a   +   b", lambda_grammar)
   let _ = parser.parse()
 
   // Edit "b" -> "c"
@@ -699,7 +694,7 @@ test "Reuse: multiple spaces between tokens" {
 
 ///|
 test "Reuse: leading whitespace in source" {
-  let parser = @loom.new_incremental_parser("  x + y", lambda_grammar)
+  let parser = @loom.new_imperative_parser("  x + y", lambda_grammar)
   let _ = parser.parse()
 
   // Edit "y" -> "z"
@@ -714,7 +709,7 @@ test "Reuse: leading whitespace in source" {
 
 ///|
 test "Reuse: trailing whitespace in source" {
-  let parser = @loom.new_incremental_parser("x + y  ", lambda_grammar)
+  let parser = @loom.new_imperative_parser("x + y  ", lambda_grammar)
   let _ = parser.parse()
 
   // Edit "y" -> "z"
@@ -728,8 +723,41 @@ test "Reuse: trailing whitespace in source" {
 }
 
 ///|
+test "ImperativeParser::edit returns same AST when CST is unchanged" {
+  let parser = @loom.new_imperative_parser("1+2", lambda_grammar)
+  let ast1 = parser.parse()
+  // Edit: add trailing whitespace — CST content unchanged (whitespace is trivia)
+  let edit = @core.Edit::insert(3, 1)
+  let ast2 = parser.edit(edit, "1+2 ")
+  inspect(
+    @ast.print_ast_node(ast1) == @ast.print_ast_node(ast2),
+    content="true",
+  )
+}
+
+///|
+test "ImperativeParser::reset parses new source fresh" {
+  let parser = @loom.new_imperative_parser("42", lambda_grammar)
+  let _ = parser.parse()
+  let result = parser.reset("λx.x")
+  inspect(@ast.print_ast_node(result), content="(λx. x)")
+}
+
+///|
+test "ImperativeParser::reset clears old tree state" {
+  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let _ = parser.parse()
+  // Reset to completely different source
+  let _ = parser.reset("1 + 2")
+  // Subsequent edit from this new base should work correctly
+  let edit = @core.Edit::insert(5, 4) // insert " + 3" (4 chars) at end of "1 + 2"
+  let result = parser.edit(edit, "1 + 2 + 3")
+  inspect(@ast.print_ast_node(result), content="((1 + 2) + 3)")
+}
+
+///|
 test "Reuse: tokenization error clears stale concrete syntax tree state" {
-  let parser = @loom.new_incremental_parser("1+1+1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("1+1+1", lambda_grammar)
   let _ = parser.parse()
 
   // Introduce a valid edit plus an invalid trailing token.

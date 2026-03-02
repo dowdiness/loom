@@ -6,7 +6,11 @@ import {
 }
 
 // Values
-pub fn[T, K] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?, interner? : @seam.Interner?, node_interner? : @seam.NodeInterner?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
+pub let core_interner : @seam.Interner
+
+pub fn[T] format_diagnostic(Diagnostic[T]) -> String
+
+pub fn[T, K] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
 
 pub fn[T, K] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])
 

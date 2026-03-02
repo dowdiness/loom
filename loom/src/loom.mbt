@@ -2,7 +2,7 @@
 // Public API facade for dowdiness/loom.
 // A single import gives access to all framework types for both grammar
 // authors (LanguageSpec, ParserContext, SyntaxNode) and parser consumers
-// (IncrementalParser, ParserDb, Edit, Diagnostic).
+// (ImperativeParser, ReactiveParser, Edit, Diagnostic).
 
 ///|
 // CST types — grammar callbacks receive SyntaxNode; the full green tree is CstNode.
@@ -27,11 +27,11 @@ pub using @core {
 
 ///|
 // Incremental engine — the primary parser type consumers interact with
-pub using @incremental {type IncrementalParser}
+pub using @incremental {type ImperativeParser}
 
 ///|
 // Reactive pipeline — Signal[String] → Memo[Ast]
-pub using @pipeline {type ParserDb}
+pub using @pipeline {type ReactiveParser}
 
-// Grammar and factory functions (new_incremental_parser, new_parser_db)
+// Grammar and factory functions (new_imperative_parser, new_reactive_parser)
 // are defined in grammar.mbt and factories.mbt in this package.

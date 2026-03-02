@@ -117,7 +117,7 @@ fn apply_char_replace(
 test "heavy: large document - initial parse" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -128,7 +128,7 @@ test "heavy: large document - initial parse" (b : @bench.T) {
 test "heavy: wide arithmetic 100 terms - initial parse" (b : @bench.T) {
   let source = make_wide_arithmetic(100)
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -139,7 +139,7 @@ test "heavy: wide arithmetic 100 terms - initial parse" (b : @bench.T) {
 test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
   let source = make_nested_application(50)
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -149,14 +149,8 @@ test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
 /// Benchmark: CST-level parse of large document (no AST conversion overhead).
 test "heavy: large document - cst parse only" (b : @bench.T) {
   let source = make_large_source()
-  let interner = @seam.Interner::new()
-  let ni = @seam.NodeInterner::new()
   b.bench(fn() {
-    let result = @lambda.parse_cst_recover(
-      source,
-      interner=Some(interner),
-      node_interner=Some(ni),
-    ) catch {
+    let result = @lambda.parse_cst_recover(source) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -175,7 +169,7 @@ test "heavy: typing session - 100 edits at end" (b : @bench.T) {
     " ", "+", " ", "2",
   ]
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut source = base
     for i = 0; i < 100; i = i + 1 {
@@ -200,7 +194,7 @@ test "heavy: typing session - 100 edits in middle" (b : @bench.T) {
     "z", " ", "+", " ",
   ]
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut source = base
     let mut insert_pos = mid
@@ -224,7 +218,7 @@ test "heavy: refactoring session - 100 scattered replacements" (b : @bench.T) {
   let base = make_large_source()
   let replacements = ["x", "y", "z", "a", "b", "c", "d", "e"]
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut source = base
     let mut seed = 42
@@ -338,72 +332,12 @@ test "heavy: FULL REPARSE - large document initial parse" (b : @bench.T) {
   })
 }
 
-// ─── Tier 4: Interner growth & sharing metrics (tests, not timed benches) ────
-
-///|
-/// Measure interner growth over a 200-edit typing session.
-/// Reports sizes at key checkpoints to detect unbounded growth.
-test "heavy: interner growth over 200 edits" {
-  let base = make_large_source()
-  let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
-  let _ = parser.parse()
-  let initial_token_size = parser.interner_size()
-  let initial_node_size = parser.node_interner_size()
-  let chars = [" ", "+", " ", "x", " ", "+", " ", "1"]
-  let mut source = base
-  let mut max_node_size = initial_node_size
-  for i = 0; i < 200; i = i + 1 {
-    let ch = chars[i % chars.length()]
-    let pos = source.length()
-    let (new_source, edit) = apply_char_insert(source, pos, ch)
-    let _ = parser.edit(edit, new_source)
-    source = new_source
-    let ns = parser.node_interner_size()
-    if ns > max_node_size {
-      max_node_size = ns
-    }
-  }
-  let final_token_size = parser.interner_size()
-  let final_node_size = parser.node_interner_size()
-  // Report actual sizes for visibility
-  inspect(
-    (initial_token_size, final_token_size),
-    content=(
-      #|(21, 22)
-    ),
-  )
-  inspect(
-    (initial_node_size, final_node_size, max_node_size),
-    content=(
-      #|(45, 1247, 1247)
-    ),
-  )
-  // Sanity: we actually did edits
-  inspect(source.length() > base.length(), content="true")
-}
-
-///|
-/// Measure structural sharing: parse the same document twice with shared interner.
-/// Second parse should produce identical tree with no interner growth.
-test "heavy: structural sharing on identical reparse" {
-  let source = make_large_source()
-  let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
-  let _ = parser.parse()
-  let size_after_first = parser.node_interner_size()
-  // Zero-length edit forces reparse with same source
-  let edit = @core.Edit::insert(source.length(), 0)
-  let _ = parser.edit(edit, source)
-  let size_after_second = parser.node_interner_size()
-  // No new nodes should be interned for identical reparse
-  inspect(size_after_second <= size_after_first, content="true")
-}
-
 ///|
 /// Measure reuse count over a typing session.
 /// Local edits at end should reuse most of the tree.
 test "heavy: reuse ratio over 50 edits at end" {
   let base = make_large_source()
-  let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
   let _ = parser.parse()
   let chars = [" ", "+", " ", "1"]
   let mut source = base
@@ -438,7 +372,7 @@ fn bench_incremental_single_edit(source : String, b : @bench.T) -> Unit {
   let replacement = if last == "0" { "1" } else { "0" }
   let (new_source, edit) = apply_char_replace(source, len - 1, replacement)
   b.bench(fn() {
-    let p = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
+    let p = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = p.parse()
     let result = p.edit(edit, new_source)
     b.keep(result)
@@ -457,7 +391,7 @@ fn bench_full_reparse(source : String, b : @bench.T) -> Unit {
 fn bench_session_incremental(source : String, n : Int, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < n; i = i + 1 {

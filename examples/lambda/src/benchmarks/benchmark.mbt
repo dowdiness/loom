@@ -71,7 +71,7 @@ test "tokenization" (b : @bench.T) {
 /// Benchmark: Incremental parser - initial parse
 test "incremental - initial parse" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -81,7 +81,7 @@ test "incremental - initial parse" (b : @bench.T) {
 /// Benchmark: Incremental parser - small edit
 test "incremental - small edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::insert(1, 4)
     let result = parser.edit(edit, "x + 1")
@@ -93,7 +93,7 @@ test "incremental - small edit" (b : @bench.T) {
 /// Benchmark: Incremental parser - multiple edits
 test "incremental - multiple edits" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit1 = @core.Edit::insert(1, 4)
     let _ = parser.edit(edit1, "x + 1")
@@ -107,7 +107,7 @@ test "incremental - multiple edits" (b : @bench.T) {
 /// Benchmark: Incremental parser - replacement edit
 test "incremental - replacement" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("λx.x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
     let result = parser.edit(edit, "\\x.x")
@@ -171,7 +171,7 @@ test "full parse - nested let" (b : @bench.T) {
 /// The init IntLiteral(1) at [8,9) is outside damage [13,14) → eligible for reuse.
 test "incremental - let body edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "let x = 1 in y", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
@@ -187,7 +187,7 @@ test "incremental - let body edit" (b : @bench.T) {
 /// The outer LetExpr overlaps damage [8,9); body VarRef("y") is outside damage.
 test "incremental - let init edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "let x = 1 in y", @lambda.lambda_grammar,
     )
     let _ = parser.parse()

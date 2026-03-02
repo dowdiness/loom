@@ -55,12 +55,12 @@ pub(all) struct CstStage {
 ```
 
 **Stable.** The output of `Parseable::parse_source` and the value cached by
-`ParserDb`'s first memo. All three fields are public for read access.
+`ReactiveParser`'s first memo. All three fields are public for read access.
 
 **Invariants:**
 - `is_lex_error` is set explicitly by the `Parseable` implementation, never inferred
   from `cst.token_count` or diagnostic string prefixes. This makes lex-error routing
-  in `ParserDb::term` robust to parser internals.
+  in `ReactiveParser::term` robust to parser internals.
 - `diagnostics` is `Array[String]` rather than a generic `Array[Diagnostic[T]]`
   because `Diagnostic[T]` does not derive `Eq`; normalized strings keep the `Eq`
   boundary clean for memo backdating.
@@ -103,15 +103,15 @@ be replaced. Create a new `Language[Ast]` to change behaviour.
 | Parameter | Role |
 |---|---|
 | `lang : T` (positional) | Any `T : Parseable`; the token type lives only inside this value |
-| `to_ast~ : (SyntaxNode) -> Ast` | Called by `ParserDb::term` on a successful parse; receives the root `SyntaxNode` |
-| `on_lex_error~ : (String) -> Ast` | Called by `ParserDb::term` when `CstStage::is_lex_error` is true; receives the first diagnostic string |
+| `to_ast~ : (SyntaxNode) -> Ast` | Called by `ReactiveParser::term` on a successful parse; receives the root `SyntaxNode` |
+| `on_lex_error~ : (String) -> Ast` | Called by `ReactiveParser::term` when `CstStage::is_lex_error` is true; receives the first diagnostic string |
 
 ---
 
-## `ParserDb[Ast]`
+## `ReactiveParser[Ast]`
 
 ```moonbit
-pub struct ParserDb[Ast] {
+pub struct ReactiveParser[Ast] {
   // private fields
 }
 ```
@@ -125,7 +125,7 @@ source_text : Signal[String]
 ```
 
 **Invariants:**
-- **Eq constraint asymmetry.** `ParserDb[Ast]` is unconstrained at the struct level.
+- **Eq constraint asymmetry.** `ReactiveParser[Ast]` is unconstrained at the struct level.
   `new` and `term` require `Ast : Eq` (needed by `Memo::new` and `Memo::get` for
   backdating). `cst`, `diagnostics`, and `set_source` do not require `Ast : Eq`.
 - **Backdating.** If `set_source` is called with a value equal to the current source
@@ -133,18 +133,18 @@ source_text : Signal[String]
   an equal `CstStage` (`CstStage::Eq`), `term_memo` is not marked stale. If
   `term_memo` recomputes and produces an equal `Ast` (`Ast : Eq`), `changed_at` is
   preserved — downstream memos (if any) are not dirtied.
-- **Lifetime.** One `ParserDb` per document editing session. The `Runtime` is
+- **Lifetime.** One `ReactiveParser` per document editing session. The `Runtime` is
   internal and not exposed.
 - **`diagnostics()` returns a copy.** Mutating the returned `Array[String]` does not
   affect subsequent `diagnostics()` calls or the internal cache.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `ParserDb::new[Ast : Eq](String, Language[Ast]) -> Self[Ast]` | Stable | `Ast : Eq` required for memo backdating |
-| `ParserDb::set_source[Ast](Self[Ast], String) -> Unit` | Stable | No-op when new source equals current source (`String::Eq`) |
-| `ParserDb::cst[Ast](Self[Ast]) -> CstStage` | Stable | Triggers `cst_memo` evaluation if source changed; does not require `Ast : Eq` |
-| `ParserDb::diagnostics[Ast](Self[Ast]) -> Array[String]` | Stable | Returns a defensive copy of `cst_memo.get().diagnostics` |
-| `ParserDb::term[Ast : Eq](Self[Ast]) -> Ast` | Stable | Triggers both memos if needed; warm call is a staleness check only |
+| `ReactiveParser::new[Ast : Eq](String, Language[Ast]) -> Self[Ast]` | Stable | `Ast : Eq` required for memo backdating |
+| `ReactiveParser::set_source[Ast](Self[Ast], String) -> Unit` | Stable | No-op when new source equals current source (`String::Eq`) |
+| `ReactiveParser::cst[Ast](Self[Ast]) -> CstStage` | Stable | Triggers `cst_memo` evaluation if source changed; does not require `Ast : Eq` |
+| `ReactiveParser::diagnostics[Ast](Self[Ast]) -> Array[String]` | Stable | Returns a defensive copy of `cst_memo.get().diagnostics` |
+| `ReactiveParser::term[Ast : Eq](Self[Ast]) -> Ast` | Stable | Triggers both memos if needed; warm call is a staleness check only |
 
 ---
 
@@ -162,15 +162,15 @@ let lang : @pipeline.Language[MyAst] = @pipeline.Language::from(
   on_lex_error=fn(msg) { MyAst::error(msg) },
 )
 
-// 3. Create a ParserDb and use it:
-let db = @pipeline.ParserDb::new(initial_source, lang)
-let ast  = @pipeline.ParserDb::term(db)
-let diag = @pipeline.ParserDb::diagnostics(db)
-@pipeline.ParserDb::set_source(db, new_source)  // invalidates memos
+// 3. Create a ReactiveParser and use it:
+let db = @pipeline.ReactiveParser::new(initial_source, lang)
+let ast  = @pipeline.ReactiveParser::term(db)
+let diag = @pipeline.ReactiveParser::diagnostics(db)
+@pipeline.ReactiveParser::set_source(db, new_source)  // invalidates memos
 ```
 
 **Lambda calculus reference implementation:** `dowdiness/parser/lambda` provides
-`LambdaLanguage`, `lambda_language()`, and `LambdaParserDb` as a worked example.
+`LambdaLanguage`, `lambda_language()`, and `LambdaReactiveParser` as a worked example.
 
 ---
 
@@ -180,5 +180,5 @@ No symbols are deferred from the 0.1.0 surface. Possible additions for 0.2.0:
 
 | Candidate | Reason deferred |
 |---|---|
-| `ParserDb::reset(Self, String) -> Unit` | Alias for `set_source`; no current callers requesting it |
-| Multi-language `ParserDb` (two `Language[Ast]` slots) | No identified use case; design unresolved |
+| `ReactiveParser::reset(Self, String) -> Unit` | Alias for `set_source`; no current callers requesting it |
+| Multi-language `ReactiveParser` (two `Language[Ast]` slots) | No identified use case; design unresolved |

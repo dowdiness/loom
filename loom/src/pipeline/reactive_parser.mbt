@@ -14,8 +14,8 @@
 /// `Parseable` implementation, so `term_memo` dispatches to `on_lex_error`
 /// without fragile heuristics.
 ///
-/// **Lifetime:** one ParserDb per document editing session.
-pub struct ParserDb[Ast] {
+/// **Lifetime:** one ReactiveParser per document editing session.
+pub struct ReactiveParser[Ast] {
   priv source_text : @incr.Signal[String]
   priv cst_memo : @incr.Memo[CstStage]
   priv term_memo : @incr.Memo[Ast]
@@ -23,10 +23,10 @@ pub struct ParserDb[Ast] {
 
 ///|
 /// Ast : Eq is required to call Memo::new (backdating needs structural equality).
-pub fn[Ast : Eq] ParserDb::new(
+pub fn[Ast : Eq] ReactiveParser::new(
   initial_source : String,
   lang : Language[Ast],
-) -> ParserDb[Ast] {
+) -> ReactiveParser[Ast] {
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, initial_source, label="source_text")
 
@@ -60,17 +60,26 @@ pub fn[Ast : Eq] ParserDb::new(
 }
 
 ///|
+/// Return the current source text.
+pub fn[Ast] ReactiveParser::get_source(self : ReactiveParser[Ast]) -> String {
+  self.source_text.get()
+}
+
+///|
 /// Update the source text, invalidating the cst and term memos.
 /// If the new source equals the current source (String::Eq), Signal::set
 /// is a no-op and no recomputation occurs.
-pub fn[Ast] ParserDb::set_source(self : ParserDb[Ast], source : String) -> Unit {
+pub fn[Ast] ReactiveParser::set_source(
+  self : ReactiveParser[Ast],
+  source : String,
+) -> Unit {
   self.source_text.set(source)
 }
 
 ///|
 /// Return the current CstStage (parse result + normalized diagnostics).
 /// Triggers memo evaluation if the source has changed since last call.
-pub fn[Ast] ParserDb::cst(self : ParserDb[Ast]) -> CstStage {
+pub fn[Ast] ReactiveParser::cst(self : ReactiveParser[Ast]) -> CstStage {
   self.cst_memo.get()
 }
 
@@ -78,7 +87,9 @@ pub fn[Ast] ParserDb::cst(self : ParserDb[Ast]) -> CstStage {
 /// Return normalized parse diagnostic strings.
 /// On tokenization error this contains the tokenization message.
 /// On parse error this contains position-annotated error strings.
-pub fn[Ast] ParserDb::diagnostics(self : ParserDb[Ast]) -> Array[String] {
+pub fn[Ast] ReactiveParser::diagnostics(
+  self : ReactiveParser[Ast],
+) -> Array[String] {
   self.cst_memo.get().diagnostics.copy()
 }
 
@@ -86,6 +97,6 @@ pub fn[Ast] ParserDb::diagnostics(self : ParserDb[Ast]) -> Array[String] {
 /// Return the AST for the current source.
 /// Backed by term_memo: on a warm call (no source change) the Runtime skips
 /// recomputation and returns the cached Ast immediately.
-pub fn[Ast : Eq] ParserDb::term(self : ParserDb[Ast]) -> Ast {
+pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
   self.term_memo.get()
 }

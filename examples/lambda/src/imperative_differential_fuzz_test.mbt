@@ -1,7 +1,7 @@
 // Deterministic differential fuzz tests for incremental parsing.
 //
 // Oracle:
-//   IncrementalParser::edit(new_source) == full parse of new_source
+//   ImperativeParser::edit(new_source) == full parse of new_source
 // where full parse uses parse_cst_recover (or tokenization error node).
 
 ///|
@@ -157,7 +157,7 @@ test "differential-fast: deterministic random edit sequences" {
   for case_i = 0; case_i < 30; case_i = case_i + 1 {
     let mut seed = 17 + case_i * 97
     let mut source = idf_make_source(seed, false)
-    let parser = @loom.new_incremental_parser(source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, lambda_grammar)
     let _ = parser.parse()
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
@@ -188,7 +188,7 @@ test "differential-fast: malformed input sequences terminate" {
   for case_i = 0; case_i < 20; case_i = case_i + 1 {
     let mut seed = 43 + case_i * 131
     let mut source = idf_make_source(seed, true)
-    let parser = @loom.new_incremental_parser(source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, lambda_grammar)
     let _ = parser.parse()
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
@@ -222,7 +222,7 @@ test "differential-long: larger deterministic random edit sequences" {
   for case_i = 0; case_i < 80; case_i = case_i + 1 {
     let mut seed = 101 + case_i * 193
     let mut source = idf_make_source(seed, false)
-    let parser = @loom.new_incremental_parser(source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(source, lambda_grammar)
     let _ = parser.parse()
     for edit_i = 0; edit_i < 16; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(

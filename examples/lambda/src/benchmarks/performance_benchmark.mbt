@@ -41,7 +41,7 @@ test "parse scaling - large (30+ tokens)" (b : @bench.T) {
 /// Benchmark: Incremental vs Full - tiny edit at start
 test "incremental vs full - edit at start" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
@@ -55,7 +55,7 @@ test "incremental vs full - edit at start" (b : @bench.T) {
 /// Benchmark: Incremental vs Full - tiny edit at end
 test "incremental vs full - edit at end" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
@@ -69,7 +69,7 @@ test "incremental vs full - edit at end" (b : @bench.T) {
 /// Benchmark: Incremental vs Full - edit in middle
 test "incremental vs full - edit in middle" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
@@ -84,7 +84,7 @@ test "incremental vs full - edit in middle" (b : @bench.T) {
 test "sequential edits - typing simulation" (b : @bench.T) {
   b.bench(fn() {
     // Simulate typing by making progressive edits
-    let parser1 = @loom.new_incremental_parser("x", @lambda.lambda_grammar)
+    let parser1 = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let _ = parser1.parse()
     let edit1 = @core.Edit::insert(1, 4)
     let result = parser1.edit(edit1, "x + 1")
@@ -97,7 +97,7 @@ test "sequential edits - typing simulation" (b : @bench.T) {
 test "sequential edits - backspace simulation" (b : @bench.T) {
   b.bench(fn() {
     // Simulate backspacing by deleting text
-    let parser = @loom.new_incremental_parser("x + 1", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::delete(2, 5) // Delete " + 1"
     let result = parser.edit(edit, "x")
@@ -109,7 +109,7 @@ test "sequential edits - backspace simulation" (b : @bench.T) {
 /// Benchmark: Incremental state baseline - repeated parsing
 test "incremental state baseline - repeated parsing" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("λx.x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
     let _ = parser.parse()
 
     // Make edit
@@ -126,13 +126,9 @@ test "incremental state baseline - repeated parsing" (b : @bench.T) {
 /// Benchmark: Incremental state baseline - similar expressions
 test "incremental state baseline - similar expressions" (b : @bench.T) {
   b.bench(fn() {
-    let parser1 = @loom.new_incremental_parser(
-      "x + 1", @lambda.lambda_grammar,
-    )
+    let parser1 = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
     let result1 = parser1.parse()
-    let parser2 = @loom.new_incremental_parser(
-      "x + 2", @lambda.lambda_grammar,
-    )
+    let parser2 = @loom.new_imperative_parser("x + 2", @lambda.lambda_grammar)
     let result2 = parser2.parse()
     b.keep((result1, result2))
   })
@@ -144,9 +140,7 @@ test "memory pressure - large document" (b : @bench.T) {
   b.bench(fn() {
     // Build a moderately complex expression (simpler to avoid parsing issues)
     let large_expr = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
-    let parser = @loom.new_incremental_parser(
-      large_expr, @lambda.lambda_grammar,
-    )
+    let parser = @loom.new_imperative_parser(large_expr, @lambda.lambda_grammar)
     let _ = parser.parse()
 
     // Make small edit - change first variable
@@ -161,7 +155,7 @@ test "memory pressure - large document" (b : @bench.T) {
 /// Benchmark: Worst case - invalidate entire cache
 test "worst case - full invalidation" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser(
+    let parser = @loom.new_imperative_parser(
       "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
@@ -177,7 +171,7 @@ test "worst case - full invalidation" (b : @bench.T) {
 /// Benchmark: Best case - cosmetic change
 test "best case - cosmetic change" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_incremental_parser("x + 1", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
     let _ = parser.parse()
 
     // Change just the constant
@@ -302,14 +296,13 @@ test "phase1: full re-tokenize after edit - 110 tokens" (b : @bench.T) {
   })
 }
 
-// --- Token interning overhead in full parse pipeline ---
-// Compares parse_cst_recover with and without an Interner to measure the
-// per-parse cost of interning. These are the reference numbers for evaluating
-// whether node-level interning is worth its additional lookup overhead.
+// --- Full parse with global interning ---
+// Interners are now global (process-wide). All parse calls share the same
+// token/node deduplication pool, improving over time without per-call setup.
 
 ///|
-/// Benchmark: parse_cst_recover without interner (baseline, no dedup).
-test "parse_cst_recover - no interner, small" (b : @bench.T) {
+/// Benchmark: parse_cst_recover, small input (global interning always active).
+test "parse_cst_recover - small" (b : @bench.T) {
   b.bench(fn() {
     let (tree, _) = @lambda.parse_cst_recover("x + 1") catch {
       _ => abort("benchmark failed")
@@ -319,54 +312,11 @@ test "parse_cst_recover - no interner, small" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: parse_cst_recover with interner, cold (first parse of session).
-test "parse_cst_recover - cold interner, small" (b : @bench.T) {
-  b.bench(fn() {
-    let interner = @seam.Interner::new()
-    let (tree, _) = @lambda.parse_cst_recover("x + 1", interner=Some(interner)) catch {
-      _ => abort("benchmark failed")
-    }
-    b.keep(tree)
-  })
-}
-
-///|
-/// Benchmark: parse_cst_recover with interner, warm (subsequent parses of same session).
-test "parse_cst_recover - warm interner, small" (b : @bench.T) {
-  let interner = @seam.Interner::new()
-  let _ = @lambda.parse_cst_recover("x + 1", interner=Some(interner)) catch {
-    _ => abort("benchmark failed")
-  }
-  b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst_recover("x + 1", interner=Some(interner)) catch {
-      _ => abort("benchmark failed")
-    }
-    b.keep(tree)
-  })
-}
-
-///|
-/// Benchmark: parse_cst_recover without interner - larger input (baseline).
-test "parse_cst_recover - no interner, large" (b : @bench.T) {
+/// Benchmark: parse_cst_recover, larger input.
+test "parse_cst_recover - large" (b : @bench.T) {
   let src = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
   b.bench(fn() {
     let (tree, _) = @lambda.parse_cst_recover(src) catch {
-      _ => abort("benchmark failed")
-    }
-    b.keep(tree)
-  })
-}
-
-///|
-/// Benchmark: parse_cst_recover with warm interner - larger input.
-test "parse_cst_recover - warm interner, large" (b : @bench.T) {
-  let src = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
-  let interner = @seam.Interner::new()
-  let _ = @lambda.parse_cst_recover(src, interner=Some(interner)) catch {
-    _ => abort("benchmark failed")
-  }
-  b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst_recover(src, interner=Some(interner)) catch {
       _ => abort("benchmark failed")
     }
     b.keep(tree)

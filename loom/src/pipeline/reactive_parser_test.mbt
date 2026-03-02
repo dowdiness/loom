@@ -1,7 +1,7 @@
-// ParserDb tests: generic pipeline invariants.
+// ReactiveParser tests: generic pipeline invariants.
 //
 // Uses a self-contained TestLang fixture rather than @lambda, so the tests
-// document ParserDb[Ast] contracts without depending on the lambda grammar.
+// document ReactiveParser[Ast] contracts without depending on the lambda grammar.
 //
 // TestLang design
 // ───────────────
@@ -56,8 +56,8 @@ fn test_lang() -> Language[String] {
 }
 
 ///|
-fn new_db(source : String) -> ParserDb[String] {
-  ParserDb::new(source, test_lang())
+fn new_db(source : String) -> ReactiveParser[String] {
+  ReactiveParser::new(source, test_lang())
 }
 
 // ── Warm-path caching ─────────────────────────────────────────────────────────
@@ -65,10 +65,10 @@ fn new_db(source : String) -> ParserDb[String] {
 ///|
 /// Calling term() twice with no source change returns the same value.
 /// The second call is a staleness check only — no recompute.
-test "ParserDb: repeated term() calls are idempotent (warm path)" {
+test "ReactiveParser: repeated term() calls are idempotent (warm path)" {
   let db = new_db("hello")
-  let t1 = ParserDb::term(db)
-  let t2 = ParserDb::term(db)
+  let t1 = ReactiveParser::term(db)
+  let t2 = ReactiveParser::term(db)
   assert_eq(t1, t2)
 }
 
@@ -78,15 +78,15 @@ test "ParserDb: repeated term() calls are idempotent (warm path)" {
 /// cst().is_lex_error and the Ast routing must agree:
 ///   is_lex_error = true  → on_lex_error path → Ast starts with "error: "
 ///   is_lex_error = false → to_ast path        → Ast is the length string
-test "ParserDb: is_lex_error on cst() agrees with Ast routing in term()" {
+test "ReactiveParser: is_lex_error on cst() agrees with Ast routing in term()" {
   // Lex-error path
   let db_err = new_db("@oops")
-  assert_eq(ParserDb::cst(db_err).is_lex_error, true)
-  inspect(ParserDb::term(db_err), content="error: lex error: @oops")
+  assert_eq(ReactiveParser::cst(db_err).is_lex_error, true)
+  inspect(ReactiveParser::term(db_err), content="error: lex error: @oops")
   // Valid path
   let db_ok = new_db("hi")
-  assert_eq(ParserDb::cst(db_ok).is_lex_error, false)
-  inspect(ParserDb::term(db_ok), content="2") // length of "hi"
+  assert_eq(ReactiveParser::cst(db_ok).is_lex_error, false)
+  inspect(ReactiveParser::term(db_ok), content="2") // length of "hi"
 }
 
 // ── diagnostics() defensive copy ─────────────────────────────────────────────
@@ -94,12 +94,12 @@ test "ParserDb: is_lex_error on cst() agrees with Ast routing in term()" {
 ///|
 /// diagnostics() must return a copy of the internal array.
 /// Mutating the returned slice must not affect subsequent calls.
-test "ParserDb: diagnostics() returns a defensive copy" {
+test "ReactiveParser: diagnostics() returns a defensive copy" {
   let db = new_db("@bad")
-  let d1 = ParserDb::diagnostics(db)
+  let d1 = ReactiveParser::diagnostics(db)
   assert_eq(d1.length(), 1)
   d1.push("injected") // mutate the returned copy
-  let d2 = ParserDb::diagnostics(db) // re-read
+  let d2 = ReactiveParser::diagnostics(db) // re-read
   assert_eq(d2.length(), 1) // original must be unaffected
 }
 
@@ -107,11 +107,11 @@ test "ParserDb: diagnostics() returns a defensive copy" {
 
 ///|
 /// set_source with a different value must invalidate cst_memo and term_memo.
-test "ParserDb: set_source with a different value updates term()" {
+test "ReactiveParser: set_source with a different value updates term()" {
   let db = new_db("hi") // length 2 → term = "2"
-  inspect(ParserDb::term(db), content="2")
-  ParserDb::set_source(db, "hello") // length 5 → term = "5"
-  inspect(ParserDb::term(db), content="5")
+  inspect(ReactiveParser::term(db), content="2")
+  ReactiveParser::set_source(db, "hello") // length 5 → term = "5"
+  inspect(ReactiveParser::term(db), content="5")
 }
 
 // ── Backdating invariant ──────────────────────────────────────────────────────
@@ -125,13 +125,21 @@ test "ParserDb: set_source with a different value updates term()" {
 ///     → term_memo backdates → term() returns the same "5"
 ///   "hi"    (len 2) produces a different CstStage
 ///     → term_memo recomputes → term() returns "2"
-test "ParserDb: equal CstStage backdates term_memo — term() Eq holds" {
+test "ReactiveParser: equal CstStage backdates term_memo — term() Eq holds" {
   let db = new_db("hello")
-  let t1 = ParserDb::term(db)
-  ParserDb::set_source(db, "world")
-  let t2 = ParserDb::term(db)
+  let t1 = ReactiveParser::term(db)
+  ReactiveParser::set_source(db, "world")
+  let t2 = ReactiveParser::term(db)
   assert_eq(t1, t2)
-  ParserDb::set_source(db, "hi")
-  let t3 = ParserDb::term(db)
+  ReactiveParser::set_source(db, "hi")
+  let t3 = ReactiveParser::term(db)
   assert_not_eq(t1, t3)
+}
+
+///|
+test "ReactiveParser::get_source returns current source" {
+  let db = new_db("hello")
+  inspect(ReactiveParser::get_source(db), content="hello")
+  ReactiveParser::set_source(db, "world")
+  inspect(ReactiveParser::get_source(db), content="world")
 }

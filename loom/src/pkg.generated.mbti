@@ -9,9 +9,9 @@ import {
 }
 
 // Values
-pub fn[T, K, Ast] new_incremental_parser(String, Grammar[T, K, Ast]) -> @incremental.IncrementalParser[Ast]
+pub fn[T, K, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T, K, Ast : Eq] new_parser_db(String, Grammar[T, K, Ast]) -> @pipeline.ParserDb[Ast]
+pub fn[T, K, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
 
 // Errors
 
@@ -31,7 +31,7 @@ pub using @core {type Diagnostic}
 
 pub using @core {type Edit}
 
-pub using @incremental {type IncrementalParser}
+pub using @incremental {type ImperativeParser}
 
 pub using @core {type LanguageSpec}
 
@@ -39,7 +39,7 @@ pub using @core {type LexError}
 
 pub using @core {type ParserContext}
 
-pub using @pipeline {type ParserDb}
+pub using @pipeline {type ReactiveParser}
 
 pub using @seam {type SyntaxElement}
 

@@ -47,10 +47,10 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 | Package | Purpose |
 |---------|---------|
-| `loom/src/` (root) | Public API facade; `Grammar[T,K,Ast]`, `new_incremental_parser`, `new_parser_db` |
+| `loom/src/` (root) | Public API facade; `Grammar[T,K,Ast]`, `new_imperative_parser`, `new_reactive_parser` |
 | `loom/src/core/` | `Edit`, `Range`, `ReuseSlot`, `Editable`, `ParserContext[T,K]` — shared primitives |
-| `loom/src/pipeline/` | `ParserDb` — reactive incremental pipeline |
-| `loom/src/incremental/` | `IncrementalParser`, damage tracking |
+| `loom/src/pipeline/` | `ReactiveParser` — reactive incremental pipeline |
+| `loom/src/incremental/` | `ImperativeParser`, damage tracking |
 | `loom/src/viz/` | DOT graph renderer (`DotNode` trait) |
 
 **`dowdiness/seam`** (`seam/`) — language-agnostic CST (`CstNode`, `SyntaxNode`)
