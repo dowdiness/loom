@@ -160,9 +160,11 @@ for child in syntax.children() {
 
 ---
 
-## 6. Bridge Factories
+## 6. Parser Factories
 
-The bridge package (`loom/src/bridge/`) provides the primary way to construct incremental parsers and reactive pipelines from a `Grammar` description. These factories erase the token type `T` and kind type `K` so callers only see the `Ast` type.
+The loom root package (`loom/src/`) provides the primary way to construct parsers from a `Grammar` description. These factories erase the token type `T` and kind type `K` so callers only see the `Ast` type.
+
+See [choosing-a-parser.md](choosing-a-parser.md) to decide which parser to use.
 
 ### `Grammar`
 
@@ -202,7 +204,7 @@ Creates a `ReactiveParser` reactive pipeline. Re-parses only when the source cha
 **Example:**
 
 ```moonbit
-let db = @bridge.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
+let db = @loom.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
 let node = db.term()            // @ast.AstNode
 db.set_source("λx.x + 2")
 let updated = db.term()         // re-runs CST + AST stages

@@ -20,8 +20,10 @@ Understanding how the layers fit together:
 ## API Reference
 
 - [api/reference.md](api/reference.md) — all public functions, error types, usage examples
+- [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to use ImperativeParser vs ReactiveParser
 - [api/api-contract.md](api/api-contract.md) — API contract and stability guarantees
-- [api/pipeline-api-contract.md](api/pipeline-api-contract.md) — pipeline API contract
+- [api/imperative-api-contract.md](api/imperative-api-contract.md) — ImperativeParser API contract
+- [api/pipeline-api-contract.md](api/pipeline-api-contract.md) — ReactiveParser pipeline API contract
 
 ## Correctness
 
@@ -39,6 +41,7 @@ Understanding how the layers fit together:
 
 - [decisions/2026-02-27-remove-tokenStage-memo.md](decisions/2026-02-27-remove-tokenStage-memo.md)
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
+- [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 
 ## Active Plans
 
