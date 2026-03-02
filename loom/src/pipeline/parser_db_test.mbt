@@ -135,3 +135,11 @@ test "ParserDb: equal CstStage backdates term_memo — term() Eq holds" {
   let t3 = ParserDb::term(db)
   assert_not_eq(t1, t3)
 }
+
+///|
+test "ParserDb::get_source returns current source" {
+  let db = new_db("hello")
+  inspect(ParserDb::get_source(db), content="hello")
+  ParserDb::set_source(db, "world")
+  inspect(ParserDb::get_source(db), content="world")
+}

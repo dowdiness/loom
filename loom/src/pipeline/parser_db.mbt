@@ -60,6 +60,12 @@ pub fn[Ast : Eq] ParserDb::new(
 }
 
 ///|
+/// Return the current source text.
+pub fn[Ast] ParserDb::get_source(self : ParserDb[Ast]) -> String {
+  self.source_text.get()
+}
+
+///|
 /// Update the source text, invalidating the cst and term memos.
 /// If the new source equals the current source (String::Eq), Signal::set
 /// is a no-op and no recomputation occurs.
