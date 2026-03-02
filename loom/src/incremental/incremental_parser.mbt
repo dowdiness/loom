@@ -79,6 +79,13 @@ pub fn[Ast] IncrementalParser::get_source(
 }
 
 ///|
+pub fn[Ast] IncrementalParser::diagnostics(
+  self : IncrementalParser[Ast],
+) -> Array[String] {
+  (self.lang.get_diagnostics)()
+}
+
+///|
 pub fn[Ast] IncrementalParser::get_last_reuse_count(
   self : IncrementalParser[Ast],
 ) -> Int {

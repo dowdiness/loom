@@ -37,11 +37,12 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct IncrementalLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] IncrementalLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[Ast]
+pub fn[Ast] IncrementalLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String]) -> Self[Ast]
 
 pub struct IncrementalParser[Ast] {
   // private fields
 }
+pub fn[Ast] IncrementalParser::diagnostics(Self[Ast]) -> Array[String]
 pub fn[Ast] IncrementalParser::edit(Self[Ast], @core.Edit, String) -> Ast
 pub fn[Ast] IncrementalParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] IncrementalParser::get_source(Self[Ast]) -> String

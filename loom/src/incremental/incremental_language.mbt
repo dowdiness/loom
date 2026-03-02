@@ -29,6 +29,7 @@ pub struct IncrementalLanguage[Ast] {
   priv incremental_parse : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv on_lex_error : (String) -> Ast
+  priv get_diagnostics : () -> Array[String]
 }
 
 ///|
@@ -38,6 +39,7 @@ pub fn[Ast] IncrementalLanguage::new(
   incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome,
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   on_lex_error~ : (String) -> Ast,
+  get_diagnostics~ : () -> Array[String],
 ) -> IncrementalLanguage[Ast] {
-  { full_parse, incremental_parse, to_ast, on_lex_error }
+  { full_parse, incremental_parse, to_ast, on_lex_error, get_diagnostics }
 }

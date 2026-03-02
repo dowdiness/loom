@@ -109,6 +109,11 @@ pub fn[T, K, Ast] new_incremental_parser(
     },
     to_ast~,
     on_lex_error=grammar.on_lex_error,
+    get_diagnostics=fn() {
+      last_diags.val.map(fn(d) {
+        d.message + " [" + d.start.to_string() + "," + d.end.to_string() + "]"
+      })
+    },
   )
   @incremental.IncrementalParser::new(source, lang)
 }

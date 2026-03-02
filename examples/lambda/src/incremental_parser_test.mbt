@@ -1,6 +1,20 @@
 // Tests for incremental parser
 
 ///|
+test "IncrementalParser::diagnostics empty on valid source" {
+  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let _ = parser.parse()
+  inspect(parser.diagnostics(), content="[]")
+}
+
+///|
+test "IncrementalParser::diagnostics non-empty on invalid source" {
+  let parser = @loom.new_incremental_parser("λ.x", lambda_grammar)
+  let _ = parser.parse()
+  inspect(parser.diagnostics().length() > 0, content="true")
+}
+
+///|
 test "IncrementalParser::new creates parser" {
   let parser = @loom.new_incremental_parser("42", lambda_grammar)
   inspect(parser.get_source(), content="42")
