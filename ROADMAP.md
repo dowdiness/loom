@@ -83,7 +83,7 @@
 - **Phase 5: Generic Parser Framework** ✅ (2026-02-23) — `ParserContext[T,K]`, `LanguageSpec[T,K]`, `parse_with` — [notes](docs/archive/completed-phases/2026-02-23-generic-parser-impl.md)
 - **Phase 6: Generic Incremental Reuse** ✅ (2026-02-24) — `ReuseCursor[T,K]`, `node()`/`wrap_at()` combinators — [notes](docs/archive/completed-phases/2026-02-24-generic-incremental-reuse-design.md)
 - **Phase 7: Reactive Pipeline** ✅ (2026-02-25) — `ReactiveParser`: `Signal[String]`→`Memo[CstStage]`→`Memo[AstNode]` — [ADR](docs/decisions/2026-02-27-remove-tokenStage-memo.md)
-- **SyntaxNode-First Layer (Phase 1+2)** ✅ (2026-02-25) — `SyntaxToken`, `SyntaxElement`, `.cst` private — [notes](docs/archive/completed-phases/2026-02-25-syntax-node-first-layer.md)
+- **SyntaxNode-First Layer** ✅ (2026-02-25) — `SyntaxToken`, `SyntaxElement`, `.cst` private — [notes](docs/archive/completed-phases/2026-02-25-syntax-node-first-layer.md)
 - **NodeInterner** ✅ (2026-02-28) — `Interner` + `NodeInterner`, session-global interners — [notes](docs/archive/completed-phases/2026-02-25-node-interner.md)
 - **Grammar Abstraction** ✅ (2026-03-01) — `Grammar[T,K,Ast]`, `new_imperative_parser`/`new_reactive_parser` — [notes](docs/archive/completed-phases/2026-03-01-extract-generic-factories.md)
 - **Loom Extraction** ✅ (2026-03-01) — `core/incremental/pipeline/viz` → `dowdiness/loom` sibling module — [notes](docs/archive/completed-phases/2026-03-01-examples-folder.md)
@@ -124,7 +124,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
                 |           Phase 2: .cst private
                 |           Phase 3: Typed views        ← PLANNED
                 |
-                +------ Phase 7: ReactiveParser         ✅ COMPLETE (2026-02-25)
+                +------ Phase 7: Reactive Pipeline      ✅ COMPLETE (2026-02-25)
                 |
                 +------ NodeInterner                    ✅ COMPLETE (2026-02-28)
                 |
