@@ -110,11 +110,7 @@ pub fn[T, K, Ast] new_imperative_parser(
     },
     to_ast~,
     on_lex_error=grammar.on_lex_error,
-    get_diagnostics=fn() {
-      last_diags.val.map(fn(d) {
-        d.message + " [" + d.start.to_string() + "," + d.end.to_string() + "]"
-      })
-    },
+    get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
   )
   @incremental.ImperativeParser::new(source, lang)
 }
@@ -154,14 +150,7 @@ pub fn[T, K, Ast : Eq] new_reactive_parser(
           )
           @pipeline.CstStage::{
             cst,
-            diagnostics: diags.map(fn(d) {
-              d.message +
-              " [" +
-              d.start.to_string() +
-              "," +
-              d.end.to_string() +
-              "]"
-            }),
+            diagnostics: diags.map(@core.format_diagnostic),
             is_lex_error: false,
           }
         }

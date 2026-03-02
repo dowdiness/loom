@@ -63,6 +63,13 @@ pub struct Diagnostic[T] {
 } derive(Show)
 
 ///|
+/// Format a diagnostic as `"message [start,end]"`.
+/// Used by factory functions to normalize diagnostics for parser consumers.
+pub fn[T] format_diagnostic(d : Diagnostic[T]) -> String {
+  d.message + " [" + d.start.to_string() + "," + d.end.to_string() + "]"
+}
+
+///|
 /// Lex error raised by a tokenize_fn when the source contains unrecognizable input.
 /// Generic replacement for language-specific tokenization error types.
 pub(all) suberror LexError {
@@ -915,23 +922,10 @@ fn[T, K] build_tree_generic(
 ) -> @seam.CstNode {
   let ws = (spec.kind_to_raw)(spec.whitespace_kind)
   let root = (spec.kind_to_raw)(spec.root_kind)
-  match core_registered_trivia_kind.val {
-    None => core_registered_trivia_kind.val = Some(ws)
-    Some(registered) =>
-      if registered != ws {
-        abort(
-          "core_node_interner trivia_kind conflict: registered " +
-          registered.to_string() +
-          " but this grammar uses " +
-          ws.to_string() +
-          ". All grammars sharing a process must use the same whitespace token kind.",
-        )
-      }
-  }
   buf.build_tree_fully_interned(
     root,
     core_interner,
-    core_node_interner,
+    get_core_node_interner(ws),
     trivia_kind=Some(ws),
   )
 }

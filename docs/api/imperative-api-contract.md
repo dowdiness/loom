@@ -35,7 +35,7 @@ the parser. Language-specific behaviour is injected via `ImperativeLanguage[Ast]
 source : String
   → full_parse  : (String) -> ParseOutcome   — initial parse
   → incr_parse  : (String, SyntaxNode, Edit) -> ParseOutcome — edit reparse
-  → to_ast      : (SyntaxNode) -> Ast        — CST → AST (skipped on hash match)
+  → to_ast      : (SyntaxNode) -> Ast        — CST → AST (skipped on structural equality)
 ```
 
 **Invariants:**

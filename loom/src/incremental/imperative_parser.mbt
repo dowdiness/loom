@@ -26,20 +26,30 @@ pub fn[Ast] ImperativeParser::new(
   }
 }
 
+// Shared state update for a successful parse result.
+// Safe: prev_cst is Some only when self.tree was set in a prior successful parse.
+
+///|
+fn[Ast] ImperativeParser::accept_tree(
+  self : ImperativeParser[Ast],
+  syntax : @seam.SyntaxNode,
+  reuse_count : Int,
+) -> Ast {
+  let new_cst = syntax.cst_node()
+  let ast = match self.prev_cst {
+    Some(old_cst) if old_cst == new_cst => self.tree.unwrap()
+    _ => (self.lang.to_ast)(syntax)
+  }
+  self.syntax_tree = Some(syntax)
+  self.prev_cst = Some(new_cst)
+  self.last_reuse_count = reuse_count
+  ast
+}
+
 ///|
 pub fn[Ast] ImperativeParser::parse(self : ImperativeParser[Ast]) -> Ast {
   let tree = match (self.lang.full_parse)(self.source) {
-    Tree(syntax, _) => {
-      let new_cst = syntax.cst_node()
-      let ast = match self.prev_cst {
-        Some(old_cst) if old_cst == new_cst => self.tree.unwrap()
-        _ => (self.lang.to_ast)(syntax)
-      }
-      self.syntax_tree = Some(syntax)
-      self.prev_cst = Some(new_cst)
-      self.last_reuse_count = 0
-      ast
-    }
+    Tree(syntax, _) => self.accept_tree(syntax, 0)
     LexError(msg) => {
       self.syntax_tree = None
       self.prev_cst = None
@@ -64,17 +74,8 @@ pub fn[Ast] ImperativeParser::edit(
   let new_tree = match self.syntax_tree {
     Some(old_syntax) =>
       match (self.lang.incremental_parse)(new_source, old_syntax, edit) {
-        Tree(new_syntax, reuse_count) => {
-          let new_cst = new_syntax.cst_node()
-          let ast = match self.prev_cst {
-            Some(old_cst) if old_cst == new_cst => self.tree.unwrap()
-            _ => (self.lang.to_ast)(new_syntax)
-          }
-          self.syntax_tree = Some(new_syntax)
-          self.prev_cst = Some(new_cst)
-          self.last_reuse_count = reuse_count
-          ast
-        }
+        Tree(new_syntax, reuse_count) =>
+          self.accept_tree(new_syntax, reuse_count)
         LexError(msg) => {
           self.syntax_tree = None
           self.prev_cst = None

@@ -7,22 +7,30 @@
 pub let core_interner : @seam.Interner = @seam.Interner::new()
 
 ///|
-/// Session-global node interner shared across all parse calls in this process.
+/// Per-trivia-kind node interners. Each distinct whitespace RawKind gets its
+/// own NodeInterner, so grammars with different trivia_kinds can coexist in
+/// the same process without corrupting each other's token_count values.
 ///
-/// trivia_kind invariant: all grammars registered in this process MUST use the
-/// same raw kind value for their whitespace token. NodeInterner equality is
-/// structural (kind + children) and does NOT include token_count, which depends
-/// on the trivia_kind passed to build_tree_fully_interned. Mixing grammars with
-/// different trivia_kinds in one process silently canonicalises to the
-/// first-seen token_count, producing incorrect values for subsequent callers.
+/// NodeInterner equality is structural (kind + children) and does NOT include
+/// token_count, which depends on the trivia_kind passed to
+/// build_tree_fully_interned. Sharing one interner across grammars with
+/// different trivia_kinds silently canonicalises to the first grammar's
+/// token_count, producing incorrect values for subsequent callers.
 ///
-/// Violation is detected at runtime via core_registered_trivia_kind: the first
-/// grammar to call build_tree_generic registers its trivia_kind; subsequent
-/// calls with a different trivia_kind abort the process.
-pub let core_node_interner : @seam.NodeInterner = @seam.NodeInterner::new()
+/// Lookup via get_core_node_interner(trivia_kind) — O(n) over the number of
+/// distinct trivia kinds registered in this process (almost always 1).
+let core_node_interners : Array[(@seam.RawKind, @seam.NodeInterner)] = []
 
 ///|
-/// Registered trivia raw kind for core_node_interner.
-/// None before first parse; set on first build_tree_generic call.
-/// Subsequent calls with a different raw kind abort immediately.
-pub let core_registered_trivia_kind : Ref[@seam.RawKind?] = Ref::new(None)
+/// Return the NodeInterner for `trivia_kind`, creating one on first use.
+fn get_core_node_interner(trivia_kind : @seam.RawKind) -> @seam.NodeInterner {
+  for i = 0; i < core_node_interners.length(); i = i + 1 {
+    let (k, interner) = core_node_interners[i]
+    if k == trivia_kind {
+      return interner
+    }
+  }
+  let interner = @seam.NodeInterner::new()
+  core_node_interners.push((trivia_kind, interner))
+  interner
+}
