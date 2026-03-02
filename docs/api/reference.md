@@ -177,32 +177,32 @@ pub struct Grammar[T, K, Ast] {
 
 Describes a complete language grammar. Construct with `Grammar::new(spec~, tokenize~, to_ast~)`. The lambda implementation is `@lambda.lambda_grammar`.
 
-### `new_incremental_parser`
+### `new_imperative_parser`
 
 ```moonbit
-pub fn[T, K, Ast] new_incremental_parser(
+pub fn[T, K, Ast] new_imperative_parser(
   source  : String,
   grammar : Grammar[T, K, Ast],
-) -> @incremental.IncrementalParser[Ast]
+) -> @incremental.ImperativeParser[Ast]
 ```
 
-Creates an `IncrementalParser` for the given source and grammar. Supports `parse()`, `edit(Edit, String)`, and `reset(String)`.
+Creates an `ImperativeParser` for the given source and grammar. Supports `parse()`, `edit(Edit, String)`, and `reset(String)`.
 
-### `new_parser_db`
+### `new_reactive_parser`
 
 ```moonbit
-pub fn[T, K, Ast] new_parser_db(
+pub fn[T, K, Ast] new_reactive_parser(
   source  : String,
   grammar : Grammar[T, K, Ast],
-) -> @pipeline.ParserDb[Ast]
+) -> @pipeline.ReactiveParser[Ast]
 ```
 
-Creates a `ParserDb` reactive pipeline. Re-parses only when the source changes; skips the AST stage when the CST hash is unchanged.
+Creates a `ReactiveParser` reactive pipeline. Re-parses only when the source changes; skips the AST stage when the CST hash is unchanged.
 
 **Example:**
 
 ```moonbit
-let db = @bridge.new_parser_db("λx.x + 1", @lambda.lambda_grammar)
+let db = @bridge.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
 let node = db.term()            // @ast.AstNode
 db.set_source("λx.x + 2")
 let updated = db.term()         // re-runs CST + AST stages

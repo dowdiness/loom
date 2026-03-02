@@ -34,22 +34,22 @@ pub fn DamageTracker::new(@core.Edit) -> Self
 pub fn DamageTracker::range(Self) -> @core.Range
 pub fn DamageTracker::stats(Self) -> String
 
-pub struct IncrementalLanguage[Ast] {
+pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] IncrementalLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String]) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String]) -> Self[Ast]
 
-pub struct IncrementalParser[Ast] {
+pub struct ImperativeParser[Ast] {
   // private fields
 }
-pub fn[Ast] IncrementalParser::diagnostics(Self[Ast]) -> Array[String]
-pub fn[Ast] IncrementalParser::edit(Self[Ast], @core.Edit, String) -> Ast
-pub fn[Ast] IncrementalParser::get_last_reuse_count(Self[Ast]) -> Int
-pub fn[Ast] IncrementalParser::get_source(Self[Ast]) -> String
-pub fn[Ast] IncrementalParser::get_tree(Self[Ast]) -> Ast?
-pub fn[Ast] IncrementalParser::new(String, IncrementalLanguage[Ast]) -> Self[Ast]
-pub fn[Ast] IncrementalParser::parse(Self[Ast]) -> Ast
-pub fn[Ast] IncrementalParser::reset(Self[Ast], String) -> Ast
+pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> Array[String]
+pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> Ast
+pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
+pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
+pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?
+pub fn[Ast] ImperativeParser::new(String, ImperativeLanguage[Ast]) -> Self[Ast]
+pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> Ast
+pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> Ast
 
 pub(all) enum ParseOutcome {
   Tree(@seam.SyntaxNode, Int)

@@ -1,9 +1,9 @@
 // Generic incremental parser — Wagner-Graham damage tracking strategy.
-// Language-specific behavior injected via IncrementalLanguage[Ast] vtable.
+// Language-specific behavior injected via ImperativeLanguage[Ast] vtable.
 
 ///|
-pub struct IncrementalParser[Ast] {
-  priv lang : IncrementalLanguage[Ast]
+pub struct ImperativeParser[Ast] {
+  priv lang : ImperativeLanguage[Ast]
   priv mut source : String
   priv mut tree : Ast?
   priv mut syntax_tree : @seam.SyntaxNode?
@@ -12,10 +12,10 @@ pub struct IncrementalParser[Ast] {
 }
 
 ///|
-pub fn[Ast] IncrementalParser::new(
+pub fn[Ast] ImperativeParser::new(
   source : String,
-  lang : IncrementalLanguage[Ast],
-) -> IncrementalParser[Ast] {
+  lang : ImperativeLanguage[Ast],
+) -> ImperativeParser[Ast] {
   {
     lang,
     source,
@@ -27,7 +27,7 @@ pub fn[Ast] IncrementalParser::new(
 }
 
 ///|
-pub fn[Ast] IncrementalParser::parse(self : IncrementalParser[Ast]) -> Ast {
+pub fn[Ast] ImperativeParser::parse(self : ImperativeParser[Ast]) -> Ast {
   let tree = match (self.lang.full_parse)(self.source) {
     Tree(syntax, _) => {
       let new_hash = syntax.cst_node().hash
@@ -52,8 +52,8 @@ pub fn[Ast] IncrementalParser::parse(self : IncrementalParser[Ast]) -> Ast {
 }
 
 ///|
-pub fn[Ast] IncrementalParser::edit(
-  self : IncrementalParser[Ast],
+pub fn[Ast] ImperativeParser::edit(
+  self : ImperativeParser[Ast],
   edit : @core.Edit,
   new_source : String,
 ) -> Ast {
@@ -92,8 +92,8 @@ pub fn[Ast] IncrementalParser::edit(
 /// Reset the parser to a new source string, discarding all incremental state.
 /// Use this when the source changes in a way that cannot be expressed as an
 /// Edit (e.g. after a structural edit regenerates the text in a hybrid editor).
-pub fn[Ast] IncrementalParser::reset(
-  self : IncrementalParser[Ast],
+pub fn[Ast] ImperativeParser::reset(
+  self : ImperativeParser[Ast],
   source : String,
 ) -> Ast {
   self.source = source
@@ -103,27 +103,27 @@ pub fn[Ast] IncrementalParser::reset(
 }
 
 ///|
-pub fn[Ast] IncrementalParser::get_tree(self : IncrementalParser[Ast]) -> Ast? {
+pub fn[Ast] ImperativeParser::get_tree(self : ImperativeParser[Ast]) -> Ast? {
   self.tree
 }
 
 ///|
-pub fn[Ast] IncrementalParser::get_source(
-  self : IncrementalParser[Ast],
+pub fn[Ast] ImperativeParser::get_source(
+  self : ImperativeParser[Ast],
 ) -> String {
   self.source
 }
 
 ///|
-pub fn[Ast] IncrementalParser::diagnostics(
-  self : IncrementalParser[Ast],
+pub fn[Ast] ImperativeParser::diagnostics(
+  self : ImperativeParser[Ast],
 ) -> Array[String] {
   (self.lang.get_diagnostics)()
 }
 
 ///|
-pub fn[Ast] IncrementalParser::get_last_reuse_count(
-  self : IncrementalParser[Ast],
+pub fn[Ast] ImperativeParser::get_last_reuse_count(
+  self : ImperativeParser[Ast],
 ) -> Int {
   self.last_reuse_count
 }

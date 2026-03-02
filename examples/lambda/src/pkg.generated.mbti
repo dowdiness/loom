@@ -24,7 +24,7 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.As
 
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
-pub fn new_incremental_parser(String) -> @incremental.IncrementalParser[@ast.AstNode]
+pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.AstNode]
 
 pub fn parse(String) -> @ast.Term raise
 
@@ -62,7 +62,7 @@ pub using @ast {type Bop}
 
 pub using @core {type Edit}
 
-pub using @incremental {type IncrementalParser}
+pub using @incremental {type ImperativeParser}
 
 pub using @ast {type Term}
 

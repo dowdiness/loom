@@ -1,5 +1,5 @@
 ///|
-/// Outcome of a parse attempt by IncrementalLanguage.
+/// Outcome of a parse attempt by ImperativeLanguage.
 /// Tree carries the new syntax tree and the node reuse count (0 for full parses).
 /// LexError carries the error message for on_lex_error dispatch.
 pub(all) enum ParseOutcome {
@@ -11,7 +11,7 @@ pub(all) enum ParseOutcome {
 /// Token-erased vtable for incremental language integration.
 ///
 /// Analogous to `@pipeline.Language[Ast]`: the token type is erased into
-/// closures at call site, keeping `IncrementalParser[Ast]` generic.
+/// closures at call site, keeping `ImperativeParser[Ast]` generic.
 ///
 /// `full_parse` — initial (non-incremental) parse. Returns Tree(syntax, 0)
 ///   or LexError(msg). The closure captures and manages TokenBuffer state.
@@ -24,7 +24,7 @@ pub(all) enum ParseOutcome {
 /// `to_ast` — convert a syntax tree to Ast.
 ///
 /// `on_lex_error` — build an error Ast from a lex-error message.
-pub struct IncrementalLanguage[Ast] {
+pub struct ImperativeLanguage[Ast] {
   priv full_parse : (String) -> ParseOutcome
   priv incremental_parse : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome
   priv to_ast : (@seam.SyntaxNode) -> Ast
@@ -33,13 +33,13 @@ pub struct IncrementalLanguage[Ast] {
 }
 
 ///|
-/// Constructor for IncrementalLanguage vtable.
-pub fn[Ast] IncrementalLanguage::new(
+/// Constructor for ImperativeLanguage vtable.
+pub fn[Ast] ImperativeLanguage::new(
   full_parse~ : (String) -> ParseOutcome,
   incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome,
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   on_lex_error~ : (String) -> Ast,
   get_diagnostics~ : () -> Array[String],
-) -> IncrementalLanguage[Ast] {
+) -> ImperativeLanguage[Ast] {
   { full_parse, incremental_parse, to_ast, on_lex_error, get_diagnostics }
 }

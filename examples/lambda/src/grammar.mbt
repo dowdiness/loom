@@ -2,7 +2,7 @@
 /// Lambda calculus grammar description.
 ///
 /// This is the complete integration surface — a single value that
-/// bridge factories consume to produce IncrementalParser or ParserDb.
+/// bridge factories consume to produce ImperativeParser or ReactiveParser.
 pub let lambda_grammar : @loom.Grammar[
   @token.Token,
   @syntax.SyntaxKind,

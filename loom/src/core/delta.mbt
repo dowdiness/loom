@@ -6,7 +6,7 @@ pub(all) enum TextDelta {
 } derive(Show, Eq)
 
 ///|
-/// Convert a TextDelta sequence to Edits for IncrementalParser.
+/// Convert a TextDelta sequence to Edits for ImperativeParser.
 ///
 /// The returned Edits are in sequential-application order: each Edit's start
 /// is in the coordinate space after all previous Edits have been applied.

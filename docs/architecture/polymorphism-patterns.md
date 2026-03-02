@@ -83,15 +83,15 @@ pub let lambda_grammar : @bridge.Grammar[...] = @bridge.Grammar::new(
 )
 
 // Call sites — token type never mentioned again
-let parser = @bridge.new_incremental_parser(source, lambda_grammar)
-let db     = @bridge.new_parser_db(source, lambda_grammar)
+let parser = @bridge.new_imperative_parser(source, lambda_grammar)
+let db     = @bridge.new_reactive_parser(source, lambda_grammar)
 ```
 
-**Escape hatch — `IncrementalLanguage[Ast]` / `Language[Ast]`:**
+**Escape hatch — `ImperativeLanguage[Ast]` / `Language[Ast]`:**
 
 ```moonbit
 // src/incremental/incremental_language.mbt
-pub struct IncrementalLanguage[Ast] {
+pub struct ImperativeLanguage[Ast] {
   priv full_parse        : (String, ...) -> ParseOutcome
   priv incremental_parse : (String, ...) -> ParseOutcome
   priv to_ast            : (@seam.SyntaxNode) -> Ast
@@ -99,11 +99,11 @@ pub struct IncrementalLanguage[Ast] {
 }
 ```
 
-Construct these directly (via `Language::from_closures` / `IncrementalLanguage::new`)
+Construct these directly (via `Language::from_closures` / `ImperativeLanguage::new`)
 only when you need to customise TokenBuffer lifecycle, lex-error handling, or diagnostic
 formatting beyond what the bridge factories provide.
 
-`IncrementalParser[Ast]` is fully generic — it stores `IncrementalLanguage[Ast]`
+`ImperativeParser[Ast]` is fully generic — it stores `ImperativeLanguage[Ast]`
 without ever knowing what `T` or `K` are.
 
 ---
@@ -225,8 +225,8 @@ without the concrete type leaking into the struct's signature?
 | Pattern | Location | What is abstracted |
 |---|---|---|
 | Generic `[T, K]` | `@core.parse_tokens_indexed` | token type + kind type |
-| Generic `[Ast]` | `@incremental.IncrementalParser` | AST output type |
+| Generic `[Ast]` | `@incremental.ImperativeParser` | AST output type |
 | Struct-of-closures | `@bridge.Grammar[T,K,Ast]` + bridge factories | token/kind types erased by factory; `Grammar` is the grammar-author API |
-| Struct-of-closures | `@incremental.IncrementalLanguage[Ast]` | token type (erased into closures) — used internally by bridge, escape hatch for custom wiring |
+| Struct-of-closures | `@incremental.ImperativeLanguage[Ast]` | token type (erased into closures) — used internally by bridge, escape hatch for custom wiring |
 | Struct-of-closures | `@core.LanguageSpec[T, K]` | grammar entry point + token predicates |
 | Defunctionalization | (not used — would break `@core` ↔ `@lambda` layering) | — |

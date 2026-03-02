@@ -1,29 +1,29 @@
-// Bridge factories — build IncrementalParser or ParserDb from a Grammar.
+// Bridge factories — build ImperativeParser or ReactiveParser from a Grammar.
 //
 // These encapsulate all infrastructure wiring: TokenBuffer lifecycle,
 // ReuseCursor construction, parse_tokens_indexed calls, diagnostic
 // formatting. The grammar author provides spec, tokenize, to_ast, and
 // on_lex_error; the factories handle the rest.
 //
-// IncrementalLanguage[Ast] and Language[Ast] are constructed internally
+// ImperativeLanguage[Ast] and Language[Ast] are constructed internally
 // for type erasure — grammar authors never see them.
 
 ///|
-/// Create an IncrementalParser from a Grammar.
+/// Create an ImperativeParser from a Grammar.
 ///
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
 /// Interners (token deduplication, node deduplication) are process-global and
 /// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T, K, Ast] new_incremental_parser(
+pub fn[T, K, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
-) -> @incremental.IncrementalParser[Ast] {
+) -> @incremental.ImperativeParser[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let to_ast = grammar.to_ast
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
-  let lang = @incremental.IncrementalLanguage::new(
+  let lang = @incremental.ImperativeLanguage::new(
     full_parse=source => {
       try {
         let buffer = @core.TokenBuffer::new(
@@ -116,15 +116,15 @@ pub fn[T, K, Ast] new_incremental_parser(
       })
     },
   )
-  @incremental.IncrementalParser::new(source, lang)
+  @incremental.ImperativeParser::new(source, lang)
 }
 
 ///|
-/// Create a ParserDb from a Grammar.
-pub fn[T, K, Ast : Eq] new_parser_db(
+/// Create a ReactiveParser from a Grammar.
+pub fn[T, K, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
-) -> @pipeline.ParserDb[Ast] {
+) -> @pipeline.ReactiveParser[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let to_ast = grammar.to_ast
@@ -132,7 +132,7 @@ pub fn[T, K, Ast : Eq] new_parser_db(
     parse_source=fn(s) {
       try tokenize(s) catch {
         @core.LexError(msg) => {
-          // cst is never read when is_lex_error=true (ParserDb routes to
+          // cst is never read when is_lex_error=true (ReactiveParser routes to
           // on_lex_error); use a cheap error-kind placeholder instead of
           // running parse_tokens_indexed on empty input.
           let cst = @seam.CstNode::new((spec.kind_to_raw)(spec.error_kind), [])
@@ -170,5 +170,5 @@ pub fn[T, K, Ast : Eq] new_parser_db(
     to_ast~,
     on_lex_error=grammar.on_lex_error,
   )
-  @pipeline.ParserDb::new(source, lang)
+  @pipeline.ReactiveParser::new(source, lang)
 }

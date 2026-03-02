@@ -12,13 +12,13 @@ pub using @core {type Edit}
 
 ///|
 // Incremental engine — the primary type for incremental parsing
-pub using @incremental {type IncrementalParser}
+pub using @incremental {type ImperativeParser}
 
 ///|
-/// Create a lambda calculus IncrementalParser, pre-configured with the lambda
+/// Create a lambda calculus ImperativeParser, pre-configured with the lambda
 /// grammar. The grammar is baked in — pass only the initial source string.
-pub fn new_incremental_parser(
+pub fn new_imperative_parser(
   source : String,
-) -> @incremental.IncrementalParser[@ast.AstNode] {
-  @loom.new_incremental_parser(source, lambda_grammar)
+) -> @incremental.ImperativeParser[@ast.AstNode] {
+  @loom.new_imperative_parser(source, lambda_grammar)
 }

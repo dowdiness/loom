@@ -33,12 +33,12 @@ pub fn[T : Parseable, Ast] Language::from(
   on_lex_error~: (String) -> Ast,
 ) -> Language[Ast]
 
-pub struct ParserDb[Ast] { /* private */ }
-pub fn[Ast : Eq] ParserDb::new(String, Language[Ast]) -> Self
-pub fn[Ast]      ParserDb::set_source(Self, String)   -> Unit
-pub fn[Ast]      ParserDb::cst(Self)                  -> CstStage
-pub fn[Ast]      ParserDb::diagnostics(Self)          -> Array[String]
-pub fn[Ast : Eq] ParserDb::term(Self)                 -> Ast
+pub struct ReactiveParser[Ast] { /* private */ }
+pub fn[Ast : Eq] ReactiveParser::new(String, Language[Ast]) -> Self
+pub fn[Ast]      ReactiveParser::set_source(Self, String)   -> Unit
+pub fn[Ast]      ReactiveParser::cst(Self)                  -> CstStage
+pub fn[Ast]      ReactiveParser::diagnostics(Self)          -> Array[String]
+pub fn[Ast : Eq] ReactiveParser::term(Self)                 -> Ast
 ```
 
 ## Implementing a new language
@@ -66,12 +66,12 @@ pub fn my_language() -> @pipeline.Language[MyAst] {
 }
 ```
 
-**Step 3 — create a `ParserDb`:**
+**Step 3 — create a `ReactiveParser`:**
 
 ```moonbit
-let db = @pipeline.ParserDb::new("initial source", my_language())
+let db = @pipeline.ReactiveParser::new("initial source", my_language())
 db.set_source("updated source")
-let ast = @pipeline.ParserDb::term(db)
+let ast = @pipeline.ReactiveParser::term(db)
 ```
 
 ## `Parseable` contract
@@ -90,7 +90,7 @@ positions and node IDs) for maximum backdating benefit.
 
 ## Reference implementation
 
-`examples/lambda/src/` — `LambdaLanguage` + `LambdaParserDb` show the full pattern,
+`examples/lambda/src/` — `LambdaLanguage` + `LambdaReactiveParser` show the full pattern,
 including lex-error routing and the `AstNode::Eq` structure-only definition.
 
 ## Full API contract

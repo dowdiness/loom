@@ -24,18 +24,18 @@ pub fn to_dot(@ast.AstNode) -> String
 ## Grammar
 
 `lambda_grammar` is the single integration surface. Pass it to bridge factories
-to get an `IncrementalParser` or `ParserDb`:
+to get an `ImperativeParser` or `ReactiveParser`:
 
 ```moonbit
-let parser = @bridge.new_incremental_parser("λx.x + 1", @lambda.lambda_grammar)
-let db     = @bridge.new_parser_db("λx.x + 1", @lambda.lambda_grammar)
+let parser = @bridge.new_imperative_parser("λx.x + 1", @lambda.lambda_grammar)
+let db     = @bridge.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
 db.set_source("λx.x + 2")
 let node = db.term()  // @ast.AstNode
 ```
 
 `Grammar[T,K,Ast]` holds three fields — `spec`, `tokenize`, `to_ast` — and the
 bridge factories erase `T`/`K` internally. Grammar authors never write vtable
-wiring (`IncrementalLanguage`, `Language`) by hand.
+wiring (`ImperativeLanguage`, `Language`) by hand.
 
 ## Visualization
 

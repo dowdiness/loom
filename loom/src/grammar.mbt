@@ -1,7 +1,7 @@
 ///|
 /// Complete grammar description — the four things that vary per language.
 ///
-/// Pass to `new_incremental_parser` or `new_parser_db`; the factories
+/// Pass to `new_imperative_parser` or `new_reactive_parser`; the factories
 /// handle all infrastructure wiring (TokenBuffer lifecycle, ReuseCursor
 /// construction, diagnostic formatting).
 ///
