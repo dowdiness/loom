@@ -39,7 +39,7 @@ Add `: Type` syntax to lambda abstractions and let bindings:
 let f : Int -> Int = λx. x in f 1
 ```
 
-**Exit criteria:** Type annotations parse correctly; CST round-trips to identical source text; reuse fires across annotated nodes.
+**Exit criteria:** Type annotations parse correctly; CST round-trips to identical source text; editing only the type annotation of `λx : Int. x + 1` leaves the body node reused (reuse count > 0, body node unchanged).
 
 ### Planned: Multi-Expression Files
 
@@ -81,7 +81,7 @@ Typed wrappers over `SyntaxNode` — `LambdaExpr(SyntaxNode)`, `AppExpr(SyntaxNo
      ↓ .to_edits()
    Edit { start, old_len, new_len }       ← lengths, not endpoints
      ↓ implements
-   pub trait Editable                     ← ImperativeParser accepts T : Editable
+   pub trait Editable                     ← Edit implements this trait
    ```
    `Delete(n)` → `old_len = n`, `Insert(s)` → `new_len = s.length()`, `Retain(n)` → advance cursor.
 
