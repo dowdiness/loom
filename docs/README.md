@@ -43,19 +43,11 @@ Understanding how the layers fit together:
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 
-## Active Plans
-
-- [plans/2026-03-02-parser-api-design.md](plans/2026-03-02-parser-api-design.md) — parser API simplification: rename ImperativeParser/ReactiveParser, global interners, stateless core, API surface fixes, future typed holes direction
-
-## Active Plans
-
-- [plans/2026-03-02-parser-api-design.md](plans/2026-03-02-parser-api-design.md) — parser API simplification: rename ImperativeParser/ReactiveParser, global interners, stateless core, API surface fixes, future typed holes direction
-
 ## Development
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

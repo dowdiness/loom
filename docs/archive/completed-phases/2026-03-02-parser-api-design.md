@@ -1,7 +1,7 @@
 # Parser API Simplification and Reconciliation Design
 
 **Date:** 2026-03-02
-**Status:** Proposed
+**Status:** Complete
 
 ## Problem
 
