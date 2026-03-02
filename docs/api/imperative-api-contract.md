@@ -40,10 +40,10 @@ source : String
 
 **Invariants:**
 - **Fields all private.** Callers cannot directly observe or mutate `source`, `tree`,
-  `syntax_tree`, `last_reuse_count`, or `prev_cst_hash`. Use the accessor methods.
-- **CST equality skip.** Both `parse()` and `edit()` skip `to_ast` when the new CstNode
-  hash matches the previous hash, returning the cached Ast instead. This is transparent
-  to callers — correctness is unaffected because the CST is structurally identical.
+  `syntax_tree`, `last_reuse_count`, or `prev_cst`. Use the accessor methods.
+- **CST equality skip.** Both `parse()` and `edit()` skip `to_ast` when the new
+  `CstNode` compares equal to the cached one (`CstNode::Eq` — structural equality using
+  kind + children, with hash as a fast rejection path). This is transparent to callers.
 - **Global interners.** Token deduplication (`core_interner`) and node deduplication
   (`core_node_interner`) are process-level globals, accumulated across all parse calls
   and never cleared. Multiple parsers sharing a process share these interners.

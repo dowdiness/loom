@@ -16,5 +16,13 @@ pub let core_interner : @seam.Interner = @seam.Interner::new()
 /// different trivia_kinds in one process silently canonicalises to the
 /// first-seen token_count, producing incorrect values for subsequent callers.
 ///
-/// For single-grammar processes (the common case) this is unconditionally safe.
+/// Violation is detected at runtime via core_registered_trivia_kind: the first
+/// grammar to call build_tree_generic registers its trivia_kind; subsequent
+/// calls with a different trivia_kind abort the process.
 pub let core_node_interner : @seam.NodeInterner = @seam.NodeInterner::new()
+
+///|
+/// Registered trivia raw kind for core_node_interner.
+/// None before first parse; set on first build_tree_generic call.
+/// Subsequent calls with a different raw kind abort immediately.
+pub let core_registered_trivia_kind : Ref[@seam.RawKind?] = Ref::new(None)
