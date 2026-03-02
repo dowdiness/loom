@@ -12,7 +12,8 @@
 /// Create an IncrementalParser from a Grammar.
 ///
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
-/// Safe to call multiple times — no shared mutable state between parsers.
+/// Interners (token deduplication, node deduplication) are process-global and
+/// shared across all parsers — accumulated, never cleared, not parser-isolated.
 pub fn[T, K, Ast] new_incremental_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
