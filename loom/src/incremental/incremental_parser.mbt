@@ -4,10 +4,10 @@
 ///|
 pub struct IncrementalParser[Ast] {
   priv lang : IncrementalLanguage[Ast]
-  mut source : String
-  mut tree : Ast?
-  mut syntax_tree : @seam.SyntaxNode?
-  mut last_reuse_count : Int
+  priv mut source : String
+  priv mut tree : Ast?
+  priv mut syntax_tree : @seam.SyntaxNode?
+  priv mut last_reuse_count : Int
   priv interner : @seam.Interner
   priv node_interner : @seam.NodeInterner
 }
@@ -26,28 +26,6 @@ pub fn[Ast] IncrementalParser::new(
     interner: @seam.Interner::new(),
     node_interner: @seam.NodeInterner::new(),
   }
-}
-
-///|
-pub fn[Ast] IncrementalParser::interner_size(
-  self : IncrementalParser[Ast],
-) -> Int {
-  self.interner.size()
-}
-
-///|
-pub fn[Ast] IncrementalParser::node_interner_size(
-  self : IncrementalParser[Ast],
-) -> Int {
-  self.node_interner.size()
-}
-
-///|
-pub fn[Ast] IncrementalParser::interner_clear(
-  self : IncrementalParser[Ast],
-) -> Unit {
-  self.interner.clear()
-  self.node_interner.clear()
 }
 
 ///|
@@ -116,13 +94,6 @@ pub fn[Ast] IncrementalParser::get_source(
   self : IncrementalParser[Ast],
 ) -> String {
   self.source
-}
-
-///|
-pub fn[Ast] IncrementalParser::stats(self : IncrementalParser[Ast]) -> String {
-  "IncrementalParser { source_length: " +
-  self.source.length().to_string() +
-  " }"
 }
 
 ///|

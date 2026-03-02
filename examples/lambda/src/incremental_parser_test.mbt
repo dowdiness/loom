@@ -96,15 +96,6 @@ test "IncrementalParser::multiple edits" {
 }
 
 ///|
-test "IncrementalParser::stats" {
-  let parser = @loom.new_incremental_parser("42", lambda_grammar)
-  let _ = parser.parse()
-  let stats = parser.stats()
-  inspect(stats.contains("IncrementalParser"), content="true")
-  inspect(stats.contains("source_length"), content="true")
-}
-
-///|
 test "IncrementalParser::edit result equals full reparse" {
   let parser = @loom.new_incremental_parser("x", lambda_grammar)
   let _ = parser.parse()

@@ -338,66 +338,6 @@ test "heavy: FULL REPARSE - large document initial parse" (b : @bench.T) {
   })
 }
 
-// ─── Tier 4: Interner growth & sharing metrics (tests, not timed benches) ────
-
-///|
-/// Measure interner growth over a 200-edit typing session.
-/// Reports sizes at key checkpoints to detect unbounded growth.
-test "heavy: interner growth over 200 edits" {
-  let base = make_large_source()
-  let parser = @loom.new_incremental_parser(base, @lambda.lambda_grammar)
-  let _ = parser.parse()
-  let initial_token_size = parser.interner_size()
-  let initial_node_size = parser.node_interner_size()
-  let chars = [" ", "+", " ", "x", " ", "+", " ", "1"]
-  let mut source = base
-  let mut max_node_size = initial_node_size
-  for i = 0; i < 200; i = i + 1 {
-    let ch = chars[i % chars.length()]
-    let pos = source.length()
-    let (new_source, edit) = apply_char_insert(source, pos, ch)
-    let _ = parser.edit(edit, new_source)
-    source = new_source
-    let ns = parser.node_interner_size()
-    if ns > max_node_size {
-      max_node_size = ns
-    }
-  }
-  let final_token_size = parser.interner_size()
-  let final_node_size = parser.node_interner_size()
-  // Report actual sizes for visibility
-  inspect(
-    (initial_token_size, final_token_size),
-    content=(
-      #|(21, 22)
-    ),
-  )
-  inspect(
-    (initial_node_size, final_node_size, max_node_size),
-    content=(
-      #|(45, 1247, 1247)
-    ),
-  )
-  // Sanity: we actually did edits
-  inspect(source.length() > base.length(), content="true")
-}
-
-///|
-/// Measure structural sharing: parse the same document twice with shared interner.
-/// Second parse should produce identical tree with no interner growth.
-test "heavy: structural sharing on identical reparse" {
-  let source = make_large_source()
-  let parser = @loom.new_incremental_parser(source, @lambda.lambda_grammar)
-  let _ = parser.parse()
-  let size_after_first = parser.node_interner_size()
-  // Zero-length edit forces reparse with same source
-  let edit = @core.Edit::insert(source.length(), 0)
-  let _ = parser.edit(edit, source)
-  let size_after_second = parser.node_interner_size()
-  // No new nodes should be interned for identical reparse
-  inspect(size_after_second <= size_after_first, content="true")
-}
-
 ///|
 /// Measure reuse count over a typing session.
 /// Local edits at end should reuse most of the tree.
