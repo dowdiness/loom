@@ -8,6 +8,7 @@ pub struct IncrementalParser[Ast] {
   priv mut tree : Ast?
   priv mut syntax_tree : @seam.SyntaxNode?
   priv mut last_reuse_count : Int
+  priv mut prev_cst_hash : Int? // cached hash of last successful CstNode
 }
 
 ///|
@@ -15,19 +16,33 @@ pub fn[Ast] IncrementalParser::new(
   source : String,
   lang : IncrementalLanguage[Ast],
 ) -> IncrementalParser[Ast] {
-  { lang, source, tree: None, syntax_tree: None, last_reuse_count: 0 }
+  {
+    lang,
+    source,
+    tree: None,
+    syntax_tree: None,
+    last_reuse_count: 0,
+    prev_cst_hash: None,
+  }
 }
 
 ///|
 pub fn[Ast] IncrementalParser::parse(self : IncrementalParser[Ast]) -> Ast {
   let tree = match (self.lang.full_parse)(self.source) {
     Tree(syntax, _) => {
+      let new_hash = syntax.cst_node().hash
+      let ast = match self.prev_cst_hash {
+        Some(old_hash) if old_hash == new_hash => self.tree.unwrap()
+        _ => (self.lang.to_ast)(syntax)
+      }
       self.syntax_tree = Some(syntax)
+      self.prev_cst_hash = Some(new_hash)
       self.last_reuse_count = 0
-      (self.lang.to_ast)(syntax)
+      ast
     }
     LexError(msg) => {
       self.syntax_tree = None
+      self.prev_cst_hash = None
       self.last_reuse_count = 0
       (self.lang.on_lex_error)(msg)
     }
@@ -50,12 +65,19 @@ pub fn[Ast] IncrementalParser::edit(
     Some(old_syntax) =>
       match (self.lang.incremental_parse)(new_source, old_syntax, edit) {
         Tree(new_syntax, reuse_count) => {
+          let new_hash = new_syntax.cst_node().hash
+          let ast = match self.prev_cst_hash {
+            Some(old_hash) if old_hash == new_hash => self.tree.unwrap()
+            _ => (self.lang.to_ast)(new_syntax)
+          }
           self.syntax_tree = Some(new_syntax)
+          self.prev_cst_hash = Some(new_hash)
           self.last_reuse_count = reuse_count
-          (self.lang.to_ast)(new_syntax)
+          ast
         }
         LexError(msg) => {
           self.syntax_tree = None
+          self.prev_cst_hash = None
           self.last_reuse_count = 0
           (self.lang.on_lex_error)(msg)
         }
@@ -76,6 +98,7 @@ pub fn[Ast] IncrementalParser::reset(
 ) -> Ast {
   self.source = source
   self.syntax_tree = None
+  self.prev_cst_hash = None
   self.parse()
 }
 

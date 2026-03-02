@@ -725,6 +725,19 @@ test "Reuse: trailing whitespace in source" {
 }
 
 ///|
+test "IncrementalParser::edit returns same AST when CST is unchanged" {
+  let parser = @loom.new_incremental_parser("1+2", lambda_grammar)
+  let ast1 = parser.parse()
+  // Edit: add trailing whitespace — CST content unchanged (whitespace is trivia)
+  let edit = @core.Edit::insert(3, 1)
+  let ast2 = parser.edit(edit, "1+2 ")
+  inspect(
+    @ast.print_ast_node(ast1) == @ast.print_ast_node(ast2),
+    content="true",
+  )
+}
+
+///|
 test "IncrementalParser::reset parses new source fresh" {
   let parser = @loom.new_incremental_parser("42", lambda_grammar)
   let _ = parser.parse()
