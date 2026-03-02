@@ -51,6 +51,11 @@ Understanding how the layers fit together:
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
 
+## Active Plans
+
+- [plans/2026-03-03-typed-syntax-node-views-design.md](plans/2026-03-03-typed-syntax-node-views-design.md) — rust-analyzer-style typed views replacing AstNode (design)
+- [plans/2026-03-03-typed-syntax-node-views.md](plans/2026-03-03-typed-syntax-node-views.md) — typed views implementation plan
+
 ## Archive (Historical / Completed)
 
 - [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation)
