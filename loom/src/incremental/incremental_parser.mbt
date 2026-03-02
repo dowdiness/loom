@@ -67,6 +67,19 @@ pub fn[Ast] IncrementalParser::edit(
 }
 
 ///|
+/// Reset the parser to a new source string, discarding all incremental state.
+/// Use this when the source changes in a way that cannot be expressed as an
+/// Edit (e.g. after a structural edit regenerates the text in a hybrid editor).
+pub fn[Ast] IncrementalParser::reset(
+  self : IncrementalParser[Ast],
+  source : String,
+) -> Ast {
+  self.source = source
+  self.syntax_tree = None
+  self.parse()
+}
+
+///|
 pub fn[Ast] IncrementalParser::get_tree(self : IncrementalParser[Ast]) -> Ast? {
   self.tree
 }

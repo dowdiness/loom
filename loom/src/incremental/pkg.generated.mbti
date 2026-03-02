@@ -49,6 +49,7 @@ pub fn[Ast] IncrementalParser::get_source(Self[Ast]) -> String
 pub fn[Ast] IncrementalParser::get_tree(Self[Ast]) -> Ast?
 pub fn[Ast] IncrementalParser::new(String, IncrementalLanguage[Ast]) -> Self[Ast]
 pub fn[Ast] IncrementalParser::parse(Self[Ast]) -> Ast
+pub fn[Ast] IncrementalParser::reset(Self[Ast], String) -> Ast
 
 pub(all) enum ParseOutcome {
   Tree(@seam.SyntaxNode, Int)

@@ -725,6 +725,26 @@ test "Reuse: trailing whitespace in source" {
 }
 
 ///|
+test "IncrementalParser::reset parses new source fresh" {
+  let parser = @loom.new_incremental_parser("42", lambda_grammar)
+  let _ = parser.parse()
+  let result = parser.reset("λx.x")
+  inspect(@ast.print_ast_node(result), content="(λx. x)")
+}
+
+///|
+test "IncrementalParser::reset clears old tree state" {
+  let parser = @loom.new_incremental_parser("λx.x", lambda_grammar)
+  let _ = parser.parse()
+  // Reset to completely different source
+  let _ = parser.reset("1 + 2")
+  // Subsequent edit from this new base should work correctly
+  let edit = @core.Edit::insert(5, 4) // insert " + 3" (4 chars) at end of "1 + 2"
+  let result = parser.edit(edit, "1 + 2 + 3")
+  inspect(@ast.print_ast_node(result), content="((1 + 2) + 3)")
+}
+
+///|
 test "Reuse: tokenization error clears stale concrete syntax tree state" {
   let parser = @loom.new_incremental_parser("1+1+1", lambda_grammar)
   let _ = parser.parse()
