@@ -43,6 +43,10 @@ Understanding how the layers fit together:
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 
+## Examples
+
+- [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
+
 ## Active Plans
 
 - [plans/2026-03-03-roadmap-separation-design.md](plans/2026-03-03-roadmap-separation-design.md) — separate framework and lambda calculus concerns into two ROADMAP files
