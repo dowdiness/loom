@@ -1,5 +1,7 @@
 # Roadmap Separation Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Split the root `ROADMAP.md` into two focused documents — one for the `dowdiness/loom` parser framework, one for the `examples/lambda` lambda calculus example — and link them from `docs/README.md`.

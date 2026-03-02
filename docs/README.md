@@ -47,16 +47,11 @@ Understanding how the layers fit together:
 
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
 
-## Active Plans
-
-- [plans/2026-03-03-roadmap-separation-design.md](plans/2026-03-03-roadmap-separation-design.md) — separate framework and lambda calculus concerns into two ROADMAP files
-- [plans/2026-03-03-roadmap-separation.md](plans/2026-03-03-roadmap-separation.md) — implementation plan for roadmap separation
-
 ## Development
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
