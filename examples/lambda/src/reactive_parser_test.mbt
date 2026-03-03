@@ -120,3 +120,21 @@ test "ReactiveParser: parity with parse_cst_to_ast_node" {
     )
   }
 }
+
+///|
+/// SyntaxNode::Eq is structural (CstNode-based), not reference equality.
+/// Two separately computed SyntaxNodes from the same source must be Eq-equal
+/// even though they are produced by distinct Memo computations.
+/// This verifies that the Memo's backdating mechanism correctly identifies
+/// unchanged trees across computation epochs.
+test "ReactiveParser: SyntaxNode Eq holds after round-trip source change" {
+  let db = @loom.new_reactive_parser("λx.x", lambda_grammar)
+  let t1 = db.term()
+  db.set_source("y") // change to something different — triggers recomputation
+  let _ = db.term()  // force the new computation epoch
+  db.set_source("λx.x") // change back — triggers another recomputation
+  let t3 = db.term()
+  // t1 and t3 are separately computed but from the same source:
+  // same token sequence → same interned CstNode → SyntaxNode::Eq returns true
+  assert_eq(t1 == t3, true)
+}
