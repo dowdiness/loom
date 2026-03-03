@@ -179,6 +179,10 @@ pub impl[T : Show] Show for TokenInfo[T]
 // Type aliases
 
 // Traits
+pub trait AstView {
+  syntax_node(Self) -> @seam.SyntaxNode
+}
+
 pub trait Editable {
   start(Self) -> Int
   old_len(Self) -> Int
