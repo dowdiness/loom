@@ -3,6 +3,43 @@
 // local_insert() drives both the CRDT doc and the incremental parser.
 // bridge_sync() receives a SyncMessage, converts the resulting text change
 // to a TextDelta via text_to_delta, then drives the incremental parser.
+//
+// Both methods share drive_parser_update() to avoid duplicated loops.
+
+///|
+/// Drive an incremental parser from old_text to new_text using the
+/// text_to_delta → to_edits pipeline.
+///
+/// Each edit's start is in the coordinate space of the text after all
+/// previous edits have been applied, so current threads state across iterations.
+fn drive_parser_update(
+  parser : @incremental.ImperativeParser[@seam.SyntaxNode],
+  old_text : String,
+  new_text : String,
+) -> Unit {
+  if old_text == new_text {
+    return
+  }
+  let edits = @core.text_to_delta(old_text, new_text) |> @core.to_edits
+  let mut current = old_text
+  for edit in edits {
+    let inserted = try new_text[edit.start:edit.start + edit.new_len] catch {
+      _ => ""
+    } noraise {
+      v => v.to_string()
+    }
+    let prefix = try current[0:edit.start] catch { _ => "" } noraise {
+      v => v.to_string()
+    }
+    let suffix = try current[edit.start + edit.old_len:] catch {
+      _ => ""
+    } noraise {
+      v => v.to_string()
+    }
+    current = prefix + inserted + suffix
+    parser.edit(edit, current) |> ignore
+  }
+}
 
 ///|
 struct EgwPeer {
@@ -31,30 +68,7 @@ fn EgwPeer::local_insert(
   } catch {
     _ => return
   }
-  let new_text = self.doc.text()
-  if old_text == new_text {
-    return
-  }
-  let delta = @core.text_to_delta(old_text, new_text)
-  let edits = @core.to_edits(delta)
-  let mut current = old_text
-  for edit in edits {
-    let inserted = try new_text[edit.start:edit.start + edit.new_len] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let prefix = try current[0:edit.start] catch { _ => "" } noraise {
-      v => v.to_string()
-    }
-    let suffix = try current[edit.start + edit.old_len:] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    current = prefix + inserted + suffix
-    let _ = self.parser.edit(edit, current)
-  }
+  drive_parser_update(self.parser, old_text, self.doc.text())
 }
 
 ///|
@@ -64,30 +78,7 @@ fn EgwPeer::bridge_sync(self : EgwPeer, message : @egw.SyncMessage) -> Unit {
   let old_text = self.doc.text()
   let session = self.doc.sync()
   try session.apply(message) catch { _ => return }
-  let new_text = self.doc.text()
-  if old_text == new_text {
-    return
-  }
-  let delta = @core.text_to_delta(old_text, new_text)
-  let edits = @core.to_edits(delta)
-  let mut current = old_text
-  for edit in edits {
-    let inserted = try new_text[edit.start:edit.start + edit.new_len] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let prefix = try current[0:edit.start] catch { _ => "" } noraise {
-      v => v.to_string()
-    }
-    let suffix = try current[edit.start + edit.old_len:] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    current = prefix + inserted + suffix
-    let _ = self.parser.edit(edit, current)
-  }
+  drive_parser_update(self.parser, old_text, self.doc.text())
 }
 
 ///|
