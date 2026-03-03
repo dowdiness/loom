@@ -52,6 +52,77 @@ pub suberror ParseError {
 }
 
 // Types and methods
+pub struct AppExprView {
+  node : @seam.SyntaxNode
+}
+pub fn AppExprView::arg(Self) -> @seam.SyntaxNode?
+pub fn AppExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn AppExprView::func(Self) -> @seam.SyntaxNode?
+pub impl @core.AstView for AppExprView
+pub impl ToJson for AppExprView
+
+pub struct BinaryExprView {
+  node : @seam.SyntaxNode
+}
+pub fn BinaryExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn BinaryExprView::lhs(Self) -> @seam.SyntaxNode?
+pub fn BinaryExprView::op(Self) -> @ast.Bop?
+pub fn BinaryExprView::rhs(Self) -> @seam.SyntaxNode?
+pub impl @core.AstView for BinaryExprView
+pub impl ToJson for BinaryExprView
+
+pub struct IfExprView {
+  node : @seam.SyntaxNode
+}
+pub fn IfExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn IfExprView::condition(Self) -> @seam.SyntaxNode?
+pub fn IfExprView::else_branch(Self) -> @seam.SyntaxNode?
+pub fn IfExprView::then_branch(Self) -> @seam.SyntaxNode?
+pub impl @core.AstView for IfExprView
+pub impl ToJson for IfExprView
+
+pub struct IntLiteralView {
+  node : @seam.SyntaxNode
+}
+pub fn IntLiteralView::cast(@seam.SyntaxNode) -> Self?
+pub fn IntLiteralView::value(Self) -> Int?
+pub impl @core.AstView for IntLiteralView
+pub impl ToJson for IntLiteralView
+
+pub struct LambdaExprView {
+  node : @seam.SyntaxNode
+}
+pub fn LambdaExprView::body(Self) -> @seam.SyntaxNode?
+pub fn LambdaExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn LambdaExprView::param(Self) -> String
+pub impl @core.AstView for LambdaExprView
+pub impl ToJson for LambdaExprView
+
+pub struct LetExprView {
+  node : @seam.SyntaxNode
+}
+pub fn LetExprView::body(Self) -> @seam.SyntaxNode?
+pub fn LetExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn LetExprView::init(Self) -> @seam.SyntaxNode?
+pub fn LetExprView::name(Self) -> String
+pub impl @core.AstView for LetExprView
+pub impl ToJson for LetExprView
+
+pub struct ParenExprView {
+  node : @seam.SyntaxNode
+}
+pub fn ParenExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn ParenExprView::inner(Self) -> @seam.SyntaxNode?
+pub impl @core.AstView for ParenExprView
+pub impl ToJson for ParenExprView
+
+pub struct VarRefView {
+  node : @seam.SyntaxNode
+}
+pub fn VarRefView::cast(@seam.SyntaxNode) -> Self?
+pub fn VarRefView::name(Self) -> String
+pub impl @core.AstView for VarRefView
+pub impl ToJson for VarRefView
 
 // Type aliases
 pub using @ast {type AstKind}

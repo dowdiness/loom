@@ -987,7 +987,7 @@ pub fn[T, K] parse_tokens_indexed(
 ///   pub struct LambdaExprView { node : @seam.SyntaxNode }
 ///   pub impl AstView for LambdaExprView with syntax_node(self) { self.node }
 ///   pub fn LambdaExprView::cast(n : @seam.SyntaxNode) -> LambdaExprView? { ... }
-pub trait AstView {
+pub(open) trait AstView {
   /// Return the underlying raw SyntaxNode.
   syntax_node(Self) -> @seam.SyntaxNode
 }

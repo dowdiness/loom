@@ -179,7 +179,7 @@ pub impl[T : Show] Show for TokenInfo[T]
 // Type aliases
 
 // Traits
-pub trait AstView {
+pub(open) trait AstView {
   syntax_node(Self) -> @seam.SyntaxNode
 }
 

@@ -88,5 +88,5 @@ impl @viz.DotNode for DotAstNode with edge_label(self, i) {
 ///|
 /// Convert an AstNode tree to DOT format.
 pub fn to_dot(node : @ast.AstNode) -> String {
-  @viz.to_dot({ node, })
+  @viz.to_dot(DotAstNode::{ node, })
 }
