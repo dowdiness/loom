@@ -47,8 +47,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-03-crdt-exploration-design.md](plans/2026-03-03-crdt-exploration-design.md) — CRDT exploration design
-- [plans/2026-03-03-crdt-exploration.md](plans/2026-03-03-crdt-exploration.md) — CRDT exploration implementation plan
+(none)
 
 ## Examples
 
@@ -60,5 +59,5 @@ Understanding how the layers fit together:
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

@@ -1,7 +1,7 @@
 # Design: CRDT Exploration
 
 **Created:** 2026-03-03
-**Status:** Approved
+**Status:** Complete
 
 ## Goal
 

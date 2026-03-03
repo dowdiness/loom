@@ -20,7 +20,7 @@
 | Type annotations | Planned |
 | Multi-expression files | Planned |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
-| CRDT integration | Research |
+| CRDT integration | ✅ Complete (2026-03-03) |
 
 ---
 
@@ -64,30 +64,22 @@ Typed wrappers over `SyntaxNode` — `LambdaExprView`, `AppExprView`, `LetExprVi
 
 ---
 
-## CRDT Exploration (Research)
+## CRDT Exploration ✅ Complete (2026-03-03)
 
-**Status:** Research phase.
+**Status:** Complete (2026-03-03).
 **Goal:** Integrate the incremental parser with CRDT-based collaborative editing.
 
 **Recommended architecture:** Text-level CRDT + incremental parser on merge. Each peer maintains source text via a text CRDT (Fugue/RGA); after merging remote operations, the incremental parser re-parses the affected region. Avoids tree CRDTs entirely.
 
-### What to Build
+### What Was Built
 
-1. **Green tree diff utility:** Changed subtrees with positions, using pointer equality for O(1) unchanged-subtree skips.
+1. ✅ **Green tree diff utility:** `tree_diff(old, new) -> Array[Edit]` in `loom/src/core/diff.mbt` — uses `CstNode.hash` as O(1) skip key for unchanged subtrees.
 
-2. **Text CRDT adapter:** Translate CRDT operations into `Edit`:
-   ```
-   TextDelta (Retain | Insert | Delete)   ← Loro/Quill Delta format
-     ↓ .to_edits()
-   Edit { start, old_len, new_len }       ← lengths, not endpoints
-     ↓ implements
-   pub trait Editable                     ← Edit implements this trait
-   ```
-   `Delete(n)` → `old_len = n`, `Insert(s)` → `new_len = s.length()`, `Retain(n)` → advance cursor.
+2. ✅ **Text CRDT adapter:** `text_to_delta(old, new) -> Array[TextDelta]` in `loom/src/core/delta.mbt` — translates string pairs to minimal Retain/Delete/Insert sequences; `to_edits()` converts these to `Edit` structs for the parser.
 
-3. **Integration test harness:** Two simulated peers; verify identical text and parse trees after sync.
+3. ✅ **Integration test harness:** `crdt_peer_test.mbt` (two simulated peers), `crdt_egw_test.mbt` (real event-graph-walker CRDT) — both verify identical text and parse trees after sync.
 
-**Exit criteria:** Green tree diff tested; `TextDelta.to_edits()` values implement `Editable`; two-peer convergence test passing.
+**Exit criteria met:** Green tree diff tested; `text_to_delta` + `to_edits` round-trip verified; two-peer convergence tests passing with both simulated and real CRDT ops.
 
 ---
 
@@ -107,4 +99,4 @@ Verified via `imperative_differential_fuzz_test.mbt` — random source + random 
 | Type annotations | Future — Confidence: High |
 | Multi-expression files | Future — Confidence: High |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
-| CRDT exploration | Future — Confidence: Low-Medium (research) |
+| CRDT exploration | ✅ Complete (2026-03-03) |
