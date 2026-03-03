@@ -172,18 +172,12 @@ pub fn BinaryExprView::operands(
 /// The first operator token kind (Plus or Minus).
 /// For the full operator sequence use `ops()`.
 pub fn BinaryExprView::op(self : BinaryExprView) -> @ast.Bop? {
-  for elem in self.node.all_children() {
-    match elem {
-      @seam.SyntaxElement::Token(t) =>
-        if t.kind() == @syntax.PlusToken.to_raw() {
-          return Some(@ast.Bop::Plus)
-        } else if t.kind() == @syntax.MinusToken.to_raw() {
-          return Some(@ast.Bop::Minus)
-        }
-      _ => ()
-    }
+  let ops = self.ops()
+  if ops.length() > 0 {
+    Some(ops[0])
+  } else {
+    None
   }
-  None
 }
 
 ///|
