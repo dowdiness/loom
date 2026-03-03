@@ -40,7 +40,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
 
   // Core invariant: incremental must match full reparse
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -59,7 +59,7 @@ test "phase4: reuse on application chain" {
 
   // Must match full reparse
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -79,7 +79,7 @@ test "phase4: reuse on nested lambdas" {
 
   // Must match full reparse
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -100,7 +100,7 @@ test "phase4: reuse preserves correctness on complex expression" {
 
   // Must match full reparse
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -120,7 +120,7 @@ test "phase4: edit at binary operator boundary" {
   let incr_tree = parser.edit(edit, "a + b + c")
   let full_tree = parse_tree("a + b + c")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -140,7 +140,7 @@ test "phase4: edit changes structure - app to binary" {
 
   // Must match full reparse - trailing context check should prevent false reuse
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -156,7 +156,7 @@ test "phase4: edit changes app to standalone var" {
   let incr_tree = parser.edit(edit, "f")
   let full_tree = parse_tree("f")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -172,7 +172,7 @@ test "phase4: edit extends expression" {
   let incr_tree = parser.edit(edit, "x y")
   let full_tree = parse_tree("x y")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -190,19 +190,28 @@ test "phase4: multiple sequential edits maintain correctness" {
   let edit1 = @core.Edit::replace(0, 1, 1)
   let tree1 = parser.edit(edit1, "1 + b + c")
   let full1 = parse_tree("1 + b + c")
-  inspect(@ast.print_ast_node(tree1), content=@ast.print_ast_node(full1))
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree1)),
+    content=@ast.print_ast_node(full1),
+  )
 
   // Edit 2: change "b" to "2"
   let edit2 = @core.Edit::replace(4, 5, 5)
   let tree2 = parser.edit(edit2, "1 + 2 + c")
   let full2 = parse_tree("1 + 2 + c")
-  inspect(@ast.print_ast_node(tree2), content=@ast.print_ast_node(full2))
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree2)),
+    content=@ast.print_ast_node(full2),
+  )
 
   // Edit 3: change "c" to "3"
   let edit3 = @core.Edit::replace(8, 9, 9)
   let tree3 = parser.edit(edit3, "1 + 2 + 3")
   let full3 = parse_tree("1 + 2 + 3")
-  inspect(@ast.print_ast_node(tree3), content=@ast.print_ast_node(full3))
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree3)),
+    content=@ast.print_ast_node(full3),
+  )
 }
 
 ///|
@@ -216,13 +225,16 @@ test "phase4: typing simulation - building expression char by char" {
   let edit1 = @core.Edit::insert(1, 2)
   let tree1 = parser.edit(edit1, "1 +")
   // Intermediate state may have errors, just check it parses
-  inspect(tree1.node_id >= 0, content="true")
+  inspect(tree1.start() >= 0, content="true")
 
   // Type " 2"
   let edit2 = @core.Edit::insert(3, 2)
   let tree2 = parser.edit(edit2, "1 + 2")
   let full = parse_tree("1 + 2")
-  inspect(@ast.print_ast_node(tree2), content=@ast.print_ast_node(full))
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree2)),
+    content=@ast.print_ast_node(full),
+  )
 }
 
 // ============================================================================
@@ -240,7 +252,7 @@ test "phase4: empty to non-empty" {
   let incr_tree = parser.edit(edit, "λf.λx.f (f x)")
   let full_tree = parse_tree("λf.λx.f (f x)")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -256,7 +268,7 @@ test "phase4: whitespace-only changes" {
   let incr_tree = parser.edit(edit, "x + y")
   let full_tree = parse_tree("x + y")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -272,7 +284,7 @@ test "phase4: parentheses changes" {
   let incr_tree = parser.edit(edit, "(x + y)")
   let full_tree = parse_tree("(x + y)")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -288,7 +300,7 @@ test "phase4: if-then-else edit in condition" {
   let incr_tree = parser.edit(edit, "if y then 1 else 2")
   let full_tree = parse_tree("if y then 1 else 2")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }
@@ -304,7 +316,7 @@ test "phase4: if-then-else edit in else branch" {
   let incr_tree = parser.edit(edit, "if x then 1 else 3")
   let full_tree = parse_tree("if x then 1 else 3")
   inspect(
-    @ast.print_ast_node(incr_tree),
+    @ast.print_term(syntax_node_to_term(incr_tree)),
     content=@ast.print_ast_node(full_tree),
   )
 }

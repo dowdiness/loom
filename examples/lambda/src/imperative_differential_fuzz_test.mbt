@@ -132,11 +132,11 @@ fn idf_apply_random_edit(
 
 ///|
 fn idf_assert_incremental_matches_full(
-  incremental : @ast.AstNode,
+  incremental : @seam.SyntaxNode,
   full : @ast.AstNode,
   context : String,
 ) -> Unit {
-  let incremental_str = @ast.print_ast_node(incremental)
+  let incremental_str = @ast.print_term(syntax_node_to_term(incremental))
   let full_str = @ast.print_ast_node(full)
   if incremental_str != full_str {
     abort(
@@ -197,7 +197,7 @@ test "differential-fast: malformed input sequences terminate" {
       let incremental = parser.edit(edit, new_source)
       let (_full, _errors) = parse_with_error_recovery(new_source)
       // If we reached this point, both paths terminated without panic.
-      assert_true(incremental.node_id >= 0)
+      assert_true(incremental.start() >= 0)
       source = new_source
       seed = next_seed
     }

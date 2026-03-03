@@ -395,22 +395,39 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
         }
         None => @ast.Term::Var("<error>")
       }
-    @syntax.BinaryExpr =>
-      match BinaryExprView::cast(node) {
-        Some(v) => {
-          let lhs = match v.lhs() {
-            Some(n) => view_to_term(n)
-            None => @ast.Term::Var("<error>")
-          }
-          let rhs = match v.rhs() {
-            Some(n) => view_to_term(n)
-            None => @ast.Term::Var("<error>")
-          }
-          let op = v.op().unwrap_or(@ast.Bop::Plus)
-          @ast.Term::Bop(op, lhs, rhs)
+    @syntax.BinaryExpr => {
+      // BinaryExpr CST is flat: [term, term, ..., term] with operators as tokens.
+      // Collect operator tokens in order, then fold-left the node children.
+      let ops : Array[@ast.Bop] = []
+      for elem in node.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(t) =>
+            if t.kind() == @syntax.PlusToken.to_raw() {
+              ops.push(@ast.Bop::Plus)
+            } else if t.kind() == @syntax.MinusToken.to_raw() {
+              ops.push(@ast.Bop::Minus)
+            }
+          _ => ()
         }
-        None => @ast.Term::Var("<error>")
       }
+      let children = node.children()
+      if children.length() >= 2 {
+        let mut result = view_to_term(children[0])
+        for i = 1; i < children.length(); i = i + 1 {
+          let op = if i - 1 < ops.length() {
+            ops[i - 1]
+          } else {
+            @ast.Bop::Plus
+          }
+          result = @ast.Term::Bop(op, result, view_to_term(children[i]))
+        }
+        result
+      } else if children.length() == 1 {
+        view_to_term(children[0])
+      } else {
+        @ast.Term::Var("<error>")
+      }
+    }
     @syntax.IfExpr =>
       match IfExprView::cast(node) {
         Some(v) => {

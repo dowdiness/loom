@@ -20,11 +20,11 @@ pub fn cst_to_term(@seam.CstNode) -> @ast.Term
 
 pub fn has_errors(@ast.AstNode) -> Bool
 
-pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.AstNode]
+pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @seam.SyntaxNode]
 
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
-pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.AstNode]
+pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@seam.SyntaxNode]
 
 pub fn parse(String) -> @ast.Term raise
 
@@ -127,15 +127,17 @@ pub impl @core.AstView for VarRefView
 pub impl ToJson for VarRefView
 
 // Type aliases
-pub using @ast {type AstKind}
-
-pub using @ast {type AstNode}
-
 pub using @ast {type Bop}
 
 pub using @core {type Edit}
 
 pub using @incremental {type ImperativeParser}
+
+pub using @seam {type SyntaxElement}
+
+pub using @seam {type SyntaxNode}
+
+pub using @seam {type SyntaxToken}
 
 pub using @ast {type Term}
 
