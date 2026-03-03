@@ -44,6 +44,8 @@ pub fn parse_with_error_recovery(String) -> (@ast.AstNode, Array[String])
 
 pub fn syntax_node_to_ast_node(@seam.SyntaxNode, Ref[Int]) -> @ast.AstNode
 
+pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
+
 pub fn to_dot(@ast.AstNode) -> String
 
 // Errors

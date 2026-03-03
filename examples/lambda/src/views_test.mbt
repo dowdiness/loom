@@ -108,3 +108,29 @@ test "LambdaExprView::to_json includes param and body keys" {
   inspect(s.contains("\"param\""), content="true")
   inspect(s.contains("\"body\""), content="true")
 }
+
+///|
+test "syntax_node_to_term: integer" {
+  let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(syn)
+  inspect(term, content="Int(42)")
+}
+
+///|
+test "syntax_node_to_term: lambda" {
+  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(syn)
+  inspect(term, content="Lam(\"x\", Var(\"x\"))")
+}
+
+///|
+test "syntax_node_to_term: let binding" {
+  let (cst, _) = parse_cst_recover("let x = 1 in x") catch {
+    _ => abort("lex error")
+  }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(syn)
+  inspect(term, content="Let(\"x\", Int(1), Var(\"x\"))")
+}
