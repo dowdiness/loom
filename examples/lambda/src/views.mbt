@@ -39,7 +39,7 @@ pub impl @core.AstView for LambdaExprView with syntax_node(self) {
 pub fn LambdaExprView::param(self : LambdaExprView) -> String {
   self.node
   .find_token(@syntax.IdentToken.to_raw())
-  .map(fn(t) { t.text() })
+  .map(t => t.text())
   .unwrap_or("")
 }
 
@@ -309,7 +309,7 @@ pub impl @core.AstView for LetExprView with syntax_node(self) {
 pub fn LetExprView::name(self : LetExprView) -> String {
   self.node
   .find_token(@syntax.IdentToken.to_raw())
-  .map(fn(t) { t.text() })
+  .map(t => t.text())
   .unwrap_or("")
 }
 
@@ -455,7 +455,7 @@ pub impl @core.AstView for VarRefView with syntax_node(self) {
 pub fn VarRefView::name(self : VarRefView) -> String {
   self.node
   .find_token(@syntax.IdentToken.to_raw())
-  .map(fn(t) { t.text() })
+  .map(t => t.text())
   .unwrap_or("")
 }
 

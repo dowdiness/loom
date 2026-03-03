@@ -58,6 +58,7 @@ pub struct AppExprView {
   node : @seam.SyntaxNode
 }
 pub fn AppExprView::arg(Self) -> @seam.SyntaxNode?
+pub fn AppExprView::args(Self) -> Array[@seam.SyntaxNode]
 pub fn AppExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn AppExprView::func(Self) -> @seam.SyntaxNode?
 pub impl @core.AstView for AppExprView
@@ -69,6 +70,8 @@ pub struct BinaryExprView {
 pub fn BinaryExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn BinaryExprView::lhs(Self) -> @seam.SyntaxNode?
 pub fn BinaryExprView::op(Self) -> @ast.Bop?
+pub fn BinaryExprView::operands(Self) -> Array[@seam.SyntaxNode]
+pub fn BinaryExprView::ops(Self) -> Array[@ast.Bop]
 pub fn BinaryExprView::rhs(Self) -> @seam.SyntaxNode?
 pub impl @core.AstView for BinaryExprView
 pub impl ToJson for BinaryExprView

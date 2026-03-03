@@ -114,9 +114,9 @@ test "ReactiveParser: parity with parse_cst_to_ast_node" {
     let direct = parse_cst_to_ast_node(source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
-    assert_eq(
+    inspect(
       @ast.print_term(syntax_node_to_term(db.term())),
-      @ast.print_ast_node(direct),
+      content=@ast.print_ast_node(direct),
     )
   }
 }
@@ -136,5 +136,5 @@ test "ReactiveParser: SyntaxNode Eq holds after round-trip source change" {
   let t3 = db.term()
   // t1 and t3 are separately computed but from the same source:
   // same token sequence → same interned CstNode → SyntaxNode::Eq returns true
-  assert_eq(t1 == t3, true)
+  inspect(t1 == t3, content="true")
 }

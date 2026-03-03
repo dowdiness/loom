@@ -113,7 +113,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
                 +------ SyntaxNode-First Layer          ✅ COMPLETE (2026-02-25)
                 |           Phase 1: SyntaxNode API
                 |           Phase 2: .cst private
-                |           Phase 3: Typed views        ← PLANNED
+                |           Phase 3: Typed views        ✅ COMPLETE (2026-03-03)
                 |
                 +------ Phase 7: Reactive Pipeline      ✅ COMPLETE (2026-02-25)
                 |
