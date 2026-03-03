@@ -1,3 +1,14 @@
+// term_convert.mbt — SyntaxNode → Term conversion (view-based, no AstNode).
+//
+// Primary API (view-based, no AstNode allocation):
+//   syntax_node_to_term  — the intended public entry point
+//   view_to_term         — recursive helper
+//
+// Legacy (AstNode-based): the functions below (convert_syntax_node,
+// cst_to_ast_node, etc.) are retained for backward compatibility with
+// parse_tree, parse_with_error_recovery and their tests. They will be
+// deleted once those callers are migrated to the view-based path.
+
 ///|
 /// Handle multiple children from SourceFile (main expression + error nodes).
 fn convert_source_file_children(
