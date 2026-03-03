@@ -5,6 +5,7 @@
   "deps": {
     "dowdiness/loom": { "path": "../../loom" },
     "dowdiness/seam": { "path": "../../seam" },
+    "dowdiness/event-graph-walker": { "path": "../../../event-graph-walker" },
     "moonbitlang/quickcheck": "0.9.10"
   },
   "readme": "README.md",

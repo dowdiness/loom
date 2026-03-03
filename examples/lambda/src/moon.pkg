@@ -13,4 +13,5 @@ import {
 
 import {
   "moonbitlang/core/quickcheck",
+  "dowdiness/event-graph-walker/text" @egw,
 } for "test"
