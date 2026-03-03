@@ -51,5 +51,7 @@ pub using @core {type TextDelta}
 
 pub using @core {type TokenInfo}
 
+pub using @core {trait AstView}
+
 // Traits
 

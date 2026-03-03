@@ -6,10 +6,15 @@
 pub let lambda_grammar : @loom.Grammar[
   @token.Token,
   @syntax.SyntaxKind,
-  @ast.AstNode,
+  @seam.SyntaxNode,
 ] = @loom.Grammar::new(
   spec=lambda_spec,
   tokenize=@lexer.tokenize,
-  to_ast=fn(s) { syntax_node_to_ast_node(s, Ref::new(0)) },
-  on_lex_error=fn(msg) { @ast.AstNode::error(msg, 0, 0) },
+  // Identity: the SyntaxNode IS the Ast. Callers use typed views to navigate.
+  to_ast=fn(s) { s },
+  // On lex error: create a minimal error SyntaxNode.
+  on_lex_error=fn(_msg) {
+    let cst = @seam.CstNode::new(@syntax.ErrorNode.to_raw(), [])
+    @seam.SyntaxNode::from_cst(cst)
+  },
 )

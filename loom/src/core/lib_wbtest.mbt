@@ -1,3 +1,21 @@
+///|
+struct FooView {
+  node : @seam.SyntaxNode
+}
+
+///|
+impl AstView for FooView with syntax_node(self) {
+  self.node
+}
+
+///|
+test "AstView: a concrete impl exposes its SyntaxNode" {
+  let cst = @seam.CstNode::new(@seam.RawKind(0), [])
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let v : FooView = { node: syn }
+  inspect(v.syntax_node() == syn, content="true")
+}
+
 // Integration test: minimal two-token language (integers and '+')
 // Kept in _wbtest.mbt so test types don't appear in pkg.generated.mbti.
 

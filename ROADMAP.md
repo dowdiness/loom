@@ -1,7 +1,7 @@
 # Roadmap: dowdiness/loom — Incremental Parser Framework
 
 **Updated:** 2026-03-03
-**Status:** Active — framework stable; next: Typed SyntaxNode views
+**Status:** Active — framework stable; Typed SyntaxNode views complete
 **Goal:** A reusable, language-agnostic incremental parser framework for MoonBit. Any grammar plugs in via `LanguageSpec[T,K]` and gets green tree (CST), error recovery, subtree reuse, and a reactive pipeline for free.
 
 > Lambda calculus example roadmap: [examples/lambda/ROADMAP.md](examples/lambda/ROADMAP.md)
@@ -89,16 +89,7 @@
 - **Loom Extraction** ✅ (2026-03-01) — `core/incremental/pipeline/viz` → `dowdiness/loom` sibling module — [notes](docs/archive/completed-phases/2026-03-01-examples-folder.md)
 - **Rabbita Monorepo Migration** ✅ (2026-03-02) — submodules absorbed, lambda → `examples/lambda/` — [notes](docs/archive/completed-phases/2026-03-02-rabbita-style-monorepo.md)
 - **Parser API Simplification** ✅ (2026-03-02) — `ImperativeParser`/`ReactiveParser`, global interners, `diagnostics()`/`reset()`, CST equality skip — [notes](docs/archive/completed-phases/2026-03-02-parser-api-impl.md)
-
----
-
-## Planned
-
-### Typed SyntaxNode Views
-
-**Status:** Planned (Phase 3 of SyntaxNode-First Layer)
-
-Typed wrappers — `LambdaExpr(SyntaxNode)`, `AppExpr(SyntaxNode)` — so callers get structured tree access without matching raw `SyntaxKind` enums. `AstNode` becomes JSON-serialization-only. Implementation lives in `examples/lambda/` as the reference; the framework provides the `SyntaxNode` API surface.
+- **Typed SyntaxNode Views** ✅ (2026-03-03) — rust-analyzer-style typed wrappers (`LambdaExprView`, `AppExprView`, …) replacing `AstNode`; `syntax_node_to_term` via views; `SyntaxNode::Eq`/`ToJson`; `AstView` trait in loom/core — [design](docs/archive/completed-phases/2026-03-03-typed-syntax-node-views-design.md) · [impl](docs/archive/completed-phases/2026-03-03-typed-syntax-node-views.md)
 
 ---
 
@@ -122,7 +113,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
                 +------ SyntaxNode-First Layer          ✅ COMPLETE (2026-02-25)
                 |           Phase 1: SyntaxNode API
                 |           Phase 2: .cst private
-                |           Phase 3: Typed views        ← PLANNED
+                |           Phase 3: Typed views        ✅ COMPLETE (2026-03-03)
                 |
                 +------ Phase 7: Reactive Pipeline      ✅ COMPLETE (2026-02-25)
                 |
@@ -135,6 +126,8 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
                 +------ Rabbita Monorepo Migration      ✅ COMPLETE (2026-03-02)
                 |
                 +------ Parser API Simplification       ✅ COMPLETE (2026-03-02)
+                |
+                +------ Typed SyntaxNode Views          ✅ COMPLETE (2026-03-03)
 ```
 
 ---
@@ -156,7 +149,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 | Infrastructure Extraction (dowdiness/loom) | ✅ Complete (2026-03-01) |
 | Rabbita Monorepo Migration | ✅ Complete (2026-03-02) |
 | Parser API Simplification | ✅ Complete (2026-03-02) |
-| Typed SyntaxNode Views | Future — Confidence: High |
+| Typed SyntaxNode Views | ✅ Complete (2026-03-03) |
 
 ---
 

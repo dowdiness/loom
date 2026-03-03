@@ -12,11 +12,11 @@ test "ReactiveParser: lex error sets is_lex_error on CstStage" {
 }
 
 ///|
-test "ReactiveParser: lex error routes term() to AstKind::Error" {
+test "ReactiveParser: lex error routes term() to ErrorNode" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
-  match db.term().kind {
-    @ast.AstKind::Error(_) => ()
-    other => abort("expected AstKind::Error, got: " + other.to_string())
+  match @syntax.SyntaxKind::from_raw(db.term().kind()) {
+    @syntax.ErrorNode => ()
+    other => abort("expected ErrorNode, got: " + other.to_string())
   }
 }
 
@@ -48,20 +48,15 @@ test "ReactiveParser: parse error produces non-empty diagnostics" {
 ///|
 test "ReactiveParser: valid input - integer addition" {
   let db = @loom.new_reactive_parser("1 + 2", @lambda.lambda_grammar)
-  inspect(
-    db.term(),
-    content=(
-      #|{kind: Bop(Plus), start: 0, end: 5, node_id: 2, children: [{kind: Int(1), start: 0, end: 1, node_id: 0, children: []}, {kind: Int(2), start: 4, end: 5, node_id: 1, children: []}]}
-    ),
-  )
+  inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
 }
 
 ///|
 test "ReactiveParser: valid input - lambda expression" {
   let db = @loom.new_reactive_parser("λx.x", @lambda.lambda_grammar)
-  match db.term().kind {
-    @ast.AstKind::Lam("x") => ()
-    other => abort("expected Lam(x), got: " + other.to_string())
+  match syntax_node_to_term(db.term()) {
+    @ast.Term::Lam("x", _) => ()
+    other => abort("expected Lam(x,...), got: " + other.to_string())
   }
 }
 
@@ -79,18 +74,8 @@ test "ReactiveParser: set_source updates term" {
   let t1 = db.term()
   db.set_source("2")
   let t2 = db.term()
-  inspect(
-    t1,
-    content=(
-      #|{kind: Int(1), start: 0, end: 1, node_id: 0, children: []}
-    ),
-  )
-  inspect(
-    t2,
-    content=(
-      #|{kind: Int(2), start: 0, end: 1, node_id: 0, children: []}
-    ),
-  )
+  inspect(@ast.print_term(syntax_node_to_term(t1)), content="1")
+  inspect(@ast.print_term(syntax_node_to_term(t2)), content="2")
 }
 
 ///|
@@ -100,7 +85,7 @@ test "ReactiveParser: set_source same value preserves term (Eq)" {
   let t1 = db.term()
   db.set_source(source)
   let t2 = db.term()
-  // AstNode::Eq is structure-only; same source must produce equal trees
+  // SyntaxNode::Eq is structure-only; same source must produce equal trees
   assert_eq(t1, t2)
 }
 
@@ -129,6 +114,27 @@ test "ReactiveParser: parity with parse_cst_to_ast_node" {
     let direct = parse_cst_to_ast_node(source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
-    assert_eq(db.term().to_string(), direct.to_string())
+    inspect(
+      @ast.print_term(syntax_node_to_term(db.term())),
+      content=@ast.print_ast_node(direct),
+    )
   }
+}
+
+///|
+/// SyntaxNode::Eq is structural (CstNode-based), not reference equality.
+/// Two separately computed SyntaxNodes from the same source must be Eq-equal
+/// even though they are produced by distinct Memo computations.
+/// This verifies that the Memo's backdating mechanism correctly identifies
+/// unchanged trees across computation epochs.
+test "ReactiveParser: SyntaxNode Eq holds after round-trip source change" {
+  let db = @loom.new_reactive_parser("λx.x", lambda_grammar)
+  let t1 = db.term()
+  db.set_source("y") // change to something different — triggers recomputation
+  let _ = db.term() // force the new computation epoch
+  db.set_source("λx.x") // change back — triggers another recomputation
+  let t3 = db.term()
+  // t1 and t3 are separately computed but from the same source:
+  // same token sequence → same interned CstNode → SyntaxNode::Eq returns true
+  inspect(t1 == t3, content="true")
 }

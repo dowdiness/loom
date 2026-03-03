@@ -35,3 +35,7 @@ pub using @pipeline {type ReactiveParser}
 
 // Grammar and factory functions (new_imperative_parser, new_reactive_parser)
 // are defined in grammar.mbt and factories.mbt in this package.
+
+///|
+// AstView trait — implement for every typed view type in your language package.
+pub using @core {trait AstView}
