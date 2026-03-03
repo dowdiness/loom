@@ -242,6 +242,42 @@ test "SyntaxNode::cst_node returns underlying CstNode" {
 }
 
 ///|
+test "nth_child: returns None on empty node" {
+  let cst = CstNode::new(RawKind(0), [])
+  let syn = SyntaxNode::from_cst(cst)
+  inspect(syn.nth_child(0) is None, content="true")
+}
+
+///|
+test "nth_child: returns first interior child" {
+  let leaf = CstElement::Node(CstNode::new(RawKind(1), []))
+  let root = CstNode::new(RawKind(0), [leaf])
+  let syn = SyntaxNode::from_cst(root)
+  inspect(syn.nth_child(0) is Some(_), content="true")
+}
+
+///|
+test "nth_child: skips token children" {
+  let tok = CstElement::Token(CstToken::new(RawKind(99), "x"))
+  let inner = CstElement::Node(CstNode::new(RawKind(1), []))
+  let root = CstNode::new(RawKind(0), [tok, inner])
+  let syn = SyntaxNode::from_cst(root)
+  // nth_child(0) skips the token, returns the node
+  inspect(syn.nth_child(0) is Some(_), content="true")
+  // nth_child(1) is None — only one inner node
+  inspect(syn.nth_child(1) is None, content="true")
+}
+
+///|
+test "child_of_kind: finds matching child" {
+  let inner = CstElement::Node(CstNode::new(RawKind(7), []))
+  let root = CstNode::new(RawKind(0), [inner])
+  let syn = SyntaxNode::from_cst(root)
+  inspect(syn.child_of_kind(RawKind(7)) is Some(_), content="true")
+  inspect(syn.child_of_kind(RawKind(99)) is None, content="true")
+}
+
+///|
 test "SyntaxNode::find_at drills into deepest child" {
   // Build: root[0,5) → child[0,3) → grandchild[0,2)
   let leaf_tok = CstToken::new(RawKind(9), "ab")

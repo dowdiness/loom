@@ -271,6 +271,48 @@ pub fn SyntaxNode::cst_node(self : SyntaxNode) -> CstNode {
 }
 
 ///|
+/// Return the nth interior-node child (0-indexed, skipping token children).
+/// Returns None if there are fewer than n+1 interior children.
+pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int) -> SyntaxNode? {
+  let mut count = 0
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Node(child_cst) => {
+        if count == n {
+          return Some(SyntaxNode::new(child_cst, Some(self), offset))
+        }
+        count = count + 1
+        offset = offset + child_cst.text_len
+      }
+      CstElement::Token(tok) => offset = offset + tok.text_len()
+    }
+  }
+  None
+}
+
+///|
+/// First interior-node child whose kind matches `kind`, or None.
+pub fn SyntaxNode::child_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+) -> SyntaxNode? {
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Node(child_cst) => {
+        if child_cst.kind == kind {
+          return Some(SyntaxNode::new(child_cst, Some(self), offset))
+        }
+        offset = offset + child_cst.text_len
+      }
+      CstElement::Token(tok) => offset = offset + tok.text_len()
+    }
+  }
+  None
+}
+
+///|
 /// Deepest descendant node whose span contains `offset`.
 ///
 /// Drills into the first child whose `[start, end)` covers `offset`,

@@ -117,6 +117,7 @@ pub struct SyntaxNode {
   // private fields
 }
 pub fn SyntaxNode::all_children(Self) -> Array[SyntaxElement]
+pub fn SyntaxNode::child_of_kind(Self, RawKind) -> Self?
 pub fn SyntaxNode::children(Self) -> Array[Self]
 pub fn SyntaxNode::cst_node(Self) -> CstNode
 pub fn SyntaxNode::end(Self) -> Int
@@ -125,6 +126,7 @@ pub fn SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?
 pub fn SyntaxNode::from_cst(CstNode) -> Self
 pub fn SyntaxNode::kind(Self) -> RawKind
 pub fn SyntaxNode::new(CstNode, Self?, Int) -> Self
+pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
 pub fn SyntaxNode::tokens(Self) -> Array[SyntaxToken]
