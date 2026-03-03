@@ -8,7 +8,7 @@ fn diff_nodes(
   old_pos : Int,
   result : Array[Edit],
 ) -> Unit {
-  // O(1) skip: same hash means structurally identical
+  // Hash fast-path: equal hashes almost certainly mean structurally identical
   if old.hash == new.hash {
     return
   }
@@ -38,13 +38,14 @@ fn diff_nodes(
 }
 
 ///|
-/// Compute the minimal set of Edit records describing what changed between
-/// two parse trees. Uses CstNode.hash as an O(1) skip so unchanged subtrees
-/// are detected without recursion.
+/// Compute Edit records describing what changed between two parse trees.
+/// Uses CstNode.hash as a fast-path heuristic: equal hashes skip the subtree
+/// (small collision risk; acceptable for CRDT merge verification).
 ///
-/// Positions are in the old document. An empty Array means both trees are
-/// structurally identical. The returned Edits can be fed directly back into
-/// ImperativeParser.edit() to re-sync the parser after a merge.
+/// Positions are in the old document coordinate space. An empty Array means
+/// both trees are structurally identical (verified up to hash collisions).
+/// Multiple edits require coordinate adjustment before sequential parser.edit()
+/// calls — use tree_diff primarily for convergence checks (assert empty diff).
 pub fn tree_diff(old : @seam.CstNode, new : @seam.CstNode) -> Array[Edit] {
   let result : Array[Edit] = []
   diff_nodes(old, new, 0, result)
