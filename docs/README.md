@@ -47,7 +47,8 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-03-crdt-exploration-design.md](plans/2026-03-03-crdt-exploration-design.md) — CRDT exploration: green tree diff + two-peer convergence test + event-graph-walker integration
+- [plans/2026-03-03-crdt-exploration-design.md](plans/2026-03-03-crdt-exploration-design.md) — CRDT exploration design
+- [plans/2026-03-03-crdt-exploration.md](plans/2026-03-03-crdt-exploration.md) — CRDT exploration implementation plan
 
 ## Examples
 
