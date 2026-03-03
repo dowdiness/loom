@@ -75,6 +75,36 @@ test "AppExprView::cast returns Some for application" {
 }
 
 ///|
+/// AppExprView::args returns all arguments for chained application `f x y z`.
+/// The grammar produces a flat AppExpr with N node-children; args() must
+/// expose all of them, not just the first.
+test "AppExprView::args returns all args for chained application" {
+  let (cst, _) = parse_cst_recover("f x y z") catch { _ => abort("lex error") }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let view = match AppExprView::cast(syn.children()[0]) {
+    Some(v) => v
+    None => abort("expected AppExpr")
+  }
+  // 3 args: x, y, z
+  inspect(view.args().length(), content="3")
+}
+
+///|
+/// BinaryExprView::operands and ops return the full flat sequence for `a + b - c`.
+test "BinaryExprView::operands and ops return full flat sequence" {
+  let (cst, _) = parse_cst_recover("a + b - c") catch {
+    _ => abort("lex error")
+  }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let view = match BinaryExprView::cast(syn.children()[0]) {
+    Some(v) => v
+    None => abort("expected BinaryExpr")
+  }
+  inspect(view.operands().length(), content="3")
+  inspect(view.ops().length(), content="2")
+}
+
+///|
 test "LetExprView::name returns binding name" {
   let (cst, _) = parse_cst_recover("let x = 1 in x") catch {
     _ => abort("lex error")

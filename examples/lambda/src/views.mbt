@@ -92,9 +92,23 @@ pub fn AppExprView::func(self : AppExprView) -> @seam.SyntaxNode? {
 }
 
 ///|
-/// The argument (second interior-node child).
+/// The first argument (second interior-node child). Covers the common n=2 case.
+/// For chains like `f x y z`, use `args()` to access all arguments.
 pub fn AppExprView::arg(self : AppExprView) -> @seam.SyntaxNode? {
   self.node.nth_child(1)
+}
+
+///|
+/// All argument nodes (children[1..]).
+/// The grammar produces flat n-ary AppExpr nodes for chains like `f x y z`.
+/// Use this method to access all arguments; `func()` gives the callee.
+pub fn AppExprView::args(self : AppExprView) -> Array[@seam.SyntaxNode] {
+  let children = self.node.children()
+  let result : Array[@seam.SyntaxNode] = []
+  for i = 1; i < children.length(); i = i + 1 {
+    result.push(children[i])
+  }
+  result
 }
 
 ///|
@@ -103,16 +117,12 @@ pub impl ToJson for AppExprView with to_json(self) -> Json {
     Some(n) => n.to_json()
     None => Json::null()
   }
-  let arg_json : Json = match self.arg() {
-    Some(n) => n.to_json()
-    None => Json::null()
-  }
   {
     "kind": "AppExpr",
     "start": (self.node.start() : Int),
     "end": (self.node.end() : Int),
     "func": func_json,
-    "arg": arg_json,
+    "args": self.args().map(fn(n) { n.to_json() }),
   }
 }
 
@@ -138,17 +148,29 @@ pub impl @core.AstView for BinaryExprView with syntax_node(self) {
 }
 
 ///|
+/// First operand (leftmost, nth_child(0)).
 pub fn BinaryExprView::lhs(self : BinaryExprView) -> @seam.SyntaxNode? {
   self.node.nth_child(0)
 }
 
 ///|
+/// Second operand (nth_child(1)). For chains like `1 + 2 + 3` the CST is
+/// flat (3 operand children); use `operands()` to access all of them.
 pub fn BinaryExprView::rhs(self : BinaryExprView) -> @seam.SyntaxNode? {
   self.node.nth_child(1)
 }
 
 ///|
-/// The operator kind: Plus or Minus, from the first operator token found.
+/// All operand nodes in source order. For `1 + 2 + 3` this returns [1, 2, 3].
+pub fn BinaryExprView::operands(
+  self : BinaryExprView,
+) -> Array[@seam.SyntaxNode] {
+  self.node.children()
+}
+
+///|
+/// The first operator token kind (Plus or Minus).
+/// For the full operator sequence use `ops()`.
 pub fn BinaryExprView::op(self : BinaryExprView) -> @ast.Bop? {
   for elem in self.node.all_children() {
     match elem {
@@ -165,27 +187,39 @@ pub fn BinaryExprView::op(self : BinaryExprView) -> @ast.Bop? {
 }
 
 ///|
+/// All operator kinds in source order. For `1 + 2 - 3` returns [Plus, Minus].
+pub fn BinaryExprView::ops(self : BinaryExprView) -> Array[@ast.Bop] {
+  let result : Array[@ast.Bop] = []
+  for elem in self.node.all_children() {
+    match elem {
+      @seam.SyntaxElement::Token(t) =>
+        if t.kind() == @syntax.PlusToken.to_raw() {
+          result.push(@ast.Bop::Plus)
+        } else if t.kind() == @syntax.MinusToken.to_raw() {
+          result.push(@ast.Bop::Minus)
+        }
+      _ => ()
+    }
+  }
+  result
+}
+
+///|
 pub impl ToJson for BinaryExprView with to_json(self) -> Json {
-  let op_str : String = match self.op() {
-    Some(@ast.Bop::Plus) => "+"
-    Some(@ast.Bop::Minus) => "-"
-    None => "?"
-  }
-  let lhs_json : Json = match self.lhs() {
-    Some(n) => n.to_json()
-    None => Json::null()
-  }
-  let rhs_json : Json = match self.rhs() {
-    Some(n) => n.to_json()
-    None => Json::null()
-  }
+  let ops_json : Array[Json] = self
+    .ops()
+    .map(fn(op) {
+      match op {
+        @ast.Bop::Plus => ("+" : Json)
+        @ast.Bop::Minus => ("-" : Json)
+      }
+    })
   {
     "kind": "BinaryExpr",
-    "op": op_str,
     "start": (self.node.start() : Int),
     "end": (self.node.end() : Int),
-    "lhs": lhs_json,
-    "rhs": rhs_json,
+    "operands": self.operands().map(fn(n) { n.to_json() }),
+    "ops": ops_json,
   }
 }
 
