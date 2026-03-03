@@ -1,7 +1,7 @@
 # Design: Typed SyntaxNode Views
 
 **Date:** 2026-03-03
-**Status:** Approved — ready for implementation planning
+**Status:** Complete
 **Author:** collaborative design session
 
 ---

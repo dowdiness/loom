@@ -19,7 +19,7 @@
 | `let x = e in body` bindings | ✅ Complete (2026-02-28) |
 | Type annotations | Planned |
 | Multi-expression files | Planned |
-| Typed SyntaxNode views | Planned |
+| Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT integration | Research |
 
 ---
@@ -56,11 +56,11 @@ let const = λx. λy. x
 
 ---
 
-## Typed SyntaxNode Views
+## Typed SyntaxNode Views ✅ Complete (2026-03-03)
 
-**Status:** Planned (Phase 3 of SyntaxNode-First Layer)
+**Status:** Complete — [design](../../docs/archive/completed-phases/2026-03-03-typed-syntax-node-views-design.md) · [impl](../../docs/archive/completed-phases/2026-03-03-typed-syntax-node-views.md)
 
-Typed wrappers over `SyntaxNode` — `LambdaExpr(SyntaxNode)`, `AppExpr(SyntaxNode)`, `LetExpr(SyntaxNode)` — so callers get structured tree access without pattern-matching raw `SyntaxKind` enums. `AstNode` becomes JSON-serialization-only.
+Typed wrappers over `SyntaxNode` — `LambdaExprView`, `AppExprView`, `LetExprView`, etc. — give callers structured tree access without pattern-matching raw `SyntaxKind` enums. `syntax_node_to_term` replaces the old `AstNode`-based path. The `AstView` trait is exported from `loom/core` for other grammars to follow the same pattern.
 
 ---
 
@@ -106,5 +106,5 @@ Verified via `imperative_differential_fuzz_test.mbt` — random source + random 
 | `let` bindings | ✅ Complete (2026-02-28) |
 | Type annotations | Future — Confidence: High |
 | Multi-expression files | Future — Confidence: High |
-| Typed SyntaxNode views | Future — Confidence: High |
+| Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT exploration | Future — Confidence: Low-Medium (research) |
