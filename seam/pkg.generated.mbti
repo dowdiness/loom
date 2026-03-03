@@ -131,7 +131,9 @@ pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
 pub fn SyntaxNode::tokens(Self) -> Array[SyntaxToken]
 pub fn SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
+pub impl Eq for SyntaxNode
 pub impl Show for SyntaxNode
+pub impl ToJson for SyntaxNode
 pub impl @debug.Debug for SyntaxNode
 
 pub struct SyntaxToken {

@@ -271,6 +271,51 @@ pub fn SyntaxNode::cst_node(self : SyntaxNode) -> CstNode {
 }
 
 ///|
+/// Structure-only equality: two SyntaxNodes are equal iff their underlying
+/// CstNodes are equal. Offset and parent are intentionally excluded so that
+/// Memo[SyntaxNode] correctly skips recomputation when only positions shift
+/// (e.g. after inserting a leading space) but the tree structure is unchanged.
+pub impl Eq for SyntaxNode with equal(self, other : SyntaxNode) -> Bool {
+  self.cst == other.cst
+}
+
+///|
+/// Generic JSON serialization of a SyntaxNode.
+/// Produces: { "kind": <raw int>, "start": <int>, "end": <int>, "children": [...] }
+/// Tokens appear as: { "kind": <raw int>, "text": <string>, "start": <int>, "end": <int> }
+/// For typed semantic JSON, use the view types in your language package instead.
+pub impl ToJson for SyntaxNode with to_json(self) -> Json {
+  let RawKind(k) = self.cst.kind
+  let children_json : Array[Json] = []
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Token(tok) => {
+        let RawKind(tk) = tok.kind
+        children_json.push({
+          "kind": (tk : Int),
+          "text": tok.text,
+          "start": (offset : Int),
+          "end": offset + tok.text_len(),
+        })
+        offset = offset + tok.text_len()
+      }
+      CstElement::Node(child_cst) => {
+        let child_syn = SyntaxNode::new(child_cst, Some(self), offset)
+        children_json.push(child_syn.to_json())
+        offset = offset + child_cst.text_len
+      }
+    }
+  }
+  {
+    "kind": (k : Int),
+    "start": (self.offset : Int),
+    "end": (self.end() : Int),
+    "children": children_json,
+  }
+}
+
+///|
 /// Return the nth interior-node child (0-indexed, skipping token children).
 /// Returns None if there are fewer than n+1 interior children.
 pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int) -> SyntaxNode? {
