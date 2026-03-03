@@ -87,3 +87,60 @@ test "to_edits: insert then delete — no merge, positions adjusted" {
   inspect(result[1].old_len, content="2")
   inspect(result[1].new_len, content="0")
 }
+
+///|
+test "text_to_delta: identical strings — Retain only" {
+  let result = text_to_delta("abc", "abc")
+  // Retain(3), no delete/insert
+  inspect(result.length(), content="1")
+  match result[0] {
+    TextDelta::Retain(3) => ()
+    other => abort("expected Retain(3), got: " + other.to_string())
+  }
+}
+
+///|
+test "text_to_delta: pure insert in middle" {
+  // "abc" → "abXc": insert "X" at position 2
+  let result = text_to_delta("abc", "abXc")
+  inspect(result.length(), content="2")
+  inspect(result[0], content="Retain(2)")
+  inspect(result[1], content="Insert(\"X\")")
+}
+
+///|
+test "text_to_delta: pure delete in middle" {
+  // "abXc" → "abc": delete "X" at position 2
+  let result = text_to_delta("abXc", "abc")
+  inspect(result.length(), content="2")
+  inspect(result[0], content="Retain(2)")
+  inspect(result[1], content="Delete(1)")
+}
+
+///|
+test "text_to_delta: replace middle" {
+  // "hello" → "world": nothing in common
+  let result = text_to_delta("hello", "world")
+  inspect(result.length(), content="2")
+  inspect(result[0], content="Delete(5)")
+  inspect(result[1], content="Insert(\"world\")")
+}
+
+///|
+test "text_to_delta: insert at start" {
+  // "" → "hi": pure insert
+  let result = text_to_delta("", "hi")
+  inspect(result.length(), content="1")
+  inspect(result[0], content="Insert(\"hi\")")
+}
+
+///|
+test "text_to_delta: round-trip with to_edits" {
+  // text_to_delta → to_edits should produce one Edit for a simple replacement
+  let delta = text_to_delta("λx. x", "λx. x + 1")
+  let edits = to_edits(delta)
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="5")
+  inspect(edits[0].old_len, content="0")
+  inspect(edits[0].new_len, content="4")
+}

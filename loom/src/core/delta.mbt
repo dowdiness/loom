@@ -60,3 +60,46 @@ pub fn to_edits(deltas : Array[TextDelta]) -> Array[Edit] {
   }
   result
 }
+
+///|
+/// Convert a (old, new) string pair into a minimal TextDelta sequence.
+///
+/// Finds the longest common prefix and suffix, then emits:
+///   [Retain(prefix), Delete(old_mid_len), Insert(new_mid)]
+///
+/// Handles any single contiguous change (the common CRDT case after merge).
+/// For identical strings, returns [Retain(n)] — to_edits converts this to [].
+pub fn text_to_delta(old : String, new : String) -> Array[TextDelta] {
+  let old_len = old.length()
+  let new_len = new.length()
+  // Find common prefix length
+  let mut prefix = 0
+  while prefix < old_len && prefix < new_len && old[prefix] == new[prefix] {
+    prefix += 1
+  }
+  // Find common suffix length (don't overlap with prefix region)
+  let mut suffix = 0
+  while suffix < old_len - prefix &&
+        suffix < new_len - prefix &&
+        old[old_len - 1 - suffix] == new[new_len - 1 - suffix] {
+    suffix += 1
+  }
+  let old_mid_len = old_len - prefix - suffix
+  // Indices are always valid by construction; try? guards against edge cases
+  let new_mid = try new[prefix:new_len - suffix] catch {
+    _ => ""
+  } noraise {
+    view => view.to_string()
+  }
+  let result : Array[TextDelta] = []
+  if prefix > 0 {
+    result.push(TextDelta::Retain(prefix))
+  }
+  if old_mid_len > 0 {
+    result.push(TextDelta::Delete(old_mid_len))
+  }
+  if new_mid.length() > 0 {
+    result.push(TextDelta::Insert(new_mid))
+  }
+  result
+}
