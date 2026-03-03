@@ -131,7 +131,7 @@ test "ReactiveParser: SyntaxNode Eq holds after round-trip source change" {
   let db = @loom.new_reactive_parser("λx.x", lambda_grammar)
   let t1 = db.term()
   db.set_source("y") // change to something different — triggers recomputation
-  let _ = db.term()  // force the new computation epoch
+  let _ = db.term() // force the new computation epoch
   db.set_source("λx.x") // change back — triggers another recomputation
   let t3 = db.term()
   // t1 and t3 are separately computed but from the same source:
