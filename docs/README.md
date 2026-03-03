@@ -35,7 +35,9 @@ Understanding how the layers fit together:
 
 - [performance/PERFORMANCE_ANALYSIS.md](performance/PERFORMANCE_ANALYSIS.md) — benchmarks and analysis
 - [performance/benchmark_history.md](performance/benchmark_history.md) — historical benchmark log
+- [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
+- [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 
 ## Architecture Decisions (ADRs)
 

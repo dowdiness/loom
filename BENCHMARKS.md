@@ -7,14 +7,34 @@ Performance benchmarks for the incremental parser implementation.
 ## Running Benchmarks
 
 ```bash
-# Run all parser benchmarks (recommended)
-moon bench --package parser --release
+# Run all parser benchmarks (recommended, from repo root)
+(cd examples/lambda && moon bench --release)
 
-# Run all tests (non-benchmark tests only)
+# Run all tests (non-benchmark tests only, from repo root)
 moon test --package parser
 ```
 
 **Note:** Use `moon bench` to run performance benchmarks. The `moon test` command runs functional tests only.
+
+## Regression Guard
+
+`bench-check.sh` compares a live benchmark run against a saved baseline and fails (exit 1) if any benchmark regresses more than 15%.
+
+```bash
+# Check for regressions (from repo root)
+bash bench-check.sh
+
+# Accept new performance as the baseline
+bash bench-check.sh --update
+```
+
+The baseline is stored in `docs/performance/bench-baseline.tsv` (tab-separated: `name\tmean_ns`). Commit it after running `--update` so the CI boundary moves forward intentionally:
+
+```bash
+bash bench-check.sh --update
+git add docs/performance/bench-baseline.tsv
+git commit -m "perf: update bench baseline"
+```
 
 ## Benchmark Categories
 
