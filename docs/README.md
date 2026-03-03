@@ -45,6 +45,10 @@ Understanding how the layers fit together:
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 
+## Active Plans
+
+- [plans/2026-03-03-crdt-exploration-design.md](plans/2026-03-03-crdt-exploration-design.md) — CRDT exploration: green tree diff + two-peer convergence test + event-graph-walker integration
+
 ## Examples
 
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
