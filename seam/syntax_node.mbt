@@ -52,7 +52,8 @@ pub(all) enum SyntaxElement {
 /// Result of a position query on a syntax tree.
 ///
 /// - `None`: no tokens cover the offset (empty tree or out-of-range offset).
-/// - `Single`: offset falls strictly inside one token's span.
+/// - `Single`: offset falls inside one token's span, or exactly matches a
+///   zero-width token (`start == end == offset`).
 /// - `Between`: offset sits exactly on the boundary between two adjacent tokens
 ///   (`left.end() == offset == right.start()`). The IDE caller should prefer
 ///   the right token for most completion/hover uses.
@@ -482,6 +483,8 @@ pub fn SyntaxNode::contains_errors(
 /// Find the token(s) at a byte offset.
 ///
 /// Returns `Single` when `offset` falls strictly inside a token's span.
+/// Also returns `Single` when `offset` exactly hits a zero-width token
+/// (`start == end == offset`), commonly used by parser error recovery.
 /// Returns `Between` when `offset` sits exactly on the boundary between two
 /// adjacent tokens (`left.end() == offset == right.start()`).
 /// Returns `None` when no token covers the offset.
@@ -507,6 +510,10 @@ pub fn SyntaxNode::token_at_offset(
       match elem {
         CstElement::Token(tok) => {
           let syn = SyntaxToken::new(tok, pos)
+          if syn.start() == offset && syn.end() == offset {
+            found = Some(Single(syn))
+            break
+          }
           if syn.start() < offset && offset < syn.end() {
             found = Some(Single(syn))
             break
