@@ -16,7 +16,41 @@ pub(all) enum Token {
   Integer(Int) // integer literals
   Whitespace // whitespace (spaces, tabs, newlines)
   EOF // end of input
-} derive(Show, Eq)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for Token with output(self, logger) {
+  logger.write_string(
+    match self {
+      Lambda => "λ"
+      Dot => "."
+      LeftParen => "("
+      RightParen => ")"
+      Plus => "+"
+      Minus => "-"
+      If => "if"
+      Then => "then"
+      Else => "else"
+      Let => "let"
+      In => "in"
+      Eq => "="
+      Identifier(name) => name
+      Integer(n) => n.to_string()
+      Whitespace => "whitespace"
+      EOF => "EOF"
+    },
+  )
+}
+
+///|
+pub impl @seam.IsTrivia for Token with is_trivia(self) {
+  self == Whitespace
+}
+
+///|
+pub impl @seam.IsEof for Token with is_eof(self) {
+  self == EOF
+}
 
 ///|
 pub using @core {type TokenInfo}
