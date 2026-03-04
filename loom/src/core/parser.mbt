@@ -57,7 +57,7 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 ///   error_kind      — the SyntaxKind for error tokens/nodes
 ///   root_kind       — the SyntaxKind for the root node (e.g. SourceFile)
 ///   eof_token       — the T value returned when past end of input
-///   K must implement ToRawKind — kind.to_raw() replaces the old kind_to_raw closure
+///   K must implement ToRawKind (enforced on functions that call k.to_raw())
 pub struct LanguageSpec[T, K] {
   token_is_eof : (T) -> Bool
   token_is_trivia : (T) -> Bool

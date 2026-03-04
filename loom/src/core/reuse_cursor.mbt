@@ -61,14 +61,13 @@ impl OffsetIndexed for Array[OldToken] with offset_at(self, i) {
 
 ///|
 /// Flatten non-trivia, non-error leaves from old tree into out array.
-fn[T, K : @seam.ToRawKind] collect_old_tokens(
+fn collect_old_tokens(
   node : @seam.CstNode,
   node_start : Int,
   out : Array[OldToken],
-  spec : LanguageSpec[T, K],
+  ws_raw : @seam.RawKind,
+  err_raw : @seam.RawKind,
 ) -> Unit {
-  let ws_raw = spec.whitespace_kind.to_raw()
-  let err_raw = spec.error_kind.to_raw()
   let mut offset = node_start
   for child in node.children {
     match child {
@@ -79,7 +78,7 @@ fn[T, K : @seam.ToRawKind] collect_old_tokens(
         offset = offset + t.text_len()
       }
       @seam.CstElement::Node(n) => {
-        collect_old_tokens(n, offset, out, spec)
+        collect_old_tokens(n, offset, out, ws_raw, err_raw)
         offset = offset + n.text_len
       }
     }
@@ -102,7 +101,9 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     damage_end >= old_tree.text_len
   let old_tokens : Array[OldToken] = []
   if not(reuse_globally_disabled) {
-    collect_old_tokens(old_tree, 0, old_tokens, spec)
+    let ws_raw = spec.whitespace_kind.to_raw()
+    let err_raw = spec.error_kind.to_raw()
+    collect_old_tokens(old_tree, 0, old_tokens, ws_raw, err_raw)
   }
   let stack = [
     { node: old_tree, child_index: 0, start_offset: 0, current_child_offset: 0 },
@@ -250,14 +251,6 @@ fn[T, K] trailing_context_matches(
 }
 
 ///|
-fn element_width(elem : @seam.CstElement) -> Int {
-  match elem {
-    @seam.CstElement::Token(t) => t.text_len()
-    @seam.CstElement::Node(n) => n.text_len
-  }
-}
-
-///|
 /// Pop the top frame and advance the parent frame's child cursor past it.
 /// current_child_offset in the parent advances to the end of the popped frame.
 fn[T, K] ReuseCursor::pop_frame(self : ReuseCursor[T, K]) -> Unit {
@@ -308,7 +301,7 @@ fn[T, K] ReuseCursor::seek_node_at(
     // Search remaining children from where we left off
     while frame.child_index < node.children.length() {
       let child = node.children[frame.child_index]
-      let child_width = element_width(child)
+      let child_width = child.text_len()
       let child_end = child_offset + child_width
       if target_offset < child_offset {
         break
@@ -392,26 +385,6 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::try_reuse(
 }
 
 ///|
-/// True if a CST node subtree contains any error token or error node.
-/// Traverses recursively but typically called on small sibling subtrees.
-fn[T, K : @seam.ToRawKind] node_has_error(
-  node : @seam.CstNode,
-  spec : LanguageSpec[T, K],
-) -> Bool {
-  let err_raw = spec.error_kind.to_raw()
-  for child in node.children {
-    match child {
-      @seam.CstElement::Token(t) => if t.kind == err_raw { return true }
-      @seam.CstElement::Node(n) =>
-        if n.kind == err_raw || node_has_error(n, spec) {
-          return true
-        }
-    }
-  }
-  false
-}
-
-///|
 /// True if the sibling immediately following the most recently found node
 /// has any error content (error token or error node anywhere in its subtree).
 ///
@@ -439,8 +412,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(
   }
   let err_raw = self.spec.error_kind.to_raw()
   match frame.node.children[next_idx] {
-    @seam.CstElement::Node(n) =>
-      n.kind == err_raw || node_has_error(n, self.spec)
+    @seam.CstElement::Node(n) => n.has_errors(err_raw, err_raw)
     @seam.CstElement::Token(t) => t.kind == err_raw
   }
 }
