@@ -452,5 +452,5 @@ pub fn SyntaxNode::contains_errors(
   error_node_kind : RawKind,
   error_token_kind : RawKind,
 ) -> Bool {
-  self.cst_node().has_errors(error_node_kind, error_token_kind)
+  self.cst.has_errors(error_node_kind, error_token_kind)
 }
