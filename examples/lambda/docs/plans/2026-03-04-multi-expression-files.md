@@ -299,17 +299,10 @@ Append to `src/lambda_spec.mbt` after `lambda_spec`:
 /// LanguageSpec for source-file grammar (LetDef* Expression?).
 /// Identical to lambda_spec except parse_root = parse_source_file_root.
 let source_file_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
-  @syntax.SyntaxKind::to_raw,
-  fn(t) { t == @token.EOF },
-  fn(t) { t == @token.Whitespace },
-  fn(a, b) { a == b },
-  @token.print_token,
   @syntax.WhitespaceToken,
   @syntax.ErrorToken,
   @syntax.SourceFile,
   @token.EOF,
-  raw_is_trivia=fn(raw) { raw == @syntax.WhitespaceToken.to_raw() },
-  raw_is_error=fn(raw) { raw == @syntax.ErrorToken.to_raw() },
   cst_token_matches=(raw, text, tok) => {
     match @syntax.SyntaxKind::from_raw(raw) {
       IntToken => if tok is Integer(i) { text == i.to_string() } else { false }
