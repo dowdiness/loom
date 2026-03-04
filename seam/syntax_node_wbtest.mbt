@@ -491,3 +491,68 @@ test "SyntaxNode::find_at drills into deepest child" {
   // offset 4 is inside root only (past child [0,3))
   inspect(sn.find_at(4).kind() == RawKind(22), content="true")
 }
+
+///|
+test "SyntaxNode::token_at_offset: Single (offset inside token)" {
+  // token "hello" spans [0,5), query offset=2 → Single
+  let tok = CstToken::new(RawKind(9), "hello")
+  let cst = CstNode::new(RawKind(22), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  match root.token_at_offset(2) {
+    Single(t) => inspect(t.text(), content="hello")
+    _ => inspect("wrong", content="hello")
+  }
+}
+
+///|
+test "SyntaxNode::token_at_offset: Single (offset at start)" {
+  let tok = CstToken::new(RawKind(9), "hi")
+  let cst = CstNode::new(RawKind(22), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  // offset=0 is inside "hi"[0,2) → Single
+  match root.token_at_offset(0) {
+    Single(t) => inspect(t.text(), content="hi")
+    _ => inspect("wrong", content="hi")
+  }
+}
+
+///|
+test "SyntaxNode::token_at_offset: Between (offset at boundary)" {
+  // "ab"[0,2) then "cd"[2,4), query offset=2 → Between
+  let t1 = CstToken::new(RawKind(9), "ab")
+  let t2 = CstToken::new(RawKind(9), "cd")
+  let cst = CstNode::new(RawKind(22), [
+    CstElement::Token(t1),
+    CstElement::Token(t2),
+  ])
+  let root = SyntaxNode::from_cst(cst)
+  match root.token_at_offset(2) {
+    Between(l, r) => {
+      inspect(l.text(), content="ab")
+      inspect(r.text(), content="cd")
+    }
+    _ => inspect("wrong", content="ab")
+  }
+}
+
+///|
+test "SyntaxNode::token_at_offset: None (empty tree)" {
+  let cst = CstNode::new(RawKind(22), [])
+  let root = SyntaxNode::from_cst(cst)
+  match root.token_at_offset(0) {
+    TokenAtOffset::None => inspect("none", content="none")
+    _ => inspect("wrong", content="none")
+  }
+}
+
+///|
+test "SyntaxNode::token_at_offset: None (offset past end)" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let cst = CstNode::new(RawKind(22), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  // "x"[0,1), offset=5 → None
+  match root.token_at_offset(5) {
+    TokenAtOffset::None => inspect("none", content="none")
+    _ => inspect("wrong", content="none")
+  }
+}

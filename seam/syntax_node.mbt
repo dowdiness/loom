@@ -49,6 +49,20 @@ pub(all) enum SyntaxElement {
 } derive(Show, Debug)
 
 ///|
+/// Result of a position query on a syntax tree.
+///
+/// - `None`: no tokens cover the offset (empty tree or out-of-range offset).
+/// - `Single`: offset falls strictly inside one token's span.
+/// - `Between`: offset sits exactly on the boundary between two adjacent tokens
+///   (`left.end() == offset == right.start()`). The IDE caller should prefer
+///   the right token for most completion/hover uses.
+pub enum TokenAtOffset {
+  None
+  Single(SyntaxToken)
+  Between(SyntaxToken, SyntaxToken)
+} derive(Show, Debug)
+
+///|
 pub fn SyntaxElement::start(self : SyntaxElement) -> Int {
   match self {
     Node(n) => n.start()
@@ -462,4 +476,59 @@ pub fn SyntaxNode::contains_errors(
   error_token_kind : RawKind,
 ) -> Bool {
   self.cst.has_errors(error_node_kind, error_token_kind)
+}
+
+///|
+/// All leaf tokens in this subtree, depth-first left-to-right, with absolute offsets.
+fn SyntaxNode::tokens_dfs(self : SyntaxNode) -> Array[SyntaxToken] {
+  let result : Array[SyntaxToken] = []
+  fn collect(node : SyntaxNode) {
+    let mut pos = node.offset
+    for elem in node.cst.children {
+      match elem {
+        CstElement::Token(tok) => {
+          result.push(SyntaxToken::new(tok, pos))
+          pos = pos + tok.text_len()
+        }
+        CstElement::Node(child_cst) => {
+          collect(SyntaxNode::new(child_cst, None, pos))
+          pos = pos + child_cst.text_len
+        }
+      }
+    }
+  }
+  collect(self)
+  result
+}
+
+///|
+/// Find the token(s) at a byte offset.
+///
+/// Returns `Single` when `offset` falls strictly inside a token's span.
+/// Returns `Between` when `offset` sits exactly on the boundary between two
+/// adjacent tokens (`left.end() == offset == right.start()`).
+/// Returns `None` when no token covers the offset.
+pub fn SyntaxNode::token_at_offset(
+  self : SyntaxNode,
+  offset : Int,
+) -> TokenAtOffset {
+  let mut left : SyntaxToken? = None
+  let mut right : SyntaxToken? = None
+  for tok in self.tokens_dfs() {
+    if tok.start() < offset && offset < tok.end() {
+      return Single(tok)
+    }
+    if tok.end() == offset {
+      left = Some(tok)
+    }
+    if tok.start() == offset {
+      right = Some(tok)
+    }
+  }
+  match (left, right) {
+    (Some(l), Some(r)) => Between(l, r)
+    (Some(l), None) => Single(l) // cursor at end of last token
+    (None, Some(r)) => Single(r) // cursor at start of first token
+    _ => TokenAtOffset::None
+  }
 }
