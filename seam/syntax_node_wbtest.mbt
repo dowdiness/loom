@@ -381,7 +381,10 @@ test "SyntaxNode::parent: child returns Some(parent)" {
   let root_cst = CstNode::new(RawKind(1), [CstElement::Node(child_cst)])
   let root = SyntaxNode::from_cst(root_cst)
   let child = root.children()[0]
-  inspect(child.parent() is Some(_), content="true")
+  match child.parent() {
+    Some(p) => inspect(p == root, content="true")
+    None => inspect("no parent", content="Some(parent)")
+  }
 }
 
 ///|
