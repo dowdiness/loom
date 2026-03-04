@@ -54,7 +54,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 }
 
 ///|
-pub fn SyntaxKind::to_raw(self : SyntaxKind) -> @seam.RawKind {
+pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
   let n : Int = match self {
     LambdaToken => 0
     DotToken => 1
@@ -88,7 +88,7 @@ pub fn SyntaxKind::to_raw(self : SyntaxKind) -> @seam.RawKind {
 }
 
 ///|
-pub fn SyntaxKind::from_raw(raw : @seam.RawKind) -> SyntaxKind {
+pub impl @seam.FromRawKind for SyntaxKind with from_raw(raw) {
   let @seam.RawKind(n) = raw
   match n {
     0 => LambdaToken
@@ -120,4 +120,14 @@ pub fn SyntaxKind::from_raw(raw : @seam.RawKind) -> SyntaxKind {
     26 => LetExpr
     _ => ErrorNode
   }
+}
+
+///|
+pub impl @seam.IsTrivia for SyntaxKind with is_trivia(self) {
+  self == WhitespaceToken
+}
+
+///|
+pub impl @seam.IsError for SyntaxKind with is_error(self) {
+  self == ErrorToken
 }
