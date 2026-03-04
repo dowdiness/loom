@@ -9,9 +9,9 @@ import {
 }
 
 // Values
-pub fn[T, K, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
+pub fn[T, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T, K, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
+pub fn[T, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
 
 // Errors
 

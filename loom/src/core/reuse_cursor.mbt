@@ -1,8 +1,8 @@
 // Generic ReuseCursor[T, K] — walks an old CST in parallel with parsing
 // to find reusable subtrees. Genericized from src/parser/reuse_cursor.mbt.
 //
-// All language-specific checks are delegated to the LanguageSpec callbacks:
-//   raw_is_trivia / raw_is_error   — classify old-tree RawKind values
+// All language-specific checks are delegated to the LanguageSpec and K-traits:
+//   K.to_raw() / whitespace_kind / error_kind — classify old-tree RawKind values
 //   cst_token_matches            — match old leaf (RawKind + text) to new token T
 //   token_is_trivia / token_is_eof — classify new token stream values
 //
@@ -61,17 +61,19 @@ impl OffsetIndexed for Array[OldToken] with offset_at(self, i) {
 
 ///|
 /// Flatten non-trivia, non-error leaves from old tree into out array.
-fn[T, K] collect_old_tokens(
+fn[T, K : @seam.ToRawKind] collect_old_tokens(
   node : @seam.CstNode,
   node_start : Int,
   out : Array[OldToken],
   spec : LanguageSpec[T, K],
 ) -> Unit {
+  let ws_raw = spec.whitespace_kind.to_raw()
+  let err_raw = spec.error_kind.to_raw()
   let mut offset = node_start
   for child in node.children {
     match child {
       @seam.CstElement::Token(t) => {
-        if not((spec.raw_is_trivia)(t.kind)) && not((spec.raw_is_error)(t.kind)) {
+        if t.kind != ws_raw && t.kind != err_raw {
           out.push({ kind: t.kind, text: t.text, start: offset })
         }
         offset = offset + t.text_len()
@@ -87,7 +89,7 @@ fn[T, K] collect_old_tokens(
 ///|
 /// Create a new reuse cursor positioned at the start of the old tree.
 /// damage_start/damage_end are code-unit offsets (exclusive-end) of the edited region.
-pub fn[T, K] ReuseCursor::new(
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   old_tree : @seam.CstNode,
   damage_start : Int,
   damage_end : Int,
@@ -126,52 +128,6 @@ pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
 }
 
 ///|
-/// Return the first non-trivia token text from a CST node.
-fn[T, K] first_token_text(
-  node : @seam.CstNode,
-  spec : LanguageSpec[T, K],
-) -> String? {
-  for child in node.children {
-    match child {
-      @seam.CstElement::Token(t) =>
-        if not((spec.raw_is_trivia)(t.kind)) {
-          return Some(t.text)
-        }
-      @seam.CstElement::Node(n) => {
-        let result = first_token_text(n, spec)
-        if result is Some(_) {
-          return result
-        }
-      }
-    }
-  }
-  None
-}
-
-///|
-/// Return the first non-trivia token kind from a CST node.
-fn[T, K] first_token_kind(
-  node : @seam.CstNode,
-  spec : LanguageSpec[T, K],
-) -> @seam.RawKind? {
-  for child in node.children {
-    match child {
-      @seam.CstElement::Token(t) =>
-        if not((spec.raw_is_trivia)(t.kind)) {
-          return Some(t.kind)
-        }
-      @seam.CstElement::Node(n) => {
-        let result = first_token_kind(n, spec)
-        if result is Some(_) {
-          return result
-        }
-      }
-    }
-  }
-  None
-}
-
-///|
 /// True if the node's code-unit range is entirely outside the damage region.
 /// Left-adjacent (node_end == damage_start) is excluded: trailing context
 /// at the boundary may have changed. Right-adjacent (node_start == damage_end)
@@ -186,8 +142,32 @@ fn is_outside_damage(
 }
 
 ///|
+/// Find the first non-trivia (non-whitespace) token in a CST node, depth-first.
+/// Returns (kind, text) or None.
+fn first_nontrivia_token(
+  node : @seam.CstNode,
+  ws_raw : @seam.RawKind,
+) -> (@seam.RawKind, String)? {
+  for child in node.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        if t.kind != ws_raw {
+          return Some((t.kind, t.text))
+        }
+      @seam.CstElement::Node(n) => {
+        let result = first_nontrivia_token(n, ws_raw)
+        if result is Some(_) {
+          return result
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
 /// True if the first non-trivia leaf of node matches the new token at token_pos.
-fn[T, K] leading_token_matches(
+fn[T, K : @seam.ToRawKind] leading_token_matches(
   node : @seam.CstNode,
   cursor : ReuseCursor[T, K],
   token_pos : Int,
@@ -196,12 +176,11 @@ fn[T, K] leading_token_matches(
     return false
   }
   let expected_token = (cursor.get_token)(token_pos)
-  let node_first_kind = first_token_kind(node, cursor.spec)
-  let node_first_text = first_token_text(node, cursor.spec)
-  match (node_first_kind, node_first_text) {
-    (Some(kind), Some(text)) =>
+  let ws_raw = cursor.spec.whitespace_kind.to_raw()
+  match first_nontrivia_token(node, ws_raw) {
+    None => false
+    Some((kind, text)) =>
       (cursor.spec.cst_token_matches)(kind, text, expected_token)
-    _ => false
   }
 }
 
@@ -377,7 +356,7 @@ fn[T, K] ReuseCursor::seek_node_at(
 ///   4. Node is entirely outside the damage range
 ///   5. Leading token of node matches the new token at token_pos
 ///   6. Follow token after the node matches between old and new streams
-pub fn[T, K] ReuseCursor::try_reuse(
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::try_reuse(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
@@ -415,18 +394,16 @@ pub fn[T, K] ReuseCursor::try_reuse(
 ///|
 /// True if a CST node subtree contains any error token or error node.
 /// Traverses recursively but typically called on small sibling subtrees.
-fn[T, K] node_has_error(
+fn[T, K : @seam.ToRawKind] node_has_error(
   node : @seam.CstNode,
   spec : LanguageSpec[T, K],
 ) -> Bool {
+  let err_raw = spec.error_kind.to_raw()
   for child in node.children {
     match child {
-      @seam.CstElement::Token(t) =>
-        if (spec.raw_is_error)(t.kind) {
-          return true
-        }
+      @seam.CstElement::Token(t) => if t.kind == err_raw { return true }
       @seam.CstElement::Node(n) =>
-        if (spec.raw_is_error)(n.kind) || node_has_error(n, spec) {
+        if n.kind == err_raw || node_has_error(n, spec) {
           return true
         }
     }
@@ -449,7 +426,7 @@ fn[T, K] node_has_error(
 /// trivia node or similar separator sits between the found node and the
 /// error-bearing sibling, this returns false and the EOF exception fires.
 /// Acceptable for current grammars where error siblings are always adjacent.
-pub fn[T, K] ReuseCursor::next_sibling_has_error(
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(
   self : ReuseCursor[T, K],
 ) -> Bool {
   if self.stack.length() == 0 {
@@ -460,10 +437,11 @@ pub fn[T, K] ReuseCursor::next_sibling_has_error(
   if next_idx >= frame.node.children.length() {
     return false
   }
+  let err_raw = self.spec.error_kind.to_raw()
   match frame.node.children[next_idx] {
     @seam.CstElement::Node(n) =>
-      (self.spec.raw_is_error)(n.kind) || node_has_error(n, self.spec)
-    @seam.CstElement::Token(t) => (self.spec.raw_is_error)(t.kind)
+      n.kind == err_raw || node_has_error(n, self.spec)
+    @seam.CstElement::Token(t) => t.kind == err_raw
   }
 }
 

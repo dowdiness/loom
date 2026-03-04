@@ -35,7 +35,11 @@ fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
       @core.TextDelta::Insert(s) => buf.write_string(s)
     }
   }
-  let tail = try source[cursor:] catch { _ => "" } noraise { v => v.to_string() }
+  let tail = try source[cursor:] catch {
+    _ => ""
+  } noraise {
+    v => v.to_string()
+  }
   buf.write_string(tail)
   buf.to_string()
 }
@@ -55,7 +59,9 @@ fn apply_peer_delta(peer : Peer, delta : Array[@core.TextDelta]) -> Unit {
     } noraise {
       v => v.to_string()
     }
-    let prefix = try current[0:edit.start] catch { _ => "" } noraise {
+    let prefix = try current[0:edit.start] catch {
+      _ => ""
+    } noraise {
       v => v.to_string()
     }
     let suffix = try current[edit.start + edit.old_len:] catch {
@@ -96,10 +102,7 @@ test "two peers converge after two rounds of sync" {
   apply_peer_delta(peer_a, delta1)
   apply_peer_delta(peer_b, delta1)
   // Round 2: A extends, B gets it
-  let delta2 = [
-    @core.TextDelta::Retain(2),
-    @core.TextDelta::Insert(" + 1"),
-  ]
+  let delta2 = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer_a, delta2)
   apply_peer_delta(peer_b, delta2)
   // Both converge

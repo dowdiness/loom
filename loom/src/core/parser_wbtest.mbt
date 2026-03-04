@@ -23,19 +23,19 @@ test "Diagnostic stores message, position, and token" {
 }
 
 ///|
-fn make_test_fixtures() -> (LanguageSpec[String, Int], Array[TokenInfo[String]]) {
-  let spec : LanguageSpec[String, Int] = {
-    kind_to_raw: fn(k) { @seam.RawKind(k) },
+fn make_test_fixtures() -> (
+  LanguageSpec[String, TestKind],
+  Array[TokenInfo[String]],
+) {
+  let spec : LanguageSpec[String, TestKind] = {
     token_is_eof: fn(t) { t == "EOF" },
     token_is_trivia: fn(_) { false },
     tokens_equal: fn(a, b) { a == b },
     print_token: fn(t) { t },
-    whitespace_kind: 0,
-    error_kind: 1,
-    root_kind: 2,
+    whitespace_kind: KWs,
+    error_kind: KErr,
+    root_kind: KRoot,
     eof_token: "EOF",
-    raw_is_trivia: fn(_) { false },
-    raw_is_error: fn(_) { false },
     cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
   }
@@ -69,18 +69,15 @@ test "peek returns eof when past end" {
 
 ///|
 test "peek skips trivia tokens" {
-  let spec : LanguageSpec[String, Int] = {
-    kind_to_raw: fn(k) { @seam.RawKind(k) },
+  let spec : LanguageSpec[String, TestKind] = {
     token_is_eof: fn(t) { t == "EOF" },
     token_is_trivia: fn(t) { t == " " },
     tokens_equal: fn(a, b) { a == b },
     print_token: fn(t) { t },
-    whitespace_kind: 0,
-    error_kind: 1,
-    root_kind: 2,
+    whitespace_kind: KWs,
+    error_kind: KErr,
+    root_kind: KRoot,
     eof_token: "EOF",
-    raw_is_trivia: fn(_) { false },
-    raw_is_error: fn(_) { false },
     cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
   }
@@ -155,6 +152,11 @@ fn test_kind_raw(k : TestKind) -> @seam.RawKind {
 }
 
 ///|
+impl @seam.ToRawKind for TestKind with to_raw(self) {
+  test_kind_raw(self)
+}
+
+///|
 fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
   let result : Array[TokenInfo[TestTok]] = []
   let mut i = 0
@@ -195,7 +197,6 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
 
 ///|
 let test_spec : LanguageSpec[TestTok, TestKind] = {
-  kind_to_raw: test_kind_raw,
   token_is_eof: fn(t) { t == TestTok::TokEof },
   token_is_trivia: fn(t) { t == TestTok::Ws },
   tokens_equal: fn(a, b) { a == b },
@@ -204,8 +205,6 @@ let test_spec : LanguageSpec[TestTok, TestKind] = {
   error_kind: KErr,
   root_kind: KRoot,
   eof_token: TestTok::TokEof,
-  raw_is_trivia: fn(raw) { raw == test_kind_raw(KWs) },
-  raw_is_error: fn(raw) { raw == test_kind_raw(KErr) },
   cst_token_matches: fn(raw, text, tok) {
     if raw != test_kind_raw(KNum) {
       return false
@@ -434,12 +433,9 @@ test "new_follow_token: returns None past end of tokens" {
 }
 
 ///|
-test "LanguageSpec reuse callbacks are stored and callable" {
-  let ws_raw = test_kind_raw(KWs)
-  let err_raw = test_kind_raw(KErr)
+test "LanguageSpec cst_token_matches callback is stored and callable" {
   let num_raw = test_kind_raw(KNum)
   let spec = LanguageSpec::new(
-    test_kind_raw,
     fn(t) { t == TestTok::TokEof },
     fn(t) { t == TestTok::Ws },
     fn(a, b) { a == b },
@@ -448,8 +444,6 @@ test "LanguageSpec reuse callbacks are stored and callable" {
     KErr,
     KRoot,
     TestTok::TokEof,
-    raw_is_trivia=fn(raw) { raw == ws_raw },
-    raw_is_error=fn(raw) { raw == err_raw },
     cst_token_matches=fn(raw, text, tok) {
       if raw != num_raw {
         return false
@@ -460,10 +454,6 @@ test "LanguageSpec reuse callbacks are stored and callable" {
       }
     },
   )
-  inspect((spec.raw_is_trivia)(ws_raw), content="true")
-  inspect((spec.raw_is_trivia)(num_raw), content="false")
-  inspect((spec.raw_is_error)(err_raw), content="true")
-  inspect((spec.raw_is_error)(ws_raw), content="false")
   inspect(
     (spec.cst_token_matches)(num_raw, "42", TestTok::Num(42)),
     content="true",

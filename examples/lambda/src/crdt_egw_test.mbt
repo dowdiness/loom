@@ -28,7 +28,9 @@ fn drive_parser_update(
     } noraise {
       v => v.to_string()
     }
-    let prefix = try current[0:edit.start] catch { _ => "" } noraise {
+    let prefix = try current[0:edit.start] catch {
+      _ => ""
+    } noraise {
       v => v.to_string()
     }
     let suffix = try current[edit.start + edit.old_len:] catch {
@@ -57,11 +59,7 @@ fn EgwPeer::new(agent_id : String) -> EgwPeer {
 
 ///|
 /// Insert text into the local doc and drive the incremental parser.
-fn EgwPeer::local_insert(
-  self : EgwPeer,
-  pos : @egw.Pos,
-  text : String
-) -> Unit {
+fn EgwPeer::local_insert(self : EgwPeer, pos : @egw.Pos, text : String) -> Unit {
   let old_text = self.doc.text()
   try {
     let _ = self.doc.insert(pos, text)
@@ -77,7 +75,9 @@ fn EgwPeer::local_insert(
 fn EgwPeer::bridge_sync(self : EgwPeer, message : @egw.SyncMessage) -> Unit {
   let old_text = self.doc.text()
   let session = self.doc.sync()
-  try session.apply(message) catch { _ => return }
+  session.apply(message) catch {
+    _ => return
+  }
   drive_parser_update(self.parser, old_text, self.doc.text())
 }
 
@@ -88,11 +88,9 @@ test "egw two peers converge: same text and parse tree after sync" {
   let peer_b = EgwPeer::new("b")
   peer_a.local_insert(@egw.Pos::at(0), "42")
   // Export peer A's ops and sync to peer B.
-  let msg_a = try {
-    peer_a.doc.sync().export_all()
-  } catch {
-    _ => abort("export_all failed")
-  }
+  let msg_a = peer_a.doc.sync().export_all() catch {
+      _ => abort("export_all failed")
+    }
   peer_b.bridge_sync(msg_a)
   // Both peers now have the same text.
   inspect(peer_a.doc.text() == peer_b.doc.text(), content="true")
