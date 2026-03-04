@@ -55,48 +55,48 @@ pub fn[T] TokenBuffer::update(
     return self.tokens
   }
   let eof_index = old_len - 1
-  let mut left_index = find_left_index(old_tokens, edit.start)
-  let mut right_index = find_right_index(old_tokens, edit.old_end())
+  let mut left_tok_idx = find_left_index(old_tokens, edit.start)
+  let mut right_tok_idx = find_right_index(old_tokens, edit.old_end())
   // Conservative: expand left by one token to catch boundary edits.
-  if left_index > 0 {
-    left_index = left_index - 1
+  if left_tok_idx > 0 {
+    left_tok_idx = left_tok_idx - 1
   }
-  if left_index > right_index {
-    let tmp = right_index
-    right_index = left_index
-    left_index = tmp
+  // After expand-left, left_tok_idx <= right_tok_idx by construction.
+  // If this fires it is a programming error in this function, not bad input.
+  if left_tok_idx > right_tok_idx {
+    abort("internal: left_tok_idx > right_tok_idx after expand-left")
   }
-  if right_index < eof_index {
-    right_index = right_index + 1
+  if right_tok_idx < eof_index {
+    right_tok_idx = right_tok_idx + 1
   }
-  let mut left_offset_old = old_tokens[left_index].start
-  if edit.start < left_offset_old {
-    left_offset_old = edit.start
+  let mut left_old_offset = old_tokens[left_tok_idx].start
+  if edit.start < left_old_offset {
+    left_old_offset = edit.start
   }
-  let mut right_offset_old = old_tokens[right_index].end
-  if edit.old_end() > right_offset_old {
-    right_offset_old = edit.old_end()
+  let mut right_old_offset = old_tokens[right_tok_idx].end
+  if edit.old_end() > right_old_offset {
+    right_old_offset = edit.old_end()
   }
-  let left_offset_new = map_start_pos(left_offset_old, edit)
-  let right_offset_new = map_end_pos(right_offset_old, edit)
+  let left_new_offset = map_start_pos(left_old_offset, edit)
+  let right_new_offset = map_end_pos(right_old_offset, edit)
   let new_len = new_source.length()
-  let left_offset = clamp_offset(left_offset_new, new_len)
-  let mut right_offset = clamp_offset(right_offset_new, new_len)
-  if right_offset < left_offset {
-    right_offset = left_offset
+  let left_clamped = clamp_offset(left_new_offset, new_len)
+  let mut right_clamped = clamp_offset(right_new_offset, new_len)
+  if right_clamped < left_clamped {
+    right_clamped = left_clamped
   }
   let replacement_tokens = self.tokenize_range_impl(
-    new_source, left_offset, right_offset,
+    new_source, left_clamped, right_clamped,
   )
   let new_tokens : Array[TokenInfo[T]] = []
-  for i = 0; i < left_index; i = i + 1 {
+  for i = 0; i < left_tok_idx; i = i + 1 {
     new_tokens.push(old_tokens[i])
   }
   for token_info in replacement_tokens {
     new_tokens.push(token_info)
   }
   let delta = edit.delta()
-  for i = right_index + 1; i < eof_index; i = i + 1 {
+  for i = right_tok_idx + 1; i < eof_index; i = i + 1 {
     let t = old_tokens[i]
     new_tokens.push(
       TokenInfo::new(

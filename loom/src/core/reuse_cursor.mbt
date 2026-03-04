@@ -15,6 +15,9 @@ struct CursorFrame {
   node : @seam.CstNode
   mut child_index : Int
   start_offset : Int
+  /// Offset of the child at child_index. Maintained incrementally
+  /// so seek_node_at does not need to recompute it from scratch on resume.
+  mut current_child_offset : Int
 }
 
 ///|
@@ -99,7 +102,9 @@ pub fn[T, K] ReuseCursor::new(
   if not(reuse_globally_disabled) {
     collect_old_tokens(old_tree, 0, old_tokens, spec)
   }
-  let stack = [{ node: old_tree, child_index: 0, start_offset: 0 }]
+  let stack = [
+    { node: old_tree, child_index: 0, start_offset: 0, current_child_offset: 0 },
+  ]
   {
     stack,
     current_offset: 0,
@@ -274,8 +279,24 @@ fn element_width(elem : @seam.CstElement) -> Int {
 }
 
 ///|
+/// Pop the top frame and advance the parent frame's child cursor past it.
+/// current_child_offset in the parent advances to the end of the popped frame.
+fn[T, K] ReuseCursor::pop_frame(self : ReuseCursor[T, K]) -> Unit {
+  let frame = self.stack[self.stack.length() - 1]
+  let frame_end = frame.start_offset + frame.node.text_len
+  let _ = self.stack.pop()
+  if self.stack.length() > 0 {
+    let parent = self.stack[self.stack.length() - 1]
+    parent.child_index = parent.child_index + 1
+    parent.current_child_offset = frame_end
+  }
+}
+
+///|
 /// Advance through the old tree to find a node at target_offset with expected_kind.
 /// O(depth) because we only descend/ascend as needed.
+/// current_child_offset in each CursorFrame is maintained incrementally — no
+/// O(width) recomputation on frame resume.
 fn[T, K] ReuseCursor::seek_node_at(
   self : ReuseCursor[T, K],
   target_offset : Int,
@@ -286,6 +307,7 @@ fn[T, K] ReuseCursor::seek_node_at(
     let root_frame = self.stack[0]
     let _ = self.stack.drain(1, self.stack.length())
     root_frame.child_index = 0
+    root_frame.current_child_offset = 0
     self.current_offset = 0
   }
   while self.stack.length() > 0 {
@@ -298,21 +320,13 @@ fn[T, K] ReuseCursor::seek_node_at(
     // If target is outside this node's range, pop up
     let node_end = frame.start_offset + node.text_len
     if target_offset < frame.start_offset || target_offset >= node_end {
-      let _ = self.stack.pop()
-      if self.stack.length() > 0 {
-        let parent = self.stack[self.stack.length() - 1]
-        parent.child_index = parent.child_index + 1
-      }
+      self.pop_frame()
       continue
     }
-    // Target is within this node — search children
-    let mut child_offset = frame.start_offset
+    // Target is within this node — resume from cached child offset (O(1))
+    let mut child_offset = frame.current_child_offset
     let mut found_child = false
-    // Skip children already passed
-    for i = 0; i < frame.child_index; i = i + 1 {
-      child_offset = child_offset + element_width(node.children[i])
-    }
-    // Search remaining children
+    // Search remaining children from where we left off
     while frame.child_index < node.children.length() {
       let child = node.children[frame.child_index]
       let child_width = element_width(child)
@@ -331,6 +345,7 @@ fn[T, K] ReuseCursor::seek_node_at(
               node: child_node,
               child_index: 0,
               start_offset: child_offset,
+              current_child_offset: child_offset,
             })
             found_child = true
             break
@@ -342,14 +357,11 @@ fn[T, K] ReuseCursor::seek_node_at(
         }
       }
       child_offset = child_end
+      frame.current_child_offset = child_end // keep frame in sync
       frame.child_index = frame.child_index + 1
     }
     if not(found_child) {
-      let _ = self.stack.pop()
-      if self.stack.length() > 0 {
-        let parent = self.stack[self.stack.length() - 1]
-        parent.child_index = parent.child_index + 1
-      }
+      self.pop_frame()
     }
   }
   None
