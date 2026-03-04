@@ -53,7 +53,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-(none)
+- [plans/2026-03-05-remove-astnode-design.md](plans/2026-03-05-remove-astnode-design.md) — remove AstNode from examples/lambda; migrate to SyntaxNode + typed views
 
 ## Development
 
