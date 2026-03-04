@@ -444,6 +444,18 @@ test "SyntaxNode::find_at_checked: out-of-span offset returns None" {
 }
 
 ///|
+test "SyntaxNode::find_at_checked: boundary conditions" {
+  // span [0,5) — "hello" is 5 bytes
+  let tok = CstToken::new(RawKind(9), "hello")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  inspect(root.find_at_checked(0) is Some(_), content="true") // start (inclusive)
+  inspect(root.find_at_checked(4) is Some(_), content="true") // end-1 (inclusive)
+  inspect(root.find_at_checked(5) is None, content="true") // end (exclusive)
+  inspect(root.find_at_checked(-1) is None, content="true") // before start
+}
+
+///|
 test "SyntaxNode::find_at_checked: contrasts with find_at fallback" {
   // find_at returns self on bad offset; find_at_checked returns None
   let tok = CstToken::new(RawKind(9), "hi")
