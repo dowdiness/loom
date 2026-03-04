@@ -24,24 +24,20 @@ test "Diagnostic stores message, position, and token" {
 
 ///|
 fn make_test_fixtures() -> (
-  LanguageSpec[String, TestKind],
-  Array[TokenInfo[String]],
+  LanguageSpec[TestTok, TestKind],
+  Array[TokenInfo[TestTok]],
 ) {
-  let spec : LanguageSpec[String, TestKind] = {
-    token_is_eof: fn(t) { t == "EOF" },
-    token_is_trivia: fn(_) { false },
-    tokens_equal: fn(a, b) { a == b },
-    print_token: fn(t) { t },
+  let spec : LanguageSpec[TestTok, TestKind] = {
     whitespace_kind: KWs,
     error_kind: KErr,
     root_kind: KRoot,
-    eof_token: "EOF",
+    eof_token: TestTok::TokEof,
     cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
   }
   let tokens = [
-    { token: "a", start: 0, end: 1 },
-    { token: "b", start: 1, end: 2 },
+    { token: TestTok::Plus, start: 0, end: 1 },
+    { token: TestTok::Num(42), start: 1, end: 3 },
   ]
   (spec, tokens)
 }
@@ -57,45 +53,34 @@ test "ParserContext can be constructed" {
 test "peek returns current token" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.peek(), content="a")
+  inspect(ctx.peek(), content="Plus")
 }
 
 ///|
 test "peek returns eof when past end" {
   let (spec, _) = make_test_fixtures()
   let ctx = ParserContext::new([], "", spec)
-  inspect(ctx.peek(), content="EOF")
+  inspect(ctx.peek(), content="TokEof")
 }
 
 ///|
 test "peek skips trivia tokens" {
-  let spec : LanguageSpec[String, TestKind] = {
-    token_is_eof: fn(t) { t == "EOF" },
-    token_is_trivia: fn(t) { t == " " },
-    tokens_equal: fn(a, b) { a == b },
-    print_token: fn(t) { t },
-    whitespace_kind: KWs,
-    error_kind: KErr,
-    root_kind: KRoot,
-    eof_token: "EOF",
-    cst_token_matches: fn(_, _, _) { false },
-    parse_root: _ => (),
-  }
-  let tokens = [
-    { token: " ", start: 0, end: 1 },
-    { token: " ", start: 1, end: 2 },
-    { token: "x", start: 2, end: 3 },
+  let (spec, _) = make_test_fixtures()
+  let tokens : Array[TokenInfo[TestTok]] = [
+    { token: TestTok::Ws, start: 0, end: 1 },
+    { token: TestTok::Ws, start: 1, end: 2 },
+    { token: TestTok::Plus, start: 2, end: 3 },
   ]
-  let ctx = ParserContext::new(tokens, "  x", spec)
-  inspect(ctx.peek(), content="x")
+  let ctx = ParserContext::new(tokens, "  +", spec)
+  inspect(ctx.peek(), content="Plus")
 }
 
 ///|
 test "at matches current token" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.at("a"), content="true")
-  inspect(ctx.at("b"), content="false")
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  inspect(ctx.at(TestTok::Plus), content="true")
+  inspect(ctx.at(TestTok::Num(42)), content="false")
 }
 
 ///|
@@ -127,6 +112,16 @@ enum TestTok {
   Ws
   TokEof
 } derive(Eq, Show)
+
+///|
+impl @seam.IsTrivia for TestTok with is_trivia(self) {
+  self == Ws
+}
+
+///|
+impl @seam.IsEof for TestTok with is_eof(self) {
+  self == TokEof
+}
 
 ///|
 enum TestKind {
@@ -197,10 +192,6 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
 
 ///|
 let test_spec : LanguageSpec[TestTok, TestKind] = {
-  token_is_eof: fn(t) { t == TestTok::TokEof },
-  token_is_trivia: fn(t) { t == TestTok::Ws },
-  tokens_equal: fn(a, b) { a == b },
-  print_token: fn(t) { t.to_string() },
   whitespace_kind: KWs,
   error_kind: KErr,
   root_kind: KRoot,
@@ -435,25 +426,19 @@ test "new_follow_token: returns None past end of tokens" {
 ///|
 test "LanguageSpec cst_token_matches callback is stored and callable" {
   let num_raw = test_kind_raw(KNum)
-  let spec = LanguageSpec::new(
-    fn(t) { t == TestTok::TokEof },
-    fn(t) { t == TestTok::Ws },
-    fn(a, b) { a == b },
-    fn(t) { t.to_string() },
-    KWs,
-    KErr,
-    KRoot,
-    TestTok::TokEof,
-    cst_token_matches=fn(raw, text, tok) {
-      if raw != num_raw {
-        return false
-      }
-      match tok {
-        Num(n) => n.to_string() == text
-        _ => false
-      }
-    },
-  )
+  let spec = LanguageSpec::new(KWs, KErr, KRoot, TestTok::TokEof, cst_token_matches=fn(
+    raw,
+    text,
+    tok,
+  ) {
+    if raw != num_raw {
+      return false
+    }
+    match tok {
+      Num(n) => n.to_string() == text
+      _ => false
+    }
+  })
   inspect(
     (spec.cst_token_matches)(num_raw, "42", TestTok::Num(42)),
     content="true",

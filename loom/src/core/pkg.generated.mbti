@@ -10,9 +10,9 @@ pub let core_interner : @seam.Interner
 
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
 
-pub fn[T, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
 
-pub fn[T, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])
 
 pub fn text_to_delta(String, String) -> Array[TextDelta]
 
@@ -59,10 +59,6 @@ pub impl Eq for Edit
 pub impl Show for Edit
 
 pub struct LanguageSpec[T, K] {
-  token_is_eof : (T) -> Bool
-  token_is_trivia : (T) -> Bool
-  tokens_equal : (T, T) -> Bool
-  print_token : (T) -> String
   whitespace_kind : K
   error_kind : K
   root_kind : K
@@ -70,7 +66,7 @@ pub struct LanguageSpec[T, K] {
   cst_token_matches : (@seam.RawKind, String, T) -> Bool
   parse_root : (ParserContext[T, K]) -> Unit
 }
-pub fn[T, K] LanguageSpec::new((T) -> Bool, (T) -> Bool, (T, T) -> Bool, (T) -> String, K, K, K, T, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit) -> Self[T, K]
+pub fn[T, K] LanguageSpec::new(K, K, K, T, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit) -> Self[T, K]
 
 type OldToken
 pub impl Compare for OldToken
@@ -93,21 +89,21 @@ pub struct ParserContext[T, K] {
   mut reuse_diagnostics : Array[Diagnostic[T]]?
   mut reuse_count : Int
 }
-pub fn[T, K] ParserContext::at(Self[T, K], T) -> Bool
-pub fn[T, K] ParserContext::at_eof(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
+pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(Self[T, K]) -> Bool
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
-pub fn[T, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
-pub fn[T, K] ParserContext::error(Self[T, K], String) -> Unit
+pub fn[T : @seam.IsTrivia, K] ParserContext::error(Self[T, K], String) -> Unit
 pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
-pub fn[T, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::new(Array[TokenInfo[T]], String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K] ParserContext::new_indexed(Int, (Int) -> T, (Int) -> Int, (Int) -> Int, String, LanguageSpec[T, K]) -> Self[T, K]
-pub fn[T, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
-pub fn[T, K] ParserContext::peek(Self[T, K]) -> T
-pub fn[T, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], Array[Diagnostic[T]]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
@@ -146,7 +142,7 @@ pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
 
 pub(all) enum TextDelta {
   Retain(Int)

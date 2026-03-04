@@ -49,20 +49,13 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 /// Create one instance at module init — it is reused across all parses.
 ///
 /// Fields:
-///   token_is_eof    — returns true for the end-of-input sentinel token
-///   token_is_trivia — returns true for whitespace/trivia tokens to skip in peek
-///   tokens_equal    — equality check (needed because T has no Eq constraint)
-///   print_token     — human-readable representation of T (for diagnostics)
 ///   whitespace_kind — the SyntaxKind for whitespace trivia nodes in the tree
 ///   error_kind      — the SyntaxKind for error tokens/nodes
 ///   root_kind       — the SyntaxKind for the root node (e.g. SourceFile)
 ///   eof_token       — the T value returned when past end of input
 ///   K must implement ToRawKind (enforced on functions that call k.to_raw())
+///   T must implement Eq + IsTrivia + IsEof (enforced on functions that use them)
 pub struct LanguageSpec[T, K] {
-  token_is_eof : (T) -> Bool
-  token_is_trivia : (T) -> Bool
-  tokens_equal : (T, T) -> Bool
-  print_token : (T) -> String
   whitespace_kind : K
   error_kind : K
   root_kind : K
@@ -80,10 +73,6 @@ pub struct LanguageSpec[T, K] {
 ///|
 /// Construct a LanguageSpec. Use this from outside the core package.
 pub fn[T, K] LanguageSpec::new(
-  token_is_eof : (T) -> Bool,
-  token_is_trivia : (T) -> Bool,
-  tokens_equal : (T, T) -> Bool,
-  print_token : (T) -> String,
   whitespace_kind : K,
   error_kind : K,
   root_kind : K,
@@ -94,10 +83,6 @@ pub fn[T, K] LanguageSpec::new(
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
 ) -> LanguageSpec[T, K] {
   {
-    token_is_eof,
-    token_is_trivia,
-    tokens_equal,
-    print_token,
     whitespace_kind,
     error_kind,
     root_kind,
@@ -191,11 +176,13 @@ pub fn[T, K] ParserContext::new_indexed(
 
 ///|
 /// Return the next non-trivia token without consuming it.
-pub fn[T, K] ParserContext::peek(self : ParserContext[T, K]) -> T {
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek(
+  self : ParserContext[T, K],
+) -> T {
   let mut pos = self.position
   while pos < self.token_count {
     let t = (self.get_token)(pos)
-    if (self.spec.token_is_trivia)(t) {
+    if t.is_trivia() {
       pos = pos + 1
     } else {
       return t
@@ -206,13 +193,13 @@ pub fn[T, K] ParserContext::peek(self : ParserContext[T, K]) -> T {
 
 ///|
 /// Return the TokenInfo for the next non-trivia token.
-pub fn[T, K] ParserContext::peek_info(
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(
   self : ParserContext[T, K],
 ) -> TokenInfo[T] {
   let mut pos = self.position
   while pos < self.token_count {
     let token = (self.get_token)(pos)
-    if (self.spec.token_is_trivia)(token) {
+    if token.is_trivia() {
       pos = pos + 1
     } else {
       return { token, start: (self.get_start)(pos), end: (self.get_end)(pos) }
@@ -224,14 +211,19 @@ pub fn[T, K] ParserContext::peek_info(
 
 ///|
 /// Return true if the current non-trivia token equals the given token.
-pub fn[T, K] ParserContext::at(self : ParserContext[T, K], token : T) -> Bool {
-  (self.spec.tokens_equal)(self.peek(), token)
+pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(
+  self : ParserContext[T, K],
+  token : T,
+) -> Bool {
+  self.peek() == token
 }
 
 ///|
 /// Return true if at end of input (ignoring trivia).
-pub fn[T, K] ParserContext::at_eof(self : ParserContext[T, K]) -> Bool {
-  (self.spec.token_is_eof)(self.peek())
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
+  self : ParserContext[T, K],
+) -> Bool {
+  self.peek().is_eof()
 }
 
 ///|
@@ -267,12 +259,12 @@ fn[T, K] ParserContext::text_at(
 /// Emit all consecutive trivia tokens at current position to the event stream,
 /// advancing position past each one. Call this before emitting syntactic tokens,
 /// and at the end of the top-level grammar function before returning.
-pub fn[T, K : @seam.ToRawKind] ParserContext::flush_trivia(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(
   self : ParserContext[T, K],
 ) -> Unit {
   while self.position < self.token_count {
     let token = (self.get_token)(self.position)
-    if (self.spec.token_is_trivia)(token) {
+    if token.is_trivia() {
       let text = self.text_at(self.position)
       self.events.push(
         @seam.ParseEvent::Token(self.spec.whitespace_kind.to_raw(), text),
@@ -287,7 +279,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::flush_trivia(
 ///|
 /// Consume the current token and emit it as a leaf in the CST.
 /// Automatically flushes leading trivia before the token.
-pub fn[T, K : @seam.ToRawKind] ParserContext::emit_token(
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
@@ -345,7 +337,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
 /// Captures the offending token so consumers never need to re-tokenize.
 /// If an equivalent diagnostic (same message/start/end) already exists, this
 /// updates the stored token payload instead of appending a duplicate entry.
-pub fn[T, K] ParserContext::error(
+pub fn[T : @seam.IsTrivia, K] ParserContext::error(
   self : ParserContext[T, K],
   msg : String,
 ) -> Unit {
@@ -361,7 +353,7 @@ pub fn[T, K] ParserContext::error(
 ///|
 /// Consume the current token and emit it as an error token (for error recovery).
 /// Automatically flushes leading trivia before the token.
-pub fn[T, K : @seam.ToRawKind] ParserContext::bump_error(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(
   self : ParserContext[T, K],
 ) -> Unit {
   self.flush_trivia()
@@ -426,7 +418,7 @@ pub fn[T, K] ParserContext::set_reuse_diagnostics(
 /// all whitespace-separated constructs (the common case).
 ///
 /// Returns None immediately if no cursor is attached (non-incremental parse).
-fn[T, K : @seam.ToRawKind] ParserContext::try_reuse(
+fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse(
   self : ParserContext[T, K],
   kind : K,
 ) -> @seam.CstNode? {
@@ -436,8 +428,7 @@ fn[T, K : @seam.ToRawKind] ParserContext::try_reuse(
   let byte_offset = (self.get_start)(self.position)
   // Skip trivia to find the logical token position for leading-token matching.
   let mut token_pos = self.position
-  while token_pos < self.token_count &&
-        (self.spec.token_is_trivia)((self.get_token)(token_pos)) {
+  while token_pos < self.token_count && (self.get_token)(token_pos).is_trivia() {
     token_pos = token_pos + 1
   }
   match self.reuse_cursor {
@@ -689,7 +680,7 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
 /// Reuse-aware node combinator. The core grammar API.
 /// On reuse hit: emits the old node and skips body entirely — O(1) per node.
 /// On miss: start_node → body() → finish_node — standard parse path.
-pub fn[T, K : @seam.ToRawKind] ParserContext::node(
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node(
   self : ParserContext[T, K],
   kind : K,
   body : () -> Unit,
@@ -734,7 +725,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(
 ///
 /// tokenize — converts source to a flat token array (including trivia tokens)
 /// grammar  — the entry-point parse function; calls ctx methods to build the tree
-pub fn[T, K : @seam.ToRawKind] parse_with(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
   source : String,
   spec : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
@@ -785,7 +776,7 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
 ///
 /// Returns `(CstNode, diagnostics, reuse_count)`.
 /// reuse_count is 0 for non-incremental calls (cursor=None).
-pub fn[T, K : @seam.ToRawKind] parse_tokens_indexed(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
   source : String,
   token_count : Int,
   get_token : (Int) -> T,

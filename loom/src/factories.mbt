@@ -14,7 +14,7 @@
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
 /// Interners (token deduplication, node deduplication) are process-global and
 /// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T, K : @seam.ToRawKind, Ast] new_imperative_parser(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
@@ -117,7 +117,7 @@ pub fn[T, K : @seam.ToRawKind, Ast] new_imperative_parser(
 
 ///|
 /// Create a ReactiveParser from a Grammar.
-pub fn[T, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @pipeline.ReactiveParser[Ast] {

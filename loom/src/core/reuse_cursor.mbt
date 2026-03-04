@@ -192,14 +192,17 @@ impl[T, K] OffsetIndexed for ReuseCursor[T, K] with offset_at(self, i) {
 /// Binary-search for the first index where get_start(i) >= byte_offset, then
 /// scan forward skipping trivia (token_is_trivia) and stopping at EOF (token_is_eof).
 /// Return Some(token) for the first real token, or None if no such token exists.
-fn[T, K] new_follow_token(cursor : ReuseCursor[T, K], byte_offset : Int) -> T? {
+fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token(
+  cursor : ReuseCursor[T, K],
+  byte_offset : Int,
+) -> T? {
   let mut lo = lower_bound(cursor, byte_offset)
   while lo < cursor.token_count {
     let t = (cursor.get_token)(lo)
-    if (cursor.spec.token_is_eof)(t) {
+    if t.is_eof() {
       break
     }
-    if (cursor.spec.token_is_trivia)(t) {
+    if t.is_trivia() {
       lo = lo + 1
       continue
     }
@@ -212,7 +215,7 @@ fn[T, K] new_follow_token(cursor : ReuseCursor[T, K], byte_offset : Int) -> T? {
 /// True if the follow token after node_end matches between old and new streams.
 /// Option B correctness: if the first token after the node is the same in both
 /// old and new source, the node boundary is stable and reuse is safe.
-fn[T, K] trailing_context_matches(
+fn[T : @seam.IsTrivia + @seam.IsEof, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
   node_end : Int,
 ) -> Bool {
@@ -325,7 +328,7 @@ fn[T, K] ReuseCursor::seek_node_at(
 ///   4. Node is entirely outside the damage range
 ///   5. Leading token of node matches the new token at token_pos
 ///   6. Follow token after the node matches between old and new streams
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::try_reuse(
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
