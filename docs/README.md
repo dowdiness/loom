@@ -47,7 +47,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-(none)
+- [plans/2026-03-04-loom-core-simplification-design.md](plans/2026-03-04-loom-core-simplification-design.md) — fix O(width) regression in ReuseCursor, split lib.mbt, clarify token_buffer coordinate names
 
 ## Examples
 
