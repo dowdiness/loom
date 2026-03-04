@@ -74,8 +74,8 @@ pub fn SyntaxElement::end(self : SyntaxElement) -> Int {
 /// **Invariant:** `offset + cst.text_len` is the exclusive end byte.
 pub struct SyntaxNode {
   priv cst : CstNode
-  parent : SyntaxNode?
-  offset : Int
+  priv parent : SyntaxNode?
+  priv offset : Int
 } derive(Debug(ignore=[SyntaxNode]))
 
 ///|
@@ -93,6 +93,37 @@ pub fn SyntaxNode::new(
 /// Create a root SyntaxNode from a CstNode (offset = 0, no parent).
 pub fn SyntaxNode::from_cst(cst : CstNode) -> SyntaxNode {
   SyntaxNode::new(cst, None, 0)
+}
+
+///|
+/// The parent node, or None when this is the root.
+pub fn SyntaxNode::parent(self : SyntaxNode) -> SyntaxNode? {
+  self.parent
+}
+
+///|
+/// First interior-node child, or None if this is a leaf or has only token children.
+/// Thin wrapper over nth_child(0).
+pub fn SyntaxNode::first_child(self : SyntaxNode) -> SyntaxNode? {
+  self.nth_child(0)
+}
+
+///|
+/// First token anywhere in this subtree (depth-first, left-to-right).
+/// Returns None when the subtree contains no tokens.
+pub fn SyntaxNode::first_token(self : SyntaxNode) -> SyntaxToken? {
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Token(tok) => return Some(SyntaxToken::new(tok, offset))
+      CstElement::Node(child_cst) =>
+        match SyntaxNode::new(child_cst, None, offset).first_token() {
+          Some(_) as found => return found
+          None => offset = offset + child_cst.text_len
+        }
+    }
+  }
+  None
 }
 
 ///|
@@ -385,4 +416,41 @@ pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
     }
   }
   self
+}
+
+///|
+/// Checked variant of find_at.
+/// Returns None when offset is outside this node's [start, end) span.
+/// Returns Some(node) for any in-span offset.
+///
+/// Use this when "nothing here" is a meaningful outcome. Prefer find_at
+/// when you want a conservative fallback for IDE traversal.
+pub fn SyntaxNode::find_at_checked(
+  self : SyntaxNode,
+  offset : Int,
+) -> SyntaxNode? {
+  if offset < self.start() || offset >= self.end() {
+    None
+  } else {
+    Some(self.find_at(offset))
+  }
+}
+
+///|
+/// True when this node's kind equals error_kind.
+/// Does not traverse children — use contains_errors for subtree checking.
+pub fn SyntaxNode::is_error(self : SyntaxNode, error_kind : RawKind) -> Bool {
+  self.kind() == error_kind
+}
+
+///|
+/// True when the subtree rooted at this node contains any error node
+/// (kind == error_node_kind) or any error token (kind == error_token_kind).
+/// Delegates to CstNode::has_errors.
+pub fn SyntaxNode::contains_errors(
+  self : SyntaxNode,
+  error_node_kind : RawKind,
+  error_token_kind : RawKind,
+) -> Bool {
+  self.cst.has_errors(error_node_kind, error_token_kind)
 }

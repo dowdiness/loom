@@ -215,6 +215,14 @@ test "cst: SyntaxNode child positions in application" {
   inspect(app_children[1].end(), content="3")
 }
 
+///|
+test "cst: cst_to_ast_node preserves non-zero offset" {
+  let cst = parse_cst("x")
+  let ast = cst_to_ast_node(cst, 10, Ref::new(0))
+  inspect(ast.start, content="10")
+  inspect(ast.end, content="11")
+}
+
 // ============================================================================
 // 4. Backward compatibility - parse_cst_to_ast_node matches parse_tree
 // ============================================================================
