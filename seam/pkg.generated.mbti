@@ -155,4 +155,23 @@ pub impl @debug.Debug for SyntaxToken
 // Type aliases
 
 // Traits
+pub(open) trait FromRawKind {
+  from_raw(RawKind) -> Self
+}
+
+pub(open) trait IsEof {
+  is_eof(Self) -> Bool
+}
+
+pub(open) trait IsError {
+  is_error(Self) -> Bool
+}
+
+pub(open) trait IsTrivia {
+  is_trivia(Self) -> Bool
+}
+
+pub(open) trait ToRawKind {
+  to_raw(Self) -> RawKind
+}
 
