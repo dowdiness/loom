@@ -143,30 +143,6 @@ fn is_outside_damage(
 }
 
 ///|
-/// Find the first non-trivia (non-whitespace) token in a CST node, depth-first.
-/// Returns (kind, text) or None.
-fn first_nontrivia_token(
-  node : @seam.CstNode,
-  ws_raw : @seam.RawKind,
-) -> (@seam.RawKind, String)? {
-  for child in node.children {
-    match child {
-      @seam.CstElement::Token(t) =>
-        if t.kind != ws_raw {
-          return Some((t.kind, t.text))
-        }
-      @seam.CstElement::Node(n) => {
-        let result = first_nontrivia_token(n, ws_raw)
-        if result is Some(_) {
-          return result
-        }
-      }
-    }
-  }
-  None
-}
-
-///|
 /// True if the first non-trivia leaf of node matches the new token at token_pos.
 fn[T, K : @seam.ToRawKind] leading_token_matches(
   node : @seam.CstNode,
@@ -178,10 +154,10 @@ fn[T, K : @seam.ToRawKind] leading_token_matches(
   }
   let expected_token = (cursor.get_token)(token_pos)
   let ws_raw = cursor.spec.whitespace_kind.to_raw()
-  match first_nontrivia_token(node, ws_raw) {
+  match node.first_token(fn(r) { r == ws_raw }) {
     None => false
-    Some((kind, text)) =>
-      (cursor.spec.cst_token_matches)(kind, text, expected_token)
+    Some(tok) =>
+      (cursor.spec.cst_token_matches)(tok.kind, tok.text, expected_token)
   }
 }
 

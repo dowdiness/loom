@@ -125,3 +125,46 @@ test "has_errors returns false for clean node" {
   let clean = CstNode::new(RawKind(22), [])
   inspect(clean.has_errors(error_node_kind, error_token_kind), content="false")
 }
+
+///|
+test "CstNode::first_token: returns first non-trivia token" {
+  // ws token (kind 11 = WhitespaceToken), then ident token (kind 9 = IdentToken)
+  let ws = CstToken::new(RawKind(11), " ")
+  let id = CstToken::new(RawKind(9), "x")
+  let cst = CstNode::new(RawKind(22), [
+    CstElement::Token(ws),
+    CstElement::Token(id),
+  ])
+  let is_trivia = fn(k : RawKind) { k == RawKind(11) }
+  match cst.first_token(is_trivia) {
+    Some(t) => inspect(t.text, content="x")
+    None => inspect("none", content="x")
+  }
+}
+
+///|
+test "CstNode::first_token: descends into child nodes" {
+  let id = CstToken::new(RawKind(9), "y")
+  let inner = CstNode::new(RawKind(20), [CstElement::Token(id)])
+  let outer = CstNode::new(RawKind(22), [CstElement::Node(inner)])
+  let is_trivia = fn(_k : RawKind) { false }
+  match outer.first_token(is_trivia) {
+    Some(t) => inspect(t.text, content="y")
+    None => inspect("none", content="y")
+  }
+}
+
+///|
+test "CstNode::first_token: returns None for empty node" {
+  let cst = CstNode::new(RawKind(22), [])
+  let is_trivia = fn(_k : RawKind) { false }
+  inspect(cst.first_token(is_trivia) is None, content="true")
+}
+
+///|
+test "CstNode::first_token: returns None when all tokens are trivia" {
+  let ws = CstToken::new(RawKind(11), " ")
+  let cst = CstNode::new(RawKind(22), [CstElement::Token(ws)])
+  let is_trivia = fn(k : RawKind) { k == RawKind(11) }
+  inspect(cst.first_token(is_trivia) is None, content="true")
+}

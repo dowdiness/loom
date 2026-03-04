@@ -37,6 +37,7 @@ pub(all) struct CstNode {
   hash : Int
   token_count : Int
 }
+pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
 pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?) -> Self
