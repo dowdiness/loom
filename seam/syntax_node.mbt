@@ -479,56 +479,62 @@ pub fn SyntaxNode::contains_errors(
 }
 
 ///|
-/// All leaf tokens in this subtree, depth-first left-to-right, with absolute offsets.
-fn SyntaxNode::tokens_dfs(self : SyntaxNode) -> Array[SyntaxToken] {
-  let result : Array[SyntaxToken] = []
-  fn collect(node : SyntaxNode) {
-    let mut pos = node.offset
-    for elem in node.cst.children {
-      match elem {
-        CstElement::Token(tok) => {
-          result.push(SyntaxToken::new(tok, pos))
-          pos = pos + tok.text_len()
-        }
-        CstElement::Node(child_cst) => {
-          collect(SyntaxNode::new(child_cst, None, pos))
-          pos = pos + child_cst.text_len
-        }
-      }
-    }
-  }
-  collect(self)
-  result
-}
-
-///|
 /// Find the token(s) at a byte offset.
 ///
 /// Returns `Single` when `offset` falls strictly inside a token's span.
 /// Returns `Between` when `offset` sits exactly on the boundary between two
 /// adjacent tokens (`left.end() == offset == right.start()`).
 /// Returns `None` when no token covers the offset.
+///
+/// Performs an inlined DFS with early exit on strict interior match —
+/// no intermediate allocation.
 pub fn SyntaxNode::token_at_offset(
   self : SyntaxNode,
   offset : Int,
 ) -> TokenAtOffset {
   let mut left : SyntaxToken? = None
   let mut right : SyntaxToken? = None
-  for tok in self.tokens_dfs() {
-    if tok.start() < offset && offset < tok.end() {
-      return Single(tok)
+  let mut found : TokenAtOffset? = None
+  fn scan(node : SyntaxNode) -> Unit {
+    if found is Some(_) {
+      return
     }
-    if tok.end() == offset {
-      left = Some(tok)
-    }
-    if tok.start() == offset {
-      right = Some(tok)
+    let mut pos = node.offset
+    for elem in node.cst.children {
+      if found is Some(_) {
+        break
+      }
+      match elem {
+        CstElement::Token(tok) => {
+          let syn = SyntaxToken::new(tok, pos)
+          if syn.start() < offset && offset < syn.end() {
+            found = Some(Single(syn))
+            break
+          }
+          if syn.end() == offset {
+            left = Some(syn)
+          }
+          if syn.start() == offset {
+            right = Some(syn)
+          }
+          pos = pos + tok.text_len()
+        }
+        CstElement::Node(child_cst) => {
+          scan(SyntaxNode::new(child_cst, None, pos))
+          pos = pos + child_cst.text_len
+        }
+      }
     }
   }
-  match (left, right) {
-    (Some(l), Some(r)) => Between(l, r)
-    (Some(l), None) => Single(l) // cursor at end of last token
-    (None, Some(r)) => Single(r) // cursor at start of first token
-    _ => TokenAtOffset::None
+  scan(self)
+  match found {
+    Some(r) => r
+    None =>
+      match (left, right) {
+        (Some(l), Some(r)) => Between(l, r)
+        (Some(l), None) => Single(l) // cursor at end of last token
+        (None, Some(r)) => Single(r) // cursor at start of first token
+        _ => TokenAtOffset::None
+      }
   }
 }
