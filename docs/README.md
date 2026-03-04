@@ -49,6 +49,7 @@ Understanding how the layers fit together:
 
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
 - [../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
+- [../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, TDD)
 
 ## Development
 
