@@ -312,6 +312,148 @@ test "child_of_kind: finds matching child" {
 }
 
 ///|
+test "SyntaxNode::first_token: empty node returns None" {
+  let cst = CstNode::new(RawKind(1), [])
+  let node = SyntaxNode::from_cst(cst)
+  inspect(node.first_token() is None, content="true")
+}
+
+///|
+test "SyntaxNode::first_token: returns first token with correct offset" {
+  let tok_a = CstToken::new(RawKind(9), "ab")
+  let tok_b = CstToken::new(RawKind(9), "cd")
+  let cst = CstNode::new(RawKind(1), [
+    CstElement::Token(tok_a),
+    CstElement::Token(tok_b),
+  ])
+  let node = SyntaxNode::from_cst(cst)
+  let ft = node.first_token()
+  inspect(ft is Some(_), content="true")
+  inspect(ft.unwrap().start(), content="0")
+  inspect(ft.unwrap().text(), content="ab")
+}
+
+///|
+test "SyntaxNode::first_token: skips leading node child to find token" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let child_node = CstNode::new(RawKind(2), [])
+  let cst = CstNode::new(RawKind(1), [
+    CstElement::Node(child_node),
+    CstElement::Token(tok),
+  ])
+  let node = SyntaxNode::from_cst(cst)
+  let ft = node.first_token()
+  inspect(ft is Some(_), content="true")
+  inspect(ft.unwrap().text(), content="x")
+}
+
+///|
+test "SyntaxNode::first_child: leaf node returns None" {
+  let cst = CstNode::new(RawKind(1), [])
+  let leaf = SyntaxNode::from_cst(cst)
+  inspect(leaf.first_child() is None, content="true")
+}
+
+///|
+test "SyntaxNode::first_child: node with children returns first" {
+  let a = CstNode::new(RawKind(2), [])
+  let b = CstNode::new(RawKind(3), [])
+  let root_cst = CstNode::new(RawKind(1), [
+    CstElement::Node(a),
+    CstElement::Node(b),
+  ])
+  let root = SyntaxNode::from_cst(root_cst)
+  let first = root.first_child()
+  inspect(first is Some(_), content="true")
+  inspect(first.unwrap().kind() == RawKind(2), content="true")
+}
+
+///|
+test "SyntaxNode::parent: root returns None" {
+  let cst = CstNode::new(RawKind(1), [])
+  let root = SyntaxNode::from_cst(cst)
+  inspect(root.parent() is None, content="true")
+}
+
+///|
+test "SyntaxNode::parent: child returns Some(parent)" {
+  let child_cst = CstNode::new(RawKind(2), [])
+  let root_cst = CstNode::new(RawKind(1), [CstElement::Node(child_cst)])
+  let root = SyntaxNode::from_cst(root_cst)
+  let child = root.children()[0]
+  inspect(child.parent() is Some(_), content="true")
+}
+
+///|
+test "SyntaxNode::is_error: error-kind node returns true" {
+  let error_kind = RawKind(99)
+  let cst = CstNode::new(error_kind, [])
+  let node = SyntaxNode::from_cst(cst)
+  inspect(node.is_error(error_kind), content="true")
+}
+
+///|
+test "SyntaxNode::is_error: non-error node returns false" {
+  let error_kind = RawKind(99)
+  let cst = CstNode::new(RawKind(1), [])
+  let node = SyntaxNode::from_cst(cst)
+  inspect(node.is_error(error_kind), content="false")
+}
+
+///|
+test "SyntaxNode::contains_errors: clean subtree returns false" {
+  let tok = CstToken::new(RawKind(5), "x")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
+  let node = SyntaxNode::from_cst(cst)
+  inspect(node.contains_errors(RawKind(99), RawKind(98)), content="false")
+}
+
+///|
+test "SyntaxNode::contains_errors: subtree with error node returns true" {
+  let error_node = CstNode::new(RawKind(99), [])
+  let root_cst = CstNode::new(RawKind(1), [CstElement::Node(error_node)])
+  let root = SyntaxNode::from_cst(root_cst)
+  inspect(root.contains_errors(RawKind(99), RawKind(98)), content="true")
+}
+
+///|
+test "SyntaxNode::contains_errors: subtree with error token returns true" {
+  let err_tok = CstToken::new(RawKind(98), "?")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(err_tok)])
+  let node = SyntaxNode::from_cst(cst)
+  inspect(node.contains_errors(RawKind(99), RawKind(98)), content="true")
+}
+
+///|
+test "SyntaxNode::find_at_checked: in-span offset returns Some" {
+  let tok = CstToken::new(RawKind(9), "hello")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  inspect(root.find_at_checked(2) is Some(_), content="true")
+}
+
+///|
+test "SyntaxNode::find_at_checked: out-of-span offset returns None" {
+  let tok = CstToken::new(RawKind(9), "hello")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  inspect(root.find_at_checked(99) is None, content="true")
+}
+
+///|
+test "SyntaxNode::find_at_checked: contrasts with find_at fallback" {
+  // find_at returns self on bad offset; find_at_checked returns None
+  let tok = CstToken::new(RawKind(9), "hi")
+  let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
+  let root = SyntaxNode::from_cst(cst)
+  // find_at silently returns root
+  let fallback = root.find_at(99)
+  inspect(fallback.kind() == RawKind(1), content="true")
+  // find_at_checked is explicit
+  inspect(root.find_at_checked(99) is None, content="true")
+}
+
+///|
 test "SyntaxNode::find_at drills into deepest child" {
   // Build: root[0,5) → child[0,3) → grandchild[0,2)
   let leaf_tok = CstToken::new(RawKind(9), "ab")

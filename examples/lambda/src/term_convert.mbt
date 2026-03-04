@@ -331,7 +331,7 @@ pub fn cst_to_ast_node(
   offset : Int,
   node_id_counter : Ref[Int],
 ) -> @ast.AstNode {
-  let syntax = @seam.SyntaxNode::new(cst, None, offset)
+  let syntax = @seam.SyntaxNode::from_cst(cst)
   convert_syntax_node(syntax, node_id_counter)
 }
 
