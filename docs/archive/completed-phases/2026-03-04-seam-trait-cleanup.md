@@ -1,5 +1,7 @@
 # Seam trait cleanup + token_at_offset Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace seven `LanguageSpec` closures with trait bounds on `T` and `K`, and add `CstNode::first_token` + `SyntaxNode::token_at_offset` to seam.

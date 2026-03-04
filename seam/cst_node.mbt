@@ -212,6 +212,27 @@ pub impl Hash for CstNode with hash_combine(self, hasher) {
 }
 
 ///|
+/// First non-trivia token in this subtree (depth-first, left-to-right).
+/// `is_trivia` classifies tokens to skip (e.g. whitespace).
+/// Returns None when the subtree contains no non-trivia tokens.
+pub fn CstNode::first_token(
+  self : CstNode,
+  is_trivia : (RawKind) -> Bool,
+) -> CstToken? {
+  for child in self.children {
+    match child {
+      CstElement::Token(t) => if not(is_trivia(t.kind)) { return Some(t) }
+      CstElement::Node(n) =>
+        match n.first_token(is_trivia) {
+          Some(_) as found => return found
+          None => ()
+        }
+    }
+  }
+  None
+}
+
+///|
 /// Check if this concrete syntax tree contains any error nodes or error tokens.
 /// error_node_kind and error_token_kind are language-specific RawKind values.
 pub fn CstNode::has_errors(

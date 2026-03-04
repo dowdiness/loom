@@ -49,6 +49,21 @@ pub(all) enum SyntaxElement {
 } derive(Show, Debug)
 
 ///|
+/// Result of a position query on a syntax tree.
+///
+/// - `None`: no tokens cover the offset (empty tree or out-of-range offset).
+/// - `Single`: offset falls inside one token's span, or exactly matches a
+///   zero-width token (`start == end == offset`).
+/// - `Between`: offset sits exactly on the boundary between two adjacent tokens
+///   (`left.end() == offset == right.start()`). The IDE caller should prefer
+///   the right token for most completion/hover uses.
+pub enum TokenAtOffset {
+  None
+  Single(SyntaxToken)
+  Between(SyntaxToken, SyntaxToken)
+} derive(Show, Debug)
+
+///|
 pub fn SyntaxElement::start(self : SyntaxElement) -> Int {
   match self {
     Node(n) => n.start()
@@ -462,4 +477,71 @@ pub fn SyntaxNode::contains_errors(
   error_token_kind : RawKind,
 ) -> Bool {
   self.cst.has_errors(error_node_kind, error_token_kind)
+}
+
+///|
+/// Find the token(s) at a byte offset.
+///
+/// Returns `Single` when `offset` falls strictly inside a token's span.
+/// Also returns `Single` when `offset` exactly hits a zero-width token
+/// (`start == end == offset`), commonly used by parser error recovery.
+/// Returns `Between` when `offset` sits exactly on the boundary between two
+/// adjacent tokens (`left.end() == offset == right.start()`).
+/// Returns `None` when no token covers the offset.
+///
+/// Performs an inlined DFS with early exit on strict interior match —
+/// no intermediate allocation.
+pub fn SyntaxNode::token_at_offset(
+  self : SyntaxNode,
+  offset : Int,
+) -> TokenAtOffset {
+  let mut left : SyntaxToken? = None
+  let mut right : SyntaxToken? = None
+  let mut found : TokenAtOffset? = None
+  fn scan(node : SyntaxNode) -> Unit {
+    if found is Some(_) {
+      return
+    }
+    let mut pos = node.offset
+    for elem in node.cst.children {
+      if found is Some(_) {
+        break
+      }
+      match elem {
+        CstElement::Token(tok) => {
+          let syn = SyntaxToken::new(tok, pos)
+          if syn.start() == offset && syn.end() == offset {
+            found = Some(Single(syn))
+            break
+          }
+          if syn.start() < offset && offset < syn.end() {
+            found = Some(Single(syn))
+            break
+          }
+          if syn.end() == offset {
+            left = Some(syn)
+          }
+          if syn.start() == offset {
+            right = Some(syn)
+          }
+          pos = pos + tok.text_len()
+        }
+        CstElement::Node(child_cst) => {
+          scan(SyntaxNode::new(child_cst, None, pos))
+          pos = pos + child_cst.text_len
+        }
+      }
+    }
+  }
+  scan(self)
+  match found {
+    Some(r) => r
+    None =>
+      match (left, right) {
+        (Some(l), Some(r)) => Between(l, r)
+        (Some(l), None) => Single(l) // cursor at end of last token
+        (None, Some(r)) => Single(r) // cursor at start of first token
+        _ => TokenAtOffset::None
+      }
+  }
 }

@@ -53,8 +53,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-04-seam-trait-cleanup-design.md](plans/2026-03-04-seam-trait-cleanup-design.md) — seam trait cleanup design: K/T-traits, LanguageSpec simplification, `token_at_offset`
-- [plans/2026-03-04-seam-trait-cleanup.md](plans/2026-03-04-seam-trait-cleanup.md) — seam trait cleanup implementation plan (7 tasks, TDD)
+(none)
 
 ## Development
 
@@ -62,5 +61,5 @@ Understanding how the layers fit together:
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

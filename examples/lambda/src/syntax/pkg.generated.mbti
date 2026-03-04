@@ -39,9 +39,11 @@ pub(all) enum SyntaxKind {
   EqToken
   LetExpr
 }
-pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_token(Self) -> Bool
-pub fn SyntaxKind::to_raw(Self) -> @seam.RawKind
+pub impl @seam.FromRawKind for SyntaxKind
+pub impl @seam.IsError for SyntaxKind
+pub impl @seam.IsTrivia for SyntaxKind
+pub impl @seam.ToRawKind for SyntaxKind
 pub impl Eq for SyntaxKind
 pub impl Show for SyntaxKind
 

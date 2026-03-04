@@ -37,6 +37,7 @@ pub(all) struct CstNode {
   hash : Int
   token_count : Int
 }
+pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
 pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?) -> Self
@@ -133,6 +134,7 @@ pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
+pub fn SyntaxNode::token_at_offset(Self, Int) -> TokenAtOffset
 pub fn SyntaxNode::tokens(Self) -> Array[SyntaxToken]
 pub fn SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
 pub impl Eq for SyntaxNode
@@ -152,7 +154,34 @@ pub fn SyntaxToken::text(Self) -> String
 pub impl Show for SyntaxToken
 pub impl @debug.Debug for SyntaxToken
 
+pub enum TokenAtOffset {
+  None
+  Single(SyntaxToken)
+  Between(SyntaxToken, SyntaxToken)
+}
+pub impl Show for TokenAtOffset
+pub impl @debug.Debug for TokenAtOffset
+
 // Type aliases
 
 // Traits
+pub(open) trait FromRawKind {
+  from_raw(RawKind) -> Self
+}
+
+pub(open) trait IsEof {
+  is_eof(Self) -> Bool
+}
+
+pub(open) trait IsError {
+  is_error(Self) -> Bool
+}
+
+pub(open) trait IsTrivia {
+  is_trivia(Self) -> Bool
+}
+
+pub(open) trait ToRawKind {
+  to_raw(Self) -> RawKind
+}
 
