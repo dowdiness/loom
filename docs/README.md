@@ -47,7 +47,8 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-04-loom-core-simplification-design.md](plans/2026-03-04-loom-core-simplification-design.md) — fix O(width) regression in ReuseCursor, split lib.mbt, clarify token_buffer coordinate names
+- [plans/2026-03-04-loom-core-simplification-design.md](plans/2026-03-04-loom-core-simplification-design.md) — two-contract philosophy, three targeted changes
+- [plans/2026-03-04-loom-core-simplification.md](plans/2026-03-04-loom-core-simplification.md) — step-by-step implementation plan (token_buffer rename → CursorFrame fix → lib.mbt split)
 
 ## Examples
 
