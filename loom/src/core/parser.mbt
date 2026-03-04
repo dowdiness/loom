@@ -45,38 +45,6 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 }
 
 ///|
-/// Generic token with source position. T is the language-specific token type.
-pub struct TokenInfo[T] {
-  token : T
-  start : Int // code-unit offset, inclusive
-  end : Int // code-unit offset, exclusive
-} derive(Show, Eq)
-
-///|
-/// A parse diagnostic (error or warning) with source position.
-/// Stores the offending token so consumers never need to re-tokenize.
-pub struct Diagnostic[T] {
-  message : String
-  start : Int
-  end : Int
-  got_token : T
-} derive(Show)
-
-///|
-/// Format a diagnostic as `"message [start,end]"`.
-/// Used by factory functions to normalize diagnostics for parser consumers.
-pub fn[T] format_diagnostic(d : Diagnostic[T]) -> String {
-  d.message + " [" + d.start.to_string() + "," + d.end.to_string() + "]"
-}
-
-///|
-/// Lex error raised by a tokenize_fn when the source contains unrecognizable input.
-/// Generic replacement for language-specific tokenization error types.
-pub(all) suberror LexError {
-  LexError(String)
-}
-
-///|
 /// Describes one language to the generic parser infrastructure.
 /// Create one instance at module init — it is reused across all parses.
 ///
@@ -110,12 +78,6 @@ pub struct LanguageSpec[T, K] {
   // Set to a no-op by default for call sites (e.g. tests) that use
   // parse_with() with an explicit grammar parameter instead.
   parse_root : (ParserContext[T, K]) -> Unit
-}
-
-///|
-/// Construct a TokenInfo. Use this from outside the core package.
-pub fn[T] TokenInfo::new(token : T, start : Int, end : Int) -> TokenInfo[T] {
-  { token, start, end }
 }
 
 ///|
@@ -532,12 +494,6 @@ fn[T, K] ParserContext::advance_past_reused(
 }
 
 ///|
-priv struct ReusedErrorSpan {
-  start : Int
-  end : Int
-}
-
-///|
 /// Collect error spans from a CST subtree.
 /// Returns the number of spans added into `out`.
 fn[T, K] collect_reused_error_spans(
@@ -778,107 +734,6 @@ pub fn[T, K] ParserContext::wrap_at(
   self.start_at(mark, kind)
   body()
   self.finish_node()
-}
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
-
-///|
-test "TokenInfo stores token with position" {
-  let info : TokenInfo[String] = { token: "hello", start: 0, end: 5 }
-  inspect(info.start, content="0")
-  inspect(info.end, content="5")
-  inspect(info.token, content="hello")
-}
-
-///|
-test "Diagnostic stores message, position, and token" {
-  let d : Diagnostic[String] = {
-    message: "unexpected token",
-    start: 3,
-    end: 7,
-    got_token: "bad",
-  }
-  inspect(d.message, content="unexpected token")
-  inspect(d.got_token, content="bad")
-}
-
-///|
-fn make_test_fixtures() -> (LanguageSpec[String, Int], Array[TokenInfo[String]]) {
-  let spec : LanguageSpec[String, Int] = {
-    kind_to_raw: fn(k) { @seam.RawKind(k) },
-    token_is_eof: fn(t) { t == "EOF" },
-    token_is_trivia: fn(_) { false },
-    tokens_equal: fn(a, b) { a == b },
-    print_token: fn(t) { t },
-    whitespace_kind: 0,
-    error_kind: 1,
-    root_kind: 2,
-    eof_token: "EOF",
-    raw_is_trivia: fn(_) { false },
-    raw_is_error: fn(_) { false },
-    cst_token_matches: fn(_, _, _) { false },
-    parse_root: _ => (),
-  }
-  let tokens = [
-    { token: "a", start: 0, end: 1 },
-    { token: "b", start: 1, end: 2 },
-  ]
-  (spec, tokens)
-}
-
-///|
-test "ParserContext can be constructed" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.position, content="0")
-}
-
-///|
-test "peek returns current token" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.peek(), content="a")
-}
-
-///|
-test "peek returns eof when past end" {
-  let (spec, _) = make_test_fixtures()
-  let ctx = ParserContext::new([], "", spec)
-  inspect(ctx.peek(), content="EOF")
-}
-
-///|
-test "peek skips trivia tokens" {
-  let spec : LanguageSpec[String, Int] = {
-    kind_to_raw: fn(k) { @seam.RawKind(k) },
-    token_is_eof: fn(t) { t == "EOF" },
-    token_is_trivia: fn(t) { t == " " },
-    tokens_equal: fn(a, b) { a == b },
-    print_token: fn(t) { t },
-    whitespace_kind: 0,
-    error_kind: 1,
-    root_kind: 2,
-    eof_token: "EOF",
-    raw_is_trivia: fn(_) { false },
-    raw_is_error: fn(_) { false },
-    cst_token_matches: fn(_, _, _) { false },
-    parse_root: _ => (),
-  }
-  let tokens = [
-    { token: " ", start: 0, end: 1 },
-    { token: " ", start: 1, end: 2 },
-    { token: "x", start: 2, end: 3 },
-  ]
-  let ctx = ParserContext::new(tokens, "  x", spec)
-  inspect(ctx.peek(), content="x")
-}
-
-///|
-test "at matches current token" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.at("a"), content="true")
-  inspect(ctx.at("b"), content="false")
 }
 
 // ─── parse_with ───────────────────────────────────────────────────────────────
