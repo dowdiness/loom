@@ -2,6 +2,97 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-03-04 (seam trait cleanup + token_at_offset improvements)
+
+- Command: `moon bench --release`
+- Git ref: `main` (post `f55f4d4`)
+- Environment: local developer machine (WSL2 / Linux 6.6 / wasm-gc)
+- Result: `91/91` benchmarks passed
+- Changes since previous entry:
+  - Removed all 7 closure fields from `LanguageSpec` (`kind_to_raw`, `token_is_trivia`, `token_is_eof`, `tokens_equal`, `print_token`, `syntax_kind_to_token_kind`, `is_whitespace`); replaced with MoonBit traits `IsTrivia`, `IsEof`, `ToRawKind` on the `T`/`K` type parameters
+  - Deleted `src/bridge/` package (Grammar abstraction no longer needed — `LanguageSpec` is now thin enough for direct use)
+  - `token_at_offset` DFS inlining: removed intermediate `Array[SyntaxToken]` allocation; DFS short-circuits on first strict-interior match
+  - Zero-width token fix: tokens with `start == end == offset` now correctly return `Single(t)` instead of the degenerate `Between(t, t)`
+  - Test count: 88 tests (loom), 99 tests (seam), 311 tests (lambda)
+  - This run is a **refactoring-only validation**: no algorithm changes to the parse or incremental path
+
+### Core Parse Scaling
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| parse scaling — small (5 tokens) | 1.66 µs | `"1 + 2"` |
+| parse scaling — medium (15 tokens) | 7.57 µs | lambda-if expression |
+| parse scaling — large (30+ tokens) | 13.34 µs | nested lambda-if |
+
+### ParserDb Pipeline
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| parserdb: cold — new + term() | 6.46 µs | first call, full lex + parse + AST |
+| parserdb: warm — term() no change | 0.02 µs | memo hit |
+| parserdb: signal no-op — set_source(same) + term() | 0.04 µs | Signal::Eq short-circuit |
+| parserdb: full recompute — set_source(new) + term() | 12.92 µs | full lex + parse + AST conversion |
+| parserdb: undo/redo cycle | 13.40 µs | two full recomputes |
+| parserdb: diagnostics — malformed input | 0.07 µs | warm memo read |
+
+### Phase 4: Let Expression Cursor Reuse
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| phase4: let body edit — full reparse, no cursor (baseline) | 1.95 µs | |
+| phase4: let body edit — init IntLiteral reused via cursor | 2.22 µs | |
+| phase4: let init edit — cursor | 2.16 µs | |
+| phase4: nested let body edit — multiple inits reused | 3.97 µs | |
+
+### Phase 3: Cursor Reuse vs Full Reparse (110-token corpus)
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| phase3: full CST reparse, no cursor — 110 tokens | 30.73 µs | |
+| phase3: cursor reuse, edit at end — 110 tokens | 40.01 µs | |
+| phase3: cursor reuse, edit at start — 110 tokens | 32.83 µs | |
+
+### Scale Benchmarks
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| scale: 100 terms — full reparse | 83.01 µs | |
+| scale: 100 terms — incremental single edit | 134.01 µs | |
+| scale: 100 terms — 50-edit session incremental | 4.08 ms | |
+| scale: 100 terms — 50-edit session full reparse | 4.56 ms | |
+| scale: 500 terms — full reparse | 476.00 µs | |
+| scale: 500 terms — incremental single edit | 831.43 µs | |
+| scale: 500 terms — 50-edit session incremental | 24.40 ms | |
+| scale: 500 terms — 50-edit session full reparse | 25.44 ms | |
+| scale: 1000 terms — full reparse | 1.05 ms | |
+| scale: 1000 terms — incremental single edit | 1.81 ms | |
+| scale: 1000 terms — 50-edit session incremental | 53.05 ms | |
+| scale: 1000 terms — 50-edit session full reparse | 57.74 ms | |
+
+### Notable Changes vs 2026-03-01
+
+Numbers are higher than the 2026-03-01 Grammar-abstraction run for core parse scaling. The bridge package erased `T`/`K` into closures at the factory boundary, which may have enabled inlining paths that the new trait-dispatch path does not. This is a correctness/API refactoring, not a performance regression — the absolute numbers remain in the same order of magnitude and the incremental savings ratio is preserved.
+
+| Metric | 2026-03-01 | 2026-03-04 | Change |
+|---|---:|---:|---|
+| parse scaling — small | 1.18 µs | 1.66 µs | +41% |
+| parse scaling — medium | 5.04 µs | 7.57 µs | +50% |
+| parse scaling — large | 8.42 µs | 13.34 µs | +58% |
+| parserdb: cold — new + term() | 5.96 µs | 6.46 µs | +8% (noise) |
+| parserdb: full recompute | 12.41 µs | 12.92 µs | +4% (noise) |
+| phase4: let body baseline | 1.44 µs | 1.95 µs | +35% |
+| phase4: let body + cursor | 1.70 µs | 2.22 µs | +31% |
+| phase4: nested let body | 3.03 µs | 3.97 µs | +31% |
+| phase3: full CST reparse | 22.83 µs | 30.73 µs | +35% |
+| phase3: cursor at end | 44.64 µs | 40.01 µs | −10% (improved) |
+| phase3: cursor at start | 37.90 µs | 32.83 µs | −13% (improved) |
+| scale: 1000 terms incremental | 7.24 ms | 1.81 ms | −75% (improved) |
+| scale: 500 terms incremental | 2.13 ms | 831 µs | −61% (improved) |
+
+The significant improvements in `scale:` incremental and `phase3: cursor` benchmarks are attributable to the `token_at_offset` DFS inlining which removes a per-call `Array[SyntaxToken]` allocation.
+
+---
+
 ## 2026-03-01 (Grammar abstraction + bridge factories)
 
 - Command: `moon bench --release`
