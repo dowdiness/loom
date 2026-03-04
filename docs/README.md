@@ -54,6 +54,7 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-04-seam-trait-cleanup-design.md](plans/2026-03-04-seam-trait-cleanup-design.md) — seam trait cleanup design: K/T-traits, LanguageSpec simplification, `token_at_offset`
+- [plans/2026-03-04-seam-trait-cleanup.md](plans/2026-03-04-seam-trait-cleanup.md) — seam trait cleanup implementation plan (7 tasks, TDD)
 
 ## Development
 
