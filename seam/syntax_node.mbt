@@ -80,8 +80,8 @@ pub struct SyntaxNode {
 
 ///|
 /// Full constructor. `parent` is `None` for root nodes.
-/// Prefer `SyntaxNode::from_cst` for root construction.
-pub fn SyntaxNode::new(
+/// Internal use only — callers outside seam use `from_cst`.
+fn SyntaxNode::new(
   cst : CstNode,
   parent : SyntaxNode?,
   offset : Int,
@@ -93,6 +93,15 @@ pub fn SyntaxNode::new(
 /// Create a root SyntaxNode from a CstNode (offset = 0, no parent).
 pub fn SyntaxNode::from_cst(cst : CstNode) -> SyntaxNode {
   SyntaxNode::new(cst, None, 0)
+}
+
+///|
+/// Create a root SyntaxNode from a CstNode at a given byte offset, no parent.
+/// Use when the CstNode originates from a sub-range of a larger source
+/// (e.g. embedding a partial parse result at a known position).
+/// Prefer `from_cst` when the node starts at position 0.
+pub fn SyntaxNode::from_cst_at(cst : CstNode, offset : Int) -> SyntaxNode {
+  SyntaxNode::new(cst, None, offset)
 }
 
 ///|

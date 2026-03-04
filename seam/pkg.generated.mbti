@@ -126,9 +126,9 @@ pub fn SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?
 pub fn SyntaxNode::first_child(Self) -> Self?
 pub fn SyntaxNode::first_token(Self) -> SyntaxToken?
 pub fn SyntaxNode::from_cst(CstNode) -> Self
+pub fn SyntaxNode::from_cst_at(CstNode, Int) -> Self
 pub fn SyntaxNode::is_error(Self, RawKind) -> Bool
 pub fn SyntaxNode::kind(Self) -> RawKind
-pub fn SyntaxNode::new(CstNode, Self?, Int) -> Self
 pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::start(Self) -> Int
