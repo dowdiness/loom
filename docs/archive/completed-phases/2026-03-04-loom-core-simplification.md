@@ -1,5 +1,7 @@
 # loom/core Simplification — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Three targeted improvements to `loom/src/core/`: fix an O(width) performance regression in `ReuseCursor`, clarify opaque coordinate variable names in `TokenBuffer`, and split the 994-line `lib.mbt` into focused files.

@@ -45,11 +45,6 @@ Understanding how the layers fit together:
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 
-## Active Plans
-
-- [plans/2026-03-04-loom-core-simplification-design.md](plans/2026-03-04-loom-core-simplification-design.md) — two-contract philosophy, three targeted changes
-- [plans/2026-03-04-loom-core-simplification.md](plans/2026-03-04-loom-core-simplification.md) — step-by-step implementation plan (token_buffer rename → CursorFrame fix → lib.mbt split)
-
 ## Examples
 
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
@@ -60,5 +55,5 @@ Understanding how the layers fit together:
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

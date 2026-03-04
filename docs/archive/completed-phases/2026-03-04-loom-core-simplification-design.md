@@ -1,5 +1,7 @@
 # loom/core — Simplification Design
 
+**Status:** Complete
+
 This document records the design principles for the `loom` parser framework's
 internal implementation and the three targeted changes that apply them.
 It is written for future implementors who work on the core package.
