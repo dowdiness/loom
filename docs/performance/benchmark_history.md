@@ -2,6 +2,88 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-03-05 (Term::Error variant + benchmark bug fixes)
+
+- Command: `moon bench --release`
+- Git ref: `main` (post `bbaf282`)
+- Environment: local developer machine (WSL2 / Linux 6.6 / wasm-gc)
+- Result: `91/91` benchmarks passed
+- Changes since previous entry:
+  - `Term::Error(String)` variant added to `Term` enum (PR #24); all 18 `Term::Var("<error>")` sentinels replaced in `syntax_node_to_term`; `print_term` renders as `<error: msg>`
+  - `parse_source_file` / `parse_source_file_term` added for multi-expression files (PR #25)
+  - Benchmark bug fix: 6 `abort("benchmark failed")` calls replaced with `@lambda.Term::Error("benchmark")` in `benchmark.mbt` and `heavy_benchmark.mbt`; these were broken since PR #23 when `parse_with_error_recovery` was replaced with `parse()` — intermediate states in edit simulations are transiently invalid and `parse` raises on errors
+  - Test count: 88 tests (loom), 99 tests (seam), 311 tests (lambda)
+  - This run is a **refactoring-only validation**: no algorithm changes to the parse or incremental path
+
+### Core Parse Scaling
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| parse scaling — small (5 tokens) | 1.71 µs | `"1 + 2"` |
+| parse scaling — medium (15 tokens) | 7.70 µs | lambda-if expression |
+| parse scaling — large (30+ tokens) | 13.42 µs | nested lambda-if |
+
+### ParserDb Pipeline
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| parserdb: cold — new + term() | 7.09 µs | first call, full lex + parse + AST |
+| parserdb: warm — term() no change | 0.02 µs | memo hit |
+| parserdb: signal no-op — set_source(same) + term() | 0.04 µs | Signal::Eq short-circuit |
+| parserdb: full recompute — set_source(new) + term() | 14.39 µs | full lex + parse + AST conversion |
+| parserdb: undo/redo cycle | 14.49 µs | two full recomputes |
+| parserdb: diagnostics — malformed input | 0.06 µs | warm memo read |
+
+### Phase 4: Let Expression Cursor Reuse
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| phase4: let body edit — full reparse, no cursor (baseline) | 2.15 µs | |
+| phase4: let body edit — init IntLiteral reused via cursor | 2.54 µs | |
+| phase4: let init edit — cursor | 2.42 µs | |
+| phase4: nested let body edit — multiple inits reused | 4.37 µs | |
+
+### Phase 3: Cursor Reuse vs Full Reparse (110-token corpus)
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| phase3: full CST reparse, no cursor — 110 tokens | 34.46 µs | |
+| phase3: cursor reuse, edit at end — 110 tokens | 43.78 µs | |
+| phase3: cursor reuse, edit at start — 110 tokens | 37.54 µs | |
+
+### Scale Benchmarks
+
+| Benchmark | Mean | Notes |
+|---|---:|---|
+| scale: 100 terms — full reparse | 82.74 µs | |
+| scale: 100 terms — incremental single edit | 154.03 µs | |
+| scale: 100 terms — 50-edit session incremental | 4.73 ms | |
+| scale: 100 terms — 50-edit session full reparse | 4.17 ms | |
+| scale: 500 terms — full reparse | 491.68 µs | |
+| scale: 500 terms — incremental single edit | 897.36 µs | |
+| scale: 500 terms — 50-edit session incremental | 26.56 ms | |
+| scale: 500 terms — 50-edit session full reparse | 23.08 ms | |
+| scale: 1000 terms — full reparse | 1.08 ms | |
+| scale: 1000 terms — incremental single edit | 1.95 ms | |
+| scale: 1000 terms — 50-edit session incremental | 57.44 ms | |
+| scale: 1000 terms — 50-edit session full reparse | 50.68 ms | |
+
+### Notable Changes vs 2026-03-04
+
+Numbers are within noise of the previous run. The benchmark bug fix causes the previously-failing 6 tests to now produce results (error recovery path is measured, not aborted), which slightly shifts some aggregate numbers but is not a performance change.
+
+| Metric | 2026-03-04 | 2026-03-05 | Change |
+|---|---:|---:|---|
+| parse scaling — small | 1.66 µs | 1.71 µs | +3% (noise) |
+| parse scaling — medium | 7.57 µs | 7.70 µs | +2% (noise) |
+| parse scaling — large | 13.34 µs | 13.42 µs | +1% (noise) |
+| parserdb: cold — new + term() | 6.46 µs | 7.09 µs | +10% (noise) |
+| parserdb: full recompute | 12.92 µs | 14.39 µs | +11% (noise) |
+| scale: 1000 terms incremental | 1.81 ms | 1.95 ms | +8% (noise) |
+| scale: 500 terms incremental | 831 µs | 897 µs | +8% (noise) |
+
+---
+
 ## 2026-03-04 (seam trait cleanup + token_at_offset improvements)
 
 - Command: `moon bench --release`

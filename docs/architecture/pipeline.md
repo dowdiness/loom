@@ -5,7 +5,8 @@ A description of how source text flows through the parser to produce the final A
 ## Canonical Pipeline
 
 ```
-Source string → Lexer → EventBuffer → CstNode (CST) → SyntaxNode → AstNode → Term
+Source string → Lexer → EventBuffer → CstNode (CST) → SyntaxNode → Term
+                                                           (via typed views)
 ```
 
 Each stage has a distinct responsibility and output type:
@@ -13,8 +14,7 @@ Each stage has a distinct responsibility and output type:
 1. **Lexer** — tokenizes the source string into a typed token stream
 2. **CST Parser** — emits `ParseEvent`s into an `EventBuffer`; `build_tree()` constructs the immutable `CstNode` tree
 3. **SyntaxNode** — wraps the `CstNode` to add absolute byte positions on demand
-4. **Conversion** — walks `SyntaxNode` to produce `AstNode` (typed AST with positions)
-5. **Simplification** — converts `AstNode` to `Term` (semantic AST without positions)
+4. **Conversion** — `syntax_node_to_term` walks `SyntaxNode` using typed view structs (`LambdaExprView`, `AppExprView`, etc.) to produce a `Term` directly; no intermediate `AstNode` type
 
 ## Incremental Pipeline
 
@@ -23,12 +23,12 @@ The incremental pipeline adds memoisation on top of the canonical pipeline:
 ```
 Signal[String]
   → Memo[CstNode]   (CST stage)
-  → Memo[AstNode]   (AST stage)
+  → Memo[Ast]       (AST stage — generic type parameter in Grammar[T,K,Ast])
 ```
 
 - `Signal[String]` holds the current source text. When an edit arrives the signal is updated.
 - `Memo[CstNode]` re-runs the Lexer + CST Parser only when the source string changes. Two equal strings produce the same `CstNode` without re-parsing.
-- `Memo[AstNode]` re-runs conversion only when the `CstNode` changes. Structurally identical `CstNode`s (same hash) skip conversion.
+- `Memo[Ast]` re-runs conversion only when the `CstNode` changes. Structurally identical `CstNode`s (same hash) skip conversion.
 
 A `TokenStage` memo between Signal and CstNode was considered and removed. Because the lexer is whitespace-preserving, any source change shifts token positions, making the `TokenStage` almost always unequal to its predecessor. The Signal equality check already handles the identical-string case, so the intermediate memo provided no benefit. See `docs/decisions/2026-02-27-remove-tokenStage-memo.md` for the full rationale.
 
@@ -62,13 +62,15 @@ Ephemeral positioned view over a `CstNode`:
 - Created on demand; not stored persistently
 - `children()` returns a lazy iterator; positions are never cached in the `CstNode`
 
-### CST-to-AST Conversion (`examples/lambda/src/cst_convert.mbt`)
+### CST-to-Term Conversion (`examples/lambda/src/term_convert.mbt`)
 
-Converts the CST to typed `AstNode`s using `SyntaxNode` for position computation:
+Converts the CST to `Term` directly via typed `SyntaxNode` views — no intermediate `AstNode` type:
 
-- `convert_syntax_node()` walks the `SyntaxNode` tree, using `syntax.children()` for correct offsets
-- `tight_span()` computes precise start/end positions by skipping leading/trailing whitespace tokens
-- `ParenExpr` nodes are unwrapped to their inner expression's kind in the AST, so parentheses affect grouping but do not appear as AST nodes
+- `syntax_node_to_term(SyntaxNode) -> Term` — entry point for single-expression parse
+- `syntax_node_to_source_file_term(SyntaxNode) -> Term` — entry point for multi-expression files; right-folds top-level `let` definitions into nested `Let` terms
+- Typed view structs (`LambdaExprView`, `AppExprView`, `LetExprView`, etc.) provide structured access to child nodes without pattern-matching raw `SyntaxKind` enums
+- `ParenExpr` nodes are unwrapped transparently; parentheses affect grouping but do not appear in `Term`
+- Error nodes produce `Term::Error(String)` rather than sentinel values
 
 ### Pretty Printer (`examples/lambda/src/ast/`)
 

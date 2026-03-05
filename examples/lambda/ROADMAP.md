@@ -1,7 +1,7 @@
 # Roadmap: Lambda Calculus Example (`examples/lambda`)
 
-**Updated:** 2026-03-03
-**Status:** Active — Grammar Expansion in progress
+**Updated:** 2026-03-05
+**Status:** Active — Grammar Expansion complete; next: Type Annotations
 **Goal:** A full-featured lambda calculus parser built on `dowdiness/loom` — the reference implementation for plugging a language into the framework, and the test bed for CRDT integration.
 
 > Parser framework roadmap: [ROADMAP.md](../../ROADMAP.md)
@@ -12,13 +12,14 @@
 
 | Component | Status |
 |-----------|--------|
-| Recursive descent parser | ✅ Correct — `parse()`, `parse_tree()`, `parse_cst()` paths |
+| Recursive descent parser | ✅ Correct — `parse()`, `parse_source_file_term()`, `parse_cst()` paths |
 | Lexer | ✅ Correct — trivia-inclusive; emits `Whitespace` tokens |
 | Error recovery | ✅ Complete — sync-point recovery, `ErrorNode`, diagnostics |
 | Subtree reuse | ✅ Complete — via generic `ReuseCursor[T,K]` |
 | `let x = e in body` bindings | ✅ Complete (2026-02-28) |
+| `Term::Error(String)` variant | ✅ Complete (2026-03-05) |
+| Multi-expression files | ✅ Complete (2026-03-05) |
 | Type annotations | Planned |
-| Multi-expression files | Planned |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT integration | ✅ Complete (2026-03-03) |
 
@@ -29,6 +30,7 @@
 ### Completed
 
 - **`let` bindings** ✅ (2026-02-28) — `LetExpr` CST node, `Let`/`In` tokens, `parse_let_expr` in grammar — [notes](../../docs/archive/completed-phases/2026-02-28-grammar-expansion-let.md)
+- **Multi-expression files** ✅ (2026-03-05) — `parse_source_file`/`parse_source_file_term`; `LetDef`/`SourceFile` CST nodes; top-level `let` sequences right-folded into nested `Let` terms; independent subtree reuse verified by fuzz test — [design](../../docs/archive/completed-phases/2026-03-04-multi-expression-files-design.md) · [impl](../../docs/archive/completed-phases/2026-03-04-multi-expression-files.md)
 
 ### Planned: Type Annotations
 
@@ -40,19 +42,6 @@ let f : Int -> Int = λx. x in f 1
 ```
 
 **Exit criteria:** Type annotations parse correctly; CST round-trips to identical source text; editing only the type annotation of `λx : Int. x + 1` leaves the body node reused (reuse count > 0, body node unchanged).
-
-### Planned: Multi-Expression Files
-
-Top-level sequences of `let` bindings:
-
-```
-let id = λx. x
-let const = λx. λy. x
-```
-
-**Key outcome:** Independent top-level subtrees make incremental reuse genuinely impactful — editing one binding won't re-parse any other.
-
-**Exit criteria:** Multi-expression files parse; independent top-level subtrees verified by fuzz test; reuse count confirms no cross-boundary re-parse.
 
 ---
 
@@ -96,7 +85,8 @@ Verified via `imperative_differential_fuzz_test.mbt` — random source + random 
 | Milestone | Status |
 |-----------|--------|
 | `let` bindings | ✅ Complete (2026-02-28) |
-| Type annotations | Future — Confidence: High |
-| Multi-expression files | Future — Confidence: High |
+| Multi-expression files | ✅ Complete (2026-03-05) |
+| `Term::Error` variant | ✅ Complete (2026-03-05) |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT exploration | ✅ Complete (2026-03-03) |
+| Type annotations | Future — Confidence: High |
