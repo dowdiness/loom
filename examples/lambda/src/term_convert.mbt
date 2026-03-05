@@ -56,9 +56,21 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
       }
     }
     @syntax.BinaryExpr => {
-      let v = BinaryExprView::{ node }
-      let ops = v.ops()
-      let children = v.operands()
+      // Single pass: collect ops (from tokens) and operands (from nodes)
+      // together rather than calling ops() + operands() as two traversals.
+      let ops : Array[@ast.Bop] = []
+      let children : Array[@seam.SyntaxNode] = []
+      for elem in node.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(t) =>
+            if t.kind() == @syntax.PlusToken.to_raw() {
+              ops.push(@ast.Bop::Plus)
+            } else if t.kind() == @syntax.MinusToken.to_raw() {
+              ops.push(@ast.Bop::Minus)
+            }
+          @seam.SyntaxElement::Node(child) => children.push(child)
+        }
+      }
       if children.length() >= 2 {
         let mut result = view_to_term(children[0])
         for i = 1; i < children.length(); i = i + 1 {
