@@ -14,7 +14,8 @@ pub(all) enum Token {
   Eq // =
   Identifier(String) // variable names
   Integer(Int) // integer literals
-  Whitespace // whitespace (spaces, tabs, newlines)
+  Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
+  Newline // newline (\n or \r\n) — non-trivia in source-file grammar
   EOF // end of input
 } derive(Eq, Debug)
 
@@ -37,6 +38,7 @@ pub impl Show for Token with output(self, logger) {
       Identifier(name) => name
       Integer(n) => n.to_string()
       Whitespace => "whitespace"
+      Newline => "newline"
       EOF => "EOF"
     },
   )
@@ -91,6 +93,7 @@ pub fn print_token(token : Token) -> String {
     Identifier(name) => name
     Integer(n) => n.to_string()
     Whitespace => "whitespace"
+    Newline => "newline"
     EOF => "EOF"
   }
 }

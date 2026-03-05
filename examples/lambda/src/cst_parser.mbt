@@ -278,3 +278,101 @@ fn parse_atom(
     }
   }
 }
+
+// ─── Source-file grammar (LetDef* Expression?) ────────────────────────────────
+
+///|
+fn parse_let_def(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.node(@syntax.LetDef, () => {
+    ctx.emit_token(@syntax.LetKeyword)
+    match ctx.peek() {
+      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      _ => {
+        ctx.error("Expected variable name after 'let'")
+        ctx.emit_error_placeholder()
+      }
+    }
+    lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+    parse_expression(ctx)
+  })
+}
+
+///|
+/// Entry point for source-file grammar: LetDef* Expression?
+/// Newline tokens (from tokenize_layout) delimit definitions and are emitted
+/// explicitly into the CST — they do NOT appear as node children, so the
+/// term converter sees only LetDef/expression nodes.
+fn parse_source_file_root(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  while ctx.peek() == @token.Let {
+    parse_let_def(ctx)
+    while ctx.peek() == @token.Newline {
+      ctx.emit_token(@syntax.NewlineToken)
+    }
+  }
+  while ctx.peek() == @token.Newline {
+    ctx.emit_token(@syntax.NewlineToken)
+  }
+  match ctx.peek() {
+    @token.EOF => ()
+    _ => parse_expression(ctx)
+  }
+  ctx.flush_trivia()
+}
+
+///|
+/// Parse a source file (LetDef* Expression?). Returns tree with error recovery.
+pub fn parse_source_file(
+  source : String,
+) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
+  let tokens = @lexer.tokenize_layout(source)
+  let (cst, diagnostics, _) = @core.parse_tokens_indexed(
+    source,
+    tokens.length(),
+    fn(i) { tokens[i].token },
+    fn(i) { tokens[i].start },
+    fn(i) { tokens[i].end },
+    source_file_spec,
+  )
+  (cst, diagnostics)
+}
+
+///|
+/// Parse with pre-tokenized input and optional reuse cursor (for incremental use).
+pub fn parse_source_file_recover_with_tokens(
+  source : String,
+  tokens : Array[@token.TokenInfo[@token.Token]],
+  cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
+) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
+  @core.parse_tokens_indexed(
+    source,
+    tokens.length(),
+    fn(i) { tokens[i].token },
+    fn(i) { tokens[i].start },
+    fn(i) { tokens[i].end },
+    source_file_spec,
+    cursor~,
+  )
+}
+
+///|
+/// Make a ReuseCursor for incremental source-file parsing.
+pub fn make_source_file_reuse_cursor(
+  old_tree : @seam.CstNode,
+  damage_start : Int,
+  damage_end : Int,
+  tokens : Array[@token.TokenInfo[@token.Token]],
+) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
+  @core.ReuseCursor::new(
+    old_tree,
+    damage_start,
+    damage_end,
+    tokens.length(),
+    fn(i) { tokens[i].token },
+    fn(i) { tokens[i].start },
+    source_file_spec,
+  )
+}

@@ -27,6 +27,8 @@ pub(all) enum SyntaxKind {
   InKeyword
   EqToken
   LetExpr
+  LetDef        // NEW: top-level let x = e (no 'in')
+  NewlineToken  // NEW: \n token — delimiter between LetDefs in source-file grammar
 } derive(Show, Eq)
 
 ///|
@@ -48,7 +50,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | EofToken
     | LetKeyword
     | InKeyword
-    | EqToken => true
+    | EqToken
+    | NewlineToken => true
     _ => false
   }
 }
@@ -83,6 +86,8 @@ pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
     InKeyword => 24
     EqToken => 25
     LetExpr => 26
+    LetDef => 27
+    NewlineToken => 28
   }
   @seam.RawKind(n)
 }
@@ -118,6 +123,8 @@ pub impl @seam.FromRawKind for SyntaxKind with from_raw(raw) {
     24 => InKeyword
     25 => EqToken
     26 => LetExpr
+    27 => LetDef
+    28 => NewlineToken
     _ => ErrorNode
   }
 }

@@ -16,6 +16,7 @@ fn syntax_kind_to_token_kind(kind : @seam.RawKind) -> @token.Token? {
     @syntax.LetKeyword => Some(@token.Let)
     @syntax.InKeyword => Some(@token.In)
     @syntax.EqToken => Some(@token.Eq)
+    @syntax.NewlineToken => Some(@token.Newline)
     _ => None
   }
 }
@@ -40,4 +41,26 @@ let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.L
     }
   },
   parse_root=parse_lambda_root,
+)
+
+///|
+/// LanguageSpec for source-file grammar (LetDef* Expression?).
+/// Identical to lambda_spec except parse_root = parse_source_file_root.
+let source_file_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
+  @syntax.WhitespaceToken,
+  @syntax.ErrorToken,
+  @syntax.SourceFile,
+  @token.EOF,
+  cst_token_matches=(raw, text, tok) => {
+    match @syntax.SyntaxKind::from_raw(raw) {
+      IntToken => if tok is Integer(i) { text == i.to_string() } else { false }
+      IdentToken => if tok is Identifier(name) { name == text } else { false }
+      _ =>
+        match syntax_kind_to_token_kind(raw) {
+          Some(expected) => expected == tok
+          None => false
+        }
+    }
+  },
+  parse_root=parse_source_file_root,
 )
