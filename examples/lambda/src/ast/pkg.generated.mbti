@@ -33,6 +33,7 @@ pub(all) enum Term {
 }
 pub impl Eq for Term
 pub impl Show for Term
+pub impl ToJson for Term
 
 // Type aliases
 pub type VarName = String

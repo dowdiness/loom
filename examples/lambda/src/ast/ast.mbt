@@ -29,7 +29,7 @@ pub(all) enum Term {
   Unit
   // Error term for malformed/missing nodes
   Error(String)
-} derive(Show, Eq)
+} derive(Show, Eq, ToJson)
 
 ///|
 pub fn print_term(term : Term) -> String {
