@@ -35,6 +35,7 @@ pub(all) enum Token {
   Identifier(String)
   Integer(Int)
   Whitespace
+  Newline
   EOF
 }
 pub impl @seam.IsEof for Token

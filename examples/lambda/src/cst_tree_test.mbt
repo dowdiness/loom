@@ -649,3 +649,126 @@ test "cst: nested let" {
   }
   inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LetExpr")
 }
+
+///|
+test "source file: two LetDef children" {
+  let (cst, _) = parse_source_file("let id = 1\nlet const = 2")
+  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
+  let mut node_count = 0
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) => {
+        node_count = node_count + 1
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      }
+      _ => ()
+    }
+  }
+  inspect(node_count, content="2")
+  inspect(node_kinds[0], content="LetDef")
+  inspect(node_kinds[1], content="LetDef")
+}
+
+///|
+test "source file: LetDef has correct token structure" {
+  let (cst, _) = parse_source_file("let id = 1")
+  let letdef = for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) => break n
+      _ => continue
+    }
+  } nobreak {
+    abort("No LetDef node found")
+  }
+  inspect(@syntax.SyntaxKind::from_raw(letdef.kind), content="LetDef")
+  // Non-whitespace children: LetKeyword, IdentToken, EqToken, IntLiteral node
+  let non_ws : Array[String] = []
+  for elem in letdef.children {
+    match elem {
+      @seam.CstElement::Token(t) =>
+        if @syntax.SyntaxKind::from_raw(t.kind) != @syntax.WhitespaceToken {
+          non_ws.push(@syntax.SyntaxKind::from_raw(t.kind).to_string())
+        }
+      @seam.CstElement::Node(n) =>
+        non_ws.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+    }
+  }
+  inspect(
+    non_ws,
+    content="[\"LetKeyword\", \"IdentToken\", \"EqToken\", \"IntLiteral\"]",
+  )
+}
+
+///|
+test "source file: single expression (no defs)" {
+  let (cst, _) = parse_source_file("42")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"IntLiteral\"]")
+}
+
+///|
+test "source file: final let-expression is parsed as LetExpr" {
+  let (cst, diagnostics) = parse_source_file("let x = 1 in x")
+  inspect(diagnostics.length(), content="0")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"LetExpr\"]")
+}
+
+///|
+test "source file: def + final expression" {
+  let (cst, _) = parse_source_file("let id = 1\nid")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+}
+
+///|
+test "source file: leading newlines before def + final expression" {
+  let (cst, diagnostics) = parse_source_file("\nlet id = 1\nid")
+  inspect(diagnostics.length(), content="0")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+}
+
+///|
+test "source file: trailing tokens after final expression produce error" {
+  let (cst, diagnostics) = parse_source_file("1 in x")
+  inspect(diagnostics.length() > 0, content="true")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
+}

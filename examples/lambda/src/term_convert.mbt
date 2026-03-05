@@ -9,6 +9,12 @@
 /// For error-recovered trees, only the first node child of SourceFile is used;
 /// additional error-recovery siblings are silently dropped. Partially-recovered
 /// expressions are represented as `Term::Error(msg)` in the term tree.
+///
+/// **Contract:** Pass only trees produced by the lambda-grammar entry points
+/// (`parse`, `parse_cst`, `parse_cst_recover*`). Trees produced by
+/// `parse_source_file` contain `LetDef` nodes that are not handled here — they
+/// fall through to `Term::Error("unknown node kind: LetDef")`. Use
+/// `syntax_node_to_source_file_term` for source-file grammar trees.
 pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
   let node = match @syntax.SyntaxKind::from_raw(root.kind()) {
     @syntax.SourceFile =>
@@ -128,4 +134,36 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
         @syntax.SyntaxKind::from_raw(node.kind()).to_string(),
       )
   }
+}
+
+///|
+/// Convert a SourceFile SyntaxNode (LetDef* Expression?) to a Term.
+///
+/// Right-folds definitions: [LetDef(x1,e1), LetDef(x2,e2), Expression(e3)]
+/// → Let("x1", e1, Let("x2", e2, e3)).
+/// No final expression → uses Unit as terminal.
+///
+/// Malformed LetDef nodes (missing init expression) produce `Term::Error(...)`.
+pub fn syntax_node_to_source_file_term(root : @seam.SyntaxNode) -> @ast.Term {
+  let defs : Array[(@ast.VarName, @ast.Term)] = []
+  let mut final_term : @ast.Term = @ast.Term::Unit
+  for child in root.children() {
+    match @syntax.SyntaxKind::from_raw(child.kind()) {
+      @syntax.LetDef => {
+        let v = LetDefView::{ node: child }
+        let init = match v.init() {
+          Some(expr_node) => view_to_term(expr_node)
+          None => @ast.Term::Error("missing LetDef init")
+        }
+        defs.push((v.name(), init))
+      }
+      _ => if final_term == @ast.Term::Unit { final_term = view_to_term(child) }
+    }
+  }
+  let mut result = final_term
+  for i = defs.length() - 1; i >= 0; i = i - 1 {
+    let (name, init) = defs[i]
+    result = @ast.Term::Let(name, init, result)
+  }
+  result
 }

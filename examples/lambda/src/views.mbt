@@ -462,3 +462,54 @@ pub impl ToJson for VarRefView with to_json(self) -> Json {
     "end": (self.node.end() : Int),
   }
 }
+
+// ─── LetDef ──────────────────────────────────────────────────────────────────
+
+///|
+pub struct LetDefView {
+  node : @seam.SyntaxNode
+}
+
+///|
+pub fn LetDefView::cast(n : @seam.SyntaxNode) -> LetDefView? {
+  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.LetDef {
+    Some({ node: n })
+  } else {
+    None
+  }
+}
+
+///|
+pub impl @core.AstView for LetDefView with syntax_node(self) {
+  self.node
+}
+
+///|
+/// The binding name (first IdentToken in the node).
+pub fn LetDefView::name(self : LetDefView) -> String {
+  self.node
+  .find_token(@syntax.IdentToken.to_raw())
+  .map(t => t.text())
+  .unwrap_or("")
+}
+
+///|
+/// The init expression (first node child of LetDef).
+pub fn LetDefView::init(self : LetDefView) -> @seam.SyntaxNode? {
+  self.node.nth_child(0)
+}
+
+///|
+pub impl ToJson for LetDefView with to_json(self) -> Json {
+  let init_json : Json = match self.init() {
+    Some(n) => n.to_json()
+    None => Json::null()
+  }
+  {
+    "kind": "LetDef",
+    "name": self.name(),
+    "start": (self.node.start() : Int),
+    "end": (self.node.end() : Int),
+    "init": init_json,
+  }
+}

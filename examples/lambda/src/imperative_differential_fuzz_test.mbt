@@ -186,7 +186,7 @@ test "differential-fast: deterministic random edit sequences" {
     }
   }
   // Guard against a vacuous pass if generators drift toward malformed strings.
-  assert_true(checked_cases > 0)
+  inspect(checked_cases > 0, content="true")
 }
 
 ///|
@@ -228,6 +228,152 @@ test "differential-fast: malformed input sequences terminate" {
   }
 }
 
+// ============================================================================
+// Source-file grammar differential fuzz tests
+// ============================================================================
+
+///|
+/// Like idf_pool but adds "\n" so the generator can produce newline tokens,
+/// giving the source-file grammar a chance to see multi-definition inputs.
+fn idf_source_file_pool() -> Array[String] {
+  [
+    "x", "y", "z", "0", "1", "2", "let", " = ", " ", "\n", "(", ")", "+", "-", "if",
+    "then", "else",
+  ]
+}
+
+///|
+/// Build an initial source string using the source-file pool.
+fn idf_make_source_file_source(seed : Int) -> String {
+  let pool = idf_source_file_pool()
+  let mut s = seed
+  let mut out = ""
+  let count = seed.abs() % 10 + 3
+  let pool_len = pool.length()
+  for _i = 0; _i < count; _i = _i + 1 {
+    s = idf_next_seed(s)
+    let idx = s.abs() % pool_len
+    out = out + pool[idx]
+  }
+  out
+}
+
+///|
+/// Apply a random edit drawn from the source-file pool.
+fn idf_apply_source_file_edit(
+  source : String,
+  seed : Int,
+) -> (String, @core.Edit, Int) {
+  let frag_pool = idf_source_file_pool()
+  let len = source.length()
+  let mut s = idf_next_seed(seed)
+  let op = s.abs() % 3
+  // Pick a fragment from the source-file pool
+  s = idf_next_seed(s)
+  let frag_count = s.abs() % 3 + 1
+  let pool_len = frag_pool.length()
+  let mut frag = ""
+  for _i = 0; _i < frag_count; _i = _i + 1 {
+    s = idf_next_seed(s)
+    frag = frag + frag_pool[s.abs() % pool_len]
+  }
+  s = idf_next_seed(s)
+  if op == 0 || len == 0 {
+    let start = idf_clamp(s.abs() % (len + 1), len)
+    let left = idf_slice_string(source, 0, start)
+    let right = idf_slice_string(source, start, len)
+    match (left, right) {
+      (Some(l), Some(r)) =>
+        (l + frag + r, @core.Edit::insert(start, frag.length()), s)
+      _ => (source, @core.Edit::insert(0, 0), s)
+    }
+  } else {
+    let start_raw = s.abs() % (len + 1)
+    s = idf_next_seed(s)
+    let end_raw = s.abs() % (len + 1)
+    let from = if start_raw <= end_raw { start_raw } else { end_raw }
+    let to = if start_raw <= end_raw { end_raw } else { start_raw }
+    let from = idf_clamp(from, len)
+    let to = idf_clamp(to, len)
+    let left = idf_slice_string(source, 0, from)
+    let right = idf_slice_string(source, to, len)
+    match (left, right) {
+      (Some(l), Some(r)) =>
+        if op == 1 {
+          (l + r, @core.Edit::delete(from, to), s)
+        } else {
+          (l + frag + r, @core.Edit::replace(from, to, from + frag.length()), s)
+        }
+      _ => (source, @core.Edit::insert(0, 0), s)
+    }
+  }
+}
+
+///|
+/// Oracle for the source-file grammar: incremental result must match
+/// a fresh full parse when there are no diagnostics.
+fn idf_assert_source_file_matches_full(
+  incr_node : @seam.SyntaxNode,
+  full_cst : @seam.CstNode,
+  context : String,
+) -> Unit {
+  let incr_term = syntax_node_to_source_file_term(incr_node)
+  let full_term = syntax_node_to_source_file_term(
+    @seam.SyntaxNode::from_cst(full_cst),
+  )
+  // Structural equality (Term derives Eq) is stronger than string comparison:
+  // two structurally distinct trees that happen to print identically would pass
+  // string comparison but fail here.
+  if incr_term != full_term {
+    abort(
+      "Source-file differential mismatch (" +
+      context +
+      "): incremental=" +
+      @ast.print_term(incr_term) +
+      ", full=" +
+      @ast.print_term(full_term),
+    )
+  }
+}
+
+///|
+/// 200-iteration differential fuzz for the source-file grammar.
+/// Each iteration picks a random starting source, parses it, applies
+/// random edits, and checks that incremental == full reparse.
+test "differential-fast: source-file grammar deterministic fuzz" {
+  let mut checked_cases = 0
+  for case_i = 0; case_i < 25; case_i = case_i + 1 {
+    let mut seed = 53 + case_i * 113
+    let mut source = idf_make_source_file_source(seed)
+    let parser = @loom.new_imperative_parser(source, source_file_grammar)
+    let _ = parser.parse()
+    for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
+      let (new_source, edit, next_seed) = idf_apply_source_file_edit(
+        source, seed,
+      )
+      let incr_node = parser.edit(edit, new_source)
+      let (full_cst, full_errors) = parse_source_file(new_source) catch {
+        _ => {
+          source = new_source
+          seed = next_seed
+          continue
+        }
+      }
+      if full_errors.length() == 0 {
+        idf_assert_source_file_matches_full(
+          incr_node,
+          full_cst,
+          "case=\{case_i}, edit=\{edit_i}, source=\{new_source}",
+        )
+        checked_cases += 1
+      }
+      source = new_source
+      seed = next_seed
+    }
+  }
+  inspect(checked_cases > 0, content="true")
+}
+
 ///|
 test "differential-long: larger deterministic random edit sequences" {
   // Longer local/nightly target. Keep deterministic for reproducibility.
@@ -262,5 +408,5 @@ test "differential-long: larger deterministic random edit sequences" {
       seed = next_seed
     }
   }
-  assert_true(checked_cases > 0)
+  inspect(checked_cases > 0, content="true")
 }

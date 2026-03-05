@@ -210,6 +210,7 @@ fn check_well_formed(term : @ast.Term) -> Unit raise {
       check_well_formed(init)
       check_well_formed(body)
     }
+    @ast.Term::Unit => ()
     @ast.Term::Error(_) => () // error terms from recovery are valid Term values
   }
 }

@@ -16,6 +16,8 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @seam.S
 
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
+pub fn make_source_file_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
+
 pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@seam.SyntaxNode]
 
 pub fn parse(String) -> @ast.Term raise
@@ -27,6 +29,16 @@ pub fn parse_cst_recover(String) -> (@seam.CstNode, Array[@core.Diagnostic[@toke
 pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
 
 pub fn parse_cst_with_cursor(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind], prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
+
+pub fn parse_source_file(String) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
+
+pub fn parse_source_file_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
+
+pub fn parse_source_file_term(String) -> (@ast.Term, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
+
+pub let source_file_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @seam.SyntaxNode]
+
+pub fn syntax_node_to_source_file_term(@seam.SyntaxNode) -> @ast.Term
 
 pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
 
@@ -84,6 +96,15 @@ pub fn LambdaExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaExprView::param(Self) -> String
 pub impl @core.AstView for LambdaExprView
 pub impl ToJson for LambdaExprView
+
+pub struct LetDefView {
+  node : @seam.SyntaxNode
+}
+pub fn LetDefView::cast(@seam.SyntaxNode) -> Self?
+pub fn LetDefView::init(Self) -> @seam.SyntaxNode?
+pub fn LetDefView::name(Self) -> String
+pub impl @core.AstView for LetDefView
+pub impl ToJson for LetDefView
 
 pub struct LetExprView {
   node : @seam.SyntaxNode
