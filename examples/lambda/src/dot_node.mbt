@@ -62,6 +62,7 @@ pub fn term_to_dot(term : @ast.Term) -> String {
       @ast.Term::Bop(op, _, _) => "Bop(" + op.to_string() + ")"
       @ast.Term::If(_, _, _) => "If"
       @ast.Term::Let(s, _, _) => "Let(" + s + ")"
+      @ast.Term::Unit => "Unit"
       @ast.Term::Error(msg) => "Error(" + msg + ")"
     }
     write_node(id, label)
