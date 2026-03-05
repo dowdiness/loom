@@ -10,7 +10,7 @@
 /// node child of SourceFile is used; additional error-recovery siblings are
 /// silently dropped. `Term` has no Error variant, so partially-recovered
 /// expressions cannot be represented in the term tree. Parse errors and
-/// recovered error nodes are surfaced via `ReactiveParser::diagnostics()`.
+/// recovered error nodes are surfaced via `parse_cst_recover` diagnostics.
 pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
   let node = match @syntax.SyntaxKind::from_raw(root.kind()) {
     @syntax.SourceFile =>

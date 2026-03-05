@@ -336,8 +336,6 @@ test "phase3: recovery at lambda" {
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
   assert_true(errors.length() > 0)
-  // Should have error reported
-  assert_true(errors.length() > 0)
   assert_true(tree.end() >= 6)
 }
 

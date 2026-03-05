@@ -1,7 +1,7 @@
 // Tests for the parser — migrated from AstNode to SyntaxNode + Term.
 
 ///|
-test "parse_tree simple integer" {
+test "parse_cst_recover simple integer" {
   let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -11,7 +11,7 @@ test "parse_tree simple integer" {
 }
 
 ///|
-test "parse_tree simple variable" {
+test "parse_cst_recover simple variable" {
   let (cst, _) = parse_cst_recover("x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -21,7 +21,7 @@ test "parse_tree simple variable" {
 }
 
 ///|
-test "parse_tree identity function" {
+test "parse_cst_recover identity function" {
   let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -31,7 +31,7 @@ test "parse_tree identity function" {
 }
 
 ///|
-test "parse_tree binary operator" {
+test "parse_cst_recover binary operator" {
   let (cst, _) = parse_cst_recover("1 + 2") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(@ast.print_term(syntax_node_to_term(root)), content="(1 + 2)")
@@ -46,7 +46,7 @@ test "parse_tree binary operator" {
 }
 
 ///|
-test "parse_tree application" {
+test "parse_cst_recover application" {
   let (cst, _) = parse_cst_recover("f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(@ast.print_term(syntax_node_to_term(root)), content="(f x)")
@@ -60,7 +60,7 @@ test "parse_tree application" {
 }
 
 ///|
-test "parse_tree if-then-else" {
+test "parse_cst_recover if-then-else" {
   let (cst, _) = parse_cst_recover("if x then y else z") catch {
     _ => abort("lex error")
   }
@@ -85,7 +85,7 @@ test "parse_tree if-then-else" {
 }
 
 ///|
-test "parse_tree complex expression" {
+test "parse_cst_recover complex expression" {
   let (cst, _) = parse_cst_recover("λf.λx.f x") catch {
     _ => abort("lex error")
   }
@@ -103,7 +103,7 @@ test "parse_tree complex expression" {
 }
 
 ///|
-test "parse_tree preserves source positions" {
+test "parse_cst_recover preserves source positions" {
   let (cst, _) = parse_cst_recover("  x  +  y  ") catch {
     _ => abort("lex error")
   }
