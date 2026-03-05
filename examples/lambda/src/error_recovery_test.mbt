@@ -67,13 +67,9 @@ test "parse_cst_recover: valid inputs produce no diagnostics" {
 
 ///|
 /// Helper: verify CST text_len == source length (every code unit accounted for).
-fn assert_cst_complete(source : String, cst : @seam.CstNode) -> Unit {
+fn assert_cst_complete(source : String, cst : @seam.CstNode) -> Unit raise {
   let tree = @seam.SyntaxNode::from_cst(cst)
-  if tree.end() != source.length() {
-    abort(
-      "CST incomplete: text_len=\{tree.end()}, source.length()=\{source.length()} for \"\{source}\"",
-    )
-  }
+  inspect(tree.end() == source.length(), content="true")
 }
 
 ///|
@@ -81,12 +77,10 @@ fn assert_cst_complete(source : String, cst : @seam.CstNode) -> Unit {
 fn assert_first_child_kind(
   cst : @seam.CstNode,
   expected : @syntax.SyntaxKind,
-) -> Unit {
+) -> Unit raise {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let kind = @syntax.SyntaxKind::from_raw(tree.nth_child(0).unwrap().kind())
-  if kind != expected {
-    abort("Expected first child \{expected}, got \{kind}")
-  }
+  inspect(kind == expected, content="true")
 }
 
 ///|
@@ -127,6 +121,25 @@ test "lambda_expect: missing '=' in let" {
 }
 
 ///|
+test "lambda_expect: missing '=' in nested let does not steal outer in" {
+  let source = "let x = let y 1 in y in z"
+  let (cst, diagnostics) = parse_cst_recover(source)
+  assert_cst_complete(source, cst)
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree)),
+    content="let x = let y = 1 in y in z",
+  )
+  let mut found_eq = false
+  for diag in diagnostics {
+    if diag.message.contains("=") {
+      found_eq = true
+    }
+  }
+  inspect(found_eq, content="true")
+}
+
+///|
 test "lambda_expect: missing closing paren" {
   let source = "(λx. x"
   let (cst, diagnostics) = parse_cst_recover(source)
@@ -134,6 +147,41 @@ test "lambda_expect: missing closing paren" {
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics[0].message, content="Expected )")
   assert_first_child_kind(cst, @syntax.ParenExpr)
+}
+
+///|
+test "lambda_expect: missing ')' in let init keeps outer in" {
+  let source = "let x = (1 in x"
+  let (cst, diagnostics) = parse_cst_recover(source)
+  assert_cst_complete(source, cst)
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  inspect(@ast.print_term(syntax_node_to_term(tree)), content="let x = 1 in x")
+  let mut found_paren = false
+  for diag in diagnostics {
+    if diag.message.contains(")") {
+      found_paren = true
+    }
+  }
+  inspect(found_paren, content="true")
+}
+
+///|
+test "lambda_expect: missing ')' in if condition keeps then/else" {
+  let source = "if (x then y else z"
+  let (cst, diagnostics) = parse_cst_recover(source)
+  assert_cst_complete(source, cst)
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  inspect(
+    @ast.print_term(syntax_node_to_term(tree)),
+    content="if x then y else z",
+  )
+  let mut found_paren = false
+  for diag in diagnostics {
+    if diag.message.contains(")") {
+      found_paren = true
+    }
+  }
+  inspect(found_paren, content="true")
 }
 
 // ============================================================================

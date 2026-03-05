@@ -1,5 +1,7 @@
 # Apply Error Recovery Combinators to Lambda Example — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Apply the recovery combinators from `loom/src/core/recovery.mbt` (`expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`) to the lambda calculus example grammar in `examples/lambda/src/`. This serves as the first real-world validation of the combinators and establishes patterns for other grammars.

@@ -452,7 +452,7 @@ fn parse_atom(
     @token.If =>
       ctx.node_with_recovery(
         @syntax.IfExpr,
-        fn() {
+        () => {
           ctx.emit_token(@syntax.IfKeyword)
           parse_expression_with_mode(ctx, allow_newline_application)
           if not(lambda_expect(ctx, @token.Then, @syntax.ThenKeyword)) {
@@ -468,7 +468,7 @@ fn parse_atom(
         is_sync_point,
       )
     @token.LeftParen =>
-      ctx.node(@syntax.ParenExpr, fn() {
+      ctx.node(@syntax.ParenExpr, () => {
         ctx.emit_token(@syntax.LeftParenToken)
         parse_expression_with_mode(ctx, allow_newline_application)
         if not(lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)) {
