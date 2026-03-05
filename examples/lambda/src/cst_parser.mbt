@@ -14,8 +14,8 @@ pub fn make_reuse_cursor(
     damage_start,
     damage_end,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
+    i => tokens[i].token,
+    i => tokens[i].start,
     lambda_spec,
   )
 }
@@ -41,9 +41,9 @@ pub fn parse_cst_recover(
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
-    fn(i) { tokens[i].end },
+    i => tokens[i].token,
+    i => tokens[i].start,
+    i => tokens[i].end,
     lambda_spec,
   )
   (cst, diagnostics)
@@ -60,9 +60,9 @@ pub fn parse_cst_with_cursor(
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
-    fn(i) { tokens[i].end },
+    i => tokens[i].token,
+    i => tokens[i].start,
+    i => tokens[i].end,
     lambda_spec,
     cursor=Some(cursor),
     prev_diagnostics~,
@@ -80,9 +80,9 @@ pub fn parse_cst_recover_with_tokens(
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
-    fn(i) { tokens[i].end },
+    i => tokens[i].token,
+    i => tokens[i].start,
+    i => tokens[i].end,
     lambda_spec,
     cursor~,
     prev_diagnostics~,
@@ -281,6 +281,7 @@ fn parse_atom(
 
 // ─── Source-file grammar (LetDef* Expression?) ────────────────────────────────
 
+///|
 /// Parse a top-level `let` item for source-file grammar.
 ///
 /// Shape:
@@ -373,9 +374,9 @@ pub fn parse_source_file(
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
-    fn(i) { tokens[i].end },
+    i => tokens[i].token,
+    i => tokens[i].start,
+    i => tokens[i].end,
     source_file_spec,
   )
   (cst, diagnostics)
@@ -392,9 +393,9 @@ pub fn parse_source_file_recover_with_tokens(
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
-    fn(i) { tokens[i].end },
+    i => tokens[i].token,
+    i => tokens[i].start,
+    i => tokens[i].end,
     source_file_spec,
     cursor~,
     prev_diagnostics~,
@@ -414,8 +415,8 @@ pub fn make_source_file_reuse_cursor(
     damage_start,
     damage_end,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { tokens[i].start },
+    i => tokens[i].token,
+    i => tokens[i].start,
     source_file_spec,
   )
 }

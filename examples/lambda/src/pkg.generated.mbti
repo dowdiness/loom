@@ -32,7 +32,7 @@ pub fn parse_cst_with_cursor(String, Array[@core.TokenInfo[@token.Token]], @core
 
 pub fn parse_source_file(String) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
 
-pub fn parse_source_file_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
+pub fn parse_source_file_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
 
 pub fn parse_source_file_term(String) -> (@ast.Term, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
 

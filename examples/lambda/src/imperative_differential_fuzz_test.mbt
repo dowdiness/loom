@@ -186,7 +186,7 @@ test "differential-fast: deterministic random edit sequences" {
     }
   }
   // Guard against a vacuous pass if generators drift toward malformed strings.
-  assert_true(checked_cases > 0)
+  inspect(checked_cases > 0, content="true")
 }
 
 ///|
@@ -371,7 +371,7 @@ test "differential-fast: source-file grammar deterministic fuzz" {
       seed = next_seed
     }
   }
-  assert_true(checked_cases > 0)
+  inspect(checked_cases > 0, content="true")
 }
 
 ///|
@@ -408,5 +408,5 @@ test "differential-long: larger deterministic random edit sequences" {
       seed = next_seed
     }
   }
-  assert_true(checked_cases > 0)
+  inspect(checked_cases > 0, content="true")
 }

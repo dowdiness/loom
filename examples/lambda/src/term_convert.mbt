@@ -157,7 +157,7 @@ pub fn syntax_node_to_source_file_term(root : @seam.SyntaxNode) -> @ast.Term {
         }
         defs.push((v.name(), init))
       }
-      _ => final_term = view_to_term(child)
+      _ => if final_term == @ast.Term::Unit { final_term = view_to_term(child) }
     }
   }
   let mut result = final_term
