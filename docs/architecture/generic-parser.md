@@ -86,6 +86,13 @@ ctx.wrap_at(mark, kind, body) // start_at + body + finish_node
 ctx.error(msg)                // record a diagnostic without consuming a token
 ctx.bump_error()              // consume current token as an error token
 ctx.emit_error_placeholder()  // emit a zero-width error token (for missing tokens)
+
+// Recovery combinators (recovery.mbt):
+ctx.expect(token, kind)                    // consume if match, else diagnostic + placeholder
+ctx.skip_until(is_sync)                    // skip to sync point, wrap skipped in error node
+ctx.skip_until_balanced(is_open, is_close) // bracket-aware skip with nesting depth
+ctx.node_with_recovery(kind, body, sync)   // reuse-aware node with automatic recovery
+ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 ```
 
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
@@ -118,7 +125,7 @@ pub fn parse_tokens_indexed[T : IsTrivia, K : ToRawKind](
 
 `parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by the incremental path — pass a `ReuseCursor` built from the previous tree and damage range to enable subtree reuse.
 
-Error recovery is left to the grammar function. The framework provides `bump_error()` and `emit_error_placeholder()` as primitives; the grammar decides when and how to use them.
+Error recovery uses two layers. Low-level primitives (`bump_error()`, `emit_error_placeholder()`) let grammars handle recovery manually. Higher-level combinators (`expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`) provide reusable patterns — the grammar decides which layer to use.
 
 ## Reference Implementation
 

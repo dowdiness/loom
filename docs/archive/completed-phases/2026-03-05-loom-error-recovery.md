@@ -1,5 +1,7 @@
 # loom Error Recovery Combinators — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add reusable error recovery combinators to `loom/src/core/` so grammar authors can write resilient parsers without hand-rolling recovery logic. Five combinators: `expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`.
