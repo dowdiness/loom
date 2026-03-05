@@ -9,6 +9,12 @@
 /// For error-recovered trees, only the first node child of SourceFile is used;
 /// additional error-recovery siblings are silently dropped. Partially-recovered
 /// expressions are represented as `Term::Error(msg)` in the term tree.
+///
+/// **Contract:** Pass only trees produced by the lambda-grammar entry points
+/// (`parse`, `parse_cst`, `parse_cst_recover*`). Trees produced by
+/// `parse_source_file` contain `LetDef` nodes that are not handled here — they
+/// fall through to `Term::Error("unknown node kind: LetDef")`. Use
+/// `syntax_node_to_source_file_term` for source-file grammar trees.
 pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
   let node = match @syntax.SyntaxKind::from_raw(root.kind()) {
     @syntax.SourceFile =>

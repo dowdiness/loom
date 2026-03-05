@@ -954,6 +954,31 @@ test "source file: incremental parse == full reparse after first def edit" {
 }
 
 ///|
+/// Editing only the second LetDef's value (same-length replacement `2` → `9`)
+/// must allow the ReuseCursor to reuse the first LetDef's subtree, which is
+/// entirely before the damage window.
+test "source file: editing second def reuses first def" {
+  let source1 = "let id = 1\nlet const = 2"
+  let tokens1 = @lexer.tokenize_layout(source1)
+  let (cst1, _, _) = parse_source_file_recover_with_tokens(
+    source1,
+    tokens1,
+    None,
+  )
+  // "let const = 2" — "2" is at position 22, same-length replacement (damage [22, 23))
+  let source2 = "let id = 1\nlet const = 9"
+  let tokens2 = @lexer.tokenize_layout(source2)
+  let cursor = make_source_file_reuse_cursor(cst1, 22, 23, tokens2)
+  let (_, _, reuse_count) = parse_source_file_recover_with_tokens(
+    source2,
+    tokens2,
+    Some(cursor),
+  )
+  // The first LetDef is entirely before position 22 — it gets reused
+  inspect(reuse_count > 0, content="true")
+}
+
+///|
 test "Reuse: tokenization error clears stale concrete syntax tree state" {
   let parser = @loom.new_imperative_parser("1+1+1", lambda_grammar)
   let _ = parser.parse()

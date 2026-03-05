@@ -715,6 +715,21 @@ test "source file: single expression (no defs)" {
 }
 
 ///|
+test "source file: final let-expression is parsed as LetExpr" {
+  let (cst, diagnostics) = parse_source_file("let x = 1 in x")
+  inspect(diagnostics.length(), content="0")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"LetExpr\"]")
+}
+
+///|
 test "source file: def + final expression" {
   let (cst, _) = parse_source_file("let id = 1\nid")
   let node_kinds : Array[String] = []
@@ -726,4 +741,19 @@ test "source file: def + final expression" {
     }
   }
   inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+}
+
+///|
+test "source file: trailing tokens after final expression produce error" {
+  let (cst, diagnostics) = parse_source_file("1 in x")
+  inspect(diagnostics.length() > 0, content="true")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
 }

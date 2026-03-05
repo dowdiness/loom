@@ -302,6 +302,13 @@ test "parse_source_file_term: single expression (no defs)" {
 }
 
 ///|
+test "parse_source_file_term: let-expression (no defs)" {
+  let (term, diagnostics) = parse_source_file_term("let x = 1 in x")
+  inspect(diagnostics.length(), content="0")
+  inspect(@ast.print_term(term), content="let x = 1 in x")
+}
+
+///|
 test "parse_source_file_term: empty file" {
   let (term, _) = parse_source_file_term("")
   inspect(@ast.print_term(term), content="()")

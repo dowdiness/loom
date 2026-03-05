@@ -281,36 +281,67 @@ fn parse_atom(
 
 // ─── Source-file grammar (LetDef* Expression?) ────────────────────────────────
 
-///|
-fn parse_let_def(
+/// Parse a top-level `let` item for source-file grammar.
+///
+/// Shape:
+///   - `let x = e`      -> LetDef
+///   - `let x = e in b` -> LetExpr
+///
+/// Returns true when parsed as LetDef, false when parsed as LetExpr.
+fn parse_source_file_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Unit {
-  ctx.node(@syntax.LetDef, () => {
-    ctx.emit_token(@syntax.LetKeyword)
-    match ctx.peek() {
-      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-      _ => {
-        ctx.error("Expected variable name after 'let'")
-        ctx.emit_error_placeholder()
-      }
+) -> Bool {
+  let mark = ctx.mark()
+  ctx.emit_token(@syntax.LetKeyword)
+  match ctx.peek() {
+    @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+    _ => {
+      ctx.error("Expected variable name after 'let'")
+      ctx.emit_error_placeholder()
     }
-    lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+  }
+  lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+  parse_expression(ctx)
+  let mut is_def = true
+  if ctx.peek() == @token.In {
+    is_def = false
+    ctx.emit_token(@syntax.InKeyword)
     parse_expression(ctx)
-  })
+  }
+  let kind = if is_def { @syntax.LetDef } else { @syntax.LetExpr }
+  ctx.start_at(mark, kind)
+  ctx.finish_node()
+  is_def
 }
 
 ///|
 /// Entry point for source-file grammar: LetDef* Expression?
 /// Newline tokens (from tokenize_layout) delimit definitions and are emitted
-/// explicitly into the CST — they do NOT appear as node children, so the
-/// term converter sees only LetDef/expression nodes.
+/// explicitly into the CST as direct children of SourceFile. They are token
+/// children (not node children), so `SyntaxNode::children()` (node-only) never
+/// yields them. Only `SyntaxNode::all_children()` would see them. The term
+/// converter uses `children()`, so it only encounters LetDef and expression nodes.
+/// Callers that use `all_children()` must handle `NewlineToken` explicitly.
 fn parse_source_file_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  while ctx.peek() == @token.Let {
-    parse_let_def(ctx)
+  let mut parsed_final_expr = false
+  while ctx.peek() == @token.Let && not(parsed_final_expr) {
+    if parse_source_file_let_item(ctx) {
+      while ctx.peek() == @token.Newline {
+        ctx.emit_token(@syntax.NewlineToken)
+      }
+    } else {
+      parsed_final_expr = true
+    }
+  }
+  if not(parsed_final_expr) {
     while ctx.peek() == @token.Newline {
       ctx.emit_token(@syntax.NewlineToken)
+    }
+    match ctx.peek() {
+      @token.EOF => ()
+      _ => parse_expression(ctx)
     }
   }
   while ctx.peek() == @token.Newline {
@@ -318,7 +349,14 @@ fn parse_source_file_root(
   }
   match ctx.peek() {
     @token.EOF => ()
-    _ => parse_expression(ctx)
+    _ => {
+      ctx.error("Unexpected tokens after expression")
+      ctx.start_node(@syntax.ErrorNode)
+      while ctx.peek() != @token.EOF {
+        ctx.bump_error()
+      }
+      ctx.finish_node()
+    }
   }
   ctx.flush_trivia()
 }
@@ -346,6 +384,7 @@ pub fn parse_source_file_recover_with_tokens(
   source : String,
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
+  prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
   @core.parse_tokens_indexed(
     source,
@@ -355,6 +394,7 @@ pub fn parse_source_file_recover_with_tokens(
     fn(i) { tokens[i].end },
     source_file_spec,
     cursor~,
+    prev_diagnostics~,
   )
 }
 

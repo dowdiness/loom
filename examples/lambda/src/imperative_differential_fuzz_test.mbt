@@ -321,16 +321,17 @@ fn idf_assert_source_file_matches_full(
   let full_term = syntax_node_to_source_file_term(
     @seam.SyntaxNode::from_cst(full_cst),
   )
-  let incr_str = @ast.print_term(incr_term)
-  let full_str = @ast.print_term(full_term)
-  if incr_str != full_str {
+  // Structural equality (Term derives Eq) is stronger than string comparison:
+  // two structurally distinct trees that happen to print identically would pass
+  // string comparison but fail here.
+  if incr_term != full_term {
     abort(
       "Source-file differential mismatch (" +
       context +
       "): incremental=" +
-      incr_str +
+      @ast.print_term(incr_term) +
       ", full=" +
-      full_str,
+      @ast.print_term(full_term),
     )
   }
 }
