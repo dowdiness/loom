@@ -6,7 +6,7 @@
 /// Benchmark: Parse scaling - small input (5 tokens)
 test "parse scaling - small (5 tokens)" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("1 + 2") catch {
+    let result = @lambda.parse("1 + 2") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -17,7 +17,7 @@ test "parse scaling - small (5 tokens)" (b : @bench.T) {
 /// Benchmark: Parse scaling - medium input (15 tokens)
 test "parse scaling - medium (15 tokens)" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("λf.λx.if f x then x + 1 else x - 1") catch {
+    let result = @lambda.parse("λf.λx.if f x then x + 1 else x - 1") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -28,7 +28,7 @@ test "parse scaling - medium (15 tokens)" (b : @bench.T) {
 /// Benchmark: Parse scaling - large input (30+ tokens)
 test "parse scaling - large (30+ tokens)" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree(
+    let result = @lambda.parse(
       "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)",
     ) catch {
       _ => abort("benchmark failed")

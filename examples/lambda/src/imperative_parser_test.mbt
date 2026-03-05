@@ -143,12 +143,12 @@ test "ImperativeParser::edit result equals full reparse" {
   let incremental_tree = parser.edit(edit, "x + 1")
 
   // Full reparse
-  let full_tree = parse_tree("x + 1")
+  let full_tree = (parse("x + 1") catch { _ => abort("parse failed") })
 
   // Results should be equivalent (same printed form)
   inspect(
     @ast.print_term(syntax_node_to_term(incremental_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -221,10 +221,10 @@ test "multiple incremental edits preserve correctness" {
   )
 
   // Final result should match full reparse
-  let full_tree = parse_tree("λy.λx.x + 2")
+  let full_tree = (parse("λy.λx.x + 2") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(tree3)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -238,10 +238,10 @@ test "damage tracking accuracy" {
   let new_tree = parser.edit(edit, "(a + b) + (x + d)")
 
   // Incremental result must match a full reparse of the edited source
-  let full_tree = parse_tree("(a + b) + (x + d)")
+  let full_tree = (parse("(a + b) + (x + d)") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -257,10 +257,10 @@ test "Edge case: insertion at position 0" {
   let new_tree = parser.edit(edit, "λx.x")
 
   // Should correctly parse the new structure
-  let full_tree = parse_tree("λx.x")
+  let full_tree = (parse("λx.x") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -274,10 +274,10 @@ test "Edge case: insertion at end of document" {
   let new_tree = parser.edit(edit, "x + 1")
 
   // Should correctly parse the new structure
-  let full_tree = parse_tree("x + 1")
+  let full_tree = (parse("x + 1") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -302,10 +302,10 @@ test "Edge case: replace with longer text" {
   // Replace single char with much longer expression
   let edit = @core.Edit::replace(0, 1, 15)
   let new_tree = parser.edit(edit, "λf.λx.f (f (x))")
-  let full_tree = parse_tree("λf.λx.f (f (x))")
+  let full_tree = (parse("λf.λx.f (f (x))") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -317,10 +317,10 @@ test "Edge case: replace with shorter text" {
   // Replace long expression with single char
   let edit = @core.Edit::replace(0, 15, 1)
   let new_tree = parser.edit(edit, "y")
-  let full_tree = parse_tree("y")
+  let full_tree = (parse("y") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -336,10 +336,10 @@ test "Edge case: consecutive insertions at same position" {
   // Second insertion at same position (after first edit)
   let edit2 = @core.Edit::insert(3, 2)
   let tree2 = parser.edit(edit2, "x y z")
-  let full_tree = parse_tree("x y z")
+  let full_tree = (parse("x y z") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(tree2)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -351,10 +351,10 @@ test "Edge case: insertion in middle of lambda parameter" {
   // Insert in the middle of parameter name (should change structure)
   let edit = @core.Edit::insert(2, 1)
   let new_tree = parser.edit(edit, "λxy.x")
-  let full_tree = parse_tree("λxy.x")
+  let full_tree = (parse("λxy.x") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -366,10 +366,10 @@ test "Edge case: deletion at boundary between nodes" {
   // Delete the operator (critical boundary)
   let edit = @core.Edit::delete(2, 4)
   let new_tree = parser.edit(edit, "x y")
-  let full_tree = parse_tree("x y")
+  let full_tree = (parse("x y") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -381,10 +381,10 @@ test "Edge case: structural change from leaf to compound" {
   // Change from simple int to binary operation
   let edit = @core.Edit::insert(2, 4)
   let new_tree = parser.edit(edit, "42 + 1")
-  let full_tree = parse_tree("42 + 1")
+  let full_tree = (parse("42 + 1") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -396,10 +396,10 @@ test "Edge case: structural change from compound to leaf" {
   // Change from binary operation to simple variable
   let edit = @core.Edit::replace(0, 5, 1)
   let new_tree = parser.edit(edit, "z")
-  let full_tree = parse_tree("z")
+  let full_tree = (parse("z") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -411,10 +411,10 @@ test "Edge case: nested lambda insertion at start" {
   // Wrap with another lambda
   let edit = @core.Edit::insert(0, 3)
   let new_tree = parser.edit(edit, "λy.λx.x + 1")
-  let full_tree = parse_tree("λy.λx.x + 1")
+  let full_tree = (parse("λy.λx.x + 1") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -430,10 +430,10 @@ test "Edge case: multiple rapid edits in sequence" {
   let _ = parser.edit(edit2, "a b c")
   let edit3 = @core.Edit::insert(5, 2)
   let tree3 = parser.edit(edit3, "a b c d")
-  let full_tree = parse_tree("a b c d")
+  let full_tree = (parse("a b c d") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(tree3)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -445,10 +445,10 @@ test "Edge case: edit that changes operator precedence" {
   // Change to affect precedence structure
   let edit = @core.Edit::replace(4, 5, 5)
   let new_tree = parser.edit(edit, "a + b + c")
-  let full_tree = parse_tree("a + b + c")
+  let full_tree = (parse("a + b + c") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -476,10 +476,10 @@ test "Edge case: validation with identical structure but different content" {
   // Change variable name (same structure, different content)
   let edit = @core.Edit::replace(1, 2, 2)
   let new_tree = parser.edit(edit, "λy.x")
-  let full_tree = parse_tree("λy.x")
+  let full_tree = (parse("λy.x") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -520,10 +520,10 @@ test "Edge case: position boundary at node start" {
   // Insert exactly at inner lambda boundary
   let edit = @core.Edit::insert(3, 1)
   let new_tree = parser.edit(edit, "λx. λy.x")
-  let full_tree = parse_tree("λx. λy.x")
+  let full_tree = (parse("λx. λy.x") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -535,10 +535,10 @@ test "Edge case: position boundary at node end" {
   // Insert exactly at end of inner lambda
   let edit = @core.Edit::insert(7, 2)
   let new_tree = parser.edit(edit, "λx.λy.x y")
-  let full_tree = parse_tree("λx.λy.x y")
+  let full_tree = (parse("λx.λy.x y") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(new_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -554,10 +554,10 @@ test "Differential: single token edit in middle" {
   // Change "b" to "x"
   let edit = @core.Edit::replace(4, 5, 5)
   let incremental = parser.edit(edit, "a + x + c")
-  let full = parse_tree("a + x + c")
+  let full = (parse("a + x + c") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -569,10 +569,10 @@ test "Differential: insert at beginning" {
   // Insert "λx." at beginning
   let edit = @core.Edit::insert(0, 3)
   let incremental = parser.edit(edit, "λx.y")
-  let full = parse_tree("λx.y")
+  let full = (parse("λx.y") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -584,10 +584,10 @@ test "Differential: delete in middle" {
   // Delete " + 1"
   let edit = @core.Edit::delete(4, 8)
   let incremental = parser.edit(edit, "λx.x")
-  let full = parse_tree("λx.x")
+  let full = (parse("λx.x") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -599,10 +599,10 @@ test "Differential: complex nested expression" {
   // Change inner "f" to "g"
   let edit = @core.Edit::replace(9, 10, 10)
   let incremental = parser.edit(edit, "λf.λx.f (g x)")
-  let full = parse_tree("λf.λx.f (g x)")
+  let full = (parse("λf.λx.f (g x)") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -614,10 +614,10 @@ test "Differential: if-then-else modification" {
   // Change condition "x" to "y"
   let edit = @core.Edit::replace(3, 4, 4)
   let incremental = parser.edit(edit, "if y then 1 else 2")
-  let full = parse_tree("if y then 1 else 2")
+  let full = (parse("if y then 1 else 2") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -629,11 +629,11 @@ test "Differential: identifier boundary merge" {
   // Delete boundary whitespace: "x y" -> "xy"
   let edit = @core.Edit::delete(1, 2)
   let incremental = parser.edit(edit, "xy")
-  let full = parse_tree("xy")
-  inspect(@ast.print_ast_node(full), content="xy")
+  let full = (parse("xy") catch { _ => abort("parse failed") })
+  inspect(@ast.print_term(full), content="xy")
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -645,11 +645,11 @@ test "Differential: identifier boundary split" {
   // Insert boundary whitespace: "xy" -> "x y"
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "x y")
-  let full = parse_tree("x y")
-  inspect(@ast.print_ast_node(full), content="(x y)")
+  let full = (parse("x y") catch { _ => abort("parse failed") })
+  inspect(@ast.print_term(full), content="(x y)")
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -661,11 +661,11 @@ test "Differential: integer boundary merge" {
   // Delete boundary whitespace: "1 2" -> "12"
   let edit = @core.Edit::delete(1, 2)
   let incremental = parser.edit(edit, "12")
-  let full = parse_tree("12")
-  inspect(@ast.print_ast_node(full), content="12")
+  let full = (parse("12") catch { _ => abort("parse failed") })
+  inspect(@ast.print_term(full), content="12")
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -677,11 +677,11 @@ test "Differential: integer boundary split" {
   // Insert boundary whitespace: "12" -> "1 2"
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "1 2")
-  let full = parse_tree("1 2")
-  inspect(@ast.print_ast_node(full), content="(1 2)")
+  let full = (parse("1 2") catch { _ => abort("parse failed") })
+  inspect(@ast.print_term(full), content="(1 2)")
   inspect(
     @ast.print_term(syntax_node_to_term(incremental)),
-    content=@ast.print_ast_node(full),
+    content=@ast.print_term(full),
   )
 }
 
@@ -693,28 +693,28 @@ test "Differential: multiple consecutive edits" {
   // First edit: a -> a b
   let edit1 = @core.Edit::insert(1, 2)
   let incr1 = parser.edit(edit1, "a b")
-  let full1 = parse_tree("a b")
+  let full1 = (parse("a b") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr1)),
-    content=@ast.print_ast_node(full1),
+    content=@ast.print_term(full1),
   )
 
   // Second edit: a b -> a b c
   let edit2 = @core.Edit::insert(3, 2)
   let incr2 = parser.edit(edit2, "a b c")
-  let full2 = parse_tree("a b c")
+  let full2 = (parse("a b c") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr2)),
-    content=@ast.print_ast_node(full2),
+    content=@ast.print_term(full2),
   )
 
   // Third edit: a b c -> a b c d
   let edit3 = @core.Edit::insert(5, 2)
   let incr3 = parser.edit(edit3, "a b c d")
-  let full3 = parse_tree("a b c d")
+  let full3 = (parse("a b c d") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr3)),
-    content=@ast.print_ast_node(full3),
+    content=@ast.print_term(full3),
   )
 }
 
@@ -782,12 +782,12 @@ test "Reuse: adjacent insert should not incorrectly reuse" {
   // Insert at end (adjacent to existing node)
   let edit = @core.Edit::insert(1, 2)
   let incr_tree = parser.edit(edit, "x y")
-  let full_tree = parse_tree("x y")
+  let full_tree = (parse("x y") catch { _ => abort("parse failed") })
 
   // Most importantly: result should match full reparse
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -800,12 +800,12 @@ test "Reuse: whitespace-containing expressions parse correctly" {
   // Edit only the number at the end
   let edit = @core.Edit::replace(8, 9, 9)
   let incr_tree = parser.edit(edit, "λx. x + 2")
-  let full_tree = parse_tree("λx. x + 2")
+  let full_tree = (parse("λx. x + 2") catch { _ => abort("parse failed") })
 
   // Result must match full reparse - validates whitespace handling
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -817,10 +817,10 @@ test "Reuse: multiple spaces between tokens" {
   // Edit "b" -> "c"
   let edit = @core.Edit::replace(8, 9, 9)
   let incr_tree = parser.edit(edit, "a   +   c")
-  let full_tree = parse_tree("a   +   c")
+  let full_tree = (parse("a   +   c") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -832,10 +832,10 @@ test "Reuse: leading whitespace in source" {
   // Edit "y" -> "z"
   let edit = @core.Edit::replace(6, 7, 7)
   let incr_tree = parser.edit(edit, "  x + z")
-  let full_tree = parse_tree("  x + z")
+  let full_tree = (parse("  x + z") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -847,10 +847,10 @@ test "Reuse: trailing whitespace in source" {
   // Edit "y" -> "z"
   let edit = @core.Edit::replace(4, 5, 5)
   let incr_tree = parser.edit(edit, "x + z  ")
-  let full_tree = parse_tree("x + z  ")
+  let full_tree = (parse("x + z  ") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }
 
@@ -901,9 +901,9 @@ test "Reuse: tokenization error clears stale concrete syntax tree state" {
   // Remove invalid token; incremental parse must match full reparse.
   let edit2 = @core.Edit::delete(5, 6)
   let incr_tree = parser.edit(edit2, "1+2+1")
-  let full_tree = parse_tree("1+2+1")
+  let full_tree = (parse("1+2+1") catch { _ => abort("parse failed") })
   inspect(
     @ast.print_term(syntax_node_to_term(incr_tree)),
-    content=@ast.print_ast_node(full_tree),
+    content=@ast.print_term(full_tree),
   )
 }

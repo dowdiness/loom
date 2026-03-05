@@ -133,11 +133,11 @@ fn idf_apply_random_edit(
 ///|
 fn idf_assert_incremental_matches_full(
   incremental : @seam.SyntaxNode,
-  full : @ast.AstNode,
+  full : @ast.Term,
   context : String,
 ) -> Unit {
   let incremental_str = @ast.print_term(syntax_node_to_term(incremental))
-  let full_str = @ast.print_ast_node(full)
+  let full_str = @ast.print_term(full)
   if incremental_str != full_str {
     abort(
       "Differential mismatch (" +
@@ -164,9 +164,14 @@ test "differential-fast: deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (full, errors) = parse_with_error_recovery(new_source)
+      let (cst, errors) = parse_cst_recover(new_source) catch { _ => {
+        source = new_source
+        seed = next_seed
+        continue
+      } }
       // Phase 4 correctness today is strongest on well-formed inputs.
       if errors.length() == 0 {
+        let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
         idf_assert_incremental_matches_full(
           incremental,
           full,
@@ -195,8 +200,12 @@ test "differential-fast: malformed input sequences terminate" {
         source, seed, true,
       )
       let incremental = parser.edit(edit, new_source)
-      let (_full, _errors) = parse_with_error_recovery(new_source)
-      // If we reached this point, both paths terminated without panic.
+      // Ignore result — just verify both paths terminate without panic.
+      try {
+        let _ = parse_cst_recover(new_source)
+      } catch {
+        _ => ()
+      }
       assert_true(incremental.start() >= 0)
       source = new_source
       seed = next_seed
@@ -206,7 +215,7 @@ test "differential-fast: malformed input sequences terminate" {
     let repair = "x + 1"
     let repair_edit = @core.Edit::replace(0, source.length(), repair.length())
     let repaired = parser.edit(repair_edit, repair)
-    let full_repaired = parse_tree(repair)
+    let full_repaired = parse(repair) catch { _ => abort("parse failed on repair") }
     idf_assert_incremental_matches_full(
       repaired,
       full_repaired,
@@ -229,8 +238,13 @@ test "differential-long: larger deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (full, errors) = parse_with_error_recovery(new_source)
+      let (cst, errors) = parse_cst_recover(new_source) catch { _ => {
+        source = new_source
+        seed = next_seed
+        continue
+      } }
       if errors.length() == 0 {
+        let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
         idf_assert_incremental_matches_full(
           incremental,
           full,

@@ -242,7 +242,7 @@ test "heavy: refactoring session - 100 scattered replacements" (b : @bench.T) {
 //
 // "Unoptimized" = full reparse from scratch on every edit.
 // No TokenBuffer, no ReuseCursor, no Interner, no NodeInterner.
-// Just parse_tree(new_source) each time — the naive approach.
+// Just parse(new_source) each time — the naive approach.
 
 ///|
 /// Benchmark: 100 edits at end — full reparse every time (no incremental).
@@ -254,14 +254,14 @@ test "heavy: FULL REPARSE - 100 edits at end" (b : @bench.T) {
   ]
   b.bench(fn() {
     let mut source = base
-    let (initial, _) = @lambda.parse_with_error_recovery(source)
+    let initial = (@lambda.parse(source) catch { _ => abort("benchmark failed") })
     let mut tree = initial
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = source.length()
       let (new_source, _edit) = apply_char_insert(source, pos, ch)
       // Full reparse — no incremental state, no interning
-      let (t, _) = @lambda.parse_with_error_recovery(new_source)
+      let t = (@lambda.parse(new_source) catch { _ => abort("benchmark failed") })
       tree = t
       source = new_source
     }
@@ -280,13 +280,13 @@ test "heavy: FULL REPARSE - 100 edits in middle" (b : @bench.T) {
   ]
   b.bench(fn() {
     let mut source = base
-    let (initial, _) = @lambda.parse_with_error_recovery(source)
+    let initial = (@lambda.parse(source) catch { _ => abort("benchmark failed") })
     let mut tree = initial
     let mut insert_pos = mid
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let (new_source, _edit) = apply_char_insert(source, insert_pos, ch)
-      let (t, _) = @lambda.parse_with_error_recovery(new_source)
+      let t = (@lambda.parse(new_source) catch { _ => abort("benchmark failed") })
       tree = t
       source = new_source
       insert_pos = insert_pos + ch.length()
@@ -302,7 +302,7 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
   let replacements = ["x", "y", "z", "a", "b", "c", "d", "e"]
   b.bench(fn() {
     let mut source = base
-    let (initial, _) = @lambda.parse_with_error_recovery(source)
+    let initial = (@lambda.parse(source) catch { _ => abort("benchmark failed") })
     let mut tree = initial
     let mut seed = 42
     for i = 0; i < 100; i = i + 1 {
@@ -314,7 +314,7 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
       let pos = seed.abs() % (len - 1)
       let ch = replacements[i % replacements.length()]
       let (new_source, _edit) = apply_char_replace(source, pos, ch)
-      let (t, _) = @lambda.parse_with_error_recovery(new_source)
+      let t = (@lambda.parse(new_source) catch { _ => abort("benchmark failed") })
       tree = t
       source = new_source
     }
@@ -327,7 +327,7 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
 test "heavy: FULL REPARSE - large document initial parse" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let (result, _) = @lambda.parse_with_error_recovery(source)
+    let result = (@lambda.parse(source) catch { _ => abort("benchmark failed") })
     b.keep(result)
   })
 }
@@ -361,7 +361,7 @@ test "heavy: reuse ratio over 50 edits at end" {
 //
 // Wide arithmetic at increasing sizes (100, 500, 1000 terms).
 // Each size compares:
-//   - Full reparse baseline (parse_with_error_recovery, no incremental state)
+//   - Full reparse baseline (parse, no incremental state)
 //   - Incremental single edit near end (best case for reuse)
 //   - 50-edit typing session (incremental vs full reparse)
 
@@ -382,7 +382,7 @@ fn bench_incremental_single_edit(source : String, b : @bench.T) -> Unit {
 ///|
 fn bench_full_reparse(source : String, b : @bench.T) -> Unit {
   b.bench(fn() {
-    let (result, _) = @lambda.parse_with_error_recovery(source)
+    let result = (@lambda.parse(source) catch { _ => abort("benchmark failed") })
     b.keep(result)
   })
 }
@@ -410,13 +410,13 @@ fn bench_session_full_reparse(source : String, n : Int, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source
-    let (initial, _) = @lambda.parse_with_error_recovery(s)
+    let initial = (@lambda.parse(s) catch { _ => abort("benchmark failed") })
     let mut tree = initial
     for i = 0; i < n; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, _edit) = apply_char_insert(s, pos, ch)
-      let (t, _) = @lambda.parse_with_error_recovery(new_s)
+      let t = (@lambda.parse(new_s) catch { _ => abort("benchmark failed") })
       tree = t
       s = new_s
     }

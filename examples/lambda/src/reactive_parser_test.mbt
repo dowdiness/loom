@@ -100,23 +100,23 @@ test "ReactiveParser: set_source from lex error to valid clears is_lex_error" {
 // ── Parity with direct parse ──────────────────────────────────────────────────
 
 ///|
-/// Cross-checks ReactiveParser (two-memo pipeline) against parse_cst_to_ast_node
+/// Cross-checks ReactiveParser (two-memo pipeline) against parse()
 /// (direct, pipeline-free parse) on a set of valid inputs.
 /// The pipeline must not change AST semantics vs the baseline parser.
 /// Error-recovery inputs are tested separately via the lex/parse error path tests.
-test "ReactiveParser: parity with parse_cst_to_ast_node" {
+test "ReactiveParser: parity with parse" {
   let sources : Array[String] = [
     "λx.x      +                   1   ", "λx.x λy.y + x", "if true then 1 else 4",
     "λa.λb.λc. if c then a b else 124321 - 31 + a c", "10 - 3 + 1",
   ]
   for source in sources {
     let db = @loom.new_reactive_parser(source, @lambda.lambda_grammar)
-    let direct = parse_cst_to_ast_node(source) catch {
+    let direct = parse(source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
     inspect(
       @ast.print_term(syntax_node_to_term(db.term())),
-      content=@ast.print_ast_node(direct),
+      content=@ast.print_term(direct),
     )
   }
 }
