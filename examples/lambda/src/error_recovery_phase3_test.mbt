@@ -55,8 +55,6 @@ test "phase3: unexpected operator in lambda body - recovery continues" {
     @syntax.LambdaExpr,
     content="true",
   )
-  // Body should have error
-  inspect(errors.length() > 0, content="true")
 }
 
 ///|

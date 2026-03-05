@@ -129,6 +129,7 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
           }
         None => @ast.Term::Var("<error>")
       }
+    @syntax.ErrorNode => @ast.Term::Var("<error>")
     _ => @ast.Term::Var("<error: " + node.kind().to_string() + ">")
   }
 }

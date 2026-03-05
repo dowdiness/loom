@@ -221,89 +221,68 @@ test "cst: SyntaxNode child positions in application" {
 
 ///|
 test "cst: parse - simple integer" {
-  let source = "42"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("42") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="42")
 }
 
 ///|
 test "cst: parse - variable" {
-  let source = "x"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="x")
 }
 
 ///|
 test "cst: parse - lambda" {
-  let source = "λx.x"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("λx.x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λx. x)")
 }
 
 ///|
 test "cst: parse - lambda with body" {
-  let source = "λx.x + 1"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("λx.x + 1") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λx. (x + 1))")
 }
 
 ///|
 test "cst: parse - application" {
-  let source = "f x"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("f x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(f x)")
 }
 
 ///|
 test "cst: parse - nested application" {
-  let source = "f x y"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("f x y") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="((f x) y)")
 }
 
 ///|
 test "cst: parse - binary operation" {
-  let source = "1 + 2"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("1 + 2") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(1 + 2)")
 }
 
 ///|
 test "cst: parse - chained binary (same op)" {
-  let source = "1 + 2 + 3"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("1 + 2 + 3") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="((1 + 2) + 3)")
 }
 
 ///|
 test "cst: parse - if-then-else" {
-  let source = "if x then 1 else 2"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("if x then 1 else 2") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="if x then 1 else 2")
 }
 
 ///|
 test "cst: parse - parenthesized expression" {
-  let source = "(x)"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("(x)") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="x")
 }
 
 ///|
 test "cst: parse - complex expression" {
-  let source = "λf.λx.f (f x)"
-  let term = parse(source) catch { _ => abort("parse failed") }
-  // Verify parse produces a result (same path as syntax_node_to_term)
-  inspect(@ast.print_term(term) != "", content="true")
+  let term = parse("λf.λx.f (f x)") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λf. (λx. (f (f x))))")
 }
 
 // ============================================================================
