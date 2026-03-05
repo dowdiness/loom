@@ -78,6 +78,22 @@ let output = print_term(ast)
 // "(λx. (x + 1))"
 ```
 
+### `term_to_dot`
+
+```moonbit
+pub fn term_to_dot(Term) -> String
+```
+
+Renders a `Term` AST as a GraphViz DOT string. Produces the same format as `@loom/viz.to_dot` — same header/footer, node naming (`node0`, `node1`, …), and dark-theme attribute style. Useful for visualizing the semantic AST in tools like the web demo.
+
+**Example:**
+
+```moonbit
+let term = parse("λx.x + 1")
+let dot = term_to_dot(term)
+// "digraph {\n  bgcolor=\"transparent\";\n  ..."
+```
+
 ### `print_token`
 
 ```moonbit
@@ -110,6 +126,8 @@ pub(all) enum Term {
 ```
 
 `print_term` renders it as `<error: msg>`. Callers that need to check for parse errors should inspect `diagnostics()` on the parser rather than matching `Term::Error`.
+
+`Term` also implements `ToJson` for use as a CRDT JSON bridge — e.g. serializing the AST for transport over a CRDT log.
 
 ### `@core.LexError`
 
