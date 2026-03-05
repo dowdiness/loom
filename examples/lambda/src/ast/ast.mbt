@@ -50,6 +50,9 @@ pub fn print_term(term : Term) -> String {
 
 ///|
 test "print_term - error variant" {
-  inspect(print_term(Term::Error("missing body")), content="<error: missing body>")
+  inspect(
+    print_term(Term::Error("missing body")),
+    content="<error: missing body>",
+  )
   inspect(print_term(Term::Error("")), content="<error: >")
 }

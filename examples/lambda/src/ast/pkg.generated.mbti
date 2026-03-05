@@ -28,6 +28,7 @@ pub(all) enum Term {
   Bop(Bop, Term, Term)
   If(Term, Term, Term)
   Let(String, Term, Term)
+  Error(String)
 }
 pub impl Eq for Term
 pub impl Show for Term

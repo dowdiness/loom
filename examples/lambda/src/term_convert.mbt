@@ -25,15 +25,15 @@ pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
 fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
   match @syntax.SyntaxKind::from_raw(node.kind()) {
     @syntax.IntLiteral => {
-      let v = IntLiteralView::{ node }
+      let v = IntLiteralView::{ node, }
       @ast.Term::Int(v.value().unwrap_or(0))
     }
     @syntax.VarRef => {
-      let v = VarRefView::{ node }
+      let v = VarRefView::{ node, }
       @ast.Term::Var(v.name())
     }
     @syntax.LambdaExpr => {
-      let v = LambdaExprView::{ node }
+      let v = LambdaExprView::{ node, }
       let body = match v.body() {
         Some(b) => view_to_term(b)
         None => @ast.Term::Error("missing lambda body")
@@ -41,7 +41,7 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
       @ast.Term::Lam(v.param(), body)
     }
     @syntax.AppExpr => {
-      let v = AppExprView::{ node }
+      let v = AppExprView::{ node, }
       match v.func() {
         None => @ast.Term::Error("missing function in application")
         Some(func_node) => {
@@ -87,7 +87,7 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
       }
     }
     @syntax.IfExpr => {
-      let v = IfExprView::{ node }
+      let v = IfExprView::{ node, }
       let cond = match v.condition() {
         Some(n) => view_to_term(n)
         None => @ast.Term::Error("missing if condition")
@@ -103,7 +103,7 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
       @ast.Term::If(cond, then_, else_)
     }
     @syntax.LetExpr => {
-      let v = LetExprView::{ node }
+      let v = LetExprView::{ node, }
       let init = match v.init() {
         Some(n) => view_to_term(n)
         None => @ast.Term::Error("missing let binding value")
@@ -115,7 +115,7 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
       @ast.Term::Let(v.name(), init, body)
     }
     @syntax.ParenExpr => {
-      let v = ParenExprView::{ node }
+      let v = ParenExprView::{ node, }
       match v.inner() {
         Some(inner) => view_to_term(inner)
         None => @ast.Term::Error("empty parentheses")
