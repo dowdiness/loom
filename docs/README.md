@@ -51,11 +51,15 @@ Understanding how the layers fit together:
 - [../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
 - [../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, TDD)
 
+## Active Plans
+
+_(none)_
+
 ## Development
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, Term::Error variant)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

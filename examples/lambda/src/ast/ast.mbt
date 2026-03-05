@@ -25,6 +25,8 @@ pub(all) enum Term {
   If(Term, Term, Term)
   // Let binding (non-recursive)
   Let(VarName, Term, Term)
+  // Error term for malformed/missing nodes
+  Error(String)
 } derive(Show, Eq)
 
 ///|
@@ -39,8 +41,18 @@ pub fn print_term(term : Term) -> String {
       Bop(Minus, t1, t2) => "(" + go(t1) + " - " + go(t2) + ")"
       If(t1, t2, t3) => "if " + go(t1) + " then " + go(t2) + " else " + go(t3)
       Let(x, init, body) => "let " + x + " = " + go(init) + " in " + go(body)
+      Error(msg) => "<error: " + msg + ">"
     }
   }
 
   go(term)
+}
+
+///|
+test "print_term - error variant" {
+  inspect(
+    print_term(Term::Error("missing body")),
+    content="<error: missing body>",
+  )
+  inspect(print_term(Term::Error("")), content="<error: >")
 }
