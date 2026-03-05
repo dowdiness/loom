@@ -31,7 +31,11 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] Parser
   } else {
     let got = self.peek()
     self.error("expected " + expected.to_string() + ", got " + got.to_string())
-    self.emit_error_placeholder()
+    if self.at_eof() {
+      self.emit_incomplete_placeholder()
+    } else {
+      self.emit_error_placeholder()
+    }
     false
   }
 }
@@ -170,7 +174,11 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] Parser
     self.emit_token(kind)
     true
   } else {
-    self.emit_error_placeholder()
+    if self.at_eof() {
+      self.emit_incomplete_placeholder()
+    } else {
+      self.emit_error_placeholder()
+    }
     false
   }
 }

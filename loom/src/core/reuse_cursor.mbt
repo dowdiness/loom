@@ -60,25 +60,26 @@ impl OffsetIndexed for Array[OldToken] with offset_at(self, i) {
 }
 
 ///|
-/// Flatten non-trivia, non-error leaves from old tree into out array.
+/// Flatten non-trivia, non-error, non-incomplete leaves from old tree into out array.
 fn collect_old_tokens(
   node : @seam.CstNode,
   node_start : Int,
   out : Array[OldToken],
   ws_raw : @seam.RawKind,
   err_raw : @seam.RawKind,
+  incomplete_raw : @seam.RawKind,
 ) -> Unit {
   let mut offset = node_start
   for child in node.children {
     match child {
       @seam.CstElement::Token(t) => {
-        if t.kind != ws_raw && t.kind != err_raw {
+        if t.kind != ws_raw && t.kind != err_raw && t.kind != incomplete_raw {
           out.push({ kind: t.kind, text: t.text, start: offset })
         }
         offset = offset + t.text_len()
       }
       @seam.CstElement::Node(n) => {
-        collect_old_tokens(n, offset, out, ws_raw, err_raw)
+        collect_old_tokens(n, offset, out, ws_raw, err_raw, incomplete_raw)
         offset = offset + n.text_len
       }
     }
@@ -103,7 +104,8 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   if not(reuse_globally_disabled) {
     let ws_raw = spec.whitespace_kind.to_raw()
     let err_raw = spec.error_kind.to_raw()
-    collect_old_tokens(old_tree, 0, old_tokens, ws_raw, err_raw)
+    let incomplete_raw = spec.incomplete_kind.to_raw()
+    collect_old_tokens(old_tree, 0, old_tokens, ws_raw, err_raw, incomplete_raw)
   }
   let stack = [
     { node: old_tree, child_index: 0, start_offset: 0, current_child_offset: 0 },
@@ -365,7 +367,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
 
 ///|
 /// True if the sibling immediately following the most recently found node
-/// has any error content (error token or error node anywhere in its subtree).
+/// has any error or incomplete content (token or node anywhere in subtree).
 ///
 /// After try_reuse returns Some, the cursor's parent frame still has
 /// child_index pointing to the found node. The next sibling is at
@@ -390,9 +392,13 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(
     return false
   }
   let err_raw = self.spec.error_kind.to_raw()
+  let incomplete_raw = self.spec.incomplete_kind.to_raw()
   match frame.node.children[next_idx] {
-    @seam.CstElement::Node(n) => n.has_errors(err_raw, err_raw)
-    @seam.CstElement::Token(t) => t.kind == err_raw
+    @seam.CstElement::Node(n) =>
+      n.has_errors(err_raw, err_raw) ||
+      n.has_errors(err_raw, incomplete_raw) ||
+      n.has_errors(incomplete_raw, incomplete_raw)
+    @seam.CstElement::Token(t) => t.kind == err_raw || t.kind == incomplete_raw
   }
 }
 

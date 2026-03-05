@@ -58,6 +58,7 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
   error_kind : K
+  incomplete_kind : K
   root_kind : K
   eof_token : T
   // reuse support: match old leaves to new tokens
@@ -77,6 +78,7 @@ pub fn[T, K] LanguageSpec::new(
   error_kind : K,
   root_kind : K,
   eof_token : T,
+  incomplete_kind? : K = error_kind,
   cst_token_matches? : (@seam.RawKind, String, T) -> Bool = fn(_, _, _) {
     false
   },
@@ -85,6 +87,7 @@ pub fn[T, K] LanguageSpec::new(
   {
     whitespace_kind,
     error_kind,
+    incomplete_kind,
     root_kind,
     eof_token,
     cst_token_matches,
@@ -383,6 +386,18 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(
   self.emit_zero_width(self.spec.error_kind)
 }
 
+///|
+/// Emit a zero-width incomplete placeholder (no source text consumed).
+/// Use this when the grammar expects more input but has reached EOF.
+/// Distinct from emit_error_placeholder: signals "incomplete input" rather
+/// than "unexpected token", enabling IDE consumers to show different UX
+/// (e.g. grey indicator vs red squiggly).
+pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(
+  self : ParserContext[T, K],
+) -> Unit {
+  self.emit_zero_width(self.spec.incomplete_kind)
+}
+
 // ─── Incremental reuse ────────────────────────────────────────────────────────
 
 ///|
@@ -474,7 +489,7 @@ fn[T, K] ParserContext::advance_past_reused(
 }
 
 ///|
-/// Collect error spans from a CST subtree.
+/// Collect error and incomplete spans from a CST subtree.
 /// Returns the number of spans added into `out`.
 fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
   node : @seam.CstNode,
@@ -483,13 +498,14 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
   out : Array[ReusedErrorSpan],
 ) -> Int {
   let error_raw = spec.error_kind.to_raw()
+  let incomplete_raw = spec.incomplete_kind.to_raw()
   let mut offset = node_start
   let mut added = 0
   for child in node.children {
     match child {
       @seam.CstElement::Token(t) => {
         let end = offset + t.text_len()
-        if t.kind == error_raw {
+        if t.kind == error_raw || t.kind == incomplete_raw {
           out.push({ start: offset, end })
           added = added + 1
         }
@@ -497,7 +513,8 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
       }
       @seam.CstElement::Node(n) => {
         let child_added = collect_reused_error_spans(n, offset, spec, out)
-        if child_added == 0 && n.kind == error_raw {
+        if child_added == 0 &&
+            (n.kind == error_raw || n.kind == incomplete_raw) {
           out.push({ start: offset, end: offset + n.text_len })
           added = added + 1
         } else {

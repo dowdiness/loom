@@ -64,4 +64,5 @@ _(none)_
 - [archive/completed-phases/2026-03-04-multi-expression-files.md](archive/completed-phases/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, complete)
 - [archive/completed-phases/2026-03-05-loom-error-recovery.md](archive/completed-phases/2026-03-05-loom-error-recovery.md) — loom error recovery combinators (expect, skip_until, skip_until_balanced, node_with_recovery, expect_and_recover)
 - [archive/completed-phases/2026-03-05-lambda-error-recovery.md](archive/completed-phases/2026-03-05-lambda-error-recovery.md) — lambda parser error recovery using loom combinators
+- [archive/completed-phases/2026-03-05-loom-incomplete-nodes.md](archive/completed-phases/2026-03-05-loom-incomplete-nodes.md) — incomplete_kind: distinguish EOF-incomplete from syntax errors
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
