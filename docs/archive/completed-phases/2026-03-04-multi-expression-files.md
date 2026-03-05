@@ -1,5 +1,7 @@
 # Multi-Expression Files — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add `parse_source_file` / `parse_source_file_term` entry points that parse a sequence of top-level `let x = e` definitions (no `in`) followed by an optional final expression, with each definition as an independent CST subtree enabling genuine incremental reuse.

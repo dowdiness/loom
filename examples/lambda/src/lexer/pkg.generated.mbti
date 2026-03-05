@@ -9,6 +9,8 @@ import {
 // Values
 pub fn tokenize(String) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
 
+pub fn tokenize_layout(String) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
+
 pub fn tokenize_range(String, Int, Int) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
 
 // Errors

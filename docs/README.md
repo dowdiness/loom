@@ -48,8 +48,6 @@ Understanding how the layers fit together:
 ## Examples
 
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
-- [../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
-- [../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, TDD)
 
 ## Active Plans
 
@@ -61,5 +59,7 @@ Understanding how the layers fit together:
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files)
+- [archive/completed-phases/2026-03-04-multi-expression-files-design.md](archive/completed-phases/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
+- [archive/completed-phases/2026-03-04-multi-expression-files.md](archive/completed-phases/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, complete)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

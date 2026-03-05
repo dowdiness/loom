@@ -237,8 +237,8 @@ test "differential-fast: malformed input sequences terminate" {
 /// giving the source-file grammar a chance to see multi-definition inputs.
 fn idf_source_file_pool() -> Array[String] {
   [
-    "x", "y", "z", "0", "1", "2", "let", " = ", " ", "\n", "(", ")", "+", "-",
-    "if", "then", "else",
+    "x", "y", "z", "0", "1", "2", "let", " = ", " ", "\n", "(", ")", "+", "-", "if",
+    "then", "else",
   ]
 }
 
@@ -283,7 +283,8 @@ fn idf_apply_source_file_edit(
     let left = idf_slice_string(source, 0, start)
     let right = idf_slice_string(source, start, len)
     match (left, right) {
-      (Some(l), Some(r)) => (l + frag + r, @core.Edit::insert(start, frag.length()), s)
+      (Some(l), Some(r)) =>
+        (l + frag + r, @core.Edit::insert(start, frag.length()), s)
       _ => (source, @core.Edit::insert(0, 0), s)
     }
   } else {
@@ -346,7 +347,9 @@ test "differential-fast: source-file grammar deterministic fuzz" {
     let parser = @loom.new_imperative_parser(source, source_file_grammar)
     let _ = parser.parse()
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
-      let (new_source, edit, next_seed) = idf_apply_source_file_edit(source, seed)
+      let (new_source, edit, next_seed) = idf_apply_source_file_edit(
+        source, seed,
+      )
       let incr_node = parser.edit(edit, new_source)
       let (full_cst, full_errors) = parse_source_file(new_source) catch {
         _ => {

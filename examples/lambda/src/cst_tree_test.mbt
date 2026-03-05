@@ -678,7 +678,7 @@ test "source file: LetDef has correct token structure" {
       @seam.CstElement::Node(n) => break n
       _ => continue
     }
-  } else {
+  } nobreak {
     abort("No LetDef node found")
   }
   inspect(@syntax.SyntaxKind::from_raw(letdef.kind), content="LetDef")
@@ -694,7 +694,10 @@ test "source file: LetDef has correct token structure" {
         non_ws.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
     }
   }
-  inspect(non_ws, content="[\"LetKeyword\", \"IdentToken\", \"EqToken\", \"IntLiteral\"]")
+  inspect(
+    non_ws,
+    content="[\"LetKeyword\", \"IdentToken\", \"EqToken\", \"IntLiteral\"]",
+  )
 }
 
 ///|

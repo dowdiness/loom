@@ -146,10 +146,7 @@ fn tokenize_helper(
         } else {
           raise @core.LexError(c.to_string())
         }
-      None =>
-        raise @core.LexError(
-          "Error to read character at position \{pos}",
-        )
+      None => raise @core.LexError("Error to read character at position \{pos}")
     }
   }
 }

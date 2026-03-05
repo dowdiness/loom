@@ -38,6 +38,8 @@ pub(all) enum SyntaxKind {
   InKeyword
   EqToken
   LetExpr
+  LetDef
+  NewlineToken
 }
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind

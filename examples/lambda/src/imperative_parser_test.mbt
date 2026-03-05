@@ -904,7 +904,11 @@ test "ImperativeParser::reset clears old tree state" {
 test "source file: editing first def reuses second def" {
   let source1 = "let id = 1\nlet const = 2"
   let tokens1 = @lexer.tokenize_layout(source1)
-  let (cst1, _, _) = parse_source_file_recover_with_tokens(source1, tokens1, None)
+  let (cst1, _, _) = parse_source_file_recover_with_tokens(
+    source1,
+    tokens1,
+    None,
+  )
   // Same-length replacement: "1" → "5" at position 9 (damage window [9, 10))
   let source2 = "let id = 5\nlet const = 2"
   let tokens2 = @lexer.tokenize_layout(source2)
@@ -924,7 +928,11 @@ test "source file: editing first def reuses second def" {
 test "source file: incremental parse == full reparse after first def edit" {
   let source1 = "let id = 1\nlet const = 2\nid"
   let tokens1 = @lexer.tokenize_layout(source1)
-  let (cst1, _, _) = parse_source_file_recover_with_tokens(source1, tokens1, None)
+  let (cst1, _, _) = parse_source_file_recover_with_tokens(
+    source1,
+    tokens1,
+    None,
+  )
   // Same-length replacement: "1" → "5"
   let source2 = "let id = 5\nlet const = 2\nid"
   let tokens2 = @lexer.tokenize_layout(source2)

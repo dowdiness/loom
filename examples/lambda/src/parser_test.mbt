@@ -286,10 +286,7 @@ test "parse let with lambda" {
 ///|
 test "parse_source_file_term: two defs fold to nested Let with Unit" {
   let (term, _) = parse_source_file_term("let id = 1\nlet const = 2")
-  inspect(
-    @ast.print_term(term),
-    content="let id = 1 in let const = 2 in ()",
-  )
+  inspect(@ast.print_term(term), content="let id = 1 in let const = 2 in ()")
 }
 
 ///|

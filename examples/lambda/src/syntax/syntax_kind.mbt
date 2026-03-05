@@ -27,8 +27,8 @@ pub(all) enum SyntaxKind {
   InKeyword
   EqToken
   LetExpr
-  LetDef        // NEW: top-level let x = e (no 'in')
-  NewlineToken  // NEW: \n token — delimiter between LetDefs in source-file grammar
+  LetDef // NEW: top-level let x = e (no 'in')
+  NewlineToken // NEW: \n token — delimiter between LetDefs in source-file grammar
 } derive(Show, Eq)
 
 ///|
