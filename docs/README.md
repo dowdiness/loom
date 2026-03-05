@@ -51,6 +51,10 @@ Understanding how the layers fit together:
 - [../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
 - [../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md](../examples/lambda/docs/plans/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, TDD)
 
+## Active Plans
+
+- [plans/2026-03-05-term-error-variant.md](plans/2026-03-05-term-error-variant.md) — Replace `Term::Var("<error>")` sentinels with `Term::Error(String)` variant (4 tasks)
+
 ## Development
 
 - [development/managing-modules.md](development/managing-modules.md) — monorepo workflow, per-module development, publishing to mooncakes.io
