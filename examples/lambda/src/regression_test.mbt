@@ -3,47 +3,37 @@
 ///|
 test "parse function application (\\x.x) 5" {
   let input = "(\\x.x) 5"
-  let result = parse_tree(input)
-  println("Input: \{input}")
-  println("AST: \{result}")
-  println("AST kind: \{result.kind}")
-  println("AST range: [\{result.start}:\{result.end}]")
-  println("AST children count: \{result.children.length()}")
-
+  let result = parse(input) catch { e => abort("parse failed: \{e}") }
   // The AST should be an App node with Lam and Int children
-  let expected_kind =
-    #|App
-  inspect(result.kind, content=expected_kind)
-  inspect(result.children.length(), content="2")
+  match result {
+    @ast.Term::App(_, _) => ()
+    _ => abort("Expected App term, got \{result}")
+  }
+  // Should have two sub-terms (func and arg)
+  match result {
+    @ast.Term::App(@ast.Term::Lam(_, _), @ast.Term::Int(5)) => ()
+    _ => abort("Expected App(Lam, Int(5)), got \{result}")
+  }
 }
 
 ///|
 test "parse simple application x 5" {
   let input = "x 5"
-  let result = parse_tree(input)
-  println("Input: \{input}")
-  println("AST: \{result}")
-  println("AST kind: \{result.kind}")
-  println("AST range: [\{result.start}:\{result.end}]")
-
+  let result = parse(input) catch { e => abort("parse failed: \{e}") }
   // The AST should be an App node
-  let expected_kind =
-    #|App
-  inspect(result.kind, content=expected_kind)
+  match result {
+    @ast.Term::App(_, _) => ()
+    _ => abort("Expected App term, got \{result}")
+  }
 }
 
 ///|
 test "parse parenthesized lambda (\\x.x)" {
   let input = "(\\x.x)"
-  let result = parse_tree(input)
-  println("Input: \{input}")
-  println("AST: \{result}")
-  println("AST kind: \{result.kind}")
-  println("AST range: [\{result.start}:\{result.end}]")
-
-  // Should be a Lam node
-  match result.kind {
-    @ast.AstKind::Lam(_) => ()
-    _ => abort("Expected Lam node, got \{result.kind}")
+  let result = parse(input) catch { e => abort("parse failed: \{e}") }
+  // Should be a Lam term
+  match result {
+    @ast.Term::Lam(_, _) => ()
+    _ => abort("Expected Lam term, got \{result}")
   }
 }

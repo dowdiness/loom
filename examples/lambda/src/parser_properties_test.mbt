@@ -9,7 +9,7 @@ test "property: parser handles any string" {
   for input in inputs {
     // Parser should handle any input gracefully (may raise, but shouldn't panic)
     try {
-      let _ast = parse_tree(input)
+      let _term = parse(input)
     } catch {
       _ => () // Error is ok, panic is not
     }
@@ -17,77 +17,12 @@ test "property: parser handles any string" {
 }
 
 ///|
-/// Property: Empty input produces valid AST
+/// Property: Empty input raises (no expression to parse)
 test "property: empty input is safe" {
   try {
-    let ast = parse_tree("")
-    assert_eq(ast.start, 0)
-    assert_eq(ast.end, 0)
+    let _term = parse("")
   } catch {
     _ => () // May raise, which is fine
-  }
-}
-
-///|
-/// Property: Position information is always valid
-test "property: positions are within bounds" {
-  let inputs : Array[String] = @quickcheck.samples(20)
-  for input in inputs {
-    try {
-      let ast = parse_tree(input)
-      // Check all positions are valid
-      check_positions(ast, input.length())
-    } catch {
-      _ => () // Parse error is fine
-    }
-  }
-}
-
-///|
-fn check_positions(node : @ast.AstNode, max_len : Int) -> Unit raise {
-  // Verify positions are within bounds
-  assert_true(node.start >= 0)
-  assert_true(node.end <= max_len)
-  assert_true(node.start <= node.end)
-
-  // Check all children recursively
-  for child in node.children {
-    check_positions(child, max_len)
-  }
-}
-
-///|
-/// Property: Parser produces well-formed AST structure
-test "property: ast structure is well-formed" {
-  let inputs : Array[String] = @quickcheck.samples(20)
-  for input in inputs {
-    try {
-      let ast = parse_tree(input)
-      check_well_formed(ast)
-    } catch {
-      _ => () // Parse error is fine
-    }
-  }
-}
-
-///|
-fn check_well_formed(node : @ast.AstNode) -> Unit raise {
-  // Check node has correct number of children based on kind
-  let valid = match node.kind {
-    @ast.AstKind::Int(_) => node.children.length() == 0
-    @ast.AstKind::Var(_) => node.children.length() == 0
-    @ast.AstKind::Lam(_) => node.children.length() <= 1 // Body or error
-    @ast.AstKind::App => node.children.length() <= 2 // Left, right
-    @ast.AstKind::Bop(_) => node.children.length() <= 2 // Left, right
-    @ast.AstKind::If => node.children.length() <= 3 // Cond, then, else
-    @ast.AstKind::Let(_) => node.children.length() <= 2 // init, body
-    @ast.AstKind::Error(_) => true // Error nodes can have any children
-  }
-  assert_true(valid)
-
-  // Check children recursively
-  for child in node.children {
-    check_well_formed(child)
   }
 }
 
@@ -98,7 +33,7 @@ test "property: single char is safe" {
   for c in chars {
     let input = c.to_string()
     try {
-      let _ast = parse_tree(input)
+      let _term = parse(input)
     } catch {
       _ => () // Parser should handle any single character
     }
@@ -115,9 +50,7 @@ test "property: repeated characters are safe" {
       input = input + c.to_string()
     }
     try {
-      let ast = parse_tree(input)
-      // Should parse without panic
-      assert_true(ast.start >= 0)
+      let _term = parse(input)
     } catch {
       _ => () // Parse error is ok
     }
@@ -125,18 +58,16 @@ test "property: repeated characters are safe" {
 }
 
 ///|
-/// Property: Valid integers parse correctly
-test "property: integers parse as Int nodes" {
+/// Property: Valid integers parse as Int terms
+test "property: integers parse as Int terms" {
   let nums : Array[Int] = @quickcheck.samples(20)
   for n in nums {
     let input = n.abs().to_string()
     try {
-      let ast = parse_tree(input)
-
-      // Should be an Int node (not an error)
-      match ast.kind {
-        @ast.AstKind::Int(_) => ()
-        _ => abort("Integer literal should parse as Int node")
+      let term = parse(input)
+      match term {
+        @ast.Term::Int(_) => ()
+        _ => abort("Integer literal should parse as Int term")
       }
     } catch {
       e => abort("Integer \{input} should parse successfully: \{e}")
@@ -153,7 +84,7 @@ test "property: whitespace doesn't break parser" {
     let inputs = ["   " + text, text + "   ", "   " + text + "   "]
     for input in inputs {
       try {
-        let _ast = parse_tree(input)
+        let _term = parse(input)
       } catch {
         _ => () // Parser should handle whitespace gracefully
       }
@@ -177,7 +108,7 @@ test "property: parentheses are safe" {
       input = input + ")"
     }
     try {
-      let _ast = parse_tree(input)
+      let _term = parse(input)
     } catch {
       _ => () // Should handle nested parens without panic
     }
@@ -189,16 +120,14 @@ test "property: parentheses are safe" {
 test "property: lambda syntax is robust" {
   let params = ["x", "y", "z"]
   let bodies = ["x", "1"]
-  for _param in params {
-    for _body in bodies {
+  for param in params {
+    for body in bodies {
       // Test both lambda syntaxes: λ and \
-      let input1 = "\\{param}. {body}"
-      let input2 = "λ{param}. {body}"
+      let input1 = "\\\{param}. \{body}"
+      let input2 = "λ\{param}. \{body}"
       for input in [input1, input2] {
         try {
-          let ast = parse_tree(input)
-          // Should parse as lambda (not necessarily error-free, but no panic)
-          assert_true(ast.start >= 0)
+          let _term = parse(input)
         } catch {
           _ => ()
         }
@@ -220,7 +149,7 @@ test "property: mixed syntax is safe" {
       input = input + fragments[idx] + " "
     }
     try {
-      let _ast = parse_tree(input)
+      let _term = parse(input)
     } catch {
       _ => () // Parser should handle random combinations gracefully
     }
@@ -233,11 +162,10 @@ test "property: parser is deterministic" {
   let inputs : Array[String] = @quickcheck.samples(15)
   for input in inputs {
     try {
-      let ast1 = parse_tree(input)
-      let ast2 = parse_tree(input)
-
-      // Same input should produce structurally identical ASTs
-      assert_true(ast_structure_equal(ast1, ast2))
+      let term1 = parse(input)
+      let term2 = parse(input)
+      // Same input should produce identical Terms (Term derives Eq)
+      assert_true(term1 == term2)
     } catch {
       _ => () // Parse errors are fine
     }
@@ -245,64 +173,42 @@ test "property: parser is deterministic" {
 }
 
 ///|
-fn ast_structure_equal(a : @ast.AstNode, b : @ast.AstNode) -> Bool {
-  // Check kind matches
-  let kind_matches = match (a.kind, b.kind) {
-    (@ast.AstKind::Int(n1), @ast.AstKind::Int(n2)) => n1 == n2
-    (@ast.AstKind::Var(x1), @ast.AstKind::Var(x2)) => x1 == x2
-    (@ast.AstKind::Lam(p1), @ast.AstKind::Lam(p2)) => p1 == p2
-    (@ast.AstKind::App, @ast.AstKind::App) => true
-    (@ast.AstKind::Bop(op1), @ast.AstKind::Bop(op2)) => op1 == op2
-    (@ast.AstKind::If, @ast.AstKind::If) => true
-    (@ast.AstKind::Error(_), @ast.AstKind::Error(_)) => true
-    _ => false
-  }
-  if not(kind_matches) {
-    return false
-  }
-
-  // Check children count
-  if a.children.length() != b.children.length() {
-    return false
-  }
-
-  // Check children recursively
-  for i = 0; i < a.children.length(); i = i + 1 {
-    if not(ast_structure_equal(a.children[i], b.children[i])) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-/// Property: Node IDs are unique within AST
-test "property: node ids are unique" {
-  let inputs : Array[String] = @quickcheck.samples(15)
+/// Property: Parser produces well-formed Term structure
+test "property: term structure is well-formed" {
+  let inputs : Array[String] = @quickcheck.samples(20)
   for input in inputs {
     try {
-      let ast = parse_tree(input)
-      let ids : Array[Int] = []
-      collect_node_ids(ast, ids)
-
-      // Check all IDs are unique
-      for i = 0; i < ids.length(); i = i + 1 {
-        for j = i + 1; j < ids.length(); j = j + 1 {
-          if ids[i] == ids[j] {
-            abort("Duplicate node ID found")
-          }
-        }
-      }
+      let term = parse(input)
+      check_well_formed(term)
     } catch {
-      _ => () // Parse errors are ok
+      _ => () // Parse error is fine
     }
   }
 }
 
 ///|
-fn collect_node_ids(node : @ast.AstNode, ids : Array[Int]) -> Unit {
-  ids.push(node.node_id)
-  for child in node.children {
-    collect_node_ids(child, ids)
+fn check_well_formed(term : @ast.Term) -> Unit raise {
+  // Check structural invariants by recursing into sub-terms
+  match term {
+    @ast.Term::Int(_) => ()
+    @ast.Term::Var(_) => ()
+    @ast.Term::Lam(_, body) => check_well_formed(body)
+    @ast.Term::App(func, arg) => {
+      check_well_formed(func)
+      check_well_formed(arg)
+    }
+    @ast.Term::Bop(_, left, right) => {
+      check_well_formed(left)
+      check_well_formed(right)
+    }
+    @ast.Term::If(cond, then_, else_) => {
+      check_well_formed(cond)
+      check_well_formed(then_)
+      check_well_formed(else_)
+    }
+    @ast.Term::Let(_, init, body) => {
+      check_well_formed(init)
+      check_well_formed(body)
+    }
   }
 }

@@ -5,9 +5,7 @@
 /// Benchmark: Full parse of simple expression
 test "full parse - simple" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("42") catch {
-      _ => abort("benchmark failed")
-    }
+    let result = @lambda.parse("42") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -16,9 +14,7 @@ test "full parse - simple" (b : @bench.T) {
 /// Benchmark: Full parse of lambda expression
 test "full parse - lambda" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("λx.x") catch {
-      _ => abort("benchmark failed")
-    }
+    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -27,7 +23,7 @@ test "full parse - lambda" (b : @bench.T) {
 /// Benchmark: Full parse of nested lambdas
 test "full parse - nested lambdas" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("λf.λx.f (f x)") catch {
+    let result = @lambda.parse("λf.λx.f (f x)") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -38,7 +34,7 @@ test "full parse - nested lambdas" (b : @bench.T) {
 /// Benchmark: Full parse of arithmetic expression
 test "full parse - arithmetic" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("1 + 2 - 3 + 4") catch {
+    let result = @lambda.parse("1 + 2 - 3 + 4") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -49,7 +45,7 @@ test "full parse - arithmetic" (b : @bench.T) {
 /// Benchmark: Full parse of complex expression
 test "full parse - complex" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("λf.λx.if f x then x + 1 else x - 1") catch {
+    let result = @lambda.parse("λf.λx.if f x then x + 1 else x - 1") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -129,7 +125,7 @@ test "damage tracking" (b : @bench.T) {
 /// Benchmark: Error recovery - valid input
 test "error recovery - valid" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_with_error_recovery("λx.x")
+    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -138,7 +134,7 @@ test "error recovery - valid" (b : @bench.T) {
 /// Benchmark: Error recovery - error input
 test "error recovery - error" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_with_error_recovery("λ.x")
+    let result = @lambda.parse("λ.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -147,7 +143,7 @@ test "error recovery - error" (b : @bench.T) {
 /// Benchmark: Full parse of let expression.
 test "full parse - let" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("let x = 1 in x") catch {
+    let result = @lambda.parse("let x = 1 in x") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -158,7 +154,7 @@ test "full parse - let" (b : @bench.T) {
 /// Benchmark: Full parse of nested let expression.
 test "full parse - nested let" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_tree("let x = 1 in let y = x + 1 in y") catch {
+    let result = @lambda.parse("let x = 1 in let y = x + 1 in y") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)

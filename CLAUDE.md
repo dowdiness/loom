@@ -70,7 +70,7 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 ## Architecture
 
-**Reactive pipeline:** `Signal[String]` → `Memo[CstStage]` → `Memo[AstNode]`
+**Reactive pipeline:** `Signal[String]` → `Memo[CstStage]` → `Memo[SyntaxNode]`
 (TokenStage was removed — see ADR `docs/decisions/2026-02-27-remove-tokenStage-memo.md`)
 
 **Two-tree model:** `CstNode` (immutable, position-independent, structurally shareable) +

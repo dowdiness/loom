@@ -1,7 +1,6 @@
 import {
   "dowdiness/lambda/lexer",
   "dowdiness/lambda/ast",
-  "dowdiness/loom/viz" @viz,
   "dowdiness/lambda/token",
   "dowdiness/lambda/syntax",
   "dowdiness/loom/core" @core,

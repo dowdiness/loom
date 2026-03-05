@@ -6,44 +6,11 @@ import {
 }
 
 // Values
-pub fn node_to_term(AstNode) -> Term
-
-pub fn print_ast_node(AstNode) -> String
-
 pub fn print_term(Term) -> String
 
 // Errors
 
 // Types and methods
-pub(all) enum AstKind {
-  Int(Int)
-  Var(String)
-  Lam(String)
-  App
-  Bop(Bop)
-  If
-  Let(String)
-  Error(String)
-}
-pub impl Eq for AstKind
-pub impl Show for AstKind
-pub impl ToJson for AstKind
-pub impl @json.FromJson for AstKind
-
-pub(all) struct AstNode {
-  kind : AstKind
-  start : Int
-  end : Int
-  node_id : Int
-  children : Array[AstNode]
-}
-pub fn AstNode::error(String, Int, Int) -> Self
-pub fn AstNode::new(AstKind, Int, Int, Int, Array[Self]) -> Self
-pub impl Eq for AstNode
-pub impl Show for AstNode
-pub impl ToJson for AstNode
-pub impl @json.FromJson for AstNode
-
 pub(all) enum Bop {
   Plus
   Minus

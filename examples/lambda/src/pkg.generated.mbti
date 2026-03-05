@@ -12,14 +12,6 @@ import {
 }
 
 // Values
-pub fn collect_errors(@ast.AstNode) -> Array[String]
-
-pub fn cst_to_ast_node(@seam.CstNode, Int, Ref[Int]) -> @ast.AstNode
-
-pub fn cst_to_term(@seam.CstNode) -> @ast.Term
-
-pub fn has_errors(@ast.AstNode) -> Bool
-
 pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @seam.SyntaxNode]
 
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
@@ -34,19 +26,9 @@ pub fn parse_cst_recover(String) -> (@seam.CstNode, Array[@core.Diagnostic[@toke
 
 pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
 
-pub fn parse_cst_to_ast_node(String) -> @ast.AstNode raise
-
 pub fn parse_cst_with_cursor(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind], prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
 
-pub fn parse_tree(String) -> @ast.AstNode raise
-
-pub fn parse_with_error_recovery(String) -> (@ast.AstNode, Array[String])
-
-pub fn syntax_node_to_ast_node(@seam.SyntaxNode, Ref[Int]) -> @ast.AstNode
-
 pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
-
-pub fn to_dot(@ast.AstNode) -> String
 
 // Errors
 pub suberror ParseError {

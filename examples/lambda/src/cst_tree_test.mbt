@@ -215,140 +215,74 @@ test "cst: SyntaxNode child positions in application" {
   inspect(app_children[1].end(), content="3")
 }
 
-///|
-test "cst: cst_to_ast_node preserves non-zero offset" {
-  let cst = parse_cst("x")
-  let ast = cst_to_ast_node(cst, 10, Ref::new(0))
-  inspect(ast.start, content="10")
-  inspect(ast.end, content="11")
-}
-
 // ============================================================================
-// 4. Backward compatibility - parse_cst_to_ast_node matches parse_tree
+// 4. Parse produces expected Terms
 // ============================================================================
 
 ///|
-test "cst: backward compatibility - simple integer" {
-  let source = "42"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - simple integer" {
+  let term = parse("42") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="42")
 }
 
 ///|
-test "cst: backward compatibility - variable" {
-  let source = "x"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - variable" {
+  let term = parse("x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="x")
 }
 
 ///|
-test "cst: backward compatibility - lambda" {
-  let source = "λx.x"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - lambda" {
+  let term = parse("λx.x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λx. x)")
 }
 
 ///|
-test "cst: backward compatibility - lambda with body" {
-  let source = "λx.x + 1"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - lambda with body" {
+  let term = parse("λx.x + 1") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λx. (x + 1))")
 }
 
 ///|
-test "cst: backward compatibility - application" {
-  let source = "f x"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - application" {
+  let term = parse("f x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(f x)")
 }
 
 ///|
-test "cst: backward compatibility - nested application" {
-  let source = "f x y"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - nested application" {
+  let term = parse("f x y") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="((f x) y)")
 }
 
 ///|
-test "cst: backward compatibility - binary operation" {
-  let source = "1 + 2"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - binary operation" {
+  let term = parse("1 + 2") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(1 + 2)")
 }
 
 ///|
-test "cst: backward compatibility - chained binary (same op)" {
-  // Note: chained operations with different operators (e.g., "1 + 2 - 3")
-  // have a known limitation in parse_cst_to_ast_node - it uses the first operator for all.
-  // This test uses same operator to verify the basic mechanism works.
-  let source = "1 + 2 + 3"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - chained binary (same op)" {
+  let term = parse("1 + 2 + 3") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="((1 + 2) + 3)")
 }
 
 ///|
-test "cst: backward compatibility - if-then-else" {
-  let source = "if x then 1 else 2"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - if-then-else" {
+  let term = parse("if x then 1 else 2") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="if x then 1 else 2")
 }
 
 ///|
-test "cst: backward compatibility - parenthesized expression" {
-  let source = "(x)"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - parenthesized expression" {
+  let term = parse("(x)") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="x")
 }
 
 ///|
-test "cst: backward compatibility - complex expression" {
-  let source = "λf.λx.f (f x)"
-  let term_via_cst = parse_cst_to_ast_node(source)
-  let term_direct = parse_tree(source)
-  inspect(
-    @ast.print_ast_node(term_via_cst),
-    content=@ast.print_ast_node(term_direct),
-  )
+test "cst: parse - complex expression" {
+  let term = parse("λf.λx.f (f x)") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(λf. (λx. (f (f x))))")
 }
 
 // ============================================================================
@@ -533,12 +467,11 @@ test "cst: CstElement text_len accessor" {
 ///|
 test "cst: position comparison" {
   let source = "x + y"
-  let term_direct = parse_tree(source)
-  let term_via_cst = parse_cst_to_ast_node(source)
-  inspect(term_direct.start, content="0")
-  inspect(term_direct.end, content="5")
-  inspect(term_via_cst.start, content="0")
-  inspect(term_via_cst.end, content="5")
+  let cst = parse_cst(source)
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let node = root.nth_child(0).unwrap()
+  inspect(node.start(), content="0")
+  inspect(node.end(), content="5")
 }
 
 ///|
