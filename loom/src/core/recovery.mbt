@@ -164,7 +164,7 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] Parser
   let got = self.peek()
   self.error("expected " + expected.to_string() + ", got " + got.to_string())
   // Skip garbage
-  let _ = self.skip_until(fn(t) { t == expected || is_sync(t) })
+  let _ = self.skip_until(t => t == expected || is_sync(t))
   // Try once more after recovery
   if self.at(expected) {
     self.emit_token(kind)

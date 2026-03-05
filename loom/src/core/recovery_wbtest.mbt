@@ -58,7 +58,7 @@ test "skip_until: skips to sync token" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let skipped = ctx.skip_until(fn(t) {
+  let skipped = ctx.skip_until(t => {
     match t {
       Num(2) => true
       _ => false
@@ -75,7 +75,7 @@ test "skip_until: returns 0 when already at sync point" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let skipped = ctx.skip_until(fn(t) {
+  let skipped = ctx.skip_until(t => {
     match t {
       Num(_) => true
       _ => false
@@ -92,7 +92,7 @@ test "skip_until: skips to EOF when no sync found" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let skipped = ctx.skip_until(fn(_t) { false }) // nothing is sync
+  let skipped = ctx.skip_until(_t => false) // nothing is sync
   inspect(skipped, content="3") // Num(1), Plus, Num(2)
   inspect(ctx.at_eof(), content="true")
   ctx.finish_node()
@@ -104,7 +104,7 @@ test "skip_until: returns 0 on empty input" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let skipped = ctx.skip_until(fn(_t) { false })
+  let skipped = ctx.skip_until(_t => false)
   inspect(skipped, content="0")
   ctx.finish_node()
 }
@@ -119,8 +119,8 @@ test "skip_until_balanced: stops at close at depth 0" {
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_balanced(
-    fn(_t) { false }, // no open
-    fn(t) { t == TestTok::Plus }, // Plus is close
+    _t => false, // no open
+    t => t == TestTok::Plus, // Plus is close
   )
   inspect(skipped, content="1") // skipped Num(1)
   inspect(ctx.at(TestTok::Plus), content="true") // Plus not consumed
@@ -140,13 +140,13 @@ test "skip_until_balanced: respects nesting depth" {
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_balanced(
-    fn(t) {
+    t => {
       match t {
         Num(1) => true
         _ => false
       }
     },
-    fn(t) { t == TestTok::Plus },
+    t => t == TestTok::Plus,
   )
   inspect(skipped, content="2") // Num(1) and first Plus
   inspect(ctx.at(TestTok::Plus), content="true") // second Plus not consumed
@@ -163,11 +163,11 @@ test "node_with_recovery: success path — no recovery" {
   ctx.start_node(KRoot)
   ctx.node_with_recovery(
     KExpr,
-    fn() {
+    () => {
       ctx.emit_token(KNum)
       true
     },
-    fn(_t) { true },
+    _t => true,
   )
   ctx.finish_node()
   inspect(ctx.errors.length(), content="0")
@@ -183,12 +183,12 @@ test "node_with_recovery: failure triggers skip_until" {
   ctx.start_node(KRoot)
   ctx.node_with_recovery(
     KExpr,
-    fn() {
+    () => {
       ctx.emit_token(KNum) // consume "1"
-      ctx.error("expected end of expression")
-      false // signal failure → triggers recovery
+      ctx.error("expected end of expression") // signal failure → triggers recovery
+      false
     },
-    fn(t) {
+    t => {
       match t {
         Num(_) => true // sync at next number
         _ => false
@@ -209,7 +209,7 @@ test "expect_and_recover: immediate match" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, fn(t) {
+  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
       Num(_) => true
       _ => false
@@ -228,7 +228,7 @@ test "expect_and_recover: skips garbage then finds expected" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, fn(t) {
+  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
       Num(2) => true // Num(2) is also a sync point
       _ => false
@@ -247,7 +247,7 @@ test "expect_and_recover: gives up when expected not found" {
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.start_node(KRoot)
-  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, fn(t) {
+  let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
       Num(2) => true
       _ => false
