@@ -316,6 +316,37 @@ test "parse_source_file_term: let-expression (no defs)" {
 }
 
 ///|
+test "parse_source_file_term: multiline let-expression (no defs)" {
+  let (term, diagnostics) = parse_source_file_term("let x = 1\nin x")
+  inspect(diagnostics.length(), content="0")
+  inspect(@ast.print_term(term), content="let x = 1 in x")
+}
+
+///|
+test "parse_source_file_term: multiline binary expression (no defs)" {
+  let (term, diagnostics) = parse_source_file_term("1\n+2")
+  inspect(diagnostics.length(), content="0")
+  inspect(@ast.print_term(term), content="(1 + 2)")
+}
+
+///|
+test "parse_source_file_term: multiline application (no defs)" {
+  let (term, diagnostics) = parse_source_file_term("f\nx")
+  inspect(diagnostics.length(), content="0")
+  inspect(@ast.print_term(term), content="(f x)")
+}
+
+///|
+test "parse_source_file_term: missing newline between defs reports diagnostic" {
+  let (_, diagnostics) = parse_source_file_term("let a = 1 let b = 2")
+  inspect(diagnostics.length() > 0, content="true")
+  inspect(
+    diagnostics[0].message,
+    content="Expected newline between top-level definitions",
+  )
+}
+
+///|
 test "parse_source_file_term: empty file" {
   let (term, _) = parse_source_file_term("")
   inspect(@ast.print_term(term), content="()")

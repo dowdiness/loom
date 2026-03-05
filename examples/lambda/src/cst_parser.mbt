@@ -96,9 +96,112 @@ fn at_stop_token(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Bool {
   match ctx.peek() {
-    @token.RightParen | @token.Then | @token.Else | @token.In | @token.EOF =>
-      true
+    @token.Newline
+    | @token.RightParen
+    | @token.Then
+    | @token.Else
+    | @token.In
+    | @token.EOF => true
     _ => false
+  }
+}
+
+///|
+fn token_starts_expression(token : @token.Token) -> Bool {
+  match token {
+    @token.Let
+    | @token.If
+    | @token.LeftParen
+    | @token.Lambda
+    | @token.Identifier(_)
+    | @token.Integer(_) => true
+    _ => false
+  }
+}
+
+///|
+fn token_is_binary_operator(token : @token.Token) -> Bool {
+  match token {
+    @token.Plus | @token.Minus => true
+    _ => false
+  }
+}
+
+///|
+fn token_starts_application_atom(token : @token.Token) -> Bool {
+  match token {
+    @token.LeftParen
+    | @token.Identifier(_)
+    | @token.Integer(_)
+    | @token.Lambda => true
+    _ => false
+  }
+}
+
+///|
+fn peek_after_newlines(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> @token.Token {
+  let mut pos = ctx.position
+  while pos < ctx.token_count {
+    let token = (ctx.get_token)(pos)
+    match token {
+      @token.Newline => pos = pos + 1
+      _ => return token
+    }
+  }
+  @token.EOF
+}
+
+///|
+fn consume_newline_tokens(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Int {
+  let mut count = 0
+  while ctx.peek() == @token.Newline {
+    ctx.emit_token(@syntax.NewlineToken)
+    count = count + 1
+  }
+  count
+}
+
+///|
+fn consume_soft_newlines_before_expression(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  if ctx.peek() == @token.Newline &&
+    token_starts_expression(peek_after_newlines(ctx)) {
+    let _ = consume_newline_tokens(ctx)
+  }
+}
+
+///|
+fn consume_soft_newlines_before_expected(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  expected : @token.Token,
+) -> Unit {
+  if ctx.peek() == @token.Newline && peek_after_newlines(ctx) == expected {
+    let _ = consume_newline_tokens(ctx)
+  }
+}
+
+///|
+fn consume_soft_newlines_before_binary_operator(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  if ctx.peek() == @token.Newline &&
+    token_is_binary_operator(peek_after_newlines(ctx)) {
+    let _ = consume_newline_tokens(ctx)
+  }
+}
+
+///|
+fn consume_soft_newlines_before_application_atom(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  if ctx.peek() == @token.Newline &&
+    token_starts_application_atom(peek_after_newlines(ctx)) {
+    let _ = consume_newline_tokens(ctx)
   }
 }
 
@@ -108,6 +211,7 @@ fn lambda_expect(
   expected : @token.Token,
   kind : @syntax.SyntaxKind,
 ) -> Unit {
+  consume_soft_newlines_before_expected(ctx, expected)
   let current = ctx.peek()
   match (current, expected) {
     (a, b) if a == b => ctx.emit_token(kind)
@@ -144,12 +248,28 @@ fn parse_lambda_root(
 fn parse_expression(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  parse_let_expr(ctx)
+  parse_expression_with_mode(ctx, true)
+}
+
+///|
+// NOTE: consume_soft_newlines_before_expression fires regardless of
+// allow_newline_application. This is intentional: the flag guards
+// newline-spanning *application* (f\nx treated as (f x)), not whether the
+// expression itself may be preceded by a newline. Callers that pass
+// allow_newline_application=false (i.e. parse_source_file_let_item) invoke
+// this immediately after consuming `=`, where no leading newline exists.
+fn parse_expression_with_mode(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
+) -> Unit {
+  consume_soft_newlines_before_expression(ctx)
+  parse_let_expr(ctx, allow_newline_application)
 }
 
 ///|
 fn parse_let_expr(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
 ) -> Unit {
   match ctx.peek() {
     @token.Let =>
@@ -163,32 +283,38 @@ fn parse_let_expr(
           }
         }
         lambda_expect(ctx, @token.Eq, @syntax.EqToken)
-        parse_let_expr(ctx)
+        parse_let_expr(ctx, allow_newline_application)
         lambda_expect(ctx, @token.In, @syntax.InKeyword)
-        parse_let_expr(ctx)
+        parse_let_expr(ctx, allow_newline_application)
       })
-    _ => parse_binary_op(ctx)
+    _ => parse_binary_op(ctx, allow_newline_application)
   }
 }
 
 ///|
 fn parse_binary_op(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
 ) -> Unit {
   let mark = ctx.mark()
-  parse_application(ctx)
+  parse_application(ctx, allow_newline_application)
+  // (A) Prime: consume newline so the match below can see the operator.
+  consume_soft_newlines_before_binary_operator(ctx)
   match ctx.peek() {
     @token.Plus | @token.Minus =>
       ctx.wrap_at(mark, @syntax.BinaryExpr, fn() {
         while ctx.error_count < MAX_ERRORS {
+          // (B) Loop: consume newline before each subsequent operator.
+          // Do NOT remove — (A) handled only the first; (B) handles the rest.
+          consume_soft_newlines_before_binary_operator(ctx)
           match ctx.peek() {
             @token.Plus => {
               ctx.emit_token(@syntax.PlusToken)
-              parse_application(ctx)
+              parse_application(ctx, allow_newline_application)
             }
             @token.Minus => {
               ctx.emit_token(@syntax.MinusToken)
-              parse_application(ctx)
+              parse_application(ctx, allow_newline_application)
             }
             _ => break
           }
@@ -201,9 +327,16 @@ fn parse_binary_op(
 ///|
 fn parse_application(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
 ) -> Unit {
   let mark = ctx.mark()
-  parse_atom(ctx)
+  if allow_newline_application {
+    consume_soft_newlines_before_application_atom(ctx)
+  }
+  parse_atom(ctx, allow_newline_application)
+  if allow_newline_application {
+    consume_soft_newlines_before_application_atom(ctx)
+  }
   match ctx.peek() {
     @token.LeftParen
     | @token.Identifier(_)
@@ -211,11 +344,14 @@ fn parse_application(
     | @token.Lambda =>
       ctx.wrap_at(mark, @syntax.AppExpr, fn() {
         while ctx.error_count < MAX_ERRORS {
+          if allow_newline_application {
+            consume_soft_newlines_before_application_atom(ctx)
+          }
           match ctx.peek() {
             @token.LeftParen
             | @token.Identifier(_)
             | @token.Integer(_)
-            | @token.Lambda => parse_atom(ctx)
+            | @token.Lambda => parse_atom(ctx, allow_newline_application)
             _ => break
           }
         }
@@ -227,6 +363,7 @@ fn parse_application(
 ///|
 fn parse_atom(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
 ) -> Unit {
   if ctx.error_count >= MAX_ERRORS {
     return
@@ -247,21 +384,21 @@ fn parse_atom(
           }
         }
         lambda_expect(ctx, @token.Dot, @syntax.DotToken)
-        parse_expression(ctx)
+        parse_expression_with_mode(ctx, allow_newline_application)
       })
     @token.If =>
       ctx.node(@syntax.IfExpr, fn() {
         ctx.emit_token(@syntax.IfKeyword)
-        parse_expression(ctx)
+        parse_expression_with_mode(ctx, allow_newline_application)
         lambda_expect(ctx, @token.Then, @syntax.ThenKeyword)
-        parse_expression(ctx)
+        parse_expression_with_mode(ctx, allow_newline_application)
         lambda_expect(ctx, @token.Else, @syntax.ElseKeyword)
-        parse_expression(ctx)
+        parse_expression_with_mode(ctx, allow_newline_application)
       })
     @token.LeftParen =>
       ctx.node(@syntax.ParenExpr, fn() {
         ctx.emit_token(@syntax.LeftParenToken)
-        parse_expression(ctx)
+        parse_expression_with_mode(ctx, allow_newline_application)
         lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)
       })
     _ => {
@@ -289,6 +426,12 @@ fn parse_atom(
 ///   - `let x = e in b` -> LetExpr
 ///
 /// Returns true when parsed as LetDef, false when parsed as LetExpr.
+///
+/// Uses allow_newline_application=false so that a newline after the RHS
+/// stops the expression rather than continuing it into the next definition.
+/// A `let` token inside the RHS always starts a nested let-expression —
+/// never a sibling top-level definition — so consuming a leading newline
+/// before it is correct.
 fn parse_source_file_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Bool {
@@ -302,8 +445,9 @@ fn parse_source_file_let_item(
     }
   }
   lambda_expect(ctx, @token.Eq, @syntax.EqToken)
-  parse_expression(ctx)
+  parse_expression_with_mode(ctx, false)
   let mut is_def = true
+  consume_soft_newlines_before_expected(ctx, @token.In)
   if ctx.peek() == @token.In {
     is_def = false
     ctx.emit_token(@syntax.InKeyword)
@@ -327,30 +471,25 @@ fn parse_source_file_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let mut parsed_final_expr = false
-  while ctx.peek() == @token.Newline {
-    ctx.emit_token(@syntax.NewlineToken)
-  }
+  let _ = consume_newline_tokens(ctx)
   while ctx.peek() == @token.Let && not(parsed_final_expr) {
     if parse_source_file_let_item(ctx) {
-      while ctx.peek() == @token.Newline {
-        ctx.emit_token(@syntax.NewlineToken)
+      let delimiter_count = consume_newline_tokens(ctx)
+      if delimiter_count == 0 && ctx.peek() == @token.Let {
+        ctx.error("Expected newline between top-level definitions")
       }
     } else {
       parsed_final_expr = true
     }
   }
   if not(parsed_final_expr) {
-    while ctx.peek() == @token.Newline {
-      ctx.emit_token(@syntax.NewlineToken)
-    }
+    let _ = consume_newline_tokens(ctx)
     match ctx.peek() {
       @token.EOF => ()
       _ => parse_expression(ctx)
     }
   }
-  while ctx.peek() == @token.Newline {
-    ctx.emit_token(@syntax.NewlineToken)
-  }
+  let _ = consume_newline_tokens(ctx)
   match ctx.peek() {
     @token.EOF => ()
     _ => {
