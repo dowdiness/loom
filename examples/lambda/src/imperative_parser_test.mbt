@@ -892,6 +892,59 @@ test "ImperativeParser::reset clears old tree state" {
   inspect(@ast.print_term(syntax_node_to_term(result)), content="((1 + 2) + 3)")
 }
 
+// ============================================================================
+// Source-file grammar incremental reuse tests
+// ============================================================================
+
+///|
+/// Editing only the first LetDef's value (same-length replacement `1` → `5`)
+/// must leave the second LetDef's position unchanged so the ReuseCursor can
+/// find and reuse it.  A different-length replacement would shift all
+/// subsequent positions, breaking the cursor's old→new coordinate mapping.
+test "source file: editing first def reuses second def" {
+  let source1 = "let id = 1\nlet const = 2"
+  let tokens1 = @lexer.tokenize_layout(source1)
+  let (cst1, _, _) = parse_source_file_recover_with_tokens(source1, tokens1, None)
+  // Same-length replacement: "1" → "5" at position 9 (damage window [9, 10))
+  let source2 = "let id = 5\nlet const = 2"
+  let tokens2 = @lexer.tokenize_layout(source2)
+  let cursor = make_source_file_reuse_cursor(cst1, 9, 10, tokens2)
+  let (_, _, reuse_count) = parse_source_file_recover_with_tokens(
+    source2,
+    tokens2,
+    Some(cursor),
+  )
+  // The second LetDef starts at position 11, outside [9,10) — it gets reused
+  inspect(reuse_count > 0, content="true")
+}
+
+///|
+/// Verify the incremental result matches a full reparse after a same-length
+/// edit to the first def.
+test "source file: incremental parse == full reparse after first def edit" {
+  let source1 = "let id = 1\nlet const = 2\nid"
+  let tokens1 = @lexer.tokenize_layout(source1)
+  let (cst1, _, _) = parse_source_file_recover_with_tokens(source1, tokens1, None)
+  // Same-length replacement: "1" → "5"
+  let source2 = "let id = 5\nlet const = 2\nid"
+  let tokens2 = @lexer.tokenize_layout(source2)
+  let cursor = make_source_file_reuse_cursor(cst1, 9, 10, tokens2)
+  let (incr_cst, _, _) = parse_source_file_recover_with_tokens(
+    source2,
+    tokens2,
+    Some(cursor),
+  )
+  let (full_cst, _) = parse_source_file(source2)
+  // Both trees must produce the same term structure
+  let incr_term = syntax_node_to_source_file_term(
+    @seam.SyntaxNode::from_cst(incr_cst),
+  )
+  let full_term = syntax_node_to_source_file_term(
+    @seam.SyntaxNode::from_cst(full_cst),
+  )
+  inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
+}
+
 ///|
 test "Reuse: tokenization error clears stale concrete syntax tree state" {
   let parser = @loom.new_imperative_parser("1+1+1", lambda_grammar)
