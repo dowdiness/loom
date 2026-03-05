@@ -285,13 +285,15 @@ test "parse let with lambda" {
 
 ///|
 test "parse_source_file_term: two defs fold to nested Let with Unit" {
-  let (term, _) = parse_source_file_term("let id = 1\nlet const = 2")
+  let (term, diagnostics) = parse_source_file_term("let id = 1\nlet const = 2")
+  inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="let id = 1 in let const = 2 in ()")
 }
 
 ///|
 test "parse_source_file_term: def + final expression" {
-  let (term, _) = parse_source_file_term("let id = 1\nid")
+  let (term, diagnostics) = parse_source_file_term("let id = 1\nid")
+  inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="let id = 1 in id")
 }
 
@@ -304,7 +306,8 @@ test "parse_source_file_term: leading newline before def + final expression" {
 
 ///|
 test "parse_source_file_term: single expression (no defs)" {
-  let (term, _) = parse_source_file_term("42")
+  let (term, diagnostics) = parse_source_file_term("42")
+  inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="42")
 }
 
@@ -348,6 +351,7 @@ test "parse_source_file_term: missing newline between defs reports diagnostic" {
 
 ///|
 test "parse_source_file_term: empty file" {
-  let (term, _) = parse_source_file_term("")
+  let (term, diagnostics) = parse_source_file_term("")
+  inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="()")
 }
