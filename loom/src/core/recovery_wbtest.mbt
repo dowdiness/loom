@@ -49,6 +49,46 @@ test "expect: at EOF emits placeholder with eof in message" {
   ctx.finish_node()
 }
 
+///|
+test "expect: at EOF emits incomplete_kind placeholder, not error_kind" {
+  let (tree, errors) = parse_with("", test_spec, test_tokenize, fn(ctx) {
+    let _ = ctx.expect(TestTok::Num(1), KNum)
+  })
+  inspect(errors.length(), content="1")
+  // The placeholder token should be KIncomplete, not KErr
+  let mut found_incomplete = false
+  for child in tree.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        if t.kind == test_kind_raw(KIncomplete) {
+          found_incomplete = true
+        }
+      _ => ()
+    }
+  }
+  inspect(found_incomplete, content="true")
+}
+
+///|
+test "expect: non-EOF mismatch emits error_kind placeholder, not incomplete" {
+  let (tree, errors) = parse_with("+ 2", test_spec, test_tokenize, fn(ctx) {
+    let _ = ctx.expect(TestTok::Num(1), KNum)
+  })
+  inspect(errors.length(), content="1")
+  // The placeholder token should be KErr, not KIncomplete
+  let mut found_error = false
+  for child in tree.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        if t.kind == test_kind_raw(KErr) && t.text_len() == 0 {
+          found_error = true
+        }
+      _ => ()
+    }
+  }
+  inspect(found_error, content="true")
+}
+
 // ─── skip_until ───────────────────────────────────────────────────────────────
 
 ///|
@@ -258,4 +298,46 @@ test "expect_and_recover: gives up when expected not found" {
   // Num(2) is still available (sync point not consumed)
   inspect(ctx.at(TestTok::Num(2)), content="true")
   ctx.finish_node()
+}
+
+///|
+test "expect_and_recover: at EOF emits incomplete_kind placeholder" {
+  let (tree, errors) = parse_with("", test_spec, test_tokenize, fn(ctx) {
+    let _ = ctx.expect_and_recover(TestTok::Plus, KPlus, _t => false)
+  })
+  inspect(errors.length(), content="1")
+  let mut found_incomplete = false
+  for child in tree.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        if t.kind == test_kind_raw(KIncomplete) {
+          found_incomplete = true
+        }
+      _ => ()
+    }
+  }
+  inspect(found_incomplete, content="true")
+}
+
+// ─── emit_incomplete_placeholder ─────────────────────────────────────────────
+
+///|
+test "emit_incomplete_placeholder: emits incomplete_kind, not error_kind" {
+  let (tree, _) = parse_with("", test_spec, test_tokenize, fn(ctx) {
+    ctx.emit_incomplete_placeholder()
+  })
+  // parse_with wraps in KRoot; the incomplete token is a direct child
+  let mut found_incomplete = false
+  for child in tree.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        if t.kind == test_kind_raw(KIncomplete) {
+          found_incomplete = true
+          inspect(t.kind == test_kind_raw(KErr), content="false")
+          inspect(t.text_len(), content="0")
+        }
+      _ => ()
+    }
+  }
+  inspect(found_incomplete, content="true")
 }

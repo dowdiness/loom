@@ -61,12 +61,13 @@ pub impl Show for Edit
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
   error_kind : K
+  incomplete_kind : K
   root_kind : K
   eof_token : T
   cst_token_matches : (@seam.RawKind, String, T) -> Bool
   parse_root : (ParserContext[T, K]) -> Unit
 }
-pub fn[T, K] LanguageSpec::new(K, K, K, T, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit) -> Self[T, K]
+pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit) -> Self[T, K]
 
 type OldToken
 pub impl Compare for OldToken
@@ -93,6 +94,7 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(Self[T, K]) -> Bool
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
+pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T, K]) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::error(Self[T, K], String) -> Unit

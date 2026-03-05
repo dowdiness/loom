@@ -30,6 +30,7 @@ fn make_test_fixtures() -> (
   let spec : LanguageSpec[TestTok, TestKind] = {
     whitespace_kind: KWs,
     error_kind: KErr,
+    incomplete_kind: KErr,
     root_kind: KRoot,
     eof_token: TestTok::TokEof,
     cst_token_matches: fn(_, _, _) { false },
@@ -131,6 +132,7 @@ enum TestKind {
   KRoot
   KWs
   KErr
+  KIncomplete
 } derive(Show)
 
 ///|
@@ -142,6 +144,7 @@ fn test_kind_raw(k : TestKind) -> @seam.RawKind {
     KRoot => 3
     KWs => 4
     KErr => 5
+    KIncomplete => 6
   }
   @seam.RawKind(n)
 }
@@ -194,6 +197,7 @@ fn test_tokenize(src : String) -> Array[TokenInfo[TestTok]] {
 let test_spec : LanguageSpec[TestTok, TestKind] = {
   whitespace_kind: KWs,
   error_kind: KErr,
+  incomplete_kind: KIncomplete,
   root_kind: KRoot,
   eof_token: TestTok::TokEof,
   cst_token_matches: fn(raw, text, tok) {
@@ -571,6 +575,44 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
 }
 
 ///|
+test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
+  fn grammar_with_incomplete_node(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.error("expected Plus, got TokEof")
+      // Grammar models incompleteness as a node, not a token.
+      ctx.node(KIncomplete, fn() { () })
+    })
+  }
+
+  let src = "1"
+  let toks = test_tokenize(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_with_incomplete_node,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  // Intentionally omit set_reuse_diagnostics(...): force synthesis path.
+  grammar_with_incomplete_node(ctx)
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.errors[0].message, content="reused syntax error")
+  inspect(ctx.errors[0].start, content="1")
+  inspect(ctx.errors[0].end, content="1")
+}
+
+///|
 test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
   fn grammar_two_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
@@ -689,6 +731,53 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
   // First node should reuse; second node is at EOF and executes body.
   grammar_with_trailing_eof_error(ctx)
 
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.errors[0].message, content="missing trailing expression")
+  inspect(ctx.errors[0].start, content="1")
+  inspect(ctx.errors[0].end, content="1")
+}
+
+///|
+test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic" {
+  fn grammar_with_incomplete_sibling(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+    ctx.node(KExpr, fn() {
+      ctx.error("missing trailing expression")
+      // Zero-width incomplete node; no incomplete token leaf.
+      ctx.node(KIncomplete, fn() { () })
+    })
+  }
+
+  let src = "1"
+  let toks = test_tokenize(src)
+  let (old_tree, old_errors) = parse_with(
+    src, test_spec, test_tokenize, grammar_with_incomplete_sibling,
+  )
+  inspect(old_errors.length(), content="1")
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.set_reuse_diagnostics(old_errors)
+  // First node must not claim sibling-owned boundary error.
+  ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.errors.length(), content="0")
+  // Second node executes at EOF and emits its own diagnostic.
+  ctx.node(KExpr, fn() {
+    ctx.error("missing trailing expression")
+    ctx.node(KIncomplete, fn() { () })
+  })
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.errors.length(), content="1")
   inspect(ctx.errors[0].message, content="missing trailing expression")
@@ -915,4 +1004,89 @@ test "ReuseCursor::try_reuse: rejects integer boundary merge by follow-token che
   // must be rejected by trailing_context_matches.
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
   inspect(result is None, content="true")
+}
+
+///|
+test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
+  fn grammar_incomplete_at_eof(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      // Simulate expect() at EOF: diagnostic + incomplete placeholder
+      ctx.error("expected Plus, got TokEof")
+      ctx.emit_incomplete_placeholder()
+    })
+  }
+
+  let src = "1"
+  let toks = test_tokenize(src)
+  let (old_tree, old_errors) = parse_with(
+    src, test_spec, test_tokenize, grammar_incomplete_at_eof,
+  )
+  inspect(old_errors.length(), content="1")
+
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99, // no damage — force reuse
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.set_reuse_diagnostics(old_errors)
+  grammar_incomplete_at_eof(ctx)
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.errors[0].message, content="expected Plus, got TokEof")
+}
+
+///|
+test "ParserContext reuse: incomplete node followed by reusable sibling" {
+  fn grammar_two_nodes_incomplete(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_incomplete_placeholder()
+    })
+    ctx.node(KExpr, fn() {
+      match ctx.peek() {
+        Num(_) => ctx.emit_token(KNum)
+        _ => ()
+      }
+    })
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_two_nodes_incomplete,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  // First node has incomplete → reused
+  ctx.node(KExpr, fn() {
+    ctx.emit_token(KNum)
+    ctx.emit_incomplete_placeholder()
+  })
+  inspect(ctx.reuse_count, content="1")
+  // Second node → also reused
+  ctx.node(KExpr, fn() {
+    match ctx.peek() {
+      Num(_) => ctx.emit_token(KNum)
+      _ => ()
+    }
+  })
+  inspect(ctx.reuse_count, content="2")
 }
