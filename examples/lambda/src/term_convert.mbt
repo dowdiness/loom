@@ -127,3 +127,36 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
     _ => @ast.Term::Var("<error: " + node.kind().to_string() + ">")
   }
 }
+
+///|
+/// Convert a SourceFile SyntaxNode (LetDef* Expression?) to a Term.
+///
+/// Right-folds definitions: [LetDef(x1,e1), LetDef(x2,e2), Expression(e3)]
+/// → Let("x1", e1, Let("x2", e2, e3)).
+/// No final expression → uses Unit as terminal.
+pub fn syntax_node_to_source_file_term(root : @seam.SyntaxNode) -> @ast.Term {
+  let defs : Array[(@ast.VarName, @ast.Term)] = []
+  let mut final_term : @ast.Term = @ast.Term::Unit
+  for child in root.children() {
+    match @syntax.SyntaxKind::from_raw(child.kind()) {
+      @syntax.LetDef => {
+        let name = child
+          .find_token(@syntax.IdentToken.to_raw())
+          .map(fn(t) { t.text() })
+          .unwrap_or("")
+        let init = match child.nth_child(0) {
+          Some(expr_node) => view_to_term(expr_node)
+          None => @ast.Term::Var("<error>")
+        }
+        defs.push((name, init))
+      }
+      _ => final_term = view_to_term(child)
+    }
+  }
+  let mut result = final_term
+  for i = defs.length() - 1; i >= 0; i = i - 1 {
+    let (name, init) = defs[i]
+    result = @ast.Term::Let(name, init, result)
+  }
+  result
+}

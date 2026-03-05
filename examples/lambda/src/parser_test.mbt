@@ -282,3 +282,30 @@ test "parse let with lambda" {
   let expr = parse("let f = λx.x in f 42") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(expr), content="let f = (λx. x) in (f 42)")
 }
+
+///|
+test "parse_source_file_term: two defs fold to nested Let with Unit" {
+  let (term, _) = parse_source_file_term("let id = 1\nlet const = 2")
+  inspect(
+    @ast.print_term(term),
+    content="let id = 1 in let const = 2 in ()",
+  )
+}
+
+///|
+test "parse_source_file_term: def + final expression" {
+  let (term, _) = parse_source_file_term("let id = 1\nid")
+  inspect(@ast.print_term(term), content="let id = 1 in id")
+}
+
+///|
+test "parse_source_file_term: single expression (no defs)" {
+  let (term, _) = parse_source_file_term("42")
+  inspect(@ast.print_term(term), content="42")
+}
+
+///|
+test "parse_source_file_term: empty file" {
+  let (term, _) = parse_source_file_term("")
+  inspect(@ast.print_term(term), content="()")
+}

@@ -25,6 +25,8 @@ pub(all) enum Term {
   If(Term, Term, Term)
   // Let binding (non-recursive)
   Let(VarName, Term, Term)
+  // Unit — terminal for definition-only source files
+  Unit
 } derive(Show, Eq)
 
 ///|
@@ -39,6 +41,7 @@ pub fn print_term(term : Term) -> String {
       Bop(Minus, t1, t2) => "(" + go(t1) + " - " + go(t2) + ")"
       If(t1, t2, t3) => "if " + go(t1) + " then " + go(t2) + " else " + go(t3)
       Let(x, init, body) => "let " + x + " = " + go(init) + " in " + go(body)
+      Unit => "()"
     }
   }
 
