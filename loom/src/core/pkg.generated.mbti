@@ -96,16 +96,21 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K])
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::error(Self[T, K], String) -> Unit
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect(Self[T, K], T, K) -> Bool
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect_and_recover(Self[T, K], T, K, (T) -> Bool) -> Bool
 pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::new(Array[TokenInfo[T]], String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K] ParserContext::new_indexed(Int, (Int) -> T, (Int) -> Int, (Int) -> Int, String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], Array[Diagnostic[T]]) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_balanced(Self[T, K], (T) -> Bool, (T) -> Bool) -> Int
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
 pub fn[T, K] ParserContext::token_text(Self[T, K], TokenInfo[T]) -> String
