@@ -42,6 +42,8 @@ pub fn syntax_node_to_source_file_term(@seam.SyntaxNode) -> @ast.Term
 
 pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
 
+pub fn term_to_dot(@ast.Term) -> String
+
 // Errors
 pub suberror ParseError {
   ParseError(String, @token.Token)
