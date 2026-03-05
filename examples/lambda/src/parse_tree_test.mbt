@@ -119,3 +119,18 @@ test "parse_cst_recover preserves source positions" {
   inspect(v.operands()[0].end() >= 1, content="true")
   inspect(v.operands()[1].start() > v.operands()[0].end(), content="true")
 }
+
+///|
+test "syntax_node_to_term: missing lambda body produces Term::Error" {
+  let (cst, _) = parse_cst_recover("λx.") catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(root)
+  // Body of the lambda should be Term::Error — direct structural match
+  inspect(
+    match term {
+      @ast.Term::Lam(_, @ast.Term::Error(_)) => true
+      _ => false
+    },
+    content="true",
+  )
+}

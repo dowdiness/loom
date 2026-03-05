@@ -29,6 +29,7 @@ pub(all) enum Term {
   If(Term, Term, Term)
   Let(String, Term, Term)
   Unit
+  Error(String)
 }
 pub impl Eq for Term
 pub impl Show for Term
