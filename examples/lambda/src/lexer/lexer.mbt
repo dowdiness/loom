@@ -53,60 +53,78 @@ fn read_number(input : String, pos : Int, acc : Int) -> (Int, Int) {
 }
 
 ///|
+/// Shared tokenizer core. When ~layout=false (default), \n/\r are folded into
+/// Whitespace runs. When ~layout=true, \n and \r\n are emitted as Newline
+/// tokens (non-trivia delimiters for the source-file grammar).
 fn tokenize_helper(
   input : String,
   pos : Int,
   acc : Array[@core.TokenInfo[@token.Token]],
+  layout? : Bool,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
+  let layout = layout.unwrap_or(false)
   if pos >= input.length() {
-    let result = acc
-    result.push(@core.TokenInfo::new(@token.EOF, pos, pos))
-    result
+    acc.push(@core.TokenInfo::new(@token.EOF, pos, pos))
+    acc
   } else {
     let c = input.code_unit_at(pos).to_char()
     match c {
+      Some('\n') if layout => {
+        acc.push(@core.TokenInfo::new(@token.Newline, pos, pos + 1))
+        tokenize_helper(input, pos + 1, acc, layout~)
+      }
+      Some('\r') if layout => {
+        let end = if pos + 1 < input.length() &&
+          input.code_unit_at(pos + 1).to_char() == Some('\n') {
+          pos + 2
+        } else {
+          pos + 1
+        }
+        acc.push(@core.TokenInfo::new(@token.Newline, pos, end))
+        tokenize_helper(input, end, acc, layout~)
+      }
       Some(' ') | Some('\t') | Some('\n') | Some('\r') => {
-        // Consume the full whitespace run and emit a single Whitespace token
+        // Consume a run of whitespace (layout=false folds \n here too)
         let ws_start = pos
         let mut ws_end = pos + 1
         while ws_end < input.length() {
-          let next = input.code_unit_at(ws_end).to_char()
-          match next {
-            Some(' ') | Some('\t') | Some('\n') | Some('\r') =>
+          match input.code_unit_at(ws_end).to_char() {
+            Some(' ') | Some('\t') | Some('\n') | Some('\r') if not(layout) =>
               ws_end = ws_end + 1
+            Some(' ') | Some('\t') if layout => ws_end = ws_end + 1
             _ => break
           }
         }
         acc.push(@core.TokenInfo::new(@token.Whitespace, ws_start, ws_end))
-        tokenize_helper(input, ws_end, acc)
+        tokenize_helper(input, ws_end, acc, layout~)
       }
       Some('λ') | Some('\\') => {
         acc.push(@core.TokenInfo::new(@token.Lambda, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some('.') => {
         acc.push(@core.TokenInfo::new(@token.Dot, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some('(') => {
         acc.push(@core.TokenInfo::new(@token.LeftParen, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some(')') => {
         acc.push(@core.TokenInfo::new(@token.RightParen, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some('+') => {
         acc.push(@core.TokenInfo::new(@token.Plus, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some('-') => {
         acc.push(@core.TokenInfo::new(@token.Minus, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some('=') => {
         acc.push(@core.TokenInfo::new(@token.Eq, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc)
+        tokenize_helper(input, pos + 1, acc, layout~)
       }
       Some(c) =>
         if is_alphabet(c.to_int()) {
@@ -120,17 +138,17 @@ fn tokenize_helper(
             _ => @token.Token::Identifier(identifier)
           }
           acc.push(@core.TokenInfo::new(token, pos, new_pos))
-          tokenize_helper(input, new_pos, acc)
+          tokenize_helper(input, new_pos, acc, layout~)
         } else if is_numeric(c.to_int()) {
           let (new_pos, number) = read_number(input, pos, 0)
           acc.push(@core.TokenInfo::new(@token.Integer(number), pos, new_pos))
-          tokenize_helper(input, new_pos, acc)
+          tokenize_helper(input, new_pos, acc, layout~)
         } else {
           raise @core.LexError(c.to_string())
         }
       None =>
         raise @core.LexError(
-          "Error to read character at position ".to_string() + pos.to_string(),
+          "Error to read character at position \{pos}",
         )
     }
   }
@@ -173,108 +191,11 @@ pub fn tokenize_range(
 }
 
 ///|
-/// Layout-aware tokenizer helper: emits Newline tokens for \n/\r\n,
-/// Whitespace for space/tab runs, and all other tokens identically to
-/// tokenize_helper. Used by the source-file grammar.
-fn tokenize_layout_helper(
-  input : String,
-  pos : Int,
-  acc : Array[@core.TokenInfo[@token.Token]],
-) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  if pos >= input.length() {
-    acc.push(@core.TokenInfo::new(@token.EOF, pos, pos))
-    acc
-  } else {
-    let c = input.code_unit_at(pos).to_char()
-    match c {
-      Some('\n') => {
-        acc.push(@core.TokenInfo::new(@token.Newline, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('\r') => {
-        let end = if pos + 1 < input.length() &&
-          input.code_unit_at(pos + 1).to_char() == Some('\n') {
-          pos + 2
-        } else {
-          pos + 1
-        }
-        acc.push(@core.TokenInfo::new(@token.Newline, pos, end))
-        tokenize_layout_helper(input, end, acc)
-      }
-      Some(' ') | Some('\t') => {
-        let ws_start = pos
-        let mut ws_end = pos + 1
-        while ws_end < input.length() {
-          match input.code_unit_at(ws_end).to_char() {
-            Some(' ') | Some('\t') => ws_end = ws_end + 1
-            _ => break
-          }
-        }
-        acc.push(@core.TokenInfo::new(@token.Whitespace, ws_start, ws_end))
-        tokenize_layout_helper(input, ws_end, acc)
-      }
-      Some('λ') | Some('\\') => {
-        acc.push(@core.TokenInfo::new(@token.Lambda, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('.') => {
-        acc.push(@core.TokenInfo::new(@token.Dot, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('(') => {
-        acc.push(@core.TokenInfo::new(@token.LeftParen, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some(')') => {
-        acc.push(@core.TokenInfo::new(@token.RightParen, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('+') => {
-        acc.push(@core.TokenInfo::new(@token.Plus, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('-') => {
-        acc.push(@core.TokenInfo::new(@token.Minus, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some('=') => {
-        acc.push(@core.TokenInfo::new(@token.Eq, pos, pos + 1))
-        tokenize_layout_helper(input, pos + 1, acc)
-      }
-      Some(c) =>
-        if is_alphabet(c.to_int()) {
-          let (new_pos, identifier) = read_identifier(input, pos, "")
-          let tok = match identifier {
-            "if" => @token.Token::If
-            "then" => @token.Token::Then
-            "else" => @token.Token::Else
-            "let" => @token.Token::Let
-            "in" => @token.Token::In
-            _ => @token.Token::Identifier(identifier)
-          }
-          acc.push(@core.TokenInfo::new(tok, pos, new_pos))
-          tokenize_layout_helper(input, new_pos, acc)
-        } else if is_numeric(c.to_int()) {
-          let (new_pos, number) = read_number(input, pos, 0)
-          acc.push(@core.TokenInfo::new(@token.Integer(number), pos, new_pos))
-          tokenize_layout_helper(input, new_pos, acc)
-        } else {
-          raise @core.LexError(c.to_string())
-        }
-      None =>
-        raise @core.LexError(
-          "Error to read character at position ".to_string() + pos.to_string(),
-        )
-    }
-  }
-}
-
-///|
 /// Layout-aware tokenizer: like tokenize but emits Newline tokens for \n/\r\n
 /// (separate from Whitespace for spaces/tabs). Used by the source-file grammar
 /// so that newlines act as definition delimiters.
 pub fn tokenize_layout(
   input : String,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  tokenize_layout_helper(input, 0, [])
+  tokenize_helper(input, 0, [], layout=true)
 }
