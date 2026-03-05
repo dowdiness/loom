@@ -125,9 +125,12 @@ test "syntax_node_to_term: missing lambda body produces Term::Error" {
   let (cst, _) = parse_cst_recover("λx.") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(root)
-  // Body of the lambda should be Term::Error, not Term::Var("<error>")
-  let printed = @ast.print_term(term)
-  inspect(printed.contains("<error:"), content="true")
-  // Must NOT be a Var sentinel
-  inspect(term is @ast.Term::Var(_), content="false")
+  // Body of the lambda should be Term::Error — direct structural match
+  inspect(
+    match term {
+      @ast.Term::Lam(_, @ast.Term::Error(_)) => true
+      _ => false
+    },
+    content="true",
+  )
 }

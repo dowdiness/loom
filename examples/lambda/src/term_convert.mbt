@@ -121,7 +121,11 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
         None => @ast.Term::Error("empty parentheses")
       }
     }
-    @syntax.ErrorNode => @ast.Term::Error("error node")
-    _ => @ast.Term::Error("unknown node kind: " + node.kind().to_string())
+    @syntax.ErrorNode => @ast.Term::Error("ErrorNode")
+    _ =>
+      @ast.Term::Error(
+        "unknown node kind: " +
+        @syntax.SyntaxKind::from_raw(node.kind()).to_string(),
+      )
   }
 }
