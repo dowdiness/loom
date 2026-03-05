@@ -33,8 +33,8 @@ find loom/examples/lambda/src/ -name '*.mbt' | sort
 
 While reading, identify and note:
 
-1. **The token type** (enum with variants like `Lambda`, `LParen`, `RParen`, `Dot`, `Ident`, `Let`, `Eq`, `In`, `Whitespace`, `Eof`, etc.)
-2. **The SyntaxKind type** (enum with node kinds like `LambdaExpr`, `Application`, `VarRef`, `LetExpr`, `ParenExpr`, `SourceFile`, etc.)
+1. **The token type** (`@token.Token` enum with variants: `Lambda`, `Dot`, `LeftParen`, `RightParen`, `Plus`, `Minus`, `If`, `Then`, `Else`, `Let`, `In`, `Eq`, `Identifier(String)`, `Integer(Int)`, `Whitespace`, `Newline`, `EOF` — derives `Eq`, manual `Show` impl)
+2. **The SyntaxKind type** (`@syntax.SyntaxKind` enum with node kinds like `LambdaExpr`, `AppExpr`, `VarRef`, `LetExpr`, `ParenExpr`, `SourceFile`, `LetDef`, `BinaryExpr`, `IfExpr`, `IntLiteral`, `ErrorNode`, etc.)
 3. **The grammar entry point** (`parse_root` or equivalent registered in `LanguageSpec.parse_root`)
 4. **Each parse function** and how it currently handles errors (look for `ctx.error(...)`, `ctx.bump_error()`, `ctx.emit_error_placeholder()`)
 5. **The `Grammar` definition** (the `let lambda_grammar = Grammar::new(...)` or similar)
@@ -88,7 +88,7 @@ For each occurrence of Pattern B (check + manual error), replace with:
 ```moonbit
 // Before:
 match ctx.peek() {
-  Dot => ctx.emit_token(KDot)
+  @token.Dot => ctx.emit_token(@syntax.DotToken)
   _ => {
     ctx.error("expected '.'")
     ctx.emit_error_placeholder()
@@ -96,22 +96,29 @@ match ctx.peek() {
 }
 
 // After:
-ctx.expect(Token::Dot, KDot)
+ctx.expect(@token.Dot, @syntax.DotToken)
 ```
 
 For Pattern A where error handling is missing, add it via `expect`:
 
 ```moonbit
 // Before (no error path):
-if ctx.at(Token::Dot) {
-  ctx.emit_token(KDot)
+if ctx.at(@token.Dot) {
+  ctx.emit_token(@syntax.DotToken)
 }
 // What happens if not a Dot? Silent failure.
 
 // After:
-ctx.expect(Token::Dot, KDot)
+ctx.expect(@token.Dot, @syntax.DotToken)
 // Now: diagnostic + placeholder on mismatch
 ```
+
+**Important — do NOT replace `lambda_expect`:**
+
+The existing `lambda_expect` helper (in `cst_parser.mbt`) calls `consume_soft_newlines_before_expected(ctx, expected)` before the token check. This handles optional newlines in the grammar. Replacing `lambda_expect` with `ctx.expect()` would **break soft-newline handling**. Instead:
+- Use `ctx.expect()` only for **new** error paths that don't need soft newlines
+- Keep `lambda_expect` for existing call sites that rely on soft-newline consumption
+- Consider creating a `lambda_expect_recover` wrapper if `expect_and_recover` semantics are needed with soft newlines
 
 **Important:** Do NOT replace every `emit_token` call. Keep `emit_token` where the grammar already knows the token matches (e.g. inside a `match ctx.peek()` arm). Only replace where the grammar needs to handle possible mismatch.
 
@@ -157,27 +164,27 @@ This task adds panic-mode recovery to expression-level parse functions.
 
 ### Step 1: Identify sync points for the lambda language
 
-Sync points are tokens that reliably indicate the start of a new syntactic construct. For the lambda calculus, these typically include:
+Sync points are tokens that reliably indicate the start of a new syntactic construct. For the lambda calculus, these include:
 
-- `)` — end of parenthesized expression
-- `in` — end of let binding's value expression
-- `λ` / `\` — start of a new lambda
-- `let` — start of a new let expression
-- EOF
+- `RightParen` — end of parenthesized expression
+- `In` — end of let binding's value expression
+- `Lambda` — start of a new lambda
+- `Let` — start of a new let expression
+- `If` — start of an if-then-else
+- `Then` / `Else` — if-then-else continuation
+- `EOF` — end of input
 
-Define a helper function (or closure) for sync point detection:
+Define a helper function for sync point detection:
 
 ```moonbit
-// In the lambda grammar file
-fn is_sync_point(t : LambdaToken) -> Bool {
+// In cst_parser.mbt
+fn is_sync_point(t : @token.Token) -> Bool {
   match t {
-    RParen | In | Lambda | Let => true
+    RightParen | In | Lambda | Let | If | Then | Else | EOF => true
     _ => false
   }
 }
 ```
-
-(Adjust token variant names to match the actual lambda token type.)
 
 ### Step 2: Add recovery to the expression parser's error branch
 
@@ -195,7 +202,7 @@ Replace with `skip_until`:
 ```moonbit
 _ => {
   ctx.error("expected expression")
-  ctx.skip_until(is_sync_point)
+  let _ = ctx.skip_until(is_sync_point)
 }
 ```
 
@@ -230,27 +237,27 @@ Expected: all pass. New tests verify that the parser produces diagnostics but do
 
 ### Step 1: Find the parenthesized expression parser
 
-Look for the function that handles `(expr)` parsing (e.g. `parse_paren_expr` or a branch in `parse_atom` that matches `LParen`).
+Look for the function that handles `(expr)` parsing (e.g. `parse_paren_expr` or a branch in `parse_atom` that matches `LeftParen`).
 
 ### Step 2: Add balanced recovery for missing `)`
 
 After parsing the inner expression, if `)` is missing, use `skip_until_balanced` to skip to the matching close paren:
 
 ```moonbit
-// Inside parse_paren_expr or the LParen branch:
-ctx.emit_token(KLParen)      // consume "("
-parse_expr(ctx)               // parse inner expression
+// Inside parse_paren_expr or the LeftParen branch:
+ctx.emit_token(@syntax.LeftParenToken)  // consume "("
+parse_expr(ctx)                          // parse inner expression
 
-// Instead of just expect(RParen, KRParen):
-if not(ctx.expect(Token::RParen, KRParen)) {
-  // RParen was missing — skip until we find one (respecting nesting)
+// Instead of just lambda_expect(ctx, RightParen, RightParenToken):
+if not(ctx.expect(@token.RightParen, @syntax.RightParenToken)) {
+  // RightParen was missing — skip until we find one (respecting nesting)
   ctx.skip_until_balanced(
-    fn(t) { t == Token::LParen },
-    fn(t) { t == Token::RParen },
+    t => t == @token.LeftParen,
+    t => t == @token.RightParen,
   )
-  // Try to consume the RParen we found
-  if ctx.at(Token::RParen) {
-    ctx.emit_token(KRParen)
+  // Try to consume the RightParen we found
+  if ctx.at(@token.RightParen) {
+    ctx.emit_token(@syntax.RightParenToken)
   }
 }
 ```
@@ -285,29 +292,38 @@ Convert calls where the body has a failure mode:
 
 ```moonbit
 // Before:
-ctx.node(KLetExpr, fn() {
-  ctx.emit_token(KLet)
+ctx.node(@syntax.LetExpr, () => {
+  ctx.emit_token(@syntax.LetKeyword)
   // ... parse binding, '=', value, 'in', body
   // Currently: if something goes wrong, inconsistent error handling
 })
 
 // After:
 ctx.node_with_recovery(
-  KLetExpr,
-  fn() {
-    ctx.emit_token(KLet)
-    let ok1 = ctx.expect(Token::Ident, KIdent)
-    let ok2 = ctx.expect(Token::Eq, KEq)
-    if not(ok1 && ok2) { return false }
+  @syntax.LetExpr,
+  () => {
+    ctx.emit_token(@syntax.LetKeyword)
+    // Note: Identifier has a payload, so use lambda_expect or manual check
+    // ctx.expect won't work for Identifier(String) since payload varies
+    if not(ctx.at_identifier()) { // pseudo — check actual identifier handling
+      ctx.error("Expected variable name after 'let'")
+      ctx.emit_error_placeholder()
+      return false
+    }
+    ctx.emit_token(@syntax.IdentToken)
+    let ok_eq = ctx.expect(@token.Eq, @syntax.EqToken)
+    if not(ok_eq) { return false }
     parse_expr(ctx)  // value
-    let ok3 = ctx.expect(Token::In, KIn)
-    if not(ok3) { return false }
+    let ok_in = ctx.expect(@token.In, @syntax.InKeyword)
+    if not(ok_in) { return false }
     parse_expr(ctx)  // body
     true
   },
   is_sync_point,
 )
 ```
+
+**Note on `Identifier(String)`:** The `Identifier` token carries a payload, so `ctx.expect(@token.Identifier(...), ...)` won't work — you'd need to match the exact string. Use a manual `match ctx.peek() { Identifier(_) => ... }` check or the existing pattern from `cst_parser.mbt` for identifier handling.
 
 **Important:** Not all `node` calls should be converted. Only convert those where:
 - The body can encounter unexpected tokens
@@ -459,9 +475,17 @@ cd loom/examples/lambda && moon test          # lambda tests pass (old + new)
 
 ## Design notes for the coding agent
 
-### Token type has Show — verify
+### Token type has Show — verified
 
-The recovery combinators `expect` and `expect_and_recover` require `T : Show`. The lambda token type must derive `Show`. If it doesn't, add `derive(Show)` to the token enum. This is the only potential type constraint change.
+The `@token.Token` type has a manual `Show` impl (in `token/token.mbt`) and derives `Eq`. Both constraints required by `expect` and `expect_and_recover` are satisfied. No changes needed.
+
+### `Identifier(String)` cannot use `expect` directly
+
+The `Identifier` variant carries a `String` payload. `ctx.expect(@token.Identifier("x"), ...)` would only match identifiers with that exact name. For identifier expectations, continue using manual `match ctx.peek() { Identifier(_) => ctx.emit_token(...) ... }` patterns or the existing error-handling code in `cst_parser.mbt`.
+
+### `lambda_expect` handles soft newlines — do not replace blindly
+
+The existing `lambda_expect` helper calls `consume_soft_newlines_before_expected(ctx, expected)` before the token check. This is grammar-specific behavior that `ctx.expect()` does not replicate. Keep `lambda_expect` at existing call sites. Use `ctx.expect()` only for new error paths or where soft newlines are irrelevant.
 
 ### Do not remove existing error handling prematurely
 
@@ -473,7 +497,7 @@ After every parse (including broken inputs), the CST's `text_len` must equal the
 
 ### The `is_sync_point` function
 
-This function is grammar-specific. For the lambda calculus it should be conservative — only tokens that are unambiguously structural boundaries. Do NOT include `Ident` as a sync point (it appears everywhere). DO include closing delimiters (`RParen`), block-starting keywords (`Lambda`, `Let`), and block-separating keywords (`In`).
+This function is grammar-specific. For the lambda calculus it should be conservative — only tokens that are unambiguously structural boundaries. Do NOT include `Identifier` as a sync point (it appears everywhere). DO include closing delimiters (`RightParen`), block-starting keywords (`Lambda`, `Let`, `If`), and block-separating keywords (`In`, `Then`, `Else`).
 
 ### Incremental tests may need position adjustments
 
