@@ -296,6 +296,13 @@ test "parse_source_file_term: def + final expression" {
 }
 
 ///|
+test "parse_source_file_term: leading newline before def + final expression" {
+  let (term, diagnostics) = parse_source_file_term("\nlet id = 1\nid")
+  inspect(diagnostics.length(), content="0")
+  inspect(@ast.print_term(term), content="let id = 1 in id")
+}
+
+///|
 test "parse_source_file_term: single expression (no defs)" {
   let (term, _) = parse_source_file_term("42")
   inspect(@ast.print_term(term), content="42")

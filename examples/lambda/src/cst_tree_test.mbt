@@ -744,6 +744,21 @@ test "source file: def + final expression" {
 }
 
 ///|
+test "source file: leading newlines before def + final expression" {
+  let (cst, diagnostics) = parse_source_file("\nlet id = 1\nid")
+  inspect(diagnostics.length(), content="0")
+  let node_kinds : Array[String] = []
+  for elem in cst.children {
+    match elem {
+      @seam.CstElement::Node(n) =>
+        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      _ => ()
+    }
+  }
+  inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+}
+
+///|
 test "source file: trailing tokens after final expression produce error" {
   let (cst, diagnostics) = parse_source_file("1 in x")
   inspect(diagnostics.length() > 0, content="true")

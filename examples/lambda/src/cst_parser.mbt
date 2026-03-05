@@ -326,6 +326,9 @@ fn parse_source_file_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let mut parsed_final_expr = false
+  while ctx.peek() == @token.Newline {
+    ctx.emit_token(@syntax.NewlineToken)
+  }
   while ctx.peek() == @token.Let && not(parsed_final_expr) {
     if parse_source_file_let_item(ctx) {
       while ctx.peek() == @token.Newline {
