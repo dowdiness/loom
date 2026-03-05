@@ -2,13 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Apply the recovery combinators from `loom/src/core/recovery.mbt` (`expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`) to the lambda calculus example grammar in `loom/examples/lambda/src/`. This serves as the first real-world validation of the combinators and establishes patterns for other grammars.
+**Goal:** Apply the recovery combinators from `loom/src/core/recovery.mbt` (`expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`) to the lambda calculus example grammar in `examples/lambda/src/`. This serves as the first real-world validation of the combinators and establishes patterns for other grammars.
 
 **Architecture:** Modify the existing lambda grammar functions to use recovery combinators instead of (or in addition to) existing ad-hoc error handling. Add error recovery tests with broken inputs. No new files — changes are to existing grammar/parser files and test files.
 
 **Tech Stack:** MoonBit, `moon` build system.
 
-**Prerequisite:** The error recovery combinators plan (`2026-03-05-loom-error-recovery.md`) must be completed first. Verify with `cd loom && moon test -p dowdiness/loom/core`.
+**Prerequisite:** The error recovery combinators plan (archived at `docs/archive/completed-phases/2026-03-05-loom-error-recovery.md`) is complete. Verify with `cd loom && moon test -p dowdiness/loom/core`.
 
 ---
 
@@ -20,7 +20,7 @@ Before making any changes, read the following files to understand the current gr
 
 ```bash
 # List all files in the lambda example
-find loom/examples/lambda/src/ -name '*.mbt' | sort
+find examples/lambda/src/ -name '*.mbt' | sort
 
 # Key files to read (read in this order):
 # 1. Token type and SyntaxKind definitions
@@ -45,7 +45,7 @@ Record these findings in a mental model before proceeding.
 ### Verification
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 Expected: all existing tests pass. Note the test count for regression checking.
@@ -125,7 +125,7 @@ The existing `lambda_expect` helper (in `cst_parser.mbt`) calls `consume_soft_ne
 ### Step 3: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 Expected: all existing tests pass. Some error message strings in tests may need updating to match the new auto-generated format (`"expected Dot, got Eof"` instead of `"expected '.'"` or similar).
@@ -149,7 +149,7 @@ For each test, verify:
 ### Step 5: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 Expected: all tests pass including new ones.
@@ -224,7 +224,7 @@ This recovers more gracefully from multi-token garbage.
 ### Step 4: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 Expected: all pass. New tests verify that the parser produces diagnostics but does not crash.
@@ -273,7 +273,7 @@ if not(ctx.expect(@token.RightParen, @syntax.RightParenToken)) {
 ### Step 4: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 ---
@@ -342,7 +342,7 @@ ctx.node_with_recovery(
 ### Step 4: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 ---
@@ -421,7 +421,7 @@ test "incremental: fix missing paren by appending" {
 ### Step 4: Run tests
 
 ```bash
-cd loom/examples/lambda && moon test
+cd examples/lambda && moon test
 ```
 
 Expected: all pass. The incremental parser correctly handles transitions between error and non-error states.
@@ -430,18 +430,19 @@ Expected: all pass. The incremental parser correctly handles transitions between
 
 ## Task 6: Verify full suite, format, commit
 
-### Step 1: Run full loom test suite
+### Step 1: Run lambda and loom test suites separately
 
 ```bash
-cd loom && moon test
+cd examples/lambda && moon test   # lambda module tests
+cd loom && moon test              # loom framework tests (separate module)
 ```
 
-Expected: all tests pass (core + incremental + pipeline + examples/lambda).
+Expected: all tests pass in both modules.
 
 ### Step 2: Format and check
 
 ```bash
-cd loom && moon fmt && moon check
+cd examples/lambda && moon fmt && moon check
 ```
 
 No warnings.
@@ -449,15 +450,17 @@ No warnings.
 ### Step 3: Update interfaces if any signatures changed
 
 ```bash
-cd loom/examples/lambda && moon info
+cd examples/lambda && moon info
 ```
 
 Check the interface diff — grammar file changes are internal, so no public interface changes are expected unless you added public helper functions (like `is_sync_point`).
 
 ### Step 4: Commit
 
+From the repo root (`loom/`):
+
 ```bash
-cd loom && git add examples/lambda/
+git add examples/lambda/
 git commit -m "feat(examples/lambda): apply error recovery combinators — expect, skip_until, balanced recovery, node_with_recovery"
 ```
 
@@ -466,9 +469,8 @@ git commit -m "feat(examples/lambda): apply error recovery combinators — expec
 ## Verification checklist
 
 ```bash
-cd loom && moon test                          # all loom tests pass
-cd loom && moon check                         # no warnings
-cd loom/examples/lambda && moon test          # lambda tests pass (old + new)
+cd examples/lambda && moon test && moon check  # lambda module tests + lint
+cd loom && moon test && moon check             # loom framework tests + lint (separate module)
 ```
 
 ---
@@ -493,15 +495,15 @@ Some existing error handling may be more nuanced than what the combinators provi
 
 ### CST completeness invariant
 
-After every parse (including broken inputs), the CST's `text_len` must equal the source string's length. Every byte of input must be accounted for in the tree — either as a normal token, a trivia token, or an error token/node. If a test shows `text_len != source.length()`, something is wrong with the recovery logic.
+After every parse (including broken inputs), the CST's `text_len` must equal the source string's length in UTF-16 code units (what MoonBit's `String::length()` returns). Every code unit of input must be accounted for in the tree — either as a normal token, a trivia token, or an error token/node. If a test shows `text_len != source.length()`, something is wrong with the recovery logic. Note: `λ` is 1 code unit (U+03BB fits in a single UTF-16 unit), so `"λx. x".length()` is 5.
 
 ### The `is_sync_point` function
 
 This function is grammar-specific. For the lambda calculus it should be conservative — only tokens that are unambiguously structural boundaries. Do NOT include `Identifier` as a sync point (it appears everywhere). DO include closing delimiters (`RightParen`), block-starting keywords (`Lambda`, `Let`, `If`), and block-separating keywords (`In`, `Then`, `Else`).
 
-### Incremental tests may need position adjustments
+### Incremental tests use code-unit offsets
 
-The byte offsets in the incremental tests (Task 5) depend on the actual encoding of lambda/let/paren tokens. For UTF-8 encoded `λ`, the character takes 2 bytes. Verify byte positions by checking `source.length()` in MoonBit (which returns UTF-16 code unit count, not byte count — MoonBit strings are UTF-16).
+The offsets in the incremental tests (Task 5) and the `Edit` type use UTF-16 code units — the unit that MoonBit's `String::length()` returns. `λ` (U+03BB) is 1 code unit, so `"λx"` has length 2. Verify positions with `source.length()` before writing edit offsets.
 
 ### Order of application
 
