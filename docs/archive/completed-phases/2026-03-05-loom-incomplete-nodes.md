@@ -1,5 +1,7 @@
 # Introduce Incomplete Nodes — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Distinguish "unexpected token consumed" (`error_kind`) from "input ended before the grammar expected" (`incomplete_kind`) in loom's parser infrastructure. This enables IDE consumers to show different UX for "syntax error" vs "user is still typing".
