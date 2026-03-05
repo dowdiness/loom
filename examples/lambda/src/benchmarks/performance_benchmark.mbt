@@ -6,9 +6,7 @@
 /// Benchmark: Parse scaling - small input (5 tokens)
 test "parse scaling - small (5 tokens)" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("1 + 2") catch {
-      _ => abort("benchmark failed")
-    }
+    let result = @lambda.parse("1 + 2") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }

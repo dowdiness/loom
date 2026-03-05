@@ -5,9 +5,7 @@
 /// Benchmark: Full parse of simple expression
 test "full parse - simple" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("42") catch {
-      _ => abort("benchmark failed")
-    }
+    let result = @lambda.parse("42") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -16,9 +14,7 @@ test "full parse - simple" (b : @bench.T) {
 /// Benchmark: Full parse of lambda expression
 test "full parse - lambda" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λx.x") catch {
-      _ => abort("benchmark failed")
-    }
+    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -129,7 +125,7 @@ test "damage tracking" (b : @bench.T) {
 /// Benchmark: Error recovery - valid input
 test "error recovery - valid" (b : @bench.T) {
   b.bench(fn() {
-    let result = (@lambda.parse("λx.x") catch { _ => abort("benchmark failed") })
+    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }
@@ -138,7 +134,7 @@ test "error recovery - valid" (b : @bench.T) {
 /// Benchmark: Error recovery - error input
 test "error recovery - error" (b : @bench.T) {
   b.bench(fn() {
-    let result = (@lambda.parse("λ.x") catch { _ => abort("benchmark failed") })
+    let result = @lambda.parse("λ.x") catch { _ => abort("benchmark failed") }
     b.keep(result)
   })
 }

@@ -164,11 +164,13 @@ test "differential-fast: deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (cst, errors) = parse_cst_recover(new_source) catch { _ => {
-        source = new_source
-        seed = next_seed
-        continue
-      } }
+      let (cst, errors) = parse_cst_recover(new_source) catch {
+        _ => {
+          source = new_source
+          seed = next_seed
+          continue
+        }
+      }
       // Phase 4 correctness today is strongest on well-formed inputs.
       if errors.length() == 0 {
         let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
@@ -215,7 +217,9 @@ test "differential-fast: malformed input sequences terminate" {
     let repair = "x + 1"
     let repair_edit = @core.Edit::replace(0, source.length(), repair.length())
     let repaired = parser.edit(repair_edit, repair)
-    let full_repaired = parse(repair) catch { _ => abort("parse failed on repair") }
+    let full_repaired = parse(repair) catch {
+      _ => abort("parse failed on repair")
+    }
     idf_assert_incremental_matches_full(
       repaired,
       full_repaired,
@@ -238,11 +242,13 @@ test "differential-long: larger deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (cst, errors) = parse_cst_recover(new_source) catch { _ => {
-        source = new_source
-        seed = next_seed
-        continue
-      } }
+      let (cst, errors) = parse_cst_recover(new_source) catch {
+        _ => {
+          source = new_source
+          seed = next_seed
+          continue
+        }
+      }
       if errors.length() == 0 {
         let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
         idf_assert_incremental_matches_full(

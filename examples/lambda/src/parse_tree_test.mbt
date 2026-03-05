@@ -65,7 +65,10 @@ test "parse_tree if-then-else" {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="if x then y else z")
+  inspect(
+    @ast.print_term(syntax_node_to_term(root)),
+    content="if x then y else z",
+  )
   let node = root.nth_child(0).unwrap()
   let v = match IfExprView::cast(node) {
     Some(v) => v
@@ -73,16 +76,19 @@ test "parse_tree if-then-else" {
   }
   // condition + then + else = 3 children
   inspect(
-    [v.condition(), v.then_branch(), v.else_branch()].iter().filter(fn(x) {
-      x is Some(_)
-    }).count(),
+    [v.condition(), v.then_branch(), v.else_branch()]
+    .iter()
+    .filter(fn(x) { x is Some(_) })
+    .count(),
     content="3",
   )
 }
 
 ///|
 test "parse_tree complex expression" {
-  let (cst, _) = parse_cst_recover("λf.λx.f x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst_recover("λf.λx.f x") catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   let printed = @ast.print_term(syntax_node_to_term(root))
   inspect(printed.contains("λf"), content="true")

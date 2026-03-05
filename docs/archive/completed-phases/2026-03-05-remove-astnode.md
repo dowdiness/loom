@@ -1,5 +1,7 @@
 # Remove AstNode from examples/lambda — Implementation Plan
 
+**Status:** Complete
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Remove the `AstNode`/`AstKind` intermediate tree from `examples/lambda`, collapsing `CST → AstNode → Term` into `CST → Term` via typed views.

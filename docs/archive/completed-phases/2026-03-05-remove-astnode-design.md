@@ -1,7 +1,7 @@
 # Design: Remove AstNode from examples/lambda
 
 **Date:** 2026-03-05
-**Status:** Approved — pending implementation
+**Status:** Complete
 
 ---
 
