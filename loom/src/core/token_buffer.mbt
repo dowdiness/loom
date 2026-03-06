@@ -28,11 +28,7 @@ pub fn[T] TokenBuffer::new(
 /// Construct a TokenBuffer that never raises LexError.
 /// On lex failure, inserts an error token for one code unit and retries from
 /// the next position.
-///
-/// **Deprecated:** Prefer `new_from_steps` with a `PrefixLexer[T]` for
-/// explicit, progress-guaranteed error recovery. This binary-search probing
-/// fallback will be removed after all in-repo grammars migrate to step-based
-/// lexing.
+#deprecated("Use new_from_steps with a PrefixLexer for explicit error recovery", skip_current_package=true)
 pub fn[T] TokenBuffer::new_resilient(
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
