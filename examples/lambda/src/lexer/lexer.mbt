@@ -53,102 +53,165 @@ fn read_number(input : String, pos : Int, acc : Int) -> (Int, Int) {
 }
 
 ///|
-/// Shared tokenizer core. When ~layout=false (default), \n/\r are folded into
-/// Whitespace runs. When ~layout=true, \n and \r\n are emitted as Newline
-/// tokens (non-trivia delimiters for the source-file grammar).
-fn tokenize_helper(
+/// Tokenize by stepping through step_lex, raising LexError on Invalid/Incomplete.
+fn tokenize_via_steps(
   input : String,
-  pos : Int,
-  acc : Array[@core.TokenInfo[@token.Token]],
-  layout? : Bool,
+  layout~ : Bool,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  let layout = layout.unwrap_or(false)
-  if pos >= input.length() {
-    acc.push(@core.TokenInfo::new(@token.EOF, pos, pos))
-    acc
-  } else {
-    let c = input.code_unit_at(pos).to_char()
-    match c {
-      Some('\n') if layout => {
-        acc.push(@core.TokenInfo::new(@token.Newline, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
+  let tokens : Array[@core.TokenInfo[@token.Token]] = []
+  let mut pos = 0
+  while true {
+    match step_lex(input, pos, layout~) {
+      Produced(tok, next_offset~) => {
+        tokens.push(tok)
+        pos = next_offset
       }
-      Some('\r') if layout => {
-        let end = if pos + 1 < input.length() &&
-          input.code_unit_at(pos + 1).to_char() == Some('\n') {
-          pos + 2
-        } else {
-          pos + 1
-        }
-        acc.push(@core.TokenInfo::new(@token.Newline, pos, end))
-        tokenize_helper(input, end, acc, layout~)
+      Invalid(message~, ..) => raise @core.LexError(message)
+      Incomplete(expected~, ..) => raise @core.LexError(expected)
+      Done => {
+        tokens.push(@core.TokenInfo::new(@token.EOF, pos, pos))
+        break
       }
-      Some(' ') | Some('\t') | Some('\n') | Some('\r') => {
-        // Consume a run of whitespace (layout=false folds \n here too)
-        let ws_start = pos
-        let mut ws_end = pos + 1
-        while ws_end < input.length() {
-          match input.code_unit_at(ws_end).to_char() {
-            Some(' ') | Some('\t') | Some('\n') | Some('\r') if not(layout) =>
-              ws_end = ws_end + 1
-            Some(' ') | Some('\t') if layout => ws_end = ws_end + 1
-            _ => break
-          }
-        }
-        acc.push(@core.TokenInfo::new(@token.Whitespace, ws_start, ws_end))
-        tokenize_helper(input, ws_end, acc, layout~)
-      }
-      Some('λ') | Some('\\') => {
-        acc.push(@core.TokenInfo::new(@token.Lambda, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some('.') => {
-        acc.push(@core.TokenInfo::new(@token.Dot, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some('(') => {
-        acc.push(@core.TokenInfo::new(@token.LeftParen, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some(')') => {
-        acc.push(@core.TokenInfo::new(@token.RightParen, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some('+') => {
-        acc.push(@core.TokenInfo::new(@token.Plus, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some('-') => {
-        acc.push(@core.TokenInfo::new(@token.Minus, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some('=') => {
-        acc.push(@core.TokenInfo::new(@token.Eq, pos, pos + 1))
-        tokenize_helper(input, pos + 1, acc, layout~)
-      }
-      Some(c) =>
-        if is_alphabet(c.to_int()) {
-          let (new_pos, identifier) = read_identifier(input, pos, "")
-          let token = match identifier {
-            "if" => @token.Token::If
-            "then" => @token.Token::Then
-            "else" => @token.Token::Else
-            "let" => @token.Token::Let
-            "in" => @token.Token::In
-            _ => @token.Token::Identifier(identifier)
-          }
-          acc.push(@core.TokenInfo::new(token, pos, new_pos))
-          tokenize_helper(input, new_pos, acc, layout~)
-        } else if is_numeric(c.to_int()) {
-          let (new_pos, number) = read_number(input, pos, 0)
-          acc.push(@core.TokenInfo::new(@token.Integer(number), pos, new_pos))
-          tokenize_helper(input, new_pos, acc, layout~)
-        } else {
-          raise @core.LexError(c.to_string())
-        }
-      None => raise @core.LexError("Error to read character at position \{pos}")
     }
   }
+  tokens
+}
+
+///|
+/// Step-based lexer: returns one LexStep per call.
+/// When ~layout=false (default), newlines fold into whitespace.
+/// When ~layout=true, newlines are separate Newline tokens.
+fn step_lex(
+  input : String,
+  pos : Int,
+  layout~ : Bool,
+) -> @core.LexStep[@token.Token] {
+  if pos >= input.length() {
+    return Done
+  }
+  let c = input.code_unit_at(pos).to_char()
+  match c {
+    Some('\n') if layout =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Newline, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('\r') if layout => {
+      let end = if pos + 1 < input.length() &&
+        input.code_unit_at(pos + 1).to_char() == Some('\n') {
+        pos + 2
+      } else {
+        pos + 1
+      }
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Newline, pos, end),
+        next_offset=end,
+      )
+    }
+    Some(' ') | Some('\t') | Some('\n') | Some('\r') => {
+      let ws_start = pos
+      let mut ws_end = pos + 1
+      while ws_end < input.length() {
+        match input.code_unit_at(ws_end).to_char() {
+          Some(' ') | Some('\t') | Some('\n') | Some('\r') if not(layout) =>
+            ws_end = ws_end + 1
+          Some(' ') | Some('\t') if layout => ws_end = ws_end + 1
+          _ => break
+        }
+      }
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Whitespace, ws_start, ws_end),
+        next_offset=ws_end,
+      )
+    }
+    Some('λ') | Some('\\') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Lambda, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('.') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Dot, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('(') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.LeftParen, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some(')') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.RightParen, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('+') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Plus, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('-') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Minus, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some('=') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Eq, pos, pos + 1),
+        next_offset=pos + 1,
+      )
+    Some(c) if is_alphabet(c.to_int()) => {
+      let (new_pos, identifier) = read_identifier(input, pos, "")
+      let token = match identifier {
+        "if" => @token.Token::If
+        "then" => @token.Token::Then
+        "else" => @token.Token::Else
+        "let" => @token.Token::Let
+        "in" => @token.Token::In
+        _ => @token.Token::Identifier(identifier)
+      }
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(token, pos, new_pos),
+        next_offset=new_pos,
+      )
+    }
+    Some(c) if is_numeric(c.to_int()) => {
+      let (new_pos, number) = read_number(input, pos, 0)
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Integer(number), pos, new_pos),
+        next_offset=new_pos,
+      )
+    }
+    None =>
+      @core.LexStep::Invalid(
+        at=pos,
+        width=1,
+        message="Error to read character at position \{pos}",
+      )
+    c =>
+      @core.LexStep::Invalid(
+        at=pos,
+        width=1,
+        message="unexpected character: \{c.to_string()} at position \{pos}",
+      )
+  }
+}
+
+///|
+/// PrefixLexer for the default lambda grammar (newlines folded into whitespace).
+pub fn lambda_step_lexer(
+  source : String,
+  start : Int,
+) -> @core.LexStep[@token.Token] {
+  step_lex(source, start, layout=false)
+}
+
+///|
+/// PrefixLexer for the source-file grammar (newlines as separate tokens).
+pub fn lambda_step_lexer_layout(
+  source : String,
+  start : Int,
+) -> @core.LexStep[@token.Token] {
+  step_lex(source, start, layout=true)
 }
 
 ///|
@@ -156,7 +219,7 @@ fn tokenize_helper(
 pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  tokenize_helper(input, 0, [])
+  tokenize_via_steps(input, layout=false)
 }
 
 ///|
@@ -194,5 +257,5 @@ pub fn tokenize_range(
 pub fn tokenize_layout(
   input : String,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  tokenize_helper(input, 0, [], layout=true)
+  tokenize_via_steps(input, layout=true)
 }

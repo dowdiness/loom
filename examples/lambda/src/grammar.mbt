@@ -17,6 +17,8 @@ pub let lambda_grammar : @loom.Grammar[
     let cst = @seam.CstNode::new(@syntax.ErrorNode.to_raw(), [])
     @seam.SyntaxNode::from_cst(cst)
   },
+  error_token=Some(@token.Error("")),
+  prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
 )
 
 ///|
@@ -36,4 +38,8 @@ pub let source_file_grammar : @loom.Grammar[
     let cst = @seam.CstNode::new(@syntax.ErrorNode.to_raw(), [])
     @seam.SyntaxNode::from_cst(cst)
   },
+  error_token=Some(@token.Error("")),
+  prefix_lexer=Some(
+    @core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer_layout),
+  ),
 )
