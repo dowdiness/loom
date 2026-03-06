@@ -187,11 +187,11 @@ fn step_lex(
         width=1,
         message="Error to read character at position \{pos}",
       )
-    c =>
+    Some(ch) =>
       @core.LexStep::Invalid(
         at=pos,
         width=1,
-        message="unexpected character: \{c.to_string()} at position \{pos}",
+        message="unexpected character: \{ch.to_string()} at position \{pos}",
       )
   }
 }

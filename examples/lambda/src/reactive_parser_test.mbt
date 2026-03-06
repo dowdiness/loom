@@ -27,7 +27,7 @@ test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
 test "ReactiveParser: step-based recovery diagnostics are parser-level" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   let diags = db.diagnostics()
-  assert_eq(diags.length() > 0, true)
+  inspect(diags.length() > 0, content="true")
   // No "tokenization:" prefix — errors come from parser, not lexer
   inspect(diags[0].contains("tokenization: "), content="false")
 }
@@ -98,6 +98,8 @@ test "ReactiveParser: set_source from error-recovery input to valid" {
   inspect(db.cst().is_lex_error, content="false")
   db.set_source("1 + 2")
   inspect(db.cst().is_lex_error, content="false")
+  inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
+  inspect(db.diagnostics().length(), content="0")
 }
 
 // ── Parity with direct parse ──────────────────────────────────────────────────
