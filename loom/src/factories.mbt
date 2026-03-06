@@ -75,7 +75,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           buffer.update(edit, source) catch {
             @core.LexError(msg) => {
               let rebuilt = create_buffer(
-                source, tokenize, spec.eof_token, error_token,
+                source,
+                tokenize,
+                spec.eof_token,
+                error_token,
               ) catch {
                 @core.LexError(msg2) => {
                   token_buf.val = None
@@ -92,7 +95,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           }
         None => {
           let buffer = create_buffer(
-            source, tokenize, spec.eof_token, error_token,
+            source,
+            tokenize,
+            spec.eof_token,
+            error_token,
           ) catch {
             @core.LexError(msg) => {
               last_diags.val = []

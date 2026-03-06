@@ -73,6 +73,13 @@ pub struct LanguageSpec[T, K] {
 }
 pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit) -> Self[T, K]
 
+pub(all) enum LexStep[T] {
+  Produced(TokenInfo[T], next_offset~ : Int)
+  Invalid(at~ : Int, width~ : Int, message~ : String)
+  Incomplete(at~ : Int, expected~ : String)
+  Done
+}
+
 type OldToken
 pub impl Compare for OldToken
 pub impl Eq for OldToken
@@ -126,6 +133,11 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
 pub fn[T, K] ParserContext::token_text(Self[T, K], TokenInfo[T]) -> String
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 
+pub struct PrefixLexer[T] {
+  lex_step : (String, Int) -> LexStep[T]
+}
+pub fn[T] PrefixLexer::lex_all(Self[T], String, Int) -> Array[LexStep[T]]
+
 pub(all) struct Range {
   start : Int
   end : Int
@@ -178,6 +190,7 @@ pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
+pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Array[TokenInfo[T]] raise LexError
 
