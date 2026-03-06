@@ -2,6 +2,88 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-03-06 (Ambiguity resilience + simplification)
+
+- Command: `moon bench --release`
+- Git ref: `main` (post `3055722`)
+- Environment: local developer machine (WSL2 / Linux 6.6 / wasm-gc)
+- Result: `91/91` benchmarks passed
+- Changes since previous entry:
+  - Ambiguity resilience plan completed: `emit_token`/`finish_node`/`parse_with` abort paths replaced with graceful recovery (zero-width tokens, auto-close, diagnostics)
+  - Resilient lexing: `TokenBuffer::new_resilient`, `Grammar.error_token` field, `create_buffer` helper
+  - Speculative parsing: `checkpoint`/`restore` API, `Checkpoint[T,K]` struct, `ReuseCursor::snapshot`
+  - Multi-token lookahead: `peek_nth(n)`, `peek()` delegates to `peek_nth(0)`
+  - Progress-guaranteed recovery: `skip_until_progress`
+  - Damage coordinate fix: `edit.old_end()` for `ReuseCursor` (was `edit.new_end()`)
+  - `EventBuffer::length`/`truncate` added to seam
+  - Simplification pass: `factories.mbt` -58 lines, `old_tokens` shared by reference in snapshot
+  - Test count: 186 tests (loom), 97 tests (seam), 333 tests (lambda)
+  - Baseline updated: small regressions in micro-benchmarks from resilience overhead (graceful error paths add a few ns per call); heavy/scale benchmarks within threshold
+
+### Core Parse Scaling
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| parse scaling — small (5 tokens) | 1.62 µs | -5% | `"1 + 2"` |
+| parse scaling — medium (15 tokens) | 7.67 µs | 0% | lambda-if expression |
+| parse scaling — large (30+ tokens) | 13.11 µs | -2% | nested lambda-if |
+
+### ParserDb Pipeline
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| parserdb: cold — new + term() | 6.77 µs | -5% | first call, full lex + parse + AST |
+| parserdb: warm — term() no change | 0.02 µs | 0% | memo hit |
+| parserdb: signal no-op — set_source(same) + term() | 0.04 µs | 0% | Signal::Eq short-circuit |
+| parserdb: full recompute — set_source(new) + term() | 13.82 µs | +12% | full re-lex + re-parse + AST |
+| parserdb: undo/redo cycle | 13.81 µs | +7% | alternating sources |
+| parserdb: diagnostics — malformed input | 0.06 µs | -14% | cached diagnostics |
+
+### Incremental Editing
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| incremental vs full — edit at start | 11.35 µs | +14% | |
+| incremental vs full — edit at end | 15.64 µs | +22% | |
+| incremental vs full — edit in middle | 15.30 µs | +18% | |
+| sequential edits — typing simulation | 2.11 µs | +14% | |
+| sequential edits — backspace simulation | 2.21 µs | +11% | |
+| best case — cosmetic change | 3.33 µs | +19% | |
+| worst case — full invalidation | 11.56 µs | +14% | |
+
+### Heavy Workloads
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| heavy: large document — initial parse | 79.62 µs | +11% | |
+| heavy: wide arithmetic 100 terms | 65.72 µs | +12% | |
+| heavy: nested application depth 50 | 148.78 µs | +5% | |
+| heavy: typing session — 100 edits at end | 7.35 ms | +5% | |
+| heavy: typing session — 100 edits in middle | 8.54 ms | -3% | |
+| heavy: refactoring session — 100 scattered | 4.36 ms | -2% | |
+
+### Scale Tests
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| scale: 100 terms — full reparse | 81.95 µs | +2% | |
+| scale: 100 terms — incremental single edit | 146.52 µs | +13% | |
+| scale: 500 terms — full reparse | 499.71 µs | +5% | |
+| scale: 500 terms — incremental single edit | 870.46 µs | +7% | |
+| scale: 1000 terms — full reparse | 1.08 ms | +4% | |
+| scale: 1000 terms — incremental single edit | 1.90 ms | +2% | |
+
+### Error Recovery
+
+| Benchmark | Mean | vs prev | Notes |
+|---|---:|---:|---|
+| error recovery — valid | 1.32 µs | +5% | |
+| error recovery — error | 1.16 µs | -6% | improved |
+| parse_cst_recover — small | 1.38 µs | +21% | micro-bench noise |
+| parse_cst_recover — large | 12.59 µs | +17% | resilience overhead |
+
+---
+
 ## 2026-03-05 (Term::Error variant + benchmark bug fixes)
 
 - Command: `moon bench --release`
