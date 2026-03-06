@@ -1,6 +1,7 @@
 ///|
 enum FTok {
   A
+  Err
   Eof
 } derive(Eq, Show)
 
@@ -57,6 +58,29 @@ fn ftokenize(s : String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
 }
 
 ///|
+fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
+  if start >= source.length() {
+    return Done
+  }
+  if source.code_unit_at(start).to_int() == 97 {
+    return Produced(
+      @core.TokenInfo::new(A, start, start + 1),
+      next_offset=start + 1,
+    )
+  }
+  Invalid(at=start, width=1, message="unexpected char")
+}
+
+///|
+fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
+  tokens
+  .map(t => {
+    t.token.to_string() + "@" + t.start.to_string() + "-" + t.end.to_string()
+  })
+  .join(",")
+}
+
+///|
 fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
   while not(ctx.at_eof()) {
     ctx.node(KExpr, fn() {
@@ -106,4 +130,30 @@ test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
     @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
     content="0",
   )
+}
+
+///|
+test "create_buffer: prefix_lexer + error_token uses explicit error token" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let buffer = create_buffer(
+    "a!a",
+    ftokenize,
+    Eof,
+    Some(Err),
+    prefix_lexer=Some(lexer),
+  )
+  let rendered = frender_tokens(buffer.get_tokens())
+  inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+}
+
+///|
+test "create_buffer: prefix_lexer without error_token raises on invalid step" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let raised = try {
+    ignore(create_buffer("a!a", ftokenize, Eof, None, prefix_lexer=Some(lexer)))
+    false
+  } catch {
+    @core.LexError(_) => true
+  }
+  inspect(raised, content="true")
 }

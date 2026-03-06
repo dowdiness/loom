@@ -58,6 +58,21 @@ pub fn[T] TokenBuffer::new_from_steps(
 }
 
 ///|
+/// Construct a TokenBuffer from a step-based PrefixLexer in strict mode.
+/// Raises LexError when the step lexer reports Invalid/Incomplete.
+pub fn[T] TokenBuffer::new_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token~ : T,
+) -> TokenBuffer[T] raise LexError {
+  let tokens = tokenize_from_steps_strict(source, lexer, eof_token)
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps_strict(s, lexer, eof_token)
+  }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
   self.tokens
 }
@@ -333,6 +348,40 @@ fn[T] tokenize_from_steps(
         }
         break
       }
+      Done => break
+    }
+  }
+  result.push(TokenInfo::new(eof_token, len, len))
+  result
+}
+
+///|
+/// Step-based tokenization in strict mode: report Invalid/Incomplete as LexError.
+fn[T] tokenize_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+) -> Array[TokenInfo[T]] raise LexError {
+  let result : Array[TokenInfo[T]] = []
+  let len = source.length()
+  let mut pos = 0
+  while pos < len {
+    let step = (lexer.lex_step)(source, pos)
+    match step {
+      Produced(token_info, next_offset~) => {
+        result.push(token_info)
+        if next_offset <= pos {
+          pos = pos + 1
+        } else {
+          pos = next_offset
+        }
+      }
+      Invalid(at~, width~, message~) =>
+        raise LexError(
+          "step lexer invalid at \{at} (width \{width}): " + message,
+        )
+      Incomplete(at~, expected~) =>
+        raise LexError("step lexer incomplete at \{at}; expected " + expected)
       Done => break
     }
   }

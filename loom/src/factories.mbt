@@ -16,20 +16,20 @@ fn[T] create_buffer(
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
   eof_token : T,
   error_token : T?,
-  prefix_lexer~ : @core.PrefixLexer[T]? = None,
+  prefix_lexer? : @core.PrefixLexer[T]? = None,
 ) -> @core.TokenBuffer[T] raise @core.LexError {
   match (prefix_lexer, error_token) {
     (Some(lexer), Some(err_tok)) =>
       @core.TokenBuffer::new_from_steps(
-        source, lexer, eof_token~, error_token=err_tok,
+        source,
+        lexer,
+        eof_token~,
+        error_token=err_tok,
       )
     (Some(lexer), None) =>
-      // Step-based without error_token: use eof_token as fallback error token.
-      // This shouldn't happen in practice — grammars with prefix_lexer should
-      // always provide error_token — but we handle it defensively.
-      @core.TokenBuffer::new_from_steps(
-        source, lexer, eof_token~, error_token=eof_token,
-      )
+      // Step-based without error_token: run in strict mode and surface
+      // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
+      @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
     (None, Some(err_tok)) =>
       @core.TokenBuffer::new_resilient(
         source,
@@ -62,7 +62,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let lang = @incremental.ImperativeLanguage::new(
     full_parse=source => {
       let buffer = create_buffer(
-        source, tokenize, spec.eof_token, error_token, prefix_lexer~,
+        source,
+        tokenize,
+        spec.eof_token,
+        error_token,
+        prefix_lexer~,
       ) catch {
         @core.LexError(msg) => {
           token_buf.val = None
@@ -176,7 +180,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   let lang : @pipeline.Language[Ast] = @pipeline.Language::from_closures(
     parse_source=fn(s) {
       let buffer = create_buffer(
-        s, tokenize, spec.eof_token, error_token, prefix_lexer~,
+        s,
+        tokenize,
+        spec.eof_token,
+        error_token,
+        prefix_lexer~,
       ) catch {
         @core.LexError(msg) => {
           let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
