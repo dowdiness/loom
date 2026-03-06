@@ -9,22 +9,36 @@
 // for type erasure — grammar authors never see them.
 
 ///|
-/// Create a fresh TokenBuffer, using resilient lexing when error_token is Some.
+/// Create a fresh TokenBuffer.
+/// Precedence: prefix_lexer (step-based) > error_token (resilient) > plain.
 fn[T] create_buffer(
   source : String,
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
   eof_token : T,
   error_token : T?,
+  prefix_lexer? : @core.PrefixLexer[T]? = None,
 ) -> @core.TokenBuffer[T] raise @core.LexError {
-  match error_token {
-    Some(err_tok) =>
+  match (prefix_lexer, error_token) {
+    (Some(lexer), Some(err_tok)) =>
+      @core.TokenBuffer::new_from_steps(
+        source,
+        lexer,
+        eof_token~,
+        error_token=err_tok,
+      )
+    (Some(lexer), None) =>
+      // Step-based without error_token: run in strict mode and surface
+      // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
+      @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
+    (None, Some(err_tok)) =>
       @core.TokenBuffer::new_resilient(
         source,
         tokenize_fn=tokenize,
         eof_token~,
         error_token=err_tok,
       )
-    None => @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+    (None, None) =>
+      @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
   }
 }
 
@@ -41,12 +55,19 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
+  let prefix_lexer = grammar.prefix_lexer
   let to_ast = grammar.to_ast
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
   let lang = @incremental.ImperativeLanguage::new(
     full_parse=source => {
-      let buffer = create_buffer(source, tokenize, spec.eof_token, error_token) catch {
+      let buffer = create_buffer(
+        source,
+        tokenize,
+        spec.eof_token,
+        error_token,
+        prefix_lexer~,
+      ) catch {
         @core.LexError(msg) => {
           token_buf.val = None
           last_diags.val = []
@@ -75,7 +96,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           buffer.update(edit, source) catch {
             @core.LexError(msg) => {
               let rebuilt = create_buffer(
-                source, tokenize, spec.eof_token, error_token,
+                source,
+                tokenize,
+                spec.eof_token,
+                error_token,
+                prefix_lexer~,
               ) catch {
                 @core.LexError(msg2) => {
                   token_buf.val = None
@@ -92,7 +117,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           }
         None => {
           let buffer = create_buffer(
-            source, tokenize, spec.eof_token, error_token,
+            source,
+            tokenize,
+            spec.eof_token,
+            error_token,
+            prefix_lexer~,
           ) catch {
             @core.LexError(msg) => {
               last_diags.val = []
@@ -146,10 +175,17 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
+  let prefix_lexer = grammar.prefix_lexer
   let to_ast = grammar.to_ast
   let lang : @pipeline.Language[Ast] = @pipeline.Language::from_closures(
     parse_source=fn(s) {
-      let buffer = create_buffer(s, tokenize, spec.eof_token, error_token) catch {
+      let buffer = create_buffer(
+        s,
+        tokenize,
+        spec.eof_token,
+        error_token,
+        prefix_lexer~,
+      ) catch {
         @core.LexError(msg) => {
           let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
           return @pipeline.CstStage::{

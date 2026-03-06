@@ -39,6 +39,40 @@ pub fn[T] TokenBuffer::new_resilient(
 }
 
 ///|
+/// Construct a TokenBuffer from a step-based PrefixLexer.
+/// Never raises — errors are emitted as error tokens inline.
+/// Uses full re-lex on construction; incremental step re-lex is deferred.
+pub fn[T] TokenBuffer::new_from_steps(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token~ : T,
+  error_token~ : T,
+) -> TokenBuffer[T] {
+  let tokens = tokenize_from_steps(source, lexer, eof_token, error_token)
+  // Wrap the step-based lexer as a tokenize_fn so update() and
+  // tokenize_range_impl work correctly on step-based buffers.
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps(s, lexer, eof_token, error_token)
+  }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
+/// Construct a TokenBuffer from a step-based PrefixLexer in strict mode.
+/// Raises LexError when the step lexer reports Invalid/Incomplete.
+pub fn[T] TokenBuffer::new_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token~ : T,
+) -> TokenBuffer[T] raise LexError {
+  let tokens = tokenize_from_steps_strict(source, lexer, eof_token)
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps_strict(s, lexer, eof_token)
+  }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
   self.tokens
 }
@@ -271,6 +305,88 @@ fn[T] tokenize_resilient(
       result
     }
   }
+}
+
+///|
+/// Step-based tokenization: call lex_step in a loop, emitting tokens for
+/// Produced, error tokens for Invalid/Incomplete, and stopping on Done.
+fn[T] tokenize_from_steps(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+  error_token : T,
+) -> Array[TokenInfo[T]] {
+  let result : Array[TokenInfo[T]] = []
+  let len = source.length()
+  let mut pos = 0
+  while pos < len {
+    let step = (lexer.lex_step)(source, pos)
+    match step {
+      Produced(token_info, next_offset~) => {
+        result.push(token_info)
+        // Enforce progress: next_offset must be > pos
+        if next_offset <= pos {
+          // Defensive: skip one code unit to avoid infinite loop
+          pos = pos + 1
+        } else {
+          pos = next_offset
+        }
+      }
+      Invalid(at~, width~, ..) => {
+        let effective_width = if width > 0 { width } else { 1 }
+        let end = clamp_offset(at + effective_width, len)
+        result.push(TokenInfo::new(error_token, at, end))
+        // Ensure pos never moves backwards (buggy lexer could report at < pos)
+        pos = if end > pos { end } else { pos + 1 }
+      }
+      Incomplete(at~, ..) => {
+        // Emit error token from at to EOF (or zero-width at EOF)
+        if at < len {
+          result.push(TokenInfo::new(error_token, at, len))
+        } else {
+          result.push(TokenInfo::new(error_token, len, len))
+        }
+        break
+      }
+      Done => break
+    }
+  }
+  result.push(TokenInfo::new(eof_token, len, len))
+  result
+}
+
+///|
+/// Step-based tokenization in strict mode: report Invalid/Incomplete as LexError.
+fn[T] tokenize_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+) -> Array[TokenInfo[T]] raise LexError {
+  let result : Array[TokenInfo[T]] = []
+  let len = source.length()
+  let mut pos = 0
+  while pos < len {
+    let step = (lexer.lex_step)(source, pos)
+    match step {
+      Produced(token_info, next_offset~) => {
+        result.push(token_info)
+        if next_offset <= pos {
+          pos = pos + 1
+        } else {
+          pos = next_offset
+        }
+      }
+      Invalid(at~, width~, message~) =>
+        raise LexError(
+          "step lexer invalid at \{at} (width \{width}): " + message,
+        )
+      Incomplete(at~, expected~) =>
+        raise LexError("step lexer incomplete at \{at}; expected " + expected)
+      Done => break
+    }
+  }
+  result.push(TokenInfo::new(eof_token, len, len))
+  result
 }
 
 ///|
