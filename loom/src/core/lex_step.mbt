@@ -18,7 +18,7 @@ pub(all) enum LexStep[T] {
 /// Dictionary-passing wrapper for step-based lexing.
 /// Use this instead of a trait because MoonBit traits cannot be
 /// generic over arbitrary token type T in the way we need.
-pub struct PrefixLexer[T] {
+pub(all) struct PrefixLexer[T] {
   lex_step : (String, Int) -> LexStep[T]
 }
 
