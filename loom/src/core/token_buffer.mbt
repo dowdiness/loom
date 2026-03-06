@@ -49,12 +49,12 @@ pub fn[T] TokenBuffer::new_from_steps(
   error_token~ : T,
 ) -> TokenBuffer[T] {
   let tokens = tokenize_from_steps(source, lexer, eof_token, error_token)
-  // Store a dummy tokenize_fn that aborts — step-based buffers should not
-  // fall back to the legacy tokenize path.
-  let dummy_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = _s => {
-    raise LexError("step-based TokenBuffer: legacy tokenize_fn not available")
+  // Wrap the step-based lexer as a tokenize_fn so update() and
+  // tokenize_range_impl work correctly on step-based buffers.
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps(s, lexer, eof_token, error_token)
   }
-  { tokenize_fn: dummy_tokenize_fn, eof_token, tokens, source, version: 0 }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
 }
 
 ///|
@@ -321,7 +321,8 @@ fn[T] tokenize_from_steps(
         let effective_width = if width > 0 { width } else { 1 }
         let end = clamp_offset(at + effective_width, len)
         result.push(TokenInfo::new(error_token, at, end))
-        pos = end
+        // Ensure pos never moves backwards (buggy lexer could report at < pos)
+        pos = if end > pos { end } else { pos + 1 }
       }
       Incomplete(at~, ..) => {
         // Emit error token from at to EOF (or zero-width at EOF)

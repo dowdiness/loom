@@ -32,7 +32,7 @@ pub fn[T] PrefixLexer::lex_all(
 ) -> Array[LexStep[T]] {
   let result : Array[LexStep[T]] = []
   let len = source.length()
-  let mut pos = start
+  let mut pos = clamp_offset(start, len)
   while pos < len {
     let step = (self.lex_step)(source, pos)
     result.push(step)
@@ -41,7 +41,8 @@ pub fn[T] PrefixLexer::lex_all(
         pos = if next_offset <= pos { pos + 1 } else { next_offset }
       Invalid(at~, width~, ..) => {
         let w = if width > 0 { width } else { 1 }
-        pos = clamp_offset(at + w, len)
+        let candidate = clamp_offset(at + w, len)
+        pos = if candidate > pos { candidate } else { pos + 1 }
       }
       Incomplete(..) | Done => break
     }

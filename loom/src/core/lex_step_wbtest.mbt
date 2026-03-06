@@ -181,7 +181,7 @@ test "contract: empty source satisfies laws" {
 ///|
 fn render_tokens(tokens : Array[TokenInfo[String]]) -> String {
   tokens
-  .map(fn(t) { t.token + "@" + t.start.to_string() + "-" + t.end.to_string() })
+  .map(t => t.token + "@" + t.start.to_string() + "-" + t.end.to_string())
   .join(",")
 }
 
