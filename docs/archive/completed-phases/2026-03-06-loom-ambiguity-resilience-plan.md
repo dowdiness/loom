@@ -1,6 +1,6 @@
 # loom Ambiguity Resilience — Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan phase-by-phase.
+**Status:** Complete
 
 **Goal:** Make loom handle all ambiguous and malformed input without crashing, losing partial results, or entering infinite loops. Six concrete defects are addressed across three phases, ordered by blast radius (process crash → data loss → correctness).
 
