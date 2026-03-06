@@ -97,7 +97,10 @@ fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
 }
 
 ///|
-fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+fn fgrammar(
+  error_token? : FTok? = None,
+  prefix_lexer? : @core.PrefixLexer[FTok]? = None,
+) -> Grammar[FTok, FKind, @seam.SyntaxNode] {
   let spec = @core.LanguageSpec::new(
     KWs,
     KErr,
@@ -108,12 +111,17 @@ fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
     },
     parse_root=froot,
   )
-  Grammar::new(spec~, tokenize=ftokenize, to_ast=fn(s) { s }, on_lex_error=fn(
-    _msg,
-  ) {
-    let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-    @seam.SyntaxNode::from_cst(cst)
-  })
+  Grammar::new(
+    spec~,
+    tokenize=ftokenize,
+    to_ast=fn(s) { s },
+    on_lex_error=fn(_msg) {
+      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+      @seam.SyntaxNode::from_cst(cst)
+    },
+    error_token~,
+    prefix_lexer~,
+  )
 }
 
 ///|
@@ -144,6 +152,26 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
   )
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+}
+
+///|
+test "new_imperative_parser: step-based path reuse matches full reparse" {
+  let grammar = fgrammar(
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+  )
+  let parser = new_imperative_parser("aaaaa", grammar)
+  let _ = parser.parse()
+  let incr = parser.edit(@core.Edit::delete(2, 3), "aaaa")
+  // Verify reuse occurred
+  inspect(parser.get_last_reuse_count() > 0, content="true")
+  // Verify incremental result matches full reparse
+  let full_parser = new_imperative_parser("aaaa", grammar)
+  let full = full_parser.parse()
+  inspect(
+    @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
+    content="0",
+  )
 }
 
 ///|

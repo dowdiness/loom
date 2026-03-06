@@ -1,7 +1,7 @@
 # loom Step-Based Lexing Redesign Plan
 
 **Date:** March 6, 2026  
-**Status:** Draft  
+**Status:** Complete  
 **Scope:** `loom/`, `examples/lambda/` (and follow-up example grammars)
 
 ## Goal
@@ -185,13 +185,13 @@ Add targeted property tests in `loom/src/core`:
 
 ## Deliverables Checklist
 
-- [ ] `LexStep[T]` and `PrefixLexer[T]` in core
-- [ ] `Grammar.prefix_lexer` optional field
-- [ ] Step-based token buffer constructor
-- [ ] Factories wired to prefer step-based lexing
-- [ ] Lambda grammar migrated
-- [ ] Differential/property tests for step contract
-- [ ] Deprecation notes for legacy fallback path
+- [x] `LexStep[T]` and `PrefixLexer[T]` in core
+- [x] `Grammar.prefix_lexer` optional field
+- [x] Step-based token buffer constructor
+- [x] Factories wired to prefer step-based lexing
+- [x] Lambda grammar migrated
+- [x] Differential/property tests for step contract
+- [x] Deprecation notes for legacy fallback path
 
 ## Open Decisions
 None for Phase 0-1. Any further policy changes should be tracked as explicit amendments to this document.

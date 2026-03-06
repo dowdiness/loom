@@ -28,6 +28,7 @@ pub fn[T] TokenBuffer::new(
 /// Construct a TokenBuffer that never raises LexError.
 /// On lex failure, inserts an error token for one code unit and retries from
 /// the next position.
+#deprecated("Use new_from_steps with a PrefixLexer for explicit error recovery", skip_current_package=true)
 pub fn[T] TokenBuffer::new_resilient(
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
@@ -266,6 +267,7 @@ fn clamp_offset(pos : Int, length : Int) -> Int {
 
 ///|
 /// Lex source resiliently: on LexError, insert an error token and continue.
+/// **Deprecated:** Used by `new_resilient`. Prefer `tokenize_from_steps`.
 fn[T] tokenize_resilient(
   source : String,
   tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,

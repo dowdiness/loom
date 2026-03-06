@@ -16,6 +16,7 @@ pub(all) enum Token {
   Integer(Int) // integer literals
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
   Newline // newline (\n or \r\n) — non-trivia in source-file grammar
+  Error(String) // lexer error placeholder for step-based resilient mode
   EOF // end of input
 } derive(Eq, Debug)
 
@@ -39,6 +40,7 @@ pub impl Show for Token with output(self, logger) {
       Integer(n) => n.to_string()
       Whitespace => "whitespace"
       Newline => "newline"
+      Error(msg) => "<error: " + msg + ">"
       EOF => "EOF"
     },
   )
@@ -94,6 +96,7 @@ pub fn print_token(token : Token) -> String {
     Integer(n) => n.to_string()
     Whitespace => "whitespace"
     Newline => "newline"
+    Error(msg) => "<error: " + msg + ">"
     EOF => "EOF"
   }
 }
