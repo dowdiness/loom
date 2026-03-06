@@ -37,6 +37,23 @@ Current resilient fallback in `TokenBuffer::new_resilient` is still heuristic an
 - `PrefixLexer[T]`
   - `lex_step : (source : String, start : Int) -> LexStep[T]`
 
+### Resolved Policy Decisions
+
+1. `Incomplete` handling:
+   - Lexer step path emits `error_token` plus diagnostic (not `incomplete_kind`).
+   - Rationale: lexer produces language token type `T`; `incomplete_kind` belongs to parser/CST kind space.
+   - Span policy:
+     - if `at < source.length()`: emit error token `[at, source.length())`
+     - if `at >= source.length()`: emit zero-width error token at EOF
+
+2. Legacy `tokenize` lifecycle:
+   - Keep as compatibility path during migration.
+   - Mark as deprecated when step path lands.
+   - Remove after all in-repo grammars migrate and one release cycle passes.
+
+3. Contract helper:
+   - Add reusable core test helper to validate lexer contract laws (determinism, progress, termination).
+
 ### Core Laws (must hold)
 
 1. Deterministic: same `(source, start)` returns same `LexStep`.
@@ -94,6 +111,9 @@ Tasks:
    - multi-error input
    - incomplete-at-EOF behavior
    - progress (no infinite loop)
+5. Incremental scope for this phase:
+   - If `prefix_lexer` is present, `TokenBuffer::update` may initially use safe full re-lex via step API.
+   - Windowed incremental step re-lex optimization is deferred until correctness is stable.
 
 ### Phase 2: Factory Integration
 
@@ -174,7 +194,4 @@ Add targeted property tests in `loom/src/core`:
 - [ ] Deprecation notes for legacy fallback path
 
 ## Open Decisions
-
-1. Should `Incomplete` emit `incomplete_kind` token directly or map to `error_token` + diagnostic?
-2. Should legacy `tokenize` remain indefinitely as fallback or be removed after migration?
-3. Do we expose a small helper library for language-side step-lexer contract tests?
+None for Phase 0-1. Any further policy changes should be tracked as explicit amendments to this document.
