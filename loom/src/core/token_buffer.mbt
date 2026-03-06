@@ -25,6 +25,20 @@ pub fn[T] TokenBuffer::new(
 }
 
 ///|
+/// Construct a TokenBuffer that never raises LexError.
+/// On lex failure, inserts an error token for one code unit and retries from
+/// the next position.
+pub fn[T] TokenBuffer::new_resilient(
+  source : String,
+  tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
+  eof_token~ : T,
+  error_token~ : T,
+) -> TokenBuffer[T] {
+  let tokens = tokenize_resilient(source, tokenize_fn, eof_token, error_token)
+  { tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
   self.tokens
 }
@@ -214,4 +228,71 @@ fn clamp_offset(pos : Int, length : Int) -> Int {
   } else {
     pos
   }
+}
+
+///|
+/// Lex source resiliently: on LexError, insert an error token and continue.
+fn[T] tokenize_resilient(
+  source : String,
+  tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
+  eof_token : T,
+  error_token : T,
+) -> Array[TokenInfo[T]] {
+  tokenize_fn(source) catch {
+    LexError(_) => {
+      let result : Array[TokenInfo[T]] = []
+      let mut pos = 0
+      while pos < source.length() {
+        let remaining : StringView = source[pos:source.length()] catch {
+            _ => break
+          }
+        let rem = remaining.to_string()
+        let prefix_len = longest_lexable_prefix_len(rem, tokenize_fn)
+        if prefix_len > 0 {
+          let prefix : StringView = rem[0:prefix_len] catch {
+              _ => {
+                result.push(TokenInfo::new(error_token, pos, pos + 1))
+                pos = pos + 1
+                continue
+              }
+            }
+          let prefix_tokens = tokenize_fn(prefix.to_string()) catch { _ => [] }
+          for i = 0; i < prefix_tokens.length() - 1; i = i + 1 {
+            let t = prefix_tokens[i]
+            result.push(TokenInfo::new(t.token, t.start + pos, t.end + pos))
+          }
+          pos = pos + prefix_len
+        } else {
+          result.push(TokenInfo::new(error_token, pos, pos + 1))
+          pos = pos + 1
+        }
+      }
+      result.push(TokenInfo::new(eof_token, source.length(), source.length()))
+      result
+    }
+  }
+}
+
+///|
+/// Return the longest prefix length of `s` that tokenizes without LexError.
+fn[T] longest_lexable_prefix_len(
+  s : String,
+  tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
+) -> Int {
+  // Linear descending scan: robust even when tokenize(prefix) success is
+  // non-monotone across prefix lengths (e.g. unterminated constructs that
+  // become valid only when a later closing delimiter is included).
+  for len = s.length(); len > 0; len = len - 1 {
+    let prefix : StringView = s[0:len] catch { _ => continue }
+    let ok = try {
+      let _ = tokenize_fn(prefix.to_string())
+      true
+    } catch {
+      LexError(_) => false
+    }
+    if ok {
+      return len
+    }
+  }
+  0
 }

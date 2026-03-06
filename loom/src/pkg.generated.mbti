@@ -21,8 +21,9 @@ pub struct Grammar[T, K, Ast] {
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
   to_ast : (@seam.SyntaxNode) -> Ast
   on_lex_error : (String) -> Ast
+  error_token : T?
 }
-pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[T, K, Ast]
+pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, error_token? : T?) -> Self[T, K, Ast]
 
 // Type aliases
 pub using @seam {type CstNode}

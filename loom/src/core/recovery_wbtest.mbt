@@ -341,3 +341,48 @@ test "emit_incomplete_placeholder: emits incomplete_kind, not error_kind" {
   }
   inspect(found_incomplete, content="true")
 }
+
+///|
+test "skip_until_progress: consumes one token when already at sync point" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let skipped = ctx.skip_until_progress(t => {
+    match t {
+      Num(_) => true
+      _ => false
+    }
+  })
+  inspect(skipped, content="1")
+  inspect(ctx.at(TestTok::Plus), content="true")
+  ctx.finish_node()
+}
+
+///|
+test "skip_until_progress: returns 0 at EOF" {
+  let src = ""
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let skipped = ctx.skip_until_progress(_t => false)
+  inspect(skipped, content="0")
+  ctx.finish_node()
+}
+
+///|
+test "skip_until_progress: normal skip when not at sync" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let skipped = ctx.skip_until_progress(t => {
+    match t {
+      Num(2) => true
+      _ => false
+    }
+  })
+  inspect(skipped, content="2")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+  ctx.finish_node()
+}

@@ -133,6 +133,28 @@ pub fn EventBuffer::start_at(
 }
 
 ///|
+/// Current number of events in the buffer.
+pub fn EventBuffer::length(self : EventBuffer) -> Int {
+  self.events.length()
+}
+
+///|
+/// Truncate the buffer to the first `n` events, discarding the rest.
+/// No-op when n is outside [0, length].
+pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
+  let keep = if n < 0 {
+    0
+  } else if n > self.events.length() {
+    self.events.length()
+  } else {
+    n
+  }
+  while self.events.length() > keep {
+    let _ = self.events.pop()
+  }
+}
+
+///|
 /// Build a concrete syntax tree from a flat event stream, interning all tokens through
 /// the provided Interner. Structurally identical to build_tree; differs only
 /// in that Token events are deduplicated via intern_token.

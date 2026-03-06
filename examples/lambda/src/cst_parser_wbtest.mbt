@@ -1,7 +1,8 @@
 ///|
-test "panic finish_node without matching start_node" {
+test "finish_node without matching start_node is ignored" {
   let ctx = @core.ParserContext::new([], "", lambda_spec)
   ctx.finish_node()
+  inspect(ctx.open_nodes, content="0")
 }
 
 ///|

@@ -71,6 +71,29 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
   count
 }
 
+///|
+/// Like skip_until, but guarantees forward progress unless at EOF.
+/// If already at a sync point, consumes one token as error so recovery loops
+/// cannot spin at the same position.
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(
+  self : ParserContext[T, K],
+  is_sync : (T) -> Bool,
+) -> Int {
+  if self.at_eof() {
+    return 0
+  }
+  if is_sync(self.peek()) {
+    self.bump_error()
+    return 1
+  }
+  let n = self.skip_until(is_sync)
+  if n == 0 && not(self.at_eof()) {
+    self.bump_error()
+    return 1
+  }
+  n
+}
+
 // ─── skip_until_balanced ──────────────────────────────────────────────────────
 
 ///|

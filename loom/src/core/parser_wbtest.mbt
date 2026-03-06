@@ -1090,3 +1090,232 @@ test "ParserContext reuse: incomplete node followed by reusable sibling" {
   })
   inspect(ctx.reuse_count, content="2")
 }
+
+///|
+test "emit_token: at EOF emits zero-width token and diagnostic instead of abort" {
+  let src = ""
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  ctx.finish_node()
+  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.errors[0].message.contains("EOF"), content="true")
+}
+
+///|
+test "emit_token: at EOF after consuming all tokens emits diagnostic" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  ctx.emit_token(KPlus)
+  ctx.finish_node()
+  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.at_eof(), content="true")
+}
+
+///|
+test "finish_node: unbalanced close does not abort" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.finish_node()
+  inspect(ctx.open_nodes, content="0")
+}
+
+///|
+test "finish_node: double close does not abort" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  ctx.finish_node()
+  ctx.finish_node()
+  inspect(ctx.open_nodes, content="0")
+}
+
+///|
+test "parse_with: unclosed node is auto-closed with diagnostic" {
+  let (tree, errors) = parse_with("1", test_spec, test_tokenize, fn(ctx) {
+    ctx.start_node(KExpr)
+    ctx.emit_token(KNum)
+  })
+  inspect(tree.text_len, content="1")
+  let has_unclosed = errors.iter().any(fn(e) { e.message.contains("unclosed") })
+  inspect(has_unclosed, content="true")
+}
+
+///|
+test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let spec = LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    TestTok::TokEof,
+    incomplete_kind=KIncomplete,
+    cst_token_matches=test_spec.cst_token_matches,
+    parse_root=fn(ctx) {
+      ctx.start_node(KExpr)
+      ctx.emit_token(KNum)
+    },
+  )
+  let (_, errors, _) = parse_tokens_indexed(
+    src,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    fn(i) { toks[i].end },
+    spec,
+  )
+  let has_unclosed = errors.iter().any(fn(e) { e.message.contains("unclosed") })
+  inspect(has_unclosed, content="true")
+}
+
+///|
+test "peek_nth: 0 equals peek" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.peek_nth(0) == ctx.peek(), content="true")
+}
+
+///|
+test "peek_nth: returns second non-trivia token" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.peek_nth(0), content="Num(1)")
+  inspect(ctx.peek_nth(1), content="Plus")
+  inspect(ctx.peek_nth(2), content="Num(2)")
+}
+
+///|
+test "peek_nth: past end returns eof" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.peek_nth(5), content="TokEof")
+}
+
+///|
+test "peek_nth: skips trivia between tokens" {
+  let src = "1   +   2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.peek_nth(0), content="Num(1)")
+  inspect(ctx.peek_nth(1), content="Plus")
+  inspect(ctx.peek_nth(2), content="Num(2)")
+}
+
+///|
+test "checkpoint/restore: rewinds position and events" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let cp = ctx.checkpoint()
+  ctx.emit_token(KNum)
+  inspect(ctx.position > 0, content="true")
+  inspect(ctx.events.length() > 0, content="true")
+  ctx.restore(cp)
+  inspect(ctx.position, content="0")
+  inspect(ctx.peek(), content="Num(1)")
+  inspect(ctx.events.length(), content="1")
+  ctx.finish_node()
+}
+
+///|
+test "checkpoint/restore: removes diagnostics added after checkpoint" {
+  let src = "+"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let cp = ctx.checkpoint()
+  ctx.error("speculative error")
+  inspect(ctx.errors.length(), content="1")
+  ctx.restore(cp)
+  inspect(ctx.errors.length(), content="0")
+  ctx.finish_node()
+}
+
+///|
+test "checkpoint/restore: speculative parse picks successful branch" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let cp = ctx.checkpoint()
+  ctx.emit_token(KNum)
+  let branch_a_ok = ctx.at_eof()
+  if not(branch_a_ok) {
+    ctx.restore(cp)
+  }
+  if not(branch_a_ok) {
+    test_grammar(ctx)
+  }
+  ctx.finish_node()
+  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.at_eof(), content="true")
+}
+
+///|
+test "emit_token: EOF placeholder is emitted after trailing trivia" {
+  let (tree, _) = parse_with("   ", test_spec, test_tokenize, fn(ctx) {
+    ctx.emit_token(KNum)
+  })
+  inspect(tree.children.length(), content="2")
+  match tree.children[0] {
+    @seam.CstElement::Token(t) =>
+      inspect(t.kind == test_kind_raw(KWs), content="true")
+    _ => inspect(false, content="true")
+  }
+  match tree.children[1] {
+    @seam.CstElement::Token(t) => {
+      inspect(t.kind == test_kind_raw(KNum), content="true")
+      inspect(t.text_len(), content="0")
+    }
+    _ => inspect(false, content="true")
+  }
+}
+
+///|
+test "checkpoint/restore: restores reuse cursor and reuse_count" {
+  fn grammar_one_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  }
+
+  let src = "1"
+  let toks = test_tokenize(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_one_expr,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { toks[i].start },
+    test_spec,
+  )
+
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  let cp = ctx.checkpoint()
+
+  ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  inspect(ctx.reuse_count, content="1")
+
+  ctx.restore(cp)
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="0")
+
+  ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.at_eof(), content="true")
+}

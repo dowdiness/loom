@@ -411,3 +411,36 @@ pub fn[T, K] ReuseCursor::advance_past(
 ) -> Unit {
   self.current_offset = self.current_offset + node.text_len
 }
+
+///|
+/// Return a structural snapshot of the cursor state.
+/// Used by ParserContext checkpoints to restore speculative parses.
+pub fn[T, K] ReuseCursor::snapshot(
+  self : ReuseCursor[T, K],
+) -> ReuseCursor[T, K] {
+  let stack : Array[CursorFrame] = []
+  for frame in self.stack {
+    stack.push({
+      node: frame.node,
+      child_index: frame.child_index,
+      start_offset: frame.start_offset,
+      current_child_offset: frame.current_child_offset,
+    })
+  }
+  let old_tokens : Array[OldToken] = []
+  for tok in self.old_tokens {
+    old_tokens.push(tok)
+  }
+  {
+    stack,
+    current_offset: self.current_offset,
+    damage_start: self.damage_start,
+    damage_end: self.damage_end,
+    old_tokens,
+    reuse_globally_disabled: self.reuse_globally_disabled,
+    token_count: self.token_count,
+    get_token: self.get_token,
+    get_start: self.get_start,
+    spec: self.spec,
+  }
+}

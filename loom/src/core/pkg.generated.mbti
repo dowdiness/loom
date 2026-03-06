@@ -26,6 +26,10 @@ pub(all) suberror LexError {
 }
 
 // Types and methods
+pub(all) struct Checkpoint[T, K] {
+  // private fields
+}
+
 type CursorFrame
 
 pub struct Diagnostic[T] {
@@ -93,6 +97,7 @@ pub struct ParserContext[T, K] {
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(Self[T, K]) -> Bool
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
+pub fn[T, K] ParserContext::checkpoint(Self[T, K]) -> Checkpoint[T, K]
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T, K]) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
@@ -109,10 +114,13 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::nod
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
+pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], Array[Diagnostic[T]]) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_balanced(Self[T, K], (T) -> Bool, (T) -> Bool) -> Int
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
 pub fn[T, K] ParserContext::token_text(Self[T, K], TokenInfo[T]) -> String
@@ -149,6 +157,7 @@ pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
+pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
 
 pub(all) enum TextDelta {
@@ -169,6 +178,7 @@ pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
+pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Array[TokenInfo[T]] raise LexError
 
 pub struct TokenInfo[T] {

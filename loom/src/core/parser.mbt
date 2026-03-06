@@ -122,6 +122,18 @@ pub struct ParserContext[T, K] {
 }
 
 ///|
+/// Opaque snapshot of parser state for speculative parsing.
+/// Create with checkpoint(), restore with restore().
+pub(all) struct Checkpoint[T, K] {
+  priv position : Int
+  priv events_len : Int
+  priv error_count : Int
+  priv open_nodes : Int
+  priv reuse_cursor : ReuseCursor[T, K]?
+  priv reuse_count : Int
+}
+
+///|
 /// Construct a ParserContext from an Array[TokenInfo[T]].
 /// Convenience wrapper — internally creates indexed accessors over the array.
 pub fn[T, K] ParserContext::new(
@@ -189,6 +201,34 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek(
       pos = pos + 1
     } else {
       return t
+    }
+  }
+  self.spec.eof_token
+}
+
+///|
+/// Return the nth non-trivia token (0-indexed) without consuming it.
+/// peek_nth(0) is equivalent to peek().
+/// Returns eof_token when fewer than n + 1 non-trivia tokens remain.
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
+  self : ParserContext[T, K],
+  n : Int,
+) -> T {
+  if n < 0 {
+    return self.peek()
+  }
+  let mut pos = self.position
+  let mut count = 0
+  while pos < self.token_count {
+    let t = (self.get_token)(pos)
+    if t.is_trivia() {
+      pos = pos + 1
+    } else {
+      if count == n {
+        return t
+      }
+      count = count + 1
+      pos = pos + 1
     }
   }
   self.spec.eof_token
@@ -286,12 +326,12 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emi
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
-  if self.at_eof() {
-    abort(
-      "emit_token: called at EOF — grammar tried to consume past end of input",
-    )
-  }
   self.flush_trivia()
+  if self.at_eof() {
+    self.error("emit_token: unexpected EOF")
+    self.events.push(@seam.ParseEvent::Token(kind.to_raw(), ""))
+    return
+  }
   let text = self.text_at(self.position)
   self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
   self.position = self.position + 1
@@ -311,7 +351,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(
 /// Close the most recently opened node.
 pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
   if self.open_nodes <= 0 {
-    abort("finish_node: no matching start_node")
+    return
   }
   self.open_nodes = self.open_nodes - 1
   self.events.push(@seam.FinishNode)
@@ -322,6 +362,45 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
 /// Used for retroactive wrapping (e.g. binary expressions, applications).
 pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
   self.events.mark()
+}
+
+///|
+/// Save the current parse state for speculative parsing.
+pub fn[T, K] ParserContext::checkpoint(
+  self : ParserContext[T, K],
+) -> Checkpoint[T, K] {
+  let reuse_cursor = match self.reuse_cursor {
+    Some(cursor) => Some(cursor.snapshot())
+    None => None
+  }
+  {
+    position: self.position,
+    events_len: self.events.length(),
+    error_count: self.error_count,
+    open_nodes: self.open_nodes,
+    reuse_cursor,
+    reuse_count: self.reuse_count,
+  }
+}
+
+///|
+/// Restore parser state saved by checkpoint().
+pub fn[T, K] ParserContext::restore(
+  self : ParserContext[T, K],
+  cp : Checkpoint[T, K],
+) -> Unit {
+  self.position = cp.position
+  self.events.truncate(cp.events_len)
+  while self.errors.length() > 0 && self.error_count > cp.error_count {
+    let _ = self.errors.pop()
+    self.error_count = self.error_count - 1
+  }
+  self.open_nodes = cp.open_nodes
+  self.reuse_cursor = match cp.reuse_cursor {
+    Some(cursor) => Some(cursor.snapshot())
+    None => None
+  }
+  self.reuse_count = cp.reuse_count
 }
 
 ///|
@@ -513,8 +592,7 @@ fn[T, K : @seam.ToRawKind] collect_reused_error_spans(
       }
       @seam.CstElement::Node(n) => {
         let child_added = collect_reused_error_spans(n, offset, spec, out)
-        if child_added == 0 &&
-            (n.kind == error_raw || n.kind == incomplete_raw) {
+        if child_added == 0 && (n.kind == error_raw || n.kind == incomplete_raw) {
           out.push({ start: offset, end: offset + n.text_len })
           added = added + 1
         } else {
@@ -752,12 +830,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
   let ctx = ParserContext::new(tokens, source, spec)
   grammar(ctx)
   ctx.flush_trivia()
-  if ctx.open_nodes != 0 {
-    abort(
-      "parse_with: grammar left " +
-      ctx.open_nodes.to_string() +
-      " unclosed nodes",
-    )
+  while ctx.open_nodes > 0 {
+    ctx.error("unclosed node (auto-closed)")
+    ctx.open_nodes = ctx.open_nodes - 1
+    ctx.events.push(@seam.FinishNode)
   }
   let tree = ctx.events.build_tree(
     spec.root_kind.to_raw(),
@@ -818,12 +894,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
   }
   (spec.parse_root)(ctx)
   ctx.flush_trivia()
-  if ctx.open_nodes != 0 {
-    abort(
-      "parse_tokens_indexed: grammar left " +
-      ctx.open_nodes.to_string() +
-      " unclosed nodes",
-    )
+  while ctx.open_nodes > 0 {
+    ctx.error("unclosed node (auto-closed)")
+    ctx.open_nodes = ctx.open_nodes - 1
+    ctx.events.push(@seam.FinishNode)
   }
   (build_tree_generic(ctx.events, spec), ctx.errors, ctx.reuse_count)
 }

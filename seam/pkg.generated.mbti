@@ -64,10 +64,12 @@ pub struct EventBuffer {
 pub fn EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode
 pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode
 pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode
+pub fn EventBuffer::length(Self) -> Int
 pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self
 pub fn EventBuffer::push(Self, ParseEvent) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
+pub fn EventBuffer::truncate(Self, Int) -> Unit
 
 pub struct Interner {
   // private fields
