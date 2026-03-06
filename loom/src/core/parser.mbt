@@ -194,16 +194,7 @@ pub fn[T, K] ParserContext::new_indexed(
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(
   self : ParserContext[T, K],
 ) -> T {
-  let mut pos = self.position
-  while pos < self.token_count {
-    let t = (self.get_token)(pos)
-    if t.is_trivia() {
-      pos = pos + 1
-    } else {
-      return t
-    }
-  }
-  self.spec.eof_token
+  self.peek_nth(0)
 }
 
 ///|

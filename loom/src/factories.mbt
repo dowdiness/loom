@@ -9,6 +9,26 @@
 // for type erasure — grammar authors never see them.
 
 ///|
+/// Create a fresh TokenBuffer, using resilient lexing when error_token is Some.
+fn[T] create_buffer(
+  source : String,
+  tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
+  eof_token : T,
+  error_token : T?,
+) -> @core.TokenBuffer[T] raise @core.LexError {
+  match error_token {
+    Some(err_tok) =>
+      @core.TokenBuffer::new_resilient(
+        source,
+        tokenize_fn=tokenize,
+        eof_token~,
+        error_token=err_tok,
+      )
+    None => @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+  }
+}
+
+///|
 /// Create an ImperativeParser from a Grammar.
 ///
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
@@ -26,28 +46,14 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
   let lang = @incremental.ImperativeLanguage::new(
     full_parse=source => {
-      let buffer = match error_token {
-        Some(err_tok) =>
-          @core.TokenBuffer::new_resilient(
-            source,
-            tokenize_fn=tokenize,
-            eof_token=spec.eof_token,
-            error_token=err_tok,
+      let buffer = create_buffer(source, tokenize, spec.eof_token, error_token) catch {
+        @core.LexError(msg) => {
+          token_buf.val = None
+          last_diags.val = []
+          return @incremental.ParseOutcome::LexError(
+            "Tokenization error: " + msg,
           )
-        None =>
-          @core.TokenBuffer::new(
-            source,
-            tokenize_fn=tokenize,
-            eof_token=spec.eof_token,
-          ) catch {
-            @core.LexError(msg) => {
-              token_buf.val = None
-              last_diags.val = []
-              return @incremental.ParseOutcome::LexError(
-                "Tokenization error: " + msg,
-              )
-            }
-          }
+        }
       }
       token_buf.val = Some(buffer)
       let tokens = buffer.get_tokens()
@@ -66,61 +72,38 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
     incremental_parse=(source, old_syntax, edit) => {
       let tokens = match token_buf.val {
         Some(buffer) =>
-          match error_token {
-            Some(err_tok) =>
-              buffer.update(edit, source) catch {
-                @core.LexError(_) => {
-                  let rebuilt = @core.TokenBuffer::new_resilient(
-                    source,
-                    tokenize_fn=tokenize,
-                    eof_token=spec.eof_token,
-                    error_token=err_tok,
-                  )
-                  token_buf.val = Some(rebuilt)
-                  rebuilt.get_tokens()
-                }
-              }
-            None =>
-              buffer.update(edit, source) catch {
-                @core.LexError(msg) => {
+          buffer.update(edit, source) catch {
+            @core.LexError(msg) => {
+              let rebuilt = create_buffer(
+                source, tokenize, spec.eof_token, error_token,
+              ) catch {
+                @core.LexError(msg2) => {
                   token_buf.val = None
                   last_diags.val = []
                   return @incremental.ParseOutcome::LexError(
-                    "Tokenization error: " + msg,
+                    "Tokenization error: " + msg2,
                   )
                 }
               }
-          }
-        None =>
-          match error_token {
-            Some(err_tok) => {
-              let buffer = @core.TokenBuffer::new_resilient(
-                source,
-                tokenize_fn=tokenize,
-                eof_token=spec.eof_token,
-                error_token=err_tok,
-              )
-              token_buf.val = Some(buffer)
-              buffer.get_tokens()
+              ignore(msg)
+              token_buf.val = Some(rebuilt)
+              rebuilt.get_tokens()
             }
-            None =>
-              try {
-                let buffer = @core.TokenBuffer::new(
-                  source,
-                  tokenize_fn=tokenize,
-                  eof_token=spec.eof_token,
-                )
-                token_buf.val = Some(buffer)
-                buffer.get_tokens()
-              } catch {
-                @core.LexError(msg) => {
-                  last_diags.val = []
-                  return @incremental.ParseOutcome::LexError(
-                    "Tokenization error: " + msg,
-                  )
-                }
-              }
           }
+        None => {
+          let buffer = create_buffer(
+            source, tokenize, spec.eof_token, error_token,
+          ) catch {
+            @core.LexError(msg) => {
+              last_diags.val = []
+              return @incremental.ParseOutcome::LexError(
+                "Tokenization error: " + msg,
+              )
+            }
+          }
+          token_buf.val = Some(buffer)
+          buffer.get_tokens()
+        }
       }
       let cursor = Some(
         @core.ReuseCursor::new(
@@ -166,58 +149,29 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   let to_ast = grammar.to_ast
   let lang : @pipeline.Language[Ast] = @pipeline.Language::from_closures(
     parse_source=fn(s) {
-      match error_token {
-        Some(err_tok) => {
-          let buffer = @core.TokenBuffer::new_resilient(
-            s,
-            tokenize_fn=tokenize,
-            eof_token=spec.eof_token,
-            error_token=err_tok,
-          )
-          let tokens = buffer.get_tokens()
-          let (cst, diags, _) = @core.parse_tokens_indexed(
-            s,
-            tokens.length(),
-            fn(i) { tokens[i].token },
-            fn(i) { tokens[i].start },
-            fn(i) { tokens[i].end },
-            spec,
-          )
-          @pipeline.CstStage::{
+      let buffer = create_buffer(s, tokenize, spec.eof_token, error_token) catch {
+        @core.LexError(msg) => {
+          let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
+          return @pipeline.CstStage::{
             cst,
-            diagnostics: diags.map(@core.format_diagnostic),
-            is_lex_error: false,
+            diagnostics: ["tokenization: " + msg],
+            is_lex_error: true,
           }
         }
-        None =>
-          try tokenize(s) catch {
-            @core.LexError(msg) => {
-              // cst is never read when is_lex_error=true (ReactiveParser routes
-              // to on_lex_error); use a cheap error-kind placeholder.
-              let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
-              @pipeline.CstStage::{
-                cst,
-                diagnostics: ["tokenization: " + msg],
-                is_lex_error: true,
-              }
-            }
-          } noraise {
-            tokens => {
-              let (cst, diags, _) = @core.parse_tokens_indexed(
-                s,
-                tokens.length(),
-                fn(i) { tokens[i].token },
-                fn(i) { tokens[i].start },
-                fn(i) { tokens[i].end },
-                spec,
-              )
-              @pipeline.CstStage::{
-                cst,
-                diagnostics: diags.map(@core.format_diagnostic),
-                is_lex_error: false,
-              }
-            }
-          }
+      }
+      let tokens = buffer.get_tokens()
+      let (cst, diags, _) = @core.parse_tokens_indexed(
+        s,
+        tokens.length(),
+        fn(i) { tokens[i].token },
+        fn(i) { tokens[i].start },
+        fn(i) { tokens[i].end },
+        spec,
+      )
+      @pipeline.CstStage::{
+        cst,
+        diagnostics: diags.map(@core.format_diagnostic),
+        is_lex_error: false,
       }
     },
     to_ast~,

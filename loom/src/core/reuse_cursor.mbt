@@ -427,10 +427,7 @@ pub fn[T, K] ReuseCursor::snapshot(
       current_child_offset: frame.current_child_offset,
     })
   }
-  let old_tokens : Array[OldToken] = []
-  for tok in self.old_tokens {
-    old_tokens.push(tok)
-  }
+  let old_tokens = self.old_tokens // immutable after construction — safe to share
   {
     stack,
     current_offset: self.current_offset,
