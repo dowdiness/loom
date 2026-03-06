@@ -52,6 +52,7 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-06-step-lexing-redesign-plan.md](plans/2026-03-06-step-lexing-redesign-plan.md) — step-based lexing redesign (draft)
+- [plans/2026-03-06-position-independent-tokens.md](plans/2026-03-06-position-independent-tokens.md) — position-independent tokens: `TokenInfo(token, len)` + parallel `starts` array, reintroduce `TokenStage` memo
 
 ## Development
 
