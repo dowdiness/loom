@@ -23,6 +23,14 @@ pub(all) struct PrefixLexer[T] {
 }
 
 ///|
+/// Create a PrefixLexer from a stepping function.
+pub fn[T] PrefixLexer::new(
+  lex_step~ : (String, Int) -> LexStep[T],
+) -> PrefixLexer[T] {
+  { lex_step, }
+}
+
+///|
 /// Collect all lex steps from start to EOF by repeatedly calling lex_step.
 /// Useful for batch tokenization; the core contract lives in lex_step alone.
 pub fn[T] PrefixLexer::lex_all(
