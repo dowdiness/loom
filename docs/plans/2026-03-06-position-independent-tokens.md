@@ -66,6 +66,7 @@ Before starting:
 
 **Files:**
 - Modify: `loom/src/core/token_buffer.mbt` (add `get_token`, `get_end`, `token_count` methods)
+- Modify: `loom/src/core/parser.mbt` (`ParserContext::new()` also creates closures from `tokens[i].start`/`.end`/`.token` — route through accessors or deprecate in favor of `new_indexed()`)
 - Modify: `loom/src/factories.mbt` (use buffer accessors instead of `tokens[i].start`)
 - Modify: `examples/lambda/src/cst_parser.mbt` (same treatment)
 
@@ -79,11 +80,13 @@ Before starting:
    pub fn[T] TokenBuffer::token_count(self) -> Int
    ```
 
-2. Update `factories.mbt` — replace all `tokens[i].start` / `tokens[i].end` / `tokens[i].token` patterns with buffer accessor calls. Six call sites in `new_imperative_parser` and `new_reactive_parser`.
+2. Update `factories.mbt` — replace all `tokens[i].start` / `tokens[i].end` / `tokens[i].token` patterns with buffer accessor calls. There are 11 individual field accesses across 4 `parse_tokens_indexed` calls (3 in `new_imperative_parser`, 1 in `new_reactive_parser`).
 
-3. Update `examples/lambda/src/cst_parser.mbt` — same pattern in `parse_cst_recover`, `parse_cst_with_cursor`, `parse_cst_recover_with_tokens`, `parse_source_file`, `parse_source_file_recover_with_tokens`, `make_reuse_cursor`, `make_source_file_reuse_cursor`.
+3. Update `parser.mbt` — `ParserContext::new()` (lines 139-160) creates closures from `tokens[i].start`/`.end`/`.token`. Either route these through buffer accessors or mark `new()` as internal, since `new_indexed()` already accepts the accessor-based interface.
 
-4. Remove `get_tokens()` method (returns the raw array — breaks encapsulation after this change). If external callers need iteration, add `iter()` or keep `get_tokens()` temporarily.
+4. Update `examples/lambda/src/cst_parser.mbt` — same pattern in `parse_cst_recover`, `parse_cst_with_cursor`, `parse_cst_recover_with_tokens`, `parse_source_file`, `parse_source_file_recover_with_tokens`, `make_reuse_cursor`, `make_source_file_reuse_cursor`.
+
+5. Remove `get_tokens()` method (returns the raw array — breaks encapsulation after this change). If external callers need iteration, add `iter()` or keep `get_tokens()` temporarily.
 
 **Verification:**
 ```bash
@@ -93,17 +96,20 @@ cd examples/lambda && moon check && moon test
 
 **Risk:** Zero — purely mechanical refactoring. All tests must pass unchanged.
 
-### Phase 1: Change `TokenInfo` to `(token, len)`
+### Phase 1: Change `TokenInfo` to `(token, len)` + Lexer Boundary
 
-**Goal:** Make `TokenInfo` position-independent. `TokenInfo::Eq` compares `(token, len)` — no position data.
+**Goal:** Make `TokenInfo` position-independent and establish a normalization boundary so lexers can continue producing positioned tokens externally. `TokenInfo::Eq` compares `(token, len)` — no position data.
+
+> **Why merged:** The struct change (old Phase 1) and the lexer normalization boundary (old Phase 2) are co-dependent — changing `TokenInfo` immediately breaks all `TokenInfo::new(token, start, end)` call sites, including those in lexer output paths. Doing both in one phase avoids an intermediate broken state.
 
 **Files:**
 - Modify: `loom/src/core/diagnostics.mbt` (struct definition + constructor)
-- Modify: `loom/src/core/token_buffer.mbt` (add `starts` array, adapt internal logic)
+- Modify: `loom/src/core/token_buffer.mbt` (add `starts` array, normalization in constructors, adapt internal logic)
 - Modify: `loom/src/core/lex_step.mbt` (`LexStep::Produced` carries `TokenInfo`)
 - Modify: `loom/src/core/lex_step_wbtest.mbt` (update test token construction)
 - Modify: `loom/src/core/parser_wbtest.mbt` (update test token construction)
 - Modify: `loom/src/core/token_buffer_resilient_wbtest.mbt` (update test token construction)
+- Modify: `loom/src/grammar.mbt` (`Grammar.tokenize` signature may need a raw/positioned intermediate type)
 
 **Tasks:**
 
@@ -119,26 +125,36 @@ cd examples/lambda && moon check && moon test
    }
    ```
 
-2. Add `starts : Array[Int]` to `TokenBuffer` struct. Update all constructors (`new`, `new_resilient`, `new_from_steps`, `new_from_steps_strict`) to build the `starts` array from token positions.
+2. Establish the lexer normalization boundary. Introduce an internal `RawToken[T]` or use `(T, Int, Int)` tuple at the tokenizer boundary. `TokenBuffer` constructors accept the old `(token, start, end)` format from lexers and normalize to `(token, len)` + `starts`:
+   ```moonbit
+   // Normalization in TokenBuffer::new
+   let tokens = raw.map(fn(r) { TokenInfo::new(r.token, r.end - r.start) })
+   let starts = raw.map(fn(r) { r.start })
+   ```
+   Keep `Grammar.tokenize` signature producing positioned tokens. The conversion is internal to `TokenBuffer`.
 
-3. Update `TokenBuffer` accessor methods to compute positions from `starts + len`:
+3. Add `starts : Array[Int]` to `TokenBuffer` struct. Update all constructors (`new`, `new_resilient`, `new_from_steps`, `new_from_steps_strict`) to build the `starts` array from token positions.
+
+4. Update `TokenBuffer` accessor methods to compute positions from `starts + len`:
    ```moonbit
    pub fn[T] TokenBuffer::get_start(self, i) -> Int { self.starts[i] }
    pub fn[T] TokenBuffer::get_end(self, i) -> Int { self.starts[i] + self.tokens[i].len }
    ```
 
-4. Adapt `TokenBuffer::update` internals:
+5. Adapt `TokenBuffer::update` internals:
    - `find_left_index` / `find_right_index`: use `starts[mid]` and `starts[mid] + tokens[mid].len`
    - Tail reuse: push unchanged `TokenInfo` objects (same token, same len) with shifted `starts` entries
    - `tokenize_range_impl`: build spanless `TokenInfo` from lexer output, compute `starts` by prefix walk from slice start
 
-5. Update all `TokenInfo::new(token, start, end)` call sites to `TokenInfo::new(token, end - start)`. This affects:
+6. Update `LexStep::Produced` — currently carries `TokenInfo[T]` with `start`/`end`. The step lexer naturally knows `(token, next_offset - start)`, so adapt to carry `TokenInfo[T]` with `len`. The `tokenize_from_steps` loop maintains a running offset to build `starts`.
+
+7. Update all remaining `TokenInfo::new(token, start, end)` call sites in framework code to `TokenInfo::new(token, end - start)`. This affects:
    - `loom/src/core/token_buffer.mbt` (`tokenize_from_steps`, `tokenize_from_steps_strict`, `tokenize_resilient`, `update`)
    - `loom/src/core/lex_step_wbtest.mbt` (test lexers)
    - `loom/src/core/parser_wbtest.mbt` (test fixtures)
    - `loom/src/core/token_buffer_resilient_wbtest.mbt` (test tokenizers)
 
-6. Update `ParserContext::peek_info` return value — it currently constructs `TokenInfo { token, start, end }`. Change to return a positioned type or adjust callers. The only external caller is `ParserContext::error` which needs `start`/`end` for diagnostics — these should come from `get_start`/`get_end` instead.
+8. Update `ParserContext::peek_info` return value — it currently constructs `TokenInfo { token, start, end }` at `parser.mbt:230-244`. Since `TokenInfo` will no longer carry positions, change `peek_info` to return `TokenInfo[T]` (with `len`) and have `ParserContext::error` compute `start`/`end` directly via `(self.get_start)(self.position)` and `(self.get_end)(self.position)` for the `Diagnostic`. This avoids introducing a new positioned type.
 
 **Verification:**
 ```bash
@@ -147,48 +163,20 @@ cd loom && moon check && moon test
 
 **Risk:** Medium — touches many files. The `starts` array invariant must hold. Add a debug-mode assertion in `TokenBuffer` constructors to validate the invariant.
 
-### Phase 2: Adapt Lexer Output Boundary
-
-**Goal:** Lexers continue producing positioned tokens externally; normalization happens at the `TokenBuffer` boundary. No lexer contract changes required.
-
-**Files:**
-- Modify: `loom/src/core/token_buffer.mbt` (normalization in constructors)
-- Modify: `loom/src/grammar.mbt` (`Grammar.tokenize` signature may need a raw/positioned intermediate type)
-
-**Tasks:**
-
-1. Introduce an internal `RawToken[T]` or use `(T, Int, Int)` tuple at the tokenizer boundary. `TokenBuffer` constructors accept the old `(token, start, end)` format from lexers and normalize to `(token, len)` + `starts`:
-   ```moonbit
-   // Normalization in TokenBuffer::new
-   let tokens = raw.map(fn(r) { TokenInfo::new(r.token, r.end - r.start) })
-   let starts = raw.map(fn(r) { r.start })
-   ```
-
-2. Keep `Grammar.tokenize` signature producing positioned tokens. The conversion is internal to `TokenBuffer`.
-
-3. Update `LexStep::Produced` — currently carries `TokenInfo[T]` with `start`/`end`. The step lexer naturally knows `(token, next_offset - start)`, so adapt to carry `TokenInfo[T]` with `len`. The `tokenize_from_steps` loop maintains a running offset to build `starts`.
-
-**Verification:**
-```bash
-cd loom && moon check && moon test
-cd examples/lambda && moon check && moon test
-```
-
-**Risk:** Low — lexer implementations unchanged. Conversion is localized to `TokenBuffer`.
-
-### Phase 3: Lambda Lexer Migration
+### Phase 2: Lambda Lexer Migration
 
 **Goal:** Update the lambda calculus lexer and all example-level token consumers to work with position-independent `TokenInfo`.
+
+> **Scope note:** Phase 1 changes all framework-level `TokenInfo::new` call sites. This phase handles example-level code only: the lambda lexer, token display, and example tests. `cst_parser.mbt` already uses buffer accessors from Phase 0 and requires no further changes here.
 
 **Files:**
 - Modify: `examples/lambda/src/lexer/lexer.mbt` (update `TokenInfo::new` calls)
 - Modify: `examples/lambda/src/token/token.mbt` (`print_token_info` no longer has start/end)
-- Modify: `examples/lambda/src/cst_parser.mbt` (uses buffer accessors from Phase 0)
 - Modify: `examples/lambda/src/lexer/lexer_test.mbt` (update position assertions)
 
 **Tasks:**
 
-1. Update `tokenize_helper` — change `TokenInfo::new(token, pos, new_pos)` to `TokenInfo::new(token, new_pos - pos)`. Return a positioned intermediate if the `Grammar.tokenize` contract still requires it, or adapt the contract.
+1. Update `tokenize_helper` — change `TokenInfo::new(token, pos, new_pos)` to `TokenInfo::new(token, new_pos - pos)`. If `Grammar.tokenize` still returns positioned tokens (via a raw intermediate type from Phase 1), produce the raw format here; otherwise adapt to the new signature directly.
 
 2. Update `print_token_info` — no longer shows `@start-end` (positions are not in `TokenInfo`). Adjust to show `token(len)` or remove position display.
 
@@ -204,7 +192,7 @@ cd examples/lambda && moon check && moon test
 cd examples/lambda && moon bench --release  # no performance regression
 ```
 
-### Phase 4: Reintroduce TokenStage Memo
+### Phase 3: Reintroduce TokenStage Memo
 
 **Goal:** Add a `TokenStage` memo boundary in the reactive pipeline. When the token sequence is unchanged after an edit, the parse memo skips entirely.
 
@@ -249,7 +237,7 @@ cd examples/lambda && moon check && moon test
 
 **Risk:** Low — additive change. The existing `CstStage` cutoff remains as a second boundary.
 
-### Phase 5 (Follow-up): Trivia-Insensitive Token Equality
+### Phase 4 (Follow-up): Trivia-Insensitive Token Equality
 
 **Goal:** Optional stronger cutoff — whitespace-only edits (changing trivia length) should not invalidate the parse.
 
@@ -260,7 +248,7 @@ cd examples/lambda && moon check && moon test
 - B. Normalize trivia: coalesce consecutive whitespace into a single `Whitespace(len=1)` for comparison
 - C. Separate `eq_key` field that excludes trivia
 
-This phase is not required for the core position-independent token benefit. The primary win (position-shift cutoff) is achieved by Phase 4.
+This phase is not required for the core position-independent token benefit. The primary win (position-shift cutoff) is achieved by Phase 3.
 
 ## Verification Matrix
 
@@ -289,7 +277,7 @@ cd examples/lambda && moon info && moon fmt
    **Mitigation:** `starts` is the same size as the existing `tokens` array (one `Int` per token). Net memory is reduced — two `Int`s removed from each `TokenInfo`, one `Int` added per entry in `starts`. Benchmark with `moon bench --release`.
 
 4. **Risk:** `LexStep::Produced` currently carries `TokenInfo` with position — changing it affects step lexer implementations.
-   **Mitigation:** Phase 2 handles this at the `TokenBuffer` boundary. Existing step lexers can be adapted incrementally.
+   **Mitigation:** Phase 1 handles this at the `TokenBuffer` boundary. Existing step lexers can be adapted incrementally.
 
 ## Deliverables Checklist
 
