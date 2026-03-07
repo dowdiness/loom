@@ -22,4 +22,8 @@ pub impl @debug.Debug for Id
 // Type aliases
 
 // Traits
+pub(open) trait ENode {
+  children(Self) -> Array[Id]
+  map_children(Self, (Id) -> Id) -> Self
+}
 

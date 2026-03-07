@@ -1,3 +1,29 @@
+// ── Test language ──
+
+///|
+priv enum TestLang {
+  Num(Int)
+  Add(Id, Id)
+} derive(Eq, Hash, Compare, Show, Debug)
+
+///|
+impl ENode for TestLang with children(self) {
+  match self {
+    Num(_) => []
+    Add(a, b) => [a, b]
+  }
+}
+
+///|
+impl ENode for TestLang with map_children(self, f) {
+  match self {
+    Num(_) => self
+    Add(a, b) => Add(f(a), f(b))
+  }
+}
+
+// ── UnionFind tests ──
+
 ///|
 test "make_set returns fresh Id" {
   let uf = UnionFind()
@@ -69,6 +95,71 @@ test "path compression: find updates parent to root" {
   assert_eq(uf.find(a), root)
   assert_eq(uf.find(b), root)
   assert_eq(uf.find(c), root)
+}
+
+///|
+test "add returns an Id" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let id = eg.add(Num(42))
+  assert_eq(eg.find(id), id)
+}
+
+///|
+test "add is idempotent: same node returns same Id" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(42))
+  let b = eg.add(Num(42))
+  assert_eq(a, b)
+}
+
+///|
+test "add canonicalizes children" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let x = eg.add(Num(1))
+  let y = eg.add(Num(2))
+  let sum1 = eg.add(Add(x, y))
+  // Union x with y, then add Add(y, y) — should canonicalize to same as Add(x, y) after rebuild
+  eg.union(x, y) |> ignore
+  eg.rebuild()
+  let sum2 = eg.add(Add(y, y))
+  assert_eq(eg.find(sum1), eg.find(sum2))
+}
+
+///|
+test "union merges e-classes" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  eg.union(a, b) |> ignore
+  assert_eq(eg.find(a), eg.find(b))
+}
+
+///|
+test "congruence: union(a,b) means f(a) and f(b) merge after rebuild" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let c = eg.add(Num(3))
+  let fa = eg.add(Add(a, c))
+  let fb = eg.add(Add(b, c))
+  // fa and fb are different e-classes
+  assert_true(eg.find(fa) != eg.find(fb))
+  // After union(a, b) and rebuild, congruence should merge fa and fb
+  eg.union(a, b) |> ignore
+  eg.rebuild()
+  assert_eq(eg.find(fa), eg.find(fb))
+}
+
+///|
+test "rebuild is idempotent when no pending work" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  eg.union(a, b) |> ignore
+  eg.rebuild()
+  let root = eg.find(a)
+  eg.rebuild()
+  assert_eq(eg.find(a), root)
 }
 
 ///|
