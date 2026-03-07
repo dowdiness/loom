@@ -1,3 +1,6 @@
 [submodule "incr"]
 	path = incr
 	url = https://github.com/dowdiness/incr.git
+[submodule "egraph"]
+	path = egraph
+	url = https://github.com/dowdiness/egraph.git
