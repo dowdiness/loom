@@ -7,10 +7,18 @@ priv enum TestLang {
 } derive(Eq, Hash, Compare, Show, Debug)
 
 ///|
-impl ENode for TestLang with children(self) {
+impl ENode for TestLang with arity(self) {
   match self {
-    Num(_) => []
-    Add(a, b) => [a, b]
+    Num(_) => 0
+    Add(_, _) => 2
+  }
+}
+
+///|
+impl ENode for TestLang with child(self, i) {
+  match self {
+    Add(a, b) => if i == 0 { a } else { b }
+    _ => abort("no children")
   }
 }
 
@@ -19,6 +27,31 @@ impl ENode for TestLang with map_children(self, f) {
   match self {
     Num(_) => self
     Add(a, b) => Add(f(a), f(b))
+  }
+}
+
+///|
+impl ENodeRepr for TestLang with op_tag(self) {
+  match self {
+    Num(_) => "Num"
+    Add(_, _) => "Add"
+  }
+}
+
+///|
+impl ENodeRepr for TestLang with payload(self) {
+  match self {
+    Num(n) => Some(n.to_string())
+    _ => None
+  }
+}
+
+///|
+impl ENodeRepr for TestLang with from_op(tag, payload, children) {
+  match (tag, payload, children.length()) {
+    ("Num", Some(s), 0) => Some(Num(@strconv.parse_int(s))) catch { _ => None }
+    ("Add", None, 2) => Some(Add(children[0], children[1]))
+    _ => None
   }
 }
 
@@ -160,6 +193,189 @@ test "rebuild is idempotent when no pending work" {
   let root = eg.find(a)
   eg.rebuild()
   assert_eq(eg.find(a), root)
+}
+
+// ── ENodeRepr tests ──
+
+///|
+test "op_tag returns operator without payload" {
+  inspect(Num(42).op_tag(), content="Num")
+  inspect(Add(Id(0), Id(1)).op_tag(), content="Add")
+}
+
+///|
+test "payload returns encoded value" {
+  inspect(Num(42).payload(), content="Some(\"42\")")
+  inspect(Add(Id(0), Id(1)).payload(), content="None")
+}
+
+///|
+test "op_name derives from op_tag and payload" {
+  inspect(Num(42).op_name(), content="Num:42")
+  inspect(Add(Id(0), Id(1)).op_name(), content="Add")
+}
+
+///|
+test "from_op round-trip for Num" {
+  let node = Num(42)
+  let reconstructed = TestLang::from_op(node.op_tag(), node.payload(), [])
+  inspect(reconstructed, content="Some(Num(42))")
+}
+
+///|
+test "from_op round-trip for Add" {
+  let node = Add(Id(0), Id(1))
+  let reconstructed = TestLang::from_op(
+    node.op_tag(),
+    node.payload(),
+    node.children(),
+  )
+  inspect(reconstructed, content="Some(Add(0, 1))")
+}
+
+///|
+test "from_op rejects unknown op" {
+  let result = TestLang::from_op("Unknown", None, [])
+  inspect(result, content="None")
+}
+
+///|
+test "from_op rejects wrong arity" {
+  let result = TestLang::from_op("Add", None, [Id(0)])
+  inspect(result, content="None")
+}
+
+// ── Pat parse tests ──
+
+///|
+test "parse variable" {
+  let pat = Pat::parse("?x")
+  inspect(pat, content="Var(\"x\")")
+}
+
+///|
+test "parse atom" {
+  let pat = Pat::parse("(Num:0)")
+  inspect(pat, content="Node(\"Num\", Some(\"0\"), [])")
+}
+
+///|
+test "parse nested" {
+  let pat = Pat::parse("(Add ?x (Num:0))")
+  inspect(
+    pat,
+    content="Node(\"Add\", None, [Var(\"x\"), Node(\"Num\", Some(\"0\"), [])])",
+  )
+}
+
+///|
+test "parse deeply nested" {
+  let pat = Pat::parse("(Add (Add ?x ?y) ?z)")
+  inspect(
+    pat,
+    content="Node(\"Add\", None, [Node(\"Add\", None, [Var(\"x\"), Var(\"y\")]), Var(\"z\")])",
+  )
+}
+
+// ── Derived method tests ──
+
+///|
+test "children derived from arity and child" {
+  let node = Add(Id(0), Id(1))
+  let cs = node.children()
+  assert_eq(cs.length(), 2)
+  assert_eq(cs[0], Id(0))
+  assert_eq(cs[1], Id(1))
+}
+
+///|
+test "children of leaf node is empty" {
+  let node = Num(42)
+  assert_eq(node.children().length(), 0)
+}
+
+// ── E-matching tests ──
+
+///|
+test "ematch variable matches any e-class" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let pat = Pat::parse("?x")
+  let results = eg.ematch(pat, a)
+  assert_eq(results.length(), 1)
+  assert_eq(results[0].get("x"), Some(a))
+}
+
+///|
+test "ematch concrete pattern matches" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(0))
+  let pat = Pat::parse("(Num:0)")
+  let results = eg.ematch(pat, a)
+  assert_eq(results.length(), 1)
+}
+
+///|
+test "ematch concrete pattern rejects mismatch" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let pat = Pat::parse("(Num:0)")
+  let results = eg.ematch(pat, a)
+  assert_eq(results.length(), 0)
+}
+
+///|
+test "ematch same variable binds consistently" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let sum = eg.add(Add(a, a))
+  let pat = Pat::parse("(Add ?x ?x)")
+  let results = eg.ematch(pat, sum)
+  assert_eq(results.length(), 1)
+}
+
+///|
+test "ematch same variable rejects inconsistent binding" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let sum = eg.add(Add(a, b))
+  let pat = Pat::parse("(Add ?x ?x)")
+  let results = eg.ematch(pat, sum)
+  assert_eq(results.length(), 0)
+}
+
+///|
+test "search finds matches across all e-classes" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let _ = eg.add(Add(a, zero))
+  let pat = Pat::parse("(Add ?x (Num:0))")
+  let results = eg.search(pat)
+  assert_eq(results.length(), 1)
+}
+
+// ── Instantiate tests ──
+
+///|
+test "instantiate variable uses substitution" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(42))
+  let subst = Subst({ "x": a })
+  let result = eg.instantiate(Pat::parse("?x"), subst)
+  assert_eq(eg.find(result), eg.find(a))
+}
+
+///|
+test "instantiate builds new nodes from pattern" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let subst = Subst({ "x": a, "y": b })
+  let result = eg.instantiate(Pat::parse("(Add ?x ?y)"), subst)
+  let expected = eg.add(Add(a, b))
+  assert_eq(eg.find(result), eg.find(expected))
 }
 
 ///|

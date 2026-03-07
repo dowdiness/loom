@@ -19,11 +19,36 @@ pub impl Hash for Id
 pub impl Show for Id
 pub impl @debug.Debug for Id
 
+pub(all) enum Pat {
+  Var(String)
+  Node(String, String?, Array[Pat])
+}
+pub fn Pat::parse(String) -> Self raise
+pub impl Eq for Pat
+pub impl Show for Pat
+pub impl @debug.Debug for Pat
+
+pub(all) struct Subst(Map[String, Id])
+pub fn Subst::get(Self, String) -> Id?
+#deprecated
+pub fn Subst::inner(Self) -> Map[String, Id]
+pub impl Show for Subst
+pub impl @debug.Debug for Subst
+
 // Type aliases
 
 // Traits
 pub(open) trait ENode {
-  children(Self) -> Array[Id]
+  arity(Self) -> Int
+  child(Self, Int) -> Id
   map_children(Self, (Id) -> Id) -> Self
+  children(Self) -> Array[Id] = _
+}
+
+pub(open) trait ENodeRepr {
+  op_tag(Self) -> String
+  payload(Self) -> String?
+  from_op(String, String?, Array[Id]) -> Self?
+  op_name(Self) -> String = _
 }
 
