@@ -8,7 +8,7 @@
 - [x] Step 4: Rewrite Rules (Rewrite, apply_rewrite)
 - [x] Step 5: Extraction (CostFn, RecExpr, extract)
 - [x] Step 6: Runner (equality saturation loop)
-- [ ] Step 7: lambda-opt example
+- [x] Step 7: lambda-opt example
 - [ ] Step 8: E-Class Analysis
 
 ## Future Work
