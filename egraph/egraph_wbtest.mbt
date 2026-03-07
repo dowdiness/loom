@@ -642,6 +642,49 @@ test "runner: commutativity saturates for single expression" {
   assert_eq(runner.egraph.find(ab), runner.egraph.find(ba))
 }
 
+// ── Analysis tests (Step 8) ──
+
+///|
+test "analysis: simple constant folding with TestLang" {
+  // Analysis that tracks known constant values
+  let analysis : Analysis[TestLang, Int?] = {
+    make: fn(node, get_data) {
+      match node {
+        Num(n) => Some(n)
+        Add(a, b) =>
+          match (get_data(a), get_data(b)) {
+            (Some(x), Some(y)) => Some(x + y)
+            _ => None
+          }
+      }
+    },
+    merge: fn(a, b) {
+      match (a, b) {
+        (Some(x), _) => Some(x)
+        (_, Some(y)) => Some(y)
+        _ => None
+      }
+    },
+    modify: fn(eg, id) {
+      match eg.get_data(id) {
+        Some(n) => {
+          let num_id = eg.add(Num(n))
+          eg.union(id, num_id) |> ignore
+        }
+        None => ()
+      }
+    },
+  }
+  let eg = AnalyzedEGraph::new(analysis)
+  let a = eg.add(Num(3))
+  let b = eg.add(Num(4))
+  let sum = eg.add(Add(a, b))
+  assert_eq(eg.get_data(sum), Some(7))
+  eg.rebuild()
+  let seven = eg.add(Num(7))
+  assert_eq(eg.find(sum), eg.find(seven))
+}
+
 ///|
 test "many unions converge to single root" {
   let uf = UnionFind()

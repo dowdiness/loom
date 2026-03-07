@@ -9,7 +9,7 @@
 - [x] Step 5: Extraction (CostFn, RecExpr, extract)
 - [x] Step 6: Runner (equality saturation loop)
 - [x] Step 7: lambda-opt example
-- [ ] Step 8: E-Class Analysis
+- [x] Step 8: E-Class Analysis
 
 ## Future Work
 

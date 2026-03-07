@@ -969,3 +969,210 @@ fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
   }
   IterLimit
 }
+
+// ── E-Class Analysis ──
+//
+// E-class analysis associates domain-specific data with each e-class.
+// Classic example: constant folding — track known integer values per class.
+//
+// Design: uses a **function record** instead of a trait, sidestepping
+// MoonBit's lack of associated types on traits. A trait would require
+// `trait Analysis { type Data; ... }`, which MoonBit cannot express.
+//
+// The three callbacks form a lifecycle:
+//   - `make`: compute initial data for a newly added e-node.
+//   - `merge`: combine data when two e-classes are unioned.
+//   - `modify`: optionally mutate the e-graph after merge (e.g., add
+//     a constant-folded node to the class).
+//
+// `AnalyzedEGraph[L, D]` wraps `EGraph[L]` via composition, keeping
+// analysis data in a side `Map[Id, D]`. This avoids modifying the
+// core EGraph type (no `EGraph[L]` → `EGraph[L, D]` migration).
+
+///|
+/// Analysis callbacks: compute, merge, and react to per-e-class data.
+priv struct Analysis[L, D] {
+  /// Compute data for a single e-node. `get_data` looks up children's data.
+  make : (L, (Id) -> D) -> D
+  /// Combine data from two e-classes being merged. Must be commutative.
+  merge : (D, D) -> D
+  /// Post-merge hook: may add nodes or union classes based on analysis data.
+  modify : (AnalyzedEGraph[L, D], Id) -> Unit
+}
+
+///|
+/// E-graph with per-e-class analysis data.
+/// Wraps `EGraph[L]` and maintains a parallel `data` map.
+priv struct AnalyzedEGraph[L, D] {
+  egraph : EGraph[L]
+  analysis : Analysis[L, D]
+  data : Map[Id, D]
+}
+
+///|
+fn[L : Hash + Eq, D] AnalyzedEGraph::new(
+  analysis : Analysis[L, D],
+) -> AnalyzedEGraph[L, D] {
+  { egraph: EGraph::new(), analysis, data: {} }
+}
+
+///|
+/// Find the canonical representative.
+fn[L, D] AnalyzedEGraph::find(self : AnalyzedEGraph[L, D], id : Id) -> Id {
+  self.egraph.find(id)
+}
+
+///|
+/// Look up analysis data for an e-class (using canonical Id).
+fn[L, D] AnalyzedEGraph::get_data(self : AnalyzedEGraph[L, D], id : Id) -> D {
+  let canonical = self.find(id)
+  self.data[canonical]
+}
+
+///|
+/// Add an e-node, compute its analysis data, and run the modify hook.
+fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(
+  self : AnalyzedEGraph[L, D],
+  node : L,
+) -> Id {
+  let id = self.egraph.add(node)
+  // Only compute data if this e-class is new (no data yet)
+  if self.data.get(id).is_empty() {
+    let d = (self.analysis.make)(node, fn(child) { self.get_data(child) })
+    self.data[id] = d
+    // Run modify hook — may add nodes or union based on new data
+    (self.analysis.modify)(self, id)
+  }
+  id
+}
+
+///|
+/// Merge two e-classes and merge their analysis data.
+fn[L, D] AnalyzedEGraph::union(
+  self : AnalyzedEGraph[L, D],
+  a : Id,
+  b : Id,
+) -> Id {
+  let root_a = self.find(a)
+  let root_b = self.find(b)
+  if root_a == root_b {
+    return root_a
+  }
+  // Merge analysis data before union (both roots still valid)
+  let data_a = self.data[root_a]
+  let data_b = self.data[root_b]
+  let merged_data = (self.analysis.merge)(data_a, data_b)
+  // Perform the union in the underlying e-graph
+  let winner = self.egraph.union(a, b)
+  let loser = if winner == root_a { root_b } else { root_a }
+  // Update data: winner gets merged data, loser is removed
+  self.data[winner] = merged_data
+  self.data.remove(loser)
+  // Run modify hook — may react to the merge
+  (self.analysis.modify)(self, winner)
+  winner
+}
+
+///|
+/// Rebuild the e-graph and re-merge analysis data for any congruences found.
+fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
+  self : AnalyzedEGraph[L, D],
+) -> Unit {
+  // Rebuild may discover new congruences and union classes.
+  // We need to keep analysis data consistent.
+  self.egraph.rebuild()
+  // After rebuild, canonicalize data keys and merge stale entries
+  let stale : Array[Id] = []
+  for id, d in self.data {
+    let canonical = self.find(id)
+    if canonical != id {
+      // Merge stale entry's data into canonical entry
+      match self.data.get(canonical) {
+        Some(existing) =>
+          self.data[canonical] = (self.analysis.merge)(existing, d)
+        None => self.data[canonical] = d
+      }
+      stale.push(id)
+    }
+  }
+  for id in stale {
+    self.data.remove(id)
+  }
+}
+
+///|
+/// Total number of e-class slots.
+fn[L, D] AnalyzedEGraph::size(self : AnalyzedEGraph[L, D]) -> Int {
+  self.egraph.size()
+}
+
+///|
+/// Search for pattern matches (delegates to inner e-graph).
+fn[L : ENode + ENodeRepr, D] AnalyzedEGraph::search(
+  self : AnalyzedEGraph[L, D],
+  pattern : Pat,
+) -> Array[(Id, Subst)] {
+  self.egraph.search(pattern)
+}
+
+///|
+/// Instantiate a pattern using a substitution, routing through AnalyzedEGraph::add
+/// so that analysis data is computed for all new nodes.
+fn[L : ENodeRepr + ENode + Hash + Eq, D] AnalyzedEGraph::instantiate(
+  self : AnalyzedEGraph[L, D],
+  pattern : Pat,
+  subst : Subst,
+) -> Id {
+  let Subst(subst_map) = subst
+  match pattern {
+    Var(name) =>
+      match subst_map.get(name) {
+        Some(id) => self.find(id)
+        None => abort("unbound pattern variable: \{name}")
+      }
+    Node(tag, payload, child_pats) => {
+      let child_ids : Array[Id] = []
+      for child_pat in child_pats {
+        child_ids.push(self.instantiate(child_pat, subst))
+      }
+      match L::from_op(tag, payload, child_ids) {
+        Some(node) => self.add(node)
+        None => abort("from_op failed for tag: \{tag}")
+      }
+    }
+  }
+}
+
+///|
+/// Apply matches for a rewrite rule, routing through AnalyzedEGraph's
+/// own add/union so that analysis hooks fire for new nodes and merges.
+fn[L : ENode + ENodeRepr + Hash + Eq, D] AnalyzedEGraph::apply_matches(
+  self : AnalyzedEGraph[L, D],
+  rule : Rewrite,
+  matches : Array[(Id, Subst)],
+) -> Int {
+  let mut applied = 0
+  for pair in matches {
+    let (matched_id, subst) = pair
+    match rule.condition {
+      Some(cond) => if not(cond(subst)) { continue }
+      None => ()
+    }
+    let new_id = self.instantiate(rule.rhs, subst)
+    if self.find(matched_id) != self.find(new_id) {
+      self.union(matched_id, new_id) |> ignore
+      applied = applied + 1
+    }
+  }
+  applied
+}
+
+///|
+/// Extract the best expression (delegates to inner e-graph).
+fn[L : ENode, D] AnalyzedEGraph::extract(
+  self : AnalyzedEGraph[L, D],
+  root : Id,
+  cost_fn : CostFn[L],
+) -> (Int, RecExpr[L]) {
+  self.egraph.extract(root, cost_fn)
+}

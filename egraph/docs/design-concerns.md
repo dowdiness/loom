@@ -267,3 +267,81 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 **Current mitigation**: `IterLimit` + `NodeLimit` together bound both computation and memory without needing a clock. Sufficient for research/educational use.
 
 **Revisit when**: MoonBit adds a standard clock API, or when the e-graph is used in a latency-sensitive context (editor plugin, compiler pass).
+
+---
+
+## 18. Capability Traits for EGraph / AnalyzedEGraph
+
+**Concern**: `EGraph[L]` and `AnalyzedEGraph[L, D]` share many operations (`find`, `union`, `rebuild`, `search`, `apply_matches`, `size`). Could capability traits (e.g., `Searchable`, `Rebuildable`, `EGraphCore`) abstract over them?
+
+**Feasibility**: Six of eight shared methods use only concrete types (`Id`, `Pat`, `Subst`, `Rewrite`, `Int`) and are trait-compatible. Two methods (`add(Self, L) -> Id`, `extract(Self, Id, CostFn[L]) -> (Int, RecExpr[L])`) involve the generic `L` and **cannot** become traits in MoonBit (no type parameters on traits).
+
+**Current choice**: No traits — direct methods on each type.
+
+**Why deferred**:
+- Only 2 implementors, and `AnalyzedEGraph` delegates to its inner `EGraph` (one-liner wrappers)
+- `Runner` cannot be fully generic because it calls `add` (needs `L`), which the trait can't express
+- Falls under the "Phantom Generality" anti-pattern: the trait would be correct but wouldn't reduce code or enable new compositions
+- ~~A deeper gap exists: `AnalyzedEGraph::apply_matches` delegates to `EGraph`, so analysis hooks (`modify`) don't fire during rewriting.~~ **Resolved**: `AnalyzedEGraph` now has its own `instantiate` and `apply_matches` that route through `self.add`/`self.union`, ensuring analysis hooks fire.
+
+**Revisit when**:
+- A third e-graph variant appears (e.g., `InstrumentedEGraph` for benchmarking)
+- `Runner` needs to work polymorphically with both `EGraph` and `AnalyzedEGraph`
+
+---
+
+## 19. AnalyzedEGraph::union Double `find`
+
+**Concern**: `AnalyzedEGraph::union(a, b)` calls `self.find(a)` and `self.find(b)` to look up analysis data, then calls `self.egraph.union(a, b)` which internally calls `find(a)` and `find(b)` again — four redundant `find` calls total.
+
+**Current choice**: Accept the double `find` — correct, simple, matches the `EGraph::union` API.
+
+**Why deferred**: After path compression, subsequent `find` calls on the same Id are O(1). The constant factor is small and not worth an API change (e.g., adding an internal `union_roots` variant that skips re-find).
+
+**Revisit when**: Profiling shows `union` as a bottleneck in analysis-heavy workloads.
+
+---
+
+## 20. AnalyzedEGraph::add Closure Allocation
+
+**Concern**: `AnalyzedEGraph::add` creates a closure `fn(child) { self.get_data(child) }` on every call, passed to `analysis.make`. Each closure captures `self`. In a tight loop adding many nodes, this creates per-call garbage.
+
+**Current choice**: Accept the closure — inherent to the callback-based `Analysis` design. The alternative would require restructuring `make` to accept the `AnalyzedEGraph` directly instead of a lookup function, coupling the analysis record to the e-graph type.
+
+**Why deferred**: The allocation cost is small relative to hash-map operations in `add`. MoonBit's closure allocation strategy (stack vs heap) determines actual impact — without benchmarks, optimizing prematurely risks added complexity for uncertain gain.
+
+**Revisit when**: Benchmarks show `add` throughput as a bottleneck, or MoonBit gains method references that avoid closure allocation.
+
+---
+
+## 21. Analysis `merge` Commutativity Not Enforced
+
+**Concern**: `Analysis.merge` is documented as "Must be commutative" but this is not enforced. The constant-folding test implementations use `match (a, b) { (Some(x), _) => Some(x); ... }` which always picks `a` when both are `Some` — not truly commutative when `x != y`.
+
+**Current choice**: Documentation-only contract. For constant folding, merged classes always have equal constant values (if both are `Some`), so the non-commutative path is unreachable in correct usage.
+
+**Alternatives**:
+- Add a debug assertion: `if x != y { abort("merge conflict") }`
+- Use `min`/`max` for a truly commutative merge
+- Add a `verify_merge` debug hook that checks `merge(a,b) == merge(b,a)`
+
+**Why deferred**: The contract is correct for all current analyses. Enforcing commutativity would add runtime cost or require a testing framework for analysis properties.
+
+**Revisit when**: Users define custom analyses where merge order matters, or when adding property-based testing for analysis correctness.
+
+---
+
+## 22. Runner Does Not Integrate with AnalyzedEGraph
+
+**Concern**: `Runner[L]` holds an `EGraph[L]` and calls `self.egraph.search/apply_matches/rebuild` directly. There is no way to use `Runner` with an `AnalyzedEGraph[L, D]` — users must manually implement the equality saturation loop to get analysis-aware rewriting.
+
+**Current choice**: No `AnalyzedRunner` — users call `AnalyzedEGraph::search/apply_matches/rebuild` manually.
+
+**Alternatives**:
+- `AnalyzedRunner[L, D]` that holds an `AnalyzedEGraph[L, D]` and implements the same loop
+- Make `Runner` generic over an e-graph-like interface (blocked by concern #18 — capability traits)
+- Add a `run` method directly on `AnalyzedEGraph` that takes rules and limits
+
+**Why deferred**: The manual loop is straightforward (5-10 lines). Adding `AnalyzedRunner` would duplicate `Runner::run` logic. The right solution depends on whether capability traits (concern #18) become worthwhile.
+
+**Revisit when**: Users need equality saturation with analysis, or when capability traits are introduced.

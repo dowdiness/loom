@@ -107,7 +107,9 @@ fn lambda_full_rules() -> Array[Rewrite] raise Error {
   rules.push(rewrite("add-comm", "(Add ?x ?y)", "(Add ?y ?x)"))
   rules.push(rewrite("mul-comm", "(Mul ?x ?y)", "(Mul ?y ?x)"))
   // Associativity
-  rules.push(rewrite("add-assoc", "(Add (Add ?x ?y) ?z)", "(Add ?x (Add ?y ?z))"))
+  rules.push(
+    rewrite("add-assoc", "(Add (Add ?x ?y) ?z)", "(Add ?x (Add ?y ?z))"),
+  )
   rules
 }
 
@@ -311,7 +313,12 @@ test "lambda: let-binding in e-graph preserves structure" {
   // where Add = 1 + cost(Var) + cost(Var) = 1+1+1 = 3
   assert_eq(cost, 5)
   // Root is a Let node
-  assert_true(match expr.root() { LLet("x", _, _) => true; _ => false })
+  assert_true(
+    match expr.root() {
+      LLet("x", _, _) => true
+      _ => false
+    },
+  )
 }
 
 // ── Negative tests ──
@@ -391,9 +398,7 @@ test "lambda: rules that don't match produce saturation" {
   let y = eg.add(LVar("y"))
   let _ = eg.add(LMul(x, y))
   // Add rules don't match Mul nodes
-  let rules = [
-    rewrite("add-0", "(Add ?x (Num:0))", "?x"),
-  ]
+  let rules = [rewrite("add-0", "(Add ?x (Num:0))", "?x")]
   let runner = Runner::new(eg)
   let reason = runner.run(rules)
   assert_eq(reason, Saturated)
@@ -424,4 +429,148 @@ test "lambda: from_op with invalid Num payload returns None" {
   // Non-numeric payload for Num returns None (caught by try/catch in from_op)
   let result = LambdaLang::from_op("Num", Some("not_a_number"), [])
   assert_eq(result, None)
+}
+
+// ── E-Class Analysis tests (Step 8) ──
+
+///|
+/// Constant folding analysis: tracks known constant values per e-class.
+fn constant_fold_analysis() -> Analysis[LambdaLang, Int?] {
+  {
+    make: fn(node, get_data) {
+      match node {
+        LNum(n) => Some(n)
+        LAdd(a, b) =>
+          match (get_data(a), get_data(b)) {
+            (Some(x), Some(y)) => Some(x + y)
+            _ => None
+          }
+        LMul(a, b) =>
+          match (get_data(a), get_data(b)) {
+            (Some(x), Some(y)) => Some(x * y)
+            _ => None
+          }
+        _ => None
+      }
+    },
+    merge: fn(a, b) {
+      match (a, b) {
+        (Some(x), _) => Some(x)
+        (_, Some(y)) => Some(y)
+        _ => None
+      }
+    },
+    modify: fn(egraph, id) {
+      match egraph.get_data(id) {
+        Some(n) => {
+          let num_id = egraph.add(LNum(n))
+          egraph.union(id, num_id) |> ignore
+        }
+        None => ()
+      }
+    },
+  }
+}
+
+///|
+test "analysis: constant folding computes 2 + 3 = 5" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(two, three))
+  // After adding, analysis should compute that sum's e-class has value Some(5)
+  assert_eq(eg.get_data(sum), Some(5))
+  // The modify hook should have added Num(5) to the same e-class
+  eg.rebuild()
+  let five = eg.add(LNum(5))
+  assert_eq(eg.find(sum), eg.find(five))
+}
+
+///|
+test "analysis: constant folding computes 2 * 3 = 6" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let prod = eg.add(LMul(two, three))
+  assert_eq(eg.get_data(prod), Some(6))
+  eg.rebuild()
+  let six = eg.add(LNum(6))
+  assert_eq(eg.find(prod), eg.find(six))
+}
+
+///|
+test "analysis: variable has no constant data" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let x = eg.add(LVar("x"))
+  assert_eq(eg.get_data(x), None)
+}
+
+///|
+test "analysis: nested (2 + 3) * 4 = 20" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(two, three))
+  let four = eg.add(LNum(4))
+  let prod = eg.add(LMul(sum, four))
+  assert_eq(eg.get_data(prod), Some(20))
+  eg.rebuild()
+  let twenty = eg.add(LNum(20))
+  assert_eq(eg.find(prod), eg.find(twenty))
+}
+
+///|
+test "analysis: merge preserves data on union" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let x = eg.add(LVar("x"))
+  // x has no constant data; union x with 2+3 which has data Some(5)
+  let sum = eg.add(LAdd(two, three))
+  eg.union(x, sum) |> ignore
+  // After union, the merged class should have Some(5) (from the sum)
+  assert_eq(eg.get_data(x), Some(5))
+}
+
+///|
+test "analysis: partial constants (x + 3) has no constant data" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let x = eg.add(LVar("x"))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(x, three))
+  // One child is variable → cannot fold
+  assert_eq(eg.get_data(sum), None)
+}
+
+///|
+test "analysis: constant folding with rewrite rules" {
+  // Combine analysis (constant folding) with rewrite rules (x+0→x)
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let x = eg.add(LVar("x"))
+  let zero = eg.add(LNum(0))
+  let sum = eg.add(LAdd(x, zero))
+  // sum has no constant data (x is variable)
+  assert_eq(eg.get_data(sum), None)
+  // Apply rewrite: x+0 → x (rule[0] = "add-0": (Add ?x (Num:0)) → ?x)
+  let rules = lambda_arith_rules()
+  let matches = eg.search(rules[0].lhs)
+  eg.apply_matches(rules[0], matches) |> ignore
+  eg.rebuild()
+  // After rewrite + rebuild, sum and x should be equivalent
+  assert_eq(eg.find(sum), eg.find(x))
+}
+
+///|
+test "analysis: extract best from analyzed e-graph" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(two, three))
+  eg.rebuild()
+  // After constant folding, Num(5) was added and merged with sum's class
+  let cost_fn = ast_size()
+  let (cost, expr) = eg.extract(sum, cost_fn)
+  // Num(5) has cost 1, Add(Num(2), Num(3)) has cost 3 → extract picks Num(5)
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), LNum(5))
 }
