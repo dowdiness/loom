@@ -29,6 +29,7 @@ pub impl Show for Pat
 pub impl @debug.Debug for Pat
 
 pub(all) struct Subst(Map[String, Id])
+#alias("_[_]")
 pub fn Subst::get(Self, String) -> Id?
 #deprecated
 pub fn Subst::inner(Self) -> Map[String, Id]

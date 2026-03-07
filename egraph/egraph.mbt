@@ -388,7 +388,7 @@ priv struct EGraph[L] {
   memo : Map[L, Id]
   pending : Array[Id]
 
-  fn[L: Hash + Eq] new() -> EGraph[L]
+  fn[L : Hash + Eq] new() -> EGraph[L]
 }
 
 ///|
@@ -482,7 +482,7 @@ fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
       let new_nodes : Array[L] = []
       let seen : @hashset.HashSet[L] = @hashset.new()
       for node in eclass.nodes {
-        let canonical = node.map_children((child) => { self.find(child) })
+        let canonical = node.map_children(child => self.find(child))
         if seen.add_and_check(canonical) {
           new_nodes.push(canonical)
         }
@@ -664,4 +664,63 @@ fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
       }
     }
   }
+}
+
+// ── Rewrite Rules ──
+//
+// A rewrite rule has a left-hand side (lhs) pattern to search for,
+// and a right-hand side (rhs) pattern to instantiate. When applied:
+//   1. Search the e-graph for all matches of lhs → get (e-class, Subst) pairs
+//   2. For each match, instantiate rhs using the Subst → get a new e-class Id
+//   3. Union the matched e-class with the new Id (asserting lhs == rhs)
+//   4. Rebuild to restore congruence
+//
+// Optional `condition` allows conditional rewrites: the rule only fires
+// when the condition function returns true for a given substitution.
+
+///|
+/// A rewrite rule: lhs pattern → rhs pattern.
+priv struct Rewrite {
+  name : String
+  lhs : Pat
+  rhs : Pat
+  condition : ((Subst) -> Bool)?
+}
+
+///|
+/// Convenience constructor: parse s-expression strings into a Rewrite.
+fn rewrite(name : String, lhs : String, rhs : String) -> Rewrite raise Error {
+  { name, lhs: Pat::parse(lhs), rhs: Pat::parse(rhs), condition: None }
+}
+
+///|
+/// Apply a rewrite rule to the e-graph.
+///
+/// For each match of lhs in the e-graph:
+///   1. Check the optional condition (skip if it returns false).
+///   2. Instantiate the rhs pattern using the matched substitution.
+///   3. Union the matched e-class with the instantiated rhs e-class.
+///
+/// Returns the number of new unions performed.
+/// Caller should call `rebuild()` afterward to restore congruence.
+fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
+  self : EGraph[L],
+  rule : Rewrite,
+) -> Int {
+  let matches = self.search(rule.lhs)
+  let mut applied = 0
+  for pair in matches {
+    let (matched_id, subst) = pair
+    // Check optional condition
+    match rule.condition {
+      Some(cond) => if not(cond(subst)) { continue }
+      None => ()
+    }
+    let new_id = self.instantiate(rule.rhs, subst)
+    if self.find(matched_id) != self.find(new_id) {
+      self.union(matched_id, new_id) |> ignore
+      applied = applied + 1
+    }
+  }
+  applied
 }

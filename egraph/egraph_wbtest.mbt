@@ -378,6 +378,102 @@ test "instantiate builds new nodes from pattern" {
   assert_eq(eg.find(result), eg.find(expected))
 }
 
+// ── Rewrite rule tests ──
+
+///|
+test "rewrite constructor parses lhs and rhs" {
+  let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
+  inspect(rw.name, content="add-zero")
+  inspect(
+    rw.lhs,
+    content="Node(\"Add\", None, [Var(\"x\"), Node(\"Num\", Some(\"0\"), [])])",
+  )
+  inspect(rw.rhs, content="Var(\"x\")")
+}
+
+///|
+test "apply_rewrite: x + 0 → x merges e-classes" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let sum = eg.add(Add(a, zero))
+  let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
+  eg.apply_rewrite(rw) |> ignore
+  eg.rebuild()
+  // After rewrite: a + 0 should be equivalent to a
+  assert_eq(eg.find(sum), eg.find(a))
+}
+
+///|
+test "apply_rewrite returns number of new unions" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let _ = eg.add(Add(a, zero))
+  let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
+  let applied = eg.apply_rewrite(rw)
+  assert_eq(applied, 1)
+  // Second application: already merged, no new unions
+  eg.rebuild()
+  let applied2 = eg.apply_rewrite(rw)
+  assert_eq(applied2, 0)
+}
+
+///|
+test "conditional rewrite: condition false prevents application" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let sum = eg.add(Add(a, zero))
+  let rw : Rewrite = {
+    name: "never-fires",
+    lhs: Pat::parse("(Add ?x (Num:0))"),
+    rhs: Pat::parse("?x"),
+    condition: Some(fn(_subst) { false }),
+  }
+  let applied = eg.apply_rewrite(rw)
+  assert_eq(applied, 0)
+  // sum and a should NOT be merged
+  assert_true(eg.find(sum) != eg.find(a))
+}
+
+///|
+test "rule chaining: result of rule A enables rule B" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  // Build (Add (Add a 0) 0) — double addition of zero
+  let inner = eg.add(Add(a, zero))
+  let outer = eg.add(Add(inner, zero))
+  let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
+  // First application: simplifies both Add nodes
+  eg.apply_rewrite(rw) |> ignore
+  eg.rebuild()
+  // inner == a after first rewrite
+  assert_eq(eg.find(inner), eg.find(a))
+  // Second application after rebuild may find new matches
+  eg.apply_rewrite(rw) |> ignore
+  eg.rebuild()
+  // outer should also be equivalent to a
+  assert_eq(eg.find(outer), eg.find(a))
+}
+
+///|
+test "commutativity rule: Add is commutative" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let ab = eg.add(Add(a, b))
+  let ba = eg.add(Add(b, a))
+  // Before: a+b and b+a are different e-classes
+  assert_true(eg.find(ab) != eg.find(ba))
+  let rw = rewrite("add-comm", "(Add ?x ?y)", "(Add ?y ?x)")
+  eg.apply_rewrite(rw) |> ignore
+  eg.rebuild()
+  // After: a+b and b+a should be in the same e-class
+  assert_eq(eg.find(ab), eg.find(ba))
+}
+
 ///|
 test "many unions converge to single root" {
   let uf = UnionFind()

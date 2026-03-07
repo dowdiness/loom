@@ -829,6 +829,51 @@ The e-graph's hashcons (memo table) is heavily dependent on HashMap. Benchmark M
 
 ---
 
+## Future Work
+
+### Pattern Construction API
+
+The current `rewrite("name", "(Add ?x (Num:0))", "?x")` API uses s-expression strings parsed at runtime. This is the standard approach in e-graph literature (egg, egglog) and convenient for quick rule definitions, but has trade-offs:
+
+- **Runtime parse errors**: typos in pattern strings are caught at runtime, not compile time.
+- **Positional string parameters**: `(name, lhs, rhs)` are all `String`, easy to transpose.
+
+**Alternative 1 — Direct Pat construction** (no parsing, partially typed):
+```moonbit
+let rw : Rewrite = {
+  name: "add-zero",
+  lhs: Node("Add", None, [Var("x"), Node("Num", Some("0"), [])]),
+  rhs: Var("x"),
+  condition: None,
+}
+```
+
+**Alternative 2 — Helper functions** (readable, no parsing):
+```moonbit
+fn var(name : String) -> Pat { Var(name) }
+fn node(tag : String, children : Array[Pat]) -> Pat { Node(tag, None, children) }
+fn atom(tag : String, payload : String) -> Pat { Node(tag, Some(payload), []) }
+
+// Usage
+let lhs = node("Add", [var("x"), atom("Num", "0")])
+```
+
+**Note**: Tag strings ("Add", "Num") will always be strings because `Pat` is language-independent — that's the fundamental design choice enabling reusable patterns across different `ENodeRepr` implementations. A fully typed pattern API would require patterns parameterized by `L`, losing language-independence and s-expression compatibility.
+
+**Recommendation**: Keep s-expression parser as the primary API. Consider adding helper functions if verbosity becomes a pain point. Consider labelled arguments (`rewrite(name~, lhs~, rhs~)`) to prevent parameter transposition.
+
+### E-Matching Performance
+
+The `ematch` hot loop has known optimization opportunities:
+
+- **`merge_substs` copies the entire map** on every call via `a_map.copy()`. For patterns with many variables or deeply nested structures, this creates O(|vars| × |matches|) allocation pressure. A mutable substitution with backtracking, or a persistent/immutable map with structural sharing, would reduce this.
+- **`ematch` allocates fresh `Array[Subst]`** at every recursion level. Pre-allocated buffers or a stack-based approach would reduce GC pressure.
+- **`search` uses a `visited` HashSet** to deduplicate canonical Ids. After `rebuild`, class keys should already be canonical — the set may be redundant if `search` is always called post-rebuild.
+
+These are optimization targets for Step 7 benchmarking, not correctness issues.
+
+---
+
 ## References
 
 - Willsey et al. "egg: Fast and Extensible Equality Saturation" POPL 2021
