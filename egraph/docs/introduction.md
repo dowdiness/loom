@@ -476,6 +476,6 @@ let sum = eg.add(Add(two, three))
 
 ## Further Reading
 
-- [Implementation Report](implementation-report.md) — step-by-step build log with architecture and test coverage
+- [Implementation Report](archive/implementation-report.md) — step-by-step build log with architecture and test coverage
 - [Design Concerns](design-concerns.md) — 26 deferred decisions with rationale and revisit criteria
 - [TODO](TODO.md) — future work: API improvements, performance optimizations, integrations
