@@ -29,7 +29,7 @@ pub impl DotNode for DotTreeNode with node_attrs(self) {
     if not(first) {
       buf.write_string(", ")
     }
-    buf.write_string(k)
+    buf.write_string(@parser.format_id(k))
     buf.write_string("=")
     buf.write_string(@parser.format_id(v))
     first = false
@@ -55,6 +55,9 @@ pub impl DotNode for DotTreeNode with edge_label(self, i) {
 /// Build a DotTreeNode from a graphviz Graph AST.
 /// Collects nodes and edges, finds root (no incoming edges), builds tree.
 pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
+  if not(graph.directed) {
+    return None
+  }
   let node_labels : Map[String, String] = Map::new()
   let node_attrs_map : Map[String, Map[String, String]] = Map::new()
   let child_list : Map[String, Array[(String, String)]] = Map::new()
@@ -115,7 +118,11 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
         // EdgeStmt attributes apply to every segment in a chain: a->b->c means
         // both (a,b) and (b,c) inherit the statement-level edge label.
         for pair in targets {
-          let target = pair.1
+          let (op, target) = pair
+          match op {
+            @parser.Directed => ()
+            @parser.Undirected => return None
+          }
           register_node_id(target.id, known_node_ids, all_node_ids, indegree)
           match child_list.get(current_source) {
             Some(arr) => arr.push((target.id, edge_label))

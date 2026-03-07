@@ -67,3 +67,24 @@ test "parse_dot accepts edge statement with subgraph target operand" {
     None => abort("expected parser to accept subgraph edge target operand")
   }
 }
+
+///|
+test "parse_dot rejects missing port id after colon" {
+  let parsed = parse_dot("digraph { a: -> b; }")
+  inspect(parsed == None, content="true")
+}
+
+///|
+test "parse_dot rejects trailing colon without compass point" {
+  let parsed = parse_dot("digraph { a:port: -> b; }")
+  inspect(parsed == None, content="true")
+}
+
+///|
+test "parse_dot accepts valid port with compass point" {
+  let parsed = parse_dot("digraph { a:port:n -> b; }")
+  match parsed {
+    Some(graph) => inspect(graph.statements.length(), content="1")
+    None => abort("expected parser to accept valid port syntax")
+  }
+}

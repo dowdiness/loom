@@ -447,26 +447,24 @@ fn Parser::parse_port(self : Parser) -> Port? {
     return None
   }
   let port = { id: None, compass: None }
-  match self.current_token {
-    ID(id) =>
-      // Check if this ID is a compass point
-      if is_compass_point(id) {
-        port.compass = Some(parse_compass_point(id))
+  let first = match self.current_token {
+    ID(id) => id
+    _ => return None
+  }
+  ignore(self.eat(ID("")))
+  if is_compass_point(first) {
+    port.compass = Some(parse_compass_point(first))
+    return Some(port)
+  }
+  port.id = Some(first)
+  if self.eat(Colon) {
+    match self.current_token {
+      ID(compass_str) if is_compass_point(compass_str) => {
+        port.compass = Some(parse_compass_point(compass_str))
         ignore(self.eat(ID("")))
-      } else {
-        port.id = Some(id)
-        ignore(self.eat(ID("")))
-        if self.eat(Colon) {
-          match self.current_token {
-            ID(compass_str) if is_compass_point(compass_str) => {
-              port.compass = Some(parse_compass_point(compass_str))
-              ignore(self.eat(ID("")))
-            }
-            _ => ()
-          }
-        }
       }
-    _ => ()
+      _ => return None
+    }
   }
   Some(port)
 }
@@ -476,7 +474,14 @@ fn Parser::parse_node_id(self : Parser) -> NodeId? {
   match self.current_token {
     ID(id) => {
       ignore(self.eat(ID("")))
-      let port = self.parse_port()
+      let port = match self.current_token {
+        Colon =>
+          match self.parse_port() {
+            Some(port) => Some(port)
+            None => return None
+          }
+        _ => None
+      }
       Some({ id, port })
     }
     _ => None

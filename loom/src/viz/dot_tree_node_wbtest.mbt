@@ -120,3 +120,45 @@ test "from_graph: returns None when a node has multiple parents" {
     None => inspect(true, content="true")
   }
 }
+
+///|
+test "from_graph: rejects undirected graph" {
+  let graph : @parser.Graph = {
+    strict: false,
+    directed: false,
+    id: None,
+    statements: [
+      @parser.EdgeStmt(
+        { id: "a", port: None },
+        [(@parser.Undirected, { id: "b", port: None })],
+        None,
+      ),
+    ],
+  }
+
+  match DotTreeNode::from_graph(graph) {
+    Some(_) => inspect(false, content="true")
+    None => inspect(true, content="true")
+  }
+}
+
+///|
+test "from_graph: rejects undirected edge operator in directed graph" {
+  let graph : @parser.Graph = {
+    strict: false,
+    directed: true,
+    id: None,
+    statements: [
+      @parser.EdgeStmt(
+        { id: "a", port: None },
+        [(@parser.Undirected, { id: "b", port: None })],
+        None,
+      ),
+    ],
+  }
+
+  match DotTreeNode::from_graph(graph) {
+    Some(_) => inspect(false, content="true")
+    None => inspect(true, content="true")
+  }
+}
