@@ -254,14 +254,18 @@ test "heavy: FULL REPARSE - 100 edits at end" (b : @bench.T) {
   ]
   b.bench(fn() {
     let mut source = base
-    let initial = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let initial = @lambda.parse(source) catch {
+      _ => @lambda.Term::Error("benchmark")
+    }
     let mut tree = initial
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = source.length()
       let (new_source, _edit) = apply_char_insert(source, pos, ch)
       // Full reparse — no incremental state, no interning
-      let t = @lambda.parse(new_source) catch { _ => abort("benchmark failed") }
+      let t = @lambda.parse(new_source) catch {
+        _ => @lambda.Term::Error("benchmark")
+      }
       tree = t
       source = new_source
     }
@@ -302,7 +306,9 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
   let replacements = ["x", "y", "z", "a", "b", "c", "d", "e"]
   b.bench(fn() {
     let mut source = base
-    let initial = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let initial = @lambda.parse(source) catch {
+      _ => @lambda.Term::Error("benchmark")
+    }
     let mut tree = initial
     let mut seed = 42
     for i = 0; i < 100; i = i + 1 {
@@ -314,7 +320,9 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
       let pos = seed.abs() % (len - 1)
       let ch = replacements[i % replacements.length()]
       let (new_source, _edit) = apply_char_replace(source, pos, ch)
-      let t = @lambda.parse(new_source) catch { _ => abort("benchmark failed") }
+      let t = @lambda.parse(new_source) catch {
+        _ => @lambda.Term::Error("benchmark")
+      }
       tree = t
       source = new_source
     }
@@ -410,13 +418,17 @@ fn bench_session_full_reparse(source : String, n : Int, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source
-    let initial = @lambda.parse(s) catch { _ => abort("benchmark failed") }
+    let initial = @lambda.parse(s) catch {
+      _ => @lambda.Term::Error("benchmark")
+    }
     let mut tree = initial
     for i = 0; i < n; i = i + 1 {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, _edit) = apply_char_insert(s, pos, ch)
-      let t = @lambda.parse(new_s) catch { _ => abort("benchmark failed") }
+      let t = @lambda.parse(new_s) catch {
+        _ => @lambda.Term::Error("benchmark")
+      }
       tree = t
       s = new_s
     }

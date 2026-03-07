@@ -1,91 +1,91 @@
-parserdb: cold - new + term()	6460.00
+parserdb: cold - new + term()	7030.00
 parserdb: warm - term() with no source change	20.00
 parserdb: signal no-op - set_source(same) + term()	40.00
-parserdb: full recompute - set_source(new) + term()	12920.00
-parserdb: undo/redo cycle	13400.00
+parserdb: full recompute - set_source(new) + term()	14380.00
+parserdb: undo/redo cycle	14300.00
 parserdb: diagnostics - malformed input	70.00
-parse scaling - small (5 tokens)	1660.00
-parse scaling - medium (15 tokens)	7570.00
-parse scaling - large (30+ tokens)	13340.00
-incremental vs full - edit at start	10880.00
-incremental vs full - edit at end	14070.00
-incremental vs full - edit in middle	13910.00
-sequential edits - typing simulation	2000.00
-sequential edits - backspace simulation	2050.00
-incremental state baseline - repeated parsing	4500.00
-incremental state baseline - similar expressions	2430.00
-memory pressure - large document	18900.00
-worst case - full invalidation	10430.00
-best case - cosmetic change	2910.00
-phase1: full tokenize - 110 tokens	2150.00
-phase1: incremental tokenize - edit at start (110 tokens)	3700.00
-phase1: incremental tokenize - edit in middle (110 tokens)	3490.00
-phase1: incremental tokenize - edit at end (110 tokens)	3220.00
-phase1: full re-tokenize after edit - 110 tokens	2120.00
-parse_cst_recover - small	1220.00
-parse_cst_recover - large	10770.00
-phase3: full CST reparse, no cursor - 110 tokens	30730.00
-phase3: cursor reuse, edit at end - 110 tokens	40010.00
-phase3: cursor reuse, edit at start - 110 tokens	32830.00
-phase4: let body edit - full reparse, no cursor (baseline)	1950.00
-phase4: let body edit - init IntLiteral reused via cursor	2220.00
-phase4: let init edit - cursor	2160.00
-phase4: nested let body edit - multiple inits reused	3970.00
-heavy: large document - initial parse	71430.00
-heavy: wide arithmetic 100 terms - initial parse	59160.00
-heavy: nested application depth 50 - initial parse	146920.00
-heavy: large document - cst parse only	71870.00
-heavy: typing session - 100 edits at end	7370000.00
-heavy: typing session - 100 edits in middle	9080000.00
-heavy: refactoring session - 100 scattered replacements	4680000.00
-heavy: FULL REPARSE - 100 edits at end	9750000.00
-heavy: FULL REPARSE - 100 edits in middle	10470000.00
-heavy: FULL REPARSE - 100 scattered replacements	6030000.00
-heavy: FULL REPARSE - large document initial parse	80880.00
-scale: 100 terms - full reparse	83010.00
-scale: 100 terms - incremental single edit	134010.00
-scale: 100 terms - 50-edit session incremental	4080000.00
-scale: 100 terms - 50-edit session full reparse	4560000.00
-scale: 500 terms - full reparse	476000.00
-scale: 500 terms - incremental single edit	831430.00
-scale: 500 terms - 50-edit session incremental	24400000.00
-scale: 500 terms - 50-edit session full reparse	25440000.00
-scale: 1000 terms - full reparse	1050000.00
-scale: 1000 terms - incremental single edit	1810000.00
-scale: 1000 terms - 50-edit session incremental	53050000.00
-scale: 1000 terms - 50-edit session full reparse	57740000.00
+parse scaling - small (5 tokens)	1760.00
+parse scaling - medium (15 tokens)	7960.00
+parse scaling - large (30+ tokens)	13710.00
+incremental vs full - edit at start	12190.00
+incremental vs full - edit at end	17040.00
+incremental vs full - edit in middle	16870.00
+sequential edits - typing simulation	2360.00
+sequential edits - backspace simulation	2400.00
+incremental state baseline - repeated parsing	5720.00
+incremental state baseline - similar expressions	3000.00
+memory pressure - large document	21160.00
+worst case - full invalidation	12540.00
+best case - cosmetic change	3420.00
+phase1: full tokenize - 110 tokens	2180.00
+phase1: incremental tokenize - edit at start (110 tokens)	3890.00
+phase1: incremental tokenize - edit in middle (110 tokens)	3650.00
+phase1: incremental tokenize - edit at end (110 tokens)	3480.00
+phase1: full re-tokenize after edit - 110 tokens	2210.00
+parse_cst_recover - small	1420.00
+parse_cst_recover - large	12160.00
+phase3: full CST reparse, no cursor - 110 tokens	34170.00
+phase3: cursor reuse, edit at end - 110 tokens	43140.00
+phase3: cursor reuse, edit at start - 110 tokens	37390.00
+phase4: let body edit - full reparse, no cursor (baseline)	2110.00
+phase4: let body edit - init IntLiteral reused via cursor	2350.00
+phase4: let init edit - cursor	2380.00
+phase4: nested let body edit - multiple inits reused	4300.00
+heavy: large document - initial parse	79120.00
+heavy: wide arithmetic 100 terms - initial parse	65880.00
+heavy: nested application depth 50 - initial parse	149920.00
+heavy: large document - cst parse only	77830.00
+heavy: typing session - 100 edits at end	7860000.00
+heavy: typing session - 100 edits in middle	8740000.00
+heavy: refactoring session - 100 scattered replacements	4530000.00
+heavy: FULL REPARSE - 100 edits at end	10230000.00
+heavy: FULL REPARSE - 100 edits in middle	11360000.00
+heavy: FULL REPARSE - 100 scattered replacements	5060000.00
+heavy: FULL REPARSE - large document initial parse	86700.00
+scale: 100 terms - full reparse	85860.00
+scale: 100 terms - incremental single edit	159120.00
+scale: 100 terms - 50-edit session incremental	4740000.00
+scale: 100 terms - 50-edit session full reparse	4260000.00
+scale: 500 terms - full reparse	515120.00
+scale: 500 terms - incremental single edit	962640.00
+scale: 500 terms - 50-edit session incremental	28470000.00
+scale: 500 terms - 50-edit session full reparse	23930000.00
+scale: 1000 terms - full reparse	1110000.00
+scale: 1000 terms - incremental single edit	1990000.00
+scale: 1000 terms - 50-edit session incremental	61950000.00
+scale: 1000 terms - 50-edit session full reparse	52000000.00
 concrete-syntax-tree - token constructor	20.00
 concrete-syntax-tree - node constructor from 32 children	80.00
-concrete-syntax-tree - equality identical 32 children	180.00
+concrete-syntax-tree - equality identical 32 children	190.00
 concrete-syntax-tree - equality mismatch hash fast path	10.00
 interner - intern_token cold miss	100.00
-interner - intern_token warm hit	80.00
-build_tree - x + 1	180.00
-build_tree_interned - x + 1, cold interner	460.00
-build_tree_interned - x + 1, warm interner	290.00
-build_tree - 100 identical ident tokens	1250.00
-build_tree_interned - 100 identical tokens, warm interner	2280.00
-build_tree_fully_interned - x + x, cold	520.00
-build_tree_fully_interned - x + x, warm	410.00
-build_tree_interned - x + x, warm	290.00
+interner - intern_token warm hit	100.00
+build_tree - x + 1	200.00
+build_tree_interned - x + 1, cold interner	480.00
+build_tree_interned - x + 1, warm interner	330.00
+build_tree - 100 identical ident tokens	1290.00
+build_tree_interned - 100 identical tokens, warm interner	2440.00
+build_tree_fully_interned - x + x, cold	540.00
+build_tree_fully_interned - x + x, warm	520.00
+build_tree_interned - x + x, warm	300.00
 build_tree - x + x	200.00
-node_interner - intern_node cold miss	60.00
+node_interner - intern_node cold miss	70.00
 node_interner - intern_node warm hit	50.00
-parse_cst_recover - end-to-end	3370.00
-full parse - simple	680.00
-full parse - lambda	1310.00
-full parse - nested lambdas	3830.00
-full parse - arithmetic	3130.00
-full parse - complex	7460.00
+parse_cst_recover - end-to-end	3780.00
+full parse - simple	730.00
+full parse - lambda	1370.00
+full parse - nested lambdas	4180.00
+full parse - arithmetic	3540.00
+full parse - complex	8080.00
 tokenization	290.00
-incremental - initial parse	470.00
-incremental - small edit	1970.00
-incremental - multiple edits	3620.00
-incremental - replacement	2440.00
+incremental - initial parse	570.00
+incremental - small edit	2350.00
+incremental - multiple edits	4200.00
+incremental - replacement	3010.00
 damage tracking	20.00
-error recovery - valid	1270.00
-error recovery - error	1310.00
-full parse - let	2650.00
-full parse - nested let	5730.00
-incremental - let body edit	5380.00
-incremental - let init edit	5240.00
+error recovery - valid	1350.00
+error recovery - error	1170.00
+full parse - let	2670.00
+full parse - nested let	5860.00
+incremental - let body edit	5960.00
+incremental - let init edit	6260.00

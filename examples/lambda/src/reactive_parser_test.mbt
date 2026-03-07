@@ -1,32 +1,35 @@
 // ReactiveParser tests: correctness of the generic two-memo pipeline
 // (Signal → CstStage → Ast) and parity with direct parse_cst_to_ast_node output.
 
-// ── Lex-error routing ────────────────────────────────────────────────────────
+// ── Step-based error recovery ────────────────────────────────────────────────
 
 ///|
-/// "@" triggers @core.LexError; is_lex_error must be set on the CstStage
-/// so ReactiveParser::term routes to on_lex_error rather than to_ast.
-test "ReactiveParser: lex error sets is_lex_error on CstStage" {
+/// "@invalid" no longer triggers LexError — step-based lexer recovers "@" as
+/// an error token. is_lex_error is false because tokenization succeeded.
+test "ReactiveParser: step-based lexer recovers invalid chars without lex error" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
-  inspect(db.cst().is_lex_error, content="true")
+  inspect(db.cst().is_lex_error, content="false")
 }
 
 ///|
-test "ReactiveParser: lex error routes term() to ErrorNode" {
+/// With step-based recovery, "@invalid" parses into a tree (with errors)
+/// rather than routing through on_lex_error. The root should be the normal
+/// grammar root, not ErrorNode.
+test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
-  match @syntax.SyntaxKind::from_raw(db.term().kind()) {
-    @syntax.ErrorNode => ()
-    other => abort("expected ErrorNode, got: " + other.to_string())
-  }
+  let kind = @syntax.SyntaxKind::from_raw(db.term().kind())
+  // Should NOT be ErrorNode — the parser got tokens and produced a tree
+  inspect(kind != @syntax.ErrorNode, content="true")
 }
 
 ///|
-test "ReactiveParser: lex error diagnostic starts with tokenization prefix" {
+/// Diagnostics from step-based recovery are parser-level (not "tokenization: ").
+test "ReactiveParser: step-based recovery diagnostics are parser-level" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   let diags = db.diagnostics()
-  assert_eq(diags.length() > 0, true)
-  // Convention: first diagnostic is "tokenization: <lexer message>"
-  inspect(diags[0].contains("tokenization: "), content="true")
+  inspect(diags.length() > 0, content="true")
+  // No "tokenization:" prefix — errors come from parser, not lexer
+  inspect(diags[0].contains("tokenization: "), content="false")
 }
 
 // ── Parse-error path (lex succeeds, parser reports errors) ───────────────────
@@ -90,11 +93,13 @@ test "ReactiveParser: set_source same value preserves term (Eq)" {
 }
 
 ///|
-test "ReactiveParser: set_source from lex error to valid clears is_lex_error" {
+test "ReactiveParser: set_source from error-recovery input to valid" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
-  inspect(db.cst().is_lex_error, content="true")
+  inspect(db.cst().is_lex_error, content="false")
   db.set_source("1 + 2")
   inspect(db.cst().is_lex_error, content="false")
+  inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
+  inspect(db.diagnostics().length(), content="0")
 }
 
 // ── Parity with direct parse ──────────────────────────────────────────────────

@@ -25,6 +25,55 @@ pub fn[T] TokenBuffer::new(
 }
 
 ///|
+/// Construct a TokenBuffer that never raises LexError.
+/// On lex failure, inserts an error token for one code unit and retries from
+/// the next position.
+#deprecated("Use new_from_steps with a PrefixLexer for explicit error recovery", skip_current_package=true)
+pub fn[T] TokenBuffer::new_resilient(
+  source : String,
+  tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
+  eof_token~ : T,
+  error_token~ : T,
+) -> TokenBuffer[T] {
+  let tokens = tokenize_resilient(source, tokenize_fn, eof_token, error_token)
+  { tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
+/// Construct a TokenBuffer from a step-based PrefixLexer.
+/// Never raises — errors are emitted as error tokens inline.
+/// Uses full re-lex on construction; incremental step re-lex is deferred.
+pub fn[T] TokenBuffer::new_from_steps(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token~ : T,
+  error_token~ : T,
+) -> TokenBuffer[T] {
+  let tokens = tokenize_from_steps(source, lexer, eof_token, error_token)
+  // Wrap the step-based lexer as a tokenize_fn so update() and
+  // tokenize_range_impl work correctly on step-based buffers.
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps(s, lexer, eof_token, error_token)
+  }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
+/// Construct a TokenBuffer from a step-based PrefixLexer in strict mode.
+/// Raises LexError when the step lexer reports Invalid/Incomplete.
+pub fn[T] TokenBuffer::new_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token~ : T,
+) -> TokenBuffer[T] raise LexError {
+  let tokens = tokenize_from_steps_strict(source, lexer, eof_token)
+  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    tokenize_from_steps_strict(s, lexer, eof_token)
+  }
+  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+}
+
+///|
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
   self.tokens
 }
@@ -214,4 +263,154 @@ fn clamp_offset(pos : Int, length : Int) -> Int {
   } else {
     pos
   }
+}
+
+///|
+/// Lex source resiliently: on LexError, insert an error token and continue.
+/// **Deprecated:** Used by `new_resilient`. Prefer `tokenize_from_steps`.
+fn[T] tokenize_resilient(
+  source : String,
+  tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
+  eof_token : T,
+  error_token : T,
+) -> Array[TokenInfo[T]] {
+  tokenize_fn(source) catch {
+    LexError(_) => {
+      let result : Array[TokenInfo[T]] = []
+      let mut pos = 0
+      while pos < source.length() {
+        let remaining : StringView = source[pos:source.length()] catch {
+            _ => break
+          }
+        let rem = remaining.to_string()
+        let prefix_len = longest_lexable_prefix_len(rem, tokenize_fn)
+        if prefix_len > 0 {
+          let prefix : StringView = rem[0:prefix_len] catch {
+              _ => {
+                result.push(TokenInfo::new(error_token, pos, pos + 1))
+                pos = pos + 1
+                continue
+              }
+            }
+          let prefix_tokens = tokenize_fn(prefix.to_string()) catch { _ => [] }
+          for i = 0; i < prefix_tokens.length() - 1; i = i + 1 {
+            let t = prefix_tokens[i]
+            result.push(TokenInfo::new(t.token, t.start + pos, t.end + pos))
+          }
+          pos = pos + prefix_len
+        } else {
+          result.push(TokenInfo::new(error_token, pos, pos + 1))
+          pos = pos + 1
+        }
+      }
+      result.push(TokenInfo::new(eof_token, source.length(), source.length()))
+      result
+    }
+  }
+}
+
+///|
+/// Step-based tokenization: call lex_step in a loop, emitting tokens for
+/// Produced, error tokens for Invalid/Incomplete, and stopping on Done.
+fn[T] tokenize_from_steps(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+  error_token : T,
+) -> Array[TokenInfo[T]] {
+  let result : Array[TokenInfo[T]] = []
+  let len = source.length()
+  let mut pos = 0
+  while pos < len {
+    let step = (lexer.lex_step)(source, pos)
+    match step {
+      Produced(token_info, next_offset~) => {
+        result.push(token_info)
+        // Enforce progress: next_offset must be > pos
+        if next_offset <= pos {
+          // Defensive: skip one code unit to avoid infinite loop
+          pos = pos + 1
+        } else {
+          pos = next_offset
+        }
+      }
+      Invalid(at~, width~, ..) => {
+        let effective_width = if width > 0 { width } else { 1 }
+        let end = clamp_offset(at + effective_width, len)
+        result.push(TokenInfo::new(error_token, at, end))
+        // Ensure pos never moves backwards (buggy lexer could report at < pos)
+        pos = if end > pos { end } else { pos + 1 }
+      }
+      Incomplete(at~, ..) => {
+        // Emit error token from at to EOF (or zero-width at EOF)
+        if at < len {
+          result.push(TokenInfo::new(error_token, at, len))
+        } else {
+          result.push(TokenInfo::new(error_token, len, len))
+        }
+        break
+      }
+      Done => break
+    }
+  }
+  result.push(TokenInfo::new(eof_token, len, len))
+  result
+}
+
+///|
+/// Step-based tokenization in strict mode: report Invalid/Incomplete as LexError.
+fn[T] tokenize_from_steps_strict(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+) -> Array[TokenInfo[T]] raise LexError {
+  let result : Array[TokenInfo[T]] = []
+  let len = source.length()
+  let mut pos = 0
+  while pos < len {
+    let step = (lexer.lex_step)(source, pos)
+    match step {
+      Produced(token_info, next_offset~) => {
+        result.push(token_info)
+        if next_offset <= pos {
+          pos = pos + 1
+        } else {
+          pos = next_offset
+        }
+      }
+      Invalid(at~, width~, message~) =>
+        raise LexError(
+          "step lexer invalid at \{at} (width \{width}): " + message,
+        )
+      Incomplete(at~, expected~) =>
+        raise LexError("step lexer incomplete at \{at}; expected " + expected)
+      Done => break
+    }
+  }
+  result.push(TokenInfo::new(eof_token, len, len))
+  result
+}
+
+///|
+/// Return the longest prefix length of `s` that tokenizes without LexError.
+fn[T] longest_lexable_prefix_len(
+  s : String,
+  tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
+) -> Int {
+  // Linear descending scan: robust even when tokenize(prefix) success is
+  // non-monotone across prefix lengths (e.g. unterminated constructs that
+  // become valid only when a later closing delimiter is included).
+  for len = s.length(); len > 0; len = len - 1 {
+    let prefix : StringView = s[0:len] catch { _ => continue }
+    let ok = try {
+      let _ = tokenize_fn(prefix.to_string())
+      true
+    } catch {
+      LexError(_) => false
+    }
+    if ok {
+      return len
+    }
+  }
+  0
 }

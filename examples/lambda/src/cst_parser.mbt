@@ -92,21 +92,6 @@ pub fn parse_cst_recover_with_tokens(
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
 ///|
-fn at_stop_token(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Bool {
-  match ctx.peek() {
-    @token.Newline
-    | @token.RightParen
-    | @token.Then
-    | @token.Else
-    | @token.In
-    | @token.EOF => true
-    _ => false
-  }
-}
-
-///|
 fn token_starts_expression(token : @token.Token) -> Bool {
   match token {
     @token.Let
@@ -206,20 +191,84 @@ fn consume_soft_newlines_before_application_atom(
 }
 
 ///|
+/// Expect a specific token, consuming optional soft newlines before it.
+/// Returns true when the token was consumed, false when recovery fired.
 fn lambda_expect(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   expected : @token.Token,
   kind : @syntax.SyntaxKind,
-) -> Unit {
+) -> Bool {
   consume_soft_newlines_before_expected(ctx, expected)
   let current = ctx.peek()
   match (current, expected) {
-    (a, b) if a == b => ctx.emit_token(kind)
+    (a, b) if a == b => {
+      ctx.emit_token(kind)
+      true
+    }
     _ => {
       ctx.error("Expected " + @token.print_token(expected))
       ctx.emit_error_placeholder()
+      false
     }
   }
+}
+
+///|
+/// Tokens where error recovery should stop — structural delimiters and
+/// expression-starters that can begin a valid recovery parse.
+/// Excludes Identifier/Integer (too common to be reliable sync points).
+fn is_sync_point(t : @token.Token) -> Bool {
+  match t {
+    @token.Newline
+    | @token.RightParen
+    | @token.In
+    | @token.Lambda
+    | @token.Let
+    | @token.If
+    | @token.Then
+    | @token.Else
+    | @token.EOF => true
+    _ => false
+  }
+}
+
+///|
+/// Skip malformed paren payload while preserving parent-level sync tokens.
+///
+/// Stops at:
+/// - `)` at depth 0 (so the caller can consume it), or
+/// - any parent sync token at depth 0 (`in`/`then`/`else`/...).
+///
+/// Nested parens are still balanced so inner `)` do not prematurely stop.
+fn skip_until_paren_close_or_sync(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Int {
+  let mut depth = 0
+  let mut skipped = 0
+  let mut wrapped = false
+  while ctx.peek() != @token.EOF {
+    let token = ctx.peek()
+    if token == @token.RightParen {
+      if depth == 0 {
+        break
+      }
+      depth = depth - 1
+    } else if token == @token.LeftParen {
+      depth = depth + 1
+    } else if depth == 0 && is_sync_point(token) {
+      break
+    }
+    if not(wrapped) {
+      ctx.start_node(@syntax.ErrorNode)
+      wrapped = true
+    }
+    ctx.bump_error()
+    skipped = skipped + 1
+  }
+  if wrapped {
+    ctx.finish_node()
+  }
+  skipped
 }
 
 // ─── Grammar (entry point + rules) ───────────────────────────────────────────
@@ -273,20 +322,27 @@ fn parse_let_expr(
 ) -> Unit {
   match ctx.peek() {
     @token.Let =>
-      ctx.node(@syntax.LetExpr, () => {
-        ctx.emit_token(@syntax.LetKeyword)
-        match ctx.peek() {
-          @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-          _ => {
-            ctx.error("Expected variable name after 'let'")
-            ctx.emit_error_placeholder()
+      ctx.node_with_recovery(
+        @syntax.LetExpr,
+        () => {
+          ctx.emit_token(@syntax.LetKeyword)
+          match ctx.peek() {
+            @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+            _ => {
+              ctx.error("Expected variable name after 'let'")
+              ctx.emit_error_placeholder()
+            }
           }
-        }
-        lambda_expect(ctx, @token.Eq, @syntax.EqToken)
-        parse_let_expr(ctx, allow_newline_application)
-        lambda_expect(ctx, @token.In, @syntax.InKeyword)
-        parse_let_expr(ctx, allow_newline_application)
-      })
+          let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+          parse_let_expr(ctx, allow_newline_application)
+          if not(lambda_expect(ctx, @token.In, @syntax.InKeyword)) {
+            return false
+          }
+          parse_let_expr(ctx, allow_newline_application)
+          true
+        },
+        is_sync_point,
+      )
     _ => parse_binary_op(ctx, allow_newline_application)
   }
 }
@@ -374,43 +430,64 @@ fn parse_atom(
     @token.Identifier(_) =>
       ctx.node(@syntax.VarRef, fn() { ctx.emit_token(@syntax.IdentToken) })
     @token.Lambda =>
-      ctx.node(@syntax.LambdaExpr, () => {
-        ctx.emit_token(@syntax.LambdaToken)
-        match ctx.peek() {
-          @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-          _ => {
-            ctx.error("Expected parameter after λ")
-            ctx.emit_error_placeholder()
+      ctx.node_with_recovery(
+        @syntax.LambdaExpr,
+        () => {
+          ctx.emit_token(@syntax.LambdaToken)
+          match ctx.peek() {
+            @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+            _ => {
+              ctx.error("Expected parameter after λ")
+              ctx.emit_error_placeholder()
+            }
           }
-        }
-        lambda_expect(ctx, @token.Dot, @syntax.DotToken)
-        parse_expression_with_mode(ctx, allow_newline_application)
-      })
+          if not(lambda_expect(ctx, @token.Dot, @syntax.DotToken)) {
+            return false
+          }
+          parse_expression_with_mode(ctx, allow_newline_application)
+          true
+        },
+        is_sync_point,
+      )
     @token.If =>
-      ctx.node(@syntax.IfExpr, fn() {
-        ctx.emit_token(@syntax.IfKeyword)
-        parse_expression_with_mode(ctx, allow_newline_application)
-        lambda_expect(ctx, @token.Then, @syntax.ThenKeyword)
-        parse_expression_with_mode(ctx, allow_newline_application)
-        lambda_expect(ctx, @token.Else, @syntax.ElseKeyword)
-        parse_expression_with_mode(ctx, allow_newline_application)
-      })
+      ctx.node_with_recovery(
+        @syntax.IfExpr,
+        () => {
+          ctx.emit_token(@syntax.IfKeyword)
+          parse_expression_with_mode(ctx, allow_newline_application)
+          if not(lambda_expect(ctx, @token.Then, @syntax.ThenKeyword)) {
+            return false
+          }
+          parse_expression_with_mode(ctx, allow_newline_application)
+          if not(lambda_expect(ctx, @token.Else, @syntax.ElseKeyword)) {
+            return false
+          }
+          parse_expression_with_mode(ctx, allow_newline_application)
+          true
+        },
+        is_sync_point,
+      )
     @token.LeftParen =>
-      ctx.node(@syntax.ParenExpr, fn() {
+      ctx.node(@syntax.ParenExpr, () => {
         ctx.emit_token(@syntax.LeftParenToken)
         parse_expression_with_mode(ctx, allow_newline_application)
-        lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)
+        if not(lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)) {
+          // RightParen missing — recover inside parens, but don't consume
+          // parent-level delimiters (`in`/`then`/`else`/...) needed upstream.
+          let _ = skip_until_paren_close_or_sync(ctx)
+          if ctx.peek() == @token.RightParen {
+            ctx.emit_token(@syntax.RightParenToken)
+          }
+        }
       })
     _ => {
       ctx.error("Unexpected token")
-      if at_stop_token(ctx) {
+      if is_sync_point(ctx.peek()) {
         ctx.start_node(@syntax.ErrorNode)
         ctx.emit_error_placeholder()
         ctx.finish_node()
       } else {
-        ctx.start_node(@syntax.ErrorNode)
-        ctx.bump_error()
-        ctx.finish_node()
+        let _ = ctx.skip_until(is_sync_point)
       }
     }
   }
@@ -444,7 +521,7 @@ fn parse_source_file_let_item(
       ctx.emit_error_placeholder()
     }
   }
-  lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+  let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
   parse_expression_with_mode(ctx, false)
   let mut is_def = true
   consume_soft_newlines_before_expected(ctx, @token.In)

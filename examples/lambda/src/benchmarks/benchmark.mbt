@@ -134,7 +134,9 @@ test "error recovery - valid" (b : @bench.T) {
 /// Benchmark: Error recovery - error input
 test "error recovery - error" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λ.x") catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse("λ.x") catch {
+      _ => @lambda.Term::Error("benchmark")
+    }
     b.keep(result)
   })
 }

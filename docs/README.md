@@ -51,7 +51,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-_(none)_
+- [plans/2026-03-06-position-independent-tokens.md](plans/2026-03-06-position-independent-tokens.md) — position-independent tokens: `TokenInfo(token, len)` + parallel `starts` array, reintroduce `TokenStage` memo
 
 ## Development
 
@@ -59,7 +59,11 @@ _(none)_
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, Term::Error variant, multi-expression files)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, Term::Error variant, multi-expression files, step-lexing redesign)
 - [archive/completed-phases/2026-03-04-multi-expression-files-design.md](archive/completed-phases/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
 - [archive/completed-phases/2026-03-04-multi-expression-files.md](archive/completed-phases/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, complete)
+- [archive/completed-phases/2026-03-05-loom-error-recovery.md](archive/completed-phases/2026-03-05-loom-error-recovery.md) — loom error recovery combinators (expect, skip_until, skip_until_balanced, node_with_recovery, expect_and_recover)
+- [archive/completed-phases/2026-03-05-lambda-error-recovery.md](archive/completed-phases/2026-03-05-lambda-error-recovery.md) — lambda parser error recovery using loom combinators
+- [archive/completed-phases/2026-03-05-loom-incomplete-nodes.md](archive/completed-phases/2026-03-05-loom-incomplete-nodes.md) — incomplete_kind: distinguish EOF-incomplete from syntax errors
+- [archive/completed-phases/2026-03-06-loom-ambiguity-resilience-plan.md](archive/completed-phases/2026-03-06-loom-ambiguity-resilience-plan.md) — ambiguity resilience: eliminate crashes, data loss, add speculative parsing
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

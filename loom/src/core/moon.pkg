@@ -2,3 +2,7 @@ import {
   "dowdiness/seam" @seam,
   "moonbitlang/core/cmp",
 }
+
+import {
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"

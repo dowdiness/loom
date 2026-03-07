@@ -12,13 +12,18 @@ pub fn parse(String) -> Term raise
 
 Parses an input string directly into a `Term` AST. Raises errors if tokenization fails or if the input contains syntax errors. The simplest entry point when only the semantic AST is needed.
 
-### `parse_tree`
+### `parse_source_file_term`
 
 ```moonbit
-pub fn parse_tree(String) -> @ast.AstNode raise
+pub fn parse_source_file_term(String) -> (Term, Array[Diagnostic]) raise @core.LexError
 ```
 
-Parses a string into an `AstNode` with position tracking. Routes through the CST internally. Use this when source positions (byte offsets) are required alongside the typed AST.
+Parses a multi-expression source file — a sequence of top-level `let` definitions optionally followed by a final expression — and converts to `Term`. Definitions are right-folded into nested `Let` terms. Returns both the term and any parse diagnostics (does not raise on parse errors). Use this for file-level input.
+
+```
+let id = λx. x
+let const = λx. λy. x
+```
 
 ### `parse_cst`
 
@@ -73,6 +78,22 @@ let output = print_term(ast)
 // "(λx. (x + 1))"
 ```
 
+### `term_to_dot`
+
+```moonbit
+pub fn term_to_dot(Term) -> String
+```
+
+Renders a `Term` AST as a GraphViz DOT string. Produces the same format as `@loom/viz.to_dot` — same header/footer, node naming (`node0`, `node1`, …), and dark-theme attribute style. Useful for visualizing the semantic AST in tools like the web demo.
+
+**Example:**
+
+```moonbit
+let term = parse("λx.x + 1")
+let dot = term_to_dot(term)
+// "digraph {\n  bgcolor=\"transparent\";\n  ..."
+```
+
 ### `print_token`
 
 ```moonbit
@@ -92,6 +113,21 @@ Converts an array of tokens to a bracketed, comma-separated string.
 ---
 
 ## 4. Error Types
+
+### `Term::Error`
+
+Not a raised error — a `Term` variant returned when a CST error node is converted. Replaces the old `Term::Var("<error>")` sentinel.
+
+```moonbit
+pub(all) enum Term {
+  ...
+  Error(String)   // error message from the parse diagnostic
+}
+```
+
+`print_term` renders it as `<error: msg>`. Callers that need to check for parse errors should inspect `diagnostics()` on the parser rather than matching `Term::Error`.
+
+`Term` also implements `ToJson` for use as a CRDT JSON bridge — e.g. serializing the AST for transport over a CRDT log.
 
 ### `@core.LexError`
 
@@ -150,8 +186,8 @@ let cst = parse_cst("λx.x + 1")
 let syntax = @seam.SyntaxNode::from_cst(cst)
 // syntax.start() == 0, syntax.end() == 8
 
-let ast = parse_tree("λx.x + 1")
-// AstNode{ kind: Lam("x"), start: 0, end: 8, ... }
+let term = parse("λx.x + 1")
+// Term::Lam("x", Term::BinOp(Plus, Term::Var("x"), Term::Int(1)))
 
 for child in syntax.children() {
   // child.start(), child.end(), child.kind()
@@ -205,10 +241,10 @@ Creates a `ReactiveParser` reactive pipeline. Re-parses only when the source cha
 
 ```moonbit
 let db = @loom.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
-let node = db.term()            // @ast.AstNode
+let term = db.term()            // Term (Ast type parameter of the Grammar)
 db.set_source("λx.x + 2")
-let updated = db.term()         // re-runs CST + AST stages
-let diags   = db.diagnostics()  // Array[String], empty on success
+let updated = db.term()         // re-runs CST + AST stages only if source changed
+let diags   = db.diagnostics()  // Array[Diagnostic], empty on success
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 Performance benchmarks for the incremental parser implementation.
 
-**Last measured:** 2026-02-28 (`moon bench --release`)
+**Last measured:** 2026-03-06 (`moon bench --release`)
 
 ## Running Benchmarks
 

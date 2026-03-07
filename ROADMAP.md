@@ -82,7 +82,7 @@
 - **Phase 4: Subtree Reuse** ✅ (2026-02-03) — `ReuseCursor` 4-condition protocol, O(depth) per lookup — [notes](docs/archive/completed-phases/phases-0-4.md)
 - **Phase 5: Generic Parser Framework** ✅ (2026-02-23) — `ParserContext[T,K]`, `LanguageSpec[T,K]`, `parse_with` — [notes](docs/archive/completed-phases/2026-02-23-generic-parser-impl.md)
 - **Phase 6: Generic Incremental Reuse** ✅ (2026-02-24) — `ReuseCursor[T,K]`, `node()`/`wrap_at()` combinators — [notes](docs/archive/completed-phases/2026-02-24-generic-incremental-reuse-design.md)
-- **Phase 7: Reactive Pipeline** ✅ (2026-02-25) — `ReactiveParser`: `Signal[String]`→`Memo[CstStage]`→`Memo[AstNode]` — [ADR](docs/decisions/2026-02-27-remove-tokenStage-memo.md)
+- **Phase 7: Reactive Pipeline** ✅ (2026-02-25) — `ReactiveParser`: `Signal[String]`→`Memo[CstStage]`→`Memo[Ast]` — [ADR](docs/decisions/2026-02-27-remove-tokenStage-memo.md)
 - **SyntaxNode-First Layer** ✅ (2026-02-25) — `SyntaxToken`, `SyntaxElement`, `.cst` private — [notes](docs/archive/completed-phases/2026-02-25-syntax-node-first-layer.md)
 - **NodeInterner** ✅ (2026-02-28) — `Interner` + `NodeInterner`, session-global interners — [notes](docs/archive/completed-phases/2026-02-25-node-interner.md)
 - **Grammar Abstraction** ✅ (2026-03-01) — `Grammar[T,K,Ast]`, `new_imperative_parser`/`new_reactive_parser` — [notes](docs/archive/completed-phases/2026-03-01-extract-generic-factories.md)
@@ -90,6 +90,10 @@
 - **Rabbita Monorepo Migration** ✅ (2026-03-02) — submodules absorbed, lambda → `examples/lambda/` — [notes](docs/archive/completed-phases/2026-03-02-rabbita-style-monorepo.md)
 - **Parser API Simplification** ✅ (2026-03-02) — `ImperativeParser`/`ReactiveParser`, global interners, `diagnostics()`/`reset()`, CST equality skip — [notes](docs/archive/completed-phases/2026-03-02-parser-api-impl.md)
 - **Typed SyntaxNode Views** ✅ (2026-03-03) — rust-analyzer-style typed wrappers (`LambdaExprView`, `AppExprView`, …) replacing `AstNode`; `syntax_node_to_term` via views; `SyntaxNode::Eq`/`ToJson`; `AstView` trait in loom/core — [design](docs/archive/completed-phases/2026-03-03-typed-syntax-node-views-design.md) · [impl](docs/archive/completed-phases/2026-03-03-typed-syntax-node-views.md)
+- **Seam Trait Cleanup** ✅ (2026-03-04) — removed all 7 closure fields from `LanguageSpec`; replaced with MoonBit traits `IsTrivia`/`IsEof`/`ToRawKind`/`FromRawKind` on `T`/`K` type params; deleted `src/bridge/` — [design](docs/archive/completed-phases/2026-03-04-seam-trait-cleanup-design.md) · [impl](docs/archive/completed-phases/2026-03-04-seam-trait-cleanup.md)
+- **AstNode Removal** ✅ (2026-03-05) — removed `AstNode`/`AstKind` entirely; `syntax_node_to_term` converts `SyntaxNode` → `Term` directly via typed views; collapsed `cst_convert.mbt` — [design](docs/archive/completed-phases/2026-03-05-remove-astnode-design.md) · [impl](docs/archive/completed-phases/2026-03-05-remove-astnode.md)
+- **Term::Error Variant** ✅ (2026-03-05) — `Term::Error(String)` replaces 18 `Term::Var("<error>")` sentinels; `print_term` renders as `<error: msg>` — [notes](docs/archive/completed-phases/2026-03-05-term-error-variant.md)
+- **Multi-Expression Files** ✅ (2026-03-05) — `parse_source_file`/`parse_source_file_term`; top-level `let` sequences; `LetDef`/`SourceFile` CST nodes; independent subtree reuse verified — [design](docs/archive/completed-phases/2026-03-04-multi-expression-files-design.md) · [impl](docs/archive/completed-phases/2026-03-04-multi-expression-files.md)
 
 ---
 
@@ -128,6 +132,14 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
                 +------ Parser API Simplification       ✅ COMPLETE (2026-03-02)
                 |
                 +------ Typed SyntaxNode Views          ✅ COMPLETE (2026-03-03)
+                |
+                +------ Seam Trait Cleanup              ✅ COMPLETE (2026-03-04)
+                |
+                +------ AstNode Removal                 ✅ COMPLETE (2026-03-05)
+                |
+                +------ Term::Error Variant             ✅ COMPLETE (2026-03-05)
+                |
+                +------ Multi-Expression Files          ✅ COMPLETE (2026-03-05)
 ```
 
 ---
@@ -150,6 +162,10 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 | Rabbita Monorepo Migration | ✅ Complete (2026-03-02) |
 | Parser API Simplification | ✅ Complete (2026-03-02) |
 | Typed SyntaxNode Views | ✅ Complete (2026-03-03) |
+| Seam Trait Cleanup | ✅ Complete (2026-03-04) |
+| AstNode Removal | ✅ Complete (2026-03-05) |
+| Term::Error Variant | ✅ Complete (2026-03-05) |
+| Multi-Expression Files | ✅ Complete (2026-03-05) |
 
 ---
 
