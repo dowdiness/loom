@@ -5,6 +5,7 @@
   "deps": {
     "dowdiness/seam": { "path": "../seam" },
     "dowdiness/incr": { "path": "../incr" },
+    "antisatori/graphviz": { "path": "../graphviz" },
     "moonbitlang/quickcheck": "0.9.10"
   },
   "readme": "README.md",

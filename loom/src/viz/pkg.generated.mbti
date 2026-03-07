@@ -1,12 +1,28 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/loom/viz"
 
+import {
+  "antisatori/graphviz/lib/parser",
+}
+
 // Values
 pub fn[T : DotNode] to_dot(T) -> String
+
+pub fn[T : DotNode] to_graph(T) -> @parser.Graph
 
 // Errors
 
 // Types and methods
+pub(all) struct DotTreeNode {
+  int_id : Int
+  id : String
+  label : String
+  attrs : Map[String, String]
+  children : Array[DotTreeNode]
+  edge_labels : Array[String]
+}
+pub fn DotTreeNode::from_graph(@parser.Graph) -> Self?
+pub impl DotNode for DotTreeNode
 
 // Type aliases
 

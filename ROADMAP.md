@@ -169,6 +169,12 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 
 ---
 
+## TODO
+
+- [ ] Delete local `graphviz/` module and switch `loom/moon.mod.json` to the published `antisatori/graphviz` package version.
+
+---
+
 ## What This Roadmap Does NOT Include
 
 1. **Parser generation.** Hand-written recursive descent. Checkpoint-based reuse compensates for lower reuse granularity vs Lezer/tree-sitter.
