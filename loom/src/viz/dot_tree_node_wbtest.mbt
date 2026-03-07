@@ -30,3 +30,37 @@ test "from_graph: chained edge targets are linked sequentially" {
     None => inspect(false, content="true")
   }
 }
+
+///|
+test "from_graph: returns None when graph contains a reachable cycle" {
+  let graph : @parser.Graph = {
+    strict: false,
+    directed: true,
+    id: None,
+    statements: [
+      @parser.NodeStmt({ id: "a", port: None }, None),
+      @parser.NodeStmt({ id: "b", port: None }, None),
+      @parser.NodeStmt({ id: "c", port: None }, None),
+      @parser.EdgeStmt(
+        { id: "a", port: None },
+        [(@parser.Directed, { id: "b", port: None })],
+        None,
+      ),
+      @parser.EdgeStmt(
+        { id: "b", port: None },
+        [(@parser.Directed, { id: "c", port: None })],
+        None,
+      ),
+      @parser.EdgeStmt(
+        { id: "c", port: None },
+        [(@parser.Directed, { id: "b", port: None })],
+        None,
+      ),
+    ],
+  }
+
+  match DotTreeNode::from_graph(graph) {
+    Some(_) => inspect(false, content="true")
+    None => inspect(true, content="true")
+  }
+}

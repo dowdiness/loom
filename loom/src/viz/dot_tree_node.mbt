@@ -121,7 +121,10 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
     None => None
     Some(rid) => {
       let counter = Ref::new(0)
-      Some(build_tree(rid, node_labels, node_attrs_map, child_list, counter))
+      let visiting : Map[String, Bool] = Map::new()
+      build_tree(
+        rid, node_labels, node_attrs_map, child_list, counter, visiting,
+      )
     }
   }
 }
@@ -133,7 +136,13 @@ fn build_tree(
   node_attrs_map : Map[String, Map[String, String]],
   child_list : Map[String, Array[(String, String)]],
   counter : Ref[Int],
-) -> DotTreeNode {
+  visiting : Map[String, Bool],
+) -> DotTreeNode? {
+  match visiting.get(nid) {
+    Some(true) => return None
+    _ => ()
+  }
+  visiting[nid] = true
   let int_id = counter.val
   counter.val = counter.val + 1
   let label = node_labels.get(nid).unwrap_or(nid)
@@ -144,12 +153,20 @@ fn build_tree(
     Some(children) =>
       for pair in children {
         let (child_id, el) = pair
-        kids.push(
-          build_tree(child_id, node_labels, node_attrs_map, child_list, counter),
+        let child = build_tree(
+          child_id, node_labels, node_attrs_map, child_list, counter, visiting,
         )
+        match child {
+          Some(node) => kids.push(node)
+          None => {
+            visiting[nid] = false
+            return None
+          }
+        }
         edge_labels.push(el)
       }
     None => ()
   }
-  { int_id, id: nid, label, attrs, children: kids, edge_labels }
+  visiting[nid] = false
+  Some({ int_id, id: nid, label, attrs, children: kids, edge_labels })
 }

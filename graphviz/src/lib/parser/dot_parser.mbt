@@ -158,6 +158,15 @@ fn Lexer::advance(self : Lexer) -> Unit {
 }
 
 ///|
+fn Lexer::peek_char(self : Lexer) -> Char? {
+  if self.position >= self.input.length() {
+    None
+  } else {
+    UInt16::to_char(self.input.at(self.position))
+  }
+}
+
+///|
 fn Lexer::skip_whitespace(self : Lexer) -> Unit {
   match self.current_char {
     Some(' ') | Some('\t') | Some('\n') | Some('\r') => {
@@ -169,12 +178,25 @@ fn Lexer::skip_whitespace(self : Lexer) -> Unit {
 }
 
 ///|
-fn Lexer::skip_comment(self : Lexer) -> Unit {
+fn Lexer::skip_comment(self : Lexer) -> Bool {
   match self.current_char {
-    Some('/') => {
-      self.advance()
-      match self.current_char {
-        Some('/') =>
+    Some('#') => {
+      // Hash comment: consume until newline or EOF
+      loop self.current_char {
+        Some('\n') | None => break
+        _ => {
+          self.advance()
+          continue self.current_char
+        }
+      }
+      true
+    }
+    Some('/') =>
+      match self.peek_char() {
+        Some('/') => {
+          // Consume both slashes
+          self.advance()
+          self.advance()
           // Single line comment
           loop self.current_char {
             Some('\n') | None => break
@@ -183,14 +205,18 @@ fn Lexer::skip_comment(self : Lexer) -> Unit {
               continue self.current_char
             }
           }
+          true
+        }
         Some('*') => {
-          // Multi-line comment
+          // Consume '/' and '*'
           self.advance()
+          self.advance()
+          // Multi-line comment
           loop self.current_char {
             None => break
             Some('*') => {
               self.advance()
-              loop self.current_char {
+              match self.current_char {
                 Some('/') => {
                   self.advance()
                   break
@@ -203,24 +229,11 @@ fn Lexer::skip_comment(self : Lexer) -> Unit {
               continue self.current_char
             }
           }
+          true
         }
-        _ => {
-          // Not a comment, backtrack
-          self.position -= 1
-          self.current_char = Some('/')
-        }
+        _ => false
       }
-    }
-    Some('#') =>
-      // Hash comment
-      loop self.current_char {
-        Some('\n') | None => break
-        _ => {
-          self.advance()
-          continue self.current_char
-        }
-      }
-    _ => ()
+    _ => false
   }
 }
 
@@ -285,9 +298,13 @@ fn Lexer::next_token(self : Lexer) -> Token {
     self.skip_whitespace()
     match self.current_char {
       None => return EOF
-      Some('/') | Some('#') => {
-        self.skip_comment()
-        continue
+      Some('#') => self.skip_comment() |> ignore
+      Some('/') => {
+        if self.skip_comment() {
+          continue
+        }
+        self.advance()
+        return ID("/")
       }
       Some('{') => {
         self.advance()
@@ -733,7 +750,14 @@ fn Parser::parse_graph(self : Parser) -> Graph? {
 ///|
 pub fn parse_dot(input : String) -> Graph? {
   let parser = Parser::new(input)
-  parser.parse_graph()
+  match parser.parse_graph() {
+    Some(graph) =>
+      match parser.current_token {
+        EOF => Some(graph)
+        _ => None
+      }
+    None => None
+  }
 }
 
 ///|
@@ -743,9 +767,9 @@ fn needs_quoting(s : String) -> Bool {
     return true
   }
   if (match s {
-    "strict" | "graph" | "digraph" | "node" | "edge" | "subgraph" => true
-    _ => false
-  }) {
+      "strict" | "graph" | "digraph" | "node" | "edge" | "subgraph" => true
+      _ => false
+    }) {
     return true
   }
   let mut has_ascii_alpha = false
@@ -827,18 +851,22 @@ pub fn format_graph(graph : Graph) -> String {
   buf.to_string()
 }
 
+///|
 fn format_node_id(node_id : NodeId) -> String {
   let mut result = format_id(node_id.id)
   match node_id.port {
-    Some(port) => {
+    Some(port) =>
       match (port.id, port.compass) {
         (Some(port_id), Some(compass)) =>
-          result = result + ":" + format_id(port_id) + ":" + format_compass(compass)
+          result = result +
+            ":" +
+            format_id(port_id) +
+            ":" +
+            format_compass(compass)
         (Some(port_id), None) => result = result + ":" + format_id(port_id)
         (None, Some(compass)) => result = result + ":" + format_compass(compass)
         (None, None) => result = result + ":"
       }
-    }
     None => ()
   }
   result
@@ -889,8 +917,8 @@ fn format_statement_with_indent(stmt : Statement, indent_level : Int) -> String 
       result = result + " {\n"
       for nested_stmt in subgraph.statements {
         result = result + format_indent(indent_level + 1)
-        result =
-          result + format_statement_with_indent(nested_stmt, indent_level + 1)
+        result = result +
+          format_statement_with_indent(nested_stmt, indent_level + 1)
         result = result + ";\n"
       }
       result = result + format_indent(indent_level) + "}"
