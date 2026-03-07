@@ -378,3 +378,32 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 **Why deferred**: Pattern strings are typically short (< 50 chars). Position info adds parsing complexity for marginal benefit.
 
 **Revisit when**: Pattern strings become long or are generated programmatically, making error localization important.
+
+---
+
+## 25. `canonical_class_ids` Duplicates `search` Visited-Set Pattern
+
+**Concern**: `AnalyzedEGraph::canonical_class_ids()` and `EGraph::search()` both iterate `self.classes`, canonicalize each Id via `find()`, and deduplicate using a `HashSet`. A shared helper like `EGraph::canonical_ids() -> Array[Id]` could serve both.
+
+**Current choice**: Keep them separate — they operate on different types (`EGraph` vs `AnalyzedEGraph`) and `search` does more than just collect Ids (it runs ematch per class).
+
+**Why deferred**: Extracting to `EGraph` would require exposing it as a method, but it's only needed by `AnalyzedEGraph` (same package, so access is fine either way). The duplication is 8 lines of straightforward iteration — not enough to justify a new method on the core type.
+
+**Revisit when**: A third call site appears, or `EGraph::rebuild` adopts the same pattern (currently it uses a different cleanup strategy).
+
+---
+
+## 26. `recompute_data` Map-Swap Per Pass
+
+**Concern**: `recompute_data` allocates a fresh `next_data` map per relaxation pass, populates it, clears `self.data`, and copies entries back. Combined with the O(n) pass count (concern #23), this creates O(n) temporary map allocations and O(n^2) total entry copies.
+
+**Current choice**: Accept the allocation — the map-swap ensures each pass reads from the previous pass's stable snapshot, avoiding read-after-write hazards from in-place updates.
+
+**Alternatives**:
+- In-place update with a "changed" flag (enables early termination too, but risks read-after-write within a pass)
+- Two pre-allocated maps with pointer swap (avoids allocation, but MoonBit struct fields aren't reassignable)
+- Single map with generation counters
+
+**Why deferred**: Tied to the relaxation approach (concern #23). Fixing the O(n) pass count via early termination would proportionally reduce the map-swap cost, making it negligible. Solving the pass count is higher priority.
+
+**Revisit when**: Concern #23 is addressed (early termination), and map allocation remains a measurable cost afterward.

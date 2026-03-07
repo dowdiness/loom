@@ -410,6 +410,12 @@ fn[L] EGraph::find(self : EGraph[L], id : Id) -> Id {
 }
 
 ///|
+/// Whether there are pending congruences to process.
+fn[L] EGraph::has_pending(self : EGraph[L]) -> Bool {
+  self.pending.length() > 0
+}
+
+///|
 /// Total number of e-class slots (Union-Find entries).
 /// This grows monotonically — unions merge classes but don't remove slots.
 fn[L] EGraph::size(self : EGraph[L]) -> Int {
@@ -1089,12 +1095,12 @@ fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
   while true {
     self.egraph.rebuild()
     self.canonicalize_data()
-    self.recompute_data()
     let class_ids = self.canonical_class_ids()
+    self.recompute_data(class_ids)
     for id in class_ids {
       (self.analysis.modify)(self, id)
     }
-    if self.egraph.pending.length() == 0 {
+    if not(self.egraph.has_pending()) {
       break
     }
   }
@@ -1135,14 +1141,17 @@ fn[L, D] AnalyzedEGraph::canonicalize_data(self : AnalyzedEGraph[L, D]) -> Unit 
 }
 
 ///|
-fn[L, D] AnalyzedEGraph::recompute_data(self : AnalyzedEGraph[L, D]) -> Unit {
-  let class_ids = self.canonical_class_ids()
+fn[L, D] AnalyzedEGraph::recompute_data(
+  self : AnalyzedEGraph[L, D],
+  class_ids : Array[Id],
+) -> Unit {
   if class_ids.length() == 0 {
     return
   }
   // Fixed number of relaxation passes to propagate new child facts
   // through parents after congruence changes.
   let pass_count = class_ids.length()
+  let lookup = fn(child) { self.get_data(child) }
   for pass = 0; pass < pass_count; pass = pass + 1 {
     let next_data : Map[Id, D] = {}
     for id in class_ids {
@@ -1150,9 +1159,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(self : AnalyzedEGraph[L, D]) -> Unit {
         Some(eclass) => {
           let mut combined : D? = None
           for node in eclass.nodes {
-            let d = (self.analysis.make)(node, fn(child) {
-              self.get_data(child)
-            })
+            let d = (self.analysis.make)(node, lookup)
             combined = match combined {
               Some(acc) => Some((self.analysis.merge)(acc, d))
               None => Some(d)
