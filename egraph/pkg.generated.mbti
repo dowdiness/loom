@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/egraph"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Id(Int)
+#deprecated
+pub fn Id::inner(Self) -> Int
+pub impl Compare for Id
+pub impl Eq for Id
+pub impl Hash for Id
+pub impl Show for Id
+pub impl @debug.Debug for Id
+
+// Type aliases
+
+// Traits
+
