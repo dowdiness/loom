@@ -92,13 +92,15 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
             }
           None => ()
         }
+        let mut current_source = start.id
         for pair in targets {
           let target = pair.1
-          match child_list.get(start.id) {
+          match child_list.get(current_source) {
             Some(arr) => arr.push((target.id, edge_label))
-            None => child_list[start.id] = [(target.id, edge_label)]
+            None => child_list[current_source] = [(target.id, edge_label)]
           }
           has_incoming[target.id] = true
+          current_source = target.id
         }
       }
       _ => ()

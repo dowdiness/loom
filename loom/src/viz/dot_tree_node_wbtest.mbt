@@ -1,0 +1,32 @@
+///|
+test "from_graph: chained edge targets are linked sequentially" {
+  let graph : @parser.Graph = {
+    strict: false,
+    directed: true,
+    id: None,
+    statements: [
+      @parser.NodeStmt({ id: "a", port: None }, None),
+      @parser.NodeStmt({ id: "b", port: None }, None),
+      @parser.NodeStmt({ id: "c", port: None }, None),
+      @parser.EdgeStmt(
+        { id: "a", port: None },
+        [
+          (@parser.Directed, { id: "b", port: None }),
+          (@parser.Directed, { id: "c", port: None }),
+        ],
+        None,
+      ),
+    ],
+  }
+
+  match DotTreeNode::from_graph(graph) {
+    Some(root) => {
+      inspect(root.id, content="a")
+      inspect(root.children.length(), content="1")
+      inspect(root.children[0].id, content="b")
+      inspect(root.children[0].children.length(), content="1")
+      inspect(root.children[0].children[0].id, content="c")
+    }
+    None => inspect(false, content="true")
+  }
+}
