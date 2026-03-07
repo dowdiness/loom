@@ -243,6 +243,25 @@ fn Lexer::read_identifier(self : Lexer) -> String {
 }
 
 ///|
+fn Lexer::read_number(self : Lexer) -> String {
+  loop (self.current_char, "", false) {
+    (Some(c), acc, has_dot) if c.is_numeric() => {
+      self.advance()
+      continue (self.current_char, acc + c.to_string(), has_dot)
+    }
+    (Some('.'), acc, false) =>
+      match self.peek_char() {
+        Some(next) if next.is_numeric() => {
+          self.advance()
+          continue (self.current_char, acc + ".", true)
+        }
+        _ => break acc
+      }
+    (_, acc, _) => break acc
+  }
+}
+
+///|
 fn Lexer::read_quoted_string(self : Lexer) -> String {
   let quote_char = self.current_char.unwrap()
   self.advance() // Skip opening quote
@@ -355,7 +374,7 @@ fn Lexer::next_token(self : Lexer) -> Token {
         return keyword_or_id(word)
       }
       Some(c) if c.is_numeric() => {
-        let word = self.read_identifier()
+        let word = self.read_number()
         return ID(word)
       }
       Some(c) => {
@@ -465,6 +484,43 @@ fn Parser::parse_node_id(self : Parser) -> NodeId? {
 }
 
 ///|
+fn first_node_id_in_subgraph(subgraph : Subgraph) -> NodeId? {
+  for stmt in subgraph.statements {
+    match stmt {
+      NodeStmt(node_id, _) => return Some(node_id)
+      EdgeStmt(start, _, _) => return Some(start)
+      Subgraph(nested) =>
+        match first_node_id_in_subgraph(nested) {
+          Some(node_id) => return Some(node_id)
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn subgraph_as_node_id(subgraph : Subgraph) -> NodeId? {
+  match subgraph.id {
+    Some(id) => Some({ id, port: None })
+    None => first_node_id_in_subgraph(subgraph)
+  }
+}
+
+///|
+fn Parser::parse_edge_endpoint_node_id(self : Parser) -> NodeId? {
+  match self.parse_node_id() {
+    Some(node_id) => Some(node_id)
+    None =>
+      match self.parse_subgraph() {
+        Some(subgraph) => subgraph_as_node_id(subgraph)
+        None => None
+      }
+  }
+}
+
+///|
 fn Parser::parse_attribute(self : Parser) -> Attribute? {
   match self.current_token {
     ID(key) => {
@@ -538,7 +594,7 @@ fn Parser::parse_edge_rhs(self : Parser) -> Array[(EdgeOp, NodeId)]? {
       }
       _ => break
     }
-    match self.parse_node_id() {
+    match self.parse_edge_endpoint_node_id() {
       Some(node_id) => edges.push((edge_op, node_id))
       None => break
     }
@@ -576,17 +632,31 @@ fn Parser::parse_statement(self : Parser) -> Statement? {
       }
     }
 
-    // Subgraph
-    Subgraph =>
+    // Subgraph (explicit or anonymous)
+    Subgraph | LeftBrace =>
       match self.parse_subgraph() {
-        Some(subgraph) => Some(Subgraph(subgraph))
+        Some(subgraph) =>
+          match subgraph_as_node_id(subgraph) {
+            Some(start_node) =>
+              match self.parse_edge_rhs() {
+                Some(edges) => {
+                  let attr_list = self.parse_attr_list()
+                  Some(EdgeStmt(start_node, edges, attr_list))
+                }
+                None => Some(Subgraph(subgraph))
+              }
+            None =>
+              match self.current_token {
+                Arrow | Line => None
+                _ => Some(Subgraph(subgraph))
+              }
+          }
         None => None
       }
 
     // Unhandled tokens
     Digraph
     | Strict
-    | LeftBrace
     | RightBrace
     | LeftBracket
     | RightBracket
