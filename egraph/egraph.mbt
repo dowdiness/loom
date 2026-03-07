@@ -403,6 +403,13 @@ fn[L] EGraph::find(self : EGraph[L], id : Id) -> Id {
 }
 
 ///|
+/// Total number of e-class slots (Union-Find entries).
+/// This grows monotonically — unions merge classes but don't remove slots.
+fn[L] EGraph::size(self : EGraph[L]) -> Int {
+  self.uf.size()
+}
+
+///|
 /// Add an e-node to the e-graph. Returns its e-class Id.
 ///
 /// Hashconsing: before inserting, canonicalize the node's children
@@ -694,24 +701,24 @@ fn rewrite(name : String, lhs : String, rhs : String) -> Rewrite raise Error {
 }
 
 ///|
-/// Apply a rewrite rule to the e-graph.
+/// Apply pre-collected matches for a rewrite rule.
 ///
-/// For each match of lhs in the e-graph:
+/// For each match:
 ///   1. Check the optional condition (skip if it returns false).
 ///   2. Instantiate the rhs pattern using the matched substitution.
 ///   3. Union the matched e-class with the instantiated rhs e-class.
 ///
 /// Returns the number of new unions performed.
-/// Caller should call `rebuild()` afterward to restore congruence.
-fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
+/// Used by both `apply_rewrite` (single-rule convenience) and
+/// `Runner::run` (batched two-phase equality saturation).
+fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
   self : EGraph[L],
   rule : Rewrite,
+  matches : Array[(Id, Subst)],
 ) -> Int {
-  let matches = self.search(rule.lhs)
   let mut applied = 0
   for pair in matches {
     let (matched_id, subst) = pair
-    // Check optional condition
     match rule.condition {
       Some(cond) => if not(cond(subst)) { continue }
       None => ()
@@ -723,6 +730,19 @@ fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
     }
   }
   applied
+}
+
+///|
+/// Apply a rewrite rule to the e-graph (search + apply in one call).
+///
+/// Convenience wrapper: searches for lhs matches, then applies them.
+/// Caller should call `rebuild()` afterward to restore congruence.
+fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
+  self : EGraph[L],
+  rule : Rewrite,
+) -> Int {
+  let matches = self.search(rule.lhs)
+  self.apply_matches(rule, matches)
 }
 
 // ── Extraction ──
@@ -857,4 +877,95 @@ fn[L : ENode] reconstruct(
   rec_nodes.push(remapped)
   id_to_idx[eclass_id] = idx
   idx
+}
+
+// ── Runner (Equality Saturation Loop) ──
+//
+// The Runner automates the equality saturation process: repeatedly
+// search for pattern matches, apply rewrite rules, and rebuild the
+// e-graph until no more changes occur (saturation) or a resource
+// limit is hit.
+//
+// Each iteration follows the Read-Write-Rebuild pattern:
+//   1. **Read phase**: search all rewrite rules, collecting matches.
+//      Matches are collected BEFORE any writes so that all rules see
+//      a consistent snapshot of the e-graph.
+//   2. **Write phase**: instantiate the right-hand sides and union
+//      them with their matched e-classes.
+//   3. **Rebuild phase**: restore the congruence invariant, which may
+//      expose new matches for the next iteration.
+//
+// Stopping conditions:
+//   - Saturated: no rewrite rule produced a new union (fixed point).
+//   - IterLimit: reached the maximum number of iterations.
+//   - NodeLimit: the e-graph exceeded the maximum number of e-nodes.
+
+///|
+/// Why the equality saturation loop stopped.
+priv enum StopReason {
+  Saturated
+  IterLimit
+  NodeLimit
+} derive(Eq, Show, Debug)
+
+///|
+/// Equality saturation executor.
+///
+/// Wraps an e-graph and runs rewrite rules until saturation or a limit.
+/// `roots` are Ids of interest (e.g., the expression to optimize) —
+/// currently for bookkeeping, future use in extraction after saturation.
+priv struct Runner[L] {
+  egraph : EGraph[L]
+  roots : Array[Id]
+  iter_limit : Int
+  node_limit : Int
+}
+
+///|
+/// Create a Runner with default limits.
+/// iter_limit defaults to 30, node_limit defaults to 10_000.
+fn[L] Runner::new(
+  egraph : EGraph[L],
+  roots? : Array[Id] = [],
+  iter_limit? : Int = 30,
+  node_limit? : Int = 10_000,
+) -> Runner[L] {
+  { egraph, roots, iter_limit, node_limit }
+}
+
+///|
+/// Run equality saturation: apply rewrite rules until saturation or a limit.
+///
+/// Returns why the loop stopped.
+fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
+  self : Runner[L],
+  rules : Array[Rewrite],
+) -> StopReason {
+  for iter = 0; iter < self.iter_limit; iter = iter + 1 {
+    // === Read Phase ===
+    // Collect all matches before any writes, so every rule sees a
+    // consistent e-graph snapshot (no cross-rule interference).
+    let all_matches : Array[(Rewrite, Array[(Id, Subst)])] = []
+    for rule in rules {
+      let matches = self.egraph.search(rule.lhs)
+      all_matches.push((rule, matches))
+    }
+    // === Write Phase ===
+    // Apply rewrites at matched locations.
+    let mut applied = 0
+    for pair in all_matches {
+      let (rule, matches) = pair
+      applied = applied + self.egraph.apply_matches(rule, matches)
+    }
+    // === Rebuild Phase ===
+    self.egraph.rebuild()
+    // === Termination Check ===
+    if applied == 0 {
+      return Saturated
+    }
+    if self.egraph.size() > self.node_limit {
+      return NodeLimit
+    }
+  }
+  IterLimit
 }

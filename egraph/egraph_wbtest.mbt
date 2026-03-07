@@ -534,6 +534,114 @@ test "extract shares DAG: same e-class reused" {
   assert_eq(expr.root(), Add(Id(0), Id(0)))
 }
 
+// ── Runner tests ──
+
+///|
+test "runner reaches saturation with simple rules" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let sum = eg.add(Add(a, zero))
+  let rules = [rewrite("add-zero", "(Add ?x (Num:0))", "?x")]
+  let runner = Runner::new(eg, roots=[sum])
+  let reason = runner.run(rules)
+  // Simple rule should reach saturation quickly
+  assert_eq(reason, Saturated)
+  // After saturation, sum and a are equivalent
+  assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
+}
+
+///|
+test "runner stops at iter_limit" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  // Build (Add (Add a 0) 0) — needs 2 iterations to fully simplify
+  let inner = eg.add(Add(a, zero))
+  let _ = eg.add(Add(inner, zero))
+  let rules = [rewrite("add-zero", "(Add ?x (Num:0))", "?x")]
+  // iter_limit=1 stops before full simplification
+  let runner = Runner::new(eg, iter_limit=1)
+  let reason = runner.run(rules)
+  assert_eq(reason, IterLimit)
+}
+
+///|
+test "runner stops at node_limit" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let _ = eg.add(Add(a, b))
+  // Commutativity + associativity would grow the graph; use a low node_limit
+  // We add enough structure for rules to create new nodes
+  let rules = [
+    rewrite("add-comm", "(Add ?x ?y)", "(Add ?y ?x)"),
+    rewrite("add-zero-intro", "?x", "(Add ?x (Num:0))"),
+  ]
+  // Very low node limit — will be exceeded quickly
+  let runner = Runner::new(eg, node_limit=10)
+  let reason = runner.run(rules)
+  assert_eq(reason, NodeLimit)
+}
+
+///|
+test "runner + extraction: (a+0)+0 simplifies to a" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let inner = eg.add(Add(a, zero))
+  let outer = eg.add(Add(inner, zero))
+  let rules = [rewrite("add-zero", "(Add ?x (Num:0))", "?x")]
+  let runner = Runner::new(eg, roots=[outer])
+  let reason = runner.run(rules)
+  assert_eq(reason, Saturated)
+  // Extract from the root — should get Num(1), cost 1
+  let (cost, expr) = runner.egraph.extract(outer, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), Num(1))
+}
+
+///|
+test "runner with multiple rules: (a*2)/2 simplifies" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(5))
+  let zero = eg.add(Num(0))
+  // Build a + 0
+  let sum = eg.add(Add(a, zero))
+  // Also build 0 + a (to test both directions)
+  let sum2 = eg.add(Add(zero, a))
+  let rules = [
+    rewrite("add-zero-right", "(Add ?x (Num:0))", "?x"),
+    rewrite("add-zero-left", "(Add (Num:0) ?x)", "?x"),
+  ]
+  let runner = Runner::new(eg, roots=[sum, sum2])
+  let reason = runner.run(rules)
+  assert_eq(reason, Saturated)
+  // Both should be equivalent to a
+  assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
+  assert_eq(runner.egraph.find(sum2), runner.egraph.find(a))
+  // Extraction gives cheapest
+  let (cost, expr) = runner.egraph.extract(sum, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), Num(5))
+}
+
+///|
+test "runner: commutativity saturates for single expression" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let ab = eg.add(Add(a, b))
+  let rules = [rewrite("add-comm", "(Add ?x ?y)", "(Add ?y ?x)")]
+  let runner = Runner::new(eg, roots=[ab])
+  let reason = runner.run(rules)
+  // Commutativity for a single Add saturates: a+b ↔ b+a merge, then no new matches
+  assert_eq(reason, Saturated)
+  // a+b and b+a should now be in the same e-class
+  let ba = runner.egraph.add(Add(b, a))
+  assert_eq(runner.egraph.find(ab), runner.egraph.find(ba))
+}
+
 ///|
 test "many unions converge to single root" {
   let uf = UnionFind()

@@ -202,3 +202,68 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 **Why deferred**: 5 parameters is acceptable for a private recursive helper called from one site. Bundling would add a struct definition for a single use.
 
 **Revisit when**: `reconstruct` is reused from multiple call sites, or the parameter list grows further.
+
+---
+
+## 14. Runner: node_limit Counts UF Slots, Not Live E-Classes
+
+**Concern**: `EGraph::size()` returns `self.uf.size()` — the total number of Union-Find slots ever created. This counter grows monotonically (unions merge classes but never remove slots). The field name `node_limit` suggests a cap on e-nodes or e-classes, but it actually limits UF entries, which over-counts after merges.
+
+**Current choice**: Use UF slot count — matches egg's `Runner` behavior and is cheap (O(1) lookup).
+
+**Alternatives**:
+- Track live e-class count separately (decrement on merge, increment on add)
+- Use `self.classes.size()` (number of entries in the classes map) — more accurate but stale keys may inflate it
+- Rename to `slot_limit` or `entry_limit` for clarity
+
+**Why deferred**: The over-counting is conservative (stops earlier, not later), so it is safe. Egg uses the same approach. The difference only matters for very large e-graphs with many merges.
+
+**Revisit when**: Users observe premature `NodeLimit` stops, or when e-graph size reporting is needed for diagnostics.
+
+---
+
+## 15. Runner: Unused `roots` Field
+
+**Concern**: `Runner.roots` is accepted in the constructor and stored but never read by `Runner::run`. Tests pass `roots=` values that have no observable effect.
+
+**Current choice**: Keep the field — planned for post-saturation convenience (e.g., `runner.extract_best(cost_fn)` that extracts from all roots).
+
+**Alternatives**:
+- Remove until needed (YAGNI)
+- Wire up immediately: add `Runner::extract` that delegates to `EGraph::extract` for each root
+
+**Why deferred**: The field costs nothing to carry and documents intent. Wiring it up requires deciding the extraction API shape, which is a Step 7 concern.
+
+**Revisit when**: Step 7 (lambda-opt example) needs post-saturation extraction from the Runner.
+
+---
+
+## 16. Runner: Unused `Rewrite.name` Field
+
+**Concern**: `Rewrite.name` is set in the `rewrite()` constructor but never read — not in `apply_rewrite`, not in `Runner::run`, not in any error or log message.
+
+**Current choice**: Keep the field — standard in e-graph implementations for debugging, tracing, and diagnostics.
+
+**Alternatives**:
+- Remove until needed
+- Use in `StopReason` (e.g., `Saturated { iterations: Int }`) or trace logging
+
+**Why deferred**: The field is conventional in egg and egglog. It will be useful when adding iteration logging or rule-level statistics in Step 7/8.
+
+**Revisit when**: Adding debug/trace output, or rule-level performance reporting.
+
+---
+
+## 17. Runner: TimeLimit Omitted (No Wall-Clock API)
+
+**Concern**: The implementation plan included `TimeLimit` as a `StopReason` variant and `time_limit : Int64` on `Runner`. This was omitted because MoonBit's standard library does not expose a cross-platform monotonic clock.
+
+**What TimeLimit would solve**:
+- **Runaway saturation**: some rule sets (associativity + commutativity + distributivity) cause exponential e-graph growth. `NodeLimit` caps memory, but computation could spin for minutes before reaching it. `TimeLimit` guarantees the runner returns within a bounded duration.
+- **Interactive/real-time use**: if the optimizer runs inside an editor or compiler, you want "best result within 100ms" rather than "perfect result eventually."
+
+**Why omitted**: Implementing `TimeLimit` requires a monotonic clock (e.g., `System.nanoTime()`, `performance.now()`). MoonBit has no cross-platform clock API — it would need platform-specific FFI (`@wasm.performance_now()` for JS target, OS syscalls for native).
+
+**Current mitigation**: `IterLimit` + `NodeLimit` together bound both computation and memory without needing a clock. Sufficient for research/educational use.
+
+**Revisit when**: MoonBit adds a standard clock API, or when the e-graph is used in a latency-sensitive context (editor plugin, compiler pass).

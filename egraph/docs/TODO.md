@@ -7,7 +7,7 @@
 - [x] Step 3: E-Matching (ENodeRepr, Pat, ematch, search, instantiate)
 - [x] Step 4: Rewrite Rules (Rewrite, apply_rewrite)
 - [x] Step 5: Extraction (CostFn, RecExpr, extract)
-- [ ] Step 6: Runner (equality saturation loop)
+- [x] Step 6: Runner (equality saturation loop)
 - [ ] Step 7: lambda-opt example
 - [ ] Step 8: E-Class Analysis
 
