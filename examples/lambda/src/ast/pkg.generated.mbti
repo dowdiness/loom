@@ -2,6 +2,7 @@
 package "dowdiness/lambda/ast"
 
 import {
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
 
@@ -18,6 +19,7 @@ pub(all) enum Bop {
 pub impl Eq for Bop
 pub impl Show for Bop
 pub impl ToJson for Bop
+pub impl @debug.Debug for Bop
 pub impl @json.FromJson for Bop
 
 pub(all) enum Term {
@@ -34,6 +36,7 @@ pub(all) enum Term {
 pub impl Eq for Term
 pub impl Show for Term
 pub impl ToJson for Term
+pub impl @debug.Debug for Term
 
 // Type aliases
 pub type VarName = String

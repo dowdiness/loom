@@ -7,7 +7,7 @@ pub type VarName = String
 pub(all) enum Bop {
   Plus
   Minus
-} derive(Show, Eq, FromJson, ToJson)
+} derive(Show, Eq, FromJson, ToJson, Debug)
 
 ///|
 pub(all) enum Term {
@@ -29,7 +29,7 @@ pub(all) enum Term {
   Unit
   // Error term for malformed/missing nodes
   Error(String)
-} derive(Show, Eq, ToJson)
+} derive(Show, Eq, ToJson, Debug)
 
 ///|
 pub fn print_term(term : Term) -> String {
