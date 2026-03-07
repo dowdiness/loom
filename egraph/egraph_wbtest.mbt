@@ -474,6 +474,66 @@ test "commutativity rule: Add is commutative" {
   assert_eq(eg.find(ab), eg.find(ba))
 }
 
+// ── Extraction tests ──
+
+///|
+test "extract single constant has cost 1" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(42))
+  let (cost, expr) = eg.extract(a, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), Num(42))
+}
+
+///|
+test "extract after x+0→x picks cheaper a over a+0" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let sum = eg.add(Add(a, zero))
+  // Before rewrite: sum costs 3 (Add + Num(1) + Num(0))
+  let (cost_before, expr_before) = eg.extract(sum, ast_size())
+  assert_eq(cost_before, 3)
+  assert_eq(expr_before.root(), Add(Id(0), Id(1)))
+  // Apply rewrite: x + 0 → x
+  let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
+  eg.apply_rewrite(rw) |> ignore
+  eg.rebuild()
+  // After rewrite: sum's e-class now includes Num(1), cost 1
+  let (cost_after, expr_after) = eg.extract(sum, ast_size())
+  assert_eq(cost_after, 1)
+  assert_eq(expr_after.root(), Num(1))
+}
+
+///|
+test "extract compound expression reconstructs tree" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let sum = eg.add(Add(a, b))
+  let (cost, expr) = eg.extract(sum, ast_size())
+  assert_eq(cost, 3) // Add(1) + Num(1) + Num(1) = 3
+  // Root should be Add with children pointing into the array
+  assert_eq(expr.nodes.length(), 3)
+  assert_eq(expr.root(), Add(Id(0), Id(1)))
+  assert_eq(expr.nodes[0], Num(1))
+  assert_eq(expr.nodes[1], Num(2))
+}
+
+///|
+test "extract shares DAG: same e-class reused" {
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let sum = eg.add(Add(a, a))
+  let (cost, expr) = eg.extract(sum, ast_size())
+  // Add(a, a): cost = 1 + 1 + 1 = 3? No — both children are same e-class
+  // With DAG sharing in RecExpr, Num(1) appears once, Add refs it twice
+  assert_eq(cost, 3) // cost function counts both children
+  assert_eq(expr.nodes.length(), 2) // Num(1) and Add(Id(0), Id(0))
+  assert_eq(expr.nodes[0], Num(1))
+  assert_eq(expr.root(), Add(Id(0), Id(0)))
+}
+
 ///|
 test "many unions converge to single root" {
   let uf = UnionFind()

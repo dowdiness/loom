@@ -6,7 +6,7 @@
 - [x] Step 2: EGraph core (add, union, rebuild)
 - [x] Step 3: E-Matching (ENodeRepr, Pat, ematch, search, instantiate)
 - [x] Step 4: Rewrite Rules (Rewrite, apply_rewrite)
-- [ ] Step 5: Extraction (CostFn, RecExpr, extract)
+- [x] Step 5: Extraction (CostFn, RecExpr, extract)
 - [ ] Step 6: Runner (equality saturation loop)
 - [ ] Step 7: lambda-opt example
 - [ ] Step 8: E-Class Analysis
@@ -25,3 +25,6 @@
 - [ ] **`ematch` array allocations**: Pre-allocate buffers or use stack-based approach instead of fresh `Array[Subst]` per recursion level
 - [ ] **`search` visited set**: Evaluate whether `HashSet` dedup is needed if `search` is always called post-rebuild
 - [ ] **Benchmark suite**: Add benchmarks for `add` throughput, `rebuild` scaling, `ematch` per rule, saturation time (Step 7)
+- [ ] **Extraction: Dijkstra worklist**: Replace full-scan fixed-point with priority-queue approach for O(n log n) extraction
+- [ ] **Extraction: lazy map_children**: Avoid materializing canonical nodes until cost improves, reducing N×P allocations
+- [ ] **Extraction: array-indexed costs**: Replace `Map[Id, Int]` with `Array[Int?]` for O(1) dense-integer lookup

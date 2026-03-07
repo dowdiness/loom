@@ -122,3 +122,83 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 **Why deferred**: Over-engineering for current usage. Step 6 (Runner) will clarify what diagnostics are actually needed.
 
 **Revisit when**: Step 6 Runner implementation, or when debugging rewrite rule behavior becomes painful.
+
+---
+
+## 9. Extraction Algorithm: Fixed-Point vs Worklist
+
+**Concern**: `extract()` uses a naive fixed-point loop that scans all e-classes and all nodes on every pass. For acyclic e-graphs a single topological-order pass suffices. For cyclic e-graphs, a worklist/priority-queue (Dijkstra-style) approach would visit each e-class at most once in order of ascending cost.
+
+**Current choice**: Full-scan fixed-point — simple, correct, easy to verify.
+
+**Alternatives**:
+- Dijkstra-style worklist: process e-classes in ascending cost order, O(n log n)
+- Topological sort for acyclic case + fixed-point fallback for cyclic
+
+**Why deferred**: The naive approach is O(iterations × nodes). For research-scale e-graphs this is acceptable. The extra complexity of a priority queue is not justified without benchmark data.
+
+**Revisit when**: Step 7 benchmarks show extraction as a bottleneck, or e-graphs exceed ~10k nodes.
+
+---
+
+## 10. Extraction: map_children Allocation Per Node Per Iteration
+
+**Concern**: In the `extract` fixed-point loop, `node.map_children(fn(child) { self.find(child) })` creates a new e-node on every call, even when the cost doesn't improve. With N nodes and P passes, this creates N×P throwaway allocations.
+
+**Current choice**: Materialize canonical node for every evaluation — simple, matches the `rebuild` pattern.
+
+**Alternatives**:
+- Compute cost using `node.child(i)` with inline `self.find()`, only call `map_children` when updating `best_node`
+- Cache canonical forms from a prior `rebuild` pass
+
+**Why deferred**: For small e-graphs the allocation overhead is negligible. Avoiding `map_children` requires restructuring the cost function to accept raw children with a find-wrapping lookup, which complicates the `CostFn` interface.
+
+**Revisit when**: Step 7 benchmarks show extraction allocation as a bottleneck.
+
+---
+
+## 11. Extraction: Map vs Array-Indexed Costs
+
+**Concern**: `best_cost : Map[Id, Int]` and `best_node : Map[Id, L]` use hash-map lookups in the inner loop. Since `Id` values are dense integers from the Union-Find (0..n), array indexing (`Array[Int?]`, `Array[L?]`) would give O(1) access without hashing overhead.
+
+**Current choice**: `Map[Id, Int]` — simple, no need to pre-size arrays.
+
+**Alternatives**:
+- `Array[Int?]` sized to `self.uf.size()` — O(1) lookup, no hash overhead
+- Parallel arrays `Array[Int]` + `Array[L?]` with sentinel value for unset costs
+
+**Why deferred**: Map overhead is small relative to `map_children` allocation cost. Array approach requires handling the "unset" case differently (sentinel vs Option).
+
+**Revisit when**: After resolving concerns #10 and #9, if extraction remains a bottleneck.
+
+---
+
+## 12. Extraction: max_cost Sentinel as Silent Failure
+
+**Concern**: `max_cost = 1_000_000_000` is used as both "not yet computed" during fixed-point and as the return value when the root has no best cost. Callers cannot distinguish "extraction succeeded with an expensive expression" from "extraction failed entirely."
+
+**Current choice**: Return `max_cost` silently — works because all reachable e-classes will have a finite cost after the fixed-point.
+
+**Alternatives**:
+- Return `(Int, RecExpr[L])?` to make failure explicit
+- `abort()` if root is unreachable (matching `reconstruct`'s behavior for missing nodes)
+
+**Why deferred**: In practice, `extract` is always called on a root that was previously added to the e-graph, so the root will always have a best cost. The silent failure case is unreachable in correct usage.
+
+**Revisit when**: `extract` is exposed as a public API, or when error reporting becomes important.
+
+---
+
+## 13. reconstruct Parameter Sprawl
+
+**Concern**: `reconstruct` takes 5 parameters (`best_node`, `eclass_id`, `rec_nodes`, `id_to_idx`, `egraph`), three of which (`best_node`, `rec_nodes`, `id_to_idx`) are accumulated state that always travel together.
+
+**Current choice**: Standalone function with explicit parameters — private helper, acceptable for now.
+
+**Alternatives**:
+- Bundle into `struct RecExprBuilder[L] { best_node, rec_nodes, id_to_idx, egraph }` with a `build(eclass_id)` method
+- Make `reconstruct` a method on `EGraph` that takes the builder state
+
+**Why deferred**: 5 parameters is acceptable for a private recursive helper called from one site. Bundling would add a struct definition for a single use.
+
+**Revisit when**: `reconstruct` is reused from multiple call sites, or the parameter list grows further.

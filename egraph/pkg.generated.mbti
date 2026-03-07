@@ -10,6 +10,8 @@ import {
 // Errors
 
 // Types and methods
+type CostFn[L]
+
 pub(all) struct Id(Int)
 #deprecated
 pub fn Id::inner(Self) -> Int

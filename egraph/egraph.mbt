@@ -724,3 +724,137 @@ fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
   }
   applied
 }
+
+// ── Extraction ──
+//
+// Extraction selects the lowest-cost equivalent expression from an e-class.
+// Since each e-class may contain many equivalent e-nodes (and their children
+// are e-classes too), extraction must choose the best e-node at each level.
+//
+// Algorithm (bottom-up fixed-point):
+//   1. Iterate over all e-classes, computing the cost of each e-node using
+//      the cost function and the best known child costs.
+//   2. Track the cheapest node per canonical e-class.
+//   3. Repeat until costs stabilize (fixed point). For acyclic e-graphs
+//      this converges in one pass; cyclic ones (e.g., commutativity) may
+//      need multiple passes.
+//   4. Reconstruct the optimal expression tree by following best-node
+//      choices from the root, producing a RecExpr (flattened array).
+
+///|
+/// A recursively-defined expression stored as a flat array.
+/// nodes[i]'s children are Ids that index into this same array.
+/// The root is always the last element.
+priv struct RecExpr[L] {
+  nodes : Array[L]
+}
+
+///|
+/// Return the root node (last element).
+fn[L] RecExpr::root(self : RecExpr[L]) -> L {
+  self.nodes[self.nodes.length() - 1]
+}
+
+///|
+/// Cost function type: given an e-node and a lookup for child costs,
+/// return the node's cost. Using a function type (not a trait) because
+/// the cost function doesn't vary by Self — it varies by use case.
+struct CostFn[L]((L, (Id) -> Int) -> Int)
+
+///|
+/// Simplest cost function: AST size (1 per node + sum of children).
+fn[L : ENode] ast_size() -> CostFn[L] {
+  CostFn(fn(node, child_cost) {
+    let mut cost = 1
+    for i = 0; i < node.arity(); i = i + 1 {
+      cost = cost + child_cost(node.child(i))
+    }
+    cost
+  })
+}
+
+///|
+/// Extract the lowest-cost expression from an e-class.
+///
+/// Returns (cost, RecExpr) where RecExpr is a flattened tree with the
+/// root as the last element. Children in RecExpr nodes use Ids that
+/// index into the RecExpr's nodes array.
+fn[L : ENode] EGraph::extract(
+  self : EGraph[L],
+  root : Id,
+  cost_fn : CostFn[L],
+) -> (Int, RecExpr[L]) {
+  let best_cost : Map[Id, Int] = {}
+  let best_node : Map[Id, L] = {}
+  let max_cost = 1_000_000_000
+  let CostFn(f) = cost_fn
+  // Child cost lookup: children of canonical nodes are already canonical,
+  // so no extra find() needed inside the cost function.
+  let child_cost = fn(child) {
+    match best_cost.get(child) {
+      Some(c) => c
+      None => max_cost
+    }
+  }
+  // Fixed-point iteration: compute minimum cost per e-class
+  let mut changed = true
+  while changed {
+    changed = false
+    for id, eclass in self.classes {
+      let canonical_id = self.find(id)
+      for node in eclass.nodes {
+        // Canonicalize children for cost lookup
+        let canonical = node.map_children(fn(child) { self.find(child) })
+        let cost = f(canonical, child_cost)
+        let current_best = match best_cost.get(canonical_id) {
+          Some(c) => c
+          None => max_cost
+        }
+        if cost < current_best {
+          best_cost[canonical_id] = cost
+          best_node[canonical_id] = canonical
+          changed = true
+        }
+      }
+    }
+  }
+  // Reconstruct the optimal expression tree into a RecExpr
+  let canonical_root = self.find(root)
+  let rec_nodes : Array[L] = []
+  let id_to_idx : Map[Id, Id] = {}
+  reconstruct(best_node, canonical_root, rec_nodes, id_to_idx, self) |> ignore
+  let final_cost = match best_cost.get(canonical_root) {
+    Some(c) => c
+    None => max_cost
+  }
+  (final_cost, { nodes: rec_nodes })
+}
+
+///|
+/// Recursively reconstruct the optimal expression tree into a flat array.
+/// Returns the index (as Id) in rec_nodes where this subtree was placed.
+fn[L : ENode] reconstruct(
+  best_node : Map[Id, L],
+  eclass_id : Id,
+  rec_nodes : Array[L],
+  id_to_idx : Map[Id, Id],
+  egraph : EGraph[L],
+) -> Id {
+  // Check if already reconstructed (handles DAG sharing)
+  match id_to_idx.get(eclass_id) {
+    Some(idx) => return idx
+    None => ()
+  }
+  let node = match best_node.get(eclass_id) {
+    Some(n) => n
+    None => abort("no best node for e-class: \{eclass_id}")
+  }
+  // Recursively reconstruct children first, remapping Ids to array indices
+  let remapped = node.map_children(fn(child) {
+    reconstruct(best_node, egraph.find(child), rec_nodes, id_to_idx, egraph)
+  })
+  let idx = Id(rec_nodes.length())
+  rec_nodes.push(remapped)
+  id_to_idx[eclass_id] = idx
+  idx
+}
