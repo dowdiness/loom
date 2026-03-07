@@ -1,7 +1,0 @@
-// import {
-//   "dowdiness/egraph" @lib,
-// }
-
-options(
-  "is-main": true,
-)
