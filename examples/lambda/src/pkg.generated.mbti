@@ -36,6 +36,8 @@ pub fn parse_source_file_recover_with_tokens(String, Array[@core.TokenInfo[@toke
 
 pub fn parse_source_file_term(String) -> (@ast.Term, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
 
+pub fn resolve(@ast.Term) -> Resolution
+
 pub let source_file_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @seam.SyntaxNode]
 
 pub fn syntax_node_to_source_file_term(@seam.SyntaxNode) -> @ast.Term
@@ -43,6 +45,8 @@ pub fn syntax_node_to_source_file_term(@seam.SyntaxNode) -> @ast.Term
 pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
 
 pub fn term_to_dot(@ast.Term) -> String
+
+pub fn term_to_dot_resolved(@ast.Term, Resolution) -> String
 
 // Errors
 pub suberror ParseError {
@@ -126,6 +130,12 @@ pub fn ParenExprView::inner(Self) -> @seam.SyntaxNode?
 pub impl @core.AstView for ParenExprView
 pub impl ToJson for ParenExprView
 
+pub(all) struct Resolution {
+  vars : Map[Int, VarStatus]
+}
+pub impl Eq for Resolution
+pub impl Show for Resolution
+
 pub struct VarRefView {
   node : @seam.SyntaxNode
 }
@@ -133,6 +143,13 @@ pub fn VarRefView::cast(@seam.SyntaxNode) -> Self?
 pub fn VarRefView::name(Self) -> String
 pub impl @core.AstView for VarRefView
 pub impl ToJson for VarRefView
+
+pub(all) enum VarStatus {
+  Bound(depth~ : Int)
+  Free
+}
+pub impl Eq for VarStatus
+pub impl Show for VarStatus
 
 // Type aliases
 pub using @ast {type Bop}
