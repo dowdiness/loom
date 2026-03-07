@@ -452,19 +452,19 @@ fn Parser::parse_port(self : Parser) -> Port? {
     _ => return None
   }
   ignore(self.eat(ID("")))
-  if is_compass_point(first) {
-    port.compass = Some(parse_compass_point(first))
-    return Some(port)
-  }
-  port.id = Some(first)
   if self.eat(Colon) {
     match self.current_token {
       ID(compass_str) if is_compass_point(compass_str) => {
+        port.id = Some(first)
         port.compass = Some(parse_compass_point(compass_str))
         ignore(self.eat(ID("")))
       }
       _ => return None
     }
+  } else if is_compass_point(first) {
+    port.compass = Some(parse_compass_point(first))
+  } else {
+    port.id = Some(first)
   }
   Some(port)
 }
@@ -585,7 +585,14 @@ fn Parser::parse_attr_list(self : Parser) -> AttributeList? {
 }
 
 ///|
-fn Parser::parse_edge_rhs(self : Parser) -> Array[(EdgeOp, NodeId)]? {
+priv enum EdgeRhsParseResult {
+  NoEdgeOp
+  Parsed(Array[(EdgeOp, NodeId)])
+  Malformed
+}
+
+///|
+fn Parser::parse_edge_rhs(self : Parser) -> EdgeRhsParseResult {
   let edges = []
   while true {
     let edge_op = match self.current_token {
@@ -601,13 +608,13 @@ fn Parser::parse_edge_rhs(self : Parser) -> Array[(EdgeOp, NodeId)]? {
     }
     match self.parse_edge_endpoint_node_id() {
       Some(node_id) => edges.push((edge_op, node_id))
-      None => break
+      None => return Malformed
     }
   }
   if edges.is_empty() {
-    None
+    NoEdgeOp
   } else {
-    Some(edges)
+    Parsed(edges)
   }
 }
 
@@ -644,11 +651,12 @@ fn Parser::parse_statement(self : Parser) -> Statement? {
           match subgraph_as_node_id(subgraph) {
             Some(start_node) =>
               match self.parse_edge_rhs() {
-                Some(edges) => {
+                Parsed(edges) => {
                   let attr_list = self.parse_attr_list()
                   Some(EdgeStmt(start_node, edges, attr_list))
                 }
-                None => Some(Subgraph(subgraph))
+                NoEdgeOp => Some(Subgraph(subgraph))
+                Malformed => None
               }
             None =>
               match self.current_token {
@@ -678,11 +686,11 @@ fn Parser::parse_statement(self : Parser) -> Statement? {
         Some(node_id) =>
           // Check if this is an edge or node statement
           match self.parse_edge_rhs() {
-            Some(edges) => {
+            Parsed(edges) => {
               let attr_list = self.parse_attr_list()
               Some(EdgeStmt(node_id, edges, attr_list))
             }
-            None =>
+            NoEdgeOp =>
               // Check for assignment
               match node_id.port {
                 Some(_) => {
@@ -709,6 +717,7 @@ fn Parser::parse_statement(self : Parser) -> Statement? {
                     }
                   }
               }
+            Malformed => None
           }
         None => None
       }

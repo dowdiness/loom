@@ -88,3 +88,35 @@ test "parse_dot accepts valid port with compass point" {
     None => abort("expected parser to accept valid port syntax")
   }
 }
+
+///|
+test "parse_dot accepts compass-like port id with explicit compass suffix" {
+  let parsed = parse_dot("digraph { a:n:sw -> b; }")
+  match parsed {
+    Some(graph) =>
+      match graph.statements[0] {
+        EdgeStmt(start, _edges, _) =>
+          match start.port {
+            Some(port) => {
+              match port.id {
+                Some(id) => inspect(id, content="n")
+                None => abort("expected explicit port id")
+              }
+              match port.compass {
+                Some(SW) => inspect(true, content="true")
+                _ => abort("expected sw compass point")
+              }
+            }
+            None => abort("expected parsed port")
+          }
+        _ => abort("expected edge statement")
+      }
+    None => abort("expected parser to accept a:n:sw")
+  }
+}
+
+///|
+test "parse_dot rejects malformed edge rhs after consumed operator" {
+  let parsed = parse_dot("digraph { a -> ; }")
+  inspect(parsed == None, content="true")
+}
