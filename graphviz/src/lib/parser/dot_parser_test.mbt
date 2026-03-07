@@ -18,6 +18,6 @@ test "parse_dot still accepts valid comments in graph body" {
       inspect(graph.directed, content="true")
       inspect(graph.statements.length(), content="1")
     }
-    None => inspect(false, content="true")
+    None => abort("expected parser to accept valid comment")
   }
 }

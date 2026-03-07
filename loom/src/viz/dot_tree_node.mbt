@@ -25,7 +25,7 @@ pub impl DotNode for DotTreeNode with label(self) {
 pub impl DotNode for DotTreeNode with node_attrs(self) {
   let buf = StringBuilder::new()
   let mut first = true
-  self.attrs.each(fn(k, v) {
+  self.attrs.each((k, v) => {
     if not(first) {
       buf.write_string(", ")
     }
@@ -58,12 +58,31 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
   let node_labels : Map[String, String] = Map::new()
   let node_attrs_map : Map[String, Map[String, String]] = Map::new()
   let child_list : Map[String, Array[(String, String)]] = Map::new()
-  let has_incoming : Map[String, Bool] = Map::new()
+  let indegree : Map[String, Int] = Map::new()
+  let known_node_ids : Map[String, Bool] = Map::new()
   let all_node_ids : Array[String] = []
+
+  fn register_node_id(
+    nid : String,
+    known_node_ids : Map[String, Bool],
+    all_node_ids : Array[String],
+    indegree : Map[String, Int],
+  ) -> Unit {
+    match known_node_ids.get(nid) {
+      Some(true) => ()
+      _ => {
+        known_node_ids[nid] = true
+        all_node_ids.push(nid)
+        indegree[nid] = 0
+      }
+    }
+  }
+
   for stmt in graph.statements {
     match stmt {
       @parser.NodeStmt(node_id, attr_list) => {
         let nid = node_id.id
+        register_node_id(nid, known_node_ids, all_node_ids, indegree)
         let mut lbl = nid
         let attrs : Map[String, String] = Map::new()
         match attr_list {
@@ -79,9 +98,9 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
         }
         node_labels[nid] = lbl
         node_attrs_map[nid] = attrs
-        all_node_ids.push(nid)
       }
       @parser.EdgeStmt(start, targets, attr_list) => {
+        register_node_id(start.id, known_node_ids, all_node_ids, indegree)
         let mut edge_label = ""
         match attr_list {
           Some(al) =>
@@ -97,38 +116,77 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
         // both (a,b) and (b,c) inherit the statement-level edge label.
         for pair in targets {
           let target = pair.1
+          register_node_id(target.id, known_node_ids, all_node_ids, indegree)
           match child_list.get(current_source) {
             Some(arr) => arr.push((target.id, edge_label))
             None => child_list[current_source] = [(target.id, edge_label)]
           }
-          has_incoming[target.id] = true
+          indegree[target.id] = indegree.get(target.id).unwrap_or(0) + 1
           current_source = target.id
         }
       }
       _ => ()
     }
   }
-  // Find root: first node with no incoming edges
-  let mut root_id : String? = None
+
+  if all_node_ids.length() == 0 {
+    return None
+  }
+
+  // Validate tree indegrees: exactly one root (0 incoming), every other node has exactly 1 incoming.
+  let root_candidates : Array[String] = []
   for nid in all_node_ids {
-    match has_incoming.get(nid) {
-      Some(true) => ()
-      _ => {
-        root_id = Some(nid)
-        break
+    match indegree.get(nid).unwrap_or(0) {
+      0 => root_candidates.push(nid)
+      1 => ()
+      _ => return None
+    }
+  }
+  if root_candidates.length() != 1 {
+    return None
+  }
+
+  let rid = root_candidates[0]
+
+  // Validate connectivity and acyclicity before building the concrete tree.
+  let visit_state : Map[String, Int] = Map::new() // 1=in stack, 2=done
+  if not(validate_reachability(rid, child_list, visit_state)) {
+    return None
+  }
+  for nid in all_node_ids {
+    match visit_state.get(nid) {
+      Some(2) => ()
+      _ => return None
+    }
+  }
+
+  let counter = Ref::new(0)
+  let visiting : Map[String, Bool] = Map::new()
+  build_tree(rid, node_labels, node_attrs_map, child_list, counter, visiting)
+}
+
+///|
+fn validate_reachability(
+  nid : String,
+  child_list : Map[String, Array[(String, String)]],
+  visit_state : Map[String, Int],
+) -> Bool {
+  match visit_state.get(nid) {
+    Some(1) | Some(2) => return false
+    _ => ()
+  }
+  visit_state[nid] = 1
+  match child_list.get(nid) {
+    Some(children) =>
+      for pair in children {
+        if not(validate_reachability(pair.0, child_list, visit_state)) {
+          return false
+        }
       }
-    }
+    None => ()
   }
-  match root_id {
-    None => None
-    Some(rid) => {
-      let counter = Ref::new(0)
-      let visiting : Map[String, Bool] = Map::new()
-      build_tree(
-        rid, node_labels, node_attrs_map, child_list, counter, visiting,
-      )
-    }
-  }
+  visit_state[nid] = 2
+  true
 }
 
 ///|
