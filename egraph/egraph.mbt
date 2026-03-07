@@ -1,5 +1,31 @@
+// ════════════════════════════════════════════════════════════════════
+// E-Graph: Equality Graph Data Structure
+// ════════════════════════════════════════════════════════════════════
+//
+// An e-graph compactly represents many equivalent programs simultaneously.
+// It consists of:
+//   - E-classes: sets of equivalent e-nodes (expressions that have been
+//     proven equal by rewrite rules or explicit union).
+//   - E-nodes: operators with children that point to e-classes (not
+//     individual expressions), so one e-node implicitly represents all
+//     combinations of its children's members.
+//   - Union-Find: tracks which e-classes have been merged.
+//   - Hashcons (memo): ensures structural sharing — identical e-nodes
+//     always map to the same e-class.
+//
+// Key invariant: **congruence closure** — if two e-nodes have the same
+// operator and their corresponding children belong to the same e-classes,
+// then those e-nodes must also belong to the same e-class. The `rebuild`
+// method restores this invariant after unions.
+//
+// References:
+//   - egg paper: https://arxiv.org/abs/2004.03082
+//   - "Fast and Extensible Equality Saturation" (Willsey et al., 2021)
+// ════════════════════════════════════════════════════════════════════
+
 ///|
-/// E-class identifier. Newtype for type safety.
+/// E-class identifier. Newtype wrapper around Int for type safety.
+/// Each Id refers to a slot in the Union-Find's parent array.
 pub(all) struct Id(Int) derive(Eq, Compare, Hash, Debug)
 
 ///|
@@ -9,12 +35,26 @@ pub impl Show for Id with output(self, logger) {
   logger.write_string(i.to_string())
 }
 
+// ── Union-Find (Disjoint Set Forest) ──
+//
+// Tracks equivalence classes using a forest of trees.
+// Each element points to a parent; the root of each tree is the
+// canonical representative ("leader") of its equivalence class.
+//
+// Two optimizations give near-O(1) amortized operations:
+//   1. **Path compression** (in `find`): after finding the root,
+//      repoint every node on the path directly to the root.
+//   2. **Union by rank** (in `union`): always attach the shorter
+//      tree under the taller one, keeping trees shallow.
+
 ///|
 /// Tree height upper bound for union by rank.
 type Rank = Int
 
 ///|
 /// Union-Find with path compression and union by rank.
+/// `parents[i]` is the parent of element i; roots point to themselves.
+/// `ranks[i]` is an upper bound on the height of the subtree rooted at i.
 priv struct UnionFind {
   parents : Array[Id]
   ranks : Array[Rank]
@@ -38,6 +78,15 @@ fn UnionFind::make_set(self : UnionFind) -> Id {
 
 ///|
 /// Find the canonical representative with iterative path compression.
+///
+/// Two-pass algorithm:
+///   Pass 1 — Chase parent pointers to find the root (the element
+///            whose parent is itself).
+///   Pass 2 — Walk the same path again, repointing every node
+///            directly to the root ("path compression").
+///
+/// After compression, subsequent finds on the same elements are O(1).
+/// Overall amortized cost: O(α(n)) ≈ O(1) per operation.
 fn UnionFind::find(self : UnionFind, id : Id) -> Id {
   // Pass 1: walk to root
   let mut current = id
@@ -45,7 +94,7 @@ fn UnionFind::find(self : UnionFind, id : Id) -> Id {
     current = self.parents[current.0]
   }
   let root = current
-  // Pass 2: compress path
+  // Pass 2: compress path — flatten the tree
   current = id
   while current != root {
     let next = self.parents[current.0]
@@ -56,7 +105,14 @@ fn UnionFind::find(self : UnionFind, id : Id) -> Id {
 }
 
 ///|
-/// Merge two equivalence classes. Returns the representative Id.
+/// Merge two equivalence classes by rank. Returns the new representative.
+///
+/// Union by rank keeps trees balanced:
+///   - Attach the shorter tree under the taller one (rank unchanged).
+///   - If both have equal rank, pick one as root and increment its rank.
+///
+/// This ensures tree height is at most O(log n), which combined with
+/// path compression gives O(α(n)) amortized per operation.
 fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
   let root_a = self.find(a)
   let root_b = self.find(b)
@@ -66,14 +122,14 @@ fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
   let Id(ra) = root_a
   let Id(rb) = root_b
   if self.ranks[ra] < self.ranks[rb] {
-    self.parents[ra] = root_b
+    self.parents[ra] = root_b // shorter tree (a) goes under taller tree (b)
     root_b
   } else if self.ranks[ra] > self.ranks[rb] {
-    self.parents[rb] = root_a
+    self.parents[rb] = root_a // shorter tree (b) goes under taller tree (a)
     root_a
   } else {
-    self.parents[rb] = root_a
-    self.ranks[ra] = self.ranks[ra] + 1
+    self.parents[rb] = root_a // equal rank: b goes under a
+    self.ranks[ra] = self.ranks[ra] + 1 // a's rank increases
     root_a
   }
 }
@@ -85,6 +141,17 @@ fn UnionFind::size(self : UnionFind) -> Int {
 }
 
 // ── ENode trait ──
+//
+// Structural interface for e-node children.
+//
+// Design: uses indexed access (`arity` + `child`) instead of
+// `children() -> Array[Id]` to avoid allocation in the e-matching
+// hot loop, where we compare patterns against many nodes per e-class.
+// The convenience method `children()` is provided as a default for
+// non-hot-path code that wants a collected array.
+//
+// Implementors must provide: arity, child, map_children.
+// Default derived: children.
 
 ///|
 /// Structural access to children of an e-node.
@@ -107,6 +174,23 @@ impl ENode with children(self) {
 }
 
 // ── ENodeRepr trait ──
+//
+// Serialization bridge between concrete e-node types (L) and the
+// language-independent pattern type (Pat).
+//
+// Why not just use Eq?
+//   `Eq` compares L == L (same type). But e-matching compares a Pat
+//   (language-independent) against an L (language-specific) — different
+//   types. ENodeRepr decomposes L into (tag, payload) so patterns can
+//   match without knowing the concrete type.
+//
+// Design: `op_tag()` returns a string literal (zero allocation),
+// `payload()` only allocates when a value exists. The tag/payload
+// split happens at Pat parse time, not at match time, so the ematch
+// hot loop does only cheap comparisons.
+//
+// Implementors must provide: op_tag, payload, from_op.
+// Default derived: op_name.
 
 ///|
 /// Serialization bridge for pattern matching.
@@ -127,7 +211,18 @@ impl ENodeRepr with op_name(self) {
   }
 }
 
-// ── Pat ──
+// ── Pat (Pattern AST) ──
+//
+// Patterns are language-independent: they use string tags instead of
+// concrete enum variants, so the same pattern engine works for any
+// language that implements ENodeRepr.
+//
+// Example pattern: "(Add ?x (Num:0))"
+//   → Node("Add", None, [Var("x"), Node("Num", Some("0"), [])])
+//
+// The tag/payload split (e.g. "Num:0" → tag="Num", payload=Some("0"))
+// happens at parse time in Pat::parse, NOT at match time. This means
+// the ematch hot loop only does cheap string equality checks.
 
 ///|
 /// Pattern: either a variable or a concrete operator with child patterns.
@@ -138,11 +233,15 @@ pub(all) enum Pat {
 } derive(Eq, Show, Debug)
 
 ///|
-/// Match result: pattern variable -> e-class Id substitution.
+/// Match result: maps pattern variable names to e-class Ids.
+///
+/// Example: matching "(Add ?x ?y)" against Add(Id(0), Id(1))
+///   → Subst({ "x": Id(0), "y": Id(1) })
 pub(all) struct Subst(Map[String, Id]) derive(Show, Debug)
 
 ///|
 /// Look up a pattern variable binding.
+#alias("_[_]")
 pub fn Subst::get(self : Subst, name : String) -> Id? {
   self.0.get(name)
 }
@@ -260,7 +359,11 @@ fn is_ident_char(c : Char) -> Bool {
 // ── EClass ──
 
 ///|
-/// An equivalence class containing a set of equivalent e-nodes.
+/// An equivalence class: a set of e-nodes that have been proven equivalent.
+///
+/// All nodes in the same e-class represent the same semantic value.
+/// For example, after learning that `a * 2 == a << 1`, both e-nodes
+/// would appear in the same e-class.
 priv struct EClass[L] {
   nodes : Array[L]
 }
@@ -269,11 +372,23 @@ priv struct EClass[L] {
 
 ///|
 /// E-graph: manages e-nodes and e-classes with hashconsing.
+///
+/// Four core components:
+///   - `uf`: Union-Find that tracks which e-class Ids are equivalent.
+///   - `classes`: maps each canonical Id to its EClass (set of e-nodes).
+///   - `memo`: hashcons table — maps each canonical e-node to its e-class Id.
+///     Ensures structural sharing: adding the same e-node twice returns
+///     the same Id. Also used to detect congruences during rebuild.
+///   - `pending`: Ids that were recently merged and need congruence repair.
+///     After union(a, b), rebuild must check if any e-nodes that pointed
+///     to a or b should now be considered congruent.
 priv struct EGraph[L] {
   uf : UnionFind
   classes : Map[Id, EClass[L]]
   memo : Map[L, Id]
   pending : Array[Id]
+
+  fn[L: Hash + Eq] new() -> EGraph[L]
 }
 
 ///|
@@ -288,9 +403,18 @@ fn[L] EGraph::find(self : EGraph[L], id : Id) -> Id {
 }
 
 ///|
-/// Add an e-node. Returns existing Id if hashcons hit, else creates new e-class.
+/// Add an e-node to the e-graph. Returns its e-class Id.
+///
+/// Hashconsing: before inserting, canonicalize the node's children
+/// (replace each child Id with its Union-Find root) and check the
+/// memo table. If an identical canonical node already exists, return
+/// its existing e-class Id — this is what makes the e-graph compact.
+/// Otherwise, create a fresh e-class containing just this node.
 fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
+  // Step 1: Canonicalize children so Add(x, y) and Add(find(x), find(y))
+  //         map to the same memo entry.
   let canonical = node.map_children(fn(child) { self.find(child) })
+  // Step 2: Check hashcons — have we seen this exact canonical node before?
   match self.memo.get(canonical) {
     Some(id) => self.find(id)
     None => {
@@ -303,7 +427,16 @@ fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
 }
 
 ///|
-/// Merge two e-classes. Adds to pending for deferred congruence repair.
+/// Merge two e-classes, asserting that a == b.
+///
+/// 1. Union the Ids in the Union-Find (determines winner/loser by rank).
+/// 2. Move all e-nodes from the loser's e-class into the winner's.
+/// 3. Remove the loser's e-class from the classes map.
+/// 4. Push the merged Id onto `pending` so that `rebuild` will later
+///    check for new congruences caused by this merge.
+///
+/// Note: this does NOT immediately restore the congruence invariant.
+/// Call `rebuild()` after a batch of unions to restore it.
 fn[L] EGraph::union(self : EGraph[L], a : Id, b : Id) -> Id {
   let root_a = self.find(a)
   let root_b = self.find(b)
@@ -312,53 +445,64 @@ fn[L] EGraph::union(self : EGraph[L], a : Id, b : Id) -> Id {
   }
   let merged = self.uf.union(root_a, root_b)
   let loser = if merged == root_a { root_b } else { root_a }
+  // Merge e-class contents: move loser's nodes into winner
   match (self.classes.get(loser), self.classes.get(merged)) {
     (Some(loser_class), Some(winner_class)) =>
-      for n in loser_class.nodes {
-        winner_class.nodes.push(n)
-      }
+      winner_class.nodes.append(loser_class.nodes[:])
     _ => ()
   }
   self.classes.remove(loser)
-  self.pending.push(merged)
+  self.pending.push(merged) // schedule for congruence repair
   merged
 }
 
 ///|
-/// Restore invariants (congruence closure).
+/// Restore the congruence invariant after a batch of unions.
+///
+/// Congruence closure: if f(a) and f(b) are in the e-graph and a == b
+/// (same e-class), then f(a) and f(b) must also be in the same e-class.
+/// Unions can violate this, so rebuild fixes it by:
+///
+///   1. Canonicalize all e-nodes (update children to Union-Find roots).
+///   2. Deduplicate nodes within each e-class (same canonical form = same node).
+///   3. Rebuild the memo (hashcons) table from scratch.
+///   4. Detect congruences: if two e-classes contain the same canonical
+///      e-node, they must be merged.
+///   5. Apply discovered merges — which may create new congruences,
+///      so repeat until no more pending work (fixed-point loop).
 fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
   while self.pending.length() > 0 {
     self.pending.clear()
-    // Rebuild entire memo with canonicalized nodes
     self.memo.clear()
     // Collect congruences to avoid mutating classes during iteration
     let to_union : Array[(Id, Id)] = []
     for id, eclass in self.classes {
       let canonical_id = self.find(id)
+      // Canonicalize and deduplicate nodes in this e-class
       let new_nodes : Array[L] = []
-      let seen : Map[L, Unit] = {}
+      let seen : @hashset.HashSet[L] = @hashset.new()
       for node in eclass.nodes {
         let canonical = node.map_children((child) => { self.find(child) })
-        if not(seen.contains(canonical)) {
-          seen[canonical] = ()
+        if seen.add_and_check(canonical) {
           new_nodes.push(canonical)
         }
       }
       eclass.nodes.clear()
-      for n in new_nodes {
-        eclass.nodes.push(n)
-      }
+      eclass.nodes.append(new_nodes[:])
+      // Rebuild memo and detect congruences
       for node in new_nodes {
         match self.memo.get(node) {
+          // Another e-class already has this canonical node → congruence!
           Some(existing) =>
             if self.find(existing) != canonical_id {
               to_union.push((canonical_id, self.find(existing)))
             }
+          // First time seeing this canonical node → register in memo
           None => self.memo[node] = canonical_id
         }
       }
     }
-    // Apply deferred congruence unions
+    // Apply discovered congruences (may trigger further pending work)
     for pair in to_union {
       self.union(pair.0, pair.1) |> ignore
     }
@@ -366,9 +510,25 @@ fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
 }
 
 // ── E-Matching ──
+//
+// E-matching finds all ways a pattern matches within an e-class.
+// Unlike normal pattern matching (one expression → one result),
+// e-matching searches across all equivalent expressions in an e-class,
+// producing multiple substitutions.
+//
+// Algorithm (recursive, per e-class):
+//   - Var("x"): matches anything — bind x to this e-class Id.
+//   - Node(tag, payload, child_pats): for each e-node in the e-class
+//     whose operator matches (tag, payload, arity), recursively match
+//     each child pattern against the corresponding child e-class.
+//     Combine results using substitution merging (ensuring consistency:
+//     if ?x appears twice, both occurrences must bind to the same e-class).
 
 ///|
 /// E-match a pattern against an e-class, returning all valid substitutions.
+///
+/// Returns one Subst per successful match. A pattern with N variables
+/// produces substitutions mapping each variable to an e-class Id.
 fn[L : ENode + ENodeRepr] EGraph::ematch(
   self : EGraph[L],
   pattern : Pat,
@@ -376,39 +536,44 @@ fn[L : ENode + ENodeRepr] EGraph::ematch(
 ) -> Array[Subst] {
   let canonical_id = self.find(eclass_id)
   match pattern {
+    // A variable matches any e-class — just record the binding
     Var(name) => {
       let subst : Map[String, Id] = {}
       subst[name] = canonical_id
       [Subst(subst)]
     }
+    // A concrete operator pattern must match some e-node in this e-class
     Node(tag, payload, child_pats) => {
       let results : Array[Subst] = []
       match self.classes.get(canonical_id) {
         None => ()
         Some(eclass) =>
           for node in eclass.nodes {
+            // Check operator match: tag, payload, and arity must all agree
             if node.op_tag() == tag &&
               node.payload() == payload &&
               node.arity() == child_pats.length() {
-              // Start with a single empty substitution
+              // Match children left-to-right, threading substitutions through.
+              // Start with one empty substitution; each child may multiply
+              // or filter the set of valid substitutions.
               let mut substs : Array[Subst] = [Subst({})]
               for i = 0; i < child_pats.length(); i = i + 1 {
                 let child_id = self.find(node.child(i))
                 let new_substs : Array[Subst] = []
                 for s in substs {
+                  // Recursively match child pattern against child e-class
                   let child_results = self.ematch(child_pats[i], child_id)
                   for s2 in child_results {
+                    // Merge: ensures variable consistency (e.g., ?x == ?x)
                     match merge_substs(s, s2) {
                       Some(merged) => new_substs.push(merged)
-                      None => ()
+                      None => () // conflict — discard this combination
                     }
                   }
                 }
                 substs = new_substs
               }
-              for s in substs {
-                results.push(s)
-              }
+              results.append(substs[:])
             }
           }
       }
@@ -419,16 +584,18 @@ fn[L : ENode + ENodeRepr] EGraph::ematch(
 
 ///|
 /// Merge two substitutions. Returns None if they disagree on a variable binding.
+///
+/// This enforces variable consistency: if pattern "(Add ?x ?x)" matches
+/// a node Add(a, b), the substitution for the first ?x (binding a) must
+/// agree with the substitution for the second ?x (binding b).
+/// If a != b (different e-classes), merge returns None → match fails.
 fn merge_substs(a : Subst, b : Subst) -> Subst? {
   let Subst(a_map) = a
   let Subst(b_map) = b
-  let result : Map[String, Id] = {}
-  for k, v in a_map {
-    result[k] = v
-  }
+  let result = a_map.copy()
   for k, v in b_map {
     match result.get(k) {
-      Some(existing) => if existing != v { return None }
+      Some(existing) => if existing != v { return None } // conflict!
       None => result[k] = v
     }
   }
@@ -436,19 +603,22 @@ fn merge_substs(a : Subst, b : Subst) -> Subst? {
 }
 
 ///|
-/// Search the entire e-graph for pattern matches.
+/// Search the entire e-graph for pattern matches across all e-classes.
+///
+/// Iterates over every canonical e-class and runs ematch against it.
+/// Deduplicates by canonical Id to avoid matching the same e-class twice
+/// (the classes map may contain stale keys that map to the same canonical Id).
 fn[L : ENode + ENodeRepr] EGraph::search(
   self : EGraph[L],
   pattern : Pat,
 ) -> Array[(Id, Subst)] {
   let results : Array[(Id, Subst)] = []
-  let visited : Map[Id, Unit] = {}
+  let visited : @hashset.HashSet[Id] = @hashset.new()
   for id, _ in self.classes {
     let canonical_id = self.find(id)
-    if visited.contains(canonical_id) {
+    if not(visited.add_and_check(canonical_id)) {
       continue
     }
-    visited[canonical_id] = ()
     let substs = self.ematch(pattern, canonical_id)
     for s in substs {
       results.push((canonical_id, s))
@@ -458,7 +628,16 @@ fn[L : ENode + ENodeRepr] EGraph::search(
 }
 
 ///|
-/// Instantiate a pattern with a substitution, adding nodes to the e-graph.
+/// Instantiate a pattern with a substitution, adding new nodes to the e-graph.
+///
+/// This is the "apply" half of rewrite rules: after `search` finds matches,
+/// `instantiate` builds the right-hand side of the rule using the matched
+/// variable bindings.
+///
+/// Example: rule "(Add ?x (Num:0)) => ?x" (additive identity)
+///   1. search finds: Subst({ "x": Id(3) }) for some Add(3, 0)
+///   2. instantiate("?x", subst) returns Id(3) — the simplified result
+///   3. union the original Add e-class with Id(3) to record the equivalence
 fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
   self : EGraph[L],
   pattern : Pat,
@@ -466,23 +645,22 @@ fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
 ) -> Id {
   let Subst(subst_map) = subst
   match pattern {
+    // Variable: look up the binding in the substitution
     Var(name) =>
       match subst_map.get(name) {
         Some(id) => self.find(id)
         None => abort("unbound pattern variable: \{name}")
       }
+    // Operator: recursively instantiate children, then add the node
     Node(tag, payload, child_pats) => {
       let child_ids : Array[Id] = []
       for child_pat in child_pats {
         child_ids.push(self.instantiate(child_pat, subst))
       }
-      let op = match payload {
-        Some(p) => "\{tag}:\{p}"
-        None => tag
-      }
+      // Use from_op to construct the concrete language node from (tag, payload, children)
       match L::from_op(tag, payload, child_ids) {
         Some(node) => self.add(node)
-        None => abort("from_op failed for op: \{op}")
+        None => abort("from_op failed for tag: \{tag}")
       }
     }
   }
