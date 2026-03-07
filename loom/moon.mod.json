@@ -4,7 +4,8 @@
   "source": "src",
   "deps": {
     "dowdiness/seam": { "path": "../seam" },
-    "dowdiness/incr": { "path": "../incr" }
+    "dowdiness/incr": { "path": "../incr" },
+    "antisatori/graphviz": { "path": "../../graphviz" }
   },
   "readme": "README.md",
   "repository": "https://github.com/dowdiness/loom",

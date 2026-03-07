@@ -1,1 +1,3 @@
-
+import {
+  "antisatori/graphviz/lib/parser" @parser,
+}

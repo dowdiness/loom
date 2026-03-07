@@ -81,10 +81,10 @@ test "to_dot: leaf node — label block only when attrs empty" {
 }
 
 ///|
-test "to_dot: non-empty node_attrs appends extra attribute block" {
+test "to_dot: non-empty node_attrs merges into attribute list" {
   let dot = to_dot(leaf(0, "bar", "color=\"#ff0000\""))
   inspect(
-    dot.contains("node0 [label=\"bar\"] [color=\"#ff0000\"];"),
+    dot.contains("node0 [label=\"bar\", color=\"#ff0000\"]"),
     content="true",
   )
 }

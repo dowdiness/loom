@@ -1,5 +1,6 @@
 // Generic graphviz visualizer — language-agnostic DOT renderer.
 // Language-specific DotNode implementations live in their own packages.
+// Uses the graphviz Graph AST as the interchange format.
 
 ///|
 /// Trait for types that can be visualized as a Graphviz DOT graph node.
@@ -19,71 +20,74 @@ pub(open) trait DotNode {
 }
 
 ///|
-/// Convert any DotNode tree to a Graphviz DOT string.
-pub fn[T : DotNode] to_dot(node : T) -> String {
-  let buf = StringBuilder::new()
-  buf.write_string("digraph {\n")
-  buf.write_string("  bgcolor=\"transparent\";\n")
-  buf.write_string(
-    "  node [shape=box, style=\"rounded,filled\", fillcolor=\"#252526\", fontname=\"Arial\", fontcolor=\"#d4d4d4\", color=\"#3c3c3c\"];\n",
+/// Convert any DotNode tree to a graphviz Graph AST.
+pub fn[T : DotNode] to_graph(root : T) -> @parser.Graph {
+  let stmts : Array[@parser.Statement] = []
+  stmts.push(@parser.Assignment("bgcolor", "transparent"))
+  stmts.push(
+    @parser.AttrStmt("node", {
+      attributes: [
+        { key: "shape", value: "box" },
+        { key: "style", value: "rounded,filled" },
+        { key: "fillcolor", value: "#252526" },
+        { key: "fontname", value: "Arial" },
+        { key: "fontcolor", value: "#d4d4d4" },
+        { key: "color", value: "#3c3c3c" },
+      ],
+    }),
   )
-  buf.write_string(
-    "  edge [fontname=\"Arial\", fontcolor=\"#858585\", color=\"#3c3c3c\"];\n\n",
+  stmts.push(
+    @parser.AttrStmt("edge", {
+      attributes: [
+        { key: "fontname", value: "Arial" },
+        { key: "fontcolor", value: "#858585" },
+        { key: "color", value: "#3c3c3c" },
+      ],
+    }),
   )
-  write_node_and_edges(buf, node)
-  buf.write_string("}\n")
-  buf.to_string()
+  collect_statements(stmts, root)
+  { strict: false, directed: true, id: None, statements: stmts }
 }
 
 ///|
-fn[T : DotNode] write_node_and_edges(buf : StringBuilder, node : T) -> Unit {
-  write_node_definition(buf, node)
+fn[T : DotNode] collect_statements(
+  stmts : Array[@parser.Statement],
+  node : T,
+) -> Unit {
+  let node_name = "node" + DotNode::node_id(node).to_string()
+  let attrs : Array[@parser.Attribute] = [
+    { key: "label", value: DotNode::label(node) },
+  ]
+  let extra = DotNode::node_attrs(node)
+  if extra != "" {
+    attrs.append(@parser.parse_attributes(extra))
+  }
+  stmts.push(
+    @parser.NodeStmt({ id: node_name, port: None }, Some({ attributes: attrs })),
+  )
   let cs = DotNode::children(node)
   for i = 0; i < cs.length(); i = i + 1 {
     let child = cs[i]
-    buf.write_string("  node")
-    buf.write_string(DotNode::node_id(node).to_string())
-    buf.write_string(" -> node")
-    buf.write_string(DotNode::node_id(child).to_string())
+    let child_name = "node" + DotNode::node_id(child).to_string()
     let el = DotNode::edge_label(node, i)
-    if el != "" {
-      buf.write_string(" [label=\"")
-      buf.write_string(el)
-      buf.write_string("\"]")
+    let edge_attrs : @parser.AttributeList? = if el != "" {
+      Some({ attributes: [{ key: "label", value: el }] })
+    } else {
+      None
     }
-    buf.write_string(";\n")
-    write_node_and_edges(buf, child)
+    stmts.push(
+      @parser.EdgeStmt(
+        { id: node_name, port: None },
+        [(@parser.Directed, { id: child_name, port: None })],
+        edge_attrs,
+      ),
+    )
+    collect_statements(stmts, child)
   }
 }
 
 ///|
-fn[T : DotNode] write_node_definition(buf : StringBuilder, node : T) -> Unit {
-  buf.write_string("  node")
-  buf.write_string(DotNode::node_id(node).to_string())
-  buf.write_string(" [label=\"")
-  buf.write_string(escape_label(DotNode::label(node)))
-  buf.write_string("\"]")
-  let attrs = DotNode::node_attrs(node)
-  if attrs != "" {
-    buf.write_string(" [")
-    buf.write_string(attrs)
-    buf.write_string("]")
-  }
-  buf.write_string(";\n")
-}
-
-///|
-/// Escape special characters in DOT labels.
-fn escape_label(s : String) -> String {
-  let buf = StringBuilder::new()
-  for i = 0; i < s.length(); i = i + 1 {
-    match s.code_unit_at(i).to_char() {
-      Some('"') => buf.write_string("\\\"")
-      Some('\\') => buf.write_string("\\\\")
-      Some('\n') => buf.write_string("\\n")
-      Some(c) => buf.write_char(c)
-      None => ()
-    }
-  }
-  buf.to_string()
+/// Convert any DotNode tree to a Graphviz DOT string.
+pub fn[T : DotNode] to_dot(node : T) -> String {
+  @parser.format_graph(to_graph(node))
 }
