@@ -345,3 +345,36 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 **Why deferred**: The manual loop is straightforward (5-10 lines). Adding `AnalyzedRunner` would duplicate `Runner::run` logic. The right solution depends on whether capability traits (concern #18) become worthwhile.
 
 **Revisit when**: Users need equality saturation with analysis, or when capability traits are introduced.
+
+---
+
+## 23. `recompute_data` Relaxation Pass Count is O(n)
+
+**Concern**: `recompute_data` runs `pass_count = class_ids.length()` relaxation passes to propagate new child facts through parent nodes. For a chain of depth `d`, only `d` passes are needed. The current approach runs `n` passes (number of e-classes) even if convergence happens in 2.
+
+**Current choice**: Use `n` passes — correct, simple, guarantees convergence for any e-graph topology.
+
+**Alternatives**:
+- Track whether any data changed during a pass and break early (fixed-point detection)
+- Use a worklist/priority-queue ordered by topological depth
+- Compute topological order once and do a single bottom-up pass (only works for acyclic e-graphs)
+
+**Why deferred**: For research-scale e-graphs, the O(n^2) cost is acceptable. Early termination would add a comparison check per e-class per pass, requiring `D : Eq` — an additional trait bound not currently needed.
+
+**Revisit when**: Benchmarks show `rebuild` as a bottleneck, or when e-graphs exceed ~1k classes.
+
+---
+
+## 24. Pat::parse Error Reporting
+
+**Concern**: `Pat::parse` now rejects trailing input, empty operators, and invalid tokens with descriptive error messages. However, error messages do not include position information (character offset), making it harder to locate errors in long pattern strings.
+
+**Current choice**: Simple string error messages — sufficient for short s-expression patterns.
+
+**Alternatives**:
+- Include character offset in error messages: `"expected operator name at position 5"`
+- Return a structured error type with position, expected, and found fields
+
+**Why deferred**: Pattern strings are typically short (< 50 chars). Position info adds parsing complexity for marginal benefit.
+
+**Revisit when**: Pattern strings become long or are generated programmatically, making error localization important.

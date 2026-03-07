@@ -4,13 +4,13 @@
 
 A complete e-graph (equality graph) module implemented in MoonBit across 8 incremental steps, following TDD (Red-Green-Refactor) with code review (`/simplify`) after each step. The module implements equality saturation — a technique for program optimization that explores many equivalent rewrites simultaneously.
 
-**Codebase**: 2,456 lines across 3 files, 82 tests, 22 design concerns documented.
+**Codebase**: 2,562 lines across 3 files, 85 tests, 24 design concerns documented.
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `egraph.mbt` | 1,178 | Production code (all 8 steps) |
-| `egraph_wbtest.mbt` | 702 | Core e-graph whitebox tests (52 tests) |
-| `lambda_opt_wbtest.mbt` | 576 | Lambda calculus example + analysis tests (30 tests) |
+| `egraph.mbt` | 1,259 | Production code (all 8 steps) |
+| `egraph_wbtest.mbt` | 712 | Core e-graph whitebox tests (54 tests) |
+| `lambda_opt_wbtest.mbt` | 591 | Lambda calculus example + analysis tests (31 tests) |
 
 ---
 
@@ -99,9 +99,12 @@ Domain-specific data per e-class (constant folding, type inference, etc.)
 - `AnalyzedEGraph[L, D]` wrapper (composition over `EGraph[L]`)
 - Side `Map[Id, D]` for analysis data — no modification to core `EGraph`
 - Analysis-aware `instantiate` and `apply_matches` (hooks fire during rewriting)
-- Constant folding example: `2 + 3` → `5`, nested `(2 + 3) * 4` → `20`
+- `rebuild` with full data propagation: canonicalize → recompute (fixed-point relaxation) → modify hooks → repeat until stable
+- Constant folding example: `2 + 3` → `5`, nested `(2 + 3) * 4` → `20`, parent recomputation after child union
 
-**Design decision**: Used composition (`AnalyzedEGraph` wraps `EGraph`) instead of the plan's `EGraph[L, D]` approach, avoiding ~60+ call site changes while keeping the core e-graph simple.
+**Design decisions**:
+- Used composition (`AnalyzedEGraph` wraps `EGraph`) instead of the plan's `EGraph[L, D]` approach, avoiding ~60+ call site changes while keeping the core e-graph simple
+- `rebuild` uses fixed-point relaxation passes (`recompute_data`) to propagate new child facts through parent nodes after congruence changes
 
 ---
 
@@ -143,7 +146,7 @@ All four trait bounds compose into the full `Language` constraint: `L : ENode + 
 
 ## Design Decisions
 
-22 design concerns recorded in [`design-concerns.md`](design-concerns.md), including:
+24 design concerns recorded in [`design-concerns.md`](design-concerns.md), including:
 
 | # | Topic | Decision |
 |---|-------|----------|
@@ -154,6 +157,8 @@ All four trait bounds compose into the full `Language` constraint: `L : ENode + 
 | 17 | TimeLimit omitted | No MoonBit clock API — use IterLimit + NodeLimit |
 | 18 | Capability traits | Deferred — only 2 implementors, phantom generality |
 | 22 | Runner + AnalyzedEGraph | No integration yet — manual loop is straightforward |
+| 23 | recompute_data pass count | O(n) passes — correct but conservative, early termination possible |
+| 24 | Pat::parse error positions | No character offset in errors — patterns are short |
 
 ---
 
@@ -179,14 +184,14 @@ All four trait bounds compose into the full `Language` constraint: `L : ENode + 
 
 ## Test Coverage
 
-82 tests across two files:
+85 tests across two files:
 
 | Category | Count | File |
 |----------|------:|------|
 | UnionFind | 8 | egraph_wbtest.mbt |
 | EGraph core (add, union, rebuild) | 6 | egraph_wbtest.mbt |
 | ENodeRepr | 7 | egraph_wbtest.mbt |
-| Pat parsing | 4 | egraph_wbtest.mbt |
+| Pat parsing | 6 | egraph_wbtest.mbt |
 | E-matching | 5 | egraph_wbtest.mbt |
 | Search | 1 | egraph_wbtest.mbt |
 | Instantiate | 2 | egraph_wbtest.mbt |
@@ -199,5 +204,5 @@ All four trait bounds compose into the full `Language` constraint: `L : ENode + 
 | Lambda full rules | 3 | lambda_opt_wbtest.mbt |
 | Lambda let-binding | 1 | lambda_opt_wbtest.mbt |
 | Negative tests | 7 | lambda_opt_wbtest.mbt |
-| Analysis (LambdaLang) | 8 | lambda_opt_wbtest.mbt |
+| Analysis (LambdaLang) | 9 | lambda_opt_wbtest.mbt |
 | Runner (lambda) | 5 | lambda_opt_wbtest.mbt |

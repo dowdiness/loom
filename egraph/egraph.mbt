@@ -256,7 +256,11 @@ pub fn Subst::get(self : Subst, name : String) -> Id? {
 ///   op   = tag (':' payload)?
 pub fn Pat::parse(s : String) -> Pat raise Error {
   let chars = s.to_array()
-  let (pat, _) = parse_pat(chars, 0)
+  let (pat, next_pos) = parse_pat(chars, 0)
+  let end_pos = skip_ws(chars, next_pos)
+  if end_pos != chars.length() {
+    raise Failure::Failure("unexpected trailing input")
+  }
   pat
 }
 
@@ -284,11 +288,11 @@ fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
     i = skip_ws(chars, i)
     // Read operator token (may contain ':')
     let op_start = i
-    while i < chars.length() &&
-          chars[i] != ' ' &&
-          chars[i] != ')' &&
-          chars[i] != '(' {
+    while i < chars.length() && is_ident_char(chars[i]) {
       i = i + 1
+    }
+    if i == op_start {
+      raise Failure::Failure("expected operator name")
     }
     let op_token = String::from_array(chars[op_start:i].to_array())
     let (tag, payload) = split_at_colon(op_token)
@@ -310,6 +314,9 @@ fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
     let start = i
     while i < chars.length() && is_ident_char(chars[i]) {
       i = i + 1
+    }
+    if i == start {
+      raise Failure::Failure("expected identifier")
     }
     let token = String::from_array(chars[start:i].to_array())
     let (tag, payload) = split_at_colon(token)
@@ -1078,15 +1085,42 @@ fn[L, D] AnalyzedEGraph::union(
 fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
   self : AnalyzedEGraph[L, D],
 ) -> Unit {
-  // Rebuild may discover new congruences and union classes.
-  // We need to keep analysis data consistent.
-  self.egraph.rebuild()
-  // After rebuild, canonicalize data keys and merge stale entries
+  // Keep rebuilding while analysis hooks are introducing new unions.
+  while true {
+    self.egraph.rebuild()
+    self.canonicalize_data()
+    self.recompute_data()
+    let class_ids = self.canonical_class_ids()
+    for id in class_ids {
+      (self.analysis.modify)(self, id)
+    }
+    if self.egraph.pending.length() == 0 {
+      break
+    }
+  }
+}
+
+///|
+fn[L, D] AnalyzedEGraph::canonical_class_ids(
+  self : AnalyzedEGraph[L, D],
+) -> Array[Id] {
+  let ids : Array[Id] = []
+  let seen : @hashset.HashSet[Id] = @hashset.new()
+  for id, _ in self.egraph.classes {
+    let canonical = self.find(id)
+    if seen.add_and_check(canonical) {
+      ids.push(canonical)
+    }
+  }
+  ids
+}
+
+///|
+fn[L, D] AnalyzedEGraph::canonicalize_data(self : AnalyzedEGraph[L, D]) -> Unit {
   let stale : Array[Id] = []
   for id, d in self.data {
     let canonical = self.find(id)
     if canonical != id {
-      // Merge stale entry's data into canonical entry
       match self.data.get(canonical) {
         Some(existing) =>
           self.data[canonical] = (self.analysis.merge)(existing, d)
@@ -1097,6 +1131,53 @@ fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
   }
   for id in stale {
     self.data.remove(id)
+  }
+}
+
+///|
+fn[L, D] AnalyzedEGraph::recompute_data(self : AnalyzedEGraph[L, D]) -> Unit {
+  let class_ids = self.canonical_class_ids()
+  if class_ids.length() == 0 {
+    return
+  }
+  // Fixed number of relaxation passes to propagate new child facts
+  // through parents after congruence changes.
+  let pass_count = class_ids.length()
+  for pass = 0; pass < pass_count; pass = pass + 1 {
+    let next_data : Map[Id, D] = {}
+    for id in class_ids {
+      match self.egraph.classes.get(id) {
+        Some(eclass) => {
+          let mut combined : D? = None
+          for node in eclass.nodes {
+            let d = (self.analysis.make)(node, fn(child) {
+              self.get_data(child)
+            })
+            combined = match combined {
+              Some(acc) => Some((self.analysis.merge)(acc, d))
+              None => Some(d)
+            }
+          }
+          match combined {
+            Some(d) => next_data[id] = d
+            None =>
+              match self.data.get(id) {
+                Some(old) => next_data[id] = old
+                None => ()
+              }
+          }
+        }
+        None =>
+          match self.data.get(id) {
+            Some(old) => next_data[id] = old
+            None => ()
+          }
+      }
+    }
+    self.data.clear()
+    for id, d in next_data {
+      self.data[id] = d
+    }
   }
 }
 

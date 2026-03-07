@@ -277,6 +277,16 @@ test "parse deeply nested" {
   )
 }
 
+///|
+test "panic parse rejects trailing input" {
+  ignore(Pat::parse("(Add ?x ?y) extra"))
+}
+
+///|
+test "panic parse rejects invalid token in child position" {
+  ignore(Pat::parse("(Add , ?x)"))
+}
+
 // ── Derived method tests ──
 
 ///|

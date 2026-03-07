@@ -28,3 +28,5 @@
 - [ ] **Extraction: Dijkstra worklist**: Replace full-scan fixed-point with priority-queue approach for O(n log n) extraction
 - [ ] **Extraction: lazy map_children**: Avoid materializing canonical nodes until cost improves, reducing N×P allocations
 - [ ] **Extraction: array-indexed costs**: Replace `Map[Id, Int]` with `Array[Int?]` for O(1) dense-integer lookup
+- [ ] **`recompute_data` early termination**: Track whether data changed per pass and break when stable, avoiding O(n) worst-case passes
+- [ ] **Pat::parse error positions**: Include character offset in error messages for easier debugging

@@ -543,6 +543,21 @@ test "analysis: partial constants (x + 3) has no constant data" {
 }
 
 ///|
+test "analysis: rebuild recomputes parent data after child union" {
+  let eg = AnalyzedEGraph::new(constant_fold_analysis())
+  let x = eg.add(LVar("x"))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(x, three))
+  assert_eq(eg.get_data(sum), None)
+  let two = eg.add(LNum(2))
+  eg.union(x, two) |> ignore
+  eg.rebuild()
+  assert_eq(eg.get_data(sum), Some(5))
+  let five = eg.add(LNum(5))
+  assert_eq(eg.find(sum), eg.find(five))
+}
+
+///|
 test "analysis: constant folding with rewrite rules" {
   // Combine analysis (constant folding) with rewrite rules (x+0→x)
   let eg = AnalyzedEGraph::new(constant_fold_analysis())
