@@ -39,22 +39,19 @@ pub(all) enum Token {
   LeftBrace
 
   // Operators and punctuation
-  RightBrace // {
-  LeftBracket // }
-  RightBracket // [
-  Colon // ]
-  Semicolon // :
-  Comma // ;
-  Equals // ,
-  Arrow // =
-  Line // ->
-  // --
+  RightBrace // }
+  LeftBracket // [
+  RightBracket // ]
+  Colon // :
+  Semicolon // ;
+  Comma // ,
+  Equals // =
+  Arrow // ->
+  Line // --
 
   // Compass points
-  CompassPt(String)
-  EOF // n, ne, e, se, s, sw, w, nw, c, _
-
-  // End of file
+  CompassPt(String) // n, ne, e, se, s, sw, w, nw, c, _
+  EOF // End of file
 } derive(Eq, Show)
 
 // AST node types
@@ -87,12 +84,9 @@ pub(all) struct NodeId {
 
 ///|
 pub(all) enum EdgeOp {
-  Directed
-  Undirected // ->
-} derive ( // --
-  Eq,
-  Show,
-)
+  Directed // ->
+  Undirected // --
+} derive(Eq, Show)
 
 ///|
 pub(all) struct Attribute {
@@ -356,7 +350,7 @@ fn Lexer::next_token(self : Lexer) -> Token {
         let str = self.read_quoted_string()
         return ID(str)
       }
-      Some(c) if c.is_numeric() || c.is_ascii_alphabetic() || c == '_' => {
+      Some(c) if c.is_ascii_alphabetic() || c == '_' => {
         let word = self.read_identifier()
         return keyword_or_id(word)
       }
@@ -778,6 +772,9 @@ fn needs_quoting(s : String) -> Bool {
       has_ascii_alpha = true
     }
     if c.is_ascii_alphabetic() || c == '_' || c.is_numeric() {
+      continue
+    }
+    if c == '.' && not(has_ascii_alpha) {
       continue
     }
     return true

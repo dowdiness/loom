@@ -93,6 +93,8 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
           None => ()
         }
         let mut current_source = start.id
+        // EdgeStmt attributes apply to every segment in a chain: a->b->c means
+        // both (a,b) and (b,c) inherit the statement-level edge label.
         for pair in targets {
           let target = pair.1
           match child_list.get(current_source) {

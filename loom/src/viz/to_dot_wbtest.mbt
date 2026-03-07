@@ -83,10 +83,34 @@ test "to_dot: leaf node — label block only when attrs empty" {
 ///|
 test "to_dot: non-empty node_attrs merges into attribute list" {
   let dot = to_dot(leaf(0, "bar", "color=\"#ff0000\""))
-  inspect(
-    dot.contains("node0 [label=\"bar\", color=\"#ff0000\"]"),
-    content="true",
-  )
+  let mut has_label = false
+  let mut has_color = false
+  match @parser.parse_dot(dot) {
+    Some(graph) => {
+      for stmt in graph.statements {
+        match stmt {
+          @parser.NodeStmt(node_id, attr_list) =>
+            if node_id.id == "node0" {
+              match attr_list {
+                Some(al) =>
+                  for attr in al.attributes {
+                    if attr.key == "label" && attr.value == "bar" {
+                      has_label = true
+                    }
+                    if attr.key == "color" && attr.value == "#ff0000" {
+                      has_color = true
+                    }
+                  }
+                None => ()
+              }
+            }
+          _ => ()
+        }
+      }
+      inspect(has_label && has_color, content="true")
+    }
+    None => inspect(false, content="true")
+  }
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────

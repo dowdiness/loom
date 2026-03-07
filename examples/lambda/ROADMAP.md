@@ -12,7 +12,7 @@
 
 | Component | Status |
 |-----------|--------|
-| Recursive descent parser | ✅ Correct — `parse()`, `parse_source_file_term()`, `parse_cst()` paths |
+| Recursive descent parser | ✅ Correct — `parse()`, `parse_source_file()`, `parse_source_file_term()`, `parse_cst()` paths |
 | Lexer | ✅ Correct — trivia-inclusive; emits `Whitespace` tokens |
 | Error recovery | ✅ Complete — sync-point recovery, `ErrorNode`, diagnostics |
 | Subtree reuse | ✅ Complete — via generic `ReuseCursor[T,K]` |
