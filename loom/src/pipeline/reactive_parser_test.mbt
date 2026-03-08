@@ -191,5 +191,41 @@ test "panic ReactiveParser::from_parts rejects term memo disconnected from cst_m
     source_text.get().length().to_string()
   }, label="other")
   let term_memo = @incr.Memo::new(rt, fn() -> String { other_memo.get() }, label="term")
-  let _ = ReactiveParser::from_parts(source_text, cst_memo, cst_memo, term_memo)
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  let _ = ReactiveParser::term(parser)
+}
+
+///|
+test "ReactiveParser::from_parts does not eagerly evaluate term_memo" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "@oops", label="source_text")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_text.get())
+  }, label="cst")
+  let term_calls : Ref[Int] = { val: 0 }
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    term_calls.val = term_calls.val + 1
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(term_calls.val, content="0")
+  inspect(ReactiveParser::cst(parser).is_lex_error, content="true")
+  inspect(term_calls.val, content="0")
+  inspect(ReactiveParser::term(parser), content="error")
+  inspect(term_calls.val, content="1")
 }

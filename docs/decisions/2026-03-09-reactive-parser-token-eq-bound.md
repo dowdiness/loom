@@ -22,6 +22,9 @@ become public. That constructor must preserve a graph invariant: all cells must
 belong to one coherent runtime graph and the dependency chain must be
 `source_text → source_memo → cst_memo → term_memo`.
 
+Only the memo values that are eagerly forced at construction need `Eq` here.
+That means `source_memo` requires `Eq`, while `term_memo`'s `Ast` type does not.
+
 ## Decision
 
 - Keep `new_reactive_parser` as:
@@ -35,7 +38,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
 
 - Keep `ReactiveParser::from_parts` public, but change it to accept the memo
   immediately downstream of `source_text` and validate runtime/dependency wiring
-  eagerly at construction time.
+  without forcing AST construction at parser creation time.
 
 ## Rationale
 
@@ -54,6 +57,12 @@ cannot be distinguished from a legitimate staged pipeline. Mismatched runtimes
 or disconnected memos should fail at construction, not later during
 `set_source()` or `get()`.
 
+AST construction remains lazy. `from_parts` eagerly validates only the
+source-driven portion of the graph. The `term_memo → cst_memo` edge is checked
+on the first `term()` call so grammars can still construct parsers for invalid
+text and inspect `cst()` or `diagnostics()` without invoking `to_ast` or
+`on_lex_error`.
+
 ### 3. Source compatibility is secondary to semantic honesty here
 
 This project is still evolving rapidly. A source-compatible API that obscures core
@@ -64,5 +73,6 @@ invariants is worse than a documented break that states them plainly.
 - Existing callers of `new_reactive_parser` must ensure their token type derives or
   implements `Eq`.
 - `ReactiveParser::from_parts` remains available as an expert constructor, but it
-  now eagerly rejects incoherent runtime graphs.
+  now eagerly rejects incoherent source-stage graphs while preserving lazy AST
+  construction.
 - API docs must describe the `Eq` requirement as intentional, not incidental.

@@ -21,6 +21,7 @@ pub struct ReactiveParser[Ast] {
   priv source_text : @incr.Signal[String]
   priv cst_memo : @incr.Memo[CstStage]
   priv term_memo : @incr.Memo[Ast]
+  priv mut validate_term_dependency : Bool
 }
 
 ///|
@@ -58,7 +59,7 @@ pub fn[Ast : Eq] ReactiveParser::new(
     },
     label="term",
   )
-  { source_text, cst_memo, term_memo }
+  { source_text, cst_memo, term_memo, validate_term_dependency: false }
 }
 
 ///|
@@ -100,18 +101,26 @@ pub fn[Ast] ReactiveParser::diagnostics(
 /// Backed by term_memo: on a warm call (no source change) the Runtime skips
 /// recomputation and returns the cached Ast immediately.
 pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
-  self.term_memo.get()
+  let value = self.term_memo.get()
+  if self.validate_term_dependency &&
+    not(self.term_memo.dependencies().contains(self.cst_memo.id())) {
+    abort(
+      "ReactiveParser::from_parts: term_memo must depend on cst_memo",
+    )
+  }
+  self.validate_term_dependency = false
+  value
 }
 
 ///|
 /// Construct a ReactiveParser from pre-built memos.
 /// Validates that all cells share a runtime and that the dependency chain is:
-///   source_text → source_memo → cst_memo → term_memo
+///   source_text → source_memo → cst_memo
 /// If `source_memo` and `cst_memo` are the same memo, the validated shape is:
-///   source_text → cst_memo → term_memo
-/// Validation is eager: the memos are computed once so their dependency edges
-/// are established before the parser is returned.
-pub fn[Stage : Eq, Ast : Eq] ReactiveParser::from_parts(
+///   source_text → cst_memo
+/// The `term_memo → cst_memo` edge is validated lazily on the first `term()`
+/// call so parser construction remains lazy even when AST building aborts.
+pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
   source_text : @incr.Signal[String],
   source_memo : @incr.Memo[Stage],
   cst_memo : @incr.Memo[CstStage],
@@ -141,11 +150,10 @@ pub fn[Stage : Eq, Ast : Eq] ReactiveParser::from_parts(
       "ReactiveParser::from_parts: cst_memo must depend on source_memo",
     )
   }
-  ignore(term_memo.get())
-  if not(term_memo.dependencies().contains(cst_id)) {
-    abort(
-      "ReactiveParser::from_parts: term_memo must depend on cst_memo",
-    )
+  {
+    source_text,
+    cst_memo,
+    term_memo,
+    validate_term_dependency: true,
   }
-  { source_text, cst_memo, term_memo }
 }
