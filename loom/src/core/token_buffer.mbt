@@ -405,12 +405,14 @@ fn[T] tokenize_from_steps(
     let step = (lexer.lex_step)(source, pos)
     match step {
       Produced(token_info, next_offset~) => {
-        result.push(token_info)
         // Enforce progress: next_offset must be > pos
         if next_offset <= pos {
+          result.push(TokenInfo::new(token_info.token, 1))
           // Defensive: skip one code unit to avoid infinite loop
           pos = pos + 1
         } else {
+          // Stored token lengths must match consumed span so starts stay in sync.
+          result.push(TokenInfo::new(token_info.token, next_offset - pos))
           pos = next_offset
         }
       }
@@ -451,10 +453,11 @@ fn[T] tokenize_from_steps_strict(
     let step = (lexer.lex_step)(source, pos)
     match step {
       Produced(token_info, next_offset~) => {
-        result.push(token_info)
         if next_offset <= pos {
+          result.push(TokenInfo::new(token_info.token, 1))
           pos = pos + 1
         } else {
+          result.push(TokenInfo::new(token_info.token, next_offset - pos))
           pos = next_offset
         }
       }

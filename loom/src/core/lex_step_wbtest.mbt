@@ -65,6 +65,17 @@ fn no_progress_lexer(source : String, start : Int) -> LexStep[String] {
   Produced(TokenInfo::new("stuck", 0), next_offset=start)
 }
 
+// -- Test lexer: reports stale token lengths despite correct next_offset --
+
+///|
+fn stale_len_lexer(source : String, start : Int) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  let end = start + 1
+  Produced(TokenInfo::new("char", 99), next_offset=end)
+}
+
 // -- Contract helper: verify lex_step laws for a given source --
 
 ///|
@@ -292,6 +303,27 @@ test "new_from_steps: no-progress Produced is corrected" {
   let tokens = buf.get_tokens()
   // Defensive correction: each step advances by 1 despite next_offset=start
   inspect(tokens.length(), content="3")
+}
+
+///|
+test "new_from_steps: Produced token len is normalized from consumed span" {
+  let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "abc",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps_strict: Produced token len is normalized from consumed span" {
+  let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
+  let buf = TokenBuffer::new_from_steps_strict("abc", lexer, eof_token="EOF")
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
 }
 
 ///|
