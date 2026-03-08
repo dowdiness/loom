@@ -8,7 +8,7 @@ fn char_step_lexer(source : String, start : Int) -> LexStep[String] {
     return Done
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: reports Invalid for '@' characters --
@@ -23,7 +23,7 @@ fn char_with_error_lexer(source : String, start : Int) -> LexStep[String] {
     return Invalid(at=start, width=1, message="bad char @")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: reports Incomplete for unterminated quote --
@@ -38,7 +38,7 @@ fn incomplete_lexer(source : String, start : Int) -> LexStep[String] {
     return Incomplete(at=start, expected="closing quote")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: Invalid with width=0 (must be corrected to 1) --
@@ -52,7 +52,7 @@ fn zero_width_invalid_lexer(source : String, start : Int) -> LexStep[String] {
     return Invalid(at=start, width=0, message="zero-width invalid")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: Produced with next_offset == start (violates progress) --
@@ -62,7 +62,7 @@ fn no_progress_lexer(source : String, start : Int) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
-  Produced(TokenInfo::new("stuck", start, start), next_offset=start)
+  Produced(TokenInfo::new("stuck", 0), next_offset=start)
 }
 
 // -- Contract helper: verify lex_step laws for a given source --
@@ -180,8 +180,14 @@ test "contract: empty source satisfies laws" {
 
 ///|
 fn render_tokens(tokens : Array[TokenInfo[String]]) -> String {
+  let mut offset = 0
   tokens
-  .map(t => t.token + "@" + t.start.to_string() + "-" + t.end.to_string())
+  .map(t => {
+    let start = offset
+    let end = offset + t.len
+    offset = end
+    t.token + "@" + start.to_string() + "-" + end.to_string()
+  })
   .join(",")
 }
 
@@ -353,20 +359,17 @@ fn prop_step_tokens_cover_source(seed : Int) -> Bool {
   )
   let tokens = buf.get_tokens()
   let len = source.length()
-  // Check all non-EOF tokens cover [0, len) contiguously
-  let mut expected_start = 0
+  // Check all non-EOF tokens cover [0, len) contiguously via prefix sum
+  let mut offset = 0
   for i = 0; i < tokens.length() - 1; i = i + 1 {
     let t = tokens[i]
-    if t.start != expected_start {
+    if t.len <= 0 {
       return false
     }
-    if t.end <= t.start {
-      return false
-    }
-    expected_start = t.end
+    offset = offset + t.len
   }
-  // Last non-EOF token should end at source length
-  expected_start == len
+  // Total length of non-EOF tokens should equal source length
+  offset == len
 }
 
 ///|

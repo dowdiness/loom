@@ -10,8 +10,22 @@ pub struct TokenBuffer[T] {
   priv tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError
   priv eof_token : T
   mut tokens : Array[TokenInfo[T]]
+  priv mut starts : Array[Int]
   mut source : String
   mut version : Int
+}
+
+///|
+/// Build a starts array from a token array via prefix sum.
+/// Invariant: starts[i+1] == starts[i] + tokens[i].len
+pub fn[T] build_starts(tokens : Array[TokenInfo[T]]) -> Array[Int] {
+  let starts : Array[Int] = Array::make(tokens.length(), 0)
+  let mut offset = 0
+  for i = 0; i < tokens.length(); i = i + 1 {
+    starts[i] = offset
+    offset = offset + tokens[i].len
+  }
+  starts
 }
 
 ///|
@@ -21,7 +35,8 @@ pub fn[T] TokenBuffer::new(
   eof_token~ : T,
 ) -> TokenBuffer[T] raise LexError {
   let tokens = tokenize_fn(source)
-  { tokenize_fn, eof_token, tokens, source, version: 0 }
+  let starts = build_starts(tokens)
+  { tokenize_fn, eof_token, tokens, starts, source, version: 0 }
 }
 
 ///|
@@ -36,7 +51,8 @@ pub fn[T] TokenBuffer::new_resilient(
   error_token~ : T,
 ) -> TokenBuffer[T] {
   let tokens = tokenize_resilient(source, tokenize_fn, eof_token, error_token)
-  { tokenize_fn, eof_token, tokens, source, version: 0 }
+  let starts = build_starts(tokens)
+  { tokenize_fn, eof_token, tokens, starts, source, version: 0 }
 }
 
 ///|
@@ -50,12 +66,20 @@ pub fn[T] TokenBuffer::new_from_steps(
   error_token~ : T,
 ) -> TokenBuffer[T] {
   let tokens = tokenize_from_steps(source, lexer, eof_token, error_token)
+  let starts = build_starts(tokens)
   // Wrap the step-based lexer as a tokenize_fn so update() and
   // tokenize_range_impl work correctly on step-based buffers.
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
     tokenize_from_steps(s, lexer, eof_token, error_token)
   }
-  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+  {
+    tokenize_fn: step_tokenize_fn,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+  }
 }
 
 ///|
@@ -67,15 +91,47 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
   eof_token~ : T,
 ) -> TokenBuffer[T] raise LexError {
   let tokens = tokenize_from_steps_strict(source, lexer, eof_token)
+  let starts = build_starts(tokens)
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
     tokenize_from_steps_strict(s, lexer, eof_token)
   }
-  { tokenize_fn: step_tokenize_fn, eof_token, tokens, source, version: 0 }
+  {
+    tokenize_fn: step_tokenize_fn,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+  }
 }
 
 ///|
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
   self.tokens
+}
+
+///|
+/// Return the token at index i (without position information).
+pub fn[T] TokenBuffer::get_token(self : TokenBuffer[T], i : Int) -> T {
+  self.tokens[i].token
+}
+
+///|
+/// Return the start code-unit offset of the token at index i.
+pub fn[T] TokenBuffer::get_start(self : TokenBuffer[T], i : Int) -> Int {
+  self.starts[i]
+}
+
+///|
+/// Return the end code-unit offset of the token at index i.
+pub fn[T] TokenBuffer::get_end(self : TokenBuffer[T], i : Int) -> Int {
+  self.starts[i] + self.tokens[i].len
+}
+
+///|
+/// Return the number of tokens (including the trailing EOF sentinel).
+pub fn[T] TokenBuffer::token_count(self : TokenBuffer[T]) -> Int {
+  self.tokens.length()
 }
 
 ///|
@@ -95,17 +151,23 @@ pub fn[T] TokenBuffer::update(
   new_source : String,
 ) -> Array[TokenInfo[T]] raise LexError {
   let old_tokens = self.tokens
+  let old_starts = self.starts
   let old_len = old_tokens.length()
   if old_len == 0 {
     let tokens = (self.tokenize_fn)(new_source)
     self.tokens = tokens
+    self.starts = build_starts(tokens)
     self.source = new_source
     self.version = self.version + 1
     return self.tokens
   }
   let eof_index = old_len - 1
-  let mut left_tok_idx = find_left_index(old_tokens, edit.start)
-  let mut right_tok_idx = find_right_index(old_tokens, edit.old_end())
+  let mut left_tok_idx = find_left_index(old_tokens, old_starts, edit.start)
+  let mut right_tok_idx = find_right_index(
+    old_tokens,
+    old_starts,
+    edit.old_end(),
+  )
   // Conservative: expand left by one token to catch boundary edits.
   if left_tok_idx > 0 {
     left_tok_idx = left_tok_idx - 1
@@ -118,11 +180,12 @@ pub fn[T] TokenBuffer::update(
   if right_tok_idx < eof_index {
     right_tok_idx = right_tok_idx + 1
   }
-  let mut left_old_offset = old_tokens[left_tok_idx].start
+  let mut left_old_offset = old_starts[left_tok_idx]
   if edit.start < left_old_offset {
     left_old_offset = edit.start
   }
-  let mut right_old_offset = old_tokens[right_tok_idx].end
+  let mut right_old_offset = old_starts[right_tok_idx] +
+    old_tokens[right_tok_idx].len
   if edit.old_end() > right_old_offset {
     right_old_offset = edit.old_end()
   }
@@ -138,33 +201,41 @@ pub fn[T] TokenBuffer::update(
     new_source, left_clamped, right_clamped,
   )
   let new_tokens : Array[TokenInfo[T]] = []
+  let new_starts : Array[Int] = []
+  // Copy unchanged prefix tokens (their positions don't shift).
   for i = 0; i < left_tok_idx; i = i + 1 {
     new_tokens.push(old_tokens[i])
+    new_starts.push(old_starts[i])
   }
-  for token_info in replacement_tokens {
-    new_tokens.push(token_info)
+  // Insert re-lexed replacement tokens with inline prefix-sum (avoids temp array).
+  let mut rep_offset = left_clamped
+  for i = 0; i < replacement_tokens.length(); i = i + 1 {
+    new_tokens.push(replacement_tokens[i])
+    new_starts.push(rep_offset)
+    rep_offset = rep_offset + replacement_tokens[i].len
   }
+  // Copy unchanged suffix tokens with shifted positions.
   let delta = edit.delta()
   for i = right_tok_idx + 1; i < eof_index; i = i + 1 {
     let t = old_tokens[i]
-    new_tokens.push(
-      TokenInfo::new(
-        t.token,
-        clamp_offset(t.start + delta, new_len),
-        clamp_offset(t.end + delta, new_len),
-      ),
-    )
+    new_tokens.push(t)
+    new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
   }
-  new_tokens.push(TokenInfo::new(self.eof_token, new_len, new_len))
+  // EOF sentinel
+  new_tokens.push(TokenInfo::new(self.eof_token, 0))
+  new_starts.push(new_len)
   self.tokens = new_tokens
+  self.starts = new_starts
   self.source = new_source
   self.version = self.version + 1
   self.tokens
 }
 
 ///|
-/// Re-lex a range of source. Tokenize the slice and offset-adjust results.
+/// Re-lex a range of source. Tokenize the slice.
 /// Skips the trailing EOF that tokenize_fn appends by contract (last element).
+/// Returned tokens are position-independent; caller computes starts via
+/// build_starts and adds the range offset.
 fn[T] TokenBuffer::tokenize_range_impl(
   self : TokenBuffer[T],
   source : String,
@@ -176,16 +247,20 @@ fn[T] TokenBuffer::tokenize_range_impl(
   // tokenize_fn contract: EOF is always last — skip it.
   let result : Array[TokenInfo[T]] = []
   for i = 0; i < slice_tokens.length() - 1; i = i + 1 {
-    let t = slice_tokens[i]
-    result.push(TokenInfo::new(t.token, t.start + start, t.end + start))
+    result.push(slice_tokens[i])
   }
   result
 }
 
 ///|
-/// Binary search (lower_bound): first index where tokens[i].end >= pos.
+/// Binary search (lower_bound): first index where end(i) >= pos.
+/// end(i) = starts[i] + tokens[i].len
 /// Returns len-1 if all tokens end before pos.
-fn[T] find_left_index(tokens : Array[TokenInfo[T]], pos : Int) -> Int {
+fn[T] find_left_index(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  pos : Int,
+) -> Int {
   let len = tokens.length()
   if len == 0 {
     return 0
@@ -194,7 +269,7 @@ fn[T] find_left_index(tokens : Array[TokenInfo[T]], pos : Int) -> Int {
   let mut hi = len
   while lo < hi {
     let mid = lo + (hi - lo) / 2
-    if tokens[mid].end >= pos {
+    if starts[mid] + tokens[mid].len >= pos {
       hi = mid
     } else {
       lo = mid + 1
@@ -208,9 +283,13 @@ fn[T] find_left_index(tokens : Array[TokenInfo[T]], pos : Int) -> Int {
 }
 
 ///|
-/// Binary search (upper_bound - 1): last index where tokens[i].start <= pos.
+/// Binary search (upper_bound - 1): last index where starts[i] <= pos.
 /// Returns 0 if all tokens start after pos.
-fn[T] find_right_index(tokens : Array[TokenInfo[T]], pos : Int) -> Int {
+fn[T] find_right_index(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  pos : Int,
+) -> Int {
   let len = tokens.length()
   if len == 0 {
     return 0
@@ -219,7 +298,7 @@ fn[T] find_right_index(tokens : Array[TokenInfo[T]], pos : Int) -> Int {
   let mut hi = len
   while lo < hi {
     let mid = lo + (hi - lo) / 2
-    if tokens[mid].start <= pos {
+    if starts[mid] <= pos {
       lo = mid + 1
     } else {
       hi = mid
@@ -287,23 +366,22 @@ fn[T] tokenize_resilient(
         if prefix_len > 0 {
           let prefix : StringView = rem[0:prefix_len] catch {
               _ => {
-                result.push(TokenInfo::new(error_token, pos, pos + 1))
+                result.push(TokenInfo::new(error_token, 1))
                 pos = pos + 1
                 continue
               }
             }
           let prefix_tokens = tokenize_fn(prefix.to_string()) catch { _ => [] }
           for i = 0; i < prefix_tokens.length() - 1; i = i + 1 {
-            let t = prefix_tokens[i]
-            result.push(TokenInfo::new(t.token, t.start + pos, t.end + pos))
+            result.push(prefix_tokens[i])
           }
           pos = pos + prefix_len
         } else {
-          result.push(TokenInfo::new(error_token, pos, pos + 1))
+          result.push(TokenInfo::new(error_token, 1))
           pos = pos + 1
         }
       }
-      result.push(TokenInfo::new(eof_token, source.length(), source.length()))
+      result.push(TokenInfo::new(eof_token, 0))
       result
     }
   }
@@ -337,23 +415,23 @@ fn[T] tokenize_from_steps(
       Invalid(at~, width~, ..) => {
         let effective_width = if width > 0 { width } else { 1 }
         let end = clamp_offset(at + effective_width, len)
-        result.push(TokenInfo::new(error_token, at, end))
+        result.push(TokenInfo::new(error_token, end - at))
         // Ensure pos never moves backwards (buggy lexer could report at < pos)
         pos = if end > pos { end } else { pos + 1 }
       }
       Incomplete(at~, ..) => {
         // Emit error token from at to EOF (or zero-width at EOF)
         if at < len {
-          result.push(TokenInfo::new(error_token, at, len))
+          result.push(TokenInfo::new(error_token, len - at))
         } else {
-          result.push(TokenInfo::new(error_token, len, len))
+          result.push(TokenInfo::new(error_token, 0))
         }
         break
       }
       Done => break
     }
   }
-  result.push(TokenInfo::new(eof_token, len, len))
+  result.push(TokenInfo::new(eof_token, 0))
   result
 }
 
@@ -387,7 +465,7 @@ fn[T] tokenize_from_steps_strict(
       Done => break
     }
   }
-  result.push(TokenInfo::new(eof_token, len, len))
+  result.push(TokenInfo::new(eof_token, 0))
   result
 }
 

@@ -69,7 +69,7 @@ fn tokenize_via_steps(
       Invalid(message~, ..) => raise @core.LexError(message)
       Incomplete(expected~, ..) => raise @core.LexError(expected)
       Done => {
-        tokens.push(@core.TokenInfo::new(@token.EOF, pos, pos))
+        tokens.push(@core.TokenInfo::new(@token.EOF, 0))
         break
       }
     }
@@ -93,7 +93,7 @@ fn step_lex(
   match c {
     Some('\n') if layout =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Newline, pos, pos + 1),
+        @core.TokenInfo::new(@token.Newline, 1),
         next_offset=pos + 1,
       )
     Some('\r') if layout => {
@@ -104,7 +104,7 @@ fn step_lex(
         pos + 1
       }
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Newline, pos, end),
+        @core.TokenInfo::new(@token.Newline, end - pos),
         next_offset=end,
       )
     }
@@ -120,43 +120,43 @@ fn step_lex(
         }
       }
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Whitespace, ws_start, ws_end),
+        @core.TokenInfo::new(@token.Whitespace, ws_end - ws_start),
         next_offset=ws_end,
       )
     }
     Some('λ') | Some('\\') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Lambda, pos, pos + 1),
+        @core.TokenInfo::new(@token.Lambda, 1),
         next_offset=pos + 1,
       )
     Some('.') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Dot, pos, pos + 1),
+        @core.TokenInfo::new(@token.Dot, 1),
         next_offset=pos + 1,
       )
     Some('(') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.LeftParen, pos, pos + 1),
+        @core.TokenInfo::new(@token.LeftParen, 1),
         next_offset=pos + 1,
       )
     Some(')') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.RightParen, pos, pos + 1),
+        @core.TokenInfo::new(@token.RightParen, 1),
         next_offset=pos + 1,
       )
     Some('+') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Plus, pos, pos + 1),
+        @core.TokenInfo::new(@token.Plus, 1),
         next_offset=pos + 1,
       )
     Some('-') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Minus, pos, pos + 1),
+        @core.TokenInfo::new(@token.Minus, 1),
         next_offset=pos + 1,
       )
     Some('=') =>
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Eq, pos, pos + 1),
+        @core.TokenInfo::new(@token.Eq, 1),
         next_offset=pos + 1,
       )
     Some(c) if is_alphabet(c.to_int()) => {
@@ -170,14 +170,14 @@ fn step_lex(
         _ => @token.Token::Identifier(identifier)
       }
       @core.LexStep::Produced(
-        @core.TokenInfo::new(token, pos, new_pos),
+        @core.TokenInfo::new(token, new_pos - pos),
         next_offset=new_pos,
       )
     }
     Some(c) if is_numeric(c.to_int()) => {
       let (new_pos, number) = read_number(input, pos, 0)
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Integer(number), pos, new_pos),
+        @core.TokenInfo::new(@token.Integer(number), new_pos - pos),
         next_offset=new_pos,
       )
     }
@@ -233,18 +233,13 @@ pub fn tokenize_range(
       _ => raise @core.LexError("Invalid slice")
     }
   let tokens = tokenize(slice.to_string())
+  // Tokens are position-independent — no offset adjustment needed.
+  // Just strip the trailing EOF.
   let result : Array[@core.TokenInfo[@token.Token]] = []
   for token_info in tokens {
     match token_info.token {
       @token.EOF => ()
-      _ =>
-        result.push(
-          @core.TokenInfo::new(
-            token_info.token,
-            token_info.start + start,
-            token_info.end + start,
-          ),
-        )
+      _ => result.push(token_info)
     }
   }
   result

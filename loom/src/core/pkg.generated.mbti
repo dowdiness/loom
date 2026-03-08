@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
+
 pub let core_interner : @seam.Interner
 
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
@@ -130,7 +132,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
-pub fn[T, K] ParserContext::token_text(Self[T, K], TokenInfo[T]) -> String
+pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> String
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 
 pub(all) struct PrefixLexer[T] {
@@ -187,7 +189,10 @@ pub struct TokenBuffer[T] {
   mut version : Int
   // private fields
 }
+pub fn[T] TokenBuffer::get_end(Self[T], Int) -> Int
 pub fn[T] TokenBuffer::get_source(Self[T]) -> String
+pub fn[T] TokenBuffer::get_start(Self[T], Int) -> Int
+pub fn[T] TokenBuffer::get_token(Self[T], Int) -> T
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
@@ -195,16 +200,24 @@ pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, er
 pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
+pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Array[TokenInfo[T]] raise LexError
 
 pub struct TokenInfo[T] {
   token : T
-  start : Int
-  end : Int
+  len : Int
 }
-pub fn[T] TokenInfo::new(T, Int, Int) -> Self[T]
+pub fn[T] TokenInfo::new(T, Int) -> Self[T]
 pub impl[T : Eq] Eq for TokenInfo[T]
 pub impl[T : Show] Show for TokenInfo[T]
+
+pub(all) struct TokenStage[T] {
+  tokens : Array[TokenInfo[T]]
+  source : String
+  is_lex_error : Bool
+  lex_error_message : String
+}
+pub impl[T : Eq] Eq for TokenStage[T]
 
 // Type aliases
 

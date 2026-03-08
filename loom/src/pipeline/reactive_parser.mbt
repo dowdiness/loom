@@ -1,14 +1,16 @@
 ///|
 /// Language-agnostic Salsa-style incremental pipeline.
 ///
-/// source_text : Signal[String]
-///   → cst_memo  : Memo[CstStage]    (Language::parse_source combines lex + parse)
-///   → term_memo : Memo[Ast]
+/// Two construction paths:
 ///
-/// Two memos vs the lambda-specific three-memo pipeline (Signal → TokenStage →
-/// CstStage → Ast). `Language::parse_source` combines tokenize+parse internally,
-/// losing the TokenStage backdating boundary. The CstStage hash-equality and
-/// Ast structure-only equality boundaries remain effective.
+/// 1. `ReactiveParser::new(source, lang)` — two-memo pipeline:
+///    Signal[String] → Memo[CstStage] → Memo[Ast]
+///    `Language::parse_source` combines lex + parse in one step.
+///
+/// 2. `ReactiveParser::from_parts(signal, cst_memo, term_memo)` — three-memo:
+///    Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
+///    Built by `new_reactive_parser` factory. The TokenStage memo enables
+///    early cutoff when position-independent tokens are unchanged.
 ///
 /// Lex-error routing: `CstStage::is_lex_error` is set explicitly by the
 /// `Parseable` implementation, so `term_memo` dispatches to `on_lex_error`
@@ -99,4 +101,16 @@ pub fn[Ast] ReactiveParser::diagnostics(
 /// recomputation and returns the cached Ast immediately.
 pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
   self.term_memo.get()
+}
+
+///|
+/// Construct a ReactiveParser from pre-built memos.
+/// Used by factories that build the three-memo chain (token → cst → term)
+/// externally for token-stage early cutoff.
+pub fn[Ast] ReactiveParser::from_parts(
+  source_text : @incr.Signal[String],
+  cst_memo : @incr.Memo[CstStage],
+  term_memo : @incr.Memo[Ast],
+) -> ReactiveParser[Ast] {
+  { source_text, cst_memo, term_memo }
 }

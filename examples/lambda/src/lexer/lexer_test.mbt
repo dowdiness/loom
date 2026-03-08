@@ -191,22 +191,19 @@ test "tokenize leading whitespace produces whitespace token" {
   let tokens = tokenize("  x")
   let first = tokens[0]
   inspect(first.token == @token.Whitespace, content="true")
-  inspect(first.start, content="0")
-  inspect(first.end, content="2")
+  inspect(first.len, content="2")
 }
 
 ///|
-test "tokenize whitespace positions are correct" {
-  // "x + 1": x@0-1, ws@1-2, +@2-3, ws@3-4, 1@4-5, EOF@5-5
+test "tokenize whitespace lengths are correct" {
+  // "x + 1": x(1), ws(1), +(1), ws(1), 1(1), EOF(0)
   let tokens = tokenize("x + 1")
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length(), content="2")
   let ws0 = ws_tokens[0]
-  inspect(ws0.start, content="1")
-  inspect(ws0.end, content="2")
+  inspect(ws0.len, content="1")
   let ws1 = ws_tokens[1]
-  inspect(ws1.start, content="3")
-  inspect(ws1.end, content="4")
+  inspect(ws1.len, content="1")
 }
 
 ///|
@@ -216,8 +213,7 @@ test "tokenize whitespace-only input" {
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length(), content="1")
   let ws0 = ws_tokens[0]
-  inspect(ws0.start, content="0")
-  inspect(ws0.end, content="3")
+  inspect(ws0.len, content="3")
   let has_eof = tokens.iter().any(fn(t) { t.token == @token.EOF })
   inspect(has_eof, content="true")
 }
@@ -237,8 +233,7 @@ test "tokenize trailing whitespace produces whitespace token before EOF" {
   let ws_tokens = tokens.filter(fn(t) { t.token == @token.Whitespace })
   inspect(ws_tokens.length() > 0, content="true")
   let last_ws = ws_tokens[ws_tokens.length() - 1]
-  inspect(last_ws.start, content="1")
-  inspect(last_ws.end, content="3")
+  inspect(last_ws.len, content="2")
 }
 
 ///|

@@ -141,12 +141,13 @@ pub fn[T, K] ParserContext::new(
   source : String,
   spec : LanguageSpec[T, K],
 ) -> ParserContext[T, K] {
+  let starts = build_starts(tokens)
   {
     spec,
     token_count: tokens.length(),
     get_token: fn(i) { tokens[i].token },
-    get_start: fn(i) { tokens[i].start },
-    get_end: fn(i) { tokens[i].end },
+    get_start: fn(i) { starts[i] },
+    get_end: fn(i) { starts[i] + tokens[i].len },
     source,
     position: 0,
     events: @seam.EventBuffer::new(),
@@ -236,11 +237,11 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(
     if token.is_trivia() {
       pos = pos + 1
     } else {
-      return { token, start: (self.get_start)(pos), end: (self.get_end)(pos) }
+      let len = (self.get_end)(pos) - (self.get_start)(pos)
+      return { token, len }
     }
   }
-  let end = self.source.length()
-  { token: self.spec.eof_token, start: end, end }
+  { token: self.spec.eof_token, len: 0 }
 }
 
 ///|
@@ -261,17 +262,17 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
 }
 
 ///|
-/// Extract source text for a token from the source string.
+/// Extract source text for a token at a given position index.
 /// Returns "" on invalid spans rather than aborting — span errors (whether
 /// from a tokenizer bug or a grammar invariant violation) produce an empty
 /// leaf in the tree instead of crashing a long-running host process or LSP.
-pub fn[T, K] ParserContext::token_text(
+pub fn[T, K] ParserContext::token_text_at(
   self : ParserContext[T, K],
-  info : TokenInfo[T],
+  pos : Int,
 ) -> String {
-  let slice : StringView = self.source[info.start:info.end] catch {
-      _ => return ""
-    }
+  let start = (self.get_start)(pos)
+  let end = (self.get_end)(pos)
+  let slice : StringView = self.source[start:end] catch { _ => return "" }
   slice.to_string()
 }
 
@@ -414,12 +415,30 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::error(
   self : ParserContext[T, K],
   msg : String,
 ) -> Unit {
-  let info = self.peek_info()
+  // Find the next non-trivia token and compute its position directly.
+  let mut pos = self.position
+  while pos < self.token_count {
+    let token = (self.get_token)(pos)
+    if token.is_trivia() {
+      pos = pos + 1
+    } else {
+      let start = (self.get_start)(pos)
+      let end = (self.get_end)(pos)
+      let _ = self.push_diagnostic_unique({
+        message: msg,
+        start,
+        end,
+        got_token: token,
+      })
+      return
+    }
+  }
+  let eof = self.source.length()
   let _ = self.push_diagnostic_unique({
     message: msg,
-    start: info.start,
-    end: info.end,
-    got_token: info.token,
+    start: eof,
+    end: eof,
+    got_token: self.spec.eof_token,
   })
 }
 
@@ -610,12 +629,11 @@ fn[T, K] ParserContext::token_info_at_or_after(
     let start = (self.get_start)(pos)
     let end = (self.get_end)(pos)
     if start >= byte_offset || end > byte_offset {
-      return { token: (self.get_token)(pos), start, end }
+      return { token: (self.get_token)(pos), len: end - start }
     }
     pos = pos + 1
   }
-  let eof = self.source.length()
-  { token: self.spec.eof_token, start: eof, end: eof }
+  { token: self.spec.eof_token, len: 0 }
 }
 
 ///|
