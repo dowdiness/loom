@@ -8,6 +8,8 @@
 ///|
 pub struct TokenBuffer[T] {
   priv tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError
+  priv retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
+  priv incremental_relex_enabled : Bool
   priv eof_token : T
   mut tokens : Array[TokenInfo[T]]
   priv mut starts : Array[Int]
@@ -36,7 +38,20 @@ pub fn[T] TokenBuffer::new(
 ) -> TokenBuffer[T] raise LexError {
   let tokens = tokenize_fn(source)
   let starts = build_starts(tokens)
-  { tokenize_fn, eof_token, tokens, starts, source, version: 0 }
+  let retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError = s => {
+    let tokens = tokenize_fn(s)
+    (tokens, build_starts(tokens))
+  }
+  {
+    tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: true,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+  }
 }
 
 ///|
@@ -52,28 +67,49 @@ pub fn[T] TokenBuffer::new_resilient(
 ) -> TokenBuffer[T] {
   let tokens = tokenize_resilient(source, tokenize_fn, eof_token, error_token)
   let starts = build_starts(tokens)
-  { tokenize_fn, eof_token, tokens, starts, source, version: 0 }
+  let retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError = s => {
+    let tokens = tokenize_resilient(s, tokenize_fn, eof_token, error_token)
+    (tokens, build_starts(tokens))
+  }
+  {
+    tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: true,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+  }
 }
 
 ///|
 /// Construct a TokenBuffer from a step-based PrefixLexer.
 /// Never raises — errors are emitted as error tokens inline.
-/// Uses full re-lex on construction; incremental step re-lex is deferred.
+/// Uses exact starts from the step stream; updates currently full re-lex so
+/// late error offsets remain representable.
 pub fn[T] TokenBuffer::new_from_steps(
   source : String,
   lexer : PrefixLexer[T],
   eof_token~ : T,
   error_token~ : T,
 ) -> TokenBuffer[T] {
-  let tokens = tokenize_from_steps(source, lexer, eof_token, error_token)
-  let starts = build_starts(tokens)
-  // Wrap the step-based lexer as a tokenize_fn so update() and
-  // tokenize_range_impl work correctly on step-based buffers.
+  let (tokens, starts) = tokenize_from_steps_with_starts(
+    source,
+    lexer,
+    eof_token,
+    error_token,
+  )
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
     tokenize_from_steps(s, lexer, eof_token, error_token)
   }
+  let retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError = s => {
+    tokenize_from_steps_with_starts(s, lexer, eof_token, error_token)
+  }
   {
     tokenize_fn: step_tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: false,
     eof_token,
     tokens,
     starts,
@@ -85,6 +121,7 @@ pub fn[T] TokenBuffer::new_from_steps(
 ///|
 /// Construct a TokenBuffer from a step-based PrefixLexer in strict mode.
 /// Raises LexError when the step lexer reports Invalid/Incomplete.
+/// Updates currently full re-lex to preserve step-lexer offset semantics.
 pub fn[T] TokenBuffer::new_from_steps_strict(
   source : String,
   lexer : PrefixLexer[T],
@@ -95,8 +132,14 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
     tokenize_from_steps_strict(s, lexer, eof_token)
   }
+  let retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError = s => {
+    let tokens = tokenize_from_steps_strict(s, lexer, eof_token)
+    (tokens, build_starts(tokens))
+  }
   {
     tokenize_fn: step_tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: false,
     eof_token,
     tokens,
     starts,
@@ -155,10 +198,10 @@ pub fn[T] TokenBuffer::update(
   let old_tokens = self.tokens
   let old_starts = self.starts
   let old_len = old_tokens.length()
-  if old_len == 0 {
-    let tokens = (self.tokenize_fn)(new_source)
+  if not(self.incremental_relex_enabled) || old_len == 0 {
+    let (tokens, starts) = (self.retokenize_full)(new_source)
     self.tokens = tokens
-    self.starts = build_starts(tokens)
+    self.starts = starts
     self.source = new_source
     self.version = self.version + 1
     return self.tokens.copy()
@@ -398,13 +441,34 @@ fn[T] tokenize_from_steps(
   eof_token : T,
   error_token : T,
 ) -> Array[TokenInfo[T]] {
+  let (tokens, _) = tokenize_from_steps_with_starts(
+    source,
+    lexer,
+    eof_token,
+    error_token,
+  )
+  tokens
+}
+
+///|
+/// Step-based tokenization with explicit starts so late Invalid/Incomplete
+/// offsets remain representable even when a step reports an error after a
+/// valid prefix.
+fn[T] tokenize_from_steps_with_starts(
+  source : String,
+  lexer : PrefixLexer[T],
+  eof_token : T,
+  error_token : T,
+) -> (Array[TokenInfo[T]], Array[Int]) {
   let result : Array[TokenInfo[T]] = []
+  let starts : Array[Int] = []
   let len = source.length()
   let mut pos = 0
   while pos < len {
     let step = (lexer.lex_step)(source, pos)
     match step {
       Produced(token_info, next_offset~) => {
+        starts.push(pos)
         // Enforce progress: next_offset must be > pos
         if next_offset <= pos {
           result.push(TokenInfo::new(token_info.token, 1))
@@ -418,15 +482,20 @@ fn[T] tokenize_from_steps(
       }
       Invalid(at~, width~, ..) => {
         let effective_width = if width > 0 { width } else { 1 }
-        let end = clamp_offset(at + effective_width, len)
-        result.push(TokenInfo::new(error_token, end - at))
+        let error_start = clamp_offset(if at > pos { at } else { pos }, len)
+        let raw_end = clamp_offset(at + effective_width, len)
+        let end = if raw_end > pos { raw_end } else { pos + 1 }
+        starts.push(error_start)
+        result.push(TokenInfo::new(error_token, end - error_start))
         // Ensure pos never moves backwards (buggy lexer could report at < pos)
-        pos = if end > pos { end } else { pos + 1 }
+        pos = end
       }
       Incomplete(at~, ..) => {
+        let error_start = clamp_offset(if at > pos { at } else { pos }, len)
+        starts.push(error_start)
         // Emit error token from at to EOF (or zero-width at EOF)
-        if at < len {
-          result.push(TokenInfo::new(error_token, len - at))
+        if error_start < len {
+          result.push(TokenInfo::new(error_token, len - error_start))
         } else {
           result.push(TokenInfo::new(error_token, 0))
         }
@@ -435,8 +504,9 @@ fn[T] tokenize_from_steps(
       Done => break
     }
   }
+  starts.push(len)
   result.push(TokenInfo::new(eof_token, 0))
-  result
+  (result, starts)
 }
 
 ///|

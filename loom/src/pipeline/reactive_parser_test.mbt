@@ -201,6 +201,44 @@ test "panic ReactiveParser::from_parts rejects term memo disconnected from cst_m
 }
 
 ///|
+test "panic ReactiveParser::from_parts revalidates dynamic term memo dependencies" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let use_cst = @incr.Signal::new(rt, true, label="use_cst")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_text.get())
+  }, label="cst")
+  let detached_memo = @incr.Memo::new(rt, fn() -> String {
+    if use_cst.get() {
+      "attached"
+    } else {
+      "detached"
+    }
+  }, label="detached")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    if use_cst.get() {
+      let stage = cst_memo.get()
+      if stage.is_lex_error {
+        "error"
+      } else {
+        "ok"
+      }
+    } else {
+      detached_memo.get()
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(ReactiveParser::term(parser), content="ok")
+  use_cst.set(false)
+  let _ = ReactiveParser::term(parser)
+}
+
+///|
 test "ReactiveParser::from_parts does not eagerly evaluate term_memo" {
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, "@oops", label="source_text")

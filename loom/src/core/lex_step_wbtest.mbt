@@ -76,6 +76,20 @@ fn stale_len_lexer(source : String, start : Int) -> LexStep[String] {
   Produced(TokenInfo::new("char", 99), next_offset=end)
 }
 
+// -- Test lexer: reports an error after a valid prefix in the same step --
+
+///|
+fn late_invalid_lexer(source : String, start : Int) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  if start == 0 {
+    return Invalid(at=2, width=1, message="bad char !")
+  }
+  let end = start + 1
+  Produced(TokenInfo::new("char", 1), next_offset=end)
+}
+
 // -- Contract helper: verify lex_step laws for a given source --
 
 ///|
@@ -129,10 +143,10 @@ fn verify_lex_contract(
         pos = next_offset
       }
       Invalid(at~, width~, ..) => {
-        // Law 3: Stability — at must be at pos
-        if at != pos {
+        // Law 3: Stability — at cannot precede the current position
+        if at < pos {
           abort(
-            "contract violation: Invalid.at (\{at}) != current pos (\{pos})",
+            "contract violation: Invalid.at (\{at}) < current pos (\{pos})",
           )
         }
         // Law 2: Progress — width >= 1
@@ -200,6 +214,22 @@ fn render_tokens(tokens : Array[TokenInfo[String]]) -> String {
     t.token + "@" + start.to_string() + "-" + end.to_string()
   })
   .join(",")
+}
+
+///|
+fn render_buffer_spans(buf : TokenBuffer[String]) -> String {
+  let tokens = buf.get_tokens()
+  let rendered : Array[String] = []
+  for i = 0; i < tokens.length(); i = i + 1 {
+    rendered.push(
+      tokens[i].token +
+      "@" +
+      buf.get_start(i).to_string() +
+      "-" +
+      buf.get_end(i).to_string(),
+    )
+  }
+  rendered.join(",")
 }
 
 // ============ new_from_steps Unit Tests ============
@@ -324,6 +354,33 @@ test "new_from_steps_strict: Produced token len is normalized from consumed span
   let buf = TokenBuffer::new_from_steps_strict("abc", lexer, eof_token="EOF")
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps: late Invalid preserves exact error offset" {
+  let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "ab!c",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_buffer_spans(buf)
+  inspect(rendered, content="ERR@2-3,char@3-4,EOF@4-4")
+}
+
+///|
+test "new_from_steps: update preserves late Invalid offsets" {
+  let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "ab!c",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  ignore(buf.update(Edit::replace(0, 2, 2), "xy!z"))
+  let rendered = render_buffer_spans(buf)
+  inspect(rendered, content="ERR@2-3,char@3-4,EOF@4-4")
 }
 
 ///|

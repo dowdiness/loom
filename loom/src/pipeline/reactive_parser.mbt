@@ -21,7 +21,7 @@ pub struct ReactiveParser[Ast] {
   priv source_text : @incr.Signal[String]
   priv cst_memo : @incr.Memo[CstStage]
   priv term_memo : @incr.Memo[Ast]
-  priv mut validate_term_dependency : Bool
+  priv validate_term_dependency : Bool
 }
 
 ///|
@@ -108,7 +108,6 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
       "ReactiveParser::from_parts: term_memo must depend on cst_memo",
     )
   }
-  self.validate_term_dependency = false
   value
 }
 
@@ -118,8 +117,9 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
 ///   source_text → source_memo → cst_memo
 /// If `source_memo` and `cst_memo` are the same memo, the validated shape is:
 ///   source_text → cst_memo
-/// The `term_memo → cst_memo` edge is validated lazily on the first `term()`
-/// call so parser construction remains lazy even when AST building aborts.
+/// The `term_memo → cst_memo` edge is validated lazily on `term()` calls so
+/// parser construction remains lazy even when AST building aborts, and dynamic
+/// memo dependencies cannot silently detach the AST from the CST later.
 pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
   source_text : @incr.Signal[String],
   source_memo : @incr.Memo[Stage],
