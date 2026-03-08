@@ -263,13 +263,17 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
 
 ///|
 /// Extract source text for a token at a given position index.
-/// Returns "" on invalid spans rather than aborting — span errors (whether
-/// from a tokenizer bug or a grammar invariant violation) produce an empty
-/// leaf in the tree instead of crashing a long-running host process or LSP.
+/// Returns "" on invalid indices/spans rather than aborting — span errors
+/// (whether from a tokenizer bug or a grammar invariant violation) produce an
+/// empty leaf in the tree instead of crashing a long-running host process or
+/// LSP.
 pub fn[T, K] ParserContext::token_text_at(
   self : ParserContext[T, K],
   pos : Int,
 ) -> String {
+  if pos < 0 || pos >= self.token_count {
+    return ""
+  }
   let start = (self.get_start)(pos)
   let end = (self.get_end)(pos)
   let slice : StringView = self.source[start:end] catch { _ => return "" }
@@ -277,17 +281,12 @@ pub fn[T, K] ParserContext::token_text_at(
 }
 
 ///|
-/// Extract source text at a token index. Internal helper to avoid constructing
-/// intermediate TokenInfo structs on the hot path.
-/// Returns "" on invalid spans (same policy as token_text).
+/// Extract source text at a token index. Internal alias for token_text_at.
 fn[T, K] ParserContext::text_at(
   self : ParserContext[T, K],
   pos : Int,
 ) -> String {
-  let start = (self.get_start)(pos)
-  let end = (self.get_end)(pos)
-  let slice : StringView = self.source[start:end] catch { _ => return "" }
-  slice.to_string()
+  self.token_text_at(pos)
 }
 
 ///|

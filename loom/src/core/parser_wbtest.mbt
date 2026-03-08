@@ -64,6 +64,16 @@ test "peek returns eof when past end" {
 }
 
 ///|
+test "token_text_at returns token text and empty string for invalid index" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  inspect(ctx.token_text_at(0), content="+")
+  inspect(ctx.token_text_at(1), content="42")
+  inspect(ctx.token_text_at(-1), content="")
+  inspect(ctx.token_text_at(2), content="")
+}
+
+///|
 test "peek skips trivia tokens" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [

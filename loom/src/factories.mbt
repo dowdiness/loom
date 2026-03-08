@@ -172,11 +172,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 ///|
 /// Create a ReactiveParser from a Grammar.
 ///
-/// Builds a three-memo pipeline for token-stage early cutoff:
+/// Builds a three-memo pipeline:
 ///   Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
 ///
-/// When an edit produces the same position-independent token sequence,
-/// the token memo backdates and the CST memo skips recomputation entirely.
+/// TokenStage identity includes both tokens and source text so CST parsing
+/// always reflects current source bytes.
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
@@ -188,8 +188,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   let to_ast = grammar.to_ast
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, source, label="source_text")
-  // Token memo — position-independent token sequence.
-  // Early cutoff: if the token sequence is unchanged, downstream memos skip.
+  // Token memo — token sequence + source text.
   let token_memo : @incr.Memo[@core.TokenStage[T]] = @incr.Memo::new(
     rt,
     fn() -> @core.TokenStage[T] {
@@ -219,8 +218,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
     label="tokens",
   )
   // CST memo — parses from token stage.
-  // Depends ONLY on token_memo (not source_text directly), so when
-  // token_memo backdates this memo skips recomputation.
+  // Depends ONLY on token_memo (not source_text directly).
   let cst_memo : @incr.Memo[@pipeline.CstStage] = @incr.Memo::new(
     rt,
     fn() -> @pipeline.CstStage {
