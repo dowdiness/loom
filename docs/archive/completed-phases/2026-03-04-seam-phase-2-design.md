@@ -4,7 +4,7 @@ This document records the design for the Phase 2 completion of `seam`.
 See [../design.md](../design.md) for the three-layer API model and the
 Phase 1 / Phase 2 boundary that defines this work.
 
-**Status:** Approved — ready for implementation
+**Status:** Complete
 
 ---
 

@@ -128,10 +128,9 @@ let root2 = buf2.build_tree_interned(FILE, interner)
 
 - **Language semantics** — `seam` knows nothing about your grammar or AST
 - **Mutable trees** — there are no in-place edit operations; rebuild with new events
-- **Position-on-boundary and trivia queries** — `SyntaxNode::node_at` is deferred (see [API contract](https://github.com/dowdiness/parser/blob/main/docs/api-contract.md))
 
 ## API reference
 
 See [`pkg.generated.mbti`](pkg.generated.mbti) for the full interface and
 [`docs/design.md`](docs/design.md) for the three-layer API design principles
-(total functions, checked functions, error information) and Phase 1/2 boundary.
+(total functions, checked functions, error information).

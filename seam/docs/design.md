@@ -70,8 +70,8 @@ is_error(error_kind : RawKind) -> Bool
 contains_errors(error_node_kind : RawKind, error_token_kind : RawKind) -> Bool
 ```
 
-`CstNode::has_errors` already exists. `SyntaxNode` should expose it directly
-so callers do not need to reach through `.cst`.
+`CstNode::has_errors` exists at the concrete layer. `SyntaxNode` exposes both
+methods directly so callers do not need to reach through `.cst_node()`.
 
 **Why:** An IDE wants to skip hover/completion logic on error subtrees, or show
 a distinct diagnostic highlight. This requires knowing *why* a subtree is
@@ -90,20 +90,20 @@ malformed, not just that a query produced a fallback.
 
 ---
 
-## Phase 1 / Phase 2 boundary
+## Implementation status
 
-**Phase 1 (current):** `.cst` field is public. All three struct fields
-(`cst`, `parent`, `offset`) are readable by callers. Layer 1 functions are
-complete. Layer 2 is partial (`find_token` returns `SyntaxToken?`; others are
-missing).
+**Complete.** All three layers are fully implemented and tested (97 tests).
 
-**Phase 2 (planned):** Privatise `offset` and `parent` fields. Expose them
-only through methods (`start()`, `end()`, `parent() -> SyntaxNode?`). Add
-the missing Layer 2 checked functions. Add Layer 3 error-information methods.
+- All `SyntaxNode` fields (`cst`, `parent`, `offset`) are `priv`.
+- Layer 1 total functions: `find_at`, `start`, `end`, `kind`, `children`, `tokens`, `all_children`.
+- Layer 2 checked functions: `find_at_checked`, `parent`, `first_child`, `first_token`, `find_token`.
+- Layer 3 error information: `is_error`, `contains_errors`.
+- Additional navigation: `nth_child`, `child_of_kind`, `tokens_of_kind`, `tight_span`, `token_at_offset`, `cst_node`.
 
-The public field `cst` is the intentional Phase 1 escape hatch; `offset` and
-`parent` are internal implementation details that happen to be public only
-because MoonBit has no field-level visibility.
+The library satisfies all four anamorphism properties (completeness, context-freedom,
+uniform error representation, transparent structure) and serves as the reference
+implementation for the coalgebra locality principle described in
+[Incremental Hylomorphism](../../docs/architecture/Incremental-Hylomorphism.md).
 
 ---
 
