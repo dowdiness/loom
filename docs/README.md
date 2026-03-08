@@ -44,6 +44,7 @@ Understanding how the layers fit together:
 - [decisions/2026-02-27-remove-tokenStage-memo.md](decisions/2026-02-27-remove-tokenStage-memo.md)
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
+- [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
 
 ## Examples
 

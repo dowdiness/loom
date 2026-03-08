@@ -11,7 +11,7 @@ import {
 // Values
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
+pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
 
 // Errors
 

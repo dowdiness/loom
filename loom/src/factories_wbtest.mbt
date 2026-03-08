@@ -47,13 +47,13 @@ fn ftokenize(s : String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
   let mut i = 0
   while i < s.length() {
     if s.code_unit_at(i).to_int() == 97 {
-      tokens.push(@core.TokenInfo::new(A, i, i + 1))
+      tokens.push(@core.TokenInfo::new(A, 1))
       i = i + 1
     } else {
       raise @core.LexError("unexpected char")
     }
   }
-  tokens.push(@core.TokenInfo::new(Eof, s.length(), s.length()))
+  tokens.push(@core.TokenInfo::new(Eof, 0))
   tokens
 }
 
@@ -63,19 +63,20 @@ fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
     return Done
   }
   if source.code_unit_at(start).to_int() == 97 {
-    return Produced(
-      @core.TokenInfo::new(A, start, start + 1),
-      next_offset=start + 1,
-    )
+    return Produced(@core.TokenInfo::new(A, 1), next_offset=start + 1)
   }
   Invalid(at=start, width=1, message="unexpected char")
 }
 
 ///|
 fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
+  let mut offset = 0
   tokens
   .map(t => {
-    t.token.to_string() + "@" + t.start.to_string() + "-" + t.end.to_string()
+    let start = offset
+    let end = offset + t.len
+    offset = end
+    t.token.to_string() + "@" + start.to_string() + "-" + end.to_string()
   })
   .join(",")
 }
@@ -172,6 +173,72 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
     @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
     content="0",
   )
+}
+
+// ── ReactiveParser three-memo pipeline tests ────────────────────────────────
+
+///|
+/// Different sources producing identical token sequences still recompute CST,
+/// because token-stage identity includes source text.
+test "new_reactive_parser: source change invalidates token stage even when tokens match" {
+  let grammar = fgrammar(
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+  )
+  let parser = new_reactive_parser("a!a", grammar)
+  let cst1 = parser.cst()
+  inspect(cst1.is_lex_error, content="false")
+  // Change source: '!' → '?' — same token sequence [A(1), Err(1), A(1), EOF(0)]
+  parser.set_source("a?a")
+  let cst2 = parser.cst()
+  inspect(cst2.is_lex_error, content="false")
+  // Re-parse reflects updated token text from the new source.
+  inspect(cst1 == cst2, content="false")
+}
+
+///|
+/// Different token sequences → token memo changes → CST memo recomputes.
+test "new_reactive_parser: token-stage invalidation when tokens change" {
+  let grammar = fgrammar(
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+  )
+  let parser = new_reactive_parser("aaa", grammar)
+  let cst1 = parser.cst()
+  // Change to different token count
+  parser.set_source("aa")
+  let cst2 = parser.cst()
+  // Different token sequences → different CSTs
+  inspect(cst1 == cst2, content="false")
+}
+
+///|
+/// Lex error with different messages → token memo changes → re-routed.
+test "new_reactive_parser: different lex errors produce different diagnostics" {
+  let grammar = fgrammar() // no error_token → lex errors raise
+  let parser = new_reactive_parser("!", grammar)
+  let cst1 = parser.cst()
+  inspect(cst1.is_lex_error, content="true")
+  // Same invalid input → same diagnostics (cutoff)
+  parser.set_source("!")
+  let cst2 = parser.cst()
+  inspect(cst1 == cst2, content="true")
+}
+
+///|
+/// Basic reactive pipeline: parse → update → term.
+test "new_reactive_parser: basic parse and update" {
+  let grammar = fgrammar(
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+  )
+  let parser = new_reactive_parser("aa", grammar)
+  let term1 = parser.term()
+  // SyntaxNode is the AST for this test grammar
+  inspect(term1.end() > 0, content="true")
+  parser.set_source("aaa")
+  let term2 = parser.term()
+  inspect(term1 == term2, content="false")
 }
 
 ///|

@@ -78,13 +78,12 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
         }
       }
       token_buf.val = Some(buffer)
-      let tokens = buffer.get_tokens()
       let (cst, diagnostics, _) = @core.parse_tokens_indexed(
         source,
-        tokens.length(),
-        fn(i) { tokens[i].token },
-        fn(i) { tokens[i].start },
-        fn(i) { tokens[i].end },
+        buffer.token_count(),
+        fn(i) { buffer.get_token(i) },
+        fn(i) { buffer.get_start(i) },
+        fn(i) { buffer.get_end(i) },
         spec,
       )
       last_diags.val = diagnostics
@@ -92,9 +91,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
-      let tokens = match token_buf.val {
-        Some(buffer) =>
-          buffer.update(edit, source) catch {
+      // Ensure buffer is up to date (updated or newly created).
+      match token_buf.val {
+        Some(buffer) => {
+          let _ = buffer.update(edit, source) catch {
             @core.LexError(msg) => {
               let rebuilt = create_buffer(
                 source,
@@ -113,9 +113,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
               }
               ignore(msg)
               token_buf.val = Some(rebuilt)
-              rebuilt.get_tokens()
+              [] // dummy: value discarded by let _
             }
           }
+        }
         None => {
           let buffer = create_buffer(
             source,
@@ -132,26 +133,27 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
             }
           }
           token_buf.val = Some(buffer)
-          buffer.get_tokens()
         }
       }
+      // Buffer is always Some after the match above.
+      let buffer = token_buf.val.unwrap()
       let cursor = Some(
         @core.ReuseCursor::new(
           old_syntax.cst_node(),
           edit.start,
           edit.old_end(),
-          tokens.length(),
-          fn(i) { tokens[i].token },
-          fn(i) { tokens[i].start },
+          buffer.token_count(),
+          fn(i) { buffer.get_token(i) },
+          fn(i) { buffer.get_start(i) },
           spec,
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
         source,
-        tokens.length(),
-        fn(i) { tokens[i].token },
-        fn(i) { tokens[i].start },
-        fn(i) { tokens[i].end },
+        buffer.token_count(),
+        fn(i) { buffer.get_token(i) },
+        fn(i) { buffer.get_start(i) },
+        fn(i) { buffer.get_end(i) },
         spec,
         cursor~,
         prev_diagnostics=Some(last_diags.val),
@@ -169,7 +171,15 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 
 ///|
 /// Create a ReactiveParser from a Grammar.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
+///
+/// Builds a three-memo pipeline:
+///   Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
+///
+/// TokenStage identity includes both tokens and source text so CST parsing
+/// always reflects current source bytes.
+/// `T : Eq` is an intentional API requirement: token-stage memoization needs
+/// structural token equality at the memo boundary.
+pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @pipeline.ReactiveParser[Ast] {
@@ -178,8 +188,13 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   let error_token = grammar.error_token
   let prefix_lexer = grammar.prefix_lexer
   let to_ast = grammar.to_ast
-  let lang : @pipeline.Language[Ast] = @pipeline.Language::from_closures(
-    parse_source=fn(s) {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, source, label="source_text")
+  // Token memo — token sequence + source text.
+  let token_memo : @incr.Memo[@core.TokenStage[T]] = @incr.Memo::new(
+    rt,
+    fn() -> @core.TokenStage[T] {
+      let s = source_text.get()
       let buffer = create_buffer(
         s,
         tokenize,
@@ -187,22 +202,46 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
         error_token,
         prefix_lexer~,
       ) catch {
-        @core.LexError(msg) => {
-          let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
-          return @pipeline.CstStage::{
-            cst,
-            diagnostics: ["tokenization: " + msg],
+        @core.LexError(msg) =>
+          return {
+            tokens: [],
+            source: s,
             is_lex_error: true,
+            lex_error_message: "Tokenization error: " + msg,
           }
+      }
+      {
+        tokens: buffer.get_tokens(),
+        source: s,
+        is_lex_error: false,
+        lex_error_message: "",
+      }
+    },
+    label="tokens",
+  )
+  // CST memo — parses from token stage.
+  // Depends ONLY on token_memo (not source_text directly).
+  let cst_memo : @incr.Memo[@pipeline.CstStage] = @incr.Memo::new(
+    rt,
+    fn() -> @pipeline.CstStage {
+      let stage = token_memo.get()
+      if stage.is_lex_error {
+        let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
+        return @pipeline.CstStage::{
+          cst,
+          diagnostics: [stage.lex_error_message],
+          is_lex_error: true,
         }
       }
-      let tokens = buffer.get_tokens()
+      let tokens = stage.tokens
+      let source = stage.source
+      let starts = @core.build_starts(tokens)
       let (cst, diags, _) = @core.parse_tokens_indexed(
-        s,
+        source,
         tokens.length(),
         fn(i) { tokens[i].token },
-        fn(i) { tokens[i].start },
-        fn(i) { tokens[i].end },
+        fn(i) { starts[i] },
+        fn(i) { starts[i] + tokens[i].len },
         spec,
       )
       @pipeline.CstStage::{
@@ -211,8 +250,31 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
         is_lex_error: false,
       }
     },
-    to_ast~,
-    on_lex_error=grammar.on_lex_error,
+    label="cst",
   )
-  @pipeline.ReactiveParser::new(source, lang)
+  // Term memo — converts CST to AST.
+  let term_memo : @incr.Memo[Ast] = @incr.Memo::new(
+    rt,
+    fn() -> Ast {
+      let stage = cst_memo.get()
+      if stage.is_lex_error {
+        let msg = if stage.diagnostics.length() > 0 {
+          stage.diagnostics[0]
+        } else {
+          "lex error"
+        }
+        (grammar.on_lex_error)(msg)
+      } else {
+        let syntax = @seam.SyntaxNode::from_cst(stage.cst)
+        to_ast(syntax)
+      }
+    },
+    label="term",
+  )
+  @pipeline.ReactiveParser::from_parts(
+    source_text,
+    token_memo,
+    cst_memo,
+    term_memo,
+  )
 }

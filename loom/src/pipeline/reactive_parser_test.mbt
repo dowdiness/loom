@@ -20,7 +20,7 @@
 struct TestLang {}
 
 ///|
-impl Parseable for TestLang with parse_source(_, s) {
+fn stage_for_source(s : String) -> CstStage {
   if s.length() > 0 && s[0] == '@' {
     CstStage::{
       cst: @seam.build_tree([], @seam.RawKind(0)),
@@ -37,6 +37,11 @@ impl Parseable for TestLang with parse_source(_, s) {
       is_lex_error: false,
     }
   }
+}
+
+///|
+impl Parseable for TestLang with parse_source(_, s) {
+  stage_for_source(s)
 }
 
 ///|
@@ -142,4 +147,123 @@ test "ReactiveParser::get_source returns current source" {
   inspect(ReactiveParser::get_source(db), content="hello")
   ReactiveParser::set_source(db, "world")
   inspect(ReactiveParser::get_source(db), content="world")
+}
+
+///|
+test "panic ReactiveParser::from_parts rejects cross-runtime cells" {
+  let rt_a = @incr.Runtime::new()
+  let rt_b = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt_a, "hello", label="source_text")
+  let cst_memo = @incr.Memo::new(rt_b, fn() -> CstStage {
+    stage_for_source("hello")
+  }, label="cst")
+  let term_memo = @incr.Memo::new(rt_b, fn() -> String { "5" }, label="term")
+  let _ = ReactiveParser::from_parts(source_text, cst_memo, cst_memo, term_memo)
+}
+
+///|
+test "panic ReactiveParser::from_parts rejects cst memo disconnected from source_text" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let other_source = @incr.Signal::new(rt, "world", label="other_source")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(other_source.get())
+  }, label="cst")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let _ = ReactiveParser::from_parts(source_text, cst_memo, cst_memo, term_memo)
+}
+
+///|
+test "panic ReactiveParser::from_parts rejects term memo disconnected from cst_memo" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_text.get())
+  }, label="cst")
+  let other_memo = @incr.Memo::new(rt, fn() -> String {
+    source_text.get().length().to_string()
+  }, label="other")
+  let term_memo = @incr.Memo::new(rt, fn() -> String { other_memo.get() }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  let _ = ReactiveParser::term(parser)
+}
+
+///|
+test "panic ReactiveParser::from_parts revalidates dynamic term memo dependencies" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let use_cst = @incr.Signal::new(rt, true, label="use_cst")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_text.get())
+  }, label="cst")
+  let detached_memo = @incr.Memo::new(rt, fn() -> String {
+    if use_cst.get() {
+      "attached"
+    } else {
+      "detached"
+    }
+  }, label="detached")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    if use_cst.get() {
+      let stage = cst_memo.get()
+      if stage.is_lex_error {
+        "error"
+      } else {
+        "ok"
+      }
+    } else {
+      detached_memo.get()
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(ReactiveParser::term(parser), content="ok")
+  use_cst.set(false)
+  let _ = ReactiveParser::term(parser)
+}
+
+///|
+test "ReactiveParser::from_parts does not eagerly evaluate term_memo" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "@oops", label="source_text")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_text.get())
+  }, label="cst")
+  let term_calls : Ref[Int] = { val: 0 }
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    term_calls.val = term_calls.val + 1
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(term_calls.val, content="0")
+  inspect(ReactiveParser::cst(parser).is_lex_error, content="true")
+  inspect(term_calls.val, content="0")
+  inspect(ReactiveParser::term(parser), content="error")
+  inspect(term_calls.val, content="1")
 }

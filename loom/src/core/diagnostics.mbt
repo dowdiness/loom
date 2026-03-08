@@ -1,11 +1,11 @@
 // Parse data types: token information, diagnostics, and lex errors.
 
 ///|
-/// Generic token with source position. T is the language-specific token type.
+/// Generic position-independent token. T is the language-specific token type.
+/// Positions are stored externally in TokenBuffer's `starts` array.
 pub struct TokenInfo[T] {
   token : T
-  start : Int // code-unit offset, inclusive
-  end : Int // code-unit offset, exclusive
+  len : Int // length in code units
 } derive(Show, Eq)
 
 ///|
@@ -34,8 +34,35 @@ pub(all) suberror LexError {
 
 ///|
 /// Construct a TokenInfo. Use this from outside the core package.
-pub fn[T] TokenInfo::new(token : T, start : Int, end : Int) -> TokenInfo[T] {
-  { token, start, end }
+pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
+  { token, len }
+}
+
+///|
+/// Lexing stage output — designed for Memo[T : Eq] boundaries.
+///
+/// Carries position-independent tokens + the source text for parsing.
+/// `source` is part of equality so downstream parse memos recompute when
+/// text changes even if token kinds/lengths are unchanged.
+pub(all) struct TokenStage[T] {
+  tokens : Array[TokenInfo[T]]
+  source : String
+  is_lex_error : Bool
+  lex_error_message : String
+}
+
+///|
+/// Custom Eq: compares source + tokens + error state.
+///
+/// This drives the three-memo pipeline's early cutoff. The Salsa-style Memo
+/// system calls `equal` to decide whether to backdate (skip downstream
+/// recomputation). Including `source` prevents stale CST reuse for text edits
+/// that preserve token shape.
+pub impl[T : Eq] Eq for TokenStage[T] with equal(self, other) {
+  self.source == other.source &&
+  self.is_lex_error == other.is_lex_error &&
+  self.lex_error_message == other.lex_error_message &&
+  self.tokens == other.tokens
 }
 
 ///|
