@@ -162,6 +162,12 @@ pub fn[T] TokenBuffer::get_token(self : TokenBuffer[T], i : Int) -> T {
 }
 
 ///|
+/// Return a defensive copy of the token start offsets.
+pub fn[T] TokenBuffer::get_starts(self : TokenBuffer[T]) -> Array[Int] {
+  self.starts.copy()
+}
+
+///|
 /// Return the start code-unit offset of the token at index i.
 pub fn[T] TokenBuffer::get_start(self : TokenBuffer[T], i : Int) -> Int {
   self.starts[i]

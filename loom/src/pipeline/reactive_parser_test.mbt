@@ -181,6 +181,74 @@ test "panic ReactiveParser::from_parts rejects cst memo disconnected from source
 }
 
 ///|
+test "panic ReactiveParser::from_parts revalidates dynamic source memo dependencies" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let use_source = @incr.Signal::new(rt, true, label="use_source")
+  let source_memo = @incr.Memo::new(rt, fn() -> String {
+    if use_source.get() {
+      source_text.get()
+    } else {
+      "detached"
+    }
+  }, label="source")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    stage_for_source(source_memo.get())
+  }, label="cst")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    source_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(ReactiveParser::cst(parser).is_lex_error, content="false")
+  use_source.set(false)
+  let _ = ReactiveParser::cst(parser)
+}
+
+///|
+test "panic ReactiveParser::from_parts revalidates dynamic cst memo dependencies" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let use_source_memo = @incr.Signal::new(rt, true, label="use_source_memo")
+  let source_memo = @incr.Memo::new(rt, fn() -> String {
+    source_text.get()
+  }, label="source")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    if use_source_memo.get() {
+      stage_for_source(source_memo.get())
+    } else {
+      stage_for_source("detached")
+    }
+  }, label="cst")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    source_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(ReactiveParser::cst(parser).is_lex_error, content="false")
+  use_source_memo.set(false)
+  let _ = ReactiveParser::diagnostics(parser)
+}
+
+///|
 test "panic ReactiveParser::from_parts rejects term memo disconnected from cst_memo" {
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, "hello", label="source_text")

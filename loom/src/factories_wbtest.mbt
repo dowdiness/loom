@@ -69,6 +69,20 @@ fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
 }
 
 ///|
+fn flate_step_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
+  if start >= source.length() {
+    return Done
+  }
+  if start == 0 {
+    return Invalid(at=2, width=1, message="late unexpected char")
+  }
+  if source.code_unit_at(start).to_int() == 97 {
+    return Produced(@core.TokenInfo::new(A, 1), next_offset=start + 1)
+  }
+  Invalid(at=start, width=1, message="unexpected char")
+}
+
+///|
 fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
   let mut offset = 0
   tokens
@@ -239,6 +253,27 @@ test "new_reactive_parser: basic parse and update" {
   parser.set_source("aaa")
   let term2 = parser.term()
   inspect(term1 == term2, content="false")
+}
+
+///|
+test "new_reactive_parser: preserves explicit starts from step lexers" {
+  let imperative = new_imperative_parser(
+    "aa!a",
+    fgrammar(
+      error_token=Some(Err),
+      prefix_lexer=Some(@core.PrefixLexer::new(lex_step=flate_step_lexer)),
+    ),
+  )
+  ignore(imperative.parse())
+  let reactive = new_reactive_parser(
+    "aa!a",
+    fgrammar(
+      error_token=Some(Err),
+      prefix_lexer=Some(@core.PrefixLexer::new(lex_step=flate_step_lexer)),
+    ),
+  )
+  ignore(reactive.cst())
+  inspect(reactive.diagnostics() == imperative.diagnostics(), content="true")
 }
 
 ///|

@@ -175,8 +175,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 /// Builds a three-memo pipeline:
 ///   Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
 ///
-/// TokenStage identity includes both tokens and source text so CST parsing
-/// always reflects current source bytes.
+/// TokenStage identity includes tokens, explicit starts, and source text so
+/// CST parsing always reflects the current lexer output.
 /// `T : Eq` is an intentional API requirement: token-stage memoization needs
 /// structural token equality at the memo boundary.
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
@@ -190,7 +190,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   let to_ast = grammar.to_ast
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, source, label="source_text")
-  // Token memo — token sequence + source text.
+  // Token memo — token sequence + explicit starts + source text.
   let token_memo : @incr.Memo[@core.TokenStage[T]] = @incr.Memo::new(
     rt,
     fn() -> @core.TokenStage[T] {
@@ -205,6 +205,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
         @core.LexError(msg) =>
           return {
             tokens: [],
+            starts: [],
             source: s,
             is_lex_error: true,
             lex_error_message: "Tokenization error: " + msg,
@@ -212,6 +213,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
       }
       {
         tokens: buffer.get_tokens(),
+        starts: buffer.get_starts(),
         source: s,
         is_lex_error: false,
         lex_error_message: "",
@@ -234,8 +236,8 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
         }
       }
       let tokens = stage.tokens
+      let starts = stage.starts
       let source = stage.source
-      let starts = @core.build_starts(tokens)
       let (cst, diags, _) = @core.parse_tokens_indexed(
         source,
         tokens.length(),

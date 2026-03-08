@@ -192,6 +192,7 @@ pub struct TokenBuffer[T] {
 pub fn[T] TokenBuffer::get_end(Self[T], Int) -> Int
 pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_start(Self[T], Int) -> Int
+pub fn[T] TokenBuffer::get_starts(Self[T]) -> Array[Int]
 pub fn[T] TokenBuffer::get_token(Self[T], Int) -> T
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
@@ -213,6 +214,7 @@ pub impl[T : Show] Show for TokenInfo[T]
 
 pub(all) struct TokenStage[T] {
   tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
   source : String
   is_lex_error : Bool
   lex_error_message : String

@@ -41,11 +41,13 @@ pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
 ///|
 /// Lexing stage output — designed for Memo[T : Eq] boundaries.
 ///
-/// Carries position-independent tokens + the source text for parsing.
+/// Carries the parse inputs needed downstream: tokens, their explicit starts,
+/// and the source text.
 /// `source` is part of equality so downstream parse memos recompute when
 /// text changes even if token kinds/lengths are unchanged.
 pub(all) struct TokenStage[T] {
   tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
   source : String
   is_lex_error : Bool
   lex_error_message : String
@@ -62,6 +64,7 @@ pub impl[T : Eq] Eq for TokenStage[T] with equal(self, other) {
   self.source == other.source &&
   self.is_lex_error == other.is_lex_error &&
   self.lex_error_message == other.lex_error_message &&
+  self.starts == other.starts &&
   self.tokens == other.tokens
 }
 
