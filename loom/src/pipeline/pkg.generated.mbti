@@ -30,7 +30,7 @@ pub struct ReactiveParser[Ast] {
 }
 pub fn[Ast] ReactiveParser::cst(Self[Ast]) -> CstStage
 pub fn[Ast] ReactiveParser::diagnostics(Self[Ast]) -> Array[String]
-pub fn[Ast] ReactiveParser::from_parts(@cells.Signal[String], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
+pub fn[Stage : Eq, Ast : Eq] ReactiveParser::from_parts(@cells.Signal[String], @cells.Memo[Stage], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::get_source(Self[Ast]) -> String
 pub fn[Ast : Eq] ReactiveParser::new(String, Language[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::set_source(Self[Ast], String) -> Unit

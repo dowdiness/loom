@@ -177,6 +177,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 ///
 /// TokenStage identity includes both tokens and source text so CST parsing
 /// always reflects current source bytes.
+/// `T : Eq` is an intentional API requirement: token-stage memoization needs
+/// structural token equality at the memo boundary.
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
@@ -269,5 +271,10 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
     },
     label="term",
   )
-  @pipeline.ReactiveParser::from_parts(source_text, cst_memo, term_memo)
+  @pipeline.ReactiveParser::from_parts(
+    source_text,
+    token_memo,
+    cst_memo,
+    term_memo,
+  )
 }

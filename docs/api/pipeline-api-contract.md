@@ -135,12 +135,17 @@ source_text : Signal[String]
   preserved — downstream memos (if any) are not dirtied.
 - **Lifetime.** One `ReactiveParser` per document editing session. The `Runtime` is
   internal and not exposed.
+- **`from_parts` is validated eagerly.** The advanced constructor computes the
+  supplied memos once and aborts unless they share a runtime and the dependency
+  chain is `source_text → source_memo → cst_memo → term_memo` (or
+  `source_text → cst_memo → term_memo` when `source_memo == cst_memo`).
 - **`diagnostics()` returns a copy.** Mutating the returned `Array[String]` does not
   affect subsequent `diagnostics()` calls or the internal cache.
 
 | Symbol | Stability | Notes |
 |---|---|---|
 | `ReactiveParser::new[Ast : Eq](String, Language[Ast]) -> Self[Ast]` | Stable | `Ast : Eq` required for memo backdating |
+| `ReactiveParser::from_parts[Stage : Eq, Ast : Eq](Signal[String], Memo[Stage], Memo[CstStage], Memo[Ast]) -> Self[Ast]` | Stable | Expert constructor; `source_memo` is the memo immediately downstream of `source_text` |
 | `ReactiveParser::set_source[Ast](Self[Ast], String) -> Unit` | Stable | No-op when new source equals current source (`String::Eq`) |
 | `ReactiveParser::cst[Ast](Self[Ast]) -> CstStage` | Stable | Triggers `cst_memo` evaluation if source changed; does not require `Ast : Eq` |
 | `ReactiveParser::diagnostics[Ast](Self[Ast]) -> Array[String]` | Stable | Returns a defensive copy of `cst_memo.get().diagnostics` |

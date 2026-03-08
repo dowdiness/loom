@@ -16,6 +16,7 @@ loom provides two parsers. Use this guide to pick the right one.
 | Update method | `edit(Edit, String)` | `set_source(String)` |
 | Node-level reuse | ✓ | ✗ |
 | CST equality skip | ✓ | ✓ |
+| Factory bounds | `T : IsTrivia` | `T : IsTrivia + Eq`, `Ast : Eq` |
 | Persistent interning | ✓ (global) | ✓ (global) |
 | Reactive `@incr` composition | ✗ | ✓ |
 | `diagnostics()` | ✓ | ✓ |
@@ -39,6 +40,9 @@ loom provides two parsers. Use this guide to pick the right one.
 let p  = new_imperative_parser(initial_source, grammar)  // → ImperativeParser[Ast]
 let db = new_reactive_parser(initial_source, grammar)    // → ReactiveParser[Ast]
 ```
+
+`new_reactive_parser` requires `Eq` on both the token and AST types because its
+memo graph includes a token-stage equality boundary.
 
 See [api/reference.md](reference.md) for full API.
 See [decisions/2026-03-02-two-parser-design.md](../decisions/2026-03-02-two-parser-design.md) for design rationale.

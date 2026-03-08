@@ -161,7 +161,7 @@ pub fn[T] TokenBuffer::update(
     self.starts = build_starts(tokens)
     self.source = new_source
     self.version = self.version + 1
-    return self.tokens
+    return self.tokens.copy()
   }
   let eof_index = old_len - 1
   let mut left_tok_idx = find_left_index(old_tokens, old_starts, edit.start)
@@ -230,7 +230,7 @@ pub fn[T] TokenBuffer::update(
   self.starts = new_starts
   self.source = new_source
   self.version = self.version + 1
-  self.tokens
+  self.tokens.copy()
 }
 
 ///|

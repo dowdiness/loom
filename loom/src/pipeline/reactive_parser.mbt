@@ -7,10 +7,10 @@
 ///    Signal[String] → Memo[CstStage] → Memo[Ast]
 ///    `Language::parse_source` combines lex + parse in one step.
 ///
-/// 2. `ReactiveParser::from_parts(signal, cst_memo, term_memo)` — three-memo:
+/// 2. `ReactiveParser::from_parts(signal, source_memo, cst_memo, term_memo)`:
 ///    Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
-///    Built by `new_reactive_parser` factory. The TokenStage memo enables
-///    early cutoff when position-independent tokens are unchanged.
+///    Expert constructor used by `new_reactive_parser`. It validates that the
+///    supplied cells form one coherent runtime graph.
 ///
 /// Lex-error routing: `CstStage::is_lex_error` is set explicitly by the
 /// `Parseable` implementation, so `term_memo` dispatches to `on_lex_error`
@@ -105,12 +105,47 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
 
 ///|
 /// Construct a ReactiveParser from pre-built memos.
-/// Used by factories that build the three-memo chain (token → cst → term)
-/// externally for token-stage early cutoff.
-pub fn[Ast] ReactiveParser::from_parts(
+/// Validates that all cells share a runtime and that the dependency chain is:
+///   source_text → source_memo → cst_memo → term_memo
+/// If `source_memo` and `cst_memo` are the same memo, the validated shape is:
+///   source_text → cst_memo → term_memo
+/// Validation is eager: the memos are computed once so their dependency edges
+/// are established before the parser is returned.
+pub fn[Stage : Eq, Ast : Eq] ReactiveParser::from_parts(
   source_text : @incr.Signal[String],
+  source_memo : @incr.Memo[Stage],
   cst_memo : @incr.Memo[CstStage],
   term_memo : @incr.Memo[Ast],
 ) -> ReactiveParser[Ast] {
+  let source_id = source_text.id()
+  let source_memo_id = source_memo.id()
+  let cst_id = cst_memo.id()
+  let term_id = term_memo.id()
+  if source_memo_id.runtime_id != source_id.runtime_id ||
+    cst_id.runtime_id != source_id.runtime_id ||
+    term_id.runtime_id != source_id.runtime_id {
+    abort(
+      "ReactiveParser::from_parts: source_text, source_memo, cst_memo, and term_memo must belong to the same runtime",
+    )
+  }
+  ignore(source_memo.get())
+  if not(source_memo.dependencies().contains(source_id)) {
+    abort(
+      "ReactiveParser::from_parts: source_memo must depend on source_text",
+    )
+  }
+  ignore(cst_memo.get())
+  if source_memo_id != cst_id &&
+    not(cst_memo.dependencies().contains(source_memo_id)) {
+    abort(
+      "ReactiveParser::from_parts: cst_memo must depend on source_memo",
+    )
+  }
+  ignore(term_memo.get())
+  if not(term_memo.dependencies().contains(cst_id)) {
+    abort(
+      "ReactiveParser::from_parts: term_memo must depend on cst_memo",
+    )
+  }
   { source_text, cst_memo, term_memo }
 }
