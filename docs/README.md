@@ -53,7 +53,8 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-06-position-independent-tokens.md](plans/2026-03-06-position-independent-tokens.md) — position-independent tokens: `TokenInfo(token, len)` + parallel `starts` array, reintroduce `TokenStage` memo
-- [plans/2026-03-08-memoized-cst-fold.md](plans/2026-03-08-memoized-cst-fold.md) — memoized CST fold: framework-owned incremental catamorphism `CstFold[Ast]` for CST → AST conversion
+- [plans/2026-03-08-memoized-cst-fold.md](plans/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design document
+- [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
 
 ## Development
 
