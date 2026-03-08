@@ -106,8 +106,10 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
 }
 
 ///|
+/// Return a defensive copy of the token array.
+/// Callers cannot desynchronize the internal starts cache by mutating the result.
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {
-  self.tokens
+  self.tokens.copy()
 }
 
 ///|
