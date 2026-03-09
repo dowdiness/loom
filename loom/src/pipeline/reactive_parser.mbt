@@ -160,19 +160,12 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
       "ReactiveParser::from_parts: source_text, source_memo, cst_memo, and term_memo must belong to the same runtime",
     )
   }
+  // Evaluate both memos eagerly to populate their dependency sets.
   ignore(source_memo.get())
-  if not(source_memo.dependencies().contains(source_id)) {
-    abort(
-      "ReactiveParser::from_parts: source_memo must depend on source_text",
-    )
-  }
   ignore(cst_memo.get())
-  if source_memo_id != cst_id &&
-    not(cst_memo.dependencies().contains(source_memo_id)) {
-    abort(
-      "ReactiveParser::from_parts: cst_memo must depend on source_memo",
-    )
-  }
+  // Validate source → source_memo → cst_memo chain.
+  // Stored for revalidation on cst()/term() calls so dynamic memo
+  // dependencies cannot silently detach the CST from the source.
   let validate_source_chain = fn() {
     ignore(source_memo.get())
     if not(source_memo.dependencies().contains(source_id)) {
@@ -187,6 +180,7 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
       )
     }
   }
+  validate_source_chain()
   {
     source_text,
     cst_memo,
