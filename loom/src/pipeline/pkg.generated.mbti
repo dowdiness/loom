@@ -2,6 +2,7 @@
 package "dowdiness/loom/pipeline"
 
 import {
+  "dowdiness/incr/cells",
   "dowdiness/seam",
 }
 
@@ -29,6 +30,7 @@ pub struct ReactiveParser[Ast] {
 }
 pub fn[Ast] ReactiveParser::cst(Self[Ast]) -> CstStage
 pub fn[Ast] ReactiveParser::diagnostics(Self[Ast]) -> Array[String]
+pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(@cells.Signal[String], @cells.Memo[Stage], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::get_source(Self[Ast]) -> String
 pub fn[Ast : Eq] ReactiveParser::new(String, Language[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::set_source(Self[Ast], String) -> Unit

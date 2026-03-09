@@ -60,14 +60,10 @@ pub impl @seam.IsEof for Token with is_eof(self) {
 pub using @core {type TokenInfo}
 
 ///|
-/// Print a TokenInfo
+/// Print a TokenInfo (position-independent: shows token(len) format)
 pub fn print_token_info(token_info : TokenInfo[Token]) -> String {
   let token_str = print_token(token_info.token)
-  token_str +
-  "@" +
-  token_info.start.to_string() +
-  "-" +
-  token_info.end.to_string()
+  token_str + "(" + token_info.len.to_string() + ")"
 }
 
 ///|

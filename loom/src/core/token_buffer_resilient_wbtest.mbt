@@ -17,9 +17,9 @@ fn bad_tokenizer(s : String) -> Array[TokenInfo[String]] raise LexError {
   }
   let result : Array[TokenInfo[String]] = []
   for i = 0; i < s.length(); i = i + 1 {
-    result.push(TokenInfo::new("char", i, i + 1))
+    result.push(TokenInfo::new("char", 1))
   }
-  result.push(TokenInfo::new("EOF", s.length(), s.length()))
+  result.push(TokenInfo::new("EOF", 0))
   result
 }
 
@@ -44,8 +44,14 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
   )
   let tokens = buf.get_tokens()
   inspect(tokens.length(), content="4")
+  let mut offset = 0
   let rendered = tokens
-    .map(fn(t) { t.token + "@" + t.start.to_string() + "-" + t.end.to_string() })
+    .map(fn(t) {
+      let start = offset
+      let end = offset + t.len
+      offset = end
+      t.token + "@" + start.to_string() + "-" + end.to_string()
+    })
     .join(",")
   inspect(rendered, content="char@0-1,ERR@1-2,char@2-3,EOF@3-3")
 }
@@ -64,9 +70,9 @@ fn quote_sensitive_tokenizer(
   }
   let result : Array[TokenInfo[String]] = []
   for i = 0; i < s.length(); i = i + 1 {
-    result.push(TokenInfo::new("char", i, i + 1))
+    result.push(TokenInfo::new("char", 1))
   }
-  result.push(TokenInfo::new("EOF", s.length(), s.length()))
+  result.push(TokenInfo::new("EOF", 0))
   result
 }
 
@@ -83,8 +89,14 @@ test "TokenBuffer::new_resilient: preserves valid prefix for non-monotonic token
     error_token="ERR",
   )
   let tokens = buf.get_tokens()
+  let mut offset = 0
   let rendered = tokens
-    .map(fn(t) { t.token + "@" + t.start.to_string() + "-" + t.end.to_string() })
+    .map(fn(t) {
+      let start = offset
+      let end = offset + t.len
+      offset = end
+      t.token + "@" + start.to_string() + "-" + end.to_string()
+    })
     .join(",")
   inspect(rendered, content="char@0-1,char@1-2,char@2-3,ERR@3-4,EOF@4-4")
 }

@@ -229,13 +229,18 @@ Creates an `ImperativeParser` for the given source and grammar. Supports `parse(
 ### `new_reactive_parser`
 
 ```moonbit
-pub fn[T, K, Ast] new_reactive_parser(
+pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source  : String,
   grammar : Grammar[T, K, Ast],
 ) -> @pipeline.ReactiveParser[Ast]
 ```
 
 Creates a `ReactiveParser` reactive pipeline. Re-parses only when the source changes; skips the AST stage when the CST hash is unchanged.
+
+`new_reactive_parser` is intentionally stricter than `new_imperative_parser`: the
+token type `T` must implement `Eq`, and the AST type `Ast` must implement `Eq`.
+The reactive pipeline memoizes a token stage before parsing, so token equality is
+part of the public contract rather than an internal detail.
 
 **Example:**
 
@@ -244,7 +249,7 @@ let db = @loom.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
 let term = db.term()            // Term (Ast type parameter of the Grammar)
 db.set_source("λx.x + 2")
 let updated = db.term()         // re-runs CST + AST stages only if source changed
-let diags   = db.diagnostics()  // Array[Diagnostic], empty on success
+let diags   = db.diagnostics()  // Array[String], empty on success
 ```
 
 ---

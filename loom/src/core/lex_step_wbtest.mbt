@@ -8,7 +8,7 @@ fn char_step_lexer(source : String, start : Int) -> LexStep[String] {
     return Done
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: reports Invalid for '@' characters --
@@ -23,7 +23,7 @@ fn char_with_error_lexer(source : String, start : Int) -> LexStep[String] {
     return Invalid(at=start, width=1, message="bad char @")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: reports Incomplete for unterminated quote --
@@ -38,7 +38,7 @@ fn incomplete_lexer(source : String, start : Int) -> LexStep[String] {
     return Incomplete(at=start, expected="closing quote")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: Invalid with width=0 (must be corrected to 1) --
@@ -52,7 +52,7 @@ fn zero_width_invalid_lexer(source : String, start : Int) -> LexStep[String] {
     return Invalid(at=start, width=0, message="zero-width invalid")
   }
   let end = start + 1
-  Produced(TokenInfo::new("char", start, end), next_offset=end)
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Test lexer: Produced with next_offset == start (violates progress) --
@@ -62,7 +62,32 @@ fn no_progress_lexer(source : String, start : Int) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
-  Produced(TokenInfo::new("stuck", start, start), next_offset=start)
+  Produced(TokenInfo::new("stuck", 0), next_offset=start)
+}
+
+// -- Test lexer: reports stale token lengths despite correct next_offset --
+
+///|
+fn stale_len_lexer(source : String, start : Int) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  let end = start + 1
+  Produced(TokenInfo::new("char", 99), next_offset=end)
+}
+
+// -- Test lexer: reports an error after a valid prefix in the same step --
+
+///|
+fn late_invalid_lexer(source : String, start : Int) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  if start == 0 {
+    return Invalid(at=2, width=1, message="bad char !")
+  }
+  let end = start + 1
+  Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
 // -- Contract helper: verify lex_step laws for a given source --
@@ -118,10 +143,10 @@ fn verify_lex_contract(
         pos = next_offset
       }
       Invalid(at~, width~, ..) => {
-        // Law 3: Stability — at must be at pos
-        if at != pos {
+        // Law 3: Stability — at cannot precede the current position
+        if at < pos {
           abort(
-            "contract violation: Invalid.at (\{at}) != current pos (\{pos})",
+            "contract violation: Invalid.at (\{at}) < current pos (\{pos})",
           )
         }
         // Law 2: Progress — width >= 1
@@ -180,9 +205,31 @@ test "contract: empty source satisfies laws" {
 
 ///|
 fn render_tokens(tokens : Array[TokenInfo[String]]) -> String {
+  let mut offset = 0
   tokens
-  .map(t => t.token + "@" + t.start.to_string() + "-" + t.end.to_string())
+  .map(t => {
+    let start = offset
+    let end = offset + t.len
+    offset = end
+    t.token + "@" + start.to_string() + "-" + end.to_string()
+  })
   .join(",")
+}
+
+///|
+fn render_buffer_spans(buf : TokenBuffer[String]) -> String {
+  let tokens = buf.get_tokens()
+  let rendered : Array[String] = []
+  for i = 0; i < tokens.length(); i = i + 1 {
+    rendered.push(
+      tokens[i].token +
+      "@" +
+      buf.get_start(i).to_string() +
+      "-" +
+      buf.get_end(i).to_string(),
+    )
+  }
+  rendered.join(",")
 }
 
 // ============ new_from_steps Unit Tests ============
@@ -289,6 +336,54 @@ test "new_from_steps: no-progress Produced is corrected" {
 }
 
 ///|
+test "new_from_steps: Produced token len is normalized from consumed span" {
+  let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "abc",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps_strict: Produced token len is normalized from consumed span" {
+  let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
+  let buf = TokenBuffer::new_from_steps_strict("abc", lexer, eof_token="EOF")
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps: late Invalid preserves exact error offset" {
+  let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "ab!c",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_buffer_spans(buf)
+  inspect(rendered, content="ERR@2-3,char@3-4,EOF@4-4")
+}
+
+///|
+test "new_from_steps: update preserves late Invalid offsets" {
+  let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "ab!c",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  ignore(buf.update(Edit::replace(0, 2, 2), "xy!z"))
+  let rendered = render_buffer_spans(buf)
+  inspect(rendered, content="ERR@2-3,char@3-4,EOF@4-4")
+}
+
+///|
 test "lex_all: collects all steps" {
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let steps = lexer.lex_all("a@b", 0)
@@ -353,20 +448,17 @@ fn prop_step_tokens_cover_source(seed : Int) -> Bool {
   )
   let tokens = buf.get_tokens()
   let len = source.length()
-  // Check all non-EOF tokens cover [0, len) contiguously
-  let mut expected_start = 0
+  // Check all non-EOF tokens cover [0, len) contiguously via prefix sum
+  let mut offset = 0
   for i = 0; i < tokens.length() - 1; i = i + 1 {
     let t = tokens[i]
-    if t.start != expected_start {
+    if t.len <= 0 {
       return false
     }
-    if t.end <= t.start {
-      return false
-    }
-    expected_start = t.end
+    offset = offset + t.len
   }
-  // Last non-EOF token should end at source length
-  expected_start == len
+  // Total length of non-EOF tokens should equal source length
+  offset == len
 }
 
 ///|

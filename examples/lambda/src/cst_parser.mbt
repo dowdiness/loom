@@ -9,13 +9,14 @@ pub fn make_reuse_cursor(
   damage_end : Int,
   tokens : Array[@token.TokenInfo[@token.Token]],
 ) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
+  let starts = @core.build_starts(tokens)
   @core.ReuseCursor::new(
     old_tree,
     damage_start,
     damage_end,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
+    i => starts[i],
     lambda_spec,
   )
 }
@@ -38,12 +39,13 @@ pub fn parse_cst_recover(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
   let tokens = @lexer.tokenize(source)
+  let starts = @core.build_starts(tokens)
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
     source,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
-    i => tokens[i].end,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     lambda_spec,
   )
   (cst, diagnostics)
@@ -57,12 +59,13 @@ pub fn parse_cst_with_cursor(
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind],
   prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
+  let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
-    i => tokens[i].end,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     lambda_spec,
     cursor=Some(cursor),
     prev_diagnostics~,
@@ -77,12 +80,13 @@ pub fn parse_cst_recover_with_tokens(
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
   prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
+  let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
-    i => tokens[i].end,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     lambda_spec,
     cursor~,
     prev_diagnostics~,
@@ -587,12 +591,13 @@ pub fn parse_source_file(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
   let tokens = @lexer.tokenize_layout(source)
+  let starts = @core.build_starts(tokens)
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
     source,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
-    i => tokens[i].end,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     source_file_spec,
   )
   (cst, diagnostics)
@@ -606,12 +611,13 @@ pub fn parse_source_file_recover_with_tokens(
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
   prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
+  let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
-    i => tokens[i].end,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     source_file_spec,
     cursor~,
     prev_diagnostics~,
@@ -626,13 +632,14 @@ pub fn make_source_file_reuse_cursor(
   damage_end : Int,
   tokens : Array[@token.TokenInfo[@token.Token]],
 ) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
+  let starts = @core.build_starts(tokens)
   @core.ReuseCursor::new(
     old_tree,
     damage_start,
     damage_end,
     tokens.length(),
     i => tokens[i].token,
-    i => tokens[i].start,
+    i => starts[i],
     source_file_spec,
   )
 }
