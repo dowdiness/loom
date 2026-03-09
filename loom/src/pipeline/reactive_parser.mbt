@@ -160,9 +160,6 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
       "ReactiveParser::from_parts: source_text, source_memo, cst_memo, and term_memo must belong to the same runtime",
     )
   }
-  // Evaluate both memos eagerly to populate their dependency sets.
-  ignore(source_memo.get())
-  ignore(cst_memo.get())
   // Validate source → source_memo → cst_memo chain.
   // Stored for revalidation on cst()/term() calls so dynamic memo
   // dependencies cannot silently detach the CST from the source.
@@ -180,7 +177,6 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
       )
     }
   }
-  validate_source_chain()
   {
     source_text,
     cst_memo,

@@ -162,7 +162,7 @@ test "panic ReactiveParser::from_parts rejects cross-runtime cells" {
 }
 
 ///|
-test "panic ReactiveParser::from_parts rejects cst memo disconnected from source_text" {
+test "panic ReactiveParser::from_parts rejects cst memo disconnected from source_text on access" {
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, "hello", label="source_text")
   let other_source = @incr.Signal::new(rt, "world", label="other_source")
@@ -177,7 +177,13 @@ test "panic ReactiveParser::from_parts rejects cst memo disconnected from source
       "ok"
     }
   }, label="term")
-  let _ = ReactiveParser::from_parts(source_text, cst_memo, cst_memo, term_memo)
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    cst_memo,
+    cst_memo,
+    term_memo,
+  )
+  let _ = ReactiveParser::cst(parser)
 }
 
 ///|
@@ -334,4 +340,39 @@ test "ReactiveParser::from_parts does not eagerly evaluate term_memo" {
   inspect(term_calls.val, content="0")
   inspect(ReactiveParser::term(parser), content="error")
   inspect(term_calls.val, content="1")
+}
+
+///|
+test "ReactiveParser::from_parts does not eagerly evaluate source/cst memos" {
+  let rt = @incr.Runtime::new()
+  let source_text = @incr.Signal::new(rt, "hello", label="source_text")
+  let source_calls : Ref[Int] = { val: 0 }
+  let cst_calls : Ref[Int] = { val: 0 }
+  let source_memo = @incr.Memo::new(rt, fn() -> String {
+    source_calls.val = source_calls.val + 1
+    source_text.get()
+  }, label="source")
+  let cst_memo = @incr.Memo::new(rt, fn() -> CstStage {
+    cst_calls.val = cst_calls.val + 1
+    stage_for_source(source_memo.get())
+  }, label="cst")
+  let term_memo = @incr.Memo::new(rt, fn() -> String {
+    let stage = cst_memo.get()
+    if stage.is_lex_error {
+      "error"
+    } else {
+      "ok"
+    }
+  }, label="term")
+  let parser = ReactiveParser::from_parts(
+    source_text,
+    source_memo,
+    cst_memo,
+    term_memo,
+  )
+  inspect(source_calls.val, content="0")
+  inspect(cst_calls.val, content="0")
+  inspect(ReactiveParser::cst(parser).is_lex_error, content="false")
+  inspect(source_calls.val, content="1")
+  inspect(cst_calls.val, content="1")
 }
