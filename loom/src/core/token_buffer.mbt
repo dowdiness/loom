@@ -11,7 +11,7 @@ pub struct TokenBuffer[T] {
   priv retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
   priv incremental_relex_enabled : Bool
   priv eof_token : T
-  mut tokens : Array[TokenInfo[T]]
+  priv mut tokens : Array[TokenInfo[T]]
   priv mut starts : Array[Int]
   mut source : String
   mut version : Int

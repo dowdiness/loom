@@ -184,7 +184,6 @@ pub impl Eq for TextDelta
 pub impl Show for TextDelta
 
 pub struct TokenBuffer[T] {
-  mut tokens : Array[TokenInfo[T]]
   mut source : String
   mut version : Int
   // private fields
