@@ -274,6 +274,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
     label="term",
   )
   @pipeline.ReactiveParser::from_parts(
+    rt,
     source_text,
     token_memo,
     cst_memo,

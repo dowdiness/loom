@@ -23,6 +23,7 @@ pub struct ReactiveParser[Ast] {
   priv term_memo : @incr.Memo[Ast]
   priv validate_source_chain : (() -> Unit)?
   priv validate_term_dependency : Bool
+  priv rt : @incr.Runtime
 }
 
 ///|
@@ -66,6 +67,7 @@ pub fn[Ast : Eq] ReactiveParser::new(
     term_memo,
     validate_source_chain: None,
     validate_term_dependency: false,
+    rt,
   }
 }
 
@@ -94,6 +96,13 @@ pub fn[Ast] ReactiveParser::set_source(
   source : String,
 ) -> Unit {
   self.source_text.set(source)
+}
+
+///|
+/// Return the Runtime backing this parser so downstream derived cells can join
+/// the same dependency graph.
+pub fn[Ast] ReactiveParser::runtime(self : ReactiveParser[Ast]) -> @incr.Runtime {
+  self.rt
 }
 
 ///|
@@ -144,6 +153,7 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
 /// parser construction remains lazy even when AST building aborts, and dynamic
 /// memo dependencies cannot silently detach the AST from the CST later.
 pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
+  rt : @incr.Runtime,
   source_text : @incr.Signal[String],
   source_memo : @incr.Memo[Stage],
   cst_memo : @incr.Memo[CstStage],
@@ -158,6 +168,11 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
     term_id.runtime_id != source_id.runtime_id {
     abort(
       "ReactiveParser::from_parts: source_text, source_memo, cst_memo, and term_memo must belong to the same runtime",
+    )
+  }
+  if rt.cell_info(source_id) is None {
+    abort(
+      "ReactiveParser::from_parts: runtime must own source_text",
     )
   }
   // Validate source → source_memo → cst_memo chain.
@@ -183,5 +198,6 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
     term_memo,
     validate_source_chain: Some(validate_source_chain),
     validate_term_dependency: true,
+    rt,
   }
 }

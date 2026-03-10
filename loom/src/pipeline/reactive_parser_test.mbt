@@ -150,6 +150,16 @@ test "ReactiveParser::get_source returns current source" {
 }
 
 ///|
+test "ReactiveParser::runtime exposes the internal Runtime" {
+  let db = new_db("hello")
+  let derived = @incr.Memo::new(
+    ReactiveParser::runtime(db),
+    fn() -> String { ReactiveParser::term(db) + "!" },
+  )
+  inspect(derived.get(), content="5!")
+}
+
+///|
 test "panic ReactiveParser::from_parts rejects cross-runtime cells" {
   let rt_a = @incr.Runtime::new()
   let rt_b = @incr.Runtime::new()
@@ -158,7 +168,7 @@ test "panic ReactiveParser::from_parts rejects cross-runtime cells" {
     stage_for_source("hello")
   }, label="cst")
   let term_memo = @incr.Memo::new(rt_b, fn() -> String { "5" }, label="term")
-  let _ = ReactiveParser::from_parts(source_text, cst_memo, cst_memo, term_memo)
+  let _ = ReactiveParser::from_parts(rt_a, source_text, cst_memo, cst_memo, term_memo)
 }
 
 ///|
@@ -178,6 +188,7 @@ test "panic ReactiveParser::from_parts rejects cst memo disconnected from source
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     cst_memo,
     cst_memo,
@@ -210,6 +221,7 @@ test "panic ReactiveParser::from_parts revalidates dynamic source memo dependenc
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     source_memo,
     cst_memo,
@@ -244,6 +256,7 @@ test "panic ReactiveParser::from_parts revalidates dynamic cst memo dependencies
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     source_memo,
     cst_memo,
@@ -266,6 +279,7 @@ test "panic ReactiveParser::from_parts rejects term memo disconnected from cst_m
   }, label="other")
   let term_memo = @incr.Memo::new(rt, fn() -> String { other_memo.get() }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     cst_memo,
     cst_memo,
@@ -302,6 +316,7 @@ test "panic ReactiveParser::from_parts revalidates dynamic term memo dependencie
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     cst_memo,
     cst_memo,
@@ -330,6 +345,7 @@ test "ReactiveParser::from_parts does not eagerly evaluate term_memo" {
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     cst_memo,
     cst_memo,
@@ -365,6 +381,7 @@ test "ReactiveParser::from_parts does not eagerly evaluate source/cst memos" {
     }
   }, label="term")
   let parser = ReactiveParser::from_parts(
+    rt,
     source_text,
     source_memo,
     cst_memo,
