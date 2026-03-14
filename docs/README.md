@@ -60,6 +60,7 @@ Understanding how the layers fit together:
 - [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
 - [plans/2026-03-09-semantic-error-variants-design.md](plans/2026-03-09-semantic-error-variants-design.md) — `Term::Unbound` semantic error variant: design document
 - [plans/2026-03-09-semantic-error-variants-impl.md](plans/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation plan (7 tasks)
+- [plans/2026-03-14-incremental-overhead.md](plans/2026-03-14-incremental-overhead.md) — incremental parser waste elimination: 3 fixes (defensive copy, lazy old-token lookup, ReuseNode event)
 
 ## Development
 
