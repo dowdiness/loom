@@ -49,8 +49,11 @@ Success criteria for this plan:
 - Modify: `loom/src/core/token_buffer_wbtest.mbt`
 - Modify: `loom/src/core/lex_step_wbtest.mbt`
 - Modify: `loom/src/factories.mbt`
+- Modify: `examples/lambda/src/lexer/lexer_test.mbt`
+- Modify: `examples/lambda/src/lexer/lexer_properties_test.mbt`
+- Modify: `examples/lambda/src/benchmarks/performance_benchmark.mbt`
 
-`TokenBuffer::update` currently returns `Array[TokenInfo[T]]` and ends with `self.tokens.copy()`, but the production caller in `factories.mbt` discards the result. Removing the return value eliminates one O(n) array copy per edit.
+`TokenBuffer::update` currently returns `Array[TokenInfo[T]]` and ends with `self.tokens.copy()`, but that defensive copy is not part of the intended API and several callers only use it because the function exposes it. Removing the return value eliminates one O(n) array copy per edit, but every caller that still binds the returned array must be updated in the same change.
 
 - [ ] **Step 1: Replace the obsolete defensive-copy test**
 
@@ -89,21 +92,27 @@ Update:
 
 - `loom/src/factories.mbt`
 - `loom/src/core/lex_step_wbtest.mbt`
+- `examples/lambda/src/lexer/lexer_test.mbt`
+- `examples/lambda/src/lexer/lexer_properties_test.mbt`
+- `examples/lambda/src/benchmarks/performance_benchmark.mbt`
 
 Specific changes:
 
 - In `factories.mbt`, replace `let _ = buffer.update(edit, source)` with `buffer.update(edit, source)`.
 - Simplify the catch block in `factories.mbt` so it no longer returns a dummy `[]`.
 - In `lex_step_wbtest.mbt`, remove the now-unnecessary `ignore(...)` wrapper.
+- In `lexer_test.mbt`, stop binding `let updated = ...`; call `buffer.update(...)`, then read back `buffer.get_tokens()` for assertions.
+- In `lexer_properties_test.mbt`, replace destructuring of `try? buffer.update(...)` with a sequencing check that calls `buffer.update(...)` and then inspects `buffer.get_tokens()`.
+- In `performance_benchmark.mbt`, drop `let result = ...`; benchmark the in-place update call directly and, if needed, read `buf.get_tokens()` separately to consume the updated state.
 
 After editing, run:
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/loom
-rg -n '\.update\(' .
+rg -n '\.update\(' ../loom ../examples/lambda/src
 ```
 
-Confirm there are no remaining callers that rely on the old return value.
+Confirm there are no remaining callers that rely on the old return value. The search should still find call sites, but none should bind, destructure, or `ignore(...)` the return value.
 
 - [ ] **Step 4: Run targeted checks**
 
@@ -126,6 +135,15 @@ moon test src/core/parser_wbtest.mbt
 moon test
 ```
 
+Also run lambda coverage that exercises the external callers changed in this task:
+
+```bash
+cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda
+moon test src/lexer/lexer_test.mbt
+moon test src/lexer/lexer_properties_test.mbt
+moon test src/benchmarks/performance_benchmark.mbt
+```
+
 - [ ] **Step 6: Update interfaces and format**
 
 Run:
@@ -146,6 +164,9 @@ git add loom/src/core/token_buffer.mbt
 git add loom/src/core/token_buffer_wbtest.mbt
 git add loom/src/core/lex_step_wbtest.mbt
 git add loom/src/factories.mbt
+git add examples/lambda/src/lexer/lexer_test.mbt
+git add examples/lambda/src/lexer/lexer_properties_test.mbt
+git add examples/lambda/src/benchmarks/performance_benchmark.mbt
 git add -u -- '*.mbti'
 git commit -m "perf: remove defensive copy from TokenBuffer::update"
 ```
@@ -164,7 +185,7 @@ Do **not** replace the flat token table with a fresh root-to-leaf tree walk on e
 
 - lazy on first use
 - built once
-- shared safely across `ReuseCursor::snapshot`
+- shared across `ReuseCursor::snapshot` so checkpoint/restore does not rebuild it
 
 - [ ] **Step 1: Add white-box regression tests in `parser_wbtest.mbt`**
 
@@ -217,23 +238,25 @@ Keep the existing multi-node reuse tests in `parser_wbtest.mbt` as the main regr
 
 In `loom/src/core/reuse_cursor.mbt`:
 
-1. Change `ReuseCursor` fields from eager-only storage:
+1. Change `ReuseCursor` so the immutable old-tree inputs stay public and the lazy cache is held in a shared cache cell. Do not store `old_tokens` as a plain `Array[OldToken]?` on the cursor itself, because `ParserContext::checkpoint()` snapshots the cursor before speculative branches run. If branch A materializes the cache and then restores, branch B must see the same materialized cache rather than rebuilding it.
+
+Use a shape along these lines:
 
 ```moonbit
-old_tokens : Array[OldToken]
-```
+pub struct OldTokenCache {
+  mut tokens : Array[OldToken]?
+}
 
-to:
-
-```moonbit
 old_root : @seam.CstNode
 ws_raw : @seam.RawKind
 err_raw : @seam.RawKind
 incomplete_raw : @seam.RawKind
-mut old_tokens : Array[OldToken]?
+cache : OldTokenCache
 ```
 
-2. In `ReuseCursor::new`, remove the eager `collect_old_tokens(...)` call. Always store the root and raw kinds, and initialize `old_tokens: None`.
+If MoonBit requires a different helper type name or wrapper shape, keep the same semantics: snapshots must share the same mutable cache cell.
+
+2. In `ReuseCursor::new`, remove the eager `collect_old_tokens(...)` call. Always store the root and raw kinds, and initialize the shared cache cell with `tokens: None`.
 
 3. Keep `collect_old_tokens(...)` as the flattening helper.
 
@@ -241,7 +264,7 @@ mut old_tokens : Array[OldToken]?
 
 ```moonbit
 fn[T, K] ReuseCursor::ensure_old_tokens(self : ReuseCursor[T, K]) -> Array[OldToken] {
-  match self.old_tokens {
+  match self.cache.tokens {
     Some(tokens) => tokens
     None => {
       let tokens : Array[OldToken] = []
@@ -253,7 +276,7 @@ fn[T, K] ReuseCursor::ensure_old_tokens(self : ReuseCursor[T, K]) -> Array[OldTo
         self.err_raw,
         self.incomplete_raw,
       )
-      self.old_tokens = Some(tokens)
+      self.cache.tokens = Some(tokens)
       tokens
     }
   }
@@ -283,9 +306,9 @@ fn[T, K] old_follow_token_lazy(
 
 - `old_root`
 - raw-kind fields
-- `old_tokens` when already materialized
+- the shared cache cell itself, not just the currently materialized array value
 
-Sharing the cached array between snapshots is acceptable as long as it is treated as immutable after construction.
+This is the correctness requirement for speculative parse branches: once any branch materializes the old-token table, later branches restored from an earlier checkpoint must reuse that same table.
 
 - [ ] **Step 3: Run targeted white-box tests**
 
@@ -323,7 +346,7 @@ moon info
 moon fmt
 ```
 
-`ReuseCursor` field changes are internal, so `.mbti` changes may be minimal or absent.
+`ReuseCursor` is public in `loom/src/core/pkg.generated.mbti`, so field changes here are a public API change. Expect `.mbti` updates, review them deliberately, and update any docs that describe the concrete struct layout.
 
 - [ ] **Step 6: Commit**
 
@@ -339,121 +362,65 @@ git commit -m "perf: make ReuseCursor old-token table lazy"
 
 ## Chunk 2: Fix 3
 
-### Task 3: `ReuseNode` event type to skip serialize/deserialize round-trip
+### Task 3: Internal reuse-node fast path to skip serialize/deserialize round-trip
 
 **Files:**
-- Modify: `seam/event.mbt`
-- Modify: `seam/event_wbtest.mbt`
-- Modify: `seam/seam_properties_wbtest.mbt`
 - Modify: `loom/src/core/parser.mbt`
+- Modify: `loom/src/core/parser_wbtest.mbt`
+- Modify: `seam/event.mbt` only if needed for a non-public internal helper
 
-When a subtree is reused, `ParserContext::emit_node_events` currently walks the entire node and re-emits StartNode/Token/FinishNode events. `build_tree_fully_interned` then reconstructs the same subtree. Replacing that with `ReuseNode(CstNode)` removes the round-trip.
+When a subtree is reused, `ParserContext::emit_node_events` currently walks the entire node and re-emits StartNode/Token/FinishNode events. `build_tree_fully_interned` then reconstructs the same subtree. The optimization target is real, but making `ReuseNode(CstNode)` a public `ParseEvent` weakens the existing seam builder contract: external callers could pass non-interned nodes into `build_tree_interned(...)` or `build_tree_fully_interned(...)`, and those builders would no longer guarantee that the resulting tree is interned through the provided interner(s).
 
-This change needs an explicit contract:
+Keep the fast path internal to loom's incremental parser path instead. Acceptable implementations include:
 
-- `ReuseNode` is only valid when the reused `CstNode` already matches the builder's `trivia_kind` / interner assumptions.
-- loom's incremental parse path satisfies that requirement because reused nodes come from a previous `build_tree_fully_interned(...)` call using the same language spec and the same process-global interners.
+- a loom-private event type or buffer that can carry reused nodes directly to the final tree builder
+- an internal builder entry point used only by the reuse parser path
+- a validating/re-interning adapter, if a public `ParseEvent` change is still desired
 
-- [ ] **Step 1: Add `ReuseNode` to `ParseEvent` and document the invariant**
+Do **not** land a public seam API where `build_tree_interned(...)` / `build_tree_fully_interned(...)` attach arbitrary `CstNode`s unchanged.
 
-In `seam/event.mbt`, extend `ParseEvent`:
+- [ ] **Step 1: Design the fast path so seam's public builder contract stays intact**
 
-```moonbit
-pub(all) enum ParseEvent {
-  StartNode(RawKind)
-  FinishNode
-  Token(RawKind, String)
-  Tombstone
-  /// Attach an already-built subtree directly.
-  /// Valid only when the node already matches the builder's trivia/interner contract.
-  ReuseNode(CstNode)
-} derive(Show, Eq)
-```
+Before editing code, choose one of these two safe directions and keep the rest of the task aligned with it:
 
-- [ ] **Step 2: Handle `ReuseNode` in all tree builders**
+1. loom-private reuse event / builder path: preferred, because it preserves seam's public API and avoids adding validation overhead to normal callers.
+2. public `ReuseNode`, but with explicit validation or re-interning in the public builders before the child is attached.
 
-Update:
+If option 2 is chosen, treat it as a seam API change and update tests/docs accordingly. If option 1 is chosen, do not expose `ReuseNode` in `seam/pkg.generated.mbti`.
 
-- `build_tree`
-- `build_tree_interned`
-- `build_tree_fully_interned`
+- [ ] **Step 2: Implement the internal fast path in loom**
 
-Each builder should attach the node directly to the current parent frame:
+Update `loom/src/core/parser.mbt` so reused subtrees avoid serialize/deserialize churn without changing the public guarantees of `@seam.build_tree_interned(...)` and `@seam.build_tree_fully_interned(...)`.
 
-```moonbit
-      ReuseNode(node) =>
-        match stack.last() {
-          Some(parent) => parent.push(Node(node))
-          None => abort("... stack empty when adding ReuseNode")
-        }
-```
+The concrete code shape is up to implementation, but preserve these invariants:
 
-Do not re-serialize the subtree and do not re-intern the reused child inside the builder.
+- `emit_reused(...)` still advances positions and replays diagnostics exactly as today
+- public seam builders still produce trees interned through the provided interner(s)
+- external callers cannot bypass interning guarantees by fabricating a reused subtree
 
-- [ ] **Step 3: Update test-side matches that become non-exhaustive**
+- [ ] **Step 3: Add regression tests at the loom parser layer**
 
-At minimum, update `seam/seam_properties_wbtest.mbt` so any `match e` over `ParseEvent` handles `ReuseNode(_)`.
+In `loom/src/core/parser_wbtest.mbt`, add tests that prove the fast path preserves behavior. Focus on parser-observable guarantees rather than a new public seam event shape. At minimum cover:
 
-- [ ] **Step 4: Add seam unit tests**
+- reused subtree parsing still produces the same CST shape as before
+- reused diagnostic replay still works
+- if the implementation depends on existing interners, reused children remain consistent with those interners
 
-In `seam/event_wbtest.mbt`, add:
+Only add seam-level tests if you introduce a seam-internal helper that needs direct coverage.
 
-1. A `build_tree` test that verifies `ReuseNode` attaches a child subtree directly.
-2. A `build_tree_fully_interned` test that verifies the reused child reference is preserved.
-
-Suggested second test:
-
-```moonbit
-///|
-test "build_tree_fully_interned: ReuseNode preserves reused child reference" {
-  let interner = Interner::new()
-  let ni = NodeInterner::new()
-  let child = ni.intern_node(
-    CstNode::new(
-      RawKind(1),
-      [CstElement::Token(interner.intern_token(RawKind(2), "x"))],
-    ),
-  )
-  let root = build_tree_fully_interned(
-    [ParseEvent::ReuseNode(child)],
-    RawKind(0),
-    interner,
-    ni,
-  )
-  match root.children[0] {
-    CstElement::Node(n) => inspect(physical_equal(n, child), content="true")
-    _ => abort("expected reused node child")
-  }
-}
-```
-
-- [ ] **Step 5: Switch loom's reuse path to emit `ReuseNode`**
-
-In `loom/src/core/parser.mbt`, replace the recursive `emit_node_events(...)` implementation with:
-
-```moonbit
-fn[T, K] ParserContext::emit_node_events(
-  self : ParserContext[T, K],
-  node : @seam.CstNode,
-) -> Unit {
-  self.events.push(@seam.ParseEvent::ReuseNode(node))
-}
-```
-
-No other semantic changes should be made to `emit_reused(...)`: keep the existing position advancement and diagnostic replay logic exactly as-is.
-
-- [ ] **Step 6: Run seam regression coverage**
+- [ ] **Step 4: Run seam regression coverage if seam code changes**
 
 Run:
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/seam
 moon check
-moon test event_wbtest.mbt
 moon test
 ```
 
-- [ ] **Step 7: Run loom parser regression coverage**
+If Task 3 stays entirely loom-internal, `moon check` plus `moon test` is enough; there is no need to add `ParseEvent`-exhaustiveness churn in seam tests.
+
+- [ ] **Step 5: Run loom parser regression coverage**
 
 Run:
 
@@ -471,7 +438,7 @@ Parser white-box tests are the main guardrail here because they already cover:
 - EOF ownership rules
 - checkpoint / restore of reuse state
 
-- [ ] **Step 8: Run parent-module integration tests**
+- [ ] **Step 6: Run parent-module integration tests**
 
 Run:
 
@@ -480,7 +447,7 @@ cd /home/antisatori/ghq/github.com/dowdiness/crdt
 moon test
 ```
 
-- [ ] **Step 9: Update interfaces and format**
+- [ ] **Step 7: Update interfaces and format**
 
 Run:
 
@@ -494,16 +461,15 @@ moon info
 moon fmt
 ```
 
-Expected public API change: `ParseEvent` gains `ReuseNode(CstNode)`.
+Only expect `.mbti` updates if Task 3 actually changes a public seam or loom interface. If the implementation stays loom-private, there should be no public `ParseEvent` change to review.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom
-git add seam/event.mbt
-git add seam/event_wbtest.mbt
-git add seam/seam_properties_wbtest.mbt
 git add loom/src/core/parser.mbt
+git add loom/src/core/parser_wbtest.mbt
+git add seam/event.mbt
 git add -u -- '*.mbti'
 git commit -m "perf: attach reused CST subtrees directly"
 ```
