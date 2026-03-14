@@ -39,7 +39,23 @@ pub fn CstToken::text_len(self : CstToken) -> Int {
 /// same `kind` and `text`. The cached `hash` is compared first as a fast
 /// rejection path; a hash match does NOT skip the kind/text comparison.
 /// This behavior is stable across versions.
+///
+/// ## Why `physical_equal` comes first
+///
+/// Tokens are deduplicated by the `Interner`: all tokens with the same
+/// `(kind, text)` share one canonical heap object. When the node interner
+/// later compares two `CstNode`s that were built from interned tokens, the
+/// token children are already the *same* canonical reference.
+/// `physical_equal` turns that O(len) string comparison into O(1).
+///
+/// Without this fast-path, deeply nested trees (e.g. 320-deep let chains)
+/// suffered O(n²) total equality cost because every `CstNode::Eq` call
+/// recursively compared all descendant tokens by value.
+/// See ADR `docs/decisions/2026-03-14-physical-equal-interner.md`.
 pub impl Eq for CstToken with equal(self, other) {
+  if physical_equal(self, other) {
+    return true
+  }
   if self.hash != other.hash {
     return false
   }
@@ -187,7 +203,30 @@ pub fn CstNode::kind(self : CstNode) -> RawKind {
 /// (per `CstElement::Eq`). The cached `hash` is compared first as a fast
 /// rejection path; a hash match does NOT bypass the deep structural check.
 /// This behavior is stable across versions.
+///
+/// ## Why `physical_equal` comes first
+///
+/// `build_tree_fully_interned` constructs trees bottom-up: children are
+/// interned via `NodeInterner` *before* their parent is built. When the
+/// parent is then interned, its children are already canonical references
+/// from the interner. The HashMap calls this `Eq` to confirm a hash-bucket
+/// match. Without `physical_equal`, each child comparison recurses into its
+/// own children, producing O(subtree) work per node.
+///
+/// For a right-recursive grammar (e.g. `let x = 0 in <body>`) with depth n,
+/// the outermost node's equality walks all n levels. Summing over all nodes:
+///   O(1) + O(2) + ... + O(n) = O(n²)
+///
+/// With `physical_equal`, interned children short-circuit in O(1), so each
+/// node comparison costs O(children_count) — constant for fixed grammars.
+/// Total cost drops from O(n²) to O(n).
+///
+/// Measured: 320-let chain initial parse went from 3.72ms to 662µs (5.6x).
+/// See ADR `docs/decisions/2026-03-14-physical-equal-interner.md`.
 pub impl Eq for CstNode with equal(self, other) {
+  if physical_equal(self, other) {
+    return true
+  }
   if self.hash != other.hash {
     return false
   }

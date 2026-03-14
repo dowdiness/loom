@@ -36,6 +36,8 @@ Understanding how the layers fit together:
 - [performance/PERFORMANCE_ANALYSIS.md](performance/PERFORMANCE_ANALYSIS.md) — benchmarks and analysis
 - [performance/benchmark_history.md](performance/benchmark_history.md) — historical benchmark log
 - [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
+- [performance/incremental-overhead.md](performance/incremental-overhead.md) — incremental parser overhead analysis and low-hanging-fruit waste elimination opportunities
+- [performance/grammar-design-for-incremental.md](performance/grammar-design-for-incremental.md) — grammar shapes that help/hurt incremental parsing: flat > left-recursive > balanced > right-recursive
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 
@@ -45,6 +47,7 @@ Understanding how the layers fit together:
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 - [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
+- [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
 
 ## Examples
 
