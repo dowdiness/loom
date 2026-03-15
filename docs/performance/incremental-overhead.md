@@ -39,6 +39,46 @@ Key incremental benchmarks, before vs after (lambda module, `moon bench --releas
 
 ---
 
+## Phase Profiling (2026-03-15)
+
+Isolated each sub-phase of the incremental parse path using profiling benchmarks on flat-grammar let chains (`moon bench --release`).
+
+### 80 lets — single edit
+
+| Phase | Time |
+|-------|------|
+| Tokenize only | 20.76 µs |
+| Tree build (normal events) | 12.96 µs |
+| Tree build (ReuseNode events) | 7.84 µs |
+| **Full reparse total** | **97.30 µs** |
+| → Grammar execution (derived) | 63.58 µs |
+| **Incremental total** | **244.51 µs** |
+| → Overhead vs full reparse | 147.21 µs |
+
+### 320 lets — single edit
+
+| Phase | Time |
+|-------|------|
+| Tokenize only | 96.71 µs |
+| Tree build (normal events) | 61.80 µs |
+| Tree build (ReuseNode events) | 35.38 µs |
+| **Full reparse total** | **441.66 µs** |
+| → Grammar execution (derived) | 283.15 µs |
+| **Incremental total** | **1120 µs** |
+| → Overhead vs full reparse | 678.34 µs |
+
+### Conclusions
+
+1. **Tree building is NOT the bottleneck.** `rebuild_subtree` (ReuseNode path) is faster than building from normal events (7.84 µs vs 12.96 µs for 80 lets). The `NodeInterner::lookup` early-exit optimization would help, but tree building is only ~13% of total time.
+
+2. **The bottleneck is grammar execution with cursor.** Cursor-aware grammar execution is ~3.3x slower than cursor-free execution. The per-node cost of `try_reuse` (cursor seek + 4-condition check + trailing-context binary search) dominates.
+
+3. **Head vs tail edit costs are identical** (~245 µs for both at 80 lets). The overhead is O(n) regardless of edit position — the cursor walks all nodes even when most are trivially reusable.
+
+4. **Next optimization target:** Reduce per-node `try_reuse` cost. Candidates: skip `try_reuse` for nodes entirely outside the damage region without cursor seek, batch trailing-context lookups, or short-circuit the 4-condition check for consecutive reusable siblings.
+
+---
+
 ## Future: `re_intern_subtree` early-exit optimization
 
 `re_intern_subtree` currently does an O(subtree_size) walk for every reused node, even when the node is already fully interned (the production path). All `intern_token`/`intern_node` calls are O(1) cache hits, but the walk still allocates temporary `Array[CstElement]` at every level.
@@ -49,10 +89,6 @@ An early-exit check could reduce this to O(1) for already-canonical subtrees: ca
 
 ---
 
-## Fundamental Limitation: Right-Recursive Grammars
+## Resolved: Right-Recursive Grammars
 
-Right-recursive grammars with tail edits are worst-case for incremental parsing:
-
-- Every spine node overlaps the damage range, so only leaf nodes can be reused.
-- Leaf nodes (IntLiteral, VarRef) are trivially cheap to parse — reuse overhead exceeds savings.
-- The correct fix for the editor is switching to a flat grammar structure (`source_file_grammar` with `LetDef*`), not optimizing the reuse protocol.
+Right-recursive grammars were the original worst case. Fixed by switching to flat `LetDef*` structure (PR #36, 2026-03-15). The remaining ~2.5x overhead is now in the cursor/try_reuse infrastructure, not the grammar structure.
