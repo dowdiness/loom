@@ -267,6 +267,7 @@ pub impl Eq for CstNode with equal(self, other) {
     return false
   }
   if self.kind != other.kind ||
+    self.has_any_error != other.has_any_error ||
     self.children.length() != other.children.length() {
     return false
   }
@@ -284,6 +285,7 @@ pub impl Eq for CstNode with equal(self, other) {
 /// via `combine_hash`. Stable as long as `combine_hash` is stable.
 pub impl Hash for CstNode with hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
+  hasher.combine_bool(self.has_any_error)
 }
 
 ///|
