@@ -2,7 +2,7 @@
 //
 // Oracle:
 //   ImperativeParser::edit(new_source) == full parse of new_source
-// where full parse uses parse_cst_recover (or tokenization error node).
+// where full parse uses parse_cst (or tokenization error node).
 
 ///|
 fn idf_next_seed(seed : Int) -> Int {

@@ -1,7 +1,7 @@
 // Tests for the parser — migrated from AstNode to SyntaxNode + Term.
 
 ///|
-test "parse_cst_recover simple integer" {
+test "parse_cstsimple integer" {
   let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -11,7 +11,7 @@ test "parse_cst_recover simple integer" {
 }
 
 ///|
-test "parse_cst_recover simple variable" {
+test "parse_cstsimple variable" {
   let (cst, _) = parse_cst("x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -21,7 +21,7 @@ test "parse_cst_recover simple variable" {
 }
 
 ///|
-test "parse_cst_recover identity function" {
+test "parse_cstidentity function" {
   let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
@@ -31,7 +31,7 @@ test "parse_cst_recover identity function" {
 }
 
 ///|
-test "parse_cst_recover binary operator" {
+test "parse_cstbinary operator" {
   let (cst, _) = parse_cst("1 + 2") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(@ast.print_term(syntax_node_to_term(root)), content="(1 + 2)")
@@ -46,7 +46,7 @@ test "parse_cst_recover binary operator" {
 }
 
 ///|
-test "parse_cst_recover application" {
+test "parse_cstapplication" {
   let (cst, _) = parse_cst("f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(@ast.print_term(syntax_node_to_term(root)), content="(f x)")
@@ -60,7 +60,7 @@ test "parse_cst_recover application" {
 }
 
 ///|
-test "parse_cst_recover if-then-else" {
+test "parse_cstif-then-else" {
   let (cst, _) = parse_cst("if x then y else z") catch {
     _ => abort("lex error")
   }
@@ -85,7 +85,7 @@ test "parse_cst_recover if-then-else" {
 }
 
 ///|
-test "parse_cst_recover complex expression" {
+test "parse_cstcomplex expression" {
   let (cst, _) = parse_cst("λf.λx.f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let printed = @ast.print_term(syntax_node_to_term(root))
@@ -101,7 +101,7 @@ test "parse_cst_recover complex expression" {
 }
 
 ///|
-test "parse_cst_recover preserves source positions" {
+test "parse_cstpreserves source positions" {
   let (cst, _) = parse_cst("  x  +  y  ") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()

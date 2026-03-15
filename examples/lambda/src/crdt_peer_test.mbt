@@ -120,7 +120,7 @@ test "tree_diff confirms incremental parse matches full reparse after sync" {
   let peer = Peer::new("42")
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)
-  // Full reparse of final text using parse_cst_recover (public API)
+  // Full reparse of final text using parse_cst (public API)
   let (fresh_cst, _) = parse_cst(peer.text) catch { _ => abort("parse failed") }
   let incremental_cst = peer.parser.get_tree().unwrap().cst_node()
   let diffs = @core.tree_diff(incremental_cst, fresh_cst)

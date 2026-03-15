@@ -370,7 +370,7 @@ fn parse_atom(
 /// before it is correct.
 fn parse_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Bool {
+) -> Unit {
   let mark = ctx.mark()
   ctx.emit_token(@syntax.LetKeyword)
   match ctx.peek() {
@@ -384,7 +384,6 @@ fn parse_let_item(
   parse_expression_with_mode(ctx, false)
   ctx.start_at(mark, @syntax.LetDef)
   ctx.finish_node()
-  true
 }
 
 ///|
@@ -398,24 +397,18 @@ fn parse_let_item(
 fn parse_lambda_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  let mut parsed_final_expr = false
   let _ = consume_newline_tokens(ctx)
-  while ctx.peek() == @token.Let && not(parsed_final_expr) {
-    if parse_let_item(ctx) {
-      let delimiter_count = consume_newline_tokens(ctx)
-      if delimiter_count == 0 && ctx.peek() == @token.Let {
-        ctx.error("Expected newline between top-level definitions")
-      }
-    } else {
-      parsed_final_expr = true
+  while ctx.peek() == @token.Let {
+    parse_let_item(ctx)
+    let delimiter_count = consume_newline_tokens(ctx)
+    if delimiter_count == 0 && ctx.peek() == @token.Let {
+      ctx.error("Expected newline between top-level definitions")
     }
   }
-  if not(parsed_final_expr) {
-    let _ = consume_newline_tokens(ctx)
-    match ctx.peek() {
-      @token.EOF => ()
-      _ => parse_expression(ctx)
-    }
+  let _ = consume_newline_tokens(ctx)
+  match ctx.peek() {
+    @token.EOF => ()
+    _ => parse_expression(ctx)
   }
   let _ = consume_newline_tokens(ctx)
   match ctx.peek() {

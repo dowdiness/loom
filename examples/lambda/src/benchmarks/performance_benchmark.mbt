@@ -299,8 +299,8 @@ test "phase1: full re-tokenize after edit - 110 tokens" (b : @bench.T) {
 // token/node deduplication pool, improving over time without per-call setup.
 
 ///|
-/// Benchmark: parse_cst_recover, small input (global interning always active).
-test "parse_cst_recover - small" (b : @bench.T) {
+/// Benchmark: parse_cst, small input (global interning always active).
+test "parse_cst - small" (b : @bench.T) {
   b.bench(fn() {
     let (tree, _) = @lambda.parse_cst("x + 1") catch {
       _ => abort("benchmark failed")
@@ -310,8 +310,8 @@ test "parse_cst_recover - small" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: parse_cst_recover, larger input.
-test "parse_cst_recover - large" (b : @bench.T) {
+/// Benchmark: parse_cst, larger input.
+test "parse_cst - large" (b : @bench.T) {
   let src = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
   b.bench(fn() {
     let (tree, _) = @lambda.parse_cst(src) catch {
