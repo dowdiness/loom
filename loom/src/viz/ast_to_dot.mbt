@@ -25,7 +25,7 @@ pub fn[T : DotNode] to_graph(root : T) -> @parser.Graph {
   let stmts : Array[@parser.Statement] = []
   stmts.push(@parser.Assignment("bgcolor", "transparent"))
   stmts.push(
-    @parser.AttrStmt("node", {
+    @parser.AttrStmt(@parser.NodeAttr, {
       attributes: [
         { key: "shape", value: "box" },
         { key: "style", value: "rounded,filled" },
@@ -37,7 +37,7 @@ pub fn[T : DotNode] to_graph(root : T) -> @parser.Graph {
     }),
   )
   stmts.push(
-    @parser.AttrStmt("edge", {
+    @parser.AttrStmt(@parser.EdgeAttr, {
       attributes: [
         { key: "fontname", value: "Arial" },
         { key: "fontcolor", value: "#858585" },

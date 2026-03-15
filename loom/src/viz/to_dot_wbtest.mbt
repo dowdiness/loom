@@ -86,7 +86,7 @@ test "to_dot: non-empty node_attrs merges into attribute list" {
   let mut has_label = false
   let mut has_color = false
   match @parser.parse_dot(dot) {
-    Some(graph) => {
+    Ok(graph) => {
       for stmt in graph.statements {
         match stmt {
           @parser.NodeStmt(node_id, attr_list) =>
@@ -109,7 +109,7 @@ test "to_dot: non-empty node_attrs merges into attribute list" {
       }
       inspect(has_label && has_color, content="true")
     }
-    None => inspect(false, content="true")
+    Err(_) => inspect(false, content="true")
   }
 }
 
