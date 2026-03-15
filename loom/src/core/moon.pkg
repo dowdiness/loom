@@ -1,4 +1,5 @@
 import {
+  "dowdiness/text_change" @shared_text_change,
   "dowdiness/seam" @seam,
   "moonbitlang/core/cmp",
 }
