@@ -228,6 +228,36 @@ pub fn build_tree_interned(
 }
 
 ///|
+/// Recursively re-intern a CstNode subtree: every token passes through
+/// intern_token, every node through intern_node. For already-interned trees
+/// (from a previous build_tree_fully_interned call), all lookups are O(1)
+/// cache hits via physical_equal. For non-interned trees, this ensures the
+/// result is fully canonical.
+fn re_intern_subtree(
+  node : CstNode,
+  interner : Interner,
+  node_interner : NodeInterner,
+  trivia_kind : RawKind?,
+) -> CstNode {
+  let children : Array[CstElement] = []
+  for child in node.children {
+    match child {
+      CstElement::Token(t) => {
+        let interned = interner.intern_token(t.kind, t.text)
+        children.push(CstElement::Token(interned))
+      }
+      CstElement::Node(n) => {
+        let interned = re_intern_subtree(
+          n, interner, node_interner, trivia_kind,
+        )
+        children.push(CstElement::Node(interned))
+      }
+    }
+  }
+  node_interner.intern_node(CstNode::new(node.kind, children, trivia_kind~))
+}
+
+///|
 /// Build a CST from a flat event stream, interning both tokens (via `interner`)
 /// and interior nodes (via `node_interner`). Identical subtrees share a single
 /// canonical CstNode reference in memory.
@@ -287,9 +317,13 @@ pub fn build_tree_fully_interned(
         }
       }
       ReuseNode(node) => {
-        // Re-intern to preserve the contract that all nodes pass through
-        // the node interner. For already-interned nodes this is an O(1) cache hit.
-        let interned = node_interner.intern_node(node)
+        // Deep re-intern: walk the subtree so every token passes through
+        // intern_token and every node through intern_node. For trees
+        // already built by build_tree_fully_interned (the production path),
+        // all lookups are O(1) cache hits via physical_equal.
+        let interned = re_intern_subtree(
+          node, interner, node_interner, trivia_kind,
+        )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
           None =>
