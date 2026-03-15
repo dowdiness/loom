@@ -109,6 +109,11 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
 ///
 /// Malformed LetDef nodes (missing init expression) produce `Term::Error(...)`.
 pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
+  // Non-SourceFile roots (e.g. IntLiteral, LambdaExpr) are converted directly.
+  if @syntax.SyntaxKind::from_raw(root.kind()) != @syntax.SourceFile {
+    return view_to_term(root)
+  }
+  // SourceFile: right-fold LetDef* into nested Let terms.
   let defs : Array[(@ast.VarName, @ast.Term)] = []
   let mut final_term : @ast.Term = @ast.Term::Unit
   for child in root.children() {
