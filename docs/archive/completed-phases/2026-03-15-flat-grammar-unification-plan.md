@@ -1,5 +1,7 @@
 # Flat Grammar Unification Implementation Plan
 
+**Status:** Complete
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remove `lambda_grammar` and unify on `source_file_grammar` with flat `LetDef*` structure for optimal incremental parsing.
