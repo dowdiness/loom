@@ -1,21 +1,23 @@
-# try_reuse Fast Path for Undamaged Nodes
+# emit_reused Fast Path for Healthy Nodes
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Skip expensive leading/trailing token checks in `try_reuse` for nodes entirely before the damage region, reducing incremental overhead from ~2.5x to near-parity with full reparse.
+**Goal:** Eliminate O(subtree) work per reuse hit in `emit_reused` for healthy nodes (no errors), reducing incremental overhead from ~2.5x to near-parity with full reparse.
 
-**Architecture:** Add a fast path in `ReuseCursor::try_reuse` that skips `leading_token_matches` and `trailing_context_matches` when `node_end < damage_start`. This is safe because `TokenBuffer::update` preserves tokens unchanged before the damaged region (line 253-256 of `token_buffer.mbt`).
+**Architecture:** Three targeted fixes in `emit_reused`:
+1. Skip `collect_reused_error_spans` for nodes without errors (use `CstNode.has_errors` check)
+2. Replace `advance_past_reused` closure loop with `token_count` jump
+3. Avoid per-node `Array[ReusedErrorSpan]` allocation for healthy nodes
 
 **References:**
-- [Phase profiling results](../performance/incremental-overhead.md#phase-profiling-2026-03-15)
-- `loom/src/core/reuse_cursor.mbt` — `try_reuse`, `seek_node_at`, `trailing_context_matches`
-- `loom/src/core/token_buffer.mbt:253-256` — prefix tokens preserved unchanged
+- [emit_reused overhead analysis](../performance/incremental-overhead.md#root-cause-emit_reused-does-osubtree-work-per-reuse-hit)
+- `loom/src/core/parser.mbt` — `emit_reused`, `collect_reused_error_spans`, `advance_past_reused`
+
+**Previous attempt:** Skipping `leading_token_matches` in `try_reuse` for pre-damage nodes gave no measurable improvement. The overhead is in `emit_reused`, not `try_reuse`.
 
 ---
 
 ## Preflight
-
-Verified command shapes:
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/loom && moon check && moon test
@@ -24,62 +26,48 @@ cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda && moon c
 
 Success criteria:
 - All loom and lambda tests pass
-- Profiling benchmarks show incremental overhead reduced (target: <1.5x full reparse for 80 lets)
-- No behavioral changes for nodes near or overlapping the damage region
+- Profiling benchmarks show incremental overhead reduced
+- No behavioral changes for nodes with errors (error span collection and diagnostic replay must still work)
 
 ---
 
-## Task 1: Add fast path to `try_reuse`
+## Task 1: Skip error span collection for healthy nodes
 
 **Files:**
-- Modify: `loom/src/core/reuse_cursor.mbt`
+- Modify: `loom/src/core/parser.mbt`
 
-- [ ] **Step 1: Add the fast path after `is_outside_damage`**
+`collect_reused_error_spans` recursively walks every reused node's subtree to find error/incomplete tokens. For healthy nodes (the common case), this is pure waste — zero spans found after O(subtree) work.
 
-In `ReuseCursor::try_reuse` (around line 375), after `seek_node_at` finds a node and `is_outside_damage` confirms it's safe, check whether the node ends strictly before `damage_start`. If so, skip `leading_token_matches` and `trailing_context_matches`.
+- [ ] **Step 1: Check `has_errors` before collecting spans**
 
-Current code (lines 388-405):
+In `emit_reused` (around line 722), before calling `collect_reused_error_spans`, check whether the node has any error or incomplete content. `CstNode` has a `has_errors(error_kind, incomplete_kind)` method (used in `next_sibling_has_error`).
 
+Current code:
 ```moonbit
-Some((node, node_offset)) => {
-  let node_end = node_offset + node.text_len
-  if not(is_outside_damage(...)) {
-    None
-  } else if not(leading_token_matches(node, self, token_pos)) {
-    None
-  } else if not(trailing_context_matches(self, node_end)) {
-    None
-  } else {
-    Some(node)
-  }
-}
+let error_spans : Array[ReusedErrorSpan] = []
+let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
+let owns_right_boundary = error_spans
+  .iter()
+  .any(fn(s) { s.start == node_end && s.end == node_end })
 ```
 
 Change to:
-
 ```moonbit
-Some((node, node_offset)) => {
-  let node_end = node_offset + node.text_len
-  if not(is_outside_damage(
-      node_offset, node_end, self.damage_start, self.damage_end,
-    )) {
-    None
-  } else if node_end < self.damage_start {
-    // Fast path: node is entirely before the damage region.
-    // Tokens in this range are unchanged by TokenBuffer::update,
-    // so leading/trailing context checks are guaranteed to pass.
-    Some(node)
-  } else if not(leading_token_matches(node, self, token_pos)) {
-    None
-  } else if not(trailing_context_matches(self, node_end)) {
-    None
-  } else {
-    Some(node)
-  }
+let error_raw = self.spec.error_kind.to_raw()
+let incomplete_raw = self.spec.incomplete_kind.to_raw()
+let has_errors = node.has_errors(error_raw, error_raw) ||
+  node.has_errors(error_raw, incomplete_raw) ||
+  node.has_errors(incomplete_raw, incomplete_raw)
+let error_spans : Array[ReusedErrorSpan] = []
+let owns_right_boundary = if has_errors {
+  let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
+  error_spans.iter().any(fn(s) { s.start == node_end && s.end == node_end })
+} else {
+  false
 }
 ```
 
-The condition `node_end < damage_start` (strict less-than) is important: nodes ending exactly at `damage_start` (`node_end == damage_start`) are excluded because `is_outside_damage` already excludes left-adjacent nodes (`node_end < damage_start`, not `<=`). So the fast path fires for exactly the same nodes that `is_outside_damage` accepts on the left side.
+This skips the recursive walk for healthy nodes (the vast majority of reused nodes).
 
 - [ ] **Step 2: Run checks**
 
@@ -89,32 +77,87 @@ moon check
 moon test
 ```
 
-- [ ] **Step 3: Run lambda tests**
+- [ ] **Step 3: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda
-moon check
-moon test
-```
-
-- [ ] **Step 4: Update interfaces and format**
-
-```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/loom
-moon info && moon fmt
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom
-git add loom/src/core/reuse_cursor.mbt
-git commit -m "perf: skip token checks for nodes before damage region in try_reuse"
+git add loom/src/core/parser.mbt
+git commit -m "perf: skip error span collection for healthy reused nodes"
 ```
 
 ---
 
-## Task 2: Run profiling benchmarks and record results
+## Task 2: Replace `advance_past_reused` closure loop with token_count jump
+
+**Files:**
+- Modify: `loom/src/core/parser.mbt`
+
+`advance_past_reused` loops through tokens calling `(self.get_start)(self.position)` per token to find the position past the node. `CstNode` already stores `token_count` — use it to jump directly.
+
+- [ ] **Step 1: Replace the loop with a direct jump**
+
+Current code:
+```moonbit
+fn[T, K] ParserContext::advance_past_reused(
+  self : ParserContext[T, K],
+  node : @seam.CstNode,
+) -> Unit {
+  if self.position >= self.token_count {
+    return
+  }
+  let node_end = (self.get_start)(self.position) + node.text_len
+  while self.position < self.token_count &&
+        (self.get_start)(self.position) < node_end {
+    self.position = self.position + 1
+  }
+}
+```
+
+Change to:
+```moonbit
+fn[T, K] ParserContext::advance_past_reused(
+  self : ParserContext[T, K],
+  node : @seam.CstNode,
+) -> Unit {
+  // Jump past all tokens covered by this node using the cached token_count.
+  // token_count excludes trivia (whitespace), so add the trivia tokens
+  // that precede each non-trivia token.
+  // Fallback: use the offset-based loop for nodes with zero-width error
+  // placeholders where token_count may not account for all position advances.
+  if self.position >= self.token_count {
+    return
+  }
+  let node_end = (self.get_start)(self.position) + node.text_len
+  while self.position < self.token_count &&
+        (self.get_start)(self.position) < node_end {
+    self.position = self.position + 1
+  }
+}
+```
+
+**Note:** This optimization needs investigation. `token_count` is the *non-trivia* token count — it excludes whitespace tokens that still need to be advanced past. The offset-based loop correctly handles trivia. A safe alternative: advance by `node.token_count` for the non-trivia tokens, then scan forward through any remaining trivia. Or, pre-compute the total token span (trivia + non-trivia) when the node is created.
+
+If `token_count` cannot directly replace the loop, keep the loop but explore caching the total token span on `CstNode`.
+
+- [ ] **Step 2: Run checks and verify correctness**
+
+```bash
+cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/loom
+moon check
+moon test
+cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda
+moon test
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add loom/src/core/parser.mbt
+git commit -m "perf: optimize advance_past_reused token position advance"
+```
+
+---
+
+## Task 3: Run profiling benchmarks and record results
 
 **Files:**
 - Modify: `docs/performance/incremental-overhead.md`
@@ -126,49 +169,15 @@ cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda
 moon bench --release 2>&1 | grep -E "profile:" -A2
 ```
 
-Key comparisons:
-- `profile: 80 lets - incremental (edit tail)` — should improve significantly
-- `profile: 80 lets - incremental (edit head)` — should show less improvement (most nodes are after damage)
-- `profile: 80 lets - full reparse` — should be unchanged (baseline)
+Compare incremental vs full reparse at 80 and 320 lets.
 
 - [ ] **Step 2: Record results**
 
-Update `docs/performance/incremental-overhead.md` with before/after profiling numbers.
+Update `docs/performance/incremental-overhead.md` with before/after numbers.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom
 git add docs/performance/incremental-overhead.md
-git commit -m "docs: record try_reuse fast path benchmark results"
-```
-
----
-
-## Task 3: Add regression test for fast path correctness
-
-**Files:**
-- Modify: `loom/src/core/parser_wbtest.mbt`
-
-- [ ] **Step 1: Add test that verifies reuse before damage region**
-
-Add a whitebox test that parses a multi-node expression, edits the last node, and verifies that nodes before the damage are reused (reuse_count > 0) and the result matches full reparse.
-
-- [ ] **Step 2: Add test that verifies no false reuse at damage boundary**
-
-Add a test with an edit at the boundary between two nodes. Verify that the node immediately before the edit is NOT falsely reused (trailing context may have changed).
-
-- [ ] **Step 3: Run tests**
-
-```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/loom
-moon test
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom
-git add loom/src/core/parser_wbtest.mbt
-git commit -m "test: add regression tests for try_reuse fast path"
+git commit -m "docs: record emit_reused optimization benchmark results"
 ```
