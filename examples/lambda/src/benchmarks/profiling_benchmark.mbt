@@ -332,10 +332,13 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (b : @bench
     }
   }
   let root_kind = cst.kind
-  let interner = @seam.Interner::new()
-  let ws = @seam.RawKind(11) // WhitespaceToken
-  let ni = @seam.NodeInterner::new()
+  // WhitespaceToken raw kind = 11 (from syntax_kind.mbt:to_raw).
+  // Not accessible as a constant from the benchmarks package.
+  let ws = @seam.RawKind(11)
   b.bench(fn() {
+    // Fresh interners per iteration to avoid warm-cache bias.
+    let interner = @seam.Interner::new()
+    let ni = @seam.NodeInterner::new()
     let tree = @seam.build_tree_fully_interned(
       events, root_kind, interner, ni, trivia_kind=Some(ws),
     )
