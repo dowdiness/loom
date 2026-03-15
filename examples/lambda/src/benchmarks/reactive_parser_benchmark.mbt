@@ -1,5 +1,5 @@
 // ReactiveParser benchmarks: Signal/Memo pipeline overhead and backdating effectiveness.
-// All benchmarks use @loom.new_reactive_parser with @lambda.source_file_grammar (the two-memo pipeline).
+// All benchmarks use @loom.new_reactive_parser with @lambda.lambda_grammar (the two-memo pipeline).
 // Run with: moon bench --package dowdiness/loom/benchmarks --release
 
 ///|
@@ -8,7 +8,7 @@
 test "parserdb: cold - new + term()" (b : @bench.T) {
   b.bench(fn() {
     let db = @loom.new_reactive_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
+      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     b.keep(db.term())
   })
@@ -20,7 +20,7 @@ test "parserdb: cold - new + term()" (b : @bench.T) {
 /// only check staleness and return the cached value.
 test "parserdb: warm - term() with no source change" (b : @bench.T) {
   let db = @loom.new_reactive_parser(
-    "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
+    "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let _ = db.term() // prime: run once so Memos are valid before measuring
   b.bench(fn() { b.keep(db.term()) })
@@ -32,7 +32,7 @@ test "parserdb: warm - term() with no source change" (b : @bench.T) {
 /// Should be nearly as cheap as the warm path.
 test "parserdb: signal no-op - set_source(same) + term()" (b : @bench.T) {
   let source = "λf.λx.if f x then x + 1 else x - 1"
-  let db = @loom.new_reactive_parser(source, @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser(source, @lambda.lambda_grammar)
   let _ = db.term() // prime
   b.bench(fn() {
     db.set_source(source) // String::Eq → Signal no-op → Memos stay valid
@@ -46,7 +46,7 @@ test "parserdb: signal no-op - set_source(same) + term()" (b : @bench.T) {
 /// This is the cost of a genuine source edit via the ReactiveParser API.
 test "parserdb: full recompute - set_source(new) + term()" (b : @bench.T) {
   let db = @loom.new_reactive_parser(
-    "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
+    "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let _ = db.term() // prime
   b.bench(fn() {
@@ -65,7 +65,7 @@ test "parserdb: full recompute - set_source(new) + term()" (b : @bench.T) {
 test "parserdb: undo/redo cycle" (b : @bench.T) {
   let s1 = "λf.λx.if f x then x + 1 else x - 1"
   let s2 = "λf.λx.if f x then x + 2 else x - 1"
-  let db = @loom.new_reactive_parser(s1, @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser(s1, @lambda.lambda_grammar)
   let _ = db.term()
   b.bench(fn() {
     db.set_source(s2)
@@ -79,7 +79,7 @@ test "parserdb: undo/redo cycle" (b : @bench.T) {
 /// Diagnostics path: set_source() to malformed input + diagnostics().
 /// Exercises the error path: CstStage with non-empty diagnostics.
 test "parserdb: diagnostics - malformed input" (b : @bench.T) {
-  let db = @loom.new_reactive_parser("λx.", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("λx.", @lambda.lambda_grammar)
   b.bench(fn() {
     db.set_source("λ" + "x.")
     b.keep(db.diagnostics())

@@ -196,7 +196,7 @@ fn parse_expression(
 // allow_newline_application. This is intentional: the flag guards
 // newline-spanning *application* (f\nx treated as (f x)), not whether the
 // expression itself may be preceded by a newline. Callers that pass
-// allow_newline_application=false (i.e. parse_source_file_let_item) invoke
+// allow_newline_application=false (i.e. parse_let_item) invoke
 // this immediately after consuming `=`, where no leading newline exists.
 fn parse_expression_with_mode(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
@@ -352,10 +352,10 @@ fn parse_atom(
   }
 }
 
-// ─── Source-file grammar (LetDef* Expression?) ────────────────────────────────
+// ─── Lambda grammar (LetDef* Expression?) ─────────────────────────────────────
 
 ///|
-/// Parse a top-level `let` item for source-file grammar.
+/// Parse a top-level `let` item for the lambda grammar.
 ///
 /// Shape:
 ///   - `let x = e`      -> LetDef
@@ -368,7 +368,7 @@ fn parse_atom(
 /// A `let` token inside the RHS always starts a nested let-expression —
 /// never a sibling top-level definition — so consuming a leading newline
 /// before it is correct.
-fn parse_source_file_let_item(
+fn parse_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Bool {
   let mark = ctx.mark()
@@ -388,20 +388,20 @@ fn parse_source_file_let_item(
 }
 
 ///|
-/// Entry point for source-file grammar: LetDef* Expression?
-/// Newline tokens (from tokenize_layout) delimit definitions and are emitted
+/// Entry point for lambda grammar: LetDef* Expression?
+/// Newline tokens (from tokenize) delimit definitions and are emitted
 /// explicitly into the CST as direct children of SourceFile. They are token
 /// children (not node children), so `SyntaxNode::children()` (node-only) never
 /// yields them. Only `SyntaxNode::all_children()` would see them. The term
 /// converter uses `children()`, so it only encounters LetDef and expression nodes.
 /// Callers that use `all_children()` must handle `NewlineToken` explicitly.
-fn parse_source_file_root(
+fn parse_lambda_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let mut parsed_final_expr = false
   let _ = consume_newline_tokens(ctx)
   while ctx.peek() == @token.Let && not(parsed_final_expr) {
-    if parse_source_file_let_item(ctx) {
+    if parse_let_item(ctx) {
       let delimiter_count = consume_newline_tokens(ctx)
       if delimiter_count == 0 && ctx.peek() == @token.Let {
         ctx.error("Expected newline between top-level definitions")
@@ -433,11 +433,11 @@ fn parse_source_file_root(
 }
 
 ///|
-/// Parse a source file (LetDef* Expression?). Returns tree with error recovery.
-pub fn parse_source_file(
+/// Parse a source string (LetDef* Expression?). Returns tree with error recovery.
+pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
-  let tokens = @lexer.tokenize_layout(source)
+  let tokens = @lexer.tokenize(source)
   let starts = @core.build_starts(tokens)
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(
     source,
@@ -445,14 +445,14 @@ pub fn parse_source_file(
     i => tokens[i].token,
     i => starts[i],
     i => starts[i] + tokens[i].len,
-    source_file_spec,
+    lambda_spec,
   )
   (cst, diagnostics)
 }
 
 ///|
 /// Parse with pre-tokenized input and optional reuse cursor (for incremental use).
-pub fn parse_source_file_recover_with_tokens(
+pub fn parse_cst_recover_with_tokens(
   source : String,
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
@@ -465,15 +465,15 @@ pub fn parse_source_file_recover_with_tokens(
     i => tokens[i].token,
     i => starts[i],
     i => starts[i] + tokens[i].len,
-    source_file_spec,
+    lambda_spec,
     cursor~,
     prev_diagnostics~,
   )
 }
 
 ///|
-/// Make a ReuseCursor for incremental source-file parsing.
-pub fn make_source_file_reuse_cursor(
+/// Make a ReuseCursor for incremental parsing.
+pub fn make_reuse_cursor(
   old_tree : @seam.CstNode,
   damage_start : Int,
   damage_end : Int,
@@ -487,6 +487,6 @@ pub fn make_source_file_reuse_cursor(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    source_file_spec,
+    lambda_spec,
   )
 }

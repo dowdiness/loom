@@ -56,7 +56,7 @@ test "full parse - complex" (b : @bench.T) {
 /// Benchmark: Tokenization
 test "tokenization" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lexer.tokenize_layout("λf.λx.f x") catch {
+    let result = @lexer.tokenize("λf.λx.f x") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -67,7 +67,7 @@ test "tokenization" (b : @bench.T) {
 /// Benchmark: Incremental parser - initial parse
 test "incremental - initial parse" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.source_file_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -77,7 +77,7 @@ test "incremental - initial parse" (b : @bench.T) {
 /// Benchmark: Incremental parser - small edit
 test "incremental - small edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.source_file_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::insert(1, 4)
     let result = parser.edit(edit, "x + 1")
@@ -89,7 +89,7 @@ test "incremental - small edit" (b : @bench.T) {
 /// Benchmark: Incremental parser - multiple edits
 test "incremental - multiple edits" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.source_file_grammar)
+    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit1 = @core.Edit::insert(1, 4)
     let _ = parser.edit(edit1, "x + 1")
@@ -103,9 +103,7 @@ test "incremental - multiple edits" (b : @bench.T) {
 /// Benchmark: Incremental parser - replacement edit
 test "incremental - replacement" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      "λx.x", @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
     let result = parser.edit(edit, "\\x.x")
@@ -147,7 +145,7 @@ test "error recovery - error" (b : @bench.T) {
 /// Benchmark: Full parse of let definition + expression.
 test "full parse - let" (b : @bench.T) {
   b.bench(fn() {
-    let (_, _) = @lambda.parse_source_file_term("let x = 1\nx") catch {
+    let (_, _) = @lambda.parse_term("let x = 1\nx") catch {
       _ => abort("benchmark failed")
     }
   })
@@ -157,7 +155,7 @@ test "full parse - let" (b : @bench.T) {
 /// Benchmark: Full parse of nested let definitions.
 test "full parse - nested let" (b : @bench.T) {
   b.bench(fn() {
-    let (_, _) = @lambda.parse_source_file_term("let x = 1\nlet y = x + 1\ny") catch {
+    let (_, _) = @lambda.parse_term("let x = 1\nlet y = x + 1\ny") catch {
       _ => abort("benchmark failed")
     }
   })
@@ -169,7 +167,7 @@ test "full parse - nested let" (b : @bench.T) {
 test "incremental - let body edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1\ny", @lambda.source_file_grammar,
+      "let x = 1\ny", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(10, 11, 11)
@@ -184,7 +182,7 @@ test "incremental - let body edit" (b : @bench.T) {
 test "incremental - let init edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1\ny", @lambda.source_file_grammar,
+      "let x = 1\ny", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(8, 9, 9)

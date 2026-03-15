@@ -1,10 +1,8 @@
-// Tests for error recovery — migrated to parse_source_file API.
+// Tests for error recovery — migrated to parse_cst API.
 
 ///|
-test "parse_source_file returns diagnostics" {
-  let (cst, diagnostics) = parse_source_file("λ.x") catch {
-    _ => abort("lex error")
-  }
+test "parse_cst returns diagnostics" {
+  let (cst, diagnostics) = parse_cst("λ.x") catch { _ => abort("lex error") }
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics[0].message, content="Expected parameter after λ")
   // Cst should be a valid SourceFile
@@ -12,22 +10,18 @@ test "parse_source_file returns diagnostics" {
 }
 
 ///|
-test "parse_source_file no errors on valid input" {
-  let (cst, diagnostics) = parse_source_file("λx.x") catch {
-    _ => abort("lex error")
-  }
+test "parse_cst no errors on valid input" {
+  let (cst, diagnostics) = parse_cst("λx.x") catch { _ => abort("lex error") }
   inspect(diagnostics.length(), content="0")
   inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
 }
 
 ///|
-test "parse_source_file EOF diagnostics point to end of source" {
+test "parse_cst EOF diagnostics point to end of source" {
   // "if x then y" is missing "else" — the diagnostic for the missing
   // "else" keyword fires at EOF which should be at the end of the source.
   let source = "if x then y"
-  let (_, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (_, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
   // Find the diagnostic about the missing "else"
   let mut found = false
@@ -42,12 +36,12 @@ test "parse_source_file EOF diagnostics point to end of source" {
 }
 
 ///|
-test "parse_source_file: valid inputs produce no diagnostics" {
+test "parse_cst: valid inputs produce no diagnostics" {
   let inputs = [
     "42", "x", "λx.x", "f x", "1 + 2", "if x then 1 else 2", "(x)", "λf.λx.f (f x)",
   ]
   for input in inputs {
-    let (_, diagnostics) = parse_source_file(input) catch {
+    let (_, diagnostics) = parse_cst(input) catch {
       _ => abort("lex error on " + input)
     }
     inspect(diagnostics.length(), content="0")
@@ -79,9 +73,7 @@ fn assert_first_child_kind(
 ///|
 test "lambda_expect: missing dot in lambda" {
   let source = "λx x"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics[0].message, content="Expected .")
@@ -91,9 +83,7 @@ test "lambda_expect: missing dot in lambda" {
 ///|
 test "lambda_expect: missing '=' in let" {
   let source = "let x 1\nx"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   // Should report missing '='
@@ -109,9 +99,7 @@ test "lambda_expect: missing '=' in let" {
 ///|
 test "lambda_expect: missing closing paren" {
   let source = "(λx. x"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics[0].message, content="Expected )")
@@ -121,9 +109,7 @@ test "lambda_expect: missing closing paren" {
 ///|
 test "lambda_expect: missing ')' in if condition keeps then/else" {
   let source = "if (x then y else z"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(
@@ -147,9 +133,7 @@ test "lambda_expect: missing ')' in if condition keeps then/else" {
 test "skip_until: garbage before lambda recovers" {
   // Two unexpected tokens should be skipped, then λx.x parsed normally
   let source = "+ + λx. x"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   // Tree should cover the full input including the recovered lambda
@@ -160,9 +144,7 @@ test "skip_until: garbage before lambda recovers" {
 ///|
 test "skip_until: garbage at end of input" {
   let source = "λx. x + +"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   // Should report at least one error for the trailing "+"
   inspect(diagnostics.length() > 0, content="true")
@@ -171,9 +153,7 @@ test "skip_until: garbage at end of input" {
 ///|
 test "skip_until: multiple garbage tokens before sync point" {
   let source = "+ - + λx.x"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   // Tree should cover the full input including the recovered lambda
@@ -189,9 +169,7 @@ test "skip_until: multiple garbage tokens before sync point" {
 test "balanced: extra tokens before close paren" {
   // Garbage between expression and ) — should skip to )
   let source = "(λx. x + + )"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   assert_first_child_kind(cst, @syntax.ParenExpr)
@@ -201,9 +179,7 @@ test "balanced: extra tokens before close paren" {
 test "balanced: nested parens with one missing close" {
   // Inner paren is closed, outer is missing )
   let source = "((λx. x)"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
 }
@@ -211,9 +187,7 @@ test "balanced: nested parens with one missing close" {
 ///|
 test "balanced: missing close paren at EOF" {
   let source = "(x + y"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics[0].message, content="Expected )")
@@ -227,9 +201,7 @@ test "balanced: missing close paren at EOF" {
 test "node_with_recovery: malformed let missing identifier" {
   // "let = 1\nx" — missing variable name after 'let'
   let source = "let = 1\nx"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   assert_first_child_kind(cst, @syntax.LetDef)
@@ -239,9 +211,7 @@ test "node_with_recovery: malformed let missing identifier" {
 test "node_with_recovery: malformed if missing then" {
   // "if x else z" — missing 'then' keyword
   let source = "if x else z"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   assert_first_child_kind(cst, @syntax.IfExpr)
@@ -251,9 +221,7 @@ test "node_with_recovery: malformed if missing then" {
 test "node_with_recovery: malformed lambda missing dot and body" {
   // "λx" — missing dot and body
   let source = "λx"
-  let (cst, diagnostics) = parse_source_file(source) catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   assert_first_child_kind(cst, @syntax.LambdaExpr)
@@ -266,7 +234,7 @@ test "node_with_recovery: malformed lambda missing dot and body" {
 ///|
 test "incremental: fix missing dot by editing" {
   // 1. Parse broken input: "λx x" (missing dot)
-  let parser = @loom.new_imperative_parser("λx x", source_file_grammar)
+  let parser = @loom.new_imperative_parser("λx x", lambda_grammar)
   let _ = parser.parse()
   inspect(parser.diagnostics().length() > 0, content="true")
 
@@ -283,7 +251,7 @@ test "incremental: fix missing dot by editing" {
 ///|
 test "incremental: introduce error by deleting dot" {
   // 1. Parse valid input: "λx. x"
-  let parser = @loom.new_imperative_parser("λx. x", source_file_grammar)
+  let parser = @loom.new_imperative_parser("λx. x", lambda_grammar)
   let _ = parser.parse()
   inspect(parser.diagnostics().length(), content="0")
 
@@ -296,7 +264,7 @@ test "incremental: introduce error by deleting dot" {
 ///|
 test "incremental: fix missing paren by appending" {
   // 1. Parse broken input: "(λx. x" (missing closing paren)
-  let parser = @loom.new_imperative_parser("(λx. x", source_file_grammar)
+  let parser = @loom.new_imperative_parser("(λx. x", lambda_grammar)
   let _ = parser.parse()
   inspect(parser.diagnostics().length() > 0, content="true")
 
@@ -310,7 +278,7 @@ test "incremental: fix missing paren by appending" {
 ///|
 test "incremental: error to error edit" {
   // 1. Parse broken input: "λ.x" (missing param)
-  let parser = @loom.new_imperative_parser("λ.x", source_file_grammar)
+  let parser = @loom.new_imperative_parser("λ.x", lambda_grammar)
   let _ = parser.parse()
   inspect(parser.diagnostics().length() > 0, content="true")
 

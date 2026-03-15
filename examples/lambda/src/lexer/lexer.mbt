@@ -197,8 +197,8 @@ fn step_lex(
 }
 
 ///|
-/// PrefixLexer for the source-file grammar (newlines as separate tokens).
-pub fn lambda_step_lexer_layout(
+/// PrefixLexer for the lambda grammar (newlines as separate tokens).
+pub fn lambda_step_lexer(
   source : String,
   start : Int,
 ) -> @core.LexStep[@token.Token] {
@@ -215,7 +215,7 @@ pub fn tokenize_range(
   let slice = input[start:end] catch {
       _ => raise @core.LexError("Invalid slice")
     }
-  let tokens = tokenize_layout(slice.to_string())
+  let tokens = tokenize(slice.to_string())
   // Tokens are position-independent — no offset adjustment needed.
   // Just strip the trailing EOF.
   let result : Array[@core.TokenInfo[@token.Token]] = []
@@ -229,10 +229,9 @@ pub fn tokenize_range(
 }
 
 ///|
-/// Layout-aware tokenizer: like tokenize but emits Newline tokens for \n/\r\n
-/// (separate from Whitespace for spaces/tabs). Used by the source-file grammar
-/// so that newlines act as definition delimiters.
-pub fn tokenize_layout(
+/// Tokenizer: emits Newline tokens for \n/\r\n (separate from Whitespace for
+/// spaces/tabs) so that newlines act as definition delimiters.
+pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
   tokenize_via_steps(input, layout=true)

@@ -306,7 +306,7 @@ test "node_interner - intern_node warm hit" (b : @bench.T) {
 /// Benchmark: Full parse_cst_recover end-to-end (global interning always active).
 test "parse_cst_recover - end-to-end" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_source_file("λf.λx.f (f x)") catch {
+    let result = @lambda.parse_cst("λf.λx.f (f x)") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)

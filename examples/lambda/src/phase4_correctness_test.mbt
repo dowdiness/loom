@@ -28,7 +28,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
   for letter in letters {
     source = source + " + " + letter
   }
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Edit only the last letter "z" -> "1"
@@ -49,7 +49,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
 test "phase4: reuse on application chain" {
   // Application chain: "f a b c d e" (6 identifiers forming App(App(...)))
   let source = "f a b c d e"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Edit only the last identifier "e" -> "x"
@@ -68,7 +68,7 @@ test "phase4: reuse on application chain" {
 test "phase4: reuse on nested lambdas" {
   // Nested lambdas: "\a.\b.\c.\d.x"
   let source = "λa.λb.λc.λd.x"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Edit only the body "x" -> "y"
@@ -89,7 +89,7 @@ test "phase4: reuse on nested lambdas" {
 ///|
 test "phase4: reuse preserves correctness on complex expression" {
   let source = "λf.λx.if f x then x + 1 else x - 1"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Edit only the "1" in "x + 1" -> "2"
@@ -114,7 +114,7 @@ test "phase4: reuse preserves correctness on complex expression" {
 ///|
 test "phase4: edit at binary operator boundary" {
   let source = "a + b - c"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Change "-" to "+"
@@ -131,7 +131,7 @@ test "phase4: edit at binary operator boundary" {
 test "phase4: edit changes structure - app to binary" {
   // This tests the trailing context check from ROADMAP 4.2.1
   let source = "x + y z" // Bop(Plus, x, App(y, z))
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Change space to " - " making it "x + y - z"
@@ -150,7 +150,7 @@ test "phase4: edit changes structure - app to binary" {
 ///|
 test "phase4: edit changes app to standalone var" {
   let source = "f x" // App(f, x)
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Delete " x" making it just "f"
@@ -166,7 +166,7 @@ test "phase4: edit changes app to standalone var" {
 ///|
 test "phase4: edit extends expression" {
   let source = "x" // Var(x)
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Append " y" making it "x y"
@@ -185,7 +185,7 @@ test "phase4: edit extends expression" {
 
 ///|
 test "phase4: multiple sequential edits maintain correctness" {
-  let parser = @loom.new_imperative_parser("a + b + c", source_file_grammar)
+  let parser = @loom.new_imperative_parser("a + b + c", lambda_grammar)
   let _ = parser.parse()
 
   // Edit 1: change "a" to "1"
@@ -220,7 +220,7 @@ test "phase4: multiple sequential edits maintain correctness" {
 test "phase4: typing simulation - building expression char by char" {
   // Simulate typing "1 + 2" starting from "1"
   // (Avoid incomplete lambda expressions which produce errors)
-  let parser = @loom.new_imperative_parser("1", source_file_grammar)
+  let parser = @loom.new_imperative_parser("1", lambda_grammar)
   let _ = parser.parse()
 
   // Type " +"
@@ -246,7 +246,7 @@ test "phase4: typing simulation - building expression char by char" {
 ///|
 test "phase4: empty to non-empty" {
   // Note: empty string may cause issues, start with minimal valid input
-  let parser = @loom.new_imperative_parser("x", source_file_grammar)
+  let parser = @loom.new_imperative_parser("x", lambda_grammar)
   let _ = parser.parse()
 
   // Replace with completely different expression
@@ -262,7 +262,7 @@ test "phase4: empty to non-empty" {
 ///|
 test "phase4: whitespace-only changes" {
   let source = "x+y"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Add spaces: "x + y"
@@ -278,7 +278,7 @@ test "phase4: whitespace-only changes" {
 ///|
 test "phase4: parentheses changes" {
   let source = "x + y"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Wrap in parens: "(x + y)"
@@ -294,7 +294,7 @@ test "phase4: parentheses changes" {
 ///|
 test "phase4: if-then-else edit in condition" {
   let source = "if x then 1 else 2"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Change condition "x" to "y"
@@ -312,7 +312,7 @@ test "phase4: if-then-else edit in condition" {
 ///|
 test "phase4: if-then-else edit in else branch" {
   let source = "if x then 1 else 2"
-  let parser = @loom.new_imperative_parser(source, source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse()
 
   // Change else branch "2" to "3"

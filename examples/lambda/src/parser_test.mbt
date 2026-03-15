@@ -334,36 +334,36 @@ test "parse let with lambda" {
 }
 
 ///|
-test "parse_source_file_term: two defs fold to nested Let with Unit" {
-  let (term, diagnostics) = parse_source_file_term("let id = 1\nlet const = 2")
+test "parse_term: two defs fold to nested Let with Unit" {
+  let (term, diagnostics) = parse_term("let id = 1\nlet const = 2")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="let id = 1 in let const = 2 in ()")
 }
 
 ///|
-test "parse_source_file_term: def + final expression" {
-  let (term, diagnostics) = parse_source_file_term("let id = 1\nid")
+test "parse_term: def + final expression" {
+  let (term, diagnostics) = parse_term("let id = 1\nid")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="let id = 1 in id")
 }
 
 ///|
-test "parse_source_file_term: leading newline before def + final expression" {
-  let (term, diagnostics) = parse_source_file_term("\nlet id = 1\nid")
+test "parse_term: leading newline before def + final expression" {
+  let (term, diagnostics) = parse_term("\nlet id = 1\nid")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="let id = 1 in id")
 }
 
 ///|
-test "parse_source_file_term: single expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("42")
+test "parse_term: single expression (no defs)" {
+  let (term, diagnostics) = parse_term("42")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="42")
 }
 
 ///|
-test "parse_source_file_term: let-expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("let x = 1 in x")
+test "parse_term: let-expression (no defs)" {
+  let (term, diagnostics) = parse_term("let x = 1 in x")
   inspect(
     diagnostics.length(),
     content=(
@@ -379,8 +379,8 @@ test "parse_source_file_term: let-expression (no defs)" {
 }
 
 ///|
-test "parse_source_file_term: multiline let-expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("let x = 1\nin x")
+test "parse_term: multiline let-expression (no defs)" {
+  let (term, diagnostics) = parse_term("let x = 1\nin x")
   inspect(
     diagnostics.length(),
     content=(
@@ -396,22 +396,22 @@ test "parse_source_file_term: multiline let-expression (no defs)" {
 }
 
 ///|
-test "parse_source_file_term: multiline binary expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("1\n+2")
+test "parse_term: multiline binary expression (no defs)" {
+  let (term, diagnostics) = parse_term("1\n+2")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="(1 + 2)")
 }
 
 ///|
-test "parse_source_file_term: multiline application (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("f\nx")
+test "parse_term: multiline application (no defs)" {
+  let (term, diagnostics) = parse_term("f\nx")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="(f x)")
 }
 
 ///|
-test "parse_source_file_term: missing newline between defs reports diagnostic" {
-  let (_, diagnostics) = parse_source_file_term("let a = 1 let b = 2")
+test "parse_term: missing newline between defs reports diagnostic" {
+  let (_, diagnostics) = parse_term("let a = 1 let b = 2")
   inspect(diagnostics.length() > 0, content="true")
   inspect(
     diagnostics[0].message,
@@ -420,8 +420,8 @@ test "parse_source_file_term: missing newline between defs reports diagnostic" {
 }
 
 ///|
-test "parse_source_file_term: empty file" {
-  let (term, diagnostics) = parse_source_file_term("")
+test "parse_term: empty file" {
+  let (term, diagnostics) = parse_term("")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="()")
 }

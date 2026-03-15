@@ -21,7 +21,7 @@ fn syntax_kind_to_token_kind(kind : @seam.RawKind) -> @token.Token? {
 }
 
 ///|
-/// Shared structural token matcher for both lambda and source-file specs.
+/// Shared structural token matcher for the lambda spec.
 let cst_token_matches : (@seam.RawKind, String, @token.Token) -> Bool = (
   raw,
   text,
@@ -39,13 +39,12 @@ let cst_token_matches : (@seam.RawKind, String, @token.Token) -> Bool = (
 }
 
 ///|
-/// LanguageSpec for source-file grammar (LetDef* Expression?).
-/// Same token matching as lambda_spec; only the parse_root differs.
-let source_file_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
+/// LanguageSpec for the lambda grammar (LetDef* Expression?).
+let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
   @syntax.WhitespaceToken,
   @syntax.ErrorToken,
   @syntax.SourceFile,
   @token.EOF,
   cst_token_matches~,
-  parse_root=parse_source_file_root,
+  parse_root=parse_lambda_root,
 )

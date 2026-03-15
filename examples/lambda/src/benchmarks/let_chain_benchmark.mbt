@@ -46,9 +46,7 @@ fn make_let_chain_edited(n : Int) -> String {
 test "let-chain: 80 lets - initial parse" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -58,9 +56,7 @@ test "let-chain: 80 lets - initial parse" (b : @bench.T) {
 test "let-chain: 320 lets - initial parse" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let result = parser.parse()
     b.keep(result)
   })
@@ -75,9 +71,7 @@ test "let-chain: 80 lets - incremental single edit at tail" (b : @bench.T) {
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = parser.parse()
     let result = parser.edit(edit, edited)
     b.keep(result)
@@ -91,9 +85,7 @@ test "let-chain: 320 lets - incremental single edit at tail" (b : @bench.T) {
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = parser.parse()
     let result = parser.edit(edit, edited)
     b.keep(result)
@@ -109,7 +101,7 @@ test "let-chain: 80 lets - edit-only at tail" (b : @bench.T) {
   let edited = make_let_chain_edited(80)
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
   // Reset to original so each bench iteration starts from the same state
   b.bench(fn() {
@@ -129,7 +121,7 @@ test "let-chain: 320 lets - edit-only at tail" (b : @bench.T) {
   let edited = make_let_chain_edited(320)
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
   b.bench(fn() {
     let _ = parser.edit(edit, edited)
@@ -168,9 +160,7 @@ test "let-chain: 80 lets - 50-edit session incremental" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
@@ -213,9 +203,7 @@ test "let-chain: 320 lets - 50-edit session incremental" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(
-      source, @lambda.source_file_grammar,
-    )
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
@@ -261,7 +249,7 @@ test "let-chain: 80 lets - reuse count for tail edit" {
   let edited = make_let_chain_edited(80)
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
   let _ = parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
@@ -276,7 +264,7 @@ test "let-chain: 320 lets - reuse count for tail edit" {
   let edited = make_let_chain_edited(320)
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.source_file_grammar)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
   let _ = parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()

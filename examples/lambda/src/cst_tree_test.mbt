@@ -1,12 +1,12 @@
 // Tests for Phase 2 CST implementation
 
 // ============================================================================
-// Helper: parse_cst replacement (parse_source_file returns (CstNode, Diags))
+// Helper: parse a source string and return the CstNode
 // ============================================================================
 
 ///|
 fn test_parse_cst(source : String) -> @seam.CstNode {
-  let (cst, _) = parse_source_file(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
   cst
 }
 
@@ -523,9 +523,7 @@ test "cst: has_errors on valid lambda" {
 
 ///|
 test "cst: error recovery - missing param produces ErrorToken" {
-  let (cst, diagnostics) = parse_source_file("λ.x") catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst("λ.x") catch { _ => abort("lex error") }
   inspect(
     cst.has_errors(@syntax.ErrorNode.to_raw(), @syntax.ErrorToken.to_raw()),
     content="true",
@@ -542,9 +540,7 @@ test "cst: error recovery - missing param produces ErrorToken" {
 
 ///|
 test "cst: error recovery - extra tokens wrapped in ErrorNode" {
-  let (cst, diagnostics) = parse_source_file("42 )") catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst("42 )") catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
   // SourceFile should have IntLiteral + ErrorNode
   let mut found_int = false
@@ -566,7 +562,7 @@ test "cst: error recovery - extra tokens wrapped in ErrorNode" {
 
 ///|
 test "cst: error recovery - missing else in if" {
-  let (cst, diagnostics) = parse_source_file("if x then y") catch {
+  let (cst, diagnostics) = parse_cst("if x then y") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
@@ -580,14 +576,14 @@ test "cst: error recovery - missing else in if" {
 
 ///|
 test "cst: error recovery - text_len preserved" {
-  let (cst, _) = parse_source_file("λ.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("λ.x") catch { _ => abort("lex error") }
   // text_len should cover the entire source
   inspect(cst.text_len, content="3")
 }
 
 ///|
 test "cst: error recovery - multiple errors" {
-  let (cst, diagnostics) = parse_source_file("λ.x + )") catch {
+  let (cst, diagnostics) = parse_cst("λ.x + )") catch {
     _ => abort("lex error")
   }
   // Should have at least 2 errors: missing param, extra ")"
@@ -600,7 +596,7 @@ test "cst: error recovery preserves valid input" {
   // Valid inputs should produce identical trees via recover vs strict
   let inputs = ["42", "x", "λx.x", "f x", "1 + 2", "if x then 1 else 2", "(x)"]
   for input in inputs {
-    let (recovered, diagnostics) = parse_source_file(input) catch {
+    let (recovered, diagnostics) = parse_cst(input) catch {
       _ => abort("lex error")
     }
     inspect(diagnostics.length(), content="0")
@@ -629,7 +625,7 @@ fn collect_leaf_texts(node : @seam.CstNode) -> String {
 ///|
 test "parse preserves all whitespace in CST" {
   let source = "  x + 1  "
-  let (tree, _) = parse_source_file(source) catch { _ => abort("lex error") }
+  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
   let texts = collect_leaf_texts(tree)
   inspect(texts, content="  x + 1  ")
 }
@@ -637,7 +633,7 @@ test "parse preserves all whitespace in CST" {
 ///|
 test "parse preserves leading and trailing whitespace" {
   let source = "  42  "
-  let (tree, _) = parse_source_file(source) catch { _ => abort("lex error") }
+  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
   let texts = collect_leaf_texts(tree)
   inspect(texts, content="  42  ")
 }
@@ -645,16 +641,14 @@ test "parse preserves leading and trailing whitespace" {
 ///|
 test "parse preserves internal whitespace in application" {
   let source = "f  x"
-  let (tree, _) = parse_source_file(source) catch { _ => abort("lex error") }
+  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
   let texts = collect_leaf_texts(tree)
   inspect(texts, content="f  x")
 }
 
 ///|
 test "cst: let definition" {
-  let (cst, _) = parse_source_file("let x = 1\nx") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst("let x = 1\nx") catch { _ => abort("lex error") }
   let child = match cst.children[0] {
     @seam.CstElement::Node(n) => n
     @seam.CstElement::Token(_) => abort("Expected node, got token")
@@ -664,7 +658,7 @@ test "cst: let definition" {
 
 ///|
 test "cst: nested let defs" {
-  let (cst, _) = parse_source_file("let x = 1\nlet y = 2\nx") catch {
+  let (cst, _) = parse_cst("let x = 1\nlet y = 2\nx") catch {
     _ => abort("lex error")
   }
   let child = match cst.children[0] {
@@ -676,7 +670,7 @@ test "cst: nested let defs" {
 
 ///|
 test "source file: two LetDef children" {
-  let (cst, _) = parse_source_file("let id = 1\nlet const = 2") catch {
+  let (cst, _) = parse_cst("let id = 1\nlet const = 2") catch {
     _ => abort("lex error")
   }
   inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
@@ -698,9 +692,7 @@ test "source file: two LetDef children" {
 
 ///|
 test "source file: LetDef has correct token structure" {
-  let (cst, _) = parse_source_file("let id = 1") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst("let id = 1") catch { _ => abort("lex error") }
   let letdef = for elem in cst.children {
     match elem {
       @seam.CstElement::Node(n) => break n
@@ -730,7 +722,7 @@ test "source file: LetDef has correct token structure" {
 
 ///|
 test "source file: single expression (no defs)" {
-  let (cst, _) = parse_source_file("42") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let node_kinds : Array[String] = []
   for elem in cst.children {
     match elem {
@@ -744,9 +736,7 @@ test "source file: single expression (no defs)" {
 
 ///|
 test "source file: def + final expression" {
-  let (cst, _) = parse_source_file("let id = 1\nid") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst("let id = 1\nid") catch { _ => abort("lex error") }
   let node_kinds : Array[String] = []
   for elem in cst.children {
     match elem {
@@ -760,7 +750,7 @@ test "source file: def + final expression" {
 
 ///|
 test "source file: leading newlines before def + final expression" {
-  let (cst, diagnostics) = parse_source_file("\nlet id = 1\nid") catch {
+  let (cst, diagnostics) = parse_cst("\nlet id = 1\nid") catch {
     _ => abort("lex error")
   }
   inspect(diagnostics.length(), content="0")
@@ -777,9 +767,7 @@ test "source file: leading newlines before def + final expression" {
 
 ///|
 test "source file: trailing tokens after final expression produce error" {
-  let (cst, diagnostics) = parse_source_file("1 in x") catch {
-    _ => abort("lex error")
-  }
+  let (cst, diagnostics) = parse_cst("1 in x") catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
   let node_kinds : Array[String] = []
   for elem in cst.children {

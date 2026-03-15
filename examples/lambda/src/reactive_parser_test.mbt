@@ -7,7 +7,7 @@
 /// "@invalid" no longer triggers LexError — step-based lexer recovers "@" as
 /// an error token. is_lex_error is false because tokenization succeeded.
 test "ReactiveParser: step-based lexer recovers invalid chars without lex error" {
-  let db = @loom.new_reactive_parser("@invalid", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   inspect(db.cst().is_lex_error, content="false")
 }
 
@@ -16,7 +16,7 @@ test "ReactiveParser: step-based lexer recovers invalid chars without lex error"
 /// rather than routing through on_lex_error. The root should be the normal
 /// grammar root, not ErrorNode.
 test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
-  let db = @loom.new_reactive_parser("@invalid", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   let kind = @syntax.SyntaxKind::from_raw(db.term().kind())
   // Should NOT be ErrorNode — the parser got tokens and produced a tree
   inspect(kind != @syntax.ErrorNode, content="true")
@@ -25,7 +25,7 @@ test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
 ///|
 /// Diagnostics from step-based recovery are parser-level (not "tokenization: ").
 test "ReactiveParser: step-based recovery diagnostics are parser-level" {
-  let db = @loom.new_reactive_parser("@invalid", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   let diags = db.diagnostics()
   inspect(diags.length() > 0, content="true")
   // No "tokenization:" prefix — errors come from parser, not lexer
@@ -36,13 +36,13 @@ test "ReactiveParser: step-based recovery diagnostics are parser-level" {
 
 ///|
 test "ReactiveParser: parse error does not set is_lex_error" {
-  let db = @loom.new_reactive_parser("λx.", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("λx.", @lambda.lambda_grammar)
   inspect(db.cst().is_lex_error, content="false")
 }
 
 ///|
 test "ReactiveParser: parse error produces non-empty diagnostics" {
-  let db = @loom.new_reactive_parser("λx.", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("λx.", @lambda.lambda_grammar)
   assert_eq(db.diagnostics().length() > 0, true)
 }
 
@@ -50,13 +50,13 @@ test "ReactiveParser: parse error produces non-empty diagnostics" {
 
 ///|
 test "ReactiveParser: valid input - integer addition" {
-  let db = @loom.new_reactive_parser("1 + 2", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("1 + 2", @lambda.lambda_grammar)
   inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
 }
 
 ///|
 test "ReactiveParser: valid input - lambda expression" {
-  let db = @loom.new_reactive_parser("λx.x", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("λx.x", @lambda.lambda_grammar)
   match syntax_node_to_term(db.term()) {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
@@ -65,7 +65,7 @@ test "ReactiveParser: valid input - lambda expression" {
 
 ///|
 test "ReactiveParser: valid input - is_lex_error false" {
-  let db = @loom.new_reactive_parser("λf.λx.f x", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("λf.λx.f x", @lambda.lambda_grammar)
   inspect(db.cst().is_lex_error, content="false")
 }
 
@@ -73,7 +73,7 @@ test "ReactiveParser: valid input - is_lex_error false" {
 
 ///|
 test "ReactiveParser: set_source updates term" {
-  let db = @loom.new_reactive_parser("1", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("1", @lambda.lambda_grammar)
   let t1 = db.term()
   db.set_source("2")
   let t2 = db.term()
@@ -84,7 +84,7 @@ test "ReactiveParser: set_source updates term" {
 ///|
 test "ReactiveParser: set_source same value preserves term (Eq)" {
   let source = "λf.λx.f x"
-  let db = @loom.new_reactive_parser(source, @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser(source, @lambda.lambda_grammar)
   let t1 = db.term()
   db.set_source(source)
   let t2 = db.term()
@@ -94,7 +94,7 @@ test "ReactiveParser: set_source same value preserves term (Eq)" {
 
 ///|
 test "ReactiveParser: set_source from error-recovery input to valid" {
-  let db = @loom.new_reactive_parser("@invalid", @lambda.source_file_grammar)
+  let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
   inspect(db.cst().is_lex_error, content="false")
   db.set_source("1 + 2")
   inspect(db.cst().is_lex_error, content="false")
@@ -115,7 +115,7 @@ test "ReactiveParser: parity with parse" {
     "λa.λb.λc. if c then a b else 124321 - 31 + a c", "10 - 3 + 1",
   ]
   for source in sources {
-    let db = @loom.new_reactive_parser(source, @lambda.source_file_grammar)
+    let db = @loom.new_reactive_parser(source, @lambda.lambda_grammar)
     let direct = parse(source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
@@ -133,7 +133,7 @@ test "ReactiveParser: parity with parse" {
 /// This verifies that the Memo's backdating mechanism correctly identifies
 /// unchanged trees across computation epochs.
 test "ReactiveParser: SyntaxNode Eq holds after round-trip source change" {
-  let db = @loom.new_reactive_parser("λx.x", source_file_grammar)
+  let db = @loom.new_reactive_parser("λx.x", lambda_grammar)
   let t1 = db.term()
   db.set_source("y") // change to something different — triggers recomputation
   let _ = db.term() // force the new computation epoch

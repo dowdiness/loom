@@ -1,31 +1,6 @@
 // term_convert.mbt — SyntaxNode → Term conversion via typed views.
 
 ///|
-/// Convert a SyntaxNode to a Term using typed view types.
-/// Replaces the old AstNode-based path: SyntaxNode → AstNode → Term.
-/// SourceFile wraps the actual expression in a single child; this function
-/// unwraps it automatically.
-///
-/// For error-recovered trees, only the first node child of SourceFile is used;
-/// additional error-recovery siblings are silently dropped. Partially-recovered
-/// expressions are represented as `Term::Error(msg)` in the term tree.
-///
-/// **Note:** This handles single-expression trees only. Trees containing
-/// `LetDef` nodes fall through to `Term::Error("unknown node kind: LetDef")`.
-/// Use `syntax_node_to_source_file_term` for source-file grammar trees.
-pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
-  let node = match @syntax.SyntaxKind::from_raw(root.kind()) {
-    @syntax.SourceFile =>
-      match root.nth_child(0) {
-        Some(child) => child
-        None => return @ast.Term::Error("empty SourceFile")
-      }
-    _ => root
-  }
-  view_to_term(node)
-}
-
-///|
 fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
   match @syntax.SyntaxKind::from_raw(node.kind()) {
     @syntax.IntLiteral => {
@@ -123,14 +98,17 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
 }
 
 ///|
-/// Convert a SourceFile SyntaxNode (LetDef* Expression?) to a Term.
+/// Convert a SyntaxNode to a Term using typed view types.
+///
+/// Handles both single-expression trees and source-file grammar trees
+/// (LetDef* Expression?).
 ///
 /// Right-folds definitions: [LetDef(x1,e1), LetDef(x2,e2), Expression(e3)]
 /// → Let("x1", e1, Let("x2", e2, e3)).
 /// No final expression → uses Unit as terminal.
 ///
 /// Malformed LetDef nodes (missing init expression) produce `Term::Error(...)`.
-pub fn syntax_node_to_source_file_term(root : @seam.SyntaxNode) -> @ast.Term {
+pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
   let defs : Array[(@ast.VarName, @ast.Term)] = []
   let mut final_term : @ast.Term = @ast.Term::Unit
   for child in root.children() {
