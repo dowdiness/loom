@@ -1,5 +1,7 @@
 # Incremental Parser Overhead: Waste Elimination
 
+**Status:** Complete
+
 **Goal:** Remove measured constant-factor overhead from loom's incremental parse path.
 
 **Non-goal:** Prove that incremental parsing always beats full reparse. Right-recursive grammars remain worst-case; the target is to reduce avoidable overhead and improve the flat-grammar / reusable-subtree cases that the current benchmarks exercise.
