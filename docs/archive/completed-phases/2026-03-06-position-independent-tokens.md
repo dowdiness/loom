@@ -1,7 +1,7 @@
 # Position-Independent Tokens — Implementation Plan
 
 **Date:** March 6, 2026
-**Status:** Draft
+**Status:** Complete (Phases 0-3). Phase 4 (trivia-insensitive equality) is deferred.
 **Scope:** `loom/src/core/`, `loom/src/`, `loom/src/pipeline/`, `examples/lambda/`
 
 ## Goal

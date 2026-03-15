@@ -48,6 +48,7 @@ Understanding how the layers fit together:
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md)
 - [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
 - [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
+- [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
 
 ## Examples
 
@@ -55,7 +56,6 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-06-position-independent-tokens.md](plans/2026-03-06-position-independent-tokens.md) — position-independent tokens: `TokenInfo(token, len)` + parallel `starts` array, reintroduce `TokenStage` memo
 - [plans/2026-03-08-memoized-cst-fold.md](plans/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design document
 - [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
 - [plans/2026-03-09-semantic-error-variants-design.md](plans/2026-03-09-semantic-error-variants-design.md) — `Term::Unbound` semantic error variant: design document
@@ -79,5 +79,6 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-15-flat-grammar-unification.md](archive/completed-phases/2026-03-15-flat-grammar-unification.md) — flat grammar unification design
 - [archive/completed-phases/2026-03-15-flat-grammar-unification-plan.md](archive/completed-phases/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification implementation plan
 - [archive/completed-phases/2026-03-14-incremental-overhead.md](archive/completed-phases/2026-03-14-incremental-overhead.md) — incremental overhead waste elimination (3 fixes, benchmarked)
+- [archive/completed-phases/2026-03-06-position-independent-tokens.md](archive/completed-phases/2026-03-06-position-independent-tokens.md) — position-independent tokens + TokenStage early cutoff (Phases 0-3)
 - [archive/completed-phases/2026-03-15-try-reuse-fast-path.md](archive/completed-phases/2026-03-15-try-reuse-fast-path.md) — emit_reused fast path: has_any_error flag, incremental overhead profiling, architectural analysis
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
