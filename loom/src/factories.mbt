@@ -93,8 +93,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
     incremental_parse=(source, old_syntax, edit) => {
       // Ensure buffer is up to date (updated or newly created).
       match token_buf.val {
-        Some(buffer) => {
-          let _ = buffer.update(edit, source) catch {
+        Some(buffer) =>
+          buffer.update(edit, source) catch {
             @core.LexError(msg) => {
               let rebuilt = create_buffer(
                 source,
@@ -113,10 +113,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
               }
               ignore(msg)
               token_buf.val = Some(rebuilt)
-              [] // dummy: value discarded by let _
             }
           }
-        }
         None => {
           let buffer = create_buffer(
             source,
@@ -274,10 +272,6 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
     label="term",
   )
   @pipeline.ReactiveParser::from_parts(
-    rt,
-    source_text,
-    token_memo,
-    cst_memo,
-    term_memo,
+    rt, source_text, token_memo, cst_memo, term_memo,
   )
 }

@@ -87,6 +87,8 @@ pub impl Compare for OldToken
 pub impl Eq for OldToken
 pub impl Show for OldToken
 
+type OldTokenCache
+
 pub struct ParserContext[T, K] {
   spec : LanguageSpec[T, K]
   token_count : Int
@@ -161,7 +163,11 @@ pub struct ReuseCursor[T, K] {
   mut current_offset : Int
   damage_start : Int
   damage_end : Int
-  old_tokens : Array[OldToken]
+  old_root : @seam.CstNode
+  ws_raw : @seam.RawKind
+  err_raw : @seam.RawKind
+  incomplete_raw : @seam.RawKind
+  cache : OldTokenCache
   reuse_globally_disabled : Bool
   token_count : Int
   get_token : (Int) -> T
@@ -201,7 +207,7 @@ pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ 
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
-pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Array[TokenInfo[T]] raise LexError
+pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 
 pub struct TokenInfo[T] {
   token : T

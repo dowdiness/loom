@@ -95,10 +95,7 @@ pub fn[T] TokenBuffer::new_from_steps(
   error_token~ : T,
 ) -> TokenBuffer[T] {
   let (tokens, starts) = tokenize_from_steps_with_starts(
-    source,
-    lexer,
-    eof_token,
-    error_token,
+    source, lexer, eof_token, error_token,
   )
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
     tokenize_from_steps(s, lexer, eof_token, error_token)
@@ -200,7 +197,7 @@ pub fn[T] TokenBuffer::update(
   self : TokenBuffer[T],
   edit : Edit,
   new_source : String,
-) -> Array[TokenInfo[T]] raise LexError {
+) -> Unit raise LexError {
   let old_tokens = self.tokens
   let old_starts = self.starts
   let old_len = old_tokens.length()
@@ -210,7 +207,7 @@ pub fn[T] TokenBuffer::update(
     self.starts = starts
     self.source = new_source
     self.version = self.version + 1
-    return self.tokens.copy()
+    return
   }
   let eof_index = old_len - 1
   let mut left_tok_idx = find_left_index(old_tokens, old_starts, edit.start)
@@ -279,7 +276,6 @@ pub fn[T] TokenBuffer::update(
   self.starts = new_starts
   self.source = new_source
   self.version = self.version + 1
-  self.tokens.copy()
 }
 
 ///|
@@ -448,10 +444,7 @@ fn[T] tokenize_from_steps(
   error_token : T,
 ) -> Array[TokenInfo[T]] {
   let (tokens, _) = tokenize_from_steps_with_starts(
-    source,
-    lexer,
-    eof_token,
-    error_token,
+    source, lexer, eof_token, error_token,
   )
   tokens
 }
@@ -528,7 +521,7 @@ fn[T] tokenize_from_steps_strict(
   while pos < len {
     let step = (lexer.lex_step)(source, pos)
     match step {
-      Produced(token_info, next_offset~) => {
+      Produced(token_info, next_offset~) =>
         if next_offset <= pos {
           result.push(TokenInfo::new(token_info.token, 1))
           pos = pos + 1
@@ -536,7 +529,6 @@ fn[T] tokenize_from_steps_strict(
           result.push(TokenInfo::new(token_info.token, next_offset - pos))
           pos = next_offset
         }
-      }
       Invalid(at~, width~, message~) =>
         raise LexError(
           "step lexer invalid at \{at} (width \{width}): " + message,

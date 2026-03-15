@@ -541,24 +541,6 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reu
 }
 
 ///|
-/// Recursively emit StartNode/Token/FinishNode events for a reused CST node.
-/// Pure function — does not advance position. Must be followed by advance_past_reused.
-fn[T, K] ParserContext::emit_node_events(
-  self : ParserContext[T, K],
-  node : @seam.CstNode,
-) -> Unit {
-  self.events.push(@seam.ParseEvent::StartNode(node.kind))
-  for child in node.children {
-    match child {
-      @seam.CstElement::Token(t) =>
-        self.events.push(@seam.ParseEvent::Token(t.kind, t.text))
-      @seam.CstElement::Node(n) => self.emit_node_events(n)
-    }
-  }
-  self.events.push(@seam.ParseEvent::FinishNode)
-}
-
-///|
 /// Advance position past all tokens (trivia + non-trivia) covered by node.
 /// Offset-based advancing avoids over-consuming when reused subtrees contain
 /// zero-width non-trivia leaves (e.g. error placeholders).
@@ -720,9 +702,9 @@ fn[T, K] ParserContext::synthesize_reused_diagnostics(
 }
 
 ///|
-/// Emit all events for a reused node, replay its diagnostics, and advance
-/// both positions past it. Order matters:
-///   1. emit_node_events   — replay events (pure, no position change)
+/// Emit a reused node, replay its diagnostics, and advance both positions
+/// past it. Order matters:
+///   1. ReuseNode event    — attach pre-built subtree directly (no serialize)
 ///   2. replay/synthesize  — restore diagnostics while self.position still
 ///                           points at node start (token_info_at_or_after needs it)
 ///   3. advance_past_reused — advance self.position through the new token stream
@@ -753,7 +735,7 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
   let owns_right_boundary = error_spans
     .iter()
     .any(fn(s) { s.start == node_end && s.end == node_end })
-  self.emit_node_events(node)
+  self.events.push(@seam.ParseEvent::ReuseNode(node))
   // allow_eof_boundary: true when no error-bearing sibling follows this node,
   // meaning a zero-width diagnostic at node_end that is at EOF was emitted by
   // this node's own grammar (ctx.error without emit_error_placeholder).

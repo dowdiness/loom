@@ -66,17 +66,16 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
       )
       match buffer_res {
         Ok(buffer) => {
-          let updated_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? buffer.update(edit, new_source)
+          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
+            edit, new_source,
+          )
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
           ] = try? tokenize(new_source)
-          match (updated_res, full_res) {
-            (Ok(updated), Ok(full)) =>
-              @token.print_token_infos(updated) ==
+          match (update_res, full_res) {
+            (Ok(_), Ok(full)) =>
+              @token.print_token_infos(buffer.get_tokens()) ==
               @token.print_token_infos(full)
             _ => true
           }
@@ -110,17 +109,16 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
       )
       match buffer_res {
         Ok(buffer) => {
-          let updated_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? buffer.update(edit, new_source)
+          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
+            edit, new_source,
+          )
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
           ] = try? tokenize(new_source)
-          match (updated_res, full_res) {
-            (Ok(updated), Ok(full)) =>
-              @token.print_token_infos(updated) ==
+          match (update_res, full_res) {
+            (Ok(_), Ok(full)) =>
+              @token.print_token_infos(buffer.get_tokens()) ==
               @token.print_token_infos(full)
             _ => true
           }
@@ -155,17 +153,16 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
       )
       match buffer_res {
         Ok(buffer) => {
-          let updated_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? buffer.update(edit, new_source)
+          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
+            edit, new_source,
+          )
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
           ] = try? tokenize(new_source)
-          match (updated_res, full_res) {
-            (Ok(updated), Ok(full)) =>
-              @token.print_token_infos(updated) ==
+          match (update_res, full_res) {
+            (Ok(_), Ok(full)) =>
+              @token.print_token_infos(buffer.get_tokens()) ==
               @token.print_token_infos(full)
             _ => true
           }

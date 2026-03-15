@@ -231,10 +231,10 @@ test "phase1: incremental tokenize - edit at start (110 tokens)" (b : @bench.T) 
     ) catch {
       _ => abort("benchmark failed")
     }
-    let result = buf.update(edit, new_source) catch {
+    buf.update(edit, new_source) catch {
       _ => abort("benchmark failed")
     }
-    b.keep(result)
+    b.keep(buf.get_tokens())
   })
 }
 
@@ -253,10 +253,10 @@ test "phase1: incremental tokenize - edit in middle (110 tokens)" (b : @bench.T)
     ) catch {
       _ => abort("benchmark failed")
     }
-    let result = buf.update(edit, new_source) catch {
+    buf.update(edit, new_source) catch {
       _ => abort("benchmark failed")
     }
-    b.keep(result)
+    b.keep(buf.get_tokens())
   })
 }
 
@@ -275,10 +275,10 @@ test "phase1: incremental tokenize - edit at end (110 tokens)" (b : @bench.T) {
     ) catch {
       _ => abort("benchmark failed")
     }
-    let result = buf.update(edit, new_source) catch {
+    buf.update(edit, new_source) catch {
       _ => abort("benchmark failed")
     }
-    b.keep(result)
+    b.keep(buf.get_tokens())
   })
 }
 

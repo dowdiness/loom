@@ -1,40 +1,51 @@
 # Incremental Parser Overhead: Low-Hanging-Fruit Waste Elimination
 
+**Status:** Implemented; benchmarked on flat-grammar parser benchmarks.
+
 **Context:** Incremental parsing is slower than full reparse on right-recursive let chains (320-deep). This document records actionable waste elimination opportunities found during investigation.
 
 **Related:** [ADR: physical_equal interner](../decisions/2026-03-14-physical-equal-interner.md) (O(n^2) interner fix)
 
 ---
 
-## Finding 1: `buffer.update()` returns unnecessary copy
+## Finding 1: `buffer.update()` returns unnecessary copy — **Resolved**
 
-**File:** `loom/src/core/token_buffer.mbt`, line 282
+`TokenBuffer::update` returned `Array[TokenInfo[T]]` via `self.tokens.copy()`, creating an O(n) copy per edit. Changed to return `Unit`. All call sites updated to use `buffer.get_tokens()` when needed.
 
-`self.tokens.copy()` creates an O(n) copy of the entire token array on every call. The caller in `factories.mbt:97` discards the return value (`let _ = buffer.update(...)`).
+## Finding 2: `collect_old_tokens` walks entire old CST upfront — **Resolved**
 
-**Fix:** Change return type to `Unit`, or make the copy opt-in.
+`ReuseCursor::new` eagerly called `collect_old_tokens`, flattening the entire old CST. Replaced with a lazy `OldTokenCache` shared across snapshots — the table is built once on first `trailing_context_matches` call and reused across speculative branches.
 
-**Impact:** Eliminates ~2560 token copies per edit (~20us estimated).
+## Finding 3: `emit_reused` serializes then deserializes reused nodes — **Resolved**
 
-## Finding 2: `collect_old_tokens` walks entire old CST upfront
+Added `ReuseNode(CstNode)` variant to `ParseEvent`. Reused subtrees are attached directly via a single event instead of recursively emitting StartNode/Token/FinishNode. `build_tree_fully_interned` re-interns the node through `NodeInterner` (O(1) cache hit for already-interned nodes).
 
-**File:** `loom/src/core/reuse_cursor.mbt`, lines 64-87
+---
 
-`ReuseCursor::new` calls `collect_old_tokens`, which recursively walks the entire old CST to flatten non-trivia tokens into `Array[OldToken]`. For 320 lets this means ~2000 OldToken allocations plus an O(n) tree walk, all before parsing begins — even when most of the tree overlaps the damage range and cannot be reused.
+## Benchmark Summary (2026-03-15)
 
-**Fix:** Lazy computation. Only collect old tokens on demand during `trailing_context_matches`, or use the old TokenBuffer directly for follow-token lookups.
+Key incremental benchmarks, before vs after (lambda module, `moon bench --release`):
 
-**Impact:** Eliminates O(n) upfront allocation and tree walk.
+| Benchmark | Before | After | Change |
+|-----------|--------|-------|--------|
+| phase3: cursor reuse, edit at end (110 tok) | 40.04 µs | 33.79 µs | -16% |
+| phase3: cursor reuse, edit at start (110 tok) | 34.01 µs | 30.94 µs | -9% |
+| phase4: nested let body - multiple reused | 4.05 µs | 3.63 µs | -10% |
+| scale: 100 terms - incremental single edit | 148.98 µs | 131.83 µs | -12% |
+| scale: 500 terms - incremental single edit | 829.47 µs | 750.24 µs | -10% |
+| scale: 1000 terms - incremental single edit | 1.84 ms | 1.63 ms | -11% |
+| heavy: typing session - 100 edits at end | 5.02 ms | 3.29 ms | -34% |
+| heavy: typing session - 100 edits in middle | 6.26 ms | 5.29 ms | -15% |
 
-## Finding 3: `emit_reused` serializes then deserializes reused nodes
+---
 
-**File:** `loom/src/core/parser.mbt`, lines 740-780
+## Future: `re_intern_subtree` early-exit optimization
 
-For each reused node, `emit_node_events` recursively walks the subtree to emit StartNode/Token/FinishNode events, then `build_tree_fully_interned` reconstructs the CstNode from those events. This serialize-then-deserialize round-trip costs more than just parsing small subtrees from scratch.
+`re_intern_subtree` currently does an O(subtree_size) walk for every reused node, even when the node is already fully interned (the production path). All `intern_token`/`intern_node` calls are O(1) cache hits, but the walk still allocates temporary `Array[CstElement]` at every level.
 
-**Fix:** Add a `ReuseNode(CstNode)` event type so `build_tree_fully_interned` can attach the canonical CstNode directly as a child without the event round-trip.
+An early-exit check could reduce this to O(1) for already-canonical subtrees: call `node_interner.intern_node(node)` first, and if the returned reference is the same canonical copy, skip the children walk entirely.
 
-**Impact:** Significant for large reusable subtrees; marginal for leaf-only reuse (let-chain case).
+**Blocker:** `NodeInterner::intern_node` returns the same reference for both "already in interner" (safe to skip) and "newly inserted" (must walk children) cases. A `NodeInterner::lookup` method (get-without-insert) is needed to distinguish these safely.
 
 ---
 

@@ -447,6 +447,69 @@ test "new_follow_token: returns None past end of tokens" {
 }
 
 ///|
+test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
+  let src = "1 + 2"
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    test_spec,
+  )
+  let result = old_follow_token_lazy(cursor, 1)
+  inspect(result is Some(_), content="true")
+  let tok = result.unwrap()
+  inspect(tok.start, content="2")
+  inspect(tok.text, content="+")
+}
+
+///|
+test "old_follow_token_lazy: returns None past end of tree" {
+  let (tree, _) = parse_with("42", test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts("42")
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    test_spec,
+  )
+  let result = old_follow_token_lazy(cursor, 99)
+  inspect(result is Some(_), content="false")
+}
+
+///|
+test "old_follow_token_lazy: cache is shared across snapshots" {
+  let src = "1 + 2"
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    test_spec,
+  )
+  // Snapshot before materializing the cache
+  let snap = cursor.snapshot()
+  // Materialize via the original cursor
+  let _ = old_follow_token_lazy(cursor, 0)
+  // The snapshot should see the same materialized cache
+  let result = old_follow_token_lazy(snap, 2)
+  inspect(result is Some(_), content="true")
+  let tok = result.unwrap()
+  inspect(tok.text, content="+")
+}
+
+///|
 test "LanguageSpec cst_token_matches callback is stored and callable" {
   let num_raw = test_kind_raw(KNum)
   let spec = LanguageSpec::new(KWs, KErr, KRoot, TestTok::TokEof, cst_token_matches=fn(

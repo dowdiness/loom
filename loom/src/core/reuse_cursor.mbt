@@ -30,6 +30,14 @@ struct OldToken {
 } derive(Show, Eq, Compare)
 
 ///|
+/// Shared mutable cache for the flattened old-token table.
+/// Snapshots share the same cell so materializing in one branch
+/// is visible to all branches restored from earlier checkpoints.
+struct OldTokenCache {
+  mut tokens : Array[OldToken]?
+}
+
+///|
 /// Generic cursor for walking an old CST to find reusable subtrees.
 /// Maintains traversal state for O(depth) lookups.
 pub struct ReuseCursor[T, K] {
@@ -37,7 +45,11 @@ pub struct ReuseCursor[T, K] {
   mut current_offset : Int
   damage_start : Int
   damage_end : Int
-  old_tokens : Array[OldToken]
+  old_root : @seam.CstNode
+  ws_raw : @seam.RawKind
+  err_raw : @seam.RawKind
+  incomplete_raw : @seam.RawKind
+  cache : OldTokenCache
   reuse_globally_disabled : Bool
   // New token stream (indexed accessors, same layout as ParserContext)
   token_count : Int
@@ -100,13 +112,9 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
-  let old_tokens : Array[OldToken] = []
-  if not(reuse_globally_disabled) {
-    let ws_raw = spec.whitespace_kind.to_raw()
-    let err_raw = spec.error_kind.to_raw()
-    let incomplete_raw = spec.incomplete_kind.to_raw()
-    collect_old_tokens(old_tree, 0, old_tokens, ws_raw, err_raw, incomplete_raw)
-  }
+  let ws_raw = spec.whitespace_kind.to_raw()
+  let err_raw = spec.error_kind.to_raw()
+  let incomplete_raw = spec.incomplete_kind.to_raw()
   let stack = [
     { node: old_tree, child_index: 0, start_offset: 0, current_child_offset: 0 },
   ]
@@ -115,7 +123,11 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     current_offset: 0,
     damage_start,
     damage_end,
-    old_tokens,
+    old_root: old_tree,
+    ws_raw,
+    err_raw,
+    incomplete_raw,
+    cache: { tokens: None },
     reuse_globally_disabled,
     token_count,
     get_token,
@@ -164,8 +176,38 @@ fn[T, K : @seam.ToRawKind] leading_token_matches(
 }
 
 ///|
+/// Materialize the flattened old-token table on first use.
+/// Once built, the table is cached in the shared OldTokenCache cell
+/// so all snapshot branches reuse the same array.
+fn[T, K] ReuseCursor::ensure_old_tokens(
+  self : ReuseCursor[T, K],
+) -> Array[OldToken] {
+  match self.cache.tokens {
+    Some(tokens) => tokens
+    None => {
+      let tokens : Array[OldToken] = []
+      collect_old_tokens(
+        self.old_root,
+        0,
+        tokens,
+        self.ws_raw,
+        self.err_raw,
+        self.incomplete_raw,
+      )
+      self.cache.tokens = Some(tokens)
+      tokens
+    }
+  }
+}
+
+///|
 /// Binary search: first old non-trivia token with start >= offset.
-fn old_follow_token(old_tokens : Array[OldToken], offset : Int) -> OldToken? {
+/// Lazily materializes the old-token table on first call.
+fn[T, K] old_follow_token_lazy(
+  cursor : ReuseCursor[T, K],
+  offset : Int,
+) -> OldToken? {
+  let old_tokens = cursor.ensure_old_tokens()
   let lo = lower_bound(old_tokens, offset)
   if lo < old_tokens.length() {
     Some(old_tokens[lo])
@@ -221,7 +263,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
   node_end : Int,
 ) -> Bool {
-  let old_follow = old_follow_token(cursor.old_tokens, node_end)
+  let old_follow = old_follow_token_lazy(cursor, node_end)
   let new_follow = new_follow_token(cursor, node_end)
   match (old_follow, new_follow) {
     (None, None) => true
@@ -427,13 +469,16 @@ pub fn[T, K] ReuseCursor::snapshot(
       current_child_offset: frame.current_child_offset,
     })
   }
-  let old_tokens = self.old_tokens // immutable after construction — safe to share
   {
     stack,
     current_offset: self.current_offset,
     damage_start: self.damage_start,
     damage_end: self.damage_end,
-    old_tokens,
+    old_root: self.old_root,
+    ws_raw: self.ws_raw,
+    err_raw: self.err_raw,
+    incomplete_raw: self.incomplete_raw,
+    cache: self.cache, // shared mutable cell — all snapshots see same materialized table
     reuse_globally_disabled: self.reuse_globally_disabled,
     token_count: self.token_count,
     get_token: self.get_token,

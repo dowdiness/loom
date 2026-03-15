@@ -2,6 +2,36 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-03-15 (Incremental overhead waste elimination)
+
+- Command: `cd examples/lambda && moon bench --release`
+- Git ref: `perf/incremental-overhead` (branch from `fab78e2`)
+- Environment: local developer machine (WSL2 / Linux 6.6 / wasm-gc)
+- Result: `103/103` benchmarks passed
+- Changes:
+  - `TokenBuffer::update` returns `Unit` (removes O(n) defensive copy per edit)
+  - `ReuseCursor` old-token table lazy with shared `OldTokenCache` (defers O(n) tree walk)
+  - `ReuseNode(CstNode)` event skips serialize/deserialize for reused subtrees
+  - Test count: 180 tests (loom), 97 tests (seam), 344 tests (lambda)
+
+### Key Incremental Benchmarks (before → after)
+
+| Benchmark | Before | After | Change |
+|---|---:|---:|---:|
+| phase3: cursor reuse, edit at end (110 tok) | 40.04 µs | 33.79 µs | -16% |
+| phase3: cursor reuse, edit at start (110 tok) | 34.01 µs | 30.94 µs | -9% |
+| phase4: let body edit — reused via cursor | 2.34 µs | 2.21 µs | -6% |
+| phase4: let init edit — cursor | 2.26 µs | 2.07 µs | -8% |
+| phase4: nested let — multiple inits reused | 4.05 µs | 3.63 µs | -10% |
+| scale: 100 terms — incremental single edit | 148.98 µs | 131.83 µs | -12% |
+| scale: 500 terms — incremental single edit | 829.47 µs | 750.24 µs | -10% |
+| scale: 1000 terms — incremental single edit | 1.84 ms | 1.63 ms | -11% |
+| heavy: typing 100 edits at end | 5.02 ms | 3.29 ms | -34% |
+| heavy: typing 100 edits in middle | 6.26 ms | 5.29 ms | -15% |
+| heavy: refactoring 100 scattered | 3.84 ms | 3.84 ms | 0% |
+
+Interpretation: 9-34% improvement on incremental parse benchmarks with reuse. The "typing at end" benchmark shows the largest gain (34%) because it benefits from all three fixes — defensive copy removal, lazy token table, and direct subtree attachment. Full-reparse benchmarks unaffected (expected — these fixes only optimize the incremental path).
+
 ## 2026-03-06 (Ambiguity resilience + simplification)
 
 - Command: `moon bench --release`
