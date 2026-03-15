@@ -730,6 +730,10 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
   }
   let node_end = node_start + node.text_len
   self.events.push(@seam.ParseEvent::ReuseNode(node))
+  let allow_eof_boundary = match self.reuse_cursor {
+    None => true
+    Some(cursor) => not(cursor.next_sibling_has_error())
+  }
   if node.has_any_error {
     // Slow path: node has errors — collect spans and replay/synthesize diagnostics.
     let error_spans : Array[ReusedErrorSpan] = []
@@ -737,10 +741,6 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
     let owns_right_boundary = error_spans
       .iter()
       .any(fn(s) { s.start == node_end && s.end == node_end })
-    let allow_eof_boundary = match self.reuse_cursor {
-      None => true
-      Some(cursor) => not(cursor.next_sibling_has_error())
-    }
     if not(
         self.replay_reused_diagnostics(
           node_start, node_end, owns_right_boundary, allow_eof_boundary,
@@ -751,10 +751,6 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
   } else {
     // Fast path: healthy node — skip error span collection entirely.
     // Still replay diagnostics (e.g. zero-width ctx.error at EOF).
-    let allow_eof_boundary = match self.reuse_cursor {
-      None => true
-      Some(cursor) => not(cursor.next_sibling_has_error())
-    }
     let _ = self.replay_reused_diagnostics(
       node_start, node_end, false, allow_eof_boundary,
     )

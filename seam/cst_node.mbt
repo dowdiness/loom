@@ -194,14 +194,15 @@ pub fn CstNode::new(
           None => token_count = token_count + 1
         }
         if not(has_any_error) {
-          match (error_kind, incomplete_kind) {
-            (Some(ek), Some(ik)) =>
-              if t.kind == ek || t.kind == ik {
-                has_any_error = true
-              }
-            (Some(ek), None) => if t.kind == ek { has_any_error = true }
-            (None, Some(ik)) => if t.kind == ik { has_any_error = true }
-            _ => ()
+          match error_kind {
+            Some(ek) => if t.kind == ek { has_any_error = true }
+            None => ()
+          }
+        }
+        if not(has_any_error) {
+          match incomplete_kind {
+            Some(ik) => if t.kind == ik { has_any_error = true }
+            None => ()
           }
         }
       }
@@ -213,7 +214,8 @@ pub fn CstNode::new(
       }
     }
   }
-  { kind, children, text_len, hash: h, token_count, has_any_error }
+  let final_hash = if has_any_error { combine_hash(h, 1) } else { h }
+  { kind, children, text_len, hash: final_hash, token_count, has_any_error }
 }
 
 ///|
@@ -285,7 +287,6 @@ pub impl Eq for CstNode with equal(self, other) {
 /// via `combine_hash`. Stable as long as `combine_hash` is stable.
 pub impl Hash for CstNode with hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
-  hasher.combine_bool(self.has_any_error)
 }
 
 ///|
