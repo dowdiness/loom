@@ -42,9 +42,14 @@ pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
 /// Lexing stage output — designed for Memo[T : Eq] boundaries.
 ///
 /// Carries the parse inputs needed downstream: tokens, their explicit starts,
-/// and the source text.
-/// `source` is part of equality so downstream parse memos recompute when
-/// text changes even if token kinds/lengths are unchanged.
+/// Token sequence for the three-memo pipeline.
+///
+/// Stores the full lex output (tokens, positions, source) but only `tokens`
+/// and error state participate in equality. Positions (`starts`) and source
+/// text are carried for consumption by the downstream CST memo but are
+/// excluded from comparison. This means edits that shift positions without
+/// changing token kinds/lengths cause the memo to backdate, enabling early
+/// cutoff for downstream parse and AST memos.
 pub(all) struct TokenStage[T] {
   tokens : Array[TokenInfo[T]]
   starts : Array[Int]
@@ -54,17 +59,15 @@ pub(all) struct TokenStage[T] {
 }
 
 ///|
-/// Custom Eq: compares source + tokens + error state.
+/// Equality for early cutoff: compares only tokens + error state.
 ///
-/// This drives the three-memo pipeline's early cutoff. The Salsa-style Memo
-/// system calls `equal` to decide whether to backdate (skip downstream
-/// recomputation). Including `source` prevents stale CST reuse for text edits
-/// that preserve token shape.
+/// `starts` and `source` are intentionally excluded — two TokenStages with
+/// the same token sequence but different positions are considered equal.
+/// This is correct because CstNode is position-independent and will produce
+/// the same parse tree from the same token sequence.
 pub impl[T : Eq] Eq for TokenStage[T] with equal(self, other) {
-  self.source == other.source &&
   self.is_lex_error == other.is_lex_error &&
   self.lex_error_message == other.lex_error_message &&
-  self.starts == other.starts &&
   self.tokens == other.tokens
 }
 

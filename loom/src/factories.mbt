@@ -188,7 +188,10 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   let to_ast = grammar.to_ast
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, source, label="source_text")
-  // Token memo — token sequence + explicit starts + source text.
+  // Token memo — stores full lex output (tokens + starts + source).
+  // Equality compares only tokens + error state, NOT positions or source.
+  // This enables early cutoff: edits that shift positions without changing
+  // token kinds/content cause the memo to backdate.
   let token_memo : @incr.Memo[@core.TokenStage[T]] = @incr.Memo::new(
     rt,
     fn() -> @core.TokenStage[T] {
@@ -221,6 +224,8 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   )
   // CST memo — parses from token stage.
   // Depends ONLY on token_memo (not source_text directly).
+  // When token_memo backdates (tokens unchanged despite position shift),
+  // CstStage skips entirely — this is the TokenStage early cutoff.
   let cst_memo : @incr.Memo[@pipeline.CstStage] = @incr.Memo::new(
     rt,
     fn() -> @pipeline.CstStage {

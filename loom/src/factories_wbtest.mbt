@@ -192,9 +192,10 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
 // ── ReactiveParser three-memo pipeline tests ────────────────────────────────
 
 ///|
-/// Different sources producing identical token sequences still recompute CST,
-/// because token-stage identity includes source text.
-test "new_reactive_parser: source change invalidates token stage even when tokens match" {
+/// Different sources producing identical token sequences cause the token memo
+/// to backdate (tokens are equal, positions excluded from comparison). The CST
+/// memo is NOT recomputed — this is the TokenStage early cutoff.
+test "new_reactive_parser: token-stage early cutoff when tokens match" {
   let grammar = fgrammar(
     error_token=Some(Err),
     prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
@@ -206,8 +207,8 @@ test "new_reactive_parser: source change invalidates token stage even when token
   parser.set_source("a?a")
   let cst2 = parser.cst()
   inspect(cst2.is_lex_error, content="false")
-  // Re-parse reflects updated token text from the new source.
-  inspect(cst1 == cst2, content="false")
+  // Token-stage early cutoff: same tokens → CST memo not recomputed → same CstStage
+  inspect(cst1 == cst2, content="true")
 }
 
 ///|
