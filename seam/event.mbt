@@ -17,6 +17,10 @@ pub(all) enum ParseEvent {
   /// A reserved-but-unclaimed slot; ignored by `build_tree`.
   /// Created by `EventBuffer::mark` and replaced by `EventBuffer::start_at`.
   Tombstone
+  /// Attach a pre-built CST subtree directly, skipping serialize/deserialize.
+  /// Used by incremental parsers to avoid re-emitting events for reused nodes.
+  /// Builders re-intern the node through their interner(s) to preserve contracts.
+  ReuseNode(CstNode)
 } derive(Show, Eq)
 
 ///|
@@ -205,6 +209,12 @@ pub fn build_tree_interned(
           None => abort("build_tree_interned: stack empty when adding token")
         }
       }
+      ReuseNode(node) =>
+        match stack.last() {
+          Some(parent) => parent.push(Node(node))
+          None =>
+            abort("build_tree_interned: stack empty when attaching reuse node")
+        }
       Tombstone => ()
     }
   }
@@ -276,6 +286,18 @@ pub fn build_tree_fully_interned(
             abort("build_tree_fully_interned: stack empty when adding token")
         }
       }
+      ReuseNode(node) => {
+        // Re-intern to preserve the contract that all nodes pass through
+        // the node interner. For already-interned nodes this is an O(1) cache hit.
+        let interned = node_interner.intern_node(node)
+        match stack.last() {
+          Some(parent) => parent.push(Node(interned))
+          None =>
+            abort(
+              "build_tree_fully_interned: stack empty when attaching reuse node",
+            )
+        }
+      }
       Tombstone => ()
     }
   }
@@ -335,6 +357,11 @@ pub fn build_tree(
           None => abort("build_tree: stack empty when adding token")
         }
       }
+      ReuseNode(node) =>
+        match stack.last() {
+          Some(parent) => parent.push(Node(node))
+          None => abort("build_tree: stack empty when attaching reuse node")
+        }
       // Unclaimed marks are expected and intentionally ignored.
       Tombstone => ()
     }

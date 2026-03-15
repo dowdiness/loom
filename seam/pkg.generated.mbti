@@ -92,6 +92,7 @@ pub(all) enum ParseEvent {
   FinishNode
   Token(RawKind, String)
   Tombstone
+  ReuseNode(CstNode)
 }
 pub impl Eq for ParseEvent
 pub impl Show for ParseEvent
