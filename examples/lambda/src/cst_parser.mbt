@@ -355,19 +355,10 @@ fn parse_atom(
 // ─── Lambda grammar (LetDef* Expression?) ─────────────────────────────────────
 
 ///|
-/// Parse a top-level `let` item for the lambda grammar.
-///
-/// Shape:
-///   - `let x = e`      -> LetDef
-///   - `let x = e in b` -> LetExpr
-///
-/// Returns true when parsed as LetDef, false when parsed as LetExpr.
+/// Parse a top-level `let` item: `let x = e` -> LetDef.
 ///
 /// Uses allow_newline_application=false so that a newline after the RHS
 /// stops the expression rather than continuing it into the next definition.
-/// A `let` token inside the RHS always starts a nested let-expression —
-/// never a sibling top-level definition — so consuming a leading newline
-/// before it is correct.
 fn parse_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {

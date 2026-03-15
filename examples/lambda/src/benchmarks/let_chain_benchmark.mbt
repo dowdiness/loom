@@ -1,5 +1,5 @@
 // Let-chain benchmarks: matches the CRDT editor's actual workload.
-// The editor generates "let x0 = 0 in let x1 = 0 in ... let xN = T in xN".
+// The editor generates "let x0 = 0\nlet x1 = 0\n...\nlet xN = T\nxN".
 // Measures scaling at 80 lets (medium) and 320 lets (large) — the same sizes
 // used in the Rabbita perf harness.
 //
@@ -7,9 +7,8 @@
 //
 // ## Scaling characteristics
 //
-// Let chains form a right-recursive tree: each LetExpr node wraps the rest of
-// the chain as its body child. This is the worst case for any algorithm whose
-// per-node cost depends on subtree depth.
+// Let chains are flat LetDef siblings under a SourceFile root. Each LetDef is
+// independent, so an edit to one definition damages only that sibling (O(1)).
 //
 // Key finding (2026-03-14): Before adding `physical_equal` to `CstNode::Eq`,
 // the node interner's equality check was O(subtree) per node, leading to
