@@ -230,6 +230,23 @@ pub fn build_tree_interned(
 }
 
 ///|
+/// Rebuild a CstNode subtree with the given trivia_kind so that token_count
+/// and other metadata are recomputed via CstNode::new. No interning.
+fn rebuild_subtree(node : CstNode, trivia_kind : RawKind?) -> CstNode {
+  let children : Array[CstElement] = []
+  for child in node.children {
+    match child {
+      CstElement::Token(_) => children.push(child)
+      CstElement::Node(n) => {
+        let rebuilt = rebuild_subtree(n, trivia_kind)
+        children.push(CstElement::Node(rebuilt))
+      }
+    }
+  }
+  CstNode::new(node.kind, children, trivia_kind~)
+}
+
+///|
 /// Recursively re-intern tokens in a CstNode subtree: every token passes
 /// through intern_token. Nodes are rebuilt but not node-interned (matches
 /// build_tree_interned's contract of token-only interning).
@@ -418,11 +435,13 @@ pub fn build_tree(
           None => abort("build_tree: stack empty when adding token")
         }
       }
-      ReuseNode(node) =>
+      ReuseNode(node) => {
+        let rebuilt = rebuild_subtree(node, trivia_kind)
         match stack.last() {
-          Some(parent) => parent.push(Node(node))
+          Some(parent) => parent.push(Node(rebuilt))
           None => abort("build_tree: stack empty when attaching reuse node")
         }
+      }
       // Unclaimed marks are expected and intentionally ignored.
       Tombstone => ()
     }
