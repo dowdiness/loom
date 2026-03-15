@@ -126,6 +126,59 @@ The ~2.5x overhead is distributed across many small per-node costs: cursor seek 
 
 For larger, deeper subtrees (e.g., complex expressions with many nested nodes), the reuse benefit increases because the per-node overhead is paid once to skip parsing the entire subtree. The flat LetDef case is worst-case for incremental overhead because each reused node is small (~4 tokens) relative to the per-node reuse cost.
 
+### Deeper subtrees don't help: overhead scales with total reused nodes
+
+| Benchmark (20 LetDefs) | Full reparse | Incremental | Ratio |
+|------------------------|-------------|-------------|-------|
+| depth-10 inits | 132 µs | 320 µs | 2.4x |
+| depth-20 inits | 261 µs | 619 µs | 2.4x |
+
+The 2.4x ratio is constant regardless of subtree depth. `re_intern_subtree` accounts for ~7% of incremental time (42 µs tree build vs 16 µs without interning for 20 deep LetDefs). The remaining 83% is in grammar/cursor phase — `emit_reused` walks into every reused subtree for position advance and diagnostic replay.
+
+---
+
+## Architectural finding: per-node reuse is not necessary
+
+rust-analyzer's incremental reparsing uses a fundamentally different approach that avoids per-node overhead entirely:
+
+1. **Find the smallest reparseable block** containing the edit (typically a `{}` block)
+2. **Re-lex and re-parse ONLY that block** from scratch
+3. **Replace the old subtree** in the persistent green tree via structural sharing
+4. **Unchanged siblings and ancestors are shared by reference** — never touched
+
+Cost: O(reparsed_block_size), not O(total_nodes). No `try_reuse`, no cursor walking, no leading/trailing token matching, no `emit_reused` per-node overhead.
+
+Source: [`crates/syntax/src/parsing/reparsing.rs`](https://github.com/rust-lang/rust-analyzer/blob/master/crates/syntax/src/parsing/reparsing.rs)
+
+### What this means for loom
+
+Loom's current approach (eg-walker style per-node reuse) has O(total_reused_nodes) overhead because:
+- `ParserContext::node()` calls `try_reuse` for every grammar node
+- `emit_reused` walks each reused subtree (position advance, diagnostic replay)
+- `build_tree_fully_interned` walks each reused subtree again (`re_intern_subtree`)
+
+A rust-analyzer-style approach for loom would:
+1. Use the `Edit` to identify the damaged LetDef (or expression) in the flat sibling list
+2. Re-tokenize and re-parse ONLY that LetDef
+3. Replace the old LetDef child in the SourceFile's children array
+4. Keep all other siblings unchanged — O(1) structural sharing via CstNode immutability
+
+This would make incremental cost O(damaged_region) regardless of file size. The `ReuseCursor`, `try_reuse`, `emit_reused`, and `re_intern_subtree` machinery would be unnecessary for the common case of editing within a single LetDef.
+
+### Trade-offs
+
+| | Current (per-node reuse) | rust-analyzer style (block reparse) |
+|---|---|---|
+| Cost per edit | O(total_nodes) | O(damaged_block_size) |
+| Correctness model | Per-node validation (4 checks) | Block-level: reparse guarantees correctness |
+| Handles cross-boundary edits | Yes (trailing context) | Yes (find enclosing block) |
+| Implementation complexity | High (cursor, context matching) | Medium (find reparseable block, splice) |
+| Requires persistent tree | No (rebuilds from events) | Yes (structural sharing) |
+
+The main blocker for loom: CstNode is currently rebuilt from events via `build_tree_fully_interned`. A block-reparse approach needs the ability to replace one child in an existing CstNode without rebuilding the entire tree. This requires either:
+- Persistent tree with structural sharing (like rowan's GreenNode)
+- Or a splice operation on CstNode that creates a new root with one child replaced
+
 ---
 
 ## Future: `re_intern_subtree` early-exit optimization
