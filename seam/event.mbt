@@ -209,12 +209,14 @@ pub fn build_tree_interned(
           None => abort("build_tree_interned: stack empty when adding token")
         }
       }
-      ReuseNode(node) =>
+      ReuseNode(node) => {
+        let interned = re_intern_tokens_only(node, interner, trivia_kind)
         match stack.last() {
-          Some(parent) => parent.push(Node(node))
+          Some(parent) => parent.push(Node(interned))
           None =>
             abort("build_tree_interned: stack empty when attaching reuse node")
         }
+      }
       Tombstone => ()
     }
   }
@@ -225,6 +227,31 @@ pub fn build_tree_interned(
     )
   }
   CstNode::new(root_kind, stack[0], trivia_kind~)
+}
+
+///|
+/// Recursively re-intern tokens in a CstNode subtree: every token passes
+/// through intern_token. Nodes are rebuilt but not node-interned (matches
+/// build_tree_interned's contract of token-only interning).
+fn re_intern_tokens_only(
+  node : CstNode,
+  interner : Interner,
+  trivia_kind : RawKind?,
+) -> CstNode {
+  let children : Array[CstElement] = []
+  for child in node.children {
+    match child {
+      CstElement::Token(t) => {
+        let interned = interner.intern_token(t.kind, t.text)
+        children.push(CstElement::Token(interned))
+      }
+      CstElement::Node(n) => {
+        let interned = re_intern_tokens_only(n, interner, trivia_kind)
+        children.push(CstElement::Node(interned))
+      }
+    }
+  }
+  CstNode::new(node.kind, children, trivia_kind~)
 }
 
 ///|
