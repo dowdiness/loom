@@ -4,6 +4,7 @@ package "dowdiness/loom/incremental"
 import {
   "dowdiness/loom/core",
   "dowdiness/seam",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -57,15 +58,15 @@ pub(all) enum ParseOutcome {
 }
 
 pub struct PerfStats {
-  enabled : Ref[Bool]
-  try_reuse_calls : Ref[Int]
-  try_reuse_hits : Ref[Int]
-  fast_path_skips : Ref[Int]
-  leading_checks : Ref[Int]
-  trailing_checks : Ref[Int]
-  find_node_calls : Ref[Int]
-  find_node_steps : Ref[Int]
-  count_tokens_calls : Ref[Int]
+  enabled : @ref.Ref[Bool]
+  try_reuse_calls : @ref.Ref[Int]
+  try_reuse_hits : @ref.Ref[Int]
+  fast_path_skips : @ref.Ref[Int]
+  leading_checks : @ref.Ref[Int]
+  trailing_checks : @ref.Ref[Int]
+  find_node_calls : @ref.Ref[Int]
+  find_node_steps : @ref.Ref[Int]
+  count_tokens_calls : @ref.Ref[Int]
 }
 
 // Type aliases

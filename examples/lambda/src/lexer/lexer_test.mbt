@@ -115,7 +115,8 @@ test "token_buffer update insertion matches full tokenize" {
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
   )
-  let updated = buffer.update(edit, new_source)
+  buffer.update(edit, new_source)
+  let updated = buffer.get_tokens()
   let full = tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
@@ -133,7 +134,8 @@ test "token_buffer update deletion merges identifiers" {
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
   )
-  let updated = buffer.update(edit, new_source)
+  buffer.update(edit, new_source)
+  let updated = buffer.get_tokens()
   let full = tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
@@ -151,7 +153,8 @@ test "token_buffer update replacement matches full tokenize" {
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
   )
-  let updated = buffer.update(edit, new_source)
+  buffer.update(edit, new_source)
+  let updated = buffer.get_tokens()
   let full = tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),
@@ -169,7 +172,8 @@ test "token_buffer update insertion creates keyword" {
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
   )
-  let updated = buffer.update(edit, new_source)
+  buffer.update(edit, new_source)
+  let updated = buffer.get_tokens()
   let full = tokenize(new_source)
   inspect(
     @token.print_token_infos(updated),

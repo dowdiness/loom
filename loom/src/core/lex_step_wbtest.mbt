@@ -145,9 +145,7 @@ fn verify_lex_contract(
       Invalid(at~, width~, ..) => {
         // Law 3: Stability — at cannot precede the current position
         if at < pos {
-          abort(
-            "contract violation: Invalid.at (\{at}) < current pos (\{pos})",
-          )
+          abort("contract violation: Invalid.at (\{at}) < current pos (\{pos})")
         }
         // Law 2: Progress — width >= 1
         if width < 1 {
@@ -378,7 +376,7 @@ test "new_from_steps: update preserves late Invalid offsets" {
     eof_token="EOF",
     error_token="ERR",
   )
-  ignore(buf.update(Edit::replace(0, 2, 2), "xy!z"))
+  buf.update(Edit::replace(0, 2, 2), "xy!z")
   let rendered = render_buffer_spans(buf)
   inspect(rendered, content="ERR@2-3,char@3-4,EOF@4-4")
 }
