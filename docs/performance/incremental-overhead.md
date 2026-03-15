@@ -99,13 +99,22 @@ The per-node overhead is in `emit_reused`, not `try_reuse`. For each reused node
 
 For 80 healthy LetDefs (zero errors), `collect_reused_error_spans` walks ~320 children total to find zero spans. `advance_past_reused` makes ~320 `get_start` closure calls to advance through ~4 tokens per node. These add up to the ~148 µs overhead.
 
-### Actionable findings
+### Attempted optimizations
 
-1. **`collect_reused_error_spans` on healthy nodes:** Skip the recursive walk when the node has no errors. `CstNode` could cache an `has_errors` flag, or check `node.has_errors(error_raw, incomplete_raw)` before walking. If no errors, skip span collection and boundary ownership check.
+1. **Skip `leading_token_matches` for pre-damage nodes:** No measurable improvement. The per-node overhead is distributed, not concentrated in one check. Complication: nodes adjacent to damage need trailing context checked even when `node_end < damage_start` (the follow token may be inside the damage region).
 
-2. **`advance_past_reused` closure calls:** Replace the `get_start` closure loop with a direct `self.position += node.token_count` jump. `CstNode` already stores `token_count` for this purpose. The closure loop is a fallback for zero-width error placeholders, which could be handled as a special case.
+2. **`advance_past_reused` token_count jump:** `total_token_count` (including trivia) was added to `CstNode`, but it counts CST leaf tokens, not token-stream entries. Synthetic zero-width tokens (error/incomplete placeholders) inflate the count, causing the jump to overshoot. The offset-based loop is correct because it uses the actual token stream positions. **Blocker:** The mismatch between CST leaf count and token-stream entry count means O(1) jump is not safe without a separate "stream token count" field that excludes synthetic tokens. This requires tracking which tokens are synthetic at construction time.
 
-3. **`Array[ReusedErrorSpan]` allocation:** Allocating a fresh array per reuse hit (80 allocations for 80 nodes) adds GC pressure. Reuse a shared buffer or skip allocation when no errors.
+3. **Skip `collect_reused_error_spans` via `has_errors` guard:** `CstNode::has_errors` is itself a recursive O(subtree) walk, making it no cheaper than `collect_reused_error_spans`. A shallow direct-children check misses deeply nested errors, causing silent diagnostic loss. **Blocker:** Needs a cached `has_errors` boolean flag on `CstNode`, computed at construction time. But `CstNode::new` doesn't know which `RawKind` values are error/incomplete (grammar-specific). Would need new parameters or a post-construction fixup.
+
+### Remaining actionable path
+
+The most promising approach requires a **seam API change**: add `error_kind` and `incomplete_kind` parameters to `CstNode::new` (or a new constructor variant) so it can compute and cache a `has_any_error : Bool` flag at O(0) marginal cost (the children loop already runs). This enables:
+- O(1) `has_any_error` check in `emit_reused` to skip `collect_reused_error_spans`
+- O(1) skip of `Array[ReusedErrorSpan]` allocation for healthy nodes
+- The same flag could skip `synthesize_reused_diagnostics` entirely
+
+The `advance_past_reused` loop remains. Its cost (~4 closure calls per LetDef) is minor compared to the error span collection.
 
 ---
 
