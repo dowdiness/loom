@@ -1,11 +1,11 @@
 # emit_reused Fast Path for Healthy Nodes
 
-**Status:** Implemented. See PR #37.
+**Status:** Complete
 
 **Goal:** Eliminate O(subtree) work per reuse hit in `emit_reused` for healthy nodes (no errors).
 
 **What was done:**
-- Added `has_any_error : Bool` field to `CstNode`, computed at construction via optional `error_kind~/incomplete_kind~` parameters
+- Added `has_any_error : Bool` field to `CstNode`, computed at construction via optional `error_kind` / `incomplete_kind` parameters
 - `emit_reused` checks `node.has_any_error` to skip `collect_reused_error_spans` and `Array[ReusedErrorSpan]` allocation for healthy nodes
 - `next_sibling_has_error` uses `n.has_any_error` (O(1)) instead of triple `has_errors` calls (O(subtree))
 - `has_any_error` folded into cached `self.hash` for consistent Eq/Hash behavior

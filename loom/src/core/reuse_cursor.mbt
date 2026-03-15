@@ -435,11 +435,8 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(
   }
   match frame.node.children[next_idx] {
     @seam.CstElement::Node(n) => n.has_any_error
-    @seam.CstElement::Token(t) => {
-      let err_raw = self.spec.error_kind.to_raw()
-      let incomplete_raw = self.spec.incomplete_kind.to_raw()
-      t.kind == err_raw || t.kind == incomplete_raw
-    }
+    @seam.CstElement::Token(t) =>
+      t.kind == self.err_raw || t.kind == self.incomplete_raw
   }
 }
 

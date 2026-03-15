@@ -50,3 +50,18 @@ test "NodeInterner: parent with interned children deduplicates" {
   let _ = ni.intern_node(p2)
   inspect(ni.size(), content="2") // child + parent, no duplicate parent
 }
+
+///|
+test "NodeInterner: nodes differing only in has_any_error are distinct" {
+  let ni = NodeInterner::new()
+  // Same structure, different has_any_error (built with vs without error_kind)
+  let healthy = CstNode::new(RawKind(1), [])
+  let error_bearing = CstNode::new(RawKind(1), [], error_kind=Some(RawKind(1)))
+  inspect(healthy.has_any_error, content="false")
+  inspect(error_bearing.has_any_error, content="true")
+  let interned_healthy = ni.intern_node(healthy)
+  let interned_error = ni.intern_node(error_bearing)
+  // They must be interned as distinct entries
+  inspect(ni.size(), content="2")
+  inspect(physical_equal(interned_healthy, interned_error), content="false")
+}

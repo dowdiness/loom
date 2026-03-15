@@ -740,7 +740,7 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
     let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
     let owns_right_boundary = error_spans
       .iter()
-      .any(fn(s) { s.start == node_end && s.end == node_end })
+      .any(s => s.start == node_end && s.end == node_end)
     if not(
         self.replay_reused_diagnostics(
           node_start, node_end, owns_right_boundary, allow_eof_boundary,
