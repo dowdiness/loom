@@ -841,7 +841,128 @@ git commit -m "test(lambda): add CstFold incremental reuse integration test"
 
 ---
 
-### Task 14: Final verification and cleanup
+### Task 14: Fold cache benchmarks
+
+**Goal:** Measure the fold cache hit rate and wall-time improvement. The
+existing let-chain benchmarks measure lex + parse but NOT the fold stage.
+This task adds benchmarks that isolate fold cost.
+
+**Files:**
+- Create: `examples/lambda/src/benchmarks/fold_benchmark.mbt`
+
+**Step 1: Add fold-specific benchmarks**
+
+Three benchmark categories:
+
+**A. FoldStats verification (cache hit rate):**
+
+Not a benchmark test — a regular test that inspects `FoldStats` after
+incremental edits. Proves the cache works.
+
+```moonbit
+test "CstFold stats: 80-let incremental edit reuses most subtrees" {
+  let source = make_let_chain(80, "0")
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  // Edit last literal: "0" → "1"
+  let edited = make_let_chain_edited(80)
+  let edit = @core.Edit::new(...)
+  let _ = parser.edit(edit, edited)
+  // Inspect fold stats — expect ~79 reused, ~2 recomputed (root + edited LetDef)
+  let stats = parser.get_fold_stats()  // needs accessor added
+  inspect(stats.reused >= 78, content="true")
+  inspect(stats.recomputed <= 3, content="true")
+}
+```
+
+Note: `ImperativeParser::get_fold_stats()` must be added as a public accessor.
+This requires `ImperativeParser` to store the `CstFold` and expose its stats.
+
+**B. Fold-only wall time (initial vs incremental):**
+
+Measures the to_ast / fold stage in isolation — not the full lex+parse+fold
+pipeline. Uses `ImperativeParser::parse()` and `ImperativeParser::edit()` which
+now internally call `CstFold::fold`, then reads fold stats.
+
+```moonbit
+test "fold benchmark: 80 lets - initial fold" (b : @bench.T) {
+  b.bench(fn() {
+    let parser = @loom.new_imperative_parser(source, lambda_grammar)
+    let result = parser.parse()
+    b.keep(result)
+  })
+}
+
+test "fold benchmark: 80 lets - incremental fold after single edit" (b : @bench.T) {
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  b.bench(fn() {
+    let result = parser.edit(edit, edited)
+    b.keep(result)
+  })
+}
+```
+
+Compare "initial fold" (all cache misses) vs "incremental fold" (most cache
+hits). The difference is the fold cache benefit.
+
+**C. Scaling: fold cost as a function of tree size**
+
+```moonbit
+test "fold benchmark: 80 lets - fold stage" (b : @bench.T) { ... }
+test "fold benchmark: 320 lets - fold stage" (b : @bench.T) { ... }
+test "fold benchmark: 1000 lets - fold stage" (b : @bench.T) { ... }
+```
+
+Expected: initial fold scales O(n). Incremental fold scales O(depth) ≈ O(1)
+for flat LetDef structures (only root + edited node recomputed).
+
+**Step 2: Add `get_fold_stats` accessor to ImperativeParser**
+
+In `loom/src/incremental/imperative_parser.mbt` (or wherever `ImperativeParser`
+is defined), expose the fold stats:
+
+```moonbit
+pub fn[Ast] ImperativeParser::get_fold_stats(self) -> @core.FoldStats? {
+  // Return stats from the internal CstFold if it exists
+}
+```
+
+This requires `ImperativeLanguage` or the factory closure to expose the
+`CstFold` instance. Design options:
+
+1. Store `CstFold` as a field on `ImperativeParser` (simplest)
+2. Store a `get_fold_stats` closure captured from the factory (no struct change)
+
+Option 2 is less invasive — add a `get_fold_stats? : (() -> @core.FoldStats)?`
+field to `ImperativeLanguage` or `ImperativeParser`.
+
+**Step 3: Run benchmarks**
+
+```bash
+cd examples/lambda && moon bench --release -f benchmarks/fold_benchmark.mbt
+```
+
+**Step 4: Record results in `docs/performance/benchmark_history.md`**
+
+Add a dated entry with:
+- Fold cache hit rate (from FoldStats)
+- Initial fold vs incremental fold wall time
+- Scaling curve (80 / 320 / 1000 lets)
+- Comparison: full pipeline with fold cache vs without
+
+**Step 5: Commit**
+
+```bash
+git add examples/lambda/src/benchmarks/fold_benchmark.mbt
+git add loom/src/  # if ImperativeParser accessor was added
+git add docs/performance/benchmark_history.md
+git commit -m "bench(lambda): add CstFold cache hit rate and wall time benchmarks"
+```
+
+---
+
+### Task 15: Final verification and cleanup
 
 **Step 1: Run all tests**
 
@@ -853,21 +974,31 @@ cd ../../seam && moon test                  # seam
 cd ../incr && moon test                     # incr
 ```
 
-**Step 2: Run benchmarks to verify no regression**
+**Step 2: Run full benchmark suite**
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom/examples/lambda
 moon bench --release
 ```
 
-**Step 3: Check docs**
+Verify:
+- No regression in existing lex/parse benchmarks
+- Fold benchmarks show expected cache hit rates
+- Scaling is O(depth) for incremental, O(n) for initial
+
+**Step 3: Update `docs/performance/incremental-overhead.md`**
+
+Add a section noting the fold cache eliminates the O(tree size) fold
+bottleneck documented in the "Damage Information Cliff" section.
+
+**Step 4: Check docs**
 
 ```bash
 cd /home/antisatori/ghq/github.com/dowdiness/crdt/loom
 bash check-docs.sh
 ```
 
-**Step 4: Final commit if any cleanup needed**
+**Step 5: Final commit if any cleanup needed**
 
 ```bash
 git add -A
