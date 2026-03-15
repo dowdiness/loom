@@ -25,38 +25,64 @@ Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
 ```
 
 `TokenStage` stores the full lex output (`tokens`, `starts`, `source`)
-but its `Eq` implementation compares only `tokens` + error state.
-Positions (`starts`) and source text are excluded from comparison.
+but its `Eq` implementation uses **trivia-insensitive comparison**:
+only non-trivia tokens (determined by `IsTrivia` trait) and error state
+participate in equality. Trivia tokens (whitespace, newlines), positions
+(`starts`), and source text are all excluded.
 
 ## Consequences
 
-**Early cutoff:** When an edit changes token positions but not token
-kinds or lengths, the token memo backdates. The CST memo does not
-recompute, and the AST memo does not recompute.
+### When the cutoff fires
 
-**When this helps:** Edits that insert/delete equal-length text at the
-same position (e.g., replacing `x` with `y` in a way that preserves
-the token `Identifier` kind and length). In the current lambda calculus
-grammar, this is uncommon — most edits change at least one token's
-content. The primary benefit is architectural: the pipeline has a clean
-lex/parse boundary that supports future trivia-insensitive equality
-(Phase 4 of the position-independent tokens plan).
+The cutoff fires for edits that change only trivia tokens — the most
+common case being whitespace and newline changes:
 
-**When this doesn't help:** Edits that change any token kind or length
-(the common case). The token memo recomputes and produces a new
-TokenStage, CstStage recomputes, and the full pipeline runs. However,
-CstStage and term_memo can still backdate independently.
+- Adding/removing/resizing spaces between tokens
+- Adding/removing blank lines between definitions
+- Any formatting-only edit
 
-**Stale positions in backdated TokenStage:** When the token memo
-backdates, the CST memo receives the old `starts` and `source` from
-the previous TokenStage value. These positions may be stale (shifted).
-This is safe because:
+In these cases the token memo backdates (non-trivia tokens unchanged),
+and the CST and AST memos skip recomputation entirely.
+
+### When the cutoff does NOT fire
+
+Edits that change any non-trivia token (kind or content) cause the
+token memo to produce a new TokenStage. The full pipeline runs:
+token → CST → AST. This is the common case for content edits like
+typing new code, renaming variables, or changing literals.
+
+However, CstStage and term_memo can still backdate independently via
+their own Eq checks.
+
+### Stale positions in backdated TokenStage
+
+When the token memo backdates, the CST memo receives the old `starts`
+and `source` from the previous TokenStage value. These positions may
+be stale (shifted from a whitespace edit). This is safe because:
+
 - `CstNode` is position-independent (stores `text_len`, not offsets)
 - `SyntaxNode` computes positions ephemerally from `CstNode`
 - Diagnostics are formatted during CST memo computation with the
   positions from that computation's TokenStage value
+- When the token memo backdates, the CST memo does NOT recompute,
+  so stale positions are never used for formatting
 
-**Cost:** One additional `Memo` per `ReactiveParser` instance. The lex
-function runs on every source change regardless (it must, to determine
-whether tokens changed). The overhead is the memo equality check
-(`Array[TokenInfo]` comparison), which is O(n) in token count.
+### Cost
+
+One additional `Memo` per `ReactiveParser` instance. The lex function
+runs on every source change regardless (it must, to determine whether
+tokens changed). The overhead is the trivia-filtered equality check,
+which is O(non-trivia token count) — typically cheaper than a full
+parse.
+
+### Trivia-insensitive equality design
+
+`TokenStage::Eq` requires `T : Eq + IsTrivia`. It walks both token
+arrays with two pointers, skipping any token where `is_trivia()` is
+true. Only non-trivia tokens are compared for equality. This means
+two TokenStages that differ only in whitespace/newline tokens are
+considered equal.
+
+This is correct because non-trivia tokens fully determine the CST
+structure. Trivia tokens affect only spacing (positions), which are
+carried data in the `starts` array but do not affect CstNode identity.

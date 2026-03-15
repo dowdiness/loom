@@ -79,6 +79,6 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-15-flat-grammar-unification.md](archive/completed-phases/2026-03-15-flat-grammar-unification.md) — flat grammar unification design
 - [archive/completed-phases/2026-03-15-flat-grammar-unification-plan.md](archive/completed-phases/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification implementation plan
 - [archive/completed-phases/2026-03-14-incremental-overhead.md](archive/completed-phases/2026-03-14-incremental-overhead.md) — incremental overhead waste elimination (3 fixes, benchmarked)
-- [archive/completed-phases/2026-03-06-position-independent-tokens.md](archive/completed-phases/2026-03-06-position-independent-tokens.md) — position-independent tokens + TokenStage early cutoff (Phases 0-3)
+- [archive/completed-phases/2026-03-06-position-independent-tokens.md](archive/completed-phases/2026-03-06-position-independent-tokens.md) — position-independent tokens + trivia-insensitive TokenStage early cutoff (all phases)
 - [archive/completed-phases/2026-03-15-try-reuse-fast-path.md](archive/completed-phases/2026-03-15-try-reuse-fast-path.md) — emit_reused fast path: has_any_error flag, incremental overhead profiling, architectural analysis
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

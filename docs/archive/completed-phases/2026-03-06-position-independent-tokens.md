@@ -1,7 +1,7 @@
 # Position-Independent Tokens — Implementation Plan
 
 **Date:** March 6, 2026
-**Status:** Complete (Phases 0-3). Phase 4 (trivia-insensitive equality) is deferred.
+**Status:** Complete (all phases including Phase 4 trivia-insensitive equality).
 **Scope:** `loom/src/core/`, `loom/src/`, `loom/src/pipeline/`, `examples/lambda/`
 
 ## Goal
@@ -237,18 +237,29 @@ cd examples/lambda && moon check && moon test
 
 **Risk:** Low — additive change. The existing `CstStage` cutoff remains as a second boundary.
 
-### Phase 4 (Follow-up): Trivia-Insensitive Token Equality
+### Phase 4: Trivia-Insensitive Token Equality — Complete
 
-**Goal:** Optional stronger cutoff — whitespace-only edits (changing trivia length) should not invalidate the parse.
+**Goal:** Whitespace-only edits should not invalidate the parse.
 
-**Status:** Deferred — design decision needed on whether to filter trivia from equality or normalize trivia lengths.
+**Decision:** Option A — `TokenStage::Eq` skips trivia tokens during comparison.
 
-**Options:**
-- A. `TokenStage::Eq` compares only non-trivia tokens (filter out `Whitespace`/`Newline`)
-- B. Normalize trivia: coalesce consecutive whitespace into a single `Whitespace(len=1)` for comparison
-- C. Separate `eq_key` field that excludes trivia
+`TokenStage::Eq` requires `T : Eq + IsTrivia`. It walks both token arrays
+with two cursors, skipping any token where `is_trivia()` returns true. Only
+non-trivia tokens are compared. This means edits that only change whitespace
+or newlines produce equal TokenStages, causing the token memo to backdate
+and the CST/AST memos to skip recomputation.
 
-This phase is not required for the core position-independent token benefit. The primary win (position-shift cutoff) is achieved by Phase 3.
+**Why Option A over B/C:**
+- Option B (normalize trivia) adds complexity for no benefit — skipping is simpler than normalizing
+- Option C (separate eq_key) duplicates the token array — wasteful
+
+**When the cutoff fires (lambda grammar):**
+- Adding/removing/resizing spaces between tokens
+- Adding/removing blank lines between definitions
+- Any formatting-only edit
+
+**When it does NOT fire:**
+- Any edit that changes a non-trivia token (identifier, number, keyword, operator)
 
 ## Verification Matrix
 
@@ -281,12 +292,13 @@ cd examples/lambda && moon info && moon fmt
 
 ## Deliverables Checklist
 
-- [ ] `TokenBuffer` accessor methods (`get_token`, `get_start`, `get_end`, `token_count`)
-- [ ] All external position access routed through accessors
-- [ ] `TokenInfo` changed to `{ token, len }`
-- [ ] `TokenBuffer` stores `tokens + starts` parallel arrays
-- [ ] `TokenBuffer::update` works with new representation
-- [ ] Lambda lexer and tests updated
-- [ ] `TokenStage` memo reintroduced in reactive pipeline
-- [ ] ADR for TokenStage reversal
-- [ ] Benchmarks show no regression
+- [x] `TokenBuffer` accessor methods (`get_token`, `get_start`, `get_end`, `token_count`)
+- [x] All external position access routed through accessors
+- [x] `TokenInfo` changed to `{ token, len }`
+- [x] `TokenBuffer` stores `tokens + starts` parallel arrays
+- [x] `TokenBuffer::update` works with new representation
+- [x] Lambda lexer and tests updated
+- [x] `TokenStage` memo reintroduced in reactive pipeline
+- [x] ADR for TokenStage reversal (`decisions/2026-03-15-reintroduce-token-stage-memo.md`)
+- [x] Trivia-insensitive equality (Phase 4) — `TokenStage::Eq` skips trivia tokens
+- [x] Tests verify early cutoff for whitespace-only edits

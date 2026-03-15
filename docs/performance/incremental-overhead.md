@@ -4,7 +4,9 @@
 
 **Context:** Incremental parsing is slower than full reparse on right-recursive let chains (320-deep). This document records actionable waste elimination opportunities found during investigation.
 
-**Related:** [ADR: physical_equal interner](../decisions/2026-03-14-physical-equal-interner.md) (O(n^2) interner fix)
+**Related:**
+- [ADR: physical_equal interner](../decisions/2026-03-14-physical-equal-interner.md) (O(n^2) interner fix)
+- [ADR: reintroduce TokenStage memo](../decisions/2026-03-15-reintroduce-token-stage-memo.md) (trivia-insensitive early cutoff)
 
 ---
 

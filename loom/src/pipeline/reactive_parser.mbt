@@ -9,8 +9,10 @@
 ///
 /// 2. `ReactiveParser::from_parts(signal, source_memo, cst_memo, term_memo)`:
 ///    Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
-///    Expert constructor used by `new_reactive_parser`. It validates that the
-///    supplied cells form one coherent runtime graph.
+///    Three-memo pipeline with trivia-insensitive early cutoff.
+///    Used by `new_reactive_parser`. TokenStage equality skips trivia tokens
+///    (whitespace, newlines) — whitespace-only edits backdate the token memo,
+///    skipping CST and AST recomputation entirely.
 ///
 /// Lex-error routing: `CstStage::is_lex_error` is set explicitly by the
 /// `Parseable` implementation, so `term_memo` dispatches to `on_lex_error`

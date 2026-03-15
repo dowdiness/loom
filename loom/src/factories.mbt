@@ -170,13 +170,16 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 ///|
 /// Create a ReactiveParser from a Grammar.
 ///
-/// Builds a three-memo pipeline:
+/// Builds a three-memo pipeline with trivia-insensitive early cutoff:
 ///   Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
 ///
-/// TokenStage identity includes tokens, explicit starts, and source text so
-/// CST parsing always reflects the current lexer output.
-/// `T : Eq` is an intentional API requirement: token-stage memoization needs
-/// structural token equality at the memo boundary.
+/// TokenStage equality compares only non-trivia tokens (via `IsTrivia`).
+/// Whitespace-only edits cause the token memo to backdate, skipping
+/// CST and AST recomputation entirely. Content edits that change any
+/// non-trivia token trigger the full pipeline.
+///
+/// `T : Eq + IsTrivia` is required: token-stage memoization needs
+/// structural equality for non-trivia tokens at the memo boundary.
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
