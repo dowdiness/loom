@@ -142,55 +142,53 @@ test "error recovery - error" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: Full parse of let expression.
+/// Benchmark: Full parse of let definition + expression.
 test "full parse - let" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("let x = 1 in x") catch {
+    let (term, _) = @lambda.parse_term("let x = 1\nx") catch {
       _ => abort("benchmark failed")
     }
-    b.keep(result)
+    b.keep(term)
   })
 }
 
 ///|
-/// Benchmark: Full parse of nested let expression.
+/// Benchmark: Full parse of nested let definitions.
 test "full parse - nested let" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("let x = 1 in let y = x + 1 in y") catch {
+    let (term, _) = @lambda.parse_term("let x = 1\nlet y = x + 1\ny") catch {
       _ => abort("benchmark failed")
     }
-    b.keep(result)
+    b.keep(term)
   })
 }
 
 ///|
 /// Benchmark: Incremental parser - let body edit.
-/// Common case: edit the body variable while the init expression is unchanged.
-/// The init IntLiteral(1) at [8,9) is outside damage [13,14) → eligible for reuse.
+/// "let x = 1\ny" → "let x = 1\nz": damage at [10,11).
 test "incremental - let body edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1 in y", @lambda.lambda_grammar,
+      "let x = 1\ny", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
-    let edit = @core.Edit::replace(13, 14, 14)
-    let result = parser.edit(edit, "let x = 1 in z")
+    let edit = @core.Edit::replace(10, 11, 11)
+    let result = parser.edit(edit, "let x = 1\nz")
     b.keep(result)
   })
 }
 
 ///|
 /// Benchmark: Incremental parser - let init edit.
-/// Edit the binding value while the body is unchanged.
-/// The outer LetExpr overlaps damage [8,9); body VarRef("y") is outside damage.
+/// "let x = 1\ny" → "let x = 2\ny": damage at [8,9).
 test "incremental - let init edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1 in y", @lambda.lambda_grammar,
+      "let x = 1\ny", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(8, 9, 9)
-    let result = parser.edit(edit, "let x = 2 in y")
+    let result = parser.edit(edit, "let x = 2\ny")
     b.keep(result)
   })
 }

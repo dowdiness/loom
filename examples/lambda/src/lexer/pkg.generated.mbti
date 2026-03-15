@@ -9,11 +9,7 @@ import {
 // Values
 pub fn lambda_step_lexer(String, Int) -> @core.LexStep[@token.Token]
 
-pub fn lambda_step_lexer_layout(String, Int) -> @core.LexStep[@token.Token]
-
 pub fn tokenize(String) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
-
-pub fn tokenize_layout(String) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
 
 pub fn tokenize_range(String, Int, Int) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError
 

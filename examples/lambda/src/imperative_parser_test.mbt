@@ -903,17 +903,13 @@ test "ImperativeParser::reset clears old tree state" {
 /// subsequent positions, breaking the cursor's old→new coordinate mapping.
 test "source file: editing first def reuses second def" {
   let source1 = "let id = 1\nlet const = 2"
-  let tokens1 = @lexer.tokenize_layout(source1)
-  let (cst1, _, _) = parse_source_file_recover_with_tokens(
-    source1,
-    tokens1,
-    None,
-  )
+  let tokens1 = @lexer.tokenize(source1)
+  let (cst1, _, _) = parse_cst_recover_with_tokens(source1, tokens1, None)
   // Same-length replacement: "1" → "5" at position 9 (damage window [9, 10))
   let source2 = "let id = 5\nlet const = 2"
-  let tokens2 = @lexer.tokenize_layout(source2)
-  let cursor = make_source_file_reuse_cursor(cst1, 9, 10, tokens2)
-  let (_, _, reuse_count) = parse_source_file_recover_with_tokens(
+  let tokens2 = @lexer.tokenize(source2)
+  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2)
+  let (_, _, reuse_count) = parse_cst_recover_with_tokens(
     source2,
     tokens2,
     Some(cursor),
@@ -927,29 +923,21 @@ test "source file: editing first def reuses second def" {
 /// edit to the first def.
 test "source file: incremental parse == full reparse after first def edit" {
   let source1 = "let id = 1\nlet const = 2\nid"
-  let tokens1 = @lexer.tokenize_layout(source1)
-  let (cst1, _, _) = parse_source_file_recover_with_tokens(
-    source1,
-    tokens1,
-    None,
-  )
+  let tokens1 = @lexer.tokenize(source1)
+  let (cst1, _, _) = parse_cst_recover_with_tokens(source1, tokens1, None)
   // Same-length replacement: "1" → "5"
   let source2 = "let id = 5\nlet const = 2\nid"
-  let tokens2 = @lexer.tokenize_layout(source2)
-  let cursor = make_source_file_reuse_cursor(cst1, 9, 10, tokens2)
-  let (incr_cst, _, _) = parse_source_file_recover_with_tokens(
+  let tokens2 = @lexer.tokenize(source2)
+  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2)
+  let (incr_cst, _, _) = parse_cst_recover_with_tokens(
     source2,
     tokens2,
     Some(cursor),
   )
-  let (full_cst, _) = parse_source_file(source2)
+  let (full_cst, _) = parse_cst(source2)
   // Both trees must produce the same term structure
-  let incr_term = syntax_node_to_source_file_term(
-    @seam.SyntaxNode::from_cst(incr_cst),
-  )
-  let full_term = syntax_node_to_source_file_term(
-    @seam.SyntaxNode::from_cst(full_cst),
-  )
+  let incr_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(incr_cst))
+  let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
 }
 
@@ -959,17 +947,13 @@ test "source file: incremental parse == full reparse after first def edit" {
 /// entirely before the damage window.
 test "source file: editing second def reuses first def" {
   let source1 = "let id = 1\nlet const = 2"
-  let tokens1 = @lexer.tokenize_layout(source1)
-  let (cst1, _, _) = parse_source_file_recover_with_tokens(
-    source1,
-    tokens1,
-    None,
-  )
+  let tokens1 = @lexer.tokenize(source1)
+  let (cst1, _, _) = parse_cst_recover_with_tokens(source1, tokens1, None)
   // "let const = 2" — "2" is at position 22, same-length replacement (damage [22, 23))
   let source2 = "let id = 1\nlet const = 9"
-  let tokens2 = @lexer.tokenize_layout(source2)
-  let cursor = make_source_file_reuse_cursor(cst1, 22, 23, tokens2)
-  let (_, _, reuse_count) = parse_source_file_recover_with_tokens(
+  let tokens2 = @lexer.tokenize(source2)
+  let cursor = make_reuse_cursor(cst1, 22, 23, tokens2)
+  let (_, _, reuse_count) = parse_cst_recover_with_tokens(
     source2,
     tokens2,
     Some(cursor),

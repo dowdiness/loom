@@ -131,7 +131,13 @@ test "parse error - missing parameter after lambda" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 ///|
@@ -142,7 +148,13 @@ test "parse error - missing dot after lambda parameter" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 ///|
@@ -153,7 +165,13 @@ test "parse error - unmatched left paren" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 ///|
@@ -164,7 +182,13 @@ test "parse error - unmatched right paren" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 ///|
@@ -175,7 +199,13 @@ test "parse error - missing then in if" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 ///|
@@ -186,7 +216,13 @@ test "parse error - missing else in if" {
   } catch {
     _ => true
   }
-  inspect(should_error, content="true")
+  inspect(
+    should_error,
+    content=(
+      #|true
+
+    ),
+  )
 }
 
 // ===== Edge Case Tests =====
@@ -259,89 +295,136 @@ test "parse complex expression with all features" {
 
 ///|
 test "parse let expression" {
-  let expr = parse("let x = 1 in x") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content="let x = 1 in x")
+  let expr = parse("let x = 1\nx") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content=(
+    #|let x = 1
+    #|x
+  ))
 }
 
 ///|
 test "parse let with binary op in body" {
-  let expr = parse("let x = 3 in x + 1") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content="let x = 3 in (x + 1)")
+  let expr = parse("let x = 3\nx + 1") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content=(
+    #|let x = 3
+    #|(x + 1)
+  ))
 }
 
 ///|
 test "parse nested let" {
-  let expr = parse("let x = 1 in let y = 2 in x + y") catch {
+  let expr = parse("let x = 1\nlet y = 2\nx + y") catch {
     _ => abort("parse failed")
   }
-  inspect(@ast.print_term(expr), content="let x = 1 in let y = 2 in (x + y)")
+  inspect(@ast.print_term(expr), content=(
+    #|let x = 1
+    #|let y = 2
+    #|(x + y)
+  ))
 }
 
 ///|
 test "parse let with lambda" {
-  let expr = parse("let f = λx.x in f 42") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content="let f = (λx. x) in (f 42)")
+  let expr = parse("let f = λx.x\nf 42") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content=(
+    #|let f = (λx. x)
+    #|(f 42)
+  ))
 }
 
 ///|
-test "parse_source_file_term: two defs fold to nested Let with Unit" {
-  let (term, diagnostics) = parse_source_file_term("let id = 1\nlet const = 2")
+test "parse_term: two defs fold to nested Let with Unit" {
+  let (term, diagnostics) = parse_term("let id = 1\nlet const = 2")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="let id = 1 in let const = 2 in ()")
+  inspect(@ast.print_term(term), content=(
+    #|let id = 1
+    #|let const = 2
+    #|()
+  ))
 }
 
 ///|
-test "parse_source_file_term: def + final expression" {
-  let (term, diagnostics) = parse_source_file_term("let id = 1\nid")
+test "parse_term: def + final expression" {
+  let (term, diagnostics) = parse_term("let id = 1\nid")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="let id = 1 in id")
+  inspect(@ast.print_term(term), content=(
+    #|let id = 1
+    #|id
+  ))
 }
 
 ///|
-test "parse_source_file_term: leading newline before def + final expression" {
-  let (term, diagnostics) = parse_source_file_term("\nlet id = 1\nid")
+test "parse_term: leading newline before def + final expression" {
+  let (term, diagnostics) = parse_term("\nlet id = 1\nid")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="let id = 1 in id")
+  inspect(@ast.print_term(term), content=(
+    #|let id = 1
+    #|id
+  ))
 }
 
 ///|
-test "parse_source_file_term: single expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("42")
+test "parse_term: single expression (no defs)" {
+  let (term, diagnostics) = parse_term("42")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="42")
 }
 
 ///|
-test "parse_source_file_term: let-expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("let x = 1 in x")
-  inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="let x = 1 in x")
+test "parse_term: let-expression (no defs)" {
+  let (term, diagnostics) = parse_term("let x = 1 in x")
+  inspect(
+    diagnostics.length(),
+    content=(
+      #|1
+    ),
+  )
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let x = 1
+      #|<error: unknown node kind: ErrorToken>
+
+    ),
+  )
 }
 
 ///|
-test "parse_source_file_term: multiline let-expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("let x = 1\nin x")
-  inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="let x = 1 in x")
+test "parse_term: multiline let-expression (no defs)" {
+  let (term, diagnostics) = parse_term("let x = 1\nin x")
+  inspect(
+    diagnostics.length(),
+    content=(
+      #|1
+    ),
+  )
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let x = 1
+      #|<error: unknown node kind: ErrorToken>
+
+    ),
+  )
 }
 
 ///|
-test "parse_source_file_term: multiline binary expression (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("1\n+2")
+test "parse_term: multiline binary expression (no defs)" {
+  let (term, diagnostics) = parse_term("1\n+2")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="(1 + 2)")
 }
 
 ///|
-test "parse_source_file_term: multiline application (no defs)" {
-  let (term, diagnostics) = parse_source_file_term("f\nx")
+test "parse_term: multiline application (no defs)" {
+  let (term, diagnostics) = parse_term("f\nx")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="(f x)")
 }
 
 ///|
-test "parse_source_file_term: missing newline between defs reports diagnostic" {
-  let (_, diagnostics) = parse_source_file_term("let a = 1 let b = 2")
+test "parse_term: missing newline between defs reports diagnostic" {
+  let (_, diagnostics) = parse_term("let a = 1 let b = 2")
   inspect(diagnostics.length() > 0, content="true")
   inspect(
     diagnostics[0].message,
@@ -350,8 +433,8 @@ test "parse_source_file_term: missing newline between defs reports diagnostic" {
 }
 
 ///|
-test "parse_source_file_term: empty file" {
-  let (term, diagnostics) = parse_source_file_term("")
+test "parse_term: empty file" {
+  let (term, diagnostics) = parse_term("")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="()")
 }

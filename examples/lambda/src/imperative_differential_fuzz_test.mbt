@@ -2,7 +2,7 @@
 //
 // Oracle:
 //   ImperativeParser::edit(new_source) == full parse of new_source
-// where full parse uses parse_cst_recover (or tokenization error node).
+// where full parse uses parse_cst (or tokenization error node).
 
 ///|
 fn idf_next_seed(seed : Int) -> Int {
@@ -164,7 +164,7 @@ test "differential-fast: deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (cst, errors) = parse_cst_recover(new_source) catch {
+      let (cst, errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
           seed = next_seed
@@ -204,7 +204,7 @@ test "differential-fast: malformed input sequences terminate" {
       let incremental = parser.edit(edit, new_source)
       // Ignore result — just verify both paths terminate without panic.
       try {
-        let _ = parse_cst_recover(new_source)
+        let _ = parse_cst(new_source)
       } catch {
         _ => ()
       }
@@ -317,10 +317,8 @@ fn idf_assert_source_file_matches_full(
   full_cst : @seam.CstNode,
   context : String,
 ) -> Unit {
-  let incr_term = syntax_node_to_source_file_term(incr_node)
-  let full_term = syntax_node_to_source_file_term(
-    @seam.SyntaxNode::from_cst(full_cst),
-  )
+  let incr_term = syntax_node_to_term(incr_node)
+  let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
   // Structural equality (Term derives Eq) is stronger than string comparison:
   // two structurally distinct trees that happen to print identically would pass
   // string comparison but fail here.
@@ -345,14 +343,14 @@ test "differential-fast: source-file grammar deterministic fuzz" {
   for case_i = 0; case_i < 25; case_i = case_i + 1 {
     let mut seed = 53 + case_i * 113
     let mut source = idf_make_source_file_source(seed)
-    let parser = @loom.new_imperative_parser(source, source_file_grammar)
+    let parser = @loom.new_imperative_parser(source, lambda_grammar)
     let _ = parser.parse()
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_source_file_edit(
         source, seed,
       )
       let incr_node = parser.edit(edit, new_source)
-      let (full_cst, full_errors) = parse_source_file(new_source) catch {
+      let (full_cst, full_errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
           seed = next_seed
@@ -388,7 +386,7 @@ test "differential-long: larger deterministic random edit sequences" {
         source, seed, false,
       )
       let incremental = parser.edit(edit, new_source)
-      let (cst, errors) = parse_cst_recover(new_source) catch {
+      let (cst, errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
           seed = next_seed

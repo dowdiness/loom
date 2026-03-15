@@ -197,29 +197,12 @@ fn step_lex(
 }
 
 ///|
-/// PrefixLexer for the default lambda grammar (newlines folded into whitespace).
+/// PrefixLexer for the lambda grammar (newlines as separate tokens).
 pub fn lambda_step_lexer(
   source : String,
   start : Int,
 ) -> @core.LexStep[@token.Token] {
-  step_lex(source, start, layout=false)
-}
-
-///|
-/// PrefixLexer for the source-file grammar (newlines as separate tokens).
-pub fn lambda_step_lexer_layout(
-  source : String,
-  start : Int,
-) -> @core.LexStep[@token.Token] {
   step_lex(source, start, layout=true)
-}
-
-///|
-/// Tokenize the input string into an array of tokens with position information
-pub fn tokenize(
-  input : String,
-) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  tokenize_via_steps(input, layout=false)
 }
 
 ///|
@@ -246,10 +229,9 @@ pub fn tokenize_range(
 }
 
 ///|
-/// Layout-aware tokenizer: like tokenize but emits Newline tokens for \n/\r\n
-/// (separate from Whitespace for spaces/tabs). Used by the source-file grammar
-/// so that newlines act as definition delimiters.
-pub fn tokenize_layout(
+/// Tokenizer: emits Newline tokens for \n/\r\n (separate from Whitespace for
+/// spaces/tabs) so that newlines act as definition delimiters.
+pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
   tokenize_via_steps(input, layout=true)

@@ -150,7 +150,7 @@ test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
 test "heavy: large document - cst parse only" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let result = @lambda.parse_cst_recover(source) catch {
+    let result = @lambda.parse_cst(source) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
