@@ -1,13 +1,14 @@
 ///|
 enum FTok {
   A
+  Ws
   Err
   Eof
 } derive(Eq, Show)
 
 ///|
-impl @seam.IsTrivia for FTok with is_trivia(_) {
-  false
+impl @seam.IsTrivia for FTok with is_trivia(self) {
+  self == Ws
 }
 
 ///|
@@ -287,4 +288,56 @@ test "create_buffer: prefix_lexer without error_token raises on invalid step" {
     @core.LexError(_) => true
   }
   inspect(raised, content="true")
+}
+
+///|
+/// Step lexer that recognizes 'a' as A and ' ' as Ws (trivia).
+fn fws_step_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
+  if start >= source.length() {
+    return Done
+  }
+  let ch = source.code_unit_at(start).to_int()
+  if ch == 97 {
+    // 'a'
+    return Produced(@core.TokenInfo::new(A, 1), next_offset=start + 1)
+  }
+  if ch == 32 {
+    // ' '
+    return Produced(@core.TokenInfo::new(Ws, 1), next_offset=start + 1)
+  }
+  Invalid(at=start, width=1, message="unexpected char")
+}
+
+///|
+/// Trivia-insensitive early cutoff: whitespace-only edits produce different
+/// trivia tokens but the same non-trivia tokens, so the token memo backdates
+/// and the CST memo is NOT recomputed.
+test "new_reactive_parser: trivia-insensitive early cutoff" {
+  let grammar = fgrammar(
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fws_step_lexer)),
+  )
+  let parser = new_reactive_parser("a a", grammar)
+  let cst1 = parser.cst()
+  inspect(cst1.is_lex_error, content="false")
+  // Change "a a" → "a  a" — adds extra space (trivia). Non-trivia tokens unchanged.
+  parser.set_source("a  a")
+  let cst2 = parser.cst()
+  inspect(cst2.is_lex_error, content="false")
+  // Trivia-insensitive early cutoff: same non-trivia tokens → CST unchanged
+  inspect(cst1 == cst2, content="true")
+}
+
+///|
+/// Content edits that change non-trivia tokens still invalidate.
+test "new_reactive_parser: content edit invalidates despite trivia filter" {
+  let grammar = fgrammar(
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fws_step_lexer)),
+  )
+  let parser = new_reactive_parser("a a", grammar)
+  let cst1 = parser.cst()
+  // Change "a a" → "a !a" — '!' produces an error token, non-trivia changes
+  parser.set_source("a !a")
+  let cst2 = parser.cst()
+  inspect(cst1 == cst2, content="false")
 }

@@ -44,12 +44,17 @@ pub fn[T] TokenInfo::new(token : T, len : Int) -> TokenInfo[T] {
 /// Carries the parse inputs needed downstream: tokens, their explicit starts,
 /// Token sequence for the three-memo pipeline.
 ///
-/// Stores the full lex output (tokens, positions, source) but only `tokens`
-/// and error state participate in equality. Positions (`starts`) and source
-/// text are carried for consumption by the downstream CST memo but are
-/// excluded from comparison. This means edits that shift positions without
-/// changing token kinds/lengths cause the memo to backdate, enabling early
-/// cutoff for downstream parse and AST memos.
+/// Stores the full lex output (tokens, positions, source) but only
+/// **non-trivia tokens** and error state participate in equality.
+/// Trivia tokens (whitespace, newlines), positions (`starts`), and source
+/// text are all excluded from comparison. This means:
+///
+/// - Edits that only change whitespace → token memo backdates → parse skipped
+/// - Edits that shift positions without changing content → same result
+///
+/// The CST memo reads `starts` and `source` from the (possibly stale)
+/// TokenStage value when it needs to recompute. When the token memo
+/// backdates, the CST memo does not recompute at all.
 pub(all) struct TokenStage[T] {
   tokens : Array[TokenInfo[T]]
   starts : Array[Int]
@@ -59,16 +64,49 @@ pub(all) struct TokenStage[T] {
 }
 
 ///|
-/// Equality for early cutoff: compares only tokens + error state.
+/// Trivia-insensitive equality for early cutoff.
 ///
-/// `starts` and `source` are intentionally excluded — two TokenStages with
-/// the same token sequence but different positions are considered equal.
-/// This is correct because CstNode is position-independent and will produce
-/// the same parse tree from the same token sequence.
-pub impl[T : Eq] Eq for TokenStage[T] with equal(self, other) {
-  self.is_lex_error == other.is_lex_error &&
-  self.lex_error_message == other.lex_error_message &&
-  self.tokens == other.tokens
+/// Compares only non-trivia tokens + error state. Trivia tokens (whitespace,
+/// newlines), positions, and source text are all excluded. Two TokenStages
+/// that differ only in trivia are considered equal, causing the Salsa memo
+/// to backdate and skip downstream parse/AST recomputation.
+pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T] with equal(
+  self,
+  other,
+) {
+  if self.is_lex_error != other.is_lex_error {
+    return false
+  }
+  if self.lex_error_message != other.lex_error_message {
+    return false
+  }
+  let a = self.tokens
+  let b = other.tokens
+  let mut ai = 0
+  let mut bi = 0
+  while ai < a.length() && bi < b.length() {
+    if a[ai].token.is_trivia() {
+      ai = ai + 1
+      continue
+    }
+    if b[bi].token.is_trivia() {
+      bi = bi + 1
+      continue
+    }
+    if a[ai] != b[bi] {
+      return false
+    }
+    ai = ai + 1
+    bi = bi + 1
+  }
+  // Skip remaining trivia at the end
+  while ai < a.length() && a[ai].token.is_trivia() {
+    ai = ai + 1
+  }
+  while bi < b.length() && b[bi].token.is_trivia() {
+    bi = bi + 1
+  }
+  ai == a.length() && bi == b.length()
 }
 
 ///|
