@@ -147,6 +147,12 @@ pub(all) struct CstNode {
   /// Used by the incremental parser to advance `position` (whitespace-free
   /// token index) without an O(subtree) traversal on every reuse.
   token_count : Int
+  /// True if this node or any descendant has an error or incomplete kind.
+  /// Computed at construction time via the optional `error_kind`/`incomplete_kind`
+  /// parameters. When those are not provided, defaults to `false`.
+  /// Used by the incremental parser to skip O(subtree) error span collection
+  /// for healthy reused nodes.
+  has_any_error : Bool
 } derive(Show, Debug)
 
 ///|
@@ -160,24 +166,54 @@ pub fn CstNode::new(
   kind : RawKind,
   children : Array[CstElement],
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
   let RawKind(k) = kind
   let mut text_len = 0
   let mut h = k
   let mut token_count = 0
+  let mut has_any_error = false
+  match error_kind {
+    Some(ek) => if kind == ek { has_any_error = true }
+    None => ()
+  }
+  if not(has_any_error) {
+    match incomplete_kind {
+      Some(ik) => if kind == ik { has_any_error = true }
+      None => ()
+    }
+  }
   for child in children {
     text_len = text_len + child.text_len()
     h = combine_hash(h, child_hash(child))
     match child {
-      Token(t) =>
+      Token(t) => {
         match trivia_kind {
           Some(ws) => if t.kind != ws { token_count = token_count + 1 }
           None => token_count = token_count + 1
         }
-      Node(n) => token_count = token_count + n.token_count
+        if not(has_any_error) {
+          match (error_kind, incomplete_kind) {
+            (Some(ek), Some(ik)) =>
+              if t.kind == ek || t.kind == ik {
+                has_any_error = true
+              }
+            (Some(ek), None) => if t.kind == ek { has_any_error = true }
+            (None, Some(ik)) => if t.kind == ik { has_any_error = true }
+            _ => ()
+          }
+        }
+      }
+      Node(n) => {
+        token_count = token_count + n.token_count
+        if not(has_any_error) && n.has_any_error {
+          has_any_error = true
+        }
+      }
     }
   }
-  { kind, children, text_len, hash: h, token_count }
+  { kind, children, text_len, hash: h, token_count, has_any_error }
 }
 
 ///|
