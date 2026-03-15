@@ -101,7 +101,9 @@ pub fn[Ast] ReactiveParser::set_source(
 ///|
 /// Return the Runtime backing this parser so downstream derived cells can join
 /// the same dependency graph.
-pub fn[Ast] ReactiveParser::runtime(self : ReactiveParser[Ast]) -> @incr.Runtime {
+pub fn[Ast] ReactiveParser::runtime(
+  self : ReactiveParser[Ast],
+) -> @incr.Runtime {
   self.rt
 }
 
@@ -133,9 +135,7 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
   self.run_source_chain_validation()
   if self.validate_term_dependency &&
     not(self.term_memo.dependencies().contains(self.cst_memo.id())) {
-    abort(
-      "ReactiveParser::from_parts: term_memo must depend on cst_memo",
-    )
+    abort("ReactiveParser::from_parts: term_memo must depend on cst_memo")
   }
   value
 }
@@ -171,9 +171,7 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
     )
   }
   if rt.cell_info(source_id) is None {
-    abort(
-      "ReactiveParser::from_parts: runtime must own source_text",
-    )
+    abort("ReactiveParser::from_parts: runtime must own source_text")
   }
   // Validate source → source_memo → cst_memo chain.
   // Stored for revalidation on cst()/term() calls so dynamic memo
@@ -187,9 +185,7 @@ pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
     }
     if source_memo_id != cst_id &&
       not(cst_memo.dependencies().contains(source_memo_id)) {
-      abort(
-        "ReactiveParser::from_parts: cst_memo must depend on source_memo",
-      )
+      abort("ReactiveParser::from_parts: cst_memo must depend on source_memo")
     }
   }
   {
