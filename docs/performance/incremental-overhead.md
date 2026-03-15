@@ -75,7 +75,37 @@ Isolated each sub-phase of the incremental parse path using profiling benchmarks
 
 3. **Head vs tail edit costs are identical** (~245 µs for both at 80 lets). The overhead is O(n) regardless of edit position — the cursor walks all nodes even when most are trivially reusable.
 
-4. **Next optimization target:** Reduce per-node `try_reuse` cost. Candidates: skip `try_reuse` for nodes entirely outside the damage region without cursor seek, batch trailing-context lookups, or short-circuit the 4-condition check for consecutive reusable siblings.
+4. **Next optimization target:** Reduce per-node `emit_reused` cost (see detailed analysis below).
+
+### Attempted: skip leading_token_matches for pre-damage nodes
+
+Skipping `leading_token_matches` for nodes with `node_end < damage_start` gave no measurable improvement (~263 µs vs ~245 µs baseline, within noise). The per-node overhead is not concentrated in any single check within `try_reuse`.
+
+**Complication discovered:** A node ending at offset 2 with `damage_start = 3` cannot skip the trailing context check, because the follow token at offset 3 may be inside the damage region and changed. The fast path needs to preserve `trailing_context_matches` for boundary-adjacent nodes.
+
+### Root cause: `emit_reused` does O(subtree) work per reuse hit
+
+The per-node overhead is in `emit_reused`, not `try_reuse`. For each reused node, `emit_reused` performs:
+
+| Operation | Cost per node | Purpose |
+|-----------|--------------|---------|
+| `collect_reused_error_spans` | O(subtree) recursive walk | Find error/incomplete tokens |
+| `Array[ReusedErrorSpan]` allocation | 1 heap alloc | Error span buffer |
+| `error_spans.iter().any(...)` | O(spans) | Boundary ownership check |
+| `next_sibling_has_error` | O(1) | EOF boundary check |
+| `replay_reused_diagnostics` | O(prev_diags) per node | Replay matching diagnostics |
+| `advance_past_reused` | O(tokens_in_node) closure calls | Advance token position |
+| `cursor.advance_past` | O(1) | Advance cursor offset |
+
+For 80 healthy LetDefs (zero errors), `collect_reused_error_spans` walks ~320 children total to find zero spans. `advance_past_reused` makes ~320 `get_start` closure calls to advance through ~4 tokens per node. These add up to the ~148 µs overhead.
+
+### Actionable findings
+
+1. **`collect_reused_error_spans` on healthy nodes:** Skip the recursive walk when the node has no errors. `CstNode` could cache an `has_errors` flag, or check `node.has_errors(error_raw, incomplete_raw)` before walking. If no errors, skip span collection and boundary ownership check.
+
+2. **`advance_past_reused` closure calls:** Replace the `get_start` closure loop with a direct `self.position += node.token_count` jump. `CstNode` already stores `token_count` for this purpose. The closure loop is a fallback for zero-width error placeholders, which could be handled as a special case.
+
+3. **`Array[ReusedErrorSpan]` allocation:** Allocating a fresh array per reuse hit (80 allocations for 80 nodes) adds GC pressure. Reuse a shared buffer or skip allocation when no errors.
 
 ---
 
