@@ -40,7 +40,7 @@ test "parse scaling - large (30+ tokens)" (b : @bench.T) {
 test "incremental vs full - edit at start" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
@@ -54,7 +54,7 @@ test "incremental vs full - edit at start" (b : @bench.T) {
 test "incremental vs full - edit at end" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(32, 33, 33)
@@ -68,7 +68,7 @@ test "incremental vs full - edit at end" (b : @bench.T) {
 test "incremental vs full - edit in middle" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(14, 15, 15)
@@ -82,7 +82,7 @@ test "incremental vs full - edit in middle" (b : @bench.T) {
 test "sequential edits - typing simulation" (b : @bench.T) {
   b.bench(fn() {
     // Simulate typing by making progressive edits
-    let parser1 = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
+    let parser1 = @loom.new_imperative_parser("x", @lambda.source_file_grammar)
     let _ = parser1.parse()
     let edit1 = @core.Edit::insert(1, 4)
     let result = parser1.edit(edit1, "x + 1")
@@ -95,7 +95,9 @@ test "sequential edits - typing simulation" (b : @bench.T) {
 test "sequential edits - backspace simulation" (b : @bench.T) {
   b.bench(fn() {
     // Simulate backspacing by deleting text
-    let parser = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      "x + 1", @lambda.source_file_grammar,
+    )
     let _ = parser.parse()
     let edit = @core.Edit::delete(2, 5) // Delete " + 1"
     let result = parser.edit(edit, "x")
@@ -107,7 +109,9 @@ test "sequential edits - backspace simulation" (b : @bench.T) {
 /// Benchmark: Incremental state baseline - repeated parsing
 test "incremental state baseline - repeated parsing" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      "λx.x", @lambda.source_file_grammar,
+    )
     let _ = parser.parse()
 
     // Make edit
@@ -124,9 +128,13 @@ test "incremental state baseline - repeated parsing" (b : @bench.T) {
 /// Benchmark: Incremental state baseline - similar expressions
 test "incremental state baseline - similar expressions" (b : @bench.T) {
   b.bench(fn() {
-    let parser1 = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
+    let parser1 = @loom.new_imperative_parser(
+      "x + 1", @lambda.source_file_grammar,
+    )
     let result1 = parser1.parse()
-    let parser2 = @loom.new_imperative_parser("x + 2", @lambda.lambda_grammar)
+    let parser2 = @loom.new_imperative_parser(
+      "x + 2", @lambda.source_file_grammar,
+    )
     let result2 = parser2.parse()
     b.keep((result1, result2))
   })
@@ -138,7 +146,9 @@ test "memory pressure - large document" (b : @bench.T) {
   b.bench(fn() {
     // Build a moderately complex expression (simpler to avoid parsing issues)
     let large_expr = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
-    let parser = @loom.new_imperative_parser(large_expr, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      large_expr, @lambda.source_file_grammar,
+    )
     let _ = parser.parse()
 
     // Make small edit - change first variable
@@ -154,7 +164,7 @@ test "memory pressure - large document" (b : @bench.T) {
 test "worst case - full invalidation" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "λf.λx.if f x then x + 1 else x - 1", @lambda.source_file_grammar,
     )
     let _ = parser.parse()
 
@@ -169,7 +179,9 @@ test "worst case - full invalidation" (b : @bench.T) {
 /// Benchmark: Best case - cosmetic change
 test "best case - cosmetic change" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x + 1", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      "x + 1", @lambda.source_file_grammar,
+    )
     let _ = parser.parse()
 
     // Change just the constant
@@ -209,7 +221,7 @@ fn make_token_source_replace(target : Int) -> String {
 test "phase1: full tokenize - 110 tokens" (b : @bench.T) {
   let source = make_token_source()
   b.bench(fn() {
-    let result = @lexer.tokenize(source) catch {
+    let result = @lexer.tokenize_layout(source) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -226,7 +238,7 @@ test "phase1: incremental tokenize - edit at start (110 tokens)" (b : @bench.T) 
   b.bench(fn() {
     let buf = @core.TokenBuffer::new(
       source,
-      tokenize_fn=@lexer.tokenize,
+      tokenize_fn=@lexer.tokenize_layout,
       eof_token=@token.EOF,
     ) catch {
       _ => abort("benchmark failed")
@@ -248,7 +260,7 @@ test "phase1: incremental tokenize - edit in middle (110 tokens)" (b : @bench.T)
   b.bench(fn() {
     let buf = @core.TokenBuffer::new(
       source,
-      tokenize_fn=@lexer.tokenize,
+      tokenize_fn=@lexer.tokenize_layout,
       eof_token=@token.EOF,
     ) catch {
       _ => abort("benchmark failed")
@@ -270,7 +282,7 @@ test "phase1: incremental tokenize - edit at end (110 tokens)" (b : @bench.T) {
   b.bench(fn() {
     let buf = @core.TokenBuffer::new(
       source,
-      tokenize_fn=@lexer.tokenize,
+      tokenize_fn=@lexer.tokenize_layout,
       eof_token=@token.EOF,
     ) catch {
       _ => abort("benchmark failed")
@@ -287,7 +299,7 @@ test "phase1: incremental tokenize - edit at end (110 tokens)" (b : @bench.T) {
 test "phase1: full re-tokenize after edit - 110 tokens" (b : @bench.T) {
   let new_source = make_token_source_replace(28)
   b.bench(fn() {
-    let result = @lexer.tokenize(new_source) catch {
+    let result = @lexer.tokenize_layout(new_source) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -302,7 +314,7 @@ test "phase1: full re-tokenize after edit - 110 tokens" (b : @bench.T) {
 /// Benchmark: parse_cst_recover, small input (global interning always active).
 test "parse_cst_recover - small" (b : @bench.T) {
   b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst_recover("x + 1") catch {
+    let (tree, _) = @lambda.parse_source_file("x + 1") catch {
       _ => abort("benchmark failed")
     }
     b.keep(tree)
@@ -314,7 +326,7 @@ test "parse_cst_recover - small" (b : @bench.T) {
 test "parse_cst_recover - large" (b : @bench.T) {
   let src = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
   b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst_recover(src) catch {
+    let (tree, _) = @lambda.parse_source_file(src) catch {
       _ => abort("benchmark failed")
     }
     b.keep(tree)
@@ -341,14 +353,16 @@ test "parse_cst_recover - large" (b : @bench.T) {
 /// Same tokens passed directly — no tokenization cost in this measurement.
 test "phase3: full CST reparse, no cursor - 110 tokens" (b : @bench.T) {
   let source = make_token_source()
-  let (old_tree, _) = @lambda.parse_cst_recover(source) catch {
+  let (old_tree, _) = @lambda.parse_source_file(source) catch {
     _ => abort("setup failed")
   }
-  let tokens = @lexer.tokenize(source) catch { _ => abort("setup failed") }
+  let tokens = @lexer.tokenize_layout(source) catch {
+    _ => abort("setup failed")
+  }
   b.bench(fn() {
     // Match the cursor path's per-iteration setup cost for fair comparison.
-    let _ = @lambda.make_reuse_cursor(old_tree, 261, 263, tokens)
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let _ = @lambda.make_source_file_reuse_cursor(old_tree, 261, 263, tokens)
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
       source,
       tokens,
       None,
@@ -364,16 +378,20 @@ test "phase3: full CST reparse, no cursor - 110 tokens" (b : @bench.T) {
 test "phase3: cursor reuse, edit at end - 110 tokens" (b : @bench.T) {
   let old_source = make_token_source()
   let new_source = make_token_source_replace(55)
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 261, 263, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_with_cursor(
-      new_source, new_tokens, cursor,
+    let cursor = @lambda.make_source_file_reuse_cursor(
+      old_tree, 261, 263, new_tokens,
+    )
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
+      new_source,
+      new_tokens,
+      Some(cursor),
     )
     b.keep(tree)
   })
@@ -386,53 +404,50 @@ test "phase3: cursor reuse, edit at end - 110 tokens" (b : @bench.T) {
 test "phase3: cursor reuse, edit at start - 110 tokens" (b : @bench.T) {
   let old_source = make_token_source()
   let new_source = make_token_source_replace(1)
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 0, 1, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_with_cursor(
-      new_source, new_tokens, cursor,
+    let cursor = @lambda.make_source_file_reuse_cursor(
+      old_tree, 0, 1, new_tokens,
+    )
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
+      new_source,
+      new_tokens,
+      Some(cursor),
     )
     b.keep(tree)
   })
 }
 
-// --- Phase 4: let expression cursor reuse ---
+// --- Phase 4: let definition cursor reuse ---
 //
-// Measures the reuse benefit enabled by mapping LetKeyword/InKeyword/EqToken
-// in syntax_kind_to_token_kind.  Before the fix, the init expression in
-// "let x = <init> in <body>" always failed the trailing-context check
-// (trailing token = InKeyword was unmapped → None → false) and was reparsed
-// on every body edit regardless of whether the init changed.
+// Byte offsets for "let x = 1\ny" (11 bytes):
+//   init IntLiteral(1) : [8, 9)   — trailing context = NewlineToken
+//   body VarRef("y")   : [10, 11) — trailing context = EOF
 //
-// Byte offsets for "let x = 1 in y" (14 bytes):
-//   init IntLiteral(1) : [8, 9)   — trailing context = InKeyword
-//   body VarRef("y")   : [13, 14) — trailing context = EOF
-//
-// Byte offsets for "let x = 1 in let y = 2 in z" (27 bytes):
-//   outer init IntLiteral(1) : [8, 9)   — trailing context = InKeyword
-//   inner init IntLiteral(2) : [21, 22) — trailing context = InKeyword
-//   body VarRef("z")         : [26, 27) — trailing context = EOF
+// Byte offsets for "let x = 1\nlet y = 2\nz" (21 bytes):
+//   outer init IntLiteral(1) : [8, 9)   — trailing context = NewlineToken
+//   inner init IntLiteral(2) : [18, 19) — trailing context = NewlineToken
+//   body VarRef("z")         : [20, 21) — trailing context = EOF
 
 ///|
-/// Benchmark: full CST reparse of let expression, no cursor (Phase 4 reuse baseline).
-/// Cursor construction overhead is included to keep comparisons fair.
+/// Benchmark: full CST reparse of let def, no cursor (reuse baseline).
 test "phase4: let body edit - full reparse, no cursor (baseline)" (b : @bench.T) {
-  let old_source = "let x = 1 in y"
-  let new_source = "let x = 1 in z"
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let old_source = "let x = 1\ny"
+  let new_source = "let x = 1\nz"
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let _ = @lambda.make_reuse_cursor(old_tree, 13, 14, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
+    let _ = @lambda.make_source_file_reuse_cursor(old_tree, 10, 11, new_tokens)
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
       new_source,
       new_tokens,
       None,
@@ -442,22 +457,25 @@ test "phase4: let body edit - full reparse, no cursor (baseline)" (b : @bench.T)
 }
 
 ///|
-/// Benchmark: let body edit with cursor — IntLiteral(1) reused via InKeyword context.
-/// "let x = 1 in y" → "let x = 1 in z": damage [13,14).
-/// IntLiteral(1) at [8,9) is undamaged; its trailing token InKeyword is now mapped → reuse fires.
+/// Benchmark: let body edit with cursor — IntLiteral(1) reused via NewlineToken context.
+/// "let x = 1\ny" → "let x = 1\nz": damage [10,11).
 test "phase4: let body edit - init IntLiteral reused via cursor" (b : @bench.T) {
-  let old_source = "let x = 1 in y"
-  let new_source = "let x = 1 in z"
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let old_source = "let x = 1\ny"
+  let new_source = "let x = 1\nz"
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 13, 14, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_with_cursor(
-      new_source, new_tokens, cursor,
+    let cursor = @lambda.make_source_file_reuse_cursor(
+      old_tree, 10, 11, new_tokens,
+    )
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
+      new_source,
+      new_tokens,
+      Some(cursor),
     )
     b.keep(tree)
   })
@@ -465,21 +483,24 @@ test "phase4: let body edit - init IntLiteral reused via cursor" (b : @bench.T) 
 
 ///|
 /// Benchmark: let init edit with cursor.
-/// "let x = 1 in y" → "let x = 2 in y": damage [8,9) — init changed.
-/// LetExpr overlaps damage and is reparsed; body VarRef("y") at [13,14) may still be reused.
+/// "let x = 1\ny" → "let x = 2\ny": damage [8,9) — init changed.
 test "phase4: let init edit - cursor" (b : @bench.T) {
-  let old_source = "let x = 1 in y"
-  let new_source = "let x = 2 in y"
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let old_source = "let x = 1\ny"
+  let new_source = "let x = 2\ny"
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 8, 9, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_with_cursor(
-      new_source, new_tokens, cursor,
+    let cursor = @lambda.make_source_file_reuse_cursor(
+      old_tree, 8, 9, new_tokens,
+    )
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
+      new_source,
+      new_tokens,
+      Some(cursor),
     )
     b.keep(tree)
   })
@@ -487,21 +508,24 @@ test "phase4: let init edit - cursor" (b : @bench.T) {
 
 ///|
 /// Benchmark: nested let body edit — both init IntLiterals reused via cursor.
-/// "let x = 1 in let y = 2 in z" → "...w": damage [26,27).
-/// IntLiteral(1) at [8,9) and IntLiteral(2) at [21,22) both trail InKeyword → both reused.
+/// "let x = 1\nlet y = 2\nz" → "...w": damage [20,21).
 test "phase4: nested let body edit - multiple inits reused" (b : @bench.T) {
-  let old_source = "let x = 1 in let y = 2 in z"
-  let new_source = "let x = 1 in let y = 2 in w"
-  let (old_tree, _) = @lambda.parse_cst_recover(old_source) catch {
+  let old_source = "let x = 1\nlet y = 2\nz"
+  let new_source = "let x = 1\nlet y = 2\nw"
+  let (old_tree, _) = @lambda.parse_source_file(old_source) catch {
     _ => abort("setup failed")
   }
-  let new_tokens = @lexer.tokenize(new_source) catch {
+  let new_tokens = @lexer.tokenize_layout(new_source) catch {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 26, 27, new_tokens)
-    let (tree, _, _) = @lambda.parse_cst_with_cursor(
-      new_source, new_tokens, cursor,
+    let cursor = @lambda.make_source_file_reuse_cursor(
+      old_tree, 20, 21, new_tokens,
+    )
+    let (tree, _, _) = @lambda.parse_source_file_recover_with_tokens(
+      new_source,
+      new_tokens,
+      Some(cursor),
     )
     b.keep(tree)
   })

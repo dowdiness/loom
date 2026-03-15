@@ -61,7 +61,7 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
       let edit = @core.Edit::insert(pos, insert.length())
       let buffer_res = try? @core.TokenBuffer::new(
         base,
-        tokenize_fn=tokenize,
+        tokenize_fn=tokenize_layout,
         eof_token=@token.EOF,
       )
       match buffer_res {
@@ -72,7 +72,7 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
-          ] = try? tokenize(new_source)
+          ] = try? tokenize_layout(new_source)
           match (update_res, full_res) {
             (Ok(_), Ok(full)) =>
               @token.print_token_infos(buffer.get_tokens()) ==
@@ -104,7 +104,7 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
       let edit = @core.Edit::delete(from, to)
       let buffer_res = try? @core.TokenBuffer::new(
         base,
-        tokenize_fn=tokenize,
+        tokenize_fn=tokenize_layout,
         eof_token=@token.EOF,
       )
       match buffer_res {
@@ -115,7 +115,7 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
-          ] = try? tokenize(new_source)
+          ] = try? tokenize_layout(new_source)
           match (update_res, full_res) {
             (Ok(_), Ok(full)) =>
               @token.print_token_infos(buffer.get_tokens()) ==
@@ -148,7 +148,7 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
       let edit = @core.Edit::replace(from, to, from + insert.length())
       let buffer_res = try? @core.TokenBuffer::new(
         base,
-        tokenize_fn=tokenize,
+        tokenize_fn=tokenize_layout,
         eof_token=@token.EOF,
       )
       match buffer_res {
@@ -159,7 +159,7 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
           let full_res : Result[
             Array[@token.TokenInfo[@token.Token]],
             @core.LexError,
-          ] = try? tokenize(new_source)
+          ] = try? tokenize_layout(new_source)
           match (update_res, full_res) {
             (Ok(_), Ok(full)) =>
               @token.print_token_infos(buffer.get_tokens()) ==
@@ -175,16 +175,16 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
 }
 
 ///|
-test "property: token buffer insert matches full tokenize" {
+test "property: token buffer insert matches full tokenize_layout" {
   @qc.quick_check_fn(prop_token_buffer_insert)
 }
 
 ///|
-test "property: token buffer delete matches full tokenize" {
+test "property: token buffer delete matches full tokenize_layout" {
   @qc.quick_check_fn(prop_token_buffer_delete)
 }
 
 ///|
-test "property: token buffer replace matches full tokenize" {
+test "property: token buffer replace matches full tokenize_layout" {
   @qc.quick_check_fn(prop_token_buffer_replace)
 }

@@ -35,9 +35,7 @@ pub(all) enum SyntaxKind {
   ErrorNode
   SourceFile
   LetKeyword
-  InKeyword
   EqToken
-  LetExpr
   LetDef
   NewlineToken
 }

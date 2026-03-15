@@ -3,7 +3,7 @@
 
 ///|
 test "LambdaExprView::cast returns Some for LambdaExpr nodes" {
-  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   // SourceFile wraps LambdaExpr; find the LambdaExpr child
   let lambda_child = syn.children()[0]
@@ -12,7 +12,7 @@ test "LambdaExprView::cast returns Some for LambdaExpr nodes" {
 
 ///|
 test "LambdaExprView::cast returns None for non-lambda nodes" {
-  let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let int_child = syn.children()[0]
   inspect(LambdaExprView::cast(int_child) is None, content="true")
@@ -20,7 +20,7 @@ test "LambdaExprView::cast returns None for non-lambda nodes" {
 
 ///|
 test "LambdaExprView::param returns bound name" {
-  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -31,7 +31,7 @@ test "LambdaExprView::param returns bound name" {
 
 ///|
 test "LambdaExprView::body returns Some for well-formed lambda" {
-  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -42,7 +42,7 @@ test "LambdaExprView::body returns Some for well-formed lambda" {
 
 ///|
 test "IntLiteralView::value returns parsed integer" {
-  let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match IntLiteralView::cast(syn.children()[0]) {
     Some(v) => v
@@ -53,7 +53,7 @@ test "IntLiteralView::value returns parsed integer" {
 
 ///|
 test "VarRefView::name returns identifier text" {
-  let (cst, _) = parse_cst_recover("myVar") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("myVar") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match VarRefView::cast(syn.children()[0]) {
     Some(v) => v
@@ -64,7 +64,7 @@ test "VarRefView::name returns identifier text" {
 
 ///|
 test "AppExprView::cast returns Some for application" {
-  let (cst, _) = parse_cst_recover("f x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("f x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match AppExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -79,7 +79,7 @@ test "AppExprView::cast returns Some for application" {
 /// The grammar produces a flat AppExpr with N node-children; args() must
 /// expose all of them, not just the first.
 test "AppExprView::args returns all args for chained application" {
-  let (cst, _) = parse_cst_recover("f x y z") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("f x y z") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match AppExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -92,7 +92,7 @@ test "AppExprView::args returns all args for chained application" {
 ///|
 /// BinaryExprView::operands and ops return the full flat sequence for `a + b - c`.
 test "BinaryExprView::operands and ops return full flat sequence" {
-  let (cst, _) = parse_cst_recover("a + b - c") catch {
+  let (cst, _) = parse_source_file("a + b - c") catch {
     _ => abort("lex error")
   }
   let syn = @seam.SyntaxNode::from_cst(cst)
@@ -105,21 +105,21 @@ test "BinaryExprView::operands and ops return full flat sequence" {
 }
 
 ///|
-test "LetExprView::name returns binding name" {
-  let (cst, _) = parse_cst_recover("let x = 1 in x") catch {
+test "LetDefView::name returns binding name" {
+  let (cst, _) = parse_source_file("let x = 1\nx") catch {
     _ => abort("lex error")
   }
   let syn = @seam.SyntaxNode::from_cst(cst)
-  let view = match LetExprView::cast(syn.children()[0]) {
+  let view = match LetDefView::cast(syn.children()[0]) {
     Some(v) => v
-    None => abort("expected LetExpr")
+    None => abort("expected LetDef")
   }
   inspect(view.name(), content="x")
 }
 
 ///|
 test "SyntaxNode::to_json produces valid JSON string" {
-  let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let j = syn.to_json()
   let s = j.to_string()
@@ -128,7 +128,7 @@ test "SyntaxNode::to_json produces valid JSON string" {
 
 ///|
 test "LambdaExprView::to_json includes param and body keys" {
-  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -141,7 +141,7 @@ test "LambdaExprView::to_json includes param and body keys" {
 
 ///|
 test "syntax_node_to_term: integer" {
-  let (cst, _) = parse_cst_recover("42") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
   inspect(term, content="Int(42)")
@@ -149,7 +149,7 @@ test "syntax_node_to_term: integer" {
 
 ///|
 test "syntax_node_to_term: lambda" {
-  let (cst, _) = parse_cst_recover("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_source_file("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
   inspect(term, content="Lam(\"x\", Var(\"x\"))")
@@ -157,10 +157,10 @@ test "syntax_node_to_term: lambda" {
 
 ///|
 test "syntax_node_to_term: let binding" {
-  let (cst, _) = parse_cst_recover("let x = 1 in x") catch {
+  let (cst, _) = parse_source_file("let x = 1\nx") catch {
     _ => abort("lex error")
   }
   let syn = @seam.SyntaxNode::from_cst(cst)
-  let term = syntax_node_to_term(syn)
+  let term = syntax_node_to_source_file_term(syn)
   inspect(term, content="Let(\"x\", Int(1), Var(\"x\"))")
 }
