@@ -1,98 +1,6 @@
 ///|
 const MAX_ERRORS : Int = 50
 
-///|
-/// Create a ReuseCursor from an old syntax tree and a pre-tokenized new stream.
-pub fn make_reuse_cursor(
-  old_tree : @seam.CstNode,
-  damage_start : Int,
-  damage_end : Int,
-  tokens : Array[@token.TokenInfo[@token.Token]],
-) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
-  let starts = @core.build_starts(tokens)
-  @core.ReuseCursor::new(
-    old_tree,
-    damage_start,
-    damage_end,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    lambda_spec,
-  )
-}
-
-///|
-/// Strict: raises ParseError on first syntax error (backward compat).
-pub fn parse_cst(source : String) -> @seam.CstNode raise {
-  let (cst, errors) = parse_cst_recover(source)
-  if errors.length() > 0 {
-    let diag = errors[0]
-    raise ParseError(diag.message, diag.got_token)
-  }
-  cst
-}
-
-///|
-/// Recovering: returns tree with ErrorNodes + diagnostic list.
-/// Only raises for LexError (unrecoverable).
-pub fn parse_cst_recover(
-  source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
-  let tokens = @lexer.tokenize(source)
-  let starts = @core.build_starts(tokens)
-  let (cst, diagnostics, _) = @core.parse_tokens_indexed(
-    source,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    i => starts[i] + tokens[i].len,
-    lambda_spec,
-  )
-  (cst, diagnostics)
-}
-
-///|
-/// Parse with reuse cursor for incremental parsing with subtree reuse.
-pub fn parse_cst_with_cursor(
-  source : String,
-  tokens : Array[@token.TokenInfo[@token.Token]],
-  cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind],
-  prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
-  let starts = @core.build_starts(tokens)
-  @core.parse_tokens_indexed(
-    source,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    i => starts[i] + tokens[i].len,
-    lambda_spec,
-    cursor=Some(cursor),
-    prev_diagnostics~,
-  )
-}
-
-///|
-/// Parse with pre-tokenized input and optional reuse cursor.
-pub fn parse_cst_recover_with_tokens(
-  source : String,
-  tokens : Array[@token.TokenInfo[@token.Token]],
-  cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
-  prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
-  let starts = @core.build_starts(tokens)
-  @core.parse_tokens_indexed(
-    source,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    i => starts[i] + tokens[i].len,
-    lambda_spec,
-    cursor~,
-    prev_diagnostics~,
-  )
-}
-
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
 ///|
@@ -225,7 +133,6 @@ fn is_sync_point(t : @token.Token) -> Bool {
   match t {
     @token.Newline
     | @token.RightParen
-    | @token.In
     | @token.Lambda
     | @token.Let
     | @token.If
@@ -278,26 +185,6 @@ fn skip_until_paren_close_or_sync(
 // ─── Grammar (entry point + rules) ───────────────────────────────────────────
 
 ///|
-/// Entry point — wired into lambda_spec as parse_root.
-fn parse_lambda_root(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Unit {
-  parse_expression(ctx)
-  match ctx.peek() {
-    @token.EOF => ctx.flush_trivia()
-    _ => {
-      ctx.error("Unexpected tokens after expression")
-      ctx.start_node(@syntax.ErrorNode)
-      while ctx.peek() != @token.EOF {
-        ctx.bump_error()
-      }
-      ctx.finish_node()
-      ctx.flush_trivia()
-    }
-  }
-}
-
-///|
 fn parse_expression(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
@@ -316,39 +203,7 @@ fn parse_expression_with_mode(
   allow_newline_application : Bool,
 ) -> Unit {
   consume_soft_newlines_before_expression(ctx)
-  parse_let_expr(ctx, allow_newline_application)
-}
-
-///|
-fn parse_let_expr(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  allow_newline_application : Bool,
-) -> Unit {
-  match ctx.peek() {
-    @token.Let =>
-      ctx.node_with_recovery(
-        @syntax.LetExpr,
-        () => {
-          ctx.emit_token(@syntax.LetKeyword)
-          match ctx.peek() {
-            @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-            _ => {
-              ctx.error("Expected variable name after 'let'")
-              ctx.emit_error_placeholder()
-            }
-          }
-          let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
-          parse_let_expr(ctx, allow_newline_application)
-          if not(lambda_expect(ctx, @token.In, @syntax.InKeyword)) {
-            return false
-          }
-          parse_let_expr(ctx, allow_newline_application)
-          true
-        },
-        is_sync_point,
-      )
-    _ => parse_binary_op(ctx, allow_newline_application)
-  }
+  parse_binary_op(ctx, allow_newline_application)
 }
 
 ///|
@@ -527,17 +382,9 @@ fn parse_source_file_let_item(
   }
   let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
   parse_expression_with_mode(ctx, false)
-  let mut is_def = true
-  consume_soft_newlines_before_expected(ctx, @token.In)
-  if ctx.peek() == @token.In {
-    is_def = false
-    ctx.emit_token(@syntax.InKeyword)
-    parse_expression(ctx)
-  }
-  let kind = if is_def { @syntax.LetDef } else { @syntax.LetExpr }
-  ctx.start_at(mark, kind)
+  ctx.start_at(mark, @syntax.LetDef)
   ctx.finish_node()
-  is_def
+  true
 }
 
 ///|

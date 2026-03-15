@@ -25,5 +25,5 @@ pub using @incremental {type ImperativeParser}
 pub fn new_imperative_parser(
   source : String,
 ) -> @incremental.ImperativeParser[@seam.SyntaxNode] {
-  @loom.new_imperative_parser(source, lambda_grammar)
+  @loom.new_imperative_parser(source, source_file_grammar)
 }

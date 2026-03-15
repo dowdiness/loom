@@ -277,68 +277,6 @@ pub impl ToJson for IfExprView with to_json(self) -> Json {
   }
 }
 
-// ─── LetExpr ─────────────────────────────────────────────────────────────────
-
-///|
-pub struct LetExprView {
-  node : @seam.SyntaxNode
-}
-
-///|
-pub fn LetExprView::cast(n : @seam.SyntaxNode) -> LetExprView? {
-  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.LetExpr {
-    Some({ node: n })
-  } else {
-    None
-  }
-}
-
-///|
-pub impl @core.AstView for LetExprView with syntax_node(self) {
-  self.node
-}
-
-///|
-/// The binding name (first IdentToken in the node).
-pub fn LetExprView::name(self : LetExprView) -> String {
-  self.node
-  .find_token(@syntax.IdentToken.to_raw())
-  .map(t => t.text())
-  .unwrap_or("")
-}
-
-///|
-/// The init expression (first interior-node child).
-pub fn LetExprView::init(self : LetExprView) -> @seam.SyntaxNode? {
-  self.node.nth_child(0)
-}
-
-///|
-/// The body expression (second interior-node child).
-pub fn LetExprView::body(self : LetExprView) -> @seam.SyntaxNode? {
-  self.node.nth_child(1)
-}
-
-///|
-pub impl ToJson for LetExprView with to_json(self) -> Json {
-  let init_json : Json = match self.init() {
-    Some(n) => n.to_json()
-    None => Json::null()
-  }
-  let body_json : Json = match self.body() {
-    Some(n) => n.to_json()
-    None => Json::null()
-  }
-  {
-    "kind": "LetExpr",
-    "name": self.name(),
-    "start": (self.node.start() : Int),
-    "end": (self.node.end() : Int),
-    "init": init_json,
-    "body": body_json,
-  }
-}
-
 // ─── ParenExpr ───────────────────────────────────────────────────────────────
 
 ///|

@@ -10,11 +10,9 @@
 /// additional error-recovery siblings are silently dropped. Partially-recovered
 /// expressions are represented as `Term::Error(msg)` in the term tree.
 ///
-/// **Contract:** Pass only trees produced by the lambda-grammar entry points
-/// (`parse`, `parse_cst`, `parse_cst_recover*`). Trees produced by
-/// `parse_source_file` contain `LetDef` nodes that are not handled here — they
-/// fall through to `Term::Error("unknown node kind: LetDef")`. Use
-/// `syntax_node_to_source_file_term` for source-file grammar trees.
+/// **Note:** This handles single-expression trees only. Trees containing
+/// `LetDef` nodes fall through to `Term::Error("unknown node kind: LetDef")`.
+/// Use `syntax_node_to_source_file_term` for source-file grammar trees.
 pub fn syntax_node_to_term(root : @seam.SyntaxNode) -> @ast.Term {
   let node = match @syntax.SyntaxKind::from_raw(root.kind()) {
     @syntax.SourceFile =>
@@ -107,18 +105,6 @@ fn view_to_term(node : @seam.SyntaxNode) -> @ast.Term {
         None => @ast.Term::Error("missing else branch")
       }
       @ast.Term::If(cond, then_, else_)
-    }
-    @syntax.LetExpr => {
-      let v = LetExprView::{ node, }
-      let init = match v.init() {
-        Some(n) => view_to_term(n)
-        None => @ast.Term::Error("missing let binding value")
-      }
-      let body = match v.body() {
-        Some(n) => view_to_term(n)
-        None => @ast.Term::Error("missing let body")
-      }
-      @ast.Term::Let(v.name(), init, body)
     }
     @syntax.ParenExpr => {
       let v = ParenExprView::{ node, }

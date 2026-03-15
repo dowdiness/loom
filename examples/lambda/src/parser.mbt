@@ -8,9 +8,10 @@ pub suberror ParseError {
 ///|
 /// Parse the input string into a Term (without position information).
 pub fn parse(input : String) -> @ast.Term raise {
-  let cst = parse_cst(input)
-  let syn = @seam.SyntaxNode::from_cst(cst)
-  syntax_node_to_term(syn)
+  let (term, _) = parse_source_file_term(input) catch {
+    @core.LexError(msg) => raise ParseError(msg, @token.EOF)
+  }
+  term
 }
 
 ///|

@@ -14,7 +14,6 @@ fn syntax_kind_to_token_kind(kind : @seam.RawKind) -> @token.Token? {
     @syntax.ThenKeyword => Some(@token.Then)
     @syntax.ElseKeyword => Some(@token.Else)
     @syntax.LetKeyword => Some(@token.Let)
-    @syntax.InKeyword => Some(@token.In)
     @syntax.EqToken => Some(@token.Eq)
     @syntax.NewlineToken => Some(@token.Newline)
     _ => None
@@ -38,18 +37,6 @@ let cst_token_matches : (@seam.RawKind, String, @token.Token) -> Bool = (
       }
   }
 }
-
-///|
-/// The LanguageSpec for Lambda Calculus.
-/// Created once at module init, reused across all parses (zero per-parse allocation).
-let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
-  @syntax.WhitespaceToken,
-  @syntax.ErrorToken,
-  @syntax.SourceFile,
-  @token.EOF,
-  cst_token_matches~,
-  parse_root=parse_lambda_root,
-)
 
 ///|
 /// LanguageSpec for source-file grammar (LetDef* Expression?).
