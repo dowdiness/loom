@@ -224,3 +224,38 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
     b.keep(tree)
   })
 }
+
+// ─── Closure call overhead isolation ───────────────────────────────────────
+
+///|
+/// Measure cost of N closure calls (indirect function calls).
+test "profile: closure call overhead - 960 calls" (b : @bench.T) {
+  let source = make_profile_source(320, "1")
+  let tokens = @lexer.tokenize(source) catch { _ => abort("lex failed") }
+  let starts = @core.build_starts(tokens)
+  let get_start : (Int) -> Int = fn(i) { starts[i] }
+  let n = tokens.length()
+  b.bench(fn() {
+    let mut sum = 0
+    for i = 0; i < n; i = i + 1 {
+      sum = sum + get_start(i)
+    }
+    b.keep(sum)
+  })
+}
+
+///|
+/// Same work via direct array access — no closure indirection.
+test "profile: direct array access - 960 calls" (b : @bench.T) {
+  let source = make_profile_source(320, "1")
+  let tokens = @lexer.tokenize(source) catch { _ => abort("lex failed") }
+  let starts = @core.build_starts(tokens)
+  let n = tokens.length()
+  b.bench(fn() {
+    let mut sum = 0
+    for i = 0; i < n; i = i + 1 {
+      sum = sum + starts[i]
+    }
+    b.keep(sum)
+  })
+}

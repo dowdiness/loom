@@ -116,6 +116,16 @@ The most promising approach requires a **seam API change**: add `error_kind` and
 
 The `advance_past_reused` loop remains. Its cost (~4 closure calls per LetDef) is minor compared to the error span collection.
 
+### Closure call overhead: not a factor
+
+960 closure calls vs 960 direct array accesses: 1.79 µs vs 1.78 µs (no difference). MoonBit's wasm-gc backend optimizes closures to near-direct-call speed. The per-node overhead is NOT from indirect function call overhead.
+
+### Current assessment
+
+The ~2.5x overhead is distributed across many small per-node costs: cursor seek (stack operations, child scanning), trailing context binary search, advance_past_reused token loop, replay_reused_diagnostics iteration, event push, and grammar body execution (closure allocation for `ctx.node()`, trivia skip). No single operation dominates. The overhead appears to be a fundamental cost of the incremental reuse protocol at this subtree granularity.
+
+For larger, deeper subtrees (e.g., complex expressions with many nested nodes), the reuse benefit increases because the per-node overhead is paid once to skip parsing the entire subtree. The flat LetDef case is worst-case for incremental overhead because each reused node is small (~4 tokens) relative to the per-node reuse cost.
+
 ---
 
 ## Future: `re_intern_subtree` early-exit optimization
