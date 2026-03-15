@@ -145,9 +145,10 @@ test "error recovery - error" (b : @bench.T) {
 /// Benchmark: Full parse of let definition + expression.
 test "full parse - let" (b : @bench.T) {
   b.bench(fn() {
-    let (_, _) = @lambda.parse_term("let x = 1\nx") catch {
+    let (term, _) = @lambda.parse_term("let x = 1\nx") catch {
       _ => abort("benchmark failed")
     }
+    b.keep(term)
   })
 }
 
@@ -155,9 +156,10 @@ test "full parse - let" (b : @bench.T) {
 /// Benchmark: Full parse of nested let definitions.
 test "full parse - nested let" (b : @bench.T) {
   b.bench(fn() {
-    let (_, _) = @lambda.parse_term("let x = 1\nlet y = x + 1\ny") catch {
+    let (term, _) = @lambda.parse_term("let x = 1\nlet y = x + 1\ny") catch {
       _ => abort("benchmark failed")
     }
+    b.keep(term)
   })
 }
 

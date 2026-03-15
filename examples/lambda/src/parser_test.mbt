@@ -134,7 +134,8 @@ test "parse error - missing parameter after lambda" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -150,7 +151,8 @@ test "parse error - missing dot after lambda parameter" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -166,7 +168,8 @@ test "parse error - unmatched left paren" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -182,7 +185,8 @@ test "parse error - unmatched right paren" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -198,7 +202,8 @@ test "parse error - missing then in if" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -214,7 +219,8 @@ test "parse error - missing else in if" {
   inspect(
     should_error,
     content=(
-      #|false
+      #|true
+
     ),
   )
 }
@@ -289,48 +295,28 @@ test "parse complex expression with all features" {
 
 ///|
 test "parse let expression" {
-  let expr = parse("let x = 1 in x") catch { _ => abort("parse failed") }
-  inspect(
-    @ast.print_term(expr),
-    content=(
-      #|let x = 1 in <error: unknown node kind: ErrorToken>
-    ),
-  )
+  let expr = parse("let x = 1\nx") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content="let x = 1 in x")
 }
 
 ///|
 test "parse let with binary op in body" {
-  let expr = parse("let x = 3 in x + 1") catch { _ => abort("parse failed") }
-  inspect(
-    @ast.print_term(expr),
-    content=(
-      #|let x = 3 in <error: unknown node kind: ErrorToken>
-    ),
-  )
+  let expr = parse("let x = 3\nx + 1") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content="let x = 3 in (x + 1)")
 }
 
 ///|
 test "parse nested let" {
-  let expr = parse("let x = 1 in let y = 2 in x + y") catch {
+  let expr = parse("let x = 1\nlet y = 2\nx + y") catch {
     _ => abort("parse failed")
   }
-  inspect(
-    @ast.print_term(expr),
-    content=(
-      #|let x = 1 in <error: unknown node kind: ErrorToken>
-    ),
-  )
+  inspect(@ast.print_term(expr), content="let x = 1 in let y = 2 in (x + y)")
 }
 
 ///|
 test "parse let with lambda" {
-  let expr = parse("let f = λx.x in f 42") catch { _ => abort("parse failed") }
-  inspect(
-    @ast.print_term(expr),
-    content=(
-      #|let f = (λx. x) in <error: unknown node kind: ErrorToken>
-    ),
-  )
+  let expr = parse("let f = λx.x\nf 42") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(expr), content="let f = (λx. x) in (f 42)")
 }
 
 ///|
