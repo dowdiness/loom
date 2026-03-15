@@ -39,6 +39,16 @@ Key incremental benchmarks, before vs after (lambda module, `moon bench --releas
 
 ---
 
+## Future: `re_intern_subtree` early-exit optimization
+
+`re_intern_subtree` currently does an O(subtree_size) walk for every reused node, even when the node is already fully interned (the production path). All `intern_token`/`intern_node` calls are O(1) cache hits, but the walk still allocates temporary `Array[CstElement]` at every level.
+
+An early-exit check could reduce this to O(1) for already-canonical subtrees: call `node_interner.intern_node(node)` first, and if the returned reference is the same canonical copy, skip the children walk entirely.
+
+**Blocker:** `NodeInterner::intern_node` returns the same reference for both "already in interner" (safe to skip) and "newly inserted" (must walk children) cases. A `NodeInterner::lookup` method (get-without-insert) is needed to distinguish these safely.
+
+---
+
 ## Fundamental Limitation: Right-Recursive Grammars
 
 Right-recursive grammars with tail edits are worst-case for incremental parsing:
