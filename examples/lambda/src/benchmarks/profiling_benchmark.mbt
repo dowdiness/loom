@@ -224,3 +224,159 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
     b.keep(tree)
   })
 }
+
+// ─── Subtree depth experiment ──────────────────────────────────────────────
+// Test whether incremental wins when reused subtrees are deeper.
+
+///|
+/// Generate N LetDefs with complex init expressions (deeper subtrees).
+/// Each init is a nested binary expression: "1 + 2 + 3 + ... + depth"
+fn make_deep_let_chain(n : Int, depth : Int, tail : String) -> String {
+  let segments : Array[String] = []
+  for i = 0; i < n; i = i + 1 {
+    let mut expr = "1"
+    for j = 2; j <= depth; j = j + 1 {
+      expr = expr + " + \{j}"
+    }
+    segments.push("let x\{i} = \{expr}")
+  }
+  segments.push(tail)
+  segments.join("\n")
+}
+
+///|
+/// 20 LetDefs with depth-10 inits. Edit the tail expression.
+test "profile: 20 deep lets - full reparse" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 10, "x0")
+  b.bench(fn() {
+    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    b.keep(cst)
+  })
+}
+
+///|
+test "profile: 20 deep lets - incremental (edit tail)" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 10, "x0")
+  let edited = make_deep_let_chain(20, 10, "x1")
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let _ = parser.parse()
+  let edit_pos = source.length() - 2 // change "x0" to "x1"
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
+  b.bench(fn() {
+    let tree = parser.edit(edit, edited)
+    b.keep(tree)
+    let _ = parser.edit(edit, source)
+  })
+}
+
+///|
+/// 20 LetDefs with depth-20 inits.
+test "profile: 20 very deep lets - full reparse" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 20, "x0")
+  b.bench(fn() {
+    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    b.keep(cst)
+  })
+}
+
+///|
+test "profile: 20 very deep lets - incremental (edit tail)" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 20, "x0")
+  let edited = make_deep_let_chain(20, 20, "x1")
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let _ = parser.parse()
+  let edit_pos = source.length() - 2
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
+  b.bench(fn() {
+    let tree = parser.edit(edit, edited)
+    b.keep(tree)
+    let _ = parser.edit(edit, source)
+  })
+}
+
+// ─── re_intern_subtree isolation ───────────────────────────────────────────
+
+///|
+/// Tree build with build_tree (no interning) — baseline.
+test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 10, "x0")
+  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let events : Array[@seam.ParseEvent] = []
+  for child in cst.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+      @seam.CstElement::Node(n) =>
+        events.push(@seam.ParseEvent::ReuseNode(n))
+    }
+  }
+  let root_kind = cst.kind
+  b.bench(fn() {
+    let tree = @seam.build_tree(events, root_kind)
+    b.keep(tree)
+  })
+}
+
+///|
+/// Tree build with build_tree_fully_interned — includes re_intern_subtree.
+test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (b : @bench.T) {
+  let source = make_deep_let_chain(20, 10, "x0")
+  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let events : Array[@seam.ParseEvent] = []
+  for child in cst.children {
+    match child {
+      @seam.CstElement::Token(t) =>
+        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+      @seam.CstElement::Node(n) =>
+        events.push(@seam.ParseEvent::ReuseNode(n))
+    }
+  }
+  let root_kind = cst.kind
+  // WhitespaceToken raw kind = 11 (from syntax_kind.mbt:to_raw).
+  // Not accessible as a constant from the benchmarks package.
+  let ws = @seam.RawKind(11)
+  b.bench(fn() {
+    // Fresh interners per iteration to avoid warm-cache bias.
+    let interner = @seam.Interner::new()
+    let ni = @seam.NodeInterner::new()
+    let tree = @seam.build_tree_fully_interned(
+      events, root_kind, interner, ni, trivia_kind=Some(ws),
+    )
+    b.keep(tree)
+  })
+}
+
+// ─── Closure call overhead isolation ───────────────────────────────────────
+
+///|
+/// Measure cost of N closure calls (indirect function calls).
+test "profile: closure call overhead - 960 calls" (b : @bench.T) {
+  let source = make_profile_source(320, "1")
+  let tokens = @lexer.tokenize(source) catch { _ => abort("lex failed") }
+  let starts = @core.build_starts(tokens)
+  let get_start : (Int) -> Int = fn(i) { starts[i] }
+  let n = tokens.length()
+  b.bench(fn() {
+    let mut sum = 0
+    for i = 0; i < n; i = i + 1 {
+      sum = sum + get_start(i)
+    }
+    b.keep(sum)
+  })
+}
+
+///|
+/// Same work via direct array access — no closure indirection.
+test "profile: direct array access - 960 calls" (b : @bench.T) {
+  let source = make_profile_source(320, "1")
+  let tokens = @lexer.tokenize(source) catch { _ => abort("lex failed") }
+  let starts = @core.build_starts(tokens)
+  let n = tokens.length()
+  b.bench(fn() {
+    let mut sum = 0
+    for i = 0; i < n; i = i + 1 {
+      sum = sum + starts[i]
+    }
+    b.keep(sum)
+  })
+}

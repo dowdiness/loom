@@ -6,11 +6,11 @@ import {
 }
 
 // Values
-pub fn build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?) -> CstNode
+pub fn build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
 
-pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode
+pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
 
-pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?) -> CstNode
+pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
 
 pub fn combine_hash(Int, Int) -> Int
 
@@ -36,11 +36,12 @@ pub(all) struct CstNode {
   text_len : Int
   hash : Int
   token_count : Int
+  has_any_error : Bool
 }
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
-pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?) -> Self
+pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
 pub impl Eq for CstNode
 pub impl Hash for CstNode
 pub impl Show for CstNode
@@ -61,9 +62,9 @@ pub impl @debug.Debug for CstToken
 pub struct EventBuffer {
   // private fields
 }
-pub fn EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode
-pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode
-pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode
+pub fn EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
 pub fn EventBuffer::length(Self) -> Int
 pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self

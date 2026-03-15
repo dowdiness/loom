@@ -55,8 +55,16 @@ pub fn EventBuffer::build_tree(
   self : EventBuffer,
   root_kind : RawKind,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
-  build_tree(self.events, root_kind, trivia_kind~)
+  build_tree(
+    self.events,
+    root_kind,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
 }
 
 ///|
@@ -68,6 +76,8 @@ pub fn EventBuffer::build_tree_fully_interned(
   interner : Interner,
   node_interner : NodeInterner,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
   build_tree_fully_interned(
     self.events,
@@ -75,6 +85,8 @@ pub fn EventBuffer::build_tree_fully_interned(
     interner,
     node_interner,
     trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
   )
 }
 
@@ -88,8 +100,17 @@ pub fn EventBuffer::build_tree_interned(
   root_kind : RawKind,
   interner : Interner,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
-  build_tree_interned(self.events, root_kind, interner, trivia_kind~)
+  build_tree_interned(
+    self.events,
+    root_kind,
+    interner,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
 }
 
 ///|
@@ -173,6 +194,8 @@ pub fn build_tree_interned(
   root_kind : RawKind,
   interner : Interner,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
@@ -195,7 +218,13 @@ pub fn build_tree_interned(
           None =>
             abort("build_tree_interned: kind stack underflow on FinishNode")
         }
-        let node = CstNode::new(kind, children, trivia_kind~)
+        let node = CstNode::new(
+          kind,
+          children,
+          trivia_kind~,
+          error_kind~,
+          incomplete_kind~,
+        )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
           None =>
@@ -210,7 +239,9 @@ pub fn build_tree_interned(
         }
       }
       ReuseNode(node) => {
-        let interned = re_intern_tokens_only(node, interner, trivia_kind)
+        let interned = re_intern_tokens_only(
+          node, interner, trivia_kind, error_kind, incomplete_kind,
+        )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
           None =>
@@ -226,24 +257,31 @@ pub fn build_tree_interned(
       stack.length().to_string(),
     )
   }
-  CstNode::new(root_kind, stack[0], trivia_kind~)
+  CstNode::new(root_kind, stack[0], trivia_kind~, error_kind~, incomplete_kind~)
 }
 
 ///|
 /// Rebuild a CstNode subtree with the given trivia_kind so that token_count
 /// and other metadata are recomputed via CstNode::new. No interning.
-fn rebuild_subtree(node : CstNode, trivia_kind : RawKind?) -> CstNode {
+fn rebuild_subtree(
+  node : CstNode,
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> CstNode {
   let children : Array[CstElement] = []
   for child in node.children {
     match child {
       CstElement::Token(_) => children.push(child)
       CstElement::Node(n) => {
-        let rebuilt = rebuild_subtree(n, trivia_kind)
+        let rebuilt = rebuild_subtree(
+          n, trivia_kind, error_kind, incomplete_kind,
+        )
         children.push(CstElement::Node(rebuilt))
       }
     }
   }
-  CstNode::new(node.kind, children, trivia_kind~)
+  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
 }
 
 ///|
@@ -254,6 +292,8 @@ fn re_intern_tokens_only(
   node : CstNode,
   interner : Interner,
   trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
 ) -> CstNode {
   let children : Array[CstElement] = []
   for child in node.children {
@@ -263,12 +303,14 @@ fn re_intern_tokens_only(
         children.push(CstElement::Token(interned))
       }
       CstElement::Node(n) => {
-        let interned = re_intern_tokens_only(n, interner, trivia_kind)
+        let interned = re_intern_tokens_only(
+          n, interner, trivia_kind, error_kind, incomplete_kind,
+        )
         children.push(CstElement::Node(interned))
       }
     }
   }
-  CstNode::new(node.kind, children, trivia_kind~)
+  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
 }
 
 ///|
@@ -282,6 +324,8 @@ fn re_intern_subtree(
   interner : Interner,
   node_interner : NodeInterner,
   trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
 ) -> CstNode {
   let children : Array[CstElement] = []
   for child in node.children {
@@ -292,13 +336,21 @@ fn re_intern_subtree(
       }
       CstElement::Node(n) => {
         let interned = re_intern_subtree(
-          n, interner, node_interner, trivia_kind,
+          n, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
         )
         children.push(CstElement::Node(interned))
       }
     }
   }
-  node_interner.intern_node(CstNode::new(node.kind, children, trivia_kind~))
+  node_interner.intern_node(
+    CstNode::new(
+      node.kind,
+      children,
+      trivia_kind~,
+      error_kind~,
+      incomplete_kind~,
+    ),
+  )
 }
 
 ///|
@@ -317,6 +369,8 @@ pub fn build_tree_fully_interned(
   interner : Interner,
   node_interner : NodeInterner,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
@@ -342,7 +396,13 @@ pub fn build_tree_fully_interned(
             )
         }
         let node = node_interner.intern_node(
-          CstNode::new(kind, children, trivia_kind~),
+          CstNode::new(
+            kind,
+            children,
+            trivia_kind~,
+            error_kind~,
+            incomplete_kind~,
+          ),
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
@@ -361,12 +421,8 @@ pub fn build_tree_fully_interned(
         }
       }
       ReuseNode(node) => {
-        // Deep re-intern: walk the subtree so every token passes through
-        // intern_token and every node through intern_node. For trees
-        // already built by build_tree_fully_interned (the production path),
-        // all lookups are O(1) cache hits via physical_equal.
         let interned = re_intern_subtree(
-          node, interner, node_interner, trivia_kind,
+          node, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
         )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
@@ -385,7 +441,15 @@ pub fn build_tree_fully_interned(
       stack.length().to_string(),
     )
   }
-  node_interner.intern_node(CstNode::new(root_kind, stack[0], trivia_kind~))
+  node_interner.intern_node(
+    CstNode::new(
+      root_kind,
+      stack[0],
+      trivia_kind~,
+      error_kind~,
+      incomplete_kind~,
+    ),
+  )
 }
 
 ///|
@@ -398,6 +462,8 @@ pub fn build_tree(
   events : Array[ParseEvent],
   root_kind : RawKind,
   trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstNode {
   // stack and kinds move in lockstep:
   // - StartNode pushes one frame + one kind
@@ -422,7 +488,13 @@ pub fn build_tree(
           Some(k) => k
           None => abort("build_tree: kind stack underflow on FinishNode")
         }
-        let node = CstNode::new(kind, children, trivia_kind~)
+        let node = CstNode::new(
+          kind,
+          children,
+          trivia_kind~,
+          error_kind~,
+          incomplete_kind~,
+        )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
           None => abort("build_tree: parent stack empty when attaching node")
@@ -436,7 +508,9 @@ pub fn build_tree(
         }
       }
       ReuseNode(node) => {
-        let rebuilt = rebuild_subtree(node, trivia_kind)
+        let rebuilt = rebuild_subtree(
+          node, trivia_kind, error_kind, incomplete_kind,
+        )
         match stack.last() {
           Some(parent) => parent.push(Node(rebuilt))
           None => abort("build_tree: stack empty when attaching reuse node")
@@ -446,13 +520,11 @@ pub fn build_tree(
       Tombstone => ()
     }
   }
-  // If stack is not back to the implicit root frame, we are missing one or
-  // more FinishNode events.
   if stack.length() != 1 {
     abort(
       "build_tree: unbalanced StartNode — missing FinishNode(s), stack=" +
       stack.length().to_string(),
     )
   }
-  CstNode::new(root_kind, stack[0], trivia_kind~)
+  CstNode::new(root_kind, stack[0], trivia_kind~, error_kind~, incomplete_kind~)
 }

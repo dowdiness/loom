@@ -729,29 +729,31 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
     self.source.length()
   }
   let node_end = node_start + node.text_len
-  // Compute error spans once — used for both the boundary check and synthesis.
-  let error_spans : Array[ReusedErrorSpan] = []
-  let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
-  let owns_right_boundary = error_spans
-    .iter()
-    .any(fn(s) { s.start == node_end && s.end == node_end })
   self.events.push(@seam.ParseEvent::ReuseNode(node))
-  // allow_eof_boundary: true when no error-bearing sibling follows this node,
-  // meaning a zero-width diagnostic at node_end that is at EOF was emitted by
-  // this node's own grammar (ctx.error without emit_error_placeholder).
-  // When the next sibling has error content it owns that boundary diagnostic.
   let allow_eof_boundary = match self.reuse_cursor {
     None => true
     Some(cursor) => not(cursor.next_sibling_has_error())
   }
-  // Diagnostic replay must happen before advance_past_reused: synthesize uses
-  // self.position to locate tokens within the node's span.
-  if not(
-      self.replay_reused_diagnostics(
-        node_start, node_end, owns_right_boundary, allow_eof_boundary,
-      ),
-    ) {
-    self.synthesize_reused_diagnostics(error_spans)
+  if node.has_any_error {
+    // Slow path: node has errors — collect spans and replay/synthesize diagnostics.
+    let error_spans : Array[ReusedErrorSpan] = []
+    let _ = collect_reused_error_spans(node, node_start, self.spec, error_spans)
+    let owns_right_boundary = error_spans
+      .iter()
+      .any(s => s.start == node_end && s.end == node_end)
+    if not(
+        self.replay_reused_diagnostics(
+          node_start, node_end, owns_right_boundary, allow_eof_boundary,
+        ),
+      ) {
+      self.synthesize_reused_diagnostics(error_spans)
+    }
+  } else {
+    // Fast path: healthy node — skip error span collection entirely.
+    // Still replay diagnostics (e.g. zero-width ctx.error at EOF).
+    let _ = self.replay_reused_diagnostics(
+      node_start, node_end, false, allow_eof_boundary,
+    )
   }
   self.advance_past_reused(node)
   match self.reuse_cursor {
@@ -828,6 +830,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
   let tree = ctx.events.build_tree(
     spec.root_kind.to_raw(),
     trivia_kind=Some(spec.whitespace_kind.to_raw()),
+    error_kind=Some(spec.error_kind.to_raw()),
+    incomplete_kind=Some(spec.incomplete_kind.to_raw()),
   )
   (tree, ctx.errors)
 }
@@ -846,6 +850,8 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
     core_interner,
     get_core_node_interner(ws),
     trivia_kind=Some(ws),
+    error_kind=Some(spec.error_kind.to_raw()),
+    incomplete_kind=Some(spec.incomplete_kind.to_raw()),
   )
 }
 
