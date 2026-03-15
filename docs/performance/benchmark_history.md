@@ -2,6 +2,32 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-03-15 (Flat grammar unification)
+
+- Command: `cd examples/lambda && moon bench --release`
+- Git ref: `refactor/flat-grammar`
+- Environment: local developer machine (WSL2 / Linux 6.6 / wasm-gc)
+- Changes:
+  - Removed `lambda_grammar` (right-recursive `LetExpr`), unified on flat `LetDef*`
+  - Layout-aware lexing (newline-delimited) now default
+  - `LetExpr`, `InKeyword` removed from grammar
+  - Test count: 180 tests (loom), 97 tests (seam), 338 tests (lambda)
+
+### Let-chain benchmarks (before = right-recursive, after = flat)
+
+| Benchmark | Before | After | Change |
+|---|---:|---:|---:|
+| 80 lets — incremental single edit | 296.97 µs | 239.85 µs | -19% |
+| 80 lets — full reparse | 149.34 µs | 113.56 µs | -24% |
+| 320 lets — incremental single edit | 1.32 ms | 1.03 ms | -22% |
+| 320 lets — full reparse | 670.50 µs | 512.00 µs | -24% |
+| 80 lets — 50-edit incremental | 9.59 ms | 6.97 ms | -27% |
+| 80 lets — 50-edit full reparse | 8.10 ms | 6.36 ms | -21% |
+| 320 lets — 50-edit incremental | 42.93 ms | 30.20 ms | -30% |
+| 320 lets — 50-edit full reparse | 35.47 ms | 26.06 ms | -27% |
+
+Interpretation: Both paths ~20-30% faster due to simpler flat grammar. Incremental still has ~2x overhead over full reparse for single edits — the remaining overhead is in the incremental infrastructure (cursor setup, trailing-context checks, re-interning), not the grammar structure. The flat grammar is a prerequisite for incremental to win but needs further infrastructure optimization.
+
 ## 2026-03-15 (Incremental overhead waste elimination)
 
 - Command: `cd examples/lambda && moon bench --release`
