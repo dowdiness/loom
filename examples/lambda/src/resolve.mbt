@@ -13,12 +13,12 @@ pub(all) struct Resolution {
 } derive(Show, Eq)
 
 ///|
-pub fn resolve(term : @ast.Term) -> Resolution {
+pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {
   let res : Map[Int, VarStatus] = {}
   let env : Map[String, Int] = {}
   let counter = Ref::new(0)
-  resolve_walk(term, env, 0, counter, res)
-  { vars: res }
+  let new_term = resolve_walk(term, env, 0, counter, res)
+  (new_term, { vars: res })
 }
 
 ///|
@@ -28,39 +28,50 @@ fn resolve_walk(
   depth : Int,
   counter : Ref[Int],
   res : Map[Int, VarStatus],
-) -> Unit {
+) -> @ast.Term {
   let node_id = counter.val
   counter.val = counter.val + 1
   match term {
     @ast.Term::Var(x) =>
       match env.get(x) {
-        Some(bind_depth) => res[node_id] = Bound(depth=depth - bind_depth)
-        None => res[node_id] = Free
+        Some(bind_depth) => {
+          res[node_id] = Bound(depth=depth - bind_depth)
+          term // bound — keep as Var
+        }
+        None => {
+          res[node_id] = Free
+          @ast.Term::Unbound(x) // free — rewrite to Unbound
+        }
       }
     @ast.Term::Lam(x, body) => {
       let new_env = Map::from_iter(env.iter())
       new_env[x] = depth
-      resolve_walk(body, new_env, depth + 1, counter, res)
+      let new_body = resolve_walk(body, new_env, depth + 1, counter, res)
+      @ast.Term::Lam(x, new_body)
     }
     @ast.Term::Let(x, val, body) => {
-      resolve_walk(val, env, depth, counter, res)
+      let new_val = resolve_walk(val, env, depth, counter, res)
       let new_env = Map::from_iter(env.iter())
       new_env[x] = depth
-      resolve_walk(body, new_env, depth + 1, counter, res)
+      let new_body = resolve_walk(body, new_env, depth + 1, counter, res)
+      @ast.Term::Let(x, new_val, new_body)
     }
     @ast.Term::App(f, a) => {
-      resolve_walk(f, env, depth, counter, res)
-      resolve_walk(a, env, depth, counter, res)
+      let new_f = resolve_walk(f, env, depth, counter, res)
+      let new_a = resolve_walk(a, env, depth, counter, res)
+      @ast.Term::App(new_f, new_a)
     }
-    @ast.Term::Bop(_, l, r) => {
-      resolve_walk(l, env, depth, counter, res)
-      resolve_walk(r, env, depth, counter, res)
+    @ast.Term::Bop(op, l, r) => {
+      let new_l = resolve_walk(l, env, depth, counter, res)
+      let new_r = resolve_walk(r, env, depth, counter, res)
+      @ast.Term::Bop(op, new_l, new_r)
     }
     @ast.Term::If(c, t, e) => {
-      resolve_walk(c, env, depth, counter, res)
-      resolve_walk(t, env, depth, counter, res)
-      resolve_walk(e, env, depth, counter, res)
+      let new_c = resolve_walk(c, env, depth, counter, res)
+      let new_t = resolve_walk(t, env, depth, counter, res)
+      let new_e = resolve_walk(e, env, depth, counter, res)
+      @ast.Term::If(new_c, new_t, new_e)
     }
-    _ => () // Int, Unit, Error — no children, no vars
+    _ => term // Int, Unit, Error, Unbound — return unchanged
   }
 }
