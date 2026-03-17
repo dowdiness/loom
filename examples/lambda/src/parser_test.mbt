@@ -135,7 +135,6 @@ test "parse error - missing parameter after lambda" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -152,7 +151,6 @@ test "parse error - missing dot after lambda parameter" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -169,7 +167,6 @@ test "parse error - unmatched left paren" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -186,7 +183,6 @@ test "parse error - unmatched right paren" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -203,7 +199,6 @@ test "parse error - missing then in if" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -220,7 +215,6 @@ test "parse error - missing else in if" {
     should_error,
     content=(
       #|true
-
     ),
   )
 }
@@ -296,19 +290,25 @@ test "parse complex expression with all features" {
 ///|
 test "parse let expression" {
   let expr = parse("let x = 1\nx") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content=(
-    #|let x = 1
-    #|x
-  ))
+  inspect(
+    @ast.print_term(expr),
+    content=(
+      #|let x = 1
+      #|x
+    ),
+  )
 }
 
 ///|
 test "parse let with binary op in body" {
   let expr = parse("let x = 3\nx + 1") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content=(
-    #|let x = 3
-    #|(x + 1)
-  ))
+  inspect(
+    @ast.print_term(expr),
+    content=(
+      #|let x = 3
+      #|(x + 1)
+    ),
+  )
 }
 
 ///|
@@ -316,51 +316,66 @@ test "parse nested let" {
   let expr = parse("let x = 1\nlet y = 2\nx + y") catch {
     _ => abort("parse failed")
   }
-  inspect(@ast.print_term(expr), content=(
-    #|let x = 1
-    #|let y = 2
-    #|(x + y)
-  ))
+  inspect(
+    @ast.print_term(expr),
+    content=(
+      #|let x = 1
+      #|let y = 2
+      #|(x + y)
+    ),
+  )
 }
 
 ///|
 test "parse let with lambda" {
   let expr = parse("let f = λx.x\nf 42") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(expr), content=(
-    #|let f = (λx. x)
-    #|(f 42)
-  ))
+  inspect(
+    @ast.print_term(expr),
+    content=(
+      #|let f = (λx. x)
+      #|(f 42)
+    ),
+  )
 }
 
 ///|
 test "parse_term: two defs fold to nested Let with Unit" {
   let (term, diagnostics) = parse_term("let id = 1\nlet const = 2")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content=(
-    #|let id = 1
-    #|let const = 2
-    #|()
-  ))
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let id = 1
+      #|let const = 2
+      #|()
+    ),
+  )
 }
 
 ///|
 test "parse_term: def + final expression" {
   let (term, diagnostics) = parse_term("let id = 1\nid")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content=(
-    #|let id = 1
-    #|id
-  ))
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let id = 1
+      #|id
+    ),
+  )
 }
 
 ///|
 test "parse_term: leading newline before def + final expression" {
   let (term, diagnostics) = parse_term("\nlet id = 1\nid")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content=(
-    #|let id = 1
-    #|id
-  ))
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let id = 1
+      #|id
+    ),
+  )
 }
 
 ///|
@@ -384,7 +399,6 @@ test "parse_term: let-expression (no defs)" {
     content=(
       #|let x = 1
       #|<error: unknown node kind: ErrorToken>
-
     ),
   )
 }
@@ -403,7 +417,6 @@ test "parse_term: multiline let-expression (no defs)" {
     content=(
       #|let x = 1
       #|<error: unknown node kind: ErrorToken>
-
     ),
   )
 }

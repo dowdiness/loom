@@ -175,8 +175,7 @@ test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text))
-      @seam.CstElement::Node(n) =>
-        events.push(@seam.ParseEvent::ReuseNode(n))
+      @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
   let root_kind = cst.kind
@@ -214,8 +213,7 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text))
-      @seam.CstElement::Node(n) =>
-        events.push(@seam.ParseEvent::ReuseNode(n))
+      @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
   let root_kind = cst.kind
@@ -306,8 +304,7 @@ test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text))
-      @seam.CstElement::Node(n) =>
-        events.push(@seam.ParseEvent::ReuseNode(n))
+      @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
   let root_kind = cst.kind
@@ -319,7 +316,9 @@ test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
 
 ///|
 /// Tree build with build_tree_fully_interned — includes re_intern_subtree.
-test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (b : @bench.T) {
+test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
+  b : @bench.T,
+) {
   let source = make_deep_let_chain(20, 10, "x0")
   let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
   let events : Array[@seam.ParseEvent] = []
@@ -327,8 +326,7 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (b : @bench
     match child {
       @seam.CstElement::Token(t) =>
         events.push(@seam.ParseEvent::Token(t.kind, t.text))
-      @seam.CstElement::Node(n) =>
-        events.push(@seam.ParseEvent::ReuseNode(n))
+      @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
   let root_kind = cst.kind
@@ -340,7 +338,11 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (b : @bench
     let interner = @seam.Interner::new()
     let ni = @seam.NodeInterner::new()
     let tree = @seam.build_tree_fully_interned(
-      events, root_kind, interner, ni, trivia_kind=Some(ws),
+      events,
+      root_kind,
+      interner,
+      ni,
+      trivia_kind=Some(ws),
     )
     b.keep(tree)
   })
