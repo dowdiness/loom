@@ -39,3 +39,10 @@ pub using @pipeline {type ReactiveParser}
 ///|
 // AstView trait — implement for every typed view type in your language package.
 pub using @core {trait AstView}
+
+///|
+// Memoized catamorphism — CstFold[Ast] for incremental CST → AST conversion
+pub using @core {
+  type CstFold,
+  type FoldStats,
+}
