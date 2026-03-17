@@ -31,6 +31,7 @@ pub(all) enum Term {
   If(Term, Term, Term)
   Let(String, Term, Term)
   Unit
+  Unbound(String)
   Error(String)
 }
 pub impl Eq for Term

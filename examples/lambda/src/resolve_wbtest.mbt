@@ -82,10 +82,7 @@ test "resolve: mixed bound and free in rewritten term" {
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
   )
   let (resolved_term, res) = resolve(term)
-  inspect(
-    @ast.print_term(resolved_term),
-    content="(λx. (x + <unbound: y>))",
-  )
+  inspect(@ast.print_term(resolved_term), content="(λx. (x + <unbound: y>))")
   inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   inspect(res.vars.get(3), content="Some(Free)")
 }

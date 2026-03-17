@@ -56,10 +56,7 @@ pub fn print_term(term : Term) -> String {
 
 ///|
 test "print_term - unbound variant" {
-  inspect(
-    print_term(Term::Unbound("x")),
-    content="<unbound: x>",
-  )
+  inspect(print_term(Term::Unbound("x")), content="<unbound: x>")
 }
 
 ///|
