@@ -88,6 +88,44 @@ test "resolve: mixed bound and free in rewritten term" {
 }
 
 ///|
+test "resolve: nested let shadowing" {
+  // let x = 1 in let x = x in x
+  // Pre-order: 0=Let, 1=Int(1), 2=Let, 3=Var(x) init (bound to outer), 4=Var(x) body (bound to inner)
+  let term = @ast.Term::Let(
+    "x",
+    @ast.Term::Int(1),
+    @ast.Term::Let("x", @ast.Term::Var("x"), @ast.Term::Var("x")),
+  )
+  let (resolved_term, res) = resolve(term)
+  // outer x in inner init is bound (depth=1), inner x in body is bound (depth=1)
+  inspect(res.vars.get(3), content="Some(Bound(depth=1))")
+  inspect(res.vars.get(4), content="Some(Bound(depth=1))")
+  // no Unbound nodes — all vars are bound
+  inspect(
+    @ast.print_term(resolved_term),
+    content="let x = 1\nlet x = x\nx",
+  )
+}
+
+///|
+test "resolve: idempotent on pre-resolved tree" {
+  // resolve(resolve(t).0) should produce consistent results
+  let term = @ast.Term::Lam(
+    "x",
+    @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
+  )
+  let (resolved_once, _) = resolve(term)
+  let (resolved_twice, res2) = resolve(resolved_once)
+  // Tree should be identical
+  inspect(
+    @ast.print_term(resolved_twice),
+    content="(λx. (x + <unbound: y>))",
+  )
+  // Unbound node should still be marked Free in the resolution map
+  inspect(res2.vars.get(3), content="Some(Free)")
+}
+
+///|
 test "term_to_dot_resolved: colors bound green, free red" {
   // λx. (x + y)
   let term = @ast.Term::Lam(

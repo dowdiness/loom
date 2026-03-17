@@ -72,6 +72,10 @@ fn resolve_walk(
       let new_e = resolve_walk(e, env, depth, counter, res)
       @ast.Term::If(new_c, new_t, new_e)
     }
-    _ => term // Int, Unit, Error, Unbound — return unchanged
+    @ast.Term::Unbound(_) => {
+      res[node_id] = Free
+      term
+    }
+    _ => term // Int, Unit, Error — return unchanged
   }
 }
