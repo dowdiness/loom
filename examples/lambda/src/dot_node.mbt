@@ -25,6 +25,7 @@ impl @viz.DotNode for TermDotNode with label(self) {
     @ast.Term::If(_, _, _) => "If"
     @ast.Term::Let(s, _, _) => "Let(" + s + ")"
     @ast.Term::Unit => "Unit"
+    @ast.Term::Unbound(x) => "Unbound(" + x + ")"
     @ast.Term::Error(msg) => "Error(" + msg + ")"
   }
 }
