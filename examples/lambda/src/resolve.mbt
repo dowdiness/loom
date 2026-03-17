@@ -1,5 +1,11 @@
 // resolve.mbt — Name resolution for lambda calculus Terms.
 // Maps each Var node to Bound(depth) or Free, keyed by pre-order traversal index.
+//
+// IMPORTANT: `resolve` returns a paired `(Term, Resolution)`. The returned Term
+// has free `Var(name)` nodes rewritten to `Unbound(name)`, and the Resolution map
+// is keyed by pre-order indices of *that* rewritten tree. Always use the returned
+// Term and Resolution together — passing the original (pre-resolve) Term with the
+// new Resolution to `term_to_dot_resolved` will produce incorrect labels.
 
 ///|
 pub(all) enum VarStatus {
