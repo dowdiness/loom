@@ -211,6 +211,7 @@ fn check_well_formed(term : @ast.Term) -> Unit raise {
       check_well_formed(body)
     }
     @ast.Term::Unit => ()
+    @ast.Term::Unbound(_) => () // unbound vars from resolution are valid Term values
     @ast.Term::Error(_) => () // error terms from recovery are valid Term values
   }
 }

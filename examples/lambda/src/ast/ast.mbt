@@ -27,6 +27,8 @@ pub(all) enum Term {
   Let(VarName, Term, Term)
   // Unit — terminal for definition-only source files
   Unit
+  // Unbound variable — semantic error from name resolution
+  Unbound(VarName)
   // Error term for malformed/missing nodes
   Error(String)
 } derive(Show, Eq, ToJson, Debug)
@@ -44,11 +46,17 @@ pub fn print_term(term : Term) -> String {
       If(t1, t2, t3) => "if " + go(t1) + " then " + go(t2) + " else " + go(t3)
       Let(x, init, body) => "let " + x + " = " + go(init) + "\n" + go(body)
       Unit => "()"
+      Unbound(x) => "<unbound: " + x + ">"
       Error(msg) => "<error: " + msg + ">"
     }
   }
 
   go(term)
+}
+
+///|
+test "print_term - unbound variant" {
+  inspect(print_term(Term::Unbound("x")), content="<unbound: x>")
 }
 
 ///|

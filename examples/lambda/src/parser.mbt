@@ -12,10 +12,7 @@ pub fn parse(input : String) -> @ast.Term raise {
     @core.LexError(msg) => raise ParseError(msg, @token.EOF)
   }
   if diags.length() > 0 {
-    raise ParseError(
-      @core.format_diagnostic(diags[0]),
-      diags[0].got_token,
-    )
+    raise ParseError(@core.format_diagnostic(diags[0]), diags[0].got_token)
   }
   term
 }

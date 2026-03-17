@@ -26,7 +26,7 @@ pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]
 
 pub fn parse_term(String) -> (@ast.Term, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
 
-pub fn resolve(@ast.Term) -> Resolution
+pub fn resolve(@ast.Term) -> (@ast.Term, Resolution)
 
 pub fn syntax_node_to_term(@seam.SyntaxNode) -> @ast.Term
 

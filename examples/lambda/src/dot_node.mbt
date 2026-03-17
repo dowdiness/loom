@@ -25,6 +25,7 @@ impl @viz.DotNode for TermDotNode with label(self) {
     @ast.Term::If(_, _, _) => "If"
     @ast.Term::Let(s, _, _) => "Let(" + s + ")"
     @ast.Term::Unit => "Unit"
+    @ast.Term::Unbound(x) => "Unbound(" + x + ")"
     @ast.Term::Error(msg) => "Error(" + msg + ")"
   }
 }
@@ -97,6 +98,10 @@ pub fn term_to_dot(term : @ast.Term) -> String {
 }
 
 ///|
+/// Render a resolved Term as a GraphViz DOT string with bound/free coloring.
+/// Both `term` and `resolution` must come from the same `resolve()` call —
+/// passing the original (pre-resolve) term will produce `Var` labels instead
+/// of `Unbound` labels for free variables.
 pub fn term_to_dot_resolved(
   term : @ast.Term,
   resolution : Resolution,
