@@ -163,6 +163,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
     get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
+    get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
   @incremental.ImperativeParser::new(source, lang)
 }
