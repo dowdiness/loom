@@ -1,7 +1,7 @@
 # Semantic Error Variants: `Term::Unbound` — Design Document
 
 **Date:** March 9, 2026
-**Status:** Draft
+**Status:** Complete
 **Scope:** `examples/lambda/src/ast/`, `examples/lambda/src/resolve.mbt`, `examples/lambda/src/dot_node.mbt`
 
 ## Goal

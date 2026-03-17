@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**Status:** Complete
+
 **Goal:** Add `Term::Unbound(VarName)` so free variables are errors within the Term tree, and change `resolve()` to return `(Term, Resolution)`.
 
 **Architecture:** Add variant to Term enum, update `resolve_walk` to rebuild the tree with `Unbound` replacements, update all consumers (`print_term`, DOT renderer, `sync_editor`). The Resolution map remains for binding-depth info.

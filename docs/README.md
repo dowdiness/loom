@@ -58,8 +58,6 @@ Understanding how the layers fit together:
 
 - [plans/2026-03-08-memoized-cst-fold.md](plans/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design document
 - [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
-- [plans/2026-03-09-semantic-error-variants-design.md](plans/2026-03-09-semantic-error-variants-design.md) — `Term::Unbound` semantic error variant: design document
-- [plans/2026-03-09-semantic-error-variants-impl.md](plans/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation plan (7 tasks)
 - [plans/2026-03-15-flat-grammar-unification.md](plans/2026-03-15-flat-grammar-unification.md) — flat grammar unification: remove lambda_grammar, unify on LetDef* with layout-aware lexing
 - [plans/2026-03-15-flat-grammar-unification-plan.md](plans/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification: implementation plan (8 tasks)
 
@@ -81,4 +79,6 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-14-incremental-overhead.md](archive/completed-phases/2026-03-14-incremental-overhead.md) — incremental overhead waste elimination (3 fixes, benchmarked)
 - [archive/completed-phases/2026-03-06-position-independent-tokens.md](archive/completed-phases/2026-03-06-position-independent-tokens.md) — position-independent tokens + trivia-insensitive TokenStage early cutoff (all phases)
 - [archive/completed-phases/2026-03-15-try-reuse-fast-path.md](archive/completed-phases/2026-03-15-try-reuse-fast-path.md) — emit_reused fast path: has_any_error flag, incremental overhead profiling, architectural analysis
+- [archive/completed-phases/2026-03-09-semantic-error-variants-design.md](archive/completed-phases/2026-03-09-semantic-error-variants-design.md) — `Term::Unbound` semantic error variant: design
+- [archive/completed-phases/2026-03-09-semantic-error-variants-impl.md](archive/completed-phases/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation (7 tasks)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
