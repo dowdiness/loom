@@ -821,3 +821,16 @@ test "Reuse: tokenization error clears stale concrete syntax tree state" {
   let full_tree = parse("1+2+1") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
 }
+
+///|
+test "ImperativeParser: CstFold cache reuses unchanged subtrees after edit" {
+  // Parse "1 + 2" then edit to "1 + 3"
+  // The "1" subtree is structurally unchanged — CstFold should reuse it.
+  let parser = @loom.new_imperative_parser("1 + 2", lambda_grammar)
+  let t1 = parser.parse()
+  inspect(@ast.print_term(t1), content="(1 + 2)")
+  // Edit: replace "2" with "3" (position 4, delete 1 char, insert 1 char)
+  let edit = @core.Edit::new(4, 1, 1)
+  let t2 = parser.edit(edit, "1 + 3")
+  inspect(@ast.print_term(t2), content="(1 + 3)")
+}
