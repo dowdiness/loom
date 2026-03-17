@@ -36,7 +36,9 @@ test "fold benchmark: 80 lets - initial parse+fold" (b : @bench.T) {
 }
 
 ///|
-test "fold benchmark: 80 lets - incremental fold after single edit" (b : @bench.T) {
+test "fold benchmark: 80 lets - incremental fold after single edit" (
+  b : @bench.T,
+) {
   let source = make_let_chain(80, "0")
   let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
@@ -60,7 +62,9 @@ test "fold benchmark: 320 lets - initial parse+fold" (b : @bench.T) {
 }
 
 ///|
-test "fold benchmark: 320 lets - incremental fold after single edit" (b : @bench.T) {
+test "fold benchmark: 320 lets - incremental fold after single edit" (
+  b : @bench.T,
+) {
   let source = make_let_chain(320, "0")
   let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
   let _ = parser.parse()
