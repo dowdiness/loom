@@ -6,15 +6,12 @@
 pub let lambda_grammar : @loom.Grammar[
   @token.Token,
   @syntax.SyntaxKind,
-  @seam.SyntaxNode,
+  @ast.Term,
 ] = @loom.Grammar::new(
   spec=lambda_spec,
   tokenize=@lexer.tokenize,
-  to_ast=fn(s) { s },
-  on_lex_error=fn(_msg) {
-    let cst = @seam.CstNode::new(@syntax.ErrorNode.to_raw(), [])
-    @seam.SyntaxNode::from_cst(cst)
-  },
+  fold_node=lambda_fold_node,
+  on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
   error_token=Some(@token.Error("")),
   prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
 )

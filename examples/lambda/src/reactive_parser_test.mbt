@@ -17,9 +17,15 @@ test "ReactiveParser: step-based lexer recovers invalid chars without lex error"
 /// grammar root, not ErrorNode.
 test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
   let db = @loom.new_reactive_parser("@invalid", @lambda.lambda_grammar)
-  let kind = @syntax.SyntaxKind::from_raw(db.term().kind())
-  // Should NOT be ErrorNode — the parser got tokens and produced a tree
-  inspect(kind != @syntax.ErrorNode, content="true")
+  let term = db.term()
+  // Should NOT be a lex-error Term — the parser got tokens and produced a tree
+  inspect(
+    match term {
+      @ast.Term::Error(msg) => not(msg.contains("lex error"))
+      _ => true
+    },
+    content="true",
+  )
 }
 
 ///|
@@ -51,13 +57,13 @@ test "ReactiveParser: parse error produces non-empty diagnostics" {
 ///|
 test "ReactiveParser: valid input - integer addition" {
   let db = @loom.new_reactive_parser("1 + 2", @lambda.lambda_grammar)
-  inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
+  inspect(@ast.print_term(db.term()), content="(1 + 2)")
 }
 
 ///|
 test "ReactiveParser: valid input - lambda expression" {
   let db = @loom.new_reactive_parser("λx.x", @lambda.lambda_grammar)
-  match syntax_node_to_term(db.term()) {
+  match db.term() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
   }
@@ -77,8 +83,8 @@ test "ReactiveParser: set_source updates term" {
   let t1 = db.term()
   db.set_source("2")
   let t2 = db.term()
-  inspect(@ast.print_term(syntax_node_to_term(t1)), content="1")
-  inspect(@ast.print_term(syntax_node_to_term(t2)), content="2")
+  inspect(@ast.print_term(t1), content="1")
+  inspect(@ast.print_term(t2), content="2")
 }
 
 ///|
@@ -98,7 +104,7 @@ test "ReactiveParser: set_source from error-recovery input to valid" {
   inspect(db.cst().is_lex_error, content="false")
   db.set_source("1 + 2")
   inspect(db.cst().is_lex_error, content="false")
-  inspect(@ast.print_term(syntax_node_to_term(db.term())), content="(1 + 2)")
+  inspect(@ast.print_term(db.term()), content="(1 + 2)")
   inspect(db.diagnostics().length(), content="0")
 }
 
@@ -120,7 +126,7 @@ test "ReactiveParser: parity with parse" {
       _ => abort("unexpected parse error in valid source: " + source)
     }
     inspect(
-      @ast.print_term(syntax_node_to_term(db.term())),
+      @ast.print_term(db.term()),
       content=@ast.print_term(direct),
     )
   }

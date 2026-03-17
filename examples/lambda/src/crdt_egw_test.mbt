@@ -13,7 +13,7 @@
 /// Each edit's start is in the coordinate space of the text after all
 /// previous edits have been applied, so current threads state across iterations.
 fn drive_parser_update(
-  parser : @incremental.ImperativeParser[@seam.SyntaxNode],
+  parser : @incremental.ImperativeParser[@ast.Term],
   old_text : String,
   new_text : String,
 ) -> Unit {
@@ -46,7 +46,7 @@ fn drive_parser_update(
 ///|
 struct EgwPeer {
   doc : @egw.TextDoc
-  parser : @incremental.ImperativeParser[@seam.SyntaxNode]
+  parser : @incremental.ImperativeParser[@ast.Term]
 }
 
 ///|
@@ -98,5 +98,5 @@ test "egw two peers converge: same text and parse tree after sync" {
   // Both incremental parse trees are structurally identical.
   let tree_a = peer_a.parser.get_tree().unwrap()
   let tree_b = peer_b.parser.get_tree().unwrap()
-  inspect(tree_a.cst_node() == tree_b.cst_node(), content="true")
+  inspect(tree_a == tree_b, content="true")
 }

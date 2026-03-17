@@ -40,7 +40,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
 
   // Core invariant: incremental must match full reparse
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -59,7 +59,7 @@ test "phase4: reuse on application chain" {
 
   // Must match full reparse
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -81,7 +81,7 @@ test "phase4: reuse on nested lambdas" {
 
   // Must match full reparse
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -102,7 +102,7 @@ test "phase4: reuse preserves correctness on complex expression" {
 
   // Must match full reparse
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -122,7 +122,7 @@ test "phase4: edit at binary operator boundary" {
   let incr_tree = parser.edit(edit, "a + b + c")
   let full_tree = parse("a + b + c") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -142,7 +142,7 @@ test "phase4: edit changes structure - app to binary" {
 
   // Must match full reparse - trailing context check should prevent false reuse
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -158,7 +158,7 @@ test "phase4: edit changes app to standalone var" {
   let incr_tree = parser.edit(edit, "f")
   let full_tree = parse("f") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -174,7 +174,7 @@ test "phase4: edit extends expression" {
   let incr_tree = parser.edit(edit, "x y")
   let full_tree = parse("x y") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -193,7 +193,7 @@ test "phase4: multiple sequential edits maintain correctness" {
   let tree1 = parser.edit(edit1, "1 + b + c")
   let full1 = parse("1 + b + c") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(tree1)),
+    @ast.print_term(tree1),
     content=@ast.print_term(full1),
   )
 
@@ -202,7 +202,7 @@ test "phase4: multiple sequential edits maintain correctness" {
   let tree2 = parser.edit(edit2, "1 + 2 + c")
   let full2 = parse("1 + 2 + c") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(tree2)),
+    @ast.print_term(tree2),
     content=@ast.print_term(full2),
   )
 
@@ -211,7 +211,7 @@ test "phase4: multiple sequential edits maintain correctness" {
   let tree3 = parser.edit(edit3, "1 + 2 + 3")
   let full3 = parse("1 + 2 + 3") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(tree3)),
+    @ast.print_term(tree3),
     content=@ast.print_term(full3),
   )
 }
@@ -227,14 +227,14 @@ test "phase4: typing simulation - building expression char by char" {
   let edit1 = @core.Edit::insert(1, 2)
   let tree1 = parser.edit(edit1, "1 +")
   // Intermediate state may have errors, just check it parses
-  inspect(tree1.start() >= 0, content="true")
+  let _ = tree1
 
   // Type " 2"
   let edit2 = @core.Edit::insert(3, 2)
   let tree2 = parser.edit(edit2, "1 + 2")
   let full = parse("1 + 2") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(tree2)),
+    @ast.print_term(tree2),
     content=@ast.print_term(full),
   )
 }
@@ -254,7 +254,7 @@ test "phase4: empty to non-empty" {
   let incr_tree = parser.edit(edit, "λf.λx.f (f x)")
   let full_tree = parse("λf.λx.f (f x)") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -270,7 +270,7 @@ test "phase4: whitespace-only changes" {
   let incr_tree = parser.edit(edit, "x + y")
   let full_tree = parse("x + y") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -286,7 +286,7 @@ test "phase4: parentheses changes" {
   let incr_tree = parser.edit(edit, "(x + y)")
   let full_tree = parse("(x + y)") catch { _ => abort("parse failed") }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -304,7 +304,7 @@ test "phase4: if-then-else edit in condition" {
     _ => abort("parse failed")
   }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
@@ -322,7 +322,7 @@ test "phase4: if-then-else edit in else branch" {
     _ => abort("parse failed")
   }
   inspect(
-    @ast.print_term(syntax_node_to_term(incr_tree)),
+    @ast.print_term(incr_tree),
     content=@ast.print_term(full_tree),
   )
 }
