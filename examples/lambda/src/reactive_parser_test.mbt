@@ -125,10 +125,7 @@ test "ReactiveParser: parity with parse" {
     let direct = parse(source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
-    inspect(
-      @ast.print_term(db.term()),
-      content=@ast.print_term(direct),
-    )
+    inspect(@ast.print_term(db.term()), content=@ast.print_term(direct))
   }
 }
 

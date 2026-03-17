@@ -42,7 +42,4 @@ pub using @core {trait AstView}
 
 ///|
 // Memoized catamorphism — CstFold[Ast] for incremental CST → AST conversion
-pub using @core {
-  type CstFold,
-  type FoldStats,
-}
+pub using @core {type CstFold, type FoldStats}

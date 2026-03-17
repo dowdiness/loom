@@ -220,7 +220,11 @@ test "differential-fast: malformed input sequences terminate" {
     let full_repaired = parse(repair) catch {
       _ => abort("parse failed on repair")
     }
-    idf_assert_incremental_matches_full(repaired, full_repaired, "repair case=\{case_i}")
+    idf_assert_incremental_matches_full(
+      repaired,
+      full_repaired,
+      "repair case=\{case_i}",
+    )
   }
 }
 

@@ -7,9 +7,7 @@ fn tok(kind_val : Int, text : String) -> @seam.CstElement {
 ///|
 /// Helper: create a node element.
 fn nd(kind_val : Int, children : Array[@seam.CstElement]) -> @seam.CstElement {
-  @seam.CstElement::Node(
-    @seam.CstNode::new(@seam.RawKind(kind_val), children),
-  )
+  @seam.CstElement::Node(@seam.CstNode::new(@seam.RawKind(kind_val), children))
 }
 
 ///|
@@ -61,18 +59,18 @@ test "CstFold: second fold reuses cache for unchanged tree" {
 test "CstFold: incremental fold reuses unchanged subtrees" {
   // Original:  Root(10) -> [Token("a"), Child(20) -> [Token("y")]]
   let child = @seam.CstNode::new(@seam.RawKind(20), [tok(2, "y")])
-  let root = @seam.CstNode::new(
-    @seam.RawKind(10),
-    [tok(1, "a"), @seam.CstElement::Node(child)],
-  )
+  let root = @seam.CstNode::new(@seam.RawKind(10), [
+    tok(1, "a"),
+    @seam.CstElement::Node(child),
+  ])
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let _ = fold.fold(@seam.SyntaxNode::from_cst(root))
   // Modified: Root(10) -> [Token("b"), Child(20) -> [Token("y")]]
   // Child(20) is structurally identical (same hash) — should be reused.
-  let new_root = @seam.CstNode::new(
-    @seam.RawKind(10),
-    [tok(1, "b"), @seam.CstElement::Node(child)],
-  )
+  let new_root = @seam.CstNode::new(@seam.RawKind(10), [
+    tok(1, "b"),
+    @seam.CstElement::Node(child),
+  ])
   let result = fold.fold(@seam.SyntaxNode::from_cst(new_root))
   inspect(result, content="kind:10(kind:20)")
   let stats = fold.get_stats()

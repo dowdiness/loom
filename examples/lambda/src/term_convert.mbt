@@ -21,10 +21,7 @@ pub fn lambda_fold_node(
             }
             defs.push((v.name(), init))
           }
-          _ =>
-            if final_term == @ast.Term::Unit {
-              final_term = recurse(child)
-            }
+          _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
         }
       }
       let mut result = final_term

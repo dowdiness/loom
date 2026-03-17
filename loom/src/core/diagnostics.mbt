@@ -70,10 +70,7 @@ pub(all) struct TokenStage[T] {
 /// newlines), positions, and source text are all excluded. Two TokenStages
 /// that differ only in trivia are considered equal, causing the Salsa memo
 /// to backdate and skip downstream parse/AST recomputation.
-pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T] with equal(
-  self,
-  other,
-) {
+pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T] with equal(self, other) {
   if self.is_lex_error != other.is_lex_error {
     return false
   }

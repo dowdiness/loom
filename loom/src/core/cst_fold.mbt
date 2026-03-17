@@ -37,10 +37,7 @@ pub fn[Ast] CstFold::new(
 ///|
 /// Run the memoized fold over a syntax tree.
 /// Swaps in a fresh cache (old cache used for lookups), resets stats.
-pub fn[Ast] CstFold::fold(
-  self : CstFold[Ast],
-  root : @seam.SyntaxNode,
-) -> Ast {
+pub fn[Ast] CstFold::fold(self : CstFold[Ast], root : @seam.SyntaxNode) -> Ast {
   let old_cache = self.cache
   self.cache = {}
   self.stats = FoldStats::zero()
