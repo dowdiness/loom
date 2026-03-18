@@ -172,6 +172,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 ## TODO
 
 - [ ] Delete local `graphviz/` module and switch `loom/moon.mod.json` to the published `antisatori/graphviz` package version.
+- [ ] Redesign `FlatProj` for flat AST (`Term::Module`). Current `from_proj_node` is lossy: def identity uses init child's `node_id` (lost on init change), and def start positions shift to init expressions. The editor hot path (`tree_edit_bridge.mbt:41`) uses `from_proj_node`. Long-term: Approach C — simplify FlatProj to work directly with Module's flat structure instead of decomposing/reconstructing a spine.
 
 ---
 

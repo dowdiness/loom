@@ -1,7 +1,7 @@
 # Flat AST: Replace `Term::Let` with `Term::Module` — Design Document
 
 **Date:** March 18, 2026
-**Status:** Draft
+**Status:** Complete
 **Scope:** `examples/lambda/src/` (loom submodule), `editor/` and `projection/` (parent crdt repo)
 
 ## Goal
