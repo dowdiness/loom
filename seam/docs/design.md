@@ -92,18 +92,18 @@ malformed, not just that a query produced a fallback.
 
 ## Implementation status
 
-**Complete.** All three layers are fully implemented and tested (97 tests).
+**Complete.** All three layers are fully implemented and tested (117 tests).
 
 - All `SyntaxNode` fields (`cst`, `parent`, `offset`) are `priv`.
 - Layer 1 total functions: `find_at`, `start`, `end`, `kind`, `children`, `tokens`, `all_children`.
 - Layer 2 checked functions: `find_at_checked`, `parent`, `first_child`, `first_token`, `find_token`.
 - Layer 3 error information: `is_error`, `contains_errors`.
 - Additional navigation: `nth_child`, `child_of_kind`, `tokens_of_kind`, `tight_span`, `token_at_offset`, `cst_node`.
+- View helpers: `token_text`, `children_from`, `nodes_and_tokens` — reduce boilerplate when writing typed views and fold algebras.
 
-The library satisfies all four anamorphism properties (completeness, context-freedom,
-uniform error representation, transparent structure) and serves as the reference
-implementation for the coalgebra locality principle described in
-[Incremental Hylomorphism](../../docs/architecture/Incremental-Hylomorphism.md).
+The library satisfies all four structural independence properties (completeness,
+context-freedom, uniform error representation, transparent structure) described in
+[Incremental Hylomorphism §2](../../docs/architecture/Incremental-Hylomorphism.md).
 
 ---
 
