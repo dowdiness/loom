@@ -59,11 +59,11 @@ fn resolve_walk(
       let new_defs : Array[(@ast.VarName, @ast.Term)] = []
       let cur_env = Map::from_iter(env.iter())
       let mut cur_depth = depth
-      for (name, init) in defs {
-        let new_init = resolve_walk(init, cur_env, cur_depth, counter, res)
-        cur_env[name] = cur_depth
+      for def in defs {
+        let new_init = resolve_walk(def.1, cur_env, cur_depth, counter, res)
+        cur_env[def.0] = cur_depth
         cur_depth = cur_depth + 1
-        new_defs.push((name, new_init))
+        new_defs.push((def.0, new_init))
       }
       let new_body = resolve_walk(body, cur_env, cur_depth, counter, res)
       @ast.Term::Module(new_defs, new_body)

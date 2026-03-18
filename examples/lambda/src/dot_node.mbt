@@ -84,8 +84,8 @@ fn build_term_tree(
       ]
     @ast.Term::Module(defs, body) => {
       let children : Array[TermDotNode] = []
-      for (_, init) in defs {
-        children.push(build_term_tree(init, counter, resolution~))
+      for def in defs {
+        children.push(build_term_tree(def.1, counter, resolution~))
       }
       children.push(build_term_tree(body, counter, resolution~))
       children
