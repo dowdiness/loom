@@ -17,13 +17,25 @@ pub fn FoldStats::zero() -> FoldStats {
 }
 
 ///|
+/// Cache entry: stores both the CstNode (for collision verification)
+/// and the fold result. Hash is used as a fast lookup key, but two
+/// different CstNodes can theoretically share the same hash.
+priv struct CacheEntry[Ast] {
+  cst : @seam.CstNode
+  result : Ast
+}
+
+///|
 /// Memoized catamorphism over CstNode.
 ///
 /// Cache key: CstNode.hash (structural content hash, position-independent).
-/// Traversal: top-down with cache check first — unchanged subtrees are O(1).
+/// Cache entries store the CstNode for collision verification via Eq.
+/// The cache persists across folds — unchanged subtrees are O(1) on cache hit.
+/// Stale entries from deleted subtrees remain until the CstFold is dropped;
+/// this trades bounded memory overhead for O(1) reuse without tree walks.
 pub struct CstFold[Ast] {
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  mut cache : Map[Int, Ast]
+  priv cache : Map[Int, CacheEntry[Ast]]
   mut stats : FoldStats
 }
 
@@ -36,53 +48,39 @@ pub fn[Ast] CstFold::new(
 
 ///|
 /// Run the memoized fold over a syntax tree.
-/// Swaps in a fresh cache (old cache used for lookups), resets stats.
+/// Resets stats but preserves the cache for incremental reuse.
 pub fn[Ast] CstFold::fold(self : CstFold[Ast], root : @seam.SyntaxNode) -> Ast {
-  let old_cache = self.cache
-  self.cache = {}
   self.stats = FoldStats::zero()
-  self.fold_node(root, old_cache)
+  self.fold_node(root)
 }
 
 ///|
-/// Internal recursive fold with old-cache lookup.
-fn[Ast] CstFold::fold_node(
-  self : CstFold[Ast],
-  node : @seam.SyntaxNode,
-  old_cache : Map[Int, Ast],
-) -> Ast {
-  let hash = node.cst_node().hash
-  // Check old cache (from previous fold invocation)
-  match old_cache.get(hash) {
-    Some(cached) => {
-      self.cache[hash] = cached
-      self.stats.reused = self.stats.reused + 1
-      return cached
-    }
-    None => ()
-  }
-  // Check new cache (structural duplicate within same tree)
+/// Internal recursive fold with persistent cache lookup.
+fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast {
+  let cst = node.cst_node()
+  let hash = cst.hash
+  // Check cache — verify structural equality to guard against hash collisions.
   match self.cache.get(hash) {
-    Some(cached) => {
+    Some(entry) if entry.cst == cst => {
       self.stats.reused = self.stats.reused + 1
-      return cached
+      return entry.result
     }
-    None => ()
+    _ => ()
   }
   // Cache miss — call algebra with tracked recurse function
   let visited : Map[Int, Unit] = {}
   let recurse = fn(child : @seam.SyntaxNode) -> Ast {
     visited[child.start()] = ()
-    self.fold_node(child, old_cache)
+    self.fold_node(child)
   }
   let result = (self.algebra)(node, recurse)
-  self.cache[hash] = result
+  self.cache[hash] = { cst, result }
   self.stats.recomputed = self.stats.recomputed + 1
   // Verification: warm cache for unvisited node-children
   for child in node.children() {
     if not(visited.contains(child.start())) {
       self.stats.unvisited = self.stats.unvisited + 1
-      let _ = self.fold_node(child, old_cache)
+      let _ = self.fold_node(child)
     }
   }
   result

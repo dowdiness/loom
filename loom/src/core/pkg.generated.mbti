@@ -34,8 +34,8 @@ pub(all) struct Checkpoint[T, K] {
 
 pub struct CstFold[Ast] {
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  mut cache : Map[Int, Ast]
   mut stats : FoldStats
+  // private fields
 }
 pub fn[Ast] CstFold::fold(Self[Ast], @seam.SyntaxNode) -> Ast
 pub fn[Ast] CstFold::get_stats(Self[Ast]) -> FoldStats

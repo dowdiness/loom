@@ -46,11 +46,11 @@ test "CstFold: second fold reuses cache for unchanged tree" {
   let syntax = @seam.SyntaxNode::from_cst(root)
   let fold : CstFold[String] = CstFold::new(test_algebra)
   let _ = fold.fold(syntax)
-  // Second fold on same tree — root hash hits cache, short-circuits
+  // Second fold on same tree — all nodes hit persistent cache
   let result2 = fold.fold(syntax)
   inspect(result2, content="kind:10(kind:20)")
   let stats = fold.get_stats()
-  // Root found in old cache — returns immediately without visiting children
+  // Root hits cache immediately, returns without visiting children
   inspect(stats.reused, content="1")
   inspect(stats.recomputed, content="0")
 }

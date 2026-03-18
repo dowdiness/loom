@@ -62,9 +62,11 @@ test "fold benchmark: 80 lets - incremental fold after single edit" (
   let _ = parser.parse()
   let edited = make_let_chain_edited(80)
   let edit_start = tail_literal_offset(source)
-  let edit = @core.Edit::new(edit_start, 1, 1)
+  let fwd = @core.Edit::new(edit_start, 1, 1)
+  let bwd = @core.Edit::new(edit_start, 1, 1)
   b.bench(fn() {
-    let result = parser.edit(edit, edited)
+    let _ = parser.edit(fwd, edited)
+    let result = parser.edit(bwd, source)
     b.keep(result)
   })
 }
@@ -88,9 +90,11 @@ test "fold benchmark: 320 lets - incremental fold after single edit" (
   let _ = parser.parse()
   let edited = make_let_chain_edited(320)
   let edit_start = tail_literal_offset(source)
-  let edit = @core.Edit::new(edit_start, 1, 1)
+  let fwd = @core.Edit::new(edit_start, 1, 1)
+  let bwd = @core.Edit::new(edit_start, 1, 1)
   b.bench(fn() {
-    let result = parser.edit(edit, edited)
+    let _ = parser.edit(fwd, edited)
+    let result = parser.edit(bwd, source)
     b.keep(result)
   })
 }
