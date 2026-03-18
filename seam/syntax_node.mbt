@@ -196,6 +196,31 @@ pub fn SyntaxNode::children(self : SyntaxNode) -> Array[SyntaxNode] {
 }
 
 ///|
+/// Interior-node children starting from index `start` (0-indexed, tokens skipped).
+/// Like `children()` but skips the first `start` node children without
+/// allocating SyntaxNodes for them. Negative `start` is treated as 0.
+pub fn SyntaxNode::children_from(
+  self : SyntaxNode,
+  start : Int,
+) -> Array[SyntaxNode] {
+  let result : Array[SyntaxNode] = []
+  let mut count = 0
+  for offset = self.offset, i = 0; i < self.cst.children.length(); {
+    match self.cst.children[i] {
+      Node(cst_child) => {
+        if count >= start {
+          result.push(SyntaxNode::new(cst_child, Some(self), offset))
+        }
+        count = count + 1
+        continue offset + cst_child.text_len, i + 1
+      }
+      Token(token) => continue offset + token.text_len(), i + 1
+    }
+  }
+  result
+}
+
+///|
 /// All direct children as `SyntaxElement`s, preserving token order.
 pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
   let result : Array[SyntaxElement] = []

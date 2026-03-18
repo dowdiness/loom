@@ -595,3 +595,83 @@ test "SyntaxNode::token_text on empty node returns empty string" {
   let sn = SyntaxNode::from_cst(root)
   inspect(sn.token_text(RawKind(9)), content="")
 }
+
+///|
+test "SyntaxNode::children_from skips first N node children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let c = CstNode::new(RawKind(3), [])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Node(b),
+    CstElement::Node(c),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="2")
+  inspect(tail[0].kind() == RawKind(2), content="true")
+  inspect(tail[1].kind() == RawKind(3), content="true")
+}
+
+///|
+test "SyntaxNode::children_from skips tokens in indexing" {
+  let tok = CstToken::new(RawKind(99), "+")
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(tok),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="1")
+  inspect(tail[0].kind() == RawKind(2), content="true")
+}
+
+///|
+test "SyntaxNode::children_from with start=0 returns all children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(0).length(), content="2")
+}
+
+///|
+test "SyntaxNode::children_from with negative start returns all children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(-1).length(), content="2")
+}
+
+///|
+test "SyntaxNode::children_from past end returns empty" {
+  let a = CstNode::new(RawKind(1), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(5).length(), content="0")
+}
+
+///|
+test "SyntaxNode::children_from computes correct offsets" {
+  let lead = CstToken::new(RawKind(99), "ab")
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let b = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::new(RawKind(9), "ef")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(lead),
+    CstElement::Node(a),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="1")
+  inspect(tail[0].start(), content="4")
+  inspect(tail[0].end(), content="6")
+}

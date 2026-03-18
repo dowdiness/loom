@@ -122,6 +122,7 @@ pub struct SyntaxNode {
 pub fn SyntaxNode::all_children(Self) -> Array[SyntaxElement]
 pub fn SyntaxNode::child_of_kind(Self, RawKind) -> Self?
 pub fn SyntaxNode::children(Self) -> Array[Self]
+pub fn SyntaxNode::children_from(Self, Int) -> Array[Self]
 pub fn SyntaxNode::contains_errors(Self, RawKind, RawKind) -> Bool
 pub fn SyntaxNode::cst_node(Self) -> CstNode
 pub fn SyntaxNode::end(Self) -> Int
