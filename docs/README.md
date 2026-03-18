@@ -62,6 +62,7 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-18-syntax-node-view-helpers.md](plans/2026-03-18-syntax-node-view-helpers.md) — SyntaxNode view helpers implementation plan
+- [plans/2026-03-18-projectional-edit-text-delta-design.md](plans/2026-03-18-projectional-edit-text-delta-design.md) — projectional edit via text delta: eliminate ProjNode roundtrip, tree edits produce text deltas directly
 
 ## Development
 
