@@ -182,14 +182,27 @@ pub impl Show for SyntaxNode with output(self, logger) {
 /// Child `SyntaxNode`s with computed absolute offsets. Leaf tokens are skipped;
 /// only interior `CstNode` children are returned.
 pub fn SyntaxNode::children(self : SyntaxNode) -> Array[SyntaxNode] {
+  self.children_from(0)
+}
+
+///|
+/// Interior-node children starting from index `start` (0-indexed, tokens skipped).
+/// Like `children()` but skips the first `start` node children without
+/// allocating SyntaxNodes for them. Negative `start` is treated as 0.
+pub fn SyntaxNode::children_from(
+  self : SyntaxNode,
+  start : Int,
+) -> Array[SyntaxNode] {
   let result : Array[SyntaxNode] = []
-  for offset = self.offset, i = 0; i < self.cst.children.length(); {
+  for offset = self.offset, i = 0, count = 0; i < self.cst.children.length(); {
     match self.cst.children[i] {
       Node(cst_child) => {
-        result.push(SyntaxNode::new(cst_child, Some(self), offset))
-        continue offset + cst_child.text_len, i + 1
+        if count >= start {
+          result.push(SyntaxNode::new(cst_child, Some(self), offset))
+        }
+        continue offset + cst_child.text_len, i + 1, count + 1
       }
-      Token(token) => continue offset + token.text_len(), i + 1
+      Token(token) => continue offset + token.text_len(), i + 1, count
     }
   }
   result
@@ -215,6 +228,39 @@ pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
     }
   }
   result
+}
+
+///|
+/// Partition direct children into interior nodes and leaf tokens.
+/// When `trivia_kind` is provided, tokens of that kind are excluded.
+/// Both arrays preserve source order. Useful for infix expressions
+/// where nodes are operands and tokens are operators.
+pub fn SyntaxNode::nodes_and_tokens(
+  self : SyntaxNode,
+  trivia_kind? : RawKind? = None,
+) -> (Array[SyntaxNode], Array[SyntaxToken]) {
+  let nodes : Array[SyntaxNode] = []
+  let tokens : Array[SyntaxToken] = []
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Node(child_cst) => {
+        nodes.push(SyntaxNode::new(child_cst, Some(self), offset))
+        offset = offset + child_cst.text_len
+      }
+      CstElement::Token(tok) => {
+        let keep = match trivia_kind {
+          Some(tk) => tok.kind != tk
+          None => true
+        }
+        if keep {
+          tokens.push(SyntaxToken::new(tok, offset))
+        }
+        offset = offset + tok.text_len()
+      }
+    }
+  }
+  (nodes, tokens)
 }
 
 ///|
@@ -253,6 +299,16 @@ pub fn SyntaxNode::find_token(
     }
   }
   None
+}
+
+///|
+/// Text of the first direct token child matching `kind`, or "" if not found.
+/// Shorthand for `find_token(kind).map(fn(t) { t.text() }).unwrap_or("")`.
+pub fn SyntaxNode::token_text(self : SyntaxNode, kind : RawKind) -> String {
+  match self.find_token(kind) {
+    Some(t) => t.text()
+    None => ""
+  }
 }
 
 ///|

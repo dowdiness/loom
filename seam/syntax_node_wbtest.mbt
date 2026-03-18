@@ -556,3 +556,279 @@ test "SyntaxNode::token_at_offset: None (offset past end)" {
     _ => inspect("wrong", content="none")
   }
 }
+
+///|
+test "SyntaxNode::token_text returns text of matching token" {
+  let ident = CstToken::new(RawKind(9), "foo")
+  let dot = CstToken::new(RawKind(2), ".")
+  let root = CstNode::new(RawKind(22), [
+    CstElement::Token(dot),
+    CstElement::Token(ident),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="foo")
+}
+
+///|
+test "SyntaxNode::token_text returns empty string when no match" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let root = CstNode::new(RawKind(22), [CstElement::Token(tok)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(99)), content="")
+}
+
+///|
+test "SyntaxNode::token_text returns first match when multiple exist" {
+  let a = CstToken::new(RawKind(9), "first")
+  let b = CstToken::new(RawKind(9), "second")
+  let root = CstNode::new(RawKind(22), [
+    CstElement::Token(a),
+    CstElement::Token(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="first")
+}
+
+///|
+test "SyntaxNode::token_text on empty node returns empty string" {
+  let root = CstNode::new(RawKind(22), [])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="")
+}
+
+///|
+test "SyntaxNode::children_from skips first N node children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let c = CstNode::new(RawKind(3), [])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Node(b),
+    CstElement::Node(c),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="2")
+  inspect(tail[0].kind() == RawKind(2), content="true")
+  inspect(tail[1].kind() == RawKind(3), content="true")
+}
+
+///|
+test "SyntaxNode::children_from skips tokens in indexing" {
+  let tok = CstToken::new(RawKind(99), "+")
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(tok),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="1")
+  inspect(tail[0].kind() == RawKind(2), content="true")
+}
+
+///|
+test "SyntaxNode::children_from with start=0 returns all children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(0).length(), content="2")
+}
+
+///|
+test "SyntaxNode::children_from with negative start returns all children" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(-1).length(), content="2")
+}
+
+///|
+test "SyntaxNode::children_from past end returns empty" {
+  let a = CstNode::new(RawKind(1), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.children_from(5).length(), content="0")
+}
+
+///|
+test "SyntaxNode::children_from computes correct offsets" {
+  let lead = CstToken::new(RawKind(99), "ab")
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let b = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::new(RawKind(9), "ef")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(lead),
+    CstElement::Node(a),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let tail = sn.children_from(1)
+  inspect(tail.length(), content="1")
+  inspect(tail[0].start(), content="4")
+  inspect(tail[0].end(), content="6")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens partitions children" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "1")),
+  ])
+  let plus = CstToken::new(RawKind(5), "+")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "2")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(plus),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="1")
+  inspect(tokens[0].text(), content="+")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens filters trivia" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "1")),
+  ])
+  let ws = CstToken::new(RawKind(0), " ")
+  let plus = CstToken::new(RawKind(5), "+")
+  let ws2 = CstToken::new(RawKind(0), " ")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "2")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(ws),
+    CstElement::Token(plus),
+    CstElement::Token(ws2),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens(trivia_kind=Some(RawKind(0)))
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="1")
+  inspect(tokens[0].text(), content="+")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens on empty node" {
+  let root = CstNode::new(RawKind(0), [])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="0")
+  inspect(tokens.length(), content="0")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens tokens only" {
+  let a = CstToken::new(RawKind(5), "+")
+  let b = CstToken::new(RawKind(6), "-")
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(a),
+    CstElement::Token(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="0")
+  inspect(tokens.length(), content="2")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens nodes only" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="0")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens preserves offsets" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "ab")),
+  ])
+  let plus = CstToken::new(RawKind(5), "+")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(plus),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes[0].start(), content="0")
+  inspect(nodes[0].end(), content="2")
+  inspect(tokens[0].start(), content="2")
+  inspect(tokens[0].end(), content="3")
+  inspect(nodes[1].start(), content="3")
+  inspect(nodes[1].end(), content="5")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens without trivia_kind includes all tokens" {
+  let ws = CstToken::new(RawKind(0), " ")
+  let plus = CstToken::new(RawKind(5), "+")
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(ws),
+    CstElement::Token(plus),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (_nodes, tokens) = sn.nodes_and_tokens()
+  inspect(tokens.length(), content="2")
+}
+
+///|
+test "SyntaxNode::token_text returns empty string for zero-width token" {
+  // Zero-width tokens (from error recovery) have text "".
+  // token_text returns "" for both "not found" and "found with empty text".
+  // Callers who need to distinguish should use find_token directly.
+  let zw = CstToken::new(RawKind(9), "")
+  let root = CstNode::new(RawKind(22), [CstElement::Token(zw)])
+  let sn = SyntaxNode::from_cst(root)
+  // token_text finds the zero-width token and returns its (empty) text
+  inspect(sn.token_text(RawKind(9)), content="")
+  // find_token distinguishes: it returns Some for a present zero-width token
+  inspect(sn.find_token(RawKind(9)) is Some(_), content="true")
+}
+
+///|
+test "SyntaxNode::children delegates to children_from(0)" {
+  // Regression test: children() and children_from(0) must produce
+  // identical results on a mixed token/node child list.
+  let tok = CstToken::new(RawKind(99), "ab")
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let b = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::new(RawKind(9), "ef")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(tok),
+    CstElement::Node(a),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let via_children = sn.children()
+  let via_from = sn.children_from(0)
+  inspect(via_children.length() == via_from.length(), content="true")
+  for i = 0; i < via_children.length(); i = i + 1 {
+    inspect(via_children[i] == via_from[i], content="true")
+    inspect(via_children[i].start() == via_from[i].start(), content="true")
+  }
+}
