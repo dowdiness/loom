@@ -1,7 +1,7 @@
 # Projectional Edit via Text Delta — Design Document
 
 **Date:** March 18, 2026
-**Status:** Draft
+**Status:** Complete
 **Scope:** `editor/` and `projection/` (parent crdt repo)
 
 ## Goal
