@@ -70,17 +70,13 @@ fn fold_node_inner(
       }
     }
     @syntax.BinaryExpr => {
+      let (children, all_tokens) = node.nodes_and_tokens()
       let ops : Array[@ast.Bop] = []
-      let children : Array[@seam.SyntaxNode] = []
-      for elem in node.all_children() {
-        match elem {
-          @seam.SyntaxElement::Token(t) =>
-            if t.kind() == @syntax.PlusToken.to_raw() {
-              ops.push(@ast.Bop::Plus)
-            } else if t.kind() == @syntax.MinusToken.to_raw() {
-              ops.push(@ast.Bop::Minus)
-            }
-          @seam.SyntaxElement::Node(child) => children.push(child)
+      for t in all_tokens {
+        if t.kind() == @syntax.PlusToken.to_raw() {
+          ops.push(@ast.Bop::Plus)
+        } else if t.kind() == @syntax.MinusToken.to_raw() {
+          ops.push(@ast.Bop::Minus)
         }
       }
       if children.length() >= 2 {
