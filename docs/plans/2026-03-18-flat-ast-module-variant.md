@@ -14,7 +14,7 @@ Replace the right-recursive `Term::Let(VarName, Term, Term)` encoding with a fla
 
 The CST is flat — LetDef nodes are siblings under SourceFile. But the SourceFile fold algebra right-folds them into nested `Let` terms:
 
-```
+```text
 CST:  SourceFile → [LetDef(x0, e0), LetDef(x1, e1), ..., LetDef(x79, e79), Expr]
 AST:  Let("x0", e0, Let("x1", e1, ... Let("x79", e79, body)))
 ```
@@ -114,7 +114,7 @@ Each definition's initializer sees only previous definitions (non-recursive). Ea
 
 `resolve()` assigns pre-order indices as it walks. The numbering changes:
 
-```
+```text
 // BEFORE (nested Let, 3 defs):
 0=Let(x0), 1=e0, 2=Let(x1), 3=e1, 4=Let(x2), 5=e2, 6=body
 
