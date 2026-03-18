@@ -256,6 +256,16 @@ pub fn SyntaxNode::find_token(
 }
 
 ///|
+/// Text of the first direct token child matching `kind`, or "" if not found.
+/// Shorthand for `find_token(kind).map(fn(t) { t.text() }).unwrap_or("")`.
+pub fn SyntaxNode::token_text(self : SyntaxNode, kind : RawKind) -> String {
+  match self.find_token(kind) {
+    Some(t) => t.text()
+    None => ""
+  }
+}
+
+///|
 /// All direct token children matching `kind`, in source order.
 pub fn SyntaxNode::tokens_of_kind(
   self : SyntaxNode,

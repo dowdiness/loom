@@ -556,3 +556,42 @@ test "SyntaxNode::token_at_offset: None (offset past end)" {
     _ => inspect("wrong", content="none")
   }
 }
+
+///|
+test "SyntaxNode::token_text returns text of matching token" {
+  let ident = CstToken::new(RawKind(9), "foo")
+  let dot = CstToken::new(RawKind(2), ".")
+  let root = CstNode::new(RawKind(22), [
+    CstElement::Token(dot),
+    CstElement::Token(ident),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="foo")
+}
+
+///|
+test "SyntaxNode::token_text returns empty string when no match" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let root = CstNode::new(RawKind(22), [CstElement::Token(tok)])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(99)), content="")
+}
+
+///|
+test "SyntaxNode::token_text returns first match when multiple exist" {
+  let a = CstToken::new(RawKind(9), "first")
+  let b = CstToken::new(RawKind(9), "second")
+  let root = CstNode::new(RawKind(22), [
+    CstElement::Token(a),
+    CstElement::Token(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="first")
+}
+
+///|
+test "SyntaxNode::token_text on empty node returns empty string" {
+  let root = CstNode::new(RawKind(22), [])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.token_text(RawKind(9)), content="")
+}

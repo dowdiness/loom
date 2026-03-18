@@ -139,6 +139,7 @@ pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
 pub fn SyntaxNode::token_at_offset(Self, Int) -> TokenAtOffset
+pub fn SyntaxNode::token_text(Self, RawKind) -> String
 pub fn SyntaxNode::tokens(Self) -> Array[SyntaxToken]
 pub fn SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
 pub impl Eq for SyntaxNode
