@@ -24,12 +24,7 @@ pub fn lambda_fold_node(
           _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
         }
       }
-      let mut result = final_term
-      for i = defs.length() - 1; i >= 0; i = i - 1 {
-        let (name, init) = defs[i]
-        result = @ast.Term::Let(name, init, result)
-      }
-      result
+      @ast.Term::Module(defs, final_term)
     }
     _ => fold_node_inner(node, recurse)
   }
