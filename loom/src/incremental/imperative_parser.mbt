@@ -135,3 +135,12 @@ pub fn[Ast] ImperativeParser::get_fold_stats(
 ) -> @core.FoldStats? {
   self.lang.get_fold_stats.map(fn(f) { f() })
 }
+
+///|
+/// Return the last SyntaxNode produced by parse/edit, if any.
+/// Useful for consumers that need CST-level access alongside the Ast result.
+pub fn[Ast] ImperativeParser::get_syntax_tree(
+  self : ImperativeParser[Ast],
+) -> @seam.SyntaxNode? {
+  self.syntax_tree
+}
