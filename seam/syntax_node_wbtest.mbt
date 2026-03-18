@@ -792,3 +792,43 @@ test "SyntaxNode::nodes_and_tokens without trivia_kind includes all tokens" {
   let (_nodes, tokens) = sn.nodes_and_tokens()
   inspect(tokens.length(), content="2")
 }
+
+///|
+test "SyntaxNode::token_text returns empty string for zero-width token" {
+  // Zero-width tokens (from error recovery) have text "".
+  // token_text returns "" for both "not found" and "found with empty text".
+  // Callers who need to distinguish should use find_token directly.
+  let zw = CstToken::new(RawKind(9), "")
+  let root = CstNode::new(RawKind(22), [CstElement::Token(zw)])
+  let sn = SyntaxNode::from_cst(root)
+  // token_text finds the zero-width token and returns its (empty) text
+  inspect(sn.token_text(RawKind(9)), content="")
+  // find_token distinguishes: it returns Some for a present zero-width token
+  inspect(sn.find_token(RawKind(9)) is Some(_), content="true")
+}
+
+///|
+test "SyntaxNode::children delegates to children_from(0)" {
+  // Regression test: children() and children_from(0) must produce
+  // identical results on a mixed token/node child list.
+  let tok = CstToken::new(RawKind(99), "ab")
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let b = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::new(RawKind(9), "ef")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(tok),
+    CstElement::Node(a),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let via_children = sn.children()
+  let via_from = sn.children_from(0)
+  inspect(via_children.length() == via_from.length(), content="true")
+  for i = 0; i < via_children.length(); i = i + 1 {
+    inspect(via_children[i] == via_from[i], content="true")
+    inspect(via_children[i].start() == via_from[i].start(), content="true")
+  }
+}
