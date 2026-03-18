@@ -68,9 +68,10 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
     _ => ()
   }
   // Cache miss — call algebra with tracked recurse function
-  let visited : Map[Int, Unit] = {}
+  // Key by (start, end) to distinguish siblings at the same offset (e.g. zero-length nodes)
+  let visited : Map[(Int, Int), Unit] = {}
   let recurse = fn(child : @seam.SyntaxNode) -> Ast {
-    visited[child.start()] = ()
+    visited[(child.start(), child.end())] = ()
     self.fold_node(child)
   }
   let result = (self.algebra)(node, recurse)
@@ -78,7 +79,7 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
   self.stats.recomputed = self.stats.recomputed + 1
   // Verification: warm cache for unvisited node-children
   for child in node.children() {
-    if not(visited.contains(child.start())) {
+    if not(visited.contains((child.start(), child.end()))) {
       self.stats.unvisited = self.stats.unvisited + 1
       let _ = self.fold_node(child)
     }

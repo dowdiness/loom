@@ -202,13 +202,13 @@ test "differential-fast: malformed input sequences terminate" {
         source, seed, true,
       )
       let incremental = parser.edit(edit, new_source)
-      // Ignore result — just verify both paths terminate without panic.
+      // Verify incremental parse produces a Term (print_term must not panic)
+      let _ = @ast.print_term(incremental)
       try {
         let _ = parse_cst(new_source)
       } catch {
         _ => ()
       }
-      let _ = incremental
       source = new_source
       seed = next_seed
     }

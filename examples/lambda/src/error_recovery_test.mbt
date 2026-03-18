@@ -287,6 +287,8 @@ test "incremental: error to error edit" {
   let new_tree = parser.edit(edit, "λ.y")
   // Should still have diagnostics (missing param) but produce a valid tree
   inspect(parser.diagnostics().length() > 0, content="true")
-  // The parser should produce a term (not crash)
-  let _ = new_tree
+  // Should produce a term with error recovery (λ with missing param → error + body)
+  inspect(@ast.print_term(new_tree), content=(
+    #|(λ. y)
+  ))
 }

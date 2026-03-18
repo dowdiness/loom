@@ -87,7 +87,7 @@ test "two peers converge after sequential sync" {
   apply_peer_delta(peer_b, delta_a)
   // Both should have same text
   inspect(peer_a.text == peer_b.text, content="true")
-  // Both should have same CST
+  // Both should parse to the same Term
   let tree_a = peer_a.parser.get_tree().unwrap()
   let tree_b = peer_b.parser.get_tree().unwrap()
   inspect(tree_a == tree_b, content="true")
@@ -116,7 +116,7 @@ test "two peers converge after two rounds of sync" {
 ///|
 test "tree_diff confirms incremental parse matches full reparse after sync" {
   // After applying a delta, the incremental parse and a fresh full parse
-  // should produce identical CstNodes — tree_diff returns empty.
+  // should produce identical Terms.
   let peer = Peer::new("42")
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)

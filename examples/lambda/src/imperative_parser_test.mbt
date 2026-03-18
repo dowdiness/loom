@@ -833,4 +833,7 @@ test "ImperativeParser: CstFold cache reuses unchanged subtrees after edit" {
   let edit = @core.Edit::new(4, 1, 1)
   let t2 = parser.edit(edit, "1 + 3")
   inspect(@ast.print_term(t2), content="(1 + 3)")
+  // Verify fold cache was used — reused count should be > 0
+  let stats = parser.get_fold_stats().unwrap()
+  inspect(stats.reused > 0, content="true")
 }
