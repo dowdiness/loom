@@ -21,9 +21,9 @@ pub using @incremental {type ImperativeParser}
 ///|
 /// Create a lambda calculus ImperativeParser, pre-configured with the lambda
 /// grammar. The grammar is baked in — pass only the initial source string.
-/// The parser returns SyntaxNode; use typed view types to navigate the tree.
+/// The parser returns Term directly via memoized CST fold.
 pub fn new_imperative_parser(
   source : String,
-) -> @incremental.ImperativeParser[@seam.SyntaxNode] {
+) -> @incremental.ImperativeParser[@ast.Term] {
   @loom.new_imperative_parser(source, lambda_grammar)
 }

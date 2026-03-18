@@ -128,3 +128,10 @@ pub fn[Ast] ImperativeParser::get_last_reuse_count(
 ) -> Int {
   self.last_reuse_count
 }
+
+///|
+pub fn[Ast] ImperativeParser::get_fold_stats(
+  self : ImperativeParser[Ast],
+) -> @core.FoldStats? {
+  self.lang.get_fold_stats.map(fn(f) { f() })
+}

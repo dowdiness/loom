@@ -5,7 +5,7 @@
 ///|
 struct Peer {
   mut text : String
-  parser : @incremental.ImperativeParser[@seam.SyntaxNode]
+  parser : @incremental.ImperativeParser[@ast.Term]
 }
 
 ///|
@@ -87,10 +87,10 @@ test "two peers converge after sequential sync" {
   apply_peer_delta(peer_b, delta_a)
   // Both should have same text
   inspect(peer_a.text == peer_b.text, content="true")
-  // Both should have same CST
+  // Both should parse to the same Term
   let tree_a = peer_a.parser.get_tree().unwrap()
   let tree_b = peer_b.parser.get_tree().unwrap()
-  inspect(tree_a.cst_node() == tree_b.cst_node(), content="true")
+  inspect(tree_a == tree_b, content="true")
 }
 
 ///|
@@ -110,19 +110,18 @@ test "two peers converge after two rounds of sync" {
   inspect(peer_b.text, content="42 + 1")
   let tree_a = peer_a.parser.get_tree().unwrap()
   let tree_b = peer_b.parser.get_tree().unwrap()
-  inspect(tree_a.cst_node() == tree_b.cst_node(), content="true")
+  inspect(tree_a == tree_b, content="true")
 }
 
 ///|
 test "tree_diff confirms incremental parse matches full reparse after sync" {
   // After applying a delta, the incremental parse and a fresh full parse
-  // should produce identical CstNodes — tree_diff returns empty.
+  // should produce identical Terms.
   let peer = Peer::new("42")
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)
-  // Full reparse of final text using parse_cst (public API)
-  let (fresh_cst, _) = parse_cst(peer.text) catch { _ => abort("parse failed") }
-  let incremental_cst = peer.parser.get_tree().unwrap().cst_node()
-  let diffs = @core.tree_diff(incremental_cst, fresh_cst)
-  inspect(diffs.length(), content="0")
+  // Full reparse of final text using parse (public API) — both return Term now
+  let full_term = parse(peer.text) catch { _ => abort("parse failed") }
+  let incremental_term = peer.parser.get_tree().unwrap()
+  inspect(incremental_term == full_term, content="true")
 }

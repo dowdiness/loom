@@ -60,6 +60,7 @@ Understanding how the layers fit together:
 - [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
 - [plans/2026-03-15-flat-grammar-unification.md](plans/2026-03-15-flat-grammar-unification.md) — flat grammar unification: remove lambda_grammar, unify on LetDef* with layout-aware lexing
 - [plans/2026-03-15-flat-grammar-unification-plan.md](plans/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification: implementation plan (8 tasks)
+- [plans/2026-03-18-flat-ast-module-variant.md](plans/2026-03-18-flat-ast-module-variant.md) — flat AST: replace `Term::Let` with `Term::Module` for O(1) fold construction
 
 ## Development
 

@@ -101,10 +101,7 @@ test "resolve: nested let shadowing" {
   inspect(res.vars.get(3), content="Some(Bound(depth=1))")
   inspect(res.vars.get(4), content="Some(Bound(depth=1))")
   // no Unbound nodes — all vars are bound
-  inspect(
-    @ast.print_term(resolved_term),
-    content="let x = 1\nlet x = x\nx",
-  )
+  inspect(@ast.print_term(resolved_term), content="let x = 1\nlet x = x\nx")
 }
 
 ///|
@@ -117,10 +114,7 @@ test "resolve: idempotent on pre-resolved tree" {
   let (resolved_once, _) = resolve(term)
   let (resolved_twice, res2) = resolve(resolved_once)
   // Tree should be identical
-  inspect(
-    @ast.print_term(resolved_twice),
-    content="(λx. (x + <unbound: y>))",
-  )
+  inspect(@ast.print_term(resolved_twice), content="(λx. (x + <unbound: y>))")
   // Unbound node should still be marked Free in the resolution map
   inspect(res2.vars.get(3), content="Some(Free)")
 }

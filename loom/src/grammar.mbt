@@ -9,7 +9,7 @@
 pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
-  to_ast : (@seam.SyntaxNode) -> Ast
+  fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
   error_token : T?
   prefix_lexer : @core.PrefixLexer[T]?
@@ -19,10 +19,10 @@ pub struct Grammar[T, K, Ast] {
 pub fn[T, K, Ast] Grammar::new(
   spec~ : @core.LanguageSpec[T, K],
   tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
-  to_ast~ : (@seam.SyntaxNode) -> Ast,
+  fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
   on_lex_error~ : (String) -> Ast,
   error_token? : T? = None,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
 ) -> Grammar[T, K, Ast] {
-  { spec, tokenize, to_ast, on_lex_error, error_token, prefix_lexer }
+  { spec, tokenize, fold_node, on_lex_error, error_token, prefix_lexer }
 }

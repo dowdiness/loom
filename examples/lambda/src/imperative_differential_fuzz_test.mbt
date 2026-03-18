@@ -132,11 +132,11 @@ fn idf_apply_random_edit(
 
 ///|
 fn idf_assert_incremental_matches_full(
-  incremental : @seam.SyntaxNode,
+  incremental : @ast.Term,
   full : @ast.Term,
   context : String,
 ) -> Unit {
-  let incremental_str = @ast.print_term(syntax_node_to_term(incremental))
+  let incremental_str = @ast.print_term(incremental)
   let full_str = @ast.print_term(full)
   if incremental_str != full_str {
     abort(
@@ -173,10 +173,10 @@ test "differential-fast: deterministic random edit sequences" {
       }
       // Phase 4 correctness today is strongest on well-formed inputs.
       if errors.length() == 0 {
-        let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
+        let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
         idf_assert_incremental_matches_full(
           incremental,
-          full,
+          full_term,
           "case=\{case_i}, edit=\{edit_i}, source=\{new_source}",
         )
         checked_cases += 1
@@ -202,13 +202,13 @@ test "differential-fast: malformed input sequences terminate" {
         source, seed, true,
       )
       let incremental = parser.edit(edit, new_source)
-      // Ignore result — just verify both paths terminate without panic.
+      // Verify incremental parse produces a Term (print_term must not panic)
+      let _ = @ast.print_term(incremental)
       try {
         let _ = parse_cst(new_source)
       } catch {
         _ => ()
       }
-      assert_true(incremental.start() >= 0)
       source = new_source
       seed = next_seed
     }
@@ -313,11 +313,10 @@ fn idf_apply_source_file_edit(
 /// Oracle for the source-file grammar: incremental result must match
 /// a fresh full parse when there are no diagnostics.
 fn idf_assert_source_file_matches_full(
-  incr_node : @seam.SyntaxNode,
+  incr_term : @ast.Term,
   full_cst : @seam.CstNode,
   context : String,
 ) -> Unit {
-  let incr_term = syntax_node_to_term(incr_node)
   let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(full_cst))
   // Structural equality (Term derives Eq) is stronger than string comparison:
   // two structurally distinct trees that happen to print identically would pass
@@ -349,7 +348,7 @@ test "differential-fast: source-file grammar deterministic fuzz" {
       let (new_source, edit, next_seed) = idf_apply_source_file_edit(
         source, seed,
       )
-      let incr_node = parser.edit(edit, new_source)
+      let incr_term = parser.edit(edit, new_source)
       let (full_cst, full_errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
@@ -359,7 +358,7 @@ test "differential-fast: source-file grammar deterministic fuzz" {
       }
       if full_errors.length() == 0 {
         idf_assert_source_file_matches_full(
-          incr_node,
+          incr_term,
           full_cst,
           "case=\{case_i}, edit=\{edit_i}, source=\{new_source}",
         )
@@ -394,10 +393,10 @@ test "differential-long: larger deterministic random edit sequences" {
         }
       }
       if errors.length() == 0 {
-        let full = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
+        let full_term = syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
         idf_assert_incremental_matches_full(
           incremental,
-          full,
+          full_term,
           "long case=\{case_i}, edit=\{edit_i}",
         )
         checked_cases += 1

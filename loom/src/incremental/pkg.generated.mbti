@@ -38,13 +38,14 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String]) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String], get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
 
 pub struct ImperativeParser[Ast] {
   // private fields
 }
 pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> Array[String]
 pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> Ast
+pub fn[Ast] ImperativeParser::get_fold_stats(Self[Ast]) -> @core.FoldStats?
 pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
 pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?

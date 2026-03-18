@@ -57,7 +57,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
   let prefix_lexer = grammar.prefix_lexer
-  let to_ast = grammar.to_ast
+  let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
   let lang = @incremental.ImperativeLanguage::new(
@@ -160,9 +160,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
       @incremental.ParseOutcome::Tree(new_syntax, reuse_count)
     },
-    to_ast~,
+    to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
     get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
+    get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
   @incremental.ImperativeParser::new(source, lang)
 }
@@ -188,7 +189,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
   let prefix_lexer = grammar.prefix_lexer
-  let to_ast = grammar.to_ast
+  let cst_fold = @core.CstFold::new(grammar.fold_node)
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, source, label="source_text")
   // Token memo — stores full lex output (tokens + starts + source).
@@ -274,7 +275,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
         (grammar.on_lex_error)(msg)
       } else {
         let syntax = @seam.SyntaxNode::from_cst(stage.cst)
-        to_ast(syntax)
+        cst_fold.fold(syntax)
       }
     },
     label="term",

@@ -32,6 +32,15 @@ pub(all) struct Checkpoint[T, K] {
   // private fields
 }
 
+pub struct CstFold[Ast] {
+  algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
+  mut stats : FoldStats
+  // private fields
+}
+pub fn[Ast] CstFold::fold(Self[Ast], @seam.SyntaxNode) -> Ast
+pub fn[Ast] CstFold::get_stats(Self[Ast]) -> FoldStats
+pub fn[Ast] CstFold::new((@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast) -> Self[Ast]
+
 type CursorFrame
 
 pub struct Diagnostic[T] {
@@ -63,6 +72,14 @@ pub fn Edit::to_string(Self) -> String
 pub impl Editable for Edit
 pub impl Eq for Edit
 pub impl Show for Edit
+
+pub struct FoldStats {
+  mut reused : Int
+  mut recomputed : Int
+  mut unvisited : Int
+}
+pub fn FoldStats::zero() -> Self
+pub impl Show for FoldStats
 
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
@@ -224,7 +241,7 @@ pub(all) struct TokenStage[T] {
   is_lex_error : Bool
   lex_error_message : String
 }
-pub impl[T : Eq] Eq for TokenStage[T]
+pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T]
 
 // Type aliases
 

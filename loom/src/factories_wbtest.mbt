@@ -130,7 +130,7 @@ fn fgrammar(
   Grammar::new(
     spec~,
     tokenize=ftokenize,
-    to_ast=fn(s) { s },
+    fold_node=fn(s, _recurse) { s },
     on_lex_error=fn(_msg) {
       let cst = @seam.CstNode::new(fkind_raw(KErr), [])
       @seam.SyntaxNode::from_cst(cst)

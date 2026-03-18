@@ -30,6 +30,7 @@ pub struct ImperativeLanguage[Ast] {
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv on_lex_error : (String) -> Ast
   priv get_diagnostics : () -> Array[String]
+  priv get_fold_stats : (() -> @core.FoldStats)?
 }
 
 ///|
@@ -40,6 +41,14 @@ pub fn[Ast] ImperativeLanguage::new(
   to_ast~ : (@seam.SyntaxNode) -> Ast,
   on_lex_error~ : (String) -> Ast,
   get_diagnostics~ : () -> Array[String],
+  get_fold_stats? : (() -> @core.FoldStats)? = None,
 ) -> ImperativeLanguage[Ast] {
-  { full_parse, incremental_parse, to_ast, on_lex_error, get_diagnostics }
+  {
+    full_parse,
+    incremental_parse,
+    to_ast,
+    on_lex_error,
+    get_diagnostics,
+    get_fold_stats,
+  }
 }

@@ -19,19 +19,23 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
 pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
-  to_ast : (@seam.SyntaxNode) -> Ast
+  fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
   error_token : T?
   prefix_lexer : @core.PrefixLexer[T]?
 }
-pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, error_token? : T?, prefix_lexer? : @core.PrefixLexer[T]?) -> Self[T, K, Ast]
+pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, on_lex_error~ : (String) -> Ast, error_token? : T?, prefix_lexer? : @core.PrefixLexer[T]?) -> Self[T, K, Ast]
 
 // Type aliases
+pub using @core {type CstFold}
+
 pub using @seam {type CstNode}
 
 pub using @core {type Diagnostic}
 
 pub using @core {type Edit}
+
+pub using @core {type FoldStats}
 
 pub using @incremental {type ImperativeParser}
 
