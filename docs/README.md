@@ -31,6 +31,11 @@ Understanding how the layers fit together:
 - [correctness/STRUCTURAL_VALIDATION.md](correctness/STRUCTURAL_VALIDATION.md) — structural validation details
 - [correctness/EDGE_CASE_TESTS.md](correctness/EDGE_CASE_TESTS.md) — edge-case test catalog
 
+## Analysis
+
+- [analysis/code-analysis-report.md](analysis/code-analysis-report.md) — comprehensive code analysis: module structure, dependency hierarchy, execution paths
+- [analysis/defect-analysis-report.md](analysis/defect-analysis-report.md) — defect analysis: common bug patterns, failure modes, risk areas
+
 ## Performance
 
 - [performance/PERFORMANCE_ANALYSIS.md](performance/PERFORMANCE_ANALYSIS.md) — benchmarks and analysis
@@ -56,8 +61,6 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-15-flat-grammar-unification.md](plans/2026-03-15-flat-grammar-unification.md) — flat grammar unification: remove lambda_grammar, unify on LetDef* with layout-aware lexing
-- [plans/2026-03-15-flat-grammar-unification-plan.md](plans/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification: implementation plan (8 tasks)
 - [plans/2026-03-18-flat-ast-module-variant.md](plans/2026-03-18-flat-ast-module-variant.md) — flat AST: replace `Term::Let` with `Term::Module` for O(1) fold construction
 
 ## Development
@@ -66,7 +69,7 @@ Understanding how the layers fit together:
 
 ## Archive (Historical / Completed)
 
-- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, Term::Error variant, multi-expression files, step-lexing redesign, seam Phase 2)
+- [archive/completed-phases/](archive/completed-phases/) — all completed phase plans (Phases 0–7, SyntaxNode-first layer, NodeInterner, docs reorganization, dead-code audit, loom extraction, rabbita monorepo migration, parser API simplification, roadmap separation, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, Term::Error variant, multi-expression files, step-lexing redesign, seam Phase 2, flat grammar unification)
 - [archive/completed-phases/2026-03-04-multi-expression-files-design.md](archive/completed-phases/2026-03-04-multi-expression-files-design.md) — multi-expression files design (LetDef*, Unit term, parse_source_file)
 - [archive/completed-phases/2026-03-04-multi-expression-files.md](archive/completed-phases/2026-03-04-multi-expression-files.md) — multi-expression files implementation plan (6 tasks, complete)
 - [archive/completed-phases/2026-03-05-loom-error-recovery.md](archive/completed-phases/2026-03-05-loom-error-recovery.md) — loom error recovery combinators (expect, skip_until, skip_until_balanced, node_with_recovery, expect_and_recover)
