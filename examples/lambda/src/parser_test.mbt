@@ -339,7 +339,7 @@ test "parse let with lambda" {
 }
 
 ///|
-test "parse_term: two defs fold to nested Let with Unit" {
+test "parse_term: two defs produce Module with Unit body" {
   let (term, diagnostics) = parse_term("let id = 1\nlet const = 2")
   inspect(diagnostics.length(), content="0")
   inspect(

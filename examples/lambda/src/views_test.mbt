@@ -140,7 +140,12 @@ test "syntax_node_to_term: integer" {
   let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
-  inspect(term, content="Int(42)")
+  inspect(
+    term,
+    content=(
+      #|Int(42)
+    ),
+  )
 }
 
 ///|
@@ -148,7 +153,12 @@ test "syntax_node_to_term: lambda" {
   let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
-  inspect(term, content="Lam(\"x\", Var(\"x\"))")
+  inspect(
+    term,
+    content=(
+      #|Lam("x", Var("x"))
+    ),
+  )
 }
 
 ///|
@@ -156,5 +166,10 @@ test "syntax_node_to_term: let binding" {
   let (cst, _) = parse_cst("let x = 1\nx") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
-  inspect(term, content="Let(\"x\", Int(1), Var(\"x\"))")
+  inspect(
+    term,
+    content=(
+      #|Module([("x", Int(1))], Var("x"))
+    ),
+  )
 }

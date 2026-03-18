@@ -24,7 +24,11 @@ pub fn lambda_fold_node(
           _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
         }
       }
-      @ast.Term::Module(defs, final_term)
+      if defs.is_empty() {
+        final_term
+      } else {
+        @ast.Term::Module(defs, final_term)
+      }
     }
     _ => fold_node_inner(node, recurse)
   }

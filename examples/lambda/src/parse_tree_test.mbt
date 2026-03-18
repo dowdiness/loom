@@ -127,6 +127,8 @@ test "syntax_node_to_term: missing lambda body produces Term::Error" {
       @ast.Term::Lam(_, @ast.Term::Error(_)) => true
       _ => false
     },
-    content="true",
+    content=(
+      #|true
+    ),
   )
 }

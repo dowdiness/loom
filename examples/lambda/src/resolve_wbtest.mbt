@@ -40,8 +40,8 @@ test "resolve: nested lambda shadows outer binding" {
 ///|
 test "resolve: let binding" {
   // let x = 1 in x — x bound in body, not in initializer
-  // Pre-order: 0=Let, 1=Int(1), 2=Var(x)
-  let term = @ast.Term::Let("x", @ast.Term::Int(1), @ast.Term::Var("x"))
+  // Pre-order: 0=Module, 1=Int(1), 2=Var(x)
+  let term = @ast.Term::Module([("x", @ast.Term::Int(1))], @ast.Term::Var("x"))
   let (_, res) = resolve(term)
   inspect(res.vars.get(1), content="None") // Int node, no var entry
   inspect(res.vars.get(2), content="Some(Bound(depth=1))")
@@ -50,8 +50,11 @@ test "resolve: let binding" {
 ///|
 test "resolve: var in let initializer is free" {
   // let x = x in x — first x (in init) is free, second x (in body) is bound
-  // Pre-order: 0=Let, 1=Var(x) init, 2=Var(x) body
-  let term = @ast.Term::Let("x", @ast.Term::Var("x"), @ast.Term::Var("x"))
+  // Pre-order: 0=Module, 1=Var(x) init, 2=Var(x) body
+  let term = @ast.Term::Module(
+    [("x", @ast.Term::Var("x"))],
+    @ast.Term::Var("x"),
+  )
   let (_, res) = resolve(term)
   inspect(res.vars.get(1), content="Some(Free)")
   inspect(res.vars.get(2), content="Some(Bound(depth=1))")
@@ -90,16 +93,15 @@ test "resolve: mixed bound and free in rewritten term" {
 ///|
 test "resolve: nested let shadowing" {
   // let x = 1 in let x = x in x
-  // Pre-order: 0=Let, 1=Int(1), 2=Let, 3=Var(x) init (bound to outer), 4=Var(x) body (bound to inner)
-  let term = @ast.Term::Let(
-    "x",
-    @ast.Term::Int(1),
-    @ast.Term::Let("x", @ast.Term::Var("x"), @ast.Term::Var("x")),
+  // Pre-order: 0=Module, 1=Int(1), 2=Var(x) [2nd init], 3=Var(x) [body]
+  let term = @ast.Term::Module(
+    [("x", @ast.Term::Int(1)), ("x", @ast.Term::Var("x"))],
+    @ast.Term::Var("x"),
   )
   let (resolved_term, res) = resolve(term)
   // outer x in inner init is bound (depth=1), inner x in body is bound (depth=1)
+  inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   inspect(res.vars.get(3), content="Some(Bound(depth=1))")
-  inspect(res.vars.get(4), content="Some(Bound(depth=1))")
   // no Unbound nodes — all vars are bound
   inspect(@ast.print_term(resolved_term), content="let x = 1\nlet x = x\nx")
 }

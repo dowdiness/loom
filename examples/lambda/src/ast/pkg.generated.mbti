@@ -29,7 +29,7 @@ pub(all) enum Term {
   App(Term, Term)
   Bop(Bop, Term, Term)
   If(Term, Term, Term)
-  Let(String, Term, Term)
+  Module(Array[(String, Term)], Term)
   Unit
   Unbound(String)
   Error(String)
