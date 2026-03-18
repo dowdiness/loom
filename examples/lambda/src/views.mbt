@@ -37,10 +37,7 @@ pub impl @core.AstView for LambdaExprView with syntax_node(self) {
 ///|
 /// The bound parameter name (e.g. "x" in λx. body).
 pub fn LambdaExprView::param(self : LambdaExprView) -> String {
-  self.node
-  .find_token(@syntax.IdentToken.to_raw())
-  .map(t => t.text())
-  .unwrap_or("")
+  self.node.token_text(@syntax.IdentToken.to_raw())
 }
 
 ///|
@@ -103,12 +100,7 @@ pub fn AppExprView::arg(self : AppExprView) -> @seam.SyntaxNode? {
 /// The grammar produces flat n-ary AppExpr nodes for chains like `f x y z`.
 /// Use this method to access all arguments; `func()` gives the callee.
 pub fn AppExprView::args(self : AppExprView) -> Array[@seam.SyntaxNode] {
-  let children = self.node.children()
-  let result : Array[@seam.SyntaxNode] = []
-  for i = 1; i < children.length(); i = i + 1 {
-    result.push(children[i])
-  }
-  result
+  self.node.children_from(1)
 }
 
 ///|
@@ -183,16 +175,13 @@ pub fn BinaryExprView::op(self : BinaryExprView) -> @ast.Bop? {
 ///|
 /// All operator kinds in source order. For `1 + 2 - 3` returns [Plus, Minus].
 pub fn BinaryExprView::ops(self : BinaryExprView) -> Array[@ast.Bop] {
+  let (_nodes, tokens) = self.node.nodes_and_tokens()
   let result : Array[@ast.Bop] = []
-  for elem in self.node.all_children() {
-    match elem {
-      @seam.SyntaxElement::Token(t) =>
-        if t.kind() == @syntax.PlusToken.to_raw() {
-          result.push(@ast.Bop::Plus)
-        } else if t.kind() == @syntax.MinusToken.to_raw() {
-          result.push(@ast.Bop::Minus)
-        }
-      _ => ()
+  for t in tokens {
+    if t.kind() == @syntax.PlusToken.to_raw() {
+      result.push(@ast.Bop::Plus)
+    } else if t.kind() == @syntax.MinusToken.to_raw() {
+      result.push(@ast.Bop::Minus)
     }
   }
   result
@@ -385,10 +374,7 @@ pub impl @core.AstView for VarRefView with syntax_node(self) {
 
 ///|
 pub fn VarRefView::name(self : VarRefView) -> String {
-  self.node
-  .find_token(@syntax.IdentToken.to_raw())
-  .map(t => t.text())
-  .unwrap_or("")
+  self.node.token_text(@syntax.IdentToken.to_raw())
 }
 
 ///|
@@ -425,10 +411,7 @@ pub impl @core.AstView for LetDefView with syntax_node(self) {
 ///|
 /// The binding name (first IdentToken in the node).
 pub fn LetDefView::name(self : LetDefView) -> String {
-  self.node
-  .find_token(@syntax.IdentToken.to_raw())
-  .map(t => t.text())
-  .unwrap_or("")
+  self.node.token_text(@syntax.IdentToken.to_raw())
 }
 
 ///|
