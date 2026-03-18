@@ -182,17 +182,7 @@ pub impl Show for SyntaxNode with output(self, logger) {
 /// Child `SyntaxNode`s with computed absolute offsets. Leaf tokens are skipped;
 /// only interior `CstNode` children are returned.
 pub fn SyntaxNode::children(self : SyntaxNode) -> Array[SyntaxNode] {
-  let result : Array[SyntaxNode] = []
-  for offset = self.offset, i = 0; i < self.cst.children.length(); {
-    match self.cst.children[i] {
-      Node(cst_child) => {
-        result.push(SyntaxNode::new(cst_child, Some(self), offset))
-        continue offset + cst_child.text_len, i + 1
-      }
-      Token(token) => continue offset + token.text_len(), i + 1
-    }
-  }
-  result
+  self.children_from(0)
 }
 
 ///|
@@ -204,17 +194,15 @@ pub fn SyntaxNode::children_from(
   start : Int,
 ) -> Array[SyntaxNode] {
   let result : Array[SyntaxNode] = []
-  let mut count = 0
-  for offset = self.offset, i = 0; i < self.cst.children.length(); {
+  for offset = self.offset, i = 0, count = 0; i < self.cst.children.length(); {
     match self.cst.children[i] {
       Node(cst_child) => {
         if count >= start {
           result.push(SyntaxNode::new(cst_child, Some(self), offset))
         }
-        count = count + 1
-        continue offset + cst_child.text_len, i + 1
+        continue offset + cst_child.text_len, i + 1, count + 1
       }
-      Token(token) => continue offset + token.text_len(), i + 1
+      Token(token) => continue offset + token.text_len(), i + 1, count
     }
   }
   result
