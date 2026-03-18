@@ -1,7 +1,7 @@
 # Memoized CST Fold — Design Document
 
 **Date:** March 8, 2026
-**Status:** Draft
+**Status:** Complete
 **Scope:** `loom/src/`, `loom/src/core/`, `loom/src/pipeline/`, `seam/`, `examples/lambda/`
 
 ## Goal

@@ -56,8 +56,6 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-08-memoized-cst-fold.md](plans/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design document
-- [plans/2026-03-08-memoized-cst-fold-impl.md](plans/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation plan (14 tasks)
 - [plans/2026-03-15-flat-grammar-unification.md](plans/2026-03-15-flat-grammar-unification.md) — flat grammar unification: remove lambda_grammar, unify on LetDef* with layout-aware lexing
 - [plans/2026-03-15-flat-grammar-unification-plan.md](plans/2026-03-15-flat-grammar-unification-plan.md) — flat grammar unification: implementation plan (8 tasks)
 - [plans/2026-03-18-flat-ast-module-variant.md](plans/2026-03-18-flat-ast-module-variant.md) — flat AST: replace `Term::Let` with `Term::Module` for O(1) fold construction
@@ -82,4 +80,6 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-15-try-reuse-fast-path.md](archive/completed-phases/2026-03-15-try-reuse-fast-path.md) — emit_reused fast path: has_any_error flag, incremental overhead profiling, architectural analysis
 - [archive/completed-phases/2026-03-09-semantic-error-variants-design.md](archive/completed-phases/2026-03-09-semantic-error-variants-design.md) — `Term::Unbound` semantic error variant: design
 - [archive/completed-phases/2026-03-09-semantic-error-variants-impl.md](archive/completed-phases/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation (7 tasks)
+- [archive/completed-phases/2026-03-08-memoized-cst-fold.md](archive/completed-phases/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design
+- [archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md](archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation (15 tasks)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs

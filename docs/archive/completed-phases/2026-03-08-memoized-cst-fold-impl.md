@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**Status:** Complete
+
 **Goal:** Add `CstFold[Ast]` — a framework-owned memoized catamorphism over CstNode that makes CST → AST conversion incremental.
 
 **Architecture:** CstFold walks the CST top-down, checks a hash-keyed cache before calling the user's algebra, and verifies that all node-children were visited. It replaces `Grammar.to_ast` with `Grammar.fold_node` (an algebra that receives a framework-provided `recurse` function). The cache persists across incremental parses inside both `ReactiveParser` and `ImperativeParser`.
