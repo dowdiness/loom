@@ -675,3 +675,120 @@ test "SyntaxNode::children_from computes correct offsets" {
   inspect(tail[0].start(), content="4")
   inspect(tail[0].end(), content="6")
 }
+
+///|
+test "SyntaxNode::nodes_and_tokens partitions children" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "1")),
+  ])
+  let plus = CstToken::new(RawKind(5), "+")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "2")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(plus),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="1")
+  inspect(tokens[0].text(), content="+")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens filters trivia" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "1")),
+  ])
+  let ws = CstToken::new(RawKind(0), " ")
+  let plus = CstToken::new(RawKind(5), "+")
+  let ws2 = CstToken::new(RawKind(0), " ")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "2")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(ws),
+    CstElement::Token(plus),
+    CstElement::Token(ws2),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens(trivia_kind=Some(RawKind(0)))
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="1")
+  inspect(tokens[0].text(), content="+")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens on empty node" {
+  let root = CstNode::new(RawKind(0), [])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="0")
+  inspect(tokens.length(), content="0")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens tokens only" {
+  let a = CstToken::new(RawKind(5), "+")
+  let b = CstToken::new(RawKind(6), "-")
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(a),
+    CstElement::Token(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="0")
+  inspect(tokens.length(), content="2")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens nodes only" {
+  let a = CstNode::new(RawKind(1), [])
+  let b = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(0), [CstElement::Node(a), CstElement::Node(b)])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes.length(), content="2")
+  inspect(tokens.length(), content="0")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens preserves offsets" {
+  let a = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "ab")),
+  ])
+  let plus = CstToken::new(RawKind(5), "+")
+  let b = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::new(RawKind(9), "cd")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(a),
+    CstElement::Token(plus),
+    CstElement::Node(b),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (nodes, tokens) = sn.nodes_and_tokens()
+  inspect(nodes[0].start(), content="0")
+  inspect(nodes[0].end(), content="2")
+  inspect(tokens[0].start(), content="2")
+  inspect(tokens[0].end(), content="3")
+  inspect(nodes[1].start(), content="3")
+  inspect(nodes[1].end(), content="5")
+}
+
+///|
+test "SyntaxNode::nodes_and_tokens without trivia_kind includes all tokens" {
+  let ws = CstToken::new(RawKind(0), " ")
+  let plus = CstToken::new(RawKind(5), "+")
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(ws),
+    CstElement::Token(plus),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let (_nodes, tokens) = sn.nodes_and_tokens()
+  inspect(tokens.length(), content="2")
+}

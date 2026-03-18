@@ -135,6 +135,7 @@ pub fn SyntaxNode::from_cst(CstNode) -> Self
 pub fn SyntaxNode::from_cst_at(CstNode, Int) -> Self
 pub fn SyntaxNode::is_error(Self, RawKind) -> Bool
 pub fn SyntaxNode::kind(Self) -> RawKind
+pub fn SyntaxNode::nodes_and_tokens(Self, trivia_kind? : RawKind?) -> (Array[Self], Array[SyntaxToken])
 pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::start(Self) -> Int

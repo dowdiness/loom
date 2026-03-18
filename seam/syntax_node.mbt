@@ -243,6 +243,39 @@ pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
 }
 
 ///|
+/// Partition direct children into interior nodes and leaf tokens.
+/// When `trivia_kind` is provided, tokens of that kind are excluded.
+/// Both arrays preserve source order. Useful for infix expressions
+/// where nodes are operands and tokens are operators.
+pub fn SyntaxNode::nodes_and_tokens(
+  self : SyntaxNode,
+  trivia_kind? : RawKind? = None,
+) -> (Array[SyntaxNode], Array[SyntaxToken]) {
+  let nodes : Array[SyntaxNode] = []
+  let tokens : Array[SyntaxToken] = []
+  let mut offset = self.offset
+  for elem in self.cst.children {
+    match elem {
+      CstElement::Node(child_cst) => {
+        nodes.push(SyntaxNode::new(child_cst, Some(self), offset))
+        offset = offset + child_cst.text_len
+      }
+      CstElement::Token(tok) => {
+        let keep = match trivia_kind {
+          Some(tk) => tok.kind != tk
+          None => true
+        }
+        if keep {
+          tokens.push(SyntaxToken::new(tok, offset))
+        }
+        offset = offset + tok.text_len()
+      }
+    }
+  }
+  (nodes, tokens)
+}
+
+///|
 /// Direct leaf tokens only (child nodes are skipped).
 pub fn SyntaxNode::tokens(self : SyntaxNode) -> Array[SyntaxToken] {
   let result : Array[SyntaxToken] = []
