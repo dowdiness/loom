@@ -194,7 +194,7 @@ pub struct ReuseCursor[T, K] {
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K]) -> Self[T, K]
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
+pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
 
@@ -223,6 +223,7 @@ pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, er
 pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
+pub fn[T] TokenBuffer::new_resilient_compat(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 

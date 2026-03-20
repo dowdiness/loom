@@ -84,6 +84,19 @@ pub fn[T] TokenBuffer::new_resilient(
 }
 
 ///|
+/// Compatibility wrapper for packages that still only provide tokenize_fn.
+/// Keeps legacy resilient probing behavior without exporting the deprecated
+/// constructor at higher layers.
+pub fn[T] TokenBuffer::new_resilient_compat(
+  source : String,
+  tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
+  eof_token~ : T,
+  error_token~ : T,
+) -> TokenBuffer[T] {
+  TokenBuffer::new_resilient(source, tokenize_fn~, eof_token~, error_token~)
+}
+
+///|
 /// Construct a TokenBuffer from a step-based PrefixLexer.
 /// Never raises — errors are emitted as error tokens inline.
 /// Uses exact starts from the step stream; updates currently full re-lex so
@@ -289,7 +302,10 @@ fn[T] TokenBuffer::tokenize_range_impl(
   start : Int,
   end : Int,
 ) -> Array[TokenInfo[T]] raise LexError {
-  let slice = source[start:end] catch { _ => raise LexError("Invalid range") }
+  if start < 0 || end < start || end > source.length() {
+    raise LexError("Invalid range")
+  }
+  let slice = source[start:end]
   let slice_tokens = (self.tokenize_fn)(slice.to_string())
   // tokenize_fn contract: EOF is always last — skip it.
   let result : Array[TokenInfo[T]] = []
@@ -405,19 +421,11 @@ fn[T] tokenize_resilient(
       let result : Array[TokenInfo[T]] = []
       let mut pos = 0
       while pos < source.length() {
-        let remaining : StringView = source[pos:source.length()] catch {
-            _ => break
-          }
+        let remaining : StringView = source[pos:source.length()]
         let rem = remaining.to_string()
         let prefix_len = longest_lexable_prefix_len(rem, tokenize_fn)
         if prefix_len > 0 {
-          let prefix : StringView = rem[0:prefix_len] catch {
-              _ => {
-                result.push(TokenInfo::new(error_token, 1))
-                pos = pos + 1
-                continue
-              }
-            }
+          let prefix : StringView = rem[0:prefix_len]
           let prefix_tokens = tokenize_fn(prefix.to_string()) catch { _ => [] }
           for i = 0; i < prefix_tokens.length() - 1; i = i + 1 {
             result.push(prefix_tokens[i])
@@ -552,7 +560,7 @@ fn[T] longest_lexable_prefix_len(
   // non-monotone across prefix lengths (e.g. unterminated constructs that
   // become valid only when a later closing delimiter is included).
   for len = s.length(); len > 0; len = len - 1 {
-    let prefix : StringView = s[0:len] catch { _ => continue }
+    let prefix : StringView = s[0:len]
     let ok = try {
       let _ = tokenize_fn(prefix.to_string())
       true

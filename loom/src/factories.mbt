@@ -32,7 +32,7 @@ fn[T] create_buffer(
       @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
     (None, Some(err_tok)) =>
       // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
-      @core.TokenBuffer::new_resilient(
+      @core.TokenBuffer::new_resilient_compat(
         source,
         tokenize_fn=tokenize,
         eof_token~,

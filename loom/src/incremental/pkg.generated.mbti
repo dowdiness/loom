@@ -48,6 +48,7 @@ pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> Ast
 pub fn[Ast] ImperativeParser::get_fold_stats(Self[Ast]) -> @core.FoldStats?
 pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
+pub fn[Ast] ImperativeParser::get_syntax_tree(Self[Ast]) -> @seam.SyntaxNode?
 pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?
 pub fn[Ast] ImperativeParser::new(String, ImperativeLanguage[Ast]) -> Self[Ast]
 pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> Ast

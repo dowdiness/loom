@@ -276,7 +276,10 @@ pub fn[T, K] ParserContext::token_text_at(
   }
   let start = (self.get_start)(pos)
   let end = (self.get_end)(pos)
-  let slice : StringView = self.source[start:end] catch { _ => return "" }
+  if start < 0 || end < start || end > self.source.length() {
+    return ""
+  }
+  let slice : StringView = self.source[start:end]
   slice.to_string()
 }
 

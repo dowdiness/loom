@@ -422,7 +422,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
 /// trivia node or similar separator sits between the found node and the
 /// error-bearing sibling, this returns false and the EOF exception fires.
 /// Acceptable for current grammars where error siblings are always adjacent.
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::next_sibling_has_error(
+pub fn[T, K] ReuseCursor::next_sibling_has_error(
   self : ReuseCursor[T, K],
 ) -> Bool {
   if self.stack.length() == 0 {
