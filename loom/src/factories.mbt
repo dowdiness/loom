@@ -144,6 +144,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           fn(i) { buffer.get_token(i) },
           fn(i) { buffer.get_start(i) },
           spec,
+          reuse_size_threshold=spec.reuse_size_threshold,
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
