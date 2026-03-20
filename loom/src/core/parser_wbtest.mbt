@@ -34,6 +34,7 @@ fn make_test_fixtures() -> (
     eof_token: TestTok::TokEof,
     cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
+    reuse_size_threshold: 64,
   }
   let tokens = [
     { token: TestTok::Plus, len: 1 },
@@ -229,6 +230,7 @@ let test_spec : LanguageSpec[TestTok, TestKind] = {
     }
   },
   parse_root: fn(_) { () },
+  reuse_size_threshold: 64,
 }
 
 ///|

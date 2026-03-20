@@ -69,6 +69,10 @@ pub struct LanguageSpec[T, K] {
   // Set to a no-op by default for call sites (e.g. tests) that use
   // parse_with() with an explicit grammar parameter instead.
   parse_root : (ParserContext[T, K]) -> Unit
+  // Minimum text_len (in code units) for a CST node to be eligible for reuse.
+  // Nodes smaller than this threshold are re-parsed instead of reused, avoiding
+  // the overhead of cursor seek + 4-condition check on tiny subtrees.
+  reuse_size_threshold : Int
 }
 
 ///|
@@ -83,6 +87,7 @@ pub fn[T, K] LanguageSpec::new(
     false
   },
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
+  reuse_size_threshold~ : Int = 64,
 ) -> LanguageSpec[T, K] {
   {
     whitespace_kind,
@@ -92,6 +97,7 @@ pub fn[T, K] LanguageSpec::new(
     eof_token,
     cst_token_matches,
     parse_root,
+    reuse_size_threshold,
   }
 }
 
