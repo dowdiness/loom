@@ -51,6 +51,7 @@ pub struct ReuseCursor[T, K] {
   incomplete_raw : @seam.RawKind
   cache : OldTokenCache
   reuse_globally_disabled : Bool
+  reuse_size_threshold : Int
   // New token stream (indexed accessors, same layout as ParserContext)
   token_count : Int
   get_token : (Int) -> T
@@ -109,6 +110,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_token : (Int) -> T,
   get_start : (Int) -> Int,
   spec : LanguageSpec[T, K],
+  reuse_size_threshold~ : Int = 0,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -129,6 +131,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     incomplete_raw,
     cache: { tokens: None },
     reuse_globally_disabled,
+    reuse_size_threshold,
     token_count,
     get_token,
     get_start,
@@ -386,6 +389,10 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
   match result {
     None => None
     Some((node, node_offset)) => {
+      // Skip reuse for small nodes — reparsing is cheaper than the protocol
+      if self.reuse_size_threshold > 0 && node.text_len < self.reuse_size_threshold {
+        return None
+      }
       let node_end = node_offset + node.text_len
       if not(
           is_outside_damage(
@@ -476,6 +483,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     incomplete_raw: self.incomplete_raw,
     cache: self.cache, // shared mutable cell — all snapshots see same materialized table
     reuse_globally_disabled: self.reuse_globally_disabled,
+    reuse_size_threshold: self.reuse_size_threshold,
     token_count: self.token_count,
     get_token: self.get_token,
     get_start: self.get_start,
