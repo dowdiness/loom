@@ -1,6 +1,25 @@
 // term_convert.mbt — SyntaxNode → Term conversion via typed views.
 
 ///|
+/// Convert a LetDef CST node to (name, term) pair.
+/// Applies ParamList desugaring: right-folds params into nested Lam.
+fn convert_let_def(
+  v : LetDefView,
+  recurse : (@seam.SyntaxNode) -> @ast.Term,
+) -> (@ast.VarName, @ast.Term) {
+  let init = match v.init() {
+    Some(expr_node) => recurse(expr_node)
+    None => @ast.Term::Error("missing LetDef init")
+  }
+  let params = v.params()
+  let mut body = init
+  for i = params.length() - 1; i >= 0; i = i - 1 {
+    body = @ast.Term::Lam(params[i], body)
+  }
+  (v.name(), body)
+}
+
+///|
 /// Algebra for CstFold: per-node conversion with framework-managed recursion.
 /// Handles both SourceFile (LetDef* Expression?) and single expressions.
 pub fn lambda_fold_node(
@@ -15,11 +34,8 @@ pub fn lambda_fold_node(
         match @syntax.SyntaxKind::from_raw(child.kind()) {
           @syntax.LetDef => {
             let v = LetDefView::{ node: child }
-            let init = match v.init() {
-              Some(expr_node) => recurse(expr_node)
-              None => @ast.Term::Error("missing LetDef init")
-            }
-            defs.push((v.name(), init))
+            let (name, body) = convert_let_def(v, recurse)
+            defs.push((name, body))
           }
           _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
         }
@@ -117,6 +133,27 @@ fn fold_node_inner(
       match v.inner() {
         Some(inner) => recurse(inner)
         None => @ast.Term::Error("empty parentheses")
+      }
+    }
+    @syntax.BlockExpr => {
+      let defs : Array[(@ast.VarName, @ast.Term)] = []
+      let mut final_term : @ast.Term = @ast.Term::Unit
+      for child in node.children() {
+        match @syntax.SyntaxKind::from_raw(child.kind()) {
+          @syntax.LetDef => {
+            let v = LetDefView::{ node: child }
+            let (name, body) = convert_let_def(v, recurse)
+            defs.push((name, body))
+          }
+          _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
+        }
+      }
+      if defs.is_empty() && final_term == @ast.Term::Unit {
+        @ast.Term::Error("empty block")
+      } else if defs.is_empty() {
+        final_term
+      } else {
+        @ast.Term::Module(defs, final_term)
       }
     }
     @syntax.ErrorNode => @ast.Term::Error("ErrorNode")
