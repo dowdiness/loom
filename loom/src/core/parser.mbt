@@ -87,7 +87,7 @@ pub fn[T, K] LanguageSpec::new(
     false
   },
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
-  reuse_size_threshold~ : Int = 64,
+  reuse_size_threshold? : Int = 64,
 ) -> LanguageSpec[T, K] {
   {
     whitespace_kind,

@@ -110,6 +110,7 @@ pub fn count_tokens_in_node_instrumented(node : @seam.CstNode) -> Int {
 /// the reuse_size_threshold. Only increments when perf instrumentation is enabled.
 pub fn record_size_threshold_skip() -> Unit {
   if perf_stats.enabled.val {
-    perf_stats.size_threshold_skips.val = perf_stats.size_threshold_skips.val + 1
+    perf_stats.size_threshold_skips.val = perf_stats.size_threshold_skips.val +
+      1
   }
 }

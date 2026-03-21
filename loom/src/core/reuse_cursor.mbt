@@ -110,7 +110,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_token : (Int) -> T,
   get_start : (Int) -> Int,
   spec : LanguageSpec[T, K],
-  reuse_size_threshold~ : Int = 0,
+  reuse_size_threshold? : Int = 0,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -390,7 +390,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
     None => None
     Some((node, node_offset)) => {
       // Skip reuse for small nodes — reparsing is cheaper than the protocol
-      if self.reuse_size_threshold > 0 && node.text_len < self.reuse_size_threshold {
+      if self.reuse_size_threshold > 0 &&
+        node.text_len < self.reuse_size_threshold {
         return None
       }
       let node_end = node_offset + node.text_len
