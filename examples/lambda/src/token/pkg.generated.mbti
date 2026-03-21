@@ -32,6 +32,10 @@ pub(all) enum Token {
   Let
   In
   Eq
+  LBrace
+  RBrace
+  Comma
+  Semicolon
   Identifier(String)
   Integer(Int)
   Whitespace

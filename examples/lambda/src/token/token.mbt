@@ -12,6 +12,10 @@ pub(all) enum Token {
   Let // let
   In // in
   Eq // =
+  LBrace // {
+  RBrace // }
+  Comma // ,
+  Semicolon // ;
   Identifier(String) // variable names
   Integer(Int) // integer literals
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
@@ -36,6 +40,10 @@ pub impl Show for Token with output(self, logger) {
       Let => "let"
       In => "in"
       Eq => "="
+      LBrace => "{"
+      RBrace => "}"
+      Comma => ","
+      Semicolon => ";"
       Identifier(name) => name
       Integer(n) => n.to_string()
       Whitespace => "whitespace"
@@ -88,6 +96,10 @@ pub fn print_token(token : Token) -> String {
     Let => "let"
     In => "in"
     Eq => "="
+    LBrace => "{"
+    RBrace => "}"
+    Comma => ","
+    Semicolon => ";"
     Identifier(name) => name
     Integer(n) => n.to_string()
     Whitespace => "whitespace"
