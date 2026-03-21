@@ -2,12 +2,21 @@
 package "dowdiness/json"
 
 import {
+  "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
+
 pub fn print_token(Token) -> String
+
+pub fn print_token_info(@core.TokenInfo[Token]) -> String
+
+pub fn print_token_infos(Array[@core.TokenInfo[Token]]) -> String
+
+pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
 
