@@ -793,7 +793,7 @@ test "cst: let with single param" {
   let has_param_list = let_def
     .children()
     .iter()
-    .any(fn(c) { @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList })
+    .any(c => @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList)
   inspect(has_param_list, content="true")
 }
 
@@ -814,7 +814,7 @@ test "cst: let without params unchanged" {
   let has_param_list = let_def
     .children()
     .iter()
-    .any(fn(c) { @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList })
+    .any(c => @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList)
   inspect(has_param_list, content="false")
 }
 

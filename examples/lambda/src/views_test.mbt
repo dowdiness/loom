@@ -143,9 +143,9 @@ test "LetDefView with params" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let let_defs = tree
     .children()
-    .filter(fn(child) {
+    .filter(child =>
       @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.LetDef
-    })
+    )
   let def = LetDefView::cast(let_defs[0]).unwrap()
   inspect(def.name(), content="f")
   inspect(not(def.params().is_empty()), content="true")
@@ -161,9 +161,9 @@ test "LetDefView without params unchanged" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let let_defs = tree
     .children()
-    .filter(fn(child) {
+    .filter(child =>
       @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.LetDef
-    })
+    )
   let def = LetDefView::cast(let_defs[0]).unwrap()
   inspect(def.name(), content="x")
   inspect(def.params().is_empty(), content="true")
