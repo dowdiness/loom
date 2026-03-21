@@ -1,0 +1,84 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/json"
+
+import {
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn print_token(Token) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum JsonValue {
+  Null
+  Bool(Bool)
+  Number(Double)
+  String(String)
+  Array(Array[JsonValue])
+  Object(Array[(String, JsonValue)])
+  Error(String)
+}
+pub impl Eq for JsonValue
+pub impl Show for JsonValue
+pub impl @debug.Debug for JsonValue
+
+pub(all) enum SyntaxKind {
+  LBraceToken
+  RBraceToken
+  LBracketToken
+  RBracketToken
+  ColonToken
+  CommaToken
+  StringToken
+  NumberToken
+  TrueKeyword
+  FalseKeyword
+  NullKeyword
+  WhitespaceToken
+  ErrorToken
+  EofToken
+  ObjectNode
+  ArrayNode
+  MemberNode
+  StringValue
+  NumberValue
+  BoolValue
+  NullValue
+  ErrorNode
+  RootNode
+}
+pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
+pub fn SyntaxKind::is_token(Self) -> Bool
+pub impl @seam.ToRawKind for SyntaxKind
+pub impl Eq for SyntaxKind
+pub impl Show for SyntaxKind
+
+pub(all) enum Token {
+  LBrace
+  RBrace
+  LBracket
+  RBracket
+  Colon
+  Comma
+  StringLit(String)
+  NumberLit(String)
+  True
+  False
+  Null
+  Whitespace
+  Error(String)
+  EOF
+}
+pub impl @seam.IsEof for Token
+pub impl @seam.IsTrivia for Token
+pub impl Eq for Token
+pub impl Show for Token
+pub impl @debug.Debug for Token
+
+// Type aliases
+
+// Traits
+
