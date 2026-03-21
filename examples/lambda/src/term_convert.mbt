@@ -150,8 +150,6 @@ fn fold_node_inner(
       }
       if defs.is_empty() && final_term == @ast.Term::Unit {
         @ast.Term::Error("empty block")
-      } else if defs.is_empty() {
-        final_term
       } else {
         @ast.Term::Module(defs, final_term)
       }

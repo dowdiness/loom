@@ -315,8 +315,8 @@ test "error recovery: trailing comma in param list" {
     _ => abort("lex error")
   }
   assert_cst_complete("let f(x,) = x", cst)
-  // Trailing comma is silently accepted (no diagnostic)
-  inspect(diagnostics.length() >= 0, content="true")
+  // Trailing comma should emit a diagnostic
+  inspect(diagnostics.length() > 0, content="true")
 }
 
 // ============================================================================

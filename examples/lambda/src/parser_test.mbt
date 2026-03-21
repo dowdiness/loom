@@ -494,7 +494,7 @@ test "desugar block expr only" {
   let (cst, _) = parse_cst("{ 42 }") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
-  inspect(term, content="Int(42)")
+  inspect(term, content="Module([], Int(42))")
 }
 
 ///|
@@ -523,7 +523,7 @@ test "parse nested blocks" {
   let (cst, _) = parse_cst("{ { 1 } }") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
-  inspect(term, content="Int(1)")
+  inspect(term, content="Module([], Module([], Int(1)))")
 }
 
 ///|

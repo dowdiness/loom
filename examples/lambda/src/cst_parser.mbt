@@ -153,6 +153,7 @@ fn is_sync_point(t : @token.Token) -> Bool {
   match t {
     @token.Newline
     | @token.RightParen
+    | @token.LBrace
     | @token.RBrace
     | @token.Semicolon
     | @token.Lambda
@@ -457,7 +458,10 @@ fn parse_param_list(
     ctx.emit_token(@syntax.CommaToken) // ,
     match ctx.peek() {
       @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-      @token.RightParen => break // trailing comma — stop, will consume )
+      @token.RightParen => {
+        ctx.error("Trailing comma in parameter list")
+        break
+      }
       _ => {
         ctx.error("Expected parameter name")
         ctx.emit_error_placeholder()
