@@ -224,6 +224,34 @@ pub fn CstNode::new(
 }
 
 ///|
+/// Create a new CstNode with one child replaced. Pure function — original unchanged.
+/// Delegates to CstNode::new() for correct metadata recomputation.
+pub fn CstNode::with_replaced_child(
+  self : CstNode,
+  index : Int,
+  new_child : CstElement,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
+) -> CstNode {
+  let new_children : Array[CstElement] = []
+  for i, child in self.children {
+    if i == index {
+      new_children.push(new_child)
+    } else {
+      new_children.push(child)
+    }
+  }
+  CstNode::new(
+    self.kind,
+    new_children,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+}
+
+///|
 /// Variant-tagged child hash, aligned with `CstElement::Hash`.
 /// Reduces cross-variant collisions: a Token and Node with identical raw
 /// hashes will not produce the same contribution to the parent's cached hash.
