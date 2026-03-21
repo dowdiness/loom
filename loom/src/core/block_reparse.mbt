@@ -91,6 +91,8 @@ pub fn find_reparseable_ancestor(
   while current is Some(node) {
     if is_reparseable(node.kind()) {
       // Check "strictly interior": edit must be fully inside the block
+      // NOTE: This strictly-interior check assumes single-edit-at-a-time.
+      // Multi-edit support would need accumulated delta tracking.
       let block_start = node.start()
       let block_new_end = node.end() + edit.delta()
       if edit.start > block_start && edit.start + edit.new_len < block_new_end {
@@ -159,20 +161,17 @@ pub fn splice_tree(
 }
 
 ///|
-/// Tokenize block text, create ParserContext, call reparse_fn,
-/// flush trivia, auto-close unclosed nodes, build tree, and unwrap
-/// the first Node child (since build_tree wraps in root_kind).
+/// Create ParserContext from pre-tokenized tokens, call reparse_fn,
+/// flush trivia, auto-close unclosed nodes, and build tree.
 /// Returns the reparsed CstNode and any new diagnostics, or None
 /// if parsing produces no node child.
 fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
   block_text : String,
   block_kind : @seam.RawKind,
-  tokenize : (String) -> Array[TokenInfo[T]] raise LexError,
+  tokens : Array[TokenInfo[T]],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
 ) -> (@seam.CstNode, Array[Diagnostic[T]])? {
-  // Tokenize the block text
-  let tokens = tokenize(block_text) catch { LexError(_) => return None }
   // Create a parser context for the isolated block
   let ctx = ParserContext::new(tokens, block_text, spec)
   // Call the reparse function (NOT spec.parse_root)
@@ -212,24 +211,12 @@ fn[T] merge_diagnostics(
   delta : Int,
 ) -> Array[Diagnostic[T]] {
   let result : Array[Diagnostic[T]] = []
-  // Keep diagnostics before the block
+  // Single pass: partition old diagnostics into before/inside/after
   for d in old_diagnostics {
     if d.end <= block_start {
-      result.push(d)
-    }
-  }
-  // Add new diagnostics offset-adjusted to block position
-  for d in new_diagnostics {
-    result.push({
-      message: d.message,
-      start: d.start + block_start,
-      end: d.end + block_start,
-      got_token: d.got_token,
-    })
-  }
-  // Keep diagnostics after the block, shifted by delta
-  for d in old_diagnostics {
-    if d.start >= block_old_end {
+      result.push(d) // before: keep as-is
+    } else if d.start >= block_old_end {
+      // after: shift by delta
       result.push({
         message: d.message,
         start: d.start + delta,
@@ -237,6 +224,16 @@ fn[T] merge_diagnostics(
         got_token: d.got_token,
       })
     }
+    // inside: discard
+  }
+  // Append offset-adjusted new diagnostics
+  for d in new_diagnostics {
+    result.push({
+      message: d.message,
+      start: d.start + block_start,
+      end: d.end + block_start,
+      got_token: d.got_token,
+    })
   }
   result
 }
@@ -292,7 +289,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(
   }
   // 5. Parse in isolation
   let (new_block, new_diags) = match
-    parse_block_isolated(block_text, block_kind, tokenize, reparse_fn, spec) {
+    parse_block_isolated(block_text, block_kind, block_tokens, reparse_fn, spec) {
     Some(result) => result
     None => return None
   }

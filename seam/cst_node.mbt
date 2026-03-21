@@ -234,14 +234,8 @@ pub fn CstNode::with_replaced_child(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode {
-  let new_children : Array[CstElement] = []
-  for i, child in self.children {
-    if i == index {
-      new_children.push(new_child)
-    } else {
-      new_children.push(child)
-    }
-  }
+  let new_children = self.children.copy()
+  new_children[index] = new_child
   CstNode::new(
     self.kind,
     new_children,
