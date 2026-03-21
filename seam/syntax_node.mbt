@@ -606,20 +606,28 @@ pub fn SyntaxNode::child_of_kind(
 /// well-formed tree should ensure the offset is within the root's span;
 /// out-of-range offsets will silently produce the root rather than a deep node.
 pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
-  fn drill(node : SyntaxNode, target : Int) -> SyntaxNode {
-    let mut pos = node.offset
-    for elem in node.cst.children {
+  fn drill_children(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    base_offset : Int,
+    target : Int,
+  ) -> SyntaxNode? {
+    let mut pos = base_offset
+    for elem in children {
       match elem {
         CstElement::Node(child_cst) => {
           let child_end = pos + child_cst.text_len
           if pos <= target && target < child_end {
             if child_cst.kind == repeat_group_kind {
-              // Transparent: drill into RepeatGroup without creating a SyntaxNode for it
-              let group_node = SyntaxNode::new(child_cst, Some(node), pos)
-              return drill(group_node, target)
+              // Transparent: drill into RepeatGroup keeping real parent
+              return drill_children(child_cst.children, parent, pos, target)
             } else {
-              let child = SyntaxNode::new(child_cst, Some(node), pos)
-              return drill(child, target)
+              let child = SyntaxNode::new(child_cst, Some(parent), pos)
+              return Some(
+                drill_children(child.cst.children, child, child.offset, target).unwrap_or(
+                  child,
+                ),
+              )
             }
           }
           pos = child_end
@@ -627,9 +635,9 @@ pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
         CstElement::Token(tok) => pos = pos + tok.text_len()
       }
     }
-    node
+    None
   }
-  drill(self, offset)
+  drill_children(self.cst.children, self, self.offset, offset).unwrap_or(self)
 }
 
 ///|
