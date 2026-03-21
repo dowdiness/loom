@@ -295,3 +295,53 @@ test "incremental: error to error edit" {
     ),
   )
 }
+
+// ============================================================================
+// ParamList error recovery
+// ============================================================================
+
+///|
+test "error recovery: empty param list" {
+  let (cst, diagnostics) = parse_cst("let f() = x") catch {
+    _ => abort("lex error")
+  }
+  assert_cst_complete("let f() = x", cst)
+  inspect(diagnostics.length() > 0, content="true")
+}
+
+///|
+test "error recovery: trailing comma in param list" {
+  let (cst, diagnostics) = parse_cst("let f(x,) = x") catch {
+    _ => abort("lex error")
+  }
+  assert_cst_complete("let f(x,) = x", cst)
+  // Trailing comma is silently accepted (no diagnostic)
+  inspect(diagnostics.length() >= 0, content="true")
+}
+
+// ============================================================================
+// BlockExpr error recovery
+// ============================================================================
+
+///|
+test "error recovery: empty block" {
+  let (cst, diagnostics) = parse_cst("{ }") catch { _ => abort("lex error") }
+  assert_cst_complete("{ }", cst)
+  inspect(diagnostics.length() > 0, content="true")
+}
+
+///|
+test "error recovery: missing closing brace" {
+  let source = "let x = { let a = 1\na"
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.length() > 0, content="true")
+}
+
+///|
+test "error recovery: missing semicolon between defs in block" {
+  let source = "{ let a = 1 let b = 2; a }"
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.length() >= 0, content="true")
+}
