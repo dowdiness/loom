@@ -144,3 +144,51 @@ test "build_tree_interned: interner size bounded by vocabulary" {
   let _ = build_tree_interned(events, root_kind, interner)
   inspect(interner.size(), content="1")
 }
+
+///|
+test "build_tree balances >8 same-kind siblings into RepeatGroup" {
+  let events : Array[ParseEvent] = []
+  // Wrap 16 children inside an explicit parent node (StartNode/FinishNode)
+  // so that balance_children is invoked on the parent's children.
+  events.push(StartNode(RawKind(1)))
+  for _i = 0; _i < 16; _i = _i + 1 {
+    events.push(StartNode(RawKind(2)))
+    events.push(Token(RawKind(100), "x"))
+    events.push(FinishNode)
+  }
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  // The root has one child: the RawKind(1) node
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  // Parent should have fewer than 16 direct children (some grouped into RepeatGroup)
+  inspect(parent.children.length() < 16, content="true")
+  // But SyntaxNode::children() should still see all 16
+  let syn = SyntaxNode::from_cst(tree)
+  let parent_syn = syn.children()[0]
+  inspect(parent_syn.children().length(), content="16")
+}
+
+///|
+test "RepeatGroup flattening preserves offsets" {
+  let events : Array[ParseEvent] = []
+  // Wrap 12 children inside an explicit parent node so balance_children runs
+  events.push(StartNode(RawKind(1)))
+  for _i = 0; _i < 12; _i = _i + 1 {
+    events.push(StartNode(RawKind(2)))
+    events.push(Token(RawKind(100), "ab"))
+    events.push(FinishNode)
+  }
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let syn = SyntaxNode::from_cst(tree)
+  let parent_syn = syn.children()[0]
+  let children = parent_syn.children()
+  inspect(children.length(), content="12")
+  // Each child should have offset = 2 * index
+  for i = 0; i < children.length(); i = i + 1 {
+    inspect(children[i].start() == i * 2, content="true")
+  }
+}

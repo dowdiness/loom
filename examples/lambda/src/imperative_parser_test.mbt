@@ -911,3 +911,35 @@ test "incremental - threshold reduces reuse count for small nodes" {
   // threshold=0 should allow at least as many reuses as threshold=64
   inspect(reuse_no_thresh >= reuse_with_thresh, content="true")
 }
+
+// ============================================================================
+// RepeatGroup balanced tree correctness tests
+// ============================================================================
+
+///|
+/// Verify incremental parse produces correct result with balanced RepeatGroup trees.
+/// With 20 LetDefs (>8 threshold), build_tree creates RepeatGroup nodes.
+test "incremental - correctness with balanced RepeatGroup trees" {
+  // Build a source with 20 let defs — exceeds balance_threshold=8
+  let segments : Array[String] = []
+  for i = 0; i < 19; i = i + 1 {
+    segments.push("let x\{i} = 0\n")
+  }
+  segments.push("let x19 = 0\nx19")
+  let source = segments.join("")
+  // Build edited version: change last def value 0 -> 1
+  let edited_segments : Array[String] = []
+  for i = 0; i < 19; i = i + 1 {
+    edited_segments.push("let x\{i} = 0\n")
+  }
+  edited_segments.push("let x19 = 1\nx19")
+  let edited = edited_segments.join("")
+  // Edit position: the "0" in "let x19 = 0"
+  let edit_pos = source.length() - "0\nx19".length()
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  let incr = parser.edit(edit, edited)
+  let batch = parse(edited) catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(incr) == @ast.print_term(batch), content="true")
+}
