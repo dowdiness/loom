@@ -415,9 +415,39 @@ pub fn LetDefView::name(self : LetDefView) -> String {
 }
 
 ///|
-/// The init expression (first node child of LetDef).
+/// Get the initializer expression — the body after `=`.
+/// Skips ParamList if present.
 pub fn LetDefView::init(self : LetDefView) -> @seam.SyntaxNode? {
-  self.node.nth_child(0)
+  for child in self.node.children() {
+    let kind = @syntax.SyntaxKind::from_raw(child.kind())
+    if kind != @syntax.ParamList {
+      return Some(child)
+    }
+  }
+  None
+}
+
+///|
+/// Get the parameter names from the ParamList, if present.
+/// Returns empty array for value bindings (no ParamList).
+pub fn LetDefView::params(self : LetDefView) -> Array[String] {
+  let params : Array[String] = []
+  for child in self.node.children() {
+    let kind = @syntax.SyntaxKind::from_raw(child.kind())
+    if kind == @syntax.ParamList {
+      for elem in child.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(t) =>
+            if @syntax.SyntaxKind::from_raw(t.kind()) == @syntax.IdentToken {
+              params.push(t.text())
+            }
+          _ => ()
+        }
+      }
+      break
+    }
+  }
+  params
 }
 
 ///|
