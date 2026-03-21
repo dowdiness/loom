@@ -272,3 +272,36 @@ test "tokenize let expression" {
   inspect(s.contains("in"), content="true")
   inspect(s.contains("="), content="true")
 }
+
+///|
+test "tokenize braces" {
+  let tokens = tokenize("{}")
+  let token_str = @token.print_token_infos(tokens)
+  inspect(token_str.contains("{"), content="true")
+  inspect(token_str.contains("}"), content="true")
+}
+
+///|
+test "tokenize comma" {
+  let tokens = tokenize("x,y")
+  let token_str = @token.print_token_infos(tokens)
+  inspect(token_str.contains(","), content="true")
+  inspect(token_str.contains("x"), content="true")
+  inspect(token_str.contains("y"), content="true")
+}
+
+///|
+test "tokenize semicolon" {
+  let tokens = tokenize("a;b")
+  let token_str = @token.print_token_infos(tokens)
+  inspect(token_str.contains(";"), content="true")
+}
+
+///|
+test "tokenize block with semicolons" {
+  let tokens = tokenize("{ let a = 1; a }")
+  let token_str = @token.print_token_infos(tokens)
+  inspect(token_str.contains("{"), content="true")
+  inspect(token_str.contains(";"), content="true")
+  inspect(token_str.contains("}"), content="true")
+}

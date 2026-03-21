@@ -99,6 +99,7 @@ pub struct LetDefView {
 pub fn LetDefView::cast(@seam.SyntaxNode) -> Self?
 pub fn LetDefView::init(Self) -> @seam.SyntaxNode?
 pub fn LetDefView::name(Self) -> String
+pub fn LetDefView::params(Self) -> Array[String]
 pub impl @core.AstView for LetDefView
 pub impl ToJson for LetDefView
 

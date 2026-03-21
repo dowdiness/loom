@@ -943,3 +943,46 @@ test "incremental - correctness with balanced RepeatGroup trees" {
   let batch = parse(edited) catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incr) == @ast.print_term(batch), content="true")
 }
+
+// ============================================================================
+// Block and param list incremental reparse tests
+// ============================================================================
+
+///|
+test "incremental: edit inside block matches full reparse" {
+  let source = "{ let a = 1; a }"
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  // Replace "1" with "2" at position 10
+  let new_source = "{ let a = 2; a }"
+  let edit = @core.Edit::new(10, 1, 1)
+  let incr_term = parser.edit(edit, new_source)
+  let full_term = parse(new_source) catch { _ => abort("parse error") }
+  inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
+}
+
+///|
+test "incremental: edit body of param-list function matches full reparse" {
+  let source = "let f(x, y) = x\nf 1 2"
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  // Replace "x" with "y" in the body at position 14
+  let new_source = "let f(x, y) = y\nf 1 2"
+  let edit = @core.Edit::new(14, 1, 1)
+  let incr_term = parser.edit(edit, new_source)
+  let full_term = parse(new_source) catch { _ => abort("parse error") }
+  inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
+}
+
+///|
+test "incremental: add block to let def matches full reparse" {
+  let source = "let x = 1\nx"
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  // Replace "1" (1 char at pos 8) with "{ 1 }" (5 chars)
+  let new_source = "let x = { 1 }\nx"
+  let edit = @core.Edit::new(8, 1, 5)
+  let incr_term = parser.edit(edit, new_source)
+  let full_term = parse(new_source) catch { _ => abort("parse error") }
+  inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
+}

@@ -16,6 +16,7 @@ Understanding how the layers fit together:
 - [architecture/seam-model.md](architecture/seam-model.md) — `CstNode`/`SyntaxNode` two-tree model
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API
 - [architecture/polymorphism-patterns.md](architecture/polymorphism-patterns.md) — choosing between generic, trait object, struct-of-closures, defunctionalization
+- [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 
 ## API Reference
 
@@ -61,7 +62,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-(none)
+- [plans/2026-03-21-grammar-extension-design.md](plans/2026-03-21-grammar-extension-design.md) — Lambda Grammar Extension Design
 
 ## Development
 

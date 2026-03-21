@@ -159,6 +159,26 @@ fn step_lex(
         @core.TokenInfo::new(@token.Eq, 1),
         next_offset=pos + 1,
       )
+    Some('{') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.LBrace, 1),
+        next_offset=pos + 1,
+      )
+    Some('}') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.RBrace, 1),
+        next_offset=pos + 1,
+      )
+    Some(',') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Comma, 1),
+        next_offset=pos + 1,
+      )
+    Some(';') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Semicolon, 1),
+        next_offset=pos + 1,
+      )
     Some(c) if is_alphabet(c.to_int()) => {
       let (new_pos, identifier) = read_identifier(input, pos, "")
       let token = match identifier {

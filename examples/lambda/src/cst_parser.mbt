@@ -9,6 +9,7 @@ fn token_starts_expression(token : @token.Token) -> Bool {
     @token.Let
     | @token.If
     | @token.LeftParen
+    | @token.LBrace
     | @token.Lambda
     | @token.Identifier(_)
     | @token.Integer(_) => true
@@ -28,6 +29,7 @@ fn token_is_binary_operator(token : @token.Token) -> Bool {
 fn token_starts_application_atom(token : @token.Token) -> Bool {
   match token {
     @token.LeftParen
+    | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
     | @token.Lambda => true
@@ -58,6 +60,24 @@ fn consume_newline_tokens(
   while ctx.peek() == @token.Newline {
     ctx.emit_token(@syntax.NewlineToken)
     count = count + 1
+  }
+  count
+}
+
+///|
+/// Consume Newline and Semicolon tokens as block delimiters.
+/// Returns the number of delimiters consumed.
+fn consume_delimiters(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Int {
+  let mut count = 0
+  while true {
+    match ctx.peek() {
+      @token.Newline => ctx.emit_token(@syntax.NewlineToken)
+      @token.Semicolon => ctx.emit_token(@syntax.SemicolonToken)
+      _ => break
+    }
+    count += 1
   }
   count
 }
@@ -133,6 +153,9 @@ fn is_sync_point(t : @token.Token) -> Bool {
   match t {
     @token.Newline
     | @token.RightParen
+    | @token.LBrace
+    | @token.RBrace
+    | @token.Semicolon
     | @token.Lambda
     | @token.Let
     | @token.If
@@ -154,19 +177,31 @@ fn is_sync_point(t : @token.Token) -> Bool {
 fn skip_until_paren_close_or_sync(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Int {
-  let mut depth = 0
+  let mut paren_depth = 0
+  let mut brace_depth = 0
   let mut skipped = 0
   let mut wrapped = false
   while ctx.peek() != @token.EOF {
     let token = ctx.peek()
     if token == @token.RightParen {
-      if depth == 0 {
+      if paren_depth == 0 && brace_depth == 0 {
         break
       }
-      depth = depth - 1
+      if paren_depth > 0 {
+        paren_depth = paren_depth - 1
+      }
     } else if token == @token.LeftParen {
-      depth = depth + 1
-    } else if depth == 0 && is_sync_point(token) {
+      paren_depth = paren_depth + 1
+    } else if token == @token.RBrace {
+      if brace_depth == 0 && paren_depth == 0 {
+        break
+      }
+      if brace_depth > 0 {
+        brace_depth = brace_depth - 1
+      }
+    } else if token == @token.LBrace {
+      brace_depth = brace_depth + 1
+    } else if paren_depth == 0 && brace_depth == 0 && is_sync_point(token) {
       break
     }
     if not(wrapped) {
@@ -254,6 +289,7 @@ fn parse_application(
   }
   match ctx.peek() {
     @token.LeftParen
+    | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
     | @token.Lambda =>
@@ -264,6 +300,7 @@ fn parse_application(
           }
           match ctx.peek() {
             @token.LeftParen
+            | @token.LBrace
             | @token.Identifier(_)
             | @token.Integer(_)
             | @token.Lambda => parse_atom(ctx, allow_newline_application)
@@ -273,6 +310,47 @@ fn parse_application(
       })
     _ => ()
   }
+}
+
+///|
+/// Parse block expression: { (LetDef (Newline|;))* Expression? }
+/// Uses the same LetDef/Expression structure as SourceFile but delimited by {}.
+fn parse_block_expr(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.start_node(@syntax.BlockExpr)
+  ctx.emit_token(@syntax.LBraceToken) // {
+  let _ = consume_delimiters(ctx)
+  // Empty block check
+  if ctx.peek() == @token.RBrace {
+    ctx.error("Empty block expression")
+    ctx.emit_token(@syntax.RBraceToken) // }
+    ctx.finish_node()
+    return
+  }
+  // LetDefs
+  while ctx.peek() == @token.Let {
+    parse_let_item(ctx)
+    let delim_count = consume_delimiters(ctx)
+    if delim_count == 0 &&
+      ctx.peek() != @token.RBrace &&
+      ctx.peek() != @token.EOF {
+      ctx.error("Expected ';' or newline between definitions")
+    }
+  }
+  let _ = consume_delimiters(ctx)
+  // Trailing expression (optional)
+  if ctx.peek() != @token.RBrace && ctx.peek() != @token.EOF {
+    parse_expression(ctx)
+  }
+  let _ = consume_delimiters(ctx)
+  if not(lambda_expect(ctx, @token.RBrace, @syntax.RBraceToken)) {
+    let _ = skip_until_paren_close_or_sync(ctx)
+    if ctx.peek() == @token.RBrace {
+      ctx.emit_token(@syntax.RBraceToken)
+    }
+  }
+  ctx.finish_node()
 }
 
 ///|
@@ -326,6 +404,7 @@ fn parse_atom(
         },
         is_sync_point,
       )
+    @token.LBrace => parse_block_expr(ctx)
     @token.LeftParen =>
       ctx.node(@syntax.ParenExpr, () => {
         ctx.emit_token(@syntax.LeftParenToken)
@@ -355,7 +434,47 @@ fn parse_atom(
 // ─── Lambda grammar (LetDef* Expression?) ─────────────────────────────────────
 
 ///|
-/// Parse a top-level `let` item: `let x = e` -> LetDef.
+/// Parse parameter list: ( Ident , Ident , ... )
+/// Called from parse_let_item when '(' follows the function name.
+fn parse_param_list(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  let mark = ctx.mark()
+  ctx.emit_token(@syntax.LeftParenToken) // (
+  // First parameter (required)
+  match ctx.peek() {
+    @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+    @token.RightParen => {
+      ctx.error("Empty parameter list")
+      ctx.emit_error_placeholder()
+    }
+    _ => {
+      ctx.error("Expected parameter name")
+      ctx.emit_error_placeholder()
+    }
+  }
+  // Remaining parameters
+  while ctx.peek() == @token.Comma {
+    ctx.emit_token(@syntax.CommaToken) // ,
+    match ctx.peek() {
+      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      @token.RightParen => {
+        ctx.error("Trailing comma in parameter list")
+        break
+      }
+      _ => {
+        ctx.error("Expected parameter name")
+        ctx.emit_error_placeholder()
+      }
+    }
+  }
+  let _ = lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) // )
+  ctx.start_at(mark, @syntax.ParamList)
+  ctx.finish_node()
+}
+
+///|
+/// Parse a top-level `let` item: `let x = e` or `let f(x, y) = e` -> LetDef.
 ///
 /// Uses allow_newline_application=false so that a newline after the RHS
 /// stops the expression rather than continuing it into the next definition.
@@ -370,6 +489,10 @@ fn parse_let_item(
       ctx.error("Expected variable name after 'let'")
       ctx.emit_error_placeholder()
     }
+  }
+  // Optional parameter list
+  if ctx.peek() == @token.LeftParen {
+    parse_param_list(ctx)
   }
   let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
   parse_expression_with_mode(ctx, false)

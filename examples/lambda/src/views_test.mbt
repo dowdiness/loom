@@ -136,6 +136,44 @@ test "LambdaExprView::to_json includes param and body keys" {
 }
 
 ///|
+test "LetDefView with params" {
+  let (cst, _) = parse_cst("let f(x, y) = x + y") catch {
+    _ => abort("lex error")
+  }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let let_defs = tree
+    .children()
+    .filter(child =>
+      @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.LetDef
+    )
+  let def = LetDefView::cast(let_defs[0]).unwrap()
+  inspect(def.name(), content="f")
+  inspect(not(def.params().is_empty()), content="true")
+  inspect(
+    def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
+    content="Some(BinaryExpr)",
+  )
+}
+
+///|
+test "LetDefView without params unchanged" {
+  let (cst, _) = parse_cst("let x = 42") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let let_defs = tree
+    .children()
+    .filter(child =>
+      @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.LetDef
+    )
+  let def = LetDefView::cast(let_defs[0]).unwrap()
+  inspect(def.name(), content="x")
+  inspect(def.params().is_empty(), content="true")
+  inspect(
+    def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
+    content="Some(IntLiteral)",
+  )
+}
+
+///|
 test "syntax_node_to_term: integer" {
   let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
