@@ -343,7 +343,7 @@ test "error recovery: missing semicolon between defs in block" {
   let source = "{ let a = 1 let b = 2; a }"
   let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
   assert_cst_complete(source, cst)
-  inspect(diagnostics.length() >= 0, content="true")
+  inspect(diagnostics.length() > 0, content="true")
 }
 
 ///|
