@@ -34,7 +34,7 @@ pub(all) suberror LexError {
 }
 
 // Types and methods
-pub struct BlockReparseSpec[T, K] {
+pub(all) struct BlockReparseSpec[T, K] {
   is_reparseable : (@seam.RawKind) -> Bool
   get_reparser : (@seam.RawKind) -> ((ParserContext[T, K]) -> Unit)?
   is_balanced : (Array[TokenInfo[T]]) -> Bool
