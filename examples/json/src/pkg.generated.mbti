@@ -10,6 +10,16 @@ import {
 // Values
 pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
+pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]]) -> @core.ReuseCursor[Token, SyntaxKind]
+
+pub fn parse_array(@core.ParserContext[Token, SyntaxKind]) -> Unit
+
+pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[Token]]) raise @core.LexError
+
+pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[Token]], Int)
+
+pub fn parse_object(@core.ParserContext[Token, SyntaxKind]) -> Unit
+
 pub fn print_token(Token) -> String
 
 pub fn print_token_info(@core.TokenInfo[Token]) -> String
