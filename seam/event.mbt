@@ -260,7 +260,19 @@ pub fn build_tree_interned(
       stack.length().to_string(),
     )
   }
-  CstNode::new(root_kind, stack[0], trivia_kind~, error_kind~, incomplete_kind~)
+  let root_children = balance_children(
+    stack[0],
+    trivia_kind,
+    error_kind,
+    incomplete_kind,
+  )
+  CstNode::new(
+    root_kind,
+    root_children,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
 }
 
 ///|
@@ -447,10 +459,16 @@ pub fn build_tree_fully_interned(
       stack.length().to_string(),
     )
   }
+  let root_children = balance_children(
+    stack[0],
+    trivia_kind,
+    error_kind,
+    incomplete_kind,
+  )
   node_interner.intern_node(
     CstNode::new(
       root_kind,
-      stack[0],
+      root_children,
       trivia_kind~,
       error_kind~,
       incomplete_kind~,
@@ -535,7 +553,19 @@ pub fn build_tree(
       stack.length().to_string(),
     )
   }
-  CstNode::new(root_kind, stack[0], trivia_kind~, error_kind~, incomplete_kind~)
+  let root_children = balance_children(
+    stack[0],
+    trivia_kind,
+    error_kind,
+    incomplete_kind,
+  )
+  CstNode::new(
+    root_kind,
+    root_children,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
 }
 
 ///|
@@ -547,6 +577,10 @@ let balance_threshold : Int = 8
 /// Balance long runs of consecutive same-kind node siblings into a binary
 /// tree of RepeatGroup sub-nodes. Token children and short or mixed runs
 /// are left untouched.
+///
+/// Separator tokens between same-kind nodes are absorbed into the group.
+/// This allows `LetDef \n LetDef \n ...` patterns to form balanced trees
+/// even though delimiter tokens interleave the nodes.
 ///
 /// This reduces O(n) reuse checks during incremental parsing to O(log n)
 /// by letting the incremental parser skip entire groups as single units.
@@ -565,23 +599,40 @@ fn balance_children(
     // Check if this child is a Node (not Token)
     match children[i] {
       CstElement::Node(n) => {
-        // Find the run of consecutive Node children with the same kind
+        // Find the run of consecutive Node children with the same kind,
+        // absorbing interleaved separator tokens into the run.
         let run_kind = n.kind
         let run_start = i
+        let mut node_count = 1
         i = i + 1
         while i < children.length() {
           match children[i] {
             CstElement::Node(m) =>
               if m.kind == run_kind {
+                node_count = node_count + 1
                 i = i + 1
               } else {
                 break
               }
-            CstElement::Token(_) => break
+            CstElement::Token(_) =>
+              // Absorb separator token if followed by another same-kind node.
+              // Peek ahead to decide whether to include the token in the run.
+              if i + 1 < children.length() {
+                match children[i + 1] {
+                  CstElement::Node(m) =>
+                    if m.kind == run_kind {
+                      i = i + 1 // absorb the separator token
+                    } else {
+                      break
+                    }
+                  _ => break
+                }
+              } else {
+                break
+              }
           }
         }
-        let run_len = i - run_start
-        if run_len > balance_threshold {
+        if node_count > balance_threshold {
           // Extract the run and build balanced groups
           let run : Array[CstElement] = []
           for j = run_start; j < i; j = j + 1 {
