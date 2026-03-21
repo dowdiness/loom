@@ -33,7 +33,7 @@ IfThenElse   ::= 'if' Expression 'then' Expression 'else' Expression
 ### Extended
 
 ```ebnf
-SourceFile   ::= (LetDef Delimiter)* Expression?
+SourceFile   ::= (LetDef Newline)* Expression?
 LetDef       ::= 'let' Identifier ParamList? '=' Expression
 ParamList    ::= '(' Identifier (',' Identifier)* ')'
 Expression   ::= BinaryOp
@@ -41,8 +41,8 @@ BinaryOp     ::= Application (('+' | '-') Application)*
 Application  ::= Atom+
 Atom         ::= Integer | Variable | Lambda | IfThenElse
                | '(' Expression ')' | BlockExpr
-BlockExpr    ::= '{' (LetDef Delimiter)* Expression? '}'
-Delimiter    ::= Newline | ';'
+BlockExpr    ::= '{' (LetDef BlockDelim)* Expression? '}'
+BlockDelim   ::= Newline | ';'
 Lambda       ::= ('λ' | '\') Identifier '.' Expression
 IfThenElse   ::= 'if' Expression 'then' Expression 'else' Expression
 ```
@@ -162,7 +162,9 @@ let x = expr  →  Let("x", expr)
 
 A block with only an expression: `{ expr }` → `Module([], expr)`.
 
-An empty block `{ }` → parse error "empty block expression."
+A block with defs but no trailing expression: `{ let a = 1 }` → `Module([("a", Int(1))], Unit)`. This matches how `SourceFile` with defs and no trailing expression produces `Module(defs, Unit)` in the existing `term_convert.mbt`.
+
+An empty block `{ }` → parse error. The parser emits "empty block expression" and produces a `BlockExpr` node with only `LBraceToken` and `RBraceToken` children. The term converter produces `Error("empty block")`.
 
 ### AST change
 
@@ -182,7 +184,7 @@ The following existing helper functions must be updated to recognize new tokens:
 |----------|-----|------|---------|
 | `token_starts_expression` | `@token.LBrace` | `cst_parser.mbt` | Recognize `{` as expression start |
 | `token_starts_application_atom` | `@token.LBrace` | `cst_parser.mbt` | Allow `f { ... }` as application |
-| `is_sync_point` | `@token.LBrace`, `@token.RBrace` | `cst_parser.mbt` | Error recovery stops at braces |
+| `is_sync_point` | `@token.LBrace`, `@token.RBrace`, `@token.Semicolon` | `cst_parser.mbt` | Error recovery stops at braces and semicolons |
 
 ### Error recovery: brace tracking
 
@@ -195,13 +197,20 @@ Called after the identifier in `parse_let_item` when the next token is `LParen`:
 ```
 fn parse_param_list(ctx) {
   let mark = ctx.mark()
-  ctx.emit_token(LParenToken)   -- (
-  ctx.emit_token(IdentToken)    -- first param (required)
-  while ctx.peek() == Comma {
-    ctx.emit_token(CommaToken)  -- ,
-    ctx.emit_token(IdentToken)  -- next param
+  ctx.emit_token(LParenToken)        -- (
+  match ctx.peek() {                  -- first param (required)
+    Identifier(_) => ctx.emit_token(IdentToken)
+    _ => { ctx.error("Expected parameter name"); ctx.emit_error_placeholder() }
   }
-  expect(ctx, RParen)           -- )
+  while ctx.peek() == Comma {
+    ctx.emit_token(CommaToken)        -- ,
+    match ctx.peek() {                -- next param
+      Identifier(_) => ctx.emit_token(IdentToken)
+      RParen => break                 -- trailing comma: stop (error already implicit)
+      _ => { ctx.error("Expected parameter name"); ctx.emit_error_placeholder() }
+    }
+  }
+  expect(ctx, RParen)                 -- )
   ctx.start_at(mark, ParamList)
   ctx.finish_node()
 }
@@ -216,6 +225,12 @@ fn parse_block_expr(ctx) {
   ctx.start_node(BlockExpr)
   ctx.emit_token(LBraceToken)         -- {
   consume_delimiters(ctx)              -- newlines and semicolons
+  if ctx.peek() == RBrace {            -- empty block: error
+    ctx.error("Empty block expression")
+    expect(ctx, RBrace)
+    ctx.finish_node()
+    return
+  }
   while ctx.peek() == Let {
     parse_let_item(ctx)
     let delim_count = consume_delimiters(ctx)
