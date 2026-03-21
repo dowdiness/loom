@@ -270,3 +270,78 @@ test "let-chain: 320 lets - reuse count for tail edit" {
   println("320-let reuse count: \{reuse}")
   inspect(reuse >= 0, content="true")
 }
+
+// ── Tier 6: Deep-tree (lambda init) regression benchmarks ──────────
+// Each LetDef has a lambda application init: `let xN = (λf.λx.f (f x)) (λg.g)`
+// This produces deep subtrees (~6-8 CST nodes per LetDef init) whose byte size
+// exceeds the 64-byte reuse threshold. These benchmarks detect regressions from
+// the size-threshold skip: incremental should still win over full reparse here.
+
+///|
+fn make_lambda_let_chain(count : Int) -> String {
+  let segments : Array[String] = []
+  for i = 0; i < count; i = i + 1 {
+    segments.push("let x\{i} = (\u{03BB}f.\u{03BB}x.f (f x)) (\u{03BB}g.g)")
+  }
+  segments.push("x\{count - 1}")
+  segments.join("\n")
+}
+
+///|
+test "let-chain: 20 lambda lets - initial parse" (b : @bench.T) {
+  let source = make_lambda_let_chain(20)
+  b.bench(fn() {
+    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let result = parser.parse()
+    b.keep(result)
+  })
+}
+
+///|
+test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
+  let source = make_lambda_let_chain(20)
+  // Edit: change the last init's `g` to `f` in `(λg.g)` → `(λg.f)`
+  let tail = "(\u{03BB}g.g)\nx19"
+  let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
+  let edited_tail = "(\u{03BB}g.f)\nx19"
+  let prefix = source[:source.length() - tail.length()].to_string()
+  let edited = prefix + edited_tail
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let _ = parser.parse()
+  b.bench(fn() {
+    let _ = parser.edit(edit, edited)
+    // Edit back to original for next iteration
+    let _ = parser.edit(
+      @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1),
+      source,
+    )
+    b.keep(parser.get_tree())
+  })
+}
+
+///|
+test "let-chain: 20 lambda lets - full reparse" (b : @bench.T) {
+  let source = make_lambda_let_chain(20)
+  b.bench(fn() {
+    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    b.keep(result)
+  })
+}
+
+///|
+test "let-chain: 20 lambda lets - reuse count" {
+  let source = make_lambda_let_chain(20)
+  let tail = "(\u{03BB}g.g)\nx19"
+  let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
+  let edited_tail = "(\u{03BB}g.f)\nx19"
+  let prefix = source[:source.length() - tail.length()].to_string()
+  let edited = prefix + edited_tail
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let _ = parser.parse()
+  let _ = parser.edit(edit, edited)
+  let reuse = parser.get_last_reuse_count()
+  println("20-lambda-let reuse count: \{reuse}")
+  inspect(reuse >= 0, content="true")
+}

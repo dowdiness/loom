@@ -390,6 +390,13 @@ fn parse_lambda_root(
 ) -> Unit {
   let _ = consume_newline_tokens(ctx)
   while ctx.peek() == @token.Let {
+    // Try to reuse an entire RepeatGroup of LetDef siblings.
+    // On hit, the group is emitted as a single ReuseNode and position
+    // advances past all covered tokens — O(log n) vs O(n) reparsing.
+    if ctx.try_reuse_repeat_group() {
+      let _ = consume_newline_tokens(ctx)
+      continue
+    }
     parse_let_item(ctx)
     let delimiter_count = consume_newline_tokens(ctx)
     if delimiter_count == 0 && ctx.peek() == @token.Let {

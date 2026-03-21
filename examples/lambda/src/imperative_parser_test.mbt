@@ -837,3 +837,109 @@ test "ImperativeParser: CstFold cache reuses unchanged subtrees after edit" {
   let stats = parser.get_fold_stats().unwrap()
   inspect(stats.reused > 0, content="true")
 }
+
+// ============================================================================
+// Size-threshold reuse skip tests
+// ============================================================================
+
+///|
+/// Size-threshold skip must not affect parse correctness.
+/// Incremental with threshold active (default 64) should produce the same
+/// result as a full batch parse.
+test "incremental - size threshold preserves correctness" {
+  let source = "let x = 0\nlet y = 1\nlet z = 2\nz"
+  let edited = "let x = 0\nlet y = 1\nlet z = 9\nz"
+  // "2" is at position source.length() - "2\nz".length()
+  let edit_pos = source.length() - 4
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  let incremental_result = parser.edit(edit, edited)
+  // Compare with batch parse
+  let batch_result = parse(edited) catch { _ => abort("parse failed") }
+  // Both should produce the same term
+  inspect(
+    @ast.print_term(incremental_result) == @ast.print_term(batch_result),
+    content="true",
+  )
+}
+
+///|
+/// With reuse_size_threshold=0, small nodes are still eligible for reuse.
+/// Correctness must be maintained regardless of threshold setting.
+test "incremental - threshold 0 preserves correctness" {
+  let source = "let x = 0\nlet y = 1\nlet z = 2\nz"
+  let edited = "let x = 0\nlet y = 1\nlet z = 9\nz"
+  let edit_pos = source.length() - 4
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  // Use grammar with threshold=0 (no skip)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar_no_threshold)
+  let _ = parser.parse()
+  let incremental_result = parser.edit(edit, edited)
+  // Compare with batch parse
+  let batch_result = parse(edited) catch { _ => abort("parse failed") }
+  inspect(
+    @ast.print_term(incremental_result) == @ast.print_term(batch_result),
+    content="true",
+  )
+}
+
+///|
+/// With threshold=0, small nodes are eligible for reuse so the reuse count
+/// should be >= what we get with threshold=64 (which skips small nodes).
+/// A document of small LetDefs (each < 64 chars) demonstrates the difference:
+/// threshold=64 skips them; threshold=0 allows reuse.
+test "incremental - threshold reduces reuse count for small nodes" {
+  // Build a document of small LetDefs — each "let xx = N\n" is ~12 chars (< 64)
+  let source = "let aa = 0\nlet bb = 1\nlet cc = 2\nlet dd = 3\nlet ee = 4\naa"
+  let edited = "let aa = 0\nlet bb = 1\nlet cc = 2\nlet dd = 3\nlet ee = 9\naa"
+  // Edit "4" -> "9" in the last LetDef value
+  let edit_pos = source.length() - 3 // position of "4" (before "\naa")
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  // Parse with threshold=0 (no skip — all nodes eligible for reuse)
+  let parser_no_thresh = @loom.new_imperative_parser(
+    source, lambda_grammar_no_threshold,
+  )
+  let _ = parser_no_thresh.parse()
+  let _ = parser_no_thresh.edit(edit, edited)
+  let reuse_no_thresh = parser_no_thresh.get_last_reuse_count()
+  // Parse with threshold=64 (skip small nodes)
+  let parser_with_thresh = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser_with_thresh.parse()
+  let _ = parser_with_thresh.edit(edit, edited)
+  let reuse_with_thresh = parser_with_thresh.get_last_reuse_count()
+  // threshold=0 should allow at least as many reuses as threshold=64
+  inspect(reuse_no_thresh >= reuse_with_thresh, content="true")
+}
+
+// ============================================================================
+// RepeatGroup balanced tree correctness tests
+// ============================================================================
+
+///|
+/// Verify incremental parse produces correct result with balanced RepeatGroup trees.
+/// With 20 LetDefs (>8 threshold), build_tree creates RepeatGroup nodes.
+test "incremental - correctness with balanced RepeatGroup trees" {
+  // Build a source with 20 let defs — exceeds balance_threshold=8
+  let segments : Array[String] = []
+  for i = 0; i < 19; i = i + 1 {
+    segments.push("let x\{i} = 0\n")
+  }
+  segments.push("let x19 = 0\nx19")
+  let source = segments.join("")
+  // Build edited version: change last def value 0 -> 1
+  let edited_segments : Array[String] = []
+  for i = 0; i < 19; i = i + 1 {
+    edited_segments.push("let x\{i} = 0\n")
+  }
+  edited_segments.push("let x19 = 1\nx19")
+  let edited = edited_segments.join("")
+  // Edit position: the "0" in "let x19 = 0"
+  let edit_pos = source.length() - "0\nx19".length()
+  let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
+  let parser = @loom.new_imperative_parser(source, lambda_grammar)
+  let _ = parser.parse()
+  let incr = parser.edit(edit, edited)
+  let batch = parse(edited) catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(incr) == @ast.print_term(batch), content="true")
+}

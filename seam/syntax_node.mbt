@@ -194,17 +194,31 @@ pub fn SyntaxNode::children_from(
   start : Int,
 ) -> Array[SyntaxNode] {
   let result : Array[SyntaxNode] = []
-  for offset = self.offset, i = 0, count = 0; i < self.cst.children.length(); {
-    match self.cst.children[i] {
-      Node(cst_child) => {
-        if count >= start {
-          result.push(SyntaxNode::new(cst_child, Some(self), offset))
-        }
-        continue offset + cst_child.text_len, i + 1, count + 1
+  let count : Ref[Int] = Ref::new(0)
+  fn collect(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        Node(cst_child) =>
+          if cst_child.kind == repeat_group_kind {
+            pos = collect(cst_child.children, parent, pos)
+          } else {
+            if count.val >= start {
+              result.push(SyntaxNode::new(cst_child, Some(parent), pos))
+            }
+            count.val = count.val + 1
+            pos = pos + cst_child.text_len
+          }
+        Token(token) => pos = pos + token.text_len()
       }
-      Token(token) => continue offset + token.text_len(), i + 1, count
     }
+    pos
   }
+  collect(self.cst.children, self, self.offset) |> ignore
   result
 }
 
@@ -212,21 +226,32 @@ pub fn SyntaxNode::children_from(
 /// All direct children as `SyntaxElement`s, preserving token order.
 pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
   let result : Array[SyntaxElement] = []
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Node(child_cst) => {
-        result.push(
-          SyntaxElement::Node(SyntaxNode::new(child_cst, Some(self), offset)),
-        )
-        offset = offset + child_cst.text_len
-      }
-      CstElement::Token(tok) => {
-        result.push(SyntaxElement::Token(SyntaxToken::new(tok, offset)))
-        offset = offset + tok.text_len()
+  fn collect(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Node(child_cst) =>
+          if child_cst.kind == repeat_group_kind {
+            pos = collect(child_cst.children, parent, pos)
+          } else {
+            result.push(
+              SyntaxElement::Node(SyntaxNode::new(child_cst, Some(parent), pos)),
+            )
+            pos = pos + child_cst.text_len
+          }
+        CstElement::Token(tok) => {
+          result.push(SyntaxElement::Token(SyntaxToken::new(tok, pos)))
+          pos = pos + tok.text_len()
+        }
       }
     }
+    pos
   }
+  collect(self.cst.children, self, self.offset) |> ignore
   result
 }
 
@@ -241,25 +266,36 @@ pub fn SyntaxNode::nodes_and_tokens(
 ) -> (Array[SyntaxNode], Array[SyntaxToken]) {
   let nodes : Array[SyntaxNode] = []
   let tokens : Array[SyntaxToken] = []
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Node(child_cst) => {
-        nodes.push(SyntaxNode::new(child_cst, Some(self), offset))
-        offset = offset + child_cst.text_len
-      }
-      CstElement::Token(tok) => {
-        let keep = match trivia_kind {
-          Some(tk) => tok.kind != tk
-          None => true
+  fn collect(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Node(child_cst) =>
+          if child_cst.kind == repeat_group_kind {
+            pos = collect(child_cst.children, parent, pos)
+          } else {
+            nodes.push(SyntaxNode::new(child_cst, Some(parent), pos))
+            pos = pos + child_cst.text_len
+          }
+        CstElement::Token(tok) => {
+          let keep = match trivia_kind {
+            Some(tk) => tok.kind != tk
+            None => true
+          }
+          if keep {
+            tokens.push(SyntaxToken::new(tok, pos))
+          }
+          pos = pos + tok.text_len()
         }
-        if keep {
-          tokens.push(SyntaxToken::new(tok, offset))
-        }
-        offset = offset + tok.text_len()
       }
     }
+    pos
   }
+  collect(self.cst.children, self, self.offset) |> ignore
   (nodes, tokens)
 }
 
@@ -267,16 +303,25 @@ pub fn SyntaxNode::nodes_and_tokens(
 /// Direct leaf tokens only (child nodes are skipped).
 pub fn SyntaxNode::tokens(self : SyntaxNode) -> Array[SyntaxToken] {
   let result : Array[SyntaxToken] = []
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Token(tok) => {
-        result.push(SyntaxToken::new(tok, offset))
-        offset = offset + tok.text_len()
+  fn collect(children : Array[CstElement], off : Int) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Token(tok) => {
+          result.push(SyntaxToken::new(tok, pos))
+          pos = pos + tok.text_len()
+        }
+        CstElement::Node(child) =>
+          if child.kind == repeat_group_kind {
+            pos = collect(child.children, pos)
+          } else {
+            pos = pos + child.text_len
+          }
       }
-      CstElement::Node(child) => offset = offset + child.text_len
     }
+    pos
   }
+  collect(self.cst.children, self.offset) |> ignore
   result
 }
 
@@ -286,19 +331,33 @@ pub fn SyntaxNode::find_token(
   self : SyntaxNode,
   kind : RawKind,
 ) -> SyntaxToken? {
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Token(tok) => {
-        if tok.kind == kind {
-          return Some(SyntaxToken::new(tok, offset))
+  let result : SyntaxToken? = None
+  fn search(children : Array[CstElement], off : Int) -> (SyntaxToken?, Int) {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Token(tok) => {
+          if tok.kind == kind {
+            return (Some(SyntaxToken::new(tok, pos)), pos)
+          }
+          pos = pos + tok.text_len()
         }
-        offset = offset + tok.text_len()
+        CstElement::Node(child) =>
+          if child.kind == repeat_group_kind {
+            let (found, new_pos) = search(child.children, pos)
+            if found is Some(_) {
+              return (found, new_pos)
+            }
+            pos = new_pos
+          } else {
+            pos = pos + child.text_len
+          }
       }
-      CstElement::Node(child) => offset = offset + child.text_len
     }
+    (result, pos)
   }
-  None
+  let (found, _) = search(self.cst.children, self.offset)
+  found
 }
 
 ///|
@@ -318,18 +377,27 @@ pub fn SyntaxNode::tokens_of_kind(
   kind : RawKind,
 ) -> Array[SyntaxToken] {
   let result : Array[SyntaxToken] = []
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Token(tok) => {
-        if tok.kind == kind {
-          result.push(SyntaxToken::new(tok, offset))
+  fn collect(children : Array[CstElement], off : Int) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Token(tok) => {
+          if tok.kind == kind {
+            result.push(SyntaxToken::new(tok, pos))
+          }
+          pos = pos + tok.text_len()
         }
-        offset = offset + tok.text_len()
+        CstElement::Node(child) =>
+          if child.kind == repeat_group_kind {
+            pos = collect(child.children, pos)
+          } else {
+            pos = pos + child.text_len
+          }
       }
-      CstElement::Node(child) => offset = offset + child.text_len
     }
+    pos
   }
+  collect(self.cst.children, self.offset) |> ignore
   result
 }
 
@@ -342,33 +410,48 @@ pub fn SyntaxNode::tight_span(
   self : SyntaxNode,
   trivia_kind? : RawKind? = None,
 ) -> (Int, Int) {
-  let mut pos = self.offset
-  let mut tight_start = self.offset
-  let mut tight_end = self.offset
-  let mut found_start = false
-  for elem in self.cst.children {
-    let len = match elem {
-      CstElement::Token(t) => t.text_len()
-      CstElement::Node(n) => n.text_len
-    }
-    let contributes = match (elem, trivia_kind) {
-      (CstElement::Token(t), Some(tk)) => t.kind != tk
-      (CstElement::Token(_), None) => true
-      (CstElement::Node(_), _) => true
-    }
-    if contributes {
-      if not(found_start) {
-        tight_start = pos
-        found_start = true
+  let tight_start : Ref[Int] = Ref::new(self.offset)
+  let tight_end : Ref[Int] = Ref::new(self.offset)
+  let found_start : Ref[Bool] = Ref::new(false)
+  fn scan(children : Array[CstElement], off : Int) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Node(n) =>
+          if n.kind == repeat_group_kind {
+            pos = scan(n.children, pos)
+          } else {
+            if not(found_start.val) {
+              tight_start.val = pos
+              found_start.val = true
+            }
+            tight_end.val = pos + n.text_len
+            pos = pos + n.text_len
+          }
+        CstElement::Token(t) => {
+          let len = t.text_len()
+          let contributes = match trivia_kind {
+            Some(tk) => t.kind != tk
+            None => true
+          }
+          if contributes {
+            if not(found_start.val) {
+              tight_start.val = pos
+              found_start.val = true
+            }
+            tight_end.val = pos + len
+          }
+          pos = pos + len
+        }
       }
-      tight_end = pos + len
     }
-    pos = pos + len
+    pos
   }
-  if not(found_start) {
+  scan(self.cst.children, self.offset) |> ignore
+  if not(found_start.val) {
     return (self.offset, self.offset)
   }
-  (tight_start, tight_end)
+  (tight_start.val, tight_end.val)
 }
 
 ///|
@@ -398,26 +481,37 @@ pub impl Eq for SyntaxNode with equal(self, other : SyntaxNode) -> Bool {
 pub impl ToJson for SyntaxNode with to_json(self) -> Json {
   let RawKind(k) = self.cst.kind
   let children_json : Array[Json] = []
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Token(tok) => {
-        let RawKind(tk) = tok.kind
-        children_json.push({
-          "kind": (tk : Int),
-          "text": tok.text,
-          "start": (offset : Int),
-          "end": offset + tok.text_len(),
-        })
-        offset = offset + tok.text_len()
-      }
-      CstElement::Node(child_cst) => {
-        let child_syn = SyntaxNode::new(child_cst, Some(self), offset)
-        children_json.push(child_syn.to_json())
-        offset = offset + child_cst.text_len
+  fn collect(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> Int {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Token(tok) => {
+          let RawKind(tk) = tok.kind
+          children_json.push({
+            "kind": (tk : Int),
+            "text": tok.text,
+            "start": (pos : Int),
+            "end": pos + tok.text_len(),
+          })
+          pos = pos + tok.text_len()
+        }
+        CstElement::Node(child_cst) =>
+          if child_cst.kind == repeat_group_kind {
+            pos = collect(child_cst.children, parent, pos)
+          } else {
+            let child_syn = SyntaxNode::new(child_cst, Some(parent), pos)
+            children_json.push(child_syn.to_json())
+            pos = pos + child_cst.text_len
+          }
       }
     }
+    pos
   }
+  collect(self.cst.children, self, self.offset) |> ignore
   {
     "kind": (k : Int),
     "start": (self.offset : Int),
@@ -430,21 +524,37 @@ pub impl ToJson for SyntaxNode with to_json(self) -> Json {
 /// Return the nth interior-node child (0-indexed, skipping token children).
 /// Returns None if there are fewer than n+1 interior children.
 pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int) -> SyntaxNode? {
-  let mut count = 0
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Node(child_cst) => {
-        if count == n {
-          return Some(SyntaxNode::new(child_cst, Some(self), offset))
-        }
-        count = count + 1
-        offset = offset + child_cst.text_len
+  let count : Ref[Int] = Ref::new(0)
+  let result : SyntaxNode? = None
+  fn search(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> (SyntaxNode?, Int) {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Node(child_cst) =>
+          if child_cst.kind == repeat_group_kind {
+            let (found, new_pos) = search(child_cst.children, parent, pos)
+            if found is Some(_) {
+              return (found, new_pos)
+            }
+            pos = new_pos
+          } else {
+            if count.val == n {
+              return (Some(SyntaxNode::new(child_cst, Some(parent), pos)), pos)
+            }
+            count.val = count.val + 1
+            pos = pos + child_cst.text_len
+          }
+        CstElement::Token(tok) => pos = pos + tok.text_len()
       }
-      CstElement::Token(tok) => offset = offset + tok.text_len()
     }
+    (result, pos)
   }
-  None
+  let (found, _) = search(self.cst.children, self, self.offset)
+  found
 }
 
 ///|
@@ -453,19 +563,34 @@ pub fn SyntaxNode::child_of_kind(
   self : SyntaxNode,
   kind : RawKind,
 ) -> SyntaxNode? {
-  let mut offset = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Node(child_cst) => {
-        if child_cst.kind == kind {
-          return Some(SyntaxNode::new(child_cst, Some(self), offset))
-        }
-        offset = offset + child_cst.text_len
+  let result : SyntaxNode? = None
+  fn search(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    off : Int,
+  ) -> (SyntaxNode?, Int) {
+    let mut pos = off
+    for elem in children {
+      match elem {
+        CstElement::Node(child_cst) =>
+          if child_cst.kind == repeat_group_kind {
+            let (found, new_pos) = search(child_cst.children, parent, pos)
+            if found is Some(_) {
+              return (found, new_pos)
+            }
+            pos = new_pos
+          } else if child_cst.kind == kind {
+            return (Some(SyntaxNode::new(child_cst, Some(parent), pos)), pos)
+          } else {
+            pos = pos + child_cst.text_len
+          }
+        CstElement::Token(tok) => pos = pos + tok.text_len()
       }
-      CstElement::Token(tok) => offset = offset + tok.text_len()
     }
+    (result, pos)
   }
-  None
+  let (found, _) = search(self.cst.children, self, self.offset)
+  found
 }
 
 ///|
@@ -481,21 +606,38 @@ pub fn SyntaxNode::child_of_kind(
 /// well-formed tree should ensure the offset is within the root's span;
 /// out-of-range offsets will silently produce the root rather than a deep node.
 pub fn SyntaxNode::find_at(self : SyntaxNode, offset : Int) -> SyntaxNode {
-  let mut pos = self.offset
-  for elem in self.cst.children {
-    match elem {
-      CstElement::Node(child_cst) => {
-        let child_end = pos + child_cst.text_len
-        if pos <= offset && offset < child_end {
-          let child = SyntaxNode::new(child_cst, Some(self), pos)
-          return child.find_at(offset)
+  fn drill_children(
+    children : Array[CstElement],
+    parent : SyntaxNode,
+    base_offset : Int,
+    target : Int,
+  ) -> SyntaxNode? {
+    let mut pos = base_offset
+    for elem in children {
+      match elem {
+        CstElement::Node(child_cst) => {
+          let child_end = pos + child_cst.text_len
+          if pos <= target && target < child_end {
+            if child_cst.kind == repeat_group_kind {
+              // Transparent: drill into RepeatGroup keeping real parent
+              return drill_children(child_cst.children, parent, pos, target)
+            } else {
+              let child = SyntaxNode::new(child_cst, Some(parent), pos)
+              return Some(
+                drill_children(child.cst.children, child, child.offset, target).unwrap_or(
+                  child,
+                ),
+              )
+            }
+          }
+          pos = child_end
         }
-        pos = child_end
+        CstElement::Token(tok) => pos = pos + tok.text_len()
       }
-      CstElement::Token(tok) => pos = pos + tok.text_len()
     }
+    None
   }
-  self
+  drill_children(self.cst.children, self, self.offset, offset).unwrap_or(self)
 }
 
 ///|

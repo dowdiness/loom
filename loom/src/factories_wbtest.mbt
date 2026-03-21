@@ -126,6 +126,7 @@ fn fgrammar(
       raw == fkind_raw(KChar) && tok == A
     },
     parse_root=froot,
+    reuse_size_threshold=0,
   )
   Grammar::new(
     spec~,

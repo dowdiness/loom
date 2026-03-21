@@ -4,6 +4,11 @@
 pub(all) struct RawKind(Int) derive(Eq, Show, Hash, Compare, Debug)
 
 ///|
+/// Reserved RawKind for transparent repeat-group nodes.
+/// SyntaxNode methods flatten these — consumers see flat sibling lists.
+pub let repeat_group_kind : RawKind = RawKind(-1)
+
+///|
 /// A leaf token in the CST.
 ///
 /// ## Invariants

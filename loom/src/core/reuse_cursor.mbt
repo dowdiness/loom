@@ -51,6 +51,7 @@ pub struct ReuseCursor[T, K] {
   incomplete_raw : @seam.RawKind
   cache : OldTokenCache
   reuse_globally_disabled : Bool
+  reuse_size_threshold : Int
   // New token stream (indexed accessors, same layout as ParserContext)
   token_count : Int
   get_token : (Int) -> T
@@ -109,6 +110,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_token : (Int) -> T,
   get_start : (Int) -> Int,
   spec : LanguageSpec[T, K],
+  reuse_size_threshold? : Int = 0,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -129,6 +131,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     incomplete_raw,
     cache: { tokens: None },
     reuse_globally_disabled,
+    reuse_size_threshold,
     token_count,
     get_token,
     get_start,
@@ -308,8 +311,10 @@ fn[T, K] ReuseCursor::seek_node_at(
   while self.stack.length() > 0 {
     let frame = self.stack[self.stack.length() - 1]
     let node = frame.node
-    // Check if current frame matches
-    if frame.start_offset == target_offset && node.kind == expected_kind {
+    // Check if current frame matches (never return RepeatGroup — traverse it)
+    if frame.start_offset == target_offset &&
+      node.kind == expected_kind &&
+      node.kind != @seam.repeat_group_kind {
       return Some((node, frame.start_offset))
     }
     // If target is outside this node's range, pop up
@@ -332,7 +337,18 @@ fn[T, K] ReuseCursor::seek_node_at(
       if target_offset < child_end {
         match child {
           @seam.CstElement::Node(child_node) => {
-            if child_offset == target_offset && child_node.kind == expected_kind {
+            if child_node.kind == @seam.repeat_group_kind {
+              // Always descend into RepeatGroup — only try_reuse_repeat_group reuses whole groups
+              self.stack.push({
+                node: child_node,
+                child_index: 0,
+                start_offset: child_offset,
+                current_child_offset: child_offset,
+              })
+              found_child = true
+              break
+            } else if child_offset == target_offset &&
+              child_node.kind == expected_kind {
               self.current_offset = child_offset
               return Some((child_node, child_offset))
             }
@@ -386,6 +402,11 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
   match result {
     None => None
     Some((node, node_offset)) => {
+      // Skip reuse for small nodes — reparsing is cheaper than the protocol.
+      if self.reuse_size_threshold > 0 &&
+        node.text_len < self.reuse_size_threshold {
+        return None
+      }
       let node_end = node_offset + node.text_len
       if not(
           is_outside_damage(
@@ -405,6 +426,106 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
       }
     }
   }
+}
+
+///|
+/// Try to reuse an entire RepeatGroup subtree at byte_offset.
+///
+/// Walks the cursor stack to find a RepeatGroup child at exactly byte_offset.
+/// Returns Some(node) if the group is entirely outside the damage range and
+/// leading/trailing token context matches. Unlike try_reuse, this does not
+/// require an expected_kind — any undamaged RepeatGroup is eligible.
+///
+/// Called by grammar code before parsing individual items in a repeat loop
+/// to enable O(log n) reuse of balanced subtrees.
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(
+  self : ReuseCursor[T, K],
+  byte_offset : Int,
+  token_pos : Int,
+) -> @seam.CstNode? {
+  if self.reuse_globally_disabled ||
+    (byte_offset >= self.damage_start && byte_offset < self.damage_end) {
+    return None
+  }
+  // Reset to root if target is behind current position
+  if byte_offset < self.current_offset {
+    let root_frame = self.stack[0]
+    let _ = self.stack.drain(1, self.stack.length())
+    root_frame.child_index = 0
+    root_frame.current_child_offset = 0
+    self.current_offset = 0
+  }
+  // Walk the stack to find a RepeatGroup at byte_offset
+  while self.stack.length() > 0 {
+    let frame = self.stack[self.stack.length() - 1]
+    let node = frame.node
+    let node_end = frame.start_offset + node.text_len
+    // If target is outside this node's range, pop up
+    if byte_offset < frame.start_offset || byte_offset >= node_end {
+      self.pop_frame()
+      continue
+    }
+    // Scan children from cached position
+    let mut child_offset = frame.current_child_offset
+    let mut found_child = false
+    while frame.child_index < node.children.length() {
+      let child = node.children[frame.child_index]
+      let child_width = child.text_len()
+      let child_end = child_offset + child_width
+      if byte_offset < child_offset {
+        break
+      }
+      if byte_offset < child_end {
+        match child {
+          @seam.CstElement::Node(child_node) => {
+            if child_node.kind == @seam.repeat_group_kind &&
+              child_offset == byte_offset &&
+              is_outside_damage(
+                child_offset,
+                child_end,
+                self.damage_start,
+                self.damage_end,
+              ) {
+              // Found undamaged RepeatGroup — validate context
+              if leading_token_matches(child_node, self, token_pos) &&
+                trailing_context_matches(self, child_end) {
+                self.current_offset = child_offset
+                return Some(child_node)
+              }
+            }
+            // Not a match — if it's a RepeatGroup overlapping damage, descend
+            if child_node.kind == @seam.repeat_group_kind {
+              self.stack.push({
+                node: child_node,
+                child_index: 0,
+                start_offset: child_offset,
+                current_child_offset: child_offset,
+              })
+              found_child = true
+              break
+            }
+            // Non-RepeatGroup node: descend to look for RepeatGroup children
+            self.stack.push({
+              node: child_node,
+              child_index: 0,
+              start_offset: child_offset,
+              current_child_offset: child_offset,
+            })
+            found_child = true
+            break
+          }
+          @seam.CstElement::Token(_) => return None
+        }
+      }
+      child_offset = child_end
+      frame.current_child_offset = child_end
+      frame.child_index = frame.child_index + 1
+    }
+    if not(found_child) {
+      self.pop_frame()
+    }
+  }
+  None
 }
 
 ///|
@@ -476,6 +597,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     incomplete_raw: self.incomplete_raw,
     cache: self.cache, // shared mutable cell — all snapshots see same materialized table
     reuse_globally_disabled: self.reuse_globally_disabled,
+    reuse_size_threshold: self.reuse_size_threshold,
     token_count: self.token_count,
     get_token: self.get_token,
     get_start: self.get_start,

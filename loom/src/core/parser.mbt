@@ -69,6 +69,10 @@ pub struct LanguageSpec[T, K] {
   // Set to a no-op by default for call sites (e.g. tests) that use
   // parse_with() with an explicit grammar parameter instead.
   parse_root : (ParserContext[T, K]) -> Unit
+  // Minimum text_len (in code units) for a CST node to be eligible for reuse.
+  // Nodes smaller than this threshold are re-parsed instead of reused, avoiding
+  // the overhead of cursor seek + 4-condition check on tiny subtrees.
+  reuse_size_threshold : Int
 }
 
 ///|
@@ -83,6 +87,7 @@ pub fn[T, K] LanguageSpec::new(
     false
   },
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
+  reuse_size_threshold? : Int = 64,
 ) -> LanguageSpec[T, K] {
   {
     whitespace_kind,
@@ -92,6 +97,7 @@ pub fn[T, K] LanguageSpec::new(
     eof_token,
     cst_token_matches,
     parse_root,
+    reuse_size_threshold,
   }
 }
 
@@ -789,6 +795,41 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::nod
     self.start_node(kind)
     body()
     self.finish_node()
+  }
+}
+
+///|
+/// Try to reuse an entire RepeatGroup subtree at the current position.
+///
+/// Grammar code calls this before each iteration of a repeat loop (e.g.
+/// `while peek() == Let`) to skip entire balanced groups of siblings.
+/// Returns true if a RepeatGroup was reused (position advanced past it).
+///
+/// When true is returned, the grammar should re-check its loop condition —
+/// the next token will be whatever follows the group. No start_node or
+/// finish_node events are pushed; the ReuseNode event reattaches the
+/// pre-built balanced tree as-is.
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(
+  self : ParserContext[T, K],
+) -> Bool {
+  if self.position >= self.token_count {
+    return false
+  }
+  let byte_offset = (self.get_start)(self.position)
+  let mut token_pos = self.position
+  while token_pos < self.token_count && (self.get_token)(token_pos).is_trivia() {
+    token_pos = token_pos + 1
+  }
+  match self.reuse_cursor {
+    None => false
+    Some(cursor) =>
+      match cursor.try_reuse_repeat_group(byte_offset, token_pos) {
+        None => false
+        Some(node) => {
+          self.emit_reused(node)
+          true
+        }
+      }
   }
 }
 

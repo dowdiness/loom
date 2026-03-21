@@ -17,6 +17,7 @@ pub struct PerfStats {
   try_reuse_calls : Ref[Int]
   try_reuse_hits : Ref[Int]
   fast_path_skips : Ref[Int]
+  size_threshold_skips : Ref[Int]
   leading_checks : Ref[Int]
   trailing_checks : Ref[Int]
   find_node_calls : Ref[Int]
@@ -31,6 +32,7 @@ fn PerfStats::new() -> PerfStats {
     try_reuse_calls: Ref::new(0),
     try_reuse_hits: Ref::new(0),
     fast_path_skips: Ref::new(0),
+    size_threshold_skips: Ref::new(0),
     leading_checks: Ref::new(0),
     trailing_checks: Ref::new(0),
     find_node_calls: Ref::new(0),
@@ -52,6 +54,7 @@ pub fn perf_reset() -> Unit {
   perf_stats.try_reuse_calls.val = 0
   perf_stats.try_reuse_hits.val = 0
   perf_stats.fast_path_skips.val = 0
+  perf_stats.size_threshold_skips.val = 0
   perf_stats.leading_checks.val = 0
   perf_stats.trailing_checks.val = 0
   perf_stats.find_node_calls.val = 0
@@ -73,6 +76,8 @@ pub fn perf_report() -> String {
   perf_stats.try_reuse_hits.val.to_string() +
   ", fast_path_skips: " +
   perf_stats.fast_path_skips.val.to_string() +
+  ", size_threshold_skips: " +
+  perf_stats.size_threshold_skips.val.to_string() +
   ", leading_checks: " +
   perf_stats.leading_checks.val.to_string() +
   ", trailing_checks: " +
@@ -98,4 +103,14 @@ pub fn count_tokens_in_node_instrumented(node : @seam.CstNode) -> Int {
     perf_stats.count_tokens_calls.val = perf_stats.count_tokens_calls.val + 1
   }
   node.token_count
+}
+
+///|
+/// Record that a reuse candidate was skipped because its text_len was below
+/// the reuse_size_threshold. Only increments when perf instrumentation is enabled.
+pub fn record_size_threshold_skip() -> Unit {
+  if perf_stats.enabled.val {
+    perf_stats.size_threshold_skips.val = perf_stats.size_threshold_skips.val +
+      1
+  }
 }

@@ -20,6 +20,8 @@ pub fn perf_snapshot() -> PerfStats
 
 pub let perf_stats : PerfStats
 
+pub fn record_size_threshold_skip() -> Unit
+
 // Errors
 
 // Types and methods
@@ -64,6 +66,7 @@ pub struct PerfStats {
   try_reuse_calls : @ref.Ref[Int]
   try_reuse_hits : @ref.Ref[Int]
   fast_path_skips : @ref.Ref[Int]
+  size_threshold_skips : @ref.Ref[Int]
   leading_checks : @ref.Ref[Int]
   trailing_checks : @ref.Ref[Int]
   find_node_calls : @ref.Ref[Int]
