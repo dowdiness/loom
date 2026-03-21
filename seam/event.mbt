@@ -633,17 +633,11 @@ fn balance_children(
           }
         }
         if node_count > balance_threshold {
-          // Extract the run and build balanced groups
-          let run : Array[CstElement] = []
-          for j = run_start; j < i; j = j + 1 {
-            run.push(children[j])
-          }
-          let grouped = build_balanced_group(
-            run, trivia_kind, error_kind, incomplete_kind,
+          // Build balanced groups from the run (index-based, no copy)
+          build_balanced_group(
+            children, run_start, i, trivia_kind, error_kind, incomplete_kind,
+            result,
           )
-          for elem in grouped {
-            result.push(elem)
-          }
         } else {
           // Short run — copy as-is
           for j = run_start; j < i; j = j + 1 {
@@ -661,66 +655,63 @@ fn balance_children(
 }
 
 ///|
-/// Recursively split an array of CstElements into balanced binary
-/// RepeatGroup sub-nodes until each group has at most `balance_threshold`
-/// elements. Returns an array with one or more RepeatGroup wrapper nodes.
+/// Recursively split a range of elements into balanced binary RepeatGroup
+/// sub-nodes until each group has at most `balance_threshold` elements.
+/// Appends the resulting RepeatGroup wrapper node(s) to `out`.
+/// Operates on index ranges [start, end) to avoid intermediate array copies.
 fn build_balanced_group(
   elements : Array[CstElement],
+  start : Int,
+  end : Int,
   trivia_kind : RawKind?,
   error_kind : RawKind?,
   incomplete_kind : RawKind?,
-) -> Array[CstElement] {
-  if elements.length() <= balance_threshold {
-    // Base case: wrap in a single RepeatGroup
+  out : Array[CstElement],
+) -> Unit {
+  let len = end - start
+  if len <= balance_threshold {
+    // Base case: copy this range into a single RepeatGroup
+    let children : Array[CstElement] = Array::new(capacity=len)
+    for j = start; j < end; j = j + 1 {
+      children.push(elements[j])
+    }
     let group = CstNode::new(
       repeat_group_kind,
-      elements,
+      children,
       trivia_kind~,
       error_kind~,
       incomplete_kind~,
     )
-    return [CstElement::Node(group)]
+    out.push(CstElement::Node(group))
+    return
   }
-  // Split in half and recurse — find the nearest node boundary at or after midpoint
-  let mut mid = elements.length() / 2
-  while mid < elements.length() {
+  // Split in half — find the nearest node boundary at or after midpoint
+  let mut mid = start + len / 2
+  while mid < end {
     match elements[mid] {
       CstElement::Node(_) => break
       CstElement::Token(_) => mid = mid + 1
     }
   }
-  // If we couldn't find a node at or after midpoint, fall back to original midpoint
-  if mid >= elements.length() {
-    mid = elements.length() / 2
+  if mid >= end {
+    mid = start + len / 2
   }
-  let left : Array[CstElement] = []
-  for j = 0; j < mid; j = j + 1 {
-    left.push(elements[j])
-  }
-  let right : Array[CstElement] = []
-  for j = mid; j < elements.length(); j = j + 1 {
-    right.push(elements[j])
-  }
-  let left_groups = build_balanced_group(
-    left, trivia_kind, error_kind, incomplete_kind,
+  // Recurse into left and right halves, collecting into a shared buffer
+  let group_children : Array[CstElement] = []
+  build_balanced_group(
+    elements, start, mid, trivia_kind, error_kind, incomplete_kind,
+    group_children,
   )
-  let right_groups = build_balanced_group(
-    right, trivia_kind, error_kind, incomplete_kind,
+  build_balanced_group(
+    elements, mid, end, trivia_kind, error_kind, incomplete_kind,
+    group_children,
   )
-  // Combine into a single RepeatGroup wrapping left + right
-  let combined : Array[CstElement] = []
-  for elem in left_groups {
-    combined.push(elem)
-  }
-  for elem in right_groups {
-    combined.push(elem)
-  }
   let group = CstNode::new(
     repeat_group_kind,
-    combined,
+    group_children,
     trivia_kind~,
     error_kind~,
     incomplete_kind~,
   )
-  [CstElement::Node(group)]
+  out.push(CstElement::Node(group))
 }
