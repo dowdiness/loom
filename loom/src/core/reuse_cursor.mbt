@@ -311,8 +311,10 @@ fn[T, K] ReuseCursor::seek_node_at(
   while self.stack.length() > 0 {
     let frame = self.stack[self.stack.length() - 1]
     let node = frame.node
-    // Check if current frame matches
-    if frame.start_offset == target_offset && node.kind == expected_kind {
+    // Check if current frame matches (never return RepeatGroup — traverse it)
+    if frame.start_offset == target_offset &&
+      node.kind == expected_kind &&
+      node.kind != @seam.repeat_group_kind {
       return Some((node, frame.start_offset))
     }
     // If target is outside this node's range, pop up
@@ -335,7 +337,18 @@ fn[T, K] ReuseCursor::seek_node_at(
       if target_offset < child_end {
         match child {
           @seam.CstElement::Node(child_node) => {
-            if child_offset == target_offset && child_node.kind == expected_kind {
+            if child_node.kind == @seam.repeat_group_kind {
+              // RepeatGroup: always descend transparently — never match or return
+              self.stack.push({
+                node: child_node,
+                child_index: 0,
+                start_offset: child_offset,
+                current_child_offset: child_offset,
+              })
+              found_child = true
+              break
+            } else if child_offset == target_offset &&
+              child_node.kind == expected_kind {
               self.current_offset = child_offset
               return Some((child_node, child_offset))
             }
