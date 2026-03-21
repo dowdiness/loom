@@ -71,7 +71,7 @@ fn consume_delimiters(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Int {
   let mut count = 0
-  while ctx.peek() == @token.Newline || ctx.peek() == @token.Semicolon {
+  while true {
     match ctx.peek() {
       @token.Newline => ctx.emit_token(@syntax.NewlineToken)
       @token.Semicolon => ctx.emit_token(@syntax.SemicolonToken)

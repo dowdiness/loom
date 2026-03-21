@@ -83,30 +83,7 @@ pub fn print_token_infos(tokens : Array[TokenInfo[Token]]) -> String {
 
 ///|
 pub fn print_token(token : Token) -> String {
-  match token {
-    Lambda => "λ"
-    Dot => "."
-    LeftParen => "("
-    RightParen => ")"
-    Plus => "+"
-    Minus => "-"
-    If => "if"
-    Then => "then"
-    Else => "else"
-    Let => "let"
-    In => "in"
-    Eq => "="
-    LBrace => "{"
-    RBrace => "}"
-    Comma => ","
-    Semicolon => ";"
-    Identifier(name) => name
-    Integer(n) => n.to_string()
-    Whitespace => "whitespace"
-    Newline => "newline"
-    Error(msg) => "<error: " + msg + ">"
-    EOF => "EOF"
-  }
+  token.to_string()
 }
 
 ///|
