@@ -13,6 +13,7 @@ pub struct Grammar[T, K, Ast] {
   on_lex_error : (String) -> Ast
   error_token : T?
   prefix_lexer : @core.PrefixLexer[T]?
+  block_reparse_spec : @core.BlockReparseSpec[T, K]?
 }
 
 ///|
@@ -23,6 +24,15 @@ pub fn[T, K, Ast] Grammar::new(
   on_lex_error~ : (String) -> Ast,
   error_token? : T? = None,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
+  block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
 ) -> Grammar[T, K, Ast] {
-  { spec, tokenize, fold_node, on_lex_error, error_token, prefix_lexer }
+  {
+    spec,
+    tokenize,
+    fold_node,
+    on_lex_error,
+    error_token,
+    prefix_lexer,
+    block_reparse_spec,
+  }
 }
