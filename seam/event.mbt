@@ -206,7 +206,7 @@ pub fn build_tree_interned(
         kinds.push(kind)
       }
       FinishNode => {
-        let children = match stack.pop() {
+        let raw_children = match stack.pop() {
           Some(c) => c
           None =>
             abort(
@@ -218,6 +218,9 @@ pub fn build_tree_interned(
           None =>
             abort("build_tree_interned: kind stack underflow on FinishNode")
         }
+        let children = balance_children(
+          raw_children, trivia_kind, error_kind, incomplete_kind,
+        )
         let node = CstNode::new(
           kind,
           children,
@@ -381,7 +384,7 @@ pub fn build_tree_fully_interned(
         kinds.push(kind)
       }
       FinishNode => {
-        let children = match stack.pop() {
+        let raw_children = match stack.pop() {
           Some(c) => c
           None =>
             abort(
@@ -395,6 +398,9 @@ pub fn build_tree_fully_interned(
               "build_tree_fully_interned: kind stack underflow on FinishNode",
             )
         }
+        let children = balance_children(
+          raw_children, trivia_kind, error_kind, incomplete_kind,
+        )
         let node = node_interner.intern_node(
           CstNode::new(
             kind,
@@ -479,7 +485,7 @@ pub fn build_tree(
         kinds.push(kind)
       }
       FinishNode => {
-        let children = match stack.pop() {
+        let raw_children = match stack.pop() {
           Some(c) => c
           None =>
             abort("build_tree: unbalanced FinishNode — no matching StartNode")
@@ -488,6 +494,9 @@ pub fn build_tree(
           Some(k) => k
           None => abort("build_tree: kind stack underflow on FinishNode")
         }
+        let children = balance_children(
+          raw_children, trivia_kind, error_kind, incomplete_kind,
+        )
         let node = CstNode::new(
           kind,
           children,
@@ -527,4 +536,130 @@ pub fn build_tree(
     )
   }
   CstNode::new(root_kind, stack[0], trivia_kind~, error_kind~, incomplete_kind~)
+}
+
+///|
+/// Minimum run length to trigger grouping. Runs of same-kind node siblings
+/// shorter than this are left as flat children.
+let balance_threshold : Int = 8
+
+///|
+/// Balance long runs of consecutive same-kind node siblings into a binary
+/// tree of RepeatGroup sub-nodes. Token children and short or mixed runs
+/// are left untouched.
+///
+/// This reduces O(n) reuse checks during incremental parsing to O(log n)
+/// by letting the incremental parser skip entire groups as single units.
+fn balance_children(
+  children : Array[CstElement],
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> Array[CstElement] {
+  if children.length() <= balance_threshold {
+    return children
+  }
+  let result : Array[CstElement] = []
+  let mut i = 0
+  while i < children.length() {
+    // Check if this child is a Node (not Token)
+    match children[i] {
+      CstElement::Node(n) => {
+        // Find the run of consecutive Node children with the same kind
+        let run_kind = n.kind
+        let run_start = i
+        i = i + 1
+        while i < children.length() {
+          match children[i] {
+            CstElement::Node(m) =>
+              if m.kind == run_kind {
+                i = i + 1
+              } else {
+                break
+              }
+            CstElement::Token(_) => break
+          }
+        }
+        let run_len = i - run_start
+        if run_len > balance_threshold {
+          // Extract the run and build balanced groups
+          let run : Array[CstElement] = []
+          for j = run_start; j < i; j = j + 1 {
+            run.push(children[j])
+          }
+          let grouped = build_balanced_group(
+            run, trivia_kind, error_kind, incomplete_kind,
+          )
+          for elem in grouped {
+            result.push(elem)
+          }
+        } else {
+          // Short run — copy as-is
+          for j = run_start; j < i; j = j + 1 {
+            result.push(children[j])
+          }
+        }
+      }
+      CstElement::Token(_) => {
+        result.push(children[i])
+        i = i + 1
+      }
+    }
+  }
+  result
+}
+
+///|
+/// Recursively split an array of CstElements into balanced binary
+/// RepeatGroup sub-nodes until each group has at most `balance_threshold`
+/// elements. Returns an array with one or more RepeatGroup wrapper nodes.
+fn build_balanced_group(
+  elements : Array[CstElement],
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> Array[CstElement] {
+  if elements.length() <= balance_threshold {
+    // Base case: wrap in a single RepeatGroup
+    let group = CstNode::new(
+      repeat_group_kind,
+      elements,
+      trivia_kind~,
+      error_kind~,
+      incomplete_kind~,
+    )
+    return [CstElement::Node(group)]
+  }
+  // Split in half and recurse
+  let mid = elements.length() / 2
+  let left : Array[CstElement] = []
+  for j = 0; j < mid; j = j + 1 {
+    left.push(elements[j])
+  }
+  let right : Array[CstElement] = []
+  for j = mid; j < elements.length(); j = j + 1 {
+    right.push(elements[j])
+  }
+  let left_groups = build_balanced_group(
+    left, trivia_kind, error_kind, incomplete_kind,
+  )
+  let right_groups = build_balanced_group(
+    right, trivia_kind, error_kind, incomplete_kind,
+  )
+  // Combine into a single RepeatGroup wrapping left + right
+  let combined : Array[CstElement] = []
+  for elem in left_groups {
+    combined.push(elem)
+  }
+  for elem in right_groups {
+    combined.push(elem)
+  }
+  let group = CstNode::new(
+    repeat_group_kind,
+    combined,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+  [CstElement::Node(group)]
 }

@@ -14,6 +14,8 @@ pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : 
 
 pub fn combine_hash(Int, Int) -> Int
 
+pub let repeat_group_kind : RawKind
+
 pub fn string_hash(String) -> Int
 
 // Errors
