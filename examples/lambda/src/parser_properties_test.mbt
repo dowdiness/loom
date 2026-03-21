@@ -206,12 +206,13 @@ fn check_well_formed(term : @ast.Term) -> Unit raise {
       check_well_formed(then_)
       check_well_formed(else_)
     }
-    @ast.Term::Module(defs, body) => {
-      for def in defs {
-        check_well_formed(def.1)
+    @ast.Term::Module(items) =>
+      for item in items {
+        match item {
+          @ast.ModuleItem::Def(_, init) => check_well_formed(init)
+          @ast.ModuleItem::Expr(expr) => check_well_formed(expr)
+        }
       }
-      check_well_formed(body)
-    }
     @ast.Term::Unit => ()
     @ast.Term::Unbound(_) => () // unbound vars from resolution are valid Term values
     @ast.Term::Error(_) => () // error terms from recovery are valid Term values

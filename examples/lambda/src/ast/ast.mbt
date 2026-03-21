@@ -10,6 +10,12 @@ pub(all) enum Bop {
 } derive(Show, Eq, FromJson, ToJson, Debug)
 
 ///|
+pub(all) enum ModuleItem {
+  Def(String, Term)
+  Expr(Term)
+} derive(Show, Eq, ToJson, Debug)
+
+///|
 pub(all) enum Term {
   // Integer
   Int(Int)
@@ -23,8 +29,8 @@ pub(all) enum Term {
   Bop(Bop, Term, Term)
   // If-then-else
   If(Term, Term, Term)
-  // Module — flattened definitions with a body expression
-  Module(Array[(VarName, Term)], Term)
+  // Module — interleaved definitions and expressions
+  Module(Array[ModuleItem])
   // Unit — terminal for definition-only source files
   Unit
   // Unbound variable — semantic error from name resolution
@@ -44,12 +50,14 @@ pub fn print_term(term : Term) -> String {
       Bop(Plus, t1, t2) => "(" + go(t1) + " + " + go(t2) + ")"
       Bop(Minus, t1, t2) => "(" + go(t1) + " - " + go(t2) + ")"
       If(t1, t2, t3) => "if " + go(t1) + " then " + go(t2) + " else " + go(t3)
-      Module(defs, body) => {
+      Module(items) => {
         let parts : Array[String] = []
-        for def in defs {
-          parts.push("let " + def.0 + " = " + go(def.1))
+        for item in items {
+          match item {
+            Def(name, init) => parts.push("let " + name + " = " + go(init))
+            Expr(expr) => parts.push(go(expr))
+          }
         }
-        parts.push(go(body))
         parts.join("\n")
       }
       Unit => "()"

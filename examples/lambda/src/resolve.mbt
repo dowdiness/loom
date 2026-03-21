@@ -55,18 +55,25 @@ fn resolve_walk(
       let new_body = resolve_walk(body, new_env, depth + 1, counter, res)
       @ast.Term::Lam(x, new_body)
     }
-    @ast.Term::Module(defs, body) => {
-      let new_defs : Array[(@ast.VarName, @ast.Term)] = []
+    @ast.Term::Module(items) => {
+      let new_items : Array[@ast.ModuleItem] = []
       let cur_env = Map::from_iter(env.iter())
       let mut cur_depth = depth
-      for def in defs {
-        let new_init = resolve_walk(def.1, cur_env, cur_depth, counter, res)
-        cur_env[def.0] = cur_depth
-        cur_depth = cur_depth + 1
-        new_defs.push((def.0, new_init))
+      for item in items {
+        match item {
+          @ast.ModuleItem::Def(name, init) => {
+            let new_init = resolve_walk(init, cur_env, cur_depth, counter, res)
+            cur_env[name] = cur_depth
+            cur_depth = cur_depth + 1
+            new_items.push(@ast.ModuleItem::Def(name, new_init))
+          }
+          @ast.ModuleItem::Expr(expr) => {
+            let new_expr = resolve_walk(expr, cur_env, cur_depth, counter, res)
+            new_items.push(@ast.ModuleItem::Expr(new_expr))
+          }
+        }
       }
-      let new_body = resolve_walk(body, cur_env, cur_depth, counter, res)
-      @ast.Term::Module(new_defs, new_body)
+      @ast.Term::Module(new_items)
     }
     @ast.Term::App(f, a) => {
       let new_f = resolve_walk(f, env, depth, counter, res)

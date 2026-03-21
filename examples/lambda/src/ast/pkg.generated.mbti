@@ -22,6 +22,15 @@ pub impl ToJson for Bop
 pub impl @debug.Debug for Bop
 pub impl @json.FromJson for Bop
 
+pub(all) enum ModuleItem {
+  Def(String, Term)
+  Expr(Term)
+}
+pub impl Eq for ModuleItem
+pub impl Show for ModuleItem
+pub impl ToJson for ModuleItem
+pub impl @debug.Debug for ModuleItem
+
 pub(all) enum Term {
   Int(Int)
   Var(String)
@@ -29,7 +38,7 @@ pub(all) enum Term {
   App(Term, Term)
   Bop(Bop, Term, Term)
   If(Term, Term, Term)
-  Module(Array[(String, Term)], Term)
+  Module(Array[ModuleItem])
   Unit
   Unbound(String)
   Error(String)

@@ -347,7 +347,6 @@ test "parse_term: two defs produce Module with Unit body" {
     content=(
       #|let id = 1
       #|let const = 2
-      #|()
     ),
   )
 }
@@ -432,7 +431,12 @@ test "parse_term: multiline binary expression (no defs)" {
 test "parse_term: multiline application (no defs)" {
   let (term, diagnostics) = parse_term("f\nx")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="(f x)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|(f x)
+    ),
+  )
 }
 
 ///|
@@ -441,7 +445,9 @@ test "parse_term: missing newline between defs reports diagnostic" {
   inspect(diagnostics.length() > 0, content="true")
   inspect(
     diagnostics[0].message,
-    content="Expected newline between top-level definitions",
+    content=(
+      #|Expected newline between top-level definitions
+    ),
   )
 }
 
@@ -450,4 +456,22 @@ test "parse_term: empty file" {
   let (term, diagnostics) = parse_term("")
   inspect(diagnostics.length(), content="0")
   inspect(@ast.print_term(term), content="()")
+}
+
+///|
+test "parse_term: interleaved defs and expressions" {
+  let (term, diagnostics) = parse_term("let x = 1\nx\nlet y = 2\ny")
+  inspect(
+    diagnostics.length(),
+    content=(
+      #|1
+    ),
+  )
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|let x = 1
+      #|x
+    ),
+  )
 }

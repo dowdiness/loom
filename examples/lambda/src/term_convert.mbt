@@ -9,25 +9,46 @@ pub fn lambda_fold_node(
 ) -> @ast.Term {
   match @syntax.SyntaxKind::from_raw(node.kind()) {
     @syntax.SourceFile => {
-      let defs : Array[(@ast.VarName, @ast.Term)] = []
-      let mut final_term : @ast.Term = @ast.Term::Unit
+      let items : Array[@ast.ModuleItem] = []
+      let mut has_defs = false
+      let mut got_expr = false
       for child in node.children() {
         match @syntax.SyntaxKind::from_raw(child.kind()) {
           @syntax.LetDef => {
+            has_defs = true
+            got_expr = false // allow next expr after a def
             let v = LetDefView::{ node: child }
             let init = match v.init() {
               Some(expr_node) => recurse(expr_node)
               None => @ast.Term::Error("missing LetDef init")
             }
-            defs.push((v.name(), init))
+            items.push(@ast.ModuleItem::Def(v.name(), init))
           }
-          _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
+          _ =>
+            // Take only the first expression after each def group.
+            // Incremental CST reuse can produce extra expression children;
+            // taking only the first keeps parity with a full reparse.
+            if not(got_expr) {
+              got_expr = true
+              items.push(@ast.ModuleItem::Expr(recurse(child)))
+            }
         }
       }
-      if defs.is_empty() {
-        final_term
+      if items.length() == 1 {
+        match items[0] {
+          @ast.ModuleItem::Expr(expr) => expr
+          _ => @ast.Term::Module(items)
+        }
+      } else if items.is_empty() {
+        @ast.Term::Unit
+      } else if not(has_defs) {
+        // Expression-only: unwrap
+        match items[0] {
+          @ast.ModuleItem::Expr(expr) => expr
+          _ => @ast.Term::Unit
+        }
       } else {
-        @ast.Term::Module(defs, final_term)
+        @ast.Term::Module(items)
       }
     }
     _ => fold_node_inner(node, recurse)

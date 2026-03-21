@@ -169,7 +169,7 @@ test "syntax_node_to_term: let binding" {
   inspect(
     term,
     content=(
-      #|Module([("x", Int(1))], Var("x"))
+      #|Module([Def("x", Int(1)), Expr(Var("x"))])
     ),
   )
 }

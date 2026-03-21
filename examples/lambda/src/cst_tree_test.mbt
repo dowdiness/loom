@@ -777,5 +777,10 @@ test "source file: trailing tokens after final expression produce error" {
       _ => ()
     }
   }
-  inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
+  inspect(
+    node_kinds,
+    content=(
+      #|["IntLiteral", "ErrorNode"]
+    ),
+  )
 }
