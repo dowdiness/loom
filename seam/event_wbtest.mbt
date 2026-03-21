@@ -192,3 +192,73 @@ test "RepeatGroup flattening preserves offsets" {
     inspect(children[i].start() == i * 2, content="true")
   }
 }
+
+///|
+test "build_tree does not balance 8 or fewer same-kind siblings" {
+  let events : Array[ParseEvent] = []
+  events.push(StartNode(RawKind(1)))
+  for _i = 0; _i < 8; _i = _i + 1 {
+    events.push(StartNode(RawKind(2)))
+    events.push(Token(RawKind(100), "x"))
+    events.push(FinishNode)
+  }
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  // Exactly 8: should NOT be grouped
+  inspect(parent.children.length(), content="8")
+}
+
+///|
+test "build_tree balances 9 same-kind siblings" {
+  let events : Array[ParseEvent] = []
+  events.push(StartNode(RawKind(1)))
+  for _i = 0; _i < 9; _i = _i + 1 {
+    events.push(StartNode(RawKind(2)))
+    events.push(Token(RawKind(100), "x"))
+    events.push(FinishNode)
+  }
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  // 9 siblings: should be grouped (fewer than 9 direct children)
+  inspect(parent.children.length() < 9, content="true")
+  // SyntaxNode flattening should still show all 9
+  let syn = SyntaxNode::from_cst(tree)
+  inspect(syn.children()[0].children().length(), content="9")
+}
+
+///|
+test "build_tree handles single child without grouping" {
+  let events : Array[ParseEvent] = []
+  events.push(StartNode(RawKind(1)))
+  events.push(StartNode(RawKind(2)))
+  events.push(Token(RawKind(100), "x"))
+  events.push(FinishNode)
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  inspect(parent.children.length(), content="1")
+}
+
+///|
+test "build_tree handles empty children" {
+  let events : Array[ParseEvent] = []
+  events.push(StartNode(RawKind(1)))
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  inspect(parent.children.length(), content="0")
+}

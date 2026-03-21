@@ -338,19 +338,7 @@ fn[T, K] ReuseCursor::seek_node_at(
         match child {
           @seam.CstElement::Node(child_node) => {
             if child_node.kind == @seam.repeat_group_kind {
-              // RepeatGroup at target offset and entirely outside damage:
-              // return as reuse candidate (O(log n) skip of balanced subtree).
-              if child_offset == target_offset &&
-                is_outside_damage(
-                  child_offset,
-                  child_end,
-                  self.damage_start,
-                  self.damage_end,
-                ) {
-                self.current_offset = child_offset
-                return Some((child_node, child_offset))
-              }
-              // RepeatGroup overlaps damage: descend transparently
+              // Always descend into RepeatGroup — only try_reuse_repeat_group reuses whole groups
               self.stack.push({
                 node: child_node,
                 child_index: 0,
@@ -415,10 +403,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
     None => None
     Some((node, node_offset)) => {
       // Skip reuse for small nodes — reparsing is cheaper than the protocol.
-      // RepeatGroup nodes are always worth reusing (O(log n) subtree skip).
       if self.reuse_size_threshold > 0 &&
-        node.text_len < self.reuse_size_threshold &&
-        node.kind != @seam.repeat_group_kind {
+        node.text_len < self.reuse_size_threshold {
         return None
       }
       let node_end = node_offset + node.text_len

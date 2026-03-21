@@ -681,8 +681,18 @@ fn build_balanced_group(
     )
     return [CstElement::Node(group)]
   }
-  // Split in half and recurse
-  let mid = elements.length() / 2
+  // Split in half and recurse — find the nearest node boundary at or after midpoint
+  let mut mid = elements.length() / 2
+  while mid < elements.length() {
+    match elements[mid] {
+      CstElement::Node(_) => break
+      CstElement::Token(_) => mid = mid + 1
+    }
+  }
+  // If we couldn't find a node at or after midpoint, fall back to original midpoint
+  if mid >= elements.length() {
+    mid = elements.length() / 2
+  }
   let left : Array[CstElement] = []
   for j = 0; j < mid; j = j + 1 {
     left.push(elements[j])
