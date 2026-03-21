@@ -9,6 +9,7 @@ fn token_starts_expression(token : @token.Token) -> Bool {
     @token.Let
     | @token.If
     | @token.LeftParen
+    | @token.LBrace
     | @token.Lambda
     | @token.Identifier(_)
     | @token.Integer(_) => true
@@ -28,6 +29,7 @@ fn token_is_binary_operator(token : @token.Token) -> Bool {
 fn token_starts_application_atom(token : @token.Token) -> Bool {
   match token {
     @token.LeftParen
+    | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
     | @token.Lambda => true
@@ -58,6 +60,24 @@ fn consume_newline_tokens(
   while ctx.peek() == @token.Newline {
     ctx.emit_token(@syntax.NewlineToken)
     count = count + 1
+  }
+  count
+}
+
+///|
+/// Consume Newline and Semicolon tokens as block delimiters.
+/// Returns the number of delimiters consumed.
+fn consume_delimiters(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Int {
+  let mut count = 0
+  while ctx.peek() == @token.Newline || ctx.peek() == @token.Semicolon {
+    match ctx.peek() {
+      @token.Newline => ctx.emit_token(@syntax.NewlineToken)
+      @token.Semicolon => ctx.emit_token(@syntax.SemicolonToken)
+      _ => break
+    }
+    count += 1
   }
   count
 }
@@ -133,6 +153,8 @@ fn is_sync_point(t : @token.Token) -> Bool {
   match t {
     @token.Newline
     | @token.RightParen
+    | @token.RBrace
+    | @token.Semicolon
     | @token.Lambda
     | @token.Let
     | @token.If
@@ -154,19 +176,31 @@ fn is_sync_point(t : @token.Token) -> Bool {
 fn skip_until_paren_close_or_sync(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Int {
-  let mut depth = 0
+  let mut paren_depth = 0
+  let mut brace_depth = 0
   let mut skipped = 0
   let mut wrapped = false
   while ctx.peek() != @token.EOF {
     let token = ctx.peek()
     if token == @token.RightParen {
-      if depth == 0 {
+      if paren_depth == 0 && brace_depth == 0 {
         break
       }
-      depth = depth - 1
+      if paren_depth > 0 {
+        paren_depth = paren_depth - 1
+      }
     } else if token == @token.LeftParen {
-      depth = depth + 1
-    } else if depth == 0 && is_sync_point(token) {
+      paren_depth = paren_depth + 1
+    } else if token == @token.RBrace {
+      if brace_depth == 0 && paren_depth == 0 {
+        break
+      }
+      if brace_depth > 0 {
+        brace_depth = brace_depth - 1
+      }
+    } else if token == @token.LBrace {
+      brace_depth = brace_depth + 1
+    } else if paren_depth == 0 && brace_depth == 0 && is_sync_point(token) {
       break
     }
     if not(wrapped) {
@@ -254,6 +288,7 @@ fn parse_application(
   }
   match ctx.peek() {
     @token.LeftParen
+    | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
     | @token.Lambda =>
@@ -264,6 +299,7 @@ fn parse_application(
           }
           match ctx.peek() {
             @token.LeftParen
+            | @token.LBrace
             | @token.Identifier(_)
             | @token.Integer(_)
             | @token.Lambda => parse_atom(ctx, allow_newline_application)
