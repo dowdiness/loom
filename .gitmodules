@@ -4,3 +4,6 @@
 [submodule "egraph"]
 	path = egraph
 	url = https://github.com/dowdiness/egraph.git
+[submodule "egglog"]
+	path = egglog
+	url = https://github.com/dowdiness/egglog.git

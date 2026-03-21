@@ -9,6 +9,8 @@ A generic incremental parser framework for MoonBit.
 | [`dowdiness/loom`](loom/) | `loom/` | Parser framework: incremental parsing, CST building, grammar composition |
 | [`dowdiness/seam`](seam/) | `seam/` | Language-agnostic CST infrastructure |
 | [`dowdiness/incr`](incr/) | `incr/` | Salsa-inspired incremental recomputation |
+| [`dowdiness/egraph`](egraph/) | `egraph/` | Equality graph (e-graph) for equality saturation |
+| [`dowdiness/egglog`](egglog/) | `egglog/` | Relational e-graph engine (Datalog + equality saturation) |
 
 ## Examples
 
