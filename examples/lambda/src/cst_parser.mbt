@@ -312,6 +312,47 @@ fn parse_application(
 }
 
 ///|
+/// Parse block expression: { (LetDef (Newline|;))* Expression? }
+/// Uses the same LetDef/Expression structure as SourceFile but delimited by {}.
+fn parse_block_expr(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.start_node(@syntax.BlockExpr)
+  ctx.emit_token(@syntax.LBraceToken) // {
+  let _ = consume_delimiters(ctx)
+  // Empty block check
+  if ctx.peek() == @token.RBrace {
+    ctx.error("Empty block expression")
+    ctx.emit_token(@syntax.RBraceToken) // }
+    ctx.finish_node()
+    return
+  }
+  // LetDefs
+  while ctx.peek() == @token.Let {
+    parse_let_item(ctx)
+    let delim_count = consume_delimiters(ctx)
+    if delim_count == 0 &&
+      ctx.peek() != @token.RBrace &&
+      ctx.peek() != @token.EOF {
+      ctx.error("Expected ';' or newline between definitions")
+    }
+  }
+  let _ = consume_delimiters(ctx)
+  // Trailing expression (optional)
+  if ctx.peek() != @token.RBrace && ctx.peek() != @token.EOF {
+    parse_expression(ctx)
+  }
+  let _ = consume_delimiters(ctx)
+  if not(lambda_expect(ctx, @token.RBrace, @syntax.RBraceToken)) {
+    let _ = skip_until_paren_close_or_sync(ctx)
+    if ctx.peek() == @token.RBrace {
+      ctx.emit_token(@syntax.RBraceToken)
+    }
+  }
+  ctx.finish_node()
+}
+
+///|
 fn parse_atom(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   allow_newline_application : Bool,
@@ -362,6 +403,7 @@ fn parse_atom(
         },
         is_sync_point,
       )
+    @token.LBrace => parse_block_expr(ctx)
     @token.LeftParen =>
       ctx.node(@syntax.ParenExpr, () => {
         ctx.emit_token(@syntax.LeftParenToken)
