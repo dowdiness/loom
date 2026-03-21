@@ -27,6 +27,12 @@ fn build_physical_path(
   let path : Array[Int] = []
   let mut current = root
   let mut current_offset = 0
+  // Check if root itself is the target
+  if root.kind == target_kind &&
+    current_offset == target_offset &&
+    current_offset + root.text_len == target_end {
+    return Some(path) // empty path = root is the target
+  }
   // Keep drilling until we find the target node
   while true {
     let mut found = false
@@ -193,9 +199,23 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
     error_kind=Some(err_raw),
     incomplete_kind=Some(inc_raw),
   )
-  // The build_tree call wraps events in a node of block_kind.
-  // That IS the reparsed block node — return it directly.
-  Some((wrapper, ctx.errors))
+  // Unwrap: build_tree wraps in a root node of block_kind,
+  // and parse_block_expr also emits BlockExpr start/finish,
+  // producing block_kind(BlockExpr(...)). Extract the inner node.
+  let mut inner : @seam.CstNode? = None
+  for child in wrapper.children {
+    match child {
+      @seam.CstElement::Node(n) => {
+        inner = Some(n)
+        break
+      }
+      @seam.CstElement::Token(_) => ()
+    }
+  }
+  match inner {
+    Some(block_cst) => Some((block_cst, ctx.errors))
+    None => None
+  }
 }
 
 ///|

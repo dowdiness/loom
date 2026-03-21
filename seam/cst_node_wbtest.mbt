@@ -194,6 +194,11 @@ test "with_replaced_child recomputes metadata" {
   inspect(root.text_len, content="1")
   inspect(root.token_count, content="1")
   let new_root = root.with_replaced_child(0, CstElement::Token(tok_bc))
+  // Verify actual child was replaced
+  match new_root.children[0] {
+    CstElement::Token(t) => inspect(t.text, content="bc")
+    _ => abort("expected token child")
+  }
   inspect(new_root.text_len, content="2")
   inspect(new_root.token_count, content="1")
   inspect(root.hash == new_root.hash, content="false")
