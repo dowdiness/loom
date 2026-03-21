@@ -515,3 +515,56 @@ test "desugar params plus block" {
   let printed = @ast.print_term(term)
   inspect(printed.contains("λx"), content="true")
 }
+
+// ===== Combined Grammar Tests =====
+
+///|
+test "parse nested blocks" {
+  let (cst, _) = parse_cst("{ { 1 } }") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(tree)
+  inspect(term, content="Int(1)")
+}
+
+///|
+test "parse blocks in if-then-else" {
+  let (cst, _) = parse_cst("if x then { let a = 1; a } else { 0 }") catch {
+    _ => abort("lex error")
+  }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(tree)
+  let printed = @ast.print_term(term)
+  inspect(printed.contains("if"), content="true")
+}
+
+///|
+test "parse param list with block body" {
+  let (cst, _) = parse_cst("let compute(x, y) = {\n  let sum = x + y\n  sum\n}") catch {
+    _ => abort("lex error")
+  }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(tree)
+  let printed = @ast.print_term(term)
+  inspect(printed.contains("λx"), content="true")
+  inspect(printed.contains("λy"), content="true")
+}
+
+///|
+test "block as application argument" {
+  let (cst, _) = parse_cst("double { let x = 3; x + 1 }") catch {
+    _ => abort("lex error")
+  }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let term = syntax_node_to_term(tree)
+  let printed = @ast.print_term(term)
+  inspect(printed.contains("double"), content="true")
+}
+
+///|
+test "roundtrip: param list preserves structure" {
+  let source = "let f(x, y) = x + y\nf 1 2"
+  let expr1 = parse(source) catch { _ => abort("parse error") }
+  let printed = @ast.print_term(expr1)
+  let expr2 = parse(printed) catch { _ => abort("reparse error") }
+  inspect(@ast.print_term(expr1), content=@ast.print_term(expr2))
+}

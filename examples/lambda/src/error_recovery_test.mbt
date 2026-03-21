@@ -345,3 +345,11 @@ test "error recovery: missing semicolon between defs in block" {
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() >= 0, content="true")
 }
+
+///|
+test "error recovery: leading comma in param list" {
+  let source = "let f(,) = x"
+  let (cst, diagnostics) = parse_cst(source) catch { _ => abort("lex error") }
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.length() > 0, content="true")
+}
