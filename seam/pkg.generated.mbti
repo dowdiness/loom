@@ -44,6 +44,7 @@ pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
 pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
+pub fn CstNode::with_replaced_child(Self, Int, CstElement, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
 pub impl Eq for CstNode
 pub impl Hash for CstNode
 pub impl Show for CstNode

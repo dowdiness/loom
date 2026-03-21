@@ -635,8 +635,7 @@ fn balance_children(
         if node_count > balance_threshold {
           // Build balanced groups from the run (index-based, no copy)
           build_balanced_group(
-            children, run_start, i, trivia_kind, error_kind, incomplete_kind,
-            result,
+            children, run_start, i, trivia_kind, error_kind, incomplete_kind, result,
           )
         } else {
           // Short run — copy as-is
@@ -699,12 +698,10 @@ fn build_balanced_group(
   // Recurse into left and right halves, collecting into a shared buffer
   let group_children : Array[CstElement] = []
   build_balanced_group(
-    elements, start, mid, trivia_kind, error_kind, incomplete_kind,
-    group_children,
+    elements, start, mid, trivia_kind, error_kind, incomplete_kind, group_children,
   )
   build_balanced_group(
-    elements, mid, end, trivia_kind, error_kind, incomplete_kind,
-    group_children,
+    elements, mid, end, trivia_kind, error_kind, incomplete_kind, group_children,
   )
   let group = CstNode::new(
     repeat_group_kind,

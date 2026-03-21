@@ -10,11 +10,17 @@ pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
 
+pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
+
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])
+
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> Array[TokenInfo[T]] raise LexError, LanguageSpec[T, K], BlockReparseSpec[T, K], Array[Diagnostic[T]]) -> (@seam.CstNode, Array[Diagnostic[T]])?
+
+pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
 
 pub fn text_to_delta(String, String) -> Array[TextDelta]
 
@@ -28,6 +34,12 @@ pub(all) suberror LexError {
 }
 
 // Types and methods
+pub(all) struct BlockReparseSpec[T, K] {
+  is_reparseable : (@seam.RawKind) -> Bool
+  get_reparser : (@seam.RawKind) -> ((ParserContext[T, K]) -> Unit)?
+  is_balanced : (Array[TokenInfo[T]]) -> Bool
+}
+
 pub(all) struct Checkpoint[T, K] {
   // private fields
 }

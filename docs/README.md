@@ -63,6 +63,9 @@ Understanding how the layers fit together:
 ## Active Plans
 
 - [plans/2026-03-21-grammar-extension-design.md](plans/2026-03-21-grammar-extension-design.md) — Lambda Grammar Extension Design
+- [plans/2026-03-21-grammar-extension-impl.md](plans/2026-03-21-grammar-extension-impl.md) — Lambda Grammar Extension Implementation Plan
+- [plans/2026-03-22-block-reparse-impl-design.md](plans/2026-03-22-block-reparse-impl-design.md) — Block Reparse Implementation Design
+- [plans/2026-03-22-block-reparse-impl.md](plans/2026-03-22-block-reparse-impl.md) — Block Reparse Implementation Plan
 
 ## Development
 

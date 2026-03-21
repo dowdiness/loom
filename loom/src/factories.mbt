@@ -91,6 +91,34 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
+      // Block reparse pre-check: attempt narrow subtree reparse before
+      // updating the TokenBuffer. If the edit is strictly interior to a
+      // reparseable block and the re-lexed tokens are balanced, we can
+      // splice the reparsed subtree without a full incremental parse.
+      match grammar.block_reparse_spec {
+        Some(block_spec) =>
+          match
+            @core.reparse_block(
+              old_syntax,
+              source,
+              edit,
+              tokenize,
+              spec,
+              block_spec,
+              last_diags.val,
+            ) {
+            Some((new_cst, new_diagnostics)) => {
+              last_diags.val = new_diagnostics
+              token_buf.val = None // Invalidate for next potential fallback
+              return @incremental.ParseOutcome::Tree(
+                @seam.SyntaxNode::from_cst(new_cst),
+                1,
+              )
+            }
+            None => () // Fall through to normal incremental
+          }
+        None => ()
+      }
       // Ensure buffer is up to date (updated or newly created).
       match token_buf.val {
         Some(buffer) =>

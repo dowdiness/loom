@@ -23,6 +23,7 @@ pub using @core {
   type ParserContext,
   type TextDelta,
   type LexError,
+  type BlockReparseSpec,
 }
 
 ///|
