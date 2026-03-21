@@ -14,6 +14,7 @@ pub let lambda_grammar : @loom.Grammar[
   on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
   error_token=Some(@token.Error("")),
   prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
+  block_reparse_spec=Some(lambda_block_reparse_spec),
 )
 
 ///|
@@ -30,4 +31,5 @@ pub let lambda_grammar_no_threshold : @loom.Grammar[
   on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
   error_token=Some(@token.Error("")),
   prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
+  block_reparse_spec=Some(lambda_block_reparse_spec),
 )

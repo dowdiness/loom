@@ -315,7 +315,7 @@ fn parse_application(
 ///|
 /// Parse block expression: { (LetDef (Newline|;))* Expression? }
 /// Uses the same LetDef/Expression structure as SourceFile but delimited by {}.
-fn parse_block_expr(
+pub fn parse_block_expr(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   ctx.start_node(@syntax.BlockExpr)

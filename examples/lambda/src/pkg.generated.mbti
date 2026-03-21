@@ -12,6 +12,8 @@ import {
 }
 
 // Values
+pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
+
 pub fn lambda_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> @ast.Term) -> @ast.Term
 
 pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
@@ -23,6 +25,8 @@ pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.T
 pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.Term]
 
 pub fn parse(String) -> @ast.Term raise
+
+pub fn parse_block_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
 pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
 
