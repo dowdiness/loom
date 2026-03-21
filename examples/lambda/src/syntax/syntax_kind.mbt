@@ -27,6 +27,12 @@ pub(all) enum SyntaxKind {
   EqToken
   LetDef // NEW: top-level let x = e (no 'in')
   NewlineToken // NEW: \n token — delimiter between LetDefs in source-file grammar
+  LBraceToken // {
+  RBraceToken // }
+  CommaToken // ,
+  SemicolonToken // ;
+  ParamList // ( Ident , Ident , ... )
+  BlockExpr // { LetDef* Expression? }
 } derive(Show, Eq)
 
 ///|
@@ -48,7 +54,11 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | EofToken
     | LetKeyword
     | EqToken
-    | NewlineToken => true
+    | NewlineToken
+    | LBraceToken
+    | RBraceToken
+    | CommaToken
+    | SemicolonToken => true
     _ => false
   }
 }
@@ -83,6 +93,12 @@ pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
     EqToken => 25
     LetDef => 27
     NewlineToken => 28
+    LBraceToken => 29
+    RBraceToken => 30
+    CommaToken => 31
+    SemicolonToken => 32
+    ParamList => 33
+    BlockExpr => 34
   }
   @seam.RawKind(n)
 }
@@ -118,6 +134,12 @@ pub impl @seam.FromRawKind for SyntaxKind with from_raw(raw) {
     25 => EqToken
     27 => LetDef
     28 => NewlineToken
+    29 => LBraceToken
+    30 => RBraceToken
+    31 => CommaToken
+    32 => SemicolonToken
+    33 => ParamList
+    34 => BlockExpr
     _ => ErrorNode
   }
 }

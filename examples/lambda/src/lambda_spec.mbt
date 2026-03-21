@@ -16,6 +16,10 @@ fn syntax_kind_to_token_kind(kind : @seam.RawKind) -> @token.Token? {
     @syntax.LetKeyword => Some(@token.Let)
     @syntax.EqToken => Some(@token.Eq)
     @syntax.NewlineToken => Some(@token.Newline)
+    @syntax.LBraceToken => Some(@token.LBrace)
+    @syntax.RBraceToken => Some(@token.RBrace)
+    @syntax.CommaToken => Some(@token.Comma)
+    @syntax.SemicolonToken => Some(@token.Semicolon)
     _ => None
   }
 }
