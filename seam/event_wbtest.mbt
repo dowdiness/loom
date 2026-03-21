@@ -262,3 +262,49 @@ test "build_tree handles empty children" {
   }
   inspect(parent.children.length(), content="0")
 }
+
+///|
+test "build_tree balances interleaved node-separator runs correctly" {
+  // Simulates: Node, Sep, Node, Sep, ... (12 nodes with 11 separators = 23 elements)
+  // The balanced split should always land on a Node boundary, not a separator.
+  let events : Array[ParseEvent] = []
+  events.push(StartNode(RawKind(1))) // parent
+  for i = 0; i < 12; i = i + 1 {
+    events.push(StartNode(RawKind(2))) // child node
+    events.push(Token(RawKind(100), "x"))
+    events.push(FinishNode)
+    if i < 11 {
+      events.push(Token(RawKind(200), "\n")) // separator between nodes
+    }
+  }
+  events.push(FinishNode)
+  let tree = build_tree(events, RawKind(0))
+  let parent = match tree.children[0] {
+    CstElement::Node(n) => n
+    CstElement::Token(_) => abort("expected node")
+  }
+  // Should be grouped (fewer than 23 direct children)
+  inspect(parent.children.length() < 23, content="true")
+  // SyntaxNode flattening should show all 12 node children
+  let syn = SyntaxNode::from_cst(tree)
+  let parent_syn = syn.children()[0]
+  inspect(parent_syn.children().length(), content="12")
+  // Every RepeatGroup in the raw tree should start with a Node, not a Token
+  fn check_groups(children : Array[CstElement]) -> Unit {
+    for elem in children {
+      match elem {
+        CstElement::Node(n) =>
+          if n.kind == repeat_group_kind {
+            // First child of a RepeatGroup must be a Node
+            match n.children[0] {
+              CstElement::Node(_) => check_groups(n.children)
+              CstElement::Token(_) =>
+                abort("RepeatGroup starts with separator token")
+            }
+          }
+        CstElement::Token(_) => ()
+      }
+    }
+  }
+  check_groups(parent.children)
+}
