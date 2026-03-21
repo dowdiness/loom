@@ -391,7 +391,44 @@ fn parse_atom(
 // ─── Lambda grammar (LetDef* Expression?) ─────────────────────────────────────
 
 ///|
-/// Parse a top-level `let` item: `let x = e` -> LetDef.
+/// Parse parameter list: ( Ident , Ident , ... )
+/// Called from parse_let_item when '(' follows the function name.
+fn parse_param_list(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  let mark = ctx.mark()
+  ctx.emit_token(@syntax.LeftParenToken) // (
+  // First parameter (required)
+  match ctx.peek() {
+    @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+    @token.RightParen => {
+      ctx.error("Empty parameter list")
+      ctx.emit_error_placeholder()
+    }
+    _ => {
+      ctx.error("Expected parameter name")
+      ctx.emit_error_placeholder()
+    }
+  }
+  // Remaining parameters
+  while ctx.peek() == @token.Comma {
+    ctx.emit_token(@syntax.CommaToken) // ,
+    match ctx.peek() {
+      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      @token.RightParen => break // trailing comma — stop, will consume )
+      _ => {
+        ctx.error("Expected parameter name")
+        ctx.emit_error_placeholder()
+      }
+    }
+  }
+  let _ = lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) // )
+  ctx.start_at(mark, @syntax.ParamList)
+  ctx.finish_node()
+}
+
+///|
+/// Parse a top-level `let` item: `let x = e` or `let f(x, y) = e` -> LetDef.
 ///
 /// Uses allow_newline_application=false so that a newline after the RHS
 /// stops the expression rather than continuing it into the next definition.
@@ -406,6 +443,10 @@ fn parse_let_item(
       ctx.error("Expected variable name after 'let'")
       ctx.emit_error_placeholder()
     }
+  }
+  // Optional parameter list
+  if ctx.peek() == @token.LeftParen {
+    parse_param_list(ctx)
   }
   let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
   parse_expression_with_mode(ctx, false)

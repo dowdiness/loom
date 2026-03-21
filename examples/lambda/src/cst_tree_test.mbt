@@ -779,3 +779,41 @@ test "source file: trailing tokens after final expression produce error" {
   }
   inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
 }
+
+// ============================================================================
+// 8. ParamList in LetDef
+// ============================================================================
+
+///|
+test "cst: let with single param" {
+  let cst = test_parse_cst("let f(x) = x")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let let_def = root.nth_child(0).unwrap()
+  inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
+  let has_param_list = let_def
+    .children()
+    .iter()
+    .any(fn(c) { @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList })
+  inspect(has_param_list, content="true")
+}
+
+///|
+test "cst: let with multiple params" {
+  let cst = test_parse_cst("let add(x, y) = x + y")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let let_def = root.nth_child(0).unwrap()
+  inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
+}
+
+///|
+test "cst: let without params unchanged" {
+  let cst = test_parse_cst("let x = 1")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let let_def = root.nth_child(0).unwrap()
+  inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
+  let has_param_list = let_def
+    .children()
+    .iter()
+    .any(fn(c) { @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.ParamList })
+  inspect(has_param_list, content="false")
+}
