@@ -225,10 +225,7 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
         )
       } else {
         @core.LexStep::Produced(
-          @core.TokenInfo::new(
-            Error("unexpected character: - at position \{pos}"),
-            1,
-          ),
+          @core.TokenInfo::new(Error("Unexpected character: -"), 1),
           next_offset=pos + 1,
         )
       }
@@ -255,16 +252,11 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
         @core.TokenInfo::new(Null, 4),
         next_offset=pos + 4,
       )
-    None =>
-      @core.LexStep::Invalid(
-        at=pos,
-        width=1,
-        message="Error to read character at position \{pos}",
-      )
+    None => @core.LexStep::Invalid(at=pos, width=1, message="Invalid character")
     Some(ch) =>
       @core.LexStep::Produced(
         @core.TokenInfo::new(
-          Error("unexpected character: \{ch.to_string()} at position \{pos}"),
+          Error("Unexpected character: \{ch.to_string()}"),
           1,
         ),
         next_offset=pos + 1,

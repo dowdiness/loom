@@ -147,14 +147,11 @@ pub fn json_fold_node(
       }
       JsonValue::Number(n)
     }
-    BoolValue => {
-      let text = node.token_text(TrueKeyword.to_raw())
-      if text == "true" {
-        JsonValue::Bool(true)
-      } else {
-        JsonValue::Bool(false)
+    BoolValue =>
+      match node.find_token(TrueKeyword.to_raw()) {
+        Some(_) => JsonValue::Bool(true)
+        None => JsonValue::Bool(false)
       }
-    }
     NullValue => JsonValue::Null
     ErrorNode => JsonValue::Error("parse error")
     _ =>
