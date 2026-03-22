@@ -1,6 +1,10 @@
 // Profiling benchmarks: isolate overhead sources in the incremental parse path.
 //
 // Strategy: measure each sub-operation separately using the public API.
+//
+// Note: These benchmarks intentionally use raw CstNode.children to serialize
+// parse events for tree-build benchmarks. This is an internal-API benchmark,
+// not a consumer — exempt from the SyntaxNode boundary rule (Phase 0).
 // Compare tokenize-only, parse-only, and full incremental to find the bottleneck.
 // Then isolate tree-build cost by constructing event streams with ReuseNode.
 //
