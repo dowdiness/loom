@@ -31,6 +31,34 @@ pub fn[T] build_starts(tokens : Array[TokenInfo[T]]) -> Array[Int] {
 }
 
 ///|
+/// Generic batch tokenization from a step-based lexer.
+/// Loops step_fn until Done, collecting TokenInfo results. Appends eof_token.
+/// Raises LexError on Invalid or Incomplete steps.
+pub fn[T] tokenize_via_steps(
+  step_fn : (String, Int) -> LexStep[T],
+  input : String,
+  eof_token : T,
+) -> Array[TokenInfo[T]] raise LexError {
+  let tokens : Array[TokenInfo[T]] = []
+  let mut pos = 0
+  while true {
+    match step_fn(input, pos) {
+      Produced(tok, next_offset~) => {
+        tokens.push(tok)
+        pos = next_offset
+      }
+      Invalid(message~, ..) => raise LexError(message)
+      Incomplete(expected~, ..) => raise LexError(expected)
+      Done => {
+        tokens.push(TokenInfo::new(eof_token, 0))
+        break
+      }
+    }
+  }
+  tokens
+}
+
+///|
 pub fn[T] TokenBuffer::new(
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,

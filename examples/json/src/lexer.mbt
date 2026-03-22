@@ -301,23 +301,7 @@ pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
-  let tokens : Array[@core.TokenInfo[Token]] = []
-  let mut pos = 0
-  while true {
-    match step_lex(input, pos) {
-      Produced(tok, next_offset~) => {
-        tokens.push(tok)
-        pos = next_offset
-      }
-      Invalid(message~, ..) => raise @core.LexError(message)
-      Incomplete(expected~, ..) => raise @core.LexError(expected)
-      Done => {
-        tokens.push(@core.TokenInfo::new(EOF, 0))
-        break
-      }
-    }
-  }
-  tokens
+  @core.tokenize_via_steps(json_step_lexer, input, EOF)
 }
 
 ///|

@@ -26,6 +26,8 @@ pub fn text_to_delta(String, String) -> Array[TextDelta]
 
 pub fn to_edits(Array[TextDelta]) -> Array[Edit]
 
+pub fn[T] tokenize_via_steps((String, Int) -> LexStep[T], String, T) -> Array[TokenInfo[T]] raise LexError
+
 pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[Edit]
 
 // Errors

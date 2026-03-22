@@ -177,17 +177,7 @@ fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[Token]]) raise @core.LexError {
-  let tokens = tokenize(source)
-  let starts = @core.build_starts(tokens)
-  let (cst, diagnostics, _) = @core.parse_tokens_indexed(
-    source,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    i => starts[i] + tokens[i].len,
-    json_spec,
-  )
-  (cst, diagnostics)
+  json_grammar.parse_cst(source)
 }
 
 ///|

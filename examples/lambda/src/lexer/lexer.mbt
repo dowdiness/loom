@@ -58,23 +58,11 @@ fn tokenize_via_steps(
   input : String,
   layout~ : Bool,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  let tokens : Array[@core.TokenInfo[@token.Token]] = []
-  let mut pos = 0
-  while true {
-    match step_lex(input, pos, layout~) {
-      Produced(tok, next_offset~) => {
-        tokens.push(tok)
-        pos = next_offset
-      }
-      Invalid(message~, ..) => raise @core.LexError(message)
-      Incomplete(expected~, ..) => raise @core.LexError(expected)
-      Done => {
-        tokens.push(@core.TokenInfo::new(@token.EOF, 0))
-        break
-      }
-    }
-  }
-  tokens
+  @core.tokenize_via_steps(
+    fn(s, p) { step_lex(s, p, layout~) },
+    input,
+    @token.EOF,
+  )
 }
 
 ///|
