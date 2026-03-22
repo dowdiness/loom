@@ -62,11 +62,40 @@ fn parse_json_string(raw : String) -> String {
                     continue
                   }
                 }
-                match cp.to_char() {
-                  Some(ch) => buf.write_char(ch)
-                  None => buf.write_char('\u0000')
+                if cp >= 0xD800 && cp <= 0xDBFF {
+                  // High surrogate — look for low surrogate \uXXXX
+                  if i + 11 < len && inner[i + 6:i + 8].to_string() == "\\u" {
+                    let low_hex = inner[i + 8:i + 12].to_string()
+                    let low = @strconv.parse_int(low_hex, base=16) catch {
+                      _ => -1
+                    }
+                    if low >= 0xDC00 && low <= 0xDFFF {
+                      let codepoint = (cp - 0xD800) * 1024 +
+                        (low - 0xDC00) +
+                        0x10000
+                      match codepoint.to_char() {
+                        Some(ch) => buf.write_char(ch)
+                        None => buf.write_char('\uFFFD')
+                      }
+                      i = i + 12 // consumed both \uXXXX\uXXXX
+                    } else {
+                      buf.write_char('\uFFFD') // invalid low surrogate
+                      i = i + 6
+                    }
+                  } else {
+                    buf.write_char('\uFFFD') // lone high surrogate
+                    i = i + 6
+                  }
+                } else if cp >= 0xDC00 && cp <= 0xDFFF {
+                  buf.write_char('\uFFFD') // lone low surrogate
+                  i = i + 6
+                } else {
+                  match cp.to_char() {
+                    Some(ch) => buf.write_char(ch)
+                    None => buf.write_char('\uFFFD')
+                  }
+                  i = i + 6
                 }
-                i = i + 6
               } else {
                 buf.write_char('\\')
                 i = i + 1

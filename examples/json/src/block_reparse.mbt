@@ -16,20 +16,24 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
     }
   },
   is_balanced: fn(tokens) {
-    let mut brace_depth = 0
-    let mut bracket_depth = 0
+    let stack : Array[Token] = []
     for token in tokens {
       match token.token {
-        LBrace => brace_depth = brace_depth + 1
-        RBrace => brace_depth = brace_depth - 1
-        LBracket => bracket_depth = bracket_depth + 1
-        RBracket => bracket_depth = bracket_depth - 1
+        LBrace => stack.push(LBrace)
+        LBracket => stack.push(LBracket)
+        RBrace =>
+          match stack.pop() {
+            Some(LBrace) => ()
+            _ => return false
+          }
+        RBracket =>
+          match stack.pop() {
+            Some(LBracket) => ()
+            _ => return false
+          }
         _ => ()
       }
-      if brace_depth < 0 || bracket_depth < 0 {
-        return false
-      }
     }
-    brace_depth == 0 && bracket_depth == 0
+    stack.is_empty()
   },
 }

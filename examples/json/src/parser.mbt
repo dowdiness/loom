@@ -14,7 +14,10 @@ pub fn parse(input : String) -> JsonValue raise {
   if diags.length() > 0 {
     raise ParseError(@core.format_diagnostic(diags[0]), diags[0].got_token)
   }
-  value
+  match value {
+    Error(msg) => raise ParseError(msg, EOF)
+    _ => value
+  }
 }
 
 ///|

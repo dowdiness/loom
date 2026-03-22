@@ -51,7 +51,10 @@ fn read_string(input : String, pos : Int) -> (Int, String, String?) {
                 break
               }
             }
-            // If we didn't get 4 hex digits, continue anyway (error recovery)
+            if hex_count != 4 {
+              let raw = input[pos:i]
+              return (i, raw.to_string(), Some("Invalid \\u escape"))
+            }
           }
           Some('"')
           | Some('\\')
@@ -61,10 +64,23 @@ fn read_string(input : String, pos : Int) -> (Int, String, String?) {
           | Some('n')
           | Some('r')
           | Some('t') => i = i + 1
-          _ => i = i + 1 // Unknown escape, skip it
+          _ => {
+            let raw = input[pos:i + 1]
+            return (i + 1, raw.to_string(), Some("Invalid escape sequence"))
+          }
         }
       }
-      _ => i = i + 1
+      _ => {
+        if code >= 0 && code <= 0x1F {
+          let raw = input[pos:i]
+          return (
+            i,
+            raw.to_string(),
+            Some("Invalid control character in string"),
+          )
+        }
+        i = i + 1
+      }
     }
   }
   // Reached end without closing quote
@@ -100,12 +116,15 @@ fn read_number(input : String, pos : Int) -> Int {
   // Optional fraction
   if i < len {
     match input.code_unit_at(i).to_char() {
-      Some('.') => {
-        i = i + 1
-        while i < len && is_digit(input.code_unit_at(i).to_int()) {
-          i = i + 1
+      Some('.') =>
+        // Check next char is a digit before consuming '.'
+        if i + 1 < len && is_digit(input.code_unit_at(i + 1).to_int()) {
+          i = i + 1 // consume '.'
+          while i < len && is_digit(input.code_unit_at(i).to_int()) {
+            i = i + 1
+          }
         }
-      }
+      // else: don't consume '.', it's not part of the number
       _ => ()
     }
   }
@@ -113,15 +132,22 @@ fn read_number(input : String, pos : Int) -> Int {
   if i < len {
     match input.code_unit_at(i).to_char() {
       Some('e') | Some('E') => {
-        i = i + 1
+        let saved = i
+        i = i + 1 // consume 'e'/'E'
         if i < len {
           match input.code_unit_at(i).to_char() {
             Some('+') | Some('-') => i = i + 1
             _ => ()
           }
         }
-        while i < len && is_digit(input.code_unit_at(i).to_int()) {
-          i = i + 1
+        if i < len && is_digit(input.code_unit_at(i).to_int()) {
+          // Valid exponent — consume digits
+          while i < len && is_digit(input.code_unit_at(i).to_int()) {
+            i = i + 1
+          }
+        } else {
+          // No digit after exponent — restore
+          i = saved
         }
       }
       _ => ()
