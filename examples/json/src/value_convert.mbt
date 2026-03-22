@@ -113,7 +113,24 @@ fn parse_json_string(raw : String) -> String {
         buf.write_char(c)
         i = i + 1
       }
-      None => i = i + 1
+      None =>
+        // Could be a UTF-16 surrogate pair (non-BMP character)
+        if code >= 0xD800 && code <= 0xDBFF && i + 1 < len {
+          // High surrogate — read low surrogate
+          let low = inner.code_unit_at(i + 1).to_int()
+          if low >= 0xDC00 && low <= 0xDFFF {
+            let codepoint = (code - 0xD800) * 1024 + (low - 0xDC00) + 0x10000
+            match codepoint.to_char() {
+              Some(ch) => buf.write_char(ch)
+              None => ()
+            }
+            i = i + 2
+          } else {
+            i = i + 1
+          }
+        } else {
+          i = i + 1
+        }
     }
   }
   buf.to_string()
@@ -137,7 +154,19 @@ pub fn json_fold_node(
       for child in node.children() {
         match SyntaxKind::from_raw(child.kind()) {
           MemberNode => {
-            let key = child.token_text(StringToken.to_raw())
+            // Get key from first direct StringToken child only (not recursive).
+            // This prevents picking up the value's string when the key is missing.
+            let mut key = ""
+            for elem in child.all_children() {
+              match elem {
+                @seam.SyntaxElement::Token(t) =>
+                  if StringToken.to_raw() == t.kind() {
+                    key = t.text()
+                    break
+                  }
+                _ => ()
+              }
+            }
             let parsed_key = if key.length() >= 2 {
               parse_json_string(key)
             } else {

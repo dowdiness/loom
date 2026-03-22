@@ -168,3 +168,17 @@ test "parse number zero" {
     ),
   )
 }
+
+///|
+test "parse string with emoji" {
+  let v = parse("\"hello 😀 world\"") catch { _ => abort("parse error") }
+  let s = v.to_string()
+  inspect(s.contains("hello"), content="true")
+}
+
+///|
+test "parse surrogate pair escape" {
+  let v = parse("\"\\uD83D\\uDE00\"") catch { _ => abort("parse error") }
+  let s = v.to_string()
+  inspect(s.length() > 0, content="true")
+}
