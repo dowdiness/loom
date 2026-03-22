@@ -1,0 +1,172 @@
+// value_convert.mbt — SyntaxNode → JsonValue conversion via CST fold.
+
+///|
+/// Parse JSON string escapes from raw token text (includes quotes).
+fn parse_json_string(raw : String) -> String {
+  // Strip surrounding quotes
+  if raw.length() < 2 {
+    return raw
+  }
+  let inner = raw[1:raw.length() - 1]
+  // Process escape sequences
+  let buf = StringBuilder::new()
+  let len = inner.length()
+  let mut i = 0
+  while i < len {
+    let code = inner.code_unit_at(i).to_int()
+    match code.to_char() {
+      Some('\\') =>
+        if i + 1 < len {
+          let next_code = inner.code_unit_at(i + 1).to_int()
+          match next_code.to_char() {
+            Some('"') => {
+              buf.write_char('"')
+              i = i + 2
+            }
+            Some('\\') => {
+              buf.write_char('\\')
+              i = i + 2
+            }
+            Some('/') => {
+              buf.write_char('/')
+              i = i + 2
+            }
+            Some('b') => {
+              buf.write_char('\u0008')
+              i = i + 2
+            }
+            Some('f') => {
+              buf.write_char('\u000C')
+              i = i + 2
+            }
+            Some('n') => {
+              buf.write_char('\n')
+              i = i + 2
+            }
+            Some('r') => {
+              buf.write_char('\r')
+              i = i + 2
+            }
+            Some('t') => {
+              buf.write_char('\t')
+              i = i + 2
+            }
+            Some('u') =>
+              // \uXXXX — parse 4 hex digits
+              if i + 5 < len {
+                let hex = inner[i + 2:i + 6].to_string()
+                let cp = @strconv.parse_int(hex, base=16) catch {
+                  _ => {
+                    buf.write_char('\\')
+                    i = i + 1
+                    continue
+                  }
+                }
+                match cp.to_char() {
+                  Some(ch) => buf.write_char(ch)
+                  None => buf.write_char('\u0000')
+                }
+                i = i + 6
+              } else {
+                buf.write_char('\\')
+                i = i + 1
+              }
+            _ => {
+              buf.write_char('\\')
+              i = i + 1
+            }
+          }
+        } else {
+          buf.write_char('\\')
+          i = i + 1
+        }
+      Some(c) => {
+        buf.write_char(c)
+        i = i + 1
+      }
+      None => i = i + 1
+    }
+  }
+  buf.to_string()
+}
+
+///|
+/// Algebra for CstFold: per-node conversion with framework-managed recursion.
+pub fn json_fold_node(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> JsonValue,
+) -> JsonValue {
+  match SyntaxKind::from_raw(node.kind()) {
+    RootNode =>
+      // Root has one child: the value
+      match node.nth_child(0) {
+        Some(child) => recurse(child)
+        None => JsonValue::Error("empty document")
+      }
+    ObjectNode => {
+      let members : Array[(String, JsonValue)] = []
+      for child in node.children() {
+        match SyntaxKind::from_raw(child.kind()) {
+          MemberNode => {
+            let key = child.token_text(StringToken.to_raw())
+            let parsed_key = if key.length() >= 2 {
+              parse_json_string(key)
+            } else {
+              key
+            }
+            let value = match child.nth_child(0) {
+              Some(v) => recurse(v)
+              None => JsonValue::Error("missing member value")
+            }
+            members.push((parsed_key, value))
+          }
+          _ => ()
+        }
+      }
+      JsonValue::Object(members)
+    }
+    ArrayNode => {
+      let elements : Array[JsonValue] = []
+      for child in node.children() {
+        elements.push(recurse(child))
+      }
+      JsonValue::Array(elements)
+    }
+    StringValue => {
+      let text = node.token_text(StringToken.to_raw())
+      if text.length() >= 2 {
+        JsonValue::String(parse_json_string(text))
+      } else {
+        JsonValue::Error("malformed string")
+      }
+    }
+    NumberValue => {
+      let text = node.token_text(NumberToken.to_raw())
+      let n = @strconv.parse_double(text) catch {
+        _ => return JsonValue::Error("invalid number: " + text)
+      }
+      JsonValue::Number(n)
+    }
+    BoolValue => {
+      let text = node.token_text(TrueKeyword.to_raw())
+      if text == "true" {
+        JsonValue::Bool(true)
+      } else {
+        JsonValue::Bool(false)
+      }
+    }
+    NullValue => JsonValue::Null
+    ErrorNode => JsonValue::Error("parse error")
+    _ =>
+      JsonValue::Error(
+        "unknown node: " + SyntaxKind::from_raw(node.kind()).to_string(),
+      )
+  }
+}
+
+///|
+/// Convenience wrapper: convert a SyntaxNode to JsonValue without caching.
+/// Delegates to json_fold_node with itself as the recursion function.
+pub fn syntax_node_to_json(root : @seam.SyntaxNode) -> JsonValue {
+  json_fold_node(root, syntax_node_to_json)
+}

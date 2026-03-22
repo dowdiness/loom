@@ -2,21 +2,32 @@
 package "dowdiness/json"
 
 import {
+  "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
+
+pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> JsonValue
+
+pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue]
+
 pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]]) -> @core.ReuseCursor[Token, SyntaxKind]
+
+pub fn parse(String) -> JsonValue raise
 
 pub fn parse_array(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
 pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[Token]]) raise @core.LexError
 
 pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[Token]], @core.ReuseCursor[Token, SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[Token]], Int)
+
+pub fn parse_json(String) -> (JsonValue, Array[@core.Diagnostic[Token]]) raise @core.LexError
 
 pub fn parse_object(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
@@ -26,9 +37,14 @@ pub fn print_token_info(@core.TokenInfo[Token]) -> String
 
 pub fn print_token_infos(Array[@core.TokenInfo[Token]]) -> String
 
+pub fn syntax_node_to_json(@seam.SyntaxNode) -> JsonValue
+
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
+pub suberror ParseError {
+  ParseError(String, Token)
+}
 
 // Types and methods
 pub(all) enum JsonValue {
