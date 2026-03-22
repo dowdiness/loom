@@ -551,17 +551,7 @@ fn parse_lambda_root(
 pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
-  let tokens = @lexer.tokenize(source)
-  let starts = @core.build_starts(tokens)
-  let (cst, diagnostics, _) = @core.parse_tokens_indexed(
-    source,
-    tokens.length(),
-    i => tokens[i].token,
-    i => starts[i],
-    i => starts[i] + tokens[i].len,
-    lambda_spec,
-  )
-  (cst, diagnostics)
+  lambda_grammar.parse_cst(source)
 }
 
 ///|
