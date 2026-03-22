@@ -78,6 +78,8 @@ fn json_expect(
 ///|
 fn parse_value(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   if ctx.error_count >= MAX_ERRORS {
+    // Consume token to avoid infinite loops in parse_comma_separated
+    ctx.bump_error()
     return
   }
   match ctx.peek() {
