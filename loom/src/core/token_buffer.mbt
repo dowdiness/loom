@@ -44,6 +44,11 @@ pub fn[T] tokenize_via_steps(
   while true {
     match step_fn(input, pos) {
       Produced(tok, next_offset~) => {
+        if next_offset <= pos {
+          raise LexError(
+            "step lexer made no progress at position " + pos.to_string(),
+          )
+        }
         tokens.push(tok)
         pos = next_offset
       }
