@@ -16,7 +16,8 @@ A generic incremental parser framework for MoonBit.
 
 | Example | Path | Purpose |
 |---------|------|---------|
-| [Lambda Calculus](examples/lambda/) | `examples/lambda/` | Full parser for λ-calculus with arithmetic |
+| [Lambda Calculus](examples/lambda/) | `examples/lambda/` | Full parser for λ-calculus with arithmetic, blocks, if-then-else |
+| [JSON](examples/json/) | `examples/json/` | JSON parser with objects, arrays, error recovery, block reparse |
 
 ## Quick Start
 
@@ -24,9 +25,13 @@ A generic incremental parser framework for MoonBit.
 git clone https://github.com/dowdiness/loom.git
 cd loom
 
-(cd loom && moon test)                        # 76 tests
-(cd examples/lambda && moon test)             # 293 tests
-(cd examples/lambda && moon bench --release)  # benchmarks
+cd loom && moon test              # framework tests
+cd ../examples/lambda && moon test  # lambda parser tests
+cd ../json && moon test             # JSON parser tests
+
+# benchmarks
+cd ../lambda && moon bench --release
+cd ../json && moon bench --release
 ```
 
 ## Documentation
