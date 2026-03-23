@@ -171,6 +171,13 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       }
       // Buffer is always Some after the match above.
       let buffer = token_buf.val.unwrap()
+      // Patch the persistent old-token cache: remove tokens in the old damage
+      // range and accumulate offset delta for post-damage lookups.
+      old_token_cache.val.apply_edit(
+        edit.start,
+        edit.old_end(),
+        edit.new_end(),
+      )
       let cursor = Some(
         @core.ReuseCursor::new(
           old_syntax.cst_node(),
@@ -196,10 +203,6 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       )
       last_diags.val = diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
-      // The old-token cache (built from old_syntax) has stale entries for the
-      // damage region, but this is safe: is_outside_damage rejects damaged nodes
-      // BEFORE trailing_context_matches is called, so stale entries are never
-      // consulted. The cache remains valid for undamaged regions across edits.
       @incremental.ParseOutcome::Tree(new_syntax, reuse_count)
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
