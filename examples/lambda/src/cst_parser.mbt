@@ -481,23 +481,22 @@ fn parse_param_list(
 fn parse_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  let mark = ctx.mark()
-  ctx.emit_token(@syntax.LetKeyword)
-  match ctx.peek() {
-    @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
-    _ => {
-      ctx.error("Expected variable name after 'let'")
-      ctx.emit_error_placeholder()
+  ctx.node(@syntax.LetDef, fn() {
+    ctx.emit_token(@syntax.LetKeyword)
+    match ctx.peek() {
+      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      _ => {
+        ctx.error("Expected variable name after 'let'")
+        ctx.emit_error_placeholder()
+      }
     }
-  }
-  // Optional parameter list
-  if ctx.peek() == @token.LeftParen {
-    parse_param_list(ctx)
-  }
-  let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
-  parse_expression_with_mode(ctx, false)
-  ctx.start_at(mark, @syntax.LetDef)
-  ctx.finish_node()
+    // Optional parameter list
+    if ctx.peek() == @token.LeftParen {
+      parse_param_list(ctx)
+    }
+    let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
+    parse_expression_with_mode(ctx, false)
+  })
 }
 
 ///|

@@ -142,18 +142,17 @@ pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 ///|
 /// Parse member: `string : value`
 fn parse_member(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  let mark = ctx.mark()
-  match ctx.peek() {
-    StringLit(_) => ctx.emit_token(StringToken)
-    _ => {
-      ctx.error("Expected string key")
-      ctx.emit_error_placeholder()
+  ctx.node(MemberNode, fn() {
+    match ctx.peek() {
+      StringLit(_) => ctx.emit_token(StringToken)
+      _ => {
+        ctx.error("Expected string key")
+        ctx.emit_error_placeholder()
+      }
     }
-  }
-  let _ = json_expect(ctx, Colon, ColonToken)
-  parse_value(ctx)
-  ctx.start_at(mark, MemberNode)
-  ctx.finish_node()
+    let _ = json_expect(ctx, Colon, ColonToken)
+    parse_value(ctx)
+  })
 }
 
 ///|

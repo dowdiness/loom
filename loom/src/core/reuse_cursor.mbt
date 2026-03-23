@@ -30,11 +30,67 @@ struct OldToken {
 } derive(Show, Eq, Compare)
 
 ///|
-/// Shared mutable cache for the flattened old-token table.
-/// Snapshots share the same cell so materializing in one branch
-/// is visible to all branches restored from earlier checkpoints.
-struct OldTokenCache {
+/// Persistent cache for the flattened old-token table.
+///
+/// Survives across edits to avoid O(n) collect_old_tokens rebuild.
+/// Tokens are stored with offsets from the tree they were built from.
+/// After an edit with non-zero delta (insert/delete), `pending_delta`
+/// accumulates the offset shift for tokens after the damage zone.
+/// `damage_boundary` records where the shift begins — tokens before
+/// this offset use their stored offset; tokens at or after use
+/// stored offset + pending_delta.
+///
+/// On read, `old_follow_token_lazy` adjusts the binary search target
+/// by subtracting pending_delta for the post-damage region, so the
+/// cached offsets match the query without rewriting the array.
+pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
+  mut pending_delta : Int // cumulative offset shift for post-damage tokens
+  mut damage_boundary : Int // offsets >= this need pending_delta adjustment
+}
+
+///|
+/// Create an empty old-token cache.
+pub fn OldTokenCache::empty() -> OldTokenCache {
+  { tokens: None, pending_delta: 0, damage_boundary: 2147483647 }
+}
+
+///|
+/// Update the cache after an edit. Call BEFORE creating the next ReuseCursor.
+/// - Removes cached tokens in the old damage range [damage_start, damage_end)
+/// - Accumulates delta for post-damage offset adjustment
+pub fn OldTokenCache::apply_edit(
+  self : OldTokenCache,
+  damage_start : Int,
+  damage_end : Int,
+  new_damage_end : Int,
+) -> Unit {
+  let delta = new_damage_end - damage_end
+  match self.tokens {
+    None => () // no cache to patch
+    Some(tokens) => {
+      // Remove tokens in the old damage range
+      let mut remove_start = -1
+      let mut remove_end = -1
+      for i = 0; i < tokens.length(); i = i + 1 {
+        let tok_offset = tokens[i].start
+        if tok_offset >= damage_start && tok_offset < damage_end {
+          if remove_start == -1 {
+            remove_start = i
+          }
+          remove_end = i + 1
+        } else if tok_offset >= damage_end {
+          break
+        }
+      }
+      if remove_start >= 0 {
+        let _ = tokens.drain(remove_start, remove_end)
+      }
+      // Update the damage boundary and delta for reads
+      self.damage_boundary = damage_start
+      self.pending_delta = self.pending_delta + delta
+    }
+  }
 }
 
 ///|
@@ -111,6 +167,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_start : (Int) -> Int,
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
+  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -129,7 +186,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     ws_raw,
     err_raw,
     incomplete_raw,
-    cache: { tokens: None },
+    cache: old_token_cache,
     reuse_globally_disabled,
     reuse_size_threshold,
     token_count,
@@ -143,6 +200,16 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 /// True if damage covers the entire tree — no reuse is possible.
 pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
   self.reuse_globally_disabled
+}
+
+///|
+/// Get the old-token cache for persistence across edits.
+/// Call after parsing completes and pass to the next ReuseCursor::new
+/// to avoid rebuilding the flat token array from scratch.
+pub fn[T, K] ReuseCursor::get_old_token_cache(
+  self : ReuseCursor[T, K],
+) -> OldTokenCache {
+  self.cache
 }
 
 ///|
@@ -206,12 +273,23 @@ fn[T, K] ReuseCursor::ensure_old_tokens(
 ///|
 /// Binary search: first old non-trivia token with start >= offset.
 /// Lazily materializes the old-token table on first call.
+/// Adjusts search offset for persistent-cache delta when the query
+/// falls in the post-damage region.
 fn[T, K] old_follow_token_lazy(
   cursor : ReuseCursor[T, K],
   offset : Int,
 ) -> OldToken? {
   let old_tokens = cursor.ensure_old_tokens()
-  let lo = lower_bound(old_tokens, offset)
+  // Adjust query offset for accumulated delta from previous edits.
+  // Tokens in the cache have offsets from the tree they were built from.
+  // Post-damage tokens shifted by pending_delta — reverse the shift to match.
+  let search_offset = if cursor.cache.pending_delta != 0 &&
+    offset >= cursor.cache.damage_boundary {
+    offset - cursor.cache.pending_delta
+  } else {
+    offset
+  }
+  let lo = lower_bound(old_tokens, search_offset)
   if lo < old_tokens.length() {
     Some(old_tokens[lo])
   } else {

@@ -1,7 +1,7 @@
 // Tests for Phase 2 CST implementation
 
 // ============================================================================
-// Helper: parse a source string and return the CstNode
+// Helpers: parse a source string and return the CstNode or SyntaxNode
 // ============================================================================
 
 ///|
@@ -10,75 +10,63 @@ fn test_parse_cst(source : String) -> @seam.CstNode {
   cst
 }
 
+///|
+fn test_parse_syntax(source : String) -> @seam.SyntaxNode {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  @seam.SyntaxNode::from_cst(cst)
+}
+
 // ============================================================================
 // 1. Basic parsing to CST
 // ============================================================================
 
 ///|
 test "cst: simple integer" {
-  let cst = test_parse_cst("42")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  inspect(cst.children.length() > 0, content="true")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="IntLiteral")
+  let root = test_parse_syntax("42")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  inspect(root.children().length() > 0, content="true")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="IntLiteral")
 }
 
 ///|
 test "cst: simple variable" {
-  let cst = test_parse_cst("x")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="VarRef")
+  let root = test_parse_syntax("x")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="VarRef")
 }
 
 ///|
 test "cst: lambda expression" {
-  let cst = test_parse_cst("λx.x")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LambdaExpr")
+  let root = test_parse_syntax("λx.x")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LambdaExpr")
 }
 
 ///|
 test "cst: application" {
-  let cst = test_parse_cst("f x")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="AppExpr")
+  let root = test_parse_syntax("f x")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="AppExpr")
 }
 
 ///|
 test "cst: binary operation" {
-  let cst = test_parse_cst("1 + 2")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="BinaryExpr")
+  let root = test_parse_syntax("1 + 2")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="BinaryExpr")
 }
 
 ///|
 test "cst: if-then-else" {
-  let cst = test_parse_cst("if x then 1 else 2")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="IfExpr")
+  let root = test_parse_syntax("if x then 1 else 2")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="IfExpr")
 }
 
 // ============================================================================
@@ -87,53 +75,37 @@ test "cst: if-then-else" {
 
 ///|
 test "cst: ParenExpr is present" {
-  let cst = test_parse_cst("(x)")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
+  let root = test_parse_syntax("(x)")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
   // (x) should have ParenExpr as the outer node
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="ParenExpr")
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="ParenExpr")
 }
 
 ///|
 test "cst: x vs (x) have different structure" {
-  let cst_bare = test_parse_cst("x")
-  let cst_paren = test_parse_cst("(x)")
-  let bare_child = match cst_bare.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  let paren_child = match cst_paren.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
+  let root_bare = test_parse_syntax("x")
+  let root_paren = test_parse_syntax("(x)")
+  let bare_child = root_bare.children()[0]
+  let paren_child = root_paren.children()[0]
   // bare x is VarRef, (x) is ParenExpr
-  inspect(@syntax.SyntaxKind::from_raw(bare_child.kind), content="VarRef")
-  inspect(@syntax.SyntaxKind::from_raw(paren_child.kind), content="ParenExpr")
+  inspect(@syntax.SyntaxKind::from_raw(bare_child.kind()), content="VarRef")
+  inspect(@syntax.SyntaxKind::from_raw(paren_child.kind()), content="ParenExpr")
   // They must be different
-  inspect(bare_child.kind != paren_child.kind, content="true")
+  inspect(bare_child.kind() != paren_child.kind(), content="true")
 }
 
 ///|
 test "cst: nested parentheses ((x))" {
-  let cst = test_parse_cst("((x))")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="ParenExpr")
+  let root = test_parse_syntax("((x))")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="ParenExpr")
   // The inner expression should also be a ParenExpr
   let mut inner_paren_found = false
-  for elem in child.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        match @syntax.SyntaxKind::from_raw(n.kind) {
-          @syntax.ParenExpr => inner_paren_found = true
-          _ => ()
-        }
-      @seam.CstElement::Token(_) => continue
+  for c in child.children() {
+    match @syntax.SyntaxKind::from_raw(c.kind()) {
+      @syntax.ParenExpr => inner_paren_found = true
+      _ => ()
     }
   }
   inspect(inner_paren_found, content="true")
@@ -141,17 +113,14 @@ test "cst: nested parentheses ((x))" {
 
 ///|
 test "cst: deeply nested parentheses (((1)))" {
-  let cst = test_parse_cst("(((1)))")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
+  let root = test_parse_syntax("(((1)))")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   // Count the nesting depth of ParenExpr
-  fn count_paren_depth(node : @seam.CstNode) -> Int {
-    match @syntax.SyntaxKind::from_raw(node.kind) {
+  fn count_paren_depth(node : @seam.SyntaxNode) -> Int {
+    match @syntax.SyntaxKind::from_raw(node.kind()) {
       @syntax.ParenExpr => {
-        for elem in node.children {
-          match elem {
-            @seam.CstElement::Node(n) => return 1 + count_paren_depth(n)
-            @seam.CstElement::Token(_) => continue
-          }
+        for c in node.children() {
+          return 1 + count_paren_depth(c)
         }
         1
       }
@@ -159,10 +128,7 @@ test "cst: deeply nested parentheses (((1)))" {
     }
   }
 
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
+  let child = root.children()[0]
   inspect(count_paren_depth(child), content="3")
 }
 
@@ -172,32 +138,28 @@ test "cst: deeply nested parentheses (((1)))" {
 
 ///|
 test "cst: SyntaxNode positions for simple expression" {
-  let cst = test_parse_cst("x + y")
-  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let syntax = test_parse_syntax("x + y")
   inspect(syntax.start(), content="0")
   inspect(syntax.end(), content="5")
 }
 
 ///|
 test "cst: SyntaxNode positions for integer" {
-  let cst = test_parse_cst("42")
-  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let syntax = test_parse_syntax("42")
   inspect(syntax.start(), content="0")
   inspect(syntax.end(), content="2")
 }
 
 ///|
 test "cst: SyntaxNode positions for lambda" {
-  let cst = test_parse_cst("λx.x")
-  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let syntax = test_parse_syntax("λx.x")
   inspect(syntax.start(), content="0")
   inspect(syntax.end(), content="4")
 }
 
 ///|
 test "cst: SyntaxNode children positions" {
-  let cst = test_parse_cst("1 + 2")
-  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let syntax = test_parse_syntax("1 + 2")
   let children = syntax.children()
   inspect(children.length(), content="1")
   let binary_expr = children[0]
@@ -211,8 +173,7 @@ test "cst: SyntaxNode children positions" {
 
 ///|
 test "cst: SyntaxNode child positions in application" {
-  let cst = test_parse_cst("f x")
-  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let syntax = test_parse_syntax("f x")
   let children = syntax.children()
   inspect(children.length(), content="1")
   let app_expr = children[0]
@@ -301,22 +262,21 @@ test "cst: parse - complex expression" {
 
 ///|
 test "cst: identical integer tokens have same text" {
-  let cst = test_parse_cst("1 + 1")
-  fn collect_int_tokens(node : @seam.CstNode) -> Array[String] {
+  let root = test_parse_syntax("1 + 1")
+  fn collect_int_tokens(node : @seam.SyntaxNode) -> Array[String] {
     let tokens : Array[String] = []
-    for elem in node.children {
-      match elem {
-        @seam.CstElement::Token(t) =>
-          if t.kind == @syntax.IntToken.to_raw() {
-            tokens.push(t.text)
-          }
-        @seam.CstElement::Node(n) => tokens.append(collect_int_tokens(n))
+    for t in node.tokens() {
+      if t.kind() == @syntax.IntToken.to_raw() {
+        tokens.push(t.text())
       }
+    }
+    for child in node.children() {
+      tokens.append(collect_int_tokens(child))
     }
     tokens
   }
 
-  let int_tokens = collect_int_tokens(cst)
+  let int_tokens = collect_int_tokens(root)
   inspect(int_tokens.length(), content="2")
   // Both tokens should have the same text "1"
   inspect(int_tokens[0] == int_tokens[1], content="true")
@@ -325,22 +285,21 @@ test "cst: identical integer tokens have same text" {
 
 ///|
 test "cst: identical identifier tokens have same text" {
-  let cst = test_parse_cst("x + x")
-  fn collect_ident_tokens(node : @seam.CstNode) -> Array[String] {
+  let root = test_parse_syntax("x + x")
+  fn collect_ident_tokens(node : @seam.SyntaxNode) -> Array[String] {
     let tokens : Array[String] = []
-    for elem in node.children {
-      match elem {
-        @seam.CstElement::Token(t) =>
-          if t.kind == @syntax.IdentToken.to_raw() {
-            tokens.push(t.text)
-          }
-        @seam.CstElement::Node(n) => tokens.append(collect_ident_tokens(n))
+    for t in node.tokens() {
+      if t.kind() == @syntax.IdentToken.to_raw() {
+        tokens.push(t.text())
       }
+    }
+    for child in node.children() {
+      tokens.append(collect_ident_tokens(child))
     }
     tokens
   }
 
-  let ident_tokens = collect_ident_tokens(cst)
+  let ident_tokens = collect_ident_tokens(root)
   inspect(ident_tokens.length(), content="2")
   // Both tokens should have the same text "x"
   inspect(ident_tokens[0] == ident_tokens[1], content="true")
@@ -349,51 +308,41 @@ test "cst: identical identifier tokens have same text" {
 
 ///|
 test "cst: token text is preserved correctly" {
-  let cst = test_parse_cst("abc + 123")
-  fn find_first_ident(node : @seam.CstNode) -> String? {
-    for elem in node.children {
-      match elem {
-        @seam.CstElement::Token(t) =>
-          if t.kind == @syntax.IdentToken.to_raw() {
-            return Some(t.text)
-          } else {
-            continue
-          }
-        @seam.CstElement::Node(n) => {
-          let result = find_first_ident(n)
-          match result {
-            Some(s) => return Some(s)
-            None => continue
-          }
-        }
+  let root = test_parse_syntax("abc + 123")
+  fn find_first_ident(node : @seam.SyntaxNode) -> String? {
+    for t in node.tokens() {
+      if t.kind() == @syntax.IdentToken.to_raw() {
+        return Some(t.text())
+      }
+    }
+    for child in node.children() {
+      let result = find_first_ident(child)
+      match result {
+        Some(s) => return Some(s)
+        None => continue
       }
     }
     None
   }
 
-  fn find_first_int(node : @seam.CstNode) -> String? {
-    for elem in node.children {
-      match elem {
-        @seam.CstElement::Token(t) =>
-          if t.kind == @syntax.IntToken.to_raw() {
-            return Some(t.text)
-          } else {
-            continue
-          }
-        @seam.CstElement::Node(n) => {
-          let result = find_first_int(n)
-          match result {
-            Some(s) => return Some(s)
-            None => continue
-          }
-        }
+  fn find_first_int(node : @seam.SyntaxNode) -> String? {
+    for t in node.tokens() {
+      if t.kind() == @syntax.IntToken.to_raw() {
+        return Some(t.text())
+      }
+    }
+    for child in node.children() {
+      let result = find_first_int(child)
+      match result {
+        Some(s) => return Some(s)
+        None => continue
       }
     }
     None
   }
 
-  inspect(find_first_ident(cst), content="Some(\"abc\")")
-  inspect(find_first_int(cst), content="Some(\"123\")")
+  inspect(find_first_ident(root), content="Some(\"abc\")")
+  inspect(find_first_int(root), content="Some(\"123\")")
 }
 
 // ============================================================================
@@ -402,54 +351,39 @@ test "cst: token text is preserved correctly" {
 
 ///|
 test "cst: lambda with application body" {
-  let cst = test_parse_cst("λf.f x")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LambdaExpr")
+  let root = test_parse_syntax("λf.f x")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LambdaExpr")
 }
 
 ///|
 test "cst: nested if-then-else" {
-  let cst = test_parse_cst("if x then if y then 1 else 2 else 3")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="IfExpr")
+  let root = test_parse_syntax("if x then if y then 1 else 2 else 3")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="IfExpr")
 }
 
 ///|
 test "cst: parenthesized lambda" {
-  let cst = test_parse_cst("(λx.x)")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="ParenExpr")
+  let root = test_parse_syntax("(λx.x)")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="ParenExpr")
 }
 
 ///|
 test "cst: application with parenthesized argument" {
-  let cst = test_parse_cst("f (x)")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="AppExpr")
+  let root = test_parse_syntax("f (x)")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="AppExpr")
 }
 
 ///|
 test "cst: binary with parenthesized operands" {
-  let cst = test_parse_cst("(1) + (2)")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="BinaryExpr")
+  let root = test_parse_syntax("(1) + (2)")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="BinaryExpr")
 }
 
 ///|
@@ -462,23 +396,21 @@ test "cst: text_len is computed correctly" {
 
 ///|
 test "cst: CstElement kind accessor" {
-  let cst = test_parse_cst("42")
-  let elem = cst.children[0]
-  inspect(@syntax.SyntaxKind::from_raw(elem.kind()), content="IntLiteral")
+  let root = test_parse_syntax("42")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="IntLiteral")
 }
 
 ///|
 test "cst: CstElement text_len accessor" {
-  let cst = test_parse_cst("42")
-  let elem = cst.children[0]
-  inspect(elem.text_len(), content="2")
+  let root = test_parse_syntax("42")
+  let child = root.children()[0]
+  inspect(child.end() - child.start(), content="2")
 }
 
 ///|
 test "cst: position comparison" {
-  let source = "x + y"
-  let cst = test_parse_cst(source)
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("x + y")
   let node = root.nth_child(0).unwrap()
   inspect(node.start(), content="0")
   inspect(node.end(), content="5")
@@ -488,15 +420,11 @@ test "cst: position comparison" {
 test "cst: structural sharing - identical CstNodes are equal" {
   let cst1 = test_parse_cst("x")
   let cst2 = test_parse_cst("x")
-  let node1 = match cst1.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node")
-  }
-  let node2 = match cst2.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node")
-  }
-  inspect(node1 == node2, content="true")
+  let root1 = @seam.SyntaxNode::from_cst(cst1)
+  let root2 = @seam.SyntaxNode::from_cst(cst2)
+  let node1 = root1.children()[0]
+  let node2 = root2.children()[0]
+  inspect(node1.cst_node() == node2.cst_node(), content="true")
 }
 
 // ============================================================================
@@ -530,12 +458,10 @@ test "cst: error recovery - missing param produces ErrorToken" {
   )
   inspect(diagnostics.length(), content="1")
   // Should still have SourceFile > LambdaExpr structure
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LambdaExpr")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LambdaExpr")
 }
 
 ///|
@@ -543,17 +469,14 @@ test "cst: error recovery - extra tokens wrapped in ErrorNode" {
   let (cst, diagnostics) = parse_cst("42 )") catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
   // SourceFile should have IntLiteral + ErrorNode
+  let root = @seam.SyntaxNode::from_cst(cst)
   let mut found_int = false
   let mut found_error = false
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        match @syntax.SyntaxKind::from_raw(n.kind) {
-          @syntax.IntLiteral => found_int = true
-          @syntax.ErrorNode => found_error = true
-          _ => ()
-        }
-      @seam.CstElement::Token(_) => ()
+  for child in root.children() {
+    match @syntax.SyntaxKind::from_raw(child.kind()) {
+      @syntax.IntLiteral => found_int = true
+      @syntax.ErrorNode => found_error = true
+      _ => ()
     }
   }
   inspect(found_int, content="true")
@@ -566,12 +489,10 @@ test "cst: error recovery - missing else in if" {
     _ => abort("lex error")
   }
   inspect(diagnostics.length() > 0, content="true")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="IfExpr")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="IfExpr")
 }
 
 ///|
@@ -588,7 +509,8 @@ test "cst: error recovery - multiple errors" {
   }
   // Should have at least 2 errors: missing param, extra ")"
   inspect(diagnostics.length() >= 2, content="true")
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
 }
 
 ///|
@@ -601,19 +523,20 @@ test "cst: error recovery preserves valid input" {
     }
     inspect(diagnostics.length(), content="0")
     // Just verify the tree is valid
-    inspect(@syntax.SyntaxKind::from_raw(recovered.kind), content="SourceFile")
+    let root = @seam.SyntaxNode::from_cst(recovered)
+    inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   }
 }
 
 ///|
-/// Collect the text of all leaf tokens in a CST (depth-first).
-fn collect_leaf_texts(node : @seam.CstNode) -> String {
+/// Collect the text of all leaf tokens in a CST (depth-first) via SyntaxNode.
+fn collect_leaf_texts(node : @seam.SyntaxNode) -> String {
   let parts : Array[String] = []
-  fn walk(n : @seam.CstNode) -> Unit {
-    for elem in n.children {
+  fn walk(n : @seam.SyntaxNode) -> Unit {
+    for elem in n.all_children() {
       match elem {
-        @seam.CstElement::Token(t) => parts.push(t.text)
-        @seam.CstElement::Node(child) => walk(child)
+        @seam.SyntaxElement::Token(t) => parts.push(t.text())
+        @seam.SyntaxElement::Node(child) => walk(child)
       }
     }
   }
@@ -625,93 +548,69 @@ fn collect_leaf_texts(node : @seam.CstNode) -> String {
 ///|
 test "parse preserves all whitespace in CST" {
   let source = "  x + 1  "
-  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
-  let texts = collect_leaf_texts(tree)
+  let root = test_parse_syntax(source)
+  let texts = collect_leaf_texts(root)
   inspect(texts, content="  x + 1  ")
 }
 
 ///|
 test "parse preserves leading and trailing whitespace" {
   let source = "  42  "
-  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
-  let texts = collect_leaf_texts(tree)
+  let root = test_parse_syntax(source)
+  let texts = collect_leaf_texts(root)
   inspect(texts, content="  42  ")
 }
 
 ///|
 test "parse preserves internal whitespace in application" {
   let source = "f  x"
-  let (tree, _) = parse_cst(source) catch { _ => abort("lex error") }
-  let texts = collect_leaf_texts(tree)
+  let root = test_parse_syntax(source)
+  let texts = collect_leaf_texts(root)
   inspect(texts, content="f  x")
 }
 
 ///|
 test "cst: let definition" {
-  let (cst, _) = parse_cst("let x = 1\nx") catch { _ => abort("lex error") }
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LetDef")
+  let root = test_parse_syntax("let x = 1\nx")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LetDef")
 }
 
 ///|
 test "cst: nested let defs" {
-  let (cst, _) = parse_cst("let x = 1\nlet y = 2\nx") catch {
-    _ => abort("lex error")
-  }
-  let child = match cst.children[0] {
-    @seam.CstElement::Node(n) => n
-    @seam.CstElement::Token(_) => abort("Expected node, got token")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(child.kind), content="LetDef")
+  let root = test_parse_syntax("let x = 1\nlet y = 2\nx")
+  let child = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LetDef")
 }
 
 ///|
 test "source file: two LetDef children" {
-  let (cst, _) = parse_cst("let id = 1\nlet const = 2") catch {
-    _ => abort("lex error")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
-  let mut node_count = 0
+  let root = test_parse_syntax("let id = 1\nlet const = 2")
+  inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   let node_kinds : Array[String] = []
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) => {
-        node_count = node_count + 1
-        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
-      }
-      _ => ()
-    }
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_count, content="2")
+  inspect(node_kinds.length(), content="2")
   inspect(node_kinds[0], content="LetDef")
   inspect(node_kinds[1], content="LetDef")
 }
 
 ///|
 test "source file: LetDef has correct token structure" {
-  let (cst, _) = parse_cst("let id = 1") catch { _ => abort("lex error") }
-  let letdef = for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) => break n
-      _ => continue
-    }
-  } nobreak {
-    abort("No LetDef node found")
-  }
-  inspect(@syntax.SyntaxKind::from_raw(letdef.kind), content="LetDef")
+  let root = test_parse_syntax("let id = 1")
+  let letdef = root.children()[0]
+  inspect(@syntax.SyntaxKind::from_raw(letdef.kind()), content="LetDef")
   // Non-whitespace children: LetKeyword, IdentToken, EqToken, IntLiteral node
   let non_ws : Array[String] = []
-  for elem in letdef.children {
+  for elem in letdef.all_children() {
     match elem {
-      @seam.CstElement::Token(t) =>
-        if @syntax.SyntaxKind::from_raw(t.kind) != @syntax.WhitespaceToken {
-          non_ws.push(@syntax.SyntaxKind::from_raw(t.kind).to_string())
+      @seam.SyntaxElement::Token(t) =>
+        if @syntax.SyntaxKind::from_raw(t.kind()) != @syntax.WhitespaceToken {
+          non_ws.push(@syntax.SyntaxKind::from_raw(t.kind()).to_string())
         }
-      @seam.CstElement::Node(n) =>
-        non_ws.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
+      @seam.SyntaxElement::Node(n) =>
+        non_ws.push(@syntax.SyntaxKind::from_raw(n.kind()).to_string())
     }
   }
   inspect(
@@ -722,28 +621,20 @@ test "source file: LetDef has correct token structure" {
 
 ///|
 test "source file: single expression (no defs)" {
-  let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
+  let root = test_parse_syntax("42")
   let node_kinds : Array[String] = []
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
-      _ => ()
-    }
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
   inspect(node_kinds, content="[\"IntLiteral\"]")
 }
 
 ///|
 test "source file: def + final expression" {
-  let (cst, _) = parse_cst("let id = 1\nid") catch { _ => abort("lex error") }
+  let root = test_parse_syntax("let id = 1\nid")
   let node_kinds : Array[String] = []
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
-      _ => ()
-    }
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
   inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
 }
@@ -754,13 +645,10 @@ test "source file: leading newlines before def + final expression" {
     _ => abort("lex error")
   }
   inspect(diagnostics.length(), content="0")
+  let root = @seam.SyntaxNode::from_cst(cst)
   let node_kinds : Array[String] = []
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
-      _ => ()
-    }
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
   inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
 }
@@ -769,13 +657,10 @@ test "source file: leading newlines before def + final expression" {
 test "source file: trailing tokens after final expression produce error" {
   let (cst, diagnostics) = parse_cst("1 in x") catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
   let node_kinds : Array[String] = []
-  for elem in cst.children {
-    match elem {
-      @seam.CstElement::Node(n) =>
-        node_kinds.push(@syntax.SyntaxKind::from_raw(n.kind).to_string())
-      _ => ()
-    }
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
   inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
 }
@@ -786,8 +671,7 @@ test "source file: trailing tokens after final expression produce error" {
 
 ///|
 test "cst: let with single param" {
-  let cst = test_parse_cst("let f(x) = x")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("let f(x) = x")
   let let_def = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
   let has_param_list = let_def
@@ -799,16 +683,14 @@ test "cst: let with single param" {
 
 ///|
 test "cst: let with multiple params" {
-  let cst = test_parse_cst("let add(x, y) = x + y")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("let add(x, y) = x + y")
   let let_def = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
 }
 
 ///|
 test "cst: let without params unchanged" {
-  let cst = test_parse_cst("let x = 1")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("let x = 1")
   let let_def = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
   let has_param_list = let_def
@@ -824,24 +706,21 @@ test "cst: let without params unchanged" {
 
 ///|
 test "cst: block with semicolons" {
-  let cst = test_parse_cst("{ let a = 1; a }")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("{ let a = 1; a }")
   let block = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(block.kind()), content="BlockExpr")
 }
 
 ///|
 test "cst: block expression only" {
-  let cst = test_parse_cst("{ 42 }")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("{ 42 }")
   let block = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(block.kind()), content="BlockExpr")
 }
 
 ///|
 test "cst: block in application" {
-  let cst = test_parse_cst("f { let x = 1; x }")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("f { let x = 1; x }")
   let app = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(app.kind()), content="AppExpr")
   let block = app.nth_child(1).unwrap()
@@ -850,16 +729,14 @@ test "cst: block in application" {
 
 ///|
 test "cst: block with newline delimiters" {
-  let cst = test_parse_cst("{\nlet a = 1\nlet b = 2\na + b\n}")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("{\nlet a = 1\nlet b = 2\na + b\n}")
   let block = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(block.kind()), content="BlockExpr")
 }
 
 ///|
 test "cst: defs-only block" {
-  let cst = test_parse_cst("{ let a = 1 }")
-  let root = @seam.SyntaxNode::from_cst(cst)
+  let root = test_parse_syntax("{ let a = 1 }")
   let block = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(block.kind()), content="BlockExpr")
 }

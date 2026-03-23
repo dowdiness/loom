@@ -47,6 +47,8 @@ let cst_token_matches : (@seam.RawKind, String, Token) -> Bool = fn(
 
 ///|
 /// LanguageSpec for JSON grammar.
+/// reuse_size_threshold=0: all nodes eligible for reuse. MemberNode uses ctx.node()
+/// so individual object members can be reused during incremental parsing.
 let json_spec : @core.LanguageSpec[Token, SyntaxKind] = @core.LanguageSpec::new(
   WhitespaceToken,
   ErrorToken,
@@ -54,4 +56,5 @@ let json_spec : @core.LanguageSpec[Token, SyntaxKind] = @core.LanguageSpec::new(
   EOF,
   cst_token_matches~,
   parse_root=parse_json_root,
+  reuse_size_threshold=0,
 )
