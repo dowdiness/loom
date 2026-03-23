@@ -178,7 +178,7 @@ test "multiple incremental edits preserve correctness" {
   ))
 
   // Final result should match full reparse
-  let full_tree = parse("λy.λx.x + 2") catch { _ => abort("parse failed") }
+  let _ = parse("λy.λx.x + 2") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(tree3), content=(
     #|((λx. (x + 2)) + 2)
   ))

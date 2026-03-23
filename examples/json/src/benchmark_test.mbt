@@ -52,17 +52,7 @@ fn make_json_array(n : Int) -> String {
 ///|
 /// Helper: replace one byte at pos.
 fn json_replace_at(source : String, pos : Int, replacement : String) -> String {
-  let before : String = try {
-    source[:pos].to_string()
-  } catch {
-    _ => abort("slice error")
-  }
-  let after : String = try {
-    source[pos + 1:].to_string()
-  } catch {
-    _ => abort("slice error")
-  }
-  before + replacement + after
+  source[:pos].to_string() + replacement + source[pos + 1:].to_string()
 }
 
 // ─── Object benchmarks ──────────────────────────────────────────────────────

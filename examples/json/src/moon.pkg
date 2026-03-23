@@ -3,4 +3,5 @@ import {
   "dowdiness/seam" @seam,
   "dowdiness/loom" @loom,
   "moonbitlang/core/strconv",
+  "moonbitlang/core/bench",
 }

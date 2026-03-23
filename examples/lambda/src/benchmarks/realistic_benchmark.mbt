@@ -58,7 +58,7 @@ fn find_tail_edit_pos(source : String) -> Int {
 /// "let a0 = 0 + 1" (the first block def's first operand).
 /// The pattern is: "let f0 = {\n  let a0 = 0 + "
 /// We search for the offset of the "1" after "0 + " in the first definition.
-fn find_head_edit_pos(source : String) -> Int {
+fn find_head_edit_pos(_source : String) -> Int {
   // First def is "let f0 = {\n  let a0 = 0 + 1\n  ..."
   // "let f0 = {\n  let a0 = 0 + " has length ~28
   // Find "0 + 1" — the "1" is what we edit
@@ -69,7 +69,7 @@ fn find_head_edit_pos(source : String) -> Int {
 ///|
 /// Find byte position inside a middle block def's nested let.
 /// For n defs, the middle block is at index (n/2) rounded to nearest %5==0.
-fn find_middle_block_edit_pos(source : String, n : Int) -> Int {
+fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
   // Sum up lengths of defs before the target
   let target_idx = (n / 2 / 5) * 5 // nearest block def (i%5==0)
   let mut pos = 0
@@ -85,11 +85,7 @@ fn find_middle_block_edit_pos(source : String, n : Int) -> Int {
 ///|
 /// Helper: replace one byte at pos in source string.
 fn replace_char_at(source : String, pos : Int, replacement : String) -> String {
-  try {
-    source[:pos].to_string() + replacement + source[pos + 1:].to_string()
-  } catch {
-    _ => abort("slice error")
-  }
+  source[:pos].to_string() + replacement + source[pos + 1:].to_string()
 }
 
 // ─── 40 realistic defs ───────────────────────────────────────────────────────
