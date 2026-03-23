@@ -81,13 +81,7 @@ test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
   let source = make_json_object(20)
   let parser = @loom.new_imperative_parser(source, json_grammar)
   let _ = parser.parse()
-  // Edit the last number: find "null" at end and change to "true"
-  // The last member (i=19, 19%6=1) is an array. i=18 (18%6=0) is an object.
-  // i=17 (17%6=5) is null. Find its position.
-  let target = "\"key_17\": null"
-  let null_start = source.length() - "\n}".length() - 1 // approximate
-  // Use a simpler approach: edit the very last number we can find
-  // Find "42" (from i=3: 3*100+42=342) and change "3" to "4"
+  // Find "342" (from i=3: 3*100+42=342) and change "3" to "4"
   let edit_target = "342"
   let mut edit_pos = -1
   for i = 0; i < source.length() - 2; i = i + 1 {

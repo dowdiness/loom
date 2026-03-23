@@ -85,17 +85,11 @@ fn find_middle_block_edit_pos(source : String, n : Int) -> Int {
 ///|
 /// Helper: replace one byte at pos in source string.
 fn replace_char_at(source : String, pos : Int, replacement : String) -> String {
-  let res_before : Result[StringView, Error] = try? source[:pos]
-  let res_after : Result[StringView, Error] = try? source[pos + 1:]
-  let before = match res_before {
-    Ok(v) => v.to_string()
-    Err(_) => abort("slice error")
+  try {
+    source[:pos].to_string() + replacement + source[pos + 1:].to_string()
+  } catch {
+    _ => abort("slice error")
   }
-  let after = match res_after {
-    Ok(v) => v.to_string()
-    Err(_) => abort("slice error")
-  }
-  before + replacement + after
 }
 
 // ─── 40 realistic defs ───────────────────────────────────────────────────────
