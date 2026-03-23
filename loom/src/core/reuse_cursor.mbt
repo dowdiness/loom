@@ -33,8 +33,16 @@ struct OldToken {
 /// Shared mutable cache for the flattened old-token table.
 /// Snapshots share the same cell so materializing in one branch
 /// is visible to all branches restored from earlier checkpoints.
-struct OldTokenCache {
+/// Persist across edits by passing to ReuseCursor::new(old_token_cache~)
+/// to avoid O(n) collect_old_tokens on every edit.
+pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
+}
+
+///|
+/// Create an empty old-token cache.
+pub fn OldTokenCache::empty() -> OldTokenCache {
+  { tokens: None }
 }
 
 ///|
@@ -111,6 +119,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   get_start : (Int) -> Int,
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
+  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -129,7 +138,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     ws_raw,
     err_raw,
     incomplete_raw,
-    cache: { tokens: None },
+    cache: old_token_cache,
     reuse_globally_disabled,
     reuse_size_threshold,
     token_count,
@@ -143,6 +152,16 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 /// True if damage covers the entire tree — no reuse is possible.
 pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
   self.reuse_globally_disabled
+}
+
+///|
+/// Get the old-token cache for persistence across edits.
+/// Call after parsing completes and pass to the next ReuseCursor::new
+/// to avoid rebuilding the flat token array from scratch.
+pub fn[T, K] ReuseCursor::get_old_token_cache(
+  self : ReuseCursor[T, K],
+) -> OldTokenCache {
+  self.cache
 }
 
 ///|

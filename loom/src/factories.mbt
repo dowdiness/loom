@@ -60,6 +60,13 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
+  // Persistent old-token cache: survives across edits so collect_old_tokens
+  // only runs once (on first incremental parse). Subsequent edits reuse the
+  // cached flat token array via ensure_old_tokens → immediate cache hit.
+  // Reset to empty on full_parse (new tree, old cache invalid).
+  let old_token_cache : Ref[@core.OldTokenCache] = Ref::new(
+    @core.OldTokenCache::empty(),
+  )
   let lang = @incremental.ImperativeLanguage::new(
     full_parse=source => {
       let buffer = create_buffer(
@@ -88,6 +95,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       )
       last_diags.val = diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
+      old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
@@ -173,6 +181,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           fn(i) { buffer.get_start(i) },
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
+          old_token_cache=old_token_cache.val,
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
@@ -187,6 +196,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       )
       last_diags.val = diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
+      // The old-token cache (built from old_syntax) has stale entries for the
+      // damage region, but this is safe: is_outside_damage rejects damaged nodes
+      // BEFORE trailing_context_matches is called, so stale entries are never
+      // consulted. The cache remains valid for undamaged regions across edits.
       @incremental.ParseOutcome::Tree(new_syntax, reuse_count)
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
