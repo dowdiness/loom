@@ -44,6 +44,8 @@ let cst_token_matches : (@seam.RawKind, String, @token.Token) -> Bool = (
 
 ///|
 /// LanguageSpec for the lambda grammar (LetDef* Expression?).
+/// reuse_size_threshold=0: all nodes eligible for reuse. LetDef uses ctx.node()
+/// so individual definitions can be reused during incremental parsing.
 let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.LanguageSpec::new(
   @syntax.WhitespaceToken,
   @syntax.ErrorToken,
@@ -51,6 +53,7 @@ let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = @core.L
   @token.EOF,
   cst_token_matches~,
   parse_root=parse_lambda_root,
+  reuse_size_threshold=0,
 )
 
 ///|
