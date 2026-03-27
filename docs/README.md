@@ -66,6 +66,11 @@ Understanding how the layers fit together:
 - [plans/2026-03-21-grammar-extension-impl.md](plans/2026-03-21-grammar-extension-impl.md) — Lambda Grammar Extension Implementation Plan
 - [plans/2026-03-22-block-reparse-impl-design.md](plans/2026-03-22-block-reparse-impl-design.md) — Block Reparse Implementation Design
 - [plans/2026-03-22-block-reparse-impl.md](plans/2026-03-22-block-reparse-impl.md) — Block Reparse Implementation Plan
+- [plans/2026-03-22-json-parser-design.md](plans/2026-03-22-json-parser-design.md) — JSON Parser Design
+- [plans/2026-03-22-json-parser-impl.md](plans/2026-03-22-json-parser-impl.md) — JSON Parser Implementation Plan
+- [plans/2026-03-28-egglog-egraph-lambda-design.md](plans/2026-03-28-egglog-egraph-lambda-design.md) — Egglog Type Checker + Egraph Evaluator for Lambda Calculus
+- [plans/2026-03-28-egglog-lambda-typechecker-impl.md](plans/2026-03-28-egglog-lambda-typechecker-impl.md) — Egglog Lambda Type Checker Implementation Plan
+- [plans/2026-03-28-egraph-lambda-evaluator-impl.md](plans/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator Implementation Plan
 
 ## Development
 

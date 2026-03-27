@@ -30,12 +30,12 @@ pub struct ReactiveParser[Ast] {
 }
 pub fn[Ast] ReactiveParser::cst(Self[Ast]) -> CstStage
 pub fn[Ast] ReactiveParser::diagnostics(Self[Ast]) -> Array[String]
-pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(@cells.Runtime, @cells.Signal[String], @cells.Memo[Stage], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
+pub fn[Stage, Ast] ReactiveParser::from_parts(@cells.Runtime, @cells.Signal[String], @cells.Memo[Stage], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::get_source(Self[Ast]) -> String
 pub fn[Ast : Eq] ReactiveParser::new(String, Language[Ast]) -> Self[Ast]
 pub fn[Ast] ReactiveParser::runtime(Self[Ast]) -> @cells.Runtime
 pub fn[Ast] ReactiveParser::set_source(Self[Ast], String) -> Unit
-pub fn[Ast : Eq] ReactiveParser::term(Self[Ast]) -> Ast
+pub fn[Ast] ReactiveParser::term(Self[Ast]) -> Ast
 
 // Type aliases
 

@@ -132,7 +132,7 @@ pub fn[Ast] ReactiveParser::diagnostics(
 /// Return the AST for the current source.
 /// Backed by term_memo: on a warm call (no source change) the Runtime skips
 /// recomputation and returns the cached Ast immediately.
-pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
+pub fn[Ast] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
   let value = self.term_memo.get()
   self.run_source_chain_validation()
   if self.validate_term_dependency &&
@@ -154,7 +154,7 @@ pub fn[Ast : Eq] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
 /// The `term_memo → cst_memo` edge is validated lazily on `term()` calls so
 /// parser construction remains lazy even when AST building aborts, and dynamic
 /// memo dependencies cannot silently detach the AST from the CST later.
-pub fn[Stage : Eq, Ast] ReactiveParser::from_parts(
+pub fn[Stage, Ast] ReactiveParser::from_parts(
   rt : @incr.Runtime,
   source_text : @incr.Signal[String],
   source_memo : @incr.Memo[Stage],

@@ -173,11 +173,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       let buffer = token_buf.val.unwrap()
       // Patch the persistent old-token cache: remove tokens in the old damage
       // range and accumulate offset delta for post-damage lookups.
-      old_token_cache.val.apply_edit(
-        edit.start,
-        edit.old_end(),
-        edit.new_end(),
-      )
+      old_token_cache.val.apply_edit(edit.start, edit.old_end(), edit.new_end())
       let cursor = Some(
         @core.ReuseCursor::new(
           old_syntax.cst_node(),

@@ -119,7 +119,13 @@ pub impl Compare for OldToken
 pub impl Eq for OldToken
 pub impl Show for OldToken
 
-type OldTokenCache
+pub struct OldTokenCache {
+  mut tokens : Array[OldToken]?
+  mut pending_delta : Int
+  mut damage_boundary : Int
+}
+pub fn OldTokenCache::apply_edit(Self, Int, Int, Int) -> Unit
+pub fn OldTokenCache::empty() -> Self
 
 pub struct ParserContext[T, K] {
   spec : LanguageSpec[T, K]
@@ -209,8 +215,9 @@ pub struct ReuseCursor[T, K] {
   spec : LanguageSpec[T, K]
 }
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
+pub fn[T, K] ReuseCursor::get_old_token_cache(Self[T, K]) -> OldTokenCache
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K], reuse_size_threshold? : Int) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
