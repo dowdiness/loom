@@ -1,5 +1,7 @@
 # Lambda Grammar Extension — ParamList + BlockExpr
 
+**Status:** Complete
+
 **Date:** 2026-03-21
 **Status:** Draft
 **Scope:** loom/examples/lambda (lexer, token, syntax, parser, AST, term_convert, tests)

@@ -1,5 +1,7 @@
 # Block Reparse Implementation Plan
 
+**Status:** Complete
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a framework-level block reparse fast-path to loom's incremental parser — when an edit falls inside a reparseable block (`{ ... }`), re-lex and re-parse only that block, splice the result into the old tree. O(block_size + depth) independent of document size.

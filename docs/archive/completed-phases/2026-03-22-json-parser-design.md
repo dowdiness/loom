@@ -1,5 +1,7 @@
 # JSON Parser for Loom — Design Spec
 
+**Status:** Complete
+
 **Date:** 2026-03-22
 **Status:** Draft
 **Scope:** `loom/examples/json/` — new module, pure parser (no CRDT)

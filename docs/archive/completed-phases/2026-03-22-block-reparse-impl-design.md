@@ -1,5 +1,7 @@
 # Block Reparse Implementation — Design Spec
 
+**Status:** Complete
+
 **Date:** 2026-03-22
 **Status:** Draft
 **Scope:** loom (framework), seam (CstNode splice), lambda (first consumer)

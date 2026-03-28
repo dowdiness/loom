@@ -1,5 +1,7 @@
 # Lambda Grammar Extension Implementation Plan
 
+**Status:** Complete
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Extend the lambda calculus grammar with ParamList on LetDef and `{}`-delimited BlockExpr, enabling future block reparse (Phase 3).
