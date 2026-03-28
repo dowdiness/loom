@@ -62,13 +62,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-03-21-grammar-extension-design.md](plans/2026-03-21-grammar-extension-design.md) — Lambda Grammar Extension Design
-- [plans/2026-03-21-grammar-extension-impl.md](plans/2026-03-21-grammar-extension-impl.md) — Lambda Grammar Extension Implementation Plan
-- [plans/2026-03-22-block-reparse-impl-design.md](plans/2026-03-22-block-reparse-impl-design.md) — Block Reparse Implementation Design
-- [plans/2026-03-22-block-reparse-impl.md](plans/2026-03-22-block-reparse-impl.md) — Block Reparse Implementation Plan
-- [plans/2026-03-22-json-parser-design.md](plans/2026-03-22-json-parser-design.md) — JSON Parser Design
-- [plans/2026-03-22-json-parser-impl.md](plans/2026-03-22-json-parser-impl.md) — JSON Parser Implementation Plan
-- [plans/2026-03-28-egglog-egraph-lambda-design.md](plans/2026-03-28-egglog-egraph-lambda-design.md) — Egglog Type Checker + Egraph Evaluator for Lambda Calculus
+_(none)_
 
 ## Development
 
@@ -92,6 +86,12 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-09-semantic-error-variants-impl.md](archive/completed-phases/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation (7 tasks)
 - [archive/completed-phases/2026-03-08-memoized-cst-fold.md](archive/completed-phases/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design
 - [archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md](archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation (15 tasks)
+- [archive/completed-phases/2026-03-21-grammar-extension-design.md](archive/completed-phases/2026-03-21-grammar-extension-design.md) — Lambda Grammar Extension design (ParamList, BlockExpr)
+- [archive/completed-phases/2026-03-21-grammar-extension-impl.md](archive/completed-phases/2026-03-21-grammar-extension-impl.md) — Lambda Grammar Extension implementation plan
+- [archive/completed-phases/2026-03-22-block-reparse-impl-design.md](archive/completed-phases/2026-03-22-block-reparse-impl-design.md) — Block Reparse design (O(block_size) incremental fast-path)
+- [archive/completed-phases/2026-03-22-block-reparse-impl.md](archive/completed-phases/2026-03-22-block-reparse-impl.md) — Block Reparse implementation plan
+- [archive/completed-phases/2026-03-22-json-parser-design.md](archive/completed-phases/2026-03-22-json-parser-design.md) — JSON Parser design
+- [archive/completed-phases/2026-03-22-json-parser-impl.md](archive/completed-phases/2026-03-22-json-parser-impl.md) — JSON Parser implementation plan
 - [archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md](archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md) — Egglog Lambda Type Checker (egglog relational DB, bidirectional typing, 13 rules)
 - [archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md](archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator (equality saturation, beta reduction, capture-avoiding substitution, constant folding)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
