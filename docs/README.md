@@ -69,8 +69,6 @@ Understanding how the layers fit together:
 - [plans/2026-03-22-json-parser-design.md](plans/2026-03-22-json-parser-design.md) — JSON Parser Design
 - [plans/2026-03-22-json-parser-impl.md](plans/2026-03-22-json-parser-impl.md) — JSON Parser Implementation Plan
 - [plans/2026-03-28-egglog-egraph-lambda-design.md](plans/2026-03-28-egglog-egraph-lambda-design.md) — Egglog Type Checker + Egraph Evaluator for Lambda Calculus
-- [plans/2026-03-28-egglog-lambda-typechecker-impl.md](plans/2026-03-28-egglog-lambda-typechecker-impl.md) — Egglog Lambda Type Checker Implementation Plan
-- [plans/2026-03-28-egraph-lambda-evaluator-impl.md](plans/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator Implementation Plan
 
 ## Development
 
@@ -94,4 +92,6 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-03-09-semantic-error-variants-impl.md](archive/completed-phases/2026-03-09-semantic-error-variants-impl.md) — `Term::Unbound` semantic error variant: implementation (7 tasks)
 - [archive/completed-phases/2026-03-08-memoized-cst-fold.md](archive/completed-phases/2026-03-08-memoized-cst-fold.md) — memoized CST fold: design
 - [archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md](archive/completed-phases/2026-03-08-memoized-cst-fold-impl.md) — memoized CST fold: implementation (15 tasks)
+- [archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md](archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md) — Egglog Lambda Type Checker (egglog relational DB, bidirectional typing, 13 rules)
+- [archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md](archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator (equality saturation, beta reduction, capture-avoiding substitution, constant folding)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
