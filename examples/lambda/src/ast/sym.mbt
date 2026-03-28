@@ -56,6 +56,59 @@ pub impl TermSym for Term with unbound(x) { Unbound(x) }
 pub impl TermSym for Term with error_term(msg) { Error(msg) }
 
 ///|
+/// Pretty-printing interpretation: replays a Term as its source text.
+/// pub(all) exposes the repr field for cross-package access.
+pub(all) struct Pretty {
+  repr : String
+}
+
+///|
+pub impl TermSym for Pretty with int_lit(n) { { repr: n.to_string() } }
+
+///|
+pub impl TermSym for Pretty with var(x) { { repr: x } }
+
+///|
+pub impl TermSym for Pretty with lam(x, body) {
+  { repr: "(λ\{x}. \{body.repr})" }
+}
+
+///|
+pub impl TermSym for Pretty with app(f, a) {
+  { repr: "(\{f.repr} \{a.repr})" }
+}
+
+///|
+pub impl TermSym for Pretty with bop(op, l, r) {
+  let sym = match op {
+    Plus => "+"
+    Minus => "-"
+  }
+  { repr: "(\{l.repr} \{sym} \{r.repr})" }
+}
+
+///|
+pub impl TermSym for Pretty with if_then_else(c, t, e) {
+  { repr: "if \{c.repr} then \{t.repr} else \{e.repr}" }
+}
+
+///|
+pub impl TermSym for Pretty with module(defs, body) {
+  let parts : Array[String] = defs.map(fn(d) { "let \{d.0} = \{d.1.repr}" })
+  parts.push(body.repr)
+  { repr: parts.join("\n") }
+}
+
+///|
+pub impl TermSym for Pretty with unit() { { repr: "()" } }
+
+///|
+pub impl TermSym for Pretty with unbound(x) { { repr: "<unbound: \{x}>" } }
+
+///|
+pub impl TermSym for Pretty with error_term(msg) { { repr: "<error: \{msg}>" } }
+
+///|
 /// Converts a concrete Term into any TermSym interpretation.
 /// This is the single site updated when a new Term variant is added.
 /// Callers use type ascription: (replay(term) : Pretty)
