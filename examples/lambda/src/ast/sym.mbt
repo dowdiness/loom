@@ -54,3 +54,25 @@ pub impl TermSym for Term with unbound(x) { Unbound(x) }
 
 ///|
 pub impl TermSym for Term with error_term(msg) { Error(msg) }
+
+///|
+/// Converts a concrete Term into any TermSym interpretation.
+/// This is the single site updated when a new Term variant is added.
+/// Callers use type ascription: (replay(term) : Pretty)
+pub fn[T : TermSym] replay(term : Term) -> T {
+  match term {
+    Int(n) => T::int_lit(n)
+    Var(x) => T::var(x)
+    Lam(x, body) => T::lam(x, replay(body))
+    App(f, a) => T::app(replay(f), replay(a))
+    Bop(op, l, r) => T::bop(op, replay(l), replay(r))
+    If(c, t, e) => T::if_then_else(replay(c), replay(t), replay(e))
+    Module(defs, body) => {
+      let mapped : Array[(String, T)] = defs.map(fn(d) { (d.0, replay(d.1)) })
+      T::module(mapped, replay(body))
+    }
+    Unit => T::unit()
+    Unbound(x) => T::unbound(x)
+    Error(msg) => T::error_term(msg)
+  }
+}
