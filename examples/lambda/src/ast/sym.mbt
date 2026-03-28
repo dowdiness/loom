@@ -11,6 +11,15 @@
 ///
 /// pub(open) is required so downstream packages (e-graph, type checker,
 /// future languages) can implement this trait without touching this file.
+///
+/// ## Why unbound and error_term are part of this trait
+///
+/// Terms always arrive from the parser, which may produce Unbound (a name
+/// that failed name resolution) or Error (a recovery node for a parse error).
+/// Including them here keeps replay total — every Term value is convertible
+/// to any interpretation without a partial match. Interpreters that only
+/// run on well-typed trees (e.g. an evaluator after type checking) can
+/// implement these two methods as abort().
 pub(open) trait TermSym {
   int_lit(Int) -> Self
   var(VarName) -> Self
@@ -20,7 +29,11 @@ pub(open) trait TermSym {
   if_then_else(Self, Self, Self) -> Self
   module(Array[(VarName, Self)], Self) -> Self
   unit() -> Self
+  /// Name that failed name resolution. Implement as abort() if you only
+  /// process well-resolved trees.
   unbound(VarName) -> Self
+  /// Parse-error recovery node. Implement as abort() if you only process
+  /// syntactically valid trees.
   error_term(String) -> Self
 }
 
