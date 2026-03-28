@@ -17,10 +17,10 @@ Guidance for Claude Code when working in this repository.
 Each module is self-contained. Run `moon` from the module's directory:
 
 ```bash
-cd loom && moon check && moon test    # 88 tests (framework only)
-cd seam && moon check && moon test    # 99 tests
-cd incr && moon check && moon test    # 194 tests
-cd examples/lambda && moon check && moon test   # 311 tests
+cd loom && moon check && moon test    # 126 tests (framework only)
+cd seam && moon check && moon test    # 351 tests
+cd incr && moon check && moon test    # 508 tests
+cd examples/lambda && moon check && moon test   # 405 tests
 ```
 
 Before every commit (in the module you edited):

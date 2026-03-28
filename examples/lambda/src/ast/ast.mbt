@@ -35,30 +35,7 @@ pub(all) enum Term {
 
 ///|
 pub fn print_term(term : Term) -> String {
-  fn go(t : Term) -> String {
-    match t {
-      Int(i) => i.to_string()
-      Var(x) => x
-      Lam(x, t) => "(λ" + x + ". " + go(t) + ")"
-      App(t1, t2) => "(" + go(t1) + " " + go(t2) + ")"
-      Bop(Plus, t1, t2) => "(" + go(t1) + " + " + go(t2) + ")"
-      Bop(Minus, t1, t2) => "(" + go(t1) + " - " + go(t2) + ")"
-      If(t1, t2, t3) => "if " + go(t1) + " then " + go(t2) + " else " + go(t3)
-      Module(defs, body) => {
-        let parts : Array[String] = []
-        for def in defs {
-          parts.push("let " + def.0 + " = " + go(def.1))
-        }
-        parts.push(go(body))
-        parts.join("\n")
-      }
-      Unit => "()"
-      Unbound(x) => "<unbound: " + x + ">"
-      Error(msg) => "<error: " + msg + ">"
-    }
-  }
-
-  go(term)
+  (replay(term) : Pretty).repr
 }
 
 ///|
