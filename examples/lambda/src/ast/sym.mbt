@@ -26,34 +26,54 @@ pub(open) trait TermSym {
 
 ///|
 /// Term is the identity interpretation: constructing via TermSym returns Term.
-pub impl TermSym for Term with int_lit(n) { Int(n) }
+pub impl TermSym for Term with int_lit(n) {
+  Int(n)
+}
 
 ///|
-pub impl TermSym for Term with var(x) { Var(x) }
+pub impl TermSym for Term with var(x) {
+  Var(x)
+}
 
 ///|
-pub impl TermSym for Term with lam(x, body) { Lam(x, body) }
+pub impl TermSym for Term with lam(x, body) {
+  Lam(x, body)
+}
 
 ///|
-pub impl TermSym for Term with app(f, a) { App(f, a) }
+pub impl TermSym for Term with app(f, a) {
+  App(f, a)
+}
 
 ///|
-pub impl TermSym for Term with bop(op, l, r) { Bop(op, l, r) }
+pub impl TermSym for Term with bop(op, l, r) {
+  Bop(op, l, r)
+}
 
 ///|
-pub impl TermSym for Term with if_then_else(c, t, e) { If(c, t, e) }
+pub impl TermSym for Term with if_then_else(c, t, e) {
+  If(c, t, e)
+}
 
 ///|
-pub impl TermSym for Term with module(defs, body) { Module(defs, body) }
+pub impl TermSym for Term with module(defs, body) {
+  Module(defs, body)
+}
 
 ///|
-pub impl TermSym for Term with unit() { Unit }
+pub impl TermSym for Term with unit() {
+  Unit
+}
 
 ///|
-pub impl TermSym for Term with unbound(x) { Unbound(x) }
+pub impl TermSym for Term with unbound(x) {
+  Unbound(x)
+}
 
 ///|
-pub impl TermSym for Term with error_term(msg) { Error(msg) }
+pub impl TermSym for Term with error_term(msg) {
+  Error(msg)
+}
 
 ///|
 /// Pretty-printing interpretation: replays a Term as its source text.
@@ -63,10 +83,14 @@ pub(all) struct Pretty {
 }
 
 ///|
-pub impl TermSym for Pretty with int_lit(n) { { repr: n.to_string() } }
+pub impl TermSym for Pretty with int_lit(n) {
+  { repr: n.to_string() }
+}
 
 ///|
-pub impl TermSym for Pretty with var(x) { { repr: x } }
+pub impl TermSym for Pretty with var(x) {
+  { repr: x }
+}
 
 ///|
 pub impl TermSym for Pretty with lam(x, body) {
@@ -100,13 +124,19 @@ pub impl TermSym for Pretty with module(defs, body) {
 }
 
 ///|
-pub impl TermSym for Pretty with unit() { { repr: "()" } }
+pub impl TermSym for Pretty with unit() {
+  { repr: "()" }
+}
 
 ///|
-pub impl TermSym for Pretty with unbound(x) { { repr: "<unbound: \{x}>" } }
+pub impl TermSym for Pretty with unbound(x) {
+  { repr: "<unbound: \{x}>" }
+}
 
 ///|
-pub impl TermSym for Pretty with error_term(msg) { { repr: "<error: \{msg}>" } }
+pub impl TermSym for Pretty with error_term(msg) {
+  { repr: "<error: \{msg}>" }
+}
 
 ///|
 /// Converts a concrete Term into any TermSym interpretation.

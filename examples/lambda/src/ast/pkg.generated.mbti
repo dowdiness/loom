@@ -9,6 +9,8 @@ import {
 // Values
 pub fn print_term(Term) -> String
 
+pub fn[T : TermSym] replay(Term) -> T
+
 // Errors
 
 // Types and methods
@@ -22,6 +24,11 @@ pub impl ToJson for Bop
 pub impl @debug.Debug for Bop
 pub impl @json.FromJson for Bop
 
+pub(all) struct Pretty {
+  repr : String
+}
+pub impl TermSym for Pretty
+
 pub(all) enum Term {
   Int(Int)
   Var(String)
@@ -34,6 +41,7 @@ pub(all) enum Term {
   Unbound(String)
   Error(String)
 }
+pub impl TermSym for Term
 pub impl Eq for Term
 pub impl Show for Term
 pub impl ToJson for Term
@@ -43,4 +51,16 @@ pub impl @debug.Debug for Term
 pub type VarName = String
 
 // Traits
+pub(open) trait TermSym {
+  int_lit(Int) -> Self
+  var(String) -> Self
+  lam(String, Self) -> Self
+  app(Self, Self) -> Self
+  bop(Bop, Self, Self) -> Self
+  if_then_else(Self, Self, Self) -> Self
+  module(Array[(String, Self)], Self) -> Self
+  unit() -> Self
+  unbound(String) -> Self
+  error_term(String) -> Self
+}
 

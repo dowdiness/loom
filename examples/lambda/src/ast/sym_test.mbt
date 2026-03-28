@@ -34,7 +34,11 @@ test "replay: Term roundtrip all variants" {
 
 ///|
 test "replay: Pretty and Term from same source" {
-  let term = @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Int(1), @ast.Term::Int(2))
+  let term = @ast.Term::Bop(
+    @ast.Bop::Plus,
+    @ast.Term::Int(1),
+    @ast.Term::Int(2),
+  )
   inspect((@ast.replay(term) : @ast.Pretty).repr, content="(1 + 2)")
   inspect((@ast.replay(term) : @ast.Term), content="Bop(Plus, Int(1), Int(2))")
 }
