@@ -282,3 +282,15 @@ pub trait Editable {
   new_len(Self) -> Int
 }
 
+pub(open) trait Renderable {
+  kind_tag(Self) -> String
+  label(Self) -> String
+  placeholder(Self) -> String
+  unparse(Self) -> String
+}
+
+pub(open) trait TreeNode {
+  children(Self) -> Array[Self]
+  same_kind(Self, Self) -> Bool
+}
+
