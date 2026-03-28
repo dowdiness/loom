@@ -71,7 +71,7 @@ fn find_head_edit_pos(_source : String) -> Int {
 /// For n defs, the middle block is at index (n/2) rounded to nearest %5==0.
 fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
   // Sum up lengths of defs before the target
-  let target_idx = (n / 2 / 5) * 5 // nearest block def (i%5==0)
+  let target_idx = n / 2 / 5 * 5 // nearest block def (i%5==0)
   let mut pos = 0
   for i = 0; i < target_idx; i = i + 1 {
     pos = pos + ("let " + make_realistic_def(i) + "\n").length()

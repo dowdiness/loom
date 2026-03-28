@@ -50,9 +50,12 @@ test "block reparse: edit touching closing brace falls through" {
   // ASTs should still match (both handle incomplete block)
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
   // Block reparse should NOT have been used (edit touches brace)
-  inspect(parser.get_last_reuse_count() != 1, content=(
-    #|false
-  ))
+  inspect(
+    parser.get_last_reuse_count() != 1,
+    content=(
+      #|false
+    ),
+  )
 }
 
 // ============================================================================
@@ -103,9 +106,12 @@ test "block reparse: no block falls through to normal incremental" {
 
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
   // No block → block reparse cannot fire → reuse_count != 1
-  inspect(parser.get_last_reuse_count() != 1, content=(
-    #|false
-  ))
+  inspect(
+    parser.get_last_reuse_count() != 1,
+    content=(
+      #|false
+    ),
+  )
 }
 
 // ============================================================================
@@ -196,7 +202,10 @@ test "block reparse: sequential edits — block then non-block" {
   let (full2, _) = parse_term(source3) catch { _ => abort("lex error") }
   inspect(@ast.print_term(incr2), content=@ast.print_term(full2))
   // Second edit is outside block, so block reparse should NOT fire
-  inspect(parser.get_last_reuse_count() != 1, content=(
-    #|false
-  ))
+  inspect(
+    parser.get_last_reuse_count() != 1,
+    content=(
+      #|false
+    ),
+  )
 }
