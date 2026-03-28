@@ -1,7 +1,7 @@
 # Roadmap: Lambda Calculus Example (`examples/lambda`)
 
-**Updated:** 2026-03-05
-**Status:** Active — Grammar Expansion complete; next: Type Annotations
+**Updated:** 2026-03-28
+**Status:** Active — Finally Tagless layer added; next: Type Annotations
 **Goal:** A full-featured lambda calculus parser built on `dowdiness/loom` — the reference implementation for plugging a language into the framework, and the test bed for CRDT integration.
 
 > Parser framework roadmap: [ROADMAP.md](../../ROADMAP.md)
@@ -19,6 +19,7 @@
 | `let x = e in body` bindings | ✅ Complete (2026-02-28) |
 | `Term::Error(String)` variant | ✅ Complete (2026-03-05) |
 | Multi-expression files | ✅ Complete (2026-03-05) |
+| Finally Tagless layer (`TermSym`, `replay`, `Pretty`) | ✅ Complete (2026-03-28) |
 | Type annotations | Planned |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT integration | ✅ Complete (2026-03-03) |
