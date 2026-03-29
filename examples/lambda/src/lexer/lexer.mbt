@@ -167,6 +167,11 @@ fn step_lex(
         @core.TokenInfo::new(@token.Semicolon, 1),
         next_offset=pos + 1,
       )
+    Some('_') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Hole, 1),
+        next_offset=pos + 1,
+      )
     Some(c) if is_alphabet(c.to_int()) => {
       let (new_pos, identifier) = read_identifier(input, pos, "")
       let token = match identifier {

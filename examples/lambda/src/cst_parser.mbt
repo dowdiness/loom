@@ -11,6 +11,7 @@ fn token_starts_expression(token : @token.Token) -> Bool {
     | @token.LeftParen
     | @token.LBrace
     | @token.Lambda
+    | @token.Hole
     | @token.Identifier(_)
     | @token.Integer(_) => true
     _ => false
@@ -404,6 +405,8 @@ fn parse_atom(
         },
         is_sync_point,
       )
+    @token.Hole =>
+      ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
     @token.LBrace => parse_block_expr(ctx)
     @token.LeftParen =>
       ctx.node(@syntax.ParenExpr, () => {
