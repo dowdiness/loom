@@ -29,6 +29,8 @@ pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[Token]], @cor
 
 pub fn parse_json(String) -> (JsonValue, Array[@core.Diagnostic[Token]]) raise @core.LexError
 
+pub fn parse_json_string(String) -> String
+
 pub fn parse_object(@core.ParserContext[Token, SyntaxKind]) -> Unit
 
 pub fn print_token(Token) -> String
@@ -56,6 +58,8 @@ pub(all) enum JsonValue {
   Object(Array[(String, JsonValue)])
   Error(String)
 }
+pub impl @core.Renderable for JsonValue
+pub impl @core.TreeNode for JsonValue
 pub impl Eq for JsonValue
 pub impl Show for JsonValue
 pub impl @debug.Debug for JsonValue
