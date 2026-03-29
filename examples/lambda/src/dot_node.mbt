@@ -30,6 +30,7 @@ impl @viz.DotNode for TermDotNode with label(self) {
     @ast.Term::Unit => "Unit"
     @ast.Term::Unbound(x) => "Unbound(" + x + ")"
     @ast.Term::Error(msg) => "Error(" + msg + ")"
+    @ast.Term::Hole(n) => "Hole(" + n.to_string() + ")"
   }
 }
 

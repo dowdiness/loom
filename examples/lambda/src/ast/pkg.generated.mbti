@@ -41,6 +41,7 @@ pub(all) enum Term {
   Unit
   Unbound(String)
   Error(String)
+  Hole(Int)
 }
 pub impl TermSym for Term
 pub impl @core.Renderable for Term
@@ -65,5 +66,6 @@ pub(open) trait TermSym {
   unit() -> Self
   unbound(String) -> Self
   error_term(String) -> Self
+  hole(Int) -> Self
 }
 

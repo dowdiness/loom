@@ -34,6 +34,7 @@ pub impl @loomcore.TreeNode for Term with same_kind(self, other) {
     (Unit, Unit) => true
     (Error(_), Error(_)) => true
     (Unbound(_), Unbound(_)) => true
+    (Hole(_), Hole(_)) => true
     _ => false
   }
 }
@@ -51,6 +52,7 @@ pub impl @loomcore.Renderable for Term with kind_tag(self) {
     Unit => "Unit"
     Unbound(_) => "Unbound"
     Error(_) => "Error"
+    Hole(_) => "Hole"
   }
 }
 
@@ -70,6 +72,7 @@ pub impl @loomcore.Renderable for Term with label(self) {
     Unit => "()"
     Unbound(name) => "?" + name
     Error(msg) => "Error: " + msg
+    Hole(_) => "_"
   }
 }
 
@@ -87,6 +90,7 @@ pub impl @loomcore.Renderable for Term with placeholder(self) {
     Unit => "()"
     Unbound(_) => "x"
     Error(_) => "?"
+    Hole(_) => "_"
   }
 }
 
