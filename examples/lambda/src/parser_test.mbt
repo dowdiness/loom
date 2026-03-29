@@ -584,6 +584,18 @@ test "parse hole in expression" {
 }
 
 ///|
+test "parse hole as application argument" {
+  let result = parse("f _") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="App(Var(\"f\"), Hole(0))")
+}
+
+///|
+test "parse hole as application function" {
+  let result = parse("_ 1") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="App(Hole(0), Int(1))")
+}
+
+///|
 test "print_term Hole outputs underscore" {
   inspect(@ast.print_term(@ast.Term::Hole(42)), content="_")
 }
