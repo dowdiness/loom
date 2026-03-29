@@ -2,7 +2,7 @@
 
 ///|
 /// Parse JSON string escapes from raw token text (includes quotes).
-fn parse_json_string(raw : String) -> String {
+pub fn parse_json_string(raw : String) -> String {
   // Strip surrounding quotes
   if raw.length() < 2 {
     return raw
