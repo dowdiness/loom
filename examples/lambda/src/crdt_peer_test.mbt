@@ -121,7 +121,7 @@ test "tree_diff confirms incremental parse matches full reparse after sync" {
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)
   // Full reparse of final text using parse (public API) — both return Term now
-  let full_term = parse(peer.text) catch { _ => abort("parse failed") }
+  let full_term = try! parse(peer.text)
   let incremental_term = peer.parser.get_tree().unwrap()
   inspect(incremental_term == full_term, content="true")
 }

@@ -1,6 +1,16 @@
 // Tests for Lambda Calculus Parser
 // Based on ReScript Parser_test.res implementation
 
+fn parse_or_fail(source : String) -> @ast.Term raise {
+  parse(source) catch { _ => fail("parse failed: " + source) }
+}
+
+fn parse_cst_or_fail_parser(
+  source : String,
+) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise {
+  parse_cst(source) catch { _ => fail("lex error on " + source) }
+}
+
 // ===== Parser Tests =====
 
 ///|
@@ -289,7 +299,7 @@ test "parse complex expression with all features" {
 
 ///|
 test "parse let expression" {
-  let expr = parse("let x = 1\nx") catch { _ => abort("parse failed") }
+  let expr = parse_or_fail("let x = 1\nx")
   inspect(
     @ast.print_term(expr),
     content=(
@@ -301,7 +311,7 @@ test "parse let expression" {
 
 ///|
 test "parse let with binary op in body" {
-  let expr = parse("let x = 3\nx + 1") catch { _ => abort("parse failed") }
+  let expr = parse_or_fail("let x = 3\nx + 1")
   inspect(
     @ast.print_term(expr),
     content=(
@@ -313,9 +323,7 @@ test "parse let with binary op in body" {
 
 ///|
 test "parse nested let" {
-  let expr = parse("let x = 1\nlet y = 2\nx + y") catch {
-    _ => abort("parse failed")
-  }
+  let expr = parse_or_fail("let x = 1\nlet y = 2\nx + y")
   inspect(
     @ast.print_term(expr),
     content=(
@@ -328,7 +336,7 @@ test "parse nested let" {
 
 ///|
 test "parse let with lambda" {
-  let expr = parse("let f = λx.x\nf 42") catch { _ => abort("parse failed") }
+  let expr = parse_or_fail("let f = λx.x\nf 42")
   inspect(
     @ast.print_term(expr),
     content=(
@@ -456,9 +464,7 @@ test "parse_term: empty file" {
 
 ///|
 test "desugar let with params to nested lam" {
-  let (cst, _) = parse_cst("let f(x, y) = x + y\nf 1 2") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("let f(x, y) = x + y\nf 1 2")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -468,7 +474,7 @@ test "desugar let with params to nested lam" {
 
 ///|
 test "desugar let without params unchanged" {
-  let (cst, _) = parse_cst("let x = 42\nx") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst_or_fail_parser("let x = 42\nx")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   inspect(term, content="Module([(\"x\", Int(42))], Var(\"x\"))")
@@ -478,9 +484,7 @@ test "desugar let without params unchanged" {
 
 ///|
 test "desugar block expr" {
-  let (cst, _) = parse_cst("{ let a = 1; a + 1 }") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("{ let a = 1; a + 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   inspect(
@@ -491,7 +495,7 @@ test "desugar block expr" {
 
 ///|
 test "desugar block expr only" {
-  let (cst, _) = parse_cst("{ 42 }") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst_or_fail_parser("{ 42 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   inspect(term, content="Module([], Int(42))")
@@ -499,7 +503,7 @@ test "desugar block expr only" {
 
 ///|
 test "desugar defs-only block" {
-  let (cst, _) = parse_cst("{ let a = 1 }") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst_or_fail_parser("{ let a = 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   inspect(term, content="Module([(\"a\", Int(1))], Unit)")
@@ -507,9 +511,7 @@ test "desugar defs-only block" {
 
 ///|
 test "desugar params plus block" {
-  let (cst, _) = parse_cst("let f(x) = { let y = x + 1; y }") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("let f(x) = { let y = x + 1; y }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -520,7 +522,7 @@ test "desugar params plus block" {
 
 ///|
 test "parse nested blocks" {
-  let (cst, _) = parse_cst("{ { 1 } }") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst_or_fail_parser("{ { 1 } }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   inspect(term, content="Module([], Module([], Int(1)))")
@@ -528,9 +530,7 @@ test "parse nested blocks" {
 
 ///|
 test "parse blocks in if-then-else" {
-  let (cst, _) = parse_cst("if x then { let a = 1; a } else { 0 }") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("if x then { let a = 1; a } else { 0 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -539,9 +539,7 @@ test "parse blocks in if-then-else" {
 
 ///|
 test "parse param list with block body" {
-  let (cst, _) = parse_cst("let compute(x, y) = {\n  let sum = x + y\n  sum\n}") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("let compute(x, y) = {\n  let sum = x + y\n  sum\n}")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -551,9 +549,7 @@ test "parse param list with block body" {
 
 ///|
 test "block as application argument" {
-  let (cst, _) = parse_cst("double { let x = 3; x + 1 }") catch {
-    _ => abort("lex error")
-  }
+  let (cst, _) = parse_cst_or_fail_parser("double { let x = 3; x + 1 }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -563,8 +559,8 @@ test "block as application argument" {
 ///|
 test "roundtrip: param list preserves structure" {
   let source = "let f(x, y) = x + y\nf 1 2"
-  let expr1 = parse(source) catch { _ => abort("parse error") }
+  let expr1 = parse_or_fail(source)
   let printed = @ast.print_term(expr1)
-  let expr2 = parse(printed) catch { _ => abort("reparse error") }
+  let expr2 = parse_or_fail(printed)
   inspect(@ast.print_term(expr1), content=@ast.print_term(expr2))
 }
