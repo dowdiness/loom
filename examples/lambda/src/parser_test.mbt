@@ -568,3 +568,34 @@ test "roundtrip: param list preserves structure" {
   let expr2 = parse(printed) catch { _ => abort("reparse error") }
   inspect(@ast.print_term(expr1), content=@ast.print_term(expr2))
 }
+
+// ===== Hole Tests =====
+
+///|
+test "parse underscore as Hole" {
+  let result = parse("_") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="Hole(0)")
+}
+
+///|
+test "parse hole in expression" {
+  let result = parse("(λx. _)") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="Lam(\"x\", Hole(0))")
+}
+
+///|
+test "parse hole as application argument" {
+  let result = parse("f _") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="App(Var(\"f\"), Hole(0))")
+}
+
+///|
+test "parse hole as application function" {
+  let result = parse("_ 1") catch { _ => @ast.Term::Error("parse failed") }
+  inspect(result, content="App(Hole(0), Int(1))")
+}
+
+///|
+test "print_term Hole outputs underscore" {
+  inspect(@ast.print_term(@ast.Term::Hole(42)), content="_")
+}

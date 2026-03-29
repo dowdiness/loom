@@ -16,6 +16,7 @@ pub(all) enum Token {
   RBrace // }
   Comma // ,
   Semicolon // ;
+  Hole // _ (typed hole placeholder)
   Identifier(String) // variable names
   Integer(Int) // integer literals
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
@@ -44,6 +45,7 @@ pub impl Show for Token with output(self, logger) {
       RBrace => "}"
       Comma => ","
       Semicolon => ";"
+      Hole => "_"
       Identifier(name) => name
       Integer(n) => n.to_string()
       Whitespace => "whitespace"

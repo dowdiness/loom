@@ -11,6 +11,7 @@ fn token_starts_expression(token : @token.Token) -> Bool {
     | @token.LeftParen
     | @token.LBrace
     | @token.Lambda
+    | @token.Hole
     | @token.Identifier(_)
     | @token.Integer(_) => true
     _ => false
@@ -32,7 +33,8 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
     | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
-    | @token.Lambda => true
+    | @token.Lambda
+    | @token.Hole => true
     _ => false
   }
 }
@@ -292,7 +294,8 @@ fn parse_application(
     | @token.LBrace
     | @token.Identifier(_)
     | @token.Integer(_)
-    | @token.Lambda =>
+    | @token.Lambda
+    | @token.Hole =>
       ctx.wrap_at(mark, @syntax.AppExpr, fn() {
         while ctx.error_count < MAX_ERRORS {
           if allow_newline_application {
@@ -303,7 +306,8 @@ fn parse_application(
             | @token.LBrace
             | @token.Identifier(_)
             | @token.Integer(_)
-            | @token.Lambda => parse_atom(ctx, allow_newline_application)
+            | @token.Lambda
+            | @token.Hole => parse_atom(ctx, allow_newline_application)
             _ => break
           }
         }
@@ -404,6 +408,8 @@ fn parse_atom(
         },
         is_sync_point,
       )
+    @token.Hole =>
+      ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
     @token.LBrace => parse_block_expr(ctx)
     @token.LeftParen =>
       ctx.node(@syntax.ParenExpr, () => {

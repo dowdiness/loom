@@ -35,6 +35,9 @@ pub(open) trait TermSym {
   /// Parse-error recovery node. Implement as abort() if you only process
   /// syntactically valid trees.
   error_term(String) -> Self
+  /// Typed hole placeholder. Implement as abort() if you only process
+  /// complete programs.
+  hole(Int) -> Self
 }
 
 ///|
@@ -86,6 +89,11 @@ pub impl TermSym for Term with unbound(x) {
 ///|
 pub impl TermSym for Term with error_term(msg) {
   Error(msg)
+}
+
+///|
+pub impl TermSym for Term with hole(n) {
+  Hole(n)
 }
 
 ///|
@@ -152,6 +160,11 @@ pub impl TermSym for Pretty with error_term(msg) {
 }
 
 ///|
+pub impl TermSym for Pretty with hole(_n) {
+  { repr: "_" }
+}
+
+///|
 /// Converts a concrete Term into any TermSym interpretation.
 /// This is the single site updated when a new Term variant is added.
 /// Callers use type ascription: (replay(term) : Pretty)
@@ -170,5 +183,6 @@ pub fn[T : TermSym] replay(term : Term) -> T {
     Unit => T::unit()
     Unbound(x) => T::unbound(x)
     Error(msg) => T::error_term(msg)
+    Hole(n) => T::hole(n)
   }
 }

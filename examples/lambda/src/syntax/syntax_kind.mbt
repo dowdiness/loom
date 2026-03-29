@@ -33,6 +33,8 @@ pub(all) enum SyntaxKind {
   SemicolonToken // ;
   ParamList // ( Ident , Ident , ... )
   BlockExpr // { LetDef* Expression? }
+  HoleToken // _
+  HoleLiteral // _ (hole expression node)
 } derive(Show, Eq)
 
 ///|
@@ -58,7 +60,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | LBraceToken
     | RBraceToken
     | CommaToken
-    | SemicolonToken => true
+    | SemicolonToken
+    | HoleToken => true
     _ => false
   }
 }
@@ -99,6 +102,8 @@ pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
     SemicolonToken => 32
     ParamList => 33
     BlockExpr => 34
+    HoleToken => 35
+    HoleLiteral => 36
   }
   @seam.RawKind(n)
 }
@@ -140,6 +145,8 @@ pub impl @seam.FromRawKind for SyntaxKind with from_raw(raw) {
     32 => SemicolonToken
     33 => ParamList
     34 => BlockExpr
+    35 => HoleToken
+    36 => HoleLiteral
     _ => ErrorNode
   }
 }

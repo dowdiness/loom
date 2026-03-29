@@ -26,6 +26,7 @@ test "replay: Term roundtrip all variants" {
     @ast.Term::Unit,
     @ast.Term::Unbound("y"),
     @ast.Term::Error("oops"),
+    @ast.Term::Hole(0),
   ]
   for term in terms {
     inspect((@ast.replay(term) : @ast.Term) == term, content="true")

@@ -31,6 +31,8 @@ pub(all) enum Term {
   Unbound(VarName)
   // Error term for malformed/missing nodes
   Error(String)
+  // Hole — placeholder for deleted or incomplete nodes
+  Hole(Int)
 } derive(Show, Eq, ToJson, Debug)
 
 ///|

@@ -154,6 +154,7 @@ fn fold_node_inner(
         @ast.Term::Module(defs, final_term)
       }
     }
+    @syntax.HoleLiteral => @ast.Term::Hole(0)
     @syntax.ErrorNode => @ast.Term::Error("ErrorNode")
     _ =>
       @ast.Term::Error(
