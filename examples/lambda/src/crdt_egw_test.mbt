@@ -1,5 +1,5 @@
 // event-graph-walker integration demo.
-// EgwPeer wraps a TextDoc (real CRDT) + ImperativeParser.
+// EgwPeer wraps a TextState (real CRDT) + ImperativeParser.
 // local_insert() drives both the CRDT doc and the incremental parser.
 // bridge_sync() receives a SyncMessage, converts the resulting text change
 // to a TextDelta via text_to_delta, then drives the incremental parser.
@@ -45,13 +45,13 @@ fn drive_parser_update(
 
 ///|
 struct EgwPeer {
-  doc : @egw.TextDoc
+  doc : @egw.TextState
   parser : @incremental.ImperativeParser[@ast.Term]
 }
 
 ///|
 fn EgwPeer::new(agent_id : String) -> EgwPeer {
-  let doc = @egw.TextDoc::new(agent_id)
+  let doc = @egw.TextState::new(agent_id)
   let parser = new_imperative_parser("")
   let _ = parser.parse()
   { doc, parser }
