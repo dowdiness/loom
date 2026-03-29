@@ -20,6 +20,7 @@ fn syntax_kind_to_token_kind(kind : @seam.RawKind) -> @token.Token? {
     @syntax.RBraceToken => Some(@token.RBrace)
     @syntax.CommaToken => Some(@token.Comma)
     @syntax.SemicolonToken => Some(@token.Semicolon)
+    @syntax.HoleToken => Some(@token.Hole)
     _ => None
   }
 }
