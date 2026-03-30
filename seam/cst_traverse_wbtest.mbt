@@ -262,6 +262,48 @@ test "map: trivia_kind excludes whitespace from token_count" {
 }
 
 ///|
+test "fold: empty node returns empty" {
+  let node = CstNode::new(RawKind(20), [])
+  let result = CstElement::Node(node).fold(_token => 1, (a, b) => a + b, 0)
+  inspect(result, content="0")
+}
+
+///|
+test "transform_fold: empty node returns init" {
+  let node = CstNode::new(RawKind(20), [])
+  let result = CstElement::Node(node).transform_fold(_token => 1, _kind => 42, (
+    _kind,
+    acc,
+    child,
+  ) => acc + child)
+  inspect(result, content="42")
+}
+
+///|
+test "transform: empty node" {
+  let node = CstNode::new(RawKind(20), [])
+  let result : Int = CstElement::Node(node).transform(_token => 1, (
+    _kind,
+    children,
+  ) => {
+    let mut sum = 1
+    for child in children {
+      sum = sum + child
+    }
+    sum
+  })
+  // Just the branch itself, no children
+  inspect(result, content="1")
+}
+
+///|
+test "find: empty node no match" {
+  let node = CstNode::new(RawKind(20), [])
+  let found = CstElement::Node(node).find(NumberFinder::{ kind: RawKind(10) })
+  inspect(found is None, content="true")
+}
+
+///|
 struct NumberFinder {
   kind : RawKind
 }

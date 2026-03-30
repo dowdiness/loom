@@ -135,6 +135,12 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 /// `token_count` and `has_any_error` metadata on reconstructed nodes.
 /// Without these, `token_count` counts all leaf tokens (including trivia)
 /// and `has_any_error` defaults to `false` at each reconstructed node.
+///
+/// **Caveat:** If `f` returns a pre-existing subtree (not rebuilt by this
+/// traversal), its cached metadata may reflect different classification
+/// assumptions. `CstNode::new` trusts child `token_count`/`has_any_error`
+/// without re-deriving from leaves, so mixing trees built under different
+/// `trivia_kind`/`error_kind` rules produces inconsistent metadata.
 pub fn CstElement::map(
   self : CstElement,
   f : (CstElement) -> CstElement,
