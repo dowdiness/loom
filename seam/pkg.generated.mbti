@@ -30,7 +30,7 @@ pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
 pub fn CstElement::iter(Self) -> Iter[Self]
 pub fn CstElement::kind(Self) -> RawKind
-pub fn CstElement::map(Self, (Self) -> Self) -> Self
+pub fn CstElement::map(Self, (Self) -> Self, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
 pub fn CstElement::text_len(Self) -> Int
 pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R) -> R
 pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (RawKind, R, R) -> R) -> R

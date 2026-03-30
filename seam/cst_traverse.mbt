@@ -107,6 +107,7 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
     if stack.is_empty() {
       return None
     }
+    // Safety: is_empty() check above guarantees stack is non-empty
     let current = stack.unsafe_pop()
     match current {
       Node(node) => {
@@ -129,18 +130,38 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 /// Children are recursively mapped first, then `f` is applied to the
 /// reconstructed element. For `Node` elements, a new `CstNode` is built
 /// with `CstNode::new` to ensure metadata consistency.
+///
+/// Pass `trivia_kind`, `error_kind`, `incomplete_kind` for accurate
+/// `token_count` and `has_any_error` metadata on reconstructed nodes.
+/// Without these, `token_count` counts all leaf tokens and `has_any_error`
+/// is only set for nodes whose kind matches `error_kind`.
 pub fn CstElement::map(
   self : CstElement,
   f : (CstElement) -> CstElement,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
 ) -> CstElement {
   match self {
     Token(_) => f(self)
     Node(node) => {
       let new_children = Array::new(capacity=node.children.length())
       for child in node.children {
-        new_children.push(child.map(f))
+        new_children.push(
+          child.map(f, trivia_kind~, error_kind~, incomplete_kind~),
+        )
       }
-      f(CstElement::Node(CstNode::new(node.kind, new_children)))
+      f(
+        CstElement::Node(
+          CstNode::new(
+            node.kind,
+            new_children,
+            trivia_kind~,
+            error_kind~,
+            incomplete_kind~,
+          ),
+        ),
+      )
     }
   }
 }
