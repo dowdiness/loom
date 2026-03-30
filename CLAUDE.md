@@ -2,15 +2,7 @@
 
 Guidance for Claude Code when working in this repository.
 
-## MoonBit Language Notes
-
-- `pub` vs `pub(all)` visibility modifiers have different semantics — check current docs before using
-- `._` syntax is deprecated, use `.0` for tuple access
-- `try?` does not catch `abort` — use explicit error handling
-- `?` operator is not always supported — use explicit match/error handling when it fails
-- `ref` is a reserved keyword — do not use as variable/field names
-- Blackbox tests cannot construct internal structs — use whitebox tests or expose constructors
-- For cross-target builds, use per-file conditional compilation rather than `supported-targets` in moon.pkg.json
+@~/.claude/moonbit-base.md
 
 ## Commands
 
@@ -21,6 +13,8 @@ cd loom && moon check && moon test    # 126 tests (framework only)
 cd seam && moon check && moon test    # 351 tests
 cd incr && moon check && moon test    # 508 tests
 cd examples/lambda && moon check && moon test   # 405 tests
+cd examples/json && moon check && moon test     # JSON parser
+cd cst-transform && moon check && moon test     # CST transform research
 ```
 
 Before every commit (in the module you edited):
@@ -36,6 +30,7 @@ bash check-docs.sh
 Benchmarks (always `--release`):
 ```bash
 cd examples/lambda && moon bench --release
+cd cst-transform && moon bench --release
 ```
 
 Run a single package or file:
@@ -65,7 +60,11 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 **`dowdiness/seam`** (`seam/`) — language-agnostic CST (`CstNode`, `SyntaxNode`)
 
-**`dowdiness/incr`** (`incr/`) — reactive signals (`Signal`, `Memo`)
+**`dowdiness/incr`** (`incr/`) — reactive signals (`Signal`, `Memo`) [submodule]
+
+**`dowdiness/cst-transform`** (`cst-transform/`) — research: CST traversal traits + closure methods
+
+**`dowdiness/json`** (`examples/json/`) — JSON parser example (deps: loom, seam)
 
 **`dowdiness/lambda`** (`examples/lambda/`) — lambda calculus parser example:
 
@@ -125,39 +124,6 @@ Full architecture: `docs/architecture/` | Design decisions: `docs/decisions/`
 
 3. **Top-level docs stay slim.** `README.md` and `ROADMAP.md` are summaries with links,
    not detail documents. Extract any section >20 lines into a sub-doc and link to it.
-
-## MoonBit Conventions
-
-- Tests: `///|` doc-comment prefix + `test "name" { ... }` blocks
-- Assertions: `inspect(expr, content="expected")`
-- Panic tests: name starts with `"panic "` — test runner expects `abort()`
-- Whitebox tests (`*_wbtest.mbt`): same package, access private fields
-- Anonymous callbacks: `() => expr`, `() => { stmts }`, `x => expr`. Empty body: `() => ()` not `() => {}`
-- Trait impl: one `pub impl Trait for Type with method(self) { ... }` per method
-- Orphan rule (error 4061): can't impl foreign trait for foreign type — use a private newtype wrapper
-
-## Code Review Standards
-
-- Never dismiss a review request — always do a thorough line-by-line review even if changes seem minor
-- Check for: integer overflow, zero/negative inputs, boundary validation, generation wrap-around
-- Do not suggest deleting public API types (Id structs, etc.) as 'unused' — they may be needed by downstream consumers
-- Verify method names match actual API before writing tests (e.g., check if it's `insert` vs `add_local_op`)
-
-## Development Workflow
-
-1. Make edits
-2. `moon check` — Lint
-3. `moon test` — Run tests
-4. `moon test --update` — Update snapshots (if behavior changed)
-5. `moon info` — Update `.mbti` interfaces
-6. Check `git diff *.mbti` — Verify API changes
-7. `moon fmt` — Format
-
-## Git Workflow
-
-- Always check if git is initialized before running git commands
-- After rebase operations, verify files are in the correct directories
-- When asked to 'commit remaining files', interpret generously even if phrasing is unclear
 
 ## Key Design Decisions
 

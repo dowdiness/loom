@@ -6,8 +6,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd loom && moon check && moon test && cd ../seam && moon check && moon test && cd ../incr && moon check && moon test && cd ../examples/lambda && moon check && moon test",
+            "command": "cd loom && moon check && moon test && cd ../seam && moon check && moon test && cd ../incr && moon check && moon test && cd ../examples/lambda && moon check && moon test && cd ../examples/json && moon check && moon test && cd ../cst-transform && moon check && moon test",
             "timeout": 300
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "moon check 2>&1 | head -20"
           }
         ]
       }
