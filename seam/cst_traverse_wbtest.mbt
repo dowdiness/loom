@@ -23,7 +23,7 @@ fn make_test_tree() -> CstElement {
 ///|
 test "transform: reconstruct source text" {
   let tree = make_test_tree()
-  let result = tree.transform(fn(token) { token.text }, fn(_kind, children) {
+  let result = tree.transform(token => token.text, (_kind, children) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -36,7 +36,7 @@ test "transform: reconstruct source text" {
 ///|
 test "transform: count nodes" {
   let tree = make_test_tree()
-  let result = tree.transform(fn(_token) { 1 }, fn(_kind, children) {
+  let result = tree.transform(_token => 1, (_kind, children) => {
     let mut sum = 1
     for child in children {
       sum = sum + child
@@ -51,18 +51,14 @@ test "transform: count nodes" {
 test "transform: single token" {
   let tok = CstToken::new(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let result = elem.transform(fn(t) { t.text }, fn(_k, _c) { "" })
+  let result = elem.transform(t => t.text, (_k, _c) => "")
   inspect(result, content="x")
 }
 
 ///|
 test "fold: sum text lengths" {
   let tree = make_test_tree()
-  let result = tree.fold(
-    fn(token) { token.text.length() },
-    fn(a, b) { a + b },
-    0,
-  )
+  let result = tree.fold(token => token.text.length(), (a, b) => a + b, 0)
   // "foo" + " " + "1" + "+" + "2" + "" = 7
   inspect(result, content="7")
 }
@@ -70,7 +66,7 @@ test "fold: sum text lengths" {
 ///|
 test "fold: count tokens only" {
   let tree = make_test_tree()
-  let result = tree.fold(fn(_token) { 1 }, fn(a, b) { a + b }, 0)
+  let result = tree.fold(_token => 1, (a, b) => a + b, 0)
   // 6 leaf tokens
   inspect(result, content="6")
 }
@@ -79,18 +75,14 @@ test "fold: count tokens only" {
 test "fold: single token" {
   let tok = CstToken::new(RawKind(10), "42")
   let elem = CstElement::Token(tok)
-  let result = elem.fold(fn(t) { t.text.length() }, fn(a, b) { a + b }, 0)
+  let result = elem.fold(t => t.text.length(), (a, b) => a + b, 0)
   inspect(result, content="2")
 }
 
 ///|
 test "transform_fold: node count" {
   let tree = make_test_tree()
-  let result = tree.transform_fold(fn(_token) { 1 }, fn(_kind) { 1 }, fn(
-    _kind,
-    acc,
-    child,
-  ) {
+  let result = tree.transform_fold(_token => 1, _kind => 1, (_kind, acc, child) => {
     acc + child
   })
   // 2 branch nodes + 6 tokens = 8
@@ -101,13 +93,11 @@ test "transform_fold: node count" {
 test "transform_fold: single token" {
   let tok = CstToken::new(RawKind(10), "7")
   let elem = CstElement::Token(tok)
-  let result = elem.transform_fold(fn(t) { t.text.length() }, fn(_kind) { 0 }, fn(
+  let result = elem.transform_fold(t => t.text.length(), _kind => 0, (
     _kind,
     acc,
     child,
-  ) {
-    acc + child
-  })
+  ) => acc + child)
   inspect(result, content="1")
 }
 
@@ -115,7 +105,7 @@ test "transform_fold: single token" {
 test "each: visits all nodes and can terminate early" {
   let tree = make_test_tree()
   let mut count = 0
-  let completed = tree.each(fn(_elem) {
+  let completed = tree.each(_elem => {
     count = count + 1
     true
   })
@@ -128,7 +118,7 @@ test "each: visits all nodes and can terminate early" {
 test "each: early termination" {
   let tree = make_test_tree()
   let mut count = 0
-  let completed = tree.each(fn(elem) {
+  let completed = tree.each(elem => {
     count = count + 1
     // Stop at first Token with kind 10 (Number)
     match elem {
@@ -146,7 +136,7 @@ test "each: single token" {
   let tok = CstToken::new(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let mut visited = false
-  let _ = elem.each(fn(_e) {
+  let _ = elem.each(_e => {
     visited = true
     true
   })
@@ -156,7 +146,7 @@ test "each: single token" {
 ///|
 test "iter: collects all elements" {
   let tree = make_test_tree()
-  let count = tree.iter().fold(init=0, fn(acc, _elem) { acc + 1 })
+  let count = tree.iter().fold(init=0, (acc, _elem) => acc + 1)
   // 2 branch nodes + 6 tokens = 8
   inspect(count, content="8")
 }
@@ -166,7 +156,7 @@ test "iter: find_first" {
   let tree = make_test_tree()
   let found = tree
     .iter()
-    .find_first(fn(elem) {
+    .find_first(elem => {
       match elem {
         CstElement::Token(t) => t.kind == RawKind(12) // Plus
         _ => false
@@ -183,16 +173,16 @@ test "iter: find_first" {
 test "iter: empty node" {
   let node = CstNode::new(RawKind(20), [])
   let elem = CstElement::Node(node)
-  let count = elem.iter().fold(init=0, fn(acc, _e) { acc + 1 })
+  let count = elem.iter().fold(init=0, (acc, _e) => acc + 1)
   inspect(count, content="1")
 }
 
 ///|
 test "map: identity preserves structure" {
   let tree = make_test_tree()
-  let mapped = tree.map(fn(elem) { elem })
+  let mapped = tree.map(elem => elem)
   // Reconstruct source text to verify structure
-  let text = mapped.transform(fn(token) { token.text }, fn(_kind, children) {
+  let text = mapped.transform(token => token.text, (_kind, children) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -200,12 +190,20 @@ test "map: identity preserves structure" {
     s
   })
   inspect(text, content="foo 1+2")
+  // Verify metadata preserved
+  match mapped {
+    Node(n) => {
+      inspect(n.token_count, content="6")
+      inspect(n.has_any_error, content="false")
+    }
+    _ => ()
+  }
 }
 
 ///|
 test "map: transform tokens" {
   let tree = make_test_tree()
-  let mapped = tree.map(fn(elem) {
+  let mapped = tree.map(elem => {
     match elem {
       CstElement::Token(t) =>
         if t.kind == RawKind(9) { // Ident
@@ -216,7 +214,7 @@ test "map: transform tokens" {
       _ => elem
     }
   })
-  let text = mapped.transform(fn(token) { token.text }, fn(_kind, children) {
+  let text = mapped.transform(token => token.text, (_kind, children) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -224,13 +222,21 @@ test "map: transform tokens" {
     s
   })
   inspect(text, content="bar 1+2")
+  // Verify metadata on mapped tree
+  match mapped {
+    Node(n) => {
+      inspect(n.token_count, content="6")
+      inspect(n.has_any_error, content="false")
+    }
+    _ => ()
+  }
 }
 
 ///|
 test "map: single token" {
   let tok = CstToken::new(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let mapped = elem.map(fn(e) {
+  let mapped = elem.map(e => {
     match e {
       CstElement::Token(t) => CstElement::Token(CstToken::new(t.kind, "y"))
       _ => e
@@ -243,12 +249,25 @@ test "map: single token" {
 }
 
 ///|
+test "map: trivia_kind excludes whitespace from token_count" {
+  let tree = make_test_tree()
+  let ws_kind = RawKind(11)
+  let mapped = tree.map(elem => elem, trivia_kind=Some(ws_kind))
+  match mapped {
+    Node(n) =>
+      // 6 total tokens - 1 whitespace = 5
+      inspect(n.token_count, content="5")
+    _ => ()
+  }
+}
+
+///|
 struct NumberFinder {
   kind : RawKind
 }
 
 ///|
-impl Finder for NumberFinder with check(self, elem) {
+pub impl Finder for NumberFinder with check(self, elem) {
   match elem {
     CstElement::Token(t) => t.kind == self.kind
     _ => false
@@ -278,7 +297,7 @@ struct NodeKindFinder {
 }
 
 ///|
-impl Finder for NodeKindFinder with check(self, elem) {
+pub impl Finder for NodeKindFinder with check(self, elem) {
   match elem {
     CstElement::Node(n) => n.kind == self.kind
     _ => false

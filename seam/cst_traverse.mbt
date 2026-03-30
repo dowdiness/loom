@@ -80,14 +80,14 @@ pub fn[R] CstElement::transform_fold(
 /// Calls `f` for every element in the tree. Returns `true` if traversal
 /// completed, `false` if `f` returned `false` to request early termination.
 pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
-  if not(f(self)) {
+  if !f(self) {
     return false
   }
   match self {
     Token(_) => true
     Node(node) => {
       for child in node.children {
-        if not(child.each(f)) {
+        if !child.each(f) {
           return false
         }
       }
@@ -103,7 +103,7 @@ pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
 /// (`.filter`, `.find_first`, `.take`, etc.).
 pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
   let stack : Array[CstElement] = [self]
-  Iter::new(fn() {
+  Iter::new(() => {
     if stack.is_empty() {
       return None
     }
@@ -133,8 +133,8 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 ///
 /// Pass `trivia_kind`, `error_kind`, `incomplete_kind` for accurate
 /// `token_count` and `has_any_error` metadata on reconstructed nodes.
-/// Without these, `token_count` counts all leaf tokens and `has_any_error`
-/// is only set for nodes whose kind matches `error_kind`.
+/// Without these, `token_count` counts all leaf tokens (including trivia)
+/// and `has_any_error` defaults to `false` at each reconstructed node.
 pub fn CstElement::map(
   self : CstElement,
   f : (CstElement) -> CstElement,
