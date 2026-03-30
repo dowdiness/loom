@@ -303,3 +303,41 @@ test "bench: full traversal count via iter" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+// ── 8. Trait-based static dispatch ──────────────────────────────────
+
+///|
+test "bench: node count via trait Folder" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result : NodeCount = tree.accept_fold()
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: node count via trait TransformFolder" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result : NodeCount = tree.accept_transform_fold()
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: token count via trait Folder" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result : TokenCount = tree.accept_fold()
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: token count via trait TransformFolder" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result : TokenCount = tree.accept_transform_fold()
+    b.keep(result)
+  })
+}

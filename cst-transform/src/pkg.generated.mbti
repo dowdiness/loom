@@ -23,8 +23,18 @@ pub(all) enum GreenNode {
   Leaf(TokenKind, String)
   Branch(SyntaxKind, Array[GreenNode])
 }
+pub fn[R : Folder] GreenNode::accept_fold(Self) -> R
+pub fn[R : TransformFolder] GreenNode::accept_transform_fold(Self) -> R
+pub fn[W : Walker] GreenNode::accept_walk(Self, W) -> Bool
 pub impl Eq for GreenNode
 pub impl Show for GreenNode
+
+pub(all) struct NodeCount {
+  val : Int
+}
+pub impl Folder for NodeCount
+pub impl TransformFolder for NodeCount
+pub impl Show for NodeCount
 
 pub(all) enum SyntaxKind {
   SourceFile
@@ -42,6 +52,13 @@ pub impl Compare for SyntaxKind
 pub impl Eq for SyntaxKind
 pub impl Hash for SyntaxKind
 pub impl Show for SyntaxKind
+
+pub(all) struct TokenCount {
+  val : Int
+}
+pub impl Folder for TokenCount
+pub impl TransformFolder for TokenCount
+pub impl Show for TokenCount
 
 pub(all) enum TokenKind {
   Ident
@@ -67,4 +84,19 @@ pub impl Show for TokenKind
 // Type aliases
 
 // Traits
+pub(open) trait Folder {
+  fold_token(TokenKind, String) -> Self
+  fold_combine(Self, Self) -> Self
+  fold_empty() -> Self
+}
+
+pub(open) trait TransformFolder {
+  tf_token(TokenKind, String) -> Self
+  tf_init(SyntaxKind) -> Self
+  tf_child(SyntaxKind, Self, Self) -> Self
+}
+
+pub(open) trait Walker {
+  walk(Self, GreenNode) -> Bool
+}
 
