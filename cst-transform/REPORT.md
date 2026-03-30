@@ -71,7 +71,13 @@ MutVisitor's per-property cost (133µs) is lower than hand-written per-property 
 
 No single pattern covers everything. The library needs all of them.
 
-### 6. `for..in` with loop variables produces identical code to `let mut`
+### 6. `fold` with mutable `empty` is a footgun
+
+`fold`'s `empty` parameter is shared by reference across all recursive calls. If `combine` mutates its arguments (e.g., `(a, b) => { a.append(b); a }` for Array), the shared `empty` gets corrupted, producing exponentially wrong results.
+
+**Rule:** use only value-type accumulators (Int, String) with `fold`. For Array collection, use `transform` instead.
+
+### 7. `for..in` with loop variables produces identical code to `let mut`
 
 ```moonbit
 // Functional style
@@ -83,7 +89,7 @@ let mut acc = 0; for child in children { acc = acc + f(child) }; acc
 
 Same compiled output. Use whichever reads better.
 
-### 7. What MoonBit's compiler team could improve
+### 8. What MoonBit's compiler team could improve
 
 Three optimizations that would simplify the API to a single pattern:
 
@@ -92,6 +98,18 @@ Three optimizations that would simplify the API to a single pattern:
 3. **Trait method body inlining** — inline `fold_combine` into `accept_fold`. Would let named structs achieve 1.0x without the tuple struct workaround.
 
 Any one of these would make the trait tier unnecessary for most use cases.
+
+## What Didn't Work
+
+| Approach | Result | Why |
+|----------|--------|-----|
+| **`transform_cps`** | ~5% faster than `transform`, worse ergonomics | Closure allocation replaces Array allocation at similar cost. `transform_fold` is 2x faster with simpler API. |
+| **`transform_view`** (ArrayView stack) | 18% slower than `transform` | GC nursery allocation is cheap; ArrayView bounds checking + offset arithmetic costs more than `Array::new`. |
+| **Named struct + `#valtype`** | 2.49x (vs 1.0x for tuple struct) | `#valtype` does not unbox named structs on wasm-gc. Still allocates `new T(val)` per call. |
+| **Multi-element `#valtype`** | 4.33x | `#valtype CstMeta(Int, Int, Int)` still allocates `{ _0, _1, _2 }` per call. Only single-element tuple structs are unboxed. |
+| **Trait Folder with named struct** (no `#valtype`) | 2.33x | Heap object allocation per `fold_combine`. |
+
+These are all documented as benchmarks in the codebase for reproducibility.
 
 ## Benchmark Results
 
@@ -175,11 +193,13 @@ Need lazy composition (.filter/.take)?      → iter
 Need early termination (general)?           → each
 ```
 
-**Warning:** `fold`'s `empty` parameter is shared by reference across recursive calls. Use only immutable/value-type accumulators (Int, String). For mutable accumulators (Array), use `transform` instead.
+**Warning:** `fold`'s `empty` parameter is shared by reference across recursive calls. Use only immutable/value-type accumulators (Int, String). For mutable accumulators (Array), use `transform` instead. See finding #6 above.
 
 ## Integration Plan for seam/
 
-### Step 1: Port closure methods to `CstElement`
+Tracked as GitHub issues: #57, #58, #59, #60, #61, #62.
+
+### Step 1: Port closure methods to `CstElement` (#57)
 
 ```moonbit
 pub fn[R] CstElement::transform(self, on_token, on_node) -> R { ... }
@@ -189,7 +209,7 @@ pub fn CstElement::iter(self) -> Iter[CstElement] { ... }
 pub fn CstElement::map(self, f) -> CstElement { ... }
 ```
 
-### Step 2: Use MutVisitor for `CstNode::new()` metadata
+### Step 2: Use MutVisitor for `CstNode::new()` metadata (#59)
 
 Replace the hand-written loop with a single-pass `MutVisitor`:
 
@@ -214,7 +234,7 @@ pub impl MutVisitor for CstNodeMeta with visit_branch(self, kind) {
 
 This computes all 4 properties in one traversal at ~1.66x per-property — faster than 4 separate `accept_fold` passes (~3.2x) and competitive with hand-written.
 
-### Step 3: Add trait-based folds for individual queries
+### Step 3: Add trait-based folds for individual queries (#58)
 
 | Property | Pattern | Use case |
 |----------|---------|----------|
@@ -222,7 +242,7 @@ This computes all 4 properties in one traversal at ~1.66x per-property — faste
 | `HasError(Bool)` | `Finder` | `has_errors()` check |
 | `TokenCount(Int)` | `Folder` | Damage tracking |
 
-### Step 4: Simplify SyntaxNode queries
+### Step 4: Simplify SyntaxNode queries (#60)
 
 | Current | Replace with |
 |---------|-------------|
@@ -293,7 +313,7 @@ This is how rust-analyzer works — every token is a `TextRange(start, end)` int
 - **Less GC pressure** — one source string shared by all tokens instead of N string copies
 - **Faster incremental re-lex** — changed span is a range comparison, not string equality
 
-This requires lexer-level integration (the lexer must thread the source string through), so it's a seam-level change, not something this research module can prototype.
+This requires lexer-level integration (the lexer must thread the source string through), so it's a seam-level change, not something this research module can prototype. Tracked as #61.
 
 ### Where views would NOT help
 
@@ -322,6 +342,6 @@ cst-transform/
   src/
     green_node.mbt          — Types + 7 closure-based methods
     traits.mbt              — 5 traits + accept methods + concrete impls
-    green_node_wbtest.mbt   — 38 tests
-    bench_wbtest.mbt        — 27 benchmarks
+    green_node_wbtest.mbt   — 40 tests
+    bench_wbtest.mbt        — 30 benchmarks
 ```
