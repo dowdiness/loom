@@ -1,3 +1,8 @@
+// Shared expected values for tests
+///|
+let expected_idents =
+  #|["add", "x", ",", "y", "result", "x", "y"]
+
 // ── transform tests ─────────────────────────────────────────────────
 
 ///|
@@ -60,9 +65,7 @@ test "fold: token count" {
 ///|
 test "fold: identifier collection" {
   let idents = collect_identifiers(sample_cst())
-  let expected =
-    #|["add", "x", ",", "y", "result", "x", "y"]
-  inspect(idents.to_string() == expected, content="true")
+  inspect(idents.to_string() == expected_idents, content="true")
 }
 
 ///|
@@ -219,9 +222,7 @@ test "practical: rename identifier" {
 ///|
 test "practical: collect_identifiers" {
   let idents = collect_identifiers(sample_cst())
-  let expected =
-    #|["add", "x", ",", "y", "result", "x", "y"]
-  inspect(idents.to_string() == expected, content="true")
+  inspect(idents.to_string() == expected_idents, content="true")
 }
 
 ///|

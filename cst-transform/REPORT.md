@@ -95,13 +95,15 @@ For full traversals `iter` is only 12% slower — the overhead is mainly from Ar
 
 ### Decision guide
 
-```
-Need child results as Array?     → transform
-Need scalar accumulation?        → fold (value types) or transform_fold (with kind)
-Need GreenNode → GreenNode?      → map
+```text
+Need child results as Array?            → transform
+Need scalar accumulation (value types)? → fold or transform_fold (with kind)
+Need GreenNode → GreenNode?             → map
 Need lazy composition (.filter/.take)?  → iter
-Need early termination?          → each
+Need early termination?                 → each
 ```
+
+**Warning:** `fold`'s `empty` parameter is shared by reference across recursive calls. Use only immutable/value-type accumulators (Int, String). For mutable accumulators (Array), use `transform` instead — see "fold + mutable empty" section below.
 
 ### Not recommended for public API
 
@@ -135,7 +137,7 @@ Closures in callbacks correctly capture outer variables. No type errors or lifet
 | Criterion | Result |
 |-----------|--------|
 | All functions pass tests | **YES** (40/40) |
-| Performance ≤ 2.0x vs hand-written | **YES** — worst case is `transform_fold` at 1.30x for node counting |
+| Performance ≤ 2.0x vs hand-written (best-fit API per use case) | **YES** — when the recommended function is chosen per the decision guide, worst case is 1.30x. Using the wrong function for a task (e.g., `transform` for trivial Int ops, `iter` for early exit) can reach 2.90x–6.0x. |
 | Type inference works naturally | **YES** |
 | Function selection is clear | **YES** — decision guide above |
 
