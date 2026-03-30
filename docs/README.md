@@ -44,6 +44,7 @@ Understanding how the layers fit together:
 - [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
 - [performance/incremental-overhead.md](performance/incremental-overhead.md) — incremental parser overhead analysis and low-hanging-fruit waste elimination opportunities
 - [performance/grammar-design-for-incremental.md](performance/grammar-design-for-incremental.md) — grammar shapes that help/hurt incremental parsing: flat > left-recursive > balanced > right-recursive
+- [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)
 

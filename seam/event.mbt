@@ -242,11 +242,19 @@ pub fn build_tree_interned(
         }
       }
       ReuseNode(node) => {
-        let interned = re_intern_tokens_only(
-          node, interner, trivia_kind, error_kind, incomplete_kind,
+        let interned = CstElement::Node(node).map(
+          elem => {
+            match elem {
+              Token(t) => Token(interner.intern_token(t.kind, t.text))
+              _ => elem
+            }
+          },
+          trivia_kind~,
+          error_kind~,
+          incomplete_kind~,
         )
         match stack.last() {
-          Some(parent) => parent.push(Node(interned))
+          Some(parent) => parent.push(interned)
           None =>
             abort("build_tree_interned: stack empty when attaching reuse node")
         }
@@ -273,59 +281,6 @@ pub fn build_tree_interned(
     error_kind~,
     incomplete_kind~,
   )
-}
-
-///|
-/// Rebuild a CstNode subtree with the given trivia_kind so that token_count
-/// and other metadata are recomputed via CstNode::new. No interning.
-fn rebuild_subtree(
-  node : CstNode,
-  trivia_kind : RawKind?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
-  let children : Array[CstElement] = []
-  for child in node.children {
-    match child {
-      CstElement::Token(_) => children.push(child)
-      CstElement::Node(n) => {
-        let rebuilt = rebuild_subtree(
-          n, trivia_kind, error_kind, incomplete_kind,
-        )
-        children.push(CstElement::Node(rebuilt))
-      }
-    }
-  }
-  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
-}
-
-///|
-/// Recursively re-intern tokens in a CstNode subtree: every token passes
-/// through intern_token. Nodes are rebuilt but not node-interned (matches
-/// build_tree_interned's contract of token-only interning).
-fn re_intern_tokens_only(
-  node : CstNode,
-  interner : Interner,
-  trivia_kind : RawKind?,
-  error_kind : RawKind?,
-  incomplete_kind : RawKind?,
-) -> CstNode {
-  let children : Array[CstElement] = []
-  for child in node.children {
-    match child {
-      CstElement::Token(t) => {
-        let interned = interner.intern_token(t.kind, t.text)
-        children.push(CstElement::Token(interned))
-      }
-      CstElement::Node(n) => {
-        let interned = re_intern_tokens_only(
-          n, interner, trivia_kind, error_kind, incomplete_kind,
-        )
-        children.push(CstElement::Node(interned))
-      }
-    }
-  }
-  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
 }
 
 ///|
@@ -535,11 +490,14 @@ pub fn build_tree(
         }
       }
       ReuseNode(node) => {
-        let rebuilt = rebuild_subtree(
-          node, trivia_kind, error_kind, incomplete_kind,
+        let rebuilt = CstElement::Node(node).map(
+          elem => elem,
+          trivia_kind~,
+          error_kind~,
+          incomplete_kind~,
         )
         match stack.last() {
-          Some(parent) => parent.push(Node(rebuilt))
+          Some(parent) => parent.push(rebuilt)
           None => abort("build_tree: stack empty when attaching reuse node")
         }
       }

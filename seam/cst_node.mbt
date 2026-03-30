@@ -340,6 +340,11 @@ pub fn CstNode::first_token(
 ///|
 /// Check if this concrete syntax tree contains any error nodes or error tokens.
 /// error_node_kind and error_token_kind are language-specific RawKind values.
+///
+/// **Prefer `has_any_error`** when querying the same `error_kind`/
+/// `incomplete_kind` that were passed to `CstNode::new` at construction —
+/// the cached field is O(1) vs O(n) traversal. Use this method when the
+/// query kinds differ from the construction-time classifiers.
 pub fn CstNode::has_errors(
   self : CstNode,
   error_node_kind : RawKind,
