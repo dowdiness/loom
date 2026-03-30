@@ -14,7 +14,7 @@ test "transform: source text reconstruction" {
 
 ///|
 test "transform: node count" {
-  let count = transform(sample_cst(), fn(_kind, _text) { 1 }, fn(
+  let count = sample_cst().transform(fn(_kind, _text) { 1 }, fn(
     _kind,
     children,
   ) {
@@ -30,8 +30,7 @@ test "transform: node count" {
 
 ///|
 test "transform: collect SyntaxKind list" {
-  let kinds : Array[String] = transform(
-    sample_cst(),
+  let kinds : Array[String] = sample_cst().transform(
     fn(_kind, _text) { ([] : Array[String]) },
     fn(kind, children) {
       let result : Array[String] = [kind.to_string()]
@@ -49,7 +48,7 @@ test "transform: collect SyntaxKind list" {
 ///|
 test "transform: single leaf" {
   let node = Leaf(Ident, "hello")
-  let result = transform(node, fn(_kind, text) { text }, fn(_kind, _children) {
+  let result = node.transform(fn(_kind, text) { text }, fn(_kind, _children) {
     ""
   })
   inspect(result, content="hello")
@@ -59,7 +58,7 @@ test "transform: single leaf" {
 
 ///|
 test "fold: token count" {
-  let count = fold(sample_cst(), fn(_kind, _text) { 1 }, fn(a, b) { a + b }, 0)
+  let count = sample_cst().fold(fn(_kind, _text) { 1 }, fn(a, b) { a + b }, 0)
   inspect(count, content="21")
 }
 
@@ -71,8 +70,7 @@ test "fold: identifier collection" {
 
 ///|
 test "fold: total text length" {
-  let text_len = fold(
-    sample_cst(),
+  let text_len = sample_cst().fold(
     fn(_kind, text) { text.length() },
     fn(a, b) { a + b },
     0,
@@ -83,7 +81,7 @@ test "fold: total text length" {
 
 ///|
 test "transform: max nesting depth" {
-  let depth = transform(sample_cst(), fn(_kind, _text) { 1 }, fn(
+  let depth = sample_cst().transform(fn(_kind, _text) { 1 }, fn(
     _kind,
     children,
   ) {
@@ -102,14 +100,13 @@ test "transform: max nesting depth" {
 ///|
 test "fold: empty branch" {
   let node = Branch(ArgList, [])
-  let result = fold(node, fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
+  let result = node.fold(fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
   inspect(result, content="0")
 }
 
 ///|
 test "fold: string concatenation (value type)" {
-  let text = fold(
-    Leaf(Ident, "hello"),
+  let text = Leaf(Ident, "hello").fold(
     fn(_kind, text) { text },
     fn(a, b) { a + b },
     "",
@@ -121,7 +118,7 @@ test "fold: string concatenation (value type)" {
 
 ///|
 test "map: uppercase all identifiers" {
-  let uppercased = map(sample_cst(), fn(n) {
+  let uppercased = sample_cst().map(fn(n) {
     match n {
       Leaf(Ident, text) => Leaf(Ident, text.to_upper())
       _ => n
@@ -133,7 +130,7 @@ test "map: uppercase all identifiers" {
 
 ///|
 test "map: replace SyntaxKind with Error" {
-  let replaced = map(sample_cst(), fn(n) {
+  let replaced = sample_cst().map(fn(n) {
     match n {
       Branch(BinaryExpr, children) => Branch(Error, children)
       _ => n
@@ -146,7 +143,7 @@ test "map: replace SyntaxKind with Error" {
 ///|
 test "map: identity preserves structure" {
   let original = sample_cst()
-  let mapped = map(original, fn(n) { n })
+  let mapped = original.map(fn(n) { n })
   inspect(original == mapped, content="true")
 }
 
@@ -154,18 +151,20 @@ test "map: identity preserves structure" {
 
 ///|
 test "iter: full enumeration count" {
-  let count = iter(sample_cst()).fold(init=0, fn(acc, _n) { acc + 1 })
+  let count = sample_cst().iter().fold(init=0, fn(acc, _n) { acc + 1 })
   inspect(count == count_nodes_handwritten(sample_cst()), content="true")
 }
 
 ///|
 test "iter: find first Ident token" {
-  let first = iter(sample_cst()).find_first(fn(n) {
-    match n {
-      Leaf(Ident, _) => true
-      _ => false
-    }
-  })
+  let first = sample_cst()
+    .iter()
+    .find_first(fn(n) {
+      match n {
+        Leaf(Ident, _) => true
+        _ => false
+      }
+    })
   match first {
     Some(Leaf(_, text)) => inspect(text, content="add")
     _ => fail("expected Leaf(Ident, \"add\")")
@@ -174,7 +173,8 @@ test "iter: find first Ident token" {
 
 ///|
 test "iter: filter + take composition" {
-  let branches = iter(sample_cst())
+  let branches = sample_cst()
+    .iter()
     .filter(fn(n) {
       match n {
         Branch(_, _) => true
@@ -202,7 +202,7 @@ test "iter: filter + take composition" {
 ///|
 test "iter: single leaf" {
   let node = Leaf(Ident, "x")
-  let items = iter(node).collect()
+  let items = node.iter().collect()
   inspect(items.length(), content="1")
 }
 
@@ -256,7 +256,7 @@ test "practical: rename + to_source round-trip" {
 ///|
 test "api: transform type inference without annotation" {
   // R should be inferred as Int from on_token/on_node return types
-  let count = transform(sample_cst(), fn(_k, _t) { 1 }, fn(_k, cs) {
+  let count = sample_cst().transform(fn(_k, _t) { 1 }, fn(_k, cs) {
     let mut s = 1
     for c in cs {
       s = s + c
@@ -269,14 +269,14 @@ test "api: transform type inference without annotation" {
 ///|
 test "api: fold type inference without annotation" {
   // R should be inferred as Int
-  let total = fold(sample_cst(), fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
+  let total = sample_cst().fold(fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
   inspect(total > 0, content="true")
 }
 
 ///|
 test "api: closure capture in transform" {
   let prefix = "node:"
-  let result = transform(Leaf(Ident, "x"), fn(_k, t) { prefix + t }, fn(
+  let result = Leaf(Ident, "x").transform(fn(_k, t) { prefix + t }, fn(
     _k,
     _cs,
   ) {
@@ -287,18 +287,20 @@ test "api: closure capture in transform" {
 
 ///|
 test "api: composability — transform result piped to iter" {
-  let mapped = map(sample_cst(), fn(n) {
+  let mapped = sample_cst().map(fn(n) {
     match n {
       Leaf(Ident, text) => Leaf(Ident, text.to_upper())
       _ => n
     }
   })
-  let first_ident = iter(mapped).find_first(fn(n) {
-    match n {
-      Leaf(Ident, _) => true
-      _ => false
-    }
-  })
+  let first_ident = mapped
+    .iter()
+    .find_first(fn(n) {
+      match n {
+        Leaf(Ident, _) => true
+        _ => false
+      }
+    })
   match first_ident {
     Some(Leaf(_, text)) => inspect(text, content="ADD")
     _ => fail("expected uppercased ident")
@@ -307,8 +309,7 @@ test "api: composability — transform result piped to iter" {
 
 ///|
 test "api: Result return type in transform callbacks" {
-  let result : Result[Int, String] = transform(
-    Branch(Name, [Leaf(Ident, "x")]),
+  let result : Result[Int, String] = Branch(Name, [Leaf(Ident, "x")]).transform(
     fn(kind, _text) {
       if kind == Ident {
         Ok(1)
@@ -334,7 +335,7 @@ test "api: Result return type in transform callbacks" {
 
 ///|
 test "cps: source text reconstruction" {
-  let result = transform_cps(sample_cst(), fn(_kind, text) { text }, fn(
+  let result = sample_cst().transform_cps(fn(_kind, text) { text }, fn(
     _kind,
     each_child,
   ) {
@@ -347,7 +348,7 @@ test "cps: source text reconstruction" {
 
 ///|
 test "cps: node count" {
-  let count = transform_cps(sample_cst(), fn(_kind, _text) { 1 }, fn(
+  let count = sample_cst().transform_cps(fn(_kind, _text) { 1 }, fn(
     _kind,
     each_child,
   ) {
@@ -360,8 +361,7 @@ test "cps: node count" {
 
 ///|
 test "cps: collect into array (opt-in allocation)" {
-  let kinds : Array[String] = transform_cps(
-    sample_cst(),
+  let kinds : Array[String] = sample_cst().transform_cps(
     fn(_kind, _text) { ([] : Array[String]) },
     fn(kind, each_child) {
       let result : Array[String] = [kind.to_string()]
@@ -376,7 +376,7 @@ test "cps: collect into array (opt-in allocation)" {
 
 ///|
 test "cps: single leaf" {
-  let result = transform_cps(Leaf(Ident, "hello"), fn(_kind, text) { text }, fn(
+  let result = Leaf(Ident, "hello").transform_cps(fn(_kind, text) { text }, fn(
     _kind,
     _each_child,
   ) {
@@ -390,7 +390,7 @@ test "cps: single leaf" {
 ///|
 test "each: full traversal count" {
   let mut count = 0
-  let _ = each(sample_cst(), fn(_n) {
+  let _ = sample_cst().each(fn(_n) {
     count = count + 1
     true
   })
@@ -400,7 +400,7 @@ test "each: full traversal count" {
 ///|
 test "each: early termination finds first Ident" {
   let mut found : String? = None
-  let _ = each(sample_cst(), fn(n) {
+  let _ = sample_cst().each(fn(n) {
     match n {
       Leaf(Ident, text) => {
         found = Some(text)
@@ -414,13 +414,13 @@ test "each: early termination finds first Ident" {
 
 ///|
 test "each: returns true on complete traversal" {
-  let completed = each(sample_cst(), fn(_n) { true })
+  let completed = sample_cst().each(fn(_n) { true })
   inspect(completed, content="true")
 }
 
 ///|
 test "each: returns false on early termination" {
-  let completed = each(sample_cst(), fn(_n) { false })
+  let completed = sample_cst().each(fn(_n) { false })
   inspect(completed, content="false")
 }
 
@@ -428,8 +428,7 @@ test "each: returns false on early termination" {
 
 ///|
 test "transform_fold: node count matches hand-written" {
-  let count = transform_fold(
-    sample_cst(),
+  let count = sample_cst().transform_fold(
     fn(_kind, _text) { 1 },
     fn(_kind) { 1 },
     fn(_kind, acc, child) { acc + child },
@@ -439,8 +438,7 @@ test "transform_fold: node count matches hand-written" {
 
 ///|
 test "transform_fold: token count" {
-  let count = transform_fold(
-    sample_cst(),
+  let count = sample_cst().transform_fold(
     fn(_kind, _text) { 1 },
     fn(_kind) { 0 },
     fn(_kind, acc, child) { acc + child },
@@ -450,8 +448,7 @@ test "transform_fold: token count" {
 
 ///|
 test "transform_fold: to_source" {
-  let result = transform_fold(
-    sample_cst(),
+  let result = sample_cst().transform_fold(
     fn(_kind, text) { text },
     fn(_kind) { "" },
     fn(_kind, acc, child) { acc + child },
@@ -487,8 +484,7 @@ test "trait TransformFolder: token count" {
 ///|
 test "transform_fold: max depth via kind-aware init" {
   // Each branch adds 1 to the max child depth
-  let depth = transform_fold(
-    sample_cst(),
+  let depth = sample_cst().transform_fold(
     fn(_kind, _text) { 1 },
     fn(_kind) { 0 },
     fn(_kind, acc, child) {

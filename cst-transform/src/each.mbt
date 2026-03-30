@@ -4,15 +4,15 @@
 /// Calls `f` for every node in the tree. Returns `true` if traversal completed,
 /// `false` if `f` returned `false` to request early termination.
 /// This avoids all overhead of `Iter` (no stack allocation, no closure wrapping).
-pub fn each(node : GreenNode, f : (GreenNode) -> Bool) -> Bool {
-  if not(f(node)) {
+pub fn GreenNode::each(self : GreenNode, f : (GreenNode) -> Bool) -> Bool {
+  if not(f(self)) {
     return false
   }
-  match node {
+  match self {
     Leaf(_, _) => true
     Branch(_, children) => {
       for child in children {
-        if not(each(child, f)) {
+        if not(child.each(f)) {
           return false
         }
       }

@@ -7,6 +7,7 @@
 // ── NodeCount: count all nodes via Folder ───────────────────────────
 
 ///|
+#valtype
 pub(all) struct NodeCount {
   val : Int
 } derive(Show)
@@ -46,6 +47,7 @@ pub impl TransformFolder for NodeCount with tf_child(_kind, acc, child) {
 // ── TokenCount: count leaf tokens via Folder ────────────────────────
 
 ///|
+#valtype
 pub(all) struct TokenCount {
   val : Int
 } derive(Show)

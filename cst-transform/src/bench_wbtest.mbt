@@ -35,8 +35,7 @@ test "bench: to_source hand-written" (b : @bench.T) {
 test "bench: collect idents via fold" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = fold(
-      tree,
+    let result = tree.fold(
       fn(kind, text) { if kind == Ident { [text] } else { [] } },
       fn(a, b) {
         let result = Array::new(capacity=a.length() + b.length())
@@ -58,8 +57,7 @@ test "bench: collect idents via fold" (b : @bench.T) {
 test "bench: collect idents via transform" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result : Array[String] = transform(
-      tree,
+    let result : Array[String] = tree.transform(
       fn(kind, text) { if kind == Ident { [text] } else { [] } },
       fn(_kind, children) {
         let result : Array[String] = []
@@ -88,12 +86,14 @@ test "bench: collect idents hand-written" (b : @bench.T) {
 test "bench: find first ident via iter" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = iter(tree).find_first(fn(n) {
-      match n {
-        Leaf(Ident, _) => true
-        _ => false
-      }
-    })
+    let result = tree
+      .iter()
+      .find_first(fn(n) {
+        match n {
+          Leaf(Ident, _) => true
+          _ => false
+        }
+      })
     b.keep(result)
   })
 }
@@ -113,7 +113,7 @@ test "bench: find first ident hand-written" (b : @bench.T) {
 test "bench: map identity" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = map(tree, fn(n) { n })
+    let result = tree.map(fn(n) { n })
     b.keep(result)
   })
 }
@@ -122,7 +122,7 @@ test "bench: map identity" (b : @bench.T) {
 test "bench: node count via transform" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform(tree, fn(_kind, _text) { 1 }, fn(_kind, children) {
+    let result = tree.transform(fn(_kind, _text) { 1 }, fn(_kind, children) {
       let mut sum = 1
       for c in children {
         sum = sum + c
@@ -148,7 +148,7 @@ test "bench: node count hand-written" (b : @bench.T) {
 test "bench: token count via fold (Int)" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = fold(tree, fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
+    let result = tree.fold(fn(_k, _t) { 1 }, fn(a, b) { a + b }, 0)
     b.keep(result)
   })
 }
@@ -157,7 +157,7 @@ test "bench: token count via fold (Int)" (b : @bench.T) {
 test "bench: token count via transform (Array[Int])" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform(tree, fn(_kind, _text) { 1 }, fn(_kind, children) {
+    let result = tree.transform(fn(_kind, _text) { 1 }, fn(_kind, children) {
       let mut sum = 0
       for c in children {
         sum = sum + c
@@ -174,7 +174,7 @@ test "bench: token count via transform (Array[Int])" (b : @bench.T) {
 test "bench: to_source via transform_cps" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_cps(tree, fn(_kind, text) { text }, fn(
+    let result = tree.transform_cps(fn(_kind, text) { text }, fn(
       _kind,
       each_child,
     ) {
@@ -190,7 +190,7 @@ test "bench: to_source via transform_cps" (b : @bench.T) {
 test "bench: node count via transform_cps" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_cps(tree, fn(_kind, _text) { 1 }, fn(
+    let result = tree.transform_cps(fn(_kind, _text) { 1 }, fn(
       _kind,
       each_child,
     ) {
@@ -206,7 +206,7 @@ test "bench: node count via transform_cps" (b : @bench.T) {
 test "bench: token count via transform_cps" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_cps(tree, fn(_kind, _text) { 1 }, fn(
+    let result = tree.transform_cps(fn(_kind, _text) { 1 }, fn(
       _kind,
       each_child,
     ) {
@@ -225,7 +225,7 @@ test "bench: find first ident via each" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
     let mut result : String? = None
-    let _ = each(tree, fn(n) {
+    let _ = tree.each(fn(n) {
       match n {
         Leaf(Ident, text) => {
           result = Some(text)
@@ -242,7 +242,7 @@ test "bench: find first ident via each" (b : @bench.T) {
 test "bench: node count via transform_fold" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_fold(tree, fn(_kind, _text) { 1 }, fn(_kind) { 1 }, fn(
+    let result = tree.transform_fold(fn(_kind, _text) { 1 }, fn(_kind) { 1 }, fn(
       _kind,
       acc,
       child,
@@ -257,7 +257,7 @@ test "bench: node count via transform_fold" (b : @bench.T) {
 test "bench: token count via transform_fold" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_fold(tree, fn(_kind, _text) { 1 }, fn(_kind) { 0 }, fn(
+    let result = tree.transform_fold(fn(_kind, _text) { 1 }, fn(_kind) { 0 }, fn(
       _kind,
       acc,
       child,
@@ -272,8 +272,7 @@ test "bench: token count via transform_fold" (b : @bench.T) {
 test "bench: to_source via transform_fold" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = transform_fold(
-      tree,
+    let result = tree.transform_fold(
       fn(_kind, text) { text },
       fn(_kind) { "" },
       fn(_kind, acc, child) { acc + child },
@@ -287,7 +286,7 @@ test "bench: full traversal count via each" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
     let mut count = 0
-    let _ = each(tree, fn(_n) {
+    let _ = tree.each(fn(_n) {
       count = count + 1
       true
     })
@@ -299,7 +298,7 @@ test "bench: full traversal count via each" (b : @bench.T) {
 test "bench: full traversal count via iter" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(fn() {
-    let result = iter(tree).fold(init=0, fn(acc, _n) { acc + 1 })
+    let result = tree.iter().fold(init=0, fn(acc, _n) { acc + 1 })
     b.keep(result)
   })
 }

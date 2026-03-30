@@ -123,7 +123,7 @@ fn count_nodes_handwritten(node : GreenNode) -> Int {
 ///|
 /// Source text reconstruction via `transform`.
 fn to_source(node : GreenNode) -> String {
-  transform(node, fn(_kind, text) { text }, fn(_kind, children) {
+  node.transform(fn(_kind, text) { text }, fn(_kind, children) {
     let sb = StringBuilder::new()
     for s in children {
       sb.write_string(s)
@@ -135,7 +135,7 @@ fn to_source(node : GreenNode) -> String {
 ///|
 /// Identifier renaming via `map`.
 fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
-  map(node, fn(n) {
+  node.map(fn(n) {
     match n {
       Leaf(Ident, text) => if text == from { Leaf(Ident, to) } else { n }
       _ => n
@@ -150,8 +150,7 @@ fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
 /// For mutable types like `Array`, `combine` must NOT mutate its arguments —
 /// it must create a new value. Otherwise the shared `empty` gets corrupted.
 fn collect_identifiers(node : GreenNode) -> Array[String] {
-  fold(
-    node,
+  node.fold(
     fn(kind, text) { if kind == Ident { [text] } else { [] } },
     fn(a, b) {
       let result = Array::new(capacity=a.length() + b.length())
@@ -170,7 +169,9 @@ fn collect_identifiers(node : GreenNode) -> Array[String] {
 ///|
 /// First error node detection via `iter`.
 fn first_error(node : GreenNode) -> GreenNode? {
-  iter(node).find_first(fn(n) {
+  node
+  .iter()
+  .find_first(fn(n) {
     match n {
       Branch(Error, _) => true
       _ => false
