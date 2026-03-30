@@ -1,0 +1,66 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/cst-transform"
+
+// Values
+pub fn[R] fold(GreenNode, (TokenKind, String) -> R, (R, R) -> R, R) -> R
+
+pub fn iter(GreenNode) -> Iter[GreenNode]
+
+pub fn map(GreenNode, (GreenNode) -> GreenNode) -> GreenNode
+
+pub fn[R] transform(GreenNode, (TokenKind, String) -> R, (SyntaxKind, Array[R]) -> R) -> R
+
+pub fn[R] transform_cps(GreenNode, (TokenKind, String) -> R, (SyntaxKind, ((R) -> Unit) -> Unit) -> R) -> R
+
+// Errors
+
+// Types and methods
+pub(all) enum GreenNode {
+  Leaf(TokenKind, String)
+  Branch(SyntaxKind, Array[GreenNode])
+}
+pub impl Eq for GreenNode
+pub impl Show for GreenNode
+
+pub(all) enum SyntaxKind {
+  SourceFile
+  FnDef
+  LetStmt
+  BinaryExpr
+  CallExpr
+  ParenExpr
+  ArgList
+  Literal
+  Name
+  Error
+}
+pub impl Compare for SyntaxKind
+pub impl Eq for SyntaxKind
+pub impl Hash for SyntaxKind
+pub impl Show for SyntaxKind
+
+pub(all) enum TokenKind {
+  Ident
+  Number
+  LParen
+  RParen
+  Plus
+  Minus
+  Star
+  Slash
+  Eq
+  Let
+  Fn_
+  Whitespace
+  Newline
+  Eof
+}
+pub impl Compare for TokenKind
+pub impl Eq for TokenKind
+pub impl Hash for TokenKind
+pub impl Show for TokenKind
+
+// Type aliases
+
+// Traits
+
