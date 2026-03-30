@@ -95,3 +95,52 @@ pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
     }
   }
 }
+
+///|
+/// Depth-first pre-order iterator over all elements in the tree.
+///
+/// Uses an explicit stack. Suitable for stdlib composition
+/// (`.filter`, `.find_first`, `.take`, etc.).
+pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
+  let stack : Array[CstElement] = [self]
+  Iter::new(fn() {
+    if stack.is_empty() {
+      return None
+    }
+    let current = stack.unsafe_pop()
+    match current {
+      Node(node) => {
+        let mut i = node.children.length() - 1
+        while i >= 0 {
+          stack.push(node.children[i])
+          i = i - 1
+        }
+      }
+      Token(_) => ()
+    }
+    Some(current)
+  })
+}
+
+///|
+/// Bottom-up structure-preserving map: transforms a `CstElement` into
+/// another `CstElement`.
+///
+/// Children are recursively mapped first, then `f` is applied to the
+/// reconstructed element. For `Node` elements, a new `CstNode` is built
+/// with `CstNode::new` to ensure metadata consistency.
+pub fn CstElement::map(
+  self : CstElement,
+  f : (CstElement) -> CstElement,
+) -> CstElement {
+  match self {
+    Token(_) => f(self)
+    Node(node) => {
+      let new_children = Array::new(capacity=node.children.length())
+      for child in node.children {
+        new_children.push(child.map(f))
+      }
+      f(CstElement::Node(CstNode::new(node.kind, new_children)))
+    }
+  }
+}

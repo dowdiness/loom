@@ -152,3 +152,92 @@ test "each: single token" {
   })
   inspect(visited, content="true")
 }
+
+///|
+test "iter: collects all elements" {
+  let tree = make_test_tree()
+  let count = tree.iter().fold(init=0, fn(acc, _elem) { acc + 1 })
+  // 2 branch nodes + 6 tokens = 8
+  inspect(count, content="8")
+}
+
+///|
+test "iter: find_first" {
+  let tree = make_test_tree()
+  let found = tree
+    .iter()
+    .find_first(fn(elem) {
+      match elem {
+        CstElement::Token(t) => t.kind == RawKind(12) // Plus
+        _ => false
+      }
+    })
+  inspect(found is None, content="false")
+  match found {
+    Some(CstElement::Token(t)) => inspect(t.text, content="+")
+    _ => inspect("unreachable", content="")
+  }
+}
+
+///|
+test "iter: empty node" {
+  let node = CstNode::new(RawKind(20), [])
+  let elem = CstElement::Node(node)
+  let count = elem.iter().fold(init=0, fn(acc, _e) { acc + 1 })
+  inspect(count, content="1")
+}
+
+///|
+test "map: identity preserves structure" {
+  let tree = make_test_tree()
+  let mapped = tree.map(fn(elem) { elem })
+  // Reconstruct source text to verify structure
+  let text = mapped.transform(fn(token) { token.text }, fn(_kind, children) {
+    let mut s = ""
+    for child in children {
+      s = s + child
+    }
+    s
+  })
+  inspect(text, content="foo 1+2")
+}
+
+///|
+test "map: transform tokens" {
+  let tree = make_test_tree()
+  let mapped = tree.map(fn(elem) {
+    match elem {
+      CstElement::Token(t) =>
+        if t.kind == RawKind(9) { // Ident
+          CstElement::Token(CstToken::new(t.kind, "bar"))
+        } else {
+          elem
+        }
+      _ => elem
+    }
+  })
+  let text = mapped.transform(fn(token) { token.text }, fn(_kind, children) {
+    let mut s = ""
+    for child in children {
+      s = s + child
+    }
+    s
+  })
+  inspect(text, content="bar 1+2")
+}
+
+///|
+test "map: single token" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let elem = CstElement::Token(tok)
+  let mapped = elem.map(fn(e) {
+    match e {
+      CstElement::Token(t) => CstElement::Token(CstToken::new(t.kind, "y"))
+      _ => e
+    }
+  })
+  match mapped {
+    CstElement::Token(t) => inspect(t.text, content="y")
+    _ => inspect("unreachable", content="")
+  }
+}
