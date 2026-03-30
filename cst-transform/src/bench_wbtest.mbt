@@ -1,12 +1,73 @@
-// bench_test.mbt — Benchmarks: library functions vs hand-written recursion.
+// bench_wbtest.mbt — Benchmarks: library functions vs hand-written recursion.
 //
 // Tree size: depth=8, branching=4 ≈ 65,536 leaf nodes + ~21,845 internal = ~87,381 total.
 // Run: moon bench --release
 
+// ── Benchmark helpers ───────────────────────────────────────────────
+
 ///|
-/// Shared large tree for all benchmarks.
+fn generate_large_cst(depth : Int, branching : Int) -> GreenNode {
+  if depth <= 0 {
+    Leaf(Ident, "x")
+  } else {
+    let children = Array::new(capacity=branching)
+    for i in 0..<branching {
+      let _ = i
+      children.push(generate_large_cst(depth - 1, branching))
+    }
+    Branch(BinaryExpr, children)
+  }
+}
+
+///|
 fn bench_tree() -> GreenNode {
   generate_large_cst(8, 4)
+}
+
+///|
+fn to_source_handwritten(node : GreenNode) -> String {
+  match node {
+    Leaf(_, text) => text
+    Branch(_, children) => {
+      let sb = StringBuilder::new()
+      for child in children {
+        sb.write_string(to_source_handwritten(child))
+      }
+      sb.to_string()
+    }
+  }
+}
+
+///|
+fn collect_idents_handwritten(node : GreenNode) -> Array[String] {
+  match node {
+    Leaf(Ident, text) => [text]
+    Leaf(_, _) => []
+    Branch(_, children) => {
+      let result : Array[String] = []
+      for child in children {
+        result.append(collect_idents_handwritten(child))
+      }
+      result
+    }
+  }
+}
+
+///|
+fn find_first_ident_handwritten(node : GreenNode) -> String? {
+  match node {
+    Leaf(Ident, text) => Some(text)
+    Leaf(_, _) => None
+    Branch(_, children) => {
+      for child in children {
+        match find_first_ident_handwritten(child) {
+          Some(t) => return Some(t)
+          None => ()
+        }
+      }
+      None
+    }
+  }
 }
 
 // ── 1. transform (to_source) vs hand-written ────────────────────────

@@ -1,13 +1,11 @@
-// traits.mbt — Trait-based static dispatch for CST traversal.
+// traits.mbt — Trait-based static dispatch for zero-cost CST traversal.
 //
-// MoonBit monomorphizes trait method calls: `R::method(...)` compiles to
-// a direct function call, not an indirect closure dispatch. By encoding
-// the transform/fold algebras as traits on the *result type*, we eliminate
-// all closure overhead.
+// MoonBit monomorphizes trait method calls and guarantees single-element
+// tuple structs are unboxed. Combined, this produces code identical to
+// hand-written recursion.
 
 ///|
 /// Typeclass for monoid-style folding. `Self` is the result type.
-/// Implement for Int, String, etc. to get zero-overhead tree folds.
 pub(open) trait Folder {
   fold_token(TokenKind, String) -> Self
   fold_combine(Self, Self) -> Self
@@ -15,38 +13,17 @@ pub(open) trait Folder {
 }
 
 ///|
-/// Typeclass for callback-based DFS traversal with early termination.
-/// Return `true` to continue, `false` to stop.
-pub(open) trait Walker {
-  walk(Self, GreenNode) -> Bool
-}
-
-///|
-/// Statically-dispatched DFS walk with early termination.
-pub fn[W : Walker] GreenNode::accept_walk(self : GreenNode, w : W) -> Bool {
-  if not(W::walk(w, self)) {
-    return false
-  }
-  match self {
-    Leaf(_, _) => true
-    Branch(_, children) => {
-      for child in children {
-        if not(child.accept_walk(w)) {
-          return false
-        }
-      }
-      true
-    }
-  }
-}
-
-///|
 /// Typeclass for fused transform+fold. `Self` is the result type.
-/// Like Folder but with access to the branch SyntaxKind.
 pub(open) trait TransformFolder {
   tf_token(TokenKind, String) -> Self
   tf_init(SyntaxKind) -> Self
   tf_child(SyntaxKind, Self, Self) -> Self
+}
+
+///|
+/// Typeclass for callback-based DFS traversal with early termination.
+pub(open) trait Walker {
+  walk(Self, GreenNode) -> Bool
 }
 
 ///|
@@ -77,4 +54,91 @@ pub fn[R : TransformFolder] GreenNode::accept_transform_fold(
         acc
       }
   }
+}
+
+///|
+/// Statically-dispatched DFS walk with early termination.
+pub fn[W : Walker] GreenNode::accept_walk(self : GreenNode, w : W) -> Bool {
+  if not(W::walk(w, self)) {
+    return false
+  }
+  match self {
+    Leaf(_, _) => true
+    Branch(_, children) => {
+      for child in children {
+        if not(child.accept_walk(w)) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
+
+// ── Concrete implementations (newtypes for zero-cost fold) ──────────
+
+///|
+pub(all) struct NodeCount(Int) derive(Show)
+
+///|
+pub impl Folder for NodeCount with fold_token(_kind, _text) {
+  NodeCount(1)
+}
+
+///|
+pub impl Folder for NodeCount with fold_combine(self, other) {
+  NodeCount(self.0 + other.0)
+}
+
+///|
+pub impl Folder for NodeCount with fold_empty() {
+  NodeCount(0)
+}
+
+///|
+pub impl TransformFolder for NodeCount with tf_token(_kind, _text) {
+  NodeCount(1)
+}
+
+///|
+pub impl TransformFolder for NodeCount with tf_init(_kind) {
+  NodeCount(1)
+}
+
+///|
+pub impl TransformFolder for NodeCount with tf_child(_kind, acc, child) {
+  NodeCount(acc.0 + child.0)
+}
+
+///|
+pub(all) struct TokenCount(Int) derive(Show)
+
+///|
+pub impl Folder for TokenCount with fold_token(_kind, _text) {
+  TokenCount(1)
+}
+
+///|
+pub impl Folder for TokenCount with fold_combine(self, other) {
+  TokenCount(self.0 + other.0)
+}
+
+///|
+pub impl Folder for TokenCount with fold_empty() {
+  TokenCount(0)
+}
+
+///|
+pub impl TransformFolder for TokenCount with tf_token(_kind, _text) {
+  TokenCount(1)
+}
+
+///|
+pub impl TransformFolder for TokenCount with tf_init(_kind) {
+  TokenCount(0)
+}
+
+///|
+pub impl TransformFolder for TokenCount with tf_child(_kind, acc, child) {
+  TokenCount(acc.0 + child.0)
 }
