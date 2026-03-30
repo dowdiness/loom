@@ -26,6 +26,7 @@ pub fn GreenNode::map(Self, (Self) -> Self) -> Self
 pub fn[R] GreenNode::transform(Self, (TokenKind, String) -> R, (SyntaxKind, Array[R]) -> R) -> R
 pub fn[R] GreenNode::transform_cps(Self, (TokenKind, String) -> R, (SyntaxKind, ((R) -> Unit) -> Unit) -> R) -> R
 pub fn[R] GreenNode::transform_fold(Self, (TokenKind, String) -> R, (SyntaxKind) -> R, (SyntaxKind, R, R) -> R) -> R
+pub fn[R] GreenNode::transform_view(Self, (TokenKind, String) -> R, (SyntaxKind, ArrayView[R]) -> R) -> R
 pub impl Eq for GreenNode
 pub impl Show for GreenNode
 

@@ -64,6 +64,40 @@ pub fn[R] GreenNode::transform(
 }
 
 ///|
+/// View-based transform: uses a shared stack + `ArrayView[R]` to avoid
+/// per-branch `Array[R]` allocation.
+///
+/// One `Array[R]` is allocated upfront as a stack. Each branch's child results
+/// are pushed onto the stack, a view is taken, `on_node` receives the view,
+/// then the stack is truncated back. Zero per-branch allocation.
+pub fn[R] GreenNode::transform_view(
+  self : GreenNode,
+  on_token : (TokenKind, String) -> R,
+  on_node : (SyntaxKind, ArrayView[R]) -> R,
+) -> R {
+  let stack : Array[R] = Array::new(capacity=64)
+  fn go(node : GreenNode) -> R {
+    match node {
+      Leaf(kind, text) => on_token(kind, text)
+      Branch(kind, children) => {
+        let base = stack.length()
+        for child in children {
+          stack.push(go(child))
+        }
+        let view = stack.view(start=base, end=stack.length())
+        let result = on_node(kind, view)
+        // Pop children results off the stack
+        while stack.length() > base {
+          let _ = stack.unsafe_pop()
+        }
+        result
+      }
+    }
+  }
+  go(self)
+}
+
+///|
 /// Monoid catamorphism — folds children with `combine` without allocating
 /// an intermediate `Array[R]`.
 ///

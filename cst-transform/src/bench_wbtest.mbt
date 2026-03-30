@@ -73,6 +73,36 @@ fn find_first_ident_handwritten(node : GreenNode) -> String? {
 // ── 1. transform (to_source) vs hand-written ────────────────────────
 
 ///|
+test "bench: to_source via transform_view" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(() => {
+    let result = tree.transform_view((_kind, text) => text, (_kind, children) => {
+      let sb = StringBuilder::new()
+      for i in 0..<children.length() {
+        sb.write_string(children[i])
+      }
+      sb.to_string()
+    })
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: node count via transform_view" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(() => {
+    let result = tree.transform_view((_kind, _text) => 1, (_kind, children) => {
+      for i in 0..<children.length(); sum = 1 {
+        continue sum + children[i]
+      } nobreak {
+        sum
+      }
+    })
+    b.keep(result)
+  })
+}
+
+///|
 test "bench: to_source via transform" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(() => {

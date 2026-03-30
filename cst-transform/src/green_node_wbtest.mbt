@@ -110,6 +110,33 @@ fn GreenNode::first_error(self : GreenNode) -> GreenNode? {
 // ── transform tests ─────────────────────────────────────────────────
 
 ///|
+test "transform_view: source text reconstruction" {
+  let result = sample_cst().transform_view((_kind, text) => text, (
+    _kind,
+    children,
+  ) => {
+    let sb = StringBuilder::new()
+    for i in 0..<children.length() {
+      sb.write_string(children[i])
+    }
+    sb.to_string()
+  })
+  inspect(result, content="fn add(x, y) let result = x + y")
+}
+
+///|
+test "transform_view: node count" {
+  let count = sample_cst().transform_view((_kind, _text) => 1, (_kind, children) => {
+    for i in 0..<children.length(); sum = 1 {
+      continue sum + children[i]
+    } nobreak {
+      sum
+    }
+  })
+  inspect(count == count_nodes_handwritten(sample_cst()), content="true")
+}
+
+///|
 test "transform: source text reconstruction" {
   inspect(sample_cst().to_source(), content="fn add(x, y) let result = x + y")
 }
