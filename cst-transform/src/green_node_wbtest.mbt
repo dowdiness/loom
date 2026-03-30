@@ -424,15 +424,18 @@ test "trait Finder: find first ident" {
 }
 
 ///|
-test "trait Folder: token count" {
-  let result : NodeCount = sample_cst().accept_fold()
-  inspect(result.0, content="21")
-  let result2 : TokenCount = sample_cst().accept_fold()
-  inspect(result2.0, content="21")
+test "trait Folder: counts leaves only (branches contribute fold_empty=0)" {
+  // Folder only counts leaves because fold_empty()=0 for branches.
+  // NodeCount and TokenCount both return 21 (the leaf count).
+  let nodes : NodeCount = sample_cst().accept_fold()
+  let tokens : TokenCount = sample_cst().accept_fold()
+  inspect(nodes.0, content="21")
+  inspect(tokens.0, content="21")
 }
 
 ///|
-test "trait TransformFolder: node count" {
+test "trait TransformFolder: counts all nodes (tf_init=1 includes branches)" {
+  // TransformFolder counts branches too because tf_init()=1.
   let result : NodeCount = sample_cst().accept_transform_fold()
   inspect(result.0 == count_nodes_handwritten(sample_cst()), content="true")
   let result2 : TokenCount = sample_cst().accept_transform_fold()

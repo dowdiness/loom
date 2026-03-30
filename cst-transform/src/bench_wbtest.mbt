@@ -147,14 +147,18 @@ test "bench: collect idents hand-written" (b : @bench.T) {
 test "bench: find first ident via iter" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(() => {
-    let result = tree
+    let result : String? = match
+      tree
       .iter()
       .find_first(n => {
         match n {
           Leaf(Ident, _) => true
           _ => false
         }
-      })
+      }) {
+      Some(Leaf(_, text)) => Some(text)
+      _ => None
+    }
     b.keep(result)
   })
 }
