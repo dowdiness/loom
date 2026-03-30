@@ -15,7 +15,7 @@ fn bench_tree() -> GreenNode {
 test "bench: to_source via transform" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(() => {
-    let result = to_source(tree)
+    let result = tree.to_source()
     b.keep(result)
   })
 }

@@ -8,7 +8,7 @@ let expected_idents =
 
 ///|
 test "transform: source text reconstruction" {
-  let result = to_source(sample_cst())
+  let result = sample_cst().to_source()
   inspect(result, content="fn add(x, y) let result = x + y")
 }
 
@@ -58,7 +58,7 @@ test "fold: token count" {
 
 ///|
 test "fold: identifier collection" {
-  let idents = collect_identifiers(sample_cst())
+  let idents = sample_cst().collect_identifiers()
   inspect(idents.to_string() == expected_idents, content="true")
 }
 
@@ -111,7 +111,7 @@ test "map: uppercase all identifiers" {
       _ => n
     }
   })
-  let source = to_source(uppercased)
+  let source = uppercased.to_source()
   inspect(source, content="fn ADD(X, Y) let RESULT = X + Y")
 }
 
@@ -123,7 +123,7 @@ test "map: replace SyntaxKind with Error" {
       _ => n
     }
   })
-  let has_error = first_error(replaced)
+  let has_error = replaced.first_error()
   inspect(has_error is Some(_), content="true")
 }
 
@@ -196,25 +196,25 @@ test "iter: single leaf" {
 
 ///|
 test "practical: to_source reconstructs text" {
-  inspect(to_source(sample_cst()), content="fn add(x, y) let result = x + y")
+  inspect(sample_cst().to_source(), content="fn add(x, y) let result = x + y")
 }
 
 ///|
 test "practical: rename identifier" {
-  let renamed = rename(sample_cst(), "x", "a")
-  let source = to_source(renamed)
+  let renamed = sample_cst().rename("x", "a")
+  let source = renamed.to_source()
   inspect(source, content="fn add(a, y) let result = a + y")
 }
 
 ///|
 test "practical: collect_identifiers" {
-  let idents = collect_identifiers(sample_cst())
+  let idents = sample_cst().collect_identifiers()
   inspect(idents.to_string() == expected_idents, content="true")
 }
 
 ///|
 test "practical: first_error on clean tree" {
-  let result = first_error(sample_cst())
+  let result = sample_cst().first_error()
   inspect(result is None, content="true")
 }
 
@@ -225,15 +225,15 @@ test "practical: first_error finds error node" {
     Branch(Error, [Leaf(Ident, "bad")]),
     Branch(Name, [Leaf(Ident, "after")]),
   ])
-  let result = first_error(tree_with_error)
+  let result = tree_with_error.first_error()
   inspect(result is Some(_), content="true")
 }
 
 ///|
 test "practical: rename + to_source round-trip" {
   let cst = sample_cst()
-  let renamed = rename(cst, "result", "sum")
-  let source = to_source(renamed)
+  let renamed = cst.rename("result", "sum")
+  let source = renamed.to_source()
   inspect(source, content="fn add(x, y) let sum = x + y")
 }
 

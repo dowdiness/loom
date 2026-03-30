@@ -121,8 +121,8 @@ fn count_nodes_handwritten(node : GreenNode) -> Int {
 
 ///|
 /// Source text reconstruction via `transform`.
-fn to_source(node : GreenNode) -> String {
-  node.transform((_kind, text) => text, (_kind, children) => {
+fn GreenNode::to_source(self : GreenNode) -> String {
+  self.transform((_kind, text) => text, (_kind, children) => {
     let sb = StringBuilder::new()
     for s in children {
       sb.write_string(s)
@@ -133,8 +133,8 @@ fn to_source(node : GreenNode) -> String {
 
 ///|
 /// Identifier renaming via `map`.
-fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
-  node.map(n => {
+fn GreenNode::rename(self : GreenNode, from : String, to : String) -> GreenNode {
+  self.map(n => {
     match n {
       Leaf(Ident, text) => if text == from { Leaf(Ident, to) } else { n }
       _ => n
@@ -148,8 +148,8 @@ fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
 /// IMPORTANT: `fold`'s `empty` parameter is shared across all recursive calls.
 /// For mutable types like `Array`, `combine` must NOT mutate its arguments —
 /// it must create a new value. Otherwise the shared `empty` gets corrupted.
-fn collect_identifiers(node : GreenNode) -> Array[String] {
-  node.fold(
+fn GreenNode::collect_identifiers(self : GreenNode) -> Array[String] {
+  self.fold(
     (kind, text) => if kind == Ident { [text] } else { [] },
     (a, b) => {
       let result = Array::new(capacity=a.length() + b.length())
@@ -167,8 +167,8 @@ fn collect_identifiers(node : GreenNode) -> Array[String] {
 
 ///|
 /// First error node detection via `iter`.
-fn first_error(node : GreenNode) -> GreenNode? {
-  node
+fn GreenNode::first_error(self : GreenNode) -> GreenNode? {
+  self
   .iter()
   .find_first(n => {
     match n {
