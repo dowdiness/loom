@@ -1,14 +1,20 @@
 // Tests for Lambda Calculus Parser
 // Based on ReScript Parser_test.res implementation
 
+///|
 fn parse_or_fail(source : String) -> @ast.Term raise {
-  parse(source) catch { _ => fail("parse failed: " + source) }
+  parse(source) catch {
+    _ => fail("parse failed: " + source)
+  }
 }
 
+///|
 fn parse_cst_or_fail_parser(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise {
-  parse_cst(source) catch { _ => fail("lex error on " + source) }
+  parse_cst(source) catch {
+    _ => fail("lex error on " + source)
+  }
 }
 
 // ===== Parser Tests =====
@@ -530,7 +536,9 @@ test "parse nested blocks" {
 
 ///|
 test "parse blocks in if-then-else" {
-  let (cst, _) = parse_cst_or_fail_parser("if x then { let a = 1; a } else { 0 }")
+  let (cst, _) = parse_cst_or_fail_parser(
+    "if x then { let a = 1; a } else { 0 }",
+  )
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
@@ -539,7 +547,9 @@ test "parse blocks in if-then-else" {
 
 ///|
 test "parse param list with block body" {
-  let (cst, _) = parse_cst_or_fail_parser("let compute(x, y) = {\n  let sum = x + y\n  sum\n}")
+  let (cst, _) = parse_cst_or_fail_parser(
+    "let compute(x, y) = {\n  let sum = x + y\n  sum\n}",
+  )
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)

@@ -206,7 +206,7 @@ fn skip_until_paren_close_or_sync(
     } else if paren_depth == 0 && brace_depth == 0 && is_sync_point(token) {
       break
     }
-    if not(wrapped) {
+    if !wrapped {
       ctx.start_node(@syntax.ErrorNode)
       wrapped = true
     }
@@ -348,7 +348,7 @@ pub fn parse_block_expr(
     parse_expression(ctx)
   }
   let _ = consume_delimiters(ctx)
-  if not(lambda_expect(ctx, @token.RBrace, @syntax.RBraceToken)) {
+  if !lambda_expect(ctx, @token.RBrace, @syntax.RBraceToken) {
     let _ = skip_until_paren_close_or_sync(ctx)
     if ctx.peek() == @token.RBrace {
       ctx.emit_token(@syntax.RBraceToken)
@@ -382,7 +382,7 @@ fn parse_atom(
               ctx.emit_error_placeholder()
             }
           }
-          if not(lambda_expect(ctx, @token.Dot, @syntax.DotToken)) {
+          if !lambda_expect(ctx, @token.Dot, @syntax.DotToken) {
             return false
           }
           parse_expression_with_mode(ctx, allow_newline_application)
@@ -396,11 +396,11 @@ fn parse_atom(
         () => {
           ctx.emit_token(@syntax.IfKeyword)
           parse_expression_with_mode(ctx, allow_newline_application)
-          if not(lambda_expect(ctx, @token.Then, @syntax.ThenKeyword)) {
+          if !lambda_expect(ctx, @token.Then, @syntax.ThenKeyword) {
             return false
           }
           parse_expression_with_mode(ctx, allow_newline_application)
-          if not(lambda_expect(ctx, @token.Else, @syntax.ElseKeyword)) {
+          if !lambda_expect(ctx, @token.Else, @syntax.ElseKeyword) {
             return false
           }
           parse_expression_with_mode(ctx, allow_newline_application)
@@ -415,7 +415,7 @@ fn parse_atom(
       ctx.node(@syntax.ParenExpr, () => {
         ctx.emit_token(@syntax.LeftParenToken)
         parse_expression_with_mode(ctx, allow_newline_application)
-        if not(lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)) {
+        if !lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) {
           // RightParen missing — recover inside parens, but don't consume
           // parent-level delimiters (`in`/`then`/`else`/...) needed upstream.
           let _ = skip_until_paren_close_or_sync(ctx)

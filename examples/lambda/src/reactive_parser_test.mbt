@@ -21,7 +21,7 @@ test "ReactiveParser: step-based recovery produces parse tree not ErrorNode" {
   // Should NOT be a lex-error Term — the parser got tokens and produced a tree
   inspect(
     match term {
-      @ast.Term::Error(msg) => not(msg.contains("lex error"))
+      @ast.Term::Error(msg) => !msg.contains("lex error")
       _ => true
     },
     content="true",

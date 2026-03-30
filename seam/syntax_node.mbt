@@ -403,7 +403,7 @@ pub fn SyntaxNode::tight_span(
           if n.kind == repeat_group_kind {
             pos = scan(n.children, pos)
           } else {
-            if not(found_start.val) {
+            if !found_start.val {
               tight_start.val = pos
               found_start.val = true
             }
@@ -417,7 +417,7 @@ pub fn SyntaxNode::tight_span(
             None => true
           }
           if contributes {
-            if not(found_start.val) {
+            if !found_start.val {
               tight_start.val = pos
               found_start.val = true
             }
@@ -430,7 +430,7 @@ pub fn SyntaxNode::tight_span(
     pos
   }
   scan(self.cst.children, self.offset) |> ignore
-  if not(found_start.val) {
+  if !found_start.val {
     return (self.offset, self.offset)
   }
   (tight_start.val, tight_end.val)

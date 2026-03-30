@@ -114,18 +114,18 @@ fn verify_lex_contract(
     let step2 = (lexer.lex_step)(source, pos)
     match (step, step2) {
       (Produced(t1, next_offset=n1), Produced(t2, next_offset=n2)) =>
-        if not(t1 == t2 && n1 == n2) {
+        if !(t1 == t2 && n1 == n2) {
           abort("contract violation: non-deterministic Produced")
         }
       (
         Invalid(at=a1, width=w1, message=m1),
         Invalid(at=a2, width=w2, message=m2),
       ) =>
-        if not(a1 == a2 && w1 == w2 && m1 == m2) {
+        if !(a1 == a2 && w1 == w2 && m1 == m2) {
           abort("contract violation: non-deterministic Invalid")
         }
       (Incomplete(at=a1, expected=e1), Incomplete(at=a2, expected=e2)) =>
-        if not(a1 == a2 && e1 == e2) {
+        if !(a1 == a2 && e1 == e2) {
           abort("contract violation: non-deterministic Incomplete")
         }
       (Done, Done) => ()
@@ -510,7 +510,7 @@ fn prop_step_deterministic(seed : Int) -> Bool {
     return false
   }
   for i = 0; i < t1.length(); i = i + 1 {
-    if not(t1[i] == t2[i]) {
+    if !(t1[i] == t2[i]) {
       return false
     }
   }

@@ -79,7 +79,7 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
   self.stats.recomputed = self.stats.recomputed + 1
   // Verification: warm cache for unvisited node-children
   for child in node.children() {
-    if not(visited.contains((child.start(), child.end()))) {
+    if !visited.contains((child.start(), child.end())) {
       self.stats.unvisited = self.stats.unvisited + 1
       let _ = self.fold_node(child)
     }

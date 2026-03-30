@@ -14,8 +14,7 @@ fn make_json_object(n : Int) -> String {
   for i = 0; i < n; i = i + 1 {
     let value = match i % 6 {
       // Nested object
-      0 =>
-        "{\"inner_a\": \{i}, \"inner_b\": \"hello\", \"inner_c\": true}"
+      0 => "{\"inner_a\": \{i}, \"inner_b\": \"hello\", \"inner_c\": true}"
       // Array of numbers
       1 => "[\{i}, \{i + 1}, \{i + 2}, \{i + 3}, \{i + 4}]"
       // String
@@ -38,8 +37,7 @@ fn make_json_array(n : Int) -> String {
   let elements : Array[String] = []
   for i = 0; i < n; i = i + 1 {
     let elem = match i % 4 {
-      0 =>
-        "{\"id\": \{i}, \"name\": \"item_\{i}\", \"active\": true}"
+      0 => "{\"id\": \{i}, \"name\": \"item_\{i}\", \"active\": true}"
       1 => "[\{i}, \{i + 1}, \{i + 2}]"
       2 => "\"element_\{i}\""
       _ => "\{i * 7}"
@@ -75,11 +73,7 @@ test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
   let edit_target = "342"
   let mut edit_pos = -1
   for i = 0; i < source.length() - 2; i = i + 1 {
-    let ch0 : String = try {
-      source[i:i + 3].to_string()
-    } catch {
-      _ => continue
-    }
+    let ch0 : String = source[i:i + 3].to_string() catch { _ => continue }
     if ch0 == edit_target {
       edit_pos = i // position of "3" in "342"
       break
@@ -113,9 +107,7 @@ test "json: 50-member object - incremental (edit inner object)" (b : @bench.T) {
   let target = "\"inner_a\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = try {
-      source[i:i + target.length()].to_string()
-    } catch {
+    let sub : String = source[i:i + target.length()].to_string() catch {
       _ => continue
     }
     if sub == target {
@@ -150,9 +142,7 @@ test "json: 100-member object - incremental (edit inner object)" (b : @bench.T) 
   let target = "\"inner_a\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = try {
-      source[i:i + target.length()].to_string()
-    } catch {
+    let sub : String = source[i:i + target.length()].to_string() catch {
       _ => continue
     }
     if sub == target {
@@ -190,9 +180,7 @@ test "json: 50-element array - incremental (edit nested object)" (b : @bench.T) 
   let target = "\"id\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = try {
-      source[i:i + target.length()].to_string()
-    } catch {
+    let sub : String = source[i:i + target.length()].to_string() catch {
       _ => continue
     }
     if sub == target {

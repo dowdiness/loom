@@ -148,7 +148,7 @@ test "LetDefView with params" {
     })
   let def = LetDefView::cast(let_defs[0]).unwrap()
   inspect(def.name(), content="f")
-  inspect(not(def.params().is_empty()), content="true")
+  inspect(!def.params().is_empty(), content="true")
   inspect(
     def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
     content="Some(BinaryExpr)",

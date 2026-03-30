@@ -71,7 +71,7 @@ fn build_physical_path(
       }
       child_offset = child_end
     }
-    if not(found) {
+    if !found {
       return None
     }
   }
@@ -299,7 +299,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(
   let block_text = block_text_view.to_string()
   // 3. Tokenize and check balance
   let block_tokens = tokenize(block_text) catch { LexError(_) => return None }
-  if not((block_spec.is_balanced)(block_tokens)) {
+  if !(block_spec.is_balanced)(block_tokens) {
     return None
   }
   // 4. Get the reparser for this block kind

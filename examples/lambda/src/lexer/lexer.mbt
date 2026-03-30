@@ -101,7 +101,7 @@ fn step_lex(
       let mut ws_end = pos + 1
       while ws_end < input.length() {
         match input.code_unit_at(ws_end).to_char() {
-          Some(' ') | Some('\t') | Some('\n') | Some('\r') if not(layout) =>
+          Some(' ') | Some('\t') | Some('\n') | Some('\r') if !layout =>
             ws_end = ws_end + 1
           Some(' ') | Some('\t') if layout => ws_end = ws_end + 1
           _ => break

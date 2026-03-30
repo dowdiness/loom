@@ -98,13 +98,13 @@ fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
 
 ///|
 fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
-  while not(ctx.at_eof()) {
+  while !ctx.at_eof() {
     ctx.node(KExpr, fn() {
       if ctx.at(A) {
         ctx.emit_token(KChar)
       } else {
         ctx.error("expected 'a'")
-        if not(ctx.at_eof()) {
+        if !ctx.at_eof() {
           ctx.bump_error()
         }
       }

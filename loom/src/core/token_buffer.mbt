@@ -247,7 +247,7 @@ pub fn[T] TokenBuffer::update(
   let old_tokens = self.tokens
   let old_starts = self.starts
   let old_len = old_tokens.length()
-  if not(self.incremental_relex_enabled) || old_len == 0 {
+  if !self.incremental_relex_enabled || old_len == 0 {
     let (tokens, starts) = (self.retokenize_full)(new_source)
     self.tokens = tokens
     self.starts = starts

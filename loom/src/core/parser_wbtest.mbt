@@ -254,7 +254,7 @@ fn test_grammar(ctx : ParserContext[TestTok, TestKind]) -> Unit {
           // Consume the unexpected token to prevent the loop from spinning
           // on repeated non-Num tokens. Guard against EOF to avoid emitting
           // empty error tokens past end of input.
-          if not(ctx.at_eof()) {
+          if !ctx.at_eof() {
             ctx.bump_error()
           }
         }
@@ -1336,10 +1336,10 @@ test "checkpoint/restore: speculative parse picks successful branch" {
   let cp = ctx.checkpoint()
   ctx.emit_token(KNum)
   let branch_a_ok = ctx.at_eof()
-  if not(branch_a_ok) {
+  if !branch_a_ok {
     ctx.restore(cp)
   }
-  if not(branch_a_ok) {
+  if !branch_a_ok {
     test_grammar(ctx)
   }
   ctx.finish_node()

@@ -183,7 +183,7 @@ pub fn CstNode::new(
     Some(ek) => if kind == ek { has_any_error = true }
     None => ()
   }
-  if not(has_any_error) {
+  if !has_any_error {
     match incomplete_kind {
       Some(ik) => if kind == ik { has_any_error = true }
       None => ()
@@ -198,13 +198,13 @@ pub fn CstNode::new(
           Some(ws) => if t.kind != ws { token_count = token_count + 1 }
           None => token_count = token_count + 1
         }
-        if not(has_any_error) {
+        if !has_any_error {
           match error_kind {
             Some(ek) => if t.kind == ek { has_any_error = true }
             None => ()
           }
         }
-        if not(has_any_error) {
+        if !has_any_error {
           match incomplete_kind {
             Some(ik) => if t.kind == ik { has_any_error = true }
             None => ()
@@ -213,7 +213,7 @@ pub fn CstNode::new(
       }
       Node(n) => {
         token_count = token_count + n.token_count
-        if not(has_any_error) && n.has_any_error {
+        if !has_any_error && n.has_any_error {
           has_any_error = true
         }
       }
@@ -326,7 +326,7 @@ pub fn CstNode::first_token(
 ) -> CstToken? {
   for child in self.children {
     match child {
-      CstElement::Token(t) => if not(is_trivia(t.kind)) { return Some(t) }
+      CstElement::Token(t) => if !is_trivia(t.kind) { return Some(t) }
       CstElement::Node(n) =>
         match n.first_token(is_trivia) {
           Some(_) as found => return found

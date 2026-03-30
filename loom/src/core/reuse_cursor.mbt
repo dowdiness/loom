@@ -449,7 +449,7 @@ fn[T, K] ReuseCursor::seek_node_at(
       frame.current_child_offset = child_end // keep frame in sync
       frame.child_index = frame.child_index + 1
     }
-    if not(found_child) {
+    if !found_child {
       self.pop_frame()
     }
   }
@@ -486,18 +486,16 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
         return None
       }
       let node_end = node_offset + node.text_len
-      if not(
-          is_outside_damage(
-            node_offset,
-            node_end,
-            self.damage_start,
-            self.damage_end,
-          ),
+      if !is_outside_damage(
+          node_offset,
+          node_end,
+          self.damage_start,
+          self.damage_end,
         ) {
         None
-      } else if not(leading_token_matches(node, self, token_pos)) {
+      } else if !leading_token_matches(node, self, token_pos) {
         None
-      } else if not(trailing_context_matches(self, node_end)) {
+      } else if !trailing_context_matches(self, node_end) {
         None
       } else {
         Some(node)
@@ -599,7 +597,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
       frame.current_child_offset = child_end
       frame.child_index = frame.child_index + 1
     }
-    if not(found_child) {
+    if !found_child {
       self.pop_frame()
     }
   }

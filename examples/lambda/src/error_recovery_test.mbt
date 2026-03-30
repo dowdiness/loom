@@ -1,9 +1,12 @@
 // Tests for error recovery — migrated to parse_cst API.
 
+///|
 fn parse_cst_or_fail_recovery(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise {
-  parse_cst(source) catch { _ => fail("lex error on " + source) }
+  parse_cst(source) catch {
+    _ => fail("lex error on " + source)
+  }
 }
 
 ///|

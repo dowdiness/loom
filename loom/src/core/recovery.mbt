@@ -57,11 +57,11 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
   is_sync : (T) -> Bool,
 ) -> Int {
   let mut count = 0
-  let needs_wrap = not(self.at_eof()) && not(is_sync(self.peek()))
+  let needs_wrap = !self.at_eof() && !is_sync(self.peek())
   if needs_wrap {
     self.start_node(self.spec.error_kind)
   }
-  while not(self.at_eof()) && not(is_sync(self.peek())) {
+  while !self.at_eof() && !is_sync(self.peek()) {
     self.bump_error()
     count = count + 1
   }
@@ -87,7 +87,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
     return 1
   }
   let n = self.skip_until(is_sync)
-  if n == 0 && not(self.at_eof()) {
+  if n == 0 && !self.at_eof() {
     self.bump_error()
     return 1
   }
@@ -112,11 +112,11 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 ) -> Int {
   let mut depth = 0
   let mut count = 0
-  let needs_wrap = not(self.at_eof()) && not(is_close(self.peek()))
+  let needs_wrap = !self.at_eof() && !is_close(self.peek())
   if needs_wrap {
     self.start_node(self.spec.error_kind)
   }
-  while not(self.at_eof()) {
+  while !self.at_eof() {
     let t = self.peek()
     if is_close(t) && depth == 0 {
       break
@@ -158,7 +158,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::nod
   }
   self.start_node(kind)
   let ok = body()
-  if not(ok) {
+  if !ok {
     let _ = self.skip_until(is_sync)
   }
   self.finish_node()

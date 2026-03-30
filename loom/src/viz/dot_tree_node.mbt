@@ -26,7 +26,7 @@ pub impl DotNode for DotTreeNode with node_attrs(self) {
   let buf = StringBuilder::new()
   let mut first = true
   self.attrs.each((k, v) => {
-    if not(first) {
+    if !first {
       buf.write_string(", ")
     }
     buf.write_string(@parser.format_id(k))
@@ -55,7 +55,7 @@ pub impl DotNode for DotTreeNode with edge_label(self, i) {
 /// Build a DotTreeNode from a graphviz Graph AST.
 /// Collects nodes and edges, finds root (no incoming edges), builds tree.
 pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
-  if not(graph.directed) {
+  if !graph.directed {
     return None
   }
   let node_labels : Map[String, String] = Map::new()
@@ -157,7 +157,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
 
   // Validate connectivity and acyclicity before building the concrete tree.
   let visit_state : Map[String, Int] = Map::new() // 1=in stack, 2=done
-  if not(validate_reachability(rid, child_list, visit_state)) {
+  if !validate_reachability(rid, child_list, visit_state) {
     return None
   }
   for nid in all_node_ids {
@@ -186,7 +186,7 @@ fn validate_reachability(
   match child_list.get(nid) {
     Some(children) =>
       for pair in children {
-        if not(validate_reachability(pair.0, child_list, visit_state)) {
+        if !validate_reachability(pair.0, child_list, visit_state) {
           return false
         }
       }

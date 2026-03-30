@@ -136,7 +136,7 @@ pub fn[Ast] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
   let value = self.term_memo.get()
   self.run_source_chain_validation()
   if self.validate_term_dependency &&
-    not(self.term_memo.dependencies().contains(self.cst_memo.id())) {
+    !self.term_memo.dependencies().contains(self.cst_memo.id()) {
     abort("ReactiveParser::from_parts: term_memo must depend on cst_memo")
   }
   value
@@ -180,13 +180,13 @@ pub fn[Stage, Ast] ReactiveParser::from_parts(
   // dependencies cannot silently detach the CST from the source.
   let validate_source_chain = fn() {
     ignore(source_memo.get())
-    if not(source_memo.dependencies().contains(source_id)) {
+    if !source_memo.dependencies().contains(source_id) {
       abort(
         "ReactiveParser::from_parts: source_memo must depend on source_text",
       )
     }
     if source_memo_id != cst_id &&
-      not(cst_memo.dependencies().contains(source_memo_id)) {
+      !cst_memo.dependencies().contains(source_memo_id) {
       abort("ReactiveParser::from_parts: cst_memo must depend on source_memo")
     }
   }
