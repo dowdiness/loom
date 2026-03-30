@@ -183,3 +183,12 @@ pub impl Finder for IdentFinder with check(_self, node) {
     _ => false
   }
 }
+
+///|
+pub impl Walker for IdentFinder with walk(_self, node) {
+  // Return false to stop at first Ident (inverted: walk returns "continue?")
+  match node {
+    Leaf(Ident, _) => false
+    _ => true
+  }
+}
