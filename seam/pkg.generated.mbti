@@ -26,6 +26,7 @@ pub(all) enum CstElement {
   Node(CstNode)
 }
 pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
+pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
 pub fn CstElement::iter(Self) -> Iter[Self]
 pub fn CstElement::kind(Self) -> RawKind
@@ -181,6 +182,10 @@ pub impl @debug.Debug for TokenAtOffset
 // Type aliases
 
 // Traits
+pub(open) trait Finder {
+  check(Self, CstElement) -> Bool
+}
+
 pub(open) trait FromRawKind {
   from_raw(RawKind) -> Self
 }

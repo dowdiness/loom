@@ -241,3 +241,75 @@ test "map: single token" {
     _ => inspect("unreachable", content="")
   }
 }
+
+///|
+struct NumberFinder {
+  kind : RawKind
+}
+
+///|
+impl Finder for NumberFinder with check(self, elem) {
+  match elem {
+    CstElement::Token(t) => t.kind == self.kind
+    _ => false
+  }
+}
+
+///|
+test "find: locates first number token" {
+  let tree = make_test_tree()
+  let found = tree.find(NumberFinder::{ kind: RawKind(10) })
+  match found {
+    Some(CstElement::Token(t)) => inspect(t.text, content="1")
+    _ => inspect("not found", content="")
+  }
+}
+
+///|
+test "find: returns None when no match" {
+  let tree = make_test_tree()
+  let found = tree.find(NumberFinder::{ kind: RawKind(99) })
+  inspect(found is None, content="true")
+}
+
+///|
+struct NodeKindFinder {
+  kind : RawKind
+}
+
+///|
+impl Finder for NodeKindFinder with check(self, elem) {
+  match elem {
+    CstElement::Node(n) => n.kind == self.kind
+    _ => false
+  }
+}
+
+///|
+test "find: matches node element" {
+  let tree = make_test_tree()
+  let found = tree.find(NodeKindFinder::{ kind: RawKind(21) })
+  match found {
+    Some(CstElement::Node(n)) => inspect(n.kind == RawKind(21), content="true")
+    _ => inspect("not found", content="")
+  }
+}
+
+///|
+test "find: single token match" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let elem = CstElement::Token(tok)
+  let found = elem.find(NumberFinder::{ kind: RawKind(9) })
+  match found {
+    Some(CstElement::Token(t)) => inspect(t.text, content="x")
+    _ => inspect("not found", content="")
+  }
+}
+
+///|
+test "find: single token no match" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let elem = CstElement::Token(tok)
+  let found = elem.find(NumberFinder::{ kind: RawKind(10) })
+  inspect(found is None, content="true")
+}

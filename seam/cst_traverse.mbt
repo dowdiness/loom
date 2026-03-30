@@ -144,3 +144,30 @@ pub fn CstElement::map(
     }
   }
 }
+
+///|
+/// Typeclass for DFS search. `check` returns true if the element matches.
+/// Statically dispatched — zero closure overhead for predicates.
+pub(open) trait Finder {
+  check(Self, CstElement) -> Bool
+}
+
+///|
+/// Statically-dispatched DFS find. Returns the first element where `check` is true.
+pub fn[F : Finder] CstElement::find(self : CstElement, f : F) -> CstElement? {
+  if F::check(f, self) {
+    return Some(self)
+  }
+  match self {
+    Token(_) => None
+    Node(node) => {
+      for child in node.children {
+        match child.find(f) {
+          Some(n) => return Some(n)
+          None => ()
+        }
+      }
+      None
+    }
+  }
+}
