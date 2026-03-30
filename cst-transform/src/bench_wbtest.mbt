@@ -123,11 +123,11 @@ test "bench: node count via transform" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(() => {
     let result = tree.transform((_kind, _text) => 1, (_kind, children) => {
-      let mut sum = 1
-      for c in children {
-        sum = sum + c
+      for c in children; sum = 1 {
+        continue sum + c
+      } nobreak {
+        sum
       }
-      sum
     })
     b.keep(result)
   })
@@ -158,11 +158,11 @@ test "bench: token count via transform (Array[Int])" (b : @bench.T) {
   let tree = bench_tree()
   b.bench(() => {
     let result = tree.transform((_kind, _text) => 1, (_kind, children) => {
-      let mut sum = 0
-      for c in children {
-        sum = sum + c
+      for c in children; sum = 0 {
+        continue sum + c
+      } nobreak {
+        sum
       }
-      sum
     })
     b.keep(result)
   })

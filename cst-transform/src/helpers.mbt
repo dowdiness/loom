@@ -110,13 +110,12 @@ fn find_first_ident_handwritten(node : GreenNode) -> String? {
 fn count_nodes_handwritten(node : GreenNode) -> Int {
   match node {
     Leaf(_, _) => 1
-    Branch(_, children) => {
-      let mut count = 1
-      for child in children {
-        count = count + count_nodes_handwritten(child)
+    Branch(_, children) =>
+      for child in children; count = 1 {
+        continue count + count_nodes_handwritten(child)
+      } nobreak {
+        count
       }
-      count
-    }
   }
 }
 

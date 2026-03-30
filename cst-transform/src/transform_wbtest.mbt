@@ -15,11 +15,11 @@ test "transform: source text reconstruction" {
 ///|
 test "transform: node count" {
   let count = sample_cst().transform((_kind, _text) => 1, (_kind, children) => {
-    let mut sum = 1
-    for c in children {
-      sum = sum + c
+    for c in children; sum = 1 {
+      continue sum + c
+    } nobreak {
+      sum
     }
-    sum
   })
   inspect(count == count_nodes_handwritten(sample_cst()), content="true")
 }
@@ -69,22 +69,18 @@ test "fold: total text length" {
     (a, b) => a + b,
     0,
   )
-  // "fn add(x, y) let result = x + y" = 31 chars
   inspect(text_len, content="31")
 }
 
 ///|
 test "transform: max nesting depth" {
   let depth = sample_cst().transform((_kind, _text) => 1, (_kind, children) => {
-    let mut max_child = 0
-    for d in children {
-      if d > max_child {
-        max_child = d
-      }
+    for d in children; max_child = 0 {
+      continue if d > max_child { d } else { max_child }
+    } nobreak {
+      max_child + 1
     }
-    max_child + 1
   })
-  // SourceFile > FnDef > LetStmt > BinaryExpr > Name > Leaf = 6
   inspect(depth, content="6")
 }
 
@@ -246,11 +242,11 @@ test "practical: rename + to_source round-trip" {
 ///|
 test "api: transform type inference without annotation" {
   let count = sample_cst().transform((_k, _t) => 1, (_k, cs) => {
-    let mut s = 1
-    for c in cs {
-      s = s + c
+    for c in cs; s = 1 {
+      continue s + c
+    } nobreak {
+      s
     }
-    s
   })
   inspect(count > 0, content="true")
 }
@@ -295,14 +291,23 @@ test "api: Result return type in transform callbacks" {
   let result : Result[Int, String] = Branch(Name, [Leaf(Ident, "x")]).transform(
     (kind, _text) => if kind == Ident { Ok(1) } else { Err("unexpected token") },
     (_kind, children) => {
-      let mut sum = 0
+      // Early return prevents for..in loop variable style
       for c in children {
         match c {
-          Ok(v) => sum = sum + v
           Err(e) => return Err(e)
+          _ => ()
         }
       }
-      Ok(sum)
+      Ok(
+        for c in children; sum = 0 {
+          match c {
+            Ok(v) => continue sum + v
+            Err(_) => continue sum
+          }
+        } nobreak {
+          sum
+        },
+      )
     },
   )
   inspect(result, content="Ok(1)")
@@ -325,6 +330,7 @@ test "cps: source text reconstruction" {
 
 ///|
 test "cps: node count" {
+  // CPS uses emit callback — can't avoid let mut here
   let count = sample_cst().transform_cps((_kind, _text) => 1, (
     _kind,
     each_child,
@@ -364,6 +370,7 @@ test "cps: single leaf" {
 
 ///|
 test "each: full traversal count" {
+  // each uses callback — can't avoid let mut here
   let mut count = 0
   let _ = sample_cst().each(_n => {
     count = count + 1
@@ -469,6 +476,5 @@ test "transform_fold: max depth via kind-aware init" {
       acc
     }
   })
-  // SourceFile > FnDef > LetStmt > BinaryExpr > Name > Leaf = 6
   inspect(depth, content="6")
 }

@@ -15,16 +15,15 @@ pub fn[R] GreenNode::transform_fold(
 ) -> R {
   match self {
     Leaf(kind, text) => on_token(kind, text)
-    Branch(kind, children) => {
-      let mut acc = init(kind)
-      for child in children {
-        acc = on_child(
-          kind,
-          acc,
-          child.transform_fold(on_token, init, on_child),
-        )
+    Branch(kind, children) =>
+      for child in children; acc = init(kind) {
+        continue on_child(
+            kind,
+            acc,
+            child.transform_fold(on_token, init, on_child),
+          )
+      } nobreak {
+        acc
       }
-      acc
-    }
   }
 }

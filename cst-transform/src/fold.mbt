@@ -12,12 +12,11 @@ pub fn[R] GreenNode::fold(
 ) -> R {
   match self {
     Leaf(kind, text) => on_token(kind, text)
-    Branch(_, children) => {
-      let mut acc = empty
-      for child in children {
-        acc = combine(acc, child.fold(on_token, combine, empty))
+    Branch(_, children) =>
+      for child in children; acc = empty {
+        continue combine(acc, child.fold(on_token, combine, empty))
+      } nobreak {
+        acc
       }
-      acc
-    }
   }
 }

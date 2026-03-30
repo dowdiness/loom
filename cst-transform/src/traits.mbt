@@ -54,13 +54,12 @@ pub(open) trait TransformFolder {
 pub fn[R : Folder] GreenNode::accept_fold(self : GreenNode) -> R {
   match self {
     Leaf(kind, text) => R::fold_token(kind, text)
-    Branch(_, children) => {
-      let mut acc : R = R::fold_empty()
-      for child in children {
-        acc = R::fold_combine(acc, child.accept_fold())
+    Branch(_, children) =>
+      for child in children; acc = (R::fold_empty() : R) {
+        continue R::fold_combine(acc, child.accept_fold())
+      } nobreak {
+        acc
       }
-      acc
-    }
   }
 }
 
@@ -71,12 +70,11 @@ pub fn[R : TransformFolder] GreenNode::accept_transform_fold(
 ) -> R {
   match self {
     Leaf(kind, text) => R::tf_token(kind, text)
-    Branch(kind, children) => {
-      let mut acc : R = R::tf_init(kind)
-      for child in children {
-        acc = R::tf_child(kind, acc, child.accept_transform_fold())
+    Branch(kind, children) =>
+      for child in children; acc = (R::tf_init(kind) : R) {
+        continue R::tf_child(kind, acc, child.accept_transform_fold())
+      } nobreak {
+        acc
       }
-      acc
-    }
   }
 }
