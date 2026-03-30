@@ -25,10 +25,12 @@ pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
 }
+pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
 pub fn CstElement::kind(Self) -> RawKind
 pub fn CstElement::text_len(Self) -> Int
 pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R) -> R
+pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (RawKind, R, R) -> R) -> R
 pub impl Eq for CstElement
 pub impl Hash for CstElement
 pub impl Show for CstElement

@@ -82,3 +82,73 @@ test "fold: single token" {
   let result = elem.fold(fn(t) { t.text.length() }, fn(a, b) { a + b }, 0)
   inspect(result, content="2")
 }
+
+///|
+test "transform_fold: node count" {
+  let tree = make_test_tree()
+  let result = tree.transform_fold(fn(_token) { 1 }, fn(_kind) { 1 }, fn(
+    _kind,
+    acc,
+    child,
+  ) {
+    acc + child
+  })
+  // 2 branch nodes + 6 tokens = 8
+  inspect(result, content="8")
+}
+
+///|
+test "transform_fold: single token" {
+  let tok = CstToken::new(RawKind(10), "7")
+  let elem = CstElement::Token(tok)
+  let result = elem.transform_fold(fn(t) { t.text.length() }, fn(_kind) { 0 }, fn(
+    _kind,
+    acc,
+    child,
+  ) {
+    acc + child
+  })
+  inspect(result, content="1")
+}
+
+///|
+test "each: visits all nodes and can terminate early" {
+  let tree = make_test_tree()
+  let mut count = 0
+  let completed = tree.each(fn(_elem) {
+    count = count + 1
+    true
+  })
+  inspect(completed, content="true")
+  // 2 branch nodes + 6 tokens = 8
+  inspect(count, content="8")
+}
+
+///|
+test "each: early termination" {
+  let tree = make_test_tree()
+  let mut count = 0
+  let completed = tree.each(fn(elem) {
+    count = count + 1
+    // Stop at first Token with kind 10 (Number)
+    match elem {
+      CstElement::Token(t) => t.kind != RawKind(10)
+      _ => true
+    }
+  })
+  inspect(completed, content="false")
+  // Root(20) -> Token(9,"foo") -> Token(11," ") -> BinaryExpr(21) -> Token(10,"1") stops
+  inspect(count, content="5")
+}
+
+///|
+test "each: single token" {
+  let tok = CstToken::new(RawKind(9), "x")
+  let elem = CstElement::Token(tok)
+  let mut visited = false
+  let _ = elem.each(fn(_e) {
+    visited = true
+    true
+  })
+  inspect(visited, content="true")
+}

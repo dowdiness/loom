@@ -47,3 +47,51 @@ pub fn[R] CstElement::fold(
       }
   }
 }
+
+///|
+/// Fused transform+fold: avoids `Array[R]` allocation.
+///
+/// Like `transform`, processes children bottom-up. Instead of collecting
+/// into an Array, folds inline: `on_child(kind, accumulator, child_result)`.
+pub fn[R] CstElement::transform_fold(
+  self : CstElement,
+  on_token : (CstToken) -> R,
+  init : (RawKind) -> R,
+  on_child : (RawKind, R, R) -> R,
+) -> R {
+  match self {
+    Token(token) => on_token(token)
+    Node(node) =>
+      for child in node.children; acc = init(node.kind) {
+        continue on_child(
+            node.kind,
+            acc,
+            child.transform_fold(on_token, init, on_child),
+          )
+      } nobreak {
+        acc
+      }
+  }
+}
+
+///|
+/// Callback-based depth-first pre-order traversal.
+///
+/// Calls `f` for every element in the tree. Returns `true` if traversal
+/// completed, `false` if `f` returned `false` to request early termination.
+pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
+  if not(f(self)) {
+    return false
+  }
+  match self {
+    Token(_) => true
+    Node(node) => {
+      for child in node.children {
+        if not(child.each(f)) {
+          return false
+        }
+      }
+      true
+    }
+  }
+}
