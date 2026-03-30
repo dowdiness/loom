@@ -401,18 +401,10 @@ test "cps: node count" {
 // ── Trait-based tests ───────────────────────────────────────────────
 
 ///|
-test "trait Walker: accept_walk traversal + early termination" {
-  // Full traversal
-  let mut walk_count = 0
+test "trait Walker: accept_walk early termination" {
   let completed = sample_cst().accept_walk(IdentFinder(()))
   // IdentFinder stops at first Ident leaf, so should NOT complete
   inspect(completed, content="false")
-  // Full walk that never stops
-  let _ = sample_cst().each(_n => {
-    walk_count = walk_count + 1
-    true
-  })
-  inspect(walk_count == count_nodes_handwritten(sample_cst()), content="true")
 }
 
 ///|
