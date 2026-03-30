@@ -242,6 +242,77 @@ Downstream parsers (lambda, json) get a standard toolkit instead of hand-writing
 - **`balance_children`** — grammar-specific state machine
 - **`splice_tree`** — path-based structural surgery
 
+## Owned/View Type Separation — Analysis
+
+### What we tested
+
+We implemented `transform_view`: a shared `Array[R]` stack with `ArrayView[R]` slices to avoid per-branch `Array[R]` allocation.
+
+**Result: slower than plain `transform`** (1.01ms vs 853µs for node count). In wasm-gc, small array allocations are cheap (nursery bump allocator). The view approach adds overhead from stack management, bounds-checked `ArrayView` indexing, and worse cache locality.
+
+### Where seam ALREADY uses owned/view separation
+
+seam's two-tree model IS this pattern:
+
+| | Owned ("Array") | View ("ArrayView") |
+|--|----------------|-------------------|
+| **seam** | `CstNode` — immutable, position-independent, structurally shared | `SyntaxNode` — ephemeral positioned facade, created on demand |
+| **Purpose** | Survives across edits, shared via structural hashing | Provides offset/parent context for one-time queries |
+
+This is the red-green tree pattern from Roslyn/rust-analyzer. The "view" (`SyntaxNode`) is a lightweight wrapper `(CstNode, offset, parent?)` — no heap allocation for the tree structure itself.
+
+### Where views WOULD help next: token text as source spans
+
+Currently every `CstToken` copies its text:
+
+```moonbit
+// Current: owned string copy per token
+pub(all) struct CstToken {
+  kind : RawKind
+  text : String      // ← heap-allocated copy of source substring
+  hash : Int
+}
+```
+
+With source-span views, tokens become zero-copy references into the source:
+
+```moonbit
+// Proposed: view into source text
+pub(all) struct CstToken {
+  kind : RawKind
+  source : String    // shared reference to full source text
+  start : Int
+  end : Int          // text = source[start:end] — zero copy
+  hash : Int
+}
+```
+
+This is how rust-analyzer works — every token is a `TextRange(start, end)` into the source buffer. Benefits:
+
+- **Zero string copying during lexing** — tokens just record their span
+- **Less GC pressure** — one source string shared by all tokens instead of N string copies
+- **Faster incremental re-lex** — changed span is a range comparison, not string equality
+
+This requires lexer-level integration (the lexer must thread the source string through), so it's a seam-level change, not something this research module can prototype.
+
+### Where views would NOT help
+
+- **Children arrays** — `transform_view` benchmark proved this. GC allocation of small arrays is nearly free in wasm-gc. The nursery allocator bumps a pointer; the view's bounds checking + offset arithmetic costs more.
+- **Incremental subtree reuse** — seam's `ReuseCursor` relies on identity-based sharing of `CstNode` subtrees. A flat arena representation would break this because subtrees can't be independently shared across edits.
+- **Flat arena tree** — contiguous storage would improve cache locality for full traversals, but is incompatible with seam's incremental reuse model where subtrees survive across edits via structural sharing.
+
+### Summary: GC runtime cost model differs from manual-memory languages
+
+| Optimization | Manual-memory (Rust/C++) | GC runtime (wasm-gc) |
+|-------------|-------------------------|---------------------|
+| Avoid small allocations | High value — malloc/free is expensive | Low value — nursery bump is ~free |
+| Use views/slices | High value — avoids copies | Mixed — bounds checking adds overhead |
+| Flat arena layout | High value — cache locality + zero fragmentation | Low value — GC compaction already reduces fragmentation |
+| String interning | Medium — avoids duplicate allocations | High — seam already does this via `Interner` |
+| Source-span tokens | High — zero copy | **High — same benefit, biggest remaining opportunity** |
+
+The key insight: in wasm-gc, **allocation is cheap but indirection is not free**. Optimize for fewer indirections (unboxed tuple structs, mutable visitors), not fewer allocations (views, arenas).
+
 ## File Structure
 
 ```text
