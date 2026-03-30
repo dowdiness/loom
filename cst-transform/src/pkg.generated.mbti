@@ -16,6 +16,7 @@ pub(all) enum GreenNode {
 }
 pub fn[R : Folder] GreenNode::accept_fold(Self) -> R
 pub fn[R : TransformFolder] GreenNode::accept_transform_fold(Self) -> R
+pub fn[V : MutVisitor] GreenNode::accept_visitor(Self, V) -> Unit
 pub fn[W : Walker] GreenNode::accept_walk(Self, W) -> Bool
 pub fn GreenNode::each(Self, (Self) -> Bool) -> Bool
 pub fn[F : Finder] GreenNode::find(Self, F) -> Self?
@@ -34,6 +35,14 @@ pub fn IdentFinder::inner(Self) -> Unit
 pub impl Finder for IdentFinder
 pub impl Walker for IdentFinder
 pub impl Show for IdentFinder
+
+pub(all) struct MutMeta {
+  mut text_len : Int
+  mut token_count : Int
+  mut node_count : Int
+}
+pub impl MutVisitor for MutMeta
+pub impl Show for MutMeta
 
 pub(all) struct NodeCount(Int)
 #deprecated
@@ -98,6 +107,11 @@ pub(open) trait Folder {
   fold_token(TokenKind, String) -> Self
   fold_combine(Self, Self) -> Self
   fold_empty() -> Self
+}
+
+pub(open) trait MutVisitor {
+  visit_token(Self, TokenKind, String) -> Unit
+  visit_branch(Self, SyntaxKind) -> Unit
 }
 
 pub(open) trait TransformFolder {

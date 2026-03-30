@@ -195,6 +195,53 @@ pub impl TransformFolder for CstMeta with tf_child(_kind, acc, child) {
   CstMeta(acc.0 + child.0, acc.1 + child.1, acc.2 + child.2)
 }
 
+// ── Mutable visitor pattern (allocate once, mutate in place) ─────────
+
+///|
+/// Typeclass for imperative tree visitor. Methods mutate `Self` in place.
+/// The visitor is allocated once and threaded through the recursion by reference.
+pub(open) trait MutVisitor {
+  visit_token(Self, TokenKind, String) -> Unit
+  visit_branch(Self, SyntaxKind) -> Unit
+}
+
+///|
+/// Statically-dispatched imperative visitor. Zero per-node allocation.
+pub fn[V : MutVisitor] GreenNode::accept_visitor(
+  self : GreenNode,
+  v : V,
+) -> Unit {
+  match self {
+    Leaf(kind, text) => V::visit_token(v, kind, text)
+    Branch(kind, children) => {
+      V::visit_branch(v, kind)
+      for child in children {
+        child.accept_visitor(v)
+      }
+    }
+  }
+}
+
+///|
+/// Mutable multi-property accumulator. Allocated once, mutated in place.
+pub(all) struct MutMeta {
+  mut text_len : Int
+  mut token_count : Int
+  mut node_count : Int
+} derive(Show)
+
+///|
+pub impl MutVisitor for MutMeta with visit_token(self, _kind, text) {
+  self.text_len = self.text_len + text.length()
+  self.token_count = self.token_count + 1
+  self.node_count = self.node_count + 1
+}
+
+///|
+pub impl MutVisitor for MutMeta with visit_branch(self, _kind) {
+  self.node_count = self.node_count + 1
+}
+
 // ── Finder implementations ──────────────────────────────────────────
 
 ///|

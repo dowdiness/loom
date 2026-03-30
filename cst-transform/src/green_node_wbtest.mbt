@@ -445,6 +445,18 @@ test "trait CstMeta: multi-property single-pass fold" {
   inspect(meta.2 == count_nodes_handwritten(sample_cst()), content="true")
 }
 
+///|
+test "trait MutVisitor: multi-property single-pass (mutable)" {
+  let meta = MutMeta::{ text_len: 0, token_count: 0, node_count: 0 }
+  sample_cst().accept_visitor(meta)
+  inspect(meta.text_len, content="31")
+  inspect(meta.token_count, content="21")
+  inspect(
+    meta.node_count == count_nodes_handwritten(sample_cst()),
+    content="true",
+  )
+}
+
 // ── Practical examples ──────────────────────────────────────────────
 
 ///|

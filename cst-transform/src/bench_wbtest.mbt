@@ -410,3 +410,13 @@ test "bench: multi-property fold via trait CstMeta (#valtype)" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+///|
+test "bench: multi-property fold via MutVisitor (allocate once)" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(() => {
+    let meta = MutMeta::{ text_len: 0, token_count: 0, node_count: 0 }
+    tree.accept_visitor(meta)
+    b.keep(meta)
+  })
+}
