@@ -382,3 +382,97 @@ test "cps: single leaf" {
   })
   inspect(result, content="hello")
 }
+
+// ── each tests ──────────────────────────────────────────────────────
+
+///|
+test "each: full traversal count" {
+  let mut count = 0
+  let _ = each(sample_cst(), fn(_n) {
+    count = count + 1
+    true
+  })
+  inspect(count == count_nodes_handwritten(sample_cst()), content="true")
+}
+
+///|
+test "each: early termination finds first Ident" {
+  let mut found : String? = None
+  let _ = each(sample_cst(), fn(n) {
+    match n {
+      Leaf(Ident, text) => {
+        found = Some(text)
+        false
+      }
+      _ => true
+    }
+  })
+  inspect(found, content="Some(\"add\")")
+}
+
+///|
+test "each: returns true on complete traversal" {
+  let completed = each(sample_cst(), fn(_n) { true })
+  inspect(completed, content="true")
+}
+
+///|
+test "each: returns false on early termination" {
+  let completed = each(sample_cst(), fn(_n) { false })
+  inspect(completed, content="false")
+}
+
+// ── transform_fold tests ────────────────────────────────────────────
+
+///|
+test "transform_fold: node count matches hand-written" {
+  let count = transform_fold(
+    sample_cst(),
+    fn(_kind, _text) { 1 },
+    fn(_kind) { 1 },
+    fn(_kind, acc, child) { acc + child },
+  )
+  inspect(count == count_nodes_handwritten(sample_cst()), content="true")
+}
+
+///|
+test "transform_fold: token count" {
+  let count = transform_fold(
+    sample_cst(),
+    fn(_kind, _text) { 1 },
+    fn(_kind) { 0 },
+    fn(_kind, acc, child) { acc + child },
+  )
+  inspect(count, content="21")
+}
+
+///|
+test "transform_fold: to_source" {
+  let result = transform_fold(
+    sample_cst(),
+    fn(_kind, text) { text },
+    fn(_kind) { "" },
+    fn(_kind, acc, child) { acc + child },
+  )
+  inspect(result, content="fn add(x, y) let result = x + y")
+}
+
+///|
+test "transform_fold: max depth via kind-aware init" {
+  // Each branch adds 1 to the max child depth
+  let depth = transform_fold(
+    sample_cst(),
+    fn(_kind, _text) { 1 },
+    fn(_kind) { 0 },
+    fn(_kind, acc, child) {
+      let d = child + 1
+      if d > acc {
+        d
+      } else {
+        acc
+      }
+    },
+  )
+  // SourceFile > FnDef > LetStmt > BinaryExpr > Name > Leaf = 6
+  inspect(depth, content="6")
+}

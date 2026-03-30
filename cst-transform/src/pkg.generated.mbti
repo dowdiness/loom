@@ -2,6 +2,8 @@
 package "dowdiness/cst-transform"
 
 // Values
+pub fn each(GreenNode, (GreenNode) -> Bool) -> Bool
+
 pub fn[R] fold(GreenNode, (TokenKind, String) -> R, (R, R) -> R, R) -> R
 
 pub fn iter(GreenNode) -> Iter[GreenNode]
@@ -11,6 +13,8 @@ pub fn map(GreenNode, (GreenNode) -> GreenNode) -> GreenNode
 pub fn[R] transform(GreenNode, (TokenKind, String) -> R, (SyntaxKind, Array[R]) -> R) -> R
 
 pub fn[R] transform_cps(GreenNode, (TokenKind, String) -> R, (SyntaxKind, ((R) -> Unit) -> Unit) -> R) -> R
+
+pub fn[R] transform_fold(GreenNode, (TokenKind, String) -> R, (SyntaxKind) -> R, (SyntaxKind, R, R) -> R) -> R
 
 // Errors
 

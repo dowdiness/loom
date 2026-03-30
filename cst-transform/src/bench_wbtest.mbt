@@ -217,3 +217,89 @@ test "bench: token count via transform_cps" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+// ── 7. Optimized variants ───────────────────────────────────────────
+
+///|
+test "bench: find first ident via each" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let mut result : String? = None
+    let _ = each(tree, fn(n) {
+      match n {
+        Leaf(Ident, text) => {
+          result = Some(text)
+          false
+        }
+        _ => true
+      }
+    })
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: node count via transform_fold" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result = transform_fold(tree, fn(_kind, _text) { 1 }, fn(_kind) { 1 }, fn(
+      _kind,
+      acc,
+      child,
+    ) {
+      acc + child
+    })
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: token count via transform_fold" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result = transform_fold(tree, fn(_kind, _text) { 1 }, fn(_kind) { 0 }, fn(
+      _kind,
+      acc,
+      child,
+    ) {
+      acc + child
+    })
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: to_source via transform_fold" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result = transform_fold(
+      tree,
+      fn(_kind, text) { text },
+      fn(_kind) { "" },
+      fn(_kind, acc, child) { acc + child },
+    )
+    b.keep(result)
+  })
+}
+
+///|
+test "bench: full traversal count via each" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let mut count = 0
+    let _ = each(tree, fn(_n) {
+      count = count + 1
+      true
+    })
+    b.keep(count)
+  })
+}
+
+///|
+test "bench: full traversal count via iter" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(fn() {
+    let result = iter(tree).fold(init=0, fn(acc, _n) { acc + 1 })
+    b.keep(result)
+  })
+}
