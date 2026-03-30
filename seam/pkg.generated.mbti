@@ -24,7 +24,7 @@ pub fn string_hash(String) -> Int
 pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
-}
+} derive(Show, @debug.Debug)
 pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
 pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
@@ -36,8 +36,6 @@ pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R)
 pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (RawKind, R, R) -> R) -> R
 pub impl Eq for CstElement
 pub impl Hash for CstElement
-pub impl Show for CstElement
-pub impl @debug.Debug for CstElement
 
 pub(all) struct CstNode {
   kind : RawKind
@@ -46,7 +44,7 @@ pub(all) struct CstNode {
   hash : Int
   token_count : Int
   has_any_error : Bool
-}
+} derive(Show, @debug.Debug)
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
@@ -54,20 +52,16 @@ pub fn CstNode::new(RawKind, Array[CstElement], trivia_kind? : RawKind?, error_k
 pub fn CstNode::with_replaced_child(Self, Int, CstElement, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
 pub impl Eq for CstNode
 pub impl Hash for CstNode
-pub impl Show for CstNode
-pub impl @debug.Debug for CstNode
 
 pub(all) struct CstToken {
   kind : RawKind
   text : String
   hash : Int
-}
+} derive(Show, @debug.Debug)
 pub fn CstToken::new(RawKind, String) -> Self
 pub fn CstToken::text_len(Self) -> Int
 pub impl Eq for CstToken
 pub impl Hash for CstToken
-pub impl Show for CstToken
-pub impl @debug.Debug for CstToken
 
 pub struct EventBuffer {
   // private fields
@@ -104,31 +98,22 @@ pub(all) enum ParseEvent {
   Token(RawKind, String)
   Tombstone
   ReuseNode(CstNode)
-}
-pub impl Eq for ParseEvent
-pub impl Show for ParseEvent
+} derive(Eq, Show)
 
-pub(all) struct RawKind(Int)
+pub(all) struct RawKind(Int) derive(Compare, Eq, Hash, Show, @debug.Debug)
 #deprecated
 pub fn RawKind::inner(Self) -> Int
-pub impl Compare for RawKind
-pub impl Eq for RawKind
-pub impl Hash for RawKind
-pub impl Show for RawKind
-pub impl @debug.Debug for RawKind
 
 pub(all) enum SyntaxElement {
   Node(SyntaxNode)
   Token(SyntaxToken)
-}
+} derive(Show, @debug.Debug)
 pub fn SyntaxElement::end(Self) -> Int
 pub fn SyntaxElement::start(Self) -> Int
-pub impl Show for SyntaxElement
-pub impl @debug.Debug for SyntaxElement
 
 pub struct SyntaxNode {
   // private fields
-}
+} derive(@debug.Debug)
 pub fn SyntaxNode::all_children(Self) -> Array[SyntaxElement]
 pub fn SyntaxNode::child_of_kind(Self, RawKind) -> Self?
 pub fn SyntaxNode::children(Self) -> Array[Self]
@@ -157,27 +142,23 @@ pub fn SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
 pub impl Eq for SyntaxNode
 pub impl Show for SyntaxNode
 pub impl ToJson for SyntaxNode
-pub impl @debug.Debug for SyntaxNode
 
 pub struct SyntaxToken {
   cst : CstToken
   offset : Int
-}
+} derive(@debug.Debug)
 pub fn SyntaxToken::end(Self) -> Int
 pub fn SyntaxToken::kind(Self) -> RawKind
 pub fn SyntaxToken::new(CstToken, Int) -> Self
 pub fn SyntaxToken::start(Self) -> Int
 pub fn SyntaxToken::text(Self) -> String
 pub impl Show for SyntaxToken
-pub impl @debug.Debug for SyntaxToken
 
 pub enum TokenAtOffset {
   None
   Single(SyntaxToken)
   Between(SyntaxToken, SyntaxToken)
-}
-pub impl Show for TokenAtOffset
-pub impl @debug.Debug for TokenAtOffset
+} derive(Show, @debug.Debug)
 
 // Type aliases
 
