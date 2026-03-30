@@ -170,6 +170,31 @@ pub impl TransformFolder for TokenCount with tf_child(_kind, acc, child) {
   TokenCount(acc.0 + child.0)
 }
 
+// ── Multi-property single-pass fold (simulates CstNode::new metadata) ───
+
+///|
+/// Multi-field #valtype: computes (text_len, token_count, node_count) in one pass.
+/// Tests whether #valtype avoids heap allocation for multi-element tuple structs.
+#valtype
+pub(all) struct CstMeta(Int, Int, Int) derive(Show)
+
+///|
+pub impl TransformFolder for CstMeta with tf_token(_kind, text) {
+  // text_len = text.length(), token_count = 1, node_count = 1
+  CstMeta(text.length(), 1, 1)
+}
+
+///|
+pub impl TransformFolder for CstMeta with tf_init(_kind) {
+  // Branch starts: text_len=0, token_count=0, node_count=1 (count the branch itself)
+  CstMeta(0, 0, 1)
+}
+
+///|
+pub impl TransformFolder for CstMeta with tf_child(_kind, acc, child) {
+  CstMeta(acc.0 + child.0, acc.1 + child.1, acc.2 + child.2)
+}
+
 // ── Finder implementations ──────────────────────────────────────────
 
 ///|

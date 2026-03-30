@@ -6,6 +6,10 @@ package "dowdiness/cst-transform"
 // Errors
 
 // Types and methods
+pub(all) struct CstMeta(Int, Int, Int)
+pub impl TransformFolder for CstMeta
+pub impl Show for CstMeta
+
 pub(all) enum GreenNode {
   Leaf(TokenKind, String)
   Branch(SyntaxKind, Array[GreenNode])
@@ -28,6 +32,7 @@ pub(all) struct IdentFinder(Unit)
 #deprecated
 pub fn IdentFinder::inner(Self) -> Unit
 pub impl Finder for IdentFinder
+pub impl Walker for IdentFinder
 pub impl Show for IdentFinder
 
 pub(all) struct NodeCount(Int)

@@ -434,6 +434,17 @@ test "trait TransformFolder: counts all nodes (tf_init=1 includes branches)" {
   inspect(result2.0, content="21")
 }
 
+///|
+test "trait CstMeta: multi-property single-pass fold" {
+  let meta : CstMeta = sample_cst().accept_transform_fold()
+  // text_len = "fn add(x, y) let result = x + y" = 31
+  inspect(meta.0, content="31")
+  // token_count = 21 leaves
+  inspect(meta.1, content="21")
+  // node_count = all nodes (leaves + branches)
+  inspect(meta.2 == count_nodes_handwritten(sample_cst()), content="true")
+}
+
 // ── Practical examples ──────────────────────────────────────────────
 
 ///|

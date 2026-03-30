@@ -401,3 +401,12 @@ test "bench: find first ident via trait Finder" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+///|
+test "bench: multi-property fold via trait CstMeta (#valtype)" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(() => {
+    let result : CstMeta = tree.accept_transform_fold()
+    b.keep(result)
+  })
+}
