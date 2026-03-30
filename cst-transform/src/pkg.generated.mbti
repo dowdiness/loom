@@ -14,6 +14,7 @@ pub fn[R : Folder] GreenNode::accept_fold(Self) -> R
 pub fn[R : TransformFolder] GreenNode::accept_transform_fold(Self) -> R
 pub fn[W : Walker] GreenNode::accept_walk(Self, W) -> Bool
 pub fn GreenNode::each(Self, (Self) -> Bool) -> Bool
+pub fn[F : Finder] GreenNode::find(Self, F) -> Self?
 pub fn[R] GreenNode::fold(Self, (TokenKind, String) -> R, (R, R) -> R, R) -> R
 pub fn GreenNode::iter(Self) -> Iter[Self]
 pub fn GreenNode::map(Self, (Self) -> Self) -> Self
@@ -22,6 +23,12 @@ pub fn[R] GreenNode::transform_cps(Self, (TokenKind, String) -> R, (SyntaxKind, 
 pub fn[R] GreenNode::transform_fold(Self, (TokenKind, String) -> R, (SyntaxKind) -> R, (SyntaxKind, R, R) -> R) -> R
 pub impl Eq for GreenNode
 pub impl Show for GreenNode
+
+pub(all) struct IdentFinder(Unit)
+#deprecated
+pub fn IdentFinder::inner(Self) -> Unit
+pub impl Finder for IdentFinder
+pub impl Show for IdentFinder
 
 pub(all) struct NodeCount(Int)
 #deprecated
@@ -78,6 +85,10 @@ pub impl Show for TokenKind
 // Type aliases
 
 // Traits
+pub(open) trait Finder {
+  check(Self, GreenNode) -> Bool
+}
+
 pub(open) trait Folder {
   fold_token(TokenKind, String) -> Self
   fold_combine(Self, Self) -> Self

@@ -75,6 +75,33 @@ pub fn[W : Walker] GreenNode::accept_walk(self : GreenNode, w : W) -> Bool {
   }
 }
 
+///|
+/// Typeclass for DFS search. `check` returns true if the node matches.
+/// Statically dispatched — zero closure overhead for predicates.
+pub(open) trait Finder {
+  check(Self, GreenNode) -> Bool
+}
+
+///|
+/// Statically-dispatched DFS find. Returns the first node where `check` is true.
+pub fn[F : Finder] GreenNode::find(self : GreenNode, f : F) -> GreenNode? {
+  if F::check(f, self) {
+    return Some(self)
+  }
+  match self {
+    Leaf(_, _) => None
+    Branch(_, children) => {
+      for child in children {
+        match child.find(f) {
+          Some(n) => return Some(n)
+          None => ()
+        }
+      }
+      None
+    }
+  }
+}
+
 // ── Concrete implementations (newtypes for zero-cost fold) ──────────
 
 ///|
@@ -141,4 +168,18 @@ pub impl TransformFolder for TokenCount with tf_init(_kind) {
 ///|
 pub impl TransformFolder for TokenCount with tf_child(_kind, acc, child) {
   TokenCount(acc.0 + child.0)
+}
+
+// ── Finder implementations ──────────────────────────────────────────
+
+///|
+/// Zero-cost predicate: finds the first Leaf(Ident, _) node.
+pub(all) struct IdentFinder(Unit) derive(Show)
+
+///|
+pub impl Finder for IdentFinder with check(_self, node) {
+  match node {
+    Leaf(Ident, _) => true
+    _ => false
+  }
 }

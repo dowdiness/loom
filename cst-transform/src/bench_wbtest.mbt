@@ -388,3 +388,12 @@ test "bench: token count via trait TransformFolder" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+///|
+test "bench: find first ident via trait Finder" (b : @bench.T) {
+  let tree = bench_tree()
+  b.bench(() => {
+    let result = tree.find(IdentFinder(()))
+    b.keep(result)
+  })
+}
