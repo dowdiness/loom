@@ -1,0 +1,127 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/cst-transform"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct CstMeta(Int, Int, Int)
+pub impl TransformFolder for CstMeta
+pub impl Show for CstMeta
+
+pub(all) enum GreenNode {
+  Leaf(TokenKind, String)
+  Branch(SyntaxKind, Array[GreenNode])
+}
+pub fn[R : Folder] GreenNode::accept_fold(Self) -> R
+pub fn[R : TransformFolder] GreenNode::accept_transform_fold(Self) -> R
+pub fn[V : MutVisitor] GreenNode::accept_visitor(Self, V) -> Unit
+pub fn[W : Walker] GreenNode::accept_walk(Self, W) -> Bool
+pub fn GreenNode::each(Self, (Self) -> Bool) -> Bool
+pub fn[F : Finder] GreenNode::find(Self, F) -> Self?
+pub fn[R] GreenNode::fold(Self, (TokenKind, String) -> R, (R, R) -> R, R) -> R
+pub fn GreenNode::iter(Self) -> Iter[Self]
+pub fn GreenNode::map(Self, (Self) -> Self) -> Self
+pub fn[R] GreenNode::transform(Self, (TokenKind, String) -> R, (SyntaxKind, Array[R]) -> R) -> R
+pub fn[R] GreenNode::transform_cps(Self, (TokenKind, String) -> R, (SyntaxKind, ((R) -> Unit) -> Unit) -> R) -> R
+pub fn[R] GreenNode::transform_fold(Self, (TokenKind, String) -> R, (SyntaxKind) -> R, (SyntaxKind, R, R) -> R) -> R
+pub fn[R] GreenNode::transform_view(Self, (TokenKind, String) -> R, (SyntaxKind, ArrayView[R]) -> R) -> R
+pub impl Eq for GreenNode
+pub impl Show for GreenNode
+
+pub(all) struct IdentFinder(Unit)
+#deprecated
+pub fn IdentFinder::inner(Self) -> Unit
+pub impl Finder for IdentFinder
+pub impl Walker for IdentFinder
+pub impl Show for IdentFinder
+
+pub(all) struct MutMeta {
+  mut text_len : Int
+  mut token_count : Int
+  mut node_count : Int
+}
+pub impl MutVisitor for MutMeta
+pub impl Show for MutMeta
+
+pub(all) struct NodeCount(Int)
+#deprecated
+pub fn NodeCount::inner(Self) -> Int
+pub impl Folder for NodeCount
+pub impl TransformFolder for NodeCount
+pub impl Show for NodeCount
+
+pub(all) enum SyntaxKind {
+  SourceFile
+  FnDef
+  LetStmt
+  BinaryExpr
+  CallExpr
+  ParenExpr
+  ArgList
+  Literal
+  Name
+  Error
+}
+pub impl Compare for SyntaxKind
+pub impl Eq for SyntaxKind
+pub impl Hash for SyntaxKind
+pub impl Show for SyntaxKind
+
+pub(all) struct TokenCount(Int)
+#deprecated
+pub fn TokenCount::inner(Self) -> Int
+pub impl Folder for TokenCount
+pub impl TransformFolder for TokenCount
+pub impl Show for TokenCount
+
+pub(all) enum TokenKind {
+  Ident
+  Number
+  LParen
+  RParen
+  Plus
+  Minus
+  Star
+  Slash
+  Eq
+  Let
+  Fn_
+  Whitespace
+  Newline
+  Eof
+}
+pub impl Compare for TokenKind
+pub impl Eq for TokenKind
+pub impl Hash for TokenKind
+pub impl Show for TokenKind
+
+// Type aliases
+
+// Traits
+pub(open) trait Finder {
+  check(Self, GreenNode) -> Bool
+}
+
+pub(open) trait Folder {
+  fold_token(TokenKind, String) -> Self
+  fold_combine(Self, Self) -> Self
+  fold_empty() -> Self
+}
+
+pub(open) trait MutVisitor {
+  visit_token(Self, TokenKind, String) -> Unit
+  visit_branch(Self, SyntaxKind) -> Unit
+}
+
+pub(open) trait TransformFolder {
+  tf_token(TokenKind, String) -> Self
+  tf_init(SyntaxKind) -> Self
+  tf_child(SyntaxKind, Self, Self) -> Self
+}
+
+pub(open) trait Walker {
+  walk(Self, GreenNode) -> Bool
+}
+

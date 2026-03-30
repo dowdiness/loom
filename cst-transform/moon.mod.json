@@ -1,0 +1,8 @@
+{
+  "name": "dowdiness/cst-transform",
+  "version": "0.1.0",
+  "source": "src",
+  "license": "Apache-2.0",
+  "keywords": ["cst", "transformation", "recursion-schemes", "research"],
+  "description": "Research: standalone CST transformation functions (hylo_rose-style)"
+}
