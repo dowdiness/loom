@@ -94,4 +94,6 @@ _(none)_
 - [archive/completed-phases/2026-03-22-json-parser-impl.md](archive/completed-phases/2026-03-22-json-parser-impl.md) — JSON Parser implementation plan
 - [archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md](archive/completed-phases/2026-03-28-egglog-lambda-typechecker-impl.md) — Egglog Lambda Type Checker (egglog relational DB, bidirectional typing, 13 rules)
 - [archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md](archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator (equality saturation, beta reduction, capture-avoiding substitution, constant folding)
+- [archive/completed-phases/2026-03-30-cst-element-traversal.md](archive/completed-phases/2026-03-30-cst-element-traversal.md) — CstElement traversal methods design (#57)
+- [archive/completed-phases/2026-03-30-cst-element-traversal-plan.md](archive/completed-phases/2026-03-30-cst-element-traversal-plan.md) — CstElement traversal methods implementation plan (#57)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
