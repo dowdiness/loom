@@ -460,25 +460,25 @@ test "transform_fold: to_source" {
 test "trait Folder: token count via NodeCount" {
   // Folder counts leaves only (branches contribute fold_empty=0 + children)
   let result : NodeCount = sample_cst().accept_fold()
-  inspect(result.val, content="21")
+  inspect(result.0, content="21")
 }
 
 ///|
 test "trait Folder: token count" {
   let result : TokenCount = sample_cst().accept_fold()
-  inspect(result.val, content="21")
+  inspect(result.0, content="21")
 }
 
 ///|
 test "trait TransformFolder: node count matches hand-written" {
   let result : NodeCount = sample_cst().accept_transform_fold()
-  inspect(result.val == count_nodes_handwritten(sample_cst()), content="true")
+  inspect(result.0 == count_nodes_handwritten(sample_cst()), content="true")
 }
 
 ///|
 test "trait TransformFolder: token count" {
   let result : TokenCount = sample_cst().accept_transform_fold()
-  inspect(result.val, content="21")
+  inspect(result.0, content="21")
 }
 
 ///|

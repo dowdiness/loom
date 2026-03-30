@@ -7,77 +7,71 @@
 // ── NodeCount: count all nodes via Folder ───────────────────────────
 
 ///|
-#valtype
-pub(all) struct NodeCount {
-  val : Int
-} derive(Show)
+pub(all) struct NodeCount(Int) derive(Show)
 
 ///|
 pub impl Folder for NodeCount with fold_token(_kind, _text) {
-  { val: 1 }
+  NodeCount(1)
 }
 
 ///|
 pub impl Folder for NodeCount with fold_combine(self, other) {
-  { val: self.val + other.val }
+  NodeCount(self.0 + other.0)
 }
 
 ///|
 pub impl Folder for NodeCount with fold_empty() {
-  { val: 0 }
+  NodeCount(0)
 }
 
 // ── NodeCount via TransformFolder (includes branch count) ───────────
 
 ///|
 pub impl TransformFolder for NodeCount with tf_token(_kind, _text) {
-  { val: 1 }
+  NodeCount(1)
 }
 
 ///|
 pub impl TransformFolder for NodeCount with tf_init(_kind) {
-  { val: 1 }
+  NodeCount(1)
 }
 
 ///|
 pub impl TransformFolder for NodeCount with tf_child(_kind, acc, child) {
-  { val: acc.val + child.val }
+  NodeCount(acc.0 + child.0)
 }
 
 // ── TokenCount: count leaf tokens via Folder ────────────────────────
 
 ///|
-#valtype
-pub(all) struct TokenCount {
-  val : Int
-} derive(Show)
+pub(all) struct TokenCount(Int) derive(Show)
 
 ///|
 pub impl Folder for TokenCount with fold_token(_kind, _text) {
-  { val: 1 }
+  TokenCount(1)
 }
 
 ///|
 pub impl Folder for TokenCount with fold_combine(self, other) {
-  { val: self.val + other.val }
+  TokenCount(self.0 + other.0)
 }
 
 ///|
 pub impl Folder for TokenCount with fold_empty() {
-  { val: 0 }
+  TokenCount(0)
 }
 
 ///|
 pub impl TransformFolder for TokenCount with tf_token(_kind, _text) {
-  { val: 1 }
+  TokenCount(1)
 }
 
 ///|
 pub impl TransformFolder for TokenCount with tf_init(_kind) {
-  { val: 0 }
+  TokenCount(0)
 }
 
 ///|
 pub impl TransformFolder for TokenCount with tf_child(_kind, acc, child) {
-  { val: acc.val + child.val }
+  TokenCount(acc.0 + child.0)
 }

@@ -23,9 +23,9 @@ pub fn[R] GreenNode::transform_fold(Self, (TokenKind, String) -> R, (SyntaxKind)
 pub impl Eq for GreenNode
 pub impl Show for GreenNode
 
-pub(all) struct NodeCount {
-  val : Int
-}
+pub(all) struct NodeCount(Int)
+#deprecated
+pub fn NodeCount::inner(Self) -> Int
 pub impl Folder for NodeCount
 pub impl TransformFolder for NodeCount
 pub impl Show for NodeCount
@@ -47,9 +47,9 @@ pub impl Eq for SyntaxKind
 pub impl Hash for SyntaxKind
 pub impl Show for SyntaxKind
 
-pub(all) struct TokenCount {
-  val : Int
-}
+pub(all) struct TokenCount(Int)
+#deprecated
+pub fn TokenCount::inner(Self) -> Int
 pub impl Folder for TokenCount
 pub impl TransformFolder for TokenCount
 pub impl Show for TokenCount
