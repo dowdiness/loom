@@ -123,7 +123,7 @@ fn count_nodes_handwritten(node : GreenNode) -> Int {
 ///|
 /// Source text reconstruction via `transform`.
 fn to_source(node : GreenNode) -> String {
-  node.transform(fn(_kind, text) { text }, fn(_kind, children) {
+  node.transform((_kind, text) => text, (_kind, children) => {
     let sb = StringBuilder::new()
     for s in children {
       sb.write_string(s)
@@ -135,7 +135,7 @@ fn to_source(node : GreenNode) -> String {
 ///|
 /// Identifier renaming via `map`.
 fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
-  node.map(fn(n) {
+  node.map(n => {
     match n {
       Leaf(Ident, text) => if text == from { Leaf(Ident, to) } else { n }
       _ => n
@@ -151,8 +151,8 @@ fn rename(node : GreenNode, from : String, to : String) -> GreenNode {
 /// it must create a new value. Otherwise the shared `empty` gets corrupted.
 fn collect_identifiers(node : GreenNode) -> Array[String] {
   node.fold(
-    fn(kind, text) { if kind == Ident { [text] } else { [] } },
-    fn(a, b) {
+    (kind, text) => if kind == Ident { [text] } else { [] },
+    (a, b) => {
       let result = Array::new(capacity=a.length() + b.length())
       for item in a {
         result.push(item)
@@ -171,7 +171,7 @@ fn collect_identifiers(node : GreenNode) -> Array[String] {
 fn first_error(node : GreenNode) -> GreenNode? {
   node
   .iter()
-  .find_first(fn(n) {
+  .find_first(n => {
     match n {
       Branch(Error, _) => true
       _ => false

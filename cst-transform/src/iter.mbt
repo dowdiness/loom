@@ -5,7 +5,7 @@
 /// Uses an explicit stack to produce one element per call to the returned thunk.
 pub fn GreenNode::iter(self : GreenNode) -> Iter[GreenNode] {
   let stack : Array[GreenNode] = [self]
-  Iter::new(fn() {
+  Iter::new(() => {
     if stack.is_empty() {
       return None
     }

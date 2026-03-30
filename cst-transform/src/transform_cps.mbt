@@ -12,7 +12,7 @@ pub fn[R] GreenNode::transform_cps(
   match self {
     Leaf(kind, text) => on_token(kind, text)
     Branch(kind, children) =>
-      on_children(kind, fn(emit) {
+      on_children(kind, emit => {
         for child in children {
           emit(child.transform_cps(on_token, on_children))
         }
