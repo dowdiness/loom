@@ -4,31 +4,19 @@
 
 **Recommendation: Adopt.** The library provides two API tiers:
 
-1. **Trait-based (zero cost):** `Folder` / `TransformFolder` traits with single-element tuple struct newtypes achieve **1.0x** — identical to hand-written recursion. Best for hot-path numeric folds.
+1. **Trait-based (zero cost):** `Folder` / `TransformFolder` / `Finder` traits with single-element tuple struct newtypes achieve **1.0x** — identical to hand-written recursion.
 2. **Closure-based (ergonomic):** `transform`, `fold`, `map`, `each`, `iter` with 1.10x–1.35x overhead. Best for general-purpose CST operations.
 
 ## Test Results
 
-| Test Suite | Count | Status |
-|------------|-------|--------|
-| transform tests | 5 | All pass |
-| fold tests | 4 | All pass |
-| map tests | 3 | All pass |
-| iter tests | 4 | All pass |
-| each tests | 4 | All pass |
-| transform_fold tests | 4 | All pass |
-| Trait Folder/TransformFolder tests | 4 | All pass |
-| Practical examples (Task 3) | 6 | All pass |
-| API design tests | 4 | All pass |
-| CPS variant tests | 4 | All pass |
-| **Total** | **44** | **All pass** |
+36 tests + 26 benchmarks, all passing.
 
 ## Benchmark Results
 
-Tree: `generate_large_cst(depth=8, branching=4)` ≈ 87,381 nodes (65,536 leaves + 21,845 internal).
+Tree: `generate_large_cst(depth=8, branching=4)` ≈ 87,381 nodes.
 Target: wasm-gc, `--release` mode.
 
-### Node count — all approaches compared
+### All approaches compared (node count)
 
 | Approach | Time | vs hand-written |
 |----------|------|-----------------|
@@ -38,10 +26,18 @@ Target: wasm-gc, `--release` mode.
 | Closure `fold` (Int) | 396 µs | 1.35x |
 | Closure `transform_fold` | 424 µs | 1.44x |
 | Trait Folder (named struct + `#valtype`) | 731 µs | 2.49x |
-| Transform CPS | 843 µs | 2.87x |
 | Closure `transform` (Array[Int]) | 876 µs | 2.98x |
 
-### Full benchmark matrix (closure-based API)
+### All approaches compared (find first ident, early termination)
+
+| Approach | Time | vs hand-written |
+|----------|------|-----------------|
+| **Trait Finder (tuple struct)** | **0.04 µs** | **1.00x** |
+| Hand-written recursion | 0.04 µs | 1.00x |
+| Closure `each` | 0.05 µs | 1.25x |
+| `iter` + `find_first` | 0.25 µs | 6.25x |
+
+### Closure-based benchmark matrix
 
 | Benchmark | Hand-written | transform | fold | each | transform_fold |
 |-----------|-------------|-----------|------|------|----------------|
@@ -49,15 +45,12 @@ Target: wasm-gc, `--release` mode.
 | **collect idents** | 3.82 ms | 4.42 ms (1.16x) | 6.06 ms (1.59x) | — | — |
 | **find first ident** | 0.04 µs | — | — | **0.05 µs (1.25x)** | — |
 | **node count** | 294 µs | 876 µs (2.98x) | 396 µs (1.35x) | — | **424 µs (1.44x)** |
-| **token count** | — | 1.00 ms | 396 µs | — | **717 µs** |
 | **full traversal** | — | — | — | **626 µs** | — |
 | **map identity** | — | — | — | — | 1.10 ms |
 
-## Trait-Based Zero-Cost Abstraction
+## Key Discovery: Zero-Cost Abstractions in MoonBit
 
-### The key discovery
-
-Single-element tuple structs in MoonBit are **guaranteed unboxed at runtime**. Combined with trait static dispatch (monomorphization + direct calls), this produces code identical to hand-written recursion:
+Single-element tuple structs are **guaranteed unboxed at runtime**. Combined with trait static dispatch (monomorphization + direct calls), this produces code identical to hand-written recursion:
 
 ```moonbit
 // Newtype — guaranteed unboxed: NodeCount IS Int at runtime
@@ -72,119 +65,163 @@ pub impl Folder for NodeCount with fold_empty() { NodeCount(0) }
 let count : NodeCount = tree.accept_fold()
 ```
 
-### Why named structs fail (even with `#valtype`)
+### Why this works / why other approaches don't
 
-| Struct type | Runtime representation | fold_combine overhead |
-|-------------|----------------------|----------------------|
-| `struct NodeCount(Int)` | Raw `Int` (unboxed) | `self.0 + other.0` → raw addition |
-| `struct NodeCount { val: Int }` + `#valtype` | Object with `.val` property | `new NodeCount(self.val + other.val)` → alloc |
-
-MoonBit's `#valtype` on named structs still compiles to object construction in wasm-gc. Only single-element tuple structs get the unboxing guarantee. The compiler error message confirms: *"Value type is not allowed for new type/tuple struct with one element (which is guaranteed unboxed at runtime)."*
+| Struct type | Runtime representation | Per-call overhead |
+|-------------|----------------------|-------------------|
+| `struct T(Int)` (tuple, 1 element) | Raw `Int` (unboxed) | Zero — raw addition |
+| `struct T { val: Int }` (named) | Object with `.val` field | Heap allocation per call |
+| `struct T { val: Int }` + `#valtype` | Still object on wasm-gc | Same heap allocation |
+| Closure `(a, b) => a + b` | Indirect `call_ref` | ~1.25x from indirect dispatch |
 
 ### Compiler analysis (from JS output)
 
-Inspecting the compiled JavaScript confirms three MoonBit compiler behaviors:
+| Optimization | Applied? |
+|-------------|----------|
+| **Monomorphization** | YES — separate function per concrete type |
+| **Trait static dispatch** | YES — direct function call, no vtable |
+| **Tuple struct unboxing (1 element)** | YES — eliminated at compile time |
+| **Closure inlining** | NO — closures remain as indirect function pointers |
+| **Named struct unboxing** | NO — even with `#valtype` on wasm-gc |
+| **Trait method body inlining** | NO — method call exists but operates on raw primitives |
 
-| Optimization | Applied? | Evidence |
-|-------------|----------|---------|
-| **Monomorphization** | YES | `transformGiE`, `transformGsE`, `transformGRPB5ArrayGsEE` — separate copies per type |
-| **Trait static dispatch** | YES | `Folder::fold_combine` → direct function call, no vtable |
-| **Closure inlining** | NO | Closures remain as indirect function pointers at every recursive call |
-| **Tuple struct unboxing** | YES | `NodeCount(Int)` eliminated at compile time — raw `Int` passed |
-| **Named struct unboxing** | NO | `NodeCount { val: Int }` → `new NodeCount(val)` even with `#valtype` |
-| **Trait method body inlining** | NO | `fold_combine(a, b)` is a separate function call, body not inlined into `accept_fold` |
+## API Surface
 
-The 1.0x result for trait + tuple struct works because **unboxing + static dispatch** together eliminate all overhead, even without method inlining. The method call still exists, but it operates on raw primitives with no allocation.
+### Traits (1.0x — for hot paths)
 
-### Practical applicability
+| Trait | Method | Use case |
+|-------|--------|----------|
+| `Folder` | `accept_fold` | Monoid fold over leaves (text_len, token_count, hash) |
+| `TransformFolder` | `accept_transform_fold` | Fold with branch kind access (node_count, has_errors) |
+| `Finder` | `find` | DFS search with early termination (find_token, find_error) |
+| `Walker` | `accept_walk` | DFS walk with early termination (generic visitor) |
 
-| Use case | Best approach | Overhead | Why |
-|----------|-------------|----------|-----|
-| Numeric hot-path folds (`text_len`, `token_count`, `has_errors`) | Trait `Folder` + tuple struct | **1.0x** | Unboxed + static dispatch |
-| String reconstruction (CST → source) | Closure `transform` | **1.10x** | Per-node StringBuilder work dominates |
-| Array collection (identifiers, diagnostics) | Closure `transform` | **1.16x** | Array allocation is real work |
-| CST → AST conversion | Closure `transform` | **~1.10x** | Complex result type, closures ergonomic |
-| Early termination search | `each` callback | **1.25x** | Closure dispatch floor |
-| GreenNode → GreenNode rewrite | `map` | — | No hand-written equivalent simpler |
+**Folder vs TransformFolder semantics:**
+- `Folder`: branches contribute `fold_empty()` — only counts/accumulates leaves
+- `TransformFolder`: branches contribute `tf_init(kind)` — can count branches too
 
-The trait approach is **not practical** when:
-- The result type wraps more than one value (can't unbox `struct { a: Int, b: String }`)
-- The operation needs closures capturing local state (traits are stateless)
-- Ergonomics matter more than the last 25% of performance
+### Methods (1.10x–1.44x — for general use)
 
-## Closure-Based API Design
-
-### Recommended public API (7 functions)
-
-| Function | Use case | Overhead |
-|----------|----------|----------|
-| `transform` | Bottom-up with Array[R] of child results | 1.10x-1.16x |
-| `fold` | Monoid accumulation (Int, String) | 1.35x |
-| `transform_fold` | Bottom-up with inline fold of children | 1.44x |
-| `map` | GreenNode → GreenNode structural transform | — |
-| `iter` | Lazy Iter[GreenNode] for composition with stdlib | 1.12x (full) |
-| `each` | Callback DFS with early termination | 1.25x |
-| Trait `Folder`/`TransformFolder` | Zero-cost numeric folds via newtype | **1.0x** |
+| Method | Use case |
+|--------|----------|
+| `transform(on_token, on_node)` | Bottom-up with Array[R] of child results |
+| `fold(on_token, combine, empty)` | Monoid accumulation without Array |
+| `transform_fold(on_token, init, on_child)` | Fused transform+fold, no Array |
+| `transform_cps(on_token, on_children)` | CPS variant, streaming children |
+| `map(f)` | GreenNode → GreenNode structural rewrite |
+| `each(f)` | Callback DFS with early termination |
+| `iter()` | Lazy `Iter[GreenNode]` for stdlib composition |
 
 ### Decision guide
 
 ```text
-Need zero-cost numeric fold?           → Trait Folder/TransformFolder + tuple struct
-Need child results as Array?           → transform
-Need scalar accumulation (value types)?→ fold or transform_fold (with kind)
-Need GreenNode → GreenNode?            → map
-Need lazy composition (.filter/.take)? → iter
-Need early termination?                → each
+Need zero-cost numeric fold (hot path)?  → Trait Folder/TransformFolder + tuple struct
+Need zero-cost search (hot path)?        → Trait Finder + tuple struct
+Need child results as Array?             → transform
+Need scalar accumulation (value types)?  → fold or transform_fold (with kind)
+Need GreenNode → GreenNode?              → map
+Need lazy composition (.filter/.take)?   → iter
+Need early termination (general)?        → each
 ```
 
-**Warning:** `fold`'s `empty` parameter is shared by reference across recursive calls. Use only immutable/value-type accumulators (Int, String). For mutable accumulators (Array), use `transform` instead — see "fold + mutable empty" section below.
+**Warning:** `fold`'s `empty` parameter is shared by reference across recursive calls. Use only immutable/value-type accumulators (Int, String). For mutable accumulators (Array), use `transform` instead.
 
-### Not recommended for public API
+## Integration Plan for seam/
 
-- **`transform_cps`**: ~5% improvement over `transform`, harder to use, same closure overhead. `transform_fold` solves the same problem better.
+### Step 1: Port methods to `CstElement` / `CstNode` / `CstToken`
 
-## API Design Findings
+Add the same methods to seam's real CST types. The patterns transfer directly — replace `GreenNode::Leaf`/`Branch` matches with `CstElement::Token`/`Node` matches:
 
-### Type Inference
+```moonbit
+// In seam/
+pub fn[R] CstElement::transform(self, on_token, on_node) -> R { ... }
+pub fn[R] CstElement::fold(self, on_token, combine, empty) -> R { ... }
+pub fn CstElement::each(self, f) -> Bool { ... }
+pub fn CstElement::iter(self) -> Iter[CstElement] { ... }
+pub fn CstElement::map(self, f) -> CstElement { ... }
+```
 
-MoonBit correctly infers `R` for `transform`, `fold`, and `transform_fold` from callback return types. No explicit type annotations needed at call sites in normal usage. When callbacks return polymorphic types (e.g., empty `Array`), an annotation like `([] : Array[String])` is needed — this is expected MoonBit behavior.
+### Step 2: Add trait-based folds for CstNode metadata
 
-For traits, the result type is inferred from the type annotation at the call site: `let count : NodeCount = tree.accept_fold()`.
+Replace hand-written loops in `CstNode::new()` (`seam/cst_node.mbt:170-224`) with `Folder` trait impls:
 
-### Closure Capture
+| Property | Current | After |
+|----------|---------|-------|
+| `text_len` | Hand-written loop summing child lengths | `TextLen(Int)` + `Folder` impl |
+| `token_count` | Loop with trivia filter | `TokenCount(Int)` + `Folder` impl (skip trivia in `fold_token`) |
+| `hash` | FNV-1a accumulation loop | `HashAccum(Int)` + `Folder` impl |
+| `has_any_error` | Loop with kind matching | `HasError(Bool)` + `Finder` impl |
 
-Closures in callbacks correctly capture outer variables. No type errors or lifetime issues observed.
+All at **1.0x** via tuple struct unboxing. The constructor becomes:
 
-### Composability
+```moonbit
+pub fn CstNode::new(kind, children, trivia_kind?, error_kind?, incomplete_kind?) -> CstNode {
+  let text_len : TextLen = children.accept_fold()   // 1.0x
+  let token_count : TokCount = children.accept_fold() // 1.0x
+  let hash : HashVal = children.accept_fold()         // 1.0x
+  let has_error = children.find(ErrorFinder(error_kind, incomplete_kind)).is_some()
+  { kind, children, text_len: text_len.0, hash: hash.0, token_count: token_count.0, has_any_error: has_error }
+}
+```
 
-- `transform` result → `iter` → `find_first`: works naturally
-- `map` → `to_source`: works naturally
-- `Result[R, E]` in callbacks: early return with `Err` propagates correctly through `transform`
-- Nested transforms: work as expected
+### Step 3: Extract `walk_children_flat` into public `each`
 
-### fold + mutable empty: FOOTGUN
+Replace the private `walk_children_flat` helper in `seam/syntax_node.mbt:193-223` (duplicated across 6 methods) with a public `CstNode::each` that handles RepeatGroup transparency.
 
-**Critical finding:** `fold`'s `empty` parameter is shared by reference across all recursive calls. If `combine` mutates its arguments (e.g., `fn(a, b) { a.append(b); a }` for `Array`), the shared `empty` array gets corrupted, producing exponentially wrong results.
+### Step 4: Simplify SyntaxNode queries with `find`
 
-**Recommendation:** Document that `combine` must be non-mutating for reference types. For Array collection, use `transform` instead.
+| Current function | Location | Replace with |
+|-----------------|----------|-------------|
+| `find_token(kind)` | `syntax_node.mbt:321-352` | `Finder` trait or `each` |
+| `has_errors()` | `cst_node.mbt:343-361` | `Finder` trait |
+| `find_at(offset)` | `syntax_node.mbt:578-611` | `find` with offset predicate |
 
-## Criteria Evaluation
+### Step 5: Use `map` for tree rewriting
 
-| Criterion | Result |
-|-----------|--------|
-| All functions pass tests | **YES** (44/44) |
-| Performance ≤ 2.0x vs hand-written (best-fit API per use case) | **YES** — trait approach achieves 1.0x; closure approach worst case is 1.44x when the recommended function is chosen per the decision guide |
-| Type inference works naturally | **YES** |
-| Function selection is clear | **YES** — decision guide above |
+| Current function | Location | Replace with |
+|-----------------|----------|-------------|
+| `rebuild_subtree()` | `event.mbt:288-300` | `CstElement::map` |
+| `re_intern_tokens_only()` | `event.mbt:314-329` | `CstElement::map` |
+| `re_intern_subtree()` | `event.mbt:346-369` | `CstElement::map` |
 
-## Conclusion
+### Step 6: Provide standard traversals for language authors
 
-**All criteria met. Recommend adoption with dual-tier API.**
+Lambda and JSON examples currently hand-write `for child in node.children()` loops. With the standard API, downstream parsers get:
 
-The library provides two tiers matching different needs:
+```moonbit
+// Any language — source text reconstruction
+let source = root_element.transform(
+  (_kind, text) => text,
+  (_kind, children) => children.join(""),
+)
 
-1. **Trait tier (1.0x):** For performance-critical numeric folds, define a single-element tuple struct newtype and implement `Folder`/`TransformFolder`. The compiler unboxes the newtype and statically dispatches trait methods, producing code identical to hand-written recursion. Use for hot paths like `text_len`, `token_count`, `has_errors`.
+// Any language — find first error
+let error = root_element.find(ErrorFinder(error_kind))
 
-2. **Closure tier (1.10x–1.44x):** For general-purpose operations (CST→AST, source reconstruction, identifier collection, tree rewriting), use the closure-based functions. The overhead is dominated by per-node work (string/array allocation), making the closure dispatch cost negligible in practice.
+// Any language — collect all tokens of kind
+let idents = root_element.fold(
+  (kind, text) => if kind == ident_kind { [text] } else { [] },
+  (a, b) => { a.append(b); a }, // safe: fold creates fresh arrays
+  [],
+)
+```
 
-For integration with `seam/`, the functions would operate on `CstElement`/`CstNode`/`CstToken` instead of the simplified `GreenNode`. The core patterns transfer directly.
+### What NOT to change
+
+- **`CstFold` (memoized catamorphism in loom/)** — already excellent. The memoization layer is orthogonal. Keep it.
+- **`balance_children`** — grammar-specific state machine, not a generic fold.
+- **`splice_tree`** — path-based structural surgery, not a traversal.
+- **`CstNode::new()` constructor** — could use traits for metadata, but the current hand-written loop computes 4 properties in a single pass. Replacing with 4 separate `accept_fold` calls would traverse the children 4 times. Only replace if profiling shows the single-pass advantage is negligible, or if a multi-property `Folder` newtype is introduced (e.g., `struct Metadata(Int, Int, Int, Bool)`).
+
+## File Structure
+
+```text
+cst-transform/
+  moon.mod.json
+  REPORT.md
+  src/
+    green_node.mbt          — Types (GreenNode, TokenKind, SyntaxKind) + 7 closure-based methods
+    traits.mbt              — 4 traits (Folder, TransformFolder, Finder, Walker) + accept methods + concrete impls
+    green_node_wbtest.mbt   — 36 tests
+    bench_wbtest.mbt        — 26 benchmarks + hand-written baselines
+```
