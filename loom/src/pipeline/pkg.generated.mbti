@@ -15,9 +15,7 @@ pub(all) struct CstStage {
   cst : @seam.CstNode
   diagnostics : Array[String]
   is_lex_error : Bool
-}
-pub impl Eq for CstStage
-pub impl Show for CstStage
+} derive(Eq, Show)
 
 pub struct Language[Ast] {
   // private fields

@@ -75,6 +75,27 @@ test "token_text_at returns token text and empty string for invalid index" {
 }
 
 ///|
+test "token_text_at handles lone surrogate without crash" {
+  // Lone high surrogate (0xD800) — invalid UTF-16 but possible in CRDT text
+  let surrogate = (0xD800).unsafe_to_char().to_string()
+  let source = "a" + surrogate + "b"
+  let (spec, _) = make_test_fixtures()
+  let tokens : Array[TokenInfo[TestTok]] = [
+    { token: TestTok::Plus, len: 1 }, // "a"
+    { token: TestTok::Plus, len: 1 }, // surrogate
+    { token: TestTok::Plus, len: 1 }, // "b"
+  ]
+  let ctx = ParserContext::new(tokens, source, spec)
+  // Must not crash — preserves the exact code unit round-trip
+  inspect(ctx.token_text_at(0), content="a")
+  let surrogate_text = ctx.token_text_at(1)
+  inspect(surrogate_text.length(), content="1")
+  inspect(surrogate_text == surrogate, content="true")
+  inspect(surrogate_text.code_unit_at(0).to_int(), content="55296") // 0xD800
+  inspect(ctx.token_text_at(2), content="b")
+}
+
+///|
 test "peek skips trivia tokens" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [

@@ -62,14 +62,13 @@ pub struct Diagnostic[T] {
   start : Int
   end : Int
   got_token : T
-}
-pub impl[T : Show] Show for Diagnostic[T]
+} derive(Show)
 
 pub(all) struct Edit {
   start : Int
   old_len : Int
   new_len : Int
-}
+} derive(Eq, Show)
 pub fn Edit::affects_position(Self, Int) -> Bool
 pub fn Edit::apply_to_position(Self, Int) -> Int
 pub fn Edit::delete(Int, Int) -> Self
@@ -84,16 +83,13 @@ pub fn Edit::overlaps_range(Self, Int, Int) -> Bool
 pub fn Edit::replace(Int, Int, Int) -> Self
 pub fn Edit::to_string(Self) -> String
 pub impl Editable for Edit
-pub impl Eq for Edit
-pub impl Show for Edit
 
 pub struct FoldStats {
   mut reused : Int
   mut recomputed : Int
   mut unvisited : Int
-}
+} derive(Show)
 pub fn FoldStats::zero() -> Self
-pub impl Show for FoldStats
 
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
@@ -114,10 +110,7 @@ pub(all) enum LexStep[T] {
   Done
 }
 
-type OldToken
-pub impl Compare for OldToken
-pub impl Eq for OldToken
-pub impl Show for OldToken
+type OldToken derive(Compare, Eq, Show)
 
 pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
@@ -185,17 +178,13 @@ pub fn[T] PrefixLexer::new(lex_step~ : (String, Int) -> LexStep[T]) -> Self[T]
 pub(all) struct Range {
   start : Int
   end : Int
-}
+} derive(Compare, Eq, Hash, Show)
 pub fn Range::contains(Self, Int) -> Bool
 pub fn Range::length(Self) -> Int
 pub fn Range::merge(Self, Self) -> Self
 pub fn Range::minimum_by_length(Self, Self) -> Self
 pub fn Range::new(Int, Int) -> Self
 pub fn Range::overlaps(Self, Self) -> Bool
-pub impl Compare for Range
-pub impl Eq for Range
-pub impl Hash for Range
-pub impl Show for Range
 
 pub struct ReuseCursor[T, K] {
   stack : Array[CursorFrame]
@@ -227,9 +216,7 @@ pub(all) enum TextDelta {
   Retain(Int)
   Insert(String)
   Delete(Int)
-}
-pub impl Eq for TextDelta
-pub impl Show for TextDelta
+} derive(Eq, Show)
 
 pub struct TokenBuffer[T] {
   mut source : String
@@ -255,10 +242,8 @@ pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 pub struct TokenInfo[T] {
   token : T
   len : Int
-}
+} derive(Eq, Show)
 pub fn[T] TokenInfo::new(T, Int) -> Self[T]
-pub impl[T : Eq] Eq for TokenInfo[T]
-pub impl[T : Show] Show for TokenInfo[T]
 
 pub(all) struct TokenStage[T] {
   tokens : Array[TokenInfo[T]]
