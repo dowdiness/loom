@@ -1,10 +1,15 @@
 ///|
+/// Rendering mode, decided per-Group. Once a Group chooses Break,
+/// all Line nodes inside see Break. But nested Groups can independently
+/// choose Flat — each Group is a separate decision point.
 priv enum Mode {
   Flat
   Break
 }
 
 ///|
+/// Intermediate command stream produced by `resolve`. Consumed by
+/// `render_string` (ignores annotations) or `render_spans` (collects them).
 pub(all) enum Cmd[A] {
   CText(String)
   CNewline(Int)
@@ -13,7 +18,10 @@ pub(all) enum Cmd[A] {
 } derive(Show, Eq)
 
 ///|
-/// Flat width of content before the first HardLine.
+/// Width of content before the first HardLine in the layout.
+/// Used when computing suffix width for the left child of a Concat
+/// whose right child contains a HardLine: only the text before that
+/// break shares a line with whatever Group is to the left.
 /// If no HardLine exists, returns the full flat_width.
 fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
   match layout {
@@ -30,7 +38,7 @@ fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
         lw + prefix_flat_width(r)
       }
     }
-    Group(doc) => flat_width(doc) // Group flattens if it fits — use full width
+    Group(doc) => flat_width(doc)
     Annotate(_, doc) => prefix_flat_width(doc)
   }
 }
@@ -42,12 +50,14 @@ fn[A] has_hardline_prefix(layout : Layout[A]) -> Bool {
     HardLine => true
     Nest(_, doc) => has_hardline_prefix(doc)
     Concat(l, _) => has_hardline_prefix(l)
-    Group(_) => false // Group absorbs its content
+    Group(_) => false
     Annotate(_, doc) => has_hardline_prefix(doc)
   }
 }
 
 ///|
+/// Width of the entire layout when rendered flat (all Lines become spaces).
+/// Returns -1 if the layout contains HardLine (cannot be flattened).
 fn[A] flat_width(layout : Layout[A]) -> Int {
   match layout {
     Empty => 0
@@ -68,11 +78,17 @@ fn[A] flat_width(layout : Layout[A]) -> Int {
 }
 
 ///|
+/// Wadler-Lindig layout resolution with suffix-aware Group decisions.
+///
+/// Walks the Layout tree recursively, resolving each Group's Flat/Break
+/// decision greedily: if flat_width(group) + suffix_fw fits in the
+/// remaining line width, choose Flat; otherwise Break.
+///
+/// The suffix_fw parameter carries the flat width of content that follows
+/// on the same line — so a Group considers not just its own content but
+/// also what comes after it before the next line break.
 pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
   let cmds : Array[Cmd[A]] = []
-  // suffix_fw: flat width of content that follows on the same line.
-  // Used by Group to decide Flat vs Break — the group's content plus
-  // whatever suffix shares the line must fit within the remaining width.
   fn go(
     indent : Int,
     mode : Mode,
@@ -97,6 +113,7 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
             indent
           }
         }
+      // HardLine breaks unconditionally — Mode is ignored
       HardLine => {
         cmds.push(CNewline(indent))
         indent
@@ -104,6 +121,9 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
       Nest(i, doc) => go(indent + i, mode, column, doc, suffix_fw)
       Concat(l, r) => {
         let r_fw = flat_width(r)
+        // When r can be fully flattened, left's suffix is r's width + outer suffix.
+        // When r contains HardLine (r_fw < 0), only the content before that
+        // break shares a line with l — use prefix_flat_width(r) instead.
         let left_suffix = if r_fw >= 0 {
           r_fw + suffix_fw
         } else {
@@ -112,6 +132,8 @@ pub fn[A] resolve(width : Int, layout : Layout[A]) -> Array[Cmd[A]] {
         let col = go(indent, mode, column, l, left_suffix)
         go(indent, mode, col, r, suffix_fw)
       }
+      // Group creates a NEW decision point independent of parent's mode.
+      // Nested Groups can choose Flat even inside a parent that chose Break.
       Group(doc) => {
         let fw = flat_width(doc)
         let m = if fw >= 0 && fw + suffix_fw <= width - column {

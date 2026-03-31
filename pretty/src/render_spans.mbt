@@ -8,6 +8,7 @@ pub fn[A] render_spans(
   for cmd in resolve(width, layout); offset = 0 {
     match cmd {
       CText(s) => continue offset + s.length()
+      // newline = 1 char + indent spaces, matching render_string's output
       CNewline(indent) => continue offset + 1 + indent
       CAnnStart(ann) => {
         ann_stack.push((ann, offset))

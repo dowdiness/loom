@@ -5,9 +5,13 @@ pub impl @pretty.Source for Term with to_source(self) {
   print_term(self)
 }
 
+// Precedence levels for parenthesization (higher = tighter binding).
+// Standard ML/lambda convention: application binds tighter than operators.
+//   top (0) < if (1) < lam (2) < bop (3) < app (4) < atom (5)
+// wrap_if_needed adds parens when a child's precedence is lower than
+// the context requires (e.g., lambda inside application position).
+
 ///|
-/// Precedence levels for parenthesization.
-/// Higher number = tighter binding.
 let prec_top : Int = 0
 
 ///|
@@ -31,6 +35,11 @@ pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
   prec : Int
 }
+
+// Convention: all leaf text goes through a named wrapper (kw, ident, num,
+// op_text, punc, err_text) so every token carries a SyntaxCategory annotation.
+// To add new syntax, add a wrapper or use an existing one — never call
+// @pretty.text directly for tokens that should be highlighted.
 
 ///|
 fn tagged(

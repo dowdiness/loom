@@ -19,6 +19,8 @@ pub fn[A] hardline() -> Layout[A] {
 }
 
 ///|
+/// Space in flat mode, newline + indent in break mode.
+/// Equivalent to `group(line())` — a one-element group that flattens to a space.
 pub fn[A] softline() -> Layout[A] {
   Group(Line)
 }
@@ -81,6 +83,10 @@ pub fn[A] braces(doc : Layout[A]) -> Layout[A] {
 }
 
 ///|
+/// Bracketed block: `l` + indented content + `r`.
+/// Flat: `[ content ]` (spaces around content from line()).
+/// Broken: `[\n  content\n]` (content indented, delimiters on own lines).
+/// Empty content produces `lr` with no interior spaces (e.g., `[]`).
 pub fn[A] bracket(l : String, r : String, doc : Layout[A]) -> Layout[A] {
   match doc {
     Empty => group(text(l) + text(r))

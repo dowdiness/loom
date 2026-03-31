@@ -13,8 +13,8 @@ pub(open) trait Pretty {
 }
 
 ///|
-/// Super trait: a type with all four text representations.
-/// Show (derive) + Debug (derive) + Source (parseable) + Pretty (formatted).
+/// Combines all four text representations:
+/// Show, Debug, Source (parseable), and Pretty (formatted).
 pub(open) trait Printable : Show + Debug + Source + Pretty {}
 
 ///|
