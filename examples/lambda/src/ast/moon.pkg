@@ -1,4 +1,5 @@
 import {
   "dowdiness/loom/core" @loomcore,
+  "dowdiness/pretty" @pretty,
   "moonbitlang/core/json",
 }

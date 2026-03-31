@@ -4,6 +4,7 @@
   "source": "src",
   "deps": {
     "dowdiness/loom": { "path": "../../loom" },
+    "dowdiness/pretty": { "path": "../../pretty" },
     "dowdiness/seam": { "path": "../../seam" }
   },
   "license": "Apache-2.0",

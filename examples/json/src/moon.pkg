@@ -1,5 +1,6 @@
 import {
   "dowdiness/loom/core" @core,
+  "dowdiness/pretty" @pretty,
   "dowdiness/seam" @seam,
   "dowdiness/loom" @loom,
   "moonbitlang/core/strconv",
