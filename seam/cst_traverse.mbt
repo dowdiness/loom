@@ -1,7 +1,9 @@
-// cst_traverse.mbt — Closure-based traversal methods for CstElement.
+// cst_traverse.mbt — Traversal methods for CstElement.
 //
-// Ported from cst-transform/ research module. See cst-transform/REPORT.md
-// for performance characteristics.
+// Three tiers, each benchmarked (see cst-transform/REPORT.md):
+//   1. Closure methods: transform, fold, transform_fold, each, iter, map (~1.0–1.35x)
+//   2. Finder trait: statically-dispatched DFS search (~1.0x)
+//   3. Hand-written: parameterized queries like token_count (~1.0x always)
 
 ///|
 /// Bottom-up structure-preserving transformation.
@@ -31,6 +33,11 @@ pub fn[R] CstElement::transform(
 ///
 /// **Warning:** `empty` is shared by reference. Use only value-type
 /// accumulators (Int, String). For Array collection, use `transform` instead.
+///
+/// **Performance:** Closures that capture outer variables (e.g., a
+/// `trivia_kind` for filtering) incur ~2x overhead from upvalue access.
+/// For parameterized hot-path folds, prefer hand-written methods like
+/// `CstElement::token_count`.
 pub fn[R] CstElement::fold(
   self : CstElement,
   on_token : (CstToken) -> R,
@@ -174,7 +181,7 @@ pub fn CstElement::map(
 
 ///|
 /// Typeclass for DFS search. `check` returns true if the element matches.
-/// Statically dispatched — zero closure overhead for predicates.
+/// Statically dispatched — no closure allocation for predicates.
 pub(open) trait Finder {
   check(Self, CstElement) -> Bool
 }
@@ -196,5 +203,27 @@ pub fn[F : Finder] CstElement::find(self : CstElement, f : F) -> CstElement? {
       }
       None
     }
+  }
+}
+
+// ── Hand-written parameterized queries ────────────────────────────────
+// Parameterized folds (needing runtime arguments like trivia_kind) can't
+// be expressed as stateless Folder traits, and closure fold has 2x overhead
+// from captured upvalues. Hand-written recursion is the right tool here.
+
+///|
+/// Count non-trivia leaf tokens in the subtree.
+///
+/// Use this when the tree wasn't built with `trivia_kind` (otherwise
+/// prefer the cached `CstNode.token_count` field which is O(1)).
+pub fn CstElement::token_count(self : CstElement, trivia_kind : RawKind) -> Int {
+  match self {
+    Token(t) => if t.kind != trivia_kind { 1 } else { 0 }
+    Node({ children, .. }) =>
+      for child in children; acc = 0 {
+        continue acc + child.token_count(trivia_kind)
+      } nobreak {
+        acc
+      }
   }
 }

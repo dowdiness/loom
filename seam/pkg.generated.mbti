@@ -25,6 +25,8 @@ pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
 } derive(Show, @debug.Debug)
+pub fn[R : Folder] CstElement::accept_fold(Self) -> R
+pub fn[R : TransformFolder] CstElement::accept_transform_fold(Self) -> R
 pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
 pub fn[F : Finder] CstElement::find(Self, F) -> Self?
 pub fn[R] CstElement::fold(Self, (CstToken) -> R, (R, R) -> R, R) -> R
@@ -32,6 +34,7 @@ pub fn CstElement::iter(Self) -> Iter[Self]
 pub fn CstElement::kind(Self) -> RawKind
 pub fn CstElement::map(Self, (Self) -> Self, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> Self
 pub fn CstElement::text_len(Self) -> Int
+pub fn CstElement::token_count(Self, RawKind) -> Int
 pub fn[R] CstElement::transform(Self, (CstToken) -> R, (RawKind, Array[R]) -> R) -> R
 pub fn[R] CstElement::transform_fold(Self, (CstToken) -> R, (RawKind) -> R, (RawKind, R, R) -> R) -> R
 pub impl Eq for CstElement
@@ -83,6 +86,11 @@ pub fn Interner::clear(Self) -> Unit
 pub fn Interner::intern_token(Self, RawKind, String) -> CstToken
 pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int
+
+pub(all) struct NodeCount(Int) derive(Show)
+#deprecated
+pub fn NodeCount::inner(Self) -> Int
+pub impl TransformFolder for NodeCount
 
 pub struct NodeInterner {
   // private fields
@@ -154,6 +162,11 @@ pub fn SyntaxToken::start(Self) -> Int
 pub fn SyntaxToken::text(Self) -> String
 pub impl Show for SyntaxToken
 
+pub(all) struct TextLen(Int) derive(Show)
+#deprecated
+pub fn TextLen::inner(Self) -> Int
+pub impl Folder for TextLen
+
 pub enum TokenAtOffset {
   None
   Single(SyntaxToken)
@@ -165,6 +178,12 @@ pub enum TokenAtOffset {
 // Traits
 pub(open) trait Finder {
   check(Self, CstElement) -> Bool
+}
+
+pub(open) trait Folder {
+  fold_token(CstToken) -> Self
+  fold_combine(Self, Self) -> Self
+  fold_empty() -> Self
 }
 
 pub(open) trait FromRawKind {
@@ -185,5 +204,11 @@ pub(open) trait IsTrivia {
 
 pub(open) trait ToRawKind {
   to_raw(Self) -> RawKind
+}
+
+pub(open) trait TransformFolder {
+  tf_token(CstToken) -> Self
+  tf_init(RawKind) -> Self
+  tf_child(Self, Self) -> Self
 }
 
