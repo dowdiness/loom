@@ -7,4 +7,4 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Show, Eq, Debug)
+} derive(Show, Eq, Debug, ToJson)
