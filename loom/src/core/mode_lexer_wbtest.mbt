@@ -97,3 +97,23 @@ test "tokenize_with_modes empty input" {
   inspect(tokens[0].token, content="EOF")
   inspect(modes[0], content="Normal")
 }
+
+///|
+test "erase_mode_lexer tokenize matches tokenize_with_modes" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_lex_step,
+    initial_mode: Normal,
+  }
+  let state = erase_mode_lexer(lexer, MockToken::EOF)
+  let (tokens, starts) = (state.tokenize)("hello\"world\"end")
+  inspect(tokens.length(), content="6")
+  inspect(tokens[0].token, content="Text(\"hello\")")
+  inspect(tokens[2].token, content="StringContent(\"world\")")
+  // Starts are prefix sums: 0, 5, 6, 11, 12, 15
+  inspect(starts[0], content="0")
+  inspect(starts[1], content="5")
+  inspect(starts[2], content="6")
+  inspect(starts[3], content="11")
+  inspect(starts[4], content="12")
+  inspect(starts[5], content="15")
+}
