@@ -11,15 +11,7 @@ fn convert_inline_children_skip(
     match elem {
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
-        // Check if this token kind should be skipped
-        let mut should_skip = false
-        for k in skip_kinds {
-          if tok_kind == k {
-            should_skip = true
-            break
-          }
-        }
-        if should_skip {
+        if skip_kinds.iter().any(fn(k) { tok_kind == k }) {
           continue
         }
         match tok_kind {

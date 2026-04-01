@@ -82,15 +82,11 @@ pub fn markdown_fold_node(
         None => ()
       }
       // Collect code text content
-      let code_buf = StringBuilder::new()
-      let code_tokens = node.tokens_of_kind(CodeTextToken.to_raw())
-      for i, tok in code_tokens {
-        if i > 0 {
-          code_buf.write_string("\n")
-        }
-        code_buf.write_string(tok.text())
-      }
-      Block::CodeBlock(info, code_buf.to_string())
+      let code_text = node
+        .tokens_of_kind(CodeTextToken.to_raw())
+        .map(fn(tok) { tok.text() })
+        .join("\n")
+      Block::CodeBlock(info, code_text)
     }
     ErrorNode => Block::Error("parse error")
     _ => Block::Error("unknown node: " + kind.to_string())

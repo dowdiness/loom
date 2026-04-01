@@ -32,8 +32,8 @@ test "lexer: code fence with info" {
   inspect(@debug.to_string(tokens[2].token), content="CodeText(\"code here\")")
   inspect(@debug.to_string(tokens[3].token), content="Newline")
   inspect(@debug.to_string(tokens[4].token), content="CodeFenceClose")
-  // After CodeFenceClose, mode is LineStart, so \n is BlankLine
-  inspect(@debug.to_string(tokens[5].token), content="BlankLine")
+  // CodeFenceClose now consumes trailing newline, so EOF is next
+  inspect(@debug.to_string(tokens[5].token), content="EOF")
 }
 
 ///|

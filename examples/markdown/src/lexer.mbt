@@ -236,11 +236,20 @@ fn lex_code_block(
           }
         }
         if is_close {
-          // Closing fence (consume backticks + trailing whitespace, not the newline)
+          // Closing fence: consume backticks + trailing whitespace + newline.
+          // Including the newline prevents lex_line_start from seeing it as BlankLine.
+          let fence_end = if after < input.length() {
+            match char_at(input, after) {
+              Some('\n') => after + 1
+              _ => after
+            }
+          } else {
+            after
+          }
           (
             Produced(
-              @core.TokenInfo::new(CodeFenceClose, after - pos),
-              next_offset=after,
+              @core.TokenInfo::new(CodeFenceClose, fence_end - pos),
+              next_offset=fence_end,
             ),
             LineStart,
           )

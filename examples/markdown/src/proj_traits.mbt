@@ -105,14 +105,35 @@ pub impl @core.Renderable for Block with placeholder(_self) {
 ///|
 pub impl @core.Renderable for Block with unparse(self) {
   match self {
-    Document(blocks) =>
-      blocks.map(fn(b) { @core.Renderable::unparse(b) }).join("\n")
+    Document(blocks) => {
+      // Separate blocks with blank lines so paragraphs don't merge
+      let parts = blocks.map(fn(b) { @core.Renderable::unparse(b) })
+      parts.join("\n\n")
+    }
     Heading(n, inlines) => "#".repeat(n) + " " + inline_text(inlines)
     Paragraph(inlines) => inline_text(inlines)
     UnorderedList(items) =>
       items.map(fn(b) { @core.Renderable::unparse(b) }).join("\n")
     ListItem(inlines) => "- " + inline_text(inlines)
-    CodeBlock(info, code) => "```" + info + "\n" + code + "\n```"
+    CodeBlock(info, code) => {
+      // Compute fence width: must be longer than any backtick run in code
+      let mut max_run = 0
+      let mut cur_run = 0
+      for i = 0; i < code.length(); i = i + 1 {
+        match code.code_unit_at(i).to_char() {
+          Some('`') => {
+            cur_run = cur_run + 1
+            if cur_run > max_run {
+              max_run = cur_run
+            }
+          }
+          _ => cur_run = 0
+        }
+      }
+      let fence_width = if max_run >= 3 { max_run + 1 } else { 3 }
+      let fence = "`".repeat(fence_width)
+      fence + info + "\n" + code + "\n" + fence
+    }
     Error(msg) => "<error: " + msg + ">"
   }
 }
