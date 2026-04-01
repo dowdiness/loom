@@ -1,17 +1,17 @@
 ///|
 /// Convert the inline children of a node to an Array[Inline].
-/// This walks all children (tokens and nodes) and converts them.
-/// `skip_kinds` specifies token kinds to skip (e.g., delimiter tokens inside markup nodes).
+/// `skip_kind` optionally specifies a delimiter token kind to skip
+/// (e.g., StarStarToken inside BoldNode, StarToken inside ItalicNode).
 fn convert_inline_children_skip(
   node : @seam.SyntaxNode,
-  skip_kinds : Array[SyntaxKind],
+  skip_kind : SyntaxKind?,
 ) -> Array[Inline] {
   let inlines : Array[Inline] = []
   for elem in node.all_children() {
     match elem {
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
-        if skip_kinds.iter().any(fn(k) { tok_kind == k }) {
+        if skip_kind is Some(k) && tok_kind == k {
           continue
         }
         match tok_kind {
@@ -47,7 +47,7 @@ fn convert_inline_children_skip(
 /// Convert the inline children of a node to an Array[Inline].
 /// No delimiter tokens are skipped.
 fn convert_inline_children(node : @seam.SyntaxNode) -> Array[Inline] {
-  convert_inline_children_skip(node, [])
+  convert_inline_children_skip(node, None)
 }
 
 ///|
@@ -60,12 +60,12 @@ fn convert_inline_node(
   match child_kind {
     BoldNode => {
       // Skip StarStarToken delimiters
-      let inner = convert_inline_children_skip(child, [StarStarToken])
+      let inner = convert_inline_children_skip(child, Some(StarStarToken))
       inlines.push(Inline::Bold(inner))
     }
     ItalicNode => {
       // Skip StarToken delimiters
-      let inner = convert_inline_children_skip(child, [StarToken])
+      let inner = convert_inline_children_skip(child, Some(StarToken))
       inlines.push(Inline::Italic(inner))
     }
     InlineCodeNode => {

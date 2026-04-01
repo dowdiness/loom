@@ -1,8 +1,9 @@
 ///|
 /// Token-CST matching for incremental reuse.
-/// Text and CodeText compare by text content (payload-sensitive).
-/// All other tokens (HeadingMarker, CodeFenceOpen, etc.) compare by kind only —
-/// payload differences are caught by the text content comparison at the CST level.
+/// Text and CodeText compare by text content — without this, the incremental
+/// parser could reuse a cached CST subtree whose text has changed (e.g., after
+/// editing paragraph content). All other tokens compare by kind only; their
+/// CST text width already distinguishes different instances.
 fn cst_token_matches(raw : @seam.RawKind, text : String, token : Token) -> Bool {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(raw)
   match (kind, token) {

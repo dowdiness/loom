@@ -1,9 +1,24 @@
+// Inline parser for Markdown.
+//
+// Markdown delimiters (*, **, `, [) are ambiguous: `*foo` might be
+// an italic opener or literal text. We resolve this via speculative
+// parsing with checkpoint/restore: open a CST node, parse content,
+// and if the closing delimiter is missing before the line/block ends,
+// restore the checkpoint and re-emit the opener as literal text
+// wrapped in an ErrorNode. This preserves source fidelity while
+// producing correct AST structure for well-formed markup.
+
+///|
+/// True when the current token ends an inline run: block markers, newlines,
+/// blank lines, or EOF. Inline parsers check this to know when to stop.
+fn is_inline_end(token : Token) -> Bool {
+  is_block_boundary(token) || token is Newline || token == EOF
+}
+
 ///|
 /// Parse inline content until block boundary, newline, or EOF.
 fn parse_inline_content(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  while !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !is_inline_end(ctx.peek()) {
     parse_inline(ctx)
   }
 }
@@ -30,10 +45,7 @@ fn parse_bold(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.start_node(BoldNode)
   ctx.emit_token(StarStarToken) // opening **
   // Parse inline content until closing ** or block boundary
-  while !(ctx.peek() is StarStar) &&
-        !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !(ctx.peek() is StarStar) && !is_inline_end(ctx.peek()) {
     parse_inline(ctx)
   }
   if ctx.peek() is StarStar {
@@ -57,11 +69,8 @@ fn parse_italic(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.start_node(ItalicNode)
   ctx.emit_token(StarToken) // opening *
   // Parse inline content until closing * or block boundary
-  while !(ctx.peek() is Star) &&
-        !(ctx.peek() is StarStar) &&
-        !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !(ctx.peek() is Star) && !(ctx.peek() is StarStar) &&
+        !is_inline_end(ctx.peek()) {
     parse_inline(ctx)
   }
   if ctx.peek() is Star {
@@ -84,10 +93,7 @@ fn parse_inline_code(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.start_node(InlineCodeNode)
   ctx.emit_token(BacktickToken) // opening `
   // Consume text tokens until closing ` or block boundary
-  while !(ctx.peek() is Backtick) &&
-        !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !(ctx.peek() is Backtick) && !is_inline_end(ctx.peek()) {
     // Inside inline code, everything is text
     match ctx.peek() {
       Text(_) => ctx.emit_token(TextToken)
@@ -120,10 +126,7 @@ fn parse_link(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.start_node(LinkNode)
   ctx.emit_token(LeftBracketToken) // [
   // Parse link text content until ]
-  while !(ctx.peek() is RightBracket) &&
-        !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !(ctx.peek() is RightBracket) && !is_inline_end(ctx.peek()) {
     parse_inline(ctx)
   }
   if !(ctx.peek() is RightBracket) {
@@ -148,10 +151,7 @@ fn parse_link(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   }
   ctx.emit_token(LeftParenToken) // (
   // Parse URL content until )
-  while !(ctx.peek() is RightParen) &&
-        !is_block_boundary(ctx.peek()) &&
-        !(ctx.peek() is Newline) &&
-        ctx.peek() != EOF {
+  while !(ctx.peek() is RightParen) && !is_inline_end(ctx.peek()) {
     match ctx.peek() {
       Text(_) => ctx.emit_token(TextToken)
       _ => ctx.bump_error()

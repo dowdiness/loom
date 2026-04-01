@@ -1,17 +1,19 @@
 ///|
-fn inline_text(inlines : Array[Inline]) -> String {
-  let buf = StringBuilder::new()
+/// Serialize inline AST back to Markdown source text.
+/// Uses a shared StringBuilder to avoid intermediate string allocations
+/// at each nesting level (bold inside link, etc.).
+fn inline_text_to(inlines : Array[Inline], buf : StringBuilder) -> Unit {
   for item in inlines {
     match item {
       Text(s) => buf.write_string(s)
       Bold(children) => {
         buf.write_string("**")
-        buf.write_string(inline_text(children))
+        inline_text_to(children, buf)
         buf.write_string("**")
       }
       Italic(children) => {
         buf.write_string("*")
-        buf.write_string(inline_text(children))
+        inline_text_to(children, buf)
         buf.write_string("*")
       }
       InlineCode(s) => {
@@ -21,7 +23,7 @@ fn inline_text(inlines : Array[Inline]) -> String {
       }
       Link(children, url) => {
         buf.write_string("[")
-        buf.write_string(inline_text(children))
+        inline_text_to(children, buf)
         buf.write_string("](")
         buf.write_string(url)
         buf.write_string(")")
@@ -29,6 +31,12 @@ fn inline_text(inlines : Array[Inline]) -> String {
       Error(msg) => buf.write_string("<error: " + msg + ">")
     }
   }
+}
+
+///|
+fn inline_text(inlines : Array[Inline]) -> String {
+  let buf = StringBuilder::new()
+  inline_text_to(inlines, buf)
   buf.to_string()
 }
 

@@ -226,6 +226,31 @@ fn lex_inline(
 }
 
 ///|
+/// Consume characters until newline and emit as CodeText. Used by lex_code_block
+/// for the three cases where content is not a closing fence.
+fn emit_code_text_line(
+  input : String,
+  pos : Int,
+  fence_len : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let mut line_end = pos
+  while line_end < input.length() {
+    match char_at(input, line_end) {
+      Some('\n') | None => break
+      _ => line_end = line_end + 1
+    }
+  }
+  let text : StringView = input[pos:line_end]
+  (
+    Produced(
+      @core.TokenInfo::new(CodeText(text.to_string()), line_end - pos),
+      next_offset=line_end,
+    ),
+    CodeBlock(fence_len),
+  )
+}
+
+///|
 /// Lex from CodeBlock mode. Emits CodeText lines until closing fence.
 fn lex_code_block(
   input : String,
@@ -276,60 +301,13 @@ fn lex_code_block(
             LineStart,
           )
         } else {
-          // Backticks followed by non-whitespace — treat as code text
-          let mut line_end = pos
-          while line_end < input.length() {
-            match char_at(input, line_end) {
-              Some('\n') | None => break
-              _ => line_end = line_end + 1
-            }
-          }
-          let text : StringView = input[pos:line_end]
-          (
-            Produced(
-              @core.TokenInfo::new(CodeText(text.to_string()), line_end - pos),
-              next_offset=line_end,
-            ),
-            CodeBlock(fence_len),
-          )
+          emit_code_text_line(input, pos, fence_len)
         }
       } else {
-        // Fewer backticks than fence — treat as code text
-        let mut line_end = pos
-        while line_end < input.length() {
-          match char_at(input, line_end) {
-            Some('\n') | None => break
-            _ => line_end = line_end + 1
-          }
-        }
-        let text : StringView = input[pos:line_end]
-        (
-          Produced(
-            @core.TokenInfo::new(CodeText(text.to_string()), line_end - pos),
-            next_offset=line_end,
-          ),
-          CodeBlock(fence_len),
-        )
+        emit_code_text_line(input, pos, fence_len)
       }
     }
-    _ => {
-      // Code text: consume until newline
-      let mut line_end = pos
-      while line_end < input.length() {
-        match char_at(input, line_end) {
-          Some('\n') | None => break
-          _ => line_end = line_end + 1
-        }
-      }
-      let text : StringView = input[pos:line_end]
-      (
-        Produced(
-          @core.TokenInfo::new(CodeText(text.to_string()), line_end - pos),
-          next_offset=line_end,
-        ),
-        CodeBlock(fence_len),
-      )
-    }
+    _ => emit_code_text_line(input, pos, fence_len)
   }
 }
 
