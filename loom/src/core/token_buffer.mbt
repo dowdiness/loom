@@ -13,6 +13,7 @@ pub struct TokenBuffer[T] {
   priv eof_token : T
   priv mut tokens : Array[TokenInfo[T]]
   priv mut starts : Array[Int]
+  priv mode_relex : ModeRelexState[T]?
   mut source : String
   mut version : Int
 }
@@ -82,6 +83,7 @@ pub fn[T] TokenBuffer::new(
     eof_token,
     tokens,
     starts,
+    mode_relex: None,
     source,
     version: 0,
   }
@@ -111,6 +113,7 @@ pub fn[T] TokenBuffer::new_resilient(
     eof_token,
     tokens,
     starts,
+    mode_relex: None,
     source,
     version: 0,
   }
@@ -156,6 +159,7 @@ pub fn[T] TokenBuffer::new_from_steps(
     eof_token,
     tokens,
     starts,
+    mode_relex: None,
     source,
     version: 0,
   }
@@ -186,16 +190,16 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
     eof_token,
     tokens,
     starts,
+    mode_relex: None,
     source,
     version: 0,
   }
 }
 
 ///|
-/// Construct a TokenBuffer with mode-aware re-lex support.
-/// Uses full retokenize on every edit (incremental_relex_enabled=false)
-/// because mode state requires re-lexing from mode boundaries, not
-/// arbitrary text ranges. The retokenize_full closure handles this.
+/// Construct a TokenBuffer with mode-aware convergence re-lex support.
+/// Uses convergence-based partial re-lex: only re-lexes the damaged region
+/// and stops when the lexer mode converges with the old mode array.
 pub fn[T] TokenBuffer::new_with_mode_relex(
   source : String,
   tokens : Array[TokenInfo[T]],
@@ -211,10 +215,11 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
   {
     tokenize_fn,
     retokenize_full,
-    incremental_relex_enabled: false,
+    incremental_relex_enabled: true,
     eof_token,
     tokens,
     starts,
+    mode_relex: Some(mode_relex),
     source,
     version: 0,
   }
@@ -302,6 +307,52 @@ pub fn[T] TokenBuffer::update(
   }
   if right_tok_idx < eof_index {
     right_tok_idx = right_tok_idx + 1
+  }
+  // Mode-aware convergence re-lex path.
+  // Instead of slicing text and re-lexing without mode context, we re-lex
+  // from the correct mode at left_tok_idx and stop when the mode converges
+  // with the old mode array. This avoids full retokenize for mode-aware lexers.
+  match self.mode_relex {
+    Some(state) => {
+      let left_clamped = clamp_offset(
+        map_start_pos(old_starts[left_tok_idx], edit),
+        new_source.length(),
+      )
+      let delta = edit.delta()
+      let (replacement_tokens, converged_right) = (state.relex_from)(
+        new_source, left_clamped, left_tok_idx, old_len, old_starts, delta,
+      )
+      let new_tokens : Array[TokenInfo[T]] = []
+      let new_starts : Array[Int] = []
+      // Prefix (unchanged)
+      for i = 0; i < left_tok_idx; i = i + 1 {
+        new_tokens.push(old_tokens[i])
+        new_starts.push(old_starts[i])
+      }
+      // Replacement tokens with inline prefix-sum
+      let mut rep_offset = left_clamped
+      for i = 0; i < replacement_tokens.length(); i = i + 1 {
+        new_tokens.push(replacement_tokens[i])
+        new_starts.push(rep_offset)
+        rep_offset = rep_offset + replacement_tokens[i].len
+      }
+      // Suffix (shifted by edit delta)
+      let new_len = new_source.length()
+      for i = converged_right; i < eof_index; i = i + 1 {
+        new_tokens.push(old_tokens[i])
+        new_starts.push(clamp_offset(old_starts[i] + delta, new_len))
+      }
+      // EOF sentinel
+      new_tokens.push(TokenInfo::new(self.eof_token, 0))
+      new_starts.push(new_len)
+      // relex_from already spliced the modes array internally.
+      self.tokens = new_tokens
+      self.starts = new_starts
+      self.source = new_source
+      self.version = self.version + 1
+      return
+    }
+    None => ()
   }
   let mut left_old_offset = old_starts[left_tok_idx]
   if edit.start < left_old_offset {
