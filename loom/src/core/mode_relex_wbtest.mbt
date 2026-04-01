@@ -49,3 +49,19 @@ test "mode relex: delete quote reverts mode" {
   inspect(buffer.get_token(1), content="Quote")
   inspect(buffer.get_token(2), content="StringContent(\"end\")")
 }
+
+///|
+/// Verify that TokenBuffer without mode_relex behaves identically.
+test "backward compat: TokenBuffer::new still works without mode_relex" {
+  let tokenize_fn : (String) -> Array[TokenInfo[MockToken]] raise LexError = s => {
+    let lexer : ModeLexer[MockToken, MockMode] = {
+      lex_step: mock_lex_step,
+      initial_mode: Normal,
+    }
+    let (tokens, _modes) = tokenize_with_modes(lexer, s, MockToken::EOF)
+    tokens
+  }
+  let buffer = TokenBuffer::new("hello", tokenize_fn~, eof_token=MockToken::EOF)
+  inspect(buffer.token_count(), content="2")
+  inspect(buffer.get_token(0), content="Text(\"hello\")")
+}

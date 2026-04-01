@@ -117,3 +117,44 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
   inspect(starts[4], content="12")
   inspect(starts[5], content="15")
 }
+
+///|
+/// Property: tokenize_with_modes produces the same tokens as manually
+///  stepping through lex_step with mode threading.
+///  Uses quickcheck to generate random strings containing quotes and text.
+test "property: tokenize_with_modes consistent with step replay" {
+  @qc.quick_check_fn(fn(input : String) -> Bool {
+    let lexer : ModeLexer[MockToken, MockMode] = {
+      lex_step: mock_lex_step,
+      initial_mode: Normal,
+    }
+    let (tokens, modes) = try {
+      tokenize_with_modes(lexer, input, MockToken::EOF)
+    } catch {
+      _ => return true // skip inputs that cause lex errors
+    }
+    // Manual replay
+    let mut pos = 0
+    let mut mode : MockMode = Normal
+    let mut i = 0
+    while pos < input.length() {
+      let (step, next_mode) = mock_lex_step(input, pos, mode)
+      match step {
+        Produced(tok, next_offset~) => {
+          if tokens[i].token != tok.token {
+            return false
+          }
+          if modes[i] != mode {
+            return false
+          }
+          mode = next_mode
+          pos = next_offset
+          i = i + 1
+        }
+        _ => break
+      }
+    }
+    // EOF sentinel
+    tokens[i].token == MockToken::EOF
+  })
+}
