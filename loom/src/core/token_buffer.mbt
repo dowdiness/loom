@@ -15,6 +15,7 @@ pub struct TokenBuffer[T] {
   priv mut starts : Array[Int]
   mut source : String
   mut version : Int
+  priv mode_relex : ModeRelexState[T]?
 }
 
 ///|
@@ -84,6 +85,7 @@ pub fn[T] TokenBuffer::new(
     starts,
     source,
     version: 0,
+    mode_relex: None,
   }
 }
 
@@ -113,6 +115,7 @@ pub fn[T] TokenBuffer::new_resilient(
     starts,
     source,
     version: 0,
+    mode_relex: None,
   }
 }
 
@@ -158,6 +161,7 @@ pub fn[T] TokenBuffer::new_from_steps(
     starts,
     source,
     version: 0,
+    mode_relex: None,
   }
 }
 
@@ -188,6 +192,34 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
     starts,
     source,
     version: 0,
+    mode_relex: None,
+  }
+}
+
+///|
+/// Construct a TokenBuffer with mode-aware re-lex support.
+pub fn[T] TokenBuffer::new_with_mode_relex(
+  source : String,
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  eof_token : T,
+  mode_relex : ModeRelexState[T],
+) -> TokenBuffer[T] {
+  let retokenize_full = mode_relex.tokenize
+  let tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    let (tokens, _) = (mode_relex.tokenize)(s)
+    tokens
+  }
+  {
+    tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: true,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+    mode_relex: Some(mode_relex),
   }
 }
 

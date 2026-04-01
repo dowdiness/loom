@@ -10,6 +10,8 @@ pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
 
+pub fn[T, M] erase_mode_lexer(ModeLexer[T, M], T) -> ModeRelexState[T]
+
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
@@ -115,6 +117,10 @@ pub(all) enum LexStep[T] {
 pub(all) struct ModeLexer[T, M] {
   lex_step : (String, Int, M) -> (LexStep[T], M)
   initial_mode : M
+}
+
+pub struct ModeRelexState[T] {
+  tokenize : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
 }
 
 type OldToken derive(Compare, Eq, Show)
@@ -243,6 +249,7 @@ pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ 
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_resilient_compat(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
+pub fn[T] TokenBuffer::new_with_mode_relex(String, Array[TokenInfo[T]], Array[Int], T, ModeRelexState[T]) -> Self[T]
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 
