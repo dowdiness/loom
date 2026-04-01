@@ -106,6 +106,14 @@ fn convert_inline_node(
                 } else if !past_bracket {
                   display.push(Inline::Text(t.text()))
                 }
+              // Preserve bump_error tokens so error-recovery characters
+              // aren't silently dropped from the AST.
+              ErrorToken | ErrorNode =>
+                if in_parens {
+                  url_buf.write_string(t.text())
+                } else if !past_bracket {
+                  display.push(Inline::Text(t.text()))
+                }
               _ => ()
             }
           }
