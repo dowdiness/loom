@@ -15,11 +15,11 @@ pub(open) trait Pretty {
 ///|
 /// Combines all four text representations:
 /// Show, Debug, Source (parseable), and Pretty (formatted).
-pub(open) trait Printable : Show + Debug + Source + Pretty {}
+pub(open) trait Printable: Show + Debug + Source + Pretty {}
 
 ///|
 /// Format any Pretty type as a string with width-aware line breaking.
-pub fn[T : Pretty] pretty_print(value : T, width~ : Int = 80) -> String {
+pub fn[T : Pretty] pretty_print(value : T, width? : Int = 80) -> String {
   render_string(Pretty::to_layout(value), width~)
 }
 
@@ -27,7 +27,7 @@ pub fn[T : Pretty] pretty_print(value : T, width~ : Int = 80) -> String {
 /// Format any Pretty type as annotated spans for editor rendering.
 pub fn[T : Pretty] pretty_spans(
   value : T,
-  width~ : Int = 80,
+  width? : Int = 80,
 ) -> Array[(Span, SyntaxCategory)] {
   render_spans(Pretty::to_layout(value), width~)
 }

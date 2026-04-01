@@ -1,11 +1,11 @@
 {
   "name": "dowdiness/pretty",
   "version": "0.1.0",
-  "source": "src",
+  "source": "",
   "deps": {
     "moonbitlang/quickcheck": "0.11.2"
   },
-  "readme": "",
+  "readme": "README.mbt.md",
   "repository": "https://github.com/dowdiness/loom",
   "license": "Apache-2.0",
   "keywords": ["pretty-printer", "wadler", "layout", "moonbit"],
