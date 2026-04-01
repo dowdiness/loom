@@ -10,36 +10,50 @@
 
 ///|
 /// Create a fresh TokenBuffer.
-/// Precedence: prefix_lexer (step-based) > error_token (resilient) > plain.
+/// Precedence: mode_relex > prefix_lexer (step-based) > error_token (resilient) > plain.
 fn[T] create_buffer(
   source : String,
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
   eof_token : T,
   error_token : T?,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
+  mode_relex? : @core.ModeRelexState[T]? = None,
 ) -> @core.TokenBuffer[T] raise @core.LexError {
-  match (prefix_lexer, error_token) {
-    (Some(lexer), Some(err_tok)) =>
-      @core.TokenBuffer::new_from_steps(
-        source,
-        lexer,
-        eof_token~,
-        error_token=err_tok,
+  match mode_relex {
+    Some(state) => {
+      // Mode-aware path takes precedence: error_token and prefix_lexer are
+      // intentionally ignored because ModeRelexState.tokenize handles all
+      // tokenization (including error recovery) via the captured ModeLexer.
+      let (tokens, starts) = (state.tokenize)(source)
+      @core.TokenBuffer::new_with_mode_relex(
+        source, tokens, starts, eof_token, state,
       )
-    (Some(lexer), None) =>
-      // Step-based without error_token: run in strict mode and surface
-      // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
-      @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
-    (None, Some(err_tok)) =>
-      // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
-      @core.TokenBuffer::new_resilient_compat(
-        source,
-        tokenize_fn=tokenize,
-        eof_token~,
-        error_token=err_tok,
-      )
-    (None, None) =>
-      @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+    }
+    None =>
+      // Existing stateless path (unchanged)
+      match (prefix_lexer, error_token) {
+        (Some(lexer), Some(err_tok)) =>
+          @core.TokenBuffer::new_from_steps(
+            source,
+            lexer,
+            eof_token~,
+            error_token=err_tok,
+          )
+        (Some(lexer), None) =>
+          // Step-based without error_token: run in strict mode and surface
+          // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
+          @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
+        (None, Some(err_tok)) =>
+          // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
+          @core.TokenBuffer::new_resilient_compat(
+            source,
+            tokenize_fn=tokenize,
+            eof_token~,
+            error_token=err_tok,
+          )
+        (None, None) =>
+          @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+      }
   }
 }
 
@@ -57,6 +71,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
   let prefix_lexer = grammar.prefix_lexer
+  let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
@@ -75,6 +90,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
         spec.eof_token,
         error_token,
         prefix_lexer~,
+        mode_relex~,
       ) catch {
         @core.LexError(msg) => {
           token_buf.val = None
@@ -138,6 +154,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
                 spec.eof_token,
                 error_token,
                 prefix_lexer~,
+                mode_relex~,
               ) catch {
                 @core.LexError(msg2) => {
                   token_buf.val = None
@@ -158,6 +175,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
             spec.eof_token,
             error_token,
             prefix_lexer~,
+            mode_relex~,
           ) catch {
             @core.LexError(msg) => {
               last_diags.val = []
@@ -230,6 +248,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
   let prefix_lexer = grammar.prefix_lexer
+  let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let rt = @incr.Runtime::new()
   let source_text = @incr.Signal::new(rt, source, label="source_text")
@@ -247,6 +266,7 @@ pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_pars
         spec.eof_token,
         error_token,
         prefix_lexer~,
+        mode_relex~,
       ) catch {
         @core.LexError(msg) =>
           return {

@@ -192,6 +192,35 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
 }
 
 ///|
+/// Construct a TokenBuffer with mode-aware re-lex support.
+/// Uses full retokenize on every edit (incremental_relex_enabled=false)
+/// because mode state requires re-lexing from mode boundaries, not
+/// arbitrary text ranges. The retokenize_full closure handles this.
+pub fn[T] TokenBuffer::new_with_mode_relex(
+  source : String,
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  eof_token : T,
+  mode_relex : ModeRelexState[T],
+) -> TokenBuffer[T] {
+  let retokenize_full = mode_relex.tokenize
+  let tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
+    let (tokens, _) = retokenize_full(s)
+    tokens
+  }
+  {
+    tokenize_fn,
+    retokenize_full,
+    incremental_relex_enabled: false,
+    eof_token,
+    tokens,
+    starts,
+    source,
+    version: 0,
+  }
+}
+
+///|
 /// Return a defensive copy of the token array.
 /// Callers cannot desynchronize the internal starts cache by mutating the result.
 pub fn[T] TokenBuffer::get_tokens(self : TokenBuffer[T]) -> Array[TokenInfo[T]] {

@@ -14,6 +14,7 @@ pub struct Grammar[T, K, Ast] {
   error_token : T?
   prefix_lexer : @core.PrefixLexer[T]?
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
+  mode_relex : @core.ModeRelexState[T]?
 }
 
 ///|
@@ -46,6 +47,7 @@ pub fn[T, K, Ast] Grammar::new(
   error_token? : T? = None,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
+  mode_relex? : @core.ModeRelexState[T]? = None,
 ) -> Grammar[T, K, Ast] {
   {
     spec,
@@ -55,5 +57,6 @@ pub fn[T, K, Ast] Grammar::new(
     error_token,
     prefix_lexer,
     block_reparse_spec,
+    mode_relex,
   }
 }
