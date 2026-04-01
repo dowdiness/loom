@@ -46,31 +46,24 @@ pub fn[T, M] tokenize_with_modes(
   (tokens, modes)
 }
 
-///| Type-erased closure bundle for mode-aware tokenization.
-///  Hides M — Grammar only sees T.
-///
-///  Currently provides full retokenize only. Incremental convergence-based
-///  re-lex (partial re-lex with mode propagation) is a future optimization,
-///  to be added when profiling shows full retokenize is a bottleneck.
+///|
+/// Type-erased closure bundle for mode-aware tokenization.
+/// Hides M — Grammar only sees T.
 pub struct ModeRelexState[T] {
-  /// Tokenize full input. Returns (tokens, starts).
-  /// Internally maintains a modes-per-token array for future
-  /// incremental re-lex support.
   tokenize : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
 }
 
-///| Erase the mode type M, producing a type-erased closure that Grammar
-///  can store without knowing M.
+///|
+/// Erase the mode type M, producing a type-erased closure that Grammar
+/// can store without knowing M.
 pub fn[T, M] erase_mode_lexer(
   lexer : ModeLexer[T, M],
   eof_token : T,
 ) -> ModeRelexState[T] {
-  // Mutable state captured by closure — modes array maintained for
-  // future incremental re-lex (convergence check needs mode at each token).
-  let modes_ref : Ref[Array[M]] = Ref::new([])
-  let tokenize = fn(source : String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError {
-    let (tokens, modes) = tokenize_with_modes(lexer, source, eof_token)
-    modes_ref.val = modes
+  let tokenize = fn(
+    source : String,
+  ) -> (Array[TokenInfo[T]], Array[Int]) raise LexError {
+    let (tokens, _modes) = tokenize_with_modes(lexer, source, eof_token)
     let starts = build_starts(tokens)
     (tokens, starts)
   }

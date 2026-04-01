@@ -15,7 +15,6 @@ pub struct TokenBuffer[T] {
   priv mut starts : Array[Int]
   mut source : String
   mut version : Int
-  priv mode_relex : ModeRelexState[T]?
 }
 
 ///|
@@ -85,7 +84,6 @@ pub fn[T] TokenBuffer::new(
     starts,
     source,
     version: 0,
-    mode_relex: None,
   }
 }
 
@@ -115,7 +113,6 @@ pub fn[T] TokenBuffer::new_resilient(
     starts,
     source,
     version: 0,
-    mode_relex: None,
   }
 }
 
@@ -161,7 +158,6 @@ pub fn[T] TokenBuffer::new_from_steps(
     starts,
     source,
     version: 0,
-    mode_relex: None,
   }
 }
 
@@ -192,12 +188,14 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
     starts,
     source,
     version: 0,
-    mode_relex: None,
   }
 }
 
 ///|
 /// Construct a TokenBuffer with mode-aware re-lex support.
+/// Uses full retokenize on every edit (incremental_relex_enabled=false)
+/// because mode state requires re-lexing from mode boundaries, not
+/// arbitrary text ranges. The retokenize_full closure handles this.
 pub fn[T] TokenBuffer::new_with_mode_relex(
   source : String,
   tokens : Array[TokenInfo[T]],
@@ -207,19 +205,18 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
 ) -> TokenBuffer[T] {
   let retokenize_full = mode_relex.tokenize
   let tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
-    let (tokens, _) = (mode_relex.tokenize)(s)
+    let (tokens, _) = retokenize_full(s)
     tokens
   }
   {
     tokenize_fn,
     retokenize_full,
-    incremental_relex_enabled: true,
+    incremental_relex_enabled: false,
     eof_token,
     tokens,
     starts,
     source,
     version: 0,
-    mode_relex: Some(mode_relex),
   }
 }
 
@@ -276,20 +273,6 @@ pub fn[T] TokenBuffer::update(
   edit : Edit,
   new_source : String,
 ) -> Unit raise LexError {
-  // Mode-aware path: full retokenize with mode tracking.
-  // The ModeRelexState closure maintains the modes array internally.
-  // Convergence-based partial re-lex is a future optimization.
-  match self.mode_relex {
-    Some(state) => {
-      let (tokens, starts) = (state.tokenize)(new_source)
-      self.tokens = tokens
-      self.starts = starts
-      self.source = new_source
-      self.version = self.version + 1
-      return
-    }
-    None => ()
-  }
   let old_tokens = self.tokens
   let old_starts = self.starts
   let old_len = old_tokens.length()
