@@ -21,7 +21,9 @@ fn[T] create_buffer(
 ) -> @core.TokenBuffer[T] raise @core.LexError {
   match mode_relex {
     Some(state) => {
-      // Mode-aware path: use state.tokenize for initial tokenization
+      // Mode-aware path takes precedence: error_token and prefix_lexer are
+      // intentionally ignored because ModeRelexState.tokenize handles all
+      // tokenization (including error recovery) via the captured ModeLexer.
       let (tokens, starts) = (state.tokenize)(source)
       @core.TokenBuffer::new_with_mode_relex(
         source, tokens, starts, eof_token, state,
