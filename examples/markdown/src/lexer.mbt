@@ -55,8 +55,15 @@ fn lex_line_start(
       while end < input.length() {
         match char_at(input, end) {
           Some(' ') | Some('\t') => end = end + 1
-          Some('\n') => { is_blank = true; end = end + 1; break }
-          None => { is_blank = true; break }
+          Some('\n') => {
+            is_blank = true
+            end = end + 1
+            break
+          }
+          None => {
+            is_blank = true
+            break
+          }
           _ => break
         }
       }

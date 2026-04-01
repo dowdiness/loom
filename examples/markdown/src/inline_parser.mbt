@@ -69,7 +69,8 @@ fn parse_italic(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.start_node(ItalicNode)
   ctx.emit_token(StarToken) // opening *
   // Parse inline content until closing * or block boundary
-  while !(ctx.peek() is Star) && !(ctx.peek() is StarStar) &&
+  while !(ctx.peek() is Star) &&
+        !(ctx.peek() is StarStar) &&
         !is_inline_end(ctx.peek()) {
     parse_inline(ctx)
   }

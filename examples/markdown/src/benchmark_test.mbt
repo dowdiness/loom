@@ -47,6 +47,137 @@ fn find_substring(source : String, target : String) -> Int {
   -1
 }
 
+///|
+/// Generate a scaled Markdown document by repeating varied sections.
+/// Each repetition adds ~20 lines: heading, paragraph with inline markup,
+/// list, and code block. Total lines ≈ repeats * 20.
+fn scaled_markdown_doc(repeats : Int) -> String {
+  let buf = StringBuilder::new()
+  buf.write_string("# Main Title\n\n")
+  for i = 0; i < repeats; i = i + 1 {
+    let n = i.to_string()
+    buf.write_string("## Section " + n + "\n\n")
+    buf.write_string(
+      "This is paragraph " +
+      n +
+      " with **bold** and *italic* and `code` and [link](url).\n",
+    )
+    buf.write_string("Continuation line for paragraph " + n + ".\n\n")
+    buf.write_string("- Item " + n + "a with **emphasis**\n")
+    buf.write_string("- Item " + n + "b with `code`\n")
+    buf.write_string("- Item " + n + "c plain\n\n")
+    buf.write_string("```lang" + n + "\n")
+    buf.write_string("code_line_1_" + n + "\n")
+    buf.write_string("code_line_2_" + n + "\n")
+    buf.write_string("```\n\n")
+  }
+  buf.to_string()
+}
+
+// --- Scaled benchmarks (10x, 50x, 100x) ------------------------------------
+
+///|
+test "markdown: 10x (~200 lines) - tokenize" (b : @bench.T) {
+  let source = scaled_markdown_doc(10)
+  b.bench(fn() {
+    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    b.keep(tokens)
+  })
+}
+
+///|
+test "markdown: 10x (~200 lines) - full parse" (b : @bench.T) {
+  let source = scaled_markdown_doc(10)
+  b.bench(fn() {
+    let ast = parse(source)
+    b.keep(ast)
+  })
+}
+
+///|
+test "markdown: 10x (~200 lines) - incremental" (b : @bench.T) {
+  let source = scaled_markdown_doc(10)
+  let parser = @loom.new_imperative_parser(source, markdown_grammar)
+  let _ = parser.parse()
+  // Edit in the middle: change a character in a paragraph
+  let mid = source.length() / 2
+  let edited = md_replace_at(source, mid, "X")
+  let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
+  b.bench(fn() {
+    let tree = parser.edit(edit, edited)
+    b.keep(tree)
+    let _ = parser.edit(edit, source)
+  })
+}
+
+///|
+test "markdown: 50x (~1000 lines) - tokenize" (b : @bench.T) {
+  let source = scaled_markdown_doc(50)
+  b.bench(fn() {
+    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    b.keep(tokens)
+  })
+}
+
+///|
+test "markdown: 50x (~1000 lines) - full parse" (b : @bench.T) {
+  let source = scaled_markdown_doc(50)
+  b.bench(fn() {
+    let ast = parse(source)
+    b.keep(ast)
+  })
+}
+
+///|
+test "markdown: 50x (~1000 lines) - incremental" (b : @bench.T) {
+  let source = scaled_markdown_doc(50)
+  let parser = @loom.new_imperative_parser(source, markdown_grammar)
+  let _ = parser.parse()
+  let mid = source.length() / 2
+  let edited = md_replace_at(source, mid, "X")
+  let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
+  b.bench(fn() {
+    let tree = parser.edit(edit, edited)
+    b.keep(tree)
+    let _ = parser.edit(edit, source)
+  })
+}
+
+///|
+test "markdown: 100x (~2000 lines) - tokenize" (b : @bench.T) {
+  let source = scaled_markdown_doc(100)
+  b.bench(fn() {
+    let tokens = tokenize(source) catch { _ => abort("lex failed") }
+    b.keep(tokens)
+  })
+}
+
+///|
+test "markdown: 100x (~2000 lines) - full parse" (b : @bench.T) {
+  let source = scaled_markdown_doc(100)
+  b.bench(fn() {
+    let ast = parse(source)
+    b.keep(ast)
+  })
+}
+
+///|
+test "markdown: 100x (~2000 lines) - incremental" (b : @bench.T) {
+  let source = scaled_markdown_doc(100)
+  let parser = @loom.new_imperative_parser(source, markdown_grammar)
+  let _ = parser.parse()
+  let mid = source.length() / 2
+  let edited = md_replace_at(source, mid, "X")
+  let edit = @core.Edit::replace(mid, mid + 1, mid + 1)
+  b.bench(fn() {
+    let tree = parser.edit(edit, edited)
+    b.keep(tree)
+    let _ = parser.edit(edit, source)
+  })
+}
+
+// --- Baseline benchmarks (original ~55 line doc) ----------------------------
+
 // --- Full parse benchmarks ---------------------------------------------------
 
 ///|
