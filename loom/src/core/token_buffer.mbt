@@ -276,6 +276,20 @@ pub fn[T] TokenBuffer::update(
   edit : Edit,
   new_source : String,
 ) -> Unit raise LexError {
+  // Mode-aware path: full retokenize with mode tracking.
+  // The ModeRelexState closure maintains the modes array internally.
+  // Convergence-based partial re-lex is a future optimization.
+  match self.mode_relex {
+    Some(state) => {
+      let (tokens, starts) = (state.tokenize)(new_source)
+      self.tokens = tokens
+      self.starts = starts
+      self.source = new_source
+      self.version = self.version + 1
+      return
+    }
+    None => ()
+  }
   let old_tokens = self.tokens
   let old_starts = self.starts
   let old_len = old_tokens.length()
