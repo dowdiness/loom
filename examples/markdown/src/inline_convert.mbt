@@ -33,7 +33,7 @@ fn convert_inline_children_skip(
           RightBracketToken => inlines.push(Inline::Text("]"))
           LeftParenToken => inlines.push(Inline::Text("("))
           RightParenToken => inlines.push(Inline::Text(")"))
-          ErrorToken => inlines.push(Inline::Error(tok.text()))
+          ErrorToken | ErrorNode => inlines.push(Inline::Text(tok.text()))
           _ => ()
         }
       }

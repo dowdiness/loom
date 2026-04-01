@@ -48,6 +48,28 @@ fn lex_line_start(
         Produced(@core.TokenInfo::new(BlankLine, 1), next_offset=pos + 1),
         LineStart,
       )
+    Some(' ') | Some('\t') => {
+      // Check if this is a whitespace-only line (blank line with spaces/tabs)
+      let mut end = pos
+      let mut is_blank = false
+      while end < input.length() {
+        match char_at(input, end) {
+          Some(' ') | Some('\t') => end = end + 1
+          Some('\n') => { is_blank = true; end = end + 1; break }
+          None => { is_blank = true; break }
+          _ => break
+        }
+      }
+      if is_blank {
+        (
+          Produced(@core.TokenInfo::new(BlankLine, end - pos), next_offset=end),
+          LineStart,
+        )
+      } else {
+        // Leading whitespace followed by content — treat as paragraph
+        lex_inline(input, pos)
+      }
+    }
     Some('#') => {
       let n = count_hashes(input, pos)
       // Must be followed by space (or EOL) to be a heading

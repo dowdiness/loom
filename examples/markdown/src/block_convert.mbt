@@ -81,12 +81,41 @@ pub fn markdown_fold_node(
         }
         None => ()
       }
-      // Collect code text content
-      let code_text = node
-        .tokens_of_kind(CodeTextToken.to_raw())
-        .map(fn(tok) { tok.text() })
-        .join("\n")
-      Block::CodeBlock(info, code_text)
+      // Collect code content: walk all tokens between fences, preserving
+      // blank lines (Newline tokens without intervening CodeText).
+      let code_buf = StringBuilder::new()
+      let mut in_code = false
+      for elem in node.all_children() {
+        match elem {
+          @seam.SyntaxElement::Token(tok) => {
+            let tk : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
+            match tk {
+              CodeFenceOpenToken => in_code = true
+              CodeFenceCloseToken => in_code = false
+              CodeTextToken if in_code => code_buf.write_string(tok.text())
+              NewlineToken if in_code => code_buf.write_string("\n")
+              _ => ()
+            }
+          }
+          _ => ()
+        }
+      }
+      // Trim leading newline (the one right after CodeFenceOpen)
+      let code_str = code_buf.to_string()
+      let trimmed = if code_str.length() > 0 &&
+        code_str.code_unit_at(0).to_char() == Some('\n') {
+        code_str.substring(start=1)
+      } else {
+        code_str
+      }
+      // Trim trailing newline (the one right before CodeFenceClose)
+      let final_code = if trimmed.length() > 0 &&
+        trimmed.code_unit_at(trimmed.length() - 1).to_char() == Some('\n') {
+        trimmed.substring(end=trimmed.length() - 1)
+      } else {
+        trimmed
+      }
+      Block::CodeBlock(info, final_code)
     }
     ErrorNode => Block::Error("parse error")
     _ => Block::Error("unknown node: " + kind.to_string())
