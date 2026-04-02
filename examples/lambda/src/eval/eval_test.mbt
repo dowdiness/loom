@@ -159,3 +159,58 @@ test "eval: apply non-function is type error" {
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
   inspect(result, content="Err(TypeMismatch(\"app: expected function\"))")
 }
+
+///|
+test "eval: simple let binding" {
+  // let x = 2 in x + x
+  let term = @ast.Term::Module(
+    [("x", @ast.Term::Int(2))],
+    @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("x")),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(4))")
+}
+
+///|
+test "eval: nested let bindings" {
+  // let x = 1 in let y = 2 in x + y
+  let term = @ast.Term::Module(
+    [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
+    @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(3))")
+}
+
+///|
+test "eval: let shadowing" {
+  // let x = 1 in let x = 2 in x
+  let term = @ast.Term::Module(
+    [("x", @ast.Term::Int(1)), ("x", @ast.Term::Int(2))],
+    @ast.Term::Var("x"),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(2))")
+}
+
+///|
+test "eval: closure captures environment" {
+  // let five = 5 in let add_five = λx. x + five in let five = 6 in add_five 1
+  // Should evaluate to 6 (lexical scoping: add_five closes over five=5)
+  let term = @ast.Term::Module(
+    [
+      ("five", @ast.Term::Int(5)),
+      (
+        "add_five",
+        @ast.Term::Lam(
+          "x",
+          @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("five")),
+        ),
+      ),
+      ("five", @ast.Term::Int(6)),
+    ],
+    @ast.Term::App(@ast.Term::Var("add_five"), @ast.Term::Int(1)),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(6))")
+}

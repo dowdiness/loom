@@ -31,7 +31,7 @@ pub fn Env::lookup(self : Env, name : String) -> Value? {
 
 ///|
 pub fn Env::extend(self : Env, name : String, value : Value) -> Env {
-  let new_bindings = self.bindings
+  let new_bindings = self.bindings.copy()
   new_bindings[name] = value
   { bindings: new_bindings }
 }
@@ -86,6 +86,14 @@ pub fn eval(
         _ => raise TypeMismatch("app: expected function")
       }
     }
-    _ => raise TypeMismatch("not yet implemented")
+    Module(defs, body) => {
+      let mut current_env = env
+      for def in defs {
+        let (name, expr) = def
+        let v = eval(current_env, expr, fuel=fuel - 1)
+        current_env = current_env.extend(name, v)
+      }
+      eval(current_env, body, fuel=fuel - 1)
+    }
   }
 }
