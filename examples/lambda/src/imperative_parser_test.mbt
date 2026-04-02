@@ -761,7 +761,7 @@ test "source file: editing first def reuses second def" {
   // Same-length replacement: "1" → "5" at position 9 (damage window [9, 10))
   let source2 = "let id = 5\nlet const = 2"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2)
+  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2, source2)
   let (_, _, reuse_count) = parse_cst_recover_with_tokens(
     source2,
     tokens2,
@@ -781,7 +781,7 @@ test "source file: incremental parse == full reparse after first def edit" {
   // Same-length replacement: "1" → "5"
   let source2 = "let id = 5\nlet const = 2\nid"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2)
+  let cursor = make_reuse_cursor(cst1, 9, 10, tokens2, source2)
   let (incr_cst, _, _) = parse_cst_recover_with_tokens(
     source2,
     tokens2,
@@ -805,7 +805,7 @@ test "source file: editing second def reuses first def" {
   // "let const = 2" — "2" is at position 22, same-length replacement (damage [22, 23))
   let source2 = "let id = 1\nlet const = 9"
   let tokens2 = @lexer.tokenize(source2)
-  let cursor = make_reuse_cursor(cst1, 22, 23, tokens2)
+  let cursor = make_reuse_cursor(cst1, 22, 23, tokens2, source2)
   let (_, _, reuse_count) = parse_cst_recover_with_tokens(
     source2,
     tokens2,

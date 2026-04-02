@@ -347,7 +347,7 @@ test "phase3: full CST reparse, no cursor - 110 tokens" (b : @bench.T) {
   let tokens = @lexer.tokenize(source) catch { _ => abort("setup failed") }
   b.bench(fn() {
     // Match the cursor path's per-iteration setup cost for fair comparison.
-    let _ = @lambda.make_reuse_cursor(old_tree, 261, 263, tokens)
+    let _ = @lambda.make_reuse_cursor(old_tree, 261, 263, tokens, source)
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       source,
       tokens,
@@ -371,7 +371,9 @@ test "phase3: cursor reuse, edit at end - 110 tokens" (b : @bench.T) {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 261, 263, new_tokens)
+    let cursor = @lambda.make_reuse_cursor(
+      old_tree, 261, 263, new_tokens, new_source,
+    )
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,
@@ -395,7 +397,9 @@ test "phase3: cursor reuse, edit at start - 110 tokens" (b : @bench.T) {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 0, 1, new_tokens)
+    let cursor = @lambda.make_reuse_cursor(
+      old_tree, 0, 1, new_tokens, new_source,
+    )
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,
@@ -428,7 +432,7 @@ test "phase4: let body edit - full reparse, no cursor (baseline)" (b : @bench.T)
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let _ = @lambda.make_reuse_cursor(old_tree, 10, 11, new_tokens)
+    let _ = @lambda.make_reuse_cursor(old_tree, 10, 11, new_tokens, new_source)
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,
@@ -451,7 +455,9 @@ test "phase4: let body edit - init IntLiteral reused via cursor" (b : @bench.T) 
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 10, 11, new_tokens)
+    let cursor = @lambda.make_reuse_cursor(
+      old_tree, 10, 11, new_tokens, new_source,
+    )
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,
@@ -474,7 +480,9 @@ test "phase4: let init edit - cursor" (b : @bench.T) {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 8, 9, new_tokens)
+    let cursor = @lambda.make_reuse_cursor(
+      old_tree, 8, 9, new_tokens, new_source,
+    )
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,
@@ -497,7 +505,9 @@ test "phase4: nested let body edit - multiple inits reused" (b : @bench.T) {
     _ => abort("setup failed")
   }
   b.bench(fn() {
-    let cursor = @lambda.make_reuse_cursor(old_tree, 20, 21, new_tokens)
+    let cursor = @lambda.make_reuse_cursor(
+      old_tree, 20, 21, new_tokens, new_source,
+    )
     let (tree, _, _) = @lambda.parse_cst_recover_with_tokens(
       new_source,
       new_tokens,

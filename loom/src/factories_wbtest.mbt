@@ -17,6 +17,17 @@ impl @seam.IsEof for FTok with is_eof(self) {
 }
 
 ///|
+impl @seam.ToRawKind for FTok with to_raw(self) {
+  let n = match self {
+    A => 0
+    Ws => 3
+    Err => 4
+    Eof => 5
+  }
+  @seam.RawKind(n)
+}
+
+///|
 enum FKind {
   KChar
   KExpr
@@ -122,9 +133,6 @@ fn fgrammar(
     KErr,
     KRoot,
     Eof,
-    cst_token_matches=fn(raw, _text, tok) {
-      raw == fkind_raw(KChar) && tok == A
-    },
     parse_root=froot,
     reuse_size_threshold=0,
   )
@@ -191,30 +199,50 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
   )
 }
 
-// ── ReactiveParser three-memo pipeline tests ────────────────────────────────
+// ── ReactiveParser TokenStage::Eq property tests ─────────────────────────────
+//
+// These four tests protect the reactive parser's memo invalidation —
+// the mechanism that decides whether to skip re-parsing after a source change.
+//
+// Properties 1 & 3 protect PERFORMANCE:
+//   If they fail, the parser does unnecessary full reparses on every
+//   no-op set_source or whitespace edit (space/tab/enter), making the
+//   editor sluggish during the most common edit patterns.
+//
+// Properties 2 & 4 protect CORRECTNESS:
+//   If they fail, the parser reuses a stale CST after structural or
+//   content changes — cursor positions, error highlights, and the
+//   projectional editor all operate on wrong data.
+//
+// 1. Identity:         same source        → backdate   (perf)
+// 2. Structural:       different tokens   → invalidate (correctness)
+// 3. Trivia-only edit: whitespace changes → backdate   (perf)
+// 4. Content edit:     token text changes → invalidate (correctness)
 
 ///|
-/// Different sources producing identical token sequences cause the token memo
-/// to backdate (tokens are equal, positions excluded from comparison). The CST
-/// memo is NOT recomputed — this is the TokenStage early cutoff.
+/// Property: identical source → identical TokenStage → memo backdates.
+/// Verifies the basic memo machinery works: setting the same source twice
+/// produces the same CstStage reference (CST memo not recomputed).
 test "new_reactive_parser: token-stage early cutoff when tokens match" {
   let grammar = fgrammar(
     error_token=Some(Err),
     prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
   )
-  let parser = new_reactive_parser("a!a", grammar)
+  let parser = new_reactive_parser("aa", grammar)
   let cst1 = parser.cst()
   inspect(cst1.is_lex_error, content="false")
-  // Change source: '!' → '?' — same token sequence [A(1), Err(1), A(1), EOF(0)]
-  parser.set_source("a?a")
+  // Set the same source again — token stage is identical, memo backdates
+  parser.set_source("aa")
   let cst2 = parser.cst()
   inspect(cst2.is_lex_error, content="false")
-  // Token-stage early cutoff: same tokens → CST memo not recomputed → same CstStage
+  // Token-stage early cutoff: identical token stages → CST memo not recomputed → same CstStage
   inspect(cst1 == cst2, content="true")
 }
 
 ///|
-/// Different token sequences → token memo changes → CST memo recomputes.
+/// Property: different token count → TokenStage changes → CST memo recomputes.
+/// Verifies that structural changes (different number of tokens) are not
+/// falsely backdated.
 test "new_reactive_parser: token-stage invalidation when tokens change" {
   let grammar = fgrammar(
     error_token=Some(Err),
@@ -310,9 +338,10 @@ fn fws_step_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
 }
 
 ///|
-/// Trivia-insensitive early cutoff: whitespace-only edits produce different
-/// trivia tokens but the same non-trivia tokens, so the token memo backdates
-/// and the CST memo is NOT recomputed.
+/// Property: whitespace-only edit → same non-trivia tokens → memo backdates.
+/// "a a" → "a  a" adds trivia but non-trivia tokens are unchanged.
+/// TokenStage::Eq skips trivia and compares non-trivia token text, so the
+/// token memo backdates and the CST memo is NOT recomputed.
 test "new_reactive_parser: trivia-insensitive early cutoff" {
   let grammar = fgrammar(
     prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fws_step_lexer)),
@@ -329,7 +358,9 @@ test "new_reactive_parser: trivia-insensitive early cutoff" {
 }
 
 ///|
-/// Content edits that change non-trivia tokens still invalidate.
+/// Property: non-trivia token text changes → TokenStage changes → CST invalidates.
+/// "a a" → "a !a" replaces space with error token — non-trivia content differs,
+/// so the token memo does NOT backdate and the CST is recomputed.
 test "new_reactive_parser: content edit invalidates despite trivia filter" {
   let grammar = fgrammar(
     error_token=Some(Err),

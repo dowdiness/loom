@@ -27,49 +27,49 @@ test "tokenize comma" {
 ///|
 test "tokenize simple string" {
   let tokens = tokenize("\"hello\"")
-  inspect(print_token_infos(tokens), content="\"hello\"(7), EOF(0)")
+  inspect(print_token_infos(tokens), content="<string>(7), EOF(0)")
 }
 
 ///|
 test "tokenize string with escape" {
   let tokens = tokenize("\"hello\\nworld\"")
-  inspect(print_token_infos(tokens), content="\"hello\\nworld\"(14), EOF(0)")
+  inspect(print_token_infos(tokens), content="<string>(14), EOF(0)")
 }
 
 ///|
 test "tokenize empty string" {
   let tokens = tokenize("\"\"")
-  inspect(print_token_infos(tokens), content="\"\"(2), EOF(0)")
+  inspect(print_token_infos(tokens), content="<string>(2), EOF(0)")
 }
 
 ///|
 test "tokenize integer" {
   let tokens = tokenize("42")
-  inspect(print_token_infos(tokens), content="42(2), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(2), EOF(0)")
 }
 
 ///|
 test "tokenize decimal number" {
   let tokens = tokenize("3.14")
-  inspect(print_token_infos(tokens), content="3.14(4), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(4), EOF(0)")
 }
 
 ///|
 test "tokenize scientific notation" {
   let tokens = tokenize("1e10")
-  inspect(print_token_infos(tokens), content="1e10(4), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(4), EOF(0)")
 }
 
 ///|
 test "tokenize negative zero" {
   let tokens = tokenize("-0")
-  inspect(print_token_infos(tokens), content="-0(2), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(2), EOF(0)")
 }
 
 ///|
 test "tokenize negative decimal with exponent" {
   let tokens = tokenize("-2.5E-3")
-  inspect(print_token_infos(tokens), content="-2.5E-3(7), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(7), EOF(0)")
 }
 
 ///|
@@ -114,8 +114,8 @@ test "tokenize full JSON object" {
   let s = print_token_infos(tokens)
   inspect(s.contains("{"), content="true")
   inspect(s.contains("}"), content="true")
-  inspect(s.contains("key"), content="true")
-  inspect(s.contains("42"), content="true")
+  inspect(s.contains("<string>"), content="true")
+  inspect(s.contains("<number>"), content="true")
   inspect(s.contains("["), content="true")
   inspect(s.contains("]"), content="true")
   inspect(s.contains("true"), content="true")
@@ -132,13 +132,16 @@ test "tokenize empty input" {
 ///|
 test "tokenize number then comma" {
   let tokens = tokenize("1,2")
-  inspect(print_token_infos(tokens), content="1(1), ,(1), 2(1), EOF(0)")
+  inspect(
+    print_token_infos(tokens),
+    content="<number>(1), ,(1), <number>(1), EOF(0)",
+  )
 }
 
 ///|
 test "tokenize string with unicode escape" {
   let tokens = tokenize("\"\\u0041\"")
-  inspect(print_token_infos(tokens), content="\"\\u0041\"(8), EOF(0)")
+  inspect(print_token_infos(tokens), content="<string>(8), EOF(0)")
 }
 
 ///|
@@ -186,7 +189,7 @@ test "tokenize whitespace between tokens preserved" {
 ///|
 test "tokenize zero" {
   let tokens = tokenize("0")
-  inspect(print_token_infos(tokens), content="0(1), EOF(0)")
+  inspect(print_token_infos(tokens), content="<number>(1), EOF(0)")
 }
 
 ///|

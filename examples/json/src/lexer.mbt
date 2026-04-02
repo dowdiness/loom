@@ -18,7 +18,7 @@ fn is_whitespace_char(c : Char) -> Bool {
 }
 
 ///|
-fn read_string(input : String, pos : Int) -> (Int, String, String?) {
+fn read_string(input : String, pos : Int) -> (Int, String?) {
   // pos points at the opening '"'
   let mut i = pos + 1
   let len = input.length()
@@ -27,15 +27,13 @@ fn read_string(input : String, pos : Int) -> (Int, String, String?) {
     match code.to_char() {
       Some('"') => {
         let end = i + 1
-        let raw = input[pos:end]
-        return (end, raw.to_string(), None)
+        return (end, None)
       }
       Some('\\') => {
         // Skip escape sequence
         i = i + 1
         if i >= len {
-          let raw = input[pos:i]
-          return (i, raw.to_string(), Some("unterminated string"))
+          return (i, Some("unterminated string"))
         }
         let esc_code = input.code_unit_at(i).to_int()
         match esc_code.to_char() {
@@ -52,8 +50,7 @@ fn read_string(input : String, pos : Int) -> (Int, String, String?) {
               }
             }
             if hex_count != 4 {
-              let raw = input[pos:i]
-              return (i, raw.to_string(), Some("Invalid \\u escape"))
+              return (i, Some("Invalid \\u escape"))
             }
           }
           Some('"')
@@ -64,28 +61,19 @@ fn read_string(input : String, pos : Int) -> (Int, String, String?) {
           | Some('n')
           | Some('r')
           | Some('t') => i = i + 1
-          _ => {
-            let raw = input[pos:i + 1]
-            return (i + 1, raw.to_string(), Some("Invalid escape sequence"))
-          }
+          _ => return (i + 1, Some("Invalid escape sequence"))
         }
       }
       _ => {
         if code >= 0 && code <= 0x1F {
-          let raw = input[pos:i]
-          return (
-            i,
-            raw.to_string(),
-            Some("Invalid control character in string"),
-          )
+          return (i, Some("Invalid control character in string"))
         }
         i = i + 1
       }
     }
   }
   // Reached end without closing quote
-  let raw = input[pos:i]
-  (i, raw.to_string(), Some("unterminated string"))
+  (i, Some("unterminated string"))
 }
 
 ///|
@@ -225,7 +213,7 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
       )
     }
     Some('"') => {
-      let (end, raw, err) = read_string(input, pos)
+      let (end, err) = read_string(input, pos)
       match err {
         Some(msg) =>
           @core.LexStep::Produced(
@@ -234,7 +222,7 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
           )
         None =>
           @core.LexStep::Produced(
-            @core.TokenInfo::new(StringLit(raw), end - pos),
+            @core.TokenInfo::new(StringLit, end - pos),
             next_offset=end,
           )
       }
@@ -244,9 +232,8 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
       if pos + 1 < input.length() &&
         is_digit(input.code_unit_at(pos + 1).to_int()) {
         let end = read_number(input, pos)
-        let raw = input[pos:end].to_string()
         @core.LexStep::Produced(
-          @core.TokenInfo::new(NumberLit(raw), end - pos),
+          @core.TokenInfo::new(NumberLit, end - pos),
           next_offset=end,
         )
       } else {
@@ -257,9 +244,8 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
       }
     Some(d) if is_digit(d.to_int()) => {
       let end = read_number(input, pos)
-      let raw = input[pos:end].to_string()
       @core.LexStep::Produced(
-        @core.TokenInfo::new(NumberLit(raw), end - pos),
+        @core.TokenInfo::new(NumberLit, end - pos),
         next_offset=end,
       )
     }

@@ -1,5 +1,5 @@
 // Whitebox tests for the core parser — ParserContext, LanguageSpec, ReuseCursor.
-// These tests access package-private symbols (e.g. new_follow_token) and define
+// These tests access package-private symbols (e.g. new_follow_token_with_pos) and define
 // test-only types (TestTok, TestKind) that must not appear in the public interface.
 
 ///|
@@ -32,7 +32,6 @@ fn make_test_fixtures() -> (
     incomplete_kind: KErr,
     root_kind: KRoot,
     eof_token: TestTok::TokEof,
-    cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
     reuse_size_threshold: 64,
   }
@@ -156,6 +155,17 @@ impl @seam.IsEof for TestTok with is_eof(self) {
 }
 
 ///|
+impl @seam.ToRawKind for TestTok with to_raw(self) {
+  let n = match self {
+    Num(_) => 0
+    Plus => 1
+    Ws => 4
+    TokEof => 7
+  }
+  @seam.RawKind(n)
+}
+
+///|
 enum TestKind {
   KNum
   KPlus
@@ -241,15 +251,6 @@ let test_spec : LanguageSpec[TestTok, TestKind] = {
   incomplete_kind: KIncomplete,
   root_kind: KRoot,
   eof_token: TestTok::TokEof,
-  cst_token_matches: fn(raw, text, tok) {
-    if raw != test_kind_raw(KNum) {
-      return false
-    }
-    match tok {
-      Num(n) => n.to_string() == text
-      _ => false
-    }
-  },
   parse_root: fn(_) { () },
   reuse_size_threshold: 64,
 }
@@ -313,8 +314,9 @@ test "parse_with: records errors on bad input" {
 
 ///|
 test "ReuseCursor::new: globally disabled when damage covers root" {
-  let (tree, _) = parse_with("42", test_spec, test_tokenize, test_grammar)
-  let (toks, starts) = test_tokenize_with_starts("42")
+  let src = "42"
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
     0,
@@ -322,6 +324,9 @@ test "ReuseCursor::new: globally disabled when damage covers root" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   inspect(cursor.is_reuse_disabled(), content="true")
@@ -329,8 +334,9 @@ test "ReuseCursor::new: globally disabled when damage covers root" {
 
 ///|
 test "ReuseCursor::new: not globally disabled with partial damage" {
-  let (tree, _) = parse_with("1 + 2", test_spec, test_tokenize, test_grammar)
-  let (toks, starts) = test_tokenize_with_starts("1 + 2")
+  let src = "1 + 2"
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
     2,
@@ -338,6 +344,9 @@ test "ReuseCursor::new: not globally disabled with partial damage" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   inspect(cursor.is_reuse_disabled(), content="false")
@@ -355,6 +364,9 @@ test "ReuseCursor::try_reuse: returns Some for undamaged node" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -373,6 +385,9 @@ test "ReuseCursor::try_reuse: returns None when globally disabled" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -391,6 +406,9 @@ test "ReuseCursor::try_reuse: returns None when node overlaps damage" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
@@ -409,6 +427,9 @@ test "ReuseCursor::advance_past: updates current_offset" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   cursor.advance_past(old_tree)
@@ -416,7 +437,7 @@ test "ReuseCursor::advance_past: updates current_offset" {
 }
 
 ///|
-test "new_follow_token: finds first non-trivia token at or after offset" {
+test "new_follow_token_with_pos: finds first non-trivia token at or after offset" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
@@ -427,14 +448,17 @@ test "new_follow_token: finds first non-trivia token at or after offset" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
-  let result = new_follow_token(cursor, 2)
-  inspect(result, content="Some(Plus)")
+  let result = new_follow_token_with_pos(cursor, 2)
+  inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
 }
 
 ///|
-test "new_follow_token: skips leading trivia" {
+test "new_follow_token_with_pos: skips leading trivia" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
@@ -445,14 +469,17 @@ test "new_follow_token: skips leading trivia" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
-  let result = new_follow_token(cursor, 1)
-  inspect(result, content="Some(Plus)")
+  let result = new_follow_token_with_pos(cursor, 1)
+  inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
 }
 
 ///|
-test "new_follow_token: returns None past end of tokens" {
+test "new_follow_token_with_pos: returns None past end of tokens" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
@@ -463,10 +490,13 @@ test "new_follow_token: returns None past end of tokens" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
-  let result = new_follow_token(cursor, 5)
-  inspect(result, content="None")
+  let result = new_follow_token_with_pos(cursor, 5)
+  inspect(result.map(fn(pair) { pair.0 }), content="None")
 }
 
 ///|
@@ -481,6 +511,9 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let result = old_follow_token_lazy(cursor, 1)
@@ -492,8 +525,9 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
 
 ///|
 test "old_follow_token_lazy: returns None past end of tree" {
-  let (tree, _) = parse_with("42", test_spec, test_tokenize, test_grammar)
-  let (toks, starts) = test_tokenize_with_starts("42")
+  let src = "42"
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
+  let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
     99,
@@ -501,6 +535,9 @@ test "old_follow_token_lazy: returns None past end of tree" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let result = old_follow_token_lazy(cursor, 99)
@@ -519,6 +556,9 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   // Snapshot before materializing the cache
@@ -530,36 +570,6 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
   inspect(result is Some(_), content="true")
   let tok = result.unwrap()
   inspect(tok.text, content="+")
-}
-
-///|
-test "LanguageSpec cst_token_matches callback is stored and callable" {
-  let num_raw = test_kind_raw(KNum)
-  let spec = LanguageSpec::new(KWs, KErr, KRoot, TestTok::TokEof, cst_token_matches=fn(
-    raw,
-    text,
-    tok,
-  ) {
-    if raw != num_raw {
-      return false
-    }
-    match tok {
-      Num(n) => n.to_string() == text
-      _ => false
-    }
-  })
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Num(42)),
-    content="true",
-  )
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Num(99)),
-    content="false",
-  )
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Plus),
-    content="false",
-  )
 }
 
 ///|
@@ -584,6 +594,9 @@ test "ParserContext reuse: zero-width error leaf does not over-advance position"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -621,6 +634,9 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -662,6 +678,9 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -704,6 +723,9 @@ test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -736,6 +758,9 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let old_diags = [
@@ -788,6 +813,9 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -827,6 +855,9 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
 
@@ -869,6 +900,9 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -914,6 +948,9 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   // Simulate a replayed stale token payload for the same logical diagnostic.
@@ -967,6 +1004,12 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source shrinks
     new_toks.length(),
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
     test_spec,
   )
   // Second KExpr node starts at old offset 3 (space+Num(4), trivia folded in).
@@ -1006,6 +1049,12 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source grows" 
     new_toks.length(),
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
     test_spec,
   )
   // Second KExpr node starts at old offset 1 (space+Num(4), trivia folded in).
@@ -1057,6 +1106,12 @@ test "ReuseCursor::try_reuse: reuses multiple undamaged post-damage nodes" {
     new_toks.length(),
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
     test_spec,
   )
   // Second KExpr starts at offset 1 (space+Num(2)); token_pos=2 is the index of
@@ -1103,6 +1158,12 @@ test "ReuseCursor::try_reuse: rejects integer boundary merge by follow-token che
     new_toks.length(),
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
     test_spec,
   )
   // Leading token matches (12), but follow token changed (34 -> 3), so reuse
@@ -1136,6 +1197,9 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -1176,6 +1240,9 @@ test "ParserContext reuse: incomplete node followed by reusable sibling" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -1263,7 +1330,6 @@ test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
     KRoot,
     TestTok::TokEof,
     incomplete_kind=KIncomplete,
-    cst_token_matches=test_spec.cst_token_matches,
     parse_root=fn(ctx) {
       ctx.start_node(KExpr)
       ctx.emit_token(KNum)
@@ -1406,6 +1472,9 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
     toks.length(),
     fn(i) { toks[i].token },
     fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
     test_spec,
   )
 

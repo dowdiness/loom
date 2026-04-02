@@ -53,3 +53,31 @@ pub impl @seam.IsTrivia for Token with is_trivia(_self) {
 pub impl @seam.IsEof for Token with is_eof(self) {
   self == EOF
 }
+
+///|
+/// Maps Token to the same RawKind as the corresponding SyntaxKind.
+/// Payload-carrying variants (HeadingMarker, CodeFenceOpen, Text, CodeText)
+/// collapse to their kind — text is available via token_text_at at the framework level.
+pub impl @seam.ToRawKind for Token with to_raw(self) {
+  @seam.RawKind(
+    match self {
+      HeadingMarker(_) => 0 // HeadingMarkerToken
+      ListMarker => 1 // ListMarkerToken
+      CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
+      CodeFenceClose => 3 // CodeFenceCloseToken
+      BlankLine => 4 // BlankLineToken
+      Star => 5 // StarToken
+      StarStar => 6 // StarStarToken
+      Backtick => 7 // BacktickToken
+      LeftBracket => 8 // LeftBracketToken
+      RightBracket => 9 // RightBracketToken
+      LeftParen => 10 // LeftParenToken
+      RightParen => 11 // RightParenToken
+      Text(_) => 12 // TextToken
+      CodeText(_) => 13 // CodeTextToken
+      Newline => 14 // NewlineToken
+      Error(_) => 15 // ErrorToken
+      EOF => 16 // EofToken
+    },
+  )
+}

@@ -4,7 +4,7 @@
 test "tokenize simple integer" {
   let tokens = tokenize("42")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("42"), content="true")
+  inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("EOF"), content="true")
 }
 
@@ -12,7 +12,7 @@ test "tokenize simple integer" {
 test "tokenize simple variable" {
   let tokens = tokenize("x")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("x"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
   inspect(token_str.contains("EOF"), content="true")
 }
 
@@ -21,7 +21,7 @@ test "tokenize lambda expression" {
   let tokens = tokenize("λx.x")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("λ"), content="true")
-  inspect(token_str.contains("x"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
   inspect(token_str.contains("."), content="true")
 }
 
@@ -36,16 +36,15 @@ test "tokenize with backslash lambda" {
 test "tokenize plus binary operator" {
   let tokens = tokenize("1 + 2")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("1"), content="true")
+  inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("+"), content="true")
-  inspect(token_str.contains("2"), content="true")
 }
 
 ///|
 test "tokenize minus binary operator" {
   let tokens = tokenize("5 - 2")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("5"), content="true")
+  inspect(token_str.contains("<int>"), content="true")
   inspect(token_str.contains("-"), content="true")
 }
 
@@ -63,29 +62,29 @@ test "tokenize parentheses" {
   let tokens = tokenize("(x)")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains("("), content="true")
-  inspect(token_str.contains("x"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
 }
 
 ///|
 test "tokenize multi-digit integer" {
   let tokens = tokenize("12345")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("12345"), content="true")
+  inspect(token_str.contains("<int>"), content="true")
 }
 
 ///|
 test "tokenize identifier with numbers" {
   let tokens = tokenize("x1y2")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("x1y2"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
 }
 
 ///|
 test "tokenize whitespace handling" {
   let tokens = tokenize("  x   y  ")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("x"), content="true")
-  inspect(token_str.contains("y"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
+  inspect(token_str.contains("whitespace"), content="true")
 }
 
 ///|
@@ -286,8 +285,7 @@ test "tokenize comma" {
   let tokens = tokenize("x,y")
   let token_str = @token.print_token_infos(tokens)
   inspect(token_str.contains(","), content="true")
-  inspect(token_str.contains("x"), content="true")
-  inspect(token_str.contains("y"), content="true")
+  inspect(token_str.contains("<ident>"), content="true")
 }
 
 ///|

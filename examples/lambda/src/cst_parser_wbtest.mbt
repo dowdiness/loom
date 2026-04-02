@@ -18,7 +18,7 @@ test "reuse fires: VarRef unchanged after identifier edit" {
   let (old_tree, _) = parse_cst(old_source)
   let new_source = "z + y"
   let new_tokens = @lexer.tokenize(new_source)
-  let cursor = make_reuse_cursor(old_tree, 0, 1, new_tokens)
+  let cursor = make_reuse_cursor(old_tree, 0, 1, new_tokens, new_source)
   let (new_tree, errors, reuse_count) = parse_cst_recover_with_tokens(
     new_source,
     new_tokens,
@@ -39,7 +39,7 @@ test "reuse fires: lambda body VarRef unchanged after parameter edit" {
   let (old_tree, _) = parse_cst(old_source)
   let new_source = "λz.y"
   let new_tokens = @lexer.tokenize(new_source)
-  let cursor = make_reuse_cursor(old_tree, 2, 3, new_tokens)
+  let cursor = make_reuse_cursor(old_tree, 2, 3, new_tokens, new_source)
   let (new_tree, errors, reuse_count) = parse_cst_recover_with_tokens(
     new_source,
     new_tokens,
@@ -59,7 +59,7 @@ test "incremental reuse: identifier boundary merge matches full reparse" {
   let (old_tree, _) = parse_cst(old_source)
   let new_source = "xy"
   let new_tokens = @lexer.tokenize(new_source)
-  let cursor = make_reuse_cursor(old_tree, 1, 2, new_tokens)
+  let cursor = make_reuse_cursor(old_tree, 1, 2, new_tokens, new_source)
   let (new_tree, errors, _reuse_count) = parse_cst_recover_with_tokens(
     new_source,
     new_tokens,
@@ -78,7 +78,7 @@ test "incremental reuse: integer boundary merge matches full reparse" {
   let (old_tree, _) = parse_cst(old_source)
   let new_source = "12"
   let new_tokens = @lexer.tokenize(new_source)
-  let cursor = make_reuse_cursor(old_tree, 1, 2, new_tokens)
+  let cursor = make_reuse_cursor(old_tree, 1, 2, new_tokens, new_source)
   let (new_tree, errors, _reuse_count) = parse_cst_recover_with_tokens(
     new_source,
     new_tokens,
@@ -97,7 +97,7 @@ test "incremental reuse: preserves prior diagnostic messages on reused invalid s
   inspect(old_errors.length(), content="1")
   inspect(old_errors[0].message, content="Expected parameter after λ")
 
-  let cursor = make_reuse_cursor(old_tree, 99, 99, tokens)
+  let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
     source,
     tokens,
@@ -117,7 +117,7 @@ test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reus
   inspect(old_errors.length(), content="1")
   inspect(old_errors[0].message, content="Expected parameter after λ")
 
-  let cursor = make_reuse_cursor(old_tree, 99, 99, tokens)
+  let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
     source,
     tokens,
@@ -138,7 +138,7 @@ test "reuse fires: let init IntLiteral reused after def value edit" {
   let (old_tree, _) = parse_cst(old_source)
   let new_source = "let x = 1\nz"
   let new_tokens = @lexer.tokenize(new_source)
-  let cursor = make_reuse_cursor(old_tree, 10, 11, new_tokens)
+  let cursor = make_reuse_cursor(old_tree, 10, 11, new_tokens, new_source)
   let (new_tree, errors, reuse_count) = parse_cst_recover_with_tokens(
     new_source,
     new_tokens,

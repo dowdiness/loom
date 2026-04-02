@@ -146,7 +146,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 ///
 /// Reuse fast-path: if an old subtree can be reused, `body` and `is_sync`
 /// are never called (same semantics as `node()`).
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node_with_recovery(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node_with_recovery(
   self : ParserContext[T, K],
   kind : K,
   body : () -> Bool,

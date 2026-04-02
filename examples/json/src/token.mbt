@@ -6,8 +6,8 @@ pub(all) enum Token {
   RBracket // ]
   Colon // :
   Comma // ,
-  StringLit(String) // "hello" (raw text including quotes)
-  NumberLit(String) // 42, 3.14e-2 (raw text)
+  StringLit // "hello" (raw text including quotes)
+  NumberLit // 42, 3.14e-2 (raw text)
   True // true
   False // false
   Null // null
@@ -26,8 +26,8 @@ pub impl Show for Token with output(self, logger) {
       RBracket => "]"
       Colon => ":"
       Comma => ","
-      StringLit(s) => s
-      NumberLit(n) => n
+      StringLit => "<string>"
+      NumberLit => "<number>"
       True => "true"
       False => "false"
       Null => "null"
@@ -46,6 +46,28 @@ pub impl @seam.IsTrivia for Token with is_trivia(self) {
 ///|
 pub impl @seam.IsEof for Token with is_eof(self) {
   self == EOF
+}
+
+///|
+/// Maps tokens to the same raw-kind space as SyntaxKind.
+pub impl @seam.ToRawKind for Token with to_raw(self) {
+  let n : Int = match self {
+    LBrace => 0
+    RBrace => 1
+    LBracket => 2
+    RBracket => 3
+    Colon => 4
+    Comma => 5
+    StringLit => 6
+    NumberLit => 7
+    True => 8
+    False => 9
+    Null => 10
+    Whitespace => 11
+    Error(_) => 12
+    EOF => 13
+  }
+  @seam.RawKind(n)
 }
 
 ///|

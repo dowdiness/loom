@@ -21,35 +21,31 @@ fn is_numeric(code : Int) -> Bool {
 }
 
 ///|
-fn read_identifier(input : String, pos : Int, acc : String) -> (Int, String) {
-  if pos >= input.length() {
-    (pos, acc)
-  } else {
+fn read_identifier(input : String, start : Int) -> Int {
+  let mut pos = start
+  while pos < input.length() {
     let code = input.code_unit_at(pos).to_int()
     if is_alphabet(code) || is_numeric(code) {
-      match code.to_char() {
-        Some(ch) => read_identifier(input, pos + 1, acc + ch.to_string())
-        None => (pos, acc)
-      }
+      pos = pos + 1
     } else {
-      (pos, acc)
+      break
     }
   }
+  pos
 }
 
 ///|
-fn read_number(input : String, pos : Int, acc : Int) -> (Int, Int) {
-  if pos >= input.length() {
-    (pos, acc)
-  } else {
+fn read_number(input : String, start : Int) -> Int {
+  let mut pos = start
+  while pos < input.length() {
     let code = input.code_unit_at(pos).to_int()
     if is_numeric(code) {
-      let digit = code - 48
-      read_number(input, pos + 1, acc * 10 + digit)
+      pos = pos + 1
     } else {
-      (pos, acc)
+      break
     }
   }
+  pos
 }
 
 ///|
@@ -173,25 +169,28 @@ fn step_lex(
         next_offset=pos + 1,
       )
     Some(c) if is_alphabet(c.to_int()) => {
-      let (new_pos, identifier) = read_identifier(input, pos, "")
-      let token = match identifier {
+      let end_pos = read_identifier(input, pos)
+      let len = end_pos - pos
+      let text : StringView = input[pos:end_pos]
+      let token = match text {
         "if" => @token.Token::If
         "then" => @token.Token::Then
         "else" => @token.Token::Else
         "let" => @token.Token::Let
         "in" => @token.Token::In
-        _ => @token.Token::Identifier(identifier)
+        _ => @token.Token::Identifier
       }
       @core.LexStep::Produced(
-        @core.TokenInfo::new(token, new_pos - pos),
-        next_offset=new_pos,
+        @core.TokenInfo::new(token, len),
+        next_offset=end_pos,
       )
     }
     Some(c) if is_numeric(c.to_int()) => {
-      let (new_pos, number) = read_number(input, pos, 0)
+      let end_pos = read_number(input, pos)
+      let len = end_pos - pos
       @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Integer(number), new_pos - pos),
-        next_offset=new_pos,
+        @core.TokenInfo::new(@token.Integer, len),
+        next_offset=end_pos,
       )
     }
     None =>

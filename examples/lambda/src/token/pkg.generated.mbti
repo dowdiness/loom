@@ -37,8 +37,8 @@ pub(all) enum Token {
   Comma
   Semicolon
   Hole
-  Identifier(String)
-  Integer(Int)
+  Identifier
+  Integer
   Whitespace
   Newline
   Error(String)
@@ -46,6 +46,7 @@ pub(all) enum Token {
 } derive(Eq, @debug.Debug)
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
+pub impl @seam.ToRawKind for Token
 pub impl Show for Token
 
 // Type aliases

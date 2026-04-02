@@ -20,7 +20,7 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Te
 
 pub let lambda_grammar_no_threshold : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]], String) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
 pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.Term]
 
