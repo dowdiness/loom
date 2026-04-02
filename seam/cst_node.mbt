@@ -23,6 +23,8 @@ pub(all) struct CstToken {
   kind : RawKind
   text : String
   hash : Int
+
+  fn new(kind : RawKind, text : StringView) -> CstToken
 } derive(Show, Debug)
 
 ///|

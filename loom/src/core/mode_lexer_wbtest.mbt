@@ -128,9 +128,7 @@ test "property: tokenize_with_modes consistent with step replay" {
       lex_step: mock_lex_step,
       initial_mode: Normal,
     }
-    let (tokens, modes) = try {
-      tokenize_with_modes(lexer, input, MockToken::EOF)
-    } catch {
+    let (tokens, modes) = tokenize_with_modes(lexer, input, MockToken::EOF) catch {
       _ => return true // skip inputs that cause lex errors
     }
     // Manual replay

@@ -1,17 +1,22 @@
 ///| Test incremental re-lex with mode convergence.
 ///  Uses the mock 2-mode language from mode_lexer_wbtest.mbt.
 
-///| Helper: create a TokenBuffer with mode-aware re-lex for the mock language.
-fn create_mock_buffer(
-  source : String,
-) -> TokenBuffer[MockToken] raise LexError {
+///|
+/// Helper: create a TokenBuffer with mode-aware re-lex for the mock language.
+fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] raise LexError {
   let lexer : ModeLexer[MockToken, MockMode] = {
     lex_step: mock_lex_step,
     initial_mode: Normal,
   }
   let state = erase_mode_lexer(lexer, MockToken::EOF)
   let (tokens, starts) = (state.tokenize)(source)
-  TokenBuffer::new_with_mode_relex(source, tokens, starts, MockToken::EOF, state)
+  TokenBuffer::new_with_mode_relex(
+    source,
+    tokens,
+    starts,
+    MockToken::EOF,
+    state,
+  )
 }
 
 ///|
