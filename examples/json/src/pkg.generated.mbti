@@ -101,8 +101,8 @@ pub(all) enum Token {
   RBracket
   Colon
   Comma
-  StringLit(String)
-  NumberLit(String)
+  StringLit
+  NumberLit
   True
   False
   Null

@@ -6,8 +6,8 @@ pub(all) enum Token {
   RBracket // ]
   Colon // :
   Comma // ,
-  StringLit(String) // "hello" (raw text including quotes)
-  NumberLit(String) // 42, 3.14e-2 (raw text)
+  StringLit // "hello" (raw text including quotes)
+  NumberLit // 42, 3.14e-2 (raw text)
   True // true
   False // false
   Null // null
@@ -26,8 +26,8 @@ pub impl Show for Token with output(self, logger) {
       RBracket => "]"
       Colon => ":"
       Comma => ","
-      StringLit(s) => s
-      NumberLit(n) => n
+      StringLit => "<string>"
+      NumberLit => "<number>"
       True => "true"
       False => "false"
       Null => "null"
@@ -58,8 +58,8 @@ pub impl @seam.ToRawKind for Token with to_raw(self) {
     RBracket => 3
     Colon => 4
     Comma => 5
-    StringLit(_) => 6
-    NumberLit(_) => 7
+    StringLit => 6
+    NumberLit => 7
     True => 8
     False => 9
     Null => 10

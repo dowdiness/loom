@@ -8,8 +8,7 @@ const MAX_ERRORS : Int = 50
 ///|
 fn is_value_start(token : Token) -> Bool {
   match token {
-    LBrace | LBracket | StringLit(_) | NumberLit(_) | True | False | Null =>
-      true
+    LBrace | LBracket | StringLit | NumberLit | True | False | Null => true
     _ => false
   }
 }
@@ -85,8 +84,8 @@ fn parse_value(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
     LBrace => parse_object(ctx)
     LBracket => parse_array(ctx)
-    StringLit(_) => ctx.node(StringValue, fn() { ctx.emit_token(StringToken) })
-    NumberLit(_) => ctx.node(NumberValue, fn() { ctx.emit_token(NumberToken) })
+    StringLit => ctx.node(StringValue, fn() { ctx.emit_token(StringToken) })
+    NumberLit => ctx.node(NumberValue, fn() { ctx.emit_token(NumberToken) })
     True => ctx.node(BoolValue, fn() { ctx.emit_token(TrueKeyword) })
     False => ctx.node(BoolValue, fn() { ctx.emit_token(FalseKeyword) })
     Null => ctx.node(NullValue, fn() { ctx.emit_token(NullKeyword) })
@@ -112,7 +111,7 @@ pub fn parse_object(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       parse_comma_separated(
         ctx,
         parse_member,
-        fn(t) { t is StringLit(_) },
+        fn(t) { t is StringLit },
         RBrace,
         "members",
       )
@@ -144,7 +143,7 @@ pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 fn parse_member(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(MemberNode, fn() {
     match ctx.peek() {
-      StringLit(_) => ctx.emit_token(StringToken)
+      StringLit => ctx.emit_token(StringToken)
       _ => {
         ctx.error("Expected string key")
         ctx.emit_error_placeholder()
