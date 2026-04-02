@@ -199,7 +199,25 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
   )
 }
 
-// ── ReactiveParser three-memo pipeline tests ────────────────────────────────
+// ── ReactiveParser TokenStage::Eq property tests ─────────────────────────────
+//
+// These four tests protect the reactive parser's memo invalidation —
+// the mechanism that decides whether to skip re-parsing after a source change.
+//
+// Properties 1 & 3 protect PERFORMANCE:
+//   If they fail, the parser does unnecessary full reparses on every
+//   no-op set_source or whitespace edit (space/tab/enter), making the
+//   editor sluggish during the most common edit patterns.
+//
+// Properties 2 & 4 protect CORRECTNESS:
+//   If they fail, the parser reuses a stale CST after structural or
+//   content changes — cursor positions, error highlights, and the
+//   projectional editor all operate on wrong data.
+//
+// 1. Identity:         same source        → backdate   (perf)
+// 2. Structural:       different tokens   → invalidate (correctness)
+// 3. Trivia-only edit: whitespace changes → backdate   (perf)
+// 4. Content edit:     token text changes → invalidate (correctness)
 
 ///|
 /// Property: identical source → identical TokenStage → memo backdates.
