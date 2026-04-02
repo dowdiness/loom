@@ -13,5 +13,8 @@ import {
 
 import {
   "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "moonbitlang/quickcheck" @qc,
+  "dowdiness/pretty" @pretty,
   "dowdiness/event-graph-walker/text" @egw,
 } for "test"
