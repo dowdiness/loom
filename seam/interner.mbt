@@ -8,11 +8,15 @@
 /// The GC collects the Interner and all its tokens when the owner is dropped.
 /// Not thread-safe.
 ///
-/// Key design: two-level map (RawKind → (String → CstToken)).
-/// On the hot hit path neither the RawKind nor the String is allocated;
-/// the caller's existing values are used directly as lookup keys.
+/// Key design: two-level map (RawKind → (StringView → CstToken)).
+/// On the hot hit path, lookup uses the caller's StringView directly
+/// with zero allocation. Stored keys are auto-coerced from CstToken.text
+/// (owned String), so old source strings are not retained by the interner.
 pub struct Interner {
-  priv tokens : @hashmap.HashMap[RawKind, @hashmap.HashMap[String, CstToken]]
+  priv tokens : @hashmap.HashMap[
+    RawKind,
+    @hashmap.HashMap[StringView, CstToken],
+  ]
 }
 
 ///|
@@ -25,25 +29,26 @@ pub fn Interner::new() -> Interner {
 /// Return the canonical CstToken for (kind, text).
 /// On first call for a given pair: allocates a CstToken and stores it.
 /// On subsequent calls: returns the stored object (same heap reference).
+/// Hit path is zero-alloc — StringView lookup, no String materialization.
 pub fn Interner::intern_token(
   self : Interner,
   kind : RawKind,
-  text : String,
+  text : StringView,
 ) -> CstToken {
   match self.tokens.get(kind) {
     Some(inner) =>
       match inner.get(text) {
         Some(token) => token
         None => {
-          let token = CstToken::new(kind, text)
-          inner.set(text, token)
+          let token = CstToken(kind, text)
+          inner.set(token.text, token)
           token
         }
       }
     None => {
-      let token = CstToken::new(kind, text)
-      let inner : @hashmap.HashMap[String, CstToken] = @hashmap.HashMap::new()
-      inner.set(text, token)
+      let token = CstToken(kind, text)
+      let inner : @hashmap.HashMap[StringView, CstToken] = @hashmap.HashMap::new()
+      inner.set(token.text, token)
       self.tokens.set(kind, inner)
       token
     }

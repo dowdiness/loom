@@ -60,6 +60,8 @@ pub(all) struct CstToken {
   kind : RawKind
   text : String
   hash : Int
+
+  fn new(RawKind, StringView) -> CstToken
 } derive(Show, @debug.Debug)
 pub fn CstToken::new(RawKind, StringView) -> Self
 pub fn CstToken::text_len(Self) -> Int
@@ -83,7 +85,7 @@ pub struct Interner {
   // private fields
 }
 pub fn Interner::clear(Self) -> Unit
-pub fn Interner::intern_token(Self, RawKind, String) -> CstToken
+pub fn Interner::intern_token(Self, RawKind, StringView) -> CstToken
 pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int
 
