@@ -202,8 +202,9 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
 // ── ReactiveParser three-memo pipeline tests ────────────────────────────────
 
 ///|
-/// The same source set twice produces the same CST (memo backdates because
-/// the token stage is identical — same tokens, same text, same positions).
+/// Property: identical source → identical TokenStage → memo backdates.
+/// Verifies the basic memo machinery works: setting the same source twice
+/// produces the same CstStage reference (CST memo not recomputed).
 test "new_reactive_parser: token-stage early cutoff when tokens match" {
   let grammar = fgrammar(
     error_token=Some(Err),
@@ -221,7 +222,9 @@ test "new_reactive_parser: token-stage early cutoff when tokens match" {
 }
 
 ///|
-/// Different token sequences → token memo changes → CST memo recomputes.
+/// Property: different token count → TokenStage changes → CST memo recomputes.
+/// Verifies that structural changes (different number of tokens) are not
+/// falsely backdated.
 test "new_reactive_parser: token-stage invalidation when tokens change" {
   let grammar = fgrammar(
     error_token=Some(Err),
@@ -317,9 +320,10 @@ fn fws_step_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
 }
 
 ///|
-/// Trivia-insensitive early cutoff: whitespace-only edits produce different
-/// trivia tokens but the same non-trivia tokens, so the token memo backdates
-/// and the CST memo is NOT recomputed.
+/// Property: whitespace-only edit → same non-trivia tokens → memo backdates.
+/// "a a" → "a  a" adds trivia but non-trivia tokens are unchanged.
+/// TokenStage::Eq skips trivia and compares non-trivia token text, so the
+/// token memo backdates and the CST memo is NOT recomputed.
 test "new_reactive_parser: trivia-insensitive early cutoff" {
   let grammar = fgrammar(
     prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fws_step_lexer)),
@@ -336,7 +340,9 @@ test "new_reactive_parser: trivia-insensitive early cutoff" {
 }
 
 ///|
-/// Content edits that change non-trivia tokens still invalidate.
+/// Property: non-trivia token text changes → TokenStage changes → CST invalidates.
+/// "a a" → "a !a" replaces space with error token — non-trivia content differs,
+/// so the token memo does NOT backdate and the CST is recomputed.
 test "new_reactive_parser: content edit invalidates despite trivia filter" {
   let grammar = fgrammar(
     error_token=Some(Err),
