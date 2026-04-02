@@ -37,6 +37,14 @@ pub fn Env::extend(self : Env, name : String, value : Value) -> Env {
 }
 
 ///|
+/// Evaluate a lambda term in the given environment.
+///
+/// `fuel` is a recursion depth limit, not a precise computation budget.
+/// Sibling subexpressions (e.g., both operands of `Bop`) each receive
+/// `fuel - 1` independently — total work can exceed `fuel` for wide trees.
+/// This is intentional: fuel prevents divergence (omega combinator), not
+/// precise resource bounding. For strict budgets, use wall-clock time or
+/// node counts (like egg's Runner).
 pub fn eval(
   env : Env,
   term : @ast.Term,
