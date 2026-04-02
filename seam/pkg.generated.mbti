@@ -3,6 +3,7 @@ package "dowdiness/seam"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
 }
 
 // Values
@@ -81,10 +82,10 @@ pub fn EventBuffer::push(Self, ParseEvent) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
 pub fn EventBuffer::truncate(Self, Int) -> Unit
 
-pub struct Interner {
-  // private fields
-}
+pub struct Interner(@hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]])
 pub fn Interner::clear(Self) -> Unit
+#deprecated
+pub fn Interner::inner(Self) -> @hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]]
 pub fn Interner::intern_token(Self, RawKind, StringView) -> CstToken
 pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int

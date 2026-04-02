@@ -12,17 +12,17 @@
 /// On the hot hit path, lookup uses the caller's StringView directly
 /// with zero allocation. Stored keys are auto-coerced from CstToken.text
 /// (owned String), so old source strings are not retained by the interner.
-pub struct Interner {
-  priv tokens : @hashmap.HashMap[
-    RawKind,
-    @hashmap.HashMap[StringView, CstToken],
-  ]
-}
+///
+/// Tuple struct: single-field wrapper is automatically unboxed at runtime —
+/// Interner IS the HashMap, no wrapper allocation or indirection.
+pub struct Interner(
+  @hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]]
+)
 
 ///|
 /// Create a new empty Interner.
 pub fn Interner::new() -> Interner {
-  { tokens: @hashmap.HashMap::new() }
+  Interner(@hashmap.HashMap::new())
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn Interner::intern_token(
   kind : RawKind,
   text : StringView,
 ) -> CstToken {
-  match self.tokens.get(kind) {
+  match self.0.get(kind) {
     Some(inner) =>
       match inner.get(text) {
         Some(token) => token
@@ -49,7 +49,7 @@ pub fn Interner::intern_token(
       let token = CstToken(kind, text)
       let inner : @hashmap.HashMap[StringView, CstToken] = @hashmap.HashMap::new()
       inner.set(token.text, token)
-      self.tokens.set(kind, inner)
+      self.0.set(kind, inner)
       token
     }
   }
@@ -59,7 +59,7 @@ pub fn Interner::intern_token(
 /// Number of distinct (kind, text) pairs currently interned.
 pub fn Interner::size(self : Interner) -> Int {
   let mut total = 0
-  self.tokens.each(fn(_kind, inner) { total = total + inner.length() })
+  self.0.each(fn(_kind, inner) { total = total + inner.length() })
   total
 }
 
@@ -67,5 +67,5 @@ pub fn Interner::size(self : Interner) -> Int {
 /// Clear all interned tokens. The Interner can be reused after this call,
 /// e.g. when starting a new document in a long-lived language server session.
 pub fn Interner::clear(self : Interner) -> Unit {
-  self.tokens.clear()
+  self.0.clear()
 }
