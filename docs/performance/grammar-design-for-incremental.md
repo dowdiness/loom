@@ -87,6 +87,7 @@ LetExpr
 ```
 
 **Example grammar:** `let_expr → 'let' ID '=' expr 'in' let_expr | expr`
+*(Deprecated in the lambda parser — `in` keyword removed, flat `LetDef*` used instead.)*
 
 **Why it fails:** Every `LetExpr` node's text span extends to the end of the input. A single-character edit at the tail (changing the final literal) overlaps the damage range of **every spine node**. The incremental parser must re-execute the grammar for all n levels, gaining nothing over full reparse while paying reuse-protocol overhead (cursor management, `collect_old_tokens`, trailing context checks).
 

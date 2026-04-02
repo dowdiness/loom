@@ -68,7 +68,7 @@ Converts the CST to `Term` directly via typed `SyntaxNode` views — no intermed
 
 - `syntax_node_to_term(SyntaxNode) -> Term` — entry point for single-expression parse
 - `syntax_node_to_source_file_term(SyntaxNode) -> Term` — entry point for multi-expression files; right-folds top-level `let` definitions into nested `Let` terms
-- Typed view structs (`LambdaExprView`, `AppExprView`, `LetExprView`, etc.) provide structured access to child nodes without pattern-matching raw `SyntaxKind` enums
+- Typed view structs (`LambdaExprView`, `AppExprView`, `LetDefView`, etc.) provide structured access to child nodes without pattern-matching raw `SyntaxKind` enums
 - `ParenExpr` nodes are unwrapped transparently; parentheses affect grouping but do not appear in `Term`
 - Error nodes produce `Term::Error(String)` rather than sentinel values
 

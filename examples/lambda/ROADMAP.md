@@ -50,7 +50,7 @@ let f : Int -> Int = λx. x in f 1
 
 **Status:** Complete — [design](../../docs/archive/completed-phases/2026-03-03-typed-syntax-node-views-design.md) · [impl](../../docs/archive/completed-phases/2026-03-03-typed-syntax-node-views.md)
 
-Typed wrappers over `SyntaxNode` — `LambdaExprView`, `AppExprView`, `LetExprView`, etc. — give callers structured tree access without pattern-matching raw `SyntaxKind` enums. `syntax_node_to_term` replaces the old `AstNode`-based path. The `AstView` trait is exported from `loom/core` for other grammars to follow the same pattern.
+Typed wrappers over `SyntaxNode` — `LambdaExprView`, `AppExprView`, `LetDefView`, etc. — give callers structured tree access without pattern-matching raw `SyntaxKind` enums. `syntax_node_to_term` replaces the old `AstNode`-based path. The `AstView` trait is exported from `loom/core` for other grammars to follow the same pattern.
 
 ---
 
