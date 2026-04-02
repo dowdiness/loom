@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/eval"
+
+import {
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn eval(Env, @ast.Term, fuel? : Int) -> Value raise StuckReason
+
+// Errors
+pub(all) suberror StuckReason {
+  Unbound(String)
+  TypeMismatch(String)
+  Incomplete
+  ParseError
+  Divergence
+} derive(Show)
+
+// Types and methods
+pub(all) struct Env {
+  bindings : Map[String, Value]
+} derive(Eq, Show, @debug.Debug)
+pub fn Env::empty() -> Self
+pub fn Env::extend(Self, String, Value) -> Self
+pub fn Env::lookup(Self, String) -> Value?
+
+pub(all) enum Value {
+  VInt(Int)
+  VClosure(Env, String, @ast.Term)
+  VUnit
+} derive(Eq, Show, @debug.Debug)
+
+// Type aliases
+
+// Traits
+
