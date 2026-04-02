@@ -57,6 +57,16 @@ pub fn eval(
     Error(_) => raise ParseError
     Unbound(x) => raise Unbound(x)
     Lam(x, body) => VClosure(env, x, body)
+    Bop(op, a, b) => {
+      let va = eval(env, a, fuel=fuel - 1)
+      let vb = eval(env, b, fuel=fuel - 1)
+      match (op, va, vb) {
+        (Plus, VInt(na), VInt(nb)) => VInt(na + nb)
+        (Minus, VInt(na), VInt(nb)) => VInt(na - nb)
+        (Plus, _, _) => raise TypeMismatch("add: expected integer")
+        (Minus, _, _) => raise TypeMismatch("minus: expected integer")
+      }
+    }
     _ => raise TypeMismatch("not yet implemented")
   }
 }
