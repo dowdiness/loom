@@ -99,4 +99,6 @@ _(none)_
 - [archive/completed-phases/2026-03-30-cst-element-traversal-plan.md](archive/completed-phases/2026-03-30-cst-element-traversal-plan.md) — CstElement traversal methods implementation plan (#57)
 - [archive/completed-phases/2026-04-02-stringview-threading-design.md](archive/completed-phases/2026-04-02-stringview-threading-design.md) — StringView threading design: zero-copy token text through parse pipeline (#61)
 - [archive/completed-phases/2026-04-02-stringview-threading-impl.md](archive/completed-phases/2026-04-02-stringview-threading-impl.md) — StringView threading implementation plan (6 tasks)
+- [archive/completed-phases/2026-04-02-remove-cst-token-matches-design.md](archive/completed-phases/2026-04-02-remove-cst-token-matches-design.md) — Remove cst_token_matches: framework-owned token matching (#70)
+- [archive/completed-phases/2026-04-02-remove-cst-token-matches-impl.md](archive/completed-phases/2026-04-02-remove-cst-token-matches-impl.md) — Remove cst_token_matches implementation plan (8 tasks)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
