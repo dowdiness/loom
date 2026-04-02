@@ -32,7 +32,6 @@ fn make_test_fixtures() -> (
     incomplete_kind: KErr,
     root_kind: KRoot,
     eof_token: TestTok::TokEof,
-    cst_token_matches: fn(_, _, _) { false },
     parse_root: _ => (),
     reuse_size_threshold: 64,
   }
@@ -252,15 +251,6 @@ let test_spec : LanguageSpec[TestTok, TestKind] = {
   incomplete_kind: KIncomplete,
   root_kind: KRoot,
   eof_token: TestTok::TokEof,
-  cst_token_matches: fn(raw, text, tok) {
-    if raw != test_kind_raw(KNum) {
-      return false
-    }
-    match tok {
-      Num(n) => n.to_string() == text
-      _ => false
-    }
-  },
   parse_root: fn(_) { () },
   reuse_size_threshold: 64,
 }
@@ -580,36 +570,6 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
   inspect(result is Some(_), content="true")
   let tok = result.unwrap()
   inspect(tok.text, content="+")
-}
-
-///|
-test "LanguageSpec cst_token_matches callback is stored and callable" {
-  let num_raw = test_kind_raw(KNum)
-  let spec = LanguageSpec::new(KWs, KErr, KRoot, TestTok::TokEof, cst_token_matches=fn(
-    raw,
-    text,
-    tok,
-  ) {
-    if raw != num_raw {
-      return false
-    }
-    match tok {
-      Num(n) => n.to_string() == text
-      _ => false
-    }
-  })
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Num(42)),
-    content="true",
-  )
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Num(99)),
-    content="false",
-  )
-  inspect(
-    (spec.cst_token_matches)(num_raw, "42", TestTok::Plus),
-    content="false",
-  )
 }
 
 ///|
@@ -1370,7 +1330,6 @@ test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
     KRoot,
     TestTok::TokEof,
     incomplete_kind=KIncomplete,
-    cst_token_matches=test_spec.cst_token_matches,
     parse_root=fn(ctx) {
       ctx.start_node(KExpr)
       ctx.emit_token(KNum)

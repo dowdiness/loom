@@ -133,9 +133,6 @@ fn fgrammar(
     KErr,
     KRoot,
     Eof,
-    cst_token_matches=fn(raw, _text, tok) {
-      raw == fkind_raw(KChar) && tok == A
-    },
     parse_root=froot,
     reuse_size_threshold=0,
   )
