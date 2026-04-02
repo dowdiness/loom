@@ -75,6 +75,17 @@ pub fn eval(
         _ => raise TypeMismatch("if: expected integer condition")
       }
     }
+    App(func, arg) => {
+      let vf = eval(env, func, fuel=fuel - 1)
+      let va = eval(env, arg, fuel=fuel - 1)
+      match vf {
+        VClosure(closure_env, param, body) => {
+          let ext = closure_env.extend(param, va)
+          eval(ext, body, fuel=fuel - 1)
+        }
+        _ => raise TypeMismatch("app: expected function")
+      }
+    }
     _ => raise TypeMismatch("not yet implemented")
   }
 }

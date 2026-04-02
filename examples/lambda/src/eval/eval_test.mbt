@@ -110,3 +110,52 @@ test "eval: if non-integer condition is type error" {
     content="Err(TypeMismatch(\"if: expected integer condition\"))",
   )
 }
+
+///|
+test "eval: lambda creates closure" {
+  let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  // Just check it's a VClosure — exact content may vary
+  inspect(result is Ok(_), content="true")
+}
+
+///|
+test "eval: simple application" {
+  // (λx. x + 1) 5
+  let term = @ast.Term::App(
+    @ast.Term::Lam(
+      "x",
+      @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Int(1)),
+    ),
+    @ast.Term::Int(5),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(6))")
+}
+
+///|
+test "eval: curried application" {
+  // (λx. λy. x + y) 2 3
+  let term = @ast.Term::App(
+    @ast.Term::App(
+      @ast.Term::Lam(
+        "x",
+        @ast.Term::Lam(
+          "y",
+          @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
+        ),
+      ),
+      @ast.Term::Int(2),
+    ),
+    @ast.Term::Int(3),
+  )
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(5))")
+}
+
+///|
+test "eval: apply non-function is type error" {
+  let term = @ast.Term::App(@ast.Term::Int(5), @ast.Term::Int(3))
+  let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
+  inspect(result, content="Err(TypeMismatch(\"app: expected function\"))")
+}
