@@ -45,7 +45,7 @@ pub(all) struct CstToken { kind : RawKind; text : String; hash : Int }
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `CstToken::new(RawKind, String) -> Self` | Stable | Computes and caches `hash` |
+| `CstToken::new(RawKind, StringView) -> Self` | Stable | Computes and caches `hash`; calls `.to_string()` internally for owned `text` field |
 | `CstToken::text_len(Self) -> Int` | Stable | Returns `text.length()` |
 | `Eq` | Stable | Hash fast-path rejection, then `kind` + `text` deep check |
 | `Hash` | Stable | Feeds cached `hash` field into hasher |
@@ -108,18 +108,19 @@ pub(all) struct CstNode {
 pub(all) enum ParseEvent {
   StartNode(RawKind)
   FinishNode
-  Token(RawKind, String)
+  Token(RawKind, StringView)
   Tombstone
+  ReuseNode(CstNode)
 }
 ```
 
 **Stable.** Event stream type consumed by `build_tree` / `build_tree_interned`.
 
-**Invariant:** A valid event stream is balanced — every `StartNode` has a matching `FinishNode`. `Tombstone` slots are silently skipped.
+**Invariant:** A valid event stream is balanced — every `StartNode` has a matching `FinishNode`. `Tombstone` slots are silently skipped. `String` auto-coerces to `StringView` for `Token` construction.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| All four variants | Stable | |
+| All five variants | Stable | |
 | `Eq`, `Show` | Stable | |
 
 ---
@@ -155,7 +156,7 @@ pub struct Interner { /* private fields */ }
 | Symbol | Stability | Notes |
 |---|---|---|
 | `Interner::new() -> Self` | Stable | |
-| `Interner::intern_token(Self, RawKind, String) -> CstToken` | Stable | Returns cached token on repeat calls |
+| `Interner::intern_token(Self, RawKind, StringView) -> CstToken` | Stable | Returns cached token on repeat calls; zero-alloc on hit path |
 | `Interner::size(Self) -> Int` | Stable | Count of distinct `(kind, text)` pairs |
 | `Interner::clear(Self) -> Unit` | Stable | Reset; safe to reuse after clear |
 

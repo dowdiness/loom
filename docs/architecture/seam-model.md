@@ -46,7 +46,7 @@ Three event types drive tree construction:
 ```moonbit
 StartNode(RawKind)     // push a new node frame
 FinishNode             // pop frame, wrap children into a CstNode
-Token(RawKind, String) // attach a leaf token to the current frame
+Token(RawKind, StringView) // attach a leaf token (zero-copy view into source)
 ```
 
 ## Tombstone and Retroactive Wrapping
