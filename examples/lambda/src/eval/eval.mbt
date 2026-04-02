@@ -67,6 +67,14 @@ pub fn eval(
         (Minus, _, _) => raise TypeMismatch("minus: expected integer")
       }
     }
+    If(cond, then_branch, else_branch) => {
+      let vc = eval(env, cond, fuel=fuel - 1)
+      match vc {
+        VInt(0) => eval(env, else_branch, fuel=fuel - 1)
+        VInt(_) => eval(env, then_branch, fuel=fuel - 1)
+        _ => raise TypeMismatch("if: expected integer condition")
+      }
+    }
     _ => raise TypeMismatch("not yet implemented")
   }
 }
