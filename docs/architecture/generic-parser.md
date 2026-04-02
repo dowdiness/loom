@@ -28,17 +28,19 @@ pub struct LanguageSpec[T, K] {
   error_kind         : K
   root_kind          : K
   eof_token          : T
-  cst_token_matches  : (RawKind, String, T) -> Bool
   parse_root         : (ParserContext[T, K]) -> Unit
 }
 ```
 
-- `T` — language-specific token type; must implement `Eq + IsTrivia + IsEof`
+- `T` — language-specific token type; must implement `Eq + IsTrivia + IsEof + ToRawKind`
 - `K` — language-specific syntax kind type; must implement `ToRawKind`
 - `whitespace_kind`, `error_kind`, `root_kind` — fixed kinds used for trivia nodes, error recovery, and the implicit root wrapper
 - `eof_token` — sentinel token returned when the parser advances past the end of input
-- `cst_token_matches` — compares a CST token (kind + text) against a new token for incremental reuse; return `false` to disable cst-level matching
 - `parse_root` — entry-point grammar function, used by `parse_tokens_indexed`
+
+Token matching for incremental reuse is handled by the framework internally:
+`old_cst_token.kind == new_token.to_raw() && old_cst_token.text == token_text_at(pos)`.
+Languages do not need to implement token matching — `T : ToRawKind` is sufficient.
 
 ### Required Traits
 

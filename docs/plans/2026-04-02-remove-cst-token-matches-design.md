@@ -1,7 +1,7 @@
 # Remove `cst_token_matches` — Framework-Owned Token Matching
 
 **Date:** 2026-04-02
-**Status:** Draft
+**Status:** Complete
 **Scope:** loom/core (LanguageSpec, ReuseCursor), lambda (Token, lexer), json (Token, lexer)
 **Motivation:** Simplify LanguageSpec API, eliminate payload-carrying Token enums, remove O(n²) lexer string building
 
@@ -149,6 +149,42 @@ Steps 2 and 3 are independent but both depend on step 1.
 token equality), framework trait additions, markdown parser, loomgen.
 
 ---
+
+## Benchmark results
+
+Incremental parsing benchmarks (`--release`, wasm-gc, realistic grammar):
+
+| Benchmark | Before | After | Change |
+|-----------|--------|-------|--------|
+| 40 defs - full reparse | 241 µs | 241 µs | same |
+| 40 defs - incr (edit tail) | 311 µs | 287 µs | **-8%** |
+| 40 defs - incr (edit head block) | 14.2 µs | 12.8 µs | **-10%** |
+| 40 defs - incr (edit middle block) | 14.4 µs | 13.2 µs | **-8%** |
+| 80 defs - full reparse | 525 µs | 476 µs | **-9%** |
+| 80 defs - incr (edit tail) | 642 µs | 590 µs | **-8%** |
+| 80 defs - incr (edit middle block) | 14.8 µs | 13.1 µs | **-11%** |
+| 160 defs - full reparse | 1.32 ms | 1.07 ms | **-19%** |
+| 160 defs - incr (edit tail) | 1.34 ms | 1.20 ms | **-10%** |
+| 160 defs - incr (edit middle block) | 14.8 µs | 13.6 µs | **-8%** |
+
+Tokenize-only (zero-copy benchmark):
+
+| Input | Before | After | Change |
+|-------|--------|-------|--------|
+| Short identifiers | 4.88 µs | 4.04 µs | **-17%** |
+| Long identifiers | 6.05 µs | 5.14 µs | **-15%** |
+
+Speedup from payload-free Token enum (unboxed tags = fewer heap allocations)
+and lexer accumulator elimination (O(n²) → O(n) for identifiers).
+
+## Implementation notes
+
+- `T : @seam.ToRawKind` bound propagated upward through `try_reuse` → `node` →
+  `node_with_recovery` → `try_reuse_repeat_group` in `parser.mbt` and `recovery.mbt`.
+- `TokenStage::Eq` in `diagnostics.mbt` needed text-based comparison after payload
+  removal — previously relied on payload equality for memo invalidation.
+- `make_reuse_cursor` in lambda/json gained a `source : String` parameter for the
+  `get_text` closure.
 
 ## Validation
 
