@@ -101,11 +101,10 @@ pub struct LanguageSpec[T, K] {
   incomplete_kind : K
   root_kind : K
   eof_token : T
-  cst_token_matches : (@seam.RawKind, String, T) -> Bool
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
 }
-pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, cst_token_matches? : (@seam.RawKind, String, T) -> Bool, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int) -> Self[T, K]
+pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int) -> Self[T, K]
 
 pub(all) enum LexStep[T] {
   Produced(TokenInfo[T], next_offset~ : Int)

@@ -61,8 +61,6 @@ pub struct LanguageSpec[T, K] {
   incomplete_kind : K
   root_kind : K
   eof_token : T
-  // reuse support: match old leaves to new tokens
-  cst_token_matches : (@seam.RawKind, String, T) -> Bool
   // Grammar entry point. Called by parse_tokens_indexed to drive the full parse.
   // Receives a fully-configured ParserContext; parse_tokens_indexed calls
   // flush_trivia after parse_root returns, so parse_root need not call it.
@@ -83,9 +81,6 @@ pub fn[T, K] LanguageSpec::new(
   root_kind : K,
   eof_token : T,
   incomplete_kind? : K = error_kind,
-  cst_token_matches? : (@seam.RawKind, String, T) -> Bool = fn(_, _, _) {
-    false
-  },
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
   reuse_size_threshold? : Int = 64,
 ) -> LanguageSpec[T, K] {
@@ -95,7 +90,6 @@ pub fn[T, K] LanguageSpec::new(
     incomplete_kind,
     root_kind,
     eof_token,
-    cst_token_matches,
     parse_root,
     reuse_size_threshold,
   }
