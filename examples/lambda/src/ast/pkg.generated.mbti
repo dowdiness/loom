@@ -3,6 +3,7 @@ package "dowdiness/lambda/ast"
 
 import {
   "dowdiness/loom/core",
+  "dowdiness/pretty",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
@@ -18,17 +19,18 @@ pub fn[T : TermSym] replay(Term) -> T
 pub(all) enum Bop {
   Plus
   Minus
-}
-pub impl Eq for Bop
-pub impl Show for Bop
-pub impl ToJson for Bop
-pub impl @debug.Debug for Bop
-pub impl @json.FromJson for Bop
+} derive(Eq, Show, ToJson, @debug.Debug, @json.FromJson)
 
 pub(all) struct Pretty {
   repr : String
 }
 pub impl TermSym for Pretty
+
+pub struct PrettyLayout {
+  layout : @pretty.Layout[@pretty.SyntaxCategory]
+  prec : Int
+}
+pub impl TermSym for PrettyLayout
 
 pub(all) enum Term {
   Int(Int)
@@ -42,14 +44,13 @@ pub(all) enum Term {
   Unbound(String)
   Error(String)
   Hole(Int)
-}
+} derive(Eq, Show, ToJson, @debug.Debug)
 pub impl TermSym for Term
 pub impl @core.Renderable for Term
 pub impl @core.TreeNode for Term
-pub impl Eq for Term
-pub impl Show for Term
-pub impl ToJson for Term
-pub impl @debug.Debug for Term
+pub impl @pretty.Pretty for Term
+pub impl @pretty.Printable for Term
+pub impl @pretty.Source for Term
 
 // Type aliases
 pub type VarName = String
