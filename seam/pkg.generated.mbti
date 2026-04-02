@@ -105,7 +105,7 @@ pub fn NodeInterner::size(Self) -> Int
 pub(all) enum ParseEvent {
   StartNode(RawKind)
   FinishNode
-  Token(RawKind, String)
+  Token(RawKind, StringView)
   Tombstone
   ReuseNode(CstNode)
 } derive(Eq, Show)

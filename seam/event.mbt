@@ -12,8 +12,8 @@ pub(all) enum ParseEvent {
   StartNode(RawKind)
   /// Close the most recently opened interior node.
   FinishNode
-  /// A leaf token with the given kind and text.
-  Token(RawKind, String)
+  /// A leaf token with the given kind and source text view.
+  Token(RawKind, StringView)
   /// A reserved-but-unclaimed slot; ignored by `build_tree`.
   /// Created by `EventBuffer::mark` and replaced by `EventBuffer::start_at`.
   Tombstone
