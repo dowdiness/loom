@@ -122,7 +122,6 @@ pub(all) struct ModeLexer[T, M] {
 pub struct ModeRelexState[T] {
   tokenize : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
   relex_from : (String, Int, Int, Int, Array[Int], Int) -> (Array[TokenInfo[T]], Int) raise LexError
-  splice_modes : (Int, Int, Array[Int]) -> Unit
 }
 
 type OldToken derive(Compare, Eq, Show)
@@ -180,7 +179,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
-pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> String
+pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> StringView
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 

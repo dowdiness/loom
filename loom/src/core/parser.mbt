@@ -268,20 +268,15 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
 }
 
 ///|
-/// Extract source text for a token at a given position index.
-/// Returns "" on invalid indices/spans rather than aborting — span errors
-/// (whether from a tokenizer bug or a grammar invariant violation) produce an
-/// empty leaf in the tree instead of crashing a long-running host process or
-/// LSP.
+/// Extract the source text of the token at `pos` as a zero-copy StringView.
 ///
-/// Falls back to code-unit extraction when the span contains lone
-/// surrogates (0xD800–0xDFFF) which crash `String::sub`. In a CRDT
-/// editor, concurrent edits can temporarily split surrogate pairs;
-/// the parser must preserve the exact source bytes for sync fidelity.
+/// Returns a view into `self.source`. No String allocation.
+/// StringView slicing does not validate UTF-16, preserving raw code units
+/// for CRDT sync fidelity. Surrogate handling is deferred to point-of-use.
 pub fn[T, K] ParserContext::token_text_at(
   self : ParserContext[T, K],
   pos : Int,
-) -> String {
+) -> StringView {
   if pos < 0 || pos >= self.token_count {
     return ""
   }
@@ -290,31 +285,7 @@ pub fn[T, K] ParserContext::token_text_at(
   if start < 0 || end < start || end > self.source.length() {
     return ""
   }
-  // Fast path: valid UTF-16 (the common case — all ASCII tokens)
-  if !has_lone_surrogate(self.source, start, end) {
-    let slice : StringView = self.source[start:end]
-    return slice.to_string()
-  }
-  // Slow path: lone surrogates — copy code-unit by code-unit
-  let buf = StringBuilder::new(size_hint=end - start)
-  for i = start; i < end; i = i + 1 {
-    buf.write_char(self.source.code_unit_at(i).to_int().unsafe_to_char())
-  }
-  buf.to_string()
-}
-
-///|
-/// Check if a string span contains any code unit in the surrogate range.
-/// Read-only scan, no allocation. For all-ASCII tokens (the vast majority),
-/// exits on the first character being < 0xD800.
-fn has_lone_surrogate(s : String, start : Int, end : Int) -> Bool {
-  for i = start; i < end; i = i + 1 {
-    let cu = s.code_unit_at(i).to_int()
-    if cu >= 0xD800 && cu <= 0xDFFF {
-      return true
-    }
-  }
-  false
+  self.source[start:end]
 }
 
 ///|
@@ -322,7 +293,7 @@ fn has_lone_surrogate(s : String, start : Int, end : Int) -> Bool {
 fn[T, K] ParserContext::text_at(
   self : ParserContext[T, K],
   pos : Int,
-) -> String {
+) -> StringView {
   self.token_text_at(pos)
 }
 
