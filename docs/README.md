@@ -97,4 +97,6 @@ _(none)_
 - [archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md](archive/completed-phases/2026-03-28-egraph-lambda-evaluator-impl.md) — Egraph Lambda Evaluator (equality saturation, beta reduction, capture-avoiding substitution, constant folding)
 - [archive/completed-phases/2026-03-30-cst-element-traversal.md](archive/completed-phases/2026-03-30-cst-element-traversal.md) — CstElement traversal methods design (#57)
 - [archive/completed-phases/2026-03-30-cst-element-traversal-plan.md](archive/completed-phases/2026-03-30-cst-element-traversal-plan.md) — CstElement traversal methods implementation plan (#57)
+- [archive/completed-phases/2026-04-02-stringview-threading-design.md](archive/completed-phases/2026-04-02-stringview-threading-design.md) — StringView threading design: zero-copy token text through parse pipeline (#61)
+- [archive/completed-phases/2026-04-02-stringview-threading-impl.md](archive/completed-phases/2026-04-02-stringview-threading-impl.md) — StringView threading implementation plan (6 tasks)
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
