@@ -223,8 +223,8 @@ pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
-pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
-pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
 
 pub(all) enum TextDelta {
   Retain(Int)

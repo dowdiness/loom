@@ -231,7 +231,7 @@ fn is_outside_damage(
 
 ///|
 /// True if the first non-trivia leaf of node matches the new token at token_pos.
-fn[T : @seam.ToRawKind, K : @seam.ToRawKind] leading_token_matches(
+fn[T : @seam.ToRawKind, K] leading_token_matches(
   node : @seam.CstNode,
   cursor : ReuseCursor[T, K],
   token_pos : Int,
@@ -240,8 +240,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] leading_token_matches(
     return false
   }
   let new_kind = (cursor.get_token)(token_pos).to_raw()
-  let ws_raw = cursor.spec.whitespace_kind.to_raw()
-  match node.first_token(fn(r) { r == ws_raw }) {
+  match node.first_token(fn(r) { r == cursor.ws_raw }) {
     None => false
     Some(old_tok) =>
       old_tok.kind == new_kind &&
@@ -471,7 +470,7 @@ fn[T, K] ReuseCursor::seek_node_at(
 ///   4. Node is entirely outside the damage range
 ///   5. Leading token of node matches the new token at token_pos
 ///   6. Follow token after the node matches between old and new streams
-pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
@@ -519,7 +518,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 ///
 /// Called by grammar code before parsing individual items in a repeat loop
 /// to enable O(log n) reuse of balanced subtrees.
-pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(
   self : ReuseCursor[T, K],
   byte_offset : Int,
   token_pos : Int,

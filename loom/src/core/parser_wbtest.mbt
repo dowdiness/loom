@@ -1,5 +1,5 @@
 // Whitebox tests for the core parser — ParserContext, LanguageSpec, ReuseCursor.
-// These tests access package-private symbols (e.g. new_follow_token) and define
+// These tests access package-private symbols (e.g. new_follow_token_with_pos) and define
 // test-only types (TestTok, TestKind) that must not appear in the public interface.
 
 ///|
@@ -437,7 +437,7 @@ test "ReuseCursor::advance_past: updates current_offset" {
 }
 
 ///|
-test "new_follow_token: finds first non-trivia token at or after offset" {
+test "new_follow_token_with_pos: finds first non-trivia token at or after offset" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
@@ -458,7 +458,7 @@ test "new_follow_token: finds first non-trivia token at or after offset" {
 }
 
 ///|
-test "new_follow_token: skips leading trivia" {
+test "new_follow_token_with_pos: skips leading trivia" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
@@ -479,7 +479,7 @@ test "new_follow_token: skips leading trivia" {
 }
 
 ///|
-test "new_follow_token: returns None past end of tokens" {
+test "new_follow_token_with_pos: returns None past end of tokens" {
   let src = "1 + 2"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
   let (toks, starts) = test_tokenize_with_starts(src)
