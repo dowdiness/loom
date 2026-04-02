@@ -248,10 +248,11 @@ test "tokenize let keyword" {
 }
 
 ///|
-test "tokenize in keyword" {
+test "tokenize in as identifier (not a keyword)" {
   let tokens = tokenize("in") catch { _ => abort("tokenize failed") }
   let s = @token.print_token_infos(tokens)
-  inspect(s.contains("in"), content="true")
+  // "in" is no longer a keyword — lexes as an identifier
+  inspect(s.contains("<ident>"), content="true")
 }
 
 ///|
@@ -262,13 +263,14 @@ test "tokenize eq" {
 }
 
 ///|
-test "tokenize let expression" {
+test "tokenize let with in as identifier" {
   let tokens = tokenize("let x = 1 in x") catch {
     _ => abort("tokenize failed")
   }
   let s = @token.print_token_infos(tokens)
   inspect(s.contains("let"), content="true")
-  inspect(s.contains("in"), content="true")
+  // "in" lexes as identifier, not keyword
+  inspect(s.contains("<ident>"), content="true")
   inspect(s.contains("="), content="true")
 }
 

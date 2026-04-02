@@ -10,7 +10,6 @@ pub(all) enum Token {
   Then // then
   Else // else
   Let // let
-  In // in
   Eq // =
   LBrace // {
   RBrace // }
@@ -39,7 +38,6 @@ pub impl Show for Token with output(self, logger) {
       Then => "then"
       Else => "else"
       Let => "let"
-      In => "in"
       Eq => "="
       LBrace => "{"
       RBrace => "}"
@@ -87,7 +85,6 @@ pub impl @seam.ToRawKind for Token with to_raw(self) {
     Error(_) => 12 // ErrorToken
     EOF => 13 // EofToken
     Let => 23 // LetKeyword
-    In => 24 // InKeyword (gap in SyntaxKind numbering)
     Eq => 25 // EqToken
     Newline => 28 // NewlineToken
     LBrace => 29 // LBraceToken

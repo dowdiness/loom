@@ -655,7 +655,8 @@ test "source file: leading newlines before def + final expression" {
 
 ///|
 test "source file: trailing tokens after final expression produce error" {
-  let (cst, diagnostics) = parse_cst("1 in x") catch { _ => abort("lex error") }
+  // "1 )" has a trailing ')' that can't be part of any expression
+  let (cst, diagnostics) = parse_cst("1 )") catch { _ => abort("lex error") }
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   let node_kinds : Array[String] = []
@@ -663,6 +664,19 @@ test "source file: trailing tokens after final expression produce error" {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
   inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
+}
+
+///|
+test "source file: in is a valid identifier after deprecation" {
+  // "1 in x" parses as application: (1 in) x — no errors
+  let (cst, diagnostics) = parse_cst("1 in x") catch { _ => abort("lex error") }
+  inspect(diagnostics.length(), content="0")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  let node_kinds : Array[String] = []
+  for child in root.children() {
+    node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
+  }
+  inspect(node_kinds, content="[\"AppExpr\"]")
 }
 
 // ============================================================================

@@ -405,14 +405,14 @@ test "parse_term: let-expression (no defs)" {
   inspect(
     diagnostics.length(),
     content=(
-      #|1
+      #|0
     ),
   )
   inspect(
     @ast.print_term(term),
     content=(
-      #|let x = 1
-      #|<error: unknown node kind: ErrorToken>
+      #|let x = ((1 in) x)
+      #|()
     ),
   )
 }
@@ -423,14 +423,14 @@ test "parse_term: multiline let-expression (no defs)" {
   inspect(
     diagnostics.length(),
     content=(
-      #|1
+      #|0
     ),
   )
   inspect(
     @ast.print_term(term),
     content=(
       #|let x = 1
-      #|<error: unknown node kind: ErrorToken>
+      #|(in x)
     ),
   )
 }

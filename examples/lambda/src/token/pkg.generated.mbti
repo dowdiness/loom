@@ -30,7 +30,6 @@ pub(all) enum Token {
   Then
   Else
   Let
-  In
   Eq
   LBrace
   RBrace

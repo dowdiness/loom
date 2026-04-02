@@ -37,7 +37,4 @@ test "Token::to_raw matches SyntaxKind::to_raw for all token kinds" {
   assert_eq(@token.Token::Newline.to_raw(), @syntax.NewlineToken.to_raw())
   assert_eq(@token.Token::Error("").to_raw(), @syntax.ErrorToken.to_raw())
   assert_eq(@token.Token::EOF.to_raw(), @syntax.EofToken.to_raw())
-  // Note: Token::In maps to RawKind(24) but has no SyntaxKind variant.
-  // `in` is consumed by the parser during let...in parsing and never
-  // emitted as a CST leaf, so no SyntaxKind correspondence is needed.
 }

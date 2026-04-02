@@ -177,7 +177,6 @@ fn step_lex(
         "then" => @token.Token::Then
         "else" => @token.Token::Else
         "let" => @token.Token::Let
-        "in" => @token.Token::In
         _ => @token.Token::Identifier
       }
       @core.LexStep::Produced(
