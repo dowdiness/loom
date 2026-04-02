@@ -1,7 +1,7 @@
 # StringView Threading — Zero-Copy Token Text
 
 **Date:** 2026-04-02
-**Status:** Draft
+**Status:** Complete
 **Scope:** seam (ParseEvent, CstToken, Interner), loom/core (ParserContext)
 **Issue:** #61
 
@@ -132,12 +132,16 @@ cd examples/lambda && moon bench --release -p dowdiness/lambda/benchmarks -f zer
 
 ---
 
-## Benchmark baseline (before)
+## Benchmark results
 
 110 tokens, `--release`, native target:
 
-| Input | Tokenize | Full Parse |
-|-------|----------|------------|
-| Integers (`1+2+...+55`) | 2.80 µs | 28.69 µs |
-| Short identifiers (`a+b+...`) | 5.09 µs | 30.62 µs |
-| Long identifiers (20 chars each) | 6.35 µs | 45.81 µs |
+| Input | Tokenize (before) | Tokenize (after) | Full Parse (before) | Full Parse (after) | Speedup |
+|-------|-------------------|------------------|---------------------|--------------------|---------|
+| Integers (`1+2+...+55`) | 2.80 µs | 2.58 µs | 28.69 µs | **24.97 µs** | **13%** |
+| Short identifiers (`a+b+...`) | 5.09 µs | 4.88 µs | 30.62 µs | **27.64 µs** | **10%** |
+| Long identifiers (20 chars each) | 6.35 µs | 6.05 µs | 45.81 µs | **35.35 µs** | **23%** |
+
+Tokenize times barely changed (lexer not modified). Full parse speedup comes from
+eliminating ~110 intermediate String allocations per parse in the
+`token_text_at` → `ParseEvent` → `Interner` pipeline.
