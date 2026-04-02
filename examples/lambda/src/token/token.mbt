@@ -17,8 +17,8 @@ pub(all) enum Token {
   Comma // ,
   Semicolon // ;
   Hole // _ (typed hole placeholder)
-  Identifier(String) // variable names
-  Integer(Int) // integer literals
+  Identifier // variable names
+  Integer // integer literals
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
   Newline // newline (\n or \r\n) — non-trivia in source-file grammar
   Error(String) // lexer error placeholder for step-based resilient mode
@@ -46,8 +46,8 @@ pub impl Show for Token with output(self, logger) {
       Comma => ","
       Semicolon => ";"
       Hole => "_"
-      Identifier(name) => name
-      Integer(n) => n.to_string()
+      Identifier => "<ident>"
+      Integer => "<int>"
       Whitespace => "whitespace"
       Newline => "newline"
       Error(msg) => "<error: " + msg + ">"
@@ -81,8 +81,8 @@ pub impl @seam.ToRawKind for Token with to_raw(self) {
     If => 6 // IfKeyword
     Then => 7 // ThenKeyword
     Else => 8 // ElseKeyword
-    Identifier(_) => 9 // IdentToken
-    Integer(_) => 10 // IntToken
+    Identifier => 9 // IdentToken
+    Integer => 10 // IntToken
     Whitespace => 11 // WhitespaceToken
     Error(_) => 12 // ErrorToken
     EOF => 13 // EofToken

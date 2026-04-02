@@ -66,10 +66,15 @@ pub(all) struct TokenStage[T] {
 ///|
 /// Trivia-insensitive equality for early cutoff.
 ///
-/// Compares only non-trivia tokens + error state. Trivia tokens (whitespace,
-/// newlines), positions, and source text are all excluded. Two TokenStages
+/// Compares non-trivia tokens by kind, length, AND source text. Trivia tokens
+/// (whitespace, newlines) and token positions are excluded. Two TokenStages
 /// that differ only in trivia are considered equal, causing the Salsa memo
 /// to backdate and skip downstream parse/AST recomputation.
+///
+/// Source text is included so that payload-free token kinds (e.g. bare
+/// `Identifier` or `Integer` with no embedded value) are still distinguished
+/// by their actual content. A whitespace-only edit does not change any
+/// non-trivia token's text, so it still backdates correctly.
 pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T] with equal(self, other) {
   if self.is_lex_error != other.is_lex_error {
     return false
@@ -91,6 +96,15 @@ pub impl[T : Eq + @seam.IsTrivia] Eq for TokenStage[T] with equal(self, other) {
       continue
     }
     if a[ai] != b[bi] {
+      return false
+    }
+    // Also compare the actual source text so payload-free token kinds
+    // (e.g. bare Integer, Identifier) are distinguished by content.
+    let a_start = self.starts[ai]
+    let b_start = other.starts[bi]
+    let a_text = self.source[a_start:a_start + a[ai].len]
+    let b_text = other.source[b_start:b_start + b[bi].len]
+    if a_text != b_text {
       return false
     }
     ai = ai + 1

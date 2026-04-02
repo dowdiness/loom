@@ -37,8 +37,8 @@ pub(all) enum Token {
   Comma
   Semicolon
   Hole
-  Identifier(String)
-  Integer(Int)
+  Identifier
+  Integer
   Whitespace
   Newline
   Error(String)

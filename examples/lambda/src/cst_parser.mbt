@@ -12,8 +12,8 @@ fn token_starts_expression(token : @token.Token) -> Bool {
     | @token.LBrace
     | @token.Lambda
     | @token.Hole
-    | @token.Identifier(_)
-    | @token.Integer(_) => true
+    | @token.Identifier
+    | @token.Integer => true
     _ => false
   }
 }
@@ -31,8 +31,8 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
   match token {
     @token.LeftParen
     | @token.LBrace
-    | @token.Identifier(_)
-    | @token.Integer(_)
+    | @token.Identifier
+    | @token.Integer
     | @token.Lambda
     | @token.Hole => true
     _ => false
@@ -292,8 +292,8 @@ fn parse_application(
   match ctx.peek() {
     @token.LeftParen
     | @token.LBrace
-    | @token.Identifier(_)
-    | @token.Integer(_)
+    | @token.Identifier
+    | @token.Integer
     | @token.Lambda
     | @token.Hole =>
       ctx.wrap_at(mark, @syntax.AppExpr, fn() {
@@ -304,8 +304,8 @@ fn parse_application(
           match ctx.peek() {
             @token.LeftParen
             | @token.LBrace
-            | @token.Identifier(_)
-            | @token.Integer(_)
+            | @token.Identifier
+            | @token.Integer
             | @token.Lambda
             | @token.Hole => parse_atom(ctx, allow_newline_application)
             _ => break
@@ -366,9 +366,9 @@ fn parse_atom(
     return
   }
   match ctx.peek() {
-    @token.Integer(_) =>
+    @token.Integer =>
       ctx.node(@syntax.IntLiteral, fn() { ctx.emit_token(@syntax.IntToken) })
-    @token.Identifier(_) =>
+    @token.Identifier =>
       ctx.node(@syntax.VarRef, fn() { ctx.emit_token(@syntax.IdentToken) })
     @token.Lambda =>
       ctx.node_with_recovery(
@@ -376,7 +376,7 @@ fn parse_atom(
         () => {
           ctx.emit_token(@syntax.LambdaToken)
           match ctx.peek() {
-            @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+            @token.Identifier => ctx.emit_token(@syntax.IdentToken)
             _ => {
               ctx.error("Expected parameter after λ")
               ctx.emit_error_placeholder()
@@ -449,7 +449,7 @@ fn parse_param_list(
   ctx.emit_token(@syntax.LeftParenToken) // (
   // First parameter (required)
   match ctx.peek() {
-    @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+    @token.Identifier => ctx.emit_token(@syntax.IdentToken)
     @token.RightParen => {
       ctx.error("Empty parameter list")
       ctx.emit_error_placeholder()
@@ -463,7 +463,7 @@ fn parse_param_list(
   while ctx.peek() == @token.Comma {
     ctx.emit_token(@syntax.CommaToken) // ,
     match ctx.peek() {
-      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      @token.Identifier => ctx.emit_token(@syntax.IdentToken)
       @token.RightParen => {
         ctx.error("Trailing comma in parameter list")
         break
@@ -490,7 +490,7 @@ fn parse_let_item(
   ctx.node(@syntax.LetDef, fn() {
     ctx.emit_token(@syntax.LetKeyword)
     match ctx.peek() {
-      @token.Identifier(_) => ctx.emit_token(@syntax.IdentToken)
+      @token.Identifier => ctx.emit_token(@syntax.IdentToken)
       _ => {
         ctx.error("Expected variable name after 'let'")
         ctx.emit_error_placeholder()
