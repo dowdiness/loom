@@ -29,14 +29,15 @@
 ///
 /// Lifetime: own one NodeInterner per parse session (e.g. per IncrementalParser).
 /// Not thread-safe.
-pub struct NodeInterner {
-  priv nodes : @hashmap.HashMap[CstNode, CstNode]
-}
+///
+/// Tuple struct: single-field wrapper is automatically unboxed at runtime —
+/// NodeInterner IS the HashMap, no wrapper allocation or indirection.
+pub struct NodeInterner(@hashmap.HashMap[CstNode, CstNode])
 
 ///|
 /// Create a new empty NodeInterner.
 pub fn NodeInterner::new() -> NodeInterner {
-  { nodes: @hashmap.HashMap::new() }
+  NodeInterner(@hashmap.HashMap::new())
 }
 
 ///|
@@ -51,10 +52,10 @@ pub fn NodeInterner::intern_node(
   self : NodeInterner,
   node : CstNode,
 ) -> CstNode {
-  if self.nodes.get(node) is Some(n) {
+  if self.0.get(node) is Some(n) {
     n
   } else {
-    self.nodes.set(node, node)
+    self.0.set(node, node)
     node
   }
 }
@@ -62,11 +63,11 @@ pub fn NodeInterner::intern_node(
 ///|
 /// Number of distinct CstNode structures currently interned.
 pub fn NodeInterner::size(self : NodeInterner) -> Int {
-  self.nodes.length()
+  self.0.length()
 }
 
 ///|
 /// Clear all interned nodes. The NodeInterner can be reused after this call.
 pub fn NodeInterner::clear(self : NodeInterner) -> Unit {
-  self.nodes.clear()
+  self.0.clear()
 }

@@ -141,17 +141,18 @@ pub struct EventBuffer { /* private fields */ }
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
 | `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode` | Stable | Builds CST from accumulated events; equivalent to calling `build_tree(events, ...)` |
 | `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` |
-| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode` | **Deferred** | Interns both tokens and nodes; requires `NodeInterner` (planned) |
+| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interns both tokens and nodes |
 
 ---
 
 ## `Interner`
 
 ```moonbit
-pub struct Interner { /* private fields */ }
+pub struct Interner(HashMap[RawKind, HashMap[StringView, CstToken]])
 ```
 
 **Stable.** Session-scoped token intern table. Deduplicates `CstToken` by `(kind, text)`.
+Tuple struct — single-field wrapper is unboxed at runtime (no wrapper allocation on JS target).
 
 | Symbol | Stability | Notes |
 |---|---|---|
@@ -159,6 +160,26 @@ pub struct Interner { /* private fields */ }
 | `Interner::intern_token(Self, RawKind, StringView) -> CstToken` | Stable | Returns cached token on repeat calls; zero-alloc on hit path |
 | `Interner::size(Self) -> Int` | Stable | Count of distinct `(kind, text)` pairs |
 | `Interner::clear(Self) -> Unit` | Stable | Reset; safe to reuse after clear |
+
+---
+
+## `NodeInterner`
+
+```moonbit
+pub struct NodeInterner(HashMap[CstNode, CstNode])
+```
+
+**Stable.** Session-scoped node intern table. Deduplicates `CstNode` by structural identity.
+Tuple struct — single-field wrapper is unboxed at runtime.
+
+**Critical invariant:** All `CstNode::new` calls feeding this interner MUST use the same `trivia_kind`. See doc comment in `seam/node_interner.mbt`.
+
+| Symbol | Stability | Notes |
+|---|---|---|
+| `NodeInterner::new() -> Self` | Stable | |
+| `NodeInterner::intern_node(Self, CstNode) -> CstNode` | Stable | Returns first-seen reference for equal structure; O(children) per call with `physical_equal` fast-path |
+| `NodeInterner::size(Self) -> Int` | Stable | Count of distinct structures |
+| `NodeInterner::clear(Self) -> Unit` | Stable | Reset; safe to reuse after clear |
 
 ---
 
@@ -243,7 +264,7 @@ pub struct SyntaxNode {
 | `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?) -> CstNode` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
 | `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interned variant |
 | `combine_hash(Int, Int) -> Int` | Stable | FNV-based mixing function used for structural hashes |
-| `string_hash(String) -> Int` | Stable | FNV hash of a string; used by `CstToken::new` |
+| `string_hash(StringView) -> Int` | Stable | FNV hash of a string view; used by `CstToken::new` |
 
 ---
 
@@ -255,5 +276,3 @@ Decisions recorded here; may be revisited for `0.2.0`:
 |---|---|
 | `CstNode::width()` | Redundant alias for the already-public `text_len` field |
 | `SyntaxNode::node_at(Int) -> Self?` | No current callers; position-on-boundary and trivia semantics need design before freeze |
-| `EventBuffer::build_tree_fully_interned` | Requires `NodeInterner` (planned, not yet implemented) |
-| `NodeInterner` | Planned — deduplicates `CstNode` by structural identity, parallel to `Interner` for tokens |

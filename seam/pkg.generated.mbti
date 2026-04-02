@@ -95,10 +95,10 @@ pub(all) struct NodeCount(Int) derive(Show)
 pub fn NodeCount::inner(Self) -> Int
 pub impl TransformFolder for NodeCount
 
-pub struct NodeInterner {
-  // private fields
-}
+pub struct NodeInterner(@hashmap.HashMap[CstNode, CstNode])
 pub fn NodeInterner::clear(Self) -> Unit
+#deprecated
+pub fn NodeInterner::inner(Self) -> @hashmap.HashMap[CstNode, CstNode]
 pub fn NodeInterner::intern_node(Self, CstNode) -> CstNode
 pub fn NodeInterner::new() -> Self
 pub fn NodeInterner::size(Self) -> Int
