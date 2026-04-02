@@ -171,18 +171,18 @@ pub impl TermSym for PrettyLayout with if_then_else(cond, then_, else_) {
 
 ///|
 pub impl TermSym for PrettyLayout with module(defs, body) {
-  let def_layouts : Array[@pretty.Layout[@pretty.SyntaxCategory]] = defs.map(
-    fn(d) {
-      let (name, val) = d
-      kw("let") +
-      @pretty.text(" ") +
-      ident(name) +
-      @pretty.text(" ") +
-      op_text("=") +
-      @pretty.text(" ") +
-      @pretty.nest(val.layout)
-    },
-  )
+  let def_layouts : Array[@pretty.Layout[@pretty.SyntaxCategory]] = defs.map(fn(
+    d,
+  ) {
+    let (name, val) = d
+    kw("let") +
+    @pretty.text(" ") +
+    ident(name) +
+    @pretty.text(" ") +
+    op_text("=") +
+    @pretty.text(" ") +
+    @pretty.nest(val.layout)
+  })
   let defs_doc = @pretty.separate(@pretty.hardline(), def_layouts)
   let result = if def_layouts.is_empty() {
     body.layout

@@ -17,6 +17,17 @@ impl @seam.IsEof for FTok with is_eof(self) {
 }
 
 ///|
+impl @seam.ToRawKind for FTok with to_raw(self) {
+  let n = match self {
+    A => 0
+    Ws => 3
+    Err => 4
+    Eof => 5
+  }
+  @seam.RawKind(n)
+}
+
+///|
 enum FKind {
   KChar
   KExpr

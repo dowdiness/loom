@@ -207,6 +207,7 @@ pub fn make_reuse_cursor(
   damage_start : Int,
   damage_end : Int,
   tokens : Array[@core.TokenInfo[Token]],
+  source : String,
 ) -> @core.ReuseCursor[Token, SyntaxKind] {
   let starts = @core.build_starts(tokens)
   @core.ReuseCursor::new(
@@ -216,6 +217,9 @@ pub fn make_reuse_cursor(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
+    fn(i) {
+      source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
+    },
     json_spec,
   )
 }

@@ -49,6 +49,28 @@ pub impl @seam.IsEof for Token with is_eof(self) {
 }
 
 ///|
+/// Maps tokens to the same raw-kind space as SyntaxKind.
+pub impl @seam.ToRawKind for Token with to_raw(self) {
+  let n : Int = match self {
+    LBrace => 0
+    RBrace => 1
+    LBracket => 2
+    RBracket => 3
+    Colon => 4
+    Comma => 5
+    StringLit(_) => 6
+    NumberLit(_) => 7
+    True => 8
+    False => 9
+    Null => 10
+    Whitespace => 11
+    Error(_) => 12
+    EOF => 13
+  }
+  @seam.RawKind(n)
+}
+
+///|
 pub fn print_token(token : Token) -> String {
   token.to_string()
 }

@@ -200,6 +200,12 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           buffer.token_count(),
           fn(i) { buffer.get_token(i) },
           fn(i) { buffer.get_start(i) },
+          fn(i) {
+            source.view(
+              start_offset=buffer.get_start(i),
+              end_offset=buffer.get_end(i),
+            )
+          },
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
           old_token_cache=old_token_cache.val,

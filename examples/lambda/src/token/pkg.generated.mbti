@@ -43,12 +43,11 @@ pub(all) enum Token {
   Newline
   Error(String)
   EOF
-}
+} derive(Eq, @debug.Debug)
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
-pub impl Eq for Token
+pub impl @seam.ToRawKind for Token
 pub impl Show for Token
-pub impl @debug.Debug for Token
 
 // Type aliases
 pub using @core {type TokenInfo}

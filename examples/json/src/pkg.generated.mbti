@@ -4,6 +4,7 @@ package "dowdiness/json"
 import {
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
@@ -17,7 +18,7 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue]
 
 pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]]) -> @core.ReuseCursor[Token, SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[Token]], String) -> @core.ReuseCursor[Token, SyntaxKind]
 
 pub fn parse(String) -> JsonValue raise
 
@@ -57,12 +58,12 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-}
+} derive(Eq, Show, ToJson, @debug.Debug)
 pub impl @core.Renderable for JsonValue
 pub impl @core.TreeNode for JsonValue
-pub impl Eq for JsonValue
-pub impl Show for JsonValue
-pub impl @debug.Debug for JsonValue
+pub impl @pretty.Pretty for JsonValue
+pub impl @pretty.Printable for JsonValue
+pub impl @pretty.Source for JsonValue
 
 pub(all) enum SyntaxKind {
   LBraceToken
@@ -88,12 +89,10 @@ pub(all) enum SyntaxKind {
   NullValue
   ErrorNode
   RootNode
-}
+} derive(Eq, Show)
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.ToRawKind for SyntaxKind
-pub impl Eq for SyntaxKind
-pub impl Show for SyntaxKind
 
 pub(all) enum Token {
   LBrace
@@ -110,12 +109,11 @@ pub(all) enum Token {
   Whitespace
   Error(String)
   EOF
-}
+} derive(Eq, @debug.Debug)
 pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
-pub impl Eq for Token
+pub impl @seam.ToRawKind for Token
 pub impl Show for Token
-pub impl @debug.Debug for Token
 
 // Type aliases
 

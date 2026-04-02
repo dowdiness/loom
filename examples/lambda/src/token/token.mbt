@@ -67,6 +67,39 @@ pub impl @seam.IsEof for Token with is_eof(self) {
 }
 
 ///|
+/// Maps tokens to the same raw-kind space as SyntaxKind.
+/// Fixed tokens map to their corresponding SyntaxKind raw values.
+/// Value-carrying tokens (Identifier, Integer) map to IdentToken/IntToken kinds.
+pub impl @seam.ToRawKind for Token with to_raw(self) {
+  let n : Int = match self {
+    Lambda => 0 // LambdaToken
+    Dot => 1 // DotToken
+    LeftParen => 2 // LeftParenToken
+    RightParen => 3 // RightParenToken
+    Plus => 4 // PlusToken
+    Minus => 5 // MinusToken
+    If => 6 // IfKeyword
+    Then => 7 // ThenKeyword
+    Else => 8 // ElseKeyword
+    Identifier(_) => 9 // IdentToken
+    Integer(_) => 10 // IntToken
+    Whitespace => 11 // WhitespaceToken
+    Error(_) => 12 // ErrorToken
+    EOF => 13 // EofToken
+    Let => 23 // LetKeyword
+    In => 24 // InKeyword (gap in SyntaxKind numbering)
+    Eq => 25 // EqToken
+    Newline => 28 // NewlineToken
+    LBrace => 29 // LBraceToken
+    RBrace => 30 // RBraceToken
+    Comma => 31 // CommaToken
+    Semicolon => 32 // SemicolonToken
+    Hole => 35 // HoleToken
+  }
+  @seam.RawKind(n)
+}
+
+///|
 pub using @core {type TokenInfo}
 
 ///|

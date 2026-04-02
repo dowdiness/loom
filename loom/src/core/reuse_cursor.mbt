@@ -3,8 +3,8 @@
 //
 // All language-specific checks are delegated to the LanguageSpec and K-traits:
 //   K.to_raw() / whitespace_kind / error_kind — classify old-tree RawKind values
-//   cst_token_matches            — match old leaf (RawKind + text) to new token T
 //   token_is_trivia / token_is_eof — classify new token stream values
+//   get_text(pos) — source text at token position, for kind+text comparison
 //
 // Uses (damage_start, damage_end : Int) instead of Range to keep the
 // ReuseCursor::new signature uniform and avoid coupling it to the Range type.
@@ -112,6 +112,7 @@ pub struct ReuseCursor[T, K] {
   token_count : Int
   get_token : (Int) -> T
   get_start : (Int) -> Int
+  get_text : (Int) -> StringView
   spec : LanguageSpec[T, K]
 }
 
@@ -165,6 +166,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   token_count : Int,
   get_token : (Int) -> T,
   get_start : (Int) -> Int,
+  get_text : (Int) -> StringView,
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
@@ -192,6 +194,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     token_count,
     get_token,
     get_start,
+    get_text,
     spec,
   }
 }
@@ -228,7 +231,7 @@ fn is_outside_damage(
 
 ///|
 /// True if the first non-trivia leaf of node matches the new token at token_pos.
-fn[T, K : @seam.ToRawKind] leading_token_matches(
+fn[T : @seam.ToRawKind, K : @seam.ToRawKind] leading_token_matches(
   node : @seam.CstNode,
   cursor : ReuseCursor[T, K],
   token_pos : Int,
@@ -236,12 +239,13 @@ fn[T, K : @seam.ToRawKind] leading_token_matches(
   if token_pos >= cursor.token_count {
     return false
   }
-  let expected_token = (cursor.get_token)(token_pos)
+  let new_kind = (cursor.get_token)(token_pos).to_raw()
   let ws_raw = cursor.spec.whitespace_kind.to_raw()
   match node.first_token(fn(r) { r == ws_raw }) {
     None => false
-    Some(tok) =>
-      (cursor.spec.cst_token_matches)(tok.kind, tok.text, expected_token)
+    Some(old_tok) =>
+      old_tok.kind == new_kind &&
+      old_tok.text.view() == (cursor.get_text)(token_pos)
   }
 }
 
@@ -316,11 +320,11 @@ impl[T, K] OffsetIndexed for ReuseCursor[T, K] with offset_at(self, i) {
 /// Find the first non-trivia, non-EOF token in the new stream with start >= byte_offset.
 /// Binary-search for the first index where get_start(i) >= byte_offset, then
 /// scan forward skipping trivia (token_is_trivia) and stopping at EOF (token_is_eof).
-/// Return Some(token) for the first real token, or None if no such token exists.
-fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token(
+/// Returns both the token and its index for get_text(pos) lookup.
+fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
   cursor : ReuseCursor[T, K],
   byte_offset : Int,
-) -> T? {
+) -> (T, Int)? {
   let mut lo = lower_bound(cursor, byte_offset)
   while lo < cursor.token_count {
     let t = (cursor.get_token)(lo)
@@ -331,7 +335,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token(
       lo = lo + 1
       continue
     }
-    return Some(t)
+    return Some((t, lo))
   }
   None
 }
@@ -340,16 +344,17 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token(
 /// True if the follow token after node_end matches between old and new streams.
 /// Option B correctness: if the first token after the node is the same in both
 /// old and new source, the node boundary is stable and reuse is safe.
-fn[T : @seam.IsTrivia + @seam.IsEof, K] trailing_context_matches(
+fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_matches(
   cursor : ReuseCursor[T, K],
   node_end : Int,
 ) -> Bool {
   let old_follow = old_follow_token_lazy(cursor, node_end)
-  let new_follow = new_follow_token(cursor, node_end)
+  let new_follow = new_follow_token_with_pos(cursor, node_end)
   match (old_follow, new_follow) {
     (None, None) => true
-    (Some(old), Some(new_tok)) =>
-      (cursor.spec.cst_token_matches)(old.kind, old.text, new_tok)
+    (Some(old), Some((new_tok, new_pos))) =>
+      old.kind == new_tok.to_raw() &&
+      old.text.view() == (cursor.get_text)(new_pos)
     _ => false
   }
 }
@@ -466,7 +471,7 @@ fn[T, K] ReuseCursor::seek_node_at(
 ///   4. Node is entirely outside the damage range
 ///   5. Leading token of node matches the new token at token_pos
 ///   6. Follow token after the node matches between old and new streams
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
@@ -514,7 +519,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_r
 ///
 /// Called by grammar code before parsing individual items in a repeat loop
 /// to enable O(log n) reuse of balanced subtrees.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(
   self : ReuseCursor[T, K],
   byte_offset : Int,
   token_pos : Int,
@@ -677,6 +682,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     token_count: self.token_count,
     get_token: self.get_token,
     get_start: self.get_start,
+    get_text: self.get_text,
     spec: self.spec,
   }
 }

@@ -20,7 +20,7 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Te
 
 pub let lambda_grammar_no_threshold : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
 
-pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]]) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
+pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]], String) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
 pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.Term]
 
@@ -117,9 +117,7 @@ pub impl ToJson for ParenExprView
 
 pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
-}
-pub impl Eq for Resolution
-pub impl Show for Resolution
+} derive(Eq, Show)
 
 pub struct VarRefView {
   node : @seam.SyntaxNode
@@ -132,9 +130,7 @@ pub impl ToJson for VarRefView
 pub(all) enum VarStatus {
   Bound(depth~ : Int)
   Free
-}
-pub impl Eq for VarStatus
-pub impl Show for VarStatus
+} derive(Eq, Show)
 
 // Type aliases
 pub using @ast {type Bop}

@@ -529,7 +529,7 @@ pub fn[T, K] ParserContext::set_reuse_diagnostics(
 /// all whitespace-separated constructs (the common case).
 ///
 /// Returns None immediately if no cursor is attached (non-incremental parse).
-fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse(
+fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse(
   self : ParserContext[T, K],
   kind : K,
 ) -> @seam.CstNode? {
@@ -773,7 +773,7 @@ fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
 /// Reuse-aware node combinator. The core grammar API.
 /// On reuse hit: emits the old node and skips body entirely — O(1) per node.
 /// On miss: start_node → body() → finish_node — standard parse path.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node(
   self : ParserContext[T, K],
   kind : K,
   body : () -> Unit,
@@ -806,7 +806,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::nod
 /// the next token will be whatever follows the group. No start_node or
 /// finish_node events are pushed; the ReuseNode event reattaches the
 /// pre-built balanced tree as-is.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(
   self : ParserContext[T, K],
 ) -> Bool {
   if self.position >= self.token_count {

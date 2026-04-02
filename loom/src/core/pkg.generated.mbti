@@ -166,8 +166,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::new(Array[TokenInfo[T]], String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K] ParserContext::new_indexed(Int, (Int) -> T, (Int) -> Int, (Int) -> Int, String, LanguageSpec[T, K]) -> Self[T, K]
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
@@ -180,7 +180,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
 pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> StringView
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 
 pub(all) struct PrefixLexer[T] {
@@ -215,16 +215,17 @@ pub struct ReuseCursor[T, K] {
   token_count : Int
   get_token : (Int) -> T
   get_start : (Int) -> Int
+  get_text : (Int) -> StringView
   spec : LanguageSpec[T, K]
 }
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T, K] ReuseCursor::get_old_token_cache(Self[T, K]) -> OldTokenCache
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
 
 pub(all) enum TextDelta {
   Retain(Int)

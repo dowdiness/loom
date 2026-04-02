@@ -11,17 +11,23 @@
 ///|
 fn make_short_id_source() -> String {
   for i in 1..<55; s = "a" {
-    continue s + " + " + (97 + (i % 26)).unsafe_to_char().to_string()
-  } nobreak { s }
+    continue s + " + " + (97 + i % 26).unsafe_to_char().to_string()
+  } nobreak {
+    s
+  }
 }
 
 ///|
 fn make_long_id_source() -> String {
   for i in 1..<55; s = "abcdefghijklmnopqrst" {
     for j in 0..<20; id = "" {
-      continue id + (97 + ((i + j) % 26)).to_string()
-    } nobreak { continue s + " + " + id }
-  } nobreak { s }
+      continue id + (97 + (i + j) % 26).to_string()
+    } nobreak {
+      continue s + " + " + id
+    }
+  } nobreak {
+    s
+  }
 }
 
 // --- Tokenize-only benchmarks ---
