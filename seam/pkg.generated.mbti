@@ -16,7 +16,7 @@ pub fn combine_hash(Int, Int) -> Int
 
 pub let repeat_group_kind : RawKind
 
-pub fn string_hash(String) -> Int
+pub fn string_hash(StringView) -> Int
 
 // Errors
 
