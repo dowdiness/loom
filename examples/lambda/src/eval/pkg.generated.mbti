@@ -19,7 +19,7 @@ pub(all) suberror StuckReason {
 } derive(Show)
 
 // Types and methods
-pub(all) struct Env {
+pub struct Env {
   bindings : Map[String, Value]
 } derive(Eq, Show, @debug.Debug)
 pub fn Env::empty() -> Self

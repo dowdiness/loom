@@ -15,7 +15,7 @@ pub(all) suberror StuckReason {
 } derive(Show)
 
 ///|
-pub(all) struct Env {
+pub struct Env {
   bindings : Map[String, Value]
 } derive(Show, Eq, Debug)
 

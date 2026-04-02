@@ -83,3 +83,36 @@ test "eval: if with computed condition" {
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
   inspect(result, content="Ok(VInt(20))")
 }
+
+///|
+test "eval: minus non-integer is type error" {
+  let term = @ast.Term::Bop(
+    Minus,
+    @ast.Term::Lam("x", @ast.Term::Var("x")),
+    @ast.Term::Int(1),
+  )
+  let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
+  inspect(result, content="Err(TypeMismatch(\"minus: expected integer\"))")
+}
+
+///|
+test "eval: module forward reference fails" {
+  // let y = x in let x = 1 in y — x not yet defined when y is evaluated
+  let term = @ast.Term::Module(
+    [("y", @ast.Term::Var("x")), ("x", @ast.Term::Int(1))],
+    @ast.Term::Var("y"),
+  )
+  let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
+  inspect(result, content="Err(Unbound(\"x\"))")
+}
+
+///|
+test "eval: unit value flows through application" {
+  // (λx. 1) unit → 1
+  let term = @ast.Term::App(
+    @ast.Term::Lam("x", @ast.Term::Int(1)),
+    @ast.Term::Unit,
+  )
+  let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
+  inspect(result, content="Ok(VInt(1))")
+}
