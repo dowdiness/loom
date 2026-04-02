@@ -162,7 +162,7 @@ test "eval: apply non-function is type error" {
 
 ///|
 test "eval: simple let binding" {
-  // let x = 2 in x + x
+  // let x = 2 \n x + x
   let term = @ast.Term::Module(
     [("x", @ast.Term::Int(2))],
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("x")),
@@ -173,7 +173,7 @@ test "eval: simple let binding" {
 
 ///|
 test "eval: nested let bindings" {
-  // let x = 1 in let y = 2 in x + y
+  // let x = 1 \n let y = 2 \n x + y
   let term = @ast.Term::Module(
     [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
@@ -184,7 +184,7 @@ test "eval: nested let bindings" {
 
 ///|
 test "eval: let shadowing" {
-  // let x = 1 in let x = 2 in x
+  // let x = 1 \n let x = 2 \n x
   let term = @ast.Term::Module(
     [("x", @ast.Term::Int(1)), ("x", @ast.Term::Int(2))],
     @ast.Term::Var("x"),

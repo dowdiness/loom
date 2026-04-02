@@ -400,37 +400,28 @@ test "parse_term: single expression (no defs)" {
 }
 
 ///|
-test "parse_term: let-expression (no defs)" {
-  let (term, diagnostics) = parse_term("let x = 1 in x")
-  inspect(
-    diagnostics.length(),
-    content=(
-      #|0
-    ),
-  )
+test "parse_term: single let definition with body" {
+  let (term, diagnostics) = parse_term("let x = 1\nx")
+  inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),
     content=(
-      #|let x = ((1 in) x)
-      #|()
+      #|let x = 1
+      #|x
     ),
   )
 }
 
 ///|
-test "parse_term: multiline let-expression (no defs)" {
-  let (term, diagnostics) = parse_term("let x = 1\nin x")
-  inspect(
-    diagnostics.length(),
-    content=(
-      #|0
-    ),
-  )
+test "parse_term: multiple let definitions with body" {
+  let (term, diagnostics) = parse_term("let x = 1\nlet y = 2\nx + y")
+  inspect(diagnostics.length(), content="0")
   inspect(
     @ast.print_term(term),
     content=(
       #|let x = 1
-      #|(in x)
+      #|let y = 2
+      #|(x + y)
     ),
   )
 }

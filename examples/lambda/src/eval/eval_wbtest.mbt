@@ -97,7 +97,7 @@ test "eval: minus non-integer is type error" {
 
 ///|
 test "eval: module forward reference fails" {
-  // let y = x in let x = 1 in y — x not yet defined when y is evaluated
+  // let y = x \n let x = 1 \n y — x not yet defined when y is evaluated
   let term = @ast.Term::Module(
     [("y", @ast.Term::Var("x")), ("x", @ast.Term::Int(1))],
     @ast.Term::Var("y"),

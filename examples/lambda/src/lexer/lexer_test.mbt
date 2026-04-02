@@ -263,15 +263,15 @@ test "tokenize eq" {
 }
 
 ///|
-test "tokenize let with in as identifier" {
-  let tokens = tokenize("let x = 1 in x") catch {
+test "tokenize let definition" {
+  let tokens = tokenize("let x = 1") catch {
     _ => abort("tokenize failed")
   }
   let s = @token.print_token_infos(tokens)
   inspect(s.contains("let"), content="true")
-  // "in" lexes as identifier, not keyword
   inspect(s.contains("<ident>"), content="true")
   inspect(s.contains("="), content="true")
+  inspect(s.contains("<int>"), content="true")
 }
 
 ///|
