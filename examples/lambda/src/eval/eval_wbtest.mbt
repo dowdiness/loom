@@ -60,7 +60,7 @@ test "eval: empty module with Unit body" {
 
 ///|
 test "eval: module definition uses previous binding" {
-  // let x = 2 in let y = x + 1 in y
+  // let x = 2 \n let y = x + 1 \n y
   let term = @ast.Term::Module(
     [
       ("x", @ast.Term::Int(2)),

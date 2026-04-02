@@ -195,7 +195,7 @@ test "eval: let shadowing" {
 
 ///|
 test "eval: closure captures environment" {
-  // let five = 5 in let add_five = λx. x + five in let five = 6 in add_five 1
+  // let five = 5 \n let add_five = λx. x + five \n let five = 6 \n add_five 1
   // Should evaluate to 6 (lexical scoping: add_five closes over five=5)
   let term = @ast.Term::Module(
     [
