@@ -8,6 +8,8 @@ pub(all) enum SyntaxCategory {
   Punctuation
   Comment
   Error
+  EvalAnnotation
+  EvalError
 } derive(Show, Eq)
 
 ///|
