@@ -244,6 +244,7 @@ pub fn[T] TokenBuffer::get_starts(Self[T]) -> Array[Int]
 pub fn[T] TokenBuffer::get_token(Self[T], Int) -> T
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
+pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
 pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
