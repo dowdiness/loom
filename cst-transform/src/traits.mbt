@@ -59,14 +59,14 @@ pub fn[R : TransformFolder] GreenNode::accept_transform_fold(
 ///|
 /// Statically-dispatched DFS walk with early termination.
 pub fn[W : Walker] GreenNode::accept_walk(self : GreenNode, w : W) -> Bool {
-  if not(W::walk(w, self)) {
+  if !W::walk(w, self) {
     return false
   }
   match self {
     Leaf(_, _) => true
     Branch(_, children) => {
       for child in children {
-        if not(child.accept_walk(w)) {
+        if !child.accept_walk(w) {
           return false
         }
       }

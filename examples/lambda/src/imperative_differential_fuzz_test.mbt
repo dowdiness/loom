@@ -25,11 +25,7 @@ fn idf_clamp(pos : Int, len : Int) -> Int {
 
 ///|
 fn idf_slice_string(s : String, start : Int, end : Int) -> String? {
-  let res : Result[StringView, Error] = try? s[start:end]
-  match res {
-    Ok(view) => Some(view.to_string())
-    Err(_) => None
-  }
+  Some(s[start:end].to_string())
 }
 
 ///|

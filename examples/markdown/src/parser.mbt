@@ -1,12 +1,4 @@
 ///|
-/// Exported for external callers that use parse_markdown and want to handle
-/// parse errors with the offending token. Currently unused internally because
-/// the tolerant parse() API returns Error nodes instead of raising.
-pub suberror ParseError {
-  ParseError(String, Token)
-}
-
-///|
 pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, Array[@core.Diagnostic[Token]]) raise @core.LexError {

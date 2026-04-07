@@ -223,9 +223,7 @@ pub fn tokenize_range(
   start : Int,
   end : Int,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
-  let slice = input[start:end] catch {
-      _ => raise @core.LexError("Invalid slice")
-    }
+  let slice = input[start:end]
   let tokens = tokenize(slice.to_string())
   // Tokens are position-independent — no offset adjustment needed.
   // Just strip the trailing EOF.

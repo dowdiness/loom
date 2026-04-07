@@ -7,11 +7,6 @@ enum FTok {
 } derive(Eq, Debug)
 
 ///|
-impl Show for FTok with output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 impl @seam.IsTrivia for FTok with is_trivia(self) {
   self == Ws
 }

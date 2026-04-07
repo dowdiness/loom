@@ -55,7 +55,7 @@ pub fn parse_json_string(raw : String) -> String {
               // \uXXXX — parse 4 hex digits
               if i + 5 < len {
                 let hex = inner[i + 2:i + 6].to_string()
-                let cp = @strconv.parse_int(hex, base=16) catch {
+                let cp = @string.parse_int(hex, base=16) catch {
                   _ => {
                     buf.write_char('\\')
                     i = i + 1
@@ -66,7 +66,7 @@ pub fn parse_json_string(raw : String) -> String {
                   // High surrogate — look for low surrogate \uXXXX
                   if i + 11 < len && inner[i + 6:i + 8].to_string() == "\\u" {
                     let low_hex = inner[i + 8:i + 12].to_string()
-                    let low = @strconv.parse_int(low_hex, base=16) catch {
+                    let low = @string.parse_int(low_hex, base=16) catch {
                       _ => -1
                     }
                     if low >= 0xDC00 && low <= 0xDFFF {
@@ -200,7 +200,7 @@ pub fn json_fold_node(
     }
     NumberValue => {
       let text = node.token_text(NumberToken.to_raw())
-      let n = @strconv.parse_double(text) catch {
+      let n = @string.parse_double(text) catch {
         _ => return JsonValue::Error("invalid number: " + text)
       }
       JsonValue::Number(n)

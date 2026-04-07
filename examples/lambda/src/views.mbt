@@ -334,7 +334,7 @@ pub fn IntLiteralView::value(self : IntLiteralView) -> Int? {
   match self.node.find_token(@syntax.IntToken.to_raw()) {
     None => None
     Some(t) => {
-      let n = @strconv.parse_int(t.text()) catch { _ => return None }
+      let n = @string.parse_int(t.text()) catch { _ => return None }
       Some(n)
     }
   }

@@ -97,7 +97,7 @@ pub impl TermSym for PrettyLayout with int_lit(n) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with var(name) {
+pub impl TermSym for PrettyLayout with variable(name) {
   { layout: ident(name), prec: prec_atom }
 }
 
@@ -170,7 +170,7 @@ pub impl TermSym for PrettyLayout with if_then_else(cond, then_, else_) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with module(defs, body) {
+pub impl TermSym for PrettyLayout with mod(defs, body) {
   let def_layouts : Array[@pretty.Layout[@pretty.SyntaxCategory]] = defs.map(fn(
     d,
   ) {

@@ -39,11 +39,7 @@ fn build_source_from_seed(seed : Int, count_raw : Int) -> String {
 
 ///|
 fn slice_string(s : String, start : Int, end : Int) -> String? {
-  let res : Result[StringView, Error] = try? s[start:end]
-  match res {
-    Ok(view) => Some(view.to_string())
-    Err(_) => None
-  }
+  Some(s[start:end].to_string())
 }
 
 ///|
