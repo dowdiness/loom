@@ -63,7 +63,7 @@ pub impl @loomcore.Renderable for Term with label(self) {
     Var(name) => name
     Lam(param, _) => "\u{03BB}" + param
     App(_, _) => "App"
-    Bop(op, _, _) => op.to_string()
+    Bop(op, _, _) => @debug.to_string(op)
     If(_, _, _) => "if"
     Module(defs, _) => {
       let names = defs.map(fn(d) { d.0 })

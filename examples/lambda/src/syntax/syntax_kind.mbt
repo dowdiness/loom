@@ -35,7 +35,12 @@ pub(all) enum SyntaxKind {
   BlockExpr // { LetDef* Expression? }
   HoleToken // _
   HoleLiteral // _ (hole expression node)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for SyntaxKind with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {

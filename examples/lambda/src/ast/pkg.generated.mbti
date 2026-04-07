@@ -20,7 +20,8 @@ pub fn[T : TermSym] replay(Term) -> T
 pub(all) enum Bop {
   Plus
   Minus
-} derive(Eq, Show, ToJson, @debug.Debug, @json.FromJson)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub impl Show for Bop
 
 pub(all) struct Pretty {
   repr : String
@@ -45,13 +46,14 @@ pub(all) enum Term {
   Unbound(String)
   Error(String)
   Hole(Int)
-} derive(Eq, Show, ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 pub impl TermSym for Term
 pub impl @core.Renderable for Term
 pub impl @core.TreeNode for Term
 pub impl @pretty.Pretty for Term
 pub impl @pretty.Printable for Term
 pub impl @pretty.Source for Term
+pub impl Show for Term
 pub impl @moonbitlang/core/quickcheck.Arbitrary for Term
 pub impl @moonbitlang/quickcheck.Shrink for Term
 

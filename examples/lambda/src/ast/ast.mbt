@@ -7,7 +7,12 @@ pub type VarName = String
 pub(all) enum Bop {
   Plus
   Minus
-} derive(Show, Eq, FromJson, ToJson, Debug)
+} derive(Eq, FromJson, ToJson, Debug)
+
+///|
+pub impl Show for Bop with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) enum Term {
@@ -33,7 +38,12 @@ pub(all) enum Term {
   Error(String)
   // Hole — placeholder for deleted or incomplete nodes
   Hole(Int)
-} derive(Show, Eq, ToJson, Debug)
+} derive(Eq, ToJson, Debug)
+
+///|
+pub impl Show for Term with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn print_term(term : Term) -> String {

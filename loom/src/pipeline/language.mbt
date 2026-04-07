@@ -53,4 +53,4 @@ pub(all) struct CstStage {
   cst : @seam.CstNode
   diagnostics : Array[String]
   is_lex_error : Bool
-} derive(Eq, Show)
+} derive(Eq, Debug)

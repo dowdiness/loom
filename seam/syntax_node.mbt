@@ -46,7 +46,7 @@ pub impl Show for SyntaxToken with output(self, logger) {
 pub(all) enum SyntaxElement {
   Node(SyntaxNode)
   Token(SyntaxToken)
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// Result of a position query on a syntax tree.
@@ -61,7 +61,7 @@ pub enum TokenAtOffset {
   None
   Single(SyntaxToken)
   Between(SyntaxToken, SyntaxToken)
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 pub fn SyntaxElement::start(self : SyntaxElement) -> Int {

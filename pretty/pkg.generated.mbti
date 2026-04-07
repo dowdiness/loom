@@ -54,7 +54,8 @@ pub(all) enum Cmd[A] {
   CNewline(Int)
   CAnnStart(A)
   CAnnEnd(A)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl[A : @debug.Debug] Show for Cmd[A]
 
 pub enum Layout[A] {
   Empty
@@ -65,13 +66,15 @@ pub enum Layout[A] {
   Concat(Layout[A], Layout[A])
   Group(Layout[A])
   Annotate(A, Layout[A])
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub impl[A] Add for Layout[A]
+pub impl[A : @debug.Debug] Show for Layout[A]
 
 pub(all) struct Span {
   start : Int
   end : Int
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl Show for Span
 
 pub(all) enum SyntaxCategory {
   Keyword
@@ -82,7 +85,10 @@ pub(all) enum SyntaxCategory {
   Punctuation
   Comment
   Error
-} derive(Eq, Show)
+  EvalAnnotation
+  EvalError
+} derive(Eq, @debug.Debug)
+pub impl Show for SyntaxCategory
 
 // Type aliases
 

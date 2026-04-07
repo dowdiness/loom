@@ -6,7 +6,7 @@
 pub struct TokenInfo[T] {
   token : T
   len : Int // length in code units
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// A parse diagnostic (error or warning) with source position.
@@ -16,7 +16,12 @@ pub struct Diagnostic[T] {
   start : Int
   end : Int
   got_token : T
-} derive(Show)
+} derive(Debug)
+
+///|
+pub impl[T : Debug] Show for Diagnostic[T] with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Format a diagnostic as `"message [start,end]"`.

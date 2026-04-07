@@ -5,7 +5,12 @@
 pub(all) struct Range {
   start : Int
   end : Int
-} derive(Show, Eq, Hash, Compare)
+} derive(Debug, Eq, Hash, Compare)
+
+///|
+pub impl Show for Range with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Create a new range

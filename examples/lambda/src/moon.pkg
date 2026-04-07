@@ -5,6 +5,7 @@ import {
   "dowdiness/lambda/syntax",
   "dowdiness/loom/core" @core,
   "dowdiness/loom/viz" @viz,
+  "moonbitlang/core/debug",
   "dowdiness/seam" @seam,
   "moonbitlang/core/strconv",
   "dowdiness/loom" @loom,

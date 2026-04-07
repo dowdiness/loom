@@ -25,7 +25,7 @@ pub fn string_hash(StringView) -> Int
 pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
-} derive(Show, @debug.Debug)
+} derive(@debug.Debug)
 pub fn[R : Folder] CstElement::accept_fold(Self) -> R
 pub fn[R : TransformFolder] CstElement::accept_transform_fold(Self) -> R
 pub fn CstElement::each(Self, (Self) -> Bool) -> Bool
@@ -48,7 +48,7 @@ pub(all) struct CstNode {
   hash : Int
   token_count : Int
   has_any_error : Bool
-} derive(Show, @debug.Debug)
+} derive(@debug.Debug)
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
@@ -63,7 +63,7 @@ pub(all) struct CstToken {
   hash : Int
 
   fn new(RawKind, StringView) -> CstToken
-} derive(Show, @debug.Debug)
+} derive(@debug.Debug)
 pub fn CstToken::new(RawKind, StringView) -> Self
 pub fn CstToken::text_len(Self) -> Int
 pub impl Eq for CstToken
@@ -90,10 +90,11 @@ pub fn Interner::intern_token(Self, RawKind, StringView) -> CstToken
 pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int
 
-pub(all) struct NodeCount(Int) derive(Show)
+pub(all) struct NodeCount(Int) derive(@debug.Debug)
 #deprecated
 pub fn NodeCount::inner(Self) -> Int
 pub impl TransformFolder for NodeCount
+pub impl Show for NodeCount
 
 pub struct NodeInterner(@hashmap.HashMap[CstNode, CstNode])
 pub fn NodeInterner::clear(Self) -> Unit
@@ -109,16 +110,17 @@ pub(all) enum ParseEvent {
   Token(RawKind, StringView)
   Tombstone
   ReuseNode(CstNode)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
-pub(all) struct RawKind(Int) derive(Compare, Eq, Hash, Show, @debug.Debug)
+pub(all) struct RawKind(Int) derive(Compare, Eq, Hash, @debug.Debug)
 #deprecated
 pub fn RawKind::inner(Self) -> Int
+pub impl Show for RawKind
 
 pub(all) enum SyntaxElement {
   Node(SyntaxNode)
   Token(SyntaxToken)
-} derive(Show, @debug.Debug)
+} derive(@debug.Debug)
 pub fn SyntaxElement::end(Self) -> Int
 pub fn SyntaxElement::start(Self) -> Int
 
@@ -165,16 +167,17 @@ pub fn SyntaxToken::start(Self) -> Int
 pub fn SyntaxToken::text(Self) -> String
 pub impl Show for SyntaxToken
 
-pub(all) struct TextLen(Int) derive(Show)
+pub(all) struct TextLen(Int) derive(@debug.Debug)
 #deprecated
 pub fn TextLen::inner(Self) -> Int
 pub impl Folder for TextLen
+pub impl Show for TextLen
 
 pub enum TokenAtOffset {
   None
   Single(SyntaxToken)
   Between(SyntaxToken, SyntaxToken)
-} derive(Show, @debug.Debug)
+} derive(@debug.Debug)
 
 // Type aliases
 

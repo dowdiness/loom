@@ -16,7 +16,12 @@ pub(all) enum TokenKind {
   Whitespace
   Newline
   Eof
-} derive(Eq, Show, Hash, Compare)
+} derive(Eq, Debug, Hash, Compare)
+
+///|
+pub impl Show for TokenKind with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) enum SyntaxKind {
@@ -30,13 +35,18 @@ pub(all) enum SyntaxKind {
   Literal
   Name
   Error
-} derive(Eq, Show, Hash, Compare)
+} derive(Eq, Debug, Hash, Compare)
+
+///|
+pub impl Show for SyntaxKind with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) enum GreenNode {
   Leaf(TokenKind, String)
   Branch(SyntaxKind, Array[GreenNode])
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 // ── Closure-based methods ───────────────────────────────────────────
 

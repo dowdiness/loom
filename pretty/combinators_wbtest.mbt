@@ -67,7 +67,12 @@ test "separate" {
   ])
   inspect(
     doc,
-    content="Concat(Concat(Concat(Concat(Text(\"a\"), Text(\", \")), Text(\"b\")), Text(\", \")), Text(\"c\"))",
+    content=(
+      #|Concat(
+      #|  Concat(Concat(Concat(Text("a"), Text(", ")), Text("b")), Text(", ")),
+      #|  Text("c"),
+      #|)
+    ),
   )
 }
 

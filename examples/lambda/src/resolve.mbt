@@ -11,12 +11,17 @@
 pub(all) enum VarStatus {
   Bound(depth~ : Int)
   Free
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for VarStatus with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {

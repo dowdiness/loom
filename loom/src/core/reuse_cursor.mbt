@@ -27,7 +27,7 @@ struct OldToken {
   kind : @seam.RawKind
   text : String
   start : Int
-} derive(Show, Eq, Compare)
+} derive(Debug, Eq, Compare)
 
 ///|
 /// Persistent cache for the flattened old-token table.

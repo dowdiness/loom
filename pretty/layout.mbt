@@ -26,4 +26,9 @@ pub enum Layout[A] {
   /// Attach a semantic tag to content. Transparent to layout decisions.
   /// Emitted as CAnnStart/CAnnEnd in the Cmd stream for render_spans.
   Annotate(A, Layout[A])
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl[A : Debug] Show for Layout[A] with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}

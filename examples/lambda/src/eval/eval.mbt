@@ -33,7 +33,12 @@ pub(all) enum Value {
   VInt(Int)
   VClosure(Env, @ast.VarName, @ast.Term)
   VUnit
-} derive(Show, Eq, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for Value with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Why evaluation got stuck.
@@ -51,7 +56,12 @@ pub(all) suberror StuckReason {
   Incomplete
   ParseError
   Divergence
-} derive(Show)
+} derive(Debug)
+
+///|
+pub impl Show for StuckReason with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// An environment maps variable names to their values.
@@ -62,7 +72,7 @@ pub(all) suberror StuckReason {
 /// to the "same" scope must not affect the captured bindings.
 pub struct Env {
   bindings : Map[String, Value]
-} derive(Show, Eq, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn Env::empty() -> Env {

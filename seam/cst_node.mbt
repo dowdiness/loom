@@ -1,7 +1,12 @@
 ///|
 /// Language-independent node kind (equivalent to rowan's RawSyntaxKind).
 /// Each language defines its own enum and converts to/from RawKind via to_raw()/from_raw().
-pub(all) struct RawKind(Int) derive(Eq, Show, Hash, Compare, Debug)
+pub(all) struct RawKind(Int) derive(Eq, Hash, Compare, Debug)
+
+///|
+pub impl Show for RawKind with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Reserved RawKind for transparent repeat-group nodes.
@@ -25,7 +30,7 @@ pub(all) struct CstToken {
   hash : Int
 
   fn new(kind : RawKind, text : StringView) -> CstToken
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// Create a CstToken. Hash is computed from kind and text.
@@ -81,7 +86,7 @@ pub impl Hash for CstToken with hash_combine(self, hasher) {
 pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// Total byte length of this element's text.
@@ -160,7 +165,7 @@ pub(all) struct CstNode {
   /// Used by the incremental parser to skip O(subtree) error span collection
   /// for healthy reused nodes.
   has_any_error : Bool
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// Create a CstNode. text_len, hash, and token_count are computed from children.

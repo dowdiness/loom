@@ -1,19 +1,22 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/cst-transform"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
-pub(all) struct CstMeta(Int, Int, Int)
+pub(all) struct CstMeta(Int, Int, Int) derive(@debug.Debug)
 pub impl TransformFolder for CstMeta
-pub impl Show for CstMeta
 
 pub(all) enum GreenNode {
   Leaf(TokenKind, String)
   Branch(SyntaxKind, Array[GreenNode])
-}
+} derive(Eq, @debug.Debug)
 pub fn[R : Folder] GreenNode::accept_fold(Self) -> R
 pub fn[R : TransformFolder] GreenNode::accept_transform_fold(Self) -> R
 pub fn[V : MutVisitor] GreenNode::accept_visitor(Self, V) -> Unit
@@ -27,30 +30,25 @@ pub fn[R] GreenNode::transform(Self, (TokenKind, String) -> R, (SyntaxKind, Arra
 pub fn[R] GreenNode::transform_cps(Self, (TokenKind, String) -> R, (SyntaxKind, ((R) -> Unit) -> Unit) -> R) -> R
 pub fn[R] GreenNode::transform_fold(Self, (TokenKind, String) -> R, (SyntaxKind) -> R, (SyntaxKind, R, R) -> R) -> R
 pub fn[R] GreenNode::transform_view(Self, (TokenKind, String) -> R, (SyntaxKind, ArrayView[R]) -> R) -> R
-pub impl Eq for GreenNode
-pub impl Show for GreenNode
 
-pub(all) struct IdentFinder(Unit)
+pub(all) struct IdentFinder(Unit) derive(@debug.Debug)
 #deprecated
 pub fn IdentFinder::inner(Self) -> Unit
 pub impl Finder for IdentFinder
 pub impl Walker for IdentFinder
-pub impl Show for IdentFinder
 
 pub(all) struct MutMeta {
   mut text_len : Int
   mut token_count : Int
   mut node_count : Int
-}
+} derive(@debug.Debug)
 pub impl MutVisitor for MutMeta
-pub impl Show for MutMeta
 
-pub(all) struct NodeCount(Int)
+pub(all) struct NodeCount(Int) derive(@debug.Debug)
 #deprecated
 pub fn NodeCount::inner(Self) -> Int
 pub impl Folder for NodeCount
 pub impl TransformFolder for NodeCount
-pub impl Show for NodeCount
 
 pub(all) enum SyntaxKind {
   SourceFile
@@ -63,18 +61,14 @@ pub(all) enum SyntaxKind {
   Literal
   Name
   Error
-}
-pub impl Compare for SyntaxKind
-pub impl Eq for SyntaxKind
-pub impl Hash for SyntaxKind
+} derive(Compare, Eq, Hash, @debug.Debug)
 pub impl Show for SyntaxKind
 
-pub(all) struct TokenCount(Int)
+pub(all) struct TokenCount(Int) derive(@debug.Debug)
 #deprecated
 pub fn TokenCount::inner(Self) -> Int
 pub impl Folder for TokenCount
 pub impl TransformFolder for TokenCount
-pub impl Show for TokenCount
 
 pub(all) enum TokenKind {
   Ident
@@ -91,10 +85,7 @@ pub(all) enum TokenKind {
   Whitespace
   Newline
   Eof
-}
-pub impl Compare for TokenKind
-pub impl Eq for TokenKind
-pub impl Hash for TokenKind
+} derive(Compare, Eq, Hash, @debug.Debug)
 pub impl Show for TokenKind
 
 // Type aliases
