@@ -89,14 +89,14 @@ pub fn markdown_fold_node(
       let code_str = code_buf.to_string()
       let trimmed = if code_str.length() > 0 &&
         code_str.code_unit_at(0).to_char() == Some('\n') {
-        code_str.substring(start=1)
+        code_str[1:].to_string()
       } else {
         code_str
       }
       // Trim trailing newline (the one right before CodeFenceClose)
       let final_code = if trimmed.length() > 0 &&
         trimmed.code_unit_at(trimmed.length() - 1).to_char() == Some('\n') {
-        trimmed.substring(end=trimmed.length() - 1)
+        trimmed[:trimmed.length() - 1].to_string()
       } else {
         trimmed
       }

@@ -23,21 +23,9 @@ fn drive_parser_update(
   let edits = @core.text_to_delta(old_text, new_text) |> @core.to_edits
   let mut current = old_text
   for edit in edits {
-    let inserted = try new_text[edit.start:edit.start + edit.new_len] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let prefix = try current[0:edit.start] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let suffix = try current[edit.start + edit.old_len:] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
+    let inserted = new_text[edit.start:edit.start + edit.new_len].to_string()
+    let prefix = current[0:edit.start].to_string()
+    let suffix = current[edit.start + edit.old_len:].to_string()
     current = prefix + inserted + suffix
     parser.edit(edit, current) |> ignore
   }

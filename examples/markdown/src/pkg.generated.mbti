@@ -28,9 +28,6 @@ pub fn parse_markdown(String) -> (Block, Array[@core.Diagnostic[Token]]) raise @
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
-pub suberror ParseError {
-  ParseError(String, Token)
-}
 
 // Types and methods
 pub(all) enum Block {

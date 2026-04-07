@@ -23,11 +23,7 @@ fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
   for d in delta {
     match d {
       @core.TextDelta::Retain(n) => {
-        let s = try source[cursor:cursor + n] catch {
-          _ => ""
-        } noraise {
-          v => v.to_string()
-        }
+        let s = source[cursor:cursor + n].to_string()
         buf.write_string(s)
         cursor += n
       }
@@ -35,11 +31,7 @@ fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
       @core.TextDelta::Insert(s) => buf.write_string(s)
     }
   }
-  let tail = try source[cursor:] catch {
-    _ => ""
-  } noraise {
-    v => v.to_string()
-  }
+  let tail = source[cursor:].to_string()
   buf.write_string(tail)
   buf.to_string()
 }
@@ -54,21 +46,9 @@ fn apply_peer_delta(peer : Peer, delta : Array[@core.TextDelta]) -> Unit {
   let edits = @core.to_edits(delta)
   let mut current = peer.text
   for edit in edits {
-    let inserted = try new_text[edit.start:edit.start + edit.new_len] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let prefix = try current[0:edit.start] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
-    let suffix = try current[edit.start + edit.old_len:] catch {
-      _ => ""
-    } noraise {
-      v => v.to_string()
-    }
+    let inserted = new_text[edit.start:edit.start + edit.new_len].to_string()
+    let prefix = current[0:edit.start].to_string()
+    let suffix = current[edit.start + edit.old_len:].to_string()
     current = prefix + inserted + suffix
     let _ = peer.parser.edit(edit, current)
   }

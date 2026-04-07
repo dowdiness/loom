@@ -22,12 +22,12 @@
 /// implement these two methods as abort().
 pub(open) trait TermSym {
   int_lit(Int) -> Self
-  var(VarName) -> Self
+  variable(VarName) -> Self
   lam(VarName, Self) -> Self
   app(Self, Self) -> Self
   bop(Bop, Self, Self) -> Self
   if_then_else(Self, Self, Self) -> Self
-  module(Array[(VarName, Self)], Self) -> Self
+  mod(Array[(VarName, Self)], Self) -> Self
   unit() -> Self
   /// Name that failed name resolution. Implement as abort() if you only
   /// process well-resolved trees.
@@ -47,7 +47,7 @@ pub impl TermSym for Term with int_lit(n) {
 }
 
 ///|
-pub impl TermSym for Term with var(x) {
+pub impl TermSym for Term with variable(x) {
   Var(x)
 }
 
@@ -72,7 +72,7 @@ pub impl TermSym for Term with if_then_else(c, t, e) {
 }
 
 ///|
-pub impl TermSym for Term with module(defs, body) {
+pub impl TermSym for Term with mod(defs, body) {
   Module(defs, body)
 }
 
@@ -109,7 +109,7 @@ pub impl TermSym for Pretty with int_lit(n) {
 }
 
 ///|
-pub impl TermSym for Pretty with var(x) {
+pub impl TermSym for Pretty with variable(x) {
   { repr: x }
 }
 
@@ -138,7 +138,7 @@ pub impl TermSym for Pretty with if_then_else(c, t, e) {
 }
 
 ///|
-pub impl TermSym for Pretty with module(defs, body) {
+pub impl TermSym for Pretty with mod(defs, body) {
   let parts : Array[String] = defs.map(fn(d) { "let \{d.0} = \{d.1.repr}" })
   parts.push(body.repr)
   { repr: parts.join("\n") }
@@ -171,14 +171,14 @@ pub impl TermSym for Pretty with hole(_n) {
 pub fn[T : TermSym] replay(term : Term) -> T {
   match term {
     Int(n) => T::int_lit(n)
-    Var(x) => T::var(x)
+    Var(x) => T::variable(x)
     Lam(x, body) => T::lam(x, replay(body))
     App(f, a) => T::app(replay(f), replay(a))
     Bop(op, l, r) => T::bop(op, replay(l), replay(r))
     If(c, t, e) => T::if_then_else(replay(c), replay(t), replay(e))
     Module(defs, body) => {
       let mapped : Array[(String, T)] = defs.map(fn(d) { (d.0, replay(d.1)) })
-      T::module(mapped, replay(body))
+      T::mod(mapped, replay(body))
     }
     Unit => T::unit()
     Unbound(x) => T::unbound(x)

@@ -205,14 +205,14 @@ pub fn GreenNode::map(
 /// Calls `f` for every node in the tree. Returns `true` if traversal completed,
 /// `false` if `f` returned `false` to request early termination.
 pub fn GreenNode::each(self : GreenNode, f : (GreenNode) -> Bool) -> Bool {
-  if not(f(self)) {
+  if !f(self) {
     return false
   }
   match self {
     Leaf(_, _) => true
     Branch(_, children) => {
       for child in children {
-        if not(child.each(f)) {
+        if !child.each(f) {
           return false
         }
       }

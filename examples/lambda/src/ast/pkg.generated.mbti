@@ -63,12 +63,12 @@ pub type VarName = String
 // Traits
 pub(open) trait TermSym {
   int_lit(Int) -> Self
-  var(String) -> Self
+  variable(String) -> Self
   lam(String, Self) -> Self
   app(Self, Self) -> Self
   bop(Bop, Self, Self) -> Self
   if_then_else(Self, Self, Self) -> Self
-  module(Array[(String, Self)], Self) -> Self
+  mod(Array[(String, Self)], Self) -> Self
   unit() -> Self
   unbound(String) -> Self
   error_term(String) -> Self

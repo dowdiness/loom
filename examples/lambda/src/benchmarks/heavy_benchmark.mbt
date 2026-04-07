@@ -76,11 +76,7 @@ fn make_nested_application(depth : Int) -> String {
 ///|
 /// Apply a single-char insert at a position, returning (new_source, edit).
 fn slice(s : String, start : Int, end : Int) -> String {
-  let res : Result[StringView, Error] = try? s[start:end]
-  match res {
-    Ok(view) => view.to_string()
-    Err(_) => abort("slice out of bounds")
-  }
+  s[start:end].to_string()
 }
 
 ///|
