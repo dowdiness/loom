@@ -7,7 +7,12 @@
 priv enum MockMode {
   Normal
   StringMode
-} derive(Eq, Show)
+} derive(Eq, Debug)
+
+///|
+impl Show for MockMode with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 priv enum MockToken {
@@ -15,7 +20,12 @@ priv enum MockToken {
   StringContent(String)
   Quote
   EOF
-} derive(Eq, Show)
+} derive(Eq, Debug)
+
+///|
+impl Show for MockToken with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 fn mock_char_at(input : String, pos : Int) -> Char? {

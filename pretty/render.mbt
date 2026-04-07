@@ -15,7 +15,12 @@ pub(all) enum Cmd[A] {
   CNewline(Int)
   CAnnStart(A)
   CAnnEnd(A)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl[A : Debug] Show for Cmd[A] with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Width of content before the first HardLine in the layout.

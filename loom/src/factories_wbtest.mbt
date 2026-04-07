@@ -4,7 +4,12 @@ enum FTok {
   Ws
   Err
   Eof
-} derive(Eq, Show)
+} derive(Eq, Debug)
+
+///|
+impl Show for FTok with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 impl @seam.IsTrivia for FTok with is_trivia(self) {
@@ -34,7 +39,7 @@ enum FKind {
   KRoot
   KWs
   KErr
-} derive(Show)
+} derive(Debug)
 
 ///|
 fn fkind_raw(k : FKind) -> @seam.RawKind {
@@ -102,7 +107,7 @@ fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
     let start = offset
     let end = offset + t.len
     offset = end
-    t.token.to_string() + "@" + start.to_string() + "-" + end.to_string()
+    @debug.to_string(t.token) + "@" + start.to_string() + "-" + end.to_string()
   })
   .join(",")
 }

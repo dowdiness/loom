@@ -9,7 +9,12 @@ test "render_spans no annotations" {
 test "render_spans single annotation" {
   let doc = annotate("kw", text("let"))
   let spans = render_spans(doc)
-  inspect(spans, content="[({start: 0, end: 3}, \"kw\")]")
+  inspect(
+    spans,
+    content=(
+      #|[({ start: 0, end: 3 }, "kw")]
+    ),
+  )
 }
 
 ///|
@@ -21,7 +26,9 @@ test "render_spans nested annotations" {
   let spans = render_spans(doc)
   inspect(
     spans,
-    content="[({start: 0, end: 3}, \"kw\"), ({start: 4, end: 5}, \"id\"), ({start: 0, end: 5}, \"expr\")]",
+    content=(
+      #|[({ start: 0, end: 3 }, "kw"), ({ start: 4, end: 5 }, "id"), ({ start: 0, end: 5 }, "expr")]
+    ),
   )
 }
 
@@ -29,12 +36,22 @@ test "render_spans nested annotations" {
 test "render_spans with line breaks" {
   let doc = annotate("block", text("a") + hardline() + text("b"))
   let spans = render_spans(doc)
-  inspect(spans, content="[({start: 0, end: 3}, \"block\")]")
+  inspect(
+    spans,
+    content=(
+      #|[({ start: 0, end: 3 }, "block")]
+    ),
+  )
 }
 
 ///|
 test "render_spans with indented line" {
   let doc = annotate("block", text("a") + nest(hardline() + text("b")))
   let spans = render_spans(doc)
-  inspect(spans, content="[({start: 0, end: 5}, \"block\")]")
+  inspect(
+    spans,
+    content=(
+      #|[({ start: 0, end: 5 }, "block")]
+    ),
+  )
 }

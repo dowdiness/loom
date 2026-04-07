@@ -4,4 +4,5 @@ import {
   "dowdiness/loom/core" @core,
   "dowdiness/loom/incremental" @incremental,
   "dowdiness/loom/pipeline" @pipeline,
+  "moonbitlang/core/debug",
 }

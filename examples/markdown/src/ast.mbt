@@ -7,7 +7,12 @@ pub(all) enum Block {
   ListItem(Array[Inline])
   CodeBlock(String, String)
   Error(String)
-} derive(Show, Eq, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for Block with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) enum Inline {
@@ -17,4 +22,9 @@ pub(all) enum Inline {
   InlineCode(String)
   Link(Array[Inline], String)
   Error(String)
-} derive(Show, Eq, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for Inline with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}

@@ -95,7 +95,7 @@ test "text_to_delta: identical strings — Retain only" {
   inspect(result.length(), content="1")
   match result[0] {
     TextDelta::Retain(3) => ()
-    other => abort("expected Retain(3), got: " + other.to_string())
+    other => abort("expected Retain(3), got: " + @debug.to_string(other))
   }
 }
 

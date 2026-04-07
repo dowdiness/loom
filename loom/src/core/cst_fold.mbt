@@ -9,7 +9,7 @@ pub struct FoldStats {
   mut reused : Int
   mut recomputed : Int
   mut unvisited : Int
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub fn FoldStats::zero() -> FoldStats {

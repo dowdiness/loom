@@ -41,9 +41,10 @@ pub(all) enum Block {
   ListItem(Array[Inline])
   CodeBlock(String, String)
   Error(String)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub impl @core.Renderable for Block
 pub impl @core.TreeNode for Block
+pub impl Show for Block
 
 pub(all) enum Inline {
   Text(String)
@@ -52,15 +53,16 @@ pub(all) enum Inline {
   InlineCode(String)
   Link(Array[Inline], String)
   Error(String)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
+pub impl Show for Inline
 
 pub(all) enum MarkdownLexMode {
   LineStart
   Inline
   CodeBlock(Int)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum SyntaxKind {
   HeadingMarkerToken
@@ -91,10 +93,11 @@ pub(all) enum SyntaxKind {
   InlineCodeNode
   LinkNode
   ErrorNode
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
 pub impl @seam.ToRawKind for SyntaxKind
+pub impl Show for SyntaxKind
 
 pub(all) enum Token {
   HeadingMarker(Int)

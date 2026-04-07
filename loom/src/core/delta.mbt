@@ -3,7 +3,12 @@ pub(all) enum TextDelta {
   Retain(Int) // advance cursor n bytes — no edit emitted
   Insert(String) // insert text at cursor position
   Delete(Int) // delete n bytes at cursor position
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for TextDelta with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Convert a TextDelta sequence to Edits for ImperativeParser.

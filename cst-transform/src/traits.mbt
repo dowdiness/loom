@@ -105,7 +105,7 @@ pub fn[F : Finder] GreenNode::find(self : GreenNode, f : F) -> GreenNode? {
 // ── Concrete implementations (newtypes for zero-cost fold) ──────────
 
 ///|
-pub(all) struct NodeCount(Int) derive(Show)
+pub(all) struct NodeCount(Int) derive(Debug)
 
 ///|
 pub impl Folder for NodeCount with fold_token(_kind, _text) {
@@ -138,7 +138,7 @@ pub impl TransformFolder for NodeCount with tf_child(_kind, acc, child) {
 }
 
 ///|
-pub(all) struct TokenCount(Int) derive(Show)
+pub(all) struct TokenCount(Int) derive(Debug)
 
 ///|
 pub impl Folder for TokenCount with fold_token(_kind, _text) {
@@ -176,7 +176,7 @@ pub impl TransformFolder for TokenCount with tf_child(_kind, acc, child) {
 /// Multi-field #valtype: computes (text_len, token_count, node_count) in one pass.
 /// Tests whether #valtype avoids heap allocation for multi-element tuple structs.
 #valtype
-pub(all) struct CstMeta(Int, Int, Int) derive(Show)
+pub(all) struct CstMeta(Int, Int, Int) derive(Debug)
 
 ///|
 pub impl TransformFolder for CstMeta with tf_token(_kind, text) {
@@ -228,7 +228,7 @@ pub(all) struct MutMeta {
   mut text_len : Int
   mut token_count : Int
   mut node_count : Int
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub impl MutVisitor for MutMeta with visit_token(self, _kind, text) {
@@ -246,7 +246,7 @@ pub impl MutVisitor for MutMeta with visit_branch(self, _kind) {
 
 ///|
 /// Zero-cost predicate: finds the first Leaf(Ident, _) node.
-pub(all) struct IdentFinder(Unit) derive(Show)
+pub(all) struct IdentFinder(Unit) derive(Debug)
 
 ///|
 pub impl Finder for IdentFinder with check(_self, node) {

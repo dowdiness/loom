@@ -3,6 +3,7 @@ package "dowdiness/loom/core"
 
 import {
   "dowdiness/seam",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -66,13 +67,14 @@ pub struct Diagnostic[T] {
   start : Int
   end : Int
   got_token : T
-} derive(Show)
+} derive(@debug.Debug)
+pub impl[T : @debug.Debug] Show for Diagnostic[T]
 
 pub(all) struct Edit {
   start : Int
   old_len : Int
   new_len : Int
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn Edit::affects_position(Self, Int) -> Bool
 pub fn Edit::apply_to_position(Self, Int) -> Int
 pub fn Edit::delete(Int, Int) -> Self
@@ -92,7 +94,7 @@ pub struct FoldStats {
   mut reused : Int
   mut recomputed : Int
   mut unvisited : Int
-} derive(Show)
+} derive(@debug.Debug)
 pub fn FoldStats::zero() -> Self
 
 pub struct LanguageSpec[T, K] {
@@ -123,7 +125,7 @@ pub struct ModeRelexState[T] {
   relex_from : (String, Int, Int, Int, Array[Int], Int) -> (Array[TokenInfo[T]], Int) raise LexError
 }
 
-type OldToken derive(Compare, Eq, Show)
+type OldToken derive(Compare, Eq, @debug.Debug)
 
 pub struct OldTokenCache {
   mut tokens : Array[OldToken]?
@@ -191,13 +193,14 @@ pub fn[T] PrefixLexer::new(lex_step~ : (String, Int) -> LexStep[T]) -> Self[T]
 pub(all) struct Range {
   start : Int
   end : Int
-} derive(Compare, Eq, Hash, Show)
+} derive(Compare, Eq, Hash, @debug.Debug)
 pub fn Range::contains(Self, Int) -> Bool
 pub fn Range::length(Self) -> Int
 pub fn Range::merge(Self, Self) -> Self
 pub fn Range::minimum_by_length(Self, Self) -> Self
 pub fn Range::new(Int, Int) -> Self
 pub fn Range::overlaps(Self, Self) -> Bool
+pub impl Show for Range
 
 pub struct ReuseCursor[T, K] {
   stack : Array[CursorFrame]
@@ -230,7 +233,8 @@ pub(all) enum TextDelta {
   Retain(Int)
   Insert(String)
   Delete(Int)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl Show for TextDelta
 
 pub struct TokenBuffer[T] {
   mut source : String
@@ -258,7 +262,7 @@ pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 pub struct TokenInfo[T] {
   token : T
   len : Int
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn[T] TokenInfo::new(T, Int) -> Self[T]
 
 pub(all) struct TokenStage[T] {

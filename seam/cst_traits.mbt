@@ -67,7 +67,12 @@ pub fn[R : TransformFolder] CstElement::accept_transform_fold(
 
 ///|
 /// Sum of all token text lengths. Validates against `CstNode.text_len`.
-pub(all) struct TextLen(Int) derive(Show)
+pub(all) struct TextLen(Int) derive(Debug)
+
+///|
+pub impl Show for TextLen with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub impl Folder for TextLen with fold_token(token) {
@@ -86,7 +91,12 @@ pub impl Folder for TextLen with fold_empty() {
 
 ///|
 /// Count of all elements (tokens + branches). Branches count as 1.
-pub(all) struct NodeCount(Int) derive(Show)
+pub(all) struct NodeCount(Int) derive(Debug)
+
+///|
+pub impl Show for NodeCount with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub impl TransformFolder for NodeCount with tf_token(_token) {

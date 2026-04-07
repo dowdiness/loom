@@ -295,7 +295,9 @@ test "annotated render_spans" {
     annotate(@pretty.Identifier, text("x"))
   inspect(
     render_spans(doc),
-    content="[({start: 0, end: 3}, Keyword), ({start: 4, end: 5}, Identifier)]",
+    content=(
+      #|[({ start: 0, end: 3 }, Keyword), ({ start: 4, end: 5 }, Identifier)]
+    ),
   )
 }
 ```

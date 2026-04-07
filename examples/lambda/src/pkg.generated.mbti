@@ -9,6 +9,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/seam",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -117,7 +118,7 @@ pub impl ToJson for ParenExprView
 
 pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub struct VarRefView {
   node : @seam.SyntaxNode
@@ -130,7 +131,8 @@ pub impl ToJson for VarRefView
 pub(all) enum VarStatus {
   Bound(depth~ : Int)
   Free
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl Show for VarStatus
 
 // Type aliases
 pub using @ast {type Bop}

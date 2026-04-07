@@ -142,7 +142,12 @@ enum TestTok {
   Plus
   Ws
   TokEof
-} derive(Eq, Show)
+} derive(Eq, Debug)
+
+///|
+impl Show for TestTok with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 impl @seam.IsTrivia for TestTok with is_trivia(self) {
@@ -174,7 +179,7 @@ enum TestKind {
   KWs
   KErr
   KIncomplete
-} derive(Show)
+} derive(Debug)
 
 ///|
 fn test_kind_raw(k : TestKind) -> @seam.RawKind {

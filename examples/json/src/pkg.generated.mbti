@@ -58,12 +58,13 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Eq, Show, ToJson, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug)
 pub impl @core.Renderable for JsonValue
 pub impl @core.TreeNode for JsonValue
 pub impl @pretty.Pretty for JsonValue
 pub impl @pretty.Printable for JsonValue
 pub impl @pretty.Source for JsonValue
+pub impl Show for JsonValue
 
 pub(all) enum SyntaxKind {
   LBraceToken
@@ -89,10 +90,11 @@ pub(all) enum SyntaxKind {
   NullValue
   ErrorNode
   RootNode
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn SyntaxKind::from_raw(@seam.RawKind) -> Self
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.ToRawKind for SyntaxKind
+pub impl Show for SyntaxKind
 
 pub(all) enum Token {
   LBrace

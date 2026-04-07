@@ -7,7 +7,7 @@ pub(all) struct Edit {
   start : Int // Start position in old source
   old_len : Int // Code units removed  (was: old_end - start)
   new_len : Int // Code units inserted (was: new_end - start)
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Create a new edit

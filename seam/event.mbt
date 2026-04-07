@@ -21,7 +21,7 @@ pub(all) enum ParseEvent {
   /// Used by incremental parsers to avoid re-emitting events for reused nodes.
   /// Builders re-intern the node through their interner(s) to preserve contracts.
   ReuseNode(CstNode)
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Accumulates parse events for a single parse run.

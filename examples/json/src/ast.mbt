@@ -7,4 +7,9 @@ pub(all) enum JsonValue {
   Array(Array[JsonValue])
   Object(Array[(String, JsonValue)])
   Error(String)
-} derive(Show, Eq, Debug, ToJson)
+} derive(Eq, Debug, ToJson)
+
+///|
+pub impl Show for JsonValue with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}

@@ -10,10 +10,20 @@ pub(all) enum SyntaxCategory {
   Error
   EvalAnnotation
   EvalError
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for SyntaxCategory with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub(all) struct Span {
   start : Int
   end : Int
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for Span with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
