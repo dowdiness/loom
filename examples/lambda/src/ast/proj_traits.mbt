@@ -1,60 +1,10 @@
-// TreeNode and Renderable implementations for Term.
-// These traits are defined in dowdiness/loom/core and enable
-// projectional editors to work with the lambda AST generically.
-
-///|
-pub impl @loomcore.TreeNode for Term with children(self) {
-  match self {
-    Lam(_, body) => [body]
-    App(f, a) => [f, a]
-    Bop(_, l, r) => [l, r]
-    If(c, t, e) => [c, t, e]
-    Module(defs, body) => {
-      let result : Array[Term] = []
-      for def in defs {
-        result.push(def.1)
-      }
-      result.push(body)
-      result
-    }
-    _ => []
-  }
-}
-
-///|
-pub impl @loomcore.TreeNode for Term with same_kind(self, other) {
-  match (self, other) {
-    (Int(_), Int(_)) => true
-    (Var(_), Var(_)) => true
-    (Lam(_, _), Lam(_, _)) => true
-    (App(_, _), App(_, _)) => true
-    (Bop(_, _, _), Bop(_, _, _)) => true
-    (If(_, _, _), If(_, _, _)) => true
-    (Module(_, _), Module(_, _)) => true
-    (Unit, Unit) => true
-    (Error(_), Error(_)) => true
-    (Unbound(_), Unbound(_)) => true
-    (Hole(_), Hole(_)) => true
-    _ => false
-  }
-}
-
-///|
-pub impl @loomcore.Renderable for Term with kind_tag(self) {
-  match self {
-    Int(_) => "Int"
-    Var(_) => "Var"
-    Lam(_, _) => "Lam"
-    App(_, _) => "App"
-    Bop(_, _, _) => "Bop"
-    If(_, _, _) => "If"
-    Module(_, _) => "Module"
-    Unit => "Unit"
-    Unbound(_) => "Unbound"
-    Error(_) => "Error"
-    Hole(_) => "Hole"
-  }
-}
+// Semantic Renderable implementations for Term.
+//
+// "Semantic" = requires human judgment about how to display each variant.
+// These are always hand-written — codegen cannot produce them.
+//
+// Mechanical impls (children, same_kind, kind_tag) are in
+// proj_traits_mechanical.mbt. Structural source of truth is in sym.mbt.
 
 ///|
 pub impl @loomcore.Renderable for Term with label(self) {
