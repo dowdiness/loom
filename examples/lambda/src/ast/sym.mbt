@@ -1,4 +1,20 @@
 // loom/examples/lambda/src/ast/sym.mbt
+//
+// This file is the SINGLE SOURCE OF TRUTH for Term's recursive structure.
+// Three things live here, and they must stay in sync:
+//
+//   1. TermSym trait + replay     — tagless final algebra and fold
+//   2. children_of                — which fields are recursive children
+//   3. rebuild_from               — inverse of children_of
+//
+// When adding a new Term variant, update all three in this file.
+// The roundtrip test in sym_test.mbt verifies: rebuild_from(t, children_of(t)) == t
+//
+// Other files DELEGATE to these functions:
+//   - proj_traits_mechanical.mbt  — TreeNode::children calls children_of
+//   - canopy/lang/lambda/proj/    — rebuild_kind calls rebuild_from
+//
+// See also: docs/architecture/extensible-asts.md
 
 ///|
 /// Symantics for lambda calculus: a pub(open) trait whose implementations
@@ -162,6 +178,61 @@ pub impl TermSym for Pretty with error_term(msg) {
 ///|
 pub impl TermSym for Pretty with hole(_n) {
   { repr: "_" }
+}
+
+///|
+/// Extracts the immediate child Terms from a variant.
+/// This encodes which fields of each constructor are recursive (children)
+/// vs non-recursive (data like variable names, operators, literals).
+/// Inverse of `rebuild_from`. Source of truth for TreeNode::children.
+pub fn children_of(term : Term) -> Array[Term] {
+  match term {
+    Lam(_, body) => [body]
+    App(f, a) => [f, a]
+    Bop(_, l, r) => [l, r]
+    If(c, t, e) => [c, t, e]
+    Module(defs, body) => {
+      let result = defs.map(fn(d) { d.1 })
+      result.push(body)
+      result
+    }
+    _ => []
+  }
+}
+
+///|
+/// Reconstructs a Term from a shape (for non-child data) and new children.
+/// Inverse of `children_of`. Source of truth for rebuild_kind in projection.
+/// If `children` has fewer elements than the shape expects, missing positions
+/// are filled with `Error("missing")` — this is error-tolerant, not strict.
+pub fn rebuild_from(shape : Term, children : Array[Term]) -> Term {
+  fn child(i : Int) -> Term {
+    if i < children.length() {
+      children[i]
+    } else {
+      Error("missing")
+    }
+  }
+
+  match shape {
+    Lam(param, _) => Lam(param, child(0))
+    App(_, _) => App(child(0), child(1))
+    Bop(op, _, _) => Bop(op, child(0), child(1))
+    If(_, _, _) => If(child(0), child(1), child(2))
+    Module(old_defs, _) =>
+      if children.length() >= 1 {
+        let last = children.length() - 1
+        let new_defs : Array[(VarName, Term)] = []
+        for i in 0..<last {
+          let name = if i < old_defs.length() { old_defs[i].0 } else { "_" }
+          new_defs.push((name, children[i]))
+        }
+        Module(new_defs, children[last])
+      } else {
+        Module([], Error("missing"))
+      }
+    _ => shape
+  }
 }
 
 ///|

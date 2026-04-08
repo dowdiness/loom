@@ -10,7 +10,11 @@ import {
 }
 
 // Values
+pub fn children_of(Term) -> Array[Term]
+
 pub fn print_term(Term) -> String
+
+pub fn rebuild_from(Term, Array[Term]) -> Term
 
 pub fn[T : TermSym] replay(Term) -> T
 
