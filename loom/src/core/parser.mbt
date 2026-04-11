@@ -870,22 +870,27 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
   ) catch {
     e => {
       ctx.error("internal: malformed event stream: " + @debug.to_string(e))
-      let err_raw = spec.error_kind.to_raw()
-      let error_child = @seam.CstNode::new(
-        err_raw,
-        [],
-        error_kind=Some(err_raw),
-      )
-      @seam.CstNode::new(
-        spec.root_kind.to_raw(),
-        [@seam.CstElement::Node(error_child)],
-        trivia_kind=Some(spec.whitespace_kind.to_raw()),
-        error_kind=Some(err_raw),
-        incomplete_kind=Some(spec.incomplete_kind.to_raw()),
-      )
+      make_error_tree(spec)
     }
   }
   (tree, ctx.errors)
+}
+
+///|
+/// Construct a minimal error CST: root_kind( error_kind() ).
+/// Preserves root kind and sets has_any_error via the error child.
+fn[T, K : @seam.ToRawKind] make_error_tree(
+  spec : LanguageSpec[T, K],
+) -> @seam.CstNode {
+  let err_raw = spec.error_kind.to_raw()
+  let error_child = @seam.CstNode::new(err_raw, [], error_kind=Some(err_raw))
+  @seam.CstNode::new(
+    spec.root_kind.to_raw(),
+    [@seam.CstElement::Node(error_child)],
+    trivia_kind=Some(spec.whitespace_kind.to_raw()),
+    error_kind=Some(err_raw),
+    incomplete_kind=Some(spec.incomplete_kind.to_raw()),
+  )
 }
 
 ///|
@@ -950,19 +955,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
   let tree = build_tree_generic(ctx.events, spec) catch {
     e => {
       ctx.error("internal: malformed event stream: " + @debug.to_string(e))
-      let err_raw = spec.error_kind.to_raw()
-      let error_child = @seam.CstNode::new(
-        err_raw,
-        [],
-        error_kind=Some(err_raw),
-      )
-      @seam.CstNode::new(
-        spec.root_kind.to_raw(),
-        [@seam.CstElement::Node(error_child)],
-        trivia_kind=Some(spec.whitespace_kind.to_raw()),
-        error_kind=Some(err_raw),
-        incomplete_kind=Some(spec.incomplete_kind.to_raw()),
-      )
+      make_error_tree(spec)
     }
   }
   (tree, ctx.errors, ctx.reuse_count)
