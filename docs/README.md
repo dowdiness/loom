@@ -17,6 +17,7 @@ Understanding how the layers fit together:
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API
 - [architecture/polymorphism-patterns.md](architecture/polymorphism-patterns.md) — choosing between generic, trait object, struct-of-closures, defunctionalization
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
+- [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
 
 ## API Reference
 
