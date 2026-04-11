@@ -7,11 +7,11 @@ import {
 }
 
 // Values
-pub fn build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
 
-pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
 
-pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
 
 pub fn combine_hash(Int, Int) -> Int
 
@@ -20,6 +20,11 @@ pub let repeat_group_kind : RawKind
 pub fn string_hash(StringView) -> Int
 
 // Errors
+pub(all) suberror EventStreamError {
+  UnbalancedFinish
+  UnbalancedStart(missing_finishes~ : Int)
+  OrphanedEvent
+} derive(@debug.Debug)
 
 // Types and methods
 pub(all) enum CstElement {
@@ -72,9 +77,9 @@ pub impl Hash for CstToken
 pub struct EventBuffer {
   // private fields
 }
-pub fn EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
-pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
-pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode
+pub fn EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
+pub fn EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError
 pub fn EventBuffer::length(Self) -> Int
 pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self

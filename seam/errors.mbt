@@ -1,4 +1,5 @@
-///| Error type for malformed event streams.
+///|
+/// Error type for malformed event streams.
 ///
 /// Raised by `build_tree*` when the event stream violates structural
 /// invariants. These are parser defects — the ParserContext API

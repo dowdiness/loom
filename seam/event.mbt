@@ -57,7 +57,7 @@ pub fn EventBuffer::build_tree(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   build_tree(
     self.events,
     root_kind,
@@ -78,7 +78,7 @@ pub fn EventBuffer::build_tree_fully_interned(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   build_tree_fully_interned(
     self.events,
     root_kind,
@@ -102,7 +102,7 @@ pub fn EventBuffer::build_tree_interned(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   build_tree_interned(
     self.events,
     root_kind,
@@ -196,7 +196,7 @@ pub fn build_tree_interned(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
@@ -208,15 +208,11 @@ pub fn build_tree_interned(
       FinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
-          None =>
-            abort(
-              "build_tree_interned: unbalanced FinishNode — no matching StartNode",
-            )
+          None => raise EventStreamError::UnbalancedFinish
         }
         let kind = match kinds.pop() {
           Some(k) => k
-          None =>
-            abort("build_tree_interned: kind stack underflow on FinishNode")
+          None => raise EventStreamError::UnbalancedFinish
         }
         let children = balance_children(
           raw_children, trivia_kind, error_kind, incomplete_kind,
@@ -230,15 +226,14 @@ pub fn build_tree_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None =>
-            abort("build_tree_interned: parent stack empty when attaching node")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       Token(kind, text) => {
         let token = interner.intern_token(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
-          None => abort("build_tree_interned: stack empty when adding token")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       ReuseNode(node) => {
@@ -255,18 +250,14 @@ pub fn build_tree_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(interned)
-          None =>
-            abort("build_tree_interned: stack empty when attaching reuse node")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       Tombstone => ()
     }
   }
   if stack.length() != 1 {
-    abort(
-      "build_tree_interned: unbalanced StartNode — missing FinishNode(s), stack=" +
-      stack.length().to_string(),
-    )
+    raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
   let root_children = balance_children(
     stack[0],
@@ -341,7 +332,7 @@ pub fn build_tree_fully_interned(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
@@ -353,17 +344,11 @@ pub fn build_tree_fully_interned(
       FinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
-          None =>
-            abort(
-              "build_tree_fully_interned: unbalanced FinishNode — no matching StartNode",
-            )
+          None => raise EventStreamError::UnbalancedFinish
         }
         let kind = match kinds.pop() {
           Some(k) => k
-          None =>
-            abort(
-              "build_tree_fully_interned: kind stack underflow on FinishNode",
-            )
+          None => raise EventStreamError::UnbalancedFinish
         }
         let children = balance_children(
           raw_children, trivia_kind, error_kind, incomplete_kind,
@@ -379,18 +364,14 @@ pub fn build_tree_fully_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None =>
-            abort(
-              "build_tree_fully_interned: parent stack empty when attaching node",
-            )
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       Token(kind, text) => {
         let token = interner.intern_token(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
-          None =>
-            abort("build_tree_fully_interned: stack empty when adding token")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       ReuseNode(node) => {
@@ -399,20 +380,14 @@ pub fn build_tree_fully_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(interned))
-          None =>
-            abort(
-              "build_tree_fully_interned: stack empty when attaching reuse node",
-            )
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       Tombstone => ()
     }
   }
   if stack.length() != 1 {
-    abort(
-      "build_tree_fully_interned: unbalanced StartNode — missing FinishNode(s), stack=" +
-      stack.length().to_string(),
-    )
+    raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
   let root_children = balance_children(
     stack[0],
@@ -443,7 +418,7 @@ pub fn build_tree(
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
-) -> CstNode {
+) -> CstNode raise EventStreamError {
   // stack and kinds move in lockstep:
   // - StartNode pushes one frame + one kind
   // - FinishNode pops one frame + one kind
@@ -460,12 +435,11 @@ pub fn build_tree(
       FinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
-          None =>
-            abort("build_tree: unbalanced FinishNode — no matching StartNode")
+          None => raise EventStreamError::UnbalancedFinish
         }
         let kind = match kinds.pop() {
           Some(k) => k
-          None => abort("build_tree: kind stack underflow on FinishNode")
+          None => raise EventStreamError::UnbalancedFinish
         }
         let children = balance_children(
           raw_children, trivia_kind, error_kind, incomplete_kind,
@@ -479,14 +453,14 @@ pub fn build_tree(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None => abort("build_tree: parent stack empty when attaching node")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       Token(kind, text) => {
         let token = CstToken::new(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
-          None => abort("build_tree: stack empty when adding token")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       ReuseNode(node) => {
@@ -498,7 +472,7 @@ pub fn build_tree(
         )
         match stack.last() {
           Some(parent) => parent.push(rebuilt)
-          None => abort("build_tree: stack empty when attaching reuse node")
+          None => raise EventStreamError::OrphanedEvent
         }
       }
       // Unclaimed marks are expected and intentionally ignored.
@@ -506,10 +480,7 @@ pub fn build_tree(
     }
   }
   if stack.length() != 1 {
-    abort(
-      "build_tree: unbalanced StartNode — missing FinishNode(s), stack=" +
-      stack.length().to_string(),
-    )
+    raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
   }
   let root_children = balance_children(
     stack[0],
