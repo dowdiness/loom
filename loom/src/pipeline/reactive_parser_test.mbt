@@ -23,13 +23,13 @@ struct TestLang {}
 fn stage_for_source(s : String) -> CstStage {
   if s.length() > 0 && s[0] == '@' {
     CstStage::{
-      cst: @seam.build_tree([], @seam.RawKind(0)),
+      cst: try! @seam.build_tree([], @seam.RawKind(0)),
       diagnostics: ["lex error: " + s],
       is_lex_error: true,
     }
   } else {
     CstStage::{
-      cst: @seam.build_tree(
+      cst: try! @seam.build_tree(
         [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
         @seam.RawKind(0),
       ),
