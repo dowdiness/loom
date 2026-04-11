@@ -32,8 +32,8 @@ test "bench: build_tree with ReuseNode (rebuild_subtree)" (b : @bench.T) {
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
   let trivia_kind = Some(RawKind(11))
-  b.bench(() => {
-    let _ = build_tree(
+  b.bench(fn() {
+    let _ = try! build_tree(
       events,
       root_kind,
       trivia_kind~,
@@ -51,8 +51,8 @@ test "bench: build_tree_interned with ReuseNode (re_intern_tokens_only)" (
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
   let trivia_kind = Some(RawKind(11))
-  b.bench(() => {
-    let _ = build_tree_interned(
+  b.bench(fn() {
+    let _ = try! build_tree_interned(
       events,
       root_kind,
       Interner::new(),

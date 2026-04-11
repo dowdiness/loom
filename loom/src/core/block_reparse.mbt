@@ -198,7 +198,12 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
     trivia_kind=Some(ws_raw),
     error_kind=Some(err_raw),
     incomplete_kind=Some(inc_raw),
-  )
+  ) catch {
+    e => {
+      ctx.error("internal: block reparse failed: " + @debug.to_string(e))
+      return None // fall back to full incremental reparse
+    }
+  }
   // Unwrap: build_tree wraps in a root node of block_kind,
   // and parse_block_expr also emits BlockExpr start/finish,
   // producing block_kind(BlockExpr(...)). Extract the inner node.

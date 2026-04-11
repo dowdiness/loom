@@ -867,8 +867,30 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
     trivia_kind=Some(spec.whitespace_kind.to_raw()),
     error_kind=Some(spec.error_kind.to_raw()),
     incomplete_kind=Some(spec.incomplete_kind.to_raw()),
-  )
+  ) catch {
+    e => {
+      ctx.error("internal: malformed event stream: " + @debug.to_string(e))
+      make_error_tree(spec)
+    }
+  }
   (tree, ctx.errors)
+}
+
+///|
+/// Construct a minimal error CST: root_kind( error_kind() ).
+/// Preserves root kind and sets has_any_error via the error child.
+fn[T, K : @seam.ToRawKind] make_error_tree(
+  spec : LanguageSpec[T, K],
+) -> @seam.CstNode {
+  let err_raw = spec.error_kind.to_raw()
+  let error_child = @seam.CstNode::new(err_raw, [], error_kind=Some(err_raw))
+  @seam.CstNode::new(
+    spec.root_kind.to_raw(),
+    [@seam.CstElement::Node(error_child)],
+    trivia_kind=Some(spec.whitespace_kind.to_raw()),
+    error_kind=Some(err_raw),
+    incomplete_kind=Some(spec.incomplete_kind.to_raw()),
+  )
 }
 
 ///|
@@ -877,7 +899,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
 fn[T, K : @seam.ToRawKind] build_tree_generic(
   buf : @seam.EventBuffer,
   spec : LanguageSpec[T, K],
-) -> @seam.CstNode {
+) -> @seam.CstNode raise @seam.EventStreamError {
   let ws = spec.whitespace_kind.to_raw()
   let root = spec.root_kind.to_raw()
   buf.build_tree_fully_interned(
@@ -930,7 +952,13 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
     ctx.open_nodes = ctx.open_nodes - 1
     ctx.events.push(@seam.FinishNode)
   }
-  (build_tree_generic(ctx.events, spec), ctx.errors, ctx.reuse_count)
+  let tree = build_tree_generic(ctx.events, spec) catch {
+    e => {
+      ctx.error("internal: malformed event stream: " + @debug.to_string(e))
+      make_error_tree(spec)
+    }
+  }
+  (tree, ctx.errors, ctx.reuse_count)
 }
 
 ///|

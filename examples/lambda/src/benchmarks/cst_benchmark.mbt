@@ -125,7 +125,7 @@ test "interner - intern_token warm hit" (b : @bench.T) {
 test "build_tree - x + 1" (b : @bench.T) {
   let events = make_x_plus_1_events()
   b.bench(fn() {
-    let tree = @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
     b.keep(tree)
   })
 }
@@ -137,7 +137,11 @@ test "build_tree_interned - x + 1, cold interner" (b : @bench.T) {
   let events = make_x_plus_1_events()
   b.bench(fn() {
     let interner = @seam.Interner::new()
-    let tree = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+    let tree = try! @seam.build_tree_interned(
+      events,
+      @seam.RawKind(22),
+      interner,
+    )
     b.keep(tree)
   })
 }
@@ -148,9 +152,13 @@ test "build_tree_interned - x + 1, cold interner" (b : @bench.T) {
 test "build_tree_interned - x + 1, warm interner" (b : @bench.T) {
   let events = make_x_plus_1_events()
   let interner = @seam.Interner::new()
-  let _ = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
   b.bench(fn() {
-    let tree = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+    let tree = try! @seam.build_tree_interned(
+      events,
+      @seam.RawKind(22),
+      interner,
+    )
     b.keep(tree)
   })
 }
@@ -170,7 +178,7 @@ fn make_repeated_ident_events(count : Int) -> Array[@seam.ParseEvent] {
 test "build_tree - 100 identical ident tokens" (b : @bench.T) {
   let events = make_repeated_ident_events(100)
   b.bench(fn() {
-    let tree = @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
     b.keep(tree)
   })
 }
@@ -181,9 +189,13 @@ test "build_tree - 100 identical ident tokens" (b : @bench.T) {
 test "build_tree_interned - 100 identical tokens, warm interner" (b : @bench.T) {
   let events = make_repeated_ident_events(100)
   let interner = @seam.Interner::new()
-  let _ = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
   b.bench(fn() {
-    let tree = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+    let tree = try! @seam.build_tree_interned(
+      events,
+      @seam.RawKind(22),
+      interner,
+    )
     b.keep(tree)
   })
 }
@@ -216,7 +228,7 @@ test "build_tree_fully_interned - x + x, cold" (b : @bench.T) {
   b.bench(fn() {
     let interner = @seam.Interner::new()
     let ni = @seam.NodeInterner::new()
-    let tree = @seam.build_tree_fully_interned(
+    let tree = try! @seam.build_tree_fully_interned(
       events,
       @seam.RawKind(22),
       interner,
@@ -233,14 +245,14 @@ test "build_tree_fully_interned - x + x, warm" (b : @bench.T) {
   let events = make_x_plus_x_events()
   let interner = @seam.Interner::new()
   let ni = @seam.NodeInterner::new()
-  let _ = @seam.build_tree_fully_interned(
+  let _ = try! @seam.build_tree_fully_interned(
     events,
     @seam.RawKind(22),
     interner,
     ni,
   )
   b.bench(fn() {
-    let tree = @seam.build_tree_fully_interned(
+    let tree = try! @seam.build_tree_fully_interned(
       events,
       @seam.RawKind(22),
       interner,
@@ -255,9 +267,13 @@ test "build_tree_fully_interned - x + x, warm" (b : @bench.T) {
 test "build_tree_interned - x + x, warm" (b : @bench.T) {
   let events = make_x_plus_x_events()
   let interner = @seam.Interner::new()
-  let _ = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+  let _ = try! @seam.build_tree_interned(events, @seam.RawKind(22), interner)
   b.bench(fn() {
-    let tree = @seam.build_tree_interned(events, @seam.RawKind(22), interner)
+    let tree = try! @seam.build_tree_interned(
+      events,
+      @seam.RawKind(22),
+      interner,
+    )
     b.keep(tree)
   })
 }
@@ -267,7 +283,7 @@ test "build_tree_interned - x + x, warm" (b : @bench.T) {
 test "build_tree - x + x" (b : @bench.T) {
   let events = make_x_plus_x_events()
   b.bench(fn() {
-    let tree = @seam.build_tree(events, @seam.RawKind(22))
+    let tree = try! @seam.build_tree(events, @seam.RawKind(22))
     b.keep(tree)
   })
 }

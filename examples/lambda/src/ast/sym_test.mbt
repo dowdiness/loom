@@ -108,9 +108,7 @@ test "children_of: branch arities" {
     content="1",
   )
   inspect(
-    @ast.children_of(
-      @ast.Term::App(@ast.Term::Var("f"), @ast.Term::Var("x")),
-    ).length(),
+    @ast.children_of(@ast.Term::App(@ast.Term::Var("f"), @ast.Term::Var("x"))).length(),
     content="2",
   )
   inspect(
@@ -140,7 +138,11 @@ test "rebuild_from: Module preserves def names" {
     [("x", @ast.Term::Int(0)), ("y", @ast.Term::Int(0))],
     @ast.Term::Unit,
   )
-  let new_children = [@ast.Term::Int(10), @ast.Term::Int(20), @ast.Term::Var("z")]
+  let new_children = [
+    @ast.Term::Int(10),
+    @ast.Term::Int(20),
+    @ast.Term::Var("z"),
+  ]
   let rebuilt = @ast.rebuild_from(shape, new_children)
   inspect(
     rebuilt,
@@ -150,11 +152,11 @@ test "rebuild_from: Module preserves def names" {
 
 ///|
 test "rebuild_from: missing children produce Error" {
-  let rebuilt = @ast.rebuild_from(@ast.Term::App(@ast.Term::Unit, @ast.Term::Unit), [])
-  inspect(
-    rebuilt,
-    content="App(Error(\"missing\"), Error(\"missing\"))",
+  let rebuilt = @ast.rebuild_from(
+    @ast.Term::App(@ast.Term::Unit, @ast.Term::Unit),
+    [],
   )
+  inspect(rebuilt, content="App(Error(\"missing\"), Error(\"missing\"))")
 }
 
 ///|

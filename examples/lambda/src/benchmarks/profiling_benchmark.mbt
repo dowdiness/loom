@@ -164,7 +164,7 @@ test "profile: 80 lets - tree build (normal events)" (b : @bench.T) {
   }
   let root_kind = cst.kind
   b.bench(fn() {
-    let tree = @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(events, root_kind)
     b.keep(tree)
   })
 }
@@ -184,7 +184,7 @@ test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
   }
   let root_kind = cst.kind
   b.bench(fn() {
-    let tree = @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(events, root_kind)
     b.keep(tree)
   })
 }
@@ -203,7 +203,7 @@ test "profile: 320 lets - tree build (normal events)" (b : @bench.T) {
   }
   let root_kind = cst.kind
   b.bench(fn() {
-    let tree = @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(events, root_kind)
     b.keep(tree)
   })
 }
@@ -222,7 +222,7 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
   }
   let root_kind = cst.kind
   b.bench(fn() {
-    let tree = @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(events, root_kind)
     b.keep(tree)
   })
 }
@@ -313,7 +313,7 @@ test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
   }
   let root_kind = cst.kind
   b.bench(fn() {
-    let tree = @seam.build_tree(events, root_kind)
+    let tree = try! @seam.build_tree(events, root_kind)
     b.keep(tree)
   })
 }
@@ -341,7 +341,7 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
     // Fresh interners per iteration to avoid warm-cache bias.
     let interner = @seam.Interner::new()
     let ni = @seam.NodeInterner::new()
-    let tree = @seam.build_tree_fully_interned(
+    let tree = try! @seam.build_tree_fully_interned(
       events,
       root_kind,
       interner,
