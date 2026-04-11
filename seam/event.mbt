@@ -226,7 +226,7 @@ pub fn build_tree_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None => raise EventStreamError::OrphanedEvent
+          None => raise EventStreamError::UnbalancedFinish
         }
       }
       Token(kind, text) => {
@@ -364,7 +364,7 @@ pub fn build_tree_fully_interned(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None => raise EventStreamError::OrphanedEvent
+          None => raise EventStreamError::UnbalancedFinish
         }
       }
       Token(kind, text) => {
@@ -453,7 +453,7 @@ pub fn build_tree(
         )
         match stack.last() {
           Some(parent) => parent.push(Node(node))
-          None => raise EventStreamError::OrphanedEvent
+          None => raise EventStreamError::UnbalancedFinish
         }
       }
       Token(kind, text) => {
