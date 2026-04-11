@@ -139,9 +139,9 @@ pub struct EventBuffer { /* private fields */ }
 | `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any event directly |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
-| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode` | Stable | Builds CST from accumulated events; equivalent to calling `build_tree(events, ...)` |
-| `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` |
-| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interns both tokens and nodes |
+| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; raises on malformed event streams |
+| `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` |
+| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns both tokens and nodes |
 
 ---
 
@@ -261,8 +261,8 @@ pub struct SyntaxNode {
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?) -> CstNode` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
-| `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?) -> CstNode` | Stable | Interned variant |
+| `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
+| `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interned variant |
 | `combine_hash(Int, Int) -> Int` | Stable | FNV-based mixing function used for structural hashes |
 | `string_hash(StringView) -> Int` | Stable | FNV hash of a string view; used by `CstToken::new` |
 
