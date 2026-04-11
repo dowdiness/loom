@@ -46,8 +46,8 @@ buf.push(@seam.ParseEvent::Token(PLUS, "+"))
 buf.push(@seam.ParseEvent::Token(NUM, "2"))
 buf.push(@seam.ParseEvent::FinishNode)
 
-// 3. Build the immutable CST
-let root : @seam.CstNode = buf.build_tree(EXPR)
+// 3. Build the immutable CST (raises EventStreamError on malformed events)
+let root : @seam.CstNode = buf.build_tree!(EXPR)
 
 // root.text_len  == 3
 // root.children  == [Token(NUM,"1"), Token(PLUS,"+"), Token(NUM,"2")]
@@ -65,7 +65,7 @@ buf.push(@seam.ParseEvent::Token(PLUS, "+"))
 buf.push(@seam.ParseEvent::Token(NUM, "2"))
 buf.start_at(m, EXPR)                       // retroactively wrap as EXPR
 buf.push(@seam.ParseEvent::FinishNode)
-let root = buf.build_tree(FILE)
+let root = buf.build_tree!(FILE)
 ```
 
 ## Traversal with SyntaxNode
@@ -119,8 +119,8 @@ across parses:
 
 ```moonbit
 let interner = @seam.Interner::new()
-let root1 = buf1.build_tree_interned(FILE, interner)
-let root2 = buf2.build_tree_interned(FILE, interner)
+let root1 = buf1.build_tree_interned!(FILE, interner)
+let root2 = buf2.build_tree_interned!(FILE, interner)
 // Tokens with the same (kind, text) in root1 and root2 share the same CstToken.
 ```
 
