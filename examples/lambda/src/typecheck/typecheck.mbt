@@ -95,7 +95,13 @@ pub fn build_typecheck_pipeline_with_index(
     fn(def_id : @incr.InternId) -> TypeResult {
       let entry = state.intern_table.get(def_id)
       let idx = entry.encounter_order
-      if idx < state.type_memos.length() {
+      // Guard: after a structural rebuild, an old InternId's encounter_order
+      // may index a slot that now holds a different def, or the old type_memo
+      // may be disposed. Verify bounds, name match, and liveness before reading.
+      if idx < state.type_memos.length() &&
+        idx < state.prev_def_names.length() &&
+        state.prev_def_names[idx] == entry.name &&
+        !state.type_memos[idx].is_disposed() {
         state.type_memos[idx].get()
       } else {
         { typ: TError, had_error: true, diagnostics: [] }
@@ -121,7 +127,7 @@ pub fn build_typecheck_pipeline_with_index(
     },
     label="typecheck_pipeline",
   )
-  let index = { intern_table: state.intern_table, memo_map }
+  let index : TypecheckIndex = { intern_table: state.intern_table, memo_map }
   (result_memo, index)
 }
 

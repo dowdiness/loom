@@ -525,3 +525,39 @@ test "MemoMap: cache hit for stable DefId after edit" {
   inspect(f_type2.typ, content="Int -> Int")
   scope.dispose()
 }
+
+///|
+test "MemoMap: name guard rejects mismatched encounter_order" {
+  // Verify the name guard prevents returning a wrong def's type when
+  // encounter_order maps to a different name after structural change.
+  // This tests the guard logic directly without disposed-Memo complications.
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // defs = [a, b] — a gets encounter_order=0, b gets encounter_order=1
+  let module_term = TypedTerm::Module(
+    [
+      ("a", TypedTerm::Int(1)),
+      ("b", TypedTerm::Lam("x", Some(TInt), TypedTerm::Var("x"))),
+    ],
+    TypedTerm::Var("b"),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  let _r1 = result_memo.get_result().unwrap()
+  // Verify correct lookups work
+  let a_id = index.intern_table.intern({ name: "a", encounter_order: 0 })
+  inspect(index.memo_map.get(a_id).typ, content="Int")
+  let b_id = index.intern_table.intern({ name: "b", encounter_order: 1 })
+  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
+  // Fabricate a bogus DefEntry: name="c" at encounter_order=0
+  // This InternId is fresh (never seen) — MemoMap creates a new internal Memo.
+  // The name guard should reject because prev_def_names[0] == "a", not "c".
+  let bogus_id = index.intern_table.intern({ name: "c", encounter_order: 0 })
+  let bogus_result = index.memo_map.get(bogus_id)
+  inspect(bogus_result.typ, content="<error>")
+  inspect(bogus_result.had_error, content="true")
+  scope.dispose()
+}
