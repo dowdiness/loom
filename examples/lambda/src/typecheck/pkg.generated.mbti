@@ -1,0 +1,80 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/typecheck"
+
+import {
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult
+
+pub fn convert(@ast.Term) -> TypedTerm
+
+pub fn infer(TypeEnv, TypedTerm) -> TypeResult
+
+// Errors
+
+// Types and methods
+pub(all) struct DefEntry {
+  name : String
+  encounter_order : Int
+} derive(Eq, Hash, @debug.Debug)
+
+pub(all) struct ModuleTypeResult {
+  body_type : TypeResult
+  def_types : Array[(String, TypeResult)]
+  all_diagnostics : Array[TypeDiagnostic]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ResolvedModule {
+  defs : Array[(String, TypedTerm)]
+  body : TypedTerm
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Type {
+  TInt
+  TArrow(Type, Type)
+  TUnit
+  TError
+} derive(Eq, @debug.Debug)
+pub impl Show for Type
+
+pub(all) struct TypeDiagnostic {
+  message : String
+  def_name : String?
+} derive(Eq, @debug.Debug)
+pub impl Show for TypeDiagnostic
+
+pub(all) enum TypeEnv {
+  Empty
+  Bind(TypeEnv, String, Type)
+} derive(Eq, @debug.Debug)
+pub fn TypeEnv::extend(Self, String, Type) -> Self
+pub fn TypeEnv::lookup(Self, String) -> Type?
+
+pub(all) struct TypeResult {
+  typ : Type
+  had_error : Bool
+  diagnostics : Array[TypeDiagnostic]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum TypedTerm {
+  Int(Int)
+  Unit
+  Var(String)
+  Lam(String, Type?, TypedTerm)
+  App(TypedTerm, TypedTerm)
+  Bop(@ast.Bop, TypedTerm, TypedTerm)
+  If(TypedTerm, TypedTerm, TypedTerm)
+  Module(Array[(String, TypedTerm)], TypedTerm)
+  Unbound(String)
+  Error(String)
+  Hole(Int)
+} derive(Eq, @debug.Debug)
+pub impl Show for TypedTerm
+
+// Type aliases
+
+// Traits
+
