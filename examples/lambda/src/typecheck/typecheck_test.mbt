@@ -441,3 +441,87 @@ test "incremental: diagnostics propagate through pipeline" {
   inspect(result.all_diagnostics[0].def_name, content="Some(\"a\")")
   scope.dispose()
 }
+
+// --- MemoMap index tests ---
+
+///|
+test "MemoMap: query by DefId" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let module_term = TypedTerm::Module(
+    [
+      (
+        "f",
+        TypedTerm::Lam(
+          "x",
+          Some(TInt),
+          TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("x"), TypedTerm::Int(1)),
+        ),
+      ),
+      (
+        "g",
+        TypedTerm::Lam(
+          "y",
+          Some(TInt),
+          TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Var("y")),
+        ),
+      ),
+    ],
+    TypedTerm::App(TypedTerm::Var("g"), TypedTerm::Int(3)),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  // Force computation
+  let _result = result_memo.get_result().unwrap()
+  // Query f by DefId
+  let f_id = index.intern_table.intern({ name: "f", encounter_order: 0 })
+  let f_type = index.memo_map.get(f_id)
+  inspect(f_type.typ, content="Int -> Int")
+  // Query g by DefId
+  let g_id = index.intern_table.intern({ name: "g", encounter_order: 1 })
+  let g_type = index.memo_map.get(g_id)
+  inspect(g_type.typ, content="Int -> Int")
+  scope.dispose()
+}
+
+///|
+test "MemoMap: cache hit for stable DefId after edit" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Module with def f = \x:Int. x
+  let module_term1 = TypedTerm::Module(
+    [("f", TypedTerm::Lam("x", Some(TInt), TypedTerm::Var("x")))],
+    TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
+  )
+  let term_signal = scope.signal(module_term1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  let _r1 = result_memo.get_result().unwrap()
+  let f_id = index.intern_table.intern({ name: "f", encounter_order: 0 })
+  let f_type1 = index.memo_map.get(f_id)
+  inspect(f_type1.typ, content="Int -> Int")
+  // Edit body but keep same type result (x+1 still Int -> Int)
+  let module_term2 = TypedTerm::Module(
+    [
+      (
+        "f",
+        TypedTerm::Lam(
+          "x",
+          Some(TInt),
+          TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("x"), TypedTerm::Int(1)),
+        ),
+      ),
+    ],
+    TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
+  )
+  term_signal.set(module_term2)
+  let _r2 = result_memo.get_result().unwrap()
+  let f_type2 = index.memo_map.get(f_id)
+  inspect(f_type2.typ, content="Int -> Int")
+  scope.dispose()
+}

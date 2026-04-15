@@ -3,12 +3,15 @@ package "dowdiness/lambda/typecheck"
 
 import {
   "dowdiness/incr/cells",
+  "dowdiness/incr/types",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
 }
 
 // Values
 pub fn build_typecheck_pipeline(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> @cells.Memo[ModuleTypeResult]
+
+pub fn build_typecheck_pipeline_with_index(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> (@cells.Memo[ModuleTypeResult], TypecheckIndex)
 
 pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult
 
@@ -63,6 +66,11 @@ pub(all) struct TypeResult {
   had_error : Bool
   diagnostics : Array[TypeDiagnostic]
 } derive(Eq, @debug.Debug)
+
+pub(all) struct TypecheckIndex {
+  intern_table : @types.InternTable[DefEntry]
+  memo_map : @cells.MemoMap[@types.InternId, TypeResult]
+}
 
 pub(all) enum TypedTerm {
   Int(Int)

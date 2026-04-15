@@ -75,6 +75,57 @@ pub fn build_typecheck_pipeline(
 }
 
 ///|
+/// Build the incremental typecheck pipeline and return a query index.
+///
+/// Like `build_typecheck_pipeline`, but also returns a `TypecheckIndex` that
+/// lets callers query type results by `InternId` (stable across edits).
+///
+/// The `MemoMap` in the index computes by looking up the type memo for the
+/// given `InternId` in the current `PipelineState`. Reads inside the MemoMap
+/// compute function ARE tracked — changing a type_memo will invalidate the
+/// entry. Calling `memo_map.get(id)` outside a tracked context is untracked.
+pub fn build_typecheck_pipeline_with_index(
+  rt : @incr.Runtime,
+  parent_scope : @incr.Scope,
+  source_term : @incr.Memo[TypedTerm],
+) -> (@incr.Memo[ModuleTypeResult], TypecheckIndex) {
+  let state = PipelineState::new()
+  let memo_map = @incr.MemoMap::new(
+    rt,
+    fn(def_id : @incr.InternId) -> TypeResult {
+      let entry = state.intern_table.get(def_id)
+      let idx = entry.encounter_order
+      if idx < state.type_memos.length() {
+        state.type_memos[idx].get()
+      } else {
+        { typ: TError, had_error: true, diagnostics: [] }
+      }
+    },
+    label="typecheck_index",
+  )
+  let result_memo = parent_scope.memo(
+    fn() {
+      let term = source_term.get()
+      let resolved = resolve_typed(term)
+      let def_names = resolved.defs.map(fn(d) { d.0 })
+      let needs_rebuild = match state.chain_scope {
+        None => true
+        Some(_) => def_names != state.prev_def_names
+      }
+      if needs_rebuild {
+        rebuild_chain(state, parent_scope, resolved)
+      } else {
+        update_terms(state, resolved)
+      }
+      collect_results(state)
+    },
+    label="typecheck_pipeline",
+  )
+  let index = { intern_table: state.intern_table, memo_map }
+  (result_memo, index)
+}
+
+///|
 /// Dispose old chain and build a new Memo chain for the resolved module.
 fn rebuild_chain(
   state : PipelineState,

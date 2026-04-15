@@ -113,3 +113,13 @@ pub(all) struct ModuleTypeResult {
   def_types : Array[(String, TypeResult)]
   all_diagnostics : Array[TypeDiagnostic]
 } derive(Eq, Debug)
+
+///|
+/// Return value from `build_typecheck_pipeline_with_index`.
+///
+/// Bundles the pipeline Memo with an InternTable and MemoMap for query-by-DefId
+/// access to cached type results.
+pub(all) struct TypecheckIndex {
+  intern_table : @incr.InternTable[DefEntry]
+  memo_map : @incr.MemoMap[@incr.InternId, TypeResult]
+}
