@@ -581,9 +581,9 @@ fn peek_text(
 fn parse_type(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
+  let mark = ctx.mark()
   parse_atom_type(ctx)
   if ctx.peek() == @token.Arrow {
-    let mark = ctx.mark()
     ctx.emit_token(@syntax.ArrowToken)
     parse_type(ctx) // right-recursive
     ctx.start_at(mark, @syntax.TypeArrow)
