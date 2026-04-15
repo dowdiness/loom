@@ -6,6 +6,7 @@
     "dowdiness/loom": { "path": "../../loom" },
     "dowdiness/pretty": { "path": "../../pretty" },
     "dowdiness/seam": { "path": "../../seam" },
+    "dowdiness/incr": { "path": "../../incr" },
     "dowdiness/event-graph-walker": { "path": "../../../event-graph-walker" },
     "moonbitlang/quickcheck": "0.11.2"
   },

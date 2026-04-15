@@ -5,6 +5,7 @@ import {
   "dowdiness/lambda/ast",
   "dowdiness/lambda/syntax",
   "dowdiness/lambda/token",
+  "dowdiness/lambda/typecheck",
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
@@ -119,6 +120,13 @@ pub impl ToJson for ParenExprView
 pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
 } derive(Eq, @debug.Debug)
+
+pub struct TypeAnnotView {
+  node : @seam.SyntaxNode
+}
+pub fn TypeAnnotView::cast(@seam.SyntaxNode) -> Self?
+pub fn TypeAnnotView::to_type(Self) -> @typecheck.Type?
+pub impl @core.AstView for TypeAnnotView
 
 pub struct VarRefView {
   node : @seam.SyntaxNode

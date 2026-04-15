@@ -35,6 +35,8 @@ pub(all) enum Token {
   RBrace
   Comma
   Semicolon
+  Colon
+  Arrow
   Hole
   Identifier
   Integer

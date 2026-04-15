@@ -134,10 +134,18 @@ fn step_lex(
         next_offset=pos + 1,
       )
     Some('-') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Minus, 1),
-        next_offset=pos + 1,
-      )
+      if pos + 1 < input.length() &&
+        input.code_unit_at(pos + 1).to_char() == Some('>') {
+        @core.LexStep::Produced(
+          @core.TokenInfo::new(@token.Arrow, 2),
+          next_offset=pos + 2,
+        )
+      } else {
+        @core.LexStep::Produced(
+          @core.TokenInfo::new(@token.Minus, 1),
+          next_offset=pos + 1,
+        )
+      }
     Some('=') =>
       @core.LexStep::Produced(
         @core.TokenInfo::new(@token.Eq, 1),
@@ -161,6 +169,11 @@ fn step_lex(
     Some(';') =>
       @core.LexStep::Produced(
         @core.TokenInfo::new(@token.Semicolon, 1),
+        next_offset=pos + 1,
+      )
+    Some(':') =>
+      @core.LexStep::Produced(
+        @core.TokenInfo::new(@token.Colon, 1),
         next_offset=pos + 1,
       )
     Some('_') =>

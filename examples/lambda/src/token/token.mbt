@@ -15,6 +15,8 @@ pub(all) enum Token {
   RBrace // }
   Comma // ,
   Semicolon // ;
+  Colon // :
+  Arrow // ->
   Hole // _ (typed hole placeholder)
   Identifier // variable names
   Integer // integer literals
@@ -43,6 +45,8 @@ pub impl Show for Token with output(self, logger) {
       RBrace => "}"
       Comma => ","
       Semicolon => ";"
+      Colon => ":"
+      Arrow => "->"
       Hole => "_"
       Identifier => "<ident>"
       Integer => "<int>"
@@ -91,6 +95,8 @@ pub impl @seam.ToRawKind for Token with to_raw(self) {
     RBrace => 30 // RBraceToken
     Comma => 31 // CommaToken
     Semicolon => 32 // SemicolonToken
+    Colon => 37 // ColonToken
+    Arrow => 38 // ArrowToken
     Hole => 35 // HoleToken
   }
   @seam.RawKind(n)

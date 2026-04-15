@@ -3,6 +3,7 @@ import {
   "dowdiness/lambda/ast",
   "dowdiness/lambda/token",
   "dowdiness/lambda/syntax",
+  "dowdiness/lambda/typecheck",
   "dowdiness/loom/core" @core,
   "dowdiness/loom/viz" @viz,
   "moonbitlang/core/debug",

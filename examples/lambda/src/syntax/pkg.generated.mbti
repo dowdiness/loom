@@ -47,6 +47,12 @@ pub(all) enum SyntaxKind {
   BlockExpr
   HoleToken
   HoleLiteral
+  ColonToken
+  ArrowToken
+  TypeAnnot
+  TypeInt
+  TypeUnit
+  TypeArrow
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
