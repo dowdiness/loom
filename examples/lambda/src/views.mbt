@@ -464,3 +464,51 @@ pub impl ToJson for LetDefView with to_json(self) -> Json {
     "init": init_json,
   }
 }
+
+// ─── TypeAnnot ──────────────────────────────────────────────────────────────
+
+///|
+pub struct TypeAnnotView {
+  node : @seam.SyntaxNode
+}
+
+///|
+pub fn TypeAnnotView::cast(n : @seam.SyntaxNode) -> TypeAnnotView? {
+  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.TypeAnnot {
+    Some({ node: n })
+  } else {
+    None
+  }
+}
+
+///|
+pub impl @core.AstView for TypeAnnotView with syntax_node(self) {
+  self.node
+}
+
+///|
+/// Extract the Type from a TypeAnnot CST node.
+pub fn TypeAnnotView::to_type(self : TypeAnnotView) -> @typecheck.Type? {
+  match self.node.nth_child(0) {
+    None => None
+    Some(type_node) => cst_to_type(type_node)
+  }
+}
+
+///|
+fn cst_to_type(node : @seam.SyntaxNode) -> @typecheck.Type? {
+  match @syntax.SyntaxKind::from_raw(node.kind()) {
+    @syntax.TypeInt => Some(@typecheck.Type::TInt)
+    @syntax.TypeUnit => Some(@typecheck.Type::TUnit)
+    @syntax.TypeArrow =>
+      match (node.nth_child(0), node.nth_child(1)) {
+        (Some(l), Some(r)) =>
+          match (cst_to_type(l), cst_to_type(r)) {
+            (Some(lt), Some(rt)) => Some(@typecheck.Type::TArrow(lt, rt))
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}

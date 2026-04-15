@@ -303,3 +303,42 @@ test "tokenize block with semicolons" {
   inspect(token_str.contains(";"), content="true")
   inspect(token_str.contains("}"), content="true")
 }
+
+///|
+test "lex colon" {
+  let tokens = tokenize("x : Int")
+  let non_ws = tokens.filter(fn(t) {
+    t.token != @token.Whitespace && t.token != @token.Newline
+  })
+  inspect(non_ws[0].token, content="<ident>")
+  inspect(non_ws[1].token, content=":")
+  inspect(non_ws[2].token, content="<ident>")
+}
+
+///|
+test "lex arrow" {
+  let tokens = tokenize("Int -> Int")
+  let non_ws = tokens.filter(fn(t) {
+    t.token != @token.Whitespace && t.token != @token.Newline
+  })
+  inspect(non_ws[1].token, content="->")
+}
+
+///|
+test "lex minus still works" {
+  let tokens = tokenize("1 - 2")
+  let non_ws = tokens.filter(fn(t) {
+    t.token != @token.Whitespace && t.token != @token.Newline
+  })
+  inspect(non_ws[1].token, content="-")
+}
+
+///|
+test "lex arrow vs minus" {
+  let tokens = tokenize("1 - 2 -> 3")
+  let non_ws = tokens.filter(fn(t) {
+    t.token != @token.Whitespace && t.token != @token.Newline
+  })
+  inspect(non_ws[1].token, content="-")
+  inspect(non_ws[3].token, content="->")
+}

@@ -382,6 +382,9 @@ fn parse_atom(
               ctx.emit_error_placeholder()
             }
           }
+          if ctx.peek() == @token.Colon {
+            parse_type_annotation(ctx)
+          }
           if !lambda_expect(ctx, @token.Dot, @syntax.DotToken) {
             return false
           }
@@ -459,6 +462,9 @@ fn parse_param_list(
       ctx.emit_error_placeholder()
     }
   }
+  if ctx.peek() == @token.Colon {
+    parse_type_annotation(ctx)
+  }
   // Remaining parameters
   while ctx.peek() == @token.Comma {
     ctx.emit_token(@syntax.CommaToken) // ,
@@ -472,6 +478,9 @@ fn parse_param_list(
         ctx.error("Expected parameter name")
         ctx.emit_error_placeholder()
       }
+    }
+    if ctx.peek() == @token.Colon {
+      parse_type_annotation(ctx)
     }
   }
   let _ = lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) // )
@@ -549,6 +558,77 @@ fn parse_lambda_root(
     }
   }
   ctx.flush_trivia()
+}
+
+///|
+/// Get the text of the current non-trivia token without consuming it.
+fn peek_text(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> String {
+  let mut pos = ctx.position
+  while pos < ctx.token_count {
+    let t = (ctx.get_token)(pos)
+    if t.is_trivia() {
+      pos = pos + 1
+    } else {
+      return ctx.token_text_at(pos).to_string()
+    }
+  }
+  ""
+}
+
+///|
+fn parse_type(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  parse_atom_type(ctx)
+  if ctx.peek() == @token.Arrow {
+    let mark = ctx.mark()
+    ctx.emit_token(@syntax.ArrowToken)
+    parse_type(ctx) // right-recursive
+    ctx.start_at(mark, @syntax.TypeArrow)
+    ctx.finish_node()
+  }
+}
+
+///|
+fn parse_atom_type(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  match ctx.peek() {
+    @token.Identifier => {
+      let text = peek_text(ctx)
+      match text {
+        "Int" =>
+          ctx.node(@syntax.TypeInt, fn() { ctx.emit_token(@syntax.IdentToken) })
+        "Unit" =>
+          ctx.node(@syntax.TypeUnit, fn() { ctx.emit_token(@syntax.IdentToken) })
+        _ => {
+          ctx.error("expected type, got identifier '" + text + "'")
+          ctx.emit_error_placeholder()
+        }
+      }
+    }
+    @token.LeftParen => {
+      ctx.emit_token(@syntax.LeftParenToken)
+      parse_type(ctx)
+      let _ = lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken)
+    }
+    _ => {
+      ctx.error("expected type")
+      ctx.emit_error_placeholder()
+    }
+  }
+}
+
+///|
+fn parse_type_annotation(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.node(@syntax.TypeAnnot, fn() {
+    ctx.emit_token(@syntax.ColonToken)
+    parse_type(ctx)
+  })
 }
 
 ///|
