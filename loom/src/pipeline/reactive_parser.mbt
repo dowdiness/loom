@@ -86,7 +86,7 @@ fn[Ast] ReactiveParser::run_source_chain_validation(
 ///|
 /// Return the current source text.
 pub fn[Ast] ReactiveParser::get_source(self : ReactiveParser[Ast]) -> String {
-  self.source_text.peek()
+  self.source_text.get()
 }
 
 ///|
@@ -185,7 +185,10 @@ pub fn[Stage, Ast] ReactiveParser::from_parts(
   // Stored for revalidation on cst()/term() calls so dynamic memo
   // dependencies cannot silently detach the CST from the source.
   let validate_source_chain = fn() {
-    ignore(source_memo.get_result())
+    match source_memo.get_result() {
+      Ok(_) => ()
+      Err(e) => abort(e.format_path(rt))
+    }
     if !source_memo.dependencies().contains(source_id) {
       abort(
         "ReactiveParser::from_parts: source_memo must depend on source_text",
