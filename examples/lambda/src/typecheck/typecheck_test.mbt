@@ -237,3 +237,207 @@ test "infer module" {
   inspect(result.typ, content="Int")
   inspect(result.had_error, content="false")
 }
+
+// --- Resolution tests ---
+
+///|
+test "resolve: bound variable stays Var" {
+  // Module with def a=1, body=a → a is bound
+  let term = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Var("a"))
+  let resolved = resolve_typed(term)
+  inspect(resolved.body, content="Var(\"a\")")
+}
+
+///|
+test "resolve: free variable becomes Unbound" {
+  // Module with no defs, body=x → x is free
+  let term = TypedTerm::Module([], TypedTerm::Var("x"))
+  let resolved = resolve_typed(term)
+  inspect(resolved.body, content="Unbound(\"x\")")
+}
+
+///|
+test "resolve: module sequential scoping" {
+  // Module: def a = 1, def b = a, body = b
+  // In def b, a is in scope. In body, both a and b are in scope.
+  let term = TypedTerm::Module(
+    [("a", TypedTerm::Int(1)), ("b", TypedTerm::Var("a"))],
+    TypedTerm::Var("b"),
+  )
+  let resolved = resolve_typed(term)
+  // def b's body sees a as bound
+  inspect(resolved.defs[1].1, content="Var(\"a\")")
+  // body sees b as bound
+  inspect(resolved.body, content="Var(\"b\")")
+}
+
+///|
+test "resolve: def body cannot see later defs" {
+  // Module: def a = b, def b = 1, body = a
+  // In def a, b is NOT yet in scope → becomes Unbound
+  let term = TypedTerm::Module(
+    [("a", TypedTerm::Var("b")), ("b", TypedTerm::Int(1))],
+    TypedTerm::Var("a"),
+  )
+  let resolved = resolve_typed(term)
+  inspect(resolved.defs[0].1, content="Unbound(\"b\")")
+}
+
+///|
+test "resolve: lambda binds variable" {
+  // \x. x  with no outer scope — x is bound by the lambda
+  let term = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
+  let resolved = resolve_typed(term)
+  inspect(resolved.body, content="Lam(\"x\", None, Var(\"x\"))")
+}
+
+///|
+test "resolve: non-module term" {
+  // Bare expression resolves with empty scope
+  let term = TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1))
+  let resolved = resolve_typed(term)
+  // f is unbound since there's no module scope
+  inspect(resolved.body, content="App(Unbound(\"f\"), Int(1))")
+  inspect(resolved.defs.length(), content="0")
+}
+
+// --- Incremental pipeline tests ---
+
+///|
+test "incremental: basic typecheck through pipeline" {
+  // Module: def f = \x:Int. x+1, body = f 5
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let module_term = TypedTerm::Module(
+    [
+      (
+        "f",
+        TypedTerm::Lam(
+          "x",
+          Some(TInt),
+          TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("x"), TypedTerm::Int(1)),
+        ),
+      ),
+    ],
+    TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(5)),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let result = result_memo.get_result().unwrap()
+  // f : Int -> Int
+  inspect(result.def_types[0].0, content="f")
+  inspect(result.def_types[0].1.typ, content="Int -> Int")
+  inspect(result.def_types[0].1.had_error, content="false")
+  // body: f 5 : Int
+  inspect(result.body_type.typ, content="Int")
+  inspect(result.body_type.had_error, content="false")
+  inspect(result.all_diagnostics.length(), content="0")
+  scope.dispose()
+}
+
+///|
+test "incremental: source unchanged = cache hit" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let module_term = TypedTerm::Module(
+    [("a", TypedTerm::Int(42))],
+    TypedTerm::Var("a"),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let r1 = result_memo.get_result().unwrap()
+  let r2 = result_memo.get_result().unwrap()
+  inspect(r1 == r2, content="true")
+  scope.dispose()
+}
+
+///|
+test "incremental: edit def body triggers recomputation" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Initially: def a = 1, body = a
+  let module_term1 = TypedTerm::Module(
+    [("a", TypedTerm::Int(1))],
+    TypedTerm::Var("a"),
+  )
+  let term_signal = scope.signal(module_term1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let r1 = result_memo.get_result().unwrap()
+  inspect(r1.body_type.typ, content="Int")
+  // Now change def a's body to Unit
+  let module_term2 = TypedTerm::Module(
+    [("a", TypedTerm::Unit)],
+    TypedTerm::Var("a"),
+  )
+  term_signal.set(module_term2)
+  let r2 = result_memo.get_result().unwrap()
+  inspect(r2.body_type.typ, content="Unit")
+  inspect(r2.def_types[0].1.typ, content="Unit")
+  scope.dispose()
+}
+
+///|
+test "incremental: structural change rebuilds scope" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Initially: def a = 1, body = a
+  let module_term1 = TypedTerm::Module(
+    [("a", TypedTerm::Int(1))],
+    TypedTerm::Var("a"),
+  )
+  let term_signal = scope.signal(module_term1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let r1 = result_memo.get_result().unwrap()
+  inspect(r1.def_types.length(), content="1")
+  // Now change to two defs: def a = 1, def b = a, body = b
+  let module_term2 = TypedTerm::Module(
+    [("a", TypedTerm::Int(1)), ("b", TypedTerm::Var("a"))],
+    TypedTerm::Var("b"),
+  )
+  term_signal.set(module_term2)
+  let r2 = result_memo.get_result().unwrap()
+  inspect(r2.def_types.length(), content="2")
+  inspect(r2.def_types[0].0, content="a")
+  inspect(r2.def_types[1].0, content="b")
+  inspect(r2.body_type.typ, content="Int")
+  scope.dispose()
+}
+
+///|
+test "incremental: empty module" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  let module_term = TypedTerm::Module([], TypedTerm::Int(42))
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let result = result_memo.get_result().unwrap()
+  inspect(result.def_types.length(), content="0")
+  inspect(result.body_type.typ, content="Int")
+  inspect(result.all_diagnostics.length(), content="0")
+  scope.dispose()
+}
+
+///|
+test "incremental: diagnostics propagate through pipeline" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // def a = \x. x (unannotated lambda → error), body = a
+  let module_term = TypedTerm::Module(
+    [("a", TypedTerm::Lam("x", None, TypedTerm::Var("x")))],
+    TypedTerm::Var("a"),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let result = result_memo.get_result().unwrap()
+  inspect(result.def_types[0].1.had_error, content="true")
+  // Diagnostics should be tagged with def name
+  inspect(result.all_diagnostics.length() > 0, content="true")
+  inspect(result.all_diagnostics[0].def_name, content="Some(\"a\")")
+  scope.dispose()
+}

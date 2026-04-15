@@ -1,0 +1,216 @@
+// Incremental typecheck pipeline wiring.
+//
+// Creates a Scope-managed chain of Memos for per-def type checking.
+// For a module with N defs, the chain is:
+//   env_memo[0] → type_memo[0] → env_memo[1] → type_memo[1] → ... → body_memo
+//
+// When module structure changes (defs added/removed), the old chain
+// scope is disposed and a new one is built. When only def bodies change,
+// the corresponding term signals are updated and memos recompute.
+
+///|
+/// Mutable pipeline state, held inside the top-level Memo closure.
+priv struct PipelineState {
+  intern_table : @incr.InternTable[DefEntry]
+  mut chain_scope : @incr.Scope?
+  mut prev_def_names : Array[String]
+  mut term_signals : Array[@incr.Signal[TypedTerm]]
+  // env_memos kept alive so closures that captured them don't dangle
+  mut env_memos : Array[@incr.Memo[TypeEnv]]
+  mut type_memos : Array[@incr.Memo[TypeResult]]
+  mut body_term_signal : @incr.Signal[TypedTerm]?
+  mut body_memo : @incr.Memo[TypeResult]?
+}
+
+///|
+fn PipelineState::new() -> PipelineState {
+  {
+    intern_table: @incr.InternTable::new(),
+    chain_scope: None,
+    prev_def_names: [],
+    term_signals: [],
+    env_memos: [],
+    type_memos: [],
+    body_term_signal: None,
+    body_memo: None,
+  }
+}
+
+///|
+/// Build the incremental typecheck pipeline.
+///
+/// Takes a `Memo[TypedTerm]` that produces the (already converted and resolved)
+/// module term. Returns a `Memo[ModuleTypeResult]` that recomputes incrementally
+/// when the input changes.
+///
+/// The caller (in `src/` or in tests) is responsible for creating the input memo
+/// from parsed source. This avoids circular dependencies.
+pub fn build_typecheck_pipeline(
+  rt : @incr.Runtime,
+  parent_scope : @incr.Scope,
+  source_term : @incr.Memo[TypedTerm],
+) -> @incr.Memo[ModuleTypeResult] {
+  let state = PipelineState::new()
+  ignore(rt)
+  parent_scope.memo(
+    fn() {
+      let term = source_term.get()
+      let resolved = resolve_typed(term)
+      let def_names = resolved.defs.map(fn(d) { d.0 })
+      // Detect structural change: first run or different def names
+      let needs_rebuild = match state.chain_scope {
+        None => true
+        Some(_) => def_names != state.prev_def_names
+      }
+      if needs_rebuild {
+        rebuild_chain(state, parent_scope, resolved)
+      } else {
+        // Same structure — update term signals with new terms
+        update_terms(state, resolved)
+      }
+      collect_results(state)
+    },
+    label="typecheck_pipeline",
+  )
+}
+
+///|
+/// Dispose old chain and build a new Memo chain for the resolved module.
+fn rebuild_chain(
+  state : PipelineState,
+  parent_scope : @incr.Scope,
+  resolved : ResolvedModule,
+) -> Unit {
+  // Dispose previous chain scope if it exists
+  match state.chain_scope {
+    Some(old_scope) => old_scope.dispose()
+    None => ()
+  }
+  let chain_scope = parent_scope.child()
+  state.chain_scope = Some(chain_scope)
+  let def_names = resolved.defs.map(fn(d) { d.0 })
+  state.prev_def_names = def_names
+  // Intern all def names
+  for i, def in resolved.defs {
+    let _id = state.intern_table.intern({ name: def.0, encounter_order: i })
+  }
+  // Create term signals for each def
+  let term_signals : Array[@incr.Signal[TypedTerm]] = []
+  for def in resolved.defs {
+    let sig = chain_scope.signal(def.1, label="def_term_\{def.0}")
+    term_signals.push(sig)
+  }
+  state.term_signals = term_signals
+  // Build env_memo and type_memo chains
+  let env_memos : Array[@incr.Memo[TypeEnv]] = []
+  let type_memos : Array[@incr.Memo[TypeResult]] = []
+  for i = 0; i < resolved.defs.length(); i = i + 1 {
+    let def_name = resolved.defs[i].0
+    let term_sig = term_signals[i]
+    // env_memo[i]: extends previous env with previous def's type
+    let env_memo = if i == 0 {
+      chain_scope.memo(fn() { TypeEnv::Empty }, label="env_\{def_name}")
+    } else {
+      let prev_env_memo = env_memos[i - 1]
+      let prev_type_memo = type_memos[i - 1]
+      let prev_name = resolved.defs[i - 1].0
+      chain_scope.memo(
+        fn() {
+          let env = prev_env_memo.get()
+          let prev_result = prev_type_memo.get()
+          let prev_type = if prev_result.had_error {
+            TError
+          } else {
+            prev_result.typ
+          }
+          env.extend(prev_name, prev_type)
+        },
+        label="env_\{def_name}",
+      )
+    }
+    env_memos.push(env_memo)
+    // type_memo[i]: infer def body in env_memo[i]
+    let type_memo = chain_scope.memo(
+      fn() {
+        let env = env_memo.get()
+        let body = term_sig.get()
+        infer(env, body)
+      },
+      label="type_\{def_name}",
+    )
+    type_memos.push(type_memo)
+  }
+  state.env_memos = env_memos
+  state.type_memos = type_memos
+  // Body signal and memo
+  let body_sig = chain_scope.signal(resolved.body, label="body_term")
+  state.body_term_signal = Some(body_sig)
+  // Build the final env for the body (extends last env with last def's type)
+  let body_memo = if resolved.defs.length() == 0 {
+    chain_scope.memo(
+      fn() {
+        let body = body_sig.get()
+        infer(TypeEnv::Empty, body)
+      },
+      label="body_type",
+    )
+  } else {
+    let last_idx = resolved.defs.length() - 1
+    let last_env_memo = env_memos[last_idx]
+    let last_type_memo = type_memos[last_idx]
+    let last_name = resolved.defs[last_idx].0
+    chain_scope.memo(
+      fn() {
+        let env = last_env_memo.get()
+        let last_result = last_type_memo.get()
+        let last_type = if last_result.had_error {
+          TError
+        } else {
+          last_result.typ
+        }
+        let body_env = env.extend(last_name, last_type)
+        let body = body_sig.get()
+        infer(body_env, body)
+      },
+      label="body_type",
+    )
+  }
+  state.body_memo = Some(body_memo)
+}
+
+///|
+/// Update term signals when structure is unchanged.
+fn update_terms(state : PipelineState, resolved : ResolvedModule) -> Unit {
+  for i, def in resolved.defs {
+    state.term_signals[i].set(def.1)
+  }
+  match state.body_term_signal {
+    Some(sig) => sig.set(resolved.body)
+    None => ()
+  }
+}
+
+///|
+/// Collect results from the Memo chain into a ModuleTypeResult.
+fn collect_results(state : PipelineState) -> ModuleTypeResult {
+  let def_types : Array[(String, TypeResult)] = []
+  let all_diagnostics : Array[TypeDiagnostic] = []
+  for i, name in state.prev_def_names {
+    let result = state.type_memos[i].get()
+    def_types.push((name, result))
+    // Tag diagnostics with the def name
+    for d in result.diagnostics {
+      all_diagnostics.push({ ..d, def_name: Some(name) })
+    }
+  }
+  // Touch env_memos to keep them alive (closures capture the array, not the field)
+  ignore(state.env_memos)
+  let body_type = match state.body_memo {
+    Some(memo) => memo.get()
+    None => { typ: TUnit, had_error: false, diagnostics: [] }
+  }
+  for d in body_type.diagnostics {
+    all_diagnostics.push(d)
+  }
+  { body_type, def_types, all_diagnostics }
+}

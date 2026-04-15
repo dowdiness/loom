@@ -2,16 +2,21 @@
 package "dowdiness/lambda/typecheck"
 
 import {
+  "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn build_typecheck_pipeline(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> @cells.Memo[ModuleTypeResult]
+
 pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult
 
 pub fn convert(@ast.Term) -> TypedTerm
 
 pub fn infer(TypeEnv, TypedTerm) -> TypeResult
+
+pub fn resolve_typed(TypedTerm) -> ResolvedModule
 
 // Errors
 
