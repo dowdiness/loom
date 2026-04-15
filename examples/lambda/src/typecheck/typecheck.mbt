@@ -243,18 +243,25 @@ fn update_terms(state : PipelineState, resolved : ResolvedModule) -> Unit {
 
 ///|
 /// Collect results from the Memo chain into a ModuleTypeResult.
+///
+/// Reads all type_memos inside the parent memo's tracked context, so the
+/// parent memo depends on every def. This is intentional: the aggregation
+/// must incorporate all results regardless. Per-def incrementality is at
+/// the type_memo level — each only recomputes when its own inputs change.
+/// The collection here is O(n) reads, not O(n) type-checks.
 fn collect_results(state : PipelineState) -> ModuleTypeResult {
   let def_types : Array[(String, TypeResult)] = []
   let all_diagnostics : Array[TypeDiagnostic] = []
   for i, name in state.prev_def_names {
     let result = state.type_memos[i].get()
     def_types.push((name, result))
-    // Tag diagnostics with the def name
     for d in result.diagnostics {
       all_diagnostics.push({ ..d, def_name: Some(name) })
     }
   }
-  // Touch env_memos to keep them alive (closures capture the array, not the field)
+  // env_memos are never read directly, but must be kept alive: type_memo
+  // and env_memo closures captured references to the env_memos array
+  // elements. If the array were collected, those closures would dangle.
   ignore(state.env_memos)
   let body_type = match state.body_memo {
     Some(memo) => memo.get()

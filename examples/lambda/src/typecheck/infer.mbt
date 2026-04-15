@@ -9,6 +9,16 @@
 // had_error and suppress secondary diagnostics to avoid cascading noise.
 
 ///|
+/// Extract the result type, replacing with TError if had_error.
+fn result_type(r : TypeResult) -> Type {
+  if r.had_error {
+    TError
+  } else {
+    r.typ
+  }
+}
+
+///|
 fn ok(typ : Type) -> TypeResult {
   { typ, had_error: false, diagnostics: [] }
 }
@@ -55,13 +65,8 @@ pub fn infer(env : TypeEnv, term : TypedTerm) -> TypeResult {
       } else {
         let ext_env = env.extend(x, annot)
         let body_result = infer(ext_env, body)
-        let ret_type = if body_result.had_error {
-          TError
-        } else {
-          body_result.typ
-        }
         {
-          typ: TArrow(annot, ret_type),
+          typ: TArrow(annot, result_type(body_result)),
           had_error: body_result.had_error,
           diagnostics: body_result.diagnostics,
         }
@@ -131,21 +136,11 @@ pub fn infer(env : TypeEnv, term : TypedTerm) -> TypeResult {
         let (name, expr) = def
         let def_result = infer(current_env, expr)
         all_results.push(def_result)
-        let def_type = if def_result.had_error {
-          TError
-        } else {
-          def_result.typ
-        }
-        current_env = current_env.extend(name, def_type)
+        current_env = current_env.extend(name, result_type(def_result))
       }
       let body_result = infer(current_env, body)
       all_results.push(body_result)
-      let body_type = if body_result.had_error {
-        TError
-      } else {
-        body_result.typ
-      }
-      merge_diagnostics(all_results, body_type)
+      merge_diagnostics(all_results, result_type(body_result))
     }
     Hole(_) => err("incomplete expression")
     Error(msg) => err(msg)
@@ -161,12 +156,12 @@ pub fn check(env : TypeEnv, term : TypedTerm, expected : Type) -> TypeResult {
     (Lam(x, None, body), TArrow(param_t, ret_t)) => {
       let ext_env = env.extend(x, param_t)
       let body_result = check(ext_env, body, ret_t)
-      let result_type = if body_result.had_error {
+      let typ = if body_result.had_error {
         TError
       } else {
         TArrow(param_t, ret_t)
       }
-      { ..body_result, typ: result_type }
+      { ..body_result, typ, }
     }
     (Lam(x, Some(annot), body), TArrow(param_t, ret_t)) =>
       if annot != param_t {
@@ -174,7 +169,6 @@ pub fn check(env : TypeEnv, term : TypedTerm, expected : Type) -> TypeResult {
           message: "annotation mismatch: expected \{param_t}, got \{annot}",
           def_name: None,
         }
-        // Use the expected type (param_t) to check the body
         let ext_env = env.extend(x, param_t)
         let body_result = check(ext_env, body, ret_t)
         let all_diags : Array[TypeDiagnostic] = [diag]
@@ -185,12 +179,12 @@ pub fn check(env : TypeEnv, term : TypedTerm, expected : Type) -> TypeResult {
       } else {
         let ext_env = env.extend(x, annot)
         let body_result = check(ext_env, body, ret_t)
-        let result_type = if body_result.had_error {
+        let typ = if body_result.had_error {
           TError
         } else {
           TArrow(param_t, ret_t)
         }
-        { ..body_result, typ: result_type }
+        { ..body_result, typ, }
       }
     (Lam(_, _, _), _) => err("expected \{expected}, got function")
     (Hole(_), _) => { typ: TError, had_error: true, diagnostics: [] }
