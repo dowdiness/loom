@@ -152,10 +152,11 @@ test "ReactiveParser::get_source returns current source" {
 ///|
 test "ReactiveParser::runtime exposes the internal Runtime" {
   let db = new_db("hello")
-  let derived = @incr.Memo::new(ReactiveParser::runtime(db), fn() -> String {
+  let rt = ReactiveParser::runtime(db)
+  let derived = @incr.Memo::new(rt, fn() -> String {
     ReactiveParser::term(db) + "!"
   })
-  inspect(derived.get(), content="5!")
+  inspect(rt.read(derived), content="5!")
 }
 
 ///|
