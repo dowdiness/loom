@@ -157,6 +157,9 @@ test "ReactiveParser::runtime exposes the internal Runtime" {
     ReactiveParser::term(db) + "!"
   })
   inspect(rt.read(derived), content="5!")
+  // Regression: set_source must invalidate derived memos that read through term()
+  ReactiveParser::set_source(db, "hi") // length 2 → term = "2"
+  inspect(rt.read(derived), content="2!")
 }
 
 ///|
