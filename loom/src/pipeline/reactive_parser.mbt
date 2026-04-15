@@ -86,7 +86,7 @@ fn[Ast] ReactiveParser::run_source_chain_validation(
 ///|
 /// Return the current source text.
 pub fn[Ast] ReactiveParser::get_source(self : ReactiveParser[Ast]) -> String {
-  self.source_text.get()
+  self.source_text.peek()
 }
 
 ///|
@@ -113,7 +113,7 @@ pub fn[Ast] ReactiveParser::runtime(
 /// Return the current CstStage (parse result + normalized diagnostics).
 /// Triggers memo evaluation if the source has changed since last call.
 pub fn[Ast] ReactiveParser::cst(self : ReactiveParser[Ast]) -> CstStage {
-  let stage = self.cst_memo.get()
+  let stage = self.rt.read(self.cst_memo)
   self.run_source_chain_validation()
   stage
 }
@@ -133,7 +133,7 @@ pub fn[Ast] ReactiveParser::diagnostics(
 /// Backed by term_memo: on a warm call (no source change) the Runtime skips
 /// recomputation and returns the cached Ast immediately.
 pub fn[Ast] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
-  let value = self.term_memo.get()
+  let value = self.rt.read(self.term_memo)
   self.run_source_chain_validation()
   if self.validate_term_dependency &&
     !self.term_memo.dependencies().contains(self.cst_memo.id()) {
@@ -179,7 +179,7 @@ pub fn[Stage, Ast] ReactiveParser::from_parts(
   // Stored for revalidation on cst()/term() calls so dynamic memo
   // dependencies cannot silently detach the CST from the source.
   let validate_source_chain = fn() {
-    ignore(source_memo.get())
+    ignore(rt.read(source_memo))
     if !source_memo.dependencies().contains(source_id) {
       abort(
         "ReactiveParser::from_parts: source_memo must depend on source_text",
