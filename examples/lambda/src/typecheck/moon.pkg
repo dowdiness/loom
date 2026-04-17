@@ -1,5 +1,7 @@
 import {
   "dowdiness/lambda/ast",
+  "dowdiness/lambda/syntax",
   "dowdiness/incr" @incr,
+  "dowdiness/seam" @seam,
   "moonbitlang/core/debug",
 }
