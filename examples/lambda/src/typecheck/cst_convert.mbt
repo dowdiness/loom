@@ -7,10 +7,23 @@
 //                         Term-based convert() cannot (always emits None).
 
 ///|
+/// True when the subtree rooted at `n` contains any ErrorNode or ErrorToken
+/// (the parser's two error-recovery markers). `seam.SyntaxNode::contains_errors`
+/// walks both nodes and tokens — important because the parser's
+/// `emit_error_placeholder()` produces a zero-width *token*, not a node.
+fn subtree_has_errors(n : @seam.SyntaxNode) -> Bool {
+  n.contains_errors(
+    @syntax.SyntaxKind::ErrorNode.to_raw(),
+    @syntax.SyntaxKind::ErrorToken.to_raw(),
+  )
+}
+
+///|
 /// Convert a type-position CST subtree into a `Type`.
-/// Returns `TError` for unrecognized kinds or any subtree containing an ErrorNode.
+/// Returns `TError` for unrecognized kinds or any subtree containing an
+/// ErrorNode or ErrorToken.
 pub fn type_of_node(n : @seam.SyntaxNode) -> Type {
-  if has_error_descendant(n) {
+  if subtree_has_errors(n) {
     return TError
   }
   match @syntax.SyntaxKind::from_raw(n.kind()) {
@@ -30,20 +43,6 @@ pub fn type_of_node(n : @seam.SyntaxNode) -> Type {
 }
 
 ///|
-/// Returns true if `n` or any descendant is an ErrorNode.
-fn has_error_descendant(n : @seam.SyntaxNode) -> Bool {
-  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::ErrorNode {
-    return true
-  }
-  for c in n.children() {
-    if has_error_descendant(c) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 /// Convert a CST SyntaxNode into a TypedTerm.
 /// Preserves lambda type annotations (which Term-based convert() cannot).
 pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
@@ -60,37 +59,7 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
       TypedTerm::Var(n.token_text(@syntax.SyntaxKind::IdentToken.to_raw()))
     @syntax.SyntaxKind::HoleLiteral => TypedTerm::Hole(0)
     @syntax.SyntaxKind::ErrorNode => TypedTerm::Error("error node")
-    @syntax.SyntaxKind::LambdaExpr => {
-      let param = n.token_text(@syntax.SyntaxKind::IdentToken.to_raw())
-      let mut annot_node : @seam.SyntaxNode? = None
-      let mut body_node : @seam.SyntaxNode? = None
-      for c in n.children() {
-        let k = @syntax.SyntaxKind::from_raw(c.kind())
-        if k == @syntax.SyntaxKind::TypeAnnot {
-          if annot_node is None {
-            annot_node = Some(c)
-          }
-        } else if body_node is None {
-          body_node = Some(c)
-        }
-      }
-      let annot = match annot_node {
-        None => None
-        Some(ann) => {
-          let cs = ann.children()
-          if cs.length() == 0 {
-            Some(TError)
-          } else {
-            Some(type_of_node(cs[0]))
-          }
-        }
-      }
-      let body = match body_node {
-        Some(b) => convert_from_cst(b)
-        None => TypedTerm::Error("missing lambda body")
-      }
-      TypedTerm::Lam(param, annot, body)
-    }
+    @syntax.SyntaxKind::LambdaExpr => convert_lambda(n)
     @syntax.SyntaxKind::AppExpr =>
       match n.nth_child(0) {
         None => TypedTerm::Error("missing function in application")
@@ -155,13 +124,61 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
 }
 
 ///|
+/// LambdaExpr → TypedTerm::Lam, with explicit detection of the parser's
+/// error-recovery placeholder for a missing parameter name. Without this
+/// check, `\. 1` silently becomes `Lam("", None, Int(1))`.
+fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
+  let ident = n.find_token(@syntax.SyntaxKind::IdentToken.to_raw())
+  let mut annot_node : @seam.SyntaxNode? = None
+  let mut body_node : @seam.SyntaxNode? = None
+  for c in n.children() {
+    let k = @syntax.SyntaxKind::from_raw(c.kind())
+    if k == @syntax.SyntaxKind::TypeAnnot {
+      if annot_node is None {
+        annot_node = Some(c)
+      }
+    } else if body_node is None {
+      body_node = Some(c)
+    }
+  }
+  let body = match body_node {
+    Some(b) => convert_from_cst(b)
+    None => TypedTerm::Error("missing lambda body")
+  }
+  match ident {
+    None => TypedTerm::Error("malformed lambda: missing parameter name")
+    Some(t) => {
+      let annot = match annot_node {
+        None => None
+        Some(ann) => {
+          let cs = ann.children()
+          if cs.length() == 0 {
+            Some(TError)
+          } else {
+            Some(type_of_node(cs[0]))
+          }
+        }
+      }
+      TypedTerm::Lam(t.text(), annot, body)
+    }
+  }
+}
+
+///|
 /// Collect LetDef entries and trailing expression from a node's children.
 /// Shared by SourceFile and BlockExpr conversion.
+///
+/// If multiple non-LetDef children appear, only the first becomes the body;
+/// subsequent ones are inspected for error markers and, if any are present,
+/// the body is rewritten as `TypedTerm::Error` so the typechecker surfaces a
+/// diagnostic instead of silently dropping the trailing junk.
 fn collect_typed_defs_and_body(
   node : @seam.SyntaxNode,
 ) -> (Array[(String, TypedTerm)], TypedTerm) {
   let defs : Array[(String, TypedTerm)] = []
   let mut final_term : TypedTerm = TypedTerm::Unit
+  let mut body_set : Bool = false
+  let mut trailing_error : Bool = false
   for child in node.children() {
     match @syntax.SyntaxKind::from_raw(child.kind()) {
       @syntax.SyntaxKind::LetDef => {
@@ -169,10 +186,16 @@ fn collect_typed_defs_and_body(
         defs.push((name, body))
       }
       _ =>
-        if final_term == TypedTerm::Unit {
+        if !body_set {
           final_term = convert_from_cst(child)
+          body_set = true
+        } else if subtree_has_errors(child) {
+          trailing_error = true
         }
     }
+  }
+  if trailing_error {
+    final_term = TypedTerm::Error("trailing junk after expression")
   }
   (defs, final_term)
 }
@@ -203,6 +226,11 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
 ///|
 /// Convert a LetDef CST node to (name, TypedTerm) pair.
 /// Handles both value form (`let a = 1`) and param-list form (`let f(x: Int) = x`).
+///
+/// Returns `(name, TypedTerm::Error)` when the parser inserted an error
+/// placeholder for the function name or for a parameter (e.g. `let f() = 1`
+/// — empty param list — or `let () = 1`). Without this check, the malformed
+/// definition would silently degrade to a plain value binding.
 fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
   let name = n.token_text(@syntax.SyntaxKind::IdentToken.to_raw())
   let mut param_list : @seam.SyntaxNode? = None
@@ -223,12 +251,16 @@ fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
     None => init_term
     Some(pl) => {
       let params = convert_param_list(pl)
-      let mut b = init_term
-      for i = params.length() - 1; i >= 0; i = i - 1 {
-        let (nm, ann) = params[i]
-        b = TypedTerm::Lam(nm, ann, b)
+      if params.is_empty() || subtree_has_errors(pl) {
+        TypedTerm::Error("malformed param list")
+      } else {
+        let mut b = init_term
+        for i = params.length() - 1; i >= 0; i = i - 1 {
+          let (nm, ann) = params[i]
+          b = TypedTerm::Lam(nm, ann, b)
+        }
+        b
       }
-      b
     }
   }
   (name, body)

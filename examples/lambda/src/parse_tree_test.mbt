@@ -408,24 +408,29 @@ test "type_of_node: malformed returns TError" {
 }
 
 ///|
-test "convert_from_cst: lambda missing ident" {
-  // "\. 1" — parser recovers with error placeholder for the param name.
-  let term = typed_from_source("\\. 1")
-  let repr = term.to_string()
-  // Some form of Error or malformed lambda shape is acceptable.
+test "convert_from_cst: lambda missing ident → Error" {
+  // `\. 1` — parser inserts a zero-width error TOKEN where the IdentToken
+  // should be. Walker must surface this as TypedTerm::Error rather than
+  // silently producing `Lam("", None, Int(1))`.
   inspect(
-    repr.contains("Error") || repr.contains("<error>") || repr.contains("Lam"),
-    content="true",
+    typed_from_source("\\. 1"),
+    content=(
+      #|Error("malformed lambda: missing parameter name")
+    ),
   )
 }
 
 ///|
-test "convert_from_cst: empty param list recovers" {
-  let term = typed_from_source("let f() = 1\nf")
-  // Walker should not crash. Either produces Lam with no params (i.e. just the init)
-  // or Error. Both are acceptable.
-  let _ = term.to_string()
-  inspect(true, content="true")
+test "convert_from_cst: empty param list → Error in body" {
+  // `let f() = 1` — parser parses an empty ParamList. Walker must reject
+  // this as a malformed function definition rather than silently degrading
+  // to a plain value binding `("f", Int(1))`.
+  inspect(
+    typed_from_source("let f() = 1\nf"),
+    content=(
+      #|Module([("f", Error("malformed param list"))], Var("f"))
+    ),
+  )
 }
 
 ///|
@@ -436,12 +441,43 @@ test "convert_from_cst: multi-def ordering preserved under recovery" {
   let term = typed_from_source("let a = 1\nlet b = let c = 3 c\nc")
   let repr = term.to_string()
   // Module should contain "a" as the first def-name.
-  let idx_a = match repr.find("\"a\"") { Some(i) => i; None => -1 }
-  let idx_b = match repr.find("\"b\"") { Some(i) => i; None => -1 }
+  let idx_a = match repr.find("\"a\"") {
+    Some(i) => i
+    None => -1
+  }
+  let idx_b = match repr.find("\"b\"") {
+    Some(i) => i
+    None => -1
+  }
   // If both present, a precedes b. If only a is present, that's also ok — it means
   // the walker preserved a and gave up on later defs.
   inspect(idx_a >= 0, content="true")
   if idx_b >= 0 {
     inspect(idx_a < idx_b, content="true")
   }
+}
+
+///|
+test "convert_from_cst: trailing junk after body → Error in body" {
+  // `let a = 1\nx )` — after the body expression `x`, the unbalanced `)`
+  // produces an ErrorNode. Walker must rewrite the body as Error so the
+  // typechecker surfaces a diagnostic; silently dropping the trailing
+  // junk would let `x` be reported as the only error (unbound variable),
+  // hiding the real parse failure.
+  inspect(
+    typed_from_source("let a = 1\nx )"),
+    content=(
+      #|Module([("a", Int(1))], Error("trailing junk after expression"))
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: lambda missing ident triggers typecheck diagnostic" {
+  // End-to-end: malformed lambda must surface as a typecheck diagnostic
+  // (rather than silently typechecking as some weird binding).
+  let term = typed_from_source("\\. 1")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="true")
+  inspect(result.diagnostics.length() >= 1, content="true")
 }
