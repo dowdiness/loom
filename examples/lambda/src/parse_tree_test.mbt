@@ -481,3 +481,51 @@ test "convert_from_cst: lambda missing ident triggers typecheck diagnostic" {
   inspect(result.had_error, content="true")
   inspect(result.diagnostics.length() >= 1, content="true")
 }
+
+///|
+test "convert_from_cst: empty block → Error" {
+  // `{}` — parser reports "empty block" as a *diagnostic only*; there is
+  // no ErrorNode/ErrorToken in the tree, so the converter must detect
+  // this structurally (no defs, no body) and emit Error. Without the
+  // check, `{}` would typecheck as Unit with no diagnostic.
+  inspect(
+    typed_from_source("{}"),
+    content=(
+      #|Error("empty block")
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: empty block triggers typecheck diagnostic" {
+  let term = typed_from_source("{}")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="true")
+}
+
+///|
+test "convert_from_cst: missing let name → Error" {
+  // `let = 1` — parser inserted an error placeholder where the binding
+  // name should be. Without the check, `token_text(IdentToken)` returns
+  // `""`, binding the empty name in the Module env and silently
+  // accepting the malformed definition.
+  inspect(
+    typed_from_source("let = 1"),
+    content=(
+      #|Module([("", Error("malformed let definition: missing name"))], Unit)
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: defs-only block preserves Module" {
+  // Regression guard: `{ let x = 1 }` has defs but no trailing body.
+  // Must produce a Module (not Error("empty block")) — empty-block
+  // detection should only fire when BOTH defs and body are absent.
+  inspect(
+    typed_from_source("{ let x = 1 }"),
+    content=(
+      #|Module([("x", Int(1))], Unit)
+    ),
+  )
+}
