@@ -4,6 +4,7 @@ import {
   "dowdiness/lambda/token",
   "dowdiness/lambda/syntax",
   "dowdiness/lambda/typecheck",
+  "dowdiness/incr" @incr,
   "dowdiness/loom/core" @core,
   "dowdiness/loom/viz" @viz,
   "moonbitlang/core/debug",
