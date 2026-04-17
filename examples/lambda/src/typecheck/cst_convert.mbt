@@ -172,39 +172,45 @@ fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
 /// subsequent ones are inspected for error markers and, if any are present,
 /// the body is rewritten as `TypedTerm::Error` so the typechecker surfaces a
 /// diagnostic instead of silently dropping the trailing junk.
+///
+/// Returns `(defs, Some(body))` when a body child was present, or
+/// `(defs, None)` when no trailing expression was found. Callers
+/// distinguish the two — BlockExpr treats `(empty, None)` as an error
+/// ("empty block"), whereas SourceFile accepts an empty source as Unit.
 fn collect_typed_defs_and_body(
   node : @seam.SyntaxNode,
-) -> (Array[(String, TypedTerm)], TypedTerm) {
+) -> (Array[(String, TypedTerm)], TypedTerm?) {
   let defs : Array[(String, TypedTerm)] = []
-  let mut final_term : TypedTerm = TypedTerm::Unit
-  let mut body_set : Bool = false
+  let mut body : TypedTerm? = None
   let mut trailing_error : Bool = false
   for child in node.children() {
     match @syntax.SyntaxKind::from_raw(child.kind()) {
       @syntax.SyntaxKind::LetDef => {
-        let (name, body) = convert_let_def_entry(child)
-        defs.push((name, body))
+        let (name, b) = convert_let_def_entry(child)
+        defs.push((name, b))
       }
       _ =>
-        if !body_set {
-          final_term = convert_from_cst(child)
-          body_set = true
-        } else if subtree_has_errors(child) {
-          trailing_error = true
+        match body {
+          None => body = Some(convert_from_cst(child))
+          Some(_) => if subtree_has_errors(child) { trailing_error = true }
         }
     }
   }
-  if trailing_error {
-    final_term = TypedTerm::Error("trailing junk after expression")
+  let final_body = if trailing_error {
+    Some(TypedTerm::Error("trailing junk after expression"))
+  } else {
+    body
   }
-  (defs, final_term)
+  (defs, final_body)
 }
 
 ///|
 /// Handle a SourceFile: collect LetDef entries and trailing expression,
-/// building a Module when defs are present.
+/// building a Module when defs are present. An empty source file is legal
+/// (produces `Unit`).
 fn convert_source_file(n : @seam.SyntaxNode) -> TypedTerm {
-  let (defs, body) = collect_typed_defs_and_body(n)
+  let (defs, body_opt) = collect_typed_defs_and_body(n)
+  let body = body_opt.unwrap_or(TypedTerm::Unit)
   if defs.is_empty() {
     body
   } else {
@@ -213,13 +219,29 @@ fn convert_source_file(n : @seam.SyntaxNode) -> TypedTerm {
 }
 
 ///|
-/// Handle a BlockExpr: same logic as SourceFile — collect defs + trailing expr.
+/// Handle a BlockExpr: same collection as SourceFile, but an empty block
+/// `{}` is not legal lambda-calculus syntax. The parser reports "empty
+/// block" as a parser diagnostic without inserting an error node/token,
+/// so the convert step must emit `TypedTerm::Error` to keep the
+/// typechecker from silently accepting `{}`.
 fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
-  let (defs, body) = collect_typed_defs_and_body(n)
-  if defs.is_empty() {
-    body
-  } else {
-    TypedTerm::Module(defs, body)
+  let (defs, body_opt) = collect_typed_defs_and_body(n)
+  match body_opt {
+    None =>
+      if defs.is_empty() {
+        TypedTerm::Error("empty block")
+      } else {
+        // `{ let x = 1 }` — defs only, no trailing expression. Matches
+        // the Term-based convert's behaviour of wrapping in Module with
+        // a Unit body; typecheck will flag the missing body if needed.
+        TypedTerm::Module(defs, TypedTerm::Unit)
+      }
+    Some(body) =>
+      if defs.is_empty() {
+        body
+      } else {
+        TypedTerm::Module(defs, body)
+      }
   }
 }
 
@@ -229,10 +251,11 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
 ///
 /// Returns `(name, TypedTerm::Error)` when the parser inserted an error
 /// placeholder for the function name or for a parameter (e.g. `let f() = 1`
-/// — empty param list — or `let () = 1`). Without this check, the malformed
-/// definition would silently degrade to a plain value binding.
+/// — empty param list — or `let () = 1`). The name field preserves the
+/// original identifier text (or `""` if the name itself was an error
+/// placeholder) so left-to-right definition order is retained in Module.
 fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
-  let name = n.token_text(@syntax.SyntaxKind::IdentToken.to_raw())
+  let ident = n.find_token(@syntax.SyntaxKind::IdentToken.to_raw())
   let mut param_list : @seam.SyntaxNode? = None
   let mut init : @seam.SyntaxNode? = None
   for c in n.children() {
@@ -243,27 +266,36 @@ fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
       init = Some(c)
     }
   }
-  let init_term = match init {
-    Some(e) => convert_from_cst(e)
-    None => TypedTerm::Error("missing LetDef init")
-  }
-  let body = match param_list {
-    None => init_term
-    Some(pl) => {
-      let params = convert_param_list(pl)
-      if params.is_empty() || subtree_has_errors(pl) {
-        TypedTerm::Error("malformed param list")
-      } else {
-        let mut b = init_term
-        for i = params.length() - 1; i >= 0; i = i - 1 {
-          let (nm, ann) = params[i]
-          b = TypedTerm::Lam(nm, ann, b)
-        }
-        b
+  // Missing name: parser inserted an error-placeholder token where the
+  // identifier should be (`let = 1`, `let (x) = x`). Surface as Error so
+  // typecheck reports a diagnostic instead of binding the empty name.
+  match ident {
+    None => ("", TypedTerm::Error("malformed let definition: missing name"))
+    Some(t) => {
+      let name = t.text()
+      let init_term = match init {
+        Some(e) => convert_from_cst(e)
+        None => TypedTerm::Error("missing LetDef init")
       }
+      let body = match param_list {
+        None => init_term
+        Some(pl) => {
+          let params = convert_param_list(pl)
+          if params.is_empty() || subtree_has_errors(pl) {
+            TypedTerm::Error("malformed param list")
+          } else {
+            let mut b = init_term
+            for i = params.length() - 1; i >= 0; i = i - 1 {
+              let (nm, ann) = params[i]
+              b = TypedTerm::Lam(nm, ann, b)
+            }
+            b
+          }
+        }
+      }
+      (name, body)
     }
   }
-  (name, body)
 }
 
 ///|
