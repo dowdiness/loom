@@ -1,8 +1,10 @@
-// cst_convert.mbt — CST (SyntaxNode) → Type conversion.
+// cst_convert.mbt — CST (SyntaxNode) → Type and TypedTerm conversion.
 //
-// Converts a type-position CST subtree into a `Type` value, preserving
-// type annotations that the Term-based convert() cannot (which always
-// emits None annotations).
+// Two public entry points:
+//   type_of_node(n)    — converts a type-position subtree to Type
+//   convert_from_cst(n) — converts an expression subtree to TypedTerm,
+//                         preserving lambda type annotations that the
+//                         Term-based convert() cannot (always emits None).
 
 ///|
 /// Convert a type-position CST subtree into a `Type`.
