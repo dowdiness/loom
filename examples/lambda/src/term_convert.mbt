@@ -69,7 +69,10 @@ fn fold_node_inner(
   match @syntax.SyntaxKind::from_raw(node.kind()) {
     @syntax.IntLiteral => {
       let v = IntLiteralView::{ node, }
-      @ast.Term::Int(v.value().unwrap_or(0))
+      match v.value() {
+        Some(n) => @ast.Term::Int(n)
+        None => @ast.Term::Error("invalid integer literal")
+      }
     }
     @syntax.VarRef => {
       let v = VarRefView::{ node, }
@@ -107,16 +110,24 @@ fn fold_node_inner(
         }
       }
       if children.length() >= 2 {
+        // The parser emits operator+operand pairs, so `ops` and trailing
+        // operands stay balanced; the Error branch guards malformed or
+        // hand-built CSTs, not normal parser output. Check before recursing
+        // so we neither re-overwrite Error nor traverse unreachable operands.
         let mut result = recurse(children[0])
+        let mut missing = false
         for i = 1; i < children.length(); i = i + 1 {
-          let op = if i - 1 < ops.length() {
-            ops[i - 1]
-          } else {
-            @ast.Bop::Plus
+          if i - 1 >= ops.length() {
+            missing = true
+            break
           }
-          result = @ast.Term::Bop(op, result, recurse(children[i]))
+          result = @ast.Term::Bop(ops[i - 1], result, recurse(children[i]))
         }
-        result
+        if missing {
+          @ast.Term::Error("missing binary operator")
+        } else {
+          result
+        }
       } else if children.length() == 1 {
         recurse(children[0])
       } else {
