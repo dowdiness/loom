@@ -243,6 +243,140 @@ test "convert_from_cst: annotated lambda typechecks clean via infer" {
 }
 
 ///|
+test "convert_from_cst: application" {
+  inspect(
+    typed_from_source("(\\x : Int. x) 5"),
+    content="App(Lam(\"x\", Some(TInt), Var(\"x\")), Int(5))",
+  )
+}
+
+///|
+test "convert_from_cst: application multi-arg" {
+  inspect(
+    typed_from_source("f 1 2"),
+    content="App(App(Var(\"f\"), Int(1)), Int(2))",
+  )
+}
+
+///|
+test "convert_from_cst: binary op plus" {
+  inspect(typed_from_source("1 + 2"), content="Bop(Plus, Int(1), Int(2))")
+}
+
+///|
+test "convert_from_cst: binary op minus" {
+  inspect(typed_from_source("3 - 1"), content="Bop(Minus, Int(3), Int(1))")
+}
+
+///|
+test "convert_from_cst: if-then-else" {
+  inspect(
+    typed_from_source("if 1 then 2 else 3"),
+    content="If(Int(1), Int(2), Int(3))",
+  )
+}
+
+///|
+test "convert_from_cst: block expression" {
+  inspect(typed_from_source("{ 42 }"), content="Int(42)")
+}
+
+///|
+test "convert_from_cst: parens transparent" {
+  inspect(typed_from_source("(1 + 2)"), content="Bop(Plus, Int(1), Int(2))")
+}
+
+///|
+test "convert_from_cst: let-def value form" {
+  inspect(
+    typed_from_source("let a = 1\na"),
+    content="Module([(\"a\", Int(1))], Var(\"a\"))",
+  )
+}
+
+///|
+test "convert_from_cst: let-def single annotated param" {
+  inspect(
+    typed_from_source("let f(x : Int) = x\nf"),
+    content="Module([(\"f\", Lam(\"x\", Some(TInt), Var(\"x\")))], Var(\"f\"))",
+  )
+}
+
+///|
+test "convert_from_cst: let-def two annotated params" {
+  inspect(
+    typed_from_source("let f(x : Int, y : Int) = x + y\nf"),
+    content=(
+      #|Module(
+      #|  [
+      #|    (
+      #|      "f",
+      #|      Lam(
+      #|        "x",
+      #|        Some(TInt),
+      #|        Lam("y", Some(TInt), Bop(Plus, Var("x"), Var("y"))),
+      #|      ),
+      #|    ),
+      #|  ],
+      #|  Var("f"),
+      #|)
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: let-def mixed annotated and unannotated" {
+  inspect(
+    typed_from_source("let f(x : Int, y) = x + y\nf"),
+    content=(
+      #|Module(
+      #|  [
+      #|    (
+      #|      "f",
+      #|      Lam("x", Some(TInt), Lam("y", None, Bop(Plus, Var("x"), Var("y")))),
+      #|    ),
+      #|  ],
+      #|  Var("f"),
+      #|)
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: let-def typechecks with annotations" {
+  let term = typed_from_source("let f(x : Int, y : Int) = x + y\nf")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.typ, content="Int -> Int -> Int")
+}
+
+///|
+test "convert_from_cst: two defs with body" {
+  inspect(
+    typed_from_source("let a = 1\nlet b = 2\na + b"),
+    content="Module([(\"a\", Int(1)), (\"b\", Int(2))], Bop(Plus, Var(\"a\"), Var(\"b\")))",
+  )
+}
+
+///|
+test "convert_from_cst: defs-only source" {
+  inspect(
+    typed_from_source("let a = 1"),
+    content="Module([(\"a\", Int(1))], Unit)",
+  )
+}
+
+///|
+test "convert_from_cst: Pipeline preset typechecks clean" {
+  let src = "let compose = \\f : Int -> Int. \\g : Int -> Int. \\x : Int. { f (g x) }\nlet double = \\x : Int. { x + x }\nlet inc = \\x : Int. { x + 1 }\nlet f = compose inc double\nf 5"
+  let term = typed_from_source(src)
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.diagnostics.length(), content="0")
+  inspect(result.typ, content="Int")
+}
+
+///|
 test "type_of_node: malformed returns TError" {
   // `\x : . x` — parser emits empty TypeAnnot (no type child).
   // extract_type_node returns None. The TypeAnnot itself is the error signal.

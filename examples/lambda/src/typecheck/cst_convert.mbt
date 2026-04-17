@@ -91,18 +91,200 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
       }
       TypedTerm::Lam(param, annot, body)
     }
+    @syntax.SyntaxKind::AppExpr =>
+      match n.nth_child(0) {
+        None => TypedTerm::Error("missing function in application")
+        Some(func_node) => {
+          let mut result = convert_from_cst(func_node)
+          for arg in n.children_from(1) {
+            result = TypedTerm::App(result, convert_from_cst(arg))
+          }
+          result
+        }
+      }
+    @syntax.SyntaxKind::BinaryExpr => {
+      let (children, all_tokens) = n.nodes_and_tokens()
+      let ops : Array[@ast.Bop] = []
+      for t in all_tokens {
+        if t.kind() == @syntax.PlusToken.to_raw() {
+          ops.push(@ast.Bop::Plus)
+        } else if t.kind() == @syntax.MinusToken.to_raw() {
+          ops.push(@ast.Bop::Minus)
+        }
+      }
+      if children.length() >= 2 {
+        let mut result = convert_from_cst(children[0])
+        for i = 1; i < children.length(); i = i + 1 {
+          let op = if i - 1 < ops.length() {
+            ops[i - 1]
+          } else {
+            @ast.Bop::Plus
+          }
+          result = TypedTerm::Bop(op, result, convert_from_cst(children[i]))
+        }
+        result
+      } else if children.length() == 1 {
+        convert_from_cst(children[0])
+      } else {
+        TypedTerm::Error("empty BinaryExpr")
+      }
+    }
+    @syntax.SyntaxKind::IfExpr => {
+      let cond = match n.nth_child(0) {
+        Some(c) => convert_from_cst(c)
+        None => TypedTerm::Error("missing if condition")
+      }
+      let then_ = match n.nth_child(1) {
+        Some(c) => convert_from_cst(c)
+        None => TypedTerm::Error("missing then branch")
+      }
+      let else_ = match n.nth_child(2) {
+        Some(c) => convert_from_cst(c)
+        None => TypedTerm::Error("missing else branch")
+      }
+      TypedTerm::If(cond, then_, else_)
+    }
+    @syntax.SyntaxKind::ParenExpr =>
+      match n.nth_child(0) {
+        Some(inner) => convert_from_cst(inner)
+        None => TypedTerm::Error("empty parentheses")
+      }
+    @syntax.SyntaxKind::BlockExpr => convert_block_expr(n)
     _ => TypedTerm::Error("unhandled CST kind")
   }
 }
 
 ///|
-/// Handle a SourceFile: recurse on its single interior child.
-/// Module-level multi-def handling lands in a later task.
-fn convert_source_file(n : @seam.SyntaxNode) -> TypedTerm {
-  let cs = n.children()
-  if cs.length() == 0 {
-    TypedTerm::Unit
-  } else {
-    convert_from_cst(cs[0])
+/// Collect LetDef entries and trailing expression from a node's children.
+/// Shared by SourceFile and BlockExpr conversion.
+fn collect_typed_defs_and_body(
+  node : @seam.SyntaxNode,
+) -> (Array[(String, TypedTerm)], TypedTerm) {
+  let defs : Array[(String, TypedTerm)] = []
+  let mut final_term : TypedTerm = TypedTerm::Unit
+  for child in node.children() {
+    match @syntax.SyntaxKind::from_raw(child.kind()) {
+      @syntax.SyntaxKind::LetDef => {
+        let (name, body) = convert_let_def_entry(child)
+        defs.push((name, body))
+      }
+      _ =>
+        if final_term == TypedTerm::Unit {
+          final_term = convert_from_cst(child)
+        }
+    }
   }
+  (defs, final_term)
+}
+
+///|
+/// Handle a SourceFile: collect LetDef entries and trailing expression,
+/// building a Module when defs are present.
+fn convert_source_file(n : @seam.SyntaxNode) -> TypedTerm {
+  let (defs, body) = collect_typed_defs_and_body(n)
+  if defs.is_empty() {
+    body
+  } else {
+    TypedTerm::Module(defs, body)
+  }
+}
+
+///|
+/// Handle a BlockExpr: same logic as SourceFile — collect defs + trailing expr.
+fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
+  let (defs, body) = collect_typed_defs_and_body(n)
+  if defs.is_empty() {
+    body
+  } else {
+    TypedTerm::Module(defs, body)
+  }
+}
+
+///|
+/// Convert a LetDef CST node to (name, TypedTerm) pair.
+/// Handles both value form (`let a = 1`) and param-list form (`let f(x: Int) = x`).
+fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
+  let name = n.token_text(@syntax.SyntaxKind::IdentToken.to_raw())
+  let mut param_list : @seam.SyntaxNode? = None
+  let mut init : @seam.SyntaxNode? = None
+  for c in n.children() {
+    let k = @syntax.SyntaxKind::from_raw(c.kind())
+    if k == @syntax.SyntaxKind::ParamList {
+      param_list = Some(c)
+    } else if init is None {
+      init = Some(c)
+    }
+  }
+  let init_term = match init {
+    Some(e) => convert_from_cst(e)
+    None => TypedTerm::Error("missing LetDef init")
+  }
+  let body = match param_list {
+    None => init_term
+    Some(pl) => {
+      let params = convert_param_list(pl)
+      let mut b = init_term
+      for i = params.length() - 1; i >= 0; i = i - 1 {
+        let (nm, ann) = params[i]
+        b = TypedTerm::Lam(nm, ann, b)
+      }
+      b
+    }
+  }
+  (name, body)
+}
+
+///|
+/// Walk a ParamList's all_children(), pairing IdentTokens with optionally-following
+/// TypeAnnot nodes. Returns [(name, annot?), ...].
+fn convert_param_list(pl : @seam.SyntaxNode) -> Array[(String, Type?)] {
+  let result : Array[(String, Type?)] = []
+  let mut pending_name : String? = None
+  let mut pending_annot : Type? = None
+  for elem in pl.all_children() {
+    match elem {
+      @seam.SyntaxElement::Token(t) => {
+        let kind = @syntax.SyntaxKind::from_raw(t.kind())
+        if kind == @syntax.SyntaxKind::IdentToken {
+          // Flush previous pending param if any
+          match pending_name {
+            Some(nm) => {
+              result.push((nm, pending_annot))
+              pending_annot = None
+            }
+            None => ()
+          }
+          pending_name = Some(t.text())
+        } else if kind == @syntax.SyntaxKind::CommaToken ||
+          kind == @syntax.SyntaxKind::RightParenToken {
+          // Flush on comma or closing paren
+          match pending_name {
+            Some(nm) => {
+              result.push((nm, pending_annot))
+              pending_name = None
+              pending_annot = None
+            }
+            None => ()
+          }
+        }
+      }
+      @seam.SyntaxElement::Node(node) => {
+        let kind = @syntax.SyntaxKind::from_raw(node.kind())
+        if kind == @syntax.SyntaxKind::TypeAnnot {
+          let cs = node.children()
+          pending_annot = if cs.length() == 0 {
+            Some(TError)
+          } else {
+            Some(type_of_node(cs[0]))
+          }
+        }
+      }
+    }
+  }
+  // Flush any remaining pending param
+  match pending_name {
+    Some(nm) => result.push((nm, pending_annot))
+    None => ()
+  }
+  result
 }
