@@ -2,6 +2,7 @@
 package "dowdiness/lambda"
 
 import {
+  "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
   "dowdiness/lambda/syntax",
   "dowdiness/lambda/token",
@@ -9,11 +10,14 @@ import {
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn attach_typecheck(@pipeline.ReactiveParser[@ast.Term]) -> TypecheckAttachment
+
 pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
 
 pub fn lambda_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> @ast.Term) -> @ast.Term
@@ -127,6 +131,14 @@ pub struct TypeAnnotView {
 pub fn TypeAnnotView::cast(@seam.SyntaxNode) -> Self?
 pub fn TypeAnnotView::to_type(Self) -> @typecheck.Type?
 pub impl @core.AstView for TypeAnnotView
+
+pub(all) struct TypecheckAttachment {
+  scope : @cells.Scope
+  observer : @cells.Observer[@typecheck.ModuleTypeResult]
+  index : @typecheck.TypecheckIndex
+}
+pub fn TypecheckAttachment::dispose(Self) -> Unit
+pub fn TypecheckAttachment::get(Self) -> @typecheck.ModuleTypeResult
 
 pub struct VarRefView {
   node : @seam.SyntaxNode
