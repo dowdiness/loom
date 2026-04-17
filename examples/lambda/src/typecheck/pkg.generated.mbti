@@ -18,6 +18,8 @@ pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult
 
 pub fn convert(@ast.Term) -> TypedTerm
 
+pub fn convert_from_cst(@seam.SyntaxNode) -> TypedTerm
+
 pub fn infer(TypeEnv, TypedTerm) -> TypeResult
 
 pub fn resolve_typed(TypedTerm) -> ResolvedModule

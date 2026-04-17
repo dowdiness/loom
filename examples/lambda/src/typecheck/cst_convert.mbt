@@ -68,10 +68,8 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
           if annot_node is None {
             annot_node = Some(c)
           }
-        } else {
-          if body_node is None {
-            body_node = Some(c)
-          }
+        } else if body_node is None {
+          body_node = Some(c)
         }
       }
       let annot = match annot_node {

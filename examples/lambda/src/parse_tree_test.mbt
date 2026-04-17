@@ -206,10 +206,7 @@ test "convert_from_cst: hole" {
 
 ///|
 test "convert_from_cst: unannotated lambda" {
-  inspect(
-    typed_from_source("\\x. x"),
-    content="Lam(\"x\", None, Var(\"x\"))",
-  )
+  inspect(typed_from_source("\\x. x"), content="Lam(\"x\", None, Var(\"x\"))")
 }
 
 ///|
