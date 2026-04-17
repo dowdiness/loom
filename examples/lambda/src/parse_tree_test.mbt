@@ -132,3 +132,83 @@ test "syntax_node_to_term: missing lambda body produces Term::Error" {
     ),
   )
 }
+
+///|
+// Helper: parse source, return the first TypeAnnot's type child.
+fn extract_type_node(src : String) -> @seam.SyntaxNode? {
+  let (cst, _) = parse_cst(src) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  fn find_type_in(n : @seam.SyntaxNode) -> @seam.SyntaxNode? {
+    if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::TypeAnnot {
+      // first interior child of TypeAnnot is the type expression
+      let cs = n.children()
+      if cs.length() > 0 {
+        return Some(cs[0])
+      }
+      return None
+    }
+    for c in n.children() {
+      match find_type_in(c) {
+        Some(x) => return Some(x)
+        None => continue
+      }
+    }
+    None
+  }
+  find_type_in(root)
+}
+
+///|
+test "type_of_node: TInt" {
+  let n = extract_type_node("\\x : Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int")
+}
+
+///|
+test "type_of_node: TUnit" {
+  let n = extract_type_node("\\x : Unit. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Unit")
+}
+
+///|
+test "type_of_node: arrow" {
+  let n = extract_type_node("\\x : Int -> Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int -> Int")
+}
+
+///|
+test "type_of_node: right-associative arrow" {
+  let n = extract_type_node("\\x : Int -> Int -> Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int -> Int -> Int")
+}
+
+///|
+test "type_of_node: malformed returns TError" {
+  // `\x : . x` — parser emits empty TypeAnnot (no type child).
+  // extract_type_node returns None. The TypeAnnot itself is the error signal.
+  // We call type_of_node on the TypeAnnot node directly, which returns TError.
+  let (cst, _) = parse_cst("\\x : . x") catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  fn find_type_annot(n : @seam.SyntaxNode) -> @seam.SyntaxNode? {
+    if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::TypeAnnot {
+      return Some(n)
+    }
+    for c in n.children() {
+      match find_type_annot(c) {
+        Some(x) => return Some(x)
+        None => continue
+      }
+    }
+    None
+  }
+  // When TypeAnnot has no children, type_of_node on the TypeAnnot itself gives TError
+  let annot = find_type_annot(root).unwrap()
+  let cs = annot.children()
+  // Empty TypeAnnot → TError via unknown-kind fallback
+  if cs.length() == 0 {
+    // No type child: simulate TError by checking what type_of_node does with TypeAnnot kind
+    inspect(@typecheck.type_of_node(annot), content="<error>")
+  } else {
+    inspect(@typecheck.type_of_node(cs[0]), content="<error>")
+  }
+}
