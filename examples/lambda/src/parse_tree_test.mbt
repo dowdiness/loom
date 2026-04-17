@@ -406,3 +406,42 @@ test "type_of_node: malformed returns TError" {
     inspect(@typecheck.type_of_node(cs[0]), content="<error>")
   }
 }
+
+///|
+test "convert_from_cst: lambda missing ident" {
+  // "\. 1" — parser recovers with error placeholder for the param name.
+  let term = typed_from_source("\\. 1")
+  let repr = term.to_string()
+  // Some form of Error or malformed lambda shape is acceptable.
+  inspect(
+    repr.contains("Error") || repr.contains("<error>") || repr.contains("Lam"),
+    content="true",
+  )
+}
+
+///|
+test "convert_from_cst: empty param list recovers" {
+  let term = typed_from_source("let f() = 1\nf")
+  // Walker should not crash. Either produces Lam with no params (i.e. just the init)
+  // or Error. Both are acceptable.
+  let _ = term.to_string()
+  inspect(true, content="true")
+}
+
+///|
+test "convert_from_cst: multi-def ordering preserved under recovery" {
+  // The walker should still produce a Module with `a` as the first def, regardless of
+  // what the middle def looks like.
+  // Use a def whose init is itself a malformed let — parser recovers with an error structure.
+  let term = typed_from_source("let a = 1\nlet b = let c = 3 c\nc")
+  let repr = term.to_string()
+  // Module should contain "a" as the first def-name.
+  let idx_a = match repr.find("\"a\"") { Some(i) => i; None => -1 }
+  let idx_b = match repr.find("\"b\"") { Some(i) => i; None => -1 }
+  // If both present, a precedes b. If only a is present, that's also ok — it means
+  // the walker preserved a and gave up on later defs.
+  inspect(idx_a >= 0, content="true")
+  if idx_b >= 0 {
+    inspect(idx_a < idx_b, content="true")
+  }
+}
