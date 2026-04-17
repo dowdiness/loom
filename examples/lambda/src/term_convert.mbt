@@ -112,17 +112,22 @@ fn fold_node_inner(
       if children.length() >= 2 {
         // The parser emits operator+operand pairs, so `ops` and trailing
         // operands stay balanced; the Error branch guards malformed or
-        // hand-built CSTs, not normal parser output.
+        // hand-built CSTs, not normal parser output. Check before recursing
+        // so we neither re-overwrite Error nor traverse unreachable operands.
         let mut result = recurse(children[0])
+        let mut missing = false
         for i = 1; i < children.length(); i = i + 1 {
-          let rhs = recurse(children[i])
-          result = if i - 1 < ops.length() {
-            @ast.Term::Bop(ops[i - 1], result, rhs)
-          } else {
-            @ast.Term::Error("missing binary operator")
+          if i - 1 >= ops.length() {
+            missing = true
+            break
           }
+          result = @ast.Term::Bop(ops[i - 1], result, recurse(children[i]))
         }
-        result
+        if missing {
+          @ast.Term::Error("missing binary operator")
+        } else {
+          result
+        }
       } else if children.length() == 1 {
         recurse(children[0])
       } else {
