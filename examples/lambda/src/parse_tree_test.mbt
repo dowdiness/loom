@@ -132,3 +132,352 @@ test "syntax_node_to_term: missing lambda body produces Term::Error" {
     ),
   )
 }
+
+///|
+// Helper: parse source, return the first TypeAnnot's type child.
+fn extract_type_node(src : String) -> @seam.SyntaxNode? {
+  let (cst, _) = parse_cst(src) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  fn find_type_in(n : @seam.SyntaxNode) -> @seam.SyntaxNode? {
+    if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::TypeAnnot {
+      // first interior child of TypeAnnot is the type expression
+      let cs = n.children()
+      if cs.length() > 0 {
+        return Some(cs[0])
+      }
+      return None
+    }
+    for c in n.children() {
+      match find_type_in(c) {
+        Some(x) => return Some(x)
+        None => continue
+      }
+    }
+    None
+  }
+  find_type_in(root)
+}
+
+///|
+test "type_of_node: TInt" {
+  let n = extract_type_node("\\x : Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int")
+}
+
+///|
+test "type_of_node: TUnit" {
+  let n = extract_type_node("\\x : Unit. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Unit")
+}
+
+///|
+test "type_of_node: arrow" {
+  let n = extract_type_node("\\x : Int -> Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int -> Int")
+}
+
+///|
+test "type_of_node: right-associative arrow" {
+  let n = extract_type_node("\\x : Int -> Int -> Int. x").unwrap()
+  inspect(@typecheck.type_of_node(n), content="Int -> Int -> Int")
+}
+
+///|
+fn typed_from_source(src : String) -> @typecheck.TypedTerm {
+  let (cst, _) = parse_cst(src) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  @typecheck.convert_from_cst(root)
+}
+
+///|
+test "convert_from_cst: int literal" {
+  inspect(typed_from_source("42"), content="Int(42)")
+}
+
+///|
+test "convert_from_cst: var" {
+  inspect(typed_from_source("x"), content="Var(\"x\")")
+}
+
+///|
+test "convert_from_cst: hole" {
+  inspect(typed_from_source("_"), content="Hole(0)")
+}
+
+///|
+test "convert_from_cst: unannotated lambda" {
+  inspect(typed_from_source("\\x. x"), content="Lam(\"x\", None, Var(\"x\"))")
+}
+
+///|
+test "convert_from_cst: nested unannotated lambdas" {
+  inspect(
+    typed_from_source("\\x. \\y. x"),
+    content="Lam(\"x\", None, Lam(\"y\", None, Var(\"x\")))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda Int" {
+  inspect(
+    typed_from_source("\\x : Int. x"),
+    content="Lam(\"x\", Some(TInt), Var(\"x\"))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda arrow" {
+  inspect(
+    typed_from_source("\\f : Int -> Int. f"),
+    content="Lam(\"f\", Some(TArrow(TInt, TInt)), Var(\"f\"))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda typechecks clean via infer" {
+  let term = typed_from_source("\\x : Int. x")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.diagnostics.length(), content="0")
+  inspect(result.typ, content="Int -> Int")
+}
+
+///|
+test "convert_from_cst: application" {
+  inspect(
+    typed_from_source("(\\x : Int. x) 5"),
+    content="App(Lam(\"x\", Some(TInt), Var(\"x\")), Int(5))",
+  )
+}
+
+///|
+test "convert_from_cst: application multi-arg" {
+  inspect(
+    typed_from_source("f 1 2"),
+    content="App(App(Var(\"f\"), Int(1)), Int(2))",
+  )
+}
+
+///|
+test "convert_from_cst: binary op plus" {
+  inspect(typed_from_source("1 + 2"), content="Bop(Plus, Int(1), Int(2))")
+}
+
+///|
+test "convert_from_cst: binary op minus" {
+  inspect(typed_from_source("3 - 1"), content="Bop(Minus, Int(3), Int(1))")
+}
+
+///|
+test "convert_from_cst: if-then-else" {
+  inspect(
+    typed_from_source("if 1 then 2 else 3"),
+    content="If(Int(1), Int(2), Int(3))",
+  )
+}
+
+///|
+test "convert_from_cst: block expression" {
+  inspect(typed_from_source("{ 42 }"), content="Int(42)")
+}
+
+///|
+test "convert_from_cst: parens transparent" {
+  inspect(typed_from_source("(1 + 2)"), content="Bop(Plus, Int(1), Int(2))")
+}
+
+///|
+test "convert_from_cst: let-def value form" {
+  inspect(
+    typed_from_source("let a = 1\na"),
+    content="Module([(\"a\", Int(1))], Var(\"a\"))",
+  )
+}
+
+///|
+test "convert_from_cst: let-def single annotated param" {
+  inspect(
+    typed_from_source("let f(x : Int) = x\nf"),
+    content="Module([(\"f\", Lam(\"x\", Some(TInt), Var(\"x\")))], Var(\"f\"))",
+  )
+}
+
+///|
+test "convert_from_cst: let-def two annotated params" {
+  inspect(
+    typed_from_source("let f(x : Int, y : Int) = x + y\nf"),
+    content=(
+      #|Module(
+      #|  [
+      #|    (
+      #|      "f",
+      #|      Lam(
+      #|        "x",
+      #|        Some(TInt),
+      #|        Lam("y", Some(TInt), Bop(Plus, Var("x"), Var("y"))),
+      #|      ),
+      #|    ),
+      #|  ],
+      #|  Var("f"),
+      #|)
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: let-def mixed annotated and unannotated" {
+  inspect(
+    typed_from_source("let f(x : Int, y) = x + y\nf"),
+    content=(
+      #|Module(
+      #|  [
+      #|    (
+      #|      "f",
+      #|      Lam("x", Some(TInt), Lam("y", None, Bop(Plus, Var("x"), Var("y")))),
+      #|    ),
+      #|  ],
+      #|  Var("f"),
+      #|)
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: let-def typechecks with annotations" {
+  let term = typed_from_source("let f(x : Int, y : Int) = x + y\nf")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.typ, content="Int -> Int -> Int")
+}
+
+///|
+test "convert_from_cst: two defs with body" {
+  inspect(
+    typed_from_source("let a = 1\nlet b = 2\na + b"),
+    content="Module([(\"a\", Int(1)), (\"b\", Int(2))], Bop(Plus, Var(\"a\"), Var(\"b\")))",
+  )
+}
+
+///|
+test "convert_from_cst: defs-only source" {
+  inspect(
+    typed_from_source("let a = 1"),
+    content="Module([(\"a\", Int(1))], Unit)",
+  )
+}
+
+///|
+test "convert_from_cst: Pipeline preset typechecks clean" {
+  let src = "let compose = \\f : Int -> Int. \\g : Int -> Int. \\x : Int. { f (g x) }\nlet double = \\x : Int. { x + x }\nlet inc = \\x : Int. { x + 1 }\nlet f = compose inc double\nf 5"
+  let term = typed_from_source(src)
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.diagnostics.length(), content="0")
+  inspect(result.typ, content="Int")
+}
+
+///|
+test "type_of_node: malformed returns TError" {
+  // `\x : . x` — parser emits empty TypeAnnot (no type child).
+  // extract_type_node returns None. The TypeAnnot itself is the error signal.
+  // We call type_of_node on the TypeAnnot node directly, which returns TError.
+  let (cst, _) = parse_cst("\\x : . x") catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  fn find_type_annot(n : @seam.SyntaxNode) -> @seam.SyntaxNode? {
+    if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::TypeAnnot {
+      return Some(n)
+    }
+    for c in n.children() {
+      match find_type_annot(c) {
+        Some(x) => return Some(x)
+        None => continue
+      }
+    }
+    None
+  }
+  // When TypeAnnot has no children, type_of_node on the TypeAnnot itself gives TError
+  let annot = find_type_annot(root).unwrap()
+  let cs = annot.children()
+  // Empty TypeAnnot → TError via unknown-kind fallback
+  if cs.length() == 0 {
+    // No type child: simulate TError by checking what type_of_node does with TypeAnnot kind
+    inspect(@typecheck.type_of_node(annot), content="<error>")
+  } else {
+    inspect(@typecheck.type_of_node(cs[0]), content="<error>")
+  }
+}
+
+///|
+test "convert_from_cst: lambda missing ident → Error" {
+  // `\. 1` — parser inserts a zero-width error TOKEN where the IdentToken
+  // should be. Walker must surface this as TypedTerm::Error rather than
+  // silently producing `Lam("", None, Int(1))`.
+  inspect(
+    typed_from_source("\\. 1"),
+    content=(
+      #|Error("malformed lambda: missing parameter name")
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: empty param list → Error in body" {
+  // `let f() = 1` — parser parses an empty ParamList. Walker must reject
+  // this as a malformed function definition rather than silently degrading
+  // to a plain value binding `("f", Int(1))`.
+  inspect(
+    typed_from_source("let f() = 1\nf"),
+    content=(
+      #|Module([("f", Error("malformed param list"))], Var("f"))
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: multi-def ordering preserved under recovery" {
+  // The walker should still produce a Module with `a` as the first def, regardless of
+  // what the middle def looks like.
+  // Use a def whose init is itself a malformed let — parser recovers with an error structure.
+  let term = typed_from_source("let a = 1\nlet b = let c = 3 c\nc")
+  let repr = term.to_string()
+  // Module should contain "a" as the first def-name.
+  let idx_a = match repr.find("\"a\"") {
+    Some(i) => i
+    None => -1
+  }
+  let idx_b = match repr.find("\"b\"") {
+    Some(i) => i
+    None => -1
+  }
+  // If both present, a precedes b. If only a is present, that's also ok — it means
+  // the walker preserved a and gave up on later defs.
+  inspect(idx_a >= 0, content="true")
+  if idx_b >= 0 {
+    inspect(idx_a < idx_b, content="true")
+  }
+}
+
+///|
+test "convert_from_cst: trailing junk after body → Error in body" {
+  // `let a = 1\nx )` — after the body expression `x`, the unbalanced `)`
+  // produces an ErrorNode. Walker must rewrite the body as Error so the
+  // typechecker surfaces a diagnostic; silently dropping the trailing
+  // junk would let `x` be reported as the only error (unbound variable),
+  // hiding the real parse failure.
+  inspect(
+    typed_from_source("let a = 1\nx )"),
+    content=(
+      #|Module([("a", Int(1))], Error("trailing junk after expression"))
+    ),
+  )
+}
+
+///|
+test "convert_from_cst: lambda missing ident triggers typecheck diagnostic" {
+  // End-to-end: malformed lambda must surface as a typecheck diagnostic
+  // (rather than silently typechecking as some weird binding).
+  let term = typed_from_source("\\. 1")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="true")
+  inspect(result.diagnostics.length() >= 1, content="true")
+}
