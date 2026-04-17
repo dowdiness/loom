@@ -183,6 +183,69 @@ test "type_of_node: right-associative arrow" {
 }
 
 ///|
+fn typed_from_source(src : String) -> @typecheck.TypedTerm {
+  let (cst, _) = parse_cst(src) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  @typecheck.convert_from_cst(root)
+}
+
+///|
+test "convert_from_cst: int literal" {
+  inspect(typed_from_source("42"), content="Int(42)")
+}
+
+///|
+test "convert_from_cst: var" {
+  inspect(typed_from_source("x"), content="Var(\"x\")")
+}
+
+///|
+test "convert_from_cst: hole" {
+  inspect(typed_from_source("_"), content="Hole(0)")
+}
+
+///|
+test "convert_from_cst: unannotated lambda" {
+  inspect(
+    typed_from_source("\\x. x"),
+    content="Lam(\"x\", None, Var(\"x\"))",
+  )
+}
+
+///|
+test "convert_from_cst: nested unannotated lambdas" {
+  inspect(
+    typed_from_source("\\x. \\y. x"),
+    content="Lam(\"x\", None, Lam(\"y\", None, Var(\"x\")))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda Int" {
+  inspect(
+    typed_from_source("\\x : Int. x"),
+    content="Lam(\"x\", Some(TInt), Var(\"x\"))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda arrow" {
+  inspect(
+    typed_from_source("\\f : Int -> Int. f"),
+    content="Lam(\"f\", Some(TArrow(TInt, TInt)), Var(\"f\"))",
+  )
+}
+
+///|
+test "convert_from_cst: annotated lambda typechecks clean via infer" {
+  let term = typed_from_source("\\x : Int. x")
+  let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
+  inspect(result.had_error, content="false")
+  inspect(result.diagnostics.length(), content="0")
+  inspect(result.typ, content="Int -> Int")
+}
+
+///|
 test "type_of_node: malformed returns TError" {
   // `\x : . x` — parser emits empty TypeAnnot (no type child).
   // extract_type_node returns None. The TypeAnnot itself is the error signal.
