@@ -75,6 +75,14 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
+  // Pending lex-error message, `Some` when the most recent parse attempt
+  // tripped a LexError. Surfaced by `get_diagnostics` alongside parse
+  // diagnostics so consumers reading `Parser::diagnostics()` (or
+  // `ImperativeParser::diagnostics()`) don't silently miss lex failures
+  // when `syntax_tree()` is `None`. Cleared at the top of every
+  // full_parse / incremental_parse call so the success path reports
+  // only structural diagnostics.
+  let lex_error_msg : Ref[String?] = Ref::new(None)
   // Persistent old-token cache: survives across edits so collect_old_tokens
   // only runs once (on first incremental parse). Subsequent edits reuse the
   // cached flat token array via ensure_old_tokens → immediate cache hit.
@@ -84,6 +92,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   )
   @incremental.ImperativeLanguage::new(
     full_parse=source => {
+      lex_error_msg.val = None
       let buffer = create_buffer(
         source,
         tokenize,
@@ -95,9 +104,9 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
         @core.LexError(msg) => {
           token_buf.val = None
           last_diags.val = []
-          return @incremental.ParseOutcome::LexError(
-            "Tokenization error: " + msg,
-          )
+          let formatted = "Tokenization error: " + msg
+          lex_error_msg.val = Some(formatted)
+          return @incremental.ParseOutcome::LexError(formatted)
         }
       }
       token_buf.val = Some(buffer)
@@ -115,6 +124,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
+      lex_error_msg.val = None
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
@@ -159,9 +169,9 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
                 @core.LexError(msg2) => {
                   token_buf.val = None
                   last_diags.val = []
-                  return @incremental.ParseOutcome::LexError(
-                    "Tokenization error: " + msg2,
-                  )
+                  let formatted = "Tokenization error: " + msg2
+                  lex_error_msg.val = Some(formatted)
+                  return @incremental.ParseOutcome::LexError(formatted)
                 }
               }
               ignore(msg)
@@ -179,9 +189,9 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
           ) catch {
             @core.LexError(msg) => {
               last_diags.val = []
-              return @incremental.ParseOutcome::LexError(
-                "Tokenization error: " + msg,
-              )
+              let formatted = "Tokenization error: " + msg
+              lex_error_msg.val = Some(formatted)
+              return @incremental.ParseOutcome::LexError(formatted)
             }
           }
           token_buf.val = Some(buffer)
@@ -222,7 +232,16 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
-    get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
+    get_diagnostics=fn() {
+      let formatted = last_diags.val.map(@core.format_diagnostic)
+      match lex_error_msg.val {
+        Some(m) => {
+          formatted.push(m)
+          formatted
+        }
+        None => formatted
+      }
+    },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
 }

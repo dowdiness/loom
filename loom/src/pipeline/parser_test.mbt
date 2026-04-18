@@ -145,3 +145,60 @@ test "Parser exposes its runtime for downstream memos" {
   parser.set_source("hello")
   inspect(rt.read(echo_memo), content="5")
 }
+
+///|
+/// Variant of `test_imperative_language` that increments `parse_count`
+/// every time the engine runs a parse. Use this to observe short-circuit
+/// behavior in `Parser::set_source` — identical sources should not
+/// trigger a second parse.
+fn test_imperative_language_with_counter(
+  parse_count : Ref[Int],
+) -> @incremental.ImperativeLanguage[String] {
+  let full_parse = fn(s : String) -> @incremental.ParseOutcome {
+    parse_count.val = parse_count.val + 1
+    let cst = @seam.build_tree(
+      [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
+      @seam.RawKind(0),
+    ) catch {
+      _ => abort("build_tree failed in counter lang")
+    }
+    @incremental.ParseOutcome::Tree(@seam.SyntaxNode::from_cst(cst), 0)
+  }
+  @incremental.ImperativeLanguage::new(
+    full_parse~,
+    incremental_parse=(s, _old, _edit) => full_parse(s),
+    to_ast=fn(n) {
+      match n.tokens() {
+        [t, ..] => t.text()
+        [] => ""
+      }
+    },
+    on_lex_error=fn(msg) { "error: " + msg },
+    get_diagnostics=fn() { [] },
+  )
+}
+
+///|
+test "Parser::set_source is a no-op when source is unchanged" {
+  // Editors / LSP flows routinely emit repeated identical snapshots.
+  // Identity `set_source` must not rerun the engine — the engine still
+  // holds the most recent tree, and tearing it down to reparse the same
+  // text burns CPU and throws away incremental state for no gain.
+  let parse_count : Ref[Int] = Ref::new(0)
+  let parser = Parser::new(
+    "abc",
+    test_imperative_language_with_counter(parse_count),
+  )
+  // `Parser::new` primes the engine with one full parse.
+  inspect(parse_count.val, content="1")
+  parser.set_source("abc")
+  inspect(parse_count.val, content="1")
+  parser.set_source("abc")
+  inspect(parse_count.val, content="1")
+  // A real change still flows through.
+  parser.set_source("abcd")
+  inspect(parse_count.val, content="2")
+  // And another identity after the change still short-circuits.
+  parser.set_source("abcd")
+  inspect(parse_count.val, content="2")
+}

@@ -100,10 +100,20 @@ pub fn[Ast : Eq] Parser::new(
 ///|
 /// Replace the source text, discarding incremental state. All four
 /// published cells are updated atomically inside `Runtime::batch`.
+///
+/// Identity is a no-op: if `source` equals the engine's current source,
+/// this returns immediately without reparsing or touching any signal.
+/// Editors and LSP flows that emit repeated identical snapshots thus
+/// avoid a redundant full parse + fold pass (downstream Memos would
+/// backdate anyway, but the engine's incremental state would have been
+/// discarded for nothing).
 pub fn[Ast : Eq] Parser::set_source(
   self : Parser[Ast],
   source : String,
 ) -> Unit {
+  if source == self.engine.get_source() {
+    return
+  }
   self.rt.batch(fn() {
     let ast = self.engine.reset(source)
     self.source_signal.set(source)
