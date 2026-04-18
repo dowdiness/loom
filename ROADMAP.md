@@ -172,9 +172,9 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 ## TODO
 
 - [ ] Delete local `graphviz/` module and switch `loom/moon.mod.json` to the published `antisatori/graphviz` package version.
-- [ ] **#58** Add `Folder` / `TransformFolder` / `MutVisitor` traits to `seam/cst_traverse.mbt` for zero-cost traversal — foundational; unblocks #59 and #60. `Finder` trait is **already done** (`seam/cst_traverse.mbt:185`). Closure versions of `transform`/`fold`/`transform_fold`/`each`/`iter`/`map` exist but have ~2× overhead with captured upvars; the remaining traits close that gap for hot paths. See `docs/analysis/2026-04-19-architecture-diagnosis.md` §6 Stage B for bench gates.
-- [ ] **#60** Extract `walk_children_flat` into a public `CstNode::each` method (depends on #58).
-- [ ] **#59** Use `MutVisitor` for `CstNode::new()` metadata computation (depends on #58; caveat: ~2× overhead — only worthwhile if `CstNode::new()` is not on the critical path).
+- [x] ~~**#58** Add `Folder` / `TransformFolder` / `Finder` / `MutVisitor` traits to `seam/` for zero-cost traversal~~ — **Folder, TransformFolder, Finder all done** (`seam/cst_traits.mbt:16,30`, `seam/cst_traverse.mbt:185`). `MutVisitor` deferred — see #59. The "zero-cost" framing was partially invalidated by the 2026-04-19 bench (closures match or beat traits for benchmarked workloads); only build new traits if a concrete consumer shows measurable closure-perf wall.
+- [ ] **#60** Extract `walk_children_flat` into a public `CstNode::each` method. Mechanical visibility change on `syntax_node.mbt:193` + 8 internal call site migrations; no dependency on #59.
+- [~] **#59** `MutVisitor` for `CstNode::new()` metadata — **deferred**. 2026-04-19 bench shows `build_tree with ReuseNode` (which drives `CstNode::new`) completes in 34.72 µs for a 50×100 token tree. Not on the critical path, per the ROADMAP item's own caveat. Do not build speculatively; require a concrete consumer with a measured closure-perf wall first. See `docs/analysis/2026-04-19-architecture-diagnosis.md` §6 Stage B.
 - [ ] **#62** Clean up `cst-transform/` before merge: remove `transform_cps` and `transform_view`.
 - [ ] **#61** Explore token text as source spans (zero-copy lexing) — **needs decision**, see [docs/decisions-needed.md](docs/decisions-needed.md).
 - [x] ~~Redesign FlatProj for flat AST~~ — Resolved by PR #37: `from_proj_node` removed from hot path. Tree edits now produce text deltas directly via source map. Known limitation: `Drop` moves child text without surrounding operators/separators.

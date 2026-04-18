@@ -59,21 +59,34 @@ Four genuine issues (not code smells):
 
 The boundary issue is not that these modules are coupled — it is that the coupling status (test-only, algorithmic, cleanup-pending, awaiting-publish) is not documented anywhere and must be reverse-engineered from sources.
 
-**P3. CST traversal is partially in place; gap is zero-cost *trait* versions** (corrected 2026-04-19 after full read of `cst_traverse.mbt` and ROADMAP).
+**P3. CST traversal is almost fully in place; the only real gap is #60** (corrected 2026-04-19 after reading `seam/cst_traits.mbt` + running `cd seam && moon bench --release`).
 
-`seam/cst_traverse.mbt` (ported 2026-03-30) already provides six *closure* methods (`transform`, `fold`, `transform_fold`, `each`, `iter`, `map`) and one trait (`Finder`). The file's own comments document the perf hierarchy: closure methods ~1.0–1.35x; closures with captured upvars ~2x; trait dispatch ~1.0x.
-
-ROADMAP #58/#59/#60 asks specifically for trait-dispatched versions — because hot paths cannot afford the closure-with-capture cost. Current gap:
+`seam/cst_traverse.mbt` (ported 2026-03-30) provides closure methods `transform`, `fold`, `transform_fold`, `each`, `iter`, `map` + the `Finder` trait. **Additionally, `seam/cst_traits.mbt` provides `Folder` and `TransformFolder` traits** — I missed this on the first pass of the diagnosis. Current ROADMAP #58–#60 status:
 
 | ROADMAP ask | Status | Evidence |
 |-------------|--------|----------|
-| `Folder` trait | missing | closure `fold` is `cst_traverse.mbt:41`; trait form absent |
-| `TransformFolder` trait | missing | closure `transform_fold` is `cst_traverse.mbt:63`; trait form absent |
-| `Finder` trait | **done** | `cst_traverse.mbt:185–207` |
-| `MutVisitor` trait (#59) | missing | flagged with ~2× caveat — benchmark-gated |
+| `Folder` trait | ✅ **done** | `cst_traits.mbt:16` + `CstElement::accept_fold` at :38 |
+| `TransformFolder` trait | ✅ **done** | `cst_traits.mbt:30` + `CstElement::accept_transform_fold` at :52 |
+| `Finder` trait | ✅ **done** | `cst_traverse.mbt:185–207` |
+| `MutVisitor` trait (#59) | missing — **and evidence argues against building it** | see benchmark data below |
 | `CstNode::each` public (#60) | missing | `walk_children_flat` is private in `syntax_node.mbt:193` with repeat-group flattening; 8+ internal call sites |
 
-The pressure is zero-cost extensibility for hot paths, not an absence of abstraction.
+**Measured performance (`cd seam && moon bench --release`, 2026-04-19):**
+
+| Benchmark | Time |
+|-----------|------|
+| `build_tree with ReuseNode` (50 × 100 tokens; drives `CstNode::new`) | 34.72 µs |
+| `text_len via accept_fold[TextLen]` (trait) | 400.53 µs |
+| `text_len via closure fold` | **316.29 µs** (closure is 26% faster than trait here) |
+| `node_count via accept_transform_fold[NodeCount]` (trait) | 287.69 µs |
+| `node_count via closure transform_fold` | 291.14 µs (parity with trait) |
+
+**What the numbers show:**
+- The "closures are ~2× slower than traits" framing in `cst_traverse.mbt:37-39` does not hold for the benchmarked workloads. Closures match or beat traits. The narrow claim (closures *with captured upvars* specifically) may still apply in some cases, but no measured evidence exists for it in-repo.
+- `build_tree` (which invokes `CstNode::new` for every finished node) completes in 34 µs for a mid-sized tree. `CstNode::new` is not hot.
+- The ROADMAP #59 caveat ("only worthwhile if `CstNode::new` is not on the critical path") resolves in the negative: it is not on one.
+
+**Consequence:** ROADMAP #58 is effectively complete. The only remaining item with a clear justification is #60's visibility change. `MutVisitor` should not be built speculatively — require a concrete consumer that demonstrates a measurable closure-perf wall before implementing.
 
 **P4. Extension API has remnant closure-shaped hooks.** The 2026-03-04 trait cleanup eliminated 7 closures; `parse_root: (ParserContext) -> Unit` remains. Minor — flag, do not fix now.
 
@@ -136,20 +149,17 @@ Each stage is independently reversible and individually shippable.
 
 Note: module relocations are moved to Stage C, because the three modules now have different statuses (see updated P2).
 
-**Stage B — zero-cost traversal traits + #60 extraction (2–3 PRs, 2–3 days).** Addresses ROADMAP #58/#59/#60. Scope clarified 2026-04-19 after full read of `seam/cst_traverse.mbt` and #58–#60.
+**Stage B — `CstNode::each` extraction only (1 PR, 1–2 hours).** Addresses ROADMAP #60. Scope collapsed 2026-04-19 after bench evidence resolved #58 and #59.
 
-Four concrete deliverables, each independently gated by microbenchmark evidence:
+ROADMAP #58's `Folder` and `TransformFolder` traits are already in `seam/cst_traits.mbt` (see §3 P3 status table). ROADMAP #59's `MutVisitor` is unjustified by measured evidence: closures match or beat traits in the existing benches, and `CstNode::new` (34 µs per `build_tree`) is not hot. That leaves #60:
 
-1. **`Folder` trait in `seam/cst_traverse.mbt`.** Mirror the shape of the existing `Finder`. Bench against closure `fold` with a captured upvar; accept only if ≤1.1x vs ~2x closure baseline.
-2. **`TransformFolder` trait.** Same shape, mirrored off `transform_fold`. Same bench gate.
-3. **`MutVisitor` trait for `CstNode::new()` metadata path (#59).** Benchmark-gated per ROADMAP's own caveat — if measured overhead is ≥2× and `CstNode::new()` is on a hot path, abandon. Prove pain first.
-4. **Promote `walk_children_flat` to public `CstNode::each` (#60).** Extract the repeat-group-aware flattening logic from `syntax_node.mbt:193` as a pub method on `CstNode`. Migrate the 8 internal call sites. No new semantics — visibility change + dedup.
+1. **Promote `walk_children_flat` to public `CstNode::each` (#60).** Extract the repeat-group-aware flattening logic from `syntax_node.mbt:193` as a pub method on `CstNode`. Migrate the 8 internal call sites. No new semantics — visibility change + dedup.
+
+**Defer** `MutVisitor` (#59) until a concrete consumer demonstrates a closure-perf wall via microbenchmark. Do not build speculatively; the ROADMAP caveat already warned against it and measurement confirms.
 
 Rules:
-- **Do not invent new package structure.** Existing `seam/cst_traverse.mbt` is the right home; no `seam/traversal/` subpackage needed.
-- **Do not migrate consumers in the same PR as trait introduction.** Consumer migration (viz/, lambda views) is a separate follow-up PR per trait; each migration needs to demonstrate real benefit, not just shape change.
-- Do **not** touch parser internals (`reuse_cursor.mbt`) — stateful iteration patterns differ.
-- Verification: existing tests unchanged; `moon bench --release` on lambda shows no regression >5%; each new trait has a dedicated microbenchmark vs its closure counterpart.
+- Do **not** touch parser internals (`reuse_cursor.mbt`) — stateful iteration patterns differ from tree traversal.
+- Verification: existing `walk_children_flat` call sites in `syntax_node.mbt` behave identically after migration; `moon test` green for seam; `moon bench --release` on seam shows no regression >5%.
 
 **Stage C — sibling-module rationalization (1 PR per module, as-needed).** Revised 2026-04-19 after investigation — the three modules get three different treatments.
 - `cst-transform` → **delete** `transform_cps`+`transform_view` per ROADMAP #62. Confirmed zero external consumers across canopy (grep 2026-04-19: all hits are self-references, documentation mentions, or archived plan notes). The useful methods were ported to `seam/cst_traverse.mbt` on 2026-03-30. Operational follow-ups when the package is removed: (a) update `.claude/settings.json` hook which still runs `cd ../cst-transform && moon check && moon test`; (b) update comment references in `seam/cst_traverse.mbt:3` and `seam/cst_traits.mbt:7` that cite `cst-transform/REPORT.md` — either move `REPORT.md` into `loom/docs/performance/` or inline its findings; (c) update `alga/src/experiment/EXPERIMENT_REPORT.md:10` citation link. None are blockers, but all need the same-PR treatment.
@@ -253,13 +263,14 @@ Two existing canopy libraries were evaluated as possible implementations for the
 - ✅ `cst-transform` has zero import consumers across all canopy modules (event-graph-walker, order-tree, lib/*, alga, editor, etc.). The 13 grep hits are self-references, documentation mentions, a `.claude/settings.json` test hook, and archived plan notes — no MoonBit imports.
 - ✅ `seam/cst_traverse.mbt` already ports 6 closure methods + `Finder` trait from `cst-transform` (2026-03-30 archive plan). Stage B scope narrows accordingly.
 
-**Also closed 2026-04-19 (full read of ROADMAP #58–#60 + `cst_traverse.mbt`):**
-- ✅ #58 asks for zero-cost trait versions (`Folder`, `TransformFolder`, `MutVisitor`) to complement the existing closure methods. `Finder` alone is done. The pressure is closure-with-capture ~2x overhead on hot paths, not missing abstraction.
-- ✅ #60's `walk_children_flat` is private in `syntax_node.mbt:193` with repeat-group flattening semantics; extraction to public `CstNode::each` is a separate, mechanical visibility change from the trait work.
+**Also closed 2026-04-19 (bench run `cd seam && moon bench --release`):**
+- ✅ #58 `Folder` and `TransformFolder` traits already exist in `seam/cst_traits.mbt:16,30` — I missed this on the first pass. `Finder` confirmed at `cst_traverse.mbt:185`. Only `MutVisitor` remains unimplemented.
+- ✅ `CstNode::new` critical-path question: `build_tree with ReuseNode` completes in 34.72 µs for a 50×100 token tree. Not a hot path. ROADMAP #59's own caveat ("only worthwhile if `CstNode::new()` is not on the critical path") resolves against building `MutVisitor`.
+- ✅ Closure-vs-trait perf assumption: the "~2× closure overhead" framing in `cst_traverse.mbt:37-39` does not hold for the benchmarked workloads. Closures are at parity or faster. The narrow claim (closures *with captured upvars* specifically) remains untested and should not justify speculative trait work.
+- ✅ #60's `walk_children_flat` is private in `syntax_node.mbt:193` with repeat-group flattening semantics; extraction to public `CstNode::each` is the only Stage B deliverable with a clear justification.
 
 **Still open:**
 - Whether canopy web demo has near-term requirements that would shift pipeline pressure.
-- Whether `CstNode::new()` is currently on the critical path — determines whether `MutVisitor` (#59) is worth implementing given its ~2× caveat. Needs a microbenchmark on the current metadata computation before Stage B commits to trait 3 of 4.
 
 ## 12. Recommended next steps
 
