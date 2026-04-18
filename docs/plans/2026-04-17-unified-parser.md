@@ -294,6 +294,24 @@ to the ADR. Move this plan file to `docs/archive/completed-phases/`.
 - **After Stage 6:** `ReactiveParser` source and tests removed; no
   dangling references in docs.
 
+## Follow-ups (optional, post-Stage 6)
+
+Scope-adjacent work tracked here so it isn't forgotten, but not required
+to close the primary plan:
+
+- **Migrate `examples/json/` and `examples/markdown/` from
+  `new_imperative_parser` to `new_parser`.** Both currently use the
+  lower-level imperative engine in their test/bench files (`json`:
+  `benchmark_test.mbt`, `incremental_test.mbt`; `markdown`:
+  `benchmark_test.mbt`). They are not blocked by Stages 5–6 because
+  neither uses `ReactiveParser`, but switching them to the unified
+  `Parser[Ast]` surface (a) demonstrates the API uniformly across all
+  three loom examples and (b) removes the last internal loom consumers
+  of `new_imperative_parser` outside of the loom-internal whitebox
+  tests. Defer until after Stage 4 lands so the canopy integration has
+  exercised `Parser` under real load and the surface is known stable.
+  Expect one PR per example, following the same shape as Stage 3.
+
 ## Non-goals
 
 - Introducing a token-stage cutoff inside `Parser`. The regression is
@@ -303,6 +321,10 @@ to the ADR. Move this plan file to `docs/archive/completed-phases/`.
   decision flagged as future trajectory in ADR 2026-03-02.
 - Changing the `@incr` public API, the `seam` CST model, or
   `ImperativeParser`'s engine internals.
+- Removing `ImperativeParser` or `new_imperative_parser`. The unified
+  `Parser[Ast]` wraps the imperative engine; the engine stays a
+  first-class public API for consumers that don't want the reactive
+  publication layer (e.g. short-lived one-shot parses).
 
 ## References
 
