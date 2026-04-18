@@ -1,6 +1,6 @@
 # Roadmap: dowdiness/loom — Incremental Parser Framework
 
-**Updated:** 2026-03-03
+**Updated:** 2026-04-18
 **Status:** Active — framework stable; Typed SyntaxNode views complete
 **Goal:** A reusable, language-agnostic incremental parser framework for MoonBit. Any grammar plugs in via `LanguageSpec[T,K]` and gets green tree (CST), error recovery, subtree reuse, and a reactive pipeline for free.
 
@@ -172,6 +172,11 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 ## TODO
 
 - [ ] Delete local `graphviz/` module and switch `loom/moon.mod.json` to the published `antisatori/graphviz` package version.
+- [ ] **#58** Add `Folder` / `TransformFolder` / `Finder` / `MutVisitor` traits to `seam/` for zero-cost traversal — foundational; unblocks #59 and #60.
+- [ ] **#60** Extract `walk_children_flat` into a public `CstNode::each` method (depends on #58).
+- [ ] **#59** Use `MutVisitor` for `CstNode::new()` metadata computation (depends on #58; caveat: ~2× overhead — only worthwhile if `CstNode::new()` is not on the critical path).
+- [ ] **#62** Clean up `cst-transform/` before merge: remove `transform_cps` and `transform_view`.
+- [ ] **#61** Explore token text as source spans (zero-copy lexing) — **needs decision**, see [docs/decisions-needed.md](docs/decisions-needed.md).
 - [x] ~~Redesign FlatProj for flat AST~~ — Resolved by PR #37: `from_proj_node` removed from hot path. Tree edits now produce text deltas directly via source map. Known limitation: `Drop` moves child text without surrounding operators/separators.
 
 ---
