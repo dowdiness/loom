@@ -1,4 +1,6 @@
 import {
   "dowdiness/seam" @seam,
   "dowdiness/incr" @incr,
+  "dowdiness/loom/core" @core,
+  "dowdiness/loom/incremental" @incremental,
 }

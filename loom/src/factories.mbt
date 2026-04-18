@@ -58,15 +58,15 @@ fn[T] create_buffer(
 }
 
 ///|
-/// Create an ImperativeParser from a Grammar.
+/// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
 ///
-/// Each call creates fresh internal state (TokenBuffer, diagnostics).
-/// Interners (token deduplication, node deduplication) are process-global and
-/// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
-  source : String,
+/// Each call allocates fresh per-session state (TokenBuffer ref, last
+/// diagnostics, old-token cache) inside the closures. Shared by both
+/// `new_imperative_parser` and `new_parser` — the only divergence downstream
+/// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
+fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   grammar : Grammar[T, K, Ast],
-) -> @incremental.ImperativeParser[Ast] {
+) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
@@ -75,6 +75,14 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
   let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
+  // Pending lex-error message, `Some` when the most recent parse attempt
+  // tripped a LexError. Surfaced by `get_diagnostics` alongside parse
+  // diagnostics so consumers reading `Parser::diagnostics()` (or
+  // `ImperativeParser::diagnostics()`) don't silently miss lex failures
+  // when `syntax_tree()` is `None`. Cleared at the top of every
+  // full_parse / incremental_parse call so the success path reports
+  // only structural diagnostics.
+  let lex_error_msg : Ref[String?] = Ref::new(None)
   // Persistent old-token cache: survives across edits so collect_old_tokens
   // only runs once (on first incremental parse). Subsequent edits reuse the
   // cached flat token array via ensure_old_tokens → immediate cache hit.
@@ -82,8 +90,9 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let old_token_cache : Ref[@core.OldTokenCache] = Ref::new(
     @core.OldTokenCache::empty(),
   )
-  let lang = @incremental.ImperativeLanguage::new(
+  @incremental.ImperativeLanguage::new(
     full_parse=source => {
+      lex_error_msg.val = None
       let buffer = create_buffer(
         source,
         tokenize,
@@ -95,9 +104,9 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
         @core.LexError(msg) => {
           token_buf.val = None
           last_diags.val = []
-          return @incremental.ParseOutcome::LexError(
-            "Tokenization error: " + msg,
-          )
+          let formatted = "Tokenization error: " + msg
+          lex_error_msg.val = Some(formatted)
+          return @incremental.ParseOutcome::LexError(formatted)
         }
       }
       token_buf.val = Some(buffer)
@@ -115,6 +124,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
+      lex_error_msg.val = None
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
@@ -159,9 +169,9 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
                 @core.LexError(msg2) => {
                   token_buf.val = None
                   last_diags.val = []
-                  return @incremental.ParseOutcome::LexError(
-                    "Tokenization error: " + msg2,
-                  )
+                  let formatted = "Tokenization error: " + msg2
+                  lex_error_msg.val = Some(formatted)
+                  return @incremental.ParseOutcome::LexError(formatted)
                 }
               }
               ignore(msg)
@@ -179,9 +189,9 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
           ) catch {
             @core.LexError(msg) => {
               last_diags.val = []
-              return @incremental.ParseOutcome::LexError(
-                "Tokenization error: " + msg,
-              )
+              let formatted = "Tokenization error: " + msg
+              lex_error_msg.val = Some(formatted)
+              return @incremental.ParseOutcome::LexError(formatted)
             }
           }
           token_buf.val = Some(buffer)
@@ -222,10 +232,50 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
-    get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
+    get_diagnostics=fn() {
+      let formatted = last_diags.val.map(@core.format_diagnostic)
+      match lex_error_msg.val {
+        Some(m) => {
+          formatted.push(m)
+          formatted
+        }
+        None => formatted
+      }
+    },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
-  @incremental.ImperativeParser::new(source, lang)
+}
+
+///|
+/// Create an ImperativeParser from a Grammar.
+///
+/// Each call creates fresh internal state (TokenBuffer, diagnostics).
+/// Interners (token deduplication, node deduplication) are process-global and
+/// shared across all parsers — accumulated, never cleared, not parser-isolated.
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
+  source : String,
+  grammar : Grammar[T, K, Ast],
+) -> @incremental.ImperativeParser[Ast] {
+  @incremental.ImperativeParser::new(source, build_imperative_language(grammar))
+}
+
+///|
+/// Create a unified `Parser[Ast]` from a Grammar.
+///
+/// Wraps the same imperative engine as `new_imperative_parser` but publishes
+/// derived state (source, syntax tree, AST, diagnostics) as read-only
+/// `@incr.Memo` views — see `Parser` in `loom/src/pipeline/` for the
+/// reactive surface.
+///
+/// Pass `runtime~` to join an existing reactive graph (useful when downstream
+/// memos need to share the same `Runtime` as the parser). Omitting it creates
+/// a fresh runtime owned by the returned parser.
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
+  source : String,
+  grammar : Grammar[T, K, Ast],
+  runtime? : @incr.Runtime,
+) -> @pipeline.Parser[Ast] {
+  @pipeline.Parser::new(source, build_imperative_language(grammar), runtime?)
 }
 
 ///|

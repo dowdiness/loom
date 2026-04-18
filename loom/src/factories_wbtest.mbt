@@ -287,6 +287,31 @@ test "new_reactive_parser: basic parse and update" {
 }
 
 ///|
+/// Lex-error preservation in `Parser::diagnostics()`.
+///
+/// `syntax_tree()` being `None` is not a sufficient signal for consumers —
+/// they rely on `diagnostics()` as the canonical error channel. Strict
+/// grammars (no `error_token`) that trip a `LexError` must see the error
+/// message published via `diagnostics()`, not silently produce `[]`.
+/// Recovery on a subsequent clean source clears the error.
+test "new_parser: lex error surfaces in diagnostics and clears on recovery" {
+  let grammar = fgrammar() // no error_token → lex errors raise
+  let parser = new_parser("!", grammar)
+  let rt = parser.runtime()
+  guard rt.read(parser.syntax_tree()) is None else {
+    abort("expected None syntax tree after lex failure")
+  }
+  let diags = rt.read(parser.diagnostics())
+  inspect(diags.length(), content="1")
+  inspect(diags[0], content="Tokenization error: unexpected char")
+  parser.set_source("aaa")
+  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  guard rt.read(parser.syntax_tree()) is Some(_) else {
+    abort("expected Some syntax tree after recovery")
+  }
+}
+
+///|
 test "new_reactive_parser: preserves explicit starts from step lexers" {
   let imperative = new_imperative_parser(
     "aa!a",
