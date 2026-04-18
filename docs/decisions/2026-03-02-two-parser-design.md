@@ -1,7 +1,7 @@
 # ADR: Two-Parser Design — ImperativeParser and ReactiveParser
 
 **Date:** 2026-03-02
-**Status:** Accepted
+**Status:** Accepted — **Superseded by** [2026-04-17: Unified Parser](2026-04-17-unified-parser-proposal.md) (2026-04-18)
 
 ## Context
 

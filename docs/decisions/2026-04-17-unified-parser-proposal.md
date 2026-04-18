@@ -1,39 +1,39 @@
 # ADR: Unified Parser — Replace Two-Parser Split With Single Parser + Multiple Update Paths
 
 **Date:** 2026-04-17
-**Status:** Proposed
-**Supersedes (if accepted):** [2026-03-02: Two-Parser Design](2026-03-02-two-parser-design.md)
+**Status:** Accepted (2026-04-18)
+**Supersedes:** [2026-03-02: Two-Parser Design](2026-03-02-two-parser-design.md)
+**Implementation plan:** [docs/plans/2026-04-17-unified-parser.md](../plans/2026-04-17-unified-parser.md)
 
 ## Context
 
-ADR [2026-03-02](2026-03-02-two-parser-design.md) decided to maintain two sibling
-parsers:
+ADR [2026-03-02](2026-03-02-two-parser-design.md) decided to maintain two
+sibling parsers:
 
-- `ImperativeParser[Ast]` — caller drives with explicit `Edit`, CST-node-level reuse via `ReuseCursor`
+- `ImperativeParser[Ast]` — caller drives with explicit `Edit`, CST-node-level reuse
 - `ReactiveParser[Ast]` — caller sets source, `Signal`/`Memo` pipeline handles recomputation
 
 The rationale was that node-level reuse requires knowing the edit position, and
 this forces a separate API from the source-string update model used by language
 servers and build tools.
 
-Since March, the two parsers have been used in production:
-
-- `ImperativeParser` powers `SyncEditor` in canopy (keystroke-level CRDT edits).
-- `ReactiveParser` powers `attach_typecheck` (loom#82) and the lambda example
-  tests, providing reactive composition with `@incr`-based downstream stages.
+Since March, the two parsers have been used in production — the imperative
+parser powers canopy's text editor (keystroke-level CRDT edits); the reactive
+parser powers `attach_typecheck` and the lambda example tests, providing
+reactive composition with `@incr`-based downstream stages.
 
 Two observations from this period prompted the rethink:
 
-1. **Canopy's web demo** needs both parsers simultaneously — `ImperativeParser`
-   for edit-aware reuse, plus some path that wires the parsed AST into an
-   `@incr` graph for the type-checker. There is no clean way to do this without
-   either (a) replacing `SyncEditor`'s parser wholesale, (b) running a second
-   parallel `ReactiveParser` and accepting double-parsing, or (c) bypassing
-   `attach_typecheck` entirely.
+1. **Canopy's web demo needs both.** The editor consumes the imperative path
+   for edit-aware reuse; the type-checker needs reactive composition off the
+   same parse. Today the only clean paths are to replace the editor parser
+   wholesale, run a second parallel reactive parse and accept double-parsing,
+   or bypass the typecheck helper. None are acceptable.
 
 2. **Comparable projects use a single parser.** All four references we looked
-   at (mizchi/markdown.mbt, tree-sitter, rust-analyzer/rowan, lezer) have one
-   parser type with multiple update paths — not two sibling types.
+   at (mizchi/markdown.mbt, tree-sitter, rust-analyzer/rowan, lezer) cluster
+   on a single-parser + separate-composition-layer design — not two sibling
+   parser types.
 
 This ADR proposes that the split into two types is an implementation artifact,
 not a fundamental design constraint, and that convergence unblocks downstream
@@ -41,72 +41,58 @@ composition without sacrificing either parser's current capabilities.
 
 ## Research
 
-### mizchi/markdown.mbt (CST-as-source-of-truth, single parser)
+### mizchi/markdown.mbt
 
-- Single `Document` type, two entry points: `parse(source)` and
-  `parse_incremental(doc, old_source, new_source, edit)`. Same output type.
-- Primary update path is **CST patch operations** (`InsertText(nodeId, offset, text)`,
-  `WrapBlock`, `SplitParagraph`, etc.). Re-parsing is a **repair path** invoked
-  only when CST operations fail or paste introduces unstructured input.
-- Block-level fragment reuse via stable `nodeId`. Lossless CST preserves markers
-  and trivia.
-- Design philosophy: *"CST is the truth. Text is the serialization result of
-  the CST. The parser is a repairer/validator, not a generator."*
+Single `Document` type with two entry points: fresh parse and incremental
+parse. Primary update path is CST patch operations; re-parsing is a repair
+path. Block-level fragment reuse via stable `nodeId`.
 
-### tree-sitter (C library, single parser, edit hint is optional)
+### tree-sitter
 
-```c
-TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input);
-void ts_tree_edit(TSTree *self, const TSInputEdit *edit);
-```
+One `TSParser` per language. `ts_parser_parse` accepts an optional
+`old_tree` — same function for both fresh and incremental modes. Pure
+parser library; no built-in reactive composition.
 
-- One `TSParser` per language. The `old_tree` parameter is optional.
-- Caller optionally calls `ts_tree_edit(tree, edit)` to annotate node ranges
-  before re-parsing.
-- If `old_tree` is `NULL`: fresh parse. If provided: subtree reuse from the
-  edited tree.
-- **Same function for both modes.** Pure parser library — no built-in query or
-  reactive composition.
+### rust-analyzer / rowan
 
-### rust-analyzer / rowan (no incremental parsing; Salsa for downstream)
+Parser is hand-written recursive descent; parses fresh on every text
+change. Incrementality comes from Salsa's revision counter + structural
+sharing, not from the parser itself. Update model:
+`AnalysisHost::apply_change(new_source)`.
 
-- Parser is hand-written recursive descent; parses fresh on every text change.
-- Parsing is *not* a Salsa query. It sits below the Salsa graph, producing
-  immutable value-type trees.
-- Incrementality comes from Salsa's revision counter + structural sharing of
-  rowan trees + the `ItemTree` condensed summary that feeds HIR queries.
-- Update model: `AnalysisHost::apply_change(new_source)`. Caller passes text
-  delta; Salsa figures out what to re-run.
+### lezer
 
-### lezer (CodeMirror)
-
-- One `LRParser` per grammar, generated by `@lezer/generator`.
-- Update via `TreeFragment.applyChanges(fragments, changes)` — caller annotates
-  the cache with edit ranges, parser reuses unchanged fragments on next parse.
-- CodeMirror owns the tree lifecycle; lezer provides the parsing primitive.
+One `LRParser` per grammar. Update via `TreeFragment.applyChanges` —
+caller annotates the cache with edit ranges, parser reuses unchanged
+fragments on next parse.
 
 ### Common pattern
 
-Across four very different projects:
+The four projects don't all share a single design, but they cluster on two
+points:
 
-1. **Single parser type, multiple update paths.** Edit hints are optional
-   arguments to the same API, not separate types.
-2. **CST reuse is internal to the parser**, not something the caller composes
-   from smaller pieces.
-3. **Downstream composition is a separate layer** (Salsa queries, tree-walking,
-   reactive Memos) built on top of a parser that produces values.
+1. **Downstream composition is a separate layer** (Salsa queries, tree
+   walking, reactive Memos) built on top of a parser that produces values
+   — true for all four, including rust-analyzer which reparses fresh.
+2. **Where incremental reuse exists, it is internal to the parser**, not
+   composed by the caller from smaller pieces.
+
+The stronger claim — "single parser type, multiple update paths in the
+same API" — holds for tree-sitter, lezer, and markdown.mbt.
+rust-analyzer is the counter-example; it is relevant to this ADR for
+its *composition* model, not its update-API model.
 
 ## First-Principles Analysis
 
 The [2026-03-02 ADR](2026-03-02-two-parser-design.md) justifies the split with:
 
-> *"Node-level reuse is fundamentally impossible without knowing where the edit
-> happened."*
+> *"Node-level reuse is fundamentally impossible without knowing where the
+> edit happened."*
 
-This is true. But the correct conclusion is not "two parser types." The correct
-conclusion is "two update methods." The bundled differences in loom's current
-design — update API, reuse granularity, reactive composition — are three
-orthogonal axes, not one:
+This is true. But the correct conclusion is not "two parser types." The
+correct conclusion is "two update methods." The bundled differences in
+loom's current design — update API, reuse granularity, reactive composition
+— are three orthogonal axes, not one:
 
 | Axis | Today | Tree-sitter |
 |------|-------|-------------|
@@ -114,94 +100,95 @@ orthogonal axes, not one:
 | Reuse granularity | Split (node vs pipeline) | Unified (subtree if old_tree provided) |
 | Reactive composition | Split (impossible vs natural) | N/A (tree-sitter has no reactive layer) |
 
-A single parser type can:
+A single parser type can accept both update methods, use edit information
+internally to drive CST-node reuse when available and fall back to full
+re-parse when not, and publish its output through read-only reactive
+handles so downstream stages compose regardless of which update method the
+caller used.
 
-- Accept both `apply_edit(edit, new_source)` and `set_source(new_source)` as
-  update methods.
-- Use the edit information internally to drive CST-node reuse when available,
-  and fall back to full re-parse when not.
-- Publish its output through an `@incr.Signal[Ast]` so downstream stages
-  compose reactively regardless of which update method the caller used.
+The prior ADR's own future-trajectory section supports this reading —
+`ImperativeParser` as the engine, the `@incr` graph as the distribution
+layer. A sibling reactive parser is not required by that vision and in
+fact obstructs it, because the reactive graph cannot sit on top of the
+imperative engine if they are peers that neither references the other.
 
-The ADR's own "future trajectory" section supports this reading:
+## Source of truth (scope)
 
-> *"ImperativeParser remains the text-editing input path. ReactiveParser's
-> @incr foundation expands to cover the full pipeline."*
+Before specifying the parser API, fix the layer that is primary. This ADR
+commits to **text as the source of truth** and treats CST and AST as derived
+views.
 
-Interpreted literally: `ImperativeParser` is the engine; the `@incr` graph is
-the distribution layer. A sibling `ReactiveParser` struct is not required
-by this vision — and in fact obstructs it, because the `@incr` graph cannot
-sit on top of `ImperativeParser` if they are peers that neither references
-the other.
+### Choice: `String`
+
+Canopy already treats source text as primary — the CRDT operates on text,
+the imperative parser derives the CST, downstream stages are memos over that
+derivation. Consistent with the existing architecture:
+
+- **Universal at every boundary** — file I/O, LSP, git, clipboard, terminal.
+- **Mature collaboration story** — text CRDTs are production-grade;
+  tree CRDTs remain research-grade.
+- **Robust to malformed input** — half-typed code is just a string.
+- **Lossless** — trivia, comments, formatting survive round-trip for free.
+
+Costs — no stable node identity, every edit flows through the parser,
+character-granularity collaboration conflicts — are acceptable within this
+ADR's scope.
+
+### Deferred: `SyntaxNode` as primary (CST-as-source-of-truth)
+
+Would unlock true subtree identity, structural editing (Hazel/Grove-style),
+and semantic merges. Tree CRDTs, malformed-input invariants, and
+text-boundary serializers are the cost. Separate, larger decision —
+flagged as future trajectory in ADR 2026-03-02 and explicitly not bundled
+here.
+
+### Rejected: `Ast` / `Term` as primary
+
+Loses source fidelity (trivia, comments, formatting, error recovery),
+cannot represent incomplete code well, and requires a pretty-printer that
+will inevitably diverge from the parser. Appropriate as a derived view,
+not the source of truth.
 
 ## Decision
 
-Consolidate into a single unified parser type. Concretely:
+Consolidate into a single unified parser type. In principle:
 
-1. **Keep `ImperativeParser[Ast]`** as the low-level engine. Unchanged.
-   Lives in `loom/src/incremental/`, imports `@core` and `@seam` only.
+1. **Keep the imperative engine unchanged.** `ImperativeParser[Ast]`
+   remains the low-level engine — node-level reuse, damage tracking, block
+   reparse all stay inside it. It does not gain an `@incr` dependency.
 
-2. **Retire `ReactiveParser[Ast]` in its current sibling form.** Replace with
-   a new unified `Parser[Ast]` that wraps `ImperativeParser` and publishes
-   output through `@incr.Signal[Ast]`. Lives in `loom/src/pipeline/`, imports
-   `@incr` + `@incremental`.
+2. **Introduce a unified `Parser[Ast]` as a thin reactive wrapper.** It
+   owns the engine, exposes both update methods (`set_source` and
+   `apply_edit`), and publishes reactive views over derived state.
 
-3. **Expose both update paths on the new `Parser`:**
+3. **Publication contract:**
+   - Source, syntax tree, AST, and diagnostics are all published as
+     read-only `@incr.Memo` views.
+   - Both update methods update all derived cells together, atomically,
+     inside a single `Runtime::batch`.
+   - The reactive layer is a publication mechanism, not the compute
+     graph — `@incr` never drives parsing; the engine does.
 
-   ```moonbit
-   pub fn[Ast : Eq] Parser::set_source(
-     self : Parser[Ast],
-     source : String,
-   ) -> Unit
+4. **Read-only views, not raw signals.** Callers should not be able to
+   `.set()` the underlying cells and desynchronize the engine from
+   published state. `@incr.Memo` is the read-only view type; raw
+   `Signal` cells stay private. This is value-safety, not
+   capability-safety — the escape hatch via `Runtime::dispose_cell`
+   exists and is treated as out of contract.
 
-   pub fn[Ast : Eq] Parser::apply_edit(
-     self : Parser[Ast],
-     edit : Edit,
-     new_source : String,
-   ) -> Unit
-   ```
+5. **Accepted regressions vs today's `ReactiveParser`.** The staged
+   pipeline memos (token-stage trivia-insensitive cutoff, lazy
+   `cst()`/`diagnostics()` staging) and lazy `term()` evaluation are
+   dropped in the initial design. What is preserved — reactive
+   publication of source, syntax tree, AST, and diagnostics, plus
+   `Ast : Eq` backdating for downstream memos. External runtime
+   injection (the `from_parts` capability) is preserved; its exact
+   shape is an implementation detail in the plan. Re-adding any
+   dropped capability is a follow-up ADR if a consumer demonstrates
+   need.
 
-   Both update methods produce the same downstream effect: the internal
-   `tree_signal : Signal[Ast]` is written with the new AST. Downstream
-   stages see one update regardless of which method was called.
-
-4. **Expose reactive output:**
-
-   ```moonbit
-   pub fn[Ast] Parser::tree(self : Parser[Ast]) -> @incr.Signal[Ast]
-   pub fn[Ast] Parser::source(self : Parser[Ast]) -> @incr.Signal[String]
-   pub fn[Ast] Parser::runtime(self : Parser[Ast]) -> @incr.Runtime
-   ```
-
-   `attach_typecheck` (loom#82) and future downstream helpers attach to
-   `tree()` via `scope.memo(() => convert(parser.tree().get()))`. Same pattern
-   as current `attach_typecheck`, but takes a Signal rather than reaching into
-   a `term_memo`.
-
-5. **Internal structure (sketch, to be finalized during implementation):**
-
-   ```moonbit
-   pub struct Parser[Ast] {
-     priv engine : ImperativeParser[Ast]
-     priv rt : @incr.Runtime
-     priv source_signal : @incr.Signal[String]
-     priv tree_signal : @incr.Signal[Ast]
-   }
-
-   fn[Ast : Eq] Parser::new(source : String, lang : Language[Ast]) -> Parser[Ast] {
-     let engine = ImperativeParser::new(source, lang.to_imperative())
-     let initial_ast = engine.parse()
-     let rt = Runtime::new()
-     let source_signal = Signal::new(rt, source, label="source")
-     let tree_signal = Signal::new(rt, initial_ast, label="tree")
-     { engine, rt, source_signal, tree_signal }
-   }
-   ```
-
-   `set_source` calls `engine.reset(source)` (full reparse) then writes the
-   result to `tree_signal`. `apply_edit` calls `engine.edit(edit, source)`
-   (node-level reuse) then writes the result. Both paths produce the same
-   Signal update.
+Concrete API signatures, internal structure, and the staged file-by-file
+migration live in the [implementation plan](../plans/2026-04-17-unified-parser.md).
 
 ## Why this is better than the status quo
 
@@ -210,58 +197,18 @@ parser:
 
 | Use case | Today | Proposed |
 |----------|-------|----------|
-| Text editor with CRDT edits | `ImperativeParser` (no reactive composition) | `Parser` + `apply_edit` + `tree()` Signal |
-| Language server | `ReactiveParser` (no node-level reuse) | `Parser` + `set_source` + `tree()` Signal |
-| Editor + downstream typecheck (canopy web demo) | **No clean path** | `Parser` + `apply_edit` (via editor) + `tree()` (attached by typecheck) |
+| Text editor with CRDT edits | `ImperativeParser` (no reactive composition) | `Parser` + `apply_edit` + reactive source |
+| Language server | `ReactiveParser` (no node-level reuse) | `Parser` + `set_source` + reactive source |
+| Projection / source-map / token-spans | `ReactiveParser::cst()` | `Parser` reactive syntax tree |
+| Parse-error surfacing (FFI / UI) | `ImperativeParser::diagnostics()` (pull) | `Parser` reactive diagnostics, batched with syntax tree |
+| Editor + downstream typecheck (canopy web demo) | **No clean path** | Single `Parser` owned by the editor; typecheck attaches to reactive syntax tree |
 
-**CST-node reuse + reactive composition together,** which the current design
-splits into two incompatible choices.
+**CST-node reuse + reactive composition together** — which the current
+design splits into two incompatible choices.
 
-**One reactive layer** — the `@incr` graph — covers the full pipeline from
-source text to downstream stages. Matches the ADR 2026-03-02 trajectory
+**One reactive layer** — the `@incr` graph — covers the full pipeline
+from source text to downstream stages. Matches the 2026-03-02 trajectory
 literally.
-
-**Migration target for `attach_typecheck`** (loom#82): its parameter shape
-retargets from `ReactiveParser[Term]` to `(Runtime, Signal[Term])` or a
-`Parser[Term]`, removing the ReactiveParser coupling.
-
-## Migration path
-
-Staged over multiple PRs. Each stage compiles and passes all tests.
-
-### Stage 1 — Introduce `Parser[Ast]` alongside `ReactiveParser`
-
-Add the new type in `loom/src/pipeline/`. Implement `set_source`, `apply_edit`,
-`tree()`, `source()`, `runtime()`. No changes to existing `ReactiveParser`.
-
-### Stage 2 — Retarget downstream helpers to accept `Signal[Ast]`
-
-Generalize `attach_typecheck` in `examples/lambda/src/typed_parser.mbt` from
-`ReactiveParser[Term]` to a form that accepts either `Parser[Term]` or a
-`(Runtime, Signal[Term])` pair. Add tests against `Parser`.
-
-### Stage 3 — Migrate example tests and benchmarks
-
-Move `reactive_parser_test.mbt` and the lambda reactive benchmarks to use
-`Parser`. Assert equivalent output. Retain coverage of both update paths.
-
-### Stage 4 — Migrate `SyncEditor` (canopy)
-
-Replace `SyncEditor`'s direct `ImperativeParser` field with a `Parser[Ast]`.
-`SyncEditor`'s edit-application code calls `parser.apply_edit(edit, source)`.
-Downstream composition (typecheck, eval, LSP) attaches to `parser.tree()`.
-This is the commit that delivers the canopy web demo.
-
-### Stage 5 — Deprecate `ReactiveParser`
-
-Add `@deprecated` annotation (if MoonBit supports; otherwise a doc comment).
-Update `docs/api/choosing-a-parser.md` to route all new consumers to `Parser`.
-Schedule removal after one release cycle.
-
-### Stage 6 — Remove `ReactiveParser`
-
-Delete the struct and all tests. Update `docs/decisions/` archive pointer to
-this ADR.
 
 ## Consequences
 
@@ -269,98 +216,77 @@ this ADR.
 
 - **Single conceptual parser surface** — one type to learn, one type to
   document, one place to fix bugs.
-- **Canopy web demo unblocked** without double-parsing or `SyncEditor`
-  surgery prerequisites. `Parser` supports both canopy's edit path and the
-  type-checker's reactive composition in the same instance.
-- **Closer alignment with every comparable project's design.** Easier for
-  contributors coming from tree-sitter / rust-analyzer / lezer.
-- **Concrete path toward the ADR 2026-03-02 trajectory** — this proposal
-  executes the "expand `@incr` foundation to cover the full pipeline" step.
-- **`ReactiveParser`-style pipeline-stage reuse is preserved** through the
-  `tree_signal : Signal[Ast]` + `Ast : Eq` combination: identical ASTs
-  backdate downstream Memos, exactly as today.
+- **Canopy web demo unblocked — no more double-parsing.** The editor
+  and the type-checker share one parser and one runtime; the duplicate
+  parse in the FFI goes away.
+- **Closer alignment with tree-sitter and lezer** (single parser type
+  with explicit + implicit update paths). rust-analyzer is a weaker
+  analogue — it reparses fresh — but its *composition* model (parser
+  below, reactive graph above) is the one this ADR adopts.
+- **Concrete path toward the 2026-03-02 trajectory** — executes the
+  "expand `@incr` foundation to cover the full pipeline" step.
+- **Ast-level backdating still works.** `Ast : Eq` short-circuits
+  downstream Memos when edits produce equal ASTs, same mechanism as
+  today, one layer down.
 
 ### Costs
 
-- **Migration effort** — ~6 PRs across loom + canopy. Each PR is small
-  individually, but the sequence takes real time.
-- **One transitional release** where `Parser` and `ReactiveParser` coexist
-  with documentation to disambiguate.
-- **Benchmarks must be re-run** to confirm `Parser::apply_edit` retains
-  `ImperativeParser`'s node-reuse performance (should be identical — `engine`
-  is the same `ImperativeParser` struct).
+- **Cross-cutting migration.** Touches loom pipeline code, canopy
+  editor core, three language companions, and the lambda FFI. Staged
+  over ~6 PRs; one transitional release where `Parser` and
+  `ReactiveParser` coexist. Details in the plan.
+- **Accepted regressions.** Staged pipeline memos and lazy `term()`
+  are dropped in the initial design. Trivia-only edits will do more
+  downstream work than today. CST and diagnostics remain reactive,
+  just via single eager Memos rather than staged ones. External
+  runtime injection is preserved.
+- **Benchmark verification required.** `Parser::apply_edit` must
+  retain the imperative engine's node-reuse performance (should be
+  identical — the engine is unchanged).
 
 ### Non-consequences
 
-- **`ImperativeParser` is not deprecated.** It remains the engine. Its
-  internal improvements (Wagner-Graham damage tracking, `ReuseCursor`,
-  block reparse) continue to benefit `Parser` transparently.
+- **`ImperativeParser` is not deprecated.** It remains the engine; its
+  internal improvements continue to benefit `Parser` transparently.
 - **No change to the `seam` CST model.** `Parser` publishes the same
-  `Ast` type that the underlying `ImperativeParser` produces today.
-- **No change to `@incr`'s public API.** `Parser` is a new consumer; no
-  changes to Signal/Memo/Runtime.
+  `Ast` type the engine produces today.
+- **No change to `@incr`'s public API.** `Parser` is a new consumer.
 
 ## Open questions
 
-To be answered during the implementation of Stage 1:
-
-1. **Should `Parser` take ownership of the `Runtime`, or accept one from
-   outside?** Today `ReactiveParser::new` creates its own runtime;
-   `ReactiveParser::from_parts` accepts one externally. Proposed default:
-   `Parser::new` creates; `Parser::from_parts` accepts. Matches current
-   `ReactiveParser`.
-
-2. **`tree_signal` as `Signal[Ast]` or `Signal[Ast?]`?** If parsing an empty
-   document or a lex error produces no AST, do we use `None` or a sentinel
-   `Error` variant? Current `ReactiveParser::term()` aborts on lex error;
-   need to preserve callers' ability to distinguish.
-
-3. **Does `apply_edit` accept `@incr.Editable` (the trait) or just `Edit`?**
-   `ImperativeParser::edit` currently takes `Edit` directly. Proposal: keep
-   that. If `Editable` trait use cases emerge later, add an overload.
-
-4. **Naming.** `Parser[Ast]` is generic — conflicts mentally with the
-   language-specific parsers (`lambda_grammar` etc.). Alternatives:
-   `Document[Ast]` (mizchi), `ParserSession[Ast]` (explicit).
-   This is a bikeshedding question, not a design question — finalize during
-   Stage 1 PR review.
-
-5. **What about the three-memo pipeline (Signal → TokenStage → Cst → Ast)
-   currently used by `new_reactive_parser`?** Does `Parser` preserve this
-   internally, or is it flattened? Proposal: preserve via an optional
-   internal `token_signal` for consumers who want the trivia-insensitive
-   cutoff. Default: flattened for simplicity; opt in via a constructor
-   parameter.
+No open questions at the principle level. Implementation-shaped
+questions (constructor / runtime-injection shape, final type name,
+whether `apply_edit` accepts an `Editable` trait) are captured in the
+[plan](../plans/2026-04-17-unified-parser.md) to be resolved in the
+Stage 1 PR.
 
 ## Alternatives considered
 
 ### Keep current design, add compatibility glue per consumer
 
-Each consumer (canopy editor, attach_typecheck, build tools) manually bridges
-`ImperativeParser` ↔ `ReactiveParser` in its own way. E.g., `SyncEditor` adds
-a `Signal[Ast]` field updated after each parse.
+Each consumer manually bridges `ImperativeParser` ↔ `ReactiveParser` in
+its own way.
 
 **Rejected:** glue code accumulates, never gets removed, each consumer
-reinvents the bridge differently, and the mental model stays "two parsers"
+reinvents the bridge differently, the mental model stays "two parsers"
 indefinitely.
 
 ### Converge inside `ImperativeParser` by adding `@incr` dependency
 
-`ImperativeParser` grows a `tree_signal` field directly. No new type.
+The engine grows a reactive publication field directly. No new type.
 
-**Rejected:** expands `@incremental` package's dependency graph to include
-`@incr`, which is a one-way door — it couples the low-level engine to the
-reactive layer. Cleaner to layer via a wrapper.
+**Rejected:** expands `@incremental`'s dependency graph to include
+`@incr`, which is a one-way door coupling the engine to the reactive
+layer. Cleaner to layer via a wrapper.
 
 ### Hazel-style: CST-as-source-of-truth now
 
-Skip unifying `text → AST` parsers entirely; move straight to structural
-edits as the primary input model.
+Skip unifying text-based parsers entirely; move straight to structural
+edits.
 
-**Rejected:** too large a leap. The current text-edit input path works and
-serves CRDT correctly. Structural editing is a *future* direction (per ADR
-2026-03-02 trajectory) that builds on top of unified parsing — not a
-replacement for it.
+**Rejected:** too large a leap. The text-edit input path works and
+serves CRDT correctly. Structural editing is a future direction that
+builds on top of unified parsing — not a replacement for it.
 
 ## References
 
@@ -369,7 +295,12 @@ replacement for it.
 - [2026-03-02: Two-Parser Design](2026-03-02-two-parser-design.md) — the decision
   this proposal supersedes.
 - [2026-03-15: Reintroduce TokenStage Memo](2026-03-15-reintroduce-token-stage-memo.md) —
-  the three-memo pipeline that `ReactiveParser` wraps; relevant to open question #5.
+  the three-memo pipeline that `ReactiveParser` wraps; relevant to the
+  dropped staged-memo regression.
+
+### Implementation
+
+- [docs/plans/2026-04-17-unified-parser.md](../plans/2026-04-17-unified-parser.md) — API signatures, struct layout, staged migration.
 
 ### Related loom docs
 
@@ -380,22 +311,18 @@ replacement for it.
 
 ### External projects cited
 
-- mizchi/markdown.mbt — [README](https://github.com/mizchi/markdown.mbt),
-  [architecture doc](https://github.com/mizchi/markdown.mbt/blob/main/docs/markdown.md).
-  CST-as-source-of-truth model, block-level fragment reuse.
-- tree-sitter —
-  [using-parsers](https://tree-sitter.github.io/tree-sitter/using-parsers/),
-  [incremental parsing](https://tree-sitter.github.io/tree-sitter/using-parsers/3-advanced-parsing.html).
+- mizchi/markdown.mbt — [README](https://github.com/mizchi/markdown.mbt).
+  Single `Document` type with incremental entry point; CST-as-source-of-truth
+  model.
+- tree-sitter — [using-parsers](https://tree-sitter.github.io/tree-sitter/using-parsers/).
   Subtree reuse via optional old-tree hint.
-- rust-analyzer —
-  [architecture](https://rust-analyzer.github.io/book/contributing/architecture.html).
+- rust-analyzer — [architecture](https://rust-analyzer.github.io/book/contributing/architecture.html).
   No incremental parsing; Salsa + structural sharing for downstream
   incrementality.
-- lezer —
-  [guide](https://lezer.codemirror.net/docs/guide/). LRParser with
+- lezer — [guide](https://lezer.codemirror.net/docs/guide/). LRParser with
   `TreeFragment.applyChanges` for incremental updates.
 
-### Papers informing the future trajectory (unchanged from 2026-03-02 ADR)
+### Papers informing the future trajectory
 
 - [eg-walker CRDT](https://arxiv.org/abs/2409.14252)
 - [Total Type Error Localization and Recovery with Holes (POPL 2024)](https://dl.acm.org/doi/10.1145/3632910)
@@ -404,7 +331,8 @@ replacement for it.
 
 ## Decision request
 
-Accept this proposal and begin Stage 1 implementation? If yes, this ADR's
-status moves to **Accepted** and the 2026-03-02 ADR gains a **Superseded by:**
-header pointing here. If no, document the specific concerns inline so future
-reviewers can reconsider with context.
+Accept this proposal and begin Stage 1 implementation per the
+[plan](../plans/2026-04-17-unified-parser.md)? If yes, this ADR's status
+moves to **Accepted** and the 2026-03-02 ADR gains a **Superseded by:**
+header pointing here. If no, document the specific concerns inline so
+future reviewers can reconsider with context.

@@ -57,7 +57,7 @@ Understanding how the layers fit together:
 - [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
 - [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
 - [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
-- [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Proposed** unified `Parser[Ast]` with multiple update paths; would supersede 2026-03-02 two-parser design
+- [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](plans/2026-04-17-unified-parser.md))
 
 ## Examples
 
@@ -65,7 +65,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-_(none)_
+- [plans/2026-04-17-unified-parser.md](plans/2026-04-17-unified-parser.md) — unified `Parser[Ast]` implementation (API surface, struct layout, Stages 1–6 migration across loom + canopy); Stage 1 complete
 
 ## Development
 
