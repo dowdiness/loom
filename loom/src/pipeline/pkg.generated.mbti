@@ -3,6 +3,8 @@ package "dowdiness/loom/pipeline"
 
 import {
   "dowdiness/incr/cells",
+  "dowdiness/loom/core",
+  "dowdiness/loom/incremental",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
@@ -23,6 +25,18 @@ pub struct Language[Ast] {
 }
 pub fn[T : Parseable, Ast] Language::from(T, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[Ast]
 pub fn[Ast] Language::from_closures(parse_source~ : (String) -> CstStage, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[Ast]
+
+pub struct Parser[Ast] {
+  // private fields
+}
+pub fn[Ast : Eq] Parser::apply_edit(Self[Ast], @core.Edit, String) -> Unit
+pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Memo[Ast]
+pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Memo[Array[String]]
+pub fn[Ast : Eq] Parser::new(String, @incremental.ImperativeLanguage[Ast], runtime? : @cells.Runtime) -> Self[Ast]
+pub fn[Ast] Parser::runtime(Self[Ast]) -> @cells.Runtime
+pub fn[Ast : Eq] Parser::set_source(Self[Ast], String) -> Unit
+pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Memo[String]
+pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Memo[@seam.SyntaxNode?]
 
 pub struct ReactiveParser[Ast] {
   // private fields
