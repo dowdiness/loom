@@ -52,9 +52,9 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 | Package | Purpose |
 |---------|---------|
-| `loom/src/` (root) | Public API facade; `Grammar[T,K,Ast]`, `new_imperative_parser`, `new_reactive_parser` |
-| `loom/src/core/` | `Edit`, `Range`, `ReuseSlot`, `Editable`, `ParserContext[T,K]` — shared primitives |
-| `loom/src/pipeline/` | `ReactiveParser` — reactive incremental pipeline |
+| `loom/src/` (root) | Public API facade (`loom.mbt`, pure `pub using` re-export); `Grammar[T,K,Ast]`, `new_imperative_parser`, `new_parser` |
+| `loom/src/core/` | `Edit`, `Range`, `TextDelta`, `ReuseSlot`, `Editable`, `TokenBuffer`, `ReuseCursor`, `ParserContext[T,K]`, `LanguageSpec` — shared primitives |
+| `loom/src/pipeline/` | `Parser[Ast]` — unified wrapper: owns `ImperativeParser` engine + publishes source/syntax/ast/diagnostics as `@incr.Signal`/`@incr.Memo` cells (post Stage 6, 2026-04-17) |
 | `loom/src/incremental/` | `ImperativeParser`, damage tracking |
 | `loom/src/viz/` | DOT graph renderer (`DotNode` trait) |
 
@@ -79,8 +79,9 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 ## Architecture
 
-**Reactive pipeline:** `Signal[String]` → `Memo[CstStage]` → `Memo[SyntaxNode]`
-(TokenStage was removed — see ADR `docs/decisions/2026-02-27-remove-tokenStage-memo.md`)
+**Unified pipeline (post Stage 6, 2026-04-17):** `Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST + diagnostics as `@incr.Signal` / `@incr.Memo` cells. `ReactiveParser` was removed in commit d85d5ff; prior ADRs about `TokenStage` (2026-02-27, 2026-03-15) and the two-parser design (2026-03-02) are superseded by `docs/decisions/2026-04-17-unified-parser-proposal.md`.
+
+**CST traversal primitives (seam/cst_traverse.mbt, 2026-03-30 port from cst-transform):** closure methods `transform`, `fold`, `transform_fold`, `each`, `iter`, `map` + `Finder` trait (statically dispatched). ROADMAP #58/#59/#60 extend this with `Folder`/`TransformFolder`/`MutVisitor` traits for hot paths where closure upvar capture costs ~2×. **Do not claim "no CST traversal abstraction exists" — it does.**
 
 **Two-tree model:** `CstNode` (immutable, position-independent, structurally shareable) +
 `SyntaxNode` (ephemeral positioned facade). All callers use `SyntaxNode`; `.cst` is private.
@@ -128,6 +129,7 @@ Full architecture: `docs/architecture/` | Design decisions: `docs/decisions/`
 ## Key Design Decisions
 
 - `Edit` stores lengths (`old_len`, `new_len`), not endpoints — matches Loro/Quill/diamond-types
-- `TokenStage` memo removed — vacuous for whitespace-inclusive lexers (ADR 2026-02-27)
+- `TokenStage` memo: removed 2026-02-27, reintroduced 2026-03-15, removed again as part of Stage 6 ReactiveParser deletion 2026-04-17 — the unified `Parser[Ast]` does not use it
 - `ReuseCursor` uses trailing-context check (Option B) to prevent false reuse
 - `ParserContext` is generic `[T, K]` — any grammar can plug in via `LanguageSpec`
+- CST traversal lives in `seam/cst_traverse.mbt` — check there before proposing new traversal work

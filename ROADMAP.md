@@ -172,7 +172,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 ## TODO
 
 - [ ] Delete local `graphviz/` module and switch `loom/moon.mod.json` to the published `antisatori/graphviz` package version.
-- [ ] **#58** Add `Folder` / `TransformFolder` / `Finder` / `MutVisitor` traits to `seam/` for zero-cost traversal — foundational; unblocks #59 and #60.
+- [ ] **#58** Add `Folder` / `TransformFolder` / `MutVisitor` traits to `seam/cst_traverse.mbt` for zero-cost traversal — foundational; unblocks #59 and #60. `Finder` trait is **already done** (`seam/cst_traverse.mbt:185`). Closure versions of `transform`/`fold`/`transform_fold`/`each`/`iter`/`map` exist but have ~2× overhead with captured upvars; the remaining traits close that gap for hot paths. See `docs/analysis/2026-04-19-architecture-diagnosis.md` §6 Stage B for bench gates.
 - [ ] **#60** Extract `walk_children_flat` into a public `CstNode::each` method (depends on #58).
 - [ ] **#59** Use `MutVisitor` for `CstNode::new()` metadata computation (depends on #58; caveat: ~2× overhead — only worthwhile if `CstNode::new()` is not on the critical path).
 - [ ] **#62** Clean up `cst-transform/` before merge: remove `transform_cps` and `transform_view`.
