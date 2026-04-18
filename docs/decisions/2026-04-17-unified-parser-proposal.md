@@ -305,7 +305,8 @@ builds on top of unified parsing — not a replacement for it.
 ### Related loom docs
 
 - [docs/api/choosing-a-parser.md](../api/choosing-a-parser.md) — user-facing
-  parser selection guide; will be rewritten or retired if this ADR is accepted.
+  parser selection guide; rewritten or retired during Stage 5 of the
+  [implementation plan](../plans/2026-04-17-unified-parser.md).
 - [docs/architecture/pipeline.md](../architecture/pipeline.md) — parse pipeline
   architecture; affected by the consolidation.
 
@@ -329,10 +330,10 @@ builds on top of unified parsing — not a replacement for it.
 - [Gradual Structure Editing with Obligations (VL/HCC 2023)](https://hazel.org/papers/teen-tylr-vlhcc2023.pdf)
 - [Grove: Collaborative Structure Editor (POPL 2025)](https://hazel.org/papers/grove-popl25.pdf)
 
-## Decision request
+## Decision
 
-Accept this proposal and begin Stage 1 implementation per the
-[plan](../plans/2026-04-17-unified-parser.md)? If yes, this ADR's status
-moves to **Accepted** and the 2026-03-02 ADR gains a **Superseded by:**
-header pointing here. If no, document the specific concerns inline so
-future reviewers can reconsider with context.
+Accepted 2026-04-18. The 2026-03-02 two-parser-design ADR was marked
+**Superseded by** this ADR, and Stage 1 of the
+[implementation plan](../plans/2026-04-17-unified-parser.md) landed
+the same day (`Parser[Ast]` added alongside `ReactiveParser` in
+`loom/src/pipeline/`). Stages 2–6 proceed per the plan.

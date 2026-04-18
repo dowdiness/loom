@@ -168,27 +168,34 @@ Add the new type in `loom/src/pipeline/`. Implement `set_source`,
 `apply_edit`, `source()`, `syntax_tree()`, `ast()`, `diagnostics()`,
 `runtime()`. No changes to existing `ReactiveParser`.
 
-**Resolutions expected in the Stage 1 PR** (moved here from the ADR —
-these are implementation-shaped decisions, not principle-level):
+**Resolutions settled during Stage 1** (the implementation-shaped
+decisions flagged in the ADR):
 
-- **Constructor shape.** Whether `Parser::new` wraps a higher-level
-  `@pipeline.Language[Ast]` or takes `ImperativeLanguage[Ast]` directly.
-  Pick whichever yields the more ergonomic call sites in the canopy
-  companions; lean toward mirroring today's `ReactiveParser::new` for
-  drop-in familiarity.
-- **Runtime-injection shape.** The ADR decides to preserve external
-  runtime injection (today's `from_parts` capability). Concrete shape to
-  finalize: a second constructor `Parser::from_parts(rt, ...)` mirroring
-  `ReactiveParser::from_parts`, or a labeled parameter on `Parser::new`.
-  Pick based on which is less redundant with the wrapping-Language
-  decision above.
-- **Final type name.** `Parser[Ast]` collides mentally with
-  language-specific parsers (`lambda_grammar` etc.). Alternatives:
-  `Document[Ast]` (mizchi), `ParserSession[Ast]` (explicit).
-  Bikeshedding question — finalize during PR review, not before.
-- **`Editable` trait on `apply_edit`.** `ImperativeParser::edit` takes
-  `Edit` directly; keep that shape by default. Add an `Editable`
-  overload only if a concrete use case emerges during Stage 1.
+- **Constructor shape.** `Parser::new(source, lang :
+  @incremental.ImperativeLanguage[Ast], runtime?)` takes
+  `ImperativeLanguage[Ast]` directly. The higher-level
+  `@pipeline.Language[Ast]` is reserved for `ReactiveParser`, whose
+  `CstStage`-based pipeline still benefits from the Parseable trait
+  shim. The unified parser wraps the imperative engine directly, so
+  going one level lower is the more honest surface — and the added
+  `new_parser` factory (`loom/src/factories.mbt`) still accepts a
+  `Grammar[T, K, Ast]` call-site for ergonomics, matching
+  `new_reactive_parser`.
+- **Runtime-injection shape.** Labeled parameter on `Parser::new`
+  (`runtime? : @incr.Runtime`). No separate `from_parts` constructor.
+  The labeled form is less redundant now that the constructor takes an
+  `ImperativeLanguage[Ast]` — `from_parts` carried its weight on
+  `ReactiveParser` because it spliced pre-built `Signal`/`Memo` cells,
+  which `Parser` owns privately rather than accepting externally.
+- **Final type name.** `Parser[Ast]`. Alternatives (`Document[Ast]`,
+  `ParserSession[Ast]`) were considered and rejected — the plain name
+  is what canopy's FFI bundle already calls the concept informally,
+  and the `@loom.` qualification disambiguates it from
+  language-specific parsers at every call site.
+- **`Editable` trait on `apply_edit`.** Not added. `Parser::apply_edit`
+  takes `@core.Edit` directly, matching `ImperativeParser::edit`. No
+  concrete use case emerged during Stage 1; revisit if one surfaces in
+  Stage 4.
 
 ### Stage 2 — Retarget `attach_typecheck` to `Memo[SyntaxNode?]`
 
