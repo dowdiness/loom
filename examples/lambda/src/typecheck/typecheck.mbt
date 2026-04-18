@@ -119,6 +119,11 @@ pub fn build_typecheck_pipeline_with_index(
         Some(_) => def_names != state.prev_def_names
       }
       if needs_rebuild {
+        // All wrapper memos in `memo_map` key on InternIds from the previous
+        // chain; after rebuild their encounter_order slots are re-assigned, so
+        // every existing entry is stale. Dispose them up front — `memo_map`
+        // is Runtime-owned, so chain-scope disposal can't reach it.
+        memo_map.clear()
         rebuild_chain(state, parent_scope, resolved)
       } else {
         update_terms(state, resolved)

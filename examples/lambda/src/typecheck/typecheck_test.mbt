@@ -561,3 +561,45 @@ test "MemoMap: name guard rejects mismatched encounter_order" {
   inspect(bogus_result.had_error, content="true")
   scope.dispose()
 }
+
+///|
+test "MemoMap: structural rebuild sweeps stale entries" {
+  // Verify that `memo_map.clear()` is invoked on rebuild so wrapper memos
+  // for old InternIds do not accumulate across structural edits.
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // First module: defs = [a, b]
+  let module_term1 = TypedTerm::Module(
+    [("a", TypedTerm::Int(1)), ("b", TypedTerm::Int(2))],
+    TypedTerm::Var("a"),
+  )
+  let term_signal = scope.signal(module_term1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  let _r1 = result_memo.get_result().unwrap()
+  // Populate memo_map with two entries.
+  let a_id = index.intern_table.intern({ name: "a", encounter_order: 0 })
+  let b_id = index.intern_table.intern({ name: "b", encounter_order: 1 })
+  inspect(index.memo_map.get(a_id).typ, content="Int")
+  inspect(index.memo_map.get(b_id).typ, content="Int")
+  inspect(index.memo_map.length(), content="2")
+  // Structural change: defs = [b, c] — encounter_orders shift, so all
+  // previous InternIds are stale.
+  let module_term2 = TypedTerm::Module(
+    [("b", TypedTerm::Int(20)), ("c", TypedTerm::Int(30))],
+    TypedTerm::Var("b"),
+  )
+  term_signal.set(module_term2)
+  let _r2 = result_memo.get_result().unwrap()
+  // After rebuild, memo_map has been cleared; no stale entries remain.
+  inspect(index.memo_map.length(), content="0")
+  // New queries populate fresh entries.
+  let b_id2 = index.intern_table.intern({ name: "b", encounter_order: 0 })
+  let c_id2 = index.intern_table.intern({ name: "c", encounter_order: 1 })
+  inspect(index.memo_map.get(b_id2).typ, content="Int")
+  inspect(index.memo_map.get(c_id2).typ, content="Int")
+  inspect(index.memo_map.length(), content="2")
+  scope.dispose()
+}
