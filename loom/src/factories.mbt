@@ -291,6 +291,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
 ///
 /// `T : Eq + IsTrivia` is required: token-stage memoization needs
 /// structural equality for non-trivia tokens at the memo boundary.
+#deprecated("Use new_parser; new_reactive_parser will be removed after one release cycle.", skip_current_package=true)
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
   source : String,
   grammar : Grammar[T, K, Ast],

@@ -19,6 +19,11 @@
 /// without fragile heuristics.
 ///
 /// **Lifetime:** one ReactiveParser per document editing session.
+///
+/// Deprecated in favor of `Parser`, which wraps `ImperativeParser` with the
+/// same signal/memo outputs but shares a single runtime and engine. This
+/// type will be removed after one release cycle.
+#deprecated("Use Parser; ReactiveParser will be removed after one release cycle.", skip_current_package=true)
 pub struct ReactiveParser[Ast] {
   priv source_text : @incr.Signal[String]
   priv cst_memo : @incr.Memo[CstStage]
@@ -30,6 +35,7 @@ pub struct ReactiveParser[Ast] {
 
 ///|
 /// Ast : Eq is required to call Memo::new (backdating needs structural equality).
+#deprecated("Use Parser::new; ReactiveParser will be removed after one release cycle.", skip_current_package=true)
 pub fn[Ast : Eq] ReactiveParser::new(
   initial_source : String,
   lang : Language[Ast],
@@ -160,6 +166,7 @@ pub fn[Ast] ReactiveParser::term(self : ReactiveParser[Ast]) -> Ast {
 /// The `term_memo → cst_memo` edge is validated lazily on `term()` calls so
 /// parser construction remains lazy even when AST building aborts, and dynamic
 /// memo dependencies cannot silently detach the AST from the CST later.
+#deprecated("Use Parser; ReactiveParser will be removed after one release cycle.", skip_current_package=true)
 pub fn[Stage, Ast] ReactiveParser::from_parts(
   rt : @incr.Runtime,
   source_text : @incr.Signal[String],
