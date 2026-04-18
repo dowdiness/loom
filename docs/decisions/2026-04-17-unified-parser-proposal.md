@@ -3,7 +3,7 @@
 **Date:** 2026-04-17
 **Status:** Accepted (2026-04-18)
 **Supersedes:** [2026-03-02: Two-Parser Design](2026-03-02-two-parser-design.md)
-**Implementation plan:** [docs/plans/2026-04-17-unified-parser.md](../plans/2026-04-17-unified-parser.md)
+**Implementation plan:** [docs/archive/completed-phases/2026-04-17-unified-parser.md](../archive/completed-phases/2026-04-17-unified-parser.md)
 
 ## Context
 
@@ -188,7 +188,7 @@ Consolidate into a single unified parser type. In principle:
    need.
 
 Concrete API signatures, internal structure, and the staged file-by-file
-migration live in the [implementation plan](../plans/2026-04-17-unified-parser.md).
+migration live in the [implementation plan](../archive/completed-phases/2026-04-17-unified-parser.md).
 
 ## Why this is better than the status quo
 
@@ -257,7 +257,7 @@ literally.
 No open questions at the principle level. Implementation-shaped
 questions (constructor / runtime-injection shape, final type name,
 whether `apply_edit` accepts an `Editable` trait) are captured in the
-[plan](../plans/2026-04-17-unified-parser.md) to be resolved in the
+[plan](../archive/completed-phases/2026-04-17-unified-parser.md) to be resolved in the
 Stage 1 PR.
 
 ## Alternatives considered
@@ -300,13 +300,13 @@ builds on top of unified parsing — not a replacement for it.
 
 ### Implementation
 
-- [docs/plans/2026-04-17-unified-parser.md](../plans/2026-04-17-unified-parser.md) — API signatures, struct layout, staged migration.
+- [docs/archive/completed-phases/2026-04-17-unified-parser.md](../archive/completed-phases/2026-04-17-unified-parser.md) — API signatures, struct layout, staged migration.
 
 ### Related loom docs
 
 - [docs/api/choosing-a-parser.md](../api/choosing-a-parser.md) — user-facing
   parser selection guide; rewritten or retired during Stage 5 of the
-  [implementation plan](../plans/2026-04-17-unified-parser.md).
+  [implementation plan](../archive/completed-phases/2026-04-17-unified-parser.md).
 - [docs/architecture/pipeline.md](../architecture/pipeline.md) — parse pipeline
   architecture; affected by the consolidation.
 
@@ -334,6 +334,6 @@ builds on top of unified parsing — not a replacement for it.
 
 Accepted 2026-04-18. The 2026-03-02 two-parser-design ADR was marked
 **Superseded by** this ADR, and Stage 1 of the
-[implementation plan](../plans/2026-04-17-unified-parser.md) landed
+[implementation plan](../archive/completed-phases/2026-04-17-unified-parser.md) landed
 the same day (`Parser[Ast]` added alongside `ReactiveParser` in
 `loom/src/pipeline/`). Stages 2–6 proceed per the plan.

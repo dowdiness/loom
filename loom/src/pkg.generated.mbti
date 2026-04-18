@@ -14,9 +14,6 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(Strin
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
-#deprecated
-pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
-
 // Errors
 
 // Types and methods
@@ -55,8 +52,6 @@ pub using @core {type LexError}
 pub using @pipeline {type Parser}
 
 pub using @core {type ParserContext}
-
-pub using @pipeline {type ReactiveParser}
 
 pub using @seam {type SyntaxElement}
 

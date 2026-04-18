@@ -1,7 +1,7 @@
 # Plan: Unified Parser Implementation
 
 **Date:** 2026-04-17
-**Status:** In progress — Stages 1–3 complete (2026-04-18); Stages 4–6 pending. ADR [2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
+**Status:** Complete. Stages 1–3 merged 2026-04-18 (loom#86/#88/#89); Stage 4 merged 2026-04-18 (canopy#201); Stage 5 merged 2026-04-19 (loom#91, #92 for CI follow-up, canopy#202 bump); Stage 6 deletion landing 2026-04-19. ADR [2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
 
 Implementation plan for the unified `Parser[Ast]` proposed in the ADR. The ADR
 captures motivation, scoping, and decision principles; this plan captures the
@@ -267,14 +267,38 @@ language). This is the commit sequence that delivers the canopy web demo.
 
 ### Stage 5 — Deprecate `ReactiveParser`
 
-Add `@deprecated` annotation (if MoonBit supports; otherwise a doc
-comment). Update `docs/api/choosing-a-parser.md` to route all new
-consumers to `Parser`. Schedule removal after one release cycle.
+Added `#deprecated(..., skip_current_package=true)` to:
+- `pub struct ReactiveParser[Ast]`
+- `ReactiveParser::new`, `ReactiveParser::from_parts`
+- `new_reactive_parser` factory
+
+Rewrote `docs/api/choosing-a-parser.md` to route all new consumers to `Parser`.
+
+**Gotcha encountered (for future deprecation work):** canopy CI runs
+`moonc check -w @a`, which promotes warning `[0020] deprecated` to an
+error. `skip_current_package=true` only suppresses same-exact-package
+warnings — it does NOT cover:
+
+- Sibling packages of the same module (the facade `@loom` package
+  calling into `@pipeline`, e.g. `loom.mbt`'s re-export of
+  `ReactiveParser` and `factories.mbt`'s `new_reactive_parser` body).
+- Blackbox test packages (e.g. `pipeline/reactive_parser_test.mbt` —
+  blackbox tests are always a separate MoonBit package even when
+  colocated).
+
+Fix was loom#92: scope-suppress via `warnings = "-20"` in the two
+`moon.pkg` files that self-reference the deprecated API. External
+consumers still saw the deprecation via `.mbti`. Removed these
+suppressions in Stage 6 when the self-references were deleted.
 
 ### Stage 6 — Remove `ReactiveParser`
 
-Delete the struct and all tests. Update `docs/decisions/` archive pointer
-to the ADR. Move this plan file to `docs/archive/completed-phases/`.
+Deleted the struct, its tests, and the now-orphaned `Parseable` trait +
+`Language[Ast]` vtable (used only by ReactiveParser). Also dropped the
+`ReactiveParser` re-export from `loom.mbt`, the `new_reactive_parser`
+factory, its whitebox tests, and the `warnings = "-20"` suppressions
+added in Stage 5. Updated `pipeline/README.md` to describe `Parser`
+rather than `ReactiveParser`. Archived this plan file.
 
 ## Validation checkpoints
 
@@ -328,7 +352,7 @@ to close the primary plan:
 
 ## References
 
-- [ADR 2026-04-17: Unified Parser](../decisions/2026-04-17-unified-parser-proposal.md) — motivation, scoping, decision principles.
-- [ADR 2026-03-02: Two-Parser Design](../decisions/2026-03-02-two-parser-design.md) — superseded by the above.
-- [docs/api/choosing-a-parser.md](../api/choosing-a-parser.md) — rewritten / retired during Stage 5.
-- [docs/architecture/pipeline.md](../architecture/pipeline.md) — parse pipeline architecture; affected by the consolidation.
+- [ADR 2026-04-17: Unified Parser](../../decisions/2026-04-17-unified-parser-proposal.md) — motivation, scoping, decision principles.
+- [ADR 2026-03-02: Two-Parser Design](../../decisions/2026-03-02-two-parser-design.md) — superseded by the above.
+- [docs/api/choosing-a-parser.md](../../api/choosing-a-parser.md) — rewritten during Stage 5; Legacy section removed in Stage 6.
+- [docs/architecture/pipeline.md](../../architecture/pipeline.md) — parse pipeline architecture; affected by the consolidation.

@@ -1,12 +1,12 @@
-// Bridge factories — build ImperativeParser or ReactiveParser from a Grammar.
+// Bridge factories — build Parser from a Grammar.
 //
 // These encapsulate all infrastructure wiring: TokenBuffer lifecycle,
 // ReuseCursor construction, parse_tokens_indexed calls, diagnostic
 // formatting. The grammar author provides spec, tokenize, to_ast, and
 // on_lex_error; the factories handle the rest.
 //
-// ImperativeLanguage[Ast] and Language[Ast] are constructed internally
-// for type erasure — grammar authors never see them.
+// ImperativeLanguage[Ast] is constructed internally for type erasure —
+// grammar authors never see it.
 
 ///|
 /// Create a fresh TokenBuffer.
@@ -276,124 +276,4 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
   runtime? : @incr.Runtime,
 ) -> @pipeline.Parser[Ast] {
   @pipeline.Parser::new(source, build_imperative_language(grammar), runtime?)
-}
-
-///|
-/// Create a ReactiveParser from a Grammar.
-///
-/// Builds a three-memo pipeline with trivia-insensitive early cutoff:
-///   Signal[String] → Memo[TokenStage[T]] → Memo[CstStage] → Memo[Ast]
-///
-/// TokenStage equality compares only non-trivia tokens (via `IsTrivia`).
-/// Whitespace-only edits cause the token memo to backdate, skipping
-/// CST and AST recomputation entirely. Content edits that change any
-/// non-trivia token trigger the full pipeline.
-///
-/// `T : Eq + IsTrivia` is required: token-stage memoization needs
-/// structural equality for non-trivia tokens at the memo boundary.
-#deprecated("Use new_parser; new_reactive_parser will be removed after one release cycle.", skip_current_package=true)
-pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
-  source : String,
-  grammar : Grammar[T, K, Ast],
-) -> @pipeline.ReactiveParser[Ast] {
-  let spec = grammar.spec
-  let tokenize = grammar.tokenize
-  let error_token = grammar.error_token
-  let prefix_lexer = grammar.prefix_lexer
-  let mode_relex = grammar.mode_relex
-  let cst_fold = @core.CstFold::new(grammar.fold_node)
-  let rt = @incr.Runtime::new()
-  let source_text = @incr.Signal::new(rt, source, label="source_text")
-  // Token memo — stores full lex output (tokens + starts + source).
-  // Equality compares only tokens + error state, NOT positions or source.
-  // This enables early cutoff: edits that shift positions without changing
-  // token kinds/content cause the memo to backdate.
-  let token_memo : @incr.Memo[@core.TokenStage[T]] = @incr.Memo::new(
-    rt,
-    fn() -> @core.TokenStage[T] {
-      let s = source_text.get()
-      let buffer = create_buffer(
-        s,
-        tokenize,
-        spec.eof_token,
-        error_token,
-        prefix_lexer~,
-        mode_relex~,
-      ) catch {
-        @core.LexError(msg) =>
-          return {
-            tokens: [],
-            starts: [],
-            source: s,
-            is_lex_error: true,
-            lex_error_message: "Tokenization error: " + msg,
-          }
-      }
-      {
-        tokens: buffer.get_tokens(),
-        starts: buffer.get_starts(),
-        source: s,
-        is_lex_error: false,
-        lex_error_message: "",
-      }
-    },
-    label="tokens",
-  )
-  // CST memo — parses from token stage.
-  // Depends ONLY on token_memo (not source_text directly).
-  // When token_memo backdates (tokens unchanged despite position shift),
-  // CstStage skips entirely — this is the TokenStage early cutoff.
-  let cst_memo : @incr.Memo[@pipeline.CstStage] = @incr.Memo::new(
-    rt,
-    fn() -> @pipeline.CstStage {
-      let stage = token_memo.get()
-      if stage.is_lex_error {
-        let cst = @seam.CstNode::new(spec.error_kind.to_raw(), [])
-        return @pipeline.CstStage::{
-          cst,
-          diagnostics: [stage.lex_error_message],
-          is_lex_error: true,
-        }
-      }
-      let tokens = stage.tokens
-      let starts = stage.starts
-      let source = stage.source
-      let (cst, diags, _) = @core.parse_tokens_indexed(
-        source,
-        tokens.length(),
-        fn(i) { tokens[i].token },
-        fn(i) { starts[i] },
-        fn(i) { starts[i] + tokens[i].len },
-        spec,
-      )
-      @pipeline.CstStage::{
-        cst,
-        diagnostics: diags.map(@core.format_diagnostic),
-        is_lex_error: false,
-      }
-    },
-    label="cst",
-  )
-  // Term memo — converts CST to AST.
-  let term_memo : @incr.Memo[Ast] = @incr.Memo::new(
-    rt,
-    fn() -> Ast {
-      let stage = cst_memo.get()
-      if stage.is_lex_error {
-        let msg = if stage.diagnostics.length() > 0 {
-          stage.diagnostics[0]
-        } else {
-          "lex error"
-        }
-        (grammar.on_lex_error)(msg)
-      } else {
-        let syntax = @seam.SyntaxNode::from_cst(stage.cst)
-        cst_fold.fold(syntax)
-      }
-    },
-    label="term",
-  )
-  @pipeline.ReactiveParser::from_parts(
-    rt, source_text, token_memo, cst_memo, term_memo,
-  )
 }

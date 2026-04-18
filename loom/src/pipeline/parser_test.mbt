@@ -1,7 +1,7 @@
 // Parser[Ast] tests.
 //
-// TestLang design (mirrors reactive_parser_test.mbt but produces
-// ImperativeLanguage directly so we can exercise Parser end-to-end):
+// TestLang design (produces ImperativeLanguage directly so we can
+// exercise Parser end-to-end):
 // - Lex error: source starts with "@".
 // - Successful parse builds a one-token CST whose token text is the
 //   source length as a string — same-length sources parse to equal

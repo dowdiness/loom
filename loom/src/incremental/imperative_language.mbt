@@ -10,8 +10,8 @@ pub(all) enum ParseOutcome {
 ///|
 /// Token-erased vtable for incremental language integration.
 ///
-/// Analogous to `@pipeline.Language[Ast]`: the token type is erased into
-/// closures at call site, keeping `ImperativeParser[Ast]` generic.
+/// The token type is erased into closures at call site, keeping
+/// `ImperativeParser[Ast]` generic over the Ast type.
 ///
 /// `full_parse` — initial (non-incremental) parse. Returns Tree(syntax, 0)
 ///   or LexError(msg). The closure captures and manages TokenBuffer state.

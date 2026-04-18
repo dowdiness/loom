@@ -57,7 +57,7 @@ Understanding how the layers fit together:
 - [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
 - [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
 - [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
-- [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](plans/2026-04-17-unified-parser.md))
+- [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](archive/completed-phases/2026-04-17-unified-parser.md))
 
 ## Examples
 
@@ -65,7 +65,7 @@ Understanding how the layers fit together:
 
 ## Active Plans
 
-- [plans/2026-04-17-unified-parser.md](plans/2026-04-17-unified-parser.md) — unified `Parser[Ast]` implementation (API surface, struct layout, Stages 1–6 migration across loom + canopy); Stage 1 complete
+_No active plans — see Archive for completed work._
 
 ## Development
 
@@ -103,4 +103,5 @@ Understanding how the layers fit together:
 - [archive/completed-phases/2026-04-02-stringview-threading-impl.md](archive/completed-phases/2026-04-02-stringview-threading-impl.md) — StringView threading implementation plan (6 tasks)
 - [archive/completed-phases/2026-04-02-remove-cst-token-matches-design.md](archive/completed-phases/2026-04-02-remove-cst-token-matches-design.md) — Remove cst_token_matches: framework-owned token matching (#70)
 - [archive/completed-phases/2026-04-02-remove-cst-token-matches-impl.md](archive/completed-phases/2026-04-02-remove-cst-token-matches-impl.md) — Remove cst_token_matches implementation plan (8 tasks)
+- [archive/completed-phases/2026-04-17-unified-parser.md](archive/completed-phases/2026-04-17-unified-parser.md) — unified `Parser[Ast]` implementation (Stages 1–6, completed 2026-04-19); collapses ImperativeParser + ReactiveParser into one reactive handle
 - [archive/](archive/) — research notes (Lezer, fragment reuse) and historical status docs
