@@ -1,9 +1,8 @@
 # Choosing a Parser
 
-loom exposes one parser for new work: **`Parser`**. It handles both
-edit-driven updates (typing, CRDT ops) and whole-source resets through
-a single reactive handle. `ReactiveParser` is deprecated; see
-[Legacy](#legacy-reactiveparser) below.
+loom exposes one parser for application code: **`Parser`**. It handles
+both edit-driven updates (typing, CRDT ops) and whole-source resets
+through a single reactive handle.
 
 ## Quick decision
 
@@ -35,25 +34,17 @@ let p = new_parser(initial_source, grammar)          // → Parser[Ast]
 let p = new_parser(initial_source, grammar, runtime?)
 ```
 
-The factory requires `T : IsTrivia + Eq` and `Ast : Eq` — same bounds
-`new_reactive_parser` needed, because the underlying memo graph still
-does structural-equality backdating at the CST and AST boundaries.
+The factory requires `T : IsTrivia + Eq` and `Ast : Eq` because the
+underlying memo graph does structural-equality backdating at the CST
+and AST boundaries.
 
-## Legacy: `ReactiveParser`
+## When to use `ImperativeParser` directly
 
-`ReactiveParser` is deprecated and scheduled for removal one release
-cycle after the Stage 5 cut (see
-[`docs/plans/2026-04-17-unified-parser.md`](../plans/2026-04-17-unified-parser.md)).
-
-- **Why it existed:** originally the reactive pipeline lived in its own
-  type, separate from the edit-driven `ImperativeParser`. Editors needed
-  both and had to own two parser handles plus a second `Runtime`.
-- **Why it's gone:** `Parser` wraps `ImperativeParser` with the same
-  signal/memo outputs `ReactiveParser` exposed, so there's no reason to
-  keep two handles.
-- **If you still need it:** existing call sites keep working; `#deprecated`
-  emits compiler warnings pointing at `Parser`. New code should not use
-  it.
+`Parser` wraps `ImperativeParser` and is the right choice for almost
+everything. Reach for `ImperativeParser` directly only if you need the
+non-reactive engine without the signal/memo layer — for example, a
+one-shot parse in a batch tool, or a subsystem that owns its own
+runtime lifecycle and can't accept a caller-supplied one.
 
 See [`api/reference.md`](reference.md) for the full `Parser` API and
 [`decisions/2026-04-17-unified-parser-proposal.md`](../decisions/2026-04-17-unified-parser-proposal.md)

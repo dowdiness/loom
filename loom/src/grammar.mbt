@@ -1,8 +1,8 @@
 ///|
 /// Complete grammar description — the four things that vary per language.
 ///
-/// Pass to `new_imperative_parser` or `new_reactive_parser`; the factories
-/// handle all infrastructure wiring (TokenBuffer lifecycle, ReuseCursor
+/// Pass to `new_parser` or `new_imperative_parser`; the factories handle
+/// all infrastructure wiring (TokenBuffer lifecycle, ReuseCursor
 /// construction, diagnostic formatting).
 ///
 /// Define one per grammar as a module-level `let`.

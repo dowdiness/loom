@@ -20,12 +20,6 @@ pub(all) struct CstStage {
   is_lex_error : Bool
 } derive(Eq, @debug.Debug)
 
-pub struct Language[Ast] {
-  // private fields
-}
-pub fn[T : Parseable, Ast] Language::from(T, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[Ast]
-pub fn[Ast] Language::from_closures(parse_source~ : (String) -> CstStage, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast) -> Self[Ast]
-
 pub struct Parser[Ast] {
   // private fields
 }
@@ -38,25 +32,7 @@ pub fn[Ast : Eq] Parser::set_source(Self[Ast], String) -> Unit
 pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Memo[String]
 pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Memo[@seam.SyntaxNode?]
 
-#deprecated
-pub struct ReactiveParser[Ast] {
-  // private fields
-}
-pub fn[Ast] ReactiveParser::cst(Self[Ast]) -> CstStage
-pub fn[Ast] ReactiveParser::diagnostics(Self[Ast]) -> Array[String]
-#deprecated
-pub fn[Stage, Ast] ReactiveParser::from_parts(@cells.Runtime, @cells.Signal[String], @cells.Memo[Stage], @cells.Memo[CstStage], @cells.Memo[Ast]) -> Self[Ast]
-pub fn[Ast] ReactiveParser::get_source(Self[Ast]) -> String
-#deprecated
-pub fn[Ast : Eq] ReactiveParser::new(String, Language[Ast]) -> Self[Ast]
-pub fn[Ast] ReactiveParser::runtime(Self[Ast]) -> @cells.Runtime
-pub fn[Ast] ReactiveParser::set_source(Self[Ast], String) -> Unit
-pub fn[Ast] ReactiveParser::term(Self[Ast]) -> Ast
-
 // Type aliases
 
 // Traits
-pub(open) trait Parseable {
-  parse_source(Self, String) -> CstStage
-}
 

@@ -6,11 +6,3 @@ import {
   "dowdiness/loom/pipeline" @pipeline,
   "moonbitlang/core/debug",
 }
-
-// Suppressed warnings:
-// -20 — deprecated. Stage 5 marks ReactiveParser / new_reactive_parser
-//        deprecated; `loom.mbt`'s re-export and `factories.mbt`'s
-//        `new_reactive_parser` body self-reference the deprecated surface
-//        until Stage 6 removes them. Keep `-20` scoped to this package so
-//        external consumers still see the deprecation warnings.
-warnings = "-20"
