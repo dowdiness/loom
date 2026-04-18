@@ -37,6 +37,7 @@ Understanding how the layers fit together:
 
 - [analysis/code-analysis-report.md](analysis/code-analysis-report.md) — comprehensive code analysis: module structure, dependency hierarchy, execution paths
 - [analysis/defect-analysis-report.md](analysis/defect-analysis-report.md) — defect analysis: common bug patterns, failure modes, risk areas
+- [analysis/2026-04-19-architecture-diagnosis.md](analysis/2026-04-19-architecture-diagnosis.md) — architecture diagnosis: change pressures, sibling-module boundary issues, staged migration proposal (Stages A–D)
 
 ## Performance
 
