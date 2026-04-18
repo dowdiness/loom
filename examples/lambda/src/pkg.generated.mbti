@@ -16,7 +16,7 @@ import {
 }
 
 // Values
-pub fn attach_typecheck(@pipeline.ReactiveParser[@ast.Term]) -> TypecheckAttachment
+pub fn attach_typecheck(@pipeline.Parser[@ast.Term]) -> TypecheckAttachment
 
 pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
 

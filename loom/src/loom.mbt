@@ -32,10 +32,10 @@ pub using @incremental {type ImperativeParser}
 
 ///|
 // Reactive pipeline — Signal[String] → Memo[Ast]
-pub using @pipeline {type ReactiveParser}
+pub using @pipeline {type ReactiveParser, type Parser}
 
-// Grammar and factory functions (new_imperative_parser, new_reactive_parser)
-// are defined in grammar.mbt and factories.mbt in this package.
+// Grammar and factory functions (new_imperative_parser, new_reactive_parser,
+// new_parser) are defined in grammar.mbt and factories.mbt in this package.
 
 ///|
 // AstView trait — implement for every typed view type in your language package.

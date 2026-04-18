@@ -1,9 +1,9 @@
-// Integration tests for attach_typecheck — wires the reactive parser
+// Integration tests for attach_typecheck — wires the unified `Parser[Term]`
 // to the bidirectional type checker and verifies end-to-end flow on edit.
 
 ///|
 test "attach_typecheck: clean program has zero diagnostics" {
-  let parser = @loom.new_reactive_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser("1 + 2", lambda_grammar)
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.typ, content="Int")
@@ -13,7 +13,7 @@ test "attach_typecheck: clean program has zero diagnostics" {
 
 ///|
 test "attach_typecheck: unbound variable surfaces diagnostic" {
-  let parser = @loom.new_reactive_parser("x + 1", lambda_grammar)
+  let parser = @loom.new_parser("x + 1", lambda_grammar)
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
@@ -23,7 +23,7 @@ test "attach_typecheck: unbound variable surfaces diagnostic" {
 
 ///|
 test "attach_typecheck: unannotated lambda surfaces diagnostic" {
-  let parser = @loom.new_reactive_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_parser("λx.x", lambda_grammar)
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
@@ -32,8 +32,8 @@ test "attach_typecheck: unannotated lambda surfaces diagnostic" {
 }
 
 ///|
-test "attach_typecheck: edit flows through (clean → error)" {
-  let parser = @loom.new_reactive_parser("1 + 2", lambda_grammar)
+test "attach_typecheck: edit flows through set_source (clean → error)" {
+  let parser = @loom.new_parser("1 + 2", lambda_grammar)
   let typed = attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="0")
   parser.set_source("x + 1")
@@ -43,8 +43,8 @@ test "attach_typecheck: edit flows through (clean → error)" {
 }
 
 ///|
-test "attach_typecheck: edit flows through (error → clean)" {
-  let parser = @loom.new_reactive_parser("x + 1", lambda_grammar)
+test "attach_typecheck: edit flows through set_source (error → clean)" {
+  let parser = @loom.new_parser("x + 1", lambda_grammar)
   let typed = attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="1")
   parser.set_source("1 + 2")
@@ -54,11 +54,38 @@ test "attach_typecheck: edit flows through (error → clean)" {
 }
 
 ///|
+test "attach_typecheck: edit flows through apply_edit (clean → error)" {
+  // apply_edit is the CST-reuse path — covers the same publication contract
+  // as set_source but exercises the incremental engine underneath.
+  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let typed = attach_typecheck(parser)
+  inspect(typed.get().all_diagnostics.length(), content="0")
+  parser.apply_edit(@core.Edit::new(0, 5, 5), "x + 1")
+  let r = typed.get()
+  inspect(r.all_diagnostics.length(), content="1")
+  inspect(r.all_diagnostics[0].message, content="unbound variable: x")
+}
+
+///|
 test "attach_typecheck: parse error does not abort the pipeline" {
   // "λx." is a parse error — the grammar cannot complete the lambda body.
   // Pipeline must still produce a ModuleTypeResult; reading it must not
   // abort. Recovery on a subsequent edit is also exercised.
-  let parser = @loom.new_reactive_parser("λx.", lambda_grammar)
+  let parser = @loom.new_parser("λx.", lambda_grammar)
+  let typed = attach_typecheck(parser)
+  let _ = typed.get()
+  parser.set_source("1 + 2")
+  let r = typed.get()
+  inspect(r.body_type.typ, content="Int")
+  inspect(r.all_diagnostics.length(), content="0")
+}
+
+///|
+test "attach_typecheck: lex error routes to None → TypedTerm::Error(\"parse\")" {
+  // "@invalid" fails tokenization — Parser publishes syntax_tree() = None.
+  // The bridge's None arm must yield TypedTerm::Error("parse") so the
+  // pipeline doesn't abort; recovery on a subsequent clean edit works.
+  let parser = @loom.new_parser("@invalid", lambda_grammar)
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   parser.set_source("1 + 2")
@@ -69,22 +96,22 @@ test "attach_typecheck: parse error does not abort the pipeline" {
 
 ///|
 test "attach_typecheck: dispose cleans up without affecting parser" {
-  let parser = @loom.new_reactive_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser("1 + 2", lambda_grammar)
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   typed.dispose()
   // Parser still works after typechecker scope is disposed.
   parser.set_source("42")
-  inspect(@ast.print_term(parser.term()), content="42")
+  inspect(parser.runtime().read(parser.ast()) |> @ast.print_term, content="42")
 }
 
 ///|
 test "attach_typecheck: chain survives Runtime::gc()" {
   // The persistent observer on the result Memo must keep the entire
-  // reactive chain reachable — bridge Memo, parser term Memo, parser CST
-  // Memo. Without it, `rt.gc()` would dispose all interior cells and
-  // the next read would abort.
-  let parser = @loom.new_reactive_parser("1 + 2", lambda_grammar)
+  // reactive chain reachable — bridge Memo, parser syntax-tree Memo,
+  // internal signals. Without it, `rt.gc()` would dispose all interior
+  // cells and the next read would abort.
+  let parser = @loom.new_parser("1 + 2", lambda_grammar)
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   parser.runtime().gc()

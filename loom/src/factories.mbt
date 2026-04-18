@@ -58,15 +58,15 @@ fn[T] create_buffer(
 }
 
 ///|
-/// Create an ImperativeParser from a Grammar.
+/// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
 ///
-/// Each call creates fresh internal state (TokenBuffer, diagnostics).
-/// Interners (token deduplication, node deduplication) are process-global and
-/// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
-  source : String,
+/// Each call allocates fresh per-session state (TokenBuffer ref, last
+/// diagnostics, old-token cache) inside the closures. Shared by both
+/// `new_imperative_parser` and `new_parser` — the only divergence downstream
+/// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
+fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   grammar : Grammar[T, K, Ast],
-) -> @incremental.ImperativeParser[Ast] {
+) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
@@ -82,7 +82,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
   let old_token_cache : Ref[@core.OldTokenCache] = Ref::new(
     @core.OldTokenCache::empty(),
   )
-  let lang = @incremental.ImperativeLanguage::new(
+  @incremental.ImperativeLanguage::new(
     full_parse=source => {
       let buffer = create_buffer(
         source,
@@ -225,7 +225,38 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
     get_diagnostics=fn() { last_diags.val.map(@core.format_diagnostic) },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
-  @incremental.ImperativeParser::new(source, lang)
+}
+
+///|
+/// Create an ImperativeParser from a Grammar.
+///
+/// Each call creates fresh internal state (TokenBuffer, diagnostics).
+/// Interners (token deduplication, node deduplication) are process-global and
+/// shared across all parsers — accumulated, never cleared, not parser-isolated.
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
+  source : String,
+  grammar : Grammar[T, K, Ast],
+) -> @incremental.ImperativeParser[Ast] {
+  @incremental.ImperativeParser::new(source, build_imperative_language(grammar))
+}
+
+///|
+/// Create a unified `Parser[Ast]` from a Grammar.
+///
+/// Wraps the same imperative engine as `new_imperative_parser` but publishes
+/// derived state (source, syntax tree, AST, diagnostics) as read-only
+/// `@incr.Memo` views — see `Parser` in `loom/src/pipeline/` for the
+/// reactive surface.
+///
+/// Pass `runtime~` to join an existing reactive graph (useful when downstream
+/// memos need to share the same `Runtime` as the parser). Omitting it creates
+/// a fresh runtime owned by the returned parser.
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
+  source : String,
+  grammar : Grammar[T, K, Ast],
+  runtime? : @incr.Runtime,
+) -> @pipeline.Parser[Ast] {
+  @pipeline.Parser::new(source, build_imperative_language(grammar), runtime?)
 }
 
 ///|

@@ -1,7 +1,7 @@
 # Plan: Unified Parser Implementation
 
 **Date:** 2026-04-17
-**Status:** In progress — Stage 1 complete (2026-04-18); Stages 2–6 pending. ADR [2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
+**Status:** In progress — Stages 1–2 complete (2026-04-18); Stages 3–6 pending. ADR [2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
 
 Implementation plan for the unified `Parser[Ast]` proposed in the ADR. The ADR
 captures motivation, scoping, and decision principles; this plan captures the

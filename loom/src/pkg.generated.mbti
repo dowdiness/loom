@@ -2,6 +2,7 @@
 package "dowdiness/loom"
 
 import {
+  "dowdiness/incr/cells",
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/loom/pipeline",
@@ -10,6 +11,8 @@ import {
 
 // Values
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
+
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
 pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(String, Grammar[T, K, Ast]) -> @pipeline.ReactiveParser[Ast]
 
@@ -47,6 +50,8 @@ pub using @incremental {type ImperativeParser}
 pub using @core {type LanguageSpec}
 
 pub using @core {type LexError}
+
+pub using @pipeline {type Parser}
 
 pub using @core {type ParserContext}
 
