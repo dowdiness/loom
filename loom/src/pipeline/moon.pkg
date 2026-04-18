@@ -4,3 +4,10 @@ import {
   "dowdiness/loom/core" @core,
   "dowdiness/loom/incremental" @incremental,
 }
+
+// Suppressed warnings:
+// -20 — deprecated. `reactive_parser_test.mbt` (blackbox test) exercises
+//        the deprecated ReactiveParser surface by design. `skip_current_package`
+//        on the #deprecated attribute doesn't cover blackbox-test packages, so
+//        suppress `-20` here until Stage 6 deletes the test file.
+warnings = "-20"
