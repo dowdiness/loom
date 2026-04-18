@@ -1,7 +1,7 @@
 # Plan: Unified Parser Implementation
 
 **Date:** 2026-04-17
-**Status:** Complete. Stages 1–3 merged 2026-04-18 (loom#86/#88/#89); Stage 4 merged 2026-04-18 (canopy#201); Stage 5 merged 2026-04-19 (loom#91, #92 for CI follow-up, canopy#202 bump); Stage 6 deletion landing 2026-04-19. ADR [2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
+**Status:** Complete. Stages 1–3 merged 2026-04-18 (loom#86/#88/#89); Stage 4 merged 2026-04-18 (canopy#201); Stage 5 merged 2026-04-19 (loom#91, #92 for CI follow-up, canopy#202 bump); Stage 6 deletion landing 2026-04-19. ADR [2026-04-17](../../decisions/2026-04-17-unified-parser-proposal.md) Accepted.
 
 Implementation plan for the unified `Parser[Ast]` proposed in the ADR. The ADR
 captures motivation, scoping, and decision principles; this plan captures the
