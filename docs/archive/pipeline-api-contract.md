@@ -1,8 +1,27 @@
-# `pipeline` API Contract
+# `pipeline` API Contract *(archived 2026-04-19 — pre-Stage 6)*
+
+> **Superseded** by the unified `Parser[Ast]` wrapper (ADR
+> [2026-04-17-unified-parser-proposal.md](../decisions/2026-04-17-unified-parser-proposal.md),
+> accepted 2026-04-18; Stage 6 `ReactiveParser` removal committed d85d5ff on 2026-04-17).
+>
+> This document describes the **pre-Stage 6** `pipeline` API — specifically the
+> `ReactiveParser` type, `new_reactive_parser` factory, and the
+> `Signal → TokenStage → CstStage → Ast` three-memo graph. None of these symbols
+> exist in the current codebase. The unified wrapper replaces them with:
+>
+> - `@pipeline.Parser[Ast]` — single type, two update paths (`apply_edit` + `set_source`)
+> - `@loom.new_parser(source, grammar, runtime?)` — factory
+> - `parser.source() / syntax_tree() / ast() / diagnostics()` — `@incr.Signal` / `@incr.Memo` views
+>
+> For current API documentation, see [`api/reference.md`](../api/reference.md) and
+> [`api/choosing-a-parser.md`](../api/choosing-a-parser.md). Retained here as a
+> historical record of the two-parser contract.
+
+---
 
 **Package:** `dowdiness/loom/pipeline`
-**Version target:** `0.1.0`
-**Generated from:** `loom/src/pipeline/pkg.generated.mbti`
+**Version target:** `0.1.0` *(archived)*
+**Generated from:** `loom/src/pipeline/pkg.generated.mbti` *(pre-Stage 6 snapshot)*
 
 Every public symbol is listed below with its stability level and key invariants.
 Symbols not listed here are package-private and subject to change without notice.

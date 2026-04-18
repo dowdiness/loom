@@ -84,7 +84,7 @@ pub let lambda_grammar : @bridge.Grammar[...] = @bridge.Grammar::new(
 
 // Call sites — token type never mentioned again
 let parser = @bridge.new_imperative_parser(source, lambda_grammar)
-let db     = @bridge.new_reactive_parser(source, lambda_grammar)
+let p      = @bridge.new_parser(source, lambda_grammar)
 ```
 
 **Escape hatch — `ImperativeLanguage[Ast]` / `Language[Ast]`:**

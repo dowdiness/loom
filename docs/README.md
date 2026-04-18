@@ -22,10 +22,10 @@ Understanding how the layers fit together:
 ## API Reference
 
 - [api/reference.md](api/reference.md) — all public functions, error types, usage examples
-- [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to use ImperativeParser vs ReactiveParser
+- [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
 - [api/api-contract.md](api/api-contract.md) — API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — ImperativeParser API contract
-- [api/pipeline-api-contract.md](api/pipeline-api-contract.md) — ReactiveParser pipeline API contract
+- [archive/pipeline-api-contract.md](archive/pipeline-api-contract.md) — *(archived 2026-04-19)* pre-Stage 6 `ReactiveParser` pipeline API contract; superseded by the unified `Parser[Ast]` (see [ADR 2026-04-17](decisions/2026-04-17-unified-parser-proposal.md))
 
 ## Correctness
 

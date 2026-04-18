@@ -30,7 +30,7 @@ Signal[String]
 - `Memo[CstNode]` re-runs the Lexer + CST Parser only when the source string changes. Two equal strings produce the same `CstNode` without re-parsing.
 - `Memo[Ast]` re-runs conversion only when the `CstNode` changes. Structurally identical `CstNode`s (same hash) skip conversion.
 
-A `TokenStage` memo between Signal and CstNode was considered and removed. Because the lexer is whitespace-preserving, any source change shifts token positions, making the `TokenStage` almost always unequal to its predecessor. The Signal equality check already handles the identical-string case, so the intermediate memo provided no benefit. See `docs/decisions/2026-02-27-remove-tokenStage-memo.md` for the full rationale.
+A `TokenStage` memo between Signal and CstNode went through a remove→reintroduce→remove cycle: removed 2026-02-27 as vacuous (whitespace-preserving lexer always shifts positions), reintroduced 2026-03-15 with trivia-insensitive equality, then removed again as part of the Stage 6 `ReactiveParser` consolidation on 2026-04-17. The unified `Parser[Ast]` does not use a `TokenStage`. See ADRs [`2026-02-27-remove-tokenStage-memo.md`](../decisions/2026-02-27-remove-tokenStage-memo.md), [`2026-03-15-reintroduce-token-stage-memo.md`](../decisions/2026-03-15-reintroduce-token-stage-memo.md), and the superseding [`2026-04-17-unified-parser-proposal.md`](../decisions/2026-04-17-unified-parser-proposal.md).
 
 ## Stage Details
 

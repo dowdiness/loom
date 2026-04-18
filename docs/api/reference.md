@@ -226,31 +226,42 @@ pub fn[T, K, Ast] new_imperative_parser(
 
 Creates an `ImperativeParser` for the given source and grammar. Supports `parse()`, `edit(Edit, String)`, and `reset(String)`.
 
-### `new_reactive_parser`
+### `new_parser`
 
 ```moonbit
-pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_reactive_parser(
-  source  : String,
-  grammar : Grammar[T, K, Ast],
-) -> @pipeline.ReactiveParser[Ast]
+pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_parser(
+  source   : String,
+  grammar  : Grammar[T, K, Ast],
+  runtime? : @incr.Runtime,
+) -> @pipeline.Parser[Ast]
 ```
 
-Creates a `ReactiveParser` reactive pipeline. Re-parses only when the source changes; skips the AST stage when the CST hash is unchanged.
+Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
+[2026-04-17-unified-parser-proposal.md](../decisions/2026-04-17-unified-parser-proposal.md)).
+`Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST +
+diagnostics as `@incr.Signal` / `@incr.Memo` cells. One type, two update
+paths (`apply_edit` + `set_source`); downstream consumers attach reactive
+memos via `parser.runtime()`.
 
-`new_reactive_parser` is intentionally stricter than `new_imperative_parser`: the
-token type `T` must implement `Eq`, and the AST type `Ast` must implement `Eq`.
-The reactive pipeline memoizes a token stage before parsing, so token equality is
-part of the public contract rather than an internal detail.
+`new_parser` is intentionally stricter than `new_imperative_parser`: the
+token type `T` must implement `Eq`, and the AST type `Ast` must implement
+`Eq`. The memo graph does structural-equality backdating at the CST and AST
+boundaries, so equality is part of the public contract.
 
 **Example:**
 
 ```moonbit
-let db = @loom.new_reactive_parser("λx.x + 1", @lambda.lambda_grammar)
-let term = db.term()            // Term (Ast type parameter of the Grammar)
-db.set_source("λx.x + 2")
-let updated = db.term()         // re-runs CST + AST stages only if source changed
-let diags   = db.diagnostics()  // Array[String], empty on success
+let p = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
+let term = p.ast().get()            // Ast type parameter of the Grammar
+p.set_source("λx.x + 2")
+let updated = p.ast().get()         // re-runs syntax + AST stages only if source changed
+let diags   = p.diagnostics().get() // Array[String], empty on success
 ```
+
+The pre-Stage 6 `new_reactive_parser` and `ReactiveParser` have been removed. See
+[archive/pipeline-api-contract.md](../archive/pipeline-api-contract.md) for
+the pre-consolidation contract and [api/choosing-a-parser.md](choosing-a-parser.md)
+for when to reach for `ImperativeParser` directly.
 
 ---
 
