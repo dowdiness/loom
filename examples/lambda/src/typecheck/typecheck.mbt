@@ -20,6 +20,10 @@ priv struct PipelineState {
   mut type_memos : Array[@incr.Memo[TypeResult]]
   mut body_term_signal : @incr.Signal[TypedTerm]?
   mut body_memo : @incr.Memo[TypeResult]?
+  // Accumulator for per-def diagnostics. Allocated in `rebuild_chain`
+  // bound to the current `chain_scope`, so it is disposed automatically
+  // when the chain is torn down on structural rebuild.
+  mut diags : @incr.Accumulator[TypeDiagnostic]?
 }
 
 ///|
@@ -33,6 +37,7 @@ fn PipelineState::new() -> PipelineState {
     type_memos: [],
     body_term_signal: None,
     body_memo: None,
+    diags: None,
   }
 }
 
@@ -53,7 +58,7 @@ pub fn build_typecheck_pipeline(
   let state = PipelineState::new()
   ignore(rt)
   parent_scope.memo(
-    fn() {
+    () => {
       let term = source_term.get()
       let resolved = resolve_typed(term)
       let def_names = resolved.defs.map(fn(d) { d.0 })
@@ -104,13 +109,13 @@ pub fn build_typecheck_pipeline_with_index(
         !state.type_memos[idx].is_disposed() {
         state.type_memos[idx].get()
       } else {
-        { typ: TError, had_error: true, diagnostics: [] }
+        { typ: TError, had_error: true }
       }
     },
     label="typecheck_index",
   )
   let result_memo = parent_scope.memo(
-    fn() {
+    () => {
       let term = source_term.get()
       let resolved = resolve_typed(term)
       let def_names = resolved.defs.map(fn(d) { d.0 })
@@ -143,13 +148,20 @@ fn rebuild_chain(
   parent_scope : @incr.Scope,
   resolved : ResolvedModule,
 ) -> Unit {
-  // Dispose previous chain scope if it exists
+  // Dispose previous chain scope if it exists. Disposing the scope also
+  // disposes any accumulator allocated on it, so `state.diags` becomes
+  // stale here and is replaced below.
   match state.chain_scope {
     Some(old_scope) => old_scope.dispose()
     None => ()
   }
   let chain_scope = parent_scope.child()
   state.chain_scope = Some(chain_scope)
+  // Allocate a fresh diagnostics accumulator bound to the new chain scope.
+  let diags : @incr.Accumulator[TypeDiagnostic] = chain_scope.accumulator(
+    label="typecheck_diags",
+  )
+  state.diags = Some(diags)
   let def_names = resolved.defs.map(fn(d) { d.0 })
   state.prev_def_names = def_names
   // Intern all def names
@@ -171,13 +183,13 @@ fn rebuild_chain(
     let term_sig = term_signals[i]
     // env_memo[i]: extends previous env with previous def's type
     let env_memo = if i == 0 {
-      chain_scope.memo(fn() { TypeEnv::Empty }, label="env_\{def_name}")
+      chain_scope.memo(() => TypeEnv::Empty, label="env_\{def_name}")
     } else {
       let prev_env_memo = env_memos[i - 1]
       let prev_type_memo = type_memos[i - 1]
       let prev_name = resolved.defs[i - 1].0
       chain_scope.memo(
-        fn() {
+        () => {
           let env = prev_env_memo.get()
           let prev_result = prev_type_memo.get()
           let prev_type = if prev_result.had_error {
@@ -191,12 +203,15 @@ fn rebuild_chain(
       )
     }
     env_memos.push(env_memo)
-    // type_memo[i]: infer def body in env_memo[i]
+    // type_memo[i]: infer def body in env_memo[i]. Diagnostics pushed
+    // from within `infer_impl` land in the chain-scope accumulator,
+    // tagged with this def's name.
+    let ctx : DiagCtx = { def_name: Some(def_name), diags: Some(diags) }
     let type_memo = chain_scope.memo(
-      fn() {
+      () => {
         let env = env_memo.get()
         let body = term_sig.get()
-        infer(env, body)
+        infer_impl(env, body, ctx)
       },
       label="type_\{def_name}",
     )
@@ -207,12 +222,14 @@ fn rebuild_chain(
   // Body signal and memo
   let body_sig = chain_scope.signal(resolved.body, label="body_term")
   state.body_term_signal = Some(body_sig)
+  // Body diagnostics are untagged (no def_name).
+  let body_ctx : DiagCtx = { def_name: None, diags: Some(diags) }
   // Build the final env for the body (extends last env with last def's type)
   let body_memo = if resolved.defs.length() == 0 {
     chain_scope.memo(
-      fn() {
+      () => {
         let body = body_sig.get()
-        infer(TypeEnv::Empty, body)
+        infer_impl(TypeEnv::Empty, body, body_ctx)
       },
       label="body_type",
     )
@@ -222,7 +239,7 @@ fn rebuild_chain(
     let last_type_memo = type_memos[last_idx]
     let last_name = resolved.defs[last_idx].0
     chain_scope.memo(
-      fn() {
+      () => {
         let env = last_env_memo.get()
         let last_result = last_type_memo.get()
         let last_type = if last_result.had_error {
@@ -232,7 +249,7 @@ fn rebuild_chain(
         }
         let body_env = env.extend(last_name, last_type)
         let body = body_sig.get()
-        infer(body_env, body)
+        infer_impl(body_env, body, body_ctx)
       },
       label="body_type",
     )
@@ -260,14 +277,23 @@ fn update_terms(state : PipelineState, resolved : ResolvedModule) -> Unit {
 /// must incorporate all results regardless. Per-def incrementality is at
 /// the type_memo level — each only recomputes when its own inputs change.
 /// The collection here is O(n) reads, not O(n) type-checks.
-fn collect_results(state : PipelineState) -> ModuleTypeResult {
+///
+/// Diagnostics are read via `accumulated`, which records a synthetic dep
+/// on each per-def buffer. This makes the parent pipeline memo invalidate
+/// when a def's diagnostic set changes, independent of whether the def's
+/// ordinary output (the `TypeResult`) changed.
+fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   let def_types : Array[(String, TypeResult)] = []
   let all_diagnostics : Array[TypeDiagnostic] = []
+  let diags = match state.diags {
+    Some(acc) => acc
+    None => fail("collect_results called before rebuild_chain")
+  }
   for i, name in state.prev_def_names {
-    let result = state.type_memos[i].get()
-    def_types.push((name, result))
-    for d in result.diagnostics {
-      all_diagnostics.push({ ..d, def_name: Some(name) })
+    let type_memo = state.type_memos[i]
+    def_types.push((name, type_memo.get()))
+    for d in type_memo.accumulated(diags) {
+      all_diagnostics.push(d)
     }
   }
   // env_memos are never read directly, but must be kept alive: type_memo
@@ -275,11 +301,14 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult {
   // elements. If the array were collected, those closures would dangle.
   ignore(state.env_memos)
   let body_type = match state.body_memo {
-    Some(memo) => memo.get()
-    None => { typ: TUnit, had_error: false, diagnostics: [] }
-  }
-  for d in body_type.diagnostics {
-    all_diagnostics.push(d)
+    Some(memo) => {
+      let r = memo.get()
+      for d in memo.accumulated(diags) {
+        all_diagnostics.push(d)
+      }
+      r
+    }
+    None => { typ: TUnit, had_error: false }
   }
   { body_type, def_types, all_diagnostics }
 }

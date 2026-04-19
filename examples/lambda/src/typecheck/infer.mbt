@@ -4,9 +4,39 @@
 //   - infer: synthesizes a type for a term (bottom-up)
 //   - check: verifies a term has an expected type (top-down)
 //
-// Error propagation: TError with had_error=true poisons upward.
-// Each error source emits exactly one diagnostic. Parents check
-// had_error and suppress secondary diagnostics to avoid cascading noise.
+// Diagnostics are emitted via a side-channel `Accumulator[TypeDiagnostic]`
+// plumbed through `DiagCtx`. Public `infer` / `check` entry points take no
+// accumulator (type-only callers such as unit tests); the incremental
+// pipeline calls `infer_impl` / `check_impl` with `ctx.diags = Some(acc)`.
+// When `ctx.diags = None`, diagnostic pushes are silently dropped so
+// signatures remain uniform.
+//
+// Error propagation: TError with had_error=true poisons upward. Parents
+// check had_error and suppress secondary diagnostics to avoid cascading
+// noise.
+
+///|
+/// Internal context threaded through inference. `def_name` tags each
+/// emitted `TypeDiagnostic`; `diags` is the optional side-channel into
+/// which error paths push. When `diags` is `None`, pushes are no-ops.
+priv struct DiagCtx {
+  def_name : String?
+  diags : @incr.Accumulator[TypeDiagnostic]?
+}
+
+///|
+fn DiagCtx::empty() -> DiagCtx {
+  { def_name: None, diags: None }
+}
+
+///|
+/// Emit a diagnostic message via `ctx.diags` when present. No-op otherwise.
+fn emit(ctx : DiagCtx, message : String) -> Unit raise Failure {
+  match ctx.diags {
+    Some(acc) => acc.push({ message, def_name: ctx.def_name })
+    None => ()
+  }
+}
 
 ///|
 /// Extract the result type, replacing with TError if had_error.
@@ -20,189 +50,185 @@ fn result_type(r : TypeResult) -> Type {
 
 ///|
 fn ok(typ : Type) -> TypeResult {
-  { typ, had_error: false, diagnostics: [] }
+  { typ, had_error: false }
 }
 
 ///|
-fn err(msg : String) -> TypeResult {
-  {
-    typ: TError,
-    had_error: true,
-    diagnostics: [{ message: msg, def_name: None }],
-  }
+fn err(ctx : DiagCtx, msg : String) -> TypeResult raise Failure {
+  emit(ctx, msg)
+  { typ: TError, had_error: true }
 }
 
 ///|
-fn merge_diagnostics(results : Array[TypeResult], typ : Type) -> TypeResult {
-  let all_diags : Array[TypeDiagnostic] = []
-  let mut had_error = false
-  for r in results {
-    if r.had_error {
-      had_error = true
-    }
-    for d in r.diagnostics {
-      all_diags.push(d)
-    }
-  }
-  { typ, had_error, diagnostics: all_diags }
+/// Synthesize a type for the given term. Public entry point for callers
+/// that don't care about diagnostics (e.g. unit tests). Internally
+/// delegates to `infer_impl` with an empty `DiagCtx`; since `diags` is
+/// `None`, no `Accumulator::push` executes and `raise Failure` is never
+/// triggered in practice.
+pub fn infer(env : TypeEnv, term : TypedTerm) -> TypeResult raise Failure {
+  infer_impl(env, term, DiagCtx::empty())
 }
 
 ///|
-/// Synthesize a type for the given term in the given environment.
-pub fn infer(env : TypeEnv, term : TypedTerm) -> TypeResult {
+/// Check that `term` has type `expected`. Public entry point (see `infer`).
+pub fn check(
+  env : TypeEnv,
+  term : TypedTerm,
+  expected : Type,
+) -> TypeResult raise Failure {
+  check_impl(env, term, expected, DiagCtx::empty())
+}
+
+///|
+fn infer_impl(
+  env : TypeEnv,
+  term : TypedTerm,
+  ctx : DiagCtx,
+) -> TypeResult raise Failure {
   match term {
     Int(_) => ok(TInt)
     Unit => ok(TUnit)
     Var(name) =>
       match env.lookup(name) {
         Some(t) => ok(t)
-        None => err("unbound variable: \{name}")
+        None => err(ctx, "unbound variable: \{name}")
       }
-    Unbound(name) => err("unbound variable: \{name}")
+    Unbound(name) => err(ctx, "unbound variable: \{name}")
     Lam(x, Some(annot), body) =>
       if annot == TError {
-        err("malformed type annotation")
+        err(ctx, "malformed type annotation")
       } else {
         let ext_env = env.extend(x, annot)
-        let body_result = infer(ext_env, body)
+        let body_result = infer_impl(ext_env, body, ctx)
         {
           typ: TArrow(annot, result_type(body_result)),
           had_error: body_result.had_error,
-          diagnostics: body_result.diagnostics,
         }
       }
-    Lam(_, None, _) => err("missing type annotation")
+    Lam(_, None, _) => err(ctx, "missing type annotation")
     App(f, arg) => {
-      let f_result = infer(env, f)
+      let f_result = infer_impl(env, f, ctx)
       if f_result.had_error {
-        // Propagate the function error without secondary diagnostics
-        let arg_result = infer(env, arg)
-        if arg_result.had_error {
-          merge_diagnostics([f_result, arg_result], TError)
-        } else {
-          { ..f_result, typ: TError }
-        }
+        // Propagate the function error without secondary diagnostics.
+        let _ = infer_impl(env, arg, ctx)
+        { typ: TError, had_error: true }
       } else {
         match f_result.typ {
           TArrow(param_t, ret_t) => {
-            let arg_result = check(env, arg, param_t)
+            let arg_result = check_impl(env, arg, param_t, ctx)
             if arg_result.had_error {
-              merge_diagnostics([f_result, arg_result], TError)
+              { typ: TError, had_error: true }
             } else {
-              merge_diagnostics([f_result, arg_result], ret_t)
+              { typ: ret_t, had_error: false }
             }
           }
           _ => {
-            let arg_result = infer(env, arg)
-            let diags : Array[TypeDiagnostic] = []
-            for d in f_result.diagnostics {
-              diags.push(d)
-            }
-            for d in arg_result.diagnostics {
-              diags.push(d)
-            }
-            diags.push({
-              message: "not a function: got \{f_result.typ}",
-              def_name: None,
-            })
-            { typ: TError, had_error: true, diagnostics: diags }
+            let _ = infer_impl(env, arg, ctx)
+            emit(ctx, "not a function: got \{f_result.typ}")
+            { typ: TError, had_error: true }
           }
         }
       }
     }
     Bop(_, l, r) => {
-      let l_result = check(env, l, TInt)
-      let r_result = check(env, r, TInt)
-      merge_diagnostics([l_result, r_result], TInt)
+      let l_result = check_impl(env, l, TInt, ctx)
+      let r_result = check_impl(env, r, TInt, ctx)
+      let had_error = l_result.had_error || r_result.had_error
+      { typ: TInt, had_error }
     }
     If(cond, then_branch, else_branch) => {
-      let cond_result = check(env, cond, TInt)
-      let then_result = infer(env, then_branch)
+      let cond_result = check_impl(env, cond, TInt, ctx)
+      let then_result = infer_impl(env, then_branch, ctx)
       if then_result.had_error {
-        let else_result = infer(env, else_branch)
-        merge_diagnostics([cond_result, then_result, else_result], TError)
+        let else_result = infer_impl(env, else_branch, ctx)
+        {
+          typ: TError,
+          had_error: cond_result.had_error ||
+          then_result.had_error ||
+          else_result.had_error,
+        }
       } else {
-        let else_result = check(env, else_branch, then_result.typ)
-        merge_diagnostics(
-          [cond_result, then_result, else_result],
-          then_result.typ,
-        )
+        let else_result = check_impl(env, else_branch, then_result.typ, ctx)
+        {
+          typ: then_result.typ,
+          had_error: cond_result.had_error ||
+          then_result.had_error ||
+          else_result.had_error,
+        }
       }
     }
     Module(defs, body) => {
-      let all_results : Array[TypeResult] = []
+      let mut had_error = false
       let mut current_env = env
       for def in defs {
         let (name, expr) = def
-        let def_result = infer(current_env, expr)
-        all_results.push(def_result)
+        let def_result = infer_impl(current_env, expr, ctx)
+        if def_result.had_error {
+          had_error = true
+        }
         current_env = current_env.extend(name, result_type(def_result))
       }
-      let body_result = infer(current_env, body)
-      all_results.push(body_result)
-      merge_diagnostics(all_results, result_type(body_result))
+      let body_result = infer_impl(current_env, body, ctx)
+      {
+        typ: result_type(body_result),
+        had_error: had_error || body_result.had_error,
+      }
     }
-    Hole(_) => err("incomplete expression")
-    Error(msg) => err(msg)
+    Hole(_) => err(ctx, "incomplete expression")
+    Error(msg) => err(ctx, msg)
   }
 }
 
 ///|
-/// Check that the given term has the expected type.
-/// Uses type information from the context to guide type inference
-/// (e.g., unannotated lambdas can get their parameter type from context).
-pub fn check(env : TypeEnv, term : TypedTerm, expected : Type) -> TypeResult {
+fn check_impl(
+  env : TypeEnv,
+  term : TypedTerm,
+  expected : Type,
+  ctx : DiagCtx,
+) -> TypeResult raise Failure {
   match (term, expected) {
     (Lam(x, None, body), TArrow(param_t, ret_t)) => {
       let ext_env = env.extend(x, param_t)
-      let body_result = check(ext_env, body, ret_t)
+      let body_result = check_impl(ext_env, body, ret_t, ctx)
       let typ = if body_result.had_error {
         TError
       } else {
         TArrow(param_t, ret_t)
       }
-      { ..body_result, typ, }
+      { typ, had_error: body_result.had_error }
     }
     (Lam(x, Some(annot), body), TArrow(param_t, ret_t)) =>
       if annot != param_t {
-        let diag : TypeDiagnostic = {
-          message: "annotation mismatch: expected \{param_t}, got \{annot}",
-          def_name: None,
-        }
+        emit(ctx, "annotation mismatch: expected \{param_t}, got \{annot}")
         let ext_env = env.extend(x, param_t)
-        let body_result = check(ext_env, body, ret_t)
-        let all_diags : Array[TypeDiagnostic] = [diag]
-        for d in body_result.diagnostics {
-          all_diags.push(d)
-        }
-        { typ: TError, had_error: true, diagnostics: all_diags }
+        let _ = check_impl(ext_env, body, ret_t, ctx)
+        { typ: TError, had_error: true }
       } else {
         let ext_env = env.extend(x, annot)
-        let body_result = check(ext_env, body, ret_t)
+        let body_result = check_impl(ext_env, body, ret_t, ctx)
         let typ = if body_result.had_error {
           TError
         } else {
           TArrow(param_t, ret_t)
         }
-        { ..body_result, typ, }
+        { typ, had_error: body_result.had_error }
       }
-    (Lam(_, _, _), _) => err("expected \{expected}, got function")
-    (Hole(_), _) => { typ: TError, had_error: true, diagnostics: [] }
-    (Error(_), _) => { typ: TError, had_error: true, diagnostics: [] }
+    (Lam(_, _, _), _) => err(ctx, "expected \{expected}, got function")
+    // Hole / Error in check mode intentionally stay silent: infer_impl
+    // emits "incomplete expression" for the same variants, so a parent
+    // that routes through infer (e.g. ambiguous contexts) surfaces the
+    // diagnostic. Bop/If paths that call check_impl directly rely on
+    // had_error alone here — matching pre-accumulator behavior to keep
+    // this migration semantics-preserving.
+    (Hole(_), _) => { typ: TError, had_error: true }
+    (Error(_), _) => { typ: TError, had_error: true }
     _ => {
-      let result = infer(env, term)
+      let result = infer_impl(env, term, ctx)
       if result.had_error {
         result
       } else if result.typ != expected {
-        let diags : Array[TypeDiagnostic] = []
-        for d in result.diagnostics {
-          diags.push(d)
-        }
-        diags.push({
-          message: "expected \{expected}, got \{result.typ}",
-          def_name: None,
-        })
-        { typ: TError, had_error: true, diagnostics: diags }
+        emit(ctx, "expected \{expected}, got \{result.typ}")
+        { typ: TError, had_error: true }
       } else {
         result
       }

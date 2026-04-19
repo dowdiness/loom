@@ -238,7 +238,6 @@ test "convert_from_cst: annotated lambda typechecks clean via infer" {
   let term = typed_from_source("\\x : Int. x")
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="false")
-  inspect(result.diagnostics.length(), content="0")
   inspect(result.typ, content="Int -> Int")
 }
 
@@ -372,7 +371,6 @@ test "convert_from_cst: Pipeline preset typechecks clean" {
   let term = typed_from_source(src)
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="false")
-  inspect(result.diagnostics.length(), content="0")
   inspect(result.typ, content="Int")
 }
 
@@ -479,7 +477,6 @@ test "convert_from_cst: lambda missing ident triggers typecheck diagnostic" {
   let term = typed_from_source("\\. 1")
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length() >= 1, content="true")
 }
 
 ///|
