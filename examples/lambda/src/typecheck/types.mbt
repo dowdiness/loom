@@ -53,7 +53,6 @@ pub impl Show for TypeDiagnostic with output(self, logger) {
 pub(all) struct TypeResult {
   typ : Type
   had_error : Bool
-  diagnostics : Array[TypeDiagnostic]
 } derive(Eq, Debug)
 
 ///|

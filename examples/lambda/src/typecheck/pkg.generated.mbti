@@ -14,13 +14,13 @@ pub fn build_typecheck_pipeline(@cells.Runtime, @cells.Scope, @cells.Memo[TypedT
 
 pub fn build_typecheck_pipeline_with_index(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> (@cells.Memo[ModuleTypeResult], TypecheckIndex)
 
-pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult
+pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult raise Failure
 
 pub fn convert(@ast.Term) -> TypedTerm
 
 pub fn convert_from_cst(@seam.SyntaxNode) -> TypedTerm
 
-pub fn infer(TypeEnv, TypedTerm) -> TypeResult
+pub fn infer(TypeEnv, TypedTerm) -> TypeResult raise Failure
 
 pub fn resolve_typed(TypedTerm) -> ResolvedModule
 
@@ -69,7 +69,6 @@ pub fn TypeEnv::lookup(Self, String) -> Type?
 pub(all) struct TypeResult {
   typ : Type
   had_error : Bool
-  diagnostics : Array[TypeDiagnostic]
 } derive(Eq, @debug.Debug)
 
 pub(all) struct TypecheckIndex {

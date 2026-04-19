@@ -2,6 +2,38 @@
 // Terms are constructed directly (not via convert) to test infer/check in isolation.
 
 ///|
+/// Test helper: runs `infer_impl` inside a throwaway Memo so accumulator
+/// pushes land in a tracked compute frame, then returns both the
+/// `TypeResult` and the flat list of pushed diagnostics.
+fn infer_with_diags(
+  env : TypeEnv,
+  term : TypedTerm,
+) -> (TypeResult, Array[TypeDiagnostic]) {
+  let rt = @incr.Runtime::new()
+  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
+  let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
+  let memo = @incr.Memo::new(rt, () => infer_impl(env, term, ctx))
+  let result = rt.read(memo)
+  let diags = memo.accumulated_peek(acc)
+  (result, diags)
+}
+
+///|
+fn check_with_diags(
+  env : TypeEnv,
+  term : TypedTerm,
+  expected : Type,
+) -> (TypeResult, Array[TypeDiagnostic]) {
+  let rt = @incr.Runtime::new()
+  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
+  let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
+  let memo = @incr.Memo::new(rt, () => check_impl(env, term, expected, ctx))
+  let result = rt.read(memo)
+  let diags = memo.accumulated_peek(acc)
+  (result, diags)
+}
+
+///|
 test "convert Int" {
   let term = @ast.Term::Int(42)
   let result = convert(term)
@@ -28,7 +60,6 @@ test "infer Int literal" {
   let result = infer(TypeEnv::Empty, TypedTerm::Int(42))
   inspect(result.typ, content="Int")
   inspect(result.had_error, content="false")
-  inspect(result.diagnostics.length(), content="0")
 }
 
 ///|
@@ -36,7 +67,6 @@ test "infer Unit" {
   let result = infer(TypeEnv::Empty, TypedTerm::Unit)
   inspect(result.typ, content="Unit")
   inspect(result.had_error, content="false")
-  inspect(result.diagnostics.length(), content="0")
 }
 
 ///|
@@ -49,11 +79,11 @@ test "infer Var bound" {
 
 ///|
 test "infer Var unbound" {
-  let result = infer(TypeEnv::Empty, TypedTerm::Var("x"))
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, TypedTerm::Var("x"))
   inspect(result.typ, content="<error>")
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="unbound variable: x")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="unbound variable: x")
 }
 
 ///|
@@ -72,11 +102,11 @@ test "infer annotated lambda" {
 ///|
 test "infer unannotated lambda fails" {
   let term = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
-  let result = infer(TypeEnv::Empty, term)
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.typ, content="<error>")
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="missing type annotation")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="missing type annotation")
 }
 
 ///|
@@ -97,11 +127,11 @@ test "infer application" {
 ///|
 test "infer application of non-function" {
   let term = TypedTerm::App(TypedTerm::Int(5), TypedTerm::Int(3))
-  let result = infer(TypeEnv::Empty, term)
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.typ, content="<error>")
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="not a function: got Int")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="not a function: got Int")
 }
 
 ///|
@@ -119,11 +149,11 @@ test "infer binary op" {
 ///|
 test "infer binary op with wrong type" {
   let term = TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Unit, TypedTerm::Int(2))
-  let result = infer(TypeEnv::Empty, term)
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.typ, content="Int")
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="expected Int, got Unit")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="expected Int, got Unit")
 }
 
 ///|
@@ -147,31 +177,31 @@ test "infer if with wrong condition type" {
     TypedTerm::Int(2),
     TypedTerm::Int(3),
   )
-  let result = infer(TypeEnv::Empty, term)
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="expected Int, got Unit")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="expected Int, got Unit")
 }
 
 ///|
 test "infer Hole suppresses cascading" {
   // The hole itself emits one diagnostic; nothing else should cascade
-  let result = infer(TypeEnv::Empty, TypedTerm::Hole(0))
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, TypedTerm::Hole(0))
   inspect(result.typ, content="<error>")
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
-  inspect(result.diagnostics[0].message, content="incomplete expression")
+  inspect(diags.length(), content="1")
+  inspect(diags[0].message, content="incomplete expression")
 }
 
 ///|
 test "error propagation: app of hole" {
   // (hole 5) — function is a hole, should not add a second "not a function" diagnostic
   let term = TypedTerm::App(TypedTerm::Hole(0), TypedTerm::Int(5))
-  let result = infer(TypeEnv::Empty, term)
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.typ, content="<error>")
   inspect(result.had_error, content="true")
   // Exactly one diagnostic from the hole, no secondary "not a function"
-  inspect(result.diagnostics.length(), content="1")
+  inspect(diags.length(), content="1")
 }
 
 ///|
@@ -187,11 +217,15 @@ test "check mode: unannotated lambda gets type from context" {
 test "check mode: annotation mismatch" {
   // (λx:Unit. x) checked against Int -> Int — annotation says Unit, expected Int
   let term = TypedTerm::Lam("x", Some(TUnit), TypedTerm::Var("x"))
-  let result = check(TypeEnv::Empty, term, TArrow(TInt, TInt))
+  let (result, diags) = check_with_diags(
+    TypeEnv::Empty,
+    term,
+    TArrow(TInt, TInt),
+  )
   inspect(result.had_error, content="true")
-  inspect(result.diagnostics.length(), content="1")
+  inspect(diags.length(), content="1")
   inspect(
-    result.diagnostics[0].message,
+    diags[0].message,
     content="annotation mismatch: expected Int, got Unit",
   )
 }
@@ -439,6 +473,45 @@ test "incremental: diagnostics propagate through pipeline" {
   // Diagnostics should be tagged with def name
   inspect(result.all_diagnostics.length() > 0, content="true")
   inspect(result.all_diagnostics[0].def_name, content="Some(\"a\")")
+  scope.dispose()
+}
+
+///|
+test "incremental: editing one def updates only that def's diagnostics" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Two defs; `a` is ill-typed (unannotated lambda), `b` is well-typed.
+  let ill_a = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
+  let ok_a = TypedTerm::Int(1)
+  let ok_b = TypedTerm::Int(2)
+  let module_v1 = TypedTerm::Module(
+    [("a", ill_a), ("b", ok_b)],
+    TypedTerm::Var("b"),
+  )
+  let term_signal = scope.signal(module_v1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
+  let r1 = result_memo.get_result().unwrap()
+  inspect(r1.all_diagnostics.length(), content="1")
+  inspect(r1.all_diagnostics[0].def_name, content="Some(\"a\")")
+  // Fix `a` — diagnostic should disappear. Same def names, no rebuild.
+  let module_v2 = TypedTerm::Module(
+    [("a", ok_a), ("b", ok_b)],
+    TypedTerm::Var("b"),
+  )
+  term_signal.set(module_v2)
+  let r2 = result_memo.get_result().unwrap()
+  inspect(r2.all_diagnostics.length(), content="0")
+  // Break `b` — only `b`'s diagnostic should surface.
+  let ill_b = TypedTerm::Lam("y", None, TypedTerm::Var("y"))
+  let module_v3 = TypedTerm::Module(
+    [("a", ok_a), ("b", ill_b)],
+    TypedTerm::Var("b"),
+  )
+  term_signal.set(module_v3)
+  let r3 = result_memo.get_result().unwrap()
+  inspect(r3.all_diagnostics.length(), content="1")
+  inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
   scope.dispose()
 }
 
