@@ -287,7 +287,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   let all_diagnostics : Array[TypeDiagnostic] = []
   let diags = match state.diags {
     Some(acc) => acc
-    None => abort("collect_results called before rebuild_chain")
+    None => fail("collect_results called before rebuild_chain")
   }
   for i, name in state.prev_def_names {
     let type_memo = state.type_memos[i]

@@ -205,6 +205,30 @@ test "error propagation: app of hole" {
 }
 
 ///|
+test "error propagation: ill-typed fn AND ill-typed arg still emits arg diags" {
+  // Function position has its own error (unbound var) AND the argument
+  // subtree contains real errors too (another unbound var inside a Bop).
+  // The ill-typed-fn branch must still recurse into `arg` so its
+  // diagnostics surface, while suppressing the secondary
+  // "not a function" message that would otherwise double up.
+  let term = TypedTerm::App(
+    TypedTerm::Var("unbound_fn"),
+    TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("unbound_arg"), TypedTerm::Int(1)),
+  )
+  let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
+  inspect(result.typ, content="<error>")
+  inspect(result.had_error, content="true")
+  // One diag from fn, one from arg subtree; no "not a function".
+  inspect(diags.length(), content="2")
+  let messages = diags.map(fn(d) { d.message })
+  inspect(messages[0], content="unbound variable: unbound_fn")
+  inspect(messages[1], content="unbound variable: unbound_arg")
+  // Verify no "not a function" anywhere.
+  let any_nfn = messages.iter().any(fn(m) { m.contains("not a function") })
+  inspect(any_nfn, content="false")
+}
+
+///|
 test "check mode: unannotated lambda gets type from context" {
   // check (λx. x) against Int -> Int
   let term = TypedTerm::Lam("x", None, TypedTerm::Var("x"))

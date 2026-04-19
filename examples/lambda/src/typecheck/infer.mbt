@@ -214,6 +214,12 @@ fn check_impl(
         { typ, had_error: body_result.had_error }
       }
     (Lam(_, _, _), _) => err(ctx, "expected \{expected}, got function")
+    // Hole / Error in check mode intentionally stay silent: infer_impl
+    // emits "incomplete expression" for the same variants, so a parent
+    // that routes through infer (e.g. ambiguous contexts) surfaces the
+    // diagnostic. Bop/If paths that call check_impl directly rely on
+    // had_error alone here — matching pre-accumulator behavior to keep
+    // this migration semantics-preserving.
     (Hole(_), _) => { typ: TError, had_error: true }
     (Error(_), _) => { typ: TError, had_error: true }
     _ => {
