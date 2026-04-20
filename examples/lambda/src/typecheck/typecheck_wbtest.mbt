@@ -757,6 +757,49 @@ test "MemoMap: cache hit for stable DefId after edit" {
 }
 
 ///|
+/// Duplicate top-level names collapse onto a single `InternId` (name is
+/// the only identity key). To avoid silently aliasing a cached `DefId`
+/// into a later shadowing declaration's slot, `rebuild_chain` keeps the
+/// FIRST occurrence in `name_to_idx` and emits a "duplicate top-level
+/// definition: X" diagnostic for each additional occurrence.
+test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Two defs named `a`: the first types to `Int`, the second to
+  // `Int -> Int`. Under the pre-fix last-wins rule, `memo_map.get(a_id)`
+  // would return `Int -> Int` and alias the cached DefId; under first-
+  // wins it must return `Int`.
+  let module_term = TypedTerm::Module(
+    [
+      ("a", TypedTerm::Int(1)),
+      ("a", TypedTerm::Lam("x", Some(TInt), TypedTerm::Var("x"))),
+      ("b", TypedTerm::Int(2)),
+    ],
+    TypedTerm::Var("b"),
+  )
+  let term_signal = scope.signal(module_term, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  let result = result_memo.get_result().unwrap()
+  // `a` routes to the first occurrence (Int), not the shadowing lambda.
+  let a_id = index.intern_table.intern({ name: "a" })
+  inspect(index.memo_map.get(a_id).typ, content="Int")
+  let b_id = index.intern_table.intern({ name: "b" })
+  inspect(index.memo_map.get(b_id).typ, content="Int")
+  // Exactly one duplicate diagnostic for the second `a`; tagged with
+  // its def name so hover/outline consumers can surface it.
+  let dup_messages = result.all_diagnostics
+    .iter()
+    .filter(fn(d) { d.message.contains("duplicate top-level definition") })
+    .collect()
+  inspect(dup_messages.length(), content="1")
+  inspect(dup_messages[0].def_name, content="Some(\"a\")")
+  scope.dispose()
+}
+
+///|
 test "MemoMap: lookup of unknown def name returns error sentinel" {
   // The MemoMap compute closure routes `name` through `name_to_idx`.
   // An InternId for a name that is not in the current module hits the

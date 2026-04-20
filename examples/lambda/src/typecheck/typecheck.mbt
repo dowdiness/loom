@@ -14,12 +14,19 @@ priv struct PipelineState {
   intern_table : @incr.InternTable[DefEntry]
   mut chain_scope : @incr.Scope?
   mut prev_def_names : Array[String]
-  // Name → current position in `prev_def_names` / `type_memos`. Rebuilt
-  // from scratch on every structural change in `rebuild_chain`, left
-  // untouched during `update_terms` (structure is unchanged). Duplicate
-  // names in a module resolve "last wins" (matches the resolver's
-  // shadowing semantics), so this is a proper function of `prev_def_names`.
+  // Name → position of the FIRST occurrence in `prev_def_names` /
+  // `type_memos`. Rebuilt from scratch on every structural change in
+  // `rebuild_chain`, left untouched during `update_terms` (structure is
+  // unchanged). Under first-wins, a `DefId` minted for a given name
+  // always routes to the original declaration's slot — never to a later
+  // shadowing one — so caches keyed on `DefId` identity stay coherent.
+  // Every subsequent duplicate is flagged by a diagnostic in
+  // `duplicate_diags` below.
   mut name_to_idx : @hashmap.HashMap[String, Int]
+  // Diagnostics produced by duplicate-name detection in `rebuild_chain`.
+  // Concatenated into `ModuleTypeResult::all_diagnostics` by
+  // `collect_results`. Rebuilt atomically with `name_to_idx`.
+  mut duplicate_diags : Array[TypeDiagnostic]
   // Raw (unresolved) def body signals. `resolve_memos[i]` reads
   // `term_signals[i]` and runs `resolve_walk` on that raw body with
   // the def's captured `ResolveEnv`. Editing one def body only
@@ -45,6 +52,7 @@ fn PipelineState::new() -> PipelineState {
     chain_scope: None,
     prev_def_names: [],
     name_to_idx: @hashmap.new(),
+    duplicate_diags: [],
     term_signals: [],
     resolve_memos: [],
     env_memos: [],
@@ -217,13 +225,26 @@ fn rebuild_chain(
   // Rebuild the name → position map and intern every def's identity.
   // `DefEntry` hashes on `name` only, so re-interning the same name from
   // a prior chain returns the same `InternId` — that is the stability
-  // property downstream consumers of `TypecheckIndex` rely on.
+  // property downstream consumers of `TypecheckIndex` rely on. For each
+  // name we keep the FIRST occurrence in `name_to_idx` so a cached
+  // `DefId` always routes to the original declaration; subsequent
+  // same-named defs get flagged in `duplicate_diags` instead of silently
+  // aliasing into a later slot.
   let name_to_idx : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let duplicate_diags : Array[TypeDiagnostic] = []
   for i, def in defs {
-    name_to_idx.set(def.0, i)
+    match name_to_idx.get(def.0) {
+      Some(_) =>
+        duplicate_diags.push({
+          message: "duplicate top-level definition: \{def.0}",
+          def_name: Some(def.0),
+        })
+      None => name_to_idx.set(def.0, i)
+    }
     let _id = state.intern_table.intern({ name: def.0 })
   }
   state.name_to_idx = name_to_idx
+  state.duplicate_diags = duplicate_diags
   // Create raw-body term signals for each def.
   let term_signals : Array[@incr.Signal[TypedTerm]] = []
   for def in defs {
@@ -382,6 +403,12 @@ fn update_terms(
 fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   let def_types : Array[(String, TypeResult)] = []
   let all_diagnostics : Array[TypeDiagnostic] = []
+  // Module-structure diagnostics (e.g. duplicate top-level defs) are
+  // produced in `rebuild_chain` before any per-def compute runs, so
+  // surface them first; per-def diagnostics follow in source order.
+  for d in state.duplicate_diags {
+    all_diagnostics.push(d)
+  }
   let diags = match state.diags {
     Some(acc) => acc
     None => fail("collect_results called before rebuild_chain")
