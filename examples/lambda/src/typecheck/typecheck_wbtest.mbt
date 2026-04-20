@@ -647,6 +647,7 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
   )
   let _ = result_memo.get_result().unwrap()
   let ca_before = state.resolve_memos[0].changed_at()
+  let sig_ca_before = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
   // Rewrite the raw body: Var("unknown") → Unbound("unknown"). The raw
   // TypedTerm variants differ (so term_signals[0] genuinely changes),
   // but resolve_walk on both with an empty env produces the same
@@ -659,6 +660,14 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
   term_signal.set(v2)
   let _ = result_memo.get_result().unwrap()
   let ca_after = state.resolve_memos[0].changed_at()
+  let sig_ca_after = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
+  // Two claims, in order:
+  //   1. term_signals[0] genuinely bumped — this pins down that the
+  //      "stability" of resolve_memos[0] below is backdating, not a
+  //      no-op signal write.
+  //   2. resolve_memos[0].changed_at stayed the same despite its dep
+  //      having advanced — proving TypedTerm-Eq-backdating kicked in.
+  inspect(sig_ca_before == sig_ca_after, content="false")
   inspect(ca_before == ca_after, content="true")
   scope.dispose()
 }
