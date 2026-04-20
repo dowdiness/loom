@@ -4,5 +4,6 @@ import {
   "dowdiness/incr" @incr,
   "dowdiness/seam" @seam,
   "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/string",
 }
