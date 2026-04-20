@@ -1,5 +1,7 @@
 # Loom Framework: Defect Analysis Report
 
+> **Archived 2026-04-20 — stale as of 2026-04-17.** This report was written 2026-03-06, before the unified `Parser[Ast]` landed. Execution paths referencing `ReactiveParser` no longer describe current code (see [ADR 2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md)). Individual defect categories (integer overflow, zero/negative inputs, boundary validation) may still be useful as a review checklist; verify against current code before acting.
+
 ## 1. Project Structure Overview
 
 Three modules: **seam** (CST data structures), **incr** (incremental computation engine), **loom** (parser framework). I traced four primary execution paths:

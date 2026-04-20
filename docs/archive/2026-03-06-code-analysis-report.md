@@ -1,5 +1,7 @@
 # Loom Framework: Comprehensive Code Analysis Report
 
+> **Archived 2026-04-20 — stale as of 2026-04-17.** This report was written 2026-03-06, before the unified `Parser[Ast]` landed. References to `ReactiveParser` and the two-parser design no longer describe current code (see [ADR 2026-04-17](../decisions/2026-04-17-unified-parser-proposal.md) and the [unified parser completion plan](../archive/completed-phases/2026-04-17-unified-parser.md)). Kept for historical context on the pre-unification architecture.
+
 ## 1. Overview
 
 Loom is a **generic incremental parser framework** written in MoonBit, structured as three independent modules with a clear dependency hierarchy:
