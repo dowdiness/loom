@@ -94,7 +94,7 @@ The boundary issue is not that these modules are coupled — it is that the coup
 
 A deliberately **modest** target. Keep what works; fix what the evidence identifies.
 
-```
+```text
 Examples (lambda, json, markdown)
     │
     ▼

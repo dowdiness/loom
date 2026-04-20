@@ -229,7 +229,7 @@ Creates an `ImperativeParser` for the given source and grammar. Supports `parse(
 ### `new_parser`
 
 ```moonbit
-pub fn[T : @seam.IsTrivia + Eq, K : @seam.ToRawKind, Ast : Eq] new_parser(
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source   : String,
   grammar  : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,
@@ -244,9 +244,8 @@ paths (`apply_edit` + `set_source`); downstream consumers attach reactive
 memos via `parser.runtime()`.
 
 `new_parser` is intentionally stricter than `new_imperative_parser`: the
-token type `T` must implement `Eq`, and the AST type `Ast` must implement
-`Eq`. The memo graph does structural-equality backdating at the CST and AST
-boundaries, so equality is part of the public contract.
+AST type `Ast` must implement `Eq`. The memo graph does structural-equality
+backdating at the AST boundary, so equality is part of the public contract.
 
 **Example:**
 

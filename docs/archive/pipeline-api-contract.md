@@ -30,9 +30,15 @@ Symbols not listed here are package-private and subject to change without notice
 
 ## Stability levels
 
-- **Stable** — frozen for the 0.x series; breaking changes require a major version bump
-- **Deprecated** — present for compatibility; will be removed in a future version
-- **Deferred** — not included in 0.1.0; may be added in a later release
+> **Archived-snapshot note:** the "Stable" / "Deprecated" / "Deferred" labels
+> below reflect the pre-Stage 6 contract as of 2026-04-19. All symbols marked
+> "Stable" here were removed in the Stage 6 `ReactiveParser` deletion (commit
+> d85d5ff, 2026-04-17). Read these labels as historical intent, not current
+> guarantees.
+
+- **Stable** — *(historical)* frozen for the 0.x series; breaking changes required a major version bump
+- **Deprecated** — *(historical)* present for compatibility; would be removed in a future version
+- **Deferred** — *(historical)* not included in 0.1.0; may have been added in a later release
 
 ---
 
