@@ -707,11 +707,11 @@ test "MemoMap: query by DefId" {
   // Force computation
   let _result = result_memo.get_result().unwrap()
   // Query f by DefId
-  let f_id = index.intern_table.intern({ name: "f", encounter_order: 0 })
+  let f_id = index.intern_table.intern({ name: "f" })
   let f_type = index.memo_map.get(f_id)
   inspect(f_type.typ, content="Int -> Int")
   // Query g by DefId
-  let g_id = index.intern_table.intern({ name: "g", encounter_order: 1 })
+  let g_id = index.intern_table.intern({ name: "g" })
   let g_type = index.memo_map.get(g_id)
   inspect(g_type.typ, content="Int -> Int")
   scope.dispose()
@@ -732,7 +732,7 @@ test "MemoMap: cache hit for stable DefId after edit" {
     rt, scope, term_memo,
   )
   let _r1 = result_memo.get_result().unwrap()
-  let f_id = index.intern_table.intern({ name: "f", encounter_order: 0 })
+  let f_id = index.intern_table.intern({ name: "f" })
   let f_type1 = index.memo_map.get(f_id)
   inspect(f_type1.typ, content="Int -> Int")
   // Edit body but keep same type result (x+1 still Int -> Int)
@@ -757,13 +757,14 @@ test "MemoMap: cache hit for stable DefId after edit" {
 }
 
 ///|
-test "MemoMap: name guard rejects mismatched encounter_order" {
-  // Verify the name guard prevents returning a wrong def's type when
-  // encounter_order maps to a different name after structural change.
-  // This tests the guard logic directly without disposed-Memo complications.
+test "MemoMap: lookup of unknown def name returns error sentinel" {
+  // The MemoMap compute closure routes `name` through `name_to_idx`.
+  // An InternId for a name that is not in the current module hits the
+  // `None` arm and returns an error result rather than aliasing into some
+  // other slot. This replaces the old positional guard, which was needed
+  // only while `DefEntry` hashed on `(name, encounter_order)`.
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
-  // defs = [a, b] — a gets encounter_order=0, b gets encounter_order=1
   let module_term = TypedTerm::Module(
     [
       ("a", TypedTerm::Int(1)),
@@ -777,18 +778,75 @@ test "MemoMap: name guard rejects mismatched encounter_order" {
     rt, scope, term_memo,
   )
   let _r1 = result_memo.get_result().unwrap()
-  // Verify correct lookups work
-  let a_id = index.intern_table.intern({ name: "a", encounter_order: 0 })
+  // Known names resolve.
+  let a_id = index.intern_table.intern({ name: "a" })
   inspect(index.memo_map.get(a_id).typ, content="Int")
-  let b_id = index.intern_table.intern({ name: "b", encounter_order: 1 })
+  let b_id = index.intern_table.intern({ name: "b" })
   inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
-  // Fabricate a bogus DefEntry: name="c" at encounter_order=0
-  // This InternId is fresh (never seen) — MemoMap creates a new internal Memo.
-  // The name guard should reject because prev_def_names[0] == "a", not "c".
-  let bogus_id = index.intern_table.intern({ name: "c", encounter_order: 0 })
+  // Name not in the module (never defined) → error sentinel. The
+  // InternId is fresh, so MemoMap creates a new internal Memo whose
+  // compute function falls through the `None` branch.
+  let bogus_id = index.intern_table.intern({ name: "c" })
   let bogus_result = index.memo_map.get(bogus_id)
   inspect(bogus_result.typ, content="<error>")
   inspect(bogus_result.had_error, content="true")
+  scope.dispose()
+}
+
+///|
+/// Stable DefId across position-0 insertion: DefIds minted for defs `b` and
+/// `c` from the pre-edit module must still resolve to the correct
+/// (new-position) type_memo results after a new def is prepended at
+/// position 0. `DefEntry` hashes on `name` only, so re-interning returns
+/// the same `InternId`; the MemoMap compute closure routes via
+/// `PipelineState::name_to_idx` to find the new slot.
+test "MemoMap: DefId stays stable after prepending a def at position 0" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // v1: [a = 1, b : Int -> Int, c : Int]
+  let b_lam = TypedTerm::Lam(
+    "x",
+    Some(TInt),
+    TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("x"), TypedTerm::Int(1)),
+  )
+  let module_v1 = TypedTerm::Module(
+    [
+      ("a", TypedTerm::Int(1)),
+      ("b", b_lam),
+      ("c", TypedTerm::App(TypedTerm::Var("b"), TypedTerm::Int(2))),
+    ],
+    TypedTerm::Var("c"),
+  )
+  let term_signal = scope.signal(module_v1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, index) = build_typecheck_pipeline_with_index(
+    rt, scope, term_memo,
+  )
+  let _r1 = result_memo.get_result().unwrap()
+  // Cache IDs for b and c under v1's positions.
+  let b_id = index.intern_table.intern({ name: "b" })
+  let c_id = index.intern_table.intern({ name: "c" })
+  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
+  inspect(index.memo_map.get(c_id).typ, content="Int")
+  // v2: prepend z at position 0 → [z, a, b, c]. Same b and c bodies; b and
+  // c's new indices are 2 and 3 respectively.
+  let module_v2 = TypedTerm::Module(
+    [
+      ("z", TypedTerm::Int(99)),
+      ("a", TypedTerm::Int(1)),
+      ("b", b_lam),
+      ("c", TypedTerm::App(TypedTerm::Var("b"), TypedTerm::Int(2))),
+    ],
+    TypedTerm::Var("c"),
+  )
+  term_signal.set(module_v2)
+  let _r2 = result_memo.get_result().unwrap()
+  // The original b_id and c_id (minted under v1 positions) still resolve
+  // to the right types. `DefEntry` hashes on `name` only, so re-interning
+  // returns the same `InternId`; the MemoMap routes the lookup through
+  // `name_to_idx` to the new slot.
+  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
+  inspect(index.memo_map.get(c_id).typ, content="Int")
   scope.dispose()
 }
 
@@ -810,13 +868,15 @@ test "MemoMap: structural rebuild sweeps stale entries" {
   )
   let _r1 = result_memo.get_result().unwrap()
   // Populate memo_map with two entries.
-  let a_id = index.intern_table.intern({ name: "a", encounter_order: 0 })
-  let b_id = index.intern_table.intern({ name: "b", encounter_order: 1 })
+  let a_id = index.intern_table.intern({ name: "a" })
+  let b_id = index.intern_table.intern({ name: "b" })
   inspect(index.memo_map.get(a_id).typ, content="Int")
   inspect(index.memo_map.get(b_id).typ, content="Int")
   inspect(index.memo_map.length(), content="2")
-  // Structural change: defs = [b, c] — encounter_orders shift, so all
-  // previous InternIds are stale.
+  // Structural change: defs = [b, c]. `b` keeps its identity (same
+  // `InternId`); `a` disappears and `c` is new. The wrapper memos keyed
+  // on `a_id` and `b_id` are all torn down by `memo_map.clear()` on
+  // rebuild — we re-populate only on the next query.
   let module_term2 = TypedTerm::Module(
     [("b", TypedTerm::Int(20)), ("c", TypedTerm::Int(30))],
     TypedTerm::Var("b"),
@@ -825,11 +885,14 @@ test "MemoMap: structural rebuild sweeps stale entries" {
   let _r2 = result_memo.get_result().unwrap()
   // After rebuild, memo_map has been cleared; no stale entries remain.
   inspect(index.memo_map.length(), content="0")
-  // New queries populate fresh entries.
-  let b_id2 = index.intern_table.intern({ name: "b", encounter_order: 0 })
-  let c_id2 = index.intern_table.intern({ name: "c", encounter_order: 1 })
+  // `b`'s InternId is stable across the rebuild. `a` is gone (→ error
+  // sentinel), `c` is new.
+  let b_id2 = index.intern_table.intern({ name: "b" })
+  let c_id2 = index.intern_table.intern({ name: "c" })
+  inspect(b_id == b_id2, content="true")
   inspect(index.memo_map.get(b_id2).typ, content="Int")
   inspect(index.memo_map.get(c_id2).typ, content="Int")
-  inspect(index.memo_map.length(), content="2")
+  inspect(index.memo_map.get(a_id).had_error, content="true")
+  inspect(index.memo_map.length(), content="3")
   scope.dispose()
 }

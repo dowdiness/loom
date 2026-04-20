@@ -14,6 +14,12 @@ priv struct PipelineState {
   intern_table : @incr.InternTable[DefEntry]
   mut chain_scope : @incr.Scope?
   mut prev_def_names : Array[String]
+  // Name → current position in `prev_def_names` / `type_memos`. Rebuilt
+  // from scratch on every structural change in `rebuild_chain`, left
+  // untouched during `update_terms` (structure is unchanged). Duplicate
+  // names in a module resolve "last wins" (matches the resolver's
+  // shadowing semantics), so this is a proper function of `prev_def_names`.
+  mut name_to_idx : @hashmap.HashMap[String, Int]
   // Raw (unresolved) def body signals. `resolve_memos[i]` reads
   // `term_signals[i]` and runs `resolve_walk` on that raw body with
   // the def's captured `ResolveEnv`. Editing one def body only
@@ -38,6 +44,7 @@ fn PipelineState::new() -> PipelineState {
     intern_table: @incr.InternTable::new(),
     chain_scope: None,
     prev_def_names: [],
+    name_to_idx: @hashmap.new(),
     term_signals: [],
     resolve_memos: [],
     env_memos: [],
@@ -122,17 +129,19 @@ pub fn build_typecheck_pipeline_with_index(
     rt,
     fn(def_id : @incr.InternId) -> TypeResult {
       let entry = state.intern_table.get(def_id)
-      let idx = entry.encounter_order
-      // Guard: after a structural rebuild, an old InternId's encounter_order
-      // may index a slot that now holds a different def, or the old type_memo
-      // may be disposed. Verify bounds, name match, and liveness before reading.
-      if idx < state.type_memos.length() &&
-        idx < state.prev_def_names.length() &&
-        state.prev_def_names[idx] == entry.name &&
-        !state.type_memos[idx].is_disposed() {
-        state.type_memos[idx].get()
-      } else {
-        { typ: TError, had_error: true }
+      // Route name → current position via `name_to_idx`, which is
+      // rebuilt from scratch on every structural rebuild. An InternId for
+      // a name that is no longer in the module hits the `None` arm and
+      // returns an error sentinel; the `is_disposed()` check is defensive
+      // for stale handles that outlive a rebuild window.
+      match state.name_to_idx.get(entry.name) {
+        Some(idx) =>
+          if !state.type_memos[idx].is_disposed() {
+            state.type_memos[idx].get()
+          } else {
+            { typ: TError, had_error: true }
+          }
+        None => { typ: TError, had_error: true }
       }
     },
     label="typecheck_index",
@@ -147,10 +156,12 @@ pub fn build_typecheck_pipeline_with_index(
         Some(_) => def_names != state.prev_def_names
       }
       if needs_rebuild {
-        // All wrapper memos in `memo_map` key on InternIds from the previous
-        // chain; after rebuild their encounter_order slots are re-assigned, so
-        // every existing entry is stale. Dispose them up front — `memo_map`
-        // is Runtime-owned, so chain-scope disposal can't reach it.
+        // Wrapper memos in `memo_map` captured references to the previous
+        // chain's `type_memos` slots. After `rebuild_chain` replaces those
+        // slots (and their chain scope is disposed), every cached wrapper
+        // reads through a dangling pointer. Dispose them up front —
+        // `memo_map` is Runtime-owned, so chain-scope disposal can't
+        // reach it.
         memo_map.clear()
         rebuild_chain(state, parent_scope, defs, body)
       } else {
@@ -203,10 +214,16 @@ fn rebuild_chain(
   state.diags = Some(diags)
   let def_names = defs.map(fn(d) { d.0 })
   state.prev_def_names = def_names
-  // Intern all def names
+  // Rebuild the name → position map and intern every def's identity.
+  // `DefEntry` hashes on `name` only, so re-interning the same name from
+  // a prior chain returns the same `InternId` — that is the stability
+  // property downstream consumers of `TypecheckIndex` rely on.
+  let name_to_idx : @hashmap.HashMap[String, Int] = @hashmap.new()
   for i, def in defs {
-    let _id = state.intern_table.intern({ name: def.0, encounter_order: i })
+    name_to_idx.set(def.0, i)
+    let _id = state.intern_table.intern({ name: def.0 })
   }
+  state.name_to_idx = name_to_idx
   // Create raw-body term signals for each def.
   let term_signals : Array[@incr.Signal[TypedTerm]] = []
   for def in defs {

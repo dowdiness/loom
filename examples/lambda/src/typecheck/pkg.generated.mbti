@@ -31,7 +31,6 @@ pub fn type_of_node(@seam.SyntaxNode) -> Type
 // Types and methods
 pub(all) struct DefEntry {
   name : String
-  encounter_order : Int
 } derive(Eq, Hash, @debug.Debug)
 
 pub(all) struct ModuleTypeResult {

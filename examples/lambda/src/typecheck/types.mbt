@@ -95,9 +95,13 @@ pub impl Show for TypedTerm with output(self, logger) {
 }
 
 ///|
+/// Identity key for a top-level definition within a module. Hashed on
+/// `name` only: position-independent, so inserting a new def at position 0
+/// does not invalidate existing `DefId`s minted for subsequent defs.
+/// Position lookup is done through `PipelineState::name_to_idx` maintained
+/// by `rebuild_chain`. Invariant: one def per name in a module.
 pub(all) struct DefEntry {
   name : String
-  encounter_order : Int
 } derive(Eq, Hash, Debug)
 
 ///|
