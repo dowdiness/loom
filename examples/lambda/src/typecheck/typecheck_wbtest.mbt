@@ -565,10 +565,12 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
     rt, scope, term_memo,
   )
   let _ = result_memo.get_result().unwrap()
-  // Baseline changed_at for each def's resolve_memo.
+  // Baseline changed_at for each def's resolve_memo and the body slot.
   let ca0_before = state.resolve_memos[0].changed_at()
   let ca1_before = state.resolve_memos[1].changed_at()
   let ca2_before = state.resolve_memos[2].changed_at()
+  let body_rm = state.body_resolve_memo.unwrap()
+  let ca_body_before = body_rm.changed_at()
   // Edit only def[1] (b)'s body: 2 → 3. Same names, no structural rebuild.
   let v2 = TypedTerm::Module(
     [
@@ -583,10 +585,90 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
   let ca0_after = state.resolve_memos[0].changed_at()
   let ca1_after = state.resolve_memos[1].changed_at()
   let ca2_after = state.resolve_memos[2].changed_at()
-  // Only def[1]'s resolve_memo should have a newer changed_at.
+  let ca_body_after = body_rm.changed_at()
+  // Only def[1]'s resolve_memo should have a newer changed_at; the body
+  // slot was untouched, so it must backdate.
   inspect(ca0_before == ca0_after, content="true")
   inspect(ca1_before == ca1_after, content="false")
   inspect(ca2_before == ca2_after, content="true")
+  inspect(ca_body_before == ca_body_after, content="true")
+  scope.dispose()
+}
+
+///|
+/// Symmetric to the def-edit test above: editing the module body must
+/// invalidate only `body_resolve_memo`, leaving every def's resolve
+/// result backdated.
+test "incremental: per-def resolve — body edit invalidates only body_resolve_memo" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // def a = 1, body = a
+  let v1 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Var("a"))
+  let term_signal = scope.signal(v1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, state) = build_typecheck_pipeline_internal(
+    rt, scope, term_memo,
+  )
+  let _ = result_memo.get_result().unwrap()
+  let ca_def_before = state.resolve_memos[0].changed_at()
+  let body_rm = state.body_resolve_memo.unwrap()
+  let ca_body_before = body_rm.changed_at()
+  // Edit only the body: Var("a") → Int(99). Def is unchanged.
+  let v2 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Int(99))
+  term_signal.set(v2)
+  let _ = result_memo.get_result().unwrap()
+  let ca_def_after = state.resolve_memos[0].changed_at()
+  let ca_body_after = body_rm.changed_at()
+  // Def backdates (raw body unchanged); body_resolve_memo advances.
+  inspect(ca_def_before == ca_def_after, content="true")
+  inspect(ca_body_before == ca_body_after, content="false")
+  scope.dispose()
+}
+
+///|
+/// Resolve-level backdate: if a raw edit leaves the *resolved* form
+/// structurally equal (e.g. `Var("x")` with no `x` in env both
+/// rewrites to `Unbound("x")`, and a direct `Unbound("x")` is already
+/// in that form), the producing `resolve_memo` recomputes but its
+/// `changed_at` stays put — downstream `type_memo` skips its own work.
+test "incremental: per-def resolve — raw differs, resolved form equal, resolve_memo backdates" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // def a = Var("unknown"); no binding for "unknown" exists, so
+  // resolve_walk rewrites Var → Unbound.
+  let v1 = TypedTerm::Module(
+    [("a", TypedTerm::Var("unknown"))],
+    TypedTerm::Int(0),
+  )
+  let term_signal = scope.signal(v1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, state) = build_typecheck_pipeline_internal(
+    rt, scope, term_memo,
+  )
+  let _ = result_memo.get_result().unwrap()
+  let ca_before = state.resolve_memos[0].changed_at()
+  let sig_ca_before = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
+  // Rewrite the raw body: Var("unknown") → Unbound("unknown"). The raw
+  // TypedTerm variants differ (so term_signals[0] genuinely changes),
+  // but resolve_walk on both with an empty env produces the same
+  // Unbound("unknown"). Resolve_memo recomputes and backdates via
+  // TypedTerm Eq — no cascade to type_memo.
+  let v2 = TypedTerm::Module(
+    [("a", TypedTerm::Unbound("unknown"))],
+    TypedTerm::Int(0),
+  )
+  term_signal.set(v2)
+  let _ = result_memo.get_result().unwrap()
+  let ca_after = state.resolve_memos[0].changed_at()
+  let sig_ca_after = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
+  // Two claims, in order:
+  //   1. term_signals[0] genuinely bumped — this pins down that the
+  //      "stability" of resolve_memos[0] below is backdating, not a
+  //      no-op signal write.
+  //   2. resolve_memos[0].changed_at stayed the same despite its dep
+  //      having advanced — proving TypedTerm-Eq-backdating kicked in.
+  inspect(sig_ca_before == sig_ca_after, content="false")
+  inspect(ca_before == ca_after, content="true")
   scope.dispose()
 }
 
