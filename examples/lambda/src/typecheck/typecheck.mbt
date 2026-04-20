@@ -14,11 +14,17 @@ priv struct PipelineState {
   intern_table : @incr.InternTable[DefEntry]
   mut chain_scope : @incr.Scope?
   mut prev_def_names : Array[String]
+  // Raw (unresolved) def body signals. `resolve_memos[i]` reads
+  // `term_signals[i]` and runs `resolve_walk` on that raw body with
+  // the def's captured `ResolveEnv`. Editing one def body only
+  // invalidates that def's `resolve_memo`.
   mut term_signals : Array[@incr.Signal[TypedTerm]]
+  mut resolve_memos : Array[@incr.Memo[TypedTerm]]
   // env_memos kept alive so closures that captured them don't dangle
   mut env_memos : Array[@incr.Memo[TypeEnv]]
   mut type_memos : Array[@incr.Memo[TypeResult]]
   mut body_term_signal : @incr.Signal[TypedTerm]?
+  mut body_resolve_memo : @incr.Memo[TypedTerm]?
   mut body_memo : @incr.Memo[TypeResult]?
   // Accumulator for per-def diagnostics. Allocated in `rebuild_chain`
   // bound to the current `chain_scope`, so it is disposed automatically
@@ -33,9 +39,11 @@ fn PipelineState::new() -> PipelineState {
     chain_scope: None,
     prev_def_names: [],
     term_signals: [],
+    resolve_memos: [],
     env_memos: [],
     type_memos: [],
     body_term_signal: None,
+    body_resolve_memo: None,
     body_memo: None,
     diags: None,
   }
@@ -55,28 +63,43 @@ pub fn build_typecheck_pipeline(
   parent_scope : @incr.Scope,
   source_term : @incr.Memo[TypedTerm],
 ) -> @incr.Memo[ModuleTypeResult] {
+  let (memo, _state) = build_typecheck_pipeline_internal(
+    rt, parent_scope, source_term,
+  )
+  memo
+}
+
+///|
+/// Internal variant returning the `PipelineState` alongside the memo
+/// for whitebox tests that need to observe per-def cell state
+/// (e.g. `resolve_memos[i].changed_at()`). Not part of the public API.
+fn build_typecheck_pipeline_internal(
+  rt : @incr.Runtime,
+  parent_scope : @incr.Scope,
+  source_term : @incr.Memo[TypedTerm],
+) -> (@incr.Memo[ModuleTypeResult], PipelineState) {
   let state = PipelineState::new()
   ignore(rt)
-  parent_scope.memo(
+  let memo = parent_scope.memo(
     () => {
       let term = source_term.get()
-      let resolved = resolve_typed(term)
-      let def_names = resolved.defs.map(fn(d) { d.0 })
+      let (defs, body) = split_defs(term)
+      let def_names = defs.map(fn(d) { d.0 })
       // Detect structural change: first run or different def names
       let needs_rebuild = match state.chain_scope {
         None => true
         Some(_) => def_names != state.prev_def_names
       }
       if needs_rebuild {
-        rebuild_chain(state, parent_scope, resolved)
+        rebuild_chain(state, parent_scope, defs, body)
       } else {
-        // Same structure — update term signals with new terms
-        update_terms(state, resolved)
+        update_terms(state, defs, body)
       }
       collect_results(state)
     },
     label="typecheck_pipeline",
   )
+  (memo, state)
 }
 
 ///|
@@ -117,8 +140,8 @@ pub fn build_typecheck_pipeline_with_index(
   let result_memo = parent_scope.memo(
     () => {
       let term = source_term.get()
-      let resolved = resolve_typed(term)
-      let def_names = resolved.defs.map(fn(d) { d.0 })
+      let (defs, body) = split_defs(term)
+      let def_names = defs.map(fn(d) { d.0 })
       let needs_rebuild = match state.chain_scope {
         None => true
         Some(_) => def_names != state.prev_def_names
@@ -129,9 +152,9 @@ pub fn build_typecheck_pipeline_with_index(
         // every existing entry is stale. Dispose them up front — `memo_map`
         // is Runtime-owned, so chain-scope disposal can't reach it.
         memo_map.clear()
-        rebuild_chain(state, parent_scope, resolved)
+        rebuild_chain(state, parent_scope, defs, body)
       } else {
-        update_terms(state, resolved)
+        update_terms(state, defs, body)
       }
       collect_results(state)
     },
@@ -142,11 +165,27 @@ pub fn build_typecheck_pipeline_with_index(
 }
 
 ///|
-/// Dispose old chain and build a new Memo chain for the resolved module.
+/// Split a (possibly non-Module) `TypedTerm` into its top-level defs and
+/// body without running resolution. O(top-level defs), not O(module AST).
+/// This is the lightweight replacement for `resolve_typed` at the parent
+/// memo boundary — per-def resolve happens inside `resolve_memos[i]`.
+fn split_defs(term : TypedTerm) -> (Array[(String, TypedTerm)], TypedTerm) {
+  match term {
+    Module(defs, body) => (defs, body)
+    _ => ([], term)
+  }
+}
+
+///|
+/// Dispose old chain and build a new Memo chain for the raw module.
+/// Takes unresolved `defs` and `body`; name resolution runs inside the
+/// per-def `resolve_memos[i]` built here, keyed on the fixed env at
+/// each def's position.
 fn rebuild_chain(
   state : PipelineState,
   parent_scope : @incr.Scope,
-  resolved : ResolvedModule,
+  defs : Array[(String, TypedTerm)],
+  body : TypedTerm,
 ) -> Unit {
   // Dispose previous chain scope if it exists. Disposing the scope also
   // disposes any accumulator allocated on it, so `state.diags` becomes
@@ -162,32 +201,61 @@ fn rebuild_chain(
     label="typecheck_diags",
   )
   state.diags = Some(diags)
-  let def_names = resolved.defs.map(fn(d) { d.0 })
+  let def_names = defs.map(fn(d) { d.0 })
   state.prev_def_names = def_names
   // Intern all def names
-  for i, def in resolved.defs {
+  for i, def in defs {
     let _id = state.intern_table.intern({ name: def.0, encounter_order: i })
   }
-  // Create term signals for each def
+  // Create raw-body term signals for each def.
   let term_signals : Array[@incr.Signal[TypedTerm]] = []
-  for def in resolved.defs {
+  for def in defs {
     let sig = chain_scope.signal(def.1, label="def_term_\{def.0}")
     term_signals.push(sig)
   }
   state.term_signals = term_signals
-  // Build env_memo and type_memo chains
+  // Build per-def ResolveEnv values. Names are fixed for this chain's
+  // lifetime (any name change triggers a full rebuild), so these are
+  // plain values captured by closures rather than reactive memos.
+  //   resolve_envs[i] = env visible to def[i]'s body (names [0..i-1])
+  //   body_env        = env visible to the module body (all def names)
+  let resolve_envs : Array[ResolveEnv] = []
+  let mut rolling_env : ResolveEnv = ResolveEnv::Empty
+  for def in defs {
+    resolve_envs.push(rolling_env)
+    rolling_env = rolling_env.extend(def.0)
+  }
+  let body_env = rolling_env
+  // Per-def resolve memos: resolve_walk(raw_body, env_i). Backdates via
+  // TypedTerm Eq — a source edit that leaves the resolved form unchanged
+  // stops propagation here.
+  let resolve_memos : Array[@incr.Memo[TypedTerm]] = []
+  for i = 0; i < defs.length(); i = i + 1 {
+    let def_name = defs[i].0
+    let term_sig = term_signals[i]
+    let env_i = resolve_envs[i]
+    let rm = chain_scope.memo(
+      () => resolve_walk(term_sig.get(), env_i),
+      label="resolve_\{def_name}",
+    )
+    resolve_memos.push(rm)
+  }
+  state.resolve_memos = resolve_memos
+  // Build env_memo and type_memo chains. type_memo[i] reads
+  // resolve_memos[i].get() — raw bodies stay off the type_memo's dep
+  // set so unchanged resolves short-circuit typechecking too.
   let env_memos : Array[@incr.Memo[TypeEnv]] = []
   let type_memos : Array[@incr.Memo[TypeResult]] = []
-  for i = 0; i < resolved.defs.length(); i = i + 1 {
-    let def_name = resolved.defs[i].0
-    let term_sig = term_signals[i]
+  for i = 0; i < defs.length(); i = i + 1 {
+    let def_name = defs[i].0
+    let resolve_memo = resolve_memos[i]
     // env_memo[i]: extends previous env with previous def's type
     let env_memo = if i == 0 {
       chain_scope.memo(() => TypeEnv::Empty, label="env_\{def_name}")
     } else {
       let prev_env_memo = env_memos[i - 1]
       let prev_type_memo = type_memos[i - 1]
-      let prev_name = resolved.defs[i - 1].0
+      let prev_name = defs[i - 1].0
       chain_scope.memo(
         () => {
           let env = prev_env_memo.get()
@@ -203,15 +271,15 @@ fn rebuild_chain(
       )
     }
     env_memos.push(env_memo)
-    // type_memo[i]: infer def body in env_memo[i]. Diagnostics pushed
-    // from within `infer_impl` land in the chain-scope accumulator,
-    // tagged with this def's name.
+    // type_memo[i]: infer resolved body in env_memo[i]. Diagnostics
+    // pushed from within `infer_impl` land in the chain-scope
+    // accumulator, tagged with this def's name.
     let ctx : DiagCtx = { def_name: Some(def_name), diags: Some(diags) }
     let type_memo = chain_scope.memo(
       () => {
         let env = env_memo.get()
-        let body = term_sig.get()
-        infer_impl(env, body, ctx)
+        let resolved_body = resolve_memo.get()
+        infer_impl(env, resolved_body, ctx)
       },
       label="type_\{def_name}",
     )
@@ -219,25 +287,31 @@ fn rebuild_chain(
   }
   state.env_memos = env_memos
   state.type_memos = type_memos
-  // Body signal and memo
-  let body_sig = chain_scope.signal(resolved.body, label="body_term")
+  // Body: raw signal → resolve memo → type memo.
+  let body_sig = chain_scope.signal(body, label="body_term")
   state.body_term_signal = Some(body_sig)
+  let body_resolve_memo = chain_scope.memo(
+    () => resolve_walk(body_sig.get(), body_env),
+    label="resolve_body",
+  )
+  state.body_resolve_memo = Some(body_resolve_memo)
   // Body diagnostics are untagged (no def_name).
   let body_ctx : DiagCtx = { def_name: None, diags: Some(diags) }
-  // Build the final env for the body (extends last env with last def's type)
-  let body_memo = if resolved.defs.length() == 0 {
+  // Build the final type env for the body (extends last env with
+  // last def's type).
+  let body_memo = if defs.length() == 0 {
     chain_scope.memo(
       () => {
-        let body = body_sig.get()
-        infer_impl(TypeEnv::Empty, body, body_ctx)
+        let body_term = body_resolve_memo.get()
+        infer_impl(TypeEnv::Empty, body_term, body_ctx)
       },
       label="body_type",
     )
   } else {
-    let last_idx = resolved.defs.length() - 1
+    let last_idx = defs.length() - 1
     let last_env_memo = env_memos[last_idx]
     let last_type_memo = type_memos[last_idx]
-    let last_name = resolved.defs[last_idx].0
+    let last_name = defs[last_idx].0
     chain_scope.memo(
       () => {
         let env = last_env_memo.get()
@@ -247,9 +321,9 @@ fn rebuild_chain(
         } else {
           last_result.typ
         }
-        let body_env = env.extend(last_name, last_type)
-        let body = body_sig.get()
-        infer_impl(body_env, body, body_ctx)
+        let body_type_env = env.extend(last_name, last_type)
+        let body_term = body_resolve_memo.get()
+        infer_impl(body_type_env, body_term, body_ctx)
       },
       label="body_type",
     )
@@ -258,13 +332,19 @@ fn rebuild_chain(
 }
 
 ///|
-/// Update term signals when structure is unchanged.
-fn update_terms(state : PipelineState, resolved : ResolvedModule) -> Unit {
-  for i, def in resolved.defs {
+/// Update raw-body term signals when structure is unchanged. Per-def
+/// resolve runs lazily inside `resolve_memos[i]`; same-value optimization
+/// on `Signal::set` means only the edited def's resolve fires.
+fn update_terms(
+  state : PipelineState,
+  defs : Array[(String, TypedTerm)],
+  body : TypedTerm,
+) -> Unit {
+  for i, def in defs {
     state.term_signals[i].set(def.1)
   }
   match state.body_term_signal {
-    Some(sig) => sig.set(resolved.body)
+    Some(sig) => sig.set(body)
     None => ()
   }
 }
@@ -296,10 +376,14 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
       all_diagnostics.push(d)
     }
   }
-  // env_memos are never read directly, but must be kept alive: type_memo
-  // and env_memo closures captured references to the env_memos array
-  // elements. If the array were collected, those closures would dangle.
+  // env_memos, resolve_memos, body_resolve_memo are never read directly
+  // from state, but must be kept alive: type_memo and env_memo closures
+  // captured references to env_memos[i]; type_memos captured resolve_memos[i];
+  // body_memo captured body_resolve_memo. If the arrays/options were
+  // collected, those closures would dangle.
   ignore(state.env_memos)
+  ignore(state.resolve_memos)
+  ignore(state.body_resolve_memo)
   let body_type = match state.body_memo {
     Some(memo) => {
       let r = memo.get()

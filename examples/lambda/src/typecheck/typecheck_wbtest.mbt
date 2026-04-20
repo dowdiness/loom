@@ -213,7 +213,11 @@ test "error propagation: ill-typed fn AND ill-typed arg still emits arg diags" {
   // "not a function" message that would otherwise double up.
   let term = TypedTerm::App(
     TypedTerm::Var("unbound_fn"),
-    TypedTerm::Bop(@ast.Bop::Plus, TypedTerm::Var("unbound_arg"), TypedTerm::Int(1)),
+    TypedTerm::Bop(
+      @ast.Bop::Plus,
+      TypedTerm::Var("unbound_arg"),
+      TypedTerm::Int(1),
+    ),
   )
   let (result, diags) = infer_with_diags(TypeEnv::Empty, term)
   inspect(result.typ, content="<error>")
@@ -536,6 +540,53 @@ test "incremental: editing one def updates only that def's diagnostics" {
   let r3 = result_memo.get_result().unwrap()
   inspect(r3.all_diagnostics.length(), content="1")
   inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
+  scope.dispose()
+}
+
+///|
+/// Incremental name resolution: editing one def's body must only invalidate
+/// that def's `resolve_memo`. Other defs' resolve results must backdate
+/// (same `changed_at` after the edit as before).
+test "incremental: per-def resolve — body edit invalidates only that def's resolve_memo" {
+  let rt = @incr.Runtime::new()
+  let scope = @incr.Scope::new(rt)
+  // Three defs: a = 1, b = 2, c = a (Var reference to a)
+  let v1 = TypedTerm::Module(
+    [
+      ("a", TypedTerm::Int(1)),
+      ("b", TypedTerm::Int(2)),
+      ("c", TypedTerm::Var("a")),
+    ],
+    TypedTerm::Var("c"),
+  )
+  let term_signal = scope.signal(v1, label="source_term")
+  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let (result_memo, state) = build_typecheck_pipeline_internal(
+    rt, scope, term_memo,
+  )
+  let _ = result_memo.get_result().unwrap()
+  // Baseline changed_at for each def's resolve_memo.
+  let ca0_before = state.resolve_memos[0].changed_at()
+  let ca1_before = state.resolve_memos[1].changed_at()
+  let ca2_before = state.resolve_memos[2].changed_at()
+  // Edit only def[1] (b)'s body: 2 → 3. Same names, no structural rebuild.
+  let v2 = TypedTerm::Module(
+    [
+      ("a", TypedTerm::Int(1)),
+      ("b", TypedTerm::Int(3)), // ← changed
+      ("c", TypedTerm::Var("a")),
+    ],
+    TypedTerm::Var("c"),
+  )
+  term_signal.set(v2)
+  let _ = result_memo.get_result().unwrap()
+  let ca0_after = state.resolve_memos[0].changed_at()
+  let ca1_after = state.resolve_memos[1].changed_at()
+  let ca2_after = state.resolve_memos[2].changed_at()
+  // Only def[1]'s resolve_memo should have a newer changed_at.
+  inspect(ca0_before == ca0_after, content="true")
+  inspect(ca1_before == ca1_after, content="false")
+  inspect(ca2_before == ca2_after, content="true")
   scope.dispose()
 }
 
