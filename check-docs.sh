@@ -99,6 +99,47 @@ done < <(find . -name "*.md" \
   -print0 | sort -z)
 [[ "$fossil_hits" -eq 0 ]] && ok "No fossil references found"
 
+# 5. Doctest regression guard (warn)
+#
+# A package's top-level README.md that contains runnable MoonBit code fences
+# should have a paired `README.mbt.md` (at package root when `source` is unset,
+# or under `src/` when `source: "src"`) so `moon test` can exercise those
+# snippets. Without the pair, Quick Start snippets drift silently as the API
+# evolves (see the 2026-04-21 doctest migration).
+#
+# Opt-in — some READMEs are pure conceptual prose. Warn, don't fail.
+echo ""
+echo "Doctest regression guard:"
+doctest_hits=0
+while IFS= read -r -d '' modfile; do
+  pkg=$(dirname "$modfile")
+  readme="$pkg/README.md"
+  [[ -f "$readme" ]] || continue
+
+  # Runnable fence styles: ```moonbit, ```mbt, ```mbt check, ```mbt expect=...
+  # Excluded: ```mbt nocheck (explicit opt-out), non-MoonBit languages.
+  has_runnable=0
+  if grep -qE '^```(moonbit|mbt)([[:space:]]+(check|expect=)|[[:space:]]*$)' "$readme"; then
+    has_runnable=1
+  fi
+
+  [[ "$has_runnable" -eq 1 ]] || continue
+
+  src=$(grep -o '"source":[[:space:]]*"[^"]*"' "$modfile" 2>/dev/null \
+        | head -1 | sed 's/.*"\([^"]*\)"$/\1/' || true)
+  expected="$pkg/${src:+$src/}README.mbt.md"
+
+  if [[ ! -f "$expected" ]]; then
+    warn "$readme has runnable MoonBit fences but no $expected"
+    doctest_hits=1
+  fi
+done < <(find . -name "moon.mod.json" \
+  ! -path "*/_build/*" \
+  ! -path "*/.mooncakes/*" \
+  ! -path "./incr/*" \
+  -print0 | sort -z)
+[[ "$doctest_hits" -eq 0 ]] && ok "All packages with runnable snippets have README.mbt.md"
+
 # Summary
 echo ""
 echo "-----------------"
