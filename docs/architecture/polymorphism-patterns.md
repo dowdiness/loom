@@ -61,30 +61,34 @@ Use when:
 - The "methods" need **captured mutable state** (closures close over `Ref` values)
 - You want to **store the vtable in a struct field** without leaking token types
 
-**Primary API — `Grammar[T,K,Ast]` (src/bridge/grammar.mbt):**
+**Primary API — `Grammar[T,K,Ast]` (loom/src/grammar.mbt):**
 
 ```moonbit
 pub struct Grammar[T, K, Ast] {
-  spec      : @core.LanguageSpec[T, K]
-  tokenize  : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
-  to_ast    : (@seam.SyntaxNode) -> Ast
+  spec         : @core.LanguageSpec[T, K]
+  tokenize     : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
+  fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
+  on_lex_error : (String) -> Ast
+  // plus optional error_token, prefix_lexer, block_reparse_spec, mode_relex
 }
 ```
 
-Grammar authors supply only those three things. Bridge factories erase `T`/`K`
+Grammar authors supply these fields. The `@loom` factories erase `T`/`K`
 internally and produce fully-generic consumers:
 
 ```moonbit
-// src/examples/lambda/grammar.mbt
-pub let lambda_grammar : @bridge.Grammar[...] = @bridge.Grammar::new(
-  spec=lambda_spec,
-  tokenize=@lexer.tokenize,
-  to_ast=fn(s) { syntax_node_to_ast_node(s, Ref::new(0)) },
-)
+// examples/lambda/src/grammar.mbt
+pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term] =
+  @loom.Grammar::new(
+    spec=lambda_spec,
+    tokenize=@lexer.tokenize,
+    fold_node=lambda_fold_node,
+    on_lex_error=fn(msg) { @ast.Term::Error(msg) },
+  )
 
 // Call sites — token type never mentioned again
-let parser = @bridge.new_imperative_parser(source, lambda_grammar)
-let p      = @bridge.new_parser(source, lambda_grammar)
+let parser = @loom.new_imperative_parser(source, lambda_grammar)
+let p      = @loom.new_parser(source, lambda_grammar)
 ```
 
 **Escape hatch — `ImperativeLanguage[Ast]` / `Language[Ast]`:**
@@ -226,7 +230,7 @@ without the concrete type leaking into the struct's signature?
 |---|---|---|
 | Generic `[T, K]` | `@core.parse_tokens_indexed` | token type + kind type |
 | Generic `[Ast]` | `@incremental.ImperativeParser` | AST output type |
-| Struct-of-closures | `@bridge.Grammar[T,K,Ast]` + bridge factories | token/kind types erased by factory; `Grammar` is the grammar-author API |
-| Struct-of-closures | `@incremental.ImperativeLanguage[Ast]` | token type (erased into closures) — used internally by bridge, escape hatch for custom wiring |
+| Struct-of-closures | `@loom.Grammar[T,K,Ast]` + `@loom` factories | token/kind types erased by factory; `Grammar` is the grammar-author API |
+| Struct-of-closures | `@incremental.ImperativeLanguage[Ast]` | token type (erased into closures) — used internally by `@loom`, escape hatch for custom wiring |
 | Struct-of-closures | `@core.LanguageSpec[T, K]` | grammar entry point + token predicates |
 | Defunctionalization | (not used — would break `@core` ↔ `@lambda` layering) | — |

@@ -251,13 +251,14 @@ backdating at the AST boundary, so equality is part of the public contract.
 
 ```moonbit
 let p = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
-let term = p.ast().get()            // Ast type parameter of the Grammar
+let term = p.runtime().read(p.ast())            // Ast type parameter of the Grammar
 p.set_source("λx.x + 2")
-let updated = p.ast().get()         // re-runs syntax + AST stages only if source changed
-let diags   = p.diagnostics().get() // Array[String], empty on success
+let updated = p.runtime().read(p.ast())         // re-runs syntax + AST stages only if source changed
+let diags   = p.runtime().read(p.diagnostics()) // Array[String], empty on success
 ```
 
-The pre-Stage 6 `new_reactive_parser` and `ReactiveParser` have been removed. See
+The pre-Stage 6 reactive parser factory and struct have been removed — use
+`new_parser` / `Parser[Ast]` instead. See
 [archive/pipeline-api-contract.md](../archive/pipeline-api-contract.md) for
 the pre-consolidation contract and [api/choosing-a-parser.md](choosing-a-parser.md)
 for when to reach for `ImperativeParser` directly.

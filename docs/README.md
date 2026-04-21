@@ -10,16 +10,33 @@ Navigation map for the incremental parser. Start here, go one level deeper for d
 
 ## Start Here
 
-- [../README.md](../README.md) — project overview and quick start
+New to loom? Read in this order:
+
+1. [../README.md](../README.md) — monorepo landing, what each module does
+2. [../loom/README.md](../loom/README.md) — `dowdiness/loom` package: install, Quick Start, public API
+3. [architecture/overview.md](architecture/overview.md) — layer diagram and architectural principles
+4. [api/choosing-a-parser.md](api/choosing-a-parser.md) — `Parser` vs `ImperativeParser`
+5. [../examples/lambda/](../examples/lambda/) — a complete grammar as reference
+
+Going deeper:
+
 - [../ROADMAP.md](../ROADMAP.md) — phase status and future work
-- [architecture/overview.md](architecture/overview.md) — layer diagram, architectural principles
 
 ## API Reference
 
-- [api/reference.md](api/reference.md) — all public functions, error types, usage examples
+Framework-level:
+
 - [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
-- [api/api-contract.md](api/api-contract.md) — API contract and stability guarantees
-- [api/imperative-api-contract.md](api/imperative-api-contract.md) — ImperativeParser API contract
+- [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
+- [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
+- [../loom/src/pkg.generated.mbti](../loom/src/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
+
+Language-specific:
+
+- [api/reference.md](api/reference.md) — **Lambda example** public API (parse / tokenize / pretty-print / `Term`)
+
+Superseded:
+
 - [archive/pipeline-api-contract.md](archive/pipeline-api-contract.md) — *(archived 2026-04-19)* pre-Stage 6 `ReactiveParser` pipeline API contract; superseded by the unified `Parser[Ast]` (see [ADR 2026-04-17](decisions/2026-04-17-unified-parser-proposal.md))
 
 ---
@@ -83,7 +100,12 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 
 ### Examples
 
-- [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda calculus grammar expansion plans, CRDT exploration
+Each example demonstrates a different `@loom.Grammar` feature axis:
+
+- [../examples/lambda/README.md](../examples/lambda/README.md) — typed `SyntaxNode` views, classical recursive descent
+- [../examples/json/README.md](../examples/json/README.md) — step-based `prefix_lexer` + `block_reparse_spec`
+- [../examples/markdown/README.md](../examples/markdown/README.md) — mode-aware lexing via `ModeLexer`
+- [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda grammar expansion plans, CRDT exploration
 
 ### Active Plans
 

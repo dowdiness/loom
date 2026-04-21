@@ -19,7 +19,7 @@ Both update the same signal/memo graph atomically.
 | Node-level CST reuse | via the underlying `ImperativeParser` engine |
 | Reactive composition | `parser.runtime()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
 | Shared runtime | downstream memos (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
-| Diagnostics | `parser.diagnostics().get()` — `Array[String]`, defensively copied |
+| Diagnostics | `parser.runtime().read(parser.diagnostics())` — `Array[String]`, defensively copied |
 | Lex-error routing | language's `on_lex_error` runs on every lex failure; AST cell stays populated with a sentinel |
 
 `Parser` batches all four signal updates under `Runtime::batch` so

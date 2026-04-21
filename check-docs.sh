@@ -67,6 +67,38 @@ done < <(find docs \
   -print0 | sort -z)
 [[ "$any_missing" -eq 0 ]] || true  # warnings already counted above
 
+# 4. Fossil references in current docs
+#
+# Deleted/renamed public API names that must not appear in *current* docs.
+# Historical material (docs/archive, ADRs, ROADMAP completed-work sections,
+# benchmark_history) is excluded by path — it legitimately cites history.
+#
+# When a public package/function is renamed or removed, add its old name to
+# `fossils` below in the same commit as the rename.
+echo ""
+echo "Fossil references in current docs:"
+fossils=(
+  "@bridge."             # bridge package removed 2026-03-04 (seam trait cleanup)
+  "new_reactive_parser"  # removed 2026-04-17 (unified Parser[Ast])
+  "@ast.AstNode"         # type removed 2026-03-05 (lambda AstNode removal)
+)
+fossil_hits=0
+while IFS= read -r -d '' f; do
+  for pat in "${fossils[@]}"; do
+    if grep -qF -- "$pat" "$f"; then
+      fail "$f contains fossil '$pat'"
+      fossil_hits=1
+    fi
+  done
+done < <(find . -name "*.md" \
+  ! -path "*/_build/*" \
+  ! -path "./docs/archive/*" \
+  ! -path "./docs/decisions/*" \
+  ! -path "./docs/performance/benchmark_history.md" \
+  ! -name "ROADMAP.md" \
+  -print0 | sort -z)
+[[ "$fossil_hits" -eq 0 ]] && ok "No fossil references found"
+
 # Summary
 echo ""
 echo "-----------------"
