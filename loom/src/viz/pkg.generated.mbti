@@ -2,7 +2,7 @@
 package "dowdiness/loom/viz"
 
 import {
-  "antisatori/graphviz/lib/parser",
+  "dowdiness/graphviz/lib/parser",
 }
 
 // Values
