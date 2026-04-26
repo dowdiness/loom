@@ -5,6 +5,7 @@ import {
   "dowdiness/incr/cells",
   "dowdiness/incr/types",
   "dowdiness/lambda/ast",
+  "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
@@ -55,6 +56,7 @@ pub impl Show for Type
 pub(all) struct TypeDiagnostic {
   message : String
   def_name : String?
+  range : @core.Range?
 } derive(Eq, @debug.Debug)
 pub impl Show for TypeDiagnostic
 
