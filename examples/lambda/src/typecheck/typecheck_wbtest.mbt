@@ -274,13 +274,21 @@ test "Show Type: right-associative arrow" {
 
 ///|
 test "Show TypeDiagnostic: with def_name" {
-  let d : TypeDiagnostic = { message: "type error", def_name: Some("foo") }
+  let d : TypeDiagnostic = {
+    message: "type error",
+    def_name: Some("foo"),
+    range: None,
+  }
   inspect(d, content="type error (in foo)")
 }
 
 ///|
 test "Show TypeDiagnostic: without def_name" {
-  let d : TypeDiagnostic = { message: "type error", def_name: None }
+  let d : TypeDiagnostic = {
+    message: "type error",
+    def_name: None,
+    range: None,
+  }
   inspect(d, content="type error")
 }
 

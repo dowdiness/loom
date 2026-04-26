@@ -33,7 +33,7 @@ fn DiagCtx::empty() -> DiagCtx {
 /// Emit a diagnostic message via `ctx.diags` when present. No-op otherwise.
 fn emit(ctx : DiagCtx, message : String) -> Unit raise Failure {
   match ctx.diags {
-    Some(acc) => acc.push({ message, def_name: ctx.def_name })
+    Some(acc) => acc.push({ message, def_name: ctx.def_name, range: None })
     None => ()
   }
 }

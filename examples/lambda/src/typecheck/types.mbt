@@ -34,6 +34,7 @@ pub impl Show for Type with output(self, logger) {
 pub(all) struct TypeDiagnostic {
   message : String
   def_name : String?
+  range : @core.Range?
 } derive(Eq, Debug)
 
 ///|

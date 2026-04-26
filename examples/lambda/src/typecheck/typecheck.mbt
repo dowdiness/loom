@@ -238,6 +238,7 @@ fn rebuild_chain(
         duplicate_diags.push({
           message: "duplicate top-level definition: \{def.0}",
           def_name: Some(def.0),
+          range: None,
         })
       None => name_to_idx.set(def.0, i)
     }
