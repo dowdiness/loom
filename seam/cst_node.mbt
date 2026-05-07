@@ -39,6 +39,14 @@ pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
 }
 
 ///|
+/// Forwarding alias for `CstToken::CstToken`. Preserves the documented
+/// `CstToken::new(kind, text)` public API as a stable entry point for
+/// downstream packages.
+pub fn CstToken::new(kind : RawKind, text : StringView) -> CstToken {
+  CstToken::CstToken(kind, text)
+}
+
+///|
 /// Number of bytes in this token's text (`text.length()`).
 pub fn CstToken::text_len(self : CstToken) -> Int {
   self.text.length()
