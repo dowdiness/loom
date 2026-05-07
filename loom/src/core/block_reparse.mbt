@@ -301,7 +301,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(
     return None
   }
   let block_text_view : StringView = new_source[block_start:block_new_end]
-  let block_text = block_text_view.to_string()
+  let block_text = block_text_view.to_owned()
   // 3. Tokenize and check balance
   let block_tokens = tokenize(block_text) catch { LexError(_) => return None }
   if !(block_spec.is_balanced)(block_tokens) {

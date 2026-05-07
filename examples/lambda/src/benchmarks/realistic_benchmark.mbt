@@ -85,7 +85,7 @@ fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
 ///|
 /// Helper: replace one byte at pos in source string.
 fn replace_char_at(source : String, pos : Int, replacement : String) -> String {
-  source[:pos].to_string() + replacement + source[pos + 1:].to_string()
+  source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 
 // ─── 40 realistic defs ───────────────────────────────────────────────────────

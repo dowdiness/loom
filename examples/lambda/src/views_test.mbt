@@ -48,7 +48,7 @@ test "IntLiteralView::value returns parsed integer" {
     Some(v) => v
     None => abort("expected IntLiteral")
   }
-  inspect(view.value(), content="Some(42)")
+  debug_inspect(view.value(), content="Some(42)")
 }
 
 ///|
@@ -149,7 +149,7 @@ test "LetDefView with params" {
   let def = LetDefView::cast(let_defs[0]).unwrap()
   inspect(def.name(), content="f")
   inspect(!def.params().is_empty(), content="true")
-  inspect(
+  debug_inspect(
     def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
     content="Some(BinaryExpr)",
   )
@@ -167,7 +167,7 @@ test "LetDefView without params unchanged" {
   let def = LetDefView::cast(let_defs[0]).unwrap()
   inspect(def.name(), content="x")
   inspect(def.params().is_empty(), content="true")
-  inspect(
+  debug_inspect(
     def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
     content="Some(IntLiteral)",
   )

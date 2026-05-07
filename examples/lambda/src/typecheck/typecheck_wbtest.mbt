@@ -295,7 +295,9 @@ test "Show TypeDiagnostic: without def_name" {
 ///|
 test "TypeEnv lookup: shadowing" {
   let env = TypeEnv::Empty.extend("x", TInt).extend("x", TUnit)
-  inspect(env.lookup("x"), content="Some(Unit)")
+  debug_inspect(env.lookup("x"), content=(
+    #|Some(TUnit)
+  ))
 }
 
 ///|
@@ -508,7 +510,7 @@ test "incremental: diagnostics propagate through pipeline" {
   inspect(result.def_types[0].1.had_error, content="true")
   // Diagnostics should be tagged with def name
   inspect(result.all_diagnostics.length() > 0, content="true")
-  inspect(result.all_diagnostics[0].def_name, content="Some(\"a\")")
+  debug_inspect(result.all_diagnostics[0].def_name, content="Some(\"a\")")
   scope.dispose()
 }
 
@@ -529,7 +531,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.get_result().unwrap()
   inspect(r1.all_diagnostics.length(), content="1")
-  inspect(r1.all_diagnostics[0].def_name, content="Some(\"a\")")
+  debug_inspect(r1.all_diagnostics[0].def_name, content="Some(\"a\")")
   // Fix `a` — diagnostic should disappear. Same def names, no rebuild.
   let module_v2 = TypedTerm::Module(
     [("a", ok_a), ("b", ok_b)],
@@ -547,7 +549,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
   term_signal.set(module_v3)
   let r3 = result_memo.get_result().unwrap()
   inspect(r3.all_diagnostics.length(), content="1")
-  inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
+  debug_inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
   scope.dispose()
 }
 
@@ -803,7 +805,7 @@ test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
     .filter(fn(d) { d.message.contains("duplicate top-level definition") })
     .collect()
   inspect(dup_messages.length(), content="1")
-  inspect(dup_messages[0].def_name, content="Some(\"a\")")
+  debug_inspect(dup_messages[0].def_name, content="Some(\"a\")")
   scope.dispose()
 }
 

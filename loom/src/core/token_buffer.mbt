@@ -428,7 +428,7 @@ fn[T] TokenBuffer::tokenize_range_impl(
     raise LexError("Invalid range")
   }
   let slice = source[start:end]
-  let slice_tokens = (self.tokenize_fn)(slice.to_string())
+  let slice_tokens = (self.tokenize_fn)(slice.to_owned())
   // tokenize_fn contract: EOF is always last — skip it.
   let result : Array[TokenInfo[T]] = []
   for i = 0; i < slice_tokens.length() - 1; i = i + 1 {
@@ -544,11 +544,11 @@ fn[T] tokenize_resilient(
       let mut pos = 0
       while pos < source.length() {
         let remaining : StringView = source[pos:source.length()]
-        let rem = remaining.to_string()
+        let rem = remaining.to_owned()
         let prefix_len = longest_lexable_prefix_len(rem, tokenize_fn)
         if prefix_len > 0 {
           let prefix : StringView = rem[0:prefix_len]
-          let prefix_tokens = tokenize_fn(prefix.to_string()) catch { _ => [] }
+          let prefix_tokens = tokenize_fn(prefix.to_owned()) catch { _ => [] }
           for i = 0; i < prefix_tokens.length() - 1; i = i + 1 {
             result.push(prefix_tokens[i])
           }
@@ -684,7 +684,7 @@ fn[T] longest_lexable_prefix_len(
   for len = s.length(); len > 0; len = len - 1 {
     let prefix : StringView = s[0:len]
     let ok = try {
-      let _ = tokenize_fn(prefix.to_string())
+      let _ = tokenize_fn(prefix.to_owned())
       true
     } catch {
       LexError(_) => false

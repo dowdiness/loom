@@ -457,7 +457,7 @@ pub fn build_tree(
         }
       }
       Token(kind, text) => {
-        let token = CstToken::new(kind, text)
+        let token = CstToken::CstToken(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent

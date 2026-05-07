@@ -9,7 +9,7 @@ fn make_reuse_subtree(size : Int) -> CstNode {
   let children : Array[CstElement] = Array::new(capacity=size)
   for i = 0; i < size; i = i + 1 {
     children.push(
-      CstElement::Token(CstToken::new(RawKind(9), "tok" + i.to_string())),
+      CstElement::Token(CstToken::CstToken(RawKind(9), "tok" + i.to_string())),
     )
   }
   CstNode::new(RawKind(21), children)

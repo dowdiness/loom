@@ -34,7 +34,7 @@ test "phase4: correctness on 50+ token input - localized edit" {
   // Edit only the last letter "z" -> "1"
   let len = source.length()
   let edit = @core.Edit::replace(len - 1, len, len)
-  let new_source = source[0:len - 1].to_string() + "1"
+  let new_source = source[0:len - 1].to_owned() + "1"
   let incr_tree = parser.edit(edit, new_source)
   let full_tree = parse(new_source) catch { _ => abort("parse failed") }
 

@@ -339,7 +339,7 @@ test "each: early termination finds first Ident" {
       _ => true
     }
   })
-  inspect(found, content="Some(\"add\")")
+  debug_inspect(found, content="Some(\"add\")")
 }
 
 ///|

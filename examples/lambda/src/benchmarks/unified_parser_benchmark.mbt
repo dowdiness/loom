@@ -95,9 +95,9 @@ test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
     Some(i) => i + 4
     None => abort("test setup: '+ 1' not found in source")
   }
-  let flipped = s1[0:target].to_string() +
+  let flipped = s1[0:target].to_owned() +
     "2" +
-    s1[target + 1:s1.length()].to_string()
+    s1[target + 1:s1.length()].to_owned()
   b.bench(fn() {
     parser.apply_edit(@core.Edit::new(target, 1, 1), flipped)
     let _ = rt.read(parser.ast())

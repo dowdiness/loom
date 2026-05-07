@@ -76,7 +76,7 @@ fn make_nested_application(depth : Int) -> String {
 ///|
 /// Apply a single-char insert at a position, returning (new_source, edit).
 fn slice(s : String, start : Int, end : Int) -> String {
-  s[start:end].to_string()
+  s[start:end].to_owned()
 }
 
 ///|

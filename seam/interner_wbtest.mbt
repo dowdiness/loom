@@ -49,7 +49,7 @@ test "Interner: intern_token result matches CstToken::new structurally" {
   let k = RawKind(7)
   let text = "lambda"
   let interned = interner.intern_token(k, text)
-  let direct = CstToken::new(k, text)
+  let direct = CstToken::CstToken(k, text)
   inspect(interned == direct, content="true")
 }
 

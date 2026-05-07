@@ -10,6 +10,9 @@
     "dowdiness/event-graph-walker": { "path": "../../../event-graph-walker" },
     "moonbitlang/quickcheck": "0.11.2"
   },
+  "test-deps": {
+    "moonbitlang/core": "builtin"
+  },
   "readme": "README.md",
   "repository": "https://github.com/dowdiness/loom",
   "license": "Apache-2.0",

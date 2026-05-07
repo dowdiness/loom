@@ -341,8 +341,8 @@ test "cst: token text is preserved correctly" {
     None
   }
 
-  inspect(find_first_ident(root), content="Some(\"abc\")")
-  inspect(find_first_int(root), content="Some(\"123\")")
+  debug_inspect(find_first_ident(root), content="Some(\"abc\")")
+  debug_inspect(find_first_int(root), content="Some(\"123\")")
 }
 
 // ============================================================================

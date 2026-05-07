@@ -88,7 +88,7 @@ pub impl @core.Renderable for Block with label(self) {
     Paragraph(inlines) => {
       let text = inline_text(inlines)
       if text.length() > 40 {
-        text[:40].to_string() + "..."
+        text[:40].to_owned() + "..."
       } else {
         text
       }
@@ -97,7 +97,7 @@ pub impl @core.Renderable for Block with label(self) {
     ListItem(inlines) => inline_text(inlines)
     CodeBlock(_, code) =>
       if code.length() > 30 {
-        code[:30].to_string() + "..."
+        code[:30].to_owned() + "..."
       } else {
         code
       }
@@ -182,7 +182,7 @@ pub impl @core.Renderable for Inline with kind_tag(self) {
 ///|
 pub impl @core.Renderable for Inline with label(self) {
   match self {
-    Text(s) => if s.length() > 30 { s[:30].to_string() + "..." } else { s }
+    Text(s) => if s.length() > 30 { s[:30].to_owned() + "..." } else { s }
     Bold(children) => "**" + inline_text(children) + "**"
     Italic(children) => "*" + inline_text(children) + "*"
     InlineCode(s) => "`" + s + "`"

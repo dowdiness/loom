@@ -31,7 +31,7 @@ fn realistic_markdown_doc() -> String {
 ///|
 /// Helper: replace one byte at pos in source.
 fn md_replace_at(source : String, pos : Int, replacement : String) -> String {
-  source[:pos].to_string() + replacement + source[pos + 1:].to_string()
+  source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 
 ///|
@@ -39,7 +39,7 @@ fn md_replace_at(source : String, pos : Int, replacement : String) -> String {
 /// Returns the position of the first character of the match, or -1.
 fn find_substring(source : String, target : String) -> Int {
   for i = 0; i < source.length() - target.length() + 1; i = i + 1 {
-    let sub : String = source[i:i + target.length()].to_string()
+    let sub : String = source[i:i + target.length()].to_owned()
     if sub == target {
       return i
     }

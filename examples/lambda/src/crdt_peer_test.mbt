@@ -23,7 +23,7 @@ fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
   for d in delta {
     match d {
       @core.TextDelta::Retain(n) => {
-        let s = source[cursor:cursor + n].to_string()
+        let s = source[cursor:cursor + n].to_owned()
         buf.write_string(s)
         cursor += n
       }
@@ -31,7 +31,7 @@ fn build_new_text(source : String, delta : Array[@core.TextDelta]) -> String {
       @core.TextDelta::Insert(s) => buf.write_string(s)
     }
   }
-  let tail = source[cursor:].to_string()
+  let tail = source[cursor:].to_owned()
   buf.write_string(tail)
   buf.to_string()
 }
@@ -46,9 +46,9 @@ fn apply_peer_delta(peer : Peer, delta : Array[@core.TextDelta]) -> Unit {
   let edits = @core.to_edits(delta)
   let mut current = peer.text
   for edit in edits {
-    let inserted = new_text[edit.start:edit.start + edit.new_len].to_string()
-    let prefix = current[0:edit.start].to_string()
-    let suffix = current[edit.start + edit.old_len:].to_string()
+    let inserted = new_text[edit.start:edit.start + edit.new_len].to_owned()
+    let prefix = current[0:edit.start].to_owned()
+    let suffix = current[edit.start + edit.old_len:].to_owned()
     current = prefix + inserted + suffix
     let _ = peer.parser.edit(edit, current)
   }

@@ -1,7 +1,7 @@
 ///|
 // Helpers — build minimal CstNode trees for testing.
 fn leaf(kind : Int, text : String) -> @seam.CstNode {
-  let tok = @seam.CstToken::new(@seam.RawKind(kind), text)
+  let tok = @seam.CstToken::CstToken(@seam.RawKind(kind), text)
   @seam.CstNode::new(@seam.RawKind(kind), [@seam.CstElement::Token(tok)])
 }
 

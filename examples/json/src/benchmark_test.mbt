@@ -50,7 +50,7 @@ fn make_json_array(n : Int) -> String {
 ///|
 /// Helper: replace one byte at pos.
 fn json_replace_at(source : String, pos : Int, replacement : String) -> String {
-  source[:pos].to_string() + replacement + source[pos + 1:].to_string()
+  source[:pos].to_owned() + replacement + source[pos + 1:].to_owned()
 }
 
 // ─── Object benchmarks ──────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
   let edit_target = "342"
   let mut edit_pos = -1
   for i = 0; i < source.length() - 2; i = i + 1 {
-    let ch0 : String = source[i:i + 3].to_string()
+    let ch0 : String = source[i:i + 3].to_owned()
     if ch0 == edit_target {
       edit_pos = i // position of "3" in "342"
       break
@@ -107,7 +107,7 @@ test "json: 50-member object - incremental (edit inner object)" (b : @bench.T) {
   let target = "\"inner_a\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = source[i:i + target.length()].to_string()
+    let sub : String = source[i:i + target.length()].to_owned()
     if sub == target {
       edit_pos = i + target.length() - 1 // position of "0"
       break
@@ -140,7 +140,7 @@ test "json: 100-member object - incremental (edit inner object)" (b : @bench.T) 
   let target = "\"inner_a\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = source[i:i + target.length()].to_string()
+    let sub : String = source[i:i + target.length()].to_owned()
     if sub == target {
       edit_pos = i + target.length() - 1
       break
@@ -176,7 +176,7 @@ test "json: 50-element array - incremental (edit nested object)" (b : @bench.T) 
   let target = "\"id\": 0"
   let mut edit_pos = -1
   for i = 0; i < source.length() - target.length(); i = i + 1 {
-    let sub : String = source[i:i + target.length()].to_string()
+    let sub : String = source[i:i + target.length()].to_owned()
     if sub == target {
       edit_pos = i + target.length() - 1
       break
