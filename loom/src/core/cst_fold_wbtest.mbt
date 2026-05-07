@@ -1,7 +1,7 @@
 ///|
 /// Helper: create a leaf token element.
 fn tok(kind_val : Int, text : String) -> @seam.CstElement {
-  @seam.CstElement::Token(@seam.CstToken::new(@seam.RawKind(kind_val), text))
+  @seam.CstElement::Token(@seam.CstToken::CstToken(@seam.RawKind(kind_val), text))
 }
 
 ///|

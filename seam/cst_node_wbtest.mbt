@@ -9,7 +9,7 @@ test "RawKind equality" {
 
 ///|
 test "CstToken constructor computes hash" {
-  let t = CstToken::new(RawKind(9), "hello")
+  let t = CstToken::CstToken(RawKind(9), "hello")
   inspect(t.text, content="hello")
   inspect(t.kind == RawKind(9), content="true")
   // Hash is nonzero
@@ -18,22 +18,22 @@ test "CstToken constructor computes hash" {
 
 ///|
 test "CstToken Eq is hash-based fast path" {
-  let a = CstToken::new(RawKind(9), "x")
-  let b = CstToken::new(RawKind(9), "x")
-  let c = CstToken::new(RawKind(9), "y")
+  let a = CstToken::CstToken(RawKind(9), "x")
+  let b = CstToken::CstToken(RawKind(9), "x")
+  let c = CstToken::CstToken(RawKind(9), "y")
   inspect(a == b, content="true")
   inspect(a == c, content="false")
 }
 
 ///|
 test "CstToken text_len" {
-  let t = CstToken::new(RawKind(9), "hello")
+  let t = CstToken::CstToken(RawKind(9), "hello")
   inspect(t.text_len(), content="5")
 }
 
 ///|
 test "CstNode constructor computes text_len and hash" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let node = CstNode::new(RawKind(20), [elem])
   inspect(node.text_len, content="1")
@@ -56,7 +56,7 @@ test "CstNode Eq: different kind not equal" {
 
 ///|
 test "CstElement text_len and kind" {
-  let tok = CstToken::new(RawKind(9), "hello")
+  let tok = CstToken::CstToken(RawKind(9), "hello")
   let elem = CstElement::Token(tok)
   inspect(elem.text_len(), content="5")
   inspect(elem.kind() == RawKind(9), content="true")
@@ -64,8 +64,8 @@ test "CstElement text_len and kind" {
 
 ///|
 test "CstNode token_count: no trivia_kind counts all leaf tokens" {
-  let ws_tok = CstToken::new(RawKind(11), " ")
-  let id_tok = CstToken::new(RawKind(9), "x")
+  let ws_tok = CstToken::CstToken(RawKind(11), " ")
+  let id_tok = CstToken::CstToken(RawKind(9), "x")
   let node = CstNode::new(RawKind(20), [
     CstElement::Token(id_tok),
     CstElement::Token(ws_tok),
@@ -76,8 +76,8 @@ test "CstNode token_count: no trivia_kind counts all leaf tokens" {
 ///|
 test "CstNode token_count: trivia_kind excludes whitespace" {
   let ws_kind = RawKind(11)
-  let ws_tok = CstToken::new(ws_kind, " ")
-  let id_tok = CstToken::new(RawKind(9), "x")
+  let ws_tok = CstToken::CstToken(ws_kind, " ")
+  let id_tok = CstToken::CstToken(RawKind(9), "x")
   let node = CstNode::new(
     RawKind(20),
     [CstElement::Token(id_tok), CstElement::Token(ws_tok)],
@@ -89,9 +89,9 @@ test "CstNode token_count: trivia_kind excludes whitespace" {
 ///|
 test "CstNode token_count: propagates through sub-nodes" {
   let ws_kind = RawKind(11)
-  let ws_tok = CstToken::new(ws_kind, " ")
-  let id_tok = CstToken::new(RawKind(9), "x")
-  let int_tok = CstToken::new(RawKind(10), "1")
+  let ws_tok = CstToken::CstToken(ws_kind, " ")
+  let id_tok = CstToken::CstToken(RawKind(9), "x")
+  let int_tok = CstToken::CstToken(RawKind(10), "1")
   let inner = CstNode::new(
     RawKind(19),
     [CstElement::Token(int_tok)],
@@ -129,8 +129,8 @@ test "has_errors returns false for clean node" {
 ///|
 test "CstNode::first_token: returns first non-trivia token" {
   // ws token (kind 11 = WhitespaceToken), then ident token (kind 9 = IdentToken)
-  let ws = CstToken::new(RawKind(11), " ")
-  let id = CstToken::new(RawKind(9), "x")
+  let ws = CstToken::CstToken(RawKind(11), " ")
+  let id = CstToken::CstToken(RawKind(9), "x")
   let cst = CstNode::new(RawKind(22), [
     CstElement::Token(ws),
     CstElement::Token(id),
@@ -144,7 +144,7 @@ test "CstNode::first_token: returns first non-trivia token" {
 
 ///|
 test "CstNode::first_token: descends into child nodes" {
-  let id = CstToken::new(RawKind(9), "y")
+  let id = CstToken::CstToken(RawKind(9), "y")
   let inner = CstNode::new(RawKind(20), [CstElement::Token(id)])
   let outer = CstNode::new(RawKind(22), [CstElement::Node(inner)])
   let is_trivia = fn(_k : RawKind) { false }
@@ -163,7 +163,7 @@ test "CstNode::first_token: returns None for empty node" {
 
 ///|
 test "CstNode::first_token: returns None when all tokens are trivia" {
-  let ws = CstToken::new(RawKind(11), " ")
+  let ws = CstToken::CstToken(RawKind(11), " ")
   let cst = CstNode::new(RawKind(22), [CstElement::Token(ws)])
   let is_trivia = fn(k : RawKind) { k == RawKind(11) }
   inspect(cst.first_token(is_trivia) is None, content="true")
@@ -171,9 +171,9 @@ test "CstNode::first_token: returns None when all tokens are trivia" {
 
 ///|
 test "with_replaced_child replaces correctly" {
-  let tok_a = CstToken::new(RawKind(1), "a")
-  let tok_b = CstToken::new(RawKind(2), "b")
-  let tok_c = CstToken::new(RawKind(3), "c")
+  let tok_a = CstToken::CstToken(RawKind(1), "a")
+  let tok_b = CstToken::CstToken(RawKind(2), "b")
+  let tok_c = CstToken::CstToken(RawKind(3), "c")
   let root = CstNode::new(RawKind(100), [
     CstElement::Token(tok_a),
     CstElement::Token(tok_b),
@@ -188,8 +188,8 @@ test "with_replaced_child replaces correctly" {
 
 ///|
 test "with_replaced_child recomputes metadata" {
-  let tok_a = CstToken::new(RawKind(1), "a")
-  let tok_bc = CstToken::new(RawKind(2), "bc")
+  let tok_a = CstToken::CstToken(RawKind(1), "a")
+  let tok_bc = CstToken::CstToken(RawKind(2), "bc")
   let root = CstNode::new(RawKind(100), [CstElement::Token(tok_a)])
   inspect(root.text_len, content="1")
   inspect(root.token_count, content="1")

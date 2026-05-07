@@ -25,7 +25,7 @@ fn idf_clamp(pos : Int, len : Int) -> Int {
 
 ///|
 fn idf_slice_string(s : String, start : Int, end : Int) -> String? {
-  Some(s[start:end].to_string())
+  Some(s[start:end].to_owned())
 }
 
 ///|

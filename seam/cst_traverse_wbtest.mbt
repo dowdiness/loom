@@ -1,11 +1,11 @@
 ///|
 fn make_test_tree() -> CstElement {
-  let foo = CstToken::new(RawKind(9), "foo")
-  let ws = CstToken::new(RawKind(11), " ")
-  let one = CstToken::new(RawKind(10), "1")
-  let plus = CstToken::new(RawKind(12), "+")
-  let two = CstToken::new(RawKind(10), "2")
-  let eof = CstToken::new(RawKind(13), "")
+  let foo = CstToken::CstToken(RawKind(9), "foo")
+  let ws = CstToken::CstToken(RawKind(11), " ")
+  let one = CstToken::CstToken(RawKind(10), "1")
+  let plus = CstToken::CstToken(RawKind(12), "+")
+  let two = CstToken::CstToken(RawKind(10), "2")
+  let eof = CstToken::CstToken(RawKind(13), "")
   let bin_expr = CstNode::new(RawKind(21), [
     CstElement::Token(one),
     CstElement::Token(plus),
@@ -49,7 +49,7 @@ test "transform: count nodes" {
 
 ///|
 test "transform: single token" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let result = elem.transform(t => t.text, (_k, _c) => "")
   inspect(result, content="x")
@@ -73,7 +73,7 @@ test "fold: count tokens only" {
 
 ///|
 test "fold: single token" {
-  let tok = CstToken::new(RawKind(10), "42")
+  let tok = CstToken::CstToken(RawKind(10), "42")
   let elem = CstElement::Token(tok)
   let result = elem.fold(t => t.text.length(), (a, b) => a + b, 0)
   inspect(result, content="2")
@@ -91,7 +91,7 @@ test "transform_fold: node count" {
 
 ///|
 test "transform_fold: single token" {
-  let tok = CstToken::new(RawKind(10), "7")
+  let tok = CstToken::CstToken(RawKind(10), "7")
   let elem = CstElement::Token(tok)
   let result = elem.transform_fold(t => t.text.length(), _kind => 0, (
     _kind,
@@ -133,7 +133,7 @@ test "each: early termination" {
 
 ///|
 test "each: single token" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let mut visited = false
   let _ = elem.each(_e => {
@@ -207,7 +207,7 @@ test "map: transform tokens" {
     match elem {
       CstElement::Token(t) =>
         if t.kind == RawKind(9) { // Ident
-          CstElement::Token(CstToken::new(t.kind, "bar"))
+          CstElement::Token(CstToken::CstToken(t.kind, "bar"))
         } else {
           elem
         }
@@ -234,11 +234,11 @@ test "map: transform tokens" {
 
 ///|
 test "map: single token" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let mapped = elem.map(e => {
     match e {
-      CstElement::Token(t) => CstElement::Token(CstToken::new(t.kind, "y"))
+      CstElement::Token(t) => CstElement::Token(CstToken::CstToken(t.kind, "y"))
       _ => e
     }
   })
@@ -358,7 +358,7 @@ test "find: matches node element" {
 
 ///|
 test "find: single token match" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let found = elem.find(NumberFinder::{ kind: RawKind(9) })
   match found {
@@ -369,7 +369,7 @@ test "find: single token match" {
 
 ///|
 test "find: single token no match" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let found = elem.find(NumberFinder::{ kind: RawKind(10) })
   inspect(found is None, content="true")

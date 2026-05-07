@@ -6,6 +6,9 @@
     "dowdiness/loom": { "path": "../../loom" },
     "dowdiness/seam": { "path": "../../seam" }
   },
+  "test-deps": {
+    "moonbitlang/core": "builtin"
+  },
   "license": "Apache-2.0",
   "keywords": ["markdown", "parser"],
   "description": "Markdown parser example for dowdiness/loom"

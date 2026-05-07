@@ -136,7 +136,7 @@ fn lex_line_start(
         (
           Produced(
             @core.TokenInfo::new(
-              CodeFenceOpen(n, info.to_string()),
+              CodeFenceOpen(n, info.to_owned()),
               info_end - pos,
             ),
             next_offset=info_end,
@@ -223,7 +223,7 @@ fn lex_inline(
       let text : StringView = input[pos:end]
       (
         Produced(
-          @core.TokenInfo::new(Text(text.to_string()), end - pos),
+          @core.TokenInfo::new(Text(text.to_owned()), end - pos),
           next_offset=end,
         ),
         Inline,
@@ -250,7 +250,7 @@ fn emit_code_text_line(
   let text : StringView = input[pos:line_end]
   (
     Produced(
-      @core.TokenInfo::new(CodeText(text.to_string()), line_end - pos),
+      @core.TokenInfo::new(CodeText(text.to_owned()), line_end - pos),
       next_offset=line_end,
     ),
     CodeBlock(fence_len),

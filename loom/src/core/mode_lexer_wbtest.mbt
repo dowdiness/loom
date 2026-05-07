@@ -60,8 +60,8 @@ fn mock_lex_step(
       }
       let text : StringView = input[pos:end]
       let token = match mode {
-        Normal => Text(text.to_string())
-        StringMode => StringContent(text.to_string())
+        Normal => Text(text.to_owned())
+        StringMode => StringContent(text.to_owned())
       }
       (Produced(TokenInfo::new(token, end - pos), next_offset=end), mode)
     }

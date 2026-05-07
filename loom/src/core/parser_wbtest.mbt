@@ -459,7 +459,7 @@ test "new_follow_token_with_pos: finds first non-trivia token at or after offset
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 2)
-  inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
+  debug_inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
 }
 
 ///|
@@ -480,7 +480,7 @@ test "new_follow_token_with_pos: skips leading trivia" {
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 1)
-  inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
+  debug_inspect(result.map(fn(pair) { pair.0 }), content="Some(Plus)")
 }
 
 ///|
@@ -501,7 +501,7 @@ test "new_follow_token_with_pos: returns None past end of tokens" {
     test_spec,
   )
   let result = new_follow_token_with_pos(cursor, 5)
-  inspect(result.map(fn(pair) { pair.0 }), content="None")
+  inspect(result.map(fn(pair) { pair.0 }) is None, content="true")
 }
 
 ///|

@@ -571,7 +571,7 @@ fn peek_text(
     if t.is_trivia() {
       pos = pos + 1
     } else {
-      return ctx.token_text_at(pos).to_string()
+      return ctx.token_text_at(pos).to_owned()
     }
   }
   ""

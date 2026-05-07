@@ -28,16 +28,14 @@ pub(all) struct CstToken {
   kind : RawKind
   text : String
   hash : Int
-
-  fn new(kind : RawKind, text : StringView) -> CstToken
 } derive(Debug)
 
 ///|
 /// Create a CstToken. Hash is computed from kind and text.
-pub fn CstToken::new(kind : RawKind, text : StringView) -> CstToken {
+pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
   let RawKind(k) = kind
   let h = combine_hash(k, string_hash(text))
-  { kind, text: text.to_string(), hash: h }
+  { kind, text: text.to_owned(), hash: h }
 }
 
 ///|

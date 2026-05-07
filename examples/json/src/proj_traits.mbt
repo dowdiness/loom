@@ -45,14 +45,14 @@ pub impl @core.Renderable for JsonValue with label(self) {
     Number(n) => {
       let s = n.to_string()
       if s.has_suffix(".0") {
-        s[0:s.length() - 2].to_string()
+        s[0:s.length() - 2].to_owned()
       } else {
         s
       }
     }
     String(s) =>
       if s.length() > 20 {
-        "\"" + s[0:20].to_string() + "...\""
+        "\"" + s[0:20].to_owned() + "...\""
       } else {
         "\"" + s + "\""
       }
@@ -88,7 +88,7 @@ fn json_unparse(value : JsonValue, depth : Int) -> String {
     Number(n) => {
       let s = n.to_string()
       if s.has_suffix(".0") {
-        s[0:s.length() - 2].to_string()
+        s[0:s.length() - 2].to_owned()
       } else {
         s
       }

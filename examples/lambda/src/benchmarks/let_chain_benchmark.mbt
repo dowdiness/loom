@@ -304,7 +304,7 @@ test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
   let tail = "(\u{03BB}g.g)\nx19"
   let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
   let edited_tail = "(\u{03BB}g.f)\nx19"
-  let prefix = source[:source.length() - tail.length()].to_string()
+  let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
@@ -335,7 +335,7 @@ test "let-chain: 20 lambda lets - reuse count" {
   let tail = "(\u{03BB}g.g)\nx19"
   let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
   let edited_tail = "(\u{03BB}g.f)\nx19"
-  let prefix = source[:source.length() - tail.length()].to_string()
+  let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)

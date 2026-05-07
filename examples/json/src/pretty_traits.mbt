@@ -48,7 +48,7 @@ fn json_to_layout(value : JsonValue) -> @pretty.Layout[@pretty.SyntaxCategory] {
     Number(n) => {
       let s = n.to_string()
       let display = if s.has_suffix(".0") {
-        s[0:s.length() - 2].to_string()
+        s[0:s.length() - 2].to_owned()
       } else {
         s
       }

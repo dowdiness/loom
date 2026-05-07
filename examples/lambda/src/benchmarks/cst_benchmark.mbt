@@ -4,7 +4,7 @@
 
 ///|
 fn make_ident_token(text : String) -> @seam.CstToken {
-  @seam.CstToken::new(@seam.RawKind(9), text)
+  @seam.CstToken::CstToken(@seam.RawKind(9), text)
 }
 
 ///|

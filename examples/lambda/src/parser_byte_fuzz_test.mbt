@@ -78,7 +78,7 @@ fn bf_slice(s : String, start : Int, end : Int) -> String {
   if start < 0 || end < start || start > s.length() || end > s.length() {
     return ""
   }
-  s[start:end].to_string()
+  s[start:end].to_owned()
 }
 
 ///|

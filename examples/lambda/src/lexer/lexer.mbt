@@ -237,7 +237,7 @@ pub fn tokenize_range(
   end : Int,
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
   let slice = input[start:end]
-  let tokens = tokenize(slice.to_string())
+  let tokens = tokenize(slice.to_owned())
   // Tokens are position-independent — no offset adjustment needed.
   // Just strip the trailing EOF.
   let result : Array[@core.TokenInfo[@token.Token]] = []

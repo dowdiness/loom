@@ -2,12 +2,12 @@
 
 ///|
 fn make_trait_test_tree() -> CstElement {
-  let foo = CstToken::new(RawKind(9), "foo")
-  let ws = CstToken::new(RawKind(11), " ")
-  let one = CstToken::new(RawKind(10), "1")
-  let plus = CstToken::new(RawKind(12), "+")
-  let two = CstToken::new(RawKind(10), "2")
-  let eof = CstToken::new(RawKind(13), "")
+  let foo = CstToken::CstToken(RawKind(9), "foo")
+  let ws = CstToken::CstToken(RawKind(11), " ")
+  let one = CstToken::CstToken(RawKind(10), "1")
+  let plus = CstToken::CstToken(RawKind(12), "+")
+  let two = CstToken::CstToken(RawKind(10), "2")
+  let eof = CstToken::CstToken(RawKind(13), "")
   let bin_expr = CstNode::new(RawKind(21), [
     CstElement::Token(one),
     CstElement::Token(plus),
@@ -39,7 +39,7 @@ test "accept_fold[TextLen]: matches CstNode.text_len" {
 
 ///|
 test "accept_fold[TextLen]: single token" {
-  let tok = CstToken::new(RawKind(9), "hello")
+  let tok = CstToken::CstToken(RawKind(9), "hello")
   let elem = CstElement::Token(tok)
   let result : TextLen = elem.accept_fold()
   inspect(result, content="TextLen(5)")
@@ -65,7 +65,7 @@ test "accept_transform_fold[NodeCount]: counts all elements" {
 
 ///|
 test "accept_transform_fold[NodeCount]: single token" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   let result : NodeCount = elem.accept_transform_fold()
   inspect(result, content="NodeCount(1)")
@@ -85,7 +85,7 @@ test "accept_transform_fold[NodeCount]: empty node counts itself" {
 /// Build a large tree for benchmarking: depth levels, branching children per node.
 fn generate_large_cst(depth : Int, branching : Int) -> CstElement {
   if depth <= 0 {
-    CstElement::Token(CstToken::new(RawKind(9), "leaf"))
+    CstElement::Token(CstToken::CstToken(RawKind(9), "leaf"))
   } else {
     let children = Array::new(capacity=branching)
     for i = 0; i < branching; i = i + 1 {
@@ -188,14 +188,14 @@ test "token_count: filters trivia" {
 
 ///|
 test "token_count: single token non-trivia" {
-  let tok = CstToken::new(RawKind(9), "x")
+  let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
   inspect(elem.token_count(RawKind(11)), content="1")
 }
 
 ///|
 test "token_count: single token trivia" {
-  let tok = CstToken::new(RawKind(11), " ")
+  let tok = CstToken::CstToken(RawKind(11), " ")
   let elem = CstElement::Token(tok)
   inspect(elem.token_count(RawKind(11)), content="0")
 }
