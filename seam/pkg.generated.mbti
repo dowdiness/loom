@@ -66,9 +66,8 @@ pub(all) struct CstToken {
   kind : RawKind
   text : String
   hash : Int
-
-  fn new(RawKind, StringView) -> CstToken
 } derive(@debug.Debug)
+pub fn CstToken::CstToken(RawKind, StringView) -> Self
 pub fn CstToken::new(RawKind, StringView) -> Self
 pub fn CstToken::text_len(Self) -> Int
 pub impl Eq for CstToken
@@ -89,22 +88,16 @@ pub fn EventBuffer::truncate(Self, Int) -> Unit
 
 pub struct Interner(@hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]])
 pub fn Interner::clear(Self) -> Unit
-#deprecated
-pub fn Interner::inner(Self) -> @hashmap.HashMap[RawKind, @hashmap.HashMap[StringView, CstToken]]
 pub fn Interner::intern_token(Self, RawKind, StringView) -> CstToken
 pub fn Interner::new() -> Self
 pub fn Interner::size(Self) -> Int
 
 pub(all) struct NodeCount(Int) derive(@debug.Debug)
-#deprecated
-pub fn NodeCount::inner(Self) -> Int
 pub impl TransformFolder for NodeCount
 pub impl Show for NodeCount
 
 pub struct NodeInterner(@hashmap.HashMap[CstNode, CstNode])
 pub fn NodeInterner::clear(Self) -> Unit
-#deprecated
-pub fn NodeInterner::inner(Self) -> @hashmap.HashMap[CstNode, CstNode]
 pub fn NodeInterner::intern_node(Self, CstNode) -> CstNode
 pub fn NodeInterner::new() -> Self
 pub fn NodeInterner::size(Self) -> Int
@@ -118,8 +111,6 @@ pub(all) enum ParseEvent {
 } derive(Eq, @debug.Debug)
 
 pub(all) struct RawKind(Int) derive(Compare, Eq, Hash, @debug.Debug)
-#deprecated
-pub fn RawKind::inner(Self) -> Int
 pub impl Show for RawKind
 
 pub(all) enum SyntaxElement {
@@ -173,8 +164,6 @@ pub fn SyntaxToken::text(Self) -> String
 pub impl Show for SyntaxToken
 
 pub(all) struct TextLen(Int) derive(@debug.Debug)
-#deprecated
-pub fn TextLen::inner(Self) -> Int
 pub impl Folder for TextLen
 pub impl Show for TextLen
 
