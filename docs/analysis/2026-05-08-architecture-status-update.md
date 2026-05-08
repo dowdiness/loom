@@ -2,6 +2,8 @@
 
 **Status:** Point-in-time delta. Builds on [2026-04-19 architecture diagnosis](2026-04-19-architecture-diagnosis.md); does not replace it. The 2026-04-19 doc is the baseline; this file records what shipped, what changed, and one factual correction.
 
+**Update 2026-05-08 (end of day):** Items 1–3 of the revised Stage C plan below all shipped (loom #104 + #105, alga #33, canopy #233). Only Item 4 (facade deletion) remains from this update's queue. The doc is preserved unchanged below as the planning record at the time of writing — see the note at the top of `## Recommended first bite` for what was actually executed.
+
 **Headline:** No new architectural pressure has emerged. The 2026-04-19 plan still applies, with one stage revised: **`egraph/` is a peer library, not a research module.** It must not be relocated to `experiments/`.
 
 ---
@@ -55,6 +57,11 @@ Stage B (#60 `CstNode::each` extraction) remains deferred per ROADMAP. Stage D (
 ---
 
 ## Recommended first bite
+
+> **Execution record (end of 2026-05-08):** Items 1–3 below all shipped.
+> - Item 1: loom [#104](https://github.com/dowdiness/loom/pull/104) (cst-transform delete) + alga [#33](https://github.com/dowdiness/alga/pull/33) (link repoint) + canopy [#233](https://github.com/dowdiness/canopy/pull/233) (paired pointer bumps).
+> - Items 2–3: loom [#105](https://github.com/dowdiness/loom/pull/105) bundled with the egraph [#12](https://github.com/dowdiness/egraph/pull/12) and egglog [#9](https://github.com/dowdiness/egglog/pull/9) submodule PRs.
+> - Item 4 remains the only open queue item.
 
 **Item 1: delete `cst-transform/`.** Highest payoff per hour, lowest risk, unblocks closing ROADMAP #62. Items 2 and 3 (peer-library README sections) can ride in adjacent PRs.
 
