@@ -32,18 +32,11 @@ pub(all) struct CstToken {
 
 ///|
 /// Create a CstToken. Hash is computed from kind and text.
+#alias(new, deprecated="Use CstToken::CstToken(kind, text) instead")
 pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
   let RawKind(k) = kind
   let h = combine_hash(k, string_hash(text))
   { kind, text: text.to_owned(), hash: h }
-}
-
-///|
-/// Forwarding alias for `CstToken::CstToken`. Preserves the documented
-/// `CstToken::new(kind, text)` public API as a stable entry point for
-/// downstream packages.
-pub fn CstToken::new(kind : RawKind, text : StringView) -> CstToken {
-  CstToken::CstToken(kind, text)
 }
 
 ///|
