@@ -1,6 +1,6 @@
 // cst_traverse.mbt — Traversal methods for CstElement.
 //
-// Three tiers, each benchmarked (see cst-transform/REPORT.md):
+// Three tiers, each benchmarked (see docs/performance/2026-03-30-cst-traversal-tiers.md):
 //   1. Closure methods: transform, fold, transform_fold, each, iter, map (~1.0–1.35x)
 //   2. Finder trait: statically-dispatched DFS search (~1.0x)
 //   3. Hand-written: parameterized queries like token_count (~1.0x always)

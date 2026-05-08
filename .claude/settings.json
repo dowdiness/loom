@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd loom && moon check && moon test && cd ../seam && moon check && moon test && cd ../incr && moon check && moon test && cd ../examples/lambda && moon check && moon test && cd ../examples/json && moon check && moon test && cd ../cst-transform && moon check && moon test",
+            "command": "cd loom && moon check && moon test && cd ../seam && moon check && moon test && cd ../incr && moon check && moon test && cd ../examples/lambda && moon check && moon test && cd ../examples/json && moon check && moon test",
             "timeout": 300
           }
         ]

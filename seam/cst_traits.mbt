@@ -4,8 +4,8 @@
 // structs. Folder achieves ~1.0x vs hand-written when leaf work is non-trivial
 // (e.g., TextLen). TransformFolder has ~1.6x overhead due to missing trait
 // method body inlining (fixed per-element call frame cost, independent of
-// the wrapper type). See cst-transform/REPORT.md and
-// docs/performance/2026-03-31-map-specialization.md.
+// the wrapper type). See docs/performance/2026-03-30-cst-traversal-tiers.md
+// and docs/performance/2026-03-31-map-specialization.md.
 
 ///|
 /// Monoid fold over leaves. Branches contribute `fold_empty()`.

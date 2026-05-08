@@ -78,6 +78,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 
 Point-in-time diagnoses. Dated snapshots — verify against current code before acting.
 
+- [analysis/2026-05-08-architecture-status-update.md](analysis/2026-05-08-architecture-status-update.md) — delta on the 2026-04-19 diagnosis: what shipped, revised Stage C (egraph stays as peer library — supersedes prior `experiments/` proposal)
 - [analysis/2026-04-19-architecture-diagnosis.md](analysis/2026-04-19-architecture-diagnosis.md) — change pressures, sibling-module boundary issues, staged migration proposal (Stages A–D)
 
 ## Performance
@@ -87,6 +88,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
 - [performance/incremental-overhead.md](performance/incremental-overhead.md) — incremental parser overhead analysis and low-hanging-fruit waste elimination opportunities
 - [performance/grammar-design-for-incremental.md](performance/grammar-design-for-incremental.md) — grammar shapes that help/hurt incremental parsing: flat > left-recursive > balanced > right-recursive
+- [performance/2026-03-30-cst-traversal-tiers.md](performance/2026-03-30-cst-traversal-tiers.md) — feasibility report for the three traversal tiers (closures, Folder/TransformFolder, MutVisitor); drove the seam port and motivated removing the original `cst-transform/` sandbox
 - [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
 - [../BENCHMARKS.md](../BENCHMARKS.md) — benchmark results and raw data (root-level)
 - [../bench-check.sh](../bench-check.sh) — regression guard (`--update` to refresh baseline)

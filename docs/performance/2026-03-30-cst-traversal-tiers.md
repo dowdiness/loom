@@ -1,4 +1,6 @@
-# CST Transform Library — Feasibility Report
+# CST Traversal Tiers — Feasibility Report (2026-03-30)
+
+> **Archival note (2026-05-08):** Originally `cst-transform/REPORT.md` in the now-deleted research sandbox. The recommendations here drove the 2026-03-30 port into `seam/cst_traverse.mbt` and `seam/cst_traits.mbt`; the sandbox itself was removed per ROADMAP #62 once production code stabilized. The "File Structure" section at the bottom describes the deleted package and is preserved verbatim as historical record.
 
 ## Summary
 
