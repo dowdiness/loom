@@ -14,7 +14,6 @@ cd seam && moon check && moon test    # 351 tests
 cd incr && moon check && moon test    # 508 tests
 cd examples/lambda && moon check && moon test   # 405 tests
 cd examples/json && moon check && moon test     # JSON parser
-cd cst-transform && moon check && moon test     # CST transform research
 ```
 
 Before every commit (in the module you edited):
@@ -30,7 +29,6 @@ bash check-docs.sh
 Benchmarks (always `--release`):
 ```bash
 cd examples/lambda && moon bench --release
-cd cst-transform && moon bench --release
 ```
 
 Run a single package or file:
@@ -62,8 +60,6 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 **`dowdiness/incr`** (`incr/`) — reactive signals (`Signal`, `Memo`) [submodule]
 
-**`dowdiness/cst-transform`** (`cst-transform/`) — research: CST traversal traits + closure methods
-
 **`dowdiness/json`** (`examples/json/`) — JSON parser example (deps: loom, seam)
 
 **`dowdiness/lambda`** (`examples/lambda/`) — lambda calculus parser example:
@@ -81,7 +77,7 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 **Unified pipeline (post Stage 6, 2026-04-17):** `Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST + diagnostics as `@incr.Signal` / `@incr.Memo` cells. `ReactiveParser` was removed in commit d85d5ff; prior ADRs about `TokenStage` (2026-02-27, 2026-03-15) and the two-parser design (2026-03-02) are superseded by `docs/decisions/2026-04-17-unified-parser-proposal.md`.
 
-**CST traversal primitives (seam/cst_traverse.mbt, 2026-03-30 port from cst-transform):** closure methods `transform`, `fold`, `transform_fold`, `each`, `iter`, `map` + `Finder` trait (statically dispatched). ROADMAP #58/#59/#60 extend this with `Folder`/`TransformFolder`/`MutVisitor` traits for hot paths where closure upvar capture costs ~2×. **Do not claim "no CST traversal abstraction exists" — it does.**
+**CST traversal primitives (seam/cst_traverse.mbt + seam/cst_traits.mbt, ported 2026-03-30 from a feasibility sandbox now removed; see `docs/performance/2026-03-30-cst-traversal-tiers.md`):** closure methods `transform`, `fold`, `transform_fold`, `each`, `iter`, `map` + `Finder`/`Folder`/`TransformFolder` traits (statically dispatched). ROADMAP #59/#60 cover remaining extensions. **Do not claim "no CST traversal abstraction exists" — it does.**
 
 **Two-tree model:** `CstNode` (immutable, position-independent, structurally shareable) +
 `SyntaxNode` (ephemeral positioned facade). All callers use `SyntaxNode`; `.cst` is private.

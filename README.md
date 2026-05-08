@@ -23,7 +23,6 @@ Sibling modules (see each module's README for scope and status):
 | Module | Path | Purpose |
 |--------|------|---------|
 | [`dowdiness/pretty`](pretty/) | `pretty/` | Wadler-Lindig pretty-printer (generic `Layout[A]`, annotations) — used by `examples/json` |
-| [`dowdiness/cst-transform`](cst-transform/) | `cst-transform/` | CST traversal research sandbox — production traits live in `seam/` |
 | [`dowdiness/egraph`](egraph/) | `egraph/` | Equality graph for equality saturation |
 | [`dowdiness/egglog`](egglog/) | `egglog/` | Relational e-graph engine (Datalog + equality saturation) |
 

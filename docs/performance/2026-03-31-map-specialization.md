@@ -24,7 +24,7 @@ less work (no closure dispatch on Node elements).
 
 The wasm-gc compiler monomorphizes closures by type. The narrower
 `(CstToken) -> CstToken` signature produced different (worse) codegen than
-`(CstElement) -> CstElement`. This aligns with the cst-transform research
+`(CstElement) -> CstElement`. This aligns with the CST traversal research
 finding: **allocation is the dominant cost in wasm-gc, not closure dispatch**.
 The ~1.10x overhead from indirect `call_ref` is a reliable floor that
 specialization cannot meaningfully reduce.
