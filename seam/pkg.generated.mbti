@@ -68,6 +68,7 @@ pub(all) struct CstToken {
   hash : Int
 } derive(@debug.Debug)
 pub fn CstToken::CstToken(RawKind, StringView) -> Self
+#deprecated
 pub fn CstToken::new(RawKind, StringView) -> Self
 pub fn CstToken::text_len(Self) -> Int
 pub impl Eq for CstToken

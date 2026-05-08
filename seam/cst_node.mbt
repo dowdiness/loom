@@ -42,6 +42,7 @@ pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
 /// Forwarding alias for `CstToken::CstToken`. Preserves the documented
 /// `CstToken::new(kind, text)` public API as a stable entry point for
 /// downstream packages.
+#deprecated("Use CstToken::CstToken(kind, text) instead")
 pub fn CstToken::new(kind : RawKind, text : StringView) -> CstToken {
   CstToken::CstToken(kind, text)
 }
