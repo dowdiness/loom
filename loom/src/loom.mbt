@@ -5,25 +5,56 @@
 // (Parser, ImperativeParser, Edit, Diagnostic).
 
 ///|
-// CST types — grammar callbacks receive SyntaxNode; the full green tree is CstNode.
+// CST types and traits — grammar callbacks receive SyntaxNode; the full green tree is CstNode.
 pub using @seam {
+  type CstElement,
   type CstNode,
+  type CstToken,
+  type Interner,
+  type NodeInterner,
+  type ParseEvent,
+  type RawKind,
+  type SyntaxElement,
   type SyntaxNode,
   type SyntaxToken,
-  type SyntaxElement,
+  trait FromRawKind,
+  trait IsEof,
+  trait IsError,
+  trait IsTrivia,
+  trait ToRawKind,
+  build_tree,
+  build_tree_fully_interned,
+  build_tree_interned,
 }
 
 ///|
 // Core parser primitives
 pub using @core {
-  type Edit,
-  type TokenInfo,
-  type Diagnostic,
-  type LanguageSpec,
-  type ParserContext,
-  type TextDelta,
-  type LexError,
   type BlockReparseSpec,
+  type Diagnostic,
+  type Edit,
+  type LanguageSpec,
+  type LexError,
+  type LexStep,
+  type ModeLexer,
+  type ModeRelexState,
+  type ParserContext,
+  type PrefixLexer,
+  type Range,
+  type ReuseCursor,
+  type TextDelta,
+  type TokenBuffer,
+  type TokenInfo,
+  trait Renderable,
+  trait TreeNode,
+  build_starts,
+  erase_mode_lexer,
+  format_diagnostic,
+  parse_tokens_indexed,
+  text_to_delta,
+  to_edits,
+  tokenize_via_steps,
+  tokenize_with_modes,
 }
 
 ///|

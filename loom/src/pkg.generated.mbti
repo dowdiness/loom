@@ -10,9 +10,31 @@ import {
 }
 
 // Values
+pub fn[T] build_starts(Array[@core.TokenInfo[T]]) -> Array[Int]
+
+pub fn build_tree(Array[@seam.ParseEvent], @seam.RawKind, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+
+pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, @seam.NodeInterner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+
+pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+
+pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
+
+pub fn[T] format_diagnostic(@core.Diagnostic[T]) -> String
+
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
+
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : Array[@core.Diagnostic[T]]?) -> (@seam.CstNode, Array[@core.Diagnostic[T]], Int)
+
+pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
+
+pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
+
+pub fn[T] tokenize_via_steps((String, Int) -> @core.LexStep[T], String, T) -> Array[@core.TokenInfo[T]] raise @core.LexError
+
+pub fn[T, M] tokenize_with_modes(@core.ModeLexer[T, M], String, T) -> (Array[@core.TokenInfo[T]], Array[M]) raise @core.LexError
 
 // Errors
 
@@ -33,9 +55,13 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, 
 // Type aliases
 pub using @core {type BlockReparseSpec}
 
+pub using @seam {type CstElement}
+
 pub using @core {type CstFold}
 
 pub using @seam {type CstNode}
+
+pub using @seam {type CstToken}
 
 pub using @core {type Diagnostic}
 
@@ -45,13 +71,33 @@ pub using @core {type FoldStats}
 
 pub using @incremental {type ImperativeParser}
 
+pub using @seam {type Interner}
+
 pub using @core {type LanguageSpec}
 
 pub using @core {type LexError}
 
+pub using @core {type LexStep}
+
+pub using @core {type ModeLexer}
+
+pub using @core {type ModeRelexState}
+
+pub using @seam {type NodeInterner}
+
+pub using @seam {type ParseEvent}
+
 pub using @pipeline {type Parser}
 
 pub using @core {type ParserContext}
+
+pub using @core {type PrefixLexer}
+
+pub using @core {type Range}
+
+pub using @seam {type RawKind}
+
+pub using @core {type ReuseCursor}
 
 pub using @seam {type SyntaxElement}
 
@@ -61,9 +107,25 @@ pub using @seam {type SyntaxToken}
 
 pub using @core {type TextDelta}
 
+pub using @core {type TokenBuffer}
+
 pub using @core {type TokenInfo}
 
 pub using @core {trait AstView}
+
+pub using @seam {trait FromRawKind}
+
+pub using @seam {trait IsEof}
+
+pub using @seam {trait IsError}
+
+pub using @seam {trait IsTrivia}
+
+pub using @core {trait Renderable}
+
+pub using @seam {trait ToRawKind}
+
+pub using @core {trait TreeNode}
 
 // Traits
 
