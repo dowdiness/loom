@@ -87,6 +87,7 @@ test "quick start: strict parse raises nothing for valid JSON" {
 incremental parsing, error recovery, and subtree block reparse:
 
 ```mbt nocheck
+///|
 pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Grammar::new(
   spec=json_spec,
   tokenize~,
@@ -101,6 +102,7 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Gramm
 ## `JsonValue`
 
 ```mbt nocheck
+///|
 pub(all) enum JsonValue {
   Null
   Bool(Bool)

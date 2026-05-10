@@ -6,6 +6,11 @@ fn is_digit(code : Int) -> Bool {
 }
 
 ///|
+fn is_digit_char(ch : Char) -> Bool {
+  is_digit(ch.to_int())
+}
+
+///|
 fn is_hex_digit(code : Int) -> Bool {
   (code >= 48 && code <= 57) ||
   (code >= 65 && code <= 70) ||
@@ -18,39 +23,37 @@ fn is_whitespace_char(c : Char) -> Bool {
 }
 
 ///|
-fn read_string(input : String, pos : Int) -> (Int, String?) {
-  // pos points at the opening '"'
-  let mut i = pos + 1
-  let len = input.length()
-  while i < len {
-    let code = input.code_unit_at(i).to_int()
-    match code.to_char() {
+fn read_string(cursor : @core.LexCursor) -> String? {
+  // cursor points at the opening '"'
+  ignore(cursor.consume_char('"'))
+  while !cursor.is_done() {
+    match cursor.peek() {
       Some('"') => {
-        let end = i + 1
-        return (end, None)
+        ignore(cursor.advance_char())
+        return None
       }
       Some('\\') => {
         // Skip escape sequence
-        i = i + 1
-        if i >= len {
-          return (i, Some("unterminated string"))
+        ignore(cursor.advance_char())
+        if cursor.is_done() {
+          return Some("unterminated string")
         }
-        let esc_code = input.code_unit_at(i).to_int()
-        match esc_code.to_char() {
+        match cursor.peek() {
           Some('u') => {
             // \uXXXX — need 4 hex digits
-            i = i + 1
+            ignore(cursor.advance_char())
             let mut hex_count = 0
-            while hex_count < 4 && i < len {
-              if is_hex_digit(input.code_unit_at(i).to_int()) {
-                hex_count = hex_count + 1
-                i = i + 1
-              } else {
-                break
+            while hex_count < 4 {
+              match cursor.peek() {
+                Some(ch) if is_hex_digit(ch.to_int()) => {
+                  ignore(cursor.advance_char())
+                  hex_count = hex_count + 1
+                }
+                _ => break
               }
             }
             if hex_count != 4 {
-              return (i, Some("Invalid \\u escape"))
+              return Some("Invalid \\u escape")
             }
           }
           Some('"')
@@ -60,219 +63,143 @@ fn read_string(input : String, pos : Int) -> (Int, String?) {
           | Some('f')
           | Some('n')
           | Some('r')
-          | Some('t') => i = i + 1
-          _ => return (i + 1, Some("Invalid escape sequence"))
+          | Some('t') => ignore(cursor.advance_char())
+          Some(_) => {
+            ignore(cursor.advance_char())
+            return Some("Invalid escape sequence")
+          }
+          None => return Some("unterminated string")
         }
       }
-      _ => {
-        if code >= 0 && code <= 0x1F {
-          return (i, Some("Invalid control character in string"))
+      Some(ch) => {
+        if ch.to_int() >= 0 && ch.to_int() <= 0x1F {
+          return Some("Invalid control character in string")
         }
-        i = i + 1
+        ignore(cursor.advance_char())
       }
+      None => return Some("Invalid character in string")
     }
   }
   // Reached end without closing quote
-  (i, Some("unterminated string"))
+  Some("unterminated string")
 }
 
 ///|
-fn read_number(input : String, pos : Int) -> Int {
-  let len = input.length()
-  let mut i = pos
+fn read_number(cursor : @core.LexCursor) -> Unit {
   // Optional leading '-'
-  if i < len {
-    match input.code_unit_at(i).to_char() {
-      Some('-') => i = i + 1
-      _ => ()
-    }
+  match cursor.peek() {
+    Some('-') => ignore(cursor.advance_char())
+    _ => ()
   }
   // Integer part
-  if i < len {
-    let code = input.code_unit_at(i).to_int()
-    if code == 48 {
+  match cursor.peek() {
+    Some('0') =>
       // '0' — just consume it (no leading zeros allowed after 0)
-      i = i + 1
-    } else if code >= 49 && code <= 57 {
+      ignore(cursor.advance_char())
+    Some(ch) if ch.to_int() >= 49 && ch.to_int() <= 57 => {
       // '1'..'9'
-      i = i + 1
-      while i < len && is_digit(input.code_unit_at(i).to_int()) {
-        i = i + 1
-      }
+      ignore(cursor.advance_char())
+      ignore(cursor.take_while(is_digit_char))
     }
+    _ => ()
   }
   // Optional fraction
-  if i < len {
-    match input.code_unit_at(i).to_char() {
-      Some('.') =>
-        // Check next char is a digit before consuming '.'
-        if i + 1 < len && is_digit(input.code_unit_at(i + 1).to_int()) {
-          i = i + 1 // consume '.'
-          while i < len && is_digit(input.code_unit_at(i).to_int()) {
-            i = i + 1
-          }
-        }
-      // else: don't consume '.', it's not part of the number
-      _ => ()
-    }
+  match cursor.peek() {
+    Some('.') =>
+      // Check next char is a digit before consuming '.'
+      if cursor.position() + 1 < cursor.source().length() &&
+        is_digit(cursor.source().code_unit_at(cursor.position() + 1).to_int()) {
+        ignore(cursor.advance_char()) // consume '.'
+        ignore(cursor.take_while(is_digit_char))
+      }
+    // else: don't consume '.', it's not part of the number
+    _ => ()
   }
   // Optional exponent
-  if i < len {
-    match input.code_unit_at(i).to_char() {
-      Some('e') | Some('E') => {
-        let saved = i
-        i = i + 1 // consume 'e'/'E'
-        if i < len {
-          match input.code_unit_at(i).to_char() {
-            Some('+') | Some('-') => i = i + 1
-            _ => ()
-          }
-        }
-        if i < len && is_digit(input.code_unit_at(i).to_int()) {
-          // Valid exponent — consume digits
-          while i < len && is_digit(input.code_unit_at(i).to_int()) {
-            i = i + 1
-          }
-        } else {
-          // No digit after exponent — restore
-          i = saved
-        }
+  match cursor.peek() {
+    Some('e') | Some('E') => {
+      let saved = cursor.position()
+      ignore(cursor.advance_char()) // consume 'e'/'E'
+      match cursor.peek() {
+        Some('+') | Some('-') => ignore(cursor.advance_char())
+        _ => ()
       }
-      _ => ()
+      match cursor.peek() {
+        Some(ch) if is_digit_char(ch) =>
+          // Valid exponent — consume digits
+          ignore(cursor.take_while(is_digit_char))
+        _ =>
+          // No digit after exponent — restore
+          cursor.set_position(saved)
+      }
     }
+    _ => ()
   }
-  i
-}
-
-///|
-fn check_keyword(input : String, pos : Int, keyword : String) -> Bool {
-  let len = input.length()
-  let klen = keyword.length()
-  if pos + klen > len {
-    return false
-  }
-  let mut i = 0
-  while i < klen {
-    if input.code_unit_at(pos + i) != keyword.code_unit_at(i) {
-      return false
-    }
-    i = i + 1
-  }
-  true
 }
 
 ///|
 /// Step-based lexer: returns one LexStep per call.
 fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
-  if pos >= input.length() {
+  let cursor = @core.LexCursor::new(input, pos)
+  if cursor.is_done() {
     return Done
   }
-  let c = input.code_unit_at(pos).to_char()
-  match c {
-    Some('{') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(LBrace, 1),
-        next_offset=pos + 1,
-      )
-    Some('}') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(RBrace, 1),
-        next_offset=pos + 1,
-      )
-    Some('[') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(LBracket, 1),
-        next_offset=pos + 1,
-      )
-    Some(']') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(RBracket, 1),
-        next_offset=pos + 1,
-      )
-    Some(':') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(Colon, 1),
-        next_offset=pos + 1,
-      )
-    Some(',') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(Comma, 1),
-        next_offset=pos + 1,
-      )
+  match cursor.peek() {
+    Some('{') => {
+      ignore(cursor.advance_char())
+      cursor.produced(LBrace)
+    }
+    Some('}') => {
+      ignore(cursor.advance_char())
+      cursor.produced(RBrace)
+    }
+    Some('[') => {
+      ignore(cursor.advance_char())
+      cursor.produced(LBracket)
+    }
+    Some(']') => {
+      ignore(cursor.advance_char())
+      cursor.produced(RBracket)
+    }
+    Some(':') => {
+      ignore(cursor.advance_char())
+      cursor.produced(Colon)
+    }
+    Some(',') => {
+      ignore(cursor.advance_char())
+      cursor.produced(Comma)
+    }
     Some(ws) if is_whitespace_char(ws) => {
-      let mut end = pos + 1
-      while end < input.length() {
-        match input.code_unit_at(end).to_char() {
-          Some(ch) if is_whitespace_char(ch) => end = end + 1
-          _ => break
-        }
-      }
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(Whitespace, end - pos),
-        next_offset=end,
-      )
+      ignore(cursor.take_while(is_whitespace_char))
+      cursor.produced(Whitespace)
     }
-    Some('"') => {
-      let (end, err) = read_string(input, pos)
-      match err {
-        Some(msg) =>
-          @core.LexStep::Produced(
-            @core.TokenInfo::new(Error(msg), end - pos),
-            next_offset=end,
-          )
-        None =>
-          @core.LexStep::Produced(
-            @core.TokenInfo::new(StringLit, end - pos),
-            next_offset=end,
-          )
+    Some('"') =>
+      match read_string(cursor) {
+        Some(msg) => cursor.produced(Error(msg))
+        None => cursor.produced(StringLit)
       }
-    }
     Some('-') =>
       // Could be a number if followed by a digit
-      if pos + 1 < input.length() &&
-        is_digit(input.code_unit_at(pos + 1).to_int()) {
-        let end = read_number(input, pos)
-        @core.LexStep::Produced(
-          @core.TokenInfo::new(NumberLit, end - pos),
-          next_offset=end,
-        )
+      if cursor.position() + 1 < input.length() &&
+        is_digit(input.code_unit_at(cursor.position() + 1).to_int()) {
+        read_number(cursor)
+        cursor.produced(NumberLit)
       } else {
-        @core.LexStep::Produced(
-          @core.TokenInfo::new(Error("Unexpected character: -"), 1),
-          next_offset=pos + 1,
-        )
+        ignore(cursor.advance_char())
+        cursor.produced(Error("Unexpected character: -"))
       }
-    Some(d) if is_digit(d.to_int()) => {
-      let end = read_number(input, pos)
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(NumberLit, end - pos),
-        next_offset=end,
-      )
+    Some(d) if is_digit_char(d) => {
+      read_number(cursor)
+      cursor.produced(NumberLit)
     }
-    Some('t') if check_keyword(input, pos, "true") =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(True, 4),
-        next_offset=pos + 4,
-      )
-    Some('f') if check_keyword(input, pos, "false") =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(False, 5),
-        next_offset=pos + 5,
-      )
-    Some('n') if check_keyword(input, pos, "null") =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(Null, 4),
-        next_offset=pos + 4,
-      )
-    None => @core.LexStep::Invalid(at=pos, width=1, message="Invalid character")
-    Some(ch) =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(
-          Error("Unexpected character: \{ch.to_string()}"),
-          1,
-        ),
-        next_offset=pos + 1,
-      )
+    Some('t') if cursor.consume_string("true") => cursor.produced(True)
+    Some('f') if cursor.consume_string("false") => cursor.produced(False)
+    Some('n') if cursor.consume_string("null") => cursor.produced(Null)
+    None => cursor.invalid("Invalid character")
+    Some(ch) => {
+      ignore(cursor.advance_char())
+      cursor.produced(Error("Unexpected character: \{ch.to_string()}"))
+    }
   }
 }
 

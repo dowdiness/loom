@@ -75,6 +75,8 @@ pub using @seam {type Interner}
 
 pub using @core {type LanguageSpec}
 
+pub using @core {type LexCursor}
+
 pub using @core {type LexError}
 
 pub using @core {type LexStep}

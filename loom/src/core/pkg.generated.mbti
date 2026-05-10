@@ -108,6 +108,29 @@ pub struct LanguageSpec[T, K] {
 }
 pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int) -> Self[T, K]
 
+pub struct LexCursor {
+  // private fields
+}
+pub fn LexCursor::advance_char(Self) -> Bool
+pub fn LexCursor::advance_code_units(Self, Int) -> Unit
+pub fn LexCursor::consume_char(Self, Char) -> Bool
+pub fn LexCursor::consume_string(Self, String) -> Bool
+pub fn[T] LexCursor::incomplete(Self, String) -> LexStep[T]
+pub fn[T] LexCursor::invalid(Self, String, width? : Int) -> LexStep[T]
+pub fn LexCursor::is_done(Self) -> Bool
+pub fn LexCursor::len(Self) -> Int
+pub fn LexCursor::new(String, Int) -> Self
+pub fn LexCursor::peek(Self) -> Char?
+pub fn LexCursor::peek_code_unit(Self) -> UInt16?
+pub fn LexCursor::position(Self) -> Int
+pub fn[T] LexCursor::produced(Self, T) -> LexStep[T]
+pub fn LexCursor::set_position(Self, Int) -> Unit
+pub fn LexCursor::source(Self) -> String
+pub fn LexCursor::start(Self) -> Int
+pub fn LexCursor::starts_with(Self, String) -> Bool
+pub fn LexCursor::take_while(Self, (Char) -> Bool) -> Int
+pub fn LexCursor::view(Self) -> StringView
+
 pub(all) enum LexStep[T] {
   Produced(TokenInfo[T], next_offset~ : Int)
   Invalid(at~ : Int, width~ : Int, message~ : String)
