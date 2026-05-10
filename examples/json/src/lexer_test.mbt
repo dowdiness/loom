@@ -145,6 +145,21 @@ test "tokenize string with unicode escape" {
 }
 
 ///|
+test "tokenize string with non-BMP character" {
+  let tokens = tokenize("\"😈\"")
+  inspect(print_token_infos(tokens), content="<string>(4), EOF(0)")
+}
+
+///|
+test "tokenize unexpected non-BMP character as one error token" {
+  let tokens = tokenize("😈")
+  inspect(
+    print_token_infos(tokens),
+    content="<error: Unexpected character: 😈>(2), EOF(0)",
+  )
+}
+
+///|
 test "tokenize nested structure" {
   let tokens = tokenize("{\"a\":{\"b\":1}}")
   let s = print_token_infos(tokens)

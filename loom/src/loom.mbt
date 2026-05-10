@@ -34,6 +34,7 @@ pub using @core {
   type Diagnostic,
   type Edit,
   type LanguageSpec,
+  type LexCursor,
   type LexError,
   type LexStep,
   type ModeLexer,
