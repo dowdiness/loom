@@ -17,6 +17,8 @@ pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool
 
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
 
+pub fn next_char_offset(String, Int) -> Int
+
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])

@@ -1,9 +1,6 @@
 ///|
 fn char_at(input : String, pos : Int) -> Char? {
-  if pos >= input.length() {
-    return None
-  }
-  input.code_unit_at(pos).to_char()
+  input.get_char(pos)
 }
 
 ///|
@@ -137,7 +134,7 @@ fn lex_line_start(
         while info_end < input.length() {
           match char_at(input, info_end) {
             Some('\n') | None => break
-            _ => info_end = info_end + 1
+            _ => info_end = @core.next_char_offset(input, info_end)
           }
         }
         let info : StringView = input[pos + n:info_end]
@@ -191,12 +188,12 @@ fn lex_inline(
     [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
     _ => {
       // Text run: consume until next special char or newline
-      let mut end = pos + 1
+      let mut end = @core.next_char_offset(input, pos)
       while end < input.length() {
         match char_at(input, end) {
           Some(ch) if is_inline_special(ch) => break
           None => break
-          _ => end = end + 1
+          _ => end = @core.next_char_offset(input, end)
         }
       }
       let text : StringView = input[pos:end]
@@ -223,7 +220,7 @@ fn emit_code_text_line(
   while line_end < input.length() {
     match char_at(input, line_end) {
       Some('\n') | None => break
-      _ => line_end = line_end + 1
+      _ => line_end = @core.next_char_offset(input, line_end)
     }
   }
   let text : StringView = input[pos:line_end]

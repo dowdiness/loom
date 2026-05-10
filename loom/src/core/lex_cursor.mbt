@@ -92,16 +92,36 @@ pub fn LexCursor::advance_char(self : LexCursor) -> Bool {
   match self.source.get_char(self.position) {
     None => false
     Some(_) => {
-      let unit = self.source.code_unit_at(self.position)
-      let width = if unit.is_surrogate() &&
-        self.position + 1 < self.source.length() {
-        2
-      } else {
-        1
-      }
-      self.position = self.position + width
+      self.position = next_char_offset(self.source, self.position)
       true
     }
+  }
+}
+
+///|
+/// Return the next UTF-16 code-unit offset after the Unicode scalar value at
+/// `pos`.
+///
+/// This is the offset-oriented counterpart to `LexCursor::advance_char` for
+/// lexers that scan with local integer offsets. If `pos` is at EOF it returns
+/// EOF. If `pos` splits a surrogate pair, it advances one code unit so callers
+/// still make progress on malformed boundaries.
+pub fn next_char_offset(source : String, pos : Int) -> Int {
+  let len = source.length()
+  let current = lex_cursor_clamp_offset(pos, len)
+  if current >= len {
+    return len
+  }
+  match source.get_char(current) {
+    Some(_) => {
+      let unit = source.code_unit_at(current)
+      if unit.is_surrogate() && current + 1 < len {
+        current + 2
+      } else {
+        current + 1
+      }
+    }
+    None => lex_cursor_clamp_offset(current + 1, len)
   }
 }
 
