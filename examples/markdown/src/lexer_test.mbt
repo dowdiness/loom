@@ -22,6 +22,16 @@ test "lexer: paragraph text preserves spaces" {
 }
 
 ///|
+test "lexer: paragraph text keeps non-BMP character in one token" {
+  let tokens = tokenize("hello 😈 world\n")
+  inspect(
+    @debug.to_string(tokens[0].token),
+    content="Text(\"hello 😈 world\")",
+  )
+  inspect(tokens[0].len, content="14")
+}
+
+///|
 test "lexer: code fence with info" {
   let tokens = tokenize("```python\ncode here\n```\n")
   inspect(
@@ -34,6 +44,18 @@ test "lexer: code fence with info" {
   inspect(@debug.to_string(tokens[4].token), content="CodeFenceClose")
   // CodeFenceClose now consumes trailing newline, so EOF is next
   inspect(@debug.to_string(tokens[5].token), content="EOF")
+}
+
+///|
+test "lexer: code fence info and text keep non-BMP characters" {
+  let tokens = tokenize("```😈\ncode 😈\n```\n")
+  inspect(
+    @debug.to_string(tokens[0].token),
+    content="CodeFenceOpen(3, \"😈\")",
+  )
+  inspect(tokens[0].len, content="5")
+  inspect(@debug.to_string(tokens[2].token), content="CodeText(\"code 😈\")")
+  inspect(tokens[2].len, content="7")
 }
 
 ///|

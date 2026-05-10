@@ -22,6 +22,16 @@ test "LexCursor advance_char uses code-unit offsets for surrogate pairs" {
 }
 
 ///|
+test "next_char_offset advances by Unicode scalar width" {
+  let source = "😈x"
+  inspect(next_char_offset(source, 0), content="2")
+  inspect(next_char_offset(source, 2), content="3")
+  inspect(next_char_offset(source, 3), content="3")
+  // Offset 1 splits the surrogate pair; still make one-code-unit progress.
+  inspect(next_char_offset(source, 1), content="2")
+}
+
+///|
 test "LexCursor take_while advances by characters" {
   let cursor = LexCursor::new("abc123", 0)
   let taken = cursor.take_while(fn(ch) { ch.is_ascii_alphabetic() })
