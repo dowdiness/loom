@@ -21,31 +21,23 @@ fn is_numeric(code : Int) -> Bool {
 }
 
 ///|
-fn read_identifier(input : String, start : Int) -> Int {
-  let mut pos = start
-  while pos < input.length() {
-    let code = input.code_unit_at(pos).to_int()
-    if is_alphabet(code) || is_numeric(code) {
-      pos = pos + 1
-    } else {
-      break
-    }
-  }
-  pos
+fn is_identifier_char(ch : Char) -> Bool {
+  let code = ch.to_int()
+  is_alphabet(code) || is_numeric(code)
 }
 
 ///|
-fn read_number(input : String, start : Int) -> Int {
-  let mut pos = start
-  while pos < input.length() {
-    let code = input.code_unit_at(pos).to_int()
-    if is_numeric(code) {
-      pos = pos + 1
-    } else {
-      break
-    }
+fn is_numeric_char(ch : Char) -> Bool {
+  is_numeric(ch.to_int())
+}
+
+///|
+fn is_whitespace_char(ch : Char, layout : Bool) -> Bool {
+  match ch {
+    ' ' | '\t' => true
+    '\n' | '\r' => !layout
+    _ => false
   }
-  pos
 }
 
 ///|
@@ -70,121 +62,90 @@ fn step_lex(
   pos : Int,
   layout~ : Bool,
 ) -> @core.LexStep[@token.Token] {
-  if pos >= input.length() {
+  let cursor = @core.LexCursor::new(input, pos)
+  if cursor.is_done() {
     return Done
   }
-  let c = input.code_unit_at(pos).to_char()
-  match c {
-    Some('\n') if layout =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Newline, 1),
-        next_offset=pos + 1,
-      )
-    Some('\r') if layout => {
-      let end = if pos + 1 < input.length() &&
-        input.code_unit_at(pos + 1).to_char() == Some('\n') {
-        pos + 2
-      } else {
-        pos + 1
-      }
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Newline, end - pos),
-        next_offset=end,
-      )
+  match cursor.view() {
+    ['\n', .. rest] if layout => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Newline)
     }
-    Some(' ') | Some('\t') | Some('\n') | Some('\r') => {
-      let ws_start = pos
-      let mut ws_end = pos + 1
-      while ws_end < input.length() {
-        match input.code_unit_at(ws_end).to_char() {
-          Some(' ') | Some('\t') | Some('\n') | Some('\r') if !layout =>
-            ws_end = ws_end + 1
-          Some(' ') | Some('\t') if layout => ws_end = ws_end + 1
-          _ => break
-        }
-      }
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Whitespace, ws_end - ws_start),
-        next_offset=ws_end,
-      )
+    ['\r', '\n', .. rest] if layout => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Newline)
     }
-    Some('λ') | Some('\\') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Lambda, 1),
-        next_offset=pos + 1,
-      )
-    Some('.') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Dot, 1),
-        next_offset=pos + 1,
-      )
-    Some('(') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.LeftParen, 1),
-        next_offset=pos + 1,
-      )
-    Some(')') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.RightParen, 1),
-        next_offset=pos + 1,
-      )
-    Some('+') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Plus, 1),
-        next_offset=pos + 1,
-      )
-    Some('-') =>
-      if pos + 1 < input.length() &&
-        input.code_unit_at(pos + 1).to_char() == Some('>') {
-        @core.LexStep::Produced(
-          @core.TokenInfo::new(@token.Arrow, 2),
-          next_offset=pos + 2,
-        )
-      } else {
-        @core.LexStep::Produced(
-          @core.TokenInfo::new(@token.Minus, 1),
-          next_offset=pos + 1,
-        )
-      }
-    Some('=') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Eq, 1),
-        next_offset=pos + 1,
-      )
-    Some('{') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.LBrace, 1),
-        next_offset=pos + 1,
-      )
-    Some('}') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.RBrace, 1),
-        next_offset=pos + 1,
-      )
-    Some(',') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Comma, 1),
-        next_offset=pos + 1,
-      )
-    Some(';') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Semicolon, 1),
-        next_offset=pos + 1,
-      )
-    Some(':') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Colon, 1),
-        next_offset=pos + 1,
-      )
-    Some('_') =>
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Hole, 1),
-        next_offset=pos + 1,
-      )
-    Some(c) if is_alphabet(c.to_int()) => {
-      let end_pos = read_identifier(input, pos)
-      let len = end_pos - pos
-      let text : StringView = input[pos:end_pos]
+    ['\r', .. rest] if layout => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Newline)
+    }
+    [ch, ..] if is_whitespace_char(ch, layout) => {
+      ignore(cursor.take_while(fn(c) { is_whitespace_char(c, layout) }))
+      cursor.produced(@token.Whitespace)
+    }
+    ['λ', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Lambda)
+    }
+    ['\\', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Lambda)
+    }
+    ['.', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Dot)
+    }
+    ['(', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.LeftParen)
+    }
+    [')', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.RightParen)
+    }
+    ['+', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Plus)
+    }
+    [.. "->", .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Arrow)
+    }
+    ['-', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Minus)
+    }
+    ['=', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Eq)
+    }
+    ['{', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.LBrace)
+    }
+    ['}', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.RBrace)
+    }
+    [',', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Comma)
+    }
+    [';', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Semicolon)
+    }
+    [':', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Colon)
+    }
+    ['_', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.Hole)
+    }
+    [c, ..] if is_alphabet(c.to_int()) => {
+      ignore(cursor.take_while(is_identifier_char))
+      let text : StringView = input[pos:cursor.position()]
       let token = match text {
         "if" => @token.Token::If
         "then" => @token.Token::Then
@@ -192,31 +153,27 @@ fn step_lex(
         "let" => @token.Token::Let
         _ => @token.Token::Identifier
       }
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(token, len),
-        next_offset=end_pos,
-      )
+      cursor.produced(token)
     }
-    Some(c) if is_numeric(c.to_int()) => {
-      let end_pos = read_number(input, pos)
-      let len = end_pos - pos
-      @core.LexStep::Produced(
-        @core.TokenInfo::new(@token.Integer, len),
-        next_offset=end_pos,
-      )
+    [c, ..] if is_numeric_char(c) => {
+      ignore(cursor.take_while(is_numeric_char))
+      cursor.produced(@token.Integer)
     }
-    None =>
-      @core.LexStep::Invalid(
-        at=pos,
-        width=1,
-        message="Error to read character at position \{pos}",
-      )
-    Some(ch) =>
-      @core.LexStep::Invalid(
-        at=pos,
-        width=1,
-        message="unexpected character: \{ch.to_string()} at position \{pos}",
-      )
+    _ =>
+      match cursor.peek() {
+        Some(ch) =>
+          @core.LexStep::Invalid(
+            at=pos,
+            width=1,
+            message="unexpected character: \{ch.to_string()} at position \{pos}",
+          )
+        None =>
+          @core.LexStep::Invalid(
+            at=pos,
+            width=1,
+            message="Error to read character at position \{pos}",
+          )
+      }
   }
 }
 

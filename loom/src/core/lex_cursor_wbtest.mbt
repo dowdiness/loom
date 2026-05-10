@@ -51,6 +51,17 @@ test "LexCursor consume_string rolls forward only on match" {
 }
 
 ///|
+test "LexCursor set_view advances to matched StringView rest" {
+  let cursor = LexCursor::new("=> rest", 0)
+  match cursor.view() {
+    [.. "=>", .. rest] => cursor.set_view(rest)
+    _ => abort("expected prefix")
+  }
+  inspect(cursor.position(), content="2")
+  inspect(cursor.peek() == Some(' '), content="true")
+}
+
+///|
 test "LexCursor produced normalizes TokenInfo length from consumed span" {
   let cursor = LexCursor::new("abc", 0)
   cursor.advance_code_units(2)

@@ -144,62 +144,69 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
   if cursor.is_done() {
     return Done
   }
-  match cursor.peek() {
-    Some('{') => {
-      ignore(cursor.advance_char())
+  match cursor.view() {
+    ['{', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(LBrace)
     }
-    Some('}') => {
-      ignore(cursor.advance_char())
+    ['}', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(RBrace)
     }
-    Some('[') => {
-      ignore(cursor.advance_char())
+    ['[', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(LBracket)
     }
-    Some(']') => {
-      ignore(cursor.advance_char())
+    [']', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(RBracket)
     }
-    Some(':') => {
-      ignore(cursor.advance_char())
+    [':', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(Colon)
     }
-    Some(',') => {
-      ignore(cursor.advance_char())
+    [',', .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(Comma)
     }
-    Some(ws) if is_whitespace_char(ws) => {
+    [ws, ..] if is_whitespace_char(ws) => {
       ignore(cursor.take_while(is_whitespace_char))
       cursor.produced(Whitespace)
     }
-    Some('"') =>
+    ['"', ..] =>
       match read_string(cursor) {
         Some(msg) => cursor.produced(Error(msg))
         None => cursor.produced(StringLit)
       }
-    Some('-') =>
-      // Could be a number if followed by a digit
-      if cursor.position() + 1 < input.length() &&
-        is_digit(input.code_unit_at(cursor.position() + 1).to_int()) {
-        read_number(cursor)
-        cursor.produced(NumberLit)
-      } else {
-        ignore(cursor.advance_char())
-        cursor.produced(Error("Unexpected character: -"))
-      }
-    Some(d) if is_digit_char(d) => {
+    ['-', d, ..] if is_digit_char(d) => {
       read_number(cursor)
       cursor.produced(NumberLit)
     }
-    Some('t') if cursor.consume_string("true") => cursor.produced(True)
-    Some('f') if cursor.consume_string("false") => cursor.produced(False)
-    Some('n') if cursor.consume_string("null") => cursor.produced(Null)
-    None => cursor.invalid("Invalid character")
-    Some(ch) => {
-      ignore(cursor.advance_char())
+    ['-', .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(Error("Unexpected character: -"))
+    }
+    [d, ..] if is_digit_char(d) => {
+      read_number(cursor)
+      cursor.produced(NumberLit)
+    }
+    [.. "true", .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(True)
+    }
+    [.. "false", .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(False)
+    }
+    [.. "null", .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(Null)
+    }
+    [ch, .. rest] => {
+      cursor.set_view(rest)
       cursor.produced(Error("Unexpected character: \{ch.to_string()}"))
     }
+    _ => cursor.invalid("Invalid character")
   }
 }
 
