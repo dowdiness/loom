@@ -125,6 +125,7 @@ pub fn LexCursor::peek_code_unit(Self) -> UInt16?
 pub fn LexCursor::position(Self) -> Int
 pub fn[T] LexCursor::produced(Self, T) -> LexStep[T]
 pub fn LexCursor::set_position(Self, Int) -> Unit
+pub fn LexCursor::set_view(Self, StringView) -> Unit
 pub fn LexCursor::source(Self) -> String
 pub fn LexCursor::start(Self) -> Int
 pub fn LexCursor::starts_with(Self, String) -> Bool

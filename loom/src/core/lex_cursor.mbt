@@ -53,6 +53,11 @@ pub fn LexCursor::view(self : LexCursor) -> StringView {
 }
 
 ///|
+pub fn LexCursor::set_view(self : LexCursor, view : StringView) -> Unit {
+  self.set_position(view.start_offset())
+}
+
+///|
 pub fn LexCursor::peek(self : LexCursor) -> Char? {
   self.source.get_char(self.position)
 }

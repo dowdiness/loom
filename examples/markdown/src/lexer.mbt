@@ -7,6 +7,17 @@ fn char_at(input : String, pos : Int) -> Char? {
 }
 
 ///|
+fn produced_until(
+  token : Token,
+  pos : Int,
+  rest : StringView,
+  mode : MarkdownLexMode,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let end = rest.start_offset()
+  (Produced(@core.TokenInfo::new(token, end - pos), next_offset=end), mode)
+}
+
+///|
 /// Count consecutive backticks starting at pos.
 fn count_backticks(input : String, pos : Int) -> Int {
   let mut n = 0
@@ -41,14 +52,11 @@ fn lex_line_start(
   if pos >= input.length() {
     return (Done, LineStart)
   }
-  match char_at(input, pos) {
-    Some('\n') =>
+  match input.view(start_offset=pos) {
+    ['\n', .. rest] =>
       // Empty line = BlankLine
-      (
-        Produced(@core.TokenInfo::new(BlankLine, 1), next_offset=pos + 1),
-        LineStart,
-      )
-    Some(' ') | Some('\t') => {
+      produced_until(BlankLine, pos, rest, LineStart)
+    [' ', ..] | ['\t', ..] => {
       // Check if this is a whitespace-only line (blank line with spaces/tabs)
       let mut end = pos
       let mut is_blank = false
@@ -77,7 +85,7 @@ fn lex_line_start(
         lex_inline(input, pos)
       }
     }
-    Some('#') => {
+    ['#', ..] => {
       let n = count_hashes(input, pos)
       // Must be followed by space (or EOL) to be a heading
       if n > 0 && n <= 6 {
@@ -108,20 +116,20 @@ fn lex_line_start(
         lex_inline(input, pos)
       }
     }
-    Some('-') | Some('*') | Some('+') =>
+    ['-', ' ', .. rest] =>
       // List marker: must be followed by space
-      match char_at(input, pos + 1) {
-        Some(' ') =>
-          (
-            Produced(@core.TokenInfo::new(ListMarker, 2), next_offset=pos + 2),
-            Inline,
-          )
-        _ =>
-          // Not a list marker in LineStart; fall through to inline
-          // (e.g., "**bold**" at line start — * not followed by space)
-          lex_inline(input, pos)
-      }
-    Some('`') => {
+      produced_until(ListMarker, pos, rest, Inline)
+    ['*', ' ', .. rest] =>
+      // List marker: must be followed by space
+      produced_until(ListMarker, pos, rest, Inline)
+    ['+', ' ', .. rest] =>
+      // List marker: must be followed by space
+      produced_until(ListMarker, pos, rest, Inline)
+    ['-' | '*' | '+', ..] =>
+      // Not a list marker in LineStart; fall through to inline
+      // (e.g., "**bold**" at line start — * not followed by space)
+      lex_inline(input, pos)
+    ['`', ..] => {
       let n = count_backticks(input, pos)
       if n >= 3 {
         // Code fence — consume info string until newline
@@ -172,44 +180,15 @@ fn lex_inline(
   if pos >= input.length() {
     return (Done, Inline)
   }
-  match char_at(input, pos) {
-    Some('\n') =>
-      (
-        Produced(@core.TokenInfo::new(Newline, 1), next_offset=pos + 1),
-        LineStart,
-      )
-    Some('*') =>
-      match char_at(input, pos + 1) {
-        Some('*') =>
-          (
-            Produced(@core.TokenInfo::new(StarStar, 2), next_offset=pos + 2),
-            Inline,
-          )
-        _ =>
-          (Produced(@core.TokenInfo::new(Star, 1), next_offset=pos + 1), Inline)
-      }
-    Some('`') =>
-      (Produced(@core.TokenInfo::new(Backtick, 1), next_offset=pos + 1), Inline)
-    Some('[') =>
-      (
-        Produced(@core.TokenInfo::new(LeftBracket, 1), next_offset=pos + 1),
-        Inline,
-      )
-    Some(']') =>
-      (
-        Produced(@core.TokenInfo::new(RightBracket, 1), next_offset=pos + 1),
-        Inline,
-      )
-    Some('(') =>
-      (
-        Produced(@core.TokenInfo::new(LeftParen, 1), next_offset=pos + 1),
-        Inline,
-      )
-    Some(')') =>
-      (
-        Produced(@core.TokenInfo::new(RightParen, 1), next_offset=pos + 1),
-        Inline,
-      )
+  match input.view(start_offset=pos) {
+    ['\n', .. rest] => produced_until(Newline, pos, rest, LineStart)
+    [.. "**", .. rest] => produced_until(StarStar, pos, rest, Inline)
+    ['*', .. rest] => produced_until(Star, pos, rest, Inline)
+    ['`', .. rest] => produced_until(Backtick, pos, rest, Inline)
+    ['[', .. rest] => produced_until(LeftBracket, pos, rest, Inline)
+    [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
+    ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
+    [')', .. rest] => produced_until(RightParen, pos, rest, Inline)
     _ => {
       // Text run: consume until next special char or newline
       let mut end = pos + 1
@@ -267,13 +246,9 @@ fn lex_code_block(
   if pos >= input.length() {
     return (Done, CodeBlock(fence_len))
   }
-  match char_at(input, pos) {
-    Some('\n') =>
-      (
-        Produced(@core.TokenInfo::new(Newline, 1), next_offset=pos + 1),
-        CodeBlock(fence_len),
-      )
-    Some('`') => {
+  match input.view(start_offset=pos) {
+    ['\n', .. rest] => produced_until(Newline, pos, rest, CodeBlock(fence_len))
+    ['`', ..] => {
       let n = count_backticks(input, pos)
       if n >= fence_len {
         // Check that rest of line is empty (only whitespace/newline)
