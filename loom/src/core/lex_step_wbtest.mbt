@@ -55,6 +55,19 @@ fn zero_width_invalid_lexer(source : String, start : Int) -> LexStep[String] {
   Produced(TokenInfo::new("char", 1), next_offset=end)
 }
 
+// -- Test lexer: reports zero-width Invalid at every offset --
+
+///|
+fn zero_width_invalid_all_lexer(
+  source : String,
+  start : Int,
+) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  Invalid(at=start, width=0, message="zero-width invalid")
+}
+
 // -- Test lexer: Produced with next_offset == start (violates progress) --
 
 ///|
@@ -334,6 +347,32 @@ test "new_from_steps: no-progress Produced is corrected" {
 }
 
 ///|
+test "new_from_steps: no-progress Produced keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "😈x",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="stuck@0-2,stuck@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps: zero-width Invalid keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: zero_width_invalid_all_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "😈x",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="ERR@0-2,ERR@2-3,EOF@3-3")
+}
+
+///|
 test "new_from_steps: Produced token len is normalized from consumed span" {
   let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
   let buf = TokenBuffer::new_from_steps(
@@ -352,6 +391,14 @@ test "new_from_steps_strict: Produced token len is normalized from consumed span
   let buf = TokenBuffer::new_from_steps_strict("abc", lexer, eof_token="EOF")
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps_strict: no-progress Produced keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
+  let buf = TokenBuffer::new_from_steps_strict("😈x", lexer, eof_token="EOF")
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="stuck@0-2,stuck@2-3,EOF@3-3")
 }
 
 ///|
@@ -387,6 +434,20 @@ test "lex_all: collects all steps" {
   let steps = lexer.lex_all("a@b", 0)
   // 3 steps: Produced(char), Invalid(@), Produced(char) — loop exits at EOF
   inspect(steps.length(), content="3")
+}
+
+///|
+test "lex_all: no-progress fallback keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
+  let steps = lexer.lex_all("😈x", 0)
+  inspect(steps.length(), content="2")
+}
+
+///|
+test "lex_all: zero-width Invalid fallback keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: zero_width_invalid_all_lexer }
+  let steps = lexer.lex_all("😈x", 0)
+  inspect(steps.length(), content="2")
 }
 
 // ============ QuickCheck Property Tests ============

@@ -600,9 +600,9 @@ fn[T] tokenize_from_steps_with_starts(
         starts.push(pos)
         // Enforce progress: next_offset must be > pos
         if next_offset <= pos {
-          result.push(TokenInfo::new(token_info.token, 1))
-          // Defensive: skip one code unit to avoid infinite loop
-          pos = pos + 1
+          let end = next_char_offset(source, pos)
+          result.push(TokenInfo::new(token_info.token, end - pos))
+          pos = end
         } else {
           // Stored token lengths must match consumed span so starts stay in sync.
           result.push(TokenInfo::new(token_info.token, next_offset - pos))
@@ -610,10 +610,8 @@ fn[T] tokenize_from_steps_with_starts(
         }
       }
       Invalid(at~, width~, ..) => {
-        let effective_width = if width > 0 { width } else { 1 }
         let error_start = clamp_offset(if at > pos { at } else { pos }, len)
-        let raw_end = clamp_offset(at + effective_width, len)
-        let end = if raw_end > pos { raw_end } else { pos + 1 }
+        let end = lex_step_recovery_offset(source, pos, at, width)
         starts.push(error_start)
         result.push(TokenInfo::new(error_token, end - error_start))
         // Ensure pos never moves backwards (buggy lexer could report at < pos)
@@ -653,8 +651,9 @@ fn[T] tokenize_from_steps_strict(
     match step {
       Produced(token_info, next_offset~) =>
         if next_offset <= pos {
-          result.push(TokenInfo::new(token_info.token, 1))
-          pos = pos + 1
+          let end = next_char_offset(source, pos)
+          result.push(TokenInfo::new(token_info.token, end - pos))
+          pos = end
         } else {
           result.push(TokenInfo::new(token_info.token, next_offset - pos))
           pos = next_offset

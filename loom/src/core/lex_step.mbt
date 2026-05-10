@@ -2,7 +2,8 @@
 //
 // Core Laws:
 // 1. Deterministic: same (source, start) -> same LexStep.
-// 2. Progress: Produced.next_offset > start (unless EOF); Invalid advances by max(width, 1).
+// 2. Progress: Produced.next_offset > start (unless EOF); Invalid advances by
+//    its positive width, or by one Unicode scalar value when width is invalid.
 // 3. Stability: Invalid.at identifies the first irrevocably invalid byte for this step.
 // 4. Safety: no infinite loops when repeatedly stepping from 0..EOF.
 
@@ -46,14 +47,38 @@ pub fn[T] PrefixLexer::lex_all(
     result.push(step)
     match step {
       Produced(_, next_offset~) =>
-        pos = if next_offset <= pos { pos + 1 } else { next_offset }
-      Invalid(at~, width~, ..) => {
-        let w = if width > 0 { width } else { 1 }
-        let candidate = clamp_offset(at + w, len)
-        pos = if candidate > pos { candidate } else { pos + 1 }
-      }
+        pos = if next_offset <= pos {
+          next_char_offset(source, pos)
+        } else {
+          next_offset
+        }
+      Invalid(at~, width~, ..) =>
+        pos = lex_step_recovery_offset(source, pos, at, width)
       Incomplete(..) | Done => break
     }
   }
   result
+}
+
+///|
+/// Return the next offset after a malformed or invalid step report.
+fn lex_step_recovery_offset(
+  source : String,
+  pos : Int,
+  at : Int,
+  width : Int,
+) -> Int {
+  let len = source.length()
+  let current = clamp_offset(pos, len)
+  let error_start = clamp_offset(if at > current { at } else { current }, len)
+  if width > 0 {
+    let candidate = clamp_offset(at + width, len)
+    if candidate > current {
+      candidate
+    } else {
+      next_char_offset(source, current)
+    }
+  } else {
+    next_char_offset(source, error_start)
+  }
 }
