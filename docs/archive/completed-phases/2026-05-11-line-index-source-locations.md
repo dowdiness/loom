@@ -1,6 +1,17 @@
 # Line Index Source Locations Plan
 
-**Status:** Active
+**Status:** Complete
+
+Completed by PR #112 on 2026-05-11. The merge added public `LineIndex`,
+`LineCol`, and `LineRange` helpers; diagnostic line/column formatting helpers;
+recoverable lexer error-token messages; JSON/Lambda grammar wiring for
+message-preserving lexer errors; and Unicode-safe JSON string recovery fixes
+from follow-up review.
+
+Decision record:
+
+- [ADR 2026-05-11: Derived Source Locations](../../decisions/2026-05-11-derived-source-locations.md)
+- [ADR 2026-05-11: Major Plan Closure Decision Records](../../decisions/2026-05-11-major-plan-closure-decision-records.md)
 
 ## Goal
 
@@ -140,7 +151,10 @@ and common LSP position conventions.
 
 ## Deferred Follow-Up
 
-Parser-level convenience APIs should be a separate design.
+Parser-level convenience APIs should be a separate design; see the active
+follow-up plan:
+
+- [../../plans/2026-05-11-post-112-follow-ups.md](../../plans/2026-05-11-post-112-follow-ups.md)
 
 `Parser::diagnostics()` and `ImperativeParser::diagnostics()` currently expose
 `Array[String]`, so structured diagnostic spans are erased at that boundary.

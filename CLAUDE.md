@@ -114,12 +114,18 @@ Full architecture: `docs/architecture/` | Design decisions: `docs/decisions/`
 
 2. **Archive on completion.** When a plan's last task is done:
    - Add `**Status:** Complete` near the top of the plan file
+   - Add a `Decision record:` note:
+     - link a new/updated ADR for major plan closures
+     - or write `No ADR needed:` with a short reason for mechanical archival
    - `git mv docs/plans/<plan>.md docs/archive/completed-phases/<plan>.md`
    - Update `docs/README.md` (move entry from Active Plans → Archive)
    - `bash check-docs.sh` should show no warnings before committing
    Do this in the same commit that marks the plan complete, not later.
 
-3. **Top-level docs stay slim.** `README.md` and `ROADMAP.md` are summaries with links,
+3. **Follow the agent docs protocol.** For ADR thresholds and closure workflow,
+   read `docs/development/agent-docs-protocol.md`.
+
+4. **Top-level docs stay slim.** `README.md` and `ROADMAP.md` are summaries with links,
    not detail documents. Extract any section >20 lines into a sub-doc and link to it.
 
 ## Key Design Decisions

@@ -67,7 +67,42 @@ done < <(find docs \
   -print0 | sort -z)
 [[ "$any_missing" -eq 0 ]] || true  # warnings already counted above
 
-# 4. Fossil references in current docs
+# 4. Changed archived plans have a decision-record note
+#
+# Historical archived plans predate the ADR rule, so this guard only checks
+# archived plans changed in the current branch/worktree. Override the comparison
+# base with DOCS_BASE_REF when origin/main is not the right baseline.
+echo ""
+echo "Decision records for changed archived plans:"
+decision_checked=0
+check_archived_plan_decision_record() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  decision_checked=1
+  if grep -qF "Decision record:" "$f" &&
+     { grep -qF "decisions/" "$f" || grep -qF "No ADR needed:" "$f"; }; then
+    ok "$f"
+  else
+    fail "$f — add Decision record with an ADR link or No ADR needed"
+  fi
+}
+
+base_ref="${DOCS_BASE_REF:-origin/main}"
+if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+  while IFS= read -r -d '' f; do
+    check_archived_plan_decision_record "$f"
+  done < <(git diff --name-only -z --diff-filter=ACMR "$base_ref" -- docs/archive/completed-phases)
+else
+  warn "Skipping changed archived-plan decision check; missing base ref $base_ref"
+fi
+
+while IFS= read -r -d '' f; do
+  check_archived_plan_decision_record "$f"
+done < <(git ls-files --others --exclude-standard -z docs/archive/completed-phases)
+
+[[ "$decision_checked" -eq 1 ]] || ok "No changed archived plans"
+
+# 5. Fossil references in current docs
 #
 # Deleted/renamed public API names that must not appear in *current* docs.
 # Historical material (docs/archive, ADRs, ROADMAP completed-work sections,
@@ -99,7 +134,7 @@ done < <(find . -name "*.md" \
   -print0 | sort -z)
 [[ "$fossil_hits" -eq 0 ]] && ok "No fossil references found"
 
-# 5. Doctest regression guard (warn)
+# 6. Doctest regression guard (warn)
 #
 # A package's top-level README.md that contains runnable MoonBit code fences
 # should have a paired `README.mbt.md` (at package root when `source` is unset,
