@@ -142,15 +142,22 @@ pub fn[T] TokenBuffer::new_from_steps(
   lexer : PrefixLexer[T],
   eof_token~ : T,
   error_token~ : T,
+  error_token_from_message? : ((String) -> T)? = None,
 ) -> TokenBuffer[T] {
   let (tokens, starts) = tokenize_from_steps_with_starts(
-    source, lexer, eof_token, error_token,
+    source, lexer, eof_token, error_token, error_token_from_message~,
   )
   let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
-    tokenize_from_steps(s, lexer, eof_token, error_token)
+    tokenize_from_steps(s, lexer, eof_token, error_token, error_token_from_message~)
   }
   let retokenize_full : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError = s => {
-    tokenize_from_steps_with_starts(s, lexer, eof_token, error_token)
+    tokenize_from_steps_with_starts(
+      s,
+      lexer,
+      eof_token,
+      error_token,
+      error_token_from_message~,
+    )
   }
   {
     tokenize_fn: step_tokenize_fn,
@@ -572,9 +579,10 @@ fn[T] tokenize_from_steps(
   lexer : PrefixLexer[T],
   eof_token : T,
   error_token : T,
+  error_token_from_message~ : ((String) -> T)?,
 ) -> Array[TokenInfo[T]] {
   let (tokens, _) = tokenize_from_steps_with_starts(
-    source, lexer, eof_token, error_token,
+    source, lexer, eof_token, error_token, error_token_from_message~,
   )
   tokens
 }
@@ -588,6 +596,7 @@ fn[T] tokenize_from_steps_with_starts(
   lexer : PrefixLexer[T],
   eof_token : T,
   error_token : T,
+  error_token_from_message~ : ((String) -> T)?,
 ) -> (Array[TokenInfo[T]], Array[Int]) {
   let result : Array[TokenInfo[T]] = []
   let starts : Array[Int] = []
@@ -609,22 +618,32 @@ fn[T] tokenize_from_steps_with_starts(
           pos = next_offset
         }
       }
-      Invalid(at~, width~, ..) => {
+      Invalid(at~, width~, message~) => {
         let error_start = clamp_offset(if at > pos { at } else { pos }, len)
         let end = lex_step_recovery_offset(source, pos, at, width)
         starts.push(error_start)
-        result.push(TokenInfo::new(error_token, end - error_start))
+        let token = recoverable_error_token(
+          error_token,
+          error_token_from_message,
+          message,
+        )
+        result.push(TokenInfo::new(token, end - error_start))
         // Ensure pos never moves backwards (buggy lexer could report at < pos)
         pos = end
       }
-      Incomplete(at~, ..) => {
+      Incomplete(at~, expected~) => {
         let error_start = clamp_offset(if at > pos { at } else { pos }, len)
         starts.push(error_start)
+        let token = recoverable_error_token(
+          error_token,
+          error_token_from_message,
+          expected,
+        )
         // Emit error token from at to EOF (or zero-width at EOF)
         if error_start < len {
-          result.push(TokenInfo::new(error_token, len - error_start))
+          result.push(TokenInfo::new(token, len - error_start))
         } else {
-          result.push(TokenInfo::new(error_token, 0))
+          result.push(TokenInfo::new(token, 0))
         }
         break
       }
@@ -669,6 +688,18 @@ fn[T] tokenize_from_steps_strict(
   }
   result.push(TokenInfo::new(eof_token, 0))
   result
+}
+
+///|
+fn[T] recoverable_error_token(
+  fallback : T,
+  from_message : ((String) -> T)?,
+  message : String,
+) -> T {
+  match from_message {
+    Some(make_token) => make_token(message)
+    None => fallback
+  }
 }
 
 ///|

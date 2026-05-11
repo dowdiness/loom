@@ -12,6 +12,7 @@ pub struct Grammar[T, K, Ast] {
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
   error_token : T?
+  error_token_from_message : ((String) -> T)?
   prefix_lexer : @core.PrefixLexer[T]?
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexState[T]?
@@ -45,6 +46,7 @@ pub fn[T, K, Ast] Grammar::new(
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
   on_lex_error~ : (String) -> Ast,
   error_token? : T? = None,
+  error_token_from_message? : ((String) -> T)? = None,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
   mode_relex? : @core.ModeRelexState[T]? = None,
@@ -55,6 +57,7 @@ pub fn[T, K, Ast] Grammar::new(
     fold_node,
     on_lex_error,
     error_token,
+    error_token_from_message,
     prefix_lexer,
     block_reparse_spec,
     mode_relex,

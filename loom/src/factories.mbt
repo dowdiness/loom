@@ -16,6 +16,7 @@ fn[T] create_buffer(
   tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
   eof_token : T,
   error_token : T?,
+  error_token_from_message : ((String) -> T)?,
   prefix_lexer? : @core.PrefixLexer[T]? = None,
   mode_relex? : @core.ModeRelexState[T]? = None,
 ) -> @core.TokenBuffer[T] raise @core.LexError {
@@ -31,28 +32,45 @@ fn[T] create_buffer(
     }
     None =>
       // Existing stateless path (unchanged)
-      match (prefix_lexer, error_token) {
-        (Some(lexer), Some(err_tok)) =>
-          @core.TokenBuffer::new_from_steps(
-            source,
-            lexer,
-            eof_token~,
-            error_token=err_tok,
-          )
-        (Some(lexer), None) =>
-          // Step-based without error_token: run in strict mode and surface
-          // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
-          @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
-        (None, Some(err_tok)) =>
-          // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
-          @core.TokenBuffer::new_resilient_compat(
-            source,
-            tokenize_fn=tokenize,
-            eof_token~,
-            error_token=err_tok,
-          )
-        (None, None) =>
-          @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+      match prefix_lexer {
+        Some(lexer) =>
+          match error_token_from_message {
+            Some(make_error_token) =>
+              @core.TokenBuffer::new_from_steps(
+                source,
+                lexer,
+                eof_token~,
+                error_token=make_error_token(""),
+                error_token_from_message=Some(make_error_token),
+              )
+            None =>
+              match error_token {
+                Some(err_tok) =>
+                  @core.TokenBuffer::new_from_steps(
+                    source,
+                    lexer,
+                    eof_token~,
+                    error_token=err_tok,
+                  )
+                None =>
+                  // Step-based without error_token: run in strict mode and surface
+                  // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
+                  @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
+              }
+          }
+        None =>
+          match error_token {
+            Some(err_tok) =>
+              // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
+              @core.TokenBuffer::new_resilient_compat(
+                source,
+                tokenize_fn=tokenize,
+                eof_token~,
+                error_token=err_tok,
+              )
+            None =>
+              @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
+          }
       }
   }
 }
@@ -70,6 +88,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   let spec = grammar.spec
   let tokenize = grammar.tokenize
   let error_token = grammar.error_token
+  let error_token_from_message = grammar.error_token_from_message
   let prefix_lexer = grammar.prefix_lexer
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
@@ -98,6 +117,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
         tokenize,
         spec.eof_token,
         error_token,
+        error_token_from_message,
         prefix_lexer~,
         mode_relex~,
       ) catch {
@@ -163,6 +183,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
                 tokenize,
                 spec.eof_token,
                 error_token,
+                error_token_from_message,
                 prefix_lexer~,
                 mode_relex~,
               ) catch {
@@ -184,6 +205,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
             tokenize,
             spec.eof_token,
             error_token,
+            error_token_from_message,
             prefix_lexer~,
             mode_relex~,
           ) catch {

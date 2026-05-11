@@ -138,6 +138,22 @@ fn read_number(cursor : @core.LexCursor) -> Unit {
 }
 
 ///|
+fn invalid_width_from_cursor(input : String, pos : Int, cursor : @core.LexCursor) -> Int {
+  let cursor_pos = cursor.position()
+  let end = if cursor_pos < input.length() {
+    @core.next_char_offset(input, cursor_pos)
+  } else {
+    cursor_pos
+  }
+  let width = end - pos
+  if width > 0 {
+    width
+  } else {
+    @core.next_char_offset(input, pos) - pos
+  }
+}
+
+///|
 /// Step-based lexer: returns one LexStep per call.
 fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
   let cursor = @core.LexCursor::new(input, pos)
@@ -175,7 +191,12 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     ['"', ..] =>
       match read_string(cursor) {
-        Some(msg) => cursor.produced(Error(msg))
+        Some(msg) =>
+          @core.LexStep::Invalid(
+            at=pos,
+            width=invalid_width_from_cursor(input, pos, cursor),
+            message=msg,
+          )
         None => cursor.produced(StringLit)
       }
     ['-', d, ..] if is_digit_char(d) => {
@@ -184,7 +205,11 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     ['-', .. rest] => {
       cursor.set_view(rest)
-      cursor.produced(Error("Unexpected character: -"))
+      @core.LexStep::Invalid(
+        at=pos,
+        width=cursor.len(),
+        message="Unexpected character: -",
+      )
     }
     [d, ..] if is_digit_char(d) => {
       read_number(cursor)
@@ -204,7 +229,11 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     [ch, .. rest] => {
       cursor.set_view(rest)
-      cursor.produced(Error("Unexpected character: \{ch.to_string()}"))
+      @core.LexStep::Invalid(
+        at=pos,
+        width=cursor.len(),
+        message="Unexpected character: \{ch.to_string()}",
+      )
     }
     _ => cursor.invalid("Invalid character")
   }
@@ -218,10 +247,17 @@ pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 
 ///|
 /// Batch tokenize: loop step_lex until Done, appending EOF.
+#warnings("-unused_error_type")
 pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
-  @core.tokenize_via_steps(json_step_lexer, input, EOF)
+  @core.TokenBuffer::new_from_steps(
+    input,
+    @core.PrefixLexer::new(lex_step=json_step_lexer),
+    eof_token=EOF,
+    error_token=Error(""),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  ).get_tokens()
 }
 
 ///|

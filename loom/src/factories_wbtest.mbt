@@ -159,6 +159,7 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
     ftokenize,
     Eof,
     Some(Err),
+    None,
     prefix_lexer=Some(lexer),
   )
   let rendered = frender_tokens(buffer.get_tokens())
@@ -214,7 +215,7 @@ test "new_parser: lex error surfaces in diagnostics and clears on recovery" {
 test "create_buffer: prefix_lexer without error_token raises on invalid step" {
   let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
   let raised = try {
-    ignore(create_buffer("a!a", ftokenize, Eof, None, prefix_lexer=Some(lexer)))
+    ignore(create_buffer("a!a", ftokenize, Eof, None, None, prefix_lexer=Some(lexer)))
     false
   } catch {
     @core.LexError(_) => true
