@@ -50,6 +50,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/language.md](architecture/language.md) — grammar, syntax, Token/Term data types
 - [architecture/seam-model.md](architecture/seam-model.md) — `CstNode`/`SyntaxNode` two-tree model
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API
+- [architecture/lexer-guidelines.md](architecture/lexer-guidelines.md) — preferred lexer cursor, `StringView`, and Unicode-safe offset patterns
 - [architecture/polymorphism-patterns.md](architecture/polymorphism-patterns.md) — choosing between generic, trait object, struct-of-closures, defunctionalization
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
