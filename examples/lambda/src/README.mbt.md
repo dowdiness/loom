@@ -55,6 +55,13 @@ test "grammar example: reactive parser + set_source" {
 `T`/`K` internally, so consumers only see `Ast`. Grammar authors never
 write vtable wiring (`ImperativeLanguage`) by hand.
 
+Lambda also wires a step lexer with `error_token=Some(@token.Error(""))` and
+`error_token_from_message=Some(fn(msg) { @token.Error(msg) })`. The constant
+error token enables recoverable lexing; the message callback preserves
+`LexStep::Invalid`/`Incomplete` details in the emitted error token. Without
+`error_token`, step lexing is strict and raises `LexError`, so the callback is
+not used.
+
 See [`@loom`'s Quick Start](../../loom/README.md#quick-start) for the
 full consumer-side flow, including `apply_edit`.
 

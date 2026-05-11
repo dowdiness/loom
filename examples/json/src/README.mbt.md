@@ -100,6 +100,12 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Gramm
 )
 ```
 
+`error_token=Some(Error(""))` makes `LexStep::Invalid` and
+`LexStep::Incomplete` recoverable instead of fatal. The paired
+`error_token_from_message=Some(fn(msg) { Error(msg) })` preserves the lexer
+message in the emitted error token. If `error_token` is omitted, the message
+callback is ignored because step lexing remains strict and raises `LexError`.
+
 ## `JsonValue`
 
 ```mbt nocheck

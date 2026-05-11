@@ -35,12 +35,13 @@ the following token.
    prefix existed. It now uses `next_char_offset(source, pos)` and has a
    regression in `loom/src/core/token_buffer_resilient_wbtest.mbt`.
 
-4. Document the `error_token_from_message` contract.
+4. Document the `error_token_from_message` contract. **Complete 2026-05-11.**
 
-   The factory path now only uses `error_token_from_message` in recoverable mode,
-   when an `error_token` fallback is also present. Public API docs should say
-   that message-preserving recovery requires both options; without
-   `error_token`, step lexing remains strict and raises `LexError`.
+   The factory path only uses `error_token_from_message` in recoverable mode,
+   when an `error_token` fallback is also present. The public API docs and JSON
+   and Lambda example READMEs now state that message-preserving recovery
+   requires both options; without `error_token`, step lexing remains strict and
+   raises `LexError`.
 
 ## Verification For Follow-Up PRs
 
