@@ -561,8 +561,9 @@ fn[T] tokenize_resilient(
           }
           pos = pos + prefix_len
         } else {
-          result.push(TokenInfo::new(error_token, 1))
-          pos = pos + 1
+          let end = next_char_offset(source, pos)
+          result.push(TokenInfo::new(error_token, end - pos))
+          pos = end
         }
       }
       result.push(TokenInfo::new(eof_token, 0))
@@ -711,13 +712,20 @@ fn[T] longest_lexable_prefix_len(
   // Linear descending scan: robust even when tokenize(prefix) success is
   // non-monotone across prefix lengths (e.g. unterminated constructs that
   // become valid only when a later closing delimiter is included).
-  for len = s.length(); len > 0; len = len - 1 {
+  let boundaries : Array[Int] = []
+  let mut pos = 0
+  while pos < s.length() {
+    pos = next_char_offset(s, pos)
+    boundaries.push(pos)
+  }
+  for i = boundaries.length(); i > 0; i = i - 1 {
+    let len = boundaries[i - 1]
     let prefix : StringView = s[0:len]
     let ok = try {
       let _ = tokenize_fn(prefix.to_owned())
       true
     } catch {
-      LexError(_) => false
+      _ => false
     }
     if ok {
       return len

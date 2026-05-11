@@ -61,6 +61,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-05-11-major-plan-closure-decision-records.md](decisions/2026-05-11-major-plan-closure-decision-records.md) — **Accepted** create/update ADRs for major plan closures; require an explicit decision-record note when archiving plans
+- [decisions/2026-05-11-moji-unicode-boundaries.md](decisions/2026-05-11-moji-unicode-boundaries.md) — **Accepted** use `moji` at grapheme/word boundary layers while keeping Loom core spans as UTF-16 code-unit offsets
 - [decisions/2026-05-11-derived-source-locations.md](decisions/2026-05-11-derived-source-locations.md) — **Accepted** keep UTF-16 offsets canonical and derive line/column positions with `LineIndex` at presentation boundaries
 - [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](archive/completed-phases/2026-04-17-unified-parser.md))
 - [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
