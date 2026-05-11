@@ -34,29 +34,19 @@ fn[T] create_buffer(
       // Existing stateless path (unchanged)
       match prefix_lexer {
         Some(lexer) =>
-          match error_token_from_message {
-            Some(make_error_token) =>
+          match error_token {
+            Some(err_tok) =>
               @core.TokenBuffer::new_from_steps(
                 source,
                 lexer,
                 eof_token~,
-                error_token=make_error_token(""),
-                error_token_from_message=Some(make_error_token),
+                error_token=err_tok,
+                error_token_from_message~,
               )
             None =>
-              match error_token {
-                Some(err_tok) =>
-                  @core.TokenBuffer::new_from_steps(
-                    source,
-                    lexer,
-                    eof_token~,
-                    error_token=err_tok,
-                  )
-                None =>
-                  // Step-based without error_token: run in strict mode and surface
-                  // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
-                  @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
-              }
+              // Step-based without error_token: run in strict mode and surface
+              // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
+              @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
           }
         None =>
           match error_token {

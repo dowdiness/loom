@@ -167,6 +167,46 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
 }
 
 ///|
+test "create_buffer: prefix_lexer + message callback does not build empty fallback" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let buffer = create_buffer(
+    "aaa",
+    ftokenize,
+    Eof,
+    Some(Err),
+    Some(fn(msg) {
+      if msg == "" {
+        abort("unexpected empty lex-error message")
+      }
+      Err
+    }),
+    prefix_lexer=Some(lexer),
+  )
+  let rendered = frender_tokens(buffer.get_tokens())
+  inspect(rendered, content="A@0-1,A@1-2,A@2-3,Eof@3-3")
+}
+
+///|
+test "create_buffer: prefix_lexer + message callback uses invalid message" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let seen : Ref[String?] = Ref::new(None)
+  let buffer = create_buffer(
+    "a!a",
+    ftokenize,
+    Eof,
+    Some(Err),
+    Some(fn(msg) {
+      seen.val = Some(msg)
+      Err
+    }),
+    prefix_lexer=Some(lexer),
+  )
+  let rendered = frender_tokens(buffer.get_tokens())
+  inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+  inspect(seen.val, content="Some(\"unexpected char\")")
+}
+
+///|
 test "new_imperative_parser: step-based path reuse matches full reparse" {
   let grammar = fgrammar(
     error_token=Some(Err),
