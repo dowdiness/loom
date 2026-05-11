@@ -289,6 +289,20 @@ test "new_from_steps: error token for Invalid" {
 }
 
 ///|
+test "new_from_steps: Invalid message can build error token" {
+  let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "a@b",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+    error_token_from_message=Some(fn(msg) { "ERR(" + msg + ")" }),
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="char@0-1,ERR(bad char @)@1-2,char@2-3,EOF@3-3")
+}
+
+///|
 test "new_from_steps: multi-error input" {
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(

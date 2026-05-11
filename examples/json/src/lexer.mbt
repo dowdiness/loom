@@ -23,9 +23,20 @@ fn is_whitespace_char(c : Char) -> Bool {
 }
 
 ///|
-fn read_string(cursor : @core.LexCursor) -> String? {
+fn invalid_end_at_cursor(input : String, cursor : @core.LexCursor) -> Int {
+  let cursor_pos = cursor.position()
+  if cursor_pos < input.length() {
+    @core.next_char_offset(input, cursor_pos)
+  } else {
+    cursor_pos
+  }
+}
+
+///|
+fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
   // cursor points at the opening '"'
   ignore(cursor.consume_char('"'))
+  let input = cursor.source()
   while !cursor.is_done() {
     match cursor.peek() {
       Some('"') => {
@@ -36,7 +47,7 @@ fn read_string(cursor : @core.LexCursor) -> String? {
         // Skip escape sequence
         ignore(cursor.advance_char())
         if cursor.is_done() {
-          return Some("unterminated string")
+          return Some(("unterminated string", cursor.position()))
         }
         match cursor.peek() {
           Some('u') => {
@@ -53,7 +64,7 @@ fn read_string(cursor : @core.LexCursor) -> String? {
               }
             }
             if hex_count != 4 {
-              return Some("Invalid \\u escape")
+              return Some(("Invalid \\u escape", invalid_end_at_cursor(input, cursor)))
             }
           }
           Some('"')
@@ -66,22 +77,29 @@ fn read_string(cursor : @core.LexCursor) -> String? {
           | Some('t') => ignore(cursor.advance_char())
           Some(_) => {
             ignore(cursor.advance_char())
-            return Some("Invalid escape sequence")
+            return Some(("Invalid escape sequence", cursor.position()))
           }
-          None => return Some("unterminated string")
+          None => return Some(("unterminated string", cursor.position()))
         }
       }
       Some(ch) => {
         if ch.to_int() >= 0 && ch.to_int() <= 0x1F {
-          return Some("Invalid control character in string")
+          return Some((
+            "Invalid control character in string",
+            invalid_end_at_cursor(input, cursor),
+          ))
         }
         ignore(cursor.advance_char())
       }
-      None => return Some("Invalid character in string")
+      None =>
+        return Some((
+          "Invalid character in string",
+          invalid_end_at_cursor(input, cursor),
+        ))
     }
   }
   // Reached end without closing quote
-  Some("unterminated string")
+  Some(("unterminated string", cursor.position()))
 }
 
 ///|
@@ -138,6 +156,23 @@ fn read_number(cursor : @core.LexCursor) -> Unit {
 }
 
 ///|
+fn invalid_width_from_end(input : String, pos : Int, end : Int) -> Int {
+  let bounded_end = if end < pos {
+    pos
+  } else if end > input.length() {
+    input.length()
+  } else {
+    end
+  }
+  let width = bounded_end - pos
+  if width > 0 {
+    width
+  } else {
+    @core.next_char_offset(input, pos) - pos
+  }
+}
+
+///|
 /// Step-based lexer: returns one LexStep per call.
 fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
   let cursor = @core.LexCursor::new(input, pos)
@@ -175,7 +210,12 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     ['"', ..] =>
       match read_string(cursor) {
-        Some(msg) => cursor.produced(Error(msg))
+        Some((msg, end)) =>
+          @core.LexStep::Invalid(
+            at=pos,
+            width=invalid_width_from_end(input, pos, end),
+            message=msg,
+          )
         None => cursor.produced(StringLit)
       }
     ['-', d, ..] if is_digit_char(d) => {
@@ -184,7 +224,11 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     ['-', .. rest] => {
       cursor.set_view(rest)
-      cursor.produced(Error("Unexpected character: -"))
+      @core.LexStep::Invalid(
+        at=pos,
+        width=cursor.len(),
+        message="Unexpected character: -",
+      )
     }
     [d, ..] if is_digit_char(d) => {
       read_number(cursor)
@@ -204,7 +248,11 @@ fn step_lex(input : String, pos : Int) -> @core.LexStep[Token] {
     }
     [ch, .. rest] => {
       cursor.set_view(rest)
-      cursor.produced(Error("Unexpected character: \{ch.to_string()}"))
+      @core.LexStep::Invalid(
+        at=pos,
+        width=cursor.len(),
+        message="Unexpected character: \{ch.to_string()}",
+      )
     }
     _ => cursor.invalid("Invalid character")
   }
@@ -218,10 +266,17 @@ pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 
 ///|
 /// Batch tokenize: loop step_lex until Done, appending EOF.
+#warnings("-unused_error_type")
 pub fn tokenize(
   input : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
-  @core.tokenize_via_steps(json_step_lexer, input, EOF)
+  @core.TokenBuffer::new_from_steps(
+    input,
+    @core.PrefixLexer::new(lex_step=json_step_lexer),
+    eof_token=EOF,
+    error_token=Error(""),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  ).get_tokens()
 }
 
 ///|

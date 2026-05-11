@@ -31,6 +31,35 @@ pub fn[T] format_diagnostic(d : Diagnostic[T]) -> String {
 }
 
 ///|
+/// Convert a diagnostic's source offsets to line/column coordinates.
+pub fn[T] diagnostic_line_range(
+  d : Diagnostic[T],
+  index : LineIndex,
+) -> LineRange {
+  index.line_range(d.start, d.end)
+}
+
+///|
+/// Format a diagnostic using 0-based line and UTF-16/code-unit column spans.
+pub fn[T] format_diagnostic_with_line_col(
+  d : Diagnostic[T],
+  index : LineIndex,
+) -> String {
+  let range = diagnostic_line_range(d, index)
+  d.message +
+  " [" +
+  format_line_col(range.start) +
+  "," +
+  format_line_col(range.end) +
+  "]"
+}
+
+///|
+fn format_line_col(pos : LineCol) -> String {
+  pos.line.to_string() + ":" + pos.column.to_string()
+}
+
+///|
 /// Lex error raised by a tokenize_fn when the source contains unrecognizable input.
 /// Generic replacement for language-specific tokenization error types.
 pub(all) suberror LexError {

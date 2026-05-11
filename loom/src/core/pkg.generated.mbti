@@ -11,11 +11,15 @@ pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
 
+pub fn[T] diagnostic_line_range(Diagnostic[T], LineIndex) -> LineRange
+
 pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T) -> ModeRelexState[T]
 
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
 pub fn[T] format_diagnostic(Diagnostic[T]) -> String
+
+pub fn[T] format_diagnostic_with_line_col(Diagnostic[T], LineIndex) -> String
 
 pub fn next_char_offset(String, Int) -> Int
 
@@ -140,6 +144,23 @@ pub(all) enum LexStep[T] {
   Incomplete(at~ : Int, expected~ : String)
   Done
 }
+
+pub(all) struct LineCol {
+  line : Int
+  column : Int
+} derive(Eq, @debug.Debug)
+
+pub struct LineIndex {
+  // private fields
+}
+pub fn LineIndex::line_col(Self, Int) -> LineCol
+pub fn LineIndex::line_range(Self, Int, Int) -> LineRange
+pub fn LineIndex::new(String) -> Self
+
+pub(all) struct LineRange {
+  start : LineCol
+  end : LineCol
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ModeLexer[T, M] {
   lex_step : (String, Int, M) -> (LexStep[T], M)
@@ -276,7 +297,7 @@ pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
-pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T) -> Self[T]
+pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
 #deprecated
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]

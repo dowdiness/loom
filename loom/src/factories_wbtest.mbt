@@ -159,10 +159,51 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
     ftokenize,
     Eof,
     Some(Err),
+    None,
     prefix_lexer=Some(lexer),
   )
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+}
+
+///|
+test "create_buffer: prefix_lexer + message callback does not build empty fallback" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let buffer = create_buffer(
+    "aaa",
+    ftokenize,
+    Eof,
+    Some(Err),
+    Some(fn(msg) {
+      if msg == "" {
+        abort("unexpected empty lex-error message")
+      }
+      Err
+    }),
+    prefix_lexer=Some(lexer),
+  )
+  let rendered = frender_tokens(buffer.get_tokens())
+  inspect(rendered, content="A@0-1,A@1-2,A@2-3,Eof@3-3")
+}
+
+///|
+test "create_buffer: prefix_lexer + message callback uses invalid message" {
+  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
+  let seen : Ref[String?] = Ref::new(None)
+  let buffer = create_buffer(
+    "a!a",
+    ftokenize,
+    Eof,
+    Some(Err),
+    Some(fn(msg) {
+      seen.val = Some(msg)
+      Err
+    }),
+    prefix_lexer=Some(lexer),
+  )
+  let rendered = frender_tokens(buffer.get_tokens())
+  inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+  inspect(seen.val, content="Some(\"unexpected char\")")
 }
 
 ///|
@@ -214,7 +255,7 @@ test "new_parser: lex error surfaces in diagnostics and clears on recovery" {
 test "create_buffer: prefix_lexer without error_token raises on invalid step" {
   let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
   let raised = try {
-    ignore(create_buffer("a!a", ftokenize, Eof, None, prefix_lexer=Some(lexer)))
+    ignore(create_buffer("a!a", ftokenize, Eof, None, None, prefix_lexer=Some(lexer)))
     false
   } catch {
     @core.LexError(_) => true

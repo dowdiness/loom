@@ -145,6 +145,15 @@ test "tokenize string with unicode escape" {
 }
 
 ///|
+test "tokenize invalid string escape preserves following comma" {
+  let tokens = tokenize("\"a\\q,1")
+  inspect(
+    print_token_infos(tokens),
+    content="<error: Invalid escape sequence>(4), ,(1), <number>(1), EOF(0)",
+  )
+}
+
+///|
 test "tokenize string with non-BMP character" {
   let tokens = tokenize("\"😈\"")
   inspect(print_token_infos(tokens), content="<string>(4), EOF(0)")

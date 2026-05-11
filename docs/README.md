@@ -112,7 +112,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-_No active plans._ When adding one, create `plans/YYYY-MM-DD-<slug>.md` and link it here.
+- [plans/2026-05-11-line-index-source-locations.md](plans/2026-05-11-line-index-source-locations.md) — derived line/column source-location mapping for diagnostics and editor display.
 
 ---
 
