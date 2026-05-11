@@ -32,7 +32,7 @@ import { "dowdiness/seam" @seam }
 A parser emits `ParseEvent`s into an `EventBuffer`, then calls `build_tree` once to
 produce an immutable `CstNode` tree:
 
-```moonbit
+```mbt nocheck
 // 1. Define your language's kinds as a newtype over Int
 let EXPR  = @seam.RawKind(0)
 let PLUS  = @seam.RawKind(1)
@@ -57,7 +57,7 @@ let root : @seam.CstNode = buf.build_tree!(EXPR)
 
 Use `mark` when you don't know the node kind yet at the start of parsing:
 
-```moonbit
+```mbt nocheck
 let buf = @seam.EventBuffer::new()
 let m = buf.mark()                          // reserve a Tombstone slot
 buf.push(@seam.ParseEvent::Token(NUM, "1"))
@@ -73,7 +73,7 @@ let root = buf.build_tree!(FILE)
 `SyntaxNode` is an ephemeral, positioned view over a `CstNode`. It adds an absolute byte
 offset to every node without modifying the underlying `CstNode`:
 
-```moonbit
+```mbt nocheck
 let syntax_root = @seam.SyntaxNode::from_cst(root)
 
 // syntax_root.start()  == 0
@@ -83,7 +83,7 @@ let syntax_root = @seam.SyntaxNode::from_cst(root)
 
 ### Walking the tree
 
-```moonbit
+```mbt nocheck
 fn print_tree(node : @seam.SyntaxNode, depth : Int) -> Unit {
   let pad = String::make(depth * 2, ' ')
   println("\{pad}\{node.kind()} [\{node.start()}:\{node.end()}]")
@@ -117,7 +117,7 @@ shared layer.
 For incremental parsing, use `build_tree_interned` to deduplicate identical tokens
 across parses:
 
-```moonbit
+```mbt nocheck
 let interner = @seam.Interner::new()
 let root1 = buf1.build_tree_interned!(FILE, interner)
 let root2 = buf2.build_tree_interned!(FILE, interner)

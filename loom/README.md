@@ -30,7 +30,7 @@ publishes into. All three ship together.
 
 ## Quick Start
 
-```moonbit
+```mbt nocheck
 // Any grammar value works — the lambda example is a complete reference
 // implementation of Grammar[T, K, Ast].
 let parser = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
@@ -55,7 +55,7 @@ above, or [`examples/json`](../examples/json/) and
 
 ## Public API (one import)
 
-```moonbit
+```mbt nocheck
 // Consumers
 @loom.Parser              // reactive parser handle
 @loom.ImperativeParser    // lower-level edit-driven engine
