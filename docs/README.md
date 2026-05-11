@@ -3,8 +3,9 @@
 Navigation map for the incremental parser. Start here, go one level deeper for detail.
 
 > **Maintenance rules:** (1) Update this file in the same commit as any `.md` add/move/remove.
-> (2) When a plan is complete: add `**Status:** Complete` to the file, then `git mv` to `archive/completed-phases/`.
-> (3) Keep `README.md` ≤60 lines and `ROADMAP.md` ≤450 lines — extract details into sub-docs.
+> (2) When a plan is complete: add `**Status:** Complete`, add a decision-record note, then `git mv` to `archive/completed-phases/`.
+> (3) Create or update an ADR for major plan closures; otherwise write `No ADR needed` with a short reason. See [ADR 2026-05-11](decisions/2026-05-11-major-plan-closure-decision-records.md).
+> (4) Keep `README.md` ≤60 lines and `ROADMAP.md` ≤450 lines — extract details into sub-docs.
 
 ---
 
@@ -59,6 +60,8 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-05-11-major-plan-closure-decision-records.md](decisions/2026-05-11-major-plan-closure-decision-records.md) — **Accepted** create/update ADRs for major plan closures; require an explicit decision-record note when archiving plans
+- [decisions/2026-05-11-derived-source-locations.md](decisions/2026-05-11-derived-source-locations.md) — **Accepted** keep UTF-16 offsets canonical and derive line/column positions with `LineIndex` at presentation boundaries
 - [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](archive/completed-phases/2026-04-17-unified-parser.md))
 - [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
 - [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
@@ -99,6 +102,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 ## Contributor
 
 - [development/managing-modules.md](development/managing-modules.md) — multi-module workflow, per-module development, publishing to mooncakes.io
+- [development/agent-docs-protocol.md](development/agent-docs-protocol.md) — coding-agent workflow for completing plans, deciding when ADRs are required, and keeping the docs index consistent
 - [decisions-needed.md](decisions-needed.md) — triage items flagged `needs-human-review`
 
 ### Examples
@@ -112,7 +116,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [plans/2026-05-11-line-index-source-locations.md](plans/2026-05-11-line-index-source-locations.md) — derived line/column source-location mapping for diagnostics and editor display.
+- [plans/2026-05-11-post-112-follow-ups.md](plans/2026-05-11-post-112-follow-ups.md) — follow-ups after PR #112: parser-level structured diagnostics, optional incremental line index, legacy resilient lexer Unicode cleanup, and `error_token_from_message` API docs.
 
 ---
 
@@ -120,7 +124,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 > **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
 
-- [archive/completed-phases/](archive/completed-phases/) — 88 completed phase plans (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, and more)
+- [archive/completed-phases/](archive/completed-phases/) — 89 completed phase plans (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, and more)
 - [archive/](archive/) — research notes and retired design snapshots:
   - [archive/lezer.md](archive/lezer.md), [archive/LEZER_IMPLEMENTATION.md](archive/LEZER_IMPLEMENTATION.md), [archive/LEZER_FRAGMENT_REUSE.md](archive/LEZER_FRAGMENT_REUSE.md) — Lezer parser framework investigation
   - [archive/green-tree-extraction.md](archive/green-tree-extraction.md) — Green Tree / Red Tree research
