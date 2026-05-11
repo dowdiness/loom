@@ -30,6 +30,8 @@ reports:
   helper
 - `TokenBuffer::new_from_steps`, strict step tokenization, and
   `PrefixLexer::lex_all` preserve non-BMP scalars during defensive progress
+- the deprecated `TokenBuffer::new_resilient` fallback also emits a whole
+  Unicode scalar for unlexable non-BMP input
 
 When adding a new recovery path, avoid `pos + 1` unless the code is explicitly
 walking ASCII syntax or intentionally indexing a single UTF-16 code unit.
@@ -41,11 +43,3 @@ walking ASCII syntax or intentionally indexing a single UTF-16 code unit.
   improves keyword/operator/newline handling.
 - Markdown text/code runs use `next_char_offset` so non-BMP characters remain
   whole in token spans.
-
-## Remaining Follow-Up
-
-The deprecated legacy resilient fallback in `TokenBuffer::new_resilient` still
-emits a one-code-unit error token and advances with `pos + 1` when no lexable
-prefix exists. `new_resilient_compat` still routes through that path, so a small
-cleanup PR should switch it to `next_char_offset(source, pos)` and add a
-regression in `token_buffer_resilient_wbtest.mbt`.

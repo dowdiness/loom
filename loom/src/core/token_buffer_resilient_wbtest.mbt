@@ -57,6 +57,55 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
 }
 
 ///|
+fn has_high_surrogate(s : String) -> Bool {
+  let mut i = 0
+  while i < s.length() {
+    let unit = s.code_unit_at(i).to_int()
+    if unit >= 0xD800 && unit <= 0xDBFF {
+      return true
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
+fn reject_non_bmp_tokenizer(
+  s : String,
+) -> Array[TokenInfo[String]] raise LexError {
+  if has_high_surrogate(s) {
+    raise LexError("non-BMP not accepted")
+  }
+  let result : Array[TokenInfo[String]] = []
+  for i = 0; i < s.length(); i = i + 1 {
+    result.push(TokenInfo::new("char", 1))
+  }
+  result.push(TokenInfo::new("EOF", 0))
+  result
+}
+
+///|
+test "TokenBuffer::new_resilient: fallback keeps non-BMP error token whole" {
+  let buf = TokenBuffer::new_resilient(
+    "a\u{1F600}b",
+    tokenize_fn=reject_non_bmp_tokenizer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let tokens = buf.get_tokens()
+  let mut offset = 0
+  let rendered = tokens
+    .map(fn(t) {
+      let start = offset
+      let end = offset + t.len
+      offset = end
+      t.token + "@" + start.to_string() + "-" + end.to_string()
+    })
+    .join(",")
+  inspect(rendered, content="char@0-1,ERR@1-3,char@3-4,EOF@4-4")
+}
+
+///|
 fn quote_sensitive_tokenizer(
   s : String,
 ) -> Array[TokenInfo[String]] raise LexError {

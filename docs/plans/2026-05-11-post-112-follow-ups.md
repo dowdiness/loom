@@ -28,11 +28,11 @@ the following token.
    path until an editor workload shows line-index construction in profiles.
    Then consider `LineIndex::apply_edit(old_source, new_source, edit)`.
 
-3. Legacy resilient lexer Unicode cleanup.
+3. Legacy resilient lexer Unicode cleanup. **Complete 2026-05-11.**
 
-   `TokenBuffer::new_resilient` is deprecated, but its fallback path still emits
-   a one-code-unit error token and advances with `pos + 1` when no lexable prefix
-   exists. Switch that fallback to `next_char_offset(source, pos)` and add a
+   `TokenBuffer::new_resilient` is deprecated, but its fallback path used to
+   emit a one-code-unit error token and advance with `pos + 1` when no lexable
+   prefix existed. It now uses `next_char_offset(source, pos)` and has a
    regression in `loom/src/core/token_buffer_resilient_wbtest.mbt`.
 
 4. Document the `error_token_from_message` contract.
