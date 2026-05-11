@@ -203,7 +203,7 @@ test "create_buffer: prefix_lexer + message callback uses invalid message" {
   )
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
-  inspect(seen.val, content="Some(\"unexpected char\")")
+  debug_inspect(seen.val, content="Some(\"unexpected char\")")
 }
 
 ///|
