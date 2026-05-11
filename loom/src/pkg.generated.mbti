@@ -18,9 +18,13 @@ pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.I
 
 pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
+pub fn[T] diagnostic_line_range(@core.Diagnostic[T], @core.LineIndex) -> @core.LineRange
+
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
 
 pub fn[T] format_diagnostic(@core.Diagnostic[T]) -> String
+
+pub fn[T] format_diagnostic_with_line_col(@core.Diagnostic[T], @core.LineIndex) -> String
 
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
@@ -81,6 +85,12 @@ pub using @core {type LexCursor}
 pub using @core {type LexError}
 
 pub using @core {type LexStep}
+
+pub using @core {type LineCol}
+
+pub using @core {type LineIndex}
+
+pub using @core {type LineRange}
 
 pub using @core {type ModeLexer}
 
