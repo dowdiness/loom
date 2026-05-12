@@ -649,20 +649,19 @@ fn[T, K] ParserContext::token_info_at_or_after(
 }
 
 ///|
-/// Add a diagnostic unless an equivalent one already exists.
-/// Equivalence: same message and span. If found, update got_token to the latest.
+/// Add a diagnostic unless an equivalent parser error already exists.
+/// Equivalence uses the stable logical key and refreshes volatile evidence.
 /// Returns true if newly added, false if an existing diagnostic was updated.
 fn[T, K] ParserContext::push_diagnostic_unique(
   self : ParserContext[T, K],
   diag : Diagnostic,
 ) -> Bool {
-  let before = self.diagnostics.length()
-  self.diagnostics.push(diag)
-  if self.diagnostics.length() == before {
-    return false
+  if self.diagnostics.push_parser_unique(diag) {
+    self.error_count = self.error_count + 1
+    true
+  } else {
+    false
   }
-  self.error_count = self.error_count + 1
-  true
 }
 
 ///|

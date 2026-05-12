@@ -1021,6 +1021,24 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
 }
 
 ///|
+test "ParserContext push_diagnostic_unique deduplicates by parser message and span" {
+  let src = "1"
+  let (toks, _starts) = test_tokenize_with_starts(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  let added = ctx.push_diagnostic_unique(
+    test_parser_diagnostic("same logical error", 1, 1, TestTok::Ws),
+  )
+  let updated = ctx.push_diagnostic_unique(
+    test_parser_diagnostic("same logical error", 1, 1, TestTok::TokEof),
+  )
+  inspect(added, content="true")
+  inspect(updated, content="false")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
+  inspect(ctx.error_count, content="1")
+}
+
+///|
 test "ReuseCursor::try_reuse: post-damage node is not reused when source shrinks" {
   fn grammar_two_numbers(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {

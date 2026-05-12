@@ -447,6 +447,16 @@ fn diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
 }
 
 ///|
+fn parser_diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
+  // Parser replay can refresh token evidence without changing the logical error.
+  a.source == b.source &&
+  a.severity == b.severity &&
+  a.code == b.code &&
+  a.message == b.message &&
+  a.primary == b.primary
+}
+
+///|
 pub struct DiagnosticSet {
   priv items : Array[Diagnostic]
 } derive(Eq, Debug)
@@ -491,6 +501,21 @@ pub fn DiagnosticSet::push(
     }
   }
   self.items.push(diagnostic)
+}
+
+///|
+fn DiagnosticSet::push_parser_unique(
+  self : DiagnosticSet,
+  diagnostic : Diagnostic,
+) -> Bool {
+  for i, existing in self.items.iter2() {
+    if parser_diagnostic_same_key(existing, diagnostic) {
+      self.items[i] = diagnostic
+      return false
+    }
+  }
+  self.items.push(diagnostic)
+  true
 }
 
 ///|
