@@ -70,6 +70,27 @@ fn ftokenize(s : String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
 }
 
 ///|
+fn ftokenize_requires_terminator(
+  s : String,
+) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
+  if s.length() == 0 || s.code_unit_at(s.length() - 1).to_int() != 46 {
+    raise @core.LexError("terminator required")
+  }
+  let tokens : Array[@core.TokenInfo[FTok]] = []
+  let mut i = 0
+  while i < s.length() {
+    match s.code_unit_at(i).to_int() {
+      97 => tokens.push(@core.TokenInfo::new(A, 1))
+      46 => tokens.push(@core.TokenInfo::new(Ws, 1))
+      _ => raise @core.LexError("unexpected char")
+    }
+    i = i + 1
+  }
+  tokens.push(@core.TokenInfo::new(Eof, 0))
+  tokens
+}
+
+///|
 fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
   if start >= source.length() {
     return Done
@@ -132,6 +153,29 @@ fn fgrammar(
     },
     error_token~,
     prefix_lexer~,
+  )
+}
+
+///|
+fn fterminator_grammar_with_tokenize(
+  tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
+) -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  Grammar::new(
+    spec~,
+    tokenize~,
+    fold_node=fn(s, _recurse) { s },
+    on_lex_error=fn(_msg) {
+      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+      @seam.SyntaxNode::from_cst(cst)
+    },
   )
 }
 
@@ -228,6 +272,22 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
     @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
     content="0",
   )
+}
+
+///|
+test "new_imperative_parser: successful rebuild fallback is not a diagnostic" {
+  let saw_incremental_failure = Ref::new(false)
+  let grammar = fterminator_grammar_with_tokenize(s => {
+    if s.length() == 0 || s.code_unit_at(s.length() - 1).to_int() != 46 {
+      saw_incremental_failure.val = true
+    }
+    ftokenize_requires_terminator(s)
+  })
+  let parser = new_imperative_parser("aaaa.", grammar)
+  ignore(parser.parse())
+  ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
+  inspect(saw_incremental_failure.val, content="true")
+  inspect(parser.diagnostics(), content="[]")
 }
 
 ///|

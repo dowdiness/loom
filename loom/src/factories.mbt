@@ -140,7 +140,6 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
-      let update_diagnostics = @core.DiagnosticSet::empty()
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
@@ -183,7 +182,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
       match token_buf.val {
         Some(buffer) =>
           buffer.update(edit, source) catch {
-            @core.LexError(msg) => {
+            @core.LexError(_) => {
               let rebuilt = create_buffer(
                 source,
                 tokenize,
@@ -203,12 +202,6 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
                   return @incremental.ParseOutcome::LexError(formatted)
                 }
               }
-              update_diagnostics.push(
-                @core.Diagnostic::lexer_error(
-                  "incremental token buffer update failed; rebuilt token buffer: " +
-                  msg,
-                ),
-              )
               token_buf.val = Some(rebuilt)
             }
           }
@@ -265,7 +258,6 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
       )
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
-      all_diagnostics.extend(update_diagnostics)
       all_diagnostics.extend(diagnostics)
       last_lex_diags.val = lex_diagnostics
       last_parse_diags.val = diagnostics
