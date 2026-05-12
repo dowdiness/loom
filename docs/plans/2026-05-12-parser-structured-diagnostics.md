@@ -1,0 +1,394 @@
+# Parser-Level Structured Diagnostics
+
+**Status:** Active
+**Date:** 2026-05-12
+
+## Context
+
+PR #112 kept loom's canonical source coordinate system as UTF-16 code-unit
+offsets and added `LineIndex` for presentation-time line/column derivation.
+The remaining gap is the parser boundary: `Parser::diagnostics()` and
+`ImperativeParser::diagnostics()` still expose formatted `Array[String]`
+values, while low-level parser code carries `Diagnostic[T]` with a
+language-specific `got_token : T`.
+
+This design assumes no backward compatibility requirement. Prefer the clean
+architecture over compatibility shims.
+
+Verified against current code before writing this plan:
+
+- `rtk moon check` passes on `main`.
+- `@loom.Diagnostic` is currently a facade re-export of
+  `@core.Diagnostic[T]`.
+- `Array[Diagnostic]` and generic `ParseSnapshot[Ast]` can derive `Eq` when
+  `Ast : Eq`, so structured diagnostics can live behind `@incr.Memo`.
+- `SyntaxNode` implements `Eq`.
+- Prefix lexing can already recover inline, but mode-aware lexing still raises
+  `LexError`; total high-level parsing therefore needs a `LexResult` boundary
+  before `ParseOutcome::LexError` can disappear.
+
+## Goals
+
+- Make diagnostics structured data, not formatted strings.
+- Make the high-level parser publish one coherent parse snapshot.
+- Keep UTF-16 code-unit offsets canonical; derive line/column coordinates only
+  at presentation boundaries.
+- Keep language-specific token types internal to lexing/parsing mechanics.
+- Route lexer and parser diagnostics through the same data model.
+- Make parser APIs suitable for editor and LSP consumers without requiring a
+  second tokenization pass.
+
+## Non-Goals
+
+- Preserve `Array[String]` parser diagnostics.
+- Add incremental `LineIndex`; build `LineIndex::new(source)` on demand until
+  profiling proves it is a bottleneck.
+- Design an LSP adapter.
+- Keep `Diagnostic[T].got_token` in public parser-facing APIs.
+- Remove every strict lexer helper. Strict tokenization can remain as a
+  low-level test/debug API, but it must not be the high-level parser contract.
+
+## Principles
+
+1. **Diagnostics are data.** Formatting is a rendering step.
+2. **Snapshots are atomic.** Source, syntax, AST, diagnostics, and reuse stats
+   should travel as one parse result.
+3. **High-level parsing is total.** Malformed user input should produce a tree
+   with error/incomplete nodes plus diagnostics, not a missing syntax tree.
+4. **Offsets are canonical.** Store UTF-16 code-unit ranges; derive line/column
+   with `LineIndex`.
+5. **Token evidence is erased.** Diagnostics may expose `RawKind` and ranges,
+   but not the language-specific token type `T`.
+6. **Invariant wrappers beat raw `Int`.** Use opaque `TextOffset` and
+   `TextRange` so offsets cannot be mixed casually with counts or indexes.
+
+## Proposed Data Model
+
+Place these types in `loom/src/core/diagnostics.mbt`, replacing the public
+role of `Diagnostic[T]`.
+
+```moonbit
+pub struct TextOffset {
+  priv value : Int
+} derive(Eq, Debug, Hash, Compare)
+
+pub fn TextOffset::at(value : Int) -> TextOffset {
+  guard value >= 0 else { fail("TextOffset must be non-negative") }
+  { value }
+}
+
+pub fn TextOffset::value(self : TextOffset) -> Int {
+  self.value
+}
+
+pub struct TextRange {
+  priv start : TextOffset
+  priv end : TextOffset
+} derive(Eq, Debug, Hash, Compare)
+
+pub fn TextRange::new(start : TextOffset, end : TextOffset) -> TextRange {
+  guard start <= end else { fail("TextRange end must be >= start") }
+  { start, end }
+}
+
+pub fn TextRange::from_offsets(start : Int, end : Int) -> TextRange {
+  TextRange::new(TextOffset::at(start), TextOffset::at(end))
+}
+```
+
+Diagnostic records:
+
+```moonbit
+pub enum DiagnosticSeverity {
+  Error
+  Warning
+  Info
+  Hint
+} derive(Eq, Debug)
+
+pub struct DiagnosticSource {
+  priv name : String
+} derive(Eq, Debug, Hash)
+
+pub struct DiagnosticCode {
+  priv value : String
+} derive(Eq, Debug, Hash)
+
+pub struct TokenEvidence {
+  kind : @seam.RawKind
+  range : TextRange
+} derive(Eq, Debug)
+
+pub struct DiagnosticLabel {
+  range : TextRange
+  message : String?
+} derive(Eq, Debug)
+
+pub struct Diagnostic {
+  source : DiagnosticSource
+  severity : DiagnosticSeverity
+  code : DiagnosticCode?
+  message : String
+  primary : TextRange?
+  labels : Array[DiagnosticLabel]
+  notes : Array[String]
+  token : TokenEvidence?
+} derive(Eq, Debug)
+
+pub struct DiagnosticSet {
+  priv items : Array[Diagnostic]
+} derive(Eq, Debug)
+```
+
+`DiagnosticSet` owns collection behavior:
+
+- `DiagnosticSet::empty()`
+- `DiagnosticSet::single(Diagnostic)`
+- `DiagnosticSet::items() -> Array[Diagnostic]` returning a defensive copy
+- `DiagnosticSet::push(Diagnostic) -> Unit`
+- `DiagnosticSet::extend(DiagnosticSet) -> Unit`
+- `DiagnosticSet::is_empty() -> Bool`
+- `DiagnosticSet::length() -> Int`
+- `DiagnosticSet::format() -> Array[String]`
+- `DiagnosticSet::format_with_line_col(LineIndex) -> Array[String]`
+- `DiagnosticSet::offset_by(delta : Int, after : TextOffset) -> DiagnosticSet`
+
+Deduplication should happen here, keyed by source, severity, code, message, and
+primary range. Token evidence can refresh on duplicate reports, matching the
+current `push_diagnostic_unique` behavior.
+
+## Lexing Boundary
+
+Introduce a total lexer output for high-level parser use:
+
+```moonbit
+pub struct LexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+} derive(Eq, Debug)
+```
+
+The high-level grammar path should eventually use:
+
+```moonbit
+lex : (String) -> LexResult[T]
+```
+
+instead of:
+
+```moonbit
+tokenize : (String) -> Array[TokenInfo[T]] raise LexError
+```
+
+Strict tokenizers can remain low-level helpers for tests and batch consumers
+that want fail-fast lexing. The parser factory should not route strict lex
+errors into a separate `ParseOutcome::LexError` channel.
+
+### Prefix Lexer
+
+`PrefixLexer` already reports `Invalid(at, width, message)` and
+`Incomplete(at, expected)` and `TokenBuffer::new_from_steps` already recovers
+by emitting error tokens. Convert that path first:
+
+- construct `TokenEvidence` from the error token's `RawKind` and `TextRange`
+- append a lexer diagnostic for each `Invalid` / `Incomplete`
+- keep the current Unicode-safe recovery offset behavior
+- keep token starts explicit so late invalid offsets remain representable
+
+This makes `error_token_from_message` unnecessary for user-facing messages.
+Diagnostics carry messages; error tokens only need to preserve syntax shape.
+
+### Mode Lexer
+
+`ModeLexer` currently raises on `Invalid` and `Incomplete` via
+`tokenize_with_modes` / `ModeRelexState`. Add recovering variants before
+removing the high-level lex-error side channel:
+
+- full mode lexing returns `LexResult[T]` plus mode state
+- mode relex returns replacement tokens, convergence index, and diagnostics
+- `Invalid` should advance with the same recovery law as `PrefixLexer`
+- the returned `next_mode` from `ModeLexer.lex_step` should be used after a
+  recovered invalid step; `Incomplete` records a diagnostic and stops at EOF
+
+## Parser Boundary
+
+Replace parser-level side channels with a parse snapshot:
+
+```moonbit
+pub struct ParseSnapshot[Ast] {
+  source : String
+  syntax : @seam.SyntaxNode
+  ast : Ast
+  diagnostics : DiagnosticSet
+  reuse_count : Int
+} derive(Eq, Debug)
+```
+
+`ImperativeParser` should store and return snapshots:
+
+```moonbit
+ImperativeParser::parse() -> ParseSnapshot[Ast]
+ImperativeParser::edit(Edit, String) -> ParseSnapshot[Ast]
+ImperativeParser::reset(String) -> ParseSnapshot[Ast]
+ImperativeParser::current() -> ParseSnapshot[Ast]?
+```
+
+The reactive `Parser` should publish a single snapshot signal/view:
+
+```moonbit
+Parser::snapshot() -> @incr.Memo[ParseSnapshot[Ast]]
+```
+
+Convenience views are derived from the snapshot:
+
+```moonbit
+Parser::source() -> @incr.Memo[String]
+Parser::syntax_tree() -> @incr.Memo[@seam.SyntaxNode]
+Parser::ast() -> @incr.Memo[Ast]
+Parser::diagnostics() -> @incr.Memo[DiagnosticSet]
+```
+
+`Parser::syntax_tree()` should no longer return `SyntaxNode?` in the high-level
+API. Invalid input is represented by error/incomplete nodes and diagnostics.
+
+## ParserContext Changes
+
+Change `ParserContext` from:
+
+```moonbit
+errors : Array[Diagnostic[T]]
+```
+
+to:
+
+```moonbit
+diagnostics : DiagnosticSet
+```
+
+Replace string-first reporting with structured reporting:
+
+```moonbit
+ParserContext::report(Diagnostic) -> Unit
+ParserContext::report_error(message~ : String, code? : DiagnosticCode?, range? : TextRange?) -> Unit
+ParserContext::report_at_current(message~ : String, code? : DiagnosticCode?) -> Unit
+ParserContext::report_expected(expected~ : String, code? : DiagnosticCode?) -> Unit
+```
+
+`report_at_current` should record token evidence when `T : ToRawKind`:
+
+- current token range from `get_start` / `get_end`
+- current token kind from `get_token(i).to_raw()`
+- EOF token evidence from `spec.eof_token.to_raw()` and zero-width EOF range
+
+This likely tightens parse entry point bounds from `T : IsTrivia` to
+`T : IsTrivia + ToRawKind` for APIs that report diagnostics. Current example
+tokens already satisfy that bound, and reuse already depends on it.
+
+## Incremental Reuse And Block Reparse
+
+The current reuse path replays `Array[Diagnostic[T]]` by matching ranges. After
+this change, reuse should replay `DiagnosticSet` entries whose primary range
+falls inside the reused node. Synthesis of reused diagnostics should construct
+real `Diagnostic` values with:
+
+- `source = DiagnosticSource::parser()`
+- `severity = Error`
+- `message = "reused syntax error"` initially, with a follow-up to produce a
+  better code/message if needed
+- token-erased evidence from the closest token
+
+Block reparse should accept lex results rather than a raising tokenizer:
+
+```moonbit
+lex : (String) -> LexResult[T]
+old_diagnostics : DiagnosticSet
+```
+
+Block diagnostics are offset by `block_start` and merged by `DiagnosticSet`.
+
+## Line And Column Formatting
+
+Do not store line/column in `Diagnostic`.
+
+Add derived helpers:
+
+```moonbit
+Diagnostic::line_range(LineIndex) -> LineRange?
+Diagnostic::format() -> String
+Diagnostic::format_with_line_col(LineIndex) -> String
+```
+
+Line/column coordinates stay presentation-only and follow ADR
+`2026-05-11-derived-source-locations`.
+
+## Implementation Plan
+
+1. Add the new diagnostic data model and `DiagnosticSet` helpers.
+2. Convert `ParserContext` parse diagnostics to `DiagnosticSet`.
+3. Convert low-level parse entry points to return `DiagnosticSet`.
+4. Add `LexResult[T]` and migrate the prefix-lexer recovery path.
+5. Add recovering mode-lexer variants and migrate Markdown.
+6. Change `Grammar` and factories to consume `LexResult[T]`.
+7. Replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
+   `ParseSnapshot[Ast]`.
+8. Collapse reactive `Parser` state to a snapshot signal plus derived views.
+9. Update examples and public docs to use `DiagnosticSet`.
+10. Remove parser-level formatted string diagnostics.
+
+Run after each meaningful step:
+
+```bash
+rtk moon check
+```
+
+Final verification:
+
+```bash
+rtk moon fmt
+rtk moon check
+rtk moon test
+rtk moon info
+rtk git diff --check
+```
+
+For touched examples:
+
+```bash
+cd examples/json && rtk moon test
+cd examples/lambda && rtk moon test
+cd examples/markdown && rtk moon test
+```
+
+## Tests To Add Or Update
+
+- `DiagnosticSet` construction, defensive-copy, formatting, and dedupe tests.
+- `TextOffset` / `TextRange` invariant tests.
+- `ParserContext::report_at_current` token-evidence tests.
+- Prefix lexer invalid/incomplete diagnostics with non-BMP recovery offsets.
+- Mode lexer invalid/incomplete diagnostics with mode-state recovery.
+- Incremental reuse replays structured diagnostics without duplication.
+- Block reparse offsets and merges structured diagnostics.
+- `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count
+  atomically.
+- Line/column formatting derives from `LineIndex` without mutating stored
+  diagnostics.
+
+## Risks And Follow-Ups
+
+- Mode-aware recovery is the highest-risk part because convergence depends on
+  mode and position alignment. Keep the first implementation conservative:
+  fall back to full recovering mode lex when partial convergence is unclear.
+- `ParseSnapshot[Ast]` equality compares `source`; this is acceptable for the
+  first implementation because parser updates already know when source changes.
+  Revisit only if profiling shows snapshot equality is hot.
+- `DiagnosticSet::offset_by` must preserve optional ranges and labels
+  consistently. Add direct tests before using it in block reparse.
+- Removing `got_token : T` will require example parser cleanup where
+  `ParseError` currently stores the language-specific token.
+
+## Decision Record
+
+No ADR is created with this active design plan. An ADR is required when this
+plan is completed because the implementation changes public parser contracts
+and establishes the diagnostic boundary policy.

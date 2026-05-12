@@ -117,6 +117,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
+- [plans/2026-05-12-parser-structured-diagnostics.md](plans/2026-05-12-parser-structured-diagnostics.md) — design and implementation plan for replacing parser-level formatted string diagnostics with structured diagnostics, total high-level lexing, and parse snapshots.
 - [plans/2026-05-11-post-112-follow-ups.md](plans/2026-05-11-post-112-follow-ups.md) — follow-ups after PR #112: parser-level structured diagnostics, optional incremental line index, legacy resilient lexer Unicode cleanup, and `error_token_from_message` API docs.
 
 ---
