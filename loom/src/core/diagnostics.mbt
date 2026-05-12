@@ -505,7 +505,7 @@ pub fn DiagnosticSet::offset_by(
   after : TextOffset,
 ) -> DiagnosticSet raise DiagnosticBuildError {
   if delta == 0 {
-    return self
+    return self.copy()
   }
   let result = DiagnosticSet::empty()
   for diagnostic in self.items {

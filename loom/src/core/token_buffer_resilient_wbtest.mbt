@@ -58,6 +58,19 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
 }
 
 ///|
+test "TokenBuffer::update clears diagnostics for repaired resilient error" {
+  let buf = TokenBuffer::new_resilient(
+    "a@b",
+    tokenize_fn=bad_tokenizer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  buf.update(Edit::replace(1, 2, 2), "acb")
+  inspect(buf.get_diagnostics().format(), content="[]")
+}
+
+///|
 fn has_high_surrogate(s : String) -> Bool {
   let mut i = 0
   while i < s.length() {

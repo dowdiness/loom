@@ -44,8 +44,8 @@ test "parse_cst EOF diagnostics point to end of source" {
   let mut found = false
   for diag in diagnostics.items() {
     if diag.message.contains("else") {
-      // Position must be at or near the end of the source, not 0
-      inspect(diagnostic_start(diag) > 0, content="true")
+      // Position must be at EOF.
+      inspect(diagnostic_start(diag) == source.length(), content="true")
       found = true
     }
   }

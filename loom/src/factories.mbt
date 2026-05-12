@@ -66,6 +66,60 @@ fn[T] create_buffer(
 }
 
 ///|
+/// Keep lexer diagnostics coherent across block-reparse fast paths, where the
+/// token buffer is not updated before returning the new tree.
+fn lexer_diagnostics_after_edit(
+  diagnostics : @core.DiagnosticSet,
+  edit : @core.Edit,
+) -> @core.DiagnosticSet {
+  let result = @core.DiagnosticSet::empty()
+  let after_result : Result[@core.TextOffset, @core.DiagnosticBuildError] = try? @core.TextOffset(
+    edit.old_end(),
+  )
+  match after_result {
+    Err(err) => {
+      result.push(
+        @core.Diagnostic::lexer_error(
+          "failed to update lexer diagnostics after block reparse: " +
+          @debug.to_string(err),
+        ),
+      )
+      result
+    }
+    Ok(after) => {
+      for diagnostic in diagnostics.items() {
+        match diagnostic.primary {
+          None => result.push(diagnostic)
+          Some(range) => {
+            let start = range.start().value()
+            let end = range.end().value()
+            if end <= edit.start {
+              result.push(diagnostic)
+            } else if start >= edit.old_end() {
+              let shifted : Result[@core.Diagnostic, @core.DiagnosticBuildError] = try? diagnostic.offset_by(
+                edit.delta(),
+                after,
+              )
+              match shifted {
+                Ok(diagnostic) => result.push(diagnostic)
+                Err(err) =>
+                  result.push(
+                    @core.Diagnostic::lexer_error(
+                      "failed to shift lexer diagnostic after block reparse: " +
+                      @debug.to_string(err),
+                    ),
+                  )
+              }
+            }
+          }
+        }
+      }
+      result
+    }
+  }
+}
+
+///|
 /// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
 ///
 /// Each call allocates fresh per-session state (TokenBuffer ref, last
@@ -89,6 +143,9 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref::new(
     @core.DiagnosticSet::empty(),
   )
+  let last_lex_diags : Ref[@core.DiagnosticSet] = Ref::new(
+    @core.DiagnosticSet::empty(),
+  )
   // Persistent old-token cache: survives across edits so collect_old_tokens
   // only runs once (on first incremental parse). Subsequent edits reuse the
   // cached flat token array via ensure_old_tokens → immediate cache hit.
@@ -110,10 +167,10 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
         @core.LexError(msg) => {
           token_buf.val = None
           let formatted = "Tokenization error: " + msg
+          let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
           last_parse_diags.val = @core.DiagnosticSet::empty()
-          last_diags.val = @core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error(formatted),
-          )
+          last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
+          last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
           return @incremental.ParseOutcome::LexError(formatted)
         }
       }
@@ -126,8 +183,10 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
         fn(i) { buffer.get_end(i) },
         spec,
       )
-      let all_diagnostics = buffer.get_diagnostics()
+      let lex_diagnostics = buffer.get_diagnostics()
+      let all_diagnostics = lex_diagnostics.copy()
       all_diagnostics.extend(diagnostics)
+      last_lex_diags.val = lex_diagnostics
       last_parse_diags.val = diagnostics
       last_diags.val = all_diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -153,8 +212,15 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               last_parse_diags.val,
             ) {
             Some((new_cst, new_diagnostics)) => {
+              let lex_diagnostics = lexer_diagnostics_after_edit(
+                last_lex_diags.val,
+                edit,
+              )
+              let all_diagnostics = lex_diagnostics.copy()
+              all_diagnostics.extend(new_diagnostics)
+              last_lex_diags.val = lex_diagnostics
               last_parse_diags.val = new_diagnostics
-              last_diags.val = new_diagnostics
+              last_diags.val = all_diagnostics
               token_buf.val = None // Invalidate for next potential fallback
               return @incremental.ParseOutcome::Tree(
                 @seam.SyntaxNode::from_cst(new_cst),
@@ -182,10 +248,10 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
                 @core.LexError(msg2) => {
                   token_buf.val = None
                   let formatted = "Tokenization error: " + msg2
+                  let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
                   last_parse_diags.val = @core.DiagnosticSet::empty()
-                  last_diags.val = @core.DiagnosticSet::single(
-                    @core.Diagnostic::lexer_error(formatted),
-                  )
+                  last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
+                  last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
                   return @incremental.ParseOutcome::LexError(formatted)
                 }
               }
@@ -210,10 +276,10 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
           ) catch {
             @core.LexError(msg) => {
               let formatted = "Tokenization error: " + msg
+              let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
               last_parse_diags.val = @core.DiagnosticSet::empty()
-              last_diags.val = @core.DiagnosticSet::single(
-                @core.Diagnostic::lexer_error(formatted),
-              )
+              last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
+              last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
               return @incremental.ParseOutcome::LexError(formatted)
             }
           }
@@ -249,9 +315,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
         cursor~,
         prev_diagnostics=Some(last_parse_diags.val),
       )
-      let all_diagnostics = buffer.get_diagnostics()
+      let lex_diagnostics = buffer.get_diagnostics()
+      let all_diagnostics = lex_diagnostics.copy()
       all_diagnostics.extend(update_diagnostics)
       all_diagnostics.extend(diagnostics)
+      last_lex_diags.val = lex_diagnostics
       last_parse_diags.val = diagnostics
       last_diags.val = all_diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)

@@ -117,6 +117,15 @@ test "DiagnosticSet returns a defensive copy" {
 }
 
 ///|
+test "DiagnosticSet offset_by zero returns an independent copy" {
+  let set = DiagnosticSet::single(test_diagnostic("first", 0, 1, 1))
+  let shifted = test_shift(set, 0, test_offset(0))
+  shifted.push(test_diagnostic("second", 2, 3, 2))
+  inspect(shifted.length(), content="2")
+  inspect(set.length(), content="1")
+}
+
+///|
 test "DiagnosticSet deduplicates by stable key and refreshes token evidence" {
   let set = DiagnosticSet::empty()
   set.push(test_diagnostic("expected", 1, 2, 7))

@@ -399,6 +399,17 @@ pub fn[T] TokenBuffer::update(
       // relex_from already spliced the modes array internally.
       self.tokens = new_tokens
       self.starts = new_starts
+      let old_relex_end = if converged_right < old_starts.length() {
+        old_starts[converged_right]
+      } else {
+        self.source.length()
+      }
+      self.diagnostics = update_diagnostics_after_relex(
+        self.diagnostics,
+        old_starts[left_tok_idx],
+        old_relex_end,
+        delta,
+      )
       self.source = new_source
       self.version = self.version + 1
       return
@@ -451,8 +462,71 @@ pub fn[T] TokenBuffer::update(
   new_starts.push(new_len)
   self.tokens = new_tokens
   self.starts = new_starts
+  self.diagnostics = update_diagnostics_after_relex(
+    self.diagnostics,
+    left_old_offset,
+    right_old_offset,
+    delta,
+  )
   self.source = new_source
   self.version = self.version + 1
+}
+
+///|
+/// Preserve lexer diagnostics outside a successfully re-lexed old range.
+/// Diagnostics inside the range are stale and must be dropped; diagnostics
+/// after the range shift by the edit delta.
+fn update_diagnostics_after_relex(
+  old_diagnostics : DiagnosticSet,
+  old_start : Int,
+  old_end : Int,
+  delta : Int,
+) -> DiagnosticSet {
+  let result = DiagnosticSet::empty()
+  let after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
+    old_end,
+  )
+  match after_result {
+    Err(err) => {
+      result.push(
+        Diagnostic::lexer_error(
+          "failed to update lexer diagnostics after incremental relex: " +
+          @debug.to_string(err),
+        ),
+      )
+      return result
+    }
+    Ok(after) => {
+      for diagnostic in old_diagnostics.items() {
+        match diagnostic.primary {
+          None => result.push(diagnostic)
+          Some(range) => {
+            let start = range.start().value()
+            let end = range.end().value()
+            if end <= old_start {
+              result.push(diagnostic)
+            } else if start >= old_end {
+              let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
+                delta,
+                after,
+              )
+              match shifted {
+                Ok(diagnostic) => result.push(diagnostic)
+                Err(err) =>
+                  result.push(
+                    Diagnostic::lexer_error(
+                      "failed to shift lexer diagnostic after incremental relex: " +
+                      @debug.to_string(err),
+                    ),
+                  )
+              }
+            }
+          }
+        }
+      }
+      result
+    }
+  }
 }
 
 ///|
@@ -772,9 +846,9 @@ fn[T] tokenize_from_steps_strict_result(
       Produced(token_info, next_offset~) => {
         starts.push(pos)
         if next_offset <= pos {
-          let end = next_char_offset(source, pos)
-          result.push(TokenInfo::new(token_info.token, end - pos))
-          pos = end
+          raise LexError(
+            "step lexer made no progress at position " + pos.to_string(),
+          )
         } else {
           result.push(TokenInfo::new(token_info.token, next_offset - pos))
           pos = next_offset

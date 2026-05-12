@@ -417,11 +417,15 @@ test "new_from_steps_strict: Produced token len is normalized from consumed span
 }
 
 ///|
-test "new_from_steps_strict: no-progress Produced keeps non-BMP scalar whole" {
+test "new_from_steps_strict: no-progress Produced raises LexError" {
   let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
-  let buf = TokenBuffer::new_from_steps_strict("😈x", lexer, eof_token="EOF")
-  let rendered = render_tokens(buf.get_tokens())
-  inspect(rendered, content="stuck@0-2,stuck@2-3,EOF@3-3")
+  let raised = try {
+    ignore(TokenBuffer::new_from_steps_strict("😈x", lexer, eof_token="EOF"))
+    false
+  } catch {
+    LexError(msg) => msg == "step lexer made no progress at position 0"
+  }
+  inspect(raised, content="true")
 }
 
 ///|
