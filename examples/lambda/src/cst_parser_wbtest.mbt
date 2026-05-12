@@ -95,7 +95,7 @@ test "incremental reuse: preserves prior diagnostic messages on reused invalid s
   let tokens = @lexer.tokenize(source)
   let (old_tree, old_errors) = parse_cst(source)
   inspect(old_errors.length(), content="1")
-  inspect(old_errors[0].message, content="Expected parameter after λ")
+  inspect(old_errors.items()[0].message, content="Expected parameter after λ")
 
   let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
@@ -106,7 +106,7 @@ test "incremental reuse: preserves prior diagnostic messages on reused invalid s
   )
   inspect(reuse_count > 0, content="true")
   inspect(errors.length(), content="1")
-  inspect(errors[0].message, content="Expected parameter after λ")
+  inspect(errors.items()[0].message, content="Expected parameter after λ")
 }
 
 ///|
@@ -115,7 +115,7 @@ test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reus
   let tokens = @lexer.tokenize(source)
   let (old_tree, old_errors) = parse_cst(source)
   inspect(old_errors.length(), content="1")
-  inspect(old_errors[0].message, content="Expected parameter after λ")
+  inspect(old_errors.items()[0].message, content="Expected parameter after λ")
 
   let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
@@ -126,7 +126,7 @@ test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reus
   )
   inspect(reuse_count > 0, content="true")
   inspect(errors.length(), content="1")
-  inspect(errors[0].message, content="Expected parameter after λ")
+  inspect(errors.items()[0].message, content="Expected parameter after λ")
 }
 
 ///|

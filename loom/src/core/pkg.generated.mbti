@@ -11,23 +11,17 @@ pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
 
-pub fn[T] diagnostic_line_range(Diagnostic[T], LineIndex) -> LineRange
-
 pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T) -> ModeRelexState[T]
 
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
-pub fn[T] format_diagnostic(Diagnostic[T]) -> String
-
-pub fn[T] format_diagnostic_with_line_col(Diagnostic[T], LineIndex) -> String
-
 pub fn next_char_offset(String, Int) -> Int
 
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : Array[Diagnostic[T]]?) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, LanguageSpec[T, K], cursor? : ReuseCursor[T, K]?, prev_diagnostics? : DiagnosticSet?) -> (@seam.CstNode, DiagnosticSet, Int)
 
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, Array[Diagnostic[T]])
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
 
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> Array[TokenInfo[T]] raise LexError, LanguageSpec[T, K], BlockReparseSpec[T, K], Array[Diagnostic[T]]) -> (@seam.CstNode, Array[Diagnostic[T]])?
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> Array[TokenInfo[T]] raise LexError, LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
 
@@ -37,11 +31,18 @@ pub fn to_edits(Array[TextDelta]) -> Array[Edit]
 
 pub fn[T] tokenize_via_steps((String, Int) -> LexStep[T], String, T) -> Array[TokenInfo[T]] raise LexError
 
+pub fn[T] tokenize_via_steps_result((String, Int) -> LexStep[T], String, T) -> LexResult[T] raise LexError
+
 pub fn[T, M] tokenize_with_modes(ModeLexer[T, M], String, T) -> (Array[TokenInfo[T]], Array[M]) raise LexError
 
 pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[Edit]
 
 // Errors
+pub(all) suberror DiagnosticBuildError {
+  NegativeTextOffset(Int)
+  InvalidTextRange(Int, Int)
+} derive(@debug.Debug)
+
 pub(all) suberror LexError {
   LexError(String)
 }
@@ -68,13 +69,69 @@ pub fn[Ast] CstFold::new((@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast) -
 
 type CursorFrame
 
-pub struct Diagnostic[T] {
+pub struct Diagnostic {
+  source : DiagnosticSource
+  severity : DiagnosticSeverity
+  code : DiagnosticCode?
   message : String
-  start : Int
-  end : Int
-  got_token : T
-} derive(@debug.Debug)
-pub impl[T : @debug.Debug] Show for Diagnostic[T]
+  primary : TextRange?
+  labels : Array[DiagnosticLabel]
+  notes : Array[String]
+  token : TokenEvidence?
+} derive(Eq, @debug.Debug)
+pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, primary? : TextRange?, labels? : Array[DiagnosticLabel], notes? : Array[String], token? : TokenEvidence?) -> Self
+pub fn Diagnostic::format(Self) -> String
+pub fn Diagnostic::format_with_line_col(Self, LineIndex) -> String
+pub fn Diagnostic::lexer_error(String) -> Self
+pub fn Diagnostic::lexer_error_at(String, Int, Int, String) -> Self
+pub fn Diagnostic::line_range(Self, LineIndex) -> LineRange?
+pub fn Diagnostic::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
+
+pub struct DiagnosticCode {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticCode::DiagnosticCode(String) -> Self
+pub fn DiagnosticCode::value(Self) -> String
+
+pub struct DiagnosticLabel {
+  range : TextRange
+  message : String?
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticLabel::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
+
+pub struct DiagnosticSet {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticSet::after_relex(Self, Int, Int, Int, failure_context~ : String) -> Self
+pub fn DiagnosticSet::copy(Self) -> Self
+pub fn DiagnosticSet::empty() -> Self
+pub fn DiagnosticSet::extend(Self, Self) -> Unit
+pub fn DiagnosticSet::format(Self) -> Array[String]
+pub fn DiagnosticSet::format_with_line_col(Self, LineIndex) -> Array[String]
+pub fn DiagnosticSet::is_empty(Self) -> Bool
+pub fn DiagnosticSet::items(Self) -> Array[Diagnostic]
+pub fn DiagnosticSet::length(Self) -> Int
+pub fn[A] DiagnosticSet::map(Self, (Diagnostic) -> A) -> Array[A]
+pub fn DiagnosticSet::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
+pub fn DiagnosticSet::push(Self, Diagnostic) -> Unit
+pub fn DiagnosticSet::single(Diagnostic) -> Self
+pub fn DiagnosticSet::truncate(Self, Int) -> Unit
+
+pub enum DiagnosticSeverity {
+  Error
+  Warning
+  Info
+  Hint
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticSeverity::all() -> Array[Self]
+
+pub struct DiagnosticSource {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticSource::DiagnosticSource(String) -> Self
+pub fn DiagnosticSource::lexer() -> Self
+pub fn DiagnosticSource::name(Self) -> String
+pub fn DiagnosticSource::parser() -> Self
 
 pub(all) struct Edit {
   start : Int
@@ -138,6 +195,17 @@ pub fn LexCursor::starts_with(Self, String) -> Bool
 pub fn LexCursor::take_while(Self, (Char) -> Bool) -> Int
 pub fn LexCursor::view(Self) -> StringView
 
+pub struct LexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+} derive(Eq, @debug.Debug)
+pub fn[T] LexResult::LexResult(Array[TokenInfo[T]], diagnostics? : DiagnosticSet) -> Self[T]
+pub fn[T] LexResult::diagnostics(Self[T]) -> DiagnosticSet
+pub fn[T] LexResult::starts(Self[T]) -> Array[Int]
+pub fn[T] LexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
+pub fn[T] LexResult::with_starts(Array[TokenInfo[T]], Array[Int], diagnostics~ : DiagnosticSet) -> Self[T]
+
 pub(all) enum LexStep[T] {
   Produced(TokenInfo[T], next_offset~ : Int)
   Invalid(at~ : Int, width~ : Int, message~ : String)
@@ -191,11 +259,11 @@ pub struct ParserContext[T, K] {
   source : String
   mut position : Int
   events : @seam.EventBuffer
-  errors : Array[Diagnostic[T]]
+  diagnostics : DiagnosticSet
   mut error_count : Int
   mut open_nodes : Int
   mut reuse_cursor : ReuseCursor[T, K]?
-  mut reuse_diagnostics : Array[Diagnostic[T]]?
+  mut reuse_diagnostics : DiagnosticSet?
   mut reuse_count : Int
 }
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
@@ -204,11 +272,11 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(Self[T
 pub fn[T, K] ParserContext::checkpoint(Self[T, K]) -> Checkpoint[T, K]
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T, K]) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
-pub fn[T : @seam.IsTrivia, K] ParserContext::error(Self[T, K], String) -> Unit
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect(Self[T, K], T, K) -> Bool
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect_and_recover(Self[T, K], T, K, (T) -> Bool) -> Bool
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(Self[T, K], String) -> Unit
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect(Self[T, K], T, K) -> Bool
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_and_recover(Self[T, K], T, K, (T) -> Bool) -> Bool
 pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
@@ -221,7 +289,7 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
-pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], Array[Diagnostic[T]]) -> Unit
+pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_balanced(Self[T, K], (T) -> Bool, (T) -> Bool) -> Int
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
@@ -283,11 +351,29 @@ pub(all) enum TextDelta {
 } derive(Eq, @debug.Debug)
 pub impl Show for TextDelta
 
+pub struct TextOffset {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn TextOffset::TextOffset(Int) -> Self raise DiagnosticBuildError
+pub fn TextOffset::offset_by(Self, Int) -> Self raise DiagnosticBuildError
+pub fn TextOffset::value(Self) -> Int
+
+pub struct TextRange {
+  // private fields
+} derive(Compare, Eq, Hash, @debug.Debug)
+pub fn TextRange::TextRange(TextOffset, TextOffset) -> Self raise DiagnosticBuildError
+pub fn TextRange::end(Self) -> TextOffset
+pub fn TextRange::from_offsets(Int, Int) -> Self raise DiagnosticBuildError
+pub fn TextRange::length(Self) -> Int
+pub fn TextRange::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
+pub fn TextRange::start(Self) -> TextOffset
+
 pub struct TokenBuffer[T] {
   mut source : String
   mut version : Int
   // private fields
 }
+pub fn[T] TokenBuffer::get_diagnostics(Self[T]) -> DiagnosticSet
 pub fn[T] TokenBuffer::get_end(Self[T], Int) -> Int
 pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_start(Self[T], Int) -> Int
@@ -305,6 +391,12 @@ pub fn[T] TokenBuffer::new_resilient_compat(String, tokenize_fn~ : (String) -> A
 pub fn[T] TokenBuffer::new_with_mode_relex(String, Array[TokenInfo[T]], Array[Int], T, ModeRelexState[T]) -> Self[T]
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
 pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
+
+pub struct TokenEvidence {
+  kind : @seam.RawKind
+  range : TextRange
+} derive(Eq, @debug.Debug)
+pub fn TokenEvidence::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
 
 pub struct TokenInfo[T] {
   token : T

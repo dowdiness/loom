@@ -18,9 +18,9 @@ pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 // ── High-level parsing ────────────────────────────────────────────────────────
 
 pub fn parse(String) -> Block                                              // lex errors fold into Block::Error
-pub fn parse_markdown(String) -> (Block, Array[@core.Diagnostic[Token]])   // returns diagnostics
+pub fn parse_markdown(String) -> (Block, @core.DiagnosticSet)   // returns diagnostics
   raise @core.LexError
-pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[Token]])
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────

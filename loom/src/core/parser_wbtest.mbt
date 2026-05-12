@@ -10,15 +10,72 @@ test "TokenInfo stores token with length" {
 }
 
 ///|
-test "Diagnostic stores message, position, and token" {
-  let d : Diagnostic[String] = {
-    message: "unexpected token",
-    start: 3,
-    end: 7,
-    got_token: "bad",
-  }
+test "Diagnostic stores message and primary range" {
+  let range = test_range_or_abort(3, 7)
+  let d = Diagnostic(
+    source=DiagnosticSource::parser(),
+    severity=Error,
+    message="unexpected token",
+    primary=Some(range),
+  )
   inspect(d.message, content="unexpected token")
-  inspect(d.got_token, content="bad")
+  inspect(d.format(), content="unexpected token [3,7]")
+}
+
+///|
+fn test_range_or_abort(start : Int, end : Int) -> TextRange {
+  let result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
+    start,
+    end,
+  )
+  match result {
+    Ok(range) => range
+    Err(_) => abort("expected valid test range")
+  }
+}
+
+///|
+fn test_parser_diagnostic(
+  message : String,
+  start : Int,
+  end : Int,
+  token : TestTok,
+) -> Diagnostic {
+  let range = test_range_or_abort(start, end)
+  Diagnostic(
+    source=DiagnosticSource::parser(),
+    severity=Error,
+    message~,
+    primary=Some(range),
+    token=Some({ kind: token.to_raw(), range }),
+  )
+}
+
+///|
+fn diagnostic_start(diagnostic : Diagnostic) -> Int {
+  match diagnostic.primary {
+    Some(range) => range.start().value()
+    None => abort("expected diagnostic primary range")
+  }
+}
+
+///|
+fn diagnostic_end(diagnostic : Diagnostic) -> Int {
+  match diagnostic.primary {
+    Some(range) => range.end().value()
+    None => abort("expected diagnostic primary range")
+  }
+}
+
+///|
+fn diagnostic_token_raw(diagnostic : Diagnostic) -> Int {
+  match diagnostic.token {
+    Some(evidence) => {
+      let @seam.RawKind(kind) = evidence.kind
+      kind
+    }
+    None => abort("expected diagnostic token evidence")
+  }
 }
 
 ///|
@@ -311,7 +368,7 @@ test "parse_with: addition expression" {
 test "parse_with: records errors on bad input" {
   let (_, errors) = parse_with("+", test_spec, test_tokenize, test_grammar)
   inspect(errors.length(), content="1")
-  inspect(errors[0].message, content="expected number")
+  inspect(errors.items()[0].message, content="expected number")
 }
 
 ///|
@@ -654,10 +711,10 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
     ctx.emit_error_placeholder()
   })
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="expected number after +")
-  inspect(ctx.errors[0].start, content="3")
-  inspect(ctx.errors[0].end, content="3")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="expected number after +")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="3")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="3")
 }
 
 ///|
@@ -697,10 +754,10 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
     ctx.emit_error_placeholder()
   })
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="reused syntax error")
-  inspect(ctx.errors[0].start, content="3")
-  inspect(ctx.errors[0].end, content="3")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="reused syntax error")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="3")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="3")
 }
 
 ///|
@@ -738,10 +795,10 @@ test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
   // Intentionally omit set_reuse_diagnostics(...): force synthesis path.
   grammar_with_incomplete_node(ctx)
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="reused syntax error")
-  inspect(ctx.errors[0].start, content="1")
-  inspect(ctx.errors[0].end, content="1")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="reused syntax error")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
 
 ///|
@@ -768,27 +825,16 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
     },
     test_spec,
   )
-  let old_diags = [
-    {
-      message: "inside-first-node",
-      start: 0,
-      end: 1,
-      got_token: TestTok::Num(1),
-    },
-    {
-      message: "boundary-next-sibling",
-      start: 1,
-      end: 1,
-      got_token: TestTok::Ws,
-    },
-  ]
+  let old_diags = DiagnosticSet::empty()
+  old_diags.push(test_parser_diagnostic("inside-first-node", 0, 1, TestTok::Num(1)))
+  old_diags.push(test_parser_diagnostic("boundary-next-sibling", 1, 1, TestTok::Ws))
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_diags)
   ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="inside-first-node")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="inside-first-node")
 }
 
 ///|
@@ -809,8 +855,8 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
     src, test_spec, test_tokenize, grammar_eof_error_no_placeholder,
   )
   inspect(old_errors.length(), content="1")
-  inspect(old_errors[0].start, content="1")
-  inspect(old_errors[0].end, content="1")
+  inspect(diagnostic_start(old_errors.items()[0]), content="1")
+  inspect(diagnostic_end(old_errors.items()[0]), content="1")
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     99,
@@ -828,10 +874,10 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
   ctx.set_reuse_diagnostics(old_errors)
   grammar_eof_error_no_placeholder(ctx)
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="expected trailing token")
-  inspect(ctx.errors[0].start, content="1")
-  inspect(ctx.errors[0].end, content="1")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="expected trailing token")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
 
 ///|
@@ -873,10 +919,10 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
   grammar_with_trailing_eof_error(ctx)
 
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="missing trailing expression")
-  inspect(ctx.errors[0].start, content="1")
-  inspect(ctx.errors[0].end, content="1")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
 
 ///|
@@ -916,17 +962,17 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
   // First node must not claim sibling-owned boundary error.
   ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
   // Second node executes at EOF and emits its own diagnostic.
   ctx.node(KExpr, fn() {
     ctx.error("missing trailing expression")
     ctx.node(KIncomplete, fn() { () })
   })
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="missing trailing expression")
-  inspect(ctx.errors[0].start, content="1")
-  inspect(ctx.errors[0].end, content="1")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
+  inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
 
 ///|
@@ -958,15 +1004,10 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
     },
     test_spec,
   )
-  // Simulate a replayed stale token payload for the same logical diagnostic.
-  let stale_diags = [
-    {
-      message: "missing trailing expression",
-      start: 1,
-      end: 1,
-      got_token: TestTok::Ws,
-    },
-  ]
+  // Simulate replayed stale token evidence for the same logical diagnostic.
+  let stale_diags = DiagnosticSet::single(
+    test_parser_diagnostic("missing trailing expression", 1, 1, TestTok::Ws),
+  )
 
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
@@ -974,9 +1015,27 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
   grammar_with_trailing_eof_error(ctx)
 
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="missing trailing expression")
-  inspect(ctx.errors[0].got_token, content="TokEof")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
+}
+
+///|
+test "ParserContext push_diagnostic_unique deduplicates by parser message and span" {
+  let src = "1"
+  let (toks, _starts) = test_tokenize_with_starts(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  let added = ctx.push_diagnostic_unique(
+    test_parser_diagnostic("same logical error", 1, 1, TestTok::Ws),
+  )
+  let updated = ctx.push_diagnostic_unique(
+    test_parser_diagnostic("same logical error", 1, 1, TestTok::TokEof),
+  )
+  inspect(added, content="true")
+  inspect(updated, content="false")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
+  inspect(ctx.error_count, content="1")
 }
 
 ///|
@@ -1212,8 +1271,8 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
   ctx.set_reuse_diagnostics(old_errors)
   grammar_incomplete_at_eof(ctx)
   inspect(ctx.reuse_count, content="1")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message, content="expected Plus, got TokEof")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message, content="expected Plus, got TokEof")
 }
 
 ///|
@@ -1276,8 +1335,8 @@ test "emit_token: at EOF emits zero-width token and diagnostic instead of abort"
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.finish_node()
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message.contains("EOF"), content="true")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message.contains("EOF"), content="true")
 }
 
 ///|
@@ -1289,7 +1348,7 @@ test "emit_token: at EOF after consuming all tokens emits diagnostic" {
   ctx.emit_token(KNum)
   ctx.emit_token(KPlus)
   ctx.finish_node()
-  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="1")
   inspect(ctx.at_eof(), content="true")
 }
 
@@ -1321,7 +1380,9 @@ test "parse_with: unclosed node is auto-closed with diagnostic" {
     ctx.emit_token(KNum)
   })
   inspect(tree.text_len, content="1")
-  let has_unclosed = errors.iter().any(fn(e) { e.message.contains("unclosed") })
+  let has_unclosed = errors.items().iter().any(fn(e) {
+    e.message.contains("unclosed")
+  })
   inspect(has_unclosed, content="true")
 }
 
@@ -1348,7 +1409,9 @@ test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
     fn(i) { starts[i] + toks[i].len },
     spec,
   )
-  let has_unclosed = errors.iter().any(fn(e) { e.message.contains("unclosed") })
+  let has_unclosed = errors.items().iter().any(fn(e) {
+    e.message.contains("unclosed")
+  })
   inspect(has_unclosed, content="true")
 }
 
@@ -1413,9 +1476,9 @@ test "checkpoint/restore: removes diagnostics added after checkpoint" {
   ctx.start_node(KRoot)
   let cp = ctx.checkpoint()
   ctx.error("speculative error")
-  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="1")
   ctx.restore(cp)
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
   ctx.finish_node()
 }
 
@@ -1435,7 +1498,7 @@ test "checkpoint/restore: speculative parse picks successful branch" {
     test_grammar(ctx)
   }
   ctx.finish_node()
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
   inspect(ctx.at_eof(), content="true")
 }
 

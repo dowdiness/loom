@@ -279,7 +279,9 @@ test "phase3: valid inputs unchanged - comprehensive" {
 
     // No errors on valid input
     if errors.length() != 0 {
-      abort("Unexpected error on valid input: \{input}, errors: \{errors}")
+      abort(
+        "Unexpected error on valid input: \{input}, errors: \{errors.format()}",
+      )
     }
 
     // Terms must match

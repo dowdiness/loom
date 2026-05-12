@@ -17,9 +17,9 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 // ── High-level parsing ────────────────────────────────────────────────────────
 
 pub fn parse(String) -> JsonValue raise                                   // strict: raises on any diagnostic
-pub fn parse_json(String) -> (JsonValue, Array[@core.Diagnostic[Token]])  // returns diagnostics
+pub fn parse_json(String) -> (JsonValue, @core.DiagnosticSet)  // returns diagnostics
   raise @core.LexError
-pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[Token]])
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────
@@ -102,9 +102,11 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Gramm
 
 `error_token=Some(Error(""))` makes `LexStep::Invalid` and
 `LexStep::Incomplete` recoverable instead of fatal. The paired
-`error_token_from_message=Some(fn(msg) { Error(msg) })` preserves the lexer
-message in the emitted error token. If `error_token` is omitted, the message
-callback is ignored because step lexing remains strict and raises `LexError`.
+`error_token_from_message=Some(fn(msg) { Error(msg) })` still preserves the
+message in the emitted error token, while `TokenBuffer` also records the
+message as a structured lexer diagnostic. If `error_token` is omitted, the
+message callback is ignored because step lexing remains strict and raises
+`LexError`.
 
 ## `JsonValue`
 

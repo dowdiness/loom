@@ -178,3 +178,28 @@ test "parse surrogate pair escape" {
   let s = v.to_string()
   inspect(s.length() > 0, content="true")
 }
+
+///|
+test "parse error preserves offending token" {
+  let result = try? parse("]")
+  match result {
+    Err(ParseError::ParseError(_, token)) =>
+      inspect(@debug.to_string(token), content="RBracket")
+    Err(_) => fail("expected ParseError")
+    Ok(_) => fail("expected parse failure")
+  }
+}
+
+///|
+test "parse error preserves lexer error token message" {
+  let result = try? parse("\"\\x\"")
+  match result {
+    Err(ParseError::ParseError(_, token)) =>
+      inspect(
+        @debug.to_string(token),
+        content="Error(\"Invalid escape sequence\")",
+      )
+    Err(_) => fail("expected ParseError")
+    Ok(_) => fail("expected parse failure")
+  }
+}

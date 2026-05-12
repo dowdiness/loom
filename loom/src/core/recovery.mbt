@@ -20,7 +20,7 @@
 ///
 /// Error message is auto-generated from `T : Show`:
 ///   "expected <expected>, got <actual>"
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect(
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect(
   self : ParserContext[T, K],
   expected : T,
   kind : K,
@@ -177,7 +177,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 /// Returns true if the expected token was eventually consumed (possibly
 /// after skipping), false if recovery gave up (sync point reached or EOF
 /// without finding the expected token).
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::expect_and_recover(
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_and_recover(
   self : ParserContext[T, K],
   expected : T,
   kind : K,

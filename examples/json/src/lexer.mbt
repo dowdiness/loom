@@ -265,11 +265,7 @@ pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 }
 
 ///|
-/// Batch tokenize: loop step_lex until Done, appending EOF.
-#warnings("-unused_error_type")
-pub fn tokenize(
-  input : String,
-) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
+fn tokenize_recoverable(input : String) -> Array[@core.TokenInfo[Token]] {
   @core.TokenBuffer::new_from_steps(
     input,
     @core.PrefixLexer::new(lex_step=json_step_lexer),
@@ -277,6 +273,15 @@ pub fn tokenize(
     error_token=Error(""),
     error_token_from_message=Some(fn(msg) { Error(msg) }),
   ).get_tokens()
+}
+
+///|
+/// Batch tokenize: loop step_lex until Done, appending EOF.
+#warnings("-unused_error_type")
+pub fn tokenize(
+  input : String,
+) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
+  tokenize_recoverable(input)
 }
 
 ///|

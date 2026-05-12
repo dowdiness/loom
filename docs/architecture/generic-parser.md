@@ -4,19 +4,32 @@ The `dowdiness/loom/core` package exposes a language-agnostic parsing infrastruc
 
 ## Three Core Types
 
-### TokenInfo
+### TokenInfo And LexResult
 
-A generic token with source position:
+A generic position-independent token:
 
 ```moonbit
 pub struct TokenInfo[T] {
   token : T
-  start : Int
-  end   : Int
+  len   : Int
 }
 ```
 
-`T` is the language-specific token type. The lexer produces `Array[TokenInfo[T]]`; the parser consumes it through `ParserContext`.
+`T` is the language-specific token type. Token starts are tracked outside the
+token array so token values remain stable across reuse checks.
+
+Recovering lexer paths use `LexResult[T]`:
+
+```moonbit
+pub struct LexResult[T] {
+  tokens      : Array[TokenInfo[T]]
+  starts      : Array[Int]
+  diagnostics : DiagnosticSet
+}
+```
+
+`TokenBuffer` stores the latest `LexResult` diagnostics and parser entry
+points merge them with parser diagnostics before returning to callers.
 
 ### LanguageSpec
 
@@ -105,15 +118,15 @@ ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 
 ```moonbit
 // Simple: tokenize + parse in one call
-pub fn parse_with[T : IsTrivia, K : ToRawKind](
+pub fn parse_with[T : IsTrivia + ToRawKind, K : ToRawKind](
   source   : String,
   spec     : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
   grammar  : (ParserContext[T, K]) -> Unit,
-) -> (@seam.CstNode, Array[Diagnostic[T]])
+) -> (@seam.CstNode, DiagnosticSet)
 
 // Advanced: pre-tokenized, optional reuse cursor, returns reuse_count
-pub fn parse_tokens_indexed[T : IsTrivia, K : ToRawKind](
+pub fn parse_tokens_indexed[T : IsTrivia + ToRawKind, K : ToRawKind](
   source        : String,
   token_count   : Int,
   get_token     : (Int) -> T,
@@ -121,8 +134,8 @@ pub fn parse_tokens_indexed[T : IsTrivia, K : ToRawKind](
   get_end       : (Int) -> Int,
   spec          : LanguageSpec[T, K],
   cursor?       : ReuseCursor[T, K]?,
-  prev_diagnostics? : Array[Diagnostic[T]]?,
-) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
+  prev_diagnostics? : DiagnosticSet?,
+) -> (@seam.CstNode, DiagnosticSet, Int)
 ```
 
 `parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by the incremental path — pass a `ReuseCursor` built from the previous tree and damage range to enable subtree reuse.

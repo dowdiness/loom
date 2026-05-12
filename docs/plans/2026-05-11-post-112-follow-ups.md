@@ -20,7 +20,8 @@ the following token.
    `Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
    `Array[String]`. Add a design for retaining structured diagnostics at the
    parser boundary before adding convenience methods such as
-   `diagnostics_with_line_col()` or `line_index()`.
+   `diagnostics_with_line_col()` or `line_index()`. Design captured in
+   [Parser-Level Structured Diagnostics](2026-05-12-parser-structured-diagnostics.md).
 
 2. Incremental `LineIndex` only if profiling justifies it.
 

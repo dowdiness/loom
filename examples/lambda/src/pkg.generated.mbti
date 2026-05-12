@@ -34,11 +34,11 @@ pub fn parse(String) -> @ast.Term raise
 
 pub fn parse_block_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
-pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
-pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]?) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int)
+pub fn parse_cst_recover_with_tokens(String, Array[@core.TokenInfo[@token.Token]], @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
-pub fn parse_term(String) -> (@ast.Term, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError
+pub fn parse_term(String) -> (@ast.Term, @core.DiagnosticSet) raise @core.LexError
 
 pub fn resolve(@ast.Term) -> (@ast.Term, Resolution)
 

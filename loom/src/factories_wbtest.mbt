@@ -70,6 +70,27 @@ fn ftokenize(s : String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
 }
 
 ///|
+fn ftokenize_requires_terminator(
+  s : String,
+) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
+  if s.length() == 0 || s.code_unit_at(s.length() - 1).to_int() != 46 {
+    raise @core.LexError("terminator required")
+  }
+  let tokens : Array[@core.TokenInfo[FTok]] = []
+  let mut i = 0
+  while i < s.length() {
+    match s.code_unit_at(i).to_int() {
+      97 => tokens.push(@core.TokenInfo::new(A, 1))
+      46 => tokens.push(@core.TokenInfo::new(Ws, 1))
+      _ => raise @core.LexError("unexpected char")
+    }
+    i = i + 1
+  }
+  tokens.push(@core.TokenInfo::new(Eof, 0))
+  tokens
+}
+
+///|
 fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
   if start >= source.length() {
     return Done
@@ -78,6 +99,19 @@ fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
     return Produced(@core.TokenInfo::new(A, 1), next_offset=start + 1)
   }
   Invalid(at=start, width=1, message="unexpected char")
+}
+
+///|
+#warnings("-unused_error_type")
+fn ftokenize_recoverable_steps(
+  s : String,
+) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
+  @core.TokenBuffer::new_from_steps(
+    s,
+    @core.PrefixLexer::new(lex_step=fstep_lexer),
+    eof_token=Eof,
+    error_token=Err,
+  ).get_tokens()
 }
 
 ///|
@@ -136,6 +170,64 @@ fn fgrammar(
 }
 
 ///|
+fn fterminator_grammar_with_tokenize(
+  tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
+) -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  Grammar::new(
+    spec~,
+    tokenize~,
+    fold_node=fn(s, _recurse) { s },
+    on_lex_error=fn(_msg) {
+      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+      @seam.SyntaxNode::from_cst(cst)
+    },
+  )
+}
+
+///|
+fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  let root_kind = fkind_raw(KRoot)
+  Grammar::new(
+    spec~,
+    tokenize=ftokenize_recoverable_steps,
+    fold_node=fn(s, _recurse) { s },
+    on_lex_error=fn(_msg) {
+      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+      @seam.SyntaxNode::from_cst(cst)
+    },
+    error_token=Some(Err),
+    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+    block_reparse_spec=Some({
+      is_reparseable: fn(kind) { kind == root_kind },
+      get_reparser: fn(kind) {
+        if kind == root_kind {
+          Some(froot)
+        } else {
+          None
+        }
+      },
+      is_balanced: fn(_tokens) { true },
+    }),
+  )
+}
+
+///|
 test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
   let grammar = fgrammar()
   let parser = new_imperative_parser("aaaaa", grammar)
@@ -164,6 +256,10 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
   )
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"unexpected char [1,2]\"]",
+  )
 }
 
 ///|
@@ -224,6 +320,38 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
     @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
     content="0",
   )
+}
+
+///|
+test "new_imperative_parser: successful rebuild fallback is not a diagnostic" {
+  let saw_incremental_failure = Ref::new(false)
+  let grammar = fterminator_grammar_with_tokenize(s => {
+    if s.length() == 0 || s.code_unit_at(s.length() - 1).to_int() != 46 {
+      saw_incremental_failure.val = true
+    }
+    ftokenize_requires_terminator(s)
+  })
+  let parser = new_imperative_parser("aaaa.", grammar)
+  ignore(parser.parse())
+  ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
+  inspect(saw_incremental_failure.val, content="true")
+  inspect(parser.diagnostics(), content="[]")
+}
+
+///|
+test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
+  let grammar = frecoverable_root_reparse_grammar()
+  let parser = new_imperative_parser("aaa", grammar)
+  ignore(parser.parse())
+  ignore(parser.edit(@core.Edit::new(1, 1, 1), "a!a"))
+  inspect(parser.get_last_reuse_count(), content="1")
+  let mut saw_lex_diagnostic = false
+  for diagnostic in parser.diagnostics() {
+    if diagnostic.contains("unexpected char") {
+      saw_lex_diagnostic = true
+    }
+  }
+  inspect(saw_lex_diagnostic, content="true")
 }
 
 ///|

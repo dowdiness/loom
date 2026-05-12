@@ -635,7 +635,7 @@ fn parse_type_annotation(
 /// Parse a source string (LetDef* Expression?). Returns tree with error recovery.
 pub fn parse_cst(
   source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   lambda_grammar.parse_cst(source)
 }
 
@@ -645,8 +645,8 @@ pub fn parse_cst_recover_with_tokens(
   source : String,
   tokens : Array[@token.TokenInfo[@token.Token]],
   cursor : @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]?,
-  prev_diagnostics? : Array[@core.Diagnostic[@token.Token]]? = None,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]], Int) {
+  prev_diagnostics? : @core.DiagnosticSet? = None,
+) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
     source,

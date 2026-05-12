@@ -110,14 +110,14 @@ pub struct ParserContext[T, K] {
   source : String
   mut position : Int
   events : @seam.EventBuffer
-  errors : Array[Diagnostic[T]]
+  diagnostics : DiagnosticSet
   mut error_count : Int
   mut open_nodes : Int
   // Incremental reuse — None on a fresh parse, Some(cursor) for incremental.
   mut reuse_cursor : ReuseCursor[T, K]?
   // Diagnostics from the previous parse (optional). When present, reuse hits
   // replay matching diagnostics by code-unit span to preserve exact messages.
-  mut reuse_diagnostics : Array[Diagnostic[T]]?
+  mut reuse_diagnostics : DiagnosticSet?
   mut reuse_count : Int
 }
 
@@ -151,7 +151,7 @@ pub fn[T, K] ParserContext::new(
     source,
     position: 0,
     events: @seam.EventBuffer::new(),
-    errors: [],
+    diagnostics: DiagnosticSet::empty(),
     error_count: 0,
     open_nodes: 0,
     reuse_cursor: None,
@@ -181,7 +181,7 @@ pub fn[T, K] ParserContext::new_indexed(
     source,
     position: 0,
     events: @seam.EventBuffer::new(),
-    errors: [],
+    diagnostics: DiagnosticSet::empty(),
     error_count: 0,
     open_nodes: 0,
     reuse_cursor: None,
@@ -315,7 +315,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(
 ///|
 /// Consume the current token and emit it as a leaf in the CST.
 /// Automatically flushes leading trivia before the token.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::emit_token(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
@@ -384,10 +384,8 @@ pub fn[T, K] ParserContext::restore(
 ) -> Unit {
   self.position = cp.position
   self.events.truncate(cp.events_len)
-  while self.errors.length() > 0 && self.error_count > cp.error_count {
-    let _ = self.errors.pop()
-    self.error_count = self.error_count - 1
-  }
+  self.diagnostics.truncate(cp.error_count)
+  self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
   self.reuse_cursor = match cp.reuse_cursor {
     Some(cursor) => Some(cursor.snapshot())
@@ -412,7 +410,44 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
 /// Captures the offending token so consumers never need to re-tokenize.
 /// If an equivalent diagnostic (same message/start/end) already exists, this
 /// updates the stored token payload instead of appending a duplicate entry.
-pub fn[T : @seam.IsTrivia, K] ParserContext::error(
+fn[T : @seam.ToRawKind, K] ParserContext::make_parser_diagnostic(
+  self : ParserContext[T, K],
+  msg : String,
+  start : Int,
+  end : Int,
+  token : T,
+) -> Diagnostic {
+  ignore(self)
+  let notes : Array[String] = []
+  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
+    start,
+    end,
+  )
+  let primary = match range_result {
+    Ok(range) => Some(range)
+    Err(error) => {
+      notes.push(
+        "invalid diagnostic range preserved as " + @debug.to_string(error),
+      )
+      None
+    }
+  }
+  let evidence = match primary {
+    Some(range) => Some({ kind: token.to_raw(), range })
+    None => None
+  }
+  Diagnostic(
+    source=DiagnosticSource::parser(),
+    severity=Error,
+    message=msg,
+    primary~,
+    notes~,
+    token=evidence,
+  )
+}
+
+///|
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
   self : ParserContext[T, K],
   msg : String,
 ) -> Unit {
@@ -425,22 +460,16 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::error(
     } else {
       let start = (self.get_start)(pos)
       let end = (self.get_end)(pos)
-      let _ = self.push_diagnostic_unique({
-        message: msg,
-        start,
-        end,
-        got_token: token,
-      })
+      let _ = self.push_diagnostic_unique(
+        self.make_parser_diagnostic(msg, start, end, token),
+      )
       return
     }
   }
   let eof = self.source.length()
-  let _ = self.push_diagnostic_unique({
-    message: msg,
-    start: eof,
-    end: eof,
-    got_token: self.spec.eof_token,
-  })
+  let _ = self.push_diagnostic_unique(
+    self.make_parser_diagnostic(msg, eof, eof, self.spec.eof_token),
+  )
 }
 
 ///|
@@ -502,10 +531,10 @@ pub fn[T, K] ParserContext::set_reuse_cursor(
 
 ///|
 /// Attach diagnostics from the previous parse. On reuse hits, diagnostics whose
-/// spans fall within the reused node are replayed into self.errors.
+/// spans fall within the reused node are replayed into self.diagnostics.
 pub fn[T, K] ParserContext::set_reuse_diagnostics(
   self : ParserContext[T, K],
-  diagnostics : Array[Diagnostic[T]],
+  diagnostics : DiagnosticSet,
 ) -> Unit {
   self.reuse_diagnostics = Some(diagnostics)
 }
@@ -620,26 +649,19 @@ fn[T, K] ParserContext::token_info_at_or_after(
 }
 
 ///|
-/// Add a diagnostic unless an equivalent one already exists.
-/// Equivalence: same message and span. If found, update got_token to the latest.
+/// Add a diagnostic unless an equivalent parser error already exists.
+/// Equivalence uses the stable logical key and refreshes volatile evidence.
 /// Returns true if newly added, false if an existing diagnostic was updated.
 fn[T, K] ParserContext::push_diagnostic_unique(
   self : ParserContext[T, K],
-  diag : Diagnostic[T],
+  diag : Diagnostic,
 ) -> Bool {
-  for i, existing in self.errors.iter2() {
-    if existing.message == diag.message &&
-      existing.start == diag.start &&
-      existing.end == diag.end {
-      // Keep a single logical diagnostic per message/span, but refresh token
-      // with the most recent parse emission.
-      self.errors[i] = diag
-      return false
-    }
+  if self.diagnostics.push_parser_unique(diag) {
+    self.error_count = self.error_count + 1
+    true
+  } else {
+    false
   }
-  self.errors.push(diag)
-  self.error_count = self.error_count + 1
-  true
 }
 
 ///|
@@ -661,24 +683,31 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
   match self.reuse_diagnostics {
     None => ()
     Some(prev) =>
-      for d in prev {
+      for d in prev.items() {
         // Half-open containment: [node_start, node_end), with one exception:
         // keep zero-width diagnostics at node_end only when this reused node
         // itself owns a zero-width error at that boundary (structural check),
         // OR when the node ends at EOF and no error-bearing sibling follows
         // (handles ctx.error at EOF without emit_error_placeholder).
-        let keep_right_boundary = d.start == node_end &&
-          d.end == node_end &&
-          (
-            owns_right_boundary_zero_width_error ||
-            (allow_eof_boundary && node_end >= self.source.length())
-          )
-        if d.start >= node_start &&
-          d.end <= node_end &&
-          (d.start < node_end || keep_right_boundary) {
-          if self.push_diagnostic_unique(d) {
-            replayed_any = true
+        match d.primary {
+          Some(range) => {
+            let start = range.start().value()
+            let end = range.end().value()
+            let keep_right_boundary = start == node_end &&
+              end == node_end &&
+              (
+                owns_right_boundary_zero_width_error ||
+                (allow_eof_boundary && node_end >= self.source.length())
+              )
+            if start >= node_start &&
+              end <= node_end &&
+              (start < node_end || keep_right_boundary) {
+              if self.push_diagnostic_unique(d) {
+                replayed_any = true
+              }
+            }
           }
+          None => ()
         }
       }
   }
@@ -688,18 +717,20 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
 ///|
 /// If previous diagnostics are unavailable, synthesize diagnostics from
 /// pre-collected error spans in the reused subtree.
-fn[T, K] ParserContext::synthesize_reused_diagnostics(
+fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
   self : ParserContext[T, K],
   spans : Array[ReusedErrorSpan],
 ) -> Unit {
   for span in spans {
     let info = self.token_info_at_or_after(self.position, span.start)
-    let _ = self.push_diagnostic_unique({
-      message: "reused syntax error",
-      start: span.start,
-      end: span.end,
-      got_token: info.token,
-    })
+    let _ = self.push_diagnostic_unique(
+      self.make_parser_diagnostic(
+        "reused syntax error",
+        span.start,
+        span.end,
+        info.token,
+      ),
+    )
   }
 }
 
@@ -721,7 +752,7 @@ fn[T, K] ParserContext::synthesize_reused_diagnostics(
 /// The None arm is unreachable in practice: emit_reused is only called when
 /// try_reuse returns Some, which requires reuse_cursor to be Some. It is
 /// handled defensively to keep the match exhaustive.
-fn[T, K : @seam.ToRawKind] ParserContext::emit_reused(
+fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
   self : ParserContext[T, K],
   node : @seam.CstNode,
 ) -> Unit {
@@ -782,7 +813,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
     // Slow path — cache miss:
     // Runs the grammar body and wraps its output in a new node.
     // Every token consumed inside body() advances position normally.
-    // Errors recorded inside body() accumulate in self.errors as usual.
+    // Errors recorded inside body() accumulate in self.diagnostics as usual.
     self.start_node(kind)
     body()
     self.finish_node()
@@ -847,12 +878,12 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(
 ///
 /// tokenize — converts source to a flat token array (including trivia tokens)
 /// grammar  — the entry-point parse function; calls ctx methods to build the tree
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
   source : String,
   spec : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
   grammar : (ParserContext[T, K]) -> Unit,
-) -> (@seam.CstNode, Array[Diagnostic[T]]) {
+) -> (@seam.CstNode, DiagnosticSet) {
   let tokens = tokenize(source)
   let ctx = ParserContext::new(tokens, source, spec)
   grammar(ctx)
@@ -873,7 +904,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_with(
       make_error_tree(spec)
     }
   }
-  (tree, ctx.errors)
+  (tree, ctx.diagnostics)
 }
 
 ///|
@@ -922,7 +953,7 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
 ///
 /// Returns `(CstNode, diagnostics, reuse_count)`.
 /// reuse_count is 0 for non-incremental calls (cursor=None).
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(
   source : String,
   token_count : Int,
   get_token : (Int) -> T,
@@ -930,8 +961,8 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
   get_end : (Int) -> Int,
   spec : LanguageSpec[T, K],
   cursor? : ReuseCursor[T, K]? = None,
-  prev_diagnostics? : Array[Diagnostic[T]]? = None,
-) -> (@seam.CstNode, Array[Diagnostic[T]], Int) {
+  prev_diagnostics? : DiagnosticSet? = None,
+) -> (@seam.CstNode, DiagnosticSet, Int) {
   let ctx = ParserContext::new_indexed(
     token_count, get_token, get_start, get_end, source, spec,
   )
@@ -958,7 +989,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(
       make_error_tree(spec)
     }
   }
-  (tree, ctx.errors, ctx.reuse_count)
+  (tree, ctx.diagnostics, ctx.reuse_count)
 }
 
 ///|

@@ -18,25 +18,21 @@ pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.I
 
 pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
-pub fn[T] diagnostic_line_range(@core.Diagnostic[T], @core.LineIndex) -> @core.LineRange
-
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
 
-pub fn[T] format_diagnostic(@core.Diagnostic[T]) -> String
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T] format_diagnostic_with_line_col(@core.Diagnostic[T], @core.LineIndex) -> String
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
-
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
-
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : Array[@core.Diagnostic[T]]?) -> (@seam.CstNode, Array[@core.Diagnostic[T]], Int)
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
 pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
 
 pub fn[T] tokenize_via_steps((String, Int) -> @core.LexStep[T], String, T) -> Array[@core.TokenInfo[T]] raise @core.LexError
+
+pub fn[T] tokenize_via_steps_result((String, Int) -> @core.LexStep[T], String, T) -> @core.LexResult[T] raise @core.LexError
 
 pub fn[T, M] tokenize_with_modes(@core.ModeLexer[T, M], String, T) -> (Array[@core.TokenInfo[T]], Array[M]) raise @core.LexError
 
@@ -55,7 +51,7 @@ pub struct Grammar[T, K, Ast] {
   mode_relex : @core.ModeRelexState[T]?
 }
 pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, on_lex_error~ : (String) -> Ast, error_token? : T?, error_token_from_message? : ((String) -> T)?, prefix_lexer? : @core.PrefixLexer[T]?, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, Array[@core.Diagnostic[T]]) raise @core.LexError
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Type aliases
 pub using @core {type BlockReparseSpec}
@@ -70,6 +66,18 @@ pub using @seam {type CstToken}
 
 pub using @core {type Diagnostic}
 
+pub using @core {type DiagnosticBuildError}
+
+pub using @core {type DiagnosticCode}
+
+pub using @core {type DiagnosticLabel}
+
+pub using @core {type DiagnosticSet}
+
+pub using @core {type DiagnosticSeverity}
+
+pub using @core {type DiagnosticSource}
+
 pub using @core {type Edit}
 
 pub using @core {type FoldStats}
@@ -83,6 +91,8 @@ pub using @core {type LanguageSpec}
 pub using @core {type LexCursor}
 
 pub using @core {type LexError}
+
+pub using @core {type LexResult}
 
 pub using @core {type LexStep}
 
@@ -120,7 +130,13 @@ pub using @seam {type SyntaxToken}
 
 pub using @core {type TextDelta}
 
+pub using @core {type TextOffset}
+
+pub using @core {type TextRange}
+
 pub using @core {type TokenBuffer}
+
+pub using @core {type TokenEvidence}
 
 pub using @core {type TokenInfo}
 

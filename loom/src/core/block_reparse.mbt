@@ -171,13 +171,13 @@ pub fn splice_tree(
 /// flush trivia, auto-close unclosed nodes, and build tree.
 /// Returns the reparsed CstNode and any new diagnostics, or None
 /// if parsing produces no node child.
-fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolated(
   block_text : String,
   block_kind : @seam.RawKind,
   tokens : Array[TokenInfo[T]],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
-) -> (@seam.CstNode, Array[Diagnostic[T]])? {
+) -> (@seam.CstNode, DiagnosticSet)? {
   // Create a parser context for the isolated block
   let ctx = ParserContext::new(tokens, block_text, spec)
   // Call the reparse function (NOT spec.parse_root)
@@ -218,7 +218,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
     }
   }
   match inner {
-    Some(block_cst) => Some((block_cst, ctx.errors))
+    Some(block_cst) => Some((block_cst, ctx.diagnostics))
     None => None
   }
 }
@@ -228,37 +228,90 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind] parse_block_isolated(
 /// - before block (keep unchanged)
 /// - inside block (discard old, add new offset-adjusted)
 /// - after block (shift by delta)
-fn[T] merge_diagnostics(
-  old_diagnostics : Array[Diagnostic[T]],
+fn diagnostic_offset_failure(
+  context : String,
+  error : DiagnosticBuildError,
+) -> Diagnostic {
+  Diagnostic(
+    source=DiagnosticSource::parser(),
+    severity=Error,
+    message="internal: diagnostic offset failed",
+    notes=[
+      context,
+      "diagnostic build error preserved as " + @debug.to_string(error),
+    ],
+  )
+}
+
+///|
+fn push_offset_diagnostic(
+  result : DiagnosticSet,
+  diagnostic : Diagnostic,
+  delta : Int,
+  after : TextOffset,
+  context : String,
+) -> Unit {
+  let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
+    delta,
+    after,
+  )
+  match shifted {
+    Ok(diagnostic) => result.push(diagnostic)
+    Err(error) => result.push(diagnostic_offset_failure(context, error))
+  }
+}
+
+///|
+fn merge_diagnostics(
+  old_diagnostics : DiagnosticSet,
   block_start : Int,
   block_old_end : Int,
-  new_diagnostics : Array[Diagnostic[T]],
+  new_diagnostics : DiagnosticSet,
   delta : Int,
-) -> Array[Diagnostic[T]] {
-  let result : Array[Diagnostic[T]] = []
+) -> DiagnosticSet {
+  let result = DiagnosticSet::empty()
+  let old_after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
+    block_old_end,
+  )
+  let block_zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
+    0,
+  )
+  let old_after = match old_after_result {
+    Ok(offset) => offset
+    Err(error) => {
+      result.push(diagnostic_offset_failure("block old end", error))
+      return result
+    }
+  }
+  let block_zero = match block_zero_result {
+    Ok(offset) => offset
+    Err(error) => {
+      result.push(diagnostic_offset_failure("block zero offset", error))
+      return result
+    }
+  }
   // Single pass: partition old diagnostics into before/inside/after
-  for d in old_diagnostics {
-    if d.end <= block_start {
-      result.push(d) // before: keep as-is
-    } else if d.start >= block_old_end {
-      // after: shift by delta
-      result.push({
-        message: d.message,
-        start: d.start + delta,
-        end: d.end + delta,
-        got_token: d.got_token,
-      })
+  for d in old_diagnostics.items() {
+    match d.primary {
+      None => result.push(d)
+      Some(range) => {
+        let start = range.start().value()
+        let end = range.end().value()
+        if end <= block_start {
+          result.push(d) // before: keep as-is
+        } else if start >= block_old_end {
+          // after: shift by delta
+          push_offset_diagnostic(result, d, delta, old_after, "old diagnostic after block")
+        }
+      }
     }
     // inside: discard
   }
   // Append offset-adjusted new diagnostics
-  for d in new_diagnostics {
-    result.push({
-      message: d.message,
-      start: d.start + block_start,
-      end: d.end + block_start,
-      got_token: d.got_token,
-    })
+  for d in new_diagnostics.items() {
+    push_offset_diagnostic(
+      result, d, block_start, block_zero, "new block diagnostic",
+    )
   }
   result
 }
@@ -275,15 +328,15 @@ fn[T] merge_diagnostics(
 ///
 /// Returns the new root CstNode and merged diagnostics, or None if
 /// block reparse is not applicable (falls back to full reparse).
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   tree : @seam.SyntaxNode,
   new_source : String,
   edit : Edit,
   tokenize : (String) -> Array[TokenInfo[T]] raise LexError,
   spec : LanguageSpec[T, K],
   block_spec : BlockReparseSpec[T, K],
-  old_diagnostics : Array[Diagnostic[T]],
-) -> (@seam.CstNode, Array[Diagnostic[T]])? {
+  old_diagnostics : DiagnosticSet,
+) -> (@seam.CstNode, DiagnosticSet)? {
   // 1. Find reparseable ancestor
   let (ancestor, path) = match
     find_reparseable_ancestor(tree, edit, block_spec.is_reparseable) {
@@ -333,11 +386,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] reparse_block(
   )
   // 7. Merge diagnostics
   let merged = merge_diagnostics(
-    old_diagnostics,
-    block_start,
-    block_old_end,
-    new_diags,
-    edit.delta(),
+    old_diagnostics, block_start, block_old_end, new_diags, edit.delta(),
   )
   Some((new_root, merged))
 }

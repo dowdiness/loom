@@ -54,6 +54,20 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
     })
     .join(",")
   inspect(rendered, content="char@0-1,ERR@1-2,char@2-3,EOF@3-3")
+  inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+}
+
+///|
+test "TokenBuffer::update clears diagnostics for repaired resilient error" {
+  let buf = TokenBuffer::new_resilient(
+    "a@b",
+    tokenize_fn=bad_tokenizer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  buf.update(Edit::replace(1, 2, 2), "acb")
+  inspect(buf.get_diagnostics().format(), content="[]")
 }
 
 ///|
@@ -103,6 +117,10 @@ test "TokenBuffer::new_resilient: fallback keeps non-BMP error token whole" {
     })
     .join(",")
   inspect(rendered, content="char@0-1,ERR@1-3,char@3-4,EOF@4-4")
+  inspect(
+    buf.get_diagnostics().format(),
+    content="[\"non-BMP not accepted [1,3]\"]",
+  )
 }
 
 ///|
