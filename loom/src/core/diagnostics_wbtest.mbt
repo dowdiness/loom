@@ -128,9 +128,10 @@ test "DiagnosticSet offset_by zero returns an independent copy" {
 ///|
 test "DiagnosticSet deduplicates exact duplicates" {
   let set = DiagnosticSet::empty()
-  let diagnostic = test_diagnostic("expected", 1, 2, 7)
-  set.push(diagnostic)
-  set.push(diagnostic)
+  let diagnostic1 = test_diagnostic("expected", 1, 2, 7)
+  let diagnostic2 = test_diagnostic("expected", 1, 2, 7)
+  set.push(diagnostic1)
+  set.push(diagnostic2)
   inspect(set.length(), content="1")
 }
 
