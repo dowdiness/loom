@@ -237,6 +237,11 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
   mode_relex : ModeRelexState[T],
 ) -> TokenBuffer[T] {
   let mode_tokenize = mode_relex.tokenize
+  let initial = LexResult::with_starts(
+    tokens,
+    starts,
+    diagnostics=DiagnosticSet::empty(),
+  )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     let (tokens, starts) = mode_tokenize(s)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
@@ -249,9 +254,9 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
-    tokens,
-    starts,
-    diagnostics: DiagnosticSet::empty(),
+    tokens: initial.tokens,
+    starts: initial.starts,
+    diagnostics: initial.diagnostics,
     mode_relex: Some(mode_relex),
     source,
     version: 0,

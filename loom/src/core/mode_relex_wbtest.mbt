@@ -56,6 +56,40 @@ test "mode relex: delete quote reverts mode" {
 }
 
 ///|
+test "mode relex validates initial token stream" {
+  let state : ModeRelexState[MockToken] = {
+    tokenize: fn(_source) {
+      (
+        [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
+        [0, 1],
+      )
+    },
+    relex_from: fn(
+      _source,
+      _start_offset,
+      _start_tok_idx,
+      old_token_count,
+      _old_starts,
+      _edit_delta,
+    ) {
+      let replacement : Array[TokenInfo[MockToken]] = []
+      (replacement, old_token_count)
+    },
+  }
+  let buffer = TokenBuffer::new_with_mode_relex(
+    "a",
+    [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
+    [0, 1],
+    MockToken::EOF,
+    state,
+  )
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"LexResult received overlapping token spans at index 1\"]",
+  )
+}
+
+///|
 /// Verify that TokenBuffer without mode_relex behaves identically.
 test "backward compat: TokenBuffer::new still works without mode_relex" {
   let tokenize_fn : (String) -> Array[TokenInfo[MockToken]] raise LexError = s => {

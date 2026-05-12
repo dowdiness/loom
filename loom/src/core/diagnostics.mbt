@@ -24,7 +24,7 @@ pub fn[T] LexResult::LexResult(
   tokens : Array[TokenInfo[T]],
   diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
 ) -> LexResult[T] {
-  { tokens, starts: build_starts(tokens), diagnostics }
+  LexResult::with_starts(tokens, build_starts(tokens), diagnostics~)
 }
 
 ///|
@@ -62,7 +62,7 @@ fn[T] validate_lex_result_starts(
   if starts.length() != tokens.length() {
     diagnostics.push(
       Diagnostic::lexer_error(
-        "LexResult::with_starts requires `starts` and `tokens` to be parallel",
+        "LexResult requires `starts` and `tokens` to be parallel",
       ),
     )
   }
@@ -75,16 +75,14 @@ fn[T] validate_lex_result_starts(
     if starts[i] < 0 {
       diagnostics.push(
         Diagnostic::lexer_error(
-          "LexResult::with_starts received a negative start offset at index " +
-          i.to_string(),
+          "LexResult received a negative start offset at index " + i.to_string(),
         ),
       )
     }
     if tokens[i].len < 0 {
       diagnostics.push(
         Diagnostic::lexer_error(
-          "LexResult::with_starts received a negative token length at index " +
-          i.to_string(),
+          "LexResult received a negative token length at index " + i.to_string(),
         ),
       )
     }
@@ -93,15 +91,13 @@ fn[T] validate_lex_result_starts(
       if starts[i] < starts[i - 1] {
         diagnostics.push(
           Diagnostic::lexer_error(
-            "LexResult::with_starts requires non-decreasing starts at index " +
-            i.to_string(),
+            "LexResult requires non-decreasing starts at index " + i.to_string(),
           ),
         )
       } else if starts[i] < prev_end {
         diagnostics.push(
           Diagnostic::lexer_error(
-            "LexResult::with_starts received overlapping token spans at index " +
-            i.to_string(),
+            "LexResult received overlapping token spans at index " + i.to_string(),
           ),
         )
       }
@@ -569,10 +565,86 @@ pub fn DiagnosticSet::offset_by(
 }
 
 ///|
+priv enum RelexDiagnosticDisposition {
+  RelexPreserve
+  RelexShift
+  RelexDrop
+}
+
+///|
+fn combine_relex_disposition(
+  current : RelexDiagnosticDisposition,
+  next : RelexDiagnosticDisposition,
+) -> RelexDiagnosticDisposition {
+  match current {
+    RelexDrop => RelexDrop
+    RelexShift =>
+      match next {
+        RelexDrop => RelexDrop
+        _ => RelexShift
+      }
+    RelexPreserve => next
+  }
+}
+
+///|
+fn TextRange::relex_disposition(
+  self : TextRange,
+  old_start : Int,
+  old_end : Int,
+) -> RelexDiagnosticDisposition {
+  if old_start == old_end &&
+    (self.start.value >= old_end || self.end.value >= old_end) {
+    RelexShift
+  } else if old_start < old_end &&
+    self.start.value < old_end &&
+    self.end.value > old_start {
+    RelexDrop
+  } else if self.start.value >= old_end {
+    RelexShift
+  } else {
+    RelexPreserve
+  }
+}
+
+///|
+fn Diagnostic::relex_disposition(
+  self : Diagnostic,
+  old_start : Int,
+  old_end : Int,
+) -> RelexDiagnosticDisposition {
+  let mut disposition = RelexPreserve
+  match self.primary {
+    Some(range) =>
+      disposition = combine_relex_disposition(
+        disposition,
+        range.relex_disposition(old_start, old_end),
+      )
+    None => ()
+  }
+  for label in self.labels {
+    disposition = combine_relex_disposition(
+      disposition,
+      label.range.relex_disposition(old_start, old_end),
+    )
+  }
+  match self.token {
+    Some(token) =>
+      disposition = combine_relex_disposition(
+        disposition,
+        token.range.relex_disposition(old_start, old_end),
+      )
+    None => ()
+  }
+  disposition
+}
+
+///|
 /// Preserve diagnostics outside a successfully re-lexed old range.
 /// Diagnostics inside the old range are stale and dropped; diagnostics after
-/// the old range are shifted by `delta`. For insertion ranges, zero-width
-/// diagnostics at the insertion point are treated as post-edit diagnostics.
+/// the old range are shifted by `delta`. Primary ranges, labels, and token
+/// evidence are considered together. For insertion ranges, zero-width
+/// evidence at the insertion point is treated as post-edit evidence.
 pub fn DiagnosticSet::after_relex(
   self : DiagnosticSet,
   old_start : Int,
@@ -598,19 +670,16 @@ pub fn DiagnosticSet::after_relex(
     }
     Ok(after) => {
       for diagnostic in self.items {
-        match diagnostic.primary {
-          None => result.push(diagnostic)
-          Some(range) => {
-            let start = range.start.value
-            let end = range.end.value
-            if old_start == old_end && start >= old_end {
-              result.push_shifted_after_relex(diagnostic, delta, after, failure_context)
-            } else if end <= old_start {
-              result.push(diagnostic)
-            } else if start >= old_end {
-              result.push_shifted_after_relex(diagnostic, delta, after, failure_context)
-            }
-          }
+        match diagnostic.relex_disposition(old_start, old_end) {
+          RelexPreserve => result.push(diagnostic)
+          RelexShift =>
+            result.push_shifted_after_relex(
+              diagnostic,
+              delta,
+              after,
+              failure_context,
+            )
+          RelexDrop => ()
         }
       }
       result

@@ -175,6 +175,60 @@ test "DiagnosticSet after_relex shifts zero-width insertion boundary diagnostics
 }
 
 ///|
+test "DiagnosticSet after_relex shifts ranges spanning insertion boundary" {
+  let set = DiagnosticSet::single(test_diagnostic("span", 0, 2, 1))
+  let shifted = set.after_relex(1, 1, 3, failure_context="test")
+  inspect(shifted.format(), content="[\"span [0,5]\"]")
+  match shifted.items()[0].token {
+    Some(token) => inspect(token.range.end().value(), content="5")
+    None => abort("expected token evidence")
+  }
+}
+
+///|
+test "DiagnosticSet after_relex shifts secondary positional evidence" {
+  let diagnostic = Diagnostic(
+    source=DiagnosticSource::lexer(),
+    severity=Error,
+    message="secondary",
+    primary=Some(test_range(0, 1)),
+    labels=[{ range: test_range(4, 5), message: Some("label") }],
+    token=Some({ kind: @seam.RawKind(9), range: test_range(6, 7) }),
+  )
+  let shifted = DiagnosticSet::single(diagnostic).after_relex(
+    2,
+    4,
+    3,
+    failure_context="test",
+  )
+  let item = shifted.items()[0]
+  inspect(item.primary.unwrap().start().value(), content="0")
+  inspect(item.labels[0].range.start().value(), content="7")
+  match item.token {
+    Some(token) => inspect(token.range.start().value(), content="9")
+    None => abort("expected token evidence")
+  }
+}
+
+///|
+test "DiagnosticSet after_relex drops diagnostics with secondary stale evidence" {
+  let diagnostic = Diagnostic(
+    source=DiagnosticSource::lexer(),
+    severity=Error,
+    message="secondary",
+    primary=Some(test_range(0, 1)),
+    labels=[{ range: test_range(3, 4), message: Some("label") }],
+  )
+  let shifted = DiagnosticSet::single(diagnostic).after_relex(
+    2,
+    5,
+    3,
+    failure_context="test",
+  )
+  inspect(shifted.length(), content="0")
+}
+
+///|
 test "DiagnosticSet offset_by preserves invalid offset errors" {
   let set = DiagnosticSet::single(test_diagnostic("before", 0, 1, 1))
   let result : Result[DiagnosticSet, DiagnosticBuildError] = try? set.offset_by(
@@ -197,7 +251,7 @@ test "LexResult with_starts records mismatched token and start arrays" {
   )
   inspect(
     result.diagnostics().format(),
-    content="[\"LexResult::with_starts requires `starts` and `tokens` to be parallel\"]",
+    content="[\"LexResult requires `starts` and `tokens` to be parallel\"]",
   )
 }
 
@@ -210,7 +264,7 @@ test "LexResult with_starts records negative start offsets" {
   )
   inspect(
     result.diagnostics().format(),
-    content="[\"LexResult::with_starts received a negative start offset at index 0\"]",
+    content="[\"LexResult received a negative start offset at index 0\"]",
   )
 }
 
@@ -223,6 +277,15 @@ test "LexResult with_starts records invalid start invariants" {
   )
   inspect(
     result.diagnostics().format(),
-    content="[\"LexResult::with_starts received overlapping token spans at index 1\"]",
+    content="[\"LexResult received overlapping token spans at index 1\"]",
+  )
+}
+
+///|
+test "LexResult constructor validates generated starts" {
+  let result = LexResult([TokenInfo::new("A", -1)])
+  inspect(
+    result.diagnostics().format(),
+    content="[\"LexResult received a negative token length at index 0\"]",
   )
 }
