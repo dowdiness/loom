@@ -619,7 +619,7 @@ fn TextRange::relex_disposition(
   old_end : Int,
 ) -> RelexDiagnosticDisposition {
   if old_start == old_end &&
-    (self.start.value >= old_end || self.end.value >= old_end) {
+    (self.start.value >= old_end || self.end.value > old_end) {
     RelexShift
   } else if old_start < old_end &&
     self.start.value < old_end &&
@@ -668,8 +668,9 @@ fn Diagnostic::relex_disposition(
 /// Preserve diagnostics outside a successfully re-lexed old range.
 /// Diagnostics inside the old range are stale and dropped; diagnostics after
 /// the old range are shifted by `delta`. Primary ranges, labels, and token
-/// evidence are considered together. For insertion ranges, zero-width
-/// evidence at the insertion point is treated as post-edit evidence.
+/// evidence are considered together. For insertion ranges, zero-width evidence
+/// at the insertion point and ranges crossing it are treated as post-edit
+/// evidence; ranges ending at the insertion point remain before the edit.
 pub fn DiagnosticSet::after_relex(
   self : DiagnosticSet,
   old_start : Int,

@@ -157,18 +157,32 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               last_parse_diags.val,
             ) {
             Some((new_cst, new_diagnostics)) => {
-              let lex_diagnostics = last_lex_diags.val.after_relex(
-                edit.start,
-                edit.old_end(),
-                edit.delta(),
-                failure_context="block reparse",
-              )
+              let buffer = create_buffer(
+                source,
+                tokenize,
+                spec.eof_token,
+                error_token,
+                error_token_from_message,
+                prefix_lexer~,
+                mode_relex~,
+              ) catch {
+                @core.LexError(msg) => {
+                  token_buf.val = None
+                  let formatted = "Tokenization error: " + msg
+                  let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
+                  last_parse_diags.val = @core.DiagnosticSet::empty()
+                  last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
+                  last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
+                  return @incremental.ParseOutcome::LexError(formatted)
+                }
+              }
+              let lex_diagnostics = buffer.get_diagnostics()
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.extend(new_diagnostics)
               last_lex_diags.val = lex_diagnostics
               last_parse_diags.val = new_diagnostics
               last_diags.val = all_diagnostics
-              token_buf.val = None // Invalidate for next potential fallback
+              token_buf.val = Some(buffer)
               return @incremental.ParseOutcome::Tree(
                 @seam.SyntaxNode::from_cst(new_cst),
                 1,

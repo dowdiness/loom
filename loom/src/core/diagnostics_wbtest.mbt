@@ -187,6 +187,17 @@ test "DiagnosticSet after_relex shifts ranges spanning insertion boundary" {
 }
 
 ///|
+test "DiagnosticSet after_relex preserves ranges ending at insertion boundary" {
+  let set = DiagnosticSet::single(test_diagnostic("before", 0, 2, 1))
+  let shifted = set.after_relex(2, 2, 3, failure_context="test")
+  inspect(shifted.format(), content="[\"before [0,2]\"]")
+  match shifted.items()[0].token {
+    Some(token) => inspect(token.range.end().value(), content="2")
+    None => abort("expected token evidence")
+  }
+}
+
+///|
 test "DiagnosticSet after_relex shifts secondary positional evidence" {
   let diagnostic = Diagnostic(
     source=DiagnosticSource::lexer(),
