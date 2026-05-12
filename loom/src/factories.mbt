@@ -86,14 +86,9 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
   let last_diags : Ref[@core.DiagnosticSet] = Ref::new(
     @core.DiagnosticSet::empty(),
   )
-  // Pending lex-error message, `Some` when the most recent parse attempt
-  // tripped a LexError. Surfaced by `get_diagnostics` alongside parse
-  // diagnostics so consumers reading `Parser::diagnostics()` (or
-  // `ImperativeParser::diagnostics()`) don't silently miss lex failures
-  // when `syntax_tree()` is `None`. Cleared at the top of every
-  // full_parse / incremental_parse call so the success path reports
-  // only structural diagnostics.
-  let lex_error_msg : Ref[String?] = Ref::new(None)
+  let last_parse_diags : Ref[@core.DiagnosticSet] = Ref::new(
+    @core.DiagnosticSet::empty(),
+  )
   // Persistent old-token cache: survives across edits so collect_old_tokens
   // only runs once (on first incremental parse). Subsequent edits reuse the
   // cached flat token array via ensure_old_tokens → immediate cache hit.
@@ -103,7 +98,6 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
   )
   @incremental.ImperativeLanguage::new(
     full_parse=source => {
-      lex_error_msg.val = None
       let buffer = create_buffer(
         source,
         tokenize,
@@ -115,9 +109,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
       ) catch {
         @core.LexError(msg) => {
           token_buf.val = None
-          last_diags.val = @core.DiagnosticSet::empty()
           let formatted = "Tokenization error: " + msg
-          lex_error_msg.val = Some(formatted)
+          last_parse_diags.val = @core.DiagnosticSet::empty()
+          last_diags.val = @core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error(formatted),
+          )
           return @incremental.ParseOutcome::LexError(formatted)
         }
       }
@@ -130,13 +126,16 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
         fn(i) { buffer.get_end(i) },
         spec,
       )
-      last_diags.val = diagnostics
+      let all_diagnostics = buffer.get_diagnostics()
+      all_diagnostics.extend(diagnostics)
+      last_parse_diags.val = diagnostics
+      last_diags.val = all_diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       @incremental.ParseOutcome::Tree(syntax, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
-      lex_error_msg.val = None
+      let update_diagnostics = @core.DiagnosticSet::empty()
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
@@ -151,9 +150,10 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               tokenize,
               spec,
               block_spec,
-              last_diags.val,
+              last_parse_diags.val,
             ) {
             Some((new_cst, new_diagnostics)) => {
+              last_parse_diags.val = new_diagnostics
               last_diags.val = new_diagnostics
               token_buf.val = None // Invalidate for next potential fallback
               return @incremental.ParseOutcome::Tree(
@@ -181,13 +181,20 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               ) catch {
                 @core.LexError(msg2) => {
                   token_buf.val = None
-                  last_diags.val = @core.DiagnosticSet::empty()
                   let formatted = "Tokenization error: " + msg2
-                  lex_error_msg.val = Some(formatted)
+                  last_parse_diags.val = @core.DiagnosticSet::empty()
+                  last_diags.val = @core.DiagnosticSet::single(
+                    @core.Diagnostic::lexer_error(formatted),
+                  )
                   return @incremental.ParseOutcome::LexError(formatted)
                 }
               }
-              ignore(msg)
+              update_diagnostics.push(
+                @core.Diagnostic::lexer_error(
+                  "incremental token buffer update failed; rebuilt token buffer: " +
+                  msg,
+                ),
+              )
               token_buf.val = Some(rebuilt)
             }
           }
@@ -202,9 +209,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
             mode_relex~,
           ) catch {
             @core.LexError(msg) => {
-              last_diags.val = @core.DiagnosticSet::empty()
               let formatted = "Tokenization error: " + msg
-              lex_error_msg.val = Some(formatted)
+              last_parse_diags.val = @core.DiagnosticSet::empty()
+              last_diags.val = @core.DiagnosticSet::single(
+                @core.Diagnostic::lexer_error(formatted),
+              )
               return @incremental.ParseOutcome::LexError(formatted)
             }
           }
@@ -238,24 +247,19 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
         fn(i) { buffer.get_end(i) },
         spec,
         cursor~,
-        prev_diagnostics=Some(last_diags.val),
+        prev_diagnostics=Some(last_parse_diags.val),
       )
-      last_diags.val = diagnostics
+      let all_diagnostics = buffer.get_diagnostics()
+      all_diagnostics.extend(update_diagnostics)
+      all_diagnostics.extend(diagnostics)
+      last_parse_diags.val = diagnostics
+      last_diags.val = all_diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
       @incremental.ParseOutcome::Tree(new_syntax, reuse_count)
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
-    get_diagnostics=fn() {
-      let formatted = last_diags.val.format()
-      match lex_error_msg.val {
-        Some(m) => {
-          formatted.push(m)
-          formatted
-        }
-        None => formatted
-      }
-    },
+    get_diagnostics=fn() { last_diags.val.format() },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
 }

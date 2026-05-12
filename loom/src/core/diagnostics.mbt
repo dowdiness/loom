@@ -9,6 +9,49 @@ pub struct TokenInfo[T] {
 } derive(Debug, Eq)
 
 ///|
+/// Structured result of lexing a source string.
+///
+/// `tokens` remain position-independent. `starts` records the source offset of
+/// each token and must be parallel to `tokens`.
+pub struct LexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+} derive(Eq, Debug)
+
+///|
+pub fn[T] LexResult::LexResult(
+  tokens : Array[TokenInfo[T]],
+  diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
+) -> LexResult[T] {
+  { tokens, starts: build_starts(tokens), diagnostics }
+}
+
+///|
+pub fn[T] LexResult::with_starts(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  diagnostics~ : DiagnosticSet,
+) -> LexResult[T] {
+  { tokens, starts, diagnostics }
+}
+
+///|
+pub fn[T] LexResult::tokens(self : LexResult[T]) -> Array[TokenInfo[T]] {
+  self.tokens.copy()
+}
+
+///|
+pub fn[T] LexResult::starts(self : LexResult[T]) -> Array[Int] {
+  self.starts.copy()
+}
+
+///|
+pub fn[T] LexResult::diagnostics(self : LexResult[T]) -> DiagnosticSet {
+  self.diagnostics.copy()
+}
+
+///|
 /// Type-safe UTF-16 code-unit offset into a source string.
 pub struct TextOffset {
   priv value : Int
@@ -224,6 +267,52 @@ pub fn Diagnostic::Diagnostic(
 }
 
 ///|
+pub fn Diagnostic::lexer_error(message : String) -> Diagnostic {
+  Diagnostic(
+    source=DiagnosticSource::lexer(),
+    severity=DiagnosticSeverity::Error,
+    code=Some(DiagnosticCode("lex-error")),
+    message~,
+  )
+}
+
+///|
+pub fn Diagnostic::lexer_error_at(
+  message : String,
+  start : Int,
+  end : Int,
+  code : String,
+) -> Diagnostic {
+  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
+    start,
+    end,
+  )
+  let (range, notes) = match range_result {
+    Ok(range) => (Some(range), [])
+    Err(err) =>
+      (
+        None,
+        [
+          "invalid lexer diagnostic range [" +
+          start.to_string() +
+          "," +
+          end.to_string() +
+          "]: " +
+          @debug.to_string(err),
+        ],
+      )
+  }
+  Diagnostic(
+    source=DiagnosticSource::lexer(),
+    severity=DiagnosticSeverity::Error,
+    code=Some(DiagnosticCode(code)),
+    message~,
+    primary=range,
+    notes~,
+  )
+}
+
+///|
 pub fn Diagnostic::line_range(
   self : Diagnostic,
   index : LineIndex,
@@ -325,6 +414,11 @@ pub fn DiagnosticSet::single(diagnostic : Diagnostic) -> DiagnosticSet {
 ///|
 pub fn DiagnosticSet::items(self : DiagnosticSet) -> Array[Diagnostic] {
   self.items.copy()
+}
+
+///|
+pub fn DiagnosticSet::copy(self : DiagnosticSet) -> DiagnosticSet {
+  { items: self.items.copy() }
 }
 
 ///|

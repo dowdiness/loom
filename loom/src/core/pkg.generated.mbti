@@ -31,6 +31,8 @@ pub fn to_edits(Array[TextDelta]) -> Array[Edit]
 
 pub fn[T] tokenize_via_steps((String, Int) -> LexStep[T], String, T) -> Array[TokenInfo[T]] raise LexError
 
+pub fn[T] tokenize_via_steps_result((String, Int) -> LexStep[T], String, T) -> LexResult[T] raise LexError
+
 pub fn[T, M] tokenize_with_modes(ModeLexer[T, M], String, T) -> (Array[TokenInfo[T]], Array[M]) raise LexError
 
 pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[Edit]
@@ -80,6 +82,8 @@ pub struct Diagnostic {
 pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, primary? : TextRange?, labels? : Array[DiagnosticLabel], notes? : Array[String], token? : TokenEvidence?) -> Self
 pub fn Diagnostic::format(Self) -> String
 pub fn Diagnostic::format_with_line_col(Self, LineIndex) -> String
+pub fn Diagnostic::lexer_error(String) -> Self
+pub fn Diagnostic::lexer_error_at(String, Int, Int, String) -> Self
 pub fn Diagnostic::line_range(Self, LineIndex) -> LineRange?
 pub fn Diagnostic::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
 
@@ -98,6 +102,7 @@ pub fn DiagnosticLabel::offset_by(Self, Int, TextOffset) -> Self raise Diagnosti
 pub struct DiagnosticSet {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticSet::copy(Self) -> Self
 pub fn DiagnosticSet::empty() -> Self
 pub fn DiagnosticSet::extend(Self, Self) -> Unit
 pub fn DiagnosticSet::format(Self) -> Array[String]
@@ -188,6 +193,17 @@ pub fn LexCursor::start(Self) -> Int
 pub fn LexCursor::starts_with(Self, String) -> Bool
 pub fn LexCursor::take_while(Self, (Char) -> Bool) -> Int
 pub fn LexCursor::view(Self) -> StringView
+
+pub struct LexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+} derive(Eq, @debug.Debug)
+pub fn[T] LexResult::LexResult(Array[TokenInfo[T]], diagnostics? : DiagnosticSet) -> Self[T]
+pub fn[T] LexResult::diagnostics(Self[T]) -> DiagnosticSet
+pub fn[T] LexResult::starts(Self[T]) -> Array[Int]
+pub fn[T] LexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
+pub fn[T] LexResult::with_starts(Array[TokenInfo[T]], Array[Int], diagnostics~ : DiagnosticSet) -> Self[T]
 
 pub(all) enum LexStep[T] {
   Produced(TokenInfo[T], next_offset~ : Int)
@@ -356,6 +372,7 @@ pub struct TokenBuffer[T] {
   mut version : Int
   // private fields
 }
+pub fn[T] TokenBuffer::get_diagnostics(Self[T]) -> DiagnosticSet
 pub fn[T] TokenBuffer::get_end(Self[T], Int) -> Int
 pub fn[T] TokenBuffer::get_source(Self[T]) -> String
 pub fn[T] TokenBuffer::get_start(Self[T], Int) -> Int

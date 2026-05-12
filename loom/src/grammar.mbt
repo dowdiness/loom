@@ -26,16 +26,25 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::
   self : Grammar[T, K, Ast],
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
-  let tokens = (self.tokenize)(source)
-  let starts = @core.build_starts(tokens)
-  let (cst, diagnostics, _) = @core.parse_tokens_indexed(
+  let buffer = create_buffer(
     source,
-    tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + tokens[i].len },
+    self.tokenize,
+    self.spec.eof_token,
+    self.error_token,
+    self.error_token_from_message,
+    prefix_lexer=self.prefix_lexer,
+    mode_relex=self.mode_relex,
+  )
+  let (cst, parse_diagnostics, _) = @core.parse_tokens_indexed(
+    source,
+    buffer.token_count(),
+    fn(i) { buffer.get_token(i) },
+    fn(i) { buffer.get_start(i) },
+    fn(i) { buffer.get_end(i) },
     self.spec,
   )
+  let diagnostics = buffer.get_diagnostics()
+  diagnostics.extend(parse_diagnostics)
   (cst, diagnostics)
 }
 

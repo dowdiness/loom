@@ -8,7 +8,7 @@
 ///|
 /// "@invalid" no longer triggers a lex error — step-based lexer recovers "@"
 /// as an error token. `syntax_tree()` is `Some(tree)` because tokenization
-/// succeeded; the error surfaces as parse-level diagnostics.
+/// recovered; the error surfaces through diagnostics.
 test "Parser: step-based lexer recovers invalid chars without lex error" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
   guard parser.runtime().read(parser.syntax_tree()) is Some(_) else {
@@ -33,12 +33,12 @@ test "Parser: step-based recovery produces parse tree not ErrorNode" {
 }
 
 ///|
-/// Diagnostics from step-based recovery are parser-level (not "tokenization: ").
-test "Parser: step-based recovery diagnostics are parser-level" {
+/// Diagnostics from step-based recovery are not fatal tokenization errors.
+test "Parser: step-based recovery diagnostics are not fatal lex errors" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
   let diags = parser.runtime().read(parser.diagnostics())
   inspect(diags.length() > 0, content="true")
-  // No "tokenization:" prefix — errors come from parser, not lexer.
+  // No "tokenization:" prefix — recovery produced a tree instead.
   inspect(diags[0].contains("tokenization: "), content="false")
 }
 

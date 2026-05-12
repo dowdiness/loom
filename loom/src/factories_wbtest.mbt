@@ -164,6 +164,10 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
   )
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"unexpected char [1,2]\"]",
+  )
 }
 
 ///|

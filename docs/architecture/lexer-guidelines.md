@@ -33,6 +33,15 @@ reports:
 - the deprecated `TokenBuffer::new_resilient` fallback also emits a whole
   Unicode scalar for unlexable non-BMP input
 
+Recoverable lexer paths must preserve the error information as diagnostics:
+
+- `TokenBuffer::new_from_steps` records `LexStep::Invalid` and
+  `LexStep::Incomplete` messages in `DiagnosticSet`
+- defensive no-progress recovery records a lexer diagnostic instead of
+  silently correcting the cursor
+- `TokenBuffer::get_diagnostics()` exposes the lexer diagnostics that parser
+  factories merge with parser diagnostics
+
 When adding a new recovery path, avoid `pos + 1` unless the code is explicitly
 walking ASCII syntax or intentionally indexing a single UTF-16 code unit.
 

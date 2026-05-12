@@ -42,6 +42,7 @@ pub using @core {
   type LanguageSpec,
   type LexCursor,
   type LexError,
+  type LexResult,
   type LexStep,
   type LineCol,
   type LineIndex,
@@ -65,6 +66,7 @@ pub using @core {
   parse_tokens_indexed,
   text_to_delta,
   to_edits,
+  tokenize_via_steps_result,
   tokenize_via_steps,
   tokenize_with_modes,
 }

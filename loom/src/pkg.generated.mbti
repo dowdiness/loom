@@ -32,6 +32,8 @@ pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
 
 pub fn[T] tokenize_via_steps((String, Int) -> @core.LexStep[T], String, T) -> Array[@core.TokenInfo[T]] raise @core.LexError
 
+pub fn[T] tokenize_via_steps_result((String, Int) -> @core.LexStep[T], String, T) -> @core.LexResult[T] raise @core.LexError
+
 pub fn[T, M] tokenize_with_modes(@core.ModeLexer[T, M], String, T) -> (Array[@core.TokenInfo[T]], Array[M]) raise @core.LexError
 
 // Errors
@@ -89,6 +91,8 @@ pub using @core {type LanguageSpec}
 pub using @core {type LexCursor}
 
 pub using @core {type LexError}
+
+pub using @core {type LexResult}
 
 pub using @core {type LexStep}
 

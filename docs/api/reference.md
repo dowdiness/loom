@@ -229,11 +229,13 @@ recoverable step-lexer errors:
   `LexStep::Incomplete` raise `LexError`, and the factory reports that through
   `on_lex_error`.
 - With `error_token`, step lexing is recoverable. Invalid and incomplete steps
-  are emitted as error tokens, so parsing can continue and produce diagnostics.
+  are emitted as error tokens and recorded as structured lexer diagnostics, so
+  parsing can continue and produce one merged diagnostic list.
 - `error_token_from_message` is only used in the recoverable path, and only
   when `error_token` is also provided. It lets a grammar preserve the
   `LexStep::Invalid(..., message)` or `Incomplete(..., expected)` text inside
-  the emitted token, for example `Error(message)`.
+  the emitted token, for example `Error(message)`. The user-facing message is
+  also available through `TokenBuffer` diagnostics.
 - If `error_token_from_message` is omitted, recoverable lexing still works but
   uses the constant `error_token` fallback for every lexer error.
 

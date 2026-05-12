@@ -4,19 +4,32 @@ The `dowdiness/loom/core` package exposes a language-agnostic parsing infrastruc
 
 ## Three Core Types
 
-### TokenInfo
+### TokenInfo And LexResult
 
-A generic token with source position:
+A generic position-independent token:
 
 ```moonbit
 pub struct TokenInfo[T] {
   token : T
-  start : Int
-  end   : Int
+  len   : Int
 }
 ```
 
-`T` is the language-specific token type. The lexer produces `Array[TokenInfo[T]]`; the parser consumes it through `ParserContext`.
+`T` is the language-specific token type. Token starts are tracked outside the
+token array so token values remain stable across reuse checks.
+
+Recovering lexer paths use `LexResult[T]`:
+
+```moonbit
+pub struct LexResult[T] {
+  tokens      : Array[TokenInfo[T]]
+  starts      : Array[Int]
+  diagnostics : DiagnosticSet
+}
+```
+
+`TokenBuffer` stores the latest `LexResult` diagnostics and parser entry
+points merge them with parser diagnostics before returning to callers.
 
 ### LanguageSpec
 

@@ -10,7 +10,9 @@ offsets and added `LineIndex` for presentation-time line/column derivation.
 The remaining high-level gap is the parser boundary:
 `Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
 formatted `Array[String]` values. Low-level parser code now carries
-`DiagnosticSet`, but the lexer boundary still has strict `LexError` paths.
+`DiagnosticSet`. Prefix-lexer recovery now carries lexer diagnostics through
+`TokenBuffer`, while mode-aware lexing and the final high-level parser
+snapshot still need follow-up work.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -191,7 +193,7 @@ pub struct LexResult[T] {
 } derive(Eq, Debug)
 ```
 
-The high-level grammar path should eventually use:
+The target high-level grammar path should eventually use:
 
 ```moonbit
 lex : (String) -> LexResult[T]
@@ -211,12 +213,13 @@ errors into a separate `ParseOutcome::LexError` channel.
 
 `PrefixLexer` already reports `Invalid(at, width, message)` and
 `Incomplete(at, expected)` and `TokenBuffer::new_from_steps` already recovers
-by emitting error tokens. Convert that path first:
+by emitting error tokens. That path now:
 
-- construct `TokenEvidence` from the error token's `RawKind` and `TextRange`
-- append a lexer diagnostic for each `Invalid` / `Incomplete`
-- keep the current Unicode-safe recovery offset behavior
-- keep token starts explicit so late invalid offsets remain representable
+- appends a lexer diagnostic for each `Invalid` / `Incomplete`
+- records a diagnostic when a no-progress `Produced` step is defensively
+  advanced
+- keeps the current Unicode-safe recovery offset behavior
+- keeps token starts explicit so late invalid offsets remain representable
 
 This makes `error_token_from_message` unnecessary for user-facing messages.
 Diagnostics carry messages; error tokens only need to preserve syntax shape.
@@ -349,9 +352,12 @@ Line/column coordinates stay presentation-only and follow ADR
 1. Done: add the new diagnostic data model and `DiagnosticSet` helpers.
 2. Done: convert `ParserContext` parse diagnostics to `DiagnosticSet`.
 3. Done: convert low-level parse entry points to return `DiagnosticSet`.
-4. Add `LexResult[T]` and migrate the prefix-lexer recovery path.
+4. Done: add `LexResult[T]` and migrate the prefix-lexer recovery path.
 5. Add recovering mode-lexer variants and migrate Markdown.
-6. Change `Grammar` and factories to consume `LexResult[T]`.
+6. In progress: change `Grammar` and factories to consume `LexResult[T]`.
+   `TokenBuffer` now stores lexer diagnostics and `Grammar::parse_cst` /
+   parser factories merge them with parser diagnostics, but `Grammar` still
+   accepts the legacy raising `tokenize` callback.
 7. Replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
    `ParseSnapshot[Ast]`.
 8. Collapse reactive `Parser` state to a snapshot signal plus derived views.
@@ -387,7 +393,9 @@ cd examples/markdown && rtk moon test
 - `DiagnosticSet` construction, defensive-copy, formatting, and dedupe tests.
 - `TextOffset` / `TextRange` invariant tests.
 - `ParserContext::report_at_current` token-evidence tests.
-- Prefix lexer invalid/incomplete diagnostics with non-BMP recovery offsets.
+- Done: prefix lexer invalid/incomplete diagnostics.
+- Done: legacy resilient lexer diagnostics for recovered scalar ranges.
+- Prefix lexer non-BMP diagnostic range assertions.
 - Mode lexer invalid/incomplete diagnostics with mode-state recovery.
 - Incremental reuse replays structured diagnostics without duplication.
 - Block reparse offsets and merges structured diagnostics.
