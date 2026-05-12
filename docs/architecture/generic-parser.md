@@ -105,15 +105,15 @@ ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 
 ```moonbit
 // Simple: tokenize + parse in one call
-pub fn parse_with[T : IsTrivia, K : ToRawKind](
+pub fn parse_with[T : IsTrivia + ToRawKind, K : ToRawKind](
   source   : String,
   spec     : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
   grammar  : (ParserContext[T, K]) -> Unit,
-) -> (@seam.CstNode, Array[Diagnostic[T]])
+) -> (@seam.CstNode, DiagnosticSet)
 
 // Advanced: pre-tokenized, optional reuse cursor, returns reuse_count
-pub fn parse_tokens_indexed[T : IsTrivia, K : ToRawKind](
+pub fn parse_tokens_indexed[T : IsTrivia + ToRawKind, K : ToRawKind](
   source        : String,
   token_count   : Int,
   get_token     : (Int) -> T,
@@ -121,8 +121,8 @@ pub fn parse_tokens_indexed[T : IsTrivia, K : ToRawKind](
   get_end       : (Int) -> Int,
   spec          : LanguageSpec[T, K],
   cursor?       : ReuseCursor[T, K]?,
-  prev_diagnostics? : Array[Diagnostic[T]]?,
-) -> (@seam.CstNode, Array[Diagnostic[T]], Int)
+  prev_diagnostics? : DiagnosticSet?,
+) -> (@seam.CstNode, DiagnosticSet, Int)
 ```
 
 `parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by the incremental path — pass a `ReuseCursor` built from the previous tree and damage range to enable subtree reuse.

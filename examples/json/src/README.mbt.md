@@ -17,9 +17,9 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 // ── High-level parsing ────────────────────────────────────────────────────────
 
 pub fn parse(String) -> JsonValue raise                                   // strict: raises on any diagnostic
-pub fn parse_json(String) -> (JsonValue, Array[@core.Diagnostic[Token]])  // returns diagnostics
+pub fn parse_json(String) -> (JsonValue, @core.DiagnosticSet)  // returns diagnostics
   raise @core.LexError
-pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[Token]])
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────

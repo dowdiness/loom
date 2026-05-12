@@ -12,7 +12,7 @@ test "expect: consumes matching token and returns true" {
   let ok = ctx.expect(TestTok::Num(1), KNum)
   ctx.finish_node()
   inspect(ok, content="true")
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
 }
 
 ///|
@@ -24,11 +24,11 @@ test "expect: emits placeholder and diagnostic on mismatch" {
   let ok = ctx.expect(TestTok::Num(1), KNum)
   // Token should NOT be consumed — still at "+"
   inspect(ok, content="false")
-  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="1")
   // Auto-generated message includes Show of both tokens
   inspect(
-    ctx.errors[0].message.contains("expected") &&
-    ctx.errors[0].message.contains("Plus"),
+    ctx.diagnostics.items()[0].message.contains("expected") &&
+    ctx.diagnostics.items()[0].message.contains("Plus"),
     content="true",
   )
   // Position unchanged — "+" is still the current token
@@ -44,8 +44,8 @@ test "expect: at EOF emits placeholder with eof in message" {
   ctx.start_node(KRoot)
   let ok = ctx.expect(TestTok::Num(1), KNum)
   inspect(ok, content="false")
-  inspect(ctx.errors.length(), content="1")
-  inspect(ctx.errors[0].message.contains("TokEof"), content="true")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message.contains("TokEof"), content="true")
   ctx.finish_node()
 }
 
@@ -210,7 +210,7 @@ test "node_with_recovery: success path — no recovery" {
     _t => true,
   )
   ctx.finish_node()
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
   inspect(ctx.at_eof(), content="true")
 }
 
@@ -237,7 +237,7 @@ test "node_with_recovery: failure triggers skip_until" {
   )
   // After recovery: "+" "+" were skipped, now at Num(2)
   inspect(ctx.at(TestTok::Num(2)), content="true")
-  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="1")
   ctx.finish_node()
 }
 
@@ -256,7 +256,7 @@ test "expect_and_recover: immediate match" {
     }
   })
   inspect(ok, content="true")
-  inspect(ctx.errors.length(), content="0")
+  inspect(ctx.diagnostics.length(), content="0")
   inspect(ctx.at(TestTok::Num(2)), content="true")
   ctx.finish_node()
 }
@@ -275,7 +275,7 @@ test "expect_and_recover: skips garbage then finds expected" {
     }
   })
   inspect(ok, content="true") // found Plus after skipping Num(1)
-  inspect(ctx.errors.length(), content="1") // diagnostic recorded
+  inspect(ctx.diagnostics.length(), content="1") // diagnostic recorded
   inspect(ctx.at(TestTok::Num(2)), content="true")
   ctx.finish_node()
 }
@@ -294,7 +294,7 @@ test "expect_and_recover: gives up when expected not found" {
     }
   })
   inspect(ok, content="false") // gave up
-  inspect(ctx.errors.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="1")
   // Num(2) is still available (sync point not consumed)
   inspect(ctx.at(TestTok::Num(2)), content="true")
   ctx.finish_node()

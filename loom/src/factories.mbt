@@ -72,7 +72,7 @@ fn[T] create_buffer(
 /// diagnostics, old-token cache) inside the closures. Shared by both
 /// `new_imperative_parser` and `new_parser` — the only divergence downstream
 /// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
-fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
@@ -83,7 +83,9 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
-  let last_diags : Ref[Array[@core.Diagnostic[T]]] = Ref::new([])
+  let last_diags : Ref[@core.DiagnosticSet] = Ref::new(
+    @core.DiagnosticSet::empty(),
+  )
   // Pending lex-error message, `Some` when the most recent parse attempt
   // tripped a LexError. Surfaced by `get_diagnostics` alongside parse
   // diagnostics so consumers reading `Parser::diagnostics()` (or
@@ -113,7 +115,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
       ) catch {
         @core.LexError(msg) => {
           token_buf.val = None
-          last_diags.val = []
+          last_diags.val = @core.DiagnosticSet::empty()
           let formatted = "Tokenization error: " + msg
           lex_error_msg.val = Some(formatted)
           return @incremental.ParseOutcome::LexError(formatted)
@@ -179,7 +181,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
               ) catch {
                 @core.LexError(msg2) => {
                   token_buf.val = None
-                  last_diags.val = []
+                  last_diags.val = @core.DiagnosticSet::empty()
                   let formatted = "Tokenization error: " + msg2
                   lex_error_msg.val = Some(formatted)
                   return @incremental.ParseOutcome::LexError(formatted)
@@ -200,7 +202,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
             mode_relex~,
           ) catch {
             @core.LexError(msg) => {
-              last_diags.val = []
+              last_diags.val = @core.DiagnosticSet::empty()
               let formatted = "Tokenization error: " + msg
               lex_error_msg.val = Some(formatted)
               return @incremental.ParseOutcome::LexError(formatted)
@@ -245,7 +247,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
     on_lex_error=grammar.on_lex_error,
     get_diagnostics=fn() {
-      let formatted = last_diags.val.map(@core.format_diagnostic)
+      let formatted = last_diags.val.format()
       match lex_error_msg.val {
         Some(m) => {
           formatted.push(m)
@@ -264,7 +266,7 @@ fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] build_imperative_language(
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
 /// Interners (token deduplication, node deduplication) are process-global and
 /// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
@@ -282,7 +284,7 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] new_imperative_parser(
 /// Pass `runtime~` to join an existing reactive graph (useful when downstream
 /// memos need to share the same `Runtime` as the parser). Omitting it creates
 /// a fresh runtime owned by the returned parser.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,

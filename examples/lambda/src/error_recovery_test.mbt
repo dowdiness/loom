@@ -3,9 +3,17 @@
 ///|
 fn parse_cst_or_fail_recovery(
   source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   parse_cst(source) catch {
     _ => fail("lex error on " + source)
+  }
+}
+
+///|
+fn diagnostic_start(diag : @core.Diagnostic) -> Int {
+  match diag.primary {
+    Some(range) => range.start().value()
+    None => abort("expected diagnostic primary range")
   }
 }
 
@@ -13,7 +21,7 @@ fn parse_cst_or_fail_recovery(
 test "parse_cst returns diagnostics" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery("λ.x")
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics[0].message, content="Expected parameter after λ")
+  inspect(diagnostics.items()[0].message, content="Expected parameter after λ")
   // Cst should be a valid SourceFile
   inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
 }
@@ -34,10 +42,10 @@ test "parse_cst EOF diagnostics point to end of source" {
   inspect(diagnostics.length() > 0, content="true")
   // Find the diagnostic about the missing "else"
   let mut found = false
-  for diag in diagnostics {
+  for diag in diagnostics.items() {
     if diag.message.contains("else") {
       // Position must be at or near the end of the source, not 0
-      inspect(diag.start > 0, content="true")
+      inspect(diagnostic_start(diag) > 0, content="true")
       found = true
     }
   }
@@ -83,7 +91,7 @@ test "lambda_expect: missing dot in lambda" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics[0].message, content="Expected .")
+  inspect(diagnostics.items()[0].message, content="Expected .")
   assert_first_child_kind(cst, @syntax.LambdaExpr)
 }
 
@@ -95,7 +103,7 @@ test "lambda_expect: missing '=' in let" {
   inspect(diagnostics.length() > 0, content="true")
   // Should report missing '='
   let mut found_eq = false
-  for diag in diagnostics {
+  for diag in diagnostics.items() {
     if diag.message.contains("=") {
       found_eq = true
     }
@@ -109,7 +117,7 @@ test "lambda_expect: missing closing paren" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics[0].message, content="Expected )")
+  inspect(diagnostics.items()[0].message, content="Expected )")
   assert_first_child_kind(cst, @syntax.ParenExpr)
 }
 
@@ -124,7 +132,7 @@ test "lambda_expect: missing ')' in if condition keeps then/else" {
     content="if x then y else z",
   )
   let mut found_paren = false
-  for diag in diagnostics {
+  for diag in diagnostics.items() {
     if diag.message.contains(")") {
       found_paren = true
     }
@@ -197,7 +205,7 @@ test "balanced: missing close paren at EOF" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics[0].message, content="Expected )")
+  inspect(diagnostics.items()[0].message, content="Expected )")
 }
 
 // ============================================================================

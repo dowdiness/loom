@@ -1,14 +1,14 @@
 ///|
 pub fn parse_cst(
   source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[Token]]) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   markdown_grammar.parse_cst(source)
 }
 
 ///|
 pub fn parse_markdown(
   source : String,
-) -> (Block, Array[@core.Diagnostic[Token]]) raise @core.LexError {
+) -> (Block, @core.DiagnosticSet) raise @core.LexError {
   let (cst, diags) = parse_cst(source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let fold = @core.CstFold::new(markdown_fold_node)

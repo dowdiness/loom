@@ -22,10 +22,10 @@ pub struct Grammar[T, K, Ast] {
 /// Parse a source string to CST + diagnostics.
 /// Eliminates boilerplate that every grammar must duplicate:
 /// tokenize → build_starts → parse_tokens_indexed.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
   self : Grammar[T, K, Ast],
   source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[T]]) raise @core.LexError {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   let tokens = (self.tokenize)(source)
   let starts = @core.build_starts(tokens)
   let (cst, diagnostics, _) = @core.parse_tokens_indexed(

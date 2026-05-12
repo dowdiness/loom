@@ -11,7 +11,7 @@ fn parse_or_fail(source : String) -> @ast.Term raise {
 ///|
 fn parse_cst_or_fail_parser(
   source : String,
-) -> (@seam.CstNode, Array[@core.Diagnostic[@token.Token]]) raise {
+) -> (@seam.CstNode, @core.DiagnosticSet) raise {
   parse_cst(source) catch {
     _ => fail("lex error on " + source)
   }
@@ -445,7 +445,7 @@ test "parse_term: missing newline between defs reports diagnostic" {
   let (_, diagnostics) = parse_term("let a = 1 let b = 2")
   inspect(diagnostics.length() > 0, content="true")
   inspect(
-    diagnostics[0].message,
+    diagnostics.items()[0].message,
     content="Expected newline between top-level definitions",
   )
 }

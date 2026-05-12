@@ -18,7 +18,7 @@ pub let lambda_grammar_no_threshold : @loom.Grammar[...]   // reuse size thresho
 // ── High-level parsing ────────────────────────────────────────────────────────
 
 pub fn parse(String) -> @ast.Term raise
-pub fn parse_cst(String) -> (@seam.CstNode, Array[@core.Diagnostic[...]]) raise @core.LexError
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.Term]
 
 // ── Visualization ─────────────────────────────────────────────────────────────

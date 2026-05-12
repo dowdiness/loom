@@ -7,10 +7,10 @@
 
 PR #112 kept loom's canonical source coordinate system as UTF-16 code-unit
 offsets and added `LineIndex` for presentation-time line/column derivation.
-The remaining gap is the parser boundary: `Parser::diagnostics()` and
-`ImperativeParser::diagnostics()` still expose formatted `Array[String]`
-values, while low-level parser code carries `Diagnostic[T]` with a
-language-specific `got_token : T`.
+The remaining high-level gap is the parser boundary:
+`Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
+formatted `Array[String]` values. Low-level parser code now carries
+`DiagnosticSet`, but the lexer boundary still has strict `LexError` paths.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -18,8 +18,8 @@ architecture over compatibility shims.
 Verified against current code before writing this plan:
 
 - `rtk moon check` passes on `main`.
-- `@loom.Diagnostic` is currently a facade re-export of
-  `@core.Diagnostic[T]`.
+- `@loom.Diagnostic` is a token-erased structured diagnostic re-exported from
+  `@core`.
 - `Array[Diagnostic]` and generic `ParseSnapshot[Ast]` can derive `Eq` when
   `Ast : Eq`, so structured diagnostics can live behind `@incr.Memo`.
 - `SyntaxNode` implements `Eq`.
@@ -44,7 +44,7 @@ Verified against current code before writing this plan:
 - Add incremental `LineIndex`; build `LineIndex::new(source)` on demand until
   profiling proves it is a bottleneck.
 - Design an LSP adapter.
-- Keep `Diagnostic[T].got_token` in public parser-facing APIs.
+- Reintroduce token-specific diagnostics in public parser-facing APIs.
 - Remove every strict lexer helper. Strict tokenization can remain as a
   low-level test/debug API, but it must not be the high-level parser contract.
 
@@ -64,17 +64,24 @@ Verified against current code before writing this plan:
 
 ## Proposed Data Model
 
-Place these types in `loom/src/core/diagnostics.mbt`, replacing the public
-role of `Diagnostic[T]`.
+Place these types in `loom/src/core/diagnostics.mbt`, replacing the former
+public role of token-specific diagnostics.
 
 ```moonbit
 pub struct TextOffset {
   priv value : Int
 } derive(Eq, Debug, Hash, Compare)
 
-pub fn TextOffset::at(value : Int) -> TextOffset {
-  guard value >= 0 else { fail("TextOffset must be non-negative") }
-  { value }
+pub(all) suberror DiagnosticBuildError {
+  NegativeTextOffset(Int)
+  InvalidTextRange(Int, Int)
+} derive(Debug)
+
+pub fn TextOffset::TextOffset(
+  value : Int,
+) -> TextOffset raise DiagnosticBuildError {
+  guard value >= 0 else { raise NegativeTextOffset(value) }
+  { value, }
 }
 
 pub fn TextOffset::value(self : TextOffset) -> Int {
@@ -86,13 +93,21 @@ pub struct TextRange {
   priv end : TextOffset
 } derive(Eq, Debug, Hash, Compare)
 
-pub fn TextRange::new(start : TextOffset, end : TextOffset) -> TextRange {
-  guard start <= end else { fail("TextRange end must be >= start") }
+pub fn TextRange::TextRange(
+  start : TextOffset,
+  end : TextOffset,
+) -> TextRange raise DiagnosticBuildError {
+  guard end.value() >= start.value() else {
+    raise InvalidTextRange(start.value(), end.value())
+  }
   { start, end }
 }
 
-pub fn TextRange::from_offsets(start : Int, end : Int) -> TextRange {
-  TextRange::new(TextOffset::at(start), TextOffset::at(end))
+pub fn TextRange::from_offsets(
+  start : Int,
+  end : Int,
+) -> TextRange raise DiagnosticBuildError {
+  TextRange(TextOffset(start), TextOffset(end))
 }
 ```
 
@@ -151,11 +166,18 @@ pub struct DiagnosticSet {
 - `DiagnosticSet::length() -> Int`
 - `DiagnosticSet::format() -> Array[String]`
 - `DiagnosticSet::format_with_line_col(LineIndex) -> Array[String]`
-- `DiagnosticSet::offset_by(delta : Int, after : TextOffset) -> DiagnosticSet`
+- `DiagnosticSet::offset_by(delta : Int, after : TextOffset) -> DiagnosticSet raise DiagnosticBuildError`
 
 Deduplication should happen here, keyed by source, severity, code, message, and
 primary range. Token evidence can refresh on duplicate reports, matching the
 current `push_diagnostic_unique` behavior.
+
+The offset/range constructors are checked custom constructors, not `::new`
+factories. They must not clamp, normalize, drop, or `abort` on invalid input.
+Invalid offsets and ranges preserve their original values in
+`DiagnosticBuildError`. Parser and lexer recovery paths should catch those
+errors at the boundary and convert them into structured diagnostics rather than
+discarding information.
 
 ## Lexing Boundary
 
@@ -254,10 +276,10 @@ API. Invalid input is represented by error/incomplete nodes and diagnostics.
 
 ## ParserContext Changes
 
-Change `ParserContext` from:
+ParserContext has been changed from:
 
 ```moonbit
-errors : Array[Diagnostic[T]]
+errors : Array[{ message : String, start : Int, end : Int, got_token : T }]
 ```
 
 to:
@@ -266,7 +288,8 @@ to:
 diagnostics : DiagnosticSet
 ```
 
-Replace string-first reporting with structured reporting:
+Follow-up work should replace the remaining string-first reporting helpers with
+structured reporting:
 
 ```moonbit
 ParserContext::report(Diagnostic) -> Unit
@@ -287,10 +310,9 @@ tokens already satisfy that bound, and reuse already depends on it.
 
 ## Incremental Reuse And Block Reparse
 
-The current reuse path replays `Array[Diagnostic[T]]` by matching ranges. After
-this change, reuse should replay `DiagnosticSet` entries whose primary range
-falls inside the reused node. Synthesis of reused diagnostics should construct
-real `Diagnostic` values with:
+The reuse path replays `DiagnosticSet` entries whose primary range falls inside
+the reused node. Synthesis of reused diagnostics constructs real `Diagnostic`
+values with:
 
 - `source = DiagnosticSource::parser()`
 - `severity = Error`
@@ -324,16 +346,16 @@ Line/column coordinates stay presentation-only and follow ADR
 
 ## Implementation Plan
 
-1. Add the new diagnostic data model and `DiagnosticSet` helpers.
-2. Convert `ParserContext` parse diagnostics to `DiagnosticSet`.
-3. Convert low-level parse entry points to return `DiagnosticSet`.
+1. Done: add the new diagnostic data model and `DiagnosticSet` helpers.
+2. Done: convert `ParserContext` parse diagnostics to `DiagnosticSet`.
+3. Done: convert low-level parse entry points to return `DiagnosticSet`.
 4. Add `LexResult[T]` and migrate the prefix-lexer recovery path.
 5. Add recovering mode-lexer variants and migrate Markdown.
 6. Change `Grammar` and factories to consume `LexResult[T]`.
 7. Replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
    `ParseSnapshot[Ast]`.
 8. Collapse reactive `Parser` state to a snapshot signal plus derived views.
-9. Update examples and public docs to use `DiagnosticSet`.
+9. In progress: update examples and public docs to use `DiagnosticSet`.
 10. Remove parser-level formatted string diagnostics.
 
 Run after each meaningful step:
@@ -384,8 +406,10 @@ cd examples/markdown && rtk moon test
   Revisit only if profiling shows snapshot equality is hot.
 - `DiagnosticSet::offset_by` must preserve optional ranges and labels
   consistently. Add direct tests before using it in block reparse.
-- Removing `got_token : T` will require example parser cleanup where
-  `ParseError` currently stores the language-specific token.
+- Example fail-fast `parse(...)` helpers still keep legacy token payloads in
+  their `ParseError` types and currently use EOF for structured diagnostics.
+  Follow up by simplifying those example errors to message-only or structured
+  diagnostic payloads.
 
 ## Decision Record
 
