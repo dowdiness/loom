@@ -126,18 +126,20 @@ test "DiagnosticSet offset_by zero returns an independent copy" {
 }
 
 ///|
-test "DiagnosticSet deduplicates by stable key and refreshes token evidence" {
+test "DiagnosticSet deduplicates exact duplicates" {
+  let set = DiagnosticSet::empty()
+  let diagnostic = test_diagnostic("expected", 1, 2, 7)
+  set.push(diagnostic)
+  set.push(diagnostic)
+  inspect(set.length(), content="1")
+}
+
+///|
+test "DiagnosticSet preserves diagnostics with different token evidence" {
   let set = DiagnosticSet::empty()
   set.push(test_diagnostic("expected", 1, 2, 7))
   set.push(test_diagnostic("expected", 1, 2, 8))
-  inspect(set.length(), content="1")
-  match set.items()[0].token {
-    Some(token) => {
-      let @seam.RawKind(kind) = token.kind
-      inspect(kind, content="8")
-    }
-    None => abort("expected token evidence")
-  }
+  inspect(set.length(), content="2")
 }
 
 ///|
@@ -162,6 +164,17 @@ test "DiagnosticSet offset_by shifts ranges at or after boundary" {
 }
 
 ///|
+test "DiagnosticSet after_relex shifts zero-width insertion boundary diagnostics" {
+  let set = DiagnosticSet::single(test_diagnostic("eof", 2, 2, 1))
+  let shifted = set.after_relex(2, 2, 3, failure_context="test")
+  inspect(shifted.format(), content="[\"eof [5,5]\"]")
+  match shifted.items()[0].token {
+    Some(token) => inspect(token.range.start().value(), content="5")
+    None => abort("expected token evidence")
+  }
+}
+
+///|
 test "DiagnosticSet offset_by preserves invalid offset errors" {
   let set = DiagnosticSet::single(test_diagnostic("before", 0, 1, 1))
   let result : Result[DiagnosticSet, DiagnosticBuildError] = try? set.offset_by(
@@ -173,4 +186,43 @@ test "DiagnosticSet offset_by preserves invalid offset errors" {
     Ok(_) => abort("expected invalid shifted offset")
     Err(_) => abort("expected offset error")
   }
+}
+
+///|
+test "LexResult with_starts records mismatched token and start arrays" {
+  let result = LexResult::with_starts(
+    [TokenInfo::new("A", 1)],
+    [],
+    diagnostics=DiagnosticSet::empty(),
+  )
+  inspect(
+    result.diagnostics().format(),
+    content="[\"LexResult::with_starts requires `starts` and `tokens` to be parallel\"]",
+  )
+}
+
+///|
+test "LexResult with_starts records negative start offsets" {
+  let result = LexResult::with_starts(
+    [TokenInfo::new("A", 1)],
+    [-1],
+    diagnostics=DiagnosticSet::empty(),
+  )
+  inspect(
+    result.diagnostics().format(),
+    content="[\"LexResult::with_starts received a negative start offset at index 0\"]",
+  )
+}
+
+///|
+test "LexResult with_starts records invalid start invariants" {
+  let result = LexResult::with_starts(
+    [TokenInfo::new("A", 2), TokenInfo::new("B", 1)],
+    [0, 1],
+    diagnostics=DiagnosticSet::empty(),
+  )
+  inspect(
+    result.diagnostics().format(),
+    content="[\"LexResult::with_starts received overlapping token spans at index 1\"]",
+  )
 }

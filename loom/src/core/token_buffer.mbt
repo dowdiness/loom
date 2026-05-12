@@ -404,11 +404,11 @@ pub fn[T] TokenBuffer::update(
       } else {
         self.source.length()
       }
-      self.diagnostics = update_diagnostics_after_relex(
-        self.diagnostics,
+      self.diagnostics = self.diagnostics.after_relex(
         old_starts[left_tok_idx],
         old_relex_end,
         delta,
+        failure_context="incremental relex",
       )
       self.source = new_source
       self.version = self.version + 1
@@ -462,71 +462,14 @@ pub fn[T] TokenBuffer::update(
   new_starts.push(new_len)
   self.tokens = new_tokens
   self.starts = new_starts
-  self.diagnostics = update_diagnostics_after_relex(
-    self.diagnostics,
+  self.diagnostics = self.diagnostics.after_relex(
     left_old_offset,
     right_old_offset,
     delta,
+    failure_context="incremental relex",
   )
   self.source = new_source
   self.version = self.version + 1
-}
-
-///|
-/// Preserve lexer diagnostics outside a successfully re-lexed old range.
-/// Diagnostics inside the range are stale and must be dropped; diagnostics
-/// after the range shift by the edit delta.
-fn update_diagnostics_after_relex(
-  old_diagnostics : DiagnosticSet,
-  old_start : Int,
-  old_end : Int,
-  delta : Int,
-) -> DiagnosticSet {
-  let result = DiagnosticSet::empty()
-  let after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    old_end,
-  )
-  match after_result {
-    Err(err) => {
-      result.push(
-        Diagnostic::lexer_error(
-          "failed to update lexer diagnostics after incremental relex: " +
-          @debug.to_string(err),
-        ),
-      )
-      return result
-    }
-    Ok(after) => {
-      for diagnostic in old_diagnostics.items() {
-        match diagnostic.primary {
-          None => result.push(diagnostic)
-          Some(range) => {
-            let start = range.start().value()
-            let end = range.end().value()
-            if end <= old_start {
-              result.push(diagnostic)
-            } else if start >= old_end {
-              let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
-                delta,
-                after,
-              )
-              match shifted {
-                Ok(diagnostic) => result.push(diagnostic)
-                Err(err) =>
-                  result.push(
-                    Diagnostic::lexer_error(
-                      "failed to shift lexer diagnostic after incremental relex: " +
-                      @debug.to_string(err),
-                    ),
-                  )
-              }
-            }
-          }
-        }
-      }
-      result
-    }
-  }
 }
 
 ///|

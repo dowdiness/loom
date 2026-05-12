@@ -66,60 +66,6 @@ fn[T] create_buffer(
 }
 
 ///|
-/// Keep lexer diagnostics coherent across block-reparse fast paths, where the
-/// token buffer is not updated before returning the new tree.
-fn lexer_diagnostics_after_edit(
-  diagnostics : @core.DiagnosticSet,
-  edit : @core.Edit,
-) -> @core.DiagnosticSet {
-  let result = @core.DiagnosticSet::empty()
-  let after_result : Result[@core.TextOffset, @core.DiagnosticBuildError] = try? @core.TextOffset(
-    edit.old_end(),
-  )
-  match after_result {
-    Err(err) => {
-      result.push(
-        @core.Diagnostic::lexer_error(
-          "failed to update lexer diagnostics after block reparse: " +
-          @debug.to_string(err),
-        ),
-      )
-      result
-    }
-    Ok(after) => {
-      for diagnostic in diagnostics.items() {
-        match diagnostic.primary {
-          None => result.push(diagnostic)
-          Some(range) => {
-            let start = range.start().value()
-            let end = range.end().value()
-            if end <= edit.start {
-              result.push(diagnostic)
-            } else if start >= edit.old_end() {
-              let shifted : Result[@core.Diagnostic, @core.DiagnosticBuildError] = try? diagnostic.offset_by(
-                edit.delta(),
-                after,
-              )
-              match shifted {
-                Ok(diagnostic) => result.push(diagnostic)
-                Err(err) =>
-                  result.push(
-                    @core.Diagnostic::lexer_error(
-                      "failed to shift lexer diagnostic after block reparse: " +
-                      @debug.to_string(err),
-                    ),
-                  )
-              }
-            }
-          }
-        }
-      }
-      result
-    }
-  }
-}
-
-///|
 /// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
 ///
 /// Each call allocates fresh per-session state (TokenBuffer ref, last
@@ -212,9 +158,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               last_parse_diags.val,
             ) {
             Some((new_cst, new_diagnostics)) => {
-              let lex_diagnostics = lexer_diagnostics_after_edit(
-                last_lex_diags.val,
-                edit,
+              let lex_diagnostics = last_lex_diags.val.after_relex(
+                edit.start,
+                edit.old_end(),
+                edit.delta(),
+                failure_context="block reparse",
               )
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.extend(new_diagnostics)

@@ -33,6 +33,8 @@ pub fn[T] LexResult::with_starts(
   starts : Array[Int],
   diagnostics~ : DiagnosticSet,
 ) -> LexResult[T] {
+  let diagnostics = diagnostics.copy()
+  validate_lex_result_starts(tokens, starts, diagnostics)
   { tokens, starts, diagnostics }
 }
 
@@ -49,6 +51,62 @@ pub fn[T] LexResult::starts(self : LexResult[T]) -> Array[Int] {
 ///|
 pub fn[T] LexResult::diagnostics(self : LexResult[T]) -> DiagnosticSet {
   self.diagnostics.copy()
+}
+
+///|
+fn[T] validate_lex_result_starts(
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  diagnostics : DiagnosticSet,
+) -> Unit {
+  if starts.length() != tokens.length() {
+    diagnostics.push(
+      Diagnostic::lexer_error(
+        "LexResult::with_starts requires `starts` and `tokens` to be parallel",
+      ),
+    )
+  }
+  let count = if starts.length() < tokens.length() {
+    starts.length()
+  } else {
+    tokens.length()
+  }
+  for i = 0; i < count; i = i + 1 {
+    if starts[i] < 0 {
+      diagnostics.push(
+        Diagnostic::lexer_error(
+          "LexResult::with_starts received a negative start offset at index " +
+          i.to_string(),
+        ),
+      )
+    }
+    if tokens[i].len < 0 {
+      diagnostics.push(
+        Diagnostic::lexer_error(
+          "LexResult::with_starts received a negative token length at index " +
+          i.to_string(),
+        ),
+      )
+    }
+    if i > 0 {
+      let prev_end = starts[i - 1] + tokens[i - 1].len
+      if starts[i] < starts[i - 1] {
+        diagnostics.push(
+          Diagnostic::lexer_error(
+            "LexResult::with_starts requires non-decreasing starts at index " +
+            i.to_string(),
+          ),
+        )
+      } else if starts[i] < prev_end {
+        diagnostics.push(
+          Diagnostic::lexer_error(
+            "LexResult::with_starts received overlapping token spans at index " +
+            i.to_string(),
+          ),
+        )
+      }
+    }
+  }
 }
 
 ///|
@@ -389,11 +447,7 @@ pub fn Diagnostic::offset_by(
 
 ///|
 fn diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
-  a.source == b.source &&
-  a.severity == b.severity &&
-  a.code == b.code &&
-  a.message == b.message &&
-  a.primary == b.primary
+  a == b
 }
 
 ///|
@@ -512,6 +566,82 @@ pub fn DiagnosticSet::offset_by(
     result.push(diagnostic.offset_by(delta, after))
   }
   result
+}
+
+///|
+/// Preserve diagnostics outside a successfully re-lexed old range.
+/// Diagnostics inside the old range are stale and dropped; diagnostics after
+/// the old range are shifted by `delta`. For insertion ranges, zero-width
+/// diagnostics at the insertion point are treated as post-edit diagnostics.
+pub fn DiagnosticSet::after_relex(
+  self : DiagnosticSet,
+  old_start : Int,
+  old_end : Int,
+  delta : Int,
+  failure_context~ : String,
+) -> DiagnosticSet {
+  let result = DiagnosticSet::empty()
+  let after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
+    old_end,
+  )
+  match after_result {
+    Err(err) => {
+      result.push(
+        Diagnostic::lexer_error(
+          "failed to update lexer diagnostics after " +
+          failure_context +
+          ": " +
+          @debug.to_string(err),
+        ),
+      )
+      return result
+    }
+    Ok(after) => {
+      for diagnostic in self.items {
+        match diagnostic.primary {
+          None => result.push(diagnostic)
+          Some(range) => {
+            let start = range.start.value
+            let end = range.end.value
+            if old_start == old_end && start >= old_end {
+              result.push_shifted_after_relex(diagnostic, delta, after, failure_context)
+            } else if end <= old_start {
+              result.push(diagnostic)
+            } else if start >= old_end {
+              result.push_shifted_after_relex(diagnostic, delta, after, failure_context)
+            }
+          }
+        }
+      }
+      result
+    }
+  }
+}
+
+///|
+fn DiagnosticSet::push_shifted_after_relex(
+  self : DiagnosticSet,
+  diagnostic : Diagnostic,
+  delta : Int,
+  after : TextOffset,
+  failure_context : String,
+) -> Unit {
+  let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
+    delta,
+    after,
+  )
+  match shifted {
+    Ok(diagnostic) => self.push(diagnostic)
+    Err(err) =>
+      self.push(
+        Diagnostic::lexer_error(
+          "failed to shift lexer diagnostic after " +
+          failure_context +
+          ": " +
+          @debug.to_string(err),
+        ),
+      )
+  }
 }
 
 ///|
