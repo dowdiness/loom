@@ -83,7 +83,7 @@ test "mode relex validates initial token stream" {
     MockToken::EOF,
     state,
   )
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"LexResult received overlapping token spans at index 1\"]",
   )

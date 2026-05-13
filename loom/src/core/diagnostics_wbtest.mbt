@@ -76,7 +76,8 @@ test "TextOffset and TextRange reject invalid inputs without aborting" {
     test_offset(2),
   )
   match range_result {
-    Err(InvalidTextRange(start, end)) => inspect([start, end], content="[5, 2]")
+    Err(InvalidTextRange(start, end)) =>
+      debug_inspect([start, end], content="[5, 2]")
     Ok(_) => abort("expected invalid range")
     Err(_) => abort("expected range error")
   }
@@ -148,7 +149,7 @@ test "DiagnosticSet formatting preserves order" {
   let set = DiagnosticSet::empty()
   set.push(test_diagnostic("first", 0, 1, 1))
   set.push(test_diagnostic("second", 3, 4, 2))
-  inspect(set.format(), content="[\"first [0,1]\", \"second [3,4]\"]")
+  debug_inspect(set.format(), content="[\"first [0,1]\", \"second [3,4]\"]")
 }
 
 ///|
@@ -157,7 +158,7 @@ test "DiagnosticSet offset_by shifts ranges at or after boundary" {
   set.push(test_diagnostic("before", 0, 1, 1))
   set.push(test_diagnostic("after", 3, 4, 2))
   let shifted = test_shift(set, 10, test_offset(2))
-  inspect(shifted.format(), content="[\"before [0,1]\", \"after [13,14]\"]")
+  debug_inspect(shifted.format(), content="[\"before [0,1]\", \"after [13,14]\"]")
   match shifted.items()[1].token {
     Some(token) => inspect(token.range.start().value(), content="13")
     None => abort("expected token evidence")
@@ -168,7 +169,7 @@ test "DiagnosticSet offset_by shifts ranges at or after boundary" {
 test "DiagnosticSet after_relex shifts zero-width insertion boundary diagnostics" {
   let set = DiagnosticSet::single(test_diagnostic("eof", 2, 2, 1))
   let shifted = set.after_relex(2, 2, 3, failure_context="test")
-  inspect(shifted.format(), content="[\"eof [5,5]\"]")
+  debug_inspect(shifted.format(), content="[\"eof [5,5]\"]")
   match shifted.items()[0].token {
     Some(token) => inspect(token.range.start().value(), content="5")
     None => abort("expected token evidence")
@@ -179,7 +180,7 @@ test "DiagnosticSet after_relex shifts zero-width insertion boundary diagnostics
 test "DiagnosticSet after_relex shifts ranges spanning insertion boundary" {
   let set = DiagnosticSet::single(test_diagnostic("span", 0, 2, 1))
   let shifted = set.after_relex(1, 1, 3, failure_context="test")
-  inspect(shifted.format(), content="[\"span [0,5]\"]")
+  debug_inspect(shifted.format(), content="[\"span [0,5]\"]")
   match shifted.items()[0].token {
     Some(token) => inspect(token.range.end().value(), content="5")
     None => abort("expected token evidence")
@@ -190,7 +191,7 @@ test "DiagnosticSet after_relex shifts ranges spanning insertion boundary" {
 test "DiagnosticSet after_relex preserves ranges ending at insertion boundary" {
   let set = DiagnosticSet::single(test_diagnostic("before", 0, 2, 1))
   let shifted = set.after_relex(2, 2, 3, failure_context="test")
-  inspect(shifted.format(), content="[\"before [0,2]\"]")
+  debug_inspect(shifted.format(), content="[\"before [0,2]\"]")
   match shifted.items()[0].token {
     Some(token) => inspect(token.range.end().value(), content="2")
     None => abort("expected token evidence")
@@ -261,7 +262,7 @@ test "LexResult with_starts records mismatched token and start arrays" {
     [],
     diagnostics=DiagnosticSet::empty(),
   )
-  inspect(
+  debug_inspect(
     result.diagnostics().format(),
     content="[\"LexResult requires `starts` and `tokens` to be parallel\"]",
   )
@@ -274,7 +275,7 @@ test "LexResult with_starts records negative start offsets" {
     [-1],
     diagnostics=DiagnosticSet::empty(),
   )
-  inspect(
+  debug_inspect(
     result.diagnostics().format(),
     content="[\"LexResult received a negative start offset at index 0\"]",
   )
@@ -287,7 +288,7 @@ test "LexResult with_starts records invalid start invariants" {
     [0, 1],
     diagnostics=DiagnosticSet::empty(),
   )
-  inspect(
+  debug_inspect(
     result.diagnostics().format(),
     content="[\"LexResult received overlapping token spans at index 1\"]",
   )
@@ -296,7 +297,7 @@ test "LexResult with_starts records invalid start invariants" {
 ///|
 test "LexResult constructor validates generated starts" {
   let result = LexResult([TokenInfo::new("A", -1)])
-  inspect(
+  debug_inspect(
     result.diagnostics().format(),
     content="[\"LexResult received a negative token length at index 0\"]",
   )

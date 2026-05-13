@@ -27,7 +27,7 @@ pub(all) struct Resolution {
 pub fn resolve(term : @ast.Term) -> (@ast.Term, Resolution) {
   let res : Map[Int, VarStatus] = {}
   let env : Map[String, Int] = {}
-  let counter = Ref::new(0)
+  let counter = Ref(0)
   let new_term = resolve_walk(term, env, 0, counter, res)
   (new_term, { vars: res })
 }

@@ -286,7 +286,7 @@ test "new_from_steps: error token for Invalid" {
   let tokens = buf.get_tokens()
   let rendered = render_tokens(tokens)
   inspect(rendered, content="char@0-1,ERR@1-2,char@2-3,EOF@3-3")
-  inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  debug_inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
 }
 
 ///|
@@ -330,7 +330,7 @@ test "new_from_steps: Incomplete emits error token to EOF" {
   let rendered = render_tokens(tokens)
   // 'a', 'b' are normal, then Incomplete at pos 2 emits ERR@2-5
   inspect(rendered, content="char@0-1,char@1-2,ERR@2-5,EOF@5-5")
-  inspect(
+  debug_inspect(
     buf.get_diagnostics().format(),
     content="[\"incomplete token; expected closing quote [2,5]\"]",
   )
@@ -363,9 +363,14 @@ test "new_from_steps: no-progress Produced is corrected" {
   let tokens = buf.get_tokens()
   // Defensive correction: each step advances by 1 despite next_offset=start
   inspect(tokens.length(), content="3")
-  inspect(
+  debug_inspect(
     buf.get_diagnostics().format(),
-    content="[\"step lexer made no progress at position 0 [0,1]\", \"step lexer made no progress at position 1 [1,2]\"]",
+    content=(
+      #|[
+      #|  "step lexer made no progress at position 0 [0,1]",
+      #|  "step lexer made no progress at position 1 [1,2]",
+      #|]
+    ),
   )
 }
 

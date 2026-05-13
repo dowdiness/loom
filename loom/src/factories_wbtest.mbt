@@ -374,7 +374,7 @@ test "create_buffer: total recoverable lex preserves error token diagnostics" {
   let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"unexpected char [1,2]\"]",
   )
@@ -385,7 +385,7 @@ test "create_buffer: clean total lex has no diagnostics" {
   let buffer = create_buffer("aaa", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,A@1-2,A@2-3,Eof@3-3")
-  inspect(buffer.get_diagnostics().format(), content="[]")
+  debug_inspect(buffer.get_diagnostics().format(), content="[]")
 }
 
 ///|
@@ -393,7 +393,7 @@ test "create_buffer: total lex keeps invalid message in diagnostics" {
   let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"unexpected char [1,2]\"]",
   )
@@ -429,7 +429,7 @@ test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
   ignore(parser.parse())
   ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
   inspect(saw_edit_full_lex.val, content="true")
-  inspect(parser.diagnostics(), content="[]")
+  debug_inspect(parser.diagnostics(), content="[]")
 }
 
 ///|
@@ -541,7 +541,7 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
 ///|
 test "create_buffer: strict-wrapper total lex keeps diagnostic" {
   let buffer = create_buffer("a!a", flex, Eof)
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"unexpected char [0,3]\"]",
   )
@@ -585,7 +585,7 @@ test "create_buffer: mode lex keeps total diagnostics" {
     }
   }
   let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"soft mode note [0,1]\"]",
   )
@@ -631,7 +631,7 @@ test "create_buffer: mode update skips total lex on incremental path" {
     }
   }
   let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
-  inspect(
+  debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"mode source length 1 [0,1]\"]",
   )
@@ -690,7 +690,7 @@ test "create_buffer: mode lex respects incremental opt out" {
     "a!",
   )
   inspect(updated is Ok(_), content="true")
-  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
+  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
   debug_inspect(buffer.get_token(0), content="Err")
 }
 
@@ -730,12 +730,12 @@ test "create_buffer: recovered mode lex disables stale mode relex" {
     }
   }
   let buffer = create_buffer("!", lex, Eof, mode_relex=Some(state))
-  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,1]\"]")
+  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,1]\"]")
   let updated : Result[Unit, @core.LexError] = try? buffer.update(
     @core.Edit::insert(1, 1),
     "!!",
   )
   inspect(updated is Ok(_), content="true")
-  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
+  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
   debug_inspect(buffer.get_token(0), content="Err")
 }

@@ -65,7 +65,7 @@ test "Parser::new publishes initial source / ast / diagnostics" {
   let rt = parser.runtime()
   inspect(rt.read(parser.source()), content="hello")
   inspect(rt.read(parser.ast()), content="5")
-  inspect(rt.read(parser.diagnostics()), content="[]")
+  debug_inspect(rt.read(parser.diagnostics()), content="[]")
   guard rt.read(parser.syntax_tree()) is Some(_) else {
     abort("expected initial syntax tree")
   }
@@ -79,7 +79,7 @@ test "Parser::set_source updates all four views atomically" {
   parser.set_source("world!")
   inspect(rt.read(parser.source()), content="world!")
   inspect(rt.read(parser.ast()), content="6")
-  inspect(rt.read(parser.diagnostics()), content="[]")
+  debug_inspect(rt.read(parser.diagnostics()), content="[]")
 }
 
 ///|
@@ -89,7 +89,7 @@ test "Parser::set_source routes lex failure to on_lex_error" {
   parser.set_source("@bad")
   inspect(rt.read(parser.source()), content="@bad")
   inspect(rt.read(parser.ast()), content="error: lex error: @bad")
-  inspect(
+  debug_inspect(
     rt.read(parser.diagnostics()),
     content=(
       #|["lex error: @bad"]
@@ -105,7 +105,7 @@ test "Parser recovers from lex error on subsequent set_source" {
   let parser = Parser::new("ok", test_imperative_language())
   let rt = parser.runtime()
   parser.set_source("@bad")
-  inspect(
+  debug_inspect(
     rt.read(parser.diagnostics()),
     content=(
       #|["lex error: @bad"]
@@ -113,7 +113,7 @@ test "Parser recovers from lex error on subsequent set_source" {
   )
   parser.set_source("recovered")
   inspect(rt.read(parser.ast()), content="9")
-  inspect(rt.read(parser.diagnostics()), content="[]")
+  debug_inspect(rt.read(parser.diagnostics()), content="[]")
   guard rt.read(parser.syntax_tree()) is Some(_) else {
     abort("expected syntax tree after recovery")
   }
