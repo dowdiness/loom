@@ -592,12 +592,14 @@ test "create_buffer: mode lex keeps total diagnostics" {
 }
 
 ///|
-test "create_buffer: mode update refreshes total diagnostics" {
+test "create_buffer: mode update skips total lex on incremental path" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
   )
+  let lex_calls : Ref[Int] = Ref::new(0)
   let lex = fn(source : String) -> @core.LexResult[FTok] {
+    lex_calls.val = lex_calls.val + 1
     let result : Result[
       (Array[@core.TokenInfo[FTok]], Array[Int]),
       @core.LexError,
@@ -633,11 +635,12 @@ test "create_buffer: mode update refreshes total diagnostics" {
     buffer.get_diagnostics().format(),
     content="[\"mode source length 1 [0,1]\"]",
   )
+  inspect(lex_calls.val, content="1")
   buffer.update(@core.Edit::insert(1, 1), "aa")
-  inspect(
-    buffer.get_diagnostics().format(),
-    content="[\"mode source length 2 [0,2]\"]",
-  )
+  inspect(lex_calls.val, content="1")
+  debug_inspect(buffer.get_token(0), content="A")
+  debug_inspect(buffer.get_token(1), content="A")
+  debug_inspect(buffer.get_token(2), content="Eof")
 }
 
 ///|

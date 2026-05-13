@@ -412,9 +412,6 @@ pub fn[T : Eq] TokenBuffer::update(
       // EOF sentinel
       new_tokens.push(TokenInfo::new(self.eof_token, 0))
       new_starts.push(new_len)
-      let refreshed_lex : Result[LexResult[T], LexError] = try? (self.retokenize_full)(
-        new_source,
-      )
       // relex_from already spliced the modes array internally.
       self.tokens = new_tokens
       self.starts = new_starts
@@ -429,10 +426,7 @@ pub fn[T : Eq] TokenBuffer::update(
         delta,
         failure_context="incremental relex",
       )
-      self.diagnostics = match refreshed_lex {
-        Ok(result) => result.diagnostics
-        Err(_) => shifted_diagnostics
-      }
+      self.diagnostics = shifted_diagnostics
       self.source = new_source
       self.version = self.version + 1
       return
