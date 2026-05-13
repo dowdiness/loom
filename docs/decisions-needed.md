@@ -9,9 +9,10 @@ Items the triage agent flagged as `needs-human-review` — mixed signals or insu
 **Evidence:** Open issue labeled `enhancement` + `performance`. `archive/completed-phases/2026-04-02-stringview-threading-design.md` already delivered StringView threading, which overlaps the motivation. Need a human read to decide whether `CstToken.text` remains worth rewriting after that work.
 **Added:** 2026-04-18
 
-### Surrogate codepoint fix (issue #46)
+### Surrogate codepoint fix (issue #46) — resolved
 **Source:** GitHub issue #46 — "Parser crashes on strings with lone surrogate codepoints (0xD800–0xDFFF)"
-**Context:** Issue is closed, but triage could not find a corresponding plan, archive entry, or commit that specifically handles lone UTF-16 surrogates. Possible that the fix happened under an unrelated commit message, or the issue was closed without a targeted fix.
-**Blocks:** Nothing if already fixed. If not fixed, the parser still crashes on malformed input.
-**Evidence:** Closed GitHub issue #46, severity error. No plan file or archive entry mentioning surrogates. Recent `fix/*` branches do not reference surrogates. Needs manual verification — either point to the commit that fixed it or reopen.
+**Context:** Verified in the Unicode follow-up after canopy #251. `ParserContext::token_text_at` now returns a raw `StringView` slice, and recovery keeps invalid-token spans from ending inside a surrogate pair.
+**Blocks:** Nothing.
+**Evidence:** `loom/src/core/parser_wbtest.mbt` covers lone-surrogate token text and token spans that split a surrogate pair. `loom/src/core/lex_step_wbtest.mbt` covers non-BMP scalar preservation for no-progress, zero-width invalid, and width-one invalid recovery.
 **Added:** 2026-04-18
+**Resolved:** 2026-05-13

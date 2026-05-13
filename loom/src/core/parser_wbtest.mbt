@@ -152,6 +152,23 @@ test "token_text_at handles lone surrogate without crash" {
 }
 
 ///|
+test "token_text_at handles token spans that split surrogate pairs" {
+  let source = "😀"
+  let (spec, _) = make_test_fixtures()
+  let tokens : Array[TokenInfo[TestTok]] = [
+    { token: TestTok::Plus, len: 1 },
+    { token: TestTok::Plus, len: 1 },
+  ]
+  let ctx = ParserContext::new(tokens, source, spec)
+  let high = ctx.token_text_at(0)
+  let low = ctx.token_text_at(1)
+  inspect(high.length(), content="1")
+  inspect(high.code_unit_at(0).to_int(), content="55357")
+  inspect(low.length(), content="1")
+  inspect(low.code_unit_at(0).to_int(), content="56832")
+}
+
+///|
 test "peek skips trivia tokens" {
   let (spec, _) = make_test_fixtures()
   let tokens : Array[TokenInfo[TestTok]] = [

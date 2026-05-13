@@ -68,6 +68,19 @@ fn zero_width_invalid_all_lexer(
   Invalid(at=start, width=0, message="zero-width invalid")
 }
 
+// -- Test lexer: reports one-code-unit Invalid at every offset --
+
+///|
+fn width_one_invalid_all_lexer(
+  source : String,
+  start : Int,
+) -> LexStep[String] {
+  if start >= source.length() {
+    return Done
+  }
+  Invalid(at=start, width=1, message="one-width invalid")
+}
+
 // -- Test lexer: Produced with next_offset == start (violates progress) --
 
 ///|
@@ -398,6 +411,23 @@ test "new_from_steps: zero-width Invalid keeps non-BMP scalar whole" {
   )
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="ERR@0-2,ERR@2-3,EOF@3-3")
+}
+
+///|
+test "new_from_steps: width-one Invalid keeps non-BMP scalar whole" {
+  let lexer : PrefixLexer[String] = { lex_step: width_one_invalid_all_lexer }
+  let buf = TokenBuffer::new_from_steps(
+    "😈x",
+    lexer,
+    eof_token="EOF",
+    error_token="ERR",
+  )
+  let rendered = render_tokens(buf.get_tokens())
+  inspect(rendered, content="ERR@0-2,ERR@2-3,EOF@3-3")
+  debug_inspect(
+    buf.get_diagnostics().format(),
+    content="[\"one-width invalid [0,2]\", \"one-width invalid [2,3]\"]",
+  )
 }
 
 ///|

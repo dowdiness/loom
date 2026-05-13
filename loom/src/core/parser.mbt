@@ -279,7 +279,7 @@ pub fn[T, K] ParserContext::token_text_at(
   if start < 0 || end < start || end > self.source.length() {
     return ""
   }
-  self.source[start:end]
+  self.source.view(start_offset=start, end_offset=end)
 }
 
 ///|

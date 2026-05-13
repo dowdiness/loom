@@ -71,14 +71,33 @@ fn lex_step_recovery_offset(
   let len = source.length()
   let current = clamp_offset(pos, len)
   let error_start = clamp_offset(if at > current { at } else { current }, len)
-  if width > 0 {
-    let candidate = clamp_offset(at + width, len)
-    if candidate > current {
-      candidate
-    } else {
-      next_char_offset(source, current)
-    }
+  let candidate = if width > 0 {
+    clamp_offset(at + width, len)
   } else {
     next_char_offset(source, error_start)
+  }
+  if candidate > current {
+    next_safe_char_boundary(source, candidate)
+  } else {
+    next_char_offset(source, current)
+  }
+}
+
+///|
+/// Return `pos` unless it lands inside a surrogate pair; in that case snap to
+/// the next scalar boundary. This keeps recovered token spans slice-safe even
+/// when a lexer reports `Invalid(width=1)` for a non-BMP character.
+fn next_safe_char_boundary(source : String, pos : Int) -> Int {
+  let len = source.length()
+  let current = clamp_offset(pos, len)
+  if current <= 0 || current >= len {
+    return current
+  }
+  let prev = source.code_unit_at(current - 1).to_int()
+  let here = source.code_unit_at(current).to_int()
+  if prev >= 0xD800 && prev <= 0xDBFF && here >= 0xDC00 && here <= 0xDFFF {
+    current + 1
+  } else {
+    current
   }
 }
