@@ -175,11 +175,22 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
   block_text : String,
   block_kind : @seam.RawKind,
   tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
   reparse_fn : (ParserContext[T, K]) -> Unit,
   spec : LanguageSpec[T, K],
 ) -> (@seam.CstNode, DiagnosticSet)? {
+  if starts.length() != tokens.length() {
+    return None
+  }
   // Create a parser context for the isolated block
-  let ctx = ParserContext::new(tokens, block_text, spec)
+  let ctx = ParserContext::new_indexed(
+    tokens.length(),
+    fn(i) { tokens[i].token },
+    fn(i) { starts[i] },
+    fn(i) { starts[i] + tokens[i].len },
+    block_text,
+    spec,
+  )
   // Call the reparse function (NOT spec.parse_root)
   reparse_fn(ctx)
   // Flush trailing trivia
@@ -332,7 +343,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   tree : @seam.SyntaxNode,
   new_source : String,
   edit : Edit,
-  tokenize : (String) -> Array[TokenInfo[T]] raise LexError,
+  lex : (String) -> LexResult[T],
   spec : LanguageSpec[T, K],
   block_spec : BlockReparseSpec[T, K],
   old_diagnostics : DiagnosticSet,
@@ -356,7 +367,10 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   let block_text_view : StringView = new_source[block_start:block_new_end]
   let block_text = block_text_view.to_owned()
   // 3. Tokenize and check balance
-  let block_tokens = tokenize(block_text) catch { LexError(_) => return None }
+  let block_lex = lex(block_text)
+  let block_tokens = block_lex.tokens
+  let block_starts = block_lex.starts
+  let block_lex_diags = block_lex.diagnostics
   if !(block_spec.is_balanced)(block_tokens) {
     return None
   }
@@ -366,11 +380,15 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
     None => return None
   }
   // 5. Parse in isolation
-  let (new_block, new_diags) = match
-    parse_block_isolated(block_text, block_kind, block_tokens, reparse_fn, spec) {
+  let (new_block, parse_diags) = match
+    parse_block_isolated(
+      block_text, block_kind, block_tokens, block_starts, reparse_fn, spec,
+    ) {
     Some(result) => result
     None => return None
   }
+  let new_diags = block_lex_diags.copy()
+  new_diags.extend(parse_diags)
   // 6. Splice new subtree into old tree
   let root_cst = tree.cst_node()
   let ws_raw = spec.whitespace_kind.to_raw()

@@ -3,6 +3,17 @@
 **Status:** Active
 **Date:** 2026-05-12
 
+## Execution Notes
+
+- 2026-05-13: PR #117 merged as
+  `514d2d2 [codex] Add structured parser and lexer diagnostics (#117)`.
+  It delivered token-erased `Diagnostic` / `DiagnosticSet`,
+  `TextOffset` / `TextRange`, `LexResult`, lexer diagnostics in
+  `TokenBuffer`, parser diagnostics as `DiagnosticSet`, block-reparse and
+  incremental diagnostic shifting, JSON/Lambda strict parser token
+  preservation, and review fixes for parser diagnostic dedupe, block-reparse
+  lexer diagnostics, and insertion-boundary range shifting.
+
 ## Context
 
 PR #112 kept loom's canonical source coordinate system as UTF-16 code-unit
@@ -354,10 +365,11 @@ Line/column coordinates stay presentation-only and follow ADR
 3. Done: convert low-level parse entry points to return `DiagnosticSet`.
 4. Done: add `LexResult[T]` and migrate the prefix-lexer recovery path.
 5. Add recovering mode-lexer variants and migrate Markdown.
-6. In progress: change `Grammar` and factories to consume `LexResult[T]`.
-   `TokenBuffer` now stores lexer diagnostics and `Grammar::parse_cst` /
-   parser factories merge them with parser diagnostics, but `Grammar` still
-   accepts the legacy raising `tokenize` callback.
+6. Done: change `Grammar` and factories to consume `LexResult[T]`.
+   `TokenBuffer::new_from_lex` now accepts a total structured lexer, parser
+   factories merge lexer diagnostics with parser diagnostics, recovery policy
+   lives inside the grammar's `lex` implementation, and range relex offsets
+   diagnostics from re-lexed slices instead of discarding them.
 7. Replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
    `ParseSnapshot[Ast]`.
 8. Collapse reactive `Parser` state to a snapshot signal plus derived views.

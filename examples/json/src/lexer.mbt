@@ -276,6 +276,23 @@ fn tokenize_recoverable(input : String) -> Array[@core.TokenInfo[Token]] {
 }
 
 ///|
+/// Total structured lexer used by the high-level Grammar boundary.
+pub fn lex(input : String) -> @core.LexResult[Token] {
+  let buffer = @core.TokenBuffer::new_from_steps(
+    input,
+    @core.PrefixLexer::new(lex_step=json_step_lexer),
+    eof_token=EOF,
+    error_token=Error(""),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  )
+  @core.LexResult::with_starts(
+    buffer.get_tokens(),
+    buffer.get_starts(),
+    diagnostics=buffer.get_diagnostics(),
+  )
+}
+
+///|
 /// Batch tokenize: loop step_lex until Done, appending EOF.
 #warnings("-unused_error_type")
 pub fn tokenize(

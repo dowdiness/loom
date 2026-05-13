@@ -66,22 +66,24 @@ Use when:
 ```moonbit
 pub struct Grammar[T, K, Ast] {
   spec         : @core.LanguageSpec[T, K]
-  tokenize     : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
+  lex          : (String) -> @core.LexResult[T]
   fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
-  // plus optional error_token, prefix_lexer, block_reparse_spec, mode_relex
+  // plus incremental_relex_enabled, block_reparse_spec, mode_relex
 }
 ```
 
-Grammar authors supply these fields. The `@loom` factories erase `T`/`K`
-internally and produce fully-generic consumers:
+Grammar authors supply these fields. `lex` is total and carries lexer
+diagnostics through `LexResult`; strict tokenizers can remain lower-level
+helpers, but factories do not catch lexer raises. The `@loom` factories erase
+`T`/`K` internally and produce fully-generic consumers:
 
 ```moonbit
 // examples/lambda/src/grammar.mbt
 pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term] =
   @loom.Grammar::new(
     spec=lambda_spec,
-    tokenize=@lexer.tokenize,
+    lex=@lexer.lex,
     fold_node=lambda_fold_node,
     on_lex_error=fn(msg) { @ast.Term::Error(msg) },
   )

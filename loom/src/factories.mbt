@@ -2,7 +2,7 @@
 //
 // These encapsulate all infrastructure wiring: TokenBuffer lifecycle,
 // ReuseCursor construction, parse_tokens_indexed calls, diagnostic
-// formatting. The grammar author provides spec, tokenize, to_ast, and
+// formatting. The grammar author provides spec, lex, to_ast, and
 // on_lex_error; the factories handle the rest.
 //
 // ImperativeLanguage[Ast] is constructed internally for type erasure —
@@ -10,58 +10,55 @@
 
 ///|
 /// Create a fresh TokenBuffer.
-/// Precedence: mode_relex > prefix_lexer (step-based) > error_token (resilient) > plain.
+/// The grammar owns lexing and returns a total `LexResult`; the factory only
+/// chooses whether TokenBuffer may use range relex for incremental edits.
 fn[T] create_buffer(
   source : String,
-  tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
+  lex : (String) -> @core.LexResult[T],
   eof_token : T,
-  error_token : T?,
-  error_token_from_message : ((String) -> T)?,
-  prefix_lexer? : @core.PrefixLexer[T]? = None,
+  incremental_relex_enabled? : Bool = true,
   mode_relex? : @core.ModeRelexState[T]? = None,
-) -> @core.TokenBuffer[T] raise @core.LexError {
+) -> @core.TokenBuffer[T] {
+  if !incremental_relex_enabled {
+    return @core.TokenBuffer::new_from_lex(
+      source,
+      lex_fn=lex,
+      eof_token~,
+      incremental_relex_enabled=false,
+    )
+  }
   match mode_relex {
     Some(state) => {
-      // Mode-aware path takes precedence: error_token and prefix_lexer are
-      // intentionally ignored because ModeRelexState.tokenize handles all
-      // tokenization (including error recovery) via the captured ModeLexer.
-      let (tokens, starts) = (state.tokenize)(source)
-      @core.TokenBuffer::new_with_mode_relex(
-        source, tokens, starts, eof_token, state,
+      let mode_sync : Result[
+        (Array[@core.TokenInfo[T]], Array[Int]),
+        @core.LexError,
+      ] = try? (state.tokenize)(source)
+      match mode_sync {
+        Ok(_) =>
+          @core.TokenBuffer::new_from_lex(
+            source,
+            lex_fn=lex,
+            eof_token~,
+            incremental_relex_enabled~,
+            mode_relex=Some(state),
+          )
+        Err(_) =>
+          @core.TokenBuffer::new_from_lex(
+            source,
+            lex_fn=lex,
+            eof_token~,
+            incremental_relex_enabled=false,
+          )
+      }
+    }
+    None => {
+      @core.TokenBuffer::new_from_lex(
+        source,
+        lex_fn=lex,
+        eof_token~,
+        incremental_relex_enabled~,
       )
     }
-    None =>
-      // Existing stateless path (unchanged)
-      match prefix_lexer {
-        Some(lexer) =>
-          match error_token {
-            Some(err_tok) =>
-              @core.TokenBuffer::new_from_steps(
-                source,
-                lexer,
-                eof_token~,
-                error_token=err_tok,
-                error_token_from_message~,
-              )
-            None =>
-              // Step-based without error_token: run in strict mode and surface
-              // Invalid/Incomplete as LexError instead of synthesizing EOF-like tokens.
-              @core.TokenBuffer::new_from_steps_strict(source, lexer, eof_token~)
-          }
-        None =>
-          match error_token {
-            Some(err_tok) =>
-              // Deprecated: legacy binary-search probing. Migrate to prefix_lexer.
-              @core.TokenBuffer::new_resilient_compat(
-                source,
-                tokenize_fn=tokenize,
-                eof_token~,
-                error_token=err_tok,
-              )
-            None =>
-              @core.TokenBuffer::new(source, tokenize_fn=tokenize, eof_token~)
-          }
-      }
   }
 }
 
@@ -72,14 +69,12 @@ fn[T] create_buffer(
 /// diagnostics, old-token cache) inside the closures. Shared by both
 /// `new_imperative_parser` and `new_parser` — the only divergence downstream
 /// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
-  let tokenize = grammar.tokenize
-  let error_token = grammar.error_token
-  let error_token_from_message = grammar.error_token_from_message
-  let prefix_lexer = grammar.prefix_lexer
+  let lex = grammar.lex
+  let incremental_relex_enabled = grammar.incremental_relex_enabled
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
@@ -103,23 +98,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
     full_parse=source => {
       let buffer = create_buffer(
         source,
-        tokenize,
+        lex,
         spec.eof_token,
-        error_token,
-        error_token_from_message,
-        prefix_lexer~,
+        incremental_relex_enabled~,
         mode_relex~,
-      ) catch {
-        @core.LexError(msg) => {
-          token_buf.val = None
-          let formatted = "Tokenization error: " + msg
-          let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
-          last_parse_diags.val = @core.DiagnosticSet::empty()
-          last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-          last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-          return @incremental.ParseOutcome::LexError(formatted)
-        }
-      }
+      )
       token_buf.val = Some(buffer)
       let (cst, diagnostics, _) = @core.parse_tokens_indexed(
         source,
@@ -151,7 +134,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
               old_syntax,
               source,
               edit,
-              tokenize,
+              lex,
               spec,
               block_spec,
               last_parse_diags.val,
@@ -159,23 +142,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
             Some((new_cst, new_diagnostics)) => {
               let buffer = create_buffer(
                 source,
-                tokenize,
+                lex,
                 spec.eof_token,
-                error_token,
-                error_token_from_message,
-                prefix_lexer~,
+                incremental_relex_enabled~,
                 mode_relex~,
-              ) catch {
-                @core.LexError(msg) => {
-                  token_buf.val = None
-                  let formatted = "Tokenization error: " + msg
-                  let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
-                  last_parse_diags.val = @core.DiagnosticSet::empty()
-                  last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-                  last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-                  return @incremental.ParseOutcome::LexError(formatted)
-                }
-              }
+              )
               let lex_diagnostics = buffer.get_diagnostics()
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.extend(new_diagnostics)
@@ -199,45 +170,22 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
             @core.LexError(_) => {
               let rebuilt = create_buffer(
                 source,
-                tokenize,
+                lex,
                 spec.eof_token,
-                error_token,
-                error_token_from_message,
-                prefix_lexer~,
+                incremental_relex_enabled~,
                 mode_relex~,
-              ) catch {
-                @core.LexError(msg2) => {
-                  token_buf.val = None
-                  let formatted = "Tokenization error: " + msg2
-                  let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
-                  last_parse_diags.val = @core.DiagnosticSet::empty()
-                  last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-                  last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-                  return @incremental.ParseOutcome::LexError(formatted)
-                }
-              }
+              )
               token_buf.val = Some(rebuilt)
             }
           }
         None => {
           let buffer = create_buffer(
             source,
-            tokenize,
+            lex,
             spec.eof_token,
-            error_token,
-            error_token_from_message,
-            prefix_lexer~,
+            incremental_relex_enabled~,
             mode_relex~,
-          ) catch {
-            @core.LexError(msg) => {
-              let formatted = "Tokenization error: " + msg
-              let lex_diagnostic = @core.Diagnostic::lexer_error(formatted)
-              last_parse_diags.val = @core.DiagnosticSet::empty()
-              last_lex_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-              last_diags.val = @core.DiagnosticSet::single(lex_diagnostic)
-              return @incremental.ParseOutcome::LexError(formatted)
-            }
-          }
+          )
           token_buf.val = Some(buffer)
         }
       }
@@ -292,7 +240,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
 /// Interners (token deduplication, node deduplication) are process-global and
 /// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
@@ -310,7 +258,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imper
 /// Pass `runtime~` to join an existing reactive graph (useful when downstream
 /// memos need to share the same `Runtime` as the parser). Omitting it creates
 /// a fresh runtime owned by the returned parser.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,

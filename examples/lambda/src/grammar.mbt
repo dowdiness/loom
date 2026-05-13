@@ -1,7 +1,7 @@
 ///|
 /// Lambda grammar: handles `LetDef* Expression?` sequences.
 ///
-/// Uses `tokenize` so that newlines act as definition delimiters
+/// Uses `lex=@lexer.lex` so that newlines act as definition delimiters
 /// rather than being folded into whitespace runs.
 pub let lambda_grammar : @loom.Grammar[
   @token.Token,
@@ -9,12 +9,10 @@ pub let lambda_grammar : @loom.Grammar[
   @ast.Term,
 ] = @loom.Grammar::new(
   spec=lambda_spec,
-  tokenize=@lexer.tokenize,
+  lex=@lexer.lex,
   fold_node=lambda_fold_node,
   on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
-  error_token=Some(@token.Error("")),
-  error_token_from_message=Some(fn(msg) { @token.Error(msg) }),
-  prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
+  incremental_relex_enabled=false,
   block_reparse_spec=Some(lambda_block_reparse_spec),
 )
 
@@ -27,11 +25,9 @@ pub let lambda_grammar_no_threshold : @loom.Grammar[
   @ast.Term,
 ] = @loom.Grammar::new(
   spec=lambda_spec_no_threshold,
-  tokenize=@lexer.tokenize,
+  lex=@lexer.lex,
   fold_node=lambda_fold_node,
   on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
-  error_token=Some(@token.Error("")),
-  error_token_from_message=Some(fn(msg) { @token.Error(msg) }),
-  prefix_lexer=Some(@core.PrefixLexer::new(lex_step=@lexer.lambda_step_lexer)),
+  incremental_relex_enabled=false,
   block_reparse_spec=Some(lambda_block_reparse_spec),
 )

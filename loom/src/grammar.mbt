@@ -8,12 +8,10 @@
 /// Define one per grammar as a module-level `let`.
 pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
-  tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
+  lex : (String) -> @core.LexResult[T]
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
-  error_token : T?
-  error_token_from_message : ((String) -> T)?
-  prefix_lexer : @core.PrefixLexer[T]?
+  incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexState[T]?
 }
@@ -21,18 +19,17 @@ pub struct Grammar[T, K, Ast] {
 ///|
 /// Parse a source string to CST + diagnostics.
 /// Eliminates boilerplate that every grammar must duplicate:
-/// tokenize → build_starts → parse_tokens_indexed.
+/// lex → TokenBuffer → parse_tokens_indexed.
+#warnings("-unused_error_type")
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
   self : Grammar[T, K, Ast],
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   let buffer = create_buffer(
     source,
-    self.tokenize,
+    self.lex,
     self.spec.eof_token,
-    self.error_token,
-    self.error_token_from_message,
-    prefix_lexer=self.prefix_lexer,
+    incremental_relex_enabled=self.incremental_relex_enabled,
     mode_relex=self.mode_relex,
   )
   let (cst, parse_diagnostics, _) = @core.parse_tokens_indexed(
@@ -51,23 +48,19 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::
 ///|
 pub fn[T, K, Ast] Grammar::new(
   spec~ : @core.LanguageSpec[T, K],
-  tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError,
+  lex~ : (String) -> @core.LexResult[T],
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
   on_lex_error~ : (String) -> Ast,
-  error_token? : T? = None,
-  error_token_from_message? : ((String) -> T)? = None,
-  prefix_lexer? : @core.PrefixLexer[T]? = None,
+  incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
   mode_relex? : @core.ModeRelexState[T]? = None,
 ) -> Grammar[T, K, Ast] {
   {
     spec,
-    tokenize,
+    lex,
     fold_node,
     on_lex_error,
-    error_token,
-    error_token_from_message,
-    prefix_lexer,
+    incremental_relex_enabled,
     block_reparse_spec,
     mode_relex,
   }

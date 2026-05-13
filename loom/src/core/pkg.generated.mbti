@@ -21,7 +21,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> Array[TokenInfo[T]] raise LexError, LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
 
@@ -383,6 +383,7 @@ pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
+pub fn[T] TokenBuffer::new_from_lex(String, lex_fn~ : (String) -> LexResult[T], eof_token~ : T, incremental_relex_enabled? : Bool, mode_relex? : ModeRelexState[T]?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ : T) -> Self[T] raise LexError
 #deprecated
@@ -390,7 +391,7 @@ pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[To
 pub fn[T] TokenBuffer::new_resilient_compat(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_with_mode_relex(String, Array[TokenInfo[T]], Array[Int], T, ModeRelexState[T]) -> Self[T]
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
-pub fn[T] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
+pub fn[T : Eq] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 
 pub struct TokenEvidence {
   kind : @seam.RawKind

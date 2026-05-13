@@ -20,9 +20,9 @@ pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interne
 
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
@@ -41,16 +41,14 @@ pub fn[T, M] tokenize_with_modes(@core.ModeLexer[T, M], String, T) -> (Array[@co
 // Types and methods
 pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
-  tokenize : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
+  lex : (String) -> @core.LexResult[T]
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
-  error_token : T?
-  error_token_from_message : ((String) -> T)?
-  prefix_lexer : @core.PrefixLexer[T]?
+  incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexState[T]?
 }
-pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], tokenize~ : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError, fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, on_lex_error~ : (String) -> Ast, error_token? : T?, error_token_from_message? : ((String) -> T)?, prefix_lexer? : @core.PrefixLexer[T]?, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
+pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, on_lex_error~ : (String) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Type aliases
