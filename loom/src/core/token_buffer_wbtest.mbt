@@ -72,9 +72,9 @@ test "TokenBuffer::update preserves explicit LexResult starts from range relex" 
     eof_token="EOF",
   )
   buf.update(Edit::insert(2, 1), "ab!c")
-  inspect(buf.get_tokens().map(fn(t) { t.token }), content="[\"ERR\", \"EOF\"]")
-  inspect(buf.get_starts(), content="[2, 4]")
-  inspect(buf.get_diagnostics().format(), content="[\"bad bang [2,3]\"]")
+  debug_inspect(buf.get_tokens().map(fn(t) { t.token }), content="[\"ERR\", \"EOF\"]")
+  debug_inspect(buf.get_starts(), content="[2, 4]")
+  debug_inspect(buf.get_diagnostics().format(), content="[\"bad bang [2,3]\"]")
 }
 
 ///|
@@ -85,7 +85,7 @@ test "TokenBuffer::update diagnoses invalid trailing range sentinel" {
     eof_token="EOF",
   )
   buf.update(Edit::replace(1, 1, 1), "axc")
-  inspect(
+  debug_inspect(
     buf.get_diagnostics().format(),
     content="[\"range lexer returned invalid trailing EOF sentinel\"]",
   )

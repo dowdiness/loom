@@ -58,11 +58,11 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
   if !graph.directed {
     return None
   }
-  let node_labels : Map[String, String] = Map::new()
-  let node_attrs_map : Map[String, Map[String, String]] = Map::new()
-  let child_list : Map[String, Array[(String, String)]] = Map::new()
-  let indegree : Map[String, Int] = Map::new()
-  let known_node_ids : Map[String, Bool] = Map::new()
+  let node_labels : Map[String, String] = Map::default()
+  let node_attrs_map : Map[String, Map[String, String]] = Map::default()
+  let child_list : Map[String, Array[(String, String)]] = Map::default()
+  let indegree : Map[String, Int] = Map::default()
+  let known_node_ids : Map[String, Bool] = Map::default()
   let all_node_ids : Array[String] = []
 
   fn register_node_id(
@@ -87,7 +87,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
         let nid = node_id.id
         register_node_id(nid, known_node_ids, all_node_ids, indegree)
         let mut lbl = nid
-        let attrs : Map[String, String] = Map::new()
+        let attrs : Map[String, String] = Map::default()
         match attr_list {
           Some(al) =>
             for attr in al.attributes {
@@ -156,7 +156,7 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
   let rid = root_candidates[0]
 
   // Validate connectivity and acyclicity before building the concrete tree.
-  let visit_state : Map[String, Int] = Map::new() // 1=in stack, 2=done
+  let visit_state : Map[String, Int] = Map::default() // 1=in stack, 2=done
   if !validate_reachability(rid, child_list, visit_state) {
     return None
   }
@@ -167,8 +167,8 @@ pub fn DotTreeNode::from_graph(graph : @parser.Graph) -> DotTreeNode? {
     }
   }
 
-  let counter = Ref::new(0)
-  let visiting : Map[String, Bool] = Map::new()
+  let counter = Ref(0)
+  let visiting : Map[String, Bool] = Map::default()
   build_tree(rid, node_labels, node_attrs_map, child_list, counter, visiting)
 }
 
@@ -213,7 +213,7 @@ fn build_tree(
   let int_id = counter.val
   counter.val = counter.val + 1
   let label = node_labels.get(nid).unwrap_or(nid)
-  let attrs = node_attrs_map.get(nid).unwrap_or(Map::new())
+  let attrs = node_attrs_map.get(nid).unwrap_or(Map::default())
   let kids : Array[DotTreeNode] = []
   let edge_labels : Array[String] = []
   match child_list.get(nid) {

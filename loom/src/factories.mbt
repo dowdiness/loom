@@ -77,21 +77,21 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let incremental_relex_enabled = grammar.incremental_relex_enabled
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
-  let token_buf : Ref[@core.TokenBuffer[T]?] = Ref::new(None)
-  let last_diags : Ref[@core.DiagnosticSet] = Ref::new(
+  let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)
+  let last_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )
-  let last_parse_diags : Ref[@core.DiagnosticSet] = Ref::new(
+  let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )
-  let last_lex_diags : Ref[@core.DiagnosticSet] = Ref::new(
+  let last_lex_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )
   // Persistent old-token cache: survives across edits so collect_old_tokens
   // only runs once (on first incremental parse). Subsequent edits reuse the
   // cached flat token array via ensure_old_tokens → immediate cache hit.
   // Reset to empty on full_parse (new tree, old cache invalid).
-  let old_token_cache : Ref[@core.OldTokenCache] = Ref::new(
+  let old_token_cache : Ref[@core.OldTokenCache] = Ref(
     @core.OldTokenCache::empty(),
   )
   @incremental.ImperativeLanguage::new(

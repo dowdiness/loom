@@ -231,7 +231,7 @@ pub fn SyntaxNode::children_from(
   start : Int,
 ) -> Array[SyntaxNode] {
   let result : Array[SyntaxNode] = []
-  let count : Ref[Int] = Ref::new(0)
+  let count : Ref[Int] = Ref(0)
   walk_children_flat(
     self.cst.children,
     self,
@@ -392,9 +392,9 @@ pub fn SyntaxNode::tight_span(
   self : SyntaxNode,
   trivia_kind? : RawKind? = None,
 ) -> (Int, Int) {
-  let tight_start : Ref[Int] = Ref::new(self.offset)
-  let tight_end : Ref[Int] = Ref::new(self.offset)
-  let found_start : Ref[Bool] = Ref::new(false)
+  let tight_start : Ref[Int] = Ref(self.offset)
+  let tight_end : Ref[Int] = Ref(self.offset)
+  let found_start : Ref[Bool] = Ref(false)
   fn scan(children : Array[CstElement], off : Int) -> Int {
     let mut pos = off
     for elem in children {
@@ -494,7 +494,7 @@ pub impl ToJson for SyntaxNode with to_json(self) -> Json {
 /// Return the nth interior-node child (0-indexed, skipping token children).
 /// Returns None if there are fewer than n+1 interior children.
 pub fn SyntaxNode::nth_child(self : SyntaxNode, n : Int) -> SyntaxNode? {
-  let count : Ref[Int] = Ref::new(0)
+  let count : Ref[Int] = Ref(0)
   let result : SyntaxNode? = None
   fn search(
     children : Array[CstElement],

@@ -99,7 +99,7 @@ fn build_term_tree(
 ///|
 /// Render a Term as a GraphViz DOT string.
 pub fn term_to_dot(term : @ast.Term) -> String {
-  let counter = Ref::new(0)
+  let counter = Ref(0)
   let dot_tree = build_term_tree(term, counter)
   @viz.to_dot(dot_tree)
 }
@@ -113,7 +113,7 @@ pub fn term_to_dot_resolved(
   term : @ast.Term,
   resolution : Resolution,
 ) -> String {
-  let counter = Ref::new(0)
+  let counter = Ref(0)
   let dot_tree = build_term_tree(term, counter, resolution=Some(resolution))
   @viz.to_dot(dot_tree)
 }
