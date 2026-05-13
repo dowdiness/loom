@@ -51,16 +51,13 @@ test "grammar example: reactive parser + set_source" {
 ```
 
 `@loom.Grammar[T, K, Ast]` is the description any language provides —
-`spec`, `tokenize`, `fold_node`, `on_lex_error`. The factories erase
+`spec`, `lex`, `fold_node`, `on_lex_error`. The factories erase
 `T`/`K` internally, so consumers only see `Ast`. Grammar authors never
 write vtable wiring (`ImperativeLanguage`) by hand.
 
-Lambda also wires a step lexer with `error_token=Some(@token.Error(""))` and
-`error_token_from_message=Some(fn(msg) { @token.Error(msg) })`. The constant
-error token enables recoverable lexing; the message callback preserves details
-in the emitted error token, and `TokenBuffer` records the same lexer messages
-as structured diagnostics. Without `error_token`, step lexing is strict and
-raises `LexError`, so the callback is not used.
+Lambda's `@lexer.lex` helper wraps the step lexer in a total `LexResult`
+boundary. Invalid steps become error tokens plus structured lexer diagnostics;
+strict `tokenize` remains available for low-level tests and batch consumers.
 
 See [`@loom`'s Quick Start](../../loom/README.md#quick-start) for the
 full consumer-side flow, including `apply_edit`.
@@ -107,7 +104,6 @@ Grammar expansion plans and CRDT exploration live in
   flow including `apply_edit`
 - [Architecture overview](../../docs/architecture/overview.md) — layer
   diagram and design principles
-- [`examples/json`](../json/) — step-based `prefix_lexer` +
-  `block_reparse_spec`
+- [`examples/json`](../json/) — step-based total lexing + `block_reparse_spec`
 - [`examples/markdown`](../markdown/) — mode-aware lexing via
   `ModeLexer`

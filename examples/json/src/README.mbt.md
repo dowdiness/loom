@@ -90,23 +90,19 @@ incremental parsing, error recovery, and subtree block reparse:
 ///|
 pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Grammar::new(
   spec=json_spec,
-  tokenize~,
+  lex~,
   fold_node=json_fold_node,
   on_lex_error=fn(msg) { JsonValue::Error("lex error: " + msg) },
-  error_token=Some(Error("")),
-  error_token_from_message=Some(fn(msg) { Error(msg) }),
-  prefix_lexer=Some(@core.PrefixLexer::new(lex_step=json_step_lexer)),
+  incremental_relex_enabled=false,
   block_reparse_spec=Some(json_block_reparse_spec),
 )
 ```
 
-`error_token=Some(Error(""))` makes `LexStep::Invalid` and
-`LexStep::Incomplete` recoverable instead of fatal. The paired
-`error_token_from_message=Some(fn(msg) { Error(msg) })` still preserves the
-message in the emitted error token, while `TokenBuffer` also records the
-message as a structured lexer diagnostic. If `error_token` is omitted, the
-message callback is ignored because step lexing remains strict and raises
-`LexError`.
+`lex` makes `LexStep::Invalid` and `LexStep::Incomplete` recoverable instead
+of fatal. It preserves messages in emitted `Error(message)` tokens while
+`TokenBuffer` records the same messages as structured lexer diagnostics.
+Strict `tokenize` remains available for tests and batch consumers that want
+fail-fast lexing.
 
 ## `JsonValue`
 

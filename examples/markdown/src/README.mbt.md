@@ -77,10 +77,9 @@ let mode_state : @core.ModeRelexState[Token] =
 
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Grammar::new(
   spec=markdown_spec,
-  tokenize=tokenize_for_grammar,
+  lex=lex_for_grammar,
   fold_node=markdown_fold_node,
   on_lex_error=fn(msg) { Block::Error("lex error: " + msg) },
-  error_token=Some(Error("")),
   mode_relex=Some(mode_state),
 )
 ```
@@ -142,6 +141,5 @@ moon test    # parser, lexer, mode-lexer, error recovery, source fidelity
   flow including `apply_edit`
 - [Architecture overview](../../docs/architecture/overview.md) — layer
   diagram and design principles
-- [`examples/json`](../json/) — step-based `prefix_lexer` +
-  `block_reparse_spec`
+- [`examples/json`](../json/) — step-based total lexing + `block_reparse_spec`
 - [`examples/lambda`](../lambda/) — typed `SyntaxNode` views

@@ -215,3 +215,20 @@ pub fn tokenize(
 ) -> Array[@core.TokenInfo[@token.Token]] raise @core.LexError {
   tokenize_via_steps(input, layout=true)
 }
+
+///|
+/// Total structured lexer used by the high-level Grammar boundary.
+pub fn lex(input : String) -> @core.LexResult[@token.Token] {
+  let buffer = @core.TokenBuffer::new_from_steps(
+    input,
+    @core.PrefixLexer::new(lex_step=lambda_step_lexer),
+    eof_token=@token.EOF,
+    error_token=@token.Error(""),
+    error_token_from_message=Some(fn(msg) { @token.Error(msg) }),
+  )
+  @core.LexResult::with_starts(
+    buffer.get_tokens(),
+    buffer.get_starts(),
+    diagnostics=buffer.get_diagnostics(),
+  )
+}

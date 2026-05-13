@@ -37,6 +37,11 @@ enum FKind {
 } derive(Debug)
 
 ///|
+enum FMode {
+  FNormal
+} derive(Eq)
+
+///|
 fn fkind_raw(k : FKind) -> @seam.RawKind {
   let n = match k {
     KChar => 0
@@ -102,16 +107,92 @@ fn fstep_lexer(source : String, start : Int) -> @core.LexStep[FTok] {
 }
 
 ///|
-#warnings("-unused_error_type")
-fn ftokenize_recoverable_steps(
+fn fmode_step_lexer(
+  source : String,
+  start : Int,
+  mode : FMode,
+) -> (@core.LexStep[FTok], FMode) {
+  if start >= source.length() {
+    return (Done, mode)
+  }
+  if source.code_unit_at(start).to_int() == 33 {
+    return (Invalid(at=start, width=1, message="bad mode"), mode)
+  }
+  (Produced(@core.TokenInfo::new(A, 1), next_offset=start + 1), mode)
+}
+
+///|
+fn flex_from_tokenize(
   s : String,
-) -> Array[@core.TokenInfo[FTok]] raise @core.LexError {
-  @core.TokenBuffer::new_from_steps(
+  tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
+  error_token : FTok,
+) -> @core.LexResult[FTok] {
+  let result : Result[Array[@core.TokenInfo[FTok]], @core.LexError] = try? tokenize(
+    s,
+  )
+  match result {
+    Ok(tokens) => @core.LexResult(tokens)
+    Err(@core.LexError(msg)) =>
+      @core.LexResult(
+        [
+          @core.TokenInfo::new(error_token, s.length()),
+          @core.TokenInfo::new(Eof, 0),
+        ],
+        diagnostics=@core.DiagnosticSet::single(
+          @core.Diagnostic::lexer_error_at(msg, 0, s.length(), "lex-error"),
+        ),
+      )
+  }
+}
+
+///|
+fn flex(s : String) -> @core.LexResult[FTok] {
+  flex_from_tokenize(s, ftokenize, Err)
+}
+
+///|
+fn flex_recoverable_steps(s : String) -> @core.LexResult[FTok] {
+  let buffer = @core.TokenBuffer::new_from_steps(
     s,
     @core.PrefixLexer::new(lex_step=fstep_lexer),
     eof_token=Eof,
     error_token=Err,
-  ).get_tokens()
+  )
+  @core.LexResult::with_starts(
+    buffer.get_tokens(),
+    buffer.get_starts(),
+    diagnostics=buffer.get_diagnostics(),
+  )
+}
+
+///|
+fn fbang_offset(source : String) -> Int? {
+  for i = 0; i < source.length(); i = i + 1 {
+    if source.code_unit_at(i).to_int() == 33 {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+fn flex_late_error(s : String) -> @core.LexResult[FTok] {
+  match fbang_offset(s) {
+    Some(offset) =>
+      @core.LexResult::with_starts(
+        [@core.TokenInfo::new(Err, 1), @core.TokenInfo::new(Eof, 0)],
+        [offset, s.length()],
+        diagnostics=@core.DiagnosticSet::single(
+          @core.Diagnostic::lexer_error_at(
+            "unexpected char",
+            offset,
+            offset + 1,
+            "lex-error",
+          ),
+        ),
+      )
+    None => flex_recoverable_steps(s)
+  }
 }
 
 ///|
@@ -144,10 +225,23 @@ fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
 }
 
 ///|
-fn fgrammar(
-  error_token? : FTok? = None,
-  prefix_lexer? : @core.PrefixLexer[FTok]? = None,
-) -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+fn fblock_root(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
+  ctx.node(KExpr, fn() {
+    while !ctx.at_eof() {
+      if ctx.at(A) {
+        ctx.emit_token(KChar)
+      } else {
+        ctx.error("expected 'a'")
+        if !ctx.at_eof() {
+          ctx.bump_error()
+        }
+      }
+    }
+  })
+}
+
+///|
+fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
   let spec = @core.LanguageSpec::new(
     KWs,
     KErr,
@@ -158,14 +252,12 @@ fn fgrammar(
   )
   Grammar::new(
     spec~,
-    tokenize=ftokenize,
+    lex=flex,
     fold_node=fn(s, _recurse) { s },
     on_lex_error=fn(_msg) {
       let cst = @seam.CstNode::new(fkind_raw(KErr), [])
       @seam.SyntaxNode::from_cst(cst)
     },
-    error_token~,
-    prefix_lexer~,
   )
 }
 
@@ -183,12 +275,13 @@ fn fterminator_grammar_with_tokenize(
   )
   Grammar::new(
     spec~,
-    tokenize~,
+    lex=fn(s) { flex_from_tokenize(s, tokenize, Err) },
     fold_node=fn(s, _recurse) { s },
     on_lex_error=fn(_msg) {
       let cst = @seam.CstNode::new(fkind_raw(KErr), [])
       @seam.SyntaxNode::from_cst(cst)
     },
+    incremental_relex_enabled=false,
   )
 }
 
@@ -205,19 +298,52 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
   let root_kind = fkind_raw(KRoot)
   Grammar::new(
     spec~,
-    tokenize=ftokenize_recoverable_steps,
+    lex=flex_recoverable_steps,
     fold_node=fn(s, _recurse) { s },
     on_lex_error=fn(_msg) {
       let cst = @seam.CstNode::new(fkind_raw(KErr), [])
       @seam.SyntaxNode::from_cst(cst)
     },
-    error_token=Some(Err),
-    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
+    incremental_relex_enabled=false,
     block_reparse_spec=Some({
       is_reparseable: fn(kind) { kind == root_kind },
       get_reparser: fn(kind) {
         if kind == root_kind {
           Some(froot)
+        } else {
+          None
+        }
+      },
+      is_balanced: fn(_tokens) { true },
+    }),
+  )
+}
+
+///|
+fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=fblock_root,
+    reuse_size_threshold=0,
+  )
+  let block_kind = fkind_raw(KExpr)
+  Grammar::new(
+    spec~,
+    lex=flex_late_error,
+    fold_node=fn(s, _recurse) { s },
+    on_lex_error=fn(_msg) {
+      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+      @seam.SyntaxNode::from_cst(cst)
+    },
+    incremental_relex_enabled=false,
+    block_reparse_spec=Some({
+      is_reparseable: fn(kind) { kind == block_kind },
+      get_reparser: fn(kind) {
+        if kind == block_kind {
+          Some(fblock_root)
         } else {
           None
         }
@@ -244,16 +370,8 @@ test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
 }
 
 ///|
-test "create_buffer: prefix_lexer + error_token uses explicit error token" {
-  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
-  let buffer = create_buffer(
-    "a!a",
-    ftokenize,
-    Eof,
-    Some(Err),
-    None,
-    prefix_lexer=Some(lexer),
-  )
+test "create_buffer: total recoverable lex preserves error token diagnostics" {
+  let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
   inspect(
@@ -263,51 +381,27 @@ test "create_buffer: prefix_lexer + error_token uses explicit error token" {
 }
 
 ///|
-test "create_buffer: prefix_lexer + message callback does not build empty fallback" {
-  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
-  let buffer = create_buffer(
-    "aaa",
-    ftokenize,
-    Eof,
-    Some(Err),
-    Some(fn(msg) {
-      if msg == "" {
-        abort("unexpected empty lex-error message")
-      }
-      Err
-    }),
-    prefix_lexer=Some(lexer),
-  )
+test "create_buffer: clean total lex has no diagnostics" {
+  let buffer = create_buffer("aaa", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,A@1-2,A@2-3,Eof@3-3")
+  inspect(buffer.get_diagnostics().format(), content="[]")
 }
 
 ///|
-test "create_buffer: prefix_lexer + message callback uses invalid message" {
-  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
-  let seen : Ref[String?] = Ref::new(None)
-  let buffer = create_buffer(
-    "a!a",
-    ftokenize,
-    Eof,
-    Some(Err),
-    Some(fn(msg) {
-      seen.val = Some(msg)
-      Err
-    }),
-    prefix_lexer=Some(lexer),
-  )
+test "create_buffer: total lex keeps invalid message in diagnostics" {
+  let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
-  debug_inspect(seen.val, content="Some(\"unexpected char\")")
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"unexpected char [1,2]\"]",
+  )
 }
 
 ///|
-test "new_imperative_parser: step-based path reuse matches full reparse" {
-  let grammar = fgrammar(
-    error_token=Some(Err),
-    prefix_lexer=Some(@core.PrefixLexer::new(lex_step=fstep_lexer)),
-  )
+test "new_imperative_parser: incremental path reuse matches full reparse" {
+  let grammar = fgrammar()
   let parser = new_imperative_parser("aaaaa", grammar)
   let _ = parser.parse()
   let incr = parser.edit(@core.Edit::delete(2, 3), "aaaa")
@@ -323,18 +417,18 @@ test "new_imperative_parser: step-based path reuse matches full reparse" {
 }
 
 ///|
-test "new_imperative_parser: successful rebuild fallback is not a diagnostic" {
-  let saw_incremental_failure = Ref::new(false)
+test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
+  let saw_edit_full_lex = Ref::new(false)
   let grammar = fterminator_grammar_with_tokenize(s => {
-    if s.length() == 0 || s.code_unit_at(s.length() - 1).to_int() != 46 {
-      saw_incremental_failure.val = true
+    if s == "aaaaa." {
+      saw_edit_full_lex.val = true
     }
     ftokenize_requires_terminator(s)
   })
   let parser = new_imperative_parser("aaaa.", grammar)
   ignore(parser.parse())
   ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
-  inspect(saw_incremental_failure.val, content="true")
+  inspect(saw_edit_full_lex.val, content="true")
   inspect(parser.diagnostics(), content="[]")
 }
 
@@ -355,23 +449,40 @@ test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
 }
 
 ///|
-/// Lex-error preservation in `Parser::diagnostics()`.
+test "new_imperative_parser: block reparse preserves explicit LexResult starts" {
+  let grammar = flate_error_root_reparse_grammar()
+  let parser = new_imperative_parser("aaa", grammar)
+  ignore(parser.parse())
+  let incr = parser.edit(@core.Edit::insert(1, 1), "a!aa")
+  inspect(parser.get_last_reuse_count(), content="1")
+  let full_parser = new_imperative_parser("a!aa", grammar)
+  let full = full_parser.parse()
+  inspect(
+    @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
+    content="0",
+  )
+}
+
+///|
+/// Lexer diagnostic preservation in `Parser::diagnostics()`.
 ///
-/// `syntax_tree()` being `None` is not a sufficient signal for consumers —
-/// they rely on `diagnostics()` as the canonical error channel. Strict
-/// grammars (no `error_token`) that trip a `LexError` must see the error
-/// message published via `diagnostics()`, not silently produce `[]`.
-/// Recovery on a subsequent clean source clears the error.
-test "new_parser: lex error surfaces in diagnostics and clears on recovery" {
-  let grammar = fgrammar() // no error_token → lex errors raise
+/// Total high-level lexing should publish a tree plus diagnostics for malformed
+/// input. Recovery on a subsequent clean source clears the lexer diagnostic.
+test "new_parser: lexer diagnostic surfaces and clears on recovery" {
+  let grammar = fgrammar()
   let parser = new_parser("!", grammar)
   let rt = parser.runtime()
-  guard rt.read(parser.syntax_tree()) is None else {
-    abort("expected None syntax tree after lex failure")
+  guard rt.read(parser.syntax_tree()) is Some(_) else {
+    abort("expected Some syntax tree after lexer recovery")
   }
   let diags = rt.read(parser.diagnostics())
-  inspect(diags.length(), content="1")
-  inspect(diags[0], content="Tokenization error: unexpected char")
+  let mut saw_lex_diagnostic = false
+  for diagnostic in diags {
+    if diagnostic.contains("unexpected char") {
+      saw_lex_diagnostic = true
+    }
+  }
+  inspect(saw_lex_diagnostic, content="true")
   parser.set_source("aaa")
   inspect(rt.read(parser.diagnostics()).length(), content="0")
   guard rt.read(parser.syntax_tree()) is Some(_) else {
@@ -380,13 +491,100 @@ test "new_parser: lex error surfaces in diagnostics and clears on recovery" {
 }
 
 ///|
-test "create_buffer: prefix_lexer without error_token raises on invalid step" {
-  let lexer = @core.PrefixLexer::new(lex_step=fstep_lexer)
-  let raised = try {
-    ignore(create_buffer("a!a", ftokenize, Eof, None, None, prefix_lexer=Some(lexer)))
-    false
-  } catch {
-    @core.LexError(_) => true
+test "create_buffer: strict-wrapper total lex keeps diagnostic" {
+  let buffer = create_buffer("a!a", flex, Eof)
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"unexpected char [0,3]\"]",
+  )
+}
+
+///|
+test "create_buffer: mode lex keeps total diagnostics" {
+  let state = @core.erase_mode_lexer(
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    Eof,
+  )
+  let lex = fn(source : String) -> @core.LexResult[FTok] {
+    let result : Result[
+      (Array[@core.TokenInfo[FTok]], Array[Int]),
+      @core.LexError,
+    ] = try? (state.tokenize)(source)
+    match result {
+      Ok((tokens, starts)) =>
+        @core.LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(
+              "soft mode note",
+              0,
+              1,
+              "lex-note",
+            ),
+          ),
+        )
+      Err(@core.LexError(msg)) =>
+        @core.LexResult(
+          [
+            @core.TokenInfo::new(Err, source.length()),
+            @core.TokenInfo::new(Eof, 0),
+          ],
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(msg, 0, source.length(), "lex-error"),
+          ),
+        )
+    }
   }
-  inspect(raised, content="true")
+  let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"soft mode note [0,1]\"]",
+  )
+}
+
+///|
+test "create_buffer: recovered mode lex disables stale mode relex" {
+  let state = @core.erase_mode_lexer(
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    Eof,
+  )
+  let lex = fn(source : String) -> @core.LexResult[FTok] {
+    let result : Result[
+      (Array[@core.TokenInfo[FTok]], Array[Int]),
+      @core.LexError,
+    ] = try? (state.tokenize)(source)
+    match result {
+      Ok((tokens, starts)) =>
+        @core.LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=@core.DiagnosticSet::empty(),
+        )
+      Err(@core.LexError(msg)) =>
+        @core.LexResult(
+          [
+            @core.TokenInfo::new(Err, source.length()),
+            @core.TokenInfo::new(Eof, 0),
+          ],
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(
+              msg,
+              0,
+              source.length(),
+              "lex-error",
+            ),
+          ),
+        )
+    }
+  }
+  let buffer = create_buffer("!", lex, Eof, mode_relex=Some(state))
+  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,1]\"]")
+  let updated : Result[Unit, @core.LexError] = try? buffer.update(
+    @core.Edit::insert(1, 1),
+    "!!",
+  )
+  inspect(updated is Ok(_), content="true")
+  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
+  debug_inspect(buffer.get_token(0), content="Err")
 }

@@ -111,7 +111,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 Each example demonstrates a different `@loom.Grammar` feature axis:
 
 - [../examples/lambda/README.md](../examples/lambda/README.md) — typed `SyntaxNode` views, classical recursive descent
-- [../examples/json/README.md](../examples/json/README.md) — step-based `prefix_lexer` + `block_reparse_spec`
+- [../examples/json/README.md](../examples/json/README.md) — step-based total lexing + `block_reparse_spec`
 - [../examples/markdown/README.md](../examples/markdown/README.md) — mode-aware lexing via `ModeLexer`
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda grammar expansion plans, CRDT exploration
 

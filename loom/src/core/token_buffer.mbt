@@ -1,13 +1,12 @@
 // Generic incremental token buffer for edit-aware lexing.
 // T is the language-specific token type.
 //
-// Contract: tokenize_fn must always append an EOF sentinel as the last element.
-// TokenBuffer::update relies on this when re-lexing a range: the last element
-// of tokenize_fn(slice) is skipped during offset-adjustment.
+// Contract: lex/tokenize helpers must always append an EOF sentinel as the
+// last element. TokenBuffer::update relies on this when re-lexing a range: the
+// last element of the range result is skipped during offset-adjustment.
 
 ///|
 pub struct TokenBuffer[T] {
-  priv tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError
   priv retokenize_full : (String) -> LexResult[T] raise LexError
   priv incremental_relex_enabled : Bool
   priv eof_token : T
@@ -97,7 +96,6 @@ pub fn[T] TokenBuffer::new(
     LexResult(tokens)
   }
   {
-    tokenize_fn,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -105,6 +103,32 @@ pub fn[T] TokenBuffer::new(
     starts,
     diagnostics: DiagnosticSet::empty(),
     mode_relex: None,
+    source,
+    version: 0,
+  }
+}
+
+///|
+/// Construct a TokenBuffer from a total structured lexer.
+pub fn[T] TokenBuffer::new_from_lex(
+  source : String,
+  lex_fn~ : (String) -> LexResult[T],
+  eof_token~ : T,
+  incremental_relex_enabled? : Bool = true,
+  mode_relex? : ModeRelexState[T]? = None,
+) -> TokenBuffer[T] {
+  let result = lex_fn(source)
+  let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
+    lex_fn(s)
+  }
+  {
+    retokenize_full,
+    incremental_relex_enabled,
+    eof_token,
+    tokens: result.tokens,
+    starts: result.starts,
+    diagnostics: result.diagnostics,
+    mode_relex,
     source,
     version: 0,
   }
@@ -128,7 +152,6 @@ pub fn[T] TokenBuffer::new_resilient(
     tokenize_resilient_result(s, tokenize_fn, eof_token, error_token)
   }
   {
-    tokenize_fn,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -169,9 +192,6 @@ pub fn[T] TokenBuffer::new_from_steps(
   let result = tokenize_from_steps_result(
     source, lexer, eof_token, error_token, error_token_from_message~,
   )
-  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
-    tokenize_from_steps(s, lexer, eof_token, error_token, error_token_from_message~)
-  }
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_from_steps_result(
       s,
@@ -182,7 +202,6 @@ pub fn[T] TokenBuffer::new_from_steps(
     )
   }
   {
-    tokenize_fn: step_tokenize_fn,
     retokenize_full,
     incremental_relex_enabled: false,
     eof_token,
@@ -205,14 +224,10 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
   eof_token~ : T,
 ) -> TokenBuffer[T] raise LexError {
   let result = tokenize_from_steps_strict_result(source, lexer, eof_token)
-  let step_tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
-    tokenize_from_steps_strict(s, lexer, eof_token)
-  }
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_from_steps_strict_result(s, lexer, eof_token)
   }
   {
-    tokenize_fn: step_tokenize_fn,
     retokenize_full,
     incremental_relex_enabled: false,
     eof_token,
@@ -246,11 +261,7 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
     let (tokens, starts) = mode_tokenize(s)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
   }
-  let tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError = s => {
-    retokenize_full(s).tokens
-  }
   {
-    tokenize_fn,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -438,7 +449,11 @@ pub fn[T] TokenBuffer::update(
   if right_clamped < left_clamped {
     right_clamped = left_clamped
   }
-  let replacement_tokens = self.tokenize_range_impl(
+  let (
+    replacement_tokens,
+    replacement_starts,
+    replacement_diagnostics,
+  ) = self.lex_range_impl(
     new_source, left_clamped, right_clamped,
   )
   let new_tokens : Array[TokenInfo[T]] = []
@@ -448,12 +463,12 @@ pub fn[T] TokenBuffer::update(
     new_tokens.push(old_tokens[i])
     new_starts.push(old_starts[i])
   }
-  // Insert re-lexed replacement tokens with inline prefix-sum (avoids temp array).
-  let mut rep_offset = left_clamped
+  // Insert re-lexed replacement tokens with lexer-provided starts. Recoverable
+  // lexers may report an error after a valid prefix, so starts are not
+  // necessarily a prefix sum from left_clamped.
   for i = 0; i < replacement_tokens.length(); i = i + 1 {
     new_tokens.push(replacement_tokens[i])
-    new_starts.push(rep_offset)
-    rep_offset = rep_offset + replacement_tokens[i].len
+    new_starts.push(replacement_starts[i])
   }
   // Copy unchanged suffix tokens with shifted positions.
   let delta = edit.delta()
@@ -467,38 +482,103 @@ pub fn[T] TokenBuffer::update(
   new_starts.push(new_len)
   self.tokens = new_tokens
   self.starts = new_starts
-  self.diagnostics = self.diagnostics.after_relex(
+  let updated_diagnostics = self.diagnostics.after_relex(
     left_old_offset,
     right_old_offset,
     delta,
     failure_context="incremental relex",
   )
+  updated_diagnostics.extend(replacement_diagnostics)
+  self.diagnostics = updated_diagnostics
   self.source = new_source
   self.version = self.version + 1
 }
 
 ///|
-/// Re-lex a range of source. Tokenize the slice.
-/// Skips the trailing EOF that tokenize_fn appends by contract (last element).
-/// Returned tokens are position-independent; caller computes starts via
-/// build_starts and adds the range offset.
-fn[T] TokenBuffer::tokenize_range_impl(
+/// Re-lex a range of source. Lexes the slice and offsets lexer-provided starts
+/// into the full source. Skips the trailing EOF that lex helpers append by
+/// contract.
+fn offset_lex_diagnostics(
+  diagnostics : DiagnosticSet,
+  offset : Int,
+  context : String,
+) -> DiagnosticSet {
+  let zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(0)
+  match zero_result {
+    Ok(zero) =>
+      diagnostics.offset_by(offset, zero) catch {
+        err =>
+          DiagnosticSet::single(
+            Diagnostic::lexer_error(
+              "failed to offset lexer diagnostics after " +
+              context +
+              ": " +
+              @debug.to_string(err),
+            ),
+          )
+      }
+    Err(err) =>
+      DiagnosticSet::single(
+        Diagnostic::lexer_error(
+          "failed to offset lexer diagnostics after " +
+          context +
+          ": " +
+          @debug.to_string(err),
+        ),
+      )
+  }
+}
+
+///|
+fn[T] TokenBuffer::lex_range_impl(
   self : TokenBuffer[T],
   source : String,
   start : Int,
   end : Int,
-) -> Array[TokenInfo[T]] raise LexError {
+) -> (Array[TokenInfo[T]], Array[Int], DiagnosticSet) raise LexError {
   if start < 0 || end < start || end > source.length() {
     raise LexError("Invalid range")
   }
   let slice = source[start:end]
-  let slice_tokens = (self.tokenize_fn)(slice.to_owned())
-  // tokenize_fn contract: EOF is always last — skip it.
-  let result : Array[TokenInfo[T]] = []
-  for i = 0; i < slice_tokens.length() - 1; i = i + 1 {
-    result.push(slice_tokens[i])
+  let slice_result = (self.retokenize_full)(slice.to_owned())
+  // lex result contract: EOF is always last — skip it.
+  let result_tokens : Array[TokenInfo[T]] = []
+  let result_starts : Array[Int] = []
+  if slice_result.tokens.length() == 0 {
+    return (
+      result_tokens,
+      result_starts,
+      DiagnosticSet::single(
+        Diagnostic::lexer_error("range lexer returned no EOF token"),
+      ),
+    )
   }
-  result
+  if slice_result.starts.length() != slice_result.tokens.length() {
+    let diagnostics = offset_lex_diagnostics(
+      slice_result.diagnostics,
+      start,
+      "incremental relex range",
+    )
+    diagnostics.push(
+      Diagnostic::lexer_error(
+        "range lexer returned non-parallel tokens and starts",
+      ),
+    )
+    return (result_tokens, result_starts, diagnostics)
+  }
+  for i = 0; i < slice_result.tokens.length() - 1; i = i + 1 {
+    result_tokens.push(slice_result.tokens[i])
+    result_starts.push(slice_result.starts[i] + start)
+  }
+  (
+    result_tokens,
+    result_starts,
+    offset_lex_diagnostics(
+      slice_result.diagnostics,
+      start,
+      "incremental relex range",
+    ),
+  )
 }
 
 ///|
@@ -661,21 +741,6 @@ fn[T] tokenize_resilient_result(
 }
 
 ///|
-/// Step-based tokenization: call lex_step in a loop, emitting tokens for
-/// Produced, error tokens for Invalid/Incomplete, and stopping on Done.
-fn[T] tokenize_from_steps(
-  source : String,
-  lexer : PrefixLexer[T],
-  eof_token : T,
-  error_token : T,
-  error_token_from_message~ : ((String) -> T)?,
-) -> Array[TokenInfo[T]] {
-  tokenize_from_steps_result(
-    source, lexer, eof_token, error_token, error_token_from_message~,
-  ).tokens
-}
-
-///|
 /// Step-based tokenization with explicit starts so late Invalid/Incomplete
 /// offsets remain representable even when a step reports an error after a
 /// valid prefix.
@@ -766,16 +831,6 @@ fn[T] tokenize_from_steps_result(
   starts.push(len)
   result.push(TokenInfo::new(eof_token, 0))
   LexResult::with_starts(result, starts, diagnostics~)
-}
-
-///|
-/// Step-based tokenization in strict mode: report Invalid/Incomplete as LexError.
-fn[T] tokenize_from_steps_strict(
-  source : String,
-  lexer : PrefixLexer[T],
-  eof_token : T,
-) -> Array[TokenInfo[T]] raise LexError {
-  tokenize_from_steps_strict_result(source, lexer, eof_token).tokens
 }
 
 ///|

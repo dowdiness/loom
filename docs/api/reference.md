@@ -207,37 +207,26 @@ See [choosing-a-parser.md](choosing-a-parser.md) to decide which parser to use.
 ```moonbit
 pub struct Grammar[T, K, Ast] {
   spec         : @core.LanguageSpec[T, K]
-  tokenize     : (String) -> Array[@core.TokenInfo[T]] raise @core.LexError
+  lex          : (String) -> @core.LexResult[T]
   fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   on_lex_error : (String) -> Ast
-  error_token  : T?
-  error_token_from_message : ((String) -> T)?
-  prefix_lexer : @core.PrefixLexer[T]?
+  incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex   : @core.ModeRelexState[T]?
 }
 ```
 
 Describes a complete language grammar. Construct with
-`Grammar::new(spec~, tokenize~, fold_node~, on_lex_error~)`. The lambda
+`Grammar::new(spec~, lex~, fold_node~, on_lex_error~)`. The lambda
 implementation is `@lambda.lambda_grammar`.
 
-`error_token`, `error_token_from_message`, and `prefix_lexer` control
-recoverable step-lexer errors:
+`lex` is the high-level parser boundary. It returns tokens, token starts, and
+lexer diagnostics in one `LexResult`; malformed user input should be recovered
+into error tokens plus diagnostics instead of escaping as `LexError`.
 
-- Without `error_token`, step lexing is strict. `LexStep::Invalid` and
-  `LexStep::Incomplete` raise `LexError`, and the factory reports that through
-  `on_lex_error`.
-- With `error_token`, step lexing is recoverable. Invalid and incomplete steps
-  are emitted as error tokens and recorded as structured lexer diagnostics, so
-  parsing can continue and produce one merged diagnostic list.
-- `error_token_from_message` is only used in the recoverable path, and only
-  when `error_token` is also provided. It lets a grammar preserve the
-  `LexStep::Invalid(..., message)` or `Incomplete(..., expected)` text inside
-  the emitted token, for example `Error(message)`. The user-facing message is
-  also available through `TokenBuffer` diagnostics.
-- If `error_token_from_message` is omitted, recoverable lexing still works but
-  uses the constant `error_token` fallback for every lexer error.
+The factory no longer catches a raising tokenizer. Recovery policy belongs in
+the grammar's `lex` implementation. `incremental_relex_enabled=false` marks
+lexers that must be rerun on the whole source instead of arbitrary text slices.
 
 ### `new_imperative_parser`
 
