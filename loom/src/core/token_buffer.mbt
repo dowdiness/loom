@@ -339,7 +339,7 @@ pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int {
 }
 
 ///|
-pub fn[T] TokenBuffer::update(
+pub fn[T : Eq] TokenBuffer::update(
   self : TokenBuffer[T],
   edit : Edit,
   new_source : String,
@@ -412,6 +412,9 @@ pub fn[T] TokenBuffer::update(
       // EOF sentinel
       new_tokens.push(TokenInfo::new(self.eof_token, 0))
       new_starts.push(new_len)
+      let refreshed_lex : Result[LexResult[T], LexError] = try? (self.retokenize_full)(
+        new_source,
+      )
       // relex_from already spliced the modes array internally.
       self.tokens = new_tokens
       self.starts = new_starts
@@ -420,12 +423,16 @@ pub fn[T] TokenBuffer::update(
       } else {
         self.source.length()
       }
-      self.diagnostics = self.diagnostics.after_relex(
+      let shifted_diagnostics = self.diagnostics.after_relex(
         old_starts[left_tok_idx],
         old_relex_end,
         delta,
         failure_context="incremental relex",
       )
+      self.diagnostics = match refreshed_lex {
+        Ok(result) => result.diagnostics
+        Err(_) => shifted_diagnostics
+      }
       self.source = new_source
       self.version = self.version + 1
       return
@@ -530,7 +537,7 @@ fn offset_lex_diagnostics(
 }
 
 ///|
-fn[T] TokenBuffer::lex_range_impl(
+fn[T : Eq] TokenBuffer::lex_range_impl(
   self : TokenBuffer[T],
   source : String,
   start : Int,
@@ -562,6 +569,23 @@ fn[T] TokenBuffer::lex_range_impl(
     diagnostics.push(
       Diagnostic::lexer_error(
         "range lexer returned non-parallel tokens and starts",
+      ),
+    )
+    return (result_tokens, result_starts, diagnostics)
+  }
+  let eof_index = slice_result.tokens.length() - 1
+  let eof_info = slice_result.tokens[eof_index]
+  if eof_info.token != self.eof_token ||
+    eof_info.len != 0 ||
+    slice_result.starts[eof_index] != slice.length() {
+    let diagnostics = offset_lex_diagnostics(
+      slice_result.diagnostics,
+      start,
+      "incremental relex range",
+    )
+    diagnostics.push(
+      Diagnostic::lexer_error(
+        "range lexer returned invalid trailing EOF sentinel",
       ),
     )
     return (result_tokens, result_starts, diagnostics)

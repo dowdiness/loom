@@ -20,9 +20,9 @@ pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interne
 
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 

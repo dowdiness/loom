@@ -45,6 +45,26 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
 }
 
 ///|
+fn invalid_range_eof_lex(source : String) -> LexResult[String] {
+  if source == "axc" {
+    return LexResult::with_starts(
+      [TokenInfo::new("char", 1), TokenInfo::new("char", 1)],
+      [0, 1],
+      diagnostics=DiagnosticSet::empty(),
+    )
+  }
+  let tokens : Array[TokenInfo[String]] = []
+  let starts : Array[Int] = []
+  for i = 0; i < source.length(); i = i + 1 {
+    tokens.push(TokenInfo::new("char", 1))
+    starts.push(i)
+  }
+  tokens.push(TokenInfo::new("EOF", 0))
+  starts.push(source.length())
+  LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+}
+
+///|
 test "TokenBuffer::update preserves explicit LexResult starts from range relex" {
   let buf = TokenBuffer::new_from_lex(
     "abc",
@@ -55,4 +75,18 @@ test "TokenBuffer::update preserves explicit LexResult starts from range relex" 
   inspect(buf.get_tokens().map(fn(t) { t.token }), content="[\"ERR\", \"EOF\"]")
   inspect(buf.get_starts(), content="[2, 4]")
   inspect(buf.get_diagnostics().format(), content="[\"bad bang [2,3]\"]")
+}
+
+///|
+test "TokenBuffer::update diagnoses invalid trailing range sentinel" {
+  let buf = TokenBuffer::new_from_lex(
+    "abc",
+    lex_fn=invalid_range_eof_lex,
+    eof_token="EOF",
+  )
+  buf.update(Edit::replace(1, 1, 1), "axc")
+  inspect(
+    buf.get_diagnostics().format(),
+    content="[\"range lexer returned invalid trailing EOF sentinel\"]",
+  )
 }

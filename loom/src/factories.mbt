@@ -19,6 +19,14 @@ fn[T] create_buffer(
   incremental_relex_enabled? : Bool = true,
   mode_relex? : @core.ModeRelexState[T]? = None,
 ) -> @core.TokenBuffer[T] {
+  if !incremental_relex_enabled {
+    return @core.TokenBuffer::new_from_lex(
+      source,
+      lex_fn=lex,
+      eof_token~,
+      incremental_relex_enabled=false,
+    )
+  }
   match mode_relex {
     Some(state) => {
       let mode_sync : Result[
@@ -31,7 +39,7 @@ fn[T] create_buffer(
             source,
             lex_fn=lex,
             eof_token~,
-            incremental_relex_enabled=true,
+            incremental_relex_enabled~,
             mode_relex=Some(state),
           )
         Err(_) =>
@@ -61,7 +69,7 @@ fn[T] create_buffer(
 /// diagnostics, old-token cache) inside the closures. Shared by both
 /// `new_imperative_parser` and `new_parser` — the only divergence downstream
 /// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
-fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
@@ -232,7 +240,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperat
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
 /// Interners (token deduplication, node deduplication) are process-global and
 /// shared across all parsers — accumulated, never cleared, not parser-isolated.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
@@ -250,7 +258,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imper
 /// Pass `runtime~` to join an existing reactive graph (useful when downstream
 /// memos need to share the same `Runtime` as the parser). Omitting it creates
 /// a fresh runtime owned by the returned parser.
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,

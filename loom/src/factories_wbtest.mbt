@@ -449,6 +449,54 @@ test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
 }
 
 ///|
+test "reparse_block preserves block lexer diagnostics" {
+  let grammar = frecoverable_root_reparse_grammar()
+  let parser = new_imperative_parser("aaa", grammar)
+  let old_syntax = parser.parse()
+  let block_spec = match grammar.block_reparse_spec {
+    Some(spec) => spec
+    None => abort("expected block reparse spec")
+  }
+  let lex = fn(source : String) -> @core.LexResult[FTok] {
+    let result = flex_recoverable_steps(source)
+    let diagnostics = result.diagnostics.copy()
+    diagnostics.push(
+      @core.Diagnostic::lexer_error_at(
+        "block-only lexer diagnostic",
+        0,
+        1,
+        "block-lex",
+      ),
+    )
+    @core.LexResult::with_starts(
+      result.tokens,
+      result.starts,
+      diagnostics~,
+    )
+  }
+  let result = @core.reparse_block(
+    old_syntax,
+    "a!a",
+    @core.Edit::new(1, 1, 1),
+    lex,
+    grammar.spec,
+    block_spec,
+    @core.DiagnosticSet::empty(),
+  )
+  let diagnostics = match result {
+    Some((_, diagnostics)) => diagnostics
+    None => abort("expected block reparse result")
+  }
+  let mut saw_lex_diagnostic = false
+  for diagnostic in diagnostics.format() {
+    if diagnostic.contains("block-only lexer diagnostic") {
+      saw_lex_diagnostic = true
+    }
+  }
+  inspect(saw_lex_diagnostic, content="true")
+}
+
+///|
 test "new_imperative_parser: block reparse preserves explicit LexResult starts" {
   let grammar = flate_error_root_reparse_grammar()
   let parser = new_imperative_parser("aaa", grammar)
@@ -541,6 +589,106 @@ test "create_buffer: mode lex keeps total diagnostics" {
     buffer.get_diagnostics().format(),
     content="[\"soft mode note [0,1]\"]",
   )
+}
+
+///|
+test "create_buffer: mode update refreshes total diagnostics" {
+  let state = @core.erase_mode_lexer(
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    Eof,
+  )
+  let lex = fn(source : String) -> @core.LexResult[FTok] {
+    let result : Result[
+      (Array[@core.TokenInfo[FTok]], Array[Int]),
+      @core.LexError,
+    ] = try? (state.tokenize)(source)
+    match result {
+      Ok((tokens, starts)) =>
+        @core.LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(
+              "mode source length " + source.length().to_string(),
+              0,
+              source.length(),
+              "lex-note",
+            ),
+          ),
+        )
+      Err(@core.LexError(msg)) =>
+        @core.LexResult(
+          [
+            @core.TokenInfo::new(Err, source.length()),
+            @core.TokenInfo::new(Eof, 0),
+          ],
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(msg, 0, source.length(), "lex-error"),
+          ),
+        )
+    }
+  }
+  let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"mode source length 1 [0,1]\"]",
+  )
+  buffer.update(@core.Edit::insert(1, 1), "aa")
+  inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"mode source length 2 [0,2]\"]",
+  )
+}
+
+///|
+test "create_buffer: mode lex respects incremental opt out" {
+  let state = @core.erase_mode_lexer(
+    @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
+    Eof,
+  )
+  let lex = fn(source : String) -> @core.LexResult[FTok] {
+    let result : Result[
+      (Array[@core.TokenInfo[FTok]], Array[Int]),
+      @core.LexError,
+    ] = try? (state.tokenize)(source)
+    match result {
+      Ok((tokens, starts)) =>
+        @core.LexResult::with_starts(
+          tokens,
+          starts,
+          diagnostics=@core.DiagnosticSet::empty(),
+        )
+      Err(@core.LexError(msg)) =>
+        @core.LexResult(
+          [
+            @core.TokenInfo::new(Err, source.length()),
+            @core.TokenInfo::new(Eof, 0),
+          ],
+          diagnostics=@core.DiagnosticSet::single(
+            @core.Diagnostic::lexer_error_at(
+              msg,
+              0,
+              source.length(),
+              "lex-error",
+            ),
+          ),
+        )
+    }
+  }
+  let buffer = create_buffer(
+    "a",
+    lex,
+    Eof,
+    incremental_relex_enabled=false,
+    mode_relex=Some(state),
+  )
+  let updated : Result[Unit, @core.LexError] = try? buffer.update(
+    @core.Edit::insert(1, 1),
+    "a!",
+  )
+  inspect(updated is Ok(_), content="true")
+  inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
+  debug_inspect(buffer.get_token(0), content="Err")
 }
 
 ///|

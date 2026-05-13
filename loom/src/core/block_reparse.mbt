@@ -370,6 +370,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   let block_lex = lex(block_text)
   let block_tokens = block_lex.tokens
   let block_starts = block_lex.starts
+  let block_lex_diags = block_lex.diagnostics
   if !(block_spec.is_balanced)(block_tokens) {
     return None
   }
@@ -379,13 +380,15 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
     None => return None
   }
   // 5. Parse in isolation
-  let (new_block, new_diags) = match
+  let (new_block, parse_diags) = match
     parse_block_isolated(
       block_text, block_kind, block_tokens, block_starts, reparse_fn, spec,
     ) {
     Some(result) => result
     None => return None
   }
+  let new_diags = block_lex_diags.copy()
+  new_diags.extend(parse_diags)
   // 6. Splice new subtree into old tree
   let root_cst = tree.cst_node()
   let ws_raw = spec.whitespace_kind.to_raw()

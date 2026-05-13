@@ -1,7 +1,7 @@
 ///|
 /// Lambda grammar: handles `LetDef* Expression?` sequences.
 ///
-/// Uses `tokenize` so that newlines act as definition delimiters
+/// Uses `lex=@lexer.lex` so that newlines act as definition delimiters
 /// rather than being folded into whitespace runs.
 pub let lambda_grammar : @loom.Grammar[
   @token.Token,
