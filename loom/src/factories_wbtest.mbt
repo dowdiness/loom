@@ -418,7 +418,7 @@ test "new_imperative_parser: incremental path reuse matches full reparse" {
 
 ///|
 test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
-  let saw_edit_full_lex = Ref::new(false)
+  let saw_edit_full_lex = Ref(false)
   let grammar = fterminator_grammar_with_tokenize(s => {
     if s == "aaaaa." {
       saw_edit_full_lex.val = true
@@ -597,7 +597,7 @@ test "create_buffer: mode update skips total lex on incremental path" {
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
   )
-  let lex_calls : Ref[Int] = Ref::new(0)
+  let lex_calls : Ref[Int] = Ref(0)
   let lex = fn(source : String) -> @core.LexResult[FTok] {
     lex_calls.val = lex_calls.val + 1
     let result : Result[

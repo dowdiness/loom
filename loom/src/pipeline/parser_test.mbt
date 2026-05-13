@@ -184,7 +184,7 @@ test "Parser::set_source is a no-op when source is unchanged" {
   // Identity `set_source` must not rerun the engine — the engine still
   // holds the most recent tree, and tearing it down to reparse the same
   // text burns CPU and throws away incremental state for no gain.
-  let parse_count : Ref[Int] = Ref::new(0)
+  let parse_count : Ref[Int] = Ref(0)
   let parser = Parser::new(
     "abc",
     test_imperative_language_with_counter(parse_count),

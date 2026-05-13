@@ -28,16 +28,16 @@ pub struct PerfStats {
 ///|
 fn PerfStats::new() -> PerfStats {
   {
-    enabled: Ref::new(false),
-    try_reuse_calls: Ref::new(0),
-    try_reuse_hits: Ref::new(0),
-    fast_path_skips: Ref::new(0),
-    size_threshold_skips: Ref::new(0),
-    leading_checks: Ref::new(0),
-    trailing_checks: Ref::new(0),
-    find_node_calls: Ref::new(0),
-    find_node_steps: Ref::new(0),
-    count_tokens_calls: Ref::new(0),
+    enabled: Ref(false),
+    try_reuse_calls: Ref(0),
+    try_reuse_hits: Ref(0),
+    fast_path_skips: Ref(0),
+    size_threshold_skips: Ref(0),
+    leading_checks: Ref(0),
+    trailing_checks: Ref(0),
+    find_node_calls: Ref(0),
+    find_node_steps: Ref(0),
+    count_tokens_calls: Ref(0),
   }
 }
 

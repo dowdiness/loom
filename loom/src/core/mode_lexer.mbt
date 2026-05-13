@@ -73,7 +73,7 @@ pub fn[T, M : Eq] erase_mode_lexer(
 ) -> ModeRelexState[T] {
   // Internal modes array — tracks the mode BEFORE each token.
   // Parallel to the token array in TokenBuffer.
-  let modes_ref : Ref[Array[M]] = Ref::new([])
+  let modes_ref : Ref[Array[M]] = Ref([])
   let tokenize = fn(
     source : String,
   ) -> (Array[TokenInfo[T]], Array[Int]) raise LexError {
