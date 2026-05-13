@@ -407,7 +407,7 @@ cd examples/markdown && rtk moon test
 - `ParserContext::report_at_current` token-evidence tests.
 - Done: prefix lexer invalid/incomplete diagnostics.
 - Done: legacy resilient lexer diagnostics for recovered scalar ranges.
-- Prefix lexer non-BMP diagnostic range assertions.
+- Done: prefix lexer non-BMP diagnostic range assertions.
 - Mode lexer invalid/incomplete diagnostics with mode-state recovery.
 - Incremental reuse replays structured diagnostics without duplication.
 - Block reparse offsets and merges structured diagnostics.

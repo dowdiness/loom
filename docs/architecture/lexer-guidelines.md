@@ -28,6 +28,8 @@ reports:
 - no-progress `Produced` steps advance with `next_char_offset`
 - zero-width or stale `Invalid` steps recover with a shared internal offset
   helper
+- positive-width `Invalid` steps whose reported end would split a surrogate
+  pair are snapped forward to the scalar boundary
 - `TokenBuffer::new_from_steps`, strict step tokenization, and
   `PrefixLexer::lex_all` preserve non-BMP scalars during defensive progress
 - the deprecated `TokenBuffer::new_resilient` fallback also emits a whole
