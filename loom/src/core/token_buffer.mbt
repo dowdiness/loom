@@ -118,9 +118,7 @@ pub fn[T] TokenBuffer::new_from_lex(
   mode_relex? : ModeRelexState[T]? = None,
 ) -> TokenBuffer[T] {
   let result = lex_fn(source)
-  let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    lex_fn(s)
-  }
+  let retokenize_full : (String) -> LexResult[T] raise LexError = s => lex_fn(s)
   {
     retokenize_full,
     incremental_relex_enabled,
@@ -190,7 +188,11 @@ pub fn[T] TokenBuffer::new_from_steps(
   error_token_from_message? : ((String) -> T)? = None,
 ) -> TokenBuffer[T] {
   let result = tokenize_from_steps_result(
-    source, lexer, eof_token, error_token, error_token_from_message~,
+    source,
+    lexer,
+    eof_token,
+    error_token,
+    error_token_from_message~,
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_from_steps_result(
@@ -258,8 +260,7 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
     diagnostics=DiagnosticSet::empty(),
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    let (tokens, starts) = mode_tokenize(s)
-    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+    mode_tokenize(s)
   }
   {
     retokenize_full,
@@ -295,9 +296,7 @@ pub fn[T] TokenBuffer::get_starts(self : TokenBuffer[T]) -> Array[Int] {
 
 ///|
 /// Return lexer diagnostics produced while building or updating this buffer.
-pub fn[T] TokenBuffer::get_diagnostics(
-  self : TokenBuffer[T],
-) -> DiagnosticSet {
+pub fn[T] TokenBuffer::get_diagnostics(self : TokenBuffer[T]) -> DiagnosticSet {
   self.diagnostics.copy()
 }
 
@@ -386,9 +385,18 @@ pub fn[T : Eq] TokenBuffer::update(
         new_source.length(),
       )
       let delta = edit.delta()
-      let (replacement_tokens, converged_right) = (state.relex_from)(
+      let relexed = (state.relex_from)(
         new_source, left_clamped, left_tok_idx, old_len, old_starts, delta,
       )
+      let checked_relex = LexResult::with_starts(
+        relexed.tokens,
+        relexed.starts,
+        diagnostics=relexed.diagnostics,
+      )
+      let replacement_tokens = checked_relex.tokens
+      let replacement_starts = checked_relex.starts
+      let replacement_diagnostics = checked_relex.diagnostics
+      let converged_right = relexed.converged_at_old_token
       let new_tokens : Array[TokenInfo[T]] = []
       let new_starts : Array[Int] = []
       // Prefix (unchanged)
@@ -396,12 +404,19 @@ pub fn[T : Eq] TokenBuffer::update(
         new_tokens.push(old_tokens[i])
         new_starts.push(old_starts[i])
       }
-      // Replacement tokens with inline prefix-sum
+      // Replacement tokens with explicit starts. Recoverable mode lexers may
+      // report an error after a valid prefix, so starts are not necessarily a
+      // prefix sum from left_clamped.
       let mut rep_offset = left_clamped
       for i = 0; i < replacement_tokens.length(); i = i + 1 {
         new_tokens.push(replacement_tokens[i])
-        new_starts.push(rep_offset)
-        rep_offset = rep_offset + replacement_tokens[i].len
+        let start = if i < replacement_starts.length() {
+          replacement_starts[i]
+        } else {
+          rep_offset
+        }
+        new_starts.push(start)
+        rep_offset = start + replacement_tokens[i].len
       }
       // Suffix (shifted by edit delta)
       let new_len = new_source.length()
@@ -426,6 +441,7 @@ pub fn[T : Eq] TokenBuffer::update(
         delta,
         failure_context="incremental relex",
       )
+      shifted_diagnostics.extend(replacement_diagnostics)
       self.diagnostics = shifted_diagnostics
       self.source = new_source
       self.version = self.version + 1
@@ -450,11 +466,7 @@ pub fn[T : Eq] TokenBuffer::update(
   if right_clamped < left_clamped {
     right_clamped = left_clamped
   }
-  let (
-    replacement_tokens,
-    replacement_starts,
-    replacement_diagnostics,
-  ) = self.lex_range_impl(
+  let (replacement_tokens, replacement_starts, replacement_diagnostics) = self.lex_range_impl(
     new_source, left_clamped, right_clamped,
   )
   let new_tokens : Array[TokenInfo[T]] = []
@@ -504,7 +516,9 @@ fn offset_lex_diagnostics(
   offset : Int,
   context : String,
 ) -> DiagnosticSet {
-  let zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(0)
+  let zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
+    0,
+  )
   match zero_result {
     Ok(zero) =>
       diagnostics.offset_by(offset, zero) catch {
@@ -739,13 +753,14 @@ fn[T] tokenize_resilient_result(
             Ok(_) => first_msg
             Err(LexError(msg)) => msg
           }
-          let diagnostic_message = if message == "" { first_msg } else { message }
+          let diagnostic_message = if message == "" {
+            first_msg
+          } else {
+            message
+          }
           diagnostics.push(
             Diagnostic::lexer_error_at(
-              diagnostic_message,
-              pos,
-              end,
-              "lex-error",
+              diagnostic_message, pos, end, "lex-error",
             ),
           )
           result.push(TokenInfo::new(error_token, end - pos))
@@ -803,17 +818,10 @@ fn[T] tokenize_from_steps_result(
         let end = lex_step_recovery_offset(source, pos, at, width)
         starts.push(error_start)
         diagnostics.push(
-          Diagnostic::lexer_error_at(
-            message,
-            error_start,
-            end,
-            "lex-invalid",
-          ),
+          Diagnostic::lexer_error_at(message, error_start, end, "lex-invalid"),
         )
         let token = recoverable_error_token(
-          error_token,
-          error_token_from_message,
-          message,
+          error_token, error_token_from_message, message,
         )
         result.push(TokenInfo::new(token, end - error_start))
         // Ensure pos never moves backwards (buggy lexer could report at < pos)
@@ -831,9 +839,7 @@ fn[T] tokenize_from_steps_result(
           ),
         )
         let token = recoverable_error_token(
-          error_token,
-          error_token_from_message,
-          expected,
+          error_token, error_token_from_message, expected,
         )
         // Emit error token from at to EOF (or zero-width at EOF)
         if error_start < len {

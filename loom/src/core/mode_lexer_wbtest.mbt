@@ -18,6 +18,7 @@ impl Show for MockMode with output(self, logger) {
 priv enum MockToken {
   Text(String)
   StringContent(String)
+  Error(String)
   Quote
   EOF
 } derive(Eq, Debug)
@@ -114,8 +115,15 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
     lex_step: mock_lex_step,
     initial_mode: Normal,
   }
-  let state = erase_mode_lexer(lexer, MockToken::EOF)
-  let (tokens, starts) = (state.tokenize)("hello\"world\"end")
+  let state = erase_mode_lexer(
+    lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  )
+  let result = (state.tokenize)("hello\"world\"end")
+  let tokens = result.tokens()
+  let starts = result.starts()
   inspect(tokens.length(), content="6")
   inspect(tokens[0].token, content="Text(\"hello\")")
   inspect(tokens[2].token, content="StringContent(\"world\")")
@@ -126,6 +134,70 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
   inspect(starts[3], content="11")
   inspect(starts[4], content="12")
   inspect(starts[5], content="15")
+}
+
+///|
+fn mock_recovering_lex_step(
+  input : String,
+  pos : Int,
+  mode : MockMode,
+) -> (LexStep[MockToken], MockMode) {
+  if pos >= input.length() {
+    return (Done, mode)
+  }
+  match mock_char_at(input, pos) {
+    Some('!') => (Invalid(at=pos, width=1, message="bang"), StringMode)
+    Some('?') => (Incomplete(at=pos, expected="closing marker"), mode)
+    _ => mock_lex_step(input, pos, mode)
+  }
+}
+
+///|
+test "tokenize_with_modes_recovering records diagnostics and next mode" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_recovering_lex_step,
+    initial_mode: Normal,
+  }
+  let (result, modes) = tokenize_with_modes_recovering(
+    lexer,
+    "!x",
+    MockToken::EOF,
+    Error("error"),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  )
+  let tokens = result.tokens()
+  let starts = result.starts()
+  debug_inspect(result.diagnostics().format(), content="[\"bang [0,1]\"]")
+  inspect(tokens[0].token, content="Error(\"bang\")")
+  inspect(tokens[1].token, content="StringContent(\"x\")")
+  inspect(tokens[2].token, content="EOF")
+  inspect(starts[0], content="0")
+  inspect(starts[1], content="1")
+  inspect(modes[0], content="Normal")
+  inspect(modes[1], content="StringMode")
+}
+
+///|
+test "tokenize_with_modes_recovering records incomplete diagnostic" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_recovering_lex_step,
+    initial_mode: Normal,
+  }
+  let (result, _modes) = tokenize_with_modes_recovering(
+    lexer,
+    "?tail",
+    MockToken::EOF,
+    Error("error"),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  )
+  let tokens = result.tokens()
+  debug_inspect(
+    result.diagnostics().format(),
+    content="[\"incomplete token; expected closing marker [0,5]\"]",
+  )
+  inspect(tokens[0].token, content="Error(\"closing marker\")")
+  inspect(tokens[0].len, content="5")
+  inspect(tokens[1].token, content="EOF")
 }
 
 ///|

@@ -72,9 +72,15 @@ test "grammar example: reactive parser + set_source" {
 Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
 
 ```mbt nocheck
-let mode_state : @core.ModeRelexState[Token] =
-  @core.erase_mode_lexer(markdown_mode_lexer, EOF)
+///|
+let mode_state : @core.ModeRelexState[Token] = @core.erase_mode_lexer(
+  markdown_mode_lexer,
+  EOF,
+  error_token=Error("lex error"),
+  error_token_from_message=Some(fn(msg) { Error(msg) }),
+)
 
+///|
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Grammar::new(
   spec=markdown_spec,
   lex=lex_for_grammar,
@@ -89,6 +95,7 @@ inline text, or inside a fenced code block (carrying the open fence
 length):
 
 ```mbt nocheck
+///|
 pub(all) enum MarkdownLexMode {
   LineStart
   Inline
@@ -105,22 +112,24 @@ following token.
 Two levels:
 
 ```mbt nocheck
+///|
 pub(all) enum Block {
   Document(Array[Block])
   Heading(Int, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
   ListItem(Array[Inline])
-  CodeBlock(String, String)   // (language, content)
+  CodeBlock(String, String) // (language, content)
   Error(String)
 } derive(Eq, Debug)
 
+///|
 pub(all) enum Inline {
   Text(String)
   Bold(Array[Inline])
   Italic(Array[Inline])
   InlineCode(String)
-  Link(Array[Inline], String)  // (text, url)
+  Link(Array[Inline], String) // (text, url)
   Error(String)
 } derive(Eq, Debug)
 ```

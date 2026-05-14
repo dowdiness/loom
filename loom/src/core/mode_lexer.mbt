@@ -50,37 +50,249 @@ pub fn[T, M] tokenize_with_modes(
 /// Type-erased closure bundle for mode-aware tokenization.
 /// Hides M — Grammar only sees T.
 ///
-///   tokenize — full retokenize (initial parse and fallback)
+///   tokenize — full recoverable retokenize with structured diagnostics
 ///   relex_from — convergence-based partial re-lex; also splices the
-///     internal modes array, so the caller only deals with tokens.
+///     internal modes array, so the caller only deals with token chunks.
 ///     params: (new_source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta)
-///     returns: (replacement_tokens, converged_at_old_tok_idx)
+///     returns: replacement tokens, starts, diagnostics, and convergence index
 pub struct ModeRelexState[T] {
-  tokenize : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
-  relex_from : (String, Int, Int, Int, Array[Int], Int) -> (
-    Array[TokenInfo[T]],
-    Int,
-  ) raise LexError
+  tokenize : (String) -> LexResult[T]
+  relex_from : (String, Int, Int, Int, Array[Int], Int) -> ModeRelexResult[T]
 }
 
 ///|
-/// Erase the mode type M, producing a type-erased closure that Grammar
-/// can store without knowing M.
+/// Replacement token chunk produced by mode-aware incremental re-lexing.
+/// `starts` are absolute source offsets and are parallel to `tokens`.
+/// `converged_at_old_token` is the old token index where unchanged suffix
+/// reuse can resume.
+pub struct ModeRelexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+  converged_at_old_token : Int
+}
+
+///|
+priv struct ModeRelexInternal[T, M] {
+  chunk : ModeRelexResult[T]
+  modes : Array[M]
+}
+
+///|
+priv struct ModeRecoveredStep[M] {
+  pos : Int
+  mode : M
+  consumed_token : Bool
+  stop : Bool
+}
+
+///|
+fn[T, M] push_recovered_mode_step(
+  source : String,
+  pos : Int,
+  mode : M,
+  step : LexStep[T],
+  next_mode : M,
+  error_token : T,
+  error_token_from_message : ((String) -> T)?,
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  modes : Array[M],
+  diagnostics : DiagnosticSet,
+) -> ModeRecoveredStep[M] {
+  let len = source.length()
+  match step {
+    Produced(tok, next_offset~) => {
+      starts.push(pos)
+      modes.push(mode)
+      let end = if next_offset <= pos {
+        let end = next_char_offset(source, pos)
+        diagnostics.push(
+          Diagnostic::lexer_error_at(
+            "mode lexer made no progress at position " + pos.to_string(),
+            pos,
+            end,
+            "lex-no-progress",
+          ),
+        )
+        end
+      } else {
+        next_offset
+      }
+      tokens.push(TokenInfo::new(tok.token, end - pos))
+      { pos: end, mode: next_mode, consumed_token: true, stop: false }
+    }
+    Invalid(at~, width~, message~) => {
+      let error_start = clamp_offset(if at > pos { at } else { pos }, len)
+      let end = lex_step_recovery_offset(source, pos, at, width)
+      starts.push(error_start)
+      modes.push(mode)
+      diagnostics.push(
+        Diagnostic::lexer_error_at(message, error_start, end, "lex-invalid"),
+      )
+      tokens.push(
+        TokenInfo::new(
+          recoverable_error_token(
+            error_token, error_token_from_message, message,
+          ),
+          end - error_start,
+        ),
+      )
+      { pos: end, mode: next_mode, consumed_token: true, stop: false }
+    }
+    Incomplete(at~, expected~) => {
+      let error_start = clamp_offset(if at > pos { at } else { pos }, len)
+      starts.push(error_start)
+      modes.push(mode)
+      diagnostics.push(
+        Diagnostic::lexer_error_at(
+          "incomplete token; expected " + expected,
+          error_start,
+          len,
+          "lex-incomplete",
+        ),
+      )
+      let width = if error_start < len { len - error_start } else { 0 }
+      tokens.push(
+        TokenInfo::new(
+          recoverable_error_token(
+            error_token, error_token_from_message, expected,
+          ),
+          width,
+        ),
+      )
+      { pos: len, mode: next_mode, consumed_token: true, stop: true }
+    }
+    Done => { pos, mode, consumed_token: false, stop: true }
+  }
+}
+
+///|
+/// Tokenize a full input with mode tracking and recoverable structured
+/// diagnostics. Invalid steps emit an error token, advance by the same
+/// Unicode-safe recovery law as PrefixLexer, and continue with the step's
+/// returned next mode.
+fn[T, M] tokenize_with_modes_recovering(
+  lexer : ModeLexer[T, M],
+  input : String,
+  eof_token : T,
+  error_token : T,
+  error_token_from_message? : ((String) -> T)? = None,
+) -> (LexResult[T], Array[M]) {
+  let tokens : Array[TokenInfo[T]] = []
+  let starts : Array[Int] = []
+  let modes : Array[M] = []
+  let diagnostics = DiagnosticSet::empty()
+  let mut pos = 0
+  let mut mode = lexer.initial_mode
+  while true {
+    let (step, next_mode) = (lexer.lex_step)(input, pos, mode)
+    let recovered = push_recovered_mode_step(
+      input, pos, mode, step, next_mode, error_token, error_token_from_message, tokens,
+      starts, modes, diagnostics,
+    )
+    pos = recovered.pos
+    mode = recovered.mode
+    if recovered.stop {
+      break
+    }
+  }
+  starts.push(input.length())
+  modes.push(mode)
+  tokens.push(TokenInfo::new(eof_token, 0))
+  (LexResult::with_starts(tokens, starts, diagnostics~), modes)
+}
+
+///|
+fn[M : Eq] mode_relex_converged(
+  old_idx : Int,
+  old_modes : Array[M],
+  old_starts : Array[Int],
+  edit_delta : Int,
+  mode : M,
+  pos : Int,
+) -> Bool {
+  old_idx < old_modes.length() &&
+  old_idx < old_starts.length() &&
+  mode == old_modes[old_idx] &&
+  pos == old_starts[old_idx] + edit_delta
+}
+
+///|
+fn[T, M : Eq] mode_relex_recovering(
+  lexer : ModeLexer[T, M],
+  source : String,
+  start_offset : Int,
+  start_tok_idx : Int,
+  old_token_count : Int,
+  old_starts : Array[Int],
+  edit_delta : Int,
+  old_modes : Array[M],
+  error_token : T,
+  error_token_from_message : ((String) -> T)?,
+) -> ModeRelexInternal[T, M] {
+  let mut mode = if start_tok_idx < old_modes.length() {
+    old_modes[start_tok_idx]
+  } else {
+    lexer.initial_mode
+  }
+  let mut pos = start_offset
+  let tokens : Array[TokenInfo[T]] = []
+  let starts : Array[Int] = []
+  let modes : Array[M] = []
+  let diagnostics = DiagnosticSet::empty()
+  let mut old_idx = start_tok_idx
+  while true {
+    let (step, next_mode) = (lexer.lex_step)(source, pos, mode)
+    let recovered = push_recovered_mode_step(
+      source, pos, mode, step, next_mode, error_token, error_token_from_message,
+      tokens, starts, modes, diagnostics,
+    )
+    pos = recovered.pos
+    mode = recovered.mode
+    if recovered.consumed_token {
+      old_idx = old_idx + 1
+    }
+    if recovered.stop {
+      modes.push(mode)
+      old_idx = old_token_count
+      break
+    }
+    if mode_relex_converged(
+        old_idx, old_modes, old_starts, edit_delta, mode, pos,
+      ) {
+      break
+    }
+  }
+  {
+    chunk: { tokens, starts, diagnostics, converged_at_old_token: old_idx },
+    modes,
+  }
+}
+
+///|
+/// Erase the mode type M, producing a type-erased, recoverable closure bundle
+/// that Grammar can store without knowing M.
 /// M : Eq is required for convergence checking during incremental re-lex.
 pub fn[T, M : Eq] erase_mode_lexer(
   lexer : ModeLexer[T, M],
   eof_token : T,
+  error_token~ : T,
+  error_token_from_message? : ((String) -> T)? = None,
 ) -> ModeRelexState[T] {
   // Internal modes array — tracks the mode BEFORE each token.
   // Parallel to the token array in TokenBuffer.
   let modes_ref : Ref[Array[M]] = Ref([])
-  let tokenize = fn(
-    source : String,
-  ) -> (Array[TokenInfo[T]], Array[Int]) raise LexError {
-    let (tokens, modes) = tokenize_with_modes(lexer, source, eof_token)
+  let tokenize = fn(source : String) -> LexResult[T] {
+    let (result, modes) = tokenize_with_modes_recovering(
+      lexer,
+      source,
+      eof_token,
+      error_token,
+      error_token_from_message~,
+    )
     modes_ref.val = modes
-    let starts = build_starts(tokens)
-    (tokens, starts)
+    result
   }
   // Convergence-based partial re-lex.
   // Re-lexes from the mode at start_tok_idx until mode + position converge
@@ -93,67 +305,30 @@ pub fn[T, M : Eq] erase_mode_lexer(
     old_token_count : Int,
     old_starts : Array[Int],
     edit_delta : Int,
-  ) -> (Array[TokenInfo[T]], Int) raise LexError {
+  ) -> ModeRelexResult[T] {
     let old_modes = modes_ref.val
-    let mut mode = if start_tok_idx < old_modes.length() {
-      old_modes[start_tok_idx]
-    } else {
-      lexer.initial_mode
-    }
-    let mut pos = start_offset
-    let new_tokens : Array[TokenInfo[T]] = []
-    let new_modes : Array[M] = []
-    let mut old_idx = start_tok_idx
-    while true {
-      let (step, next_mode) = (lexer.lex_step)(source, pos, mode)
-      match step {
-        Produced(tok, next_offset~) => {
-          if next_offset <= pos {
-            raise LexError(
-              "mode lexer made no progress at position " + pos.to_string(),
-            )
-          }
-          new_tokens.push(TokenInfo::new(tok.token, next_offset - pos))
-          new_modes.push(mode)
-          mode = next_mode
-          pos = next_offset
-          old_idx = old_idx + 1
-          // Convergence: mode matches AND position aligns with old state.
-          // The lexer is deterministic given (text, mode), so all subsequent
-          // tokens will be identical — safe to stop and reuse the suffix.
-          if old_idx < old_modes.length() &&
-            next_mode == old_modes[old_idx] &&
-            pos == old_starts[old_idx] + edit_delta {
-            break
-          }
-        }
-        Invalid(message~, ..) => raise LexError(message)
-        Incomplete(expected~, ..) => raise LexError(expected)
-        Done => {
-          // Don't emit EOF token — the caller always appends it.
-          // DO record the mode so the splice below keeps modes correct.
-          new_modes.push(mode)
-          old_idx = old_token_count
-          break
-        }
-      }
-    }
+    let internal = mode_relex_recovering(
+      lexer, source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta,
+      old_modes, error_token, error_token_from_message,
+    )
+    let chunk = internal.chunk
     // Splice modes array: replace old_modes[start_tok_idx..old_idx) with new_modes.
+    let old_idx = chunk.converged_at_old_token
     let delete_count = old_idx - start_tok_idx
     let result : Array[M] = Array::new(
-      capacity=old_modes.length() - delete_count + new_modes.length(),
+      capacity=old_modes.length() - delete_count + internal.modes.length(),
     )
     for i = 0; i < start_tok_idx; i = i + 1 {
       result.push(old_modes[i])
     }
-    for i = 0; i < new_modes.length(); i = i + 1 {
-      result.push(new_modes[i])
+    for i = 0; i < internal.modes.length(); i = i + 1 {
+      result.push(internal.modes[i])
     }
     for i = old_idx; i < old_modes.length(); i = i + 1 {
       result.push(old_modes[i])
     }
     modes_ref.val = result
-    (new_tokens, old_idx)
+    chunk
   }
   { tokenize, relex_from }
 }

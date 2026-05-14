@@ -227,6 +227,9 @@ into error tokens plus diagnostics instead of escaping as `LexError`.
 The factory no longer catches a raising tokenizer. Recovery policy belongs in
 the grammar's `lex` implementation. `incremental_relex_enabled=false` marks
 lexers that must be rerun on the whole source instead of arbitrary text slices.
+For mode-aware grammars, build `mode_relex` with `erase_mode_lexer` and provide
+an error token so invalid or incomplete mode steps become structured lexer
+diagnostics plus recoverable error tokens.
 
 ### `new_imperative_parser`
 

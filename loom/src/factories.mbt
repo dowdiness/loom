@@ -29,36 +29,22 @@ fn[T] create_buffer(
   }
   match mode_relex {
     Some(state) => {
-      let mode_sync : Result[
-        (Array[@core.TokenInfo[T]], Array[Int]),
-        @core.LexError,
-      ] = try? (state.tokenize)(source)
-      match mode_sync {
-        Ok(_) =>
-          @core.TokenBuffer::new_from_lex(
-            source,
-            lex_fn=lex,
-            eof_token~,
-            incremental_relex_enabled~,
-            mode_relex=Some(state),
-          )
-        Err(_) =>
-          @core.TokenBuffer::new_from_lex(
-            source,
-            lex_fn=lex,
-            eof_token~,
-            incremental_relex_enabled=false,
-          )
-      }
+      ignore((state.tokenize)(source))
+      @core.TokenBuffer::new_from_lex(
+        source,
+        lex_fn=lex,
+        eof_token~,
+        incremental_relex_enabled~,
+        mode_relex=Some(state),
+      )
     }
-    None => {
+    None =>
       @core.TokenBuffer::new_from_lex(
         source,
         lex_fn=lex,
         eof_token~,
         incremental_relex_enabled~,
       )
-    }
   }
 }
 
@@ -78,9 +64,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)
-  let last_diags : Ref[@core.DiagnosticSet] = Ref(
-    @core.DiagnosticSet::empty(),
-  )
+  let last_diags : Ref[@core.DiagnosticSet] = Ref(@core.DiagnosticSet::empty())
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )

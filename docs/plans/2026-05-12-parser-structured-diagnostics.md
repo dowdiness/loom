@@ -13,6 +13,11 @@
   incremental diagnostic shifting, JSON/Lambda strict parser token
   preservation, and review fixes for parser diagnostic dedupe, block-reparse
   lexer diagnostics, and insertion-boundary range shifting.
+- 2026-05-14: Mode-aware lexing now has recoverable structured diagnostics.
+  `erase_mode_lexer` requires an error token, `ModeRelexState::tokenize`
+  returns `LexResult[T]`, incremental mode relex returns `ModeRelexResult[T]`
+  with replacement diagnostics, and Markdown uses that total mode lexer
+  boundary directly.
 
 ## Context
 
@@ -22,8 +27,9 @@ The remaining high-level gap is the parser boundary:
 `Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
 formatted `Array[String]` values. Low-level parser code now carries
 `DiagnosticSet`. Prefix-lexer recovery now carries lexer diagnostics through
-`TokenBuffer`, while mode-aware lexing and the final high-level parser
-snapshot still need follow-up work.
+`TokenBuffer`, mode-aware lexing now carries lexer diagnostics through
+`LexResult`, and the final high-level parser snapshot still needs follow-up
+work.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -36,9 +42,9 @@ Verified against current code before writing this plan:
 - `Array[Diagnostic]` and generic `ParseSnapshot[Ast]` can derive `Eq` when
   `Ast : Eq`, so structured diagnostics can live behind `@incr.Memo`.
 - `SyntaxNode` implements `Eq`.
-- Prefix lexing can already recover inline, but mode-aware lexing still raises
-  `LexError`; total high-level parsing therefore needs a `LexResult` boundary
-  before `ParseOutcome::LexError` can disappear.
+- Prefix and mode-aware grammar lexing can already recover inline. The
+  remaining total high-level parsing work is replacing the engine-level
+  `ParseOutcome::LexError` side channel with a parse snapshot.
 
 ## Goals
 
@@ -237,15 +243,15 @@ Diagnostics carry messages; error tokens only need to preserve syntax shape.
 
 ### Mode Lexer
 
-`ModeLexer` currently raises on `Invalid` and `Incomplete` via
-`tokenize_with_modes` / `ModeRelexState`. Add recovering variants before
-removing the high-level lex-error side channel:
+`ModeLexer` keeps strict `tokenize_with_modes` for low-level callers, while
+`erase_mode_lexer` now builds a recoverable `ModeRelexState` for grammar use:
 
 - full mode lexing returns `LexResult[T]` plus mode state
-- mode relex returns replacement tokens, convergence index, and diagnostics
-- `Invalid` should advance with the same recovery law as `PrefixLexer`
-- the returned `next_mode` from `ModeLexer.lex_step` should be used after a
-  recovered invalid step; `Incomplete` records a diagnostic and stops at EOF
+- mode relex returns replacement tokens, starts, convergence index, and
+  diagnostics
+- `Invalid` advances with the same recovery law as `PrefixLexer`
+- the returned `next_mode` from `ModeLexer.lex_step` is used after a recovered
+  invalid step; `Incomplete` records a diagnostic and stops at EOF
 
 ## Parser Boundary
 
@@ -364,7 +370,7 @@ Line/column coordinates stay presentation-only and follow ADR
 2. Done: convert `ParserContext` parse diagnostics to `DiagnosticSet`.
 3. Done: convert low-level parse entry points to return `DiagnosticSet`.
 4. Done: add `LexResult[T]` and migrate the prefix-lexer recovery path.
-5. Add recovering mode-lexer variants and migrate Markdown.
+5. Done: add recovering mode-lexer variants and migrate Markdown.
 6. Done: change `Grammar` and factories to consume `LexResult[T]`.
    `TokenBuffer::new_from_lex` now accepts a total structured lexer, parser
    factories merge lexer diagnostics with parser diagnostics, recovery policy
@@ -408,7 +414,7 @@ cd examples/markdown && rtk moon test
 - Done: prefix lexer invalid/incomplete diagnostics.
 - Done: legacy resilient lexer diagnostics for recovered scalar ranges.
 - Done: prefix lexer non-BMP diagnostic range assertions.
-- Mode lexer invalid/incomplete diagnostics with mode-state recovery.
+- Done: mode lexer invalid/incomplete diagnostics with mode-state recovery.
 - Incremental reuse replays structured diagnostics without duplication.
 - Block reparse offsets and merges structured diagnostics.
 - `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count

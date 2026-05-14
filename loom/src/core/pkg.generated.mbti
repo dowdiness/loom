@@ -11,7 +11,7 @@ pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
 
-pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T) -> ModeRelexState[T]
+pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexState[T]
 
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
@@ -235,9 +235,16 @@ pub(all) struct ModeLexer[T, M] {
   initial_mode : M
 }
 
+pub struct ModeRelexResult[T] {
+  tokens : Array[TokenInfo[T]]
+  starts : Array[Int]
+  diagnostics : DiagnosticSet
+  converged_at_old_token : Int
+}
+
 pub struct ModeRelexState[T] {
-  tokenize : (String) -> (Array[TokenInfo[T]], Array[Int]) raise LexError
-  relex_from : (String, Int, Int, Int, Array[Int], Int) -> (Array[TokenInfo[T]], Int) raise LexError
+  tokenize : (String) -> LexResult[T]
+  relex_from : (String, Int, Int, Int, Array[Int], Int) -> ModeRelexResult[T]
 }
 
 type OldToken derive(Compare, Eq, @debug.Debug)

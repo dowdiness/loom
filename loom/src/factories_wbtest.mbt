@@ -250,15 +250,12 @@ fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
     parse_root=froot,
     reuse_size_threshold=0,
   )
-  Grammar::new(
-    spec~,
-    lex=flex,
-    fold_node=fn(s, _recurse) { s },
-    on_lex_error=fn(_msg) {
-      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-      @seam.SyntaxNode::from_cst(cst)
-    },
-  )
+  Grammar::new(spec~, lex=flex, fold_node=fn(s, _recurse) { s }, on_lex_error=fn(
+    _msg,
+  ) {
+    let cst = @seam.CstNode::new(fkind_raw(KErr), [])
+    @seam.SyntaxNode::from_cst(cst)
+  })
 }
 
 ///|
@@ -462,17 +459,10 @@ test "reparse_block preserves block lexer diagnostics" {
     let diagnostics = result.diagnostics.copy()
     diagnostics.push(
       @core.Diagnostic::lexer_error_at(
-        "block-only lexer diagnostic",
-        0,
-        1,
-        "block-lex",
+        "block-only lexer diagnostic", 0, 1, "block-lex",
       ),
     )
-    @core.LexResult::with_starts(
-      result.tokens,
-      result.starts,
-      diagnostics~,
-    )
+    @core.LexResult::with_starts(result.tokens, result.starts, diagnostics~)
   }
   let result = @core.reparse_block(
     old_syntax,
@@ -552,37 +542,15 @@ test "create_buffer: mode lex keeps total diagnostics" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
+    error_token=Err,
   )
   let lex = fn(source : String) -> @core.LexResult[FTok] {
-    let result : Result[
-      (Array[@core.TokenInfo[FTok]], Array[Int]),
-      @core.LexError,
-    ] = try? (state.tokenize)(source)
-    match result {
-      Ok((tokens, starts)) =>
-        @core.LexResult::with_starts(
-          tokens,
-          starts,
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(
-              "soft mode note",
-              0,
-              1,
-              "lex-note",
-            ),
-          ),
-        )
-      Err(@core.LexError(msg)) =>
-        @core.LexResult(
-          [
-            @core.TokenInfo::new(Err, source.length()),
-            @core.TokenInfo::new(Eof, 0),
-          ],
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(msg, 0, source.length(), "lex-error"),
-          ),
-        )
-    }
+    let result = (state.tokenize)(source)
+    let diagnostics = result.diagnostics()
+    diagnostics.push(
+      @core.Diagnostic::lexer_error_at("soft mode note", 0, 1, "lex-note"),
+    )
+    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
@@ -596,39 +564,22 @@ test "create_buffer: mode update skips total lex on incremental path" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
+    error_token=Err,
   )
   let lex_calls : Ref[Int] = Ref(0)
   let lex = fn(source : String) -> @core.LexResult[FTok] {
     lex_calls.val = lex_calls.val + 1
-    let result : Result[
-      (Array[@core.TokenInfo[FTok]], Array[Int]),
-      @core.LexError,
-    ] = try? (state.tokenize)(source)
-    match result {
-      Ok((tokens, starts)) =>
-        @core.LexResult::with_starts(
-          tokens,
-          starts,
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(
-              "mode source length " + source.length().to_string(),
-              0,
-              source.length(),
-              "lex-note",
-            ),
-          ),
-        )
-      Err(@core.LexError(msg)) =>
-        @core.LexResult(
-          [
-            @core.TokenInfo::new(Err, source.length()),
-            @core.TokenInfo::new(Eof, 0),
-          ],
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(msg, 0, source.length(), "lex-error"),
-          ),
-        )
-    }
+    let result = (state.tokenize)(source)
+    let diagnostics = result.diagnostics()
+    diagnostics.push(
+      @core.Diagnostic::lexer_error_at(
+        "mode source length " + source.length().to_string(),
+        0,
+        source.length(),
+        "lex-note",
+      ),
+    )
+    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
@@ -648,35 +599,10 @@ test "create_buffer: mode lex respects incremental opt out" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
+    error_token=Err,
   )
   let lex = fn(source : String) -> @core.LexResult[FTok] {
-    let result : Result[
-      (Array[@core.TokenInfo[FTok]], Array[Int]),
-      @core.LexError,
-    ] = try? (state.tokenize)(source)
-    match result {
-      Ok((tokens, starts)) =>
-        @core.LexResult::with_starts(
-          tokens,
-          starts,
-          diagnostics=@core.DiagnosticSet::empty(),
-        )
-      Err(@core.LexError(msg)) =>
-        @core.LexResult(
-          [
-            @core.TokenInfo::new(Err, source.length()),
-            @core.TokenInfo::new(Eof, 0),
-          ],
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(
-              msg,
-              0,
-              source.length(),
-              "lex-error",
-            ),
-          ),
-        )
-    }
+    (state.tokenize)(source)
   }
   let buffer = create_buffer(
     "a",
@@ -690,52 +616,38 @@ test "create_buffer: mode lex respects incremental opt out" {
     "a!",
   )
   inspect(updated is Ok(_), content="true")
-  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
-  debug_inspect(buffer.get_token(0), content="Err")
+  debug_inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"bad mode [1,2]\"]",
+  )
+  debug_inspect(buffer.get_token(0), content="A")
+  debug_inspect(buffer.get_token(1), content="Err")
 }
 
 ///|
-test "create_buffer: recovered mode lex disables stale mode relex" {
+test "create_buffer: recovered mode lex updates incrementally" {
   let state = @core.erase_mode_lexer(
     @core.ModeLexer::{ lex_step: fmode_step_lexer, initial_mode: FNormal },
     Eof,
+    error_token=Err,
   )
   let lex = fn(source : String) -> @core.LexResult[FTok] {
-    let result : Result[
-      (Array[@core.TokenInfo[FTok]], Array[Int]),
-      @core.LexError,
-    ] = try? (state.tokenize)(source)
-    match result {
-      Ok((tokens, starts)) =>
-        @core.LexResult::with_starts(
-          tokens,
-          starts,
-          diagnostics=@core.DiagnosticSet::empty(),
-        )
-      Err(@core.LexError(msg)) =>
-        @core.LexResult(
-          [
-            @core.TokenInfo::new(Err, source.length()),
-            @core.TokenInfo::new(Eof, 0),
-          ],
-          diagnostics=@core.DiagnosticSet::single(
-            @core.Diagnostic::lexer_error_at(
-              msg,
-              0,
-              source.length(),
-              "lex-error",
-            ),
-          ),
-        )
-    }
+    (state.tokenize)(source)
   }
   let buffer = create_buffer("!", lex, Eof, mode_relex=Some(state))
-  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,1]\"]")
+  debug_inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"bad mode [0,1]\"]",
+  )
   let updated : Result[Unit, @core.LexError] = try? buffer.update(
     @core.Edit::insert(1, 1),
     "!!",
   )
   inspect(updated is Ok(_), content="true")
-  debug_inspect(buffer.get_diagnostics().format(), content="[\"bad mode [0,2]\"]")
+  debug_inspect(
+    buffer.get_diagnostics().format(),
+    content="[\"bad mode [0,1]\", \"bad mode [1,2]\"]",
+  )
   debug_inspect(buffer.get_token(0), content="Err")
+  debug_inspect(buffer.get_token(1), content="Err")
 }

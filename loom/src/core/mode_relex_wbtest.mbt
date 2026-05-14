@@ -3,17 +3,22 @@
 
 ///|
 /// Helper: create a TokenBuffer with mode-aware re-lex for the mock language.
-fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] raise LexError {
+fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] {
   let lexer : ModeLexer[MockToken, MockMode] = {
     lex_step: mock_lex_step,
     initial_mode: Normal,
   }
-  let state = erase_mode_lexer(lexer, MockToken::EOF)
-  let (tokens, starts) = (state.tokenize)(source)
+  let state = erase_mode_lexer(
+    lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+    error_token_from_message=Some(fn(msg) { Error(msg) }),
+  )
+  let result = (state.tokenize)(source)
   TokenBuffer::new_with_mode_relex(
     source,
-    tokens,
-    starts,
+    result.tokens(),
+    result.starts(),
     MockToken::EOF,
     state,
   )
@@ -59,9 +64,10 @@ test "mode relex: delete quote reverts mode" {
 test "mode relex validates initial token stream" {
   let state : ModeRelexState[MockToken] = {
     tokenize: fn(_source) {
-      (
+      LexResult::with_starts(
         [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
         [0, 1],
+        diagnostics=DiagnosticSet::empty(),
       )
     },
     relex_from: fn(
@@ -73,7 +79,12 @@ test "mode relex validates initial token stream" {
       _edit_delta,
     ) {
       let replacement : Array[TokenInfo[MockToken]] = []
-      (replacement, old_token_count)
+      {
+        tokens: replacement,
+        starts: [],
+        diagnostics: DiagnosticSet::empty(),
+        converged_at_old_token: old_token_count,
+      }
     },
   }
   let buffer = TokenBuffer::new_with_mode_relex(

@@ -18,7 +18,7 @@ pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.I
 
 pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
-pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T) -> @core.ModeRelexState[T]
+pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexState[T]
 
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
@@ -101,6 +101,8 @@ pub using @core {type LineIndex}
 pub using @core {type LineRange}
 
 pub using @core {type ModeLexer}
+
+pub using @core {type ModeRelexResult}
 
 pub using @core {type ModeRelexState}
 
