@@ -34,7 +34,7 @@ pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
-pub suberror ParseError { ParseError(String, Token) }
+pub suberror ParseError { ParseError(String) }
 ```
 
 Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).

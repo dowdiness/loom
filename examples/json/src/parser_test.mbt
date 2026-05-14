@@ -180,25 +180,22 @@ test "parse surrogate pair escape" {
 }
 
 ///|
-test "parse error preserves offending token" {
+test "parse error reports formatted parser diagnostic" {
   let result = try? parse("]")
   match result {
-    Err(ParseError::ParseError(_, token)) =>
-      inspect(@debug.to_string(token), content="RBracket")
+    Err(ParseError::ParseError(message)) =>
+      inspect(message, content="Expected JSON value [0,1]")
     Err(_) => fail("expected ParseError")
     Ok(_) => fail("expected parse failure")
   }
 }
 
 ///|
-test "parse error preserves lexer error token message" {
+test "parse error reports formatted lexer diagnostic" {
   let result = try? parse("\"\\x\"")
   match result {
-    Err(ParseError::ParseError(_, token)) =>
-      inspect(
-        @debug.to_string(token),
-        content="Error(\"Invalid escape sequence\")",
-      )
+    Err(ParseError::ParseError(message)) =>
+      inspect(message, content="Invalid escape sequence [0,3]")
     Err(_) => fail("expected ParseError")
     Ok(_) => fail("expected parse failure")
   }

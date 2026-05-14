@@ -48,7 +48,7 @@ pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 
 // Errors
 pub suberror ParseError {
-  ParseError(String, Token)
+  ParseError(String)
 }
 
 // Types and methods

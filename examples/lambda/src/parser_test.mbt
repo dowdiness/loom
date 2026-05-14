@@ -204,25 +204,22 @@ test "parse error - unmatched right paren" {
 }
 
 ///|
-test "parse error preserves offending token" {
+test "parse error reports formatted parser diagnostic" {
   let result = try? parse("x)")
   match result {
-    Err(ParseError::ParseError(_, token)) =>
-      inspect(@debug.to_string(token), content="RightParen")
+    Err(ParseError::ParseError(message)) =>
+      inspect(message, content="Unexpected tokens after expression [1,2]")
     Err(_) => fail("expected ParseError")
     Ok(_) => fail("expected parse failure")
   }
 }
 
 ///|
-test "parse error preserves lexer error token message" {
+test "parse error reports formatted lexer diagnostic" {
   let result = try? parse("@")
   match result {
-    Err(ParseError::ParseError(_, token)) =>
-      inspect(
-        @debug.to_string(token),
-        content="Error(\"unexpected character: @ at position 0\")",
-      )
+    Err(ParseError::ParseError(message)) =>
+      inspect(message, content="unexpected character: @ at position 0 [0,1]")
     Err(_) => fail("expected ParseError")
     Ok(_) => fail("expected parse failure")
   }

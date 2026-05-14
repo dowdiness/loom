@@ -50,7 +50,7 @@ pub fn term_to_dot_resolved(@ast.Term, Resolution) -> String
 
 // Errors
 pub suberror ParseError {
-  ParseError(String, @token.Token)
+  ParseError(String)
 }
 
 // Types and methods

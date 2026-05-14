@@ -42,9 +42,9 @@ That parser-boundary gap is now closed. Prefix-lexer recovery carries lexer
 diagnostics through `TokenBuffer`, mode-aware lexing carries lexer diagnostics
 through `LexResult`, and the high-level parser publishes `ParseSnapshot[Ast]`
 with `DiagnosticSet` diagnostics. Remaining follow-up in this active plan is
-narrower: simplify example fail-fast `ParseError` payloads and decide whether
-the remaining string-first grammar call sites should migrate to the new
-structured helpers immediately or stay on the compatibility `error` wrapper.
+narrower: decide whether the remaining string-first grammar call sites should
+migrate to the new structured helpers immediately or stay on the compatibility
+`error` wrapper.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -452,10 +452,8 @@ cd examples/markdown && rtk moon test
   consistently. Primary range and token-evidence offsetting are covered by block
   reparse tests; add label-specific tests before relying on label-heavy
   diagnostics.
-- Example fail-fast `parse(...)` helpers still keep legacy token payloads in
-  their `ParseError` types and currently use EOF for structured diagnostics.
-  Follow up by simplifying those example errors to message-only or structured
-  diagnostic payloads.
+- Done: example fail-fast `parse(...)` helpers use message-only `ParseError`
+  payloads instead of reconstructing language-specific token payloads.
 
 ## Decision Record
 
