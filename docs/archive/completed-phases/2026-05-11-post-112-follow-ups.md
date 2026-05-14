@@ -1,6 +1,28 @@
 # Post-112 Follow-Ups
 
-**Status:** Active
+**Status:** Complete
+
+**Completed:** 2026-05-15
+
+## Completion Note
+
+The follow-ups from PR #112 are closed. Parser-level structured diagnostics
+landed through `ParseSnapshot[Ast]`, `DiagnosticSet`, parser snapshot accessors,
+and parser-context reporting helpers. Legacy resilient lexer recovery now
+advances on Unicode scalar boundaries, and the recoverable
+`error_token_from_message` contract is documented in the public API and example
+READMEs.
+
+Incremental `LineIndex` maintenance remains intentionally deferred. Rebuild the
+line index from source text unless profiling shows `LineIndex::new(source)` is a
+real editor-loop cost.
+
+Decision record:
+
+- No ADR needed: this plan closed follow-up work already covered by the
+  [line/column source-location ADR](../../decisions/2026-05-11-derived-source-locations.md)
+  and the
+  [structured parser diagnostics ADR](../../decisions/2026-05-14-structured-parser-diagnostics-boundary.md).
 
 ## Context
 
@@ -21,7 +43,7 @@ the following token.
    structured diagnostics through `DiagnosticSet` and `ParseSnapshot[Ast]`.
    Parser convenience methods should still derive presentation coordinates from
    `LineIndex` rather than storing line/column data. Design captured in
-   [Parser-Level Structured Diagnostics](../archive/completed-phases/2026-05-12-parser-structured-diagnostics.md).
+   [Parser-Level Structured Diagnostics](2026-05-12-parser-structured-diagnostics.md).
 
 2. Incremental `LineIndex` only if profiling justifies it.
 

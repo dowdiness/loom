@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-11
 **Status:** Accepted
-**Implementation plan:** [docs/plans/2026-05-11-post-112-follow-ups.md](../plans/2026-05-11-post-112-follow-ups.md)
+**Implementation plan:** [docs/archive/completed-phases/2026-05-11-post-112-follow-ups.md](../archive/completed-phases/2026-05-11-post-112-follow-ups.md)
 
 ## Context
 

@@ -118,7 +118,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [plans/2026-05-11-post-112-follow-ups.md](plans/2026-05-11-post-112-follow-ups.md) — follow-ups after PR #112: completed parser-level structured diagnostics, optional incremental line index, legacy resilient lexer Unicode cleanup, and `error_token_from_message` API docs.
+- No active plans.
 
 ---
 
@@ -126,7 +126,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 > **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
 
-- [archive/completed-phases/](archive/completed-phases/) — 90 completed phase plans (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, and more)
+- [archive/completed-phases/](archive/completed-phases/) — 91 completed phase plans (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, post-112 follow-ups, and more)
 - [archive/](archive/) — research notes and retired design snapshots:
   - [archive/lezer.md](archive/lezer.md), [archive/LEZER_IMPLEMENTATION.md](archive/LEZER_IMPLEMENTATION.md), [archive/LEZER_FRAGMENT_REUSE.md](archive/LEZER_FRAGMENT_REUSE.md) — Lezer parser framework investigation
   - [archive/green-tree-extraction.md](archive/green-tree-extraction.md) — Green Tree / Red Tree research

@@ -151,15 +151,16 @@ and common LSP position conventions.
 
 ## Deferred Follow-Up
 
-Parser-level convenience APIs should be a separate design; see the active
-follow-up plan:
+Parser-level convenience APIs were tracked in the completed follow-up plan:
 
-- [../../plans/2026-05-11-post-112-follow-ups.md](../../plans/2026-05-11-post-112-follow-ups.md)
+- [2026-05-11-post-112-follow-ups.md](2026-05-11-post-112-follow-ups.md)
 
-`Parser::diagnostics()` and `ImperativeParser::diagnostics()` currently expose
-`Array[String]`, so structured diagnostic spans are erased at that boundary.
-Adding `Parser::line_index()` or `diagnostics_with_line_col()` is useful only
-after deciding whether parser APIs should retain structured diagnostics.
+At plan acceptance time, `Parser::diagnostics()` and
+`ImperativeParser::diagnostics()` exposed `Array[String]`, so structured
+diagnostic spans were erased at that boundary. As of 2026-05-14, parser APIs
+retain structured diagnostics through `DiagnosticSet` and `ParseSnapshot[Ast]`;
+presentation helpers should still derive line/column positions from
+`LineIndex`.
 
 If line-index construction shows up in profiles, add an incremental
 `LineIndex::apply_edit(old_source, new_source, edit)` later. The first patch
