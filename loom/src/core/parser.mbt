@@ -406,22 +406,18 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
 }
 
 ///|
-/// Record a diagnostic at the current position. Does not consume a token.
-/// Captures the offending token so consumers never need to re-tokenize.
-/// If an equivalent diagnostic (same message/start/end) already exists, this
-/// updates the stored token payload instead of appending a duplicate entry.
-fn[T : @seam.ToRawKind, K] ParserContext::make_parser_diagnostic(
-  self : ParserContext[T, K],
+/// Build a parser diagnostic for a known token span. The token payload is
+/// erased immediately so consumers never need to re-tokenize for evidence.
+fn[T : @seam.ToRawKind] make_parser_diagnostic(
   msg : String,
   start : Int,
   end : Int,
   token : T,
+  code? : DiagnosticCode? = None,
 ) -> Diagnostic {
-  ignore(self)
   let notes : Array[String] = []
   let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start,
-    end,
+    start, end,
   )
   let primary = match range_result {
     Ok(range) => Some(range)
@@ -439,6 +435,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::make_parser_diagnostic(
   Diagnostic(
     source=DiagnosticSource::parser(),
     severity=Error,
+    code~,
     message=msg,
     primary~,
     notes~,
@@ -447,11 +444,43 @@ fn[T : @seam.ToRawKind, K] ParserContext::make_parser_diagnostic(
 }
 
 ///|
-pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
+/// Report an already-structured diagnostic through parser diagnostic
+/// collection. Equivalent parser diagnostics refresh token evidence instead of
+/// creating duplicates.
+pub fn[T, K] ParserContext::report(
   self : ParserContext[T, K],
-  msg : String,
+  diagnostic : Diagnostic,
 ) -> Unit {
-  // Find the next non-trivia token and compute its position directly.
+  let _ = self.push_diagnostic_unique(diagnostic)
+}
+
+///|
+/// Report a parser error with an explicit optional range.
+pub fn[T, K] ParserContext::report_error(
+  self : ParserContext[T, K],
+  message~ : String,
+  code? : DiagnosticCode? = None,
+  range? : TextRange? = None,
+) -> Unit {
+  self.report(
+    Diagnostic(
+      source=DiagnosticSource::parser(),
+      severity=Error,
+      code~,
+      message~,
+      primary=range,
+    ),
+  )
+}
+
+///|
+/// Report a parser error at the current non-trivia token, or at EOF when no
+/// token remains. The token type is erased through `ToRawKind`.
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(
+  self : ParserContext[T, K],
+  message~ : String,
+  code? : DiagnosticCode? = None,
+) -> Unit {
   let mut pos = self.position
   while pos < self.token_count {
     let token = (self.get_token)(pos)
@@ -461,15 +490,33 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
       let start = (self.get_start)(pos)
       let end = (self.get_end)(pos)
       let _ = self.push_diagnostic_unique(
-        self.make_parser_diagnostic(msg, start, end, token),
+        make_parser_diagnostic(message, start, end, token, code~),
       )
       return
     }
   }
   let eof = self.source.length()
   let _ = self.push_diagnostic_unique(
-    self.make_parser_diagnostic(msg, eof, eof, self.spec.eof_token),
+    make_parser_diagnostic(message, eof, eof, self.spec.eof_token, code~),
   )
+}
+
+///|
+/// Report a simple "expected ..." parser diagnostic at the current token.
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(
+  self : ParserContext[T, K],
+  expected~ : String,
+  code? : DiagnosticCode? = None,
+) -> Unit {
+  self.report_at_current(message="expected " + expected, code~)
+}
+
+///|
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
+  self : ParserContext[T, K],
+  msg : String,
+) -> Unit {
+  self.report_at_current(message=msg)
 }
 
 ///|
@@ -724,7 +771,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
   for span in spans {
     let info = self.token_info_at_or_after(self.position, span.start)
     let _ = self.push_diagnostic_unique(
-      self.make_parser_diagnostic(
+      make_parser_diagnostic(
         "reused syntax error",
         span.start,
         span.end,

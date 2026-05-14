@@ -263,8 +263,7 @@ fn push_offset_diagnostic(
   context : String,
 ) -> Unit {
   let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
-    delta,
-    after,
+    delta, after,
   )
   match shifted {
     Ok(diagnostic) => result.push(diagnostic)
@@ -312,7 +311,9 @@ fn merge_diagnostics(
           result.push(d) // before: keep as-is
         } else if start >= block_old_end {
           // after: shift by delta
-          push_offset_diagnostic(result, d, delta, old_after, "old diagnostic after block")
+          push_offset_diagnostic(
+            result, d, delta, old_after, "old diagnostic after block",
+          )
         }
       }
     }
@@ -404,7 +405,11 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   )
   // 7. Merge diagnostics
   let merged = merge_diagnostics(
-    old_diagnostics, block_start, block_old_end, new_diags, edit.delta(),
+    old_diagnostics,
+    block_start,
+    block_old_end,
+    new_diags,
+    edit.delta(),
   )
   Some((new_root, merged))
 }

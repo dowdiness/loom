@@ -72,7 +72,10 @@ test "TokenBuffer::update preserves explicit LexResult starts from range relex" 
     eof_token="EOF",
   )
   buf.update(Edit::insert(2, 1), "ab!c")
-  debug_inspect(buf.get_tokens().map(fn(t) { t.token }), content="[\"ERR\", \"EOF\"]")
+  debug_inspect(
+    buf.get_tokens().map(fn(t) { t.token }),
+    content="[\"ERR\", \"EOF\"]",
+  )
   debug_inspect(buf.get_starts(), content="[2, 4]")
   debug_inspect(buf.get_diagnostics().format(), content="[\"bad bang [2,3]\"]")
 }

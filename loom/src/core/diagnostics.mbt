@@ -97,7 +97,8 @@ fn[T] validate_lex_result_starts(
       } else if starts[i] < prev_end {
         diagnostics.push(
           Diagnostic::lexer_error(
-            "LexResult received overlapping token spans at index " + i.to_string(),
+            "LexResult received overlapping token spans at index " +
+            i.to_string(),
           ),
         )
       }
@@ -118,7 +119,9 @@ pub(all) suberror DiagnosticBuildError {
 } derive(Debug)
 
 ///|
-pub fn TextOffset::TextOffset(value : Int) -> TextOffset raise DiagnosticBuildError {
+pub fn TextOffset::TextOffset(
+  value : Int,
+) -> TextOffset raise DiagnosticBuildError {
   guard value >= 0 else { raise NegativeTextOffset(value) }
   { value, }
 }
@@ -338,8 +341,7 @@ pub fn Diagnostic::lexer_error_at(
   code : String,
 ) -> Diagnostic {
   let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start,
-    end,
+    start, end,
   )
   let (range, notes) = match range_result {
     Ok(range) => (Some(range), [])
@@ -700,10 +702,7 @@ pub fn DiagnosticSet::after_relex(
           RelexPreserve => result.push(diagnostic)
           RelexShift =>
             result.push_shifted_after_relex(
-              diagnostic,
-              delta,
-              after,
-              failure_context,
+              diagnostic, delta, after, failure_context,
             )
           RelexDrop => ()
         }
@@ -722,8 +721,7 @@ fn DiagnosticSet::push_shifted_after_relex(
   failure_context : String,
 ) -> Unit {
   let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
-    delta,
-    after,
+    delta, after,
   )
   match shifted {
     Ok(diagnostic) => self.push(diagnostic)

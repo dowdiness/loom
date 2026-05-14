@@ -25,8 +25,7 @@ test "Diagnostic stores message and primary range" {
 ///|
 fn test_range_or_abort(start : Int, end : Int) -> TextRange {
   let result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start,
-    end,
+    start, end,
   )
   match result {
     Ok(range) => range
@@ -76,6 +75,51 @@ fn diagnostic_token_raw(diagnostic : Diagnostic) -> Int {
     }
     None => abort("expected diagnostic token evidence")
   }
+}
+
+///|
+fn diagnostic_token_start(diagnostic : Diagnostic) -> Int {
+  match diagnostic.token {
+    Some(evidence) => evidence.range.start().value()
+    None => abort("expected diagnostic token evidence")
+  }
+}
+
+///|
+fn diagnostic_token_end(diagnostic : Diagnostic) -> Int {
+  match diagnostic.token {
+    Some(evidence) => evidence.range.end().value()
+    None => abort("expected diagnostic token evidence")
+  }
+}
+
+///|
+fn diagnostic_code_value(diagnostic : Diagnostic) -> String {
+  match diagnostic.code {
+    Some(code) => code.value()
+    None => abort("expected diagnostic code")
+  }
+}
+
+///|
+fn find_diagnostic_by_message(
+  diagnostics : DiagnosticSet,
+  message : String,
+) -> Diagnostic {
+  for diagnostic in diagnostics.items() {
+    if diagnostic.message == message {
+      return diagnostic
+    }
+  }
+  abort("expected diagnostic with message: " + message)
+}
+
+///|
+fn has_diagnostic_message(
+  diagnostics : DiagnosticSet,
+  message : String,
+) -> Bool {
+  diagnostics.items().iter().any(diagnostic => diagnostic.message == message)
 }
 
 ///|
@@ -166,6 +210,83 @@ test "token_text_at handles token spans that split surrogate pairs" {
   inspect(high.code_unit_at(0).to_int(), content="55357")
   inspect(low.length(), content="1")
   inspect(low.code_unit_at(0).to_int(), content="56832")
+}
+
+///|
+test "ParserContext::report records explicit structured diagnostic" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.report_error(
+    message="manual parser diagnostic",
+    code=Some(DiagnosticCode("parse.manual")),
+    range=Some(test_range_or_abort(0, 1)),
+  )
+  inspect(ctx.diagnostics.length(), content="1")
+  let diagnostic = ctx.diagnostics.items()[0]
+  inspect(diagnostic.message, content="manual parser diagnostic")
+  inspect(diagnostic_code_value(diagnostic), content="parse.manual")
+  inspect(diagnostic_start(diagnostic), content="0")
+  inspect(diagnostic_end(diagnostic), content="1")
+  inspect(diagnostic.token is None, content="true")
+}
+
+///|
+test "ParserContext::report_at_current attaches current token evidence" {
+  let src = "  +"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.report_at_current(
+    message="current token diagnostic",
+    code=Some(DiagnosticCode("parse.current")),
+  )
+  inspect(ctx.diagnostics.length(), content="1")
+  let diagnostic = ctx.diagnostics.items()[0]
+  inspect(diagnostic.message, content="current token diagnostic")
+  inspect(diagnostic_code_value(diagnostic), content="parse.current")
+  inspect(diagnostic_start(diagnostic), content="2")
+  inspect(diagnostic_end(diagnostic), content="3")
+  inspect(diagnostic_token_raw(diagnostic), content="1")
+  inspect(diagnostic_token_start(diagnostic), content="2")
+  inspect(diagnostic_token_end(diagnostic), content="3")
+}
+
+///|
+test "ParserContext::report_at_current attaches EOF token evidence" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.emit_token(KNum)
+  ctx.report_at_current(
+    message="missing trailing expression",
+    code=Some(DiagnosticCode("parse.eof")),
+  )
+  inspect(ctx.diagnostics.length(), content="1")
+  let diagnostic = ctx.diagnostics.items()[0]
+  inspect(diagnostic_code_value(diagnostic), content="parse.eof")
+  inspect(diagnostic_start(diagnostic), content="1")
+  inspect(diagnostic_end(diagnostic), content="1")
+  inspect(diagnostic_token_raw(diagnostic), content="7")
+  inspect(diagnostic_token_start(diagnostic), content="1")
+  inspect(diagnostic_token_end(diagnostic), content="1")
+}
+
+///|
+test "ParserContext::report_expected uses current token evidence" {
+  let src = "+"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.report_expected(
+    expected="number",
+    code=Some(DiagnosticCode("parse.expected.number")),
+  )
+  inspect(ctx.diagnostics.length(), content="1")
+  let diagnostic = ctx.diagnostics.items()[0]
+  inspect(diagnostic.message, content="expected number")
+  inspect(diagnostic_code_value(diagnostic), content="parse.expected.number")
+  inspect(diagnostic_start(diagnostic), content="0")
+  inspect(diagnostic_end(diagnostic), content="1")
+  inspect(diagnostic_token_raw(diagnostic), content="1")
 }
 
 ///|
@@ -843,8 +964,12 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
     test_spec,
   )
   let old_diags = DiagnosticSet::empty()
-  old_diags.push(test_parser_diagnostic("inside-first-node", 0, 1, TestTok::Num(1)))
-  old_diags.push(test_parser_diagnostic("boundary-next-sibling", 1, 1, TestTok::Ws))
+  old_diags.push(
+    test_parser_diagnostic("inside-first-node", 0, 1, TestTok::Num(1)),
+  )
+  old_diags.push(
+    test_parser_diagnostic("boundary-next-sibling", 1, 1, TestTok::Ws),
+  )
   let ctx = ParserContext::new(toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_diags)
@@ -937,7 +1062,10 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
 
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(
+    ctx.diagnostics.items()[0].message,
+    content="missing trailing expression",
+  )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
@@ -987,7 +1115,10 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
   })
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(
+    ctx.diagnostics.items()[0].message,
+    content="missing trailing expression",
+  )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
@@ -1033,7 +1164,10 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
 
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="missing trailing expression")
+  inspect(
+    ctx.diagnostics.items()[0].message,
+    content="missing trailing expression",
+  )
   inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
 }
 
@@ -1289,7 +1423,56 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
   grammar_incomplete_at_eof(ctx)
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="expected Plus, got TokEof")
+  inspect(
+    ctx.diagnostics.items()[0].message,
+    content="expected Plus, got TokEof",
+  )
+}
+
+///|
+test "ParserContext reuse: replays structured diagnostic code and token evidence" {
+  fn grammar_structured_eof(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.report_at_current(
+        message="missing plus",
+        code=Some(DiagnosticCode("parse.expected.plus")),
+      )
+      ctx.emit_incomplete_placeholder()
+    })
+  }
+
+  let src = "1"
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let (old_tree, old_errors) = parse_with(
+    src, test_spec, test_tokenize, grammar_structured_eof,
+  )
+  inspect(old_errors.length(), content="1")
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.set_reuse_diagnostics(old_errors)
+  grammar_structured_eof(ctx)
+
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.diagnostics.length(), content="1")
+  let diagnostic = ctx.diagnostics.items()[0]
+  inspect(diagnostic.message, content="missing plus")
+  inspect(diagnostic_code_value(diagnostic), content="parse.expected.plus")
+  inspect(diagnostic_start(diagnostic), content="1")
+  inspect(diagnostic_end(diagnostic), content="1")
+  inspect(diagnostic_token_raw(diagnostic), content="7")
 }
 
 ///|
@@ -1397,9 +1580,10 @@ test "parse_with: unclosed node is auto-closed with diagnostic" {
     ctx.emit_token(KNum)
   })
   inspect(tree.text_len, content="1")
-  let has_unclosed = errors.items().iter().any(fn(e) {
-    e.message.contains("unclosed")
-  })
+  let has_unclosed = errors
+    .items()
+    .iter()
+    .any(fn(e) { e.message.contains("unclosed") })
   inspect(has_unclosed, content="true")
 }
 
@@ -1426,10 +1610,117 @@ test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
     fn(i) { starts[i] + toks[i].len },
     spec,
   )
-  let has_unclosed = errors.items().iter().any(fn(e) {
-    e.message.contains("unclosed")
-  })
+  let has_unclosed = errors
+    .items()
+    .iter()
+    .any(fn(e) { e.message.contains("unclosed") })
   inspect(has_unclosed, content="true")
+}
+
+///|
+test "reparse_block offsets new structured diagnostics and drops stale block diagnostics" {
+  fn emit_num_or_error(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    match ctx.peek() {
+      Num(_) => ctx.emit_token(KNum)
+      _ => {
+        ctx.report_expected(
+          expected="number",
+          code=Some(DiagnosticCode("parse.expected.number")),
+        )
+        ctx.emit_error_placeholder()
+      }
+    }
+  }
+
+  fn emit_plus_or_error(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    if ctx.at(Plus) {
+      ctx.emit_token(KPlus)
+    } else {
+      ctx.report_expected(
+        expected="Plus",
+        code=Some(DiagnosticCode("parse.expected.plus")),
+      )
+      ctx.emit_error_placeholder()
+    }
+  }
+
+  fn parse_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      emit_num_or_error(ctx)
+      emit_plus_or_error(ctx)
+      emit_num_or_error(ctx)
+    })
+  }
+
+  fn grammar(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() { emit_num_or_error(ctx) })
+    parse_expr(ctx)
+  }
+
+  let old_src = "0 1 + 2"
+  let new_src = "0 1    2"
+  let (old_tree, _) = parse_with(old_src, test_spec, test_tokenize, grammar)
+  let old_syntax = @seam.SyntaxNode::from_cst(old_tree)
+  let old_diagnostics = DiagnosticSet::empty()
+  old_diagnostics.push(
+    test_parser_diagnostic("before old block", 0, 1, TestTok::Num(0)),
+  )
+  old_diagnostics.push(
+    test_parser_diagnostic("inside old block", 2, 3, TestTok::Num(1)),
+  )
+  old_diagnostics.push(
+    test_parser_diagnostic("after old block", 7, 7, TestTok::TokEof),
+  )
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: kind => {
+      if kind == test_kind_raw(KExpr) {
+        Some(parse_expr)
+      } else {
+        None
+      }
+    },
+    is_balanced: _ => true,
+  }
+  let lex = fn(source : String) -> LexResult[TestTok] {
+    let (tokens, starts) = test_tokenize_with_starts(source)
+    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  }
+  let result = reparse_block(
+    old_syntax,
+    new_src,
+    Edit::new(4, 1, 2),
+    lex,
+    test_spec,
+    block_spec,
+    old_diagnostics,
+  )
+  let diagnostics = match result {
+    Some((_, diagnostics)) => diagnostics
+    None => abort("expected block reparse result")
+  }
+
+  inspect(
+    has_diagnostic_message(diagnostics, "before old block"),
+    content="true",
+  )
+  inspect(
+    has_diagnostic_message(diagnostics, "inside old block"),
+    content="false",
+  )
+  let after = find_diagnostic_by_message(diagnostics, "after old block")
+  inspect(diagnostic_start(after), content="8")
+  inspect(diagnostic_end(after), content="8")
+  inspect(diagnostic_token_start(after), content="8")
+  inspect(diagnostic_token_end(after), content="8")
+
+  let expected = find_diagnostic_by_message(diagnostics, "expected Plus")
+  inspect(diagnostic_code_value(expected), content="parse.expected.plus")
+  inspect(diagnostic_start(expected), content="7")
+  inspect(diagnostic_end(expected), content="8")
+  inspect(diagnostic_token_raw(expected), content="0")
+  inspect(diagnostic_token_start(expected), content="7")
+  inspect(diagnostic_token_end(expected), content="8")
 }
 
 ///|

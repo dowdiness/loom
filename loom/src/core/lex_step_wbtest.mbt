@@ -71,10 +71,7 @@ fn zero_width_invalid_all_lexer(
 // -- Test lexer: reports one-code-unit Invalid at every offset --
 
 ///|
-fn width_one_invalid_all_lexer(
-  source : String,
-  start : Int,
-) -> LexStep[String] {
+fn width_one_invalid_all_lexer(source : String, start : Int) -> LexStep[String] {
   if start >= source.length() {
     return Done
   }
@@ -299,7 +296,10 @@ test "new_from_steps: error token for Invalid" {
   let tokens = buf.get_tokens()
   let rendered = render_tokens(tokens)
   inspect(rendered, content="char@0-1,ERR@1-2,char@2-3,EOF@3-3")
-  debug_inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  debug_inspect(
+    buf.get_diagnostics().format(),
+    content="[\"bad char @ [1,2]\"]",
+  )
 }
 
 ///|

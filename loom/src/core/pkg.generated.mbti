@@ -294,6 +294,10 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
+pub fn[T, K] ParserContext::report(Self[T, K], Diagnostic) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(Self[T, K], message~ : String, code? : DiagnosticCode?) -> Unit
+pub fn[T, K] ParserContext::report_error(Self[T, K], message~ : String, code? : DiagnosticCode?, range? : TextRange?) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(Self[T, K], expected~ : String, code? : DiagnosticCode?) -> Unit
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit

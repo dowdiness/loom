@@ -23,6 +23,11 @@
   snapshots, `Parser` stores one snapshot signal with derived views, diagnostics
   are `DiagnosticSet`, `syntax_tree()` is total, `ParseOutcome` is removed, and
   the unused grammar `on_lex_error` callback is gone.
+- 2026-05-14: `ParserContext` now exposes structured reporting helpers:
+  `report`, `report_error`, `report_at_current`, and `report_expected`.
+  Current-token and EOF diagnostics carry token-erased evidence through
+  `ToRawKind`, and focused tests cover structured reuse replay plus block
+  reparse diagnostic offset/merge behavior.
 
 ## Context
 
@@ -37,9 +42,9 @@ That parser-boundary gap is now closed. Prefix-lexer recovery carries lexer
 diagnostics through `TokenBuffer`, mode-aware lexing carries lexer diagnostics
 through `LexResult`, and the high-level parser publishes `ParseSnapshot[Ast]`
 with `DiagnosticSet` diagnostics. Remaining follow-up in this active plan is
-narrower: replace string-first `ParserContext` reporting helpers, add direct
-tests for structured-diagnostic replay and block-reparse merging, and simplify
-example fail-fast `ParseError` payloads.
+narrower: simplify example fail-fast `ParseError` payloads and decide whether
+the remaining string-first grammar call sites should migrate to the new
+structured helpers immediately or stay on the compatibility `error` wrapper.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -319,8 +324,7 @@ to:
 diagnostics : DiagnosticSet
 ```
 
-Follow-up work should replace the remaining string-first reporting helpers with
-structured reporting:
+`ParserContext` now has structured reporting helpers:
 
 ```moonbit
 ParserContext::report(Diagnostic) -> Unit
@@ -329,15 +333,14 @@ ParserContext::report_at_current(message~ : String, code? : DiagnosticCode?) -> 
 ParserContext::report_expected(expected~ : String, code? : DiagnosticCode?) -> Unit
 ```
 
-`report_at_current` should record token evidence when `T : ToRawKind`:
+`report_at_current` records token evidence when `T : ToRawKind`:
 
 - current token range from `get_start` / `get_end`
 - current token kind from `get_token(i).to_raw()`
 - EOF token evidence from `spec.eof_token.to_raw()` and zero-width EOF range
 
-This likely tightens parse entry point bounds from `T : IsTrivia` to
-`T : IsTrivia + ToRawKind` for APIs that report diagnostics. Current example
-tokens already satisfy that bound, and reuse already depends on it.
+The compatibility `error(String)` wrapper remains for existing grammar call
+sites and delegates to `report_at_current`.
 
 ## Incremental Reuse And Block Reparse
 
@@ -425,13 +428,13 @@ cd examples/markdown && rtk moon test
 
 - `DiagnosticSet` construction, defensive-copy, formatting, and dedupe tests.
 - `TextOffset` / `TextRange` invariant tests.
-- `ParserContext::report_at_current` token-evidence tests.
+- Done: `ParserContext::report_at_current` token-evidence tests.
 - Done: prefix lexer invalid/incomplete diagnostics.
 - Done: legacy resilient lexer diagnostics for recovered scalar ranges.
 - Done: prefix lexer non-BMP diagnostic range assertions.
 - Done: mode lexer invalid/incomplete diagnostics with mode-state recovery.
-- Incremental reuse replays structured diagnostics without duplication.
-- Block reparse offsets and merges structured diagnostics.
+- Done: incremental reuse replays structured diagnostics without duplication.
+- Done: block reparse offsets and merges structured diagnostics.
 - Done: `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count
   atomically.
 - Line/column formatting derives from `LineIndex` without mutating stored
@@ -446,7 +449,9 @@ cd examples/markdown && rtk moon test
   first implementation because parser updates already know when source changes.
   Revisit only if profiling shows snapshot equality is hot.
 - `DiagnosticSet::offset_by` must preserve optional ranges and labels
-  consistently. Add direct tests before using it in block reparse.
+  consistently. Primary range and token-evidence offsetting are covered by block
+  reparse tests; add label-specific tests before relying on label-heavy
+  diagnostics.
 - Example fail-fast `parse(...)` helpers still keep legacy token payloads in
   their `ParseError` types and currently use EOF for structured diagnostics.
   Follow up by simplifying those example errors to message-only or structured

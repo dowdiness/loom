@@ -10,8 +10,7 @@ fn test_offset(value : Int) -> TextOffset {
 ///|
 fn test_range(start : Int, end : Int) -> TextRange {
   let result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start,
-    end,
+    start, end,
   )
   match result {
     Ok(range) => range
@@ -26,8 +25,7 @@ fn test_shift(
   after : TextOffset,
 ) -> DiagnosticSet {
   let result : Result[DiagnosticSet, DiagnosticBuildError] = try? set.offset_by(
-    delta,
-    after,
+    delta, after,
   )
   match result {
     Ok(set) => set
@@ -158,7 +156,10 @@ test "DiagnosticSet offset_by shifts ranges at or after boundary" {
   set.push(test_diagnostic("before", 0, 1, 1))
   set.push(test_diagnostic("after", 3, 4, 2))
   let shifted = test_shift(set, 10, test_offset(2))
-  debug_inspect(shifted.format(), content="[\"before [0,1]\", \"after [13,14]\"]")
+  debug_inspect(
+    shifted.format(),
+    content="[\"before [0,1]\", \"after [13,14]\"]",
+  )
   match shifted.items()[1].token {
     Some(token) => inspect(token.range.start().value(), content="13")
     None => abort("expected token evidence")

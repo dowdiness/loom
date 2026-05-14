@@ -54,7 +54,10 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
     })
     .join(",")
   inspect(rendered, content="char@0-1,ERR@1-2,char@2-3,EOF@3-3")
-  debug_inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  debug_inspect(
+    buf.get_diagnostics().format(),
+    content="[\"bad char @ [1,2]\"]",
+  )
 }
 
 ///|
@@ -65,7 +68,10 @@ test "TokenBuffer::update clears diagnostics for repaired resilient error" {
     eof_token="EOF",
     error_token="ERR",
   )
-  debug_inspect(buf.get_diagnostics().format(), content="[\"bad char @ [1,2]\"]")
+  debug_inspect(
+    buf.get_diagnostics().format(),
+    content="[\"bad char @ [1,2]\"]",
+  )
   buf.update(Edit::replace(1, 2, 2), "acb")
   debug_inspect(buf.get_diagnostics().format(), content="[]")
 }
