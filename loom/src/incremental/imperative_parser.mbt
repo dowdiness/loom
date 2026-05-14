@@ -5,9 +5,7 @@
 pub struct ImperativeParser[Ast] {
   priv lang : ImperativeLanguage[Ast]
   priv mut source : String
-  priv mut tree : Ast?
-  priv mut syntax_tree : @seam.SyntaxNode?
-  priv mut last_reuse_count : Int
+  priv mut snapshot : ParseSnapshot[Ast]?
   priv mut prev_cst : @seam.CstNode? // cached CstNode from last successful parse
 }
 
@@ -16,49 +14,40 @@ pub fn[Ast] ImperativeParser::new(
   source : String,
   lang : ImperativeLanguage[Ast],
 ) -> ImperativeParser[Ast] {
-  {
-    lang,
-    source,
-    tree: None,
-    syntax_tree: None,
-    last_reuse_count: 0,
-    prev_cst: None,
-  }
+  { lang, source, snapshot: None, prev_cst: None }
 }
-
-// Shared state update for a successful parse result.
-// Safe: prev_cst is Some only when self.tree was set in a prior successful parse.
 
 ///|
 fn[Ast] ImperativeParser::accept_tree(
   self : ImperativeParser[Ast],
+  source : String,
   syntax : @seam.SyntaxNode,
+  diagnostics : @core.DiagnosticSet,
   reuse_count : Int,
-) -> Ast {
+) -> ParseSnapshot[Ast] {
   let new_cst = syntax.cst_node()
-  let ast = match self.prev_cst {
-    Some(old_cst) if old_cst == new_cst => self.tree.unwrap()
+  let ast = match (self.prev_cst, self.snapshot) {
+    (Some(old_cst), Some(snapshot)) if old_cst == new_cst => snapshot.ast
     _ => (self.lang.to_ast)(syntax)
   }
-  self.syntax_tree = Some(syntax)
+  let snapshot : ParseSnapshot[Ast] = {
+    source,
+    syntax,
+    ast,
+    diagnostics: diagnostics.copy(),
+    reuse_count,
+  }
+  self.snapshot = Some(snapshot)
   self.prev_cst = Some(new_cst)
-  self.last_reuse_count = reuse_count
-  ast
+  snapshot.copy()
 }
 
 ///|
-pub fn[Ast] ImperativeParser::parse(self : ImperativeParser[Ast]) -> Ast {
-  let tree = match (self.lang.full_parse)(self.source) {
-    Tree(syntax, _) => self.accept_tree(syntax, 0)
-    LexError(msg) => {
-      self.syntax_tree = None
-      self.prev_cst = None
-      self.last_reuse_count = 0
-      (self.lang.on_lex_error)(msg)
-    }
-  }
-  self.tree = Some(tree)
-  tree
+pub fn[Ast] ImperativeParser::parse(
+  self : ImperativeParser[Ast],
+) -> ParseSnapshot[Ast] {
+  let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(self.source)
+  self.accept_tree(self.source, syntax, diagnostics, reuse_count)
 }
 
 ///|
@@ -66,27 +55,22 @@ pub fn[Ast] ImperativeParser::edit(
   self : ImperativeParser[Ast],
   edit : @core.Edit,
   new_source : String,
-) -> Ast {
+) -> ParseSnapshot[Ast] {
   self.source = new_source
-  if self.syntax_tree is None {
+  if self.snapshot is None {
     return self.parse()
   }
-  let new_tree = match self.syntax_tree {
-    Some(old_syntax) =>
-      match (self.lang.incremental_parse)(new_source, old_syntax, edit) {
-        Tree(new_syntax, reuse_count) =>
-          self.accept_tree(new_syntax, reuse_count)
-        LexError(msg) => {
-          self.syntax_tree = None
-          self.prev_cst = None
-          self.last_reuse_count = 0
-          (self.lang.on_lex_error)(msg)
-        }
-      }
+  match self.snapshot {
+    Some(old_snapshot) => {
+      let (syntax, diagnostics, reuse_count) = (self.lang.incremental_parse)(
+        new_source,
+        old_snapshot.syntax,
+        edit,
+      )
+      self.accept_tree(new_source, syntax, diagnostics, reuse_count)
+    }
     None => self.parse()
   }
-  self.tree = Some(new_tree)
-  new_tree
 }
 
 ///|
@@ -96,16 +80,23 @@ pub fn[Ast] ImperativeParser::edit(
 pub fn[Ast] ImperativeParser::reset(
   self : ImperativeParser[Ast],
   source : String,
-) -> Ast {
+) -> ParseSnapshot[Ast] {
   self.source = source
-  self.syntax_tree = None
+  self.snapshot = None
   self.prev_cst = None
   self.parse()
 }
 
 ///|
+pub fn[Ast] ImperativeParser::current(
+  self : ImperativeParser[Ast],
+) -> ParseSnapshot[Ast]? {
+  self.snapshot.map(fn(snapshot) { snapshot.copy() })
+}
+
+///|
 pub fn[Ast] ImperativeParser::get_tree(self : ImperativeParser[Ast]) -> Ast? {
-  self.tree
+  self.snapshot.map(fn(snapshot) { snapshot.ast })
 }
 
 ///|
@@ -118,15 +109,21 @@ pub fn[Ast] ImperativeParser::get_source(
 ///|
 pub fn[Ast] ImperativeParser::diagnostics(
   self : ImperativeParser[Ast],
-) -> Array[String] {
-  (self.lang.get_diagnostics)()
+) -> @core.DiagnosticSet {
+  match self.snapshot {
+    Some(snapshot) => snapshot.diagnostics.copy()
+    None => @core.DiagnosticSet::empty()
+  }
 }
 
 ///|
 pub fn[Ast] ImperativeParser::get_last_reuse_count(
   self : ImperativeParser[Ast],
 ) -> Int {
-  self.last_reuse_count
+  match self.snapshot {
+    Some(snapshot) => snapshot.reuse_count
+    None => 0
+  }
 }
 
 ///|
@@ -142,5 +139,5 @@ pub fn[Ast] ImperativeParser::get_fold_stats(
 pub fn[Ast] ImperativeParser::get_syntax_tree(
   self : ImperativeParser[Ast],
 ) -> @seam.SyntaxNode? {
-  self.syntax_tree
+  self.snapshot.map(fn(snapshot) { snapshot.syntax })
 }

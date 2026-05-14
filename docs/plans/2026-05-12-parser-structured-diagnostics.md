@@ -18,6 +18,11 @@
   returns `LexResult[T]`, incremental mode relex returns `ModeRelexResult[T]`
   with replacement diagnostics, and Markdown uses that total mode lexer
   boundary directly.
+- 2026-05-14: The high-level parser boundary now publishes
+  `ParseSnapshot[Ast]`. `ImperativeParser::{parse,edit,reset}` return
+  snapshots, `Parser` stores one snapshot signal with derived views, diagnostics
+  are `DiagnosticSet`, `syntax_tree()` is total, `ParseOutcome` is removed, and
+  the unused grammar `on_lex_error` callback is gone.
 
 ## Context
 
@@ -376,11 +381,12 @@ Line/column coordinates stay presentation-only and follow ADR
    factories merge lexer diagnostics with parser diagnostics, recovery policy
    lives inside the grammar's `lex` implementation, and range relex offsets
    diagnostics from re-lexed slices instead of discarding them.
-7. Replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
+7. Done: replace `ParseOutcome` / `ImperativeLanguage` side-channel diagnostics with
    `ParseSnapshot[Ast]`.
-8. Collapse reactive `Parser` state to a snapshot signal plus derived views.
+8. Done: collapse reactive `Parser` state to a snapshot signal plus derived
+   views.
 9. In progress: update examples and public docs to use `DiagnosticSet`.
-10. Remove parser-level formatted string diagnostics.
+10. Done: remove parser-level formatted string diagnostics.
 
 Run after each meaningful step:
 
@@ -417,7 +423,7 @@ cd examples/markdown && rtk moon test
 - Done: mode lexer invalid/incomplete diagnostics with mode-state recovery.
 - Incremental reuse replays structured diagnostics without duplication.
 - Block reparse offsets and merges structured diagnostics.
-- `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count
+- Done: `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count
   atomically.
 - Line/column formatting derives from `LineIndex` without mutating stored
   diagnostics.

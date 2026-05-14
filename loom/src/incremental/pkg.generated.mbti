@@ -4,6 +4,7 @@ package "dowdiness/loom/incremental"
 import {
   "dowdiness/loom/core",
   "dowdiness/seam",
+  "moonbitlang/core/debug",
   "moonbitlang/core/ref",
 }
 
@@ -40,26 +41,31 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> ParseOutcome, incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> ParseOutcome, to_ast~ : (@seam.SyntaxNode) -> Ast, on_lex_error~ : (String) -> Ast, get_diagnostics~ : () -> Array[String], get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
 
 pub struct ImperativeParser[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> Array[String]
-pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> Ast
+pub fn[Ast] ImperativeParser::current(Self[Ast]) -> ParseSnapshot[Ast]?
+pub fn[Ast] ImperativeParser::diagnostics(Self[Ast]) -> @core.DiagnosticSet
+pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> ParseSnapshot[Ast]
 pub fn[Ast] ImperativeParser::get_fold_stats(Self[Ast]) -> @core.FoldStats?
 pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
 pub fn[Ast] ImperativeParser::get_syntax_tree(Self[Ast]) -> @seam.SyntaxNode?
 pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?
 pub fn[Ast] ImperativeParser::new(String, ImperativeLanguage[Ast]) -> Self[Ast]
-pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> Ast
-pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> Ast
+pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> ParseSnapshot[Ast]
+pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> ParseSnapshot[Ast]
 
-pub(all) enum ParseOutcome {
-  Tree(@seam.SyntaxNode, Int)
-  LexError(String)
-}
+pub struct ParseSnapshot[Ast] {
+  source : String
+  syntax : @seam.SyntaxNode
+  ast : Ast
+  diagnostics : @core.DiagnosticSet
+  reuse_count : Int
+} derive(Eq, @debug.Debug)
+pub fn[Ast] ParseSnapshot::copy(Self[Ast]) -> Self[Ast]
 
 pub struct PerfStats {
   enabled : @ref.Ref[Bool]

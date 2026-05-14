@@ -7,9 +7,8 @@
 // recomputes on every published edit.
 //
 // Typechecking runs off the CST rather than `Term` because `Term` drops
-// lambda type annotations; `convert_from_cst` preserves them. The `None`
-// branch (lex / recoverable parse failure) yields a `TypedTerm::Error`
-// instead of aborting, matching the FFI path in canopy.
+// lambda type annotations; `convert_from_cst` preserves them. The parser
+// publishes a recovered syntax tree for every source snapshot.
 
 ///|
 /// A bidirectional type-checker attached to a unified lambda `Parser`.
@@ -57,12 +56,7 @@ pub fn attach_typecheck(
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
   let typed_memo = scope.memo(
-    fn() {
-      match parser.syntax_tree().get() {
-        Some(tree) => @typecheck.convert_from_cst(tree)
-        None => @typecheck.TypedTerm::Error("parse")
-      }
-    },
+    fn() { @typecheck.convert_from_cst(parser.syntax_tree().get()) },
     label="typed_term_bridge",
   )
   let (results, index) = @typecheck.build_typecheck_pipeline_with_index(

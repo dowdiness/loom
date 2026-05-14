@@ -11,7 +11,6 @@ pub let lambda_grammar : @loom.Grammar[
   spec=lambda_spec,
   lex=@lexer.lex,
   fold_node=lambda_fold_node,
-  on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
   incremental_relex_enabled=false,
   block_reparse_spec=Some(lambda_block_reparse_spec),
 )
@@ -27,7 +26,6 @@ pub let lambda_grammar_no_threshold : @loom.Grammar[
   spec=lambda_spec_no_threshold,
   lex=@lexer.lex,
   fold_node=lambda_fold_node,
-  on_lex_error=fn(msg) { @ast.Term::Error("lex error: " + msg) },
   incremental_relex_enabled=false,
   block_reparse_spec=Some(lambda_block_reparse_spec),
 )

@@ -83,13 +83,11 @@ test "attach_typecheck: parse error does not abort the pipeline" {
 ///|
 test "attach_typecheck: unrecognized source produces a diagnostic, recovers on edit" {
   // Lambda's step-based lexer + `error_token` makes `@invalid` recoverable at
-  // the lex layer — Parser publishes `syntax_tree() = Some(tree)` with an
-  // ErrorNode child, not None. `convert_from_cst` reaches its unhandled-kind
+  // the lex layer — Parser publishes a recovered syntax tree with an
+  // ErrorNode child. `convert_from_cst` reaches its unhandled-kind
   // arm and emits a `TypedTerm::Error` the typechecker surfaces as a
   // diagnostic. Covers the CST-error branch of the bridge and recovery on
-  // a subsequent clean edit. The bridge's `None → TypedTerm::Error("parse")`
-  // arm is unreachable from this grammar; it is exercised at the loom layer
-  // in `loom/src/pipeline/parser_test.mbt` via a test-only language.
+  // a subsequent clean edit.
   let parser = @loom.new_parser("@invalid", lambda_grammar)
   let typed = attach_typecheck(parser)
   let initial = typed.get()

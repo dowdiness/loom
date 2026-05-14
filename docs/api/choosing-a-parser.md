@@ -17,13 +17,13 @@ Both update the same signal/memo graph atomically.
 | Edit-driven update | `parser.apply_edit(edit, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
 | Node-level CST reuse | via the underlying `ImperativeParser` engine |
-| Reactive composition | `parser.runtime()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
+| Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
 | Shared runtime | downstream memos (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
-| Diagnostics | `parser.runtime().read(parser.diagnostics())` — `Array[String]`, defensively copied |
-| Lex-error routing | language's `on_lex_error` runs on every lex failure; AST cell stays populated with a sentinel |
+| Diagnostics | `parser.runtime().read(parser.diagnostics())` — `DiagnosticSet`; format only at presentation boundaries |
+| Recovery | malformed input still publishes a recovered `SyntaxNode` plus structured diagnostics |
 
-`Parser` batches all four signal updates under `Runtime::batch` so
-consumers never observe a half-updated graph.
+`Parser` updates one parse snapshot signal under `Runtime::batch` so consumers
+never observe a half-updated graph.
 
 ## Factory
 
@@ -34,9 +34,9 @@ let p = new_parser(initial_source, grammar)          // → Parser[Ast]
 let p = new_parser(initial_source, grammar, runtime?)
 ```
 
-The factory requires `T : IsTrivia + Eq` and `Ast : Eq` because the
-underlying memo graph does structural-equality backdating at the CST
-and AST boundaries.
+The factory requires `T : IsTrivia + Eq` and `Ast : Eq` because the underlying
+memo graph does structural-equality backdating at the snapshot and derived-view
+boundaries.
 
 ## When to use `ImperativeParser` directly
 

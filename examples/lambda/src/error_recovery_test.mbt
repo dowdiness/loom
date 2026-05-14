@@ -250,14 +250,14 @@ test "node_with_recovery: malformed lambda missing dot and body" {
 test "incremental: fix missing dot by editing" {
   // 1. Parse broken input: "λx x" (missing dot)
   let parser = @loom.new_imperative_parser("λx x", lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
   // 2. Insert "." after "λx" → "λx. x"
   // "λx x" positions: λ=0, x=1, ' '=2, x=3
   // Insert "." at position 2, shifting ' ' right → "λx. x"
   let edit = @core.Edit::insert(2, 1)
-  let new_tree = parser.edit(edit, "λx. x")
+  let new_tree = parser.edit(edit, "λx. x").ast
   inspect(parser.diagnostics().length(), content="0")
   // The fixed tree should parse correctly
   inspect(@ast.print_term(new_tree), content="(λx. x)")
@@ -267,12 +267,12 @@ test "incremental: fix missing dot by editing" {
 test "incremental: introduce error by deleting dot" {
   // 1. Parse valid input: "λx. x"
   let parser = @loom.new_imperative_parser("λx. x", lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   inspect(parser.diagnostics().length(), content="0")
 
   // 2. Delete "." at position 2 → "λx x"
   let edit = @core.Edit::delete(2, 3)
-  let _ = parser.edit(edit, "λx x")
+  let _ = parser.edit(edit, "λx x").ast
   inspect(parser.diagnostics().length() > 0, content="true")
 }
 
@@ -280,12 +280,12 @@ test "incremental: introduce error by deleting dot" {
 test "incremental: fix missing paren by appending" {
   // 1. Parse broken input: "(λx. x" (missing closing paren)
   let parser = @loom.new_imperative_parser("(λx. x", lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
   // 2. Append ")" at end → "(λx. x)"
   let edit = @core.Edit::insert(6, 1)
-  let new_tree = parser.edit(edit, "(λx. x)")
+  let new_tree = parser.edit(edit, "(λx. x)").ast
   inspect(parser.diagnostics().length(), content="0")
   inspect(@ast.print_term(new_tree), content="(λx. x)")
 }
@@ -294,12 +294,12 @@ test "incremental: fix missing paren by appending" {
 test "incremental: error to error edit" {
   // 1. Parse broken input: "λ.x" (missing param)
   let parser = @loom.new_imperative_parser("λ.x", lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
   // 2. Change "x" to "y" — still broken but different
   let edit = @core.Edit::replace(2, 3, 3)
-  let new_tree = parser.edit(edit, "λ.y")
+  let new_tree = parser.edit(edit, "λ.y").ast
   // Should still have diagnostics (missing param) but produce a valid tree
   inspect(parser.diagnostics().length() > 0, content="true")
   // Should produce a term with error recovery (λ with missing param → error + body)

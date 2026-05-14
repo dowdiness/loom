@@ -6,7 +6,7 @@
 // cast returns None when the node's kind doesn't match.
 //
 // Pattern:
-//   let syn = parser.parse()    // SyntaxNode
+//   let syn = parser.parse().syntax
 //   let source = syn.children()[0]
 //   match LambdaExprView::cast(source) {
 //     Some(v) => println(v.param())

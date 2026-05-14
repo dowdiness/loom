@@ -1,5 +1,5 @@
 ///|
-/// Complete grammar description — the four things that vary per language.
+/// Complete grammar description — the things that vary per language.
 ///
 /// Pass to `new_parser` or `new_imperative_parser`; the factories handle
 /// all infrastructure wiring (TokenBuffer lifecycle, ReuseCursor
@@ -10,7 +10,6 @@ pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
   lex : (String) -> @core.LexResult[T]
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  on_lex_error : (String) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexState[T]?
@@ -50,7 +49,6 @@ pub fn[T, K, Ast] Grammar::new(
   spec~ : @core.LanguageSpec[T, K],
   lex~ : (String) -> @core.LexResult[T],
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
-  on_lex_error~ : (String) -> Ast,
   incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
   mode_relex? : @core.ModeRelexState[T]? = None,
@@ -59,7 +57,6 @@ pub fn[T, K, Ast] Grammar::new(
     spec,
     lex,
     fold_node,
-    on_lex_error,
     incremental_relex_enabled,
     block_reparse_spec,
     mode_relex,

@@ -2,8 +2,8 @@
 //
 // These encapsulate all infrastructure wiring: TokenBuffer lifecycle,
 // ReuseCursor construction, parse_tokens_indexed calls, diagnostic
-// formatting. The grammar author provides spec, lex, to_ast, and
-// on_lex_error; the factories handle the rest.
+// construction. The grammar author provides spec, lex, and to_ast;
+// the factories handle the rest.
 //
 // ImperativeLanguage[Ast] is constructed internally for type erasure —
 // grammar authors never see it.
@@ -64,11 +64,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let mode_relex = grammar.mode_relex
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)
-  let last_diags : Ref[@core.DiagnosticSet] = Ref(@core.DiagnosticSet::empty())
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
-    @core.DiagnosticSet::empty(),
-  )
-  let last_lex_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
   )
   // Persistent old-token cache: survives across edits so collect_old_tokens
@@ -99,12 +95,10 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
       all_diagnostics.extend(diagnostics)
-      last_lex_diags.val = lex_diagnostics
       last_parse_diags.val = diagnostics
-      last_diags.val = all_diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
-      @incremental.ParseOutcome::Tree(syntax, 0)
+      (syntax, all_diagnostics, 0)
     },
     incremental_parse=(source, old_syntax, edit) => {
       // Block reparse pre-check: attempt narrow subtree reparse before
@@ -134,14 +128,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
               let lex_diagnostics = buffer.get_diagnostics()
               let all_diagnostics = lex_diagnostics.copy()
               all_diagnostics.extend(new_diagnostics)
-              last_lex_diags.val = lex_diagnostics
               last_parse_diags.val = new_diagnostics
-              last_diags.val = all_diagnostics
               token_buf.val = Some(buffer)
-              return @incremental.ParseOutcome::Tree(
-                @seam.SyntaxNode::from_cst(new_cst),
-                1,
-              )
+              return (@seam.SyntaxNode::from_cst(new_cst), all_diagnostics, 1)
             }
             None => () // Fall through to normal incremental
           }
@@ -205,15 +194,11 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
       all_diagnostics.extend(diagnostics)
-      last_lex_diags.val = lex_diagnostics
       last_parse_diags.val = diagnostics
-      last_diags.val = all_diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
-      @incremental.ParseOutcome::Tree(new_syntax, reuse_count)
+      (new_syntax, all_diagnostics, reuse_count)
     },
     to_ast=fn(syntax) { cst_fold.fold(syntax) },
-    on_lex_error=grammar.on_lex_error,
-    get_diagnostics=fn() { last_diags.val.format() },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
 }

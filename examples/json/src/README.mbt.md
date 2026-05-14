@@ -92,7 +92,6 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Gramm
   spec=json_spec,
   lex~,
   fold_node=json_fold_node,
-  on_lex_error=fn(msg) { JsonValue::Error("lex error: " + msg) },
   incremental_relex_enabled=false,
   block_reparse_spec=Some(json_block_reparse_spec),
 )
@@ -123,9 +122,8 @@ Also implements `Show`, `@pretty.Pretty`, `@pretty.Printable`,
 `@pretty.Source`, `@core.Renderable`, and `@core.TreeNode` — useful when
 wiring the example into a pretty-printer or a projection renderer.
 
-`JsonValue::Error(String)` is returned instead of raised when the
-lex-error path fires inside the grammar's `on_lex_error` hook, mirroring
-the lambda example's `Term::Error` convention.
+`JsonValue::Error(String)` is returned for recovered CST error nodes. Lexer
+problems remain visible as structured diagnostics on parser snapshots.
 
 ## Running
 

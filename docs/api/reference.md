@@ -209,7 +209,6 @@ pub struct Grammar[T, K, Ast] {
   spec         : @core.LanguageSpec[T, K]
   lex          : (String) -> @core.LexResult[T]
   fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  on_lex_error : (String) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex   : @core.ModeRelexState[T]?
@@ -217,8 +216,8 @@ pub struct Grammar[T, K, Ast] {
 ```
 
 Describes a complete language grammar. Construct with
-`Grammar::new(spec~, lex~, fold_node~, on_lex_error~)`. The lambda
-implementation is `@lambda.lambda_grammar`.
+`Grammar::new(spec~, lex~, fold_node~)`. The lambda implementation is
+`@lambda.lambda_grammar`.
 
 `lex` is the high-level parser boundary. It returns tokens, token starts, and
 lexer diagnostics in one `LexResult`; malformed user input should be recovered
@@ -240,7 +239,9 @@ pub fn[T, K, Ast] new_imperative_parser(
 ) -> @incremental.ImperativeParser[Ast]
 ```
 
-Creates an `ImperativeParser` for the given source and grammar. Supports `parse()`, `edit(Edit, String)`, and `reset(String)`.
+Creates an `ImperativeParser` for the given source and grammar. Supports
+`parse()`, `edit(Edit, String)`, and `reset(String)`, each returning
+`ParseSnapshot[Ast]`.
 
 ### `new_parser`
 
@@ -254,10 +255,10 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
 
 Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
 [2026-04-17-unified-parser-proposal.md](../decisions/2026-04-17-unified-parser-proposal.md)).
-`Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST +
-diagnostics as `@incr.Signal` / `@incr.Memo` cells. One type, two update
-paths (`apply_edit` + `set_source`); downstream consumers attach reactive
-memos via `parser.runtime()`.
+`Parser[Ast]` wraps `ImperativeParser` and publishes a coherent
+`ParseSnapshot[Ast]` plus derived source, syntax, AST, and diagnostics memos.
+One type, two update paths (`apply_edit` + `set_source`); downstream consumers
+attach reactive memos via `parser.runtime()`.
 
 `new_parser` is intentionally stricter than `new_imperative_parser`: the
 AST type `Ast` must implement `Eq`. The memo graph does structural-equality
@@ -270,7 +271,7 @@ let p = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
 let term = p.runtime().read(p.ast())            // Ast type parameter of the Grammar
 p.set_source("λx.x + 2")
 let updated = p.runtime().read(p.ast())         // re-runs syntax + AST stages only if source changed
-let diags   = p.runtime().read(p.diagnostics()) // Array[String], empty on success
+let diags   = p.runtime().read(p.diagnostics()) // DiagnosticSet, empty on success
 ```
 
 The pre-Stage 6 reactive parser factory and struct have been removed — use

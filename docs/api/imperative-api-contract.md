@@ -26,21 +26,23 @@ pub struct ImperativeParser[Ast] {
 ```
 
 **Stable.** Edit-driven incremental parser using the Wagner-Graham damage tracking strategy.
-All internal state (source, tree, syntax tree, reuse count, CST hash) is private and managed by
-the parser. Language-specific behaviour is injected via `ImperativeLanguage[Ast]` vtable.
+All internal state (source, current snapshot, reuse count, CST hash) is private
+and managed by the parser. Language-specific behaviour is injected via the
+`ImperativeLanguage[Ast]` vtable.
 
 **Internal topology:**
 
 ```
 source : String
-  → full_parse  : (String) -> ParseOutcome   — initial parse
-  → incr_parse  : (String, SyntaxNode, Edit) -> ParseOutcome — edit reparse
+  → full_parse  : (String) -> (SyntaxNode, DiagnosticSet, Int)
+  → incr_parse  : (String, SyntaxNode, Edit) -> (SyntaxNode, DiagnosticSet, Int)
   → to_ast      : (SyntaxNode) -> Ast        — CST → AST (skipped on structural equality)
+  → snapshot    : ParseSnapshot[Ast]
 ```
 
 **Invariants:**
-- **Fields all private.** Callers cannot directly observe or mutate `source`, `tree`,
-  `syntax_tree`, `last_reuse_count`, or `prev_cst`. Use the accessor methods.
+- **Fields all private.** Callers cannot directly observe or mutate `source`,
+  `snapshot`, or `prev_cst`. Use the accessor methods.
 - **CST equality skip.** Both `parse()` and `edit()` skip `to_ast` when the new
   `CstNode` compares equal to the cached one (`CstNode::Eq` — structural equality using
   kind + children, with hash as a fast rejection path). This is transparent to callers.
@@ -54,12 +56,13 @@ source : String
 | Symbol | Stability | Notes |
 |---|---|---|
 | `ImperativeParser::new[Ast](String, ImperativeLanguage[Ast]) -> Self[Ast]` | Stable | Prefer `new_imperative_parser` from `@loom`; this constructor is for advanced use |
-| `ImperativeParser::parse[Ast](Self[Ast]) -> Ast` | Stable | Full parse from `self.source`; reuse count → 0 |
-| `ImperativeParser::edit[Ast](Self[Ast], Edit, String) -> Ast` | Stable | Incremental reparse; falls back to `parse()` if no prior tree |
-| `ImperativeParser::reset[Ast](Self[Ast], String) -> Ast` | Stable | Discard all incremental state, full parse of new source |
+| `ImperativeParser::parse[Ast](Self[Ast]) -> ParseSnapshot[Ast]` | Stable | Full parse from `self.source`; returns source, syntax, AST, diagnostics, and reuse count |
+| `ImperativeParser::edit[Ast](Self[Ast], Edit, String) -> ParseSnapshot[Ast]` | Stable | Incremental reparse; falls back to `parse()` if no prior snapshot |
+| `ImperativeParser::reset[Ast](Self[Ast], String) -> ParseSnapshot[Ast]` | Stable | Discard all incremental state, full parse of new source |
+| `ImperativeParser::current[Ast](Self[Ast]) -> ParseSnapshot[Ast]?` | Stable | Cached snapshot from the last parse/edit/reset; `None` before first call |
 | `ImperativeParser::get_source[Ast](Self[Ast]) -> String` | Stable | Current source text |
 | `ImperativeParser::get_tree[Ast](Self[Ast]) -> Ast?` | Stable | Cached Ast from last `parse`/`edit`/`reset`; `None` before first call |
-| `ImperativeParser::diagnostics[Ast](Self[Ast]) -> Array[String]` | Stable | Normalized parse diagnostics from last successful parse |
+| `ImperativeParser::diagnostics[Ast](Self[Ast]) -> DiagnosticSet` | Stable | Structured diagnostics from the current snapshot, or empty before first parse |
 | `ImperativeParser::get_last_reuse_count[Ast](Self[Ast]) -> Int` | Stable | CST nodes reused in last `edit()` call; 0 for `parse()` and `reset()` |
 
 ---
@@ -96,22 +99,7 @@ Grammar authors never need to construct `ImperativeLanguage` directly — the
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `ImperativeLanguage::new[Ast](full_parse~, incremental_parse~, to_ast~, on_lex_error~, get_diagnostics~) -> Self[Ast]` | Stable | All parameters are labelled closures |
-
----
-
-## `ParseOutcome`
-
-```moonbit
-pub(all) enum ParseOutcome {
-  Tree(@seam.SyntaxNode, Int)
-  LexError(String)
-}
-```
-
-**Stable (advanced use).** Returned by `full_parse` and `incremental_parse` closures.
-`Tree` carries the new syntax tree and the CST reuse count (0 for full parses).
-`LexError` carries the error message for `on_lex_error` dispatch.
+| `ImperativeLanguage::new[Ast](full_parse~, incremental_parse~, to_ast~, get_fold_stats?) -> Self[Ast]` | Stable | All parameters are labelled closures; parse closures return `(SyntaxNode, DiagnosticSet, Int)` |
 
 ---
 
@@ -122,17 +110,19 @@ pub(all) enum ParseOutcome {
 let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
 
 // 2. Initial parse:
-let ast = parser.parse()
+let snapshot = parser.parse()
+let ast = snapshot.ast
 
 // 3. Incremental edit (e.g. user changes "x" to "y"):
 let edit = @core.Edit::replace(1, 2, 2)
-let ast2 = parser.edit(edit, "λy.y")
+let snapshot2 = parser.edit(edit, "λy.y")
+let ast2 = snapshot2.ast
 
 // 4. Inspect diagnostics:
-let diags = parser.diagnostics()  // [] on success
+let diags = parser.diagnostics()  // DiagnosticSet::empty() on success
 
 // 5. Reset after structural regeneration:
-let ast3 = parser.reset("λz.z + 1")  // discards incremental state
+let ast3 = parser.reset("λz.z + 1").ast  // discards incremental state
 ```
 
 ---

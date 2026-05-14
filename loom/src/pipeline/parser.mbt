@@ -1,15 +1,14 @@
 ///|
 /// Unified `Parser[Ast]` — wraps `@incremental.ImperativeParser` and publishes
-/// derived state (source, syntax tree, AST, diagnostics) as read-only
-/// `@incr.Memo` views.
+/// a coherent parse snapshot plus derived read-only `@incr.Memo` views.
 ///
 /// Accepts two update methods:
 /// - `apply_edit(edit, new_source)` — CST-node-level reuse via the engine.
 /// - `set_source(source)` — full reparse, discarding incremental state.
 ///
-/// Both methods update four private `Signal` cells inside a single
-/// `Runtime::batch` after the engine has advanced, so downstream consumers
-/// see one coherent update regardless of which method was called.
+/// Both methods update one private snapshot `Signal` inside `Runtime::batch`
+/// after the engine has advanced, so downstream consumers see one coherent
+/// parse state regardless of which method was called.
 ///
 /// Accepts an optional external `Runtime` so downstream derived cells can
 /// share the dependency graph.
@@ -19,20 +18,18 @@
 pub struct Parser[Ast] {
   priv engine : @incremental.ImperativeParser[Ast]
   priv rt : @incr.Runtime
-  priv source_signal : @incr.Signal[String]
-  priv syntax_signal : @incr.Signal[@seam.SyntaxNode?]
-  priv ast_signal : @incr.Signal[Ast]
-  priv diagnostics_signal : @incr.Signal[Array[String]]
+  priv snapshot_signal : @incr.Signal[@incremental.ParseSnapshot[Ast]]
+  priv snapshot_view : @incr.Memo[@incremental.ParseSnapshot[Ast]]
   priv source_view : @incr.Memo[String]
-  priv syntax_view : @incr.Memo[@seam.SyntaxNode?]
+  priv syntax_view : @incr.Memo[@seam.SyntaxNode]
   priv ast_view : @incr.Memo[Ast]
-  priv diagnostics_view : @incr.Memo[Array[String]]
+  priv diagnostics_view : @incr.Memo[@core.DiagnosticSet]
 }
 
 ///|
 /// Construct a new `Parser`. Primes the engine via an initial `parse()`
-/// so the published `source`/`syntax_tree`/`ast`/`diagnostics` values
-/// reflect a real parse rather than the empty initial state.
+/// so the published snapshot and derived views reflect a real parse rather
+/// than the empty initial state.
 ///
 /// If `runtime` is supplied the parser joins that reactive graph;
 /// otherwise a fresh `Runtime` is created. Sharing lets downstream
@@ -44,52 +41,46 @@ pub fn[Ast : Eq] Parser::new(
   runtime? : @incr.Runtime,
 ) -> Parser[Ast] {
   let engine = @incremental.ImperativeParser::new(source, lang)
-  let initial_ast = engine.parse()
-  let initial_syntax = engine.get_syntax_tree()
-  let initial_diagnostics = engine.diagnostics()
+  let initial_snapshot = engine.parse()
   let rt = match runtime {
     Some(r) => r
     None => @incr.Runtime::new()
   }
-  let source_signal = @incr.Signal::new(rt, source, label="parser_source")
-  let syntax_signal = @incr.Signal::new(
+  let snapshot_signal = @incr.Signal::new(
     rt,
-    initial_syntax,
-    label="parser_syntax",
+    initial_snapshot,
+    label="parser_snapshot",
   )
-  let ast_signal = @incr.Signal::new(rt, initial_ast, label="parser_ast")
-  let diagnostics_signal = @incr.Signal::new(
+  let snapshot_view = @incr.Memo::new(
     rt,
-    initial_diagnostics,
-    label="parser_diagnostics",
+    fn() { snapshot_signal.get().copy() },
+    label="parser_snapshot_view",
   )
   let source_view = @incr.Memo::new(
     rt,
-    fn() { source_signal.get() },
+    fn() { snapshot_signal.get().source },
     label="parser_source_view",
   )
   let syntax_view = @incr.Memo::new(
     rt,
-    fn() { syntax_signal.get() },
+    fn() { snapshot_signal.get().syntax },
     label="parser_syntax_view",
   )
   let ast_view = @incr.Memo::new(
     rt,
-    fn() { ast_signal.get() },
+    fn() { snapshot_signal.get().ast },
     label="parser_ast_view",
   )
   let diagnostics_view = @incr.Memo::new(
     rt,
-    fn() { diagnostics_signal.get() },
+    fn() { snapshot_signal.get().diagnostics.copy() },
     label="parser_diagnostics_view",
   )
   {
     engine,
     rt,
-    source_signal,
-    syntax_signal,
-    ast_signal,
-    diagnostics_signal,
+    snapshot_signal,
+    snapshot_view,
     source_view,
     syntax_view,
     ast_view,
@@ -98,8 +89,8 @@ pub fn[Ast : Eq] Parser::new(
 }
 
 ///|
-/// Replace the source text, discarding incremental state. All four
-/// published cells are updated atomically inside `Runtime::batch`.
+/// Replace the source text, discarding incremental state. The snapshot
+/// signal is updated atomically inside `Runtime::batch`.
 ///
 /// Identity is a no-op: if `source` equals the engine's current source,
 /// this returns immediately without reparsing or touching any signal.
@@ -114,31 +105,28 @@ pub fn[Ast : Eq] Parser::set_source(
   if source == self.engine.get_source() {
     return
   }
-  self.rt.batch(fn() {
-    let ast = self.engine.reset(source)
-    self.source_signal.set(source)
-    self.syntax_signal.set(self.engine.get_syntax_tree())
-    self.ast_signal.set(ast)
-    self.diagnostics_signal.set(self.engine.diagnostics())
-  })
+  self.rt.batch(fn() { self.snapshot_signal.set(self.engine.reset(source)) })
 }
 
 ///|
-/// Apply a text `Edit` using CST-node-level reuse. All four published
-/// cells are updated atomically inside `Runtime::batch` after the engine
-/// has advanced.
+/// Apply a text `Edit` using CST-node-level reuse. The snapshot signal is
+/// updated atomically inside `Runtime::batch` after the engine has advanced.
 pub fn[Ast : Eq] Parser::apply_edit(
   self : Parser[Ast],
   edit : @core.Edit,
   new_source : String,
 ) -> Unit {
   self.rt.batch(fn() {
-    let ast = self.engine.edit(edit, new_source)
-    self.source_signal.set(new_source)
-    self.syntax_signal.set(self.engine.get_syntax_tree())
-    self.ast_signal.set(ast)
-    self.diagnostics_signal.set(self.engine.diagnostics())
+    self.snapshot_signal.set(self.engine.edit(edit, new_source))
   })
+}
+
+///|
+/// Reactive view of the complete current parse snapshot.
+pub fn[Ast] Parser::snapshot(
+  self : Parser[Ast],
+) -> @incr.Memo[@incremental.ParseSnapshot[Ast]] {
+  self.snapshot_view
 }
 
 ///|
@@ -148,10 +136,10 @@ pub fn[Ast] Parser::source(self : Parser[Ast]) -> @incr.Memo[String] {
 }
 
 ///|
-/// Reactive view of the current CST. `None` after a lex error.
+/// Reactive view of the current recovered CST.
 pub fn[Ast] Parser::syntax_tree(
   self : Parser[Ast],
-) -> @incr.Memo[@seam.SyntaxNode?] {
+) -> @incr.Memo[@seam.SyntaxNode] {
   self.syntax_view
 }
 
@@ -162,11 +150,11 @@ pub fn[Ast] Parser::ast(self : Parser[Ast]) -> @incr.Memo[Ast] {
 }
 
 ///|
-/// Reactive view of the current parse diagnostics, updated atomically
-/// with `syntax_tree`.
+/// Reactive view of the current parse diagnostics, derived from the
+/// current parse snapshot.
 pub fn[Ast] Parser::diagnostics(
   self : Parser[Ast],
-) -> @incr.Memo[Array[String]] {
+) -> @incr.Memo[@core.DiagnosticSet] {
   self.diagnostics_view
 }
 

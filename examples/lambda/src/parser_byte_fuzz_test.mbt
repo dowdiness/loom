@@ -119,7 +119,7 @@ test "fuzz: imperative parser handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     let parser = @loom.new_imperative_parser(input, lambda_grammar)
-    let _term = parser.parse()
+    let _term = parser.parse().ast
   }
 }
 
@@ -133,7 +133,7 @@ test "fuzz: incremental edit with raw byte streams" {
     let (source, next_seed) = bf_make_raw_string(seed, len)
     seed = next_seed
     let parser = @loom.new_imperative_parser(source, lambda_grammar)
-    let _ = parser.parse()
+    let _ = parser.parse().ast
     let mut current_source = source
     for _edit_i = 0; _edit_i < 8; _edit_i = _edit_i + 1 {
       // Generate a random raw-byte fragment to insert/replace
@@ -153,7 +153,7 @@ test "fuzz: incremental edit with raw byte streams" {
         let right = bf_slice(current_source, pos, src_len)
         let new_source = left + frag + right
         let edit = @core.Edit::insert(pos, frag.length())
-        let _ = parser.edit(edit, new_source)
+        let _ = parser.edit(edit, new_source).ast
         current_source = new_source
       } else if op == 1 && src_len > 0 {
         // Delete
@@ -164,7 +164,7 @@ test "fuzz: incremental edit with raw byte streams" {
         let right = bf_slice(current_source, end, src_len)
         let new_source = left + right
         let edit = @core.Edit::delete(start, end)
-        let _ = parser.edit(edit, new_source)
+        let _ = parser.edit(edit, new_source).ast
         current_source = new_source
       } else if src_len > 0 {
         // Replace
@@ -175,7 +175,7 @@ test "fuzz: incremental edit with raw byte streams" {
         let right = bf_slice(current_source, end, src_len)
         let new_source = left + frag + right
         let edit = @core.Edit::replace(start, end, start + frag.length())
-        let _ = parser.edit(edit, new_source)
+        let _ = parser.edit(edit, new_source).ast
         current_source = new_source
       }
     }

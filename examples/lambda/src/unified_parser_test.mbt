@@ -7,19 +7,17 @@
 
 ///|
 /// "@invalid" no longer triggers a lex error — step-based lexer recovers "@"
-/// as an error token. `syntax_tree()` is `Some(tree)` because tokenization
+/// as an error token. `syntax_tree()` is always the recovered tree because tokenization
 /// recovered; the error surfaces through diagnostics.
 test "Parser: step-based lexer recovers invalid chars without lex error" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  guard parser.runtime().read(parser.syntax_tree()) is Some(_) else {
-    abort("step-based recovery should publish Some syntax_tree")
-  }
+  ignore(parser.runtime().read(parser.syntax_tree()))
 }
 
 ///|
-/// With step-based recovery, "@invalid" parses into a tree (with errors)
-/// rather than routing through on_lex_error. The Ast should not be a
-/// lex-error Term — the parser got tokens and produced a tree.
+/// With step-based recovery, "@invalid" parses into a tree with errors.
+/// The Ast should not be a lex-error Term — the parser got tokens and
+/// produced a tree.
 test "Parser: step-based recovery produces parse tree not ErrorNode" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
   let term = parser.runtime().read(parser.ast())
@@ -36,7 +34,7 @@ test "Parser: step-based recovery produces parse tree not ErrorNode" {
 /// Diagnostics from step-based recovery are not fatal tokenization errors.
 test "Parser: step-based recovery diagnostics are not fatal lex errors" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  let diags = parser.runtime().read(parser.diagnostics())
+  let diags = parser.runtime().read(parser.diagnostics()).format()
   inspect(diags.length() > 0, content="true")
   // No "tokenization:" prefix — recovery produced a tree instead.
   inspect(diags[0].contains("tokenization: "), content="false")
@@ -45,11 +43,9 @@ test "Parser: step-based recovery diagnostics are not fatal lex errors" {
 // ── Parse-error path (lex succeeds, parser reports errors) ───────────────────
 
 ///|
-test "Parser: parse error still publishes Some syntax_tree" {
+test "Parser: parse error still publishes syntax_tree" {
   let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
-  guard parser.runtime().read(parser.syntax_tree()) is Some(_) else {
-    abort("parse error should still produce a syntax tree")
-  }
+  ignore(parser.runtime().read(parser.syntax_tree()))
 }
 
 ///|
@@ -79,11 +75,9 @@ test "Parser: valid input - lambda expression" {
 }
 
 ///|
-test "Parser: valid input - syntax_tree is Some" {
+test "Parser: valid input - syntax_tree exists" {
   let parser = @loom.new_parser("λf.λx.f x", @lambda.lambda_grammar)
-  guard parser.runtime().read(parser.syntax_tree()) is Some(_) else {
-    abort("valid input should publish Some syntax_tree")
-  }
+  ignore(parser.runtime().read(parser.syntax_tree()))
 }
 
 // ── Mutation: set_source ─────────────────────────────────────────────────────
@@ -116,13 +110,9 @@ test "Parser: set_source same value preserves ast (Eq)" {
 test "Parser: set_source from error-recovery input to valid" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("step-based recovery should publish Some syntax_tree")
-  }
+  ignore(rt.read(parser.syntax_tree()))
   parser.set_source("1 + 2")
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("clean recovery should publish Some syntax_tree")
-  }
+  ignore(rt.read(parser.syntax_tree()))
   inspect(@ast.print_term(rt.read(parser.ast())), content="(1 + 2)")
   inspect(rt.read(parser.diagnostics()).length(), content="0")
 }

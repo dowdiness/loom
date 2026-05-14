@@ -2,11 +2,11 @@
 //
 // TestLang design (produces ImperativeLanguage directly so we can
 // exercise Parser end-to-end):
-// - Lex error: source starts with "@".
+// - Lexer diagnostic: source starts with "@".
 // - Successful parse builds a one-token CST whose token text is the
 //   source length as a string — same-length sources parse to equal
 //   SyntaxNodes so Eq-based backdating can be verified.
-// - Ast = String: on success, the token text; on lex error, "error: <msg>".
+// - Ast = String: the token text.
 //
 // Memo reads in tests use `rt.read(memo)` — Memo::get() aborts when called
 // outside a tracked context (i.e. outside another memo closure). The
@@ -15,31 +15,30 @@
 
 ///|
 fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
-  let last_diags : Ref[Array[String]] = { val: [] }
-  let full_parse = fn(s : String) -> @incremental.ParseOutcome {
-    match s {
-      [.. "@", ..] => {
-        last_diags.val = ["lex error: " + s]
-        @incremental.ParseOutcome::LexError("lex error: " + s)
-      }
-      _ => {
-        last_diags.val = []
-        let cst = @seam.build_tree(
-          [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
-          @seam.RawKind(0),
-        ) catch {
-          _ => abort("build_tree failed in TestLang")
-        }
-        @incremental.ParseOutcome::Tree(@seam.SyntaxNode::from_cst(cst), 0)
-      }
+  let full_parse = fn(
+    s : String,
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
+    let cst = @seam.build_tree(
+      [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
+      @seam.RawKind(0),
+    ) catch {
+      _ => abort("build_tree failed in TestLang")
     }
+    let diagnostics = match s {
+      [.. "@", ..] =>
+        @core.DiagnosticSet::single(
+          @core.Diagnostic::lexer_error("lex error: " + s),
+        )
+      _ => @core.DiagnosticSet::empty()
+    }
+    (@seam.SyntaxNode::from_cst(cst), diagnostics, 0)
   }
   // Tests don't exercise incremental reuse — fall through to full_parse.
   let incremental_parse = fn(
     s : String,
     _old : @seam.SyntaxNode,
     _edit : @core.Edit,
-  ) -> @incremental.ParseOutcome {
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
     full_parse(s)
   }
   let to_ast = fn(n : @seam.SyntaxNode) -> String {
@@ -48,15 +47,7 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
       [] => ""
     }
   }
-  let on_lex_error = fn(msg : String) -> String { "error: " + msg }
-  let get_diagnostics = fn() -> Array[String] { last_diags.val.copy() }
-  @incremental.ImperativeLanguage::new(
-    full_parse~,
-    incremental_parse~,
-    to_ast~,
-    on_lex_error~,
-    get_diagnostics~,
-  )
+  @incremental.ImperativeLanguage::new(full_parse~, incremental_parse~, to_ast~)
 }
 
 ///|
@@ -65,10 +56,9 @@ test "Parser::new publishes initial source / ast / diagnostics" {
   let rt = parser.runtime()
   inspect(rt.read(parser.source()), content="hello")
   inspect(rt.read(parser.ast()), content="5")
-  debug_inspect(rt.read(parser.diagnostics()), content="[]")
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("expected initial syntax tree")
-  }
+  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
+  inspect(rt.read(parser.snapshot()).source, content="hello")
+  ignore(rt.read(parser.syntax_tree()))
 }
 
 ///|
@@ -79,44 +69,40 @@ test "Parser::set_source updates all four views atomically" {
   parser.set_source("world!")
   inspect(rt.read(parser.source()), content="world!")
   inspect(rt.read(parser.ast()), content="6")
-  debug_inspect(rt.read(parser.diagnostics()), content="[]")
+  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
 }
 
 ///|
-test "Parser::set_source routes lex failure to on_lex_error" {
+test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
   let parser = Parser::new("ok", test_imperative_language())
   let rt = parser.runtime()
   parser.set_source("@bad")
   inspect(rt.read(parser.source()), content="@bad")
-  inspect(rt.read(parser.ast()), content="error: lex error: @bad")
+  inspect(rt.read(parser.ast()), content="4")
   debug_inspect(
-    rt.read(parser.diagnostics()),
+    rt.read(parser.diagnostics()).format(),
     content=(
       #|["lex error: @bad"]
     ),
   )
-  guard rt.read(parser.syntax_tree()) is None else {
-    abort("expected None after lex error")
-  }
+  ignore(rt.read(parser.syntax_tree()))
 }
 
 ///|
-test "Parser recovers from lex error on subsequent set_source" {
+test "Parser recovers diagnostics on subsequent set_source" {
   let parser = Parser::new("ok", test_imperative_language())
   let rt = parser.runtime()
   parser.set_source("@bad")
   debug_inspect(
-    rt.read(parser.diagnostics()),
+    rt.read(parser.diagnostics()).format(),
     content=(
       #|["lex error: @bad"]
     ),
   )
   parser.set_source("recovered")
   inspect(rt.read(parser.ast()), content="9")
-  debug_inspect(rt.read(parser.diagnostics()), content="[]")
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("expected syntax tree after recovery")
-  }
+  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
+  ignore(rt.read(parser.syntax_tree()))
 }
 
 ///|
@@ -128,6 +114,15 @@ test "Parser::apply_edit advances source and ast" {
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
   inspect(rt.read(parser.source()), content="abcdef")
   inspect(rt.read(parser.ast()), content="6")
+}
+
+///|
+test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
+  let parser = Parser::new("abc", test_imperative_language())
+  let rt = parser.runtime()
+  let snapshot = rt.read(parser.snapshot())
+  snapshot.diagnostics.push(@core.Diagnostic::lexer_error("external mutation"))
+  inspect(rt.read(parser.diagnostics()).length(), content="0")
 }
 
 ///|
@@ -154,7 +149,9 @@ test "Parser exposes its runtime for downstream memos" {
 fn test_imperative_language_with_counter(
   parse_count : Ref[Int],
 ) -> @incremental.ImperativeLanguage[String] {
-  let full_parse = fn(s : String) -> @incremental.ParseOutcome {
+  let full_parse = fn(
+    s : String,
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
     parse_count.val = parse_count.val + 1
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
@@ -162,7 +159,7 @@ fn test_imperative_language_with_counter(
     ) catch {
       _ => abort("build_tree failed in counter lang")
     }
-    @incremental.ParseOutcome::Tree(@seam.SyntaxNode::from_cst(cst), 0)
+    (@seam.SyntaxNode::from_cst(cst), @core.DiagnosticSet::empty(), 0)
   }
   @incremental.ImperativeLanguage::new(
     full_parse~,
@@ -173,8 +170,6 @@ fn test_imperative_language_with_counter(
         [] => ""
       }
     },
-    on_lex_error=fn(msg) { "error: " + msg },
-    get_diagnostics=fn() { [] },
   )
 }
 

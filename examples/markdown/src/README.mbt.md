@@ -36,9 +36,8 @@ pub fn markdown_lex_step(String, Int, MarkdownLexMode)
 
 Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
-Note that `parse` is **not** `raise` — lex errors are routed through
-`on_lex_error` into `Block::Error`. If you need diagnostics, use
-`parse_markdown` instead.
+Note that `parse` is **not** `raise` — recovered CST error nodes fold into
+`Block::Error`. If you need diagnostics, use `parse_markdown` instead.
 
 ## Grammar
 
@@ -49,7 +48,7 @@ Note that `parse` is **not** `raise` — lex errors are routed through
 ///|
 test "grammar example: imperative parser returns a Block" {
   let imp = @loom.new_imperative_parser("# Hello\n", markdown_grammar)
-  let doc = imp.parse()
+  let doc = imp.parse().ast
   // The top-level Block is always a Document containing the parsed blocks.
   match doc {
     Document(_) => ()
@@ -85,7 +84,6 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
   spec=markdown_spec,
   lex=lex_for_grammar,
   fold_node=markdown_fold_node,
-  on_lex_error=fn(msg) { Block::Error("lex error: " + msg) },
   mode_relex=Some(mode_state),
 )
 ```

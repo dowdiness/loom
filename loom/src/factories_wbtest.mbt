@@ -250,12 +250,7 @@ fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
     parse_root=froot,
     reuse_size_threshold=0,
   )
-  Grammar::new(spec~, lex=flex, fold_node=fn(s, _recurse) { s }, on_lex_error=fn(
-    _msg,
-  ) {
-    let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-    @seam.SyntaxNode::from_cst(cst)
-  })
+  Grammar::new(spec~, lex=flex, fold_node=fn(s, _recurse) { s })
 }
 
 ///|
@@ -274,10 +269,6 @@ fn fterminator_grammar_with_tokenize(
     spec~,
     lex=fn(s) { flex_from_tokenize(s, tokenize, Err) },
     fold_node=fn(s, _recurse) { s },
-    on_lex_error=fn(_msg) {
-      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-      @seam.SyntaxNode::from_cst(cst)
-    },
     incremental_relex_enabled=false,
   )
 }
@@ -297,10 +288,6 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
     spec~,
     lex=flex_recoverable_steps,
     fold_node=fn(s, _recurse) { s },
-    on_lex_error=fn(_msg) {
-      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-      @seam.SyntaxNode::from_cst(cst)
-    },
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
       is_reparseable: fn(kind) { kind == root_kind },
@@ -331,10 +318,6 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
     spec~,
     lex=flex_late_error,
     fold_node=fn(s, _recurse) { s },
-    on_lex_error=fn(_msg) {
-      let cst = @seam.CstNode::new(fkind_raw(KErr), [])
-      @seam.SyntaxNode::from_cst(cst)
-    },
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
       is_reparseable: fn(kind) { kind == block_kind },
@@ -361,7 +344,7 @@ test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
   let full_parser = new_imperative_parser("aaaa", grammar)
   let full = full_parser.parse()
   inspect(
-    @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
+    @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
     content="0",
   )
 }
@@ -408,7 +391,7 @@ test "new_imperative_parser: incremental path reuse matches full reparse" {
   let full_parser = new_imperative_parser("aaaa", grammar)
   let full = full_parser.parse()
   inspect(
-    @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
+    @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
     content="0",
   )
 }
@@ -426,7 +409,7 @@ test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
   ignore(parser.parse())
   ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
   inspect(saw_edit_full_lex.val, content="true")
-  debug_inspect(parser.diagnostics(), content="[]")
+  debug_inspect(parser.diagnostics().format(), content="[]")
 }
 
 ///|
@@ -437,7 +420,7 @@ test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
   ignore(parser.edit(@core.Edit::new(1, 1, 1), "a!a"))
   inspect(parser.get_last_reuse_count(), content="1")
   let mut saw_lex_diagnostic = false
-  for diagnostic in parser.diagnostics() {
+  for diagnostic in parser.diagnostics().format() {
     if diagnostic.contains("unexpected char") {
       saw_lex_diagnostic = true
     }
@@ -465,7 +448,7 @@ test "reparse_block preserves block lexer diagnostics" {
     @core.LexResult::with_starts(result.tokens, result.starts, diagnostics~)
   }
   let result = @core.reparse_block(
-    old_syntax,
+    old_syntax.syntax,
     "a!a",
     @core.Edit::new(1, 1, 1),
     lex,
@@ -496,7 +479,7 @@ test "new_imperative_parser: block reparse preserves explicit LexResult starts" 
   let full_parser = new_imperative_parser("a!aa", grammar)
   let full = full_parser.parse()
   inspect(
-    @core.tree_diff(incr.cst_node(), full.cst_node()).length(),
+    @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
     content="0",
   )
 }
@@ -510,12 +493,10 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   let grammar = fgrammar()
   let parser = new_parser("!", grammar)
   let rt = parser.runtime()
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("expected Some syntax tree after lexer recovery")
-  }
+  ignore(rt.read(parser.syntax_tree()))
   let diags = rt.read(parser.diagnostics())
   let mut saw_lex_diagnostic = false
-  for diagnostic in diags {
+  for diagnostic in diags.format() {
     if diagnostic.contains("unexpected char") {
       saw_lex_diagnostic = true
     }
@@ -523,9 +504,7 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   inspect(saw_lex_diagnostic, content="true")
   parser.set_source("aaa")
   inspect(rt.read(parser.diagnostics()).length(), content="0")
-  guard rt.read(parser.syntax_tree()) is Some(_) else {
-    abort("expected Some syntax tree after recovery")
-  }
+  ignore(rt.read(parser.syntax_tree()))
 }
 
 ///|

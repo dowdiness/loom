@@ -43,12 +43,11 @@ pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
   lex : (String) -> @core.LexResult[T]
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
-  on_lex_error : (String) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexState[T]?
 }
-pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, on_lex_error~ : (String) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
+pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Type aliases
@@ -109,6 +108,8 @@ pub using @core {type ModeRelexState}
 pub using @seam {type NodeInterner}
 
 pub using @seam {type ParseEvent}
+
+pub using @incremental {type ParseSnapshot}
 
 pub using @pipeline {type Parser}
 

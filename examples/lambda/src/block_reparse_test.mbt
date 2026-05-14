@@ -17,12 +17,12 @@ test "block reparse: edit inside block matches full reparse" {
   //  ' ' = 12, a = 13, ' ' = 14, } = 15
   let source = "{ let a = 1; a }"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // Replace "1" (pos 10) with "2"  →  "{ let a = 2; a }"
   let edit = @core.Edit::new(10, 1, 1)
   let new_source = "{ let a = 2; a }"
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let full_term = parse(new_source) catch { _ => abort("parse failed") }
 
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -39,12 +39,12 @@ test "block reparse: edit touching closing brace falls through" {
   // Source: "{ let a = 1; a }"
   let source = "{ let a = 1; a }"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // Delete closing "}" at position 15 → "{ let a = 1; a "
   let edit = @core.Edit::new(15, 1, 0)
   let new_source = "{ let a = 1; a "
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let (full_term, _) = parse_term(new_source) catch { _ => abort("lex error") }
 
   // ASTs should still match (both handle incomplete block)
@@ -73,12 +73,12 @@ test "block reparse: nested blocks reparses inner" {
   //  } = 25, ; = 26, ' ' = 27, x = 28, ' ' = 29, } = 30
   let source = "{ let x = { let a = 1; a }; x }"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // Replace "1" (pos 20) with "9" → "{ let x = { let a = 9; a }; x }"
   let edit = @core.Edit::new(20, 1, 1)
   let new_source = "{ let x = { let a = 9; a }; x }"
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let full_term = parse(new_source) catch { _ => abort("parse failed") }
 
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -95,13 +95,13 @@ test "block reparse: no block falls through to normal incremental" {
   // Source without blocks: "let x = 1\nx"
   let source = "let x = 1\nx"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // Replace "1" with "2" at position 8
   // l=0 e=1 t=2 ' '=3 x=4 ' '=5 ==6 ' '=7 1=8
   let edit = @core.Edit::new(8, 1, 1)
   let new_source = "let x = 2\nx"
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let full_term = parse(new_source) catch { _ => abort("parse failed") }
 
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -129,13 +129,13 @@ test "block reparse: block with errors preserves diagnostics" {
   //  } = 25
   let source = "{ let a = 1 let b = 2; a }"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   let initial_diags = parser.diagnostics()
 
   // Replace "2" (pos 20) with "3" → "{ let a = 1 let b = 3; a }"
   let edit = @core.Edit::new(20, 1, 1)
   let new_source = "{ let a = 1 let b = 3; a }"
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let (full_term, _) = parse_term(new_source) catch { _ => abort("lex error") }
 
   // AST should still match
@@ -157,13 +157,13 @@ test "block reparse: delete content leaving empty block" {
   //  { = 0, ' ' = 1, 4 = 2, 2 = 3, ' ' = 4, } = 5
   let source = "{ 42 }"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // Delete "42" (pos 2, len 2) → "{ }"  (note: "42" removed, spaces remain)
   // Old: "{ 42 }" → New: "{  }" (delete 2 chars at pos 2)
   let edit = @core.Edit::new(2, 2, 0)
   let new_source = "{  }"
-  let incr_term = parser.edit(edit, new_source)
+  let incr_term = parser.edit(edit, new_source).ast
   let (full_term, _) = parse_term(new_source) catch { _ => abort("lex error") }
 
   inspect(@ast.print_term(incr_term), content=@ast.print_term(full_term))
@@ -183,12 +183,12 @@ test "block reparse: sequential edits — block then non-block" {
   //  \n=24 y=25
   let source = "let y = { let a = 1; a }\ny"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
 
   // First edit: replace "1" (pos 18) with "9" → inside block → block reparse
   let edit1 = @core.Edit::new(18, 1, 1)
   let source2 = "let y = { let a = 9; a }\ny"
-  let incr1 = parser.edit(edit1, source2)
+  let incr1 = parser.edit(edit1, source2).ast
   let full1 = parse(source2) catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incr1), content=@ast.print_term(full1))
   inspect(parser.get_last_reuse_count(), content="1")
@@ -198,7 +198,7 @@ test "block reparse: sequential edits — block then non-block" {
   // The final "y" is at position 25
   let edit2 = @core.Edit::new(25, 1, 1)
   let source3 = "let y = { let a = 9; a }\nz"
-  let incr2 = parser.edit(edit2, source3)
+  let incr2 = parser.edit(edit2, source3).ast
   let (full2, _) = parse_term(source3) catch { _ => abort("lex error") }
   inspect(@ast.print_term(incr2), content=@ast.print_term(full2))
   // Second edit is outside block, so block reparse should NOT fire

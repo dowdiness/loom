@@ -41,7 +41,7 @@ struct EgwPeer {
 fn EgwPeer::new(agent_id : String) -> EgwPeer {
   let doc = @egw.TextState::new(agent_id)
   let parser = new_imperative_parser("")
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   { doc, parser }
 }
 

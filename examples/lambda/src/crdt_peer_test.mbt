@@ -11,7 +11,7 @@ struct Peer {
 ///|
 fn Peer::new(source : String) -> Peer {
   let parser = new_imperative_parser(source)
-  let _ = parser.parse()
+  let _ = parser.parse().ast
   { text: source, parser }
 }
 

@@ -154,12 +154,12 @@ test "differential-fast: deterministic random edit sequences" {
     let mut seed = 17 + case_i * 97
     let mut source = idf_make_source(seed, false)
     let parser = @loom.new_imperative_parser(source, lambda_grammar)
-    let _ = parser.parse()
+    let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
         source, seed, false,
       )
-      let incremental = parser.edit(edit, new_source)
+      let incremental = parser.edit(edit, new_source).ast
       let (cst, errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
@@ -192,12 +192,12 @@ test "differential-fast: malformed input sequences terminate" {
     let mut seed = 43 + case_i * 131
     let mut source = idf_make_source(seed, true)
     let parser = @loom.new_imperative_parser(source, lambda_grammar)
-    let _ = parser.parse()
+    let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
         source, seed, true,
       )
-      let incremental = parser.edit(edit, new_source)
+      let incremental = parser.edit(edit, new_source).ast
       // Verify incremental parse produces a Term (print_term must not panic)
       let _ = @ast.print_term(incremental)
       try {
@@ -212,7 +212,7 @@ test "differential-fast: malformed input sequences terminate" {
     // After malformed churn, parser should still recover on valid input.
     let repair = "x + 1"
     let repair_edit = @core.Edit::replace(0, source.length(), repair.length())
-    let repaired = parser.edit(repair_edit, repair)
+    let repaired = parser.edit(repair_edit, repair).ast
     let full_repaired = parse(repair) catch {
       _ => abort("parse failed on repair")
     }
@@ -339,12 +339,12 @@ test "differential-fast: source-file grammar deterministic fuzz" {
     let mut seed = 53 + case_i * 113
     let mut source = idf_make_source_file_source(seed)
     let parser = @loom.new_imperative_parser(source, lambda_grammar)
-    let _ = parser.parse()
+    let _ = parser.parse().ast
     for edit_i = 0; edit_i < 8; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_source_file_edit(
         source, seed,
       )
-      let incr_term = parser.edit(edit, new_source)
+      let incr_term = parser.edit(edit, new_source).ast
       let (full_cst, full_errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source
@@ -375,12 +375,12 @@ test "differential-long: larger deterministic random edit sequences" {
     let mut seed = 101 + case_i * 193
     let mut source = idf_make_source(seed, false)
     let parser = @loom.new_imperative_parser(source, lambda_grammar)
-    let _ = parser.parse()
+    let _ = parser.parse().ast
     for edit_i = 0; edit_i < 16; edit_i = edit_i + 1 {
       let (new_source, edit, next_seed) = idf_apply_random_edit(
         source, seed, false,
       )
-      let incremental = parser.edit(edit, new_source)
+      let incremental = parser.edit(edit, new_source).ast
       let (cst, errors) = parse_cst(new_source) catch {
         _ => {
           source = new_source

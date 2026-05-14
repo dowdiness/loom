@@ -74,7 +74,7 @@ pub using @core {
 
 ///|
 // Incremental engine — the primary parser type consumers interact with
-pub using @incremental {type ImperativeParser}
+pub using @incremental {type ImperativeParser, type ParseSnapshot}
 
 ///|
 // Reactive parser — wraps ImperativeParser with signal/memo outputs

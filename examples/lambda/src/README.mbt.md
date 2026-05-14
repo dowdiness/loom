@@ -38,7 +38,7 @@ unified reactive `Parser[@ast.Term]`:
 ///|
 test "grammar example: imperative parser" {
   let imp = @loom.new_imperative_parser("42", lambda_grammar)
-  let term = imp.parse()
+  let term = imp.parse().ast
   inspect(@ast.print_term(term), content="42")
 }
 
@@ -51,9 +51,9 @@ test "grammar example: reactive parser + set_source" {
 ```
 
 `@loom.Grammar[T, K, Ast]` is the description any language provides —
-`spec`, `lex`, `fold_node`, `on_lex_error`. The factories erase
-`T`/`K` internally, so consumers only see `Ast`. Grammar authors never
-write vtable wiring (`ImperativeLanguage`) by hand.
+`spec`, `lex`, and `fold_node`. The factories erase `T`/`K` internally, so
+consumers only see `Ast`. Grammar authors never write vtable wiring
+(`ImperativeLanguage`) by hand.
 
 Lambda's `@lexer.lex` helper wraps the step lexer in a total `LexResult`
 boundary. Invalid steps become error tokens plus structured lexer diagnostics;
