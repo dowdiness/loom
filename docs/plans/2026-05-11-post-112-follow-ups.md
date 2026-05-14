@@ -21,7 +21,7 @@ the following token.
    structured diagnostics through `DiagnosticSet` and `ParseSnapshot[Ast]`.
    Parser convenience methods should still derive presentation coordinates from
    `LineIndex` rather than storing line/column data. Design captured in
-   [Parser-Level Structured Diagnostics](2026-05-12-parser-structured-diagnostics.md).
+   [Parser-Level Structured Diagnostics](../archive/completed-phases/2026-05-12-parser-structured-diagnostics.md).
 
 2. Incremental `LineIndex` only if profiling justifies it.
 

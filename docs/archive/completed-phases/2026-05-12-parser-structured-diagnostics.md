@@ -1,7 +1,16 @@
 # Parser-Level Structured Diagnostics
 
-**Status:** Active
+**Status:** Complete
 **Date:** 2026-05-12
+
+**Completed:** 2026-05-14
+
+Completion note: implemented over PR #117 plus local follow-up commits
+`894f1ae`, `a91046b`, `7456f3e`, and `6439899`. The completed boundary
+publishes `ParseSnapshot[Ast]`, carries lexer and parser diagnostics as
+`DiagnosticSet`, keeps high-level parsing total, exposes structured
+`ParserContext` reporting helpers, and simplifies example fail-fast
+`ParseError` payloads to messages.
 
 ## Execution Notes
 
@@ -41,10 +50,9 @@ formatted `Array[String]` values while lower-level parser code carried
 That parser-boundary gap is now closed. Prefix-lexer recovery carries lexer
 diagnostics through `TokenBuffer`, mode-aware lexing carries lexer diagnostics
 through `LexResult`, and the high-level parser publishes `ParseSnapshot[Ast]`
-with `DiagnosticSet` diagnostics. Remaining follow-up in this active plan is
-narrower: decide whether the remaining string-first grammar call sites should
-migrate to the new structured helpers immediately or stay on the compatibility
-`error` wrapper.
+with `DiagnosticSet` diagnostics. The final follow-up closed by keeping the
+compatibility `error(String)` wrapper for existing grammar call sites while
+exposing structured helpers for new code.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
@@ -437,7 +445,7 @@ cd examples/markdown && rtk moon test
 - Done: block reparse offsets and merges structured diagnostics.
 - Done: `Parser::snapshot()` updates source, syntax, AST, diagnostics, and reuse count
   atomically.
-- Line/column formatting derives from `LineIndex` without mutating stored
+- Done: line/column formatting derives from `LineIndex` without mutating stored
   diagnostics.
 
 ## Risks And Follow-Ups
@@ -457,7 +465,4 @@ cd examples/markdown && rtk moon test
 
 ## Decision Record
 
-No ADR is created for this item-9 documentation cleanup because the active plan
-is not being completed or archived in this change. An ADR is required when this
-plan is completed because the implementation changes public parser contracts
-and establishes the diagnostic boundary policy.
+- ADR: [Structured Parser Diagnostics Boundary](../../decisions/2026-05-14-structured-parser-diagnostics-boundary.md).
