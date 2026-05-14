@@ -16,7 +16,7 @@ test "Parser: step-based lexer recovers invalid chars without lex error" {
 
 ///|
 /// With step-based recovery, "@invalid" parses into a tree with errors.
-/// The Ast should not be a lex-error Term — the parser got tokens and
+/// The Ast should not be a fatal-tokenization Term — the parser got tokens and
 /// produced a tree.
 test "Parser: step-based recovery produces parse tree not ErrorNode" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)

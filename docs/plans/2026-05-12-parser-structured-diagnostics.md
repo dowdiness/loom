@@ -28,18 +28,24 @@
 
 PR #112 kept loom's canonical source coordinate system as UTF-16 code-unit
 offsets and added `LineIndex` for presentation-time line/column derivation.
-The remaining high-level gap is the parser boundary:
-`Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
-formatted `Array[String]` values. Low-level parser code now carries
-`DiagnosticSet`. Prefix-lexer recovery now carries lexer diagnostics through
-`TokenBuffer`, mode-aware lexing now carries lexer diagnostics through
-`LexResult`, and the final high-level parser snapshot still needs follow-up
-work.
+At plan start, the remaining high-level gap was the parser boundary:
+`Parser::diagnostics()` and `ImperativeParser::diagnostics()` still exposed
+formatted `Array[String]` values while lower-level parser code carried
+`DiagnosticSet`.
+
+That parser-boundary gap is now closed. Prefix-lexer recovery carries lexer
+diagnostics through `TokenBuffer`, mode-aware lexing carries lexer diagnostics
+through `LexResult`, and the high-level parser publishes `ParseSnapshot[Ast]`
+with `DiagnosticSet` diagnostics. Remaining follow-up in this active plan is
+narrower: replace string-first `ParserContext` reporting helpers, add direct
+tests for structured-diagnostic replay and block-reparse merging, and simplify
+example fail-fast `ParseError` payloads.
 
 This design assumes no backward compatibility requirement. Prefer the clean
 architecture over compatibility shims.
 
-Verified against current code before writing this plan:
+Baseline facts captured when this plan was written and updated as slices
+landed:
 
 - `rtk moon check` passes on `main`.
 - `@loom.Diagnostic` is a token-erased structured diagnostic re-exported from
@@ -47,9 +53,9 @@ Verified against current code before writing this plan:
 - `Array[Diagnostic]` and generic `ParseSnapshot[Ast]` can derive `Eq` when
   `Ast : Eq`, so structured diagnostics can live behind `@incr.Memo`.
 - `SyntaxNode` implements `Eq`.
-- Prefix and mode-aware grammar lexing can already recover inline. The
-  remaining total high-level parsing work is replacing the engine-level
-  `ParseOutcome::LexError` side channel with a parse snapshot.
+- Prefix and mode-aware grammar lexing can recover inline.
+- The total high-level parsing work is complete: the engine-level
+  `ParseOutcome::LexError` side channel was replaced with `ParseSnapshot[Ast]`.
 
 ## Goals
 
@@ -385,7 +391,10 @@ Line/column coordinates stay presentation-only and follow ADR
    `ParseSnapshot[Ast]`.
 8. Done: collapse reactive `Parser` state to a snapshot signal plus derived
    views.
-9. In progress: update examples and public docs to use `DiagnosticSet`.
+9. Done: update examples and public docs to use `DiagnosticSet`.
+   Active and public-facing docs now describe `ParseSnapshot[Ast]` /
+   `DiagnosticSet` as the high-level parser boundary. Stale `Array[String]`
+   parser-diagnostic references are retained only as historical context.
 10. Done: remove parser-level formatted string diagnostics.
 
 Run after each meaningful step:
@@ -445,6 +454,7 @@ cd examples/markdown && rtk moon test
 
 ## Decision Record
 
-No ADR is created with this active design plan. An ADR is required when this
+No ADR is created for this item-9 documentation cleanup because the active plan
+is not being completed or archived in this change. An ADR is required when this
 plan is completed because the implementation changes public parser contracts
 and establishes the diagnostic boundary policy.

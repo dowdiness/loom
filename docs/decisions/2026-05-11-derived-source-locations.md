@@ -58,9 +58,12 @@ Parser internals remain offset-based. Consumers that need line/column
 formatting build a `LineIndex` from the current source and format diagnostics at
 the boundary.
 
-`Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
-`Array[String]`, so structured parser-level diagnostic APIs remain a follow-up
-design. Do not add parser convenience methods until that boundary is decided.
+At ADR acceptance time, `Parser::diagnostics()` and
+`ImperativeParser::diagnostics()` still exposed `Array[String]`, so structured
+parser-level diagnostic APIs were left as follow-up design work. As of
+2026-05-14, that follow-up is implemented through `ParseSnapshot[Ast]` and
+`DiagnosticSet`. Do not add parser convenience methods that store line/column
+coordinates; derive presentation positions from `LineIndex`.
 
 Incremental `LineIndex` maintenance is deferred. Rebuild from source text unless
 profiling shows line-index construction is a real editor-loop cost.

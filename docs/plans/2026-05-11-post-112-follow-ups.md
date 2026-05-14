@@ -15,12 +15,12 @@ the following token.
 
 ## Recommended Next Work
 
-1. Parser-level structured diagnostics.
+1. Parser-level structured diagnostics. **Complete 2026-05-14.**
 
-   `Parser::diagnostics()` and `ImperativeParser::diagnostics()` still expose
-   `Array[String]`. Add a design for retaining structured diagnostics at the
-   parser boundary before adding convenience methods such as
-   `diagnostics_with_line_col()` or `line_index()`. Design captured in
+   `Parser::diagnostics()` and `ImperativeParser` snapshots now expose
+   structured diagnostics through `DiagnosticSet` and `ParseSnapshot[Ast]`.
+   Parser convenience methods should still derive presentation coordinates from
+   `LineIndex` rather than storing line/column data. Design captured in
    [Parser-Level Structured Diagnostics](2026-05-12-parser-structured-diagnostics.md).
 
 2. Incremental `LineIndex` only if profiling justifies it.
