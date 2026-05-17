@@ -10,11 +10,21 @@ Task 3 of the three-task sequence laid out in canopy's
 Tasks 1 (Show unification) and 2 (`pretty_unparse` free function)
 shipped 2026-05-17.
 
-## Status — Draft 2026-05-17
+## Status — Complete 2026-05-17
 
-Pending Codex design validation before implementation per the canopy
-project's algorithm-implementation process. The "Open Questions" section
-below lists the decisions that need confirmation before steps start.
+Implementation shipped via [loom#123](https://github.com/dowdiness/loom/pull/123)
+(merged 2026-05-17 as commit `51deb6e`). Canopy submodule pointer bumped
+in [canopy#291](https://github.com/dowdiness/canopy/pull/291) (merged
+2026-05-17 as canopy commit `643fade`).
+
+Acceptance criteria — all met (see § "Acceptance Criteria" below).
+Codex reviewed the plan (pass 1, pre-implementation) and the
+implementation diff (pass 2, post-implementation); no behavioral bugs
+found in either pass.
+
+Decision record:
+
+- ADR [docs/decisions/2026-05-17-canonical-companion-trait.md](../../decisions/2026-05-17-canonical-companion-trait.md) — Accepted: `Canonical` companion trait as a framework-level capability with opt-in `default_placeholder_via_canonical` free function.
 
 ## Why
 
@@ -395,30 +405,30 @@ bash check-docs.sh
 
 ## Acceptance Criteria
 
-- [ ] `Canonical` trait exists in `loom/src/core/proj_traits.mbt` with
+- [x] `Canonical` trait exists in `loom/src/core/proj_traits.mbt` with
   `canonical(Self) -> Self` + doc-comment stating all three laws and
   noting that none are compile-checked.
-- [ ] `default_placeholder_via_canonical[T : Canonical +
+- [x] `default_placeholder_via_canonical[T : Canonical +
   @pretty.Pretty]` exists in the same package.
-- [ ] `Canonical for Term` impl covers all 11 variants exhaustively;
+- [x] `Canonical for Term` impl covers all 11 variants exhaustively;
   Module canonical body is `Var("x")` (not "any").
-- [ ] `Renderable::placeholder for Term` delegates to the free
+- [x] `Renderable::placeholder for Term` delegates to the free
   function for the 9 fitting cases; carve-outs for `Module` (Pretty
   layout reason), `Unbound` and `Error` (diagnostic-kind reason) are
   documented inline.
-- [ ] `Canonical for JsonValue` impl covers all 7 variants
+- [x] `Canonical for JsonValue` impl covers all 7 variants
   exhaustively; `Error` carve-out is documented as *intentional UX
   masking*, not alignment failure.
-- [ ] `@qc` property tests pass for both implementors: `same_kind`,
+- [x] `@qc` property tests pass for both implementors: `same_kind`,
   idempotence, drift detector against frozen
   `hand_written_placeholder_reference`.
-- [ ] Drift detector reference functions are defined as string
+- [x] Drift detector reference functions are defined as string
   literals in the test module and never call `Renderable::placeholder`
   (directly or indirectly).
-- [ ] All existing `moon test` snapshots still pass; no `--update`
+- [x] All existing `moon test` snapshots still pass; no `--update`
   blanket-applied.
-- [ ] `.mbti` diff shows only the intended new exports.
-- [ ] `bash check-docs.sh` passes (this plan is linked from
+- [x] `.mbti` diff shows only the intended new exports.
+- [x] `bash check-docs.sh` passes (this plan is linked from
   `docs/README.md`'s Active Plans section).
 
 ## Open Questions — resolved 2026-05-17
@@ -493,7 +503,7 @@ solve here:
   [[feedback-algorithm-process]] (Codex-first design validation);
   [[feedback-no-direct-push]] (loom is a submodule — PR workflow);
   [[feedback-api-diff-check]] (`.mbti` audit after `moon info`).
-- Decision record: ADR-worthy on plan closure? Probably yes — Task 3
-  introduces a new framework-level trait, which meets loom's ADR
-  threshold per `docs/development/agent-docs-protocol.md`. Note for
-  closure: draft an ADR alongside marking this plan complete.
+- Decision record: ADR drafted at closure —
+  [docs/decisions/2026-05-17-canonical-companion-trait.md](../../decisions/2026-05-17-canonical-companion-trait.md).
+  Task 3 introduces a new framework-level trait, meeting loom's ADR
+  threshold per `docs/development/agent-docs-protocol.md`.

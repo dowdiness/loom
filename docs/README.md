@@ -60,6 +60,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-05-17-canonical-companion-trait.md](decisions/2026-05-17-canonical-companion-trait.md) — **Accepted** `Canonical` companion trait as a framework-level capability with opt-in `default_placeholder_via_canonical` free function (no supertrait coupling on `Renderable`)
 - [decisions/2026-05-14-structured-parser-diagnostics-boundary.md](decisions/2026-05-14-structured-parser-diagnostics-boundary.md) — **Accepted** publish parser snapshots and structured diagnostics at public parser boundaries
 - [decisions/2026-05-11-major-plan-closure-decision-records.md](decisions/2026-05-11-major-plan-closure-decision-records.md) — **Accepted** create/update ADRs for major plan closures; require an explicit decision-record note when archiving plans
 - [decisions/2026-05-11-moji-unicode-boundaries.md](decisions/2026-05-11-moji-unicode-boundaries.md) — **Accepted** use `moji` at grapheme/word boundary layers while keeping Loom core spans as UTF-16 code-unit offsets
@@ -118,7 +119,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [plans/2026-05-17-canonical-trait.md](plans/2026-05-17-canonical-trait.md) — **Draft** Task 3 of show-unification: `Canonical` companion trait + opt-in `default_placeholder_via_canonical` free function (no supertrait coupling)
+_None active — Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
 
 ---
 
