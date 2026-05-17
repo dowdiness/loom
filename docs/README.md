@@ -118,7 +118,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- No active plans.
+- [plans/2026-05-17-canonical-trait.md](plans/2026-05-17-canonical-trait.md) — **Draft** Task 3 of show-unification: `Canonical` companion trait + opt-in `default_placeholder_via_canonical` free function (no supertrait coupling)
 
 ---
 
