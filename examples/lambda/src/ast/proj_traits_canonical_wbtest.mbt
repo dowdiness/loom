@@ -215,18 +215,18 @@ test "canonical: Hole (arg discarded)" {
 ///|
 test "placeholder: all variants match expected strings" {
   let cases : Array[(Term, String)] = [
-    (Term::Int(7), "0"),
-    (Term::Var("y"), "x"),
-    (Term::Lam("y", Term::Var("y")), "λx. x"),
-    (Term::App(Term::Var("g"), Term::Int(3)), "f x"),
-    (Term::Bop(Plus, Term::Int(1), Term::Int(2)), "0 + 0"),
-    (Term::Bop(Minus, Term::Int(1), Term::Int(2)), "0 - 0"),
-    (Term::If(Term::Int(1), Term::Int(2), Term::Int(3)), "if 0 then 0 else 0"),
-    (Term::Module([("a", Term::Int(1))], Term::Var("a")), "let x = 0"),
-    (Term::Unit, "()"),
-    (Term::Unbound("foo"), "x"),
-    (Term::Error("oops"), "?"),
-    (Term::Hole(42), "_"),
+    (Int(7), "0"),
+    (Var("y"), "x"),
+    (Lam("y", Var("y")), "λx. x"),
+    (App(Var("g"), Int(3)), "f x"),
+    (Bop(Plus, Int(1), Int(2)), "0 + 0"),
+    (Bop(Minus, Int(1), Int(2)), "0 - 0"),
+    (If(Int(1), Int(2), Int(3)), "if 0 then 0 else 0"),
+    (Module([("a", Int(1))], Var("a")), "let x = 0"),
+    (Unit, "()"),
+    (Unbound("foo"), "x"),
+    (Error("oops"), "?"),
+    (Hole(42), "_"),
   ]
   for case in cases {
     let (t, expected) = case

@@ -56,7 +56,7 @@ fn gen_json(rs : @splitmix.RandomState, depth : Int) -> JsonValue {
       4 => {
         let n = rs.split().next_uint64().to_int().abs() % 3
         let items : Array[JsonValue] = []
-        for i = 0; i < n; i = i + 1 {
+        for _ in 0..<n {
           items.push(gen_json(rs, depth - 1))
         }
         Array(items)
@@ -64,7 +64,7 @@ fn gen_json(rs : @splitmix.RandomState, depth : Int) -> JsonValue {
       5 => {
         let n = rs.split().next_uint64().to_int().abs() % 3
         let members : Array[(String, JsonValue)] = []
-        for i = 0; i < n; i = i + 1 {
+        for _ in 0..<n {
           members.push((gen_string(rs), gen_json(rs, depth - 1)))
         }
         Object(members)
@@ -87,7 +87,7 @@ const PROPERTY_TRIALS : Int = 200
 ///|
 test "property: Canonical preserves kind" {
   let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
-  for _i = 0; _i < PROPERTY_TRIALS; _i = _i + 1 {
+  for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     if !@core.TreeNode::same_kind(v, @core.Canonical::canonical(v)) {
       fail("same_kind violated for: \{v}")
@@ -98,7 +98,7 @@ test "property: Canonical preserves kind" {
 ///|
 test "property: Canonical is idempotent" {
   let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
-  for _i = 0; _i < PROPERTY_TRIALS; _i = _i + 1 {
+  for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     let c = @core.Canonical::canonical(v)
     if @core.Canonical::canonical(c) != c {
@@ -110,7 +110,7 @@ test "property: Canonical is idempotent" {
 ///|
 test "property: default_placeholder_via_canonical matches frozen reference" {
   let rs = @splitmix.new(seed=0x1234_5678_9ABC_DEF0UL)
-  for _i = 0; _i < PROPERTY_TRIALS; _i = _i + 1 {
+  for _ in 0..<PROPERTY_TRIALS {
     let v = gen_json(rs.split(), 3)
     match hand_written_placeholder_reference(v) {
       None => () // carve-out
@@ -201,13 +201,13 @@ test "canonical: Error normalized to \"?\"" {
 ///|
 test "placeholder: all variants match expected strings" {
   let cases : Array[(JsonValue, String)] = [
-    (JsonValue::Null, "null"),
-    (JsonValue::Bool(true), "false"),
-    (JsonValue::Number(42.5), "0"),
-    (JsonValue::String("hello"), "\"\""),
-    (JsonValue::Array([JsonValue::Null]), "[]"),
-    (JsonValue::Object([("k", JsonValue::Null)]), "{}"),
-    (JsonValue::Error("oops"), "null"),
+    (Null, "null"),
+    (Bool(true), "false"),
+    (Number(42.5), "0"),
+    (String("hello"), "\"\""),
+    (Array([Null]), "[]"),
+    (Object([("k", Null)]), "{}"),
+    (Error("oops"), "null"),
   ]
   for case in cases {
     let (v, expected) = case
