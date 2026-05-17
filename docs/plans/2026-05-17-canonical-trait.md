@@ -421,21 +421,20 @@ bash check-docs.sh
 - [ ] `bash check-docs.sh` passes (this plan is linked from
   `docs/README.md`'s Active Plans section).
 
-## Open Questions for User
+## Open Questions — resolved 2026-05-17
 
 (Codex pre-review pass 1 completed 2026-05-17 — see § "Codex review
 trail" below.)
 
-1. **Markdown scope confirmation.** Default in this plan: Markdown
-   stays out (no Pretty impl → no Canonical benefit). Confirm or
-   redirect.
-2. **Single loom PR vs split.** Default: single PR (trait + Term +
-   JsonValue + property tests). Alternative: split (trait + Term
-   first; JsonValue follow-up). Single PR is the default because
-   both impls share the same shape and the property-test pattern is
-   reusable across them; Codex's review confirmed the split is
-   defensible for review/rollback isolation but not forced by
-   dependency uncertainty.
+1. **Markdown scope.** ✅ **Confirmed out of scope** by user 2026-05-17.
+   Markdown stays on its uniform `"..."` placeholder. If Markdown
+   grows a Pretty impl later, Canonical can be added then.
+2. **Single loom PR vs split.** ✅ **Single PR confirmed** by user
+   2026-05-17. Trait + Term + JsonValue + property tests land
+   together. Both implementors share the same shape and the
+   property-test pattern is reusable across them; Codex's review
+   confirmed the split would be defensible for review/rollback
+   isolation but is not forced by dependency uncertainty.
 
 ## Codex review trail
 
