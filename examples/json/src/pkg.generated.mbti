@@ -61,6 +61,7 @@ pub(all) enum JsonValue {
   Object(Array[(String, JsonValue)])
   Error(String)
 } derive(Eq, ToJson, @debug.Debug)
+pub impl @core.Canonical for JsonValue
 pub impl @core.Renderable for JsonValue
 pub impl @core.TreeNode for JsonValue
 pub impl @pretty.Pretty for JsonValue

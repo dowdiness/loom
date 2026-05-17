@@ -2,6 +2,7 @@
 package "dowdiness/loom/core"
 
 import {
+  "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
@@ -10,6 +11,8 @@ import {
 pub fn[T] build_starts(Array[TokenInfo[T]]) -> Array[Int]
 
 pub let core_interner : @seam.Interner
+
+pub fn[T : Canonical + @pretty.Pretty] default_placeholder_via_canonical(T) -> String
 
 pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexState[T]
 
@@ -421,6 +424,10 @@ pub fn[T] TokenInfo::new(T, Int) -> Self[T]
 // Traits
 pub(open) trait AstView {
   syntax_node(Self) -> @seam.SyntaxNode
+}
+
+pub(open) trait Canonical {
+  canonical(Self) -> Self
 }
 
 pub trait Editable {
