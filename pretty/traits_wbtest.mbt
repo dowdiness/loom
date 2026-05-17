@@ -14,15 +14,8 @@ priv struct Words {
 /// At a wide width the group stays flat ("a b c …"); at a narrow width it
 /// breaks across multiple lines.
 impl Pretty for Words with to_layout(self) {
-  let mut layout : Layout[SyntaxCategory] = Empty
-  for i in 0..<self.parts.length() {
-    layout = if i == 0 {
-      text(self.parts[i])
-    } else {
-      layout + line() + text(self.parts[i])
-    }
-  }
-  group(layout)
+  let parts : Array[Layout[SyntaxCategory]] = self.parts.map(text)
+  group(separate(line(), parts))
 }
 
 ///|
