@@ -65,13 +65,15 @@ pub impl @core.Renderable for JsonValue with label(self) {
 ///|
 pub impl @core.Renderable for JsonValue with placeholder(self) {
   match self {
-    Null => "null"
-    Bool(_) => "false"
-    Number(_) => "0"
-    String(_) => "\"\""
-    Array(_) => "[]"
-    Object(_) => "{}"
+    // Carve-out (hand-written): Error's placeholder `"null"` is a
+    // deliberate UX choice that masks error nodes in the output stream
+    // (same masking pattern used by `unparse` at `Error(_) => "null"`).
+    // Canonical's `Error("?")` pretty-prints to `"<error: ?>"`, which
+    // would surface the error rather than hide it — that's a behavior
+    // change, not a refactor. Keep hand-written.
     Error(_) => "null"
+    // Fitting variants — delegate to canonical + pretty_unparse.
+    _ => @core.default_placeholder_via_canonical(self)
   }
 }
 

@@ -29,18 +29,21 @@ pub impl @loomcore.Renderable for Term with label(self) {
 ///|
 pub impl @loomcore.Renderable for Term with placeholder(self) {
   match self {
-    Int(_) => "0"
-    Var(_) => "x"
-    Lam(_, _) => "\u{03BB}x. x"
-    App(_, _) => "f x"
-    Bop(Plus, _, _) => "0 + 0"
-    Bop(Minus, _, _) => "0 - 0"
-    If(_, _, _) => "if 0 then 0 else 0"
+    // Carve-outs (hand-written): placeholder semantics do not align with
+    // pretty-printing the canonical instance.
+    //   - Module: Pretty's `mod` impl unconditionally emits `body` on a
+    //     hardline (`pretty_traits.mbt` `mod`), so the canonical form
+    //     `Module([("x", Int(0))], Var("x"))` pretty-prints as
+    //     `"let x = 0\nx"`, not the single-line user-input template
+    //     `"let x = 0"` the editor expects.
+    //   - Unbound/Error: diagnostic kinds whose placeholders are
+    //     user-input templates (`"x"`, `"?"`), not the diagnostic-decorated
+    //     pretty form (`"<unbound: x>"`, `"<error: ?>"`).
     Module(_, _) => "let x = 0"
-    Unit => "()"
     Unbound(_) => "x"
     Error(_) => "?"
-    Hole(_) => "_"
+    // Fitting variants — delegate to canonical + pretty_unparse.
+    _ => @loomcore.default_placeholder_via_canonical(self)
   }
 }
 

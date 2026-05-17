@@ -52,6 +52,7 @@ pub(all) enum Term {
   Hole(Int)
 } derive(Eq, ToJson, @debug.Debug)
 pub impl TermSym for Term
+pub impl @core.Canonical for Term
 pub impl @core.Renderable for Term
 pub impl @core.TreeNode for Term
 pub impl @pretty.Pretty for Term

@@ -5,6 +5,7 @@
   "deps": {
     "dowdiness/seam": { "path": "../seam" },
     "dowdiness/incr": { "path": "../incr" },
+    "dowdiness/pretty": { "path": "../pretty" },
     "dowdiness/text_change": { "path": "../../lib/text-change" },
     "dowdiness/graphviz": "0.1.0",
     "moonbitlang/quickcheck": "0.11.2"
