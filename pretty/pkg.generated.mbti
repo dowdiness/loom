@@ -32,6 +32,8 @@ pub fn[T : Pretty] pretty_print(T, width? : Int) -> String
 
 pub fn[T : Pretty] pretty_spans(T, width? : Int) -> Array[(Span, SyntaxCategory)]
 
+pub fn[T : Pretty] pretty_unparse(T) -> String
+
 pub fn[A] render_spans(Layout[A], width? : Int) -> Array[(Span, A)]
 
 pub fn[A] render_string(Layout[A], width? : Int) -> String
