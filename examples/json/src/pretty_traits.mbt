@@ -106,7 +106,7 @@ pub impl @pretty.Pretty for JsonValue with to_layout(self) {
 ///|
 /// Source for JSON: produces valid, compact JSON text.
 pub impl @pretty.Source for JsonValue with to_source(self) {
-  @pretty.render_string(json_to_layout(self), width=1000000)
+  @pretty.pretty_unparse(self)
 }
 
 ///|
