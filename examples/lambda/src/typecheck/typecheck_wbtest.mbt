@@ -295,9 +295,12 @@ test "Show TypeDiagnostic: without def_name" {
 ///|
 test "TypeEnv lookup: shadowing" {
   let env = TypeEnv::Empty.extend("x", TInt).extend("x", TUnit)
-  debug_inspect(env.lookup("x"), content=(
-    #|Some(TUnit)
-  ))
+  debug_inspect(
+    env.lookup("x"),
+    content=(
+      #|Some(TUnit)
+    ),
+  )
 }
 
 ///|
