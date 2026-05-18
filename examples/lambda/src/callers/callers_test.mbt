@@ -395,20 +395,53 @@ test "pipeline: empty source returns no defs or callers" {
 }
 
 ///|
-test "extract_facts: malformed lambda missing param does not bind body identifiers" {
-  // Regression: `find_token(IdentToken)` on a LambdaExpr must only see
-  // the direct param token, never reach into the body. `seam.find_token`
-  // descends only into RepeatGroups, advancing past regular interior
-  // nodes — so the body's identifiers are unreachable. If this assertion
-  // ever fails, seam's `find_token` semantics changed and the LambdaExpr
-  // branch in `collect_in` needs a direct-token scan.
-  let src = "let f = 1\nlet broken = \\ . f x\n"
+/// Helper: collect names of all Defs whose scope is NOT TopScope (i.e.
+/// names that were bound as lambda params or let-params). Used by the
+/// malformed-input regression tests below to assert that error recovery
+/// does NOT leak body identifiers into the scope frame.
+fn lambda_scope_def_names_of(src : String) -> Array[String] {
   let (defs, _) = extract_facts(parse_to_syntax(src))
-  let lambda_scope_def_names : Array[String] = []
+  let out : Array[String] = []
   for d in defs {
     if not(d.scope is TopScope) {
-      lambda_scope_def_names.push(d.name)
+      out.push(d.name)
     }
   }
-  inspect(lambda_scope_def_names.length(), content="0")
+  out
+}
+
+///|
+test "extract_facts: malformed lambda missing param (\\ . f x)" {
+  // ErrorToken placeholder at the param slot. `ident_after_lead` finds
+  // LambdaToken, then sees an ErrorToken next (non-trivia, non-Ident) →
+  // returns None. No body identifier leaks into the lambda's scope.
+  let names = lambda_scope_def_names_of("let f = 1\nlet broken = \\ . f x\n")
+  inspect(names.length(), content="0")
+}
+
+///|
+test "extract_facts: malformed lambda no body (\\f)" {
+  // Param `f` is consumed, but no DotToken / body follows. Recovery
+  // determines what ends up in LambdaExpr's children; the param `f`
+  // should still be the only LambdaScope binding.
+  let names = lambda_scope_def_names_of("let broken = \\f\n")
+  inspect(names, content="[f]")
+}
+
+///|
+test "extract_facts: malformed lambda no param or body (\\)" {
+  // Lambda token alone — no param, no body. Param slot has no IdentToken;
+  // ident_after_lead returns None; no binding.
+  let names = lambda_scope_def_names_of("let broken = \\\n")
+  inspect(names.length(), content="0")
+}
+
+///|
+test "extract_facts: well-formed lambda still binds correctly under new extraction" {
+  // Sanity check that the position-aware extractor matches find_token on
+  // the happy path.
+  let src = "let f = 1\nlet shadow = \\f. f\n"
+  let names = lambda_scope_def_names_of(src)
+  // Lambda's param `f` is the only non-TopScope binding.
+  inspect(names, content="[f]")
 }

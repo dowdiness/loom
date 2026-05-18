@@ -99,6 +99,51 @@ fn resolve_in_stack(name : String, stack : Array[Frame]) -> ScopeId {
 }
 
 ///|
+/// Find the IdentToken in the slot immediately after `lead_kind`,
+/// skipping only trivia. Returns `None` when:
+///   - the lead token is absent (malformed input), or
+///   - the first non-trivia element after the lead is anything other
+///     than an IdentToken (e.g. an ErrorToken placeholder, the next
+///     punctuation, or an interior node).
+///
+/// Used for LambdaExpr (lead=LambdaToken, returns the param) and LetDef
+/// (lead=LetKeyword, returns the let-bound name). `find_token` would
+/// return the same value on today's recovery paths because it does not
+/// descend into interior nodes, but the intent is clearer here and the
+/// extraction is robust against future recovery shifts that might leave
+/// a stray IdentToken at a non-slot direct position.
+fn ident_after_lead(
+  node : @seam.SyntaxNode,
+  lead_kind : @syntax.SyntaxKind,
+) -> @seam.SyntaxToken? {
+  let mut seen_lead = false
+  for elem in node.all_children() {
+    match elem {
+      @seam.SyntaxElement::Token(tok) => {
+        let k = @syntax.SyntaxKind::from_raw(tok.kind())
+        if k.is_trivia() {
+          continue
+        }
+        if seen_lead {
+          if k == @syntax.IdentToken {
+            return Some(tok)
+          }
+          return None
+        }
+        if k == lead_kind {
+          seen_lead = true
+        }
+      }
+      @seam.SyntaxElement::Node(_) =>
+        if seen_lead {
+          return None
+        }
+    }
+  }
+  None
+}
+
+///|
 /// True iff `node` is the function-position child of an enclosing
 /// AppExpr, transparently climbing through ParenExpr wrappers. ParenExpr
 /// has a single inner-expression child plus paren tokens — wrapping a
@@ -145,7 +190,7 @@ fn collect_in(
     @syntax.LambdaExpr => {
       let frame_id = LambdaScope(node.start(), node.end())
       let names : Array[String] = []
-      match node.find_token(@syntax.IdentToken.to_raw()) {
+      match ident_after_lead(node, @syntax.LambdaToken) {
         Some(tok) => {
           let name = tok.text()
           names.push(name)
@@ -166,7 +211,7 @@ fn collect_in(
     }
     @syntax.LetDef => {
       let outer_scope = stack[stack.length() - 1].id
-      match node.find_token(@syntax.IdentToken.to_raw()) {
+      match ident_after_lead(node, @syntax.LetKeyword) {
         Some(tok) =>
           defs.push({
             name: tok.text(),
