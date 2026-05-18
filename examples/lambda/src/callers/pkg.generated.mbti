@@ -18,6 +18,8 @@ pub fn extract_facts(@seam.SyntaxNode) -> (Array[Def], Array[Call])
 // Types and methods
 pub struct Call {
   callee : String
+  resolved_scope : ScopeId
+  is_call_position : Bool
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
@@ -33,10 +35,17 @@ pub fn CallersPipeline::dispose(Self) -> Unit
 
 pub struct Def {
   name : String
+  scope : ScopeId
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
 pub impl Show for Def
+
+pub(all) enum ScopeId {
+  TopScope
+  LambdaScope(Int, Int)
+} derive(Eq, @debug.Debug)
+pub impl Show for ScopeId
 
 // Type aliases
 

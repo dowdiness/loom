@@ -1,25 +1,56 @@
-// Tier 0 prototype: Datalog-style "show callers" projection.
+// Tier 1 "show callers" projection: scope-aware extraction with strict
+// call-site filtering.
 //
-// Walks a SyntaxNode tree extracting two relations:
-//   Def  — each LetDef binds a name at a source position.
-//   Call — each VarRef references a name at a source position.
+// Walks a SyntaxNode tree once, emitting two relations on a stack of
+// lexical scopes:
+//   Def   — each LetDef name, lambda parameter, and let-paren parameter,
+//           tagged with the ScopeId that binds it (TopScope or
+//           LambdaScope(start, end)).
+//   Call  — each VarRef, tagged with the ScopeId it resolves to via
+//           lexical lookup, plus a Boolean `is_call_position` true iff
+//           the parent (transparently through ParenExpr) is an AppExpr
+//           in function position.
 //
 // `CallersPipeline` wraps the extraction in an @incr.Memo chain so the
-// derived index re-derives automatically when the source SyntaxNode changes.
+// derived index re-derives automatically when the source SyntaxNode
+// changes.
 //
-// Known Tier 0 limitations (intentional, to be revisited):
-//   1. Byte offsets are the only identity. Edits shift offsets and there is
-//      no cross-edit fact identity.
-//   2. Any VarRef counts as a use, including those passed as data rather
-//      than called. A strict call-site filter would require parent-pointer
-//      checks on AppExpr.func.
-//   3. Lambda parameter bindings are not modelled — a parameter named `f`
-//      shadows a top-level `let f = ...` in scope, but this projection
-//      returns the union of both.
+// Known limitations (deferred — none of them block current consumers):
+//   1. Byte offsets are the only identity. Edits shift offsets and
+//      there is no cross-edit fact identity. ScopeId inherits this
+//      limitation since it is keyed on enclosing node byte ranges.
+//   2. BlockExpr does not open a new scope: `{ let f = 2; f x }` reports
+//      a top-level caller of `f` even when a block-local `f` would
+//      shadow it. Only LambdaExpr and let-paren parameters introduce
+//      scopes here.
+//   3. "Resolved to top-level" means "not shadowed by a modeled lambda
+//      or let-paren scope" — not "definitely points at an existing
+//      top-level Def." An unbound name still resolves to TopScope. A
+//      future projection that wants this distinction can read the
+//      unfiltered `facts` Memo.
+
+///|
+/// Lexical scope identity.
+///
+/// `TopScope` is the global/source-file scope where top-level LetDefs
+/// live. `LambdaScope(start, end)` identifies an enclosing
+/// parameter-binding scope by its opening node's byte range — either a
+/// `LambdaExpr` (for `\x. body`) or a `LetDef` carrying a `ParamList`
+/// (for `let f(x, y) = body`).
+pub(all) enum ScopeId {
+  TopScope
+  LambdaScope(Int, Int)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for ScopeId with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct Def {
   name : String
+  scope : ScopeId
   start : Int
   end : Int
 } derive(Eq, Debug)
@@ -32,6 +63,8 @@ pub impl Show for Def with output(self, logger) {
 ///|
 pub struct Call {
   callee : String
+  resolved_scope : ScopeId
+  is_call_position : Bool
   start : Int
   end : Int
 } derive(Eq, Debug)
@@ -42,50 +75,176 @@ pub impl Show for Call with output(self, logger) {
 }
 
 ///|
-/// Recursively walk the tree, appending Def/Call facts as they are found.
-/// Nodes that have lost their IdentToken to error recovery are skipped
-/// rather than emitted as empty-name ghost facts.
-fn collect(
+/// Lexical scope frame: a ScopeId paired with the names bound by it.
+/// Param lists are small (typically ≤ 5) so linear scan beats hashing.
+priv struct Frame {
+  id : ScopeId
+  names : Array[String]
+}
+
+///|
+/// Look up `name` in the scope stack innermost-first. Returns the
+/// ScopeId of the binding frame, or `TopScope` if no modeled scope
+/// binds it.
+fn resolve_in_stack(name : String, stack : Array[Frame]) -> ScopeId {
+  for i = stack.length() - 1; i >= 0; i = i - 1 {
+    let frame = stack[i]
+    for bound in frame.names {
+      if bound == name {
+        return frame.id
+      }
+    }
+  }
+  TopScope
+}
+
+///|
+/// True iff `node` is the function-position child of an enclosing
+/// AppExpr, transparently climbing through ParenExpr wrappers. ParenExpr
+/// has a single inner-expression child plus paren tokens — wrapping a
+/// callee in parens does not change its call-position status.
+fn is_call_position_of(node : @seam.SyntaxNode) -> Bool {
+  let mut current_kind = node.kind()
+  let mut current_start = node.start()
+  let mut current_end = node.end()
+  let mut parent_opt = node.parent()
+  while parent_opt is Some(parent) {
+    let pkind = @syntax.SyntaxKind::from_raw(parent.kind())
+    if pkind == @syntax.ParenExpr {
+      // Transparent wrapper — recheck against ParenExpr's own parent.
+      current_kind = parent.kind()
+      current_start = parent.start()
+      current_end = parent.end()
+      parent_opt = parent.parent()
+    } else if pkind == @syntax.AppExpr {
+      match parent.first_child() {
+        Some(first) =>
+          return first.kind() == current_kind &&
+            first.start() == current_start &&
+            first.end() == current_end
+        None => return false
+      }
+    } else {
+      return false
+    }
+  }
+  false
+}
+
+///|
+/// Recursively walk the tree, appending Def/Call facts as they are
+/// found, maintaining a lexical scope stack.
+fn collect_in(
   node : @seam.SyntaxNode,
   defs : Array[Def],
   calls : Array[Call],
+  stack : Array[Frame],
 ) -> Unit {
   let kind = @syntax.SyntaxKind::from_raw(node.kind())
   match kind {
-    @syntax.LetDef =>
+    @syntax.LambdaExpr => {
+      let frame_id = LambdaScope(node.start(), node.end())
+      let names : Array[String] = []
       match node.find_token(@syntax.IdentToken.to_raw()) {
-        Some(tok) =>
-          defs.push({ name: tok.text(), start: node.start(), end: node.end() })
+        Some(tok) => {
+          let name = tok.text()
+          names.push(name)
+          defs.push({
+            name,
+            scope: frame_id,
+            start: node.start(),
+            end: node.end(),
+          })
+        }
         None => ()
       }
-    @syntax.VarRef =>
+      stack.push({ id: frame_id, names })
+      for child in node.children() {
+        collect_in(child, defs, calls, stack)
+      }
+      let _ = stack.pop()
+    }
+    @syntax.LetDef => {
+      let outer_scope = stack[stack.length() - 1].id
       match node.find_token(@syntax.IdentToken.to_raw()) {
         Some(tok) =>
-          calls.push({
-            callee: tok.text(),
+          defs.push({
+            name: tok.text(),
+            scope: outer_scope,
             start: node.start(),
             end: node.end(),
           })
         None => ()
       }
-    _ => ()
-  }
-  for child in node.children() {
-    collect(child, defs, calls)
+      // Single pass over children. When a ParamList is seen, install a
+      // new scope frame whose lifetime extends through the rest of the
+      // children (the body). ParamList has no VarRef/LetDef/LambdaExpr
+      // descendants, so its own children don't need recursion.
+      let mut pushed = false
+      for child in node.children() {
+        if @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList {
+          let frame_id = LambdaScope(node.start(), node.end())
+          let names : Array[String] = []
+          for tok in child.tokens() {
+            if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken {
+              let name = tok.text()
+              names.push(name)
+              defs.push({
+                name,
+                scope: frame_id,
+                start: node.start(),
+                end: node.end(),
+              })
+            }
+          }
+          stack.push({ id: frame_id, names })
+          pushed = true
+        } else {
+          collect_in(child, defs, calls, stack)
+        }
+      }
+      if pushed {
+        let _ = stack.pop()
+      }
+    }
+    @syntax.VarRef =>
+      match node.find_token(@syntax.IdentToken.to_raw()) {
+        Some(tok) => {
+          let name = tok.text()
+          calls.push({
+            callee: name,
+            resolved_scope: resolve_in_stack(name, stack),
+            is_call_position: is_call_position_of(node),
+            start: node.start(),
+            end: node.end(),
+          })
+        }
+        None => ()
+      }
+    _ =>
+      for child in node.children() {
+        collect_in(child, defs, calls, stack)
+      }
   }
 }
 
 ///|
 /// Pure extraction. Used directly in tests and inside the Memo body.
+/// The returned arrays include EVERY VarRef and EVERY binding —
+/// downstream filters (see `callers_of`) narrow to "callers of name"
+/// using the `resolved_scope` and `is_call_position` fields.
 pub fn extract_facts(root : @seam.SyntaxNode) -> (Array[Def], Array[Call]) {
   let defs : Array[Def] = []
   let calls : Array[Call] = []
-  collect(root, defs, calls)
+  let stack : Array[Frame] = [{ id: TopScope, names: [] }]
+  collect_in(root, defs, calls, stack)
   (defs, calls)
 }
 
 ///|
-/// Group calls by callee name for O(1) lookup.
+/// Group calls by callee name for O(1) lookup. Pure utility — the
+/// caller decides what subset of calls to index (e.g. `CallersPipeline`
+/// indexes only the strict-call, top-resolved subset).
 pub fn build_callers_index(
   calls : Array[Call],
 ) -> @hashmap.HashMap[String, Array[Call]] {
@@ -101,11 +260,12 @@ pub fn build_callers_index(
 
 ///|
 /// The reactive pipeline: facts (joint defs + calls) plus a derived
-/// name->[Call] index, each owned by a private @incr.Scope. A persistent
-/// Observer on the index anchors the whole chain as a GC root — without
-/// it, Runtime::gc() would sweep the (otherwise unobserved) interior
-/// cells and subsequent reads would abort. The Observer also gives
-/// ergonomic untracked reads via Observer::get().
+/// name->[Call] index of the strict-filtered subset (top-scope-resolved
+/// calls in function position), each owned by a private @incr.Scope. A
+/// persistent Observer on the index anchors the whole chain as a GC
+/// root — without it, Runtime::gc() would sweep the (otherwise
+/// unobserved) interior cells and subsequent reads would abort. The
+/// Observer also gives ergonomic untracked reads via Observer::get().
 ///
 /// Call `dispose()` to release the GC root and tear down the owned
 /// cells. The input `syntax` Memo and the runtime are unaffected.
@@ -117,13 +277,11 @@ pub struct CallersPipeline {
 }
 
 ///|
-/// Build a CallersPipeline rooted at a Memo[SyntaxNode]. The pipeline
-/// reads from `syntax` and exposes derived views via callers_of/defs_of.
-///
-/// Cells are created on a fresh Scope owned by this pipeline, and the
-/// derived index is observed so the reactive chain survives
-/// `Runtime::gc()`. Merging defs+calls into a single `facts` Memo avoids
-/// double-walking the tree on every edit.
+/// Build a CallersPipeline rooted at a Memo[SyntaxNode]. Cells are
+/// created on a fresh Scope owned by this pipeline, and the derived
+/// index is observed so the reactive chain survives `Runtime::gc()`.
+/// Merging defs+calls into a single `facts` Memo avoids double-walking
+/// the tree on every edit.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
@@ -136,7 +294,16 @@ pub fn CallersPipeline::CallersPipeline(
   let index = scope.memo(
     fn() {
       let (_, calls) = facts.get()
-      build_callers_index(calls)
+      let buckets : @hashmap.HashMap[String, Array[Call]] = @hashmap.HashMap([])
+      for c in calls {
+        if c.is_call_position && c.resolved_scope == TopScope {
+          match buckets.get(c.callee) {
+            Some(bucket) => bucket.push(c)
+            None => buckets.set(c.callee, [c])
+          }
+        }
+      }
+      buckets
     },
     label="callers_index",
   )
@@ -153,9 +320,10 @@ pub fn CallersPipeline::dispose(self : CallersPipeline) -> Unit {
 }
 
 ///|
-/// Read all callers of `name`. Returns a defensive copy of the cached
-/// bucket so callers cannot mutate the memoized index out from under
-/// @incr's change-tracking. Returns [] when the name is undefined or unused.
+/// Read all top-scope callers of `name`. Returns a defensive copy of the
+/// cached bucket so callers cannot mutate the memoized index out from
+/// under @incr's change-tracking. Returns [] when the name is undefined
+/// at the top scope or has no call-position references.
 pub fn CallersPipeline::callers_of(
   self : CallersPipeline,
   name : String,
@@ -167,11 +335,11 @@ pub fn CallersPipeline::callers_of(
 }
 
 ///|
-/// Read all definitions named `name`. Useful for diagnostics — a name
-/// with zero defs and many calls is an undefined reference; many defs is
-/// an ambiguity / shadow. The `facts` cell stays reachable via the
-/// observer on `index` (which depends on `facts`), so no second observer
-/// is needed.
+/// Read all definitions named `name`, including lambda parameters and
+/// let-paren parameters. Consumers wanting top-level bindings only can
+/// filter on `d.scope == TopScope`. The `facts` cell stays reachable
+/// via the observer on `index` (which depends on `facts`), so no second
+/// observer is needed.
 pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,
