@@ -29,6 +29,7 @@ pub struct CallersPipeline {
 pub fn CallersPipeline::CallersPipeline(@cells.Runtime, @cells.Memo[@seam.SyntaxNode]) -> Self
 pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
 pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
+pub fn CallersPipeline::dispose(Self) -> Unit
 
 pub struct Def {
   name : String

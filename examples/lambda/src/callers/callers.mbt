@@ -101,32 +101,55 @@ pub fn build_callers_index(
 
 ///|
 /// The reactive pipeline: facts (joint defs + calls) plus a derived
-/// name->[Call] index, each as an @incr.Memo cell that re-derives when
-/// the input SyntaxNode changes. Fields are private so callers cannot
-/// read raw Memo handles and bypass the rt-anchored read path.
+/// name->[Call] index, each owned by a private @incr.Scope. A persistent
+/// Observer on the index anchors the whole chain as a GC root — without
+/// it, Runtime::gc() would sweep the (otherwise unobserved) interior
+/// cells and subsequent reads would abort. The Observer also gives
+/// ergonomic untracked reads via Observer::get().
+///
+/// Call `dispose()` to release the GC root and tear down the owned
+/// cells. The input `syntax` Memo and the runtime are unaffected.
 pub struct CallersPipeline {
   priv rt : @incr.Runtime
+  priv scope : @incr.Scope
+  priv observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
   priv facts : @incr.Memo[(Array[Def], Array[Call])]
-  priv index : @incr.Memo[@hashmap.HashMap[String, Array[Call]]]
 }
 
 ///|
 /// Build a CallersPipeline rooted at a Memo[SyntaxNode]. The pipeline
 /// reads from `syntax` and exposes derived views via callers_of/defs_of.
 ///
-/// `facts` walks the tree once per snapshot change; `index` derives the
-/// callee->calls map from facts. Merging defs+calls into a single Memo
-/// avoids double-walking the tree on every edit.
+/// Cells are created on a fresh Scope owned by this pipeline, and the
+/// derived index is observed so the reactive chain survives
+/// `Runtime::gc()`. Merging defs+calls into a single `facts` Memo avoids
+/// double-walking the tree on every edit.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
 ) -> CallersPipeline {
-  let facts = @incr.Memo::new(rt, fn() { extract_facts(syntax.get()) })
-  let index = @incr.Memo::new(rt, fn() {
-    let (_, calls) = facts.get()
-    build_callers_index(calls)
-  })
-  { rt, facts, index }
+  let scope = @incr.Scope::new(rt)
+  let facts = scope.memo(
+    fn() { extract_facts(syntax.get()) },
+    label="callers_facts",
+  )
+  let index = scope.memo(
+    fn() {
+      let (_, calls) = facts.get()
+      build_callers_index(calls)
+    },
+    label="callers_index",
+  )
+  let observer = scope.add_observer(index.observe())
+  { rt, scope, observer, facts }
+}
+
+///|
+/// Release the GC root and tear down the owned cells. Idempotent.
+/// Subsequent calls to `callers_of` / `defs_of` after dispose() are
+/// undefined.
+pub fn CallersPipeline::dispose(self : CallersPipeline) -> Unit {
+  self.scope.dispose()
 }
 
 ///|
@@ -137,7 +160,7 @@ pub fn CallersPipeline::callers_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Call] {
-  match self.rt.read(self.index).get(name) {
+  match self.observer.get().get(name) {
     Some(bucket) => bucket.copy()
     None => []
   }
@@ -146,7 +169,9 @@ pub fn CallersPipeline::callers_of(
 ///|
 /// Read all definitions named `name`. Useful for diagnostics — a name
 /// with zero defs and many calls is an undefined reference; many defs is
-/// an ambiguity / shadow.
+/// an ambiguity / shadow. The `facts` cell stays reachable via the
+/// observer on `index` (which depends on `facts`), so no second observer
+/// is needed.
 pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,

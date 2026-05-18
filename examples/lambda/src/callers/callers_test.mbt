@@ -121,3 +121,59 @@ test "pipeline: nested call through Lambda body" {
   let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
   inspect(pipe.callers_of("f").length(), content="1")
 }
+
+///|
+test "pipeline: survives rt.gc() between queries" {
+  // Regression test for the persistent-observer GC root. Without the
+  // Observer anchoring the index Memo, rt.gc() would sweep the interior
+  // facts/index cells (they have no other reachability path) and
+  // subsequent reads would abort instead of returning empty arrays.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(
+    "let f = 1\nlet g = f\nlet h = f\n",
+    @lambda.lambda_grammar,
+    runtime=rt,
+  )
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  inspect(pipe.callers_of("f").length(), content="2")
+  rt.gc()
+  inspect(pipe.callers_of("f").length(), content="2")
+  inspect(pipe.defs_of("f").length(), content="1")
+  pipe.dispose()
+}
+
+///|
+test "pipeline: malformed LetDef without IdentToken emits no ghost def" {
+  // Regression test for the find_token None guard. Source with an
+  // incomplete `let = 1` (no identifier) used to emit Def { name: "" }
+  // because token_text() returns "" on a missing token. Now skipped.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(
+    "let = 1\nlet g = f\n",
+    @lambda.lambda_grammar,
+    runtime=rt,
+  )
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  inspect(pipe.defs_of("").length(), content="0")
+  inspect(pipe.defs_of("g").length(), content="1")
+  pipe.dispose()
+}
+
+///|
+test "pipeline: callers_of result is defensively copied" {
+  // Regression test for the defensive copy. Mutating the returned array
+  // must not affect subsequent reads of the cached index.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(
+    "let f = 1\nlet g = f\nlet h = f\n",
+    @lambda.lambda_grammar,
+    runtime=rt,
+  )
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let first = pipe.callers_of("f")
+  inspect(first.length(), content="2")
+  first.clear()
+  let second = pipe.callers_of("f")
+  inspect(second.length(), content="2")
+  pipe.dispose()
+}
