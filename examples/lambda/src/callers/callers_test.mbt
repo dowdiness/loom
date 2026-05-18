@@ -361,3 +361,35 @@ test "pipeline: let-paren param shadows top-level def" {
   inspect(pipe.defs_of("x").length(), content="2")
   pipe.dispose()
 }
+
+// ─── New: defensive edge cases ─────────────────────────────────────────
+
+///|
+test "pipeline: typed lambda param still shadows top-level def" {
+  // `\x: Int. f x` — TypeAnnot sits between the param IdentToken and the
+  // body. The param `x` must still bind the body's `x` (resolved_scope =
+  // LambdaScope, excluded from callers_of("x")), and the body's `f x`
+  // must still record `f` as a call.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(
+    "let f = 1\nlet x = 2\nlet apply = \\x: Int. f x\n",
+    @lambda.lambda_grammar,
+    runtime=rt,
+  )
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  inspect(pipe.callers_of("f").length(), content="1")
+  inspect(pipe.callers_of("x").length(), content="0")
+  pipe.dispose()
+}
+
+///|
+test "pipeline: empty source returns no defs or callers" {
+  // Empty source — extraction returns ([], []) and queries return empty
+  // arrays without aborting.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser("", @lambda.lambda_grammar, runtime=rt)
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  inspect(pipe.callers_of("f").length(), content="0")
+  inspect(pipe.defs_of("f").length(), content="0")
+  pipe.dispose()
+}

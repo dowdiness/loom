@@ -282,6 +282,12 @@ pub struct CallersPipeline {
 /// index is observed so the reactive chain survives `Runtime::gc()`.
 /// Merging defs+calls into a single `facts` Memo avoids double-walking
 /// the tree on every edit.
+///
+/// Precondition: `syntax` must have been constructed on `rt`. Passing a
+/// Memo from a different Runtime is undefined behavior — incr's
+/// cross-runtime guard catches some but not all paths. (`@incr.Memo`
+/// does not currently expose a `.runtime()` accessor that would let us
+/// derive `rt` and remove this footgun.)
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
