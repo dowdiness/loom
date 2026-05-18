@@ -9,10 +9,11 @@ Reference for the canonical `@loom` parser-construction surface. Adapt
 to context — these are patterns the project consistently uses, not
 enforcement rules.
 
-Project root for citations:
-`/home/antisatori/ghq/github.com/dowdiness/canopy/loom/`. The `loom`
-package itself lives at `loom/loom/`; lambda lives at
-`loom/examples/lambda/`.
+Citation paths in this skill are repo-relative to **this repo**
+(`dowdiness/loom`) unless explicitly qualified with a sister repo
+(`dowdiness/canopy: …` for the umbrella monorepo's docs). The `loom`
+parser-framework package itself lives at `loom/src/`; the lambda
+example at `examples/lambda/`.
 
 ## When to Use
 
@@ -123,8 +124,8 @@ pub fn attach_my_thing(
 }
 ```
 
-Canonical reference: `loom/examples/lambda/src/typed_parser.mbt` and
-`loom/examples/lambda/src/callers/callers.mbt`.
+Canonical reference: `examples/lambda/src/typed_parser.mbt` and
+`examples/lambda/src/callers/callers.mbt`.
 
 ## One-Shot Parsing (Tests, Pure Extraction)
 
@@ -164,17 +165,17 @@ can be lifted into a real reactive context later without rewiring.
 
 ## Canonical Files to Cite (Verify Before Asserting)
 
-- `loom/loom/src/pipeline/parser.mbt` — `Parser[Ast]` definition;
-  every public method this skill mentions lives here.
-- `loom/loom/src/factories.mbt:230` — `new_parser` signature.
+- `loom/src/pipeline/parser.mbt` — `Parser[Ast]` definition; every
+  public method this skill mentions lives here.
+- `loom/src/factories.mbt:230` — `new_parser` signature.
   `new_imperative_parser` is just above.
-- `loom/loom/src/factories.mbt:212` — `new_imperative_parser` signature.
-- `loom/examples/lambda/src/typed_parser.mbt` — canonical
-  parser-attached pipeline (Scope + Observer + dispose).
-- `loom/examples/lambda/src/callers/callers.mbt` — second example,
-  uses every loom + incr pattern this skill covers.
-- `loom/CLAUDE.md` — package map, ADR pointer for the unified parser
-  (ADR 2026-04-17), and Stage 6 history.
+- `loom/src/factories.mbt:212` — `new_imperative_parser` signature.
+- `examples/lambda/src/typed_parser.mbt` — canonical parser-attached
+  pipeline (Scope + Observer + dispose).
+- `examples/lambda/src/callers/callers.mbt` — second example, uses
+  every loom + incr pattern this skill covers.
+- `CLAUDE.md` — package map, ADR pointer for the unified parser (ADR
+  2026-04-17), and Stage 6 history.
 
 If any file has moved, update the skill — paths drift faster than the
 patterns do.
@@ -192,7 +193,7 @@ patterns do.
 
 - The `seam` CST API (`@seam.SyntaxNode`, `@seam.CstNode`, traversal
   primitives). Those have their own conventions and aren't covered
-  here — see `loom/seam/` directly.
+  here — see `seam/` directly.
 - Defining a new language. See
-  `loom/docs/development/ADDING_A_LANGUAGE.md` for the dedicated
-  walkthrough.
+  `dowdiness/canopy: docs/development/ADDING_A_LANGUAGE.md` for the
+  dedicated walkthrough (the umbrella monorepo's docs, not this repo).
