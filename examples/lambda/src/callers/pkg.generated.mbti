@@ -26,9 +26,9 @@ pub impl Show for Call
 pub struct CallersPipeline {
   // private fields
 }
+pub fn CallersPipeline::CallersPipeline(@cells.Runtime, @cells.Memo[@seam.SyntaxNode]) -> Self
 pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
 pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
-pub fn CallersPipeline::new(@cells.Runtime, @cells.Memo[@seam.SyntaxNode]) -> Self
 
 pub struct Def {
   name : String

@@ -117,7 +117,7 @@ pub struct CallersPipeline {
 /// `facts` walks the tree once per snapshot change; `index` derives the
 /// callee->calls map from facts. Merging defs+calls into a single Memo
 /// avoids double-walking the tree on every edit.
-pub fn CallersPipeline::new(
+pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
 ) -> CallersPipeline {

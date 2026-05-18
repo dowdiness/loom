@@ -46,7 +46,7 @@ test "pipeline: initial query returns correct callers" {
     @lambda.lambda_grammar,
     runtime=rt,
   )
-  let pipe = CallersPipeline::new(rt, parser.syntax_tree())
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
   inspect(pipe.callers_of("f").length(), content="2")
   inspect(pipe.callers_of("g").length(), content="0")
   inspect(pipe.callers_of("nobody").length(), content="0")
@@ -64,7 +64,7 @@ test "pipeline: apply_edit re-derives index incrementally" {
     @lambda.lambda_grammar,
     runtime=rt,
   )
-  let pipe = CallersPipeline::new(rt, parser.syntax_tree())
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
 
   // Initial: g calls f.
   inspect(pipe.callers_of("f").length(), content="1")
@@ -103,7 +103,7 @@ test "pipeline: set_source forces full reparse" {
     @lambda.lambda_grammar,
     runtime=rt,
   )
-  let pipe = CallersPipeline::new(rt, parser.syntax_tree())
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
   inspect(pipe.callers_of("f").length(), content="0")
   parser.set_source("let f = 1\nlet g = f\nlet h = f\n")
   inspect(pipe.callers_of("f").length(), content="2")
@@ -118,6 +118,6 @@ test "pipeline: nested call through Lambda body" {
     @lambda.lambda_grammar,
     runtime=rt,
   )
-  let pipe = CallersPipeline::new(rt, parser.syntax_tree())
+  let pipe = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
   inspect(pipe.callers_of("f").length(), content="1")
 }
