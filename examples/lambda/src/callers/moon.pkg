@@ -1,0 +1,13 @@
+import {
+  "dowdiness/seam" @seam,
+  "dowdiness/lambda/syntax" @syntax,
+  "dowdiness/incr" @incr,
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "dowdiness/lambda" @lambda,
+  "dowdiness/loom" @loom,
+  "dowdiness/loom/core" @core,
+} for "test"

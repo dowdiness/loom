@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/callers"
+
+import {
+  "dowdiness/incr/cells",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+}
+
+// Values
+pub fn build_callers_index(Array[Call]) -> @hashmap.HashMap[String, Array[Call]]
+
+pub fn extract_facts(@seam.SyntaxNode) -> (Array[Def], Array[Call])
+
+// Errors
+
+// Types and methods
+pub struct Call {
+  callee : String
+  start : Int
+  end : Int
+} derive(Eq, @debug.Debug)
+pub impl Show for Call
+
+pub struct CallersPipeline {
+  // private fields
+}
+pub fn CallersPipeline::CallersPipeline(@cells.Runtime, @cells.Memo[@seam.SyntaxNode]) -> Self
+pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
+pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
+pub fn CallersPipeline::dispose(Self) -> Unit
+
+pub struct Def {
+  name : String
+  start : Int
+  end : Int
+} derive(Eq, @debug.Debug)
+pub impl Show for Def
+
+// Type aliases
+
+// Traits
+
