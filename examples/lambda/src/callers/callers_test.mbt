@@ -393,3 +393,22 @@ test "pipeline: empty source returns no defs or callers" {
   inspect(pipe.defs_of("f").length(), content="0")
   pipe.dispose()
 }
+
+///|
+test "extract_facts: malformed lambda missing param does not bind body identifiers" {
+  // Regression: `find_token(IdentToken)` on a LambdaExpr must only see
+  // the direct param token, never reach into the body. `seam.find_token`
+  // descends only into RepeatGroups, advancing past regular interior
+  // nodes — so the body's identifiers are unreachable. If this assertion
+  // ever fails, seam's `find_token` semantics changed and the LambdaExpr
+  // branch in `collect_in` needs a direct-token scan.
+  let src = "let f = 1\nlet broken = \\ . f x\n"
+  let (defs, _) = extract_facts(parse_to_syntax(src))
+  let lambda_scope_def_names : Array[String] = []
+  for d in defs {
+    if not(d.scope is TopScope) {
+      lambda_scope_def_names.push(d.name)
+    }
+  }
+  inspect(lambda_scope_def_names.length(), content="0")
+}
