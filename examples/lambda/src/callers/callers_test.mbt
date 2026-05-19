@@ -445,3 +445,13 @@ test "extract_facts: well-formed lambda still binds correctly under new extracti
   // Lambda's param `f` is the only non-TopScope binding.
   inspect(names, content="[f]")
 }
+
+///|
+test "ScopeId derives Hash (compile-time check)" {
+  let m : @hashmap.HashMap[ScopeId, Int] = @hashmap.HashMap([])
+  m.set(TopScope, 1)
+  m.set(LambdaScope(0, 5), 2)
+  inspect(m.get(TopScope), content="Some(1)")
+  inspect(m.get(LambdaScope(0, 5)), content="Some(2)")
+  inspect(m.get(LambdaScope(1, 4)), content="None")
+}

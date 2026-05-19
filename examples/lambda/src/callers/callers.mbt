@@ -40,7 +40,7 @@
 pub(all) enum ScopeId {
   TopScope
   LambdaScope(Int, Int)
-} derive(Eq, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub impl Show for ScopeId with output(self, logger) {
