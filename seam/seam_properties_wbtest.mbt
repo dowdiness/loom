@@ -1,4 +1,6 @@
 ///|
+// TODO: Drop this local shim once moonbitlang/quickcheck exposes a
+// non-deprecated Debug-based function-property runner.
 fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
   f : (A) -> P,
 ) -> Unit raise Failure {
