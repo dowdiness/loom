@@ -421,36 +421,40 @@ pub fn build_visibility(
 /// Call `dispose()` to release the GC root and tear down the owned
 /// cells. The input `syntax` Memo and the runtime are unaffected.
 pub struct CallersPipeline {
-  priv rt : @incr.Runtime
   priv scope : @incr.Scope
-  priv observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
-  priv facts : @incr.Memo[(Array[Def], Array[Call])]
+  priv facts_observer : @incr.Observer[
+    (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]),
+  ]
+  priv callers_observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
+  priv visibility_observer : @incr.Observer[
+    @hashmap.HashMap[(ScopeId, String), Unit],
+  ]
 }
 
 ///|
 /// Build a CallersPipeline rooted at a Memo[SyntaxNode]. Cells are
-/// created on a fresh Scope owned by this pipeline, and the derived
-/// index is observed so the reactive chain survives `Runtime::gc()`.
-/// Merging defs+calls into a single `facts` Memo avoids double-walking
-/// the tree on every edit.
+/// created on a fresh Scope owned by this pipeline, and three derived
+/// Memos (facts, callers_index, visibility) are each observed so the
+/// reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
+/// into a single `facts` Memo avoids double-walking the tree on every
+/// edit; downstream Memos read facts via `.get()` inside their tracked
+/// closures.
 ///
 /// Precondition: `syntax` must have been constructed on `rt`. Passing a
 /// Memo from a different Runtime is undefined behavior — incr's
-/// cross-runtime guard catches some but not all paths. (`@incr.Memo`
-/// does not currently expose a `.runtime()` accessor that would let us
-/// derive `rt` and remove this footgun.)
+/// cross-runtime guard catches some but not all paths.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
 ) -> CallersPipeline {
   let scope = @incr.Scope::new(rt)
   let facts = scope.memo(
-    fn() { extract_facts(syntax.get()) },
+    fn() { extract_facts_full(syntax.get()) },
     label="callers_facts",
   )
-  let index = scope.memo(
+  let callers_index = scope.memo(
     fn() {
-      let (_, calls) = facts.get()
+      let (_, calls, _) = facts.get()
       let buckets : @hashmap.HashMap[String, Array[Call]] = @hashmap.HashMap([])
       for c in calls {
         if c.is_call_position && c.resolved_scope == TopScope {
@@ -464,14 +468,23 @@ pub fn CallersPipeline::CallersPipeline(
     },
     label="callers_index",
   )
-  let observer = scope.add_observer(index.observe())
-  { rt, scope, observer, facts }
+  let visibility = scope.memo(
+    fn() {
+      let (defs, _, enclosing) = facts.get()
+      build_visibility(defs, enclosing)
+    },
+    label="callers_visibility",
+  )
+  let facts_observer = scope.add_observer(facts.observe())
+  let callers_observer = scope.add_observer(callers_index.observe())
+  let visibility_observer = scope.add_observer(visibility.observe())
+  { scope, facts_observer, callers_observer, visibility_observer }
 }
 
 ///|
 /// Release the GC root and tear down the owned cells. Idempotent.
-/// Subsequent calls to `callers_of` / `defs_of` after dispose() are
-/// undefined.
+/// Subsequent calls to `callers_of` / `defs_of` / `visible_from` after
+/// dispose() are undefined.
 pub fn CallersPipeline::dispose(self : CallersPipeline) -> Unit {
   self.scope.dispose()
 }
@@ -485,7 +498,7 @@ pub fn CallersPipeline::callers_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Call] {
-  match self.observer.get().get(name) {
+  match self.callers_observer.get().get(name) {
     Some(bucket) => bucket.copy()
     None => []
   }
@@ -494,14 +507,12 @@ pub fn CallersPipeline::callers_of(
 ///|
 /// Read all definitions named `name`, including lambda parameters and
 /// let-paren parameters. Consumers wanting top-level bindings only can
-/// filter on `d.scope == TopScope`. The `facts` cell stays reachable
-/// via the observer on `index` (which depends on `facts`), so no second
-/// observer is needed.
+/// filter on `d.scope == TopScope`.
 pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Def] {
-  let (defs, _) = self.rt.read(self.facts)
+  let (defs, _, _) = self.facts_observer.get()
   let result : Array[Def] = []
   for d in defs {
     if d.name == name {
@@ -509,4 +520,17 @@ pub fn CallersPipeline::defs_of(
     }
   }
   result
+}
+
+///|
+/// True iff a binding named `name` is visible from `scope` — meaning it
+/// exists in `scope` itself or in any enclosing scope. Does NOT model
+/// shadowing (cannot answer "which binding wins"). Consumer-facing for
+/// rename + conflict detection. Returns false for unknown ScopeIds.
+pub fn CallersPipeline::visible_from(
+  self : CallersPipeline,
+  scope : ScopeId,
+  name : String,
+) -> Bool {
+  self.visibility_observer.get().get((scope, name)) is Some(_)
 }

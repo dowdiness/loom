@@ -501,3 +501,119 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
   inspect(calls.length(), content="1")
 }
 
+///|
+/// Helper: build a one-shot CallersPipeline for snapshot tests of the new
+/// public API. Modeled on the existing pipeline-construction helpers.
+fn build_test_pipeline(source : String) -> CallersPipeline {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+}
+
+///|
+test "visible_from: TopScope bindings visible from TopScope" {
+  let src = "let f = 1\nlet g = 2\n"
+  let p = build_test_pipeline(src)
+  inspect(p.visible_from(TopScope, "f"), content="true")
+  inspect(p.visible_from(TopScope, "g"), content="true")
+  inspect(p.visible_from(TopScope, "unbound"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: LambdaScope param visible inside its body" {
+  let src = "let g = \\x. x\n"
+  let p = build_test_pipeline(src)
+  // Pull the lambda param's scope via defs_of:
+  let xdefs = p.defs_of("x")
+  inspect(xdefs.length(), content="1")
+  let lambda_scope = xdefs[0].scope
+  inspect(p.visible_from(lambda_scope, "x"), content="true")
+  // x is NOT visible from TopScope.
+  inspect(p.visible_from(TopScope, "x"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: TopScope binding visible from nested LambdaScope" {
+  let src = "let f = 1\nlet g = \\x. f x\n"
+  let p = build_test_pipeline(src)
+  let xdefs = p.defs_of("x")
+  let lambda_scope = xdefs[0].scope
+  // f (TopScope) is visible inside the lambda.
+  inspect(p.visible_from(lambda_scope, "f"), content="true")
+  p.dispose()
+}
+
+///|
+test "visible_from: shadowing not modeled — same name visible at both scopes" {
+  // Top-level `f` plus a lambda whose param is also `f`. visible_from
+  // says BOTH scopes have a binding named `f` — it does NOT distinguish
+  // which one wins inside the lambda. That's the documented caveat: the
+  // map says "some binding exists in this scope or an ancestor", not
+  // "which binding resolves here."
+  let src = "let f = 1\nlet g = \\f. f\n"
+  let p = build_test_pipeline(src)
+  let fdefs = p.defs_of("f")
+  // 2 defs: top-level f and lambda-param f.
+  inspect(fdefs.length(), content="2")
+  // Find the lambda-param def by scope kind.
+  let mut lambda_scope_opt : ScopeId? = None
+  for d in fdefs {
+    if d.scope is LambdaScope(_, _) {
+      lambda_scope_opt = Some(d.scope)
+    }
+  }
+  match lambda_scope_opt {
+    Some(lambda_scope) => {
+      // Both scopes report `f` as visible. The caveat is that no API call
+      // distinguishes the inner-binding `f` from the inherited TopScope `f`.
+      inspect(p.visible_from(lambda_scope, "f"), content="true")
+      inspect(p.visible_from(TopScope, "f"), content="true")
+    }
+    None => abort("test setup: expected one LambdaScope def of f")
+  }
+  p.dispose()
+}
+
+///|
+test "visible_from: fabricated unknown ScopeId returns false" {
+  let src = "let f = 1\n"
+  let p = build_test_pipeline(src)
+  inspect(p.visible_from(LambdaScope(99999, 99999), "f"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: malformed lambda still sees enclosing bindings" {
+  // `\. body` — frame pushed without a Def (ident_after_lead returns
+  // None at callers.mbt:204). The Enclosing edge is still emitted, so
+  // the (empty) lambda scope inherits the top-level binding `f`.
+  let src = "let f = 1\nlet g = \\. f\n"
+  let p = build_test_pipeline(src)
+  // Identify the malformed lambda's scope from the raw enclosing edges.
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
+  inspect(enclosing.length(), content="1")
+  let malformed_scope = enclosing[0].0
+  inspect(malformed_scope is LambdaScope(_, _), content="true")
+  // The actual claim: f IS visible from the empty lambda scope.
+  inspect(p.visible_from(malformed_scope, "f"), content="true")
+  inspect(p.visible_from(malformed_scope, "not_a_real_name"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: let-paren params visible in their body's scope" {
+  let src = "let f(x, y) = x y\n"
+  let p = build_test_pipeline(src)
+  // Both x and y are defs in the same LambdaScope (let-paren frame).
+  let xdefs = p.defs_of("x")
+  inspect(xdefs.length(), content="1")
+  let scope = xdefs[0].scope
+  inspect(p.visible_from(scope, "x"), content="true")
+  inspect(p.visible_from(scope, "y"), content="true")
+  // f (the let-bound name) is visible at TopScope.
+  inspect(p.visible_from(TopScope, "f"), content="true")
+  p.dispose()
+}
+
