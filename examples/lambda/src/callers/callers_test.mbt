@@ -500,3 +500,4 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
   inspect(def_names, content="[g, x]")
   inspect(calls.length(), content="1")
 }
+

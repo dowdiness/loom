@@ -324,6 +324,92 @@ pub fn build_callers_index(
 }
 
 ///|
+/// Compute the full set of names visible at scope `s`. Walks the parent
+/// chain upward, unioning each ancestor's own bindings. Memoized via
+/// `memo` to avoid quadratic re-walks along shared chains.
+fn visible_names_at(
+  s : ScopeId,
+  parent : @hashmap.HashMap[ScopeId, ScopeId],
+  own : @hashmap.HashMap[ScopeId, Array[String]],
+  memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]],
+) -> @hashset.HashSet[String] {
+  match memo.get(s) {
+    Some(set) => set
+    None => {
+      let result : @hashset.HashSet[String] = @hashset.HashSet([])
+      match own.get(s) {
+        Some(arr) =>
+          for n in arr {
+            result.add(n)
+          }
+        None => ()
+      }
+      match parent.get(s) {
+        Some(p) => {
+          let inherited = visible_names_at(p, parent, own, memo)
+          for n in inherited {
+            result.add(n)
+          }
+        }
+        None => () // root or unparented
+      }
+      memo.set(s, result)
+      result
+    }
+  }
+}
+
+///|
+/// Build the (scope, name) -> Unit visibility map from extracted defs +
+/// enclosing edges. Membership in the map means "binding `name` exists
+/// in `scope` or any enclosing scope." Does NOT model shadowing.
+pub fn build_visibility(
+  defs : Array[Def],
+  enclosing : Array[(ScopeId, ScopeId)],
+) -> @hashmap.HashMap[(ScopeId, String), Unit] {
+  // 1. Collect every scope mentioned in defs OR enclosing, plus TopScope.
+  let scopes : @hashset.HashSet[ScopeId] = @hashset.HashSet([])
+  scopes.add(TopScope)
+  for d in defs {
+    scopes.add(d.scope)
+  }
+  for edge in enclosing {
+    scopes.add(edge.0)
+    scopes.add(edge.1)
+  }
+  // 2. parent[child] = parent_scope. First edge wins (defensive against
+  //    malformed input that emits duplicate parents).
+  let parent : @hashmap.HashMap[ScopeId, ScopeId] = @hashmap.HashMap([])
+  for edge in enclosing {
+    match parent.get(edge.0) {
+      None => parent.set(edge.0, edge.1)
+      Some(_) => ()
+    }
+  }
+  // 3. own[scope] = [name, ...] for bindings introduced by that scope.
+  let own : @hashmap.HashMap[ScopeId, Array[String]] = @hashmap.HashMap([])
+  for d in defs {
+    match own.get(d.scope) {
+      Some(arr) => arr.push(d.name)
+      None => own.set(d.scope, [d.name])
+    }
+  }
+  // 4. For each scope, materialize its visibility name set (memoized).
+  let memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]] = @hashmap.HashMap(
+    [],
+  )
+  // 5. Flatten into (scope, name) -> Unit.
+  let result : @hashmap.HashMap[(ScopeId, String), Unit] = @hashmap.HashMap([])
+  for s in scopes {
+    let names = visible_names_at(s, parent, own, memo)
+    for n in names {
+      result.set((s, n), ())
+    }
+  }
+  result
+}
+
+///|
 /// The reactive pipeline: facts (joint defs + calls) plus a derived
 /// name->[Call] index of the strict-filtered subset (top-scope-resolved
 /// calls in function position), each owned by a private @incr.Scope. A
