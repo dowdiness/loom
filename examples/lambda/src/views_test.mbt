@@ -118,7 +118,7 @@ test "SyntaxNode::to_json produces valid JSON string" {
   let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let j = syn.to_json()
-  let s = j.to_string()
+  let s = j.stringify()
   inspect(s.contains("\"kind\""), content="true")
 }
 
@@ -130,7 +130,7 @@ test "LambdaExprView::to_json includes param and body keys" {
     Some(v) => v
     None => abort("expected LambdaExpr")
   }
-  let s = view.to_json().to_string()
+  let s = view.to_json().stringify()
   inspect(s.contains("\"param\""), content="true")
   inspect(s.contains("\"body\""), content="true")
 }

@@ -613,7 +613,7 @@ test "source file: LetDef has correct token structure" {
         non_ws.push(@syntax.SyntaxKind::from_raw(n.kind()).to_string())
     }
   }
-  inspect(
+  debug_inspect(
     non_ws,
     content="[\"LetKeyword\", \"IdentToken\", \"EqToken\", \"IntLiteral\"]",
   )
@@ -626,7 +626,7 @@ test "source file: single expression (no defs)" {
   for child in root.children() {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_kinds, content="[\"IntLiteral\"]")
+  debug_inspect(node_kinds, content="[\"IntLiteral\"]")
 }
 
 ///|
@@ -636,7 +636,7 @@ test "source file: def + final expression" {
   for child in root.children() {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+  debug_inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
 }
 
 ///|
@@ -650,7 +650,7 @@ test "source file: leading newlines before def + final expression" {
   for child in root.children() {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
+  debug_inspect(node_kinds, content="[\"LetDef\", \"VarRef\"]")
 }
 
 ///|
@@ -663,7 +663,7 @@ test "source file: trailing tokens after final expression produce error" {
   for child in root.children() {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
+  debug_inspect(node_kinds, content="[\"IntLiteral\", \"ErrorNode\"]")
 }
 
 ///|
@@ -676,7 +676,7 @@ test "source file: in is a valid identifier after deprecation" {
   for child in root.children() {
     node_kinds.push(@syntax.SyntaxKind::from_raw(child.kind()).to_string())
   }
-  inspect(node_kinds, content="[\"AppExpr\"]")
+  debug_inspect(node_kinds, content="[\"AppExpr\"]")
 }
 
 // ============================================================================

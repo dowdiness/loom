@@ -22,7 +22,7 @@ pub struct Interner(
 ///|
 /// Create a new empty Interner.
 pub fn Interner::new() -> Interner {
-  Interner(@hashmap.HashMap::new())
+  Interner(@hashmap.HashMap([]))
 }
 
 ///|
@@ -47,7 +47,7 @@ pub fn Interner::intern_token(
       }
     None => {
       let token = CstToken(kind, text)
-      let inner : @hashmap.HashMap[StringView, CstToken] = @hashmap.HashMap::new()
+      let inner : @hashmap.HashMap[StringView, CstToken] = @hashmap.HashMap([])
       inner.set(token.text, token)
       self.0.set(kind, inner)
       token

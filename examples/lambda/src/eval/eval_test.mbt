@@ -2,14 +2,14 @@
 test "eval: integer literal" {
   let term = @ast.Term::Int(42)
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(42))")
+  debug_inspect(result, content="Ok(VInt(42))")
 }
 
 ///|
 test "eval: unit literal" {
   let term = @ast.Term::Unit
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VUnit)")
+  debug_inspect(result, content="Ok(VUnit)")
 }
 
 ///|
@@ -17,28 +17,28 @@ test "eval: variable lookup" {
   let env = Env::empty().extend("x", VInt(5))
   let term = @ast.Term::Var("x")
   let result : Result[Value, StuckReason] = try? @eval.eval(env, term)
-  inspect(result, content="Ok(VInt(5))")
+  debug_inspect(result, content="Ok(VInt(5))")
 }
 
 ///|
 test "eval: unbound variable" {
   let term = @ast.Term::Var("x")
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Err(Unbound(\"x\"))")
+  debug_inspect(result, content="Err(Unbound(\"x\"))")
 }
 
 ///|
 test "eval: addition" {
   let term = @ast.Term::Bop(Plus, @ast.Term::Int(2), @ast.Term::Int(3))
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(5))")
+  debug_inspect(result, content="Ok(VInt(5))")
 }
 
 ///|
 test "eval: subtraction" {
   let term = @ast.Term::Bop(Minus, @ast.Term::Int(10), @ast.Term::Int(3))
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(7))")
+  debug_inspect(result, content="Ok(VInt(7))")
 }
 
 ///|
@@ -50,7 +50,7 @@ test "eval: nested arithmetic" {
     @ast.Term::Int(1),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(4))")
+  debug_inspect(result, content="Ok(VInt(4))")
 }
 
 ///|
@@ -61,7 +61,7 @@ test "eval: add non-integer is type error" {
     @ast.Term::Int(1),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Err(TypeMismatch(\"add: expected integer\"))")
+  debug_inspect(result, content="Err(TypeMismatch(\"add: expected integer\"))")
 }
 
 ///|
@@ -72,7 +72,7 @@ test "eval: if truthy (non-zero)" {
     @ast.Term::Int(3),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(2))")
+  debug_inspect(result, content="Ok(VInt(2))")
 }
 
 ///|
@@ -83,7 +83,7 @@ test "eval: if falsy (zero)" {
     @ast.Term::Int(3),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(3))")
+  debug_inspect(result, content="Ok(VInt(3))")
 }
 
 ///|
@@ -94,7 +94,7 @@ test "eval: if with negative is truthy" {
     @ast.Term::Int(20),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(10))")
+  debug_inspect(result, content="Ok(VInt(10))")
 }
 
 ///|
@@ -105,7 +105,7 @@ test "eval: if non-integer condition is type error" {
     @ast.Term::Int(2),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(
+  debug_inspect(
     result,
     content="Err(TypeMismatch(\"if: expected integer condition\"))",
   )
@@ -130,7 +130,7 @@ test "eval: simple application" {
     @ast.Term::Int(5),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(6))")
+  debug_inspect(result, content="Ok(VInt(6))")
 }
 
 ///|
@@ -150,14 +150,14 @@ test "eval: curried application" {
     @ast.Term::Int(3),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(5))")
+  debug_inspect(result, content="Ok(VInt(5))")
 }
 
 ///|
 test "eval: apply non-function is type error" {
   let term = @ast.Term::App(@ast.Term::Int(5), @ast.Term::Int(3))
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Err(TypeMismatch(\"app: expected function\"))")
+  debug_inspect(result, content="Err(TypeMismatch(\"app: expected function\"))")
 }
 
 ///|
@@ -168,7 +168,7 @@ test "eval: simple let binding" {
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("x")),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(4))")
+  debug_inspect(result, content="Ok(VInt(4))")
 }
 
 ///|
@@ -179,7 +179,7 @@ test "eval: nested let bindings" {
     @ast.Term::Bop(Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(3))")
+  debug_inspect(result, content="Ok(VInt(3))")
 }
 
 ///|
@@ -190,7 +190,7 @@ test "eval: let shadowing" {
     @ast.Term::Var("x"),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(2))")
+  debug_inspect(result, content="Ok(VInt(2))")
 }
 
 ///|
@@ -212,5 +212,5 @@ test "eval: closure captures environment" {
     @ast.Term::App(@ast.Term::Var("add_five"), @ast.Term::Int(1)),
   )
   let result : Result[Value, StuckReason] = try? @eval.eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(6))")
+  debug_inspect(result, content="Ok(VInt(6))")
 }
