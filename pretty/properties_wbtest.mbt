@@ -12,6 +12,19 @@
 // the algebra's laws.
 
 ///|
+fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
+  f : (A) -> P,
+) -> Unit raise Failure {
+  @qc.quick_check(
+    @qc.Gen::spawn().fmap(fn(input : A) {
+      @qc.shrinking(A::shrink, input, fn(shrunk_input : A) {
+        @qc.counterexample(f(shrunk_input), @debug.to_string(shrunk_input))
+      })
+    }),
+  )
+}
+
+///|
 /// Random document generator using a linear congruential PRNG.
 /// Produces Layout[Unit] trees of bounded depth with a mix of all
 /// constructors: Empty, Text, Line, HardLine, Nest, Concat, Group, Annotate.
@@ -115,7 +128,7 @@ fn max_token_width(layout : Layout[Unit]) -> Int {
 /// indivisible token (Text node) is already wider than the target — the
 /// algorithm cannot break inside a token, so that line will overflow.
 test "property: no line exceeds width (unless forced by token)" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
     let width = width_raw.abs() % 40 + 5
     let doc = gen_layout(seed, 5)
@@ -136,7 +149,7 @@ test "property: no line exceeds width (unless forced by token)" {
 /// can be flattened. This matches real usage — pretty-printers always wrap
 /// their output in at least one group.
 test "property: grouped doc with no HardLine flattens at wide width" {
-  @qc.quick_check_fn(fn(seed : Int) -> Bool {
+  quick_check_debug(fn(seed : Int) -> Bool {
     let doc = gen_layout(seed, 5)
     if has_hardline(doc) {
       true
@@ -155,7 +168,7 @@ test "property: grouped doc with no HardLine flattens at wide width" {
 /// When flat_width returns -1, the document contains HardLine and cannot
 /// be flattened — we verify that has_hardline agrees.
 test "property: flat_width matches grouped flat rendering width" {
-  @qc.quick_check_fn(fn(seed : Int) -> Bool {
+  quick_check_debug(fn(seed : Int) -> Bool {
     let doc = gen_layout(seed, 5)
     let fw = flat_width(doc)
     if fw < 0 {
@@ -173,7 +186,7 @@ test "property: flat_width matches grouped flat rendering width" {
 /// render_spans fall within the string produced by render_string — they
 /// share a consistent coordinate space.
 test "property: render_string and render_spans have consistent length" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
     let width = width_raw.abs() % 40 + 5
     let doc : Layout[Unit] = gen_layout(seed, 4)
@@ -194,7 +207,7 @@ test "property: render_string and render_spans have consistent length" {
 /// output as one Group. This holds because Group's decision depends only on
 /// flat_width, which is the same regardless of how many Group layers exist.
 test "property: group is idempotent" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
     let width = width_raw.abs() % 40 + 5
     let doc = gen_layout(seed, 4)
@@ -209,7 +222,7 @@ test "property: group is idempotent" {
 /// Concatenating Empty before or after a document must not change the output.
 /// This is one of Wadler's algebraic laws: `nil <> x = x` and `x <> nil = x`.
 test "property: Empty is identity for concat" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, width_raw) = input
     let width = width_raw.abs() % 40 + 5
     let doc = gen_layout(seed, 4)
@@ -226,7 +239,7 @@ test "property: Empty is identity for concat" {
 /// width. In other words, the algorithm should take advantage of extra space
 /// (flattening more groups) but never waste it.
 test "property: wider width produces output no wider than narrow" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, widths_raw) = input
     let narrow = widths_raw.abs() % 20 + 5
     let wide = narrow + widths_raw.abs() % 40 + 1

@@ -3,5 +3,6 @@ import {
 }
 
 import {
+  "moonbitlang/core/quickcheck" @coreqc,
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"

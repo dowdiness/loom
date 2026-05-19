@@ -1,6 +1,19 @@
 // Property-based tests for incremental lexer/token buffer
 
 ///|
+fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
+  f : (A) -> P,
+) -> Unit raise Failure {
+  @qc.quick_check(
+    @qc.Gen::spawn().fmap(fn(input : A) {
+      @qc.shrinking(A::shrink, input, fn(shrunk_input : A) {
+        @qc.counterexample(f(shrunk_input), @debug.to_string(shrunk_input))
+      })
+    }),
+  )
+}
+
+///|
 fn clamp_pos(pos : Int, len : Int) -> Int {
   if pos < 0 {
     0
@@ -172,15 +185,15 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
 
 ///|
 test "property: token buffer insert matches full tokenize" {
-  @qc.quick_check_fn(prop_token_buffer_insert)
+  quick_check_debug(prop_token_buffer_insert)
 }
 
 ///|
 test "property: token buffer delete matches full tokenize" {
-  @qc.quick_check_fn(prop_token_buffer_delete)
+  quick_check_debug(prop_token_buffer_delete)
 }
 
 ///|
 test "property: token buffer replace matches full tokenize" {
-  @qc.quick_check_fn(prop_token_buffer_replace)
+  quick_check_debug(prop_token_buffer_replace)
 }
