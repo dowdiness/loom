@@ -11,7 +11,11 @@ import {
 // Values
 pub fn build_callers_index(Array[Call]) -> @hashmap.HashMap[String, Array[Call]]
 
+pub fn build_visibility(Array[Def], Array[(ScopeId, ScopeId)]) -> @hashmap.HashMap[(ScopeId, String), Unit]
+
 pub fn extract_facts(@seam.SyntaxNode) -> (Array[Def], Array[Call])
+
+pub fn extract_facts_full(@seam.SyntaxNode) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)])
 
 // Errors
 
@@ -32,6 +36,7 @@ pub fn CallersPipeline::CallersPipeline(@cells.Runtime, @cells.Memo[@seam.Syntax
 pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
 pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
 pub fn CallersPipeline::dispose(Self) -> Unit
+pub fn CallersPipeline::visible_from(Self, ScopeId, String) -> Bool
 
 pub struct Def {
   name : String
@@ -44,7 +49,7 @@ pub impl Show for Def
 pub(all) enum ScopeId {
   TopScope
   LambdaScope(Int, Int)
-} derive(Eq, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub impl Show for ScopeId
 
 // Type aliases

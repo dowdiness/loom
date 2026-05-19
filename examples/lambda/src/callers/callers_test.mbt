@@ -451,9 +451,11 @@ test "ScopeId derives Hash (compile-time check)" {
   let m : @hashmap.HashMap[ScopeId, Int] = @hashmap.HashMap([])
   m.set(TopScope, 1)
   m.set(LambdaScope(0, 5), 2)
-  inspect(m.get(TopScope), content="Some(1)")
-  inspect(m.get(LambdaScope(0, 5)), content="Some(2)")
-  inspect(m.get(LambdaScope(1, 4)), content="None")
+  // is-pattern checks avoid the deprecated Show-on-Option warning while
+  // still verifying both presence and bound value.
+  inspect(m.get(TopScope) is Some(1), content="true")
+  inspect(m.get(LambdaScope(0, 5)) is Some(2), content="true")
+  inspect(m.get(LambdaScope(1, 4)) is None, content="true")
 }
 
 ///|
@@ -495,9 +497,10 @@ test "extract_facts_full: let-paren params emit Enclosing edge" {
 test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
   let src = "let g = \\x. x\n"
   let (defs, calls) = extract_facts(parse_to_syntax(src))
-  // Same 2-tuple shape as before; values match the existing test at line ~30
-  let def_names = defs.map(fn(d) { d.name })
-  inspect(def_names, content="[g, x]")
+  // Same 2-tuple shape as before; per-element checks avoid Show-on-Array warning.
+  inspect(defs.length(), content="2")
+  inspect(defs[0].name, content="g")
+  inspect(defs[1].name, content="x")
   inspect(calls.length(), content="1")
 }
 
@@ -616,4 +619,3 @@ test "visible_from: let-paren params visible in their body's scope" {
   inspect(p.visible_from(TopScope, "f"), content="true")
   p.dispose()
 }
-

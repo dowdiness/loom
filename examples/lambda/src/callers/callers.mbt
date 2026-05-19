@@ -134,10 +134,7 @@ fn ident_after_lead(
           seen_lead = true
         }
       }
-      @seam.SyntaxElement::Node(_) =>
-        if seen_lead {
-          return None
-        }
+      @seam.SyntaxElement::Node(_) => if seen_lead { return None }
     }
   }
   None
@@ -395,8 +392,7 @@ pub fn build_visibility(
     }
   }
   // 4. For each scope, materialize its visibility name set (memoized).
-  let memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]] = @hashmap.HashMap(
-    [],
+  let memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]] = @hashmap.HashMap([],
   )
   // 5. Flatten into (scope, name) -> Unit.
   let result : @hashmap.HashMap[(ScopeId, String), Unit] = @hashmap.HashMap([])
