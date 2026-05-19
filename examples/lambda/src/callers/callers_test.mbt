@@ -445,3 +445,124 @@ test "extract_facts: well-formed lambda still binds correctly under new extracti
   // Lambda's param `f` is the only non-TopScope binding.
   debug_inspect(names, content="[\"f\"]")
 }
+
+///|
+test "ScopeId derives Hash (compile-time check)" {
+  let m : @hashmap.HashMap[ScopeId, Int] = @hashmap.HashMap([])
+  m.set(TopScope, 1)
+  m.set(LambdaScope(0, 5), 2)
+  // is-pattern checks avoid the deprecated Show-on-Option warning while
+  // still verifying both presence and bound value.
+  inspect(m.get(TopScope) is Some(1), content="true")
+  inspect(m.get(LambdaScope(0, 5)) is Some(2), content="true")
+  inspect(m.get(LambdaScope(1, 4)) is None, content="true")
+}
+
+///|
+test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
+  let src = "let g = \\x. x\n"
+  let (defs, calls) = extract_facts(parse_to_syntax(src))
+  // Same 2-tuple shape as before; per-element checks avoid Show-on-Array warning.
+  inspect(defs.length(), content="2")
+  inspect(defs[0].name, content="g")
+  inspect(defs[1].name, content="x")
+  inspect(calls.length(), content="1")
+}
+
+///|
+/// Helper: build a one-shot CallersPipeline for snapshot tests of the new
+/// public API. Modeled on the existing pipeline-construction helpers.
+fn build_test_pipeline(source : String) -> CallersPipeline {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+}
+
+///|
+test "visible_from: TopScope bindings visible from TopScope" {
+  let src = "let f = 1\nlet g = 2\n"
+  let p = build_test_pipeline(src)
+  inspect(p.visible_from(TopScope, "f"), content="true")
+  inspect(p.visible_from(TopScope, "g"), content="true")
+  inspect(p.visible_from(TopScope, "unbound"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: LambdaScope param visible inside its body" {
+  let src = "let g = \\x. x\n"
+  let p = build_test_pipeline(src)
+  // Pull the lambda param's scope via defs_of:
+  let xdefs = p.defs_of("x")
+  inspect(xdefs.length(), content="1")
+  let lambda_scope = xdefs[0].scope
+  inspect(p.visible_from(lambda_scope, "x"), content="true")
+  // x is NOT visible from TopScope.
+  inspect(p.visible_from(TopScope, "x"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: TopScope binding visible from nested LambdaScope" {
+  let src = "let f = 1\nlet g = \\x. f x\n"
+  let p = build_test_pipeline(src)
+  let xdefs = p.defs_of("x")
+  let lambda_scope = xdefs[0].scope
+  // f (TopScope) is visible inside the lambda.
+  inspect(p.visible_from(lambda_scope, "f"), content="true")
+  p.dispose()
+}
+
+///|
+test "visible_from: shadowing not modeled — same name visible at both scopes" {
+  // Top-level `f` plus a lambda whose param is also `f`. visible_from
+  // says BOTH scopes have a binding named `f` — it does NOT distinguish
+  // which one wins inside the lambda. That's the documented caveat: the
+  // map says "some binding exists in this scope or an ancestor", not
+  // "which binding resolves here."
+  let src = "let f = 1\nlet g = \\f. f\n"
+  let p = build_test_pipeline(src)
+  let fdefs = p.defs_of("f")
+  // 2 defs: top-level f and lambda-param f.
+  inspect(fdefs.length(), content="2")
+  // Find the lambda-param def by scope kind.
+  let mut lambda_scope_opt : ScopeId? = None
+  for d in fdefs {
+    if d.scope is LambdaScope(_, _) {
+      lambda_scope_opt = Some(d.scope)
+    }
+  }
+  match lambda_scope_opt {
+    Some(lambda_scope) => {
+      // Both scopes report `f` as visible. The caveat is that no API call
+      // distinguishes the inner-binding `f` from the inherited TopScope `f`.
+      inspect(p.visible_from(lambda_scope, "f"), content="true")
+      inspect(p.visible_from(TopScope, "f"), content="true")
+    }
+    None => abort("test setup: expected one LambdaScope def of f")
+  }
+  p.dispose()
+}
+
+///|
+test "visible_from: fabricated unknown ScopeId returns false" {
+  let src = "let f = 1\n"
+  let p = build_test_pipeline(src)
+  inspect(p.visible_from(LambdaScope(99999, 99999), "f"), content="false")
+  p.dispose()
+}
+
+///|
+test "visible_from: let-paren params visible in their body's scope" {
+  let src = "let f(x, y) = x y\n"
+  let p = build_test_pipeline(src)
+  // Both x and y are defs in the same LambdaScope (let-paren frame).
+  let xdefs = p.defs_of("x")
+  inspect(xdefs.length(), content="1")
+  let scope = xdefs[0].scope
+  inspect(p.visible_from(scope, "x"), content="true")
+  inspect(p.visible_from(scope, "y"), content="true")
+  // f (the let-bound name) is visible at TopScope.
+  inspect(p.visible_from(TopScope, "f"), content="true")
+  p.dispose()
+}

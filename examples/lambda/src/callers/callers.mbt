@@ -1,19 +1,24 @@
-// Tier 1 "show callers" projection: scope-aware extraction with strict
-// call-site filtering.
+// Tier 1+ "show callers" projection: scope-aware extraction with strict
+// call-site filtering plus visibility queries.
 //
-// Walks a SyntaxNode tree once, emitting two relations on a stack of
+// Walks a SyntaxNode tree once, emitting three relations on a stack of
 // lexical scopes:
-//   Def   — each LetDef name, lambda parameter, and let-paren parameter,
-//           tagged with the ScopeId that binds it (TopScope or
-//           LambdaScope(start, end)).
-//   Call  — each VarRef, tagged with the ScopeId it resolves to via
-//           lexical lookup, plus a Boolean `is_call_position` true iff
-//           the parent (transparently through ParenExpr) is an AppExpr
-//           in function position.
+//   Def       — each LetDef name, lambda parameter, and let-paren
+//               parameter, tagged with the ScopeId that binds it
+//               (TopScope or LambdaScope(start, end)).
+//   Call      — each VarRef, tagged with the ScopeId it resolves to via
+//               lexical lookup, plus a Boolean `is_call_position` true
+//               iff the parent (transparently through ParenExpr) is an
+//               AppExpr in function position.
+//   Enclosing — `(child_scope, parent_scope)` edges emitted at each
+//               LambdaScope frame push, so `build_visibility` can walk
+//               the parent chain. TopScope is the implicit root of
+//               every chain (never a child).
 //
-// `CallersPipeline` wraps the extraction in an @incr.Memo chain so the
-// derived index re-derives automatically when the source SyntaxNode
-// changes.
+// `CallersPipeline` wraps the extraction in an @incr.Memo chain — three
+// derived Memos (facts, callers_index, visibility) each rooted by a
+// persistent Observer — so the derived state re-derives automatically
+// when the source SyntaxNode changes and survives `Runtime::gc()`.
 //
 // Known limitations (deferred — none of them block current consumers):
 //   1. Byte offsets are the only identity. Edits shift offsets and
@@ -26,8 +31,8 @@
 //   3. "Resolved to top-level" means "not shadowed by a modeled lambda
 //      or let-paren scope" — not "definitely points at an existing
 //      top-level Def." An unbound name still resolves to TopScope. A
-//      future projection that wants this distinction can read the
-//      unfiltered `facts` Memo.
+//      future projection that wants this distinction can share the
+//      unfiltered facts memo inside the pipeline.
 
 ///|
 /// Lexical scope identity.
@@ -40,7 +45,7 @@
 pub(all) enum ScopeId {
   TopScope
   LambdaScope(Int, Int)
-} derive(Eq, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub impl Show for ScopeId with output(self, logger) {
@@ -175,11 +180,14 @@ fn is_call_position_of(node : @seam.SyntaxNode) -> Bool {
 
 ///|
 /// Recursively walk the tree, appending Def/Call facts as they are
-/// found, maintaining a lexical scope stack.
+/// found, maintaining a lexical scope stack. Emits an Enclosing edge
+/// `(frame_id, parent_id)` immediately before pushing each LambdaScope
+/// frame, so the visibility builder can walk the parent chain.
 fn collect_in(
   node : @seam.SyntaxNode,
   defs : Array[Def],
   calls : Array[Call],
+  enclosing : Array[(ScopeId, ScopeId)],
   stack : Array[Frame],
 ) -> Unit {
   let kind = @syntax.SyntaxKind::from_raw(node.kind())
@@ -200,9 +208,12 @@ fn collect_in(
         }
         None => ()
       }
+      if stack.length() > 0 {
+        enclosing.push((frame_id, stack[stack.length() - 1].id))
+      }
       stack.push({ id: frame_id, names })
       for child in node.children() {
-        collect_in(child, defs, calls, stack)
+        collect_in(child, defs, calls, enclosing, stack)
       }
       let _ = stack.pop()
     }
@@ -239,10 +250,13 @@ fn collect_in(
               })
             }
           }
+          if stack.length() > 0 {
+            enclosing.push((frame_id, stack[stack.length() - 1].id))
+          }
           stack.push({ id: frame_id, names })
           pushed = true
         } else {
-          collect_in(child, defs, calls, stack)
+          collect_in(child, defs, calls, enclosing, stack)
         }
       }
       if pushed {
@@ -265,21 +279,37 @@ fn collect_in(
       }
     _ =>
       for child in node.children() {
-        collect_in(child, defs, calls, stack)
+        collect_in(child, defs, calls, enclosing, stack)
       }
   }
 }
 
 ///|
-/// Pure extraction. Used directly in tests and inside the Memo body.
-/// The returned arrays include EVERY VarRef and EVERY binding —
-/// downstream filters (see `callers_of`) narrow to "callers of name"
-/// using the `resolved_scope` and `is_call_position` fields.
-pub fn extract_facts(root : @seam.SyntaxNode) -> (Array[Def], Array[Call]) {
+/// Pure extraction including Enclosing edges. Used by the pipeline's
+/// `facts` Memo. The returned `enclosing` array carries `(child, parent)`
+/// tuples for every LambdaScope frame pushed during the walk. TopScope is
+/// never a child of an edge (it's the implicit root of every chain).
+///
+/// Package-private: the consumer-facing surface is the pipeline
+/// (`callers_of` / `defs_of` / `visible_from`). The wrapper
+/// `extract_facts` stays public for backward compatibility with existing
+/// 2-tuple consumers and tests.
+fn extract_facts_full(
+  root : @seam.SyntaxNode,
+) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
   let defs : Array[Def] = []
   let calls : Array[Call] = []
+  let enclosing : Array[(ScopeId, ScopeId)] = []
   let stack : Array[Frame] = [{ id: TopScope, names: [] }]
-  collect_in(root, defs, calls, stack)
+  collect_in(root, defs, calls, enclosing, stack)
+  (defs, calls, enclosing)
+}
+
+///|
+/// Backward-compatible 2-tuple shape: defs and calls only. The Tier 1
+/// tests at this signature continue to compile unchanged.
+pub fn extract_facts(root : @seam.SyntaxNode) -> (Array[Def], Array[Call]) {
+  let (defs, calls, _enclosing) = extract_facts_full(root)
   (defs, calls)
 }
 
@@ -301,47 +331,148 @@ pub fn build_callers_index(
 }
 
 ///|
-/// The reactive pipeline: facts (joint defs + calls) plus a derived
-/// name->[Call] index of the strict-filtered subset (top-scope-resolved
-/// calls in function position), each owned by a private @incr.Scope. A
-/// persistent Observer on the index anchors the whole chain as a GC
-/// root — without it, Runtime::gc() would sweep the (otherwise
-/// unobserved) interior cells and subsequent reads would abort. The
-/// Observer also gives ergonomic untracked reads via Observer::get().
+/// Compute the full set of names visible at scope `s`. Walks the parent
+/// chain upward, unioning each ancestor's own bindings. Memoized via
+/// `memo` to avoid quadratic re-walks along shared chains.
+fn visible_names_at(
+  s : ScopeId,
+  parent : @hashmap.HashMap[ScopeId, ScopeId],
+  own : @hashmap.HashMap[ScopeId, Array[String]],
+  memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]],
+) -> @hashset.HashSet[String] {
+  match memo.get(s) {
+    Some(set) => set
+    None => {
+      let result : @hashset.HashSet[String] = @hashset.HashSet([])
+      match own.get(s) {
+        Some(arr) =>
+          for n in arr {
+            result.add(n)
+          }
+        None => ()
+      }
+      match parent.get(s) {
+        Some(p) => {
+          let inherited = visible_names_at(p, parent, own, memo)
+          for n in inherited {
+            result.add(n)
+          }
+        }
+        None => () // root or unparented
+      }
+      memo.set(s, result)
+      result
+    }
+  }
+}
+
+///|
+/// Build the (scope, name) -> Unit visibility map from extracted defs +
+/// enclosing edges. Membership in the map means "binding `name` exists
+/// in `scope` or any enclosing scope." Does NOT model shadowing.
 ///
-/// Call `dispose()` to release the GC root and tear down the owned
+/// Precondition: `enclosing` describes an acyclic parent graph. Edges
+/// produced by `extract_facts_full` are acyclic by construction (each
+/// edge points from a newly pushed frame to its existing parent on the
+/// stack). Synthetic cyclic input would cause `visible_names_at` to
+/// recurse without bound.
+pub fn build_visibility(
+  defs : Array[Def],
+  enclosing : Array[(ScopeId, ScopeId)],
+) -> @hashmap.HashMap[(ScopeId, String), Unit] {
+  // 1. Collect every scope mentioned in defs OR enclosing, plus TopScope.
+  let scopes : @hashset.HashSet[ScopeId] = @hashset.HashSet([])
+  scopes.add(TopScope)
+  for d in defs {
+    scopes.add(d.scope)
+  }
+  for edge in enclosing {
+    scopes.add(edge.0)
+    scopes.add(edge.1)
+  }
+  // 2. parent[child] = parent_scope. First edge wins (defensive against
+  //    malformed input that emits duplicate parents).
+  let parent : @hashmap.HashMap[ScopeId, ScopeId] = @hashmap.HashMap([])
+  for edge in enclosing {
+    match parent.get(edge.0) {
+      None => parent.set(edge.0, edge.1)
+      Some(_) => ()
+    }
+  }
+  // 3. own[scope] = [name, ...] for bindings introduced by that scope.
+  let own : @hashmap.HashMap[ScopeId, Array[String]] = @hashmap.HashMap([])
+  for d in defs {
+    match own.get(d.scope) {
+      Some(arr) => arr.push(d.name)
+      None => own.set(d.scope, [d.name])
+    }
+  }
+  // 4. For each scope, materialize its visibility name set (memoized).
+  let memo : @hashmap.HashMap[ScopeId, @hashset.HashSet[String]] = @hashmap.HashMap([],
+  )
+  // 5. Flatten into (scope, name) -> Unit.
+  let result : @hashmap.HashMap[(ScopeId, String), Unit] = @hashmap.HashMap([])
+  for s in scopes {
+    let names = visible_names_at(s, parent, own, memo)
+    for n in names {
+      result.set((s, n), ())
+    }
+  }
+  result
+}
+
+///|
+/// The reactive pipeline. Three derived Memos:
+///   facts            — `extract_facts_full(syntax)` (defs + calls +
+///                      enclosing edges).
+///   callers_index    — `name -> [Call]` over the strict-filtered subset
+///                      (top-scope-resolved calls in function position).
+///   visibility       — `build_visibility(defs, enclosing)` flattened
+///                      to `(ScopeId, String) -> Unit`.
+///
+/// Each Memo is observed by a persistent `Observer` registered with a
+/// single private `@incr.Scope`. Without those observers, `Runtime::gc()`
+/// would sweep the (otherwise unobserved) interior cells and subsequent
+/// reads would abort. The observers also give ergonomic untracked reads
+/// via `Observer::get()`.
+///
+/// Call `dispose()` to release the GC roots and tear down the owned
 /// cells. The input `syntax` Memo and the runtime are unaffected.
 pub struct CallersPipeline {
-  priv rt : @incr.Runtime
   priv scope : @incr.Scope
-  priv observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
-  priv facts : @incr.Memo[(Array[Def], Array[Call])]
+  priv facts_observer : @incr.Observer[
+    (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]),
+  ]
+  priv callers_observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
+  priv visibility_observer : @incr.Observer[
+    @hashmap.HashMap[(ScopeId, String), Unit],
+  ]
 }
 
 ///|
 /// Build a CallersPipeline rooted at a Memo[SyntaxNode]. Cells are
-/// created on a fresh Scope owned by this pipeline, and the derived
-/// index is observed so the reactive chain survives `Runtime::gc()`.
-/// Merging defs+calls into a single `facts` Memo avoids double-walking
-/// the tree on every edit.
+/// created on a fresh Scope owned by this pipeline, and three derived
+/// Memos (facts, callers_index, visibility) are each observed so the
+/// reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
+/// into a single `facts` Memo avoids double-walking the tree on every
+/// edit; downstream Memos read facts via `.get()` inside their tracked
+/// closures.
 ///
 /// Precondition: `syntax` must have been constructed on `rt`. Passing a
 /// Memo from a different Runtime is undefined behavior — incr's
-/// cross-runtime guard catches some but not all paths. (`@incr.Memo`
-/// does not currently expose a `.runtime()` accessor that would let us
-/// derive `rt` and remove this footgun.)
+/// cross-runtime guard catches some but not all paths.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
   syntax : @incr.Memo[@seam.SyntaxNode],
 ) -> CallersPipeline {
   let scope = @incr.Scope::new(rt)
   let facts = scope.memo(
-    fn() { extract_facts(syntax.get()) },
+    fn() { extract_facts_full(syntax.get()) },
     label="callers_facts",
   )
-  let index = scope.memo(
+  let callers_index = scope.memo(
     fn() {
-      let (_, calls) = facts.get()
+      let (_, calls, _) = facts.get()
       let buckets : @hashmap.HashMap[String, Array[Call]] = @hashmap.HashMap([])
       for c in calls {
         if c.is_call_position && c.resolved_scope == TopScope {
@@ -355,14 +486,30 @@ pub fn CallersPipeline::CallersPipeline(
     },
     label="callers_index",
   )
-  let observer = scope.add_observer(index.observe())
-  { rt, scope, observer, facts }
+  let visibility = scope.memo(
+    fn() {
+      let (defs, _, enclosing) = facts.get()
+      build_visibility(defs, enclosing)
+    },
+    label="callers_visibility",
+  )
+  let facts_observer = scope.add_observer(facts.observe())
+  let callers_observer = scope.add_observer(callers_index.observe())
+  let visibility_observer = scope.add_observer(visibility.observe())
+  // Prime facts_observer so the dependency edge `facts -> syntax` is
+  // recorded before this constructor returns. Without priming,
+  // `facts_observer` anchors `facts` but `facts`'s `gc_dependencies`
+  // are empty until the closure runs at least once — a caller-side
+  // `rt.gc()` issued before any read would sweep the upstream
+  // `syntax_tree` Memo. Costs one tree walk; one-time per pipeline.
+  let _ = facts_observer.get()
+  { scope, facts_observer, callers_observer, visibility_observer }
 }
 
 ///|
 /// Release the GC root and tear down the owned cells. Idempotent.
-/// Subsequent calls to `callers_of` / `defs_of` after dispose() are
-/// undefined.
+/// Subsequent calls to `callers_of` / `defs_of` / `visible_from` after
+/// dispose() are undefined.
 pub fn CallersPipeline::dispose(self : CallersPipeline) -> Unit {
   self.scope.dispose()
 }
@@ -376,7 +523,7 @@ pub fn CallersPipeline::callers_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Call] {
-  match self.observer.get().get(name) {
+  match self.callers_observer.get().get(name) {
     Some(bucket) => bucket.copy()
     None => []
   }
@@ -385,14 +532,12 @@ pub fn CallersPipeline::callers_of(
 ///|
 /// Read all definitions named `name`, including lambda parameters and
 /// let-paren parameters. Consumers wanting top-level bindings only can
-/// filter on `d.scope == TopScope`. The `facts` cell stays reachable
-/// via the observer on `index` (which depends on `facts`), so no second
-/// observer is needed.
+/// filter on `d.scope == TopScope`.
 pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Def] {
-  let (defs, _) = self.rt.read(self.facts)
+  let (defs, _, _) = self.facts_observer.get()
   let result : Array[Def] = []
   for d in defs {
     if d.name == name {
@@ -400,4 +545,17 @@ pub fn CallersPipeline::defs_of(
     }
   }
   result
+}
+
+///|
+/// True iff a binding named `name` is visible from `scope` — meaning it
+/// exists in `scope` itself or in any enclosing scope. Does NOT model
+/// shadowing (cannot answer "which binding wins"). Consumer-facing for
+/// rename + conflict detection. Returns false for unknown ScopeIds.
+pub fn CallersPipeline::visible_from(
+  self : CallersPipeline,
+  scope : ScopeId,
+  name : String,
+) -> Bool {
+  self.visibility_observer.get().get((scope, name)) is Some(_)
 }

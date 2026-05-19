@@ -3,6 +3,7 @@ import {
   "dowdiness/lambda/syntax" @syntax,
   "dowdiness/incr" @incr,
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
   "moonbitlang/core/debug",
 }
 
@@ -11,3 +12,8 @@ import {
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @core,
 } for "test"
+
+import {
+  "dowdiness/lambda" @lambda,
+  "dowdiness/loom" @loom,
+} for "wbtest"
