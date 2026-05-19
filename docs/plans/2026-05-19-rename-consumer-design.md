@@ -107,12 +107,16 @@ pub struct TextEdit {
 ### 5.2 Target lookup
 
 ```
-fn locate_target(defs : Array[Def], offset : Int) -> Def?
+fn locate_target(defs : Array[Def], syntax : SyntaxNode, offset : Int) -> Def?
 ```
 
-Filters `defs` by `d.start <= offset < d.end`; on tie, returns the innermost (smallest `d.end - d.start`; tie-break by max `d.start`). Returns `None` if no def contains the offset.
+For each candidate `d` in `defs`, compute `(name_start, name_end) = name_range_of(d, syntax)` (see §5.3) and accept `d` iff `name_start <= offset < name_end`. Returns the unique matching def, or `None` if none.
 
-The innermost-wins rule resolves cases like `let f (x) = ...` where the let-paren node contains the param node — clicking on `x` should target the parameter, not the let.
+Why not use `d.start <= offset < d.end`: `Def.start/end` is the *enclosing-node range* (verified at `callers.mbt:205, :227, :248` for lambda param, let definition, and let-paren param respectively). The let-paren node's range contains its parameter's range; the lambda node's range contains its body. Filtering by the wider range would match multiple defs simultaneously (e.g., clicking inside the body of `\x. f(x)` would match the lambda param `x`, even though the offset is on `f`).
+
+The identifier-token range is the *clickable region* — exactly the bytes the user clicked on the binding's name.
+
+If no def's identifier range contains the offset, target = `None` and an Error diagnostic `rename.no_target_at_offset` is emitted.
 
 ### 5.3 Name-range extraction (the Codex BLOCK F fix)
 
@@ -165,6 +169,8 @@ Walks the parent chain from `scope` upward via `enclosing` edges. At each visite
 
 This is the *only* shadowing-aware operation the rename package needs. It does not propagate back into the pipeline.
 
+**Ambiguity tiebreaker**: if multiple defs in `defs` share the same `(name, scope)` pair (e.g., malformed input or duplicate let-paren params per `callers.mbt:241`), `resolve_innermost` returns the one appearing *first* in the `defs` array. This matches the extractor's emission order — the syntactically first binding wins. Editors that surface this case should still get a deterministic answer.
+
 ### 5.6 Conflict detection
 
 Three checks, each emitting an `@core.Diagnostic` with structured fields. Capture is **two-pass** (forward + converse) — both report under the same `rename.capture` code with distinguishing labels.
@@ -189,7 +195,7 @@ for d in defs where d.name == new_name:
 
 The pipeline does not record per-call *lexical* scopes — only `resolved_scope` (where the binding lives). Worst case: a rewritten call's lexical position is the deepest descendant of `target.scope`. Any `new_name` binding strictly between `target.scope` and that depth would intercept the call after rename. The forward pass scans all such descendant defs; some flagged defs may not be on the actual call's chain (false positive), but no real captures escape.
 
-Diagnostic shape: severity = Error, primary = nearest target-reference range, labels = [(intercepting def range, "would intercept renamed reference")].
+Diagnostic shape: severity = Error, primary = target *def* identifier range (not a specific call site — the analysis cannot identify which rewritten call is under the intercepting def's lexical chain without per-call lexical scope data; see §9.6), labels = [(intercepting def's identifier range, "would intercept renamed references in this subtree")].
 
 #### Capture — converse pass
 
@@ -225,12 +231,13 @@ Note: shadow and converse-capture are related. Shadow flags the rename's effect 
 
 | Code | Severity | Meaning |
 |---|---|---|
-| `rename.no_target_at_offset` | Error | Input offset doesn't land on a def |
-| `rename.invalid_new_name` | Error | new_name isn't a valid lambda identifier |
+| `rename.no_target_at_offset` | Error | Input offset doesn't land on a def's identifier range |
 | `rename.sibling_collision` | Error | new_name already bound in target's scope |
-| `rename.capture` | Error | Some descendant scope has new_name; rename intercepts references |
+| `rename.capture` | Error | Forward or converse capture detected (label distinguishes which) |
 | `rename.shadow` | Warning | Rename shadows an outer new_name binding |
 | `rename.no_op` | Info | new_name == target.name; no edits emitted |
+
+**Note**: lexical validation of `new_name` (is it a valid identifier per the lambda grammar?) is *not* the rename consumer's responsibility in v1. The consumer produces edits with whatever string is passed; if the result is unparseable, the parser's own diagnostics surface that. This keeps the rename package decoupled from lexer specifics. Editors that want pre-flight identifier validation should run their own check before calling `plan_rename`.
 
 ## 6. Conflict semantics worked examples
 
@@ -249,11 +256,15 @@ Sibling-def fires (both at TopScope). Edits are still computed; editor decides w
 
 ### 6.3 Forward capture
 
-Source: `(\f. let g = 1 in f + g)` then a rename at the *outer* lambda param: target = `f`, new_name = `g`.
+Source: `(\f. (\g. f + g))` — outer lambda param `f`, inner lambda param `g`; rename target = outer `f`, new_name = `g`.
 
-`target.scope` is the outer `LambdaScope(...)`. The inner `let g = 1` introduces a Def `Def("g", InnerLambdaScope, ...)` whose scope is a strict descendant of `target.scope`. The reference `f` inside the let body had resolved upward to the parameter; post-rename, that reference becomes `g` and would resolve to the inner `let g` instead of the renamed parameter.
+`target.scope` is the outer `LambdaScope(...)`. The inner lambda pushes its own `LambdaScope(inner_start, inner_end)` with an `enclosing` edge to the outer scope (per `callers.mbt:211`), giving us a Def `Def("g", InnerLambdaScope, ...)`. That inner scope is a strict descendant of `target.scope`.
 
-Forward-pass fires: there exists a `new_name` def in a descendant of `target.scope`. Edits are still computed; the diagnostic flags the unsafe rewrite for editor display.
+Before rename, the outer body `f + g` has `f` resolved to the outer param and `g` resolved to the inner param. After renaming the outer `f` to `g`, the rewritten reference (now spelled `g`) would still bind to the inner parameter via lexical lookup — not to the renamed outer param. The rename's target reference is captured by an unrelated binding.
+
+Forward-pass fires: there exists a `new_name` def at a strict descendant of `target.scope`. Edits are still computed; the diagnostic flags the unsafe rewrite for editor display.
+
+Note: a plain `let g = 1 in ...` does *not* create a new scope (per `callers.mbt:238`, only `LetDef` with a `ParamList` pushes a frame). So the forward-capture trigger requires a nested *lambda* or a *let-paren*, not a plain non-parametric `let`. Plain-let bindings in the same scope as the target trigger sibling-def (§6.2) instead.
 
 ### 6.4 Converse capture
 
@@ -278,17 +289,18 @@ Diagnostics: empty (no collision).
 
 ## 7. Test fixtures
 
-Nine fixtures in `examples/lambda/src/rename/rename_test.mbt`:
+Ten fixtures in `examples/lambda/src/rename/rename_test.mbt`:
 
-1. **Smoke** — `let f = (\x. x); f (f 1)` → rename `f → fff`. Verify three edits, no diagnostics.
+1. **Smoke (top-level let)** — `let f = (\x. x); f (f 1)` → rename `f → fff`. Verify three edits, no diagnostics.
 2. **Sibling collision** — `let f = 1; let g = 2` → rename `f → g`. Verify Error diagnostic, edits still produced.
-3. **Forward capture** — `(\f. let g = 1 in f + g)` → rename outer `f → g`. Verify Error diagnostic (inner `let g` would intercept the renamed reference).
-4. **Converse capture** — `let g = 1 in (\f. f + g)` → rename param `f → g`. Verify Error diagnostic (the renamed `g` parameter intercepts the previously-free `g` reference). Shadow also fires for this fixture.
+3. **Forward capture (nested lambda)** — `(\f. (\g. f + g))` → rename outer `f → g`. Verify Error diagnostic with `code = "rename.capture"` and forward label (inner lambda's `g` would intercept the rewritten reference).
+4. **Converse capture + shadow** — `let g = 1 in (\f. f + g)` → rename param `f → g`. Verify Error (`rename.capture` converse) AND Warning (`rename.shadow`) — both fire on this fixture.
 5. **Shadow without converse-capture** — `let g = 1; (\f. f)` → rename param `f → g`. Verify Warning diagnostic only (shadows outer `g`; no call sites affected).
 6. **Top-level recursion** — `let f = (\x. f x)` → rename `f → fff`. Verify both `f` references rewritten.
-7. **No-op** — rename `f → f`. Verify no edits, single Info diagnostic.
-8. **Offset miss** — offset inside whitespace. Verify Error diagnostic, no edits.
-9. **Name-range correctness** — for each binding kind (LetDef, lambda param, let-paren param), verify the edit's `(start, end)` is the identifier-token range, not the enclosing-node range.
+7. **Let-paren parameter rename** — `let f (x) = x + 1` → rename param `x → y`. Verify two edits (param def site + body reference), no diagnostics (parameter rename in same scope).
+8. **No-op** — rename `f → f`. Verify no edits, single Info diagnostic.
+9. **Offset miss** — offset inside whitespace or on a keyword. Verify `rename.no_target_at_offset` Error, no edits.
+10. **Name-range correctness (meta)** — for each binding kind (LetDef, lambda param, let-paren param), verify the def-site edit's `(start, end)` is the identifier-token range, not the enclosing-node range.
 
 ## 8. Out of scope for v1
 
@@ -320,6 +332,19 @@ Rejected: `extract_facts` is `pub` and reusable, but calling it per rename invoc
 ### 9.5 Add `name_start`/`name_end` to `Def`
 
 Considered. Rejected for v1: would expand the callers public API and require all existing consumers to adapt. The need is rename-specific — `defs_of` UI consumers ("highlight where this is bound") want the wider node range. A 20-line `name_range_of` helper in the rename package is cheaper than a pipeline-wide API change. May revisit if a second consumer surfaces the same need.
+
+### 9.6 Extend `Call` with lexical scope (the precision fix for capture conservatism)
+
+Considered. Deferred. The forward-capture and converse-capture passes are conservative because `Call` records only `resolved_scope` (where the binding lives), not lexical scope (where the call is written). With lexical scope per call, capture detection could pinpoint which specific call sites are affected, eliminating false positives.
+
+Adding lexical scope is a small extractor change in `callers.mbt` — push the current top-of-stack scope id onto `Call` at construction time (`callers.mbt:270` area). Compatibility cost is one new field and one extractor line.
+
+Not done in v1 because:
+- The conservative analysis is sound; only false-positive noise is at stake.
+- Adding the field cascades into Tier 1+ semantic tests (snapshot-based) and the `Call` struct's public interface.
+- Editor UX needs to be observed first — if reviewers find false positives acceptable, the precision is YAGNI.
+
+Promotion criterion: if real-world rename usage produces too many false-positive capture warnings, add `lexical_scope: ScopeId` to `Call` and tighten both capture passes to filter by lexical chain inclusion.
 
 ## 10. Risks
 
