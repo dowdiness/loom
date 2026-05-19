@@ -74,12 +74,15 @@ test "visible_from: malformed lambda still sees enclosing bindings" {
 
 ///|
 test "pipeline: survives rt.gc() before first read (facts_observer anchor)" {
-  // Regression test for the explicit facts_observer GC anchor introduced
-  // in this PR. Before this change, the old pipeline only observed
-  // `index`; before any reads had settled dependency edges, `rt.gc()`
-  // could sweep `facts`. This test exercises the path where gc runs
-  // BEFORE the first observer.get() — so dependency edges may not yet
-  // be primed.
+  // Regression test for the constructor-priming + facts_observer anchor
+  // introduced in this PR. Concrete failure mode without the prime:
+  // `facts_observer` anchors `facts`, but `facts`'s `gc_dependencies`
+  // are empty until its closure runs. An rt.gc() issued before any read
+  // therefore sweeps the upstream `syntax_tree` Memo (the parser's
+  // interior cell), and the next read aborts inside `facts`'s closure
+  // when it calls `syntax.get()`. The constructor's
+  // `let _ = facts_observer.get()` materializes the
+  // `facts -> syntax_tree` edge before returning, so gc finds it.
   let rt = @incr.Runtime::new()
   let parser = @loom.new_parser(
     "let f = 1\nlet g = f x\n",

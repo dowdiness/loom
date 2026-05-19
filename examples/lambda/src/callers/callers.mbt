@@ -31,8 +31,8 @@
 //   3. "Resolved to top-level" means "not shadowed by a modeled lambda
 //      or let-paren scope" — not "definitely points at an existing
 //      top-level Def." An unbound name still resolves to TopScope. A
-//      future projection that wants this distinction can read the
-//      unfiltered `facts` Memo.
+//      future projection that wants this distinction can share the
+//      unfiltered facts memo inside the pipeline.
 
 ///|
 /// Lexical scope identity.
