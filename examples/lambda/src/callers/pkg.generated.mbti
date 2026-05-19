@@ -15,8 +15,6 @@ pub fn build_visibility(Array[Def], Array[(ScopeId, ScopeId)]) -> @hashmap.HashM
 
 pub fn extract_facts(@seam.SyntaxNode) -> (Array[Def], Array[Call])
 
-pub fn extract_facts_full(@seam.SyntaxNode) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)])
-
 // Errors
 
 // Types and methods

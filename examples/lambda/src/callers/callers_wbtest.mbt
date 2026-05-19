@@ -4,6 +4,97 @@
 // Synthetic Def construction requires whitebox access because `pub struct
 // Def` is not `pub(all)` — field-construction is package-internal by
 // MoonBit visibility rules.
+//
+// extract_facts_full is package-private; tests that need to exercise its
+// 3-tuple shape directly live here too.
+
+///|
+/// Build a one-shot Parser and extract its current SyntaxNode. Mirrors
+/// the helper in callers_test.mbt for whitebox tests that need to invoke
+/// package-private extract_facts_full.
+fn parse_to_syntax_wb(source : String) -> @seam.SyntaxNode {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  rt.read(parser.syntax_tree())
+}
+
+///|
+test "extract_facts_full: emits TopScope edge for outermost LambdaExpr" {
+  let src = "let g = \\x. x\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
+  // Exactly one LambdaScope, with TopScope as its parent.
+  inspect(enclosing.length(), content="1")
+  let (child, parent) = enclosing[0]
+  inspect(parent is TopScope, content="true")
+  inspect(child is LambdaScope(_, _), content="true")
+}
+
+///|
+test "extract_facts_full: nested LambdaExpr emits chain of edges" {
+  let src = "let g = \\x. \\y. x y\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
+  // Outer lambda -> TopScope, inner lambda -> outer lambda.
+  inspect(enclosing.length(), content="2")
+  let outer_edge = enclosing[0]
+  inspect(outer_edge.1 is TopScope, content="true")
+  let inner_edge = enclosing[1]
+  inspect(inner_edge.1 is TopScope, content="false")
+  inspect(inner_edge.1 is LambdaScope(_, _), content="true")
+}
+
+///|
+test "extract_facts_full: let-paren params emit Enclosing edge" {
+  let src = "let f(x, y) = x y\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
+  inspect(enclosing.length(), content="1")
+  let (_, parent) = enclosing[0]
+  inspect(parent is TopScope, content="true")
+}
+
+///|
+test "visible_from: malformed lambda still sees enclosing bindings" {
+  // `\. body` — frame pushed without a Def (ident_after_lead returns
+  // None inside collect_in). The Enclosing edge is still emitted, so
+  // the (empty) lambda scope inherits the top-level binding `f`.
+  // Whitebox because identifying the malformed scope reuses
+  // extract_facts_full to read its byte-range id.
+  let src = "let f = 1\nlet g = \\. f\n"
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(src, @lambda.lambda_grammar, runtime=rt)
+  let p = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
+  inspect(enclosing.length(), content="1")
+  let malformed_scope = enclosing[0].0
+  inspect(malformed_scope is LambdaScope(_, _), content="true")
+  // The actual claim: f IS visible from the empty lambda scope.
+  inspect(p.visible_from(malformed_scope, "f"), content="true")
+  inspect(p.visible_from(malformed_scope, "not_a_real_name"), content="false")
+  p.dispose()
+}
+
+///|
+test "pipeline: survives rt.gc() before first read (facts_observer anchor)" {
+  // Regression test for the explicit facts_observer GC anchor introduced
+  // in this PR. Before this change, the old pipeline only observed
+  // `index`; before any reads had settled dependency edges, `rt.gc()`
+  // could sweep `facts`. This test exercises the path where gc runs
+  // BEFORE the first observer.get() — so dependency edges may not yet
+  // be primed.
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(
+    "let f = 1\nlet g = f x\n",
+    @lambda.lambda_grammar,
+    runtime=rt,
+  )
+  let p = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  // gc immediately, before any reads.
+  rt.gc()
+  // All three public observers must still resolve.
+  inspect(p.callers_of("f").length(), content="1")
+  inspect(p.defs_of("f").length(), content="1")
+  inspect(p.visible_from(TopScope, "f"), content="true")
+  p.dispose()
+}
 
 ///|
 test "build_visibility: TopScope-only defs are visible from TopScope" {

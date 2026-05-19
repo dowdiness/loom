@@ -459,41 +459,6 @@ test "ScopeId derives Hash (compile-time check)" {
 }
 
 ///|
-test "extract_facts_full: emits TopScope edge for outermost LambdaExpr" {
-  let src = "let g = \\x. x\n"
-  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
-  // Exactly one LambdaScope, with TopScope as its parent.
-  inspect(enclosing.length(), content="1")
-  let (child, parent) = enclosing[0]
-  inspect(parent is TopScope, content="true")
-  inspect(child is LambdaScope(_, _), content="true")
-}
-
-///|
-test "extract_facts_full: nested LambdaExpr emits chain of edges" {
-  let src = "let g = \\x. \\y. x y\n"
-  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
-  // Outer lambda -> TopScope, inner lambda -> outer lambda.
-  inspect(enclosing.length(), content="2")
-  // Outer (LambdaExpr starting before inner) edge to TopScope:
-  let outer_edge = enclosing[0]
-  inspect(outer_edge.1 is TopScope, content="true")
-  // Inner edge's parent is the outer LambdaScope (not TopScope).
-  let inner_edge = enclosing[1]
-  inspect(inner_edge.1 is TopScope, content="false")
-  inspect(inner_edge.1 is LambdaScope(_, _), content="true")
-}
-
-///|
-test "extract_facts_full: let-paren params emit Enclosing edge" {
-  let src = "let f(x, y) = x y\n"
-  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
-  inspect(enclosing.length(), content="1")
-  let (_, parent) = enclosing[0]
-  inspect(parent is TopScope, content="true")
-}
-
-///|
 test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
   let src = "let g = \\x. x\n"
   let (defs, calls) = extract_facts(parse_to_syntax(src))
@@ -584,24 +549,6 @@ test "visible_from: fabricated unknown ScopeId returns false" {
   let src = "let f = 1\n"
   let p = build_test_pipeline(src)
   inspect(p.visible_from(LambdaScope(99999, 99999), "f"), content="false")
-  p.dispose()
-}
-
-///|
-test "visible_from: malformed lambda still sees enclosing bindings" {
-  // `\. body` — frame pushed without a Def (ident_after_lead returns
-  // None at callers.mbt:204). The Enclosing edge is still emitted, so
-  // the (empty) lambda scope inherits the top-level binding `f`.
-  let src = "let f = 1\nlet g = \\. f\n"
-  let p = build_test_pipeline(src)
-  // Identify the malformed lambda's scope from the raw enclosing edges.
-  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
-  inspect(enclosing.length(), content="1")
-  let malformed_scope = enclosing[0].0
-  inspect(malformed_scope is LambdaScope(_, _), content="true")
-  // The actual claim: f IS visible from the empty lambda scope.
-  inspect(p.visible_from(malformed_scope, "f"), content="true")
-  inspect(p.visible_from(malformed_scope, "not_a_real_name"), content="false")
   p.dispose()
 }
 

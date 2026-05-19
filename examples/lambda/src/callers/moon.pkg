@@ -12,3 +12,8 @@ import {
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @core,
 } for "test"
+
+import {
+  "dowdiness/lambda" @lambda,
+  "dowdiness/loom" @loom,
+} for "wbtest"
