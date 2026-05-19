@@ -293,7 +293,7 @@ test "annotated render_spans" {
   let doc = annotate(@pretty.Keyword, text("let")) +
     text(" ") +
     annotate(@pretty.Identifier, text("x"))
-  inspect(
+  debug_inspect(
     render_spans(doc),
     content=(
       #|[({ start: 0, end: 3 }, Keyword), ({ start: 4, end: 5 }, Identifier)]
@@ -322,7 +322,7 @@ annotations to collect. Use `render_string` if you don't need span information.
 ///|
 test "render_spans on Layout[Unit] returns empty" {
   let doc : Layout[Unit] = group(text("hello") + line() + text("world"))
-  inspect(render_spans(doc), content="[]")
+  debug_inspect(render_spans(doc), content="[]")
 }
 ```
 

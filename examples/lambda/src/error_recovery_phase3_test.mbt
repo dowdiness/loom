@@ -280,7 +280,7 @@ test "phase3: valid inputs unchanged - comprehensive" {
     // No errors on valid input
     if errors.length() != 0 {
       abort(
-        "Unexpected error on valid input: \{input}, errors: \{errors.format()}",
+        "Unexpected error on valid input: \{input}, errors: \{@debug.to_string(errors.format())}",
       )
     }
 

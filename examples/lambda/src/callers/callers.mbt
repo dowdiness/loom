@@ -134,10 +134,7 @@ fn ident_after_lead(
           seen_lead = true
         }
       }
-      @seam.SyntaxElement::Node(_) =>
-        if seen_lead {
-          return None
-        }
+      @seam.SyntaxElement::Node(_) => if seen_lead { return None }
     }
   }
   None

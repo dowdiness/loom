@@ -37,7 +37,7 @@ pub struct NodeInterner(@hashmap.HashMap[CstNode, CstNode])
 ///|
 /// Create a new empty NodeInterner.
 pub fn NodeInterner::new() -> NodeInterner {
-  NodeInterner(@hashmap.HashMap::new())
+  NodeInterner(@hashmap.HashMap([]))
 }
 
 ///|

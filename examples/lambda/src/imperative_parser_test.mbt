@@ -4,7 +4,7 @@
 test "ImperativeParser::diagnostics empty on valid source" {
   let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
   let _ = parser.parse().ast
-  inspect(parser.diagnostics().format(), content="[]")
+  debug_inspect(parser.diagnostics().format(), content="[]")
 }
 
 ///|

@@ -46,31 +46,37 @@ test "flat_width of annotate" {
 ///|
 test "resolve simple text" {
   let doc : Layout[Unit] = text("hello")
-  inspect(resolve(80, doc), content="[CText(\"hello\")]")
+  debug_inspect(resolve(80, doc), content="[CText(\"hello\")]")
 }
 
 ///|
 test "resolve concat" {
   let doc : Layout[Unit] = text("a") + text("b")
-  inspect(resolve(80, doc), content="[CText(\"a\"), CText(\"b\")]")
+  debug_inspect(resolve(80, doc), content="[CText(\"a\"), CText(\"b\")]")
 }
 
 ///|
 test "resolve hardline" {
   let doc : Layout[Unit] = text("a") + hardline() + text("b")
-  inspect(resolve(80, doc), content="[CText(\"a\"), CNewline(0), CText(\"b\")]")
+  debug_inspect(
+    resolve(80, doc),
+    content="[CText(\"a\"), CNewline(0), CText(\"b\")]",
+  )
 }
 
 ///|
 test "resolve nest + hardline" {
   let doc : Layout[Unit] = text("a") + nest(hardline() + text("b"))
-  inspect(resolve(80, doc), content="[CText(\"a\"), CNewline(2), CText(\"b\")]")
+  debug_inspect(
+    resolve(80, doc),
+    content="[CText(\"a\"), CNewline(2), CText(\"b\")]",
+  )
 }
 
 ///|
 test "resolve group that fits" {
   let doc : Layout[Unit] = group(text("a") + line() + text("b"))
-  inspect(
+  debug_inspect(
     resolve(80, doc),
     content="[CText(\"a\"), CText(\" \"), CText(\"b\")]",
   )
@@ -80,20 +86,26 @@ test "resolve group that fits" {
 test "resolve group that fits exactly" {
   let doc : Layout[Unit] = group(text("a") + line() + text("b"))
   // flat_width = 3, width = 3: exact fit, should flatten (Wadler <=)
-  inspect(resolve(3, doc), content="[CText(\"a\"), CText(\" \"), CText(\"b\")]")
+  debug_inspect(
+    resolve(3, doc),
+    content="[CText(\"a\"), CText(\" \"), CText(\"b\")]",
+  )
 }
 
 ///|
 test "resolve group that breaks" {
   let doc : Layout[Unit] = group(text("a") + line() + text("b"))
   // flat_width = 3, width = 2: doesn't fit, should break
-  inspect(resolve(2, doc), content="[CText(\"a\"), CNewline(0), CText(\"b\")]")
+  debug_inspect(
+    resolve(2, doc),
+    content="[CText(\"a\"), CNewline(0), CText(\"b\")]",
+  )
 }
 
 ///|
 test "resolve annotate" {
   let doc = annotate("ann", text("x"))
-  inspect(
+  debug_inspect(
     resolve(80, doc),
     content="[CAnnStart(\"ann\"), CText(\"x\"), CAnnEnd(\"ann\")]",
   )
@@ -105,7 +117,7 @@ test "resolve annotate" {
 test "resolve group considers suffix" {
   let doc : Layout[Unit] = group(text("a") + line() + text("b")) + text("c")
   // flat_width(group content) = 3, suffix "c" = 1, total = 4 > width 3 → Break
-  inspect(
+  debug_inspect(
     resolve(3, doc),
     content="[CText(\"a\"), CNewline(0), CText(\"b\"), CText(\"c\")]",
   )
@@ -116,7 +128,7 @@ test "resolve group considers suffix" {
 test "resolve group with suffix fits exactly" {
   let doc : Layout[Unit] = group(text("a") + line() + text("b")) + text("c")
   // flat_width = 3, suffix = 1, total = 4, width = 4: 4 <= 4 → Flat
-  inspect(
+  debug_inspect(
     resolve(4, doc),
     content="[CText(\"a\"), CText(\" \"), CText(\"b\"), CText(\"c\")]",
   )
@@ -132,8 +144,17 @@ test "resolve group considers suffix before hardline" {
     text("next")
   // flat_width(group) = 3, prefix_flat_width of suffix = 4 ("long"),
   // total = 3 + 4 = 7, width = 6: 7 > 6 → Break
-  inspect(
+  debug_inspect(
     resolve(6, doc),
-    content="[CText(\"a\"), CNewline(0), CText(\"b\"), CText(\"long\"), CNewline(0), CText(\"next\")]",
+    content=(
+      #|[
+      #|  CText("a"),
+      #|  CNewline(0),
+      #|  CText("b"),
+      #|  CText("long"),
+      #|  CNewline(0),
+      #|  CText("next"),
+      #|]
+    ),
   )
 }

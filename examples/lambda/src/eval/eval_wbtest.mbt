@@ -11,7 +11,7 @@ test "eval: fuel exhaustion on omega combinator" {
     term,
     fuel=50,
   )
-  inspect(result, content="Err(Divergence)")
+  debug_inspect(result, content="Err(Divergence)")
 }
 
 ///|
@@ -27,35 +27,35 @@ test "eval: fuel works for deep but terminating computation" {
     term,
     fuel=100,
   )
-  inspect(result, content="Ok(VInt(42))")
+  debug_inspect(result, content="Ok(VInt(42))")
 }
 
 ///|
 test "eval: Hole returns Incomplete" {
   let term = @ast.Term::Hole(0)
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Err(Incomplete)")
+  debug_inspect(result, content="Err(Incomplete)")
 }
 
 ///|
 test "eval: Error node returns ParseError" {
   let term = @ast.Term::Error("missing expression")
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Err(ParseError)")
+  debug_inspect(result, content="Err(ParseError)")
 }
 
 ///|
 test "eval: Unbound node returns Unbound" {
   let term = @ast.Term::Unbound("foo")
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Err(Unbound(\"foo\"))")
+  debug_inspect(result, content="Err(Unbound(\"foo\"))")
 }
 
 ///|
 test "eval: empty module with Unit body" {
   let term = @ast.Term::Module([], @ast.Term::Unit)
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Ok(VUnit)")
+  debug_inspect(result, content="Ok(VUnit)")
 }
 
 ///|
@@ -69,7 +69,7 @@ test "eval: module definition uses previous binding" {
     @ast.Term::Var("y"),
   )
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(3))")
+  debug_inspect(result, content="Ok(VInt(3))")
 }
 
 ///|
@@ -81,7 +81,7 @@ test "eval: if with computed condition" {
     @ast.Term::Int(20),
   )
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(20))")
+  debug_inspect(result, content="Ok(VInt(20))")
 }
 
 ///|
@@ -92,7 +92,10 @@ test "eval: minus non-integer is type error" {
     @ast.Term::Int(1),
   )
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Err(TypeMismatch(\"minus: expected integer\"))")
+  debug_inspect(
+    result,
+    content="Err(TypeMismatch(\"minus: expected integer\"))",
+  )
 }
 
 ///|
@@ -103,7 +106,7 @@ test "eval: module forward reference fails" {
     @ast.Term::Var("y"),
   )
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Err(Unbound(\"x\"))")
+  debug_inspect(result, content="Err(Unbound(\"x\"))")
 }
 
 ///|
@@ -114,5 +117,5 @@ test "eval: unit value flows through application" {
     @ast.Term::Unit,
   )
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
-  inspect(result, content="Ok(VInt(1))")
+  debug_inspect(result, content="Ok(VInt(1))")
 }

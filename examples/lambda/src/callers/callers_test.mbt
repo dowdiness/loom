@@ -33,10 +33,10 @@ test "extract_facts: defs and calls from three-deep call chain" {
   let (defs, calls) = extract_facts(parse_to_syntax(src))
   let def_names = defs.map(fn(d) { d.name })
   let call_names = calls.map(fn(c) { c.callee })
-  inspect(def_names, content="[f, g, h]")
+  debug_inspect(def_names, content="[\"f\", \"g\", \"h\"]")
   // Calls include every VarRef (both function- and arg-position); the
   // is_call_position flag is what `callers_of` uses to filter.
-  inspect(call_names, content="[f, x, f, x]")
+  debug_inspect(call_names, content="[\"f\", \"x\", \"f\", \"x\"]")
 }
 
 ///|
@@ -84,10 +84,10 @@ test "build_callers_index: groups calls by callee" {
   let idx = build_callers_index(calls)
   // f appears twice (in g, in h); g once (in i); each call body also has
   // an `x` VarRef in arg position.
-  inspect(idx.get("f").map(fn(arr) { arr.length() }), content="Some(2)")
-  inspect(idx.get("g").map(fn(arr) { arr.length() }), content="Some(1)")
-  inspect(idx.get("x").map(fn(arr) { arr.length() }), content="Some(3)")
-  inspect(idx.get("undefined"), content="None")
+  debug_inspect(idx.get("f").map(fn(arr) { arr.length() }), content="Some(2)")
+  debug_inspect(idx.get("g").map(fn(arr) { arr.length() }), content="Some(1)")
+  debug_inspect(idx.get("x").map(fn(arr) { arr.length() }), content="Some(3)")
+  debug_inspect(idx.get("undefined"), content="None")
 }
 
 ///|
@@ -403,7 +403,7 @@ fn lambda_scope_def_names_of(src : String) -> Array[String] {
   let (defs, _) = extract_facts(parse_to_syntax(src))
   let out : Array[String] = []
   for d in defs {
-    if not(d.scope is TopScope) {
+    if !(d.scope is TopScope) {
       out.push(d.name)
     }
   }
@@ -425,7 +425,7 @@ test "extract_facts: malformed lambda no body (\\f)" {
   // determines what ends up in LambdaExpr's children; the param `f`
   // should still be the only LambdaScope binding.
   let names = lambda_scope_def_names_of("let broken = \\f\n")
-  inspect(names, content="[f]")
+  debug_inspect(names, content="[\"f\"]")
 }
 
 ///|
@@ -443,5 +443,5 @@ test "extract_facts: well-formed lambda still binds correctly under new extracti
   let src = "let f = 1\nlet shadow = \\f. f\n"
   let names = lambda_scope_def_names_of(src)
   // Lambda's param `f` is the only non-TopScope binding.
-  inspect(names, content="[f]")
+  debug_inspect(names, content="[\"f\"]")
 }

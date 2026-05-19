@@ -51,7 +51,7 @@ fn PipelineState::new() -> PipelineState {
     intern_table: @incr.InternTable::new(),
     chain_scope: None,
     prev_def_names: [],
-    name_to_idx: @hashmap.new(),
+    name_to_idx: @hashmap.HashMap([]),
     duplicate_diags: [],
     term_signals: [],
     resolve_memos: [],
@@ -230,7 +230,7 @@ fn rebuild_chain(
   // `DefId` always routes to the original declaration; subsequent
   // same-named defs get flagged in `duplicate_diags` instead of silently
   // aliasing into a later slot.
-  let name_to_idx : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let name_to_idx : @hashmap.HashMap[String, Int] = @hashmap.HashMap([])
   let duplicate_diags : Array[TypeDiagnostic] = []
   for i, def in defs {
     match name_to_idx.get(def.0) {
