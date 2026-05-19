@@ -241,65 +241,67 @@ Note: shadow and converse-capture are related. Shadow flags the rename's effect 
 
 ## 6. Conflict semantics worked examples
 
+All examples use the lambda example's actual grammar: `let name = expr\n` at top level, `\param. body` for lambdas, `f x` for application, `let f (x) = body` for let-paren parameters. No arithmetic operators, no `let ... in`, no semicolons.
+
 ### 6.1 Smoke (no conflict)
 
-Source: `let f = ...; f (f 1)`
-Rename: target = `Def("f", TopScope, ...)`, new_name = `fff`.
-Edits: def site + two call references, all rewriting `f → fff`.
+Source: `let f = \x. x\nlet result = f (f y)\n`
+Rename: target = `Def("f", TopScope, ...)` at the first `let`, new_name = `fff`.
+Edits: def site (`f` after `let`) + two call references (the `f`s inside `f (f y)`), all rewriting `f → fff`.
 Diagnostics: empty.
 
 ### 6.2 Sibling collision
 
-Source: `let f = ...; let g = ...`
+Source: `let f = a\nlet g = b\n`
 Rename: target = `f`, new_name = `g`.
 Sibling-def fires (both at TopScope). Edits are still computed; editor decides whether to override.
 
 ### 6.3 Forward capture
 
-Source: `(\f. (\g. f + g))` — outer lambda param `f`, inner lambda param `g`; rename target = outer `f`, new_name = `g`.
+Source: `let h = \f. \g. f g\n` — outer lambda param `f`, inner lambda param `g`; rename target = outer `f`, new_name = `g`.
 
 `target.scope` is the outer `LambdaScope(...)`. The inner lambda pushes its own `LambdaScope(inner_start, inner_end)` with an `enclosing` edge to the outer scope (per `callers.mbt:211`), giving us a Def `Def("g", InnerLambdaScope, ...)`. That inner scope is a strict descendant of `target.scope`.
 
-Before rename, the outer body `f + g` has `f` resolved to the outer param and `g` resolved to the inner param. After renaming the outer `f` to `g`, the rewritten reference (now spelled `g`) would still bind to the inner parameter via lexical lookup — not to the renamed outer param. The rename's target reference is captured by an unrelated binding.
+Before rename, the inner body `f g` has `f` resolved to the outer param and `g` resolved to the inner param. After renaming the outer `f` to `g`, the rewritten reference (now spelled `g`) would still bind to the inner parameter via lexical lookup — not to the renamed outer param. The rename's target reference is captured by an unrelated binding.
 
 Forward-pass fires: there exists a `new_name` def at a strict descendant of `target.scope`. Edits are still computed; the diagnostic flags the unsafe rewrite for editor display.
 
-Note: a plain `let g = 1 in ...` does *not* create a new scope (per `callers.mbt:238`, only `LetDef` with a `ParamList` pushes a frame). So the forward-capture trigger requires a nested *lambda* or a *let-paren*, not a plain non-parametric `let`. Plain-let bindings in the same scope as the target trigger sibling-def (§6.2) instead.
+Note: a plain top-level `let g = ...` does *not* create a new scope (per `callers.mbt:238`, only `LetDef` with a `ParamList` pushes a frame). So the forward-capture trigger requires a nested *lambda* or a *let-paren*, not a plain non-parametric `let`. Plain-let bindings in the same scope as the target trigger sibling-def (§6.2) instead.
 
 ### 6.4 Converse capture
 
-Source: `let g = 1 in (\f. f + g)`
+Source: `let g = a\nlet h = \f. f g\n`
 Rename: target = `f` (lambda param, scope = `LambdaScope(...)`), new_name = `g`.
 
-There's a call `c = Call("g", TopScope, ...)` from the `+ g` expression. `c.resolved_scope == TopScope` is an *ancestor* of `target.scope`. The converse pass fires: after rename, the parameter (now named `g` at `LambdaScope(...)`) sits between the call's lexical position and `TopScope`, so the call re-resolves to the parameter.
+There's a call `c = Call("g", TopScope, ...)` from the body `f g`. `c.resolved_scope == TopScope` is an *ancestor* of `target.scope`. The converse pass fires: after rename, the parameter (now named `g` at `LambdaScope(...)`) sits between the call's lexical position and `TopScope`, so the call re-resolves to the parameter.
 
 Shadow also fires here (the rename shadows outer `let g`). Both diagnostics are emitted; both are correct expressions of the same underlying meaning shift, viewed from different angles (call-site rewrite vs binding reachability).
 
-### 6.5 Shadow
+### 6.5 Shadow without converse capture
 
-Source: `let g = ...; (\f. f)` — rename target = lambda `f`, new_name = `g`.
-target.scope = `LambdaScope(...)`. resolve_innermost(parent = TopScope, "g") finds outer `let g`. Shadow diagnostic emitted (Warning, not Error — legal but flagged).
+Source: `let g = a\nlet h = \f. f\n` — rename target = lambda `f` in the second let, new_name = `g`.
+target.scope = `LambdaScope(...)`. resolve_innermost(parent = TopScope, "g") finds outer `let g`. Shadow diagnostic emitted (Warning, not Error — legal but flagged). No converse-capture because the lambda body `f` never references `g`.
 
 ### 6.6 Top-level recursive
 
-Source: `let f = (\x. f x)`
+Source: `let f = \x. f x\n`
 Target: `f` at TopScope. The recursive call `f x` resolves to TopScope.
-Edits: def site `f` + recursive call `f`. Both rewritten.
+Edits: def site `f` (after `let`) + recursive call `f` (inside the lambda body). Both rewritten.
 Diagnostics: empty (no collision).
 
 ## 7. Test fixtures
 
-Ten fixtures in `examples/lambda/src/rename/rename_test.mbt`:
+Ten fixtures in `examples/lambda/src/rename/rename_test.mbt`. All source strings use the lambda example's actual grammar (`let name = expr\n` chains; `\x. body` lambdas; `f x` application; `let f (x) = body` let-paren).
 
-1. **Smoke (top-level let)** — `let f = (\x. x); f (f 1)` → rename `f → fff`. Verify three edits, no diagnostics.
-2. **Sibling collision** — `let f = 1; let g = 2` → rename `f → g`. Verify Error diagnostic, edits still produced.
-3. **Forward capture (nested lambda)** — `(\f. (\g. f + g))` → rename outer `f → g`. Verify Error diagnostic with `code = "rename.capture"` and forward label (inner lambda's `g` would intercept the rewritten reference).
-4. **Converse capture + shadow** — `let g = 1 in (\f. f + g)` → rename param `f → g`. Verify Error (`rename.capture` converse) AND Warning (`rename.shadow`) — both fire on this fixture.
-5. **Shadow without converse-capture** — `let g = 1; (\f. f)` → rename param `f → g`. Verify Warning diagnostic only (shadows outer `g`; no call sites affected).
-6. **Top-level recursion** — `let f = (\x. f x)` → rename `f → fff`. Verify both `f` references rewritten.
-7. **Let-paren parameter rename** — `let f (x) = x + 1` → rename param `x → y`. Verify two edits (param def site + body reference), no diagnostics (parameter rename in same scope).
+1. **Smoke (top-level let)** — `let f = \x. x\nlet r = f (f y)\n` → rename `f → fff`. Verify three edits (def site + two body references), no diagnostics.
+2. **Sibling collision** — `let f = a\nlet g = b\n` → rename `f → g`. Verify Error diagnostic, edits still produced.
+3. **Forward capture (nested lambda)** — `let h = \f. \g. f g\n` → rename outer `f → g`. Verify Error diagnostic with `code = "rename.capture"` and forward label (inner lambda's `g` parameter would intercept the rewritten reference).
+4. **Converse capture + shadow** — `let g = a\nlet h = \f. f g\n` → rename param `f → g`. Verify Error (`rename.capture` converse) AND Warning (`rename.shadow`) — both fire on this fixture.
+5. **Shadow without converse-capture** — `let g = a\nlet h = \f. f\n` → rename param `f → g`. Verify Warning diagnostic only (shadows outer `g`; no call sites affected because body doesn't reference `g`).
+6. **Top-level recursion** — `let f = \x. f x\n` → rename `f → fff`. Verify both `f` references rewritten.
+7. **Let-paren parameter rename** — `let f (x) = x\n` → rename param `x → y`. Verify two edits (param def site + body reference), no diagnostics (parameter rename in same scope).
 8. **No-op** — rename `f → f`. Verify no edits, single Info diagnostic.
-9. **Offset miss** — offset inside whitespace or on a keyword. Verify `rename.no_target_at_offset` Error, no edits.
+9. **Offset miss** — offset inside whitespace or on the `let` keyword. Verify `rename.no_target_at_offset` Error, no edits.
 10. **Name-range correctness (meta)** — for each binding kind (LetDef, lambda param, let-paren param), verify the def-site edit's `(start, end)` is the identifier-token range, not the enclosing-node range.
 
 ## 8. Out of scope for v1
@@ -349,7 +351,7 @@ Promotion criterion: if real-world rename usage produces too many false-positive
 ## 10. Risks
 
 - **Capture-check overcounting noise**: conservative descendant scan emits false positives when the actual call's lexical chain doesn't pass through the flagged def. Mitigation: editor UI presents conflicts as "review before applying"; not blocking. Long-term fix: lexical-scope-per-call would require an extractor pass extension — punted to a follow-up.
-- **Name-range extraction brittleness**: `name_range_of` depends on the lambda grammar's surface syntax. If the grammar changes (e.g., adding patterns to let definitions), the helper breaks silently. Mitigation: test family 9 covers each binding kind; new kinds added to the grammar must add corresponding tests in the same PR.
+- **Name-range extraction brittleness**: `name_range_of` depends on the lambda grammar's surface syntax. If the grammar changes (e.g., adding patterns to let definitions), the helper breaks silently. Mitigation: fixture 10 (name-range correctness) covers each binding kind; new kinds added to the grammar must add corresponding tests in the same PR.
 - **Diagnostic schema coupling to editor**: the codes (`rename.capture`, etc.) become an implicit interface. Mitigation: document codes in this spec; the editor consumer's choice to dispatch on codes is its responsibility.
 - **`pipeline.facts()` defensive-copy cost**: every rename invocation pays an `O(defs + calls + enclosing)` copy. Mitigation: ranges are typically small (10s to 100s of items per file); copy cost is dominated by the rename's own work. If profiling shows it hot, expose a `facts_views() -> (ArrayView[Def], ...)` instead.
 
