@@ -455,3 +455,48 @@ test "ScopeId derives Hash (compile-time check)" {
   inspect(m.get(LambdaScope(0, 5)), content="Some(2)")
   inspect(m.get(LambdaScope(1, 4)), content="None")
 }
+
+///|
+test "extract_facts_full: emits TopScope edge for outermost LambdaExpr" {
+  let src = "let g = \\x. x\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
+  // Exactly one LambdaScope, with TopScope as its parent.
+  inspect(enclosing.length(), content="1")
+  let (child, parent) = enclosing[0]
+  inspect(parent is TopScope, content="true")
+  inspect(child is LambdaScope(_, _), content="true")
+}
+
+///|
+test "extract_facts_full: nested LambdaExpr emits chain of edges" {
+  let src = "let g = \\x. \\y. x y\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
+  // Outer lambda -> TopScope, inner lambda -> outer lambda.
+  inspect(enclosing.length(), content="2")
+  // Outer (LambdaExpr starting before inner) edge to TopScope:
+  let outer_edge = enclosing[0]
+  inspect(outer_edge.1 is TopScope, content="true")
+  // Inner edge's parent is the outer LambdaScope (not TopScope).
+  let inner_edge = enclosing[1]
+  inspect(inner_edge.1 is TopScope, content="false")
+  inspect(inner_edge.1 is LambdaScope(_, _), content="true")
+}
+
+///|
+test "extract_facts_full: let-paren params emit Enclosing edge" {
+  let src = "let f(x, y) = x y\n"
+  let (_, _, enclosing) = extract_facts_full(parse_to_syntax(src))
+  inspect(enclosing.length(), content="1")
+  let (_, parent) = enclosing[0]
+  inspect(parent is TopScope, content="true")
+}
+
+///|
+test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
+  let src = "let g = \\x. x\n"
+  let (defs, calls) = extract_facts(parse_to_syntax(src))
+  // Same 2-tuple shape as before; values match the existing test at line ~30
+  let def_names = defs.map(fn(d) { d.name })
+  inspect(def_names, content="[g, x]")
+  inspect(calls.length(), content="1")
+}

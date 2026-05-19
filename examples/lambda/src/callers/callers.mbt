@@ -178,11 +178,14 @@ fn is_call_position_of(node : @seam.SyntaxNode) -> Bool {
 
 ///|
 /// Recursively walk the tree, appending Def/Call facts as they are
-/// found, maintaining a lexical scope stack.
+/// found, maintaining a lexical scope stack. Emits an Enclosing edge
+/// `(frame_id, parent_id)` immediately before pushing each LambdaScope
+/// frame, so the visibility builder can walk the parent chain.
 fn collect_in(
   node : @seam.SyntaxNode,
   defs : Array[Def],
   calls : Array[Call],
+  enclosing : Array[(ScopeId, ScopeId)],
   stack : Array[Frame],
 ) -> Unit {
   let kind = @syntax.SyntaxKind::from_raw(node.kind())
@@ -203,9 +206,12 @@ fn collect_in(
         }
         None => ()
       }
+      if stack.length() > 0 {
+        enclosing.push((frame_id, stack[stack.length() - 1].id))
+      }
       stack.push({ id: frame_id, names })
       for child in node.children() {
-        collect_in(child, defs, calls, stack)
+        collect_in(child, defs, calls, enclosing, stack)
       }
       let _ = stack.pop()
     }
@@ -242,10 +248,13 @@ fn collect_in(
               })
             }
           }
+          if stack.length() > 0 {
+            enclosing.push((frame_id, stack[stack.length() - 1].id))
+          }
           stack.push({ id: frame_id, names })
           pushed = true
         } else {
-          collect_in(child, defs, calls, stack)
+          collect_in(child, defs, calls, enclosing, stack)
         }
       }
       if pushed {
@@ -268,21 +277,32 @@ fn collect_in(
       }
     _ =>
       for child in node.children() {
-        collect_in(child, defs, calls, stack)
+        collect_in(child, defs, calls, enclosing, stack)
       }
   }
 }
 
 ///|
-/// Pure extraction. Used directly in tests and inside the Memo body.
-/// The returned arrays include EVERY VarRef and EVERY binding —
-/// downstream filters (see `callers_of`) narrow to "callers of name"
-/// using the `resolved_scope` and `is_call_position` fields.
-pub fn extract_facts(root : @seam.SyntaxNode) -> (Array[Def], Array[Call]) {
+/// Pure extraction including Enclosing edges. Used by the pipeline's
+/// `facts` Memo. The returned `enclosing` array carries `(child, parent)`
+/// tuples for every LambdaScope frame pushed during the walk. TopScope is
+/// never a child of an edge (it's the implicit root of every chain).
+pub fn extract_facts_full(
+  root : @seam.SyntaxNode,
+) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
   let defs : Array[Def] = []
   let calls : Array[Call] = []
+  let enclosing : Array[(ScopeId, ScopeId)] = []
   let stack : Array[Frame] = [{ id: TopScope, names: [] }]
-  collect_in(root, defs, calls, stack)
+  collect_in(root, defs, calls, enclosing, stack)
+  (defs, calls, enclosing)
+}
+
+///|
+/// Backward-compatible 2-tuple shape: defs and calls only. The 23
+/// pre-existing tests at this signature continue to compile unchanged.
+pub fn extract_facts(root : @seam.SyntaxNode) -> (Array[Def], Array[Call]) {
+  let (defs, calls, _enclosing) = extract_facts_full(root)
   (defs, calls)
 }
 
