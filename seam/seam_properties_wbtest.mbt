@@ -1,4 +1,19 @@
 ///|
+// TODO: Drop this local shim once moonbitlang/quickcheck exposes a
+// non-deprecated Debug-based function-property runner.
+fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
+  f : (A) -> P,
+) -> Unit raise Failure {
+  @qc.quick_check(
+    @qc.Gen::spawn().fmap(fn(input : A) {
+      @qc.shrinking(A::shrink, input, fn(shrunk_input : A) {
+        @qc.counterexample(f(shrunk_input), @debug.to_string(shrunk_input))
+      })
+    }),
+  )
+}
+
+///|
 /// Generate a small number of token events deterministically from a seed.
 fn token_events(seed : Int, count_raw : Int) -> Array[ParseEvent] {
   let texts = ["x", "y", "0", "1", "(", ")"]
@@ -16,7 +31,7 @@ fn token_events(seed : Int, count_raw : Int) -> Array[ParseEvent] {
 
 ///|
 test "property: build_tree hash is deterministic" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, count) = input
     let root1 = try! build_tree(token_events(seed, count), RawKind(0))
     let root2 = try! build_tree(token_events(seed, count), RawKind(0))
@@ -26,7 +41,7 @@ test "property: build_tree hash is deterministic" {
 
 ///|
 test "property: build_tree preserves total text length" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (seed, count) = input
     let events = token_events(seed, count)
     let expected = events.fold(init=0, fn(acc, e) {
@@ -45,7 +60,7 @@ test "property: build_tree preserves total text length" {
 /// verify that the resulting SyntaxNode children have contiguous, monotonic
 /// offsets that partition the root span.
 test "property: SyntaxNode child offsets are contiguous" {
-  @qc.quick_check_fn(fn(input : (Int, Int)) -> Bool {
+  quick_check_debug(fn(input : (Int, Int)) -> Bool {
     let (count1_raw, count2_raw) = input
     let count1 = count1_raw.abs() % 4 + 1
     let count2 = count2_raw.abs() % 4 + 1
