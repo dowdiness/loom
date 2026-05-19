@@ -120,6 +120,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 ### Active Plans
 
 - [plans/2026-05-19-rename-consumer-design.md](plans/2026-05-19-rename-consumer-design.md) — Rename + conflict-detection consumer of `visible_from`: new `examples/lambda/src/rename/` package; one-method callers API expansion (`facts()`); two-pass capture detection
+- [plans/2026-05-19-rename-consumer-plan.md](plans/2026-05-19-rename-consumer-plan.md) — Implementation plan for the rename consumer (TDD, 13 tasks, ~30 commits)
 - [plans/2026-05-19-callers-visible-from.md](plans/2026-05-19-callers-visible-from.md) — Tier 1+ callers projection: ship `visible_from` as a pure Memo (Datalog deferred until engine retract / Family A lands)
 
 _Previously active: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
