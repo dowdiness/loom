@@ -150,3 +150,25 @@ test "resolve_innermost: returns None when no binding visible" {
   let result = resolve_innermost(x_def.scope, "y", defs, enclosing)
   inspect(result is None, content="true")
 }
+
+///|
+test "check_sibling_collision: same-scope name match fires" {
+  let src = "let f = a\nlet g = b\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let f_def = def_named(defs, "f")
+  let result = check_sibling_collision(f_def, "g", defs, syntax)
+  inspect(result is Some(_), content="true")
+  let diag = result.unwrap()
+  inspect(diag.severity is @core.DiagnosticSeverity::Error, content="true")
+}
+
+///|
+test "check_sibling_collision: no collision returns None" {
+  let src = "let f = a\nlet g = b\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let f_def = def_named(defs, "f")
+  let result = check_sibling_collision(f_def, "totally_new", defs, syntax)
+  inspect(result is None, content="true")
+}

@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn check_sibling_collision(@callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @core.Diagnostic?
+
 pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def?
 
 pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
