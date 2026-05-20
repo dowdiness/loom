@@ -364,3 +364,19 @@ test "fixture 4 (converse capture + shadow): rename param f -> g where outer g e
   )
   pipeline.dispose()
 }
+
+///|
+test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
+  let src = "let g = a\nlet h = \\f. f\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 19, "g")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.shadow"),
+    content="true",
+  )
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
+    content="false",
+  )
+  pipeline.dispose()
+}
