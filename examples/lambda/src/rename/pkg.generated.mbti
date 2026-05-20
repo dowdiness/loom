@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def?
+
 pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
 
 // Errors

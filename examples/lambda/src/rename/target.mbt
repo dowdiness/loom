@@ -38,3 +38,20 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
   }
   None
 }
+
+///|
+/// Find the def whose identifier range contains `offset`. Returns None
+/// for offsets on whitespace, keywords, or expression occurrences.
+pub fn locate_target(
+  defs : Array[@callers.Def],
+  syntax : @seam.SyntaxNode,
+  offset : Int,
+) -> @callers.Def? {
+  for d in defs {
+    let (name_start, name_end) = name_range_of(d, syntax)
+    if offset >= name_start && offset < name_end {
+      return Some(d)
+    }
+  }
+  None
+}

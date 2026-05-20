@@ -50,3 +50,32 @@ test "name_range_of: let-paren parameter identifier" {
   inspect(start, content="7")
   inspect(end, content="8")
 }
+
+///|
+test "locate_target: hits top-level LetDef name" {
+  let src = "let foo = bar\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let target = locate_target(defs, syntax, 5)
+  inspect(target is Some(_), content="true")
+  inspect(target.unwrap().name, content="foo")
+}
+
+///|
+test "locate_target: hits lambda parameter, not enclosing LetDef" {
+  let src = "let id = \\x. x\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let target = locate_target(defs, syntax, 10)
+  inspect(target is Some(_), content="true")
+  inspect(target.unwrap().name, content="x")
+}
+
+///|
+test "locate_target: returns None for whitespace offset" {
+  let src = "let foo = bar\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let target = locate_target(defs, syntax, 3)
+  inspect(target is None, content="true")
+}
