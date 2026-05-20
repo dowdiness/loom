@@ -1,6 +1,6 @@
 # Roadmap: dowdiness/loom — Incremental Parser Framework
 
-**Updated:** 2026-04-18
+**Updated:** 2026-05-21
 **Status:** Active — framework stable; Typed SyntaxNode views complete
 **Goal:** A reusable, language-agnostic incremental parser framework for MoonBit. Any grammar plugs in via `LanguageSpec[T,K]` and gets green tree (CST), error recovery, subtree reuse, and a reactive pipeline for free.
 
@@ -178,6 +178,17 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 - [x] ~~**#62** Clean up `cst-transform/` before merge: remove `transform_cps` and `transform_view`.~~ — **done** 2026-05-08: entire `cst-transform/` package deleted (zero canopy consumers; production traits live in `seam/`). Feasibility report preserved at `docs/performance/2026-03-30-cst-traversal-tiers.md`.
 - [ ] **#61** Explore token text as source spans (zero-copy lexing) — **needs decision**, see [docs/decisions-needed.md](docs/decisions-needed.md).
 - [ ] `children_iter` (lazy, no-alloc) on `SyntaxNode` — **deferred, perf opportunity**. `SyntaxNode::children()` allocates a fresh `Array[SyntaxNode]` on every call (`seam/syntax_node.mbt:184`). The lambda example's `callers` projection (`examples/lambda/src/callers/callers.mbt`) — first identified consumer — hits this in its tree-walk catch-all branch on every CST edit. Only build once a concrete bench shows the allocation cost on the Memo recompute budget; same "require a concrete consumer" rule as #58/#59/#60.
+- [ ] **Authoring identity after deletion/shift edits** — **needs design**.
+  2026-05-21 moondsp mini CST spike (`specs/loom-mini-cst/`) showed that
+  `Parser::apply_edit` updates duplicate atom spans correctly, and insertion
+  reports nonzero `reuse_count`, but deletion of a middle duplicate-bearing
+  token span updates the recovered CST while reporting `reuse_count == 0`.
+  For editor authoring clients this means `SyntaxToken` spans distinguish
+  duplicates in one snapshot, but do not yet provide a sufficient ownership
+  contract for stable leaf identity across deletion/shift cases. Evaluate
+  whether `ReuseCursor` should recover more suffix reuse after contraction, or
+  whether loom should expose a separate token/subtree identity projection so
+  clients do not have to keep source-edit realignment above the CST.
 - [x] ~~Redesign FlatProj for flat AST~~ — Resolved by PR #37: `from_proj_node` removed from hot path. Tree edits now produce text deltas directly via source map. Known limitation: `Drop` moves child text without surrounding operators/separators.
 
 ---
