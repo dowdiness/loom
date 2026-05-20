@@ -402,3 +402,21 @@ test "fixture 7 (let-paren parameter): rename x -> y in let f (x) = x" {
   inspect(plan.diagnostics.length(), content="0")
   pipeline.dispose()
 }
+
+///|
+test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
+  let src = "let f = a\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 4, "f")
+  inspect(plan.edits.length(), content="0")
+  inspect(plan.diagnostics.length(), content="1")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.no_op"),
+    content="true",
+  )
+  inspect(
+    plan.diagnostics[0].severity is @core.DiagnosticSeverity::Info,
+    content="true",
+  )
+  pipeline.dispose()
+}
