@@ -39,6 +39,56 @@ pub struct RenamePlan {
 }
 
 ///|
+/// Plan a rename from a source offset: locate the target binding, compute
+/// edits, and collect conservative conflict diagnostics.
+pub fn plan_rename(
+  pipeline : @callers.CallersPipeline,
+  _source : String,
+  syntax : @seam.SyntaxNode,
+  offset : Int,
+  new_name : String,
+) -> RenamePlan {
+  let (defs, calls, enclosing) = pipeline.facts()
+  match locate_target(defs, syntax, offset) {
+    None =>
+      RenamePlan::{
+        target: None,
+        edits: [],
+        diagnostics: [make_no_target_diagnostic(offset)],
+      }
+    Some(target) =>
+      if new_name == target.name {
+        RenamePlan::{
+          target: Some(target),
+          edits: [],
+          diagnostics: [make_no_op_diagnostic()],
+        }
+      } else {
+        let edits = compute_edits(target, calls, syntax, new_name)
+        let diagnostics : Array[@core.Diagnostic] = []
+        match check_sibling_collision(target, new_name, defs, syntax) {
+          Some(d) => diagnostics.push(d)
+          None => ()
+        }
+        match check_forward_capture(target, new_name, defs, enclosing, syntax) {
+          Some(d) => diagnostics.push(d)
+          None => ()
+        }
+        match
+          check_converse_capture(target, new_name, calls, enclosing, syntax) {
+          Some(d) => diagnostics.push(d)
+          None => ()
+        }
+        match check_shadow(target, new_name, defs, enclosing, syntax) {
+          Some(d) => diagnostics.push(d)
+          None => ()
+        }
+        RenamePlan::{ target: Some(target), edits, diagnostics }
+      }
+  }
+}
+
+///|
 fn compute_edits(
   target : @callers.Def,
   calls : Array[@callers.Call],
@@ -54,4 +104,31 @@ fn compute_edits(
     }
   }
   edits
+}
+
+///|
+fn make_no_target_diagnostic(offset : Int) -> @core.Diagnostic {
+  @core.Diagnostic::Diagnostic(
+    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    severity=severity_error(),
+    message="No binding identifier at offset \{offset}",
+    code=Some(
+      @core.DiagnosticCode::DiagnosticCode("rename.no_target_at_offset"),
+    ),
+  )
+}
+
+///|
+fn make_no_op_diagnostic() -> @core.Diagnostic {
+  @core.Diagnostic::Diagnostic(
+    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    severity=severity_info(),
+    message="new_name equals existing name; nothing to do",
+    code=Some(@core.DiagnosticCode::DiagnosticCode("rename.no_op")),
+  )
+}
+
+///|
+fn severity_info() -> @core.DiagnosticSeverity {
+  @core.DiagnosticSeverity::all()[2]
 }

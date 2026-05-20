@@ -54,6 +54,20 @@ fn facts_for_test(
 }
 
 ///|
+fn setup_pipeline(
+  source : String,
+) -> (@callers.CallersPipeline, @seam.SyntaxNode, @incr.Runtime) {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let pipeline = @callers.CallersPipeline::CallersPipeline(
+    rt,
+    parser.syntax_tree(),
+  )
+  let syntax = rt.read(parser.syntax_tree())
+  (pipeline, syntax, rt)
+}
+
+///|
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -276,4 +290,19 @@ test "check_shadow: no outer binding returns None" {
   let f_param = def_named(defs, "f")
   let result = check_shadow(f_param, "g", defs, enclosing, syntax)
   inspect(result is None, content="true")
+}
+
+///|
+test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
+  let src = "let f = \\x. x\nlet r = f (f y)\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length(), content="3")
+  for e in plan.edits {
+    inspect(e.new_text, content="fff")
+  }
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
 }

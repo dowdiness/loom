@@ -23,6 +23,8 @@ pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def
 
 pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
 
+pub fn plan_rename(@callers.CallersPipeline, String, @seam.SyntaxNode, Int, String) -> RenamePlan
+
 pub fn resolve_innermost(@callers.ScopeId, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)]) -> @callers.Def?
 
 // Errors
