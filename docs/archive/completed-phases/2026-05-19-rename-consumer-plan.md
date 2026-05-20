@@ -1,5 +1,15 @@
 # Rename + conflict-detection consumer Implementation Plan
 
+**Status:** Complete. Implemented on branch `feat/lambda-rename-consumer`
+through the rename consumer commits ending at `6a9d183`.
+
+**Completion note:** All 13 tasks completed. The final lambda module suite
+passed with 650/650 tests; the root suite passed with 986/986 tests.
+
+Decision record:
+
+- [ADR: Lambda Rename Consumer](../../decisions/2026-05-20-lambda-rename-consumer.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Spec:** [2026-05-19-rename-consumer-design.md](2026-05-19-rename-consumer-design.md)

@@ -1,6 +1,15 @@
 # Rename + conflict-detection consumer of `visible_from`
 
-**Status:** Draft (pending user approval). Spec for the first named follow-up consumer of the Tier 1+ callers projection (`visible_from`).
+**Status:** Complete. Implemented on branch `feat/lambda-rename-consumer`
+through the rename consumer commits ending at `6a9d183`.
+
+**Completion note:** The implementation adds `CallersPipeline::facts()`,
+the new `examples/lambda/src/rename/` package, public `plan_rename`, and
+the sibling/capture/shadow diagnostics described below.
+
+Decision record:
+
+- [ADR: Lambda Rename Consumer](../../decisions/2026-05-20-lambda-rename-consumer.md).
 
 **Branch:** `feat/lambda-rename-consumer`.
 
