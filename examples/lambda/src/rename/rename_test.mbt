@@ -19,6 +19,41 @@ fn def_named(defs : Array[@callers.Def], name : String) -> @callers.Def {
 }
 
 ///|
+fn def_named_outside_scope(
+  defs : Array[@callers.Def],
+  name : String,
+  excluded : @callers.ScopeId,
+) -> @callers.Def {
+  for d in defs {
+    if d.name == name && !(d.scope == excluded) {
+      return d
+    }
+  }
+  abort("expected def named " + name + " outside excluded scope")
+}
+
+///|
+fn facts_for_test(
+  source : String,
+) -> (
+  @seam.SyntaxNode,
+  Array[@callers.Def],
+  Array[@callers.Call],
+  Array[(@callers.ScopeId, @callers.ScopeId)],
+) {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let syntax = rt.read(parser.syntax_tree())
+  let pipeline = @callers.CallersPipeline::CallersPipeline(
+    rt,
+    parser.syntax_tree(),
+  )
+  let (defs, calls, enclosing) = pipeline.facts()
+  pipeline.dispose()
+  (syntax, defs, calls, enclosing)
+}
+
+///|
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -78,4 +113,40 @@ test "locate_target: returns None for whitespace offset" {
   let (defs, _) = @callers.extract_facts(syntax)
   let target = locate_target(defs, syntax, 3)
   inspect(target is None, content="true")
+}
+
+///|
+test "resolve_innermost: finds binding in same scope" {
+  let (_, defs, _, enclosing) = facts_for_test("let x = a\n")
+  let x_def = def_named(defs, "x")
+  let result = resolve_innermost(x_def.scope, "x", defs, enclosing)
+  inspect(result is Some(_), content="true")
+  inspect(result.unwrap().name, content="x")
+}
+
+///|
+test "resolve_innermost: walks parent chain" {
+  let (_, defs, _, enclosing) = facts_for_test("let x = a\nlet id = \\y. y\n")
+  let y_def = def_named(defs, "y")
+  let result = resolve_innermost(y_def.scope, "x", defs, enclosing)
+  inspect(result is Some(_), content="true")
+  inspect(result.unwrap().name, content="x")
+}
+
+///|
+test "resolve_innermost: innermost wins" {
+  let (_, defs, _, enclosing) = facts_for_test("let x = a\nlet h = \\x. x\n")
+  let outer_x = def_named(defs, "x")
+  let inner_x = def_named_outside_scope(defs, "x", outer_x.scope)
+  let result = resolve_innermost(inner_x.scope, "x", defs, enclosing)
+  inspect(result is Some(_), content="true")
+  inspect(result.unwrap().start, content=inner_x.start.to_string())
+}
+
+///|
+test "resolve_innermost: returns None when no binding visible" {
+  let (_, defs, _, enclosing) = facts_for_test("let x = a\n")
+  let x_def = def_named(defs, "x")
+  let result = resolve_innermost(x_def.scope, "y", defs, enclosing)
+  inspect(result is None, content="true")
 }
