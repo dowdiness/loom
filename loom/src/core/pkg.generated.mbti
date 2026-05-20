@@ -100,6 +100,7 @@ pub struct DiagnosticLabel {
   range : TextRange
   message : String?
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticLabel::DiagnosticLabel(TextRange, String?) -> Self
 pub fn DiagnosticLabel::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
 
 pub struct DiagnosticSet {

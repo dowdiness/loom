@@ -20,6 +20,21 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
   if node.end() <= def.start || node.start() >= def.end {
     return None
   }
+  if node.start() == def.start && node.end() == def.end {
+    match @syntax.SyntaxKind::from_raw(node.kind()) {
+      @syntax.LetDef =>
+        match find_let_def_ident(node, def) {
+          Some(range) => return Some(range)
+          None => ()
+        }
+      @syntax.LambdaExpr =>
+        match find_lambda_param_ident(node, def) {
+          Some(range) => return Some(range)
+          None => ()
+        }
+      _ => ()
+    }
+  }
   for child in node.all_children() {
     match child {
       @seam.SyntaxElement::Token(tok) =>
@@ -34,6 +49,101 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
           Some(range) => return Some(range)
           None => ()
         }
+    }
+  }
+  None
+}
+
+///|
+fn find_let_def_ident(
+  node : @seam.SyntaxNode,
+  def : @callers.Def,
+) -> (Int, Int)? {
+  if is_scope_for_node(def.scope, node) {
+    find_param_ident_in_let_def(node, def.name)
+  } else {
+    match ident_after_lead(node, @syntax.LetKeyword) {
+      Some(tok) =>
+        if tok.text() == def.name {
+          Some((tok.start(), tok.end()))
+        } else {
+          None
+        }
+      None => None
+    }
+  }
+}
+
+///|
+fn find_lambda_param_ident(
+  node : @seam.SyntaxNode,
+  def : @callers.Def,
+) -> (Int, Int)? {
+  if !is_scope_for_node(def.scope, node) {
+    return None
+  }
+  match ident_after_lead(node, @syntax.LambdaToken) {
+    Some(tok) =>
+      if tok.text() == def.name {
+        Some((tok.start(), tok.end()))
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn find_param_ident_in_let_def(
+  node : @seam.SyntaxNode,
+  name : String,
+) -> (Int, Int)? {
+  for child in node.children() {
+    if @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList {
+      for tok in child.tokens() {
+        if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken &&
+          tok.text() == name {
+          return Some((tok.start(), tok.end()))
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
+fn is_scope_for_node(scope : @callers.ScopeId, node : @seam.SyntaxNode) -> Bool {
+  match scope {
+    @callers.LambdaScope(start, end) =>
+      start == node.start() && end == node.end()
+    @callers.TopScope => false
+  }
+}
+
+///|
+fn ident_after_lead(
+  node : @seam.SyntaxNode,
+  lead_kind : @syntax.SyntaxKind,
+) -> @seam.SyntaxToken? {
+  let mut seen_lead = false
+  for elem in node.all_children() {
+    match elem {
+      @seam.SyntaxElement::Token(tok) => {
+        let k = @syntax.SyntaxKind::from_raw(tok.kind())
+        if k.is_trivia() {
+          continue
+        }
+        if seen_lead {
+          if k == @syntax.IdentToken {
+            return Some(tok)
+          }
+          return None
+        }
+        if k == lead_kind {
+          seen_lead = true
+        }
+      }
+      @seam.SyntaxElement::Node(_) => if seen_lead { return None }
     }
   }
   None

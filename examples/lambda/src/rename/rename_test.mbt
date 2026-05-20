@@ -92,6 +92,16 @@ fn edit_starting_at(edits : Array[TextEdit], start : Int) -> TextEdit {
 }
 
 ///|
+fn edits_cover_offset(edits : Array[TextEdit], offset : Int) -> Bool {
+  for e in edits {
+    if offset >= e.start && offset < e.end {
+      return true
+    }
+  }
+  false
+}
+
+///|
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -120,6 +130,18 @@ test "name_range_of: let-paren parameter identifier" {
   let (defs, _) = @callers.extract_facts(syntax)
   let x_def = def_named(defs, "x")
   let (start, end) = name_range_of(x_def, syntax)
+  inspect(start, content="7")
+  inspect(end, content="8")
+}
+
+///|
+test "name_range_of: let-paren parameter can share function name" {
+  let src = "let f (f) = f\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let target = locate_target(defs, syntax, 7)
+  inspect(target is Some(_), content="true")
+  let (start, end) = name_range_of(target.unwrap(), syntax)
   inspect(start, content="7")
   inspect(end, content="8")
 }
@@ -367,6 +389,35 @@ test "fixture 10 (name-range correctness): edit byte ranges are identifier-token
   let def_edit3 = edit_starting_at(plan3.edits, 7)
   inspect(def_edit3.end, content="8")
   pipeline3.dispose()
+}
+
+///|
+test "fixture 11 (let-paren repeated name): parameter rename does not edit function name" {
+  let src = "let f (f) = f\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 7, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 4), content="false")
+  inspect(edits_cover_offset(plan.edits, 7), content="true")
+  inspect(edits_cover_offset(plan.edits, 12), content="true")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 12 (top-level source order): forward free reference is not rewritten" {
+  let src = "let a = f\nlet f = z\nlet b = f\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 14, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 8), content="false")
+  inspect(edits_cover_offset(plan.edits, 14), content="true")
+  inspect(edits_cover_offset(plan.edits, 28), content="true")
+  pipeline.dispose()
 }
 
 ///|

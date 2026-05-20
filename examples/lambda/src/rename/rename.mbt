@@ -64,7 +64,7 @@ pub fn plan_rename(
           diagnostics: [make_no_op_diagnostic()],
         }
       } else {
-        let edits = compute_edits(target, calls, syntax, new_name)
+        let edits = compute_edits(target, defs, calls, syntax, new_name)
         let diagnostics : Array[@core.Diagnostic] = []
         match check_sibling_collision(target, new_name, defs, syntax) {
           Some(d) => diagnostics.push(d)
@@ -91,6 +91,7 @@ pub fn plan_rename(
 ///|
 fn compute_edits(
   target : @callers.Def,
+  defs : Array[@callers.Def],
   calls : Array[@callers.Call],
   syntax : @seam.SyntaxNode,
   new_name : String,
@@ -99,11 +100,52 @@ fn compute_edits(
   let (name_start, name_end) = name_range_of(target, syntax)
   edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name })
   for c in calls {
-    if c.callee == target.name && c.resolved_scope == target.scope {
+    if call_resolves_to_target(target, defs, syntax, c) {
       edits.push(TextEdit::{ start: c.start, end: c.end, new_text: new_name })
     }
   }
   edits
+}
+
+///|
+fn call_resolves_to_target(
+  target : @callers.Def,
+  defs : Array[@callers.Def],
+  syntax : @seam.SyntaxNode,
+  call : @callers.Call,
+) -> Bool {
+  if call.callee != target.name || call.resolved_scope != target.scope {
+    return false
+  }
+  match target.scope {
+    @callers.TopScope =>
+      top_scope_call_resolves_to_target(target, defs, syntax, call)
+    @callers.LambdaScope(_, _) => true
+  }
+}
+
+///|
+fn top_scope_call_resolves_to_target(
+  target : @callers.Def,
+  defs : Array[@callers.Def],
+  syntax : @seam.SyntaxNode,
+  call : @callers.Call,
+) -> Bool {
+  let mut winner : @callers.Def? = None
+  let mut winner_start = -1
+  for d in defs {
+    if d.scope == @callers.TopScope && d.name == call.callee {
+      let (def_start, _) = name_range_of(d, syntax)
+      if def_start <= call.start && def_start >= winner_start {
+        winner = Some(d)
+        winner_start = def_start
+      }
+    }
+  }
+  match winner {
+    Some(d) => d == target
+    None => false
+  }
 }
 
 ///|

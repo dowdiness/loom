@@ -21,7 +21,7 @@ test "compute_edits: top-level let rename produces def-site + caller edits" {
   let syntax = wb_parse_to_syntax(src)
   let (defs, calls) = @callers.extract_facts(syntax)
   let f_def = wb_def_named(defs, "f")
-  let edits = compute_edits(f_def, calls, syntax, "fff")
+  let edits = compute_edits(f_def, defs, calls, syntax, "fff")
   inspect(edits.length(), content="2")
   for e in edits {
     inspect(e.new_text, content="fff")
@@ -34,6 +34,6 @@ test "compute_edits: ignores calls in a different scope" {
   let syntax = wb_parse_to_syntax(src)
   let (defs, calls) = @callers.extract_facts(syntax)
   let g_def = wb_def_named(defs, "g")
-  let edits = compute_edits(g_def, calls, syntax, "ggg")
+  let edits = compute_edits(g_def, defs, calls, syntax, "ggg")
   inspect(edits.length(), content="1")
 }
