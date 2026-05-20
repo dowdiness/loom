@@ -39,16 +39,8 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
   }
   if node.start() == def.start && node.end() == def.end {
     match @syntax.SyntaxKind::from_raw(node.kind()) {
-      @syntax.LetDef =>
-        match find_let_def_ident(node, def) {
-          Some(range) => return Some(range)
-          None => ()
-        }
-      @syntax.LambdaExpr =>
-        match find_lambda_param_ident(node, def) {
-          Some(range) => return Some(range)
-          None => ()
-        }
+      @syntax.LetDef => return find_let_def_ident(node, def)
+      @syntax.LambdaExpr => return find_lambda_param_ident(node, def)
       _ => ()
     }
   }
