@@ -391,3 +391,14 @@ test "fixture 6 (top-level recursion): rename f -> fff, both refs rewritten" {
   inspect(plan.diagnostics.length(), content="0")
   pipeline.dispose()
 }
+
+///|
+test "fixture 7 (let-paren parameter): rename x -> y in let f (x) = x" {
+  let src = "let f (x) = x\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 7, "y")
+  inspect(plan.target.unwrap().name, content="x")
+  inspect(plan.edits.length(), content="2")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
