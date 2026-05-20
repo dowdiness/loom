@@ -95,7 +95,8 @@ pub fn check_forward_capture(
 ) -> @core.Diagnostic? {
   for d in defs {
     if d.name == new_name &&
-      is_strict_ancestor(target.scope, d.scope, enclosing) {
+      is_strict_ancestor(target.scope, d.scope, enclosing) &&
+      target_visible_at_source_position(target, syntax, d.name_start) {
       let (target_start, target_end) = name_range_of(target, syntax)
       let (capture_start, capture_end) = name_range_of(d, syntax)
       return Some(

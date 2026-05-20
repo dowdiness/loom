@@ -194,10 +194,12 @@ Detects: existing references to *target* would post-rename re-resolve to a close
 ```
 for d in defs where d.name == new_name:
     if target.scope is strict ancestor of d.scope (via enclosing chain):
+        if target is not visible at d's source position under sequential let rules:
+            skip
         emit rename.capture (forward)
 ```
 
-The pipeline does not record per-call *lexical* scopes — only `resolved_scope` (where the binding lives). Worst case: a rewritten call's lexical position is the deepest descendant of `target.scope`. Any `new_name` binding strictly between `target.scope` and that depth would intercept the call after rename. The forward pass scans all such descendant defs; some flagged defs may not be on the actual call's chain (false positive), but no real captures escape.
+The pipeline does not record per-call *lexical* scopes — only `resolved_scope` (where the binding lives). Worst case: a rewritten call's lexical position is the deepest descendant of `target.scope`. Any visible `new_name` binding strictly between `target.scope` and that depth would intercept the call after rename. The forward pass scans such descendant defs after applying the same source-order/container visibility gate used for edit planning; some flagged defs may not be on the actual call's chain (false positive), but no real captures escape.
 
 Diagnostic shape: severity = Error, primary = target *def* identifier range (not a specific call site — the analysis cannot identify which rewritten call is under the intercepting def's lexical chain without per-call lexical scope data; see §9.6), labels = [(intercepting def's identifier range, "would intercept renamed references in this subtree")].
 
@@ -322,6 +324,7 @@ Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example'
 19. **Shadow source order** — `let h = \f. f\nlet g = a\n`. Verify renaming `f → g` does not warn about shadowing a later top-level binding.
 20. **Converse-capture source order** — `let h = g\nlet f = a\n`. Verify renaming `f → g` does not emit `rename.capture` for the earlier unresolved `g`.
 21. **Block-local let shadow** — `let h = \x. { let y = a; y }\n`. Verify renaming block-local `y → x` does not emit `rename.sibling_collision`.
+22. **Forward-capture source order** — `let h = \g. g\nlet f = a\n`. Verify renaming later top-level `f → g` does not emit `rename.capture` for the earlier lambda parameter.
 
 ## 8. Out of scope for v1
 

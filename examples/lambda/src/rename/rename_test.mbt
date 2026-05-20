@@ -329,6 +329,15 @@ test "check_forward_capture: no descendant with new_name returns None" {
 }
 
 ///|
+test "check_forward_capture: earlier descendant cannot capture later target" {
+  let src = "let h = \\g. g\nlet f = a\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let f_def = def_named(defs, "f")
+  let result = check_forward_capture(f_def, "g", defs, enclosing, syntax)
+  inspect(result is None, content="true")
+}
+
+///|
 test "check_converse_capture: existing call to new_name with target as descendant" {
   let src = "let g = a\nlet h = \\f. f g\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
@@ -619,6 +628,20 @@ test "fixture 21 (block let shadow): local rename to parameter name is legal" {
   inspect(plan.edits.length(), content="2")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.sibling_collision"),
+    content="false",
+  )
+  pipeline.dispose()
+}
+
+///|
+test "fixture 22 (forward source order): earlier lambda param does not block" {
+  let src = "let h = \\g. g\nlet f = a\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 18, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="1")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
     content="false",
   )
   pipeline.dispose()
