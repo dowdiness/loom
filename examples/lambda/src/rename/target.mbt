@@ -44,20 +44,10 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
       _ => ()
     }
   }
-  for child in node.all_children() {
-    match child {
-      @seam.SyntaxElement::Token(tok) =>
-        if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken &&
-          tok.text() == def.name &&
-          tok.start() >= def.start &&
-          tok.end() <= def.end {
-          return Some((tok.start(), tok.end()))
-        }
-      @seam.SyntaxElement::Node(child_node) =>
-        match find_ident_in(child_node, def) {
-          Some(range) => return Some(range)
-          None => ()
-        }
+  for child in node.children() {
+    match find_ident_in(child, def) {
+      Some(range) => return Some(range)
+      None => ()
     }
   }
   None
