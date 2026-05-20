@@ -4,10 +4,12 @@ package "dowdiness/lambda/rename"
 import {
   "dowdiness/lambda/callers",
   "dowdiness/loom/core",
+  "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
 
 // Errors
 

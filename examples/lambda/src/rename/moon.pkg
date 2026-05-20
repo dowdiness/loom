@@ -1,8 +1,17 @@
 import {
+  "dowdiness/seam" @seam,
   "dowdiness/lambda/callers" @callers,
+  "dowdiness/lambda/syntax" @syntax,
   "dowdiness/loom/core" @core,
   "moonbitlang/core/debug",
 }
+
+import {
+  "dowdiness/seam" @seam,
+  "dowdiness/lambda" @lambda,
+  "dowdiness/loom" @loom,
+  "dowdiness/incr" @incr,
+} for "test"
 
 // 9 (struct_never_constructed) — Task 2 creates public result types before
 // later tasks construct them from `plan_rename`.
