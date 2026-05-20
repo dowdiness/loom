@@ -16,6 +16,10 @@
 
 **Command convention:** Bash snippets show plain `moon ...` invocations. When executed through Claude Code, the RTK hook transparently rewrites them to `rtk moon ...` for token savings. Either form works.
 
+**Current execution note:** Task 0 is already complete on this branch
+(`270d3bc docs(plans): implementation plan for rename consumer`). Start
+implementation at Task 1. Task 0 remains below as historical context only.
+
 ---
 
 ## File Structure
@@ -38,26 +42,48 @@ Changed files:
 
 Total: ~650 LOC of source + ~250 LOC of tests + 1 manifest. One PR; Full band per `~/.claude/CLAUDE.md` process calibration.
 
+## Execution Dependencies
+
+- Task 0 is complete; do not re-run it.
+- Task 1 must land before any rename-package tests use
+  `CallersPipeline::facts()`.
+- Task 2 creates the package skeleton.
+- Task 3 (`name_range_of`) and Task 5 (`resolve_innermost`) can be worked
+  independently after Task 2. Task 4 depends on Task 3 because
+  `locate_target` delegates to `name_range_of`.
+- Task 6 depends on Task 3. Task 8 also depends on Task 5's
+  `parent_scope_of` helper. Tasks 8-10 depend on the enclosing edges exposed
+  through Task 1's `pipeline.facts()` accessor.
+- `@callers.extract_facts(syntax)` is intentionally still the
+  backward-compatible 2-tuple API `(defs, calls)`. Tests that need
+  `enclosing` must build a `CallersPipeline` and read `pipeline.facts()`.
+- Verification convention: Task 1 uses the callers package test because the
+  rename package does not exist yet; Task 2 verifies the new package compiles;
+  Task 3 onward runs `moon test -p dowdiness/lambda/rename 2>&1 | tail -10`
+  and confirms the test count grows monotonically.
+
 ---
 
-## Task 0: Commit this plan and index it
+## Task 0: Commit this plan and index it (already complete)
 
 **Files:**
-- Add: `docs/plans/2026-05-19-rename-consumer-plan.md` (this plan, untracked)
-- Modify: `docs/README.md` (add plan entry under Active Plans)
+- Added: `docs/plans/2026-05-19-rename-consumer-plan.md`
+- Modified: `docs/README.md` (plan entry under Active Plans)
 
-- [ ] **Step 0.1: Verify the plan exists and docs/README.md hasn't been edited yet for this plan**
+> Already complete in `270d3bc`; skip this task during implementation.
+
+- [x] **Step 0.1: Verify the plan exists and docs/README.md hasn't been edited yet for this plan**
 
   ```bash
   git status -s
   ```
 
-  Expected to include:
+  Historical expected output before `270d3bc`:
   ```
   ?? docs/plans/2026-05-19-rename-consumer-plan.md
   ```
 
-- [ ] **Step 0.2: Update docs/README.md to index the implementation plan**
+- [x] **Step 0.2: Update docs/README.md to index the implementation plan**
 
   Edit `docs/README.md` under "### Active Plans". Replace the existing rename-design entry with:
 
@@ -66,7 +92,7 @@ Total: ~650 LOC of source + ~250 LOC of tests + 1 manifest. One PR; Full band pe
   - [plans/2026-05-19-rename-consumer-plan.md](plans/2026-05-19-rename-consumer-plan.md) — Implementation plan for the rename consumer (TDD, 13 tasks)
   ```
 
-- [ ] **Step 0.3: Commit**
+- [x] **Step 0.3: Commit**
 
   ```bash
   git add docs/plans/2026-05-19-rename-consumer-plan.md docs/README.md
@@ -82,7 +108,7 @@ Total: ~650 LOC of source + ~250 LOC of tests + 1 manifest. One PR; Full band pe
   Indexed in docs/README.md."
   ```
 
-- [ ] **Step 0.4: Verify the commit landed**
+- [x] **Step 0.4: Verify the commit landed**
 
   ```bash
   git log -1 --stat
@@ -283,9 +309,11 @@ Create `examples/lambda/src/rename/rename_test.mbt`:
 
 ```bash
 cd examples/lambda && moon check
+cd examples/lambda && moon test -p dowdiness/lambda/rename 2>&1 | tail -10
 ```
 
-Expected: no errors. The package compiles with just types; nothing to lint.
+Expected: no errors. The package compiles with just types and an empty test
+file; rename-package test count is expected to be zero at this point.
 
 ### Step 2.5: Generate `.mbti` and format
 
@@ -343,7 +371,7 @@ fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   let foo_def = defs.iter().find(fn(d) { d.name == "foo" }).unwrap()
   let (start, end) = name_range_of(foo_def, syntax)
   // "foo" sits at offsets 4..7 in "let foo = bar\n"
@@ -355,7 +383,7 @@ test "name_range_of: top-level LetDef identifier" {
 test "name_range_of: lambda parameter identifier" {
   let src = "let id = \\x. x\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   let x_def = defs.iter().find(fn(d) { d.name == "x" }).unwrap()
   let (start, end) = name_range_of(x_def, syntax)
   // "x" parameter sits at offset 10 in "let id = \x. x\n"
@@ -367,7 +395,7 @@ test "name_range_of: lambda parameter identifier" {
 test "name_range_of: let-paren parameter identifier" {
   let src = "let f (x) = x\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   let x_def = defs.iter().find(fn(d) { d.name == "x" }).unwrap()
   let (start, end) = name_range_of(x_def, syntax)
   // "x" inside the ParamList sits at offset 7 in "let f (x) = x\n"
@@ -487,10 +515,10 @@ Append to `examples/lambda/src/rename/rename_test.mbt`:
 test "locate_target: hits top-level LetDef name" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   // Click on "foo" at offset 5 (mid-identifier).
   let target = locate_target(defs, syntax, 5)
-  inspect(target.is_some(), content="true")
+  inspect(target is Some(_), content="true")
   inspect(target.unwrap().name, content="foo")
 }
 
@@ -498,10 +526,10 @@ test "locate_target: hits top-level LetDef name" {
 test "locate_target: hits lambda parameter, not enclosing LetDef" {
   let src = "let id = \\x. x\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   // Click on "x" parameter at offset 10.
   let target = locate_target(defs, syntax, 10)
-  inspect(target.is_some(), content="true")
+  inspect(target is Some(_), content="true")
   inspect(target.unwrap().name, content="x")
   // The let-bound "id" definition's range CONTAINS offset 10 too, but
   // its identifier "id" is at offsets 4..6 — not at 10. So locate_target
@@ -512,10 +540,10 @@ test "locate_target: hits lambda parameter, not enclosing LetDef" {
 test "locate_target: returns None for whitespace offset" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   // Offset 3 is the space between "let" and "foo".
   let target = locate_target(defs, syntax, 3)
-  inspect(target.is_none(), content="true")
+  inspect(target is None, content="true")
 }
 ```
 
@@ -600,7 +628,7 @@ test "resolve_innermost: finds binding in same scope" {
   ]
   let enclosing : Array[(@callers.ScopeId, @callers.ScopeId)] = []
   let result = resolve_innermost(TopScope, "x", defs, enclosing)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   inspect(result.unwrap().name, content="x")
 }
 
@@ -614,7 +642,7 @@ test "resolve_innermost: walks parent chain" {
     (inner, TopScope),
   ]
   let result = resolve_innermost(inner, "x", defs, enclosing)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   inspect(result.unwrap().scope is TopScope, content="true")
 }
 
@@ -629,7 +657,7 @@ test "resolve_innermost: innermost wins" {
     (inner, TopScope),
   ]
   let result = resolve_innermost(inner, "x", defs, enclosing)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   // Should resolve to the inner binding (start=11), not the outer (start=4).
   inspect(result.unwrap().start, content="11")
 }
@@ -641,7 +669,7 @@ test "resolve_innermost: returns None when no binding visible" {
   ]
   let enclosing : Array[(@callers.ScopeId, @callers.ScopeId)] = []
   let result = resolve_innermost(TopScope, "y", defs, enclosing)
-  inspect(result.is_none(), content="true")
+  inspect(result is None, content="true")
 }
 ```
 
@@ -673,34 +701,47 @@ pub fn resolve_innermost(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
 ) -> @callers.Def? {
-  let mut current = scope
   let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
-  loop {
-    if visited.contains(current) {
-      // Defensive against malformed cyclic input — should not occur
-      // for facts produced by extract_facts_full.
-      return None
-    }
-    visited.add(current)
-    // Find first matching def at `current` scope.
-    for d in defs {
-      if d.scope == current && d.name == name {
-        return Some(d)
-      }
-    }
-    // Walk to parent.
-    let mut parent : @callers.ScopeId? = None
-    for edge in enclosing {
-      if edge.0 == current {
-        parent = Some(edge.1)
-        break
-      }
-    }
-    match parent {
-      Some(p) => current = p
-      None => return None
+  resolve_innermost_from(scope, name, defs, enclosing, visited)
+}
+
+///|
+fn resolve_innermost_from(
+  current : @callers.ScopeId,
+  name : String,
+  defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  visited : @hashset.HashSet[@callers.ScopeId],
+) -> @callers.Def? {
+  if visited.contains(current) {
+    // Defensive against malformed cyclic input — should not occur
+    // for facts produced by CallersPipeline::facts().
+    return None
+  }
+  visited.add(current)
+  // Find first matching def at `current` scope.
+  for d in defs {
+    if d.scope == current && d.name == name {
+      return Some(d)
     }
   }
+  match parent_scope_of(current, enclosing) {
+    Some(parent) => resolve_innermost_from(parent, name, defs, enclosing, visited)
+    None => None
+  }
+}
+
+///|
+fn parent_scope_of(
+  scope : @callers.ScopeId,
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+) -> @callers.ScopeId? {
+  for edge in enclosing {
+    if edge.0 == scope {
+      return Some(edge.1)
+    }
+  }
+  None
 }
 ```
 
@@ -748,7 +789,7 @@ Append to `rename_test.mbt`:
 test "compute_edits: top-level let rename produces def-site + caller edits" {
   let src = "let f = \\x. x\nlet r = f y\n"
   let syntax = parse_to_syntax(src)
-  let (defs, calls, _) = @callers.extract_facts(syntax)
+  let (defs, calls) = @callers.extract_facts(syntax)
   let f_def = defs.iter().find(fn(d) {
     d.name == "f" && d.scope is TopScope
   }).unwrap()
@@ -769,7 +810,7 @@ test "compute_edits: ignores calls in a different scope" {
   // verify the body f is untouched.
   let src = "let g = \\f. f\n"
   let syntax = parse_to_syntax(src)
-  let (defs, calls, _) = @callers.extract_facts(syntax)
+  let (defs, calls) = @callers.extract_facts(syntax)
   let g_def = defs.iter().find(fn(d) { d.name == "g" }).unwrap()
   let edits = compute_edits(g_def, calls, syntax, "ggg")
   // Only the def site itself; no callers of g in the source.
@@ -865,10 +906,10 @@ Append to `rename_test.mbt`:
 test "check_sibling_collision: same-scope name match fires" {
   let src = "let f = a\nlet g = b\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   let f_def = defs.iter().find(fn(d) { d.name == "f" }).unwrap()
   let result = check_sibling_collision(f_def, "g", defs, syntax)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   let diag = result.unwrap()
   inspect(diag.severity is @core.DiagnosticSeverity::Error, content="true")
 }
@@ -877,10 +918,10 @@ test "check_sibling_collision: same-scope name match fires" {
 test "check_sibling_collision: no collision returns None" {
   let src = "let f = a\nlet g = b\n"
   let syntax = parse_to_syntax(src)
-  let (defs, _, _) = @callers.extract_facts(syntax)
+  let (defs, _) = @callers.extract_facts(syntax)
   let f_def = defs.iter().find(fn(d) { d.name == "f" }).unwrap()
   let result = check_sibling_collision(f_def, "totally_new", defs, syntax)
-  inspect(result.is_none(), content="true")
+  inspect(result is None, content="true")
 }
 ```
 
@@ -926,14 +967,8 @@ fn make_sibling_diagnostic(
   collider_end : Int,
   new_name : String,
 ) -> @core.Diagnostic {
-  let primary = @core.TextRange::TextRange(
-    @core.TextOffset::from_int(target_start),
-    @core.TextOffset::from_int(target_end),
-  )
-  let collider_range = @core.TextRange::TextRange(
-    @core.TextOffset::from_int(collider_start),
-    @core.TextOffset::from_int(collider_end),
-  )
+  let primary = text_range_or_fail(target_start, target_end)
+  let collider_range = text_range_or_fail(collider_start, collider_end)
   @core.Diagnostic::{
     source: @core.DiagnosticSource::DiagnosticSource("rename"),
     severity: @core.DiagnosticSeverity::Error,
@@ -950,9 +985,17 @@ fn make_sibling_diagnostic(
     token: None,
   }
 }
+
+///|
+fn text_range_or_fail(start : Int, end : Int) -> @core.TextRange {
+  match try? @core.TextRange::from_offsets(start, end) {
+    Ok(range) => range
+    Err(_) => fail("rename: invalid diagnostic range")
+  }
+}
 ```
 
-> **Note for implementers:** Verify the exact constructor names for `@core.Diagnostic`, `@core.TextRange`, `@core.TextOffset`, `@core.DiagnosticSource`, `@core.DiagnosticSeverity`, `@core.DiagnosticCode`, `@core.DiagnosticLabel` before pasting. Run `moon ide doc "@core.Diagnostic*"` and adjust if signatures differ (e.g., if `DiagnosticSource` requires a different constructor name or if optional fields use different defaults). The shape above matches the diagnostic semantics described in the spec; exact API surface may need minor tweaks.
+> **Note for implementers:** The range helper above matches the current `@core.TextRange::from_offsets` API and converts impossible invalid ranges into a local failure. Still verify `@core.Diagnostic`, `@core.DiagnosticSource`, `@core.DiagnosticSeverity`, `@core.DiagnosticCode`, and `@core.DiagnosticLabel` before broad edits. Run `moon ide doc "@core.Diagnostic*"` and adjust uniformly if signatures drift. The diagnostic shape (severity, code, primary, labels) is non-negotiable per spec §5.7; only the MoonBit syntax for constructing those values varies.
 
 ### Step 7.4: Run tests to verify they pass
 
@@ -1023,6 +1066,9 @@ test "is_strict_ancestor: unrelated scopes return false" {
 Append to `examples/lambda/src/rename/conflicts.mbt`:
 
 ```moonbit
+// Uses the private `parent_scope_of` helper added in Task 5. MoonBit files
+// in the same package share private declarations.
+
 ///|
 /// True iff `ancestor` is a strict ancestor of `descendant` on the
 /// enclosing chain. Equal scopes return false. Walks descendant
@@ -1035,29 +1081,29 @@ pub fn is_strict_ancestor(
   if ancestor == descendant {
     return false
   }
-  let mut current = descendant
   let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
-  loop {
-    if visited.contains(current) {
-      return false
-    }
-    visited.add(current)
-    let mut parent : @callers.ScopeId? = None
-    for edge in enclosing {
-      if edge.0 == current {
-        parent = Some(edge.1)
-        break
+  is_strict_ancestor_from(ancestor, descendant, enclosing, visited)
+}
+
+///|
+fn is_strict_ancestor_from(
+  ancestor : @callers.ScopeId,
+  current : @callers.ScopeId,
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  visited : @hashset.HashSet[@callers.ScopeId],
+) -> Bool {
+  if visited.contains(current) {
+    return false
+  }
+  visited.add(current)
+  match parent_scope_of(current, enclosing) {
+    Some(parent) =>
+      if parent == ancestor {
+        true
+      } else {
+        is_strict_ancestor_from(ancestor, parent, enclosing, visited)
       }
-    }
-    match parent {
-      Some(p) =>
-        if p == ancestor {
-          return true
-        } else {
-          current = p
-        }
-      None => return false
-    }
+    None => false
   }
 }
 ```
@@ -1076,29 +1122,45 @@ Append to `rename_test.mbt`:
 
 ```moonbit
 ///|
+fn facts_for_test(
+  source : String,
+) -> (
+  @seam.SyntaxNode,
+  Array[@callers.Def],
+  Array[@callers.Call],
+  Array[(@callers.ScopeId, @callers.ScopeId)],
+) {
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let syntax = rt.read(parser.syntax_tree())
+  let pipeline = @callers.CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let (defs, calls, enclosing) = pipeline.facts()
+  pipeline.dispose()
+  (syntax, defs, calls, enclosing)
+}
+
+///|
 test "check_forward_capture: descendant binding fires" {
   // `let h = \f. \g. f g\n` — inner g shadows outer f-after-rename.
   let src = "let h = \\f. \\g. f g\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, _, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
   let outer_f = defs.iter().find(fn(d) {
-    d.name == "f" && not(d.scope is TopScope)
+    d.name == "f" && !(d.scope is TopScope)
   }).unwrap()
   let result = check_forward_capture(outer_f, "g", defs, enclosing, syntax)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   inspect(result.unwrap().severity is @core.DiagnosticSeverity::Error, content="true")
 }
 
 ///|
 test "check_forward_capture: no descendant with new_name returns None" {
   let src = "let f = \\x. x\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, _, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_def = defs.iter().find(fn(d) {
     d.name == "f" && d.scope is TopScope
   }).unwrap()
   let result = check_forward_capture(f_def, "totally_new", defs, enclosing, syntax)
-  inspect(result.is_none(), content="true")
+  inspect(result is None, content="true")
 }
 ```
 
@@ -1128,16 +1190,10 @@ pub fn check_forward_capture(
         severity: @core.DiagnosticSeverity::Error,
         code: Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
         message: "Forward capture: renaming to '\\{new_name}' would be intercepted by an existing binding in a nested scope",
-        primary: Some(@core.TextRange::TextRange(
-          @core.TextOffset::from_int(target_start),
-          @core.TextOffset::from_int(target_end),
-        )),
+        primary: Some(text_range_or_fail(target_start, target_end)),
         labels: [
           @core.DiagnosticLabel::{
-            range: @core.TextRange::TextRange(
-              @core.TextOffset::from_int(intercept_start),
-              @core.TextOffset::from_int(intercept_end),
-            ),
+            range: text_range_or_fail(intercept_start, intercept_end),
             message: Some("would intercept renamed references in this subtree"),
           },
         ],
@@ -1190,24 +1246,22 @@ test "check_converse_capture: existing call to new_name with target as descendan
   // The body `f g` has a Call("g", TopScope) that would re-resolve
   // to the renamed parameter (LambdaScope, a descendant of TopScope).
   let src = "let g = a\nlet h = \\f. f g\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, calls, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = defs.iter().find(fn(d) {
-    d.name == "f" && not(d.scope is TopScope)
+    d.name == "f" && !(d.scope is TopScope)
   }).unwrap()
   let result = check_converse_capture(f_param, "g", calls, enclosing, syntax)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   inspect(result.unwrap().severity is @core.DiagnosticSeverity::Error, content="true")
 }
 
 ///|
 test "check_converse_capture: no matching calls returns None" {
   let src = "let f = a\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, calls, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = defs.iter().find(fn(d) { d.name == "f" }).unwrap()
   let result = check_converse_capture(f_def, "totally_new", calls, enclosing, syntax)
-  inspect(result.is_none(), content="true")
+  inspect(result is None, content="true")
 }
 ```
 
@@ -1238,16 +1292,10 @@ pub fn check_converse_capture(
           severity: @core.DiagnosticSeverity::Error,
           code: Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
           message: "Converse capture: renaming to '\\{new_name}' would intercept an existing reference to a different '\\{new_name}' binding",
-          primary: Some(@core.TextRange::TextRange(
-            @core.TextOffset::from_int(c.start),
-            @core.TextOffset::from_int(c.end),
-          )),
+          primary: Some(text_range_or_fail(c.start, c.end)),
           labels: [
             @core.DiagnosticLabel::{
-              range: @core.TextRange::TextRange(
-                @core.TextOffset::from_int(target_start),
-                @core.TextOffset::from_int(target_end),
-              ),
+              range: text_range_or_fail(target_start, target_end),
               message: Some("renamed binding would intercept"),
             },
           ],
@@ -1298,26 +1346,24 @@ Append to `rename_test.mbt`:
 ///|
 test "check_shadow: param shadows outer let binding" {
   let src = "let g = a\nlet h = \\f. f\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, _, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = defs.iter().find(fn(d) {
-    d.name == "f" && not(d.scope is TopScope)
+    d.name == "f" && !(d.scope is TopScope)
   }).unwrap()
   let result = check_shadow(f_param, "g", defs, enclosing, syntax)
-  inspect(result.is_some(), content="true")
+  inspect(result is Some(_), content="true")
   inspect(result.unwrap().severity is @core.DiagnosticSeverity::Warning, content="true")
 }
 
 ///|
 test "check_shadow: no outer binding returns None" {
   let src = "let h = \\f. f\n"
-  let syntax = parse_to_syntax(src)
-  let (defs, _, enclosing) = @callers.extract_facts(syntax)
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = defs.iter().find(fn(d) {
-    d.name == "f" && not(d.scope is TopScope)
+    d.name == "f" && !(d.scope is TopScope)
   }).unwrap()
   let result = check_shadow(f_param, "g", defs, enclosing, syntax)
-  inspect(result.is_none(), content="true")
+  inspect(result is None, content="true")
 }
 ```
 
@@ -1358,16 +1404,10 @@ pub fn check_shadow(
             severity: @core.DiagnosticSeverity::Warning,
             code: Some(@core.DiagnosticCode::DiagnosticCode("rename.shadow")),
             message: "Renaming to '\\{new_name}' shadows an outer binding",
-            primary: Some(@core.TextRange::TextRange(
-              @core.TextOffset::from_int(target_start),
-              @core.TextOffset::from_int(target_end),
-            )),
+            primary: Some(text_range_or_fail(target_start, target_end)),
             labels: [
               @core.DiagnosticLabel::{
-                range: @core.TextRange::TextRange(
-                  @core.TextOffset::from_int(outer_start),
-                  @core.TextOffset::from_int(outer_end),
-                ),
+                range: text_range_or_fail(outer_start, outer_end),
                 message: Some("shadowed binding"),
               },
             ],
@@ -1429,7 +1469,7 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
   let (pipeline, syntax, _rt) = setup_pipeline(src)
   // Click offset 4 = the "f" identifier in "let f = ..."
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
-  inspect(plan.target.is_some(), content="true")
+  inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   // 3 edits: def + 2 references inside "f (f y)"
   inspect(plan.edits.length(), content="3")
@@ -1760,7 +1800,7 @@ test "fixture 9 (offset miss): whitespace offset returns no_target diagnostic" {
   let (pipeline, syntax, _rt) = setup_pipeline(src)
   // Offset 3 = space between "let" and "f".
   let plan = plan_rename(pipeline, src, syntax, 3, "fff")
-  inspect(plan.target.is_none(), content="true")
+  inspect(plan.target is None, content="true")
   inspect(plan.edits.length(), content="0")
   inspect(
     plan.diagnostics[0].code is Some(@core.DiagnosticCode::DiagnosticCode("rename.no_target_at_offset")),
@@ -1920,7 +1960,7 @@ Per spec §8:
 
 ## Notes for implementers
 
-- **Diagnostic API surface verification:** Tasks 7-10 use `@core.Diagnostic`, `@core.TextRange`, `@core.DiagnosticSeverity`, `@core.DiagnosticCode`, `@core.DiagnosticSource`, `@core.DiagnosticLabel`. The exact constructor names + optional-field defaults may differ slightly from the templates above. Run `moon ide doc "@core.Diagnostic*"` and `moon ide peek-def @core.Diagnostic` BEFORE Task 7 to confirm the API, and adjust the diagnostic-construction code uniformly across Tasks 7-10. The diagnostic shape (severity, code, primary, labels) is non-negotiable per spec §5.7; only the MoonBit syntax for constructing those values varies.
+- **Diagnostic API surface verification:** Tasks 7-10 use `@core.Diagnostic`, `@core.TextRange`, `@core.DiagnosticSeverity`, `@core.DiagnosticCode`, `@core.DiagnosticSource`, and `@core.DiagnosticLabel`. Current plan snippets use `TextRange::from_offsets` through `text_range_or_fail`, matching the checked-in `@core` API. Run `moon ide doc "@core.Diagnostic*"` and `moon ide peek-def @core.Diagnostic` BEFORE Task 7 to confirm the API has not drifted, and adjust the diagnostic-construction code uniformly across Tasks 7-10 if needed. The diagnostic shape (severity, code, primary, labels) is non-negotiable per spec §5.7; only the MoonBit syntax for constructing those values varies.
 
 - **Offset calculations in fixtures:** Fixtures 4 and 5 depend on exact byte offsets in source strings containing `\n` and `\\`. If a fixture fails on the locate_target call, recompute the offset by hand: each `\\` is one source byte (the backslash); each `\n` is one source byte (a newline). The compiler escapes both in the MoonBit string literal but the run-time string has single bytes.
 
@@ -1928,4 +1968,4 @@ Per spec §8:
 
 - **`@debug.Debug` derive** for new structs; do NOT derive `Show` for containers (deprecation per v0.9.2).
 
-- **Verification before completion:** Per `superpowers:verification-before-completion`, run `moon test -p dowdiness/lambda/rename 2>&1 | tail -10` after each task's commit and confirm test count grows monotonically. Do not claim a task complete until verification passes.
+- **Verification before completion:** Per `superpowers:verification-before-completion`, Task 1 verifies with `moon test -p dowdiness/lambda/callers -f callers_test.mbt 2>&1 | tail -10` because the rename package does not exist yet. Task 2 verifies the new package compiles and runs the empty rename package test command. From Task 3 onward, run `moon test -p dowdiness/lambda/rename 2>&1 | tail -10` after each task's commit and confirm the test count grows monotonically. Do not claim a task complete until verification passes.
