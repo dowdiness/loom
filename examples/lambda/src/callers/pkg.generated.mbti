@@ -34,6 +34,7 @@ pub fn CallersPipeline::CallersPipeline(@cells.Runtime, @cells.Memo[@seam.Syntax
 pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
 pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
 pub fn CallersPipeline::dispose(Self) -> Unit
+pub fn CallersPipeline::facts(Self) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)])
 pub fn CallersPipeline::visible_from(Self, ScopeId, String) -> Bool
 
 pub struct Def {
@@ -41,6 +42,8 @@ pub struct Def {
   scope : ScopeId
   start : Int
   end : Int
+  name_start : Int
+  name_end : Int
 } derive(Eq, @debug.Debug)
 pub impl Show for Def
 

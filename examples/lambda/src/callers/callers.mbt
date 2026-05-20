@@ -58,6 +58,8 @@ pub struct Def {
   scope : ScopeId
   start : Int
   end : Int
+  name_start : Int
+  name_end : Int
 } derive(Eq, Debug)
 
 ///|
@@ -204,6 +206,8 @@ fn collect_in(
             scope: frame_id,
             start: node.start(),
             end: node.end(),
+            name_start: tok.start(),
+            name_end: tok.end(),
           })
         }
         None => ()
@@ -226,6 +230,8 @@ fn collect_in(
             scope: outer_scope,
             start: node.start(),
             end: node.end(),
+            name_start: tok.start(),
+            name_end: tok.end(),
           })
         None => ()
       }
@@ -247,6 +253,8 @@ fn collect_in(
                 scope: frame_id,
                 start: node.start(),
                 end: node.end(),
+                name_start: tok.start(),
+                name_end: tok.end(),
               })
             }
           }
@@ -545,6 +553,18 @@ pub fn CallersPipeline::defs_of(
     }
   }
   result
+}
+
+///|
+/// Read the cached `(defs, calls, enclosing)` facts as defensive copies.
+/// Returned arrays are independent from the cached Memo state — callers
+/// may mutate them without affecting subsequent reads. Use this when a
+/// consumer needs access to unfiltered fact relations.
+pub fn CallersPipeline::facts(
+  self : CallersPipeline,
+) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
+  let (defs, calls, enclosing) = self.facts_observer.get()
+  (defs.copy(), calls.copy(), enclosing.copy())
 }
 
 ///|

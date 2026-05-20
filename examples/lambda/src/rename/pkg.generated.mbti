@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/rename"
+
+import {
+  "dowdiness/lambda/callers",
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn check_converse_capture(@callers.Def, String, Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+
+pub fn check_forward_capture(@callers.Def, String, Array[@callers.Def], Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+
+pub fn check_shadow(@callers.Def, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+
+pub fn check_sibling_collision(@callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @core.Diagnostic?
+
+pub fn is_strict_ancestor(@callers.ScopeId, @callers.ScopeId, Array[(@callers.ScopeId, @callers.ScopeId)]) -> Bool
+
+pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def?
+
+pub fn name_range_of(@callers.Def, @seam.SyntaxNode) -> (Int, Int)
+
+pub fn plan_rename(@callers.CallersPipeline, String, @seam.SyntaxNode, Int, String) -> RenamePlan
+
+pub fn resolve_innermost(@callers.ScopeId, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)]) -> @callers.Def?
+
+// Errors
+
+// Types and methods
+pub struct RenamePlan {
+  target : @callers.Def?
+  edits : Array[TextEdit]
+  diagnostics : Array[@core.Diagnostic]
+}
+
+pub struct TextEdit {
+  start : Int
+  end : Int
+  new_text : String
+} derive(Eq, @debug.Debug)
+pub impl Show for TextEdit
+
+// Type aliases
+
+// Traits

@@ -288,6 +288,14 @@ pub struct DiagnosticLabel {
 } derive(Eq, Debug)
 
 ///|
+pub fn DiagnosticLabel::DiagnosticLabel(
+  range : TextRange,
+  message : String?,
+) -> DiagnosticLabel {
+  { range, message }
+}
+
+///|
 pub fn DiagnosticLabel::offset_by(
   self : DiagnosticLabel,
   delta : Int,
