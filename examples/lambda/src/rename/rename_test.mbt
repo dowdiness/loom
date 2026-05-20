@@ -82,6 +82,16 @@ fn diagnostics_have_code(
 }
 
 ///|
+fn edit_starting_at(edits : Array[TextEdit], start : Int) -> TextEdit {
+  for e in edits {
+    if e.start == start {
+      return e
+    }
+  }
+  abort("expected edit starting at " + start.to_string())
+}
+
+///|
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -333,6 +343,30 @@ test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" 
     content="true",
   )
   pipeline.dispose()
+}
+
+///|
+test "fixture 10 (name-range correctness): edit byte ranges are identifier-token, not node, ranges" {
+  let src1 = "let foo = bar\n"
+  let (pipeline1, syntax1, _rt1) = setup_pipeline(src1)
+  let plan1 = plan_rename(pipeline1, src1, syntax1, 5, "renamed")
+  let def_edit1 = edit_starting_at(plan1.edits, 4)
+  inspect(def_edit1.end, content="7")
+  pipeline1.dispose()
+
+  let src2 = "let id = \\x. x\n"
+  let (pipeline2, syntax2, _rt2) = setup_pipeline(src2)
+  let plan2 = plan_rename(pipeline2, src2, syntax2, 10, "y")
+  let def_edit2 = edit_starting_at(plan2.edits, 10)
+  inspect(def_edit2.end, content="11")
+  pipeline2.dispose()
+
+  let src3 = "let f (x) = x\n"
+  let (pipeline3, syntax3, _rt3) = setup_pipeline(src3)
+  let plan3 = plan_rename(pipeline3, src3, syntax3, 7, "y")
+  let def_edit3 = edit_starting_at(plan3.edits, 7)
+  inspect(def_edit3.end, content="8")
+  pipeline3.dispose()
 }
 
 ///|
