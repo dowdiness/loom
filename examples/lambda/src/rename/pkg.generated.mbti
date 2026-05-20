@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub fn check_converse_capture(@callers.Def, String, Array[@callers.Call], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+
 pub fn check_forward_capture(@callers.Def, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
 
 pub fn check_sibling_collision(@callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @core.Diagnostic?

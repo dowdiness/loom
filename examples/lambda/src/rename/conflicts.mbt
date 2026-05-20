@@ -77,6 +77,37 @@ pub fn check_forward_capture(
 }
 
 ///|
+/// Converse-capture check: if an existing call to `new_name` resolves at
+/// an ancestor-or-equal scope, the renamed target may intercept it.
+pub fn check_converse_capture(
+  target : @callers.Def,
+  new_name : String,
+  calls : Array[@callers.Call],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
+) -> @core.Diagnostic? {
+  for c in calls {
+    if c.callee == new_name {
+      let is_ancestor_or_equal = c.resolved_scope == target.scope ||
+        is_strict_ancestor(c.resolved_scope, target.scope, enclosing)
+      if is_ancestor_or_equal {
+        let (target_start, target_end) = name_range_of(target, syntax)
+        return Some(
+          make_converse_capture_diagnostic(
+            c.start,
+            c.end,
+            target_start,
+            target_end,
+            new_name,
+          ),
+        )
+      }
+    }
+  }
+  None
+}
+
+///|
 fn make_sibling_diagnostic(
   target_start : Int,
   target_end : Int,
@@ -122,6 +153,34 @@ fn make_forward_capture_diagnostic(
         capture_range,
         Some("capturing descendant binding"),
       ),
+    ],
+  )
+}
+
+///|
+fn make_converse_capture_diagnostic(
+  call_start : Int,
+  call_end : Int,
+  target_start : Int,
+  target_end : Int,
+  new_name : String,
+) -> @core.Diagnostic {
+  let primary = text_range_or_abort(call_start, call_end)
+  let target_range = text_range_or_abort(target_start, target_end)
+  @core.Diagnostic::Diagnostic(
+    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    severity=severity_error(),
+    message="Cannot rename to '\{new_name}': an existing reference to that name may be captured",
+    code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
+    primary=Some(primary),
+    labels=[
+      @core.DiagnosticLabel::DiagnosticLabel(
+        target_range,
+        Some("renamed binding would intercept"),
+      ),
+    ],
+    notes=[
+      "Conservative check: false positives may occur if the call's lexical chain does not pass through the renamed scope.",
     ],
   )
 }

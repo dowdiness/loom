@@ -231,3 +231,27 @@ test "check_forward_capture: no descendant with new_name returns None" {
   )
   inspect(result is None, content="true")
 }
+
+///|
+test "check_converse_capture: existing call to new_name with target as descendant" {
+  let src = "let g = a\nlet h = \\f. f g\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_converse_capture(f_param, "g", calls, enclosing, syntax)
+  inspect(result is Some(_), content="true")
+  inspect(
+    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    content="true",
+  )
+}
+
+///|
+test "check_converse_capture: no matching calls returns None" {
+  let src = "let f = a\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_def = def_named(defs, "f")
+  let result = check_converse_capture(
+    f_def, "totally_new", calls, enclosing, syntax,
+  )
+  inspect(result is None, content="true")
+}
