@@ -548,6 +548,18 @@ pub fn CallersPipeline::defs_of(
 }
 
 ///|
+/// Read the cached `(defs, calls, enclosing)` facts as defensive copies.
+/// Returned arrays are independent from the cached Memo state — callers
+/// may mutate them without affecting subsequent reads. Use this when a
+/// consumer needs access to unfiltered fact relations.
+pub fn CallersPipeline::facts(
+  self : CallersPipeline,
+) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
+  let (defs, calls, enclosing) = self.facts_observer.get()
+  (defs.copy(), calls.copy(), enclosing.copy())
+}
+
+///|
 /// True iff a binding named `name` is visible from `scope` — meaning it
 /// exists in `scope` itself or in any enclosing scope. Does NOT model
 /// shadowing (cannot answer "which binding wins"). Consumer-facing for

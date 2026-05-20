@@ -566,3 +566,23 @@ test "visible_from: let-paren params visible in their body's scope" {
   inspect(p.visible_from(TopScope, "f"), content="true")
   p.dispose()
 }
+
+///|
+test "pipeline: facts() returns defensive copies" {
+  let src = "let f = \\x. x\nlet g = f y\n"
+  let rt = @incr.Runtime::new()
+  let parser = @loom.new_parser(src, @lambda.lambda_grammar, runtime=rt)
+  let pipeline = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let (defs, calls, enclosing) = pipeline.facts()
+  // Returned arrays should contain the extracted facts.
+  inspect(defs.length() >= 2, content="true")
+  inspect(calls.length() >= 1, content="true")
+  // Mutating returned arrays must NOT affect subsequent reads.
+  defs.clear()
+  calls.clear()
+  enclosing.clear()
+  let (defs2, calls2, _) = pipeline.facts()
+  inspect(defs2.length() >= 2, content="true")
+  inspect(calls2.length() >= 1, content="true")
+  pipeline.dispose()
+}
