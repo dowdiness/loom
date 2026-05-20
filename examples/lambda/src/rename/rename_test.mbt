@@ -343,6 +343,24 @@ test "check_converse_capture: no matching calls returns None" {
 }
 
 ///|
+test "check_converse_capture: earlier top-level reference is not captured" {
+  let src = "let h = g\nlet f = a\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_def = def_named(defs, "f")
+  let result = check_converse_capture(f_def, "g", calls, enclosing, syntax)
+  inspect(result is None, content="true")
+}
+
+///|
+test "check_converse_capture: later top-level reference can be captured" {
+  let src = "let f = a\nlet h = g\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_def = def_named(defs, "f")
+  let result = check_converse_capture(f_def, "g", calls, enclosing, syntax)
+  inspect(result is Some(_), content="true")
+}
+
+///|
 test "check_shadow: param shadows outer let binding" {
   let src = "let g = a\nlet h = \\f. f\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
@@ -563,6 +581,20 @@ test "fixture 19 (shadow source order): later top-level binding does not warn" {
   inspect(plan.edits.length(), content="2")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.shadow"),
+    content="false",
+  )
+  pipeline.dispose()
+}
+
+///|
+test "fixture 20 (converse source order): earlier top ref does not block" {
+  let src = "let h = g\nlet f = a\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 14, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="1")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
     content="false",
   )
   pipeline.dispose()

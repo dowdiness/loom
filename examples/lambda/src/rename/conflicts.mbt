@@ -88,11 +88,12 @@ pub fn check_converse_capture(
 ) -> @core.Diagnostic? {
   for c in calls {
     if c.callee == new_name {
+      let (call_start, call_end) = call_name_range_of(c, syntax)
       let is_ancestor_or_equal = c.resolved_scope == target.scope ||
         is_strict_ancestor(c.resolved_scope, target.scope, enclosing)
-      if is_ancestor_or_equal {
+      if is_ancestor_or_equal &&
+        target_visible_at_source_position(target, syntax, call_start) {
         let (target_start, target_end) = name_range_of(target, syntax)
-        let (call_start, call_end) = call_name_range_of(c, syntax)
         return Some(
           make_converse_capture_diagnostic(
             call_start, call_end, target_start, target_end, new_name,
@@ -102,6 +103,19 @@ pub fn check_converse_capture(
     }
   }
   None
+}
+
+///|
+fn target_visible_at_source_position(
+  target : @callers.Def,
+  syntax : @seam.SyntaxNode,
+  offset : Int,
+) -> Bool {
+  if is_scope_binding_def(target) {
+    offset >= target.start && offset < target.end
+  } else {
+    target.end <= offset && let_container_contains(target, syntax, offset)
+  }
 }
 
 ///|

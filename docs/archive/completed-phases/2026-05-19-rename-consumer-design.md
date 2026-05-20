@@ -208,6 +208,8 @@ Detects: existing references to a *different* `new_name` binding would post-rena
 ```
 for c in calls where c.callee == new_name:
     if c.resolved_scope is ancestor-or-equal of target.scope (via enclosing chain):
+        if target is not visible at c's source position under sequential let rules:
+            skip
         # This call previously resolved to its own new_name binding.
         # After rename, target.scope (which now binds new_name) may sit
         # between the call's lexical position and c.resolved_scope, so
@@ -215,7 +217,7 @@ for c in calls where c.callee == new_name:
         emit rename.capture (converse)
 ```
 
-Same conservative rationale: the precise determination requires knowing the call's lexical scope (not recorded); the safe overcounting check uses ancestor-or-equal of `target.scope`.
+Same conservative rationale: the precise determination requires knowing the call's lexical scope (not recorded); the safe overcounting check uses ancestor-or-equal of `target.scope`, then applies the same source-order/container visibility gate used for edit planning.
 
 Diagnostic shape: severity = Error, primary = converse call site, labels = [(target name range, "renamed binding would intercept")].
 
@@ -318,6 +320,7 @@ Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example'
 17. **Block-local visibility boundary** — `let h = { let x = a; x } x\n`. Verify the block binding does not rewrite the trailing reference outside the block.
 18. **Duplicate let-paren parameter slots** — `let f(x, x) = x\n`. Verify each parameter is targetable by its own identifier range and the body reference belongs to the later duplicate slot.
 19. **Shadow source order** — `let h = \f. f\nlet g = a\n`. Verify renaming `f → g` does not warn about shadowing a later top-level binding.
+20. **Converse-capture source order** — `let h = g\nlet f = a\n`. Verify renaming `f → g` does not emit `rename.capture` for the earlier unresolved `g`.
 
 ## 8. Out of scope for v1
 
