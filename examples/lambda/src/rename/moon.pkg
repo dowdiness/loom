@@ -14,7 +14,15 @@ import {
   "dowdiness/incr" @incr,
 } for "test"
 
+import {
+  "dowdiness/lambda" @lambda,
+  "dowdiness/loom" @loom,
+  "dowdiness/incr" @incr,
+} for "wbtest"
+
+// 1 (unused_value) — staged private helpers are wired into `plan_rename`
+// in later tasks.
 // 9 (struct_never_constructed) — Task 2 creates public result types before
 // later tasks construct them from `plan_rename`.
 
-warnings = "-9"
+warnings = "-1-9"

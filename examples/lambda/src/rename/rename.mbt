@@ -37,3 +37,21 @@ pub struct RenamePlan {
   edits : Array[TextEdit]
   diagnostics : Array[@core.Diagnostic]
 }
+
+///|
+fn compute_edits(
+  target : @callers.Def,
+  calls : Array[@callers.Call],
+  syntax : @seam.SyntaxNode,
+  new_name : String,
+) -> Array[TextEdit] {
+  let edits : Array[TextEdit] = []
+  let (name_start, name_end) = name_range_of(target, syntax)
+  edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name })
+  for c in calls {
+    if c.callee == target.name && c.resolved_scope == target.scope {
+      edits.push(TextEdit::{ start: c.start, end: c.end, new_text: new_name })
+    }
+  }
+  edits
+}
