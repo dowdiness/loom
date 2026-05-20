@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/rename"
+
+import {
+  "dowdiness/lambda/callers",
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct RenamePlan {
+  target : @callers.Def?
+  edits : Array[TextEdit]
+  diagnostics : Array[@core.Diagnostic]
+}
+
+pub struct TextEdit {
+  start : Int
+  end : Int
+  new_text : String
+} derive(Eq, @debug.Debug)
+pub impl Show for TextEdit
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,10 @@
+import {
+  "dowdiness/lambda/callers" @callers,
+  "dowdiness/loom/core" @core,
+  "moonbitlang/core/debug",
+}
+
+// 9 (struct_never_constructed) — Task 2 creates public result types before
+// later tasks construct them from `plan_rename`.
+
+warnings = "-9"
