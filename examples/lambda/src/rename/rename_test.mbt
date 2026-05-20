@@ -380,3 +380,14 @@ test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
   )
   pipeline.dispose()
 }
+
+///|
+test "fixture 6 (top-level recursion): rename f -> fff, both refs rewritten" {
+  let src = "let f = \\x. f x\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length(), content="2")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
