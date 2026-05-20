@@ -68,6 +68,20 @@ fn setup_pipeline(
 }
 
 ///|
+fn diagnostics_have_code(
+  diagnostics : Array[@core.Diagnostic],
+  code : String,
+) -> Bool {
+  for d in diagnostics {
+    match d.code {
+      Some(c) => if c.value() == code { return true }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
 test "name_range_of: top-level LetDef identifier" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -304,5 +318,19 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
     inspect(e.new_text, content="fff")
   }
   inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" {
+  let src = "let f = a\nlet g = b\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 4, "g")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length() >= 1, content="true")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.sibling_collision"),
+    content="true",
+  )
   pipeline.dispose()
 }
