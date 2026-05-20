@@ -334,3 +334,16 @@ test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" 
   )
   pipeline.dispose()
 }
+
+///|
+test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
+  let src = "let h = \\f. \\g. f g\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
+    content="true",
+  )
+  pipeline.dispose()
+}
