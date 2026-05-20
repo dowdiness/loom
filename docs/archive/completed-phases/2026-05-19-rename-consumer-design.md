@@ -182,10 +182,10 @@ Three checks, each emitting an `@core.Diagnostic` with structured fields. Captur
 #### Sibling-def
 
 ```
-defs.any(d => d.scope == target.scope && d.name == new_name)
+defs.any(d => d.name == new_name && defs_are_siblings(target, d, syntax))
 ```
 
-If true: `code = "rename.sibling_collision"`, severity = Error, primary = target name range, labels = [(collider name range, "existing binding")].
+If true: `code = "rename.sibling_collision"`, severity = Error, primary = target name range, labels = [(collider name range, "existing binding")]. Scope-binding parameters collide with other parameters in the same modeled scope. Plain `let` bindings collide only with another plain `let` in the same `SourceFile` or `BlockExpr` container; a block-local `let` may legally shadow an enclosing lambda or let-paren parameter.
 
 #### Capture — forward pass
 
@@ -321,6 +321,7 @@ Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example'
 18. **Duplicate let-paren parameter slots** — `let f(x, x) = x\n`. Verify each parameter is targetable by its own identifier range and the body reference belongs to the later duplicate slot.
 19. **Shadow source order** — `let h = \f. f\nlet g = a\n`. Verify renaming `f → g` does not warn about shadowing a later top-level binding.
 20. **Converse-capture source order** — `let h = g\nlet f = a\n`. Verify renaming `f → g` does not emit `rename.capture` for the earlier unresolved `g`.
+21. **Block-local let shadow** — `let h = \x. { let y = a; y }\n`. Verify renaming block-local `y → x` does not emit `rename.sibling_collision`.
 
 ## 8. Out of scope for v1
 

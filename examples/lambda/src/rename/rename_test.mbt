@@ -260,6 +260,16 @@ test "check_sibling_collision: no collision returns None" {
 }
 
 ///|
+test "check_sibling_collision: block let may shadow enclosing parameter" {
+  let src = "let h = \\x. { let y = a; y }\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let block_y = locate_target(defs, syntax, 18).unwrap()
+  let result = check_sibling_collision(block_y, "x", defs, syntax)
+  inspect(result is None, content="true")
+}
+
+///|
 test "is_strict_ancestor: top scope is ancestor of lambda scope" {
   let (_, defs, _, enclosing) = facts_for_test("let h = \\x. x\n")
   let h_def = def_named(defs, "h")
@@ -595,6 +605,20 @@ test "fixture 20 (converse source order): earlier top ref does not block" {
   inspect(plan.edits.length(), content="1")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
+    content="false",
+  )
+  pipeline.dispose()
+}
+
+///|
+test "fixture 21 (block let shadow): local rename to parameter name is legal" {
+  let src = "let h = \\x. { let y = a; y }\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 18, "x")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.sibling_collision"),
     content="false",
   )
   pipeline.dispose()

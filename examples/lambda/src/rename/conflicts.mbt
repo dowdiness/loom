@@ -8,7 +8,9 @@ pub fn check_sibling_collision(
   syntax : @seam.SyntaxNode,
 ) -> @core.Diagnostic? {
   for d in defs {
-    if !(d == target) && d.scope == target.scope && d.name == new_name {
+    if !(d == target) &&
+      d.name == new_name &&
+      defs_are_siblings(target, d, syntax) {
       let (target_start, target_end) = name_range_of(target, syntax)
       let (collider_start, collider_end) = name_range_of(d, syntax)
       return Some(
@@ -19,6 +21,36 @@ pub fn check_sibling_collision(
     }
   }
   None
+}
+
+///|
+fn defs_are_siblings(
+  target : @callers.Def,
+  other : @callers.Def,
+  syntax : @seam.SyntaxNode,
+) -> Bool {
+  if target.scope != other.scope {
+    return false
+  }
+  let target_is_scope_binding = is_scope_binding_def(target)
+  let other_is_scope_binding = is_scope_binding_def(other)
+  if target_is_scope_binding || other_is_scope_binding {
+    return target_is_scope_binding && other_is_scope_binding
+  }
+  same_let_container(target, other, syntax)
+}
+
+///|
+fn same_let_container(
+  a : @callers.Def,
+  b : @callers.Def,
+  syntax : @seam.SyntaxNode,
+) -> Bool {
+  match (find_def_node(syntax, a), find_def_node(syntax, b)) {
+    (Some(a_node), Some(b_node)) =>
+      nearest_let_container_range(a_node) == nearest_let_container_range(b_node)
+    _ => false
+  }
 }
 
 ///|
