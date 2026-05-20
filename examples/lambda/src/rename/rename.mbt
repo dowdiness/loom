@@ -64,7 +64,9 @@ pub fn plan_rename(
           diagnostics: [make_no_op_diagnostic()],
         }
       } else {
-        let edits = compute_edits(target, defs, calls, syntax, new_name)
+        let edits = compute_edits(
+          target, defs, calls, enclosing, syntax, new_name,
+        )
         let diagnostics : Array[@core.Diagnostic] = []
         match check_sibling_collision(target, new_name, defs, syntax) {
           Some(d) => diagnostics.push(d)
@@ -93,6 +95,7 @@ fn compute_edits(
   target : @callers.Def,
   defs : Array[@callers.Def],
   calls : Array[@callers.Call],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
   new_name : String,
 ) -> Array[TextEdit] {
@@ -100,9 +103,9 @@ fn compute_edits(
   let (name_start, name_end) = name_range_of(target, syntax)
   edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name })
   for c in calls {
-    if c.callee == target.name && c.resolved_scope == target.scope {
+    if c.callee == target.name {
       let (call_start, call_end) = call_name_range_of(c, syntax)
-      if call_resolves_to_target(target, defs, c, call_start) {
+      if call_resolves_to_target(target, defs, enclosing, c, call_start) {
         edits.push(TextEdit::{
           start: call_start,
           end: call_end,
@@ -118,39 +121,154 @@ fn compute_edits(
 fn call_resolves_to_target(
   target : @callers.Def,
   defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   call : @callers.Call,
   call_start : Int,
 ) -> Bool {
-  if call.callee != target.name || call.resolved_scope != target.scope {
+  if call.callee != target.name {
     return false
   }
-  match target.scope {
-    @callers.TopScope =>
-      top_scope_call_resolves_to_target(target, defs, call, call_start)
-    @callers.LambdaScope(_, _) => true
+  match resolve_call_binding(defs, enclosing, call.callee, call_start) {
+    Some(d) => d == target
+    None => false
   }
 }
 
 ///|
-fn top_scope_call_resolves_to_target(
-  target : @callers.Def,
+fn resolve_call_binding(
   defs : Array[@callers.Def],
-  call : @callers.Call,
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  name : String,
   call_start : Int,
-) -> Bool {
+) -> @callers.Def? {
+  let lexical_scope = lexical_scope_at(defs, enclosing, call_start)
+  let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
+  resolve_binding_from(
+    lexical_scope, name, defs, enclosing, call_start, visited,
+  )
+}
+
+///|
+fn resolve_binding_from(
+  scope : @callers.ScopeId,
+  name : String,
+  defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  call_start : Int,
+  visited : @hashset.HashSet[@callers.ScopeId],
+) -> @callers.Def? {
+  if visited.contains(scope) {
+    return None
+  }
+  visited.add(scope)
+  match nearest_completed_let(scope, name, defs, call_start) {
+    Some(d) => return Some(d)
+    None => ()
+  }
+  match scope_binding_def(scope, name, defs) {
+    Some(d) => return Some(d)
+    None => ()
+  }
+  match parent_scope_of(scope, enclosing) {
+    Some(parent) =>
+      resolve_binding_from(parent, name, defs, enclosing, call_start, visited)
+    None => None
+  }
+}
+
+///|
+fn nearest_completed_let(
+  scope : @callers.ScopeId,
+  name : String,
+  defs : Array[@callers.Def],
+  call_start : Int,
+) -> @callers.Def? {
   let mut winner : @callers.Def? = None
   let mut winner_end = -1
   for d in defs {
-    if d.scope == @callers.TopScope && d.name == call.callee {
+    if d.scope == scope && d.name == name && !is_scope_binding_def(d) {
       if d.end <= call_start && d.end >= winner_end {
         winner = Some(d)
         winner_end = d.end
       }
     }
   }
-  match winner {
-    Some(d) => d == target
-    None => false
+  winner
+}
+
+///|
+fn scope_binding_def(
+  scope : @callers.ScopeId,
+  name : String,
+  defs : Array[@callers.Def],
+) -> @callers.Def? {
+  for d in defs {
+    if d.scope == scope && d.name == name && is_scope_binding_def(d) {
+      return Some(d)
+    }
+  }
+  None
+}
+
+///|
+fn is_scope_binding_def(def : @callers.Def) -> Bool {
+  match def.scope {
+    @callers.TopScope => false
+    @callers.LambdaScope(start, end) => def.start == start && def.end == end
+  }
+}
+
+///|
+fn lexical_scope_at(
+  defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  offset : Int,
+) -> @callers.ScopeId {
+  let mut best = @callers.TopScope
+  let mut best_width = 2147483647
+  for d in defs {
+    let (next, width) = consider_scope(d.scope, offset, best, best_width)
+    best = next
+    best_width = width
+  }
+  for edge in enclosing {
+    let (next_child, child_width) = consider_scope(
+      edge.0,
+      offset,
+      best,
+      best_width,
+    )
+    best = next_child
+    best_width = child_width
+    let (next_parent, parent_width) = consider_scope(
+      edge.1,
+      offset,
+      best,
+      best_width,
+    )
+    best = next_parent
+    best_width = parent_width
+  }
+  best
+}
+
+///|
+fn consider_scope(
+  candidate : @callers.ScopeId,
+  offset : Int,
+  current : @callers.ScopeId,
+  current_width : Int,
+) -> (@callers.ScopeId, Int) {
+  match candidate {
+    @callers.TopScope => (current, current_width)
+    @callers.LambdaScope(start, end) => {
+      let width = end - start
+      if offset >= start && offset < end && width < current_width {
+        (candidate, width)
+      } else {
+        (current, current_width)
+      }
+    }
   }
 }
 

@@ -8,7 +8,7 @@ pub fn check_sibling_collision(
   syntax : @seam.SyntaxNode,
 ) -> @core.Diagnostic? {
   for d in defs {
-    if d.scope == target.scope && d.name == new_name {
+    if !(d == target) && d.scope == target.scope && d.name == new_name {
       let (target_start, target_end) = name_range_of(target, syntax)
       let (collider_start, collider_end) = name_range_of(d, syntax)
       return Some(

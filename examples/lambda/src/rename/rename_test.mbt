@@ -457,6 +457,46 @@ test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
 }
 
 ///|
+test "fixture 15 (block let): local binding does not edit initializer" {
+  let src = "let h = \\x. { let x = x; x }\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 18, "y")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 9), content="false")
+  inspect(edits_cover_offset(plan.edits, 18), content="true")
+  inspect(edits_cover_offset(plan.edits, 22), content="false")
+  inspect(edits_cover_offset(plan.edits, 25), content="true")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 16 (block let): unique local binding edits body reference" {
+  let src = "let h = \\x. { let y = x; y }\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 18, "z")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 18), content="true")
+  inspect(edits_cover_offset(plan.edits, 25), content="true")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "check_sibling_collision: target is not its own sibling" {
+  let src = "let f = a\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let target = def_named(defs, "f")
+  inspect(
+    check_sibling_collision(target, "f", defs, syntax) is None,
+    content="true",
+  )
+}
+
+///|
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = \\f. \\g. f g\n"
   let (pipeline, syntax, _rt) = setup_pipeline(src)
