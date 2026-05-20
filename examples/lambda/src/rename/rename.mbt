@@ -105,7 +105,7 @@ fn compute_edits(
   for c in calls {
     if c.callee == target.name {
       let (call_start, call_end) = call_name_range_of(c, syntax)
-      if call_resolves_to_target(target, defs, enclosing, c, call_start) {
+      if call_resolves_to_target(target, defs, enclosing, syntax, c, call_start) {
         edits.push(TextEdit::{
           start: call_start,
           end: call_end,
@@ -122,13 +122,14 @@ fn call_resolves_to_target(
   target : @callers.Def,
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
   call : @callers.Call,
   call_start : Int,
 ) -> Bool {
   if call.callee != target.name {
     return false
   }
-  match resolve_call_binding(defs, enclosing, call.callee, call_start) {
+  match resolve_call_binding(defs, enclosing, syntax, call.callee, call_start) {
     Some(d) => d == target
     None => false
   }
@@ -138,13 +139,14 @@ fn call_resolves_to_target(
 fn resolve_call_binding(
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
   name : String,
   call_start : Int,
 ) -> @callers.Def? {
   let lexical_scope = lexical_scope_at(defs, enclosing, call_start)
   let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
   resolve_binding_from(
-    lexical_scope, name, defs, enclosing, call_start, visited,
+    lexical_scope, name, defs, enclosing, syntax, call_start, visited,
   )
 }
 
@@ -154,6 +156,7 @@ fn resolve_binding_from(
   name : String,
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
   call_start : Int,
   visited : @hashset.HashSet[@callers.ScopeId],
 ) -> @callers.Def? {
@@ -161,7 +164,7 @@ fn resolve_binding_from(
     return None
   }
   visited.add(scope)
-  match nearest_completed_let(scope, name, defs, call_start) {
+  match nearest_completed_let(scope, name, defs, syntax, call_start) {
     Some(d) => return Some(d)
     None => ()
   }
@@ -171,7 +174,9 @@ fn resolve_binding_from(
   }
   match parent_scope_of(scope, enclosing) {
     Some(parent) =>
-      resolve_binding_from(parent, name, defs, enclosing, call_start, visited)
+      resolve_binding_from(
+        parent, name, defs, enclosing, syntax, call_start, visited,
+      )
     None => None
   }
 }
@@ -181,12 +186,16 @@ fn nearest_completed_let(
   scope : @callers.ScopeId,
   name : String,
   defs : Array[@callers.Def],
+  syntax : @seam.SyntaxNode,
   call_start : Int,
 ) -> @callers.Def? {
   let mut winner : @callers.Def? = None
   let mut winner_end = -1
   for d in defs {
-    if d.scope == scope && d.name == name && !is_scope_binding_def(d) {
+    if d.scope == scope &&
+      d.name == name &&
+      !is_scope_binding_def(d) &&
+      let_container_contains(d, syntax, call_start) {
       if d.end <= call_start && d.end >= winner_end {
         winner = Some(d)
         winner_end = d.end
@@ -216,6 +225,57 @@ fn is_scope_binding_def(def : @callers.Def) -> Bool {
     @callers.TopScope => false
     @callers.LambdaScope(start, end) => def.start == start && def.end == end
   }
+}
+
+///|
+fn let_container_contains(
+  def : @callers.Def,
+  syntax : @seam.SyntaxNode,
+  offset : Int,
+) -> Bool {
+  match find_def_node(syntax, def) {
+    Some(node) =>
+      match nearest_let_container_range(node) {
+        Some((start, end)) => offset >= start && offset < end
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn find_def_node(
+  node : @seam.SyntaxNode,
+  def : @callers.Def,
+) -> @seam.SyntaxNode? {
+  if node.end() <= def.start || node.start() >= def.end {
+    return None
+  }
+  if node.start() == def.start &&
+    node.end() == def.end &&
+    @syntax.SyntaxKind::from_raw(node.kind()) == @syntax.LetDef {
+    return Some(node)
+  }
+  for child in node.children() {
+    match find_def_node(child, def) {
+      Some(found) => return Some(found)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn nearest_let_container_range(node : @seam.SyntaxNode) -> (Int, Int)? {
+  let mut current = node.parent()
+  while current is Some(parent) {
+    let kind = @syntax.SyntaxKind::from_raw(parent.kind())
+    if kind == @syntax.SourceFile || kind == @syntax.BlockExpr {
+      return Some((parent.start(), parent.end()))
+    }
+    current = parent.parent()
+  }
+  None
 }
 
 ///|

@@ -485,6 +485,20 @@ test "fixture 16 (block let): unique local binding edits body reference" {
 }
 
 ///|
+test "fixture 17 (block let): local binding does not leak after block" {
+  let src = "let h = { let x = a; x } x\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 14, "y")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 14), content="true")
+  inspect(edits_cover_offset(plan.edits, 21), content="true")
+  inspect(edits_cover_offset(plan.edits, 25), content="false")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
 test "check_sibling_collision: target is not its own sibling" {
   let src = "let f = a\n"
   let syntax = parse_to_syntax(src)

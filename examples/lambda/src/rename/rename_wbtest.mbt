@@ -64,6 +64,17 @@ test "compute_edits: block let shadows parameter only after initializer" {
 }
 
 ///|
+test "compute_edits: block let is not visible after block" {
+  let src = "let h = { let x = a; x } x\n"
+  let (syntax, defs, calls, enclosing) = wb_facts(src)
+  let block_x = wb_def_with_name_start(defs, syntax, 14)
+  let edits = compute_edits(block_x, defs, calls, enclosing, syntax, "y")
+  inspect(edits.length(), content="2")
+  inspect(edits[0].start, content="14")
+  inspect(edits[1].start, content="21")
+}
+
+///|
 test "compute_edits: ignores calls in a different scope" {
   let src = "let g = \\f. f\n"
   let (syntax, defs, calls, enclosing) = wb_facts(src)
