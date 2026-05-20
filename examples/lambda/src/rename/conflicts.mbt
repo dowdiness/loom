@@ -115,10 +115,14 @@ pub fn check_shadow(
   syntax : @seam.SyntaxNode,
 ) -> @core.Diagnostic? {
   match parent_scope_of(target.scope, enclosing) {
-    Some(parent) =>
-      match resolve_innermost(parent, new_name, defs, enclosing) {
+    Some(parent) => {
+      let (target_start, target_end) = name_range_of(target, syntax)
+      let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
+      match
+        resolve_binding_from(
+          parent, new_name, defs, enclosing, syntax, target_start, visited,
+        ) {
         Some(outer) => {
-          let (target_start, target_end) = name_range_of(target, syntax)
           let (outer_start, outer_end) = name_range_of(outer, syntax)
           Some(
             make_shadow_diagnostic(
@@ -128,6 +132,7 @@ pub fn check_shadow(
         }
         None => None
       }
+    }
     None => None
   }
 }

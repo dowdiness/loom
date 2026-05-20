@@ -365,6 +365,15 @@ test "check_shadow: no outer binding returns None" {
 }
 
 ///|
+test "check_shadow: later top-level binding is not visible" {
+  let src = "let h = \\f. f\nlet g = a\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  inspect(result is None, content="true")
+}
+
+///|
 test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
   let src = "let f = \\x. x\nlet r = f (f y)\n"
   let (pipeline, syntax, _rt) = setup_pipeline(src)
@@ -542,6 +551,20 @@ test "fixture 18 (let-paren duplicate params): second parameter is targetable" {
   inspect(edits_cover_offset(plan.edits, 9), content="true")
   inspect(edits_cover_offset(plan.edits, 14), content="true")
   inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 19 (shadow source order): later top-level binding does not warn" {
+  let src = "let h = \\f. f\nlet g = a\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.shadow"),
+    content="false",
+  )
   pipeline.dispose()
 }
 

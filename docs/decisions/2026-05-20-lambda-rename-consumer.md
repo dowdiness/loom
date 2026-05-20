@@ -55,7 +55,9 @@ Top-level references are filtered with the lambda module's sequential,
 non-recursive binding semantics: a top-level definition is visible only after
 its full `LetDef` range ends. A reference inside `let f = ...` is not treated as
 bound to that same `f`; a later top-level definition of the same name shadows it
-only after the later definition is complete.
+only after the later definition is complete. Shadow diagnostics use the same
+position-aware visibility rule so later top-level names are not reported as
+visible inside earlier definitions.
 
 Structured diagnostics keep editor integration data-rich: consumers can inspect
 codes, severity, primary ranges, and labels rather than parsing strings.

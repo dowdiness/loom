@@ -317,6 +317,7 @@ Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example'
 16. **Block-local body reference** — `let h = \x. { let y = x; y }\n`. Verify a unique block-local binding edits its body reference.
 17. **Block-local visibility boundary** — `let h = { let x = a; x } x\n`. Verify the block binding does not rewrite the trailing reference outside the block.
 18. **Duplicate let-paren parameter slots** — `let f(x, x) = x\n`. Verify each parameter is targetable by its own identifier range and the body reference belongs to the later duplicate slot.
+19. **Shadow source order** — `let h = \f. f\nlet g = a\n`. Verify renaming `f → g` does not warn about shadowing a later top-level binding.
 
 ## 8. Out of scope for v1
 
