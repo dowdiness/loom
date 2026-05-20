@@ -306,10 +306,12 @@ test "is_strict_ancestor: sibling lambda scopes return false" {
 ///|
 test "check_forward_capture: descendant binding fires" {
   let src = "let h = \\f. \\g. f g\n"
-  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let h_def = def_named(defs, "h")
   let outer_f = def_named_outside_scope(defs, "f", h_def.scope)
-  let result = check_forward_capture(outer_f, "g", defs, enclosing, syntax)
+  let result = check_forward_capture(
+    outer_f, "g", defs, calls, enclosing, syntax,
+  )
   inspect(result is Some(_), content="true")
   inspect(
     result.unwrap().severity is @core.DiagnosticSeverity::Error,
@@ -320,10 +322,10 @@ test "check_forward_capture: descendant binding fires" {
 ///|
 test "check_forward_capture: no descendant with new_name returns None" {
   let src = "let f = \\x. x\n"
-  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
   let result = check_forward_capture(
-    f_def, "totally_new", defs, enclosing, syntax,
+    f_def, "totally_new", defs, calls, enclosing, syntax,
   )
   inspect(result is None, content="true")
 }
@@ -331,9 +333,35 @@ test "check_forward_capture: no descendant with new_name returns None" {
 ///|
 test "check_forward_capture: earlier descendant cannot capture later target" {
   let src = "let h = \\g. g\nlet f = a\n"
-  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_forward_capture(f_def, "g", defs, enclosing, syntax)
+  let result = check_forward_capture(f_def, "g", defs, calls, enclosing, syntax)
+  inspect(result is None, content="true")
+}
+
+///|
+test "check_forward_capture: block-local let can capture edited reference" {
+  let src = "let h = \\f. { let g = a; f }\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_forward_capture(
+    f_param, "g", defs, calls, enclosing, syntax,
+  )
+  inspect(result is Some(_), content="true")
+  inspect(
+    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    content="true",
+  )
+}
+
+///|
+test "check_forward_capture: outer binding does not capture renamed inner references" {
+  let src = "let g = a\nlet h = \\f. f\n"
+  let (syntax, defs, calls, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_forward_capture(
+    f_param, "g", defs, calls, enclosing, syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -408,6 +436,19 @@ test "check_shadow: later top-level binding is not visible" {
   let f_param = def_named(defs, "f")
   let result = check_shadow(f_param, "g", defs, enclosing, syntax)
   inspect(result is None, content="true")
+}
+
+///|
+test "check_shadow: block let shadows enclosing parameter" {
+  let src = "let h = \\x. { let y = a; y }\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let block_y = locate_target(defs, syntax, 18).unwrap()
+  let result = check_shadow(block_y, "x", defs, enclosing, syntax)
+  inspect(result is Some(_), content="true")
+  inspect(
+    result.unwrap().severity is @core.DiagnosticSeverity::Warning,
+    content="true",
+  )
 }
 
 ///|
@@ -630,6 +671,10 @@ test "fixture 21 (block let shadow): local rename to parameter name is legal" {
     diagnostics_have_code(plan.diagnostics, "rename.sibling_collision"),
     content="false",
   )
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.shadow"),
+    content="true",
+  )
   pipeline.dispose()
 }
 
@@ -643,6 +688,20 @@ test "fixture 22 (forward source order): earlier lambda param does not block" {
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
     content="false",
+  )
+  pipeline.dispose()
+}
+
+///|
+test "fixture 23 (block-local forward capture): block let blocks rename" {
+  let src = "let h = \\f. { let g = a; f }\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
+    content="true",
   )
   pipeline.dispose()
 }

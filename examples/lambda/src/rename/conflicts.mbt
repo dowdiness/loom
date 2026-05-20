@@ -84,29 +84,143 @@ fn is_ancestor_from_parent(
 }
 
 ///|
-/// Forward-capture check: renaming an outer binding to `new_name` would
-/// capture references below any descendant binding already named `new_name`.
+/// Forward-capture check: references edited from target.name to
+/// `new_name` must still resolve to the renamed target.
 pub fn check_forward_capture(
+  target : @callers.Def,
+  new_name : String,
+  defs : Array[@callers.Def],
+  calls : Array[@callers.Call],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
+) -> @core.Diagnostic? {
+  for c in calls {
+    if c.callee == target.name {
+      let (call_start, _) = call_name_range_of(c, syntax)
+      if call_resolves_to_target(target, defs, enclosing, syntax, c, call_start) {
+        match
+          post_rename_binding_at_call(
+            target, new_name, defs, enclosing, syntax, call_start,
+          ) {
+          Some(capturer) =>
+            if !(capturer == target) {
+              let (target_start, target_end) = name_range_of(target, syntax)
+              let (capture_start, capture_end) = name_range_of(capturer, syntax)
+              return Some(
+                make_forward_capture_diagnostic(
+                  target_start, target_end, capture_start, capture_end, new_name,
+                ),
+              )
+            }
+          None => ()
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
+fn post_rename_binding_at_call(
   target : @callers.Def,
   new_name : String,
   defs : Array[@callers.Def],
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
-) -> @core.Diagnostic? {
-  for d in defs {
-    if d.name == new_name &&
-      is_strict_ancestor(target.scope, d.scope, enclosing) &&
-      target_visible_at_source_position(target, syntax, d.name_start) {
-      let (target_start, target_end) = name_range_of(target, syntax)
-      let (capture_start, capture_end) = name_range_of(d, syntax)
-      return Some(
-        make_forward_capture_diagnostic(
-          target_start, target_end, capture_start, capture_end, new_name,
-        ),
+  call_start : Int,
+) -> @callers.Def? {
+  let lexical_scope = lexical_scope_at(defs, enclosing, call_start)
+  let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
+  resolve_binding_after_target_rename_from(
+    lexical_scope, target, new_name, defs, enclosing, syntax, call_start, visited,
+  )
+}
+
+///|
+fn resolve_binding_after_target_rename_from(
+  scope : @callers.ScopeId,
+  target : @callers.Def,
+  new_name : String,
+  defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
+  call_start : Int,
+  visited : @hashset.HashSet[@callers.ScopeId],
+) -> @callers.Def? {
+  if visited.contains(scope) {
+    return None
+  }
+  visited.add(scope)
+  match
+    nearest_completed_let_after_target_rename(
+      scope, target, new_name, defs, syntax, call_start,
+    ) {
+    Some(d) => return Some(d)
+    None => ()
+  }
+  match scope_binding_after_target_rename(scope, target, new_name, defs) {
+    Some(d) => return Some(d)
+    None => ()
+  }
+  match parent_scope_of(scope, enclosing) {
+    Some(parent) =>
+      resolve_binding_after_target_rename_from(
+        parent, target, new_name, defs, enclosing, syntax, call_start, visited,
       )
+    None => None
+  }
+}
+
+///|
+fn nearest_completed_let_after_target_rename(
+  scope : @callers.ScopeId,
+  target : @callers.Def,
+  new_name : String,
+  defs : Array[@callers.Def],
+  syntax : @seam.SyntaxNode,
+  call_start : Int,
+) -> @callers.Def? {
+  let mut winner : @callers.Def? = None
+  let mut winner_end = -1
+  for d in defs {
+    if d.scope == scope &&
+      binding_matches_renamed_name(d, target, new_name) &&
+      !is_scope_binding_def(d) &&
+      let_container_contains(d, syntax, call_start) {
+      if d.end <= call_start && d.end >= winner_end {
+        winner = Some(d)
+        winner_end = d.end
+      }
     }
   }
-  None
+  winner
+}
+
+///|
+fn scope_binding_after_target_rename(
+  scope : @callers.ScopeId,
+  target : @callers.Def,
+  new_name : String,
+  defs : Array[@callers.Def],
+) -> @callers.Def? {
+  let mut winner : @callers.Def? = None
+  for d in defs {
+    if d.scope == scope &&
+      binding_matches_renamed_name(d, target, new_name) &&
+      is_scope_binding_def(d) {
+      winner = Some(d)
+    }
+  }
+  winner
+}
+
+///|
+fn binding_matches_renamed_name(
+  def : @callers.Def,
+  target : @callers.Def,
+  new_name : String,
+) -> Bool {
+  def == target || def.name == new_name
 }
 
 ///|
@@ -161,26 +275,41 @@ pub fn check_shadow(
   enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
   syntax : @seam.SyntaxNode,
 ) -> @core.Diagnostic? {
-  match parent_scope_of(target.scope, enclosing) {
-    Some(parent) => {
-      let (target_start, target_end) = name_range_of(target, syntax)
+  let (target_start, target_end) = name_range_of(target, syntax)
+  match shadow_lookup_scope(target, enclosing) {
+    Some(scope) => {
       let visited : @hashset.HashSet[@callers.ScopeId] = @hashset.HashSet([])
       match
         resolve_binding_from(
-          parent, new_name, defs, enclosing, syntax, target_start, visited,
+          scope, new_name, defs, enclosing, syntax, target_start, visited,
         ) {
-        Some(outer) => {
-          let (outer_start, outer_end) = name_range_of(outer, syntax)
-          Some(
-            make_shadow_diagnostic(
-              target_start, target_end, outer_start, outer_end, new_name,
-            ),
-          )
-        }
+        Some(outer) =>
+          if outer == target || defs_are_siblings(target, outer, syntax) {
+            None
+          } else {
+            let (outer_start, outer_end) = name_range_of(outer, syntax)
+            Some(
+              make_shadow_diagnostic(
+                target_start, target_end, outer_start, outer_end, new_name,
+              ),
+            )
+          }
         None => None
       }
     }
     None => None
+  }
+}
+
+///|
+fn shadow_lookup_scope(
+  target : @callers.Def,
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+) -> @callers.ScopeId? {
+  if is_scope_binding_def(target) {
+    parent_scope_of(target.scope, enclosing)
+  } else {
+    Some(target.scope)
   }
 }
 
@@ -222,13 +351,13 @@ fn make_forward_capture_diagnostic(
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::DiagnosticSource("rename"),
     severity=severity_error(),
-    message="Cannot rename to '\{new_name}': a descendant binding with that name would capture references",
+    message="Cannot rename to '\{new_name}': an existing binding with that name would capture references",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
     primary=Some(primary),
     labels=[
       @core.DiagnosticLabel::DiagnosticLabel(
         capture_range,
-        Some("capturing descendant binding"),
+        Some("capturing binding"),
       ),
     ],
   )

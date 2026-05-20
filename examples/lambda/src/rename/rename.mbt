@@ -72,7 +72,10 @@ pub fn plan_rename(
           Some(d) => diagnostics.push(d)
           None => ()
         }
-        match check_forward_capture(target, new_name, defs, enclosing, syntax) {
+        match
+          check_forward_capture(
+            target, new_name, defs, calls, enclosing, syntax,
+          ) {
           Some(d) => diagnostics.push(d)
           None => ()
         }
