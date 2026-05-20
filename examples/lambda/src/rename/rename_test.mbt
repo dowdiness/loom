@@ -347,3 +347,20 @@ test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   )
   pipeline.dispose()
 }
+
+///|
+test "fixture 4 (converse capture + shadow): rename param f -> g where outer g exists" {
+  let src = "let g = a\nlet h = \\f. f g\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 19, "g")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.capture"),
+    content="true",
+  )
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.shadow"),
+    content="true",
+  )
+  pipeline.dispose()
+}
