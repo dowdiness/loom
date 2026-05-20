@@ -108,6 +108,34 @@ pub fn check_converse_capture(
 }
 
 ///|
+/// Shadow check: renaming to an outer visible binding name is legal but
+/// changes readability and should be surfaced as a warning.
+pub fn check_shadow(
+  target : @callers.Def,
+  new_name : String,
+  defs : Array[@callers.Def],
+  enclosing : Array[(@callers.ScopeId, @callers.ScopeId)],
+  syntax : @seam.SyntaxNode,
+) -> @core.Diagnostic? {
+  match parent_scope_of(target.scope, enclosing) {
+    Some(parent) =>
+      match resolve_innermost(parent, new_name, defs, enclosing) {
+        Some(outer) => {
+          let (target_start, target_end) = name_range_of(target, syntax)
+          let (outer_start, outer_end) = name_range_of(outer, syntax)
+          Some(
+            make_shadow_diagnostic(
+              target_start, target_end, outer_start, outer_end, new_name,
+            ),
+          )
+        }
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
 fn make_sibling_diagnostic(
   target_start : Int,
   target_end : Int,
@@ -186,6 +214,31 @@ fn make_converse_capture_diagnostic(
 }
 
 ///|
+fn make_shadow_diagnostic(
+  target_start : Int,
+  target_end : Int,
+  shadowed_start : Int,
+  shadowed_end : Int,
+  new_name : String,
+) -> @core.Diagnostic {
+  let primary = text_range_or_abort(target_start, target_end)
+  let shadowed_range = text_range_or_abort(shadowed_start, shadowed_end)
+  @core.Diagnostic::Diagnostic(
+    source=@core.DiagnosticSource::DiagnosticSource("rename"),
+    severity=severity_warning(),
+    message="Renaming to '\{new_name}' shadows an outer binding",
+    code=Some(@core.DiagnosticCode::DiagnosticCode("rename.shadow")),
+    primary=Some(primary),
+    labels=[
+      @core.DiagnosticLabel::DiagnosticLabel(
+        shadowed_range,
+        Some("shadowed binding"),
+      ),
+    ],
+  )
+}
+
+///|
 fn text_range_or_abort(start : Int, end : Int) -> @core.TextRange {
   try @core.TextRange::from_offsets(start, end) catch {
     _ => abort("rename: invalid diagnostic range")
@@ -197,4 +250,9 @@ fn text_range_or_abort(start : Int, end : Int) -> @core.TextRange {
 ///|
 fn severity_error() -> @core.DiagnosticSeverity {
   @core.DiagnosticSeverity::all()[0]
+}
+
+///|
+fn severity_warning() -> @core.DiagnosticSeverity {
+  @core.DiagnosticSeverity::all()[1]
 }

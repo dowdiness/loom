@@ -255,3 +255,25 @@ test "check_converse_capture: no matching calls returns None" {
   )
   inspect(result is None, content="true")
 }
+
+///|
+test "check_shadow: param shadows outer let binding" {
+  let src = "let g = a\nlet h = \\f. f\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  inspect(result is Some(_), content="true")
+  inspect(
+    result.unwrap().severity is @core.DiagnosticSeverity::Warning,
+    content="true",
+  )
+}
+
+///|
+test "check_shadow: no outer binding returns None" {
+  let src = "let h = \\f. f\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let f_param = def_named(defs, "f")
+  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  inspect(result is None, content="true")
+}
