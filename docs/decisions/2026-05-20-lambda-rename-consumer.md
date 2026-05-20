@@ -47,6 +47,12 @@ from `defs` and `enclosing`, and uses conservative two-pass capture detection
 over defs and calls. Conservative false positives are acceptable for editor
 review; false negatives would permit unsafe edits.
 
+Top-level references are filtered with the lambda module's sequential,
+non-recursive binding semantics: a top-level definition is visible only after
+its full `LetDef` range ends. A reference inside `let f = ...` is not treated as
+bound to that same `f`; a later top-level definition of the same name shadows it
+only after the later definition is complete.
+
 Structured diagnostics keep editor integration data-rich: consumers can inspect
 codes, severity, primary ranges, and labels rather than parsing strings.
 
@@ -57,7 +63,8 @@ whether to apply them based on diagnostic severity.
 
 The implementation inherits the current callers extractor limitations: lexical
 scope modeling is lambda/let-paren based, curried let-paren nesting is deferred,
-and facts are scoped to one parser revision.
+top-level recursion is not modeled, and facts are scoped to one parser
+revision.
 
 Future rename work should add UI integration or broaden language semantics in
 separate follow-up plans. It should not move this logic into Datalog until the

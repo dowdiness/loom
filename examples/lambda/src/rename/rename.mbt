@@ -100,8 +100,15 @@ fn compute_edits(
   let (name_start, name_end) = name_range_of(target, syntax)
   edits.push(TextEdit::{ start: name_start, end: name_end, new_text: new_name })
   for c in calls {
-    if call_resolves_to_target(target, defs, syntax, c) {
-      edits.push(TextEdit::{ start: c.start, end: c.end, new_text: new_name })
+    if c.callee == target.name && c.resolved_scope == target.scope {
+      let (call_start, call_end) = call_name_range_of(c, syntax)
+      if call_resolves_to_target(target, defs, c, call_start) {
+        edits.push(TextEdit::{
+          start: call_start,
+          end: call_end,
+          new_text: new_name,
+        })
+      }
     }
   }
   edits
@@ -111,15 +118,15 @@ fn compute_edits(
 fn call_resolves_to_target(
   target : @callers.Def,
   defs : Array[@callers.Def],
-  syntax : @seam.SyntaxNode,
   call : @callers.Call,
+  call_start : Int,
 ) -> Bool {
   if call.callee != target.name || call.resolved_scope != target.scope {
     return false
   }
   match target.scope {
     @callers.TopScope =>
-      top_scope_call_resolves_to_target(target, defs, syntax, call)
+      top_scope_call_resolves_to_target(target, defs, call, call_start)
     @callers.LambdaScope(_, _) => true
   }
 }
@@ -128,17 +135,16 @@ fn call_resolves_to_target(
 fn top_scope_call_resolves_to_target(
   target : @callers.Def,
   defs : Array[@callers.Def],
-  syntax : @seam.SyntaxNode,
   call : @callers.Call,
+  call_start : Int,
 ) -> Bool {
   let mut winner : @callers.Def? = None
-  let mut winner_start = -1
+  let mut winner_end = -1
   for d in defs {
     if d.scope == @callers.TopScope && d.name == call.callee {
-      let (def_start, _) = name_range_of(d, syntax)
-      if def_start <= call.start && def_start >= winner_start {
+      if d.end <= call_start && d.end >= winner_end {
         winner = Some(d)
-        winner_start = def_start
+        winner_end = d.end
       }
     }
   }

@@ -1731,17 +1731,17 @@ git add examples/lambda/src/rename/rename_test.mbt
 git commit -m "test(lambda/rename): fixture 5 — shadow without converse capture"
 ```
 
-### Step 12.5: Fixture 6 — top-level recursion
+### Step 12.5: Fixture 6 — sequential top-level self-reference
 
 ```moonbit
 ///|
-test "fixture 6 (top-level recursion): rename f -> fff, both refs rewritten" {
+test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
   let src = "let f = \\x. f x\n"
   let (pipeline, syntax, _rt) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
   inspect(plan.target.unwrap().name, content="f")
-  // 2 edits: def-site + recursive call.
-  inspect(plan.edits.length(), content="2")
+  // 1 edit: def-site only. The initializer reference is not recursive.
+  inspect(plan.edits.length(), content="1")
   inspect(plan.diagnostics.length(), content="0")
   pipeline.dispose()
 }
@@ -1750,7 +1750,7 @@ test "fixture 6 (top-level recursion): rename f -> fff, both refs rewritten" {
 ```bash
 cd examples/lambda && moon test -p dowdiness/lambda/rename 2>&1 | tail -5
 git add examples/lambda/src/rename/rename_test.mbt
-git commit -m "test(lambda/rename): fixture 6 — top-level recursion"
+git commit -m "test(lambda/rename): fixture 6 — sequential top-level self-reference"
 ```
 
 ### Step 12.6: Fixture 7 — let-paren parameter

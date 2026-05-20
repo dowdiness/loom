@@ -421,6 +421,42 @@ test "fixture 12 (top-level source order): forward free reference is not rewritt
 }
 
 ///|
+test "fixture 13 (sequential top-level): self-reference is not rewritten" {
+  let src = "let f = f\nlet g = f\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.target.unwrap().name, content="f")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 4), content="true")
+  inspect(edits_cover_offset(plan.edits, 8), content="false")
+  inspect(edits_cover_offset(plan.edits, 18), content="true")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
+  let src = "let f = a\nlet f = f\nlet g = f\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let first_plan = plan_rename(pipeline, src, syntax, 4, "first")
+  inspect(first_plan.target is Some(_), content="true")
+  inspect(first_plan.edits.length(), content="2")
+  inspect(edits_cover_offset(first_plan.edits, 4), content="true")
+  inspect(edits_cover_offset(first_plan.edits, 14), content="false")
+  inspect(edits_cover_offset(first_plan.edits, 18), content="true")
+  inspect(edits_cover_offset(first_plan.edits, 28), content="false")
+  let second_plan = plan_rename(pipeline, src, syntax, 14, "second")
+  inspect(second_plan.target is Some(_), content="true")
+  inspect(second_plan.edits.length(), content="2")
+  inspect(edits_cover_offset(second_plan.edits, 4), content="false")
+  inspect(edits_cover_offset(second_plan.edits, 14), content="true")
+  inspect(edits_cover_offset(second_plan.edits, 18), content="false")
+  inspect(edits_cover_offset(second_plan.edits, 28), content="true")
+  pipeline.dispose()
+}
+
+///|
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = \\f. \\g. f g\n"
   let (pipeline, syntax, _rt) = setup_pipeline(src)
@@ -467,12 +503,14 @@ test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
 }
 
 ///|
-test "fixture 6 (top-level recursion): rename f -> fff, both refs rewritten" {
+test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
   let src = "let f = \\x. f x\n"
   let (pipeline, syntax, _rt) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
   inspect(plan.target.unwrap().name, content="f")
-  inspect(plan.edits.length(), content="2")
+  inspect(plan.edits.length(), content="1")
+  inspect(edits_cover_offset(plan.edits, 4), content="true")
+  inspect(edits_cover_offset(plan.edits, 12), content="false")
   inspect(plan.diagnostics.length(), content="0")
   pipeline.dispose()
 }

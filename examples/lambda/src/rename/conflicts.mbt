@@ -92,13 +92,10 @@ pub fn check_converse_capture(
         is_strict_ancestor(c.resolved_scope, target.scope, enclosing)
       if is_ancestor_or_equal {
         let (target_start, target_end) = name_range_of(target, syntax)
+        let (call_start, call_end) = call_name_range_of(c, syntax)
         return Some(
           make_converse_capture_diagnostic(
-            c.start,
-            c.end,
-            target_start,
-            target_end,
-            new_name,
+            call_start, call_end, target_start, target_end, new_name,
           ),
         )
       }

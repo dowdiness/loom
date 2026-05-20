@@ -16,6 +16,23 @@ pub fn name_range_of(
 }
 
 ///|
+/// Find the byte range of the identifier token corresponding to `call`.
+/// `Call.start/end` is the wider `VarRef` node range, so rename uses this
+/// helper for identifier-only reference edits and labels.
+fn call_name_range_of(
+  call : @callers.Call,
+  syntax : @seam.SyntaxNode,
+) -> (Int, Int) {
+  match find_call_ident_in(syntax, call) {
+    Some(range) => range
+    None =>
+      abort(
+        "call_name_range_of: no IdentToken matched call \\{call.callee} in \\{call.start}..\\{call.end}",
+      )
+  }
+}
+
+///|
 fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
   if node.end() <= def.start || node.start() >= def.end {
     return None
@@ -46,6 +63,33 @@ fn find_ident_in(node : @seam.SyntaxNode, def : @callers.Def) -> (Int, Int)? {
         }
       @seam.SyntaxElement::Node(child_node) =>
         match find_ident_in(child_node, def) {
+          Some(range) => return Some(range)
+          None => ()
+        }
+    }
+  }
+  None
+}
+
+///|
+fn find_call_ident_in(
+  node : @seam.SyntaxNode,
+  call : @callers.Call,
+) -> (Int, Int)? {
+  if node.end() <= call.start || node.start() >= call.end {
+    return None
+  }
+  for child in node.all_children() {
+    match child {
+      @seam.SyntaxElement::Token(tok) =>
+        if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken &&
+          tok.text() == call.callee &&
+          tok.start() >= call.start &&
+          tok.end() <= call.end {
+          return Some((tok.start(), tok.end()))
+        }
+      @seam.SyntaxElement::Node(child_node) =>
+        match find_call_ident_in(child_node, call) {
           Some(range) => return Some(range)
           None => ()
         }

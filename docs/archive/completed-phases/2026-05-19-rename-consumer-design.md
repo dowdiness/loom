@@ -37,7 +37,7 @@ The rename consumer must close these gaps without re-opening the Datalog-deferra
 ## 2. Constraints that shape the design
 
 - **Pipeline data is the source of truth, not a duplicate extraction.** Re-walking the syntax tree per rename throws away the incremental `facts` Memo's cached state. The rename consumer reads cached facts, never re-extracts.
-- **`Def.start/end` is the enclosing-node range, not the identifier-token range.** Verified at `examples/lambda/src/callers/callers.mbt:205, :227, :248` — for let definitions, lambda parameters, and let-paren parameters respectively, `start/end` is the wider AST node. Edits must target the identifier subrange.
+- **`Def.start/end` and `Call.start/end` are enclosing-node ranges, not identifier-token ranges.** Verified at `examples/lambda/src/callers/callers.mbt:205, :227, :248, :274` — for let definitions, lambda parameters, let-paren parameters, and var references respectively, `start/end` is the wider AST node. Edits must target the identifier subrange.
 - **`visible_from` returns `Bool`, not binding identity.** The rename consumer reconstructs shadowing semantics client-side; the pipeline stays minimal.
 - **Curried / nested let-paren is not modeled by the current extractor.** `examples/lambda/src/callers/callers.mbt:241` puts all params from one `ParamList` into the same `LambdaScope`. Multi-`ParamList` let-paren (`let f (x) (y) = ...`) is not modeled as nested scopes. V1 ships uncurried support only and documents the gap.
 - **One-shot computation, not a long-lived reactive cell.** `plan_rename` is called when the user invokes a rename action. It reads pipeline state once and returns a value; it does not register dependent cells in `@incr`.
@@ -152,7 +152,7 @@ fn compute_edits(target : Def, calls : Array[Call], syntax : SyntaxNode, new_nam
 Edit set:
 
 1. Def-site edit: `TextEdit(name_start, name_end, new_name)` from `name_range_of(target, syntax)`.
-2. Reference edits: for each `c : Call` where `c.callee == target.name && c.resolved_scope == target.scope`, emit `TextEdit(c.start, c.end, new_name)`.
+2. Reference edits: for each `c : Call` where `c.callee == target.name && c.resolved_scope == target.scope`, emit a `TextEdit` over the call's identifier-token range. For `TopScope`, that scope match is only a coarse filter; the consumer then chooses the nearest completed top-level definition of that name whose `LetDef` range ends before the call identifier starts.
 
 The reference filter uses raw `calls` from `pipeline.facts()`, not `callers_of`, because:
 
@@ -291,32 +291,38 @@ Shadow also fires here (the rename shadows outer `let g`). Both diagnostics are 
 Source: `let g = a\nlet h = \f. f\n` — rename target = lambda `f` in the second let, new_name = `g`.
 target.scope = `LambdaScope(...)`. resolve_innermost(parent = TopScope, "g") finds outer `let g`. Shadow diagnostic emitted (Warning, not Error — legal but flagged). No converse-capture because the lambda body `f` never references `g`.
 
-### 6.6 Top-level recursive
+### 6.6 Sequential top-level self-reference
 
 Source: `let f = \x. f x\n`
-Target: `f` at TopScope. The recursive call `f x` resolves to TopScope.
-Edits: def site `f` (after `let`) + recursive call `f` (inside the lambda body). Both rewritten.
+Target: `f` at TopScope. The lambda module uses sequential, non-recursive
+top-level semantics, so the reference inside the definition's own initializer is
+not bound to that same `f`.
+Edits: def site `f` (after `let`) only.
 Diagnostics: empty (no collision).
 
 ## 7. Test fixtures
 
-Ten fixtures in `examples/lambda/src/rename/rename_test.mbt`. All source strings use the lambda example's actual grammar (`let name = expr\n` chains; `\x. body` lambdas; `f x` application; `let f (x) = body` let-paren).
+Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example's actual grammar (`let name = expr\n` chains; `\x. body` lambdas; `f x` application; `let f (x) = body` let-paren).
 
 1. **Smoke (top-level let)** — `let f = \x. x\nlet r = f (f y)\n` → rename `f → fff`. Verify three edits (def site + two body references), no diagnostics.
 2. **Sibling collision** — `let f = a\nlet g = b\n` → rename `f → g`. Verify Error diagnostic, edits still produced.
 3. **Forward capture (nested lambda)** — `let h = \f. \g. f g\n` → rename outer `f → g`. Verify Error diagnostic with `code = "rename.capture"` and forward label (inner lambda's `g` parameter would intercept the rewritten reference).
 4. **Converse capture + shadow** — `let g = a\nlet h = \f. f g\n` → rename param `f → g`. Verify Error (`rename.capture` converse) AND Warning (`rename.shadow`) — both fire on this fixture.
 5. **Shadow without converse-capture** — `let g = a\nlet h = \f. f\n` → rename param `f → g`. Verify Warning diagnostic only (shadows outer `g`; no call sites affected because body doesn't reference `g`).
-6. **Top-level recursion** — `let f = \x. f x\n` → rename `f → fff`. Verify both `f` references rewritten.
+6. **Sequential top-level self-reference** — `let f = \x. f x\n` → rename `f → fff`. Verify only the def-site `f` is rewritten.
 7. **Let-paren parameter rename** — `let f (x) = x\n` → rename param `x → y`. Verify two edits (param def site + body reference), no diagnostics (parameter rename in same scope).
 8. **No-op** — rename `f → f`. Verify no edits, single Info diagnostic.
 9. **Offset miss** — offset inside whitespace or on the `let` keyword. Verify `rename.no_target_at_offset` Error, no edits.
 10. **Name-range correctness (meta)** — for each binding kind (LetDef, lambda param, let-paren param), verify the def-site edit's `(start, end)` is the identifier-token range, not the enclosing-node range.
+11. **Let-paren repeated name** — `let f (f) = f\n` → rename the parameter `f → g`. Verify the function-name binding is not edited.
+12. **Top-level source order** — `let a = f\nlet f = z\nlet b = f\n` → rename the later `f`. Verify the earlier free reference is not rewritten.
+13. **Sequential top-level self-reference** — `let f = f\nlet g = f\n` → rename the first `f`. Verify the initializer `f` is not rewritten but the later reference is.
+14. **Sequential duplicate top-level name** — `let f = a\nlet f = f\nlet g = f\n`. Verify the second definition's initializer sees the previous `f`, and later references see the second `f`.
 
 ## 8. Out of scope for v1
 
 - **Curried let-paren / nested-ParamList renames**: `let f (x) (y) = ...` — the extractor doesn't model these as nested scopes (`callers.mbt:241`). Renaming within them is undefined behavior in v1; document and skip.
-- **Let-paren-bound recursion**: `let f (x) = f x` — interaction between let-paren scope and self-reference is subtle; defer.
+- **Let-paren-bound self-reference**: `let f (x) = f x` — interaction between let-paren parameter scope and top-level sequential visibility is subtle; defer.
 - **Cross-file rename**: lambda example has no module system.
 - **Undo construction**: rename returns edits; the editor builds undo from the inverse edits or from `TextDelta`-style retain/insert/delete tracking. Not the analysis layer's concern.
 - **Preview snippets**: editor concern.
