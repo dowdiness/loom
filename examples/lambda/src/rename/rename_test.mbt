@@ -420,3 +420,17 @@ test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
   )
   pipeline.dispose()
 }
+
+///|
+test "fixture 9 (offset miss): whitespace offset returns no_target diagnostic" {
+  let src = "let f = a\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let plan = plan_rename(pipeline, src, syntax, 3, "fff")
+  inspect(plan.target is None, content="true")
+  inspect(plan.edits.length(), content="0")
+  inspect(
+    diagnostics_have_code(plan.diagnostics, "rename.no_target_at_offset"),
+    content="true",
+  )
+  pipeline.dispose()
+}
