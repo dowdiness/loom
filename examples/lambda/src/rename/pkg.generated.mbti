@@ -9,7 +9,11 @@ import {
 }
 
 // Values
+pub fn check_forward_capture(@callers.Def, String, Array[@callers.Def], Array[(@callers.ScopeId, @callers.ScopeId)], @seam.SyntaxNode) -> @core.Diagnostic?
+
 pub fn check_sibling_collision(@callers.Def, String, Array[@callers.Def], @seam.SyntaxNode) -> @core.Diagnostic?
+
+pub fn is_strict_ancestor(@callers.ScopeId, @callers.ScopeId, Array[(@callers.ScopeId, @callers.ScopeId)]) -> Bool
 
 pub fn locate_target(Array[@callers.Def], @seam.SyntaxNode, Int) -> @callers.Def?
 

@@ -172,3 +172,62 @@ test "check_sibling_collision: no collision returns None" {
   let result = check_sibling_collision(f_def, "totally_new", defs, syntax)
   inspect(result is None, content="true")
 }
+
+///|
+test "is_strict_ancestor: top scope is ancestor of lambda scope" {
+  let (_, defs, _, enclosing) = facts_for_test("let h = \\x. x\n")
+  let h_def = def_named(defs, "h")
+  let x_def = def_named(defs, "x")
+  inspect(
+    is_strict_ancestor(h_def.scope, x_def.scope, enclosing),
+    content="true",
+  )
+}
+
+///|
+test "is_strict_ancestor: equal scopes return false" {
+  let (_, defs, _, enclosing) = facts_for_test("let h = \\x. x\n")
+  let x_def = def_named(defs, "x")
+  inspect(
+    is_strict_ancestor(x_def.scope, x_def.scope, enclosing),
+    content="false",
+  )
+}
+
+///|
+test "is_strict_ancestor: sibling lambda scopes return false" {
+  let (_, defs, _, enclosing) = facts_for_test(
+    "let a = \\x. x\nlet b = \\y. y\n",
+  )
+  let x_def = def_named(defs, "x")
+  let y_def = def_named(defs, "y")
+  inspect(
+    is_strict_ancestor(x_def.scope, y_def.scope, enclosing),
+    content="false",
+  )
+}
+
+///|
+test "check_forward_capture: descendant binding fires" {
+  let src = "let h = \\f. \\g. f g\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let h_def = def_named(defs, "h")
+  let outer_f = def_named_outside_scope(defs, "f", h_def.scope)
+  let result = check_forward_capture(outer_f, "g", defs, enclosing, syntax)
+  inspect(result is Some(_), content="true")
+  inspect(
+    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    content="true",
+  )
+}
+
+///|
+test "check_forward_capture: no descendant with new_name returns None" {
+  let src = "let f = \\x. x\n"
+  let (syntax, defs, _, enclosing) = facts_for_test(src)
+  let f_def = def_named(defs, "f")
+  let result = check_forward_capture(
+    f_def, "totally_new", defs, enclosing, syntax,
+  )
+  inspect(result is None, content="true")
+}
