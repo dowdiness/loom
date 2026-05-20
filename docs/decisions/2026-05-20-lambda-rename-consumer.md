@@ -28,6 +28,10 @@ those facts once, locates the binding by identifier-token range, computes
 `TextEdit`s, and emits structured `@core.Diagnostic` values for no-target,
 no-op, sibling collision, capture, and shadow cases.
 
+`@callers.Def` keeps its containing-node `start/end` range and also stores
+`name_start/name_end` so consumers can target the exact binding token even when
+multiple bindings share one `LetDef` node.
+
 The rename package does not add new `@incr` cells. It consumes the existing
 callers pipeline state as a single-revision query.
 

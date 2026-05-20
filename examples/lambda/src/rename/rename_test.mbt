@@ -147,6 +147,23 @@ test "name_range_of: let-paren parameter can share function name" {
 }
 
 ///|
+test "name_range_of: duplicate let-paren parameters keep separate ranges" {
+  let src = "let f(x, x) = x\n"
+  let syntax = parse_to_syntax(src)
+  let (defs, _) = @callers.extract_facts(syntax)
+  let first = locate_target(defs, syntax, 6)
+  inspect(first is Some(_), content="true")
+  let (first_start, first_end) = name_range_of(first.unwrap(), syntax)
+  inspect(first_start, content="6")
+  inspect(first_end, content="7")
+  let second = locate_target(defs, syntax, 9)
+  inspect(second is Some(_), content="true")
+  let (second_start, second_end) = name_range_of(second.unwrap(), syntax)
+  inspect(second_start, content="9")
+  inspect(second_end, content="10")
+}
+
+///|
 test "locate_target: hits top-level LetDef name" {
   let src = "let foo = bar\n"
   let syntax = parse_to_syntax(src)
@@ -201,6 +218,15 @@ test "resolve_innermost: innermost wins" {
   let result = resolve_innermost(inner_x.scope, "x", defs, enclosing)
   inspect(result is Some(_), content="true")
   inspect(result.unwrap().start, content=inner_x.start.to_string())
+}
+
+///|
+test "resolve_innermost: duplicate let-paren params use latest slot" {
+  let (syntax, defs, _, enclosing) = facts_for_test("let f(x, x) = x\n")
+  let second_x = locate_target(defs, syntax, 9).unwrap()
+  let result = resolve_innermost(second_x.scope, "x", defs, enclosing)
+  inspect(result is Some(_), content="true")
+  inspect(result.unwrap().name_start, content="9")
 }
 
 ///|
@@ -494,6 +520,27 @@ test "fixture 17 (block let): local binding does not leak after block" {
   inspect(edits_cover_offset(plan.edits, 14), content="true")
   inspect(edits_cover_offset(plan.edits, 21), content="true")
   inspect(edits_cover_offset(plan.edits, 25), content="false")
+  inspect(plan.diagnostics.length(), content="0")
+  pipeline.dispose()
+}
+
+///|
+test "fixture 18 (let-paren duplicate params): second parameter is targetable" {
+  let src = "let f(x, x) = x\n"
+  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let first_plan = plan_rename(pipeline, src, syntax, 6, "y")
+  inspect(first_plan.target is Some(_), content="true")
+  inspect(first_plan.edits.length(), content="1")
+  inspect(edits_cover_offset(first_plan.edits, 6), content="true")
+  inspect(edits_cover_offset(first_plan.edits, 9), content="false")
+  inspect(edits_cover_offset(first_plan.edits, 14), content="false")
+  inspect(first_plan.diagnostics.length(), content="0")
+  let plan = plan_rename(pipeline, src, syntax, 9, "y")
+  inspect(plan.target is Some(_), content="true")
+  inspect(plan.edits.length(), content="2")
+  inspect(edits_cover_offset(plan.edits, 6), content="false")
+  inspect(edits_cover_offset(plan.edits, 9), content="true")
+  inspect(edits_cover_offset(plan.edits, 14), content="true")
   inspect(plan.diagnostics.length(), content="0")
   pipeline.dispose()
 }

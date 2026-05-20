@@ -37,7 +37,7 @@ The rename consumer must close these gaps without re-opening the Datalog-deferra
 ## 2. Constraints that shape the design
 
 - **Pipeline data is the source of truth, not a duplicate extraction.** Re-walking the syntax tree per rename throws away the incremental `facts` Memo's cached state. The rename consumer reads cached facts, never re-extracts.
-- **`Def.start/end` and `Call.start/end` are enclosing-node ranges, not identifier-token ranges.** Verified at `examples/lambda/src/callers/callers.mbt:205, :227, :248, :274` — for let definitions, lambda parameters, let-paren parameters, and var references respectively, `start/end` is the wider AST node. Edits must target the identifier subrange.
+- **`Def.start/end` and `Call.start/end` are enclosing-node ranges, not identifier-token ranges.** Verified at `examples/lambda/src/callers/callers.mbt:205, :227, :248, :274` — for let definitions, lambda parameters, let-paren parameters, and var references respectively, `start/end` is the wider AST node. `Def.name_start/name_end` carries the binding identifier range; reference edits still compute the identifier token from the `VarRef` node.
 - **`visible_from` returns `Bool`, not binding identity.** The rename consumer reconstructs shadowing semantics client-side; the pipeline stays minimal.
 - **Curried / nested let-paren is not modeled by the current extractor.** `examples/lambda/src/callers/callers.mbt:241` puts all params from one `ParamList` into the same `LambdaScope`. Multi-`ParamList` let-paren (`let f (x) (y) = ...`) is not modeled as nested scopes. V1 ships uncurried support only and documents the gap.
 - **One-shot computation, not a long-lived reactive cell.** `plan_rename` is called when the user invokes a rename action. It reads pipeline state once and returns a value; it does not register dependent cells in `@incr`.
@@ -119,7 +119,7 @@ pub struct TextEdit {
 fn locate_target(defs : Array[Def], syntax : SyntaxNode, offset : Int) -> Def?
 ```
 
-For each candidate `d` in `defs`, compute `(name_start, name_end) = name_range_of(d, syntax)` (see §5.3) and accept `d` iff `name_start <= offset < name_end`. Returns the unique matching def, or `None` if none.
+For each candidate `d` in `defs`, read `(name_start, name_end) = name_range_of(d, syntax)` (see §5.3) and accept `d` iff `name_start <= offset < name_end`. Returns the unique matching def, or `None` if none.
 
 Why not use `d.start <= offset < d.end`: `Def.start/end` is the *enclosing-node range* (verified at `callers.mbt:205, :227, :248` for lambda param, let definition, and let-paren param respectively). The let-paren node's range contains its parameter's range; the lambda node's range contains its body. Filtering by the wider range would match multiple defs simultaneously (e.g., clicking inside the body of `\x. f(x)` would match the lambda param `x`, even though the offset is on `f`).
 
@@ -127,20 +127,15 @@ The identifier-token range is the *clickable region* — exactly the bytes the u
 
 If no def's identifier range contains the offset, target = `None` and an Error diagnostic `rename.no_target_at_offset` is emitted.
 
-### 5.3 Name-range extraction (the Codex BLOCK F fix)
+### 5.3 Name-range extraction (review fix)
 
 ```
 fn name_range_of(def : Def, syntax : SyntaxNode) -> (Int, Int)
 ```
 
-Walks the syntax tree from the node containing `def.start..def.end` to find the identifier token matching `def.name`. Returns the token's byte range. This is the source of every TextEdit's `(start, end)`.
+Returns the stored `def.name_start/name_end` identifier-token range. This is the source of every def-site TextEdit's `(start, end)`.
 
-Three call paths based on def's binding kind, detected by inspecting the containing AST node:
-- **LetDef**: identifier follows the `let` keyword
-- **Lambda parameter** (`\x. body`): identifier follows the `\` lambda introducer
-- **Let-paren parameter** (`let f (x) = ...`): identifier is inside the `ParamList`
-
-The helper uses `@seam.SyntaxNode::children()` + `@seam.SyntaxToken::text()` (per `seam/syntax_node.mbt:30`) to walk.
+`Def.start/end` remains the containing syntax-node range for consumers that need a wider binding span. The extra name range is what lets rename disambiguate bindings that share a containing node, including `let f (f) = ...` and duplicate let-paren parameters such as `let f(x, x) = ...`.
 
 ### 5.4 Edit computation
 
@@ -152,7 +147,7 @@ fn compute_edits(target : Def, calls : Array[Call], syntax : SyntaxNode, new_nam
 Edit set:
 
 1. Def-site edit: `TextEdit(name_start, name_end, new_name)` from `name_range_of(target, syntax)`.
-2. Reference edits: for each `c : Call` where `c.callee == target.name && c.resolved_scope == target.scope`, emit a `TextEdit` over the call's identifier-token range. For `TopScope`, that scope match is only a coarse filter; the consumer then chooses the nearest completed top-level definition of that name whose `LetDef` range ends before the call identifier starts.
+2. Reference edits: for each `c : Call` where `c.callee == target.name`, compute the call's identifier-token range and resolve the name from that source position. The resolver chooses completed `let` bindings in source order, confines block-local `let` visibility to the containing `SourceFile` or `BlockExpr`, and uses the latest same-name let-paren parameter slot for duplicate parameters.
 
 The reference filter uses raw `calls` from `pipeline.facts()`, not `callers_of`, because:
 
@@ -172,13 +167,13 @@ fn resolve_innermost(
 ) -> Def?
 ```
 
-Walks the parent chain from `scope` upward via `enclosing` edges. At each visited scope `S`, checks whether any `Def` in `defs` has `d.scope == S && d.name == name`. Returns the first match.
+Walks the parent chain from `scope` upward via `enclosing` edges. At each visited scope `S`, checks whether any `Def` in `defs` has `d.scope == S && d.name == name`. Returns the first matching completed `let` in that scope, or the latest matching scope-binding parameter slot when duplicate let-paren parameters share one collapsed `LambdaScope`.
 
 `TopScope` has no parent edge — the walk terminates after checking TopScope's bindings.
 
 This is the *only* shadowing-aware operation the rename package needs. It does not propagate back into the pipeline.
 
-**Ambiguity tiebreaker**: if multiple defs in `defs` share the same `(name, scope)` pair (e.g., malformed input or duplicate let-paren params per `callers.mbt:241`), `resolve_innermost` returns the one appearing *first* in the `defs` array. This matches the extractor's emission order — the syntactically first binding wins. Editors that surface this case should still get a deterministic answer.
+**Ambiguity tiebreaker**: if multiple scope-binding defs share the same `(name, scope)` pair (duplicate let-paren params per `callers.mbt:241`), `resolve_innermost` returns the later parameter slot. This matches the right-folded nested-lambda desugaring: in `let f(x, x) = x`, the body `x` resolves to the second parameter. Duplicate top-level definitions still follow the module's sequential source-order rules.
 
 ### 5.6 Conflict detection
 
@@ -318,6 +313,10 @@ Fixtures in `examples/lambda/src/rename/rename_test.mbt` use the lambda example'
 12. **Top-level source order** — `let a = f\nlet f = z\nlet b = f\n` → rename the later `f`. Verify the earlier free reference is not rewritten.
 13. **Sequential top-level self-reference** — `let f = f\nlet g = f\n` → rename the first `f`. Verify the initializer `f` is not rewritten but the later reference is.
 14. **Sequential duplicate top-level name** — `let f = a\nlet f = f\nlet g = f\n`. Verify the second definition's initializer sees the previous `f`, and later references see the second `f`.
+15. **Block-local initializer** — `let h = \x. { let x = x; x }\n`. Verify the block binding does not rewrite its own initializer.
+16. **Block-local body reference** — `let h = \x. { let y = x; y }\n`. Verify a unique block-local binding edits its body reference.
+17. **Block-local visibility boundary** — `let h = { let x = a; x } x\n`. Verify the block binding does not rewrite the trailing reference outside the block.
+18. **Duplicate let-paren parameter slots** — `let f(x, x) = x\n`. Verify each parameter is targetable by its own identifier range and the body reference belongs to the later duplicate slot.
 
 ## 8. Out of scope for v1
 
@@ -348,7 +347,7 @@ Rejected: `extract_facts` is `pub` and reusable, but calling it per rename invoc
 
 ### 9.5 Add `name_start`/`name_end` to `Def`
 
-Considered. Rejected for v1: would expand the callers public API and require all existing consumers to adapt. The need is rename-specific — `defs_of` UI consumers ("highlight where this is bound") want the wider node range. A 20-line `name_range_of` helper in the rename package is cheaper than a pipeline-wide API change. May revisit if a second consumer surfaces the same need.
+Accepted during PR review. The original rename-only syntax scan could disambiguate binding kind, but not repeated parameter slots with the same spelling inside one `ParamList`. Storing the identifier-token range on `Def` preserves the existing containing-node `start/end` fields while giving every binding a stable clickable/editable range.
 
 ### 9.6 Extend `Call` with lexical scope (the precision fix for capture conservatism)
 
@@ -366,12 +365,12 @@ Promotion criterion: if real-world rename usage produces too many false-positive
 ## 10. Risks
 
 - **Capture-check overcounting noise**: conservative descendant scan emits false positives when the actual call's lexical chain doesn't pass through the flagged def. Mitigation: editor UI presents conflicts as "review before applying"; not blocking. Long-term fix: lexical-scope-per-call would require an extractor pass extension — punted to a follow-up.
-- **Name-range extraction brittleness**: `name_range_of` depends on the lambda grammar's surface syntax. If the grammar changes (e.g., adding patterns to let definitions), the helper breaks silently. Mitigation: fixture 10 (name-range correctness) covers each binding kind; new kinds added to the grammar must add corresponding tests in the same PR.
+- **Binding range API churn**: `Def` now carries both containing-node and identifier-token ranges. Mitigation: generated interfaces and callers tests pin the field shape, while rename fixtures 10, 11, and 18 cover the ranges that feed edits.
 - **Diagnostic schema coupling to editor**: the codes (`rename.capture`, etc.) become an implicit interface. Mitigation: document codes in this spec; the editor consumer's choice to dispatch on codes is its responsibility.
 - **`pipeline.facts()` defensive-copy cost**: every rename invocation pays an `O(defs + calls + enclosing)` copy. Mitigation: ranges are typically small (10s to 100s of items per file); copy cost is dominated by the rename's own work. If profiling shows it hot, expose a `facts_views() -> (ArrayView[Def], ...)` instead.
 
 ## 11. Decision record
 
-This spec captures the design; no ADR is needed because the design fits within the predecessor's architectural envelope (callers pipeline as analysis layer; consumers stack on top without growing the pipeline). The architectural decision *not* to extend the pipeline with shadowing semantics is documented in §9.1–§9.2.
+This spec is recorded by [ADR: Lambda Rename Consumer](../../decisions/2026-05-20-lambda-rename-consumer.md). The architectural decision *not* to extend the pipeline with shadowing semantics is documented in §9.1–§9.2.
 
 If the conservative capture rule (§5.6) proves too noisy in practice, a follow-up ADR may codify a revised conflict-severity policy. Until then, the spec stands as the design record.

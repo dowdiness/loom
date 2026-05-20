@@ -102,8 +102,15 @@ test "pipeline: survives rt.gc() before first read (facts_observer anchor)" {
 ///|
 test "build_visibility: TopScope-only defs are visible from TopScope" {
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 9 },
-    { name: "g", scope: TopScope, start: 10, end: 19 },
+    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+    {
+      name: "g",
+      scope: TopScope,
+      start: 10,
+      end: 19,
+      name_start: 14,
+      name_end: 15,
+    },
   ]
   let enclosing : Array[(ScopeId, ScopeId)] = []
   let v = build_visibility(defs, enclosing)
@@ -116,8 +123,15 @@ test "build_visibility: TopScope-only defs are visible from TopScope" {
 test "build_visibility: child scope inherits parent's bindings" {
   let inner = LambdaScope(10, 20)
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 9 },
-    { name: "x", scope: inner, start: 10, end: 20 },
+    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+    {
+      name: "x",
+      scope: inner,
+      start: 10,
+      end: 20,
+      name_start: 11,
+      name_end: 12,
+    },
   ]
   let enclosing : Array[(ScopeId, ScopeId)] = [(inner, TopScope)]
   let v = build_visibility(defs, enclosing)
@@ -134,9 +148,16 @@ test "build_visibility: deeply nested chain transitively inherits" {
   let outer = LambdaScope(5, 30)
   let inner = LambdaScope(15, 25)
   let defs : Array[Def] = [
-    { name: "f", scope: TopScope, start: 0, end: 4 },
-    { name: "x", scope: outer, start: 5, end: 30 },
-    { name: "y", scope: inner, start: 15, end: 25 },
+    { name: "f", scope: TopScope, start: 0, end: 4, name_start: 0, name_end: 1 },
+    { name: "x", scope: outer, start: 5, end: 30, name_start: 6, name_end: 7 },
+    {
+      name: "y",
+      scope: inner,
+      start: 15,
+      end: 25,
+      name_start: 16,
+      name_end: 17,
+    },
   ]
   let enclosing : Array[(ScopeId, ScopeId)] = [
     (outer, TopScope),
@@ -158,7 +179,9 @@ test "build_visibility: scope with no own bindings still inherits ancestors" {
   // Models the malformed-lambda case at callers.mbt:204: frame pushed
   // without a Def. The child scope must still appear and inherit.
   let empty_inner = LambdaScope(10, 12)
-  let defs : Array[Def] = [{ name: "f", scope: TopScope, start: 0, end: 9 }]
+  let defs : Array[Def] = [
+    { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },
+  ]
   let enclosing : Array[(ScopeId, ScopeId)] = [(empty_inner, TopScope)]
   let v = build_visibility(defs, enclosing)
   inspect(v.get((empty_inner, "f")) is Some(_), content="true")

@@ -211,12 +211,13 @@ fn scope_binding_def(
   name : String,
   defs : Array[@callers.Def],
 ) -> @callers.Def? {
+  let mut winner : @callers.Def? = None
   for d in defs {
     if d.scope == scope && d.name == name && is_scope_binding_def(d) {
-      return Some(d)
+      winner = Some(d)
     }
   }
-  None
+  winner
 }
 
 ///|

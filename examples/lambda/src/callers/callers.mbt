@@ -58,6 +58,8 @@ pub struct Def {
   scope : ScopeId
   start : Int
   end : Int
+  name_start : Int
+  name_end : Int
 } derive(Eq, Debug)
 
 ///|
@@ -204,6 +206,8 @@ fn collect_in(
             scope: frame_id,
             start: node.start(),
             end: node.end(),
+            name_start: tok.start(),
+            name_end: tok.end(),
           })
         }
         None => ()
@@ -226,6 +230,8 @@ fn collect_in(
             scope: outer_scope,
             start: node.start(),
             end: node.end(),
+            name_start: tok.start(),
+            name_end: tok.end(),
           })
         None => ()
       }
@@ -247,6 +253,8 @@ fn collect_in(
                 scope: frame_id,
                 start: node.start(),
                 end: node.end(),
+                name_start: tok.start(),
+                name_end: tok.end(),
               })
             }
           }

@@ -42,6 +42,8 @@ pub struct Def {
   scope : ScopeId
   start : Int
   end : Int
+  name_start : Int
+  name_end : Int
 } derive(Eq, @debug.Debug)
 pub impl Show for Def
 

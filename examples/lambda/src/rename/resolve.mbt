@@ -23,10 +23,19 @@ fn resolve_innermost_from(
     return None
   }
   visited.add(current)
+  let mut scope_binding : @callers.Def? = None
   for d in defs {
     if d.scope == current && d.name == name {
-      return Some(d)
+      if is_scope_binding_def(d) {
+        scope_binding = Some(d)
+      } else {
+        return Some(d)
+      }
     }
+  }
+  match scope_binding {
+    Some(d) => return Some(d)
+    None => ()
   }
   match parent_scope_of(current, enclosing) {
     Some(parent) =>
