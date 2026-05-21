@@ -513,6 +513,53 @@ test "parse_with: records errors on bad input" {
 // ─── ReuseCursor[T, K] tests ─────────────────────────────────────────────────
 
 ///|
+fn test_parse_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+  while !ctx.at_eof() {
+    match ctx.peek() {
+      Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+      _ => ctx.emit_token(KPlus)
+    }
+  }
+}
+
+///|
+fn test_parse_item_tree(src : String) -> @seam.CstNode {
+  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_parse_item_nodes)
+  tree
+}
+
+///|
+fn test_reuse_cursor(
+  old_tree : @seam.CstNode,
+  new_src : String,
+  damage_start : Int,
+  damage_end : Int,
+  new_damage_end? : Int = damage_end,
+  allow_left_adjacent_reuse? : Bool = false,
+  reuse_size_threshold? : Int = 0,
+) -> ReuseCursor[TestTok, TestKind] {
+  let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
+  ReuseCursor::new(
+    old_tree,
+    damage_start,
+    damage_end,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold~,
+    allow_left_adjacent_reuse~,
+    new_damage_end~,
+  )
+}
+
+///|
 test "ReuseCursor::new: globally disabled when damage covers root" {
   let src = "42"
   let (tree, _) = parse_with(src, test_spec, test_tokenize, test_grammar)
@@ -550,6 +597,84 @@ test "ReuseCursor::new: not globally disabled with partial damage" {
     test_spec,
   )
   inspect(cursor.is_reuse_disabled(), content="false")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports root damage disable" {
+  let src = "1+2"
+  let old_tree = test_parse_item_tree(src)
+  let cursor = test_reuse_cursor(old_tree, src, 0, old_tree.text_len)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason == Some(ReuseRejectGloballyDisabled), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports edited offset" {
+  let old_tree = test_parse_item_tree("1+2")
+  let cursor = test_reuse_cursor(old_tree, "1++2", 1, 1, new_damage_end=2)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 1, 1)
+  inspect(reason == Some(ReuseRejectEditedOffset), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports missing candidate" {
+  let src = "1+2"
+  let old_tree = test_parse_item_tree(src)
+  let cursor = test_reuse_cursor(old_tree, src, 99, 99)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KPlus), 0, 0)
+  inspect(reason == Some(ReuseRejectNoCandidate), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports size policy rejection" {
+  let src = "1+2"
+  let old_tree = test_parse_item_tree(src)
+  let cursor = test_reuse_cursor(
+    old_tree, src, 99, 99, reuse_size_threshold=99,
+  )
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason == Some(ReuseRejectBelowSizeThreshold), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports damage overlap" {
+  let src = "1+2"
+  let old_tree = test_parse_item_tree(src)
+  let cursor = test_reuse_cursor(old_tree, src, 1, 2)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason == Some(ReuseRejectDamageOverlap), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports leading token mismatch" {
+  let old_tree = test_parse_item_tree("1+2")
+  let cursor = test_reuse_cursor(old_tree, "9+2", 99, 99)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason == Some(ReuseRejectLeadingTokenMismatch), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: reports follow token mismatch" {
+  let old_tree = test_parse_item_tree("1+2")
+  let cursor = test_reuse_cursor(
+    old_tree,
+    "1 2",
+    1,
+    2,
+    new_damage_end=2,
+    allow_left_adjacent_reuse=true,
+  )
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason == Some(ReuseRejectFollowTokenMismatch), content="true")
+}
+
+///|
+test "ReuseCursor::explain_reuse_rejection: returns None for accepted reuse" {
+  let src = "1+2"
+  let old_tree = test_parse_item_tree(src)
+  let cursor = test_reuse_cursor(old_tree, src, 99, 99)
+  let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
+  inspect(reason is None, content="true")
 }
 
 ///|

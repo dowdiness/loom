@@ -201,14 +201,15 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
   sequences. The primary oracle is structural AST equality against a full
   reparse; the only new reuse-count assertion is the unambiguous same-length
   sibling `let` reuse fixture.
-- [ ] **Reuse rejection diagnostics** — add a debug-only trace or inspection
-  hook that explains why a candidate subtree was rejected: damage overlap,
-  leading token mismatch, follow-token mismatch, token merge/split context, or
-  reuse policy. This should help diagnose future parser-seam regressions without
-  changing release behavior.
-- [ ] **Reuse policy API cleanup** — if more reuse knobs appear, replace boolean
-  flags such as `allow_left_adjacent_reuse` with a small `ReusePolicy` or
-  `EditReusePolicy` value. Do not churn the API for this single flag alone.
+- [x] ~~**Reuse rejection diagnostics**~~ — **done** 2026-05-21: core
+  whitebox tests can inspect why a regular node reuse candidate was rejected:
+  global disable, edited offset, missing candidate, size policy, damage overlap,
+  leading-token mismatch, or follow-token mismatch. The hook is package-private,
+  so release behavior and public API stay unchanged.
+- [x] ~~**Reuse policy API cleanup**~~ — **no change needed** 2026-05-21:
+  rejection diagnostics did not add policy knobs. Keep the single
+  `allow_left_adjacent_reuse` boolean until a second real knob appears; do not
+  introduce `ReusePolicy` preemptively.
 - [x] ~~Redesign FlatProj for flat AST~~ — Resolved by PR #37: `from_proj_node` removed from hot path. Tree edits now produce text deltas directly via source map. Known limitation: `Drop` moves child text without surrounding operators/separators.
 
 ---
