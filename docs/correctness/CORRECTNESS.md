@@ -32,7 +32,9 @@ structure, kinds, and token boundaries must match.
 Subtree reuse is permitted only when multiple checks succeed:
 
 - Node kind matches the expected kind at the parser checkpoint.
-- Node is outside the damaged range (strict inequality at boundaries).
+- Node is outside the damaged range. The default cursor policy keeps
+  left-adjacent nodes strict, while the parser-owned edit path opts into
+  left-adjacent reuse for pure deletions only.
 - Leading token kind/text matches the current token stream.
 - Trailing context must match (Option B: follow-token equality).
 
@@ -115,8 +117,12 @@ These are documented to keep the correctness story honest:
 
 - Reuse is conservative around leading whitespace, reducing reuse on
   whitespace-only edits but preserving correctness.
-- Adjacent damage is treated as unsafe, which avoids false reuse at
-  grammar-sensitive boundaries (application).
+- Left-adjacent insertion remains unsafe by default. Pure deletion may reuse
+  the left-adjacent node only when the leading and trailing token checks still
+  match, so token-merge cases are reparsed.
+- The current deletion-preservation contract does not require a separate
+  parser-owned token/subtree identity projection; that would only be needed for
+  a stronger identity-through-token-merge contract.
 
 ## Performance Findings (Profiling)
 

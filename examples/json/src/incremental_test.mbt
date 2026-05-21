@@ -23,6 +23,40 @@ test "incremental: edit value in array matches full reparse" {
 }
 
 ///|
+test "incremental: deletion opt-in reuses left-adjacent array element" {
+  let source = "[1 , 2]"
+  let (old_tree, _) = try! parse_cst(source)
+  let new_source = "[1, 2]"
+  let tokens = try! tokenize(new_source)
+  let edit = @core.Edit::delete(2, 3)
+  let strict_cursor = make_reuse_cursor_with_edit(
+    old_tree, edit, tokens, new_source,
+  )
+  let (_, strict_errors, strict_reuse_count) = parse_cst_recover_with_tokens(
+    new_source,
+    tokens,
+    Some(strict_cursor),
+  )
+  let relaxed_cursor = make_reuse_cursor_with_edit(
+    old_tree,
+    edit,
+    tokens,
+    new_source,
+    allow_left_adjacent_reuse=true,
+  )
+  let (incr, errors, relaxed_reuse_count) = parse_cst_recover_with_tokens(
+    new_source,
+    tokens,
+    Some(relaxed_cursor),
+  )
+  let (full, _) = try! parse_cst(new_source)
+  inspect(incr == full, content="true")
+  inspect(strict_errors.length(), content="0")
+  inspect(errors.length(), content="0")
+  inspect(relaxed_reuse_count > strict_reuse_count, content="true")
+}
+
+///|
 test "block reparse: edit inside object uses block reparse" {
   let source = "{\"x\": {\"a\": 1}, \"y\": 2}"
   let parser = @loom.new_imperative_parser(source, json_grammar)

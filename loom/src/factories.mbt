@@ -166,12 +166,11 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let buffer = token_buf.val.unwrap()
       // Patch the persistent old-token cache: remove tokens in the old damage
       // range and accumulate offset delta for post-damage lookups.
-      old_token_cache.val.apply_edit(edit.start, edit.old_end(), edit.new_end())
+      old_token_cache.val.apply_source_edit(edit)
       let cursor = Some(
-        @core.ReuseCursor::new(
+        @core.ReuseCursor::new_with_edit(
           old_syntax.cst_node(),
-          edit.start,
-          edit.old_end(),
+          edit,
           buffer.token_count(),
           fn(i) { buffer.get_token(i) },
           fn(i) { buffer.get_start(i) },
@@ -179,7 +178,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
           old_token_cache=old_token_cache.val,
-          new_damage_end=edit.new_end(),
+          allow_left_adjacent_reuse=edit.old_len > 0 && edit.new_len == 0,
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(

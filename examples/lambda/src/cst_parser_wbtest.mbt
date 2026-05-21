@@ -90,6 +90,43 @@ test "incremental reuse: integer boundary merge matches full reparse" {
 }
 
 ///|
+test "incremental reuse: deletion opt-in reuses left-adjacent expression" {
+  // Old: "x + y" -> New: "x+ y" (space deleted at [1,2)).
+  // Strict boundary handling reparses the left VarRef; deletion opt-in keeps it
+  // reusable because the follow token remains "+".
+  let old_source = "x + y"
+  let (old_tree, _) = parse_cst(old_source)
+  let new_source = "x+ y"
+  let new_tokens = @lexer.tokenize(new_source)
+  let edit = @core.Edit::delete(1, 2)
+  let strict_cursor = make_reuse_cursor_with_edit(
+    old_tree, edit, new_tokens, new_source,
+  )
+  let (_, strict_errors, strict_reuse_count) = parse_cst_recover_with_tokens(
+    new_source,
+    new_tokens,
+    Some(strict_cursor),
+  )
+  let relaxed_cursor = make_reuse_cursor_with_edit(
+    old_tree,
+    edit,
+    new_tokens,
+    new_source,
+    allow_left_adjacent_reuse=true,
+  )
+  let (new_tree, errors, relaxed_reuse_count) = parse_cst_recover_with_tokens(
+    new_source,
+    new_tokens,
+    Some(relaxed_cursor),
+  )
+  let (full_tree, _) = parse_cst(new_source)
+  inspect(new_tree == full_tree, content="true")
+  inspect(strict_errors.length(), content="0")
+  inspect(errors.length(), content="0")
+  inspect(relaxed_reuse_count > strict_reuse_count, content="true")
+}
+
+///|
 test "incremental reuse: preserves prior diagnostic messages on reused invalid subtree" {
   let source = "λ.x"
   let tokens = @lexer.tokenize(source)

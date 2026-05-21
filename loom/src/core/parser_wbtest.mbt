@@ -615,6 +615,7 @@ test "ReuseCursor::try_reuse: returns None when node overlaps damage" {
   inspect(result is Some(_), content="false")
 }
 
+///|
 test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
@@ -626,7 +627,9 @@ test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertio
   }
   let src = "1+2"
   let edited = "1 +2"
-  let (old_tree, _) = parse_with(src, test_spec, test_tokenize, grammar_item_nodes)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_item_nodes,
+  )
   let (new_toks, new_starts) = test_tokenize_with_starts(edited)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -650,7 +653,8 @@ test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertio
   inspect(result is None, content="true")
 }
 
-test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for deletion" {
+///|
+test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for safe deletion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
@@ -659,14 +663,16 @@ test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for deletion" {
       }
     }
   }
-  let old_src = "1+2"
-  let new_src = "12"
-  let (old_tree, _) = parse_with(old_src, test_spec, test_tokenize, grammar_item_nodes)
+  let old_src = "1 +2"
+  let new_src = "1+2"
+  let (old_tree, _) = parse_with(
+    old_src, test_spec, test_tokenize, grammar_item_nodes,
+  )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
-  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+  let edit = Edit::delete(1, 2)
+  let strict_cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new_with_edit(
     old_tree,
-    1,
-    2,
+    edit,
     new_toks.length(),
     fn(i) { new_toks[i].token },
     fn(i) { new_starts[i] },
@@ -678,14 +684,73 @@ test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for deletion" {
     },
     test_spec,
     reuse_size_threshold=0,
-    new_damage_end=1,
+  )
+  let relaxed_cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new_with_edit(
+    old_tree,
+    edit,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold=0,
     allow_left_adjacent_reuse=true,
   )
-  // Node "1" ends at old damage_start (1). With explicit opt-in, it can be reused.
-  let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
+  // Node "1" ends at old damage_start (1). Strict mode rejects it; deletion
+  // opt-in accepts it because the follow token remains "+".
+  inspect(
+    strict_cursor.try_reuse(test_kind_raw(KExpr), 0, 0) is None,
+    content="true",
+  )
+  let result = relaxed_cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
   inspect(result is Some(_), content="true")
 }
 
+///|
+test "ReuseCursor::try_reuse: rejects token merge with left-adjacent deletion opt-in" {
+  fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    while !ctx.at_eof() {
+      match ctx.peek() {
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
+      }
+    }
+  }
+  let old_src = "1+2"
+  let new_src = "12"
+  let (old_tree, _) = parse_with(
+    old_src, test_spec, test_tokenize, grammar_item_nodes,
+  )
+  let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
+  let edit = Edit::delete(1, 2)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new_with_edit(
+    old_tree,
+    edit,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold=0,
+    allow_left_adjacent_reuse=true,
+  )
+  // Deleting "+" merges the surrounding digits into a different token. The
+  // follow-token check still rejects reuse even when the boundary is relaxed.
+  let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
+  inspect(result is None, content="true")
+}
+
+///|
 test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
@@ -697,7 +762,9 @@ test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
   }
   let src = "1+2"
   let edited = "1+ 2"
-  let (old_tree, _) = parse_with(src, test_spec, test_tokenize, grammar_item_nodes)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_item_nodes,
+  )
   let (new_toks, new_starts) = test_tokenize_with_starts(edited)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -721,26 +788,20 @@ test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
   inspect(result is Some(_), content="true")
 }
 
+///|
 test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
-        Num(_) => {
-        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
-      }
-        _ => {
-        ctx.emit_token(KPlus)
-      }
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
       }
     }
   }
   let old_src = "1+2+3"
   let new_src = "1+3"
   let (old_tree, _) = parse_with(
-    old_src,
-    test_spec,
-    test_tokenize,
-    grammar_item_nodes,
+    old_src, test_spec, test_tokenize, grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -922,16 +983,13 @@ test "old_follow_token_lazy: cache is shared across snapshots" {
   inspect(tok.text, content="+")
 }
 
+///|
 test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
-        Num(_) => {
-        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
-      }
-        _ => {
-        ctx.emit_token(KPlus)
-      }
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
       }
     }
   }
@@ -947,10 +1005,7 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
   let old_src = "1+2+3"
   let new_src = "1+3"
   let (old_tree, _) = parse_with(
-    old_src,
-    item_spec,
-    test_tokenize,
-    grammar_item_nodes,
+    old_src, item_spec, test_tokenize, grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -978,16 +1033,13 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
   inspect(second is Some(_), content="true")
 }
 
+///|
 test "parse_tokens_indexed: parse with middle deletion can still reuse shifted nodes" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
-        Num(_) => {
-        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
-      }
-        _ => {
-        ctx.emit_token(KPlus)
-      }
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
       }
     }
   }
@@ -1003,10 +1055,7 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
   let old_src = "1 + 2 + 3"
   let new_src = "2 + 3"
   let (old_tree, _) = parse_with(
-    old_src,
-    item_spec,
-    test_tokenize,
-    grammar_item_nodes,
+    old_src, item_spec, test_tokenize, grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -1041,16 +1090,13 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
   inspect(reuse_count > 0, content="true")
 }
 
+///|
 test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendants" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
-        Num(_) => {
-        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
-      }
-        _ => {
-        ctx.emit_token(KPlus)
-      }
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
       }
     }
   }
@@ -1066,10 +1112,7 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
   let old_src = "1+2+3"
   let new_src = "2+3"
   let (old_tree, _) = parse_with(
-    old_src,
-    item_spec,
-    test_tokenize,
-    grammar_item_nodes,
+    old_src, item_spec, test_tokenize, grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -1106,16 +1149,13 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
   inspect(reuse_count >= 1, content="true")
 }
 
+///|
 test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix nodes" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
       match ctx.peek() {
-        Num(_) => {
-        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
-      }
-        _ => {
-        ctx.emit_token(KPlus)
-      }
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
       }
     }
   }
@@ -1131,10 +1171,7 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
   let old_src = "1+2+3"
   let new_src = "1+2"
   let (old_tree, _) = parse_with(
-    old_src,
-    item_spec,
-    test_tokenize,
-    grammar_item_nodes,
+    old_src, item_spec, test_tokenize, grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()

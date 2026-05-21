@@ -668,12 +668,39 @@ pub fn make_reuse_cursor(
   damage_end : Int,
   tokens : Array[@token.TokenInfo[@token.Token]],
   source : String,
+  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse? : Bool = false,
+  new_damage_end? : Int = damage_end,
+) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
+  let edit = @core.Edit::new(
+    damage_start,
+    damage_end - damage_start,
+    new_damage_end - damage_start,
+  )
+  make_reuse_cursor_with_edit(
+    old_tree,
+    edit,
+    tokens,
+    source,
+    old_token_cache~,
+    allow_left_adjacent_reuse~,
+  )
+}
+
+///|
+/// Make a ReuseCursor from a compact edit operation.
+pub fn make_reuse_cursor_with_edit(
+  old_tree : @seam.CstNode,
+  edit : @core.Edit,
+  tokens : Array[@token.TokenInfo[@token.Token]],
+  source : String,
+  old_token_cache? : @core.OldTokenCache = @core.OldTokenCache::empty(),
+  allow_left_adjacent_reuse? : Bool = false,
 ) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind] {
   let starts = @core.build_starts(tokens)
-  @core.ReuseCursor::new(
+  @core.ReuseCursor::new_with_edit(
     old_tree,
-    damage_start,
-    damage_end,
+    edit,
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
@@ -681,5 +708,7 @@ pub fn make_reuse_cursor(
       source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
     },
     lambda_spec,
+    old_token_cache~,
+    allow_left_adjacent_reuse~,
   )
 }

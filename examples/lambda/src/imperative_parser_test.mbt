@@ -176,18 +176,13 @@ test "multiple incremental edits preserve correctness" {
   inspect(
     @ast.print_term(tree3).contains("λy"),
     content=(
-      #|false
+      #|true
     ),
   )
 
   // Final result should match full reparse
-  let _ = parse("λy.λx.x + 2") catch { _ => abort("parse failed") }
-  inspect(
-    @ast.print_term(tree3),
-    content=(
-      #|((λx. (x + 2)) + 2)
-    ),
-  )
+  let full_tree = parse("λy.λx.x + 2") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(tree3), content=@ast.print_term(full_tree))
 }
 
 ///|
