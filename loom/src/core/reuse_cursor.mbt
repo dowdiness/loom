@@ -67,7 +67,7 @@ pub fn OldTokenCache::apply_edit(
 ) -> Unit {
   let delta = new_damage_end - damage_end
   match self.tokens {
-    None => () // no cache to patch
+    None => ()
     Some(tokens) => {
       // Remove tokens in the old damage range
       let mut remove_start = -1
@@ -86,11 +86,23 @@ pub fn OldTokenCache::apply_edit(
       if remove_start >= 0 {
         let _ = tokens.drain(remove_start, remove_end)
       }
-      // Update the damage boundary and delta for reads
-      self.damage_boundary = damage_start
-      self.pending_delta = self.pending_delta + delta
     }
   }
+  // Update the damage boundary and delta for reads even when token materialization
+  // is still deferred. `ensure_old_tokens` will apply this boundary mapping.
+  self.damage_boundary = damage_start
+  self.pending_delta = self.pending_delta + delta
+}
+
+///|
+/// Update the cache after a compact edit operation.
+/// This is the same boundary update as `apply_edit`, but avoids manual
+/// start/end math at call sites that already operate on `Edit`.
+pub fn OldTokenCache::apply_source_edit(
+  self : OldTokenCache,
+  edit : Edit,
+) -> Unit {
+  self.apply_edit(edit.start, edit.old_end(), edit.new_end())
 }
 
 ///|
@@ -101,6 +113,7 @@ pub struct ReuseCursor[T, K] {
   mut current_offset : Int
   damage_start : Int
   damage_end : Int
+  new_damage_end : Int
   old_root : @seam.CstNode
   ws_raw : @seam.RawKind
   err_raw : @seam.RawKind
@@ -170,6 +183,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
+  new_damage_end? : Int = damage_end,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
@@ -184,6 +198,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     current_offset: 0,
     damage_start,
     damage_end,
+    new_damage_end,
     old_root: old_tree,
     ws_raw,
     err_raw,
@@ -197,6 +212,36 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     get_text,
     spec,
   }
+}
+
+///|
+/// Create a new reuse cursor from a compact edit operation.
+/// This wraps `new` by deriving `damage_start`, `damage_end`, and `new_damage_end`
+/// from the `edit` coordinates.
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
+  old_tree : @seam.CstNode,
+  edit : Edit,
+  token_count : Int,
+  get_token : (Int) -> T,
+  get_start : (Int) -> Int,
+  get_text : (Int) -> StringView,
+  spec : LanguageSpec[T, K],
+  reuse_size_threshold? : Int = 0,
+  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
+) -> ReuseCursor[T, K] {
+  ReuseCursor::new(
+    old_tree,
+    edit.start,
+    edit.old_end(),
+    token_count,
+    get_token,
+    get_start,
+    get_text,
+    spec,
+    old_token_cache=old_token_cache,
+    reuse_size_threshold=reuse_size_threshold,
+    new_damage_end=edit.new_end(),
+  )
 }
 
 ///|
@@ -227,6 +272,38 @@ fn is_outside_damage(
   damage_end : Int,
 ) -> Bool {
   node_end < damage_start || node_start >= damage_end
+}
+
+///|
+/// Convert new-source offsets back to old-tree coordinates.
+fn[T, K] ReuseCursor::to_old_offset(
+  self : ReuseCursor[T, K],
+  new_offset : Int,
+) -> Int? {
+  if new_offset < self.damage_start {
+    Some(new_offset)
+  } else {
+    let delta = self.new_damage_end - self.damage_end
+    let old_offset = new_offset - delta
+    if old_offset < self.damage_start {
+      None
+    } else {
+      Some(old_offset)
+    }
+  }
+}
+
+///|
+/// Convert old-tree offsets to equivalent new-source coordinates.
+fn[T, K] ReuseCursor::to_new_offset(
+  self : ReuseCursor[T, K],
+  old_offset : Int,
+) -> Int {
+  if old_offset < self.damage_end {
+    old_offset
+  } else {
+    old_offset + (self.new_damage_end - self.damage_end)
+  }
 }
 
 ///|
@@ -476,11 +553,14 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
   byte_offset : Int,
   token_pos : Int,
 ) -> @seam.CstNode? {
-  if self.reuse_globally_disabled ||
-    (byte_offset >= self.damage_start && byte_offset < self.damage_end) {
+  if self.reuse_globally_disabled {
     return None
   }
-  let result = self.seek_node_at(byte_offset, expected_kind)
+  let source_offset = match self.to_old_offset(byte_offset) {
+    None => return None
+    Some(v) => v
+  }
+  let result = self.seek_node_at(source_offset, expected_kind)
   match result {
     None => None
     Some((node, node_offset)) => {
@@ -490,6 +570,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
         return None
       }
       let node_end = node_offset + node.text_len
+      let node_end_in_new = self.to_new_offset(node_end)
       if !is_outside_damage(
           node_offset,
           node_end,
@@ -499,7 +580,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
         None
       } else if !leading_token_matches(node, self, token_pos) {
         None
-      } else if !trailing_context_matches(self, node_end) {
+      } else if !trailing_context_matches(self, node_end_in_new) {
         None
       } else {
         Some(node)
@@ -523,12 +604,15 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
   byte_offset : Int,
   token_pos : Int,
 ) -> @seam.CstNode? {
-  if self.reuse_globally_disabled ||
-    (byte_offset >= self.damage_start && byte_offset < self.damage_end) {
+  if self.reuse_globally_disabled {
     return None
   }
+  let source_offset = match self.to_old_offset(byte_offset) {
+    None => return None
+    Some(v) => v
+  }
   // Reset to root if target is behind current position
-  if byte_offset < self.current_offset {
+  if source_offset < self.current_offset {
     let root_frame = self.stack[0]
     let _ = self.stack.drain(1, self.stack.length())
     root_frame.child_index = 0
@@ -541,7 +625,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
     let node = frame.node
     let node_end = frame.start_offset + node.text_len
     // If target is outside this node's range, pop up
-    if byte_offset < frame.start_offset || byte_offset >= node_end {
+    if source_offset < frame.start_offset || source_offset >= node_end {
       self.pop_frame()
       continue
     }
@@ -549,17 +633,17 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
     let mut child_offset = frame.current_child_offset
     let mut found_child = false
     while frame.child_index < node.children.length() {
-      let child = node.children[frame.child_index]
+    let child = node.children[frame.child_index]
       let child_width = child.text_len()
       let child_end = child_offset + child_width
-      if byte_offset < child_offset {
+      if source_offset < child_offset {
         break
       }
-      if byte_offset < child_end {
+      if source_offset < child_end {
         match child {
           @seam.CstElement::Node(child_node) => {
             if child_node.kind == @seam.repeat_group_kind &&
-              child_offset == byte_offset &&
+              child_offset == source_offset &&
               is_outside_damage(
                 child_offset,
                 child_end,
@@ -567,8 +651,9 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
                 self.damage_end,
               ) {
               // Found undamaged RepeatGroup — validate context
+              let child_end_in_new = self.to_new_offset(child_end)
               if leading_token_matches(child_node, self, token_pos) &&
-                trailing_context_matches(self, child_end) {
+                trailing_context_matches(self, child_end_in_new) {
                 self.current_offset = child_offset
                 return Some(child_node)
               }
@@ -671,6 +756,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     current_offset: self.current_offset,
     damage_start: self.damage_start,
     damage_end: self.damage_end,
+    new_damage_end: self.new_damage_end,
     old_root: self.old_root,
     ws_raw: self.ws_raw,
     err_raw: self.err_raw,
