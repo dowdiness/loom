@@ -27,7 +27,12 @@ structure, kinds, and token boundaries must match.
 
 ## How Correctness Is Achieved
 
-### 1) Conservative Reuse Protocol
+### 1) Validated CST Reuse Contract
+
+Loom provides validated CST subtree reuse: a subtree may be shared from the old
+green tree only after the parser proves it is still valid at the current grammar
+boundary. The public contract is structural equivalence with a full reparse, not
+stable parser-owned token or subtree identity across edits.
 
 Subtree reuse is permitted only when multiple checks succeed:
 
@@ -121,8 +126,10 @@ These are documented to keep the correctness story honest:
   the left-adjacent node only when the leading and trailing token checks still
   match, so token-merge cases are reparsed.
 - The current deletion-preservation contract does not require a separate
-  parser-owned token/subtree identity projection; that would only be needed for
-  a stronger identity-through-token-merge contract.
+  parser-owned token/subtree identity projection. Add that separate projection
+  only for a concrete downstream workflow that needs stable logical identity
+  through insertion, replacement, token split/merge, full reparse, or
+  AST/domain projection.
 
 ## Performance Findings (Profiling)
 

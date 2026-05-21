@@ -16,7 +16,7 @@ Both update the same signal/memo graph atomically.
 |---|---|
 | Edit-driven update | `parser.apply_edit(edit, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
-| Node-level CST reuse | via the underlying `ImperativeParser` engine |
+| Validated CST subtree reuse | via the underlying `ImperativeParser` engine |
 | Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
 | Shared runtime | downstream memos (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
 | Diagnostics | `parser.runtime().read(parser.diagnostics())` — `DiagnosticSet`; format only at presentation boundaries |
@@ -24,6 +24,10 @@ Both update the same signal/memo graph atomically.
 
 `Parser` updates one parse snapshot signal under `Runtime::batch` so consumers
 never observe a half-updated graph.
+
+The reuse contract is structural: incremental output must match a full reparse,
+and unchanged CST subtrees may be reused when validation succeeds. It does not
+promise stable parser-owned token or subtree identity across arbitrary edits.
 
 ## Factory
 

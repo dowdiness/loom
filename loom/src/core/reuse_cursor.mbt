@@ -6,8 +6,10 @@
 //   token_is_trivia / token_is_eof — classify new token stream values
 //   get_text(pos) — source text at token position, for kind+text comparison
 //
-// Uses (damage_start, damage_end : Int) instead of Range to keep the
-// ReuseCursor::new signature uniform and avoid coupling it to the Range type.
+// Parser-owned edit paths should construct cursors with
+// ReuseCursor::new_with_edit so old/new damage coordinates stay derived from a
+// single Edit value. ReuseCursor::new stays available for low-level tests and
+// infrastructure that already operate on explicit old-tree damage coordinates.
 
 ///|
 /// Frame in the cursor stack, tracking position within a node.
@@ -28,6 +30,21 @@ struct OldToken {
   text : String
   start : Int
 } derive(Debug, Eq, Compare)
+
+///|
+/// Whitebox-only reason for a failed reuse candidate.
+///
+/// Kept private so rejection inspection can help diagnose cursor regressions
+/// without adding release-facing parser behavior or API commitments.
+enum ReuseRejectionReason {
+  ReuseRejectGloballyDisabled
+  ReuseRejectEditedOffset
+  ReuseRejectNoCandidate
+  ReuseRejectBelowSizeThreshold
+  ReuseRejectDamageOverlap
+  ReuseRejectLeadingTokenMismatch
+  ReuseRejectFollowTokenMismatch
+} derive(Debug, Eq)
 
 ///|
 /// Persistent cache for the flattened old-token table.
@@ -171,8 +188,15 @@ fn collect_old_tokens(
 }
 
 ///|
-/// Create a new reuse cursor positioned at the start of the old tree.
-/// damage_start/damage_end are code-unit offsets (exclusive-end) of the edited region.
+/// Create a new reuse cursor from explicit old-tree damage coordinates.
+///
+/// This is the low-level constructor. Prefer `ReuseCursor::new_with_edit` for
+/// parser-owned edit paths so `damage_start`, `damage_end`, and `new_damage_end`
+/// are all derived from the same `Edit`.
+///
+/// `damage_start`/`damage_end` are old-source code-unit offsets (exclusive-end)
+/// of the edited region. `new_damage_end` is the corresponding new-source end
+/// offset after the edit.
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   old_tree : @seam.CstNode,
   damage_start : Int,
@@ -219,6 +243,10 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 
 ///|
 /// Create a new reuse cursor from a compact edit operation.
+///
+/// This is the preferred constructor for edit-driven incremental parsing. It
+/// derives the old-source damage range and new-source damage end from `edit`,
+/// avoiding raw endpoint math at call sites.
 /// This wraps `new` by deriving `damage_start`, `damage_end`, and `new_damage_end`
 /// from the `edit` coordinates.
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
@@ -257,7 +285,8 @@ pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
 
 ///|
 /// Get the old-token cache for persistence across edits.
-/// Call after parsing completes and pass to the next ReuseCursor::new
+/// Call after parsing completes and pass to the next ReuseCursor::new_with_edit
+/// or low-level ReuseCursor::new
 /// to avoid rebuilding the flat token array from scratch.
 pub fn[T, K] ReuseCursor::get_old_token_cache(
   self : ReuseCursor[T, K],
@@ -558,27 +587,27 @@ fn[T, K] ReuseCursor::seek_node_at(
 ///   4. Node is entirely outside the damage range
 ///   5. Leading token of node matches the new token at token_pos
 ///   6. Follow token after the node matches between old and new streams
-pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(
+fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_checked(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
   token_pos : Int,
-) -> @seam.CstNode? {
+) -> Result[@seam.CstNode, ReuseRejectionReason] {
   if self.reuse_globally_disabled {
-    return None
+    return Err(ReuseRejectGloballyDisabled)
   }
   let source_offset = match self.to_old_offset(byte_offset) {
-    None => return None
+    None => return Err(ReuseRejectEditedOffset)
     Some(v) => v
   }
   let result = self.seek_node_at(source_offset, expected_kind)
   match result {
-    None => None
+    None => Err(ReuseRejectNoCandidate)
     Some((node, node_offset)) => {
       // Skip reuse for small nodes — reparsing is cheaper than the protocol.
       if self.reuse_size_threshold > 0 &&
         node.text_len < self.reuse_size_threshold {
-        return None
+        return Err(ReuseRejectBelowSizeThreshold)
       }
       let node_end = node_offset + node.text_len
       let node_end_in_new = self.to_new_offset(node_end)
@@ -589,15 +618,46 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
           self.damage_end,
           self.allow_left_adjacent_reuse,
         ) {
-        None
+        Err(ReuseRejectDamageOverlap)
       } else if !leading_token_matches(node, self, token_pos) {
-        None
+        Err(ReuseRejectLeadingTokenMismatch)
       } else if !trailing_context_matches(self, node_end_in_new) {
-        None
+        Err(ReuseRejectFollowTokenMismatch)
       } else {
-        Some(node)
+        Ok(node)
       }
     }
+  }
+}
+
+///|
+/// Inspect why a regular node reuse candidate would be rejected.
+///
+/// This whitebox hook runs the same checks as `try_reuse` on a cursor snapshot,
+/// so callers can inspect rejection causes without advancing the live cursor.
+fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(
+  self : ReuseCursor[T, K],
+  expected_kind : @seam.RawKind,
+  byte_offset : Int,
+  token_pos : Int,
+) -> ReuseRejectionReason? {
+  let cursor = self.snapshot()
+  match cursor.try_reuse_checked(expected_kind, byte_offset, token_pos) {
+    Ok(_) => None
+    Err(reason) => Some(reason)
+  }
+}
+
+///|
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(
+  self : ReuseCursor[T, K],
+  expected_kind : @seam.RawKind,
+  byte_offset : Int,
+  token_pos : Int,
+) -> @seam.CstNode? {
+  match self.try_reuse_checked(expected_kind, byte_offset, token_pos) {
+    Ok(node) => Some(node)
+    Err(_) => None
   }
 }
 

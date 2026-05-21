@@ -454,6 +454,151 @@ test "Edge case: position boundary at node end" {
 // ============================================================================
 
 ///|
+fn assert_lambda_terms_match(
+  label : String,
+  incremental : @ast.Term,
+  full : @ast.Term,
+) -> Unit {
+  if incremental != full {
+    abort(
+      "incremental edit matrix mismatch (" +
+      label +
+      "): incremental=" +
+      @ast.print_term(incremental) +
+      "; full=" +
+      @ast.print_term(full),
+    )
+  }
+}
+
+///|
+fn assert_lambda_incremental_edit_matches_full(
+  label : String,
+  old_source : String,
+  edit : @core.Edit,
+  new_source : String,
+) -> Int {
+  let parser = @loom.new_imperative_parser(old_source, lambda_grammar)
+  let _ = parser.parse().ast
+  let incremental = parser.edit(edit, new_source).ast
+  let full = parse(new_source) catch {
+    _ => abort("parse failed for edit matrix case: " + label)
+  }
+  assert_lambda_terms_match(label, incremental, full)
+  parser.get_last_reuse_count()
+}
+
+///|
+test "Differential: systematic edit matrix matches full reparse" {
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "prefix insertion",
+    "x + 1",
+    @core.Edit::insert(0, 2),
+    "f x + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "middle insertion",
+    "x + 1",
+    @core.Edit::insert(1, 2),
+    "x y + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "suffix insertion",
+    "x + 1",
+    @core.Edit::insert(5, 4),
+    "x + 1 + 2",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "prefix deletion",
+    "f x + 1",
+    @core.Edit::delete(0, 2),
+    "x + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "middle deletion",
+    "x y + 1",
+    @core.Edit::delete(1, 3),
+    "x + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "suffix deletion",
+    "x + 1 + 2",
+    @core.Edit::delete(5, 9),
+    "x + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "prefix replacement",
+    "x + 1",
+    @core.Edit::replace(0, 1, 1),
+    "y + 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "middle replacement",
+    "x + 1",
+    @core.Edit::replace(2, 3, 3),
+    "x - 1",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "suffix replacement grows token",
+    "x + 1",
+    @core.Edit::replace(4, 5, 6),
+    "x + 22",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "identifier token merge",
+    "x y",
+    @core.Edit::delete(1, 2),
+    "xy",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "identifier token split",
+    "xy",
+    @core.Edit::insert(1, 1),
+    "x y",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "integer token merge",
+    "1 2",
+    @core.Edit::delete(1, 2),
+    "12",
+  )
+  let _ = assert_lambda_incremental_edit_matches_full(
+    "integer token split",
+    "12",
+    @core.Edit::insert(1, 1),
+    "1 2",
+  )
+  let sibling_reuse = assert_lambda_incremental_edit_matches_full(
+    "same-length let def replacement",
+    "let a = 1\nlet b = 2\nb",
+    @core.Edit::replace(8, 9, 9),
+    "let a = 9\nlet b = 2\nb",
+  )
+  inspect(sibling_reuse > 0, content="true")
+}
+
+///|
+test "Differential: repeated edit sequence matches full reparse after each step" {
+  let parser = @loom.new_imperative_parser("a + b + c", lambda_grammar)
+  let _ = parser.parse().ast
+
+  let source1 = "a + x + c"
+  let incremental1 = parser.edit(@core.Edit::replace(4, 5, 5), source1).ast
+  let full1 = parse(source1) catch { _ => abort("parse failed") }
+  assert_lambda_terms_match("repeated edit 1", incremental1, full1)
+
+  let source2 = "a + x + c + d"
+  let incremental2 = parser.edit(@core.Edit::insert(9, 4), source2).ast
+  let full2 = parse(source2) catch { _ => abort("parse failed") }
+  assert_lambda_terms_match("repeated edit 2", incremental2, full2)
+
+  let source3 = "x + c + d"
+  let incremental3 = parser.edit(@core.Edit::delete(0, 4), source3).ast
+  let full3 = parse(source3) catch { _ => abort("parse failed") }
+  assert_lambda_terms_match("repeated edit 3", incremental3, full3)
+}
+
+///|
 test "Differential: single token edit in middle" {
   let parser = @loom.new_imperative_parser("a + b + c", lambda_grammar)
   let _ = parser.parse().ast
