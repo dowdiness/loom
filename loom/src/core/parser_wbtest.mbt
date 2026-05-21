@@ -615,6 +615,76 @@ test "ReuseCursor::try_reuse: returns None when node overlaps damage" {
   inspect(result is Some(_), content="false")
 }
 
+test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertion" {
+  fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    while !ctx.at_eof() {
+      match ctx.peek() {
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
+      }
+    }
+  }
+  let src = "1+2"
+  let edited = "1 +2"
+  let (old_tree, _) = parse_with(src, test_spec, grammar_item_nodes, test_tokenize)
+  let (new_toks, new_starts) = test_tokenize_with_starts(edited)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    1,
+    1,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      edited.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold=0,
+    new_damage_end=2,
+  )
+  // Node "1" ends at the insertion point (1); conservatively, do not reuse it.
+  let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
+  inspect(result is None, content="true")
+}
+
+test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
+  fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    while !ctx.at_eof() {
+      match ctx.peek() {
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
+      }
+    }
+  }
+  let src = "1+2"
+  let edited = "1+ 2"
+  let (old_tree, _) = parse_with(src, test_spec, grammar_item_nodes, test_tokenize)
+  let (new_toks, new_starts) = test_tokenize_with_starts(edited)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    2,
+    2,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      edited.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold=0,
+    new_damage_end=3,
+  )
+  // Node "2" starts at damage_end (2). Right-adjacent reuse remains allowed.
+  let result = cursor.try_reuse(test_kind_raw(KExpr), 3, 3)
+  inspect(result is Some(_), content="true")
+}
+
 ///|
 test "ReuseCursor::advance_past: updates current_offset" {
   let src = "1 + 2"

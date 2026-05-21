@@ -230,7 +230,7 @@ fn is_outside_damage(
   damage_start : Int,
   damage_end : Int,
 ) -> Bool {
-  node_end <= damage_start || node_start >= damage_end
+  node_end < damage_start || node_start >= damage_end
 }
 
 ///|
