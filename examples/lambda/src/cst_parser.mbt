@@ -661,7 +661,11 @@ pub fn parse_cst_recover_with_tokens(
 }
 
 ///|
-/// Make a ReuseCursor for incremental parsing.
+/// Make a ReuseCursor from explicit damage coordinates.
+///
+/// Prefer `make_reuse_cursor_with_edit` when an `Edit` is available. This
+/// compatibility helper immediately converts the raw coordinates to `Edit` so
+/// cursor construction still follows the edit-based path.
 pub fn make_reuse_cursor(
   old_tree : @seam.CstNode,
   damage_start : Int,
@@ -689,6 +693,8 @@ pub fn make_reuse_cursor(
 
 ///|
 /// Make a ReuseCursor from a compact edit operation.
+///
+/// This is the preferred helper for edit-driven incremental parsing.
 pub fn make_reuse_cursor_with_edit(
   old_tree : @seam.CstNode,
   edit : @core.Edit,

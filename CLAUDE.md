@@ -86,8 +86,12 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 `pub trait Editable { start/old_len/new_len }` implemented by `Edit`.
 `TextDelta (Retain|Insert|Delete)` → `.to_edits()` → `[Edit]` (planned).
 
-**Subtree reuse:** `ReuseCursor` 4-condition protocol (kind + leading token context +
-trailing token context + no damage overlap). O(depth) per lookup via stateful frame stack.
+**Validated CST subtree reuse:** `ReuseCursor` protocol (kind + leading token
+context + trailing token context + no damage overlap). Parser-owned edit paths
+construct it with `ReuseCursor::new_with_edit`; raw-coordinate
+`ReuseCursor::new` is a low-level escape hatch for tests/infrastructure. This is
+structural reuse, not stable parser-owned token/subtree identity. O(depth) per
+lookup via stateful frame stack.
 
 Full architecture: `docs/architecture/` | Design decisions: `docs/decisions/`
 

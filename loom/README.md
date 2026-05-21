@@ -4,8 +4,8 @@ Generic incremental parser framework for MoonBit.
 
 `loom` turns a single `Grammar[T, K, Ast]` value into an incremental
 parser that gives you edit-aware lexing, a lossless green tree (CST),
-subtree reuse at grammar boundaries, error recovery, and a reactive
-pipeline that publishes source / syntax / AST / diagnostics as
+validated CST subtree reuse at grammar boundaries, error recovery, and a
+reactive pipeline that publishes source / syntax / AST / diagnostics as
 [`@incr`](../incr) signals and memos.
 
 > **Status:** framework stable. See [../ROADMAP.md](../ROADMAP.md) for
@@ -41,7 +41,7 @@ let term = parser.runtime().read(parser.ast())
 // Whole-source reset (simplest update path):
 parser.set_source("λx.x + 2")
 
-// Edit-driven update: TokenBuffer splice + subtree reuse, no full reparse.
+// Edit-driven update: TokenBuffer splice + validated CST subtree reuse.
 let edit = @loom.Edit::new(0, 0, 1)          // start, old_len, new_len
 parser.apply_edit(edit, " λx.x + 2")
 

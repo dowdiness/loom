@@ -178,17 +178,36 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 - [x] ~~**#62** Clean up `cst-transform/` before merge: remove `transform_cps` and `transform_view`.~~ — **done** 2026-05-08: entire `cst-transform/` package deleted (zero canopy consumers; production traits live in `seam/`). Feasibility report preserved at `docs/performance/2026-03-30-cst-traversal-tiers.md`.
 - [ ] **#61** Explore token text as source spans (zero-copy lexing) — **needs decision**, see [docs/decisions-needed.md](docs/decisions-needed.md).
 - [ ] `children_iter` (lazy, no-alloc) on `SyntaxNode` — **deferred, perf opportunity**. `SyntaxNode::children()` allocates a fresh `Array[SyntaxNode]` on every call (`seam/syntax_node.mbt:184`). The lambda example's `callers` projection (`examples/lambda/src/callers/callers.mbt`) — first identified consumer — hits this in its tree-walk catch-all branch on every CST edit. Only build once a concrete bench shows the allocation cost on the Memo recompute budget; same "require a concrete consumer" rule as #58/#59/#60.
-- [ ] **Authoring identity after deletion/shift edits** — **needs design**.
-  2026-05-21 moondsp mini CST spike (`specs/loom-mini-cst/`) showed that
-  `Parser::apply_edit` updates duplicate atom spans correctly, and insertion
-  reports nonzero `reuse_count`, but deletion of a middle duplicate-bearing
-  token span updates the recovered CST while reporting `reuse_count == 0`.
-  For editor authoring clients this means `SyntaxToken` spans distinguish
-  duplicates in one snapshot, but do not yet provide a sufficient ownership
-  contract for stable leaf identity across deletion/shift cases. Evaluate
-  whether `ReuseCursor` should recover more suffix reuse after contraction, or
-  whether loom should expose a separate token/subtree identity projection so
-  clients do not have to keep source-edit realignment above the CST.
+- [x] ~~**Authoring identity after deletion/shift edits**~~ — **resolved for the
+  current Loom contract** by PR #135 (2026-05-21). Pure deletion can preserve
+  reusable left-adjacent CST subtrees when leading and trailing token context
+  still validates. Parser-owned token/subtree identity projection is deferred:
+  add it only if a downstream workflow needs stable logical identity through
+  insertion, replacement, token split/merge, full reparse, or AST/domain
+  projection.
+- [x] ~~**Prefer edit-based reuse cursor construction**~~ — **done**
+  2026-05-21: `ReuseCursor::new_with_edit` is documented as the parser-owned
+  incremental path. Raw damage-coordinate `ReuseCursor::new` remains available
+  as a low-level escape hatch for focused tests and infrastructure; example
+  raw-coordinate helpers now route through `Edit`.
+- [x] ~~**Name the incremental reuse contract explicitly**~~ — **done**
+  2026-05-21: public docs name validated CST subtree reuse, not stable
+  parser-owned identity. The correctness doc covers deletion-only
+  left-adjacent relaxation, token-merge conservatism, and the concrete-consumer
+  threshold for any future identity projection.
+- [ ] **Systematic edit-matrix parser tests** — add focused tests for deletion,
+  insertion, replacement, token merge, token split, prefix/suffix/middle edits,
+  and repeated edit sequences. Each case should assert incremental parse equals
+  full reparse; only assert reuse counts where the fixture makes the expected
+  reusable subtree unambiguous.
+- [ ] **Reuse rejection diagnostics** — add a debug-only trace or inspection
+  hook that explains why a candidate subtree was rejected: damage overlap,
+  leading token mismatch, follow-token mismatch, token merge/split context, or
+  reuse policy. This should help diagnose future parser-seam regressions without
+  changing release behavior.
+- [ ] **Reuse policy API cleanup** — if more reuse knobs appear, replace boolean
+  flags such as `allow_left_adjacent_reuse` with a small `ReusePolicy` or
+  `EditReusePolicy` value. Do not churn the API for this single flag alone.
 - [x] ~~Redesign FlatProj for flat AST~~ — Resolved by PR #37: `from_proj_node` removed from hot path. Tree edits now produce text deltas directly via source map. Known limitation: `Drop` moves child text without surrounding operators/separators.
 
 ---

@@ -138,7 +138,16 @@ pub fn parse_tokens_indexed[T : IsTrivia + ToRawKind, K : ToRawKind](
 ) -> (@seam.CstNode, DiagnosticSet, Int)
 ```
 
-`parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by the incremental path — pass a `ReuseCursor` built from the previous tree and damage range to enable subtree reuse.
+`parse_with` drives a complete fresh parse. `parse_tokens_indexed` is used by
+the incremental path; pass a `ReuseCursor` built from the previous tree and the
+`Edit` that produced the new token stream to enable subtree reuse.
+
+Application code should normally stay above this layer and call
+`Parser::apply_edit` / `ImperativeParser::edit`. Grammar-specific cursor helpers
+should prefer `ReuseCursor::new_with_edit` (or their own `*_with_edit` wrapper).
+`ReuseCursor::new` accepts raw old-source damage coordinates and is reserved for
+low-level infrastructure, focused tests, and callers that have already computed
+both old and new damage endpoints.
 
 Error recovery uses two layers. Low-level primitives (`bump_error()`, `emit_error_placeholder()`) let grammars handle recovery manually. Higher-level combinators (`expect`, `skip_until`, `skip_until_balanced`, `node_with_recovery`, `expect_and_recover`) provide reusable patterns — the grammar decides which layer to use.
 

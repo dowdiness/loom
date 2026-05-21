@@ -6,8 +6,10 @@
 //   token_is_trivia / token_is_eof — classify new token stream values
 //   get_text(pos) — source text at token position, for kind+text comparison
 //
-// Uses (damage_start, damage_end : Int) instead of Range to keep the
-// ReuseCursor::new signature uniform and avoid coupling it to the Range type.
+// Parser-owned edit paths should construct cursors with
+// ReuseCursor::new_with_edit so old/new damage coordinates stay derived from a
+// single Edit value. ReuseCursor::new stays available for low-level tests and
+// infrastructure that already operate on explicit old-tree damage coordinates.
 
 ///|
 /// Frame in the cursor stack, tracking position within a node.
@@ -171,8 +173,15 @@ fn collect_old_tokens(
 }
 
 ///|
-/// Create a new reuse cursor positioned at the start of the old tree.
-/// damage_start/damage_end are code-unit offsets (exclusive-end) of the edited region.
+/// Create a new reuse cursor from explicit old-tree damage coordinates.
+///
+/// This is the low-level constructor. Prefer `ReuseCursor::new_with_edit` for
+/// parser-owned edit paths so `damage_start`, `damage_end`, and `new_damage_end`
+/// are all derived from the same `Edit`.
+///
+/// `damage_start`/`damage_end` are old-source code-unit offsets (exclusive-end)
+/// of the edited region. `new_damage_end` is the corresponding new-source end
+/// offset after the edit.
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   old_tree : @seam.CstNode,
   damage_start : Int,
@@ -219,6 +228,10 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 
 ///|
 /// Create a new reuse cursor from a compact edit operation.
+///
+/// This is the preferred constructor for edit-driven incremental parsing. It
+/// derives the old-source damage range and new-source damage end from `edit`,
+/// avoiding raw endpoint math at call sites.
 /// This wraps `new` by deriving `damage_start`, `damage_end`, and `new_damage_end`
 /// from the `edit` coordinates.
 pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
@@ -257,7 +270,8 @@ pub fn[T, K] ReuseCursor::is_reuse_disabled(self : ReuseCursor[T, K]) -> Bool {
 
 ///|
 /// Get the old-token cache for persistence across edits.
-/// Call after parsing completes and pass to the next ReuseCursor::new
+/// Call after parsing completes and pass to the next ReuseCursor::new_with_edit
+/// or low-level ReuseCursor::new
 /// to avoid rebuilding the flat token array from scratch.
 pub fn[T, K] ReuseCursor::get_old_token_cache(
   self : ReuseCursor[T, K],
