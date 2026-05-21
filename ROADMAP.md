@@ -195,11 +195,12 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
   parser-owned identity. The correctness doc covers deletion-only
   left-adjacent relaxation, token-merge conservatism, and the concrete-consumer
   threshold for any future identity projection.
-- [ ] **Systematic edit-matrix parser tests** — add focused tests for deletion,
-  insertion, replacement, token merge, token split, prefix/suffix/middle edits,
-  and repeated edit sequences. Each case should assert incremental parse equals
-  full reparse; only assert reuse counts where the fixture makes the expected
-  reusable subtree unambiguous.
+- [x] ~~**Systematic edit-matrix parser tests**~~ — **done** 2026-05-21:
+  lambda parser differential tests now cover deletion, insertion, replacement,
+  token merge, token split, prefix/suffix/middle edits, and repeated edit
+  sequences. The primary oracle is structural AST equality against a full
+  reparse; the only new reuse-count assertion is the unambiguous same-length
+  sibling `let` reuse fixture.
 - [ ] **Reuse rejection diagnostics** — add a debug-only trace or inspection
   hook that explains why a candidate subtree was rejected: damage overlap,
   leading token mismatch, follow-token mismatch, token merge/split context, or
