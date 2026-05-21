@@ -179,6 +179,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
           old_token_cache=old_token_cache.val,
+          new_damage_end=edit.new_end(),
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
