@@ -259,6 +259,7 @@ pub struct OldTokenCache {
   mut damage_boundary : Int
 }
 pub fn OldTokenCache::apply_edit(Self, Int, Int, Int) -> Unit
+pub fn OldTokenCache::apply_source_edit(Self, Edit) -> Unit
 pub fn OldTokenCache::empty() -> Self
 
 pub struct ParserContext[T, K] {
@@ -337,6 +338,7 @@ pub struct ReuseCursor[T, K] {
   mut current_offset : Int
   damage_start : Int
   damage_end : Int
+  new_damage_end : Int
   old_root : @seam.CstNode
   ws_raw : @seam.RawKind
   err_raw : @seam.RawKind
@@ -344,6 +346,7 @@ pub struct ReuseCursor[T, K] {
   cache : OldTokenCache
   reuse_globally_disabled : Bool
   reuse_size_threshold : Int
+  allow_left_adjacent_reuse : Bool
   token_count : Int
   get_token : (Int) -> T
   get_start : (Int) -> Int
@@ -353,7 +356,8 @@ pub struct ReuseCursor[T, K] {
 pub fn[T, K] ReuseCursor::advance_past(Self[T, K], @seam.CstNode) -> Unit
 pub fn[T, K] ReuseCursor::get_old_token_cache(Self[T, K]) -> OldTokenCache
 pub fn[T, K] ReuseCursor::is_reuse_disabled(Self[T, K]) -> Bool
-pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(@seam.CstNode, Int, Int, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(@seam.CstNode, Edit, Int, (Int) -> T, (Int) -> Int, (Int) -> StringView, LanguageSpec[T, K], reuse_size_threshold? : Int, old_token_cache? : OldTokenCache, allow_left_adjacent_reuse? : Bool) -> Self[T, K]
 pub fn[T, K] ReuseCursor::next_sibling_has_error(Self[T, K]) -> Bool
 pub fn[T, K] ReuseCursor::snapshot(Self[T, K]) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse(Self[T, K], @seam.RawKind, Int, Int) -> @seam.CstNode?

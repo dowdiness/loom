@@ -339,7 +339,9 @@ test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
   let parser = new_imperative_parser("aaaaa", grammar)
   let _ = parser.parse()
   let incr = parser.edit(@core.Edit::delete(2, 3), "aaaa")
-  inspect(parser.get_last_reuse_count(), content="1")
+  // Pure deletion enables left-adjacent reuse: all four surviving one-token
+  // KExpr nodes are reused.
+  inspect(parser.get_last_reuse_count(), content="4")
 
   let full_parser = new_imperative_parser("aaaa", grammar)
   let full = full_parser.parse()

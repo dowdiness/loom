@@ -121,6 +121,7 @@ pub struct ReuseCursor[T, K] {
   cache : OldTokenCache
   reuse_globally_disabled : Bool
   reuse_size_threshold : Int
+  allow_left_adjacent_reuse : Bool
   // New token stream (indexed accessors, same layout as ParserContext)
   token_count : Int
   get_token : (Int) -> T
@@ -183,6 +184,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
+  allow_left_adjacent_reuse? : Bool = false,
   new_damage_end? : Int = damage_end,
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
@@ -206,6 +208,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     cache: old_token_cache,
     reuse_globally_disabled,
     reuse_size_threshold,
+    allow_left_adjacent_reuse,
     token_count,
     get_token,
     get_start,
@@ -228,6 +231,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
   spec : LanguageSpec[T, K],
   reuse_size_threshold? : Int = 0,
   old_token_cache? : OldTokenCache = OldTokenCache::empty(),
+  allow_left_adjacent_reuse? : Bool = false,
 ) -> ReuseCursor[T, K] {
   ReuseCursor::new(
     old_tree,
@@ -239,6 +243,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
     get_text,
     spec,
     old_token_cache=old_token_cache,
+    allow_left_adjacent_reuse=allow_left_adjacent_reuse,
     reuse_size_threshold=reuse_size_threshold,
     new_damage_end=edit.new_end(),
   )
@@ -262,16 +267,22 @@ pub fn[T, K] ReuseCursor::get_old_token_cache(
 
 ///|
 /// True if the node's code-unit range is entirely outside the damage region.
-/// Left-adjacent (node_end == damage_start) is excluded: trailing context
-/// at the boundary may have changed. Right-adjacent (node_start == damage_end)
-/// is safe because damage_end is the first unmodified code unit.
+/// By default, left-adjacent (node_end == damage_start) is excluded because
+/// trailing context at the boundary may have changed. Right-adjacent
+/// (node_start == damage_end) is safe because damage_end is the first
+/// unmodified code unit.
 fn is_outside_damage(
   node_start : Int,
   node_end : Int,
   damage_start : Int,
   damage_end : Int,
+  allow_left_adjacent_reuse : Bool,
 ) -> Bool {
-  node_end < damage_start || node_start >= damage_end
+  if allow_left_adjacent_reuse {
+    node_end <= damage_start || node_start >= damage_end
+  } else {
+    node_end < damage_start || node_start >= damage_end
+  }
 }
 
 ///|
@@ -576,6 +587,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
           node_end,
           self.damage_start,
           self.damage_end,
+          self.allow_left_adjacent_reuse,
         ) {
         None
       } else if !leading_token_matches(node, self, token_pos) {
@@ -649,6 +661,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
                 child_end,
                 self.damage_start,
                 self.damage_end,
+                self.allow_left_adjacent_reuse,
               ) {
               // Found undamaged RepeatGroup — validate context
               let child_end_in_new = self.to_new_offset(child_end)
@@ -764,6 +777,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     cache: self.cache, // shared mutable cell — all snapshots see same materialized table
     reuse_globally_disabled: self.reuse_globally_disabled,
     reuse_size_threshold: self.reuse_size_threshold,
+    allow_left_adjacent_reuse: self.allow_left_adjacent_reuse,
     token_count: self.token_count,
     get_token: self.get_token,
     get_start: self.get_start,
