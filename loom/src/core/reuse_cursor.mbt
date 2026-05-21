@@ -95,6 +95,17 @@ pub fn OldTokenCache::apply_edit(
 }
 
 ///|
+/// Update the cache after a compact edit operation.
+/// This is the same boundary update as `apply_edit`, but avoids manual
+/// start/end math at call sites that already operate on `Edit`.
+pub fn OldTokenCache::apply_source_edit(
+  self : OldTokenCache,
+  edit : Edit,
+) -> Unit {
+  self.apply_edit(edit.start, edit.old_end(), edit.new_end())
+}
+
+///|
 /// Generic cursor for walking an old CST to find reusable subtrees.
 /// Maintains traversal state for O(depth) lookups.
 pub struct ReuseCursor[T, K] {
@@ -201,6 +212,36 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     get_text,
     spec,
   }
+}
+
+///|
+/// Create a new reuse cursor from a compact edit operation.
+/// This wraps `new` by deriving `damage_start`, `damage_end`, and `new_damage_end`
+/// from the `edit` coordinates.
+pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
+  old_tree : @seam.CstNode,
+  edit : Edit,
+  token_count : Int,
+  get_token : (Int) -> T,
+  get_start : (Int) -> Int,
+  get_text : (Int) -> StringView,
+  spec : LanguageSpec[T, K],
+  reuse_size_threshold? : Int = 0,
+  old_token_cache? : OldTokenCache = OldTokenCache::empty(),
+) -> ReuseCursor[T, K] {
+  ReuseCursor::new(
+    old_tree,
+    edit.start,
+    edit.old_end(),
+    token_count,
+    get_token,
+    get_start,
+    get_text,
+    spec,
+    old_token_cache=old_token_cache,
+    reuse_size_threshold=reuse_size_threshold,
+    new_damage_end=edit.new_end(),
+  )
 }
 
 ///|
