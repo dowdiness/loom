@@ -650,6 +650,42 @@ test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertio
   inspect(result is None, content="true")
 }
 
+test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for deletion" {
+  fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    while !ctx.at_eof() {
+      match ctx.peek() {
+        Num(_) => ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        _ => ctx.emit_token(KPlus)
+      }
+    }
+  }
+  let old_src = "1+2"
+  let new_src = "12"
+  let (old_tree, _) = parse_with(old_src, test_spec, test_tokenize, grammar_item_nodes)
+  let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    1,
+    2,
+    new_toks.length(),
+    fn(i) { new_toks[i].token },
+    fn(i) { new_starts[i] },
+    fn(i) {
+      new_src.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_toks[i].len,
+      )
+    },
+    test_spec,
+    reuse_size_threshold=0,
+    new_damage_end=1,
+    allow_left_adjacent_reuse=true,
+  )
+  // Node "1" ends at old damage_start (1). With explicit opt-in, it can be reused.
+  let result = cursor.try_reuse(test_kind_raw(KExpr), 0, 0)
+  inspect(result is Some(_), content="true")
+}
+
 test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
   fn grammar_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     while !ctx.at_eof() {
