@@ -37,11 +37,14 @@ dowdiness/seam  ←──┘   (parser framework)
 Each module is self-contained. Run `moon` commands from the module's directory:
 
 ```bash
-cd loom && moon check && moon test    # 76 tests (framework only)
-cd seam && moon check && moon test    # 64 tests
-cd incr && moon check && moon test    # 194 tests
-cd examples/lambda && moon check && moon test   # 293 tests
+cd loom && moon check && moon test
+cd seam && moon check && moon test
+cd incr && moon check && moon test
+cd examples/lambda && moon check && moon test
 ```
+
+Test totals change frequently; trust the command output rather than comments in
+this guide.
 
 ### Before every commit (in the module you edited)
 
@@ -96,7 +99,10 @@ Publish leaf deps first:
 
 ```bash
 cd seam && moon publish && cd ..
+cd pretty && moon publish && cd ..
 cd incr && moon publish && cd ..
+# If loom still depends on local text_change/moji path modules, publish those
+# from their module roots before publishing loom.
 cd loom && moon publish && cd ..
 cd examples/lambda && moon publish && cd ../..
 ```
@@ -110,7 +116,11 @@ the just-published versions before publishing it, then revert afterward.
 ```json
 "deps": {
   "dowdiness/seam": "0.1.0",
-  "dowdiness/incr": "0.3.2"
+  "dowdiness/incr": "0.5.2",
+  "dowdiness/pretty": "0.1.0",
+  "dowdiness/text_change": "0.1.0",
+  "dowdiness/graphviz": "0.1.0",
+  "moonbitlang/quickcheck": "0.11.2"
 }
 ```
 
@@ -118,8 +128,11 @@ the just-published versions before publishing it, then revert afterward.
 ```json
 "deps": {
   "dowdiness/loom": "0.1.0",
+  "dowdiness/pretty": "0.1.0",
   "dowdiness/seam": "0.1.0",
-  "moonbitlang/quickcheck": "0.9.10"
+  "dowdiness/incr": "0.5.2",
+  "dowdiness/event-graph-walker": "0.2.0",
+  "moonbitlang/quickcheck": "0.11.2"
 }
 ```
 
@@ -129,8 +142,9 @@ After publishing each module, revert to path deps for local development:
 git checkout loom/moon.mod.json examples/lambda/moon.mod.json
 ```
 
-> **Note:** `seam` and `incr` are not yet published to mooncakes.io. The publish
-> sequence above is blocked until they are. Use path deps in the meantime.
+> **Note:** registry state changes. Verify current mooncakes availability for
+> `loom`, `seam`, `pretty`, `incr`, `text_change`, `moji`, and any example
+> companions before replacing path deps with version deps.
 
 ### Required moon.mod.json fields
 

@@ -1,7 +1,17 @@
 # Tier 1+ callers projection: `visible_from` via Memo
 
-**Status:** Draft (pending user approval). Spec for the Tier 1+ extension of the
-`examples/lambda/src/callers/` projection.
+**Status:** Complete. Shipped in PR #129 (`3682e59`) as the Tier 1+
+extension of the `examples/lambda/src/callers/` projection.
+
+Completion note:
+
+- PR #129 added `CallersPipeline::visible_from`, the enclosing-scope facts
+  needed to build it, and the `facts_observer` GC anchor. A follow-up rename
+  consumer shipped separately and consumes this projection.
+
+Decision record:
+
+- [ADR 2026-05-22: Callers `visible_from` Memo Projection](../../decisions/2026-05-22-callers-visible-from-memo.md)
 
 **Branch:** `feat/lambda-callers-escalation`.
 
@@ -308,14 +318,8 @@ Total: ~100-150 lines. **Medium band** per the project's process calibration
 
 ## 12. Decision record
 
-This plan documents a **principled non-escalation** to Datalog for this
-projection. The Tier 1+ trigger fired (second consumer in scope), but the
-engine constraint discovered during design made the originally-claimed win
-unavailable. A future ADR may be warranted when Family A lands and Datalog
-becomes the natural target — at that point, this plan's §7 reasoning should
-be revisited and either superseded or confirmed as still applicable to other
-projections in the codebase.
-
-No new ADR is added by this plan itself. The decision recorded here is
-scoped to the `callers/` projection and does not change architecture
-elsewhere.
+The public `visible_from` API and the Memo-not-Datalog decision are recorded in
+[ADR 2026-05-22](../../decisions/2026-05-22-callers-visible-from-memo.md).
+This plan documents the detailed local reasoning that fed that ADR. Revisit
+§7 if Family A (`Relation::subscribe_delta` / engine retract) lands and
+structural editor facts become a safe Datalog target.

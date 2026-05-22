@@ -1,5 +1,18 @@
 # Tier 1+ callers `visible_from` Implementation Plan
 
+**Status:** Complete. Shipped in PR #129 (`3682e59`).
+
+Completion note:
+
+- PR #129 implemented the plan, including the follow-up Codex review fixes:
+  `extract_facts_full` stayed package-private, `facts_observer` is primed at
+  construction time to preserve the syntax-tree dependency before GC, and
+  `build_visibility` documents the acyclic enclosing-graph precondition.
+
+Decision record:
+
+- [ADR 2026-05-22: Callers `visible_from` Memo Projection](../../decisions/2026-05-22-callers-visible-from-memo.md)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Spec:** [2026-05-19-callers-visible-from.md](2026-05-19-callers-visible-from.md)
