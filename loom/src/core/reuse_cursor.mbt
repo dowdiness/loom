@@ -34,8 +34,8 @@ struct OldToken {
 ///|
 /// Whitebox-only reason for a failed reuse candidate.
 ///
-/// Kept private so rejection inspection can help diagnose cursor regressions
-/// without adding release-facing parser behavior or API commitments.
+/// Exposed as an opaque type so rejection inspection can help diagnose cursor
+/// regressions without committing to a stable variant surface.
 enum ReuseRejectionReason {
   ReuseRejectGloballyDisabled
   ReuseRejectEditedOffset
@@ -270,9 +270,9 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new_with_edit(
     get_start,
     get_text,
     spec,
-    old_token_cache=old_token_cache,
-    allow_left_adjacent_reuse=allow_left_adjacent_reuse,
-    reuse_size_threshold=reuse_size_threshold,
+    old_token_cache~,
+    allow_left_adjacent_reuse~,
+    reuse_size_threshold~,
     new_damage_end=edit.new_end(),
   )
 }
@@ -635,7 +635,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse
 ///
 /// This whitebox hook runs the same checks as `try_reuse` on a cursor snapshot,
 /// so callers can inspect rejection causes without advancing the live cursor.
-fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::explain_reuse_rejection(
   self : ReuseCursor[T, K],
   expected_kind : @seam.RawKind,
   byte_offset : Int,
@@ -705,7 +705,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
     let mut child_offset = frame.current_child_offset
     let mut found_child = false
     while frame.child_index < node.children.length() {
-    let child = node.children[frame.child_index]
+      let child = node.children[frame.child_index]
       let child_width = child.text_len()
       let child_end = child_offset + child_width
       if source_offset < child_offset {
