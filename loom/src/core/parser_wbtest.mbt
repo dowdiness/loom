@@ -524,7 +524,9 @@ fn test_parse_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
 
 ///|
 fn test_parse_item_tree(src : String) -> @seam.CstNode {
-  let (tree, _) = parse_with(src, test_spec, test_tokenize, test_parse_item_nodes)
+  let (tree, _) = parse_with(
+    src, test_spec, test_tokenize, test_parse_item_nodes,
+  )
   tree
 }
 
@@ -629,9 +631,7 @@ test "ReuseCursor::explain_reuse_rejection: reports missing candidate" {
 test "ReuseCursor::explain_reuse_rejection: reports size policy rejection" {
   let src = "1+2"
   let old_tree = test_parse_item_tree(src)
-  let cursor = test_reuse_cursor(
-    old_tree, src, 99, 99, reuse_size_threshold=99,
-  )
+  let cursor = test_reuse_cursor(old_tree, src, 99, 99, reuse_size_threshold=99)
   let reason = cursor.explain_reuse_rejection(test_kind_raw(KExpr), 0, 0)
   inspect(reason == Some(ReuseRejectBelowSizeThreshold), content="true")
 }
