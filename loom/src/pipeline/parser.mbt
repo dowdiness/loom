@@ -1,6 +1,6 @@
 ///|
 /// Unified `Parser[Ast]` — wraps `@incremental.ImperativeParser` and publishes
-/// a coherent parse snapshot plus derived read-only `@incr.Memo` views.
+/// a coherent parse snapshot plus derived read-only `@incr.Derived` views.
 ///
 /// Accepts two update methods:
 /// - `apply_edit(edit, new_source)` — CST-node-level reuse via the engine.
@@ -19,11 +19,11 @@ pub struct Parser[Ast] {
   priv engine : @incremental.ImperativeParser[Ast]
   priv rt : @incr.Runtime
   priv snapshot_signal : @incr.Signal[@incremental.ParseSnapshot[Ast]]
-  priv snapshot_view : @incr.Memo[@incremental.ParseSnapshot[Ast]]
-  priv source_view : @incr.Memo[String]
-  priv syntax_view : @incr.Memo[@seam.SyntaxNode]
-  priv ast_view : @incr.Memo[Ast]
-  priv diagnostics_view : @incr.Memo[@core.DiagnosticSet]
+  priv snapshot_view : @incr.Derived[@incremental.ParseSnapshot[Ast]]
+  priv source_view : @incr.Derived[String]
+  priv syntax_view : @incr.Derived[@seam.SyntaxNode]
+  priv ast_view : @incr.Derived[Ast]
+  priv diagnostics_view : @incr.Derived[@core.DiagnosticSet]
 }
 
 ///|
@@ -51,27 +51,27 @@ pub fn[Ast : Eq] Parser::new(
     initial_snapshot,
     label="parser_snapshot",
   )
-  let snapshot_view = @incr.Memo::new(
+  let snapshot_view = @incr.Derived::Derived(
     rt,
     fn() { snapshot_signal.get().copy() },
     label="parser_snapshot_view",
   )
-  let source_view = @incr.Memo::new(
+  let source_view = @incr.Derived::Derived(
     rt,
     fn() { snapshot_signal.get().source },
     label="parser_source_view",
   )
-  let syntax_view = @incr.Memo::new(
+  let syntax_view = @incr.Derived::Derived(
     rt,
     fn() { snapshot_signal.get().syntax },
     label="parser_syntax_view",
   )
-  let ast_view = @incr.Memo::new(
+  let ast_view = @incr.Derived::Derived(
     rt,
     fn() { snapshot_signal.get().ast },
     label="parser_ast_view",
   )
-  let diagnostics_view = @incr.Memo::new(
+  let diagnostics_view = @incr.Derived::Derived(
     rt,
     fn() { snapshot_signal.get().diagnostics.copy() },
     label="parser_diagnostics_view",
@@ -125,13 +125,13 @@ pub fn[Ast : Eq] Parser::apply_edit(
 /// Reactive view of the complete current parse snapshot.
 pub fn[Ast] Parser::snapshot(
   self : Parser[Ast],
-) -> @incr.Memo[@incremental.ParseSnapshot[Ast]] {
+) -> @incr.Derived[@incremental.ParseSnapshot[Ast]] {
   self.snapshot_view
 }
 
 ///|
 /// Reactive view of the current source text.
-pub fn[Ast] Parser::source(self : Parser[Ast]) -> @incr.Memo[String] {
+pub fn[Ast] Parser::source(self : Parser[Ast]) -> @incr.Derived[String] {
   self.source_view
 }
 
@@ -139,13 +139,13 @@ pub fn[Ast] Parser::source(self : Parser[Ast]) -> @incr.Memo[String] {
 /// Reactive view of the current recovered CST.
 pub fn[Ast] Parser::syntax_tree(
   self : Parser[Ast],
-) -> @incr.Memo[@seam.SyntaxNode] {
+) -> @incr.Derived[@seam.SyntaxNode] {
   self.syntax_view
 }
 
 ///|
 /// Reactive view of the current AST.
-pub fn[Ast] Parser::ast(self : Parser[Ast]) -> @incr.Memo[Ast] {
+pub fn[Ast] Parser::ast(self : Parser[Ast]) -> @incr.Derived[Ast] {
   self.ast_view
 }
 
@@ -154,7 +154,7 @@ pub fn[Ast] Parser::ast(self : Parser[Ast]) -> @incr.Memo[Ast] {
 /// current parse snapshot.
 pub fn[Ast] Parser::diagnostics(
   self : Parser[Ast],
-) -> @incr.Memo[@core.DiagnosticSet] {
+) -> @incr.Derived[@core.DiagnosticSet] {
   self.diagnostics_view
 }
 

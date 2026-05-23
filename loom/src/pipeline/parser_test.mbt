@@ -53,92 +53,86 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
 ///|
 test "Parser::new publishes initial source / ast / diagnostics" {
   let parser = Parser::new("hello", test_imperative_language())
-  let rt = parser.runtime()
-  inspect(rt.read(parser.source()), content="hello")
-  inspect(rt.read(parser.ast()), content="5")
-  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
-  inspect(rt.read(parser.snapshot()).source, content="hello")
-  ignore(rt.read(parser.syntax_tree()))
+  inspect(parser.source().read_or_abort(), content="hello")
+  inspect(parser.ast().read_or_abort(), content="5")
+  debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
+  inspect(parser.snapshot().read_or_abort().source, content="hello")
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser::set_source updates all four views atomically" {
   let parser = Parser::new("hi", test_imperative_language())
-  let rt = parser.runtime()
-  inspect(rt.read(parser.ast()), content="2")
+  inspect(parser.ast().read_or_abort(), content="2")
   parser.set_source("world!")
-  inspect(rt.read(parser.source()), content="world!")
-  inspect(rt.read(parser.ast()), content="6")
-  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
+  inspect(parser.source().read_or_abort(), content="world!")
+  inspect(parser.ast().read_or_abort(), content="6")
+  debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
 }
 
 ///|
 test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
   let parser = Parser::new("ok", test_imperative_language())
-  let rt = parser.runtime()
   parser.set_source("@bad")
-  inspect(rt.read(parser.source()), content="@bad")
-  inspect(rt.read(parser.ast()), content="4")
+  inspect(parser.source().read_or_abort(), content="@bad")
+  inspect(parser.ast().read_or_abort(), content="4")
   debug_inspect(
-    rt.read(parser.diagnostics()).format(),
+    parser.diagnostics().read_or_abort().format(),
     content=(
       #|["lex error: @bad"]
     ),
   )
-  ignore(rt.read(parser.syntax_tree()))
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser recovers diagnostics on subsequent set_source" {
   let parser = Parser::new("ok", test_imperative_language())
-  let rt = parser.runtime()
   parser.set_source("@bad")
   debug_inspect(
-    rt.read(parser.diagnostics()).format(),
+    parser.diagnostics().read_or_abort().format(),
     content=(
       #|["lex error: @bad"]
     ),
   )
   parser.set_source("recovered")
-  inspect(rt.read(parser.ast()), content="9")
-  debug_inspect(rt.read(parser.diagnostics()).format(), content="[]")
-  ignore(rt.read(parser.syntax_tree()))
+  inspect(parser.ast().read_or_abort(), content="9")
+  debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser::apply_edit advances source and ast" {
   let parser = Parser::new("abc", test_imperative_language())
-  let rt = parser.runtime()
-  inspect(rt.read(parser.ast()), content="3")
+  inspect(parser.ast().read_or_abort(), content="3")
   // Replace the whole document via an Edit covering the full range.
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
-  inspect(rt.read(parser.source()), content="abcdef")
-  inspect(rt.read(parser.ast()), content="6")
+  inspect(parser.source().read_or_abort(), content="abcdef")
+  inspect(parser.ast().read_or_abort(), content="6")
 }
 
 ///|
 test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
   let parser = Parser::new("abc", test_imperative_language())
-  let rt = parser.runtime()
-  let snapshot = rt.read(parser.snapshot())
+  let snapshot = parser.snapshot().read_or_abort()
   snapshot.diagnostics.push(@core.Diagnostic::lexer_error("external mutation"))
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
 ///|
 test "Parser exposes its runtime for downstream memos" {
   let parser = Parser::new("xy", test_imperative_language())
   let rt = parser.runtime()
-  // A downstream memo reads parser.source() inside its closure and
-  // establishes a dependency edge through the pass-through Memo view.
-  let echo_memo : @incr.Memo[Int] = @incr.Memo::new(
+  // A downstream derived cell reads parser.source() inside its closure and
+  // establishes a dependency edge through the pass-through Derived view.
+  let echo_memo : @incr.Derived[Int] = @incr.Derived::Derived(
     rt,
-    fn() { parser.source().get().length() },
+    fn() { parser.source().get_or_abort().length() },
     label="echo-length",
   )
-  inspect(rt.read(echo_memo), content="2")
+  inspect(echo_memo.read_or_abort(), content="2")
   parser.set_source("hello")
-  inspect(rt.read(echo_memo), content="5")
+  inspect(echo_memo.read_or_abort(), content="5")
 }
 
 ///|

@@ -13,7 +13,7 @@ fn wb_facts(
     rt,
     parser.syntax_tree(),
   )
-  let syntax = rt.read(parser.syntax_tree())
+  let syntax = parser.syntax_tree().read_or_abort()
   let (defs, calls, enclosing) = pipeline.facts()
   pipeline.dispose()
   (syntax, defs, calls, enclosing)

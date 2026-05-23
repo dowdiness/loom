@@ -108,7 +108,7 @@ test "attach_typecheck: dispose cleans up without affecting parser" {
   typed.dispose()
   // Parser still works after typechecker scope is disposed.
   parser.set_source("42")
-  inspect(parser.runtime().read(parser.ast()) |> @ast.print_term, content="42")
+  inspect(parser.ast().read_or_abort() |> @ast.print_term, content="42")
 }
 
 ///|

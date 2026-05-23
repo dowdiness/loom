@@ -5,7 +5,7 @@
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
   let rt = @incr.Runtime::new()
   let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
-  rt.read(parser.syntax_tree())
+  parser.syntax_tree().read_or_abort()
 }
 
 ///|
@@ -43,7 +43,7 @@ fn facts_for_test(
 ) {
   let rt = @incr.Runtime::new()
   let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
-  let syntax = rt.read(parser.syntax_tree())
+  let syntax = parser.syntax_tree().read_or_abort()
   let pipeline = @callers.CallersPipeline::CallersPipeline(
     rt,
     parser.syntax_tree(),
@@ -63,7 +63,7 @@ fn setup_pipeline(
     rt,
     parser.syntax_tree(),
   )
-  let syntax = rt.read(parser.syntax_tree())
+  let syntax = parser.syntax_tree().read_or_abort()
   (pipeline, syntax, rt)
 }
 

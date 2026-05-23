@@ -494,9 +494,8 @@ test "new_imperative_parser: block reparse preserves explicit LexResult starts" 
 test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   let grammar = fgrammar()
   let parser = new_parser("!", grammar)
-  let rt = parser.runtime()
-  ignore(rt.read(parser.syntax_tree()))
-  let diags = rt.read(parser.diagnostics())
+  ignore(parser.syntax_tree().read_or_abort())
+  let diags = parser.diagnostics().read_or_abort()
   let mut saw_lex_diagnostic = false
   for diagnostic in diags.format() {
     if diagnostic.contains("unexpected char") {
@@ -505,8 +504,8 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   }
   inspect(saw_lex_diagnostic, content="true")
   parser.set_source("aaa")
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
-  ignore(rt.read(parser.syntax_tree()))
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
