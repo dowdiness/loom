@@ -2,7 +2,7 @@
 //
 // Composes `@loom.Parser[Term]` with `@typecheck.build_typecheck_pipeline_with_index`
 // by bridging SyntaxNode → TypedTerm through a thin Memo. The bridge reads
-// `parser.syntax_tree().get()` inside its closure — that registers the
+// `parser.syntax_tree().get_or_abort()` inside its closure — that registers the
 // parser's syntax-tree Memo as a reactive dependency so the pipeline
 // recomputes on every published edit.
 //
@@ -56,7 +56,7 @@ pub fn attach_typecheck(
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
   let typed_memo = scope.memo(
-    fn() { @typecheck.convert_from_cst(parser.syntax_tree().get()) },
+    fn() { @typecheck.convert_from_cst(parser.syntax_tree().get_or_abort()) },
     label="typed_term_bridge",
   )
   let (results, index) = @typecheck.build_typecheck_pipeline_with_index(

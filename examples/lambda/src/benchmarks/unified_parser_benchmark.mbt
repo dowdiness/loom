@@ -10,7 +10,7 @@ test "parser: cold - new + ast()" (b : @bench.T) {
     let parser = @loom.new_parser(
       "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
-    b.keep(parser.runtime().read(parser.ast()))
+    b.keep(parser.ast().read_or_abort())
   })
 }
 
@@ -22,8 +22,8 @@ test "parser: warm - ast() with no source change" (b : @bench.T) {
     "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let rt = parser.runtime()
-  let _ = rt.read(parser.ast()) // prime
-  b.bench(fn() { b.keep(rt.read(parser.ast())) })
+  let _ = parser.ast().read_or_abort() // prime
+  b.bench(fn() { b.keep(parser.ast().read_or_abort()) })
 }
 
 ///|
@@ -34,10 +34,10 @@ test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
   let source = "λf.λx.if f x then x + 1 else x - 1"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let _ = rt.read(parser.ast()) // prime
+  let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
     parser.set_source(source) // identity → no engine call, no signal write
-    b.keep(rt.read(parser.ast()))
+    b.keep(parser.ast().read_or_abort())
   })
 }
 
@@ -49,12 +49,12 @@ test "parser: full recompute - set_source(new) + ast()" (b : @bench.T) {
     "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let rt = parser.runtime()
-  let _ = rt.read(parser.ast()) // prime
+  let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
     parser.set_source("λf.λx.if f x then x + 2 else x - 1")
-    let result = rt.read(parser.ast())
+    let result = parser.ast().read_or_abort()
     parser.set_source("λf.λx.if f x then x + 1 else x - 1") // restore
-    let _ = rt.read(parser.ast())
+    let _ = parser.ast().read_or_abort()
     b.keep(result)
   })
 }
@@ -67,12 +67,12 @@ test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
   let s2 = "λf.λx.if f x then x + 2 else x - 1"
   let parser = @loom.new_parser(s1, @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let _ = rt.read(parser.ast())
+  let _ = parser.ast().read_or_abort()
   b.bench(fn() {
     parser.set_source(s2)
-    let _ = rt.read(parser.ast())
+    let _ = parser.ast().read_or_abort()
     parser.set_source(s1)
-    b.keep(rt.read(parser.ast()))
+    b.keep(parser.ast().read_or_abort())
   })
 }
 
@@ -89,7 +89,7 @@ test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
   let s1 = "λf.λx.if f x then x + 1 else x - 1"
   let parser = @loom.new_parser(s1, @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let _ = rt.read(parser.ast()) // prime
+  let _ = parser.ast().read_or_abort() // prime
   // Position of the '1' inside "x + 1" — replaced with '2' and back.
   let target = match s1.find("x + 1") {
     Some(i) => i + 4
@@ -100,10 +100,10 @@ test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
     s1[target + 1:s1.length()].to_owned()
   b.bench(fn() {
     parser.apply_edit(@core.Edit::new(target, 1, 1), flipped)
-    let _ = rt.read(parser.ast())
+    let _ = parser.ast().read_or_abort()
     // Restore for next iteration.
     parser.apply_edit(@core.Edit::new(target, 1, 1), s1)
-    b.keep(rt.read(parser.ast()))
+    b.keep(parser.ast().read_or_abort())
   })
 }
 
@@ -129,9 +129,9 @@ test "parity: parser apply_edit - let init edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_parser("let x = 1\ny", @lambda.lambda_grammar)
     let rt = parser.runtime()
-    let _ = rt.read(parser.ast()) // prime
+    let _ = parser.ast().read_or_abort() // prime
     parser.apply_edit(@core.Edit::replace(8, 9, 9), "let x = 2\ny")
-    b.keep(rt.read(parser.ast()))
+    b.keep(parser.ast().read_or_abort())
   })
 }
 
@@ -143,11 +143,11 @@ test "parity: parser apply_edit - let init edit" (b : @bench.T) {
 test "parser: diagnostics - valid ↔ malformed cycle" (b : @bench.T) {
   let parser = @loom.new_parser("λx.x", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let _ = rt.read(parser.diagnostics()) // prime
+  let _ = parser.diagnostics().read_or_abort() // prime
   b.bench(fn() {
     parser.set_source("λx.") // malformed
-    b.keep(rt.read(parser.diagnostics()))
+    b.keep(parser.diagnostics().read_or_abort())
     parser.set_source("λx.x") // recover
-    let _ = rt.read(parser.diagnostics())
+    let _ = parser.diagnostics().read_or_abort()
   })
 }

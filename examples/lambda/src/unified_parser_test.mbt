@@ -11,7 +11,7 @@
 /// recovered; the error surfaces through diagnostics.
 test "Parser: step-based lexer recovers invalid chars without lex error" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  ignore(parser.runtime().read(parser.syntax_tree()))
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
@@ -20,7 +20,7 @@ test "Parser: step-based lexer recovers invalid chars without lex error" {
 /// produced a tree.
 test "Parser: step-based recovery produces parse tree not ErrorNode" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  let term = parser.runtime().read(parser.ast())
+  let term = parser.ast().read_or_abort()
   inspect(
     match term {
       @ast.Term::Error(msg) => !msg.contains("lex error")
@@ -34,7 +34,7 @@ test "Parser: step-based recovery produces parse tree not ErrorNode" {
 /// Diagnostics from step-based recovery are not fatal tokenization errors.
 test "Parser: step-based recovery diagnostics are not fatal lex errors" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  let diags = parser.runtime().read(parser.diagnostics()).format()
+  let diags = parser.diagnostics().read_or_abort().format()
   inspect(diags.length() > 0, content="true")
   // No "tokenization:" prefix — recovery produced a tree instead.
   inspect(diags[0].contains("tokenization: "), content="false")
@@ -45,13 +45,13 @@ test "Parser: step-based recovery diagnostics are not fatal lex errors" {
 ///|
 test "Parser: parse error still publishes syntax_tree" {
   let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
-  ignore(parser.runtime().read(parser.syntax_tree()))
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser: parse error produces non-empty diagnostics" {
   let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
-  assert_eq(parser.runtime().read(parser.diagnostics()).length() > 0, true)
+  assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
 }
 
 // ── Happy path ───────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ test "Parser: parse error produces non-empty diagnostics" {
 test "Parser: valid input - integer addition" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
   inspect(
-    @ast.print_term(parser.runtime().read(parser.ast())),
+    @ast.print_term(parser.ast().read_or_abort()),
     content="(1 + 2)",
   )
 }
@@ -68,7 +68,7 @@ test "Parser: valid input - integer addition" {
 ///|
 test "Parser: valid input - lambda expression" {
   let parser = @loom.new_parser("λx.x", @lambda.lambda_grammar)
-  match parser.runtime().read(parser.ast()) {
+  match parser.ast().read_or_abort() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
   }
@@ -77,7 +77,7 @@ test "Parser: valid input - lambda expression" {
 ///|
 test "Parser: valid input - syntax_tree exists" {
   let parser = @loom.new_parser("λf.λx.f x", @lambda.lambda_grammar)
-  ignore(parser.runtime().read(parser.syntax_tree()))
+  ignore(parser.syntax_tree().read_or_abort())
 }
 
 // ── Mutation: set_source ─────────────────────────────────────────────────────
@@ -86,9 +86,9 @@ test "Parser: valid input - syntax_tree exists" {
 test "Parser: set_source updates ast" {
   let parser = @loom.new_parser("1", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let t1 = rt.read(parser.ast())
+  let t1 = parser.ast().read_or_abort()
   parser.set_source("2")
-  let t2 = rt.read(parser.ast())
+  let t2 = parser.ast().read_or_abort()
   inspect(@ast.print_term(t1), content="1")
   inspect(@ast.print_term(t2), content="2")
 }
@@ -98,9 +98,9 @@ test "Parser: set_source same value preserves ast (Eq)" {
   let source = "λf.λx.f x"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let rt = parser.runtime()
-  let t1 = rt.read(parser.ast())
+  let t1 = parser.ast().read_or_abort()
   parser.set_source(source)
-  let t2 = rt.read(parser.ast())
+  let t2 = parser.ast().read_or_abort()
   // Term::Eq is structural; same source must produce equal trees even when
   // `set_source` short-circuits (no reparse) on identity.
   assert_eq(t1, t2)
@@ -110,11 +110,11 @@ test "Parser: set_source same value preserves ast (Eq)" {
 test "Parser: set_source from error-recovery input to valid" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  ignore(rt.read(parser.syntax_tree()))
+  ignore(parser.syntax_tree().read_or_abort())
   parser.set_source("1 + 2")
-  ignore(rt.read(parser.syntax_tree()))
-  inspect(@ast.print_term(rt.read(parser.ast())), content="(1 + 2)")
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  ignore(parser.syntax_tree().read_or_abort())
+  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
 // ── Mutation: apply_edit ─────────────────────────────────────────────────────
@@ -125,13 +125,13 @@ test "Parser: set_source from error-recovery input to valid" {
 test "Parser: apply_edit updates source, ast, diagnostics" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  inspect(@ast.print_term(rt.read(parser.ast())), content="(1 + 2)")
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
   // Replace "1 + 2" (length 5) with "3 + 4" (length 5).
   parser.apply_edit(@core.Edit::new(0, 5, 5), "3 + 4")
-  inspect(rt.read(parser.source()), content="3 + 4")
-  inspect(@ast.print_term(rt.read(parser.ast())), content="(3 + 4)")
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  inspect(parser.source().read_or_abort(), content="3 + 4")
+  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(3 + 4)")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
 ///|
@@ -140,15 +140,15 @@ test "Parser: apply_edit updates source, ast, diagnostics" {
 test "Parser: apply_edit from error state to valid" {
   let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
   let rt = parser.runtime()
-  assert_eq(rt.read(parser.diagnostics()).length() > 0, true)
+  assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
   // Append "x" — "λx." (length 3) → "λx.x" (edit appends one char at offset 3).
   parser.apply_edit(@core.Edit::new(3, 0, 1), "λx.x")
-  inspect(rt.read(parser.source()), content="λx.x")
-  match rt.read(parser.ast()) {
+  inspect(parser.source().read_or_abort(), content="λx.x")
+  match parser.ast().read_or_abort() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
   }
-  inspect(rt.read(parser.diagnostics()).length(), content="0")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
 // ── Parity with direct parse ──────────────────────────────────────────────────
@@ -169,7 +169,7 @@ test "Parser: parity with parse" {
       _ => abort("unexpected parse error in valid source: " + source)
     }
     inspect(
-      @ast.print_term(parser.runtime().read(parser.ast())),
+      @ast.print_term(parser.ast().read_or_abort()),
       content=@ast.print_term(direct),
     )
   }
@@ -184,11 +184,11 @@ test "Parser: parity with parse" {
 test "Parser: Term Eq holds after round-trip source change" {
   let parser = @loom.new_parser("λx.x", lambda_grammar)
   let rt = parser.runtime()
-  let t1 = rt.read(parser.ast())
+  let t1 = parser.ast().read_or_abort()
   parser.set_source("y") // change — triggers recomputation
-  let _ = rt.read(parser.ast()) // force the new computation epoch
+  let _ = parser.ast().read_or_abort() // force the new computation epoch
   parser.set_source("λx.x") // change back — triggers another recomputation
-  let t3 = rt.read(parser.ast())
+  let t3 = parser.ast().read_or_abort()
   // t1 and t3 are separately computed but from the same source:
   // same token sequence → same interned CstNode → Term::Eq returns true.
   inspect(t1 == t3, content="true")

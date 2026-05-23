@@ -23,7 +23,7 @@
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
   let rt = @incr.Runtime::new()
   let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
-  rt.read(parser.syntax_tree())
+  parser.syntax_tree().read_or_abort()
 }
 
 ///|
