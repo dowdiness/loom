@@ -119,6 +119,11 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 - [../examples/markdown/README.md](../examples/markdown/README.md) — mode-aware lexing via `ModeLexer`
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda grammar expansion plans, CRDT exploration
 
+### Sibling Utility Modules
+
+- [../text-change/README.md](../text-change/README.md) — pure contiguous text-change utilities (migrated from canopy 2026-05, #147)
+- [../moji/README.md](../moji/README.md) — UAX #29 grapheme cluster + word boundary segmentation, UTF-16 indexed (migrated from canopy 2026-05, #147)
+
 ### Active Plans
 
 _No active plans currently indexed._
