@@ -67,6 +67,12 @@ The direct-visible-child contract is:
   but projection and semantic-validation code should use `direct_*` names so the
   boundary is visible at the call site.
 
+`token_text(kind)` is a display-oriented convenience for typed views and JSON
+presentation where an empty string is an acceptable fallback. Do not use it for
+semantic validation: a missing identifier slot and a present zero-length token
+both become `""`. For semantic projection, keep the `Option` from
+`direct_token_of_kind` and choose an explicit error branch.
+
 ## Example: direct token slot
 
 For a JSON member, the key must be a direct `StringToken` on the member node. A

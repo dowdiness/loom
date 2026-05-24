@@ -268,10 +268,10 @@ backdating at the AST boundary, so equality is part of the public contract.
 
 ```moonbit
 let p = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
-let term = p.runtime().read(p.ast())            // Ast type parameter of the Grammar
+let term = p.ast().read_or_abort()            // Ast type parameter of the Grammar
 p.set_source("λx.x + 2")
-let updated = p.runtime().read(p.ast())         // re-runs syntax + AST stages only if source changed
-let diags   = p.runtime().read(p.diagnostics()) // DiagnosticSet, empty on success
+let updated = p.ast().read_or_abort()         // re-runs syntax + AST stages only if source changed
+let diags = p.diagnostics().read_or_abort()   // DiagnosticSet, empty on success
 ```
 
 The pre-Stage 6 reactive parser factory and struct have been removed — use

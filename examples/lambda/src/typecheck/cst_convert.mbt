@@ -57,7 +57,10 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
       TypedTerm::Int(value)
     }
     @syntax.SyntaxKind::VarRef =>
-      TypedTerm::Var(n.token_text(@syntax.SyntaxKind::IdentToken.to_raw()))
+      match n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw()) {
+        Some(t) => TypedTerm::Var(t.text())
+        None => TypedTerm::Error("malformed variable reference: missing name")
+      }
     @syntax.SyntaxKind::HoleLiteral => TypedTerm::Hole(0)
     @syntax.SyntaxKind::ErrorNode => TypedTerm::Error("error node")
     @syntax.SyntaxKind::LambdaExpr => convert_lambda(n)

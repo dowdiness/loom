@@ -183,25 +183,37 @@ pub fn json_fold_node(
       }
       JsonValue::Array(elements)
     }
-    StringValue => {
-      let text = node.token_text(StringToken.to_raw())
-      if text.length() >= 2 {
-        JsonValue::String(parse_json_string(text))
-      } else {
-        JsonValue::Error("malformed string")
+    StringValue =>
+      match node.direct_token_of_kind(StringToken.to_raw()) {
+        Some(tok) => {
+          let text = tok.text()
+          if text.length() >= 2 {
+            JsonValue::String(parse_json_string(text))
+          } else {
+            JsonValue::Error("malformed string")
+          }
+        }
+        None => JsonValue::Error("missing string token")
       }
-    }
-    NumberValue => {
-      let text = node.token_text(NumberToken.to_raw())
-      let n = @string.parse_double(text) catch {
-        _ => return JsonValue::Error("invalid number: " + text)
+    NumberValue =>
+      match node.direct_token_of_kind(NumberToken.to_raw()) {
+        Some(tok) => {
+          let text = tok.text()
+          let n = @string.parse_double(text) catch {
+            _ => return JsonValue::Error("invalid number: " + text)
+          }
+          JsonValue::Number(n)
+        }
+        None => JsonValue::Error("missing number token")
       }
-      JsonValue::Number(n)
-    }
     BoolValue =>
       match node.direct_token_of_kind(TrueKeyword.to_raw()) {
         Some(_) => JsonValue::Bool(true)
-        None => JsonValue::Bool(false)
+        None =>
+          match node.direct_token_of_kind(FalseKeyword.to_raw()) {
+            Some(_) => JsonValue::Bool(false)
+            None => JsonValue::Error("missing boolean token")
+          }
       }
     NullValue => JsonValue::Null
     ErrorNode => JsonValue::Error("parse error")

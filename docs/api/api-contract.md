@@ -251,6 +251,7 @@ pub struct SyntaxNode {
 | `SyntaxNode::direct_tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All direct tokens of the given kind; explicit projection-validation helper |
 | `SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?` | Stable | First direct token of the given kind in this node |
 | `SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All direct tokens of the given kind in this node |
+| `SyntaxNode::token_text(Self, RawKind) -> String` | Stable | Display-oriented shortcut for first direct token text, returning `""` when absent; prefer `direct_token_of_kind` for semantic validation |
 | `SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)` | Stable | Start/end skipping leading/trailing trivia tokens |
 | `SyntaxNode::find_at(Self, Int) -> Self` | Stable | Deepest descendant whose span contains the byte offset; falls back to `self` |
 | `SyntaxNode::cst_node(Self) -> CstNode` | Stable | **Advanced use only.** Returns the underlying `CstNode` for infrastructure that requires it (e.g. reuse cursors). Prefer SyntaxNode API for all navigation. |
