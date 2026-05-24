@@ -32,13 +32,13 @@ priv struct PipelineState {
   // the def's captured `ResolveEnv`. Editing one def body only
   // invalidates that def's `resolve_memo`.
   mut term_signals : Array[@incr.Signal[TypedTerm]]
-  mut resolve_memos : Array[@incr.Memo[TypedTerm]]
+  mut resolve_memos : Array[@incr.Derived[TypedTerm]]
   // env_memos kept alive so closures that captured them don't dangle
-  mut env_memos : Array[@incr.Memo[TypeEnv]]
-  mut type_memos : Array[@incr.Memo[TypeResult]]
+  mut env_memos : Array[@incr.Derived[TypeEnv]]
+  mut type_memos : Array[@incr.Derived[TypeResult]]
   mut body_term_signal : @incr.Signal[TypedTerm]?
-  mut body_resolve_memo : @incr.Memo[TypedTerm]?
-  mut body_memo : @incr.Memo[TypeResult]?
+  mut body_resolve_memo : @incr.Derived[TypedTerm]?
+  mut body_memo : @incr.Derived[TypeResult]?
   // Accumulator for per-def diagnostics. Allocated in `rebuild_chain`
   // bound to the current `chain_scope`, so it is disposed automatically
   // when the chain is torn down on structural rebuild.
@@ -76,7 +76,7 @@ fn PipelineState::new() -> PipelineState {
 pub fn build_typecheck_pipeline(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
-  source_term : @incr.Memo[TypedTerm],
+  source_term : @incr.Derived[TypedTerm],
 ) -> @incr.Derived[ModuleTypeResult] {
   let (derived, _state) = build_typecheck_pipeline_internal(
     rt, parent_scope, source_term,
@@ -91,13 +91,13 @@ pub fn build_typecheck_pipeline(
 fn build_typecheck_pipeline_internal(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
-  source_term : @incr.Memo[TypedTerm],
+  source_term : @incr.Derived[TypedTerm],
 ) -> (@incr.Derived[ModuleTypeResult], PipelineState) {
   let state = PipelineState::new()
   ignore(rt)
   let derived = parent_scope.derived(
     () => {
-      let term = source_term.get()
+      let term = source_term.get_or_abort()
       let (defs, body) = split_defs(term)
       let def_names = defs.map(fn(d) { d.0 })
       // Detect structural change: first run or different def names
@@ -130,7 +130,7 @@ fn build_typecheck_pipeline_internal(
 pub fn build_typecheck_pipeline_with_index(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
-  source_term : @incr.Memo[TypedTerm],
+  source_term : @incr.Derived[TypedTerm],
 ) -> (@incr.Derived[ModuleTypeResult], TypecheckIndex) {
   let state = PipelineState::new()
   let memo_map = @incr.MemoMap::new(
@@ -145,7 +145,7 @@ pub fn build_typecheck_pipeline_with_index(
       match state.name_to_idx.get(entry.name) {
         Some(idx) =>
           if !state.type_memos[idx].is_disposed() {
-            state.type_memos[idx].get()
+            state.type_memos[idx].get_or_abort()
           } else {
             { typ: TError, had_error: true }
           }
@@ -156,7 +156,7 @@ pub fn build_typecheck_pipeline_with_index(
   )
   let result_derived = parent_scope.derived(
     () => {
-      let term = source_term.get()
+      let term = source_term.get_or_abort()
       let (defs, body) = split_defs(term)
       let def_names = defs.map(fn(d) { d.0 })
       let needs_rebuild = match state.chain_scope {
@@ -268,12 +268,12 @@ fn rebuild_chain(
   // Per-def resolve memos: resolve_walk(raw_body, env_i). Backdates via
   // TypedTerm Eq — a source edit that leaves the resolved form unchanged
   // stops propagation here.
-  let resolve_memos : Array[@incr.Memo[TypedTerm]] = []
+  let resolve_memos : Array[@incr.Derived[TypedTerm]] = []
   for i = 0; i < defs.length(); i = i + 1 {
     let def_name = defs[i].0
     let term_sig = term_signals[i]
     let env_i = resolve_envs[i]
-    let rm = chain_scope.memo(
+    let rm = chain_scope.derived(
       () => resolve_walk(term_sig.get(), env_i),
       label="resolve_\{def_name}",
     )
@@ -283,22 +283,22 @@ fn rebuild_chain(
   // Build env_memo and type_memo chains. type_memo[i] reads
   // resolve_memos[i].get() — raw bodies stay off the type_memo's dep
   // set so unchanged resolves short-circuit typechecking too.
-  let env_memos : Array[@incr.Memo[TypeEnv]] = []
-  let type_memos : Array[@incr.Memo[TypeResult]] = []
+  let env_memos : Array[@incr.Derived[TypeEnv]] = []
+  let type_memos : Array[@incr.Derived[TypeResult]] = []
   for i = 0; i < defs.length(); i = i + 1 {
     let def_name = defs[i].0
     let resolve_memo = resolve_memos[i]
     // env_memo[i]: extends previous env with previous def's type
     let env_memo = if i == 0 {
-      chain_scope.memo(() => TypeEnv::Empty, label="env_\{def_name}")
+      chain_scope.derived(() => TypeEnv::Empty, label="env_\{def_name}")
     } else {
       let prev_env_memo = env_memos[i - 1]
       let prev_type_memo = type_memos[i - 1]
       let prev_name = defs[i - 1].0
-      chain_scope.memo(
+      chain_scope.derived(
         () => {
-          let env = prev_env_memo.get()
-          let prev_result = prev_type_memo.get()
+          let env = prev_env_memo.get_or_abort()
+          let prev_result = prev_type_memo.get_or_abort()
           let prev_type = if prev_result.had_error {
             TError
           } else {
@@ -314,10 +314,10 @@ fn rebuild_chain(
     // pushed from within `infer_impl` land in the chain-scope
     // accumulator, tagged with this def's name.
     let ctx : DiagCtx = { def_name: Some(def_name), diags: Some(diags) }
-    let type_memo = chain_scope.memo(
+    let type_memo = chain_scope.derived(
       () => {
-        let env = env_memo.get()
-        let resolved_body = resolve_memo.get()
+        let env = env_memo.get_or_abort()
+        let resolved_body = resolve_memo.get_or_abort()
         infer_impl(env, resolved_body, ctx)
       },
       label="type_\{def_name}",
@@ -329,7 +329,7 @@ fn rebuild_chain(
   // Body: raw signal → resolve memo → type memo.
   let body_sig = chain_scope.signal(body, label="body_term")
   state.body_term_signal = Some(body_sig)
-  let body_resolve_memo = chain_scope.memo(
+  let body_resolve_memo = chain_scope.derived(
     () => resolve_walk(body_sig.get(), body_env),
     label="resolve_body",
   )
@@ -339,9 +339,9 @@ fn rebuild_chain(
   // Build the final type env for the body (extends last env with
   // last def's type).
   let body_memo = if defs.length() == 0 {
-    chain_scope.memo(
+    chain_scope.derived(
       () => {
-        let body_term = body_resolve_memo.get()
+        let body_term = body_resolve_memo.get_or_abort()
         infer_impl(TypeEnv::Empty, body_term, body_ctx)
       },
       label="body_type",
@@ -351,17 +351,17 @@ fn rebuild_chain(
     let last_env_memo = env_memos[last_idx]
     let last_type_memo = type_memos[last_idx]
     let last_name = defs[last_idx].0
-    chain_scope.memo(
+    chain_scope.derived(
       () => {
-        let env = last_env_memo.get()
-        let last_result = last_type_memo.get()
+        let env = last_env_memo.get_or_abort()
+        let last_result = last_type_memo.get_or_abort()
         let last_type = if last_result.had_error {
           TError
         } else {
           last_result.typ
         }
         let body_type_env = env.extend(last_name, last_type)
-        let body_term = body_resolve_memo.get()
+        let body_term = body_resolve_memo.get_or_abort()
         infer_impl(body_type_env, body_term, body_ctx)
       },
       label="body_type",
@@ -416,7 +416,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   }
   for i, name in state.prev_def_names {
     let type_memo = state.type_memos[i]
-    def_types.push((name, type_memo.get()))
+    def_types.push((name, type_memo.get_or_abort()))
     for d in type_memo.accumulated(diags) {
       all_diagnostics.push(d)
     }
@@ -431,7 +431,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   ignore(state.body_resolve_memo)
   let body_type = match state.body_memo {
     Some(memo) => {
-      let r = memo.get()
+      let r = memo.get_or_abort()
       for d in memo.accumulated(diags) {
         all_diagnostics.push(d)
       }
