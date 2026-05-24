@@ -33,7 +33,7 @@ pub fn SyntaxToken::text(self : SyntaxToken) -> String {
 
 ///|
 /// Show: compact form — "SyntaxToken@[start,end)"
-pub impl Show for SyntaxToken with output(self, logger) {
+pub impl Show for SyntaxToken with fn output(self, logger) {
   logger.write_string("SyntaxToken@[")
   logger.write_string(self.start().to_string())
   logger.write_string(",")
@@ -170,7 +170,7 @@ pub fn SyntaxNode::kind(self : SyntaxNode) -> RawKind {
 
 ///|
 /// Show: compact form — "SyntaxNode@[start,end)"
-pub impl Show for SyntaxNode with output(self, logger) {
+pub impl Show for SyntaxNode with fn output(self, logger) {
   logger.write_string("SyntaxNode@[")
   logger.write_string(self.start().to_string())
   logger.write_string(",")
@@ -303,6 +303,9 @@ pub fn SyntaxNode::nodes_and_tokens(
 
 ///|
 /// Direct leaf tokens only (child nodes are skipped).
+///
+/// `RepeatGroup` nodes are transparent: their token children are reported as
+/// direct visible children of `self`. Other interior nodes are not searched.
 pub fn SyntaxNode::tokens(self : SyntaxNode) -> Array[SyntaxToken] {
   let result : Array[SyntaxToken] = []
   walk_children_flat(
@@ -317,7 +320,59 @@ pub fn SyntaxNode::tokens(self : SyntaxNode) -> Array[SyntaxToken] {
 }
 
 ///|
+/// Direct child nodes whose kind matches `kind`, in source order.
+///
+/// `RepeatGroup` nodes are transparent: their node children are reported as
+/// direct visible children of `self`. Other interior nodes are not searched.
+pub fn SyntaxNode::direct_children_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+) -> Array[SyntaxNode] {
+  let result : Array[SyntaxNode] = []
+  walk_children_flat(
+    self.cst.children,
+    self,
+    self.offset,
+    fn(child, parent, pos) {
+      if child.kind == kind {
+        result.push(SyntaxNode::new(child, Some(parent), pos))
+      }
+    },
+    fn(_tok, _pos) {  },
+  )
+  |> ignore
+  result
+}
+
+///|
 /// First direct token child matching `kind`, with its absolute offset.
+///
+/// Alias with an explicit name for projection code that validates concrete
+/// argument shape. Equivalent to `find_token(kind)`.
+pub fn SyntaxNode::direct_token_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+) -> SyntaxToken? {
+  self.find_token(kind)
+}
+
+///|
+/// All direct token children matching `kind`, in source order.
+///
+/// Alias with an explicit name for projection code that validates concrete
+/// argument shape. Equivalent to `tokens_of_kind(kind)`.
+pub fn SyntaxNode::direct_tokens_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+) -> Array[SyntaxToken] {
+  self.tokens_of_kind(kind)
+}
+
+///|
+/// First direct token child matching `kind`, with its absolute offset.
+///
+/// `RepeatGroup` nodes are transparent: their token children are considered
+/// direct visible children of `self`. Other interior nodes are not searched.
 pub fn SyntaxNode::find_token(
   self : SyntaxNode,
   kind : RawKind,
@@ -363,6 +418,9 @@ pub fn SyntaxNode::token_text(self : SyntaxNode, kind : RawKind) -> String {
 
 ///|
 /// All direct token children matching `kind`, in source order.
+///
+/// `RepeatGroup` nodes are transparent: their token children are considered
+/// direct visible children of `self`. Other interior nodes are not searched.
 pub fn SyntaxNode::tokens_of_kind(
   self : SyntaxNode,
   kind : RawKind,
@@ -451,7 +509,7 @@ pub fn SyntaxNode::cst_node(self : SyntaxNode) -> CstNode {
 /// CstNodes are equal. Offset and parent are intentionally excluded so that
 /// Memo[SyntaxNode] correctly skips recomputation when only positions shift
 /// (e.g. after inserting a leading space) but the tree structure is unchanged.
-pub impl Eq for SyntaxNode with equal(self, other : SyntaxNode) -> Bool {
+pub impl Eq for SyntaxNode with fn equal(self, other : SyntaxNode) -> Bool {
   self.cst == other.cst
 }
 
@@ -460,7 +518,7 @@ pub impl Eq for SyntaxNode with equal(self, other : SyntaxNode) -> Bool {
 /// Produces: { "kind": <raw int>, "start": <int>, "end": <int>, "children": [...] }
 /// Tokens appear as: { "kind": <raw int>, "text": <string>, "start": <int>, "end": <int> }
 /// For typed semantic JSON, use the view types in your language package instead.
-pub impl ToJson for SyntaxNode with to_json(self) -> Json {
+pub impl ToJson for SyntaxNode with fn to_json(self) -> Json {
   let RawKind(k) = self.cst.kind
   let children_json : Array[Json] = []
   walk_children_flat(

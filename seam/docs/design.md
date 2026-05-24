@@ -23,13 +23,15 @@ recovery, a zero-length node, or an offset that falls outside the tree will
 all produce a valid return value rather than an abort or exception.
 
 ```moonbit
-find_at(offset)   -> SyntaxNode   // returns self when no child covers offset
-start()           -> Int
-end()             -> Int
-kind()            -> RawKind
-children()        -> Array[SyntaxNode]
-tokens()          -> Array[SyntaxToken]
-all_children()    -> Array[SyntaxElement]
+find_at(offset)               -> SyntaxNode   // returns self when no child covers offset
+start()                       -> Int
+end()                         -> Int
+kind()                        -> RawKind
+children()                    -> Array[SyntaxNode]
+tokens()                      -> Array[SyntaxToken]
+all_children()                -> Array[SyntaxElement]
+direct_children_of_kind(kind) -> Array[SyntaxNode]
+direct_tokens_of_kind(kind)   -> Array[SyntaxToken]
 ```
 
 **Why:** IDEs always operate on partially-formed source. A panic mid-traversal
@@ -46,11 +48,12 @@ Operations where "nothing here" is a meaningful, common outcome return `T?`.
 The IDE gets a type-level signal rather than a fallback it must detect manually.
 
 ```moonbit
-find_at_checked(offset) -> SyntaxNode?   // None = offset outside span
-parent()                -> SyntaxNode?   // None = this is the root
-first_child()           -> SyntaxNode?   // None = leaf or empty node
-first_token()           -> SyntaxToken?  // None = no tokens in subtree
-find_token(kind)        -> SyntaxToken?  // None = no matching token
+find_at_checked(offset)    -> SyntaxNode?   // None = offset outside span
+parent()                   -> SyntaxNode?   // None = this is the root
+first_child()              -> SyntaxNode?   // None = leaf or empty node
+first_token()              -> SyntaxToken?  // None = no tokens in subtree
+find_token(kind)           -> SyntaxToken?  // None = no matching direct token
+direct_token_of_kind(kind) -> SyntaxToken?  // None = no matching direct token
 ```
 
 **Why:** Without this layer, every IDE caller must manually re-check spans after
@@ -79,6 +82,21 @@ malformed, not just that a query produced a fallback.
 
 ---
 
+## Direct vs recursive queries
+
+The `SyntaxNode` navigation surface is intentionally direct by default:
+`children()`, `all_children()`, `tokens()`, `find_token()`,
+`tokens_of_kind()`, and the `direct_*` helpers all inspect direct visible
+children only. `RepeatGroup` nodes are transparent so repeated grammar elements
+still look like siblings, but ordinary interior nodes are not searched.
+
+For semantic projection and argument-shape validation, prefer the explicit
+`direct_*` names. A method projection that accepts `.fast(2)` should require a
+direct `NumberToken` on the method-call node; `.fast(slow(2))` must not pass
+validation merely because the callback child contains a descendant number token.
+If a projection needs recursive extraction, write that traversal at the call
+site so the recursion boundary is visible in review.
+
 ## Anti-patterns to avoid
 
 | Pattern | Problem |
@@ -92,11 +110,11 @@ malformed, not just that a query produced a fallback.
 
 ## Implementation status
 
-**Complete.** All three layers are fully implemented and tested (117 tests).
+**Complete.** All three layers are fully implemented and tested.
 
 - All `SyntaxNode` fields (`cst`, `parent`, `offset`) are `priv`.
-- Layer 1 total functions: `find_at`, `start`, `end`, `kind`, `children`, `tokens`, `all_children`.
-- Layer 2 checked functions: `find_at_checked`, `parent`, `first_child`, `first_token`, `find_token`.
+- Layer 1 total functions: `find_at`, `start`, `end`, `kind`, `children`, `tokens`, `all_children`, `direct_children_of_kind`, `direct_tokens_of_kind`.
+- Layer 2 checked functions: `find_at_checked`, `parent`, `first_child`, `first_token`, `find_token`, `direct_token_of_kind`.
 - Layer 3 error information: `is_error`, `contains_errors`.
 - Additional navigation: `nth_child`, `child_of_kind`, `tokens_of_kind`, `tight_span`, `token_at_offset`, `cst_node`.
 - View helpers: `token_text`, `children_from`, `nodes_and_tokens` — reduce boilerplate when writing typed views and fold algebras.

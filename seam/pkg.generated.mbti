@@ -129,6 +129,9 @@ pub fn SyntaxNode::children(Self) -> Array[Self]
 pub fn SyntaxNode::children_from(Self, Int) -> Array[Self]
 pub fn SyntaxNode::contains_errors(Self, RawKind, RawKind) -> Bool
 pub fn SyntaxNode::cst_node(Self) -> CstNode
+pub fn SyntaxNode::direct_children_of_kind(Self, RawKind) -> Array[Self]
+pub fn SyntaxNode::direct_token_of_kind(Self, RawKind) -> SyntaxToken?
+pub fn SyntaxNode::direct_tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]
 pub fn SyntaxNode::end(Self) -> Int
 pub fn SyntaxNode::find_at(Self, Int) -> Self
 pub fn SyntaxNode::find_at_checked(Self, Int) -> Self?
@@ -177,38 +180,38 @@ pub enum TokenAtOffset {
 
 // Traits
 pub(open) trait Finder {
-  check(Self, CstElement) -> Bool
+  fn check(Self, CstElement) -> Bool
 }
 
 pub(open) trait Folder {
-  fold_token(CstToken) -> Self
-  fold_combine(Self, Self) -> Self
-  fold_empty() -> Self
+  fn fold_token(CstToken) -> Self
+  fn fold_combine(Self, Self) -> Self
+  fn fold_empty() -> Self
 }
 
 pub(open) trait FromRawKind {
-  from_raw(RawKind) -> Self
+  fn from_raw(RawKind) -> Self
 }
 
 pub(open) trait IsEof {
-  is_eof(Self) -> Bool
+  fn is_eof(Self) -> Bool
 }
 
 pub(open) trait IsError {
-  is_error(Self) -> Bool
+  fn is_error(Self) -> Bool
 }
 
 pub(open) trait IsTrivia {
-  is_trivia(Self) -> Bool
+  fn is_trivia(Self) -> Bool
 }
 
 pub(open) trait ToRawKind {
-  to_raw(Self) -> RawKind
+  fn to_raw(Self) -> RawKind
 }
 
 pub(open) trait TransformFolder {
-  tf_token(CstToken) -> Self
-  tf_init(RawKind) -> Self
-  tf_child(Self, Self) -> Self
+  fn tf_token(CstToken) -> Self
+  fn tf_init(RawKind) -> Self
+  fn tf_child(Self, Self) -> Self
 }
 
