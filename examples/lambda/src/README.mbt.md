@@ -46,7 +46,7 @@ test "grammar example: imperative parser" {
 test "grammar example: reactive parser + set_source" {
   let parser = @loom.new_parser("1 + 2", lambda_grammar)
   parser.set_source("42")
-  inspect(@ast.print_term(parser.runtime().read(parser.ast())), content="42")
+  inspect(@ast.print_term(parser.ast().read_or_abort()), content="42")
 }
 ```
 

@@ -59,10 +59,7 @@ test "Parser: parse error produces non-empty diagnostics" {
 ///|
 test "Parser: valid input - integer addition" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
-  inspect(
-    @ast.print_term(parser.ast().read_or_abort()),
-    content="(1 + 2)",
-  )
+  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
 }
 
 ///|

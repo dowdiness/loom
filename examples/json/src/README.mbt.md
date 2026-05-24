@@ -48,7 +48,7 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 ///|
 test "quick start: reactive parser on a JSON object" {
   let parser = @loom.new_parser("{\"x\": 1}", json_grammar)
-  let value : JsonValue = parser.runtime().read(parser.ast())
+  let value : JsonValue = parser.ast().read_or_abort()
   inspect(
     value,
     content=(
@@ -62,7 +62,7 @@ test "quick start: set_source re-runs the reactive graph" {
   let parser = @loom.new_parser("[1]", json_grammar)
   parser.set_source("[2, 3]")
   inspect(
-    parser.runtime().read(parser.ast()),
+    parser.ast().read_or_abort(),
     content=(
       #|Array([Number(2), Number(3)])
     ),

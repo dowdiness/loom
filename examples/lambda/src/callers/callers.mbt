@@ -48,7 +48,7 @@ pub(all) enum ScopeId {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for ScopeId with output(self, logger) {
+pub impl Show for ScopeId with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -63,7 +63,7 @@ pub struct Def {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Def with output(self, logger) {
+pub impl Show for Def with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -77,7 +77,7 @@ pub struct Call {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Call with output(self, logger) {
+pub impl Show for Call with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -471,11 +471,11 @@ pub struct CallersPipeline {
 /// cross-runtime guard catches some but not all paths.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
-  syntax : @incr.Memo[@seam.SyntaxNode],
+  syntax : @incr.Derived[@seam.SyntaxNode],
 ) -> CallersPipeline {
   let scope = @incr.Scope::new(rt)
   let facts = scope.memo(
-    fn() { extract_facts_full(syntax.get()) },
+    fn() { extract_facts_full(syntax.read_or_abort()) },
     label="callers_facts",
   )
   let callers_index = scope.memo(

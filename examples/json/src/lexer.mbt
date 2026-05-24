@@ -64,7 +64,9 @@ fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
               }
             }
             if hex_count != 4 {
-              return Some(("Invalid \\u escape", invalid_end_at_cursor(input, cursor)))
+              return Some(
+                ("Invalid \\u escape", invalid_end_at_cursor(input, cursor)),
+              )
             }
           }
           Some('"')
@@ -84,18 +86,19 @@ fn read_string(cursor : @core.LexCursor) -> (String, Int)? {
       }
       Some(ch) => {
         if ch.to_int() >= 0 && ch.to_int() <= 0x1F {
-          return Some((
-            "Invalid control character in string",
-            invalid_end_at_cursor(input, cursor),
-          ))
+          return Some(
+            (
+              "Invalid control character in string",
+              invalid_end_at_cursor(input, cursor),
+            ),
+          )
         }
         ignore(cursor.advance_char())
       }
       None =>
-        return Some((
-          "Invalid character in string",
-          invalid_end_at_cursor(input, cursor),
-        ))
+        return Some(
+          ("Invalid character in string", invalid_end_at_cursor(input, cursor)),
+        )
     }
   }
   // Reached end without closing quote
