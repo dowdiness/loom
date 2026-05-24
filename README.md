@@ -55,3 +55,4 @@ Multi-module development workflow: [docs/development/managing-modules.md](docs/d
 
 - [docs/README.md](docs/README.md) — navigation index (start here, architecture, API, archive)
 - [ROADMAP.md](ROADMAP.md) — phase status and future work
+- [CHANGELOG.md](CHANGELOG.md) — user-facing changes

@@ -22,6 +22,7 @@ New to loom? Read in this order:
 Going deeper:
 
 - [../ROADMAP.md](../ROADMAP.md) — phase status and future work
+- [../CHANGELOG.md](../CHANGELOG.md) — user-facing changes
 
 ## API Reference
 
