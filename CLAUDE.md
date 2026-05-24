@@ -12,6 +12,8 @@ Each module is self-contained. Run `moon` from the module's directory:
 cd loom && moon check && moon test    # 126 tests (framework only)
 cd seam && moon check && moon test    # 351 tests
 cd incr && moon check && moon test    # 508 tests
+cd text-change && moon check && moon test    # text utility tests
+cd moji && moon check && moon test           # UAX #29 conformance
 cd examples/lambda && moon check && moon test   # 405 tests
 cd examples/json && moon check && moon test     # JSON parser
 ```
@@ -59,6 +61,10 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 **`dowdiness/seam`** (`seam/`) — language-agnostic CST (`CstNode`, `SyntaxNode`)
 
 **`dowdiness/incr`** (`incr/`) — reactive signals (`Signal`, `Memo`) [submodule]
+
+**`dowdiness/text_change`** (`text-change/`) — pure contiguous text-change utilities; depends on `dowdiness/moji`. Migrated into loom from canopy/lib/ in 2026-05 (#147).
+
+**`dowdiness/moji`** (`moji/`) — UAX #29 grapheme cluster + word boundary segmentation, UTF-16 indexed. Carries upstream conformance fixtures (`testdata/`) and Python generators (`scripts/`). Migrated into loom from canopy/lib/ in 2026-05 (#147).
 
 **`dowdiness/json`** (`examples/json/`) — JSON parser example (deps: loom, seam)
 
