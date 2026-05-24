@@ -25,6 +25,8 @@ Sibling modules (see each module's README for scope and status):
 | [`dowdiness/pretty`](pretty/) | `pretty/` | Wadler-Lindig pretty-printer (generic `Layout[A]`, annotations) — used by `examples/json` |
 | [`dowdiness/egraph`](egraph/) | `egraph/` | Equality graph for equality saturation |
 | [`dowdiness/egglog`](egglog/) | `egglog/` | Relational e-graph engine (Datalog + equality saturation) |
+| [`dowdiness/text_change`](text-change/) | `text-change/` | Pure contiguous text-change utilities (migrated from canopy 2026-05, #147) |
+| [`dowdiness/moji`](moji/) | `moji/` | UAX #29 grapheme cluster + word boundary segmentation, UTF-16 indexed (migrated from canopy 2026-05, #147) |
 
 ## Examples
 
