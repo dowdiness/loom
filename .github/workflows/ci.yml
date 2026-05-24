@@ -11,20 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Scope note (2026-05-24):
-#
-# Of the 6 modules named by issue #144 (loom, seam, incr, examples/lambda,
-# examples/json, examples/markdown), only seam and incr are buildable in
-# isolation today. The others declare path-deps that escape the loom repo
-# into sibling repos (e.g. loom -> ../../lib/text-change which lives in
-# canopy; examples/lambda -> ../../../event-graph-walker likewise).
-#
-# egraph hits the same blocker through its transitive dep on lambda+loom.
-# egglog and pretty are sibling modules that DO build standalone today
-# and are included as first-class matrix entries.
-#
-# Path-dep migration is tracked as a follow-up; this workflow will be
-# expanded to cover the affected modules once they're standalone-buildable.
+# Covers all standalone-buildable loom modules. examples/lambda + egraph
+# remain deferred — both depend on event-graph-walker, which is canopy's
+# submodule (see loom#147 follow-up).
 
 jobs:
   test-modules:
@@ -34,6 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: loom
+            path: loom
+          - name: text-change
+            path: text-change
+          - name: moji
+            path: moji
           - name: seam
             path: seam
           - name: incr
@@ -42,6 +37,10 @@ jobs:
             path: egglog
           - name: pretty
             path: pretty
+          - name: examples-json
+            path: examples/json
+          - name: examples-markdown
+            path: examples/markdown
     env:
       NEW_MOON_MOD: '0'
     steps:
