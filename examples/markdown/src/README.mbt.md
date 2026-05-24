@@ -60,7 +60,7 @@ test "grammar example: imperative parser returns a Block" {
 test "grammar example: reactive parser + set_source" {
   let parser = @loom.new_parser("# Hello\n", markdown_grammar)
   parser.set_source("## World\n")
-  let doc : Block = parser.runtime().read(parser.ast())
+  let doc : Block = parser.ast().read_or_abort()
   match doc {
     Document(_) => ()
     _ => abort("expected Document at top level")
