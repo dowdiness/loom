@@ -49,7 +49,8 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
   match @syntax.SyntaxKind::from_raw(n.kind()) {
     @syntax.SyntaxKind::SourceFile => convert_source_file(n)
     @syntax.SyntaxKind::IntLiteral => {
-      let value = match n.find_token(@syntax.SyntaxKind::IntToken.to_raw()) {
+      let value = match
+        n.direct_token_of_kind(@syntax.SyntaxKind::IntToken.to_raw()) {
         None => 0
         Some(t) => @string.parse_int(t.text()) catch { _ => 0 }
       }
@@ -128,7 +129,7 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
 /// error-recovery placeholder for a missing parameter name. Without this
 /// check, `\. 1` silently becomes `Lam("", None, Int(1))`.
 fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
-  let ident = n.find_token(@syntax.SyntaxKind::IdentToken.to_raw())
+  let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
   let mut annot_node : @seam.SyntaxNode? = None
   let mut body_node : @seam.SyntaxNode? = None
   for c in n.children() {
@@ -255,7 +256,7 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
 /// original identifier text (or `""` if the name itself was an error
 /// placeholder) so left-to-right definition order is retained in Module.
 fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
-  let ident = n.find_token(@syntax.SyntaxKind::IdentToken.to_raw())
+  let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
   let mut param_list : @seam.SyntaxNode? = None
   let mut init : @seam.SyntaxNode? = None
   for c in n.children() {

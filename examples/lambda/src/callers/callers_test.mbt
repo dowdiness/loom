@@ -198,7 +198,7 @@ test "pipeline: survives rt.gc() between queries" {
 
 ///|
 test "pipeline: malformed LetDef without IdentToken emits no ghost def" {
-  // Regression test for the find_token None guard. Source with an
+  // Regression test for the missing direct IdentToken guard. Source with an
   // incomplete `let = 1` (no identifier) used to emit Def { name: "" }
   // because token_text() returns "" on a missing token.
   let rt = @incr.Runtime::new()
@@ -438,8 +438,8 @@ test "extract_facts: malformed lambda no param or body (\\)" {
 
 ///|
 test "extract_facts: well-formed lambda still binds correctly under new extraction" {
-  // Sanity check that the position-aware extractor matches find_token on
-  // the happy path.
+  // Sanity check that the position-aware extractor matches a direct token
+  // query on the happy path.
   let src = "let f = 1\nlet shadow = \\f. f\n"
   let names = lambda_scope_def_names_of(src)
   // Lambda's param `f` is the only non-TopScope binding.

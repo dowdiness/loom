@@ -26,7 +26,7 @@ pub fn markdown_fold_node(
       // Re-parse heading level from CST token text because the Token payload
       // (HeadingMarker(Int)) is lost across the CST boundary — CST stores raw text only.
       let mut level = 1
-      match node.find_token(HeadingMarkerToken.to_raw()) {
+      match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
         Some(marker) => {
           let n = count_hashes(marker.text(), 0)
           if n > 0 {
@@ -56,7 +56,7 @@ pub fn markdown_fold_node(
     CodeBlockNode => {
       // Re-parse info string from CST token text (same reason as heading level above).
       let mut info = ""
-      match node.find_token(CodeFenceOpenToken.to_raw()) {
+      match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
         Some(fence_tok) => {
           let text = fence_tok.text()
           let i = count_backticks(text, 0)

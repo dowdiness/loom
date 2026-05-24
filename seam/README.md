@@ -101,11 +101,13 @@ print_tree(@seam.SyntaxNode::from_cst(root), 0)
 ### Direct shape checks for projections
 
 Projection code often needs to validate the immediate CST shape before lowering
-into a semantic model. Use the explicit direct-child helpers for that work:
+into a semantic model. Prefer the explicit direct-child helpers for that work:
 
-- `direct_token_of_kind(kind)` / `direct_tokens_of_kind(kind)` inspect only
-  direct token children.
-- `direct_children_of_kind(kind)` inspects only direct node children.
+- `direct_token_of_kind(kind)` / `direct_tokens_of_kind(kind)` inspect direct
+  token children only.
+- `direct_children_of_kind(kind)` inspects direct node children only.
+- `nodes_and_tokens()` keeps the direct node/token sequence available when
+  order matters, such as binary operator + operand pairs.
 - `children()`, `all_children()`, `tokens()`, `find_token()`, and
   `tokens_of_kind()` also operate on direct visible children. `RepeatGroup`
   nodes are transparent, but ordinary nested nodes are not searched.
@@ -120,8 +122,13 @@ A typical projection pipeline is:
 1. create a parser with `@loom.new_parser(source, grammar)`,
 2. share `parser.runtime()` for downstream reactive cells,
 3. stop semantic projection when parser diagnostics are present,
-4. extract direct CST shape into a private semantic IR, and
+4. validate direct CST shape into a private projection IR, and
 5. lower that IR into the target semantic model.
+
+The private IR can stay package-private; it is a boundary for recovery policy,
+missing-slot errors, and semantic lowering, not a new public API requirement.
+See the full [CST projection guide](../docs/api/projection-guide.md) for the
+CST → private IR → semantic model workflow and review checklist.
 
 ## Two-tree model
 
