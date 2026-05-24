@@ -97,6 +97,11 @@ validation merely because the callback child contains a descendant number token.
 If a projection needs recursive extraction, write that traversal at the call
 site so the recursion boundary is visible in review.
 
+`token_text(kind)` is intentionally a convenience helper, not a validation
+helper. It returns `""` when the token is absent, which is useful for display
+views but can hide missing semantic slots. Projection code that validates shape
+should keep the `Option` from `direct_token_of_kind(kind)` and branch explicitly.
+
 ## Anti-patterns to avoid
 
 | Pattern | Problem |

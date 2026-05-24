@@ -19,7 +19,7 @@ Both update the same signal/memo graph atomically.
 | Validated CST subtree reuse | via the underlying `ImperativeParser` engine |
 | Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
 | Shared runtime | downstream memos (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
-| Diagnostics | `parser.runtime().read(parser.diagnostics())` — `DiagnosticSet`; format only at presentation boundaries |
+| Diagnostics | `parser.diagnostics().read_or_abort()` — `DiagnosticSet`; format only at presentation boundaries |
 | Recovery | malformed input still publishes a recovered `SyntaxNode` plus structured diagnostics |
 
 `Parser` updates one parse snapshot signal under `Runtime::batch` so consumers
