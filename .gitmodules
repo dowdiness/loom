@@ -7,3 +7,6 @@
 [submodule "egglog"]
 	path = egglog
 	url = https://github.com/dowdiness/egglog.git
+[submodule "event-graph-walker"]
+	path = event-graph-walker
+	url = https://github.com/dowdiness/event-graph-walker.git

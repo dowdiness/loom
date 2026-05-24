@@ -11,9 +11,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Covers all standalone-buildable loom modules. examples/lambda + egraph
-# remain deferred — both depend on event-graph-walker, which is canopy's
-# submodule (see loom#147 follow-up).
+# Covers loom modules and checked-out submodules, including the lambda/egraph
+# path that depends on event-graph-walker.
 
 jobs:
   test-modules:
@@ -35,12 +34,18 @@ jobs:
             path: incr
           - name: egglog
             path: egglog
+          - name: event-graph-walker
+            path: event-graph-walker
           - name: pretty
             path: pretty
+          - name: examples-lambda
+            path: examples/lambda
           - name: examples-json
             path: examples/json
           - name: examples-markdown
             path: examples/markdown
+          - name: egraph
+            path: egraph
     env:
       NEW_MOON_MOD: '0'
     steps:
