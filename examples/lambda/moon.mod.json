@@ -7,7 +7,7 @@
     "dowdiness/pretty": { "path": "../../pretty" },
     "dowdiness/seam": { "path": "../../seam" },
     "dowdiness/incr": "0.5.2",
-    "dowdiness/event-graph-walker": { "path": "../../../event-graph-walker" },
+    "dowdiness/event-graph-walker": { "path": "../../event-graph-walker" },
     "moonbitlang/quickcheck": "0.11.2"
   },
   "test-deps": {
