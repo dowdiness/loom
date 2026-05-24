@@ -19,32 +19,29 @@ concurrency:
 # into sibling repos (e.g. loom -> ../../lib/text-change which lives in
 # canopy; examples/lambda -> ../../../event-graph-walker likewise).
 #
-# This workflow ships CI for the buildable subset now and tracks the
-# path-dep migration as follow-up work. egglog and pretty are sibling
-# experimental modules included with continue-on-error: true for
-# visibility without blocking.
+# egraph hits the same blocker through its transitive dep on lambda+loom.
+# egglog and pretty are sibling modules that DO build standalone today
+# and are included as first-class matrix entries.
+#
+# Path-dep migration is tracked as a follow-up; this workflow will be
+# expanded to cover the affected modules once they're standalone-buildable.
 
 jobs:
   test-modules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: seam
             path: seam
-            experimental: false
           - name: incr
             path: incr
-            experimental: false
           - name: egglog
             path: egglog
-            experimental: true
           - name: pretty
             path: pretty
-            experimental: true
     env:
       NEW_MOON_MOD: '0'
     steps:
