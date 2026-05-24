@@ -31,6 +31,7 @@ Framework-level:
 - [api/choosing-a-parser.md](api/choosing-a-parser.md) — when to reach for `ImperativeParser` directly instead of the unified `Parser[Ast]`
 - [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
+- [api/projection-guide.md](api/projection-guide.md) — CST → private IR → semantic model projection guide, including direct CST shape validation
 - [../loom/src/pkg.generated.mbti](../loom/src/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
 
 Language-specific:

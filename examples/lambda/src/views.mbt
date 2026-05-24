@@ -331,7 +331,7 @@ pub impl @core.AstView for IntLiteralView with syntax_node(self) {
 /// Parse and return the integer value. Returns None if the token text is not
 /// a valid integer (should not happen in a well-formed tree).
 pub fn IntLiteralView::value(self : IntLiteralView) -> Int? {
-  match self.node.find_token(@syntax.IntToken.to_raw()) {
+  match self.node.direct_token_of_kind(@syntax.IntToken.to_raw()) {
     None => None
     Some(t) => {
       let n = @string.parse_int(t.text()) catch { _ => return None }

@@ -114,9 +114,9 @@ fn resolve_in_stack(name : String, stack : Array[Frame]) -> ScopeId {
 ///     punctuation, or an interior node).
 ///
 /// Used for LambdaExpr (lead=LambdaToken, returns the param) and LetDef
-/// (lead=LetKeyword, returns the let-bound name). `find_token` would
+/// (lead=LetKeyword, returns the let-bound name). A direct token query would
 /// return the same value on today's recovery paths because it does not
-/// descend into interior nodes, but the intent is clearer here and the
+/// descend into interior nodes, but the slot intent is clearer here and the
 /// extraction is robust against future recovery shifts that might leave
 /// a stray IdentToken at a non-slot direct position.
 fn ident_after_lead(
@@ -272,7 +272,7 @@ fn collect_in(
       }
     }
     @syntax.VarRef =>
-      match node.find_token(@syntax.IdentToken.to_raw()) {
+      match node.direct_token_of_kind(@syntax.IdentToken.to_raw()) {
         Some(tok) => {
           let name = tok.text()
           calls.push({

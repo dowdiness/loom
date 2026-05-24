@@ -156,16 +156,9 @@ pub fn json_fold_node(
           MemberNode => {
             // Get key from first direct StringToken child only (not recursive).
             // This prevents picking up the value's string when the key is missing.
-            let mut key = ""
-            for elem in child.all_children() {
-              match elem {
-                @seam.SyntaxElement::Token(t) =>
-                  if StringToken.to_raw() == t.kind() {
-                    key = t.text()
-                    break
-                  }
-                _ => ()
-              }
+            let key = match child.direct_token_of_kind(StringToken.to_raw()) {
+              Some(t) => t.text()
+              None => ""
             }
             let parsed_key = if key.length() >= 2 {
               parse_json_string(key)
@@ -206,7 +199,7 @@ pub fn json_fold_node(
       JsonValue::Number(n)
     }
     BoolValue =>
-      match node.find_token(TrueKeyword.to_raw()) {
+      match node.direct_token_of_kind(TrueKeyword.to_raw()) {
         Some(_) => JsonValue::Bool(true)
         None => JsonValue::Bool(false)
       }
