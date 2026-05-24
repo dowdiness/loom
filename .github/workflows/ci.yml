@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Scope note (2026-05-24):
+#
+# Of the 6 modules named by issue #144 (loom, seam, incr, examples/lambda,
+# examples/json, examples/markdown), only seam and incr are buildable in
+# isolation today. The others declare path-deps that escape the loom repo
+# into sibling repos (e.g. loom -> ../../lib/text-change which lives in
+# canopy; examples/lambda -> ../../../event-graph-walker likewise).
+#
+# egraph hits the same blocker through its transitive dep on lambda+loom.
+# egglog and pretty are sibling modules that DO build standalone today
+# and are included as first-class matrix entries.
+#
+# Path-dep migration is tracked as a follow-up; this workflow will be
+# expanded to cover the affected modules once they're standalone-buildable.
+
+jobs:
+  test-modules:
+    name: Check + Test ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: seam
+            path: seam
+          - name: incr
+            path: incr
+          - name: egglog
+            path: egglog
+          - name: pretty
+            path: pretty
+    env:
+      NEW_MOON_MOD: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: ${{ matrix.path }}
+        run: moon update
+
+      - name: moon check
+        working-directory: ${{ matrix.path }}
+        run: moon check
+
+      - name: moon test
+        working-directory: ${{ matrix.path }}
+        run: moon test
+
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - test-modules
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          if [[ "${{ needs.test-modules.result }}" != "success" ]]; then
+            echo "test-modules job failed"
+            exit 1
+          fi
+          echo "All checks passed"
