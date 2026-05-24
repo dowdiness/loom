@@ -68,8 +68,8 @@ fn PipelineState::new() -> PipelineState {
 /// Build the incremental typecheck pipeline.
 ///
 /// Takes a `Memo[TypedTerm]` that produces the (already converted and resolved)
-/// module term. Returns a `Memo[ModuleTypeResult]` that recomputes incrementally
-/// when the input changes.
+/// module term. Returns a `Derived[ModuleTypeResult]` that recomputes
+/// incrementally when the input changes.
 ///
 /// The caller (in `src/` or in tests) is responsible for creating the input memo
 /// from parsed source. This avoids circular dependencies.
@@ -77,11 +77,11 @@ pub fn build_typecheck_pipeline(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
   source_term : @incr.Memo[TypedTerm],
-) -> @incr.Memo[ModuleTypeResult] {
-  let (memo, _state) = build_typecheck_pipeline_internal(
+) -> @incr.Derived[ModuleTypeResult] {
+  let (derived, _state) = build_typecheck_pipeline_internal(
     rt, parent_scope, source_term,
   )
-  memo
+  derived
 }
 
 ///|
@@ -92,10 +92,10 @@ fn build_typecheck_pipeline_internal(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
   source_term : @incr.Memo[TypedTerm],
-) -> (@incr.Memo[ModuleTypeResult], PipelineState) {
+) -> (@incr.Derived[ModuleTypeResult], PipelineState) {
   let state = PipelineState::new()
   ignore(rt)
-  let memo = parent_scope.memo(
+  let derived = parent_scope.derived(
     () => {
       let term = source_term.get()
       let (defs, body) = split_defs(term)
@@ -114,7 +114,7 @@ fn build_typecheck_pipeline_internal(
     },
     label="typecheck_pipeline",
   )
-  (memo, state)
+  (derived, state)
 }
 
 ///|
@@ -131,7 +131,7 @@ pub fn build_typecheck_pipeline_with_index(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
   source_term : @incr.Memo[TypedTerm],
-) -> (@incr.Memo[ModuleTypeResult], TypecheckIndex) {
+) -> (@incr.Derived[ModuleTypeResult], TypecheckIndex) {
   let state = PipelineState::new()
   let memo_map = @incr.MemoMap::new(
     rt,
@@ -154,7 +154,7 @@ pub fn build_typecheck_pipeline_with_index(
     },
     label="typecheck_index",
   )
-  let result_memo = parent_scope.memo(
+  let result_derived = parent_scope.derived(
     () => {
       let term = source_term.get()
       let (defs, body) = split_defs(term)
@@ -180,7 +180,7 @@ pub fn build_typecheck_pipeline_with_index(
     label="typecheck_pipeline",
   )
   let index : TypecheckIndex = { intern_table: state.intern_table, memo_map }
-  (result_memo, index)
+  (result_derived, index)
 }
 
 ///|
