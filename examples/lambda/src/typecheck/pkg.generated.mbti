@@ -11,9 +11,9 @@ import {
 }
 
 // Values
-pub fn build_typecheck_pipeline(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> @cells.Derived[ModuleTypeResult]
+pub fn build_typecheck_pipeline(@cells.Runtime, @cells.Scope, @cells.Derived[TypedTerm]) -> @cells.Derived[ModuleTypeResult]
 
-pub fn build_typecheck_pipeline_with_index(@cells.Runtime, @cells.Scope, @cells.Memo[TypedTerm]) -> (@cells.Derived[ModuleTypeResult], TypecheckIndex)
+pub fn build_typecheck_pipeline_with_index(@cells.Runtime, @cells.Scope, @cells.Derived[TypedTerm]) -> (@cells.Derived[ModuleTypeResult], TypecheckIndex)
 
 pub fn check(TypeEnv, TypedTerm, Type) -> TypeResult raise Failure
 
