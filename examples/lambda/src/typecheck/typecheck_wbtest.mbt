@@ -399,7 +399,7 @@ test "incremental: basic typecheck through pipeline" {
   let term_signal = scope.signal(module_term, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let result = result_memo.get_result().unwrap()
+  let result = result_memo.read().unwrap()
   // f : Int -> Int
   inspect(result.def_types[0].0, content="f")
   inspect(result.def_types[0].1.typ, content="Int -> Int")
@@ -422,8 +422,8 @@ test "incremental: source unchanged = cache hit" {
   let term_signal = scope.signal(module_term, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let r1 = result_memo.get_result().unwrap()
-  let r2 = result_memo.get_result().unwrap()
+  let r1 = result_memo.read().unwrap()
+  let r2 = result_memo.read().unwrap()
   inspect(r1 == r2, content="true")
   scope.dispose()
 }
@@ -440,7 +440,7 @@ test "incremental: edit def body triggers recomputation" {
   let term_signal = scope.signal(module_term1, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let r1 = result_memo.get_result().unwrap()
+  let r1 = result_memo.read().unwrap()
   inspect(r1.body_type.typ, content="Int")
   // Now change def a's body to Unit
   let module_term2 = TypedTerm::Module(
@@ -448,7 +448,7 @@ test "incremental: edit def body triggers recomputation" {
     TypedTerm::Var("a"),
   )
   term_signal.set(module_term2)
-  let r2 = result_memo.get_result().unwrap()
+  let r2 = result_memo.read().unwrap()
   inspect(r2.body_type.typ, content="Unit")
   inspect(r2.def_types[0].1.typ, content="Unit")
   scope.dispose()
@@ -466,7 +466,7 @@ test "incremental: structural change rebuilds scope" {
   let term_signal = scope.signal(module_term1, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let r1 = result_memo.get_result().unwrap()
+  let r1 = result_memo.read().unwrap()
   inspect(r1.def_types.length(), content="1")
   // Now change to two defs: def a = 1, def b = a, body = b
   let module_term2 = TypedTerm::Module(
@@ -474,7 +474,7 @@ test "incremental: structural change rebuilds scope" {
     TypedTerm::Var("b"),
   )
   term_signal.set(module_term2)
-  let r2 = result_memo.get_result().unwrap()
+  let r2 = result_memo.read().unwrap()
   inspect(r2.def_types.length(), content="2")
   inspect(r2.def_types[0].0, content="a")
   inspect(r2.def_types[1].0, content="b")
@@ -490,7 +490,7 @@ test "incremental: empty module" {
   let term_signal = scope.signal(module_term, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let result = result_memo.get_result().unwrap()
+  let result = result_memo.read().unwrap()
   inspect(result.def_types.length(), content="0")
   inspect(result.body_type.typ, content="Int")
   inspect(result.all_diagnostics.length(), content="0")
@@ -509,7 +509,7 @@ test "incremental: diagnostics propagate through pipeline" {
   let term_signal = scope.signal(module_term, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let result = result_memo.get_result().unwrap()
+  let result = result_memo.read().unwrap()
   inspect(result.def_types[0].1.had_error, content="true")
   // Diagnostics should be tagged with def name
   inspect(result.all_diagnostics.length() > 0, content="true")
@@ -532,7 +532,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
   let term_signal = scope.signal(module_v1, label="source_term")
   let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
-  let r1 = result_memo.get_result().unwrap()
+  let r1 = result_memo.read().unwrap()
   inspect(r1.all_diagnostics.length(), content="1")
   debug_inspect(r1.all_diagnostics[0].def_name, content="Some(\"a\")")
   // Fix `a` — diagnostic should disappear. Same def names, no rebuild.
@@ -541,7 +541,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
     TypedTerm::Var("b"),
   )
   term_signal.set(module_v2)
-  let r2 = result_memo.get_result().unwrap()
+  let r2 = result_memo.read().unwrap()
   inspect(r2.all_diagnostics.length(), content="0")
   // Break `b` — only `b`'s diagnostic should surface.
   let ill_b = TypedTerm::Lam("y", None, TypedTerm::Var("y"))
@@ -550,7 +550,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
     TypedTerm::Var("b"),
   )
   term_signal.set(module_v3)
-  let r3 = result_memo.get_result().unwrap()
+  let r3 = result_memo.read().unwrap()
   inspect(r3.all_diagnostics.length(), content="1")
   debug_inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
   scope.dispose()
@@ -577,7 +577,7 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   // Baseline changed_at for each def's resolve_memo and the body slot.
   let ca0_before = state.resolve_memos[0].changed_at()
   let ca1_before = state.resolve_memos[1].changed_at()
@@ -594,7 +594,7 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
     TypedTerm::Var("c"),
   )
   term_signal.set(v2)
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   let ca0_after = state.resolve_memos[0].changed_at()
   let ca1_after = state.resolve_memos[1].changed_at()
   let ca2_after = state.resolve_memos[2].changed_at()
@@ -622,14 +622,14 @@ test "incremental: per-def resolve — body edit invalidates only body_resolve_m
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   let ca_def_before = state.resolve_memos[0].changed_at()
   let body_rm = state.body_resolve_memo.unwrap()
   let ca_body_before = body_rm.changed_at()
   // Edit only the body: Var("a") → Int(99). Def is unchanged.
   let v2 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Int(99))
   term_signal.set(v2)
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   let ca_def_after = state.resolve_memos[0].changed_at()
   let ca_body_after = body_rm.changed_at()
   // Def backdates (raw body unchanged); body_resolve_memo advances.
@@ -658,7 +658,7 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   let ca_before = state.resolve_memos[0].changed_at()
   let sig_ca_before = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
   // Rewrite the raw body: Var("unknown") → Unbound("unknown"). The raw
@@ -671,7 +671,7 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
     TypedTerm::Int(0),
   )
   term_signal.set(v2)
-  let _ = result_memo.get_result().unwrap()
+  let _ = result_memo.read().unwrap()
   let ca_after = state.resolve_memos[0].changed_at()
   let sig_ca_after = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
   // Two claims, in order:
@@ -718,7 +718,7 @@ test "MemoMap: query by DefId" {
     rt, scope, term_memo,
   )
   // Force computation
-  let _result = result_memo.get_result().unwrap()
+  let _result = result_memo.read().unwrap()
   // Query f by DefId
   let f_id = index.intern_table.intern({ name: "f" })
   let f_type = index.memo_map.get(f_id)
@@ -744,7 +744,7 @@ test "MemoMap: cache hit for stable DefId after edit" {
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
-  let _r1 = result_memo.get_result().unwrap()
+  let _r1 = result_memo.read().unwrap()
   let f_id = index.intern_table.intern({ name: "f" })
   let f_type1 = index.memo_map.get(f_id)
   inspect(f_type1.typ, content="Int -> Int")
@@ -763,7 +763,7 @@ test "MemoMap: cache hit for stable DefId after edit" {
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
   )
   term_signal.set(module_term2)
-  let _r2 = result_memo.get_result().unwrap()
+  let _r2 = result_memo.read().unwrap()
   let f_type2 = index.memo_map.get(f_id)
   inspect(f_type2.typ, content="Int -> Int")
   scope.dispose()
@@ -795,7 +795,7 @@ test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
-  let result = result_memo.get_result().unwrap()
+  let result = result_memo.read().unwrap()
   // `a` routes to the first occurrence (Int), not the shadowing lambda.
   let a_id = index.intern_table.intern({ name: "a" })
   inspect(index.memo_map.get(a_id).typ, content="Int")
@@ -833,7 +833,7 @@ test "MemoMap: lookup of unknown def name returns error sentinel" {
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
-  let _r1 = result_memo.get_result().unwrap()
+  let _r1 = result_memo.read().unwrap()
   // Known names resolve.
   let a_id = index.intern_table.intern({ name: "a" })
   inspect(index.memo_map.get(a_id).typ, content="Int")
@@ -878,7 +878,7 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
-  let _r1 = result_memo.get_result().unwrap()
+  let _r1 = result_memo.read().unwrap()
   // Cache IDs for b and c under v1's positions.
   let b_id = index.intern_table.intern({ name: "b" })
   let c_id = index.intern_table.intern({ name: "c" })
@@ -896,7 +896,7 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
     TypedTerm::Var("c"),
   )
   term_signal.set(module_v2)
-  let _r2 = result_memo.get_result().unwrap()
+  let _r2 = result_memo.read().unwrap()
   // The original b_id and c_id (minted under v1 positions) still resolve
   // to the right types. `DefEntry` hashes on `name` only, so re-interning
   // returns the same `InternId`; the MemoMap routes the lookup through
@@ -922,7 +922,7 @@ test "MemoMap: structural rebuild sweeps stale entries" {
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
-  let _r1 = result_memo.get_result().unwrap()
+  let _r1 = result_memo.read().unwrap()
   // Populate memo_map with two entries.
   let a_id = index.intern_table.intern({ name: "a" })
   let b_id = index.intern_table.intern({ name: "b" })
@@ -938,7 +938,7 @@ test "MemoMap: structural rebuild sweeps stale entries" {
     TypedTerm::Var("b"),
   )
   term_signal.set(module_term2)
-  let _r2 = result_memo.get_result().unwrap()
+  let _r2 = result_memo.read().unwrap()
   // After rebuild, memo_map has been cleared; no stale entries remain.
   inspect(index.memo_map.length(), content="0")
   // `b`'s InternId is stable across the rebuild. `a` is gone (→ error
