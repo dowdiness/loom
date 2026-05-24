@@ -243,11 +243,14 @@ pub struct SyntaxNode {
 | `SyntaxNode::start(Self) -> Int` | Stable | Returns `offset` |
 | `SyntaxNode::end(Self) -> Int` | Stable | Returns `offset + cst.text_len` |
 | `SyntaxNode::kind(Self) -> RawKind` | Stable | |
-| `SyntaxNode::children(Self) -> Array[Self]` | Stable | Child `SyntaxNode`s with computed offsets; skips leaf tokens |
-| `SyntaxNode::all_children(Self) -> Array[SyntaxElement]` | Stable | All children including leaf tokens, in source order |
-| `SyntaxNode::tokens(Self) -> Array[SyntaxToken]` | Stable | All leaf tokens in subtree, in source order |
-| `SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?` | Stable | First token of the given kind in this node |
-| `SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All tokens of the given kind in this node |
+| `SyntaxNode::children(Self) -> Array[Self]` | Stable | Direct child `SyntaxNode`s with computed offsets; skips leaf tokens |
+| `SyntaxNode::all_children(Self) -> Array[SyntaxElement]` | Stable | Direct children including leaf tokens, in source order |
+| `SyntaxNode::tokens(Self) -> Array[SyntaxToken]` | Stable | Direct leaf tokens only; skips child nodes |
+| `SyntaxNode::direct_children_of_kind(Self, RawKind) -> Array[Self]` | Stable | Direct child nodes matching the given kind |
+| `SyntaxNode::direct_token_of_kind(Self, RawKind) -> SyntaxToken?` | Stable | First direct token of the given kind; explicit projection-validation helper |
+| `SyntaxNode::direct_tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All direct tokens of the given kind; explicit projection-validation helper |
+| `SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?` | Stable | First direct token of the given kind in this node |
+| `SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All direct tokens of the given kind in this node |
 | `SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)` | Stable | Start/end skipping leading/trailing trivia tokens |
 | `SyntaxNode::find_at(Self, Int) -> Self` | Stable | Deepest descendant whose span contains the byte offset; falls back to `self` |
 | `SyntaxNode::cst_node(Self) -> CstNode` | Stable | **Advanced use only.** Returns the underlying `CstNode` for infrastructure that requires it (e.g. reuse cursors). Prefer SyntaxNode API for all navigation. |

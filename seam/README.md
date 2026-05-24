@@ -98,6 +98,31 @@ print_tree(@seam.SyntaxNode::from_cst(root), 0)
 //   (tokens are skipped — only interior CstNode children appear)
 ```
 
+### Direct shape checks for projections
+
+Projection code often needs to validate the immediate CST shape before lowering
+into a semantic model. Use the explicit direct-child helpers for that work:
+
+- `direct_token_of_kind(kind)` / `direct_tokens_of_kind(kind)` inspect only
+  direct token children.
+- `direct_children_of_kind(kind)` inspects only direct node children.
+- `children()`, `all_children()`, `tokens()`, `find_token()`, and
+  `tokens_of_kind()` also operate on direct visible children. `RepeatGroup`
+  nodes are transparent, but ordinary nested nodes are not searched.
+
+This distinction matters for callback or nested argument syntax: validating
+`.fast(2)` should look for a direct `NumberToken` on the method-call node;
+`.fast(slow(2))` must not be accepted just because a descendant callback node
+contains a `NumberToken`.
+
+A typical projection pipeline is:
+
+1. create a parser with `@loom.new_parser(source, grammar)`,
+2. share `parser.runtime()` for downstream reactive cells,
+3. stop semantic projection when parser diagnostics are present,
+4. extract direct CST shape into a private semantic IR, and
+5. lower that IR into the target semantic model.
+
 ## Two-tree model
 
 | Concept | `seam` type | Rowan equivalent |

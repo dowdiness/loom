@@ -139,6 +139,62 @@ test "SyntaxNode::tokens_of_kind collects all matching tokens" {
 }
 
 ///|
+test "direct query helpers expose direct tokens and nodes only" {
+  let number = CstToken::CstToken(RawKind(5), "1")
+  let child = CstNode::new(RawKind(20), [
+    CstElement::Token(CstToken::CstToken(RawKind(6), "x")),
+  ])
+  let root = CstNode::new(RawKind(22), [
+    CstElement::Token(number),
+    CstElement::Node(child),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let numbers = sn.direct_tokens_of_kind(RawKind(5))
+  let children = sn.direct_children_of_kind(RawKind(20))
+  inspect(numbers.length(), content="1")
+  inspect(sn.direct_token_of_kind(RawKind(5)) is Some(_), content="true")
+  inspect(sn.direct_token_of_kind(RawKind(6)) is None, content="true")
+  inspect(children.length(), content="1")
+  inspect(children[0].start(), content="1")
+}
+
+///|
+test "direct token validation rejects nested callback argument tokens" {
+  let method_kind = RawKind(30)
+  let callback_kind = RawKind(31)
+  let name_kind = RawKind(32)
+  let number_kind = RawKind(33)
+  let method_tok = CstToken::CstToken(method_kind, ".fast")
+  let direct_number = CstToken::CstToken(number_kind, "2")
+  let nested_number = CstToken::CstToken(number_kind, "2")
+  let callback = CstNode::new(callback_kind, [
+    CstElement::Token(CstToken::CstToken(name_kind, "slow")),
+    CstElement::Token(nested_number),
+  ])
+  let direct_call = SyntaxNode::from_cst(
+    CstNode::new(method_kind, [
+      CstElement::Token(method_tok),
+      CstElement::Token(direct_number),
+    ]),
+  )
+  let nested_call = SyntaxNode::from_cst(
+    CstNode::new(method_kind, [
+      CstElement::Token(method_tok),
+      CstElement::Node(callback),
+    ]),
+  )
+  inspect(
+    direct_call.direct_tokens_of_kind(number_kind).length() == 1,
+    content="true",
+  )
+  inspect(
+    nested_call.direct_tokens_of_kind(number_kind).length() == 0,
+    content="true",
+  )
+  inspect(nested_call.direct_token_of_kind(number_kind) is None, content="true")
+}
+
+///|
 test "SyntaxNode::tight_span no trivia" {
   let t1 = CstToken::CstToken(RawKind(9), "ab")
   let t2 = CstToken::CstToken(RawKind(9), "cd")
