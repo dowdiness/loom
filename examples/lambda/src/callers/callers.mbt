@@ -474,13 +474,13 @@ pub fn CallersPipeline::CallersPipeline(
   syntax : @incr.Derived[@seam.SyntaxNode],
 ) -> CallersPipeline {
   let scope = @incr.Scope::new(rt)
-  let facts = scope.memo(
+  let facts = scope.derived(
     fn() { extract_facts_full(syntax.read_or_abort()) },
     label="callers_facts",
   )
-  let callers_index = scope.memo(
+  let callers_index = scope.derived(
     fn() {
-      let (_, calls, _) = facts.get()
+      let (_, calls, _) = facts.get_or_abort()
       let buckets : @hashmap.HashMap[String, Array[Call]] = @hashmap.HashMap([])
       for c in calls {
         if c.is_call_position && c.resolved_scope == TopScope {
@@ -494,9 +494,9 @@ pub fn CallersPipeline::CallersPipeline(
     },
     label="callers_index",
   )
-  let visibility = scope.memo(
+  let visibility = scope.derived(
     fn() {
-      let (defs, _, enclosing) = facts.get()
+      let (defs, _, enclosing) = facts.get_or_abort()
       build_visibility(defs, enclosing)
     },
     label="callers_visibility",

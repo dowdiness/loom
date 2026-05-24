@@ -397,7 +397,7 @@ test "incremental: basic typecheck through pipeline" {
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(5)),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   // f : Int -> Int
@@ -420,7 +420,7 @@ test "incremental: source unchanged = cache hit" {
     TypedTerm::Var("a"),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   let r2 = result_memo.read().unwrap()
@@ -438,7 +438,7 @@ test "incremental: edit def body triggers recomputation" {
     TypedTerm::Var("a"),
   )
   let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.body_type.typ, content="Int")
@@ -464,7 +464,7 @@ test "incremental: structural change rebuilds scope" {
     TypedTerm::Var("a"),
   )
   let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.def_types.length(), content="1")
@@ -488,7 +488,7 @@ test "incremental: empty module" {
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module([], TypedTerm::Int(42))
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   inspect(result.def_types.length(), content="0")
@@ -507,7 +507,7 @@ test "incremental: diagnostics propagate through pipeline" {
     TypedTerm::Var("a"),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   inspect(result.def_types[0].1.had_error, content="true")
@@ -530,7 +530,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
     TypedTerm::Var("b"),
   )
   let term_signal = scope.signal(module_v1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.all_diagnostics.length(), content="1")
@@ -573,7 +573,7 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
     TypedTerm::Var("c"),
   )
   let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
@@ -618,7 +618,7 @@ test "incremental: per-def resolve — body edit invalidates only body_resolve_m
   // def a = 1, body = a
   let v1 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Var("a"))
   let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
@@ -654,7 +654,7 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
     TypedTerm::Int(0),
   )
   let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
@@ -713,7 +713,7 @@ test "MemoMap: query by DefId" {
     TypedTerm::App(TypedTerm::Var("g"), TypedTerm::Int(3)),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -740,7 +740,7 @@ test "MemoMap: cache hit for stable DefId after edit" {
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
   )
   let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -791,7 +791,7 @@ test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
     TypedTerm::Var("b"),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -829,7 +829,7 @@ test "MemoMap: lookup of unknown def name returns error sentinel" {
     TypedTerm::Var("b"),
   )
   let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -874,7 +874,7 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
     TypedTerm::Var("c"),
   )
   let term_signal = scope.signal(module_v1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -918,7 +918,7 @@ test "MemoMap: structural rebuild sweeps stale entries" {
     TypedTerm::Var("a"),
   )
   let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.memo(fn() { term_signal.get() }, label="source")
+  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )

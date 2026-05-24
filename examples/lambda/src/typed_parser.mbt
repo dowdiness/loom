@@ -55,7 +55,7 @@ pub fn attach_typecheck(
 ) -> TypecheckAttachment {
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
-  let typed_memo = scope.memo(
+  let typed_memo = scope.derived(
     fn() { @typecheck.convert_from_cst(parser.syntax_tree().get_or_abort()) },
     label="typed_term_bridge",
   )
