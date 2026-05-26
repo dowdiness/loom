@@ -16,6 +16,8 @@ import {
 }
 
 // Values
+pub fn attach_lambda_analysis(@pipeline.Parser[@ast.Term]) -> LambdaAnalysis
+
 pub fn attach_typecheck(@pipeline.Parser[@ast.Term]) -> TypecheckAttachment
 
 pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
@@ -96,6 +98,33 @@ pub fn IntLiteralView::value(Self) -> Int?
 pub impl @core.AstView for IntLiteralView
 pub impl ToJson for IntLiteralView
 
+pub(all) struct LambdaAnalysis {
+  parser : @pipeline.Parser[@ast.Term]
+  typecheck : TypecheckAttachment
+  scope : @cells.Scope
+  watch : @cells.Watch[Array[LambdaDiagnostic]]
+}
+pub fn LambdaAnalysis::LambdaAnalysis(String) -> Self
+pub fn LambdaAnalysis::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn LambdaAnalysis::diagnostics(Self) -> Array[LambdaDiagnostic]
+pub fn LambdaAnalysis::dispose(Self) -> Unit
+pub fn LambdaAnalysis::set_source(Self, String) -> Unit
+pub fn LambdaAnalysis::typecheck_result(Self) -> @typecheck.ModuleTypeResult
+
+pub(all) enum LambdaDiagnostic {
+  ParseDiagnostic(@core.Diagnostic)
+  TypecheckDiagnostic(@typecheck.TypeDiagnostic)
+} derive(Eq, @debug.Debug)
+pub fn LambdaDiagnostic::from_parse(@core.Diagnostic) -> Self
+pub fn LambdaDiagnostic::from_typecheck(@typecheck.TypeDiagnostic) -> Self
+pub fn LambdaDiagnostic::message(Self) -> String
+pub fn LambdaDiagnostic::phase(Self) -> LambdaDiagnosticPhase
+
+pub(all) enum LambdaDiagnosticPhase {
+  ParsePhase
+  TypecheckPhase
+} derive(Eq, @debug.Debug)
+
 pub struct LambdaExprView {
   node : @seam.SyntaxNode
 }
@@ -136,6 +165,7 @@ pub impl @core.AstView for TypeAnnotView
 
 pub(all) struct TypecheckAttachment {
   scope : @cells.Scope
+  result : @cells.Derived[@typecheck.ModuleTypeResult]
   watch : @cells.Watch[@typecheck.ModuleTypeResult]
   index : @typecheck.TypecheckIndex
 }
