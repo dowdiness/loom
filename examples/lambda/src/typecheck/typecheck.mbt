@@ -1,12 +1,12 @@
 // Incremental typecheck pipeline wiring.
 //
-// Creates a Scope-managed chain of Memos for per-def type checking.
+// Creates a Scope-managed chain of Derived cells for per-def type checking.
 // For a module with N defs, the chain is:
 //   env_memo[0] → type_memo[0] → env_memo[1] → type_memo[1] → ... → body_memo
 //
 // When module structure changes (defs added/removed), the old chain
 // scope is disposed and a new one is built. When only def bodies change,
-// the corresponding term signals are updated and memos recompute.
+// the corresponding term inputs are updated and derived cells recompute.
 
 ///|
 /// Mutable pipeline state, held inside the top-level Memo closure.
@@ -27,16 +27,16 @@ priv struct PipelineState {
   // Concatenated into `ModuleTypeResult::all_diagnostics` by
   // `collect_results`. Rebuilt atomically with `name_to_idx`.
   mut duplicate_diags : Array[TypeDiagnostic]
-  // Raw (unresolved) def body signals. `resolve_memos[i]` reads
-  // `term_signals[i]` and runs `resolve_walk` on that raw body with
+  // Raw (unresolved) def body inputs. `resolve_memos[i]` reads
+  // `term_inputs[i]` and runs `resolve_walk` on that raw body with
   // the def's captured `ResolveEnv`. Editing one def body only
   // invalidates that def's `resolve_memo`.
-  mut term_signals : Array[@incr.Signal[TypedTerm]]
+  mut term_inputs : Array[@incr.Input[TypedTerm]]
   mut resolve_memos : Array[@incr.Derived[TypedTerm]]
   // env_memos kept alive so closures that captured them don't dangle
   mut env_memos : Array[@incr.Derived[TypeEnv]]
   mut type_memos : Array[@incr.Derived[TypeResult]]
-  mut body_term_signal : @incr.Signal[TypedTerm]?
+  mut body_term_input : @incr.Input[TypedTerm]?
   mut body_resolve_memo : @incr.Derived[TypedTerm]?
   mut body_memo : @incr.Derived[TypeResult]?
   // Accumulator for per-def diagnostics. Allocated in `rebuild_chain`
@@ -53,11 +53,11 @@ fn PipelineState::new() -> PipelineState {
     prev_def_names: [],
     name_to_idx: @hashmap.HashMap([]),
     duplicate_diags: [],
-    term_signals: [],
+    term_inputs: [],
     resolve_memos: [],
     env_memos: [],
     type_memos: [],
-    body_term_signal: None,
+    body_term_input: None,
     body_resolve_memo: None,
     body_memo: None,
     diags: None,
@@ -123,17 +123,18 @@ fn build_typecheck_pipeline_internal(
 /// Like `build_typecheck_pipeline`, but also returns a `TypecheckIndex` that
 /// lets callers query type results by `InternId` (stable across edits).
 ///
-/// The `MemoMap` in the index computes by looking up the type memo for the
-/// given `InternId` in the current `PipelineState`. Reads inside the MemoMap
-/// compute function ARE tracked — changing a type_memo will invalidate the
-/// entry. Calling `memo_map.get(id)` outside a tracked context is untracked.
+/// The `DerivedMap` in the index computes by looking up the type memo for the
+/// given `InternId` in the current `PipelineState`. Reads inside the
+/// DerivedMap compute function ARE tracked — changing a type_memo will
+/// invalidate the entry. Call `derived_map.read_or_abort(id)` outside a
+/// tracked context.
 pub fn build_typecheck_pipeline_with_index(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
   source_term : @incr.Derived[TypedTerm],
 ) -> (@incr.Derived[ModuleTypeResult], TypecheckIndex) {
   let state = PipelineState::new()
-  let memo_map = @incr.MemoMap::new(
+  let derived_map = @incr.DerivedMap(
     rt,
     fn(def_id : @incr.InternId) -> TypeResult {
       let entry = state.intern_table.get(def_id)
@@ -164,13 +165,13 @@ pub fn build_typecheck_pipeline_with_index(
         Some(_) => def_names != state.prev_def_names
       }
       if needs_rebuild {
-        // Wrapper memos in `memo_map` captured references to the previous
+        // Wrapper memos in `derived_map` captured references to the previous
         // chain's `type_memos` slots. After `rebuild_chain` replaces those
         // slots (and their chain scope is disposed), every cached wrapper
         // reads through a dangling pointer. Dispose them up front —
-        // `memo_map` is Runtime-owned, so chain-scope disposal can't
+        // `derived_map` is Runtime-owned, so chain-scope disposal can't
         // reach it.
-        memo_map.clear()
+        derived_map.clear_cache()
         rebuild_chain(state, parent_scope, defs, body)
       } else {
         update_terms(state, defs, body)
@@ -179,7 +180,7 @@ pub fn build_typecheck_pipeline_with_index(
     },
     label="typecheck_pipeline",
   )
-  let index : TypecheckIndex = { intern_table: state.intern_table, memo_map }
+  let index : TypecheckIndex = { intern_table: state.intern_table, derived_map }
   (result_derived, index)
 }
 
@@ -246,13 +247,13 @@ fn rebuild_chain(
   }
   state.name_to_idx = name_to_idx
   state.duplicate_diags = duplicate_diags
-  // Create raw-body term signals for each def.
-  let term_signals : Array[@incr.Signal[TypedTerm]] = []
+  // Create raw-body term inputs for each def.
+  let term_inputs : Array[@incr.Input[TypedTerm]] = []
   for def in defs {
-    let sig = chain_scope.signal(def.1, label="def_term_\{def.0}")
-    term_signals.push(sig)
+    let input = chain_scope.input(def.1, label="def_term_\{def.0}")
+    term_inputs.push(input)
   }
-  state.term_signals = term_signals
+  state.term_inputs = term_inputs
   // Build per-def ResolveEnv values. Names are fixed for this chain's
   // lifetime (any name change triggers a full rebuild), so these are
   // plain values captured by closures rather than reactive memos.
@@ -271,10 +272,10 @@ fn rebuild_chain(
   let resolve_memos : Array[@incr.Derived[TypedTerm]] = []
   for i = 0; i < defs.length(); i = i + 1 {
     let def_name = defs[i].0
-    let term_sig = term_signals[i]
+    let term_input = term_inputs[i]
     let env_i = resolve_envs[i]
     let rm = chain_scope.derived(
-      () => resolve_walk(term_sig.get(), env_i),
+      () => resolve_walk(term_input.get(), env_i),
       label="resolve_\{def_name}",
     )
     resolve_memos.push(rm)
@@ -326,11 +327,11 @@ fn rebuild_chain(
   }
   state.env_memos = env_memos
   state.type_memos = type_memos
-  // Body: raw signal → resolve memo → type memo.
-  let body_sig = chain_scope.signal(body, label="body_term")
-  state.body_term_signal = Some(body_sig)
+  // Body: raw input → resolve memo → type memo.
+  let body_input = chain_scope.input(body, label="body_term")
+  state.body_term_input = Some(body_input)
   let body_resolve_memo = chain_scope.derived(
-    () => resolve_walk(body_sig.get(), body_env),
+    () => resolve_walk(body_input.get(), body_env),
     label="resolve_body",
   )
   state.body_resolve_memo = Some(body_resolve_memo)
@@ -371,19 +372,19 @@ fn rebuild_chain(
 }
 
 ///|
-/// Update raw-body term signals when structure is unchanged. Per-def
+/// Update raw-body term inputs when structure is unchanged. Per-def
 /// resolve runs lazily inside `resolve_memos[i]`; same-value optimization
-/// on `Signal::set` means only the edited def's resolve fires.
+/// on `Input::set` means only the edited def's resolve fires.
 fn update_terms(
   state : PipelineState,
   defs : Array[(String, TypedTerm)],
   body : TypedTerm,
 ) -> Unit {
   for i, def in defs {
-    state.term_signals[i].set(def.1)
+    state.term_inputs[i].set(def.1)
   }
-  match state.body_term_signal {
-    Some(sig) => sig.set(body)
+  match state.body_term_input {
+    Some(input) => input.set(body)
     None => ()
   }
 }

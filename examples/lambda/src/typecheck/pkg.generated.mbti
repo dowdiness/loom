@@ -74,7 +74,7 @@ pub(all) struct TypeResult {
 
 pub(all) struct TypecheckIndex {
   intern_table : @types.InternTable[DefEntry]
-  memo_map : @cells.MemoMap[@types.InternId, TypeResult]
+  derived_map : @cells.DerivedMap[@types.InternId, TypeResult]
 }
 
 pub(all) enum TypedTerm {

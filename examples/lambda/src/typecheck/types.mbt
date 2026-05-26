@@ -9,7 +9,7 @@ pub(all) enum Type {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Type with output(self, logger) {
+pub impl Show for Type with fn output(self, logger) {
   match self {
     TInt => logger.write_string("Int")
     TUnit => logger.write_string("Unit")
@@ -38,7 +38,7 @@ pub(all) struct TypeDiagnostic {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for TypeDiagnostic with output(self, logger) {
+pub impl Show for TypeDiagnostic with fn output(self, logger) {
   logger.write_string(self.message)
   match self.def_name {
     Some(name) => {
@@ -91,7 +91,7 @@ pub(all) enum TypedTerm {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for TypedTerm with output(self, logger) {
+pub impl Show for TypedTerm with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -121,9 +121,9 @@ pub(all) struct ModuleTypeResult {
 ///|
 /// Return value from `build_typecheck_pipeline_with_index`.
 ///
-/// Bundles the pipeline Memo with an InternTable and MemoMap for query-by-DefId
-/// access to cached type results.
+/// Bundles the pipeline Derived with an InternTable and DerivedMap for
+/// query-by-DefId access to cached type results.
 pub(all) struct TypecheckIndex {
   intern_table : @incr.InternTable[DefEntry]
-  memo_map : @incr.MemoMap[@incr.InternId, TypeResult]
+  derived_map : @incr.DerivedMap[@incr.InternId, TypeResult]
 }
