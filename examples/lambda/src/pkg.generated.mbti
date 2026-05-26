@@ -136,7 +136,7 @@ pub impl @core.AstView for TypeAnnotView
 
 pub(all) struct TypecheckAttachment {
   scope : @cells.Scope
-  observer : @cells.Observer[@typecheck.ModuleTypeResult]
+  watch : @cells.Watch[@typecheck.ModuleTypeResult]
   index : @typecheck.TypecheckIndex
 }
 pub fn TypecheckAttachment::dispose(Self) -> Unit
