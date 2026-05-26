@@ -8,10 +8,10 @@
 //   SyntaxNodes so Eq-based backdating can be verified.
 // - Ast = String: the token text.
 //
-// Memo reads in tests use `rt.read(memo)` — Memo::get() aborts when called
-// outside a tracked context (i.e. outside another memo closure). The
-// reactive attachment path (memo-inside-memo) is covered by the runtime
-// test below.
+// Derived reads in tests use `read_or_abort()` outside the graph. Inside
+// another Derived closure, use `get_or_abort()` so the dependency is tracked
+// without allocating a one-shot watch. The reactive attachment path
+// (derived-inside-derived) is covered by the runtime test below.
 
 ///|
 fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {

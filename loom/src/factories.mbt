@@ -221,7 +221,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
 ///
 /// Wraps the same imperative engine as `new_imperative_parser` but publishes
 /// derived state (source, syntax tree, AST, diagnostics) as read-only
-/// `@incr.Memo` views — see `Parser` in `loom/src/pipeline/` for the
+/// `@incr.Derived` views — see `Parser` in `loom/src/pipeline/` for the
 /// reactive surface.
 ///
 /// Pass `runtime~` to join an existing reactive graph (useful when downstream

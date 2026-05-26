@@ -163,7 +163,7 @@ Consolidate into a single unified parser type. In principle:
 
 3. **Publication contract:**
    - Source, syntax tree, AST, and diagnostics are all published as
-     read-only `@incr.Memo` views.
+     read-only `@incr.Derived` views.
    - Both update methods update all derived cells together, atomically,
      inside a single `Runtime::batch`.
    - The reactive layer is a publication mechanism, not the compute
@@ -171,8 +171,8 @@ Consolidate into a single unified parser type. In principle:
 
 4. **Read-only views, not raw signals.** Callers should not be able to
    `.set()` the underlying cells and desynchronize the engine from
-   published state. `@incr.Memo` is the read-only view type; raw
-   `Signal` cells stay private. This is value-safety, not
+   published state. `@incr.Derived` is the read-only view type; raw
+   `Input` cells stay private. This is value-safety, not
    capability-safety — the escape hatch via `Runtime::dispose_cell`
    exists and is treated as out of contract.
 
@@ -181,7 +181,7 @@ Consolidate into a single unified parser type. In principle:
    `cst()`/`diagnostics()` staging) and lazy `term()` evaluation are
    dropped in the initial design. What is preserved — reactive
    publication of source, syntax tree, AST, and diagnostics, plus
-   `Ast : Eq` backdating for downstream memos. External runtime
+   `Ast : Eq` backdating for downstream derived cells. External runtime
    injection (the `from_parts` capability) is preserved; its exact
    shape is an implementation detail in the plan. Re-adding any
    dropped capability is a follow-up ADR if a consumer demonstrates

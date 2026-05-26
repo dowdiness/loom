@@ -11,7 +11,7 @@ has no `moon.mod.json`. Each subdirectory is an independent, publishable MoonBit
 |--------|------|---------|
 | `dowdiness/loom` | `loom/` | Generic parser framework (core, bridge, pipeline, incremental, viz) |
 | `dowdiness/seam` | `seam/` | Language-agnostic CST (`CstNode`, `SyntaxNode`) |
-| `dowdiness/incr` | `incr/` | Salsa-inspired reactive signals (`Signal`, `Memo`) |
+| `dowdiness/incr` | `incr/` | Salsa-inspired reactive cells (`Input`, `Derived`) |
 | `dowdiness/lambda` | `examples/lambda/` | Lambda calculus parser — example for loom |
 
 ---
@@ -20,7 +20,7 @@ has no `moon.mod.json`. Each subdirectory is an independent, publishable MoonBit
 
 ```
 dowdiness/incr  ←──┐
-(signals)          ├── dowdiness/loom
+(reactive cells)          ├── dowdiness/loom
 dowdiness/seam  ←──┘   (parser framework)
 (CST infra)        ↑          ↑
                    │   dowdiness/lambda

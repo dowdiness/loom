@@ -113,9 +113,9 @@ test "attach_typecheck: dispose cleans up without affecting parser" {
 
 ///|
 test "attach_typecheck: chain survives Runtime::gc()" {
-  // The persistent observer on the result Memo must keep the entire
-  // reactive chain reachable — bridge Memo, parser syntax-tree Memo,
-  // internal signals. Without it, `rt.gc()` would dispose all interior
+  // The persistent watch on the result Derived must keep the entire
+  // reactive chain reachable — bridge Derived, parser syntax-tree Derived,
+  // internal inputs. Without it, `rt.gc()` would dispose all interior
   // cells and the next read would abort.
   let parser = @loom.new_parser("1 + 2", lambda_grammar)
   let typed = attach_typecheck(parser)

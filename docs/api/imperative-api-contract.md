@@ -132,4 +132,4 @@ let ast3 = parser.reset("λz.z + 1").ast  // discards incremental state
 | Candidate | Reason deferred |
 |---|---|
 | Streaming / async `edit` | No identified use case; design unresolved |
-| `ImperativeParser` → reactive `Signal` bridge | Would expose `ImperativeLanguage` in `@incr` API |
+| `ImperativeParser` → reactive `Input` bridge | Would expose `ImperativeLanguage` in `@incr` API |

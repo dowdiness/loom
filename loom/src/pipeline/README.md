@@ -1,20 +1,20 @@
 # `dowdiness/loom/pipeline`
 
 Reactive parser handle: wraps `ImperativeParser` with an `@incr` snapshot
-signal so downstream consumers can subscribe to coherent source, syntax tree,
+input so downstream consumers can subscribe to coherent source, syntax tree,
 AST, diagnostics, and reuse-count views without managing the engine directly.
 
 ## Pipeline shape
 
 ```
-Signal[ParseSnapshot[Ast]] → Memo[ParseSnapshot[Ast]]
-                          ↘ Memo[String]
-                          ↘ Memo[SyntaxNode]
-                          ↘ Memo[Ast]
-                          ↘ Memo[DiagnosticSet]
+Input[ParseSnapshot[Ast]] → Derived[ParseSnapshot[Ast]]
+                         ↘ Derived[String]
+                         ↘ Derived[SyntaxNode]
+                         ↘ Derived[Ast]
+                         ↘ Derived[DiagnosticSet]
 ```
 
-Each memo re-runs only when its upstream value has changed (checked via `Eq`).
+Each derived cell re-runs only when its upstream value has changed (checked via `Eq`).
 `ParseSnapshot[Ast]` keeps the parse products together, so consumers do not
 observe source, syntax, AST, and diagnostics from different parse passes.
 
@@ -25,15 +25,15 @@ pub struct Parser[Ast] { /* private */ }
 pub fn[Ast : Eq] Parser::new(String, @incremental.ImperativeLanguage[Ast], runtime?) -> Self
 pub fn[Ast : Eq] Parser::set_source(Self, String)                        -> Unit
 pub fn[Ast : Eq] Parser::apply_edit(Self, @core.Edit, String)            -> Unit
-pub fn[Ast]      Parser::snapshot(Self)                                  -> @cells.Memo[@incremental.ParseSnapshot[Ast]]
-pub fn[Ast]      Parser::source(Self)                                    -> @cells.Memo[String]
-pub fn[Ast]      Parser::syntax_tree(Self)                               -> @cells.Memo[@seam.SyntaxNode]
-pub fn[Ast]      Parser::ast(Self)                                       -> @cells.Memo[Ast]
-pub fn[Ast]      Parser::diagnostics(Self)                               -> @cells.Memo[@core.DiagnosticSet]
+pub fn[Ast]      Parser::snapshot(Self)                                  -> @cells.Derived[@incremental.ParseSnapshot[Ast]]
+pub fn[Ast]      Parser::source(Self)                                    -> @cells.Derived[String]
+pub fn[Ast]      Parser::syntax_tree(Self)                               -> @cells.Derived[@seam.SyntaxNode]
+pub fn[Ast]      Parser::ast(Self)                                       -> @cells.Derived[Ast]
+pub fn[Ast]      Parser::diagnostics(Self)                               -> @cells.Derived[@core.DiagnosticSet]
 pub fn[Ast]      Parser::runtime(Self)                                   -> @cells.Runtime
 ```
 
-`set_source` and `apply_edit` both update the snapshot signal under
+`set_source` and `apply_edit` both update the snapshot input under
 `Runtime::batch` so consumers never observe a half-updated graph.
 
 ## Implementing a new language

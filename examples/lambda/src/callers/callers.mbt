@@ -294,7 +294,7 @@ fn collect_in(
 
 ///|
 /// Pure extraction including Enclosing edges. Used by the pipeline's
-/// `facts` Memo. The returned `enclosing` array carries `(child, parent)`
+/// `facts` Derived. The returned `enclosing` array carries `(child, parent)`
 /// tuples for every LambdaScope frame pushed during the walk. TopScope is
 /// never a child of an edge (it's the implicit root of every chain).
 ///
@@ -430,7 +430,7 @@ pub fn build_visibility(
 }
 
 ///|
-/// The reactive pipeline. Three derived Memos:
+/// The reactive pipeline. Three derived cells:
 ///   facts            — `extract_facts_full(syntax)` (defs + calls +
 ///                      enclosing edges).
 ///   callers_index    — `name -> [Call]` over the strict-filtered subset
@@ -445,7 +445,7 @@ pub fn build_visibility(
 /// `Watch::read_or_abort()`.
 ///
 /// Call `dispose()` to release the GC roots and tear down the owned
-/// cells. The input `syntax` Memo and the runtime are unaffected.
+/// cells. The input `syntax` Derived and the runtime are unaffected.
 pub struct CallersPipeline {
   priv scope : @incr.Scope
   priv facts_watch : @incr.Watch[
@@ -456,16 +456,16 @@ pub struct CallersPipeline {
 }
 
 ///|
-/// Build a CallersPipeline rooted at a Memo[SyntaxNode]. Cells are
+/// Build a CallersPipeline rooted at a Derived[SyntaxNode]. Cells are
 /// created on a fresh Scope owned by this pipeline, and three derived
-/// Derived cells (facts, callers_index, visibility) are each watched so
+/// cells (facts, callers_index, visibility) are each watched so
 /// the reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
 /// into a single `facts` Derived avoids double-walking the tree on every
 /// edit; downstream Derived cells read facts via `.get_or_abort()` inside
 /// their tracked closures.
 ///
 /// Precondition: `syntax` must have been constructed on `rt`. Passing a
-/// Memo from a different Runtime is undefined behavior — incr's
+/// Derived from a different Runtime is undefined behavior — incr's
 /// cross-runtime guard catches some but not all paths.
 pub fn CallersPipeline::CallersPipeline(
   rt : @incr.Runtime,
@@ -555,7 +555,7 @@ pub fn CallersPipeline::defs_of(
 
 ///|
 /// Read the cached `(defs, calls, enclosing)` facts as defensive copies.
-/// Returned arrays are independent from the cached Memo state — callers
+/// Returned arrays are independent from the cached Derived state — callers
 /// may mutate them without affecting subsequent reads. Use this when a
 /// consumer needs access to unfiltered fact relations.
 pub fn CallersPipeline::facts(

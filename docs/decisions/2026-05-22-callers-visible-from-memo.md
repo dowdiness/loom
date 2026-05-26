@@ -1,4 +1,4 @@
-# ADR: Callers `visible_from` Memo Projection
+# ADR: Callers `visible_from` Derived Projection
 
 **Date:** 2026-05-22
 **Status:** Accepted
@@ -18,7 +18,7 @@ facts would leak after edits and make visibility queries stale.
 
 ## Decision
 
-Expose `CallersPipeline::visible_from(scope, name) -> Bool` as a pure Memo over
+Expose `CallersPipeline::visible_from(scope, name) -> Bool` as a pure Derived over
 the current parser revision.
 
 The extraction pass emits enclosing-scope edges alongside definitions and
@@ -31,7 +31,7 @@ retraction across revisions.
 
 ## Rationale
 
-The Memo recomputes from the current syntax tree and cannot retain facts from
+The Derived recomputes from the current syntax tree and cannot retain facts from
 older revisions. That matches the editor workflow and avoids false positives
 from deleted or renamed bindings.
 
