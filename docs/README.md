@@ -63,7 +63,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-05-25-direct-cst-projection-queries.md](decisions/2026-05-25-direct-cst-projection-queries.md) — **Accepted** projection-friendly direct CST query helpers for safer semantic validation
-- [decisions/2026-05-22-callers-visible-from-memo.md](decisions/2026-05-22-callers-visible-from-memo.md) — **Accepted** callers `visible_from` as a pure Memo projection, with Datalog deferred until relation retraction exists
+- [decisions/2026-05-22-callers-visible-from-memo.md](decisions/2026-05-22-callers-visible-from-memo.md) — **Accepted** callers `visible_from` as a pure Derived projection, with Datalog deferred until relation retraction exists
 - [decisions/2026-05-20-lambda-rename-consumer.md](decisions/2026-05-20-lambda-rename-consumer.md) — **Accepted** lambda rename consumer as a one-shot package over callers facts, with structured diagnostics for conflict reporting
 - [decisions/2026-05-17-canonical-companion-trait.md](decisions/2026-05-17-canonical-companion-trait.md) — **Accepted** `Canonical` companion trait as a framework-level capability with opt-in `default_placeholder_via_canonical` free function (no supertrait coupling on `Renderable`)
 - [decisions/2026-05-14-structured-parser-diagnostics-boundary.md](decisions/2026-05-14-structured-parser-diagnostics-boundary.md) — **Accepted** publish parser snapshots and structured diagnostics at public parser boundaries

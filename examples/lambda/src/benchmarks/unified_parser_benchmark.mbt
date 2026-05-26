@@ -1,10 +1,10 @@
-// Unified Parser[Ast] benchmarks: Signal/Memo publish overhead on top of
+// Unified Parser[Ast] benchmarks: Input/Derived publish overhead on top of
 // the imperative engine, identity short-circuit, and apply_edit reuse path.
 // Run with: moon bench --release
 
 ///|
 /// Cold pipeline: create Parser + evaluate ast() for the first time.
-/// Measures full construction (engine + signals + memos) + initial parse.
+/// Measures full construction (engine + inputs + derived cells) + initial parse.
 test "parser: cold - new + ast()" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_parser(
@@ -16,7 +16,7 @@ test "parser: cold - new + ast()" (b : @bench.T) {
 
 ///|
 /// Warm pipeline: repeated ast() with no source change.
-/// Memos are already valid; subsequent reads only check staleness.
+/// Derived cells are already valid; subsequent reads only check staleness.
 test "parser: warm - ast() with no source change" (b : @bench.T) {
   let parser = @loom.new_parser(
     "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
@@ -29,14 +29,14 @@ test "parser: warm - ast() with no source change" (b : @bench.T) {
 ///|
 /// Identity set_source: source equals the current value.
 /// `Parser::set_source` short-circuits before touching the engine or any
-/// signal when the source is unchanged — should be close to free.
+/// input when the source is unchanged — should be close to free.
 test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
   let source = "λf.λx.if f x then x + 1 else x - 1"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source(source) // identity → no engine call, no signal write
+    parser.set_source(source) // identity → no engine call, no input write
     b.keep(parser.ast().read_or_abort())
   })
 }
@@ -80,7 +80,7 @@ test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
 /// Incremental edit via apply_edit: flip a single character deep inside a
 /// nested lambda body. Exercises the CST-node-level reuse path end-to-end —
 /// the engine walks the reuse cursor and should splice most of the old tree
-/// rather than reparsing it. Published via the signal-set layer.
+/// rather than reparsing it. Published via the input-set layer.
 ///
 /// Per Stage 3 validation checkpoint: this should run within noise of
 /// `ImperativeParser::edit` — same engine, just a `Runtime::batch` signal
@@ -108,11 +108,11 @@ test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
 }
 
 ///|
-/// Parity pair — measures the signal-publication overhead `Parser` adds
+/// Parity pair — measures the input-publication overhead `Parser` adds
 /// on top of the raw imperative engine. Same source, same edit, only the
 /// API differs. Per Stage 3 validation checkpoint, these two should sit
 /// within measurement noise of each other: `Parser::apply_edit` is
-/// `engine.edit(...)` plus 4 `Signal::set` + `Runtime::batch` bookkeeping.
+/// `engine.edit(...)` plus `Input::set` + `Runtime::batch` bookkeeping.
 test "parity: imperative edit - let init edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(

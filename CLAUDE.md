@@ -54,13 +54,13 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 |---------|---------|
 | `loom/src/` (root) | Public API facade (`loom.mbt`, pure `pub using` re-export); `Grammar[T,K,Ast]`, `new_imperative_parser`, `new_parser` |
 | `loom/src/core/` | `Edit`, `Range`, `TextDelta`, `ReuseSlot`, `Editable`, `TokenBuffer`, `ReuseCursor`, `ParserContext[T,K]`, `LanguageSpec` — shared primitives |
-| `loom/src/pipeline/` | `Parser[Ast]` — unified wrapper: owns `ImperativeParser` engine + publishes source/syntax/ast/diagnostics as `@incr.Signal`/`@incr.Memo` cells (post Stage 6, 2026-04-17) |
+| `loom/src/pipeline/` | `Parser[Ast]` — unified wrapper: owns `ImperativeParser` engine + publishes source/syntax/ast/diagnostics as `@incr.Input`/`@incr.Derived` cells (post Stage 6, 2026-04-17) |
 | `loom/src/incremental/` | `ImperativeParser`, damage tracking |
 | `loom/src/viz/` | DOT graph renderer (`DotNode` trait) |
 
 **`dowdiness/seam`** (`seam/`) — language-agnostic CST (`CstNode`, `SyntaxNode`)
 
-**`dowdiness/incr`** (`incr/`) — reactive signals (`Signal`, `Memo`) [submodule]
+**`dowdiness/incr`** (`incr/`) — reactive cells (`Input`, `Derived`) [submodule]
 
 **`dowdiness/text_change`** (`text-change/`) — pure contiguous text-change utilities; depends on `dowdiness/moji`. Migrated into loom from canopy/lib/ in 2026-05 (#147).
 
@@ -81,7 +81,7 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 
 ## Architecture
 
-**Unified pipeline (post Stage 6, 2026-04-17):** `Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST + diagnostics as `@incr.Signal` / `@incr.Memo` cells. `ReactiveParser` was removed in commit d85d5ff; prior ADRs about `TokenStage` (2026-02-27, 2026-03-15) and the two-parser design (2026-03-02) are superseded by `docs/decisions/2026-04-17-unified-parser-proposal.md`.
+**Unified pipeline (post Stage 6, 2026-04-17):** `Parser[Ast]` wraps `ImperativeParser` and publishes source + syntax + AST + diagnostics as `@incr.Input` / `@incr.Derived` cells. `ReactiveParser` was removed in commit d85d5ff; prior ADRs about `TokenStage` (2026-02-27, 2026-03-15) and the two-parser design (2026-03-02) are superseded by `docs/decisions/2026-04-17-unified-parser-proposal.md`.
 
 **CST traversal primitives (seam/cst_traverse.mbt + seam/cst_traits.mbt, ported 2026-03-30 from a feasibility sandbox now removed; see `docs/performance/2026-03-30-cst-traversal-tiers.md`):** closure methods `transform`, `fold`, `transform_fold`, `each`, `iter`, `map` + `Finder`/`Folder`/`TransformFolder` traits (statically dispatched). ROADMAP #59/#60 cover remaining extensions. **Do not claim "no CST traversal abstraction exists" — it does.**
 

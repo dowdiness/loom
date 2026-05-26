@@ -1,9 +1,9 @@
 // Unified parser + type checker integration for the lambda calculus.
 //
 // Composes `@loom.Parser[Term]` with `@typecheck.build_typecheck_pipeline_with_index`
-// by bridging SyntaxNode → TypedTerm through a thin Memo. The bridge reads
+// by bridging SyntaxNode → TypedTerm through a thin Derived. The bridge reads
 // `parser.syntax_tree().get_or_abort()` inside its closure — that registers the
-// parser's syntax-tree Memo as a reactive dependency so the pipeline
+// parser's syntax-tree Derived as a reactive dependency so the pipeline
 // recomputes on every published edit.
 //
 // Typechecking runs off the CST rather than `Term` because `Term` drops
@@ -55,12 +55,12 @@ pub fn attach_typecheck(
 ) -> TypecheckAttachment {
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
-  let typed_memo = scope.derived(
+  let typed_derived = scope.derived(
     fn() { @typecheck.convert_from_cst(parser.syntax_tree().get_or_abort()) },
     label="typed_term_bridge",
   )
   let (results, index) = @typecheck.build_typecheck_pipeline_with_index(
-    rt, scope, typed_memo,
+    rt, scope, typed_derived,
   )
   let watch = scope.add_watch(results.watch())
   { scope, watch, index }

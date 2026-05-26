@@ -507,7 +507,7 @@ pub fn SyntaxNode::cst_node(self : SyntaxNode) -> CstNode {
 ///|
 /// Structure-only equality: two SyntaxNodes are equal iff their underlying
 /// CstNodes are equal. Offset and parent are intentionally excluded so that
-/// Memo[SyntaxNode] correctly skips recomputation when only positions shift
+/// Derived[SyntaxNode] correctly skips recomputation when only positions shift
 /// (e.g. after inserting a leading space) but the tree structure is unchanged.
 pub impl Eq for SyntaxNode with fn equal(self, other : SyntaxNode) -> Bool {
   self.cst == other.cst

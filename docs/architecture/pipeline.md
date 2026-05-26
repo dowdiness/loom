@@ -18,19 +18,20 @@ Each stage has a distinct responsibility and output type:
 
 ## Incremental Pipeline
 
-The incremental pipeline adds memoisation on top of the canonical pipeline:
+The incremental pipeline publishes a coherent parse snapshot and read-only derived views on top of the canonical pipeline:
 
 ```
-Signal[String]
-  → Memo[CstNode]   (CST stage)
-  → Memo[Ast]       (AST stage — generic type parameter in Grammar[T,K,Ast])
+Input[ParseSnapshot[Ast]] → Derived[ParseSnapshot[Ast]]
+                         ↘ Derived[String]
+                         ↘ Derived[SyntaxNode]
+                         ↘ Derived[Ast]
+                         ↘ Derived[DiagnosticSet]
 ```
 
-- `Signal[String]` holds the current source text. When an edit arrives the signal is updated.
-- `Memo[CstNode]` re-runs the Lexer + CST Parser only when the source string changes. Two equal strings produce the same `CstNode` without re-parsing.
-- `Memo[Ast]` re-runs conversion only when the `CstNode` changes. Structurally identical `CstNode`s (same hash) skip conversion.
+- `Input[ParseSnapshot[Ast]]` holds the current parse products. `set_source` and `apply_edit` update it inside `Runtime::batch`.
+- `Derived[SyntaxNode]`, `Derived[Ast]`, and the other views re-run only when the snapshot changes. Structurally identical outputs skip downstream work through `Eq` backdating.
 
-A `TokenStage` memo between Signal and CstNode went through a remove→reintroduce→remove cycle: removed 2026-02-27 as vacuous (whitespace-preserving lexer always shifts positions), reintroduced 2026-03-15 with trivia-insensitive equality, then removed again as part of the Stage 6 `ReactiveParser` consolidation on 2026-04-17. The unified `Parser[Ast]` does not use a `TokenStage`. See ADRs [`2026-02-27-remove-tokenStage-memo.md`](../decisions/2026-02-27-remove-tokenStage-memo.md), [`2026-03-15-reintroduce-token-stage-memo.md`](../decisions/2026-03-15-reintroduce-token-stage-memo.md), and the superseding [`2026-04-17-unified-parser-proposal.md`](../decisions/2026-04-17-unified-parser-proposal.md).
+A `TokenStage` derived cell between source and CST went through a remove→reintroduce→remove cycle: removed 2026-02-27 as vacuous (whitespace-preserving lexer always shifts positions), reintroduced 2026-03-15 with trivia-insensitive equality, then removed again as part of the Stage 6 `ReactiveParser` consolidation on 2026-04-17. The unified `Parser[Ast]` does not use a `TokenStage`. See ADRs [`2026-02-27-remove-tokenStage-memo.md`](../decisions/2026-02-27-remove-tokenStage-memo.md), [`2026-03-15-reintroduce-token-stage-memo.md`](../decisions/2026-03-15-reintroduce-token-stage-memo.md), and the superseding [`2026-04-17-unified-parser-proposal.md`](../decisions/2026-04-17-unified-parser-proposal.md).
 
 ## Stage Details
 

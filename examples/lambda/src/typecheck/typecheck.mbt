@@ -9,7 +9,7 @@
 // the corresponding term inputs are updated and derived cells recompute.
 
 ///|
-/// Mutable pipeline state, held inside the top-level Memo closure.
+/// Mutable pipeline state, held inside the top-level Derived closure.
 priv struct PipelineState {
   intern_table : @incr.InternTable[DefEntry]
   mut chain_scope : @incr.Scope?
@@ -67,7 +67,7 @@ fn PipelineState::new() -> PipelineState {
 ///|
 /// Build the incremental typecheck pipeline.
 ///
-/// Takes a `Memo[TypedTerm]` that produces the (already converted and resolved)
+/// Takes a `Derived[TypedTerm]` that produces the (already converted and resolved)
 /// module term. Returns a `Derived[ModuleTypeResult]` that recomputes
 /// incrementally when the input changes.
 ///
@@ -197,7 +197,7 @@ fn split_defs(term : TypedTerm) -> (Array[(String, TypedTerm)], TypedTerm) {
 }
 
 ///|
-/// Dispose old chain and build a new Memo chain for the raw module.
+/// Dispose old chain and build a new Derived chain for the raw module.
 /// Takes unresolved `defs` and `body`; name resolution runs inside the
 /// per-def `resolve_memos[i]` built here, keyed on the fixed env at
 /// each def's position.
@@ -256,7 +256,7 @@ fn rebuild_chain(
   state.term_inputs = term_inputs
   // Build per-def ResolveEnv values. Names are fixed for this chain's
   // lifetime (any name change triggers a full rebuild), so these are
-  // plain values captured by closures rather than reactive memos.
+  // plain values captured by closures rather than reactive derived cells.
   //   resolve_envs[i] = env visible to def[i]'s body (names [0..i-1])
   //   body_env        = env visible to the module body (all def names)
   let resolve_envs : Array[ResolveEnv] = []
@@ -390,7 +390,7 @@ fn update_terms(
 }
 
 ///|
-/// Collect results from the Memo chain into a ModuleTypeResult.
+/// Collect results from the Derived chain into a ModuleTypeResult.
 ///
 /// Reads all type_memos inside the parent memo's tracked context, so the
 /// parent memo depends on every def. This is intentional: the aggregation

@@ -8,7 +8,7 @@ through a single reactive handle.
 
 Use `Parser`. If you have an `Edit { start, old_len, new_len }`, call
 `apply_edit(edit, new_source)`; otherwise call `set_source(new_source)`.
-Both update the same signal/memo graph atomically.
+Both update the same input/derived graph atomically.
 
 ## What `Parser` gives you
 
@@ -17,12 +17,12 @@ Both update the same signal/memo graph atomically.
 | Edit-driven update | `parser.apply_edit(edit, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
 | Validated CST subtree reuse | via the underlying `ImperativeParser` engine |
-| Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Memo` views |
-| Shared runtime | downstream memos (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
+| Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Derived` views |
+| Shared runtime | downstream derived cells (projection, typecheck, eval) join `parser.runtime()` directly — no second parse |
 | Diagnostics | `parser.diagnostics().read_or_abort()` — `DiagnosticSet`; format only at presentation boundaries |
 | Recovery | malformed input still publishes a recovered `SyntaxNode` plus structured diagnostics |
 
-`Parser` updates one parse snapshot signal under `Runtime::batch` so consumers
+`Parser` updates one parse snapshot input under `Runtime::batch` so consumers
 never observe a half-updated graph.
 
 The reuse contract is structural: incremental output must match a full reparse,
@@ -46,7 +46,7 @@ boundaries.
 
 `Parser` wraps `ImperativeParser` and is the right choice for almost
 everything. Reach for `ImperativeParser` directly only if you need the
-non-reactive engine without the signal/memo layer — for example, a
+non-reactive engine without the input/derived layer — for example, a
 one-shot parse in a batch tool, or a subsystem that owns its own
 runtime lifecycle and can't accept a caller-supplied one.
 

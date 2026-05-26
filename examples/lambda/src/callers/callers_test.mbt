@@ -2,7 +2,7 @@
 //
 // Pipeline tests use @loom.new_parser, which constructs a unified
 // Parser[Ast] that owns the incremental engine and publishes derived
-// state (source, syntax, ast, diagnostics) as @incr.Memo views. After the
+// state (source, syntax, ast, diagnostics) as @incr.Derived views. After the
 // initial parse at Parser::new, source mutations go through
 // parser.apply_edit(edit, new_source) so the engine reuses CST nodes
 // rather than full-reparsing from scratch.
@@ -77,7 +77,7 @@ test "extract_facts: VarRef in AppExpr.func position has is_call_position=true" 
 ///|
 test "build_callers_index: groups calls by callee" {
   // build_callers_index is now a thin utility — it groups whatever Calls
-  // are passed in. The filtering for `callers_of` happens in the Memo
+  // are passed in. The filtering for `callers_of` happens in the Derived
   // body before this is called.
   let src = "let f = 1\nlet g = f x\nlet h = f x\nlet i = g x\n"
   let (_, calls) = extract_facts(parse_to_syntax(src))
@@ -178,8 +178,8 @@ test "pipeline: lambda body call site counted" {
 
 ///|
 test "pipeline: survives rt.gc() between queries" {
-  // Regression test for the persistent-observer GC root. Without the
-  // Observer anchoring the index Memo, rt.gc() would sweep the interior
+  // Regression test for the persistent-watch GC root. Without the
+  // Watch anchoring the index Derived, rt.gc() would sweep the interior
   // facts/index cells (they have no other reachability path) and
   // subsequent reads would abort instead of returning empty arrays.
   let rt = @incr.Runtime::new()

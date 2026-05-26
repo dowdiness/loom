@@ -28,10 +28,10 @@
 | Subsystem | Owns | Size | Recent churn |
 |-----------|------|------|-------------|
 | `seam/` | `CstNode`, `SyntaxNode`, `EventBuffer` | 715+643 LOC core files | none |
-| `incr/` (submodule) | Reactive signals/memos | n/a | 2 bumps |
+| `incr/` (submodule) | Reactive cells | n/a | 2 bumps |
 | `loom/src/core/` | `Edit`/`Range`/`TextDelta`, `TokenBuffer`, `ReuseCursor`, `ParserContext`, `LanguageSpec` | 979+697+687 LOC | none |
 | `loom/src/incremental/` | `ImperativeParser` orchestration, damage tracking | sealed | none |
-| `loom/src/pipeline/` | `Parser[Ast]` wrapper + language adapter; publishes `@incr.Memo` | 178+ LOC | **all recent churn** |
+| `loom/src/pipeline/` | `Parser[Ast]` wrapper + language adapter; publishes `@incr.Derived` | 178+ LOC | **all recent churn** |
 | `loom/src/viz/` | CST→Dot renderer | 239 LOC | none |
 | `loom/src/loom.mbt` | Facade (pure re-export) | 47 LOC | low |
 
@@ -99,7 +99,7 @@ Examples (lambda, json, markdown)
     │
     ▼
 loom (public surface)
-  pipeline/: Parser[Ast] + Memo cells
+  pipeline/: Parser[Ast] + Derived cells
   incremental/: ImperativeParser
   viz/: renderer (uses traversal traits)
   core/: Edit, Range, ParserContext, LanguageSpec,
