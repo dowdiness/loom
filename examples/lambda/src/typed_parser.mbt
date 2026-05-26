@@ -13,9 +13,9 @@
 ///|
 /// A bidirectional type-checker attached to a unified lambda `Parser`.
 ///
-/// Holds a `Scope` owning the bridge Derived + typecheck pipeline cells, a
-/// `Watch` that anchors the result Derived as a GC root, and a `TypecheckIndex`
-/// for query-by-DefId access. The watch keeps the whole reactive chain
+/// Holds a `Scope` owning the bridge Derived + typecheck pipeline cells, the
+/// result `Derived`, a `Watch` that anchors it as a GC root, and a
+/// `TypecheckIndex` for query-by-DefId access. The watch keeps the whole reactive chain
 /// reachable through `Runtime::gc()` — including the parser's syntax-tree
 /// and AST derived cells, which would otherwise be eligible for sweep as
 /// unobserved interior cells.
@@ -24,6 +24,7 @@
 /// The parser is unaffected.
 pub(all) struct TypecheckAttachment {
   scope : @incr.Scope
+  result : @incr.Derived[@typecheck.ModuleTypeResult]
   watch : @incr.Watch[@typecheck.ModuleTypeResult]
   index : @typecheck.TypecheckIndex
 }
@@ -63,5 +64,5 @@ pub fn attach_typecheck(
     rt, scope, typed_derived,
   )
   let watch = scope.add_watch(results.watch())
-  { scope, watch, index }
+  { scope, result: results, watch, index }
 }
