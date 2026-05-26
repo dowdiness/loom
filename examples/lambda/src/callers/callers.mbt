@@ -15,9 +15,9 @@
 //               the parent chain. TopScope is the implicit root of
 //               every chain (never a child).
 //
-// `CallersPipeline` wraps the extraction in an @incr.Memo chain — three
-// derived Memos (facts, callers_index, visibility) each rooted by a
-// persistent Observer — so the derived state re-derives automatically
+// `CallersPipeline` wraps the extraction in an @incr.Derived chain — three
+// derived cells (facts, callers_index, visibility) each rooted by a
+// persistent Watch — so the derived state re-derives automatically
 // when the source SyntaxNode changes and survives `Runtime::gc()`.
 //
 // Known limitations (deferred — none of them block current consumers):
@@ -438,33 +438,31 @@ pub fn build_visibility(
 ///   visibility       — `build_visibility(defs, enclosing)` flattened
 ///                      to `(ScopeId, String) -> Unit`.
 ///
-/// Each Memo is observed by a persistent `Observer` registered with a
-/// single private `@incr.Scope`. Without those observers, `Runtime::gc()`
+/// Each Derived is watched by a persistent `Watch` registered with a
+/// single private `@incr.Scope`. Without those watches, `Runtime::gc()`
 /// would sweep the (otherwise unobserved) interior cells and subsequent
-/// reads would abort. The observers also give ergonomic untracked reads
-/// via `Observer::get()`.
+/// reads would abort. The watches also give ergonomic untracked reads via
+/// `Watch::read_or_abort()`.
 ///
 /// Call `dispose()` to release the GC roots and tear down the owned
 /// cells. The input `syntax` Memo and the runtime are unaffected.
 pub struct CallersPipeline {
   priv scope : @incr.Scope
-  priv facts_observer : @incr.Observer[
+  priv facts_watch : @incr.Watch[
     (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]),
   ]
-  priv callers_observer : @incr.Observer[@hashmap.HashMap[String, Array[Call]]]
-  priv visibility_observer : @incr.Observer[
-    @hashmap.HashMap[(ScopeId, String), Unit],
-  ]
+  priv callers_watch : @incr.Watch[@hashmap.HashMap[String, Array[Call]]]
+  priv visibility_watch : @incr.Watch[@hashmap.HashMap[(ScopeId, String), Unit]]
 }
 
 ///|
 /// Build a CallersPipeline rooted at a Memo[SyntaxNode]. Cells are
 /// created on a fresh Scope owned by this pipeline, and three derived
-/// Memos (facts, callers_index, visibility) are each observed so the
-/// reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
-/// into a single `facts` Memo avoids double-walking the tree on every
-/// edit; downstream Memos read facts via `.get()` inside their tracked
-/// closures.
+/// Derived cells (facts, callers_index, visibility) are each watched so
+/// the reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
+/// into a single `facts` Derived avoids double-walking the tree on every
+/// edit; downstream Derived cells read facts via `.get_or_abort()` inside
+/// their tracked closures.
 ///
 /// Precondition: `syntax` must have been constructed on `rt`. Passing a
 /// Memo from a different Runtime is undefined behavior — incr's
@@ -475,7 +473,7 @@ pub fn CallersPipeline::CallersPipeline(
 ) -> CallersPipeline {
   let scope = @incr.Scope::new(rt)
   let facts = scope.derived(
-    fn() { extract_facts_full(syntax.read_or_abort()) },
+    fn() { extract_facts_full(syntax.get_or_abort()) },
     label="callers_facts",
   )
   let callers_index = scope.derived(
@@ -501,17 +499,17 @@ pub fn CallersPipeline::CallersPipeline(
     },
     label="callers_visibility",
   )
-  let facts_observer = scope.add_observer(facts.observe())
-  let callers_observer = scope.add_observer(callers_index.observe())
-  let visibility_observer = scope.add_observer(visibility.observe())
-  // Prime facts_observer so the dependency edge `facts -> syntax` is
+  let facts_watch = scope.add_watch(facts.watch())
+  let callers_watch = scope.add_watch(callers_index.watch())
+  let visibility_watch = scope.add_watch(visibility.watch())
+  // Prime facts_watch so the dependency edge `facts -> syntax` is
   // recorded before this constructor returns. Without priming,
-  // `facts_observer` anchors `facts` but `facts`'s `gc_dependencies`
+  // `facts_watch` anchors `facts` but `facts`'s `gc_dependencies`
   // are empty until the closure runs at least once — a caller-side
   // `rt.gc()` issued before any read would sweep the upstream
-  // `syntax_tree` Memo. Costs one tree walk; one-time per pipeline.
-  let _ = facts_observer.get()
-  { scope, facts_observer, callers_observer, visibility_observer }
+  // `syntax_tree` Derived. Costs one tree walk; one-time per pipeline.
+  let _ = facts_watch.read_or_abort()
+  { scope, facts_watch, callers_watch, visibility_watch }
 }
 
 ///|
@@ -531,7 +529,7 @@ pub fn CallersPipeline::callers_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Call] {
-  match self.callers_observer.get().get(name) {
+  match self.callers_watch.read_or_abort().get(name) {
     Some(bucket) => bucket.copy()
     None => []
   }
@@ -545,7 +543,7 @@ pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,
 ) -> Array[Def] {
-  let (defs, _, _) = self.facts_observer.get()
+  let (defs, _, _) = self.facts_watch.read_or_abort()
   let result : Array[Def] = []
   for d in defs {
     if d.name == name {
@@ -563,7 +561,7 @@ pub fn CallersPipeline::defs_of(
 pub fn CallersPipeline::facts(
   self : CallersPipeline,
 ) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
-  let (defs, calls, enclosing) = self.facts_observer.get()
+  let (defs, calls, enclosing) = self.facts_watch.read_or_abort()
   (defs.copy(), calls.copy(), enclosing.copy())
 }
 
@@ -577,5 +575,5 @@ pub fn CallersPipeline::visible_from(
   scope : ScopeId,
   name : String,
 ) -> Bool {
-  self.visibility_observer.get().get((scope, name)) is Some(_)
+  self.visibility_watch.read_or_abort().get((scope, name)) is Some(_)
 }

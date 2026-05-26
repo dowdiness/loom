@@ -13,18 +13,18 @@
 ///|
 /// A bidirectional type-checker attached to a unified lambda `Parser`.
 ///
-/// Holds a `Scope` owning the bridge Memo + typecheck pipeline cells, an
-/// `Observer` that anchors the result Memo as a GC root, and a `TypecheckIndex`
-/// for query-by-DefId access. The observer keeps the whole reactive chain
+/// Holds a `Scope` owning the bridge Derived + typecheck pipeline cells, a
+/// `Watch` that anchors the result Derived as a GC root, and a `TypecheckIndex`
+/// for query-by-DefId access. The watch keeps the whole reactive chain
 /// reachable through `Runtime::gc()` — including the parser's syntax-tree
-/// and AST memos, which would otherwise be eligible for sweep as unobserved
-/// interior cells.
+/// and AST derived cells, which would otherwise be eligible for sweep as
+/// unobserved interior cells.
 ///
 /// `dispose()` releases the GC root and tears down the type-checker scope.
 /// The parser is unaffected.
 pub(all) struct TypecheckAttachment {
   scope : @incr.Scope
-  observer : @incr.Observer[@typecheck.ModuleTypeResult]
+  watch : @incr.Watch[@typecheck.ModuleTypeResult]
   index : @typecheck.TypecheckIndex
 }
 
@@ -33,11 +33,11 @@ pub(all) struct TypecheckAttachment {
 pub fn TypecheckAttachment::get(
   self : TypecheckAttachment,
 ) -> @typecheck.ModuleTypeResult {
-  self.observer.get()
+  self.watch.read_or_abort()
 }
 
 ///|
-/// Dispose the type-checker scope (children → observer → owned cells).
+/// Dispose the type-checker scope (children → watch → owned cells).
 /// Idempotent. Does not dispose the parser.
 pub fn TypecheckAttachment::dispose(self : TypecheckAttachment) -> Unit {
   self.scope.dispose()
@@ -47,8 +47,8 @@ pub fn TypecheckAttachment::dispose(self : TypecheckAttachment) -> Unit {
 /// Attach the bidirectional type checker to a unified lambda `Parser`.
 ///
 /// Returns a `TypecheckAttachment` that owns a fresh `Scope` rooted at
-/// `parser.runtime()`. The attachment registers a persistent `Observer`
-/// on the result Memo, both for ergonomic untracked reads and to keep the
+/// `parser.runtime()`. The attachment registers a persistent `Watch`
+/// on the result Derived, both for ergonomic untracked reads and to keep the
 /// reactive chain alive across `Runtime::gc()`.
 pub fn attach_typecheck(
   parser : @loom.Parser[@ast.Term],
@@ -62,6 +62,6 @@ pub fn attach_typecheck(
   let (results, index) = @typecheck.build_typecheck_pipeline_with_index(
     rt, scope, typed_memo,
   )
-  let observer = scope.add_observer(results.observe())
-  { scope, observer, index }
+  let watch = scope.add_watch(results.watch())
+  { scope, watch, index }
 }

@@ -2,7 +2,7 @@
 // Terms are constructed directly (not via convert) to test infer/check in isolation.
 
 ///|
-/// Test helper: runs `infer_impl` inside a throwaway Memo so accumulator
+/// Test helper: runs `infer_impl` inside a throwaway Derived so accumulator
 /// pushes land in a tracked compute frame, then returns both the
 /// `TypeResult` and the flat list of pushed diagnostics.
 fn infer_with_diags(
@@ -12,8 +12,8 @@ fn infer_with_diags(
   let rt = @incr.Runtime::new()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
-  let memo = @incr.Memo::new(rt, () => infer_impl(env, term, ctx))
-  let result = rt.read(memo)
+  let memo = @incr.Derived(rt, () => infer_impl(env, term, ctx))
+  let result = memo.read_or_abort()
   let diags = memo.accumulated_peek(acc)
   (result, diags)
 }
@@ -27,8 +27,8 @@ fn check_with_diags(
   let rt = @incr.Runtime::new()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
-  let memo = @incr.Memo::new(rt, () => check_impl(env, term, expected, ctx))
-  let result = rt.read(memo)
+  let memo = @incr.Derived(rt, () => check_impl(env, term, expected, ctx))
+  let result = memo.read_or_abort()
   let diags = memo.accumulated_peek(acc)
   (result, diags)
 }
@@ -396,8 +396,8 @@ test "incremental: basic typecheck through pipeline" {
     ],
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(5)),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   // f : Int -> Int
@@ -419,8 +419,8 @@ test "incremental: source unchanged = cache hit" {
     [("a", TypedTerm::Int(42))],
     TypedTerm::Var("a"),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   let r2 = result_memo.read().unwrap()
@@ -437,8 +437,8 @@ test "incremental: edit def body triggers recomputation" {
     [("a", TypedTerm::Int(1))],
     TypedTerm::Var("a"),
   )
-  let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.body_type.typ, content="Int")
@@ -447,7 +447,7 @@ test "incremental: edit def body triggers recomputation" {
     [("a", TypedTerm::Unit)],
     TypedTerm::Var("a"),
   )
-  term_signal.set(module_term2)
+  term_input.set(module_term2)
   let r2 = result_memo.read().unwrap()
   inspect(r2.body_type.typ, content="Unit")
   inspect(r2.def_types[0].1.typ, content="Unit")
@@ -463,8 +463,8 @@ test "incremental: structural change rebuilds scope" {
     [("a", TypedTerm::Int(1))],
     TypedTerm::Var("a"),
   )
-  let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.def_types.length(), content="1")
@@ -473,7 +473,7 @@ test "incremental: structural change rebuilds scope" {
     [("a", TypedTerm::Int(1)), ("b", TypedTerm::Var("a"))],
     TypedTerm::Var("b"),
   )
-  term_signal.set(module_term2)
+  term_input.set(module_term2)
   let r2 = result_memo.read().unwrap()
   inspect(r2.def_types.length(), content="2")
   inspect(r2.def_types[0].0, content="a")
@@ -487,8 +487,8 @@ test "incremental: empty module" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module([], TypedTerm::Int(42))
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   inspect(result.def_types.length(), content="0")
@@ -506,8 +506,8 @@ test "incremental: diagnostics propagate through pipeline" {
     [("a", TypedTerm::Lam("x", None, TypedTerm::Var("x")))],
     TypedTerm::Var("a"),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let result = result_memo.read().unwrap()
   inspect(result.def_types[0].1.had_error, content="true")
@@ -529,8 +529,8 @@ test "incremental: editing one def updates only that def's diagnostics" {
     [("a", ill_a), ("b", ok_b)],
     TypedTerm::Var("b"),
   )
-  let term_signal = scope.signal(module_v1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_v1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let result_memo = build_typecheck_pipeline(rt, scope, term_memo)
   let r1 = result_memo.read().unwrap()
   inspect(r1.all_diagnostics.length(), content="1")
@@ -540,7 +540,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
     [("a", ok_a), ("b", ok_b)],
     TypedTerm::Var("b"),
   )
-  term_signal.set(module_v2)
+  term_input.set(module_v2)
   let r2 = result_memo.read().unwrap()
   inspect(r2.all_diagnostics.length(), content="0")
   // Break `b` — only `b`'s diagnostic should surface.
@@ -549,7 +549,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
     [("a", ok_a), ("b", ill_b)],
     TypedTerm::Var("b"),
   )
-  term_signal.set(module_v3)
+  term_input.set(module_v3)
   let r3 = result_memo.read().unwrap()
   inspect(r3.all_diagnostics.length(), content="1")
   debug_inspect(r3.all_diagnostics[0].def_name, content="Some(\"b\")")
@@ -572,8 +572,8 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
     ],
     TypedTerm::Var("c"),
   )
-  let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(v1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
@@ -593,7 +593,7 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
     ],
     TypedTerm::Var("c"),
   )
-  term_signal.set(v2)
+  term_input.set(v2)
   let _ = result_memo.read().unwrap()
   let ca0_after = state.resolve_memos[0].changed_at()
   let ca1_after = state.resolve_memos[1].changed_at()
@@ -617,8 +617,8 @@ test "incremental: per-def resolve — body edit invalidates only body_resolve_m
   let scope = @incr.Scope::new(rt)
   // def a = 1, body = a
   let v1 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Var("a"))
-  let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(v1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
@@ -628,7 +628,7 @@ test "incremental: per-def resolve — body edit invalidates only body_resolve_m
   let ca_body_before = body_rm.changed_at()
   // Edit only the body: Var("a") → Int(99). Def is unchanged.
   let v2 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Int(99))
-  term_signal.set(v2)
+  term_input.set(v2)
   let _ = result_memo.read().unwrap()
   let ca_def_after = state.resolve_memos[0].changed_at()
   let ca_body_after = body_rm.changed_at()
@@ -653,42 +653,35 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
     [("a", TypedTerm::Var("unknown"))],
     TypedTerm::Int(0),
   )
-  let term_signal = scope.signal(v1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(v1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, state) = build_typecheck_pipeline_internal(
     rt, scope, term_memo,
   )
   let _ = result_memo.read().unwrap()
   let ca_before = state.resolve_memos[0].changed_at()
-  let sig_ca_before = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
   // Rewrite the raw body: Var("unknown") → Unbound("unknown"). The raw
-  // TypedTerm variants differ (so term_signals[0] genuinely changes),
-  // but resolve_walk on both with an empty env produces the same
+  // TypedTerm variants differ, but resolve_walk on both with an empty env
+  // produces the same
   // Unbound("unknown"). Resolve_memo recomputes and backdates via
   // TypedTerm Eq — no cascade to type_memo.
   let v2 = TypedTerm::Module(
     [("a", TypedTerm::Unbound("unknown"))],
     TypedTerm::Int(0),
   )
-  term_signal.set(v2)
+  term_input.set(v2)
   let _ = result_memo.read().unwrap()
   let ca_after = state.resolve_memos[0].changed_at()
-  let sig_ca_after = rt.cell_info(state.term_signals[0].id()).unwrap().changed_at
-  // Two claims, in order:
-  //   1. term_signals[0] genuinely bumped — this pins down that the
-  //      "stability" of resolve_memos[0] below is backdating, not a
-  //      no-op signal write.
-  //   2. resolve_memos[0].changed_at stayed the same despite its dep
-  //      having advanced — proving TypedTerm-Eq-backdating kicked in.
-  inspect(sig_ca_before == sig_ca_after, content="false")
+  // resolve_memos[0].changed_at stayed the same despite its raw input
+  // receiving a different value — proving TypedTerm-Eq-backdating kicked in.
   inspect(ca_before == ca_after, content="true")
   scope.dispose()
 }
 
-// --- MemoMap index tests ---
+// --- DerivedMap index tests ---
 
 ///|
-test "MemoMap: query by DefId" {
+test "DerivedMap: query by DefId" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
@@ -712,8 +705,8 @@ test "MemoMap: query by DefId" {
     ],
     TypedTerm::App(TypedTerm::Var("g"), TypedTerm::Int(3)),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -721,17 +714,17 @@ test "MemoMap: query by DefId" {
   let _result = result_memo.read().unwrap()
   // Query f by DefId
   let f_id = index.intern_table.intern({ name: "f" })
-  let f_type = index.memo_map.get(f_id)
+  let f_type = index.derived_map.read_or_abort(f_id)
   inspect(f_type.typ, content="Int -> Int")
   // Query g by DefId
   let g_id = index.intern_table.intern({ name: "g" })
-  let g_type = index.memo_map.get(g_id)
+  let g_type = index.derived_map.read_or_abort(g_id)
   inspect(g_type.typ, content="Int -> Int")
   scope.dispose()
 }
 
 ///|
-test "MemoMap: cache hit for stable DefId after edit" {
+test "DerivedMap: cache hit for stable DefId after edit" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   // Module with def f = \x:Int. x
@@ -739,14 +732,14 @@ test "MemoMap: cache hit for stable DefId after edit" {
     [("f", TypedTerm::Lam("x", Some(TInt), TypedTerm::Var("x")))],
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
   )
-  let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
   let _r1 = result_memo.read().unwrap()
   let f_id = index.intern_table.intern({ name: "f" })
-  let f_type1 = index.memo_map.get(f_id)
+  let f_type1 = index.derived_map.read_or_abort(f_id)
   inspect(f_type1.typ, content="Int -> Int")
   // Edit body but keep same type result (x+1 still Int -> Int)
   let module_term2 = TypedTerm::Module(
@@ -762,9 +755,9 @@ test "MemoMap: cache hit for stable DefId after edit" {
     ],
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),
   )
-  term_signal.set(module_term2)
+  term_input.set(module_term2)
   let _r2 = result_memo.read().unwrap()
-  let f_type2 = index.memo_map.get(f_id)
+  let f_type2 = index.derived_map.read_or_abort(f_id)
   inspect(f_type2.typ, content="Int -> Int")
   scope.dispose()
 }
@@ -775,11 +768,11 @@ test "MemoMap: cache hit for stable DefId after edit" {
 /// into a later shadowing declaration's slot, `rebuild_chain` keeps the
 /// FIRST occurrence in `name_to_idx` and emits a "duplicate top-level
 /// definition: X" diagnostic for each additional occurrence.
-test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
+test "DerivedMap: duplicate def names diagnose and keep first-wins lookup" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   // Two defs named `a`: the first types to `Int`, the second to
-  // `Int -> Int`. Under the pre-fix last-wins rule, `memo_map.get(a_id)`
+  // `Int -> Int`. Under the pre-fix last-wins rule, `derived_map.read_or_abort(a_id)`
   // would return `Int -> Int` and alias the cached DefId; under first-
   // wins it must return `Int`.
   let module_term = TypedTerm::Module(
@@ -790,17 +783,17 @@ test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
     ],
     TypedTerm::Var("b"),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
   let result = result_memo.read().unwrap()
   // `a` routes to the first occurrence (Int), not the shadowing lambda.
   let a_id = index.intern_table.intern({ name: "a" })
-  inspect(index.memo_map.get(a_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
   let b_id = index.intern_table.intern({ name: "b" })
-  inspect(index.memo_map.get(b_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(b_id).typ, content="Int")
   // Exactly one duplicate diagnostic for the second `a`; tagged with
   // its def name so hover/outline consumers can surface it.
   let dup_messages = result.all_diagnostics
@@ -813,8 +806,8 @@ test "MemoMap: duplicate def names diagnose and keep first-wins lookup" {
 }
 
 ///|
-test "MemoMap: lookup of unknown def name returns error sentinel" {
-  // The MemoMap compute closure routes `name` through `name_to_idx`.
+test "DerivedMap: lookup of unknown def name returns error sentinel" {
+  // The DerivedMap compute closure routes `name` through `name_to_idx`.
   // An InternId for a name that is not in the current module hits the
   // `None` arm and returns an error result rather than aliasing into some
   // other slot. This replaces the old positional guard, which was needed
@@ -828,22 +821,22 @@ test "MemoMap: lookup of unknown def name returns error sentinel" {
     ],
     TypedTerm::Var("b"),
   )
-  let term_signal = scope.signal(module_term, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
   let _r1 = result_memo.read().unwrap()
   // Known names resolve.
   let a_id = index.intern_table.intern({ name: "a" })
-  inspect(index.memo_map.get(a_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
   let b_id = index.intern_table.intern({ name: "b" })
-  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
+  inspect(index.derived_map.read_or_abort(b_id).typ, content="Int -> Int")
   // Name not in the module (never defined) → error sentinel. The
-  // InternId is fresh, so MemoMap creates a new internal Memo whose
-  // compute function falls through the `None` branch.
+  // InternId is fresh, so DerivedMap creates a new internal derived cell
+  // whose compute function falls through the `None` branch.
   let bogus_id = index.intern_table.intern({ name: "c" })
-  let bogus_result = index.memo_map.get(bogus_id)
+  let bogus_result = index.derived_map.read_or_abort(bogus_id)
   inspect(bogus_result.typ, content="<error>")
   inspect(bogus_result.had_error, content="true")
   scope.dispose()
@@ -854,9 +847,9 @@ test "MemoMap: lookup of unknown def name returns error sentinel" {
 /// `c` from the pre-edit module must still resolve to the correct
 /// (new-position) type_memo results after a new def is prepended at
 /// position 0. `DefEntry` hashes on `name` only, so re-interning returns
-/// the same `InternId`; the MemoMap compute closure routes via
+/// the same `InternId`; the DerivedMap compute closure routes via
 /// `PipelineState::name_to_idx` to find the new slot.
-test "MemoMap: DefId stays stable after prepending a def at position 0" {
+test "DerivedMap: DefId stays stable after prepending a def at position 0" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   // v1: [a = 1, b : Int -> Int, c : Int]
@@ -873,8 +866,8 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
     ],
     TypedTerm::Var("c"),
   )
-  let term_signal = scope.signal(module_v1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_v1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
@@ -882,8 +875,8 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
   // Cache IDs for b and c under v1's positions.
   let b_id = index.intern_table.intern({ name: "b" })
   let c_id = index.intern_table.intern({ name: "c" })
-  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
-  inspect(index.memo_map.get(c_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(b_id).typ, content="Int -> Int")
+  inspect(index.derived_map.read_or_abort(c_id).typ, content="Int")
   // v2: prepend z at position 0 → [z, a, b, c]. Same b and c bodies; b and
   // c's new indices are 2 and 3 respectively.
   let module_v2 = TypedTerm::Module(
@@ -895,20 +888,20 @@ test "MemoMap: DefId stays stable after prepending a def at position 0" {
     ],
     TypedTerm::Var("c"),
   )
-  term_signal.set(module_v2)
+  term_input.set(module_v2)
   let _r2 = result_memo.read().unwrap()
   // The original b_id and c_id (minted under v1 positions) still resolve
   // to the right types. `DefEntry` hashes on `name` only, so re-interning
-  // returns the same `InternId`; the MemoMap routes the lookup through
+  // returns the same `InternId`; the DerivedMap routes the lookup through
   // `name_to_idx` to the new slot.
-  inspect(index.memo_map.get(b_id).typ, content="Int -> Int")
-  inspect(index.memo_map.get(c_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(b_id).typ, content="Int -> Int")
+  inspect(index.derived_map.read_or_abort(c_id).typ, content="Int")
   scope.dispose()
 }
 
 ///|
-test "MemoMap: structural rebuild sweeps stale entries" {
-  // Verify that `memo_map.clear()` is invoked on rebuild so wrapper memos
+test "DerivedMap: structural rebuild sweeps stale entries" {
+  // Verify that `derived_map.clear_cache()` is invoked on rebuild so wrapper memos
   // for old InternIds do not accumulate across structural edits.
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
@@ -917,38 +910,38 @@ test "MemoMap: structural rebuild sweeps stale entries" {
     [("a", TypedTerm::Int(1)), ("b", TypedTerm::Int(2))],
     TypedTerm::Var("a"),
   )
-  let term_signal = scope.signal(module_term1, label="source_term")
-  let term_memo = scope.derived(fn() { term_signal.get() }, label="source")
+  let term_input = scope.input(module_term1, label="source_term")
+  let term_memo = scope.derived(fn() { term_input.get() }, label="source")
   let (result_memo, index) = build_typecheck_pipeline_with_index(
     rt, scope, term_memo,
   )
   let _r1 = result_memo.read().unwrap()
-  // Populate memo_map with two entries.
+  // Populate derived_map with two entries.
   let a_id = index.intern_table.intern({ name: "a" })
   let b_id = index.intern_table.intern({ name: "b" })
-  inspect(index.memo_map.get(a_id).typ, content="Int")
-  inspect(index.memo_map.get(b_id).typ, content="Int")
-  inspect(index.memo_map.length(), content="2")
+  inspect(index.derived_map.read_or_abort(a_id).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(b_id).typ, content="Int")
+  inspect(index.derived_map.cache_len(), content="2")
   // Structural change: defs = [b, c]. `b` keeps its identity (same
   // `InternId`); `a` disappears and `c` is new. The wrapper memos keyed
-  // on `a_id` and `b_id` are all torn down by `memo_map.clear()` on
+  // on `a_id` and `b_id` are all torn down by `derived_map.clear_cache()` on
   // rebuild — we re-populate only on the next query.
   let module_term2 = TypedTerm::Module(
     [("b", TypedTerm::Int(20)), ("c", TypedTerm::Int(30))],
     TypedTerm::Var("b"),
   )
-  term_signal.set(module_term2)
+  term_input.set(module_term2)
   let _r2 = result_memo.read().unwrap()
-  // After rebuild, memo_map has been cleared; no stale entries remain.
-  inspect(index.memo_map.length(), content="0")
+  // After rebuild, derived_map has been cleared; no stale entries remain.
+  inspect(index.derived_map.cache_len(), content="0")
   // `b`'s InternId is stable across the rebuild. `a` is gone (→ error
   // sentinel), `c` is new.
   let b_id2 = index.intern_table.intern({ name: "b" })
   let c_id2 = index.intern_table.intern({ name: "c" })
   inspect(b_id == b_id2, content="true")
-  inspect(index.memo_map.get(b_id2).typ, content="Int")
-  inspect(index.memo_map.get(c_id2).typ, content="Int")
-  inspect(index.memo_map.get(a_id).had_error, content="true")
-  inspect(index.memo_map.length(), content="3")
+  inspect(index.derived_map.read_or_abort(b_id2).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(c_id2).typ, content="Int")
+  inspect(index.derived_map.read_or_abort(a_id).had_error, content="true")
+  inspect(index.derived_map.cache_len(), content="3")
   scope.dispose()
 }
