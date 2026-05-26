@@ -17,14 +17,14 @@ pub struct Parser[Ast] {
   // private fields
 }
 pub fn[Ast : Eq] Parser::apply_edit(Self[Ast], @core.Edit, String) -> Unit
-pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Memo[Ast]
-pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Memo[@core.DiagnosticSet]
+pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Derived[Ast]
+pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Derived[@core.DiagnosticSet]
 pub fn[Ast : Eq] Parser::new(String, @incremental.ImperativeLanguage[Ast], runtime? : @cells.Runtime) -> Self[Ast]
 pub fn[Ast] Parser::runtime(Self[Ast]) -> @cells.Runtime
 pub fn[Ast : Eq] Parser::set_source(Self[Ast], String) -> Unit
-pub fn[Ast] Parser::snapshot(Self[Ast]) -> @cells.Memo[@incremental.ParseSnapshot[Ast]]
-pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Memo[String]
-pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Memo[@seam.SyntaxNode]
+pub fn[Ast] Parser::snapshot(Self[Ast]) -> @cells.Derived[@incremental.ParseSnapshot[Ast]]
+pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Derived[String]
+pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Derived[@seam.SyntaxNode]
 
 // Type aliases
 

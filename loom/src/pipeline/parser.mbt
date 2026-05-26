@@ -6,7 +6,7 @@
 /// - `apply_edit(edit, new_source)` — CST-node-level reuse via the engine.
 /// - `set_source(source)` — full reparse, discarding incremental state.
 ///
-/// Both methods update one private snapshot `Signal` inside `Runtime::batch`
+/// Both methods update one private snapshot `Input` inside `Runtime::batch`
 /// after the engine has advanced, so downstream consumers see one coherent
 /// parse state regardless of which method was called.
 ///
@@ -18,7 +18,7 @@
 pub struct Parser[Ast] {
   priv engine : @incremental.ImperativeParser[Ast]
   priv rt : @incr.Runtime
-  priv snapshot_signal : @incr.Signal[@incremental.ParseSnapshot[Ast]]
+  priv snapshot_input : @incr.Input[@incremental.ParseSnapshot[Ast]]
   priv snapshot_view : @incr.Derived[@incremental.ParseSnapshot[Ast]]
   priv source_view : @incr.Derived[String]
   priv syntax_view : @incr.Derived[@seam.SyntaxNode]
@@ -46,40 +46,40 @@ pub fn[Ast : Eq] Parser::new(
     Some(r) => r
     None => @incr.Runtime::new()
   }
-  let snapshot_signal = @incr.Signal::new(
+  let snapshot_input = @incr.Input(
     rt,
     initial_snapshot,
     label="parser_snapshot",
   )
   let snapshot_view = @incr.Derived::Derived(
     rt,
-    fn() { snapshot_signal.get().copy() },
+    fn() { snapshot_input.get().copy() },
     label="parser_snapshot_view",
   )
   let source_view = @incr.Derived::Derived(
     rt,
-    fn() { snapshot_signal.get().source },
+    fn() { snapshot_input.get().source },
     label="parser_source_view",
   )
   let syntax_view = @incr.Derived::Derived(
     rt,
-    fn() { snapshot_signal.get().syntax },
+    fn() { snapshot_input.get().syntax },
     label="parser_syntax_view",
   )
   let ast_view = @incr.Derived::Derived(
     rt,
-    fn() { snapshot_signal.get().ast },
+    fn() { snapshot_input.get().ast },
     label="parser_ast_view",
   )
   let diagnostics_view = @incr.Derived::Derived(
     rt,
-    fn() { snapshot_signal.get().diagnostics.copy() },
+    fn() { snapshot_input.get().diagnostics.copy() },
     label="parser_diagnostics_view",
   )
   {
     engine,
     rt,
-    snapshot_signal,
+    snapshot_input,
     snapshot_view,
     source_view,
     syntax_view,
@@ -90,10 +90,10 @@ pub fn[Ast : Eq] Parser::new(
 
 ///|
 /// Replace the source text, discarding incremental state. The snapshot
-/// signal is updated atomically inside `Runtime::batch`.
+/// input is updated atomically inside `Runtime::batch`.
 ///
 /// Identity is a no-op: if `source` equals the engine's current source,
-/// this returns immediately without reparsing or touching any signal.
+/// this returns immediately without reparsing or touching any input.
 /// Editors and LSP flows that emit repeated identical snapshots thus
 /// avoid a redundant full parse + fold pass (downstream Memos would
 /// backdate anyway, but the engine's incremental state would have been
@@ -105,11 +105,11 @@ pub fn[Ast : Eq] Parser::set_source(
   if source == self.engine.get_source() {
     return
   }
-  self.rt.batch(fn() { self.snapshot_signal.set(self.engine.reset(source)) })
+  self.rt.batch(fn() { self.snapshot_input.set(self.engine.reset(source)) })
 }
 
 ///|
-/// Apply a text `Edit` using CST-node-level reuse. The snapshot signal is
+/// Apply a text `Edit` using CST-node-level reuse. The snapshot input is
 /// updated atomically inside `Runtime::batch` after the engine has advanced.
 pub fn[Ast : Eq] Parser::apply_edit(
   self : Parser[Ast],
@@ -117,7 +117,7 @@ pub fn[Ast : Eq] Parser::apply_edit(
   new_source : String,
 ) -> Unit {
   self.rt.batch(fn() {
-    self.snapshot_signal.set(self.engine.edit(edit, new_source))
+    self.snapshot_input.set(self.engine.edit(edit, new_source))
   })
 }
 
