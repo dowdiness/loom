@@ -195,6 +195,147 @@ test "direct token validation rejects nested callback argument tokens" {
 }
 
 ///|
+test "projection token cardinality helpers accept exactly one direct token" {
+  let number_kind = RawKind(34)
+  let call_kind = RawKind(35)
+  let call = SyntaxNode::from_cst(
+    CstNode::new(call_kind, [
+      CstElement::Token(CstToken::CstToken(number_kind, "2")),
+    ]),
+  )
+  match call.required_direct_token_of_kind(number_kind, message="one number") {
+    Ok(tok) => inspect(tok.text(), content="2")
+    Err(_) => fail("expected exactly one direct number")
+  }
+  match
+    call.optional_direct_token_of_kind(RawKind(99), message="optional missing") {
+    Ok(None) => inspect("none", content="none")
+    Ok(Some(_)) => fail("missing optional token should be None")
+    Err(_) => fail("missing optional token should not error")
+  }
+}
+
+///|
+test "projection token cardinality helpers reject malformed direct slots" {
+  let comma_kind = RawKind(40)
+  let number_kind = RawKind(41)
+  let call_kind = RawKind(42)
+  let first = CstToken::CstToken(number_kind, "1")
+  let comma = CstToken::CstToken(comma_kind, ",")
+  let second = CstToken::CstToken(number_kind, "2")
+  let call = SyntaxNode::from_cst(
+    CstNode::new(call_kind, [
+      CstElement::Token(first),
+      CstElement::Token(comma),
+      CstElement::Token(second),
+    ]),
+  )
+
+  match call.expect_no_direct_tokens_of_kind(comma_kind, message="no comma") {
+    Ok(_) => fail("direct comma should be rejected")
+    Err(err) => {
+      inspect(err.message, content="no comma")
+      inspect(err.element == TokenElement, content="true")
+      inspect(err.expectation == ExpectedZero, content="true")
+      inspect(err.actual, content="1")
+      inspect(err.start, content="1")
+      inspect(err.end, content="2")
+    }
+  }
+  match
+    call.optional_direct_token_of_kind(number_kind, message="optional number") {
+    Ok(_) => fail("two direct numbers should reject optional cardinality")
+    Err(err) => {
+      inspect(err.expectation == ExpectedOptional, content="true")
+      inspect(err.actual, content="2")
+      inspect(err.start, content="0")
+      inspect(err.end, content="3")
+    }
+  }
+  match call.required_direct_tokens_of_kind(number_kind, message="numbers") {
+    Ok(tokens) => {
+      inspect(tokens.length(), content="2")
+      inspect(tokens[0].text(), content="1")
+      inspect(tokens[1].text(), content="2")
+    }
+    Err(_) => fail("expected many direct numbers")
+  }
+}
+
+///|
+test "projection token cardinality helpers do not accept nested callback tokens" {
+  let method_kind = RawKind(50)
+  let callback_kind = RawKind(51)
+  let number_kind = RawKind(52)
+  let callback = CstNode::new(callback_kind, [
+    CstElement::Token(CstToken::CstToken(number_kind, "2")),
+  ])
+  let call = SyntaxNode::from_cst(
+    CstNode::new(method_kind, [CstElement::Node(callback)]),
+  )
+  match
+    call.required_direct_token_of_kind(
+      number_kind,
+      message="expected direct numeric argument",
+    ) {
+    Ok(_) => fail("nested token must not satisfy direct numeric argument")
+    Err(err) => {
+      inspect(err.message, content="expected direct numeric argument")
+      inspect(err.actual, content="0")
+      inspect(err.start, content="0")
+      inspect(err.end, content="1")
+    }
+  }
+}
+
+///|
+test "projection child cardinality helpers preserve direct child ranges" {
+  let child_kind = RawKind(60)
+  let other_kind = RawKind(61)
+  let root_kind = RawKind(62)
+  let child1 = CstNode::new(child_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(63), "ab")),
+  ])
+  let other = CstNode::new(other_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(64), "c")),
+  ])
+  let child2 = CstNode::new(child_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(65), "de")),
+  ])
+  let root = SyntaxNode::from_cst(
+    CstNode::new(root_kind, [
+      CstElement::Node(child1),
+      CstElement::Node(other),
+      CstElement::Node(child2),
+    ]),
+  )
+
+  match root.required_direct_child_of_kind(other_kind, message="one other") {
+    Ok(node) => {
+      inspect(node.start(), content="2")
+      inspect(node.end(), content="3")
+    }
+    Err(_) => fail("expected one other child")
+  }
+  match
+    root.optional_direct_child_of_kind(child_kind, message="optional child") {
+    Ok(_) => fail("two children should reject optional cardinality")
+    Err(err) => {
+      inspect(err.element == ChildElement, content="true")
+      inspect(err.expectation == ExpectedOptional, content="true")
+      inspect(err.actual, content="2")
+      inspect(err.start, content="0")
+      inspect(err.end, content="5")
+    }
+  }
+  inspect(root.direct_child_of_kind(other_kind) is Some(_), content="true")
+  inspect(
+    root.expect_no_direct_children_of_kind(RawKind(99), message="none") is Ok(_),
+    content="true",
+  )
+}
+
+///|
 test "SyntaxNode::tight_span no trivia" {
   let t1 = CstToken::CstToken(RawKind(9), "ab")
   let t2 = CstToken::CstToken(RawKind(9), "cd")

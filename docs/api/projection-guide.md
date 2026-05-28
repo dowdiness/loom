@@ -57,8 +57,12 @@ checking the immediate shape of a syntax node:
 | Intent | Prefer | Notes |
 |---|---|---|
 | First direct token of a kind | `node.direct_token_of_kind(kind)` | Use for singleton slots such as an identifier, literal token, keyword flag, or opening fence. |
-| All direct tokens of a kind | `node.direct_tokens_of_kind(kind)` | Use when repetition makes multiple same-kind tokens legal at the same level. |
-| Direct child nodes of a kind | `node.direct_children_of_kind(kind)` | Use when the grammar has repeated child nodes of one kind. |
+| Exactly one direct token of a kind | `node.required_direct_token_of_kind(kind, message=...)` | Use when absence or duplication is a projection error. |
+| Optional direct token of a kind | `node.optional_direct_token_of_kind(kind, message=...)` | Use when zero or one is valid, but duplicates are malformed. |
+| No direct tokens of a kind | `node.expect_no_direct_tokens_of_kind(kind, message=...)` | Use for disallowed punctuation such as a comma in a single-argument slot. |
+| All direct tokens of a kind | `node.direct_tokens_of_kind(kind)` / `node.required_direct_tokens_of_kind(kind, message=...)` | Use when repetition makes multiple same-kind tokens legal at the same level. |
+| Direct child nodes of a kind | `node.direct_child_of_kind(kind)` / `node.direct_children_of_kind(kind)` | Use when the grammar has singleton or repeated child nodes of one kind. |
+| Cardinality-checked direct child nodes | `required_direct_child_of_kind`, `optional_direct_child_of_kind`, `expect_no_direct_children_of_kind`, `required_direct_children_of_kind` | Use when missing or duplicate child nodes should become projection errors. |
 | Ordered direct node/token zipper | `node.nodes_and_tokens()` | Use when the direct sequence matters, such as binary operator + operand pairs. |
 
 The direct-visible-child contract is:
@@ -89,7 +93,18 @@ let key_text = match member.direct_token_of_kind(StringToken.to_raw()) {
 }
 ```
 
-For stronger error reporting, prefer a private IR variant instead of defaulting:
+For stronger error reporting, either branch into a private IR variant or use a
+cardinality helper that preserves the projection-owned message:
+
+```mbt nocheck
+let key = match member.required_direct_token_of_kind(
+  StringToken.to_raw(),
+  message="JSON member requires exactly one direct string key",
+) {
+  Ok(tok) => tok.text()
+  Err(err) => return MemberIr::MalformedMember(message=err.message)
+}
+```
 
 ```mbt nocheck
 enum MemberIr {
@@ -156,4 +171,4 @@ Before shipping projection code, check:
   a recursive descendant search?
 
 See [ADR 2026-05-25](../decisions/2026-05-25-direct-cst-projection-queries.md)
-for the decision behind the `direct_*` helper names.
+for the decision behind the `direct_*` helper names and cardinality helpers.

@@ -105,9 +105,14 @@ into a semantic model. Prefer the explicit direct-child helpers for that work:
 
 - `direct_token_of_kind(kind)` / `direct_tokens_of_kind(kind)` inspect direct
   token children only.
-- `direct_children_of_kind(kind)` inspects direct node children only.
+- `direct_child_of_kind(kind)` / `direct_children_of_kind(kind)` inspect direct
+  node children only.
 - `nodes_and_tokens()` keeps the direct node/token sequence available when
   order matters, such as binary operator + operand pairs.
+- `required_direct_*`, `optional_direct_*`, `required_direct_*s`, and
+  `expect_no_direct_*s` helpers validate zero/optional/one/many cardinality and
+  return `ProjectionShapeError` with the projection-supplied message plus source
+  range and actual count.
 - `children()`, `all_children()`, `tokens()`, `find_token()`, and
   `tokens_of_kind()` also operate on direct visible children. `RepeatGroup`
   nodes are transparent, but ordinary nested nodes are not searched.
@@ -115,7 +120,9 @@ into a semantic model. Prefer the explicit direct-child helpers for that work:
 This distinction matters for callback or nested argument syntax: validating
 `.fast(2)` should look for a direct `NumberToken` on the method-call node;
 `.fast(slow(2))` must not be accepted just because a descendant callback node
-contains a `NumberToken`.
+contains a `NumberToken`. Recursive walks are safe for display, indexing, or
+intentionally whole-subtree analyses; they are unsafe for validating a direct
+semantic slot unless the projection names that recursion explicitly.
 
 A typical projection pipeline is:
 

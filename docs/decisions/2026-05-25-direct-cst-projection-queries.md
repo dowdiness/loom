@@ -3,6 +3,7 @@
 **Date:** 2026-05-25
 **Status:** Accepted
 **Issue:** [#153](https://github.com/dowdiness/loom/issues/153)
+**Follow-up:** [dowdiness/seam#2](https://github.com/dowdiness/seam/issues/2)
 **Implementation:** [PR #154](https://github.com/dowdiness/loom/pull/154)
 
 ## Context
@@ -43,9 +44,14 @@ Keep `find_token` and `tokens_of_kind` available for compatibility, and document
 that they are direct-visible-child helpers rather than recursive descendant
 queries.
 
-Do not introduce a larger CST query DSL for this issue. Add arity-enforcing
-helpers, recursive traversal helpers, or a broader query language only after
-smaller direct-child helpers prove insufficient.
+Do not introduce a larger CST query DSL for this issue.
+
+2026-05-28 follow-up: add small cardinality helpers on top of the direct-child
+queries instead of a query DSL. The helpers validate zero, optional, exactly one,
+and at-least-one direct tokens or child nodes and return `ProjectionShapeError`
+with projection-owned messages, actual counts, expected cardinality, and source
+ranges. This keeps projection error wording in the language package while making
+common direct-slot validation concise.
 
 ## Rationale
 
@@ -74,5 +80,5 @@ future helper is explicitly designed and named for recursive descendant search.
 If recursive query helpers are added later, their names should make recursion
 visible, for example with a `descendant_*` or `recursive_*` prefix.
 
-Future arity helpers such as `expect_one_direct_token` can build on this API if
-projection authors need stronger validation ergonomics.
+Cardinality helpers now build on this API for projection authors that need
+stronger validation ergonomics without hand-rolled count checks.
