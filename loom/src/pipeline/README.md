@@ -57,6 +57,13 @@ a `Parser`.
   that recovered tree.
 - Valid input → `syntax_tree()` returns the tree and `diagnostics()` is empty.
 
+These are current parse views. The parser does not retain semantic documents or
+reuse baselines across malformed input; that policy belongs in a downstream
+attachment rooted on `parser.runtime()`. See the
+[last-good semantic attachment guide](../../../docs/api/last-good-semantic-attachment.md)
+for the authoring pattern where diagnostics update immediately while the last
+successful semantic document is retained until projection succeeds again.
+
 ## `Ast : Eq` requirement
 
 `Eq` is required on `Ast` for snapshot and view backdating. Use

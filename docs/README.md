@@ -33,6 +33,7 @@ Framework-level:
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
 - [api/projection-guide.md](api/projection-guide.md) — CST → private IR → semantic model projection guide, including direct CST shape validation
 - [api/authoring-only-integration.md](api/authoring-only-integration.md) — keep Loom-backed editor diagnostics/projections behind an authoring facade without leaking into runtime packages
+- [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — authoring attachment pattern for immediate parser diagnostics plus last-good semantic document retention
 - [../loom/src/pkg.generated.mbti](../loom/src/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
 
 Language-specific:
@@ -63,6 +64,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-05-28-authoring-last-good-semantic-projection.md](decisions/2026-05-28-authoring-last-good-semantic-projection.md) — **Accepted** stateful authoring attachments keep parser diagnostics immediate while retaining last-good semantic projections across parser/projection failures
 - [decisions/2026-05-28-authoring-only-integration-boundary.md](decisions/2026-05-28-authoring-only-integration-boundary.md) — **Accepted** optional authoring-only Loom integration boundary for downstream runtime isolation
 - [decisions/2026-05-25-direct-cst-projection-queries.md](decisions/2026-05-25-direct-cst-projection-queries.md) — **Accepted** projection-friendly direct CST query helpers for safer semantic validation
 - [decisions/2026-05-22-callers-visible-from-memo.md](decisions/2026-05-22-callers-visible-from-memo.md) — **Accepted** callers `visible_from` as a pure Derived projection, with Datalog deferred until relation retraction exists
