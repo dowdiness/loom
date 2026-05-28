@@ -15,9 +15,12 @@ query language; it is to make the safe, reviewable projection shape explicit.
    let diagnostics = parser.diagnostics().read_or_abort()
    ```
 
-2. Stop semantic projection when parser diagnostics are present. Recovery CSTs
-   are useful for editor display, but semantic models should not silently accept
-   syntax the parser already marked invalid.
+2. Treat parser diagnostics as a semantic gate. Recovery CSTs are useful for
+   editor display, but semantic models should not silently accept syntax the
+   parser already marked invalid. In a stateful authoring attachment, publish
+   parser diagnostics for the current text immediately while retaining the last
+   successful semantic document until projection succeeds again; see the
+   [last-good semantic attachment guide](last-good-semantic-attachment.md).
 
 3. Validate direct CST shape and lower into a private IR owned by the language
    package.
@@ -143,6 +146,8 @@ Before shipping projection code, check:
 - Does each semantic slot use `direct_*`, `nth_child`, `child_of_kind`,
   `nodes_and_tokens`, or another direct helper?
 - Are parser diagnostics checked before producing a trusted semantic model?
+- If the projection is stateful, does malformed parser or projection state retain
+  the last-good semantic document instead of replacing it?
 - Are missing direct tokens and missing direct children represented explicitly,
   rather than converted to a successful semantic default?
 - Are recursive walks named and localized so reviewers can tell they are

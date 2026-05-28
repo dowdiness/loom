@@ -43,6 +43,13 @@ pub fn analyze_for_editor(source : String) -> AuthoringSnapshot {
 }
 ```
 
+For stateful editor sessions, keep current diagnostics separate from semantic
+document lifetime. Parser diagnostics should update for every edit, while a
+malformed parse or projection should not overwrite the last successful semantic
+document used for reuse. See the
+[last-good semantic attachment guide](last-good-semantic-attachment.md) for that
+state policy and template.
+
 Runtime callers can keep using an independent parser or loader:
 
 ```mbt nocheck
@@ -110,13 +117,16 @@ runtime side outward:
    as `AuthoringSnapshot`, `AuthoringDiagnostic`, or private projection results;
    Loom `Parser`, `SyntaxNode`, and raw diagnostics remain behind the facade
    unless the authoring API intentionally exposes them.
-4. **Publishability** — if any published package depends on Loom or Seam, run
+4. **State separation** — stateful authoring facades expose current parser
+   diagnostics immediately but only replace last-good semantic documents after
+   parser and projection success.
+5. **Publishability** — if any published package depends on Loom or Seam, run
    the same packaging/publish checks used for release and confirm local path
    dependencies are not required.
-5. **Browser or wasm-gc reachability** — if Loom enters a package reachable from
+6. **Browser or wasm-gc reachability** — if Loom enters a package reachable from
    browser, audio worklet, or other wasm-gc targets, run that downstream build
    before treating the integration as production-ready.
-6. **Runtime parity** — existing one-shot runtime parsing tests still exercise
+7. **Runtime parity** — existing one-shot runtime parsing tests still exercise
    the runtime parser, not the authoring facade, unless the project explicitly
    chose to move runtime parsing to Loom.
 
