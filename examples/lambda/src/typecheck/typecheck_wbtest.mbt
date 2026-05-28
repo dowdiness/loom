@@ -901,8 +901,8 @@ test "DerivedMap: DefId stays stable after prepending a def at position 0" {
 
 ///|
 test "DerivedMap: structural rebuild sweeps stale entries" {
-  // Verify that `derived_map.clear_cache()` is invoked on rebuild so wrapper memos
-  // for old InternIds do not accumulate across structural edits.
+  // Verify that `derived_map.clear_cache()` is invoked on rebuild so wrapper
+  // Derived cells for old InternIds do not accumulate across structural edits.
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   // First module: defs = [a, b]
@@ -923,9 +923,10 @@ test "DerivedMap: structural rebuild sweeps stale entries" {
   inspect(index.derived_map.read_or_abort(b_id).typ, content="Int")
   inspect(index.derived_map.cache_len(), content="2")
   // Structural change: defs = [b, c]. `b` keeps its identity (same
-  // `InternId`); `a` disappears and `c` is new. The wrapper memos keyed
-  // on `a_id` and `b_id` are all torn down by `derived_map.clear_cache()` on
-  // rebuild — we re-populate only on the next query.
+  // `InternId`); `a` disappears and `c` is new. The wrapper Derived cells
+  // keyed on `a_id` and `b_id` are all torn down by
+  // `derived_map.clear_cache()` on rebuild — we re-populate only on the next
+  // query.
   let module_term2 = TypedTerm::Module(
     [("b", TypedTerm::Int(20)), ("c", TypedTerm::Int(30))],
     TypedTerm::Var("b"),

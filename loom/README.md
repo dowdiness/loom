@@ -6,7 +6,7 @@ Generic incremental parser framework for MoonBit.
 parser that gives you edit-aware lexing, a lossless green tree (CST),
 validated CST subtree reuse at grammar boundaries, error recovery, and a
 reactive pipeline that publishes source / syntax / AST / diagnostics as
-[`@incr`](../incr) signals and memos.
+[`@incr`](../incr) input / derived cells.
 
 > **Status:** framework stable. See [../ROADMAP.md](../ROADMAP.md) for
 > in-flight work.
@@ -35,8 +35,8 @@ publishes into. All three ship together.
 // implementation of Grammar[T, K, Ast].
 let parser = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
 
-// Read the parsed AST.
-let term = parser.runtime().read(parser.ast())
+// Read the parsed AST outside the reactive graph.
+let term = parser.ast().read_or_abort()
 
 // Whole-source reset (simplest update path):
 parser.set_source("λx.x + 2")
@@ -46,7 +46,7 @@ let edit = @loom.Edit::new(0, 0, 1)          // start, old_len, new_len
 parser.apply_edit(edit, " λx.x + 2")
 
 // Diagnostics are published as a reactive cell.
-let diagnostics : Array[String] = parser.runtime().read(parser.diagnostics())
+let diagnostics = parser.diagnostics().read_or_abort()
 ```
 
 See [`examples/lambda`](../examples/lambda/) for the full grammar used
@@ -80,7 +80,7 @@ Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).
 
 Most callers want **`Parser`** — it handles both `apply_edit` and
 `set_source` and publishes the result as `@incr` cells that downstream
-memos can compose with. Reach for `ImperativeParser` only when you do
+Derived cells can compose with. Reach for `ImperativeParser` only when you do
 not need the reactive graph.
 
 See [`docs/api/choosing-a-parser.md`](../docs/api/choosing-a-parser.md)

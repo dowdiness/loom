@@ -34,7 +34,7 @@ pub struct Parser[Ast] {
 /// If `runtime` is supplied the parser joins that reactive graph;
 /// otherwise a fresh `Runtime` is created. Sharing lets downstream
 /// consumers subscribe to `parser.source()` / `parser.ast()` on the
-/// same runtime as their own memos.
+/// same runtime as their own derived cells.
 pub fn[Ast : Eq] Parser::new(
   source : String,
   lang : @incremental.ImperativeLanguage[Ast],
@@ -95,7 +95,7 @@ pub fn[Ast : Eq] Parser::new(
 /// Identity is a no-op: if `source` equals the engine's current source,
 /// this returns immediately without reparsing or touching any input.
 /// Editors and LSP flows that emit repeated identical snapshots thus
-/// avoid a redundant full parse + fold pass (downstream Memos would
+/// avoid a redundant full parse + fold pass (downstream Derived cells would
 /// backdate anyway, but the engine's incremental state would have been
 /// discarded for nothing).
 pub fn[Ast : Eq] Parser::set_source(

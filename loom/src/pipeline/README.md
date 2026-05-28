@@ -33,6 +33,10 @@ pub fn[Ast]      Parser::diagnostics(Self)                               -> @cel
 pub fn[Ast]      Parser::runtime(Self)                                   -> @cells.Runtime
 ```
 
+Outside a tracked compute closure, read these views with `.read()` /
+`.read_or_abort()`. Inside another derived cell, use `.get()` /
+`.get_or_abort()` so the dependency is tracked.
+
 `set_source` and `apply_edit` both update the snapshot input under
 `Runtime::batch` so consumers never observe a half-updated graph.
 
