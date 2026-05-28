@@ -65,20 +65,27 @@ recursive workhorse; Layer 2 is the safe public entry point for consumers.
 
 ### Layer 3 — Error information
 
-For IDE diagnostics, callers need to know whether a subtree contains
-error-recovery nodes — not just that a query returned a fallback.
+For IDE diagnostics and semantic projections, callers need to know whether a
+query failed because input is malformed — not just that a query returned a
+fallback.
 
 ```moonbit
 is_error(error_kind : RawKind) -> Bool
 contains_errors(error_node_kind : RawKind, error_token_kind : RawKind) -> Bool
+required_direct_token_of_kind(kind, message~) -> Result[SyntaxToken, ProjectionShapeError]
 ```
 
 `CstNode::has_errors` exists at the concrete layer. `SyntaxNode` exposes both
 methods directly so callers do not need to reach through `.cst_node()`.
 
-**Why:** An IDE wants to skip hover/completion logic on error subtrees, or show
-a distinct diagnostic highlight. This requires knowing *why* a subtree is
-malformed, not just that a query produced a fallback.
+Projection cardinality helpers are the direct-shape branch of this layer. They
+keep language-specific wording in the projection (`message~`) while `seam`
+provides structured source ranges, actual counts, and expected cardinality.
+
+**Why:** An IDE wants to skip hover/completion logic on error subtrees, show a
+distinct diagnostic highlight, or reject a malformed semantic slot. This
+requires knowing *why* a subtree is malformed, not just that a query produced a
+fallback.
 
 ---
 
@@ -108,6 +115,7 @@ should keep the `Option` from `direct_token_of_kind(kind)` and branch explicitly
 |---|---|
 | `abort` / `panic` on bad input | Crashes on error-recovery trees; hard to debug |
 | Silent fallback that looks like success | `find_at(9999)` returns root — caller cannot distinguish from a real result without a span check |
+| Recursive search for direct semantic slots | A nested callback token accidentally satisfies a method argument slot |
 | Magic sentinel values | `RawKind(-1)`, returning `-1` for "not found" — implicit, easy to forget to check |
 | Public constructors with unchecked offsets | `SyntaxNode::new(cst, None, arbitrary_offset)` bypasses the invariant that offset must derive from tree structure |
 
@@ -120,8 +128,8 @@ should keep the `Option` from `direct_token_of_kind(kind)` and branch explicitly
 - All `SyntaxNode` fields (`cst`, `parent`, `offset`) are `priv`.
 - Layer 1 total functions: `find_at`, `start`, `end`, `kind`, `children`, `tokens`, `all_children`, `direct_children_of_kind`, `direct_tokens_of_kind`.
 - Layer 2 checked functions: `find_at_checked`, `parent`, `first_child`, `first_token`, `find_token`, `direct_token_of_kind`.
-- Layer 3 error information: `is_error`, `contains_errors`.
-- Additional navigation: `nth_child`, `child_of_kind`, `tokens_of_kind`, `tight_span`, `token_at_offset`, `cst_node`.
+- Layer 3 error information: `is_error`, `contains_errors`, `ProjectionShapeError`, and direct cardinality helpers.
+- Additional navigation: `nth_child`, `child_of_kind`, `direct_child_of_kind`, `tokens_of_kind`, `tight_span`, `token_at_offset`, `cst_node`.
 - View helpers: `token_text`, `children_from`, `nodes_and_tokens` — reduce boilerplate when writing typed views and fold algebras.
 
 The library satisfies all four structural independence properties (completeness,
