@@ -16,7 +16,7 @@ Core framework (stable):
 |--------|------|---------|
 | [`dowdiness/loom`](loom/) | `loom/` | Parser framework: incremental parsing, CST building, grammar composition |
 | [`dowdiness/seam`](seam/) | `seam/` | Language-agnostic CST infrastructure (`CstNode` / `SyntaxNode`) |
-| [`dowdiness/incr`](incr/) | `incr/` | Salsa-inspired reactive signals / memos |
+| [`dowdiness/incr`](incr/) | `incr/` | Salsa-inspired reactive inputs / derived cells |
 
 Sibling modules (see each module's README for scope and status):
 

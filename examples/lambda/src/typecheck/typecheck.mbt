@@ -71,8 +71,8 @@ fn PipelineState::new() -> PipelineState {
 /// module term. Returns a `Derived[ModuleTypeResult]` that recomputes
 /// incrementally when the input changes.
 ///
-/// The caller (in `src/` or in tests) is responsible for creating the input memo
-/// from parsed source. This avoids circular dependencies.
+/// The caller (in `src/` or in tests) is responsible for creating the input
+/// Derived from parsed source. This avoids circular dependencies.
 pub fn build_typecheck_pipeline(
   rt : @incr.Runtime,
   parent_scope : @incr.Scope,
@@ -85,7 +85,7 @@ pub fn build_typecheck_pipeline(
 }
 
 ///|
-/// Internal variant returning the `PipelineState` alongside the memo
+/// Internal variant returning the `PipelineState` alongside the Derived
 /// for whitebox tests that need to observe per-def cell state
 /// (e.g. `resolve_memos[i].changed_at()`). Not part of the public API.
 fn build_typecheck_pipeline_internal(
@@ -123,10 +123,10 @@ fn build_typecheck_pipeline_internal(
 /// Like `build_typecheck_pipeline`, but also returns a `TypecheckIndex` that
 /// lets callers query type results by `InternId` (stable across edits).
 ///
-/// The `DerivedMap` in the index computes by looking up the type memo for the
-/// given `InternId` in the current `PipelineState`. Reads inside the
-/// DerivedMap compute function ARE tracked — changing a type_memo will
-/// invalidate the entry. Call `derived_map.read_or_abort(id)` outside a
+/// The `DerivedMap` in the index computes by looking up the type Derived for
+/// the given `InternId` in the current `PipelineState`. Reads inside the
+/// DerivedMap compute function ARE tracked — changing a `type_memos` entry
+/// will invalidate the entry. Call `derived_map.read_or_abort(id)` outside a
 /// tracked context.
 pub fn build_typecheck_pipeline_with_index(
   rt : @incr.Runtime,
@@ -165,9 +165,9 @@ pub fn build_typecheck_pipeline_with_index(
         Some(_) => def_names != state.prev_def_names
       }
       if needs_rebuild {
-        // Wrapper memos in `derived_map` captured references to the previous
-        // chain's `type_memos` slots. After `rebuild_chain` replaces those
-        // slots (and their chain scope is disposed), every cached wrapper
+        // Wrapper Derived cells in `derived_map` captured references to the
+        // previous chain's `type_memos` slots. After `rebuild_chain` replaces
+        // those slots (and their chain scope is disposed), every cached wrapper
         // reads through a dangling pointer. Dispose them up front —
         // `derived_map` is Runtime-owned, so chain-scope disposal can't
         // reach it.
@@ -188,7 +188,7 @@ pub fn build_typecheck_pipeline_with_index(
 /// Split a (possibly non-Module) `TypedTerm` into its top-level defs and
 /// body without running resolution. O(top-level defs), not O(module AST).
 /// This is the lightweight replacement for `resolve_typed` at the parent
-/// memo boundary — per-def resolve happens inside `resolve_memos[i]`.
+/// Derived boundary — per-def resolve happens inside `resolve_memos[i]`.
 fn split_defs(term : TypedTerm) -> (Array[(String, TypedTerm)], TypedTerm) {
   match term {
     Module(defs, body) => (defs, body)
@@ -266,8 +266,8 @@ fn rebuild_chain(
     rolling_env = rolling_env.extend(def.0)
   }
   let body_env = rolling_env
-  // Per-def resolve memos: resolve_walk(raw_body, env_i). Backdates via
-  // TypedTerm Eq — a source edit that leaves the resolved form unchanged
+  // Per-def resolve Derived cells: resolve_walk(raw_body, env_i). Backdates
+  // via TypedTerm Eq — a source edit that leaves the resolved form unchanged
   // stops propagation here.
   let resolve_memos : Array[@incr.Derived[TypedTerm]] = []
   for i = 0; i < defs.length(); i = i + 1 {
@@ -327,7 +327,7 @@ fn rebuild_chain(
   }
   state.env_memos = env_memos
   state.type_memos = type_memos
-  // Body: raw input → resolve memo → type memo.
+  // Body: raw input → resolve Derived → type Derived.
   let body_input = chain_scope.input(body, label="body_term")
   state.body_term_input = Some(body_input)
   let body_resolve_memo = chain_scope.derived(
@@ -392,14 +392,14 @@ fn update_terms(
 ///|
 /// Collect results from the Derived chain into a ModuleTypeResult.
 ///
-/// Reads all type_memos inside the parent memo's tracked context, so the
-/// parent memo depends on every def. This is intentional: the aggregation
+/// Reads all type_memos inside the parent Derived's tracked context, so the
+/// parent Derived depends on every def. This is intentional: the aggregation
 /// must incorporate all results regardless. Per-def incrementality is at
-/// the type_memo level — each only recomputes when its own inputs change.
+/// the type Derived level — each only recomputes when its own inputs change.
 /// The collection here is O(n) reads, not O(n) type-checks.
 ///
 /// Diagnostics are read via `accumulated`, which records a synthetic dep
-/// on each per-def buffer. This makes the parent pipeline memo invalidate
+/// on each per-def buffer. This makes the parent pipeline Derived invalidate
 /// when a def's diagnostic set changes, independent of whether the def's
 /// ordinary output (the `TypeResult`) changed.
 fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {

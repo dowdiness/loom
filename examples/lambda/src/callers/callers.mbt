@@ -32,7 +32,7 @@
 //      or let-paren scope" — not "definitely points at an existing
 //      top-level Def." An unbound name still resolves to TopScope. A
 //      future projection that wants this distinction can share the
-//      unfiltered facts memo inside the pipeline.
+//      unfiltered facts Derived cell inside the pipeline.
 
 ///|
 /// Lexical scope identity.

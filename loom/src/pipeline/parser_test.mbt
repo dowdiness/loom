@@ -120,19 +120,19 @@ test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
 }
 
 ///|
-test "Parser exposes its runtime for downstream memos" {
+test "Parser exposes its runtime for downstream derived cells" {
   let parser = Parser::new("xy", test_imperative_language())
   let rt = parser.runtime()
   // A downstream derived cell reads parser.source() inside its closure and
   // establishes a dependency edge through the pass-through Derived view.
-  let echo_memo : @incr.Derived[Int] = @incr.Derived::Derived(
+  let echo_derived : @incr.Derived[Int] = @incr.Derived::Derived(
     rt,
     fn() { parser.source().get_or_abort().length() },
     label="echo-length",
   )
-  inspect(echo_memo.read_or_abort(), content="2")
+  inspect(echo_derived.read_or_abort(), content="2")
   parser.set_source("hello")
-  inspect(echo_memo.read_or_abort(), content="5")
+  inspect(echo_derived.read_or_abort(), content="5")
 }
 
 ///|

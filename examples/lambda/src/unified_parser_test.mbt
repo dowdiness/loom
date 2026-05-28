@@ -1,5 +1,5 @@
 // Unified Parser[Ast] tests: correctness of the reactive surface
-// (source → syntax_tree/ast/diagnostics memos) and parity with direct
+// (source → syntax_tree/ast/diagnostics Derived views) and parity with direct
 // parse_cst_to_ast_node output. Covers both update paths: `set_source`
 // (full reparse) and `apply_edit` (CST-node-level reuse).
 
@@ -176,7 +176,7 @@ test "Parser: parity with parse" {
 /// Term::Eq is structural (CstNode-based), not reference equality.
 /// Two separately computed terms from the same source must be Eq-equal
 /// even though they are produced by distinct computation epochs.
-/// This verifies that the memo backdating + node interner correctly
+/// This verifies that Derived backdating + the node interner correctly
 /// identify unchanged trees across computation epochs.
 test "Parser: Term Eq holds after round-trip source change" {
   let parser = @loom.new_parser("λx.x", lambda_grammar)

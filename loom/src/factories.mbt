@@ -225,8 +225,8 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
 /// reactive surface.
 ///
 /// Pass `runtime~` to join an existing reactive graph (useful when downstream
-/// memos need to share the same `Runtime` as the parser). Omitting it creates
-/// a fresh runtime owned by the returned parser.
+/// derived cells need to share the same `Runtime` as the parser). Omitting it
+/// creates a fresh runtime owned by the returned parser.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source : String,
   grammar : Grammar[T, K, Ast],

@@ -39,8 +39,8 @@ let p = new_parser(initial_source, grammar, runtime?)
 ```
 
 The factory requires `T : IsTrivia + Eq` and `Ast : Eq` because the underlying
-memo graph does structural-equality backdating at the snapshot and derived-view
-boundaries.
+derived graph does structural-equality backdating at the snapshot and
+derived-view boundaries.
 
 ## When to use `ImperativeParser` directly
 

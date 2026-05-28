@@ -256,12 +256,12 @@ pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
 Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
 [2026-04-17-unified-parser-proposal.md](../decisions/2026-04-17-unified-parser-proposal.md)).
 `Parser[Ast]` wraps `ImperativeParser` and publishes a coherent
-`ParseSnapshot[Ast]` plus derived source, syntax, AST, and diagnostics memos.
+`ParseSnapshot[Ast]` plus derived source, syntax, AST, and diagnostics views.
 One type, two update paths (`apply_edit` + `set_source`); downstream consumers
-attach reactive memos via `parser.runtime()`.
+attach reactive derived cells via `parser.runtime()`.
 
 `new_parser` is intentionally stricter than `new_imperative_parser`: the
-AST type `Ast` must implement `Eq`. The memo graph does structural-equality
+AST type `Ast` must implement `Eq`. The derived graph does structural-equality
 backdating at the AST boundary, so equality is part of the public contract.
 
 **Example:**
