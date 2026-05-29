@@ -30,6 +30,10 @@ pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], S
 
 pub fn[Id] realign_projection_identities_with_optional_edit(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, @core.Edit?) -> Array[@core.StableProjectionLeaf[Id]]
 
+pub fn[Item, Id, StableItem] realign_projection_items(@core.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @core.ProjectionLeaf, (Item, Id) -> StableItem, (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableItem]
+
+pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(@core.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @core.ProjectionLeaf, (Item, Id) -> StableItem, (@core.ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableItem]
+
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
 pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
@@ -124,6 +128,8 @@ pub using @core {type PrefixLexer}
 pub using @core {type ProjectionIdentityBaseline}
 
 pub using @core {type ProjectionLeaf}
+
+pub using @core {type ProjectionStringIdAllocator}
 
 pub using @core {type Range}
 

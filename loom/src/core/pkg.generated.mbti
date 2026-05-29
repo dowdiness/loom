@@ -28,6 +28,10 @@ pub fn[Id] realign_projection_identities(ProjectionIdentityBaseline[Id], String,
 
 pub fn[Id] realign_projection_identities_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]
 
+pub fn[Item, Id, StableItem] realign_projection_items(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableItem]
+
+pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, Edit?) -> Array[StableItem]
+
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
@@ -342,6 +346,13 @@ pub struct ProjectionLeaf {
   key : String
 } derive(Eq, @debug.Debug)
 pub fn ProjectionLeaf::new(Int, Int, String) -> Self
+
+pub struct ProjectionStringIdAllocator {
+  // private fields
+}
+pub fn ProjectionStringIdAllocator::allocate(Self, ProjectionLeaf) -> String
+pub fn ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int) -> String) -> Self
+pub fn ProjectionStringIdAllocator::new((String, Int) -> String) -> Self
 
 pub(all) struct Range {
   start : Int
