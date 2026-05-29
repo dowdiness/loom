@@ -170,17 +170,21 @@ pub fn SyntaxNode::first_child(Self) -> Self?
 pub fn SyntaxNode::first_token(Self) -> SyntaxToken?
 pub fn SyntaxNode::from_cst(CstNode) -> Self
 pub fn SyntaxNode::from_cst_at(CstNode, Int) -> Self
+pub fn SyntaxNode::has_direct_token_of_kind(Self, RawKind) -> Bool
 pub fn SyntaxNode::is_error(Self, RawKind) -> Bool
 pub fn SyntaxNode::kind(Self) -> RawKind
 pub fn SyntaxNode::nodes_and_tokens(Self, trivia_kind? : RawKind?) -> (Array[Self], Array[SyntaxToken])
 pub fn SyntaxNode::nth_child(Self, Int) -> Self?
 pub fn SyntaxNode::optional_direct_child_of_kind(Self, RawKind, message~ : String) -> Result[Self?, ProjectionShapeError]
 pub fn SyntaxNode::optional_direct_token_of_kind(Self, RawKind, message~ : String) -> Result[SyntaxToken?, ProjectionShapeError]
+pub fn SyntaxNode::optional_direct_token_text_of_kind(Self, RawKind, message~ : String) -> Result[String?, ProjectionShapeError]
 pub fn SyntaxNode::parent(Self) -> Self?
 pub fn SyntaxNode::required_direct_child_of_kind(Self, RawKind, message~ : String) -> Result[Self, ProjectionShapeError]
 pub fn SyntaxNode::required_direct_children_of_kind(Self, RawKind, message~ : String) -> Result[Array[Self], ProjectionShapeError]
 pub fn SyntaxNode::required_direct_token_of_kind(Self, RawKind, message~ : String) -> Result[SyntaxToken, ProjectionShapeError]
+pub fn SyntaxNode::required_direct_token_text_of_kind(Self, RawKind, message~ : String) -> Result[String, ProjectionShapeError]
 pub fn SyntaxNode::required_direct_tokens_of_kind(Self, RawKind, message~ : String) -> Result[Array[SyntaxToken], ProjectionShapeError]
+pub fn SyntaxNode::required_direct_tokens_text_of_kind(Self, RawKind, message~ : String) -> Result[Array[String], ProjectionShapeError]
 pub fn SyntaxNode::start(Self) -> Int
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
 pub fn SyntaxNode::token_at_offset(Self, Int) -> TokenAtOffset
