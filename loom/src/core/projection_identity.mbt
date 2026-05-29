@@ -139,14 +139,26 @@ pub fn[Id] ProjectionIdentityBaseline::advance(
   allocate : (ProjectionLeaf) -> Id,
   edit? : Edit,
 ) -> ProjectionIdentityBaseline[Id] {
+  self.advance_with_optional_edit(next_source, next_leaves, allocate, edit)
+}
+
+///|
+/// Realign `next_leaves` against this last-good baseline using an `Edit?`
+/// value and return a new baseline for the successful projection.
+///
+/// This is the value-shaped counterpart to `advance`, for callers that already
+/// carry `Edit?` state across parse/projection recovery.
+pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(
+  self : ProjectionIdentityBaseline[Id],
+  next_source : String,
+  next_leaves : Array[ProjectionLeaf],
+  allocate : (ProjectionLeaf) -> Id,
+  edit : Edit?,
+) -> ProjectionIdentityBaseline[Id] {
   ProjectionIdentityBaseline::new(
     next_source,
-    realign_projection_identities(
-      self,
-      next_source,
-      next_leaves,
-      allocate,
-      edit?,
+    realign_projection_identities_with_optional_edit(
+      self, next_source, next_leaves, allocate, edit,
     ),
   )
 }
@@ -164,6 +176,25 @@ pub fn[Id] realign_projection_identities(
   next_leaves : Array[ProjectionLeaf],
   allocate : (ProjectionLeaf) -> Id,
   edit? : Edit,
+) -> Array[StableProjectionLeaf[Id]] {
+  realign_projection_identities_with_optional_edit(
+    baseline, next_source, next_leaves, allocate, edit,
+  )
+}
+
+///|
+/// Preserve stable IDs for unchanged prefix/suffix leaves around an edit
+/// window, accepting the edit as an `Edit?` value.
+///
+/// Pass `Some(editor_edit)` when the edit is relative to the baseline's source.
+/// Pass `None` to fall back to a minimal source diff between the baseline and
+/// `next_source`.
+pub fn[Id] realign_projection_identities_with_optional_edit(
+  baseline : ProjectionIdentityBaseline[Id],
+  next_source : String,
+  next_leaves : Array[ProjectionLeaf],
+  allocate : (ProjectionLeaf) -> Id,
+  edit : Edit?,
 ) -> Array[StableProjectionLeaf[Id]] {
   let window = match edit {
     Some(e) => ProjectionIdentityWindow::from_edit(e)
