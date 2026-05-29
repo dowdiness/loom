@@ -15,3 +15,5 @@ Notable user-facing changes to Loom and its sibling modules.
   `direct_children_of_kind`. These make direct argument-shape validation more
   obvious for library users and help avoid accidentally accepting nested tokens
   during semantic projection.
+- `dowdiness/seam`: added `CstNode::direct_elements_iter` for lazy direct
+  visible-child traversal with transparent `RepeatGroup` flattening.

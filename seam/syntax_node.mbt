@@ -198,7 +198,7 @@ fn walk_children_flat(
   on_token : (CstToken, Int) -> Unit,
 ) -> Int {
   let mut pos = offset
-  each_cst_child_flat(children, elem => {
+  for elem in direct_elements_iter_flat(children) {
     match elem {
       CstElement::Node(child) => {
         on_node(child, parent, pos)
@@ -209,9 +209,7 @@ fn walk_children_flat(
         pos = pos + tok.text_len()
       }
     }
-    true
-  })
-  |> ignore
+  }
   pos
 }
 
