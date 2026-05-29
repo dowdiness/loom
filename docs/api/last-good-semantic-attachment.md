@@ -52,6 +52,11 @@ For each editor edit:
    change unchanged, and expose projection diagnostics separately from parser
    diagnostics.
 
+For stable leaf IDs, store a `@loom.ProjectionIdentityBaseline` in the
+last-good semantic state. On projection success, call `baseline.advance` with a
+baseline-relative `edit` when available, or omit `edit` to fall back to source
+diffing after `set_source` or malformed intermediate input.
+
 The default policy for semantic projection failures is retention: a failed
 projection does not replace the last-good document even when parser diagnostics
 are empty. This includes language-owned failures such as mode-incompatible atoms
@@ -86,17 +91,19 @@ pub struct AuthoringDiagnostic { ... }
 pub struct ProjectionDiagnostic { ... }
 
 // Project-specific pending baseline. Use an exact composed edit when possible;
-// fall back to FullReplace when the next successful projection must rebuild IDs.
+// fall back to FullReplace when the next successful projection should diff
+// last-good source against current source.
 priv enum PendingSemanticChange {
   NoChange
   ExactEdit(@core.Edit)
   FullReplace
 }
 
-priv struct LastGood[Doc, Reuse] {
+priv struct LastGood[Doc, Reuse, Id] {
   source : String
   document : Doc
   reuse : Reuse
+  identity_baseline : @loom.ProjectionIdentityBaseline[Id]
 }
 
 pub(all) enum SemanticState[Doc] {
@@ -111,10 +118,10 @@ pub(all) enum SemanticState[Doc] {
   )
 }
 
-pub(all) struct SemanticAttachment[Ast, Doc, Reuse] {
+pub(all) struct SemanticAttachment[Ast, Doc, Reuse, Id] {
   parser : @loom.Parser[Ast]
   scope : @incr.Scope
-  last_good : Ref[LastGood[Doc, Reuse]?]
+  last_good : Ref[LastGood[Doc, Reuse, Id]?]
   pending_change : Ref[PendingSemanticChange]
   state_watch : @incr.Watch[SemanticState[Doc]]
 }
@@ -122,11 +129,11 @@ pub(all) struct SemanticAttachment[Ast, Doc, Reuse] {
 pub fn SemanticAttachment::SemanticAttachment(
   initial_source : String,
   grammar : @loom.Grammar[Token, Kind, Ast],
-) -> SemanticAttachment[Ast, SemanticDoc, ReuseState] {
+) -> SemanticAttachment[Ast, SemanticDoc, ReuseState, PublicId] {
   let parser = @loom.new_parser(initial_source, grammar)
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
-  let last_good : Ref[LastGood[SemanticDoc, ReuseState]?] = Ref(None)
+  let last_good : Ref[LastGood[SemanticDoc, ReuseState, PublicId]?] = Ref(None)
   let pending_change = Ref(PendingSemanticChange::NoChange)
   let state = scope.derived(
     fn() {
@@ -144,8 +151,8 @@ pub fn SemanticAttachment::SemanticAttachment(
           previous=last_good.val,
           pending_change=pending_change.val,
         ) {
-          Ok((document, reuse)) => {
-            last_good.val = Some({ source, document, reuse })
+          Ok((document, reuse, identity_baseline)) => {
+            last_good.val = Some({ source, document, reuse, identity_baseline })
             pending_change.val = PendingSemanticChange::NoChange
             SemanticState::Current(document~)
           }
@@ -173,7 +180,7 @@ let current-text updates bypass the pending-baseline state.
 
 ```mbt nocheck
 pub fn SemanticAttachment::apply_edit(
-  self : SemanticAttachment[Ast, Doc, Reuse],
+  self : SemanticAttachment[Ast, Doc, Reuse, Id],
   edit : @core.Edit,
   new_source : String,
 ) -> Unit {
@@ -187,7 +194,7 @@ pub fn SemanticAttachment::apply_edit(
 }
 
 pub fn SemanticAttachment::set_source(
-  self : SemanticAttachment[Ast, Doc, Reuse],
+  self : SemanticAttachment[Ast, Doc, Reuse, Id],
   new_source : String,
 ) -> Unit {
   self.pending_change.val = PendingSemanticChange::FullReplace
@@ -195,13 +202,13 @@ pub fn SemanticAttachment::set_source(
 }
 
 pub fn SemanticAttachment::state(
-  self : SemanticAttachment[Ast, Doc, Reuse],
+  self : SemanticAttachment[Ast, Doc, Reuse, Id],
 ) -> SemanticState[Doc] {
   self.state_watch.read_or_abort()
 }
 
 pub fn SemanticAttachment::dispose(
-  self : SemanticAttachment[Ast, Doc, Reuse],
+  self : SemanticAttachment[Ast, Doc, Reuse, Id],
 ) -> Unit {
   self.scope.dispose()
 }
@@ -219,7 +226,7 @@ at its authoring facade boundary:
 
 ```mbt nocheck
 pub fn SemanticAttachment::current_result(
-  self : SemanticAttachment[Ast, Doc, Reuse],
+  self : SemanticAttachment[Ast, Doc, Reuse, Id],
 ) -> Result[Doc, String] {
   match self.state() {
     Current(document~) => Ok(document)

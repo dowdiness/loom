@@ -64,6 +64,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-05-29-stable-semantic-projection-identity.md](decisions/2026-05-29-stable-semantic-projection-identity.md) — **Accepted** leaf-level helper preserves semantic projection IDs across edit windows and malformed-input recovery
 - [decisions/2026-05-28-authoring-last-good-semantic-projection.md](decisions/2026-05-28-authoring-last-good-semantic-projection.md) — **Accepted** stateful authoring attachments keep parser diagnostics immediate while retaining last-good semantic projections across parser/projection failures
 - [decisions/2026-05-28-authoring-only-integration-boundary.md](decisions/2026-05-28-authoring-only-integration-boundary.md) — **Accepted** optional authoring-only Loom integration boundary for downstream runtime isolation
 - [decisions/2026-05-25-direct-cst-projection-queries.md](decisions/2026-05-25-direct-cst-projection-queries.md) — **Accepted** projection-friendly direct CST query helpers for safer semantic validation
