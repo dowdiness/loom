@@ -216,6 +216,8 @@ test "direct query helpers expose direct tokens and nodes only" {
   inspect(numbers.length(), content="1")
   inspect(sn.direct_token_of_kind(RawKind(5)) is Some(_), content="true")
   inspect(sn.direct_token_of_kind(RawKind(6)) is None, content="true")
+  inspect(sn.has_direct_token_of_kind(RawKind(5)), content="true")
+  inspect(sn.has_direct_token_of_kind(RawKind(6)), content="false")
   inspect(children.length(), content="1")
   inspect(children[0].start(), content="1")
 }
@@ -274,6 +276,116 @@ test "projection token cardinality helpers accept exactly one direct token" {
     Ok(None) => inspect("none", content="none")
     Ok(Some(_)) => fail("missing optional token should be None")
     Err(_) => fail("missing optional token should not error")
+  }
+}
+
+///|
+test "projection token text helpers return direct token text" {
+  let number_kind = RawKind(36)
+  let call_kind = RawKind(37)
+  let single = SyntaxNode::from_cst(
+    CstNode::new(call_kind, [
+      CstElement::Token(CstToken::CstToken(number_kind, "2")),
+    ]),
+  )
+  match
+    single.required_direct_token_text_of_kind(number_kind, message="one number") {
+    Ok(text) => inspect(text, content="2")
+    Err(_) => fail("expected exactly one direct number text")
+  }
+  match
+    single.optional_direct_token_text_of_kind(
+      number_kind,
+      message="optional number",
+    ) {
+    Ok(Some(text)) => inspect(text, content="2")
+    Ok(None) => fail("present optional token text should be Some")
+    Err(_) => fail("present optional token text should not error")
+  }
+  match
+    single.optional_direct_token_text_of_kind(
+      RawKind(99),
+      message="optional missing",
+    ) {
+    Ok(None) => inspect("none", content="none")
+    Ok(Some(_)) => fail("missing optional token text should be None")
+    Err(_) => fail("missing optional token text should not error")
+  }
+
+  let many = SyntaxNode::from_cst(
+    CstNode::new(call_kind, [
+      CstElement::Token(CstToken::CstToken(number_kind, "1")),
+      CstElement::Token(CstToken::CstToken(number_kind, "2")),
+    ]),
+  )
+  match
+    many.required_direct_tokens_text_of_kind(number_kind, message="numbers") {
+    Ok(texts) => {
+      inspect(texts.length(), content="2")
+      inspect(texts[0], content="1")
+      inspect(texts[1], content="2")
+    }
+    Err(_) => fail("expected many direct number texts")
+  }
+}
+
+///|
+test "projection token text helpers reuse cardinality errors" {
+  let number_kind = RawKind(38)
+  let call_kind = RawKind(39)
+  let call = SyntaxNode::from_cst(
+    CstNode::new(call_kind, [
+      CstElement::Token(CstToken::CstToken(number_kind, "1")),
+      CstElement::Token(CstToken::CstToken(number_kind, "2")),
+    ]),
+  )
+
+  match
+    call.optional_direct_token_text_of_kind(
+      number_kind,
+      message="optional text",
+    ) {
+    Ok(_) => fail("two direct number texts should reject optional cardinality")
+    Err(err) => {
+      inspect(err.message, content="optional text")
+      inspect(err.element == TokenElement, content="true")
+      inspect(err.expectation == ExpectedOptional, content="true")
+      inspect(err.actual, content="2")
+      inspect(err.start, content="0")
+      inspect(err.end, content="2")
+    }
+  }
+
+  let empty = SyntaxNode::from_cst(CstNode::new(call_kind, []))
+  match
+    empty.required_direct_token_text_of_kind(
+      number_kind,
+      message="required text",
+    ) {
+    Ok(_) =>
+      fail("missing direct token text should reject required cardinality")
+    Err(err) => {
+      inspect(err.message, content="required text")
+      inspect(err.expectation == ExpectedOne, content="true")
+      inspect(err.actual, content="0")
+      inspect(err.start, content="0")
+      inspect(err.end, content="0")
+    }
+  }
+  match
+    empty.required_direct_tokens_text_of_kind(
+      number_kind,
+      message="required texts",
+    ) {
+    Ok(_) =>
+      fail("missing direct token texts should reject required cardinality")
+    Err(err) => {
+      inspect(err.message, content="required texts")
+      inspect(err.expectation == ExpectedAtLeastOne, content="true")
+      inspect(err.actual, content="0")
+      inspect(err.start, content="0")
+      inspect(err.end, content="0")
+    }
   }
 }
 

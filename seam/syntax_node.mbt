@@ -365,6 +365,19 @@ pub fn SyntaxNode::direct_token_of_kind(
 }
 
 ///|
+/// True when this node has at least one direct token child matching `kind`.
+///
+/// Uses the same direct visible-child semantics as `direct_token_of_kind`:
+/// `RepeatGroup` nodes are transparent, and other interior nodes are not
+/// searched.
+pub fn SyntaxNode::has_direct_token_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+) -> Bool {
+  self.direct_token_of_kind(kind) is Some(_)
+}
+
+///|
 /// All direct token children matching `kind`, in source order.
 ///
 /// Alias with an explicit name for projection code that validates concrete

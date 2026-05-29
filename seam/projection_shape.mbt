@@ -197,6 +197,54 @@ pub fn SyntaxNode::required_direct_tokens_of_kind(
 }
 
 ///|
+/// Accept zero or one direct token of `kind`, returning only token text.
+///
+/// Reuses `optional_direct_token_of_kind`, so malformed cardinality returns the
+/// same `ProjectionShapeError` callers would get from the lower-level helper.
+pub fn SyntaxNode::optional_direct_token_text_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+  message~ : String,
+) -> Result[String?, ProjectionShapeError] {
+  match self.optional_direct_token_of_kind(kind, message~) {
+    Ok(Some(token)) => Ok(Some(token.text()))
+    Ok(None) => Ok(None)
+    Err(err) => Err(err)
+  }
+}
+
+///|
+/// Require exactly one direct token of `kind`, returning only token text.
+///
+/// Reuses `required_direct_token_of_kind`, preserving its cardinality errors.
+pub fn SyntaxNode::required_direct_token_text_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+  message~ : String,
+) -> Result[String, ProjectionShapeError] {
+  match self.required_direct_token_of_kind(kind, message~) {
+    Ok(token) => Ok(token.text())
+    Err(err) => Err(err)
+  }
+}
+
+///|
+/// Require at least one direct token of `kind`, returning token text in source
+/// order.
+///
+/// Reuses `required_direct_tokens_of_kind`, preserving its cardinality errors.
+pub fn SyntaxNode::required_direct_tokens_text_of_kind(
+  self : SyntaxNode,
+  kind : RawKind,
+  message~ : String,
+) -> Result[Array[String], ProjectionShapeError] {
+  match self.required_direct_tokens_of_kind(kind, message~) {
+    Ok(tokens) => Ok(tokens.map(token => token.text()))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 /// Require zero direct child nodes of `kind`.
 pub fn SyntaxNode::expect_no_direct_children_of_kind(
   self : SyntaxNode,
