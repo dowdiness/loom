@@ -72,6 +72,12 @@ above, or [`examples/json`](../examples/json/) and
 @loom.SyntaxNode          // positioned CST view
 @loom.AstView             // typed view trait
 @loom.CstFold             // memoized CST → AST
+
+// Authoring projection helpers
+@loom.ProjectionIdentityBaseline
+@loom.ProjectionLeaf
+@loom.StableProjectionLeaf
+@loom.realign_projection_identities
 ```
 
 Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).

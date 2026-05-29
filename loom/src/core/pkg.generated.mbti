@@ -24,6 +24,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
 
+pub fn[Id] realign_projection_identities(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]
+
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
@@ -321,6 +323,31 @@ pub(all) struct PrefixLexer[T] {
 pub fn[T] PrefixLexer::lex_all(Self[T], String, Int) -> Array[LexStep[T]]
 pub fn[T] PrefixLexer::new(lex_step~ : (String, Int) -> LexStep[T]) -> Self[T]
 
+pub struct ProjectionIdentityBaseline[Id] {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
+
+pub struct ProjectionIdentityWindow {
+  old_start : Int
+  old_end : Int
+  new_start : Int
+  new_end : Int
+} derive(Eq, @debug.Debug)
+pub fn ProjectionIdentityWindow::from_edit(Edit) -> Self
+pub fn ProjectionIdentityWindow::from_sources(String, String) -> Self
+pub fn ProjectionIdentityWindow::new(Int, Int, Int, Int) -> Self
+
+pub struct ProjectionLeaf {
+  start : Int
+  end : Int
+  key : String
+} derive(Eq, @debug.Debug)
+pub fn ProjectionLeaf::new(Int, Int, String) -> Self
+
 pub(all) struct Range {
   start : Int
   end : Int
@@ -365,6 +392,14 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
 
 type ReuseRejectionReason derive(Eq, @debug.Debug)
+
+pub struct StableProjectionLeaf[Id] {
+  start : Int
+  end : Int
+  key : String
+  id : Id
+} derive(Eq, @debug.Debug)
+pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
 
 pub(all) enum TextDelta {
   Retain(Int)
@@ -431,28 +466,28 @@ pub fn[T] TokenInfo::new(T, Int) -> Self[T]
 
 // Traits
 pub(open) trait AstView {
-  syntax_node(Self) -> @seam.SyntaxNode
+  fn syntax_node(Self) -> @seam.SyntaxNode
 }
 
 pub(open) trait Canonical {
-  canonical(Self) -> Self
+  fn canonical(Self) -> Self
 }
 
 pub trait Editable {
-  start(Self) -> Int
-  old_len(Self) -> Int
-  new_len(Self) -> Int
+  fn start(Self) -> Int
+  fn old_len(Self) -> Int
+  fn new_len(Self) -> Int
 }
 
 pub(open) trait Renderable {
-  kind_tag(Self) -> String
-  label(Self) -> String
-  placeholder(Self) -> String
-  unparse(Self) -> String
+  fn kind_tag(Self) -> String
+  fn label(Self) -> String
+  fn placeholder(Self) -> String
+  fn unparse(Self) -> String
 }
 
 pub(open) trait TreeNode {
-  children(Self) -> Array[Self]
-  same_kind(Self, Self) -> Bool
+  fn children(Self) -> Array[Self]
+  fn same_kind(Self, Self) -> Bool
 }
 

@@ -49,6 +49,34 @@ Use the private IR to make these boundaries clear:
 The private IR can be as small as a few private enums or structs near the
 conversion code. It does not need to become public API.
 
+## Stable identity across edits
+
+When a semantic model has user-facing leaf IDs, keep a last-good
+`@loom.ProjectionIdentityBaseline` beside the last-good semantic document. After
+a successful parse and projection, extract new `@loom.ProjectionLeaf` values in
+source order and call `@loom.realign_projection_identities` (or
+`baseline.advance`). Pass `edit=...` when the edit is relative to the last-good
+baseline; omit it after `set_source` or malformed intermediate input to use the
+source-diff fallback.
+
+The helper preserves matching prefix/suffix leaves around the edit window and
+calls the projection-owned allocator only for leaves inside the changed window.
+The ID type is generic, so domain code keeps public IDs in its own shape.
+
+```mbt nocheck
+let next = extract_projection_leaves(syntax)
+let new_baseline = old_baseline.advance(
+  current_source,
+  next,
+  fn(leaf) { allocate_public_id(leaf.key) },
+  edit=editor_edit,
+)
+```
+
+For malformed current input, do not replace the baseline. Retain it with the
+last-good semantic document and use it when projection recovers; see the
+[last-good semantic attachment guide](last-good-semantic-attachment.md).
+
 ## Direct shape queries
 
 Projection code should prefer the explicit direct-child helper names when it is

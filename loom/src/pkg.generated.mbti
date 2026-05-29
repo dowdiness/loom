@@ -26,6 +26,8 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
+pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]
+
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
 pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]
@@ -117,11 +119,19 @@ pub using @core {type ParserContext}
 
 pub using @core {type PrefixLexer}
 
+pub using @core {type ProjectionIdentityBaseline}
+
+pub using @core {type ProjectionIdentityWindow}
+
+pub using @core {type ProjectionLeaf}
+
 pub using @core {type Range}
 
 pub using @seam {type RawKind}
 
 pub using @core {type ReuseCursor}
+
+pub using @core {type StableProjectionLeaf}
 
 pub using @seam {type SyntaxElement}
 
