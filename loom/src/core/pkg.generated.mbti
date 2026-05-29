@@ -26,6 +26,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(Str
 
 pub fn[Id] realign_projection_identities(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]
 
+pub fn[Id] realign_projection_identities_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]
+
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
@@ -327,6 +329,7 @@ pub struct ProjectionIdentityBaseline[Id] {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]
 pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String

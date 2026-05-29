@@ -28,6 +28,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 
 pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]
 
+pub fn[Id] realign_projection_identities_with_optional_edit(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, @core.Edit?) -> Array[@core.StableProjectionLeaf[Id]]
+
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
 pub fn to_edits(Array[@core.TextDelta]) -> Array[@core.Edit]

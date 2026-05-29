@@ -139,6 +139,71 @@ test "projection identity: source diff fallback preserves prefix and suffix" {
 }
 
 ///|
+test "projection identity: optional edit helper accepts Some edit" {
+  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+    test_stable(0, 2, "sound:bd", "bd:0"),
+    test_stable(3, 5, "sound:bd", "bd:1"),
+  ])
+  let next = [
+    test_leaf(0, 2, "sound:bd"),
+    test_leaf(3, 5, "sound:sd"),
+    test_leaf(6, 8, "sound:bd"),
+  ]
+  let result = realign_projection_identities_with_optional_edit(
+    baseline,
+    "bd sd bd",
+    next,
+    test_allocate("fresh:"),
+    Some(Edit::insert(3, 3)),
+  )
+  debug_inspect(
+    test_ids(result),
+    content="[\"bd:0\", \"fresh:sound:sd:0\", \"bd:1\"]",
+  )
+}
+
+///|
+test "projection identity: optional edit helper accepts None fallback" {
+  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+    test_stable(0, 2, "sound:bd", "bd:0"),
+    test_stable(3, 5, "sound:bd", "bd:1"),
+  ])
+  let next = [
+    test_leaf(0, 2, "sound:bd"),
+    test_leaf(3, 5, "sound:sd"),
+    test_leaf(6, 8, "sound:bd"),
+  ]
+  let result = realign_projection_identities_with_optional_edit(
+    baseline,
+    "bd sd bd",
+    next,
+    test_allocate("fresh:"),
+    None,
+  )
+  debug_inspect(
+    test_ids(result),
+    content="[\"bd:0\", \"fresh:sound:sd:0\", \"bd:1\"]",
+  )
+}
+
+///|
+test "projection identity: baseline optional edit advance preserves suffix" {
+  let baseline = ProjectionIdentityBaseline::new("bd sd bd", [
+    test_stable(0, 2, "sound:bd", "bd:0"),
+    test_stable(3, 5, "sound:sd", "sd:0"),
+    test_stable(6, 8, "sound:bd", "bd:1"),
+  ])
+  let next = [test_leaf(0, 2, "sound:bd"), test_leaf(3, 5, "sound:bd")]
+  let advanced = baseline.advance_with_optional_edit(
+    "bd bd",
+    next,
+    test_allocate("fresh:"),
+    Some(Edit::delete(3, 6)),
+  )
+  debug_inspect(test_ids(advanced.leaves()), content="[\"bd:0\", \"bd:1\"]")
+}
+
+///|
 test "projection identity: retained last-good baseline survives recovery" {
   let baseline = ProjectionIdentityBaseline::new("s(\"bd sd bd bd\")", [
     test_stable(3, 5, "sound:bd", "mini:sound:bd:0"),

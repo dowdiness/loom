@@ -69,6 +69,7 @@ pub using @core {
   erase_mode_lexer,
   parse_tokens_indexed,
   realign_projection_identities,
+  realign_projection_identities_with_optional_edit,
   text_to_delta,
   to_edits,
   tokenize_via_steps_result,
