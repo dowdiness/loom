@@ -33,7 +33,7 @@ pub(all) enum SyntaxKind {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for SyntaxKind with output(self, logger) {
+pub impl Show for SyntaxKind with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -62,7 +62,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 }
 
 ///|
-pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
+pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
   @seam.RawKind(
     match self {
       HeadingMarkerToken => 0
@@ -98,7 +98,7 @@ pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
 }
 
 ///|
-pub impl @seam.FromRawKind for SyntaxKind with from_raw(raw) {
+pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
   match raw.0 {
     0 => HeadingMarkerToken
     1 => ListMarkerToken

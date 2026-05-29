@@ -13,7 +13,7 @@ priv struct Words {
 /// A Pretty impl that joins parts with `line()` inside a single `group`.
 /// At a wide width the group stays flat ("a b c …"); at a narrow width it
 /// breaks across multiple lines.
-impl Pretty for Words with to_layout(self) {
+impl Pretty for Words with fn to_layout(self) {
   let parts : Array[Layout[SyntaxCategory]] = self.parts.map(text)
   group(separate(line(), parts))
 }

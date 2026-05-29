@@ -1,7 +1,7 @@
 import {
   "dowdiness/text_change" @shared_text_change,
-  "dowdiness/seam" @seam,
-  "dowdiness/pretty" @pretty,
+  "dowdiness/seam",
+  "dowdiness/pretty",
   "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
 }

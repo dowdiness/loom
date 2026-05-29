@@ -108,22 +108,22 @@ pub fn Edit::to_string(self : Edit) -> String {
 
 ///|
 pub trait Editable {
-  start(Self) -> Int
-  old_len(Self) -> Int
-  new_len(Self) -> Int
+  fn start(Self) -> Int
+  fn old_len(Self) -> Int
+  fn new_len(Self) -> Int
 }
 
 ///|
-pub impl Editable for Edit with start(self) {
+pub impl Editable for Edit with fn start(self) {
   self.start
 }
 
 ///|
-pub impl Editable for Edit with old_len(self) {
+pub impl Editable for Edit with fn old_len(self) {
   self.old_len
 }
 
 ///|
-pub impl Editable for Edit with new_len(self) {
+pub impl Editable for Edit with fn new_len(self) {
   self.new_len
 }

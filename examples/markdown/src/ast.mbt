@@ -10,7 +10,7 @@ pub(all) enum Block {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Block with output(self, logger) {
+pub impl Show for Block with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -25,6 +25,6 @@ pub(all) enum Inline {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Inline with output(self, logger) {
+pub impl Show for Inline with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

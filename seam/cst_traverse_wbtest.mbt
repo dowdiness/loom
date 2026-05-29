@@ -309,7 +309,7 @@ struct NumberFinder {
 }
 
 ///|
-pub impl Finder for NumberFinder with check(self, elem) {
+pub impl Finder for NumberFinder with fn check(self, elem) {
   match elem {
     CstElement::Token(t) => t.kind == self.kind
     _ => false
@@ -339,7 +339,7 @@ struct NodeKindFinder {
 }
 
 ///|
-pub impl Finder for NodeKindFinder with check(self, elem) {
+pub impl Finder for NodeKindFinder with fn check(self, elem) {
   match elem {
     CstElement::Node(n) => n.kind == self.kind
     _ => false

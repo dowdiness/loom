@@ -10,7 +10,7 @@ pub(all) enum Bop {
 } derive(Eq, FromJson, ToJson, Debug)
 
 ///|
-pub impl Show for Bop with output(self, logger) {
+pub impl Show for Bop with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -41,7 +41,7 @@ pub(all) enum Term {
 } derive(Eq, ToJson, Debug)
 
 ///|
-pub impl Show for Term with output(self, logger) {
+pub impl Show for Term with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

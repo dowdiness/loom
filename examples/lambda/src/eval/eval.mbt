@@ -36,7 +36,7 @@ pub(all) enum Value {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Value with output(self, logger) {
+pub impl Show for Value with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -59,7 +59,7 @@ pub(all) suberror StuckReason {
 } derive(Debug)
 
 ///|
-pub impl Show for StuckReason with output(self, logger) {
+pub impl Show for StuckReason with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

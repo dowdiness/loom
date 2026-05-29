@@ -1,5 +1,5 @@
 ///|
-pub impl @quickcheck.Arbitrary for Term with arbitrary(_size, rs) {
+pub impl @quickcheck.Arbitrary for Term with fn arbitrary(_size, rs) {
   gen_term(rs, 3)
 }
 

@@ -13,7 +13,7 @@ pub(all) enum SyntaxCategory {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for SyntaxCategory with output(self, logger) {
+pub impl Show for SyntaxCategory with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -24,6 +24,6 @@ pub(all) struct Span {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for Span with output(self, logger) {
+pub impl Show for Span with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

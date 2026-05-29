@@ -29,6 +29,6 @@ pub enum Layout[A] {
 } derive(Debug, Eq)
 
 ///|
-pub impl[A : Debug] Show for Layout[A] with output(self, logger) {
+pub impl[A : Debug] Show for Layout[A] with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

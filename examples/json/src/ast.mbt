@@ -10,6 +10,6 @@ pub(all) enum JsonValue {
 } derive(Eq, Debug, ToJson)
 
 ///|
-pub impl Show for JsonValue with output(self, logger) {
+pub impl Show for JsonValue with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

@@ -10,12 +10,12 @@ priv struct TermDotNode {
 }
 
 ///|
-impl @viz.DotNode for TermDotNode with node_id(self) {
+impl @viz.DotNode for TermDotNode with fn node_id(self) {
   self.id
 }
 
 ///|
-impl @viz.DotNode for TermDotNode with label(self) {
+impl @viz.DotNode for TermDotNode with fn label(self) {
   match self.term {
     @ast.Term::Int(n) => "Int(" + n.to_string() + ")"
     @ast.Term::Var(s) => "Var(" + s + ")"
@@ -35,7 +35,7 @@ impl @viz.DotNode for TermDotNode with label(self) {
 }
 
 ///|
-impl @viz.DotNode for TermDotNode with node_attrs(self) {
+impl @viz.DotNode for TermDotNode with fn node_attrs(self) {
   match self.resolution {
     Some(res) =>
       match res.vars.get(self.id) {
@@ -48,12 +48,12 @@ impl @viz.DotNode for TermDotNode with node_attrs(self) {
 }
 
 ///|
-impl @viz.DotNode for TermDotNode with children(self) {
+impl @viz.DotNode for TermDotNode with fn children(self) {
   self.child_nodes
 }
 
 ///|
-impl @viz.DotNode for TermDotNode with edge_label(_self, _i) {
+impl @viz.DotNode for TermDotNode with fn edge_label(_self, _i) {
   ""
 }
 

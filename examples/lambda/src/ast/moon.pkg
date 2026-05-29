@@ -1,9 +1,9 @@
 import {
   "dowdiness/loom/core" @loomcore,
-  "dowdiness/pretty" @pretty,
+  "dowdiness/pretty",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/quickcheck",
-  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
 }

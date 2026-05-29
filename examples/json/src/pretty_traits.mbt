@@ -99,13 +99,13 @@ fn json_to_layout(value : JsonValue) -> @pretty.Layout[@pretty.SyntaxCategory] {
 }
 
 ///|
-pub impl @pretty.Pretty for JsonValue with to_layout(self) {
+pub impl @pretty.Pretty for JsonValue with fn to_layout(self) {
   json_to_layout(self)
 }
 
 ///|
 /// Source for JSON: produces valid, compact JSON text.
-pub impl @pretty.Source for JsonValue with to_source(self) {
+pub impl @pretty.Source for JsonValue with fn to_source(self) {
   @pretty.pretty_unparse(self)
 }
 

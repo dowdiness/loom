@@ -1,7 +1,7 @@
 ///|
 /// Source trait: compact parseable text that roundtrips through the parser.
 /// Delegates to the existing Pretty TermSym interpretation.
-pub impl @pretty.Source for Term with to_source(self) {
+pub impl @pretty.Source for Term with fn to_source(self) {
   print_term(self)
 }
 
@@ -92,22 +92,22 @@ fn wrap_if_needed(
 }
 
 ///|
-pub impl TermSym for PrettyLayout with int_lit(n) {
+pub impl TermSym for PrettyLayout with fn int_lit(n) {
   { layout: num(n.to_string()), prec: prec_atom }
 }
 
 ///|
-pub impl TermSym for PrettyLayout with variable(name) {
+pub impl TermSym for PrettyLayout with fn variable(name) {
   { layout: ident(name), prec: prec_atom }
 }
 
 ///|
-pub impl TermSym for PrettyLayout with unit() {
+pub impl TermSym for PrettyLayout with fn unit() {
   { layout: punc("()"), prec: prec_atom }
 }
 
 ///|
-pub impl TermSym for PrettyLayout with lam(x, body) {
+pub impl TermSym for PrettyLayout with fn lam(x, body) {
   {
     layout: @pretty.group(
       kw("λ") +
@@ -120,7 +120,7 @@ pub impl TermSym for PrettyLayout with lam(x, body) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with app(f, arg) {
+pub impl TermSym for PrettyLayout with fn app(f, arg) {
   {
     layout: @pretty.group(
       wrap_if_needed(f, prec_app) +
@@ -131,7 +131,7 @@ pub impl TermSym for PrettyLayout with app(f, arg) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with bop(b, l, r) {
+pub impl TermSym for PrettyLayout with fn bop(b, l, r) {
   let sym = match b {
     Plus => "+"
     Minus => "-"
@@ -148,7 +148,7 @@ pub impl TermSym for PrettyLayout with bop(b, l, r) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with if_then_else(cond, then_, else_) {
+pub impl TermSym for PrettyLayout with fn if_then_else(cond, then_, else_) {
   {
     layout: @pretty.group(
       kw("if") +
@@ -170,7 +170,7 @@ pub impl TermSym for PrettyLayout with if_then_else(cond, then_, else_) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with mod(defs, body) {
+pub impl TermSym for PrettyLayout with fn mod(defs, body) {
   let def_layouts : Array[@pretty.Layout[@pretty.SyntaxCategory]] = defs.map(fn(
     d,
   ) {
@@ -193,23 +193,23 @@ pub impl TermSym for PrettyLayout with mod(defs, body) {
 }
 
 ///|
-pub impl TermSym for PrettyLayout with unbound(name) {
+pub impl TermSym for PrettyLayout with fn unbound(name) {
   { layout: err_text("<unbound: " + name + ">"), prec: prec_atom }
 }
 
 ///|
-pub impl TermSym for PrettyLayout with error_term(msg) {
+pub impl TermSym for PrettyLayout with fn error_term(msg) {
   { layout: err_text("<error: " + msg + ">"), prec: prec_atom }
 }
 
 ///|
-pub impl TermSym for PrettyLayout with hole(_n) {
+pub impl TermSym for PrettyLayout with fn hole(_n) {
   { layout: err_text("_"), prec: prec_atom }
 }
 
 ///|
 /// Pretty trait: width-aware formatted layout with syntax annotations.
-pub impl @pretty.Pretty for Term with to_layout(self) {
+pub impl @pretty.Pretty for Term with fn to_layout(self) {
   let pl : PrettyLayout = replay(self)
   pl.layout
 }

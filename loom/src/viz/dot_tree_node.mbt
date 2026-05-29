@@ -12,17 +12,17 @@ pub(all) struct DotTreeNode {
 }
 
 ///|
-pub impl DotNode for DotTreeNode with node_id(self) {
+pub impl DotNode for DotTreeNode with fn node_id(self) {
   self.int_id
 }
 
 ///|
-pub impl DotNode for DotTreeNode with label(self) {
+pub impl DotNode for DotTreeNode with fn label(self) {
   self.label
 }
 
 ///|
-pub impl DotNode for DotTreeNode with node_attrs(self) {
+pub impl DotNode for DotTreeNode with fn node_attrs(self) {
   let buf = StringBuilder::new()
   let mut first = true
   self.attrs.each((k, v) => {
@@ -38,12 +38,12 @@ pub impl DotNode for DotTreeNode with node_attrs(self) {
 }
 
 ///|
-pub impl DotNode for DotTreeNode with children(self) {
+pub impl DotNode for DotTreeNode with fn children(self) {
   self.children
 }
 
 ///|
-pub impl DotNode for DotTreeNode with edge_label(self, i) {
+pub impl DotNode for DotTreeNode with fn edge_label(self, i) {
   if i < self.edge_labels.length() {
     self.edge_labels[i]
   } else {

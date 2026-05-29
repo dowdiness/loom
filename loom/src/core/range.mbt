@@ -8,7 +8,7 @@ pub(all) struct Range {
 } derive(Debug, Eq, Hash, Compare)
 
 ///|
-pub impl Show for Range with output(self, logger) {
+pub impl Show for Range with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

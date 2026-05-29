@@ -1,8 +1,8 @@
 import {
-  "dowdiness/seam" @seam,
-  "dowdiness/incr" @incr,
-  "dowdiness/loom/core" @core,
-  "dowdiness/loom/incremental" @incremental,
-  "dowdiness/loom/pipeline" @pipeline,
+  "dowdiness/seam",
+  "dowdiness/incr",
+  "dowdiness/loom/core",
+  "dowdiness/loom/incremental",
+  "dowdiness/loom/pipeline",
   "moonbitlang/core/debug",
 }

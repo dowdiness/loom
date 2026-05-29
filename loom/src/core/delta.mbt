@@ -6,7 +6,7 @@ pub(all) enum TextDelta {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for TextDelta with output(self, logger) {
+pub impl Show for TextDelta with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

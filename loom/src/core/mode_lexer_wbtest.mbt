@@ -10,7 +10,7 @@ priv enum MockMode {
 } derive(Eq, Debug)
 
 ///|
-impl Show for MockMode with output(self, logger) {
+impl Show for MockMode with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -24,7 +24,7 @@ priv enum MockToken {
 } derive(Eq, Debug)
 
 ///|
-impl Show for MockToken with output(self, logger) {
+impl Show for MockToken with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

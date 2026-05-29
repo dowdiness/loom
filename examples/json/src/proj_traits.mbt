@@ -2,7 +2,7 @@
 // Enables projectional editing via framework/core (ProjNode, SourceMap, reconcile).
 
 ///|
-pub impl @core.TreeNode for JsonValue with children(self) {
+pub impl @core.TreeNode for JsonValue with fn children(self) {
   match self {
     Array(items) => items
     Object(members) => members.map(m => m.1)
@@ -11,7 +11,7 @@ pub impl @core.TreeNode for JsonValue with children(self) {
 }
 
 ///|
-pub impl @core.TreeNode for JsonValue with same_kind(self, other) {
+pub impl @core.TreeNode for JsonValue with fn same_kind(self, other) {
   match (self, other) {
     (Null, Null) => true
     (Bool(_), Bool(_)) => true
@@ -25,7 +25,7 @@ pub impl @core.TreeNode for JsonValue with same_kind(self, other) {
 }
 
 ///|
-pub impl @core.Renderable for JsonValue with kind_tag(self) {
+pub impl @core.Renderable for JsonValue with fn kind_tag(self) {
   match self {
     Null => "Null"
     Bool(_) => "Bool"
@@ -38,7 +38,7 @@ pub impl @core.Renderable for JsonValue with kind_tag(self) {
 }
 
 ///|
-pub impl @core.Renderable for JsonValue with label(self) {
+pub impl @core.Renderable for JsonValue with fn label(self) {
   match self {
     Null => "null"
     Bool(b) => b.to_string()
@@ -63,7 +63,7 @@ pub impl @core.Renderable for JsonValue with label(self) {
 }
 
 ///|
-pub impl @core.Renderable for JsonValue with placeholder(self) {
+pub impl @core.Renderable for JsonValue with fn placeholder(self) {
   match self {
     // Carve-out (hand-written): Error's placeholder `"null"` is a
     // deliberate UX choice that masks error nodes in the output stream
@@ -78,7 +78,7 @@ pub impl @core.Renderable for JsonValue with placeholder(self) {
 }
 
 ///|
-pub impl @core.Renderable for JsonValue with unparse(self) {
+pub impl @core.Renderable for JsonValue with fn unparse(self) {
   json_unparse(self, 0)
 }
 

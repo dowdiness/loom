@@ -21,7 +21,7 @@
 // the frozen pre-change placeholder mapping for the 9 fitting variants.
 
 ///|
-pub impl @loomcore.Canonical for Term with canonical(self) {
+pub impl @loomcore.Canonical for Term with fn canonical(self) {
   match self {
     Int(_) => Int(0)
     Var(_) => Var("x")
