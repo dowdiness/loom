@@ -53,6 +53,13 @@ with projection-owned messages, actual counts, expected cardinality, and source
 ranges. This keeps projection error wording in the language package while making
 common direct-slot validation concise.
 
+2026-05-29 follow-up for [#180](https://github.com/dowdiness/loom/issues/180):
+add `SyntaxNode::direct_elements_iter() -> Iter[SyntaxElement]` as the lazy,
+positioned counterpart to `all_children()`. It reuses
+`CstNode::direct_elements_iter()` for direct-visible-child traversal and wraps
+each yielded raw element with the current `SyntaxNode` parent and absolute
+source offset.
+
 ## Rationale
 
 Library UX should make the safe path obvious. The `direct_*` names encode the

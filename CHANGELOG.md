@@ -17,3 +17,6 @@ Notable user-facing changes to Loom and its sibling modules.
   during semantic projection.
 - `dowdiness/seam`: added `CstNode::direct_elements_iter` for lazy direct
   visible-child traversal with transparent `RepeatGroup` flattening.
+- `dowdiness/seam`: added `SyntaxNode::direct_elements_iter` for lazy
+  positioned direct-child traversal as `SyntaxElement`s, reusing the same
+  transparent `RepeatGroup` flattening semantics.
