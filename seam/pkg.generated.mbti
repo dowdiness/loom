@@ -146,6 +146,7 @@ pub fn SyntaxElement::start(Self) -> Int
 pub struct SyntaxNode {
   // private fields
 } derive(@debug.Debug)
+pub fn[V : SyntaxMutVisitor] SyntaxNode::accept_visitor(Self, V) -> Unit
 pub fn SyntaxNode::all_children(Self) -> Array[SyntaxElement]
 pub fn SyntaxNode::child_of_kind(Self, RawKind) -> Self?
 pub fn SyntaxNode::children(Self) -> Array[Self]
@@ -235,6 +236,12 @@ pub(open) trait IsError {
 
 pub(open) trait IsTrivia {
   fn is_trivia(Self) -> Bool
+}
+
+pub(open) trait SyntaxMutVisitor {
+  fn enter_node(Self, SyntaxNode) -> Bool
+  fn exit_node(Self, SyntaxNode) -> Unit
+  fn visit_token(Self, SyntaxToken) -> Unit
 }
 
 pub(open) trait ToRawKind {
