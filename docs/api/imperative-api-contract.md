@@ -46,9 +46,10 @@ source : String
 - **CST equality skip.** Both `parse()` and `edit()` skip `to_ast` when the new
   `CstNode` compares equal to the cached one (`CstNode::Eq` — structural equality using
   kind + children, with hash as a fast rejection path). This is transparent to callers.
-- **Global interners.** Token deduplication (`core_interner`) and node deduplication
-  (`core_node_interner`) are process-level globals, accumulated across all parse calls
-  and never cleared. Multiple parsers sharing a process share these interners.
+- **Source-span CST tokens.** The generic parser builds non-interned CSTs so
+  token text remains a zero-copy source span. Incremental reuse reuses subtree
+  structure while rebasing token spans onto the current source buffer rather
+  than relying on process-global node/token interners.
 - **Lifetime.** One `ImperativeParser` per document editing session. Call `reset()` to
   resync with a structurally regenerated source; create a new parser only when the
   document identity changes.
@@ -79,7 +80,8 @@ pub fn[T, K, Ast] new_imperative_parser(
 
 **Stable.** Preferred construction path. Erases `T` (token type) and `K` (kind type)
 into closures so callers only see `Ast`. Creates fresh `TokenBuffer` and diagnostic
-state per parser; global interners are shared across parsers.
+state per parser; unchanged regions are emitted through parser-owned reuse
+events that rebase token spans to the current source during tree build.
 
 ---
 

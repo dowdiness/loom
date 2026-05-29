@@ -77,7 +77,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 - [decisions/2026-05-11-derived-source-locations.md](decisions/2026-05-11-derived-source-locations.md) — **Accepted** keep UTF-16 offsets canonical and derive line/column positions with `LineIndex` at presentation boundaries
 - [decisions/2026-04-17-unified-parser-proposal.md](decisions/2026-04-17-unified-parser-proposal.md) — **Accepted** unified `Parser[Ast]` with multiple update paths; supersedes 2026-03-02 two-parser design (see [plan](archive/completed-phases/2026-04-17-unified-parser.md))
 - [decisions/2026-03-15-reintroduce-token-stage-memo.md](decisions/2026-03-15-reintroduce-token-stage-memo.md) — reintroduce TokenStage memo with position-independent equality (reverses 2026-02-27 removal)
-- [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees
+- [decisions/2026-03-14-physical-equal-interner.md](decisions/2026-03-14-physical-equal-interner.md) — `physical_equal` in `CstNode::Eq`/`CstToken::Eq` to fix O(n²) interner equality on nested trees; updated for #61 source-span tokens
 - [decisions/2026-03-09-reactive-parser-token-eq-bound.md](decisions/2026-03-09-reactive-parser-token-eq-bound.md)
 - [decisions/2026-03-02-two-parser-design.md](decisions/2026-03-02-two-parser-design.md) *(superseded by 2026-04-17 ADR)*
 - [decisions/2026-02-28-edit-lengths-not-endpoints.md](decisions/2026-02-28-edit-lengths-not-endpoints.md)

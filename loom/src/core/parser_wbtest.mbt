@@ -1203,7 +1203,7 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     old_token_cache=cache,
     new_damage_end=0,
   )
-  let (_, _, reuse_count) = parse_tokens_indexed(
+  let (tree, _, reuse_count) = parse_tokens_indexed(
     new_src,
     new_toks.length(),
     fn(i) { new_toks[i].token },
@@ -1213,6 +1213,14 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     cursor=Some(cursor),
   )
   inspect(reuse_count > 0, content="true")
+  match tree.first_token(fn(r) { r == test_kind_raw(KWs) }) {
+    Some(tok) => {
+      inspect(tok.text(), content="2")
+      inspect(physical_equal(tok.source(), new_src), content="true")
+      inspect(tok.start_offset(), content="0")
+    }
+    None => abort("expected first token")
+  }
 }
 
 ///|

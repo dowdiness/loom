@@ -141,7 +141,7 @@ fn serialize_node(node : @seam.CstNode, out : Array[@seam.ParseEvent]) -> Unit {
   for child in node.children {
     match child {
       @seam.CstElement::Token(t) =>
-        out.push(@seam.ParseEvent::Token(t.kind, t.text))
+        out.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => serialize_node(n, out)
     }
   }
@@ -158,7 +158,7 @@ test "profile: 80 lets - tree build (normal events)" (b : @bench.T) {
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => serialize_node(n, events)
     }
   }
@@ -178,7 +178,7 @@ test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
@@ -197,7 +197,7 @@ test "profile: 320 lets - tree build (normal events)" (b : @bench.T) {
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => serialize_node(n, events)
     }
   }
@@ -216,7 +216,7 @@ test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
@@ -307,7 +307,7 @@ test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }
@@ -329,7 +329,7 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
   for child in cst.children {
     match child {
       @seam.CstElement::Token(t) =>
-        events.push(@seam.ParseEvent::Token(t.kind, t.text))
+        events.push(@seam.ParseEvent::Token(t.kind, t.text()))
       @seam.CstElement::Node(n) => events.push(@seam.ParseEvent::ReuseNode(n))
     }
   }

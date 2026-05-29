@@ -37,7 +37,7 @@ Interpretation: Both paths ~20-30% faster due to simpler flat grammar. Increment
 - Changes:
   - `TokenBuffer::update` returns `Unit` (removes O(n) defensive copy per edit)
   - `ReuseCursor` old-token table lazy with shared `OldTokenCache` (defers O(n) tree walk)
-  - `ReuseNode(CstNode)` event skips serialize/deserialize for reused subtrees
+  - `ReuseNode(CstNode)` event skips parse-time serialize/deserialize for reused subtrees
   - Test count: 180 tests (loom), 97 tests (seam), 344 tests (lambda)
 
 ### Key Incremental Benchmarks (before → after)
@@ -56,7 +56,7 @@ Interpretation: Both paths ~20-30% faster due to simpler flat grammar. Increment
 | heavy: typing 100 edits in middle | 6.26 ms | 5.29 ms | -15% |
 | heavy: refactoring 100 scattered | 3.84 ms | 3.84 ms | 0% |
 
-Interpretation: 9-34% improvement on incremental parse benchmarks with reuse. The "typing at end" benchmark shows the largest gain (34%) because it benefits from all three fixes — defensive copy removal, lazy token table, and direct subtree attachment. Full-reparse benchmarks unaffected (expected — these fixes only optimize the incremental path).
+Interpretation: 9-34% improvement on incremental parse benchmarks with reuse. The "typing at end" benchmark shows the largest gain (34%) because it benefits from all three fixes — defensive copy removal, lazy token table, and single-event subtree reuse. Full-reparse benchmarks unaffected (expected — these fixes only optimize the incremental path).
 
 ## 2026-03-06 (Ambiguity resilience + simplification)
 

@@ -99,7 +99,7 @@ fn generate_large_cst(depth : Int, branching : Int) -> CstElement {
 ///|
 fn hand_written_text_len(elem : CstElement) -> Int {
   match elem {
-    Token(t) => t.text.length()
+    Token(t) => t.text().length()
     Node(node) =>
       for child in node.children; acc = 0 {
         continue acc + hand_written_text_len(child)
@@ -142,7 +142,7 @@ test "bench: text_len via accept_fold[TextLen]" (b : @bench.T) {
 test "bench: text_len via closure fold" (b : @bench.T) {
   let tree = generate_large_cst(8, 4)
   b.bench(() => {
-    let _ = tree.fold(t => t.text.length(), (a, b) => a + b, 0)
+    let _ = tree.fold(t => t.text().length(), (a, b) => a + b, 0)
   })
 }
 

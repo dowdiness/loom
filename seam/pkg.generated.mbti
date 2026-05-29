@@ -27,6 +27,8 @@ pub(all) suberror EventStreamError {
 } derive(@debug.Debug)
 
 // Types and methods
+type BufferedEvent derive(Eq, @debug.Debug)
+
 pub(all) enum CstElement {
   Token(CstToken)
   Node(CstNode)
@@ -66,11 +68,17 @@ pub impl Hash for CstNode
 
 pub(all) struct CstToken {
   kind : RawKind
-  text : String
+  source : String
+  start : Int
+  end : Int
   hash : Int
 } derive(@debug.Debug)
 #alias(new, deprecated)
 pub fn CstToken::CstToken(RawKind, StringView) -> Self
+pub fn CstToken::end_offset(Self) -> Int
+pub fn CstToken::source(Self) -> String
+pub fn CstToken::start_offset(Self) -> Int
+pub fn CstToken::text(Self) -> StringView
 pub fn CstToken::text_len(Self) -> Int
 pub impl Eq for CstToken
 pub impl Hash for CstToken
@@ -85,6 +93,7 @@ pub fn EventBuffer::length(Self) -> Int
 pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self
 pub fn EventBuffer::push(Self, ParseEvent) -> Unit
+pub fn EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
 pub fn EventBuffer::truncate(Self, Int) -> Unit
 
@@ -204,6 +213,7 @@ pub fn SyntaxToken::kind(Self) -> RawKind
 pub fn SyntaxToken::new(CstToken, Int) -> Self
 pub fn SyntaxToken::start(Self) -> Int
 pub fn SyntaxToken::text(Self) -> String
+pub fn SyntaxToken::text_view(Self) -> StringView
 pub impl Show for SyntaxToken
 
 pub(all) struct TextLen(Int) derive(@debug.Debug)

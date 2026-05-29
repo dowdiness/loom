@@ -11,8 +11,11 @@
 // independent, so an edit to one definition damages only that sibling (O(1)).
 //
 // Key finding (2026-03-14): Before adding `physical_equal` to `CstNode::Eq`,
-// the node interner's equality check was O(subtree) per node, leading to
-// O(n²) total parse time. With the fix, scaling is near-linear:
+// the then-global node interner's equality check was O(subtree) per node,
+// leading to O(n²) total parse time. With the fix, scaling was near-linear.
+// Since 2026-05-30, the generic parser uses source-span tokens and parser-owned
+// reuse events instead of process-global interners, but these benchmarks remain
+// the scaling guard for the same CRDT-editor workload:
 //
 //   | Benchmark (initial parse) | Before  | After  | Speedup |
 //   |---------------------------|---------|--------|---------|

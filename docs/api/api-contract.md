@@ -12,6 +12,7 @@ Symbols not listed here are package-private and subject to change without notice
 ## Stability levels
 
 - **Stable** — frozen for the 0.x series; breaking changes require a major version bump
+- **Unstable** — public only for current implementation boundaries; may change before stabilization
 - **Deprecated** — present for compatibility; will be removed in a future version
 - **Deferred** — not included in 0.1.0; may be added in a later release
 
@@ -36,20 +37,31 @@ pub(all) struct RawKind(Int)
 ## `CstToken`
 
 ```moonbit
-pub(all) struct CstToken { kind : RawKind; text : String; hash : Int }
+pub(all) struct CstToken {
+  kind   : RawKind
+  source : String
+  start  : Int
+  end    : Int
+  hash   : Int
+}
 ```
 
-**Stable.** Immutable leaf token. All three fields are public for read access.
+**Stable.** Immutable leaf token. Token text is represented as a source span; use `text()` for the zero-copy view.
 
-**Invariant:** `hash` equals `combine_hash(kind.inner, string_hash(text))` and is frozen at construction. Never mutate fields directly; doing so invalidates `Eq` and `Hash` semantics.
+**Invariant:** `hash` equals `combine_hash(kind.inner, string_hash(text()))` and is frozen at construction. Never mutate fields directly; doing so invalidates `Eq` and `Hash` semantics.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `CstToken::new(RawKind, StringView) -> Self` | Stable | Computes and caches `hash`; calls `.to_string()` internally for owned `text` field |
-| `CstToken::text_len(Self) -> Int` | Stable | Returns `text.length()` |
-| `Eq` | Stable | Hash fast-path rejection, then `kind` + `text` deep check |
+| `CstToken::CstToken(RawKind, StringView) -> Self` | Stable | Computes and caches `hash`; records the input view's backing source and offsets without copying |
+| `CstToken::new(RawKind, StringView) -> Self` | **Deprecated** | Alias for `CstToken::CstToken`; retained for compatibility |
+| `CstToken::text(Self) -> StringView` | Stable | Zero-copy view over `source[start:end]` |
+| `CstToken::source(Self) -> String` | Stable | Backing source string for the token span |
+| `CstToken::start_offset(Self) -> Int` | Stable | Start UTF-16 code-unit offset within `source` |
+| `CstToken::end_offset(Self) -> Int` | Stable | Exclusive UTF-16 code-unit end offset within `source` |
+| `CstToken::text_len(Self) -> Int` | Stable | Returns `end - start` |
+| `Eq` | Stable | Hash fast-path rejection, then `kind` + `text()` deep check |
 | `Hash` | Stable | Feeds cached `hash` field into hasher |
-| `Show` | Stable | Debug representation; format not guaranteed stable |
+| `Debug` | Stable | Debug representation; format not guaranteed stable |
 
 ---
 
@@ -116,12 +128,12 @@ pub(all) enum ParseEvent {
 
 **Stable.** Event stream type consumed by `build_tree` / `build_tree_interned`.
 
-**Invariant:** A valid event stream is balanced — every `StartNode` has a matching `FinishNode`. `Tombstone` slots are silently skipped. `String` auto-coerces to `StringView` for `Token` construction.
+**Invariant:** A valid event stream is balanced — every `StartNode` has a matching `FinishNode`. `Tombstone` slots are silently skipped. `String` auto-coerces to `StringView` for `Token` construction. Public `ReuseNode` rebuilds the subtree and copies token text into per-token backing strings to avoid retaining old full source buffers.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| All five variants | Stable | |
-| `Eq`, `Show` | Stable | |
+| All five variants | Stable | `ReuseNode(CstNode)` skips parse-time re-emission but does not direct-splice source-backed tokens |
+| `Eq`, `Debug` | Stable | |
 
 ---
 
@@ -136,12 +148,13 @@ pub struct EventBuffer { /* private fields */ }
 | Symbol | Stability | Notes |
 |---|---|---|
 | `EventBuffer::new() -> Self` | Stable | |
-| `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any event directly |
+| `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any public event directly |
+| `EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit` | **Unstable** | Trusted parser-owned reuse path; rebases reused token spans onto the provided current source when text matches, otherwise falls back to owned token text |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
-| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; raises on malformed event streams |
-| `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` |
-| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns both tokens and nodes |
+| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and `push_reuse_node_at`; raises on malformed event streams |
+| `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` using canonical owned token text |
+| `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns both tokens and nodes |
 
 ---
 
@@ -157,7 +170,7 @@ Tuple struct — single-field wrapper is unboxed at runtime (no wrapper allocati
 | Symbol | Stability | Notes |
 |---|---|---|
 | `Interner::new() -> Self` | Stable | |
-| `Interner::intern_token(Self, RawKind, StringView) -> CstToken` | Stable | Returns cached token on repeat calls; zero-alloc on hit path |
+| `Interner::intern_token(Self, RawKind, StringView) -> CstToken` | Stable | Returns cached token on repeat calls; zero-alloc on hit path; miss path owns one canonical copy so source-backed views do not keep full source buffers alive |
 | `Interner::size(Self) -> Int` | Stable | Count of distinct `(kind, text)` pairs |
 | `Interner::clear(Self) -> Unit` | Stable | Reset; safe to reuse after clear |
 
@@ -191,15 +204,16 @@ pub struct SyntaxToken { /* private fields */ }
 
 **Stable.** Ephemeral positioned view over a `CstToken`. Mirrors `SyntaxNode` for leaf tokens.
 
-**Invariant:** `start()` is the absolute byte offset of the token's first byte. `end() == start() + cst.text_len()`.
+**Invariant:** `start()` is the absolute UTF-16 code-unit offset of the token. `end() == start() + cst.text_len()`.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `SyntaxToken::new(CstToken, Int) -> Self` | Stable | Full constructor; `offset` is the absolute start byte |
-| `SyntaxToken::start(Self) -> Int` | Stable | Absolute byte start |
-| `SyntaxToken::end(Self) -> Int` | Stable | Absolute byte end |
+| `SyntaxToken::new(CstToken, Int) -> Self` | Stable | Full constructor; `offset` is the absolute start code-unit offset |
+| `SyntaxToken::start(Self) -> Int` | Stable | Absolute code-unit start |
+| `SyntaxToken::end(Self) -> Int` | Stable | Absolute code-unit end |
 | `SyntaxToken::kind(Self) -> RawKind` | Stable | Token kind |
-| `SyntaxToken::text(Self) -> String` | Stable | Token text |
+| `SyntaxToken::text(Self) -> String` | Stable | Owned token text (compatibility/display helper) |
+| `SyntaxToken::text_view(Self) -> StringView` | Stable | Zero-copy token text view |
 | `Show` | Stable | `"TokenKind@[start,end)"` format |
 | `Debug` | Stable | |
 
@@ -234,7 +248,7 @@ pub struct SyntaxNode {
 
 **Stable.** Ephemeral positioned view over a `CstNode`. `cst` is private; use `cst_node()` only when raw `CstNode` access is required (e.g. reuse cursors). `parent` and `offset` are public read-only fields.
 
-**Invariant:** `offset` is the absolute byte offset of this node's start in the source. `offset + cst.text_len` is the end (accessible via `end()`).
+**Invariant:** `offset` is the absolute UTF-16 code-unit offset of this node's start in the source. `offset + cst.text_len` is the end (accessible via `end()`).
 
 | Symbol | Stability | Notes |
 |---|---|---|
@@ -253,11 +267,11 @@ pub struct SyntaxNode {
 | `SyntaxNode::tokens_of_kind(Self, RawKind) -> Array[SyntaxToken]` | Stable | All direct tokens of the given kind in this node |
 | `SyntaxNode::token_text(Self, RawKind) -> String` | Stable | Display-oriented shortcut for first direct token text, returning `""` when absent; prefer `direct_token_of_kind` for semantic validation |
 | `SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)` | Stable | Start/end skipping leading/trailing trivia tokens |
-| `SyntaxNode::find_at(Self, Int) -> Self` | Stable | Deepest descendant whose span contains the byte offset; falls back to `self` |
+| `SyntaxNode::find_at(Self, Int) -> Self` | Stable | Deepest descendant whose span contains the UTF-16 code-unit offset; falls back to `self` |
 | `SyntaxNode::cst_node(Self) -> CstNode` | Stable | **Advanced use only.** Returns the underlying `CstNode` for infrastructure that requires it (e.g. reuse cursors). Prefer SyntaxNode API for all navigation. |
 | `Show` | Stable | `"NodeKind@[start,end)"` format |
 | `Debug` | Stable | |
-| `SyntaxNode::node_at(Int) -> Self?` | **Deferred** | Find deepest node at a byte position; edge-case semantics (boundary, trivia) unresolved |
+| `SyntaxNode::node_at(Int) -> Self?` | **Deferred** | Find deepest node at a UTF-16 code-unit position; edge-case semantics (boundary, trivia) unresolved |
 
 ---
 
@@ -265,10 +279,11 @@ pub struct SyntaxNode {
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
-| `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interned variant |
+| `build_tree(Array[ParseEvent], RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Use `EventBuffer::build_tree` when building through `EventBuffer` |
+| `build_tree_interned(Array[ParseEvent], RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interned variant |
+| `build_tree_fully_interned(Array[ParseEvent], RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Fully interned variant |
 | `combine_hash(Int, Int) -> Int` | Stable | FNV-based mixing function used for structural hashes |
-| `string_hash(StringView) -> Int` | Stable | FNV hash of a string view; used by `CstToken::new` |
+| `string_hash(StringView) -> Int` | Stable | FNV hash of a string view; used by `CstToken::CstToken` |
 
 ---
 

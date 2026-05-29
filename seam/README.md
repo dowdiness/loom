@@ -50,7 +50,7 @@ buf.push(@seam.ParseEvent::FinishNode)
 let root : @seam.CstNode = buf.build_tree!(EXPR)
 
 // root.text_len  == 3
-// root.children  == [Token(NUM,"1"), Token(PLUS,"+"), Token(NUM,"2")]
+// token text is available as zero-copy StringView via CstToken::text()
 ```
 
 ### Retroactive node wrapping with `mark`/`start_at`
@@ -70,7 +70,7 @@ let root = buf.build_tree!(FILE)
 
 ## Traversal with SyntaxNode
 
-`SyntaxNode` is an ephemeral, positioned view over a `CstNode`. It adds an absolute byte
+`SyntaxNode` is an ephemeral, positioned view over a `CstNode`. It adds an absolute UTF-16 code-unit
 offset to every node without modifying the underlying `CstNode`:
 
 ```mbt nocheck
@@ -141,20 +141,22 @@ CST → private IR → semantic model workflow and review checklist.
 
 | Concept | `seam` type | Rowan equivalent |
 |---|---|---|
-| Immutable, position-independent node | `CstNode` | `GreenNode` |
+| Immutable content node; offsets are external | `CstNode` | `GreenNode` |
 | Ephemeral positioned view | `SyntaxNode` | `SyntaxNode` |
 | Language-agnostic kind | `RawKind` | `SyntaxKind` |
 | Event-driven builder | `EventBuffer` + `ParseEvent` | `GreenNodeBuilder` |
 
-**Why two trees?** `CstNode`s can be structurally shared and content-addressed
-(the same subtree in two parse results shares the same allocation). `SyntaxNode`s
-are cheap to create on demand and carry position information without polluting the
+**Why two trees?** `CstNode`s can be structurally shared and content-addressed.
+Tokens store source spans; parser-owned reuse rebases reused token spans onto the
+current source buffer, while public `ReuseNode` and interner APIs canonicalize or
+copy token text to avoid retaining old full source buffers. `SyntaxNode`s are
+cheap to create on demand and carry position information without polluting the
 shared layer.
 
 ## Token interning
 
-For incremental parsing, use `build_tree_interned` to deduplicate identical tokens
-across parses:
+Use `build_tree_interned` when you explicitly want to deduplicate identical tokens
+with canonical owned token text:
 
 ```mbt nocheck
 let interner = @seam.Interner::new()

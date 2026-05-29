@@ -8,6 +8,143 @@ test "build_tree: single token produces root node" {
 }
 
 ///|
+test "build_tree: token keeps source span" {
+  let source = "let x"
+  let events = [
+    ParseEvent::Token(RawKind(9), source.view(start_offset=4, end_offset=5)),
+  ]
+  let root = build_tree(events, RawKind(22))
+  match root.children[0] {
+    CstElement::Token(tok) => {
+      inspect(physical_equal(tok.source(), source), content="true")
+      inspect(tok.start_offset(), content="4")
+      inspect(tok.end_offset(), content="5")
+      inspect(tok.text(), content="x")
+    }
+    _ => abort("expected token")
+  }
+}
+
+///|
+test "build_tree: public ReuseNode copies token backing source" {
+  let old_source = "secret keep"
+  let token = CstToken::CstToken(
+    RawKind(9),
+    old_source.view(start_offset=7, end_offset=11),
+  )
+  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let root = build_tree([ParseEvent::ReuseNode(reused)], RawKind(0))
+  match root.children[0] {
+    CstElement::Node(node) =>
+      match node.children[0] {
+        CstElement::Token(tok) => {
+          inspect(tok.text(), content="keep")
+          inspect(tok.source(), content="keep")
+          inspect(tok.start_offset(), content="0")
+          inspect(tok.end_offset(), content="4")
+        }
+        _ => abort("expected token")
+      }
+    _ => abort("expected node")
+  }
+}
+
+///|
+test "EventBuffer: push_reuse_node_at rebases token spans" {
+  let old_source = "secret keep"
+  let token = CstToken::CstToken(
+    RawKind(9),
+    old_source.view(start_offset=7, end_offset=11),
+  )
+  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let current_source = ">>> keep <<<"
+  let buf = EventBuffer::new()
+  buf.push_reuse_node_at(reused, current_source, 4)
+  let root = buf.build_tree(RawKind(0))
+  match root.children[0] {
+    CstElement::Node(node) =>
+      match node.children[0] {
+        CstElement::Token(tok) => {
+          inspect(tok.text(), content="keep")
+          inspect(physical_equal(tok.source(), current_source), content="true")
+          inspect(tok.start_offset(), content="4")
+          inspect(tok.end_offset(), content="8")
+        }
+        _ => abort("expected token")
+      }
+    _ => abort("expected node")
+  }
+}
+
+///|
+test "EventBuffer: push_reuse_node_at falls back when source mismatches" {
+  let old_source = "secret keep"
+  let token = CstToken::CstToken(
+    RawKind(9),
+    old_source.view(start_offset=7, end_offset=11),
+  )
+  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let current_source = ">>> nope <<<"
+  let buf = EventBuffer::new()
+  buf.push_reuse_node_at(reused, current_source, 4)
+  let root = buf.build_tree(RawKind(0))
+  match root.children[0] {
+    CstElement::Node(node) =>
+      match node.children[0] {
+        CstElement::Token(tok) => {
+          inspect(tok.text(), content="keep")
+          inspect(tok.source(), content="keep")
+          inspect(tok.start_offset(), content="0")
+          inspect(tok.end_offset(), content="4")
+        }
+        _ => abort("expected token")
+      }
+    _ => abort("expected node")
+  }
+}
+
+///|
+test "EventBuffer: push_reuse_node_at falls back when span is out of bounds" {
+  let token = CstToken::CstToken(RawKind(9), "keep")
+  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let buf = EventBuffer::new()
+  buf.push_reuse_node_at(reused, "tiny", 99)
+  let root = buf.build_tree(RawKind(0))
+  match root.children[0] {
+    CstElement::Node(node) =>
+      match node.children[0] {
+        CstElement::Token(tok) => {
+          inspect(tok.text(), content="keep")
+          inspect(tok.source(), content="keep")
+        }
+        _ => abort("expected token")
+      }
+    _ => abort("expected node")
+  }
+}
+
+///|
+test "build_tree: public ReuseNode recomputes metadata" {
+  let ws = RawKind(0)
+  let id = RawKind(1)
+  let reused = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::CstToken(ws, " ")),
+    CstElement::Token(CstToken::CstToken(id, "x")),
+  ])
+  inspect(reused.token_count, content="2")
+  let root = build_tree(
+    [ParseEvent::ReuseNode(reused)],
+    RawKind(3),
+    trivia_kind=Some(ws),
+  )
+  match root.children[0] {
+    CstElement::Node(node) => inspect(node.token_count, content="1")
+    _ => abort("expected node")
+  }
+  inspect(root.token_count, content="1")
+}
+
+///|
 test "build_tree: nested StartNode/FinishNode" {
   let events = [
     ParseEvent::StartNode(RawKind(19)), // IntLiteral
@@ -31,7 +168,7 @@ test "EventBuffer mark and start_at" {
   let m = buf.mark()
   buf.push(ParseEvent::Token(RawKind(9), "x"))
   buf.start_at(m, RawKind(20)) // retroactively set mark to VarRef
-  inspect(buf.events[m] == ParseEvent::StartNode(RawKind(20)), content="true")
+  inspect(buf.events[m] == BufferedStartNode(RawKind(20)), content="true")
 }
 
 ///|

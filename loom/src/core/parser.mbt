@@ -784,7 +784,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
 ///|
 /// Emit a reused node, replay its diagnostics, and advance both positions
 /// past it. Order matters:
-///   1. ReuseNode event    — attach pre-built subtree directly (no serialize)
+///   1. reuse event        — rebuild reused tokens against the current source
 ///   2. replay/synthesize  — restore diagnostics while self.position still
 ///                           points at node start (token_info_at_or_after needs it)
 ///   3. advance_past_reused — advance self.position through the new token stream
@@ -809,7 +809,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     self.source.length()
   }
   let node_end = node_start + node.text_len
-  self.events.push(@seam.ParseEvent::ReuseNode(node))
+  self.events.push_reuse_node_at(node, self.source, node_start)
   let allow_eof_boundary = match self.reuse_cursor {
     None => true
     Some(cursor) => !cursor.next_sibling_has_error()
@@ -876,8 +876,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 ///
 /// When true is returned, the grammar should re-check its loop condition —
 /// the next token will be whatever follows the group. No start_node or
-/// finish_node events are pushed; the ReuseNode event reattaches the
-/// pre-built balanced tree as-is.
+/// finish_node events are pushed; the reuse event carries the pre-built
+/// balanced tree shape and rebases token spans during tree build.
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(
   self : ParserContext[T, K],
 ) -> Bool {
@@ -973,17 +973,22 @@ fn[T, K : @seam.ToRawKind] make_error_tree(
 
 ///|
 /// Build the CST from an event buffer using spec metadata for root and trivia kinds.
-/// Always uses the module-level global interners from core/interners.mbt.
+///
+/// The generic parser intentionally uses the non-interned builder so tokens keep
+/// zero-copy source spans. Parser-owned reuse events rebase reused token spans
+/// onto the current source buffer, avoiding process-global interners and old
+/// source-buffer retention.
+///
+/// TODO(#187): This drops canonical node identity for unchanged subtrees across
+/// parses. Benchmark and repair physical-identity consumers before optimizing,
+/// without reintroducing old source-buffer retention.
 fn[T, K : @seam.ToRawKind] build_tree_generic(
   buf : @seam.EventBuffer,
   spec : LanguageSpec[T, K],
 ) -> @seam.CstNode raise @seam.EventStreamError {
   let ws = spec.whitespace_kind.to_raw()
-  let root = spec.root_kind.to_raw()
-  buf.build_tree_fully_interned(
-    root,
-    core_interner,
-    get_core_node_interner(ws),
+  buf.build_tree(
+    spec.root_kind.to_raw(),
     trivia_kind=Some(ws),
     error_kind=Some(spec.error_kind.to_raw()),
     incomplete_kind=Some(spec.incomplete_kind.to_raw()),

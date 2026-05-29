@@ -28,7 +28,13 @@ pub fn SyntaxToken::kind(self : SyntaxToken) -> RawKind {
 
 ///|
 pub fn SyntaxToken::text(self : SyntaxToken) -> String {
-  self.cst.text
+  self.cst.text().to_owned()
+}
+
+///|
+/// Zero-copy view of this token's text.
+pub fn SyntaxToken::text_view(self : SyntaxToken) -> StringView {
+  self.cst.text()
 }
 
 ///|
@@ -82,11 +88,11 @@ pub fn SyntaxElement::end(self : SyntaxElement) -> Int {
 ///|
 /// Ephemeral positioned view over a `CstNode`.
 ///
-/// A `SyntaxNode` pairs an immutable `CstNode` with the absolute byte
-/// `offset` of its start in the source. Unlike `CstNode`, `SyntaxNode`
-/// values are created on demand and are not cached or shared.
+/// A `SyntaxNode` pairs an immutable `CstNode` with the absolute UTF-16
+/// code-unit `offset` of its start in the source. Unlike `CstNode`,
+/// `SyntaxNode` values are created on demand and are not cached or shared.
 ///
-/// **Invariant:** `offset + cst.text_len` is the exclusive end byte.
+/// **Invariant:** `offset + cst.text_len` is the exclusive end offset.
 pub struct SyntaxNode {
   priv cst : CstNode
   priv parent : SyntaxNode?
@@ -111,7 +117,8 @@ pub fn SyntaxNode::from_cst(cst : CstNode) -> SyntaxNode {
 }
 
 ///|
-/// Create a root SyntaxNode from a CstNode at a given byte offset, no parent.
+/// Create a root SyntaxNode from a CstNode at a given UTF-16 code-unit offset,
+/// no parent.
 /// Use when the CstNode originates from a sub-range of a larger source
 /// (e.g. embedding a partial parse result at a known position).
 /// Prefer `from_cst` when the node starts at position 0.
@@ -151,13 +158,13 @@ pub fn SyntaxNode::first_token(self : SyntaxNode) -> SyntaxToken? {
 }
 
 ///|
-/// Absolute byte offset of this node's start in the source.
+/// Absolute UTF-16 code-unit offset of this node's start in the source.
 pub fn SyntaxNode::start(self : SyntaxNode) -> Int {
   self.offset
 }
 
 ///|
-/// Exclusive byte offset of this node's end in the source (`start + text_len`).
+/// Exclusive UTF-16 code-unit offset of this node's end in the source (`start + text_len`).
 pub fn SyntaxNode::end(self : SyntaxNode) -> Int {
   self.offset + self.cst.text_len
 }
@@ -463,7 +470,7 @@ pub fn SyntaxNode::tokens_of_kind(
 }
 
 ///|
-/// Tight byte span of this node, skipping leading and trailing trivia tokens.
+/// Tight UTF-16 code-unit span of this node, skipping leading and trailing trivia tokens.
 ///
 /// Pass `trivia_kind` to identify whitespace/comment tokens to skip.
 /// Interior `CstNode` children are never treated as trivia.
@@ -554,7 +561,7 @@ pub impl ToJson for SyntaxNode with fn to_json(self) -> Json {
       let RawKind(tk) = tok.kind
       children_json.push({
         "kind": (tk : Int),
-        "text": tok.text,
+        "text": tok.text(),
         "start": (pos : Int),
         "end": pos + tok.text_len(),
       })
@@ -727,7 +734,7 @@ pub fn SyntaxNode::contains_errors(
 }
 
 ///|
-/// Find the token(s) at a byte offset.
+/// Find the token(s) at a UTF-16 code-unit offset.
 ///
 /// Returns `Single` when `offset` falls strictly inside a token's span.
 /// Also returns `Single` when `offset` exactly hits a zero-width token

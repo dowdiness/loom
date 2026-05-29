@@ -52,7 +52,7 @@ pub struct LanguageSpec[T, K] {
 - `parse_root` — entry-point grammar function, used by `parse_tokens_indexed`
 
 Token matching for incremental reuse is handled by the framework internally:
-`old_cst_token.kind == new_token.to_raw() && old_cst_token.text == token_text_at(pos)`.
+`old_cst_token.kind == new_token.to_raw() && old_cst_token.text() == token_text_at(pos)`.
 Languages do not need to implement token matching — `T : ToRawKind` is sufficient.
 
 ### Required Traits
