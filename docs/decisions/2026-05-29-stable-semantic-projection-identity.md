@@ -27,11 +27,10 @@ it through `@loom`:
 - `StableProjectionLeaf[Id]` pairs a projected leaf with a generic public ID.
 - `ProjectionIdentityBaseline[Id]` stores the last successful semantic source
   plus stable leaves.
-- `ProjectionIdentityWindow` models the old/new edit window from either an
-  editor `Edit` or a source-diff fallback.
 - `realign_projection_identities` / `ProjectionIdentityBaseline::advance`
-  preserve matching prefix/suffix IDs around the edit window and call a
-  projection-owned allocator only for changed-window leaves or key mismatches.
+  preserve matching prefix/suffix IDs around an editor `Edit` or source-diff
+  fallback window and call a projection-owned allocator only for changed-window
+  leaves or key mismatches.
 
 The helper is intentionally leaf-level and language-neutral. It does not attach
 IDs to syntax tokens or CST nodes, and it does not allocate any concrete public

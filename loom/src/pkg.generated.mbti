@@ -121,8 +121,6 @@ pub using @core {type PrefixLexer}
 
 pub using @core {type ProjectionIdentityBaseline}
 
-pub using @core {type ProjectionIdentityWindow}
-
 pub using @core {type ProjectionLeaf}
 
 pub using @core {type Range}

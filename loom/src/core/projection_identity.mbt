@@ -49,7 +49,7 @@ pub fn[Id] StableProjectionLeaf::new(
 /// leaves starting at or after `old_end` form the reusable suffix. New leaves in
 /// the corresponding prefix/suffix windows inherit old IDs when their keys still
 /// match; leaves inside the new window receive fresh IDs.
-pub struct ProjectionIdentityWindow {
+struct ProjectionIdentityWindow {
   old_start : Int
   old_end : Int
   new_start : Int
@@ -57,7 +57,7 @@ pub struct ProjectionIdentityWindow {
 } derive(Eq, Debug)
 
 ///|
-pub fn ProjectionIdentityWindow::new(
+fn ProjectionIdentityWindow::new(
   old_start : Int,
   old_end : Int,
   new_start : Int,
@@ -68,9 +68,7 @@ pub fn ProjectionIdentityWindow::new(
 
 ///|
 /// Build a projection identity window from an editor-provided edit span.
-pub fn ProjectionIdentityWindow::from_edit(
-  edit : Edit,
-) -> ProjectionIdentityWindow {
+fn ProjectionIdentityWindow::from_edit(edit : Edit) -> ProjectionIdentityWindow {
   ProjectionIdentityWindow::new(
     edit.start,
     edit.old_end(),
@@ -85,7 +83,7 @@ pub fn ProjectionIdentityWindow::from_edit(
 /// This is the fallback path for `set_source` or for recovery after malformed
 /// intermediate input when no edit span relative to the last-good semantic
 /// baseline is available.
-pub fn ProjectionIdentityWindow::from_sources(
+fn ProjectionIdentityWindow::from_sources(
   old_source : String,
   new_source : String,
 ) -> ProjectionIdentityWindow {

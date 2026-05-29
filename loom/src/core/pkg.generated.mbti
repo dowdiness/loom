@@ -331,15 +331,7 @@ pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectio
 pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
 
-pub struct ProjectionIdentityWindow {
-  old_start : Int
-  old_end : Int
-  new_start : Int
-  new_end : Int
-} derive(Eq, @debug.Debug)
-pub fn ProjectionIdentityWindow::from_edit(Edit) -> Self
-pub fn ProjectionIdentityWindow::from_sources(String, String) -> Self
-pub fn ProjectionIdentityWindow::new(Int, Int, Int, Int) -> Self
+type ProjectionIdentityWindow derive(Eq, @debug.Debug)
 
 pub struct ProjectionLeaf {
   start : Int

@@ -53,7 +53,6 @@ pub using @core {
   type ParserContext,
   type PrefixLexer,
   type ProjectionIdentityBaseline,
-  type ProjectionIdentityWindow,
   type ProjectionLeaf,
   type Range,
   type ReuseCursor,
