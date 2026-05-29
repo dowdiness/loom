@@ -144,6 +144,59 @@ test "each: single token" {
 }
 
 ///|
+test "CstNode::each: visible direct children flatten repeat groups" {
+  let repeated = CstNode::new(repeat_group_kind, [
+    Token(CstToken::CstToken(RawKind(4), "c")),
+    Node(CstNode::new(RawKind(5), [Token(CstToken::CstToken(RawKind(6), "d"))])),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    Token(CstToken::CstToken(RawKind(1), "a")),
+    Node(CstNode::new(RawKind(2), [Token(CstToken::CstToken(RawKind(3), "b"))])),
+    Node(repeated),
+    Token(CstToken::CstToken(RawKind(7), "e")),
+  ])
+  let seen : Array[String] = []
+  let completed = root.each(elem => {
+    match elem {
+      Token(tok) =>
+        seen.push("token:" + tok.kind.0.to_string() + ":" + tok.text)
+      Node(node) => seen.push("node:" + node.kind.0.to_string())
+    }
+    true
+  })
+
+  inspect(completed, content="true")
+  inspect(seen.join("|"), content="token:1:a|node:2|token:4:c|node:5|token:7:e")
+}
+
+///|
+test "CstNode::each: early termination" {
+  let root = CstNode::new(RawKind(0), [
+    Token(CstToken::CstToken(RawKind(1), "a")),
+    Node(
+      CstNode::new(repeat_group_kind, [
+        Token(CstToken::CstToken(RawKind(2), "b")),
+        Token(CstToken::CstToken(RawKind(3), "c")),
+      ]),
+    ),
+    Token(CstToken::CstToken(RawKind(4), "d")),
+  ])
+  let seen : Array[String] = []
+  let completed = root.each(elem => {
+    match elem {
+      Token(tok) => {
+        seen.push(tok.text)
+        tok.kind != RawKind(2)
+      }
+      Node(_) => true
+    }
+  })
+
+  inspect(completed, content="false")
+  inspect(seen.join(""), content="ab")
+}
+
+///|
 test "iter: collects all elements" {
   let tree = make_test_tree()
   let count = tree.iter().fold(init=0, (acc, _elem) => acc + 1)
