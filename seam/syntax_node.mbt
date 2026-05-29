@@ -198,27 +198,20 @@ fn walk_children_flat(
   on_token : (CstToken, Int) -> Unit,
 ) -> Int {
   let mut pos = offset
-  for elem in children {
+  each_cst_child_flat(children, elem => {
     match elem {
-      CstElement::Node(child) =>
-        if child.kind == repeat_group_kind {
-          pos = walk_children_flat(
-            child.children,
-            parent,
-            pos,
-            on_node,
-            on_token,
-          )
-        } else {
-          on_node(child, parent, pos)
-          pos = pos + child.text_len
-        }
+      CstElement::Node(child) => {
+        on_node(child, parent, pos)
+        pos = pos + child.text_len
+      }
       CstElement::Token(tok) => {
         on_token(tok, pos)
         pos = pos + tok.text_len()
       }
     }
-  }
+    true
+  })
+  |> ignore
   pos
 }
 

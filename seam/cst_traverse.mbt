@@ -104,6 +104,40 @@ pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
 }
 
 ///|
+fn each_cst_child_flat(
+  children : Array[CstElement],
+  f : (CstElement) -> Bool,
+) -> Bool {
+  for elem in children {
+    match elem {
+      Node(child) =>
+        if child.kind == repeat_group_kind {
+          if !each_cst_child_flat(child.children, f) {
+            return false
+          }
+        } else if !f(elem) {
+          return false
+        }
+      Token(_) => if !f(elem) { return false }
+    }
+  }
+  true
+}
+
+///|
+/// Callback over the direct visible children of a raw CST node.
+///
+/// `RepeatGroup` nodes are transparent: their children are reported in source
+/// order as direct visible children, and the `RepeatGroup` wrapper itself is
+/// not passed to `f`. Non-repeat child nodes are not recursively traversed.
+///
+/// Returns `true` if traversal completed, or `false` when `f` returned `false`
+/// to request early termination.
+pub fn CstNode::each(self : CstNode, f : (CstElement) -> Bool) -> Bool {
+  each_cst_child_flat(self.children, f)
+}
+
+///|
 /// Depth-first pre-order iterator over all elements in the tree.
 ///
 /// Uses an explicit stack. Suitable for stdlib composition

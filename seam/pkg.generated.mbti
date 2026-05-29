@@ -54,6 +54,7 @@ pub(all) struct CstNode {
   token_count : Int
   has_any_error : Bool
 } derive(@debug.Debug)
+pub fn CstNode::each(Self, (CstElement) -> Bool) -> Bool
 pub fn CstNode::first_token(Self, (RawKind) -> Bool) -> CstToken?
 pub fn CstNode::has_errors(Self, RawKind, RawKind) -> Bool
 pub fn CstNode::kind(Self) -> RawKind
