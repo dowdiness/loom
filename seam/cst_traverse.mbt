@@ -84,57 +84,79 @@ pub fn[R] CstElement::transform_fold(
 ///|
 /// Callback-based depth-first pre-order traversal.
 ///
-/// Calls `f` for every element in the tree. Returns `true` if traversal
-/// completed, `false` if `f` returned `false` to request early termination.
+/// Equivalent to consuming `self.iter()`. Calls `f` for every element in the
+/// tree. Returns `true` if traversal completed, or `false` if `f` returned
+/// `false` to request early termination.
 pub fn CstElement::each(self : CstElement, f : (CstElement) -> Bool) -> Bool {
-  if !f(self) {
-    return false
-  }
-  match self {
-    Token(_) => true
-    Node(node) => {
-      for child in node.children {
-        if !child.each(f) {
-          return false
-        }
-      }
-      true
-    }
-  }
-}
-
-///|
-fn each_cst_child_flat(
-  children : Array[CstElement],
-  f : (CstElement) -> Bool,
-) -> Bool {
-  for elem in children {
-    match elem {
-      Node(child) =>
-        if child.kind == repeat_group_kind {
-          if !each_cst_child_flat(child.children, f) {
-            return false
-          }
-        } else if !f(elem) {
-          return false
-        }
-      Token(_) => if !f(elem) { return false }
+  for elem in self.iter() {
+    if !f(elem) {
+      return false
     }
   }
   true
 }
 
 ///|
+fn push_children_reversed(
+  stack : Array[CstElement],
+  children : Array[CstElement],
+) -> Unit {
+  let mut i = children.length() - 1
+  while i >= 0 {
+    stack.push(children[i])
+    i = i - 1
+  }
+}
+
+///|
+fn direct_elements_iter_flat(children : Array[CstElement]) -> Iter[CstElement] {
+  let stack : Array[CstElement] = []
+  push_children_reversed(stack, children)
+  Iter::new(() => {
+    while !stack.is_empty() {
+      // Safety: is_empty() check above guarantees stack is non-empty.
+      let current = stack.unsafe_pop()
+      match current {
+        Node(node) =>
+          if node.kind == repeat_group_kind {
+            push_children_reversed(stack, node.children)
+          } else {
+            return Some(current)
+          }
+        Token(_) => return Some(current)
+      }
+    }
+    None
+  })
+}
+
+///|
+/// Iterator over the direct visible children of a raw CST node.
+///
+/// `RepeatGroup` nodes are transparent: their children are yielded in source
+/// order as direct visible children, and the `RepeatGroup` wrapper itself is
+/// skipped. Non-repeat child nodes are yielded without recursively traversing
+/// into them.
+///
+/// The iterator is single-pass. Request a fresh iterator from the node when you
+/// need to traverse the visible children again.
+pub fn CstNode::direct_elements_iter(self : CstNode) -> Iter[CstElement] {
+  direct_elements_iter_flat(self.children)
+}
+
+///|
 /// Callback over the direct visible children of a raw CST node.
 ///
-/// `RepeatGroup` nodes are transparent: their children are reported in source
-/// order as direct visible children, and the `RepeatGroup` wrapper itself is
-/// not passed to `f`. Non-repeat child nodes are not recursively traversed.
-///
-/// Returns `true` if traversal completed, or `false` when `f` returned `false`
-/// to request early termination.
+/// Equivalent to consuming `self.direct_elements_iter()`, including its
+/// `RepeatGroup` transparency. Returns `true` if traversal completed, or
+/// `false` when `f` returned `false` to request early termination.
 pub fn CstNode::each(self : CstNode, f : (CstElement) -> Bool) -> Bool {
-  each_cst_child_flat(self.children, f)
+  for elem in self.direct_elements_iter() {
+    if !f(elem) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -148,16 +170,10 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
     if stack.is_empty() {
       return None
     }
-    // Safety: is_empty() check above guarantees stack is non-empty
+    // Safety: is_empty() check above guarantees stack is non-empty.
     let current = stack.unsafe_pop()
     match current {
-      Node(node) => {
-        let mut i = node.children.length() - 1
-        while i >= 0 {
-          stack.push(node.children[i])
-          i = i - 1
-        }
-      }
+      Node(node) => push_children_reversed(stack, node.children)
       Token(_) => ()
     }
     Some(current)
