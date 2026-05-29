@@ -181,17 +181,21 @@ fn is_call_position_of(node : @seam.SyntaxNode) -> Bool {
 }
 
 ///|
-/// Recursively walk the tree, appending Def/Call facts as they are
-/// found, maintaining a lexical scope stack. Emits an Enclosing edge
-/// `(frame_id, parent_id)` immediately before pushing each LambdaScope
-/// frame, so the visibility builder can walk the parent chain.
-fn collect_in(
-  node : @seam.SyntaxNode,
-  defs : Array[Def],
-  calls : Array[Call],
-  enclosing : Array[(ScopeId, ScopeId)],
-  stack : Array[Frame],
-) -> Unit {
+/// Visitor state for extracting Def/Call facts in source order.
+///
+/// `SyntaxNode::accept_visitor` owns the recursion; this collector owns only
+/// lambda-specific state. LetDef parameter lists are handled at their source
+/// position: entering a `ParamList` under a `LetDef` installs a scope frame
+/// that remains active until the enclosing `LetDef` exits.
+priv struct FactCollector {
+  defs : Array[Def]
+  calls : Array[Call]
+  enclosing : Array[(ScopeId, ScopeId)]
+  stack : Array[Frame]
+}
+
+///|
+impl @seam.SyntaxMutVisitor for FactCollector with fn enter_node(self, node) {
   let kind = @syntax.SyntaxKind::from_raw(node.kind())
   match kind {
     @syntax.LambdaExpr => {
@@ -201,7 +205,7 @@ fn collect_in(
         Some(tok) => {
           let name = tok.text()
           names.push(name)
-          defs.push({
+          self.defs.push({
             name,
             scope: frame_id,
             start: node.start(),
@@ -212,20 +216,17 @@ fn collect_in(
         }
         None => ()
       }
-      if stack.length() > 0 {
-        enclosing.push((frame_id, stack[stack.length() - 1].id))
+      if self.stack.length() > 0 {
+        self.enclosing.push((frame_id, self.stack[self.stack.length() - 1].id))
       }
-      stack.push({ id: frame_id, names })
-      for child in node.children() {
-        collect_in(child, defs, calls, enclosing, stack)
-      }
-      let _ = stack.pop()
+      self.stack.push({ id: frame_id, names })
+      true
     }
     @syntax.LetDef => {
-      let outer_scope = stack[stack.length() - 1].id
+      let outer_scope = self.stack[self.stack.length() - 1].id
       match ident_after_lead(node, @syntax.LetKeyword) {
         Some(tok) =>
-          defs.push({
+          self.defs.push({
             name: tok.text(),
             scope: outer_scope,
             start: node.start(),
@@ -235,49 +236,45 @@ fn collect_in(
           })
         None => ()
       }
-      // Single pass over children. When a ParamList is seen, install a
-      // new scope frame whose lifetime extends through the rest of the
-      // children (the body). ParamList has no VarRef/LetDef/LambdaExpr
-      // descendants, so its own children don't need recursion.
-      let mut pushed = false
-      for child in node.children() {
-        if @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList {
-          let frame_id = LambdaScope(node.start(), node.end())
+      true
+    }
+    @syntax.ParamList =>
+      match node.parent() {
+        Some(parent) if @syntax.SyntaxKind::from_raw(parent.kind()) ==
+          @syntax.LetDef => {
+          let frame_id = LambdaScope(parent.start(), parent.end())
           let names : Array[String] = []
-          for tok in child.tokens() {
+          for tok in node.tokens() {
             if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken {
               let name = tok.text()
               names.push(name)
-              defs.push({
+              self.defs.push({
                 name,
                 scope: frame_id,
-                start: node.start(),
-                end: node.end(),
+                start: parent.start(),
+                end: parent.end(),
                 name_start: tok.start(),
                 name_end: tok.end(),
               })
             }
           }
-          if stack.length() > 0 {
-            enclosing.push((frame_id, stack[stack.length() - 1].id))
+          if self.stack.length() > 0 {
+            self.enclosing.push(
+              (frame_id, self.stack[self.stack.length() - 1].id),
+            )
           }
-          stack.push({ id: frame_id, names })
-          pushed = true
-        } else {
-          collect_in(child, defs, calls, enclosing, stack)
+          self.stack.push({ id: frame_id, names })
+          false
         }
+        _ => true
       }
-      if pushed {
-        let _ = stack.pop()
-      }
-    }
-    @syntax.VarRef =>
+    @syntax.VarRef => {
       match node.direct_token_of_kind(@syntax.IdentToken.to_raw()) {
         Some(tok) => {
           let name = tok.text()
-          calls.push({
+          self.calls.push({
             callee: name,
-            resolved_scope: resolve_in_stack(name, stack),
+            resolved_scope: resolve_in_stack(name, self.stack),
             is_call_position: is_call_position_of(node),
             start: node.start(),
             end: node.end(),
@@ -285,11 +282,30 @@ fn collect_in(
         }
         None => ()
       }
-    _ =>
-      for child in node.children() {
-        collect_in(child, defs, calls, enclosing, stack)
-      }
+      true
+    }
+    _ => true
   }
+}
+
+///|
+impl @seam.SyntaxMutVisitor for FactCollector with fn exit_node(self, node) {
+  let kind = @syntax.SyntaxKind::from_raw(node.kind())
+  match kind {
+    @syntax.LambdaExpr | @syntax.LetDef => {
+      let frame_id = LambdaScope(node.start(), node.end())
+      if self.stack.length() > 0 &&
+        self.stack[self.stack.length() - 1].id == frame_id {
+        let _ = self.stack.pop()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+impl @seam.SyntaxMutVisitor for FactCollector with fn visit_token(_self, _token) {
+  ()
 }
 
 ///|
@@ -305,12 +321,14 @@ fn collect_in(
 fn extract_facts_full(
   root : @seam.SyntaxNode,
 ) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)]) {
-  let defs : Array[Def] = []
-  let calls : Array[Call] = []
-  let enclosing : Array[(ScopeId, ScopeId)] = []
-  let stack : Array[Frame] = [{ id: TopScope, names: [] }]
-  collect_in(root, defs, calls, enclosing, stack)
-  (defs, calls, enclosing)
+  let collector = FactCollector::{
+    defs: [],
+    calls: [],
+    enclosing: [],
+    stack: [{ id: TopScope, names: [] }],
+  }
+  root.accept_visitor(collector)
+  (collector.defs, collector.calls, collector.enclosing)
 }
 
 ///|
