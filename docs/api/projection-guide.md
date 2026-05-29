@@ -65,10 +65,34 @@ The ID type is generic, so domain code keeps public IDs in its own shape.
 
 ```mbt nocheck
 let next = extract_projection_leaves(syntax)
+let allocator = @loom.ProjectionStringIdAllocator::from_baseline(
+  old_baseline,
+  fn(key, occurrence) { "my-domain:\{key}:\{occurrence}" },
+)
 let new_baseline = old_baseline.advance(
   current_source,
   next,
-  fn(leaf) { allocate_public_id(leaf.key) },
+  fn(leaf) { allocator.allocate(leaf) },
+  edit=editor_edit,
+)
+```
+
+If you already have domain items and only need IDs zipped back onto them, use
+`@loom.realign_projection_items` to combine leaf extraction, realignment, and
+reconstruction:
+
+```mbt nocheck
+let allocator = @loom.ProjectionStringIdAllocator::from_baseline(
+  old_baseline,
+  make_public_id,
+)
+let stable_items = @loom.realign_projection_items(
+  old_baseline,
+  current_source,
+  raw_items,
+  item_to_projection_leaf,
+  fn(item, id) { item.with_id(id) },
+  fn(leaf) { allocator.allocate(leaf) },
   edit=editor_edit,
 )
 ```

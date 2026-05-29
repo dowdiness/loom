@@ -33,6 +33,184 @@ fn test_allocate(prefix : String) -> (ProjectionLeaf) -> String {
 }
 
 ///|
+fn test_make_string_id(key : String, occurrence : Int) -> String {
+  "mini:" + key + ":" + occurrence.to_string()
+}
+
+///|
+struct TestProjectionItem {
+  start : Int
+  end : Int
+  family : String
+  text : String
+}
+
+///|
+struct TestStableProjectionItem {
+  start : Int
+  end : Int
+  family : String
+  text : String
+  id : String
+}
+
+///|
+fn test_item(
+  start : Int,
+  end : Int,
+  family : String,
+  text : String,
+) -> TestProjectionItem {
+  { start, end, family, text }
+}
+
+///|
+fn test_item_key(item : TestProjectionItem) -> String {
+  item.family + ":" + item.text
+}
+
+///|
+fn test_item_leaf(item : TestProjectionItem) -> ProjectionLeaf {
+  ProjectionLeaf::new(item.start, item.end, test_item_key(item))
+}
+
+///|
+fn test_item_with_id(
+  item : TestProjectionItem,
+  id : String,
+) -> TestStableProjectionItem {
+  { start: item.start, end: item.end, family: item.family, text: item.text, id }
+}
+
+///|
+fn test_item_ids(items : Array[TestStableProjectionItem]) -> Array[String] {
+  let ids : Array[String] = []
+  for item in items {
+    ids.push(item.id)
+  }
+  ids
+}
+
+///|
+fn test_item_summaries(
+  items : Array[TestStableProjectionItem],
+) -> Array[String] {
+  let summaries : Array[String] = []
+  for item in items {
+    summaries.push(
+      item.family +
+      ":" +
+      item.text +
+      "@" +
+      item.start.to_string() +
+      "-" +
+      item.end.to_string() +
+      "#" +
+      item.id,
+    )
+  }
+  summaries
+}
+
+///|
+test "projection identity: string allocator mints per-key occurrences" {
+  let allocator = ProjectionStringIdAllocator::new(test_make_string_id)
+  let first = allocator.allocate(test_leaf(0, 2, "sound:bd"))
+  let second = allocator.allocate(test_leaf(3, 5, "sound:bd"))
+  let other = allocator.allocate(test_leaf(6, 8, "sound:sd"))
+  debug_inspect(
+    [first, second, other],
+    content="[\"mini:sound:bd:0\", \"mini:sound:bd:1\", \"mini:sound:sd:0\"]",
+  )
+}
+
+///|
+test "projection identity: string allocator skips baseline ids" {
+  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+    test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
+    test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
+  ])
+  let allocator = ProjectionStringIdAllocator::from_baseline(
+    baseline, test_make_string_id,
+  )
+  let first = allocator.allocate(test_leaf(3, 5, "sound:bd"))
+  let second = allocator.allocate(test_leaf(6, 8, "sound:bd"))
+  let other = allocator.allocate(test_leaf(9, 11, "sound:sd"))
+  debug_inspect(
+    [first, second, other],
+    content="[\"mini:sound:bd:2\", \"mini:sound:bd:3\", \"mini:sound:sd:0\"]",
+  )
+}
+
+///|
+test "projection identity: item adapter zips ids back onto domain items" {
+  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+    test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
+    test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
+  ])
+  let allocator = ProjectionStringIdAllocator::from_baseline(
+    baseline, test_make_string_id,
+  )
+  let items = [
+    test_item(0, 2, "sound", "bd"),
+    test_item(3, 5, "sound", "bd"),
+    test_item(6, 8, "sound", "bd"),
+  ]
+  let result = realign_projection_items(
+    baseline,
+    "bd bd bd",
+    items,
+    test_item_leaf,
+    test_item_with_id,
+    fn(leaf) { allocator.allocate(leaf) },
+    edit=Edit::insert(3, 3),
+  )
+  debug_inspect(
+    test_item_ids(result),
+    content="[\"mini:sound:bd:0\", \"mini:sound:bd:2\", \"mini:sound:bd:1\"]",
+  )
+  debug_inspect(
+    test_item_summaries(result),
+    content=(
+      #|[
+      #|  "sound:bd@0-2#mini:sound:bd:0",
+      #|  "sound:bd@3-5#mini:sound:bd:2",
+      #|  "sound:bd@6-8#mini:sound:bd:1",
+      #|]
+    ),
+  )
+}
+
+///|
+test "projection identity: optional item adapter accepts None fallback" {
+  let baseline = ProjectionIdentityBaseline::new("bd bd", [
+    test_stable(0, 2, "sound:bd", "mini:sound:bd:0"),
+    test_stable(3, 5, "sound:bd", "mini:sound:bd:1"),
+  ])
+  let allocator = ProjectionStringIdAllocator::from_baseline(
+    baseline, test_make_string_id,
+  )
+  let items = [
+    test_item(0, 2, "sound", "bd"),
+    test_item(3, 5, "sound", "sd"),
+    test_item(6, 8, "sound", "bd"),
+  ]
+  let result = realign_projection_items_with_optional_edit(
+    baseline,
+    "bd sd bd",
+    items,
+    test_item_leaf,
+    test_item_with_id,
+    fn(leaf) { allocator.allocate(leaf) },
+    None,
+  )
+  debug_inspect(
+    test_item_ids(result),
+    content="[\"mini:sound:bd:0\", \"mini:sound:sd:0\", \"mini:sound:bd:1\"]",
+  )
+}
+
+///|
 test "projection identity: insertion among duplicates preserves suffix" {
   let baseline = ProjectionIdentityBaseline::new("bd bd", [
     test_stable(0, 2, "sound:bd", "bd:0"),

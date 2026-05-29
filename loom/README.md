@@ -77,7 +77,9 @@ above, or [`examples/json`](../examples/json/) and
 @loom.ProjectionIdentityBaseline
 @loom.ProjectionLeaf
 @loom.StableProjectionLeaf
+@loom.ProjectionStringIdAllocator
 @loom.realign_projection_identities
+@loom.realign_projection_items
 ```
 
 Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).

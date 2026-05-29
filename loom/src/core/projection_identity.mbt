@@ -130,6 +130,74 @@ pub fn[Id] ProjectionIdentityBaseline::leaves(
 }
 
 ///|
+/// Stateful allocator for projection-owned string IDs.
+///
+/// The caller supplies `make_id`, so Loom does not impose a public ID schema.
+/// `make_id(key, occurrence)` should produce a deterministic candidate ID for
+/// that key/occurrence pair and should eventually produce an unused ID as
+/// `occurrence` increases. The allocator tracks IDs it has returned and, when
+/// seeded from a baseline, IDs that were already preserved from the previous
+/// successful projection.
+pub struct ProjectionStringIdAllocator {
+  priv used : Map[String, Bool]
+  priv counters : Map[String, Int]
+  priv make_id : (String, Int) -> String
+}
+
+///|
+/// Create an unseeded string-ID allocator.
+pub fn ProjectionStringIdAllocator::new(
+  make_id : (String, Int) -> String,
+) -> ProjectionStringIdAllocator {
+  { used: {}, counters: {}, make_id }
+}
+
+///|
+/// Create a string-ID allocator seeded with IDs from `baseline`.
+///
+/// Fresh IDs allocated by the result skip every ID already present in the
+/// baseline, avoiding collisions with prefix/suffix IDs preserved by
+/// `realign_projection_identities`.
+pub fn ProjectionStringIdAllocator::from_baseline(
+  baseline : ProjectionIdentityBaseline[String],
+  make_id : (String, Int) -> String,
+) -> ProjectionStringIdAllocator {
+  let allocator = ProjectionStringIdAllocator::new(make_id)
+  for leaf in baseline.leaves() {
+    allocator.used[leaf.id] = true
+  }
+  allocator
+}
+
+///|
+/// Allocate a fresh string ID for `leaf.key`.
+pub fn ProjectionStringIdAllocator::allocate(
+  self : ProjectionStringIdAllocator,
+  leaf : ProjectionLeaf,
+) -> String {
+  self.allocate_key(leaf.key)
+}
+
+///|
+fn ProjectionStringIdAllocator::allocate_key(
+  self : ProjectionStringIdAllocator,
+  key : String,
+) -> String {
+  let mut occurrence = match self.counters.get(key) {
+    Some(value) => value
+    None => 0
+  }
+  let mut id = (self.make_id)(key, occurrence)
+  while self.used.contains(id) {
+    occurrence += 1
+    id = (self.make_id)(key, occurrence)
+  }
+  self.counters[key] = occurrence + 1
+  self.used[id] = true
+  id
+}
+
+///|
 /// Realign `next_leaves` against this last-good baseline and return a new
 /// baseline for the successful projection.
 pub fn[Id] ProjectionIdentityBaseline::advance(
@@ -206,6 +274,50 @@ pub fn[Id] realign_projection_identities_with_optional_edit(
     allocate,
     window,
   )
+}
+
+///|
+/// Realign domain items against a projection identity baseline.
+///
+/// `to_leaf` extracts the source range and stable key from each item.
+/// `with_id` zips the preserved or fresh ID back onto the original item. This
+/// delegates to `realign_projection_identities`, so duplicate-key prefix/suffix
+/// preservation and changed-window allocation match the lower-level helper.
+pub fn[Item, Id, StableItem] realign_projection_items(
+  baseline : ProjectionIdentityBaseline[Id],
+  next_source : String,
+  items : Array[Item],
+  to_leaf : (Item) -> ProjectionLeaf,
+  with_id : (Item, Id) -> StableItem,
+  allocate : (ProjectionLeaf) -> Id,
+  edit? : Edit,
+) -> Array[StableItem] {
+  realign_projection_items_with_optional_edit(
+    baseline, next_source, items, to_leaf, with_id, allocate, edit,
+  )
+}
+
+///|
+/// Realign domain items against a projection identity baseline, accepting the
+/// edit as an `Edit?` value.
+pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(
+  baseline : ProjectionIdentityBaseline[Id],
+  next_source : String,
+  items : Array[Item],
+  to_leaf : (Item) -> ProjectionLeaf,
+  with_id : (Item, Id) -> StableItem,
+  allocate : (ProjectionLeaf) -> Id,
+  edit : Edit?,
+) -> Array[StableItem] {
+  let leaves = items.map(to_leaf)
+  let stable = realign_projection_identities_with_optional_edit(
+    baseline, next_source, leaves, allocate, edit,
+  )
+  let result : Array[StableItem] = Array::new(capacity=items.length())
+  for i = 0; i < items.length(); i = i + 1 {
+    result.push(with_id(items[i], stable[i].id))
+  }
+  result
 }
 
 ///|
