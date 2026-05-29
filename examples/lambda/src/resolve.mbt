@@ -14,7 +14,7 @@ pub(all) enum VarStatus {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for VarStatus with output(self, logger) {
+pub impl Show for VarStatus with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

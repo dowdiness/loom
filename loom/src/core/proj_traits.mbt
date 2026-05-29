@@ -5,17 +5,17 @@
 ///|
 /// Tree structure capability — structural access for reconciliation and traversal.
 pub(open) trait TreeNode {
-  children(Self) -> Array[Self]
-  same_kind(Self, Self) -> Bool
+  fn children(Self) -> Array[Self]
+  fn same_kind(Self, Self) -> Bool
 }
 
 ///|
 /// Rendering + text capability — display and serialization for projectional editors.
 pub(open) trait Renderable {
-  kind_tag(Self) -> String
-  label(Self) -> String
-  placeholder(Self) -> String
-  unparse(Self) -> String
+  fn kind_tag(Self) -> String
+  fn label(Self) -> String
+  fn placeholder(Self) -> String
+  fn unparse(Self) -> String
 }
 
 ///|
@@ -48,7 +48,7 @@ pub(open) trait Renderable {
 ///    implementor's doc comment and is sanity-checked by a per-implementor
 ///    drift detector against a frozen reference (see Task 3 plan).
 pub(open) trait Canonical {
-  canonical(Self) -> Self
+  fn canonical(Self) -> Self
 }
 
 ///|

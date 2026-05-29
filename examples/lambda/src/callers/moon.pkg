@@ -1,19 +1,19 @@
 import {
-  "dowdiness/seam" @seam,
-  "dowdiness/lambda/syntax" @syntax,
-  "dowdiness/incr" @incr,
+  "dowdiness/seam",
+  "dowdiness/lambda/syntax",
+  "dowdiness/incr",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
   "moonbitlang/core/debug",
 }
 
 import {
-  "dowdiness/lambda" @lambda,
-  "dowdiness/loom" @loom,
-  "dowdiness/loom/core" @core,
+  "dowdiness/lambda",
+  "dowdiness/loom",
+  "dowdiness/loom/core",
 } for "test"
 
 import {
-  "dowdiness/lambda" @lambda,
-  "dowdiness/loom" @loom,
+  "dowdiness/lambda",
+  "dowdiness/loom",
 } for "wbtest"

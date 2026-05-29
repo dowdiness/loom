@@ -183,7 +183,7 @@ pub fn CstElement::map(
 /// Typeclass for DFS search. `check` returns true if the element matches.
 /// Statically dispatched — no closure allocation for predicates.
 pub(open) trait Finder {
-  check(Self, CstElement) -> Bool
+  fn check(Self, CstElement) -> Bool
 }
 
 ///|

@@ -20,7 +20,7 @@ pub(all) enum Token {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Token with output(self, logger) {
+pub impl Show for Token with fn output(self, logger) {
   logger.write_string(
     match self {
       HeadingMarker(n) => "#".repeat(n) + " "
@@ -45,12 +45,12 @@ pub impl Show for Token with output(self, logger) {
 }
 
 ///|
-pub impl @seam.IsTrivia for Token with is_trivia(_self) {
+pub impl @seam.IsTrivia for Token with fn is_trivia(_self) {
   false
 }
 
 ///|
-pub impl @seam.IsEof for Token with is_eof(self) {
+pub impl @seam.IsEof for Token with fn is_eof(self) {
   self == EOF
 }
 
@@ -58,7 +58,7 @@ pub impl @seam.IsEof for Token with is_eof(self) {
 /// Maps Token to the same RawKind as the corresponding SyntaxKind.
 /// Payload-carrying variants (HeadingMarker, CodeFenceOpen, Text, CodeText)
 /// collapse to their kind — text is available via token_text_at at the framework level.
-pub impl @seam.ToRawKind for Token with to_raw(self) {
+pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   @seam.RawKind(
     match self {
       HeadingMarker(_) => 0 // HeadingMarkerToken

@@ -28,7 +28,7 @@ pub(all) enum SyntaxKind {
 } derive(Debug, Eq)
 
 ///|
-pub impl Show for SyntaxKind with output(self, logger) {
+pub impl Show for SyntaxKind with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -54,7 +54,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 }
 
 ///|
-pub impl @seam.ToRawKind for SyntaxKind with to_raw(self) {
+pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
   match self {
     LBraceToken => @seam.RawKind(0)
     RBraceToken => @seam.RawKind(1)

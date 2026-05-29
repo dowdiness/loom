@@ -7,17 +7,17 @@ enum FTok {
 } derive(Eq, Debug)
 
 ///|
-impl @seam.IsTrivia for FTok with is_trivia(self) {
+impl @seam.IsTrivia for FTok with fn is_trivia(self) {
   self == Ws
 }
 
 ///|
-impl @seam.IsEof for FTok with is_eof(self) {
+impl @seam.IsEof for FTok with fn is_eof(self) {
   self == Eof
 }
 
 ///|
-impl @seam.ToRawKind for FTok with to_raw(self) {
+impl @seam.ToRawKind for FTok with fn to_raw(self) {
   let n = match self {
     A => 0
     Ws => 3
@@ -54,7 +54,7 @@ fn fkind_raw(k : FKind) -> @seam.RawKind {
 }
 
 ///|
-impl @seam.ToRawKind for FKind with to_raw(self) {
+impl @seam.ToRawKind for FKind with fn to_raw(self) {
   fkind_raw(self)
 }
 

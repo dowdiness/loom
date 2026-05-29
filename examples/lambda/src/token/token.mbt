@@ -27,7 +27,7 @@ pub(all) enum Token {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Token with output(self, logger) {
+pub impl Show for Token with fn output(self, logger) {
   logger.write_string(
     match self {
       Lambda => "λ"
@@ -59,12 +59,12 @@ pub impl Show for Token with output(self, logger) {
 }
 
 ///|
-pub impl @seam.IsTrivia for Token with is_trivia(self) {
+pub impl @seam.IsTrivia for Token with fn is_trivia(self) {
   self == Whitespace
 }
 
 ///|
-pub impl @seam.IsEof for Token with is_eof(self) {
+pub impl @seam.IsEof for Token with fn is_eof(self) {
   self == EOF
 }
 
@@ -72,7 +72,7 @@ pub impl @seam.IsEof for Token with is_eof(self) {
 /// Maps tokens to the same raw-kind space as SyntaxKind.
 /// Fixed tokens map to their corresponding SyntaxKind raw values.
 /// Value-carrying tokens (Identifier, Integer) map to IdentToken/IntToken kinds.
-pub impl @seam.ToRawKind for Token with to_raw(self) {
+pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   let n : Int = match self {
     Lambda => 0 // LambdaToken
     Dot => 1 // DotToken

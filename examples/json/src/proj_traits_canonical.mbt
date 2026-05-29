@@ -19,7 +19,7 @@
 // the frozen pre-change placeholder mapping for the 6 fitting variants.
 
 ///|
-pub impl @core.Canonical for JsonValue with canonical(self) {
+pub impl @core.Canonical for JsonValue with fn canonical(self) {
   match self {
     Null => Null
     Bool(_) => Bool(false)

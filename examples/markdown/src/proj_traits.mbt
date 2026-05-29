@@ -41,7 +41,7 @@ fn inline_text(inlines : Array[Inline]) -> String {
 }
 
 ///|
-pub impl @core.TreeNode for Block with children(self) {
+pub impl @core.TreeNode for Block with fn children(self) {
   match self {
     Document(blocks) | UnorderedList(blocks) => blocks
     _ => []
@@ -49,7 +49,7 @@ pub impl @core.TreeNode for Block with children(self) {
 }
 
 ///|
-pub impl @core.TreeNode for Block with same_kind(self, other) {
+pub impl @core.TreeNode for Block with fn same_kind(self, other) {
   match (self, other) {
     (Document(_), Document(_)) => true
     (Heading(a, _), Heading(b, _)) => a == b
@@ -63,7 +63,7 @@ pub impl @core.TreeNode for Block with same_kind(self, other) {
 }
 
 ///|
-pub impl @core.Renderable for Block with kind_tag(self) {
+pub impl @core.Renderable for Block with fn kind_tag(self) {
   match self {
     Document(_) => "Document"
     Heading(n, _) => "H" + n.to_string()
@@ -81,7 +81,7 @@ pub impl @core.Renderable for Block with kind_tag(self) {
 }
 
 ///|
-pub impl @core.Renderable for Block with label(self) {
+pub impl @core.Renderable for Block with fn label(self) {
   match self {
     Document(blocks) => "[" + blocks.length().to_string() + " blocks]"
     Heading(_, inlines) => inline_text(inlines)
@@ -106,12 +106,12 @@ pub impl @core.Renderable for Block with label(self) {
 }
 
 ///|
-pub impl @core.Renderable for Block with placeholder(_self) {
+pub impl @core.Renderable for Block with fn placeholder(_self) {
   "..."
 }
 
 ///|
-pub impl @core.Renderable for Block with unparse(self) {
+pub impl @core.Renderable for Block with fn unparse(self) {
   match self {
     Document(blocks) => {
       // Separate blocks with blank lines so paragraphs don't merge
@@ -147,7 +147,7 @@ pub impl @core.Renderable for Block with unparse(self) {
 }
 
 ///|
-pub impl @core.TreeNode for Inline with children(self) {
+pub impl @core.TreeNode for Inline with fn children(self) {
   match self {
     Bold(children) | Italic(children) | Link(children, _) => children
     _ => []
@@ -155,7 +155,7 @@ pub impl @core.TreeNode for Inline with children(self) {
 }
 
 ///|
-pub impl @core.TreeNode for Inline with same_kind(self, other) {
+pub impl @core.TreeNode for Inline with fn same_kind(self, other) {
   match (self, other) {
     (Text(_), Text(_)) => true
     (Bold(_), Bold(_)) => true
@@ -168,7 +168,7 @@ pub impl @core.TreeNode for Inline with same_kind(self, other) {
 }
 
 ///|
-pub impl @core.Renderable for Inline with kind_tag(self) {
+pub impl @core.Renderable for Inline with fn kind_tag(self) {
   match self {
     Text(_) => "Text"
     Bold(_) => "Bold"
@@ -180,7 +180,7 @@ pub impl @core.Renderable for Inline with kind_tag(self) {
 }
 
 ///|
-pub impl @core.Renderable for Inline with label(self) {
+pub impl @core.Renderable for Inline with fn label(self) {
   match self {
     Text(s) => if s.length() > 30 { s[:30].to_owned() + "..." } else { s }
     Bold(children) => "**" + inline_text(children) + "**"
@@ -192,11 +192,11 @@ pub impl @core.Renderable for Inline with label(self) {
 }
 
 ///|
-pub impl @core.Renderable for Inline with placeholder(_self) {
+pub impl @core.Renderable for Inline with fn placeholder(_self) {
   "..."
 }
 
 ///|
-pub impl @core.Renderable for Inline with unparse(self) {
+pub impl @core.Renderable for Inline with fn unparse(self) {
   inline_text([self])
 }

@@ -4,7 +4,7 @@
 pub(all) struct RawKind(Int) derive(Eq, Hash, Compare, Debug)
 
 ///|
-pub impl Show for RawKind with output(self, logger) {
+pub impl Show for RawKind with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -63,7 +63,7 @@ pub fn CstToken::text_len(self : CstToken) -> Int {
 /// suffered O(n²) total equality cost because every `CstNode::Eq` call
 /// recursively compared all descendant tokens by value.
 /// See ADR `docs/decisions/2026-03-14-physical-equal-interner.md`.
-pub impl Eq for CstToken with equal(self, other) {
+pub impl Eq for CstToken with fn equal(self, other) {
   if physical_equal(self, other) {
     return true
   }
@@ -77,7 +77,7 @@ pub impl Eq for CstToken with equal(self, other) {
 /// **Stability guarantee:** The `Hash` output is the cached structural hash
 /// (`combine_hash(RawKind.inner, string_hash(text))`). This value is stable
 /// as long as `combine_hash` and `string_hash` are stable.
-pub impl Hash for CstToken with hash_combine(self, hasher) {
+pub impl Hash for CstToken with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
 }
 
@@ -106,7 +106,7 @@ pub fn CstElement::kind(self : CstElement) -> RawKind {
 }
 
 ///|
-pub impl Eq for CstElement with equal(self, other) {
+pub impl Eq for CstElement with fn equal(self, other) {
   match (self, other) {
     (Token(a), Token(b)) => a == b
     (Node(a), Node(b)) => a == b
@@ -119,7 +119,7 @@ pub impl Eq for CstElement with equal(self, other) {
 /// This is intentionally different from child_hash():
 /// - child_hash() is used only for internal cached structural hashing in CstNode::new
 /// - Hash trait output adds a variant tag for safer external hash-table usage
-pub impl Hash for CstElement with hash_combine(self, hasher) {
+pub impl Hash for CstElement with fn hash_combine(self, hasher) {
   let h = match self {
     Token(t) => combine_hash(1, t.hash)
     Node(n) => combine_hash(2, n.hash)
@@ -294,7 +294,7 @@ pub fn CstNode::kind(self : CstNode) -> RawKind {
 ///
 /// Measured: 320-let chain initial parse went from 3.72ms to 662µs (5.6x).
 /// See ADR `docs/decisions/2026-03-14-physical-equal-interner.md`.
-pub impl Eq for CstNode with equal(self, other) {
+pub impl Eq for CstNode with fn equal(self, other) {
   if physical_equal(self, other) {
     return true
   }
@@ -318,7 +318,7 @@ pub impl Eq for CstNode with equal(self, other) {
 /// **Stability guarantee:** The `Hash` output is the cached structural content
 /// hash, derived recursively from `kind` and each child's variant-tagged hash
 /// via `combine_hash`. Stable as long as `combine_hash` is stable.
-pub impl Hash for CstNode with hash_combine(self, hasher) {
+pub impl Hash for CstNode with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
 }
 

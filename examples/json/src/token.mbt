@@ -17,7 +17,7 @@ pub(all) enum Token {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Token with output(self, logger) {
+pub impl Show for Token with fn output(self, logger) {
   logger.write_string(
     match self {
       LBrace => "{"
@@ -39,18 +39,18 @@ pub impl Show for Token with output(self, logger) {
 }
 
 ///|
-pub impl @seam.IsTrivia for Token with is_trivia(self) {
+pub impl @seam.IsTrivia for Token with fn is_trivia(self) {
   self == Whitespace
 }
 
 ///|
-pub impl @seam.IsEof for Token with is_eof(self) {
+pub impl @seam.IsEof for Token with fn is_eof(self) {
   self == EOF
 }
 
 ///|
 /// Maps tokens to the same raw-kind space as SyntaxKind.
-pub impl @seam.ToRawKind for Token with to_raw(self) {
+pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   let n : Int = match self {
     LBrace => 0
     RBrace => 1

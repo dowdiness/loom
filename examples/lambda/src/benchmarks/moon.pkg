@@ -1,10 +1,10 @@
 import {
-  "dowdiness/loom/core" @core,
+  "dowdiness/loom/core",
   "dowdiness/lambda/lexer",
-  "dowdiness/lambda" @lambda,
+  "dowdiness/lambda",
   "dowdiness/loom/incremental",
   "dowdiness/lambda/token",
-  "dowdiness/seam" @seam,
+  "dowdiness/seam",
   "moonbitlang/core/bench",
-  "dowdiness/loom" @loom,
+  "dowdiness/loom",
 }

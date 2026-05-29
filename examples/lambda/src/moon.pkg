@@ -4,19 +4,19 @@ import {
   "dowdiness/lambda/token",
   "dowdiness/lambda/syntax",
   "dowdiness/lambda/typecheck",
-  "dowdiness/incr" @incr,
-  "dowdiness/loom/core" @core,
-  "dowdiness/loom/viz" @viz,
+  "dowdiness/incr",
+  "dowdiness/loom/core",
+  "dowdiness/loom/viz",
   "moonbitlang/core/debug",
-  "dowdiness/seam" @seam,
+  "dowdiness/seam",
   "moonbitlang/core/string",
-  "dowdiness/loom" @loom,
-  "dowdiness/loom/incremental" @incremental,
+  "dowdiness/loom",
+  "dowdiness/loom/incremental",
 }
 
 import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/quickcheck" @qc,
-  "dowdiness/pretty" @pretty,
+  "dowdiness/pretty",
   "dowdiness/event-graph-walker/text" @egw,
 } for "test"

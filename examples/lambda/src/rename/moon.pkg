@@ -1,21 +1,21 @@
 import {
-  "dowdiness/seam" @seam,
-  "dowdiness/lambda/callers" @callers,
-  "dowdiness/lambda/syntax" @syntax,
-  "dowdiness/loom/core" @core,
+  "dowdiness/seam",
+  "dowdiness/lambda/callers",
+  "dowdiness/lambda/syntax",
+  "dowdiness/loom/core",
   "moonbitlang/core/hashset",
   "moonbitlang/core/debug",
 }
 
 import {
-  "dowdiness/seam" @seam,
-  "dowdiness/lambda" @lambda,
-  "dowdiness/loom" @loom,
-  "dowdiness/incr" @incr,
+  "dowdiness/seam",
+  "dowdiness/lambda",
+  "dowdiness/loom",
+  "dowdiness/incr",
 } for "test"
 
 import {
-  "dowdiness/lambda" @lambda,
-  "dowdiness/loom" @loom,
-  "dowdiness/incr" @incr,
+  "dowdiness/lambda",
+  "dowdiness/loom",
+  "dowdiness/incr",
 } for "wbtest"

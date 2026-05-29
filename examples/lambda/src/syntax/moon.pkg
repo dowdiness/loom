@@ -1,4 +1,4 @@
 import {
-  "dowdiness/seam" @seam,
+  "dowdiness/seam",
   "moonbitlang/core/debug",
 }

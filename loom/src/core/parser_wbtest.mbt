@@ -315,7 +315,7 @@ struct FooView {
 }
 
 ///|
-impl AstView for FooView with syntax_node(self) {
+impl AstView for FooView with fn syntax_node(self) {
   self.node
 }
 
@@ -340,22 +340,22 @@ enum TestTok {
 } derive(Eq, Debug)
 
 ///|
-impl Show for TestTok with output(self, logger) {
+impl Show for TestTok with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-impl @seam.IsTrivia for TestTok with is_trivia(self) {
+impl @seam.IsTrivia for TestTok with fn is_trivia(self) {
   self == Ws
 }
 
 ///|
-impl @seam.IsEof for TestTok with is_eof(self) {
+impl @seam.IsEof for TestTok with fn is_eof(self) {
   self == TokEof
 }
 
 ///|
-impl @seam.ToRawKind for TestTok with to_raw(self) {
+impl @seam.ToRawKind for TestTok with fn to_raw(self) {
   let n = match self {
     Num(_) => 0
     Plus => 1
@@ -391,7 +391,7 @@ fn test_kind_raw(k : TestKind) -> @seam.RawKind {
 }
 
 ///|
-impl @seam.ToRawKind for TestKind with to_raw(self) {
+impl @seam.ToRawKind for TestKind with fn to_raw(self) {
   test_kind_raw(self)
 }
 

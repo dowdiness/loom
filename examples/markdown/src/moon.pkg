@@ -1,7 +1,7 @@
 import {
-  "dowdiness/loom/core" @core,
-  "dowdiness/seam" @seam,
-  "dowdiness/loom" @loom,
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "dowdiness/loom",
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
 }

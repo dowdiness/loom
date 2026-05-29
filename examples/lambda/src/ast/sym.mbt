@@ -37,78 +37,78 @@
 /// run on well-typed trees (e.g. an evaluator after type checking) can
 /// implement these two methods as abort().
 pub(open) trait TermSym {
-  int_lit(Int) -> Self
-  variable(VarName) -> Self
-  lam(VarName, Self) -> Self
-  app(Self, Self) -> Self
-  bop(Bop, Self, Self) -> Self
-  if_then_else(Self, Self, Self) -> Self
-  mod(Array[(VarName, Self)], Self) -> Self
-  unit() -> Self
+  fn int_lit(Int) -> Self
+  fn variable(VarName) -> Self
+  fn lam(VarName, Self) -> Self
+  fn app(Self, Self) -> Self
+  fn bop(Bop, Self, Self) -> Self
+  fn if_then_else(Self, Self, Self) -> Self
+  fn mod(Array[(VarName, Self)], Self) -> Self
+  fn unit() -> Self
   /// Name that failed name resolution. Implement as abort() if you only
   /// process well-resolved trees.
-  unbound(VarName) -> Self
+  fn unbound(VarName) -> Self
   /// Parse-error recovery node. Implement as abort() if you only process
   /// syntactically valid trees.
-  error_term(String) -> Self
+  fn error_term(String) -> Self
   /// Typed hole placeholder. Implement as abort() if you only process
   /// complete programs.
-  hole(Int) -> Self
+  fn hole(Int) -> Self
 }
 
 ///|
 /// Term is the identity interpretation: constructing via TermSym returns Term.
-pub impl TermSym for Term with int_lit(n) {
+pub impl TermSym for Term with fn int_lit(n) {
   Int(n)
 }
 
 ///|
-pub impl TermSym for Term with variable(x) {
+pub impl TermSym for Term with fn variable(x) {
   Var(x)
 }
 
 ///|
-pub impl TermSym for Term with lam(x, body) {
+pub impl TermSym for Term with fn lam(x, body) {
   Lam(x, body)
 }
 
 ///|
-pub impl TermSym for Term with app(f, a) {
+pub impl TermSym for Term with fn app(f, a) {
   App(f, a)
 }
 
 ///|
-pub impl TermSym for Term with bop(op, l, r) {
+pub impl TermSym for Term with fn bop(op, l, r) {
   Bop(op, l, r)
 }
 
 ///|
-pub impl TermSym for Term with if_then_else(c, t, e) {
+pub impl TermSym for Term with fn if_then_else(c, t, e) {
   If(c, t, e)
 }
 
 ///|
-pub impl TermSym for Term with mod(defs, body) {
+pub impl TermSym for Term with fn mod(defs, body) {
   Module(defs, body)
 }
 
 ///|
-pub impl TermSym for Term with unit() {
+pub impl TermSym for Term with fn unit() {
   Unit
 }
 
 ///|
-pub impl TermSym for Term with unbound(x) {
+pub impl TermSym for Term with fn unbound(x) {
   Unbound(x)
 }
 
 ///|
-pub impl TermSym for Term with error_term(msg) {
+pub impl TermSym for Term with fn error_term(msg) {
   Error(msg)
 }
 
 ///|
-pub impl TermSym for Term with hole(n) {
+pub impl TermSym for Term with fn hole(n) {
   Hole(n)
 }
 
@@ -120,27 +120,27 @@ pub(all) struct Pretty {
 }
 
 ///|
-pub impl TermSym for Pretty with int_lit(n) {
+pub impl TermSym for Pretty with fn int_lit(n) {
   { repr: n.to_string() }
 }
 
 ///|
-pub impl TermSym for Pretty with variable(x) {
+pub impl TermSym for Pretty with fn variable(x) {
   { repr: x }
 }
 
 ///|
-pub impl TermSym for Pretty with lam(x, body) {
+pub impl TermSym for Pretty with fn lam(x, body) {
   { repr: "(λ\{x}. \{body.repr})" }
 }
 
 ///|
-pub impl TermSym for Pretty with app(f, a) {
+pub impl TermSym for Pretty with fn app(f, a) {
   { repr: "(\{f.repr} \{a.repr})" }
 }
 
 ///|
-pub impl TermSym for Pretty with bop(op, l, r) {
+pub impl TermSym for Pretty with fn bop(op, l, r) {
   let sym = match op {
     Plus => "+"
     Minus => "-"
@@ -149,34 +149,34 @@ pub impl TermSym for Pretty with bop(op, l, r) {
 }
 
 ///|
-pub impl TermSym for Pretty with if_then_else(c, t, e) {
+pub impl TermSym for Pretty with fn if_then_else(c, t, e) {
   { repr: "if \{c.repr} then \{t.repr} else \{e.repr}" }
 }
 
 ///|
-pub impl TermSym for Pretty with mod(defs, body) {
+pub impl TermSym for Pretty with fn mod(defs, body) {
   let parts : Array[String] = defs.map(fn(d) { "let \{d.0} = \{d.1.repr}" })
   parts.push(body.repr)
   { repr: parts.join("\n") }
 }
 
 ///|
-pub impl TermSym for Pretty with unit() {
+pub impl TermSym for Pretty with fn unit() {
   { repr: "()" }
 }
 
 ///|
-pub impl TermSym for Pretty with unbound(x) {
+pub impl TermSym for Pretty with fn unbound(x) {
   { repr: "<unbound: \{x}>" }
 }
 
 ///|
-pub impl TermSym for Pretty with error_term(msg) {
+pub impl TermSym for Pretty with fn error_term(msg) {
   { repr: "<error: \{msg}>" }
 }
 
 ///|
-pub impl TermSym for Pretty with hole(_n) {
+pub impl TermSym for Pretty with fn hole(_n) {
   { repr: "_" }
 }
 

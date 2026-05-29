@@ -7,16 +7,16 @@
 /// Implement in your language package; the generic `to_dot` renderer does the rest.
 pub(open) trait DotNode {
   /// Unique integer id — used as the DOT node name (`node<id>`).
-  node_id(Self) -> Int
+  fn node_id(Self) -> Int
   /// Raw label text; the renderer escapes it for DOT before writing.
-  label(Self) -> String
+  fn label(Self) -> String
   /// Extra DOT style attributes, e.g. `color="#c586c0", fillcolor="#c586c022"`.
   /// Return "" to use the default graph-wide node style.
-  node_attrs(Self) -> String
+  fn node_attrs(Self) -> String
   /// Child nodes in traversal order.
-  children(Self) -> Array[Self]
+  fn children(Self) -> Array[Self]
   /// Label for the i-th outgoing edge, or "" for no label.
-  edge_label(Self, Int) -> String
+  fn edge_label(Self, Int) -> String
 }
 
 ///|

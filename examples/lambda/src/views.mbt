@@ -30,7 +30,7 @@ pub fn LambdaExprView::cast(n : @seam.SyntaxNode) -> LambdaExprView? {
 }
 
 ///|
-pub impl @core.AstView for LambdaExprView with syntax_node(self) {
+pub impl @core.AstView for LambdaExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -47,7 +47,7 @@ pub fn LambdaExprView::body(self : LambdaExprView) -> @seam.SyntaxNode? {
 }
 
 ///|
-pub impl ToJson for LambdaExprView with to_json(self) -> Json {
+pub impl ToJson for LambdaExprView with fn to_json(self) -> Json {
   let body_json : Json = match self.body() {
     Some(b) => b.to_json()
     None => Json::null()
@@ -78,7 +78,7 @@ pub fn AppExprView::cast(n : @seam.SyntaxNode) -> AppExprView? {
 }
 
 ///|
-pub impl @core.AstView for AppExprView with syntax_node(self) {
+pub impl @core.AstView for AppExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -104,7 +104,7 @@ pub fn AppExprView::args(self : AppExprView) -> Array[@seam.SyntaxNode] {
 }
 
 ///|
-pub impl ToJson for AppExprView with to_json(self) -> Json {
+pub impl ToJson for AppExprView with fn to_json(self) -> Json {
   let func_json : Json = match self.func() {
     Some(n) => n.to_json()
     None => Json::null()
@@ -135,7 +135,7 @@ pub fn BinaryExprView::cast(n : @seam.SyntaxNode) -> BinaryExprView? {
 }
 
 ///|
-pub impl @core.AstView for BinaryExprView with syntax_node(self) {
+pub impl @core.AstView for BinaryExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -188,7 +188,7 @@ pub fn BinaryExprView::ops(self : BinaryExprView) -> Array[@ast.Bop] {
 }
 
 ///|
-pub impl ToJson for BinaryExprView with to_json(self) -> Json {
+pub impl ToJson for BinaryExprView with fn to_json(self) -> Json {
   let ops_json : Array[Json] = self
     .ops()
     .map(fn(op) {
@@ -223,7 +223,7 @@ pub fn IfExprView::cast(n : @seam.SyntaxNode) -> IfExprView? {
 }
 
 ///|
-pub impl @core.AstView for IfExprView with syntax_node(self) {
+pub impl @core.AstView for IfExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -243,7 +243,7 @@ pub fn IfExprView::else_branch(self : IfExprView) -> @seam.SyntaxNode? {
 }
 
 ///|
-pub impl ToJson for IfExprView with to_json(self) -> Json {
+pub impl ToJson for IfExprView with fn to_json(self) -> Json {
   let cond_json : Json = match self.condition() {
     Some(n) => n.to_json()
     None => Json::null()
@@ -283,7 +283,7 @@ pub fn ParenExprView::cast(n : @seam.SyntaxNode) -> ParenExprView? {
 }
 
 ///|
-pub impl @core.AstView for ParenExprView with syntax_node(self) {
+pub impl @core.AstView for ParenExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -293,7 +293,7 @@ pub fn ParenExprView::inner(self : ParenExprView) -> @seam.SyntaxNode? {
 }
 
 ///|
-pub impl ToJson for ParenExprView with to_json(self) -> Json {
+pub impl ToJson for ParenExprView with fn to_json(self) -> Json {
   let inner_json : Json = match self.inner() {
     Some(n) => n.to_json()
     None => Json::null()
@@ -323,7 +323,7 @@ pub fn IntLiteralView::cast(n : @seam.SyntaxNode) -> IntLiteralView? {
 }
 
 ///|
-pub impl @core.AstView for IntLiteralView with syntax_node(self) {
+pub impl @core.AstView for IntLiteralView with fn syntax_node(self) {
   self.node
 }
 
@@ -341,7 +341,7 @@ pub fn IntLiteralView::value(self : IntLiteralView) -> Int? {
 }
 
 ///|
-pub impl ToJson for IntLiteralView with to_json(self) -> Json {
+pub impl ToJson for IntLiteralView with fn to_json(self) -> Json {
   let v : Int = self.value().unwrap_or(0)
   {
     "kind": "IntLiteral",
@@ -368,7 +368,7 @@ pub fn VarRefView::cast(n : @seam.SyntaxNode) -> VarRefView? {
 }
 
 ///|
-pub impl @core.AstView for VarRefView with syntax_node(self) {
+pub impl @core.AstView for VarRefView with fn syntax_node(self) {
   self.node
 }
 
@@ -378,7 +378,7 @@ pub fn VarRefView::name(self : VarRefView) -> String {
 }
 
 ///|
-pub impl ToJson for VarRefView with to_json(self) -> Json {
+pub impl ToJson for VarRefView with fn to_json(self) -> Json {
   {
     "kind": "VarRef",
     "name": self.name(),
@@ -404,7 +404,7 @@ pub fn LetDefView::cast(n : @seam.SyntaxNode) -> LetDefView? {
 }
 
 ///|
-pub impl @core.AstView for LetDefView with syntax_node(self) {
+pub impl @core.AstView for LetDefView with fn syntax_node(self) {
   self.node
 }
 
@@ -451,7 +451,7 @@ pub fn LetDefView::params(self : LetDefView) -> Array[String] {
 }
 
 ///|
-pub impl ToJson for LetDefView with to_json(self) -> Json {
+pub impl ToJson for LetDefView with fn to_json(self) -> Json {
   let init_json : Json = match self.init() {
     Some(n) => n.to_json()
     None => Json::null()
@@ -482,7 +482,7 @@ pub fn TypeAnnotView::cast(n : @seam.SyntaxNode) -> TypeAnnotView? {
 }
 
 ///|
-pub impl @core.AstView for TypeAnnotView with syntax_node(self) {
+pub impl @core.AstView for TypeAnnotView with fn syntax_node(self) {
   self.node
 }
 

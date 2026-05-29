@@ -12,9 +12,9 @@
 /// rather than on an extracted key field.
 priv trait OffsetIndexed {
   /// Total number of elements in the sorted sequence.
-  length(Self) -> Int
+  fn length(Self) -> Int
   /// The sort key (code-unit offset) at index i. Must be non-decreasing in i.
-  offset_at(Self, Int) -> Int
+  fn offset_at(Self, Int) -> Int
 }
 
 ///|
@@ -1053,5 +1053,5 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 ///   pub fn LambdaExprView::cast(n : @seam.SyntaxNode) -> LambdaExprView? { ... }
 pub(open) trait AstView {
   /// Return the underlying raw SyntaxNode.
-  syntax_node(Self) -> @seam.SyntaxNode
+  fn syntax_node(Self) -> @seam.SyntaxNode
 }

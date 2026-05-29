@@ -7,7 +7,7 @@
 // proj_traits_mechanical.mbt. Structural source of truth is in sym.mbt.
 
 ///|
-pub impl @loomcore.Renderable for Term with label(self) {
+pub impl @loomcore.Renderable for Term with fn label(self) {
   match self {
     Int(n) => n.to_string()
     Var(name) => name
@@ -27,7 +27,7 @@ pub impl @loomcore.Renderable for Term with label(self) {
 }
 
 ///|
-pub impl @loomcore.Renderable for Term with placeholder(self) {
+pub impl @loomcore.Renderable for Term with fn placeholder(self) {
   match self {
     // Carve-outs (hand-written): placeholder semantics do not align with
     // pretty-printing the canonical instance.
@@ -48,6 +48,6 @@ pub impl @loomcore.Renderable for Term with placeholder(self) {
 }
 
 ///|
-pub impl @loomcore.Renderable for Term with unparse(self) {
+pub impl @loomcore.Renderable for Term with fn unparse(self) {
   print_term(self)
 }

@@ -14,9 +14,9 @@
 /// as the `Self` type — the compiler guarantees unboxing. Near 1.0x vs
 /// hand-written when leaf work is non-trivial (e.g., `text.length()`).
 pub(open) trait Folder {
-  fold_token(CstToken) -> Self
-  fold_combine(Self, Self) -> Self
-  fold_empty() -> Self
+  fn fold_token(CstToken) -> Self
+  fn fold_combine(Self, Self) -> Self
+  fn fold_empty() -> Self
 }
 
 ///|
@@ -28,9 +28,9 @@ pub(open) trait Folder {
 /// calls per element (tf_init + tf_child); will improve when MoonBit
 /// adds trait method body inlining.
 pub(open) trait TransformFolder {
-  tf_token(CstToken) -> Self
-  tf_init(RawKind) -> Self
-  tf_child(Self, Self) -> Self
+  fn tf_token(CstToken) -> Self
+  fn tf_init(RawKind) -> Self
+  fn tf_child(Self, Self) -> Self
 }
 
 ///|
@@ -70,22 +70,22 @@ pub fn[R : TransformFolder] CstElement::accept_transform_fold(
 pub(all) struct TextLen(Int) derive(Debug)
 
 ///|
-pub impl Show for TextLen with output(self, logger) {
+pub impl Show for TextLen with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Folder for TextLen with fold_token(token) {
+pub impl Folder for TextLen with fn fold_token(token) {
   TextLen(token.text.length())
 }
 
 ///|
-pub impl Folder for TextLen with fold_combine(self, other) {
+pub impl Folder for TextLen with fn fold_combine(self, other) {
   TextLen(self.0 + other.0)
 }
 
 ///|
-pub impl Folder for TextLen with fold_empty() {
+pub impl Folder for TextLen with fn fold_empty() {
   TextLen(0)
 }
 
@@ -94,21 +94,21 @@ pub impl Folder for TextLen with fold_empty() {
 pub(all) struct NodeCount(Int) derive(Debug)
 
 ///|
-pub impl Show for NodeCount with output(self, logger) {
+pub impl Show for NodeCount with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl TransformFolder for NodeCount with tf_token(_token) {
+pub impl TransformFolder for NodeCount with fn tf_token(_token) {
   NodeCount(1)
 }
 
 ///|
-pub impl TransformFolder for NodeCount with tf_init(_kind) {
+pub impl TransformFolder for NodeCount with fn tf_init(_kind) {
   NodeCount(1)
 }
 
 ///|
-pub impl TransformFolder for NodeCount with tf_child(acc, child) {
+pub impl TransformFolder for NodeCount with fn tf_child(acc, child) {
   NodeCount(acc.0 + child.0)
 }

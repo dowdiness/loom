@@ -15,6 +15,61 @@ concurrency:
 # path that depends on event-graph-walker.
 
 jobs:
+  fmt-check:
+    name: Format Check ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: loom
+            path: loom
+          - name: text-change
+            path: text-change
+          - name: moji
+            path: moji
+          - name: seam
+            path: seam
+          - name: incr
+            path: incr
+          - name: egglog
+            path: egglog
+          - name: event-graph-walker
+            path: event-graph-walker
+          - name: pretty
+            path: pretty
+          - name: examples-lambda
+            path: examples/lambda
+          - name: examples-json
+            path: examples/json
+          - name: examples-markdown
+            path: examples/markdown
+          - name: egraph
+            path: egraph
+    env:
+      NEW_MOON_MOD: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: ${{ matrix.path }}
+        run: moon update
+
+      - name: moon fmt --check
+        working-directory: ${{ matrix.path }}
+        run: moon fmt --check
+
   test-modules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -78,11 +133,16 @@ jobs:
     name: All Checks Passed
     runs-on: ubuntu-latest
     needs:
+      - fmt-check
       - test-modules
     if: always()
     steps:
       - name: Verify all jobs succeeded
         run: |
+          if [[ "${{ needs.fmt-check.result }}" != "success" ]]; then
+            echo "fmt-check job failed"
+            exit 1
+          fi
           if [[ "${{ needs.test-modules.result }}" != "success" ]]; then
             echo "test-modules job failed"
             exit 1

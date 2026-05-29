@@ -18,7 +18,7 @@ pub(all) enum Cmd[A] {
 } derive(Debug, Eq)
 
 ///|
-pub impl[A : Debug] Show for Cmd[A] with output(self, logger) {
+pub impl[A : Debug] Show for Cmd[A] with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

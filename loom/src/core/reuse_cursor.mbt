@@ -151,12 +151,12 @@ pub struct ReuseCursor[T, K] {
 // OffsetIndexed for Array[OldToken]: lets lower_bound search the flattened
 // old-tree token list by code-unit offset. Sorted by construction — collect_old_tokens
 // walks the tree left-to-right so .start values are strictly increasing.
-impl OffsetIndexed for Array[OldToken] with length(self) {
+impl OffsetIndexed for Array[OldToken] with fn length(self) {
   self.length()
 }
 
 ///|
-impl OffsetIndexed for Array[OldToken] with offset_at(self, i) {
+impl OffsetIndexed for Array[OldToken] with fn offset_at(self, i) {
   self[i].start
 }
 
@@ -423,12 +423,12 @@ fn[T, K] old_follow_token_lazy(
 // cursor. Sorted by tokenizer contract — tokens are emitted left-to-right.
 // [T, K] on impl propagates the cursor's type parameters; the methods only use
 // Self and Int so no additional constraints are needed.
-impl[T, K] OffsetIndexed for ReuseCursor[T, K] with length(self) {
+impl[T, K] OffsetIndexed for ReuseCursor[T, K] with fn length(self) {
   self.token_count
 }
 
 ///|
-impl[T, K] OffsetIndexed for ReuseCursor[T, K] with offset_at(self, i) {
+impl[T, K] OffsetIndexed for ReuseCursor[T, K] with fn offset_at(self, i) {
   (self.get_start)(i)
 }
 

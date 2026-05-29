@@ -13,27 +13,27 @@ struct TestNode {
 }
 
 ///|
-impl DotNode for TestNode with node_id(self) {
+impl DotNode for TestNode with fn node_id(self) {
   self.id
 }
 
 ///|
-impl DotNode for TestNode with label(self) {
+impl DotNode for TestNode with fn label(self) {
   self.lbl
 }
 
 ///|
-impl DotNode for TestNode with node_attrs(self) {
+impl DotNode for TestNode with fn node_attrs(self) {
   self.attrs
 }
 
 ///|
-impl DotNode for TestNode with children(self) {
+impl DotNode for TestNode with fn children(self) {
   self.kids
 }
 
 ///|
-impl DotNode for TestNode with edge_label(self, i) {
+impl DotNode for TestNode with fn edge_label(self, i) {
   if i < self.elabels.length() {
     self.elabels[i]
   } else {

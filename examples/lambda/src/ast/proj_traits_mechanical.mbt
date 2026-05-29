@@ -10,12 +10,12 @@
 // Do NOT add display logic here — that belongs in proj_traits.mbt.
 
 ///|
-pub impl @loomcore.TreeNode for Term with children(self) {
+pub impl @loomcore.TreeNode for Term with fn children(self) {
   children_of(self)
 }
 
 ///|
-pub impl @loomcore.TreeNode for Term with same_kind(self, other) {
+pub impl @loomcore.TreeNode for Term with fn same_kind(self, other) {
   match (self, other) {
     (Int(_), Int(_)) => true
     (Var(_), Var(_)) => true
@@ -33,7 +33,7 @@ pub impl @loomcore.TreeNode for Term with same_kind(self, other) {
 }
 
 ///|
-pub impl @loomcore.Renderable for Term with kind_tag(self) {
+pub impl @loomcore.Renderable for Term with fn kind_tag(self) {
   match self {
     Int(_) => "Int"
     Var(_) => "Var"

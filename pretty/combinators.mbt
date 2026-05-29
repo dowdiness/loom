@@ -46,7 +46,7 @@ pub fn[A] annotate(ann : A, doc : Layout[A]) -> Layout[A] {
 }
 
 ///|
-pub impl[A] Add for Layout[A] with add(self, other) {
+pub impl[A] Add for Layout[A] with fn add(self, other) {
   Concat(self, other)
 }
 

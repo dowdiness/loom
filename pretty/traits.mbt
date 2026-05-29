@@ -2,14 +2,14 @@
 /// Compact parseable text that roundtrips through the parser.
 /// `parse(to_source(term)) == term` must hold.
 pub(open) trait Source {
-  to_source(Self) -> String
+  fn to_source(Self) -> String
 }
 
 ///|
 /// Width-aware formatted layout with syntax annotations.
 /// Use `pretty_print` for String output, `pretty_spans` for editor spans.
 pub(open) trait Pretty {
-  to_layout(Self) -> Layout[SyntaxCategory]
+  fn to_layout(Self) -> Layout[SyntaxCategory]
 }
 
 ///|
