@@ -240,24 +240,41 @@ pub fn SyntaxNode::children_from(
 }
 
 ///|
+/// Iterator over all direct visible children as positioned `SyntaxElement`s,
+/// preserving source order.
+///
+/// `RepeatGroup` nodes are transparent: their children are yielded as direct
+/// visible children of `self`, and the `RepeatGroup` wrapper itself is skipped.
+/// Non-repeat child nodes are yielded without recursively traversing into them.
+///
+/// The iterator is single-pass. Request a fresh iterator from the node when you
+/// need to traverse the visible children again.
+pub fn SyntaxNode::direct_elements_iter(
+  self : SyntaxNode,
+) -> Iter[SyntaxElement] {
+  let iter = self.cst.direct_elements_iter()
+  let mut pos = self.offset
+  Iter::new(() => {
+    match iter.next() {
+      Some(CstElement::Node(child)) => {
+        let elem = SyntaxElement::Node(SyntaxNode::new(child, Some(self), pos))
+        pos = pos + child.text_len
+        Some(elem)
+      }
+      Some(CstElement::Token(tok)) => {
+        let elem = SyntaxElement::Token(SyntaxToken::new(tok, pos))
+        pos = pos + tok.text_len()
+        Some(elem)
+      }
+      None => None
+    }
+  })
+}
+
+///|
 /// All direct children as `SyntaxElement`s, preserving token order.
 pub fn SyntaxNode::all_children(self : SyntaxNode) -> Array[SyntaxElement] {
-  let result : Array[SyntaxElement] = []
-  walk_children_flat(
-    self.cst.children,
-    self,
-    self.offset,
-    fn(child, parent, pos) {
-      result.push(
-        SyntaxElement::Node(SyntaxNode::new(child, Some(parent), pos)),
-      )
-    },
-    fn(tok, pos) {
-      result.push(SyntaxElement::Token(SyntaxToken::new(tok, pos)))
-    },
-  )
-  |> ignore
-  result
+  self.direct_elements_iter().collect()
 }
 
 ///|

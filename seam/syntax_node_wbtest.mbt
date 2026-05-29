@@ -69,6 +69,68 @@ test "SyntaxNode::all_children includes tokens and nodes" {
 }
 
 ///|
+test "SyntaxNode::direct_elements_iter preserves mixed order and offsets" {
+  let leading = CstToken::CstToken(RawKind(1), "a")
+  let inner = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::CstToken(RawKind(3), "bb")),
+  ])
+  let repeated = CstNode::new(repeat_group_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(4), "c")),
+    CstElement::Node(
+      CstNode::new(RawKind(5), [
+        CstElement::Token(CstToken::CstToken(RawKind(6), "de")),
+      ]),
+    ),
+  ])
+  let trailing = CstToken::CstToken(RawKind(7), "f")
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(leading),
+    CstElement::Node(inner),
+    CstElement::Node(repeated),
+    CstElement::Token(trailing),
+  ])
+  let sn = SyntaxNode::from_cst_at(root, 10)
+  let seen = sn
+    .direct_elements_iter()
+    .map(elem => {
+      match elem {
+        SyntaxElement::Token(tok) => {
+          let kind = tok.kind()
+          "token:" +
+          kind.0.to_string() +
+          ":" +
+          tok.text() +
+          "@" +
+          tok.start().to_string() +
+          "-" +
+          tok.end().to_string()
+        }
+        SyntaxElement::Node(node) => {
+          let kind = node.kind()
+          "node:" +
+          kind.0.to_string() +
+          "@" +
+          node.start().to_string() +
+          "-" +
+          node.end().to_string()
+        }
+      }
+    })
+    .collect()
+
+  inspect(
+    seen.join("|"),
+    content="token:1:a@10-11|node:2@11-13|token:4:c@13-14|node:5@14-16|token:7:f@16-17",
+  )
+}
+
+///|
+test "SyntaxNode::direct_elements_iter returns empty iterator for empty node" {
+  let sn = SyntaxNode::from_cst_at(CstNode::new(RawKind(0), []), 42)
+  inspect(sn.direct_elements_iter().count(), content="0")
+}
+
+///|
 test "SyntaxNode::tokens returns only leaf tokens with offsets" {
   let t1 = CstToken::CstToken(RawKind(9), "ab")
   let t2 = CstToken::CstToken(RawKind(10), "cd")
