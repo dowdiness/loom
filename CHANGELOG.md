@@ -4,6 +4,14 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ## Unreleased
 
+### Changed
+
+- `dowdiness/seam`: hardened source-span/reuse APIs before stabilization.
+  `CstToken::unsafe_backing_source` and
+  `EventBuffer::push_parser_reuse_node_rebased*` carry explicit unstable,
+  parser-owned naming; the older `CstToken::source` and
+  `EventBuffer::push_reuse_node_at*` names are deprecated compatibility aliases.
+
 ### Added
 
 - `dowdiness/loom`: added stable semantic projection identity helpers

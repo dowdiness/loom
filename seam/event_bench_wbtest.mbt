@@ -49,7 +49,7 @@ fn make_reuse_at_buffer(
   let buf = EventBuffer::new()
   let mut offset = 0
   for i = 0; i < reuse_count; i = i + 1 {
-    buf.push_reuse_node_at(subtree, source, offset)
+    buf.push_parser_reuse_node_rebased(subtree, source, offset)
     offset = offset + subtree.text_len
     let _ = i
   }
@@ -94,7 +94,7 @@ test "bench: build_tree_interned with ReuseNode (re_intern_tokens_only)" (
 }
 
 ///|
-test "bench: EventBuffer push_reuse_node_at (matching source rebase)" (
+test "bench: EventBuffer push_parser_reuse_node_rebased (matching source rebase)" (
   b : @bench.T,
 ) {
   let subtree = make_reuse_subtree(100)
@@ -115,7 +115,7 @@ test "bench: EventBuffer push_reuse_node_at (matching source rebase)" (
 }
 
 ///|
-test "bench: EventBuffer push_reuse_node_at_unchecked (validated source rebase)" (
+test "bench: EventBuffer push_parser_reuse_node_rebased_unchecked (validated source rebase)" (
   b : @bench.T,
 ) {
   let subtree = make_reuse_subtree(100)
@@ -124,7 +124,7 @@ test "bench: EventBuffer push_reuse_node_at_unchecked (validated source rebase)"
   let buf = EventBuffer::new()
   let mut offset = 0
   for i = 0; i < reuse_count; i = i + 1 {
-    buf.push_reuse_node_at_unchecked(subtree, source, offset)
+    buf.push_parser_reuse_node_rebased_unchecked(subtree, source, offset)
     offset = offset + subtree.text_len
     let _ = i
   }
