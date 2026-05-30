@@ -26,14 +26,14 @@ pub let repeat_group_kind : RawKind = RawKind(-1)
 ///   for `Eq` and as the `Hash` trait output (see stability guarantees on
 ///   the `Eq` and `Hash` impls below).
 /// - `hash`, `kind`, `source`, `start`, and `end` are frozen after construction.
-///   Never mutate these fields directly; doing so invalidates the equality and
-///   hash semantics.
-pub(all) struct CstToken {
+///   Package internals must never mutate these fields after construction; doing
+///   so invalidates the equality and hash semantics.
+pub struct CstToken {
   kind : RawKind
-  source : String
-  start : Int
-  end : Int
-  hash : Int
+  priv source : String
+  priv start : Int
+  priv end : Int
+  priv hash : Int
 } derive(Debug(ignore=[String]))
 
 ///|
@@ -53,8 +53,14 @@ pub fn CstToken::text(self : CstToken) -> StringView {
 }
 
 ///|
-/// Return the source string that owns this token's text span.
-pub fn CstToken::source(self : CstToken) -> String {
+/// Return the backing source string that owns this token's text span.
+///
+/// UNSTABLE/UNSAFE API (#186): this exposes storage identity, not token
+/// content. Prefer `text()` for token content and `start_offset()` /
+/// `end_offset()` for span coordinates. This hook exists for parser-internal
+/// source-retention checks and may change before seam stabilization.
+#alias(source, deprecated="Use CstToken::text() for token content; backing-source identity is unstable. Use unsafe_backing_source only for white-box source-retention checks")
+pub fn CstToken::unsafe_backing_source(self : CstToken) -> String {
   self.source
 }
 

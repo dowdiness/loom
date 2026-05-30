@@ -809,7 +809,11 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     self.source.length()
   }
   let node_end = node_start + node.text_len
-  self.events.push_reuse_node_at_unchecked(node, self.source, node_start)
+  self.events.push_parser_reuse_node_rebased_unchecked(
+    node,
+    self.source,
+    node_start,
+  )
   let allow_eof_boundary = match self.reuse_cursor {
     None => true
     Some(cursor) => !cursor.next_sibling_has_error()

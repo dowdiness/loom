@@ -23,7 +23,7 @@ test "CstToken constructor records source span" {
     RawKind(9),
     source.view(start_offset=6, end_offset=10),
   )
-  inspect(physical_equal(t.source(), source), content="true")
+  inspect(physical_equal(t.unsafe_backing_source(), source), content="true")
   inspect(t.start_offset(), content="6")
   inspect(t.end_offset(), content="10")
   inspect(t.text(), content="beta")

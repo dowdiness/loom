@@ -1216,7 +1216,10 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
   match tree.first_token(fn(r) { r == test_kind_raw(KWs) }) {
     Some(tok) => {
       inspect(tok.text(), content="2")
-      inspect(physical_equal(tok.source(), new_src), content="true")
+      inspect(
+        physical_equal(tok.unsafe_backing_source(), new_src),
+        content="true",
+      )
       inspect(tok.start_offset(), content="0")
     }
     None => abort("expected first token")

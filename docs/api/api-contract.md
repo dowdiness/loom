@@ -37,30 +37,29 @@ pub(all) struct RawKind(Int)
 ## `CstToken`
 
 ```moonbit
-pub(all) struct CstToken {
-  kind   : RawKind
-  source : String
-  start  : Int
-  end    : Int
-  hash   : Int
+pub struct CstToken {
+  kind : RawKind
+  // private source-span and hash fields
 }
 ```
 
-**Stable.** Immutable leaf token. Token text is represented as a source span; use `text()` for the zero-copy view.
+**Stable content API, unstable backing-storage API.** Immutable leaf token. Token text is represented as a source span; use `text()` for the zero-copy content view. The backing source buffer is intentionally not part of the stable application contract.
 
-**Invariant:** `hash` equals `combine_hash(kind.inner, string_hash(text()))` and is frozen at construction. Never mutate fields directly; doing so invalidates `Eq` and `Hash` semantics.
+**Invariant:** the private cached hash equals `combine_hash(kind.inner, string_hash(text()))` and is frozen at construction. Public callers cannot mutate the backing source span or hash fields.
 
 | Symbol | Stability | Notes |
 |---|---|---|
-| `CstToken::CstToken(RawKind, StringView) -> Self` | Stable | Computes and caches `hash`; records the input view's backing source and offsets without copying |
+| `CstToken.kind : RawKind` | Stable | Read-only token kind |
+| `CstToken::CstToken(RawKind, StringView) -> Self` | Stable | Computes and caches the private hash; records the input view's backing source and offsets without copying |
 | `CstToken::new(RawKind, StringView) -> Self` | **Deprecated** | Alias for `CstToken::CstToken`; retained for compatibility |
-| `CstToken::text(Self) -> StringView` | Stable | Zero-copy view over `source[start:end]` |
-| `CstToken::source(Self) -> String` | Stable | Backing source string for the token span |
-| `CstToken::start_offset(Self) -> Int` | Stable | Start UTF-16 code-unit offset within `source` |
-| `CstToken::end_offset(Self) -> Int` | Stable | Exclusive UTF-16 code-unit end offset within `source` |
-| `CstToken::text_len(Self) -> Int` | Stable | Returns `end - start` |
+| `CstToken::text(Self) -> StringView` | Stable | Zero-copy token-content view |
+| `CstToken::unsafe_backing_source(Self) -> String` | **Unstable** | Exposes backing storage identity for parser/source-retention white-box checks only; not application API |
+| `CstToken::source(Self) -> String` | **Deprecated** | Compatibility alias for `unsafe_backing_source`; use `text()` for content |
+| `CstToken::start_offset(Self) -> Int` | Stable | Start UTF-16 code-unit offset within the backing source |
+| `CstToken::end_offset(Self) -> Int` | Stable | Exclusive UTF-16 code-unit end offset within the backing source |
+| `CstToken::text_len(Self) -> Int` | Stable | Returns `end_offset() - start_offset()` |
 | `Eq` | Stable | Hash fast-path rejection, then `kind` + `text()` deep check |
-| `Hash` | Stable | Feeds cached `hash` field into hasher |
+| `Hash` | Stable | Feeds the private cached structural hash into hasher |
 | `Debug` | Stable | Debug representation; format not guaranteed stable |
 
 ---
@@ -148,12 +147,14 @@ pub struct EventBuffer { /* private fields */ }
 | Symbol | Stability | Notes |
 |---|---|---|
 | `EventBuffer::new() -> Self` | Stable | |
-| `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any public event directly |
-| `EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit` | **Unstable** | Trusted parser-owned reuse path; rebases reused token spans onto the provided current source when text matches, otherwise falls back to owned token text |
-| `EventBuffer::push_reuse_node_at_unchecked(Self, CstNode, String, Int) -> Unit` | **Unstable** | Parser-validated reuse path; skips redundant text validation, rebases before normal tree-builder handling, and never direct-splices the old subtree |
+| `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any public event directly; application reuse should use `ParseEvent::ReuseNode` |
+| `EventBuffer::push_parser_reuse_node_rebased(Self, CstNode, String, Int) -> Unit` | **Unstable** | Trusted parser-owned source-span rebase path; rebases reused token spans onto the provided current source when text matches, otherwise falls back to owned token text |
+| `EventBuffer::push_parser_reuse_node_rebased_unchecked(Self, CstNode, String, Int) -> Unit` | **Unstable** | Parser-validated source-span rebase path; skips redundant text validation, rebases before normal tree-builder handling, and never direct-splices the old subtree |
+| `EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_reuse_node_rebased` |
+| `EventBuffer::push_reuse_node_at_unchecked(Self, CstNode, String, Int) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_reuse_node_rebased_unchecked` |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
-| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and `push_reuse_node_at`; raises on malformed event streams |
+| `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and parser-owned rebase hooks; raises on malformed event streams |
 | `EventBuffer::build_tree_interned(Self, RawKind, Interner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns tokens; deduplicates `CstToken` by `(kind, text)` using canonical owned token text |
 | `EventBuffer::build_tree_fully_interned(Self, RawKind, Interner, NodeInterner, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Interns both tokens and nodes |
 

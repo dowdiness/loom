@@ -23,7 +23,8 @@ pub(all) enum ParseEvent {
   /// trivia/error metadata and copy token text into per-token backing strings,
   /// so a source-backed reused subtree does not retain or expose an old full
   /// source buffer. Parser-owned reuse that can prove the current source span
-  /// should use `EventBuffer::push_reuse_node_at` for zero-copy rebasing.
+  /// should use `EventBuffer::push_parser_reuse_node_rebased` for zero-copy
+  /// rebasing.
   ReuseNode(CstNode)
 } derive(Debug, Eq)
 
@@ -33,10 +34,11 @@ pub(all) enum ParseEvent {
 /// The public `ParseEvent` type intentionally has no source-bearing reuse
 /// variant: callers should not be able to smuggle old full source buffers into
 /// a finished tree by direct-splicing source-backed tokens. Parser internals can
-/// append `BufferedReuseNodeAt` only through `EventBuffer::push_reuse_node_at`,
-/// where they also provide the current source and start offset. The unchecked
-/// variant is reserved for parser code that has already validated the reused
-/// node against the current token stream.
+/// append `BufferedReuseNodeAt` only through
+/// `EventBuffer::push_parser_reuse_node_rebased`, where they also provide the
+/// current source and start offset. The unchecked variant is reserved for
+/// parser code that has already validated the reused node against the current
+/// token stream.
 enum BufferedEvent {
   BufferedStartNode(RawKind)
   BufferedFinishNode
@@ -76,11 +78,11 @@ fn buffered_events_of_parse_events(
 ///
 /// The only sanctioned ways to add events are:
 /// - `push(event)` — append any `ParseEvent` directly
-/// - `push_reuse_node_at(node, source, start)` — append parser-owned reuse
-///   rebased to the current source buffer, falling back to owned token text
-///   if the source span does not match
-/// - `push_reuse_node_at_unchecked(node, source, start)` — append parser-
-///   validated reuse and skip redundant text validation during tree build
+/// - `push_parser_reuse_node_rebased(node, source, start)` — append parser-
+///   owned reuse rebased to the current source buffer, falling back to owned
+///   token text if the source span does not match
+/// - `push_parser_reuse_node_rebased_unchecked(node, source, start)` — append
+///   parser-validated reuse and skip redundant text validation during tree build
 /// - `mark()` — reserve a `Tombstone` slot and return its index
 /// - `start_at(mark, kind)` — retroactively fill a `Tombstone` with `StartNode`
 ///
@@ -174,17 +176,18 @@ pub fn EventBuffer::push(self : EventBuffer, event : ParseEvent) -> Unit {
 /// Append a parser-owned reused subtree rebased onto the current source.
 ///
 /// UNSTABLE/TRUSTED PARSER-OWNED API (#186): public only because parser
-/// internals live outside the `seam` module. Do not treat this as stable
-/// application API; before seam stabilization, decide whether it should be
-/// hidden or renamed as an unsafe/rebase-specific hook so public callers do not
-/// depend on backing-source ownership behavior.
+/// internals live outside the `seam` module. Application code should prefer
+/// `push(ParseEvent::ReuseNode(node))`, which copies token text and does not
+/// expose backing-source ownership. This hook is specifically for parser code
+/// that owns the current source buffer and wants source-span rebasing.
 ///
 /// `source_start` is the subtree's start offset in `source`. During tree build,
 /// matching reused token text is rebuilt as `StringView`s into `source`,
 /// preserving zero-copy token text without retaining the old source buffer that
 /// originally backed `node`. If the provided source span does not match the
 /// reused subtree text, tree build falls back to owned token text.
-pub fn EventBuffer::push_reuse_node_at(
+#alias(push_reuse_node_at, deprecated="Use EventBuffer::push_parser_reuse_node_rebased for parser-owned source-span rebasing; application code should use push(ParseEvent::ReuseNode(...))")
+pub fn EventBuffer::push_parser_reuse_node_rebased(
   self : EventBuffer,
   node : CstNode,
   source : String,
@@ -204,7 +207,8 @@ pub fn EventBuffer::push_reuse_node_at(
 /// current-source spans and recomputed metadata; interned builders rebase before
 /// their normal interning step. No builder direct-splices the old node, so this
 /// path does not retain the old source buffer.
-pub fn EventBuffer::push_reuse_node_at_unchecked(
+#alias(push_reuse_node_at_unchecked, deprecated="Use EventBuffer::push_parser_reuse_node_rebased_unchecked for parser-validated source-span rebasing")
+pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(
   self : EventBuffer,
   node : CstNode,
   source : String,

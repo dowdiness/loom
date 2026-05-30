@@ -62,7 +62,10 @@ test "Interner: source-backed view is copied into canonical token" {
     source.view(start_offset=6, end_offset=10),
   )
   inspect(token.text(), content="beta")
-  inspect(physical_equal(token.source(), source), content="false")
+  inspect(
+    physical_equal(token.unsafe_backing_source(), source),
+    content="false",
+  )
 }
 
 ///|
