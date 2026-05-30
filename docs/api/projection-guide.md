@@ -77,6 +77,32 @@ let new_baseline = old_baseline.advance(
 )
 ```
 
+If an authoring facade needs to survive malformed intermediate input, use
+`@loom.ProjectionIdentityTracker` to keep the identity baseline and pending
+baseline-relative edit together. `realign_success` is preview-only; call
+`commit_success` only after parser diagnostics, projection, and semantic
+lowering all succeed.
+
+```mbt nocheck
+let tracker = @loom.ProjectionIdentityTracker::from_baseline(old_baseline)
+tracker.record_failed_input(
+  malformed_source,
+  source_before_edit=old_baseline.source(),
+  edit=editor_edit,
+)
+let allocator = @loom.ProjectionStringIdAllocator::from_baseline(
+  old_baseline,
+  make_public_id,
+)
+let stable = tracker.realign_success(
+  recovered_source,
+  recovered_leaves,
+  fn(leaf) { allocator.allocate(leaf) },
+)
+// Projection/lowering succeeded; now advance the retained baseline.
+tracker.commit_success(recovered_source, stable)
+```
+
 If you already have domain items and only need IDs zipped back onto them, use
 `@loom.realign_projection_items` to combine leaf extraction, realignment, and
 reconstruction:

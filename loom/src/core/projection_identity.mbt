@@ -130,6 +130,265 @@ pub fn[Id] ProjectionIdentityBaseline::leaves(
 }
 
 ///|
+priv enum PendingProjectionIdentityChange {
+  NoProjectionIdentityChange
+  ExactProjectionIdentityEdit(Edit, String)
+  ProjectionIdentitySourceDiff
+}
+
+///|
+/// Tracks the last successful projection identity baseline across malformed
+/// intermediate input.
+///
+/// The tracker owns only identity-realignment state. Parser diagnostics,
+/// projection diagnostics, semantic documents, and lowering results remain
+/// language-owned. `realign_success` is preview-only; call `commit_success`
+/// only after parser diagnostics, projection, and semantic lowering all succeed.
+pub struct ProjectionIdentityTracker[Id] {
+  priv mut baseline : ProjectionIdentityBaseline[Id]?
+  priv mut pending : PendingProjectionIdentityChange
+}
+
+///|
+/// Create an empty projection identity tracker.
+pub fn[Id] ProjectionIdentityTracker::new() -> ProjectionIdentityTracker[Id] {
+  { baseline: None, pending: NoProjectionIdentityChange }
+}
+
+///|
+/// Create a projection identity tracker seeded from an existing last-good
+/// baseline.
+pub fn[Id] ProjectionIdentityTracker::from_baseline(
+  baseline : ProjectionIdentityBaseline[Id],
+) -> ProjectionIdentityTracker[Id] {
+  { baseline: Some(baseline), pending: NoProjectionIdentityChange }
+}
+
+///|
+/// Return the current last-good projection identity baseline, if one exists.
+pub fn[Id] ProjectionIdentityTracker::baseline(
+  self : ProjectionIdentityTracker[Id],
+) -> ProjectionIdentityBaseline[Id]? {
+  self.baseline
+}
+
+///|
+/// Record an input that failed parser diagnostics, CST projection, or semantic
+/// lowering.
+///
+/// Pass `source_before_edit` and `edit` only when `edit` is relative to the
+/// tracker's current last-good baseline source. A missing edit, a non-baseline
+/// source, or multiple failed edits degrade to source-diff fallback for the next
+/// successful projection.
+pub fn[Id] ProjectionIdentityTracker::record_failed_input(
+  self : ProjectionIdentityTracker[Id],
+  current_source : String,
+  source_before_edit? : String,
+  edit? : Edit,
+) -> Unit {
+  self.record_failed_input_with_optional_edit(
+    current_source, source_before_edit, edit,
+  )
+}
+
+///|
+/// Value-shaped counterpart to `record_failed_input` for callers that already
+/// carry optional edit state.
+pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(
+  self : ProjectionIdentityTracker[Id],
+  current_source : String,
+  source_before_edit : String?,
+  edit : Edit?,
+) -> Unit {
+  self.pending = self.pending_after_failed_input(
+    current_source, source_before_edit, edit,
+  )
+}
+
+///|
+/// Realign `next_leaves` against the retained last-good baseline without
+/// mutating the tracker.
+///
+/// If no baseline exists yet, every returned leaf receives a fresh ID from
+/// `allocate`. If a failed input was recorded, the retained pending change wins
+/// over the direct `edit` argument; otherwise `edit` is used when supplied and
+/// source-diff fallback is used when omitted.
+pub fn[Id] ProjectionIdentityTracker::realign_success(
+  self : ProjectionIdentityTracker[Id],
+  next_source : String,
+  next_leaves : Array[ProjectionLeaf],
+  allocate : (ProjectionLeaf) -> Id,
+  edit? : Edit,
+) -> Array[StableProjectionLeaf[Id]] {
+  self.realign_success_with_optional_edit(
+    next_source, next_leaves, allocate, edit,
+  )
+}
+
+///|
+/// Value-shaped counterpart to `realign_success` for callers that already carry
+/// optional edit state.
+pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(
+  self : ProjectionIdentityTracker[Id],
+  next_source : String,
+  next_leaves : Array[ProjectionLeaf],
+  allocate : (ProjectionLeaf) -> Id,
+  edit : Edit?,
+) -> Array[StableProjectionLeaf[Id]] {
+  match self.baseline {
+    None => allocate_all_projection_leaves(next_leaves, allocate)
+    Some(baseline) =>
+      realign_projection_identities_with_optional_edit(
+        baseline,
+        next_source,
+        next_leaves,
+        allocate,
+        self.edit_for_success(baseline.source(), next_source, edit),
+      )
+  }
+}
+
+///|
+/// Advance the last-good baseline after a successful parse, projection, and
+/// semantic lowering.
+///
+/// This is the only tracker operation that mutates the retained baseline or
+/// clears a pending failed-input change.
+pub fn[Id] ProjectionIdentityTracker::commit_success(
+  self : ProjectionIdentityTracker[Id],
+  next_source : String,
+  stable_leaves : Array[StableProjectionLeaf[Id]],
+) -> Unit {
+  self.baseline = Some(
+    ProjectionIdentityBaseline::new(next_source, stable_leaves),
+  )
+  self.pending = NoProjectionIdentityChange
+}
+
+///|
+fn[Id] ProjectionIdentityTracker::pending_after_failed_input(
+  self : ProjectionIdentityTracker[Id],
+  current_source : String,
+  source_before_edit : String?,
+  edit : Edit?,
+) -> PendingProjectionIdentityChange {
+  match self.baseline {
+    None => ProjectionIdentitySourceDiff
+    Some(baseline) =>
+      match self.pending {
+        NoProjectionIdentityChange =>
+          match (source_before_edit, edit) {
+            (Some(before), Some(e)) if before == baseline.source() &&
+              edit_matches_sources(before, current_source, e) =>
+              ExactProjectionIdentityEdit(e, current_source)
+            _ => ProjectionIdentitySourceDiff
+          }
+        ExactProjectionIdentityEdit(e, stored_source) =>
+          if stored_source == current_source {
+            ExactProjectionIdentityEdit(e, stored_source)
+          } else {
+            ProjectionIdentitySourceDiff
+          }
+        ProjectionIdentitySourceDiff => ProjectionIdentitySourceDiff
+      }
+  }
+}
+
+///|
+fn[Id] ProjectionIdentityTracker::edit_for_success(
+  self : ProjectionIdentityTracker[Id],
+  baseline_source : String,
+  next_source : String,
+  edit : Edit?,
+) -> Edit? {
+  match self.pending {
+    NoProjectionIdentityChange =>
+      match edit {
+        Some(e) if edit_matches_sources(baseline_source, next_source, e) =>
+          Some(e)
+        _ => None
+      }
+    ExactProjectionIdentityEdit(e, stored_source) =>
+      if stored_source == next_source &&
+        edit_matches_sources(baseline_source, next_source, e) {
+        Some(e)
+      } else {
+        None
+      }
+    ProjectionIdentitySourceDiff => None
+  }
+}
+
+///|
+fn edit_matches_sources(
+  old_source : String,
+  next_source : String,
+  edit : Edit,
+) -> Bool {
+  let old_len = old_source.length()
+  let next_len = next_source.length()
+  let old_end = edit.old_end()
+  let new_end = edit.new_end()
+  edit.start >= 0 &&
+  edit.deleted_length() >= 0 &&
+  edit.inserted_length() >= 0 &&
+  old_end <= old_len &&
+  new_end <= next_len &&
+  old_len + edit.delta() == next_len &&
+  source_prefix_matches(old_source, next_source, edit.start) &&
+  source_suffix_matches(old_source, next_source, old_end, new_end)
+}
+
+///|
+fn source_prefix_matches(
+  old_source : String,
+  next_source : String,
+  end : Int,
+) -> Bool {
+  let mut i = 0
+  while i < end {
+    if old_source[i] != next_source[i] {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn source_suffix_matches(
+  old_source : String,
+  next_source : String,
+  old_start : Int,
+  next_start : Int,
+) -> Bool {
+  let old_len = old_source.length()
+  let suffix_len = old_len - old_start
+  let mut i = 0
+  while i < suffix_len {
+    if old_source[old_start + i] != next_source[next_start + i] {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn[Id] allocate_all_projection_leaves(
+  leaves : Array[ProjectionLeaf],
+  allocate : (ProjectionLeaf) -> Id,
+) -> Array[StableProjectionLeaf[Id]] {
+  let result : Array[StableProjectionLeaf[Id]] = Array::new(
+    capacity=leaves.length(),
+  )
+  for leaf in leaves {
+    result.push(fresh_stable_projection_leaf(leaf, allocate))
+  }
+  result
+}
+
+///|
 /// Stateful allocator for projection-owned string IDs.
 ///
 /// The caller supplies `make_id`, so Loom does not impose a public ID schema.

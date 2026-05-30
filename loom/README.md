@@ -75,6 +75,7 @@ above, or [`examples/json`](../examples/json/) and
 
 // Authoring projection helpers
 @loom.ProjectionIdentityBaseline
+@loom.ProjectionIdentityTracker
 @loom.ProjectionLeaf
 @loom.StableProjectionLeaf
 @loom.ProjectionStringIdAllocator

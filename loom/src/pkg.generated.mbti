@@ -127,6 +127,8 @@ pub using @core {type PrefixLexer}
 
 pub using @core {type ProjectionIdentityBaseline}
 
+pub using @core {type ProjectionIdentityTracker}
+
 pub using @core {type ProjectionLeaf}
 
 pub using @core {type ProjectionStringIdAllocator}
