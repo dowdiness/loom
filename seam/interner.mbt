@@ -10,8 +10,10 @@
 ///
 /// Key design: two-level map (RawKind → (StringView → CstToken)).
 /// On the hot hit path, lookup uses the caller's StringView directly
-/// with zero allocation. Stored keys are auto-coerced from CstToken.text
-/// (owned String), so old source strings are not retained by the interner.
+/// with zero allocation. Misses copy the token text once into a canonical
+/// short string owned by the interner, then store both the key and token as
+/// spans into that canonical text. This keeps global interners from retaining
+/// full historical source buffers when callers pass source-backed spans.
 ///
 /// Tuple struct: single-field wrapper is automatically unboxed at runtime —
 /// Interner IS the HashMap, no wrapper allocation or indirection.
@@ -27,9 +29,10 @@ pub fn Interner::new() -> Interner {
 
 ///|
 /// Return the canonical CstToken for (kind, text).
-/// On first call for a given pair: allocates a CstToken and stores it.
-/// On subsequent calls: returns the stored object (same heap reference).
-/// Hit path is zero-alloc — StringView lookup, no String materialization.
+/// On first call for a given pair: owns one canonical copy of `text` and stores
+/// a token spanning that copy. On subsequent calls: returns the stored object
+/// (same heap reference). Hit path is zero-alloc — StringView lookup, no String
+/// materialization.
 pub fn Interner::intern_token(
   self : Interner,
   kind : RawKind,
@@ -40,15 +43,17 @@ pub fn Interner::intern_token(
       match inner.get(text) {
         Some(token) => token
         None => {
-          let token = CstToken(kind, text)
-          inner.set(token.text, token)
+          let owned = text.to_owned()
+          let token = CstToken(kind, owned)
+          inner.set(token.text(), token)
           token
         }
       }
     None => {
-      let token = CstToken(kind, text)
+      let owned = text.to_owned()
+      let token = CstToken(kind, owned)
       let inner : @hashmap.HashMap[StringView, CstToken] = @hashmap.HashMap([])
-      inner.set(token.text, token)
+      inner.set(token.text(), token)
       self.0.set(kind, inner)
       token
     }

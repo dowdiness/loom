@@ -175,7 +175,7 @@ fn collect_old_tokens(
     match child {
       @seam.CstElement::Token(t) => {
         if t.kind != ws_raw && t.kind != err_raw && t.kind != incomplete_raw {
-          out.push({ kind: t.kind, text: t.text, start: offset })
+          out.push({ kind: t.kind, text: t.text().to_owned(), start: offset })
         }
         offset = offset + t.text_len()
       }
@@ -360,8 +360,7 @@ fn[T : @seam.ToRawKind, K] leading_token_matches(
   match node.first_token(fn(r) { r == cursor.ws_raw }) {
     None => false
     Some(old_tok) =>
-      old_tok.kind == new_kind &&
-      old_tok.text.view() == (cursor.get_text)(token_pos)
+      old_tok.kind == new_kind && old_tok.text() == (cursor.get_text)(token_pos)
   }
 }
 

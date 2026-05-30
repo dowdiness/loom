@@ -278,44 +278,26 @@ seam's two-tree model IS this pattern:
 
 | | Owned ("Array") | View ("ArrayView") |
 |--|----------------|-------------------|
-| **seam** | `CstNode` — immutable, position-independent, structurally shared | `SyntaxNode` — ephemeral positioned facade, created on demand |
+| **seam** | `CstNode` — immutable content tree, structurally shared | `SyntaxNode` — ephemeral positioned facade, created on demand |
 | **Purpose** | Survives across edits, shared via structural hashing | Provides offset/parent context for one-time queries |
 
 This is the red-green tree pattern from Roslyn/rust-analyzer. The "view" (`SyntaxNode`) is a lightweight wrapper `(CstNode, offset, parent?)` — no heap allocation for the tree structure itself.
 
-### Where views WOULD help next: token text as source spans
+### Where views helped: token text as source spans
 
-Currently every `CstToken` copies its text:
-
-```moonbit
-// Current: owned string copy per token
-pub(all) struct CstToken {
-  kind : RawKind
-  text : String      // ← heap-allocated copy of source substring
-  hash : Int
-}
-```
-
-With source-span views, tokens become zero-copy references into the source:
+Issue #61 changed `CstToken` from an owned text field to a source span:
 
 ```moonbit
-// Proposed: view into source text
 pub(all) struct CstToken {
   kind : RawKind
-  source : String    // shared reference to full source text
+  source : String    // shared reference to source text
   start : Int
-  end : Int          // text = source[start:end] — zero copy
+  end : Int          // text() = source[start:end] — zero copy
   hash : Int
 }
 ```
 
-This is how rust-analyzer works — every token is a `TextRange(start, end)` into the source buffer. Benefits:
-
-- **Zero string copying during lexing** — tokens just record their span
-- **Less GC pressure** — one source string shared by all tokens instead of N string copies
-- **Faster incremental re-lex** — changed span is a range comparison, not string equality
-
-This requires lexer-level integration (the lexer must thread the source string through), so it's a seam-level change, not something this research module can prototype. Tracked as #61.
+The generic parser now builds CSTs with the non-interned event builder so emitted `StringView`s remain source-backed. Parser-owned reuse events rebase reused token spans onto the current source buffer; public `ReuseNode` copies token text, and explicit interner APIs own one canonical copy per distinct `(kind, text)` pair. These paths prevent old full source buffers from being retained by reused or interned tokens.
 
 ### Where views would NOT help
 
@@ -331,7 +313,7 @@ This requires lexer-level integration (the lexer must thread the source string t
 | Use views/slices | High value — avoids copies | Mixed — bounds checking adds overhead |
 | Flat arena layout | High value — cache locality + zero fragmentation | Low value — GC compaction already reduces fragmentation |
 | String interning | Medium — avoids duplicate allocations | High — seam already does this via `Interner` |
-| Source-span tokens | High — zero copy | **High — same benefit, biggest remaining opportunity** |
+| Source-span tokens | High — zero copy | **Implemented 2026-05-30 (#61)** |
 
 The key insight: in wasm-gc, **allocation is cheap but indirection is not free**. Optimize for fewer indirections (unboxed tuple structs, mutable visitors), not fewer allocations (views, arenas).
 

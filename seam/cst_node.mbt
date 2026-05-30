@@ -18,17 +18,23 @@ pub let repeat_group_kind : RawKind = RawKind(-1)
 ///
 /// ## Invariants
 ///
-/// - `hash` is a stable structural hash computed from `kind` and `text`
-///   at construction time by `CstToken::new`. It is used as the fast-path
+/// - `source`, `start`, and `end` identify this token's text as a span into a
+///   source string. The constructor records the incoming `StringView` directly,
+///   so lexing can build tokens without copying substrings.
+/// - `hash` is a stable structural hash computed from `kind` and `text()`
+///   at construction time by `CstToken::CstToken`. It is used as the fast-path
 ///   for `Eq` and as the `Hash` trait output (see stability guarantees on
 ///   the `Eq` and `Hash` impls below).
-/// - `hash`, `kind`, and `text` are frozen after construction. Never mutate
-///   these fields directly; doing so invalidates the equality and hash semantics.
+/// - `hash`, `kind`, `source`, `start`, and `end` are frozen after construction.
+///   Never mutate these fields directly; doing so invalidates the equality and
+///   hash semantics.
 pub(all) struct CstToken {
   kind : RawKind
-  text : String
+  source : String
+  start : Int
+  end : Int
   hash : Int
-} derive(Debug)
+} derive(Debug(ignore=[String]))
 
 ///|
 /// Create a CstToken. Hash is computed from kind and text.
@@ -36,25 +42,50 @@ pub(all) struct CstToken {
 pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
   let RawKind(k) = kind
   let h = combine_hash(k, string_hash(text))
-  { kind, text: text.to_owned(), hash: h }
+  let start = text.start_offset()
+  { kind, source: text.data(), start, end: start + text.length(), hash: h }
 }
 
 ///|
-/// Number of bytes in this token's text (`text.length()`).
+/// Return this token's text as a zero-copy view into `source`.
+pub fn CstToken::text(self : CstToken) -> StringView {
+  self.source.view(start_offset=self.start, end_offset=self.end)
+}
+
+///|
+/// Return the source string that owns this token's text span.
+pub fn CstToken::source(self : CstToken) -> String {
+  self.source
+}
+
+///|
+/// Start offset of this token's text within `source`.
+pub fn CstToken::start_offset(self : CstToken) -> Int {
+  self.start
+}
+
+///|
+/// Exclusive end offset of this token's text within `source`.
+pub fn CstToken::end_offset(self : CstToken) -> Int {
+  self.end
+}
+
+///|
+/// Number of UTF-16 code units in this token's text span.
 pub fn CstToken::text_len(self : CstToken) -> Int {
-  self.text.length()
+  self.end - self.start
 }
 
 ///|
 /// **Stability guarantee:** Two `CstToken`s are equal iff they have the
-/// same `kind` and `text`. The cached `hash` is compared first as a fast
+/// same `kind` and `text()`. The cached `hash` is compared first as a fast
 /// rejection path; a hash match does NOT skip the kind/text comparison.
 /// This behavior is stable across versions.
 ///
 /// ## Why `physical_equal` comes first
 ///
-/// Tokens are deduplicated by the `Interner`: all tokens with the same
-/// `(kind, text)` share one canonical heap object. When the node interner
+/// When callers use the `Interner`, all tokens with the same `(kind, text)`
+/// share one canonical heap object. When the node interner
 /// later compares two `CstNode`s that were built from interned tokens, the
 /// token children are already the *same* canonical reference.
 /// `physical_equal` turns that O(len) string comparison into O(1).
@@ -70,12 +101,12 @@ pub impl Eq for CstToken with fn equal(self, other) {
   if self.hash != other.hash {
     return false
   }
-  self.kind == other.kind && self.text == other.text
+  self.kind == other.kind && self.text() == other.text()
 }
 
 ///|
 /// **Stability guarantee:** The `Hash` output is the cached structural hash
-/// (`combine_hash(RawKind.inner, string_hash(text))`). This value is stable
+/// (`combine_hash(RawKind.inner, string_hash(text()))`). This value is stable
 /// as long as `combine_hash` and `string_hash` are stable.
 pub impl Hash for CstToken with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
@@ -88,7 +119,7 @@ pub(all) enum CstElement {
 } derive(Debug)
 
 ///|
-/// Total byte length of this element's text.
+/// Total UTF-16 code-unit length of this element's text.
 pub fn CstElement::text_len(self : CstElement) -> Int {
   match self {
     Token(t) => t.text_len()
@@ -143,8 +174,8 @@ pub impl Hash for CstElement with fn hash_combine(self, hasher) {
 ///   equal children. The `Eq` impl uses `hash` as a fast rejection path
 ///   (see stability guarantee on `Eq` below).
 ///
-/// - `text_len` is the total byte length of all leaf token text under this
-///   node, computed as the sum of `child.text_len()` at construction time.
+/// - `text_len` is the total UTF-16 code-unit length of all leaf token text
+///   under this node, computed as the sum of `child.text_len()` at construction time.
 ///
 /// - `token_count` is the non-trivia leaf token count (see field doc below).
 pub(all) struct CstNode {

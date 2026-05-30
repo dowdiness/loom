@@ -17,11 +17,54 @@ pub(all) enum ParseEvent {
   /// A reserved-but-unclaimed slot; ignored by `build_tree`.
   /// Created by `EventBuffer::mark` and replaced by `EventBuffer::start_at`.
   Tombstone
-  /// Attach a pre-built CST subtree directly, skipping serialize/deserialize.
-  /// Used by incremental parsers to avoid re-emitting events for reused nodes.
-  /// Builders re-intern the node through their interner(s) to preserve contracts.
+  /// Attach a pre-built CST subtree, skipping parse-time re-emission.
+  ///
+  /// Public builders rebuild the subtree's nodes under the current
+  /// trivia/error metadata and copy token text into per-token backing strings,
+  /// so a source-backed reused subtree does not retain or expose an old full
+  /// source buffer. Parser-owned reuse that can prove the current source span
+  /// should use `EventBuffer::push_reuse_node_at` for zero-copy rebasing.
   ReuseNode(CstNode)
 } derive(Debug, Eq)
+
+///|
+/// Private event representation used by `EventBuffer`.
+///
+/// The public `ParseEvent` type intentionally has no source-bearing reuse
+/// variant: callers should not be able to smuggle old full source buffers into
+/// a finished tree by direct-splicing source-backed tokens. Parser internals can
+/// append `BufferedReuseNodeAt` only through `EventBuffer::push_reuse_node_at`,
+/// where they also provide the current source and start offset.
+enum BufferedEvent {
+  BufferedStartNode(RawKind)
+  BufferedFinishNode
+  BufferedToken(RawKind, StringView)
+  BufferedTombstone
+  BufferedReuseNode(CstNode)
+  BufferedReuseNodeAt(CstNode, String, Int)
+} derive(Debug, Eq)
+
+///|
+fn buffered_event_of_parse_event(event : ParseEvent) -> BufferedEvent {
+  match event {
+    StartNode(kind) => BufferedStartNode(kind)
+    FinishNode => BufferedFinishNode
+    Token(kind, text) => BufferedToken(kind, text)
+    Tombstone => BufferedTombstone
+    ReuseNode(node) => BufferedReuseNode(node)
+  }
+}
+
+///|
+fn buffered_events_of_parse_events(
+  events : Array[ParseEvent],
+) -> Array[BufferedEvent] {
+  let buffered : Array[BufferedEvent] = Array::new(capacity=events.length())
+  for event in events {
+    buffered.push(buffered_event_of_parse_event(event))
+  }
+  buffered
+}
 
 ///|
 /// Accumulates parse events for a single parse run.
@@ -30,6 +73,8 @@ pub(all) enum ParseEvent {
 ///
 /// The only sanctioned ways to add events are:
 /// - `push(event)` — append any `ParseEvent` directly
+/// - `push_reuse_node_at(node, source, start)` — append parser-owned reuse
+///   rebased to the current source buffer
 /// - `mark()` — reserve a `Tombstone` slot and return its index
 /// - `start_at(mark, kind)` — retroactively fill a `Tombstone` with `StartNode`
 ///
@@ -37,7 +82,7 @@ pub(all) enum ParseEvent {
 /// directly on the buffer. The raw backing array is private to
 /// prevent callers from bypassing the mark/start_at contract.
 pub struct EventBuffer {
-  priv events : Array[ParseEvent]
+  priv events : Array[BufferedEvent]
 }
 
 ///|
@@ -58,7 +103,7 @@ pub fn EventBuffer::build_tree(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
-  build_tree(
+  build_tree_buffered(
     self.events,
     root_kind,
     trivia_kind~,
@@ -79,7 +124,7 @@ pub fn EventBuffer::build_tree_fully_interned(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
-  build_tree_fully_interned(
+  build_tree_fully_interned_buffered(
     self.events,
     root_kind,
     interner,
@@ -103,7 +148,7 @@ pub fn EventBuffer::build_tree_interned(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
-  build_tree_interned(
+  build_tree_interned_buffered(
     self.events,
     root_kind,
     interner,
@@ -116,7 +161,30 @@ pub fn EventBuffer::build_tree_interned(
 ///|
 /// Append a `ParseEvent` directly. Use `mark`/`start_at` for retroactive `StartNode` placement.
 pub fn EventBuffer::push(self : EventBuffer, event : ParseEvent) -> Unit {
-  self.events.push(event)
+  self.events.push(buffered_event_of_parse_event(event))
+}
+
+///|
+/// Append a parser-owned reused subtree rebased onto the current source.
+///
+/// UNSTABLE/TRUSTED PARSER-OWNED API (#186): public only because parser
+/// internals live outside the `seam` module. Do not treat this as stable
+/// application API; before seam stabilization, decide whether it should be
+/// hidden or renamed as an unsafe/rebase-specific hook so public callers do not
+/// depend on backing-source ownership behavior.
+///
+/// `source_start` is the subtree's start offset in `source`. During tree build,
+/// matching reused token text is rebuilt as `StringView`s into `source`,
+/// preserving zero-copy token text without retaining the old source buffer that
+/// originally backed `node`. If the provided source span does not match the
+/// reused subtree text, tree build falls back to owned token text.
+pub fn EventBuffer::push_reuse_node_at(
+  self : EventBuffer,
+  node : CstNode,
+  source : String,
+  source_start : Int,
+) -> Unit {
+  self.events.push(BufferedReuseNodeAt(node, source, source_start))
 }
 
 ///|
@@ -125,7 +193,7 @@ pub fn EventBuffer::push(self : EventBuffer, event : ParseEvent) -> Unit {
 /// Tombstone (which build_tree ignores).
 pub fn EventBuffer::mark(self : EventBuffer) -> Int {
   let index = self.events.length()
-  self.events.push(Tombstone)
+  self.events.push(BufferedTombstone)
   index
 }
 
@@ -148,7 +216,7 @@ pub fn EventBuffer::start_at(
     )
   }
   match self.events[mark] {
-    Tombstone => self.events[mark] = StartNode(kind)
+    BufferedTombstone => self.events[mark] = BufferedStartNode(kind)
     _ =>
       abort(
         "EventBuffer::start_at: mark does not point to Tombstone, mark=" +
@@ -180,6 +248,129 @@ pub fn EventBuffer::truncate(self : EventBuffer, n : Int) -> Unit {
 }
 
 ///|
+/// Rebuild a reused subtree with per-token owned backing strings.
+///
+/// This is the safe public `ParseEvent::ReuseNode` path: callers can reuse a
+/// shape without retaining or exposing the old full source string that backed a
+/// source-span token.
+fn rebuild_subtree_owned(
+  node : CstNode,
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> CstNode {
+  let children : Array[CstElement] = []
+  for child in node.children {
+    match child {
+      CstElement::Token(t) => {
+        let owned = t.text().to_owned()
+        children.push(CstElement::Token(CstToken::CstToken(t.kind, owned)))
+      }
+      CstElement::Node(n) => {
+        let rebuilt = rebuild_subtree_owned(
+          n, trivia_kind, error_kind, incomplete_kind,
+        )
+        children.push(CstElement::Node(rebuilt))
+      }
+    }
+  }
+  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
+}
+
+///|
+/// True when `node`'s token text matches `source` at `source_start`.
+///
+/// Used to make the public parser-owned reuse hook total: trusted parser calls
+/// get zero-copy rebased spans, while accidental wrong-source calls fall back to
+/// owned token text instead of silently producing wrong tokens or slicing out of
+/// bounds.
+fn subtree_matches_source(
+  node : CstNode,
+  source : String,
+  source_start : Int,
+) -> Bool {
+  if source_start < 0 || source_start + node.text_len > source.length() {
+    return false
+  }
+  let mut offset = source_start
+  for child in node.children {
+    match child {
+      CstElement::Token(t) => {
+        let end = offset + t.text_len()
+        if source.view(start_offset=offset, end_offset=end) != t.text() {
+          return false
+        }
+        offset = end
+      }
+      CstElement::Node(n) => {
+        if !subtree_matches_source(n, source, offset) {
+          return false
+        }
+        offset = offset + n.text_len
+      }
+    }
+  }
+  true
+}
+
+///|
+/// Rebuild a reused subtree with token spans into the current source buffer.
+///
+/// Precondition: `subtree_matches_source(node, source, source_start)` is true.
+fn rebase_subtree_to_source_unchecked(
+  node : CstNode,
+  source : String,
+  source_start : Int,
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> CstNode {
+  let children : Array[CstElement] = []
+  let mut offset = source_start
+  for child in node.children {
+    match child {
+      CstElement::Token(t) => {
+        let end = offset + t.text_len()
+        let token = CstToken::CstToken(
+          t.kind,
+          source.view(start_offset=offset, end_offset=end),
+        )
+        children.push(CstElement::Token(token))
+        offset = end
+      }
+      CstElement::Node(n) => {
+        let rebuilt = rebase_subtree_to_source_unchecked(
+          n, source, offset, trivia_kind, error_kind, incomplete_kind,
+        )
+        children.push(CstElement::Node(rebuilt))
+        offset = offset + n.text_len
+      }
+    }
+  }
+  CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
+}
+
+///|
+/// Rebuild a reused subtree against `source` when the text matches, otherwise
+/// fall back to owned token text.
+fn rebuild_subtree_for_source(
+  node : CstNode,
+  source : String,
+  source_start : Int,
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> CstNode {
+  if subtree_matches_source(node, source, source_start) {
+    rebase_subtree_to_source_unchecked(
+      node, source, source_start, trivia_kind, error_kind, incomplete_kind,
+    )
+  } else {
+    rebuild_subtree_owned(node, trivia_kind, error_kind, incomplete_kind)
+  }
+}
+
+///|
 /// Build a concrete syntax tree from a flat event stream, interning all tokens through
 /// the provided Interner. Structurally identical to build_tree; differs only
 /// in that Token events are deduplicated via intern_token.
@@ -197,15 +388,34 @@ pub fn build_tree_interned(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
+  build_tree_interned_buffered(
+    buffered_events_of_parse_events(events),
+    root_kind,
+    interner,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+}
+
+///|
+fn build_tree_interned_buffered(
+  events : Array[BufferedEvent],
+  root_kind : RawKind,
+  interner : Interner,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
+) -> CstNode raise EventStreamError {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
     match event {
-      StartNode(kind) => {
+      BufferedStartNode(kind) => {
         stack.push([])
         kinds.push(kind)
       }
-      FinishNode => {
+      BufferedFinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
           None => raise EventStreamError::UnbalancedFinish
@@ -229,18 +439,18 @@ pub fn build_tree_interned(
           None => raise EventStreamError::UnbalancedFinish
         }
       }
-      Token(kind, text) => {
+      BufferedToken(kind, text) => {
         let token = interner.intern_token(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent
         }
       }
-      ReuseNode(node) => {
+      BufferedReuseNode(node) => {
         let interned = CstElement::Node(node).map(
           elem => {
             match elem {
-              Token(t) => Token(interner.intern_token(t.kind, t.text))
+              Token(t) => Token(interner.intern_token(t.kind, t.text()))
               _ => elem
             }
           },
@@ -253,7 +463,27 @@ pub fn build_tree_interned(
           None => raise EventStreamError::OrphanedEvent
         }
       }
-      Tombstone => ()
+      BufferedReuseNodeAt(node, source, source_start) => {
+        let rebased = rebuild_subtree_for_source(
+          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
+        )
+        let interned = CstElement::Node(rebased).map(
+          elem => {
+            match elem {
+              Token(t) => Token(interner.intern_token(t.kind, t.text()))
+              _ => elem
+            }
+          },
+          trivia_kind~,
+          error_kind~,
+          incomplete_kind~,
+        )
+        match stack.last() {
+          Some(parent) => parent.push(interned)
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedTombstone => ()
     }
   }
   if stack.length() != 1 {
@@ -292,7 +522,7 @@ fn re_intern_subtree(
   for child in node.children {
     match child {
       CstElement::Token(t) => {
-        let interned = interner.intern_token(t.kind, t.text)
+        let interned = interner.intern_token(t.kind, t.text())
         children.push(CstElement::Token(interned))
       }
       CstElement::Node(n) => {
@@ -333,15 +563,36 @@ pub fn build_tree_fully_interned(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
+  build_tree_fully_interned_buffered(
+    buffered_events_of_parse_events(events),
+    root_kind,
+    interner,
+    node_interner,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+}
+
+///|
+fn build_tree_fully_interned_buffered(
+  events : Array[BufferedEvent],
+  root_kind : RawKind,
+  interner : Interner,
+  node_interner : NodeInterner,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
+) -> CstNode raise EventStreamError {
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
     match event {
-      StartNode(kind) => {
+      BufferedStartNode(kind) => {
         stack.push([])
         kinds.push(kind)
       }
-      FinishNode => {
+      BufferedFinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
           None => raise EventStreamError::UnbalancedFinish
@@ -367,14 +618,14 @@ pub fn build_tree_fully_interned(
           None => raise EventStreamError::UnbalancedFinish
         }
       }
-      Token(kind, text) => {
+      BufferedToken(kind, text) => {
         let token = interner.intern_token(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent
         }
       }
-      ReuseNode(node) => {
+      BufferedReuseNode(node) => {
         let interned = re_intern_subtree(
           node, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
         )
@@ -383,7 +634,19 @@ pub fn build_tree_fully_interned(
           None => raise EventStreamError::OrphanedEvent
         }
       }
-      Tombstone => ()
+      BufferedReuseNodeAt(node, source, source_start) => {
+        let rebased = rebuild_subtree_for_source(
+          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
+        )
+        let interned = re_intern_subtree(
+          rebased, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
+        )
+        match stack.last() {
+          Some(parent) => parent.push(Node(interned))
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedTombstone => ()
     }
   }
   if stack.length() != 1 {
@@ -419,6 +682,23 @@ pub fn build_tree(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
+  build_tree_buffered(
+    buffered_events_of_parse_events(events),
+    root_kind,
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+}
+
+///|
+fn build_tree_buffered(
+  events : Array[BufferedEvent],
+  root_kind : RawKind,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
+) -> CstNode raise EventStreamError {
   // stack and kinds move in lockstep:
   // - StartNode pushes one frame + one kind
   // - FinishNode pops one frame + one kind
@@ -428,11 +708,11 @@ pub fn build_tree(
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
     match event {
-      StartNode(kind) => {
+      BufferedStartNode(kind) => {
         stack.push([])
         kinds.push(kind)
       }
-      FinishNode => {
+      BufferedFinishNode => {
         let raw_children = match stack.pop() {
           Some(c) => c
           None => raise EventStreamError::UnbalancedFinish
@@ -456,27 +736,33 @@ pub fn build_tree(
           None => raise EventStreamError::UnbalancedFinish
         }
       }
-      Token(kind, text) => {
+      BufferedToken(kind, text) => {
         let token = CstToken::CstToken(kind, text)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent
         }
       }
-      ReuseNode(node) => {
-        let rebuilt = CstElement::Node(node).map(
-          elem => elem,
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
+      BufferedReuseNode(node) => {
+        let rebuilt = rebuild_subtree_owned(
+          node, trivia_kind, error_kind, incomplete_kind,
         )
         match stack.last() {
-          Some(parent) => parent.push(rebuilt)
+          Some(parent) => parent.push(Node(rebuilt))
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedReuseNodeAt(node, source, source_start) => {
+        let rebased = rebuild_subtree_for_source(
+          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
+        )
+        match stack.last() {
+          Some(parent) => parent.push(Node(rebased))
           None => raise EventStreamError::OrphanedEvent
         }
       }
       // Unclaimed marks are expected and intentionally ignored.
-      Tombstone => ()
+      BufferedTombstone => ()
     }
   }
   if stack.length() != 1 {

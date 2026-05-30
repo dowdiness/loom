@@ -13,7 +13,7 @@ Each stage has a distinct responsibility and output type:
 
 1. **Lexer** — tokenizes the source string into a typed token stream
 2. **CST Parser** — emits `ParseEvent`s into an `EventBuffer`; `build_tree()` constructs the immutable `CstNode` tree
-3. **SyntaxNode** — wraps the `CstNode` to add absolute byte positions on demand
+3. **SyntaxNode** — wraps the `CstNode` to add absolute UTF-16 code-unit positions on demand
 4. **Conversion** — `syntax_node_to_term` walks `SyntaxNode` using typed view structs (`LambdaExprView`, `AppExprView`, etc.) to produce a `Term` directly; no intermediate `AstNode` type
 
 ## Incremental Pipeline
@@ -58,7 +58,7 @@ Produces a lossless CST using the event buffer pattern (see [seam-model.md](seam
 
 Ephemeral positioned view over a `CstNode`:
 
-- Computes absolute byte offsets from the CST's cumulative text lengths by summing sibling text lengths
+- Computes absolute UTF-16 code-unit offsets from the CST's cumulative text lengths by summing sibling text lengths
 - Maintains parent pointers for upward traversal
 - Created on demand; not stored persistently
 - `children()` returns a lazy iterator; positions are never cached in the `CstNode`

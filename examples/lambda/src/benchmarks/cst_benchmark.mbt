@@ -99,7 +99,7 @@ fn make_x_plus_1_events() -> Array[@seam.ParseEvent] {
 
 ///|
 /// Benchmark: Interner::intern_token - cold miss path (token not yet in table).
-/// Measures HashMap insert + key string alloc + CstToken::new.
+/// Measures HashMap insert + one canonical token-text copy + CstToken::new.
 test "interner - intern_token cold miss" (b : @bench.T) {
   b.bench(fn() {
     let interner = @seam.Interner::new()
@@ -110,7 +110,7 @@ test "interner - intern_token cold miss" (b : @bench.T) {
 
 ///|
 /// Benchmark: Interner::intern_token - warm hit path (token already cached).
-/// Measures only HashMap lookup + key string alloc; no CstToken allocation.
+/// Measures HashMap lookup only; no token-text copy or CstToken allocation.
 test "interner - intern_token warm hit" (b : @bench.T) {
   let interner = @seam.Interner::new()
   let _ = interner.intern_token(@seam.RawKind(9), "identifier_123")
@@ -121,7 +121,7 @@ test "interner - intern_token warm hit" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: build_tree on "x + 1" (no interning, allocates fresh tokens each call).
+/// Benchmark: build_tree on "x + 1" (no interning, records source spans in fresh tokens).
 test "build_tree - x + 1" (b : @bench.T) {
   let events = make_x_plus_1_events()
   b.bench(fn() {
@@ -173,7 +173,7 @@ fn make_repeated_ident_events(count : Int) -> Array[@seam.ParseEvent] {
 }
 
 ///|
-/// Benchmark: build_tree with 100 identical ident tokens (100 CstToken::new calls).
+/// Benchmark: build_tree with 100 identical ident tokens (100 source-span CstToken::new calls).
 /// Upper bound on token-level savings from interning when all tokens are identical.
 test "build_tree - 100 identical ident tokens" (b : @bench.T) {
   let events = make_repeated_ident_events(100)

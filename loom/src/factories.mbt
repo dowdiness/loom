@@ -207,8 +207,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
 /// Create an ImperativeParser from a Grammar.
 ///
 /// Each call creates fresh internal state (TokenBuffer, diagnostics).
-/// Interners (token deduplication, node deduplication) are process-global and
-/// shared across all parsers — accumulated, never cleared, not parser-isolated.
+/// CST tokens produced by the parser are source spans; unchanged subtrees are
+/// shared through incremental `ReuseNode` splicing rather than process-global
+/// token/node interners.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
   source : String,
   grammar : Grammar[T, K, Ast],

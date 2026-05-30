@@ -174,9 +174,9 @@ try {
 
 All CST types come from the `seam` package (`seam/`).
 
-- **`CstNode`** — Immutable CST node: kind, children, text length, structural hash, token count. Position-independent; structurally shareable. `text_len`, `hash`, and `token_count` are cached at construction time.
-- **`CstToken`** — Leaf token with kind, text, and cached structural hash.
-- **`SyntaxNode`** — Ephemeral positioned view over a `CstNode`. Computes absolute byte offsets on demand via parent pointers; not stored persistently.
+- **`CstNode`** — Immutable CST node: kind, children, text length, structural hash, token count. Node offsets are external; unchanged regions are structurally shareable. `text_len`, `hash`, and `token_count` are cached at construction time.
+- **`CstToken`** — Leaf token with kind, source-span text, and cached structural hash.
+- **`SyntaxNode`** — Ephemeral positioned view over a `CstNode`. Computes absolute UTF-16 code-unit offsets on demand via parent pointers; not stored persistently.
 - **`RawKind`** — Language-agnostic node/token kind (a newtype over `Int`).
 
 **Example:**

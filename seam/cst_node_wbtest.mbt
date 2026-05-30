@@ -10,10 +10,23 @@ test "RawKind equality" {
 ///|
 test "CstToken constructor computes hash" {
   let t = CstToken::CstToken(RawKind(9), "hello")
-  inspect(t.text, content="hello")
+  inspect(t.text(), content="hello")
   inspect(t.kind == RawKind(9), content="true")
   // Hash is nonzero
   inspect(t.hash != 0, content="true")
+}
+
+///|
+test "CstToken constructor records source span" {
+  let source = "alpha beta"
+  let t = CstToken::CstToken(
+    RawKind(9),
+    source.view(start_offset=6, end_offset=10),
+  )
+  inspect(physical_equal(t.source(), source), content="true")
+  inspect(t.start_offset(), content="6")
+  inspect(t.end_offset(), content="10")
+  inspect(t.text(), content="beta")
 }
 
 ///|
@@ -137,7 +150,7 @@ test "CstNode::first_token: returns first non-trivia token" {
   ])
   let is_trivia = fn(k : RawKind) { k == RawKind(11) }
   match cst.first_token(is_trivia) {
-    Some(t) => inspect(t.text, content="x")
+    Some(t) => inspect(t.text(), content="x")
     None => inspect("none", content="x")
   }
 }
@@ -149,7 +162,7 @@ test "CstNode::first_token: descends into child nodes" {
   let outer = CstNode::new(RawKind(22), [CstElement::Node(inner)])
   let is_trivia = fn(_k : RawKind) { false }
   match outer.first_token(is_trivia) {
-    Some(t) => inspect(t.text, content="y")
+    Some(t) => inspect(t.text(), content="y")
     None => inspect("none", content="y")
   }
 }
@@ -196,7 +209,7 @@ test "with_replaced_child recomputes metadata" {
   let new_root = root.with_replaced_child(0, CstElement::Token(tok_bc))
   // Verify actual child was replaced
   match new_root.children[0] {
-    CstElement::Token(t) => inspect(t.text, content="bc")
+    CstElement::Token(t) => inspect(t.text(), content="bc")
     _ => abort("expected token child")
   }
   inspect(new_root.text_len, content="2")

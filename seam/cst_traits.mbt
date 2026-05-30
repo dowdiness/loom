@@ -76,7 +76,7 @@ pub impl Show for TextLen with fn output(self, logger) {
 
 ///|
 pub impl Folder for TextLen with fn fold_token(token) {
-  TextLen(token.text.length())
+  TextLen(token.text_len())
 }
 
 ///|

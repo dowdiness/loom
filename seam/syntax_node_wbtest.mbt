@@ -816,7 +816,7 @@ test "SyntaxNode::find_at_checked: out-of-span offset returns None" {
 
 ///|
 test "SyntaxNode::find_at_checked: boundary conditions" {
-  // span [0,5) — "hello" is 5 bytes
+  // span [0,5) — "hello" is 5 UTF-16 code units
   let tok = CstToken::CstToken(RawKind(9), "hello")
   let cst = CstNode::new(RawKind(1), [CstElement::Token(tok)])
   let root = SyntaxNode::from_cst(cst)

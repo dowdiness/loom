@@ -28,10 +28,10 @@ pub impl DotNode for DotTreeNode
 
 // Traits
 pub(open) trait DotNode {
-  node_id(Self) -> Int
-  label(Self) -> String
-  node_attrs(Self) -> String
-  children(Self) -> Array[Self]
-  edge_label(Self, Int) -> String
+  fn node_id(Self) -> Int
+  fn label(Self) -> String
+  fn node_attrs(Self) -> String
+  fn children(Self) -> Array[Self]
+  fn edge_label(Self, Int) -> String
 }
 

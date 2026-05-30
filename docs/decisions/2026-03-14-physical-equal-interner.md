@@ -8,7 +8,11 @@
 - Context: Parsing 320-deep let chains showed O(n²) scaling. The node interner's equality check (`CstNode::Eq`) recursed into the full subtree for every interned node.
 - Decision: Add `physical_equal(self, other)` as the first check in `CstNode::Eq` and `CstToken::Eq`.
 - Rationale: Interned children are canonical references. `physical_equal` turns recursive O(subtree) comparisons into O(1), reducing total interning cost from O(n²) to O(n).
-- Consequence: 320-let initial parse goes from 3.72ms to 662µs (5.6x). Scaling ratio improves from 12x to 4.8x (near-linear).
+- Consequence: 320-let initial parse went from 3.72ms to 662µs (5.6x) while the generic parser used global node/token interners. Scaling ratio improved from 12x to 4.8x (near-linear).
+
+## 2026-05-30 update
+
+Issue #61 changed `CstToken` to store source spans and moved the generic parser off process-global node/token interners, because global interners would retain historic source buffers when canonical nodes contain span-backed tokens. Parser-owned reuse now rebuilds reused token spans against the current source buffer so old full source strings are not retained. The `physical_equal` fast path remains correct and useful for explicit `build_tree_interned` / `build_tree_fully_interned` callers and for interned subtrees.
 
 ## The problem
 
@@ -29,7 +33,7 @@ For truly linear parsing, 4x input should yield ~4x time.
 
 ## Root cause analysis
 
-The parser uses process-global interners (`core_interner`, `core_node_interners` in `loom/src/core/interners.mbt`). The interners accumulate across benchmark iterations and editor parse cycles. On repeated parses:
+At the time of this ADR, the parser used process-global interners (`core_interner`, `core_node_interners` in `loom/src/core/interners.mbt`). The interners accumulated across benchmark iterations and editor parse cycles. On repeated parses:
 
 1. `build_tree_fully_interned` constructs each node bottom-up and calls `NodeInterner::intern_node(node)`.
 2. `intern_node` does `HashMap.get(node)` which calls `CstNode::Hash` (O(1), cached) then `CstNode::Eq` when a hash-bucket match is found.
@@ -50,7 +54,7 @@ LetExpr(depth=0)            ← Eq walks all n levels
 
 ## Why children are canonical references
 
-`build_tree_fully_interned` processes events bottom-up:
+For explicit `build_tree_fully_interned` callers (and for the generic parser before the 2026-05-30 source-span-token change), events are processed bottom-up:
 
 1. Tokens are interned first → canonical `CstToken` references.
 2. Inner nodes are interned before their parents → canonical `CstNode` references.
@@ -67,7 +71,7 @@ Add `physical_equal(self, other)` as the first check in three places:
 pub impl Eq for CstToken with equal(self, other) {
   if physical_equal(self, other) { return true }  // ← NEW
   if self.hash != other.hash { return false }
-  self.kind == other.kind && self.text == other.text
+  self.kind == other.kind && self.text() == other.text()
 }
 
 // CstNode::Eq

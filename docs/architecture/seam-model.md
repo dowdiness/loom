@@ -9,20 +9,20 @@ The infrastructure separates structure from position through two complementary t
 | `seam` type | rowan equivalent | Role |
 |---|---|---|
 | `RawKind` | `SyntaxKind` | Language-specific node/token kind, newtype over `Int` |
-| `CstNode` | `GreenNode` | Immutable, position-independent, content-addressed CST node |
-| `CstToken` | `GreenToken` | Immutable leaf token with kind and text |
-| `SyntaxNode` | `SyntaxNode` | Ephemeral positioned view; adds absolute offsets |
+| `CstNode` | `GreenNode` | Immutable, content-addressed CST node (node offsets are external) |
+| `CstToken` | `GreenToken` | Immutable leaf token with kind and source-span text |
+| `SyntaxNode` | `SyntaxNode` | Ephemeral positioned view; adds absolute UTF-16 offsets |
 
 ### CstNode
 
-`CstNode` stores structure and content but has no knowledge of where in the source file it appears. Key properties:
+`CstNode` stores structure and content. It does not store node start offsets; leaf `CstToken`s keep source spans so token text can be viewed without copying. Key properties:
 
 - `hash` — a structural content hash enabling efficient equality checks and structural sharing
 - `text_len` — cumulative text length of all descendant tokens
 - `token_count` — count of leaf tokens in the subtree
 - `children` — ordered list of child nodes and tokens
 
-Once constructed, `children` must not be mutated — `text_len`, `hash`, and `token_count` are cached at construction time. Structural sharing is safe because `CstNode` is position-independent: two subtrees with identical structure and content have the same hash and can be aliased.
+Once constructed, `children` must not be mutated — `text_len`, `hash`, and `token_count` are cached at construction time. Structural equality is content-based: two subtrees with identical structure and token text have the same hash even if their token spans point into different source strings. Incremental parsing emits parser-owned reuse events for unchanged regions; tree building rebases those reused token spans onto the current source buffer.
 
 ### SyntaxNode
 
@@ -31,8 +31,8 @@ Once constructed, `children` must not be mutated — `text_len`, `hash`, and `to
 Key methods:
 
 ```moonbit
-syntax.start()     // absolute byte offset of first token
-syntax.end()       // absolute byte offset after last token
+syntax.start()     // absolute UTF-16 code-unit offset of first token
+syntax.end()       // absolute UTF-16 code-unit offset after last token
 syntax.kind()      // RawKind of the underlying CstNode
 syntax.children()  // positioned child SyntaxNodes
 ```

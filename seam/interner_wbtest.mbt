@@ -54,6 +54,18 @@ test "Interner: intern_token result matches CstToken::new structurally" {
 }
 
 ///|
+test "Interner: source-backed view is copied into canonical token" {
+  let interner = Interner::new()
+  let source = "alpha beta"
+  let token = interner.intern_token(
+    RawKind(7),
+    source.view(start_offset=6, end_offset=10),
+  )
+  inspect(token.text(), content="beta")
+  inspect(physical_equal(token.source(), source), content="false")
+}
+
+///|
 test "Interner: intern_token works correctly after clear" {
   let interner = Interner::new()
   let k = RawKind(1)

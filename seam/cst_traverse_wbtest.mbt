@@ -23,7 +23,10 @@ fn make_test_tree() -> CstElement {
 ///|
 test "transform: reconstruct source text" {
   let tree = make_test_tree()
-  let result = tree.transform(token => token.text, (_kind, children) => {
+  let result = tree.transform(token => token.text().to_owned(), (
+    _kind,
+    children,
+  ) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -51,14 +54,14 @@ test "transform: count nodes" {
 test "transform: single token" {
   let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  let result = elem.transform(t => t.text, (_k, _c) => "")
+  let result = elem.transform(t => t.text().to_owned(), (_k, _c) => "")
   inspect(result, content="x")
 }
 
 ///|
 test "fold: sum text lengths" {
   let tree = make_test_tree()
-  let result = tree.fold(token => token.text.length(), (a, b) => a + b, 0)
+  let result = tree.fold(token => token.text_len(), (a, b) => a + b, 0)
   // "foo" + " " + "1" + "+" + "2" + "" = 7
   inspect(result, content="7")
 }
@@ -75,7 +78,7 @@ test "fold: count tokens only" {
 test "fold: single token" {
   let tok = CstToken::CstToken(RawKind(10), "42")
   let elem = CstElement::Token(tok)
-  let result = elem.fold(t => t.text.length(), (a, b) => a + b, 0)
+  let result = elem.fold(t => t.text_len(), (a, b) => a + b, 0)
   inspect(result, content="2")
 }
 
@@ -93,7 +96,7 @@ test "transform_fold: node count" {
 test "transform_fold: single token" {
   let tok = CstToken::CstToken(RawKind(10), "7")
   let elem = CstElement::Token(tok)
-  let result = elem.transform_fold(t => t.text.length(), _kind => 0, (
+  let result = elem.transform_fold(t => t.text_len(), _kind => 0, (
     _kind,
     acc,
     child,
@@ -159,7 +162,9 @@ test "CstNode::each: visible direct children flatten repeat groups" {
   let completed = root.each(elem => {
     match elem {
       Token(tok) =>
-        seen.push("token:" + tok.kind.0.to_string() + ":" + tok.text)
+        seen.push(
+          "token:" + tok.kind.0.to_string() + ":" + tok.text().to_owned(),
+        )
       Node(node) => seen.push("node:" + node.kind.0.to_string())
     }
     true
@@ -185,7 +190,7 @@ test "CstNode::each: early termination" {
   let completed = root.each(elem => {
     match elem {
       Token(tok) => {
-        seen.push(tok.text)
+        seen.push(tok.text().to_owned())
         tok.kind != RawKind(2)
       }
       Node(_) => true
@@ -212,7 +217,8 @@ test "CstNode::direct_elements_iter: visible direct children flatten repeat grou
     .direct_elements_iter()
     .map(elem => {
       match elem {
-        Token(tok) => "token:" + tok.kind.0.to_string() + ":" + tok.text
+        Token(tok) =>
+          "token:" + tok.kind.0.to_string() + ":" + tok.text().to_owned()
         Node(node) => "node:" + node.kind.0.to_string()
       }
     })
@@ -248,7 +254,7 @@ test "iter: find_first" {
     })
   inspect(found is None, content="false")
   match found {
-    Some(CstElement::Token(t)) => inspect(t.text, content="+")
+    Some(CstElement::Token(t)) => inspect(t.text().to_owned(), content="+")
     _ => inspect("unreachable", content="")
   }
 }
@@ -266,7 +272,10 @@ test "map: identity preserves structure" {
   let tree = make_test_tree()
   let mapped = tree.map(elem => elem)
   // Reconstruct source text to verify structure
-  let text = mapped.transform(token => token.text, (_kind, children) => {
+  let text = mapped.transform(token => token.text().to_owned(), (
+    _kind,
+    children,
+  ) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -298,7 +307,10 @@ test "map: transform tokens" {
       _ => elem
     }
   })
-  let text = mapped.transform(token => token.text, (_kind, children) => {
+  let text = mapped.transform(token => token.text().to_owned(), (
+    _kind,
+    children,
+  ) => {
     let mut s = ""
     for child in children {
       s = s + child
@@ -327,7 +339,7 @@ test "map: single token" {
     }
   })
   match mapped {
-    CstElement::Token(t) => inspect(t.text, content="y")
+    CstElement::Token(t) => inspect(t.text().to_owned(), content="y")
     _ => inspect("unreachable", content="")
   }
 }
@@ -405,7 +417,7 @@ test "find: locates first number token" {
   let tree = make_test_tree()
   let found = tree.find(NumberFinder::{ kind: RawKind(10) })
   match found {
-    Some(CstElement::Token(t)) => inspect(t.text, content="1")
+    Some(CstElement::Token(t)) => inspect(t.text().to_owned(), content="1")
     _ => inspect("not found", content="")
   }
 }
@@ -446,7 +458,7 @@ test "find: single token match" {
   let elem = CstElement::Token(tok)
   let found = elem.find(NumberFinder::{ kind: RawKind(9) })
   match found {
-    Some(CstElement::Token(t)) => inspect(t.text, content="x")
+    Some(CstElement::Token(t)) => inspect(t.text().to_owned(), content="x")
     _ => inspect("not found", content="")
   }
 }
