@@ -47,9 +47,9 @@ source : String
   `CstNode` compares equal to the cached one (`CstNode::Eq` — structural equality using
   kind + children, with hash as a fast rejection path). This is transparent to callers.
 - **Source-span CST tokens.** The generic parser builds non-interned CSTs so
-  token text remains a zero-copy source span. Incremental reuse reuses subtree
-  structure while rebasing token spans onto the current source buffer rather
-  than relying on process-global node/token interners.
+  token text remains a zero-copy source span. Incremental reuse emits validated
+  reuse events and rebuilds current-source token spans/nodes rather than relying
+  on process-global node/token interners or direct-splicing old CST objects.
 - **Lifetime.** One `ImperativeParser` per document editing session. Call `reset()` to
   resync with a structurally regenerated source; create a new parser only when the
   document identity changes.

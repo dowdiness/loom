@@ -147,11 +147,13 @@ CST → private IR → semantic model workflow and review checklist.
 | Event-driven builder | `EventBuffer` + `ParseEvent` | `GreenNodeBuilder` |
 
 **Why two trees?** `CstNode`s can be structurally shared and content-addressed.
-Tokens store source spans; parser-owned reuse rebases reused token spans onto the
-current source buffer, while public `ReuseNode` and interner APIs canonicalize or
-copy token text to avoid retaining old full source buffers. `SyntaxNode`s are
-cheap to create on demand and carry position information without polluting the
-shared layer.
+Tokens store source spans; parser-owned reuse rebases validated reused token
+spans onto the current source buffer, while public `ReuseNode` and interner APIs
+canonicalize or copy token text to avoid retaining old full source buffers.
+Rebasing rebuilds current-source tokens/nodes rather than direct-splicing old
+subtrees, so stable physical identity across parses is not part of the generic
+parser contract. `SyntaxNode`s are cheap to create on demand and carry position
+information without polluting the shared layer.
 
 ## Token interning
 

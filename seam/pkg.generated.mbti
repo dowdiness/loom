@@ -94,6 +94,7 @@ pub fn EventBuffer::mark(Self) -> Int
 pub fn EventBuffer::new() -> Self
 pub fn EventBuffer::push(Self, ParseEvent) -> Unit
 pub fn EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit
+pub fn EventBuffer::push_reuse_node_at_unchecked(Self, CstNode, String, Int) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
 pub fn EventBuffer::truncate(Self, Int) -> Unit
 

@@ -809,7 +809,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
     self.source.length()
   }
   let node_end = node_start + node.text_len
-  self.events.push_reuse_node_at(node, self.source, node_start)
+  self.events.push_reuse_node_at_unchecked(node, self.source, node_start)
   let allow_eof_boundary = match self.reuse_cursor {
     None => true
     Some(cursor) => !cursor.next_sibling_has_error()
@@ -979,9 +979,10 @@ fn[T, K : @seam.ToRawKind] make_error_tree(
 /// onto the current source buffer, avoiding process-global interners and old
 /// source-buffer retention.
 ///
-/// TODO(#187): This drops canonical node identity for unchanged subtrees across
-/// parses. Benchmark and repair physical-identity consumers before optimizing,
-/// without reintroducing old source-buffer retention.
+/// Source-span rebasing necessarily constructs fresh CST nodes, so generic
+/// parser clients must not rely on stable physical identity for unchanged
+/// subtrees across parses. Use structural equality or projection/domain
+/// identity for downstream change detection.
 fn[T, K : @seam.ToRawKind] build_tree_generic(
   buf : @seam.EventBuffer,
   spec : LanguageSpec[T, K],

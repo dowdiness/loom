@@ -64,11 +64,15 @@ The parser does not raise on syntax errors. Instead it inserts ErrorNode and
 ErrorToken while continuing to parse. This ensures incremental parsing always
 has a well-defined output tree, even for incomplete or malformed input.
 
-### 5) Green Tree Identity
+### 5) Green Tree Reuse and Source-Span Rebasing
 
-Green tree nodes are immutable. Reused subtrees are literally the same nodes,
-not copies. This provides a strong correctness foundation for reuse and for
-structural comparisons in tests.
+Green tree nodes are immutable. The parser may validate an old subtree for
+reuse, but source-span tokens require tree building to rebase that subtree onto
+the current source buffer. The generic parser therefore rebuilds fresh CST
+objects for reused regions instead of promising physical identity with the old
+tree. Correctness rests on structural equivalence with a full reparse and on the
+reuse checks above; downstream identity-sensitive projections should use
+structural equality or explicit domain IDs.
 
 ### 6) Event-Stream Balance Guard Rails
 

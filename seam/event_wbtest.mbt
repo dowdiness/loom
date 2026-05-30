@@ -77,6 +77,35 @@ test "EventBuffer: push_reuse_node_at rebases token spans" {
 }
 
 ///|
+test "EventBuffer: push_reuse_node_at_unchecked rebases without direct splice" {
+  let old_source = "secret keep"
+  let token = CstToken::CstToken(
+    RawKind(9),
+    old_source.view(start_offset=7, end_offset=11),
+  )
+  let reused = CstNode::new(RawKind(1), [CstElement::Token(token)])
+  let current_source = ">>> keep <<<"
+  let buf = EventBuffer::new()
+  buf.push_reuse_node_at_unchecked(reused, current_source, 4)
+  let root = buf.build_tree(RawKind(0))
+  match root.children[0] {
+    CstElement::Node(node) => {
+      inspect(physical_equal(node, reused), content="false")
+      match node.children[0] {
+        CstElement::Token(tok) => {
+          inspect(tok.text(), content="keep")
+          inspect(physical_equal(tok.source(), current_source), content="true")
+          inspect(tok.start_offset(), content="4")
+          inspect(tok.end_offset(), content="8")
+        }
+        _ => abort("expected token")
+      }
+    }
+    _ => abort("expected node")
+  }
+}
+
+///|
 test "EventBuffer: push_reuse_node_at falls back when source mismatches" {
   let old_source = "secret keep"
   let token = CstToken::CstToken(
