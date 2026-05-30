@@ -150,6 +150,7 @@ pub struct EventBuffer { /* private fields */ }
 | `EventBuffer::new() -> Self` | Stable | |
 | `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any public event directly |
 | `EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit` | **Unstable** | Trusted parser-owned reuse path; rebases reused token spans onto the provided current source when text matches, otherwise falls back to owned token text |
+| `EventBuffer::push_reuse_node_at_unchecked(Self, CstNode, String, Int) -> Unit` | **Unstable** | Parser-validated reuse path; skips redundant text validation, rebases before normal tree-builder handling, and never direct-splices the old subtree |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
 | `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and `push_reuse_node_at`; raises on malformed event streams |

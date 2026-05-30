@@ -14,6 +14,12 @@
 
 Issue #61 changed `CstToken` to store source spans and moved the generic parser off process-global node/token interners, because global interners would retain historic source buffers when canonical nodes contain span-backed tokens. Parser-owned reuse now rebuilds reused token spans against the current source buffer so old full source strings are not retained. The `physical_equal` fast path remains correct and useful for explicit `build_tree_interned` / `build_tree_fully_interned` callers and for interned subtrees.
 
+## 2026-05-30 #187 update
+
+Parser-owned reuse now emits `EventBuffer::push_reuse_node_at_unchecked` after `ReuseCursor` has validated the old subtree against the current token stream. This skips the public `push_reuse_node_at` text-match pass but still rebuilds fresh `CstToken`s and `CstNode`s with spans into the current source, so it does not direct-splice stale nodes or retain old source buffers.
+
+Benchmark gate (`seam/event_bench_wbtest.mbt`): matching-source `push_reuse_node_at` measured ~140µs on wasm-gc and ~199µs on JS for a 50×100-token reuse tree; the parser-owned unchecked path measured ~104µs on wasm-gc and ~125µs on JS. Since source-span rebasing must allocate current-source tokens and ancestors, generic parser clients must not rely on stable `physical_equal(new_cst, old_cst)` across parses. Downstream change detection should use structural equality or explicit projection/domain identity.
+
 ## The problem
 
 The CRDT editor generates deeply nested let chains:

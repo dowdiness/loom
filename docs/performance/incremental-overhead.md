@@ -20,7 +20,7 @@
 
 ## Finding 3: `emit_reused` serializes then deserializes reused nodes — **Resolved**
 
-Added `ReuseNode(CstNode)` variant to `ParseEvent`. Reused subtrees are represented by a single event instead of recursively emitting StartNode/Token/FinishNode. After the 2026-05-30 source-span-token change, parser-owned reuse events rebase token spans onto the current source buffer; public `ReuseNode` rebuilds with owned token text, and `build_tree_fully_interned` re-interns through `NodeInterner`.
+Added `ReuseNode(CstNode)` variant to `ParseEvent`. Reused subtrees are represented by a single event instead of recursively emitting StartNode/Token/FinishNode. After the 2026-05-30 source-span-token change, parser-owned reuse events rebase token spans onto the current source buffer; public `ReuseNode` rebuilds with owned token text, and `build_tree_fully_interned` re-interns through `NodeInterner`. Issue #187 added a parser-validated unchecked rebase event so the incremental parser skips the redundant public text-match pass while still rebuilding current-source tokens/nodes rather than direct-splicing old objects.
 
 ---
 
