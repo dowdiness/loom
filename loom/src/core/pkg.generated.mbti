@@ -338,6 +338,18 @@ pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectio
 pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
 pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
 
+pub struct ProjectionIdentityTracker[Id] {
+  // private fields
+}
+pub fn[Id] ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?
+pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit
+pub fn[Id] ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]
+pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]
+pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit
+pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, Edit?) -> Unit
+
 type ProjectionIdentityWindow derive(Eq, @debug.Debug)
 
 pub struct ProjectionLeaf {

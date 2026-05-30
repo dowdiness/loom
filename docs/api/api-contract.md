@@ -277,6 +277,39 @@ pub struct SyntaxNode {
 
 ---
 
+## Projection identity helpers
+
+Stable authoring-projection helpers for preserving domain-owned leaf IDs across
+editor edits and malformed-input recovery. They are language-neutral: downstream
+code chooses the projected leaves, public ID type, and allocator.
+
+| Symbol | Stability | Notes |
+|---|---|---|
+| `ProjectionLeaf::new(Int, Int, String) -> Self` | Stable | User-facing projected leaf range plus domain key, in source order |
+| `StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]` | Stable | Projected leaf paired with a domain-owned stable ID |
+| `ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]` | Stable | Last successful semantic source plus stable leaves; copies the leaves array |
+| `ProjectionIdentityBaseline::source(Self[Id]) -> String` | Stable | Last-good source baseline |
+| `ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]` | Stable | Returns a copy of the stable leaves |
+| `ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Self[Id]` | Stable | Realign leaves and return a new committed baseline |
+| `ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Self[Id]` | Stable | Value-shaped optional-edit counterpart |
+| `ProjectionIdentityTracker::new() -> Self[Id]` | Stable | Empty tracker for integrations whose first valid projection may arrive later |
+| `ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]` | Stable | Seed tracker from an existing last-good identity baseline |
+| `ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?` | Stable | Inspect current committed identity baseline |
+| `ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit` | Stable | Retain a baseline-relative failed-input edit when valid, otherwise use source-diff fallback |
+| `ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, Edit?) -> Unit` | Stable | Value-shaped optional-edit counterpart |
+| `ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]` | Stable | Preview realignment only; does not mutate baseline or clear pending state |
+| `ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]` | Stable | Value-shaped optional-edit counterpart |
+| `ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit` | Stable | Only tracker operation that advances the committed baseline and clears pending state |
+| `ProjectionStringIdAllocator::new((String, Int) -> String) -> Self` | Stable | Unseeded string-ID allocator with caller-supplied formatter |
+| `ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int) -> String) -> Self` | Stable | Seeded allocator that skips IDs already present in the baseline |
+| `ProjectionStringIdAllocator::allocate(Self, ProjectionLeaf) -> String` | Stable | Allocate a fresh string ID for the leaf key |
+| `realign_projection_identities(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]` | Stable | Preserve matching prefix/suffix IDs around an edit window |
+| `realign_projection_identities_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]` | Stable | Value-shaped optional-edit counterpart |
+| `realign_projection_items(...)` | Stable | Adapter that extracts leaves from domain items and zips stable IDs back onto caller-owned item shapes |
+| `realign_projection_items_with_optional_edit(...)` | Stable | Value-shaped optional-edit counterpart |
+
+---
+
 ## Standalone functions
 
 | Symbol | Stability | Notes |

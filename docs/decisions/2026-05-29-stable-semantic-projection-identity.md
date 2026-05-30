@@ -3,7 +3,8 @@
 **Date:** 2026-05-29
 **Status:** Accepted
 **Issue:** [#162](https://github.com/dowdiness/loom/issues/162)
-**Follow-up:** [#178](https://github.com/dowdiness/loom/issues/178)
+**Follow-ups:** [#177](https://github.com/dowdiness/loom/issues/177),
+[#178](https://github.com/dowdiness/loom/issues/178)
 **Guide:** [CST Projection Guide](../api/projection-guide.md#stable-identity-across-edits)
 
 ## Context
@@ -28,6 +29,11 @@ it through `@loom`:
 - `StableProjectionLeaf[Id]` pairs a projected leaf with a generic public ID.
 - `ProjectionIdentityBaseline[Id]` stores the last successful semantic source
   plus stable leaves.
+- `ProjectionIdentityTracker[Id]` owns the reusable identity baseline plus a
+  pending failed-input edit/fallback marker for authoring facades that do not
+  want to hand-roll last-good identity state. Its realignment step is
+  preview-only; committing remains explicit so semantic lowering can fail
+  without advancing the baseline.
 - `realign_projection_identities` / `ProjectionIdentityBaseline::advance`
   preserve matching prefix/suffix IDs around an editor `Edit` or source-diff
   fallback window and call a projection-owned allocator only for changed-window
@@ -63,6 +69,9 @@ order and advance the baseline with a domain allocator. String-ID projections ca
 seed `ProjectionStringIdAllocator` from the retained baseline so newly allocated
 IDs skip IDs that were preserved in the reusable prefix/suffix.
 
-Parser and CST APIs remain unchanged. The helper is conservative: it does not
-reuse IDs inside the changed window, and it allocates fresh IDs if a prefix or
-suffix leaf's key unexpectedly differs.
+Parser and CST APIs remain unchanged. The helpers are conservative: they do not
+reuse IDs inside the changed window, and they allocate fresh IDs if a prefix or
+suffix leaf's key unexpectedly differs. `ProjectionIdentityTracker` deliberately
+tracks only identity baselines and pending edit/fallback state; parser
+diagnostics, projection diagnostics, semantic documents, and lowering results
+remain language-owned.

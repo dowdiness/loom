@@ -53,9 +53,13 @@ For each editor edit:
    diagnostics.
 
 For stable leaf IDs, store a `@loom.ProjectionIdentityBaseline` in the
-last-good semantic state. On projection success, call `baseline.advance` with a
-baseline-relative `edit` when available, or omit `edit` to fall back to source
-diffing after `set_source` or malformed intermediate input.
+last-good semantic state, or use `@loom.ProjectionIdentityTracker` when the
+facade wants Loom to own the baseline plus pending identity edit. On projection
+success, call `baseline.advance` / `tracker.realign_success` with a
+baseline-relative `edit` when available, or omit it to fall back to source
+diffing after `set_source` or malformed intermediate input. When using the
+tracker, `realign_success` is preview-only; call `commit_success` only after
+semantic lowering succeeds.
 
 The default policy for semantic projection failures is retention: a failed
 projection does not replace the last-good document even when parser diagnostics
