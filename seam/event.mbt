@@ -425,6 +425,27 @@ pub fn build_tree_interned(
 }
 
 ///|
+fn intern_reuse_tokens_only(
+  node : CstNode,
+  interner : Interner,
+  trivia_kind : RawKind?,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> CstElement {
+  CstElement::Node(node).map(
+    elem => {
+      match elem {
+        Token(t) => Token(interner.intern_token(t.kind, t.text()))
+        _ => elem
+      }
+    },
+    trivia_kind~,
+    error_kind~,
+    incomplete_kind~,
+  )
+}
+
+///|
 fn build_tree_interned_buffered(
   events : Array[BufferedEvent],
   root_kind : RawKind,
@@ -473,16 +494,8 @@ fn build_tree_interned_buffered(
         }
       }
       BufferedReuseNode(node) => {
-        let interned = CstElement::Node(node).map(
-          elem => {
-            match elem {
-              Token(t) => Token(interner.intern_token(t.kind, t.text()))
-              _ => elem
-            }
-          },
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
+        let interned = intern_reuse_tokens_only(
+          node, interner, trivia_kind, error_kind, incomplete_kind,
         )
         match stack.last() {
           Some(parent) => parent.push(interned)
@@ -493,16 +506,8 @@ fn build_tree_interned_buffered(
         let rebased = rebuild_subtree_for_source(
           node, source, source_start, trivia_kind, error_kind, incomplete_kind,
         )
-        let interned = CstElement::Node(rebased).map(
-          elem => {
-            match elem {
-              Token(t) => Token(interner.intern_token(t.kind, t.text()))
-              _ => elem
-            }
-          },
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
+        let interned = intern_reuse_tokens_only(
+          rebased, interner, trivia_kind, error_kind, incomplete_kind,
         )
         match stack.last() {
           Some(parent) => parent.push(interned)
@@ -513,16 +518,8 @@ fn build_tree_interned_buffered(
         let rebased = rebase_subtree_to_source_unchecked(
           node, source, source_start, trivia_kind, error_kind, incomplete_kind,
         )
-        let interned = CstElement::Node(rebased).map(
-          elem => {
-            match elem {
-              Token(t) => Token(interner.intern_token(t.kind, t.text()))
-              _ => elem
-            }
-          },
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
+        let interned = intern_reuse_tokens_only(
+          rebased, interner, trivia_kind, error_kind, incomplete_kind,
         )
         match stack.last() {
           Some(parent) => parent.push(interned)
