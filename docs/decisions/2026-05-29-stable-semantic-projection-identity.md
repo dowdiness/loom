@@ -31,9 +31,10 @@ it through `@loom`:
   plus stable leaves.
 - `ProjectionIdentityTracker[Id]` owns the reusable identity baseline plus a
   pending failed-input edit/fallback marker for authoring facades that do not
-  want to hand-roll last-good identity state. Its realignment step is
-  preview-only; committing remains explicit so semantic lowering can fail
-  without advancing the baseline.
+  want to hand-roll last-good identity state. The pending edit can compose with
+  later malformed-source edits when their sources match; otherwise it degrades to
+  source-diff fallback. Its realignment step is preview-only; committing remains
+  explicit so semantic lowering can fail without advancing the baseline.
 - `realign_projection_identities` / `ProjectionIdentityBaseline::advance`
   preserve matching prefix/suffix IDs around an editor `Edit` or source-diff
   fallback window and call a projection-owned allocator only for changed-window
@@ -57,8 +58,10 @@ fallbacks.
 
 Keeping the last-good source and stable leaves together gives malformed-input
 recovery the baseline it needs. Accepting an exact editor edit when available
-preserves precise damage windows; falling back to a minimal source diff keeps
-`set_source` and recovery paths usable when no baseline-relative edit exists.
+preserves precise damage windows. If recovery continues from malformed parser
+text, exact edit composition preserves the original baseline-relative window
+when possible; falling back to a minimal source diff keeps `set_source` and
+ambiguous recovery paths usable when no baseline-relative edit exists.
 
 ## Consequences
 

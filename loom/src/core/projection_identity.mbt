@@ -177,9 +177,12 @@ pub fn[Id] ProjectionIdentityTracker::baseline(
 /// lowering.
 ///
 /// Pass `source_before_edit` and `edit` only when `edit` is relative to the
-/// tracker's current last-good baseline source. A missing edit, a non-baseline
-/// source, or multiple failed edits degrade to source-diff fallback for the next
-/// successful projection.
+/// tracker's current last-good baseline source. The pending baseline edit is
+/// validated against the next successful source before use, so malformed text
+/// may carry additional syntax damage. Later failed or recovery edits compose
+/// with the pending baseline-relative edit when they exactly match the parser's
+/// malformed source; missing or non-composable edits degrade to source-diff
+/// fallback for the next successful projection.
 pub fn[Id] ProjectionIdentityTracker::record_failed_input(
   self : ProjectionIdentityTracker[Id],
   current_source : String,
@@ -211,8 +214,9 @@ pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(
 ///
 /// If no baseline exists yet, every returned leaf receives a fresh ID from
 /// `allocate`. If a failed input was recorded, the retained pending change wins
-/// over the direct `edit` argument; otherwise `edit` is used when supplied and
-/// source-diff fallback is used when omitted.
+/// when it matches `next_source`; a direct `edit` is only used when it composes
+/// from the pending malformed source into `next_source`. Otherwise `edit` is
+/// used when supplied and source-diff fallback is used when omitted.
 pub fn[Id] ProjectionIdentityTracker::realign_success(
   self : ProjectionIdentityTracker[Id],
   next_source : String,
@@ -277,18 +281,21 @@ fn[Id] ProjectionIdentityTracker::pending_after_failed_input(
     Some(baseline) =>
       match self.pending {
         NoProjectionIdentityChange =>
-          match (source_before_edit, edit) {
-            (Some(before), Some(e)) if before == baseline.source() &&
-              edit_matches_sources(before, current_source, e) =>
-              ExactProjectionIdentityEdit(e, current_source)
-            _ => ProjectionIdentitySourceDiff
-          }
-        ExactProjectionIdentityEdit(e, stored_source) =>
-          if stored_source == current_source {
-            ExactProjectionIdentityEdit(e, stored_source)
-          } else {
-            ProjectionIdentitySourceDiff
-          }
+          pending_baseline_edit_from_source(
+            baseline.source(),
+            current_source,
+            source_before_edit,
+            edit,
+          )
+        ExactProjectionIdentityEdit(pending_edit, pending_source) =>
+          pending_after_additional_exact_edit(
+            baseline.source(),
+            pending_edit,
+            pending_source,
+            current_source,
+            source_before_edit,
+            edit,
+          )
         ProjectionIdentitySourceDiff => ProjectionIdentitySourceDiff
       }
   }
@@ -308,14 +315,129 @@ fn[Id] ProjectionIdentityTracker::edit_for_success(
           Some(e)
         _ => None
       }
-    ExactProjectionIdentityEdit(e, stored_source) =>
-      if stored_source == next_source &&
-        edit_matches_sources(baseline_source, next_source, e) {
-        Some(e)
+    ExactProjectionIdentityEdit(pending_edit, pending_source) =>
+      if edit_matches_sources(baseline_source, next_source, pending_edit) {
+        Some(pending_edit)
       } else {
-        None
+        match edit {
+          Some(e) if edit_matches_sources(pending_source, next_source, e) =>
+            compose_projection_identity_edits(
+              baseline_source, pending_edit, pending_source, e, next_source,
+            )
+          _ => None
+        }
       }
     ProjectionIdentitySourceDiff => None
+  }
+}
+
+///|
+fn pending_baseline_edit_from_source(
+  expected_source_before_edit : String,
+  current_source : String,
+  source_before_edit : String?,
+  edit : Edit?,
+) -> PendingProjectionIdentityChange {
+  match (source_before_edit, edit) {
+    (Some(before), Some(e)) if before == expected_source_before_edit &&
+      edit_has_valid_old_range(before, e) =>
+      ExactProjectionIdentityEdit(e, current_source)
+    _ => ProjectionIdentitySourceDiff
+  }
+}
+
+///|
+fn pending_after_additional_exact_edit(
+  baseline_source : String,
+  pending_edit : Edit,
+  pending_source : String,
+  current_source : String,
+  source_before_edit : String?,
+  edit : Edit?,
+) -> PendingProjectionIdentityChange {
+  match
+    pending_baseline_edit_from_source(
+      baseline_source, current_source, source_before_edit, edit,
+    ) {
+    ExactProjectionIdentityEdit(e, source) =>
+      ExactProjectionIdentityEdit(e, source)
+    _ =>
+      match (source_before_edit, edit) {
+        (Some(before), Some(e)) if before == pending_source &&
+          edit_matches_sources(pending_source, current_source, e) =>
+          match
+            compose_projection_identity_edits(
+              baseline_source, pending_edit, pending_source, e, current_source,
+            ) {
+            Some(composed) =>
+              ExactProjectionIdentityEdit(composed, current_source)
+            None => ProjectionIdentitySourceDiff
+          }
+        _ =>
+          if pending_source == current_source {
+            ExactProjectionIdentityEdit(pending_edit, pending_source)
+          } else {
+            ProjectionIdentitySourceDiff
+          }
+      }
+  }
+}
+
+///|
+fn compose_projection_identity_edits(
+  baseline_source : String,
+  first : Edit,
+  middle_source : String,
+  second : Edit,
+  next_source : String,
+) -> Edit? {
+  guard edit_matches_sources(baseline_source, middle_source, first) else {
+    return None
+  }
+  guard edit_matches_sources(middle_source, next_source, second) else {
+    return None
+  }
+  let second_old_start = position_before_projection_identity_edit(
+    first,
+    second.start,
+  )
+  let second_old_end = position_before_projection_identity_edit(
+    first,
+    second.old_end(),
+  )
+  let start = if first.start < second_old_start {
+    first.start
+  } else {
+    second_old_start
+  }
+  let old_end = if first.old_end() > second_old_end {
+    first.old_end()
+  } else {
+    second_old_end
+  }
+  guard old_end >= start else { return None }
+  let old_len = old_end - start
+  let new_len = old_len + next_source.length() - baseline_source.length()
+  guard new_len >= 0 else { return None }
+  let composed = Edit::new(start, old_len, new_len)
+  if edit_matches_sources(baseline_source, next_source, composed) {
+    Some(composed)
+  } else {
+    None
+  }
+}
+
+///|
+fn position_before_projection_identity_edit(
+  edit : Edit,
+  position_after_edit : Int,
+) -> Int {
+  if position_after_edit <= edit.start {
+    position_after_edit
+  } else if position_after_edit >= edit.new_end() {
+    position_after_edit - edit.delta()
+  } else {
+    edit.old_end()
   }
 }
 
@@ -329,14 +451,19 @@ fn edit_matches_sources(
   let next_len = next_source.length()
   let old_end = edit.old_end()
   let new_end = edit.new_end()
-  edit.start >= 0 &&
-  edit.deleted_length() >= 0 &&
-  edit.inserted_length() >= 0 &&
-  old_end <= old_len &&
+  edit_has_valid_old_range(old_source, edit) &&
   new_end <= next_len &&
   old_len + edit.delta() == next_len &&
   source_prefix_matches(old_source, next_source, edit.start) &&
   source_suffix_matches(old_source, next_source, old_end, new_end)
+}
+
+///|
+fn edit_has_valid_old_range(old_source : String, edit : Edit) -> Bool {
+  edit.start >= 0 &&
+  edit.deleted_length() >= 0 &&
+  edit.inserted_length() >= 0 &&
+  edit.old_end() <= old_source.length()
 }
 
 ///|

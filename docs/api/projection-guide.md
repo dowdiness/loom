@@ -79,8 +79,12 @@ let new_baseline = old_baseline.advance(
 
 If an authoring facade needs to survive malformed intermediate input, use
 `@loom.ProjectionIdentityTracker` to keep the identity baseline and pending
-baseline-relative edit together. `realign_success` is preview-only; call
-`commit_success` only after parser diagnostics, projection, and semantic
+baseline-relative edit together. The pending baseline edit is validated against
+the next successful source before use, so malformed text may carry additional
+syntax damage. Later failed or recovery edits that are relative to the malformed
+parser text compose with the pending baseline edit when their sources match;
+ambiguous cases fall back to source diffing. `realign_success` is preview-only;
+call `commit_success` only after parser diagnostics, projection, and semantic
 lowering all succeed.
 
 ```mbt nocheck
