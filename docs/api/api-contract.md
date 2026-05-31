@@ -295,9 +295,9 @@ code chooses the projected leaves, public ID type, and allocator.
 | `ProjectionIdentityTracker::new() -> Self[Id]` | Stable | Empty tracker for integrations whose first valid projection may arrive later |
 | `ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]` | Stable | Seed tracker from an existing last-good identity baseline |
 | `ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?` | Stable | Inspect current committed identity baseline |
-| `ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit` | Stable | Retain a baseline-relative failed-input edit when valid, otherwise use source-diff fallback |
+| `ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit` | Stable | Retain a baseline-relative failed-input edit when valid, compose later malformed-source edits when exact, otherwise use source-diff fallback |
 | `ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, Edit?) -> Unit` | Stable | Value-shaped optional-edit counterpart |
-| `ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]` | Stable | Preview realignment only; does not mutate baseline or clear pending state |
+| `ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]` | Stable | Preview realignment only; validates pending edits against the successful source and does not mutate baseline or clear pending state |
 | `ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]` | Stable | Value-shaped optional-edit counterpart |
 | `ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit` | Stable | Only tracker operation that advances the committed baseline and clears pending state |
 | `ProjectionStringIdAllocator::new((String, Int) -> String) -> Self` | Stable | Unseeded string-ID allocator with caller-supplied formatter |

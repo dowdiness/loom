@@ -58,8 +58,10 @@ facade wants Loom to own the baseline plus pending identity edit. On projection
 success, call `baseline.advance` / `tracker.realign_success` with a
 baseline-relative `edit` when available, or omit it to fall back to source
 diffing after `set_source` or malformed intermediate input. When using the
-tracker, `realign_success` is preview-only; call `commit_success` only after
-semantic lowering succeeds.
+tracker, the pending baseline edit is validated against the next successful
+source before use. Later malformed-source edits compose with that pending edit
+when their sources match. `realign_success` is preview-only; call
+`commit_success` only after semantic lowering succeeds.
 
 The default policy for semantic projection failures is retention: a failed
 projection does not replace the last-good document even when parser diagnostics

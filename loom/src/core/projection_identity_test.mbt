@@ -566,6 +566,103 @@ test "projection identity tracker: mismatched pending exact edit falls back to s
 }
 
 ///|
+test "projection identity tracker: failed baseline edit survives recovery that restores text" {
+  let tracker = ProjectionIdentityTracker::from_baseline(
+    ProjectionIdentityBaseline::new("aa bb cc", [
+      test_stable(0, 2, "sound:aa", "aa:0"),
+      test_stable(3, 5, "sound:bb", "bb:0"),
+      test_stable(6, 8, "sound:cc", "cc:0"),
+    ]),
+  )
+  tracker.record_failed_input(
+    "aa xx cc!",
+    source_before_edit="aa bb cc",
+    edit=Edit::replace(3, 5, 5),
+  )
+  let recovered = [
+    test_leaf(0, 2, "sound:aa"),
+    test_leaf(3, 5, "sound:bb"),
+    test_leaf(6, 8, "sound:cc"),
+  ]
+  let stable = tracker.realign_success(
+    "aa bb cc",
+    recovered,
+    test_allocate("fresh:"),
+    edit=Edit::replace(3, 9, 8),
+  )
+  debug_inspect(
+    test_ids(stable),
+    content="[\"aa:0\", \"fresh:sound:bb:0\", \"cc:0\"]",
+  )
+}
+
+///|
+test "projection identity tracker: recovery edit relative to malformed text does not overwrite pending edit" {
+  let tracker = ProjectionIdentityTracker::from_baseline(
+    ProjectionIdentityBaseline::new("aa aa cc", [
+      test_stable(0, 2, "sound:aa", "aa:0"),
+      test_stable(3, 5, "sound:aa", "aa:1"),
+      test_stable(6, 8, "sound:cc", "cc:0"),
+    ]),
+  )
+  tracker.record_failed_input(
+    "aa xx cc!",
+    source_before_edit="aa aa cc",
+    edit=Edit::replace(3, 5, 5),
+  )
+  let recovered = [
+    test_leaf(0, 2, "sound:aa"),
+    test_leaf(3, 5, "sound:aa"),
+    test_leaf(6, 8, "sound:cc"),
+  ]
+  let stable = tracker.realign_success(
+    "aa aa cc",
+    recovered,
+    test_allocate("fresh:"),
+    edit=Edit::replace(3, 9, 8),
+  )
+  debug_inspect(
+    test_ids(stable),
+    content="[\"aa:0\", \"fresh:sound:aa:0\", \"cc:0\"]",
+  )
+}
+
+///|
+test "projection identity tracker: multiple failed edits compose reverted text exactly" {
+  let tracker = ProjectionIdentityTracker::from_baseline(
+    ProjectionIdentityBaseline::new("aa bb cc", [
+      test_stable(0, 2, "sound:aa", "aa:0"),
+      test_stable(3, 5, "sound:bb", "bb:0"),
+      test_stable(6, 8, "sound:cc", "cc:0"),
+    ]),
+  )
+  tracker.record_failed_input(
+    "aa xx cc",
+    source_before_edit="aa bb cc",
+    edit=Edit::replace(3, 5, 5),
+  )
+  tracker.record_failed_input_with_optional_edit(
+    "aa bb cc",
+    Some("aa xx cc"),
+    Some(Edit::replace(3, 5, 5)),
+  )
+  let recovered = [
+    test_leaf(0, 2, "sound:aa"),
+    test_leaf(3, 5, "sound:bb"),
+    test_leaf(6, 8, "sound:cc"),
+  ]
+  let stable = tracker.realign_success(
+    "aa bb cc",
+    recovered,
+    test_allocate("fresh:"),
+  )
+  debug_inspect(
+    test_ids(stable),
+    content="[\"aa:0\", \"fresh:sound:bb:0\", \"cc:0\"]",
+  )
+}
+
+///|
 test "projection identity tracker: invalid exact edit length falls back to source diff" {
   let tracker = ProjectionIdentityTracker::from_baseline(
     ProjectionIdentityBaseline::new("aa bb", [
