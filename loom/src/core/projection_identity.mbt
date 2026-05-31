@@ -391,19 +391,18 @@ fn compose_projection_identity_edits(
   second : Edit,
   next_source : String,
 ) -> Edit? {
-  guard edit_matches_sources(baseline_source, middle_source, first) else {
-    return None
-  }
+  guard edit_has_valid_old_range(baseline_source, first) else { return None }
   guard edit_matches_sources(middle_source, next_source, second) else {
     return None
   }
-  let second_old_start = position_before_projection_identity_edit(
-    first,
-    second.start,
+  let baseline_len = baseline_source.length()
+  let second_old_start = clamp_projection_identity_position(
+    position_before_projection_identity_edit(first, second.start),
+    baseline_len,
   )
-  let second_old_end = position_before_projection_identity_edit(
-    first,
-    second.old_end(),
+  let second_old_end = clamp_projection_identity_position(
+    position_before_projection_identity_edit(first, second.old_end()),
+    baseline_len,
   )
   let start = if first.start < second_old_start {
     first.start
@@ -438,6 +437,17 @@ fn position_before_projection_identity_edit(
     position_after_edit - edit.delta()
   } else {
     edit.old_end()
+  }
+}
+
+///|
+fn clamp_projection_identity_position(position : Int, source_len : Int) -> Int {
+  if position < 0 {
+    0
+  } else if position > source_len {
+    source_len
+  } else {
+    position
   }
 }
 

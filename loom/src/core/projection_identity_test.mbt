@@ -663,6 +663,37 @@ test "projection identity tracker: multiple failed edits compose reverted text e
 }
 
 ///|
+test "projection identity tracker: composition allows extra malformed damage" {
+  let tracker = ProjectionIdentityTracker::from_baseline(
+    ProjectionIdentityBaseline::new("aa aa cc", [
+      test_stable(0, 2, "sound:aa", "aa:0"),
+      test_stable(3, 5, "sound:aa", "aa:1"),
+      test_stable(6, 8, "sound:cc", "cc:0"),
+    ]),
+  )
+  tracker.record_failed_input(
+    "aa xx cc!",
+    source_before_edit="aa aa cc",
+    edit=Edit::replace(3, 5, 5),
+  )
+  let recovered = [
+    test_leaf(0, 2, "sound:xx"),
+    test_leaf(3, 5, "sound:aa"),
+    test_leaf(6, 8, "sound:cc"),
+  ]
+  let stable = tracker.realign_success(
+    "xx aa cc",
+    recovered,
+    test_allocate("fresh:"),
+    edit=Edit::replace(0, 9, 8),
+  )
+  debug_inspect(
+    test_ids(stable),
+    content="[\"fresh:sound:xx:0\", \"fresh:sound:aa:1\", \"fresh:sound:cc:2\"]",
+  )
+}
+
+///|
 test "projection identity tracker: invalid exact edit length falls back to source diff" {
   let tracker = ProjectionIdentityTracker::from_baseline(
     ProjectionIdentityBaseline::new("aa bb", [
