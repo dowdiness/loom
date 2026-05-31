@@ -398,8 +398,8 @@ fn update_terms(
 /// the type Derived level — each only recomputes when its own inputs change.
 /// The collection here is O(n) reads, not O(n) type-checks.
 ///
-/// Diagnostics are read via `accumulated`, which records a synthetic dep
-/// on each per-def buffer. This makes the parent pipeline Derived invalidate
+/// Diagnostics are read via `accumulated_or_abort`, which records a synthetic
+/// dep on each per-def buffer. This makes the parent pipeline Derived invalidate
 /// when a def's diagnostic set changes, independent of whether the def's
 /// ordinary output (the `TypeResult`) changed.
 fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
@@ -418,7 +418,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   for i, name in state.prev_def_names {
     let type_memo = state.type_memos[i]
     def_types.push((name, type_memo.get_or_abort()))
-    for d in type_memo.accumulated(diags) {
+    for d in type_memo.accumulated_or_abort(diags) {
       all_diagnostics.push(d)
     }
   }
@@ -433,7 +433,7 @@ fn collect_results(state : PipelineState) -> ModuleTypeResult raise Failure {
   let body_type = match state.body_memo {
     Some(memo) => {
       let r = memo.get_or_abort()
-      for d in memo.accumulated(diags) {
+      for d in memo.accumulated_or_abort(diags) {
         all_diagnostics.push(d)
       }
       r
