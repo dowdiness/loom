@@ -135,7 +135,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-_No active plans currently indexed._
+- [2026-06-01 json-settings last-good attachment example](plans/2026-06-01-json-settings-last-good-attachment-plan.md) — issue #202: a tested, copyable example making the `nocheck` last-good semantic projection attachment pattern checked (pure derived + imperative settle policy).
 
 _Previously active: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
 _Previously active: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
