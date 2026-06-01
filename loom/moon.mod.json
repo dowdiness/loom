@@ -4,7 +4,7 @@
   "source": "src",
   "deps": {
     "dowdiness/seam": { "path": "../seam" },
-    "dowdiness/incr": { "path": "../incr" },
+    "dowdiness/incr": "0.7.0",
     "dowdiness/pretty": { "path": "../pretty" },
     "dowdiness/text_change": { "path": "../text-change" },
     "dowdiness/graphviz": "0.1.0",
