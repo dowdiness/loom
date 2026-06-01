@@ -206,6 +206,7 @@ fn check_well_formed(term : @ast.Term) -> Unit raise {
       check_well_formed(then_)
       check_well_formed(else_)
     }
+    @ast.Term::LetDef(_, init) => check_well_formed(init)
     @ast.Term::Module(defs, body) => {
       for def in defs {
         check_well_formed(def.1)

@@ -18,7 +18,7 @@ fn gen_term(rs : @splitmix.RandomState, depth : Int) -> Term {
       _ => Unit
     }
   } else {
-    match rs.split().next_uint64().to_int().abs() % 7 {
+    match rs.split().next_uint64().to_int().abs() % 8 {
       0 => Int(rs.split().next_uint64().to_int().abs() % 100)
       1 => Var(name)
       2 => Lam(name, gen_term(rs, depth - 1))
@@ -37,6 +37,7 @@ fn gen_term(rs : @splitmix.RandomState, depth : Int) -> Term {
           gen_term(rs, depth - 1),
           gen_term(rs, depth - 1),
         )
+      6 => LetDef(name, gen_term(rs, depth - 1))
       _ => {
         let num_defs = rs.split().next_uint64().to_int().abs() % 3 + 1
         let defs : Array[(VarName, Term)] = []

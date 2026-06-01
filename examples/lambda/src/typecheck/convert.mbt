@@ -18,6 +18,8 @@ pub fn convert(term : @ast.Term) -> TypedTerm {
     Bop(op, l, r) => TypedTerm::Bop(op, convert(l), convert(r))
     If(cond, then_branch, else_branch) =>
       TypedTerm::If(convert(cond), convert(then_branch), convert(else_branch))
+    LetDef(name, _init) =>
+      TypedTerm::Error("standalone let definition: \{name}")
     Module(defs, body) =>
       TypedTerm::Module(defs.map(fn(d) { (d.0, convert(d.1)) }), convert(body))
     Unbound(name) => TypedTerm::Unbound(name)

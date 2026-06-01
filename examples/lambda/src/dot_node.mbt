@@ -23,6 +23,7 @@ impl @viz.DotNode for TermDotNode with fn label(self) {
     @ast.Term::App(_, _) => "App"
     @ast.Term::Bop(op, _, _) => "Bop(" + op.to_string() + ")"
     @ast.Term::If(_, _, _) => "If"
+    @ast.Term::LetDef(name, _) => "LetDef(" + name + ")"
     @ast.Term::Module(defs, _) => {
       let names = defs.map(fn(d) { d.0 })
       "Module(" + names.join(", ") + ")"
@@ -83,10 +84,13 @@ fn build_term_tree(
         build_term_tree(t, counter, resolution~),
         build_term_tree(e, counter, resolution~),
       ]
+    @ast.Term::LetDef(_, init) => [build_term_tree(init, counter, resolution~)]
     @ast.Term::Module(defs, body) => {
       let children : Array[TermDotNode] = []
       for def in defs {
-        children.push(build_term_tree(def.1, counter, resolution~))
+        children.push(
+          build_term_tree(@ast.Term::LetDef(def.0, def.1), counter, resolution~),
+        )
       }
       children.push(build_term_tree(body, counter, resolution~))
       children

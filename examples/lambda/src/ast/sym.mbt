@@ -43,6 +43,7 @@ pub(open) trait TermSym {
   fn app(Self, Self) -> Self
   fn bop(Bop, Self, Self) -> Self
   fn if_then_else(Self, Self, Self) -> Self
+  fn let_def(VarName, Self) -> Self
   fn mod(Array[(VarName, Self)], Self) -> Self
   fn unit() -> Self
   /// Name that failed name resolution. Implement as abort() if you only
@@ -85,6 +86,11 @@ pub impl TermSym for Term with fn bop(op, l, r) {
 ///|
 pub impl TermSym for Term with fn if_then_else(c, t, e) {
   If(c, t, e)
+}
+
+///|
+pub impl TermSym for Term with fn let_def(name, init) {
+  LetDef(name, init)
 }
 
 ///|
@@ -154,6 +160,11 @@ pub impl TermSym for Pretty with fn if_then_else(c, t, e) {
 }
 
 ///|
+pub impl TermSym for Pretty with fn let_def(name, init) {
+  { repr: "let \{name} = \{init.repr}" }
+}
+
+///|
 pub impl TermSym for Pretty with fn mod(defs, body) {
   let parts : Array[String] = defs.map(fn(d) { "let \{d.0} = \{d.1.repr}" })
   parts.push(body.repr)
@@ -191,8 +202,9 @@ pub fn children_of(term : Term) -> Array[Term] {
     App(f, a) => [f, a]
     Bop(_, l, r) => [l, r]
     If(c, t, e) => [c, t, e]
+    LetDef(_, init) => [init]
     Module(defs, body) => {
-      let result = defs.map(fn(d) { d.1 })
+      let result = defs.map(fn(d) { LetDef(d.0, d.1) })
       result.push(body)
       result
     }
@@ -219,13 +231,19 @@ pub fn rebuild_from(shape : Term, children : Array[Term]) -> Term {
     App(_, _) => App(child(0), child(1))
     Bop(op, _, _) => Bop(op, child(0), child(1))
     If(_, _, _) => If(child(0), child(1), child(2))
+    LetDef(name, _) => LetDef(name, child(0))
     Module(old_defs, _) =>
       if children.length() >= 1 {
         let last = children.length() - 1
         let new_defs : Array[(VarName, Term)] = []
         for i in 0..<last {
-          let name = if i < old_defs.length() { old_defs[i].0 } else { "_" }
-          new_defs.push((name, children[i]))
+          match children[i] {
+            LetDef(name, init) => new_defs.push((name, init))
+            init => {
+              let name = if i < old_defs.length() { old_defs[i].0 } else { "_" }
+              new_defs.push((name, init))
+            }
+          }
         }
         Module(new_defs, children[last])
       } else {
@@ -247,6 +265,7 @@ pub fn[T : TermSym] replay(term : Term) -> T {
     App(f, a) => T::app(replay(f), replay(a))
     Bop(op, l, r) => T::bop(op, replay(l), replay(r))
     If(c, t, e) => T::if_then_else(replay(c), replay(t), replay(e))
+    LetDef(name, init) => T::let_def(name, replay(init))
     Module(defs, body) => {
       let mapped : Array[(String, T)] = defs.map(fn(d) { (d.0, replay(d.1)) })
       T::mod(mapped, replay(body))

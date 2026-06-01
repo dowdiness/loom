@@ -9,6 +9,8 @@
 //   preserve `op`.
 // - `Lam`'s param name is NOT a discriminator: every `Lam` canonicalizes to
 //   `λx. x`. The placeholder is invariant in the param name.
+// - `LetDef`'s name is NOT a discriminator: every standalone binding row
+//   canonicalizes to `let x = 0`, mirroring the module placeholder row.
 // - `Module`'s defs/body are NOT discriminators: every `Module`
 //   canonicalizes to a single-binding module with body `Var("x")`. Pinned
 //   to `Var("x")` rather than "any" for determinism of future
@@ -29,6 +31,7 @@ pub impl @loomcore.Canonical for Term with fn canonical(self) {
     App(_, _) => App(Var("f"), Var("x"))
     Bop(op, _, _) => Bop(op, Int(0), Int(0))
     If(_, _, _) => If(Int(0), Int(0), Int(0))
+    LetDef(_, _) => LetDef("x", Int(0))
     Module(_, _) => Module([("x", Int(0))], Var("x"))
     Unit => Unit
     Unbound(_) => Unbound("x")

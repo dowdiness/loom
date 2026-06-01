@@ -15,6 +15,7 @@ pub impl @loomcore.Renderable for Term with fn label(self) {
     App(_, _) => "App"
     Bop(op, _, _) => @debug.to_string(op)
     If(_, _, _) => "if"
+    LetDef(name, _) => "let " + name
     Module(defs, _) => {
       let names = defs.map(fn(d) { d.0 })
       "module [" + names.join(", ") + "]"
@@ -35,7 +36,8 @@ pub impl @loomcore.Renderable for Term with fn placeholder(self) {
     //     hardline (`pretty_traits.mbt` `mod`), so the canonical form
     //     `Module([("x", Int(0))], Var("x"))` pretty-prints as
     //     `"let x = 0\nx"`, not the single-line user-input template
-    //     `"let x = 0"` the editor expects.
+    //     `"let x = 0"` the editor expects. Standalone `LetDef` uses
+    //     the default path because it has no module body line.
     //   - Unbound/Error: diagnostic kinds whose placeholders are
     //     user-input templates (`"x"`, `"?"`), not the diagnostic-decorated
     //     pretty form (`"<unbound: x>"`, `"<error: ?>"`).

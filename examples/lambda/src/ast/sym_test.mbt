@@ -22,6 +22,7 @@ test "replay: Term roundtrip all variants" {
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Int(1), @ast.Term::Int(2)),
     @ast.Term::Bop(@ast.Bop::Minus, @ast.Term::Int(3), @ast.Term::Int(1)),
     @ast.Term::If(@ast.Term::Int(1), @ast.Term::Int(2), @ast.Term::Int(3)),
+    @ast.Term::LetDef("x", @ast.Term::Int(1)),
     @ast.Term::Module([("x", @ast.Term::Int(1))], @ast.Term::Var("x")),
     @ast.Term::Unit,
     @ast.Term::Unbound("y"),
@@ -51,6 +52,12 @@ test "replay: Pretty Lam" {
 }
 
 ///|
+test "replay: Pretty LetDef" {
+  let term = @ast.Term::LetDef("x", @ast.Term::Int(1))
+  inspect((@ast.replay(term) : @ast.Pretty).repr, content="let x = 1")
+}
+
+///|
 test "replay: Pretty Module" {
   let term = @ast.Term::Module(
     [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
@@ -71,6 +78,7 @@ test "children_of/rebuild_from roundtrip: all variants" {
     @ast.Term::App(@ast.Term::Lam("x", @ast.Term::Var("x")), @ast.Term::Int(1)),
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Int(1), @ast.Term::Int(2)),
     @ast.Term::If(@ast.Term::Int(1), @ast.Term::Int(2), @ast.Term::Int(3)),
+    @ast.Term::LetDef("x", @ast.Term::Int(1)),
     @ast.Term::Module(
       [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
       @ast.Term::Var("x"),
@@ -117,23 +125,52 @@ test "children_of: branch arities" {
     ).length(),
     content="3",
   )
+  inspect(
+    @ast.children_of(@ast.Term::LetDef("x", @ast.Term::Var("x"))).length(),
+    content="1",
+  )
 }
 
 ///|
-test "children_of: Module children = defs values + body" {
+test "children_of: Module children = LetDefs + body" {
   let m = @ast.Term::Module(
     [("a", @ast.Term::Int(1)), ("b", @ast.Term::Int(2))],
     @ast.Term::Var("a"),
   )
   let children = @ast.children_of(m)
   inspect(children.length(), content="3")
-  inspect(children[0], content="Int(1)")
-  inspect(children[1], content="Int(2)")
+  inspect(children[0], content="LetDef(\"a\", Int(1))")
+  inspect(children[1], content="LetDef(\"b\", Int(2))")
   inspect(children[2], content="Var(\"a\")")
 }
 
 ///|
+test "rebuild_from: LetDef preserves name" {
+  let shape = @ast.Term::LetDef("x", @ast.Term::Int(0))
+  let rebuilt = @ast.rebuild_from(shape, [@ast.Term::Int(10)])
+  inspect(rebuilt, content="LetDef(\"x\", Int(10))")
+}
+
+///|
 test "rebuild_from: Module preserves def names" {
+  let shape = @ast.Term::Module(
+    [("x", @ast.Term::Int(0)), ("y", @ast.Term::Int(0))],
+    @ast.Term::Unit,
+  )
+  let new_children = [
+    @ast.Term::LetDef("x", @ast.Term::Int(10)),
+    @ast.Term::LetDef("y", @ast.Term::Int(20)),
+    @ast.Term::Var("z"),
+  ]
+  let rebuilt = @ast.rebuild_from(shape, new_children)
+  inspect(
+    rebuilt,
+    content="Module([(\"x\", Int(10)), (\"y\", Int(20))], Var(\"z\"))",
+  )
+}
+
+///|
+test "rebuild_from: Module accepts legacy init children" {
   let shape = @ast.Term::Module(
     [("x", @ast.Term::Int(0)), ("y", @ast.Term::Int(0))],
     @ast.Term::Unit,

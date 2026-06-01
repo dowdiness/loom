@@ -52,6 +52,13 @@ test "eval: Unbound node returns Unbound" {
 }
 
 ///|
+test "eval: standalone LetDef returns ParseError" {
+  let term = @ast.Term::LetDef("x", @ast.Term::Int(1))
+  let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)
+  debug_inspect(result, content="Err(ParseError)")
+}
+
+///|
 test "eval: empty module with Unit body" {
   let term = @ast.Term::Module([], @ast.Term::Unit)
   let result : Result[Value, StuckReason] = try? eval(Env::empty(), term)

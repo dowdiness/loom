@@ -45,6 +45,7 @@ pub(all) enum Term {
   App(Term, Term)
   Bop(Bop, Term, Term)
   If(Term, Term, Term)
+  LetDef(String, Term)
   Module(Array[(String, Term)], Term)
   Unit
   Unbound(String)
@@ -73,6 +74,7 @@ pub(open) trait TermSym {
   fn app(Self, Self) -> Self
   fn bop(Bop, Self, Self) -> Self
   fn if_then_else(Self, Self, Self) -> Self
+  fn let_def(String, Self) -> Self
   fn mod(Array[(String, Self)], Self) -> Self
   fn unit() -> Self
   fn unbound(String) -> Self
