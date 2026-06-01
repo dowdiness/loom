@@ -144,3 +144,13 @@ test "duplicate key blocks at projection" {
   let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"gain\":2}")
   inspect(a.state(), content="ProjectionBlocked")
 }
+
+///|
+test "dispose is idempotent and leaves cached state readable" {
+  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  inspect(a.state(), content="Current")
+  a.dispose()
+  a.dispose() // second dispose must not crash
+  // Cached state stays readable after dispose (it is not a graph read).
+  inspect(a.state(), content="Current")
+}

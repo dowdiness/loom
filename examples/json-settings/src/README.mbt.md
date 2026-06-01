@@ -46,7 +46,7 @@ pub fn SettingsAttachment::set_source(Self, String) -> Unit
 pub fn SettingsAttachment::dispose(Self) -> Unit
 
 pub enum SettingsState { Current; ParserBlocked; ProjectionBlocked; GraphBlocked }
-pub(all) struct Setting { id : String; key : String; value : Double }
+pub struct Setting { id : String; key : String; value : Double } // read-only fields
 pub struct SettingsDoc { /* settings() -> Array[Setting] */ }
 ```
 

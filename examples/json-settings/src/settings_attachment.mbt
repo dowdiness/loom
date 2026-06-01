@@ -145,7 +145,7 @@ fn SettingsAttachment::settle(
         edit,
       )
       self.state = ParserBlocked
-      self.current = Err(join_messages(messages))
+      self.current = Err(messages.join("; "))
     }
     ProjectionFailed(messages) => {
       self.tracker.record_failed_input_with_optional_edit(
@@ -154,7 +154,7 @@ fn SettingsAttachment::settle(
         edit,
       )
       self.state = ProjectionBlocked
-      self.current = Err(join_messages(messages))
+      self.current = Err(messages.join("; "))
     }
     Projected(raws) => {
       let allocator = match self.tracker.baseline() {
@@ -173,10 +173,8 @@ fn SettingsAttachment::settle(
         edit,
       )
       let settings : Array[Setting] = []
-      for i = 0; i < raws.length(); i = i + 1 {
-        settings.push(
-          Setting(id=stable[i].id, key=raws[i].key, value=raws[i].value),
-        )
+      for i, raw in raws {
+        settings.push(Setting(id=stable[i].id, key=raw.key, value=raw.value))
       }
       let doc = SettingsDoc(settings)
       // Commit only after the semantic document is built — the sole
@@ -206,18 +204,6 @@ fn SettingsAttachment::settle(
 /// `setting#k`.
 fn make_setting_id(_key : String, occurrence : Int) -> String {
   "setting#" + occurrence.to_string()
-}
-
-///|
-fn join_messages(messages : Array[String]) -> String {
-  let buf = StringBuilder::new()
-  for i, m in messages {
-    if i > 0 {
-      buf.write_string("; ")
-    }
-    buf.write_string(m)
-  }
-  buf.to_string()
 }
 
 ///|

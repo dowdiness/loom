@@ -12,7 +12,11 @@
 /// `id` is allocated by the attachment's identity policy and is stable across
 /// edits that do not change this setting's key. `value` is the decoded JSON
 /// number; `key` is the decoded (unescaped) JSON object key.
-pub(all) struct Setting {
+///
+/// Fields are read-only outside the package; construct via `Setting::Setting` so
+/// the only way to make one is through the (future-proof, validatable)
+/// constructor.
+pub struct Setting {
   id : String
   key : String
   value : Double
