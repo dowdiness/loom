@@ -8,6 +8,12 @@ This guide complements the [authoring-only integration guide](authoring-only-int
 and the [CST projection guide](projection-guide.md). It is a state policy for a
 language-owned authoring facade, not a new Loom parser API.
 
+> **Tested example:** [`examples/json-settings/`](../../examples/json-settings/)
+> is the *checked* counterpart of the `nocheck` templates below — a small
+> settings document over `@json.json_grammar` with a pure `@incr.Derived` plus an
+> imperative `settle` policy, the honest read-error split (`GraphBlocked`), and
+> `ProjectionIdentityTracker`-backed stable ids. Copy it as a starting point.
+
 ## State contract
 
 Keep two kinds of authoring state separate:

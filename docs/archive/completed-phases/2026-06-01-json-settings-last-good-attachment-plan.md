@@ -1,6 +1,6 @@
 # Plan: Tested last-good semantic projection attachment example (issue #202)
 
-**Status:** Active
+**Status:** Complete (shipped 2026-06-01 as `examples/json-settings/`)
 
 **Issue:** [#202](https://github.com/dowdiness/loom/issues/202) — Add a tested
 authoring attachment example for last-good semantic projections.
@@ -180,7 +180,7 @@ From `examples/json-settings`: `NEW_MOON_MOD=0 moon check`, `... moon test`,
 `... moon info`, `... moon fmt --check`. From repo root: `bash check-docs.sh`.
 Confirm `examples-json-settings` appears in both CI fan-outs.
 
-**Decision record:** No ADR needed — this implements already-accepted last-good
+**Decision record:** No ADR needed: this implements already-accepted last-good
 semantic projection and stable-identity decisions; it adds an example, not a new
 design.
 
@@ -194,6 +194,12 @@ design.
    not lambda's older published pin.
 3. Blackbox covers public behavior; one whitebox covers the private
    tracker-baseline invariant.
-4. Public ID schema = deterministic strings (settings-prefixed key + occurrence
-   via `ProjectionStringIdAllocator`'s `make_id`); adjust only if moondsp needs a
-   specific shape.
+4. **Public ID schema — RESOLVED 2026-06-01 (user-directed during execution).**
+   Shipped as **opaque, allocation-order ids** (`setting#0`, `setting#1`, …) via
+   `ProjectionStringIdAllocator` with a key-independent `make_id`, *not* the
+   key-derived strings originally sketched here. Rationale: a key-derived id makes
+   `ProjectionIdentityTracker` reuse observationally a no-op (preserved id ==
+   recomputed id), so identity preservation could not be tested. Opaque ids make
+   reuse observable and match realistic downstream (moondsp) widget-identity needs;
+   a reordering test (`apply_edit` inserting a leading key) verifies trailing
+   settings keep their ids.

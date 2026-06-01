@@ -1,0 +1,14 @@
+{
+  "name": "dowdiness/json-settings",
+  "version": "0.1.0",
+  "source": "src",
+  "deps": {
+    "dowdiness/json": { "path": "../json" },
+    "dowdiness/loom": { "path": "../../loom" },
+    "dowdiness/seam": { "path": "../../seam" },
+    "dowdiness/incr": { "path": "../../incr" }
+  },
+  "license": "Apache-2.0",
+  "keywords": ["json", "settings", "projection", "incremental"],
+  "description": "Tested last-good semantic projection attachment example for dowdiness/loom"
+}
