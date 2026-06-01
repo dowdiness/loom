@@ -80,6 +80,22 @@ pub fn BinaryExprView::rhs(Self) -> @seam.SyntaxNode?
 pub impl @core.AstView for BinaryExprView
 pub impl ToJson for BinaryExprView
 
+pub struct BlockExprView {
+  node : @seam.SyntaxNode
+}
+pub fn BlockExprView::body(Self) -> @seam.SyntaxNode?
+pub fn BlockExprView::cast(@seam.SyntaxNode) -> Self?
+pub fn BlockExprView::defs(Self) -> Array[LetDefView]
+pub impl @core.AstView for BlockExprView
+pub impl ToJson for BlockExprView
+
+pub struct HoleLiteralView {
+  node : @seam.SyntaxNode
+}
+pub fn HoleLiteralView::cast(@seam.SyntaxNode) -> Self?
+pub impl @core.AstView for HoleLiteralView
+pub impl ToJson for HoleLiteralView
+
 pub struct IfExprView {
   node : @seam.SyntaxNode
 }

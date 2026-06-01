@@ -174,6 +174,56 @@ test "LetDefView without params unchanged" {
 }
 
 ///|
+test "BlockExprView::cast returns Some for block expressions" {
+  let (cst, _) = parse_cst("{ let x = 1; x }") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let block = tree.children()[0]
+  inspect(BlockExprView::cast(block) is Some(_), content="true")
+}
+
+///|
+test "BlockExprView exposes defs and trailing body" {
+  let (cst, _) = parse_cst("{ let x = 1; x }") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let block = match BlockExprView::cast(tree.children()[0]) {
+    Some(v) => v
+    None => abort("expected BlockExpr")
+  }
+  inspect(block.defs().length(), content="1")
+  inspect(block.defs()[0].name(), content="x")
+  debug_inspect(
+    block.body().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
+    content="Some(VarRef)",
+  )
+}
+
+///|
+test "BlockExprView::body is None for defs-only block" {
+  let (cst, _) = parse_cst("{ let x = 1; }") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  let block = match BlockExprView::cast(tree.children()[0]) {
+    Some(v) => v
+    None => abort("expected BlockExpr")
+  }
+  inspect(block.defs().length(), content="1")
+  inspect(block.body() is None, content="true")
+}
+
+///|
+test "HoleLiteralView::cast returns Some for hole literals" {
+  let (cst, _) = parse_cst("_") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  inspect(HoleLiteralView::cast(tree.children()[0]) is Some(_), content="true")
+}
+
+///|
+test "HoleLiteralView::cast returns None for non-hole nodes" {
+  let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
+  let tree = @seam.SyntaxNode::from_cst(cst)
+  inspect(HoleLiteralView::cast(tree.children()[0]) is None, content="true")
+}
+
+///|
 test "syntax_node_to_term: integer" {
   let (cst, _) = parse_cst("42") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
