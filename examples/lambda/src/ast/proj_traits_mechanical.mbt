@@ -23,6 +23,7 @@ pub impl @loomcore.TreeNode for Term with fn same_kind(self, other) {
     (App(_, _), App(_, _)) => true
     (Bop(_, _, _), Bop(_, _, _)) => true
     (If(_, _, _), If(_, _, _)) => true
+    (LetDef(_, _), LetDef(_, _)) => true
     (Module(_, _), Module(_, _)) => true
     (Unit, Unit) => true
     (Error(_), Error(_)) => true
@@ -41,6 +42,7 @@ pub impl @loomcore.Renderable for Term with fn kind_tag(self) {
     App(_, _) => "App"
     Bop(_, _, _) => "Bop"
     If(_, _, _) => "If"
+    LetDef(_, _) => "LetDef"
     Module(_, _) => "Module"
     Unit => "Unit"
     Unbound(_) => "Unbound"

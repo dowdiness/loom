@@ -11,9 +11,9 @@
 // string literals.
 
 ///|
-/// Frozen, pre-change placeholder mapping. Returns `Some` for the 9
-/// fitting variants and `None` for the 3 carve-outs (Module/Unbound/Error).
-/// Carve-outs are excluded from the drift check.
+/// Frozen placeholder mapping. Returns `Some` for the 10 fitting variants
+/// and `None` for the 3 carve-outs (Module/Unbound/Error). Carve-outs are
+/// excluded from the drift check.
 fn hand_written_placeholder_reference(t : Term) -> String? {
   match t {
     Int(_) => Some("0")
@@ -23,6 +23,7 @@ fn hand_written_placeholder_reference(t : Term) -> String? {
     Bop(Plus, _, _) => Some("0 + 0")
     Bop(Minus, _, _) => Some("0 - 0")
     If(_, _, _) => Some("if 0 then 0 else 0")
+    LetDef(_, _) => Some("let x = 0")
     Unit => Some("()")
     Hole(_) => Some("_")
     Module(_, _) | Unbound(_) | Error(_) => None
@@ -76,8 +77,8 @@ test "property: default_placeholder_via_canonical matches frozen reference" {
 // --- Per-variant inspect coverage --------------------------------------
 //
 // The @qc generator (see term_arbitrary.mbt) produces Int/Var/Lam/App/Bop/
-// If/Module at all depths plus Unit at leaf depth — but never Unbound,
-// Error, or Hole. Cover all 11 variants explicitly so a change to
+// If/LetDef/Module at recursive depths plus Unit at leaf depth — but never
+// Unbound, Error, or Hole. Cover all 12 variants explicitly so a change to
 // `canonical` is caught even for variants the generator can't reach.
 
 ///|
@@ -153,6 +154,16 @@ test "canonical: If" {
 }
 
 ///|
+test "canonical: LetDef" {
+  inspect(
+    @loomcore.Canonical::canonical(Term::LetDef("a", Term::Var("a"))),
+    content=(
+      #|LetDef("x", Int(0))
+    ),
+  )
+}
+
+///|
 test "canonical: Module pinned to Var(\"x\") body" {
   inspect(
     @loomcore.Canonical::canonical(
@@ -222,6 +233,7 @@ test "placeholder: all variants match expected strings" {
     (Bop(Plus, Int(1), Int(2)), "0 + 0"),
     (Bop(Minus, Int(1), Int(2)), "0 - 0"),
     (If(Int(1), Int(2), Int(3)), "if 0 then 0 else 0"),
+    (LetDef("a", Int(1)), "let x = 0"),
     (Module([("a", Int(1))], Var("a")), "let x = 0"),
     (Unit, "()"),
     (Unbound("foo"), "x"),

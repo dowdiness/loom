@@ -56,6 +56,13 @@ test "convert Module" {
 }
 
 ///|
+test "convert standalone LetDef is not a program form" {
+  let term = @ast.Term::LetDef("a", @ast.Term::Int(1))
+  let result = convert(term)
+  inspect(result, content="Error(\"standalone let definition: a\")")
+}
+
+///|
 test "infer Int literal" {
   let result = infer(TypeEnv::Empty, TypedTerm::Int(42))
   inspect(result.typ, content="Int")

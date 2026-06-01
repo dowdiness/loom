@@ -1,5 +1,7 @@
 // resolve.mbt — Name resolution for lambda calculus Terms.
-// Maps each Var node to Bound(depth) or Free, keyed by pre-order traversal index.
+// Maps each Var node to Bound(depth) or Free, keyed by structural pre-order
+// traversal index. Module definitions include the `LetDef` wrapper node that
+// `children_of(Module)` exposes, even though Module stores defs as tuples.
 //
 // IMPORTANT: `resolve` returns a paired `(Term, Resolution)`. The returned Term
 // has free `Var(name)` nodes rewritten to `Unbound(name)`, and the Resolution map
@@ -65,7 +67,17 @@ fn resolve_walk(
       let cur_env = Map::from_iter(env.iter())
       let mut cur_depth = depth
       for def in defs {
-        let new_init = resolve_walk(def.1, cur_env, cur_depth, counter, res)
+        let resolved_def = resolve_walk(
+          @ast.Term::LetDef(def.0, def.1),
+          cur_env,
+          cur_depth,
+          counter,
+          res,
+        )
+        let new_init = match resolved_def {
+          @ast.Term::LetDef(_, init) => init
+          other => other
+        }
         cur_env[def.0] = cur_depth
         cur_depth = cur_depth + 1
         new_defs.push((def.0, new_init))
@@ -89,10 +101,14 @@ fn resolve_walk(
       let new_e = resolve_walk(e, env, depth, counter, res)
       @ast.Term::If(new_c, new_t, new_e)
     }
+    @ast.Term::LetDef(name, init) => {
+      let new_init = resolve_walk(init, env, depth, counter, res)
+      @ast.Term::LetDef(name, new_init)
+    }
     @ast.Term::Unbound(_) => {
       res[node_id] = Free
       term
     }
-    _ => term // Int, Unit, Error — return unchanged
+    _ => term // Int, Unit, Error, Hole — return unchanged
   }
 }

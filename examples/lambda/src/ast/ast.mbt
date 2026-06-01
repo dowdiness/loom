@@ -28,6 +28,8 @@ pub(all) enum Term {
   Bop(Bop, Term, Term)
   // If-then-else
   If(Term, Term, Term)
+  // Let definition — projection/display wrapper for a module binding row
+  LetDef(VarName, Term)
   // Module — flattened definitions with a body expression
   Module(Array[(VarName, Term)], Term)
   // Unit — terminal for definition-only source files

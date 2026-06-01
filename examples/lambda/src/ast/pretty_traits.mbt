@@ -170,6 +170,22 @@ pub impl TermSym for PrettyLayout with fn if_then_else(cond, then_, else_) {
 }
 
 ///|
+pub impl TermSym for PrettyLayout with fn let_def(name, init) {
+  {
+    layout: @pretty.group(
+      kw("let") +
+      @pretty.text(" ") +
+      ident(name) +
+      @pretty.text(" ") +
+      op_text("=") +
+      @pretty.text(" ") +
+      @pretty.nest(init.layout),
+    ),
+    prec: prec_top,
+  }
+}
+
+///|
 pub impl TermSym for PrettyLayout with fn mod(defs, body) {
   let def_layouts : Array[@pretty.Layout[@pretty.SyntaxCategory]] = defs.map(fn(
     d,

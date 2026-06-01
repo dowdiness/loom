@@ -132,6 +132,7 @@ pub fn eval(
     Hole(_) => raise Incomplete
     Error(_) => raise ParseError
     Unbound(x) => raise Unbound(x)
+    LetDef(_, _) => raise ParseError
     // --- Lambda: captures the current environment to form a closure ---
     // A lambda doesn't evaluate its body yet — it just packages up
     // "the code + the environment" for later application.

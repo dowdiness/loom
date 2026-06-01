@@ -3,6 +3,7 @@ fn has_error_node(term : @ast.Term) -> Bool {
   match term {
     Error(_) | Unbound(_) | Hole(_) => true
     Int(_) | Var(_) | Unit => false
+    LetDef(_, init) => has_error_node(init)
     Lam(_, body) => has_error_node(body)
     App(f, x) => has_error_node(f) || has_error_node(x)
     Bop(_, l, r) => has_error_node(l) || has_error_node(r)
@@ -19,12 +20,13 @@ fn has_error_node(term : @ast.Term) -> Bool {
 }
 
 ///|
-/// Check whether the term contains Unit (not roundtrippable through parse)
-/// or Module nested inside non-top-level positions.
+/// Check whether the term contains Unit/LetDef (not roundtrippable through
+/// parse) or Module nested inside non-top-level positions.
 fn has_non_roundtrippable(term : @ast.Term) -> Bool {
   fn go(t : @ast.Term, top_level : Bool) -> Bool {
     match t {
       Unit => true
+      LetDef(_, _) => true
       Module(_, _) if !top_level => true
       Module(defs, body) => {
         for def in defs {
