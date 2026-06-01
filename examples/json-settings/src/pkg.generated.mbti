@@ -1,0 +1,49 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/json-settings"
+
+import {
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Setting {
+  id : String
+  key : String
+  value : Double
+} derive(Eq, @debug.Debug)
+pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
+
+pub struct SettingsAttachment {
+  // private fields
+}
+pub fn SettingsAttachment::SettingsAttachment(String) -> Self
+pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
+pub fn SettingsAttachment::dispose(Self) -> Unit
+pub fn SettingsAttachment::last_good(Self) -> SettingsDoc?
+pub fn SettingsAttachment::set_source(Self, String) -> Unit
+pub fn SettingsAttachment::state(Self) -> SettingsState
+
+pub struct SettingsDoc {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn SettingsDoc::SettingsDoc(Array[Setting]) -> Self
+pub fn SettingsDoc::settings(Self) -> Array[Setting]
+
+pub enum SettingsState {
+  Current
+  ParserBlocked
+  ProjectionBlocked
+  GraphBlocked
+} derive(Eq)
+pub impl Show for SettingsState
+
+// Type aliases
+
+// Traits
+

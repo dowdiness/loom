@@ -125,6 +125,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 - [../examples/lambda/README.md](../examples/lambda/README.md) — typed `SyntaxNode` views, classical recursive descent
 - [../examples/json/README.md](../examples/json/README.md) — step-based total lexing + `block_reparse_spec`
+- [../examples/json-settings/README.md](../examples/json-settings/README.md) — checked last-good semantic projection attachment (pure derived + imperative `settle`)
 - [../examples/markdown/README.md](../examples/markdown/README.md) — mode-aware lexing via `ModeLexer`
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda grammar expansion plans, CRDT exploration
 
@@ -135,8 +136,9 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-_No active plans currently indexed._
+_No active plans._
 
+_Previously active: json-settings last-good attachment example shipped 2026-06-01 as [`examples/json-settings/`](../examples/json-settings/) (issue #202; no ADR — implements accepted last-good + stable-identity decisions). See [archived plan](archive/completed-phases/2026-06-01-json-settings-last-good-attachment-plan.md)._
 _Previously active: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
 _Previously active: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
 
