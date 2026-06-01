@@ -465,6 +465,95 @@ pub impl ToJson for LetDefView with fn to_json(self) -> Json {
   }
 }
 
+// ─── BlockExpr ──────────────────────────────────────────────────────────────
+
+///|
+pub struct BlockExprView {
+  node : @seam.SyntaxNode
+}
+
+///|
+pub fn BlockExprView::cast(n : @seam.SyntaxNode) -> BlockExprView? {
+  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.BlockExpr {
+    Some({ node: n })
+  } else {
+    None
+  }
+}
+
+///|
+pub impl @core.AstView for BlockExprView with fn syntax_node(self) {
+  self.node
+}
+
+///|
+/// Let definitions contained directly in the block, in source order.
+pub fn BlockExprView::defs(self : BlockExprView) -> Array[LetDefView] {
+  let defs : Array[LetDefView] = []
+  for child in self.node.children() {
+    if LetDefView::cast(child) is Some(v) {
+      defs.push(v)
+    }
+  }
+  defs
+}
+
+///|
+/// The optional trailing expression after any block-local definitions.
+pub fn BlockExprView::body(self : BlockExprView) -> @seam.SyntaxNode? {
+  for child in self.node.children() {
+    if LetDefView::cast(child) is None {
+      return Some(child)
+    }
+  }
+  None
+}
+
+///|
+pub impl ToJson for BlockExprView with fn to_json(self) -> Json {
+  let body_json : Json = match self.body() {
+    Some(n) => n.to_json()
+    None => Json::null()
+  }
+  {
+    "kind": "BlockExpr",
+    "start": (self.node.start() : Int),
+    "end": (self.node.end() : Int),
+    "defs": self.defs().map(fn(v) { v.to_json() }),
+    "body": body_json,
+  }
+}
+
+// ─── HoleLiteral ────────────────────────────────────────────────────────────
+
+///|
+pub struct HoleLiteralView {
+  node : @seam.SyntaxNode
+}
+
+///|
+pub fn HoleLiteralView::cast(n : @seam.SyntaxNode) -> HoleLiteralView? {
+  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.HoleLiteral {
+    Some({ node: n })
+  } else {
+    None
+  }
+}
+
+///|
+pub impl @core.AstView for HoleLiteralView with fn syntax_node(self) {
+  self.node
+}
+
+///|
+pub impl ToJson for HoleLiteralView with fn to_json(self) -> Json {
+  {
+    "kind": "HoleLiteral",
+    "start": (self.node.start() : Int),
+    "end": (self.node.end() : Int),
+  }
+}
+
 // ─── TypeAnnot ──────────────────────────────────────────────────────────────
 
 ///|
