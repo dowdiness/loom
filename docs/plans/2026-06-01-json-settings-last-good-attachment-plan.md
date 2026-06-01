@@ -97,9 +97,20 @@ Pure projection from `@seam.SyntaxNode`: `RootNode → ObjectNode`; iterate
 `MemberNode`; read the direct key `StringToken`; require the value child to be
 `NumberValue` with a direct `NumberToken`; parse the number; reject duplicate
 decoded keys. Use `@json.parse_json_string` for key text. Build
-`@loom.ProjectionLeaf` from key text + offsets. Do **not** use
+`@loom.ProjectionLeaf` from key text + key-token offsets. Do **not** use
 `@json.syntax_node_to_json` — it drops key-token offsets and enforces none of
 the settings rules.
+
+**Use the existing Result-returning shape-validation helpers** (verified present
+in `seam/pkg.generated.mbti`, 2026-06-01): `SyntaxNode::required_direct_child_of_kind`,
+`required_direct_token_of_kind`, `optional_direct_*`, and
+`expect_no_direct_*_of_kind`, all returning `Result[_, @seam.ProjectionShapeError]`.
+Express the three rules as composed `required_*`/`optional_*` calls rather than
+hand-rolled `match` shape-checking, and map `ProjectionShapeError → String` into
+the `ProjectionFailed` diagnostics. Key-token offsets come from
+`SyntaxToken::start()/end()`; the key token is `MemberNode`'s direct
+`StringToken` (`StringToken.to_raw()` for the `RawKind`). No traversal helper is
+needed.
 
 ### 4. Pure derived attachment cell
 File: `examples/json-settings/src/settings_attachment.mbt`.
@@ -174,11 +185,11 @@ semantic projection and stable-identity decisions; it adds an example, not a new
 design.
 
 ## Open questions / assumptions to confirm during execution
-1. **Key-token offset API (only real soft spot):** Codex assumed
-   `MemberNode.direct_token_of_kind(StringToken.to_raw()).start/end`. Verify the
-   exact seam/json `SyntaxNode`/`direct_*` signature *before* step 3; if it does
-   not expose the key token's offsets directly, add a tiny traversal helper in
-   `settings_projection.mbt`.
+1. **Key-token offset API — RESOLVED 2026-06-01.** `seam/pkg.generated.mbti`
+   confirms `SyntaxNode::direct_token_of_kind(RawKind) -> SyntaxToken?` and
+   `SyntaxToken::start()/end() -> Int`, plus the `required_direct_*`/`optional_direct_*`
+   family returning `Result[_, ProjectionShapeError]`. No traversal helper
+   needed; use the Result-returning helpers (see step 3).
 2. `dowdiness/incr` uses local path `../../incr` (current `ReadError` surface),
    not lambda's older published pin.
 3. Blackbox covers public behavior; one whitebox covers the private
