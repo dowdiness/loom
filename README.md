@@ -35,6 +35,7 @@ Sibling modules (see each module's README for scope and status):
 | [Lambda Calculus](examples/lambda/) | `examples/lambda/` | Reference grammar — typed `SyntaxNode` views, error recovery, CRDT exploration |
 | [JSON](examples/json/) | `examples/json/` | Step-based `prefix_lexer` + `block_reparse_spec` — exercises every `Grammar::new` option |
 | [Markdown](examples/markdown/) | `examples/markdown/` | Mode-aware lexing via `ModeLexer` — line-start / inline / fenced code contexts |
+| [Graph DSL](examples/graph-dsl/) | `examples/graph-dsl/` | Source-map/token-role graph authoring example with graph-operation lowering |
 
 ## Quick Start
 
