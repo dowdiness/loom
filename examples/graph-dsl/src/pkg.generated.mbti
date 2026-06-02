@@ -1,0 +1,177 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/graph-dsl"
+
+import {
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let graph_grammar : @loom.Grammar[Token, SyntaxKind, GraphAst]
+
+pub fn project_graph_source(String) -> Result[GraphDoc, Array[String]]
+
+// Errors
+
+// Types and methods
+pub enum GraphAst {
+  Parsed
+} derive(Eq, @debug.Debug)
+
+pub struct GraphAttachment {
+  // private fields
+}
+pub fn GraphAttachment::GraphAttachment(String) -> Self
+pub fn GraphAttachment::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn GraphAttachment::current_result(Self) -> Result[GraphDoc, String]
+pub fn GraphAttachment::diagnostics(Self) -> Array[String]
+pub fn GraphAttachment::dispose(Self) -> Unit
+pub fn GraphAttachment::last_good(Self) -> GraphDoc?
+pub fn GraphAttachment::set_source(Self, String) -> Unit
+pub fn GraphAttachment::state(Self) -> GraphAttachmentState
+
+pub enum GraphAttachmentState {
+  Current
+  ParserBlocked
+  ProjectionBlocked
+  GraphBlocked
+} derive(Eq, @debug.Debug)
+pub impl Show for GraphAttachmentState
+
+pub struct GraphDoc {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GraphDoc::find_node(Self, String) -> GraphNode?
+pub fn GraphDoc::lower_add_connection(Self, String, String) -> LoweredGraphEdit?
+pub fn GraphDoc::lower_insert_node_binding(Self, String, String) -> LoweredGraphEdit?
+pub fn GraphDoc::lower_rename_node_binding(Self, String, String) -> LoweredGraphEdit?
+pub fn GraphDoc::lower_set_numeric(Self, String, String, String) -> LoweredGraphEdit?
+pub fn GraphDoc::nodes(Self) -> Array[GraphNode]
+pub fn GraphDoc::source(Self) -> String
+pub fn GraphDoc::tokens(Self) -> Array[GraphToken]
+pub fn GraphDoc::tokens_for_role(Self, GraphTokenRole) -> Array[GraphToken]
+
+pub struct GraphNode {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GraphNode::binding(Self) -> String
+pub fn GraphNode::binding_token(Self) -> GraphToken
+pub fn GraphNode::constructor_name(Self) -> String
+pub fn GraphNode::constructor_token(Self) -> GraphToken
+pub fn GraphNode::end(Self) -> Int
+pub fn GraphNode::id(Self) -> String
+pub fn GraphNode::output_tokens(Self) -> Array[GraphToken]
+pub fn GraphNode::params(Self) -> Array[GraphParam]
+pub fn GraphNode::start(Self) -> Int
+
+pub struct GraphParam {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GraphParam::name(Self) -> String
+pub fn GraphParam::name_token(Self) -> GraphToken
+pub fn GraphParam::value_kind(Self) -> GraphValueKind
+pub fn GraphParam::value_tokens(Self) -> Array[GraphToken]
+
+pub struct GraphToken {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GraphToken::end(Self) -> Int
+pub fn GraphToken::role(Self) -> GraphTokenRole
+pub fn GraphToken::span(Self) -> SourceSpan
+pub fn GraphToken::start(Self) -> Int
+pub fn GraphToken::text(Self) -> String
+
+pub(all) enum GraphTokenRole {
+  NodeBindingName
+  ConstructorName
+  ParameterName
+  InputReference
+  OutputMarker
+  OutputName
+  NumericParameter
+  Unit
+  StringField
+  EnumField
+} derive(Eq, @debug.Debug)
+pub impl Show for GraphTokenRole
+
+pub enum GraphValueKind {
+  Numeric
+  StringValue
+  EnumValue
+  InputRef
+} derive(Eq, @debug.Debug)
+pub impl Show for GraphValueKind
+
+pub struct LoweredGraphEdit {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn LoweredGraphEdit::incremental_edit(Self) -> @core.Edit?
+pub fn LoweredGraphEdit::new_source(Self) -> String
+pub fn LoweredGraphEdit::replacements(Self) -> Array[SourceReplacement]
+
+pub struct SourceReplacement {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn SourceReplacement::edit(Self) -> @core.Edit
+pub fn SourceReplacement::new_text(Self) -> String
+pub fn SourceReplacement::old_end(Self) -> Int
+pub fn SourceReplacement::old_len(Self) -> Int
+pub fn SourceReplacement::start(Self) -> Int
+
+pub struct SourceSpan {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn SourceSpan::end(Self) -> Int
+pub fn SourceSpan::length(Self) -> Int
+pub fn SourceSpan::start(Self) -> Int
+
+pub enum SyntaxKind {
+  IdentifierToken
+  NumberToken
+  StringToken
+  EqualToken
+  LParenToken
+  RParenToken
+  ColonToken
+  CommaToken
+  ArrowToken
+  NewlineToken
+  WhitespaceToken
+  ErrorToken
+  RootNode
+  BindingNode
+  CallNode
+  ArgumentNode
+  ValueNode
+  OutputNode
+} derive(Eq, @debug.Debug)
+pub impl @seam.ToRawKind for SyntaxKind
+pub impl Show for SyntaxKind
+
+pub enum Token {
+  Identifier
+  Number
+  StringLit
+  Equal
+  LParen
+  RParen
+  Colon
+  Comma
+  Arrow
+  Newline
+  Whitespace
+  Error(String)
+  EOF
+} derive(Eq, @debug.Debug)
+pub impl @seam.IsEof for Token
+pub impl @seam.IsTrivia for Token
+pub impl @seam.ToRawKind for Token
+pub impl Show for Token
+
+// Type aliases
+
+// Traits
+
