@@ -6,7 +6,7 @@
     "dowdiness/json": { "path": "../json" },
     "dowdiness/loom": { "path": "../../loom" },
     "dowdiness/seam": { "path": "../../seam" },
-    "dowdiness/incr": "0.7.1"
+    "dowdiness/incr": "0.8.0"
   },
   "license": "Apache-2.0",
   "keywords": ["json", "settings", "projection", "incremental"],
