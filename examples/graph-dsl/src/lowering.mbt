@@ -245,10 +245,18 @@ fn param_end_before_rparen_space(source : String, end : Int) -> Int {
     cursor += 1
   }
   if cursor < source.length() && source[cursor] == ')' {
-    cursor
-  } else {
-    end
+    return cursor
   }
+  if cursor < source.length() && source[cursor] == ',' {
+    cursor += 1
+    while cursor < source.length() && horizontal_space(source[cursor]) {
+      cursor += 1
+    }
+    if cursor < source.length() && source[cursor] == ')' {
+      return cursor
+    }
+  }
+  end
 }
 
 ///|

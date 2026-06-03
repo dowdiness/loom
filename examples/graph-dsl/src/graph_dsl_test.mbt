@@ -182,6 +182,20 @@ test "remove connection lowers sole input-reference parameter deletion" {
 }
 
 ///|
+test "remove connection consumes sole parameter trailing comma" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend(input: osc,)", "osc = sine()\ntarget = blend()",
+  )
+}
+
+///|
+test "remove connection consumes trailing parameter trailing comma" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend(gain: 1, input: osc,)", "osc = sine()\ntarget = blend(gain: 1)",
+  )
+}
+
+///|
 test "remove connection preserves non-matching input-reference parameters" {
   let source = "osc = sine()\nlfo = sine()\ntarget = blend(input: osc, from: lfo)"
   let doc = ok_doc(project_graph_source(source))
