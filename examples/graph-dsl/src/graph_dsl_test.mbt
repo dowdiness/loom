@@ -135,6 +135,71 @@ test "add connection lowers to insertion before call close paren" {
 }
 
 ///|
+fn assert_remove_connection_source(
+  source : String,
+  expected : String,
+) -> Unit raise {
+  let doc = ok_doc(project_graph_source(source))
+  let lowered = ok_lowered(
+    doc.lower_remove_connection("target", "input", "osc"),
+  )
+  @debug.assert_eq(lowered.replacements().length(), 1)
+  @debug.assert_eq(lowered.replacements()[0].new_text(), "")
+  @debug.assert_eq(lowered.new_source(), expected)
+  let updated = ok_doc(project_graph_source(lowered.new_source()))
+  assert_true(updated.find_node("osc") is Some(_))
+  assert_true(updated.find_node("target") is Some(_))
+  @debug.assert_eq(updated.nodes().length(), doc.nodes().length())
+  @debug.assert_eq(triples(updated.tokens_for_role(InputReference)), [])
+}
+
+///|
+test "remove connection lowers first input-reference parameter deletion" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend(input: osc, gain: 1, mode: warm)", "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
+  )
+}
+
+///|
+test "remove connection lowers middle input-reference parameter deletion" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend(gain: 1, input: osc, mode: warm)", "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
+  )
+}
+
+///|
+test "remove connection lowers trailing input-reference parameter deletion" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend(gain: 1, input: osc)", "osc = sine()\ntarget = blend(gain: 1)",
+  )
+}
+
+///|
+test "remove connection lowers sole input-reference parameter deletion" {
+  assert_remove_connection_source(
+    "osc = sine()\ntarget = blend( input: osc )", "osc = sine()\ntarget = blend()",
+  )
+}
+
+///|
+test "remove connection preserves non-matching input-reference parameters" {
+  let source = "osc = sine()\nlfo = sine()\ntarget = blend(input: osc, from: lfo)"
+  let doc = ok_doc(project_graph_source(source))
+  let lowered = ok_lowered(
+    doc.lower_remove_connection("target", "input", "osc"),
+  )
+  @debug.assert_eq(
+    lowered.new_source(),
+    "osc = sine()\nlfo = sine()\ntarget = blend(from: lfo)",
+  )
+  let updated = ok_doc(project_graph_source(lowered.new_source()))
+  @debug.assert_eq(
+    updated.tokens_for_role(InputReference).map(fn(token) { token.text() }),
+    ["lfo"],
+  )
+}
+
+///|
 test "insert new node binding lowers to append insertion" {
   let doc = ok_doc(project_graph_source(SAMPLE_SOURCE))
   let lowered = ok_lowered(doc.lower_insert_node_binding("reverb", "plate"))
@@ -158,6 +223,8 @@ test "lowering rejects edits that would generate invalid graph source" {
   assert_true(doc.lower_rename_node_binding("osc", "filter") is None)
   assert_true(doc.lower_add_connection("filter", "osc") is None)
   assert_true(doc.lower_add_connection("filter", "missing") is None)
+  assert_true(doc.lower_remove_connection("filter", "input", "missing") is None)
+  assert_true(doc.lower_remove_connection("filter", "cutoff", "osc") is None)
   assert_true(doc.lower_insert_node_binding("osc", "plate") is None)
   assert_true(doc.lower_insert_node_binding("bad name", "plate") is None)
 }

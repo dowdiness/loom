@@ -46,6 +46,7 @@ pub struct GraphDoc {
 pub fn GraphDoc::find_node(Self, String) -> GraphNode?
 pub fn GraphDoc::lower_add_connection(Self, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_insert_node_binding(Self, String, String) -> LoweredGraphEdit?
+pub fn GraphDoc::lower_remove_connection(Self, String, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_rename_node_binding(Self, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_set_numeric(Self, String, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::nodes(Self) -> Array[GraphNode]

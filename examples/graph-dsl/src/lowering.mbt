@@ -221,6 +221,118 @@ fn first_token_with_role(
 }
 
 ///|
+fn horizontal_space(code_unit : UInt16) -> Bool {
+  code_unit == ' ' || code_unit == '\t'
+}
+
+///|
+fn param_start_after_lparen_space(source : String, start : Int) -> Int {
+  let mut cursor = start
+  while cursor > 0 && horizontal_space(source[cursor - 1]) {
+    cursor -= 1
+  }
+  if cursor > 0 && source[cursor - 1] == '(' {
+    cursor
+  } else {
+    start
+  }
+}
+
+///|
+fn param_end_before_rparen_space(source : String, end : Int) -> Int {
+  let mut cursor = end
+  while cursor < source.length() && horizontal_space(source[cursor]) {
+    cursor += 1
+  }
+  if cursor < source.length() && source[cursor] == ')' {
+    cursor
+  } else {
+    end
+  }
+}
+
+///|
+fn graph_param_text_end(param : GraphParam) -> Int? {
+  if param.value_tokens.is_empty() {
+    return None
+  }
+  let mut end = param.name_token.end
+  for token in param.value_tokens {
+    if token.end > end {
+      end = token.end
+    }
+  }
+  Some(end)
+}
+
+///|
+fn graph_param_input_reference(param : GraphParam) -> String? {
+  if param.value_kind != InputRef {
+    return None
+  }
+  match first_token_with_role(param.value_tokens, InputReference) {
+    Some(token) => Some(token.text)
+    None => None
+  }
+}
+
+///|
+fn connection_param_index(
+  params : Array[GraphParam],
+  parameter : String,
+  input_ref : String,
+) -> Int? {
+  for index, param in params {
+    if param.name == parameter &&
+      graph_param_input_reference(param) == Some(input_ref) {
+      return Some(index)
+    }
+  }
+  None
+}
+
+///|
+fn removal_replacement_for_param(
+  source : String,
+  params : Array[GraphParam],
+  index : Int,
+) -> SourceReplacement? {
+  if index < 0 || index >= params.length() {
+    return None
+  }
+  let param = params[index]
+  let param_start = if index == 0 {
+    param_start_after_lparen_space(source, param.name_token.start)
+  } else {
+    param.name_token.start
+  }
+  let param_end = match graph_param_text_end(param) {
+    Some(end) =>
+      if index + 1 < params.length() {
+        end
+      } else {
+        param_end_before_rparen_space(source, end)
+      }
+    None => return None
+  }
+  let (start, end) = if index + 1 < params.length() {
+    (param_start, params[index + 1].name_token.start)
+  } else if index > 0 {
+    match graph_param_text_end(params[index - 1]) {
+      Some(previous_end) => (previous_end, param_end)
+      None => return None
+    }
+  } else {
+    (param_start, param_end)
+  }
+  if start > end {
+    None
+  } else {
+    Some(SourceReplacement(start~, old_len=end - start, new_text=""))
+  }
+}
+
+///|
 /// Lower a parameter edit such as `freq: 440Hz` → `freq: 880Hz`.
 ///
 /// Only the numeric token is replaced; a following unit token keeps its source
@@ -321,6 +433,38 @@ pub fn GraphDoc::lower_add_connection(
       new_text=text,
     ),
   ])
+}
+
+///|
+/// Lower an edge removal by deleting the matching input-reference parameter from
+/// the target binding's constructor call. The target node and source binding
+/// must both exist, and only the parameter whose name and input-reference token
+/// match is removed; all graph node bindings remain in the generated source.
+pub fn GraphDoc::lower_remove_connection(
+  self : GraphDoc,
+  binding : String,
+  parameter : String,
+  input_ref : String,
+) -> LoweredGraphEdit? {
+  if !is_identifier_text(parameter) ||
+    !is_identifier_text(input_ref) ||
+    self.find_node(input_ref) is None {
+    return None
+  }
+  let node = match self.find_node(binding) {
+    Some(node) => node
+    None => return None
+  }
+  let index = match connection_param_index(node.params, parameter, input_ref) {
+    Some(index) => index
+    None => return None
+  }
+  let replacement = match
+    removal_replacement_for_param(self.source(), node.params, index) {
+    Some(replacement) => replacement
+    None => return None
+  }
+  lowered_from_replacements(self.source(), [replacement])
 }
 
 ///|
