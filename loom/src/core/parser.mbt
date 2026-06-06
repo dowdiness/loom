@@ -322,7 +322,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
   self.flush_trivia()
   if self.at_eof() {
     self.error("emit_token: unexpected EOF")
-    self.events.push(@seam.ParseEvent::Token(kind.to_raw(), ""))
+    self.events.push_synthetic_zero_width_token(kind.to_raw())
     return
   }
   let text = self.text_at(self.position)
@@ -539,7 +539,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
-  self.events.push(@seam.ParseEvent::Token(kind.to_raw(), ""))
+  self.events.push_synthetic_zero_width_token(kind.to_raw())
 }
 
 ///|
@@ -614,25 +614,170 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
   }
   match self.reuse_cursor {
     None => None
-    Some(cursor) => cursor.try_reuse(kind.to_raw(), byte_offset, token_pos)
+    Some(cursor) =>
+      match cursor.try_reuse(kind.to_raw(), byte_offset, token_pos) {
+        None => None
+        Some(node) => {
+          let old_node_end = cursor.current_offset + node.text_len
+          let new_node_end = byte_offset + node.text_len
+          let old_boundary_tokens = cursor.old_zero_width_tokens_at_boundary(
+            new_node_end,
+          )
+          if self.reused_boundary_zero_width_tokens_match(
+              node, old_node_end, new_node_end, old_boundary_tokens,
+            ) {
+            Some(node)
+          } else {
+            None
+          }
+        }
+      }
   }
+}
+
+///|
+fn is_reused_boundary_lexer_zero_width_token(
+  token : @seam.CstToken,
+  boundary : Int,
+) -> Bool {
+  token.is_source_backed() &&
+  token.text_len() == 0 &&
+  token.start_offset() == boundary &&
+  token.end_offset() == boundary
+}
+
+///|
+/// Push source-backed zero-width leaves that sit at the reused node's right
+/// boundary, in reverse source order. Parser-owned placeholders use synthetic
+/// empty text and must not advance the lexer stream; source-backed leaves
+/// represent real lexer tokens whose start/end happen to equal the node end.
+///
+/// This walks only the right edge plus trailing zero-width siblings so reuse
+/// remains proportional to boundary ambiguity, not reused subtree size.
+fn push_reused_boundary_zero_width_tokens_reversed(
+  node : @seam.CstNode,
+  boundary : Int,
+  out : Array[@seam.CstToken],
+) -> Unit {
+  let mut i = node.children.length() - 1
+  while i >= 0 {
+    let child = node.children[i]
+    let child_len = child.text_len()
+    match child {
+      @seam.CstElement::Token(token) => {
+        if child_len != 0 {
+          break
+        }
+        if is_reused_boundary_lexer_zero_width_token(token, boundary) {
+          out.push(token)
+        }
+      }
+      @seam.CstElement::Node(child_node) => {
+        push_reused_boundary_zero_width_tokens_reversed(
+          child_node, boundary, out,
+        )
+        if child_len != 0 {
+          break
+        }
+      }
+    }
+    i = i - 1
+  }
+}
+
+///|
+fn[T : @seam.IsEof, K] ParserContext::has_unmatched_zero_width_boundary_token(
+  self : ParserContext[T, K],
+  position : Int,
+  boundary : Int,
+) -> Bool {
+  position < self.token_count &&
+  (self.get_start)(position) == boundary &&
+  (self.get_end)(position) == boundary &&
+  !(self.get_token)(position).is_eof()
+}
+
+///|
+fn[T : @seam.IsEof + @seam.ToRawKind, K] ParserContext::reused_boundary_zero_width_tokens_match(
+  self : ParserContext[T, K],
+  node : @seam.CstNode,
+  old_node_end : Int,
+  new_node_end : Int,
+  old_boundary_tokens : Array[OldToken],
+) -> Bool {
+  let owned_boundary_tokens : Array[@seam.CstToken] = []
+  push_reused_boundary_zero_width_tokens_reversed(
+    node, old_node_end, owned_boundary_tokens,
+  )
+  if owned_boundary_tokens.length() > old_boundary_tokens.length() {
+    return false
+  }
+  for i in 0..<owned_boundary_tokens.length() {
+    let owned = owned_boundary_tokens[owned_boundary_tokens.length() - i - 1]
+    let old = old_boundary_tokens[i]
+    if owned.kind != old.kind || owned.text() != old.text {
+      return false
+    }
+  }
+  let mut position = self.position
+  while position < self.token_count && (self.get_start)(position) < new_node_end {
+    position = position + 1
+  }
+  for old in old_boundary_tokens {
+    if position >= self.token_count ||
+      (self.get_start)(position) != new_node_end ||
+      (self.get_end)(position) != new_node_end ||
+      (self.get_token)(position).to_raw() != old.kind ||
+      self.token_text_at(position) != old.text {
+      return false
+    }
+    position = position + 1
+  }
+  if self.has_unmatched_zero_width_boundary_token(position, new_node_end) {
+    return false
+  }
+  true
 }
 
 ///|
 /// Advance position past all tokens (trivia + non-trivia) covered by node.
 /// Offset-based advancing avoids over-consuming when reused subtrees contain
-/// zero-width non-trivia leaves (e.g. error placeholders).
-fn[T, K] ParserContext::advance_past_reused(
+/// parser-owned zero-width leaves (e.g. error placeholders). Source-backed
+/// zero-width lexer leaves at the reused node's right boundary are then matched
+/// explicitly so they are not left behind.
+fn[T : @seam.ToRawKind, K] ParserContext::advance_past_reused(
   self : ParserContext[T, K],
   node : @seam.CstNode,
+  old_node_end : Int,
 ) -> Unit {
   if self.position >= self.token_count {
     return
   }
-  let node_end = (self.get_start)(self.position) + node.text_len
+  let node_start = (self.get_start)(self.position)
+  let node_end = node_start + node.text_len
   while self.position < self.token_count &&
         (self.get_start)(self.position) < node_end {
     self.position = self.position + 1
+  }
+  let boundary_tokens : Array[@seam.CstToken] = []
+  push_reused_boundary_zero_width_tokens_reversed(
+    node, old_node_end, boundary_tokens,
+  )
+  let mut i = boundary_tokens.length() - 1
+  while i >= 0 {
+    let token = boundary_tokens[i]
+    if self.position >= self.token_count ||
+      (self.get_start)(self.position) != node_end ||
+      (self.get_end)(self.position) != node_end {
+      break
+    }
+    if (self.get_token)(self.position).to_raw() == token.kind &&
+      self.text_at(self.position) == token.text() {
+      self.position = self.position + 1
+    } else {
+      break
+    }
+    i = i - 1
   }
 }
 
@@ -808,6 +953,10 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
   } else {
     self.source.length()
   }
+  let old_node_start = match self.reuse_cursor {
+    Some(cursor) => cursor.current_offset
+    None => node_start
+  }
   let node_end = node_start + node.text_len
   self.events.push_parser_reuse_node_rebased_unchecked(
     node,
@@ -837,7 +986,7 @@ fn[T : @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_reused(
       node_start, node_end, false, allow_eof_boundary,
     )
   }
-  self.advance_past_reused(node)
+  self.advance_past_reused(node, old_node_start + node.text_len)
   match self.reuse_cursor {
     Some(cursor) => cursor.advance_past(node)
     None => () // unreachable — no cursor means try_reuse always returns None
@@ -899,8 +1048,19 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
       match cursor.try_reuse_repeat_group(byte_offset, token_pos) {
         None => false
         Some(node) => {
-          self.emit_reused(node)
-          true
+          let old_node_end = cursor.current_offset + node.text_len
+          let new_node_end = byte_offset + node.text_len
+          let old_boundary_tokens = cursor.old_zero_width_tokens_at_boundary(
+            new_node_end,
+          )
+          if self.reused_boundary_zero_width_tokens_match(
+              node, old_node_end, new_node_end, old_boundary_tokens,
+            ) {
+            self.emit_reused(node)
+            true
+          } else {
+            false
+          }
         }
       }
   }

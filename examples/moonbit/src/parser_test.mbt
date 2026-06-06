@@ -22,4 +22,5 @@ test "skeleton grammar reuses CST nodes after edits" {
   let edit = @core.Edit::replace(8, 9, 10)
   let snapshot = parser.edit(edit, next_source)
   assert_true(snapshot.reuse_count >= 1)
+  inspect(snapshot.ast.item_count, content="2")
 }

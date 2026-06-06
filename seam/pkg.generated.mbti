@@ -73,6 +73,7 @@ pub struct CstToken {
 #alias(new, deprecated)
 pub fn CstToken::CstToken(RawKind, StringView) -> Self
 pub fn CstToken::end_offset(Self) -> Int
+pub fn CstToken::is_source_backed(Self) -> Bool
 pub fn CstToken::start_offset(Self) -> Int
 pub fn CstToken::text(Self) -> StringView
 pub fn CstToken::text_len(Self) -> Int
@@ -95,6 +96,7 @@ pub fn EventBuffer::push(Self, ParseEvent) -> Unit
 pub fn EventBuffer::push_parser_reuse_node_rebased(Self, CstNode, String, Int) -> Unit
 #alias(push_reuse_node_at_unchecked, deprecated)
 pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(Self, CstNode, String, Int) -> Unit
+pub fn EventBuffer::push_synthetic_zero_width_token(Self, RawKind) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
 pub fn EventBuffer::truncate(Self, Int) -> Unit
 
