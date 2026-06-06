@@ -11,8 +11,6 @@ pub(all) enum MoonTokenClass {
   Attribute
   Delimiter
   KeywordOrOperator
-  LexError
-  EndOfFile
 } derive(Eq, Debug)
 
 ///|
@@ -64,8 +62,8 @@ pub impl @seam.ToRawKind for MoonToken with fn to_raw(self) {
   match self {
     Official(class~, ..) => class.to_raw()
     Whitespace => Trivia.to_raw()
-    Error(_) => LexError.to_raw()
-    EOF => EndOfFile.to_raw()
+    Error(_) => ErrorToken.to_raw()
+    EOF => EofToken.to_raw()
   }
 }
 
@@ -79,8 +77,6 @@ fn MoonTokenClass::to_syntax_kind(self : MoonTokenClass) -> MoonbitSyntaxKind {
     Attribute => AttributeToken
     Delimiter => DelimiterToken
     KeywordOrOperator => KeywordOrOperatorToken
-    LexError => ErrorToken
-    EndOfFile => EofToken
   }
 }
 
@@ -110,11 +106,9 @@ fn MoonToken::is_item_delimiter(self : MoonToken) -> Bool {
 
 ///|
 fn MoonToken::from_official(token : @tokens.Token) -> MoonToken {
-  let kind = token.kind()
-  if kind == TK_EOF {
-    EOF
-  } else {
-    Official(kind~, class=classify_official_token_kind(kind))
+  match token.kind() {
+    TK_EOF => EOF
+    kind => Official(kind~, class=classify_official_token_kind(kind))
   }
 }
 
@@ -122,7 +116,6 @@ fn MoonToken::from_official(token : @tokens.Token) -> MoonToken {
 fn classify_official_token_kind(kind : @tokens.TokenKind) -> MoonTokenClass {
   match kind {
     TK_NEWLINE | TK_COMMENT => Trivia
-    TK_EOF => EndOfFile
     TK_SEMI => Semicolon
     TK_LIDENT
     | TK_UIDENT

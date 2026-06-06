@@ -28,11 +28,11 @@ pub fn lex_moonbit(
       ),
     )
   }
-  let mut cursor = 0
-  for triple in official.tokens {
+  let source_len = source.length()
+  let cursor = for triple in official.tokens; cursor = 0 {
     let (official_token, start_pos, end_pos) = triple
-    let start = clamp_offset(start_pos.cnum, source.length())
-    let end = clamp_offset(end_pos.cnum, source.length())
+    let start = clamp_offset(start_pos.cnum, source_len)
+    let end = clamp_offset(end_pos.cnum, source_len)
     if start > cursor {
       push_loom_token(
         tokens,
@@ -49,32 +49,25 @@ pub fn lex_moonbit(
       end,
       MoonToken::from_official(official_token),
     )
-    if end > cursor {
-      cursor = end
-    }
+    continue if end > cursor { end } else { cursor }
+  } nobreak {
+    cursor
   }
-  if cursor < source.length() {
+  if cursor < source_len {
     push_loom_token(
       tokens,
       starts,
       cursor,
-      source.length(),
-      gap_token(source, cursor, source.length()),
+      source_len,
+      gap_token(source, cursor, source_len),
     )
   }
   @core.LexResult::with_starts(tokens, starts, diagnostics~)
 }
 
 ///|
-/// Grammar-facing lexer. Kept as a tiny alias so future experiments can expose
-/// named variants without changing `moonbit_grammar`.
-fn lex(source : String) -> @core.LexResult[MoonToken] {
-  lex_moonbit(source)
-}
-
-///|
 pub fn tokenize(source : String) -> Array[@core.TokenInfo[MoonToken]] {
-  lex(source).tokens()
+  lex_moonbit(source).tokens()
 }
 
 ///|

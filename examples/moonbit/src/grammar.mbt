@@ -21,7 +21,7 @@ pub let moonbit_grammar : @loom.Grammar[
   MoonbitParseShell,
 ] = @loom.Grammar::new(
   spec=moonbit_spec,
-  lex~,
+  lex=fn(source) { lex_moonbit(source) },
   fold_node=moonbit_fold_node,
   incremental_relex_enabled=false,
 )

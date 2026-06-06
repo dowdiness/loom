@@ -19,14 +19,17 @@ fn parse_source_item(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
   ctx.node(SourceItemNode, fn() {
-    let mut consumed = 0
-    while !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS {
+    let consumed = for consumed = 0; !ctx.at_eof() &&
+                      ctx.error_count < MAX_SKELETON_ERRORS; {
       let token = ctx.peek()
       ctx.emit_token(token.syntax_kind())
-      consumed = consumed + 1
+      let next = consumed + 1
       if token.is_item_delimiter() {
-        break
+        break next
       }
+      continue next
+    } nobreak {
+      consumed
     }
     if consumed == 0 && !ctx.at_eof() {
       ctx.error("moonbit skeleton parser made no progress")

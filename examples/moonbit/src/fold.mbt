@@ -11,9 +11,12 @@ fn moonbit_fold_node(
   let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
     SourceFileNode => {
-      let mut result = MoonbitParseShell::empty()
-      for child in node.children() {
-        result = result.combine(recurse(child))
+      let result = for
+        child in node.children()
+        result = MoonbitParseShell::empty() {
+        continue result.combine(recurse(child))
+      } nobreak {
+        result
       }
       if node_has_parse_errors(node) {
         { ..result, contains_errors: true }
@@ -41,13 +44,13 @@ fn node_has_parse_errors(node : @seam.SyntaxNode) -> Bool {
 
 ///|
 fn count_non_trivia_tokens(node : @seam.SyntaxNode) -> Int {
-  let mut count = 0
-  for token in node.tokens() {
+  for token in node.tokens(); count = 0 {
     let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-    match kind {
-      TriviaToken | EofToken => ()
-      _ => count = count + 1
-    }
+    continue match kind {
+        TriviaToken | EofToken => count
+        _ => count + 1
+      }
+  } nobreak {
+    count
   }
-  count
 }

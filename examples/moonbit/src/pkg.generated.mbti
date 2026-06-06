@@ -42,8 +42,6 @@ pub(all) enum MoonTokenClass {
   Attribute
   Delimiter
   KeywordOrOperator
-  LexError
-  EndOfFile
 } derive(Eq, @debug.Debug)
 pub impl @seam.ToRawKind for MoonTokenClass
 pub impl Show for MoonTokenClass
