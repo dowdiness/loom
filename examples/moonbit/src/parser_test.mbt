@@ -7,6 +7,13 @@ test "skeleton grammar works with reactive parser" {
 }
 
 ///|
+test "placeholder AST reports lexer error tokens" {
+  let (ast, diagnostics) = parse_moonbit("let x = `")
+  inspect(ast.contains_errors, content="true")
+  inspect(diagnostics.length(), content="1")
+}
+
+///|
 test "skeleton grammar reuses CST nodes after edits" {
   let source = "let x = 1\nlet y = 2\n"
   let parser = @loom.new_imperative_parser(source, moonbit_grammar)

@@ -15,7 +15,7 @@ fn moonbit_fold_node(
       for child in node.children() {
         result = result.combine(recurse(child))
       }
-      if node.contains_errors(ErrorToken.to_raw(), IncompleteToken.to_raw()) {
+      if node_has_parse_errors(node) {
         { ..result, contains_errors: true }
       } else {
         result
@@ -25,15 +25,18 @@ fn moonbit_fold_node(
       {
         item_count: 1,
         token_count: count_non_trivia_tokens(node),
-        contains_errors: node.contains_errors(
-          ErrorToken.to_raw(),
-          IncompleteToken.to_raw(),
-        ),
+        contains_errors: node_has_parse_errors(node),
       }
     ErrorToken | IncompleteToken =>
       { item_count: 0, token_count: 0, contains_errors: true }
     _ => MoonbitParseShell::empty()
   }
+}
+
+///|
+fn node_has_parse_errors(node : @seam.SyntaxNode) -> Bool {
+  node.contains_errors(ErrorToken.to_raw(), ErrorToken.to_raw()) ||
+  node.contains_errors(IncompleteToken.to_raw(), IncompleteToken.to_raw())
 }
 
 ///|
