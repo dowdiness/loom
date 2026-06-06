@@ -1,0 +1,13 @@
+{
+  "name": "dowdiness/moonbit-example",
+  "version": "0.1.0",
+  "source": "src",
+  "deps": {
+    "dowdiness/loom": { "path": "../../loom" },
+    "dowdiness/seam": { "path": "../../seam" },
+    "moonbitlang/parser": "0.3.3"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["moonbit", "parser", "incremental"],
+  "description": "Skeleton MoonBit parser integration for dowdiness/loom"
+}

@@ -1,0 +1,75 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/moonbit-example"
+
+import {
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+  "moonbitlang/parser/tokens",
+}
+
+// Values
+pub fn lex_moonbit(String, name? : String) -> @core.LexResult[MoonToken]
+
+pub let moonbit_grammar : @loom.Grammar[MoonToken, MoonbitSyntaxKind, MoonbitParseShell]
+
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+
+pub fn parse_moonbit(String) -> (MoonbitParseShell, @core.DiagnosticSet)
+
+pub fn tokenize(String) -> Array[@core.TokenInfo[MoonToken]]
+
+// Errors
+
+// Types and methods
+pub(all) enum MoonToken {
+  Official(kind~ : @tokens.TokenKind, class~ : MoonTokenClass)
+  Whitespace
+  Error(String)
+  EOF
+} derive(Eq, @debug.Debug)
+pub impl @seam.IsEof for MoonToken
+pub impl @seam.IsTrivia for MoonToken
+pub impl @seam.ToRawKind for MoonToken
+pub impl Show for MoonToken
+
+pub(all) enum MoonTokenClass {
+  Trivia
+  Semicolon
+  Identifier
+  Literal
+  Attribute
+  Delimiter
+  KeywordOrOperator
+} derive(Eq, @debug.Debug)
+pub impl @seam.ToRawKind for MoonTokenClass
+pub impl Show for MoonTokenClass
+
+pub(all) struct MoonbitParseShell {
+  item_count : Int
+  token_count : Int
+  contains_errors : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MoonbitSyntaxKind {
+  TriviaToken
+  SemicolonToken
+  IdentifierToken
+  LiteralToken
+  AttributeToken
+  DelimiterToken
+  KeywordOrOperatorToken
+  ErrorToken
+  IncompleteToken
+  EofToken
+  SourceFileNode
+  SourceItemNode
+} derive(Eq, @debug.Debug)
+pub impl @seam.FromRawKind for MoonbitSyntaxKind
+pub impl @seam.ToRawKind for MoonbitSyntaxKind
+pub impl Show for MoonbitSyntaxKind
+
+// Type aliases
+
+// Traits
