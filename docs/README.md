@@ -127,6 +127,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 - [../examples/json/README.md](../examples/json/README.md) — step-based total lexing + `block_reparse_spec`
 - [../examples/json-settings/README.md](../examples/json-settings/README.md) — checked last-good semantic projection attachment (pure derived + imperative `settle`)
 - [../examples/markdown/README.md](../examples/markdown/README.md) — mode-aware lexing via `ModeLexer`
+- [../examples/moonbit/README.md](../examples/moonbit/README.md) — official MoonBit lexer adapter + coarse Loom CST skeleton
 - [../examples/graph-dsl/README.md](../examples/graph-dsl/README.md) — source-map/token-role graph authoring example with graph-operation lowering
 - [../examples/lambda/ROADMAP.md](../examples/lambda/ROADMAP.md) — lambda grammar expansion plans, CRDT exploration
 
