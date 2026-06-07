@@ -147,6 +147,21 @@ test "skeleton grammar leaves initializer tokens after let header" {
 }
 
 ///|
+test "skeleton grammar splits legacy type body from header" {
+  let source = "type Name String\n"
+  let header = first_item_header_token_kind_names(source)
+  debug_inspect(
+    header,
+    content="[\"TypeToken\", \"TriviaToken\", \"UidentToken\"]",
+  )
+  let body = first_item_token_kind_names(source)
+  debug_inspect(
+    body,
+    content="[\"TriviaToken\", \"UidentToken\", \"SemiToken\"]",
+  )
+}
+
+///|
 test "skeleton grammar splits tuple struct body from header" {
   let source = "struct UserName(String) derive(Debug)\n"
   let header = first_item_header_token_kind_names(source)

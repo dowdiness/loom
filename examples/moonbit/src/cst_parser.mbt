@@ -77,15 +77,32 @@ fn consume_source_item_header_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   item_kind : MoonbitSyntaxKind,
 ) -> (Int, Int) {
-  for consumed = 0, group_depth = 0; !ctx.at_eof() &&
+  for consumed = 0, group_depth = 0, type_keyword_seen = false, type_name_seen = false; !ctx.at_eof() &&
      ctx.error_count < MAX_SKELETON_ERRORS; {
     let token = ctx.peek()
     if group_depth == 0 &&
-      (token.is_item_delimiter() || token.starts_item_body(item_kind)) {
+      (
+        token.is_item_delimiter() ||
+        token.starts_item_body(item_kind) ||
+        (
+          item_kind == TypeItemNode &&
+          token.starts_legacy_type_body(type_name_seen)
+        )
+      ) {
       break (consumed, group_depth)
     }
     ctx.emit_token(token.syntax_kind())
-    continue consumed + 1, token.next_group_depth(group_depth)
+    continue consumed + 1,
+      token.next_group_depth(group_depth),
+      type_keyword_seen ||
+      (item_kind == TypeItemNode && token.is_type_item_keyword()),
+      type_name_seen ||
+      (
+        item_kind == TypeItemNode &&
+        type_keyword_seen &&
+        group_depth == 0 &&
+        token.is_type_header_name()
+      )
   } nobreak {
     (consumed, group_depth)
   }

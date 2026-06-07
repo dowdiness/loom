@@ -91,6 +91,37 @@ fn MoonToken::starts_item_body(
 }
 
 ///|
+fn MoonToken::starts_legacy_type_body(
+  self : MoonToken,
+  type_name_seen : Bool,
+) -> Bool {
+  match (type_name_seen, self) {
+    (true, Official(kind~)) =>
+      match kind {
+        TK_LBRACKET | TK_COMMENT | TK_NEWLINE => false
+        _ => true
+      }
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_type_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_TYPE | TK_TYPEALIAS) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_type_header_name(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_UIDENT | TK_LIDENT) => true
+    _ => false
+  }
+}
+
+///|
 fn MoonToken::source_item_node_kind(self : MoonToken) -> MoonbitSyntaxKind? {
   match self {
     Official(kind~) =>
