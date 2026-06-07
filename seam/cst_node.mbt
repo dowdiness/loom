@@ -21,19 +21,23 @@ pub let repeat_group_kind : RawKind = RawKind(-1)
 /// - `source`, `start`, and `end` identify this token's text as a span into a
 ///   source string. The constructor records the incoming `StringView` directly,
 ///   so lexing can build tokens without copying substrings.
+/// - `source_backed` distinguishes lexer/source tokens from parser-synthetic
+///   placeholders. Token equality and hashing include this provenance so node
+///   interning cannot collapse parser placeholders with lexer tokens.
 /// - `hash` is a stable structural hash computed from `kind` and `text()`
 ///   at construction time by `CstToken::CstToken`. It is used as the fast-path
 ///   for `Eq` and as the `Hash` trait output (see stability guarantees on
 ///   the `Eq` and `Hash` impls below).
-/// - `hash`, `kind`, `source`, `start`, and `end` are frozen after construction.
-///   Package internals must never mutate these fields after construction; doing
-///   so invalidates the equality and hash semantics.
+/// - `hash`, `kind`, `source`, `start`, `end`, and `source_backed` are frozen
+///   after construction. Package internals must never mutate these fields after
+///   construction; doing so invalidates the equality and hash semantics.
 pub struct CstToken {
   kind : RawKind
   priv source : String
   priv start : Int
   priv end : Int
   priv hash : Int
+  priv source_backed : Bool
 } derive(Debug(ignore=[String]))
 
 ///|
@@ -41,9 +45,31 @@ pub struct CstToken {
 #alias(new, deprecated="Use CstToken::CstToken(kind, text) instead")
 pub fn CstToken::CstToken(kind : RawKind, text : StringView) -> CstToken {
   let RawKind(k) = kind
-  let h = combine_hash(k, string_hash(text))
+  let h = combine_hash(combine_hash(k, string_hash(text)), 1)
   let start = text.start_offset()
-  { kind, source: text.data(), start, end: start + text.length(), hash: h }
+  {
+    kind,
+    source: text.data(),
+    start,
+    end: start + text.length(),
+    hash: h,
+    source_backed: true,
+  }
+}
+
+///|
+fn CstToken::synthetic_zero_width(kind : RawKind) -> CstToken {
+  let text = ""
+  let RawKind(k) = kind
+  let h = combine_hash(combine_hash(k, string_hash(text)), 0)
+  { kind, source: text, start: 0, end: 0, hash: h, source_backed: false }
+}
+
+///|
+/// Return true when this token came from a source-backed lexer span rather
+/// than a parser-synthetic placeholder.
+pub fn CstToken::is_source_backed(self : CstToken) -> Bool {
+  self.source_backed
 }
 
 ///|
@@ -83,9 +109,10 @@ pub fn CstToken::text_len(self : CstToken) -> Int {
 }
 
 ///|
-/// **Stability guarantee:** Two `CstToken`s are equal iff they have the
-/// same `kind` and `text()`. The cached `hash` is compared first as a fast
-/// rejection path; a hash match does NOT skip the kind/text comparison.
+/// **Stability guarantee:** Two `CstToken`s are equal iff they have the same
+/// `kind`, same `text()`, and same source-backed/synthetic provenance. The
+/// cached `hash` is compared first as a fast rejection path; a hash match does
+/// NOT skip the kind/text/provenance comparison.
 /// This behavior is stable across versions.
 ///
 /// ## Why `physical_equal` comes first
@@ -107,13 +134,15 @@ pub impl Eq for CstToken with fn equal(self, other) {
   if self.hash != other.hash {
     return false
   }
-  self.kind == other.kind && self.text() == other.text()
+  self.kind == other.kind &&
+  self.source_backed == other.source_backed &&
+  self.text() == other.text()
 }
 
 ///|
 /// **Stability guarantee:** The `Hash` output is the cached structural hash
-/// (`combine_hash(RawKind.inner, string_hash(text()))`). This value is stable
-/// as long as `combine_hash` and `string_hash` are stable.
+/// (`combine_hash(combine_hash(RawKind.inner, string_hash(text())), provenance)`).
+/// This value is stable as long as `combine_hash` and `string_hash` are stable.
 pub impl Hash for CstToken with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash)
 }

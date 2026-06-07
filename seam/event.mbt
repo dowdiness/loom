@@ -43,6 +43,7 @@ enum BufferedEvent {
   BufferedStartNode(RawKind)
   BufferedFinishNode
   BufferedToken(RawKind, StringView)
+  BufferedSyntheticZeroWidthToken(RawKind)
   BufferedTombstone
   BufferedReuseNode(CstNode)
   BufferedReuseNodeAt(CstNode, String, Int)
@@ -218,6 +219,20 @@ pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(
 }
 
 ///|
+/// Append a parser-synthetic zero-width token.
+///
+/// Parser recovery placeholders have no source span even when their logical
+/// position is at a source boundary. Keeping that provenance lets parser-owned
+/// CST reuse distinguish them from lexer-owned zero-width tokens such as ASI or
+/// indentation markers.
+pub fn EventBuffer::push_synthetic_zero_width_token(
+  self : EventBuffer,
+  kind : RawKind,
+) -> Unit {
+  self.events.push(BufferedSyntheticZeroWidthToken(kind))
+}
+
+///|
 /// Reserve a slot and return its index. Used for retroactive StartNode placement.
 /// The slot must either be claimed exactly once via start_at() or remain as
 /// Tombstone (which build_tree ignores).
@@ -293,8 +308,12 @@ fn rebuild_subtree_owned(
   for child in node.children {
     match child {
       CstElement::Token(t) => {
-        let owned = t.text().to_owned()
-        children.push(CstElement::Token(CstToken::CstToken(t.kind, owned)))
+        let token = if t.is_source_backed() {
+          CstToken::CstToken(t.kind, t.text().to_owned())
+        } else {
+          CstToken::synthetic_zero_width(t.kind)
+        }
+        children.push(CstElement::Token(token))
       }
       CstElement::Node(n) => {
         let rebuilt = rebuild_subtree_owned(
@@ -361,10 +380,14 @@ fn rebase_subtree_to_source_unchecked(
     match child {
       CstElement::Token(t) => {
         let end = offset + t.text_len()
-        let token = CstToken::CstToken(
-          t.kind,
-          source.view(start_offset=offset, end_offset=end),
-        )
+        let token = if t.is_source_backed() {
+          CstToken::CstToken(
+            t.kind,
+            source.view(start_offset=offset, end_offset=end),
+          )
+        } else {
+          CstToken::synthetic_zero_width(t.kind)
+        }
         children.push(CstElement::Token(token))
         offset = end
       }
@@ -439,7 +462,12 @@ fn intern_reuse_tokens_only(
   CstElement::Node(node).map(
     elem => {
       match elem {
-        Token(t) => Token(interner.intern_token(t.kind, t.text()))
+        Token(t) =>
+          if t.is_source_backed() {
+            Token(interner.intern_token(t.kind, t.text()))
+          } else {
+            Token(CstToken::synthetic_zero_width(t.kind))
+          }
         _ => elem
       }
     },
@@ -492,6 +520,13 @@ fn build_tree_interned_buffered(
       }
       BufferedToken(kind, text) => {
         let token = interner.intern_token(kind, text)
+        match stack.last() {
+          Some(top) => top.push(CstElement::Token(token))
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedSyntheticZeroWidthToken(kind) => {
+        let token = CstToken::synthetic_zero_width(kind)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent
@@ -569,8 +604,12 @@ fn re_intern_subtree(
   for child in node.children {
     match child {
       CstElement::Token(t) => {
-        let interned = interner.intern_token(t.kind, t.text())
-        children.push(CstElement::Token(interned))
+        let token = if t.is_source_backed() {
+          interner.intern_token(t.kind, t.text())
+        } else {
+          CstToken::synthetic_zero_width(t.kind)
+        }
+        children.push(CstElement::Token(token))
       }
       CstElement::Node(n) => {
         let interned = re_intern_subtree(
@@ -667,6 +706,13 @@ fn build_tree_fully_interned_buffered(
       }
       BufferedToken(kind, text) => {
         let token = interner.intern_token(kind, text)
+        match stack.last() {
+          Some(top) => top.push(CstElement::Token(token))
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedSyntheticZeroWidthToken(kind) => {
+        let token = CstToken::synthetic_zero_width(kind)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent
@@ -797,6 +843,13 @@ fn build_tree_buffered(
       }
       BufferedToken(kind, text) => {
         let token = CstToken::CstToken(kind, text)
+        match stack.last() {
+          Some(top) => top.push(CstElement::Token(token))
+          None => raise EventStreamError::OrphanedEvent
+        }
+      }
+      BufferedSyntheticZeroWidthToken(kind) => {
+        let token = CstToken::synthetic_zero_width(kind)
         match stack.last() {
           Some(top) => top.push(CstElement::Token(token))
           None => raise EventStreamError::OrphanedEvent

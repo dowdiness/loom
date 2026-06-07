@@ -174,7 +174,10 @@ fn collect_old_tokens(
   for child in node.children {
     match child {
       @seam.CstElement::Token(t) => {
-        if t.kind != ws_raw && t.kind != err_raw && t.kind != incomplete_raw {
+        if t.is_source_backed() &&
+          t.kind != ws_raw &&
+          t.kind != err_raw &&
+          t.kind != incomplete_raw {
           out.push({ kind: t.kind, text: t.text().to_owned(), start: offset })
         }
         offset = offset + t.text_len()
@@ -347,7 +350,32 @@ fn[T, K] ReuseCursor::to_new_offset(
 }
 
 ///|
-/// True if the first non-trivia leaf of node matches the new token at token_pos.
+/// Return the first source-backed non-trivia token in a reusable subtree.
+/// Parser-synthetic placeholders are not lexer context and must not control
+/// leading-token reuse checks.
+fn first_source_backed_token(
+  node : @seam.CstNode,
+  trivia_raw : @seam.RawKind,
+) -> @seam.CstToken? {
+  for child in node.children {
+    match child {
+      @seam.CstElement::Token(token) =>
+        if token.is_source_backed() && token.kind != trivia_raw {
+          return Some(token)
+        }
+      @seam.CstElement::Node(child_node) =>
+        match first_source_backed_token(child_node, trivia_raw) {
+          Some(token) => return Some(token)
+          None => ()
+        }
+    }
+  }
+  None
+}
+
+///|
+/// True if the first source-backed non-trivia leaf of node matches the new
+/// token at token_pos.
 fn[T : @seam.ToRawKind, K] leading_token_matches(
   node : @seam.CstNode,
   cursor : ReuseCursor[T, K],
@@ -357,7 +385,7 @@ fn[T : @seam.ToRawKind, K] leading_token_matches(
     return false
   }
   let new_kind = (cursor.get_token)(token_pos).to_raw()
-  match node.first_token(fn(r) { r == cursor.ws_raw }) {
+  match first_source_backed_token(node, cursor.ws_raw) {
     None => false
     Some(old_tok) =>
       old_tok.kind == new_kind && old_tok.text() == (cursor.get_text)(token_pos)
@@ -390,6 +418,22 @@ fn[T, K] ReuseCursor::ensure_old_tokens(
 }
 
 ///|
+/// Adjust a new/source-query offset back into the coordinate space used by the
+/// persistent old-token cache.
+fn[T, K] ReuseCursor::old_token_search_offset(
+  self : ReuseCursor[T, K],
+  offset : Int,
+) -> Int {
+  // Tokens in the cache have offsets from the tree they were built from.
+  // Post-damage tokens shifted by pending_delta — reverse the shift to match.
+  if self.cache.pending_delta != 0 && offset >= self.cache.damage_boundary {
+    offset - self.cache.pending_delta
+  } else {
+    offset
+  }
+}
+
+///|
 /// Binary search: first old non-trivia token with start >= offset.
 /// Lazily materializes the old-token table on first call.
 /// Adjusts search offset for persistent-cache delta when the query
@@ -399,21 +443,33 @@ fn[T, K] old_follow_token_lazy(
   offset : Int,
 ) -> OldToken? {
   let old_tokens = cursor.ensure_old_tokens()
-  // Adjust query offset for accumulated delta from previous edits.
-  // Tokens in the cache have offsets from the tree they were built from.
-  // Post-damage tokens shifted by pending_delta — reverse the shift to match.
-  let search_offset = if cursor.cache.pending_delta != 0 &&
-    offset >= cursor.cache.damage_boundary {
-    offset - cursor.cache.pending_delta
-  } else {
-    offset
-  }
+  let search_offset = cursor.old_token_search_offset(offset)
   let lo = lower_bound(old_tokens, search_offset)
   if lo < old_tokens.length() {
     Some(old_tokens[lo])
   } else {
     None
   }
+}
+
+///|
+/// Return source-backed zero-width old lexer tokens at a boundary offset.
+/// The query offset uses the same coordinate convention as old_follow_token_lazy.
+fn[T, K] ReuseCursor::old_zero_width_tokens_at_boundary(
+  self : ReuseCursor[T, K],
+  offset : Int,
+) -> Array[OldToken] {
+  let old_tokens = self.ensure_old_tokens()
+  let search_offset = self.old_token_search_offset(offset)
+  let result : Array[OldToken] = []
+  let mut i = lower_bound(old_tokens, search_offset)
+  while i < old_tokens.length() && old_tokens[i].start == search_offset {
+    if old_tokens[i].text == "" {
+      result.push(old_tokens[i])
+    }
+    i = i + 1
+  }
+  result
 }
 
 ///|

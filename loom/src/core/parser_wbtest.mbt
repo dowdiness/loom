@@ -1384,6 +1384,537 @@ test "ParserContext reuse: zero-width error leaf does not over-advance position"
 }
 
 ///|
+fn test_tokenize_with_zero_width_boundary(
+  _src : String,
+) -> Array[TokenInfo[TestTok]] {
+  [
+    TokenInfo::new(TestTok::Num(1), 1),
+    TokenInfo::new(TestTok::Plus, 0),
+    TokenInfo::new(TestTok::Ws, 1),
+    TokenInfo::new(TestTok::Num(2), 1),
+  ]
+}
+
+///|
+fn test_tokenize_with_two_zero_width_boundaries(
+  _src : String,
+) -> Array[TokenInfo[TestTok]] {
+  [
+    TokenInfo::new(TestTok::Num(1), 1),
+    TokenInfo::new(TestTok::Plus, 0),
+    TokenInfo::new(TestTok::Plus, 0),
+    TokenInfo::new(TestTok::Ws, 1),
+    TokenInfo::new(TestTok::Num(2), 1),
+  ]
+}
+
+///|
+fn test_tokenize_numbers_with_zero_width_boundaries(
+  src : String,
+  boundary_count : Int,
+) -> Array[TokenInfo[TestTok]] {
+  let result : Array[TokenInfo[TestTok]] = []
+  let mut i = 0
+  while i < src.length() {
+    let code = src.code_unit_at(i).to_int()
+    if code == 32 {
+      result.push(TokenInfo::new(TestTok::Ws, 1))
+      i = i + 1
+    } else if code >= 48 && code <= 57 {
+      result.push(TokenInfo::new(TestTok::Num(code - 48), 1))
+      for _ in 0..<boundary_count {
+        result.push(TokenInfo::new(TestTok::Plus, 0))
+      }
+      i = i + 1
+    } else {
+      i = i + 1
+    }
+  }
+  result
+}
+
+///|
+fn test_tokenize_numbers_with_one_zero_width_boundary(
+  src : String,
+) -> Array[TokenInfo[TestTok]] {
+  test_tokenize_numbers_with_zero_width_boundaries(src, 1)
+}
+
+///|
+fn test_tokenize_numbers_with_two_zero_width_boundaries(
+  src : String,
+) -> Array[TokenInfo[TestTok]] {
+  test_tokenize_numbers_with_zero_width_boundaries(src, 2)
+}
+
+///|
+test "ParserContext reuse: zero-width lexer leaf at reused boundary advances position" {
+  fn grammar_with_zero_width_boundary(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_zero_width_boundary,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="2")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
+test "ParserContext reuse: interned zero-width lexer boundary advances position" {
+  fn grammar_with_zero_width_boundary(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let old_ctx = ParserContext::new(toks, src, test_spec)
+  grammar_with_zero_width_boundary(old_ctx)
+  old_ctx.flush_trivia()
+  let old_tree = old_ctx.events.build_tree_interned(
+    test_spec.root_kind.to_raw(),
+    @seam.Interner::new(),
+    trivia_kind=Some(test_spec.whitespace_kind.to_raw()),
+    error_kind=Some(test_spec.error_kind.to_raw()),
+    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+  ) catch {
+    _ => abort("expected interned old tree")
+  }
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="2")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
+test "ParserContext reuse: custom synthetic zero-width leaf is not a lexer boundary token" {
+  fn grammar_with_custom_placeholder(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_zero_width(KPlus)
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_with_custom_placeholder,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_zero_width(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="1")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
+test "ParserContext reuse: custom synthetic zero-width leaf does not consume lexer token" {
+  fn grammar_with_custom_placeholder(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_zero_width(KPlus)
+    })
+    ctx.emit_token(KPlus)
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_custom_placeholder,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_zero_width(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="1")
+  inspect(ctx.at(TestTok::Plus), content="true")
+}
+
+///|
+test "ParserContext reuse: EOF recovery token is synthetic lexer context" {
+  fn grammar_with_eof_recovery(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+    })
+  }
+
+  let src = "1"
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_with_eof_recovery,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="1")
+  inspect(ctx.at_eof(), content="true")
+}
+
+///|
+test "ParserContext reuse: extra zero-width token after empty owned boundary rejects reuse" {
+  fn grammar_with_conditional_boundary_token(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      if ctx.at(TestTok::Plus) && ctx.peek_nth(1) == TestTok::Plus {
+        ctx.emit_token(KPlus)
+      }
+    })
+    ctx.emit_token(KPlus)
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_two_zero_width_boundaries(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_conditional_boundary_token,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    ctx.emit_token(KNum)
+    if ctx.at(TestTok::Plus) && ctx.peek_nth(1) == TestTok::Plus {
+      ctx.emit_token(KPlus)
+    }
+  })
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="2")
+  inspect(ctx.at(TestTok::Plus), content="true")
+}
+
+///|
+test "ParserContext reuse: partial zero-width boundary match rejects reuse" {
+  fn old_grammar_with_two_boundary_tokens(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.emit_token(KPlus)
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_two_zero_width_boundaries, old_grammar_with_two_boundary_tokens,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+  })
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="2")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
+test "ParserContext reuse: extra zero-width boundary token rejects reuse" {
+  fn grammar_consumes_boundary_tokens(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      while ctx.at(TestTok::Plus) {
+        ctx.emit_token(KPlus)
+      }
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_two_zero_width_boundaries(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_consumes_boundary_tokens,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    ctx.emit_token(KNum)
+    while ctx.at(TestTok::Plus) {
+      ctx.emit_token(KPlus)
+    }
+  })
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="3")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
+test "ParserContext reuse: partial zero-width RepeatGroup boundary match rejects reuse" {
+  fn grammar_repeated_boundary_nodes(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    while !ctx.at_eof() {
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        while ctx.at(TestTok::Plus) {
+          ctx.emit_token(KPlus)
+        }
+      })
+    }
+  }
+
+  let src = "1 1 1 1 1 1 1 1 1"
+  let toks = test_tokenize_numbers_with_one_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_numbers_with_two_zero_width_boundaries, grammar_repeated_boundary_nodes,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  inspect(ctx.try_reuse_repeat_group(), content="false")
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="0")
+}
+
+///|
+test "ParserContext reuse: extra zero-width RepeatGroup boundary token rejects reuse" {
+  fn grammar_repeated_boundary_nodes(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    while !ctx.at_eof() {
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        while ctx.at(TestTok::Plus) {
+          ctx.emit_token(KPlus)
+        }
+      })
+    }
+  }
+
+  let src = "1 1 1 1 1 1 1 1 1"
+  let toks = test_tokenize_numbers_with_two_zero_width_boundaries(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_numbers_with_one_zero_width_boundary, grammar_repeated_boundary_nodes,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  inspect(ctx.try_reuse_repeat_group(), content="false")
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="0")
+}
+
+///|
+test "ParserContext reuse: zero-width lexer leaf owned by following subtree is not consumed" {
+  fn grammar_with_following_boundary_token(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+    ctx.emit_token(KPlus)
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_following_boundary_token,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="1")
+  inspect(ctx.at(TestTok::Plus), content="true")
+}
+
+///|
 test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
   fn grammar_with_error(ctx : ParserContext[TestTok, TestKind]) -> Unit {
     ctx.node(KExpr, fn() {

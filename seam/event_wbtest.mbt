@@ -23,8 +23,61 @@ test "build_tree: token keeps source span" {
       inspect(tok.start_offset(), content="4")
       inspect(tok.end_offset(), content="5")
       inspect(tok.text(), content="x")
+      inspect(tok.is_source_backed(), content="true")
     }
     _ => abort("expected token")
+  }
+}
+
+///|
+test "EventBuffer: synthetic zero-width token records non-source provenance" {
+  let buf = EventBuffer::new()
+  buf.push_synthetic_zero_width_token(RawKind(9))
+  let root = buf.build_tree(RawKind(22))
+  match root.children[0] {
+    CstElement::Token(tok) => {
+      inspect(tok.text(), content="")
+      inspect(tok.is_source_backed(), content="false")
+    }
+    _ => abort("expected token")
+  }
+}
+
+///|
+test "build_tree_fully_interned: token provenance prevents node collapse" {
+  let interner = Interner::new()
+  let node_interner = NodeInterner::new()
+  let source_buf = EventBuffer::new()
+  source_buf.push(ParseEvent::StartNode(RawKind(1)))
+  source_buf.push(ParseEvent::Token(RawKind(9), ""))
+  source_buf.push(ParseEvent::FinishNode)
+  let synthetic_buf = EventBuffer::new()
+  synthetic_buf.push(ParseEvent::StartNode(RawKind(1)))
+  synthetic_buf.push_synthetic_zero_width_token(RawKind(9))
+  synthetic_buf.push(ParseEvent::FinishNode)
+  let source_tree = source_buf.build_tree_fully_interned(
+    RawKind(0),
+    interner,
+    node_interner,
+  )
+  let synthetic_tree = synthetic_buf.build_tree_fully_interned(
+    RawKind(0),
+    interner,
+    node_interner,
+  )
+  match (source_tree.children[0], synthetic_tree.children[0]) {
+    (CstElement::Node(source_node), CstElement::Node(synthetic_node)) => {
+      inspect(physical_equal(source_node, synthetic_node), content="false")
+      inspect(source_node == synthetic_node, content="false")
+      match (source_node.children[0], synthetic_node.children[0]) {
+        (CstElement::Token(source_tok), CstElement::Token(synthetic_tok)) => {
+          inspect(source_tok.is_source_backed(), content="true")
+          inspect(synthetic_tok.is_source_backed(), content="false")
+        }
+        _ => abort("expected token children")
+      }
+    }
+    _ => abort("expected node children")
   }
 }
 

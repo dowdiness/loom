@@ -39,6 +39,14 @@ test "CstToken Eq is hash-based fast path" {
 }
 
 ///|
+test "CstToken Eq distinguishes source-backed and synthetic zero-width tokens" {
+  let source_backed = CstToken::CstToken(RawKind(9), "")
+  let synthetic = CstToken::synthetic_zero_width(RawKind(9))
+  inspect(source_backed == synthetic, content="false")
+  inspect(source_backed.hash == synthetic.hash, content="false")
+}
+
+///|
 test "CstToken text_len" {
   let t = CstToken::CstToken(RawKind(9), "hello")
   inspect(t.text_len(), content="5")
