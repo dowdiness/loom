@@ -638,19 +638,23 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
 ///|
 fn is_reused_boundary_lexer_zero_width_token(
   token : @seam.CstToken,
+  child_start : Int,
+  child_end : Int,
   boundary : Int,
 ) -> Bool {
   token.is_source_backed() &&
   token.text_len() == 0 &&
-  token.start_offset() == boundary &&
-  token.end_offset() == boundary
+  child_start == boundary &&
+  child_end == boundary
 }
 
 ///|
 /// Push source-backed zero-width leaves that sit at the reused node's right
 /// boundary, in reverse source order. Parser-owned placeholders use synthetic
 /// empty text and must not advance the lexer stream; source-backed leaves
-/// represent real lexer tokens whose start/end happen to equal the node end.
+/// represent real lexer tokens whose structural child offsets equal the node
+/// end. Stored token spans are intentionally ignored because interned tokens
+/// carry canonical backing spans that may not equal their tree position.
 ///
 /// This walks only the right edge plus trailing zero-width siblings so reuse
 /// remains proportional to boundary ambiguity, not reused subtree size.
@@ -659,28 +663,33 @@ fn push_reused_boundary_zero_width_tokens_reversed(
   boundary : Int,
   out : Array[@seam.CstToken],
 ) -> Unit {
+  let mut child_end = boundary
   let mut i = node.children.length() - 1
   while i >= 0 {
     let child = node.children[i]
     let child_len = child.text_len()
+    let child_start = child_end - child_len
     match child {
       @seam.CstElement::Token(token) => {
         if child_len != 0 {
           break
         }
-        if is_reused_boundary_lexer_zero_width_token(token, boundary) {
+        if is_reused_boundary_lexer_zero_width_token(
+            token, child_start, child_end, boundary,
+          ) {
           out.push(token)
         }
       }
       @seam.CstElement::Node(child_node) => {
         push_reused_boundary_zero_width_tokens_reversed(
-          child_node, boundary, out,
+          child_node, child_end, out,
         )
         if child_len != 0 {
           break
         }
       }
     }
+    child_end = child_start
     i = i - 1
   }
 }

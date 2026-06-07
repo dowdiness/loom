@@ -1490,6 +1490,57 @@ test "ParserContext reuse: zero-width lexer leaf at reused boundary advances pos
 }
 
 ///|
+test "ParserContext reuse: interned zero-width lexer boundary advances position" {
+  fn grammar_with_zero_width_boundary(
+    ctx : ParserContext[TestTok, TestKind],
+  ) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+    })
+    ctx.emit_token(KNum)
+  }
+
+  let src = "1 2"
+  let toks = test_tokenize_with_zero_width_boundary(src)
+  let starts = build_starts(toks)
+  let old_ctx = ParserContext::new(toks, src, test_spec)
+  grammar_with_zero_width_boundary(old_ctx)
+  old_ctx.flush_trivia()
+  let old_tree = old_ctx.events.build_tree_interned(
+    test_spec.root_kind.to_raw(),
+    @seam.Interner::new(),
+    trivia_kind=Some(test_spec.whitespace_kind.to_raw()),
+    error_kind=Some(test_spec.error_kind.to_raw()),
+    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+  ) catch {
+    _ => abort("expected interned old tree")
+  }
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  ctx.node(KExpr, fn() {
+    // Must not run on reuse hit.
+    ctx.emit_token(KNum)
+    ctx.emit_token(KPlus)
+  })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.position, content="2")
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+}
+
+///|
 test "ParserContext reuse: custom synthetic zero-width leaf is not a lexer boundary token" {
   fn grammar_with_custom_placeholder(
     ctx : ParserContext[TestTok, TestKind],
