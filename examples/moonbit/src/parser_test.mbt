@@ -260,6 +260,26 @@ test "skeleton grammar classifies item modifiers with payloads" {
 }
 
 ///|
+test "skeleton grammar keeps visibility payload in struct header" {
+  let header = first_item_header_token_kind_names("pub(all) struct S {}\n")
+  debug_inspect(
+    header,
+    content=(
+      #|[
+      #|  "PubToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "RparenToken",
+      #|  "TriviaToken",
+      #|  "StructToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|]
+    ),
+  )
+}
+
+///|
 test "skeleton grammar skips layout before modifier payloads" {
   let source =
     #|pub // comment

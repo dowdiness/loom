@@ -77,10 +77,19 @@ fn consume_source_item_header_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   item_kind : MoonbitSyntaxKind,
 ) -> (Int, Int) {
-  for consumed = 0, group_depth = 0, type_keyword_seen = false, type_name_seen = false; !ctx.at_eof() &&
+  for consumed = 0, group_depth = 0, type_keyword_seen = false, type_name_seen = false, prefix_group_payload_pending = false, prefix_literal_payload_pending = false; !ctx.at_eof() &&
      ctx.error_count < MAX_SKELETON_ERRORS; {
     let token = ctx.peek()
+    let prefix_payload = group_depth == 0 &&
+      (
+        (prefix_group_payload_pending && token.opens_balanced_group()) ||
+        (
+          prefix_literal_payload_pending &&
+          token.is_source_item_prefix_literal_payload()
+        )
+      )
     if group_depth == 0 &&
+      !prefix_payload &&
       (
         token.is_item_delimiter() ||
         token.starts_item_body(item_kind) ||
@@ -92,6 +101,22 @@ fn consume_source_item_header_tokens(
       break (consumed, group_depth)
     }
     ctx.emit_token(token.syntax_kind())
+    let keep_prefix_payload_pending = group_depth == 0 &&
+      token.is_layout_token()
+    let next_prefix_group_payload_pending = if keep_prefix_payload_pending {
+      prefix_group_payload_pending
+    } else if prefix_payload || group_depth > 0 {
+      false
+    } else {
+      token.accepts_source_item_prefix_group_payload()
+    }
+    let next_prefix_literal_payload_pending = if keep_prefix_payload_pending {
+      prefix_literal_payload_pending
+    } else if prefix_payload || group_depth > 0 {
+      false
+    } else {
+      token.accepts_source_item_prefix_literal_payload()
+    }
     continue consumed + 1,
       token.next_group_depth(group_depth),
       type_keyword_seen ||
@@ -102,7 +127,9 @@ fn consume_source_item_header_tokens(
         type_keyword_seen &&
         group_depth == 0 &&
         token.is_type_header_name()
-      )
+      ),
+      next_prefix_group_payload_pending,
+      next_prefix_literal_payload_pending
   } nobreak {
     (consumed, group_depth)
   }
