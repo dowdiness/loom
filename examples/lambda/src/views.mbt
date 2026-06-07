@@ -164,27 +164,37 @@ pub fn BinaryExprView::operands(
 /// The first operator token kind (Plus or Minus).
 /// For the full operator sequence use `ops()`.
 pub fn BinaryExprView::op(self : BinaryExprView) -> @ast.Bop? {
-  let ops = self.ops()
-  if ops.length() > 0 {
-    Some(ops[0])
-  } else {
-    None
-  }
+  let (_nodes, tokens) = self.node.nodes_and_tokens()
+  tokens
+  .iter()
+  .filter_map(t => {
+    if t.kind() == @syntax.PlusToken.to_raw() {
+      Some(@ast.Bop::Plus)
+    } else if t.kind() == @syntax.MinusToken.to_raw() {
+      Some(@ast.Bop::Minus)
+    } else {
+      None
+    }
+  })
+  .next()
 }
 
 ///|
 /// All operator kinds in source order. For `1 + 2 - 3` returns [Plus, Minus].
 pub fn BinaryExprView::ops(self : BinaryExprView) -> Array[@ast.Bop] {
   let (_nodes, tokens) = self.node.nodes_and_tokens()
-  let result : Array[@ast.Bop] = []
-  for t in tokens {
+  tokens
+  .iter()
+  .filter_map(t => {
     if t.kind() == @syntax.PlusToken.to_raw() {
-      result.push(@ast.Bop::Plus)
+      Some(@ast.Bop::Plus)
     } else if t.kind() == @syntax.MinusToken.to_raw() {
-      result.push(@ast.Bop::Minus)
+      Some(@ast.Bop::Minus)
+    } else {
+      None
     }
-  }
-  result
+  })
+  .to_array()
 }
 
 ///|
@@ -418,36 +428,43 @@ pub fn LetDefView::name(self : LetDefView) -> String {
 /// Get the initializer expression — the body after `=`.
 /// Skips ParamList if present.
 pub fn LetDefView::init(self : LetDefView) -> @seam.SyntaxNode? {
-  for child in self.node.children() {
-    let kind = @syntax.SyntaxKind::from_raw(child.kind())
-    if kind != @syntax.ParamList {
-      return Some(child)
-    }
-  }
-  None
+  self.node
+  .children()
+  .iter()
+  .find_first(child => {
+    @syntax.SyntaxKind::from_raw(child.kind()) != @syntax.ParamList
+  })
 }
 
 ///|
 /// Get the parameter names from the ParamList, if present.
 /// Returns empty array for value bindings (no ParamList).
 pub fn LetDefView::params(self : LetDefView) -> Array[String] {
-  let params : Array[String] = []
-  for child in self.node.children() {
-    let kind = @syntax.SyntaxKind::from_raw(child.kind())
-    if kind == @syntax.ParamList {
-      for elem in child.all_children() {
+  match
+    self.node
+    .children()
+    .iter()
+    .find_first(child => {
+      @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList
+    }) {
+    None => []
+    Some(child) =>
+      child
+      .all_children()
+      .iter()
+      .filter_map(elem => {
         match elem {
           @seam.SyntaxElement::Token(t) =>
             if @syntax.SyntaxKind::from_raw(t.kind()) == @syntax.IdentToken {
-              params.push(t.text())
+              Some(t.text())
+            } else {
+              None
             }
-          _ => ()
+          _ => None
         }
-      }
-      break
-    }
+      })
+      .to_array()
   }
-  params
 }
 
 ///|
@@ -489,24 +506,16 @@ pub impl @core.AstView for BlockExprView with fn syntax_node(self) {
 ///|
 /// Let definitions contained directly in the block, in source order.
 pub fn BlockExprView::defs(self : BlockExprView) -> Array[LetDefView] {
-  let defs : Array[LetDefView] = []
-  for child in self.node.children() {
-    if LetDefView::cast(child) is Some(v) {
-      defs.push(v)
-    }
-  }
-  defs
+  self.node.children().iter().filter_map(LetDefView::cast).to_array()
 }
 
 ///|
 /// The optional trailing expression after any block-local definitions.
 pub fn BlockExprView::body(self : BlockExprView) -> @seam.SyntaxNode? {
-  for child in self.node.children() {
-    if LetDefView::cast(child) is None {
-      return Some(child)
-    }
-  }
-  None
+  self.node
+  .children()
+  .iter()
+  .find_first(child => LetDefView::cast(child) is None)
 }
 
 ///|

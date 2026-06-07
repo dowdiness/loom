@@ -516,13 +516,7 @@ fn[Id] allocate_all_projection_leaves(
   leaves : Array[ProjectionLeaf],
   allocate : (ProjectionLeaf) -> Id,
 ) -> Array[StableProjectionLeaf[Id]] {
-  let result : Array[StableProjectionLeaf[Id]] = Array::new(
-    capacity=leaves.length(),
-  )
-  for leaf in leaves {
-    result.push(fresh_stable_projection_leaf(leaf, allocate))
-  }
-  result
+  leaves.map(leaf => fresh_stable_projection_leaf(leaf, allocate))
 }
 
 ///|
@@ -709,11 +703,7 @@ pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(
   let stable = realign_projection_identities_with_optional_edit(
     baseline, next_source, leaves, allocate, edit,
   )
-  let result : Array[StableItem] = Array::new(capacity=items.length())
-  for i = 0; i < items.length(); i = i + 1 {
-    result.push(with_id(items[i], stable[i].id))
-  }
-  result
+  Array::makei(items.length(), i => with_id(items[i], stable[i].id))
 }
 
 ///|

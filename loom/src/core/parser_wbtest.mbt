@@ -213,6 +213,46 @@ test "token_text_at handles token spans that split surrogate pairs" {
 }
 
 ///|
+test "current_token_text and current_token_range skip trivia" {
+  let src = "  42"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.current_token_text(), content="42")
+  let range = ctx.current_token_range()
+  inspect(range.start, content="2")
+  inspect(range.end, content="4")
+  ctx.emit_token(KNum)
+  inspect(ctx.current_token_text(), content="")
+  let eof_range = ctx.current_token_range()
+  inspect(eof_range.start, content="4")
+  inspect(eof_range.end, content="4")
+}
+
+///|
+test "ParserContext::too_many_errors tracks parser diagnostics" {
+  let src = "+"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.too_many_errors(1), content="false")
+  ctx.report_expected(expected="number")
+  inspect(ctx.too_many_errors(1), content="true")
+  inspect(ctx.too_many_errors(2), content="false")
+}
+
+///|
+test "emit_current_token uses token raw kind" {
+  let (tree, errors) = parse_with(" +", test_spec, test_tokenize, fn(ctx) {
+    ctx.emit_current_token()
+  })
+  inspect(errors.length(), content="0")
+  let root = @seam.SyntaxNode::from_cst(tree)
+  guard root.find_token(@seam.RawKind(1)) is Some(token) else {
+    fail("expected emitted plus token")
+  }
+  inspect(token.text(), content="+")
+}
+
+///|
 test "ParserContext::report records explicit structured diagnostic" {
   let src = "1"
   let toks = test_tokenize(src)
@@ -2290,7 +2330,7 @@ test "ParserContext push_diagnostic_unique deduplicates by parser message and sp
   inspect(updated, content="false")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
-  inspect(ctx.error_count, content="1")
+  inspect(ctx.too_many_errors(1), content="true")
 }
 
 ///|

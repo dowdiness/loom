@@ -209,18 +209,14 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
   if n < 0 {
     return self.peek()
   }
-  let mut pos = self.position
   let mut count = 0
-  while pos < self.token_count {
+  for pos in self.position..<self.token_count {
     let t = (self.get_token)(pos)
-    if t.is_trivia() {
-      pos = pos + 1
-    } else {
+    if !t.is_trivia() {
       if count == n {
         return t
       }
       count = count + 1
-      pos = pos + 1
     }
   }
   self.spec.eof_token
@@ -231,17 +227,12 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(
   self : ParserContext[T, K],
 ) -> TokenInfo[T] {
-  let mut pos = self.position
-  while pos < self.token_count {
-    let token = (self.get_token)(pos)
-    if token.is_trivia() {
-      pos = pos + 1
-    } else {
-      let len = (self.get_end)(pos) - (self.get_start)(pos)
-      return { token, len }
-    }
-  }
-  { token: self.spec.eof_token, len: 0 }
+  self
+  .current_token_position()
+  .map_or({ token: self.spec.eof_token, len: 0 }, pos => {
+    token: (self.get_token)(pos),
+    len: (self.get_end)(pos) - (self.get_start)(pos),
+  })
 }
 
 ///|
@@ -259,6 +250,65 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
   self : ParserContext[T, K],
 ) -> Bool {
   self.peek().is_eof()
+}
+
+///|
+/// Return true once parser diagnostics have reached `max`.
+///
+/// Intended for bounded recovery loops: `while !ctx.too_many_errors(max) { ... }`.
+/// Prefer it over reading `ParserContext.error_count` directly from grammar code.
+pub fn[T, K] ParserContext::too_many_errors(
+  self : ParserContext[T, K],
+  max : Int,
+) -> Bool {
+  self.error_count >= max
+}
+
+///|
+/// Return the raw token index of the next non-trivia token.
+fn[T : @seam.IsTrivia, K] ParserContext::current_token_position(
+  self : ParserContext[T, K],
+) -> Int? {
+  for pos in self.position..<self.token_count {
+    let token = (self.get_token)(pos)
+    if !token.is_trivia() {
+      return Some(pos)
+    }
+  }
+  None
+}
+
+///|
+/// Extract source text for the current non-trivia token as a zero-copy view.
+///
+/// Returns an empty view at EOF or when the current token span is invalid.
+pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_text(
+  self : ParserContext[T, K],
+) -> StringView {
+  self
+  .current_token_position()
+  .map_or(StringView::default(), pos => self.token_text_at(pos))
+}
+
+///|
+/// Return the source range for the current non-trivia token.
+///
+/// At EOF, or if the current token span is invalid, this returns a zero-width
+/// range at the end of the source.
+pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_range(
+  self : ParserContext[T, K],
+) -> Range {
+  self
+  .current_token_position()
+  .map_or_else(() => Range::new(self.source.length(), self.source.length()), pos => {
+    let start = (self.get_start)(pos)
+    let end = (self.get_end)(pos)
+    if start < 0 || end < start || end > self.source.length() {
+      Range::new(self.source.length(), self.source.length())
+    } else {
+      Range::new(start, end)
+    }
+  })
 }
 
 ///|
@@ -320,14 +370,41 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
   kind : K,
 ) -> Unit {
   self.flush_trivia()
-  if self.at_eof() {
-    self.error("emit_token: unexpected EOF")
-    self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
-    return
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let text = self.text_at(pos)
+      self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
+      self.position = pos + 1
+    }
+    _ => {
+      self.error("emit_token: unexpected EOF")
+      self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
+    }
   }
-  let text = self.text_at(self.position)
-  self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
-  self.position = self.position + 1
+}
+
+///|
+/// Consume the current token and emit it using the token's own raw kind.
+///
+/// Use this only for grammars where the token raw kind is also the CST leaf
+/// kind. Grammars with a distinct syntax-kind layer should keep mapping
+/// `ctx.peek()` to a `K` and call `emit_token(kind)` instead.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_current_token(
+  self : ParserContext[T, K],
+) -> Unit {
+  self.flush_trivia()
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let token = (self.get_token)(pos)
+      let text = self.text_at(pos)
+      self.events.push(@seam.ParseEvent::Token(token.to_raw(), text))
+      self.position = pos + 1
+    }
+    _ => {
+      self.error("emit_current_token: unexpected EOF")
+      self.emit_incomplete_placeholder()
+    }
+  }
 }
 
 ///|
@@ -362,10 +439,7 @@ pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
 pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
-  let reuse_cursor = match self.reuse_cursor {
-    Some(cursor) => Some(cursor.snapshot())
-    None => None
-  }
+  let reuse_cursor = self.reuse_cursor.map(cursor => cursor.snapshot())
   {
     position: self.position,
     events_len: self.events.length(),
@@ -387,10 +461,7 @@ pub fn[T, K] ParserContext::restore(
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
-  self.reuse_cursor = match cp.reuse_cursor {
-    Some(cursor) => Some(cursor.snapshot())
-    None => None
-  }
+  self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.reuse_count = cp.reuse_count
 }
 
@@ -415,23 +486,16 @@ fn[T : @seam.ToRawKind] make_parser_diagnostic(
   token : T,
   code? : DiagnosticCode? = None,
 ) -> Diagnostic {
-  let notes : Array[String] = []
   let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
     start, end,
   )
-  let primary = match range_result {
-    Ok(range) => Some(range)
-    Err(error) => {
-      notes.push(
-        "invalid diagnostic range preserved as " + @debug.to_string(error),
-      )
-      None
-    }
+  let primary = range_result.to_option()
+  let notes = match range_result {
+    Ok(_) => []
+    Err(error) =>
+      ["invalid diagnostic range preserved as " + @debug.to_string(error)]
   }
-  let evidence = match primary {
-    Some(range) => Some({ kind: token.to_raw(), range })
-    None => None
-  }
+  let evidence = primary.map(range => { kind: token.to_raw(), range })
   Diagnostic(
     source=DiagnosticSource::parser(),
     severity=Error,
@@ -481,24 +545,24 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
   message~ : String,
   code? : DiagnosticCode? = None,
 ) -> Unit {
-  let mut pos = self.position
-  while pos < self.token_count {
-    let token = (self.get_token)(pos)
-    if token.is_trivia() {
-      pos = pos + 1
-    } else {
-      let start = (self.get_start)(pos)
-      let end = (self.get_end)(pos)
-      let _ = self.push_diagnostic_unique(
-        make_parser_diagnostic(message, start, end, token, code~),
-      )
-      return
-    }
-  }
-  let eof = self.source.length()
-  let _ = self.push_diagnostic_unique(
-    make_parser_diagnostic(message, eof, eof, self.spec.eof_token, code~),
-  )
+  let diagnostic = self
+    .current_token_position()
+    .map_or_else(
+      () => {
+        let eof = self.source.length()
+        make_parser_diagnostic(message, eof, eof, self.spec.eof_token, code~)
+      },
+      pos => {
+        make_parser_diagnostic(
+          message,
+          (self.get_start)(pos),
+          (self.get_end)(pos),
+          (self.get_token)(pos),
+          code~,
+        )
+      },
+    )
+  let _ = self.push_diagnostic_unique(diagnostic)
 }
 
 ///|
@@ -608,10 +672,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
   }
   let byte_offset = (self.get_start)(self.position)
   // Skip trivia to find the logical token position for leading-token matching.
-  let mut token_pos = self.position
-  while token_pos < self.token_count && (self.get_token)(token_pos).is_trivia() {
-    token_pos = token_pos + 1
-  }
+  let token_pos = self.current_token_position().unwrap_or(self.token_count)
   match self.reuse_cursor {
     None => None
     Some(cursor) =>
@@ -847,14 +908,12 @@ fn[T, K] ParserContext::token_info_at_or_after(
   from_pos : Int,
   byte_offset : Int,
 ) -> TokenInfo[T] {
-  let mut pos = from_pos
-  while pos < self.token_count {
+  for pos in from_pos..<self.token_count {
     let start = (self.get_start)(pos)
     let end = (self.get_end)(pos)
     if start >= byte_offset || end > byte_offset {
       return { token: (self.get_token)(pos), len: end - start }
     }
-    pos = pos + 1
   }
   { token: self.spec.eof_token, len: 0 }
 }
@@ -1057,10 +1116,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
     return false
   }
   let byte_offset = (self.get_start)(self.position)
-  let mut token_pos = self.position
-  while token_pos < self.token_count && (self.get_token)(token_pos).is_trivia() {
-    token_pos = token_pos + 1
-  }
+  let token_pos = self.current_token_position().unwrap_or(self.token_count)
   match self.reuse_cursor {
     None => false
     Some(cursor) =>

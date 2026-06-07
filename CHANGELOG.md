@@ -18,6 +18,9 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Added
 
+- `dowdiness/loom`: added `ParserContext` grammar-author helpers:
+  `emit_current_token`, `current_token_text`, `current_token_range`, and
+  `too_many_errors`.
 - `dowdiness/loom`: added `SyntaxGrammar`, `SyntaxParser`,
   `SyntaxSnapshot`, and `new_syntax_parser` for reactive CST/diagnostics
   consumers that do not have an AST fold or whose AST is not naturally `Eq`.

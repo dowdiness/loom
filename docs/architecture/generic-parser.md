@@ -138,10 +138,15 @@ Methods that grammar functions call on `ParserContext`:
 
 ```moonbit
 ctx.peek()                    // next non-trivia token (does not consume)
+ctx.peek_nth(n)               // nth non-trivia token for bounded lookahead
 ctx.at(token)                 // test whether current token equals the given token
 ctx.at_eof()                  // test whether all input has been consumed
+ctx.current_token_text()      // zero-copy text for the current non-trivia token
+ctx.current_token_range()     // source range for the current non-trivia token
+ctx.too_many_errors(max)      // max-error guard helper (`>= max`)
 ctx.node(kind, body)          // reuse-aware node: try reuse, else start_node→body→finish_node
 ctx.emit_token(kind)          // consume current token, emit it as a leaf with the given kind
+ctx.emit_current_token()      // emit using the token's own raw kind
 ctx.start_node(kind)          // open a new node frame with the given kind
 ctx.finish_node()             // close the most recently opened node frame
 ctx.mark()                    // reserve a retroactive-wrap position (returns a Mark)
@@ -150,6 +155,7 @@ ctx.wrap_at(mark, kind, body) // start_at + body + finish_node
 ctx.error(msg)                // record a diagnostic without consuming a token
 ctx.bump_error()              // consume current token as an error token
 ctx.emit_error_placeholder()  // emit a zero-width error token (for missing tokens)
+ctx.emit_incomplete_placeholder() // emit a zero-width incomplete token at EOF
 
 // Recovery combinators (recovery.mbt):
 ctx.expect(token, kind)                    // consume if match, else diagnostic + placeholder
@@ -160,6 +166,22 @@ ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 ```
 
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
+
+Use `emit_current_token()` only for token-stream skeletons where `T.to_raw()` is
+also the CST leaf kind. If a language has a separate syntax-kind layer, map the
+looked-ahead token to `K` and call `emit_token(kind)` instead:
+
+```moonbit
+let token = ctx.peek()
+ctx.emit_token(token.syntax_kind())
+```
+
+`skip_until_balanced` is recovery-oriented: skipped tokens are emitted under an
+error node. Preserving-token grammar scans that need delimiter depth (for
+example, consuming an item body while keeping every token as a normal leaf)
+should remain local grammar scaffolding until the pattern repeats across
+languages; they should not use `skip_until_balanced` unless the skipped region is
+intentionally an error region.
 
 Zero-width leaves have provenance. Lexer-produced zero-width tokens are
 source-backed and can be real token-stream boundary context. Parser-produced

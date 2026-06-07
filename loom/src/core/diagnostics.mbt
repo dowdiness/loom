@@ -662,13 +662,11 @@ pub fn DiagnosticSet::push(
   self : DiagnosticSet,
   diagnostic : Diagnostic,
 ) -> Unit {
-  for i, existing in self.items.iter2() {
-    if diagnostic_same_key(existing, diagnostic) {
-      self.items[i] = diagnostic
-      return
-    }
+  match
+    self.items.search_by(existing => diagnostic_same_key(existing, diagnostic)) {
+    Some(index) => self.items[index] = diagnostic
+    None => self.items.push(diagnostic)
   }
-  self.items.push(diagnostic)
 }
 
 ///|
@@ -676,14 +674,19 @@ fn DiagnosticSet::push_parser_unique(
   self : DiagnosticSet,
   diagnostic : Diagnostic,
 ) -> Bool {
-  for i, existing in self.items.iter2() {
-    if parser_diagnostic_same_key(existing, diagnostic) {
-      self.items[i] = diagnostic
-      return false
+  match
+    self.items.search_by(existing => {
+      parser_diagnostic_same_key(existing, diagnostic)
+    }) {
+    Some(index) => {
+      self.items[index] = diagnostic
+      false
+    }
+    None => {
+      self.items.push(diagnostic)
+      true
     }
   }
-  self.items.push(diagnostic)
-  true
 }
 
 ///|
@@ -698,7 +701,7 @@ pub fn DiagnosticSet::extend(
 
 ///|
 pub fn DiagnosticSet::is_empty(self : DiagnosticSet) -> Bool {
-  self.items.length() == 0
+  self.items.is_empty()
 }
 
 ///|
@@ -708,25 +711,13 @@ pub fn DiagnosticSet::length(self : DiagnosticSet) -> Int {
 
 ///|
 pub fn DiagnosticSet::truncate(self : DiagnosticSet, length : Int) -> Unit {
-  let target = if length < 0 {
-    0
-  } else if length > self.items.length() {
-    self.items.length()
-  } else {
-    length
-  }
-  while self.items.length() > target {
-    ignore(self.items.pop())
-  }
+  let target = length.clamp(min=0, max=self.items.length())
+  self.items.truncate(target)
 }
 
 ///|
 pub fn DiagnosticSet::format(self : DiagnosticSet) -> Array[String] {
-  let result : Array[String] = []
-  for diagnostic in self.items {
-    result.push(diagnostic.format())
-  }
-  result
+  self.items.map(Diagnostic::format)
 }
 
 ///|
@@ -734,11 +725,7 @@ pub fn DiagnosticSet::format_with_line_col(
   self : DiagnosticSet,
   index : LineIndex,
 ) -> Array[String] {
-  let result : Array[String] = []
-  for diagnostic in self.items {
-    result.push(diagnostic.format_with_line_col(index))
-  }
-  result
+  self.items.map(diagnostic => diagnostic.format_with_line_col(index))
 }
 
 ///|

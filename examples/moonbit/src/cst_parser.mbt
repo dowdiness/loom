@@ -13,7 +13,7 @@ fn parse_moonbit_root(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
   consume_layout_tokens(ctx)
-  while !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS {
+  while !ctx.at_eof() && !ctx.too_many_errors(MAX_SKELETON_ERRORS) {
     parse_source_item(ctx)
     consume_layout_tokens(ctx)
   }
@@ -88,83 +88,74 @@ fn parse_source_item_header_tokens(
 }
 
 ///|
-fn parse_let_item_header(
+fn parse_item_header_with(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  is_keyword : (MoonToken) -> Bool,
+  parse_tail : (@core.ParserContext[MoonToken, MoonbitSyntaxKind]) -> (Int, Int),
 ) -> (Int, Int) {
   let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
   if prefix_depth > 0 {
     (prefix_consumed, prefix_depth)
   } else {
-    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
-      token.is_let_item_keyword()
-    })
-    let (tail_consumed, tail_depth) = parse_let_item_header_tail(ctx)
+    let keyword_consumed = consume_item_header_keyword(ctx, is_keyword)
+    let (tail_consumed, tail_depth) = parse_tail(ctx)
     (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
   }
+}
+
+///|
+fn parse_let_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  parse_item_header_with(
+    ctx,
+    fn(token) { token.is_let_item_keyword() },
+    parse_let_item_header_tail,
+  )
 }
 
 ///|
 fn parse_function_item_header(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
-  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
-  if prefix_depth > 0 {
-    (prefix_consumed, prefix_depth)
-  } else {
-    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
-      token.is_function_item_keyword()
-    })
-    let (tail_consumed, tail_depth) = parse_function_item_header_tail(ctx)
-    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
-  }
+  parse_item_header_with(
+    ctx,
+    fn(token) { token.is_function_item_keyword() },
+    parse_function_item_header_tail,
+  )
 }
 
 ///|
 fn parse_struct_item_header(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
-  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
-  if prefix_depth > 0 {
-    (prefix_consumed, prefix_depth)
-  } else {
-    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
-      token.is_struct_item_keyword()
-    })
-    let (tail_consumed, tail_depth) = parse_struct_item_header_tail(ctx)
-    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
-  }
+  parse_item_header_with(
+    ctx,
+    fn(token) { token.is_struct_item_keyword() },
+    parse_struct_item_header_tail,
+  )
 }
 
 ///|
 fn parse_enum_item_header(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
-  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
-  if prefix_depth > 0 {
-    (prefix_consumed, prefix_depth)
-  } else {
-    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
-      token.is_enum_item_keyword()
-    })
-    let (tail_consumed, tail_depth) = parse_enum_item_header_tail(ctx)
-    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
-  }
+  parse_item_header_with(
+    ctx,
+    fn(token) { token.is_enum_item_keyword() },
+    parse_enum_item_header_tail,
+  )
 }
 
 ///|
 fn parse_type_item_header(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
-  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
-  if prefix_depth > 0 {
-    (prefix_consumed, prefix_depth)
-  } else {
-    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
-      token.is_type_item_keyword()
-    })
-    let (tail_consumed, tail_depth) = parse_type_item_header_tail(ctx)
-    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
-  }
+  parse_item_header_with(
+    ctx,
+    fn(token) { token.is_type_item_keyword() },
+    parse_type_item_header_tail,
+  )
 }
 
 ///|
@@ -215,7 +206,7 @@ fn consume_item_header_keyword(
 fn parse_source_item_prefixes(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
-  for consumed = 0; !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS; {
+  for consumed = 0; !ctx.at_eof() && !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     if token.is_layout_token() {
       ctx.emit_token(token.syntax_kind())
@@ -296,7 +287,7 @@ fn consume_balanced_header_group(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
   for consumed = 0, group_depth = 0; !ctx.at_eof() &&
-     ctx.error_count < MAX_SKELETON_ERRORS; {
+     !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     ctx.emit_token(token.syntax_kind())
     let next_depth = token.next_group_depth(group_depth)
@@ -315,7 +306,7 @@ fn consume_header_tokens_until(
   starts_item_body : (MoonToken) -> Bool,
 ) -> (Int, Int) {
   for consumed = 0, group_depth = 0; !ctx.at_eof() &&
-     ctx.error_count < MAX_SKELETON_ERRORS; {
+     !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     if group_depth == 0 &&
       (token.is_item_delimiter() || starts_item_body(token)) {
@@ -333,7 +324,7 @@ fn parse_type_item_header_tail(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
   for consumed = 0, group_depth = 0, type_name_seen = false; !ctx.at_eof() &&
-     ctx.error_count < MAX_SKELETON_ERRORS; {
+     !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     if group_depth == 0 &&
       (
@@ -398,11 +389,11 @@ fn skip_layout_from(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   index : Int,
 ) -> Int {
-  let mut next_index = index
-  while ctx.peek_nth(next_index).is_layout_token() {
-    next_index = next_index + 1
+  for next_index = index; ctx.peek_nth(next_index).is_layout_token(); {
+    continue next_index + 1
+  } nobreak {
+    next_index
   }
-  next_index
 }
 
 ///|
@@ -432,7 +423,7 @@ fn consume_source_item_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
   for consumed = 0, group_depth = 0; !ctx.at_eof() &&
-     ctx.error_count < MAX_SKELETON_ERRORS; {
+     !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     if group_depth == 0 && token.is_item_delimiter() {
       ctx.emit_token(token.syntax_kind())

@@ -150,39 +150,37 @@ pub fn json_fold_node(
         None => JsonValue::Error("empty document")
       }
     ObjectNode => {
-      let members : Array[(String, JsonValue)] = []
-      for child in node.children() {
-        match SyntaxKind::from_raw(child.kind()) {
-          MemberNode => {
-            // Get key from first direct StringToken child only (not recursive).
-            // This prevents picking up the value's string when the key is missing.
-            let key = match child.direct_token_of_kind(StringToken.to_raw()) {
-              Some(t) => t.text()
-              None => ""
+      let member_nodes = node.direct_children_of_kind(MemberNode.to_raw())
+      let members = member_nodes
+        .iter()
+        .filter_map(child => {
+          // Get key from first direct StringToken child only (not recursive).
+          // This prevents picking up the value's string when the key is missing.
+          match child.direct_token_of_kind(StringToken.to_raw()) {
+            Some(t) => {
+              let key = t.text()
+              let parsed_key = if key.length() >= 2 {
+                parse_json_string(key)
+              } else {
+                key
+              }
+              let value = match child.nth_child(0) {
+                Some(v) => recurse(v)
+                None => JsonValue::Error("missing member value")
+              }
+              Some((parsed_key, value))
             }
-            let parsed_key = if key.length() >= 2 {
-              parse_json_string(key)
-            } else {
-              key
-            }
-            let value = match child.nth_child(0) {
-              Some(v) => recurse(v)
-              None => JsonValue::Error("missing member value")
-            }
-            members.push((parsed_key, value))
+            None => None
           }
-          _ => ()
-        }
+        })
+        .to_array()
+      if members.length() < member_nodes.length() {
+        JsonValue::Error("missing member key")
+      } else {
+        JsonValue::Object(members)
       }
-      JsonValue::Object(members)
     }
-    ArrayNode => {
-      let elements : Array[JsonValue] = []
-      for child in node.children() {
-        elements.push(recurse(child))
-      }
-      JsonValue::Array(elements)
-    }
+    ArrayNode => JsonValue::Array(node.children().map(recurse))
     StringValue =>
       match node.direct_token_of_kind(StringToken.to_raw()) {
         Some(tok) => {
