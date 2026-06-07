@@ -465,6 +465,78 @@ test "build_tree balances 9 same-kind siblings" {
 }
 
 ///|
+test "build_tree canonicalizes reused RepeatGroup fragments before balancing" {
+  fn push_child(events : Array[ParseEvent]) -> Unit {
+    events.push(StartNode(RawKind(2)))
+    events.push(Token(RawKind(100), "x"))
+    events.push(FinishNode)
+  }
+
+  fn push_separator(events : Array[ParseEvent]) -> Unit {
+    events.push(Token(RawKind(200), "\n"))
+  }
+
+  fn push_child_run(events : Array[ParseEvent], count : Int) -> Unit {
+    for i in 0..<count {
+      push_child(events)
+      if i < count - 1 {
+        push_separator(events)
+      }
+    }
+  }
+
+  fn flat_parent_tree(count : Int) -> CstNode raise EventStreamError {
+    let events : Array[ParseEvent] = []
+    events.push(StartNode(RawKind(1)))
+    push_child_run(events, count)
+    events.push(FinishNode)
+    build_tree(events, RawKind(0))
+  }
+
+  fn child_node() -> CstNode {
+    CstNode::new(RawKind(2), [
+      CstElement::Token(CstToken::CstToken(RawKind(100), "x")),
+    ])
+  }
+
+  fn separator_element() -> CstElement {
+    CstElement::Token(CstToken::CstToken(RawKind(200), "\n"))
+  }
+
+  fn repeat_group_run(start : Int, end : Int) -> CstNode {
+    if start >= end {
+      abort("repeat_group_run requires a non-empty range")
+    }
+    let children : Array[CstElement] = []
+    for i in start..<end {
+      children.push(CstElement::Node(child_node()))
+      if i < end - 1 {
+        children.push(separator_element())
+      }
+    }
+    CstNode::new(repeat_group_kind, children)
+  }
+
+  let fragmented_events : Array[ParseEvent] = []
+  fragmented_events.push(StartNode(RawKind(1)))
+  push_child_run(fragmented_events, 5)
+  push_separator(fragmented_events)
+  fragmented_events.push(ReuseNode(repeat_group_run(5, 12)))
+  fragmented_events.push(FinishNode)
+  let fragmented_tree = build_tree(fragmented_events, RawKind(0))
+
+  inspect(fragmented_tree == flat_parent_tree(12), content="true")
+
+  let small_fragment_events : Array[ParseEvent] = []
+  small_fragment_events.push(StartNode(RawKind(1)))
+  small_fragment_events.push(ReuseNode(repeat_group_run(0, 4)))
+  small_fragment_events.push(FinishNode)
+  let small_fragment_tree = build_tree(small_fragment_events, RawKind(0))
+
+  inspect(small_fragment_tree == flat_parent_tree(4), content="true")
+}
+
+///|
 test "build_tree handles single child without grouping" {
   let events : Array[ParseEvent] = []
   events.push(StartNode(RawKind(1)))
