@@ -87,11 +87,12 @@ pub using @core {
 pub using @incremental {type ImperativeParser, type ParseSnapshot}
 
 ///|
-// Reactive parser — wraps ImperativeParser with signal/memo outputs
-pub using @pipeline {type Parser}
+// Reactive parsers — wrap ImperativeParser with input/derived outputs
+pub using @pipeline {type Parser, type SyntaxParser, type SyntaxSnapshot}
 
-// Grammar and factory functions (new_imperative_parser, new_parser) are
-// defined in grammar.mbt and factories.mbt in this package.
+// Grammar and factory functions (new_imperative_parser, new_parser,
+// new_syntax_parser) are defined in grammar.mbt and factories.mbt in this
+// package.
 
 ///|
 // AstView trait — implement for every typed view type in your language package.

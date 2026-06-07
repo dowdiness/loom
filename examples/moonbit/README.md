@@ -3,31 +3,32 @@
 Skeleton integration for making the official MoonBit parser incremental with
 [`dowdiness/loom`](../../loom/).
 
-This example is intentionally small: it wires the official
-`moonbitlang/parser` lexer into Loom and emits a token-precise, reusable CST
-skeleton. It is a starting point for porting the real MoonBit grammar, not a
-complete MoonBit parser.
+This example is intentionally small. It wires the official `moonbitlang/parser`
+lexer into Loom and emits a token-precise, reusable CST skeleton. It is the
+first porting step for the real MoonBit grammar.
 
 ## What exists now
 
 - `lex_moonbit` adapts `moonbitlang/parser/lexer` output to
   `@core.LexResult[MoonToken]` through `@core.LexResult::from_located_tokens`.
-- `moonbit_grammar` is a real `@loom.Grammar` value that can be passed to
-  `@loom.new_parser` or `@loom.new_imperative_parser`.
 - `MoonToken` stores the official `@tokens.TokenKind` and maps every official
   token kind to a stable `MoonbitSyntaxKind` token variant while keeping Loom's
   synthetic trivia/error/EOF kinds separate.
+- `moonbit_syntax_grammar` is a real `@loom.SyntaxGrammar` value that can be
+  passed to `@loom.new_syntax_parser` without an AST fold or `Ast : Eq`.
+- `moonbit_grammar` remains available for placeholder AST smoke tests,
+  `@loom.new_parser`, and `@loom.new_imperative_parser` experiments.
 - The internal root parser creates coarse top-level item nodes (`LetItemNode`,
   `FunctionItemNode`, `StructItemNode`, `EnumItemNode`, `TypeItemNode`, or
   fallback `SourceItemNode`) split by official ASI semicolon tokens while
   keeping block-local semicolons inside balanced delimiter groups. Known item
-  nodes now contain a coarse item-header child node before the remaining body or
+  nodes contain a coarse item-header child before the remaining body or
   initializer tokens.
 - Top-level fixture tests compare official `moonbitlang/parser` `parse_string`
   accept/reject and AST item kinds with the skeleton item nodes, then snapshot
   skeleton-only header/body token boundaries and layout/comment placement.
-- `MoonbitParseShell` is a placeholder `Eq` AST so the parser can participate in
-  Loom's reactive API today.
+- `MoonbitParseShell` is only a coarse placeholder fold; reactive
+  CST/diagnostics consumers should not need it.
 
 ## Intended milestones
 
@@ -40,7 +41,7 @@ complete MoonBit parser.
 ## Quick check
 
 ```mbt nocheck
-let parser = @loom.new_parser("let x = 1\n", moonbit_grammar)
-let shell = parser.ast().read_or_abort()
-inspect(shell.item_count, content="1")
+let parser = @loom.new_syntax_parser("let x = 1\n", moonbit_syntax_grammar)
+let syntax = parser.syntax_tree().read_or_abort()
+inspect(parser.diagnostics().read_or_abort().length(), content="0")
 ```

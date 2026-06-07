@@ -11,10 +11,25 @@ let moonbit_spec : @core.LanguageSpec[MoonToken, MoonbitSyntaxKind] = @core.Lang
 )
 
 ///|
-/// Single Loom grammar handle for the skeleton.
+/// Syntax-only Loom grammar handle for the skeleton.
 ///
-/// Future milestones should refine `parse_moonbit_root` and `moonbit_fold_node`
-/// behind this value rather than changing downstream call sites.
+/// This is the preferred entry point for reactive CST/diagnostics consumers:
+/// it does not require a placeholder AST or `Ast : Eq`.
+pub let moonbit_syntax_grammar : @loom.SyntaxGrammar[
+  MoonToken,
+  MoonbitSyntaxKind,
+] = @loom.SyntaxGrammar::new(
+  spec=moonbit_spec,
+  lex=fn(source) { lex_moonbit(source) },
+  incremental_relex_enabled=false,
+)
+
+///|
+/// AST-folding Loom grammar handle for placeholder smoke tests.
+///
+/// Future milestones should replace `MoonbitParseShell` and
+/// `moonbit_fold_node` with the official AST projection. CST/diagnostics-only
+/// consumers should use `moonbit_syntax_grammar` instead.
 pub let moonbit_grammar : @loom.Grammar[
   MoonToken,
   MoonbitSyntaxKind,

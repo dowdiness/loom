@@ -1,9 +1,9 @@
 ///|
-/// Placeholder AST published by the skeleton grammar.
+/// Placeholder AST used by skeleton smoke tests.
 ///
-/// The full integration should replace this with a CST-to-official-AST fold once
-/// the MoonBit grammar has been ported. Keeping this type `Eq` lets it flow
-/// through `@loom.Parser` today.
+/// Reactive CST/diagnostics consumers should use `moonbit_syntax_grammar` with
+/// `@loom.new_syntax_parser` instead. The full integration should replace this
+/// with a CST-to-official-AST fold once the MoonBit grammar has been ported.
 pub(all) struct MoonbitParseShell {
   item_count : Int
   token_count : Int

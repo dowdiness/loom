@@ -14,6 +14,8 @@ pub fn lex_moonbit(String, name? : String) -> @core.LexResult[MoonToken]
 
 pub let moonbit_grammar : @loom.Grammar[MoonToken, MoonbitSyntaxKind, MoonbitParseShell]
 
+pub let moonbit_syntax_grammar : @loom.SyntaxGrammar[MoonToken, MoonbitSyntaxKind]
+
 pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 pub fn parse_moonbit(String) -> (MoonbitParseShell, @core.DiagnosticSet)

@@ -9,10 +9,10 @@ pub fn parse_moonbit(
 }
 
 ///|
-/// Parse to a CST and diagnostics through the grammar boundary.
+/// Parse to a CST and diagnostics through the syntax-only grammar boundary.
 #warnings("-unused_error_type")
 pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
-  moonbit_grammar.parse_cst(source)
+  moonbit_syntax_grammar.parse_cst(source)
 }

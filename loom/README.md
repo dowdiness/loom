@@ -2,11 +2,10 @@
 
 Generic incremental parser framework for MoonBit.
 
-`loom` turns a single `Grammar[T, K, Ast]` value into an incremental
-parser that gives you edit-aware lexing, a lossless green tree (CST),
-validated CST subtree reuse at grammar boundaries, error recovery, and a
-reactive pipeline that publishes source / syntax / AST / diagnostics as
-[`@incr`](../incr) input / derived cells.
+`loom` turns `Grammar[T, K, Ast]` or `SyntaxGrammar[T, K]` values into
+incremental parsers that give you edit-aware lexing, a lossless green tree
+(CST), validated CST subtree reuse at grammar boundaries, error recovery, and
+reactive pipelines published as [`@incr`](../incr) input / derived cells.
 
 > **Status:** framework stable. See [../ROADMAP.md](../ROADMAP.md) for
 > in-flight work.
@@ -49,23 +48,37 @@ parser.apply_edit(edit, " λx.x + 2")
 let diagnostics = parser.diagnostics().read_or_abort()
 ```
 
-See [`examples/lambda`](../examples/lambda/) for the full grammar used
-above, or [`examples/json`](../examples/json/) and
-[`examples/markdown`](../examples/markdown/) for smaller references.
+For CST/diagnostics-only integrations, use `SyntaxGrammar` and
+`new_syntax_parser`:
+
+```mbt nocheck
+let parser = @loom.new_syntax_parser(source, syntax_grammar)
+let syntax = parser.syntax_tree().read_or_abort()
+let diagnostics = parser.diagnostics().read_or_abort()
+```
+
+See [`examples/lambda`](../examples/lambda/) for the full grammar used above.
+For smaller references, see [`examples/json`](../examples/json/),
+[`examples/markdown`](../examples/markdown/), and
+[`examples/moonbit`](../examples/moonbit/).
 
 ## Public API (one import)
 
 ```mbt nocheck
 // Consumers
-@loom.Parser              // reactive parser handle
+@loom.Parser              // reactive parser handle with an AST view
+@loom.SyntaxParser        // reactive CST/diagnostics handle, no AST required
+@loom.SyntaxSnapshot      // source/syntax/diagnostics/reuse snapshot
 @loom.ImperativeParser    // lower-level edit-driven engine
 @loom.new_parser          // build Parser[Ast] from a Grammar
+@loom.new_syntax_parser   // build SyntaxParser from a SyntaxGrammar
 @loom.new_imperative_parser
 @loom.Edit                // edit descriptor (start, old_len, new_len)
 @loom.Diagnostic
 
 // Grammar authors
-@loom.Grammar             // grammar description
+@loom.Grammar             // grammar description with AST fold
+@loom.SyntaxGrammar       // grammar description without AST fold
 @loom.LanguageSpec        // token-level hooks
 @loom.LocatedToken        // external positioned lexer adapter input
 @loom.ParserContext       // parse combinators
@@ -88,10 +101,12 @@ Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).
 
 ## Choosing a Parser
 
-Most callers want **`Parser`** — it handles both `apply_edit` and
-`set_source` and publishes the result as `@incr` cells that downstream
-Derived cells can compose with. Reach for `ImperativeParser` only when you do
-not need the reactive graph.
+Use **`Parser[Ast]`** when callers need an AST view. Use **`SyntaxParser`**
+when callers only need CST/diagnostics, or when the AST is not naturally `Eq`.
+Both handles support `apply_edit` and `set_source`. Both publish `@incr` cells
+that downstream `Derived` cells can compose with.
+
+Reach for `ImperativeParser` only when you do not need the reactive graph.
 
 See [`docs/api/choosing-a-parser.md`](../docs/api/choosing-a-parser.md)
 for the full decision.

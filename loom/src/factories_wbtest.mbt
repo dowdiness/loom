@@ -254,6 +254,45 @@ fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
 }
 
 ///|
+fn fsyntax_grammar() -> SyntaxGrammar[FTok, FKind] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  SyntaxGrammar::new(spec~, lex=flex)
+}
+
+///|
+struct NonEqAst {
+  payload : (Int) -> Int
+}
+
+///|
+fn NonEqAst::apply(self : NonEqAst, x : Int) -> Int {
+  (self.payload)(x)
+}
+
+///|
+fn fnon_eq_ast_grammar(fold_count : Ref[Int]) -> Grammar[FTok, FKind, NonEqAst] {
+  let spec = @core.LanguageSpec::new(
+    KWs,
+    KErr,
+    KRoot,
+    Eof,
+    parse_root=froot,
+    reuse_size_threshold=0,
+  )
+  Grammar::new(spec~, lex=flex, fold_node=fn(_s, _recurse) {
+    fold_count.val = fold_count.val + 1
+    { payload: fn(x) { x } }
+  })
+}
+
+///|
 fn fterminator_grammar_with_tokenize(
   tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
 ) -> Grammar[FTok, FKind, @seam.SyntaxNode] {
@@ -506,6 +545,38 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   parser.set_source("aaa")
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
   ignore(parser.syntax_tree().read_or_abort())
+}
+
+///|
+test "new_syntax_parser: lexer diagnostic surfaces and clears on recovery" {
+  let grammar = fsyntax_grammar()
+  let parser = new_syntax_parser("!", grammar)
+  ignore(parser.syntax_tree().read_or_abort())
+  let diags = parser.diagnostics().read_or_abort()
+  let mut saw_lex_diagnostic = false
+  for diagnostic in diags.format() {
+    if diagnostic.contains("unexpected char") {
+      saw_lex_diagnostic = true
+    }
+  }
+  inspect(saw_lex_diagnostic, content="true")
+  parser.set_source("aaa")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
+  ignore(parser.syntax_tree().read_or_abort())
+}
+
+///|
+test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without folding" {
+  inspect(({ payload: fn(x) { x + 1 } } : NonEqAst).apply(1), content="2")
+  let fold_count : Ref[Int] = Ref(0)
+  let grammar = fnon_eq_ast_grammar(fold_count).to_syntax_grammar()
+  let parser = new_syntax_parser("aaa", grammar)
+  inspect(parser.source().read_or_abort(), content="aaa")
+  ignore(parser.syntax_tree().read_or_abort())
+  inspect(fold_count.val, content="0")
+  parser.apply_edit(@core.Edit::insert(1, 1), "aaaa")
+  ignore(parser.syntax_tree().read_or_abort())
+  inspect(fold_count.val, content="0")
 }
 
 ///|
