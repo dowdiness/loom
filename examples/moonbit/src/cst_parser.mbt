@@ -78,7 +78,7 @@ fn skip_source_item_prefix(
   index : Int,
   token : MoonToken,
 ) -> Int {
-  let next_index = index + 1
+  let next_index = skip_layout_from(ctx, index + 1)
   let next = ctx.peek_nth(next_index)
   if token.accepts_source_item_prefix_group_payload() &&
     next.opens_balanced_group() {
@@ -88,6 +88,21 @@ fn skip_source_item_prefix(
     next_index + 1
   } else {
     next_index
+  }
+}
+
+///|
+fn skip_layout_from(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  index : Int,
+) -> Int {
+  for next_index = index; next_index < MAX_ITEM_PREFIX_LOOKAHEAD; {
+    if ctx.peek_nth(next_index).is_layout_token() {
+      continue next_index + 1
+    }
+    break next_index
+  } nobreak {
+    MAX_ITEM_PREFIX_LOOKAHEAD
   }
 }
 

@@ -108,6 +108,18 @@ test "skeleton grammar classifies item modifiers with payloads" {
 }
 
 ///|
+test "skeleton grammar skips layout before modifier payloads" {
+  let source =
+    #|pub // comment
+    #|(all) struct S {}
+    #|extern // comment
+    #|"c" fn f()
+    #|
+  let kinds = top_level_kind_names(source)
+  debug_inspect(kinds, content="[\"StructItemNode\", \"FunctionItemNode\"]")
+}
+
+///|
 test "skeleton grammar marks unclosed delimiter item incomplete" {
   let parser = @loom.new_parser("fn broken(\n", moonbit_grammar)
   let ast = parser.ast().read_or_abort()
