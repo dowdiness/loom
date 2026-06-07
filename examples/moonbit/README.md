@@ -14,8 +14,10 @@ parser.
   `@core.LexResult[MoonToken]` through `@core.LexResult::from_located_tokens`.
 - `moonbit_grammar` is a real `@loom.Grammar` value that can be passed to
   `@loom.new_parser` or `@loom.new_imperative_parser`.
-- The internal root parser creates coarse `SourceItemNode` chunks split by
-  official ASI semicolon tokens.
+- The internal root parser creates coarse top-level item nodes (`LetItemNode`,
+  `FunctionItemNode`, `StructItemNode`, `EnumItemNode`, `TypeItemNode`, or
+  fallback `SourceItemNode`) split by official ASI semicolon tokens while
+  keeping block-local semicolons inside balanced delimiter groups.
 - `MoonbitParseShell` is a placeholder `Eq` AST so the parser can participate in
   Loom's reactive API today.
 

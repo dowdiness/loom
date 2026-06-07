@@ -19,6 +19,11 @@ pub(all) enum MoonbitSyntaxKind {
   // Node kinds
   SourceFileNode
   SourceItemNode
+  LetItemNode
+  FunctionItemNode
+  StructItemNode
+  EnumItemNode
+  TypeItemNode
 } derive(Eq, Debug)
 
 ///|
@@ -42,6 +47,11 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       EofToken => 9
       SourceFileNode => 10
       SourceItemNode => 11
+      LetItemNode => 12
+      FunctionItemNode => 13
+      StructItemNode => 14
+      EnumItemNode => 15
+      TypeItemNode => 16
     },
   )
 }
@@ -61,6 +71,11 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     9 => EofToken
     10 => SourceFileNode
     11 => SourceItemNode
+    12 => LetItemNode
+    13 => FunctionItemNode
+    14 => StructItemNode
+    15 => EnumItemNode
+    16 => TypeItemNode
     _ => ErrorToken
   }
 }
