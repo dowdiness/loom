@@ -74,6 +74,16 @@ tree. Correctness rests on structural equivalence with a full reparse and on the
 reuse checks above; downstream identity-sensitive projections should use
 structural equality or explicit domain IDs.
 
+For reuse boundaries, source-backed provenance and structural offsets are
+separate checks. A source-backed zero-width lexer token at a reused subtree's
+right boundary may be consumed as lexer context; a parser-synthetic zero-width
+placeholder is not lexer context. Boundary ownership is determined by walking
+children and accumulating their `text_len` from the containing node's start, not
+by reading `CstToken::start_offset()` / `end_offset()` backing spans. PR #221
+locked this down with `loom/src/core/parser_wbtest.mbt` regressions:
+`ParserContext reuse: zero-width lexer leaf at reused boundary advances position`
+and `ParserContext reuse: interned zero-width lexer boundary advances position`.
+
 ### 6) Event-Stream Balance Guard Rails
 
 Green tree construction depends on a balanced parse-event stream:

@@ -112,6 +112,17 @@ ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
 
+Zero-width leaves have provenance. Lexer-produced zero-width tokens are
+source-backed and can be real token-stream boundary context. Parser-produced
+placeholders from `emit_zero_width()` / `emit_error_placeholder()` are synthetic
+and intentionally are not lexer context. During reuse, boundary ownership is
+computed from structural child offsets — the reused node start plus accumulated
+child `text_len` — not from `CstToken::start_offset()` / `end_offset()`, which
+are backing-source spans. PR #221 added regression coverage for this in
+`loom/src/core/parser_wbtest.mbt`: `ParserContext reuse: zero-width lexer leaf
+at reused boundary advances position` and `ParserContext reuse: interned
+zero-width lexer boundary advances position`.
+
 `mark()` / `start_at()` implement the tombstone pattern described in [seam-model.md](seam-model.md). They are essential for left-associative constructs where the outer node kind is not known until after the first child is parsed.
 
 ## Entry Points
