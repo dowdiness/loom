@@ -49,12 +49,17 @@ fn node_has_parse_errors(node : @seam.SyntaxNode) -> Bool {
 
 ///|
 fn count_non_trivia_tokens(node : @seam.SyntaxNode) -> Int {
-  for token in node.tokens(); count = 0 {
+  let direct_count = for token in node.tokens(); count = 0 {
     let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
     continue match kind {
         TriviaToken | EofToken => count
         _ => count + 1
       }
+  } nobreak {
+    count
+  }
+  for child in node.children(); count = direct_count {
+    continue count + count_non_trivia_tokens(child)
   } nobreak {
     count
   }

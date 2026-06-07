@@ -35,6 +35,39 @@ fn first_item_token_kind_names(source : String) -> Array[String] {
 }
 
 ///|
+fn top_level_header_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  root
+  .children()
+  .map(fn(item) {
+    match item.children() {
+      [header, ..] => {
+        let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+          header.kind(),
+        )
+        kind.to_string()
+      }
+      [] => ""
+    }
+  })
+}
+
+///|
+fn first_item_header_token_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [header, ..] => header.tokens() |> syntax_token_kind_names
+        [] => []
+      }
+    [] => []
+  }
+}
+
+///|
 test "skeleton grammar classifies top-level item nodes" {
   let source =
     #|let x = 1
@@ -59,22 +92,57 @@ test "skeleton grammar classifies top-level item nodes" {
 }
 
 ///|
-test "skeleton grammar emits official syntax token kinds" {
-  let kinds = first_item_token_kind_names("let x = 1\n")
+test "skeleton grammar parses top-level item headers" {
+  let source =
+    #|let x = 1
+    #|pub fn f() { let y = 2; y }
+    #|struct Point {}
+    #|enum Color { Red }
+    #|type Name String
+    #|
+  let kinds = top_level_header_kind_names(source)
   debug_inspect(
     kinds,
     content=(
       #|[
-      #|  "LetToken",
-      #|  "TriviaToken",
-      #|  "LidentToken",
-      #|  "TriviaToken",
-      #|  "EqualToken",
-      #|  "TriviaToken",
-      #|  "IntToken",
-      #|  "SemiToken",
+      #|  "LetItemHeaderNode",
+      #|  "FunctionItemHeaderNode",
+      #|  "StructItemHeaderNode",
+      #|  "EnumItemHeaderNode",
+      #|  "TypeItemHeaderNode",
       #|]
     ),
+  )
+}
+
+///|
+test "skeleton grammar stops function headers before body" {
+  let kinds = first_item_header_token_kind_names("fn f(x : Int) { x }\n")
+  debug_inspect(
+    kinds,
+    content=(
+      #|[
+      #|  "FnToken",
+      #|  "TriviaToken",
+      #|  "LidentToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "TriviaToken",
+      #|  "ColonToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
+      #|]
+    ),
+  )
+}
+
+///|
+test "skeleton grammar leaves initializer tokens after let header" {
+  let kinds = first_item_token_kind_names("let x = 1\n")
+  debug_inspect(
+    kinds,
+    content="[\"TriviaToken\", \"EqualToken\", \"TriviaToken\", \"IntToken\", \"SemiToken\"]",
   )
 }
 
