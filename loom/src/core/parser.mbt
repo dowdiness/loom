@@ -322,7 +322,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
   self.flush_trivia()
   if self.at_eof() {
     self.error("emit_token: unexpected EOF")
-    self.events.push_synthetic_zero_width_token(kind.to_raw())
+    self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
     return
   }
   let text = self.text_at(self.position)
@@ -539,7 +539,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(
   self : ParserContext[T, K],
   kind : K,
 ) -> Unit {
-  self.events.push_synthetic_zero_width_token(kind.to_raw())
+  self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
 }
 
 ///|

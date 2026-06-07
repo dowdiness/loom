@@ -68,6 +68,12 @@ fn CstToken::synthetic_zero_width(kind : RawKind) -> CstToken {
 ///|
 /// Return true when this token came from a source-backed lexer span rather
 /// than a parser-synthetic placeholder.
+///
+/// STABLE TOKEN-PROVENANCE API (#226): this is the supported way to distinguish
+/// lexer/source tokens from parser-inserted zero-width recovery placeholders.
+/// The predicate does not expose backing-source ownership; use `text()` for
+/// token content, and use structural `SyntaxToken` offsets when you need a
+/// token's position in a tree.
 pub fn CstToken::is_source_backed(self : CstToken) -> Bool {
   self.source_backed
 }

@@ -84,6 +84,8 @@ fn buffered_events_of_parse_events(
 ///   token text if the source span does not match
 /// - `push_parser_reuse_node_rebased_unchecked(node, source, start)` — append
 ///   parser-validated reuse and skip redundant text validation during tree build
+/// - `push_parser_synthetic_zero_width_token(kind)` — append a parser-owned
+///   recovery placeholder with synthetic, non-source provenance
 /// - `mark()` — reserve a `Tombstone` slot and return its index
 /// - `start_at(mark, kind)` — retroactively fill a `Tombstone` with `StartNode`
 ///
@@ -221,11 +223,19 @@ pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(
 ///|
 /// Append a parser-synthetic zero-width token.
 ///
+/// UNSTABLE/TRUSTED PARSER-OWNED API (#226): public only because parser
+/// internals live outside the `seam` module. Use this for recovery placeholders
+/// inserted by a parser without consuming source text. Application code should
+/// usually emit source-backed tokens with `push(ParseEvent::Token(...))`; public
+/// `ParseEvent` intentionally has no synthetic-token variant while the stable
+/// provenance surface is limited to zero-width parser placeholders.
+///
 /// Parser recovery placeholders have no source span even when their logical
 /// position is at a source boundary. Keeping that provenance lets parser-owned
 /// CST reuse distinguish them from lexer-owned zero-width tokens such as ASI or
 /// indentation markers.
-pub fn EventBuffer::push_synthetic_zero_width_token(
+#alias(push_synthetic_zero_width_token, deprecated="Use EventBuffer::push_parser_synthetic_zero_width_token for parser-owned recovery placeholders")
+pub fn EventBuffer::push_parser_synthetic_zero_width_token(
   self : EventBuffer,
   kind : RawKind,
 ) -> Unit {
