@@ -23,6 +23,9 @@ complete MoonBit parser.
   keeping block-local semicolons inside balanced delimiter groups. Known item
   nodes now contain a coarse item-header child node before the remaining body or
   initializer tokens.
+- Top-level fixture tests compare official `moonbitlang/parser` `parse_string`
+  accept/reject and AST item kinds with the skeleton item nodes, then snapshot
+  skeleton-only header/body token boundaries and layout/comment placement.
 - `MoonbitParseShell` is a placeholder `Eq` AST so the parser can participate in
   Loom's reactive API today.
 
@@ -30,8 +33,8 @@ complete MoonBit parser.
 
 1. Port the official handrolled parser rules to `@core.ParserContext` methods.
 2. Add a CST-to-official-AST fold and docstring attachment pass.
-3. Differential-test against `moonbitlang/parser.parse_string` on real MoonBit
-   sources.
+3. Extend the differential suite from top-level item summaries to real MoonBit
+   source fixtures and, once available, CST-to-official-AST projection checks.
 4. Add edit-sequence tests that assert stable diagnostics and non-zero CST reuse.
 
 ## Quick check

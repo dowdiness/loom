@@ -7,3 +7,9 @@ import {
   "moonbitlang/parser/lexer",
   "moonbitlang/parser/tokens",
 }
+
+import {
+  "moonbitlang/core/list",
+  "moonbitlang/parser",
+  "moonbitlang/parser/syntax",
+} for "test"
