@@ -79,10 +79,37 @@ separate checks. A source-backed zero-width lexer token at a reused subtree's
 right boundary may be consumed as lexer context; a parser-synthetic zero-width
 placeholder is not lexer context. Boundary ownership is determined by walking
 children and accumulating their `text_len` from the containing node's start, not
-by reading `CstToken::start_offset()` / `end_offset()` backing spans. PR #221
-locked this down with `loom/src/core/parser_wbtest.mbt` regressions:
-`ParserContext reuse: zero-width lexer leaf at reused boundary advances position`
-and `ParserContext reuse: interned zero-width lexer boundary advances position`.
+by reading `CstToken::start_offset()` / `end_offset()` backing spans.
+
+The reused-boundary protocol is:
+
+- First advance past ordinary token-stream entries whose start offset is inside
+  the reused node's structural range.
+- Then match source-backed zero-width lexer leaves structurally owned by the
+  reused node's right edge. These leaves may advance the lexer stream when the
+  new stream has the same kind/text run at the reused node end.
+- Never let parser-synthetic zero-width leaves advance the lexer stream.
+  Placeholders from `emit_zero_width()`, `emit_error_placeholder()`, EOF
+  recovery, or incomplete-token recovery are CST structure, not lexer context.
+- Never consume a zero-width lexer token owned by the following subtree. Sharing
+  the same source offset is not enough; ownership comes from accumulated child
+  offsets in the reused tree.
+- Treat each boundary run as all-or-nothing. Missing, partial, extra, or
+  reordered zero-width boundary tokens reject reuse before the old node is
+  emitted. The same rule applies to repeat-group reuse.
+
+PR #221 locked this down with `loom/src/core/parser_wbtest.mbt` regressions:
+`ParserContext reuse: zero-width lexer leaf at reused boundary advances position`,
+`ParserContext reuse: interned zero-width lexer boundary advances position`,
+`ParserContext reuse: custom synthetic zero-width leaf is not a lexer boundary token`,
+`ParserContext reuse: custom synthetic zero-width leaf does not consume lexer token`,
+`ParserContext reuse: EOF recovery token is synthetic lexer context`,
+`ParserContext reuse: extra zero-width token after empty owned boundary rejects reuse`,
+`ParserContext reuse: partial zero-width boundary match rejects reuse`,
+`ParserContext reuse: extra zero-width boundary token rejects reuse`,
+`ParserContext reuse: partial zero-width RepeatGroup boundary match rejects reuse`,
+`ParserContext reuse: extra zero-width RepeatGroup boundary token rejects reuse`,
+and `ParserContext reuse: zero-width lexer leaf owned by following subtree is not consumed`.
 
 ### 6) Event-Stream Balance Guard Rails
 
