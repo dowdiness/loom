@@ -636,7 +636,17 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
 }
 
 ///|
-fn is_reused_boundary_lexer_zero_width_token(
+/// True when a CST leaf is a source-backed zero-width lexer token
+/// structurally owned by a reused node's right boundary.
+///
+/// This is the single boundary-ownership predicate for reused zero-width CST
+/// leaves. It intentionally combines token provenance with accumulated child
+/// offsets from the right-edge walk: parser-synthetic placeholders also have
+/// empty text, but `is_source_backed() == false`, so they must not advance the
+/// lexer stream. Stored `CstToken::start_offset()` / `end_offset()` backing
+/// spans are intentionally ignored because interned source-backed empty tokens
+/// may carry canonical spans that differ from this tree position.
+fn is_source_backed_zero_width_token_owned_by_reused_boundary(
   token : @seam.CstToken,
   child_start : Int,
   child_end : Int,
@@ -674,7 +684,7 @@ fn push_reused_boundary_zero_width_tokens_reversed(
         if child_len != 0 {
           break
         }
-        if is_reused_boundary_lexer_zero_width_token(
+        if is_source_backed_zero_width_token_owned_by_reused_boundary(
             token, child_start, child_end, boundary,
           ) {
           out.push(token)
