@@ -303,3 +303,95 @@ test "LexResult constructor validates generated starts" {
     content="[\"LexResult received a negative token length at index 0\"]",
   )
 }
+
+///|
+test "LexResult from_located_tokens fills blank gaps" {
+  let result = LexResult::from_located_tokens(
+    "let x",
+    [LocatedToken("LET", start=0, end=3), LocatedToken("IDENT", start=4, end=5)],
+    gap_token=fn(_text, _start, _end) { "WS" },
+  )
+  let summary = result
+    .tokens()
+    .map(fn(info) { info.token + ":" + info.len.to_string() })
+  debug_inspect(summary, content="[\"LET:3\", \"WS:1\", \"IDENT:1\"]")
+  debug_inspect(result.starts(), content="[0, 3, 4]")
+  inspect(result.diagnostics().is_empty(), content="true")
+}
+
+///|
+test "LexResult from_located_tokens reports nonblank gaps" {
+  let result = LexResult::from_located_tokens(
+    "ab",
+    [LocatedToken("A", start=0, end=1)],
+    gap_error_token=fn(_text, _start, _end) { "ERR" },
+  )
+  let summary = result
+    .tokens()
+    .map(fn(info) { info.token + ":" + info.len.to_string() })
+  debug_inspect(summary, content="[\"A:1\", \"ERR:1\"]")
+  debug_inspect(result.starts(), content="[0, 1]")
+  debug_inspect(
+    result.diagnostics().format(),
+    content="[\"unlexed source gap [1,2]\"]",
+  )
+}
+
+///|
+test "LexResult from_located_tokens preserves zero-width tokens" {
+  let result = LexResult::from_located_tokens("ab", [
+    LocatedToken("A", start=0, end=1),
+    LocatedToken("ASI", start=1, end=1),
+    LocatedToken("B", start=1, end=2),
+  ])
+  let summary = result
+    .tokens()
+    .map(fn(info) { info.token + ":" + info.len.to_string() })
+  debug_inspect(summary, content="[\"A:1\", \"ASI:0\", \"B:1\"]")
+  debug_inspect(result.starts(), content="[0, 1, 1]")
+}
+
+///|
+test "LexResult from_located_tokens preserves supplied diagnostics" {
+  let diagnostics = DiagnosticSet::single(
+    Diagnostic::lexer_error_at("external lexer error", 0, 1, "external"),
+  )
+  let result = LexResult::from_located_tokens(
+    "a",
+    [LocatedToken("A", start=0, end=1)],
+    diagnostics~,
+  )
+  debug_inspect(
+    result.diagnostics().format(),
+    content="[\"external lexer error [0,1]\"]",
+  )
+}
+
+///|
+test "LexResult from_located_tokens diagnoses invalid external spans" {
+  let negative_start = LexResult::from_located_tokens("a", [
+    LocatedToken("A", start=-1, end=1),
+  ])
+  debug_inspect(negative_start.starts(), content="[0]")
+  debug_inspect(
+    negative_start.diagnostics().format(),
+    content=(
+      #|["LexResult received invalid located token span at index 0: [-1,1] for source length 1"]
+    ),
+  )
+  let reversed = LexResult::from_located_tokens(
+    "abc",
+    [LocatedToken("B", start=2, end=1)],
+    diagnose_nonblank_gaps=false,
+  )
+  let summary = reversed
+    .tokens()
+    .map(fn(info) { info.token + ":" + info.len.to_string() })
+  debug_inspect(summary, content="[\"B:0\"]")
+  debug_inspect(
+    reversed.diagnostics().format(),
+    content=(
+      #|["LexResult received invalid located token span at index 0: [2,1] for source length 3"]
+    ),
+  )
+}

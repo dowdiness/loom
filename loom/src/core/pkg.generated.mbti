@@ -214,6 +214,7 @@ pub struct LexResult[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] LexResult::LexResult(Array[TokenInfo[T]], diagnostics? : DiagnosticSet) -> Self[T]
 pub fn[T] LexResult::diagnostics(Self[T]) -> DiagnosticSet
+pub fn[T] LexResult::from_located_tokens(String, Array[LocatedToken[T]], gap_token? : (StringView, Int, Int) -> T, gap_error_token? : (StringView, Int, Int) -> T, diagnostics? : DiagnosticSet, gap_error_code? : String, diagnose_nonblank_gaps? : Bool) -> Self[T]
 pub fn[T] LexResult::starts(Self[T]) -> Array[Int]
 pub fn[T] LexResult::tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] LexResult::with_starts(Array[TokenInfo[T]], Array[Int], diagnostics~ : DiagnosticSet) -> Self[T]
@@ -241,6 +242,11 @@ pub(all) struct LineRange {
   start : LineCol
   end : LineCol
 } derive(Eq, @debug.Debug)
+
+pub struct LocatedToken[T] {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn[T] LocatedToken::LocatedToken(T, start~ : Int, end~ : Int) -> Self[T]
 
 pub(all) struct ModeLexer[T, M] {
   lex_step : (String, Int, M) -> (LexStep[T], M)

@@ -107,6 +107,8 @@ pub using @core {type LineIndex}
 
 pub using @core {type LineRange}
 
+pub using @core {type LocatedToken}
+
 pub using @core {type ModeLexer}
 
 pub using @core {type ModeRelexResult}

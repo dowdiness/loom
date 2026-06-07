@@ -19,6 +19,11 @@ doing so can split non-BMP characters such as emoji.
   a cursor.
 - Use `@core.next_char_offset(source, pos)` when a lexer scans with local
   integer offsets instead of a `LexCursor`.
+- For external lexers that already return positioned tokens, adapt through
+  `@core.LocatedToken` and `@core.LexResult::from_located_tokens` instead of
+  hand-building parallel token/start arrays. Configure gap tokens only when the
+  external lexer intentionally omits trivia; keep non-blank gaps diagnostic by
+  default unless the external lexer has already reported the same error.
 
 ## Recovery And Progress
 

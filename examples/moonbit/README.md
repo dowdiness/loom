@@ -11,7 +11,7 @@ parser.
 ## What exists now
 
 - `lex_moonbit` adapts `moonbitlang/parser/lexer` output to
-  `@core.LexResult[MoonToken]`.
+  `@core.LexResult[MoonToken]` through `@core.LexResult::from_located_tokens`.
 - `moonbit_grammar` is a real `@loom.Grammar` value that can be passed to
   `@loom.new_parser` or `@loom.new_imperative_parser`.
 - The internal root parser creates coarse `SourceItemNode` chunks split by
