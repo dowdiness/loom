@@ -12,10 +12,22 @@ const MAX_ITEM_PREFIX_LOOKAHEAD : Int = 8
 fn parse_moonbit_root(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
+  consume_layout_tokens(ctx)
   while !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS {
     parse_source_item(ctx)
+    consume_layout_tokens(ctx)
   }
   ctx.flush_trivia()
+}
+
+///|
+fn consume_layout_tokens(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  while !ctx.at_eof() && ctx.peek().is_layout_token() {
+    let token = ctx.peek()
+    ctx.emit_token(token.syntax_kind())
+  }
 }
 
 ///|
@@ -42,13 +54,15 @@ fn parse_source_item(
 fn source_item_node_kind(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> MoonbitSyntaxKind {
-  for index = 0; index < MAX_ITEM_PREFIX_LOOKAHEAD; {
+  for index = 0, meaningful = 0; meaningful < MAX_ITEM_PREFIX_LOOKAHEAD; {
     let token = ctx.peek_nth(index)
     match token.source_item_node_kind() {
       Some(kind) => break kind
       None =>
-        if token.is_source_item_prefix() {
-          continue skip_source_item_prefix(ctx, index, token)
+        if token.is_layout_token() {
+          continue index + 1, meaningful
+        } else if token.is_source_item_prefix() {
+          continue skip_source_item_prefix(ctx, index, token), meaningful + 1
         } else {
           break SourceItemNode
         }
@@ -64,7 +78,7 @@ fn skip_source_item_prefix(
   index : Int,
   token : MoonToken,
 ) -> Int {
-  let next_index = index + 1
+  let next_index = skip_layout_from(ctx, index + 1)
   let next = ctx.peek_nth(next_index)
   if token.accepts_source_item_prefix_group_payload() &&
     next.opens_balanced_group() {
@@ -78,12 +92,29 @@ fn skip_source_item_prefix(
 }
 
 ///|
+fn skip_layout_from(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  index : Int,
+) -> Int {
+  let mut next_index = index
+  while ctx.peek_nth(next_index).is_layout_token() {
+    next_index = next_index + 1
+  }
+  next_index
+}
+
+///|
 fn skip_balanced_prefix_group(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   group_start : Int,
 ) -> Int {
-  for index = group_start, depth = 0; index < MAX_ITEM_PREFIX_LOOKAHEAD; {
+  for index = group_start, depth = 0, meaningful = 0; meaningful <
+     MAX_ITEM_PREFIX_LOOKAHEAD; {
     let token = ctx.peek_nth(index)
+    let next_index = index + 1
+    if token.is_layout_token() {
+      continue next_index, depth, meaningful
+    }
     let next_depth = if token.opens_balanced_group() {
       depth + 1
     } else if token.closes_balanced_group() && depth > 0 {
@@ -91,11 +122,10 @@ fn skip_balanced_prefix_group(
     } else {
       depth
     }
-    let next_index = index + 1
     if next_depth == 0 {
       break next_index
     }
-    continue next_index, next_depth
+    continue next_index, next_depth, meaningful + 1
   } nobreak {
     group_start + 1
   }

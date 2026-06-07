@@ -11,6 +11,30 @@ fn top_level_kind_names(source : String) -> Array[String] {
 }
 
 ///|
+fn syntax_token_kind_names(tokens : Array[@seam.SyntaxToken]) -> Array[String] {
+  tokens.map(fn(token) {
+    let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+    kind.to_string()
+  })
+}
+
+///|
+fn root_token_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  @seam.SyntaxNode::from_cst(cst).tokens() |> syntax_token_kind_names
+}
+
+///|
+fn first_item_token_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] => item.tokens() |> syntax_token_kind_names
+    [] => []
+  }
+}
+
+///|
 test "skeleton grammar classifies top-level item nodes" {
   let source =
     #|let x = 1
@@ -35,6 +59,35 @@ test "skeleton grammar classifies top-level item nodes" {
 }
 
 ///|
+test "skeleton grammar emits official syntax token kinds" {
+  let kinds = first_item_token_kind_names("let x = 1\n")
+  debug_inspect(
+    kinds,
+    content=(
+      #|[
+      #|  "LetToken",
+      #|  "TriviaToken",
+      #|  "LidentToken",
+      #|  "TriviaToken",
+      #|  "EqualToken",
+      #|  "TriviaToken",
+      #|  "IntToken",
+      #|  "SemiToken",
+      #|]
+    ),
+  )
+}
+
+///|
+test "skeleton grammar preserves official layout token kinds" {
+  let kinds = root_token_kind_names("// doc\nlet x = 1\n")
+  debug_inspect(
+    kinds,
+    content="[\"CommentToken\", \"NewlineToken\", \"NewlineToken\"]",
+  )
+}
+
+///|
 test "skeleton grammar keeps block semicolons inside function item" {
   let source =
     #|fn f() { let x = 1; x }
@@ -52,6 +105,36 @@ test "skeleton grammar classifies item modifiers with payloads" {
     #|
   let kinds = top_level_kind_names(source)
   debug_inspect(kinds, content="[\"StructItemNode\", \"FunctionItemNode\"]")
+}
+
+///|
+test "skeleton grammar skips layout before modifier payloads" {
+  let source =
+    #|pub // comment
+    #|(all) struct S {}
+    #|extern // comment
+    #|"c" fn f()
+    #|
+  let kinds = top_level_kind_names(source)
+  debug_inspect(kinds, content="[\"StructItemNode\", \"FunctionItemNode\"]")
+}
+
+///|
+test "skeleton grammar does not count layout against modifier lookahead" {
+  let source =
+    #|pub // one
+    #|// two
+    #|// three
+    #|
+    #|fn f()
+    #|pub // one
+    #|// two
+    #|// three
+    #|
+    #|(all) struct S {}
+    #|
+  let kinds = top_level_kind_names(source)
+  debug_inspect(kinds, content="[\"FunctionItemNode\", \"StructItemNode\"]")
 }
 
 ///|

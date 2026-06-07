@@ -24,7 +24,7 @@ pub fn tokenize(String) -> Array[@core.TokenInfo[MoonToken]]
 
 // Types and methods
 pub(all) enum MoonToken {
-  Official(kind~ : @tokens.TokenKind, class~ : MoonTokenClass)
+  Official(kind~ : @tokens.TokenKind)
   Whitespace
   Error(String)
   EOF
@@ -34,18 +34,6 @@ pub impl @seam.IsTrivia for MoonToken
 pub impl @seam.ToRawKind for MoonToken
 pub impl Show for MoonToken
 
-pub(all) enum MoonTokenClass {
-  Trivia
-  Semicolon
-  Identifier
-  Literal
-  Attribute
-  Delimiter
-  KeywordOrOperator
-} derive(Eq, @debug.Debug)
-pub impl @seam.ToRawKind for MoonTokenClass
-pub impl Show for MoonTokenClass
-
 pub(all) struct MoonbitParseShell {
   item_count : Int
   token_count : Int
@@ -54,15 +42,133 @@ pub(all) struct MoonbitParseShell {
 
 pub(all) enum MoonbitSyntaxKind {
   TriviaToken
-  SemicolonToken
-  IdentifierToken
-  LiteralToken
-  AttributeToken
-  DelimiterToken
-  KeywordOrOperatorToken
   ErrorToken
   IncompleteToken
   EofToken
+  AmperToken
+  AmperAmperToken
+  AndToken
+  AsToken
+  AsyncToken
+  AttributeToken
+  AugmentedAssignmentToken
+  BarToken
+  BarBarToken
+  BreakToken
+  ByteToken
+  BytesToken
+  CaretToken
+  CatchToken
+  CharToken
+  ColonToken
+  ColonColonToken
+  CommaToken
+  CommentToken
+  ConstToken
+  ContinueToken
+  DeclareToken
+  DeferToken
+  DeriveToken
+  DotDotToken
+  DotIntToken
+  DotLidentToken
+  DotLparenToken
+  DotUidentToken
+  DoubleToken
+  EllipsisToken
+  ElseToken
+  EnumToken
+  EnumviewToken
+  EqualToken
+  EqTildeToken
+  ExclamationToken
+  ExistsToken
+  ExtenumToken
+  ExternToken
+  FalseToken
+  FatArrowToken
+  FloatToken
+  FnToken
+  FnaliasToken
+  ForToken
+  ForallToken
+  GuardToken
+  IfToken
+  ImplToken
+  ImpliesToken
+  ImportToken
+  InToken
+  Infix1Token
+  Infix2Token
+  Infix3Token
+  Infix4Token
+  IntToken
+  InterpToken
+  IsToken
+  LbraceToken
+  LbracketToken
+  LetToken
+  LetrecToken
+  LexmatchToken
+  LexmatchQuestionToken
+  LidentToken
+  LoopToken
+  LparenToken
+  LtPlusToken
+  MatchToken
+  MinusToken
+  MultilineInterpToken
+  MultilineStringToken
+  MutableToken
+  NewlineToken
+  NobreakToken
+  NoraiseToken
+  PackageToken
+  PackageNameToken
+  PipeToken
+  PipeLeftToken
+  PlusToken
+  PlusEqualToken
+  PostLabelToken
+  PrivToken
+  ProofAssertToken
+  ProofLetToken
+  PubToken
+  QuestionToken
+  RaiseToken
+  RangeExclusiveToken
+  RangeExclusiveRevToken
+  RangeInclusiveToken
+  RangeInclusiveRevToken
+  RangeLtInclusiveToken
+  RbraceToken
+  RbracketToken
+  ReadonlyToken
+  RegexInterpToken
+  RegexLiteralToken
+  ReturnToken
+  RparenToken
+  SemiToken
+  StringToken
+  StructToken
+  SuberrorToken
+  TestToken
+  ThinArrowToken
+  ThrowToken
+  TraitToken
+  TraitaliasToken
+  TrueToken
+  TryToken
+  TryExclamationToken
+  TryQuestionToken
+  TypeToken
+  TypealiasToken
+  UidentToken
+  UnderscoreToken
+  UsingToken
+  WhereToken
+  WhileToken
+  WithToken
   SourceFileNode
   SourceItemNode
   LetItemNode
