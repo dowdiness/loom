@@ -24,6 +24,15 @@ The infrastructure separates structure from position through two complementary t
 
 Once constructed, `children` must not be mutated — `text_len`, `hash`, and `token_count` are cached at construction time. Structural equality is content-based: two subtrees with identical structure and token text have the same hash even if their token spans point into different source strings. Incremental parsing emits parser-owned reuse events for unchanged regions; tree building rebases those reused token spans onto the current source buffer.
 
+`RepeatGroup` nodes are physical balancing wrappers for long repeated sibling
+runs. They are transparent to visible traversal: callers see the contained nodes
+and tokens in source order, not the wrapper itself.
+
+The wrapper layout is canonical. When an incremental parse reuses part of an old
+balanced run, tree building flattens the old wrappers into the current event
+frame and balances the frame again. This keeps the raw CST shape equal to a full
+reparse while preserving visible child order.
+
 ### CstToken
 
 `CstToken` is a green-tree leaf. It records token kind, text length, text
