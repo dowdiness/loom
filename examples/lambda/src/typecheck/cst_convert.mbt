@@ -29,15 +29,12 @@ pub fn type_of_node(n : @seam.SyntaxNode) -> Type {
   match @syntax.SyntaxKind::from_raw(n.kind()) {
     TypeInt => TInt
     TypeUnit => TUnit
-    TypeArrow => {
+    TypeArrow =>
       // TypeArrow has two type children: lhs and rhs.
-      let cs = n.children()
-      if cs.length() < 2 {
-        TError
-      } else {
-        TArrow(type_of_node(cs[0]), type_of_node(cs[1]))
+      match n.children() {
+        [lhs, rhs, ..] => TArrow(type_of_node(lhs), type_of_node(rhs))
+        _ => TError
       }
-    }
     _ => TError
   }
 }
@@ -67,61 +64,65 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
     @syntax.SyntaxKind::AppExpr =>
       match n.nth_child(0) {
         None => TypedTerm::Error("missing function in application")
-        Some(func_node) => {
-          let mut result = convert_from_cst(func_node)
-          for arg in n.children_from(1) {
-            result = TypedTerm::App(result, convert_from_cst(arg))
-          }
-          result
-        }
+        Some(func_node) =>
+          n
+          .children_from(1)
+          .fold(init=convert_from_cst(func_node), (result, arg) => {
+            TypedTerm::App(result, convert_from_cst(arg))
+          })
       }
     @syntax.SyntaxKind::BinaryExpr => {
       let (children, all_tokens) = n.nodes_and_tokens()
-      let ops : Array[@ast.Bop] = []
-      for t in all_tokens {
-        if t.kind() == @syntax.PlusToken.to_raw() {
-          ops.push(@ast.Bop::Plus)
-        } else if t.kind() == @syntax.MinusToken.to_raw() {
-          ops.push(@ast.Bop::Minus)
-        }
-      }
-      if children.length() >= 2 {
-        let mut result = convert_from_cst(children[0])
-        for i = 1; i < children.length(); i = i + 1 {
-          let op = if i - 1 < ops.length() {
-            ops[i - 1]
+      let ops = all_tokens
+        .iter()
+        .filter_map(t => {
+          if t.kind() == @syntax.PlusToken.to_raw() {
+            Some(@ast.Bop::Plus)
+          } else if t.kind() == @syntax.MinusToken.to_raw() {
+            Some(@ast.Bop::Minus)
           } else {
-            @ast.Bop::Plus
+            None
           }
-          result = TypedTerm::Bop(op, result, convert_from_cst(children[i]))
+        })
+        .to_array()
+      match children {
+        [first, _, ..] => {
+          let expected_ops = children.length() - 1
+          if ops.length() < expected_ops {
+            TypedTerm::Error("missing binary operator")
+          } else if ops.length() > expected_ops {
+            TypedTerm::Error("excess binary operator(s)")
+          } else {
+            children
+            .iter()
+            .drop(1)
+            .zip(ops.iter())
+            .fold(init=convert_from_cst(first), (result, pair) => {
+              TypedTerm::Bop(pair.1, result, convert_from_cst(pair.0))
+            })
+          }
         }
-        result
-      } else if children.length() == 1 {
-        convert_from_cst(children[0])
-      } else {
-        TypedTerm::Error("empty BinaryExpr")
+        [only] => convert_from_cst(only)
+        [] => TypedTerm::Error("empty BinaryExpr")
       }
     }
     @syntax.SyntaxKind::IfExpr => {
-      let cond = match n.nth_child(0) {
-        Some(c) => convert_from_cst(c)
-        None => TypedTerm::Error("missing if condition")
-      }
-      let then_ = match n.nth_child(1) {
-        Some(c) => convert_from_cst(c)
-        None => TypedTerm::Error("missing then branch")
-      }
-      let else_ = match n.nth_child(2) {
-        Some(c) => convert_from_cst(c)
-        None => TypedTerm::Error("missing else branch")
-      }
+      let children = n.children()
+      let cond = children
+        .get(0)
+        .map_or(TypedTerm::Error("missing if condition"), convert_from_cst)
+      let then_ = children
+        .get(1)
+        .map_or(TypedTerm::Error("missing then branch"), convert_from_cst)
+      let else_ = children
+        .get(2)
+        .map_or(TypedTerm::Error("missing else branch"), convert_from_cst)
       TypedTerm::If(cond, then_, else_)
     }
     @syntax.SyntaxKind::ParenExpr =>
-      match n.nth_child(0) {
-        Some(inner) => convert_from_cst(inner)
-        None => TypedTerm::Error("empty parentheses")
-      }
+      n
+      .nth_child(0)
+      .map_or(TypedTerm::Error("empty parentheses"), convert_from_cst)
     @syntax.SyntaxKind::BlockExpr => convert_block_expr(n)
     _ => TypedTerm::Error("unhandled CST kind")
   }
@@ -133,18 +134,17 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
 /// check, `\. 1` silently becomes `Lam("", None, Int(1))`.
 fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
   let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
-  let mut annot_node : @seam.SyntaxNode? = None
-  let mut body_node : @seam.SyntaxNode? = None
-  for c in n.children() {
-    let k = @syntax.SyntaxKind::from_raw(c.kind())
-    if k == @syntax.SyntaxKind::TypeAnnot {
-      if annot_node is None {
-        annot_node = Some(c)
-      }
-    } else if body_node is None {
-      body_node = Some(c)
-    }
-  }
+  let children = n.children()
+  let annot_node = children
+    .iter()
+    .find_first(c => {
+      @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.SyntaxKind::TypeAnnot
+    })
+  let body_node = children
+    .iter()
+    .find_first(c => {
+      @syntax.SyntaxKind::from_raw(c.kind()) != @syntax.SyntaxKind::TypeAnnot
+    })
   let body = match body_node {
     Some(b) => convert_from_cst(b)
     None => TypedTerm::Error("missing lambda body")
@@ -184,22 +184,29 @@ fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
 fn collect_typed_defs_and_body(
   node : @seam.SyntaxNode,
 ) -> (Array[(String, TypedTerm)], TypedTerm?) {
-  let defs : Array[(String, TypedTerm)] = []
-  let mut body : TypedTerm? = None
-  let mut trailing_error : Bool = false
-  for child in node.children() {
-    match @syntax.SyntaxKind::from_raw(child.kind()) {
-      @syntax.SyntaxKind::LetDef => {
-        let (name, b) = convert_let_def_entry(child)
-        defs.push((name, b))
+  let children = node.children()
+  let defs = children
+    .iter()
+    .filter_map(child => {
+      match @syntax.SyntaxKind::from_raw(child.kind()) {
+        @syntax.SyntaxKind::LetDef => Some(convert_let_def_entry(child))
+        _ => None
       }
-      _ =>
-        match body {
-          None => body = Some(convert_from_cst(child))
-          Some(_) => if subtree_has_errors(child) { trailing_error = true }
-        }
-    }
-  }
+    })
+    .to_array()
+  let body_index = children.search_by(child => {
+    @syntax.SyntaxKind::from_raw(child.kind()) != @syntax.SyntaxKind::LetDef
+  })
+  let body = body_index.map(index => convert_from_cst(children[index]))
+  let trailing_error = body_index.map_or(false, index => {
+    children
+    .iter()
+    .drop(index + 1)
+    .any(child => {
+      @syntax.SyntaxKind::from_raw(child.kind()) != @syntax.SyntaxKind::LetDef &&
+      subtree_has_errors(child)
+    })
+  })
   let final_body = if trailing_error {
     Some(TypedTerm::Error("trailing junk after expression"))
   } else {
@@ -260,16 +267,18 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
 /// placeholder) so left-to-right definition order is retained in Module.
 fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
   let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
-  let mut param_list : @seam.SyntaxNode? = None
-  let mut init : @seam.SyntaxNode? = None
-  for c in n.children() {
-    let k = @syntax.SyntaxKind::from_raw(c.kind())
-    if k == @syntax.SyntaxKind::ParamList {
-      param_list = Some(c)
-    } else if init is None {
-      init = Some(c)
-    }
-  }
+  let children = n.children()
+  let param_list = children
+    .iter()
+    .filter(c => {
+      @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.SyntaxKind::ParamList
+    })
+    .last()
+  let init = children
+    .iter()
+    .find_first(c => {
+      @syntax.SyntaxKind::from_raw(c.kind()) != @syntax.SyntaxKind::ParamList
+    })
   // Missing name: parser inserted an error-placeholder token where the
   // identifier should be (`let = 1`, `let (x) = x`). Surface as Error so
   // typecheck reports a diagnostic instead of binding the empty name.
@@ -288,12 +297,10 @@ fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
           if params.is_empty() || subtree_has_errors(pl) {
             TypedTerm::Error("malformed param list")
           } else {
-            let mut b = init_term
-            for i = params.length() - 1; i >= 0; i = i - 1 {
-              let (nm, ann) = params[i]
-              b = TypedTerm::Lam(nm, ann, b)
-            }
-            b
+            params.rev_fold(init=init_term, (body, param) => {
+              let (nm, ann) = param
+              TypedTerm::Lam(nm, ann, body)
+            })
           }
         }
       }

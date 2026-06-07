@@ -11,11 +11,9 @@ fn convert_let_def(
     Some(expr_node) => recurse(expr_node)
     None => @ast.Term::Error("missing LetDef init")
   }
-  let params = v.params()
-  let mut body = init
-  for i = params.length() - 1; i >= 0; i = i - 1 {
-    body = @ast.Term::Lam(params[i], body)
-  }
+  let body = v
+    .params()
+    .rev_fold(init~, (body, param) => @ast.Term::Lam(param, body))
   (v.name(), body)
 }
 
@@ -26,18 +24,23 @@ fn collect_defs_and_body(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> @ast.Term,
 ) -> (Array[(@ast.VarName, @ast.Term)], @ast.Term) {
-  let defs : Array[(@ast.VarName, @ast.Term)] = []
-  let mut final_term : @ast.Term = @ast.Term::Unit
-  for child in node.children() {
-    match @syntax.SyntaxKind::from_raw(child.kind()) {
-      @syntax.LetDef => {
-        let v = LetDefView::{ node: child }
-        let (name, body) = convert_let_def(v, recurse)
-        defs.push((name, body))
+  let children = node.children()
+  let defs = children
+    .iter()
+    .filter_map(child => {
+      match @syntax.SyntaxKind::from_raw(child.kind()) {
+        @syntax.LetDef =>
+          Some(convert_let_def(LetDefView::{ node: child }, recurse))
+        _ => None
       }
-      _ => if final_term == @ast.Term::Unit { final_term = recurse(child) }
-    }
-  }
+    })
+    .to_array()
+  let final_term = children
+    .iter()
+    .find_first(child => {
+      @syntax.SyntaxKind::from_raw(child.kind()) != @syntax.LetDef
+    })
+    .map_or(@ast.Term::Unit, recurse)
   (defs, final_term)
 }
 
@@ -80,82 +83,77 @@ fn fold_node_inner(
     }
     @syntax.LambdaExpr => {
       let v = LambdaExprView::{ node, }
-      let body = match v.body() {
-        Some(b) => recurse(b)
-        None => @ast.Term::Error("missing lambda body")
-      }
+      let body = v
+        .body()
+        .map_or(@ast.Term::Error("missing lambda body"), recurse)
       @ast.Term::Lam(v.param(), body)
     }
     @syntax.AppExpr => {
       let v = AppExprView::{ node, }
       match v.func() {
         None => @ast.Term::Error("missing function in application")
-        Some(func_node) => {
-          let mut result = recurse(func_node)
-          for arg in v.args() {
-            result = @ast.Term::App(result, recurse(arg))
-          }
-          result
-        }
+        Some(func_node) =>
+          v
+          .args()
+          .fold(init=recurse(func_node), (result, arg) => {
+            @ast.Term::App(result, recurse(arg))
+          })
       }
     }
     @syntax.BinaryExpr => {
       let (children, all_tokens) = node.nodes_and_tokens()
-      let ops : Array[@ast.Bop] = []
-      for t in all_tokens {
-        if t.kind() == @syntax.PlusToken.to_raw() {
-          ops.push(@ast.Bop::Plus)
-        } else if t.kind() == @syntax.MinusToken.to_raw() {
-          ops.push(@ast.Bop::Minus)
-        }
-      }
-      if children.length() >= 2 {
-        // The parser emits operator+operand pairs, so `ops` and trailing
-        // operands stay balanced; the Error branch guards malformed or
-        // hand-built CSTs, not normal parser output. Check before recursing
-        // so we neither re-overwrite Error nor traverse unreachable operands.
-        let mut result = recurse(children[0])
-        let mut missing = false
-        for i = 1; i < children.length(); i = i + 1 {
-          if i - 1 >= ops.length() {
-            missing = true
-            break
+      let ops = all_tokens
+        .iter()
+        .filter_map(t => {
+          if t.kind() == @syntax.PlusToken.to_raw() {
+            Some(@ast.Bop::Plus)
+          } else if t.kind() == @syntax.MinusToken.to_raw() {
+            Some(@ast.Bop::Minus)
+          } else {
+            None
           }
-          result = @ast.Term::Bop(ops[i - 1], result, recurse(children[i]))
+        })
+        .to_array()
+      match children {
+        [first, _, ..] => {
+          // Recovery or hand-built CSTs can leave operator and operand counts
+          // unbalanced in either direction. Fold only after exact balance is
+          // confirmed so we neither synthesize nor silently drop operators.
+          let expected_ops = children.length() - 1
+          if ops.length() < expected_ops {
+            @ast.Term::Error("missing binary operator")
+          } else if ops.length() > expected_ops {
+            @ast.Term::Error("excess binary operator(s)")
+          } else {
+            children
+            .iter()
+            .drop(1)
+            .zip(ops.iter())
+            .fold(init=recurse(first), (result, pair) => {
+              @ast.Term::Bop(pair.1, result, recurse(pair.0))
+            })
+          }
         }
-        if missing {
-          @ast.Term::Error("missing binary operator")
-        } else {
-          result
-        }
-      } else if children.length() == 1 {
-        recurse(children[0])
-      } else {
-        @ast.Term::Error("empty BinaryExpr")
+        [only] => recurse(only)
+        [] => @ast.Term::Error("empty BinaryExpr")
       }
     }
     @syntax.IfExpr => {
       let v = IfExprView::{ node, }
-      let cond = match v.condition() {
-        Some(n) => recurse(n)
-        None => @ast.Term::Error("missing if condition")
-      }
-      let then_ = match v.then_branch() {
-        Some(n) => recurse(n)
-        None => @ast.Term::Error("missing then branch")
-      }
-      let else_ = match v.else_branch() {
-        Some(n) => recurse(n)
-        None => @ast.Term::Error("missing else branch")
-      }
+      let cond = v
+        .condition()
+        .map_or(@ast.Term::Error("missing if condition"), recurse)
+      let then_ = v
+        .then_branch()
+        .map_or(@ast.Term::Error("missing then branch"), recurse)
+      let else_ = v
+        .else_branch()
+        .map_or(@ast.Term::Error("missing else branch"), recurse)
       @ast.Term::If(cond, then_, else_)
     }
     @syntax.ParenExpr => {
       let v = ParenExprView::{ node, }
-      match v.inner() {
-        Some(inner) => recurse(inner)
-        None => @ast.Term::Error("empty parentheses")
-      }
+      v.inner().map_or(@ast.Term::Error("empty parentheses"), recurse)
     }
     @syntax.BlockExpr => {
       let (defs, final_term) = collect_defs_and_body(node, recurse)

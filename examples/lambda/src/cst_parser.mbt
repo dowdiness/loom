@@ -43,15 +43,12 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
 fn peek_after_newlines(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> @token.Token {
-  let mut pos = ctx.position
-  while pos < ctx.token_count {
-    let token = (ctx.get_token)(pos)
-    match token {
-      @token.Newline => pos = pos + 1
-      _ => return token
+  for index = 0 {
+    match ctx.peek_nth(index) {
+      @token.Newline => continue index + 1
+      token => break token
     }
   }
-  @token.EOF
 }
 
 ///|
@@ -255,7 +252,7 @@ fn parse_binary_op(
   match ctx.peek() {
     @token.Plus | @token.Minus =>
       ctx.wrap_at(mark, @syntax.BinaryExpr, fn() {
-        while ctx.error_count < MAX_ERRORS {
+        while !ctx.too_many_errors(MAX_ERRORS) {
           // (B) Loop: consume newline before each subsequent operator.
           // Do NOT remove — (A) handled only the first; (B) handles the rest.
           consume_soft_newlines_before_binary_operator(ctx)
@@ -297,7 +294,7 @@ fn parse_application(
     | @token.Lambda
     | @token.Hole =>
       ctx.wrap_at(mark, @syntax.AppExpr, fn() {
-        while ctx.error_count < MAX_ERRORS {
+        while !ctx.too_many_errors(MAX_ERRORS) {
           if allow_newline_application {
             consume_soft_newlines_before_application_atom(ctx)
           }
@@ -362,7 +359,7 @@ fn parse_atom(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   allow_newline_application : Bool,
 ) -> Unit {
-  if ctx.error_count >= MAX_ERRORS {
+  if ctx.too_many_errors(MAX_ERRORS) {
     return
   }
   match ctx.peek() {
@@ -565,16 +562,7 @@ fn parse_lambda_root(
 fn peek_text(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> String {
-  let mut pos = ctx.position
-  while pos < ctx.token_count {
-    let t = (ctx.get_token)(pos)
-    if t.is_trivia() {
-      pos = pos + 1
-    } else {
-      return ctx.token_text_at(pos).to_owned()
-    }
-  }
-  ""
+  ctx.current_token_text().to_owned()
 }
 
 ///|

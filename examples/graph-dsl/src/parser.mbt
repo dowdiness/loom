@@ -145,7 +145,7 @@ fn skip_statement_tail(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 
 ///|
 fn parse_binding(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  if ctx.error_count >= MAX_ERRORS {
+  if ctx.too_many_errors(MAX_ERRORS) {
     ctx.bump_error()
     return
   }
