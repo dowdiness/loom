@@ -144,6 +144,11 @@ pub(all) enum MoonbitSyntaxKind {
   StructItemNode
   EnumItemNode
   TypeItemNode
+  LetItemHeaderNode
+  FunctionItemHeaderNode
+  StructItemHeaderNode
+  EnumItemHeaderNode
+  TypeItemHeaderNode
 } derive(Eq, Debug)
 
 ///|
@@ -290,6 +295,11 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       StructItemNode => 14
       EnumItemNode => 15
       TypeItemNode => 16
+      LetItemHeaderNode => 17
+      FunctionItemHeaderNode => 18
+      StructItemHeaderNode => 19
+      EnumItemHeaderNode => 20
+      TypeItemHeaderNode => 21
     },
   )
 }
@@ -308,6 +318,11 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     14 => StructItemNode
     15 => EnumItemNode
     16 => TypeItemNode
+    17 => LetItemHeaderNode
+    18 => FunctionItemHeaderNode
+    19 => StructItemHeaderNode
+    20 => EnumItemHeaderNode
+    21 => TypeItemHeaderNode
     100 => AmperToken
     101 => AmperAmperToken
     102 => AndToken
@@ -433,6 +448,20 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     222 => WhileToken
     223 => WithToken
     _ => ErrorToken
+  }
+}
+
+///|
+fn MoonbitSyntaxKind::item_header_kind(
+  self : MoonbitSyntaxKind,
+) -> MoonbitSyntaxKind? {
+  match self {
+    LetItemNode => Some(LetItemHeaderNode)
+    FunctionItemNode => Some(FunctionItemHeaderNode)
+    StructItemNode => Some(StructItemHeaderNode)
+    EnumItemNode => Some(EnumItemHeaderNode)
+    TypeItemNode => Some(TypeItemHeaderNode)
+    _ => None
   }
 }
 

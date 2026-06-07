@@ -20,7 +20,9 @@ complete MoonBit parser.
 - The internal root parser creates coarse top-level item nodes (`LetItemNode`,
   `FunctionItemNode`, `StructItemNode`, `EnumItemNode`, `TypeItemNode`, or
   fallback `SourceItemNode`) split by official ASI semicolon tokens while
-  keeping block-local semicolons inside balanced delimiter groups.
+  keeping block-local semicolons inside balanced delimiter groups. Known item
+  nodes now contain a coarse item-header child node before the remaining body or
+  initializer tokens.
 - `MoonbitParseShell` is a placeholder `Eq` AST so the parser can participate in
   Loom's reactive API today.
 

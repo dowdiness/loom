@@ -35,6 +35,39 @@ fn first_item_token_kind_names(source : String) -> Array[String] {
 }
 
 ///|
+fn top_level_header_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  root
+  .children()
+  .map(fn(item) {
+    match item.children() {
+      [header, ..] => {
+        let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+          header.kind(),
+        )
+        kind.to_string()
+      }
+      [] => ""
+    }
+  })
+}
+
+///|
+fn first_item_header_token_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [header, ..] => header.tokens() |> syntax_token_kind_names
+        [] => []
+      }
+    [] => []
+  }
+}
+
+///|
 test "skeleton grammar classifies top-level item nodes" {
   let source =
     #|let x = 1
@@ -59,19 +92,138 @@ test "skeleton grammar classifies top-level item nodes" {
 }
 
 ///|
-test "skeleton grammar emits official syntax token kinds" {
-  let kinds = first_item_token_kind_names("let x = 1\n")
+test "skeleton grammar parses top-level item headers" {
+  let source =
+    #|let x = 1
+    #|pub fn f() { let y = 2; y }
+    #|struct Point {}
+    #|enum Color { Red }
+    #|type Name String
+    #|
+  let kinds = top_level_header_kind_names(source)
   debug_inspect(
     kinds,
     content=(
       #|[
-      #|  "LetToken",
+      #|  "LetItemHeaderNode",
+      #|  "FunctionItemHeaderNode",
+      #|  "StructItemHeaderNode",
+      #|  "EnumItemHeaderNode",
+      #|  "TypeItemHeaderNode",
+      #|]
+    ),
+  )
+}
+
+///|
+test "skeleton grammar stops function headers before body" {
+  let kinds = first_item_header_token_kind_names("fn f(x : Int) { x }\n")
+  debug_inspect(
+    kinds,
+    content=(
+      #|[
+      #|  "FnToken",
       #|  "TriviaToken",
       #|  "LidentToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "TriviaToken",
+      #|  "ColonToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
+      #|]
+    ),
+  )
+}
+
+///|
+test "skeleton grammar splits equals function bodies from headers" {
+  let source = "fn cos(d : Double) -> Double = \"Math\" \"cos\"\n"
+  let header = first_item_header_token_kind_names(source)
+  debug_inspect(
+    header,
+    content=(
+      #|[
+      #|  "FnToken",
+      #|  "TriviaToken",
+      #|  "LidentToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "TriviaToken",
+      #|  "ColonToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
+      #|  "TriviaToken",
+      #|  "ThinArrowToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|]
+    ),
+  )
+  let body = first_item_token_kind_names(source)
+  debug_inspect(
+    body,
+    content=(
+      #|[
       #|  "TriviaToken",
       #|  "EqualToken",
       #|  "TriviaToken",
-      #|  "IntToken",
+      #|  "StringToken",
+      #|  "TriviaToken",
+      #|  "StringToken",
+      #|  "SemiToken",
+      #|]
+    ),
+  )
+}
+
+///|
+test "skeleton grammar leaves initializer tokens after let header" {
+  let kinds = first_item_token_kind_names("let x = 1\n")
+  debug_inspect(
+    kinds,
+    content="[\"TriviaToken\", \"EqualToken\", \"TriviaToken\", \"IntToken\", \"SemiToken\"]",
+  )
+}
+
+///|
+test "skeleton grammar splits legacy type body from header" {
+  let source = "type Name String\n"
+  let header = first_item_header_token_kind_names(source)
+  debug_inspect(
+    header,
+    content="[\"TypeToken\", \"TriviaToken\", \"UidentToken\"]",
+  )
+  let body = first_item_token_kind_names(source)
+  debug_inspect(
+    body,
+    content="[\"TriviaToken\", \"UidentToken\", \"SemiToken\"]",
+  )
+}
+
+///|
+test "skeleton grammar splits tuple struct body from header" {
+  let source = "struct UserName(String) derive(Debug)\n"
+  let header = first_item_header_token_kind_names(source)
+  debug_inspect(
+    header,
+    content="[\"StructToken\", \"TriviaToken\", \"UidentToken\"]",
+  )
+  let body = first_item_token_kind_names(source)
+  debug_inspect(
+    body,
+    content=(
+      #|[
+      #|  "LparenToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
+      #|  "TriviaToken",
+      #|  "DeriveToken",
+      #|  "LparenToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
       #|  "SemiToken",
       #|]
     ),
@@ -105,6 +257,26 @@ test "skeleton grammar classifies item modifiers with payloads" {
     #|
   let kinds = top_level_kind_names(source)
   debug_inspect(kinds, content="[\"StructItemNode\", \"FunctionItemNode\"]")
+}
+
+///|
+test "skeleton grammar keeps visibility payload in struct header" {
+  let header = first_item_header_token_kind_names("pub(all) struct S {}\n")
+  debug_inspect(
+    header,
+    content=(
+      #|[
+      #|  "PubToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "RparenToken",
+      #|  "TriviaToken",
+      #|  "StructToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|]
+    ),
+  )
 }
 
 ///|

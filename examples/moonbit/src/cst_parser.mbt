@@ -36,18 +36,103 @@ fn parse_source_item(
 ) -> Unit {
   let kind = source_item_node_kind(ctx)
   ctx.node(kind, fn() {
-    let (consumed, group_depth) = consume_source_item_tokens(ctx)
+    let (header_consumed, header_depth) = parse_source_item_header(ctx, kind)
+    let (body_consumed, group_depth) = if header_depth > 0 {
+      (0, header_depth)
+    } else {
+      consume_source_item_tokens(ctx)
+    }
     if group_depth > 0 {
       ctx.error(
         "moonbit skeleton parser reached item boundary with an unclosed delimiter",
       )
       ctx.emit_incomplete_placeholder()
     }
-    if consumed == 0 && !ctx.at_eof() {
+    if header_consumed + body_consumed == 0 && !ctx.at_eof() {
       ctx.error("moonbit skeleton parser made no progress")
       ctx.bump_error()
     }
   })
+}
+
+///|
+fn parse_source_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  item_kind : MoonbitSyntaxKind,
+) -> (Int, Int) {
+  match item_kind.item_header_kind() {
+    Some(header_kind) => {
+      let mut result = (0, 0)
+      ctx.node(header_kind, fn() {
+        result = consume_source_item_header_tokens(ctx, item_kind)
+      })
+      result
+    }
+    None => (0, 0)
+  }
+}
+
+///|
+fn consume_source_item_header_tokens(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  item_kind : MoonbitSyntaxKind,
+) -> (Int, Int) {
+  for consumed = 0, group_depth = 0, type_keyword_seen = false, type_name_seen = false, prefix_group_payload_pending = false, prefix_literal_payload_pending = false; !ctx.at_eof() &&
+     ctx.error_count < MAX_SKELETON_ERRORS; {
+    let token = ctx.peek()
+    let prefix_payload = group_depth == 0 &&
+      (
+        (prefix_group_payload_pending && token.opens_balanced_group()) ||
+        (
+          prefix_literal_payload_pending &&
+          token.is_source_item_prefix_literal_payload()
+        )
+      )
+    if group_depth == 0 &&
+      !prefix_payload &&
+      (
+        token.is_item_delimiter() ||
+        token.starts_item_body(item_kind) ||
+        (
+          item_kind == TypeItemNode &&
+          token.starts_legacy_type_body(type_name_seen)
+        )
+      ) {
+      break (consumed, group_depth)
+    }
+    ctx.emit_token(token.syntax_kind())
+    let keep_prefix_payload_pending = group_depth == 0 &&
+      token.is_layout_token()
+    let next_prefix_group_payload_pending = if keep_prefix_payload_pending {
+      prefix_group_payload_pending
+    } else if prefix_payload || group_depth > 0 {
+      false
+    } else {
+      token.accepts_source_item_prefix_group_payload()
+    }
+    let next_prefix_literal_payload_pending = if keep_prefix_payload_pending {
+      prefix_literal_payload_pending
+    } else if prefix_payload || group_depth > 0 {
+      false
+    } else {
+      token.accepts_source_item_prefix_literal_payload()
+    }
+    continue consumed + 1,
+      token.next_group_depth(group_depth),
+      type_keyword_seen ||
+      (item_kind == TypeItemNode && token.is_type_item_keyword()),
+      type_name_seen ||
+      (
+        item_kind == TypeItemNode &&
+        type_keyword_seen &&
+        group_depth == 0 &&
+        token.is_type_header_name()
+      ),
+      next_prefix_group_payload_pending,
+      next_prefix_literal_payload_pending
+  } nobreak {
+    (consumed, group_depth)
+  }
 }
 
 ///|
@@ -115,13 +200,7 @@ fn skip_balanced_prefix_group(
     if token.is_layout_token() {
       continue next_index, depth, meaningful
     }
-    let next_depth = if token.opens_balanced_group() {
-      depth + 1
-    } else if token.closes_balanced_group() && depth > 0 {
-      depth - 1
-    } else {
-      depth
-    }
+    let next_depth = token.next_group_depth(depth)
     if next_depth == 0 {
       break next_index
     }
@@ -143,14 +222,7 @@ fn consume_source_item_tokens(
       break (consumed + 1, group_depth)
     }
     ctx.emit_token(token.syntax_kind())
-    let next_depth = if token.opens_balanced_group() {
-      group_depth + 1
-    } else if token.closes_balanced_group() && group_depth > 0 {
-      group_depth - 1
-    } else {
-      group_depth
-    }
-    continue consumed + 1, next_depth
+    continue consumed + 1, token.next_group_depth(group_depth)
   } nobreak {
     (consumed, group_depth)
   }
