@@ -116,6 +116,44 @@ test "skeleton grammar parses top-level item headers" {
 }
 
 ///|
+test "skeleton grammar parses explicit header keyword variants" {
+  let source =
+    #|const X = 1
+    #|letrec f = 1
+    #|fnalias alias = target
+    #|extenum Color += { Red }
+    #|enumview View { Case }
+    #|typealias Name = String
+    #|
+  debug_inspect(
+    top_level_kind_names(source),
+    content=(
+      #|[
+      #|  "LetItemNode",
+      #|  "LetItemNode",
+      #|  "FunctionItemNode",
+      #|  "EnumItemNode",
+      #|  "EnumItemNode",
+      #|  "TypeItemNode",
+      #|]
+    ),
+  )
+  debug_inspect(
+    top_level_header_kind_names(source),
+    content=(
+      #|[
+      #|  "LetItemHeaderNode",
+      #|  "LetItemHeaderNode",
+      #|  "FunctionItemHeaderNode",
+      #|  "EnumItemHeaderNode",
+      #|  "EnumItemHeaderNode",
+      #|  "TypeItemHeaderNode",
+      #|]
+    ),
+  )
+}
+
+///|
 test "skeleton grammar stops function headers before body" {
   let kinds = first_item_header_token_kind_names("fn f(x : Int) { x }\n")
   debug_inspect(
