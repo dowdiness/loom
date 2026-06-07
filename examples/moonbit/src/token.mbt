@@ -105,6 +105,87 @@ fn MoonToken::is_item_delimiter(self : MoonToken) -> Bool {
 }
 
 ///|
+fn MoonToken::source_item_node_kind(self : MoonToken) -> MoonbitSyntaxKind? {
+  match self {
+    Official(kind~, ..) =>
+      match kind {
+        TK_LET | TK_LETREC | TK_CONST => Some(LetItemNode)
+        TK_FN | TK_FNALIAS => Some(FunctionItemNode)
+        TK_STRUCT => Some(StructItemNode)
+        TK_ENUM | TK_EXTENUM | TK_ENUMVIEW => Some(EnumItemNode)
+        TK_TYPE | TK_TYPEALIAS => Some(TypeItemNode)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn MoonToken::is_source_item_prefix(self : MoonToken) -> Bool {
+  match self {
+    Official(class=Attribute, ..) => true
+    Official(kind~, ..) =>
+      match kind {
+        TK_PUB | TK_PRIV | TK_EXTERN | TK_ASYNC | TK_DECLARE => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::accepts_source_item_prefix_group_payload(
+  self : MoonToken,
+) -> Bool {
+  match self {
+    Official(kind=TK_PUB, ..) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::accepts_source_item_prefix_literal_payload(
+  self : MoonToken,
+) -> Bool {
+  match self {
+    Official(kind=TK_EXTERN, ..) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_source_item_prefix_literal_payload(self : MoonToken) -> Bool {
+  match self {
+    Official(class=Literal, ..) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::opens_balanced_group(self : MoonToken) -> Bool {
+  match self {
+    Official(kind~, ..) =>
+      match kind {
+        TK_LPAREN | TK_LBRACKET | TK_LBRACE => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::closes_balanced_group(self : MoonToken) -> Bool {
+  match self {
+    Official(kind~, ..) =>
+      match kind {
+        TK_RPAREN | TK_RBRACKET | TK_RBRACE => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn MoonToken::from_official(token : @tokens.Token) -> MoonToken {
   match token.kind() {
     TK_EOF => EOF

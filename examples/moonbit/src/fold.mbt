@@ -24,7 +24,12 @@ fn moonbit_fold_node(
         result
       }
     }
-    SourceItemNode =>
+    SourceItemNode
+    | LetItemNode
+    | FunctionItemNode
+    | StructItemNode
+    | EnumItemNode
+    | TypeItemNode =>
       {
         item_count: 1,
         token_count: count_non_trivia_tokens(node),

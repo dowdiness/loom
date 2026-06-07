@@ -65,6 +65,11 @@ pub(all) enum MoonbitSyntaxKind {
   EofToken
   SourceFileNode
   SourceItemNode
+  LetItemNode
+  FunctionItemNode
+  StructItemNode
+  EnumItemNode
+  TypeItemNode
 } derive(Eq, @debug.Debug)
 pub impl @seam.FromRawKind for MoonbitSyntaxKind
 pub impl @seam.ToRawKind for MoonbitSyntaxKind
