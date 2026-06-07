@@ -49,20 +49,22 @@ fn[T] create_buffer(
 }
 
 ///|
-/// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
+/// Build an `ImperativeLanguage[Ast]` from syntax grammar infrastructure plus
+/// an AST conversion callback.
 ///
 /// Each call allocates fresh per-session state (TokenBuffer ref, last
-/// diagnostics, old-token cache) inside the closures. Shared by both
-/// `new_imperative_parser` and `new_parser` — the only divergence downstream
-/// is which engine (`ImperativeParser` vs. `Parser`) wraps the result.
-fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
-  grammar : Grammar[T, K, Ast],
+/// diagnostics, old-token cache) inside the closures. `Grammar` and
+/// `SyntaxGrammar` share this infrastructure; only `to_ast` differs.
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language_from_syntax_grammar(
+  grammar : SyntaxGrammar[T, K],
+  to_ast : (@seam.SyntaxNode) -> Ast,
+  get_fold_stats? : (() -> @core.FoldStats)? = None,
 ) -> @incremental.ImperativeLanguage[Ast] {
   let spec = grammar.spec
   let lex = grammar.lex
   let incremental_relex_enabled = grammar.incremental_relex_enabled
+  let block_reparse_spec = grammar.block_reparse_spec
   let mode_relex = grammar.mode_relex
-  let cst_fold = @core.CstFold::new(grammar.fold_node)
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
@@ -105,7 +107,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
       // splice the reparsed subtree without a full incremental parse.
-      match grammar.block_reparse_spec {
+      match block_reparse_spec {
         Some(block_spec) =>
           match
             @core.reparse_block(
@@ -198,9 +200,30 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
       (new_syntax, all_diagnostics, reuse_count)
     },
-    to_ast=fn(syntax) { cst_fold.fold(syntax) },
+    to_ast~,
+    get_fold_stats~,
+  )
+}
+
+///|
+/// Build an `ImperativeLanguage[Ast]` from a `Grammar[T, K, Ast]`.
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_imperative_language(
+  grammar : Grammar[T, K, Ast],
+) -> @incremental.ImperativeLanguage[Ast] {
+  let cst_fold = @core.CstFold::new(grammar.fold_node)
+  build_imperative_language_from_syntax_grammar(
+    grammar.to_syntax_grammar(),
+    fn(syntax) { cst_fold.fold(syntax) },
     get_fold_stats=Some(fn() { cst_fold.get_stats() }),
   )
+}
+
+///|
+/// Build a syntax-only `ImperativeLanguage[Unit]` from a `SyntaxGrammar[T, K]`.
+fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] build_syntax_imperative_language(
+  grammar : SyntaxGrammar[T, K],
+) -> @incremental.ImperativeLanguage[Unit] {
+  build_imperative_language_from_syntax_grammar(grammar, fn(_syntax) { () })
 }
 
 ///|
@@ -234,4 +257,22 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
   runtime? : @incr.Runtime,
 ) -> @pipeline.Parser[Ast] {
   @pipeline.Parser::new(source, build_imperative_language(grammar), runtime?)
+}
+
+///|
+/// Create a syntax-only reactive parser from a `SyntaxGrammar`.
+///
+/// This publishes source, syntax tree, diagnostics, and a syntax-only snapshot
+/// without constructing or backdating an AST. Use it when a language's AST is
+/// not naturally `Eq`, or when consumers only need CST/diagnostics.
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(
+  source : String,
+  grammar : SyntaxGrammar[T, K],
+  runtime? : @incr.Runtime,
+) -> @pipeline.SyntaxParser {
+  @pipeline.SyntaxParser::new(
+    source,
+    build_syntax_imperative_language(grammar),
+    runtime?,
+  )
 }

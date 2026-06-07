@@ -64,6 +64,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-07-reactive-syntax-only-parser.md](decisions/2026-06-07-reactive-syntax-only-parser.md) — **Accepted** syntax-only reactive parser path for CST/diagnostics consumers whose AST is unavailable or not naturally `Eq`
 - [decisions/2026-05-30-seam-source-span-api-hardening.md](decisions/2026-05-30-seam-source-span-api-hardening.md) — **Accepted** unstable names for backing-source inspection and parser-owned source-span reuse hooks before seam stabilization
 - [decisions/2026-05-29-stable-semantic-projection-identity.md](decisions/2026-05-29-stable-semantic-projection-identity.md) — **Accepted** leaf-level helper preserves semantic projection IDs across edit windows and malformed-input recovery
 - [decisions/2026-05-28-authoring-last-good-semantic-projection.md](decisions/2026-05-28-authoring-last-good-semantic-projection.md) — **Accepted** stateful authoring attachments keep parser diagnostics immediate while retaining last-good semantic projections across parser/projection failures
@@ -104,7 +105,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [performance/PERFORMANCE_ANALYSIS.md](performance/PERFORMANCE_ANALYSIS.md) — benchmarks and analysis
 - [performance/benchmark_history.md](performance/benchmark_history.md) — historical benchmark log
 - [performance/bench-baseline.tsv](performance/bench-baseline.tsv) — machine-readable baseline for `bench-check.sh`
-- [performance/incremental-overhead.md](performance/incremental-overhead.md) — incremental parser overhead analysis and low-hanging-fruit waste elimination opportunities
+- [performance/incremental-overhead.md](performance/incremental-overhead.md) — incremental parser overhead analysis and straightforward waste elimination opportunities
 - [performance/grammar-design-for-incremental.md](performance/grammar-design-for-incremental.md) — grammar shapes that help/hurt incremental parsing: flat > left-recursive > balanced > right-recursive
 - [performance/2026-03-30-cst-traversal-tiers.md](performance/2026-03-30-cst-traversal-tiers.md) — feasibility report for the three traversal tiers (closures, Folder/TransformFolder, MutVisitor); drove the seam port and motivated removing the original `cst-transform/` sandbox
 - [performance/2026-03-31-map-specialization.md](performance/2026-03-31-map-specialization.md) — closure specialization vs generic map in wasm-gc (narrower types ≠ faster)
@@ -141,8 +142,8 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 _No active plans._
 
 _Previously active: json-settings last-good attachment example shipped 2026-06-01 as [`examples/json-settings/`](../examples/json-settings/) (issue #202; no ADR — implements accepted last-good + stable-identity decisions). See [archived plan](archive/completed-phases/2026-06-01-json-settings-last-good-attachment-plan.md)._
-_Previously active: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
-_Previously active: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
+_Completed: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
+_Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
 
 ---
 

@@ -326,6 +326,16 @@ test "skeleton grammar works with reactive parser" {
 }
 
 ///|
+test "skeleton syntax grammar works with reactive syntax parser" {
+  let parser = @loom.new_syntax_parser(
+    "let x = 1\nlet y = 2\n", moonbit_syntax_grammar,
+  )
+  inspect(parser.source().read_or_abort(), content="let x = 1\nlet y = 2\n")
+  inspect(parser.diagnostics().read_or_abort().length(), content="0")
+  ignore(parser.syntax_tree().read_or_abort())
+}
+
+///|
 test "placeholder AST reports lexer error tokens" {
   let (ast, diagnostics) = parse_moonbit("let x = `")
   inspect(ast.contains_errors, content="true")

@@ -1,10 +1,12 @@
 # `dowdiness/loom/pipeline`
 
-Reactive parser handle: wraps `ImperativeParser` with an `@incr` snapshot
-input so downstream consumers can subscribe to coherent source, syntax tree,
-AST, diagnostics, and reuse-count views without managing the engine directly.
+Reactive parser handles: wrap `ImperativeParser` with an `@incr` snapshot
+input so downstream consumers can subscribe to coherent parse views without
+managing the engine directly. `Parser[Ast]` publishes source, syntax tree, AST,
+diagnostics, and reuse count; `SyntaxParser` publishes the same CST/diagnostic
+surface without an AST fold.
 
-## Pipeline shape
+## `Parser[Ast]` pipeline shape
 
 ```
 Input[ParseSnapshot[Ast]] → Derived[ParseSnapshot[Ast]]
@@ -31,6 +33,17 @@ pub fn[Ast]      Parser::syntax_tree(Self)                               -> @cel
 pub fn[Ast]      Parser::ast(Self)                                       -> @cells.Derived[Ast]
 pub fn[Ast]      Parser::diagnostics(Self)                               -> @cells.Derived[@core.DiagnosticSet]
 pub fn[Ast]      Parser::runtime(Self)                                   -> @cells.Runtime
+
+pub struct SyntaxSnapshot { source; syntax; diagnostics; reuse_count }
+pub struct SyntaxParser { /* private */ }
+pub fn SyntaxParser::new(String, @incremental.ImperativeLanguage[Unit], runtime?) -> Self
+pub fn SyntaxParser::set_source(Self, String)                        -> Unit
+pub fn SyntaxParser::apply_edit(Self, @core.Edit, String)            -> Unit
+pub fn SyntaxParser::snapshot(Self)                                  -> @cells.Derived[SyntaxSnapshot]
+pub fn SyntaxParser::source(Self)                                    -> @cells.Derived[String]
+pub fn SyntaxParser::syntax_tree(Self)                               -> @cells.Derived[@seam.SyntaxNode]
+pub fn SyntaxParser::diagnostics(Self)                               -> @cells.Derived[@core.DiagnosticSet]
+pub fn SyntaxParser::runtime(Self)                                   -> @cells.Runtime
 ```
 
 Outside a tracked compute closure, read these views with `.read()` /
@@ -42,33 +55,45 @@ Outside a tracked compute closure, read these views with `.read()` /
 
 ## Implementing a new language
 
-Grammar authors don't construct `Parser` directly. Define a `Grammar[T, K, Ast]`
-(see `dowdiness/loom` crate root) and call `new_parser(source, grammar)`;
-the factory builds the `ImperativeLanguage[Ast]` vtable and wraps it in
-a `Parser`.
+Grammar authors don't construct these handles directly. Define a
+`Grammar[T, K, Ast]` and call `new_parser(source, grammar)` when you have an
+AST fold and `Ast : Eq`; the factory builds the `ImperativeLanguage[Ast]`
+vtable and wraps it in a `Parser`.
+
+For CST/diagnostics-only integrations, define `SyntaxGrammar[T, K]` and call
+`new_syntax_parser(source, grammar)`. If you already have a `Grammar` whose AST
+is not `Eq`, use `grammar.to_syntax_grammar()` to reuse its lexer/spec without
+running the AST fold.
 
 ## Error Handling
 
 - Lexer recovery → `syntax_tree()` returns the recovered tree,
-  `diagnostics()` carries structured lexer diagnostics, and `ast()` runs on
-  that recovered tree.
+  `diagnostics()` carries structured lexer diagnostics, and `Parser[Ast].ast()`
+  runs on that recovered tree.
 - Parse recovery → `syntax_tree()` returns the recovered tree,
-  `diagnostics()` carries structured parser diagnostics, and `ast()` runs on
-  that recovered tree.
+  `diagnostics()` carries structured parser diagnostics, and `Parser[Ast].ast()`
+  runs on that recovered tree.
 - Valid input → `syntax_tree()` returns the tree and `diagnostics()` is empty.
 
+`SyntaxParser` follows the same syntax/diagnostic rules and simply has no
+`ast()` view.
+
 These are current parse views. The parser does not retain semantic documents or
-reuse baselines across malformed input; that policy belongs in a downstream
-attachment rooted on `parser.runtime()`. See the
-[last-good semantic attachment guide](../../../docs/api/last-good-semantic-attachment.md)
-for the authoring pattern where diagnostics update immediately while the last
-successful semantic document is retained until projection succeeds again.
+reuse baselines across malformed input. That policy belongs in a downstream
+attachment rooted on `parser.runtime()`.
+
+For the authoring pattern where diagnostics update immediately while the last
+successful semantic document is retained until projection succeeds again, see the
+[last-good semantic attachment guide](../../../docs/api/last-good-semantic-attachment.md).
 
 ## `Ast : Eq` requirement
 
-`Eq` is required on `Ast` for snapshot and view backdating. Use
+`Parser[Ast]` requires `Eq` on `Ast` for snapshot and view backdating. Use
 structure-only equality (ignore positions and node IDs) for maximum
 backdating benefit.
+
+`SyntaxParser` has no `Ast` parameter and no AST equality requirement. Its
+snapshot backdates on source, syntax tree, diagnostics, and reuse count only.
 
 ## Reference implementation
 

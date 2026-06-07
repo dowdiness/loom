@@ -18,6 +18,9 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Added
 
+- `dowdiness/loom`: added `SyntaxGrammar`, `SyntaxParser`,
+  `SyntaxSnapshot`, and `new_syntax_parser` for reactive CST/diagnostics
+  consumers that do not have an AST fold or whose AST is not naturally `Eq`.
 - `dowdiness/loom`: added stable semantic projection identity helpers
   (`ProjectionIdentityBaseline`, `ProjectionIdentityTracker`, `ProjectionLeaf`,
   `StableProjectionLeaf`, `ProjectionStringIdAllocator`,

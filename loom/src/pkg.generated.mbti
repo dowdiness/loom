@@ -24,6 +24,8 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
 
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(String, Grammar[T, K, Ast], runtime? : @cells.Runtime) -> @pipeline.Parser[Ast]
 
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(String, SyntaxGrammar[T, K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser
+
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
 pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]
@@ -57,6 +59,17 @@ pub struct Grammar[T, K, Ast] {
 }
 pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]
+
+pub struct SyntaxGrammar[T, K] {
+  spec : @core.LanguageSpec[T, K]
+  lex : (String) -> @core.LexResult[T]
+  incremental_relex_enabled : Bool
+  block_reparse_spec : @core.BlockReparseSpec[T, K]?
+  mode_relex : @core.ModeRelexState[T]?
+}
+pub fn[T, K] SyntaxGrammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K]
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar::parse_cst(Self[T, K], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Type aliases
 pub using @core {type BlockReparseSpec}
@@ -146,6 +159,10 @@ pub using @core {type StableProjectionLeaf}
 pub using @seam {type SyntaxElement}
 
 pub using @seam {type SyntaxNode}
+
+pub using @pipeline {type SyntaxParser}
+
+pub using @pipeline {type SyntaxSnapshot}
 
 pub using @seam {type SyntaxToken}
 

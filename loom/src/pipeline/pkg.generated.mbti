@@ -6,6 +6,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/seam",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -25,6 +26,26 @@ pub fn[Ast : Eq] Parser::set_source(Self[Ast], String) -> Unit
 pub fn[Ast] Parser::snapshot(Self[Ast]) -> @cells.Derived[@incremental.ParseSnapshot[Ast]]
 pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Derived[String]
 pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Derived[@seam.SyntaxNode]
+
+pub struct SyntaxParser {
+  // private fields
+}
+pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit
+pub fn SyntaxParser::diagnostics(Self) -> @cells.Derived[@core.DiagnosticSet]
+pub fn SyntaxParser::new(String, @incremental.ImperativeLanguage[Unit], runtime? : @cells.Runtime) -> Self
+pub fn SyntaxParser::runtime(Self) -> @cells.Runtime
+pub fn SyntaxParser::set_source(Self, String) -> Unit
+pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]
+pub fn SyntaxParser::source(Self) -> @cells.Derived[String]
+pub fn SyntaxParser::syntax_tree(Self) -> @cells.Derived[@seam.SyntaxNode]
+
+pub struct SyntaxSnapshot {
+  source : String
+  syntax : @seam.SyntaxNode
+  diagnostics : @core.DiagnosticSet
+  reuse_count : Int
+} derive(Eq, @debug.Debug)
+pub fn SyntaxSnapshot::copy(Self) -> Self
 
 // Type aliases
 
