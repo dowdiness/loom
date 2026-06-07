@@ -16,7 +16,8 @@ pub struct TokenInfo[T] {
 ```
 
 `T` is the language-specific token type. Token starts are tracked outside the
-token array so token values remain stable across reuse checks.
+token array so token values remain stable across reuse checks. `len` is a
+MoonBit string length: a UTF-16 code-unit count, not a byte count.
 
 Recovering lexer paths use `LexResult[T]`:
 
@@ -28,8 +29,56 @@ pub struct LexResult[T] {
 }
 ```
 
-`TokenBuffer` stores the latest `LexResult` diagnostics and parser entry
-points merge them with parser diagnostics before returning to callers.
+Use `LexResult::with_starts` when a lexer already produces Loom's parallel
+`TokenInfo` and start arrays. For production lexers that return positioned
+source spans, prefer the located-token adapter instead of hand-building those
+parallel arrays:
+
+```moonbit
+pub struct LocatedToken[T] { ... }
+
+pub fn LocatedToken::LocatedToken(
+  token : T,
+  start~ : Int,
+  end~ : Int,
+) -> LocatedToken[T]
+
+pub fn LexResult::from_located_tokens(
+  source : String,
+  located_tokens : Array[LocatedToken[T]],
+  gap_token? : (StringView, Int, Int) -> T,
+  gap_error_token? : (StringView, Int, Int) -> T,
+  diagnostics? : DiagnosticSet,
+  gap_error_code? : String,
+  diagnose_nonblank_gaps? : Bool,
+) -> LexResult[T]
+```
+
+The adapter contract is:
+
+- `start` and `end` are half-open UTF-16 code-unit offsets into `source`.
+- `located_tokens` must already be sorted in source order; the adapter preserves
+  caller order and does not sort for you.
+- Positive-width token spans must not overlap. Zero-width tokens are valid when
+  `start == end`, so adjacent starts may repeat at token-stream boundaries
+  (for example, inserted ASI semicolon tokens).
+- Invalid external spans — negative offsets, reversed ranges, or offsets beyond
+  `source.length()` — are recorded as lexer diagnostics before the adapter
+  safely normalizes them for `LexResult` construction.
+- Gaps between located spans are explicit policy points. Blank gaps are skipped
+  unless `gap_token` is supplied; then the callback produces a token for the
+  blank source slice. Non-blank gaps emit an `unlexed source gap` diagnostic by
+  default and can also be represented by `gap_error_token`. Set
+  `diagnose_nonblank_gaps=false` only when the external lexer has already
+  reported the same source gap.
+- The optional `diagnostics` argument is copied into the result and then merged
+  with adapter diagnostics such as invalid spans, non-blank gaps, and final
+  `LexResult` invariant checks. `TokenBuffer` stores those lexer diagnostics;
+  parser entry points append parser diagnostics before returning to callers.
+
+See `examples/moonbit/src/lexer_adapter.mbt` for a concrete consumer that adapts
+`moonbitlang/parser/lexer` UTF-16 locations through `LocatedToken` and
+`LexResult::from_located_tokens`.
 
 ### LanguageSpec
 
