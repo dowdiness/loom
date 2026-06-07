@@ -67,6 +67,7 @@ above, or [`examples/json`](../examples/json/) and
 // Grammar authors
 @loom.Grammar             // grammar description
 @loom.LanguageSpec        // token-level hooks
+@loom.LocatedToken        // external positioned lexer adapter input
 @loom.ParserContext       // parse combinators
 @loom.CstNode             // immutable green tree
 @loom.SyntaxNode          // positioned CST view

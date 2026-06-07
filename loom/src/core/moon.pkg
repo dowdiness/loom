@@ -4,6 +4,7 @@ import {
   "dowdiness/pretty",
   "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
+  "moonbitlang/core/string",
 }
 
 import {

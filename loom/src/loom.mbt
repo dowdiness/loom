@@ -44,6 +44,7 @@ pub using @core {
   type LexError,
   type LexResult,
   type LexStep,
+  type LocatedToken,
   type LineCol,
   type LineIndex,
   type LineRange,

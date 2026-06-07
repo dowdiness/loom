@@ -9,6 +9,26 @@ pub struct TokenInfo[T] {
 } derive(Debug, Eq)
 
 ///|
+/// Token with explicit UTF-16 source offsets from an external lexer.
+///
+/// `start` and `end` are code-unit offsets into the source string used to build
+/// a `LexResult`. Zero-width tokens are valid when `start == end`.
+pub struct LocatedToken[T] {
+  priv token : T
+  priv start : Int
+  priv end : Int
+} derive(Debug, Eq)
+
+///|
+pub fn[T] LocatedToken::LocatedToken(
+  token : T,
+  start~ : Int,
+  end~ : Int,
+) -> LocatedToken[T] {
+  { token, start, end }
+}
+
+///|
 /// Structured result of lexing a source string.
 ///
 /// `tokens` remain position-independent. `starts` records the source offset of
@@ -39,6 +59,58 @@ pub fn[T] LexResult::with_starts(
 }
 
 ///|
+/// Build a `LexResult` from tokens that already carry source offsets.
+///
+/// This is the recommended adapter for production lexers that return positioned
+/// tokens rather than Loom's position-independent `TokenInfo` stream. Blank
+/// gaps are skipped unless `gap_token` is supplied. Non-blank gaps emit a lexer
+/// diagnostic by default and can also be represented by `gap_error_token`.
+pub fn[T] LexResult::from_located_tokens(
+  source : String,
+  located_tokens : Array[LocatedToken[T]],
+  gap_token? : (StringView, Int, Int) -> T,
+  gap_error_token? : (StringView, Int, Int) -> T,
+  diagnostics? : DiagnosticSet = DiagnosticSet::empty(),
+  gap_error_code? : String = "loom.lex.unlexed_gap",
+  diagnose_nonblank_gaps? : Bool = true,
+) -> LexResult[T] {
+  let diagnostics = diagnostics.copy()
+  let tokens : Array[TokenInfo[T]] = []
+  let starts : Array[Int] = []
+  let source_len = source.length()
+  let cursor = for located in located_tokens; cursor = 0, index = 0 {
+    validate_located_token_span(
+      diagnostics,
+      index,
+      located.start,
+      located.end,
+      source_len,
+    )
+    let start = clamp_lex_offset(located.start, source_len)
+    let clamped_end = clamp_lex_offset(located.end, source_len)
+    let end = if clamped_end < start { start } else { clamped_end }
+    if start > cursor {
+      push_located_gap(
+        source, tokens, starts, cursor, start, diagnostics, gap_token, gap_error_token,
+        gap_error_code, diagnose_nonblank_gaps,
+      )
+    }
+    starts.push(start)
+    tokens.push(TokenInfo::new(located.token, end - start))
+    continue if end > cursor { end } else { cursor }, index + 1
+  } nobreak {
+    cursor
+  }
+  if cursor < source_len {
+    push_located_gap(
+      source, tokens, starts, cursor, source_len, diagnostics, gap_token, gap_error_token,
+      gap_error_code, diagnose_nonblank_gaps,
+    )
+  }
+  LexResult::with_starts(tokens, starts, diagnostics~)
+}
+
+///|
 pub fn[T] LexResult::tokens(self : LexResult[T]) -> Array[TokenInfo[T]] {
   self.tokens.copy()
 }
@@ -51,6 +123,92 @@ pub fn[T] LexResult::starts(self : LexResult[T]) -> Array[Int] {
 ///|
 pub fn[T] LexResult::diagnostics(self : LexResult[T]) -> DiagnosticSet {
   self.diagnostics.copy()
+}
+
+///|
+fn[T] push_located_gap(
+  source : String,
+  tokens : Array[TokenInfo[T]],
+  starts : Array[Int],
+  start : Int,
+  end : Int,
+  diagnostics : DiagnosticSet,
+  gap_token : ((StringView, Int, Int) -> T)?,
+  gap_error_token : ((StringView, Int, Int) -> T)?,
+  gap_error_code : String,
+  diagnose_nonblank_gaps : Bool,
+) -> Unit {
+  let gap_text = source.view(start_offset=start, end_offset=end)
+  if gap_text.is_blank() {
+    match gap_token {
+      Some(make_gap_token) => {
+        starts.push(start)
+        tokens.push(
+          TokenInfo::new(make_gap_token(gap_text, start, end), end - start),
+        )
+      }
+      None => ()
+    }
+  } else {
+    if diagnose_nonblank_gaps {
+      diagnostics.push(
+        Diagnostic::lexer_error_at(
+          "unlexed source gap", start, end, gap_error_code,
+        ),
+      )
+    }
+    match gap_error_token {
+      Some(make_gap_error_token) => {
+        starts.push(start)
+        tokens.push(
+          TokenInfo::new(
+            make_gap_error_token(gap_text, start, end),
+            end - start,
+          ),
+        )
+      }
+      None => ()
+    }
+  }
+}
+
+///|
+fn validate_located_token_span(
+  diagnostics : DiagnosticSet,
+  index : Int,
+  start : Int,
+  end : Int,
+  source_len : Int,
+) -> Unit {
+  if start < 0 ||
+    end < 0 ||
+    end < start ||
+    start > source_len ||
+    end > source_len {
+    diagnostics.push(
+      Diagnostic::lexer_error(
+        "LexResult received invalid located token span at index " +
+        index.to_string() +
+        ": [" +
+        start.to_string() +
+        "," +
+        end.to_string() +
+        "] for source length " +
+        source_len.to_string(),
+      ),
+    )
+  }
+}
+
+///|
+fn clamp_lex_offset(offset : Int, source_len : Int) -> Int {
+  if offset < 0 {
+    0
+  } else if offset > source_len {
+    source_len
+  } else {
+    offset
+  }
 }
 
 ///|
