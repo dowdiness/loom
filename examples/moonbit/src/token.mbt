@@ -77,22 +77,87 @@ fn MoonToken::is_item_delimiter(self : MoonToken) -> Bool {
 }
 
 ///|
-fn MoonToken::starts_item_body(
-  self : MoonToken,
-  item_kind : MoonbitSyntaxKind,
-) -> Bool {
-  match (item_kind, self) {
-    (FunctionItemNode | StructItemNode | EnumItemNode, Official(kind=TK_LBRACE)) =>
-      true
-    (StructItemNode, Official(kind=TK_LPAREN)) => true
-    (LetItemNode | FunctionItemNode | TypeItemNode, Official(kind=TK_EQUAL)) =>
-      true
+fn MoonToken::is_let_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_LET | TK_LETREC | TK_CONST) => true
     _ => false
   }
 }
 
 ///|
-fn MoonToken::starts_legacy_type_body(
+fn MoonToken::is_function_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_FN | TK_FNALIAS) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_struct_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_STRUCT) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_enum_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_ENUM | TK_EXTENUM | TK_ENUMVIEW) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::is_type_item_keyword(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_TYPE | TK_TYPEALIAS) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_let_item_body(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_EQUAL) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_function_item_body(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_LBRACE | TK_EQUAL) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_struct_item_body(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_LBRACE | TK_LPAREN) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_enum_item_body(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_LBRACE) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_type_item_body(self : MoonToken) -> Bool {
+  match self {
+    Official(kind=TK_EQUAL) => true
+    _ => false
+  }
+}
+
+///|
+fn MoonToken::starts_legacy_type_body_after_name(
   self : MoonToken,
   type_name_seen : Bool,
 ) -> Bool {
@@ -102,14 +167,6 @@ fn MoonToken::starts_legacy_type_body(
         TK_LBRACKET | TK_COMMENT | TK_NEWLINE => false
         _ => true
       }
-    _ => false
-  }
-}
-
-///|
-fn MoonToken::is_type_item_keyword(self : MoonToken) -> Bool {
-  match self {
-    Official(kind=TK_TYPE | TK_TYPEALIAS) => true
     _ => false
   }
 }

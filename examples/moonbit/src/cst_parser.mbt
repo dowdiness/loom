@@ -64,7 +64,7 @@ fn parse_source_item_header(
     Some(header_kind) => {
       let mut result = (0, 0)
       ctx.node(header_kind, fn() {
-        result = consume_source_item_header_tokens(ctx, item_kind)
+        result = parse_source_item_header_tokens(ctx, item_kind)
       })
       result
     }
@@ -73,63 +73,280 @@ fn parse_source_item_header(
 }
 
 ///|
-fn consume_source_item_header_tokens(
+fn parse_source_item_header_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   item_kind : MoonbitSyntaxKind,
 ) -> (Int, Int) {
-  for consumed = 0, group_depth = 0, type_keyword_seen = false, type_name_seen = false, prefix_group_payload_pending = false, prefix_literal_payload_pending = false; !ctx.at_eof() &&
+  match item_kind {
+    LetItemNode => parse_let_item_header(ctx)
+    FunctionItemNode => parse_function_item_header(ctx)
+    StructItemNode => parse_struct_item_header(ctx)
+    EnumItemNode => parse_enum_item_header(ctx)
+    TypeItemNode => parse_type_item_header(ctx)
+    _ => (0, 0)
+  }
+}
+
+///|
+fn parse_let_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
+  if prefix_depth > 0 {
+    (prefix_consumed, prefix_depth)
+  } else {
+    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
+      token.is_let_item_keyword()
+    })
+    let (tail_consumed, tail_depth) = parse_let_item_header_tail(ctx)
+    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
+  }
+}
+
+///|
+fn parse_function_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
+  if prefix_depth > 0 {
+    (prefix_consumed, prefix_depth)
+  } else {
+    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
+      token.is_function_item_keyword()
+    })
+    let (tail_consumed, tail_depth) = parse_function_item_header_tail(ctx)
+    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
+  }
+}
+
+///|
+fn parse_struct_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
+  if prefix_depth > 0 {
+    (prefix_consumed, prefix_depth)
+  } else {
+    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
+      token.is_struct_item_keyword()
+    })
+    let (tail_consumed, tail_depth) = parse_struct_item_header_tail(ctx)
+    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
+  }
+}
+
+///|
+fn parse_enum_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
+  if prefix_depth > 0 {
+    (prefix_consumed, prefix_depth)
+  } else {
+    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
+      token.is_enum_item_keyword()
+    })
+    let (tail_consumed, tail_depth) = parse_enum_item_header_tail(ctx)
+    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
+  }
+}
+
+///|
+fn parse_type_item_header(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let (prefix_consumed, prefix_depth) = parse_source_item_prefixes(ctx)
+  if prefix_depth > 0 {
+    (prefix_consumed, prefix_depth)
+  } else {
+    let keyword_consumed = consume_item_header_keyword(ctx, fn(token) {
+      token.is_type_item_keyword()
+    })
+    let (tail_consumed, tail_depth) = parse_type_item_header_tail(ctx)
+    (prefix_consumed + keyword_consumed + tail_consumed, tail_depth)
+  }
+}
+
+///|
+fn parse_let_item_header_tail(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  consume_header_tokens_until(ctx, fn(token) { token.starts_let_item_body() })
+}
+
+///|
+fn parse_function_item_header_tail(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  consume_header_tokens_until(ctx, fn(token) {
+    token.starts_function_item_body()
+  })
+}
+
+///|
+fn parse_struct_item_header_tail(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  consume_header_tokens_until(ctx, fn(token) { token.starts_struct_item_body() })
+}
+
+///|
+fn parse_enum_item_header_tail(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  consume_header_tokens_until(ctx, fn(token) { token.starts_enum_item_body() })
+}
+
+///|
+fn consume_item_header_keyword(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  is_item_keyword : (MoonToken) -> Bool,
+) -> Int {
+  if !ctx.at_eof() && is_item_keyword(ctx.peek()) {
+    let token = ctx.peek()
+    ctx.emit_token(token.syntax_kind())
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn parse_source_item_prefixes(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  for consumed = 0; !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS; {
+    let token = ctx.peek()
+    if token.is_layout_token() {
+      ctx.emit_token(token.syntax_kind())
+      continue consumed + 1
+    }
+    if token.is_source_item_prefix() {
+      ctx.emit_token(token.syntax_kind())
+      let (payload_consumed, payload_depth) = parse_source_item_prefix_payload(
+        ctx, token,
+      )
+      if payload_depth > 0 {
+        break (consumed + 1 + payload_consumed, payload_depth)
+      }
+      continue consumed + 1 + payload_consumed
+    }
+    break (consumed, 0)
+  } nobreak {
+    (consumed, 0)
+  }
+}
+
+///|
+fn parse_source_item_prefix_payload(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  prefix : MoonToken,
+) -> (Int, Int) {
+  if prefix.accepts_source_item_prefix_group_payload() {
+    parse_group_prefix_payload(ctx)
+  } else if prefix.accepts_source_item_prefix_literal_payload() {
+    parse_literal_prefix_payload(ctx)
+  } else {
+    (0, 0)
+  }
+}
+
+///|
+fn parse_group_prefix_payload(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let layout_consumed = consume_header_layout_tokens(ctx)
+  if !ctx.at_eof() && ctx.peek().opens_balanced_group() {
+    let (payload_consumed, payload_depth) = consume_balanced_header_group(ctx)
+    (layout_consumed + payload_consumed, payload_depth)
+  } else {
+    (layout_consumed, 0)
+  }
+}
+
+///|
+fn parse_literal_prefix_payload(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  let layout_consumed = consume_header_layout_tokens(ctx)
+  if !ctx.at_eof() && ctx.peek().is_source_item_prefix_literal_payload() {
+    let token = ctx.peek()
+    ctx.emit_token(token.syntax_kind())
+    (layout_consumed + 1, 0)
+  } else {
+    (layout_consumed, 0)
+  }
+}
+
+///|
+fn consume_header_layout_tokens(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Int {
+  for consumed = 0; !ctx.at_eof() && ctx.peek().is_layout_token(); {
+    let token = ctx.peek()
+    ctx.emit_token(token.syntax_kind())
+    continue consumed + 1
+  } nobreak {
+    consumed
+  }
+}
+
+///|
+fn consume_balanced_header_group(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  for consumed = 0, group_depth = 0; !ctx.at_eof() &&
      ctx.error_count < MAX_SKELETON_ERRORS; {
     let token = ctx.peek()
-    let prefix_payload = group_depth == 0 &&
-      (
-        (prefix_group_payload_pending && token.opens_balanced_group()) ||
-        (
-          prefix_literal_payload_pending &&
-          token.is_source_item_prefix_literal_payload()
-        )
-      )
+    ctx.emit_token(token.syntax_kind())
+    let next_depth = token.next_group_depth(group_depth)
+    if next_depth == 0 {
+      break (consumed + 1, next_depth)
+    }
+    continue consumed + 1, next_depth
+  } nobreak {
+    (consumed, group_depth)
+  }
+}
+
+///|
+fn consume_header_tokens_until(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  starts_item_body : (MoonToken) -> Bool,
+) -> (Int, Int) {
+  for consumed = 0, group_depth = 0; !ctx.at_eof() &&
+     ctx.error_count < MAX_SKELETON_ERRORS; {
+    let token = ctx.peek()
     if group_depth == 0 &&
-      !prefix_payload &&
+      (token.is_item_delimiter() || starts_item_body(token)) {
+      break (consumed, group_depth)
+    }
+    ctx.emit_token(token.syntax_kind())
+    continue consumed + 1, token.next_group_depth(group_depth)
+  } nobreak {
+    (consumed, group_depth)
+  }
+}
+
+///|
+fn parse_type_item_header_tail(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> (Int, Int) {
+  for consumed = 0, group_depth = 0, type_name_seen = false; !ctx.at_eof() &&
+     ctx.error_count < MAX_SKELETON_ERRORS; {
+    let token = ctx.peek()
+    if group_depth == 0 &&
       (
         token.is_item_delimiter() ||
-        token.starts_item_body(item_kind) ||
-        (
-          item_kind == TypeItemNode &&
-          token.starts_legacy_type_body(type_name_seen)
-        )
+        token.starts_type_item_body() ||
+        token.starts_legacy_type_body_after_name(type_name_seen)
       ) {
       break (consumed, group_depth)
     }
     ctx.emit_token(token.syntax_kind())
-    let keep_prefix_payload_pending = group_depth == 0 &&
-      token.is_layout_token()
-    let next_prefix_group_payload_pending = if keep_prefix_payload_pending {
-      prefix_group_payload_pending
-    } else if prefix_payload || group_depth > 0 {
-      false
-    } else {
-      token.accepts_source_item_prefix_group_payload()
-    }
-    let next_prefix_literal_payload_pending = if keep_prefix_payload_pending {
-      prefix_literal_payload_pending
-    } else if prefix_payload || group_depth > 0 {
-      false
-    } else {
-      token.accepts_source_item_prefix_literal_payload()
-    }
     continue consumed + 1,
       token.next_group_depth(group_depth),
-      type_keyword_seen ||
-      (item_kind == TypeItemNode && token.is_type_item_keyword()),
-      type_name_seen ||
-      (
-        item_kind == TypeItemNode &&
-        type_keyword_seen &&
-        group_depth == 0 &&
-        token.is_type_header_name()
-      ),
-      next_prefix_group_payload_pending,
-      next_prefix_literal_payload_pending
+      type_name_seen || (group_depth == 0 && token.is_type_header_name())
   } nobreak {
     (consumed, group_depth)
   }
