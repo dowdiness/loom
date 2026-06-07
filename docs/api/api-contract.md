@@ -43,9 +43,9 @@ pub struct CstToken {
 }
 ```
 
-**Stable content API, unstable backing-storage API.** Immutable leaf token. Token text is represented as a source span; use `text()` for the zero-copy content view. The backing source buffer is intentionally not part of the stable application contract.
+**Stable content/provenance API, unstable backing-storage API.** Immutable leaf token. Token text is represented as a source span; use `text()` for the zero-copy content view. `is_source_backed()` is the stable provenance predicate for distinguishing lexer/source tokens from parser-synthetic zero-width recovery placeholders. The backing source buffer is intentionally not part of the stable application contract.
 
-**Invariant:** the private cached hash equals `combine_hash(kind.inner, string_hash(text()))` and is frozen at construction. Public callers cannot mutate the backing source span or hash fields.
+**Invariant:** the private cached hash equals `combine_hash(combine_hash(kind.inner, string_hash(text())), provenance_bit)` and is frozen at construction. Public callers cannot mutate the backing source span, provenance bit, or hash fields.
 
 | Symbol | Stability | Notes |
 |---|---|---|
@@ -53,6 +53,7 @@ pub struct CstToken {
 | `CstToken::CstToken(RawKind, StringView) -> Self` | Stable | Computes and caches the private hash; records the input view's backing source and offsets without copying |
 | `CstToken::new(RawKind, StringView) -> Self` | **Deprecated** | Alias for `CstToken::CstToken`; retained for compatibility |
 | `CstToken::text(Self) -> StringView` | Stable | Zero-copy token-content view |
+| `CstToken::is_source_backed(Self) -> Bool` | Stable | True for lexer/source-span tokens; false for parser-synthetic zero-width recovery placeholders. This is provenance only, not tree position or backing-source ownership |
 | `CstToken::unsafe_backing_source(Self) -> String` | **Unstable** | Exposes backing storage identity for parser/source-retention white-box checks only; not application API |
 | `CstToken::source(Self) -> String` | **Deprecated** | Compatibility alias for `unsafe_backing_source`; use `text()` for content |
 | `CstToken::start_offset(Self) -> Int` | Stable | Start UTF-16 code-unit offset within the backing source |
@@ -149,9 +150,11 @@ pub struct EventBuffer { /* private fields */ }
 | `EventBuffer::new() -> Self` | Stable | |
 | `EventBuffer::push(Self, ParseEvent) -> Unit` | Stable | Append any public event directly; application reuse should use `ParseEvent::ReuseNode` |
 | `EventBuffer::push_parser_reuse_node_rebased(Self, CstNode, String, Int) -> Unit` | **Unstable** | Trusted parser-owned source-span rebase path; rebases reused token spans onto the provided current source when text matches, otherwise falls back to owned token text |
-| `EventBuffer::push_parser_reuse_node_rebased_unchecked(Self, CstNode, String, Int) -> Unit` | **Unstable** | Parser-validated source-span rebase path; skips redundant text validation, rebases before normal tree-builder handling, and never direct-splices the old subtree |
 | `EventBuffer::push_reuse_node_at(Self, CstNode, String, Int) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_reuse_node_rebased` |
+| `EventBuffer::push_parser_reuse_node_rebased_unchecked(Self, CstNode, String, Int) -> Unit` | **Unstable** | Parser-validated source-span rebase path; skips redundant text validation, rebases before normal tree-builder handling, and never direct-splices the old subtree |
 | `EventBuffer::push_reuse_node_at_unchecked(Self, CstNode, String, Int) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_reuse_node_rebased_unchecked` |
+| `EventBuffer::push_parser_synthetic_zero_width_token(Self, RawKind) -> Unit` | **Unstable** | Trusted parser-owned recovery hook for synthetic zero-width placeholders. Public `ParseEvent` intentionally has no synthetic-token variant; application code should emit source-backed `ParseEvent::Token` values |
+| `EventBuffer::push_synthetic_zero_width_token(Self, RawKind) -> Unit` | **Deprecated** | Compatibility alias for `push_parser_synthetic_zero_width_token` |
 | `EventBuffer::mark(Self) -> Int` | Stable | Reserve a `Tombstone` slot; returns its index |
 | `EventBuffer::start_at(Self, Int, RawKind) -> Unit` | Stable | Fill a `Tombstone` with `StartNode`; aborts if out-of-bounds or non-Tombstone |
 | `EventBuffer::build_tree(Self, RawKind, trivia_kind? : RawKind?, error_kind? : RawKind?, incomplete_kind? : RawKind?) -> CstNode raise EventStreamError` | Stable | Builds CST from accumulated events; preserves token source spans for `Token` and parser-owned rebase hooks; raises on malformed event streams |

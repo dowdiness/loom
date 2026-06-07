@@ -7,10 +7,14 @@ Notable user-facing changes to Loom and its sibling modules.
 ### Changed
 
 - `dowdiness/seam`: hardened source-span/reuse APIs before stabilization.
-  `CstToken::unsafe_backing_source` and
-  `EventBuffer::push_parser_reuse_node_rebased*` carry explicit unstable,
-  parser-owned naming; the older `CstToken::source` and
-  `EventBuffer::push_reuse_node_at*` names are deprecated compatibility aliases.
+  `CstToken::is_source_backed` is the stable token-provenance predicate;
+  `CstToken::unsafe_backing_source`,
+  `EventBuffer::push_parser_reuse_node_rebased*`, and
+  `EventBuffer::push_parser_synthetic_zero_width_token` carry explicit
+  unstable, parser-owned naming. The older `CstToken::source`,
+  `EventBuffer::push_reuse_node_at*`, and
+  `EventBuffer::push_synthetic_zero_width_token` names are deprecated
+  compatibility aliases.
 
 ### Added
 

@@ -32,7 +32,7 @@ test "build_tree: token keeps source span" {
 ///|
 test "EventBuffer: synthetic zero-width token records non-source provenance" {
   let buf = EventBuffer::new()
-  buf.push_synthetic_zero_width_token(RawKind(9))
+  buf.push_parser_synthetic_zero_width_token(RawKind(9))
   let root = buf.build_tree(RawKind(22))
   match root.children[0] {
     CstElement::Token(tok) => {
@@ -53,7 +53,7 @@ test "build_tree_fully_interned: token provenance prevents node collapse" {
   source_buf.push(ParseEvent::FinishNode)
   let synthetic_buf = EventBuffer::new()
   synthetic_buf.push(ParseEvent::StartNode(RawKind(1)))
-  synthetic_buf.push_synthetic_zero_width_token(RawKind(9))
+  synthetic_buf.push_parser_synthetic_zero_width_token(RawKind(9))
   synthetic_buf.push(ParseEvent::FinishNode)
   let source_tree = source_buf.build_tree_fully_interned(
     RawKind(0),

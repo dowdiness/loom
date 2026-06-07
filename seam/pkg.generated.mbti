@@ -96,7 +96,8 @@ pub fn EventBuffer::push(Self, ParseEvent) -> Unit
 pub fn EventBuffer::push_parser_reuse_node_rebased(Self, CstNode, String, Int) -> Unit
 #alias(push_reuse_node_at_unchecked, deprecated)
 pub fn EventBuffer::push_parser_reuse_node_rebased_unchecked(Self, CstNode, String, Int) -> Unit
-pub fn EventBuffer::push_synthetic_zero_width_token(Self, RawKind) -> Unit
+#alias(push_synthetic_zero_width_token, deprecated)
+pub fn EventBuffer::push_parser_synthetic_zero_width_token(Self, RawKind) -> Unit
 pub fn EventBuffer::start_at(Self, Int, RawKind) -> Unit
 pub fn EventBuffer::truncate(Self, Int) -> Unit
 

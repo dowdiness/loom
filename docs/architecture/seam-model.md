@@ -36,6 +36,9 @@ content, and provenance:
   zero-width error or incomplete-token recovery leaves. `is_source_backed()` is
   false; these leaves are not lexer context.
 
+`is_source_backed()` is stable token-provenance vocabulary; it does not expose
+backing-buffer ownership or structural position.
+
 A token's backing span is not its structural position or ownership range inside a
 `CstNode`. Structural position is computed from the containing node's start plus
 the accumulated `text_len` of preceding children. This distinction matters for
