@@ -14,8 +14,14 @@ In other words:
 
 incremental_parse(source, edit, new_source) == full_parse(new_source)
 
-Structural identity ignores node IDs and other incidental metadata. The
-structure, kinds, and token boundaries must match.
+Structural identity ignores node IDs and other incidental metadata. The raw
+green-tree structure, kinds, token boundaries, and internal `RepeatGroup` layout
+must match.
+
+`RepeatGroup` is a transparent physical balancing wrapper, not semantic CST
+structure. During reuse, tree building flattens reused `RepeatGroup` fragments
+and rebalances the current event frame, so incremental parsing reaches the same
+layout as a full reparse.
 
 ### Secondary Invariants
 
@@ -80,6 +86,25 @@ right boundary may be consumed as lexer context; a parser-synthetic zero-width
 placeholder is not lexer context. Boundary ownership is determined by walking
 children and accumulating their `text_len` from the containing node's start, not
 by reading `CstToken::start_offset()` / `end_offset()` backing spans.
+
+RepeatGroup reuse has one extra canonicalization rule:
+
+- The parser may reuse a fragment from an old balanced run.
+- Tree building must not preserve that old fragment boundary.
+- It flattens reused `RepeatGroup` wrappers into the current event frame,
+  combines them with newly parsed siblings, and balances the frame again.
+- This keeps the raw green tree equal to a full reparse even when reuse cuts
+  through a previous group.
+
+Coverage and scope:
+
+- PR #242 covers the invariant.
+- `seam/event_wbtest.mbt` has the `build_tree canonicalizes reused RepeatGroup
+  fragments before balancing` regression.
+- `loom/src/core/parser_zero_width_boundary_properties_wbtest.mbt` has the
+  repeat-group property cases.
+- This is separate from explicit token ownership/provenance work tracked in
+  #224.
 
 The reused-boundary protocol is:
 
