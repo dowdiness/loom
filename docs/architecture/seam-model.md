@@ -10,7 +10,7 @@ The infrastructure separates structure from position through two complementary t
 |---|---|---|
 | `RawKind` | `SyntaxKind` | Language-specific node/token kind, newtype over `Int` |
 | `CstNode` | `GreenNode` | Immutable, content-addressed CST node (node offsets are external) |
-| `CstToken` | `GreenToken` | Immutable leaf token with kind and source-span text |
+| `CstToken` | `GreenToken` | Immutable leaf token with kind, text length, and backing source span |
 | `SyntaxNode` | `SyntaxNode` | Ephemeral positioned view; adds absolute UTF-16 offsets |
 
 ### CstNode
@@ -23,6 +23,29 @@ The infrastructure separates structure from position through two complementary t
 - `children` — ordered list of child nodes and tokens
 
 Once constructed, `children` must not be mutated — `text_len`, `hash`, and `token_count` are cached at construction time. Structural equality is content-based: two subtrees with identical structure and token text have the same hash even if their token spans point into different source strings. Incremental parsing emits parser-owned reuse events for unchanged regions; tree building rebases those reused token spans onto the current source buffer.
+
+### CstToken
+
+`CstToken` is a green-tree leaf. It records token kind, text length, text
+content, and provenance:
+
+- Source-backed tokens come from lexer/source `StringView`s. `is_source_backed()`
+  is true, and `start_offset()` / `end_offset()` name the token's backing span
+  in that source buffer.
+- Parser-synthetic tokens are placeholders emitted by the parser, such as
+  zero-width error or incomplete-token recovery leaves. `is_source_backed()` is
+  false; these leaves are not lexer context.
+
+A token's backing span is not its structural position or ownership range inside a
+`CstNode`. Structural position is computed from the containing node's start plus
+the accumulated `text_len` of preceding children. This distinction matters for
+zero-width and interned tokens: an interned empty source-backed token may carry a
+canonical backing span that differs from a later tree position, while a
+parser-synthetic zero-width placeholder has no lexer span to advance.
+
+Use `SyntaxNode` / `SyntaxToken` or explicit accumulated child offsets when you
+need positioned access. Use `CstToken::start_offset()` / `end_offset()` only for
+the token's backing source span.
 
 ### SyntaxNode
 
