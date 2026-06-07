@@ -152,6 +152,55 @@ are reused from the previous parse tree.
 
 ## Benchmark Results
 
+### Layout-Heavy Zero-Width Boundary Reuse
+
+*Measured 2026-06-07, `cd loom && NEW_MOON_MOD=0 moon bench --release -p dowdiness/loom/core`*
+
+Timed body creates a fresh `ReuseCursor`/`ParserContext`, drives incremental
+parser-event production, and skips CST rebuilding. The old-token cache is
+warmed before timing to isolate reused-boundary validation and advancement.
+
+**Regular node reuse, 8 items, plain old tree:**
+
+| Zero-width lexer tokens per boundary | Mean | Range (min ... max) |
+|--------------------------------------|------|---------------------|
+| 0 | 1.71 µs | 1.68 µs ... 1.74 µs |
+| 1 | 3.07 µs | 3.01 µs ... 3.20 µs |
+| 2 | 3.95 µs | 3.86 µs ... 4.01 µs |
+| 4 | 5.28 µs | 5.17 µs ... 5.63 µs |
+| 8 | 8.28 µs | 8.19 µs ... 8.55 µs |
+| 16 | 14.47 µs | 14.25 µs ... 14.94 µs |
+
+**RepeatGroup reuse, 64 items, plain old tree:**
+
+| Zero-width lexer tokens per boundary | Mean | Range (min ... max) |
+|--------------------------------------|------|---------------------|
+| 0 | 0.97 µs | 0.96 µs ... 0.98 µs |
+| 1 | 1.47 µs | 1.45 µs ... 1.49 µs |
+| 2 | 1.85 µs | 1.83 µs ... 1.89 µs |
+| 4 | 2.70 µs | 2.57 µs ... 2.86 µs |
+| 8 | 4.12 µs | 4.04 µs ... 4.19 µs |
+| 16 | 7.16 µs | 7.04 µs ... 7.44 µs |
+
+**Spot checks:**
+
+| Shape | Items | Old tree | Zero-width tokens | Mean |
+|-------|-------|----------|-------------------|------|
+| Regular nodes | 4 | plain | 8 | 3.85 µs |
+| RepeatGroup | 16 | plain | 8 | 2.28 µs |
+| Regular nodes | 8 | token-interned | 16 | 15.36 µs |
+| Regular nodes | 8 | fully-interned | 16 | 15.84 µs |
+| RepeatGroup | 64 | token-interned | 16 | 7.39 µs |
+| RepeatGroup | 64 | fully-interned | 16 | 7.23 µs |
+
+**Observations:**
+- Cost scales with repeated source-backed zero-width boundary tokens, as intended.
+- RepeatGroup reuse amortizes validation across many items; 64 items with 16
+  zero-width tokens per boundary stayed near 7 µs.
+- Token-interned and fully-interned old trees are within benchmark noise of
+  plain old trees for this path.
+- No optimization is indicated by these measurements.
+
 ### NodeInterner Performance Impact
 
 *Measured 2026-02-28, `moon bench --release`*
