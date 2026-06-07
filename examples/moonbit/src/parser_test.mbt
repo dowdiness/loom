@@ -120,6 +120,24 @@ test "skeleton grammar skips layout before modifier payloads" {
 }
 
 ///|
+test "skeleton grammar does not count layout against modifier lookahead" {
+  let source =
+    #|pub // one
+    #|// two
+    #|// three
+    #|
+    #|fn f()
+    #|pub // one
+    #|// two
+    #|// three
+    #|
+    #|(all) struct S {}
+    #|
+  let kinds = top_level_kind_names(source)
+  debug_inspect(kinds, content="[\"FunctionItemNode\", \"StructItemNode\"]")
+}
+
+///|
 test "skeleton grammar marks unclosed delimiter item incomplete" {
   let parser = @loom.new_parser("fn broken(\n", moonbit_grammar)
   let ast = parser.ast().read_or_abort()

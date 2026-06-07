@@ -54,15 +54,15 @@ fn parse_source_item(
 fn source_item_node_kind(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> MoonbitSyntaxKind {
-  for index = 0; index < MAX_ITEM_PREFIX_LOOKAHEAD; {
+  for index = 0, meaningful = 0; meaningful < MAX_ITEM_PREFIX_LOOKAHEAD; {
     let token = ctx.peek_nth(index)
     match token.source_item_node_kind() {
       Some(kind) => break kind
       None =>
         if token.is_layout_token() {
-          continue index + 1
+          continue index + 1, meaningful
         } else if token.is_source_item_prefix() {
-          continue skip_source_item_prefix(ctx, index, token)
+          continue skip_source_item_prefix(ctx, index, token), meaningful + 1
         } else {
           break SourceItemNode
         }
@@ -96,14 +96,11 @@ fn skip_layout_from(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   index : Int,
 ) -> Int {
-  for next_index = index; next_index < MAX_ITEM_PREFIX_LOOKAHEAD; {
-    if ctx.peek_nth(next_index).is_layout_token() {
-      continue next_index + 1
-    }
-    break next_index
-  } nobreak {
-    MAX_ITEM_PREFIX_LOOKAHEAD
+  let mut next_index = index
+  while ctx.peek_nth(next_index).is_layout_token() {
+    next_index = next_index + 1
   }
+  next_index
 }
 
 ///|
@@ -111,8 +108,13 @@ fn skip_balanced_prefix_group(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
   group_start : Int,
 ) -> Int {
-  for index = group_start, depth = 0; index < MAX_ITEM_PREFIX_LOOKAHEAD; {
+  for index = group_start, depth = 0, meaningful = 0; meaningful <
+     MAX_ITEM_PREFIX_LOOKAHEAD; {
     let token = ctx.peek_nth(index)
+    let next_index = index + 1
+    if token.is_layout_token() {
+      continue next_index, depth, meaningful
+    }
     let next_depth = if token.opens_balanced_group() {
       depth + 1
     } else if token.closes_balanced_group() && depth > 0 {
@@ -120,11 +122,10 @@ fn skip_balanced_prefix_group(
     } else {
       depth
     }
-    let next_index = index + 1
     if next_depth == 0 {
       break next_index
     }
-    continue next_index, next_depth
+    continue next_index, next_depth, meaningful + 1
   } nobreak {
     group_start + 1
   }
