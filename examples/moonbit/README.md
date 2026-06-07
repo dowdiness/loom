@@ -4,9 +4,9 @@ Skeleton integration for making the official MoonBit parser incremental with
 [`dowdiness/loom`](../../loom/).
 
 This example is intentionally small: it wires the official
-`moonbitlang/parser` lexer into Loom and emits a coarse, reusable CST. It is a
-starting point for porting the real MoonBit grammar, not a complete MoonBit
-parser.
+`moonbitlang/parser` lexer into Loom and emits a token-precise, reusable CST
+skeleton. It is a starting point for porting the real MoonBit grammar, not a
+complete MoonBit parser.
 
 ## What exists now
 
@@ -14,6 +14,9 @@ parser.
   `@core.LexResult[MoonToken]` through `@core.LexResult::from_located_tokens`.
 - `moonbit_grammar` is a real `@loom.Grammar` value that can be passed to
   `@loom.new_parser` or `@loom.new_imperative_parser`.
+- `MoonToken` stores the official `@tokens.TokenKind` and maps every official
+  token kind to a stable `MoonbitSyntaxKind` token variant while keeping Loom's
+  synthetic trivia/error/EOF kinds separate.
 - The internal root parser creates coarse top-level item nodes (`LetItemNode`,
   `FunctionItemNode`, `StructItemNode`, `EnumItemNode`, `TypeItemNode`, or
   fallback `SourceItemNode`) split by official ASI semicolon tokens while
@@ -23,12 +26,11 @@ parser.
 
 ## Intended milestones
 
-1. Replace coarse token classes with the full MoonBit syntax-kind table.
-2. Port the official handrolled parser rules to `@core.ParserContext` methods.
-3. Add a CST-to-official-AST fold and docstring attachment pass.
-4. Differential-test against `moonbitlang/parser.parse_string` on real MoonBit
+1. Port the official handrolled parser rules to `@core.ParserContext` methods.
+2. Add a CST-to-official-AST fold and docstring attachment pass.
+3. Differential-test against `moonbitlang/parser.parse_string` on real MoonBit
    sources.
-5. Add edit-sequence tests that assert stable diagnostics and non-zero CST reuse.
+4. Add edit-sequence tests that assert stable diagnostics and non-zero CST reuse.
 
 ## Quick check
 

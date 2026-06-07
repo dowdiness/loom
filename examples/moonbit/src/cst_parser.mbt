@@ -12,10 +12,22 @@ const MAX_ITEM_PREFIX_LOOKAHEAD : Int = 8
 fn parse_moonbit_root(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
+  consume_layout_tokens(ctx)
   while !ctx.at_eof() && ctx.error_count < MAX_SKELETON_ERRORS {
     parse_source_item(ctx)
+    consume_layout_tokens(ctx)
   }
   ctx.flush_trivia()
+}
+
+///|
+fn consume_layout_tokens(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  while !ctx.at_eof() && ctx.peek().is_layout_token() {
+    let token = ctx.peek()
+    ctx.emit_token(token.syntax_kind())
+  }
 }
 
 ///|
@@ -47,7 +59,9 @@ fn source_item_node_kind(
     match token.source_item_node_kind() {
       Some(kind) => break kind
       None =>
-        if token.is_source_item_prefix() {
+        if token.is_layout_token() {
+          continue index + 1
+        } else if token.is_source_item_prefix() {
           continue skip_source_item_prefix(ctx, index, token)
         } else {
           break SourceItemNode
