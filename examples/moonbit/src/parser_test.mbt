@@ -138,6 +138,48 @@ test "skeleton grammar stops function headers before body" {
 }
 
 ///|
+test "skeleton grammar splits equals function bodies from headers" {
+  let source = "fn cos(d : Double) -> Double = \"Math\" \"cos\"\n"
+  let header = first_item_header_token_kind_names(source)
+  debug_inspect(
+    header,
+    content=(
+      #|[
+      #|  "FnToken",
+      #|  "TriviaToken",
+      #|  "LidentToken",
+      #|  "LparenToken",
+      #|  "LidentToken",
+      #|  "TriviaToken",
+      #|  "ColonToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|  "RparenToken",
+      #|  "TriviaToken",
+      #|  "ThinArrowToken",
+      #|  "TriviaToken",
+      #|  "UidentToken",
+      #|]
+    ),
+  )
+  let body = first_item_token_kind_names(source)
+  debug_inspect(
+    body,
+    content=(
+      #|[
+      #|  "TriviaToken",
+      #|  "EqualToken",
+      #|  "TriviaToken",
+      #|  "StringToken",
+      #|  "TriviaToken",
+      #|  "StringToken",
+      #|  "SemiToken",
+      #|]
+    ),
+  )
+}
+
+///|
 test "skeleton grammar leaves initializer tokens after let header" {
   let kinds = first_item_token_kind_names("let x = 1\n")
   debug_inspect(

@@ -85,7 +85,8 @@ fn MoonToken::starts_item_body(
     (FunctionItemNode | StructItemNode | EnumItemNode, Official(kind=TK_LBRACE)) =>
       true
     (StructItemNode, Official(kind=TK_LPAREN)) => true
-    (LetItemNode | TypeItemNode, Official(kind=TK_EQUAL)) => true
+    (LetItemNode | FunctionItemNode | TypeItemNode, Official(kind=TK_EQUAL)) =>
+      true
     _ => false
   }
 }
