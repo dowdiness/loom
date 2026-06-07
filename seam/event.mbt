@@ -920,6 +920,56 @@ fn build_tree_buffered(
 let balance_threshold : Int = 8
 
 ///|
+/// Append an element while recursively expanding RepeatGroup wrappers.
+fn append_flattened_repeat_group_element(
+  out : Array[CstElement],
+  element : CstElement,
+) -> Unit {
+  match element {
+    CstElement::Node(node) =>
+      if node.kind == repeat_group_kind {
+        for child in node.children {
+          append_flattened_repeat_group_element(out, child)
+        }
+      } else {
+        out.push(element)
+      }
+    CstElement::Token(_) => out.push(element)
+  }
+}
+
+///|
+/// Remove RepeatGroup wrappers that were already present in an event frame.
+///
+/// Reused RepeatGroup fragments must be rebalanced with their newly parsed
+/// siblings so incremental trees keep the same canonical physical shape as a
+/// full reparse.
+fn flatten_repeat_group_children(
+  children : Array[CstElement],
+) -> Array[CstElement] {
+  for i, child in children {
+    match child {
+      CstElement::Node(node) =>
+        if node.kind == repeat_group_kind {
+          let flattened : Array[CstElement] = Array::new(
+            capacity=children.length(),
+          )
+          for j in 0..<i {
+            flattened.push(children[j])
+          }
+          append_flattened_repeat_group_element(flattened, child)
+          for j in (i + 1)..<children.length() {
+            append_flattened_repeat_group_element(flattened, children[j])
+          }
+          return flattened
+        }
+      CstElement::Token(_) => ()
+    }
+  }
+  children
+}
+
+///|
 /// Balance long runs of consecutive same-kind node siblings into a binary
 /// tree of RepeatGroup sub-nodes. Token children and short or mixed runs
 /// are left untouched.
@@ -936,6 +986,7 @@ fn balance_children(
   error_kind : RawKind?,
   incomplete_kind : RawKind?,
 ) -> Array[CstElement] {
+  let children = flatten_repeat_group_children(children)
   if children.length() <= balance_threshold {
     return children
   }

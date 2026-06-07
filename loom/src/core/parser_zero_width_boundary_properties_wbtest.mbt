@@ -392,14 +392,10 @@ fn zero_width_validate_case(case : ZeroWidthBoundaryCase) -> Unit {
       if case.item_count >= 9 {
         abort("regular-node cases must stay below RepeatGroup threshold")
       }
-    RepeatGroups => {
+    RepeatGroups =>
       if case.item_count <= 9 {
         abort("RepeatGroup cases need one prefix item plus >8 grouped items")
       }
-      if case.edit_kind != EditItemDigit || case.edit_index != 0 {
-        abort("RepeatGroup cases edit only the ungrouped prefix item")
-      }
-    }
   }
 }
 
@@ -569,17 +565,19 @@ fn zero_width_case_from_seed(seed : Int) -> ZeroWidthBoundaryCase {
     1 => ZeroWidthOldTreeMode::TokenInternedOldTree
     _ => ZeroWidthOldTreeMode::FullyInternedOldTree
   }
-  let edit_kind = match shape {
-    RepeatGroups => ZeroWidthEditKind::EditItemDigit
-    RegularNodes =>
-      match zero_width_pick(seed, 4, 3) {
-        0 => ZeroWidthEditKind::EditItemDigit
-        1 => ZeroWidthEditKind::GrowBoundaryTrivia
-        _ => ZeroWidthEditKind::ShrinkBoundaryTrivia
-      }
+  let edit_kind = match zero_width_pick(seed, 4, 3) {
+    0 => ZeroWidthEditKind::EditItemDigit
+    1 => ZeroWidthEditKind::GrowBoundaryTrivia
+    _ => ZeroWidthEditKind::ShrinkBoundaryTrivia
   }
   let edit_index = match shape {
-    RepeatGroups => 0
+    RepeatGroups =>
+      match zero_width_pick(seed, 5, 4) {
+        0 => 0
+        1 => 1
+        2 => item_count / 2
+        _ => item_count - 1
+      }
     RegularNodes => zero_width_pick(seed, 5, item_count)
   }
   let synthetic_count = zero_width_pick(seed, 6, 3)
@@ -654,27 +652,41 @@ fn zero_width_basis_case(
   synthetic_count : Int,
   old_boundary_counts : Array[Int],
   new_boundary_counts : Array[Int],
+  edit_index? : Int? = None,
 ) -> ZeroWidthBoundaryCase {
   let item_count = old_boundary_counts.length()
   if item_count == 0 || new_boundary_counts.length() != item_count {
     abort("basis boundary arrays must be non-empty and equally sized")
   }
-  let edit_index = match shape {
-    RepeatGroups => 0
-    RegularNodes => item_count / 2
+  let selected_edit_index = match edit_index {
+    None =>
+      match shape {
+        RepeatGroups => 0
+        RegularNodes => item_count / 2
+      }
+    Some(index) => index
+  }
+  if selected_edit_index < 0 || selected_edit_index >= item_count {
+    abort("basis edit_index must point at an item")
   }
   let old_values = zero_width_default_values(item_count)
   let new_values = old_values.copy()
   let old_gaps = zero_width_default_gaps(item_count, 2)
   let new_gaps = old_gaps.copy()
   match edit_kind {
-    EditItemDigit => new_values[edit_index] = (old_values[edit_index] + 3) % 10
+    EditItemDigit =>
+      new_values[selected_edit_index] = (old_values[selected_edit_index] + 3) %
+        10
     GrowBoundaryTrivia => {
-      let gap_index = zero_width_gap_index_for_edit(edit_index, item_count)
+      let gap_index = zero_width_gap_index_for_edit(
+        selected_edit_index, item_count,
+      )
       new_gaps[gap_index] = old_gaps[gap_index] + 1
     }
     ShrinkBoundaryTrivia => {
-      let gap_index = zero_width_gap_index_for_edit(edit_index, item_count)
+      let gap_index = zero_width_gap_index_for_edit(
+        selected_edit_index, item_count,
+      )
       new_gaps[gap_index] = old_gaps[gap_index] - 1
     }
   }
@@ -683,7 +695,7 @@ fn zero_width_basis_case(
     old_tree_mode,
     edit_kind,
     item_count,
-    edit_index,
+    edit_index: selected_edit_index,
     synthetic_count,
     old_values,
     new_values,
@@ -737,6 +749,33 @@ fn zero_width_basis_cases() -> Array[ZeroWidthBoundaryCase] {
       [4, 3, 2, 1, 0, 4, 3, 2, 1, 0, 4, 3],
       [0, 3, 2, 1, 0, 4, 3, 2, 1, 0, 4, 3],
     ),
+    zero_width_basis_case(
+      RepeatGroups,
+      TokenInternedOldTree,
+      GrowBoundaryTrivia,
+      1,
+      [0, 3, 1, 4, 2, 0, 3, 1, 4, 2, 0, 3],
+      [0, 3, 1, 4, 2, 0, 3, 1, 4, 2, 0, 3],
+      edit_index=Some(0),
+    ),
+    zero_width_basis_case(
+      RepeatGroups,
+      TokenInternedOldTree,
+      EditItemDigit,
+      2,
+      [1, 0, 2, 4, 3, 1, 0, 2, 4, 3, 1, 0],
+      [1, 0, 2, 4, 3, 1, 4, 2, 4, 3, 1, 0],
+      edit_index=Some(6),
+    ),
+    zero_width_basis_case(
+      RepeatGroups,
+      FullyInternedOldTree,
+      ShrinkBoundaryTrivia,
+      2,
+      [2, 4, 0, 3, 1, 2, 4, 0, 3, 1, 2, 4],
+      [2, 4, 0, 3, 1, 2, 4, 0, 3, 1, 2, 4],
+      edit_index=Some(10),
+    ),
   ]
 }
 
@@ -761,6 +800,7 @@ test "property: repeated zero-width boundary-token reuse matches full reparse" {
   }
 
   let count_classes = Array::make(4, false)
+  let repeat_grouped_count_classes = Array::make(4, false)
   let mut saw_regular = false
   let mut saw_repeat = false
   let mut saw_synthetic = false
@@ -771,13 +811,51 @@ test "property: repeated zero-width boundary-token reuse matches full reparse" {
   let mut saw_grow_edit = false
   let mut saw_shrink_edit = false
   let mut saw_boundary_count_change = false
+  let mut saw_repeat_prefix_edit = false
+  let mut saw_repeat_pre_group_gap_edit = false
+  let mut saw_repeat_grouped_digit_edit = false
+  let mut saw_repeat_grouped_gap_edit = false
+  let mut saw_repeat_grouped_boundary_count_change = false
+  let mut saw_repeat_grouped_edit_repeat_group_reuse = false
   let mut saw_regular_reuse = false
   let mut saw_repeat_group_reuse = false
 
   for case in cases {
     match case.shape {
       RegularNodes => saw_regular = true
-      RepeatGroups => saw_repeat = true
+      RepeatGroups => {
+        saw_repeat = true
+        for i in 1..<case.item_count {
+          repeat_grouped_count_classes[zero_width_count_class(
+            case.old_boundary_counts[i],
+          )] = true
+          repeat_grouped_count_classes[zero_width_count_class(
+            case.new_boundary_counts[i],
+          )] = true
+          if case.old_boundary_counts[i] != case.new_boundary_counts[i] {
+            saw_repeat_grouped_boundary_count_change = true
+          }
+        }
+        match case.edit_kind {
+          EditItemDigit =>
+            if case.edit_index == 0 {
+              saw_repeat_prefix_edit = true
+            } else {
+              saw_repeat_grouped_digit_edit = true
+            }
+          GrowBoundaryTrivia | ShrinkBoundaryTrivia => {
+            let gap_index = zero_width_gap_index_for_edit(
+              case.edit_index,
+              case.item_count,
+            )
+            if gap_index == 0 {
+              saw_repeat_pre_group_gap_edit = true
+            } else {
+              saw_repeat_grouped_gap_edit = true
+            }
+          }
+        }
+      }
     }
     match case.old_tree_mode {
       PlainOldTree => saw_plain = true
@@ -807,7 +885,14 @@ test "property: repeated zero-width boundary-token reuse matches full reparse" {
     let (reuse_count, repeat_group_hits) = zero_width_check_case(case)
     match case.shape {
       RegularNodes => if reuse_count > 0 { saw_regular_reuse = true }
-      RepeatGroups => if repeat_group_hits > 0 { saw_repeat_group_reuse = true }
+      RepeatGroups => {
+        if repeat_group_hits > 0 {
+          saw_repeat_group_reuse = true
+        }
+        if case.edit_index > 0 && repeat_group_hits > 0 {
+          saw_repeat_grouped_edit_repeat_group_reuse = true
+        }
+      }
     }
   }
 
@@ -821,10 +906,20 @@ test "property: repeated zero-width boundary-token reuse matches full reparse" {
   inspect(saw_grow_edit, content="true")
   inspect(saw_shrink_edit, content="true")
   inspect(saw_boundary_count_change, content="true")
+  inspect(saw_repeat_prefix_edit, content="true")
+  inspect(saw_repeat_pre_group_gap_edit, content="true")
+  inspect(saw_repeat_grouped_digit_edit, content="true")
+  inspect(saw_repeat_grouped_gap_edit, content="true")
+  inspect(saw_repeat_grouped_boundary_count_change, content="true")
+  inspect(saw_repeat_grouped_edit_repeat_group_reuse, content="true")
   inspect(saw_regular_reuse, content="true")
   inspect(saw_repeat_group_reuse, content="true")
   inspect(count_classes[0], content="true")
   inspect(count_classes[1], content="true")
   inspect(count_classes[2], content="true")
   inspect(count_classes[3], content="true")
+  inspect(repeat_grouped_count_classes[0], content="true")
+  inspect(repeat_grouped_count_classes[1], content="true")
+  inspect(repeat_grouped_count_classes[2], content="true")
+  inspect(repeat_grouped_count_classes[3], content="true")
 }
