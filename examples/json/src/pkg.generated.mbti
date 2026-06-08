@@ -4,12 +4,15 @@ package "dowdiness/json"
 import {
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/pipeline",
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn attach_json_role_spans(@pipeline.SyntaxParser) -> JsonRoleSpansAttachment
+
 pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 
 pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> JsonValue
@@ -73,6 +76,12 @@ pub fn JsonRoleSpan::JsonRoleSpan(role~ : JsonRole, start~ : Int, end~ : Int) ->
 pub fn JsonRoleSpan::end(Self) -> Int
 pub fn JsonRoleSpan::role(Self) -> JsonRole
 pub fn JsonRoleSpan::start(Self) -> Int
+
+pub struct JsonRoleSpansAttachment {
+  // private fields
+}
+pub fn JsonRoleSpansAttachment::dispose(Self) -> Unit
+pub fn JsonRoleSpansAttachment::spans(Self) -> Array[JsonRoleSpan]
 
 pub(all) enum JsonValue {
   Null

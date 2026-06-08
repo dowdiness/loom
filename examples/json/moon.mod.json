@@ -5,7 +5,8 @@
   "deps": {
     "dowdiness/loom": { "path": "../../loom" },
     "dowdiness/pretty": { "path": "../../pretty" },
-    "dowdiness/seam": { "path": "../../seam" }
+    "dowdiness/seam": { "path": "../../seam" },
+    "dowdiness/incr": "0.8.0"
   },
   "license": "Apache-2.0",
   "keywords": ["json", "parser"],

@@ -4,6 +4,7 @@ import {
   "moonbitlang/core/debug",
   "dowdiness/seam",
   "dowdiness/loom",
+  "dowdiness/incr",
   "moonbitlang/core/string",
   "moonbitlang/core/bench",
 }
