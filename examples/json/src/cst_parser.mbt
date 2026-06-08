@@ -36,6 +36,7 @@ fn parse_comma_separated(
     ctx.emit_token(CommaToken)
     if ctx.peek() == closing_token {
       ctx.error("Trailing comma")
+      ctx.emit_error_placeholder()
       break
     }
     parse_element(ctx)
@@ -43,11 +44,13 @@ fn parse_comma_separated(
   // Missing comma recovery
   while is_element_start(ctx.peek()) {
     ctx.error("Expected ',' between " + element_name)
+    ctx.emit_error_placeholder()
     parse_element(ctx)
     while ctx.peek() == Comma {
       ctx.emit_token(CommaToken)
       if ctx.peek() == closing_token {
         ctx.error("Trailing comma")
+        ctx.emit_error_placeholder()
         break
       }
       parse_element(ctx)
@@ -68,6 +71,7 @@ fn json_expect(
     true
   } else {
     ctx.error("Expected " + expected.to_string())
+    ctx.emit_error_placeholder()
     false
   }
 }
@@ -159,6 +163,7 @@ fn parse_member(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   if ctx.peek() == EOF {
     ctx.error("Empty JSON input")
+    ctx.emit_error_placeholder()
     return
   }
   parse_value(ctx)
