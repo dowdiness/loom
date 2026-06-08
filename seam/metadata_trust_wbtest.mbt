@@ -46,7 +46,11 @@ test "metadata-trust: map threading error_kind preserves has_any_error" {
 fn make_error_token_parent(error_raw : RawKind) -> CstNode {
   let error_token = CstElement::Token(CstToken::CstToken(error_raw, "?"))
   let clean_child = CstElement::Token(CstToken::CstToken(RawKind(2), "x"))
-  CstNode::new(RawKind(5), [error_token, clean_child], error_kind=Some(error_raw))
+  CstNode::new(
+    RawKind(5),
+    [error_token, clean_child],
+    error_kind=Some(error_raw),
+  )
 }
 
 ///|
