@@ -29,6 +29,24 @@ test "json roles expose recovered syntax errors and diagnostics" {
 }
 
 ///|
+test "json roles surface diagnostic-only recoveries as error spans" {
+  for source in ["{\"a\" 1}", "{\"a\":1,}", "[1,]", "[1 2]", ""] {
+    let parser = @loom.new_syntax_parser(
+      source,
+      json_grammar.to_syntax_grammar(),
+    )
+    let roles = project_json_roles(parser.syntax_tree().read_or_abort())
+    let diagnostics = parser.diagnostics().read_or_abort()
+    guard diagnostics.length() > 0 else {
+      fail("expected diagnostics for \{source}")
+    }
+    guard roles.any(span => span.role() == Error) else {
+      fail("expected error role for \{source}")
+    }
+  }
+}
+
+///|
 test "json roles after syntax parser edit match fresh parse" {
   let source = "{ \"name\": \"Alice\" }"
   let updated = "{ \"name\": \"Bob\" }"
