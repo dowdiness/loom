@@ -51,6 +51,11 @@ pub fn JsonRoleSpan::end(JsonRoleSpan) -> Int
 
 pub fn project_json_roles(@seam.SyntaxNode) -> Array[JsonRoleSpan]
 
+pub struct JsonRoleSpansAttachment { /* private fields */ }
+pub fn attach_json_role_spans(@loom.SyntaxParser) -> JsonRoleSpansAttachment
+pub fn JsonRoleSpansAttachment::spans(JsonRoleSpansAttachment) -> Array[JsonRoleSpan]
+pub fn JsonRoleSpansAttachment::dispose(JsonRoleSpansAttachment) -> Unit
+
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
@@ -148,6 +153,31 @@ wiring the example into a pretty-printer or a projection renderer.
 
 `JsonValue::Error(String)` is returned for recovered CST error nodes. Lexer
 problems remain visible as structured diagnostics on parser snapshots.
+
+## Editor role spans
+
+`project_json_roles` is the pure CST-to-role projection. For stateful editor
+sessions, attach the same projection to a `@loom.SyntaxParser` with
+`attach_json_role_spans`; the attachment shares the parser runtime and keeps a
+persistent watch so role spans stay reachable across `Runtime::gc()`.
+
+Role spans describe the current recovered syntax. Parser diagnostics remain
+available separately from `parser.diagnostics()`; syntax highlighting does not
+use last-good semantic retention.
+
+```mbt check
+///|
+test "quick start: parser-backed JSON role spans" {
+  let parser = @loom.new_syntax_parser(
+    "{\"x\": 1}",
+    json_grammar.to_syntax_grammar(),
+  )
+  let roles = attach_json_role_spans(parser)
+  inspect(roles.spans().length() > 0, content="true")
+  inspect(parser.diagnostics().read_or_abort().is_empty(), content="true")
+  roles.dispose()
+}
+```
 
 ## Running
 
