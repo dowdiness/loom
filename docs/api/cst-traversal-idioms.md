@@ -45,8 +45,20 @@ let cst_fold = CstFold::new(grammar.fold_node)   // algebra: (SyntaxNode, recurs
 let ast = cst_fold.fold(syntax_root)
 ```
 
+> **Caveat — a cache hit returns the prior `Ast` verbatim, with no offset
+> adjustment.** The key is `CstNode.hash` (position-independent), and on a hit
+> `fold_node` returns the previously computed result unchanged. So your algebra's
+> `Ast` must itself be **position-independent**: store relative widths, or
+> re-derive positions from the live `SyntaxNode` at use time. If the algebra bakes
+> absolute `node.start()` / `node.end()` into the result (source spans, diagnostic
+> ranges), a cache hit *after a position-shifting edit returns stale offsets* —
+> the subtree is structurally identical, so it is reused even though it now sits
+> at a different absolute position. Position belongs to `SyntaxNode` (idiom 1); the
+> fold result should carry structure, not coordinates.
+
 `CstFold` is where loom's incremental-reuse contract reaches semantics: the green
-tree's structural hash drives both syntax reuse and fold-result reuse.
+tree's structural hash drives both syntax reuse and fold-result reuse — which is
+exactly why the result must not encode positions the hash deliberately ignores.
 
 ## 3. Position-independent `CstElement` combinators — rarely the answer
 
