@@ -13,6 +13,8 @@ import {
 // Values
 pub fn attach_json_role_spans(@pipeline.SyntaxParser) -> JsonRoleSpansAttachment
 
+pub fn export_json_role_spans(Array[JsonRoleSpan]) -> Array[JsonRoleSpanExport]
+
 pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 
 pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> JsonValue
@@ -68,6 +70,7 @@ pub(all) enum JsonRole {
   Punctuation
   Error
 } derive(Eq, @debug.Debug)
+pub fn JsonRole::export_name(Self) -> String
 
 pub struct JsonRoleSpan {
   // private fields
@@ -77,10 +80,19 @@ pub fn JsonRoleSpan::end(Self) -> Int
 pub fn JsonRoleSpan::role(Self) -> JsonRole
 pub fn JsonRoleSpan::start(Self) -> Int
 
+pub struct JsonRoleSpanExport {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn JsonRoleSpanExport::end(Self) -> Int
+pub fn JsonRoleSpanExport::role(Self) -> String
+pub fn JsonRoleSpanExport::start(Self) -> Int
+pub impl ToJson for JsonRoleSpanExport
+
 pub struct JsonRoleSpansAttachment {
   // private fields
 }
 pub fn JsonRoleSpansAttachment::dispose(Self) -> Unit
+pub fn JsonRoleSpansAttachment::export_spans(Self) -> Array[JsonRoleSpanExport]
 pub fn JsonRoleSpansAttachment::spans(Self) -> Array[JsonRoleSpan]
 
 pub(all) enum JsonValue {

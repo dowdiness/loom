@@ -56,6 +56,14 @@ pub fn JsonRoleSpansAttachment::spans(
 }
 
 ///|
+/// Read the latest parser-backed role spans in the editor-neutral export shape.
+pub fn JsonRoleSpansAttachment::export_spans(
+  self : JsonRoleSpansAttachment,
+) -> Array[JsonRoleSpanExport] {
+  export_json_role_spans(self.spans())
+}
+
+///|
 /// Dispose the attachment scope. Idempotent; does not dispose the parser.
 pub fn JsonRoleSpansAttachment::dispose(self : JsonRoleSpansAttachment) -> Unit {
   self.scope.dispose()
