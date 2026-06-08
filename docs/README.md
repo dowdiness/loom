@@ -64,6 +64,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-08-json-role-span-export.md](decisions/2026-06-08-json-role-span-export.md) — **Accepted** JSON-local editor-neutral role-span export shape for CodeMirror-facing consumers without a frontend dependency
 - [decisions/2026-06-07-parser-context-grammar-author-helpers.md](decisions/2026-06-07-parser-context-grammar-author-helpers.md) — **Accepted** small `ParserContext` grammar-author helpers while deferring broader balanced-scan and field-boundary decisions
 - [decisions/2026-06-07-reactive-syntax-only-parser.md](decisions/2026-06-07-reactive-syntax-only-parser.md) — **Accepted** syntax-only reactive parser path for CST/diagnostics consumers whose AST is unavailable or not naturally `Eq`
 - [decisions/2026-05-30-seam-source-span-api-hardening.md](decisions/2026-05-30-seam-source-span-api-hardening.md) — **Accepted** unstable names for backing-source inspection and parser-owned source-span reuse hooks before seam stabilization

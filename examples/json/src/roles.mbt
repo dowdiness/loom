@@ -14,6 +14,20 @@ pub(all) enum JsonRole {
 } derive(Eq, Debug)
 
 ///|
+/// Stable lower-kebab role name used by editor-neutral exports.
+pub fn JsonRole::export_name(self : JsonRole) -> String {
+  match self {
+    PropertyKey => "property-key"
+    StringValue => "string-value"
+    NumberLiteral => "number-literal"
+    BooleanLiteral => "boolean-literal"
+    NullLiteral => "null-literal"
+    Punctuation => "punctuation"
+    Error => "error"
+  }
+}
+
+///|
 /// A role assigned to a UTF-16 source span.
 pub struct JsonRoleSpan {
   priv role : JsonRole
@@ -43,6 +57,64 @@ pub fn JsonRoleSpan::start(self : JsonRoleSpan) -> Int {
 ///|
 pub fn JsonRoleSpan::end(self : JsonRoleSpan) -> Int {
   self.end
+}
+
+///|
+/// Convert this typed role span to the stable editor-neutral export shape.
+fn JsonRoleSpan::to_export(self : JsonRoleSpan) -> JsonRoleSpanExport {
+  JsonRoleSpanExport(
+    start=self.start(),
+    end=self.end(),
+    role=self.role().export_name(),
+  )
+}
+
+///|
+/// Editor-neutral JSON/JS-facing role span.
+///
+/// `start` and `end` are UTF-16 source offsets. `role` is one of the stable
+/// lower-kebab names returned by `JsonRole::export_name`.
+pub struct JsonRoleSpanExport {
+  priv start : Int
+  priv end : Int
+  priv role : String
+} derive(Eq, Debug)
+
+///|
+fn JsonRoleSpanExport::JsonRoleSpanExport(
+  start~ : Int,
+  end~ : Int,
+  role~ : String,
+) -> JsonRoleSpanExport {
+  { start, end, role }
+}
+
+///|
+pub fn JsonRoleSpanExport::start(self : JsonRoleSpanExport) -> Int {
+  self.start
+}
+
+///|
+pub fn JsonRoleSpanExport::end(self : JsonRoleSpanExport) -> Int {
+  self.end
+}
+
+///|
+pub fn JsonRoleSpanExport::role(self : JsonRoleSpanExport) -> String {
+  self.role
+}
+
+///|
+pub impl ToJson for JsonRoleSpanExport with fn to_json(self) -> Json {
+  { "start": (self.start : Int), "end": (self.end : Int), "role": self.role }
+}
+
+///|
+/// Convert typed JSON role spans to the editor-neutral export shape.
+pub fn export_json_role_spans(
+  spans : Array[JsonRoleSpan],
+) -> Array[JsonRoleSpanExport] {
+  spans.map(fn(span) { span.to_export() })
 }
 
 ///|

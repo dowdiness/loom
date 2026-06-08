@@ -46,17 +46,36 @@ test "json role spans attachment survives parser runtime gc" {
 }
 
 ///|
+test "json role spans attachment exports editor-neutral spans" {
+  let source = "{\"a\": [\"x\", 1]}"
+  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let attachment = attach_json_role_spans(parser)
+  let expected = export_json_role_spans(
+    project_json_roles(parser.syntax_tree().read_or_abort()),
+  )
+  guard attachment.export_spans() == expected else {
+    fail("expected attachment export spans to match exported pure projection")
+  }
+  inspect(parser.diagnostics().read_or_abort().is_empty(), content="true")
+  attachment.dispose()
+}
+
+///|
 test "json role spans attachment keeps diagnostics parser-owned" {
   let source = "{\"a\" 1}"
   let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
   let attachment = attach_json_role_spans(parser)
   let spans = attachment.spans()
+  let exported = attachment.export_spans()
   let diagnostics = parser.diagnostics().read_or_abort()
   guard diagnostics.length() > 0 else {
     fail("expected malformed JSON diagnostics to remain on parser")
   }
   guard spans.any(span => span.role() == Error) else {
     fail("expected attachment to surface recovered syntax as error role spans")
+  }
+  guard exported.any(span => span.role() == "error") else {
+    fail("expected exported spans to surface recovered syntax as error role")
   }
   attachment.dispose()
 }
