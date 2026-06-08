@@ -27,6 +27,30 @@ pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
 pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> JsonValue
 pub fn syntax_node_to_json(@seam.SyntaxNode) -> JsonValue
 
+// ── CST → editor roles ────────────────────────────────────────────────────────
+
+pub(all) enum JsonRole {
+  PropertyKey
+  StringValue
+  NumberLiteral
+  BooleanLiteral
+  NullLiteral
+  Punctuation
+  Error
+}
+
+pub struct JsonRoleSpan { /* private fields */ }
+pub fn JsonRoleSpan::JsonRoleSpan(
+  role~ : JsonRole,
+  start~ : Int,
+  end~ : Int,
+) -> JsonRoleSpan
+pub fn JsonRoleSpan::role(JsonRoleSpan) -> JsonRole
+pub fn JsonRoleSpan::start(JsonRoleSpan) -> Int
+pub fn JsonRoleSpan::end(JsonRoleSpan) -> Int
+
+pub fn project_json_roles(@seam.SyntaxNode) -> Array[JsonRoleSpan]
+
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
