@@ -46,6 +46,23 @@ fn node_id(doc : GraphDoc, binding : String) -> String {
 }
 
 ///|
+test "find_node_by_id round-trips the projection-identity token" {
+  let doc = ok_doc(project_graph_source(SAMPLE_SOURCE))
+  for binding in ["osc", "filter"] {
+    let node = match doc.find_node(binding) {
+      Some(node) => node
+      None => abort("missing node: " + binding)
+    }
+    match doc.find_node_by_id(node.id()) {
+      Some(found) => @debug.assert_eq(found.binding(), binding)
+      None => abort("find_node_by_id missed token: " + node.id())
+    }
+  }
+  assert_true(doc.find_node_by_id("osc") is None)
+  assert_true(doc.find_node_by_id("") is None)
+}
+
+///|
 test "projection exposes explicit token roles with source ranges" {
   let doc = ok_doc(project_graph_source(SAMPLE_SOURCE))
   @debug.assert_eq(triples(doc.tokens_for_role(NodeBindingName)), [

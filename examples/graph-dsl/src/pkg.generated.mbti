@@ -44,6 +44,7 @@ pub struct GraphDoc {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn GraphDoc::find_node(Self, String) -> GraphNode?
+pub fn GraphDoc::find_node_by_id(Self, String) -> GraphNode?
 pub fn GraphDoc::lower_add_connection(Self, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_insert_node_binding(Self, String, String) -> LoweredGraphEdit?
 pub fn GraphDoc::lower_remove_connection(Self, String, String, String) -> LoweredGraphEdit?
