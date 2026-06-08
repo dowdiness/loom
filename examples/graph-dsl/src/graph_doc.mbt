@@ -300,3 +300,16 @@ pub fn GraphDoc::find_node(self : GraphDoc, binding : String) -> GraphNode? {
   }
   None
 }
+
+///|
+/// Look up a node by its projection-identity token (`GraphNode::id()`), the
+/// stable cross-frame identity assigned by `ProjectionIdentityTracker`. Mirrors
+/// `find_node`, which keys on the (rename-mutable) binding name.
+pub fn GraphDoc::find_node_by_id(self : GraphDoc, id : String) -> GraphNode? {
+  for node in self.nodes {
+    if node.id == id {
+      return Some(node)
+    }
+  }
+  None
+}
