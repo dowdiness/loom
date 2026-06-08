@@ -32,6 +32,7 @@ Framework-level:
 - [api/api-contract.md](api/api-contract.md) — `Parser[Ast]` API contract and stability guarantees
 - [api/imperative-api-contract.md](api/imperative-api-contract.md) — `ImperativeParser` API contract
 - [api/projection-guide.md](api/projection-guide.md) — CST → private IR → semantic model projection guide, including direct CST shape validation
+- [api/cst-traversal-idioms.md](api/cst-traversal-idioms.md) — the three CST traversal idioms (`SyntaxNode` direct queries / `CstFold` / position-independent `CstElement` combinators) and when to use which
 - [api/authoring-only-integration.md](api/authoring-only-integration.md) — keep Loom-backed editor diagnostics/projections behind an authoring facade without leaking into runtime packages
 - [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — authoring attachment pattern for immediate parser diagnostics plus last-good semantic document retention
 - [../loom/src/pkg.generated.mbti](../loom/src/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
