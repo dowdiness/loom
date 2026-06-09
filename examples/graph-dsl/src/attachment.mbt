@@ -48,6 +48,12 @@ pub impl Show for GraphAttachmentState with fn output(self, logger) {
 }
 
 ///|
+priv struct GraphListener {
+  id : Int
+  callback : () -> Unit
+}
+
+///|
 pub struct GraphAttachment {
   priv parser : @loom.Parser[GraphAst]
   priv scope : @incr.Scope
@@ -58,6 +64,8 @@ pub struct GraphAttachment {
   priv mut diagnostics : Array[String]
   priv mut current : Result[GraphDoc, String]
   priv mut last_good : GraphDoc?
+  priv mut listeners : Array[GraphListener]
+  priv mut next_listener_id : Int
 }
 
 ///|
@@ -81,6 +89,8 @@ pub fn GraphAttachment::GraphAttachment(
     diagnostics: [],
     current: Err("not yet settled"),
     last_good: None,
+    listeners: [],
+    next_listener_id: 0,
   }
   self.settle(None, None)
   self
@@ -92,60 +102,62 @@ fn GraphAttachment::settle(
   source_before_edit : String?,
   edit : @loom.Edit?,
 ) -> Unit {
-  let attempt = match self.watch.read() {
-    Ok(attempt) => attempt
+  // Single exit so `notify_listeners` always runs, including the watch-read
+  // error path (which previously returned early).
+  match self.watch.read() {
     Err(read_error) => {
       let message = "graph projection unavailable: " + read_error.format_path()
       self.state = GraphBlocked
       self.diagnostics = [message]
       self.current = Err(message)
-      return
     }
-  }
-  match attempt.outcome {
-    ParseFailed(messages) => {
-      self.tracker.record_failed_input_with_optional_edit(
-        attempt.source,
-        source_before_edit,
-        edit,
-      )
-      self.state = ParserBlocked
-      self.diagnostics = messages.copy()
-      self.current = Err(messages.join("; "))
-    }
-    ProjectionFailed(messages) => {
-      self.tracker.record_failed_input_with_optional_edit(
-        attempt.source,
-        source_before_edit,
-        edit,
-      )
-      self.state = ProjectionBlocked
-      self.diagnostics = messages.copy()
-      self.current = Err(messages.join("; "))
-    }
-    Projected(raw) => {
-      let allocator = match self.tracker.baseline() {
-        Some(baseline) =>
-          @loom.ProjectionStringIdAllocator::from_baseline(
-            baseline, make_node_id,
+    Ok(attempt) =>
+      match attempt.outcome {
+        ParseFailed(messages) => {
+          self.tracker.record_failed_input_with_optional_edit(
+            attempt.source,
+            source_before_edit,
+            edit,
           )
-        None => @loom.ProjectionStringIdAllocator::new(make_node_id)
+          self.state = ParserBlocked
+          self.diagnostics = messages.copy()
+          self.current = Err(messages.join("; "))
+        }
+        ProjectionFailed(messages) => {
+          self.tracker.record_failed_input_with_optional_edit(
+            attempt.source,
+            source_before_edit,
+            edit,
+          )
+          self.state = ProjectionBlocked
+          self.diagnostics = messages.copy()
+          self.current = Err(messages.join("; "))
+        }
+        Projected(raw) => {
+          let allocator = match self.tracker.baseline() {
+            Some(baseline) =>
+              @loom.ProjectionStringIdAllocator::from_baseline(
+                baseline, make_node_id,
+              )
+            None => @loom.ProjectionStringIdAllocator::new(make_node_id)
+          }
+          let leaves = raw.nodes.map(raw_node_to_leaf)
+          let stable = self.tracker.realign_success_with_optional_edit(
+            attempt.source,
+            leaves,
+            fn(leaf) { allocator.allocate(leaf) },
+            edit,
+          )
+          let doc = build_doc_from_stable(raw, stable)
+          self.tracker.commit_success(attempt.source, stable)
+          self.state = Current
+          self.diagnostics = []
+          self.current = Ok(doc)
+          self.last_good = Some(doc)
+        }
       }
-      let leaves = raw.nodes.map(raw_node_to_leaf)
-      let stable = self.tracker.realign_success_with_optional_edit(
-        attempt.source,
-        leaves,
-        fn(leaf) { allocator.allocate(leaf) },
-        edit,
-      )
-      let doc = build_doc_from_stable(raw, stable)
-      self.tracker.commit_success(attempt.source, stable)
-      self.state = Current
-      self.diagnostics = []
-      self.current = Ok(doc)
-      self.last_good = Some(doc)
-    }
   }
+  self.notify_listeners()
 }
 
 ///|
@@ -193,6 +205,57 @@ pub fn GraphAttachment::set_source(
 }
 
 ///|
+/// Subscribe to settle notifications. `listener` is invoked — with no payload —
+/// at the end of every `settle`, i.e. after each `apply_edit` / `set_source`
+/// has updated `state` / `diagnostics` / `current` / `last_good`, regardless of
+/// the projection outcome. It fires for all mutations whatever their origin, so
+/// consumers should pull the current value (`current_result` / source) on the
+/// ping and dedupe themselves if they only care about real changes.
+///
+/// The listener runs synchronously inside `apply_edit` / `set_source`; it must
+/// not mutate this attachment (doing so would re-enter `settle`). The returned
+/// handle detaches the listener via `unsubscribe`.
+pub fn GraphAttachment::subscribe(
+  self : GraphAttachment,
+  listener : () -> Unit,
+) -> GraphAttachmentSubscription {
+  let id = self.next_listener_id
+  self.next_listener_id = id + 1
+  self.listeners.push({ id, callback: listener })
+  { attachment: self, id }
+}
+
+///|
+/// Notify every subscribed listener that the attachment has re-settled.
+/// Iterates a snapshot so a listener may detach itself without disturbing the
+/// in-progress notification.
+fn GraphAttachment::notify_listeners(self : GraphAttachment) -> Unit {
+  for listener in self.listeners.copy() {
+    (listener.callback)()
+  }
+}
+
+///|
+/// Handle returned by `GraphAttachment::subscribe`. `unsubscribe` detaches the
+/// listener; it is idempotent and safe to call after the attachment is
+/// disposed.
+pub struct GraphAttachmentSubscription {
+  priv attachment : GraphAttachment
+  priv id : Int
+}
+
+///|
+pub fn GraphAttachmentSubscription::unsubscribe(
+  self : GraphAttachmentSubscription,
+) -> Unit {
+  self.attachment.listeners = self.attachment.listeners.filter(fn(listener) {
+    listener.id != self.id
+  })
+}
+
+///|
 pub fn GraphAttachment::dispose(self : GraphAttachment) -> Unit {
+  // Drop listeners first so a post-dispose notification can never fire.
+  self.listeners = []
   self.scope.dispose()
 }
