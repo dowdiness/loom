@@ -239,6 +239,28 @@ pub(all) struct CstNode {
 } derive(Debug)
 
 ///|
+/// True when `k` is one of the language's error / incomplete-signal kinds.
+///
+/// Single source of truth for the error-classification predicate shared by
+/// `CstNode::new`'s own-kind and token-child checks.  Reserves the extension
+/// point for future error-classification kinds — add them here, not at each
+/// call site.
+fn is_error_signal(
+  k : RawKind,
+  error_kind : RawKind?,
+  incomplete_kind : RawKind?,
+) -> Bool {
+  (match error_kind {
+    Some(ek) => k == ek
+    None => false
+  }) ||
+  (match incomplete_kind {
+    Some(ik) => k == ik
+    None => false
+  })
+}
+
+///|
 /// Create a CstNode. text_len, hash, and token_count are computed from children.
 ///
 /// `trivia_kind`: when provided, leaf tokens with this kind are excluded from
@@ -256,17 +278,7 @@ pub fn CstNode::new(
   let mut text_len = 0
   let mut h = k
   let mut token_count = 0
-  let mut has_any_error = false
-  match error_kind {
-    Some(ek) => if kind == ek { has_any_error = true }
-    None => ()
-  }
-  if !has_any_error {
-    match incomplete_kind {
-      Some(ik) => if kind == ik { has_any_error = true }
-      None => ()
-    }
-  }
+  let mut has_any_error = is_error_signal(kind, error_kind, incomplete_kind)
   for child in children {
     text_len = text_len + child.text_len()
     h = combine_hash(h, child_hash(child))
@@ -276,17 +288,9 @@ pub fn CstNode::new(
           Some(ws) => if t.kind != ws { token_count = token_count + 1 }
           None => token_count = token_count + 1
         }
-        if !has_any_error {
-          match error_kind {
-            Some(ek) => if t.kind == ek { has_any_error = true }
-            None => ()
-          }
-        }
-        if !has_any_error {
-          match incomplete_kind {
-            Some(ik) => if t.kind == ik { has_any_error = true }
-            None => ()
-          }
+        if !has_any_error &&
+          is_error_signal(t.kind, error_kind, incomplete_kind) {
+          has_any_error = true
         }
       }
       Node(n) => {
