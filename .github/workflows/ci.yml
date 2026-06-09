@@ -58,6 +58,11 @@ jobs:
 
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
+        with:
+          # Pinned to the known-good toolchain (CI green 2026-06-09) so an
+          # unannounced MoonBit release cannot break CI with zero repo changes.
+          # Bump this deliberately after verifying the new toolchain is clean.
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -115,6 +120,11 @@ jobs:
 
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
+        with:
+          # Pinned to the known-good toolchain (CI green 2026-06-09) so an
+          # unannounced MoonBit release cannot break CI with zero repo changes.
+          # Bump this deliberately after verifying the new toolchain is clean.
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
