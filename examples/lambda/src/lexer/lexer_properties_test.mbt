@@ -1,21 +1,6 @@
 // Property-based tests for incremental lexer/token buffer
 
 ///|
-// TODO: Drop this local shim once moonbitlang/quickcheck exposes a
-// non-deprecated Debug-based function-property runner.
-fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
-  f : (A) -> P,
-) -> Unit raise Failure {
-  @qc.quick_check(
-    @qc.Gen::spawn().fmap(fn(input : A) {
-      @qc.shrinking(A::shrink, input, fn(shrunk_input : A) {
-        @qc.counterexample(f(shrunk_input), @debug.to_string(shrunk_input))
-      })
-    }),
-  )
-}
-
-///|
 fn clamp_pos(pos : Int, len : Int) -> Int {
   if pos < 0 {
     0
@@ -187,15 +172,15 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
 
 ///|
 test "property: token buffer insert matches full tokenize" {
-  quick_check_debug(prop_token_buffer_insert)
+  @qc.quick_check_fn(prop_token_buffer_insert)
 }
 
 ///|
 test "property: token buffer delete matches full tokenize" {
-  quick_check_debug(prop_token_buffer_delete)
+  @qc.quick_check_fn(prop_token_buffer_delete)
 }
 
 ///|
 test "property: token buffer replace matches full tokenize" {
-  quick_check_debug(prop_token_buffer_replace)
+  @qc.quick_check_fn(prop_token_buffer_replace)
 }
