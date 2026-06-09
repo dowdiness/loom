@@ -31,6 +31,7 @@ pub fn GraphAttachment::dispose(Self) -> Unit
 pub fn GraphAttachment::last_good(Self) -> GraphDoc?
 pub fn GraphAttachment::set_source(Self, String) -> Unit
 pub fn GraphAttachment::state(Self) -> GraphAttachmentState
+pub fn GraphAttachment::subscribe(Self, () -> Unit) -> GraphAttachmentSubscription
 
 pub enum GraphAttachmentState {
   Current
@@ -39,6 +40,11 @@ pub enum GraphAttachmentState {
   GraphBlocked
 } derive(Eq, @debug.Debug)
 pub impl Show for GraphAttachmentState
+
+pub struct GraphAttachmentSubscription {
+  // private fields
+}
+pub fn GraphAttachmentSubscription::unsubscribe(Self) -> Unit
 
 pub struct GraphDoc {
   // private fields
