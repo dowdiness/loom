@@ -3013,3 +3013,104 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.at_eof(), content="true")
 }
+
+// ─── at_adjacent ──────────────────────────────────────────────────────────────
+
+///|
+test "at_adjacent: true when next token is contiguous with consumed prefix" {
+  let src = "1+ 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="true")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: false when trivia separates next token" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  // Trivia-insensitive at() still sees the Plus, but adjacency is broken.
+  inspect(ctx.at(TestTok::Plus), content="true")
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: false when next token differs even if contiguous" {
+  let src = "1+2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Num(2)), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: false at EOF" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: start of input counts as adjacent" {
+  let src = "+1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="true")
+}
+
+///|
+test "at_adjacent: leading trivia at start of input breaks adjacency" {
+  let src = " +1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+}
+
+///|
+test "at_adjacent: false across unrepresented source gap (located tokens)" {
+  // Simulates LexResult::from_located_tokens without gap_token: blank gaps
+  // are skipped, so "1 +" lexes to [Num@[0,1), Plus@[2,3)] with no Ws token.
+  let src = "1 +"
+  let toks = [TestTok::Num(1), TestTok::Plus]
+  let starts = [0, 2]
+  let ends = [1, 3]
+  let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    2,
+    i => toks[i],
+    i => starts[i],
+    i => ends[i],
+    src,
+    test_spec,
+  )
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: false on leading unrepresented gap at start of input" {
+  let src = " +"
+  let toks = [TestTok::Plus]
+  let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    1,
+    i => toks[i],
+    _ => 1,
+    _ => 2,
+    src,
+    test_spec,
+  )
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+}
