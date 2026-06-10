@@ -3114,3 +3114,30 @@ test "at_adjacent: false on leading unrepresented gap at start of input" {
   )
   inspect(ctx.at_adjacent(TestTok::Plus), content="false")
 }
+
+///|
+test "at_adjacent: flushed trivia still breaks adjacency" {
+  // A grammar or recovery path may call the public flush_trivia() before
+  // the whitespace-sensitive check; the emitted trivia must still count
+  // as separation.
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  ctx.flush_trivia()
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: flush_trivia with no trivia keeps adjacency" {
+  let src = "1+ 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  ctx.flush_trivia()
+  inspect(ctx.at_adjacent(TestTok::Plus), content="true")
+  ctx.finish_node()
+}
