@@ -143,18 +143,17 @@ pub fn SyntaxNode::first_child(self : SyntaxNode) -> SyntaxNode? {
 /// First token anywhere in this subtree (depth-first, left-to-right).
 /// Returns None when the subtree contains no tokens.
 pub fn SyntaxNode::first_token(self : SyntaxNode) -> SyntaxToken? {
-  let mut offset = self.offset
-  for elem in self.cst.children {
+  self
+  .direct_elements_iter()
+  .filter_map(elem => {
     match elem {
-      CstElement::Token(tok) => return Some(SyntaxToken::new(tok, offset))
-      CstElement::Node(child_cst) =>
-        match SyntaxNode::new(child_cst, None, offset).first_token() {
-          Some(_) as found => return found
-          None => offset = offset + child_cst.text_len
-        }
+      Token(t) => Some(t)
+      // Recursive find-map: a token-free child yields None and is skipped,
+      // so scanning falls through to the next sibling.
+      Node(n) => n.first_token()
     }
-  }
-  None
+  })
+  .head()
 }
 
 ///|

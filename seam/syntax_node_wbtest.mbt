@@ -719,6 +719,24 @@ test "SyntaxNode::first_token: skips leading node child to find token" {
 }
 
 ///|
+test "SyntaxNode::first_token: descends into nested node child" {
+  let inner = CstNode::new(RawKind(3), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "yz")),
+  ])
+  let empty_child = CstNode::new(RawKind(2), [])
+  let cst = CstNode::new(RawKind(1), [
+    CstElement::Node(empty_child),
+    CstElement::Node(inner),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "w")),
+  ])
+  let node = SyntaxNode::from_cst_at(cst, 5)
+  let ft = node.first_token()
+  inspect(ft is Some(_), content="true")
+  inspect(ft.unwrap().text(), content="yz")
+  inspect(ft.unwrap().start(), content="5")
+}
+
+///|
 test "SyntaxNode::first_child: leaf node returns None" {
   let cst = CstNode::new(RawKind(1), [])
   let leaf = SyntaxNode::from_cst(cst)
