@@ -299,6 +299,68 @@ pub fn SyntaxNode::nodes_and_tokens(
 }
 
 ///|
+/// How one direct element affects separator grouping: a separator token opens
+/// the next group, any other (non-trivia) element joins the current group.
+priv enum GroupOp {
+  StartGroup
+  AppendElement(SyntaxElement)
+}
+
+///|
+/// Classify one direct element for `direct_elements_grouped_by`: separator
+/// tokens become `StartGroup`, filtered trivia becomes `None`, everything
+/// else is `AppendElement`. Separator classification wins over trivia when
+/// the two kinds collide.
+fn element_to_group_op(
+  elem : SyntaxElement,
+  separator : RawKind,
+  trivia_kind : RawKind?,
+) -> GroupOp? {
+  match elem {
+    Token(t) if t.kind() == separator => Some(StartGroup)
+    Token(t) if trivia_kind is Some(k) && t.kind() == k => None
+    _ => Some(AppendElement(elem))
+  }
+}
+
+///|
+/// Apply one grouping operation to the builder state.
+fn apply_group_op(groups : Array[Array[SyntaxElement]], op : GroupOp) -> Unit {
+  match op {
+    StartGroup => groups.push([])
+    AppendElement(elem) => groups[groups.length() - 1].push(elem)
+  }
+}
+
+///|
+/// Split direct children into element groups delimited by `separator` tokens.
+///
+/// N separator tokens always yield N+1 groups; empty groups are preserved
+/// (leading, trailing, and doubled separators), so element-slot boundaries
+/// are never silently dropped. Separator tokens themselves appear in no
+/// group, and only *tokens* of the separator kind split — nodes sharing the
+/// raw kind do not. When `trivia_kind` is provided, tokens of that kind are
+/// excluded from groups (same convention as `nodes_and_tokens`).
+///
+/// `RepeatGroup` nodes are transparent: their children are grouped as direct
+/// visible children of `self`.
+pub fn SyntaxNode::direct_elements_grouped_by(
+  self : SyntaxNode,
+  separator : RawKind,
+  trivia_kind? : RawKind? = None,
+) -> Array[Array[SyntaxElement]] {
+  // Builder state: groups grows append-only while streaming the element iter.
+  let groups : Array[Array[SyntaxElement]] = [[]]
+  for elem in self.direct_elements_iter() {
+    match element_to_group_op(elem, separator, trivia_kind) {
+      Some(op) => apply_group_op(groups, op)
+      None => ()
+    }
+  }
+  groups
+}
+
+///|
 /// Direct leaf tokens only (child nodes are skipped).
 ///
 /// `RepeatGroup` nodes are transparent: their token children are reported as
