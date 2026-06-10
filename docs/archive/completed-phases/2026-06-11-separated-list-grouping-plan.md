@@ -1,5 +1,8 @@
 # Separated-list grouping helper + parser combinator implementation plan
 
+**Status:** Complete (2026-06-11 — PR #285 squash 40235fd, PR #286 squash e7b5efe)
+Decision record: [ADR 2026-06-11 separated-list boundary model](../../decisions/2026-06-11-separated-list-boundary-model.md)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
 ## Goal

@@ -1,6 +1,7 @@
 # Separated-list parsing and delimiter-aware child grouping (#279)
 
-**Status:** Active
+**Status:** Complete (2026-06-11 — PR #285 squash 40235fd, PR #286 squash e7b5efe)
+Decision record: [ADR 2026-06-11 separated-list boundary model](../../decisions/2026-06-11-separated-list-boundary-model.md)
 **Issue:** [#279](https://github.com/dowdiness/loom/issues/279)
 **Related:** #196 (argument projection helpers), #251 (ParserContext author-API boundary)
 **Downstream evidence:** moondsp `loom_mini_collect_stack_expr` (dowdiness/moondsp#192),
