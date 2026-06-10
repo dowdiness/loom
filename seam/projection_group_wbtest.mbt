@@ -101,6 +101,48 @@ test "SyntaxNode::direct_element_groups_by doubled separator empty group spans t
 }
 
 ///|
+test "SyntaxNode::direct_element_groups_by edge separators without trivia yield zero-width slot spans" {
+  // `,`@0-1 `a`@1-2 — leading slot collapses to 0..0 (parent start, separator start).
+  let leading = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+  ])
+  inspect(
+    render_group_spans(
+      SyntaxNode::from_cst(leading).direct_element_groups_by(RawKind(1)),
+    ),
+    content="g0@0-0:_ || g1@1-2:#1",
+  )
+  // `a`@0-1 `,`@1-2 — trailing slot collapses to 2..2 (separator end, parent end).
+  let trailing = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+  ])
+  inspect(
+    render_group_spans(
+      SyntaxNode::from_cst(trailing).direct_element_groups_by(RawKind(1)),
+    ),
+    content="g0@0-1:#1 || g1@2-2:_",
+  )
+}
+
+///|
+test "SyntaxNode::direct_element_groups_by handles zero-width separator tokens" {
+  // `a`@0-1, zero-width seps @1-1, `b`@1-2 — the doubled slot collapses to 1..1.
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), "")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), "")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "b")),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_element_groups_by(RawKind(1))
+  inspect(
+    render_group_spans(groups),
+    content="g0@0-1:#1 || g1@1-1:_ || g2@1-2:#1",
+  )
+}
+
+///|
 test "SyntaxNode::direct_element_groups_by on empty node yields one empty group over the node span" {
   let groups = SyntaxNode::from_cst(CstNode::new(RawKind(0), [])).direct_element_groups_by(
     RawKind(1),
