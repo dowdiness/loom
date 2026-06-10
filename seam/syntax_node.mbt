@@ -301,8 +301,10 @@ pub fn SyntaxNode::nodes_and_tokens(
 ///|
 /// How one direct element affects separator grouping: a separator token opens
 /// the next group, any other (non-trivia) element joins the current group.
+/// `StartGroup` carries the separator token so span-aware consumers
+/// (`direct_element_groups_by`) can read slot boundaries during the walk.
 priv enum GroupOp {
-  StartGroup
+  StartGroup(SyntaxToken)
   AppendElement(SyntaxElement)
 }
 
@@ -317,7 +319,7 @@ fn element_to_group_op(
   trivia_kind : RawKind?,
 ) -> GroupOp? {
   match elem {
-    Token(t) if t.kind() == separator => Some(StartGroup)
+    Token(t) if t.kind() == separator => Some(StartGroup(t))
     Token(t) if trivia_kind is Some(k) && t.kind() == k => None
     _ => Some(AppendElement(elem))
   }
@@ -327,7 +329,7 @@ fn element_to_group_op(
 /// Apply one grouping operation to the builder state.
 fn apply_group_op(groups : Array[Array[SyntaxElement]], op : GroupOp) -> Unit {
   match op {
-    StartGroup => groups.push([])
+    StartGroup(_) => groups.push([])
     AppendElement(elem) => groups[groups.length() - 1].push(elem)
   }
 }
