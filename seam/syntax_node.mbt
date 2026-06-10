@@ -176,6 +176,27 @@ pub fn SyntaxNode::kind(self : SyntaxNode) -> RawKind {
 }
 
 ///|
+/// Covered source text of this node: the concatenation of every token's text
+/// in this subtree, in source order (trivia included).
+///
+/// Reconstructed from the tokens themselves, so it never needs the original
+/// source string and works for synthetic (non-source-backed) tokens too.
+/// Allocates a fresh `String` per call; `text().length()` equals
+/// `end() - start()`.
+pub fn SyntaxNode::text(self : SyntaxNode) -> String {
+  CstElement::Node(self.cst)
+  .iter()
+  .filter_map(element => {
+    match element {
+      Token(token) => Some(token.text())
+      // iter() is depth-first; a node's tokens arrive on their own
+      Node(_) => None
+    }
+  })
+  .join("")
+}
+
+///|
 /// Show: compact form — "SyntaxNode@[start,end)"
 pub impl Show for SyntaxNode with fn output(self, logger) {
   logger.write_string("SyntaxNode@[")

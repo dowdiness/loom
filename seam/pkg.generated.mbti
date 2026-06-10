@@ -199,6 +199,7 @@ pub fn SyntaxNode::required_direct_token_text_of_kind(Self, RawKind, message~ : 
 pub fn SyntaxNode::required_direct_tokens_of_kind(Self, RawKind, message~ : String) -> Result[Array[SyntaxToken], ProjectionShapeError]
 pub fn SyntaxNode::required_direct_tokens_text_of_kind(Self, RawKind, message~ : String) -> Result[Array[String], ProjectionShapeError]
 pub fn SyntaxNode::start(Self) -> Int
+pub fn SyntaxNode::text(Self) -> String
 pub fn SyntaxNode::tight_span(Self, trivia_kind? : RawKind?) -> (Int, Int)
 pub fn SyntaxNode::token_at_offset(Self, Int) -> TokenAtOffset
 pub fn SyntaxNode::token_text(Self, RawKind) -> String
