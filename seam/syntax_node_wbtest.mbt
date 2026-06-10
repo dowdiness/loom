@@ -1298,3 +1298,165 @@ test "SyntaxNode::text is offset-independent and matches span length" {
   inspect(sn.text(), content="abc")
   inspect(sn.text().length() == sn.end() - sn.start(), content="true")
 }
+
+///|
+/// Renders grouped elements compactly for grouping assertions:
+/// groups joined by " || ", elements by "|", tokens as `t<kind>:<text>@<start>-<end>`,
+/// nodes as `n<kind>@<start>-<end>`, empty groups as `_`.
+fn render_groups(groups : Array[Array[SyntaxElement]]) -> String {
+  groups
+  .map(group => {
+    if group.length() == 0 {
+      "_"
+    } else {
+      group
+      .map(elem => {
+        match elem {
+          SyntaxElement::Token(tok) =>
+            "t\{tok.kind().0}:\{tok.text()}@\{tok.start()}-\{tok.end()}"
+          SyntaxElement::Node(node) =>
+            "n\{node.kind().0}@\{node.start()}-\{node.end()}"
+        }
+      })
+      .join("|")
+    }
+  })
+  .join(" || ")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by with no separator returns one group" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Node(
+      CstNode::new(RawKind(2), [
+        CstElement::Token(CstToken::CstToken(RawKind(9), "bb")),
+      ]),
+    ),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="t9:a@0-1|n2@1-3")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by leading separator yields empty first group" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="_ || t9:a@1-2")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by trailing separator yields empty last group" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="t9:a@0-1 || _")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by doubled separator yields empty middle group" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "b")),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="t9:a@0-1 || _ || t9:b@3-4")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by filters trivia when trivia_kind given" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(8), " ")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(8), " ")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "b")),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  let filtered = sn.direct_elements_grouped_by(
+    RawKind(1),
+    trivia_kind=Some(RawKind(8)),
+  )
+  inspect(render_groups(filtered), content="t9:a@0-1 || t9:b@4-5")
+  let kept = sn.direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(kept), content="t9:a@0-1|t8: @1-2 || t8: @3-4|t9:b@4-5")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by keeps mixed node+token groups in source order" {
+  // stack-call shape: `stack(arg1, arg2a arg2b, 42)` with delimiters in edge groups
+  let arg = (kind : Int, text : String) => {
+    CstElement::Node(
+      CstNode::new(RawKind(kind), [
+        CstElement::Token(CstToken::CstToken(RawKind(9), text)),
+      ]),
+    )
+  }
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(5), "stack")),
+    CstElement::Token(CstToken::CstToken(RawKind(6), "(")),
+    arg(2, "a"),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    arg(2, "b"),
+    arg(3, ".f"),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(4), "42")),
+    CstElement::Token(CstToken::CstToken(RawKind(7), ")")),
+  ])
+  let groups = SyntaxNode::from_cst_at(root, 10).direct_elements_grouped_by(
+    RawKind(1),
+  )
+  inspect(
+    render_groups(groups),
+    content="t5:stack@10-15|t6:(@15-16|n2@16-17 || n2@18-19|n3@19-21 || t4:42@22-24|t7:)@24-25",
+  )
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by on empty node returns one empty group" {
+  let groups = SyntaxNode::from_cst(CstNode::new(RawKind(0), [])).direct_elements_grouped_by(
+    RawKind(1),
+  )
+  inspect(groups.length(), content="1")
+  inspect(render_groups(groups), content="_")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by does not split on nodes sharing the separator kind" {
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Node(
+      CstNode::new(RawKind(1), [
+        CstElement::Token(CstToken::CstToken(RawKind(9), "x")),
+      ]),
+    ),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "b")),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="t9:a@0-1|n1@1-2|t9:b@2-3")
+}
+
+///|
+test "SyntaxNode::direct_elements_grouped_by splits on separators inside RepeatGroup wrappers" {
+  // RepeatGroup transparency: repeated parse rules emit `elem sep elem` inside
+  // a RepeatGroup wrapper; those separators must split exactly like direct ones.
+  let repeated = CstNode::new(repeat_group_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "b")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "c")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "a")),
+    CstElement::Token(CstToken::CstToken(RawKind(1), ",")),
+    CstElement::Node(repeated),
+  ])
+  let groups = SyntaxNode::from_cst(root).direct_elements_grouped_by(RawKind(1))
+  inspect(render_groups(groups), content="t9:a@0-1 || t9:b@2-3 || t9:c@4-5")
+}

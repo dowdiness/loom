@@ -142,7 +142,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-_No active plans._
+- [2026-06-11 Separated-list parsing & delimiter-aware child grouping](plans/2026-06-11-separated-list-grouping.md) — seam projection grouping helper + `ParserContext::separated_list` combinator (issue #279); [implementation plan](plans/2026-06-11-separated-list-grouping-plan.md)
 
 _Previously active: json-settings last-good attachment example shipped 2026-06-01 as [`examples/json-settings/`](../examples/json-settings/) (issue #202; no ADR — implements accepted last-good + stable-identity decisions). See [archived plan](archive/completed-phases/2026-06-01-json-settings-last-good-attachment-plan.md)._
 _Completed: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
