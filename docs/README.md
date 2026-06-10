@@ -65,6 +65,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-11-separated-list-boundary-model.md](decisions/2026-06-11-separated-list-boundary-model.md) — **Accepted** N-separators→N+1-slots boundary model shared by the seam projection grouping helper and the `ParserContext::separated_list` combinator; empty slots stay represented
 - [decisions/2026-06-08-json-role-span-export.md](decisions/2026-06-08-json-role-span-export.md) — **Accepted** JSON-local editor-neutral role-span export shape for CodeMirror-facing consumers without a frontend dependency
 - [decisions/2026-06-07-parser-context-grammar-author-helpers.md](decisions/2026-06-07-parser-context-grammar-author-helpers.md) — **Accepted** small `ParserContext` grammar-author helpers while deferring broader balanced-scan and field-boundary decisions
 - [decisions/2026-06-07-reactive-syntax-only-parser.md](decisions/2026-06-07-reactive-syntax-only-parser.md) — **Accepted** syntax-only reactive parser path for CST/diagnostics consumers whose AST is unavailable or not naturally `Eq`
@@ -142,8 +143,9 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [2026-06-11 Separated-list parsing & delimiter-aware child grouping](plans/2026-06-11-separated-list-grouping.md) — seam projection grouping helper + `ParserContext::separated_list` combinator (issue #279); [implementation plan](plans/2026-06-11-separated-list-grouping-plan.md)
+_No active plans._
 
+_Previously active: separated-list parsing & grouping shipped 2026-06-11 as PR #285/#286 (issue #279; see [ADR](decisions/2026-06-11-separated-list-boundary-model.md), [archived design](archive/completed-phases/2026-06-11-separated-list-grouping.md), and [archived plan](archive/completed-phases/2026-06-11-separated-list-grouping-plan.md))._
 _Previously active: json-settings last-good attachment example shipped 2026-06-01 as [`examples/json-settings/`](../examples/json-settings/) (issue #202; no ADR — implements accepted last-good + stable-identity decisions). See [archived plan](archive/completed-phases/2026-06-01-json-settings-last-good-attachment-plan.md)._
 _Completed: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
 _Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026-05-17-canonical-companion-trait.md) and [archived plan](archive/completed-phases/2026-05-17-canonical-trait.md))._
