@@ -1203,3 +1203,59 @@ test "SyntaxNode::children delegates to children_from(0)" {
     inspect(via_children[i].start() == via_from[i].start(), content="true")
   }
 }
+
+///|
+test "SyntaxNode::text on a leaf node returns its token text" {
+  let tok = CstToken::CstToken(RawKind(9), "hello")
+  let cst = CstNode::new(RawKind(20), [CstElement::Token(tok)])
+  let sn = SyntaxNode::from_cst(cst)
+  inspect(sn.text(), content="hello")
+}
+
+///|
+test "SyntaxNode::text concatenates nested tokens including trivia in source order" {
+  let binding = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::CstToken(RawKind(3), "let")),
+    CstElement::Token(CstToken::CstToken(RawKind(4), " ")),
+    CstElement::Token(CstToken::CstToken(RawKind(5), "x")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Node(binding),
+    CstElement::Token(CstToken::CstToken(RawKind(4), "  ")),
+    CstElement::Token(CstToken::CstToken(RawKind(6), "=")),
+    CstElement::Token(CstToken::CstToken(RawKind(4), " ")),
+    CstElement::Token(CstToken::CstToken(RawKind(7), "1")),
+  ])
+  let sn = SyntaxNode::from_cst(root)
+  inspect(sn.text(), content="let x  = 1")
+}
+
+///|
+test "SyntaxNode::text on an empty node returns empty string" {
+  let cst = CstNode::new(RawKind(22), [])
+  inspect(SyntaxNode::from_cst(cst).text(), content="")
+}
+
+///|
+test "SyntaxNode::text includes tokens inside RepeatGroup wrappers" {
+  let repeated = CstNode::new(repeat_group_kind, [
+    CstElement::Token(CstToken::CstToken(RawKind(4), "b")),
+    CstElement::Token(CstToken::CstToken(RawKind(4), "c")),
+  ])
+  let root = CstNode::new(RawKind(0), [
+    CstElement::Token(CstToken::CstToken(RawKind(1), "a")),
+    CstElement::Node(repeated),
+    CstElement::Token(CstToken::CstToken(RawKind(1), "d")),
+  ])
+  inspect(SyntaxNode::from_cst(root).text(), content="abcd")
+}
+
+///|
+test "SyntaxNode::text is offset-independent and matches span length" {
+  let inner = CstNode::new(RawKind(2), [
+    CstElement::Token(CstToken::CstToken(RawKind(3), "abc")),
+  ])
+  let sn = SyntaxNode::from_cst_at(inner, 10)
+  inspect(sn.text(), content="abc")
+  inspect(sn.text().length() == sn.end() - sn.start(), content="true")
+}
