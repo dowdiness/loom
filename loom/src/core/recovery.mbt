@@ -43,6 +43,47 @@ pub fn[
   }
 }
 
+// ─── expect_adjacent ──────────────────────────────────────────────────────────
+
+///|
+/// Like `expect`, but additionally requires the matching token to be
+/// contiguous with the previously consumed token — no trivia may separate
+/// them.
+///
+/// Use at whitespace-sensitive boundaries: a grammar that lexes `song` as an
+/// identifier can accept `song(` while rejecting `song (` without comparing
+/// `current_token_range` offsets by hand.
+///
+/// Returns true when the token was consumed normally, false when recovery
+/// fired. On a trivia-separated match the token is NOT consumed — the
+/// grammar decides how to recover. Token mismatches and EOF behave exactly
+/// like `expect`.
+pub fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] ParserContext::expect_adjacent(
+  self : ParserContext[T, K],
+  expected : T,
+  kind : K,
+) -> Bool {
+  if self.at_adjacent(expected) {
+    self.emit_token(kind)
+    true
+  } else if !self.at_eof() && self.at(expected) {
+    // Right token, wrong spacing — trivia separates it from the previous one.
+    self.error(
+      "expected " +
+      expected.to_string() +
+      " immediately adjacent, found intervening trivia",
+    )
+    self.emit_error_placeholder()
+    false
+  } else {
+    // Mismatch or EOF — reuse expect's recovery (always returns false here).
+    self.expect(expected, kind)
+  }
+}
+
 // ─── skip_until ───────────────────────────────────────────────────────────────
 
 ///|

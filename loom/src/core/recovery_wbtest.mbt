@@ -386,3 +386,92 @@ test "skip_until_progress: normal skip when not at sync" {
   inspect(ctx.at(TestTok::Num(2)), content="true")
   ctx.finish_node()
 }
+
+// ─── expect_adjacent ──────────────────────────────────────────────────────────
+
+///|
+test "expect_adjacent: consumes contiguous matching token" {
+  let src = "1+ 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
+  inspect(ok, content="true")
+  inspect(ctx.diagnostics.length(), content="0")
+  // Plus was consumed — now at Num(2) (after trivia).
+  inspect(ctx.at(TestTok::Num(2)), content="true")
+  ctx.finish_node()
+}
+
+///|
+test "expect_adjacent: rejects trivia-separated token without consuming" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
+  inspect(ok, content="false")
+  inspect(ctx.diagnostics.length(), content="1")
+  // The Plus itself was NOT consumed — grammar decides how to recover.
+  inspect(ctx.at(TestTok::Plus), content="true")
+  ctx.finish_node()
+}
+
+///|
+test "expect_adjacent: wrong token reports expect-style mismatch" {
+  let src = "1+2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  let ok = ctx.expect_adjacent(TestTok::Num(9), KNum)
+  inspect(ok, content="false")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(
+    ctx.diagnostics.items()[0].message.contains("expected") &&
+    ctx.diagnostics.items()[0].message.contains("Plus"),
+    content="true",
+  )
+  ctx.finish_node()
+}
+
+///|
+test "expect_adjacent: at EOF emits diagnostic" {
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
+  inspect(ok, content="false")
+  inspect(ctx.diagnostics.length(), content="1")
+  inspect(ctx.diagnostics.items()[0].message.contains("TokEof"), content="true")
+  ctx.finish_node()
+}
+
+///|
+test "expect_adjacent: eof_token as expected delegates to expect at EOF" {
+  // Pathological input, pinned for contract consistency: passing the eof
+  // token must behave exactly like expect (emit_token's EOF recovery),
+  // not the "intervening trivia" branch.
+  let src = "1"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  let ok = ctx.expect_adjacent(TestTok::TokEof, KErr)
+  let reference = ParserContext::new(test_tokenize(src), src, test_spec)
+  reference.start_node(KRoot)
+  reference.emit_token(KNum)
+  let ok_expect = reference.expect(TestTok::TokEof, KErr)
+  inspect(ok == ok_expect, content="true")
+  inspect(
+    ctx.diagnostics.items()[0].message ==
+    reference.diagnostics.items()[0].message,
+    content="true",
+  )
+  reference.finish_node()
+  ctx.finish_node()
+}

@@ -245,6 +245,49 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(
 }
 
 ///|
+/// Return true if the next token equals `expected` AND is contiguous with
+/// everything consumed so far — no trivia may separate it from the
+/// previously consumed token.
+///
+/// This is the whitespace-sensitive counterpart of `at`: `at` skips trivia
+/// (so `song (` and `song(` look identical), while `at_adjacent` lets a
+/// grammar accept `song(` but reject `song (` without hand-rolled offset
+/// arithmetic over `current_token_range`. At start of input the first token
+/// counts as adjacent only when it starts at offset 0.
+///
+/// Adjacency requires both checks below: the raw-index check catches
+/// interposed zero-width tokens (which offset comparison misses), and the
+/// offset check catches unrepresented source gaps — token streams from
+/// `LexResult::from_located_tokens` without a `gap_token` skip blank gaps
+/// instead of materializing trivia, so consecutive indices alone do not
+/// prove contiguity. Trivia already consumed (e.g. via `flush_trivia`)
+/// still counts as separation — even zero-width trivia, which offsets
+/// cannot see — so the token immediately before the cursor must itself be
+/// non-trivia.
+pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
+  self : ParserContext[T, K],
+  expected : T,
+) -> Bool {
+  guard self.position < self.token_count else { return false }
+  let next = (self.get_token)(self.position)
+  guard !next.is_trivia() && next == expected else { return false }
+  // Trivia consumed via flush_trivia still separates — including
+  // zero-width trivia, which offsets cannot see — so the token
+  // immediately before the cursor must itself be non-trivia. Its end is
+  // the frontier (0 before the first token); the next token must start
+  // exactly there.
+  guard self.position == 0 || !(self.get_token)(self.position - 1).is_trivia() else {
+    return false
+  }
+  let frontier = if self.position == 0 {
+    0
+  } else {
+    (self.get_end)(self.position - 1)
+  }
+  (self.get_start)(self.position) == frontier
+}
+
+///|
 /// Return true if at end of input (ignoring trivia).
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
   self : ParserContext[T, K],
