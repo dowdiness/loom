@@ -168,6 +168,7 @@ pub fn SyntaxNode::children(Self) -> Array[Self]
 pub fn SyntaxNode::children_from(Self, Int) -> Array[Self]
 pub fn SyntaxNode::contains_errors(Self, RawKind, RawKind) -> Bool
 pub fn SyntaxNode::cst_node(Self) -> CstNode
+pub fn SyntaxNode::deep_tokens_iter(Self) -> Iter[SyntaxToken]
 pub fn SyntaxNode::direct_child_of_kind(Self, RawKind) -> Self?
 pub fn SyntaxNode::direct_children_of_kind(Self, RawKind) -> Array[Self]
 pub fn SyntaxNode::direct_elements_iter(Self) -> Iter[SyntaxElement]

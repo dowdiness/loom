@@ -719,6 +719,45 @@ test "SyntaxNode::first_token: skips leading node child to find token" {
 }
 
 ///|
+test "SyntaxNode::first_token: descends into nested node child" {
+  let inner = CstNode::new(RawKind(3), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "yz")),
+  ])
+  let empty_child = CstNode::new(RawKind(2), [])
+  let cst = CstNode::new(RawKind(1), [
+    CstElement::Node(empty_child),
+    CstElement::Node(inner),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "w")),
+  ])
+  let node = SyntaxNode::from_cst_at(cst, 5)
+  let ft = node.first_token()
+  inspect(ft is Some(_), content="true")
+  inspect(ft.unwrap().text(), content="yz")
+  inspect(ft.unwrap().start(), content="5")
+}
+
+///|
+test "SyntaxNode::deep_tokens_iter yields all subtree tokens positioned in source order" {
+  let inner = CstNode::new(RawKind(3), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "cd")),
+  ])
+  let empty_child = CstNode::new(RawKind(2), [])
+  let root = CstNode::new(RawKind(1), [
+    CstElement::Token(CstToken::CstToken(RawKind(9), "ab")),
+    CstElement::Node(empty_child),
+    CstElement::Node(inner),
+    CstElement::Token(CstToken::CstToken(RawKind(4), " ")),
+    CstElement::Token(CstToken::CstToken(RawKind(9), "ef")),
+  ])
+  let sn = SyntaxNode::from_cst_at(root, 10)
+  let seen = sn
+    .deep_tokens_iter()
+    .map(t => t.text() + "@" + t.start().to_string())
+    .collect()
+  inspect(seen.join("|"), content="ab@10|cd@12| @14|ef@15")
+}
+
+///|
 test "SyntaxNode::first_child: leaf node returns None" {
   let cst = CstNode::new(RawKind(1), [])
   let leaf = SyntaxNode::from_cst(cst)
