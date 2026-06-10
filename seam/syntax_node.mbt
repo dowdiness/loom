@@ -604,6 +604,52 @@ pub fn SyntaxNode::contains_errors(
 }
 
 ///|
+/// Push `children` onto `stack` in reverse source order, pairing each with
+/// its absolute offset. Offsets are derived right-to-left from the parent's
+/// exclusive `end`, so no forward prefix-sum pass or temporary array is
+/// needed.
+fn push_positioned_reversed(
+  stack : Array[(CstElement, Int)],
+  children : Array[CstElement],
+  end : Int,
+) -> Unit {
+  let mut pos = end
+  for i = children.length() - 1; i >= 0; i = i - 1 {
+    let elem = children[i]
+    pos = pos -
+      (match elem {
+        CstElement::Token(tok) => tok.text_len()
+        CstElement::Node(n) => n.text_len
+      })
+    stack.push((elem, pos))
+  }
+}
+
+///|
+/// Lazy iterator over every token in this subtree, positioned, in source
+/// order (trivia included). The subtree-deep complement of
+/// `direct_elements_iter`.
+///
+/// Uses an explicit stack (same approach as `CstElement::iter`) so each
+/// pull is O(1) amortized regardless of tree depth — a recursive
+/// `flat_map` formulation benchmarked 11-25x slower on this hot path.
+pub fn SyntaxNode::deep_tokens_iter(self : SyntaxNode) -> Iter[SyntaxToken] {
+  let stack : Array[(CstElement, Int)] = []
+  push_positioned_reversed(stack, self.cst.children, self.end())
+  Iter::new(() => {
+    for ;; {
+      match stack.pop() {
+        None => return None
+        Some((CstElement::Token(tok), off)) =>
+          return Some(SyntaxToken::new(tok, off))
+        Some((CstElement::Node(n), off)) =>
+          push_positioned_reversed(stack, n.children, off + n.text_len)
+      }
+    }
+  })
+}
+
+///|
 /// Find the token(s) at a UTF-16 code-unit offset.
 ///
 /// Returns `Single` when `offset` falls strictly inside a token's span.
@@ -614,7 +660,9 @@ pub fn SyntaxNode::contains_errors(
 /// Returns `None` when no token covers the offset.
 ///
 /// Performs an inlined DFS with early exit on strict interior match —
-/// no intermediate allocation.
+/// no intermediate allocation. Deliberately imperative: a declarative
+/// two-pass formulation over `deep_tokens_iter` benchmarked 2.4-6.8x
+/// slower (see syntax_node_bench_wbtest.mbt, which guards this path).
 pub fn SyntaxNode::token_at_offset(
   self : SyntaxNode,
   offset : Int,
