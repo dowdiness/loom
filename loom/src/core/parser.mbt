@@ -261,8 +261,9 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(
 /// `LexResult::from_located_tokens` without a `gap_token` skip blank gaps
 /// instead of materializing trivia, so consecutive indices alone do not
 /// prove contiguity. Trivia already consumed (e.g. via `flush_trivia`)
-/// still counts as separation: the offset frontier is the end of the last
-/// consumed non-trivia token.
+/// still counts as separation — even zero-width trivia, which offsets
+/// cannot see — so the token immediately before the cursor must itself be
+/// non-trivia.
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
   self : ParserContext[T, K],
   expected : T,
@@ -270,14 +271,19 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
   guard self.position < self.token_count else { return false }
   let next = (self.get_token)(self.position)
   guard !next.is_trivia() && next == expected else { return false }
-  // Frontier = end of the last consumed NON-trivia token (0 before the
-  // first one). Trivia already consumed via flush_trivia still separates,
-  // so it must not contribute to the frontier — walk back past it.
-  let mut prev = self.position - 1
-  while prev >= 0 && (self.get_token)(prev).is_trivia() {
-    prev = prev - 1
+  // Trivia consumed via flush_trivia still separates — including
+  // zero-width trivia, which offsets cannot see — so the token
+  // immediately before the cursor must itself be non-trivia. Its end is
+  // the frontier (0 before the first token); the next token must start
+  // exactly there.
+  guard self.position == 0 || !(self.get_token)(self.position - 1).is_trivia() else {
+    return false
   }
-  let frontier = if prev < 0 { 0 } else { (self.get_end)(prev) }
+  let frontier = if self.position == 0 {
+    0
+  } else {
+    (self.get_end)(self.position - 1)
+  }
   (self.get_start)(self.position) == frontier
 }
 

@@ -3141,3 +3141,42 @@ test "at_adjacent: flush_trivia with no trivia keeps adjacency" {
   inspect(ctx.at_adjacent(TestTok::Plus), content="true")
   ctx.finish_node()
 }
+
+///|
+test "at_adjacent: flushed zero-width trivia still breaks adjacency" {
+  // from_located_tokens preserves zero-width tokens, so a grammar can have
+  // a virtual/zero-length trivia separator. Offsets agree across it
+  // (B.start == A.end), so only the token stream reveals the separation —
+  // and flush_trivia must not change at_adjacent's answer.
+  let src = "1+"
+  let toks = [TestTok::Num(1), TestTok::Ws, TestTok::Plus]
+  let starts = [0, 1, 1]
+  let ends = [1, 1, 2]
+  let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    3,
+    i => toks[i],
+    i => starts[i],
+    i => ends[i],
+    src,
+    test_spec,
+  )
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.flush_trivia()
+  inspect(ctx.at_adjacent(TestTok::Plus), content="false")
+  ctx.finish_node()
+}
+
+///|
+test "at_adjacent: leading trivia consumed by emit_token keeps adjacency" {
+  // emit_token flushes the LEADING trivia of the token it consumes; that
+  // trivia sits before the previous token, not between it and the next.
+  let src = " 1+2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  ctx.emit_token(KNum)
+  inspect(ctx.at_adjacent(TestTok::Plus), content="true")
+  ctx.finish_node()
+}
