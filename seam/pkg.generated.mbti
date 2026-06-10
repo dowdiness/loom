@@ -85,7 +85,7 @@ pub impl Hash for CstToken
 pub struct DirectElementGroup {
   // private fields
 }
-pub fn DirectElementGroup::elements(Self) -> Array[SyntaxElement]
+pub fn DirectElementGroup::elements(Self) -> ArrayView[SyntaxElement]
 pub fn DirectElementGroup::end(Self) -> Int
 pub fn DirectElementGroup::expect_no_children_of_kind(Self, RawKind, message~ : String) -> Result[Unit, ProjectionShapeError]
 pub fn DirectElementGroup::expect_no_tokens_of_kind(Self, RawKind, message~ : String) -> Result[Unit, ProjectionShapeError]

@@ -45,7 +45,7 @@ test "SyntaxNode::direct_element_groups_by non-empty groups span their element e
   )
   // Element parity with the raw grouping API.
   inspect(
-    render_groups(groups.map(group => group.elements())),
+    render_groups(groups.map(group => group.elements().to_owned())),
     content=render_groups(node.direct_elements_grouped_by(RawKind(1))),
   )
 }

@@ -42,11 +42,15 @@ pub fn DirectElementGroup::index(self : DirectElementGroup) -> Int {
 }
 
 ///|
-/// Elements of this group in source order (never separator or trivia tokens).
+/// Elements of this group in source order (never separator or trivia tokens),
+/// as a read-only view: the wrapper's job is to keep `elements` consistent
+/// with the slot span computed at construction, so the backing array is not
+/// exposed for mutation. Use `direct_elements_grouped_by` when raw arrays are
+/// needed.
 pub fn DirectElementGroup::elements(
   self : DirectElementGroup,
-) -> Array[SyntaxElement] {
-  self.elements
+) -> ArrayView[SyntaxElement] {
+  self.elements[:]
 }
 
 ///|
