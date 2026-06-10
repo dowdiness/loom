@@ -29,15 +29,11 @@ pub fn[V : SyntaxMutVisitor] SyntaxNode::accept_visitor(
   if !V::enter_node(visitor, self) {
     return
   }
-  walk_children_flat(
-    self.cst.children,
-    self,
-    self.offset,
-    fn(child, parent, pos) {
-      SyntaxNode::new(child, Some(parent), pos).accept_visitor(visitor)
-    },
-    fn(tok, pos) { V::visit_token(visitor, SyntaxToken::new(tok, pos)) },
-  )
-  |> ignore
+  for elem in self.direct_elements_iter() {
+    match elem {
+      Node(n) => n.accept_visitor(visitor)
+      Token(t) => V::visit_token(visitor, t)
+    }
+  }
   V::exit_node(visitor, self)
 }
