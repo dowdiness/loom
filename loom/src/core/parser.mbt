@@ -1142,6 +1142,94 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
+/// Parse a separator-delimited list, wrapping each element in its own
+/// `element_kind` node so the CST records element boundaries. Returns the
+/// number of element nodes emitted.
+///
+/// `parse_element` returns `true` iff it consumed or emitted an element body;
+/// `false` means "no element starts here" and must not consume tokens. Error
+/// recovery *inside* a malformed element is `parse_element`'s responsibility.
+///
+/// Boundary contract — an empty element slot exists iff it is adjacent to a
+/// separator: leading, doubled, and trailing separators each produce an
+/// `element_kind` node containing a zero-width error placeholder plus an
+/// "expected element" diagnostic. Empty input emits nothing and returns 0.
+///
+/// Elements are wrapped retroactively (`mark`/`start_at`), never rolled back:
+/// the combinator does not use `checkpoint`/`restore`, so caller-owned
+/// recovery and delimiter handling are unaffected. The combinator owns no
+/// open/close delimiters. Like `node()`, each element slot first tries
+/// incremental subtree reuse of `element_kind`.
+///
+/// Terminates defensively if `parse_element` reports success without
+/// consuming tokens (contract violation): the slot is discarded and the list
+/// ends.
+pub fn[
+  T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] ParserContext::separated_list(
+  self : ParserContext[T, K],
+  element_kind : K,
+  separator : T,
+  parse_element : () -> Bool,
+) -> Int {
+  // State machine over element slots: `count` and `after_separator` are the
+  // loop state; each iteration parses one slot, then a separator continues
+  // the list or the loop ends.
+  let mut count = 0
+  let mut after_separator = false
+  while true {
+    if self.at(separator) {
+      // Empty slot adjacent to the upcoming separator (leading or doubled).
+      self.emit_empty_element(element_kind)
+      count = count + 1
+    } else if self.try_reuse(element_kind) is Some(reuse) {
+      // Reuse fast path — same as node(): replay the old subtree, skip the body.
+      self.emit_reused(reuse)
+      count = count + 1
+    } else {
+      let mark = self.mark()
+      let before = self.position
+      if parse_element() {
+        guard self.position > before else { break } // defensive: no progress
+        self.start_at(mark, element_kind)
+        self.finish_node()
+        count = count + 1
+      } else if after_separator {
+        // Separator-adjacent absence: trailing separator.
+        self.emit_empty_element(element_kind)
+        count = count + 1
+      } else {
+        // No list here at all: the unclaimed mark stays a tombstone, so
+        // nothing reaches the tree.
+        break
+      }
+    }
+    if self.at(separator) {
+      self.emit_current_token()
+      after_separator = true
+    } else {
+      break
+    }
+  }
+  count
+}
+
+///|
+/// Emit an `element_kind` node holding only a zero-width error placeholder,
+/// with an "expected element" diagnostic at the current token. Represents an
+/// empty separated-list slot.
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_empty_element(
+  self : ParserContext[T, K],
+  element_kind : K,
+) -> Unit {
+  self.start_node(element_kind)
+  self.report_expected(expected="element")
+  self.emit_error_placeholder()
+  self.finish_node()
+}
+
+///|
 /// Try to reuse an entire RepeatGroup subtree at the current position.
 ///
 /// Grammar code calls this before each iteration of a repeat loop (e.g.
