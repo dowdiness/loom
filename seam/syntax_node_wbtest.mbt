@@ -89,7 +89,7 @@ test "SyntaxNode::direct_elements_iter preserves mixed order and offsets" {
     CstElement::Node(repeated),
     CstElement::Token(trailing),
   ])
-  let sn = SyntaxNode::from_cst_at(root, 10)
+  let sn = SyntaxNode::from_cst(root, offset=10)
   let seen = sn
     .direct_elements_iter()
     .map(elem => {
@@ -126,7 +126,7 @@ test "SyntaxNode::direct_elements_iter preserves mixed order and offsets" {
 
 ///|
 test "SyntaxNode::direct_elements_iter returns empty iterator for empty node" {
-  let sn = SyntaxNode::from_cst_at(CstNode::new(RawKind(0), []), 42)
+  let sn = SyntaxNode::from_cst(CstNode::new(RawKind(0), []), offset=42)
   inspect(sn.direct_elements_iter().count(), content="0")
 }
 
@@ -729,7 +729,7 @@ test "SyntaxNode::first_token: descends into nested node child" {
     CstElement::Node(inner),
     CstElement::Token(CstToken::CstToken(RawKind(9), "w")),
   ])
-  let node = SyntaxNode::from_cst_at(cst, 5)
+  let node = SyntaxNode::from_cst(cst, offset=5)
   let ft = node.first_token()
   inspect(ft is Some(_), content="true")
   inspect(ft.unwrap().text(), content="yz")
@@ -749,7 +749,7 @@ test "SyntaxNode::deep_tokens_iter yields all subtree tokens positioned in sourc
     CstElement::Token(CstToken::CstToken(RawKind(4), " ")),
     CstElement::Token(CstToken::CstToken(RawKind(9), "ef")),
   ])
-  let sn = SyntaxNode::from_cst_at(root, 10)
+  let sn = SyntaxNode::from_cst(root, offset=10)
   let seen = sn
     .deep_tokens_iter()
     .map(t => t.text() + "@" + t.start().to_string())
@@ -1294,7 +1294,7 @@ test "SyntaxNode::text is offset-independent and matches span length" {
   let inner = CstNode::new(RawKind(2), [
     CstElement::Token(CstToken::CstToken(RawKind(3), "abc")),
   ])
-  let sn = SyntaxNode::from_cst_at(inner, 10)
+  let sn = SyntaxNode::from_cst(inner, offset=10)
   inspect(sn.text(), content="abc")
   inspect(sn.text().length() == sn.end() - sn.start(), content="true")
 }
@@ -1410,7 +1410,7 @@ test "SyntaxNode::direct_elements_grouped_by keeps mixed node+token groups in so
     CstElement::Token(CstToken::CstToken(RawKind(4), "42")),
     CstElement::Token(CstToken::CstToken(RawKind(7), ")")),
   ])
-  let groups = SyntaxNode::from_cst_at(root, 10).direct_elements_grouped_by(
+  let groups = SyntaxNode::from_cst(root, offset=10).direct_elements_grouped_by(
     RawKind(1),
   )
   inspect(

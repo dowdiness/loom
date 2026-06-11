@@ -199,8 +199,7 @@ pub fn SyntaxNode::find_at_checked(Self, Int) -> Self?
 pub fn SyntaxNode::find_token(Self, RawKind) -> SyntaxToken?
 pub fn SyntaxNode::first_child(Self) -> Self?
 pub fn SyntaxNode::first_token(Self) -> SyntaxToken?
-pub fn SyntaxNode::from_cst(CstNode) -> Self
-pub fn SyntaxNode::from_cst_at(CstNode, Int) -> Self
+pub fn SyntaxNode::from_cst(CstNode, offset? : Int) -> Self
 pub fn SyntaxNode::has_direct_token_of_kind(Self, RawKind) -> Bool
 pub fn SyntaxNode::is_error(Self, RawKind) -> Bool
 pub fn SyntaxNode::kind(Self) -> RawKind
