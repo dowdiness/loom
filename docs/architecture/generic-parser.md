@@ -127,10 +127,20 @@ These replace the closures that older versions carried in `LanguageSpec` (`kind_
 Core parser state. Grammar functions receive a `ParserContext` and call methods on it to build the CST event stream:
 
 ```moonbit
-pub struct ParserContext[T, K] { ... }
+pub struct ParserContext[T, K] {
+  // private fields
+}
 ```
 
-The internal fields are not part of the public API. All interaction is through the methods listed below.
+The grammar-author surface is **exactly the methods** listed below. Every field
+(the token accessors, cursor `position`, `error_count`, `open_nodes`, the reuse
+state, etc.) is `priv`, so the generated interface renders the struct body as
+`// private fields` and grammars cannot read or pattern-match on parser internals
+(loom#251). This boundary is language-enforced, not a convention.
+
+If a grammar genuinely needs to observe some piece of state, add a named accessor
+method with explicit, documented semantics — fields are never re-exposed directly,
+and accessors are added on demand rather than preemptively.
 
 ## Grammar API
 

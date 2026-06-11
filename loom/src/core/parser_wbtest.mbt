@@ -165,6 +165,16 @@ test "peek returns eof when past end" {
 }
 
 ///|
+// Relocated from examples/lambda (loom#251): exercises core's finish_node
+// underflow guard via the private open_nodes counter, so it belongs to core.
+test "finish_node without matching start_node is ignored" {
+  let (spec, _) = make_test_fixtures()
+  let ctx = ParserContext::new([], "", spec)
+  ctx.finish_node()
+  inspect(ctx.open_nodes, content="0")
+}
+
+///|
 test "token_text_at returns token text and empty string for invalid index" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "+42", spec)
