@@ -101,24 +101,31 @@ pub fn[T, K] LanguageSpec::new(
 ///
 /// Token storage is closure-based: callers provide indexed accessors so
 /// ParserContext never needs to copy tokens into a wrapper array.
+///
+/// Grammar-author boundary (loom#251): the stable grammar-author surface is the
+/// methods on `ParserContext`, not its fields. All fields below are `priv`
+/// internal parser state — they are deliberately absent from the generated
+/// interface so grammars cannot couple to the cursor/error/reuse representation.
+/// If a grammar genuinely needs to read some state, add a named accessor method
+/// with explicit semantics rather than re-exposing a field.
 pub struct ParserContext[T, K] {
-  spec : LanguageSpec[T, K]
-  token_count : Int
-  get_token : (Int) -> T
-  get_start : (Int) -> Int
-  get_end : (Int) -> Int
-  source : String
-  mut position : Int
-  events : @seam.EventBuffer
-  diagnostics : DiagnosticSet
-  mut error_count : Int
-  mut open_nodes : Int
+  priv spec : LanguageSpec[T, K]
+  priv token_count : Int
+  priv get_token : (Int) -> T
+  priv get_start : (Int) -> Int
+  priv get_end : (Int) -> Int
+  priv source : String
+  priv mut position : Int
+  priv events : @seam.EventBuffer
+  priv diagnostics : DiagnosticSet
+  priv mut error_count : Int
+  priv mut open_nodes : Int
   // Incremental reuse — None on a fresh parse, Some(cursor) for incremental.
-  mut reuse_cursor : ReuseCursor[T, K]?
+  priv mut reuse_cursor : ReuseCursor[T, K]?
   // Diagnostics from the previous parse (optional). When present, reuse hits
   // replay matching diagnostics by code-unit span to preserve exact messages.
-  mut reuse_diagnostics : DiagnosticSet?
-  mut reuse_count : Int
+  priv mut reuse_diagnostics : DiagnosticSet?
+  priv mut reuse_count : Int
 }
 
 ///|

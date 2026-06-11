@@ -1,9 +1,7 @@
 ///|
-test "finish_node without matching start_node is ignored" {
-  let ctx = @core.ParserContext::new([], "", lambda_spec)
-  ctx.finish_node()
-  inspect(ctx.open_nodes, content="0")
-}
+// test "finish_node without matching start_node is ignored" relocated to
+// loom core (parser_wbtest.mbt) in loom#251: it tests core's finish_node
+// underflow guard via the now-private open_nodes field, so it belongs to core.
 
 ///|
 // test "parse_cst: raises with offending token, not EOF" removed:

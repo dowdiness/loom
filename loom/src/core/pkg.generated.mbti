@@ -277,20 +277,7 @@ pub fn OldTokenCache::apply_source_edit(Self, Edit) -> Unit
 pub fn OldTokenCache::empty() -> Self
 
 pub struct ParserContext[T, K] {
-  spec : LanguageSpec[T, K]
-  token_count : Int
-  get_token : (Int) -> T
-  get_start : (Int) -> Int
-  get_end : (Int) -> Int
-  source : String
-  mut position : Int
-  events : @seam.EventBuffer
-  diagnostics : DiagnosticSet
-  mut error_count : Int
-  mut open_nodes : Int
-  mut reuse_cursor : ReuseCursor[T, K]?
-  mut reuse_diagnostics : DiagnosticSet?
-  mut reuse_count : Int
+  // private fields
 }
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(Self[T, K], T) -> Bool
