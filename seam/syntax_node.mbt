@@ -111,18 +111,13 @@ fn SyntaxNode::new(
 }
 
 ///|
-/// Create a root SyntaxNode from a CstNode (offset = 0, no parent).
-pub fn SyntaxNode::from_cst(cst : CstNode) -> SyntaxNode {
-  SyntaxNode::new(cst, None, 0)
-}
-
-///|
-/// Create a root SyntaxNode from a CstNode at a given UTF-16 code-unit offset,
-/// no parent.
-/// Use when the CstNode originates from a sub-range of a larger source
-/// (e.g. embedding a partial parse result at a known position).
-/// Prefer `from_cst` when the node starts at position 0.
-pub fn SyntaxNode::from_cst_at(cst : CstNode, offset : Int) -> SyntaxNode {
+/// Create a root SyntaxNode from a CstNode.
+///
+/// `offset` is the UTF-16 code-unit position of the CST within the source,
+/// defaulting to 0. Use a non-zero offset when the CST originates from a
+/// sub-range of a larger source (for example, embedding a partial parse result
+/// at a known position). The created node has no parent.
+pub fn SyntaxNode::from_cst(cst : CstNode, offset? : Int = 0) -> SyntaxNode {
   SyntaxNode::new(cst, None, offset)
 }
 

@@ -37,7 +37,7 @@ test "SyntaxNode::direct_element_groups_by non-empty groups span their element e
     CstElement::Token(CstToken::CstToken(RawKind(4), "42")),
     CstElement::Token(CstToken::CstToken(RawKind(7), ")")),
   ])
-  let node = SyntaxNode::from_cst_at(root, 10)
+  let node = SyntaxNode::from_cst(root, offset=10)
   let groups = node.direct_element_groups_by(RawKind(1))
   inspect(
     render_group_spans(groups),
