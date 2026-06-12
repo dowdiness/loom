@@ -127,12 +127,8 @@ fn flex_from_tokenize(
   tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
   error_token : FTok,
 ) -> @core.LexResult[FTok] {
-  let result : Result[Array[@core.TokenInfo[FTok]], @core.LexError] = try? tokenize(
-    s,
-  )
-  match result {
-    Ok(tokens) => @core.LexResult(tokens)
-    Err(@core.LexError(msg)) =>
+  try tokenize(s) catch {
+    @core.LexError(msg) =>
       @core.LexResult(
         [
           @core.TokenInfo::new(error_token, s.length()),
@@ -142,6 +138,8 @@ fn flex_from_tokenize(
           @core.Diagnostic::lexer_error_at(msg, 0, s.length(), "lex-error"),
         ),
       )
+  } noraise {
+    tokens => @core.LexResult(tokens)
   }
 }
 
@@ -662,11 +660,11 @@ test "create_buffer: mode lex respects incremental opt out" {
     incremental_relex_enabled=false,
     mode_relex=Some(state),
   )
-  let updated : Result[Unit, @core.LexError] = try? buffer.update(
-    @core.Edit::insert(1, 1),
-    "a!",
-  )
-  inspect(updated is Ok(_), content="true")
+  try buffer.update(@core.Edit::insert(1, 1), "a!") catch {
+    _ => abort("expected mode update to succeed")
+  } noraise {
+    _ => ()
+  }
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"bad mode [1,2]\"]",
@@ -690,11 +688,11 @@ test "create_buffer: recovered mode lex updates incrementally" {
     buffer.get_diagnostics().format(),
     content="[\"bad mode [0,1]\"]",
   )
-  let updated : Result[Unit, @core.LexError] = try? buffer.update(
-    @core.Edit::insert(1, 1),
-    "!!",
-  )
-  inspect(updated is Ok(_), content="true")
+  try buffer.update(@core.Edit::insert(1, 1), "!!") catch {
+    _ => abort("expected recovered mode update to succeed")
+  } noraise {
+    _ => ()
+  }
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"bad mode [0,1]\", \"bad mode [1,2]\"]",
