@@ -92,6 +92,19 @@ canonical Loom/incr shape is still fixed:
 - hold a persistent `Watch` on the terminal derived state; and
 - optionally expose compatibility helpers at the facade edge.
 
+This guide uses the attachment lifecycle from
+[choosing a parser](choosing-a-parser.md#runtime-ownership-and-attachments):
+
+- the attachment owns this `Scope` and its `Watch`;
+- `dispose()` releases attachment cells and GC roots only;
+- disposal must not tear down the parser or a caller-owned runtime; and
+- if parser views must remain readable after attachment disposal, keep another
+  persistent root for those views.
+
+The template below primes its terminal watch. `Runtime::gc()` marks through
+recorded dependencies, and edges such as `state -> parser.syntax_tree()` exist
+only after the terminal cell computes.
+
 Expose parser diagnostics directly from `parser.diagnostics()` or through a
 separate facade method/watch. Do not make current diagnostics wait for semantic
 projection to succeed.

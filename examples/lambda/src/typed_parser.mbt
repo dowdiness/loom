@@ -15,13 +15,18 @@
 ///
 /// Holds a `Scope` owning the bridge Derived + typecheck pipeline cells, the
 /// result `Derived`, a `Watch` that anchors it as a GC root, and a
-/// `TypecheckIndex` for query-by-DefId access. The watch keeps the whole reactive chain
-/// reachable through `Runtime::gc()` — including the parser's syntax-tree
-/// and AST derived cells, which would otherwise be eligible for sweep as
-/// unobserved interior cells.
+/// `TypecheckIndex` for query-by-DefId access. The first `get()` computes
+/// the result and records upstream dependencies from the bridge to the
+/// parser's syntax-tree Derived; after that, the watch keeps the whole
+/// reactive chain reachable through `Runtime::gc()`.
+///
+/// This constructor registers but does not prime the watch. If an integration
+/// may call `Runtime::gc()` before the first `get()`, either perform an
+/// explicit priming read or use the constructor-priming pattern shown by
+/// `CallersPipeline::from_parser`.
 ///
 /// `dispose()` releases the GC root and tears down the type-checker scope.
-/// The parser is unaffected.
+/// The parser is not disposed.
 pub(all) struct TypecheckAttachment {
   scope : @incr.Scope
   result : @incr.Derived[@typecheck.ModuleTypeResult]
@@ -50,7 +55,8 @@ pub fn TypecheckAttachment::dispose(self : TypecheckAttachment) -> Unit {
 /// Returns a `TypecheckAttachment` that owns a fresh `Scope` rooted at
 /// `parser.runtime()`. The attachment registers a persistent `Watch`
 /// on the result Derived, both for ergonomic untracked reads and to keep the
-/// reactive chain alive across `Runtime::gc()`.
+/// reactive chain alive across `Runtime::gc()` after the first `get()` has
+/// recorded upstream dependencies.
 pub fn attach_typecheck(
   parser : @loom.Parser[@ast.Term],
 ) -> TypecheckAttachment {

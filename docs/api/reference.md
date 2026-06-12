@@ -260,6 +260,12 @@ Creates the unified `Parser[Ast]` reactive handle (post Stage 6, ADR
 One type, two update paths (`apply_edit` + `set_source`); downstream consumers
 attach reactive derived cells via `parser.runtime()`.
 
+Runtime ownership follows the parser surface: omitting `runtime?` creates a
+fresh parser-owned runtime, while supplying `runtime?` joins a caller-owned
+graph. Parser-attached pipeline scopes should come from `parser.runtime()`.
+For the `Scope` / `Watch` / priming / `dispose()` lifecycle, see
+[choosing a parser](choosing-a-parser.md#runtime-ownership-and-attachments).
+
 `new_parser` is intentionally stricter than `new_imperative_parser`: the
 AST type `Ast` must implement `Eq`. The derived graph does structural-equality
 backdating at the AST boundary, so equality is part of the public contract.

@@ -53,6 +53,20 @@ Outside a tracked compute closure, read these views with `.read()` /
 `set_source` and `apply_edit` both update the snapshot input under
 `Runtime::batch` so consumers never observe a half-updated graph.
 
+## Runtime and attachment lifecycle
+
+Runtime rules:
+
+- Omitting `runtime?` creates a parser-owned runtime.
+- Passing `runtime?` joins a caller-owned graph.
+- Parser-attached pipelines should build their own `Scope` on
+  `parser.runtime()`.
+- Those pipelines own their `Watch` / priming / `dispose()` lifecycle.
+
+See
+[`docs/api/choosing-a-parser.md`](../../../docs/api/choosing-a-parser.md#runtime-ownership-and-attachments)
+for the full pattern and example.
+
 ## Implementing a new language
 
 Grammar authors don't construct these handles directly. Define a

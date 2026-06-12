@@ -10,8 +10,11 @@
 /// after the engine has advanced, so downstream consumers see one coherent
 /// parse state regardless of which method was called.
 ///
-/// Accepts an optional external `Runtime` so downstream derived cells can
-/// share the dependency graph.
+/// If constructed without a runtime, the parser creates a fresh `Runtime`
+/// for its input and derived views. If constructed with `runtime~`, the
+/// parser joins that caller-owned graph. In both cases, downstream
+/// attachments should use `parser.runtime()` rather than creating a second
+/// runtime for cells that read parser views.
 ///
 /// See ADR 2026-04-17 and the implementation plan at
 /// `docs/plans/2026-04-17-unified-parser.md` for rationale.
@@ -31,10 +34,11 @@ pub struct Parser[Ast] {
 /// so the published snapshot and derived views reflect a real parse rather
 /// than the empty initial state.
 ///
-/// If `runtime` is supplied the parser joins that reactive graph;
-/// otherwise a fresh `Runtime` is created. Sharing lets downstream
-/// consumers subscribe to `parser.source()` / `parser.ast()` on the
-/// same runtime as their own derived cells.
+/// If `runtime` is supplied, the parser joins that caller-owned reactive
+/// graph; otherwise it creates a fresh parser-owned `Runtime`. Sharing lets
+/// downstream consumers subscribe to `parser.source()` / `parser.ast()` on
+/// the same runtime as their own derived cells. The parser does not own or
+/// dispose caller-supplied runtimes.
 pub fn[Ast : Eq] Parser::new(
   source : String,
   lang : @incremental.ImperativeLanguage[Ast],
@@ -161,6 +165,11 @@ pub fn[Ast] Parser::diagnostics(
 ///|
 /// Return the `Runtime` backing this parser so downstream derived cells
 /// can join the same dependency graph.
+///
+/// Parser-attached pipelines should create their own `@incr.Scope` on this
+/// runtime and dispose that attachment scope separately from the parser. See
+/// `docs/api/choosing-a-parser.md#runtime-ownership-and-attachments` for the
+/// `Watch` / priming / `Runtime::gc()` lifecycle contract.
 pub fn[Ast] Parser::runtime(self : Parser[Ast]) -> @incr.Runtime {
   self.rt
 }

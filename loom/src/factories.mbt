@@ -248,9 +248,10 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
 /// `@incr.Derived` views — see `Parser` in `loom/src/pipeline/` for the
 /// reactive surface.
 ///
-/// Pass `runtime~` to join an existing reactive graph (useful when downstream
-/// derived cells need to share the same `Runtime` as the parser). Omitting it
-/// creates a fresh runtime owned by the returned parser.
+/// Pass `runtime~` to join an existing caller-owned reactive graph. Omitting it
+/// creates a fresh runtime owned by the returned parser. Attachments should use
+/// `parser.runtime()`; using a second runtime for cells that read parser views
+/// disconnects the dependency graph.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
   source : String,
   grammar : Grammar[T, K, Ast],
