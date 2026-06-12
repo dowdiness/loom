@@ -1,20 +1,18 @@
 ///|
 fn test_offset(value : Int) -> TextOffset {
-  let result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(value)
-  match result {
-    Ok(offset) => offset
-    Err(_) => abort("expected valid offset")
+  try TextOffset(value) catch {
+    _ => abort("expected valid offset")
+  } noraise {
+    offset => offset
   }
 }
 
 ///|
 fn test_range(start : Int, end : Int) -> TextRange {
-  let result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start, end,
-  )
-  match result {
-    Ok(range) => range
-    Err(_) => abort("expected valid range")
+  try TextRange::from_offsets(start, end) catch {
+    _ => abort("expected valid range")
+  } noraise {
+    range => range
   }
 }
 
@@ -24,12 +22,10 @@ fn test_shift(
   delta : Int,
   after : TextOffset,
 ) -> DiagnosticSet {
-  let result : Result[DiagnosticSet, DiagnosticBuildError] = try? set.offset_by(
-    delta, after,
-  )
-  match result {
-    Ok(set) => set
-    Err(_) => abort("expected valid diagnostic offset")
+  try set.offset_by(delta, after) catch {
+    _ => abort("expected valid diagnostic offset")
+  } noraise {
+    set => set
   }
 }
 
@@ -61,24 +57,30 @@ test "TextOffset and TextRange expose validated values" {
 
 ///|
 test "TextOffset and TextRange reject invalid inputs without aborting" {
-  let offset_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    -3,
-  )
-  match offset_result {
-    Err(NegativeTextOffset(value)) => inspect(value, content="-3")
-    Ok(_) => abort("expected invalid offset")
-    Err(_) => abort("expected offset error")
+  try TextOffset(-3) catch {
+    NegativeTextOffset(value) => inspect(value, content="-3")
+    _ => abort("expected offset error")
+  } noraise {
+    _ => abort("expected invalid offset")
   }
-  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange(
-    test_offset(5),
-    test_offset(2),
-  )
-  match range_result {
-    Err(InvalidTextRange(start, end)) =>
+  try TextRange(test_offset(5), test_offset(2)) catch {
+    InvalidTextRange(start, end) =>
       debug_inspect([start, end], content="[5, 2]")
-    Ok(_) => abort("expected invalid range")
-    Err(_) => abort("expected range error")
+    _ => abort("expected range error")
+  } noraise {
+    _ => abort("expected invalid range")
   }
+}
+
+///|
+test "Diagnostic lexer_error_at reports invalid ranges as notes" {
+  let diagnostic = Diagnostic::lexer_error_at("invalid", 5, 2, "bad-range")
+  inspect(diagnostic.format(), content="invalid")
+  inspect(diagnostic.primary is None, content="true")
+  debug_inspect(
+    diagnostic.notes,
+    content="[\"invalid lexer diagnostic range [5,2]: InvalidTextRange(5, 2)\"]",
+  )
 }
 
 ///|
@@ -243,16 +245,33 @@ test "DiagnosticSet after_relex drops diagnostics with secondary stale evidence"
 }
 
 ///|
+test "DiagnosticSet after_relex reports invalid relex boundary" {
+  let set = DiagnosticSet::single(test_diagnostic("before", 0, 1, 1))
+  let shifted = set.after_relex(0, -1, 3, failure_context="test")
+  debug_inspect(
+    shifted.format(),
+    content="[\"failed to update lexer diagnostics after test: NegativeTextOffset(-1)\"]",
+  )
+}
+
+///|
+test "DiagnosticSet after_relex reports invalid shifted diagnostics" {
+  let set = DiagnosticSet::single(test_diagnostic("before", 0, 1, 1))
+  let shifted = set.after_relex(0, 0, -2, failure_context="test")
+  debug_inspect(
+    shifted.format(),
+    content="[\"failed to shift lexer diagnostic after test: NegativeTextOffset(-2)\"]",
+  )
+}
+
+///|
 test "DiagnosticSet offset_by preserves invalid offset errors" {
   let set = DiagnosticSet::single(test_diagnostic("before", 0, 1, 1))
-  let result : Result[DiagnosticSet, DiagnosticBuildError] = try? set.offset_by(
-    -10,
-    test_offset(0),
-  )
-  match result {
-    Err(NegativeTextOffset(value)) => inspect(value, content="-10")
-    Ok(_) => abort("expected invalid shifted offset")
-    Err(_) => abort("expected offset error")
+  try set.offset_by(-10, test_offset(0)) catch {
+    NegativeTextOffset(value) => inspect(value, content="-10")
+    _ => abort("expected offset error")
+  } noraise {
+    _ => abort("expected invalid shifted offset")
   }
 }
 
