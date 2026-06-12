@@ -474,9 +474,13 @@ pub struct CallersPipeline {
 }
 
 ///|
-/// Build a CallersPipeline rooted at a Derived[SyntaxNode]. Cells are
-/// created on a fresh Scope owned by this pipeline, and three derived
-/// cells (facts, callers_index, visibility) are each watched so
+/// Low-level constructor for a CallersPipeline rooted at a
+/// Derived[SyntaxNode]. Prefer `CallersPipeline::from_parser(parser)` when
+/// attaching to a unified lambda parser; use this constructor for advanced
+/// cases that intentionally provide a custom runtime and syntax Derived.
+///
+/// Cells are created on a fresh Scope owned by this pipeline, and three
+/// derived cells (facts, callers_index, visibility) are each watched so
 /// the reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
 /// into a single `facts` Derived avoids double-walking the tree on every
 /// edit; downstream Derived cells read facts via `.get_or_abort()` inside
@@ -528,6 +532,18 @@ pub fn CallersPipeline::CallersPipeline(
   // `syntax_tree` Derived. Costs one tree walk; one-time per pipeline.
   let _ = facts_watch.read_or_abort()
   { scope, facts_watch, callers_watch, visibility_watch }
+}
+
+///|
+/// Attach the callers pipeline to a unified lambda `Parser`.
+///
+/// This constructor derives both the runtime and syntax view from the parser,
+/// keeping the attachment in the parser's reactive graph and avoiding the
+/// low-level constructor's same-runtime precondition at ordinary call sites.
+pub fn CallersPipeline::from_parser(
+  parser : @loom.Parser[@ast.Term],
+) -> CallersPipeline {
+  CallersPipeline::CallersPipeline(parser.runtime(), parser.syntax_tree())
 }
 
 ///|

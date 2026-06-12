@@ -1,7 +1,9 @@
 import {
   "dowdiness/seam",
+  "dowdiness/lambda/ast",
   "dowdiness/lambda/syntax",
   "dowdiness/incr",
+  "dowdiness/loom",
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
   "moonbitlang/core/debug",
