@@ -65,11 +65,7 @@ fn buffered_event_of_parse_event(event : ParseEvent) -> BufferedEvent {
 fn buffered_events_of_parse_events(
   events : Array[ParseEvent],
 ) -> Array[BufferedEvent] {
-  let buffered : Array[BufferedEvent] = Array::new(capacity=events.length())
-  for event in events {
-    buffered.push(buffered_event_of_parse_event(event))
-  }
-  buffered
+  events.map(event => buffered_event_of_parse_event(event))
 }
 
 ///|
@@ -314,8 +310,7 @@ fn rebuild_subtree_owned(
   error_kind : RawKind?,
   incomplete_kind : RawKind?,
 ) -> CstNode {
-  let children : Array[CstElement] = []
-  for child in node.children {
+  let children = node.children.map(child => {
     match child {
       CstElement::Token(t) => {
         let token = if t.is_source_backed() {
@@ -323,16 +318,16 @@ fn rebuild_subtree_owned(
         } else {
           CstToken::synthetic_zero_width(t.kind)
         }
-        children.push(CstElement::Token(token))
+        CstElement::Token(token)
       }
       CstElement::Node(n) => {
         let rebuilt = rebuild_subtree_owned(
           n, trivia_kind, error_kind, incomplete_kind,
         )
-        children.push(CstElement::Node(rebuilt))
+        CstElement::Node(rebuilt)
       }
     }
-  }
+  })
   CstNode::new(node.kind, children, trivia_kind~, error_kind~, incomplete_kind~)
 }
 
