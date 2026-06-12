@@ -3242,6 +3242,27 @@ fn parse_num_element(ctx : ParserContext[TestTok, TestKind]) -> () -> Bool {
 }
 
 ///|
+fn is_num_element_start(ctx : ParserContext[TestTok, TestKind]) -> () -> Bool {
+  () => ctx.peek() is Num(_)
+}
+
+///|
+/// Element parser that owns its node wrapper, used for wrapper-free list mode.
+fn parse_wrapped_num_element(
+  ctx : ParserContext[TestTok, TestKind],
+) -> () -> Bool {
+  () => {
+    match ctx.peek() {
+      Num(_) => {
+        ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+        true
+      }
+      _ => false
+    }
+  }
+}
+
+///|
 test "separated_list parses a,b,c shape with wrapped elements" {
   let src = "1+2+3"
   let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
@@ -3310,6 +3331,61 @@ test "separated_list does not consume past the list end" {
 }
 
 ///|
+test "separated_list missing separator recovers element start as next slot" {
+  let src = "1 2"
+  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let count = ctx.separated_list(
+    KExpr,
+    TestTok::Plus,
+    parse_num_element(ctx),
+    element_start=is_num_element_start(ctx),
+  )
+  inspect(count, content="2")
+  inspect(render_list_tree(ctx), content="n2(t0:1) t5ø n2(t4:  t0:2)")
+  inspect(
+    has_diagnostic_message(ctx.diagnostics, "expected separator"),
+    content="true",
+  )
+}
+
+///|
+test "separated_list wrapper-free mode keeps parser-owned element nodes" {
+  let src = "1 2"
+  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let count = ctx.separated_list(
+    KExpr,
+    TestTok::Plus,
+    parse_wrapped_num_element(ctx),
+    element_start=is_num_element_start(ctx),
+    wrap_element=false,
+  )
+  inspect(count, content="2")
+  inspect(render_list_tree(ctx), content="n2(t0:1) t5ø n2(t4:  t0:2)")
+  inspect(
+    has_diagnostic_message(ctx.diagnostics, "expected separator"),
+    content="true",
+  )
+}
+
+///|
+test "separated_list wrapper-free trailing separator emits direct placeholder" {
+  let src = "1+"
+  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let count = ctx.separated_list(
+    KExpr,
+    TestTok::Plus,
+    parse_wrapped_num_element(ctx),
+    wrap_element=false,
+  )
+  inspect(count, content="2")
+  inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ t5ø")
+  inspect(
+    has_diagnostic_message(ctx.diagnostics, "expected element"),
+    content="true",
+  )
+}
+
+///|
 test "separated_list element wrap includes leading trivia like node()" {
   let src = "1+ 2"
   let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
@@ -3369,6 +3445,53 @@ test "separated_list element slots hit incremental reuse like node()" {
   inspect(count, content="3")
   inspect(ctx.reuse_count, content="3")
   inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ n2(t0:2) t1:+ n2(t0:3)")
+}
+
+///|
+test "separated_list missing separator still recovers after element reuse" {
+  let src = "1 2"
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let old_ctx = ParserContext::new(toks, src, test_spec)
+  let old_count = old_ctx.separated_list(
+    KExpr,
+    TestTok::Plus,
+    parse_num_element(old_ctx),
+    element_start=is_num_element_start(old_ctx),
+  )
+  inspect(old_count, content="2")
+  old_ctx.flush_trivia()
+  let old_tree = old_ctx.events.build_tree_interned(
+    test_spec.root_kind.to_raw(),
+    @seam.Interner::new(),
+    trivia_kind=Some(test_spec.whitespace_kind.to_raw()),
+    error_kind=Some(test_spec.error_kind.to_raw()),
+    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+  ) catch {
+    _ => abort("expected interned old tree")
+  }
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  let count = ctx.separated_list(
+    KExpr,
+    TestTok::Plus,
+    () => abort("element body must not run on reuse hit"),
+    element_start=is_num_element_start(ctx),
+  )
+  inspect(count, content="2")
+  inspect(ctx.reuse_count, content="2")
+  inspect(render_list_tree(ctx), content="n2(t0:1) t5ø n2(t4:  t0:2)")
 }
 
 ///|

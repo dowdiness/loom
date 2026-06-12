@@ -310,7 +310,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
 pub fn[T, K] ParserContext::report_error(Self[T, K], message~ : String, code? : DiagnosticCode?, range? : TextRange?) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(Self[T, K], expected~ : String, code? : DiagnosticCode?) -> Unit
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
-pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool) -> Int
+pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool, element_start? : () -> Bool, wrap_element? : Bool) -> Int
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int

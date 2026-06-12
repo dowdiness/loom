@@ -22,38 +22,29 @@ fn is_sync_point(token : Token) -> Bool {
 }
 
 ///|
-/// Parse a comma-separated list of elements with trailing-comma and
-/// missing-comma error recovery.
-fn parse_comma_separated(
+/// Adapt value parsing to `separated_list`'s Boolean element contract.
+fn parse_value_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  parse_element : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
-  is_element_start : (Token) -> Bool,
-  closing_token : Token,
-  element_name : String,
-) -> Unit {
-  parse_element(ctx)
-  while ctx.peek() == Comma {
-    ctx.emit_token(CommaToken)
-    if ctx.peek() == closing_token {
-      ctx.error("Trailing comma")
-      ctx.emit_error_placeholder()
-      break
+) -> Bool {
+  match ctx.peek() {
+    token if is_sync_point(token) => false
+    _ => {
+      parse_value(ctx)
+      true
     }
-    parse_element(ctx)
   }
-  // Missing comma recovery
-  while is_element_start(ctx.peek()) {
-    ctx.error("Expected ',' between " + element_name)
-    ctx.emit_error_placeholder()
-    parse_element(ctx)
-    while ctx.peek() == Comma {
-      ctx.emit_token(CommaToken)
-      if ctx.peek() == closing_token {
-        ctx.error("Trailing comma")
-        ctx.emit_error_placeholder()
-        break
-      }
-      parse_element(ctx)
+}
+
+///|
+/// Adapt member parsing to `separated_list`'s Boolean element contract.
+fn parse_member_list_element(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek() {
+    token if is_sync_point(token) => false
+    _ => {
+      parse_member(ctx)
+      true
     }
   }
 }
@@ -81,7 +72,7 @@ fn json_expect(
 ///|
 fn parse_value(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   if ctx.too_many_errors(MAX_ERRORS) {
-    // Consume token to avoid infinite loops in parse_comma_separated
+    // Consume token to avoid infinite loops in separated_list element parsing.
     ctx.bump_error()
     return
   }
@@ -112,12 +103,12 @@ pub fn parse_object(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ObjectNode, fn() {
     ctx.emit_token(LBraceToken) // {
     if ctx.peek() != RBrace && ctx.peek() != EOF {
-      parse_comma_separated(
-        ctx,
-        parse_member,
-        fn(t) { t is StringLit },
-        RBrace,
-        "members",
+      let _ = ctx.separated_list(
+        ErrorNode,
+        Comma,
+        fn() { parse_member_list_element(ctx) },
+        element_start=fn() { ctx.peek() is StringLit },
+        wrap_element=false,
       )
     }
     let _ = json_expect(ctx, RBrace, RBraceToken)
@@ -130,12 +121,12 @@ pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ArrayNode, fn() {
     ctx.emit_token(LBracketToken) // [
     if ctx.peek() != RBracket && ctx.peek() != EOF {
-      parse_comma_separated(
-        ctx,
-        parse_value,
-        is_value_start,
-        RBracket,
-        "elements",
+      let _ = ctx.separated_list(
+        ErrorNode,
+        Comma,
+        fn() { parse_value_list_element(ctx) },
+        element_start=fn() { is_value_start(ctx.peek()) },
+        wrap_element=false,
       )
     }
     let _ = json_expect(ctx, RBracket, RBracketToken)
