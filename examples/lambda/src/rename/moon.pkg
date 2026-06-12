@@ -11,11 +11,9 @@ import {
   "dowdiness/seam",
   "dowdiness/lambda",
   "dowdiness/loom",
-  "dowdiness/incr",
 } for "test"
 
 import {
   "dowdiness/lambda",
   "dowdiness/loom",
-  "dowdiness/incr",
 } for "wbtest"

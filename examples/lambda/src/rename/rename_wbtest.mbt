@@ -7,12 +7,8 @@ fn wb_facts(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
-  let pipeline = @callers.CallersPipeline::CallersPipeline(
-    rt,
-    parser.syntax_tree(),
-  )
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let pipeline = @callers.CallersPipeline::from_parser(parser)
   let syntax = parser.syntax_tree().read_or_abort()
   let (defs, calls, enclosing) = pipeline.facts()
   pipeline.dispose()

@@ -3,6 +3,8 @@ package "dowdiness/lambda/callers"
 
 import {
   "dowdiness/incr/cells",
+  "dowdiness/lambda/ast",
+  "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
@@ -35,6 +37,7 @@ pub fn CallersPipeline::callers_of(Self, String) -> Array[Call]
 pub fn CallersPipeline::defs_of(Self, String) -> Array[Def]
 pub fn CallersPipeline::dispose(Self) -> Unit
 pub fn CallersPipeline::facts(Self) -> (Array[Def], Array[Call], Array[(ScopeId, ScopeId)])
+pub fn CallersPipeline::from_parser(@pipeline.Parser[@ast.Term]) -> Self
 pub fn CallersPipeline::visible_from(Self, ScopeId, String) -> Bool
 
 pub struct Def {

@@ -13,8 +13,7 @@
 /// the helper in callers_test.mbt for whitebox tests that need to invoke
 /// package-private extract_facts_full.
 fn parse_to_syntax_wb(source : String) -> @seam.SyntaxNode {
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   parser.syntax_tree().read_or_abort()
 }
 
@@ -59,9 +58,8 @@ test "visible_from: malformed lambda still sees enclosing bindings" {
   // Whitebox because identifying the malformed scope reuses
   // extract_facts_full to read its byte-range id.
   let src = "let f = 1\nlet g = \\. f\n"
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(src, @lambda.lambda_grammar, runtime=rt)
-  let p = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let parser = @loom.new_parser(src, @lambda.lambda_grammar)
+  let p = CallersPipeline::from_parser(parser)
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
   inspect(enclosing.length(), content="1")
   let malformed_scope = enclosing[0].0
@@ -73,7 +71,7 @@ test "visible_from: malformed lambda still sees enclosing bindings" {
 }
 
 ///|
-test "pipeline: survives rt.gc() before first read (facts_watch anchor)" {
+test "from_parser: uses parser runtime and survives rt.gc() before first read" {
   // Regression test for the constructor-priming + facts_watch anchor
   // introduced in this PR. Concrete failure mode without the prime:
   // `facts_watch` anchors `facts`, but `facts`'s `gc_dependencies`
@@ -83,13 +81,11 @@ test "pipeline: survives rt.gc() before first read (facts_watch anchor)" {
   // when it calls `syntax.get_or_abort()`. The constructor's
   // `let _ = facts_watch.read_or_abort()` materializes the
   // `facts -> syntax_tree` edge before returning, so gc finds it.
-  let rt = @incr.Runtime::new()
   let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\n",
-    @lambda.lambda_grammar,
-    runtime=rt,
+    "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
   )
-  let p = CallersPipeline::CallersPipeline(rt, parser.syntax_tree())
+  let p = CallersPipeline::from_parser(parser)
+  let rt = parser.runtime()
   // gc immediately, before any reads.
   rt.gc()
   // All three public observers must still resolve.
@@ -100,14 +96,11 @@ test "pipeline: survives rt.gc() before first read (facts_watch anchor)" {
 }
 
 ///|
-test "pipeline: parser apply_edit after attachment updates first callers query" {
+test "from_parser: parser apply_edit updates first callers query" {
   let parser = @loom.new_parser(
     "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
   )
-  let p = CallersPipeline::CallersPipeline(
-    parser.runtime(),
-    parser.syntax_tree(),
-  )
+  let p = CallersPipeline::from_parser(parser)
   // No public pipeline read before this edit: constructor priming must be
   // enough to attach the facts Derived to the parser's syntax view.
   parser.apply_edit(
@@ -122,10 +115,7 @@ test "pipeline: parser apply_edit after attachment updates first callers query" 
 ///|
 test "pipeline: dispose does not dispose parser runtime cells" {
   let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
-  let p = CallersPipeline::CallersPipeline(
-    parser.runtime(),
-    parser.syntax_tree(),
-  )
+  let p = CallersPipeline::from_parser(parser)
   inspect(p.defs_of("f").length(), content="1")
   p.dispose()
 

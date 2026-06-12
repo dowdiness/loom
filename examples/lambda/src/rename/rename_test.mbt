@@ -3,8 +3,7 @@
 
 ///|
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   parser.syntax_tree().read_or_abort()
 }
 
@@ -41,13 +40,9 @@ fn facts_for_test(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let syntax = parser.syntax_tree().read_or_abort()
-  let pipeline = @callers.CallersPipeline::CallersPipeline(
-    rt,
-    parser.syntax_tree(),
-  )
+  let pipeline = @callers.CallersPipeline::from_parser(parser)
   let (defs, calls, enclosing) = pipeline.facts()
   pipeline.dispose()
   (syntax, defs, calls, enclosing)
@@ -56,15 +51,11 @@ fn facts_for_test(
 ///|
 fn setup_pipeline(
   source : String,
-) -> (@callers.CallersPipeline, @seam.SyntaxNode, @incr.Runtime) {
-  let rt = @incr.Runtime::new()
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar, runtime=rt)
-  let pipeline = @callers.CallersPipeline::CallersPipeline(
-    rt,
-    parser.syntax_tree(),
-  )
+) -> (@callers.CallersPipeline, @seam.SyntaxNode) {
+  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let pipeline = @callers.CallersPipeline::from_parser(parser)
   let syntax = parser.syntax_tree().read_or_abort()
-  (pipeline, syntax, rt)
+  (pipeline, syntax)
 }
 
 ///|
@@ -454,7 +445,7 @@ test "check_shadow: block let shadows enclosing parameter" {
 ///|
 test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
   let src = "let f = \\x. x\nlet r = f (f y)\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
@@ -469,7 +460,7 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
 ///|
 test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" {
   let src = "let f = a\nlet g = b\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length() >= 1, content="true")
@@ -483,21 +474,21 @@ test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" 
 ///|
 test "fixture 10 (name-range correctness): edit byte ranges are identifier-token, not node, ranges" {
   let src1 = "let foo = bar\n"
-  let (pipeline1, syntax1, _rt1) = setup_pipeline(src1)
+  let (pipeline1, syntax1) = setup_pipeline(src1)
   let plan1 = plan_rename(pipeline1, src1, syntax1, 5, "renamed")
   let def_edit1 = edit_starting_at(plan1.edits, 4)
   inspect(def_edit1.end, content="7")
   pipeline1.dispose()
 
   let src2 = "let id = \\x. x\n"
-  let (pipeline2, syntax2, _rt2) = setup_pipeline(src2)
+  let (pipeline2, syntax2) = setup_pipeline(src2)
   let plan2 = plan_rename(pipeline2, src2, syntax2, 10, "y")
   let def_edit2 = edit_starting_at(plan2.edits, 10)
   inspect(def_edit2.end, content="11")
   pipeline2.dispose()
 
   let src3 = "let f (x) = x\n"
-  let (pipeline3, syntax3, _rt3) = setup_pipeline(src3)
+  let (pipeline3, syntax3) = setup_pipeline(src3)
   let plan3 = plan_rename(pipeline3, src3, syntax3, 7, "y")
   let def_edit3 = edit_starting_at(plan3.edits, 7)
   inspect(def_edit3.end, content="8")
@@ -507,7 +498,7 @@ test "fixture 10 (name-range correctness): edit byte ranges are identifier-token
 ///|
 test "fixture 11 (let-paren repeated name): parameter rename does not edit function name" {
   let src = "let f (f) = f\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 7, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
@@ -522,7 +513,7 @@ test "fixture 11 (let-paren repeated name): parameter rename does not edit funct
 ///|
 test "fixture 12 (top-level source order): forward free reference is not rewritten" {
   let src = "let a = f\nlet f = z\nlet b = f\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 14, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
@@ -536,7 +527,7 @@ test "fixture 12 (top-level source order): forward free reference is not rewritt
 ///|
 test "fixture 13 (sequential top-level): self-reference is not rewritten" {
   let src = "let f = f\nlet g = f\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
@@ -551,7 +542,7 @@ test "fixture 13 (sequential top-level): self-reference is not rewritten" {
 ///|
 test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
   let src = "let f = a\nlet f = f\nlet g = f\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let first_plan = plan_rename(pipeline, src, syntax, 4, "first")
   inspect(first_plan.target is Some(_), content="true")
   inspect(first_plan.edits.length(), content="2")
@@ -572,7 +563,7 @@ test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
 ///|
 test "fixture 15 (block let): local binding does not edit initializer" {
   let src = "let h = \\x. { let x = x; x }\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 18, "y")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -587,7 +578,7 @@ test "fixture 15 (block let): local binding does not edit initializer" {
 ///|
 test "fixture 16 (block let): unique local binding edits body reference" {
   let src = "let h = \\x. { let y = x; y }\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 18, "z")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -600,7 +591,7 @@ test "fixture 16 (block let): unique local binding edits body reference" {
 ///|
 test "fixture 17 (block let): local binding does not leak after block" {
   let src = "let h = { let x = a; x } x\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 14, "y")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -614,7 +605,7 @@ test "fixture 17 (block let): local binding does not leak after block" {
 ///|
 test "fixture 18 (let-paren duplicate params): second parameter is targetable" {
   let src = "let f(x, x) = x\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let first_plan = plan_rename(pipeline, src, syntax, 6, "y")
   inspect(first_plan.target is Some(_), content="true")
   inspect(first_plan.edits.length(), content="1")
@@ -635,7 +626,7 @@ test "fixture 18 (let-paren duplicate params): second parameter is targetable" {
 ///|
 test "fixture 19 (shadow source order): later top-level binding does not warn" {
   let src = "let h = \\f. f\nlet g = a\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -649,7 +640,7 @@ test "fixture 19 (shadow source order): later top-level binding does not warn" {
 ///|
 test "fixture 20 (converse source order): earlier top ref does not block" {
   let src = "let h = g\nlet f = a\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 14, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="1")
@@ -663,7 +654,7 @@ test "fixture 20 (converse source order): earlier top ref does not block" {
 ///|
 test "fixture 21 (block let shadow): local rename to parameter name is legal" {
   let src = "let h = \\x. { let y = a; y }\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 18, "x")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -681,7 +672,7 @@ test "fixture 21 (block let shadow): local rename to parameter name is legal" {
 ///|
 test "fixture 22 (forward source order): earlier lambda param does not block" {
   let src = "let h = \\g. g\nlet f = a\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 18, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="1")
@@ -695,7 +686,7 @@ test "fixture 22 (forward source order): earlier lambda param does not block" {
 ///|
 test "fixture 23 (block-local forward capture): block let blocks rename" {
   let src = "let h = \\f. { let g = a; f }\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
@@ -721,7 +712,7 @@ test "check_sibling_collision: target is not its own sibling" {
 ///|
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = \\f. \\g. f g\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 9, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(
@@ -734,7 +725,7 @@ test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
 ///|
 test "fixture 4 (converse capture + shadow): rename param f -> g where outer g exists" {
   let src = "let g = a\nlet h = \\f. f g\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 19, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(
@@ -751,7 +742,7 @@ test "fixture 4 (converse capture + shadow): rename param f -> g where outer g e
 ///|
 test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
   let src = "let g = a\nlet h = \\f. f\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 19, "g")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.shadow"),
@@ -767,7 +758,7 @@ test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
 ///|
 test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
   let src = "let f = \\x. f x\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "fff")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="1")
@@ -780,7 +771,7 @@ test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
 ///|
 test "fixture 7 (let-paren parameter): rename x -> y in let f (x) = x" {
   let src = "let f (x) = x\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 7, "y")
   inspect(plan.target.unwrap().name, content="x")
   inspect(plan.edits.length(), content="2")
@@ -791,7 +782,7 @@ test "fixture 7 (let-paren parameter): rename x -> y in let f (x) = x" {
 ///|
 test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
   let src = "let f = a\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 4, "f")
   inspect(plan.edits.length(), content="0")
   inspect(plan.diagnostics.length(), content="1")
@@ -809,7 +800,7 @@ test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
 ///|
 test "fixture 9 (offset miss): whitespace offset returns no_target diagnostic" {
   let src = "let f = a\n"
-  let (pipeline, syntax, _rt) = setup_pipeline(src)
+  let (pipeline, syntax) = setup_pipeline(src)
   let plan = plan_rename(pipeline, src, syntax, 3, "fff")
   inspect(plan.target is None, content="true")
   inspect(plan.edits.length(), content="0")
