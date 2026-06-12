@@ -262,12 +262,10 @@ fn push_offset_diagnostic(
   after : TextOffset,
   context : String,
 ) -> Unit {
-  let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
-    delta, after,
-  )
-  match shifted {
-    Ok(diagnostic) => result.push(diagnostic)
-    Err(error) => result.push(diagnostic_offset_failure(context, error))
+  try diagnostic.offset_by(delta, after) catch {
+    error => result.push(diagnostic_offset_failure(context, error))
+  } noraise {
+    diagnostic => result.push(diagnostic)
   }
 }
 
@@ -280,25 +278,21 @@ fn merge_diagnostics(
   delta : Int,
 ) -> DiagnosticSet {
   let result = DiagnosticSet::empty()
-  let old_after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    block_old_end,
-  )
-  let block_zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    0,
-  )
-  let old_after = match old_after_result {
-    Ok(offset) => offset
-    Err(error) => {
+  let old_after = try TextOffset(block_old_end) catch {
+    error => {
       result.push(diagnostic_offset_failure("block old end", error))
       return result
     }
+  } noraise {
+    offset => offset
   }
-  let block_zero = match block_zero_result {
-    Ok(offset) => offset
-    Err(error) => {
+  let block_zero = try TextOffset(0) catch {
+    error => {
       result.push(diagnostic_offset_failure("block zero offset", error))
       return result
     }
+  } noraise {
+    offset => offset
   }
   // Single pass: partition old diagnostics into before/inside/after
   for d in old_diagnostics.items() {
