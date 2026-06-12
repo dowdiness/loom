@@ -54,6 +54,10 @@ pub struct SyntaxParser {
 ///|
 /// Construct a new syntax-only parser. Primes the engine via an initial
 /// `parse()` so published views reflect a real parse.
+///
+/// Runtime ownership matches `Parser::new`: supplying `runtime~` joins a
+/// caller-owned graph, while omitting it creates a fresh parser-owned runtime.
+/// Downstream syntax-only attachments should still use `parser.runtime()`.
 pub fn SyntaxParser::new(
   source : String,
   lang : @incremental.ImperativeLanguage[Unit],
@@ -162,7 +166,9 @@ pub fn SyntaxParser::diagnostics(
 
 ///|
 /// Return the `Runtime` backing this parser so downstream derived cells can
-/// join the same dependency graph.
+/// join the same dependency graph. Parser-attached syntax-only pipelines
+/// should own their own `Scope` / `Watch` lifecycle and dispose that scope
+/// separately from the parser.
 pub fn SyntaxParser::runtime(self : SyntaxParser) -> @incr.Runtime {
   self.rt
 }

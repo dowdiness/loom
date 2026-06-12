@@ -462,8 +462,11 @@ pub fn build_visibility(
 /// reads would abort. The watches also give ergonomic untracked reads via
 /// `Watch::read_or_abort()`.
 ///
-/// Call `dispose()` to release the GC roots and tear down the owned
-/// cells. The input `syntax` Derived and the runtime are unaffected.
+/// The pipeline owns only its private scope and watch roots. Call
+/// `dispose()` to release those roots and tear down the owned cells. The
+/// input `syntax` Derived and runtime are unaffected by disposal; when the
+/// input comes from a parser, that parser is not disposed either. Their
+/// longer-term GC reachability belongs to whoever still owns them.
 pub struct CallersPipeline {
   priv scope : @incr.Scope
   priv facts_watch : @incr.Watch[
@@ -481,10 +484,12 @@ pub struct CallersPipeline {
 ///
 /// Cells are created on a fresh Scope owned by this pipeline, and three
 /// derived cells (facts, callers_index, visibility) are each watched so
-/// the reactive chain survives `Runtime::gc()`. Merging defs+calls+enclosing
-/// into a single `facts` Derived avoids double-walking the tree on every
-/// edit; downstream Derived cells read facts via `.get_or_abort()` inside
-/// their tracked closures.
+/// the reactive chain survives `Runtime::gc()`. The constructor primes the
+/// facts watch before returning, so a caller may run GC before the first
+/// public query and still keep the parser syntax dependency reachable.
+/// Merging defs+calls+enclosing into a single `facts` Derived avoids
+/// double-walking the tree on every edit; downstream Derived cells read
+/// facts via `.get_or_abort()` inside their tracked closures.
 ///
 /// Precondition: `syntax` must have been constructed on `rt`. Passing a
 /// Derived from a different Runtime is undefined behavior — incr's
@@ -540,6 +545,8 @@ pub fn CallersPipeline::CallersPipeline(
 /// This constructor derives both the runtime and syntax view from the parser,
 /// keeping the attachment in the parser's reactive graph and avoiding the
 /// low-level constructor's same-runtime precondition at ordinary call sites.
+/// The returned pipeline owns its scope/watch lifecycle only; `dispose()`
+/// does not dispose the parser or its runtime.
 pub fn CallersPipeline::from_parser(
   parser : @loom.Parser[@ast.Term],
 ) -> CallersPipeline {

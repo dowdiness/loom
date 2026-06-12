@@ -53,9 +53,13 @@ pub fn LambdaDiagnostic::message(self : LambdaDiagnostic) -> String {
 ///
 /// The facade composes parser diagnostics with `attach_typecheck` results on
 /// the parser's runtime. Its terminal diagnostics `Watch` keeps both the
-/// parser diagnostic view and typecheck result reachable across `Runtime::gc()`.
+/// parser diagnostic view and typecheck result reachable across `Runtime::gc()`
+/// after the first `diagnostics()` read has recorded upstream dependencies.
+/// This constructor registers but does not prime the watch.
+///
 /// `dispose()` tears down only the analysis/typecheck scopes; the parser remains
-/// usable by its owner.
+/// usable by its owner. If the parser must survive a later `Runtime::gc()` after
+/// disposal, another owner must keep a watch/root for the needed parser views.
 pub(all) struct LambdaAnalysis {
   parser : @loom.Parser[@ast.Term]
   typecheck : TypecheckAttachment
