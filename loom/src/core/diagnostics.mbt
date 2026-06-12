@@ -506,12 +506,10 @@ pub fn Diagnostic::lexer_error_at(
   end : Int,
   code : String,
 ) -> Diagnostic {
-  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start, end,
-  )
-  let (range, notes) = match range_result {
-    Ok(range) => (Some(range), [])
-    Err(err) =>
+  let (range, notes) : (TextRange?, Array[String]) = try
+    TextRange::from_offsets(start, end)
+  catch {
+    err =>
       (
         None,
         [
@@ -523,6 +521,8 @@ pub fn Diagnostic::lexer_error_at(
           @debug.to_string(err),
         ],
       )
+  } noraise {
+    range => (Some(range), [])
   }
   Diagnostic(
     source=DiagnosticSource::lexer(),
@@ -834,11 +834,8 @@ pub fn DiagnosticSet::after_relex(
   failure_context~ : String,
 ) -> DiagnosticSet {
   let result = DiagnosticSet::empty()
-  let after_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    old_end,
-  )
-  match after_result {
-    Err(err) => {
+  try TextOffset(old_end) catch {
+    err => {
       result.push(
         Diagnostic::lexer_error(
           "failed to update lexer diagnostics after " +
@@ -847,9 +844,10 @@ pub fn DiagnosticSet::after_relex(
           @debug.to_string(err),
         ),
       )
-      return result
+      result
     }
-    Ok(after) => {
+  } noraise {
+    after => {
       for diagnostic in self.items {
         match diagnostic.relex_disposition(old_start, old_end) {
           RelexPreserve => result.push(diagnostic)
@@ -873,12 +871,8 @@ fn DiagnosticSet::push_shifted_after_relex(
   after : TextOffset,
   failure_context : String,
 ) -> Unit {
-  let shifted : Result[Diagnostic, DiagnosticBuildError] = try? diagnostic.offset_by(
-    delta, after,
-  )
-  match shifted {
-    Ok(diagnostic) => self.push(diagnostic)
-    Err(err) =>
+  try diagnostic.offset_by(delta, after) catch {
+    err =>
       self.push(
         Diagnostic::lexer_error(
           "failed to shift lexer diagnostic after " +
@@ -887,6 +881,8 @@ fn DiagnosticSet::push_shifted_after_relex(
           @debug.to_string(err),
         ),
       )
+  } noraise {
+    diagnostic => self.push(diagnostic)
   }
 }
 
