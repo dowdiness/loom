@@ -19,8 +19,8 @@ parser-framework package itself lives at `loom/src/`; the lambda example at
 
 Parser/reactive triggers: `@loom.new_parser`, `@loom.Parser`,
 `@incremental.ImperativeParser`, `apply_edit`, `set_source`, `syntax_tree`,
-`parser.runtime()`, `Grammar`, `<lang>_grammar`, or any code building a parser
-inside a reactive closure.
+`parser.runtime()`, `Grammar`, `<lang>_grammar`, `ParserContext`,
+`separated_list`, or any code building a parser inside a reactive closure.
 
 Projection-identity triggers: `ProjectionIdentityBaseline`,
 `ProjectionIdentityTracker`, `ProjectionLeaf`, `StableProjectionLeaf`,
@@ -109,6 +109,30 @@ let callers = CallersPipeline::CallersPipeline(
 
 JSON and Markdown examples follow the same shape — each exposes a public
 `<lang>_grammar` value.
+
+## Grammar-Author List Parsing
+
+Use `ParserContext::separated_list(element_kind, separator, parse_element,
+element_start?, wrap_element?)` for separator-delimited list bodies when the
+caller owns the open/close delimiters.
+
+- `parse_element` returns `true` iff it consumed or emitted an element body;
+  `false` means no element starts here and must not consume.
+- In default wrapped mode, each parsed slot is retroactively wrapped in
+  `element_kind` and can hit combinator-level reuse, mirroring `ctx.node`.
+- Pass non-consuming `element_start` when a missing separator should recover as
+  an inserted zero-width error placeholder plus `expected separator`, then parse
+  the next slot.
+- Use `wrap_element=false` only when the element parser already emits the
+  desired CST node shape (JSON values/members are the reference). In this mode,
+  empty slots emit the placeholder directly and element reuse must live inside
+  `parse_element`, usually via `ctx.node`.
+- Keep malformed-element recovery inside `parse_element`; `separated_list` only
+  owns separator/empty-slot recovery.
+
+Canonical references: `loom/src/core/parser.mbt`,
+`loom/src/core/parser_wbtest.mbt`, `examples/json/src/cst_parser.mbt`, and
+`examples/json/src/error_recovery_test.mbt`.
 
 ## Attaching Downstream Pipelines
 
@@ -271,6 +295,8 @@ advance identity state on a later successful projection.
 | Storing a downstream Derived without a persistent Watch/Observer | `Runtime::gc()` can sweep the chain | Store a `Scope` and `Watch`; dispose the scope explicitly |
 | Calling `ProjectionIdentityTracker::commit_success` after parse success but before projection/lowering success | Failed semantic lowering can replace the last-good baseline | Treat `realign_success` as preview; commit only after the semantic document is trusted |
 | Passing parser-current edits after malformed input as if they were baseline-relative | Identity churn or wrong prefix/suffix reuse | Use `record_failed_input`; exact edits must be relative to the last-good baseline, otherwise fall back to source diff |
+| `separated_list` `element_start` consumes input or is broader than `parse_element` | Noisy recovery or dropped element structure | Keep `element_start` pure lookahead and aligned with the next valid element start |
+| Migrating a flat existing grammar to `separated_list` without checking wrappers | Extra wrapper nodes can break CST projections | Use default wrapped mode for new list shapes; use `wrap_element=false` when existing element parsers own the node shape |
 
 ## Red Flags — Pause and Verify
 
@@ -286,6 +312,9 @@ advance identity state on a later successful projection.
 - About to advance `ProjectionIdentityBaseline` / call `commit_success` on a
   failed parse, failed projection, or failed lowering path → retain last-good
   state instead.
+- About to implement a hand-rolled comma/list recovery loop in a grammar → check
+  whether `ParserContext::separated_list` with `element_start` and, if needed,
+  `wrap_element=false` already covers it.
 - About to implement custom prefix/suffix projection-ID realignment downstream →
   check `ProjectionIdentityBaseline`, `ProjectionIdentityTracker`, and
   `realign_projection_items` first.
@@ -297,6 +326,14 @@ advance identity state on a later successful projection.
 - `loom/src/factories.mbt:231` — `new_parser` signature.
   `new_imperative_parser` is just above.
 - `loom/src/factories.mbt:213` — `new_imperative_parser` signature.
+- `loom/src/core/parser.mbt` — `ParserContext::separated_list` contract,
+  including missing-separator recovery and wrapper-free mode.
+- `loom/src/core/parser_wbtest.mbt` — whitebox coverage for separated-list
+  shape, missing-separator recovery, wrapper-free placeholders, and reuse.
+- `examples/json/src/cst_parser.mbt` and `examples/json/src/error_recovery_test.mbt` —
+  in-repo wrapper-free `separated_list` adopter and CST-shape guards.
+- `docs/decisions/2026-06-11-separated-list-boundary-model.md` — ADR for the
+  shared separated-list boundary model.
 - `loom/src/core/projection_identity.mbt` — `ProjectionLeaf`,
   `StableProjectionLeaf`, `ProjectionIdentityBaseline`,
   `ProjectionIdentityTracker`, `ProjectionStringIdAllocator`, and realignment
