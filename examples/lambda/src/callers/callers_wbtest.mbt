@@ -100,6 +100,51 @@ test "pipeline: survives rt.gc() before first read (facts_watch anchor)" {
 }
 
 ///|
+test "pipeline: parser apply_edit after attachment updates first callers query" {
+  let parser = @loom.new_parser(
+    "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
+  )
+  let p = CallersPipeline::CallersPipeline(
+    parser.runtime(),
+    parser.syntax_tree(),
+  )
+  // No public pipeline read before this edit: constructor priming must be
+  // enough to attach the facts Derived to the parser's syntax view.
+  parser.apply_edit(
+    @core.Edit::new(22, 0, 12),
+    "let f = 1\nlet g = f x\nlet h = f x\n",
+  )
+  inspect(p.callers_of("f").length(), content="2")
+  inspect(p.defs_of("h").length(), content="1")
+  p.dispose()
+}
+
+///|
+test "pipeline: dispose does not dispose parser runtime cells" {
+  let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
+  let p = CallersPipeline::CallersPipeline(
+    parser.runtime(),
+    parser.syntax_tree(),
+  )
+  inspect(p.defs_of("f").length(), content="1")
+  p.dispose()
+
+  parser.apply_edit(@core.Edit::new(4, 1, 3), "let fff = 1\n")
+  inspect(parser.source().read_or_abort(), content="let fff = 1\n")
+  ignore(parser.syntax_tree().read_or_abort())
+}
+
+///|
+test "panic pipeline: wrong-runtime syntax pairing aborts through incr guard" {
+  // Incr's own cross-runtime tests own detailed guard semantics. This smoke
+  // test only pins CallersPipeline's precondition at the attachment boundary:
+  // constructor priming must touch the foreign syntax read and fail fast.
+  let pipeline_rt = @incr.Runtime::new()
+  let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
+  let _ = CallersPipeline::CallersPipeline(pipeline_rt, parser.syntax_tree())
+}
+
+///|
 test "build_visibility: TopScope-only defs are visible from TopScope" {
   let defs : Array[Def] = [
     { name: "f", scope: TopScope, start: 0, end: 9, name_start: 4, name_end: 5 },

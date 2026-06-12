@@ -16,4 +16,5 @@ import {
 import {
   "dowdiness/lambda",
   "dowdiness/loom",
+  "dowdiness/loom/core",
 } for "wbtest"
