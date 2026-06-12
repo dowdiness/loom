@@ -162,6 +162,7 @@ ctx.finish_node()             // close the most recently opened node frame
 ctx.mark()                    // reserve a retroactive-wrap position (returns a Mark)
 ctx.start_at(mark, kind)      // retroactively wrap children emitted since mark
 ctx.wrap_at(mark, kind, body) // start_at + body + finish_node
+ctx.separated_list(kind, separator, parse, element_start?, wrap_element?)
 ctx.error(msg)                // record a diagnostic without consuming a token
 ctx.bump_error()              // consume current token as an error token
 ctx.emit_error_placeholder()  // emit a zero-width error token (for missing tokens)
@@ -176,6 +177,18 @@ ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 ```
 
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
+
+`ctx.separated_list(element_kind, separator, parse_element, element_start?,
+wrap_element?)` parses one separator-delimited list body; callers still own
+open/close delimiters. `parse_element` returns `true` iff it consumed or emitted
+an element body, and returns `false` without consuming when no element starts
+here. By default each parsed slot is retroactively wrapped in `element_kind` and
+eligible for combinator-level reuse. Supply `element_start` when a missing
+separator should be recovered as an inserted zero-width error placeholder plus
+an `expected separator` diagnostic. Use `wrap_element=false` only for grammars
+whose element parser already emits the intended CST node shape; in that mode
+empty slots emit a direct placeholder and element reuse belongs inside
+`parse_element` (usually through `ctx.node`).
 
 Use `emit_current_token()` only for token-stream skeletons where `T.to_raw()` is
 also the CST leaf kind. If a language has a separate syntax-kind layer, map the

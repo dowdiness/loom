@@ -1149,23 +1149,33 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
-/// Parse a separator-delimited list, wrapping each element in its own
-/// `element_kind` node so the CST records element boundaries. Returns the
-/// number of element nodes emitted.
+/// Parse a separator-delimited list. By default each parsed element is wrapped
+/// in an `element_kind` node so the CST records element boundaries. Returns the
+/// number of element slots emitted.
 ///
 /// `parse_element` returns `true` iff it consumed or emitted an element body;
 /// `false` means "no element starts here" and must not consume tokens. Error
 /// recovery *inside* a malformed element is `parse_element`'s responsibility.
 ///
+/// `element_start` is optional non-consuming lookahead for missing-separator
+/// recovery. When a slot was parsed/reused, no literal separator follows, and
+/// `element_start()` is true, the combinator emits a zero-width error
+/// placeholder for the missing separator, reports "expected separator", and
+/// continues with the next slot. The default `false` preserves the original
+/// separator-only stopping behavior.
+///
 /// Boundary contract — an empty element slot exists iff it is adjacent to a
 /// separator: leading, doubled, and trailing separators each produce an
 /// `element_kind` node containing a zero-width error placeholder plus an
 /// "expected element" diagnostic. Empty input emits nothing and returns 0.
+/// In `wrap_element=false` mode, parsed element events are left as emitted by
+/// `parse_element`, combinator-level element reuse is disabled, and empty slots
+/// emit the zero-width error placeholder directly (no wrapper node).
 ///
 /// Elements are wrapped retroactively (`mark`/`start_at`), never rolled back:
 /// the combinator does not use `checkpoint`/`restore`, so caller-owned
 /// recovery and delimiter handling are unaffected. The combinator owns no
-/// open/close delimiters. Like `node()`, each element slot first tries
+/// open/close delimiters. In wrapped mode, each element slot first tries
 /// incremental subtree reuse of `element_kind`.
 ///
 /// Terminates defensively if `parse_element` reports success without
@@ -1179,41 +1189,57 @@ pub fn[
   element_kind : K,
   separator : T,
   parse_element : () -> Bool,
+  element_start? : () -> Bool = () => false,
+  wrap_element? : Bool = true,
 ) -> Int {
   // State machine over element slots: `count` and `after_separator` are the
-  // loop state; each iteration parses one slot, then a separator continues
-  // the list or the loop ends.
+  // loop state. `slot_progressed` is intentionally imperative loop state: it
+  // gates zero-width missing-separator recovery so inconsistent lookahead
+  // predicates cannot spin forever at the same token.
   let mut count = 0
   let mut after_separator = false
   while true {
+    let mut slot_progressed = false
     if self.at(separator) {
       // Empty slot adjacent to the upcoming separator (leading or doubled).
-      self.emit_empty_element(element_kind)
+      self.emit_empty_element(element_kind, wrap_element)
       count = count + 1
-    } else if self.try_reuse(element_kind) is Some(reuse) {
+    } else if wrap_element && self.try_reuse(element_kind) is Some(reuse) {
       // Reuse fast path — same as node(): replay the old subtree, skip the body.
+      let before = self.position
       self.emit_reused(reuse)
+      slot_progressed = self.position > before
       count = count + 1
     } else {
-      let mark = self.mark()
       let before = self.position
+      let mark = if wrap_element { Some(self.mark()) } else { None }
       if parse_element() {
         guard self.position > before else { break } // defensive: no progress
-        self.start_at(mark, element_kind)
-        self.finish_node()
+        match mark {
+          Some(mark) => {
+            self.start_at(mark, element_kind)
+            self.finish_node()
+          }
+          None => ()
+        }
+        slot_progressed = true
         count = count + 1
       } else if after_separator {
         // Separator-adjacent absence: trailing separator.
-        self.emit_empty_element(element_kind)
+        self.emit_empty_element(element_kind, wrap_element)
         count = count + 1
       } else {
-        // No list here at all: the unclaimed mark stays a tombstone, so
-        // nothing reaches the tree.
+        // No list here at all: in wrapped mode, the unclaimed mark stays a
+        // tombstone, so nothing reaches the tree.
         break
       }
     }
     if self.at(separator) {
       self.emit_current_token()
+      after_separator = true
+    } else if slot_progressed && element_start() {
+      self.report_expected(expected="separator")
+      self.emit_error_placeholder()
       after_separator = true
     } else {
       break
@@ -1223,17 +1249,23 @@ pub fn[
 }
 
 ///|
-/// Emit an `element_kind` node holding only a zero-width error placeholder,
-/// with an "expected element" diagnostic at the current token. Represents an
-/// empty separated-list slot.
+/// Emit an empty separated-list slot with an "expected element" diagnostic at
+/// the current token. Wrapped mode stores the placeholder inside
+/// `element_kind`; wrapper-free mode emits the placeholder directly so existing
+/// grammars can keep parser-owned element nodes as direct children.
 fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_empty_element(
   self : ParserContext[T, K],
   element_kind : K,
+  wrap_element : Bool,
 ) -> Unit {
-  self.start_node(element_kind)
+  if wrap_element {
+    self.start_node(element_kind)
+  }
   self.report_expected(expected="element")
   self.emit_error_placeholder()
-  self.finish_node()
+  if wrap_element {
+    self.finish_node()
+  }
 }
 
 ///|

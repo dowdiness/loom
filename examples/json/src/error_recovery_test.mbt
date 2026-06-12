@@ -47,12 +47,10 @@ test "error recovery: missing closing bracket" {
 }
 
 ///|
-// Guards the *existing* missing-separator recovery in `parse_comma_separated`
-// (cst_parser.mbt). The comma between `1` and `2` is missing; the parser must
-// recover `2` as a distinct second array element with a diagnostic, NOT truncate
-// the list and drop `2` as an unexpected trailing token. See loom #291 — this is
-// the behavior `separated_list` currently lacks, so it must stay pinned before
-// any combinator migration.
+// Guards missing-separator recovery for the JSON separated-list parser. The
+// comma between `1` and `2` is missing; the parser must recover `2` as a
+// distinct second array element with a diagnostic, NOT truncate the list and
+// drop `2` as an unexpected trailing token. See loom #291.
 test "error recovery: missing comma between array elements" {
   let (value, diagnostics) = try! parse_json("[1 2]")
   // The missing separator must surface as a diagnostic.
@@ -63,6 +61,69 @@ test "error recovery: missing comma between array elements" {
       inspect(items[1], content="Number(2)")
     }
     _ => fail("expected array recovery, got " + value.to_string())
+  }
+}
+
+///|
+test "error recovery: missing comma array CST shape stays wrapper-free" {
+  let (cst, diagnostics) = try! parse_cst("[1 2]")
+  inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [array_node] => {
+      inspect(SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      match array_node.children() {
+        [first, second] => {
+          inspect(SyntaxKind::from_raw(first.kind()), content="NumberValue")
+          inspect(SyntaxKind::from_raw(second.kind()), content="NumberValue")
+        }
+        _ => fail("expected two array values")
+      }
+      inspect(
+        array_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        is Some(_),
+        content="true",
+      )
+    }
+    _ => fail("expected single array root child")
+  }
+}
+
+///|
+test "error recovery: trailing comma array CST shape stays wrapper-free" {
+  let (cst, diagnostics) = try! parse_cst("[1,]")
+  inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [array_node] => {
+      inspect(SyntaxKind::from_raw(array_node.kind()), content="ArrayNode")
+      match array_node.children() {
+        [_] => ()
+        _ => fail("expected one array value")
+      }
+      inspect(
+        array_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        is Some(_),
+        content="true",
+      )
+    }
+    _ => fail("expected single array root child")
+  }
+}
+
+///|
+test "error recovery: non-sync array element stays an error child" {
+  let (cst, diagnostics) = try! parse_cst("[1, @, 2]")
+  inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [array_node] =>
+      match array_node.children() {
+        [_, middle, _] =>
+          inspect(SyntaxKind::from_raw(middle.kind()), content="ErrorToken")
+        _ => fail("expected three array values")
+      }
+    _ => fail("expected single array root child")
   }
 }
 
@@ -80,5 +141,51 @@ test "error recovery: missing comma between object members" {
       inspect(members[1].0, content="b")
     }
     _ => fail("expected object recovery, got " + value.to_string())
+  }
+}
+
+///|
+test "error recovery: missing comma object CST shape stays wrapper-free" {
+  let (cst, diagnostics) = try! parse_cst("{\"a\":1 \"b\":2}")
+  inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [object_node] => {
+      inspect(SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      match
+        object_node.direct_children_of_kind(SyntaxKind::MemberNode.to_raw()) {
+        [_, _] => ()
+        _ => fail("expected two object members")
+      }
+      inspect(
+        object_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        is Some(_),
+        content="true",
+      )
+    }
+    _ => fail("expected single object root child")
+  }
+}
+
+///|
+test "error recovery: trailing comma object CST shape stays wrapper-free" {
+  let (cst, diagnostics) = try! parse_cst("{\"a\":1,}")
+  inspect(diagnostics.length() > 0, content="true")
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [object_node] => {
+      inspect(SyntaxKind::from_raw(object_node.kind()), content="ObjectNode")
+      match
+        object_node.direct_children_of_kind(SyntaxKind::MemberNode.to_raw()) {
+        [_] => ()
+        _ => fail("expected one object member")
+      }
+      inspect(
+        object_node.direct_token_of_kind(SyntaxKind::ErrorToken.to_raw())
+        is Some(_),
+        content="true",
+      )
+    }
+    _ => fail("expected single object root child")
   }
 }
