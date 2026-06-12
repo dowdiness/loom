@@ -55,28 +55,24 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
     (Some(l), Some(r)) => {
       let new_source = l + insert + r
       let edit = @core.Edit::insert(pos, insert.length())
-      let buffer_res = try? @core.TokenBuffer::new(
-        base,
-        tokenize_fn=tokenize,
-        eof_token=@token.EOF,
-      )
-      match buffer_res {
-        Ok(buffer) => {
-          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
-            edit, new_source,
-          )
-          let full_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? tokenize(new_source)
-          match (update_res, full_res) {
-            (Ok(_), Ok(full)) =>
-              @token.print_token_infos(buffer.get_tokens()) ==
-              @token.print_token_infos(full)
+      try
+        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+      catch {
+        _ => true
+      } noraise {
+        buffer =>
+          try buffer.update(edit, new_source) catch {
             _ => true
+          } noraise {
+            _ =>
+              try tokenize(new_source) catch {
+                _ => true
+              } noraise {
+                full =>
+                  @token.print_token_infos(buffer.get_tokens()) ==
+                  @token.print_token_infos(full)
+              }
           }
-        }
-        Err(_) => true
       }
     }
     _ => true
@@ -98,28 +94,24 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
     (Some(l), Some(r)) => {
       let new_source = l + r
       let edit = @core.Edit::delete(from, to)
-      let buffer_res = try? @core.TokenBuffer::new(
-        base,
-        tokenize_fn=tokenize,
-        eof_token=@token.EOF,
-      )
-      match buffer_res {
-        Ok(buffer) => {
-          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
-            edit, new_source,
-          )
-          let full_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? tokenize(new_source)
-          match (update_res, full_res) {
-            (Ok(_), Ok(full)) =>
-              @token.print_token_infos(buffer.get_tokens()) ==
-              @token.print_token_infos(full)
+      try
+        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+      catch {
+        _ => true
+      } noraise {
+        buffer =>
+          try buffer.update(edit, new_source) catch {
             _ => true
+          } noraise {
+            _ =>
+              try tokenize(new_source) catch {
+                _ => true
+              } noraise {
+                full =>
+                  @token.print_token_infos(buffer.get_tokens()) ==
+                  @token.print_token_infos(full)
+              }
           }
-        }
-        Err(_) => true
       }
     }
     _ => true
@@ -142,28 +134,24 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
     (Some(l), Some(r)) => {
       let new_source = l + insert + r
       let edit = @core.Edit::replace(from, to, from + insert.length())
-      let buffer_res = try? @core.TokenBuffer::new(
-        base,
-        tokenize_fn=tokenize,
-        eof_token=@token.EOF,
-      )
-      match buffer_res {
-        Ok(buffer) => {
-          let update_res : Result[Unit, @core.LexError] = try? buffer.update(
-            edit, new_source,
-          )
-          let full_res : Result[
-            Array[@token.TokenInfo[@token.Token]],
-            @core.LexError,
-          ] = try? tokenize(new_source)
-          match (update_res, full_res) {
-            (Ok(_), Ok(full)) =>
-              @token.print_token_infos(buffer.get_tokens()) ==
-              @token.print_token_infos(full)
+      try
+        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+      catch {
+        _ => true
+      } noraise {
+        buffer =>
+          try buffer.update(edit, new_source) catch {
             _ => true
+          } noraise {
+            _ =>
+              try tokenize(new_source) catch {
+                _ => true
+              } noraise {
+                full =>
+                  @token.print_token_infos(buffer.get_tokens()) ==
+                  @token.print_token_infos(full)
+              }
           }
-        }
-        Err(_) => true
       }
     }
     _ => true

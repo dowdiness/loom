@@ -78,12 +78,10 @@ test "LineIndex: line range maps both endpoints" {
 ///|
 test "format_diagnostic_with_line_col uses line range" {
   let index = LineIndex::new("ab\ncd")
-  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    1, 5,
-  )
-  let range = match range_result {
-    Ok(range) => range
-    Err(_) => abort("expected valid diagnostic range")
+  let range = try TextRange::from_offsets(1, 5) catch {
+    _ => abort("expected valid diagnostic range")
+  } noraise {
+    range => range
   }
   let diagnostic = Diagnostic(
     source=DiagnosticSource::parser(),

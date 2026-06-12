@@ -516,11 +516,18 @@ fn offset_lex_diagnostics(
   offset : Int,
   context : String,
 ) -> DiagnosticSet {
-  let zero_result : Result[TextOffset, DiagnosticBuildError] = try? TextOffset(
-    0,
-  )
-  match zero_result {
-    Ok(zero) =>
+  try TextOffset(0) catch {
+    err =>
+      DiagnosticSet::single(
+        Diagnostic::lexer_error(
+          "failed to offset lexer diagnostics after " +
+          context +
+          ": " +
+          @debug.to_string(err),
+        ),
+      )
+  } noraise {
+    zero =>
       diagnostics.offset_by(offset, zero) catch {
         err =>
           DiagnosticSet::single(
@@ -532,15 +539,6 @@ fn offset_lex_diagnostics(
             ),
           )
       }
-    Err(err) =>
-      DiagnosticSet::single(
-        Diagnostic::lexer_error(
-          "failed to offset lexer diagnostics after " +
-          context +
-          ": " +
-          @debug.to_string(err),
-        ),
-      )
   }
 }
 
@@ -715,12 +713,8 @@ fn[T] tokenize_resilient_result(
   eof_token : T,
   error_token : T,
 ) -> LexResult[T] {
-  let full_result : Result[Array[TokenInfo[T]], LexError] = try? tokenize_fn(
-    source,
-  )
-  match full_result {
-    Ok(tokens) => LexResult(tokens)
-    Err(LexError(first_msg)) => {
+  try tokenize_fn(source) catch {
+    LexError(first_msg) => {
       let result : Array[TokenInfo[T]] = []
       let diagnostics = DiagnosticSet::empty()
       let mut pos = 0
@@ -746,12 +740,10 @@ fn[T] tokenize_resilient_result(
           pos = pos + prefix_len
         } else {
           let end = next_char_offset(source, pos)
-          let error_result : Result[Array[TokenInfo[T]], LexError] = try? tokenize_fn(
-            rem,
-          )
-          let message = match error_result {
-            Ok(_) => first_msg
-            Err(LexError(msg)) => msg
+          let message = try tokenize_fn(rem) catch {
+            LexError(msg) => msg
+          } noraise {
+            _ => first_msg
           }
           let diagnostic_message = if message == "" {
             first_msg
@@ -770,6 +762,8 @@ fn[T] tokenize_resilient_result(
       result.push(TokenInfo::new(eof_token, 0))
       LexResult(result, diagnostics~)
     }
+  } noraise {
+    tokens => LexResult(tokens)
   }
 }
 

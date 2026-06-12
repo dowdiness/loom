@@ -24,12 +24,10 @@ test "Diagnostic stores message and primary range" {
 
 ///|
 fn test_range_or_abort(start : Int, end : Int) -> TextRange {
-  let result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start, end,
-  )
-  match result {
-    Ok(range) => range
-    Err(_) => abort("expected valid test range")
+  try TextRange::from_offsets(start, end) catch {
+    _ => abort("expected valid test range")
+  } noraise {
+    range => range
   }
 }
 

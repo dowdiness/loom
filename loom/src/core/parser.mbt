@@ -536,14 +536,16 @@ fn[T : @seam.ToRawKind] make_parser_diagnostic(
   token : T,
   code? : DiagnosticCode? = None,
 ) -> Diagnostic {
-  let range_result : Result[TextRange, DiagnosticBuildError] = try? TextRange::from_offsets(
-    start, end,
-  )
-  let primary = range_result.to_option()
-  let notes = match range_result {
-    Ok(_) => []
-    Err(error) =>
-      ["invalid diagnostic range preserved as " + @debug.to_string(error)]
+  let (primary, notes) : (TextRange?, Array[String]) = try
+    TextRange::from_offsets(start, end)
+  catch {
+    error =>
+      (
+        None,
+        ["invalid diagnostic range preserved as " + @debug.to_string(error)],
+      )
+  } noraise {
+    range => (Some(range), [])
   }
   let evidence = primary.map(range => { kind: token.to_raw(), range })
   Diagnostic(

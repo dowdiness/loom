@@ -284,34 +284,44 @@ test "panic EventBuffer::start_at rejects non-Tombstone mark" {
 
 ///|
 test "build_tree: missing FinishNode raises" {
-  let result : Result[CstNode, _] = try? build_tree(
-    [ParseEvent::StartNode(RawKind(19)), ParseEvent::Token(RawKind(10), "5")],
-    RawKind(22),
-  )
-  guard result is Err(_)
+  try
+    build_tree(
+      [ParseEvent::StartNode(RawKind(19)), ParseEvent::Token(RawKind(10), "5")],
+      RawKind(22),
+    )
+  catch {
+    _ => ()
+  } noraise {
+    _ => abort("expected missing FinishNode to raise")
+  }
 }
 
 ///|
 test "build_tree: leading FinishNode raises" {
-  let result : Result[CstNode, _] = try? build_tree(
-    [ParseEvent::FinishNode],
-    RawKind(22),
-  )
-  guard result is Err(_)
+  try build_tree([ParseEvent::FinishNode], RawKind(22)) catch {
+    _ => ()
+  } noraise {
+    _ => abort("expected leading FinishNode to raise")
+  }
 }
 
 ///|
 test "build_tree: extra FinishNode raises" {
-  let result : Result[CstNode, _] = try? build_tree(
-    [
-      ParseEvent::StartNode(RawKind(19)),
-      ParseEvent::Token(RawKind(10), "5"),
-      ParseEvent::FinishNode,
-      ParseEvent::FinishNode,
-    ],
-    RawKind(22),
-  )
-  guard result is Err(_)
+  try
+    build_tree(
+      [
+        ParseEvent::StartNode(RawKind(19)),
+        ParseEvent::Token(RawKind(10), "5"),
+        ParseEvent::FinishNode,
+        ParseEvent::FinishNode,
+      ],
+      RawKind(22),
+    )
+  catch {
+    _ => ()
+  } noraise {
+    _ => abort("expected extra FinishNode to raise")
+  }
 }
 
 ///|

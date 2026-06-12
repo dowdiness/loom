@@ -205,23 +205,23 @@ test "parse error - unmatched right paren" {
 
 ///|
 test "parse error reports formatted parser diagnostic" {
-  let result = try? parse("x)")
-  match result {
-    Err(ParseError::ParseError(message)) =>
+  try parse("x)") catch {
+    ParseError::ParseError(message) =>
       inspect(message, content="Unexpected tokens after expression [1,2]")
-    Err(_) => fail("expected ParseError")
-    Ok(_) => fail("expected parse failure")
+    _ => fail("expected ParseError")
+  } noraise {
+    _ => fail("expected parse failure")
   }
 }
 
 ///|
 test "parse error reports formatted lexer diagnostic" {
-  let result = try? parse("@")
-  match result {
-    Err(ParseError::ParseError(message)) =>
+  try parse("@") catch {
+    ParseError::ParseError(message) =>
       inspect(message, content="unexpected character: @ at position 0 [0,1]")
-    Err(_) => fail("expected ParseError")
-    Ok(_) => fail("expected parse failure")
+    _ => fail("expected ParseError")
+  } noraise {
+    _ => fail("expected parse failure")
   }
 }
 
