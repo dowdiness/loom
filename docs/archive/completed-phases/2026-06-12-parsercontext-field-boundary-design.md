@@ -1,8 +1,22 @@
 # ParserContext grammar-author boundary — design
 
 **Issue:** loom#251 — Make ParserContext grammar-author API boundary explicit before stabilization
-**Status:** Design (pending Codex validation + implementation)
+**Status:** Complete (2026-06-11 — PR #290)
 **Date:** 2026-06-12
+
+## Completion note
+
+Implemented by [PR #290](https://github.com/dowdiness/loom/pull/290), which
+closed [issue #251](https://github.com/dowdiness/loom/issues/251). The PR
+privatized all 14 `ParserContext` parser-state fields, moved the lone
+cross-package raw-field white-box test into `loom/src/core/`, regenerated the
+interfaces with the `ParserContext` field block collapsed to `// private fields`,
+and updated `docs/architecture/generic-parser.md` to document the method-only
+grammar-author contract.
+
+Decision record:
+
+- [ADR: ParserContext Grammar-Author Method-Only Boundary](../../decisions/2026-06-13-parsercontext-method-only-boundary.md)
 
 ## Problem
 

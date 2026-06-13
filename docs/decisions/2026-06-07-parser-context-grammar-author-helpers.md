@@ -3,7 +3,7 @@
 **Date:** 2026-06-07
 **Status:** Accepted
 **Issue:** [#219](https://github.com/dowdiness/loom/issues/219)
-**Follow-up:** [#251](https://github.com/dowdiness/loom/issues/251)
+**Follow-up:** [#251](https://github.com/dowdiness/loom/issues/251), resolved by [ADR 2026-06-13](2026-06-13-parsercontext-method-only-boundary.md)
 **Implementation plan:** N/A — issue-scoped additive API, no plan document.
 
 ## Context
@@ -92,10 +92,10 @@ teach the helper methods first.
 The public `ParserContext` surface grows, but remains additive and narrow.
 Existing grammars remain source-compatible.
 
-The project still needs to decide how strongly to enforce the documented
-`ParserContext` boundary before stabilization. Today the examples move in the
-right direction, but generated interfaces can still expose raw parser fields;
-issue #251 tracks that larger API-boundary work.
+The broader field-visibility boundary was later resolved by [ADR
+2026-06-13](2026-06-13-parsercontext-method-only-boundary.md): the stable
+`ParserContext` grammar-author API is method-only, and raw parser-state fields
+are private implementation detail.
 
 Future helper proposals should follow the same bar: require concrete repeated
 grammar-author use, keep internal cursor machinery private where possible, and
