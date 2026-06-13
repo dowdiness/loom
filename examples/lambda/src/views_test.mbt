@@ -132,7 +132,22 @@ test "LambdaExprView::to_json includes param and body keys" {
   }
   let s = view.to_json().stringify()
   inspect(s.contains("\"param\""), content="true")
+  inspect(s.contains("\"params\""), content="true")
   inspect(s.contains("\"body\""), content="true")
+}
+
+///|
+test "LambdaExprView::to_json preserves all parameters" {
+  let (cst, _) = parse_cst("(x, y) => x") catch { _ => abort("lex error") }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let view = match LambdaExprView::cast(syn.children()[0]) {
+    Some(v) => v
+    None => abort("expected LambdaExpr")
+  }
+  let s = view.to_json().stringify()
+  inspect(s.contains("\"params\""), content="true")
+  inspect(s.contains("\"x\""), content="true")
+  inspect(s.contains("\"y\""), content="true")
 }
 
 ///|

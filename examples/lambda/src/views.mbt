@@ -107,6 +107,7 @@ pub impl ToJson for LambdaExprView with fn to_json(self) -> Json {
   {
     "kind": "LambdaExpr",
     "param": self.param(),
+    "params": self.params(),
     "start": (self.node.start() : Int),
     "end": (self.node.end() : Int),
     "body": body_json,

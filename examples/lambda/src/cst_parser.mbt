@@ -371,6 +371,20 @@ pub fn parse_block_expr(
 }
 
 ///|
+fn token_after_soft_newlines(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  start_index : Int,
+) -> @token.Token? {
+  for index = start_index {
+    match ctx.peek_nth(index) {
+      @token.EOF => break None
+      @token.Newline => continue index + 1
+      token => break Some(token)
+    }
+  }
+}
+
+///|
 fn token_after_matching_right_paren(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> @token.Token? {
@@ -380,7 +394,7 @@ fn token_after_matching_right_paren(
       @token.LeftParen => continue index + 1, paren_depth + 1
       @token.RightParen =>
         if paren_depth == 0 {
-          break Some(ctx.peek_nth(index + 1))
+          break token_after_soft_newlines(ctx, index + 1)
         } else {
           continue index + 1, paren_depth - 1
         }
@@ -621,8 +635,12 @@ fn parse_lambda_root(
     }
     parse_definition_item(ctx)
     let delimiter_count = consume_newline_tokens(ctx)
-    if delimiter_count == 0 && token_starts_definition(ctx.peek()) {
-      ctx.error("Expected newline between top-level definitions")
+    if delimiter_count == 0 && ctx.peek() != @token.EOF {
+      if token_starts_definition(ctx.peek()) {
+        ctx.error("Expected newline between top-level definitions")
+      } else {
+        ctx.error("Expected newline after top-level definition")
+      }
     }
   }
   let _ = consume_newline_tokens(ctx)
