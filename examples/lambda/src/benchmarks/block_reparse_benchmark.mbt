@@ -13,17 +13,17 @@
 ///|
 /// Build a source with N function definitions using blocks:
 ///
-///   let f0(x) = { let a = x + 0; a }
-///   let f1(x) = { let a = x + 1; a }
+///   fn f0(x) { let a = x + 0; a }
+///   fn f1(x) { let a = x + 1; a }
 ///   ...
-///   let f(N-1)(x) = { let a = x + (N-1); a }
+///   fn f{N-1}(x) { let a = x + (N-1); a }
 ///   f(N-1) 0
 ///
 /// Each definition exercises ParamList, BlockExpr, and arithmetic.
 fn make_block_let_chain(n : Int) -> String {
   let segments : Array[String] = []
   for i = 0; i < n; i = i + 1 {
-    segments.push("let f\{i}(x) = { let a = x + \{i}; a }\n")
+    segments.push("fn f\{i}(x) { let a = x + \{i}; a }\n")
   }
   segments.push("f\{n - 1} 0")
   segments.join("")

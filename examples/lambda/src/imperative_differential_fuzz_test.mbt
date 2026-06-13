@@ -32,12 +32,12 @@ fn idf_slice_string(s : String, start : Int, end : Int) -> String? {
 fn idf_pool(allow_invalid : Bool) -> Array[String] {
   if allow_invalid {
     [
-      "x", "y", "z", "0", "1", "2", "if", "then", "else", "\\", ".", "(", ")", "+",
+      "x", "y", "z", "0", "1", "2", "if", "then", "else", "=>", ",", "(", ")", "+",
       "-", " ", "@", "#", "$", "]", "[",
     ]
   } else {
     [
-      "x", "y", "z", "0", "1", "2", "if", "then", "else", "\\", ".", "(", ")", "+",
+      "x", "y", "z", "0", "1", "2", "if", "then", "else", "=>", ",", "(", ")", "+",
       "-", " ",
     ]
   }

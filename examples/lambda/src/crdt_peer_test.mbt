@@ -60,8 +60,8 @@ test "two peers converge after sequential sync" {
   // Both peers start empty
   let peer_a = Peer::new("")
   let peer_b = Peer::new("")
-  // Peer A types "λx. x"
-  let delta_a = [@core.TextDelta::Insert("λx. x")]
+  // Peer A types "(x) => x"
+  let delta_a = [@core.TextDelta::Insert("(x) => x")]
   apply_peer_delta(peer_a, delta_a)
   // Peer B receives A's edit
   apply_peer_delta(peer_b, delta_a)

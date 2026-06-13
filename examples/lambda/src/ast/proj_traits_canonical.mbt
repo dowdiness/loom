@@ -8,7 +8,7 @@
 //   pretty-print differently (`"0 + 0"` vs `"0 - 0"`), so canonical must
 //   preserve `op`.
 // - `Lam`'s param name is NOT a discriminator: every `Lam` canonicalizes to
-//   `λx. x`. The placeholder is invariant in the param name.
+//   `(x) => x`. The placeholder is invariant in the param name.
 // - `LetDef`'s name is NOT a discriminator: every standalone binding row
 //   canonicalizes to `let x = 0`, mirroring the module placeholder row.
 // - `Module`'s defs/body are NOT discriminators: every `Module`

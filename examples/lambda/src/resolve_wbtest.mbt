@@ -8,7 +8,7 @@ test "resolve: free variable" {
 
 ///|
 test "resolve: bound variable in lambda" {
-  // λx. x — x is bound at depth 1
+  // (x) => x — x is bound at depth 1
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
   let (_, res) = resolve(term)
   // node 0 = Lam (no var entry), node 1 = Var("x")
@@ -17,7 +17,7 @@ test "resolve: bound variable in lambda" {
 
 ///|
 test "resolve: free and bound in lambda" {
-  // λx. (x + y) — x bound, y free
+  // (x) => (x + y) — x bound, y free
   // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
   let term = @ast.Term::Lam(
     "x",
@@ -30,7 +30,7 @@ test "resolve: free and bound in lambda" {
 
 ///|
 test "resolve: nested lambda shadows outer binding" {
-  // λx. λx. x — inner x shadows outer, depth=1
+  // (x, x) => x — inner x shadows outer, depth=1
   // Pre-order: 0=Lam(x), 1=Lam(x), 2=Var(x)
   let term = @ast.Term::Lam("x", @ast.Term::Lam("x", @ast.Term::Var("x")))
   let (_, res) = resolve(term)
@@ -79,21 +79,21 @@ test "resolve: returns rewritten term with Unbound for free vars" {
 
 ///|
 test "resolve: bound vars remain as Var in rewritten term" {
-  // λx. x — x is bound, stays Var
+  // (x) => x — x is bound, stays Var
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
   let (resolved_term, _) = resolve(term)
-  inspect(@ast.print_term(resolved_term), content="(λx. x)")
+  inspect(@ast.print_term(resolved_term), content="(x) => x")
 }
 
 ///|
 test "resolve: mixed bound and free in rewritten term" {
-  // λx. (x + y) — x bound stays Var, y free becomes Unbound
+  // (x) => (x + y) — x bound stays Var, y free becomes Unbound
   let term = @ast.Term::Lam(
     "x",
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
   )
   let (resolved_term, res) = resolve(term)
-  inspect(@ast.print_term(resolved_term), content="(λx. (x + <unbound: y>))")
+  inspect(@ast.print_term(resolved_term), content="(x) => (x + <unbound: y>)")
   debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   debug_inspect(res.vars.get(3), content="Some(Free)")
 }
@@ -125,14 +125,14 @@ test "resolve: idempotent on pre-resolved tree" {
   let (resolved_once, _) = resolve(term)
   let (resolved_twice, res2) = resolve(resolved_once)
   // Tree should be identical
-  inspect(@ast.print_term(resolved_twice), content="(λx. (x + <unbound: y>))")
+  inspect(@ast.print_term(resolved_twice), content="(x) => (x + <unbound: y>)")
   // Unbound node should still be marked Free in the resolution map
   debug_inspect(res2.vars.get(3), content="Some(Free)")
 }
 
 ///|
 test "term_to_dot_resolved: colors bound green, free red" {
-  // λx. (x + y)
+  // (x) => (x + y)
   let term = @ast.Term::Lam(
     "x",
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),

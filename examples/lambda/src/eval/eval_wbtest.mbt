@@ -22,7 +22,7 @@ fn eval_to_result_with_fuel(
 
 ///|
 test "eval: fuel exhaustion on omega combinator" {
-  // (λx. x x)(λx. x x) — diverges
+  // ((x) => x x)((x) => x x) — diverges
   let omega = @ast.Term::Lam(
     "x",
     @ast.Term::App(@ast.Term::Var("x"), @ast.Term::Var("x")),
@@ -34,7 +34,7 @@ test "eval: fuel exhaustion on omega combinator" {
 
 ///|
 test "eval: fuel works for deep but terminating computation" {
-  // Nested application: ((λx.x) ((λx.x) ((λx.x) 42)))
+  // Nested application: (((x) => x) (((x) => x) (((x) => x) 42)))
   let id = @ast.Term::Lam("x", @ast.Term::Var("x"))
   let term = @ast.Term::App(
     id,
@@ -132,7 +132,7 @@ test "eval: module forward reference fails" {
 
 ///|
 test "eval: unit value flows through application" {
-  // (λx. 1) unit → 1
+  // ((x) => 1) unit → 1
   let term = @ast.Term::App(
     @ast.Term::Lam("x", @ast.Term::Int(1)),
     @ast.Term::Unit,

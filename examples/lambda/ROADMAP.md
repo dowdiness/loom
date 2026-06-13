@@ -38,11 +38,12 @@
 Add `: Type` syntax to lambda abstractions and let bindings:
 
 ```
-λx : Int. x + 1
-let f : Int -> Int = λx. x in f 1
+(x : Int) => x + 1
+let f : Int -> Int = (x) => x
+f 1
 ```
 
-**Exit criteria:** Type annotations parse correctly; CST round-trips to identical source text; editing only the type annotation of `λx : Int. x + 1` leaves the body node reused (reuse count > 0, body node unchanged).
+**Exit criteria:** Type annotations parse correctly; CST round-trips to identical source text; editing only the type annotation of `(x : Int) => x + 1` leaves the body node reused (reuse count > 0, body node unchanged).
 
 ---
 

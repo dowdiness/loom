@@ -29,6 +29,7 @@ pub(all) enum Token {
   If
   Then
   Else
+  Fn
   Let
   Eq
   LBrace
@@ -37,6 +38,7 @@ pub(all) enum Token {
   Semicolon
   Colon
   Arrow
+  FatArrow
   Hole
   Identifier
   Integer

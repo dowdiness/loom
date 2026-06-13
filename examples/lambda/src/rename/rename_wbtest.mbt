@@ -27,7 +27,7 @@ fn wb_def_named(defs : Array[@callers.Def], name : String) -> @callers.Def {
 
 ///|
 test "compute_edits: top-level let rename produces def-site + caller edits" {
-  let src = "let f = \\x. x\nlet r = f y\n"
+  let src = "let f = (x) => x\nlet r = f y\n"
   let (syntax, defs, calls, enclosing) = wb_facts(src)
   let f_def = wb_def_named(defs, "f")
   let edits = compute_edits(f_def, defs, calls, enclosing, syntax, "fff")
@@ -50,13 +50,13 @@ test "compute_edits: top-level let initializer sees only previous defs" {
 
 ///|
 test "compute_edits: block let shadows parameter only after initializer" {
-  let src = "let h = \\x. { let x = x; x }\n"
+  let src = "let h = (x) => { let x = x; x }\n"
   let (syntax, defs, calls, enclosing) = wb_facts(src)
-  let block_x = wb_def_with_name_start(defs, syntax, 18)
+  let block_x = wb_def_with_name_start(defs, syntax, 21)
   let edits = compute_edits(block_x, defs, calls, enclosing, syntax, "y")
   inspect(edits.length(), content="2")
-  inspect(edits[0].start, content="18")
-  inspect(edits[1].start, content="25")
+  inspect(edits[0].start, content="21")
+  inspect(edits[1].start, content="28")
 }
 
 ///|
@@ -72,7 +72,7 @@ test "compute_edits: block let is not visible after block" {
 
 ///|
 test "compute_edits: ignores calls in a different scope" {
-  let src = "let g = \\f. f\n"
+  let src = "let g = (f) => f\n"
   let (syntax, defs, calls, enclosing) = wb_facts(src)
   let g_def = wb_def_named(defs, "g")
   let edits = compute_edits(g_def, defs, calls, enclosing, syntax, "ggg")

@@ -15,7 +15,7 @@ test "parse scaling - small (5 tokens)" (b : @bench.T) {
 /// Benchmark: Parse scaling - medium input (15 tokens)
 test "parse scaling - medium (15 tokens)" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λf.λx.if f x then x + 1 else x - 1") catch {
+    let result = @lambda.parse("(f, x) => if f x then x + 1 else x - 1") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -27,7 +27,7 @@ test "parse scaling - medium (15 tokens)" (b : @bench.T) {
 test "parse scaling - large (30+ tokens)" (b : @bench.T) {
   b.bench(fn() {
     let result = @lambda.parse(
-      "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)",
+      "(f, x) => if f x then ((y) => y + 1) x else ((z) => z - 1) (f x)",
     ) catch {
       _ => abort("benchmark failed")
     }
@@ -40,11 +40,11 @@ test "parse scaling - large (30+ tokens)" (b : @bench.T) {
 test "incremental vs full - edit at start" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
-    let result = parser.edit(edit, "\\f.λx.if f x then x + 1 else x - 1")
+    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 1")
     b.keep(result)
   })
 }
@@ -54,11 +54,11 @@ test "incremental vs full - edit at start" (b : @bench.T) {
 test "incremental vs full - edit at end" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(32, 33, 33)
-    let result = parser.edit(edit, "λf.λx.if f x then x + 1 else x - 2")
+    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 2")
     b.keep(result)
   })
 }
@@ -68,11 +68,11 @@ test "incremental vs full - edit at end" (b : @bench.T) {
 test "incremental vs full - edit in middle" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(14, 15, 15)
-    let result = parser.edit(edit, "λf.λx.if f x then y + 1 else x - 1")
+    let result = parser.edit(edit, "(f, x) => if f x then y + 1 else x - 1")
     b.keep(result)
   })
 }
@@ -107,16 +107,16 @@ test "sequential edits - backspace simulation" (b : @bench.T) {
 /// Benchmark: Incremental state baseline - repeated parsing
 test "incremental state baseline - repeated parsing" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("(x) => x", @lambda.lambda_grammar)
     let _ = parser.parse()
 
     // Make edit
     let edit = @core.Edit::insert(4, 8)
-    let _ = parser.edit(edit, "λx.x + 1")
+    let _ = parser.edit(edit, "(x) => x + 1")
 
     // Undo edit (should hit cache ideally)
     let edit2 = @core.Edit::delete(4, 8)
-    let _ = parser.edit(edit2, "λx.x")
+    let _ = parser.edit(edit2, "(x) => x")
   })
 }
 
@@ -137,13 +137,13 @@ test "incremental state baseline - similar expressions" (b : @bench.T) {
 test "memory pressure - large document" (b : @bench.T) {
   b.bench(fn() {
     // Build a moderately complex expression (simpler to avoid parsing issues)
-    let large_expr = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
+    let large_expr = "(f, x) => if f x then ((y) => y + 1) x else ((z) => z - 1) (f x)"
     let parser = @loom.new_imperative_parser(large_expr, @lambda.lambda_grammar)
     let _ = parser.parse()
 
     // Make small edit - change first variable
     let edit = @core.Edit::replace(3, 4, 4) // Replace 'f' with 'g'
-    let new_expr = "λg.λx.if g x then (λy.y + 1) x else (λz.z - 1) (g x)"
+    let new_expr = "(g, x) => if g x then ((y) => y + 1) x else ((z) => z - 1) (g x)"
     let result = parser.edit(edit, new_expr)
     b.keep(result)
   })
@@ -154,13 +154,13 @@ test "memory pressure - large document" (b : @bench.T) {
 test "worst case - full invalidation" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     let _ = parser.parse()
 
-    // Change at start affects everything (λ → \)
+    // Change at start affects everything.
     let edit = @core.Edit::replace(0, 1, 1)
-    let result = parser.edit(edit, "\\f.λx.if f x then x + 1 else x - 1")
+    let result = parser.edit(edit, "(f, x) => if f x then x + 1 else x - 1")
     b.keep(result)
   })
 }
@@ -312,7 +312,7 @@ test "parse_cst - small" (b : @bench.T) {
 ///|
 /// Benchmark: parse_cst, larger input.
 test "parse_cst - large" (b : @bench.T) {
-  let src = "λf.λx.if f x then (λy.y + 1) x else (λz.z - 1) (f x)"
+  let src = "(f, x) => if f x then ((y) => y + 1) x else ((z) => z - 1) (f x)"
   b.bench(fn() {
     let (tree, _) = @lambda.parse_cst(src) catch {
       _ => abort("benchmark failed")

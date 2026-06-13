@@ -130,7 +130,7 @@ test "eval: lambda creates closure" {
 
 ///|
 test "eval: simple application" {
-  // (λx. x + 1) 5
+  // ((x) => x + 1) 5
   let term = @ast.Term::App(
     @ast.Term::Lam(
       "x",
@@ -144,7 +144,7 @@ test "eval: simple application" {
 
 ///|
 test "eval: curried application" {
-  // (λx. λy. x + y) 2 3
+  // ((x, y) => x + y) 2 3
   let term = @ast.Term::App(
     @ast.Term::App(
       @ast.Term::Lam(
@@ -204,7 +204,7 @@ test "eval: let shadowing" {
 
 ///|
 test "eval: closure captures environment" {
-  // let five = 5 \n let add_five = λx. x + five \n let five = 6 \n add_five 1
+  // let five = 5 \n let add_five = (x) => x + five\n let five = 6 \n add_five 1
   // Should evaluate to 6 (lexical scoping: add_five closes over five=5)
   let term = @ast.Term::Module(
     [

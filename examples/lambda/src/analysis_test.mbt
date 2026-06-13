@@ -33,14 +33,14 @@ test "LambdaAnalysis: clean source has no diagnostics" {
 
 ///|
 test "LambdaAnalysis: parse error includes parser diagnostic" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("λx.")
+  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
   let diagnostics = analysis.diagnostics()
   inspect(count_lambda_diagnostics(diagnostics, ParsePhase) > 0, content="true")
 }
 
 ///|
 test "LambdaAnalysis: parse diagnostic preserves structured payload" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("λx.")
+  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
   let diagnostics = analysis.diagnostics()
   let mut saw_parser_diagnostic = false
   for diagnostic in diagnostics {
@@ -82,7 +82,7 @@ test "LambdaAnalysis: apply_edit recomputes diagnostics" {
 
 ///|
 test "LambdaAnalysis: diagnostics survive Runtime::gc" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("λx.")
+  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
   inspect(
     count_lambda_diagnostics(analysis.diagnostics(), ParsePhase) > 0,
     content="true",

@@ -35,9 +35,9 @@ test "parse simple variable" {
 
 ///|
 test "parse identity function" {
-  let expr = parse("λx.x")
+  let expr = parse("(x) => x")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(λx. x)")
+  inspect(printed, content="(x) => x")
 }
 
 ///|
@@ -69,11 +69,10 @@ test "parse parenthesized expression" {
 }
 
 ///|
-test "parse nested lambda" {
-  let expr = parse("λf.λx.x")
+test "parse multi-parameter lambda" {
+  let expr = parse("(f, x) => x")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("λf"), content="true")
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed, content="(f, x) => x")
 }
 
 ///|
@@ -108,17 +107,17 @@ test "parse complex if expression" {
 
 ///|
 test "parse lambda with binary operation in body" {
-  let expr = parse("λx.x + 1")
+  let expr = parse("(x) => x + 1")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed.contains("(x) =>"), content="true")
   inspect(printed.contains("+"), content="true")
 }
 
 ///|
 test "parse application with lambda" {
-  let expr = parse("(λx.x) y")
+  let expr = parse("((x) => x) y")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed.contains("(x) =>"), content="true")
   inspect(printed.contains("y"), content="true")
 }
 
@@ -131,10 +130,9 @@ test "parse nested parentheses" {
 
 ///|
 test "parse complex nested expression" {
-  let expr = parse("(λf.(λx.(f (f x))))")
+  let expr = parse("((f, x) => f (f x))")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("λf"), content="true")
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed, content="(f, x) => (f ((f x)))")
 }
 
 // ===== Error Handling Tests =====
@@ -142,7 +140,7 @@ test "parse complex nested expression" {
 ///|
 test "parse error - missing parameter after lambda" {
   let should_error = try {
-    let _expr = parse("λ.x")
+    let _expr = parse("(,) => x")
     false
   } catch {
     _ => true
@@ -156,9 +154,9 @@ test "parse error - missing parameter after lambda" {
 }
 
 ///|
-test "parse error - missing dot after lambda parameter" {
+test "parse error - missing body after lambda arrow" {
   let should_error = try {
-    let _expr = parse("λx")
+    let _expr = parse("(x) =>")
     false
   } catch {
     _ => true
@@ -288,10 +286,10 @@ test "parse large integer" {
 }
 
 ///|
-test "parse lambda with backslash" {
-  let expr = parse("\\x.x")
+test "parse arrow lambda" {
+  let expr = parse("(x) => x")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(λx. x)")
+  inspect(printed, content="(x) => x")
 }
 
 ///|
@@ -314,10 +312,9 @@ test "parse mixed operators and applications" {
 
 ///|
 test "parse complex expression with all features" {
-  let expr = parse("(λf.λx.if f x then x + 1 else x - 1)")
+  let expr = parse("((f, x) => if f x then x + 1 else x - 1)")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("λf"), content="true")
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed.contains("(f, x) =>"), content="true")
   inspect(printed.contains("if"), content="true")
   inspect(printed.contains("then"), content="true")
   inspect(printed.contains("else"), content="true")
@@ -364,11 +361,11 @@ test "parse nested let" {
 
 ///|
 test "parse let with lambda" {
-  let expr = parse_or_fail("let f = λx.x\nf 42")
+  let expr = parse_or_fail("let f = (x) => x\nf 42")
   inspect(
     @ast.print_term(expr),
     content=(
-      #|let f = (λx. x)
+      #|fn f(x) { x }
       #|(f 42)
     ),
   )
@@ -482,13 +479,12 @@ test "parse_term: empty file" {
 // ===== ParamList → Lam Desugaring Tests =====
 
 ///|
-test "desugar let with params to nested lam" {
-  let (cst, _) = parse_cst_or_fail_parser("let f(x, y) = x + y\nf 1 2")
+test "desugar fn with params to nested Lam" {
+  let (cst, _) = parse_cst_or_fail_parser("fn f(x, y) { x + y }\nf 1 2")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("λx"), content="true")
-  inspect(printed.contains("λy"), content="true")
+  inspect(printed.contains("fn f(x, y)"), content="true")
 }
 
 ///|
@@ -530,11 +526,11 @@ test "desugar defs-only block" {
 
 ///|
 test "desugar params plus block" {
-  let (cst, _) = parse_cst_or_fail_parser("let f(x) = { let y = x + 1; y }")
+  let (cst, _) = parse_cst_or_fail_parser("fn f(x) { let y = x + 1; y }")
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("λx"), content="true")
+  inspect(printed.contains("fn f(x)"), content="true")
 }
 
 // ===== Combined Grammar Tests =====
@@ -561,13 +557,12 @@ test "parse blocks in if-then-else" {
 ///|
 test "parse param list with block body" {
   let (cst, _) = parse_cst_or_fail_parser(
-    "let compute(x, y) = {\n  let sum = x + y\n  sum\n}",
+    "fn compute(x, y) {\n  let sum = x + y\n  sum\n}",
   )
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("λx"), content="true")
-  inspect(printed.contains("λy"), content="true")
+  inspect(printed.contains("fn compute(x, y)"), content="true")
 }
 
 ///|
@@ -581,7 +576,7 @@ test "block as application argument" {
 
 ///|
 test "roundtrip: param list preserves structure" {
-  let source = "let f(x, y) = x + y\nf 1 2"
+  let source = "fn f(x, y) { x + y }\nf 1 2"
   let expr1 = parse_or_fail(source)
   let printed = @ast.print_term(expr1)
   let expr2 = parse_or_fail(printed)
@@ -598,7 +593,9 @@ test "parse underscore as Hole" {
 
 ///|
 test "parse hole in expression" {
-  let result = parse("(λx. _)") catch { _ => @ast.Term::Error("parse failed") }
+  let result = parse("((x) => _)") catch {
+    _ => @ast.Term::Error("parse failed")
+  }
   inspect(result, content="Lam(\"x\", Hole(0))")
 }
 

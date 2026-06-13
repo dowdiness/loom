@@ -49,7 +49,7 @@ pub impl Show for Term with fn output(self, logger) {
 
 ///|
 pub fn print_term(term : Term) -> String {
-  (replay(term) : Pretty).repr
+  term_to_source(term)
 }
 
 ///|

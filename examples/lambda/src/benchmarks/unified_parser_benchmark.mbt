@@ -8,7 +8,7 @@
 test "parser: cold - new + ast()" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_parser(
-      "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+      "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
     )
     b.keep(parser.ast().read_or_abort())
   })
@@ -19,7 +19,7 @@ test "parser: cold - new + ast()" (b : @bench.T) {
 /// Derived cells are already valid; subsequent reads only check staleness.
 test "parser: warm - ast() with no source change" (b : @bench.T) {
   let parser = @loom.new_parser(
-    "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+    "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort() // prime
@@ -31,7 +31,7 @@ test "parser: warm - ast() with no source change" (b : @bench.T) {
 /// `Parser::set_source` short-circuits before touching the engine or any
 /// input when the source is unchanged — should be close to free.
 test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
-  let source = "λf.λx.if f x then x + 1 else x - 1"
+  let source = "(f, x) => if f x then x + 1 else x - 1"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort() // prime
@@ -46,14 +46,14 @@ test "parser: identity - set_source(same) + ast()" (b : @bench.T) {
 /// Engine runs a full reparse; all published cells update in one batch.
 test "parser: full recompute - set_source(new) + ast()" (b : @bench.T) {
   let parser = @loom.new_parser(
-    "λf.λx.if f x then x + 1 else x - 1", @lambda.lambda_grammar,
+    "(f, x) => if f x then x + 1 else x - 1", @lambda.lambda_grammar,
   )
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source("λf.λx.if f x then x + 2 else x - 1")
+    parser.set_source("(f, x) => if f x then x + 2 else x - 1")
     let result = parser.ast().read_or_abort()
-    parser.set_source("λf.λx.if f x then x + 1 else x - 1") // restore
+    parser.set_source("(f, x) => if f x then x + 1 else x - 1") // restore
     let _ = parser.ast().read_or_abort()
     b.keep(result)
   })
@@ -63,8 +63,8 @@ test "parser: full recompute - set_source(new) + ast()" (b : @bench.T) {
 /// Undo/redo cycle: alternate between two sources via set_source.
 /// Neither direction is an identity — both trigger a full engine reparse.
 test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
-  let s1 = "λf.λx.if f x then x + 1 else x - 1"
-  let s2 = "λf.λx.if f x then x + 2 else x - 1"
+  let s1 = "(f, x) => if f x then x + 1 else x - 1"
+  let s2 = "(f, x) => if f x then x + 2 else x - 1"
   let parser = @loom.new_parser(s1, @lambda.lambda_grammar)
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort()
@@ -86,7 +86,7 @@ test "parser: undo/redo cycle (set_source)" (b : @bench.T) {
 /// `ImperativeParser::edit` — same engine, just a `Runtime::batch` signal
 /// publication on top.
 test "parser: apply_edit - single char flip in nested lambda" (b : @bench.T) {
-  let s1 = "λf.λx.if f x then x + 1 else x - 1"
+  let s1 = "(f, x) => if f x then x + 1 else x - 1"
   let parser = @loom.new_parser(s1, @lambda.lambda_grammar)
   let rt = parser.runtime()
   let _ = parser.ast().read_or_abort() // prime
@@ -141,13 +141,13 @@ test "parity: parser apply_edit - let init edit" (b : @bench.T) {
 /// diagnostics signal updates atomically with syntax_tree and ast inside
 /// `Runtime::batch` — and verifies that recovery clears the diagnostics.
 test "parser: diagnostics - valid ↔ malformed cycle" (b : @bench.T) {
-  let parser = @loom.new_parser("λx.x", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(x) => x", @lambda.lambda_grammar)
   let rt = parser.runtime()
   let _ = parser.diagnostics().read_or_abort() // prime
   b.bench(fn() {
-    parser.set_source("λx.") // malformed
+    parser.set_source("(x) =>") // malformed
     b.keep(parser.diagnostics().read_or_abort())
-    parser.set_source("λx.x") // recover
+    parser.set_source("(x) => x") // recover
     let _ = parser.diagnostics().read_or_abort()
   })
 }

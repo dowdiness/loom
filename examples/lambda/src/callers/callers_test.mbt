@@ -50,9 +50,9 @@ test "extract_facts: top-level Defs are tagged TopScope" {
 
 ///|
 test "extract_facts: lambda parameter Defs are tagged LambdaScope" {
-  // `let shadow = \f. f` — top-level `shadow` (TopScope) +
+  // `let shadow = (f) => f` — top-level `shadow` (TopScope) +
   // a lambda param `f` (LambdaScope).
-  let src = "let shadow = \\f. f\n"
+  let src = "let shadow = (f) => f\n"
   let (defs, _) = extract_facts(parse_to_syntax(src))
   inspect(defs.length(), content="2")
   inspect(defs[0].name, content="shadow")
@@ -151,10 +151,10 @@ test "pipeline: set_source forces full reparse" {
 
 ///|
 test "pipeline: lambda body call site counted" {
-  // `\x. f x` — body is an AppExpr whose function position holds `f`,
+  // `(x) => f x` — body is an AppExpr whose function position holds `f`,
   // which resolves to top-level (`x` is the lambda param, not `f`).
   let parser = @loom.new_parser(
-    "let f = 1\nlet apply = \\x. f x\n", @lambda.lambda_grammar,
+    "let f = 1\nlet apply = (x) => f x\n", @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="1")
@@ -218,7 +218,7 @@ test "pipeline: lambda parameter shadows top-level def" {
   // the top-level. Tier 0 reported this as a caller of the top-level
   // `f`; scope structure excludes it.
   let parser = @loom.new_parser(
-    "let f = 1\nlet shadow = \\f. f x\n", @lambda.lambda_grammar,
+    "let f = 1\nlet shadow = (f) => f x\n", @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   // Pain-point #2 assertion: the inner `f` is the lambda's own param,
@@ -232,11 +232,11 @@ test "pipeline: lambda parameter shadows top-level def" {
 
 ///|
 test "pipeline: recursive lambda call resolves to top-level" {
-  // `let f = \x. f x` — body's `f` is in the lambda's body, but the
+  // `let f = (x) => f x` — body's `f` is in the lambda's body, but the
   // lambda's only binding is `x`. So inner `f` resolves to the top-level
   // LetDef and IS counted as a caller. (This is the recursion case
   // Codex flagged as a check.)
-  let parser = @loom.new_parser("let f = \\x. f x\n", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("let f = (x) => f x\n", @lambda.lambda_grammar)
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="1")
   inspect(pipe.callers_of("x").length(), content="0")
@@ -245,11 +245,11 @@ test "pipeline: recursive lambda call resolves to top-level" {
 
 ///|
 test "pipeline: nested lambdas — innermost shadow wins" {
-  // `\x. \x. x x` — outer `x` is shadowed by inner `x`. The two `x`s in
+  // `(x) => (x) => x x` — outer `x` is shadowed by inner `x`. The two `x`s in
   // the body resolve to the INNER lambda's param. Neither is a
   // top-level caller.
   let parser = @loom.new_parser(
-    "let x = 1\nlet f = \\x. \\x. x x\n", @lambda.lambda_grammar,
+    "let x = 1\nlet f = (x, x) => x x\n", @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("x").length(), content="0")
@@ -299,15 +299,15 @@ test "pipeline: VarRef as bare body — not a call" {
   pipe.dispose()
 }
 
-// ─── New: let-paren param scope (multi-param desugaring) ───────────────
+// ─── New: fn param scope (multi-param desugaring) ──────────────────────
 
 ///|
-test "pipeline: let-paren param shadows top-level def" {
-  // `let id(x) = x y` — the let-param `x` binds `x` in the body.
+test "pipeline: fn param shadows top-level def" {
+  // `fn id(x) { x y` — the let-param `x` binds `x` in the body. }
   // The body's `x` resolves to the let-param (LambdaScope keyed by the
   // LetDef's range), NOT to the top-level `let x = ...`.
   let parser = @loom.new_parser(
-    "let x = 1\nlet id(x) = x y\n", @lambda.lambda_grammar,
+    "let x = 1\nfn id(x) { x y }\n", @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("x").length(), content="0")
@@ -320,12 +320,12 @@ test "pipeline: let-paren param shadows top-level def" {
 
 ///|
 test "pipeline: typed lambda param still shadows top-level def" {
-  // `\x: Int. f x` — TypeAnnot sits between the param IdentToken and the
+  // `(x : Int) => f x` — TypeAnnot sits between the param IdentToken and the
   // body. The param `x` must still bind the body's `x` (resolved_scope =
   // LambdaScope, excluded from callers_of("x")), and the body's `f x`
   // must still record `f` as a call.
   let parser = @loom.new_parser(
-    "let f = 1\nlet x = 2\nlet apply = \\x: Int. f x\n", @lambda.lambda_grammar,
+    "let f = 1\nlet x = 2\nlet apply = (x: Int) => f x\n", @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="1")
@@ -361,28 +361,26 @@ fn lambda_scope_def_names_of(src : String) -> Array[String] {
 }
 
 ///|
-test "extract_facts: malformed lambda missing param (\\ . f x)" {
-  // ErrorToken placeholder at the param slot. `ident_after_lead` finds
-  // LambdaToken, then sees an ErrorToken next (non-trivia, non-Ident) →
-  // returns None. No body identifier leaks into the lambda's scope.
-  let names = lambda_scope_def_names_of("let f = 1\nlet broken = \\ . f x\n")
+test "extract_facts: malformed arrow lambda missing param (() => f x)" {
+  // Empty parameter list has no IdentToken, so no body identifier leaks into
+  // the lambda's scope.
+  let names = lambda_scope_def_names_of("let f = 1\nlet broken = () => f x\n")
   inspect(names.length(), content="0")
 }
 
 ///|
-test "extract_facts: malformed lambda no body (\\f)" {
-  // Param `f` is consumed, but no DotToken / body follows. Recovery
-  // determines what ends up in LambdaExpr's children; the param `f`
-  // should still be the only LambdaScope binding.
-  let names = lambda_scope_def_names_of("let broken = \\f\n")
+test "extract_facts: malformed arrow lambda no body ((f) =>)" {
+  // Param `f` is consumed, but no body follows. Recovery determines what ends
+  // up in LambdaExpr's children; the param `f` should still be the only
+  // LambdaScope binding.
+  let names = lambda_scope_def_names_of("let broken = (f) =>\n")
   debug_inspect(names, content="[\"f\"]")
 }
 
 ///|
-test "extract_facts: malformed lambda no param or body (\\)" {
-  // Lambda token alone — no param, no body. Param slot has no IdentToken;
-  // ident_after_lead returns None; no binding.
-  let names = lambda_scope_def_names_of("let broken = \\\n")
+test "extract_facts: malformed arrow lambda no param or body (() =>)" {
+  // Empty parameter list and no body: no binding.
+  let names = lambda_scope_def_names_of("let broken = () =>\n")
   inspect(names.length(), content="0")
 }
 
@@ -390,7 +388,7 @@ test "extract_facts: malformed lambda no param or body (\\)" {
 test "extract_facts: well-formed lambda still binds correctly under new extraction" {
   // Sanity check that the position-aware extractor matches a direct token
   // query on the happy path.
-  let src = "let f = 1\nlet shadow = \\f. f\n"
+  let src = "let f = 1\nlet shadow = (f) => f\n"
   let names = lambda_scope_def_names_of(src)
   // Lambda's param `f` is the only non-TopScope binding.
   debug_inspect(names, content="[\"f\"]")
@@ -410,7 +408,7 @@ test "ScopeId derives Hash (compile-time check)" {
 
 ///|
 test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
-  let src = "let g = \\x. x\n"
+  let src = "let g = (x) => x\n"
   let (defs, calls) = extract_facts(parse_to_syntax(src))
   // Same 2-tuple shape as before; per-element checks avoid Show-on-Array warning.
   inspect(defs.length(), content="2")
@@ -439,7 +437,7 @@ test "visible_from: TopScope bindings visible from TopScope" {
 
 ///|
 test "visible_from: LambdaScope param visible inside its body" {
-  let src = "let g = \\x. x\n"
+  let src = "let g = (x) => x\n"
   let p = build_test_pipeline(src)
   // Pull the lambda param's scope via defs_of:
   let xdefs = p.defs_of("x")
@@ -453,7 +451,7 @@ test "visible_from: LambdaScope param visible inside its body" {
 
 ///|
 test "visible_from: TopScope binding visible from nested LambdaScope" {
-  let src = "let f = 1\nlet g = \\x. f x\n"
+  let src = "let f = 1\nlet g = (x) => f x\n"
   let p = build_test_pipeline(src)
   let xdefs = p.defs_of("x")
   let lambda_scope = xdefs[0].scope
@@ -469,7 +467,7 @@ test "visible_from: shadowing not modeled — same name visible at both scopes" 
   // which one wins inside the lambda. That's the documented caveat: the
   // map says "some binding exists in this scope or an ancestor", not
   // "which binding resolves here."
-  let src = "let f = 1\nlet g = \\f. f\n"
+  let src = "let f = 1\nlet g = (f) => f\n"
   let p = build_test_pipeline(src)
   let fdefs = p.defs_of("f")
   // 2 defs: top-level f and lambda-param f.
@@ -502,10 +500,10 @@ test "visible_from: fabricated unknown ScopeId returns false" {
 }
 
 ///|
-test "visible_from: let-paren params visible in their body's scope" {
-  let src = "let f(x, y) = x y\n"
+test "visible_from: fn params visible in their body's scope" {
+  let src = "fn f(x, y) { x y }\n"
   let p = build_test_pipeline(src)
-  // Both x and y are defs in the same LambdaScope (let-paren frame).
+  // Both x and y are defs in the same LambdaScope (fn frame).
   let xdefs = p.defs_of("x")
   inspect(xdefs.length(), content="1")
   let scope = xdefs[0].scope
@@ -518,7 +516,7 @@ test "visible_from: let-paren params visible in their body's scope" {
 
 ///|
 test "pipeline: facts() returns defensive copies" {
-  let src = "let f = \\x. x\nlet g = f y\n"
+  let src = "let f = (x) => x\nlet g = f y\n"
   let parser = @loom.new_parser(src, @lambda.lambda_grammar)
   let pipeline = CallersPipeline::from_parser(parser)
   let (defs, calls, enclosing) = pipeline.facts()

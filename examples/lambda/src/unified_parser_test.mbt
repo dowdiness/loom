@@ -44,13 +44,13 @@ test "Parser: step-based recovery diagnostics are not fatal lex errors" {
 
 ///|
 test "Parser: parse error still publishes syntax_tree" {
-  let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
   ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser: parse error produces non-empty diagnostics" {
-  let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
   assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
 }
 
@@ -64,7 +64,7 @@ test "Parser: valid input - integer addition" {
 
 ///|
 test "Parser: valid input - lambda expression" {
-  let parser = @loom.new_parser("λx.x", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(x) => x", @lambda.lambda_grammar)
   match parser.ast().read_or_abort() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
@@ -73,7 +73,7 @@ test "Parser: valid input - lambda expression" {
 
 ///|
 test "Parser: valid input - syntax_tree exists" {
-  let parser = @loom.new_parser("λf.λx.f x", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(f, x) => f x", @lambda.lambda_grammar)
   ignore(parser.syntax_tree().read_or_abort())
 }
 
@@ -92,7 +92,7 @@ test "Parser: set_source updates ast" {
 
 ///|
 test "Parser: set_source same value preserves ast (Eq)" {
-  let source = "λf.λx.f x"
+  let source = "(f, x) => f x"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   let rt = parser.runtime()
   let t1 = parser.ast().read_or_abort()
@@ -135,12 +135,12 @@ test "Parser: apply_edit updates source, ast, diagnostics" {
 /// apply_edit recovering from an error state — exercises the incremental
 /// path even when the previous tree has error nodes.
 test "Parser: apply_edit from error state to valid" {
-  let parser = @loom.new_parser("λx.", @lambda.lambda_grammar)
+  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
   let rt = parser.runtime()
   assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
-  // Append "x" — "λx." (length 3) → "λx.x" (edit appends one char at offset 3).
-  parser.apply_edit(@core.Edit::new(3, 0, 1), "λx.x")
-  inspect(parser.source().read_or_abort(), content="λx.x")
+  // Append " x" — "(x) =>" (length 6) → "(x) => x".
+  parser.apply_edit(@core.Edit::new(6, 0, 2), "(x) => x")
+  inspect(parser.source().read_or_abort(), content="(x) => x")
   match parser.ast().read_or_abort() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
@@ -157,8 +157,8 @@ test "Parser: apply_edit from error state to valid" {
 /// Error-recovery inputs are tested separately via the lex/parse error tests.
 test "Parser: parity with parse" {
   let sources : Array[String] = [
-    "λx.x      +                   1   ", "λx.x λy.y + x", "if true then 1 else 4",
-    "λa.λb.λc. if c then a b else 124321 - 31 + a c", "10 - 3 + 1",
+    "(x) => x      +                   1", "(x) => (y) => y + x", "if true then 1 else 4",
+    "(a, b, c) => if c then a b else 124321 - 31 + a c", "10 - 3 + 1",
   ]
   for source in sources {
     let parser = @loom.new_parser(source, @lambda.lambda_grammar)
@@ -179,12 +179,12 @@ test "Parser: parity with parse" {
 /// This verifies that Derived backdating + the node interner correctly
 /// identify unchanged trees across computation epochs.
 test "Parser: Term Eq holds after round-trip source change" {
-  let parser = @loom.new_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_parser("(x) => x", lambda_grammar)
   let rt = parser.runtime()
   let t1 = parser.ast().read_or_abort()
   parser.set_source("y") // change — triggers recomputation
   let _ = parser.ast().read_or_abort() // force the new computation epoch
-  parser.set_source("λx.x") // change back — triggers another recomputation
+  parser.set_source("(x) => x") // change back — triggers another recomputation
   let t3 = parser.ast().read_or_abort()
   // t1 and t3 are separately computed but from the same source:
   // same token sequence → same interned CstNode → Term::Eq returns true.

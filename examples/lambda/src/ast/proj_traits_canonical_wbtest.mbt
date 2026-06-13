@@ -18,7 +18,7 @@ fn hand_written_placeholder_reference(t : Term) -> String? {
   match t {
     Int(_) => Some("0")
     Var(_) => Some("x")
-    Lam(_, _) => Some("λx. x")
+    Lam(_, _) => Some("(x) => x")
     App(_, _) => Some("f x")
     Bop(Plus, _, _) => Some("0 + 0")
     Bop(Minus, _, _) => Some("0 - 0")
@@ -228,7 +228,7 @@ test "placeholder: all variants match expected strings" {
   let cases : Array[(Term, String)] = [
     (Int(7), "0"),
     (Var("y"), "x"),
-    (Lam("y", Var("y")), "λx. x"),
+    (Lam("y", Var("y")), "(x) => x"),
     (App(Var("g"), Int(3)), "f x"),
     (Bop(Plus, Int(1), Int(2)), "0 + 0"),
     (Bop(Minus, Int(1), Int(2)), "0 - 0"),

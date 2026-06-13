@@ -9,6 +9,7 @@ pub(all) enum SyntaxKind {
   IfKeyword
   ThenKeyword
   ElseKeyword
+  FnKeyword
   IdentToken
   IntToken
   WhitespaceToken
@@ -25,7 +26,7 @@ pub(all) enum SyntaxKind {
   SourceFile
   LetKeyword
   EqToken
-  LetDef // NEW: top-level let x = e (no 'in')
+  LetDef // top-level or block-local let name = value / fn name(params) { body }
   NewlineToken // NEW: \n token — delimiter between LetDefs in source-file grammar
   LBraceToken // {
   RBraceToken // }
@@ -41,6 +42,7 @@ pub(all) enum SyntaxKind {
   TypeInt // Int type keyword (raw 40)
   TypeUnit // Unit type keyword (raw 41)
   TypeArrow // Type -> Type (raw 42)
+  FatArrowToken // =>  (raw 44)
 } derive(Debug, Eq)
 
 ///|
@@ -60,6 +62,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | IfKeyword
     | ThenKeyword
     | ElseKeyword
+    | FnKeyword
     | IdentToken
     | IntToken
     | WhitespaceToken
@@ -74,7 +77,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | SemicolonToken
     | HoleToken
     | ColonToken
-    | ArrowToken => true
+    | ArrowToken
+    | FatArrowToken => true
     _ => false
   }
 }
@@ -91,6 +95,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     IfKeyword => 6
     ThenKeyword => 7
     ElseKeyword => 8
+    FnKeyword => 43
     IdentToken => 9
     IntToken => 10
     WhitespaceToken => 11
@@ -123,6 +128,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     TypeInt => 40
     TypeUnit => 41
     TypeArrow => 42
+    FatArrowToken => 44
   }
   @seam.RawKind(n)
 }
@@ -172,6 +178,8 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     40 => TypeInt
     41 => TypeUnit
     42 => TypeArrow
+    43 => FnKeyword
+    44 => FatArrowToken
     _ => ErrorNode
   }
 }

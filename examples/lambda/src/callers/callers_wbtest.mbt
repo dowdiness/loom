@@ -19,7 +19,7 @@ fn parse_to_syntax_wb(source : String) -> @seam.SyntaxNode {
 
 ///|
 test "extract_facts_full: emits TopScope edge for outermost LambdaExpr" {
-  let src = "let g = \\x. x\n"
+  let src = "let g = (x) => x\n"
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
   // Exactly one LambdaScope, with TopScope as its parent.
   inspect(enclosing.length(), content="1")
@@ -30,7 +30,7 @@ test "extract_facts_full: emits TopScope edge for outermost LambdaExpr" {
 
 ///|
 test "extract_facts_full: nested LambdaExpr emits chain of edges" {
-  let src = "let g = \\x. \\y. x y\n"
+  let src = "let g = (x) => (y) => x y\n"
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
   // Outer lambda -> TopScope, inner lambda -> outer lambda.
   inspect(enclosing.length(), content="2")
@@ -42,8 +42,8 @@ test "extract_facts_full: nested LambdaExpr emits chain of edges" {
 }
 
 ///|
-test "extract_facts_full: let-paren params emit Enclosing edge" {
-  let src = "let f(x, y) = x y\n"
+test "extract_facts_full: fn params emit Enclosing edge" {
+  let src = "fn f(x, y) { x y }\n"
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
   inspect(enclosing.length(), content="1")
   let (_, parent) = enclosing[0]
@@ -52,12 +52,11 @@ test "extract_facts_full: let-paren params emit Enclosing edge" {
 
 ///|
 test "visible_from: malformed lambda still sees enclosing bindings" {
-  // `\. body` — frame pushed without a Def (ident_after_lead returns
-  // None inside collect_in). The Enclosing edge is still emitted, so
-  // the (empty) lambda scope inherits the top-level binding `f`.
-  // Whitebox because identifying the malformed scope reuses
+  // `() => body` — frame pushed without a Def. The Enclosing edge is
+  // still emitted, so the (empty) lambda scope inherits the top-level
+  // binding `f`. Whitebox because identifying the malformed scope reuses
   // extract_facts_full to read its byte-range id.
-  let src = "let f = 1\nlet g = \\. f\n"
+  let src = "let f = 1\nlet g = () => f\n"
   let parser = @loom.new_parser(src, @lambda.lambda_grammar)
   let p = CallersPipeline::from_parser(parser)
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))

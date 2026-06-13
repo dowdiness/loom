@@ -22,10 +22,10 @@ test "parse_cstsimple variable" {
 
 ///|
 test "parse_cstidentity function" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let node = root.nth_child(0).unwrap()
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="(λx. x)")
+  inspect(@ast.print_term(syntax_node_to_term(root)), content="(x) => x")
   inspect(node.start(), content="0")
   inspect(node.end() >= 3, content="true")
 }
@@ -86,12 +86,10 @@ test "parse_cstif-then-else" {
 
 ///|
 test "parse_cstcomplex expression" {
-  let (cst, _) = parse_cst("λf.λx.f x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(f, x) => f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let printed = @ast.print_term(syntax_node_to_term(root))
-  inspect(printed.contains("λf"), content="true")
-  inspect(printed.contains("λx"), content="true")
-  // Outer lambda has one child (the inner lambda)
+  inspect(printed, content="(f, x) => (f x)")
   let node = root.nth_child(0).unwrap()
   let v = match LambdaExprView::cast(node) {
     Some(v) => v
@@ -118,7 +116,7 @@ test "parse_cstpreserves source positions" {
 
 ///|
 test "syntax_node_to_term: missing lambda body produces Term::Error" {
-  let (cst, _) = parse_cst("λx.") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) =>") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(root)
   // Body of the lambda should be Term::Error — direct structural match
@@ -160,25 +158,25 @@ fn extract_type_node(src : String) -> @seam.SyntaxNode? {
 
 ///|
 test "type_of_node: TInt" {
-  let n = extract_type_node("\\x : Int. x").unwrap()
+  let n = extract_type_node("(x : Int) => x").unwrap()
   inspect(@typecheck.type_of_node(n), content="Int")
 }
 
 ///|
 test "type_of_node: TUnit" {
-  let n = extract_type_node("\\x : Unit. x").unwrap()
+  let n = extract_type_node("(x : Unit) => x").unwrap()
   inspect(@typecheck.type_of_node(n), content="Unit")
 }
 
 ///|
 test "type_of_node: arrow" {
-  let n = extract_type_node("\\x : Int -> Int. x").unwrap()
+  let n = extract_type_node("(x : Int -> Int) => x").unwrap()
   inspect(@typecheck.type_of_node(n), content="Int -> Int")
 }
 
 ///|
 test "type_of_node: right-associative arrow" {
-  let n = extract_type_node("\\x : Int -> Int -> Int. x").unwrap()
+  let n = extract_type_node("(x : Int -> Int -> Int) => x").unwrap()
   inspect(@typecheck.type_of_node(n), content="Int -> Int -> Int")
 }
 
@@ -206,13 +204,13 @@ test "convert_from_cst: hole" {
 
 ///|
 test "convert_from_cst: unannotated lambda" {
-  inspect(typed_from_source("\\x. x"), content="Lam(\"x\", None, Var(\"x\"))")
+  inspect(typed_from_source("(x) => x"), content="Lam(\"x\", None, Var(\"x\"))")
 }
 
 ///|
 test "convert_from_cst: nested unannotated lambdas" {
   inspect(
-    typed_from_source("\\x. \\y. x"),
+    typed_from_source("(x, y) => x"),
     content="Lam(\"x\", None, Lam(\"y\", None, Var(\"x\")))",
   )
 }
@@ -220,7 +218,7 @@ test "convert_from_cst: nested unannotated lambdas" {
 ///|
 test "convert_from_cst: annotated lambda Int" {
   inspect(
-    typed_from_source("\\x : Int. x"),
+    typed_from_source("(x : Int) => x"),
     content="Lam(\"x\", Some(TInt), Var(\"x\"))",
   )
 }
@@ -228,14 +226,14 @@ test "convert_from_cst: annotated lambda Int" {
 ///|
 test "convert_from_cst: annotated lambda arrow" {
   inspect(
-    typed_from_source("\\f : Int -> Int. f"),
+    typed_from_source("(f : Int -> Int) => f"),
     content="Lam(\"f\", Some(TArrow(TInt, TInt)), Var(\"f\"))",
   )
 }
 
 ///|
 test "convert_from_cst: annotated lambda typechecks clean via infer" {
-  let term = typed_from_source("\\x : Int. x")
+  let term = typed_from_source("(x : Int) => x")
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="false")
   inspect(result.typ, content="Int -> Int")
@@ -244,7 +242,7 @@ test "convert_from_cst: annotated lambda typechecks clean via infer" {
 ///|
 test "convert_from_cst: application" {
   inspect(
-    typed_from_source("(\\x : Int. x) 5"),
+    typed_from_source("((x : Int) => x) 5"),
     content="App(Lam(\"x\", Some(TInt), Var(\"x\")), Int(5))",
   )
 }
@@ -296,7 +294,7 @@ test "convert_from_cst: let-def value form" {
 ///|
 test "convert_from_cst: let-def single annotated param" {
   inspect(
-    typed_from_source("let f(x : Int) = x\nf"),
+    typed_from_source("fn f(x : Int) { x }\nf"),
     content="Module([(\"f\", Lam(\"x\", Some(TInt), Var(\"x\")))], Var(\"f\"))",
   )
 }
@@ -304,7 +302,7 @@ test "convert_from_cst: let-def single annotated param" {
 ///|
 test "convert_from_cst: let-def two annotated params" {
   inspect(
-    typed_from_source("let f(x : Int, y : Int) = x + y\nf"),
+    typed_from_source("fn f(x : Int, y : Int) { x + y }\nf"),
     content=(
       #|Module(
       #|  [
@@ -326,7 +324,7 @@ test "convert_from_cst: let-def two annotated params" {
 ///|
 test "convert_from_cst: let-def mixed annotated and unannotated" {
   inspect(
-    typed_from_source("let f(x : Int, y) = x + y\nf"),
+    typed_from_source("fn f(x : Int, y) { x + y }\nf"),
     content=(
       #|Module(
       #|  [
@@ -343,7 +341,7 @@ test "convert_from_cst: let-def mixed annotated and unannotated" {
 
 ///|
 test "convert_from_cst: let-def typechecks with annotations" {
-  let term = typed_from_source("let f(x : Int, y : Int) = x + y\nf")
+  let term = typed_from_source("fn f(x : Int, y : Int) { x + y }\nf")
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="false")
   inspect(result.typ, content="Int -> Int -> Int")
@@ -367,7 +365,7 @@ test "convert_from_cst: defs-only source" {
 
 ///|
 test "convert_from_cst: Pipeline preset typechecks clean" {
-  let src = "let compose = \\f : Int -> Int. \\g : Int -> Int. \\x : Int. { f (g x) }\nlet double = \\x : Int. { x + x }\nlet inc = \\x : Int. { x + 1 }\nlet f = compose inc double\nf 5"
+  let src = "let compose = (f : Int -> Int, g : Int -> Int, x : Int) => { f (g x) }\nlet double = (x : Int) => { x + x }\nlet inc = (x : Int) => { x + 1 }\nlet f = compose inc double\nf 5"
   let term = typed_from_source(src)
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="false")
@@ -376,10 +374,10 @@ test "convert_from_cst: Pipeline preset typechecks clean" {
 
 ///|
 test "type_of_node: malformed returns TError" {
-  // `\x : . x` — parser emits empty TypeAnnot (no type child).
+  // `(x :) => x` — parser emits empty TypeAnnot (no type child).
   // extract_type_node returns None. The TypeAnnot itself is the error signal.
   // We call type_of_node on the TypeAnnot node directly, which returns TError.
-  let (cst, _) = parse_cst("\\x : . x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x :) => x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   fn find_type_annot(n : @seam.SyntaxNode) -> @seam.SyntaxNode? {
     if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::TypeAnnot {
@@ -406,12 +404,12 @@ test "type_of_node: malformed returns TError" {
 }
 
 ///|
-test "convert_from_cst: lambda missing ident → Error" {
-  // `\. 1` — parser inserts a zero-width error TOKEN where the IdentToken
-  // should be. Walker must surface this as TypedTerm::Error rather than
-  // silently producing `Lam("", None, Int(1))`.
+test "convert_from_cst: arrow lambda missing param → Error" {
+  // `() => 1` — parser emits an empty ParamList. Walker must surface this
+  // as TypedTerm::Error rather than silently producing a lambda with an empty
+  // parameter name.
   inspect(
-    typed_from_source("\\. 1"),
+    typed_from_source("() => 1"),
     content=(
       #|Error("malformed lambda: missing parameter name")
     ),
@@ -419,14 +417,11 @@ test "convert_from_cst: lambda missing ident → Error" {
 }
 
 ///|
-test "convert_from_cst: empty param list → Error in body" {
-  // `let f() = 1` — parser parses an empty ParamList. Walker must reject
-  // this as a malformed function definition rather than silently degrading
-  // to a plain value binding `("f", Int(1))`.
+test "convert_from_cst: empty fn param list degrades to value binding" {
   inspect(
-    typed_from_source("let f() = 1\nf"),
+    typed_from_source("fn f() { 1 }\nf"),
     content=(
-      #|Module([("f", Error("malformed param list"))], Var("f"))
+      #|Module([("f", Int(1))], Var("f"))
     ),
   )
 }
@@ -474,7 +469,7 @@ test "convert_from_cst: trailing junk after body → Error in body" {
 test "convert_from_cst: lambda missing ident triggers typecheck diagnostic" {
   // End-to-end: malformed lambda must surface as a typecheck diagnostic
   // (rather than silently typechecking as some weird binding).
-  let term = typed_from_source("\\. 1")
+  let term = typed_from_source("() => 1")
   let result = @typecheck.infer(@typecheck.TypeEnv::Empty, term)
   inspect(result.had_error, content="true")
 }

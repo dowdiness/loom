@@ -17,19 +17,20 @@ test "tokenize simple variable" {
 }
 
 ///|
-test "tokenize lambda expression" {
-  let tokens = tokenize("λx.x")
+test "tokenize arrow lambda expression" {
+  let tokens = tokenize("(x) => x")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("λ"), content="true")
+  inspect(token_str.contains("("), content="true")
   inspect(token_str.contains("<ident>"), content="true")
-  inspect(token_str.contains("."), content="true")
+  inspect(token_str.contains("=>"), content="true")
 }
 
 ///|
-test "tokenize with backslash lambda" {
-  let tokens = tokenize("\\x.x")
+test "tokenize fn definition" {
+  let tokens = tokenize("fn id(x) { x }")
   let token_str = @token.print_token_infos(tokens)
-  inspect(token_str.contains("λ"), content="true")
+  inspect(token_str.contains("fn"), content="true")
+  inspect(token_str.contains("=>"), content="false")
 }
 
 ///|
@@ -89,7 +90,7 @@ test "tokenize whitespace handling" {
 
 ///|
 test "tokenize complex expression" {
-  let tokens = tokenize("λf.λx.(f (f x))")
+  let tokens = tokenize("(f, x) => (f (f x))")
   inspect(tokens.length() > 0, content="true")
 }
 

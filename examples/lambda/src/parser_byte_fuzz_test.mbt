@@ -49,8 +49,8 @@ fn bf_make_raw_string(seed : Int, len : Int) -> (String, Int) {
 /// before hitting unexpected bytes.
 fn bf_make_mixed_string(seed : Int, len : Int) -> (String, Int) {
   let fragments = [
-    "x", "λ", "\\", ".", "(", ")", "+", "-", "if", "then", "else", "let", " = ",
-    "\n", "\t", "\u{00}", "42", "  ",
+    "x", "=>", ",", "(", ")", "+", "-", "if", "then", "else", "let", " = ", "\n",
+    "\t", "\u{00}", "42", "  ",
   ]
   let buf = StringBuilder::new()
   let mut s = seed
@@ -225,8 +225,8 @@ test "fuzz: parse handles control characters" {
 /// Property: Strings with high Unicode codepoints (emoji, CJK, etc.).
 test "fuzz: parse handles high unicode" {
   let inputs = [
-    "λx.x", "let x = 42", "if x then y else z", "\\x. x + 1", "\u{FEFF}x + 1", "\u{200B}42\u{200B}",
-    "x\u{0000}y", "\u{D7FF}\u{E000}", // Just below and above surrogate range
+    "(x) => x", "let x = 42", "if x then y else z", "(x) => x + 1", "\u{FEFF}x + 1",
+    "\u{200B}42\u{200B}", "x\u{0000}y", "\u{D7FF}\u{E000}", // Just below and above surrogate range
   ]
   for input in inputs {
     try {

@@ -14,7 +14,9 @@ test "full parse - simple" (b : @bench.T) {
 /// Benchmark: Full parse of lambda expression
 test "full parse - lambda" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse("(x) => x") catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -23,7 +25,7 @@ test "full parse - lambda" (b : @bench.T) {
 /// Benchmark: Full parse of nested lambdas
 test "full parse - nested lambdas" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λf.λx.f (f x)") catch {
+    let result = @lambda.parse("(f, x) => f (f x)") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -45,7 +47,7 @@ test "full parse - arithmetic" (b : @bench.T) {
 /// Benchmark: Full parse of complex expression
 test "full parse - complex" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λf.λx.if f x then x + 1 else x - 1") catch {
+    let result = @lambda.parse("(f, x) => if f x then x + 1 else x - 1") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -56,7 +58,7 @@ test "full parse - complex" (b : @bench.T) {
 /// Benchmark: Tokenization
 test "tokenization" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lexer.tokenize("λf.λx.f x") catch {
+    let result = @lexer.tokenize("(f, x) => f x") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -103,10 +105,10 @@ test "incremental - multiple edits" (b : @bench.T) {
 /// Benchmark: Incremental parser - replacement edit
 test "incremental - replacement" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("λx.x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser("(x) => x", @lambda.lambda_grammar)
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
-    let result = parser.edit(edit, "\\x.x")
+    let result = parser.edit(edit, "(x) => x")
     b.keep(result)
   })
 }
@@ -125,7 +127,9 @@ test "damage tracking" (b : @bench.T) {
 /// Benchmark: Error recovery - valid input
 test "error recovery - valid" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λx.x") catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse("(x) => x") catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -134,7 +138,7 @@ test "error recovery - valid" (b : @bench.T) {
 /// Benchmark: Error recovery - error input
 test "error recovery - error" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("λ.x") catch {
+    let result = @lambda.parse("(,) => x") catch {
       _ => @lambda.Term::Error("benchmark")
     }
     b.keep(result)

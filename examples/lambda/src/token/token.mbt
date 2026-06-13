@@ -1,6 +1,6 @@
 ///|
 pub(all) enum Token {
-  Lambda // λ or \
+  Lambda // legacy λ or \ (lexed for diagnostics; parser rejects as syntax)
   Dot // .
   LeftParen // (
   RightParen // )
@@ -9,7 +9,8 @@ pub(all) enum Token {
   If // if
   Then // then
   Else // else
-  Let // let
+  Fn // fn
+  Let // let value declaration
   Eq // =
   LBrace // {
   RBrace // }
@@ -17,6 +18,7 @@ pub(all) enum Token {
   Semicolon // ;
   Colon // :
   Arrow // ->
+  FatArrow // =>
   Hole // _ (typed hole placeholder)
   Identifier // variable names
   Integer // integer literals
@@ -39,6 +41,7 @@ pub impl Show for Token with fn output(self, logger) {
       If => "if"
       Then => "then"
       Else => "else"
+      Fn => "fn"
       Let => "let"
       Eq => "="
       LBrace => "{"
@@ -47,6 +50,7 @@ pub impl Show for Token with fn output(self, logger) {
       Semicolon => ";"
       Colon => ":"
       Arrow => "->"
+      FatArrow => "=>"
       Hole => "_"
       Identifier => "<ident>"
       Integer => "<int>"
@@ -90,6 +94,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
     EOF => 13 // EofToken
     Let => 23 // LetKeyword
     Eq => 25 // EqToken
+    Fn => 43 // FnKeyword
     Newline => 28 // NewlineToken
     LBrace => 29 // LBraceToken
     RBrace => 30 // RBraceToken
@@ -97,6 +102,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
     Semicolon => 32 // SemicolonToken
     Colon => 37 // ColonToken
     Arrow => 38 // ArrowToken
+    FatArrow => 44 // FatArrowToken
     Hole => 35 // HoleToken
   }
   @seam.RawKind(n)

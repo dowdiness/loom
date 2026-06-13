@@ -19,7 +19,7 @@
 //   - Evaluation is strict (call-by-value): arguments are fully evaluated
 //     before being passed to functions.
 //   - A fuel parameter prevents infinite loops (e.g., the omega combinator
-//     (λx. x x)(λx. x x)) by bounding recursion depth.
+//     ((x) => x x)((x) => x x)) by bounding recursion depth.
 
 ///|
 /// The result of evaluating a lambda term.
@@ -46,7 +46,7 @@ pub impl Show for Value with fn output(self, logger) {
 /// Unlike a total language, our evaluator can fail. These cases correspond
 /// to programs that are syntactically valid but semantically meaningless:
 /// - `Unbound` — a variable was used but never defined (name resolution error)
-/// - `TypeMismatch` — a value was used in the wrong context (e.g., `5 + (λx.x)`)
+/// - `TypeMismatch` — a value was used in the wrong context (e.g., `5 + ((x) => x)`)
 /// - `Incomplete` — the program contains a hole (placeholder for missing code)
 /// - `ParseError` — the AST contains an error node from the parser
 /// - `Divergence` — evaluation exceeded the fuel limit (probable infinite loop)

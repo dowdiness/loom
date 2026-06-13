@@ -22,8 +22,8 @@ fn next_seed(seed : Int) -> Int {
 ///|
 fn build_source_from_seed(seed : Int, count_raw : Int) -> String {
   let pool = [
-    "x", "y", "z", "0", "1", "12", "if", "then", "else", "λ", "\\", ".", "(", ")",
-    "+", "-", " ",
+    "x", "y", "z", "0", "1", "12", "if", "then", "else", "=>", ",", "(", ")", "+",
+    "-", " ",
   ]
   let mut out = ""
   let count = count_raw.abs() % 20
