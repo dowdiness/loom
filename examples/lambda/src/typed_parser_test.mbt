@@ -23,7 +23,7 @@ test "attach_typecheck: unbound variable surfaces diagnostic" {
 
 ///|
 test "attach_typecheck: unannotated lambda surfaces diagnostic" {
-  let parser = @loom.new_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_parser("(x) => x", lambda_grammar)
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
@@ -68,10 +68,10 @@ test "attach_typecheck: edit flows through apply_edit (clean → error)" {
 
 ///|
 test "attach_typecheck: parse error does not abort the pipeline" {
-  // "λx." is a parse error — the grammar cannot complete the lambda body.
+  // "(x) =>" is a parse error — the grammar cannot complete the lambda body.
   // Pipeline must still produce a ModuleTypeResult; reading it must not
   // abort. Recovery on a subsequent edit is also exercised.
-  let parser = @loom.new_parser("λx.", lambda_grammar)
+  let parser = @loom.new_parser("(x) =>", lambda_grammar)
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   parser.set_source("1 + 2")

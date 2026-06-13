@@ -106,10 +106,10 @@ let cst = build_tree(buf.to_events(), SourceFile)
 ## Traversal Example
 
 ```moonbit
-let cst = parse_cst("λx.x + 1")
+let cst = parse_cst("(x) => x + 1")
 let syntax = @seam.SyntaxNode::from_cst(cst)
 inspect(syntax.start())  // 0
-inspect(syntax.end())    // 8
+inspect(syntax.end())    // 12
 for child in syntax.children() {
   // child.start(), child.end(), child.kind()
 }

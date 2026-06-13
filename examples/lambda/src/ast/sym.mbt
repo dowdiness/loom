@@ -137,7 +137,7 @@ pub impl TermSym for Pretty with fn variable(x) {
 
 ///|
 pub impl TermSym for Pretty with fn lam(x, body) {
-  { repr: "(λ\{x}. \{body.repr})" }
+  { repr: "(\{x}) => \{body.repr}" }
 }
 
 ///|

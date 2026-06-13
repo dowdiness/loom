@@ -60,16 +60,16 @@ test "phase4: reuse on application chain" {
 
 ///|
 test "phase4: reuse on nested lambdas" {
-  // Nested lambdas: "\a.\b.\c.\d.x"
-  let source = "λa.λb.λc.λd.x"
+  // Nested lambdas: "(a) => (b) => (c) => (d) => x"
+  let source = "(a, b, c, d) => x"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse().ast
 
   // Edit only the body "x" -> "y"
   let len = source.length()
   let edit = @core.Edit::replace(len - 1, len, len)
-  let incr_tree = parser.edit(edit, "λa.λb.λc.λd.y").ast
-  let full_tree = parse("λa.λb.λc.λd.y") catch {
+  let incr_tree = parser.edit(edit, "(a, b, c, d) => y").ast
+  let full_tree = parse("(a, b, c, d) => y") catch {
     _ => abort("parse failed")
   }
 
@@ -79,15 +79,15 @@ test "phase4: reuse on nested lambdas" {
 
 ///|
 test "phase4: reuse preserves correctness on complex expression" {
-  let source = "λf.λx.if f x then x + 1 else x - 1"
+  let source = "(f, x) => if f x then x + 1 else x - 1"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse().ast
 
   // Edit only the "1" in "x + 1" -> "2"
-  // Positions are source code-unit offsets (λ = 1 code unit)
+  // Positions are source code-unit offsets.
   // "x + 1" is at position 18-23, "1" is at position 22
   let edit = @core.Edit::replace(22, 23, 23)
-  let new_source = "λf.λx.if f x then x + 2 else x - 1"
+  let new_source = "(f, x) => if f x then x + 2 else x - 1"
   let incr_tree = parser.edit(edit, new_source).ast
   let full_tree = parse(new_source) catch { _ => abort("parse failed") }
 
@@ -215,8 +215,10 @@ test "phase4: empty to non-empty" {
 
   // Replace with completely different expression
   let edit = @core.Edit::replace(0, 1, 13)
-  let incr_tree = parser.edit(edit, "λf.λx.f (f x)").ast
-  let full_tree = parse("λf.λx.f (f x)") catch { _ => abort("parse failed") }
+  let incr_tree = parser.edit(edit, "(f, x) => f (f x)").ast
+  let full_tree = parse("(f, x) => f (f x)") catch {
+    _ => abort("parse failed")
+  }
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
 }
 

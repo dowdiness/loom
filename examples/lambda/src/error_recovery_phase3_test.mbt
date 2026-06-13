@@ -15,7 +15,7 @@
 
 ///|
 test "phase3: missing lambda parameter produces partial lambda" {
-  let (cst, errors) = parse_cst("λ.x") catch { _ => abort("lex error") }
+  let (cst, errors) = parse_cst("(,) => x") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   // Should have error but still produce LambdaExpr
   inspect(errors.length() > 0, content="true")
@@ -28,7 +28,7 @@ test "phase3: missing lambda parameter produces partial lambda" {
 
 ///|
 test "phase3: missing lambda body produces partial lambda" {
-  let (cst, errors) = parse_cst("λx.") catch { _ => abort("lex error") }
+  let (cst, errors) = parse_cst("(x) =>") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   // Should have error for missing body, but still produce lambda structure
   inspect(errors.length() > 0, content="true")
@@ -41,7 +41,7 @@ test "phase3: missing lambda body produces partial lambda" {
 
 ///|
 test "phase3: unexpected operator in lambda body - recovery continues" {
-  let (cst, errors) = parse_cst("λx. + y") catch { _ => abort("lex error") }
+  let (cst, errors) = parse_cst("(x) => + y") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(errors.length(), content="1")
   inspect(
@@ -107,14 +107,14 @@ test "phase3: missing else branch" {
 
 ///|
 test "phase3: two errors - missing param and extra token" {
-  let (_, errors) = parse_cst("λ.x )") catch { _ => abort("lex error") }
+  let (_, errors) = parse_cst("(,) => x )") catch { _ => abort("lex error") }
   // Should report: missing param, extra token after expression
   inspect(errors.length() >= 2, content="true")
 }
 
 ///|
 test "phase3: three errors - complex malformed input" {
-  let (_, errors) = parse_cst("λ. + ) x") catch { _ => abort("lex error") }
+  let (_, errors) = parse_cst("(,) => + ) x") catch { _ => abort("lex error") }
   // Should report: missing param, unexpected +, extra tokens
   inspect(errors.length() >= 2, content="true")
 }
@@ -136,7 +136,9 @@ test "phase3: error in each clause of if" {
 
 ///|
 test "phase3: nested errors" {
-  let (_, errors) = parse_cst("(λ.x (+ y))") catch { _ => abort("lex error") }
+  let (_, errors) = parse_cst("((,) => x (+ y))") catch {
+    _ => abort("lex error")
+  }
   // Missing param in lambda, unexpected + in inner paren
   inspect(errors.length() >= 2, content="true")
 }
@@ -163,7 +165,7 @@ fn phase3_random_token(seed : Int) -> (String, Int) {
   // Pool of valid tokens (no invalid chars that would fail lexer)
   let tokens = [
     "x", "y", "z", "a", "b", "f", "g", "0", "1", "2", "42", "99", "if", "then", "else",
-    "\\", "λ", ".", "(", ")", "+", "-", " ", "  ",
+    "=>", ",", "(", ")", "+", "-", " ", "  ",
   ]
   let idx = (next & 0x7FFFFFFF) % tokens.length()
   (tokens[idx], next)
@@ -249,7 +251,7 @@ test "phase3-fuzz: deeply nested parens with errors" {
 
 ///|
 test "phase3-fuzz: lambda chain with errors" {
-  let input = "λa.λb.λc.λd.λe. + x"
+  let input = "(a, b, c, d, e) => + x"
   let (cst, errors) = parse_cst(input) catch { _ => return }
   let tree = @seam.SyntaxNode::from_cst(cst)
   assert_true(tree.start() >= 0)
@@ -263,9 +265,9 @@ test "phase3-fuzz: lambda chain with errors" {
 ///|
 test "phase3: valid inputs unchanged - comprehensive" {
   let inputs = [
-    "0", "42", "123456789", "x", "abc", "variable123", "λx.x", "\\x.x", "λa.λb.a",
+    "0", "42", "123456789", "x", "abc", "variable123", "(x) => x", "(x) => x", "(a, b) => a",
     "f x", "f x y z", "1 + 2", "1 - 2", "1 + 2 - 3 + 4", "if x then 1 else 2", "if 1 then if 2 then 3 else 4 else 5",
-    "(x)", "((x))", "(λx.x) 42", "λf.λx.f (f x)", "λm.λn.λf.λx.m f (n f x)",
+    "(x)", "((x))", "((x) => x) 42", "(f, x) => f (f x)", "(m, n, f, x) => m f (n f x)",
     "(1 + 2) - 3",
   ]
   for input in inputs {
@@ -313,7 +315,7 @@ test "phase3: recovery at right paren" {
 ///|
 test "phase3: recovery at lambda" {
   // Error (leading +) then lambda should be parsed
-  let (cst, errors) = parse_cst("+ λx.x") catch { _ => abort("lex error") }
+  let (cst, errors) = parse_cst("+ (x) => x") catch { _ => abort("lex error") }
   let tree = @seam.SyntaxNode::from_cst(cst)
   assert_true(errors.length() > 0)
   assert_true(tree.end() >= 6)
@@ -334,7 +336,7 @@ test "phase3: recovery at if" {
 ///|
 test "phase3: multiple sync point recoveries" {
   // Multiple parse errors, parser should recover and continue
-  let (cst, errors) = parse_cst("+ ) λx.x + + if 1 then 2 else 3") catch {
+  let (cst, errors) = parse_cst("+ ) (x) => x + + if 1 then 2 else 3") catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)

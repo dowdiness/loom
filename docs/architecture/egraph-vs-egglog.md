@@ -26,7 +26,7 @@ Use the egraph when you want to **find the best equivalent form** of an expressi
 
 - **Algebraic simplification**: `(x + 0) * 1 → x`
 - **Constant folding**: `2 + 3 → 5` discovered via e-class analysis
-- **Beta reduction**: `(λx. x + 1) 5 → 6` via explicit substitution rewrites
+- **Beta reduction**: `((x) => x + 1) 5 → 6` via explicit substitution rewrites
 - **Cost-driven extraction**: "give me the simplest equivalent expression"
 
 The egraph excels when many rewrite rules interact — it explores all orderings simultaneously (equality saturation) and picks the cheapest result afterward. This avoids the phase-ordering problem that plagues traditional optimizers.

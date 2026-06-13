@@ -8,7 +8,7 @@ fn convert_let_def(
   recurse : (@seam.SyntaxNode) -> @ast.Term,
 ) -> (@ast.VarName, @ast.Term) {
   let init = match v.init() {
-    Some(expr_node) => recurse(expr_node)
+    Some(expr_node) => convert_function_body(expr_node, recurse)
     None => @ast.Term::Error("missing LetDef init")
   }
   let body = v
@@ -42,6 +42,28 @@ fn collect_defs_and_body(
     })
     .map_or(@ast.Term::Unit, recurse)
   (defs, final_term)
+}
+
+///|
+/// Convert a brace-delimited function/arrow body without wrapping a plain
+/// expression body in a Module. Nested definitions are still preserved as a
+/// Module because they change body scope.
+fn convert_function_body(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> @ast.Term,
+) -> @ast.Term {
+  if @syntax.SyntaxKind::from_raw(node.kind()) == @syntax.BlockExpr {
+    let (defs, final_term) = collect_defs_and_body(node, recurse)
+    if defs.is_empty() && final_term == @ast.Term::Unit {
+      @ast.Term::Error("empty block")
+    } else if defs.is_empty() {
+      final_term
+    } else {
+      @ast.Term::Module(defs, final_term)
+    }
+  } else {
+    recurse(node)
+  }
 }
 
 ///|
@@ -85,8 +107,17 @@ fn fold_node_inner(
       let v = LambdaExprView::{ node, }
       let body = v
         .body()
-        .map_or(@ast.Term::Error("missing lambda body"), recurse)
-      @ast.Term::Lam(v.param(), body)
+        .map_or(@ast.Term::Error("missing lambda body"), expr_node => {
+          convert_function_body(expr_node, recurse)
+        })
+      let params = v.params()
+      if params.is_empty() {
+        @ast.Term::Error("missing lambda parameter")
+      } else {
+        params.rev_fold(init=body, (result, param) => {
+          @ast.Term::Lam(param, result)
+        })
+      }
     }
     @syntax.AppExpr => {
       let v = AppExprView::{ node, }

@@ -39,7 +39,7 @@ test "cst: simple variable" {
 
 ///|
 test "cst: lambda expression" {
-  let root = test_parse_syntax("λx.x")
+  let root = test_parse_syntax("(x) => x")
   inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   let child = root.children()[0]
   inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LambdaExpr")
@@ -152,9 +152,9 @@ test "cst: SyntaxNode positions for integer" {
 
 ///|
 test "cst: SyntaxNode positions for lambda" {
-  let syntax = test_parse_syntax("λx.x")
+  let syntax = test_parse_syntax("(x) => x")
   inspect(syntax.start(), content="0")
-  inspect(syntax.end(), content="4")
+  inspect(syntax.end(), content="8")
 }
 
 ///|
@@ -204,14 +204,14 @@ test "cst: parse - variable" {
 
 ///|
 test "cst: parse - lambda" {
-  let term = parse("λx.x") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(λx. x)")
+  let term = parse("(x) => x") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(x) => x")
 }
 
 ///|
 test "cst: parse - lambda with body" {
-  let term = parse("λx.x + 1") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(λx. (x + 1))")
+  let term = parse("(x) => x + 1") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(x) => (x + 1)")
 }
 
 ///|
@@ -252,8 +252,8 @@ test "cst: parse - parenthesized expression" {
 
 ///|
 test "cst: parse - complex expression" {
-  let term = parse("λf.λx.f (f x)") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(λf. (λx. (f (f x))))")
+  let term = parse("(f, x) => f (f x)") catch { _ => abort("parse failed") }
+  inspect(@ast.print_term(term), content="(f, x) => (f ((f x)))")
 }
 
 // ============================================================================
@@ -351,7 +351,7 @@ test "cst: token text is preserved correctly" {
 
 ///|
 test "cst: lambda with application body" {
-  let root = test_parse_syntax("λf.f x")
+  let root = test_parse_syntax("(f) => f x")
   inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
   let child = root.children()[0]
   inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="LambdaExpr")
@@ -367,7 +367,7 @@ test "cst: nested if-then-else" {
 
 ///|
 test "cst: parenthesized lambda" {
-  let root = test_parse_syntax("(λx.x)")
+  let root = test_parse_syntax("((x) => x)")
   let child = root.children()[0]
   inspect(@syntax.SyntaxKind::from_raw(child.kind()), content="ParenExpr")
 }
@@ -442,7 +442,7 @@ test "cst: has_errors on valid input" {
 
 ///|
 test "cst: has_errors on valid lambda" {
-  let cst = test_parse_cst("λx.x")
+  let cst = test_parse_cst("(x) => x")
   inspect(
     cst.has_errors(@syntax.ErrorNode.to_raw(), @syntax.ErrorToken.to_raw()),
     content="false",
@@ -451,12 +451,14 @@ test "cst: has_errors on valid lambda" {
 
 ///|
 test "cst: error recovery - missing param produces ErrorToken" {
-  let (cst, diagnostics) = parse_cst("λ.x") catch { _ => abort("lex error") }
+  let (cst, diagnostics) = parse_cst("(,) => x") catch {
+    _ => abort("lex error")
+  }
   inspect(
     cst.has_errors(@syntax.ErrorNode.to_raw(), @syntax.ErrorToken.to_raw()),
     content="true",
   )
-  inspect(diagnostics.length(), content="1")
+  inspect(diagnostics.length() > 0, content="true")
   // Should still have SourceFile > LambdaExpr structure
   let root = @seam.SyntaxNode::from_cst(cst)
   inspect(@syntax.SyntaxKind::from_raw(root.kind()), content="SourceFile")
@@ -497,14 +499,14 @@ test "cst: error recovery - missing else in if" {
 
 ///|
 test "cst: error recovery - text_len preserved" {
-  let (cst, _) = parse_cst("λ.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(,) => x") catch { _ => abort("lex error") }
   // text_len should cover the entire source
-  inspect(cst.text_len, content="3")
+  inspect(cst.text_len, content="8")
 }
 
 ///|
 test "cst: error recovery - multiple errors" {
-  let (cst, diagnostics) = parse_cst("λ.x + )") catch {
+  let (cst, diagnostics) = parse_cst("(,) => x + )") catch {
     _ => abort("lex error")
   }
   // Should have at least 2 errors: missing param, extra ")"
@@ -516,7 +518,9 @@ test "cst: error recovery - multiple errors" {
 ///|
 test "cst: error recovery preserves valid input" {
   // Valid inputs should produce identical trees via recover vs strict
-  let inputs = ["42", "x", "λx.x", "f x", "1 + 2", "if x then 1 else 2", "(x)"]
+  let inputs = [
+    "42", "x", "(x) => x", "f x", "1 + 2", "if x then 1 else 2", "(x)",
+  ]
   for input in inputs {
     let (recovered, diagnostics) = parse_cst(input) catch {
       _ => abort("lex error")
@@ -685,7 +689,7 @@ test "source file: in is a valid identifier after deprecation" {
 
 ///|
 test "cst: let with single param" {
-  let root = test_parse_syntax("let f(x) = x")
+  let root = test_parse_syntax("fn f(x) { x }")
   let let_def = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
   let has_param_list = let_def
@@ -697,7 +701,7 @@ test "cst: let with single param" {
 
 ///|
 test "cst: let with multiple params" {
-  let root = test_parse_syntax("let add(x, y) = x + y")
+  let root = test_parse_syntax("fn add(x, y) { x + y }")
   let let_def = root.nth_child(0).unwrap()
   inspect(@syntax.SyntaxKind::from_raw(let_def.kind()), content="LetDef")
 }

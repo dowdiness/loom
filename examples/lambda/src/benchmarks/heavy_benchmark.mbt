@@ -17,17 +17,10 @@ fn heavy_next_seed(seed : Int) -> Int {
 /// Structure: nested if-then-else with lambda bindings and arithmetic.
 ///
 /// Example output shape:
-///   λa.λb.if a + b then (λc.if c then c + 1 else c - 1) else (λd.d + 2)
+///   (a, b) => if a + b then ((c) => if c then c + 1 else c - 1) else ((d) => d + 2)
 fn make_large_source() -> String {
-  let mut s = ""
-  // 8 nested lambdas: λa.λb.λc.λd.λe.λf.λg.λh.
   let vars = ["a", "b", "c", "d", "e", "f", "g", "h"]
-  for v in vars {
-    s = s + "λ" + v + "."
-  }
-  // Body: chain of if-then-else with arithmetic
-  s = s + make_if_chain(vars, 0)
-  s
+  "(" + vars.join(", ") + ") => " + make_if_chain(vars, 0)
 }
 
 ///|
@@ -44,11 +37,9 @@ fn make_if_chain(vars : Array[String], depth : Int) -> String {
   vars[i] +
   " " +
   vars[j] +
-  " then (" +
-  "λx." +
+  " then ((x) => " +
   make_if_chain(vars, depth + 1) +
-  ") else (" +
-  "λy." +
+  ") else ((y) => " +
   make_if_chain(vars, depth + 2) +
   ")"
 }
@@ -70,7 +61,7 @@ fn make_nested_application(depth : Int) -> String {
   for _i = 0; _i < depth; _i = _i + 1 {
     s = "f (" + s + ")"
   }
-  "λf.λx." + s
+  "(f, x) => " + s
 }
 
 ///|

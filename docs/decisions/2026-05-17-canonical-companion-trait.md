@@ -13,7 +13,7 @@ projectional-editor needs:
 - `Renderable` — display + serialization (kind_tag, label, placeholder, unparse).
 
 `Renderable::placeholder` returned a string template per kind — for example
-`Term::Bop(Plus, _, _) → "0 + 0"`, `Term::Lam(_, _) → "λx. x"`. For most
+`Term::Bop(Plus, _, _) → "0 + 0"`, `Term::Lam(_, _) → "(x) => x"`. For most
 variants this string was the pretty-printed form of a canonical instance
 (`Bop(Plus, Int(0), Int(0))`, `Lam("x", Var("x"))`), so the placeholder
 duplicated information that was *implicitly* present elsewhere — the

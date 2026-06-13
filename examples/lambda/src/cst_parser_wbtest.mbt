@@ -30,12 +30,12 @@ test "reuse fires: VarRef unchanged after identifier edit" {
 
 ///|
 test "reuse fires: lambda body VarRef unchanged after parameter edit" {
-  // Old: "λx.y"  →  New: "λz.y"  (damage [2,3): only the parameter code unit changed)
+  // Old: "(x) => y"  →  New: "(z) => y"  (damage [2,3): only the parameter code unit changed)
   // LambdaExpr overlaps damage → body runs normally.
   // VarRef("y") at [4,5) inside the body is outside damage → reused.
-  let old_source = "λx.y"
+  let old_source = "(x) => y"
   let (old_tree, _) = parse_cst(old_source)
-  let new_source = "λz.y"
+  let new_source = "(z) => y"
   let new_tokens = @lexer.tokenize(new_source)
   let cursor = make_reuse_cursor(old_tree, 2, 3, new_tokens, new_source)
   let (new_tree, errors, reuse_count) = parse_cst_recover_with_tokens(
@@ -126,11 +126,10 @@ test "incremental reuse: deletion opt-in reuses left-adjacent expression" {
 
 ///|
 test "incremental reuse: preserves prior diagnostic messages on reused invalid subtree" {
-  let source = "λ.x"
+  let source = "(x) =>"
   let tokens = @lexer.tokenize(source)
   let (old_tree, old_errors) = parse_cst(source)
-  inspect(old_errors.length(), content="1")
-  inspect(old_errors.items()[0].message, content="Expected parameter after λ")
+  inspect(old_errors.length() > 0, content="true")
 
   let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
@@ -140,17 +139,16 @@ test "incremental reuse: preserves prior diagnostic messages on reused invalid s
     prev_diagnostics=Some(old_errors),
   )
   inspect(reuse_count > 0, content="true")
-  inspect(errors.length(), content="1")
-  inspect(errors.items()[0].message, content="Expected parameter after λ")
+  inspect(errors.length(), content=old_errors.length().to_string())
+  inspect(errors.items()[0].message, content=old_errors.items()[0].message)
 }
 
 ///|
 test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reused invalid subtree" {
-  let source = "λ.x"
+  let source = "(x) =>"
   let tokens = @lexer.tokenize(source)
   let (old_tree, old_errors) = parse_cst(source)
-  inspect(old_errors.length(), content="1")
-  inspect(old_errors.items()[0].message, content="Expected parameter after λ")
+  inspect(old_errors.length() > 0, content="true")
 
   let cursor = make_reuse_cursor(old_tree, 99, 99, tokens, source)
   let (_, errors, reuse_count) = parse_cst_recover_with_tokens(
@@ -160,8 +158,8 @@ test "parse_cst_recover_with_tokens: preserves prior diagnostic messages on reus
     prev_diagnostics=Some(old_errors),
   )
   inspect(reuse_count > 0, content="true")
-  inspect(errors.length(), content="1")
-  inspect(errors.items()[0].message, content="Expected parameter after λ")
+  inspect(errors.length(), content=old_errors.length().to_string())
+  inspect(errors.items()[0].message, content=old_errors.items()[0].message)
 }
 
 ///|

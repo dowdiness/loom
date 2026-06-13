@@ -147,6 +147,7 @@ pub struct LambdaExprView {
 pub fn LambdaExprView::body(Self) -> @seam.SyntaxNode?
 pub fn LambdaExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaExprView::param(Self) -> String
+pub fn LambdaExprView::params(Self) -> Array[String]
 pub impl @core.AstView for LambdaExprView
 pub impl ToJson for LambdaExprView
 

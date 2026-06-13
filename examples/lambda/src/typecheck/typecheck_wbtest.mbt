@@ -118,7 +118,7 @@ test "infer unannotated lambda fails" {
 
 ///|
 test "infer application" {
-  // (λx:Int. x + 1) 5
+  // ((x:Int) => x + 1) 5
   let body = TypedTerm::Bop(
     @ast.Bop::Plus,
     TypedTerm::Var("x"),
@@ -241,7 +241,7 @@ test "error propagation: ill-typed fn AND ill-typed arg still emits arg diags" {
 
 ///|
 test "check mode: unannotated lambda gets type from context" {
-  // check (λx. x) against Int -> Int
+  // check ((x) => x) against Int -> Int
   let term = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
   let result = check(TypeEnv::Empty, term, TArrow(TInt, TInt))
   inspect(result.typ, content="Int -> Int")
@@ -250,7 +250,7 @@ test "check mode: unannotated lambda gets type from context" {
 
 ///|
 test "check mode: annotation mismatch" {
-  // (λx:Unit. x) checked against Int -> Int — annotation says Unit, expected Int
+  // ((x:Unit) => x) checked against Int -> Int — annotation says Unit, expected Int
   let term = TypedTerm::Lam("x", Some(TUnit), TypedTerm::Var("x"))
   let (result, diags) = check_with_diags(
     TypeEnv::Empty,
@@ -367,7 +367,7 @@ test "resolve: def body cannot see later defs" {
 
 ///|
 test "resolve: lambda binds variable" {
-  // \x. x  with no outer scope — x is bound by the lambda
+  // (x) => x  with no outer scope — x is bound by the lambda
   let term = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
   let resolved = resolve_typed(term)
   inspect(resolved.body, content="Lam(\"x\", None, Var(\"x\"))")
@@ -387,7 +387,7 @@ test "resolve: non-module term" {
 
 ///|
 test "incremental: basic typecheck through pipeline" {
-  // Module: def f = \x:Int. x+1, body = f 5
+  // Module: def f = (x : Int) => x + 1, body = f 5
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
@@ -508,7 +508,7 @@ test "incremental: empty module" {
 test "incremental: diagnostics propagate through pipeline" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
-  // def a = \x. x (unannotated lambda → error), body = a
+  // def a = (x) => x (unannotated lambda → error), body = a
   let module_term = TypedTerm::Module(
     [("a", TypedTerm::Lam("x", None, TypedTerm::Var("x")))],
     TypedTerm::Var("a"),
@@ -734,7 +734,7 @@ test "DerivedMap: query by DefId" {
 test "DerivedMap: cache hit for stable DefId after edit" {
   let rt = @incr.Runtime::new()
   let scope = @incr.Scope::new(rt)
-  // Module with def f = \x:Int. x
+  // Module with def f = (x : Int) => x
   let module_term1 = TypedTerm::Module(
     [("f", TypedTerm::Lam("x", Some(TInt), TypedTerm::Var("x")))],
     TypedTerm::App(TypedTerm::Var("f"), TypedTerm::Int(1)),

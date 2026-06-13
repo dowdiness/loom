@@ -592,7 +592,7 @@ All other benchmark changes are within run-to-run noise on the same machine:
 | incremental - initial parse | 0.58 µs | Parser creation + first parse |
 | incremental - small edit | 2.45 µs | `x` → `x + 1` |
 | incremental - multiple edits | 4.10 µs | 2 sequential edits |
-| incremental - replacement | 2.67 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.67 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 12.79 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 12.45 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 12.69 µs | Boundary edit, medium expression |
@@ -665,8 +665,8 @@ All other benchmark changes are within run-to-run noise on the same machine:
 | parse_cst_recover - no interner, small | 0.79 µs | `x + 1`, no interning |
 | parse_cst_recover - cold interner, small | 1.04 µs | `x + 1`, first parse |
 | parse_cst_recover - warm interner, small | 0.87 µs | `x + 1`, subsequent; 1.10× overhead |
-| parse_cst_recover - no interner, large | 6.39 µs | `λf.λx.if…`, no interning |
-| parse_cst_recover - warm interner, large | 7.05 µs | `λf.λx.if…`, subsequent; 1.10× overhead |
+| parse_cst_recover - no interner, large | 6.39 µs | `(f, x) => if…`, no interning |
+| parse_cst_recover - warm interner, large | 7.05 µs | `(f, x) => if…`, subsequent; 1.10× overhead |
 
 ### Notable Changes vs 2026-02-24 (generic incremental reuse)
 
@@ -725,7 +725,7 @@ multi-definition file). These benchmarks establish the baseline for future curso
 | incremental - initial parse | 0.56 µs | Parser creation + first parse |
 | incremental - small edit | 2.18 µs | `x` → `x + 1` |
 | incremental - multiple edits | 3.80 µs | 2 sequential edits |
-| incremental - replacement | 2.53 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.53 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 12.61 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 12.52 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 12.57 µs | Boundary edit, medium expression |
@@ -797,8 +797,8 @@ multi-definition file). These benchmarks establish the baseline for future curso
 | parse_green_recover - no interner, small | 0.80 µs | `x + 1`, no interning |
 | parse_green_recover - cold interner, small | 1.06 µs | `x + 1`, first parse |
 | parse_green_recover - warm interner, small | 0.90 µs | `x + 1`, subsequent; 1.13× overhead |
-| parse_green_recover - no interner, large | 6.49 µs | `λf.λx.if…`, no interning |
-| parse_green_recover - warm interner, large | 7.05 µs | `λf.λx.if…`, subsequent; 1.09× overhead |
+| parse_green_recover - no interner, large | 6.49 µs | `(f, x) => if…`, no interning |
+| parse_green_recover - warm interner, large | 7.05 µs | `(f, x) => if…`, subsequent; 1.09× overhead |
 
 ### Notable Changes vs 2026-02-24 (generic ParserContext)
 
@@ -848,7 +848,7 @@ without cursor" design — the branch is predicted-not-taken in practice.
 | incremental - initial parse | 0.56 µs | Parser creation + first parse |
 | incremental - small edit | 1.98 µs | `x` → `x + 1` |
 | incremental - multiple edits | 3.43 µs | 2 sequential edits |
-| incremental - replacement | 2.35 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.35 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 11.59 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 11.56 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 11.65 µs | Boundary edit, medium expression |
@@ -921,8 +921,8 @@ without cursor" design — the branch is predicted-not-taken in practice.
 | parse_green_recover - no interner, small | 0.73 µs | `x + 1`, no interning |
 | parse_green_recover - cold interner, small | 0.97 µs | `x + 1`, first parse |
 | parse_green_recover - warm interner, small | 0.81 µs | `x + 1`, subsequent; 1.11× overhead |
-| parse_green_recover - no interner, large | 6.06 µs | `λf.λx.if…`, no interning |
-| parse_green_recover - warm interner, large | 7.02 µs | `λf.λx.if…`, subsequent; 1.16× overhead |
+| parse_green_recover - no interner, large | 6.06 µs | `(f, x) => if…`, no interning |
+| parse_green_recover - warm interner, large | 7.02 µs | `(f, x) => if…`, subsequent; 1.16× overhead |
 
 ### Notable Changes vs 2026-02-23 (trivia-inclusive lexer)
 
@@ -979,7 +979,7 @@ real-time budget.
 | incremental - initial parse | 0.54 µs | Parser creation + first parse |
 | incremental - small edit | 2.02 µs | `x` → `x + 1` |
 | incremental - multiple edits | 3.35 µs | 2 sequential edits |
-| incremental - replacement | 2.28 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.28 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 10.64 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 10.38 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 10.57 µs | Boundary edit, medium expression |
@@ -1051,8 +1051,8 @@ real-time budget.
 | parse_green_recover - no interner, small | 0.65 µs | `x + 1`, no interning |
 | parse_green_recover - cold interner, small | 0.91 µs | `x + 1`, first parse |
 | parse_green_recover - warm interner, small | 0.73 µs | `x + 1`, subsequent; 1.13× overhead |
-| parse_green_recover - no interner, large | 5.04 µs | `λf.λx.if…`, no interning |
-| parse_green_recover - warm interner, large | 5.89 µs | `λf.λx.if…`, subsequent; 1.17× overhead |
+| parse_green_recover - no interner, large | 5.04 µs | `(f, x) => if…`, no interning |
+| parse_green_recover - warm interner, large | 5.89 µs | `(f, x) => if…`, subsequent; 1.17× overhead |
 
 ### Notable Changes vs 2026-02-23 (token_count caching)
 
@@ -1110,7 +1110,7 @@ O(whitespace tokens consumed) and the parser walks the same source text as befor
 | incremental - initial parse | 0.52 µs | Parser creation + first parse |
 | incremental - small edit | 1.96 µs | `x` → `x + 1` |
 | incremental - multiple edits | 3.26 µs | 2 sequential edits |
-| incremental - replacement | 2.22 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.22 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 10.13 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 10.03 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 10.49 µs | Boundary edit, medium expression |
@@ -1182,8 +1182,8 @@ O(whitespace tokens consumed) and the parser walks the same source text as befor
 | parse_green_recover - no interner, small | 0.64 µs | `x + 1`, no interning |
 | parse_green_recover - cold interner, small | 0.89 µs | `x + 1`, first parse |
 | parse_green_recover - warm interner, small | 0.72 µs | `x + 1`, subsequent; 1.13× overhead |
-| parse_green_recover - no interner, large | 4.88 µs | `λf.λx.if…`, no interning |
-| parse_green_recover - warm interner, large | 5.58 µs | `λf.λx.if…`, subsequent; 1.14× overhead |
+| parse_green_recover - no interner, large | 4.88 µs | `(f, x) => if…`, no interning |
+| parse_green_recover - warm interner, large | 5.58 µs | `(f, x) => if…`, subsequent; 1.14× overhead |
 
 ### Notable Changes vs 2026-02-23 (interner key fix)
 
@@ -1231,7 +1231,7 @@ large subtrees (hundreds of tokens) in a language server scenario.
 | incremental - initial parse | 0.53 µs | Parser creation + first parse |
 | incremental - small edit | 1.94 µs | `x` → `x + 1` |
 | incremental - multiple edits | 3.23 µs | 2 sequential edits |
-| incremental - replacement | 2.24 µs | `λx.x` → `\x.x` |
+| incremental - replacement | 2.24 µs | `(x) => x` → `(y) => y` |
 | incremental vs full - edit at start | 10.15 µs | Boundary edit, medium expression |
 | incremental vs full - edit at end | 9.93 µs | Boundary edit, medium expression |
 | incremental vs full - edit in middle | 10.28 µs | Boundary edit, medium expression |
@@ -1303,8 +1303,8 @@ large subtrees (hundreds of tokens) in a language server scenario.
 | parse_green_recover - no interner, small | 0.62 µs | `x + 1`, no interning |
 | parse_green_recover - cold interner, small | 0.87 µs | `x + 1`, first parse |
 | parse_green_recover - warm interner, small | 0.70 µs | `x + 1`, subsequent; 1.13× overhead |
-| parse_green_recover - no interner, large | 4.95 µs | `λf.λx.if…`, no interning |
-| parse_green_recover - warm interner, large | 5.47 µs | `λf.λx.if…`, subsequent; 1.10× overhead |
+| parse_green_recover - no interner, large | 4.95 µs | `(f, x) => if…`, no interning |
+| parse_green_recover - warm interner, large | 5.47 µs | `(f, x) => if…`, subsequent; 1.10× overhead |
 
 ### Notable Changes vs 2026-02-21
 

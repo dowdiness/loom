@@ -6,7 +6,9 @@ import {
   "dowdiness/pretty",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
+  "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck/shrink",
 }
 
 // Values
@@ -60,8 +62,8 @@ pub impl @pretty.Pretty for Term
 pub impl @pretty.Printable for Term
 pub impl @pretty.Source for Term
 pub impl Show for Term
-pub impl @moonbitlang/core/quickcheck.Arbitrary for Term
-pub impl @moonbitlang/quickcheck.Shrink for Term
+pub impl @quickcheck.Arbitrary for Term
+pub impl @shrink.Shrink for Term
 
 // Type aliases
 pub type VarName = String

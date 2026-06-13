@@ -3,7 +3,7 @@
 
 ///|
 test "LambdaExprView::cast returns Some for LambdaExpr nodes" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   // SourceFile wraps LambdaExpr; find the LambdaExpr child
   let lambda_child = syn.children()[0]
@@ -20,7 +20,7 @@ test "LambdaExprView::cast returns None for non-lambda nodes" {
 
 ///|
 test "LambdaExprView::param returns bound name" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -31,7 +31,7 @@ test "LambdaExprView::param returns bound name" {
 
 ///|
 test "LambdaExprView::body returns Some for well-formed lambda" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -124,7 +124,7 @@ test "SyntaxNode::to_json produces valid JSON string" {
 
 ///|
 test "LambdaExprView::to_json includes param and body keys" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let view = match LambdaExprView::cast(syn.children()[0]) {
     Some(v) => v
@@ -132,12 +132,27 @@ test "LambdaExprView::to_json includes param and body keys" {
   }
   let s = view.to_json().stringify()
   inspect(s.contains("\"param\""), content="true")
+  inspect(s.contains("\"params\""), content="true")
   inspect(s.contains("\"body\""), content="true")
 }
 
 ///|
+test "LambdaExprView::to_json preserves all parameters" {
+  let (cst, _) = parse_cst("(x, y) => x") catch { _ => abort("lex error") }
+  let syn = @seam.SyntaxNode::from_cst(cst)
+  let view = match LambdaExprView::cast(syn.children()[0]) {
+    Some(v) => v
+    None => abort("expected LambdaExpr")
+  }
+  let s = view.to_json().stringify()
+  inspect(s.contains("\"params\""), content="true")
+  inspect(s.contains("\"x\""), content="true")
+  inspect(s.contains("\"y\""), content="true")
+}
+
+///|
 test "LetDefView with params" {
-  let (cst, _) = parse_cst("let f(x, y) = x + y") catch {
+  let (cst, _) = parse_cst("fn f(x, y) { x + y }") catch {
     _ => abort("lex error")
   }
   let tree = @seam.SyntaxNode::from_cst(cst)
@@ -151,7 +166,7 @@ test "LetDefView with params" {
   inspect(!def.params().is_empty(), content="true")
   debug_inspect(
     def.init().map(fn(n) { @syntax.SyntaxKind::from_raw(n.kind()) }),
-    content="Some(BinaryExpr)",
+    content="Some(BlockExpr)",
   )
 }
 
@@ -238,7 +253,7 @@ test "syntax_node_to_term: integer" {
 
 ///|
 test "syntax_node_to_term: lambda" {
-  let (cst, _) = parse_cst("λx.x") catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst("(x) => x") catch { _ => abort("lex error") }
   let syn = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(syn)
   inspect(

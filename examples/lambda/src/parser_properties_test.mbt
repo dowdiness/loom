@@ -116,16 +116,13 @@ test "property: parentheses are safe" {
 }
 
 ///|
-/// Property: Lambda syntax variations are handled
+/// Property: Arrow lambda syntax variations are handled
 test "property: lambda syntax is robust" {
   let params = ["x", "y", "z"]
   let bodies = ["x", "1"]
   for param in params {
     for body in bodies {
-      // Test both lambda syntaxes: λ and \
-      let input1 = "\\\{param}. \{body}"
-      let input2 = "λ\{param}. \{body}"
-      for input in [input1, input2] {
+      for input in ["(\{param}) => \{body}", "(\{param}, \{param}) => \{body}"] {
         try {
           let _term = parse(input)
         } catch {

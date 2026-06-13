@@ -11,7 +11,7 @@ pub impl @loomcore.Renderable for Term with fn label(self) {
   match self {
     Int(n) => n.to_string()
     Var(name) => name
-    Lam(param, _) => "\u{03BB}" + param
+    Lam(param, _) => "(" + param + ") =>"
     App(_, _) => "App"
     Bop(op, _, _) => @debug.to_string(op)
     If(_, _, _) => "if"

@@ -133,22 +133,48 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
 /// error-recovery placeholder for a missing parameter name. Without this
 /// check, `\. 1` silently becomes `Lam("", None, Int(1))`.
 fn convert_lambda(n : @seam.SyntaxNode) -> TypedTerm {
-  let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
   let children = n.children()
-  let annot_node = children
+  let body_node = children
+    .iter()
+    .find_first(c => {
+      let kind = @syntax.SyntaxKind::from_raw(c.kind())
+      kind != @syntax.SyntaxKind::ParamList &&
+      kind != @syntax.SyntaxKind::TypeAnnot
+    })
+  let body = match body_node {
+    Some(b) => convert_function_body(b)
+    None => TypedTerm::Error("missing lambda body")
+  }
+  match
+    children
+    .iter()
+    .find_first(c => {
+      @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.SyntaxKind::ParamList
+    }) {
+    Some(param_list) => {
+      let params = convert_param_list(param_list)
+      if params.is_empty() || subtree_has_errors(param_list) {
+        TypedTerm::Error("malformed lambda: missing parameter name")
+      } else {
+        params.rev_fold(init=body, (result, param) => {
+          let (name, annot) = param
+          TypedTerm::Lam(name, annot, result)
+        })
+      }
+    }
+    None => convert_legacy_lambda(n, body)
+  }
+}
+
+///|
+fn convert_legacy_lambda(n : @seam.SyntaxNode, body : TypedTerm) -> TypedTerm {
+  let ident = n.direct_token_of_kind(@syntax.SyntaxKind::IdentToken.to_raw())
+  let annot_node = n
+    .children()
     .iter()
     .find_first(c => {
       @syntax.SyntaxKind::from_raw(c.kind()) == @syntax.SyntaxKind::TypeAnnot
     })
-  let body_node = children
-    .iter()
-    .find_first(c => {
-      @syntax.SyntaxKind::from_raw(c.kind()) != @syntax.SyntaxKind::TypeAnnot
-    })
-  let body = match body_node {
-    Some(b) => convert_from_cst(b)
-    None => TypedTerm::Error("missing lambda body")
-  }
   match ident {
     None => TypedTerm::Error("malformed lambda: missing parameter name")
     Some(t) => {
@@ -242,7 +268,7 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
       if defs.is_empty() {
         TypedTerm::Error("empty block")
       } else {
-        // `{ let x = 1 }` — defs only, no trailing expression. Matches
+        // `{ fn x() { 1 } }` — defs only, no trailing expression. Matches
         // the Term-based convert's behaviour of wrapping in Module with
         // a Unit body; typecheck will flag the missing body if needed.
         TypedTerm::Module(defs, TypedTerm::Unit)
@@ -257,12 +283,24 @@ fn convert_block_expr(n : @seam.SyntaxNode) -> TypedTerm {
 }
 
 ///|
+/// Convert brace-delimited function/arrow bodies without adding a Module
+/// wrapper around a plain expression body.
+fn convert_function_body(n : @seam.SyntaxNode) -> TypedTerm {
+  if @syntax.SyntaxKind::from_raw(n.kind()) == @syntax.SyntaxKind::BlockExpr {
+    convert_block_expr(n)
+  } else {
+    convert_from_cst(n)
+  }
+}
+
+///|
 /// Convert a LetDef CST node to (name, TypedTerm) pair.
-/// Handles both value form (`let a = 1`) and param-list form (`let f(x: Int) = x`).
+/// Handles both value form (`let a = 1`) and param-list form
+/// (`fn f(x : Int) { x }`).
 ///
 /// Returns `(name, TypedTerm::Error)` when the parser inserted an error
-/// placeholder for the function name or for a parameter (e.g. `let f() = 1`
-/// — empty param list — or `let () = 1`). The name field preserves the
+/// placeholder for the function name or for a parameter (e.g. `fn f(,) { 1 }`
+/// or `let () = 1`). The name field preserves the
 /// original identifier text (or `""` if the name itself was an error
 /// placeholder) so left-to-right definition order is retained in Module.
 fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
@@ -287,14 +325,14 @@ fn convert_let_def_entry(n : @seam.SyntaxNode) -> (String, TypedTerm) {
     Some(t) => {
       let name = t.text()
       let init_term = match init {
-        Some(e) => convert_from_cst(e)
+        Some(e) => convert_function_body(e)
         None => TypedTerm::Error("missing LetDef init")
       }
       let body = match param_list {
         None => init_term
         Some(pl) => {
           let params = convert_param_list(pl)
-          if params.is_empty() || subtree_has_errors(pl) {
+          if subtree_has_errors(pl) {
             TypedTerm::Error("malformed param list")
           } else {
             params.rev_fold(init=init_term, (body, param) => {

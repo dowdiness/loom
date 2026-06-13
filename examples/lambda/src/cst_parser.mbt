@@ -6,11 +6,9 @@ const MAX_ERRORS : Int = 50
 ///|
 fn token_starts_expression(token : @token.Token) -> Bool {
   match token {
-    @token.Let
-    | @token.If
+    @token.If
     | @token.LeftParen
     | @token.LBrace
-    | @token.Lambda
     | @token.Hole
     | @token.Identifier
     | @token.Integer => true
@@ -33,7 +31,6 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
     | @token.LBrace
     | @token.Identifier
     | @token.Integer
-    | @token.Lambda
     | @token.Hole => true
     _ => false
   }
@@ -157,6 +154,8 @@ fn is_sync_point(t : @token.Token) -> Bool {
     | @token.Semicolon
     | @token.Lambda
     | @token.Let
+    | @token.Fn
+    | @token.FatArrow
     | @token.If
     | @token.Then
     | @token.Else
@@ -291,7 +290,6 @@ fn parse_application(
     | @token.LBrace
     | @token.Identifier
     | @token.Integer
-    | @token.Lambda
     | @token.Hole =>
       ctx.wrap_at(mark, @syntax.AppExpr, fn() {
         while !ctx.too_many_errors(MAX_ERRORS) {
@@ -303,7 +301,6 @@ fn parse_application(
             | @token.LBrace
             | @token.Identifier
             | @token.Integer
-            | @token.Lambda
             | @token.Hole => parse_atom(ctx, allow_newline_application)
             _ => break
           }
@@ -314,7 +311,26 @@ fn parse_application(
 }
 
 ///|
-/// Parse block expression: { (LetDef (Newline|;))* Expression? }
+fn token_starts_definition(token : @token.Token) -> Bool {
+  match token {
+    @token.Fn | @token.Let => true
+    _ => false
+  }
+}
+
+///|
+fn parse_definition_item(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  match ctx.peek() {
+    @token.Fn => parse_fn_item(ctx)
+    @token.Let => parse_let_item(ctx)
+    _ => ()
+  }
+}
+
+///|
+/// Parse block expression: { ((FnDef | LetDef) (Newline|;))* Expression? }
 /// Uses the same LetDef/Expression structure as SourceFile but delimited by {}.
 pub fn parse_block_expr(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
@@ -329,9 +345,9 @@ pub fn parse_block_expr(
     ctx.finish_node()
     return
   }
-  // LetDefs
-  while ctx.peek() == @token.Let {
-    parse_let_item(ctx)
+  // Function and value definitions
+  while token_starts_definition(ctx.peek()) {
+    parse_definition_item(ctx)
     let delim_count = consume_delimiters(ctx)
     if delim_count == 0 &&
       ctx.peek() != @token.RBrace &&
@@ -355,6 +371,71 @@ pub fn parse_block_expr(
 }
 
 ///|
+fn token_after_soft_newlines(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  start_index : Int,
+) -> @token.Token? {
+  for index = start_index {
+    match ctx.peek_nth(index) {
+      @token.EOF => break None
+      @token.Newline => continue index + 1
+      token => break Some(token)
+    }
+  }
+}
+
+///|
+fn token_after_matching_right_paren(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> @token.Token? {
+  for index = 1, paren_depth = 0 {
+    match ctx.peek_nth(index) {
+      @token.EOF => break None
+      @token.LeftParen => continue index + 1, paren_depth + 1
+      @token.RightParen =>
+        if paren_depth == 0 {
+          break token_after_soft_newlines(ctx, index + 1)
+        } else {
+          continue index + 1, paren_depth - 1
+        }
+      _ => continue index + 1, paren_depth
+    }
+  }
+}
+
+///|
+fn left_paren_starts_arrow_lambda(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Bool {
+  match token_after_matching_right_paren(ctx) {
+    Some(@token.FatArrow) => true
+    _ => false
+  }
+}
+
+///|
+fn parse_arrow_lambda(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
+) -> Unit {
+  ctx.node_with_recovery(
+    @syntax.LambdaExpr,
+    () => {
+      let _ = parse_param_list(ctx, allow_empty=false)
+      if !lambda_expect(ctx, @token.FatArrow, @syntax.FatArrowToken) {
+        return false
+      }
+      match ctx.peek() {
+        @token.LBrace => parse_block_expr(ctx)
+        _ => parse_expression_with_mode(ctx, allow_newline_application)
+      }
+      true
+    },
+    is_sync_point,
+  )
+}
+
+///|
 fn parse_atom(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   allow_newline_application : Bool,
@@ -367,29 +448,6 @@ fn parse_atom(
       ctx.node(@syntax.IntLiteral, fn() { ctx.emit_token(@syntax.IntToken) })
     @token.Identifier =>
       ctx.node(@syntax.VarRef, fn() { ctx.emit_token(@syntax.IdentToken) })
-    @token.Lambda =>
-      ctx.node_with_recovery(
-        @syntax.LambdaExpr,
-        () => {
-          ctx.emit_token(@syntax.LambdaToken)
-          match ctx.peek() {
-            @token.Identifier => ctx.emit_token(@syntax.IdentToken)
-            _ => {
-              ctx.error("Expected parameter after λ")
-              ctx.emit_error_placeholder()
-            }
-          }
-          if ctx.peek() == @token.Colon {
-            parse_type_annotation(ctx)
-          }
-          if !lambda_expect(ctx, @token.Dot, @syntax.DotToken) {
-            return false
-          }
-          parse_expression_with_mode(ctx, allow_newline_application)
-          true
-        },
-        is_sync_point,
-      )
     @token.If =>
       ctx.node_with_recovery(
         @syntax.IfExpr,
@@ -412,18 +470,22 @@ fn parse_atom(
       ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
     @token.LBrace => parse_block_expr(ctx)
     @token.LeftParen =>
-      ctx.node(@syntax.ParenExpr, () => {
-        ctx.emit_token(@syntax.LeftParenToken)
-        parse_expression_with_mode(ctx, allow_newline_application)
-        if !lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) {
-          // RightParen missing — recover inside parens, but don't consume
-          // parent-level delimiters (`in`/`then`/`else`/...) needed upstream.
-          let _ = skip_until_paren_close_or_sync(ctx)
-          if ctx.peek() == @token.RightParen {
-            ctx.emit_token(@syntax.RightParenToken)
+      if left_paren_starts_arrow_lambda(ctx) {
+        parse_arrow_lambda(ctx, allow_newline_application)
+      } else {
+        ctx.node(@syntax.ParenExpr, () => {
+          ctx.emit_token(@syntax.LeftParenToken)
+          parse_expression_with_mode(ctx, allow_newline_application)
+          if !lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) {
+            // RightParen missing — recover inside parens, but don't consume
+            // parent-level delimiters (`in`/`then`/`else`/...) needed upstream.
+            let _ = skip_until_paren_close_or_sync(ctx)
+            if ctx.peek() == @token.RightParen {
+              ctx.emit_token(@syntax.RightParenToken)
+            }
           }
-        }
-      })
+        })
+      }
     _ => {
       ctx.error("Unexpected token")
       if is_sync_point(ctx.peek()) {
@@ -437,59 +499,67 @@ fn parse_atom(
   }
 }
 
-// ─── Lambda grammar (LetDef* Expression?) ─────────────────────────────────────
+// ─── Lambda grammar ((FnDef | LetDef)* Expression?) ───────────────────────────
 
 ///|
 /// Parse parameter list: ( Ident , Ident , ... )
-/// Called from parse_let_item when '(' follows the function name.
+/// Returns the number of identifier parameters consumed.
 fn parse_param_list(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Unit {
+  allow_empty~ : Bool,
+) -> Int {
   let mark = ctx.mark()
+  let mut count = 0
   ctx.emit_token(@syntax.LeftParenToken) // (
-  // First parameter (required)
   match ctx.peek() {
-    @token.Identifier => ctx.emit_token(@syntax.IdentToken)
-    @token.RightParen => {
-      ctx.error("Empty parameter list")
-      ctx.emit_error_placeholder()
+    @token.RightParen =>
+      if !allow_empty {
+        ctx.error("Empty parameter list")
+        ctx.emit_error_placeholder()
+      }
+    @token.Identifier => {
+      ctx.emit_token(@syntax.IdentToken)
+      count += 1
+      if ctx.peek() == @token.Colon {
+        parse_type_annotation(ctx)
+      }
+      while ctx.peek() == @token.Comma {
+        ctx.emit_token(@syntax.CommaToken) // ,
+        match ctx.peek() {
+          @token.Identifier => {
+            ctx.emit_token(@syntax.IdentToken)
+            count += 1
+          }
+          @token.RightParen => {
+            ctx.error("Trailing comma in parameter list")
+            break
+          }
+          _ => {
+            ctx.error("Expected parameter name")
+            ctx.emit_error_placeholder()
+          }
+        }
+        if ctx.peek() == @token.Colon {
+          parse_type_annotation(ctx)
+        }
+      }
     }
     _ => {
       ctx.error("Expected parameter name")
       ctx.emit_error_placeholder()
     }
   }
-  if ctx.peek() == @token.Colon {
-    parse_type_annotation(ctx)
-  }
-  // Remaining parameters
-  while ctx.peek() == @token.Comma {
-    ctx.emit_token(@syntax.CommaToken) // ,
-    match ctx.peek() {
-      @token.Identifier => ctx.emit_token(@syntax.IdentToken)
-      @token.RightParen => {
-        ctx.error("Trailing comma in parameter list")
-        break
-      }
-      _ => {
-        ctx.error("Expected parameter name")
-        ctx.emit_error_placeholder()
-      }
-    }
-    if ctx.peek() == @token.Colon {
-      parse_type_annotation(ctx)
-    }
-  }
   let _ = lambda_expect(ctx, @token.RightParen, @syntax.RightParenToken) // )
   ctx.start_at(mark, @syntax.ParamList)
   ctx.finish_node()
+  count
 }
 
 ///|
-/// Parse a top-level `let` item: `let x = e` or `let f(x, y) = e` -> LetDef.
+/// Parse a value declaration: `let x = e` -> LetDef.
 ///
-/// Uses allow_newline_application=false so that a newline after the RHS
-/// stops the expression rather than continuing it into the next definition.
+/// Unlike the old lambda example's `let f(x) = e` sugar, MoonBit-style `let`
+/// declarations do not take parameter lists. Use `fn f(x) { e }` for functions.
 fn parse_let_item(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
@@ -502,9 +572,8 @@ fn parse_let_item(
         ctx.emit_error_placeholder()
       }
     }
-    // Optional parameter list
     if ctx.peek() == @token.LeftParen {
-      parse_param_list(ctx)
+      ctx.error("'let' declarations do not take parameter lists; use 'fn'")
     }
     let _ = lambda_expect(ctx, @token.Eq, @syntax.EqToken)
     parse_expression_with_mode(ctx, false)
@@ -512,7 +581,40 @@ fn parse_let_item(
 }
 
 ///|
-/// Entry point for lambda grammar: LetDef* Expression?
+/// Parse a named function definition: `fn f(x, y) { e }` -> LetDef.
+///
+/// Uses a brace-delimited body so edits inside one function have a stable
+/// right boundary for block reparse/reuse.
+fn parse_fn_item(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.node(@syntax.LetDef, fn() {
+    ctx.emit_token(@syntax.FnKeyword)
+    match ctx.peek() {
+      @token.Identifier => ctx.emit_token(@syntax.IdentToken)
+      _ => {
+        ctx.error("Expected function name after 'fn'")
+        ctx.emit_error_placeholder()
+      }
+    }
+    if ctx.peek() == @token.LeftParen {
+      let _ = parse_param_list(ctx, allow_empty=true)
+    } else {
+      ctx.error("Expected parameter list after function name")
+      ctx.emit_error_placeholder()
+    }
+    match ctx.peek() {
+      @token.LBrace => parse_block_expr(ctx)
+      _ => {
+        ctx.error("Expected function body")
+        ctx.emit_error_placeholder()
+      }
+    }
+  })
+}
+
+///|
+/// Entry point for lambda grammar: (FnDef | LetDef)* Expression?
 /// Newline tokens (from tokenize) delimit definitions and are emitted
 /// explicitly into the CST as direct children of SourceFile. They are token
 /// children (not node children), so `SyntaxNode::children()` (node-only) never
@@ -523,7 +625,7 @@ fn parse_lambda_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let _ = consume_newline_tokens(ctx)
-  while ctx.peek() == @token.Let {
+  while token_starts_definition(ctx.peek()) {
     // Try to reuse an entire RepeatGroup of LetDef siblings.
     // On hit, the group is emitted as a single ReuseNode and position
     // advances past all covered tokens — O(log n) vs O(n) reparsing.
@@ -531,10 +633,14 @@ fn parse_lambda_root(
       let _ = consume_newline_tokens(ctx)
       continue
     }
-    parse_let_item(ctx)
+    parse_definition_item(ctx)
     let delimiter_count = consume_newline_tokens(ctx)
-    if delimiter_count == 0 && ctx.peek() == @token.Let {
-      ctx.error("Expected newline between top-level definitions")
+    if delimiter_count == 0 && ctx.peek() != @token.EOF {
+      if token_starts_definition(ctx.peek()) {
+        ctx.error("Expected newline between top-level definitions")
+      } else {
+        ctx.error("Expected newline after top-level definition")
+      }
     }
   }
   let _ = consume_newline_tokens(ctx)

@@ -8,7 +8,7 @@
 // - Binary operators (arithmetic)
 // - Function application (juxtaposition)
 // - Parenthesized expressions
-// - Multi-parameter function definitions: let f(x, y) = ...
+// - Multi-parameter function definitions: fn f(x, y) { ... }
 //
 // Run with: moon bench --release
 
@@ -19,15 +19,15 @@ fn make_realistic_def(i : Int) -> String {
   match i % 5 {
     // Block expression with nested lets
     0 =>
-      "f\{i} = {\n  let a\{i} = \{i} + \{i + 1}\n  let b\{i} = a\{i} + 1\n  b\{i}\n}"
+      "let f\{i} = {\n  let a\{i} = \{i} + \{i + 1}\n  let b\{i} = a\{i} + 1\n  b\{i}\n}"
     // Lambda with if-then-else
-    1 => "g\{i} = λx.λy.if x then y + 1 else y - 1"
+    1 => "let g\{i} = (x, y) => if x then y + 1 else y - 1"
     // Multi-param function with application
-    2 => "h\{i}(x, y) = (λz.z + x) (y + 1)"
+    2 => "fn h\{i}(x, y) { ((z) => z + x) (y + 1) }"
     // Nested application with parentheses
-    3 => "k\{i} = (λf.λx.f (f x)) (λn.n + 1) \{i}"
+    3 => "let k\{i} = ((f, x) => f (f x)) ((n) => n + 1) \{i}"
     // Nested if with block and arithmetic
-    _ => "m\{i}(n) = if n then {\n  let r = n - 1\n  r + r\n} else 0"
+    _ => "fn m\{i}(n) { if n then {\n  let r = n - 1\n  r + r\n} else 0 }"
   }
 }
 
@@ -37,7 +37,7 @@ fn make_realistic_def(i : Int) -> String {
 fn make_realistic_source(n : Int, tail_value : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
-    segments.push("let " + make_realistic_def(i))
+    segments.push(make_realistic_def(i))
   }
   segments.push("let result = " + tail_value)
   segments.push("result")
@@ -74,7 +74,7 @@ fn find_middle_block_edit_pos(_source : String, n : Int) -> Int {
   let target_idx = n / 2 / 5 * 5 // nearest block def (i%5==0)
   let mut pos = 0
   for i = 0; i < target_idx; i = i + 1 {
-    pos = pos + ("let " + make_realistic_def(i) + "\n").length()
+    pos = pos + (make_realistic_def(i) + "\n").length()
   }
   // Inside this def: "let fN = {\n  let aN = N + N+1\n  let bN = aN + 1\n  ..."
   // Edit the "1" in "aN + 1" (second line of block)

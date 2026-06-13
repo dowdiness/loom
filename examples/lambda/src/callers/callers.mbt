@@ -3,8 +3,8 @@
 //
 // Walks a SyntaxNode tree once, emitting three relations on a stack of
 // lexical scopes:
-//   Def       — each LetDef name, lambda parameter, and let-paren
-//               parameter, tagged with the ScopeId that binds it
+//   Def       — each LetDef name and lambda/fn parameter, tagged with the
+//               ScopeId that binds it
 //               (TopScope or LambdaScope(start, end)).
 //   Call      — each VarRef, tagged with the ScopeId it resolves to via
 //               lexical lookup, plus a Boolean `is_call_position` true
@@ -26,10 +26,9 @@
 //      limitation since it is keyed on enclosing node byte ranges.
 //   2. BlockExpr does not open a new scope: `{ let f = 2; f x }` reports
 //      a top-level caller of `f` even when a block-local `f` would
-//      shadow it. Only LambdaExpr and let-paren parameters introduce
-//      scopes here.
+//      shadow it. Only LambdaExpr and fn parameters introduce scopes here.
 //   3. "Resolved to top-level" means "not shadowed by a modeled lambda
-//      or let-paren scope" — not "definitely points at an existing
+//      or fn scope" — not "definitely points at an existing
 //      top-level Def." An unbound name still resolves to TopScope. A
 //      future projection that wants this distinction can share the
 //      unfiltered facts Derived cell inside the pipeline.
@@ -40,8 +39,8 @@
 /// `TopScope` is the global/source-file scope where top-level LetDefs
 /// live. `LambdaScope(start, end)` identifies an enclosing
 /// parameter-binding scope by its opening node's byte range — either a
-/// `LambdaExpr` (for `\x. body`) or a `LetDef` carrying a `ParamList`
-/// (for `let f(x, y) = body`).
+/// `LambdaExpr` (for `(x) => body`) or a `LetDef` carrying a `ParamList`
+/// (for `fn f(x, y) { body }`).
 pub(all) enum ScopeId {
   TopScope
   LambdaScope(Int, Int)
@@ -201,20 +200,44 @@ impl @seam.SyntaxMutVisitor for FactCollector with fn enter_node(self, node) {
     @syntax.LambdaExpr => {
       let frame_id = LambdaScope(node.start(), node.end())
       let names : Array[String] = []
-      match ident_after_lead(node, @syntax.LambdaToken) {
-        Some(tok) => {
-          let name = tok.text()
-          names.push(name)
-          self.defs.push({
-            name,
-            scope: frame_id,
-            start: node.start(),
-            end: node.end(),
-            name_start: tok.start(),
-            name_end: tok.end(),
-          })
-        }
-        None => ()
+      match
+        node
+        .children()
+        .iter()
+        .find_first(child => {
+          @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList
+        }) {
+        Some(param_list) =>
+          for tok in param_list.tokens() {
+            if @syntax.SyntaxKind::from_raw(tok.kind()) == @syntax.IdentToken {
+              let name = tok.text()
+              names.push(name)
+              self.defs.push({
+                name,
+                scope: frame_id,
+                start: node.start(),
+                end: node.end(),
+                name_start: tok.start(),
+                name_end: tok.end(),
+              })
+            }
+          }
+        None =>
+          match ident_after_lead(node, @syntax.LambdaToken) {
+            Some(tok) => {
+              let name = tok.text()
+              names.push(name)
+              self.defs.push({
+                name,
+                scope: frame_id,
+                start: node.start(),
+                end: node.end(),
+                name_start: tok.start(),
+                name_end: tok.end(),
+              })
+            }
+            None => ()
+          }
       }
       if self.stack.length() > 0 {
         self.enclosing.push((frame_id, self.stack[self.stack.length() - 1].id))
@@ -224,7 +247,11 @@ impl @seam.SyntaxMutVisitor for FactCollector with fn enter_node(self, node) {
     }
     @syntax.LetDef => {
       let outer_scope = self.stack[self.stack.length() - 1].id
-      match ident_after_lead(node, @syntax.LetKeyword) {
+      let name_token = match ident_after_lead(node, @syntax.LetKeyword) {
+        Some(tok) => Some(tok)
+        None => ident_after_lead(node, @syntax.FnKeyword)
+      }
+      match name_token {
         Some(tok) =>
           self.defs.push({
             name: tok.text(),
@@ -577,9 +604,8 @@ pub fn CallersPipeline::callers_of(
 }
 
 ///|
-/// Read all definitions named `name`, including lambda parameters and
-/// let-paren parameters. Consumers wanting top-level bindings only can
-/// filter on `d.scope == TopScope`.
+/// Read all definitions named `name`, including lambda and fn parameters.
+/// Consumers wanting top-level bindings only can filter on `d.scope == TopScope`.
 pub fn CallersPipeline::defs_of(
   self : CallersPipeline,
   name : String,

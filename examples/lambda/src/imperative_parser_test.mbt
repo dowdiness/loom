@@ -2,14 +2,14 @@
 
 ///|
 test "ImperativeParser::diagnostics empty on valid source" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
   debug_inspect(parser.diagnostics().format(), content="[]")
 }
 
 ///|
 test "ImperativeParser::diagnostics non-empty on invalid source" {
-  let parser = @loom.new_imperative_parser("λ.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(,) => x", lambda_grammar)
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 }
@@ -23,9 +23,9 @@ test "ImperativeParser::new creates parser" {
 
 ///|
 test "ImperativeParser::parse initial parse" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let tree = parser.parse().ast
-  inspect(@ast.print_term(tree), content="(λx. x)")
+  inspect(@ast.print_term(tree), content="(x) => x")
   inspect(parser.get_tree() is None, content="false")
 }
 
@@ -76,16 +76,16 @@ test "ImperativeParser::edit with no initial tree" {
 
 ///|
 test "ImperativeParser::edit preserves structure" {
-  let parser = @loom.new_imperative_parser("λf.λx.f x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(f, x) => f x", lambda_grammar)
   let initial_tree = parser.parse().ast
 
   // Insert space (cosmetic change)
   let edit = @core.Edit::insert(9, 1)
-  let new_tree = parser.edit(edit, "λf.λx.f x ").ast
+  let new_tree = parser.edit(edit, "(f, x) => f x").ast
 
   // Structure should be similar (both are lambda abstractions)
-  inspect(@ast.print_term(initial_tree).contains("λf"), content="true")
-  inspect(@ast.print_term(new_tree).contains("λf"), content="true")
+  inspect(@ast.print_term(initial_tree).contains("(f, x) =>"), content="true")
+  inspect(@ast.print_term(new_tree).contains("(f, x) =>"), content="true")
 }
 
 ///|
@@ -127,20 +127,20 @@ test "ImperativeParser::edit result equals full reparse" {
 
 ///|
 test "tree fragment reuse for unchanged regions" {
-  let parser = @loom.new_imperative_parser("λf.λx.f (x + 1)", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    "(f, x) => f (x + 1)", lambda_grammar,
+  )
   let initial_tree = parser.parse().ast
 
   // Small edit at the end: "1" -> "2"
   let edit = @core.Edit::replace(14, 15, 15)
-  let new_tree = parser.edit(edit, "λf.λx.f (x + 2)").ast
+  let new_tree = parser.edit(edit, "(f, x) => f (x + 2)").ast
 
   // Both trees should have similar structure for unchanged parts
   let initial_str = @ast.print_term(initial_tree)
   let new_str = @ast.print_term(new_tree)
-  inspect(initial_str.contains("λf"), content="true")
-  inspect(new_str.contains("λf"), content="true")
-  inspect(initial_str.contains("λx"), content="true")
-  inspect(new_str.contains("λx"), content="true")
+  inspect(initial_str.contains("(f, x) =>"), content="true")
+  inspect(new_str.contains("(f, x) =>"), content="true")
   inspect(new_str.contains("2"), content="true")
 }
 
@@ -161,27 +161,27 @@ test "minimal reparsing for local edits" {
 
 ///|
 test "multiple incremental edits preserve correctness" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Series of small edits
-  let edit1 = @core.Edit::insert(4, 4) // "λx.x" -> "λx.x + 1"
-  let tree1 = parser.edit(edit1, "λx.x + 1").ast
+  let edit1 = @core.Edit::insert(8, 4) // "(x) => x" -> "(x) => x + 1"
+  let tree1 = parser.edit(edit1, "(x) => x + 1").ast
   inspect(@ast.print_term(tree1).contains("+"), content="true")
-  let edit2 = @core.Edit::replace(7, 8, 8) // "λx.x + 1" -> "λx.x + 2"
-  let tree2 = parser.edit(edit2, "λx.x + 2").ast
+  let edit2 = @core.Edit::replace(11, 12, 12) // "(x) => x + 1" -> "(x) => x + 2"
+  let tree2 = parser.edit(edit2, "(x) => x + 2").ast
   inspect(@ast.print_term(tree2).contains("2"), content="true")
-  let edit3 = @core.Edit::insert(0, 3) // "λx.x + 2" -> "λy.λx.x + 2"
-  let tree3 = parser.edit(edit3, "λy.λx.x + 2").ast
+  let edit3 = @core.Edit::insert(1, 3) // "(x) => x + 2" -> "(y, x) => x + 2"
+  let tree3 = parser.edit(edit3, "(y, x) => x + 2").ast
   inspect(
-    @ast.print_term(tree3).contains("λy"),
+    @ast.print_term(tree3).contains("(y, x) =>"),
     content=(
       #|true
     ),
   )
 
   // Final result should match full reparse
-  let full_tree = parse("λy.λx.x + 2") catch { _ => abort("parse failed") }
+  let full_tree = parse("(y, x) => x + 2") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(tree3), content=@ast.print_term(full_tree))
 }
 
@@ -210,10 +210,10 @@ test "Edge case: insertion at position 0" {
 
   // Insert at the very beginning
   let edit = @core.Edit::insert(0, 3)
-  let new_tree = parser.edit(edit, "λx.x").ast
+  let new_tree = parser.edit(edit, "(x) => x").ast
 
   // Should correctly parse the new structure
-  let full_tree = parse("λx.x") catch { _ => abort("parse failed") }
+  let full_tree = parse("(x) => x") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
@@ -251,8 +251,8 @@ test "Edge case: replace with longer text" {
 
   // Replace single char with much longer expression
   let edit = @core.Edit::replace(0, 1, 15)
-  let new_tree = parser.edit(edit, "λf.λx.f (f (x))").ast
-  let full_tree = parse("λf.λx.f (f (x))") catch {
+  let new_tree = parser.edit(edit, "(f, x) => f (f (x))").ast
+  let full_tree = parse("(f, x) => f (f (x))") catch {
     _ => abort("parse failed")
   }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
@@ -260,7 +260,9 @@ test "Edge case: replace with longer text" {
 
 ///|
 test "Edge case: replace with shorter text" {
-  let parser = @loom.new_imperative_parser("λf.λx.f (f (x))", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    "(f, x) => f (f (x))", lambda_grammar,
+  )
   let _ = parser.parse().ast
 
   // Replace long expression with single char
@@ -288,13 +290,13 @@ test "Edge case: consecutive insertions at same position" {
 
 ///|
 test "Edge case: insertion in middle of lambda parameter" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Insert in the middle of parameter name (should change structure)
   let edit = @core.Edit::insert(2, 1)
-  let new_tree = parser.edit(edit, "λxy.x").ast
-  let full_tree = parse("λxy.x") catch { _ => abort("parse failed") }
+  let new_tree = parser.edit(edit, "(xy) => x").ast
+  let full_tree = parse("(xy) => x") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
@@ -336,13 +338,13 @@ test "Edge case: structural change from compound to leaf" {
 
 ///|
 test "Edge case: nested lambda insertion at start" {
-  let parser = @loom.new_imperative_parser("λx.x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x + 1", lambda_grammar)
   let _ = parser.parse().ast
 
   // Wrap with another lambda
   let edit = @core.Edit::insert(0, 3)
-  let new_tree = parser.edit(edit, "λy.λx.x + 1").ast
-  let full_tree = parse("λy.λx.x + 1") catch { _ => abort("parse failed") }
+  let new_tree = parser.edit(edit, "(y, x) => x + 1").ast
+  let full_tree = parse("(y, x) => x + 1") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
@@ -376,26 +378,26 @@ test "Edge case: edit that changes operator precedence" {
 
 ///|
 test "Edge case: whitespace-only insertion" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Insert whitespace (should not change structure)
-  let edit = @core.Edit::insert(4, 1)
-  let new_tree = parser.edit(edit, "λx.x ").ast
+  let edit = @core.Edit::insert(3, 1)
+  let new_tree = parser.edit(edit, "(x)  => x").ast
 
   // Structure should be preserved
-  inspect(@ast.print_term(new_tree).contains("λx"), content="true")
+  inspect(@ast.print_term(new_tree).contains("(x) =>"), content="true")
 }
 
 ///|
 test "Edge case: validation with identical structure but different content" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Change variable name (same structure, different content)
   let edit = @core.Edit::replace(1, 2, 2)
-  let new_tree = parser.edit(edit, "λy.x").ast
-  let full_tree = parse("λy.x") catch { _ => abort("parse failed") }
+  let new_tree = parser.edit(edit, "(y) => x").ast
+  let full_tree = parse("(y) => x") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
@@ -427,25 +429,25 @@ test "Edge case: zero-length edit (no-op)" {
 
 ///|
 test "Edge case: position boundary at node start" {
-  let parser = @loom.new_imperative_parser("λx.λy.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x, y) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Insert exactly at inner lambda boundary
   let edit = @core.Edit::insert(3, 1)
-  let new_tree = parser.edit(edit, "λx. λy.x").ast
-  let full_tree = parse("λx. λy.x") catch { _ => abort("parse failed") }
+  let new_tree = parser.edit(edit, "(x, y) => x").ast
+  let full_tree = parse("(x, y) => x") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
 ///|
 test "Edge case: position boundary at node end" {
-  let parser = @loom.new_imperative_parser("λx.λy.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x, y) => x", lambda_grammar)
   let _ = parser.parse().ast
 
   // Insert exactly at end of inner lambda
   let edit = @core.Edit::insert(7, 2)
-  let new_tree = parser.edit(edit, "λx.λy.x y").ast
-  let full_tree = parse("λx.λy.x y") catch { _ => abort("parse failed") }
+  let new_tree = parser.edit(edit, "(x, y) => x y").ast
+  let full_tree = parse("(x, y) => x y") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(new_tree), content=@ast.print_term(full_tree))
 }
 
@@ -615,34 +617,34 @@ test "Differential: insert at beginning" {
   let parser = @loom.new_imperative_parser("y", lambda_grammar)
   let _ = parser.parse().ast
 
-  // Insert "λx." at beginning
-  let edit = @core.Edit::insert(0, 3)
-  let incremental = parser.edit(edit, "λx.y").ast
-  let full = parse("λx.y") catch { _ => abort("parse failed") }
+  // Insert "(x) => " at beginning
+  let edit = @core.Edit::insert(0, 7)
+  let incremental = parser.edit(edit, "(x) => y").ast
+  let full = parse("(x) => y") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
 }
 
 ///|
 test "Differential: delete in middle" {
-  let parser = @loom.new_imperative_parser("λx.x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x + 1", lambda_grammar)
   let _ = parser.parse().ast
 
   // Delete " + 1"
   let edit = @core.Edit::delete(4, 8)
-  let incremental = parser.edit(edit, "λx.x").ast
-  let full = parse("λx.x") catch { _ => abort("parse failed") }
+  let incremental = parser.edit(edit, "(x) => x").ast
+  let full = parse("(x) => x") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
 }
 
 ///|
 test "Differential: complex nested expression" {
-  let parser = @loom.new_imperative_parser("λf.λx.f (f x)", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(f, x) => f (f x)", lambda_grammar)
   let _ = parser.parse().ast
 
   // Change inner "f" to "g"
   let edit = @core.Edit::replace(9, 10, 10)
-  let incremental = parser.edit(edit, "λf.λx.f (g x)").ast
-  let full = parse("λf.λx.f (g x)") catch { _ => abort("parse failed") }
+  let incremental = parser.edit(edit, "(f, x) => f (g x)").ast
+  let full = parse("(f, x) => f (g x)") catch { _ => abort("parse failed") }
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
 }
 
@@ -740,7 +742,7 @@ test "Differential: multiple consecutive edits" {
 
 ///|
 test "Reuse: count is zero on initial parse" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
   // Initial parse has no reuse (no old tree)
   inspect(parser.get_last_reuse_count(), content="0")
@@ -783,7 +785,7 @@ test "Reuse: full replacement has no reuse" {
 
   // Replace entire document
   let edit = @core.Edit::replace(0, 1, 5)
-  let _ = parser.edit(edit, "λf.λx.f x").ast
+  let _ = parser.edit(edit, "(f, x) => f x").ast
 
   // Complete replacement - likely no reuse
   let reuse_count = parser.get_last_reuse_count()
@@ -807,13 +809,13 @@ test "Reuse: adjacent insert should not incorrectly reuse" {
 ///|
 test "Reuse: whitespace-containing expressions parse correctly" {
   // Test that internal whitespace in reused nodes is handled correctly
-  let parser = @loom.new_imperative_parser("λx. x + 1", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x + 1", lambda_grammar)
   let _ = parser.parse().ast
 
   // Edit only the number at the end
   let edit = @core.Edit::replace(8, 9, 9)
-  let incr_tree = parser.edit(edit, "λx. x + 2").ast
-  let full_tree = parse("λx. x + 2") catch { _ => abort("parse failed") }
+  let incr_tree = parser.edit(edit, "(x) => x + 2").ast
+  let full_tree = parse("(x) => x + 2") catch { _ => abort("parse failed") }
 
   // Result must match full reparse - validates whitespace handling
   inspect(@ast.print_term(incr_tree), content=@ast.print_term(full_tree))
@@ -869,13 +871,13 @@ test "ImperativeParser::edit returns same AST when CST is unchanged" {
 test "ImperativeParser::reset parses new source fresh" {
   let parser = @loom.new_imperative_parser("42", lambda_grammar)
   let _ = parser.parse().ast
-  let result = parser.reset("λx.x").ast
-  inspect(@ast.print_term(result), content="(λx. x)")
+  let result = parser.reset("(x) => x").ast
+  inspect(@ast.print_term(result), content="(x) => x")
 }
 
 ///|
 test "ImperativeParser::reset clears old tree state" {
-  let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
   // Reset to completely different source
   let _ = parser.reset("1 + 2")
@@ -1113,11 +1115,11 @@ test "incremental: edit inside block matches full reparse" {
 
 ///|
 test "incremental: edit body of param-list function matches full reparse" {
-  let source = "let f(x, y) = x\nf 1 2"
+  let source = "fn f(x, y) { x }\nf 1 2"
   let parser = @loom.new_imperative_parser(source, lambda_grammar)
   let _ = parser.parse().ast
   // Replace "x" with "y" in the body at position 14
-  let new_source = "let f(x, y) = y\nf 1 2"
+  let new_source = "fn f(x, y) { y }\nf 1 2"
   let edit = @core.Edit::new(14, 1, 1)
   let incr_term = parser.edit(edit, new_source).ast
   let full_term = parse(new_source) catch { _ => abort("parse error") }

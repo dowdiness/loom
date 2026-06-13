@@ -48,7 +48,7 @@ test "replay: Pretty and Term from same source" {
 ///|
 test "replay: Pretty Lam" {
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
-  inspect((@ast.replay(term) : @ast.Pretty).repr, content="(λx. x)")
+  inspect((@ast.replay(term) : @ast.Pretty).repr, content="(x) => x")
 }
 
 ///|

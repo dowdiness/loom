@@ -115,6 +115,10 @@ fn step_lex(
       cursor.set_view(rest)
       cursor.produced(@token.Minus)
     }
+    [.. "=>", .. rest] => {
+      cursor.set_view(rest)
+      cursor.produced(@token.FatArrow)
+    }
     ['=', .. rest] => {
       cursor.set_view(rest)
       cursor.produced(@token.Eq)
@@ -150,6 +154,7 @@ fn step_lex(
         "if" => @token.Token::If
         "then" => @token.Token::Then
         "else" => @token.Token::Else
+        "fn" => @token.Token::Fn
         "let" => @token.Token::Let
         _ => @token.Token::Identifier
       }

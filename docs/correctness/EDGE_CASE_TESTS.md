@@ -17,8 +17,8 @@ These tests verify correct behavior at critical positions in the document.
 ```moonbit
 test "Edge case: insertion at position 0"
 ```
-**Scenario:** Insert "λx." at the very beginning of "x"
-**Expected:** Correctly parses "λx.x" with proper structure
+**Scenario:** Insert "(x) => " at the very beginning of "x"
+**Expected:** Correctly parses "(x) => x" with proper structure
 **Validates:** Position adjustment for insertions at document start
 
 #### Insertion at End of Document
@@ -33,16 +33,16 @@ test "Edge case: insertion at end of document"
 ```moonbit
 test "Edge case: position boundary at node start"
 ```
-**Scenario:** Insert space at inner lambda boundary in "λx.λy.x"
-**Expected:** Correctly parses "λx. λy.x"
+**Scenario:** Insert space at inner arrow boundary in "(x) => (y) => x"
+**Expected:** Correctly parses "(x) =>  (y) => x"
 **Validates:** Boundary condition handling at node start
 
 #### Position Boundary at Node End
 ```moonbit
 test "Edge case: position boundary at node end"
 ```
-**Scenario:** Insert " y" at end of inner lambda in "λx.λy.x"
-**Expected:** Correctly parses "λx.λy.x y"
+**Scenario:** Insert " y" at end of inner arrow body in "(x) => (y) => x"
+**Expected:** Correctly parses "(x) => (y) => x y"
 **Validates:** Boundary condition handling at node end
 
 **Critical Bug Prevented:** The boundary fix at [incremental_parser.mbt:335](incremental_parser.mbt#L335) (changing `>=` to `>`) ensures these cases work correctly.
@@ -71,7 +71,7 @@ test "Edge case: structural change from compound to leaf"
 ```moonbit
 test "Edge case: nested lambda insertion at start"
 ```
-**Scenario:** "λx.x + 1" → "λy.λx.x + 1"
+**Scenario:** "(x) => x + 1" → "(y) => (x) => x + 1"
 **Expected:** Correctly wraps with outer lambda
 **Validates:** Parent structure validation prevents incorrect reuse
 
@@ -99,7 +99,7 @@ test "Edge case: delete entire document"
 ```moonbit
 test "Edge case: replace with longer text"
 ```
-**Scenario:** "x" → "λf.λx.f (f (x))" (1 → 15 chars)
+**Scenario:** "x" → "(f, x) => f (f x)" (large expansion)
 **Expected:** Correctly parses complex replacement
 **Validates:** Large positive delta handling
 
@@ -107,7 +107,7 @@ test "Edge case: replace with longer text"
 ```moonbit
 test "Edge case: replace with shorter text"
 ```
-**Scenario:** "λf.λx.f (f (x))" → "y" (15 → 1 chars)
+**Scenario:** "(f, x) => f (f x)" → "y" (large contraction)
 **Expected:** Correctly parses simple replacement
 **Validates:** Large negative delta handling
 
@@ -147,7 +147,7 @@ These tests verify correct handling of edits at token boundaries.
 ```moonbit
 test "Edge case: insertion in middle of lambda parameter"
 ```
-**Scenario:** "λx.x" → "λxy.x" (insert 'y' in middle of parameter)
+**Scenario:** "(x) => x" → "(xy) => x" (insert 'y' in middle of parameter)
 **Expected:** Correctly parses new parameter name
 **Validates:** Token boundary detection
 
@@ -163,7 +163,7 @@ test "Edge case: deletion at boundary between nodes"
 ```moonbit
 test "Edge case: whitespace-only insertion"
 ```
-**Scenario:** "λx.x" → "λx.x " (append space)
+**Scenario:** "(x) => x" → "(x) => x " (append space)
 **Expected:** Structure preserved, whitespace handled
 **Validates:** Non-structural edits
 
@@ -175,7 +175,7 @@ These tests verify the structural validation system.
 ```moonbit
 test "Edge case: validation with identical structure but different content"
 ```
-**Scenario:** "λx.x" → "λy.x" (change parameter name)
+**Scenario:** "(x) => x" → "(y) => x" (change parameter name)
 **Expected:** Correctly parses with new variable name
 **Validates:** Content vs. structure distinction
 

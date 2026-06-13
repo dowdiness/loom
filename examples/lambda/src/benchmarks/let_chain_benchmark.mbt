@@ -275,7 +275,7 @@ test "let-chain: 320 lets - reuse count for tail edit" {
 }
 
 // ── Tier 6: Deep-tree (lambda init) regression benchmarks ──────────
-// Each LetDef has a lambda application init: `let xN = (λf.λx.f (f x)) (λg.g)`
+// Each LetDef has a lambda application init: `let xN = ((f, x) => f (f x)) ((g) => g)`
 // This produces deep subtrees (~6-8 CST nodes per LetDef init) whose byte size
 // exceeds the 64-byte reuse threshold. These benchmarks detect regressions from
 // the size-threshold skip: incremental should still win over full reparse here.
@@ -284,7 +284,7 @@ test "let-chain: 320 lets - reuse count for tail edit" {
 fn make_lambda_let_chain(count : Int) -> String {
   let segments : Array[String] = []
   for i = 0; i < count; i = i + 1 {
-    segments.push("let x\{i} = (\u{03BB}f.\u{03BB}x.f (f x)) (\u{03BB}g.g)")
+    segments.push("let x\{i} = ((f, x) => f (f x)) ((g) => g)")
   }
   segments.push("x\{count - 1}")
   segments.join("\n")
@@ -303,10 +303,10 @@ test "let-chain: 20 lambda lets - initial parse" (b : @bench.T) {
 ///|
 test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
   let source = make_lambda_let_chain(20)
-  // Edit: change the last init's `g` to `f` in `(λg.g)` → `(λg.f)`
-  let tail = "(\u{03BB}g.g)\nx19"
-  let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
-  let edited_tail = "(\u{03BB}g.f)\nx19"
+  // Edit: change the last init's `g` to `f` in `((g) => g)` → `((g) => f)`
+  let tail = "((g) => g)\nx19"
+  let edit_pos = source.length() - tail.length() + "((g) => ".length()
+  let edited_tail = "((g) => f)\nx19"
   let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
@@ -335,9 +335,9 @@ test "let-chain: 20 lambda lets - full reparse" (b : @bench.T) {
 ///|
 test "let-chain: 20 lambda lets - reuse count" {
   let source = make_lambda_let_chain(20)
-  let tail = "(\u{03BB}g.g)\nx19"
-  let edit_pos = source.length() - tail.length() + "(\u{03BB}g.".length()
-  let edited_tail = "(\u{03BB}g.f)\nx19"
+  let tail = "((g) => g)\nx19"
+  let edit_pos = source.length() - tail.length() + "((g) => ".length()
+  let edited_tail = "((g) => f)\nx19"
   let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)

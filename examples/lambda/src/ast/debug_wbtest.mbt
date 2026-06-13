@@ -11,7 +11,7 @@ test "debug output - simple" {
 
 ///|
 test "debug output - complex nested" {
-  // let f = λx. x + 1 in f 2
+  // let f = (x) => x + 1 in f 2
   let term : Term = Module(
     [("f", Lam("x", Bop(Plus, Var("x"), Int(1))))],
     App(Var("f"), Int(2)),

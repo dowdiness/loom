@@ -35,15 +35,67 @@ pub impl @core.AstView for LambdaExprView with fn syntax_node(self) {
 }
 
 ///|
-/// The bound parameter name (e.g. "x" in λx. body).
-pub fn LambdaExprView::param(self : LambdaExprView) -> String {
-  self.node.token_text(@syntax.IdentToken.to_raw())
+fn child_of_kind(
+  node : @seam.SyntaxNode,
+  target : @syntax.SyntaxKind,
+) -> @seam.SyntaxNode? {
+  node
+  .children()
+  .iter()
+  .find_first(child => @syntax.SyntaxKind::from_raw(child.kind()) == target)
 }
 
 ///|
-/// The body expression (first interior-node child, skipping tokens).
+/// The first bound parameter name (e.g. "x" in `(x) => body`).
+pub fn LambdaExprView::param(self : LambdaExprView) -> String {
+  match self.params() {
+    [first, ..] => first
+    [] => ""
+  }
+}
+
+///|
+fn param_names_from_param_list(node : @seam.SyntaxNode) -> Array[String] {
+  node
+  .all_children()
+  .iter()
+  .filter_map(elem => {
+    match elem {
+      @seam.SyntaxElement::Token(t) =>
+        if @syntax.SyntaxKind::from_raw(t.kind()) == @syntax.IdentToken {
+          Some(t.text())
+        } else {
+          None
+        }
+      _ => None
+    }
+  })
+  .to_array()
+}
+
+///|
+/// All bound parameter names in source order.
+pub fn LambdaExprView::params(self : LambdaExprView) -> Array[String] {
+  match child_of_kind(self.node, @syntax.ParamList) {
+    Some(param_list) => param_names_from_param_list(param_list)
+    None =>
+      match self.node.token_text(@syntax.IdentToken.to_raw()) {
+        "" => []
+        param => [param]
+      }
+  }
+}
+
+///|
+/// The body expression, skipping ParamList and TypeAnnot helper nodes.
 pub fn LambdaExprView::body(self : LambdaExprView) -> @seam.SyntaxNode? {
-  self.node.nth_child(0)
+  self.node
+  .children()
+  .iter()
+  .find_first(child => {
+    let kind = @syntax.SyntaxKind::from_raw(child.kind())
+    kind != @syntax.ParamList && kind != @syntax.TypeAnnot
+  })
 }
 
 ///|
@@ -55,6 +107,7 @@ pub impl ToJson for LambdaExprView with fn to_json(self) -> Json {
   {
     "kind": "LambdaExpr",
     "param": self.param(),
+    "params": self.params(),
     "start": (self.node.start() : Int),
     "end": (self.node.end() : Int),
     "body": body_json,
@@ -440,30 +493,9 @@ pub fn LetDefView::init(self : LetDefView) -> @seam.SyntaxNode? {
 /// Get the parameter names from the ParamList, if present.
 /// Returns empty array for value bindings (no ParamList).
 pub fn LetDefView::params(self : LetDefView) -> Array[String] {
-  match
-    self.node
-    .children()
-    .iter()
-    .find_first(child => {
-      @syntax.SyntaxKind::from_raw(child.kind()) == @syntax.ParamList
-    }) {
+  match child_of_kind(self.node, @syntax.ParamList) {
     None => []
-    Some(child) =>
-      child
-      .all_children()
-      .iter()
-      .filter_map(elem => {
-        match elem {
-          @seam.SyntaxElement::Token(t) =>
-            if @syntax.SyntaxKind::from_raw(t.kind()) == @syntax.IdentToken {
-              Some(t.text())
-            } else {
-              None
-            }
-          _ => None
-        }
-      })
-      .to_array()
+    Some(child) => param_names_from_param_list(child)
   }
 }
 

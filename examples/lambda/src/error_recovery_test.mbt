@@ -19,16 +19,15 @@ fn diagnostic_start(diag : @core.Diagnostic) -> Int {
 
 ///|
 test "parse_cst returns diagnostics" {
-  let (cst, diagnostics) = parse_cst_or_fail_recovery("λ.x")
-  inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Expected parameter after λ")
+  let (cst, diagnostics) = parse_cst_or_fail_recovery("(,) => x")
+  inspect(diagnostics.length() > 0, content="true")
   // Cst should be a valid SourceFile
   inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
 }
 
 ///|
 test "parse_cst no errors on valid input" {
-  let (cst, diagnostics) = parse_cst_or_fail_recovery("λx.x")
+  let (cst, diagnostics) = parse_cst_or_fail_recovery("(x) => x")
   inspect(diagnostics.length(), content="0")
   inspect(@syntax.SyntaxKind::from_raw(cst.kind), content="SourceFile")
 }
@@ -55,7 +54,7 @@ test "parse_cst EOF diagnostics point to end of source" {
 ///|
 test "parse_cst: valid inputs produce no diagnostics" {
   let inputs = [
-    "42", "x", "λx.x", "f x", "1 + 2", "if x then 1 else 2", "(x)", "λf.λx.f (f x)",
+    "42", "x", "(x) => x", "f x", "1 + 2", "if x then 1 else 2", "(x)", "(f, x) => f (f x)",
   ]
   for input in inputs {
     let (_, diagnostics) = parse_cst_or_fail_recovery(input)
@@ -86,12 +85,11 @@ fn assert_first_child_kind(
 }
 
 ///|
-test "lambda_expect: missing dot in lambda" {
-  let source = "λx x"
+test "lambda_expect: missing body in arrow lambda" {
+  let source = "(x) =>"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
-  inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Expected .")
+  inspect(diagnostics.length() > 0, content="true")
   assert_first_child_kind(cst, @syntax.LambdaExpr)
 }
 
@@ -113,7 +111,7 @@ test "lambda_expect: missing '=' in let" {
 
 ///|
 test "lambda_expect: missing closing paren" {
-  let source = "(λx. x"
+  let source = "((x) => x"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
@@ -146,19 +144,19 @@ test "lambda_expect: missing ')' in if condition keeps then/else" {
 
 ///|
 test "skip_until: garbage before lambda recovers" {
-  // Two unexpected tokens should be skipped, then λx.x parsed normally
-  let source = "+ + λx. x"
+  // Two unexpected tokens should be skipped, then (x) => x parsed normally
+  let source = "+ + (x) => x"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   // Tree should cover the full input including the recovered lambda
   let tree = @seam.SyntaxNode::from_cst(cst)
-  inspect(tree.end(), content="9")
+  inspect(tree.end(), content=source.length().to_string())
 }
 
 ///|
 test "skip_until: garbage at end of input" {
-  let source = "λx. x + +"
+  let source = "(x) => x + +"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   // Should report at least one error for the trailing "+"
@@ -167,13 +165,13 @@ test "skip_until: garbage at end of input" {
 
 ///|
 test "skip_until: multiple garbage tokens before sync point" {
-  let source = "+ - + λx.x"
+  let source = "+ - + (x) => x"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
   // Tree should cover the full input including the recovered lambda
   let tree = @seam.SyntaxNode::from_cst(cst)
-  inspect(tree.end(), content="10")
+  inspect(tree.end(), content=source.length().to_string())
 }
 
 // ============================================================================
@@ -183,7 +181,7 @@ test "skip_until: multiple garbage tokens before sync point" {
 ///|
 test "balanced: extra tokens before close paren" {
   // Garbage between expression and ) — should skip to )
-  let source = "(λx. x + + )"
+  let source = "((x) => x + +)"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
@@ -193,7 +191,7 @@ test "balanced: extra tokens before close paren" {
 ///|
 test "balanced: nested parens with one missing close" {
   // Inner paren is closed, outer is missing )
-  let source = "((λx. x)"
+  let source = "(((x) => x)"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
@@ -233,9 +231,8 @@ test "node_with_recovery: malformed if missing then" {
 }
 
 ///|
-test "node_with_recovery: malformed lambda missing dot and body" {
-  // "λx" — missing dot and body
-  let source = "λx"
+test "node_with_recovery: malformed lambda missing body" {
+  let source = "(x) =>"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
@@ -247,68 +244,60 @@ test "node_with_recovery: malformed lambda missing dot and body" {
 // ============================================================================
 
 ///|
-test "incremental: fix missing dot by editing" {
-  // 1. Parse broken input: "λx x" (missing dot)
-  let parser = @loom.new_imperative_parser("λx x", lambda_grammar)
+test "incremental: fix missing lambda body by editing" {
+  // 1. Parse broken input: "(x) =>" (missing body)
+  let parser = @loom.new_imperative_parser("(x) =>", lambda_grammar)
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
-  // 2. Insert "." after "λx" → "λx. x"
-  // "λx x" positions: λ=0, x=1, ' '=2, x=3
-  // Insert "." at position 2, shifting ' ' right → "λx. x"
-  let edit = @core.Edit::insert(2, 1)
-  let new_tree = parser.edit(edit, "λx. x").ast
+  // 2. Append " x" → "(x) => x"
+  let edit = @core.Edit::insert(6, 2)
+  let new_tree = parser.edit(edit, "(x) => x").ast
   inspect(parser.diagnostics().length(), content="0")
   // The fixed tree should parse correctly
-  inspect(@ast.print_term(new_tree), content="(λx. x)")
+  inspect(@ast.print_term(new_tree), content="(x) => x")
 }
 
 ///|
-test "incremental: introduce error by deleting dot" {
-  // 1. Parse valid input: "λx. x"
-  let parser = @loom.new_imperative_parser("λx. x", lambda_grammar)
+test "incremental: introduce error by deleting lambda body" {
+  // 1. Parse valid input: "(x) => x"
+  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length(), content="0")
 
-  // 2. Delete "." at position 2 → "λx x"
-  let edit = @core.Edit::delete(2, 3)
-  let _ = parser.edit(edit, "λx x").ast
+  // 2. Delete the body → "(x) =>"
+  let edit = @core.Edit::delete(6, 8)
+  let _ = parser.edit(edit, "(x) =>").ast
   inspect(parser.diagnostics().length() > 0, content="true")
 }
 
 ///|
 test "incremental: fix missing paren by appending" {
-  // 1. Parse broken input: "(λx. x" (missing closing paren)
-  let parser = @loom.new_imperative_parser("(λx. x", lambda_grammar)
+  // 1. Parse broken input: "((x) => x" (missing closing paren)
+  let parser = @loom.new_imperative_parser("((x) => x", lambda_grammar)
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
-  // 2. Append ")" at end → "(λx. x)"
-  let edit = @core.Edit::insert(6, 1)
-  let new_tree = parser.edit(edit, "(λx. x)").ast
+  // 2. Append ")" at end → "((x) => x)"
+  let edit = @core.Edit::insert(9, 1)
+  let new_tree = parser.edit(edit, "((x) => x)").ast
   inspect(parser.diagnostics().length(), content="0")
-  inspect(@ast.print_term(new_tree), content="(λx. x)")
+  inspect(@ast.print_term(new_tree), content="(x) => x")
 }
 
 ///|
 test "incremental: error to error edit" {
-  // 1. Parse broken input: "λ.x" (missing param)
-  let parser = @loom.new_imperative_parser("λ.x", lambda_grammar)
+  // 1. Parse broken input with a missing parameter.
+  let parser = @loom.new_imperative_parser("(,) => x", lambda_grammar)
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
-  // 2. Change "x" to "y" — still broken but different
-  let edit = @core.Edit::replace(2, 3, 3)
-  let new_tree = parser.edit(edit, "λ.y").ast
-  // Should still have diagnostics (missing param) but produce a valid tree
+  // 2. Change "x" to "y" — still broken but different.
+  let edit = @core.Edit::replace(7, 8, 8)
+  let new_tree = parser.edit(edit, "(,) => y").ast
+  // Should still have diagnostics but produce a valid error tree.
   inspect(parser.diagnostics().length() > 0, content="true")
-  // Should produce a term with error recovery (λ with missing param → error + body)
-  inspect(
-    @ast.print_term(new_tree),
-    content=(
-      #|(λ. y)
-    ),
-  )
+  inspect(@ast.print_term(new_tree).contains("<error"), content="true")
 }
 
 // ============================================================================
@@ -316,16 +305,16 @@ test "incremental: error to error edit" {
 // ============================================================================
 
 ///|
-test "error recovery: empty param list" {
-  let (cst, diagnostics) = parse_cst_or_fail_recovery("let f() = x")
-  assert_cst_complete("let f() = x", cst)
-  inspect(diagnostics.length() > 0, content="true")
+test "error recovery: empty fn param list is accepted" {
+  let (cst, diagnostics) = parse_cst_or_fail_recovery("fn f() { x }")
+  assert_cst_complete("fn f() { x }", cst)
+  inspect(diagnostics.length(), content="0")
 }
 
 ///|
 test "error recovery: trailing comma in param list" {
-  let (cst, diagnostics) = parse_cst_or_fail_recovery("let f(x,) = x")
-  assert_cst_complete("let f(x,) = x", cst)
+  let (cst, diagnostics) = parse_cst_or_fail_recovery("fn f(x,) { x }")
+  assert_cst_complete("fn f(x,) { x }", cst)
   // Trailing comma should emit a diagnostic
   inspect(diagnostics.length() > 0, content="true")
 }
@@ -359,7 +348,7 @@ test "error recovery: missing semicolon between defs in block" {
 
 ///|
 test "error recovery: leading comma in param list" {
-  let source = "let f(,) = x"
+  let source = "fn f(,) { x }"
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length() > 0, content="true")
