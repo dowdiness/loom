@@ -18,10 +18,10 @@ All benchmarks executed successfully. Performance measurements taken on 2025-12-
 | Operation | Mean Time | Range | Iterations |
 |-----------|-----------|-------|------------|
 | Simple (`42`) | **0.07 µs** | 0.06 - 0.08 µs | 1,000,000 |
-| Lambda (`λx.x`) | **0.23 µs** | 0.22 - 0.23 µs | 1,000,000 |
-| Nested lambdas (`λf.λx.f (f x)`) | **0.60 µs** | 0.59 - 0.62 µs | 1,000,000 |
+| Arrow lambda (`(x) => x`) | **0.23 µs** | 0.22 - 0.23 µs | 1,000,000 |
+| Multi-param arrow (`(f, x) => f (f x)`) | **0.60 µs** | 0.59 - 0.62 µs | 1,000,000 |
 | Arithmetic (`1 + 2 - 3 + 4`) | **0.24 µs** | 0.23 - 0.27 µs | 1,000,000 |
-| Complex (`λf.λx.if f x then x + 1 else x - 1`) | **1.17 µs** | 1.13 - 1.20 µs | 838,600 |
+| Complex (`(f, x) => if f x then x + 1 else x - 1`) | **1.17 µs** | 1.13 - 1.20 µs | 838,600 |
 
 **Analysis:**
 - ✅ All full parse operations complete in **< 1.2 µs** (< 0.0012 ms)
@@ -36,7 +36,7 @@ All benchmarks executed successfully. Performance measurements taken on 2025-12-
 | Initial parse (`x`) | **0.16 µs** | 0.15 - 0.16 µs | 1,000,000 |
 | Small edit (`x` → `x + 1`) | **0.36 µs** | 0.35 - 0.37 µs | 1,000,000 |
 | Multiple edits (2 sequential) | **0.74 µs** | 0.71 - 0.76 µs | 1,000,000 |
-| Replacement (`λx.x` → `\x.x`) | **0.63 µs** | 0.62 - 0.64 µs | 1,000,000 |
+| Replacement (`(x) => x` → `(y) => y`) | **0.63 µs** | 0.62 - 0.64 µs | 1,000,000 |
 
 **Analysis:**
 - ✅ Small incremental edits: **0.36 µs** (0.00036 ms)

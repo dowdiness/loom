@@ -18,11 +18,11 @@ Parses an input string directly into a `Term` AST. Raises errors if tokenization
 pub fn parse_source_file_term(String) -> (Term, Array[Diagnostic]) raise @core.LexError
 ```
 
-Parses a multi-expression source file — a sequence of top-level `let` definitions optionally followed by a final expression — and converts to `Term`. Definitions are right-folded into nested `Let` terms. Returns both the term and any parse diagnostics (does not raise on parse errors). Use this for file-level input.
+Parses a multi-expression source file — a sequence of top-level `let` value declarations or `fn` definitions optionally followed by a final expression — and converts to `Term`. Function parameters lower to nested `Lam` terms. Returns both the term and any parse diagnostics (does not raise on parse errors). Use this for file-level input.
 
 ```
-let id = λx. x
-let const = λx. λy. x
+fn id(x) { x }
+fn const(x, y) { x }
 ```
 
 ### `parse_cst`
@@ -54,8 +54,8 @@ Converts an input string into an array of tokens. Raises `@core.LexError` if the
 **Example:**
 
 ```moonbit
-let tokens = tokenize("λx.x + 1")
-// [Lambda, Identifier("x"), Dot, Identifier("x"), Plus, Integer(1), EOF]
+let tokens = tokenize("(x) => x + 1")
+// [LeftParen, Identifier, RightParen, FatArrow, Identifier, Plus, Integer, EOF]
 ```
 
 ---
@@ -73,9 +73,9 @@ Converts a `Term` AST back into a human-readable string representation. May add 
 **Example:**
 
 ```moonbit
-let ast = parse("λx.x + 1")
+let ast = parse("(x) => x + 1")
 let output = print_term(ast)
-// "(λx. (x + 1))"
+// "(x) => (x + 1)"
 ```
 
 ### `term_to_dot`
@@ -89,7 +89,7 @@ Renders a `Term` AST as a GraphViz DOT string. Produces the same format as `@loo
 **Example:**
 
 ```moonbit
-let term = parse("λx.x + 1")
+let term = parse("(x) => x + 1")
 let dot = term_to_dot(term)
 // "digraph {\n  bgcolor=\"transparent\";\n  ..."
 ```
@@ -159,7 +159,7 @@ pub suberror ParseError (String, Token)
 
 ```moonbit
 try {
-  let result = parse("λ.x")  // Missing parameter name
+  let result = parse("() => x")  // Missing parameter name
 } catch {
   ParseError((msg, token)) => {
     println("Parse error: " + msg)
@@ -182,12 +182,12 @@ All CST types come from the `seam` package (`seam/`).
 **Example:**
 
 ```moonbit
-let cst = parse_cst("λx.x + 1")
+let cst = parse_cst("(x) => x + 1")
 let syntax = @seam.SyntaxNode::from_cst(cst)
-// syntax.start() == 0, syntax.end() == 8
+// syntax.start() == 0, syntax.end() == 12
 
-let term = parse("λx.x + 1")
-// Term::Lam("x", Term::BinOp(Plus, Term::Var("x"), Term::Int(1)))
+let term = parse("(x) => x + 1")
+// Term::Lam("x", Term::Bop(Plus, Term::Var("x"), Term::Int(1)))
 
 for child in syntax.children() {
   // child.start(), child.end(), child.kind()
@@ -273,9 +273,9 @@ backdating at the AST boundary, so equality is part of the public contract.
 **Example:**
 
 ```moonbit
-let p = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
+let p = @loom.new_parser("(x) => x + 1", @lambda.lambda_grammar)
 let term = p.ast().read_or_abort()            // Ast type parameter of the Grammar
-p.set_source("λx.x + 2")
+p.set_source("(x) => x + 2")
 let updated = p.ast().read_or_abort()         // re-runs syntax + AST stages only if source changed
 let diags = p.diagnostics().read_or_abort()   // DiagnosticSet, empty on success
 ```
@@ -293,17 +293,17 @@ for when to reach for `ImperativeParser` directly.
 ### Identity Function
 
 ```moonbit
-let identity = parse("λx.x")
+let identity = parse("(x) => x")
 print_term(identity)
-// "(λx. x)"
+// "(x) => x"
 ```
 
 ### Function Application
 
 ```moonbit
-let apply = parse("(λx.x) 42")
+let apply = parse("((x) => x) 42")
 print_term(apply)
-// "((λx. x) 42)"
+// "(((x) => x) 42)"
 ```
 
 ### Arithmetic Operations
@@ -325,16 +325,16 @@ print_term(conditional)
 ### Complex Nested Expression
 
 ```moonbit
-let complex = parse("(λf.λx.if f x then x + 1 else x - 1)")
+let complex = parse("(f, x) => if f x then x + 1 else x - 1")
 print_term(complex)
-// "(λf. (λx. if (f x) then (x + 1) else (x - 1)))"
+// "(f, x) => (if (f x) then (x + 1) else (x - 1))"
 ```
 
 ### Church Numerals
 
 ```moonbit
 // Church encoding of number 2
-let two = parse("λf.λx.f (f x)")
+let two = parse("(f, x) => f (f x)")
 print_term(two)
-// "(λf. (λx. (f (f x))))"
+// "(f, x) => (f (f x))"
 ```

@@ -40,10 +40,10 @@ A `TokenStage` derived cell between source and CST went through a remove→reint
 Character-by-character scanning producing `Array[TokenInfo[Token]]`:
 
 - **Whitespace handling** — preserves whitespace as trivia tokens for lossless round-tripping
-- **Keyword recognition** — identifies reserved words (`if`, `then`, `else`)
-- **Number parsing** — reads multi-digit integers as a single `Integer(Int)` token
+- **Keyword recognition** — identifies reserved words (`fn`, `let`, `if`, `then`, `else`)
+- **Number parsing** — reads multi-digit integers as a single integer token
 - **Identifier reading** — supports alphanumeric variable names starting with a letter
-- **Unicode support** — accepts both `λ` (U+03BB) and `\` for lambda
+- **Diagnostic legacy tokens** — still tokenizes legacy `λ`/`\` so the parser can report rejected old syntax
 
 ### CST Parser (`examples/lambda/src/cst_parser.mbt`)
 
@@ -78,14 +78,15 @@ Converts the CST to `Term` directly via typed `SyntaxNode` views — no intermed
 `print_term` traverses the `Term` AST and reconstructs source text:
 
 - Adds parentheses for unambiguous output (may add extra parens beyond the minimum needed)
-- Uses `λ` for lambda abstraction
+- Uses `(params) => …` for anonymous functions and `fn name(params) { … }` for named definitions
+- Emits brace blocks when a lambda/function body contains local definitions
 - Infix notation for binary operations
 - Natural keyword formatting for conditionals: `if … then … else …`
 
 Example round-trip:
 
 ```moonbit
-let ast = parse("λx.x + 1")
+let ast = parse("(x) => { let y = x; y }")
 let output = print_term(ast)
-// "(λx. (x + 1))"
+// "(x) => { let y = x\ny }"
 ```

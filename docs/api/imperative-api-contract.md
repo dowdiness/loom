@@ -109,22 +109,22 @@ Grammar authors never need to construct `ImperativeLanguage` directly — the
 
 ```moonbit
 // 1. Construct via @loom factory (preferred):
-let parser = @loom.new_imperative_parser("λx.x", lambda_grammar)
+let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
 
 // 2. Initial parse:
 let snapshot = parser.parse()
 let ast = snapshot.ast
 
-// 3. Incremental edit (e.g. user changes "x" to "y"):
-let edit = @core.Edit::replace(1, 2, 2)
-let snapshot2 = parser.edit(edit, "λy.y")
+// 3. Incremental edit (e.g. user changes the body "x" to "y"):
+let edit = @core.Edit::replace(7, 8, 8)
+let snapshot2 = parser.edit(edit, "(x) => y")
 let ast2 = snapshot2.ast
 
 // 4. Inspect diagnostics:
 let diags = parser.diagnostics()  // DiagnosticSet::empty() on success
 
 // 5. Reset after structural regeneration:
-let ast3 = parser.reset("λz.z + 1").ast  // discards incremental state
+let ast3 = parser.reset("(z) => z + 1").ast  // discards incremental state
 ```
 
 ---
