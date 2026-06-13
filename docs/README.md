@@ -65,9 +65,10 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-13-parsercontext-method-only-boundary.md](decisions/2026-06-13-parsercontext-method-only-boundary.md) — **Accepted** `ParserContext` grammar-author API is method-only; raw parser-state fields are private implementation detail
 - [decisions/2026-06-11-separated-list-boundary-model.md](decisions/2026-06-11-separated-list-boundary-model.md) — **Accepted** N-separators→N+1-slots boundary model shared by the seam projection grouping helper and the `ParserContext::separated_list` combinator; empty slots stay represented
 - [decisions/2026-06-08-json-role-span-export.md](decisions/2026-06-08-json-role-span-export.md) — **Accepted** JSON-local editor-neutral role-span export shape for CodeMirror-facing consumers without a frontend dependency
-- [decisions/2026-06-07-parser-context-grammar-author-helpers.md](decisions/2026-06-07-parser-context-grammar-author-helpers.md) — **Accepted** small `ParserContext` grammar-author helpers while deferring broader balanced-scan and field-boundary decisions
+- [decisions/2026-06-07-parser-context-grammar-author-helpers.md](decisions/2026-06-07-parser-context-grammar-author-helpers.md) — **Accepted** small `ParserContext` grammar-author helpers; broader field-boundary decision resolved by [ADR 2026-06-13](decisions/2026-06-13-parsercontext-method-only-boundary.md)
 - [decisions/2026-06-07-reactive-syntax-only-parser.md](decisions/2026-06-07-reactive-syntax-only-parser.md) — **Accepted** syntax-only reactive parser path for CST/diagnostics consumers whose AST is unavailable or not naturally `Eq`
 - [decisions/2026-05-30-seam-source-span-api-hardening.md](decisions/2026-05-30-seam-source-span-api-hardening.md) — **Accepted** unstable names for backing-source inspection and parser-owned source-span reuse hooks before seam stabilization
 - [decisions/2026-05-29-stable-semantic-projection-identity.md](decisions/2026-05-29-stable-semantic-projection-identity.md) — **Accepted** leaf-level helper preserves semantic projection IDs across edit windows and malformed-input recovery
@@ -143,8 +144,9 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [ParserContext grammar-author boundary](plans/2026-06-12-parsercontext-field-boundary-design.md) — make `ParserContext` method-only by privatizing all parser-state fields (issue #251).
+_No active plans._
 
+_Previously active: ParserContext grammar-author boundary shipped 2026-06-11 as PR #290 (issue #251; see [ADR](decisions/2026-06-13-parsercontext-method-only-boundary.md) and [archived design](archive/completed-phases/2026-06-12-parsercontext-field-boundary-design.md))._
 _Previously active: separated-list parsing & grouping shipped 2026-06-11 as PR #285/#286 (issue #279; see [ADR](decisions/2026-06-11-separated-list-boundary-model.md), [archived design](archive/completed-phases/2026-06-11-separated-list-grouping.md), and [archived plan](archive/completed-phases/2026-06-11-separated-list-grouping-plan.md))._
 _Previously active: json-settings last-good attachment example shipped 2026-06-01 as [`examples/json-settings/`](../examples/json-settings/) (issue #202; no ADR — implements accepted last-good + stable-identity decisions). See [archived plan](archive/completed-phases/2026-06-01-json-settings-last-good-attachment-plan.md)._
 _Completed: callers `visible_from` shipped 2026-05-19 in PR #129 (see [ADR](decisions/2026-05-22-callers-visible-from-memo.md), [archived spec](archive/completed-phases/2026-05-19-callers-visible-from.md), and [archived plan](archive/completed-phases/2026-05-19-callers-visible-from-plan.md))._
@@ -156,7 +158,7 @@ _Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026
 
 > **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
 
-- [archive/completed-phases/](archive/completed-phases/) — 96 completed phase plans (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, post-112 follow-ups, lambda rename consumer, callers `visible_from`, and more)
+- [archive/completed-phases/](archive/completed-phases/) — completed phase plans and implementation notes (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, post-112 follow-ups, lambda rename consumer, callers `visible_from`, and more)
 - [archive/](archive/) — research notes and retired design snapshots:
   - [archive/lezer.md](archive/lezer.md), [archive/LEZER_IMPLEMENTATION.md](archive/LEZER_IMPLEMENTATION.md), [archive/LEZER_FRAGMENT_REUSE.md](archive/LEZER_FRAGMENT_REUSE.md) — Lezer parser framework investigation
   - [archive/green-tree-extraction.md](archive/green-tree-extraction.md) — Green Tree / Red Tree research
