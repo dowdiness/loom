@@ -30,6 +30,23 @@ test "issue305: let value declaration parses" {
 }
 
 ///|
+test "issue305: arrow block lambda with local defs roundtrips" {
+  let term = parse("(x) => { let y = x; y }") catch {
+    _ => fail("parse failed")
+  }
+  let source = @ast.print_term(term)
+  inspect(source, content="(x) => { let y = x\ny }")
+  let reparsed = parse(source) catch { _ => fail("reparse failed") }
+  inspect(reparsed == term, content="true")
+
+  let pretty_source = @pretty.pretty_unparse(term)
+  let pretty_reparsed = parse(pretty_source) catch {
+    _ => fail("pretty reparse failed")
+  }
+  inspect(pretty_reparsed == term, content="true")
+}
+
+///|
 test "issue305: old lambda abstraction is now rejected" {
   let (_, diagnostics) = parse_term("\\x.x") catch { _ => fail("lex failed") }
   inspect(diagnostics.length() > 0, content="true")

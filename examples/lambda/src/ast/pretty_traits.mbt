@@ -112,16 +112,55 @@ fn params_to_source(params : Array[String]) -> String {
 }
 
 ///|
+fn module_contents_to_source(
+  defs : Array[(String, Term)],
+  body : Term,
+) -> String {
+  let parts = defs.map(fn(d) { def_to_source(d.0, d.1) })
+  parts.push(expression_to_source(body))
+  parts.join("\n")
+}
+
+///|
+fn module_to_block_source(defs : Array[(String, Term)], body : Term) -> String {
+  "{ " + module_contents_to_source(defs, body) + " }"
+}
+
+///|
+fn expression_to_source(term : Term) -> String {
+  match term {
+    Module(defs, body) => module_to_block_source(defs, body)
+    _ => term_to_source(term)
+  }
+}
+
+///|
+fn function_body_to_source(body : Term) -> String {
+  match body {
+    Module(defs, result) => module_contents_to_source(defs, result)
+    _ => term_to_source(body)
+  }
+}
+
+///|
+fn lambda_body_to_source(body : Term) -> String {
+  match body {
+    Module(defs, result) => module_to_block_source(defs, result)
+    _ => term_to_source_with_prec(body, prec_lam)
+  }
+}
+
+///|
 fn def_to_source(name : String, init : Term) -> String {
   let (params, body) = collect_lambda_params(init)
   if params.is_empty() {
-    "let " + name + " = " + term_to_source(init)
+    "let " + name + " = " + expression_to_source(init)
   } else {
     "fn " +
     name +
     params_to_source(params) +
     " { " +
-    term_to_source(body) +
+    function_body_to_source(body) +
     " }"
   }
 }
@@ -133,9 +172,7 @@ fn term_to_source_with_prec(term : Term, ctx_prec : Int) -> String {
     Var(name) => name
     Lam(_, _) => {
       let (params, body) = collect_lambda_params(term)
-      params_to_source(params) +
-      " => " +
-      term_to_source_with_prec(body, prec_lam)
+      params_to_source(params) + " => " + lambda_body_to_source(body)
     }
     App(f, arg) =>
       "(" +
@@ -158,17 +195,18 @@ fn term_to_source_with_prec(term : Term, ctx_prec : Int) -> String {
     }
     If(cond, then_, else_) =>
       "if " +
-      term_to_source(cond) +
+      expression_to_source(cond) +
       " then " +
-      term_to_source(then_) +
+      expression_to_source(then_) +
       " else " +
-      term_to_source(else_)
+      expression_to_source(else_)
     LetDef(name, init) => def_to_source(name, init)
-    Module(defs, body) => {
-      let parts = defs.map(fn(d) { def_to_source(d.0, d.1) })
-      parts.push(term_to_source(body))
-      parts.join("\n")
-    }
+    Module(defs, body) =>
+      if ctx_prec == prec_top {
+        module_contents_to_source(defs, body)
+      } else {
+        module_to_block_source(defs, body)
+      }
     Unit => "()"
     Unbound(name) => "<unbound: " + name + ">"
     Error(msg) => "<error: " + msg + ">"
@@ -180,7 +218,9 @@ fn term_to_source_with_prec(term : Term, ctx_prec : Int) -> String {
     Bop(_, _, _) => prec_bop
     App(_, _) => prec_app
     Int(_) | Var(_) | Unit | Unbound(_) | Error(_) | Hole(_) => prec_atom
-    LetDef(_, _) | Module(_, _) => prec_top
+    LetDef(_, _) => prec_top
+    Module(_, _) if ctx_prec == prec_top => prec_top
+    Module(_, _) => prec_atom
   }
   if prec < ctx_prec {
     "(" + text + ")"
@@ -202,6 +242,52 @@ fn params_to_layout(
 }
 
 ///|
+fn module_contents_to_layout(
+  defs : Array[(String, Term)],
+  body : Term,
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  let def_layouts = defs.map(fn(d) { def_to_layout(d.0, d.1) })
+  let defs_doc = @pretty.separate(@pretty.hardline(), def_layouts)
+  let body_doc = term_to_pretty_layout_in_expr(body).layout
+  if def_layouts.is_empty() {
+    body_doc
+  } else {
+    defs_doc + @pretty.hardline() + body_doc
+  }
+}
+
+///|
+fn module_to_block_layout(
+  defs : Array[(String, Term)],
+  body : Term,
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  @pretty.group(
+    punc("{") +
+    @pretty.nest(@pretty.line() + module_contents_to_layout(defs, body)) +
+    @pretty.line() +
+    punc("}"),
+  )
+}
+
+///|
+fn function_body_to_layout(
+  body : Term,
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  match body {
+    Module(defs, result) => module_contents_to_layout(defs, result)
+    _ => term_to_pretty_layout_in_expr(body).layout
+  }
+}
+
+///|
+fn lambda_body_to_layout(body : Term) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  match body {
+    Module(defs, result) => module_to_block_layout(defs, result)
+    _ => term_to_pretty_layout_in_expr(body).layout
+  }
+}
+
+///|
 fn def_to_layout(
   name : String,
   init : Term,
@@ -215,10 +301,10 @@ fn def_to_layout(
       @pretty.text(" ") +
       op_text("=") +
       @pretty.text(" ") +
-      term_to_pretty_layout(init).layout,
+      term_to_pretty_layout_in_expr(init).layout,
     )
   } else {
-    let body_layout = term_to_pretty_layout(body).layout
+    let body_layout = function_body_to_layout(body)
     @pretty.group(
       kw("fn") +
       @pretty.text(" ") +
@@ -236,13 +322,26 @@ fn def_to_layout(
 }
 
 ///|
+fn term_to_pretty_layout_in_expr(term : Term) -> PrettyLayout {
+  term_to_pretty_layout_with_context(term, false)
+}
+
+///|
 fn term_to_pretty_layout(term : Term) -> PrettyLayout {
+  term_to_pretty_layout_with_context(term, true)
+}
+
+///|
+fn term_to_pretty_layout_with_context(
+  term : Term,
+  top_level : Bool,
+) -> PrettyLayout {
   match term {
     Int(n) => PrettyLayout::int_lit(n)
     Var(name) => PrettyLayout::variable(name)
     Lam(_, _) => {
       let (params, body) = collect_lambda_params(term)
-      let body_layout = term_to_pretty_layout(body)
+      let body_layout = lambda_body_to_layout(body)
       {
         layout: @pretty.group(
           punc("(") +
@@ -250,37 +349,35 @@ fn term_to_pretty_layout(term : Term) -> PrettyLayout {
           punc(")") +
           @pretty.text(" ") +
           op_text("=>") +
-          @pretty.nest(@pretty.line() + body_layout.layout),
+          @pretty.nest(@pretty.line() + body_layout),
         ),
         prec: prec_lam,
       }
     }
     App(f, arg) =>
-      PrettyLayout::app(term_to_pretty_layout(f), term_to_pretty_layout(arg))
+      PrettyLayout::app(
+        term_to_pretty_layout_in_expr(f),
+        term_to_pretty_layout_in_expr(arg),
+      )
     Bop(op, left, right) =>
       PrettyLayout::bop(
         op,
-        term_to_pretty_layout(left),
-        term_to_pretty_layout(right),
+        term_to_pretty_layout_in_expr(left),
+        term_to_pretty_layout_in_expr(right),
       )
     If(cond, then_, else_) =>
       PrettyLayout::if_then_else(
-        term_to_pretty_layout(cond),
-        term_to_pretty_layout(then_),
-        term_to_pretty_layout(else_),
+        term_to_pretty_layout_in_expr(cond),
+        term_to_pretty_layout_in_expr(then_),
+        term_to_pretty_layout_in_expr(else_),
       )
     LetDef(name, init) => { layout: def_to_layout(name, init), prec: prec_top }
-    Module(defs, body) => {
-      let def_layouts = defs.map(fn(d) { def_to_layout(d.0, d.1) })
-      let defs_doc = @pretty.separate(@pretty.hardline(), def_layouts)
-      let body_doc = term_to_pretty_layout(body).layout
-      let layout = if def_layouts.is_empty() {
-        body_doc
+    Module(defs, body) =>
+      if top_level {
+        { layout: module_contents_to_layout(defs, body), prec: prec_top }
       } else {
-        defs_doc + @pretty.hardline() + body_doc
+        { layout: module_to_block_layout(defs, body), prec: prec_atom }
       }
-      { layout, prec: prec_top }
-    }
     Unit => PrettyLayout::unit()
     Unbound(name) => PrettyLayout::unbound(name)
     Error(msg) => PrettyLayout::error_term(msg)
