@@ -217,6 +217,37 @@ moon test                    # parser, lexer, incremental, error recovery, block
 moon bench --release         # benchmarks
 ```
 
+## Spec compliance tests
+
+`src/json_testsuite_generated_wbtest.mbt` embeds the pinned
+[`nst/JSONTestSuite`](https://github.com/nst/JSONTestSuite) `test_parsing`
+fixtures so CI stays hermetic. The suite is the practical spec-compliance gate
+for the strict parser API:
+
+- `y_*.json` fixtures must be accepted by `parse(...)`.
+- `n_*.json` fixtures must be rejected by `parse(...)`.
+- `i_*.json` fixtures are implementation-defined by JSONTestSuite; they are
+  listed in the generated file but not asserted.
+- non-UTF-8 fixtures are outside this parser's current public API boundary
+  because `parse(...)` accepts MoonBit `String`, not raw `Bytes`.
+
+This supports the precise claim that strict `parse(...)` passes the pinned
+JSONTestSuite required cases representable as MoonBit `String`. It is not a
+formal proof of RFC 8259/JSON.org compliance, and it does not cover raw byte
+encoding validation.
+
+Regenerate the embedded fixtures after intentionally updating the upstream
+revision in `tools/update_json_conformance_tests.py`:
+
+```bash
+python3 tools/update_json_conformance_tests.py
+# NEW_MOON_MOD=0 keeps MoonBit on this repo's module-state cache mode
+# for incremental rebuilds with local workspace dependencies.
+NEW_MOON_MOD=0 moon info
+NEW_MOON_MOD=0 moon fmt
+moon test src/json_testsuite_generated_wbtest.mbt
+```
+
 ## Learn More
 
 - [`@loom` Quick Start](../../loom/README.md#quick-start) — consumer-side

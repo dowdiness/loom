@@ -1,4 +1,17 @@
 ///|
+fn nested_array_source(depth : Int, leaf : String) -> String {
+  let builder = StringBuilder::new()
+  for _i = 0; _i < depth; _i = _i + 1 {
+    builder.write_char('[')
+  }
+  builder.write_string(leaf)
+  for _i = 0; _i < depth; _i = _i + 1 {
+    builder.write_char(']')
+  }
+  builder.to_string()
+}
+
+///|
 test "incremental: edit value in object matches full reparse" {
   let source = "{\"a\": 1}"
   let parser = @loom.new_imperative_parser(source, json_grammar)
@@ -81,6 +94,29 @@ test "block reparse: edit inside array uses block reparse" {
   let incr = parser.edit(edit, new_source).ast
   let full = try! parse(new_source)
   inspect(incr.to_string(), content=full.to_string())
+  inspect(parser.get_last_reuse_count(), content="1")
+}
+
+///|
+test "block reparse: carries absolute nesting depth" {
+  let depth = 512
+  let source = nested_array_source(depth, "0")
+  let parser = @loom.new_imperative_parser(source, json_grammar)
+  let initial = parser.parse()
+  inspect(initial.diagnostics.length(), content="0")
+  let new_source = nested_array_source(depth, "[0]")
+  let edit = @core.Edit::new(depth, 1, 3)
+  let incr = parser.edit(edit, new_source)
+  let (full_cst, full_diagnostics) = try! parse_cst(new_source)
+  inspect(incr.diagnostics.length() > 0, content="true")
+  inspect(
+    incr.diagnostics.format() == full_diagnostics.format(),
+    content="true",
+  )
+  inspect(
+    @core.tree_diff(incr.syntax.cst_node(), full_cst).length(),
+    content="0",
+  )
   inspect(parser.get_last_reuse_count(), content="1")
 }
 

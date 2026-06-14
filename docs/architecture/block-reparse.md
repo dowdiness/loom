@@ -146,13 +146,13 @@ reparseable_node(tree_after, edit).text_range
 ```
 BlockReparseSpec[T, K]
   is_reparseable : (RawKind) -> Bool
-  get_reparser : (RawKind) -> ((ParserContext[T, K]) -> Unit)?
+  get_reparser : (SyntaxNode) -> ((ParserContext[T, K]) -> Unit)?
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 ```
 
 **`is_reparseable(kind)`** — returns true for node kinds that can be reparsed in isolation. Only "container" kinds (lists, blocks) should return true — not individual items. For Rust: `ITEM_LIST`, `BLOCK_EXPR`, `MATCH_ARM_LIST`. For lambda: `SourceFile`.
 
-**`get_reparser(kind)`** — returns the parse function for a reparseable kind. This should be the **same grammar function** that produced the node originally, ensuring structural consistency. Returns `None` if the kind has no reparser (should not happen if `is_reparseable` returned true).
+**`get_reparser(node)`** — returns the parse function for a reparseable syntax node. This should usually be the **same grammar function** that produced the node originally, ensuring structural consistency. The callback receives the absolute `SyntaxNode`, not just its kind, so a language can preserve context that isolated block text does not carry (for example JSON's nesting-depth limit). Return `None` to fall through to full incremental reparse when the isolated parser cannot enforce the same invariants as a root parse.
 
 **`is_balanced(tokens)`** — structural integrity check on the re-lexed tokens. Returns false to reject the block reparse and fall through to full incremental reparse. Should be cheap — O(n) scan of the token array.
 

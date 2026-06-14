@@ -328,8 +328,8 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
       is_reparseable: fn(kind) { kind == root_kind },
-      get_reparser: fn(kind) {
-        if kind == root_kind {
+      get_reparser: fn(node) {
+        if node.kind() == root_kind {
           Some(froot)
         } else {
           None
@@ -358,8 +358,8 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
       is_reparseable: fn(kind) { kind == block_kind },
-      get_reparser: fn(kind) {
-        if kind == block_kind {
+      get_reparser: fn(node) {
+        if node.kind() == block_kind {
           Some(fblock_root)
         } else {
           None

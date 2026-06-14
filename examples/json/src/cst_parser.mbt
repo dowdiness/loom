@@ -3,6 +3,13 @@
 ///|
 const MAX_ERRORS : Int = 50
 
+///|
+// Defensive implementation limit, not a JSON grammar rule. JSONTestSuite
+// includes adversarial invalid inputs with tens of thousands of unmatched
+// opening containers; reject them with diagnostics instead of overflowing the
+// recursive-descent call stack.
+const MAX_NESTING_DEPTH : Int = 512
+
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
 ///|
@@ -25,11 +32,12 @@ fn is_sync_point(token : Token) -> Bool {
 /// Adapt value parsing to `separated_list`'s Boolean element contract.
 fn parse_value_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  depth~ : Int,
 ) -> Bool {
   match ctx.peek() {
     token if is_sync_point(token) => false
     _ => {
-      parse_value(ctx)
+      parse_value(ctx, depth~)
       true
     }
   }
@@ -39,11 +47,12 @@ fn parse_value_list_element(
 /// Adapt member parsing to `separated_list`'s Boolean element contract.
 fn parse_member_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  value_depth~ : Int,
 ) -> Bool {
   match ctx.peek() {
     token if is_sync_point(token) => false
     _ => {
-      parse_member(ctx)
+      parse_member(ctx, value_depth~)
       true
     }
   }
@@ -70,15 +79,29 @@ fn json_expect(
 // ─── Grammar (entry point + rules) ───────────────────────────────────────────
 
 ///|
-fn parse_value(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_value(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  depth~ : Int,
+) -> Unit {
+  if depth > MAX_NESTING_DEPTH {
+    ctx.error("Maximum JSON nesting depth exceeded")
+    if is_sync_point(ctx.peek()) {
+      ctx.start_node(ErrorNode)
+      ctx.emit_error_placeholder()
+      ctx.finish_node()
+    } else {
+      let _ = ctx.skip_until(is_sync_point)
+    }
+    return
+  }
   if ctx.too_many_errors(MAX_ERRORS) {
     // Consume token to avoid infinite loops in separated_list element parsing.
     ctx.bump_error()
     return
   }
   match ctx.peek() {
-    LBrace => parse_object(ctx)
-    LBracket => parse_array(ctx)
+    LBrace => parse_object_at_depth(ctx, depth~)
+    LBracket => parse_array_at_depth(ctx, depth~)
     StringLit => ctx.node(StringValue, fn() { ctx.emit_token(StringToken) })
     NumberLit => ctx.node(NumberValue, fn() { ctx.emit_token(NumberToken) })
     True => ctx.node(BoolValue, fn() { ctx.emit_token(TrueKeyword) })
@@ -99,14 +122,17 @@ fn parse_value(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 
 ///|
 /// Parse object: `{ member (, member)* }`
-pub fn parse_object(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_object_at_depth(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  depth~ : Int,
+) -> Unit {
   ctx.node(ObjectNode, fn() {
     ctx.emit_token(LBraceToken) // {
     if ctx.peek() != RBrace && ctx.peek() != EOF {
       let _ = ctx.separated_list(
         ErrorNode,
         Comma,
-        fn() { parse_member_list_element(ctx) },
+        fn() { parse_member_list_element(ctx, value_depth=depth + 1) },
         element_start=fn() { ctx.peek() is StringLit },
         wrap_element=false,
       )
@@ -117,14 +143,17 @@ pub fn parse_object(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 
 ///|
 /// Parse array: `[ value (, value)* ]`
-pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_array_at_depth(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  depth~ : Int,
+) -> Unit {
   ctx.node(ArrayNode, fn() {
     ctx.emit_token(LBracketToken) // [
     if ctx.peek() != RBracket && ctx.peek() != EOF {
       let _ = ctx.separated_list(
         ErrorNode,
         Comma,
-        fn() { parse_value_list_element(ctx) },
+        fn() { parse_value_list_element(ctx, depth=depth + 1) },
         element_start=fn() { is_value_start(ctx.peek()) },
         wrap_element=false,
       )
@@ -134,8 +163,29 @@ pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+/// Parse a standalone object fragment at root depth.
+///
+/// Contextual block reparse uses `parse_object_at_depth` so absolute nesting
+/// limits match a full root parse.
+pub fn parse_object(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_object_at_depth(ctx, depth=0)
+}
+
+///|
+/// Parse a standalone array fragment at root depth.
+///
+/// Contextual block reparse uses `parse_array_at_depth` so absolute nesting
+/// limits match a full root parse.
+pub fn parse_array(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_array_at_depth(ctx, depth=0)
+}
+
+///|
 /// Parse member: `string : value`
-fn parse_member(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_member(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  value_depth~ : Int,
+) -> Unit {
   ctx.node(MemberNode, fn() {
     match ctx.peek() {
       StringLit => ctx.emit_token(StringToken)
@@ -145,7 +195,7 @@ fn parse_member(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       }
     }
     let _ = json_expect(ctx, Colon, ColonToken)
-    parse_value(ctx)
+    parse_value(ctx, depth=value_depth)
   })
 }
 
@@ -157,7 +207,7 @@ fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     ctx.emit_error_placeholder()
     return
   }
-  parse_value(ctx)
+  parse_value(ctx, depth=0)
   if ctx.peek() != EOF {
     ctx.error("Unexpected tokens after JSON value")
     let _ = ctx.skip_until(fn(t) { t == EOF })

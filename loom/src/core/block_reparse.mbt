@@ -5,8 +5,14 @@
 pub(all) struct BlockReparseSpec[T, K] {
   /// Returns true for node kinds that can be reparsed in isolation.
   is_reparseable : (@seam.RawKind) -> Bool
-  /// Returns the parse function for a reparseable kind.
-  get_reparser : (@seam.RawKind) -> ((ParserContext[T, K]) -> Unit)?
+  /// Returns the parse function for a reparseable node.
+  ///
+  /// The full `SyntaxNode` is provided so language-specific reparsers can
+  /// preserve absolute context that is not present in isolated block text
+  /// (for example nesting-depth limits). Return `None` to fall back to the
+  /// normal incremental/full parse path when isolated parsing cannot enforce
+  /// the same invariants as a root parse.
+  get_reparser : (@seam.SyntaxNode) -> ((ParserContext[T, K]) -> Unit)?
   /// Structural integrity check on re-lexed tokens.
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
@@ -369,8 +375,10 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   if !(block_spec.is_balanced)(block_tokens) {
     return None
   }
-  // 4. Get the reparser for this block kind
-  let reparse_fn = match (block_spec.get_reparser)(block_kind) {
+  // 4. Get the reparser for this block node. The spec receives the absolute
+  // syntax node, not just its kind, so it can decline or preserve context when
+  // isolated parsing would otherwise diverge from a root parse.
+  let reparse_fn = match (block_spec.get_reparser)(ancestor) {
     Some(f) => f
     None => return None
   }
