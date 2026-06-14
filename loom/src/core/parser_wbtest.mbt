@@ -2825,8 +2825,8 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   )
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
-    get_reparser: kind => {
-      if kind == test_kind_raw(KExpr) {
+    get_reparser: node => {
+      if node.kind() == test_kind_raw(KExpr) {
         Some(parse_expr)
       } else {
         None
