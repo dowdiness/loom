@@ -10,6 +10,8 @@ import {
 }
 
 // Values
+pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_incremental_edit_matches_full_parse(String, String, @core.Edit, String, SyntaxGrammar[T, K]) -> Int
+
 pub fn[T] build_starts(Array[@core.TokenInfo[T]]) -> Array[Int]
 
 pub fn build_tree(Array[@seam.ParseEvent], @seam.RawKind, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError

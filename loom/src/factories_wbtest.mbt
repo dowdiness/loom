@@ -371,21 +371,18 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
 }
 
 ///|
-test "new_imperative_parser: uses old_end damage coordinates for shrink edits" {
-  let grammar = fgrammar()
-  let parser = new_imperative_parser("aaaaa", grammar)
-  let _ = parser.parse()
-  let incr = parser.edit(@core.Edit::delete(2, 3), "aaaa")
-  // Pure deletion enables left-adjacent reuse: all four surviving one-token
-  // KExpr nodes are reused.
-  inspect(parser.get_last_reuse_count(), content="4")
-
-  let full_parser = new_imperative_parser("aaaa", grammar)
-  let full = full_parser.parse()
-  inspect(
-    @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
-    content="0",
+test "incremental diff helper: shrink edit uses old_end damage coordinates" {
+  let syntax_grammar = fgrammar().to_syntax_grammar()
+  let reuse_count = assert_incremental_edit_matches_full_parse(
+    "factory shrink edit old_end damage coordinates",
+    "aaaaa",
+    @core.Edit::delete(2, 3),
+    "aaaa",
+    syntax_grammar,
   )
+  // Pure deletion enables left-adjacent reuse: all four surviving one-token
+  // KExpr nodes are reused. The helper separately verifies CST/diagnostics parity.
+  inspect(reuse_count, content="4")
 }
 
 ///|
@@ -419,20 +416,17 @@ test "create_buffer: total lex keeps invalid message in diagnostics" {
 }
 
 ///|
-test "new_imperative_parser: incremental path reuse matches full reparse" {
-  let grammar = fgrammar()
-  let parser = new_imperative_parser("aaaaa", grammar)
-  let _ = parser.parse()
-  let incr = parser.edit(@core.Edit::delete(2, 3), "aaaa")
-  // Verify reuse occurred
-  inspect(parser.get_last_reuse_count() > 0, content="true")
-  // Verify incremental result matches full reparse
-  let full_parser = new_imperative_parser("aaaa", grammar)
-  let full = full_parser.parse()
-  inspect(
-    @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
-    content="0",
+test "incremental diff helper: reuse path matches full reparse" {
+  let syntax_grammar = fgrammar().to_syntax_grammar()
+  let reuse_count = assert_incremental_edit_matches_full_parse(
+    "factory delete shrink edit",
+    "aaaaa",
+    @core.Edit::delete(2, 3),
+    "aaaa",
+    syntax_grammar,
   )
+  // Verify reuse occurred; the helper separately verifies CST/diagnostics parity.
+  inspect(reuse_count > 0, content="true")
 }
 
 ///|

@@ -95,6 +95,9 @@ For smaller references, see [`examples/json`](../examples/json/),
 @loom.ProjectionStringIdAllocator
 @loom.realign_projection_identities
 @loom.realign_projection_items
+
+// Test support
+@loom.assert_incremental_edit_matches_full_parse
 ```
 
 Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).
@@ -110,6 +113,32 @@ Reach for `ImperativeParser` only when you do not need the reactive graph.
 
 See [`docs/api/choosing-a-parser.md`](../docs/api/choosing-a-parser.md)
 for the full decision.
+
+## Incremental-vs-Full Parse Tests
+
+When a language example exercises an optimized incremental path, compare the
+incremental result against a fresh full parse of the edited source. The shared
+test helper checks both the CST and structured diagnostics, then returns the
+incremental reuse count for optional optimization assertions:
+
+```mbt nocheck
+let reuse_count = @loom.assert_incremental_edit_matches_full_parse(
+  "case label for failure messages",
+  old_source,
+  edit,
+  new_source,
+  my_syntax_grammar,
+)
+```
+
+If you have an AST grammar, pass `my_grammar.to_syntax_grammar()` so the
+helper stays focused on CST and diagnostics. Layer AST or rendered-output
+assertions at the call site when a grammar exposes a useful semantic value. Use
+reuse-count assertions only when the test is intentionally proving that a
+specific optimized path fired, such as block reparse or sibling reuse. For
+ordinary correctness tests, avoid asserting reuse counts: they are sensitive to
+valid implementation changes in reuse thresholds, grammar boundaries, and
+relexing strategy.
 
 ## Learn More
 
