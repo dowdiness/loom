@@ -16,5 +16,6 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
   spec=markdown_spec,
   lex=lex_for_grammar,
   fold_node=markdown_fold_node,
+  block_reparse_spec=Some(markdown_block_reparse_spec),
   mode_relex=Some(mode_state),
 )
