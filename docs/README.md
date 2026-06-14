@@ -65,6 +65,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-14-block-reparse-context-deferral.md](decisions/2026-06-14-block-reparse-context-deferral.md) — **Accepted** defer `BlockReparseContext` API churn until Markdown or another concrete grammar needs more than `SyntaxNode`; conservative successor shape recorded for #315
 - [decisions/2026-06-13-lambda-moonbit-style-syntax.md](decisions/2026-06-13-lambda-moonbit-style-syntax.md) — **Accepted** lambda example uses MoonBit-style `let`/`fn`/arrow syntax and rejects legacy `λ`/`\` abstractions
 - [decisions/2026-06-13-parsercontext-method-only-boundary.md](decisions/2026-06-13-parsercontext-method-only-boundary.md) — **Accepted** `ParserContext` grammar-author API is method-only; raw parser-state fields are private implementation detail
 - [decisions/2026-06-11-separated-list-boundary-model.md](decisions/2026-06-11-separated-list-boundary-model.md) — **Accepted** N-separators→N+1-slots boundary model shared by the seam projection grouping helper and the `ParserContext::separated_list` combinator; empty slots stay represented
