@@ -181,23 +181,23 @@ fn lower_inline_element(element : @seam.SyntaxElement) -> MarkdownIR? {
           Some(MarkdownIR::text(token.text(), origin_from_token(token)))
         HeadingMarkerToken | NewlineToken | BlankLineToken | EofToken => None
         ErrorToken =>
-          Some(
-            MarkdownIR::unsupported(
-              "error token: " + token.text(),
-              origin_from_token(token),
-            ),
-          )
+          Some(MarkdownIR::text(token.text(), origin_from_token(token)))
         _ => None
       }
     }
     @seam.SyntaxElement::Node(child) => {
       let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
-      Some(
-        MarkdownIR::unsupported(
-          "unsupported inline node: " + child_kind.to_string(),
-          origin_from_node(child),
-        ),
-      )
+      match child_kind {
+        ErrorNode =>
+          Some(MarkdownIR::text(child.text(), origin_from_node(child)))
+        _ =>
+          Some(
+            MarkdownIR::unsupported(
+              "unsupported inline node: " + child_kind.to_string(),
+              origin_from_node(child),
+            ),
+          )
+      }
     }
   }
 }

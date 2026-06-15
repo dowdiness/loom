@@ -101,6 +101,17 @@ test "experimental MarkdownIR: preserve rewrite keeps source slices" {
 }
 
 ///|
+test "experimental MarkdownIR: recovered inline delimiters adapt to text" {
+  let source = "Hello *\n"
+  let block = experimental_markdown_ir_to_block(markdown_ir_from_source(source))
+  inspect(
+    block,
+    content="Document([Paragraph([Text(\"Hello \"), Text(\"*\")])])",
+  )
+  inspect(block == parse(source), content="true")
+}
+
+///|
 test "experimental MarkdownIR: local transform splices changed text" {
   let source = "# Title\nParagraph text\n"
   let ir = markdown_ir_from_source(source)
