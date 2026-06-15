@@ -117,6 +117,89 @@ test "incremental: list item boundary edits match full parse" {
 }
 
 ///|
+test "incremental: unordered list insert and delete middle item edits match full parse" {
+  let first_item = "- one\n"
+  let middle_item = "- two\n"
+  let last_item = "- three\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts middle item",
+    first_item + last_item,
+    @core.Edit::insert(first_item.length(), middle_item.length()),
+    first_item + middle_item + last_item,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list deletes middle item",
+    first_item + middle_item + last_item,
+    @core.Edit::delete(
+      first_item.length(),
+      first_item.length() + middle_item.length(),
+    ),
+    first_item + last_item,
+  )
+}
+
+///|
+test "incremental: unordered list marker spelling edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list changes middle marker from dash to star",
+    "- one\n- two\n- three\n",
+    @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
+    "- one\n* two\n- three\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list changes middle marker from star to plus",
+    "* one\n* two\n* three\n",
+    @core.Edit::new("* one\n".length(), "*".length(), "+".length()),
+    "* one\n+ two\n* three\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list changes middle marker from plus to dash",
+    "+ one\n+ two\n+ three\n",
+    @core.Edit::new("+ one\n".length(), "+".length(), "-".length()),
+    "+ one\n- two\n+ three\n",
+  )
+}
+
+///|
+test "incremental: unordered list unsafe structural edits match full parse" {
+  let first_item = "- one\n"
+  let middle_item = "- two\n"
+  let last_item = "- three\n"
+  let list_source = first_item + middle_item + last_item
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts unsafe blank line",
+    list_source,
+    @core.Edit::insert(first_item.length(), "\n".length()),
+    first_item + "\n" + middle_item + last_item,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts unsafe heading",
+    first_item + middle_item,
+    @core.Edit::insert(first_item.length(), "# heading\n".length()),
+    first_item + "# heading\n" + middle_item,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts unsafe fence",
+    first_item + middle_item,
+    @core.Edit::insert(first_item.length(), "```\ncode\n```\n".length()),
+    first_item + "```\ncode\n```\n" + middle_item,
+  )
+  let marker_delete_start = first_item.length()
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list deletes unsafe middle marker",
+    list_source,
+    @core.Edit::delete(marker_delete_start, marker_delete_start + "- ".length()),
+    first_item + "two\n" + last_item,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list deletes unsafe separator newline",
+    list_source,
+    @core.Edit::delete("- one".length(), first_item.length()),
+    "- one" + middle_item + last_item,
+  )
+}
+
+///|
 test "incremental: fenced code text edit matches full parse" {
   let prefix = "Intro\n\n```moonbit\nlet x = "
   let source = prefix + "1\n```\nAfter\n"
