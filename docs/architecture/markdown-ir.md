@@ -227,7 +227,8 @@ Use these terms consistently:
 ### Canonicalization examples
 
 These sketches are contract examples, not final type names. Future tests should
-compare semantic equality separately from surface-metadata equality.
+compare semantic equality separately from surface-metadata equality and include
+boundary cases where surface spelling affects block segmentation.
 
 - **ATX vs setext headings.** `# Title` and `Title\n=====` both lower to a
   heading with `depth=1` and inline text `Title`. The surface record keeps the
@@ -235,9 +236,14 @@ compare semantic equality separately from surface-metadata equality.
   Preserve/local rewrites can keep the author's form; canonical formatting may
   choose one normalized heading style.
 - **Unordered list markers.** `- item` and `* item` both lower to the same
-  semantic unordered list and item content. The surface record keeps marker
-  spelling (`-`, `*`, or `+`) when a transform needs to reprint that node.
-  Canonical formatting may instead choose a repository-wide marker.
+  semantic unordered list and item content when considered as standalone lists or
+  items in one list segment. The surface record keeps marker spelling (`-`, `*`,
+  or `+`) when a transform needs to reprint that node. Canonical formatting may
+  choose a repository-wide marker only when doing so preserves list segmentation.
+  For adjacent bullet lists whose only boundary is a marker change, such as
+  `- foo\n+ bar`, CommonMark 0.31.2 §5.3 treats the marker change as starting a
+  new list. Canonical formatting must preserve that structural boundary rather
+  than merging both lists under one normalized marker.
 - **Fenced code marker style.** Backtick fences and tilde fences can lower to the
   same code block when the info string and literal value are the same. Fence
   character and opening/closing fence width are surface metadata, so a local
@@ -254,6 +260,11 @@ Rules:
   mdast shape, or transform semantics would change. Tight versus spread lists are
   semantic; ATX versus setext heading form, unordered marker spelling, and fence
   character/count are surface.
+- Surface metadata can still be boundary-bearing. If normalizing a surface choice
+  would merge or split CommonMark containers, as with adjacent bullet lists
+  separated only by marker spelling, a canonical formatter must retain the
+  structure by preserving a marker distinction or using an explicitly documented
+  boundary-preserving strategy.
 - Surface metadata is kept only for transform-relevant choices. Exact whitespace,
   blank-line runs, and untouched delimiter trivia remain in the source/CST and
   are recovered by slicing origins when unchanged.
