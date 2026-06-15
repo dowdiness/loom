@@ -51,6 +51,72 @@ test "incremental: paragraph diagnostic text edit matches full parse" {
 }
 
 ///|
+test "incremental: heading text edit uses block reparse" {
+  let prefix = "# Alpha "
+  let source = prefix + "beta\n\nTail\n"
+  let new_source = prefix + "zeta\n\nTail\n"
+  let reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown heading text edit",
+    source,
+    @core.Edit::new(prefix.length(), "beta".length(), "zeta".length()),
+    new_source,
+  )
+  inspect(reuse_count, content="1")
+}
+
+///|
+test "incremental: heading boundary edits match full parse" {
+  let marker_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown heading marker edit falls back",
+    "# Title\n",
+    @core.Edit::insert(1, "#".length()),
+    "## Title\n",
+  )
+  inspect(marker_reuse_count != 1, content="true")
+  let prefix = "# Alpha"
+  let newline_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown heading newline edit falls back",
+    prefix + " beta\nTail\n",
+    @core.Edit::insert(prefix.length(), "\n".length()),
+    prefix + "\n beta\nTail\n",
+  )
+  inspect(newline_reuse_count != 1, content="true")
+}
+
+///|
+test "incremental: list item text edit uses block reparse" {
+  let prefix = "- item "
+  let source = prefix + "one\n- item two\n"
+  let new_source = prefix + "ONE\n- item two\n"
+  let reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown list item text edit",
+    source,
+    @core.Edit::new(prefix.length(), "one".length(), "ONE".length()),
+    new_source,
+  )
+  inspect(reuse_count, content="1")
+}
+
+///|
+test "incremental: list item boundary edits match full parse" {
+  let marker_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown list marker edit falls back",
+    "- item\n",
+    @core.Edit::delete(1, 1 + " ".length()),
+    "-item\n",
+  )
+  inspect(marker_reuse_count != 1, content="true")
+  let prefix = "- item"
+  let newline_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown list item newline edit falls back",
+    prefix + " one\n",
+    @core.Edit::insert(prefix.length(), "\n".length()),
+    prefix + "\n one\n",
+  )
+  inspect(newline_reuse_count != 1, content="true")
+}
+
+///|
 test "incremental: fenced code text edit matches full parse" {
   let prefix = "Intro\n\n```moonbit\nlet x = "
   let source = prefix + "1\n```\nAfter\n"
