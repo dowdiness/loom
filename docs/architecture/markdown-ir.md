@@ -1,7 +1,7 @@
 # MarkdownIR: Architecture and Target Contract
 
-**Status:** Accepted M0 target contract for [#323](https://github.com/dowdiness/loom/issues/323)
-**Related:** [#331](https://github.com/dowdiness/loom/issues/331), [#337](https://github.com/dowdiness/loom/issues/337), [#340](https://github.com/dowdiness/loom/issues/340), [#335](https://github.com/dowdiness/loom/issues/335), [#336](https://github.com/dowdiness/loom/issues/336)
+**Status:** Accepted M0 target contract and closeout policy.
+**Related:** [#323](https://github.com/dowdiness/loom/issues/323), [#331](https://github.com/dowdiness/loom/issues/331), [#337](https://github.com/dowdiness/loom/issues/337), [#340](https://github.com/dowdiness/loom/issues/340), [#335](https://github.com/dowdiness/loom/issues/335), [#336](https://github.com/dowdiness/loom/issues/336)
 
 ---
 
@@ -204,6 +204,57 @@ Implementation guidance for future PRs:
 
 ---
 
+## API migration and compatibility plan
+
+Migration is additive until an explicit compatibility PR says otherwise.
+
+Compatibility floor:
+
+- `parse(source) -> Block` remains the tolerant high-level parser. Lex failures
+  still fold to `Block::Error`, and recovered parser structure still lowers to
+  the current editor model.
+- `parse_markdown(source) -> (Block, @core.DiagnosticSet) raise @core.LexError`
+  remains the diagnostics-returning high-level path over the current
+  `Block` / `Inline` projection. Lexical-error inputs still raise; parser
+  recovery diagnostics stay in the returned diagnostic set.
+- `parse_cst(source) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`
+  remains the CST entry point. Lexical-error inputs still raise. It must not
+  start returning MarkdownIR or hiding parser diagnostics.
+- `markdown_spec` remains the Markdown `LanguageSpec`; `LanguageSpec`,
+  lexer/recovery choices, and block-reparse configuration stay parser-side.
+- `markdown_grammar` remains `Grammar[Token, SyntaxKind, Block]` initially, so
+  `new_parser` / `new_imperative_parser` keep publishing `Block` as their AST
+  view. A separate IR grammar is not part of M0; introduce one only for a real
+  consumer that needs a parser AST view of MarkdownIR and after explaining why
+  `parse_cst` plus lowering, `CstFold`, or `Grammar::to_syntax_grammar` is not
+  enough.
+- `markdown_fold_node` remains the public `CstFold` algebra for
+  `SyntaxNode -> Block`. Its implementation may later delegate through
+  MarkdownIR, but the signature and `Block` / `Inline` semantics stay pinned
+  until compatibility tests are intentionally changed.
+
+New MarkdownIR surfaces:
+
+- First IR lowering, parser, export, render, rewrite, or formatter entry points
+  must be additive and explicitly labeled experimental or stable in docs and
+  generated interfaces.
+- Compatibility tests must pin the existing `parse` / `parse_markdown` /
+  `parse_cst` / `markdown_grammar` behavior, including the LexError-raising
+  signatures for `parse_markdown` and `parse_cst`, before any migration changes
+  those surfaces.
+- Canopy integration stays `SyncEditor[@markdown.Block]` through
+  `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
+  projection memos until a compatibility PR deliberately changes that contract.
+  The target migration is an internal pipeline swap from
+  `SyntaxNode -> Block/Inline` to `SyntaxNode -> MarkdownIR -> Block/Inline`,
+  not a requirement that editor code consume MarkdownIR directly.
+- Public API PRs must run `moon info` and review `.mbti` diffs for signatures,
+  visibility, constructors, trait bounds, and adapter leakage. A docs-only PR or
+  a PR with no public MoonBit changes should say that no generated-interface
+  diff is expected.
+
+---
+
 ## Canonicalization and formatting vocabulary
 
 Use these terms consistently:
@@ -297,25 +348,31 @@ canonical formatting is only one target backend over MarkdownIR.
 
 ## Extension scope
 
-Baseline target: **CommonMark 0.31.x**. The first implementation slices may cover
+Baseline target: **CommonMark 0.31.2**. The first implementation slices may cover
 less, but the core IR should not choose shapes that block CommonMark semantics.
+Upgrading the baseline version is a contract change that must update examples,
+fixtures, and adapter expectations together.
 
 Raw HTML policy:
 
 - CommonMark raw HTML block/inline support belongs in the baseline roadmap, but
-  it must be represented explicitly as raw HTML IR nodes with origins and a
-  literal/source-slice value, not as copied token trivia.
+  it must be represented explicitly as raw HTML block/inline IR nodes with
+  origins and a literal/source-slice value, not as copied token trivia.
+- MarkdownIR records the raw region and diagnostics/recovery facts only. It does
+  not store a sanitizer decision, trust bit, or target-rendering policy.
 - The mdast adapter may export mdast `html` nodes only when raw HTML export is
-  enabled for that target.
+  enabled for that target. Otherwise it must use a documented target policy such
+  as omission, escaping, or diagnostic-bearing rejection.
 - The HTML renderer must expose an explicit mode: a CommonMark-conformance mode
   can pass raw HTML through for trusted fixtures; product-facing renderers should
   escape, drop, or sanitize unless the caller opts into unsafe passthrough.
+  Unsafe passthrough must never be the unlabelled default.
 
 Deferred extensions:
 
 - **GFM** tables, task lists, strikethrough, and extension autolinks are deferred
-  until the CommonMark baseline has a stable path. Add them as explicit extension
-  nodes or fields with adapter-specific behavior.
+  until the CommonMark baseline has a stable path. Add them in future milestones
+  as explicit extension nodes or fields with adapter-specific behavior.
 - **MDX** is out of core scope. JSX, ESM, and expression islands require a
   separate grammar/extension contract rather than weakening CommonMark IR nodes.
 - **Frontmatter** is deferred. If added, represent it as a top-level extension
@@ -324,14 +381,20 @@ Deferred extensions:
 
 Extension nodes must preserve the same invariants as core nodes: explicit
 origins, no arbitrary token cloning, adapter behavior defined for unsupported
-extensions, and no silent weakening of CommonMark node contracts.
+extensions, and no silent weakening of CommonMark node contracts. An extension
+may render/export, degrade to an explicit raw/recovered node with diagnostics, or
+be rejected by a target adapter; it must not be smuggled through as an invalid
+core node or force `Block` / `Inline` to carry extension-only payloads before the
+editor projection contract changes.
 
 ---
 
 ## Constructor and package-boundary policy
 
-MarkdownIR public APIs should start deliberately: either explicitly experimental
-or explicitly stable. Do not let generated interfaces accidentally decide the
+M0 introduces no public MarkdownIR types. This section is a policy gate for the
+first implementation PRs, not permission to add placeholder APIs. MarkdownIR
+public APIs should start deliberately: either explicitly experimental or
+explicitly stable. Do not let generated interfaces accidentally decide the
 contract.
 
 Recommended policy for first public IR types:
@@ -370,6 +433,34 @@ heading/list/code/link construction paths and tests proving that different
 surface spellings can share semantic shape while preserving distinct surface
 metadata.
 
+Generated-interface review gate:
+
+- The first public IR PR must include `moon info` output review for
+  `examples/markdown/src/pkg.generated.mbti` and for any new IR or Canopy package
+  interfaces it changes.
+- Review constructor and field visibility, `pub(all)` exposure, mutable fields,
+  unchecked helpers, widened trait bounds, target-only payloads, and whether the
+  compatibility floor above still holds.
+- If a PR intentionally exposes broad construction or pattern matching, the PR
+  must explain which invariants are impossible to violate through that surface.
+- If a PR is docs-only or intentionally has no generated-interface diff, state
+  that explicitly; do not run `moon info` just to manufacture churn.
+
+### Implementation review checklist
+
+When this contract turns into code, reviewers should first verify that the PR:
+
+- preserves existing parser signatures and compatibility tests, including
+  LexError-raising `parse_markdown` and `parse_cst` behavior;
+- lowers from `SyntaxNode`/CST plus source origins into typed IR, without generic
+  token or trivia arrays on semantic nodes;
+- models raw HTML, unsupported extensions, and recovery explicitly, with target
+  adapter behavior stated;
+- keeps Canopy on `Block` / `Inline` unless the PR is the explicit compatibility
+  migration; and
+- includes either deliberate `.mbti` diffs from `moon info` or an explicit note
+  that no generated-interface change is expected.
+
 ---
 
 ## Phase ordering
@@ -379,7 +470,7 @@ incremental parity third, and fast paths last.
 
 | Phase | Scope | Exit signal |
 |---|---|---|
-| M0 — Contracts and roadmap | #323, #331, #337, #340, #335, #336. Define responsibilities, invariants, constructor/API policy, canonicalization vocabulary, extension scope, migration plan, and package boundaries. | Contract docs are present and reviewed; `Block`/`Inline` compatibility is explicit; mdast is documented as an export target; no implementation begins without the field-promotion rubric, invariants, CST boundary, and constructor policy. |
+| M0 — Contracts and roadmap | #323, #331, #337, #340, #335, #336. Define responsibilities, invariants, constructor/API policy, canonicalization vocabulary, extension scope, migration plan, and package boundaries. | Contract docs are present and reviewed; `Block`/`Inline` compatibility is explicit; mdast is documented as an export target; no implementation begins without the field-promotion rubric, invariants, CST boundary, constructor policy, and generated-interface review gate. |
 | M1 — Minimal vertical slice | #338, #324, #339. Headings and paragraphs through `SyntaxNode -> MarkdownIR -> Block/Inline`, mdast export, rewrite smoke tests, and performance policy. | Existing heading/paragraph parser behavior and `Block`/`Inline` tests still pass; mdast snapshots exist for the slice; preserve/local/canonical modes are distinguishable; new public IR APIs are deliberately experimental or stable; generated interfaces are reviewed. |
 | M2 — Editor projection compatibility | #332, #341. Derive the editor model from MarkdownIR and define projection identity policy. | Canopy projection memos can continue consuming `@markdown.Block`; source-map roles have a documented source of truth; surface-only edits do not churn editor identity unless the view requires it. |
 | M3 — mdast export parity | #325. Fixture parity harness over MarkdownIR. | Checked-in mdast fixtures run under `moon test`; generator workflow is optional; pass/xfail baseline is explicit. |
@@ -400,7 +491,8 @@ M0 is done when:
 - the CST lowering boundary states what may be read from `SyntaxNode` and what
   must not be copied into IR;
 - constructor visibility, validation-helper ownership, implementation-test
-  obligations, and generated-interface review policy are documented;
+  obligations, and the policy-level generated-interface review gate are
+  documented;
 - the extension scope states CommonMark baseline, raw HTML policy, and deferred
   GFM/MDX/frontmatter handling;
 - the migration plan preserves current parser and editor APIs until an explicit
