@@ -53,6 +53,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 - [architecture/overview.md](architecture/overview.md) — layer diagram, architectural principles
 - [architecture/pipeline.md](architecture/pipeline.md) — parse pipeline step by step
+- [architecture/markdown-ir.md](architecture/markdown-ir.md) — MarkdownIR responsibilities, anti-CST-cloning rule, extension scope, and M0/M1 exit criteria
 - [architecture/language.md](architecture/language.md) — grammar, syntax, Token/Term data types
 - [architecture/seam-model.md](architecture/seam-model.md) — `CstNode`/`SyntaxNode` two-tree model
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API
@@ -65,6 +66,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-15-markdown-ir-target-contract.md](decisions/2026-06-15-markdown-ir-target-contract.md) — **Proposed** MarkdownIR target contract: semantic transform layer between CST and `Block`/mdast/HTML/rewrite/formatter adapters, with anti-CST-cloning rule
 - [decisions/2026-06-14-block-reparse-context-deferral.md](decisions/2026-06-14-block-reparse-context-deferral.md) — **Accepted** defer `BlockReparseContext` API churn until Markdown or another concrete grammar needs more than `SyntaxNode`; conservative successor shape recorded for #315
 - [decisions/2026-06-13-lambda-moonbit-style-syntax.md](decisions/2026-06-13-lambda-moonbit-style-syntax.md) — **Accepted** lambda example uses MoonBit-style `let`/`fn`/arrow syntax and rejects legacy `λ`/`\` abstractions
 - [decisions/2026-06-13-parsercontext-method-only-boundary.md](decisions/2026-06-13-parsercontext-method-only-boundary.md) — **Accepted** `ParserContext` grammar-author API is method-only; raw parser-state fields are private implementation detail
