@@ -248,7 +248,10 @@ boundary cases where surface spelling affects block segmentation.
   same code block when the info string and literal value are the same. Fence
   character and opening/closing fence width are surface metadata, so a local
   rewrite can preserve style while still choosing a safe wider fence if changed
-  content requires it.
+  content requires it. Canonical formatting must also choose a fence character
+  valid for the info string: CommonMark 0.31.2 forbids backticks in the info
+  string after a backtick fence, so an info string containing backticks must use a
+  tilde fence or another syntax-valid representation.
 - **Tight vs spread lists.** `- a\n- b\n` and `- a\n\n- b\n` must not be
   collapsed blindly. List tightness/spread is a semantic field because it affects
   CommonMark rendering and mdast shape. Blank-line trivia may remain slice-only,
@@ -260,11 +263,13 @@ Rules:
   mdast shape, or transform semantics would change. Tight versus spread lists are
   semantic; ATX versus setext heading form, unordered marker spelling, and fence
   character/count are surface.
-- Surface metadata can still be boundary-bearing. If normalizing a surface choice
-  would merge or split CommonMark containers, as with adjacent bullet lists
-  separated only by marker spelling, a canonical formatter must retain the
-  structure by preserving a marker distinction or using an explicitly documented
-  boundary-preserving strategy.
+- Surface metadata can still be boundary-bearing or syntax-validity-bearing. If
+  normalizing a surface choice would merge or split CommonMark containers, as
+  with adjacent bullet lists separated only by marker spelling, a canonical
+  formatter must retain the structure by preserving a marker distinction or using
+  an explicitly documented boundary-preserving strategy. If normalizing a fence
+  character would make the info string or literal invalid for that fence form,
+  the formatter must choose a syntax-valid character/count instead.
 - Surface metadata is kept only for transform-relevant choices. Exact whitespace,
   blank-line runs, and untouched delimiter trivia remain in the source/CST and
   are recovered by slicing origins when unchanged.
