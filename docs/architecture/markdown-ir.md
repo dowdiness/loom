@@ -209,13 +209,12 @@ Implementation guidance for future PRs:
 Use these terms consistently:
 
 - **Semantic canonicalization:** different concrete syntaxes lower to the same
-  semantic IR shape when they mean the same thing. An ATX heading and a setext
-  heading can be the same semantic heading; `-` and `*` can be the same
-  unordered list kind.
-- **Surface preservation:** selected syntax choices remain attached as metadata
-  when transforms need them. Heading form, list marker spelling, and code-fence
-  character/count are surface metadata; arbitrary whitespace is not promoted
-  unless a transform needs it.
+  semantic IR shape when they mean the same thing. It normalizes surface choices;
+  it must not erase fields that affect rendered structure or transform meaning.
+- **Surface preservation:** selected syntax choices remain attached as typed,
+  node-specific metadata when transforms need them. Heading form, list marker
+  spelling, ordered-list delimiter, and code-fence character/count are surface
+  metadata; arbitrary whitespace is not promoted unless a transform needs it.
 - **Preserve-mode rewrite:** unchanged IR nodes reuse original source slices via
   origins. MarkdownIR alone is not expected to print byte-for-byte source.
 - **Local transform rewrite:** changed nodes render from IR, using semantic fields
@@ -225,9 +224,58 @@ Use these terms consistently:
   existing surface style and emits normalized Markdown. Canonical formatting is
   not the definition of MarkdownIR.
 
-List tightness/spread is semantic because it affects rendered structure. Fence
-marker spelling is surface metadata because the code block semantics can be the
-same while the local rewrite may want to preserve the author's fence style.
+### Canonicalization examples
+
+These sketches are contract examples, not final type names. Future tests should
+compare semantic equality separately from surface-metadata equality.
+
+- **ATX vs setext headings.** `# Title` and `Title\n=====` both lower to a
+  heading with `depth=1` and inline text `Title`. The surface record keeps the
+  heading form (`atx` or `setext`) and the relevant marker/content origins.
+  Preserve/local rewrites can keep the author's form; canonical formatting may
+  choose one normalized heading style.
+- **Unordered list markers.** `- item` and `* item` both lower to the same
+  semantic unordered list and item content. The surface record keeps marker
+  spelling (`-`, `*`, or `+`) when a transform needs to reprint that node.
+  Canonical formatting may instead choose a repository-wide marker.
+- **Fenced code marker style.** Backtick fences and tilde fences can lower to the
+  same code block when the info string and literal value are the same. Fence
+  character and opening/closing fence width are surface metadata, so a local
+  rewrite can preserve style while still choosing a safe wider fence if changed
+  content requires it.
+- **Tight vs spread lists.** `- a\n- b\n` and `- a\n\n- b\n` must not be
+  collapsed blindly. List tightness/spread is a semantic field because it affects
+  CommonMark rendering and mdast shape. Blank-line trivia may remain slice-only,
+  but target adapters must receive the tight/spread value from IR.
+
+Rules:
+
+- Semantic canonicalization stops at the boundary where CommonMark rendering,
+  mdast shape, or transform semantics would change. Tight versus spread lists are
+  semantic; ATX versus setext heading form, unordered marker spelling, and fence
+  character/count are surface.
+- Surface metadata is kept only for transform-relevant choices. Exact whitespace,
+  blank-line runs, and untouched delimiter trivia remain in the source/CST and
+  are recovered by slicing origins when unchanged.
+- If a changed node lacks enough surface metadata for a local rewrite, the
+  rewrite backend chooses a canonical or target-specific spelling for that node;
+  it must not require generic CST token arrays on the IR node.
+
+### Rewrite and formatter mode naming
+
+Future rewrite/formatter APIs should make the mode visible in the function name
+or in an explicit mode enum. Use names with these nouns:
+
+- `preserve` / `PreserveRewrite` for source-slice preserving rewrites of
+  unchanged nodes;
+- `local_transform` / `LocalTransformRewrite` for rewrites that print changed IR
+  subtrees and splice them into preserved source; and
+- `canonical_format` / `CanonicalFormatter` for the backend that formats the
+  whole document into normalized Markdown.
+
+Avoid ambiguous names such as `canonicalize` for source-preserving rewrites or
+`format` for local transforms. Semantic lowering may canonicalize meaning, but
+canonical formatting is only one target backend over MarkdownIR.
 
 ---
 
