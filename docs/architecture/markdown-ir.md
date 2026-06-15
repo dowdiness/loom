@@ -446,6 +446,21 @@ Generated-interface review gate:
 - If a PR is docs-only or intentionally has no generated-interface diff, state
   that explicitly; do not run `moon info` just to manufacture churn.
 
+### Implementation review checklist
+
+When this contract turns into code, reviewers should first verify that the PR:
+
+- preserves existing parser signatures and compatibility tests, including
+  LexError-raising `parse_markdown` and `parse_cst` behavior;
+- lowers from `SyntaxNode`/CST plus source origins into typed IR, without generic
+  token or trivia arrays on semantic nodes;
+- models raw HTML, unsupported extensions, and recovery explicitly, with target
+  adapter behavior stated;
+- keeps Canopy on `Block` / `Inline` unless the PR is the explicit compatibility
+  migration; and
+- includes either deliberate `.mbti` diffs from `moon info` or an explicit note
+  that no generated-interface change is expected.
+
 ---
 
 ## Phase ordering
