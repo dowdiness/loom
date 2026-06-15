@@ -213,10 +213,13 @@ Compatibility floor:
 - `parse(source) -> Block` remains the tolerant high-level parser. Lex failures
   still fold to `Block::Error`, and recovered parser structure still lowers to
   the current editor model.
-- `parse_markdown(source) -> (Block, DiagnosticSet)` remains the diagnostics
-  returning high-level path over the current `Block` / `Inline` projection.
-- `parse_cst(source) -> (CstNode, DiagnosticSet)` remains the CST entry point.
-  It must not start returning MarkdownIR or hiding parser diagnostics.
+- `parse_markdown(source) -> (Block, @core.DiagnosticSet) raise @core.LexError`
+  remains the diagnostics-returning high-level path over the current
+  `Block` / `Inline` projection. Lexical-error inputs still raise; parser
+  recovery diagnostics stay in the returned diagnostic set.
+- `parse_cst(source) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`
+  remains the CST entry point. Lexical-error inputs still raise. It must not
+  start returning MarkdownIR or hiding parser diagnostics.
 - `markdown_spec` remains the Markdown `LanguageSpec`; `LanguageSpec`,
   lexer/recovery choices, and block-reparse configuration stay parser-side.
 - `markdown_grammar` remains `Grammar[Token, SyntaxKind, Block]` initially, so
@@ -236,8 +239,9 @@ New MarkdownIR surfaces:
   must be additive and explicitly labeled experimental or stable in docs and
   generated interfaces.
 - Compatibility tests must pin the existing `parse` / `parse_markdown` /
-  `parse_cst` / `markdown_grammar` behavior before any migration changes those
-  surfaces.
+  `parse_cst` / `markdown_grammar` behavior, including the LexError-raising
+  signatures for `parse_markdown` and `parse_cst`, before any migration changes
+  those surfaces.
 - Canopy integration stays `SyncEditor[@markdown.Block]` through
   `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
   projection memos until a compatibility PR deliberately changes that contract.
