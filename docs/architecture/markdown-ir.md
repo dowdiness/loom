@@ -1,6 +1,6 @@
 # MarkdownIR: Architecture and Target Contract
 
-**Status:** M0 target contract for [#323](https://github.com/dowdiness/loom/issues/323)
+**Status:** Accepted M0 target contract for [#323](https://github.com/dowdiness/loom/issues/323)
 **Related:** [#331](https://github.com/dowdiness/loom/issues/331), [#337](https://github.com/dowdiness/loom/issues/337), [#340](https://github.com/dowdiness/loom/issues/340), [#335](https://github.com/dowdiness/loom/issues/335), [#336](https://github.com/dowdiness/loom/issues/336)
 
 ---
@@ -108,6 +108,102 @@ position objects are export-boundary conversions.
 
 ---
 
+## MarkdownIR invariants
+
+Future MarkdownIR implementations must preserve these invariants before target
+adapters see a value. They are part of the semantic contract, not optional test
+fixtures.
+
+### Origin and range invariants
+
+- Every source-backed IR node has a full source origin: a half-open UTF-16 range
+  that covers the concrete syntax responsible for that node.
+- Nodes may also carry narrower content origins for editable semantic payloads,
+  such as heading text, list item content, code contents, or link labels. Content
+  origins must stay inside the full node origin.
+- Parent origins contain child origins. Sibling origins in the same child list are
+  source-ordered and non-overlapping. Recovery nodes may model overlap or
+  zero-width synthesis only when that fact is explicit in the recovery shape and
+  diagnostics.
+- Origins identify where to slice the original source/CST. They do not imply that
+  MarkdownIR owns enough text to reconstruct unchanged source by itself.
+- Line/column positions, mdast/unist positions, browser offsets, and editor tree
+  positions are adapter conversions from these internal UTF-16 ranges.
+
+### Tree-shape invariants
+
+- A document contains flow/block content. Inline content only appears inside
+  inline-bearing block nodes or inline containers.
+- Container blocks contain flow/block children. List items are flow containers;
+  they are not restricted to inline-only payloads, even while the current editor
+  projection model stays smaller.
+- Child order is source order. Semantic canonicalization may merge equivalent
+  surface spellings, but it must not reorder author content.
+- Diagnostics and recovery are explicit nodes or side records. Target adapters
+  must never infer malformed input from missing required semantic fields.
+
+### Semantic-node invariants
+
+- Heading depth is validated as CommonMark heading depth `1..6`. Heading surface
+  form is separate from heading semantics.
+- Lists distinguish semantic kind from surface marker spelling. Ordered lists
+  carry validated start/order information; list tightness or spread is semantic
+  because it changes rendered structure.
+- Code blocks distinguish info-string language, metadata, literal value, and
+  surface form. The value excludes fence markers and boundary newlines; fence
+  marker spelling and width are surface metadata.
+- Links and images distinguish destination, title, label/text, and inline versus
+  reference form where supported. Reference resolution policy belongs to the
+  document-level lowering contract, not to target adapters guessing from raw
+  tokens.
+- Raw HTML, unsupported extensions, and malformed regions use explicit raw or
+  recovered nodes with origins and diagnostics. They must not be represented as
+  token arrays attached to otherwise semantic nodes.
+
+### Surface-metadata invariants
+
+- Surface metadata is node-specific and typed. It records choices needed for
+  transforms, such as heading form, list marker spelling, ordered delimiter,
+  fence character/count, or container indentation shape.
+- Surface metadata is optional unless a transform needs it. A missing surface
+  value means the adapter should choose a canonical or target-specific spelling,
+  not inspect raw token piles.
+- Different surface spellings may share the same semantic shape. Tests for new
+  IR features should prove this by comparing semantics while preserving distinct
+  surface metadata.
+- Arbitrary whitespace, comments of no semantic relevance, newline trivia, and
+  untouched marker spelling that no transform needs remain in CST/source slices.
+
+---
+
+## CST lowering boundary
+
+The CST-to-MarkdownIR boundary is a lowering adapter from `SyntaxNode` to the
+semantic tree. It may inspect CST node kinds, token text, and source ranges to
+extract semantic and transform-relevant facts, but its output is typed IR plus
+origins, not a copied token stream.
+
+Implementation guidance for future PRs:
+
+- Reuse the existing memoized CST fold shape for `SyntaxNode -> IR` when the IR
+  is derived from the whole syntax tree. The fold boundary keeps parser reuse and
+  semantic lowering concerns separated.
+- Reparse tiny surface facts from token text when the CST no longer carries a
+  typed token payload, as the current Markdown fold does for heading depth and
+  code info. Store the result as validated semantic/surface data, not as the
+  token itself.
+- Keep `LanguageSpec`, lexer/parser recovery, and block-reparse APIs parser-side.
+  MarkdownIR lowering may consume their outputs but should not add parser-core
+  hooks for transform policy.
+- Keep `SourceMap` and `ProjNode` concerns adapter-side. Editor source maps can
+  be derived from IR origins plus the `Block`/`Inline` projection path; they are
+  not the MarkdownIR storage format.
+- Preserve current `Block` / `Inline` APIs until an explicit compatibility PR
+  changes them. MarkdownIR feeds that editor projection model; it does not
+  replace it in place.
+
+---
+
 ## Canonicalization and formatting vocabulary
 
 Use these terms consistently:
@@ -174,21 +270,41 @@ MarkdownIR public APIs should start deliberately: either explicitly experimental
 or explicitly stable. Do not let generated interfaces accidentally decide the
 contract.
 
-- Prefer named constructors or smart builders for nodes with invariants: heading
-  depth, list kind/start/spread, code-block info/value/surface metadata, link
-  destinations, origins, and recovered/raw regions.
-- Use broad public construction only for shapes that have no invalid states and
-  are intended for direct pattern matching by downstream adapters.
-- Keep validation close to construction. Lowering code may use internal helpers,
-  but anything crossing the package boundary must already satisfy the documented
-  invariants or return diagnostics.
+Recommended policy for first public IR types:
+
+- Default to opaque or privately-fielded records plus named constructors for any
+  node that carries origins, diagnostics, surface metadata, or validated semantic
+  fields.
+- Use closed public enums for simple semantic alternatives that have no invalid
+  payload combinations. Use broad public construction only for shapes that have
+  no invalid states and are intentionally pattern-matched by downstream adapters.
+- Avoid `pub(all)` for core IR records unless direct cross-package construction
+  is the intended contract. MoonBit's ordinary public fields are not a validation
+  boundary once a type is made broadly constructible.
+- Keep package-private unchecked constructors, if any, visibly internal and out
+  of generated public interfaces. They are allowed only to factor trusted lowering
+  code after validation has already happened.
+- Public constructors or builders must validate heading depth, list kind/start,
+  list spread/tightness, code-block value/info/surface consistency, link/image
+  destinations and reference shape, origins, and recovered/raw regions. Invalid
+  construction returns an explicit error or diagnostic-bearing value; it must not
+  silently clamp, drop, or invent semantic fields.
+- Validation helpers should be owned by the IR package and reused by both
+  hand-written constructors and CST lowering. Target adapters should consume a
+  valid IR value, not repeat invariant checks to defend against malformed core
+  nodes.
 - Canopy/editor code should depend on stable adapters such as IR-to-`Block`,
   mdast export, rewrite, or render entry points. It should not construct or
   mutate internal IR nodes directly unless a future API intentionally grants that
   capability.
 - Every public IR API change must review generated `.mbti` output for unintended
-  constructors, mutable fields, widened trait bounds, or target-only details that
-  leaked into core IR.
+  constructors, mutable fields, widened trait bounds, unchecked helpers, or
+  target-only details that leaked into core IR.
+
+Implementation PRs that introduce constructors should add tests for invalid
+heading/list/code/link construction paths and tests proving that different
+surface spellings can share semantic shape while preserving distinct surface
+metadata.
 
 ---
 
@@ -199,7 +315,7 @@ incremental parity third, and fast paths last.
 
 | Phase | Scope | Exit signal |
 |---|---|---|
-| M0 — Contracts and roadmap | #323, #331, #337, #340, #335, #336. Define responsibilities, invariants, constructor/API policy, canonicalization vocabulary, extension scope, migration plan, and package boundaries. | Contract docs are present and reviewed; `Block`/`Inline` compatibility is explicit; mdast is documented as an export target; no implementation begins without the field-promotion rubric and API boundary policy. |
+| M0 — Contracts and roadmap | #323, #331, #337, #340, #335, #336. Define responsibilities, invariants, constructor/API policy, canonicalization vocabulary, extension scope, migration plan, and package boundaries. | Contract docs are present and reviewed; `Block`/`Inline` compatibility is explicit; mdast is documented as an export target; no implementation begins without the field-promotion rubric, invariants, CST boundary, and constructor policy. |
 | M1 — Minimal vertical slice | #338, #324, #339. Headings and paragraphs through `SyntaxNode -> MarkdownIR -> Block/Inline`, mdast export, rewrite smoke tests, and performance policy. | Existing heading/paragraph parser behavior and `Block`/`Inline` tests still pass; mdast snapshots exist for the slice; preserve/local/canonical modes are distinguishable; new public IR APIs are deliberately experimental or stable; generated interfaces are reviewed. |
 | M2 — Editor projection compatibility | #332, #341. Derive the editor model from MarkdownIR and define projection identity policy. | Canopy projection memos can continue consuming `@markdown.Block`; source-map roles have a documented source of truth; surface-only edits do not churn editor identity unless the view requires it. |
 | M3 — mdast export parity | #325. Fixture parity harness over MarkdownIR. | Checked-in mdast fixtures run under `moon test`; generator workflow is optional; pass/xfail baseline is explicit. |
@@ -215,7 +331,12 @@ M0 is done when:
 - the responsibility table above is the reviewed target contract;
 - the anti-CST-cloning rule and field-promotion rubric are referenced by IR
   implementation issues;
-- constructor visibility and generated-interface review policy are documented;
+- origin, tree-shape, semantic-node, and surface-metadata invariants are
+  documented;
+- the CST lowering boundary states what may be read from `SyntaxNode` and what
+  must not be copied into IR;
+- constructor visibility, validation-helper ownership, implementation-test
+  obligations, and generated-interface review policy are documented;
 - the extension scope states CommonMark baseline, raw HTML policy, and deferred
   GFM/MDX/frontmatter handling;
 - the migration plan preserves current parser and editor APIs until an explicit
