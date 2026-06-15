@@ -114,20 +114,28 @@ test "incremental: list item boundary edits match full parse" {
     prefix + "\n one\n",
   )
   inspect(newline_reuse_count != 1, content="true")
+  let split_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown list item marker-line split falls back",
+    prefix + " one\n",
+    @core.Edit::insert(prefix.length(), "\n- new".length()),
+    prefix + "\n- new one\n",
+  )
+  inspect(split_reuse_count != 1, content="true")
 }
 
 ///|
-test "incremental: unordered list insert and delete middle item edits match full parse" {
+test "incremental: unordered list middle item edits use block reparse" {
   let first_item = "- one\n"
   let middle_item = "- two\n"
   let last_item = "- three\n"
-  assert_markdown_incremental_edit_matches_full_parse(
+  let insert_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list inserts middle item",
     first_item + last_item,
     @core.Edit::insert(first_item.length(), middle_item.length()),
     first_item + middle_item + last_item,
   )
-  assert_markdown_incremental_edit_matches_full_parse(
+  inspect(insert_reuse_count, content="1")
+  let delete_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list deletes middle item",
     first_item + middle_item + last_item,
     @core.Edit::delete(
@@ -136,67 +144,84 @@ test "incremental: unordered list insert and delete middle item edits match full
     ),
     first_item + last_item,
   )
+  inspect(delete_reuse_count, content="1")
 }
 
 ///|
-test "incremental: unordered list marker spelling edits match full parse" {
-  assert_markdown_incremental_edit_matches_full_parse(
+test "incremental: unordered list marker spelling edits use block reparse" {
+  let dash_to_star_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from dash to star",
     "- one\n- two\n- three\n",
     @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
     "- one\n* two\n- three\n",
   )
-  assert_markdown_incremental_edit_matches_full_parse(
+  inspect(dash_to_star_reuse_count, content="1")
+  let star_to_plus_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from star to plus",
     "* one\n* two\n* three\n",
     @core.Edit::new("* one\n".length(), "*".length(), "+".length()),
     "* one\n+ two\n* three\n",
   )
-  assert_markdown_incremental_edit_matches_full_parse(
+  inspect(star_to_plus_reuse_count, content="1")
+  let plus_to_dash_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from plus to dash",
     "+ one\n+ two\n+ three\n",
     @core.Edit::new("+ one\n".length(), "+".length(), "-".length()),
     "+ one\n- two\n+ three\n",
   )
+  inspect(plus_to_dash_reuse_count, content="1")
 }
 
 ///|
-test "incremental: unordered list unsafe structural edits match full parse" {
+test "incremental: unordered list boundary-breaking edits fall back" {
   let first_item = "- one\n"
   let middle_item = "- two\n"
   let last_item = "- three\n"
   let list_source = first_item + middle_item + last_item
-  assert_markdown_incremental_edit_matches_full_parse(
+  let blank_line_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list inserts unsafe blank line",
     list_source,
     @core.Edit::insert(first_item.length(), "\n".length()),
     first_item + "\n" + middle_item + last_item,
   )
-  assert_markdown_incremental_edit_matches_full_parse(
+  inspect(blank_line_reuse_count != 1, content="true")
+  let heading_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list inserts unsafe heading",
     first_item + middle_item,
     @core.Edit::insert(first_item.length(), "# heading\n".length()),
     first_item + "# heading\n" + middle_item,
   )
-  assert_markdown_incremental_edit_matches_full_parse(
+  inspect(heading_reuse_count != 1, content="true")
+  let fence_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list inserts unsafe fence",
     first_item + middle_item,
     @core.Edit::insert(first_item.length(), "```\ncode\n```\n".length()),
     first_item + "```\ncode\n```\n" + middle_item,
   )
+  inspect(fence_reuse_count != 1, content="true")
   let marker_delete_start = first_item.length()
-  assert_markdown_incremental_edit_matches_full_parse(
+  let marker_delete_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list deletes unsafe middle marker",
     list_source,
     @core.Edit::delete(marker_delete_start, marker_delete_start + "- ".length()),
     first_item + "two\n" + last_item,
   )
-  assert_markdown_incremental_edit_matches_full_parse(
-    "markdown unordered list deletes unsafe separator newline",
+  inspect(marker_delete_reuse_count != 1, content="true")
+}
+
+///|
+test "incremental: unordered list separator newline delete uses block reparse" {
+  let first_item = "- one\n"
+  let middle_item = "- two\n"
+  let last_item = "- three\n"
+  let list_source = first_item + middle_item + last_item
+  let newline_delete_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown unordered list deletes separator newline",
     list_source,
     @core.Edit::delete("- one".length(), first_item.length()),
     "- one" + middle_item + last_item,
   )
+  inspect(newline_delete_reuse_count, content="1")
 }
 
 ///|

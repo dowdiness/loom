@@ -1,10 +1,9 @@
 ///|
-/// UnorderedListNode is intentionally omitted: its child Newline/ListMarker
-/// tokens are list-boundary structure. Safe list edits reparse ListItemNode.
 fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
   kind == CodeBlockNode.to_raw() ||
   kind == ParagraphNode.to_raw() ||
   kind == HeadingNode.to_raw() ||
+  kind == UnorderedListNode.to_raw() ||
   kind == ListItemNode.to_raw()
 }
 
@@ -103,6 +102,47 @@ fn is_list_item_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
+/// Accept only a contiguous unordered-list container: each non-empty line must
+/// start with a list marker, and inline content must stay on that marker line.
+fn is_unordered_list_token_stream(
+  tokens : Array[@core.TokenInfo[Token]],
+) -> Bool {
+  match tokens {
+    [] => false
+    [first, ..] => {
+      guard first.token is ListMarker else { return false }
+      let mut expect_marker = true
+      let mut saw_marker = false
+      let mut saw_content = false
+      for info in tokens {
+        match info.token {
+          EOF => ()
+          ListMarker =>
+            if expect_marker {
+              expect_marker = false
+              saw_marker = true
+              saw_content = false
+            } else {
+              return false
+            }
+          Newline => expect_marker = true
+          token if expect_marker || token_breaks_isolated_inline_block(token) =>
+            return false
+          Text(text) => {
+            if !saw_content && text_starts_with_space_or_tab(text) {
+              return false
+            }
+            saw_content = true
+          }
+          _ => saw_content = true
+        }
+      }
+      saw_marker
+    }
+  }
+}
+
+///|
 fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   // Require an intact closing fence: removing a close can expand the block past
   // the old splice range, which a single-node replacement cannot represent.
@@ -148,7 +188,9 @@ fn markdown_tokens_safe_for_block_reparse(
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
-        ListMarker => is_list_item_token_stream(tokens)
+        ListMarker =>
+          is_list_item_token_stream(tokens) ||
+          is_unordered_list_token_stream(tokens)
         _ => is_paragraph_token_stream(tokens)
       }
   }
@@ -221,6 +263,54 @@ fn marker_block_reparser(
 }
 
 ///|
+/// `is_balanced` is token-only, so the broader ListMarker predicate needed for
+/// UnorderedListNode must not make ListItemNode accept marker-line splits.
+/// Re-check the isolated ListItemNode stream before emitting its replacement.
+fn list_item_context_allows_reparse(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let mut saw_content = false
+  for i = 1 {
+    match ctx.peek_nth(i) {
+      EOF => break true
+      Newline => break false
+      token if token_breaks_isolated_inline_block(token) => break false
+      Text(text) => {
+        if !saw_content && text_starts_with_space_or_tab(text) {
+          break false
+        }
+        saw_content = true
+      }
+      _ => saw_content = true
+    }
+    continue i + 1
+  }
+}
+
+///|
+fn parse_list_item_if_unchanged(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_text : String,
+) -> Unit {
+  if ctx.peek() is ListMarker &&
+    ctx.current_token_text().to_owned() == marker_text &&
+    list_item_context_allows_reparse(ctx) {
+    parse_list_item(ctx)
+  }
+}
+
+///|
+fn list_item_reparser(
+  node : @seam.SyntaxNode,
+) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
+  match first_token_text(node.text()) {
+    Some(marker_text) =>
+      Some(fn(ctx) { parse_list_item_if_unchanged(ctx, marker_text) })
+    None => None
+  }
+}
+
+///|
 let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
   is_reparseable: is_markdown_reparseable_block,
   get_reparser: fn(node) {
@@ -236,8 +326,10 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
         token => token is HeadingMarker(_),
         parse_heading,
       )
+    } else if kind == UnorderedListNode.to_raw() {
+      marker_block_reparser(node, token => token is ListMarker, parse_list)
     } else if kind == ListItemNode.to_raw() {
-      marker_block_reparser(node, token => token is ListMarker, parse_list_item)
+      list_item_reparser(node)
     } else {
       None
     }
