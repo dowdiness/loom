@@ -27,6 +27,17 @@ pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
 
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
+// ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
+
+pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
+pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
+pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
+pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
+pub fn experimental_markdown_ir_local_transform_rewrite(
+  MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
+) -> String
+pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
+
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
 pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
@@ -38,6 +49,23 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
 Note that `parse` is **not** `raise` — recovered CST error nodes fold into
 `Block::Error`. If you need diagnostics, use `parse_markdown` instead.
+
+## Experimental MarkdownIR
+
+The M1 MarkdownIR API is explicitly experimental. It currently covers the tiny
+vertical slice needed for issue #338: document, heading, paragraph, and text
+nodes with UTF-16 source origins. Unsupported Markdown constructs lower to
+explicit `Unsupported` IR nodes rather than token/trivia arrays.
+
+Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
+IR, then adapt with `experimental_markdown_ir_to_block`, export with
+`experimental_markdown_ir_to_mdast_json`, or smoke-test rewriting with
+`experimental_markdown_ir_preserve_rewrite`,
+`experimental_markdown_ir_local_transform_rewrite`, and
+`experimental_markdown_ir_canonical_format`. The established parser surfaces
+(`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
+`markdown_fold_node`) remain the compatibility path for the editor-facing
+`Block` / `Inline` model.
 
 ## Grammar
 

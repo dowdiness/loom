@@ -9,6 +9,18 @@ import {
 }
 
 // Values
+pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
+
+pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
+
+pub fn experimental_markdown_ir_local_transform_rewrite(MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String) -> String
+
+pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
+
+pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
+
+pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
+
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block]
@@ -54,6 +66,22 @@ pub(all) enum Inline {
 pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
+
+pub struct MarkdownIR {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownIR::children(Self) -> Array[Self]
+pub fn MarkdownIR::content_origin(Self) -> MarkdownIROrigin?
+pub fn MarkdownIR::heading_depth(Self) -> Int?
+pub fn MarkdownIR::kind_tag(Self) -> String
+pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
+pub fn MarkdownIR::text_value(Self) -> String?
+
+pub struct MarkdownIROrigin {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownIROrigin::end(Self) -> Int
+pub fn MarkdownIROrigin::start(Self) -> Int
 
 pub(all) enum MarkdownLexMode {
   LineStart
