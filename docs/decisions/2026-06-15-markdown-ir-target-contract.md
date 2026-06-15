@@ -1,7 +1,7 @@
 # ADR: MarkdownIR Target Contract
 
 **Date:** 2026-06-15
-**Status:** Proposed
+**Status:** Accepted
 **Issue:** [#323](https://github.com/dowdiness/loom/issues/323)
 **Related:** [#331](https://github.com/dowdiness/loom/issues/331), [#337](https://github.com/dowdiness/loom/issues/337), [#340](https://github.com/dowdiness/loom/issues/340), [#335](https://github.com/dowdiness/loom/issues/335), [#336](https://github.com/dowdiness/loom/issues/336)
 **Implementation plan:** N/A — M0 architecture/target-contract note only.
