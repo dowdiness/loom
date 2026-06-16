@@ -209,7 +209,65 @@ test "markdown: realistic doc - tokenize only" (b : @bench.T) {
   })
 }
 
+// --- MarkdownIR lowering benchmarks -----------------------------------------
+
+///|
+/// Pre-parse helper used by lowering benchmarks so each iteration measures
+/// only the fold, not the parser.
+fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
+  let (cst, _) = parse_cst(source) catch { _ => abort("parse failed") }
+  @seam.SyntaxNode::from_cst(cst)
+}
+
+///|
+test "markdown: realistic doc - lowering SyntaxNode -> Block" (b : @bench.T) {
+  let syntax = parse_to_syntax(realistic_markdown_doc())
+  b.bench(fn() {
+    let fold = @core.CstFold::new(markdown_fold_node)
+    let block = fold.fold(syntax)
+    b.keep(block)
+  })
+}
+
+///|
+test "markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block" (
+  b : @bench.T,
+) {
+  let syntax = parse_to_syntax(realistic_markdown_doc())
+  b.bench(fn() {
+    let ir = experimental_markdown_ir_from_syntax(syntax)
+    let block = experimental_markdown_ir_to_block(ir)
+    b.keep(block)
+  })
+}
+
+///|
+test "markdown: 50x doc - lowering SyntaxNode -> Block" (b : @bench.T) {
+  let syntax = parse_to_syntax(scaled_markdown_doc(50))
+  b.bench(fn() {
+    let fold = @core.CstFold::new(markdown_fold_node)
+    let block = fold.fold(syntax)
+    b.keep(block)
+  })
+}
+
+///|
+test "markdown: 50x doc - lowering SyntaxNode -> MarkdownIR -> Block" (
+  b : @bench.T,
+) {
+  let syntax = parse_to_syntax(scaled_markdown_doc(50))
+  b.bench(fn() {
+    let ir = experimental_markdown_ir_from_syntax(syntax)
+    let block = experimental_markdown_ir_to_block(ir)
+    b.keep(block)
+  })
+}
+
 // --- Incremental edit benchmarks ---------------------------------------------
+
+// Each iteration applies the forward edit and then reverses it to restore the
+// parser state for the next iteration. Reported times are therefore one full
+// edit-restore cycle, not a single forward incremental repair.
 
 ///|
 test "markdown: realistic doc - incremental (edit paragraph)" (b : @bench.T) {

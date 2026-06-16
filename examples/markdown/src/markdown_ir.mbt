@@ -159,11 +159,12 @@ fn origin_from_token(token : @seam.SyntaxToken) -> MarkdownIROrigin {
 }
 
 ///|
-fn content_origin(children : Array[MarkdownIR]) -> MarkdownIROrigin? {
+fn span_origin_of_children(children : Array[MarkdownIR]) -> MarkdownIROrigin? {
   match children {
     [] => None
-    [first, .. rest] => {
-      let last = rest.fold(init=first, fn(_, item) { item })
+    [first, ..] => {
+      // Safe: the match arm guarantees children is non-empty.
+      let last = children.last().unwrap()
       Some(
         MarkdownIROrigin(start=first.origin().start(), end=last.origin().end()),
       )
@@ -208,17 +209,18 @@ fn lower_inline_children(node : @seam.SyntaxNode) -> Array[MarkdownIR] {
 }
 
 ///|
-fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int {
+fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
   match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
     Some(marker) => {
       let n = count_hashes(marker.text(), 0)
-      if n >= 1 && n <= 6 {
-        n
+      // count_hashes caps at 6, so n <= 6 is guaranteed.
+      if n >= 1 {
+        Some(n)
       } else {
-        1
+        None
       }
     }
-    None => 1
+    None => None
   }
 }
 
@@ -263,19 +265,27 @@ fn experimental_markdown_ir_fold_node(
     }
     HeadingNode => {
       let children = lower_inline_children(node)
-      MarkdownIR::heading(
-        heading_depth_from_marker(node),
-        children,
-        origin_from_node(node),
-        content_origin(children),
-      )
+      match heading_depth_from_marker(node) {
+        Some(depth) =>
+          MarkdownIR::heading(
+            depth,
+            children,
+            origin_from_node(node),
+            span_origin_of_children(children),
+          )
+        None =>
+          MarkdownIR::unsupported(
+            "invalid heading marker",
+            origin_from_node(node),
+          )
+      }
     }
     ParagraphNode => {
       let children = lower_inline_children(node)
       MarkdownIR::paragraph(
         children,
         origin_from_node(node),
-        content_origin(children),
+        span_origin_of_children(children),
       )
     }
     ErrorNode => MarkdownIR::unsupported("parse error", origin_from_node(node))
@@ -289,11 +299,19 @@ fn experimental_markdown_ir_fold_node(
 
 ///|
 /// Experimental `SyntaxNode -> MarkdownIR` lowering for the M1 slice.
+///
+/// Built by a direct recursive walk rather than `CstFold` because MarkdownIR
+/// stores absolute source origins, and `CstFold` reuses cached results
+/// verbatim based on position-independent structural hashes. Using `CstFold`
+/// would return stale origins after position-shifting edits. See
+/// `docs/decisions/2026-06-16-markdown-ir-performance-policy.md`.
 pub fn experimental_markdown_ir_from_syntax(
   root : @seam.SyntaxNode,
 ) -> MarkdownIR {
-  let fold = @core.CstFold::new(experimental_markdown_ir_fold_node)
-  fold.fold(root)
+  fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
+    experimental_markdown_ir_fold_node(node, lower)
+  }
+  lower(root)
 }
 
 ///|
@@ -352,7 +370,9 @@ pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
 
 ///|
 fn source_slice_between(source : String, start : Int, end : Int) -> String {
-  guard start >= 0 && start <= end && end <= source.length() else { return "" }
+  guard start >= 0 && start <= end && end <= source.length() else {
+    abort("invalid MarkdownIR origin bounds")
+  }
   source[start:end].to_owned()
 }
 
@@ -396,25 +416,24 @@ fn local_transform_inline_text(
     [] => ""
     [first, ..] => {
       let buf = StringBuilder::new()
-      ignore(
-        children.fold(init=first.origin().start(), fn(cursor, child) {
-          let child_origin = child.origin()
-          buf.write_string(
-            source_slice_between(source, cursor, child_origin.start()),
-          )
-          match child.node {
-            Text(value) =>
-              if child_origin == target_origin {
-                buf.write_string(replacement_text)
-              } else {
-                buf.write_string(value)
-              }
-            _ => buf.write_string(source_slice(source, child_origin))
-          }
-          child_origin.end()
-        }),
-      )
-      buf.to_string()
+      for child in children; cursor = first.origin().start() {
+        let child_origin = child.origin()
+        buf.write_string(
+          source_slice_between(source, cursor, child_origin.start()),
+        )
+        match child.node {
+          Text(value) =>
+            if child_origin == target_origin {
+              buf.write_string(replacement_text)
+            } else {
+              buf.write_string(value)
+            }
+          _ => buf.write_string(source_slice(source, child_origin))
+        }
+        continue child_origin.end()
+      } nobreak {
+        buf.to_string()
+      }
     }
   }
 }
@@ -470,7 +489,11 @@ fn local_transform_render(
       } else {
         value
       }
-    Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
+    Unsupported(_message) =>
+      // The caller only reaches this branch when target_origin is inside the
+      // unsupported node's origin. Emit the replacement text rather than a
+      // diagnostic comment so the edit is not silently lost.
+      replacement_text
   }
 }
 
