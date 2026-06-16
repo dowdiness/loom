@@ -1,7 +1,36 @@
 ///|
 fn markdown_ir_from_source(source : String) -> MarkdownIR {
-  let (cst, _) = parse_cst(source) catch { _ => abort("Markdown parse failed") }
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
   experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
+}
+
+///|
+/// Compare the two Block adapter paths for lex-valid current-subset fixtures.
+fn assert_markdown_ir_block_matches_direct_parse(source : String) -> Unit raise {
+  let direct = parse(source)
+  let via_ir = experimental_markdown_ir_to_block(
+    markdown_ir_from_source(source),
+  )
+  inspect(via_ir, content=@debug.to_string(direct))
+}
+
+///|
+fn current_parser_subset_source() -> String {
+  (
+    #|# Title
+    #|
+    #|Hello **world** and *moon* with `code` plus [link](u(1))
+    #|
+    #|- one
+    #|- two
+    #|
+    #|```moonbit
+    #|let x = 1
+    #|```
+    #|
+  )
 }
 
 ///|
@@ -71,18 +100,7 @@ test "experimental MarkdownIR: paragraph lowers with text origin and Block adapt
 
 ///|
 test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
-  let source =
-    #|# Title
-    #|
-    #|Hello **world** and *moon* with `code` plus [link](u(1))
-    #|
-    #|- one
-    #|- two
-    #|
-    #|```moonbit
-    #|let x = 1
-    #|```
-    #|
+  let source = current_parser_subset_source()
   let ir = markdown_ir_from_source(source)
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
@@ -90,6 +108,44 @@ test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
       #|{"type":"root","children":[{"type":"heading","depth":1,"children":[{"type":"text","value":"Title"}]},{"type":"paragraph","children":[{"type":"text","value":"Hello "},{"type":"strong","children":[{"type":"text","value":"world"}]},{"type":"text","value":" and "},{"type":"emphasis","children":[{"type":"text","value":"moon"}]},{"type":"text","value":" with "},{"type":"inlineCode","value":"code"},{"type":"text","value":" plus "},{"type":"link","url":"u(1)","children":[{"type":"text","value":"link"}]}]},{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}]},{"type":"code","lang":"moonbit","value":"let x = 1"}]}
     ),
   )
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for headings" {
+  assert_markdown_ir_block_matches_direct_parse("# Title\n")
+  assert_markdown_ir_block_matches_direct_parse("### Deep Title\n")
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for paragraphs" {
+  assert_markdown_ir_block_matches_direct_parse("Hello world\n")
+  assert_markdown_ir_block_matches_direct_parse("line one\nline two\n")
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for unordered lists" {
+  assert_markdown_ir_block_matches_direct_parse("- one\n- two\n")
+  assert_markdown_ir_block_matches_direct_parse(
+    "- **bold** item\n- [link](target)\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for fenced code blocks" {
+  assert_markdown_ir_block_matches_direct_parse("```moonbit\nlet x = 1\n```\n")
+  assert_markdown_ir_block_matches_direct_parse("````\n```\n````\n")
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for inline formatting" {
+  assert_markdown_ir_block_matches_direct_parse(
+    "Hello **world** and *moon* with `code` plus [link](u(1))\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches direct parse for current subset mixture" {
+  assert_markdown_ir_block_matches_direct_parse(current_parser_subset_source())
 }
 
 ///|
@@ -120,7 +176,7 @@ test "experimental MarkdownIR: recovered inline delimiters adapt to text" {
     block,
     content="Document([Paragraph([Text(\"Hello \"), Text(\"*\")])])",
   )
-  inspect(block == parse(source), content="true")
+  inspect(block, content=@debug.to_string(parse(source)))
 }
 
 ///|
