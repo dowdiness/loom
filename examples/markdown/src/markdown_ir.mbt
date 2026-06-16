@@ -50,6 +50,8 @@ priv enum MarkdownIRNode {
   InlineCode(String, MarkdownIROrigin?)
   Link(Array[MarkdownIR], String, MarkdownIROrigin?)
   Unsupported(String)
+  Raw(String, Array[@core.Diagnostic])
+  Recovered(String, Array[@core.Diagnostic])
 } derive(Eq, Debug)
 
 ///|
@@ -171,6 +173,40 @@ fn MarkdownIR::unsupported(
 }
 
 ///|
+fn MarkdownIR::raw(
+  value : String,
+  origin : MarkdownIROrigin,
+  diagnostics : Array[@core.Diagnostic],
+) -> MarkdownIR {
+  {
+    node: Raw(
+      value,
+      recovery_diagnostics("raw recovered Markdown", origin, diagnostics),
+    ),
+    origin,
+  }
+}
+
+///|
+fn MarkdownIR::recovered(
+  message : String,
+  origin : MarkdownIROrigin,
+  diagnostics : Array[@core.Diagnostic],
+) -> MarkdownIR {
+  {
+    node: Recovered(
+      message,
+      recovery_diagnostics(
+        "recovered malformed Markdown: " + message,
+        origin,
+        diagnostics,
+      ),
+    ),
+    origin,
+  }
+}
+
+///|
 pub fn MarkdownIR::origin(self : MarkdownIR) -> MarkdownIROrigin {
   self.origin
 }
@@ -190,6 +226,8 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     InlineCode(_, _) => "InlineCode"
     Link(_, _, _) => "Link"
     Unsupported(_) => "Unsupported"
+    Raw(_, _) => "Raw"
+    Recovered(_, _) => "Recovered"
   }
 }
 
@@ -204,7 +242,12 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _) => children.copy()
-    CodeBlock(_, _, _) | Text(_) | InlineCode(_, _) | Unsupported(_) => []
+    CodeBlock(_, _, _)
+    | Text(_)
+    | InlineCode(_, _)
+    | Unsupported(_)
+    | Raw(_, _)
+    | Recovered(_, _) => []
   }
 }
 
@@ -219,7 +262,7 @@ pub fn MarkdownIR::heading_depth(self : MarkdownIR) -> Int? {
 ///|
 pub fn MarkdownIR::text_value(self : MarkdownIR) -> String? {
   match self.node {
-    Text(value) => Some(value)
+    Text(value) | Raw(value, _) => Some(value)
     _ => None
   }
 }
@@ -235,6 +278,72 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
     _ => None
+  }
+}
+
+///|
+pub fn MarkdownIR::destination_origin(self : MarkdownIR) -> MarkdownIROrigin? {
+  match self.node {
+    Link(_, _, origin) => origin
+    _ => None
+  }
+}
+
+///|
+pub fn MarkdownIR::is_raw(self : MarkdownIR) -> Bool {
+  match self.node {
+    Raw(_, _) => true
+    _ => false
+  }
+}
+
+///|
+pub fn MarkdownIR::is_recovered(self : MarkdownIR) -> Bool {
+  match self.node {
+    Recovered(_, _) => true
+    _ => false
+  }
+}
+
+///|
+pub fn MarkdownIR::diagnostics(self : MarkdownIR) -> Array[@core.Diagnostic] {
+  match self.node {
+    Raw(_, diagnostics) | Recovered(_, diagnostics) => diagnostics.copy()
+    _ => []
+  }
+}
+
+///|
+fn recovery_diagnostic(
+  message : String,
+  origin : MarkdownIROrigin,
+) -> @core.Diagnostic {
+  let primary = try
+    @core.TextRange::from_offsets(origin.start(), origin.end())
+  catch {
+    _ => None
+  } noraise {
+    range => Some(range)
+  }
+  @core.Diagnostic::Diagnostic(
+    source=@core.DiagnosticSource::parser(),
+    severity=@core.DiagnosticSeverity::all()[0],
+    code=Some(@core.DiagnosticCode("markdown-ir.recovery")),
+    message~,
+    primary~,
+  )
+}
+
+///|
+fn recovery_diagnostics(
+  message : String,
+  origin : MarkdownIROrigin,
+  diagnostics : Array[@core.Diagnostic],
+) -> Array[@core.Diagnostic] {
+  if diagnostics.length() > 0 {
+    diagnostics.copy()
+  } else {
+    [recovery_diagnostic(message, origin)]
   }
 }
 
@@ -277,10 +386,11 @@ fn delimiter_text(kind : SyntaxKind) -> String? {
 }
 
 ///|
-fn lower_inline_children_skip(
+fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
   newline_text : String?,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> Array[MarkdownIR] {
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
@@ -305,8 +415,18 @@ fn lower_inline_children_skip(
           continue
         }
         match token_kind {
-          TextToken | ErrorToken =>
+          TextToken =>
             push_child(MarkdownIR::text(token.text(), origin_from_token(token)))
+          ErrorToken | ErrorNode => {
+            let origin = origin_from_token(token)
+            push_child(
+              MarkdownIR::raw(
+                token.text(),
+                origin,
+                diagnostics_in_origin(origin),
+              ),
+            )
+          }
           NewlineToken => pending_newline = Some(origin_from_token(token))
           HeadingMarkerToken
           | ListMarkerToken
@@ -324,23 +444,34 @@ fn lower_inline_children_skip(
         }
       }
       @seam.SyntaxElement::Node(child_node) =>
-        push_child(lower_inline_node(child_node))
+        push_child(
+          lower_inline_node_with_diags(child_node, diagnostics_in_origin),
+        )
     }
   }
   children
 }
 
 ///|
-fn lower_inline_children(node : @seam.SyntaxNode) -> Array[MarkdownIR] {
-  lower_inline_children_skip(node, None, None)
+fn lower_inline_children_with_diags(
+  node : @seam.SyntaxNode,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  lower_inline_children_skip_with_diags(node, None, None, diagnostics_in_origin)
 }
 
 ///|
-fn lower_inline_children_with_newline(
+fn lower_inline_children_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> Array[MarkdownIR] {
-  lower_inline_children_skip(node, None, Some(newline_text))
+  lower_inline_children_skip_with_diags(
+    node,
+    None,
+    Some(newline_text),
+    diagnostics_in_origin,
+  )
 }
 
 ///|
@@ -377,7 +508,10 @@ fn span_token_origins(origins : Array[MarkdownIROrigin]) -> MarkdownIROrigin? {
 }
 
 ///|
-fn lower_link_node(node : @seam.SyntaxNode) -> MarkdownIR {
+fn lower_link_node_with_diags(
+  node : @seam.SyntaxNode,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR {
   let display : Array[MarkdownIR] = []
   let destination_buf = StringBuilder::new()
   let destination_origins : Array[MarkdownIROrigin] = []
@@ -406,16 +540,28 @@ fn lower_link_node(node : @seam.SyntaxNode) -> MarkdownIR {
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
           }
-          TextToken | ErrorToken if !past_bracket =>
+          TextToken if !past_bracket =>
             display.push(
               MarkdownIR::text(token.text(), origin_from_token(token)),
             )
+          ErrorToken | ErrorNode if !past_bracket => {
+            let origin = origin_from_token(token)
+            display.push(
+              MarkdownIR::raw(
+                token.text(),
+                origin,
+                diagnostics_in_origin(origin),
+              ),
+            )
+          }
           _ => ()
         }
       }
       @seam.SyntaxElement::Node(child_node) =>
         if !past_bracket && url_depth == 0 {
-          display.push(lower_inline_node(child_node))
+          display.push(
+            lower_inline_node_with_diags(child_node, diagnostics_in_origin),
+          )
         }
     }
   }
@@ -428,11 +574,19 @@ fn lower_link_node(node : @seam.SyntaxNode) -> MarkdownIR {
 }
 
 ///|
-fn lower_inline_node(node : @seam.SyntaxNode) -> MarkdownIR {
+fn lower_inline_node_with_diags(
+  node : @seam.SyntaxNode,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
     BoldNode => {
-      let children = lower_inline_children_skip(node, Some(StarStarToken), None)
+      let children = lower_inline_children_skip_with_diags(
+        node,
+        Some(StarStarToken),
+        None,
+        diagnostics_in_origin,
+      )
       MarkdownIR::bold(
         children,
         origin_from_node(node),
@@ -440,7 +594,12 @@ fn lower_inline_node(node : @seam.SyntaxNode) -> MarkdownIR {
       )
     }
     ItalicNode => {
-      let children = lower_inline_children_skip(node, Some(StarToken), None)
+      let children = lower_inline_children_skip_with_diags(
+        node,
+        Some(StarToken),
+        None,
+        diagnostics_in_origin,
+      )
       MarkdownIR::italic(
         children,
         origin_from_node(node),
@@ -451,8 +610,11 @@ fn lower_inline_node(node : @seam.SyntaxNode) -> MarkdownIR {
       let (value, content_origin) = lower_code_span(node)
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
-    LinkNode => lower_link_node(node)
-    ErrorNode => MarkdownIR::text(node.text(), origin_from_node(node))
+    LinkNode => lower_link_node_with_diags(node, diagnostics_in_origin)
+    ErrorNode => {
+      let origin = origin_from_node(node)
+      MarkdownIR::recovered(node.text(), origin, diagnostics_in_origin(origin))
+    }
     _ =>
       MarkdownIR::unsupported(
         "unsupported inline node: " + kind.to_string(),
@@ -478,16 +640,25 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
 }
 
 ///|
-fn lower_document_child(
+fn lower_document_child_with_diags(
   child : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
     HeadingNode | ParagraphNode | UnorderedListNode | CodeBlockNode =>
       Some(recurse(child))
-    ErrorNode =>
-      Some(MarkdownIR::unsupported("parse error", origin_from_node(child)))
+    ErrorNode => {
+      let origin = origin_from_node(child)
+      Some(
+        MarkdownIR::recovered(
+          "parse error",
+          origin,
+          diagnostics_in_origin(origin),
+        ),
+      )
+    }
     _ => None
   }
 }
@@ -549,9 +720,10 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
 ///
 /// Covers documents, headings, paragraphs, and text. Other Markdown constructs
 /// lower to explicit `Unsupported` IR nodes instead of cloned CST token piles.
-fn experimental_markdown_ir_fold_node(
+fn experimental_markdown_ir_fold_node_with_diags(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
@@ -559,12 +731,16 @@ fn experimental_markdown_ir_fold_node(
       let children : Array[MarkdownIR] = node
         .children()
         .iter()
-        .filter_map(child => lower_document_child(child, recurse))
+        .filter_map(child => {
+          lower_document_child_with_diags(child, recurse, diagnostics_in_origin)
+        })
         .collect()
       MarkdownIR::document(children, origin_from_node(node))
     }
     HeadingNode => {
-      let children = lower_inline_children(node)
+      let children = lower_inline_children_with_diags(
+        node, diagnostics_in_origin,
+      )
       match heading_depth_from_marker(node) {
         Some(depth) =>
           MarkdownIR::heading(
@@ -581,7 +757,9 @@ fn experimental_markdown_ir_fold_node(
       }
     }
     ParagraphNode => {
-      let children = lower_inline_children_with_newline(node, " ")
+      let children = lower_inline_children_with_newline_and_diags(
+        node, " ", diagnostics_in_origin,
+      )
       MarkdownIR::paragraph(
         children,
         origin_from_node(node),
@@ -605,7 +783,9 @@ fn experimental_markdown_ir_fold_node(
       MarkdownIR::unordered_list(children, origin_from_node(node))
     }
     ListItemNode => {
-      let children = lower_inline_children(node)
+      let children = lower_inline_children_with_diags(
+        node, diagnostics_in_origin,
+      )
       MarkdownIR::list_item(
         children,
         origin_from_node(node),
@@ -619,13 +799,47 @@ fn experimental_markdown_ir_fold_node(
         origin_from_node(node),
         None,
       )
-    ErrorNode => MarkdownIR::unsupported("parse error", origin_from_node(node))
+    ErrorNode => {
+      let origin = origin_from_node(node)
+      MarkdownIR::recovered(
+        "parse error",
+        origin,
+        diagnostics_in_origin(origin),
+      )
+    }
     _ =>
       MarkdownIR::unsupported(
         "unsupported node: " + kind.to_string(),
         origin_from_node(node),
       )
   }
+}
+
+///|
+fn experimental_markdown_ir_fold_node(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> MarkdownIR,
+) -> MarkdownIR {
+  experimental_markdown_ir_fold_node_with_diags(node, recurse, _ => [])
+}
+
+///|
+fn diagnostics_in_origin(
+  diagnostics : @core.DiagnosticSet,
+  origin : MarkdownIROrigin,
+) -> Array[@core.Diagnostic] {
+  diagnostics
+  .items()
+  .iter()
+  .filter(diagnostic => {
+    match diagnostic.primary {
+      Some(range) =>
+        range.start().value() < origin.end() &&
+        range.end().value() > origin.start()
+      None => false
+    }
+  })
+  .collect()
 }
 
 ///|
@@ -646,6 +860,19 @@ pub fn experimental_markdown_ir_from_syntax(
 }
 
 ///|
+pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
+  root : @seam.SyntaxNode,
+  diagnostics : @core.DiagnosticSet,
+) -> MarkdownIR {
+  fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
+    experimental_markdown_ir_fold_node_with_diags(node, lower, origin => {
+      diagnostics_in_origin(diagnostics, origin)
+    })
+  }
+  lower(root)
+}
+
+///|
 fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
   match ir.node {
     Text(value) => Inline::Text(value)
@@ -655,6 +882,8 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     Link(children, destination, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
     Unsupported(message) => Inline::Error(message)
+    Raw(value, _) => Inline::Text(value)
+    Recovered(message, _) => Inline::Error(message)
     Document(_) => Inline::Error("expected inline MarkdownIR, got document")
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
@@ -690,7 +919,20 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
       Block::Error("expected block MarkdownIR, got inline code")
     Link(_, _, _) => Block::Error("expected block MarkdownIR, got link")
     Unsupported(message) => Block::Error(message)
+    Raw(value, _) =>
+      Block::Error("expected block MarkdownIR, got raw: " + value)
+    Recovered(message, _) => Block::Error(message)
   }
+}
+
+///|
+fn origin_json(origin : MarkdownIROrigin) -> Json {
+  { "start": origin.start(), "end": origin.end() }
+}
+
+///|
+fn diagnostics_json(diagnostics : Array[@core.Diagnostic]) -> Json {
+  Json::array(diagnostics.map(diagnostic => Json::string(diagnostic.format())))
 }
 
 ///|
@@ -753,6 +995,20 @@ pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
         "children": children.map(experimental_markdown_ir_to_mdast_json),
       }
     Unsupported(message) => { "type": "mdastUnsupported", "value": message }
+    Raw(value, diagnostics) =>
+      {
+        "type": "mdastRaw",
+        "value": value,
+        "origin": origin_json(ir.origin()),
+        "diagnostics": diagnostics_json(diagnostics),
+      }
+    Recovered(message, diagnostics) =>
+      {
+        "type": "mdastRecovered",
+        "value": message,
+        "origin": origin_json(ir.origin()),
+        "diagnostics": diagnostics_json(diagnostics),
+      }
   }
 }
 
@@ -817,7 +1073,7 @@ fn local_transform_inline_text(
           )
         } else {
           match child.node {
-            Text(value) => buf.write_string(value)
+            Text(value) | Raw(value, _) => buf.write_string(value)
             InlineCode(value, _) => buf.write_string("`" + value + "`")
             _ => buf.write_string(source_slice(source, child_origin))
           }
@@ -916,7 +1172,7 @@ fn local_transform_render(
       } else {
         code_block_markdown(info, value)
       }
-    Text(value) =>
+    Text(value) | Raw(value, _) =>
       if ir.origin() == target_origin {
         replacement_text
       } else {
@@ -942,18 +1198,24 @@ fn local_transform_render(
       } else {
         "`" + value + "`"
       }
-    Link(children, destination, _) =>
+    Link(children, destination, destination_origin) => {
+      let rendered_destination = if destination_origin == Some(target_origin) {
+        replacement_text
+      } else {
+        destination
+      }
       "[" +
       local_transform_inline_text(
         children, source, target_origin, replacement_text,
       ) +
       "](" +
-      destination +
+      rendered_destination +
       ")"
-    Unsupported(_message) =>
+    }
+    Unsupported(_message) | Recovered(_message, _) =>
       // The caller only reaches this branch when target_origin is inside the
-      // unsupported node's origin. Emit the replacement text rather than a
-      // diagnostic comment so the edit is not silently lost.
+      // unsupported/recovered node's origin. Emit the replacement text rather
+      // than a diagnostic comment so the edit is not silently lost.
       replacement_text
   }
 }
@@ -995,12 +1257,13 @@ pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
       children.map(experimental_markdown_ir_canonical_format).join("\n")
     ListItem(children, _) => "- " + canonical_inline_text(children)
     CodeBlock(info, value, _) => code_block_markdown(info, value)
-    Text(value) => value
+    Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => "`" + value + "`"
     Link(children, destination, _) =>
       "[" + canonical_inline_text(children) + "](" + destination + ")"
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
+    Recovered(message, _) => "<!-- recovered MarkdownIR: " + message + " -->"
   }
 }

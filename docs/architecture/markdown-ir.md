@@ -92,9 +92,10 @@ A proposed IR field must fit one of these buckets:
 3. **Exact source trivia:** remains in CST/source text. MarkdownIR stores an
    origin span and consumers slice the original source when exact preservation is
    required.
-4. **Malformed or unsupported input:** becomes an explicit `Raw`/`Recovered`
-   style IR node with origin and diagnostics. It must not become a token pile on
-   otherwise semantic nodes.
+4. **Malformed or unsupported input:** becomes an explicit `Recovered` or `Raw`
+   IR node with origin and diagnostics, while genuinely unsupported known syntax
+   remains `Unsupported`. It must not become a token pile on otherwise semantic
+   nodes.
 5. **Target-only data:** stays in the adapter for mdast, HTML, or the editor if
    it is not core semantic or transform-relevant data.
 
@@ -479,7 +480,7 @@ incremental parity third, and fast paths last.
 | M1 — Minimal vertical slice | #338, #324, #339. Current parser subset through `SyntaxNode -> MarkdownIR -> Block/Inline`, mdast export, rewrite smoke tests, and performance policy. | Existing parser behavior and `Block`/`Inline` tests still pass for headings, paragraphs, unordered lists, fenced code, and parsed inline containers; mdast snapshots exist for the slice; preserve/local/canonical modes are distinguishable; new public IR APIs are deliberately experimental or stable; generated interfaces are reviewed. |
 | M2 — Editor projection compatibility | #332, #341. Derive the editor model from MarkdownIR and define projection identity policy. | Canopy projection memos can continue consuming `@markdown.Block`; source-map roles have a documented source of truth; surface-only edits do not churn editor identity unless the view requires it. |
 | M3 — mdast export parity | #325. Fixture parity harness over MarkdownIR. | Checked-in mdast fixtures run under `moon test`; generator workflow is optional; pass/xfail baseline is explicit. |
-| M4 — Source origins and rewrites | #328, #333, #334. Centralized origins, unist positions, rewrite modes, diagnostics/recovery/raw-node contract. | Origins and position conversions are documented and tested; unchanged source can be reproduced by slicing; adapters handle recovery nodes explicitly. |
+| M4 — Source origins and rewrites | #328, #333, #334. Centralized origins, unist positions, rewrite modes, diagnostics/recovery/raw-node contract. | Origins and position conversions are documented and tested; unchanged source can be reproduced by slicing; adapters handle `Recovered`/`Raw` nodes explicitly; remaining feature-specific raw/recovery expansion is tracked against later CommonMark milestones. |
 | M5 — CommonMark block model | #326, #327. CommonMark HTML harness and block/container semantics. | HTML fixture baseline exists; list/container flow content is represented in IR; block-feature additions include full-vs-incremental parity before reuse assertions. |
 | M6 — CommonMark inline model | #329. Inline delimiter, link/reference, code-span, escape, entity, break, and image semantics. | Inline mdast and HTML fixture coverage improves feature-by-feature; document-level reference resolution has an explicit IR contract. |
 | M7 — Incremental hardening | #330. Preserve parser/diagnostic/IR parity as features expand. | Each new Markdown feature has full-vs-incremental CST, diagnostic, and target parity tests before any block-reparse widening; richer block-reparse context remains evidence-driven. |
