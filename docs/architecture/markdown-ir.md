@@ -186,8 +186,13 @@ origins, not a copied token stream.
 Implementation guidance for future PRs:
 
 - Reuse the existing memoized CST fold shape for `SyntaxNode -> IR` when the IR
-  is derived from the whole syntax tree. The fold boundary keeps parser reuse and
-  semantic lowering concerns separated.
+  is derived from the whole syntax tree **and the IR is position-independent**.
+  `CstFold` keys its cache by structural hash and returns cached results
+  verbatim, so an IR that bakes absolute source origins into its values will
+  return stale origins after position-shifting edits. MarkdownIR stores absolute
+  origins and therefore lowers from the live `SyntaxNode` without `CstFold` at
+  M1. The fold boundary still applies to position-independent targets such as
+  the current `Block`/`Inline` editor model.
 - Reparse tiny surface facts from token text when the CST no longer carries a
   typed token payload, as the current Markdown fold does for heading depth and
   code info. Store the result as validated semantic/surface data, not as the
@@ -509,5 +514,10 @@ M1 is done when a heading/paragraph slice proves the contract end to end:
 - `MarkdownIR -> mdast` snapshots exist for the slice;
 - preserve-mode, local-transform, and canonical formatter smoke tests are
   visibly different where surface metadata matters;
-- eager/lazy and memoization policy is stated with an initial benchmark; and
+- eager/lazy and memoization policy is stated with an initial benchmark
+  (see [ADR 2026-06-16](../decisions/2026-06-16-markdown-ir-performance-policy.md));
+  the benchmark compares `SyntaxNode -> Block` with
+  `SyntaxNode -> MarkdownIR -> Block` on a mixed document and concludes that
+  MarkdownIR is built lazily on demand without `CstFold` because its absolute
+  source origins are position-dependent; and
 - `.mbti` diffs show the intended public construction surface only.
