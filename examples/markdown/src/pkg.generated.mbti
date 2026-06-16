@@ -13,6 +13,8 @@ pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
 
 pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
 
+pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
+
 pub fn experimental_markdown_ir_local_transform_rewrite(MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String) -> String
 
 pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
@@ -72,7 +74,11 @@ pub struct MarkdownIR {
 } derive(Eq, @debug.Debug)
 pub fn MarkdownIR::children(Self) -> Array[Self]
 pub fn MarkdownIR::content_origin(Self) -> MarkdownIROrigin?
+pub fn MarkdownIR::destination_origin(Self) -> MarkdownIROrigin?
+pub fn MarkdownIR::diagnostics(Self) -> Array[@core.Diagnostic]
 pub fn MarkdownIR::heading_depth(Self) -> Int?
+pub fn MarkdownIR::is_raw(Self) -> Bool
+pub fn MarkdownIR::is_recovered(Self) -> Bool
 pub fn MarkdownIR::kind_tag(Self) -> String
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::text_value(Self) -> String?

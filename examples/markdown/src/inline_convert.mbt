@@ -153,11 +153,9 @@ fn convert_inline_node(
       }
       inlines.push(Inline::Link(display, url_buf.to_string()))
     }
-    ErrorNode => {
-      // Error recovery node — convert children as inline content
-      let inner = convert_inline_children(child)
-      inlines.append(inner)
-    }
+    ErrorNode =>
+      // Error recovery node — preserve recovery as an explicit semantic error.
+      inlines.push(Inline::Error(child.text()))
     _ => ()
   }
 }
