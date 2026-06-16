@@ -151,15 +151,29 @@ fn parse_link(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     return
   }
   ctx.emit_token(LeftParenToken) // (
-  // Parse URL content until )
-  while !(ctx.peek() is RightParen) && !is_inline_end(ctx.peek()) {
+  // Parse URL content until the matching outer ). Balanced parentheses are
+  // part of the URL and must not terminate the link destination early.
+  let mut depth = 1
+  while depth > 0 && !is_inline_end(ctx.peek()) {
     match ctx.peek() {
+      LeftParen => {
+        depth = depth + 1
+        ctx.emit_token(LeftParenToken)
+      }
+      RightParen => {
+        depth = depth - 1
+        ctx.emit_token(RightParenToken)
+      }
       Text(_) => ctx.emit_token(TextToken)
+      Star => ctx.emit_token(StarToken)
+      StarStar => ctx.emit_token(StarStarToken)
+      Backtick => ctx.emit_token(BacktickToken)
+      LeftBracket => ctx.emit_token(LeftBracketToken)
+      RightBracket => ctx.emit_token(RightBracketToken)
       _ => ctx.bump_error()
     }
   }
-  if ctx.peek() is RightParen {
-    ctx.emit_token(RightParenToken) // )
+  if depth == 0 {
     ctx.finish_node()
   } else {
     // Unclosed parens — restore

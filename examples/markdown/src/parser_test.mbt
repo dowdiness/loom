@@ -15,8 +15,14 @@ test "parse: multi-line paragraph" {
   let block = parse("line one\nline two\n\n")
   inspect(
     block,
-    content="Document([Paragraph([Text(\"line one\"), Text(\"line two\")])])",
+    content="Document([Paragraph([Text(\"line one\"), Text(\" \"), Text(\"line two\")])])",
   )
+}
+
+///|
+test "parse: multi-line paragraph unparse keeps soft break" {
+  let block = parse("line one\nline two\n\n")
+  inspect(@core.Renderable::unparse(block), content="line one line two")
 }
 
 ///|

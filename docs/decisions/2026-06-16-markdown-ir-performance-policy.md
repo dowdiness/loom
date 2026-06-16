@@ -81,13 +81,14 @@ Measured on the wasm-gc backend (`moon bench --release`):
 | Realistic (~55 lines) | 29.84 µs | 11.53 µs | IR faster |
 | 50x scaled (~1000 lines) | 409.78 µs | 160.46 µs | IR faster |
 
-The MarkdownIR path is faster for the M1 slice for two reasons: it uses a
-light direct recursive walk instead of `CstFold`'s structural-hash cache, and
-it currently lowers lists and code blocks to cheap `Unsupported` nodes while
-the direct fold does full work for those constructs. Even accounting for the
- apples-to-oranges comparison on unsupported constructs, the result shows that
-a fresh, non-memoized MarkdownIR lowering is not a performance regression and
-therefore does not justify the complexity of a position-aware memo layer at M1.
+The MarkdownIR path is faster for the M1 slice because it uses a light direct
+recursive walk instead of `CstFold`'s structural-hash cache. At the time of the
+#339 benchmark, lists and code blocks still lowered to cheap `Unsupported`
+nodes while the direct fold did full work for those constructs; #324 broadened
+that IR coverage afterward without changing the lazy/non-memoized policy. The
+benchmark result shows that a fresh, non-memoized MarkdownIR lowering is not a
+performance regression and therefore does not justify the complexity of a
+position-aware memo layer at M1.
 
 ## Rationale
 

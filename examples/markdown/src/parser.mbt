@@ -17,7 +17,8 @@ pub fn parse_markdown(
 
 ///|
 pub fn parse(source : String) -> Block {
-  // Tolerant parse — returns Document with Error nodes on failure
+  // Tolerant parse — lex errors become Block::Error; parser recovery folds the
+  // current CST, preserving recoverable inline text where possible.
   let (cst, _diags) = parse_cst(source) catch {
     _ => return Block::Error("lex error")
   }

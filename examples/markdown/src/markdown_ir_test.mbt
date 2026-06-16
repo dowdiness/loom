@@ -70,12 +70,24 @@ test "experimental MarkdownIR: paragraph lowers with text origin and Block adapt
 }
 
 ///|
-test "experimental MarkdownIR: mdast JSON snapshots for heading and paragraph" {
-  let ir = markdown_ir_from_source("# Title\n\nHello world\n")
+test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
+  let source =
+    #|# Title
+    #|
+    #|Hello **world** and *moon* with `code` plus [link](u(1))
+    #|
+    #|- one
+    #|- two
+    #|
+    #|```moonbit
+    #|let x = 1
+    #|```
+    #|
+  let ir = markdown_ir_from_source(source)
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
-      #|{"type":"root","children":[{"type":"heading","depth":1,"children":[{"type":"text","value":"Title"}]},{"type":"paragraph","children":[{"type":"text","value":"Hello world"}]}]}
+      #|{"type":"root","children":[{"type":"heading","depth":1,"children":[{"type":"text","value":"Title"}]},{"type":"paragraph","children":[{"type":"text","value":"Hello "},{"type":"strong","children":[{"type":"text","value":"world"}]},{"type":"text","value":" and "},{"type":"emphasis","children":[{"type":"text","value":"moon"}]},{"type":"text","value":" with "},{"type":"inlineCode","value":"code"},{"type":"text","value":" plus "},{"type":"link","url":"u(1)","children":[{"type":"text","value":"link"}]}]},{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}]},{"type":"code","lang":"moonbit","value":"let x = 1"}]}
     ),
   )
 }
@@ -134,29 +146,56 @@ test "experimental MarkdownIR: local transform splices changed text" {
 }
 
 ///|
-test "experimental MarkdownIR: local transform preserves inline source gaps" {
+test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [first, _] => {
+        [first, _, _] => {
           let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
             target_origin=first.origin(),
             replacement_text="first line",
           )
-          inspect(local_rewrite, content="first line\nline two\n")
+          inspect(local_rewrite, content="first line line two\n")
         }
-        _ => inspect("unexpected paragraph children", content="two text nodes")
+        _ =>
+          inspect("unexpected paragraph children", content="three text nodes")
       }
     _ => inspect("unexpected child count", content="one paragraph")
   }
 }
 
 ///|
-test "experimental MarkdownIR: local transform preserves unsupported inline siblings" {
+test "experimental MarkdownIR: local transform rewrites inline code content origin" {
+  let source = "`code`\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [inline_code] =>
+          match inline_code.content_origin() {
+            Some(origin) => {
+              let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=origin,
+                replacement_text="new",
+              )
+              inspect(local_rewrite, content="`new`\n")
+            }
+            None => inspect("missing", content="inline code content origin")
+          }
+        _ => inspect("unexpected paragraph children", content="inline code")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves inline container siblings" {
   let source = "Hello **world** tail\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
@@ -171,25 +210,28 @@ test "experimental MarkdownIR: local transform preserves unsupported inline sibl
           )
           inspect(local_rewrite, content="Hi **world** tail\n")
         }
-        _ =>
-          inspect(
-            "unexpected paragraph children",
-            content="text unsupported text",
-          )
+        _ => inspect("unexpected paragraph children", content="text bold text")
       }
     _ => inspect("unexpected child count", content="one paragraph")
   }
 }
 
 ///|
-test "experimental MarkdownIR: canonical formatter exposes unsupported inline nodes" {
-  let ir = markdown_ir_from_source("Hello **world** tail\n")
+test "experimental MarkdownIR: canonical formatter renders inline containers" {
+  let ir = markdown_ir_from_source("Hello **world** and [link](u(1))\n")
   inspect(
     experimental_markdown_ir_canonical_format(ir),
-    content=(
-      #|Hello <!-- unsupported MarkdownIR: unsupported inline node: BoldNode --> tail
-    ),
+    content="Hello **world** and [link](u(1))",
   )
+}
+
+///|
+test "experimental MarkdownIR: canonical code fence exceeds content backtick run" {
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("````\n```\n````\n"),
+  )
+  inspect(formatted, content="````\n```\n````")
+  inspect(parse(formatted), content="Document([CodeBlock(\"\", \"```\")])")
 }
 
 ///|
