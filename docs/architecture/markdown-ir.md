@@ -476,7 +476,7 @@ incremental parity third, and fast paths last.
 | Phase | Scope | Exit signal |
 |---|---|---|
 | M0 — Contracts and roadmap | #323, #331, #337, #340, #335, #336. Define responsibilities, invariants, constructor/API policy, canonicalization vocabulary, extension scope, migration plan, and package boundaries. | Contract docs are present and reviewed; `Block`/`Inline` compatibility is explicit; mdast is documented as an export target; no implementation begins without the field-promotion rubric, invariants, CST boundary, constructor policy, and generated-interface review gate. |
-| M1 — Minimal vertical slice | #338, #324, #339. Headings and paragraphs through `SyntaxNode -> MarkdownIR -> Block/Inline`, mdast export, rewrite smoke tests, and performance policy. | Existing heading/paragraph parser behavior and `Block`/`Inline` tests still pass; mdast snapshots exist for the slice; preserve/local/canonical modes are distinguishable; new public IR APIs are deliberately experimental or stable; generated interfaces are reviewed. |
+| M1 — Minimal vertical slice | #338, #324, #339. Current parser subset through `SyntaxNode -> MarkdownIR -> Block/Inline`, mdast export, rewrite smoke tests, and performance policy. | Existing parser behavior and `Block`/`Inline` tests still pass for headings, paragraphs, unordered lists, fenced code, and parsed inline containers; mdast snapshots exist for the slice; preserve/local/canonical modes are distinguishable; new public IR APIs are deliberately experimental or stable; generated interfaces are reviewed. |
 | M2 — Editor projection compatibility | #332, #341. Derive the editor model from MarkdownIR and define projection identity policy. | Canopy projection memos can continue consuming `@markdown.Block`; source-map roles have a documented source of truth; surface-only edits do not churn editor identity unless the view requires it. |
 | M3 — mdast export parity | #325. Fixture parity harness over MarkdownIR. | Checked-in mdast fixtures run under `moon test`; generator workflow is optional; pass/xfail baseline is explicit. |
 | M4 — Source origins and rewrites | #328, #333, #334. Centralized origins, unist positions, rewrite modes, diagnostics/recovery/raw-node contract. | Origins and position conversions are documented and tested; unchanged source can be reproduced by slicing; adapters handle recovery nodes explicitly. |
@@ -507,9 +507,11 @@ M0 is done when:
 
 ## M1 exit criteria
 
-M1 is done when a heading/paragraph slice proves the contract end to end:
+M1 is done when the current parser subset proves the contract end to end:
 
-- `SyntaxNode -> MarkdownIR` lowering exists for headings and paragraphs;
+- `SyntaxNode -> MarkdownIR` lowering exists for headings, paragraphs,
+  unordered lists, list items, fenced code blocks, text, bold, italic, inline
+  code, and links;
 - `MarkdownIR -> Block/Inline` preserves current editor-facing behavior;
 - `MarkdownIR -> mdast` snapshots exist for the slice;
 - preserve-mode, local-transform, and canonical formatter smoke tests are

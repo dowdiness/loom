@@ -41,7 +41,14 @@ priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
   Paragraph(Array[MarkdownIR], MarkdownIROrigin?)
+  UnorderedList(Array[MarkdownIR])
+  ListItem(Array[MarkdownIR], MarkdownIROrigin?)
+  CodeBlock(String, String, MarkdownIROrigin?)
   Text(String)
+  Bold(Array[MarkdownIR], MarkdownIROrigin?)
+  Italic(Array[MarkdownIR], MarkdownIROrigin?)
+  InlineCode(String, MarkdownIROrigin?)
+  Link(Array[MarkdownIR], String, MarkdownIROrigin?)
   Unsupported(String)
 } derive(Eq, Debug)
 
@@ -87,8 +94,72 @@ fn MarkdownIR::paragraph(
 }
 
 ///|
+fn MarkdownIR::unordered_list(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+) -> MarkdownIR {
+  { node: UnorderedList(children), origin }
+}
+
+///|
+fn MarkdownIR::list_item(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: ListItem(children, content_origin), origin }
+}
+
+///|
+fn MarkdownIR::code_block(
+  info : String,
+  value : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: CodeBlock(info, value, content_origin), origin }
+}
+
+///|
 fn MarkdownIR::text(value : String, origin : MarkdownIROrigin) -> MarkdownIR {
   { node: Text(value), origin }
+}
+
+///|
+fn MarkdownIR::bold(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: Bold(children, content_origin), origin }
+}
+
+///|
+fn MarkdownIR::italic(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: Italic(children, content_origin), origin }
+}
+
+///|
+fn MarkdownIR::inline_code(
+  value : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: InlineCode(value, content_origin), origin }
+}
+
+///|
+fn MarkdownIR::link(
+  children : Array[MarkdownIR],
+  destination : String,
+  origin : MarkdownIROrigin,
+  destination_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: Link(children, destination, destination_origin), origin }
 }
 
 ///|
@@ -110,7 +181,14 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Document(_) => "Document"
     Heading(_, _, _) => "Heading"
     Paragraph(_, _) => "Paragraph"
+    UnorderedList(_) => "UnorderedList"
+    ListItem(_, _) => "ListItem"
+    CodeBlock(_, _, _) => "CodeBlock"
     Text(_) => "Text"
+    Bold(_, _) => "Bold"
+    Italic(_, _) => "Italic"
+    InlineCode(_, _) => "InlineCode"
+    Link(_, _, _) => "Link"
     Unsupported(_) => "Unsupported"
   }
 }
@@ -118,9 +196,15 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
 ///|
 pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
   match self.node {
-    Document(children) | Heading(_, children, _) | Paragraph(children, _) =>
-      children.copy()
-    Text(_) | Unsupported(_) => []
+    Document(children)
+    | Heading(_, children, _)
+    | Paragraph(children, _)
+    | UnorderedList(children)
+    | ListItem(children, _)
+    | Bold(children, _)
+    | Italic(children, _)
+    | Link(children, _, _) => children.copy()
+    CodeBlock(_, _, _) | Text(_) | InlineCode(_, _) | Unsupported(_) => []
   }
 }
 
@@ -143,7 +227,13 @@ pub fn MarkdownIR::text_value(self : MarkdownIR) -> String? {
 ///|
 pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Heading(_, _, origin) | Paragraph(_, origin) => origin
+    Heading(_, _, origin)
+    | Paragraph(_, origin)
+    | ListItem(_, origin)
+    | CodeBlock(_, _, origin)
+    | Bold(_, origin)
+    | Italic(_, origin)
+    | InlineCode(_, origin) => origin
     _ => None
   }
 }
@@ -173,39 +263,202 @@ fn span_origin_of_children(children : Array[MarkdownIR]) -> MarkdownIROrigin? {
 }
 
 ///|
-fn lower_inline_element(element : @seam.SyntaxElement) -> MarkdownIR? {
-  match element {
-    @seam.SyntaxElement::Token(token) => {
-      let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-      match token_kind {
-        TextToken =>
-          Some(MarkdownIR::text(token.text(), origin_from_token(token)))
-        HeadingMarkerToken | NewlineToken | BlankLineToken | EofToken => None
-        ErrorToken =>
-          Some(MarkdownIR::text(token.text(), origin_from_token(token)))
-        _ => None
+fn delimiter_text(kind : SyntaxKind) -> String? {
+  match kind {
+    StarToken => Some("*")
+    StarStarToken => Some("**")
+    BacktickToken => Some("`")
+    LeftBracketToken => Some("[")
+    RightBracketToken => Some("]")
+    LeftParenToken => Some("(")
+    RightParenToken => Some(")")
+    _ => None
+  }
+}
+
+///|
+fn lower_inline_children_skip(
+  node : @seam.SyntaxNode,
+  skip_kind : SyntaxKind?,
+  newline_text : String?,
+) -> Array[MarkdownIR] {
+  let children : Array[MarkdownIR] = []
+  let mut pending_newline : MarkdownIROrigin? = None
+  fn push_child(child : MarkdownIR) -> Unit {
+    match pending_newline {
+      Some(origin) => {
+        match newline_text {
+          Some(text) => children.push(MarkdownIR::text(text, origin))
+          None => ()
+        }
+        pending_newline = None
       }
+      None => ()
     }
-    @seam.SyntaxElement::Node(child) => {
-      let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
-      match child_kind {
-        ErrorNode =>
-          Some(MarkdownIR::text(child.text(), origin_from_node(child)))
-        _ =>
-          Some(
-            MarkdownIR::unsupported(
-              "unsupported inline node: " + child_kind.to_string(),
-              origin_from_node(child),
-            ),
-          )
+    children.push(child)
+  }
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if skip_kind is Some(kind) && token_kind == kind {
+          continue
+        }
+        match token_kind {
+          TextToken | ErrorToken =>
+            push_child(MarkdownIR::text(token.text(), origin_from_token(token)))
+          NewlineToken => pending_newline = Some(origin_from_token(token))
+          HeadingMarkerToken
+          | ListMarkerToken
+          | BlankLineToken
+          | EofToken
+          | CodeFenceOpenToken
+          | CodeFenceCloseToken
+          | CodeTextToken => ()
+          _ =>
+            match delimiter_text(token_kind) {
+              Some(text) =>
+                push_child(MarkdownIR::text(text, origin_from_token(token)))
+              None => ()
+            }
+        }
       }
+      @seam.SyntaxElement::Node(child_node) =>
+        push_child(lower_inline_node(child_node))
+    }
+  }
+  children
+}
+
+///|
+fn lower_inline_children(node : @seam.SyntaxNode) -> Array[MarkdownIR] {
+  lower_inline_children_skip(node, None, None)
+}
+
+///|
+fn lower_inline_children_with_newline(
+  node : @seam.SyntaxNode,
+  newline_text : String,
+) -> Array[MarkdownIR] {
+  lower_inline_children_skip(node, None, Some(newline_text))
+}
+
+///|
+fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
+  let buf = StringBuilder::new()
+  let content_tokens : Array[MarkdownIROrigin] = []
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          BacktickToken => ()
+          _ => {
+            buf.write_string(token.text())
+            content_tokens.push(origin_from_token(token))
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  (buf.to_string(), span_token_origins(content_tokens))
+}
+
+///|
+fn span_token_origins(origins : Array[MarkdownIROrigin]) -> MarkdownIROrigin? {
+  match origins {
+    [] => None
+    [first, ..] => {
+      let last = origins.last().unwrap()
+      Some(MarkdownIROrigin(start=first.start(), end=last.end()))
     }
   }
 }
 
 ///|
-fn lower_inline_children(node : @seam.SyntaxNode) -> Array[MarkdownIR] {
-  node.all_children().iter().filter_map(lower_inline_element).collect()
+fn lower_link_node(node : @seam.SyntaxNode) -> MarkdownIR {
+  let display : Array[MarkdownIR] = []
+  let destination_buf = StringBuilder::new()
+  let destination_origins : Array[MarkdownIROrigin] = []
+  let mut url_depth = 0
+  let mut past_bracket = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          LeftBracketToken if !past_bracket && url_depth == 0 => ()
+          RightBracketToken if url_depth == 0 => past_bracket = true
+          LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
+          LeftParenToken if past_bracket => {
+            url_depth = url_depth + 1
+            destination_buf.write_string(token.text())
+            destination_origins.push(origin_from_token(token))
+          }
+          RightParenToken if url_depth > 1 => {
+            url_depth = url_depth - 1
+            destination_buf.write_string(token.text())
+            destination_origins.push(origin_from_token(token))
+          }
+          RightParenToken if url_depth == 1 => url_depth = 0
+          _ if url_depth > 0 => {
+            destination_buf.write_string(token.text())
+            destination_origins.push(origin_from_token(token))
+          }
+          TextToken | ErrorToken if !past_bracket =>
+            display.push(
+              MarkdownIR::text(token.text(), origin_from_token(token)),
+            )
+          _ => ()
+        }
+      }
+      @seam.SyntaxElement::Node(child_node) =>
+        if !past_bracket && url_depth == 0 {
+          display.push(lower_inline_node(child_node))
+        }
+    }
+  }
+  MarkdownIR::link(
+    display,
+    destination_buf.to_string(),
+    origin_from_node(node),
+    span_token_origins(destination_origins),
+  )
+}
+
+///|
+fn lower_inline_node(node : @seam.SyntaxNode) -> MarkdownIR {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  match kind {
+    BoldNode => {
+      let children = lower_inline_children_skip(node, Some(StarStarToken), None)
+      MarkdownIR::bold(
+        children,
+        origin_from_node(node),
+        span_origin_of_children(children),
+      )
+    }
+    ItalicNode => {
+      let children = lower_inline_children_skip(node, Some(StarToken), None)
+      MarkdownIR::italic(
+        children,
+        origin_from_node(node),
+        span_origin_of_children(children),
+      )
+    }
+    InlineCodeNode => {
+      let (value, content_origin) = lower_code_span(node)
+      MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
+    }
+    LinkNode => lower_link_node(node)
+    ErrorNode => MarkdownIR::text(node.text(), origin_from_node(node))
+    _ =>
+      MarkdownIR::unsupported(
+        "unsupported inline node: " + kind.to_string(),
+        origin_from_node(node),
+      )
+  }
 }
 
 ///|
@@ -231,17 +484,64 @@ fn lower_document_child(
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
-    HeadingNode | ParagraphNode => Some(recurse(child))
+    HeadingNode | ParagraphNode | UnorderedListNode | CodeBlockNode =>
+      Some(recurse(child))
     ErrorNode =>
       Some(MarkdownIR::unsupported("parse error", origin_from_node(child)))
-    _ =>
-      Some(
-        MarkdownIR::unsupported(
-          "unsupported block node: " + child_kind.to_string(),
-          origin_from_node(child),
-        ),
-      )
+    _ => None
   }
+}
+
+///|
+fn code_block_info(node : @seam.SyntaxNode) -> String {
+  match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+    Some(fence_token) => {
+      let text = fence_token.text()
+      let i = count_backticks(text, 0)
+      if i < text.length() {
+        text[i:].to_owned()
+      } else {
+        ""
+      }
+    }
+    None => ""
+  }
+}
+
+///|
+fn trim_code_boundary_newlines(value : String) -> String {
+  let without_leading = if value.has_prefix("\n") {
+    value[1:].to_owned()
+  } else {
+    value
+  }
+  if without_leading.has_suffix("\n") {
+    without_leading[:without_leading.length() - 1].to_owned()
+  } else {
+    without_leading
+  }
+}
+
+///|
+fn code_block_value(node : @seam.SyntaxNode) -> String {
+  let buf = StringBuilder::new()
+  let mut in_code = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          CodeFenceOpenToken => in_code = true
+          CodeFenceCloseToken => in_code = false
+          CodeTextToken if in_code => buf.write_string(token.text())
+          NewlineToken if in_code => buf.write_string("\n")
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  trim_code_boundary_newlines(buf.to_string())
 }
 
 ///|
@@ -281,13 +581,44 @@ fn experimental_markdown_ir_fold_node(
       }
     }
     ParagraphNode => {
-      let children = lower_inline_children(node)
+      let children = lower_inline_children_with_newline(node, " ")
       MarkdownIR::paragraph(
         children,
         origin_from_node(node),
         span_origin_of_children(children),
       )
     }
+    UnorderedListNode => {
+      let children : Array[MarkdownIR] = node
+        .children()
+        .iter()
+        .filter_map(child => {
+          let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            child.kind(),
+          )
+          match child_kind {
+            ListItemNode => Some(recurse(child))
+            _ => None
+          }
+        })
+        .collect()
+      MarkdownIR::unordered_list(children, origin_from_node(node))
+    }
+    ListItemNode => {
+      let children = lower_inline_children(node)
+      MarkdownIR::list_item(
+        children,
+        origin_from_node(node),
+        span_origin_of_children(children),
+      )
+    }
+    CodeBlockNode =>
+      MarkdownIR::code_block(
+        code_block_info(node),
+        code_block_value(node),
+        origin_from_node(node),
+        None,
+      )
     ErrorNode => MarkdownIR::unsupported("parse error", origin_from_node(node))
     _ =>
       MarkdownIR::unsupported(
@@ -318,11 +649,20 @@ pub fn experimental_markdown_ir_from_syntax(
 fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
   match ir.node {
     Text(value) => Inline::Text(value)
+    Bold(children, _) => Inline::Bold(ir_children_to_inlines(children))
+    Italic(children, _) => Inline::Italic(ir_children_to_inlines(children))
+    InlineCode(value, _) => Inline::InlineCode(value)
+    Link(children, destination, _) =>
+      Inline::Link(ir_children_to_inlines(children), destination)
     Unsupported(message) => Inline::Error(message)
     Document(_) => Inline::Error("expected inline MarkdownIR, got document")
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
       Inline::Error("expected inline MarkdownIR, got paragraph")
+    UnorderedList(_) => Inline::Error("expected inline MarkdownIR, got list")
+    ListItem(_, _) => Inline::Error("expected inline MarkdownIR, got list item")
+    CodeBlock(_, _, _) =>
+      Inline::Error("expected inline MarkdownIR, got code block")
   }
 }
 
@@ -339,7 +679,16 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Heading(depth, children, _) =>
       Block::Heading(depth, ir_children_to_inlines(children))
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
+    UnorderedList(children) =>
+      Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
+    ListItem(children, _) => Block::ListItem(ir_children_to_inlines(children))
+    CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     Text(_) => Block::Error("expected block MarkdownIR, got text")
+    Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
+    Italic(_, _) => Block::Error("expected block MarkdownIR, got italic")
+    InlineCode(_, _) =>
+      Block::Error("expected block MarkdownIR, got inline code")
+    Link(_, _, _) => Block::Error("expected block MarkdownIR, got link")
     Unsupported(message) => Block::Error(message)
   }
 }
@@ -363,7 +712,46 @@ pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
         "type": "paragraph",
         "children": children.map(experimental_markdown_ir_to_mdast_json),
       }
+    UnorderedList(children) =>
+      {
+        "type": "list",
+        "ordered": false,
+        "children": children.map(experimental_markdown_ir_to_mdast_json),
+      }
+    ListItem(children, _) =>
+      {
+        "type": "listItem",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": children.map(experimental_markdown_ir_to_mdast_json),
+          },
+        ],
+      }
+    CodeBlock(info, value, _) =>
+      if info.length() > 0 {
+        { "type": "code", "lang": info, "value": value }
+      } else {
+        { "type": "code", "value": value }
+      }
     Text(value) => { "type": "text", "value": value }
+    Bold(children, _) =>
+      {
+        "type": "strong",
+        "children": children.map(experimental_markdown_ir_to_mdast_json),
+      }
+    Italic(children, _) =>
+      {
+        "type": "emphasis",
+        "children": children.map(experimental_markdown_ir_to_mdast_json),
+      }
+    InlineCode(value, _) => { "type": "inlineCode", "value": value }
+    Link(children, destination, _) =>
+      {
+        "type": "link",
+        "url": destination,
+        "children": children.map(experimental_markdown_ir_to_mdast_json),
+      }
     Unsupported(message) => { "type": "mdastUnsupported", "value": message }
   }
 }
@@ -421,14 +809,18 @@ fn local_transform_inline_text(
         buf.write_string(
           source_slice_between(source, cursor, child_origin.start()),
         )
-        match child.node {
-          Text(value) =>
-            if child_origin == target_origin {
-              buf.write_string(replacement_text)
-            } else {
-              buf.write_string(value)
-            }
-          _ => buf.write_string(source_slice(source, child_origin))
+        if child_origin.contains(target_origin) {
+          buf.write_string(
+            local_transform_render(
+              child, source, target_origin, replacement_text,
+            ),
+          )
+        } else {
+          match child.node {
+            Text(value) => buf.write_string(value)
+            InlineCode(value, _) => buf.write_string("`" + value + "`")
+            _ => buf.write_string(source_slice(source, child_origin))
+          }
         }
         continue child_origin.end()
       } nobreak {
@@ -436,6 +828,11 @@ fn local_transform_inline_text(
       }
     }
   }
+}
+
+///|
+fn code_block_markdown(info : String, value : String) -> String {
+  @core.Renderable::unparse(Block::CodeBlock(info, value))
 }
 
 ///|
@@ -483,12 +880,76 @@ fn local_transform_render(
         children, source, target_origin, replacement_text,
       ) +
       original_block_trailing_newline(source, ir.origin())
+    UnorderedList(children) => {
+      let buf = StringBuilder::new()
+      let final_cursor = for child in children; cursor = ir.origin().start() {
+        let child_origin = child.origin()
+        buf.write_string(
+          source_slice_between(source, cursor, child_origin.start()),
+        )
+        if child_origin.contains(target_origin) {
+          buf.write_string(
+            local_transform_render(
+              child, source, target_origin, replacement_text,
+            ),
+          )
+        } else {
+          buf.write_string(source_slice(source, child_origin))
+        }
+        continue child_origin.end()
+      } nobreak {
+        cursor
+      }
+      buf.write_string(
+        source_slice_between(source, final_cursor, ir.origin().end()),
+      )
+      buf.to_string()
+    }
+    ListItem(children, _) =>
+      "- " +
+      local_transform_inline_text(
+        children, source, target_origin, replacement_text,
+      )
+    CodeBlock(info, value, _) =>
+      if ir.origin() == target_origin {
+        replacement_text
+      } else {
+        code_block_markdown(info, value)
+      }
     Text(value) =>
       if ir.origin() == target_origin {
         replacement_text
       } else {
         value
       }
+    Bold(children, _) =>
+      "**" +
+      local_transform_inline_text(
+        children, source, target_origin, replacement_text,
+      ) +
+      "**"
+    Italic(children, _) =>
+      "*" +
+      local_transform_inline_text(
+        children, source, target_origin, replacement_text,
+      ) +
+      "*"
+    InlineCode(value, content_origin) =>
+      if ir.origin() == target_origin {
+        replacement_text
+      } else if content_origin == Some(target_origin) {
+        "`" + replacement_text + "`"
+      } else {
+        "`" + value + "`"
+      }
+    Link(children, destination, _) =>
+      "[" +
+      local_transform_inline_text(
+        children, source, target_origin, replacement_text,
+      ) +
+      "](" +
+      destination +
+      ")"
     Unsupported(_message) =>
       // The caller only reaches this branch when target_origin is inside the
       // unsupported node's origin. Emit the replacement text rather than a
@@ -530,7 +991,16 @@ pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
     Heading(depth, children, _) =>
       "#".repeat(depth) + " " + canonical_inline_text(children)
     Paragraph(children, _) => canonical_inline_text(children)
+    UnorderedList(children) =>
+      children.map(experimental_markdown_ir_canonical_format).join("\n")
+    ListItem(children, _) => "- " + canonical_inline_text(children)
+    CodeBlock(info, value, _) => code_block_markdown(info, value)
     Text(value) => value
+    Bold(children, _) => "**" + canonical_inline_text(children) + "**"
+    Italic(children, _) => "*" + canonical_inline_text(children) + "*"
+    InlineCode(value, _) => "`" + value + "`"
+    Link(children, destination, _) =>
+      "[" + canonical_inline_text(children) + "](" + destination + ")"
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
   }
 }

@@ -26,6 +26,24 @@ test "inline: link" {
 }
 
 ///|
+test "inline: link destination preserves balanced parentheses" {
+  let block = parse("[wiki](page_(C).html)\n")
+  inspect(
+    block,
+    content="Document([Paragraph([Link([Text(\"wiki\")], \"page_(C).html\")])])",
+  )
+}
+
+///|
+test "inline: link destination preserves delimiter characters" {
+  let block = parse("[api](docs/*items*`v1`)\n")
+  inspect(
+    block,
+    content="Document([Paragraph([Link([Text(\"api\")], \"docs/*items*`v1`\")])])",
+  )
+}
+
+///|
 test "inline: bold inside paragraph" {
   let block = parse("Hello **world** end\n")
   inspect(

@@ -16,33 +16,40 @@ fn collect_leaf_texts(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
-test "source fidelity: heading" {
-  let source = "# Hello\n"
+fn assert_source_fidelity(source : String) -> Unit raise {
   let (cst, _) = parse_cst(source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   inspect(collect_leaf_texts(syntax) == source, content="true")
+}
+
+///|
+test "source fidelity: heading" {
+  assert_source_fidelity("# Hello\n")
 }
 
 ///|
 test "source fidelity: paragraph with bold" {
-  let source = "Hello **bold** world\n"
-  let (cst, _) = parse_cst(source)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  inspect(collect_leaf_texts(syntax) == source, content="true")
+  assert_source_fidelity("Hello **bold** world\n")
 }
 
 ///|
 test "source fidelity: code block" {
-  let source = "```python\nx = 1\n```\n"
-  let (cst, _) = parse_cst(source)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  inspect(collect_leaf_texts(syntax) == source, content="true")
+  assert_source_fidelity("```python\nx = 1\n```\n")
 }
 
 ///|
 test "source fidelity: mixed document" {
-  let source = "# Title\n\nText here\n\n- item one\n- item two\n\n```\ncode\n```\n"
-  let (cst, _) = parse_cst(source)
-  let syntax = @seam.SyntaxNode::from_cst(cst)
-  inspect(collect_leaf_texts(syntax) == source, content="true")
+  assert_source_fidelity(
+    "# Title\n\nText here\n\n- item one\n- item two\n\n```\ncode\n```\n",
+  )
+}
+
+///|
+test "source fidelity: list" {
+  assert_source_fidelity("- one\n- two\n")
+}
+
+///|
+test "source fidelity: link with balanced parentheses" {
+  assert_source_fidelity("[wiki](page_(C).html)\n")
 }

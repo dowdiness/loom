@@ -25,21 +25,22 @@ pub fn markdown_fold_node(
     HeadingNode => {
       // Re-parse heading level from CST token text because the Token payload
       // (HeadingMarker(Int)) is lost across the CST boundary — CST stores raw text only.
-      let mut level = 1
-      match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
+      let level = match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
         Some(marker) => {
           let n = count_hashes(marker.text(), 0)
           if n > 0 {
-            level = n
+            n
+          } else {
+            1
           }
         }
-        None => ()
+        None => 1
       }
       let inlines = convert_inline_children(node)
       Block::Heading(level, inlines)
     }
     ParagraphNode => {
-      let inlines = convert_inline_children(node)
+      let inlines = convert_inline_children_with_newline(node, " ")
       Block::Paragraph(inlines)
     }
     UnorderedListNode => {
@@ -87,15 +88,13 @@ pub fn markdown_fold_node(
       }
       // Trim leading newline (the one right after CodeFenceOpen)
       let code_str = code_buf.to_string()
-      let trimmed = if code_str.length() > 0 &&
-        code_str.code_unit_at(0).to_char() == Some('\n') {
+      let trimmed = if code_str.has_prefix("\n") {
         code_str[1:].to_owned()
       } else {
         code_str
       }
       // Trim trailing newline (the one right before CodeFenceClose)
-      let final_code = if trimmed.length() > 0 &&
-        trimmed.code_unit_at(trimmed.length() - 1).to_char() == Some('\n') {
+      let final_code = if trimmed.has_suffix("\n") {
         trimmed[:trimmed.length() - 1].to_owned()
       } else {
         trimmed

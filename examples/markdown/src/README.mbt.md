@@ -47,15 +47,17 @@ pub fn markdown_lex_step(String, Int, MarkdownLexMode)
 
 Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
-Note that `parse` is **not** `raise` — recovered CST error nodes fold into
-`Block::Error`. If you need diagnostics, use `parse_markdown` instead.
+Note that `parse` is **not** `raise` — lexing failures fold into
+`Block::Error`, while parser recovery may preserve malformed inline source as
+text or error-shaped IR. If you need diagnostics, use `parse_markdown` instead.
 
 ## Experimental MarkdownIR
 
-The M1 MarkdownIR API is explicitly experimental. It currently covers the tiny
-vertical slice needed for issue #338: document, heading, paragraph, and text
-nodes with UTF-16 source origins. Unsupported Markdown constructs lower to
-explicit `Unsupported` IR nodes rather than token/trivia arrays.
+The M1 MarkdownIR API is explicitly experimental. It covers the current parser
+subset: document, heading, paragraph, unordered list, list item, fenced code,
+text, bold, italic, inline code, and link nodes with UTF-16 source origins.
+Unsupported Markdown constructs lower to explicit `Unsupported` IR nodes rather
+than token/trivia arrays.
 
 Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
 IR, then adapt with `experimental_markdown_ir_to_block`, export with
@@ -176,5 +178,7 @@ moon test    # parser, lexer, mode-lexer, error recovery, source fidelity
   flow including `apply_edit`
 - [Architecture overview](../../docs/architecture/overview.md) — layer
   diagram and design principles
+- [Markdown IR architecture](../../docs/architecture/markdown-ir.md) — IR
+  lowering policy and validation expectations
 - [`examples/json`](../json/) — step-based total lexing + `block_reparse_spec`
 - [`examples/lambda`](../lambda/) — typed `SyntaxNode` views
