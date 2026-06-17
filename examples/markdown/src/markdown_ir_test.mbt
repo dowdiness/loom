@@ -304,6 +304,51 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
 }
 
 ///|
+test "experimental MarkdownIR: zero-width incoming diagnostics attach only with positive overlap" {
+  let source = "Hello **unclosed\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let diagnostics = @core.DiagnosticSet::empty()
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "zero-width at recovered start", 6, 6, "synthetic-zero",
+    ),
+  )
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "zero-width inside recovered", 7, 7, "synthetic-zero",
+    ),
+  )
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "zero-width at recovered end", 8, 8, "synthetic-zero",
+    ),
+  )
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(cst, diagnostics)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children().search_by(child => child.is_recovered()) {
+        Some(index) => {
+          let recovered = paragraph.children()[index]
+          inspect(origin_source(source, recovered.origin()), content="**")
+          inspect(
+            recovered
+            .diagnostics()
+            .iter()
+            .map(diagnostic => diagnostic.format())
+            .collect()
+            .join("|"),
+            content="zero-width inside recovered [7,7]",
+          )
+        }
+        None => inspect("missing", content="recovered child")
+      }
+    _ => inspect("unexpected", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
   let source = "[text](\n"
   let (cst, _) = parse_cst(source) catch {
