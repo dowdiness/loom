@@ -3,6 +3,14 @@ fn markdown_ir_from_source(source : String) -> MarkdownIR {
   let (cst, diagnostics) = parse_cst(source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
+  experimental_markdown_ir_from_cst_with_diagnostics(cst, diagnostics)
+}
+
+///|
+fn experimental_markdown_ir_from_cst_with_diagnostics(
+  cst : @seam.CstNode,
+  diagnostics : @core.DiagnosticSet,
+) -> MarkdownIR {
   experimental_markdown_ir_from_syntax_with_diagnostics(
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
@@ -91,6 +99,22 @@ fn current_parser_subset_source() -> String {
 ///|
 fn origin_source(source : String, origin : MarkdownIROrigin) -> String {
   source[origin.start():origin.end()].to_owned()
+}
+
+///|
+fn malformed_link_raw_diagnostics() -> @core.DiagnosticSet {
+  let diagnostics = @core.DiagnosticSet::empty()
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
+    ),
+  )
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
+    ),
+  )
+  diagnostics
 }
 
 ///|
@@ -261,8 +285,8 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
   let diagnostic = @core.Diagnostic::lexer_error_at(
     "synthetic recovery diagnostic", 6, 7, "synthetic-recovery",
   )
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    @seam.SyntaxNode::from_cst(cst),
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    cst,
     @core.DiagnosticSet::single(diagnostic),
   )
   match ir.children() {
@@ -285,20 +309,9 @@ test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
   let (cst, _) = parse_cst(source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let diagnostics = @core.DiagnosticSet::empty()
-  diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
-      "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
-    ),
-  )
-  diagnostics.push(
-    @core.Diagnostic::lexer_error_at(
-      "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
-    ),
-  )
-  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    @seam.SyntaxNode::from_cst(cst),
-    diagnostics,
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    cst,
+    malformed_link_raw_diagnostics(),
   )
   match ir.children() {
     [paragraph] =>
@@ -356,6 +369,24 @@ test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as ra
       }
     _ => inspect("unexpected", content="one paragraph")
   }
+}
+
+///|
+test "experimental MarkdownIR: mdastRaw export carries injected diagnostics" {
+  let source = "[text](\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    cst,
+    malformed_link_raw_diagnostics(),
+  )
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["recovered malformed Markdown: [ [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["synthetic raw bracket diagnostic [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["synthetic raw paren diagnostic [6,7]"]}]}]}
+    ),
+  )
 }
 
 ///|
