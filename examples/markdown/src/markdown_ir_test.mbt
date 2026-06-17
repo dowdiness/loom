@@ -222,6 +222,16 @@ test "experimental MarkdownIR: recovered inline ErrorNodes stay explicit" {
 }
 
 ///|
+test "experimental MarkdownIR: lex-valid malformed heading/list recovery matches direct parse" {
+  let sources = [
+    "# **unclosed\n", "# [text](\n", "- **unclosed\n", "- [text](\n",
+  ]
+  for source in sources {
+    assert_markdown_ir_block_matches_direct_parse(source)
+  }
+}
+
+///|
 test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics" {
   let source = "Hello *\n"
   let ir = markdown_ir_from_source(source)
