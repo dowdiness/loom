@@ -273,7 +273,6 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     Heading(_, _, origin)
     | Paragraph(_, origin)
     | ListItem(_, origin)
-    | CodeBlock(_, _, origin)
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
@@ -943,38 +942,235 @@ fn diagnostics_json(diagnostics : Array[@core.Diagnostic]) -> Json {
 }
 
 ///|
-pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
-  match ir.node {
-    Document(children) =>
-      {
-        "type": "root",
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
+fn unist_point_json(point : @core.LineCol, offset : Int) -> Json {
+  { "line": point.line + 1, "column": point.column + 1, "offset": offset }
+}
+
+///|
+fn unist_position_json(
+  origin : MarkdownIROrigin,
+  line_index : @core.LineIndex,
+) -> Json {
+  let range = line_index.line_range(origin.start(), origin.end())
+  {
+    "start": unist_point_json(range.start, origin.start()),
+    "end": unist_point_json(range.end, origin.end()),
+  }
+}
+
+///|
+priv struct MdastPositionContext {
+  line_index : @core.LineIndex
+  source : String
+}
+
+///|
+fn origin_without_trailing_line_endings(
+  origin : MarkdownIROrigin,
+  source : String,
+) -> MarkdownIROrigin {
+  let mut trimmed_end = origin.end()
+  while trimmed_end > origin.start() {
+    let text = source_slice_between(source, origin.start(), trimmed_end)
+    if text.has_suffix("\r\n") {
+      trimmed_end = trimmed_end - 2
+    } else if text.has_suffix("\r") || text.has_suffix("\n") {
+      trimmed_end = trimmed_end - 1
+    } else {
+      break
+    }
+  }
+  MarkdownIROrigin(start=origin.start(), end=trimmed_end)
+}
+
+///|
+fn line_end_offset(source : String, start : Int, limit : Int) -> Int {
+  let mut pos = start
+  while pos < limit {
+    match char_at(source, pos) {
+      Some('\r') | Some('\n') | None => break
+      _ => pos = @core.next_char_offset(source, pos)
+    }
+  }
+  pos
+}
+
+///|
+fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
+  if line_end < limit {
+    match source.view(start_offset=line_end) {
+      ['\r', '\n', .. rest] => rest.start_offset()
+      ['\r', .. rest] | ['\n', .. rest] => rest.start_offset()
+      _ => limit
+    }
+  } else {
+    limit
+  }
+}
+
+///|
+fn code_fence_close_marker_end(
+  origin : MarkdownIROrigin,
+  source : String,
+) -> Int? {
+  let fence_len = count_backticks(source, origin.start())
+  guard fence_len >= 3 else { return None }
+  let open_line_end = line_end_offset(source, origin.start(), origin.end())
+  let mut line_start = next_line_start(source, open_line_end, origin.end())
+  while line_start < origin.end() {
+    let ticks = count_backticks(source, line_start)
+    let marker_end = line_start + ticks
+    if ticks >= fence_len {
+      let line_end = line_end_offset(source, marker_end, origin.end())
+      let mut is_close = true
+      let mut pos = marker_end
+      while pos < line_end {
+        match char_at(source, pos) {
+          Some(' ') | Some('\t') => pos = @core.next_char_offset(source, pos)
+          _ => {
+            is_close = false
+            break
+          }
+        }
       }
+      if is_close {
+        return Some(line_end)
+      }
+    }
+    let line_end = line_end_offset(source, line_start, origin.end())
+    line_start = next_line_start(source, line_end, origin.end())
+  }
+  None
+}
+
+///|
+fn code_block_mdast_position_origin(
+  origin : MarkdownIROrigin,
+  source : String,
+) -> MarkdownIROrigin {
+  match code_fence_close_marker_end(origin, source) {
+    Some(end) => MarkdownIROrigin(start=origin.start(), end~)
+    None => origin
+  }
+}
+
+///|
+fn mdast_position_origin(
+  ir : MarkdownIR,
+  context : MdastPositionContext,
+) -> MarkdownIROrigin {
+  match ir.node {
+    Heading(_, _, _) | Paragraph(_, _) | UnorderedList(_) | ListItem(_, _) =>
+      origin_without_trailing_line_endings(ir.origin(), context.source)
+    CodeBlock(_, _, _) =>
+      code_block_mdast_position_origin(ir.origin(), context.source)
+    _ => ir.origin()
+  }
+}
+
+///|
+fn mdast_json_with_position(
+  json : Json,
+  origin : MarkdownIROrigin,
+  context : MdastPositionContext?,
+) -> Json {
+  guard context is Some(position_context) else { return json }
+  match json {
+    Object(fields) => {
+      fields.set(
+        "position",
+        unist_position_json(origin, position_context.line_index),
+      )
+      Json::object(fields)
+    }
+    _ => json
+  }
+}
+
+///|
+fn mdast_json_object(
+  fields : Map[String, Json],
+  origin : MarkdownIROrigin,
+  context : MdastPositionContext?,
+) -> Json {
+  mdast_json_with_position(Json::object(fields), origin, context)
+}
+
+///|
+fn zero_width_origin_at(offset : Int) -> MarkdownIROrigin {
+  MarkdownIROrigin(start=offset, end=offset)
+}
+
+///|
+fn list_item_paragraph_position_origin(
+  children : Array[MarkdownIR],
+  content_origin : MarkdownIROrigin?,
+  list_item_origin : MarkdownIROrigin,
+) -> MarkdownIROrigin {
+  match content_origin {
+    Some(origin) => origin
+    None =>
+      if children.length() == 0 {
+        zero_width_origin_at(list_item_origin.end())
+      } else {
+        list_item_origin
+      }
+  }
+}
+
+///|
+fn mdast_children_json(
+  children : Array[MarkdownIR],
+  context : MdastPositionContext?,
+) -> Array[Json] {
+  children.map(child => markdown_ir_to_mdast_json(child, context))
+}
+
+///|
+fn markdown_ir_to_mdast_json(
+  ir : MarkdownIR,
+  context : MdastPositionContext?,
+) -> Json {
+  let json : Json = match ir.node {
+    Document(children) =>
+      { "type": "root", "children": mdast_children_json(children, context) }
     Heading(depth, children, _) =>
       {
         "type": "heading",
         "depth": depth,
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
+        "children": mdast_children_json(children, context),
       }
     Paragraph(children, _) =>
       {
         "type": "paragraph",
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
+        "children": mdast_children_json(children, context),
       }
     UnorderedList(children) =>
       {
         "type": "list",
         "ordered": false,
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
+        "children": mdast_children_json(children, context),
       }
-    ListItem(children, _) =>
+    ListItem(children, content_origin) =>
       {
         "type": "listItem",
         "children": [
-          {
-            "type": "paragraph",
-            "children": children.map(experimental_markdown_ir_to_mdast_json),
-          },
+          mdast_json_object(
+            {
+              "type": "paragraph",
+              "children": mdast_children_json(children, context),
+            },
+            list_item_paragraph_position_origin(
+              children,
+              content_origin,
+              match context {
+                Some(position_context) =>
+                  mdast_position_origin(ir, position_context)
+                None => ir.origin()
+              },
+            ),
+            context,
+          ),
         ],
       }
     CodeBlock(info, value, _) =>
@@ -985,21 +1181,15 @@ pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
       }
     Text(value) => { "type": "text", "value": value }
     Bold(children, _) =>
-      {
-        "type": "strong",
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
-      }
+      { "type": "strong", "children": mdast_children_json(children, context) }
     Italic(children, _) =>
-      {
-        "type": "emphasis",
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
-      }
+      { "type": "emphasis", "children": mdast_children_json(children, context) }
     InlineCode(value, _) => { "type": "inlineCode", "value": value }
     Link(children, destination, _) =>
       {
         "type": "link",
         "url": destination,
-        "children": children.map(experimental_markdown_ir_to_mdast_json),
+        "children": mdast_children_json(children, context),
       }
     Unsupported(message) => { "type": "mdastUnsupported", "value": message }
     Raw(value, diagnostics) =>
@@ -1017,6 +1207,39 @@ pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
         "diagnostics": diagnostics_json(diagnostics),
       }
   }
+  mdast_json_with_position(
+    json,
+    match context {
+      Some(position_context) => mdast_position_origin(ir, position_context)
+      None => ir.origin()
+    },
+    context,
+  )
+}
+
+///|
+pub fn experimental_markdown_ir_to_mdast_json(ir : MarkdownIR) -> Json {
+  markdown_ir_to_mdast_json(ir, None)
+}
+
+///|
+/// Export MarkdownIR to mdast-shaped JSON with unist `position` objects.
+///
+/// MarkdownIR origins remain half-open UTF-16 source ranges. This adapter builds
+/// a `LineIndex` from the source that produced the IR and converts each origin to
+/// unist points with 1-based lines/columns and 0-based UTF-16 offsets at the
+/// export boundary.
+pub fn experimental_markdown_ir_to_mdast_json_with_positions(
+  ir : MarkdownIR,
+  source : String,
+) -> Json {
+  guard ir.origin().end() <= source.length() else {
+    abort("MarkdownIR position export source does not cover IR origin")
+  }
+  markdown_ir_to_mdast_json(
+    ir,
+    Some({ line_index: @core.LineIndex::new(source), source }),
+  )
 }
 
 ///|
@@ -1049,7 +1272,12 @@ fn original_block_trailing_newline(
   source : String,
   origin : MarkdownIROrigin,
 ) -> String {
-  if source_slice(source, origin).has_suffix("\n") {
+  let text = source_slice(source, origin)
+  if text.has_suffix("\r\n") {
+    "\r\n"
+  } else if text.has_suffix("\r") {
+    "\r"
+  } else if text.has_suffix("\n") {
     "\n"
   } else {
     ""
@@ -1105,6 +1333,9 @@ fn local_transform_render(
   target_origin : MarkdownIROrigin,
   replacement_text : String,
 ) -> String {
+  if ir.origin() == target_origin {
+    return replacement_text
+  }
   match ir.node {
     Document(children) => {
       let buf = StringBuilder::new()
@@ -1131,18 +1362,29 @@ fn local_transform_render(
       )
       buf.to_string()
     }
-    Heading(depth, children, _) =>
+    Heading(depth, children, content_origin) => {
+      let rendered = if content_origin == Some(target_origin) {
+        replacement_text
+      } else {
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
+      }
       "#".repeat(depth) +
       " " +
-      local_transform_inline_text(
-        children, source, target_origin, replacement_text,
-      ) +
+      rendered +
       original_block_trailing_newline(source, ir.origin())
-    Paragraph(children, _) =>
-      local_transform_inline_text(
-        children, source, target_origin, replacement_text,
-      ) +
-      original_block_trailing_newline(source, ir.origin())
+    }
+    Paragraph(children, content_origin) => {
+      let rendered = if content_origin == Some(target_origin) {
+        replacement_text
+      } else {
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
+      }
+      rendered + original_block_trailing_newline(source, ir.origin())
+    }
     UnorderedList(children) => {
       let buf = StringBuilder::new()
       let final_cursor = for child in children; cursor = ir.origin().start() {
@@ -1168,39 +1410,40 @@ fn local_transform_render(
       )
       buf.to_string()
     }
-    ListItem(children, _) =>
-      "- " +
-      local_transform_inline_text(
-        children, source, target_origin, replacement_text,
-      )
-    CodeBlock(info, value, _) =>
-      if ir.origin() == target_origin {
+    ListItem(children, content_origin) => {
+      let rendered = if content_origin == Some(target_origin) {
         replacement_text
       } else {
-        code_block_markdown(info, value)
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
       }
-    Text(value) | Raw(value, _) =>
-      if ir.origin() == target_origin {
+      "- " + rendered
+    }
+    CodeBlock(info, value, _) => code_block_markdown(info, value)
+    Text(value) | Raw(value, _) => value
+    Bold(children, content_origin) => {
+      let rendered = if content_origin == Some(target_origin) {
         replacement_text
       } else {
-        value
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
       }
-    Bold(children, _) =>
-      "**" +
-      local_transform_inline_text(
-        children, source, target_origin, replacement_text,
-      ) +
-      "**"
-    Italic(children, _) =>
-      "*" +
-      local_transform_inline_text(
-        children, source, target_origin, replacement_text,
-      ) +
-      "*"
+      "**" + rendered + "**"
+    }
+    Italic(children, content_origin) => {
+      let rendered = if content_origin == Some(target_origin) {
+        replacement_text
+      } else {
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
+      }
+      "*" + rendered + "*"
+    }
     InlineCode(value, content_origin) =>
-      if ir.origin() == target_origin {
-        replacement_text
-      } else if content_origin == Some(target_origin) {
+      if content_origin == Some(target_origin) {
         "`" + replacement_text + "`"
       } else {
         "`" + value + "`"
@@ -1232,8 +1475,11 @@ fn local_transform_render(
 ///
 /// Unchanged document gaps and sibling nodes are copied from `source` by origin;
 /// the block containing `target_origin` is re-rendered with `replacement_text`.
-/// This intentionally demonstrates local rewrite semantics without promoting
-/// CST trivia into MarkdownIR.
+/// The target origin must come from the supplied IR, for example from `origin`,
+/// `content_origin`, or `destination_origin`; `MarkdownIROrigin` construction is
+/// intentionally not public while the rewrite contract is experimental. This
+/// intentionally demonstrates local rewrite semantics without promoting CST
+/// trivia into MarkdownIR.
 pub fn experimental_markdown_ir_local_transform_rewrite(
   ir : MarkdownIR,
   source : String,

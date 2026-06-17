@@ -50,7 +50,7 @@ fn lex_line_start(
     return (Done, LineStart)
   }
   match input.view(start_offset=pos) {
-    ['\n', .. rest] =>
+    ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
     [' ', ..] | ['\t', ..] => {
@@ -60,9 +60,22 @@ fn lex_line_start(
       while end < input.length() {
         match char_at(input, end) {
           Some(' ') | Some('\t') => end = end + 1
+          Some('\r') => {
+            is_blank = true
+            let next = @core.next_char_offset(input, end)
+            end = if next < input.length() {
+              match char_at(input, next) {
+                Some('\n') => @core.next_char_offset(input, next)
+                _ => next
+              }
+            } else {
+              next
+            }
+            break
+          }
           Some('\n') => {
             is_blank = true
-            end = end + 1
+            end = @core.next_char_offset(input, end)
             break
           }
           None => {
@@ -96,7 +109,7 @@ fn lex_line_start(
               ),
               Inline,
             )
-          Some('\n') | None =>
+          Some('\r') | Some('\n') | None =>
             // Heading with no content (just "##\n")
             (
               Produced(
@@ -133,7 +146,7 @@ fn lex_line_start(
         let mut info_end = pos + n
         while info_end < input.length() {
           match char_at(input, info_end) {
-            Some('\n') | None => break
+            Some('\r') | Some('\n') | None => break
             _ => info_end = @core.next_char_offset(input, info_end)
           }
         }
@@ -163,7 +176,7 @@ fn lex_line_start(
 /// Special characters that terminate a Text run in Inline mode.
 fn is_inline_special(ch : Char) -> Bool {
   match ch {
-    '*' | '`' | '[' | ']' | '(' | ')' | '\n' => true
+    '*' | '`' | '[' | ']' | '(' | ')' | '\r' | '\n' => true
     _ => false
   }
 }
@@ -178,7 +191,8 @@ fn lex_inline(
     return (Done, Inline)
   }
   match input.view(start_offset=pos) {
-    ['\n', .. rest] => produced_until(Newline, pos, rest, LineStart)
+    ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
+      produced_until(Newline, pos, rest, LineStart)
     [.. "**", .. rest] => produced_until(StarStar, pos, rest, Inline)
     ['*', .. rest] => produced_until(Star, pos, rest, Inline)
     ['`', .. rest] => produced_until(Backtick, pos, rest, Inline)
@@ -219,7 +233,7 @@ fn emit_code_text_line(
   let mut line_end = pos
   while line_end < input.length() {
     match char_at(input, line_end) {
-      Some('\n') | None => break
+      Some('\r') | Some('\n') | None => break
       _ => line_end = @core.next_char_offset(input, line_end)
     }
   }
@@ -244,7 +258,10 @@ fn lex_code_block(
     return (Done, CodeBlock(fence_len))
   }
   match input.view(start_offset=pos) {
-    ['\n', .. rest] => produced_until(Newline, pos, rest, CodeBlock(fence_len))
+    ['\r', '\n', .. rest] =>
+      produced_until(Newline, pos, rest, CodeBlock(fence_len))
+    ['\r', .. rest] | ['\n', .. rest] =>
+      produced_until(Newline, pos, rest, CodeBlock(fence_len))
     ['`', ..] => {
       let n = count_backticks(input, pos)
       if n >= fence_len {
@@ -253,7 +270,7 @@ fn lex_code_block(
         let mut is_close = true
         while after < input.length() {
           match char_at(input, after) {
-            Some('\n') | None => break
+            Some('\r') | Some('\n') | None => break
             Some(' ') | Some('\t') => after = after + 1
             _ => {
               is_close = false
@@ -265,8 +282,9 @@ fn lex_code_block(
           // Closing fence: consume backticks + trailing whitespace + newline.
           // Including the newline prevents lex_line_start from seeing it as BlankLine.
           let fence_end = if after < input.length() {
-            match char_at(input, after) {
-              Some('\n') => after + 1
+            match input.view(start_offset=after) {
+              ['\r', '\n', .. rest] => rest.start_offset()
+              ['\r', .. rest] | ['\n', .. rest] => rest.start_offset()
               _ => after
             }
           } else {

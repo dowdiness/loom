@@ -477,6 +477,102 @@ test "experimental MarkdownIR: direct syntax entry point attaches injected diagn
 }
 
 ///|
+test "experimental MarkdownIR: mdast position export converts UTF-16 origins to unist points" {
+  let source = "# T\n\n😀a"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"heading","depth":1,"children":[{"type":"text","value":"T","position":{"start":{"line":1,"column":3,"offset":2},"end":{"line":1,"column":4,"offset":3}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":4,"offset":3}}},{"type":"paragraph","children":[{"type":"text","value":"😀a","position":{"start":{"line":3,"column":1,"offset":5},"end":{"line":3,"column":4,"offset":8}}}],"position":{"start":{"line":3,"column":1,"offset":5},"end":{"line":3,"column":4,"offset":8}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":4,"offset":8}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export covers raw and recovered nodes" {
+  let source = "[text](\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["recovered malformed Markdown: [ [0,1]"],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":2,"offset":1}}},{"type":"text","value":"text","position":{"start":{"line":1,"column":2,"offset":1},"end":{"line":1,"column":6,"offset":5}}},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"],"position":{"start":{"line":1,"column":6,"offset":5},"end":{"line":1,"column":7,"offset":6}}},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"],"position":{"start":{"line":1,"column":7,"offset":6},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":8,"offset":7}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":2,"column":1,"offset":8}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export trims code block separator blank lines" {
+  let source = "```\nx\n```\n\nnext"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"x","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":4,"offset":9}}},{"type":"paragraph","children":[{"type":"text","value":"next","position":{"start":{"line":5,"column":1,"offset":11},"end":{"line":5,"column":5,"offset":15}}}],"position":{"start":{"line":5,"column":1,"offset":11},"end":{"line":5,"column":5,"offset":15}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":5,"column":5,"offset":15}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export handles CRLF code fences" {
+  let source = "```\r\nx\r\n```\r\n\r\nnext"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"x","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":4,"offset":11}}},{"type":"paragraph","children":[{"type":"text","value":"next","position":{"start":{"line":5,"column":1,"offset":15},"end":{"line":5,"column":5,"offset":19}}}],"position":{"start":{"line":5,"column":1,"offset":15},"end":{"line":5,"column":5,"offset":19}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":5,"column":5,"offset":19}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export includes closing fence trailing spaces" {
+  let source = "```\nx\n```  \nnext"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"x","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":6,"offset":11}}},{"type":"paragraph","children":[{"type":"text","value":"next","position":{"start":{"line":4,"column":1,"offset":12},"end":{"line":4,"column":5,"offset":16}}}],"position":{"start":{"line":4,"column":1,"offset":12},"end":{"line":4,"column":5,"offset":16}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":4,"column":5,"offset":16}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export preserves unclosed CRLF code fence" {
+  let source = "```\r\ncode\r\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"code","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":1,"offset":11}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":1,"offset":11}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export treats CRLF as paragraph newline" {
+  let source = "Hello\r\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"Hello","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":6,"offset":5}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":6,"offset":5}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":2,"column":1,"offset":7}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export uses empty list item content range" {
+  let source = "- \n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[],"position":{"start":{"line":1,"column":3,"offset":2},"end":{"line":1,"column":3,"offset":2}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":3,"offset":2}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":1,"column":3,"offset":2}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":2,"column":1,"offset":3}}}
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: adjacent malformed links preserve raw delimiters" {
   assert_malformed_link_raws_preserved("[text](url\n", "](")
   assert_malformed_link_raws_preserved("[text](\nnext\n", "](")
@@ -495,6 +591,12 @@ test "experimental MarkdownIR: unclosed code fence remains a code block" {
     [code_block] => {
       inspect(code_block.kind_tag(), content="CodeBlock")
       inspect(origin_source(source, code_block.origin()), content=source)
+      inspect(
+        experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+        content=(
+          #|{"type":"root","children":[{"type":"code","value":"code without close","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":1,"offset":23}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":1,"offset":23}}}
+        ),
+      )
     }
     _ => inspect("unexpected", content="one code block")
   }
@@ -646,6 +748,61 @@ test "experimental MarkdownIR: local transform rewrites inline code content orig
 }
 
 ///|
+test "experimental MarkdownIR: local transform rewrites container content origins" {
+  let source = "# Old\n\nHello **world**\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [heading, paragraph] => {
+      match heading.content_origin() {
+        Some(origin) =>
+          inspect(
+            experimental_markdown_ir_local_transform_rewrite(
+              ir,
+              source,
+              target_origin=origin,
+              replacement_text="New",
+            ),
+            content="# New\n\nHello **world**\n",
+          )
+        None => inspect("missing", content="heading content origin")
+      }
+      match paragraph.content_origin() {
+        Some(origin) =>
+          inspect(
+            experimental_markdown_ir_local_transform_rewrite(
+              ir,
+              source,
+              target_origin=origin,
+              replacement_text="Changed",
+            ),
+            content="# Old\n\nChanged\n",
+          )
+        None => inspect("missing", content="paragraph content origin")
+      }
+    }
+    _ => inspect("unexpected child count", content="heading and paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites full node origins" {
+  let source = "# Old\n\nParagraph\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [heading, _] => {
+      let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+        ir,
+        source,
+        target_origin=heading.origin(),
+        replacement_text="Replacement\n",
+      )
+      inspect(local_rewrite, content="Replacement\n\nParagraph\n")
+    }
+    _ => inspect("unexpected child count", content="heading and paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: local transform preserves inline container siblings" {
   let source = "Hello **world** tail\n"
   let ir = markdown_ir_from_source(source)
@@ -664,6 +821,28 @@ test "experimental MarkdownIR: local transform preserves inline container siblin
         _ => inspect("unexpected paragraph children", content="text bold text")
       }
     _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves CRLF block ending" {
+  let source = "# Old\r\nParagraph\r\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [_, paragraph] =>
+      match paragraph.content_origin() {
+        Some(origin) => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="Changed",
+          )
+          inspect(local_rewrite, content="# Old\r\nChanged\r\n")
+        }
+        None => inspect("missing", content="paragraph content origin")
+      }
+    _ => inspect("unexpected child count", content="heading and paragraph")
   }
 }
 

@@ -23,6 +23,8 @@ pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
 
+pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
+
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
 pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block]
