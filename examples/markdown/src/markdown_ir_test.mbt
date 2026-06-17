@@ -712,3 +712,75 @@ test "experimental MarkdownIR: rewrite modes are distinguishable" {
     _ => inspect("unexpected child count", content="heading and paragraph")
   }
 }
+
+///|
+test "experimental MarkdownIR: Inline adapter renders raw children as text" {
+  let source = "[text](url\n"
+  let ir = markdown_ir_from_source(source)
+  let block = experimental_markdown_ir_to_block(ir)
+  inspect(block, content=@debug.to_string(parse(source)))
+  match block {
+    Document([Paragraph(inlines)]) =>
+      match inlines {
+        [Error("["), Text("text"), Text("]"), Text("("), Text("url")] => ()
+        _ => inspect(block, content="raw delimiters lowered as inline text")
+      }
+    _ => inspect(block, content="one paragraph document")
+  }
+}
+
+///|
+test "experimental MarkdownIR: canonical formatter emits recovered comments" {
+  let source = "Hello *\n"
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(formatted, content="Hello <!-- recovered MarkdownIR: * -->")
+}
+
+///|
+test "experimental MarkdownIR: canonical formatter passes raw text through" {
+  let source = "[text](url\n"
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(formatted, content="<!-- recovered MarkdownIR: [ -->text](url")
+}
+
+///|
+test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
+  let source = "Hello *\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_, recovered] if recovered.is_recovered() =>
+          inspect(origin_source(source, recovered.origin()), content="*")
+        _ => inspect("unexpected", content="text plus recovered")
+      }
+    _ => inspect("unexpected", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform replaces recovered text" {
+  let source = "Hello *\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_, recovered] if recovered.is_recovered() => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=recovered.origin(),
+            replacement_text="world",
+          )
+          inspect(local_rewrite, content="Hello world\n")
+        }
+        _ => inspect("unexpected", content="text plus recovered")
+      }
+    _ => inspect("unexpected", content="one paragraph")
+  }
+}

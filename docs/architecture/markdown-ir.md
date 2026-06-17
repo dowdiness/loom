@@ -395,6 +395,49 @@ editor projection contract changes.
 
 ---
 
+## Recovered / Raw adapter contract
+
+M4's adapter exit criterion is satisfied when every MarkdownIR target adapter has
+explicit `Recovered` and `Raw` match arms. No adapter may silently drop these
+variants or reinterpret them as if the malformed source had produced valid
+semantic MarkdownIR.
+
+| Adapter | Raw behavior | Recovered behavior | Rationale |
+| --- | --- | --- | --- |
+| Block (editor) | `Block::Error("expected block MarkdownIR, got raw: " + value)` | `Block::Error(message)` | Inline raw becomes `Inline::Text`; block-position raw is a defensive error. Recovered content is always an editor error. |
+| Inline (editor) | `Inline::Text(value)` passthrough | `Inline::Error(message)` | Raw inline text renders as visible text. Recovered malformed delimiters become explicit error markers. |
+| mdast JSON (export) | `mdastRaw` + origin + diagnostics | `mdastRecovered` + origin + diagnostics | Preserves full diagnostic/recovery fidelity for downstream tools. |
+| Canonical format | value passthrough | `<!-- recovered MarkdownIR: msg -->` | Raw content transcludes literally. Recovery becomes an HTML comment. |
+| Preserve/local (rewrite) | origin-slice passthrough | origin-slice / replacement_text passthrough | Preserve-mode reproduces exact source bytes via origin slicing. Local transform splices replacement text into recovered regions rather than silently losing edits. |
+
+Policy rules:
+
+1. **Safety**: Raw content must never be silently interpreted as semantic markup
+   in any adapter. It must be visibly distinguished as an error node,
+   diagnostic-bearing type, or explicit text passthrough with lossy semantics.
+2. **Editor boundary**: Block-position raw is an error; inline raw is degraded to
+   text. Recovered content is always an error.
+3. **Export fidelity**: mdast preserves origin and diagnostics for toolchain
+   consumption.
+4. **Rewrite integrity**: preserve-mode must reproduce exact source bytes for
+   raw/recovered regions; local transform must splice replacement text rather
+   than silently dropping edits.
+5. **Future adapters**: future targets, including HTML, must define their own
+   `Recovered` / `Raw` policy: escape, drop, or sanitize by default, with opt-in
+   passthrough only. The existing Raw HTML policy above governs CommonMark raw
+   HTML. For recovery-node content, HTML adapters should use HTML comments or
+   styled error spans, not unescaped markup injection.
+6. **No guessing**: Target adapters must never infer malformed input from missing
+   required semantic fields; they consume explicit `Recovered` / `Raw` nodes.
+
+This contract is the adapter-level counterpart to the tree-shape invariant that
+"Diagnostics and recovery are explicit nodes" and that target adapters must not
+infer malformed input from absent required fields. It also complements the Raw
+HTML policy in this section: raw CommonMark HTML has an explicit target policy,
+and recovery-node content requires the same explicitness.
+
+---
+
 ## Constructor and package-boundary policy
 
 M0 introduces no public MarkdownIR types. This section is a policy gate for the
