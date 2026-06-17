@@ -824,6 +824,20 @@ fn experimental_markdown_ir_fold_node(
 }
 
 ///|
+fn diagnostic_primary_overlaps_origin(
+  diagnostic : @core.Diagnostic,
+  origin : MarkdownIROrigin,
+) -> Bool {
+  match diagnostic.primary {
+    Some(range) =>
+      @core.Range::new(range.start().value(), range.end().value()).overlaps(
+        @core.Range::new(origin.start(), origin.end()),
+      )
+    None => false
+  }
+}
+
+///|
 fn diagnostics_in_origin(
   diagnostics : @core.DiagnosticSet,
   origin : MarkdownIROrigin,
@@ -831,14 +845,7 @@ fn diagnostics_in_origin(
   diagnostics
   .items()
   .iter()
-  .filter(diagnostic => {
-    match diagnostic.primary {
-      Some(range) =>
-        range.start().value() < origin.end() &&
-        range.end().value() > origin.start()
-      None => false
-    }
-  })
+  .filter(diagnostic => diagnostic_primary_overlaps_origin(diagnostic, origin))
   .collect()
 }
 
