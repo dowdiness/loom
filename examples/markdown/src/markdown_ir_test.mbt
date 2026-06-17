@@ -456,6 +456,27 @@ test "experimental MarkdownIR: mdastRecovered export carries injected diagnostic
 }
 
 ///|
+test "experimental MarkdownIR: direct syntax entry point attaches injected diagnostics to mdast recovered node" {
+  let source = "[text](\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let diagnostic = @core.Diagnostic::lexer_error_at(
+    "direct syntax recovered diagnostic", 0, 1, "synthetic-recovery",
+  )
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    @core.DiagnosticSet::single(diagnostic),
+  )
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"mdastRecovered","value":"[","origin":{"start":0,"end":1},"diagnostics":["direct syntax recovered diagnostic [0,1]"]},{"type":"text","value":"text"},{"type":"mdastRaw","value":"]","origin":{"start":5,"end":6},"diagnostics":["raw recovered Markdown [5,6]"]},{"type":"mdastRaw","value":"(","origin":{"start":6,"end":7},"diagnostics":["raw recovered Markdown [6,7]"]}]}]}
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: adjacent malformed links preserve raw delimiters" {
   assert_malformed_link_raws_preserved("[text](url\n", "](")
   assert_malformed_link_raws_preserved("[text](\nnext\n", "](")
