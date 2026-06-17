@@ -280,6 +280,57 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
 }
 
 ///|
+test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
+  let source = "[text](\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let diagnostics = @core.DiagnosticSet::empty()
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
+    ),
+  )
+  diagnostics.push(
+    @core.Diagnostic::lexer_error_at(
+      "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
+    ),
+  )
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  match ir.children() {
+    [paragraph] =>
+      match
+        paragraph.children().iter().filter(child => child.is_raw()).collect() {
+        [raw_bracket, raw_paren] => {
+          inspect(origin_source(source, raw_bracket.origin()), content="]")
+          match raw_bracket.diagnostics() {
+            [diagnostic] =>
+              inspect(
+                diagnostic.format(),
+                content="synthetic raw bracket diagnostic [5,6]",
+              )
+            _ => inspect("unexpected", content="one raw bracket diagnostic")
+          }
+          inspect(origin_source(source, raw_paren.origin()), content="(")
+          match raw_paren.diagnostics() {
+            [diagnostic] =>
+              inspect(
+                diagnostic.format(),
+                content="synthetic raw paren diagnostic [6,7]",
+              )
+            _ => inspect("unexpected", content="one raw paren diagnostic")
+          }
+        }
+        _ => inspect("unexpected", content="two raw children")
+      }
+    _ => inspect("unexpected", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as raw" {
   let source = "[text](\n"
   let ir = markdown_ir_from_source(source)
