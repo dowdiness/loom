@@ -1315,3 +1315,173 @@ test "experimental MarkdownIR: canonical formatter renders rich and multiple lin
     content="[a](u1) and [b](u2)",
   )
 }
+
+///|
+test "experimental MarkdownIR: heading preserve rewrite keeps source slices" {
+  let source = "### Deep\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  match ir.children() {
+    [heading] =>
+      inspect(
+        experimental_markdown_ir_preserve_rewrite(heading, source),
+        content=origin_source(source, heading.origin()),
+      )
+    _ => inspect("unexpected child count", content="one heading")
+  }
+}
+
+///|
+test "experimental MarkdownIR: heading canonical format keeps ATX depth" {
+  inspect(
+    experimental_markdown_ir_canonical_format(
+      markdown_ir_from_source("### Deep\n"),
+    ),
+    content="### Deep",
+  )
+  inspect(
+    experimental_markdown_ir_canonical_format(
+      markdown_ir_from_source("# Shallow\n"),
+    ),
+    content="# Shallow",
+  )
+}
+
+///|
+test "experimental MarkdownIR: heading local transform rewrites content origin" {
+  let source = "### Old\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [heading] =>
+      match heading.content_origin() {
+        Some(origin) =>
+          inspect(
+            experimental_markdown_ir_local_transform_rewrite(
+              ir,
+              source,
+              target_origin=origin,
+              replacement_text="New",
+            ),
+            content="### New\n",
+          )
+        None => inspect("missing", content="heading content origin")
+      }
+    _ => inspect("unexpected child count", content="one heading")
+  }
+}
+
+///|
+test "experimental MarkdownIR: heading rewrite modes are distinguishable" {
+  let source = "# Title\n"
+  let ir = markdown_ir_from_source(source)
+  let preserve = experimental_markdown_ir_preserve_rewrite(ir, source)
+  let canonical = experimental_markdown_ir_canonical_format(ir)
+  match ir.children() {
+    [heading] =>
+      match heading.content_origin() {
+        Some(origin) => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="New",
+          )
+          inspect(preserve, content="# Title\n")
+          inspect(local_rewrite, content="# New\n")
+          inspect(canonical, content="# Title")
+          inspect(preserve != local_rewrite, content="true")
+          inspect(preserve != canonical, content="true")
+          inspect(local_rewrite != canonical, content="true")
+        }
+        None => inspect("missing", content="heading content origin")
+      }
+    _ => inspect("unexpected child count", content="one heading")
+  }
+}
+
+///|
+test "experimental MarkdownIR: unordered list preserve rewrite keeps source slices" {
+  let source = "- one\n- two\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  match ir.children() {
+    [list] => {
+      inspect(
+        experimental_markdown_ir_preserve_rewrite(list, source),
+        content=origin_source(source, list.origin()),
+      )
+      match list.children() {
+        [first, second] => {
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(first, source),
+            content=origin_source(source, first.origin()),
+          )
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(second, source),
+            content=origin_source(source, second.origin()),
+          )
+        }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    }
+    _ => inspect("unexpected child count", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: unordered list canonical format keeps items" {
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("- one\n- two\n"),
+  )
+  inspect(formatted, content="- one\n- two")
+  inspect(
+    experimental_markdown_ir_canonical_format(
+      markdown_ir_from_source(formatted),
+    ),
+    content=formatted,
+  )
+
+  let rich_formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("- **bold** item\n- `code`\n"),
+  )
+  inspect(rich_formatted, content="- **bold** item\n- `code`")
+  inspect(
+    experimental_markdown_ir_canonical_format(
+      markdown_ir_from_source(rich_formatted),
+    ),
+    content=rich_formatted,
+  )
+}
+
+///|
+test "experimental MarkdownIR: unordered list local transform and modes are distinguishable" {
+  let source = "- old\n- two\n"
+  let ir = markdown_ir_from_source(source)
+  let preserve = experimental_markdown_ir_preserve_rewrite(ir, source)
+  let canonical = experimental_markdown_ir_canonical_format(ir)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [first, _] =>
+          match first.content_origin() {
+            Some(origin) => {
+              let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=origin,
+                replacement_text="new",
+              )
+              inspect(preserve, content="- old\n- two\n")
+              inspect(local_rewrite, content="- new\n- two\n")
+              inspect(canonical, content="- old\n- two")
+              inspect(preserve != local_rewrite, content="true")
+              inspect(preserve != canonical, content="true")
+              inspect(local_rewrite != canonical, content="true")
+            }
+            None => inspect("missing", content="list item content origin")
+          }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    _ => inspect("unexpected child count", content="one list")
+  }
+}
