@@ -2,11 +2,11 @@
 // The embedded data keeps `moon test` hermetic: no Node/npm or network access is
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline.
-// Baseline: pass=7, xfail=2, skip=1.
+// Baseline: pass=8, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (7, 2, 1)
+  (8, 2, 1)
 }
 
 ///|
@@ -66,6 +66,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "angle-brackets-as-text",
       source: "<>\n",
       expected_html: "<p>&lt;&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 322,
+      section: "Lists",
+      name: "tight-unordered-list-item",
+      source: "- a\n",
+      expected_html: "<ul>\n<li>a</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

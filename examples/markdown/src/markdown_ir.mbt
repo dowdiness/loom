@@ -664,6 +664,21 @@ fn lower_document_child_with_diags(
 }
 
 ///|
+fn list_item_paragraph_origin(
+  node : @seam.SyntaxNode,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIROrigin {
+  match content_origin {
+    Some(origin) => origin
+    None =>
+      match node.direct_token_of_kind(ListMarkerToken.to_raw()) {
+        Some(marker) => zero_width_origin_at(marker.end())
+        None => zero_width_origin_at(node.end())
+      }
+  }
+}
+
+///|
 fn code_block_info(node : @seam.SyntaxNode) -> String {
   match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
     Some(fence_token) => {
@@ -852,13 +867,19 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::unordered_list(children, origin_from_node(node))
     }
     ListItemNode => {
-      let children = lower_inline_children_with_diags(
+      let inline_children = lower_inline_children_with_diags(
         node, diagnostics_in_origin,
       )
+      let content_origin = span_origin_of_children(inline_children)
+      let paragraph_origin = list_item_paragraph_origin(node, content_origin)
       MarkdownIR::list_item(
-        children,
+        [
+          MarkdownIR::paragraph(
+            inline_children, paragraph_origin, content_origin,
+          ),
+        ],
         origin_from_node(node),
-        span_origin_of_children(children),
+        content_origin,
       )
     }
     CodeBlockNode =>
@@ -977,6 +998,26 @@ fn ir_children_to_inlines(children : Array[MarkdownIR]) -> Array[Inline] {
 }
 
 ///|
+fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
+  match child.node {
+    Paragraph(paragraph_children, _) =>
+      ir_children_to_inlines(paragraph_children)
+    _ => [experimental_markdown_ir_to_inline(child)]
+  }
+}
+
+///|
+fn list_item_flow_children_to_editor_inlines(
+  children : Array[MarkdownIR],
+) -> Array[Inline] {
+  let inlines : Array[Inline] = []
+  for child in children {
+    inlines.append(list_item_flow_child_to_editor_inlines(child))
+  }
+  inlines
+}
+
+///|
 pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
   match ir.node {
     Document(children) =>
@@ -986,7 +1027,8 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
     UnorderedList(children) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
-    ListItem(children, _) => Block::ListItem(ir_children_to_inlines(children))
+    ListItem(children, _) =>
+      Block::ListItem(list_item_flow_children_to_editor_inlines(children))
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     Text(_) => Block::Error("expected block MarkdownIR, got text")
     Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
@@ -1169,34 +1211,8 @@ fn mdast_json_with_position(
 }
 
 ///|
-fn mdast_json_object(
-  fields : Map[String, Json],
-  origin : MarkdownIROrigin,
-  context : MdastPositionContext?,
-) -> Json {
-  mdast_json_with_position(Json::object(fields), origin, context)
-}
-
-///|
 fn zero_width_origin_at(offset : Int) -> MarkdownIROrigin {
   MarkdownIROrigin(start=offset, end=offset)
-}
-
-///|
-fn list_item_paragraph_position_origin(
-  children : Array[MarkdownIR],
-  content_origin : MarkdownIROrigin?,
-  list_item_origin : MarkdownIROrigin,
-) -> MarkdownIROrigin {
-  match content_origin {
-    Some(origin) => origin
-    None =>
-      if children.length() == 0 {
-        zero_width_origin_at(list_item_origin.end())
-      } else {
-        list_item_origin
-      }
-  }
 }
 
 ///|
@@ -1232,28 +1248,8 @@ fn markdown_ir_to_mdast_json(
         "ordered": false,
         "children": mdast_children_json(children, context),
       }
-    ListItem(children, content_origin) =>
-      {
-        "type": "listItem",
-        "children": [
-          mdast_json_object(
-            {
-              "type": "paragraph",
-              "children": mdast_children_json(children, context),
-            },
-            list_item_paragraph_position_origin(
-              children,
-              content_origin,
-              match context {
-                Some(position_context) =>
-                  mdast_position_origin(ir, position_context)
-                None => ir.origin()
-              },
-            ),
-            context,
-          ),
-        ],
-      }
+    ListItem(children, _) =>
+      { "type": "listItem", "children": mdast_children_json(children, context) }
     CodeBlock(info, value, _) =>
       if info.length() > 0 {
         { "type": "code", "lang": info, "value": value }
