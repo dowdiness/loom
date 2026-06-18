@@ -28,6 +28,22 @@ fn markdown_ir_inline_children_to_commonmark_html(
 }
 
 ///|
+fn markdown_ir_list_item_child_to_commonmark_html(child : MarkdownIR) -> String {
+  match child.node {
+    Paragraph(children, _) =>
+      markdown_ir_inline_children_to_commonmark_html(children)
+    _ => experimental_markdown_ir_to_commonmark_html(child)
+  }
+}
+
+///|
+fn markdown_ir_list_item_children_to_commonmark_html(
+  children : Array[MarkdownIR],
+) -> String {
+  children.map(markdown_ir_list_item_child_to_commonmark_html).join("")
+}
+
+///|
 fn markdown_ir_code_block_commonmark_html(
   info : String,
   value : String,
@@ -73,7 +89,7 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
       "<ul>\n" + markdown_ir_children_to_commonmark_html(children) + "</ul>\n"
     ListItem(children, _) =>
       "<li>" +
-      markdown_ir_inline_children_to_commonmark_html(children) +
+      markdown_ir_list_item_children_to_commonmark_html(children) +
       "</li>\n"
     CodeBlock(info, value, _) =>
       markdown_ir_code_block_commonmark_html(info, value)

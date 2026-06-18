@@ -221,6 +221,29 @@ test "experimental MarkdownIR: Block adapter matches direct parse for unordered 
 }
 
 ///|
+test "experimental MarkdownIR: list items expose flow-content paragraphs" {
+  let ir = markdown_ir_from_source("- one\n- two\n")
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [first, second] => {
+          debug_inspect(
+            first.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\"]",
+          )
+          debug_inspect(
+            second.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\"]",
+          )
+          assert_markdown_ir_block_matches_direct_parse("- one\n- two\n")
+        }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
 test "experimental MarkdownIR: Block adapter matches direct parse for fenced code blocks" {
   assert_markdown_ir_block_matches_direct_parse("```moonbit\nlet x = 1\n```\n")
   assert_markdown_ir_block_matches_direct_parse("````\n```\n````\n")
