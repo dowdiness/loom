@@ -7,5 +7,6 @@ import {
 }
 
 import {
+  "moonbitlang/core/json",
   "moonbitlang/core/quickcheck",
 } for "test"
