@@ -628,6 +628,75 @@ test "experimental MarkdownIR: preserve rewrite keeps source slices" {
 }
 
 ///|
+test "experimental MarkdownIR: preserve rewrite round-trips code block" {
+  let source = "```moonbit\nlet x = 1\n```\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites code block content origin" {
+  let source = "```moonbit\nlet x = 1\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="let y = 2",
+          )
+          inspect(result, content="```moonbit\nlet y = 2\n```\n")
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites code block full origin" {
+  let source = "```\nold code\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] => {
+      let result = experimental_markdown_ir_local_transform_rewrite(
+        ir,
+        source,
+        target_origin=code_block.origin(),
+        replacement_text="Replaced\n",
+      )
+      inspect(result, content="Replaced\n")
+    }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform sibling preserves code block" {
+  let source = "Para.\n\n```\ncode here\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph, _] =>
+      match paragraph.content_origin() {
+        Some(origin) => {
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="Changed.",
+          )
+          inspect(result, content="Changed.\n\n```\ncode here\n```\n")
+        }
+        None => inspect("missing", content="paragraph content origin")
+      }
+    _ => inspect("unexpected child count", content="paragraph and code block")
+  }
+}
+
+///|
 test "experimental MarkdownIR: recovered inline delimiters adapt to explicit error" {
   let source = "Hello *\n"
   let ir = markdown_ir_from_source(source)
@@ -862,6 +931,18 @@ test "experimental MarkdownIR: canonical code fence exceeds content backtick run
   )
   inspect(formatted, content="````\n```\n````")
   inspect(parse(formatted), content="Document([CodeBlock(\"\", \"```\")])")
+}
+
+///|
+test "experimental MarkdownIR: canonical format preserves code block info string" {
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("```moonbit\nlet x = 1\n```\n"),
+  )
+  inspect(formatted, content="```moonbit\nlet x = 1\n```")
+  inspect(
+    parse(formatted),
+    content="Document([CodeBlock(\"moonbit\", \"let x = 1\")])",
+  )
 }
 
 ///|

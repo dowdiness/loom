@@ -273,6 +273,7 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     Heading(_, _, origin)
     | Paragraph(_, origin)
     | ListItem(_, origin)
+    | CodeBlock(_, _, origin)
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
@@ -715,6 +716,61 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
+fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
+  let mut in_code = false
+  let content_tokens : Array[@seam.SyntaxToken] = Array::new()
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          CodeFenceOpenToken => in_code = true
+          CodeFenceCloseToken => in_code = false
+          CodeTextToken if in_code => content_tokens.push(token)
+          NewlineToken if in_code => content_tokens.push(token)
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  let start_offset = if content_tokens.length() > 0 {
+    let first_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+      content_tokens[0].kind(),
+    )
+    if first_kind is NewlineToken {
+      1
+    } else {
+      0
+    }
+  } else {
+    0
+  }
+  let end_offset = if content_tokens.length() > start_offset {
+    let last_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+      content_tokens[content_tokens.length() - 1].kind(),
+    )
+    if last_kind is NewlineToken {
+      content_tokens.length() - 1
+    } else {
+      content_tokens.length()
+    }
+  } else {
+    0
+  }
+  if start_offset < end_offset {
+    Some(
+      MarkdownIROrigin(
+        start=content_tokens[start_offset].start(),
+        end=content_tokens[end_offset - 1].end(),
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
 /// Experimental CstFold algebra for the M1 MarkdownIR slice.
 ///
 /// Covers documents, headings, paragraphs, and text. Other Markdown constructs
@@ -796,7 +852,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         code_block_info(node),
         code_block_value(node),
         origin_from_node(node),
-        None,
+        code_block_content_origin(node),
       )
     ErrorNode => {
       let origin = origin_from_node(node)
@@ -1420,7 +1476,13 @@ fn local_transform_render(
       }
       "- " + rendered
     }
-    CodeBlock(info, value, _) => code_block_markdown(info, value)
+    CodeBlock(info, _value, content_origin) =>
+      if content_origin == Some(target_origin) {
+        code_block_markdown(info, replacement_text) +
+        original_block_trailing_newline(source, ir.origin())
+      } else {
+        source_slice(source, ir.origin())
+      }
     Text(value) | Raw(value, _) => value
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
