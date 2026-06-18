@@ -1119,3 +1119,199 @@ test "experimental MarkdownIR: local transform replaces recovered text" {
     _ => inspect("unexpected", content="one paragraph")
   }
 }
+
+///|
+test "experimental MarkdownIR: preserve rewrite round-trips valid link" {
+  let source = "[text](url)\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(link, source),
+            content="[text](url)",
+          )
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites link label" {
+  let source = "[old](url)\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          match link.children() {
+            [text] => {
+              let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=text.origin(),
+                replacement_text="new",
+              )
+              inspect(local_rewrite, content="[new](url)\n")
+            }
+            _ => inspect("unexpected link children", content="text")
+          }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves sibling link" {
+  let source = "Hello [link](url) world\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text, link, _] => {
+          inspect(link.kind_tag(), content="Link")
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=text.origin(),
+            replacement_text="Hi ",
+          )
+          inspect(local_rewrite, content="Hi [link](url) world\n")
+        }
+        _ => inspect("unexpected paragraph children", content="text link text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform replaces raw delimiter in malformed link" {
+  let source = "[text](\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_, _, raw_bracket, _] if raw_bracket.is_raw() => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=raw_bracket.origin(),
+            replacement_text="X",
+          )
+          inspect(local_rewrite, content="[textX(\n")
+        }
+        _ =>
+          inspect(
+            "unexpected paragraph children",
+            content="recovered text raw raw",
+          )
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform replaces recovered opener in malformed link" {
+  let source = "[text](\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [recovered, _, _, _] if recovered.is_recovered() => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=recovered.origin(),
+            replacement_text="R",
+          )
+          inspect(local_rewrite, content="Rtext](\n")
+        }
+        _ =>
+          inspect(
+            "unexpected paragraph children",
+            content="recovered text raw raw",
+          )
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: canonical formatter renders rich and multiple links" {
+  let bold_link = markdown_ir_from_source("[**bold** text](url)")
+  match bold_link.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] => {
+          inspect(link.kind_tag(), content="Link")
+          match link.children() {
+            [bold, text] => {
+              inspect(bold.kind_tag(), content="Bold")
+              match text.text_value() {
+                Some(value) => inspect(value, content=" text")
+                None => inspect("missing", content="text value")
+              }
+            }
+            _ => inspect("unexpected link children", content="bold text")
+          }
+        }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+  inspect(
+    experimental_markdown_ir_canonical_format(bold_link),
+    content="[**bold** text](url)",
+  )
+
+  let code_link = markdown_ir_from_source("[`code` here](url)")
+  match code_link.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] => {
+          inspect(link.kind_tag(), content="Link")
+          match link.children() {
+            [inline_code, text] => {
+              inspect(inline_code.kind_tag(), content="InlineCode")
+              match text.text_value() {
+                Some(value) => inspect(value, content=" here")
+                None => inspect("missing", content="text value")
+              }
+            }
+            _ => inspect("unexpected link children", content="inline-code text")
+          }
+        }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+  inspect(
+    experimental_markdown_ir_canonical_format(code_link),
+    content="[`code` here](url)",
+  )
+
+  let multiple_links = markdown_ir_from_source("[a](u1) and [b](u2)\n")
+  match multiple_links.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [first, text, second] => {
+          inspect(first.kind_tag(), content="Link")
+          match text.text_value() {
+            Some(value) => inspect(value, content=" and ")
+            None => inspect("missing", content="text value")
+          }
+          inspect(second.kind_tag(), content="Link")
+        }
+        _ => inspect("unexpected paragraph children", content="link text link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+  inspect(
+    experimental_markdown_ir_canonical_format(multiple_links),
+    content="[a](u1) and [b](u2)",
+  )
+}
