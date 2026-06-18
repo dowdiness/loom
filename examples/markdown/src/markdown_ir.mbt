@@ -765,8 +765,22 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
         end=content_tokens[end_offset - 1].end(),
       ),
     )
+  } else if content_tokens.length() > start_offset {
+    Some(
+      MarkdownIROrigin(
+        start=content_tokens[start_offset].start(),
+        end=content_tokens[start_offset].start(),
+      ),
+    )
+  } else if content_tokens.length() > 0 {
+    let last_token = content_tokens[content_tokens.length() - 1]
+    Some(MarkdownIROrigin(start=last_token.end(), end=last_token.end()))
   } else {
-    None
+    match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+      Some(fence_token) =>
+        Some(MarkdownIROrigin(start=fence_token.end(), end=fence_token.end()))
+      None => None
+    }
   }
 }
 
@@ -1444,6 +1458,26 @@ fn local_code_block_suffix(
 }
 
 ///|
+fn code_block_content_line_ending(
+  source : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin,
+) -> String {
+  let prefix = source_slice_between(
+    source,
+    origin.start(),
+    content_origin.start(),
+  )
+  if prefix.has_suffix("\r\n") {
+    "\r\n"
+  } else if prefix.has_suffix("\r") {
+    "\r"
+  } else {
+    "\n"
+  }
+}
+
+///|
 fn local_code_block_markdown(
   source : String,
   origin : MarkdownIROrigin,
@@ -1464,10 +1498,31 @@ fn local_code_block_markdown(
       source_slice_between(source, content_origin.end(), close_start)
     None => ""
   }
-  opening +
-  value +
-  suffix_prefix +
-  local_code_block_suffix(source, origin, content_origin, fence_width)
+  let zero_content = content_origin.start() == content_origin.end()
+  let content_line_ending = code_block_content_line_ending(
+    source, origin, content_origin,
+  )
+  let opening_suffix = if zero_content &&
+    value != "" &&
+    !opening.has_suffix("\n") &&
+    !opening.has_suffix("\r") {
+    content_line_ending
+  } else {
+    ""
+  }
+  let suffix = local_code_block_suffix(
+    source, origin, content_origin, fence_width,
+  )
+  let replacement_ends_with_line_ending = value.has_suffix("\n") ||
+    value.has_suffix("\r")
+  let replacement_suffix = if value != "" &&
+    suffix_prefix == "" &&
+    (zero_content || (suffix == "" && replacement_ends_with_line_ending)) {
+    content_line_ending
+  } else {
+    ""
+  }
+  opening + opening_suffix + value + replacement_suffix + suffix_prefix + suffix
 }
 
 ///|
