@@ -1065,7 +1065,7 @@ fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
 }
 
 ///|
-fn code_fence_close_marker_end(
+fn code_fence_close_line_start(
   origin : MarkdownIROrigin,
   source : String,
 ) -> Int? {
@@ -1090,13 +1090,24 @@ fn code_fence_close_marker_end(
         }
       }
       if is_close {
-        return Some(line_end)
+        return Some(line_start)
       }
     }
     let line_end = line_end_offset(source, line_start, origin.end())
     line_start = next_line_start(source, line_end, origin.end())
   }
   None
+}
+
+///|
+fn code_fence_close_marker_end(
+  origin : MarkdownIROrigin,
+  source : String,
+) -> Int? {
+  match code_fence_close_line_start(origin, source) {
+    Some(line_start) => Some(line_end_offset(source, line_start, origin.end()))
+    None => None
+  }
 }
 
 ///|
@@ -1401,18 +1412,6 @@ fn max_backtick_run(value : String) -> Int {
 }
 
 ///|
-fn leading_backtick_run(value : String) -> Int {
-  let mut width = 0
-  while width < value.length() {
-    match value.code_unit_at(width).to_char() {
-      Some('`') => width = width + 1
-      _ => break
-    }
-  }
-  width
-}
-
-///|
 fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
   let run_width = max_backtick_run(value)
   let required_width = if run_width >= 3 { run_width + 1 } else { 3 }
@@ -1424,84 +1423,51 @@ fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
 }
 
 ///|
-fn line_end_without_trailing_line_ending(value : String) -> Int {
-  if value.has_suffix("\r\n") {
-    value.length() - 2
-  } else if value.has_suffix("\r") || value.has_suffix("\n") {
-    value.length() - 1
-  } else {
-    value.length()
-  }
-}
-
-///|
-fn last_line_start_before(value : String, end : Int) -> Int {
-  let mut start = end
-  while start > 0 {
-    match value.code_unit_at(start - 1).to_char() {
-      Some('\r') | Some('\n') => break
-      _ => start = start - 1
-    }
-  }
-  start
-}
-
-///|
-fn is_closing_backtick_line(
-  value : String,
-  start : Int,
-  end : Int,
-  opening_width : Int,
-) -> Bool {
-  let mut cursor = start
-  let mut width = 0
-  while cursor < end {
-    match value.code_unit_at(cursor).to_char() {
-      Some('`') => {
-        width = width + 1
-        cursor = cursor + 1
+fn local_code_block_suffix(
+  source : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin,
+  fence_width : Int,
+) -> String {
+  match code_fence_close_line_start(origin, source) {
+    Some(close_start) => {
+      let close_width = count_backticks(source, close_start)
+      if close_width < fence_width {
+        "`".repeat(fence_width) +
+        source_slice_between(source, close_start + close_width, origin.end())
+      } else {
+        source_slice_between(source, close_start, origin.end())
       }
-      _ => break
     }
+    None => source_slice_between(source, content_origin.end(), origin.end())
   }
-  if width < opening_width {
-    return false
-  }
-  while cursor < end {
-    match value.code_unit_at(cursor).to_char() {
-      Some(' ') | Some('\t') => cursor = cursor + 1
-      _ => return false
-    }
-  }
-  true
-}
-
-///|
-fn code_block_has_closing_fence(
-  block_source : String,
-  opening_width : Int,
-) -> Bool {
-  let end = line_end_without_trailing_line_ending(block_source)
-  let start = last_line_start_before(block_source, end)
-  is_closing_backtick_line(block_source, start, end, opening_width)
 }
 
 ///|
 fn local_code_block_markdown(
   source : String,
   origin : MarkdownIROrigin,
-  info : String,
+  content_origin : MarkdownIROrigin,
   value : String,
 ) -> String {
-  let block_source = source_slice(source, origin)
-  let original_width = leading_backtick_run(block_source)
+  let original_width = count_backticks(source, origin.start())
   let minimum_width = if original_width >= 3 { original_width } else { 3 }
-  let fence = "`".repeat(code_block_backtick_width(value, minimum_width))
-  if code_block_has_closing_fence(block_source, minimum_width) {
-    fence + info + "\n" + value + "\n" + fence
-  } else {
-    fence + info + "\n" + value
+  let fence_width = code_block_backtick_width(value, minimum_width)
+  let opening = "`".repeat(fence_width) +
+    source_slice_between(
+      source,
+      origin.start() + original_width,
+      content_origin.start(),
+    )
+  let suffix_prefix = match code_fence_close_line_start(origin, source) {
+    Some(close_start) =>
+      source_slice_between(source, content_origin.end(), close_start)
+    None => ""
   }
+  opening +
+  value +
+  suffix_prefix +
+  local_code_block_suffix(source, origin, content_origin, fence_width)
 }
 
 ///|
@@ -1598,10 +1564,14 @@ fn local_transform_render(
       }
       "- " + rendered
     }
-    CodeBlock(info, _value, content_origin) =>
+    CodeBlock(_info, _value, content_origin) =>
       if content_origin == Some(target_origin) {
-        local_code_block_markdown(source, ir.origin(), info, replacement_text) +
-        original_block_trailing_newline(source, ir.origin())
+        local_code_block_markdown(
+          source,
+          ir.origin(),
+          target_origin,
+          replacement_text,
+        )
       } else {
         source_slice(source, ir.origin())
       }
