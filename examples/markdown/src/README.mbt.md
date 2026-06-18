@@ -30,8 +30,12 @@ pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Bloc
 // ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
 
 pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
+  @seam.SyntaxNode, @core.DiagnosticSet
+) -> MarkdownIR
 pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
+pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
 pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
 pub fn experimental_markdown_ir_local_transform_rewrite(
   MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
@@ -61,10 +65,12 @@ than token/trivia arrays.
 
 Use `experimental_markdown_ir_from_syntax` after `parse_cst` when you need the
 IR, then adapt with `experimental_markdown_ir_to_block`, export with
-`experimental_markdown_ir_to_mdast_json`, or smoke-test rewriting with
-`experimental_markdown_ir_preserve_rewrite`,
+`experimental_markdown_ir_to_mdast_json` or
+`experimental_markdown_ir_to_mdast_json_with_positions`, or smoke-test rewriting
+with `experimental_markdown_ir_preserve_rewrite`,
 `experimental_markdown_ir_local_transform_rewrite`, and
-`experimental_markdown_ir_canonical_format`. The established parser surfaces
+`experimental_markdown_ir_canonical_format`. The position-aware mdast export
+must receive the exact source string that produced the IR. The established parser surfaces
 (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
 `markdown_fold_node`) remain the compatibility path for the editor-facing
 `Block` / `Inline` model.

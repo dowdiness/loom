@@ -32,6 +32,22 @@ test "lexer: paragraph text keeps non-BMP character in one token" {
 }
 
 ///|
+test "lexer: CRLF paragraph newline" {
+  let tokens = tokenize("hello\r\n")
+  inspect(@debug.to_string(tokens[0].token), content="Text(\"hello\")")
+  inspect(@debug.to_string(tokens[1].token), content="Newline")
+  inspect(tokens[1].len, content="2")
+}
+
+///|
+test "lexer: whitespace-only CRLF line is blank" {
+  let tokens = tokenize(" \t\r\nnext")
+  inspect(@debug.to_string(tokens[0].token), content="BlankLine")
+  inspect(tokens[0].len, content="4")
+  inspect(@debug.to_string(tokens[1].token), content="Text(\"next\")")
+}
+
+///|
 test "lexer: code fence with info" {
   let tokens = tokenize("```python\ncode here\n```\n")
   inspect(
