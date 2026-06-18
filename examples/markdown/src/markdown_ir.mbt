@@ -1424,16 +1424,84 @@ fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
 }
 
 ///|
+fn line_end_without_trailing_line_ending(value : String) -> Int {
+  if value.has_suffix("\r\n") {
+    value.length() - 2
+  } else if value.has_suffix("\r") || value.has_suffix("\n") {
+    value.length() - 1
+  } else {
+    value.length()
+  }
+}
+
+///|
+fn last_line_start_before(value : String, end : Int) -> Int {
+  let mut start = end
+  while start > 0 {
+    match value.code_unit_at(start - 1).to_char() {
+      Some('\r') | Some('\n') => break
+      _ => start = start - 1
+    }
+  }
+  start
+}
+
+///|
+fn is_closing_backtick_line(
+  value : String,
+  start : Int,
+  end : Int,
+  opening_width : Int,
+) -> Bool {
+  let mut cursor = start
+  let mut width = 0
+  while cursor < end {
+    match value.code_unit_at(cursor).to_char() {
+      Some('`') => {
+        width = width + 1
+        cursor = cursor + 1
+      }
+      _ => break
+    }
+  }
+  if width < opening_width {
+    return false
+  }
+  while cursor < end {
+    match value.code_unit_at(cursor).to_char() {
+      Some(' ') | Some('\t') => cursor = cursor + 1
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn code_block_has_closing_fence(
+  block_source : String,
+  opening_width : Int,
+) -> Bool {
+  let end = line_end_without_trailing_line_ending(block_source)
+  let start = last_line_start_before(block_source, end)
+  is_closing_backtick_line(block_source, start, end, opening_width)
+}
+
+///|
 fn local_code_block_markdown(
   source : String,
   origin : MarkdownIROrigin,
   info : String,
   value : String,
 ) -> String {
-  let original_width = leading_backtick_run(source_slice(source, origin))
+  let block_source = source_slice(source, origin)
+  let original_width = leading_backtick_run(block_source)
   let minimum_width = if original_width >= 3 { original_width } else { 3 }
   let fence = "`".repeat(code_block_backtick_width(value, minimum_width))
-  fence + info + "\n" + value + "\n" + fence
+  if code_block_has_closing_fence(block_source, minimum_width) {
+    fence + info + "\n" + value + "\n" + fence
+  } else {
+    fence + info + "\n" + value
+  }
 }
 
 ///|
