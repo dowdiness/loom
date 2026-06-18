@@ -273,6 +273,7 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     Heading(_, _, origin)
     | Paragraph(_, origin)
     | ListItem(_, origin)
+    | CodeBlock(_, _, origin)
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
@@ -715,6 +716,61 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
+fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
+  let mut in_code = false
+  let content_tokens : Array[@seam.SyntaxToken] = Array::new()
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          CodeFenceOpenToken => in_code = true
+          CodeFenceCloseToken => in_code = false
+          CodeTextToken if in_code => content_tokens.push(token)
+          NewlineToken if in_code => content_tokens.push(token)
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  let start_offset = if content_tokens.length() > 0 {
+    let first_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+      content_tokens[0].kind(),
+    )
+    if first_kind is NewlineToken {
+      1
+    } else {
+      0
+    }
+  } else {
+    0
+  }
+  let end_offset = if content_tokens.length() > start_offset {
+    let last_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+      content_tokens[content_tokens.length() - 1].kind(),
+    )
+    if last_kind is NewlineToken {
+      content_tokens.length() - 1
+    } else {
+      content_tokens.length()
+    }
+  } else {
+    0
+  }
+  if start_offset < end_offset {
+    Some(
+      MarkdownIROrigin(
+        start=content_tokens[start_offset].start(),
+        end=content_tokens[end_offset - 1].end(),
+      ),
+    )
+  } else {
+    None
+  }
+}
+
+///|
 /// Experimental CstFold algebra for the M1 MarkdownIR slice.
 ///
 /// Covers documents, headings, paragraphs, and text. Other Markdown constructs
@@ -796,7 +852,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         code_block_info(node),
         code_block_value(node),
         origin_from_node(node),
-        None,
+        code_block_content_origin(node),
       )
     ErrorNode => {
       let origin = origin_from_node(node)
@@ -1009,7 +1065,7 @@ fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
 }
 
 ///|
-fn code_fence_close_marker_end(
+fn code_fence_close_line_start(
   origin : MarkdownIROrigin,
   source : String,
 ) -> Int? {
@@ -1034,13 +1090,24 @@ fn code_fence_close_marker_end(
         }
       }
       if is_close {
-        return Some(line_end)
+        return Some(line_start)
       }
     }
     let line_end = line_end_offset(source, line_start, origin.end())
     line_start = next_line_start(source, line_end, origin.end())
   }
   None
+}
+
+///|
+fn code_fence_close_marker_end(
+  origin : MarkdownIROrigin,
+  source : String,
+) -> Int? {
+  match code_fence_close_line_start(origin, source) {
+    Some(line_start) => Some(line_end_offset(source, line_start, origin.end()))
+    None => None
+  }
 }
 
 ///|
@@ -1327,6 +1394,83 @@ fn code_block_markdown(info : String, value : String) -> String {
 }
 
 ///|
+fn max_backtick_run(value : String) -> Int {
+  let mut max_run = 0
+  let mut cur_run = 0
+  for i = 0; i < value.length(); i = i + 1 {
+    match value.code_unit_at(i).to_char() {
+      Some('`') => {
+        cur_run = cur_run + 1
+        if cur_run > max_run {
+          max_run = cur_run
+        }
+      }
+      _ => cur_run = 0
+    }
+  }
+  max_run
+}
+
+///|
+fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
+  let run_width = max_backtick_run(value)
+  let required_width = if run_width >= 3 { run_width + 1 } else { 3 }
+  if minimum_width > required_width {
+    minimum_width
+  } else {
+    required_width
+  }
+}
+
+///|
+fn local_code_block_suffix(
+  source : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin,
+  fence_width : Int,
+) -> String {
+  match code_fence_close_line_start(origin, source) {
+    Some(close_start) => {
+      let close_width = count_backticks(source, close_start)
+      if close_width < fence_width {
+        "`".repeat(fence_width) +
+        source_slice_between(source, close_start + close_width, origin.end())
+      } else {
+        source_slice_between(source, close_start, origin.end())
+      }
+    }
+    None => source_slice_between(source, content_origin.end(), origin.end())
+  }
+}
+
+///|
+fn local_code_block_markdown(
+  source : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin,
+  value : String,
+) -> String {
+  let original_width = count_backticks(source, origin.start())
+  let minimum_width = if original_width >= 3 { original_width } else { 3 }
+  let fence_width = code_block_backtick_width(value, minimum_width)
+  let opening = "`".repeat(fence_width) +
+    source_slice_between(
+      source,
+      origin.start() + original_width,
+      content_origin.start(),
+    )
+  let suffix_prefix = match code_fence_close_line_start(origin, source) {
+    Some(close_start) =>
+      source_slice_between(source, content_origin.end(), close_start)
+    None => ""
+  }
+  opening +
+  value +
+  suffix_prefix +
+  local_code_block_suffix(source, origin, content_origin, fence_width)
+}
+
+///|
 fn local_transform_render(
   ir : MarkdownIR,
   source : String,
@@ -1420,7 +1564,17 @@ fn local_transform_render(
       }
       "- " + rendered
     }
-    CodeBlock(info, value, _) => code_block_markdown(info, value)
+    CodeBlock(_info, _value, content_origin) =>
+      if content_origin == Some(target_origin) {
+        local_code_block_markdown(
+          source,
+          ir.origin(),
+          target_origin,
+          replacement_text,
+        )
+      } else {
+        source_slice(source, ir.origin())
+      }
     Text(value) | Raw(value, _) => value
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {

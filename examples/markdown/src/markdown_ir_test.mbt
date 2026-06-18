@@ -628,6 +628,150 @@ test "experimental MarkdownIR: preserve rewrite keeps source slices" {
 }
 
 ///|
+test "experimental MarkdownIR: preserve rewrite round-trips code block" {
+  let source = "```moonbit\nlet x = 1\n```\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+}
+
+///|
+fn local_code_block_content_rewrite(
+  source : String,
+  replacement_text : String,
+) -> String raise {
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block, ..] =>
+      match code_block.content_origin() {
+        Some(origin) =>
+          experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text~,
+          )
+        None => {
+          inspect("missing", content="code block content origin")
+          ""
+        }
+      }
+    [] => {
+      inspect("unexpected child count", content="code block")
+      ""
+    }
+  }
+}
+
+///|
+fn assert_local_code_block_content_rewrite(
+  source : String,
+  replacement_text : String,
+  expected : String,
+) -> String raise {
+  let result = local_code_block_content_rewrite(source, replacement_text)
+  inspect(result, content=expected)
+  result
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites code block content origin" {
+  let _ = assert_local_code_block_content_rewrite(
+    "```moonbit\nlet x = 1\n```\n", "let y = 2", "```moonbit\nlet y = 2\n```\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves wider code fence" {
+  let _ = assert_local_code_block_content_rewrite(
+    "````moonbit\nlet x = 1\n````\n", "let y = 2", "````moonbit\nlet y = 2\n````\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform widens code fence for backticks" {
+  let result = assert_local_code_block_content_rewrite(
+    "```\nold code\n```\n", "line\n```\nline", "````\nline\n```\nline\n````\n",
+  )
+  inspect(
+    parse(result),
+    content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves unclosed code fence" {
+  let result = assert_local_code_block_content_rewrite(
+    "```\nold\n", "new", "```\nnew\n",
+  )
+  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+}
+
+///|
+test "experimental MarkdownIR: local transform widens unclosed code fence" {
+  let result = assert_local_code_block_content_rewrite(
+    "```\nold\n", "line\n```\nline", "````\nline\n```\nline\n",
+  )
+  inspect(
+    parse(result),
+    content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves code fence separator" {
+  let _ = assert_local_code_block_content_rewrite(
+    "```\nold\n```\n\nNext\n", "new", "```\nnew\n```\n\nNext\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves CRLF code fence" {
+  let _ = assert_local_code_block_content_rewrite(
+    "```\r\nold\r\n```\r\n", "new", "```\r\nnew\r\n```\r\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites code block full origin" {
+  let source = "```\nold code\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] => {
+      let result = experimental_markdown_ir_local_transform_rewrite(
+        ir,
+        source,
+        target_origin=code_block.origin(),
+        replacement_text="Replaced\n",
+      )
+      inspect(result, content="Replaced\n")
+    }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform sibling preserves code block" {
+  let source = "Para.\n\n```\ncode here\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph, _] =>
+      match paragraph.content_origin() {
+        Some(origin) => {
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="Changed.",
+          )
+          inspect(result, content="Changed.\n\n```\ncode here\n```\n")
+        }
+        None => inspect("missing", content="paragraph content origin")
+      }
+    _ => inspect("unexpected child count", content="paragraph and code block")
+  }
+}
+
+///|
 test "experimental MarkdownIR: recovered inline delimiters adapt to explicit error" {
   let source = "Hello *\n"
   let ir = markdown_ir_from_source(source)
@@ -862,6 +1006,18 @@ test "experimental MarkdownIR: canonical code fence exceeds content backtick run
   )
   inspect(formatted, content="````\n```\n````")
   inspect(parse(formatted), content="Document([CodeBlock(\"\", \"```\")])")
+}
+
+///|
+test "experimental MarkdownIR: canonical format preserves code block info string" {
+  let formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("```moonbit\nlet x = 1\n```\n"),
+  )
+  inspect(formatted, content="```moonbit\nlet x = 1\n```")
+  inspect(
+    parse(formatted),
+    content="Document([CodeBlock(\"moonbit\", \"let x = 1\")])",
+  )
 }
 
 ///|
