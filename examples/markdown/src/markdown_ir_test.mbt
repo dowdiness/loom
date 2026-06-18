@@ -732,6 +732,97 @@ test "experimental MarkdownIR: local transform preserves CRLF code fence" {
 }
 
 ///|
+test "experimental MarkdownIR: local transform rewrites empty closed code fence" {
+  let source = "```\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          inspect(origin.start(), content="4")
+          inspect(origin.end(), content="4")
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="new",
+          )
+          inspect(result, content="```\nnew\n```\n")
+          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites empty unclosed code fence" {
+  let source = "```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          inspect(origin.start(), content="4")
+          inspect(origin.end(), content="4")
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="new",
+          )
+          inspect(result, content="```\nnew\n")
+          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform rewrites empty EOF code fence" {
+  let source = "```"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          inspect(origin.start(), content="3")
+          inspect(origin.end(), content="3")
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="new",
+          )
+          inspect(result, content="```\nnew\n")
+          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: empty code fence rewrite preserves replacement trailing newline" {
+  let result = assert_local_code_block_content_rewrite(
+    "```\n```\n", "new\n", "```\nnew\n\n```\n",
+  )
+  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\\n\")])")
+}
+
+///|
+test "experimental MarkdownIR: unclosed EOF code fence preserves replacement trailing newline" {
+  let result = assert_local_code_block_content_rewrite(
+    "```\nold", "new\n", "```\nnew\n\n",
+  )
+  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\\n\")])")
+}
+
+///|
 test "experimental MarkdownIR: local transform rewrites code block full origin" {
   let source = "```\nold code\n```\n"
   let ir = markdown_ir_from_source(source)
