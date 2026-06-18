@@ -70,10 +70,34 @@ IR, then adapt with `experimental_markdown_ir_to_block`, export with
 with `experimental_markdown_ir_preserve_rewrite`,
 `experimental_markdown_ir_local_transform_rewrite`, and
 `experimental_markdown_ir_canonical_format`. The position-aware mdast export
-must receive the exact source string that produced the IR. The established parser surfaces
-(`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
+must receive the exact source string that produced the IR. The established parser
+surfaces (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
 `markdown_fold_node`) remain the compatibility path for the editor-facing
 `Block` / `Inline` model.
+
+### mdast fixture parity
+
+`mdast_fixture_parity_test.mbt` compares MarkdownIR mdast export against checked-in
+reference fixtures embedded in `mdast_fixture_data_test.mbt`. The harness parses
+Markdown to MarkdownIR and calls `experimental_markdown_ir_to_mdast_json`; it does
+not route through the editor-facing `Block` model. Fixture status metadata
+supports `Pass`, `Xfail(reason)`, and `Skip(reason)`, with the current baseline
+summarized in the generated data file header.
+
+Normal MoonBit CI is hermetic: `moon test` consumes the checked-in fixtures and
+does not require Node, npm, or network access. To deliberately refresh the
+reference mdast JSON from the JavaScript ecosystem, run the optional non-CI
+generator from `examples/markdown`:
+
+```bash
+npm exec --package=mdast-util-from-markdown -- node tools/update_mdast_fixtures.mjs
+NEW_MOON_MOD=0 moon fmt
+NEW_MOON_MOD=0 moon test
+```
+
+The generator canonicalizes mdast by dropping `position`, `null` defaults, and
+`spread: false` fields so the fixtures target the current MarkdownIR mdast
+surface rather than unist position export or later CommonMark/container work.
 
 ## Grammar
 
