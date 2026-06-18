@@ -85,6 +85,7 @@ pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool
 pub fn MarkdownIR::kind_tag(Self) -> String
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
+pub fn MarkdownIR::spread(Self) -> Bool?
 pub fn MarkdownIR::text_value(Self) -> String?
 
 pub struct MarkdownIROrigin {

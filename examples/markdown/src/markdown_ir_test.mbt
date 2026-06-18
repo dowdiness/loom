@@ -227,6 +227,9 @@ test "experimental MarkdownIR: list items expose flow-content paragraphs" {
     [list] =>
       match list.children() {
         [first, second] => {
+          debug_inspect(list.spread(), content="Some(false)")
+          debug_inspect(first.spread(), content="Some(false)")
+          debug_inspect(second.spread(), content="Some(false)")
           debug_inspect(
             first.children().map(child => child.kind_tag()),
             content="[\"Paragraph\"]",

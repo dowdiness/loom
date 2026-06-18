@@ -41,8 +41,8 @@ priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
   Paragraph(Array[MarkdownIR], MarkdownIROrigin?)
-  UnorderedList(Array[MarkdownIR])
-  ListItem(Array[MarkdownIR], MarkdownIROrigin?)
+  UnorderedList(Array[MarkdownIR], Bool)
+  ListItem(Array[MarkdownIR], Bool, MarkdownIROrigin?)
   CodeBlock(String, String, MarkdownIROrigin?)
   Text(String)
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
@@ -99,17 +99,19 @@ fn MarkdownIR::paragraph(
 fn MarkdownIR::unordered_list(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
+  spread~ : Bool,
 ) -> MarkdownIR {
-  { node: UnorderedList(children), origin }
+  { node: UnorderedList(children, spread), origin }
 }
 
 ///|
 fn MarkdownIR::list_item(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
+  spread~ : Bool,
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: ListItem(children, content_origin), origin }
+  { node: ListItem(children, spread, content_origin), origin }
 }
 
 ///|
@@ -217,8 +219,8 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Document(_) => "Document"
     Heading(_, _, _) => "Heading"
     Paragraph(_, _) => "Paragraph"
-    UnorderedList(_) => "UnorderedList"
-    ListItem(_, _) => "ListItem"
+    UnorderedList(_, _) => "UnorderedList"
+    ListItem(_, _, _) => "ListItem"
     CodeBlock(_, _, _) => "CodeBlock"
     Text(_) => "Text"
     Bold(_, _) => "Bold"
@@ -237,8 +239,8 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     Document(children)
     | Heading(_, children, _)
     | Paragraph(children, _)
-    | UnorderedList(children)
-    | ListItem(children, _)
+    | UnorderedList(children, _)
+    | ListItem(children, _, _)
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _) => children.copy()
@@ -272,11 +274,19 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
     Heading(_, _, origin)
     | Paragraph(_, origin)
-    | ListItem(_, origin)
+    | ListItem(_, _, origin)
     | CodeBlock(_, _, origin)
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
+    _ => None
+  }
+}
+
+///|
+pub fn MarkdownIR::spread(self : MarkdownIR) -> Bool? {
+  match self.node {
+    UnorderedList(_, spread) | ListItem(_, spread, _) => Some(spread)
     _ => None
   }
 }
@@ -864,7 +874,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
           }
         })
         .collect()
-      MarkdownIR::unordered_list(children, origin_from_node(node))
+      MarkdownIR::unordered_list(children, origin_from_node(node), spread=false)
     }
     ListItemNode => {
       let inline_children = lower_inline_children_with_diags(
@@ -879,6 +889,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
           ),
         ],
         origin_from_node(node),
+        spread=false,
         content_origin,
       )
     }
@@ -985,8 +996,9 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
       Inline::Error("expected inline MarkdownIR, got paragraph")
-    UnorderedList(_) => Inline::Error("expected inline MarkdownIR, got list")
-    ListItem(_, _) => Inline::Error("expected inline MarkdownIR, got list item")
+    UnorderedList(_, _) => Inline::Error("expected inline MarkdownIR, got list")
+    ListItem(_, _, _) =>
+      Inline::Error("expected inline MarkdownIR, got list item")
     CodeBlock(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got code block")
   }
@@ -1025,9 +1037,9 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Heading(depth, children, _) =>
       Block::Heading(depth, ir_children_to_inlines(children))
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
-    UnorderedList(children) =>
+    UnorderedList(children, _) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
-    ListItem(children, _) =>
+    ListItem(children, _, _) =>
       Block::ListItem(list_item_flow_children_to_editor_inlines(children))
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     Text(_) => Block::Error("expected block MarkdownIR, got text")
@@ -1183,7 +1195,10 @@ fn mdast_position_origin(
   context : MdastPositionContext,
 ) -> MarkdownIROrigin {
   match ir.node {
-    Heading(_, _, _) | Paragraph(_, _) | UnorderedList(_) | ListItem(_, _) =>
+    Heading(_, _, _)
+    | Paragraph(_, _)
+    | UnorderedList(_, _)
+    | ListItem(_, _, _) =>
       origin_without_trailing_line_endings(ir.origin(), context.source)
     CodeBlock(_, _, _) =>
       code_block_mdast_position_origin(ir.origin(), context.source)
@@ -1204,6 +1219,18 @@ fn mdast_json_with_position(
         "position",
         unist_position_json(origin, position_context.line_index),
       )
+      Json::object(fields)
+    }
+    _ => json
+  }
+}
+
+///|
+fn mdast_json_with_optional_spread(json : Json, spread : Bool) -> Json {
+  guard spread else { return json }
+  match json {
+    Object(fields) => {
+      fields.set("spread", true)
       Json::object(fields)
     }
     _ => json
@@ -1242,14 +1269,23 @@ fn markdown_ir_to_mdast_json(
         "type": "paragraph",
         "children": mdast_children_json(children, context),
       }
-    UnorderedList(children) =>
-      {
-        "type": "list",
-        "ordered": false,
-        "children": mdast_children_json(children, context),
-      }
-    ListItem(children, _) =>
-      { "type": "listItem", "children": mdast_children_json(children, context) }
+    UnorderedList(children, spread) =>
+      mdast_json_with_optional_spread(
+        {
+          "type": "list",
+          "ordered": false,
+          "children": mdast_children_json(children, context),
+        },
+        spread,
+      )
+    ListItem(children, spread, _) =>
+      mdast_json_with_optional_spread(
+        {
+          "type": "listItem",
+          "children": mdast_children_json(children, context),
+        },
+        spread,
+      )
     CodeBlock(info, value, _) =>
       if info.length() > 0 {
         { "type": "code", "lang": info, "value": value }
@@ -1580,7 +1616,7 @@ fn local_transform_render(
       }
       rendered + original_block_trailing_newline(source, ir.origin())
     }
-    UnorderedList(children) => {
+    UnorderedList(children, _) => {
       let buf = StringBuilder::new()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
@@ -1605,7 +1641,7 @@ fn local_transform_render(
       )
       buf.to_string()
     }
-    ListItem(children, content_origin) => {
+    ListItem(children, _, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
         replacement_text
       } else {
@@ -1711,9 +1747,9 @@ pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
     Heading(depth, children, _) =>
       "#".repeat(depth) + " " + canonical_inline_text(children)
     Paragraph(children, _) => canonical_inline_text(children)
-    UnorderedList(children) =>
+    UnorderedList(children, _) =>
       children.map(experimental_markdown_ir_canonical_format).join("\n")
-    ListItem(children, _) => "- " + canonical_inline_text(children)
+    ListItem(children, _, _) => "- " + canonical_inline_text(children)
     CodeBlock(info, value, _) => code_block_markdown(info, value)
     Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
