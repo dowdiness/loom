@@ -85,9 +85,9 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
       "<p>" +
       markdown_ir_inline_children_to_commonmark_html(children) +
       "</p>\n"
-    UnorderedList(children) =>
+    UnorderedList(children, _) =>
       "<ul>\n" + markdown_ir_children_to_commonmark_html(children) + "</ul>\n"
-    ListItem(children, _) =>
+    ListItem(children, _, _) =>
       "<li>" +
       markdown_ir_list_item_children_to_commonmark_html(children) +
       "</li>\n"
