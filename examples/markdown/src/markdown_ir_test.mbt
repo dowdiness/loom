@@ -657,6 +657,54 @@ test "experimental MarkdownIR: local transform rewrites code block content origi
 }
 
 ///|
+test "experimental MarkdownIR: local transform preserves wider code fence" {
+  let source = "````moonbit\nlet x = 1\n````\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="let y = 2",
+          )
+          inspect(result, content="````moonbit\nlet y = 2\n````\n")
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform widens code fence for backticks" {
+  let source = "```\nold code\n```\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [code_block] =>
+      match code_block.content_origin() {
+        Some(origin) => {
+          let result = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=origin,
+            replacement_text="line\n```\nline",
+          )
+          inspect(result, content="````\nline\n```\nline\n````\n")
+          inspect(
+            parse(result),
+            content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
+          )
+        }
+        None => inspect("missing", content="code block content origin")
+      }
+    _ => inspect("unexpected child count", content="one code block")
+  }
+}
+
+///|
 test "experimental MarkdownIR: local transform rewrites code block full origin" {
   let source = "```\nold code\n```\n"
   let ir = markdown_ir_from_source(source)

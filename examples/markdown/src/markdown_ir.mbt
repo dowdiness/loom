@@ -1383,6 +1383,60 @@ fn code_block_markdown(info : String, value : String) -> String {
 }
 
 ///|
+fn max_backtick_run(value : String) -> Int {
+  let mut max_run = 0
+  let mut cur_run = 0
+  for i = 0; i < value.length(); i = i + 1 {
+    match value.code_unit_at(i).to_char() {
+      Some('`') => {
+        cur_run = cur_run + 1
+        if cur_run > max_run {
+          max_run = cur_run
+        }
+      }
+      _ => cur_run = 0
+    }
+  }
+  max_run
+}
+
+///|
+fn leading_backtick_run(value : String) -> Int {
+  let mut width = 0
+  while width < value.length() {
+    match value.code_unit_at(width).to_char() {
+      Some('`') => width = width + 1
+      _ => break
+    }
+  }
+  width
+}
+
+///|
+fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
+  let run_width = max_backtick_run(value)
+  let required_width = if run_width >= 3 { run_width + 1 } else { 3 }
+  if minimum_width > required_width {
+    minimum_width
+  } else {
+    required_width
+  }
+}
+
+///|
+fn local_code_block_markdown(
+  source : String,
+  origin : MarkdownIROrigin,
+  info : String,
+  value : String,
+) -> String {
+  let original_width = leading_backtick_run(source_slice(source, origin))
+  let minimum_width = if original_width >= 3 { original_width } else { 3 }
+  let fence = "`".repeat(code_block_backtick_width(value, minimum_width))
+  fence + info + "\n" + value + "\n" + fence
+}
+
+///|
 fn local_transform_render(
   ir : MarkdownIR,
   source : String,
@@ -1478,7 +1532,7 @@ fn local_transform_render(
     }
     CodeBlock(info, _value, content_origin) =>
       if content_origin == Some(target_origin) {
-        code_block_markdown(info, replacement_text) +
+        local_code_block_markdown(source, ir.origin(), info, replacement_text) +
         original_block_trailing_newline(source, ir.origin())
       } else {
         source_slice(source, ir.origin())
