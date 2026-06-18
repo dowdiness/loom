@@ -41,6 +41,7 @@ pub fn experimental_markdown_ir_local_transform_rewrite(
   MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
 ) -> String
 pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
+pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
@@ -68,8 +69,9 @@ IR, then adapt with `experimental_markdown_ir_to_block`, export with
 `experimental_markdown_ir_to_mdast_json` or
 `experimental_markdown_ir_to_mdast_json_with_positions`, or smoke-test rewriting
 with `experimental_markdown_ir_preserve_rewrite`,
-`experimental_markdown_ir_local_transform_rewrite`, and
-`experimental_markdown_ir_canonical_format`. The position-aware mdast export
+`experimental_markdown_ir_local_transform_rewrite`,
+`experimental_markdown_ir_canonical_format`, or render CommonMark-style HTML with
+`experimental_markdown_ir_to_commonmark_html`. The position-aware mdast export
 must receive the exact source string that produced the IR. The established parser
 surfaces (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
 `markdown_fold_node`) remain the compatibility path for the editor-facing
@@ -98,6 +100,21 @@ NEW_MOON_MOD=0 moon test
 The generator canonicalizes mdast by dropping `position`, `null` defaults, and
 `spread: false` fields so the fixtures target the current MarkdownIR mdast
 surface rather than unist position export or later CommonMark/container work.
+
+### CommonMark HTML fixture parity
+
+`commonmark_html_fixture_test.mbt` compares MarkdownIR HTML rendering against a
+checked-in subset of official CommonMark 0.31.2 examples embedded in
+`commonmark_html_fixture_data_test.mbt`. The harness parses Markdown to
+MarkdownIR and calls `experimental_markdown_ir_to_commonmark_html`; it does not
+route through mdast. mdast fixture parity proves adapter tree shape, while
+CommonMark HTML parity proves rendered behavior and escaping.
+
+Fixture metadata records CommonMark section, example number, source, expected
+HTML, and `CommonMarkHtmlPass` / `CommonMarkHtmlXfail(reason)` /
+`CommonMarkHtmlSkip(reason)` status. The generated data header summarizes the
+current pass/xfail/skip baseline. Normal MoonBit CI remains hermetic: `moon test`
+uses checked-in fixture data only and requires no Node, npm, or network access.
 
 ## Grammar
 

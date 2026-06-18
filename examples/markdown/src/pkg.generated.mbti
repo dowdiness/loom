@@ -21,6 +21,8 @@ pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
 
 pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 
+pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
+
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
 
 pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
