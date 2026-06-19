@@ -76,44 +76,6 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
-fn current_unordered_list_marker(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> UnorderedListMarker? {
-  match ctx.peek() {
-    ListMarker =>
-      unordered_list_marker_from_text(ctx.current_token_text().to_owned())
-    _ => None
-  }
-}
-
-///|
-/// Returns true when the current token is a list marker with the same explicit
-/// marker metadata as the list's opening marker.
-fn list_marker_matches(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker : UnorderedListMarker,
-) -> Bool {
-  current_unordered_list_marker(ctx) == Some(opening_marker)
-}
-
-///|
-/// Returns true when a run of blank lines is followed by another list item with
-/// the same marker metadata as the list's opening marker.
-fn blank_line_run_is_followed_by_matching_list_marker(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker : UnorderedListMarker,
-) -> Bool {
-  guard ctx.peek() is BlankLine else { return false }
-  let checkpoint = ctx.checkpoint()
-  while ctx.peek() is BlankLine {
-    ctx.emit_token(BlankLineToken)
-  }
-  let matches = list_marker_matches(ctx, opening_marker)
-  ctx.restore(checkpoint)
-  matches
-}
-
-///|
 /// Consume the separator after a list item, including blank-line separators
 /// that keep the following matching marker in the same loose list.
 fn consume_list_item_separator(

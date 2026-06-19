@@ -161,6 +161,12 @@ test "incremental: unordered list explicit marker metadata edits match full pars
     @core.Edit::new("- one\n".length(), "+".length(), "-".length()),
     "- one\n- two\n",
   )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown loose list opening marker changes boundary",
+    "- one\n\n- two\n",
+    @core.Edit::new(0, "-".length(), "+".length()),
+    "+ one\n\n- two\n",
+  )
 }
 
 ///|
