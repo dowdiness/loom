@@ -18,11 +18,13 @@ pub(all) enum SyntaxKind {
   NewlineToken
   ErrorToken
   EofToken
+  OrderedListMarkerToken
   // Node kinds
   DocumentNode
   HeadingNode
   ParagraphNode
   UnorderedListNode
+  OrderedListNode
   ListItemNode
   CodeBlockNode
   BoldNode
@@ -56,7 +58,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | CodeTextToken
     | NewlineToken
     | ErrorToken
-    | EofToken => true
+    | EofToken
+    | OrderedListMarkerToken => true
     _ => false
   }
 }
@@ -93,6 +96,8 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       InlineCodeNode => 25
       LinkNode => 26
       ErrorNode => 27
+      OrderedListMarkerToken => 28
+      OrderedListNode => 29
     },
   )
 }
@@ -128,6 +133,8 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     25 => InlineCodeNode
     26 => LinkNode
     27 => ErrorNode
+    28 => OrderedListMarkerToken
+    29 => OrderedListNode
     _ => ErrorNode
   }
 }

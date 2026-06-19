@@ -31,6 +31,7 @@ fn convert_inline_children_skip(
           // Skip structural tokens (HeadingMarker, ListMarker, Newline, etc.)
           HeadingMarkerToken
           | ListMarkerToken
+          | OrderedListMarkerToken
           | BlankLineToken
           | EofToken
           | CodeFenceOpenToken

@@ -94,6 +94,16 @@ test "lexer: list marker consumes trailing space" {
 }
 
 ///|
+test "lexer: ordered list marker consumes full marker text" {
+  let tokens = tokenize("01. item\n")
+  inspect(
+    @debug.to_string(tokens[0].token),
+    content="OrderedListMarker({ start: 1, delimiter: Period })",
+  )
+  inspect(@debug.to_string(tokens[1].token), content="Text(\"item\")")
+}
+
+///|
 test "lexer: blank line" {
   let tokens = tokenize("\n\n")
   // First \n from empty line -> BlankLine, second \n -> BlankLine

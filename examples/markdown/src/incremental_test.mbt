@@ -195,6 +195,32 @@ test "incremental: unordered list marker spelling boundary edits match full pars
 }
 
 ///|
+test "incremental: ordered list marker boundary edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ordered list delimiter changes to boundary",
+    "1. one\n2. two\n",
+    @core.Edit::new("1. one\n2".length(), ".".length(), ")".length()),
+    "1. one\n2) two\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ordered list opening start changes",
+    "1. one\n2. two\n",
+    @core.Edit::new(0, "1".length(), "3".length()),
+    "3. one\n2. two\n",
+  )
+  let interruption_delete_start = "The number of windows is\n1".length()
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ordered list interruption start changes",
+    "The number of windows is\n14.  The doors are 6.\n",
+    @core.Edit::delete(
+      interruption_delete_start,
+      interruption_delete_start + "4".length(),
+    ),
+    "The number of windows is\n1.  The doors are 6.\n",
+  )
+}
+
+///|
 test "incremental: unordered list blank separator edits match full parse" {
   let first_item = "- one\n"
   let middle_item = "- two\n"

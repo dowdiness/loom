@@ -114,7 +114,20 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       "<ul>\n" +
       markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
       "</ul>\n"
-    ListItem(children, spread, _, _) => {
+    OrderedList(children, spread, marker) => {
+      let start_attr = match marker {
+        Some(marker) if marker.start != 1 =>
+          " start=\"" + marker.start.to_string() + "\""
+        _ => ""
+      }
+      "<ol" +
+      start_attr +
+      ">\n" +
+      markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
+      "</ol>\n"
+    }
+    ListItem(children, spread, _, _)
+    | OrderedListItem(children, spread, _, _) => {
       let render_paragraphs = parent_list_spread || spread
       let has_block_content = children
         .iter()

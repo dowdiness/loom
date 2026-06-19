@@ -34,6 +34,29 @@ fn first_unordered_list_marker(text : String) -> UnorderedListMarker? {
 }
 
 ///|
+fn current_ordered_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> OrderedListMarker? {
+  match ctx.peek() {
+    OrderedListMarker(marker) => Some(marker)
+    _ => None
+  }
+}
+
+///|
+/// Returns true when the current token is an ordered-list marker with the same
+/// delimiter as the list's opening marker. The item number itself does not
+/// split a CommonMark ordered list; only the opening marker supplies `start`.
+fn ordered_list_marker_matches(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : OrderedListMarker,
+) -> Bool {
+  current_ordered_list_marker(ctx).map_or(false, marker => {
+    marker.delimiter == opening_marker.delimiter
+  })
+}
+
+///|
 /// Returns true when a run of blank lines is followed by another list item with
 /// the same marker metadata as the list's opening marker.
 fn blank_line_run_is_followed_by_matching_list_marker(
@@ -48,4 +71,36 @@ fn blank_line_run_is_followed_by_matching_list_marker(
   let matches = list_marker_matches(ctx, opening_marker)
   ctx.restore(checkpoint)
   matches
+}
+
+///|
+fn blank_line_run_is_followed_by_matching_ordered_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : OrderedListMarker,
+) -> Bool {
+  guard ctx.peek() is BlankLine else { return false }
+  let checkpoint = ctx.checkpoint()
+  while ctx.peek() is BlankLine {
+    ctx.emit_token(BlankLineToken)
+  }
+  let matches = ordered_list_marker_matches(ctx, opening_marker)
+  ctx.restore(checkpoint)
+  matches
+}
+
+///|
+fn consume_ordered_list_item_separator(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : OrderedListMarker,
+) -> Unit {
+  if ctx.peek() is Newline {
+    ctx.emit_token(NewlineToken)
+  }
+  if blank_line_run_is_followed_by_matching_ordered_list_marker(
+      ctx, opening_marker,
+    ) {
+    while ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
+  }
 }
