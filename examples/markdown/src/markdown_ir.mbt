@@ -1777,21 +1777,67 @@ pub fn experimental_markdown_ir_local_transform_rewrite(
 
 ///|
 fn canonical_inline_text(children : Array[MarkdownIR]) -> String {
-  children.map(experimental_markdown_ir_canonical_format).join("")
+  children.map(child => canonical_format_with_list_marker(child, Dash)).join("")
 }
 
 ///|
-pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
+fn boundary_preserving_list_marker(
+  previous_marker : UnorderedListMarker,
+  surface_marker : UnorderedListMarker?,
+) -> UnorderedListMarker {
+  match surface_marker {
+    Some(marker) if marker != previous_marker => marker
+    _ =>
+      match previous_marker {
+        Dash => Plus
+        Star | Plus => Dash
+      }
+  }
+}
+
+///|
+fn canonical_document_format(children : Array[MarkdownIR]) -> String {
+  let buf = StringBuilder::new()
+  let mut previous_list_marker : UnorderedListMarker? = None
+  for i, child in children {
+    if i > 0 {
+      buf.write_string("\n\n")
+    }
+    match child.node {
+      UnorderedList(_, _, surface_marker) => {
+        let marker = match previous_list_marker {
+          Some(previous_marker) =>
+            boundary_preserving_list_marker(previous_marker, surface_marker)
+          None => Dash
+        }
+        buf.write_string(canonical_format_with_list_marker(child, marker))
+        previous_list_marker = Some(marker)
+      }
+      _ => {
+        buf.write_string(canonical_format_with_list_marker(child, Dash))
+        previous_list_marker = None
+      }
+    }
+  }
+  buf.to_string()
+}
+
+///|
+fn canonical_format_with_list_marker(
+  ir : MarkdownIR,
+  list_marker : UnorderedListMarker,
+) -> String {
   match ir.node {
-    Document(children) =>
-      children.map(experimental_markdown_ir_canonical_format).join("\n\n")
+    Document(children) => canonical_document_format(children)
     Heading(depth, children, _) =>
       "#".repeat(depth) + " " + canonical_inline_text(children)
     Paragraph(children, _) => canonical_inline_text(children)
     UnorderedList(children, _, _) =>
-      children.map(experimental_markdown_ir_canonical_format).join("\n")
-    ListItem(children, _, _, marker) =>
-      unordered_list_marker_text(marker) + " " + canonical_inline_text(children)
+      children
+      .map(child => canonical_format_with_list_marker(child, list_marker))
+      .join("\n")
+    ListItem(children, _, _, _) =>
+      list_marker.text() + " " + canonical_inline_text(children)
     CodeBlock(info, value, _) => code_block_markdown(info, value)
     Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
@@ -1802,4 +1848,9 @@ pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
     Recovered(message, _) => "<!-- recovered MarkdownIR: " + message + " -->"
   }
+}
+
+///|
+pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
+  canonical_format_with_list_marker(ir, Dash)
 }

@@ -1628,12 +1628,21 @@ test "experimental MarkdownIR: unordered list canonical format keeps items" {
     markdown_ir_from_source("- one\n- two\n"),
   )
   inspect(formatted, content="- one\n- two")
+  let normalized_marker_formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("* one\n* two\n"),
+  )
+  inspect(normalized_marker_formatted, content="- one\n- two")
   inspect(
     experimental_markdown_ir_canonical_format(
       markdown_ir_from_source(formatted),
     ),
     content=formatted,
   )
+
+  let boundary_formatted = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source("* one\n+ two\n"),
+  )
+  inspect(boundary_formatted, content="- one\n\n+ two")
 
   let rich_formatted = experimental_markdown_ir_canonical_format(
     markdown_ir_from_source("- **bold** item\n- `code`\n"),
