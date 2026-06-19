@@ -2,11 +2,11 @@
 // The embedded data keeps `moon test` hermetic: no Node/npm or network access is
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline.
-// Baseline: pass=8, xfail=2, skip=1.
+// Baseline: pass=11, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (8, 2, 1)
+  (11, 2, 1)
 }
 
 ///|
@@ -66,6 +66,30 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "angle-brackets-as-text",
       source: "<>\n",
       expected_html: "<p>&lt;&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 301,
+      section: "Lists",
+      name: "mixed-unordered-markers-start-new-list",
+      source: "- foo\n- bar\n+ baz\n",
+      expected_html: "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<ul>\n<li>baz</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 306,
+      section: "Lists",
+      name: "loose-unordered-list-multiple-blank-lines",
+      source: "- foo\n\n- bar\n\n\n- baz\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 314,
+      section: "Lists",
+      name: "loose-unordered-list-blank-between-items",
+      source: "- a\n- b\n\n- c\n",
+      expected_html: "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

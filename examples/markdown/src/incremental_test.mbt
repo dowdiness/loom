@@ -148,28 +148,28 @@ test "incremental: unordered list middle item edits use block reparse" {
 }
 
 ///|
-test "incremental: unordered list marker spelling edits use block reparse" {
+test "incremental: unordered list marker spelling boundary edits match full parse" {
   let dash_to_star_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from dash to star",
     "- one\n- two\n- three\n",
     @core.Edit::new("- one\n".length(), "-".length(), "*".length()),
     "- one\n* two\n- three\n",
   )
-  inspect(dash_to_star_reuse_count, content="1")
+  inspect(dash_to_star_reuse_count != 1, content="true")
   let star_to_plus_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from star to plus",
     "* one\n* two\n* three\n",
     @core.Edit::new("* one\n".length(), "*".length(), "+".length()),
     "* one\n+ two\n* three\n",
   )
-  inspect(star_to_plus_reuse_count, content="1")
+  inspect(star_to_plus_reuse_count != 1, content="true")
   let plus_to_dash_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from plus to dash",
     "+ one\n+ two\n+ three\n",
     @core.Edit::new("+ one\n".length(), "+".length(), "-".length()),
     "+ one\n- two\n+ three\n",
   )
-  inspect(plus_to_dash_reuse_count, content="1")
+  inspect(plus_to_dash_reuse_count != 1, content="true")
 }
 
 ///|
@@ -195,6 +195,13 @@ test "incremental: unordered list blank separator edits match full parse" {
     first_item + changed_marker_item + last_item,
     @core.Edit::insert(first_item.length(), "\n".length()),
     first_item + "\n" + changed_marker_item + last_item,
+  )
+  let marker_changed_prefix = "- one\n+ two\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts blank after marker-change boundary",
+    marker_changed_prefix + "+ three\n",
+    @core.Edit::insert(marker_changed_prefix.length(), "\n".length()),
+    marker_changed_prefix + "\n+ three\n",
   )
 }
 
