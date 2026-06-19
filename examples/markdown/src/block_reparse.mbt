@@ -36,6 +36,25 @@ fn token_breaks_isolated_inline_block(token : Token) -> Bool {
 }
 
 ///|
+/// True when a token can remain inline content on an isolated list item line.
+/// The parser and block reparse share marker-metadata boundaries; this helper
+/// documents the reparse-only extra guard that prevents marker-line splits,
+/// indented continuations, and nested/container-looking tokens from being
+/// accepted as a single-node replacement.
+fn token_stays_on_isolated_list_item_line(
+  token : Token,
+  saw_content : Bool,
+) -> Bool {
+  match token {
+    EOF => true
+    Newline => false
+    token if token_breaks_isolated_inline_block(token) => false
+    Text(text) => saw_content || !text_starts_with_space_or_tab(text)
+    _ => true
+  }
+}
+
+///|
 fn is_paragraph_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   tokens.iter().all(info => !token_breaks_isolated_inline_block(info.token))
 }
@@ -126,14 +145,9 @@ fn is_unordered_list_token_stream(
               return false
             }
           Newline => expect_marker = true
-          token if expect_marker || token_breaks_isolated_inline_block(token) =>
+          token if expect_marker ||
+            !token_stays_on_isolated_list_item_line(token, saw_content) =>
             return false
-          Text(text) => {
-            if !saw_content && text_starts_with_space_or_tab(text) {
-              return false
-            }
-            saw_content = true
-          }
           _ => saw_content = true
         }
       }
@@ -251,15 +265,11 @@ fn marker_block_reparser(
   is_marker : (Token) -> Bool,
   parse_block : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  match first_token_text(node.text()) {
-    Some(marker_text) =>
-      Some(fn(ctx) {
-        parse_marker_block_if_unchanged(
-          ctx, marker_text, is_marker, parse_block,
-        )
-      })
-    None => None
-  }
+  first_token_text(node.text()).map(marker_text => {
+    ctx => {
+      parse_marker_block_if_unchanged(ctx, marker_text, is_marker, parse_block)
+    }
+  })
 }
 
 ///|
@@ -273,14 +283,8 @@ fn list_item_context_allows_reparse(
   for i = 1 {
     match ctx.peek_nth(i) {
       EOF => break true
-      Newline => break false
-      token if token_breaks_isolated_inline_block(token) => break false
-      Text(text) => {
-        if !saw_content && text_starts_with_space_or_tab(text) {
-          break false
-        }
-        saw_content = true
-      }
+      token if !token_stays_on_isolated_list_item_line(token, saw_content) =>
+        break false
       _ => saw_content = true
     }
     continue i + 1
@@ -298,21 +302,12 @@ fn parse_list_item_if_unchanged(
 }
 
 ///|
-fn first_unordered_list_marker(text : String) -> UnorderedListMarker? {
-  match first_token_text(text) {
-    Some(marker_text) => unordered_list_marker_from_text(marker_text)
-    None => None
-  }
-}
-
-///|
 fn list_item_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  match first_unordered_list_marker(node.text()) {
-    Some(marker) => Some(fn(ctx) { parse_list_item_if_unchanged(ctx, marker) })
-    None => None
-  }
+  first_unordered_list_marker(node.text()).map(marker => {
+    ctx => parse_list_item_if_unchanged(ctx, marker)
+  })
 }
 
 ///|
@@ -328,8 +323,7 @@ fn unordered_list_context_allows_reparse(
   while result && ctx.peek() != EOF {
     match ctx.peek() {
       ListMarker =>
-        if expect_marker &&
-          current_unordered_list_marker(ctx) == Some(opening_marker) {
+        if expect_marker && list_marker_matches(ctx, opening_marker) {
           expect_marker = false
           saw_marker = true
           saw_content = false
@@ -341,15 +335,9 @@ fn unordered_list_context_allows_reparse(
         expect_marker = true
         ctx.emit_current_token()
       }
-      token if expect_marker || token_breaks_isolated_inline_block(token) =>
+      token if expect_marker ||
+        !token_stays_on_isolated_list_item_line(token, saw_content) =>
         result = false
-      Text(text) =>
-        if !saw_content && text_starts_with_space_or_tab(text) {
-          result = false
-        } else {
-          saw_content = true
-          ctx.emit_current_token()
-        }
       _ => {
         saw_content = true
         ctx.emit_current_token()
@@ -375,11 +363,9 @@ fn parse_unordered_list_if_unchanged(
 fn unordered_list_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  match first_unordered_list_marker(node.text()) {
-    Some(marker) =>
-      Some(fn(ctx) { parse_unordered_list_if_unchanged(ctx, marker) })
-    None => None
-  }
+  first_unordered_list_marker(node.text()).map(marker => {
+    ctx => parse_unordered_list_if_unchanged(ctx, marker)
+  })
 }
 
 ///|

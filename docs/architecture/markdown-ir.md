@@ -327,6 +327,11 @@ Rules:
   an explicitly documented boundary-preserving strategy. If normalizing a fence
   character would make the info string or literal invalid for that fence form,
   the formatter must choose a syntax-valid character/count instead.
+- Parser and incremental fast paths must share the same semantic boundary model
+  for boundary-bearing surface metadata. Fast paths may be stricter than the
+  full parser when a local replacement window cannot prove that a container's
+  extent is unchanged; in that case they must decline reuse and let the normal
+  incremental path preserve full-parse parity.
 - Surface metadata is kept only for transform-relevant choices. Exact whitespace,
   blank-line runs, and untouched delimiter trivia remain in the source/CST and
   are recovered by slicing origins when unchanged.
