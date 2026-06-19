@@ -304,6 +304,26 @@ test "experimental MarkdownIR: marker-change boundary carries marker metadata" {
 }
 
 ///|
+test "experimental MarkdownIR: ordered list delimiter boundary carries start metadata" {
+  let source = "1. one\n2. two\n3) three\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [first, second] => {
+      inspect(first.kind_tag(), content="OrderedList")
+      inspect(second.kind_tag(), content="OrderedList")
+      inspect(
+        experimental_markdown_ir_to_mdast_json(ir).stringify(),
+        content=(
+          #|{"type":"root","children":[{"type":"list","ordered":true,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}]},{"type":"list","ordered":true,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"three"}]}]}],"start":3}]}
+        ),
+      )
+      assert_markdown_ir_block_matches_direct_parse(source)
+    }
+    _ => inspect("unexpected document children", content="two ordered lists")
+  }
+}
+
+///|
 test "experimental MarkdownIR: blank-line-separated marker change stays separate lists" {
   let source = "- one\n\n+ two\n"
   let ir = markdown_ir_from_source(source)
@@ -1680,6 +1700,32 @@ test "experimental MarkdownIR: unordered list local transform and modes are dist
               inspect(preserve != local_rewrite, content="true")
               inspect(preserve != canonical, content="true")
               inspect(local_rewrite != canonical, content="true")
+            }
+            None => inspect("missing", content="list item content origin")
+          }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    _ => inspect("unexpected child count", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: ordered list local transform preserves marker source" {
+  let source = "01. old\n02. two\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [first, _] =>
+          match first.content_origin() {
+            Some(origin) => {
+              let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=origin,
+                replacement_text="new",
+              )
+              inspect(local_rewrite, content="01. new\n02. two\n")
             }
             None => inspect("missing", content="list item content origin")
           }

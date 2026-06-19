@@ -64,6 +64,51 @@ test "parse: blank-line-separated marker change starts a new list" {
 }
 
 ///|
+test "parse: ordered list delimiter change starts a new editor-compatible list" {
+  let block = parse("1. one\n2. two\n3) three\n")
+  match block {
+    Document(
+      [
+        UnorderedList([ListItem([Text("one")]), ListItem([Text("two")])]),
+        UnorderedList([ListItem([Text("three")])]),
+      ]
+    ) => inspect(true, content="true")
+    _ => inspect(block, content="ordered delimiter boundary")
+  }
+}
+
+///|
+test "parse: non-one ordered marker does not interrupt paragraph" {
+  let block = parse("The number of windows is\n14.  The doors are 6.\n")
+  match block {
+    Document(
+      [
+        Paragraph(
+          [
+            Text("The number of windows is"),
+            Text(" "),
+            Text("14. "),
+            Text(" The doors are 6."),
+          ]
+        ),
+      ]
+    ) => inspect(true, content="true")
+    _ => inspect(block, content="single paragraph")
+  }
+}
+
+///|
+test "parse: one-start ordered marker interrupts paragraph" {
+  let block = parse("The number of windows is\n1.  The doors are 6.\n")
+  match block {
+    Document(
+      [Paragraph(_), UnorderedList([ListItem([Text(" The doors are 6.")])])]
+    ) => inspect(true, content="true")
+    _ => inspect(block, content="paragraph then ordered list")
+  }
+}
+
+///|
 test "parse: mixed document" {
   let block = parse("# Title\n\nSome text\n\n- item\n")
   match block {

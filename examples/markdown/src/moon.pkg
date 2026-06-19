@@ -4,6 +4,7 @@ import {
   "dowdiness/loom",
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
+  "moonbitlang/core/string",
 }
 
 import {

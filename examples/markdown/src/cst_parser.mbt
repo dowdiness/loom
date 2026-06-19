@@ -2,8 +2,12 @@
 /// Returns true for tokens that indicate a block boundary.
 fn is_block_boundary(token : Token) -> Bool {
   match token {
-    HeadingMarker(_) | ListMarker | CodeFenceOpen(_, _) | BlankLine | EOF =>
-      true
+    HeadingMarker(_)
+    | ListMarker
+    | OrderedListMarker(_)
+    | CodeFenceOpen(_, _)
+    | BlankLine
+    | EOF => true
     _ => false
   }
 }
@@ -28,6 +32,7 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_list(ctx)
+    OrderedListMarker(_) => parse_ordered_list(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
     BlankLine =>
       // Consume blank lines (structural separators)
@@ -54,23 +59,46 @@ fn parse_heading(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+/// Ordered lists can interrupt paragraphs only when the start number is 1.
+/// Other ordered-list-looking lines remain paragraph text after a soft break.
+fn token_breaks_paragraph_after_newline(token : Token) -> Bool {
+  match token {
+    OrderedListMarker(marker) => marker.start() == 1
+    _ => is_block_boundary(token)
+  }
+}
+
+///|
+fn parse_paragraph_continuation_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  match ctx.peek() {
+    OrderedListMarker(_) => ctx.emit_token(TextToken)
+    _ => ()
+  }
+  parse_inline_content(ctx)
+}
+
+///|
 /// Parse a paragraph: inline content possibly spanning multiple lines.
 /// Continues across Newline tokens if the next token is not a block marker.
 fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ParagraphNode, fn() {
     parse_inline_content(ctx)
-    // Multi-line paragraph: continue across newlines if next is not block boundary
+    // Multi-line paragraph: continue across newlines if the next token is not a block boundary.
     while ctx.peek() is Newline {
-      // Peek ahead: if the token after the newline is a block boundary, stop
+      // Peek ahead: if the token after the newline is a block boundary, stop.
       let next = ctx.peek_nth(1)
-      if is_block_boundary(next) || next is Newline || next is EOF {
-        // End of paragraph — consume the trailing newline
+      if token_breaks_paragraph_after_newline(next) ||
+        next is Newline ||
+        next is EOF {
+        // End of paragraph — consume the trailing newline.
         ctx.emit_token(NewlineToken)
         break
       }
-      // Continue paragraph on next line: consume newline and parse more inline
+      // Continue paragraph on next line: consume newline and parse more inline.
       ctx.emit_token(NewlineToken)
-      parse_inline_content(ctx)
+      parse_paragraph_continuation_line(ctx)
     }
   })
 }
@@ -112,6 +140,32 @@ fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
     ctx.emit_token(ListMarkerToken)
+    parse_inline_content(ctx)
+  })
+}
+
+///|
+/// Parse an ordered list: one or more ListItems using the same delimiter.
+fn parse_ordered_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  ctx.node(OrderedListNode, fn() {
+    match current_ordered_list_marker(ctx) {
+      Some(opening_marker) =>
+        while ordered_list_marker_matches(ctx, opening_marker) {
+          parse_ordered_list_item(ctx)
+          consume_ordered_list_item_separator(ctx, opening_marker)
+        }
+      None => ()
+    }
+  })
+}
+
+///|
+/// Parse a single ordered list item: OrderedListMarker followed by inline content.
+fn parse_ordered_list_item(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(ListItemNode, fn() {
+    ctx.emit_token(OrderedListMarkerToken)
     parse_inline_content(ctx)
   })
 }

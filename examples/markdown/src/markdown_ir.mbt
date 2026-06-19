@@ -42,7 +42,14 @@ priv enum MarkdownIRNode {
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
   Paragraph(Array[MarkdownIR], MarkdownIROrigin?)
   UnorderedList(Array[MarkdownIR], Bool, UnorderedListMarker?)
+  OrderedList(Array[MarkdownIR], Bool, OrderedListMarker?)
   ListItem(Array[MarkdownIR], Bool, MarkdownIROrigin?, UnorderedListMarker?)
+  OrderedListItem(
+    Array[MarkdownIR],
+    Bool,
+    MarkdownIROrigin?,
+    OrderedListMarker?
+  )
   CodeBlock(String, String, MarkdownIROrigin?)
   Text(String)
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
@@ -106,6 +113,16 @@ fn MarkdownIR::unordered_list(
 }
 
 ///|
+fn MarkdownIR::ordered_list(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  spread~ : Bool,
+  marker~ : OrderedListMarker?,
+) -> MarkdownIR {
+  { node: OrderedList(children, spread, marker), origin }
+}
+
+///|
 fn MarkdownIR::list_item(
   children : Array[MarkdownIR],
   origin : MarkdownIROrigin,
@@ -114,6 +131,17 @@ fn MarkdownIR::list_item(
   marker~ : UnorderedListMarker?,
 ) -> MarkdownIR {
   { node: ListItem(children, spread, content_origin, marker), origin }
+}
+
+///|
+fn MarkdownIR::ordered_list_item(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  spread~ : Bool,
+  content_origin : MarkdownIROrigin?,
+  marker~ : OrderedListMarker?,
+) -> MarkdownIR {
+  { node: OrderedListItem(children, spread, content_origin, marker), origin }
 }
 
 ///|
@@ -222,7 +250,9 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Heading(_, _, _) => "Heading"
     Paragraph(_, _) => "Paragraph"
     UnorderedList(_, _, _) => "UnorderedList"
+    OrderedList(_, _, _) => "OrderedList"
     ListItem(_, _, _, _) => "ListItem"
+    OrderedListItem(_, _, _, _) => "OrderedListItem"
     CodeBlock(_, _, _) => "CodeBlock"
     Text(_) => "Text"
     Bold(_, _) => "Bold"
@@ -242,7 +272,9 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | Heading(_, children, _)
     | Paragraph(children, _)
     | UnorderedList(children, _, _)
+    | OrderedList(children, _, _)
     | ListItem(children, _, _, _)
+    | OrderedListItem(children, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
     | Link(children, _, _) => children.copy()
@@ -277,6 +309,7 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     Heading(_, _, origin)
     | Paragraph(_, origin)
     | ListItem(_, _, origin, _)
+    | OrderedListItem(_, _, origin, _)
     | CodeBlock(_, _, origin)
     | Bold(_, origin)
     | Italic(_, origin)
@@ -288,7 +321,10 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
 ///|
 pub fn MarkdownIR::spread(self : MarkdownIR) -> Bool? {
   match self.node {
-    UnorderedList(_, spread, _) | ListItem(_, spread, _, _) => Some(spread)
+    UnorderedList(_, spread, _)
+    | OrderedList(_, spread, _)
+    | ListItem(_, spread, _, _)
+    | OrderedListItem(_, spread, _, _) => Some(spread)
     _ => None
   }
 }
@@ -450,6 +486,7 @@ fn lower_inline_children_skip_with_diags(
           NewlineToken => pending_newline = Some(origin_from_token(token))
           HeadingMarkerToken
           | ListMarkerToken
+          | OrderedListMarkerToken
           | BlankLineToken
           | EofToken
           | CodeFenceOpenToken
@@ -667,8 +704,11 @@ fn lower_document_child_with_diags(
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
-    HeadingNode | ParagraphNode | UnorderedListNode | CodeBlockNode =>
-      Some(recurse(child))
+    HeadingNode
+    | ParagraphNode
+    | UnorderedListNode
+    | OrderedListNode
+    | CodeBlockNode => Some(recurse(child))
     ErrorNode => {
       let origin = origin_from_node(child)
       Some(
@@ -692,6 +732,22 @@ fn list_marker_from_node(node : @seam.SyntaxNode) -> UnorderedListMarker? {
 }
 
 ///|
+fn ordered_list_marker_from_node(node : @seam.SyntaxNode) -> OrderedListMarker? {
+  match node.direct_token_of_kind(OrderedListMarkerToken.to_raw()) {
+    Some(marker) => ordered_list_marker_from_text(marker.text())
+    None => None
+  }
+}
+
+///|
+fn ordered_list_marker_from_ir(ir : MarkdownIR) -> OrderedListMarker? {
+  match ir.node {
+    OrderedListItem(_, _, _, marker) => marker
+    _ => None
+  }
+}
+
+///|
 fn list_item_paragraph_origin(
   node : @seam.SyntaxNode,
   content_origin : MarkdownIROrigin?,
@@ -701,7 +757,11 @@ fn list_item_paragraph_origin(
     None =>
       match node.direct_token_of_kind(ListMarkerToken.to_raw()) {
         Some(marker) => zero_width_origin_at(marker.end())
-        None => zero_width_origin_at(node.end())
+        None =>
+          match node.direct_token_of_kind(OrderedListMarkerToken.to_raw()) {
+            Some(marker) => zero_width_origin_at(marker.end())
+            None => zero_width_origin_at(node.end())
+          }
       }
   }
 }
@@ -828,6 +888,33 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
 }
 
 ///|
+fn lower_list_children(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> MarkdownIR,
+) -> Array[MarkdownIR] {
+  node
+  .children()
+  .iter()
+  .filter_map(child => {
+    let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+    match child_kind {
+      ListItemNode => Some(recurse(child))
+      _ => None
+    }
+  })
+  .collect()
+}
+
+///|
+fn list_spread_from_node(
+  node : @seam.SyntaxNode,
+  children : Array[MarkdownIR],
+) -> Bool {
+  node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_) ||
+  children.iter().any(child => child.spread() == Some(true))
+}
+
+///|
 /// Experimental CstFold algebra for the M1 MarkdownIR slice.
 ///
 /// Covers documents, headings, paragraphs, and text. Other Markdown constructs
@@ -879,21 +966,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       )
     }
     UnorderedListNode => {
-      let children : Array[MarkdownIR] = node
-        .children()
-        .iter()
-        .filter_map(child => {
-          let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
-            child.kind(),
-          )
-          match child_kind {
-            ListItemNode => Some(recurse(child))
-            _ => None
-          }
-        })
-        .collect()
-      let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_) ||
-        children.iter().any(child => child.spread() == Some(true))
+      let children = lower_list_children(node, recurse)
       let marker = match children {
         [first, ..] => first.list_marker()
         [] => None
@@ -901,7 +974,20 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::unordered_list(
         children,
         origin_from_node(node),
-        spread~,
+        spread=list_spread_from_node(node, children),
+        marker~,
+      )
+    }
+    OrderedListNode => {
+      let children = lower_list_children(node, recurse)
+      let marker = match children {
+        [first, ..] => ordered_list_marker_from_ir(first)
+        [] => None
+      }
+      MarkdownIR::ordered_list(
+        children,
+        origin_from_node(node),
+        spread=list_spread_from_node(node, children),
         marker~,
       )
     }
@@ -912,18 +998,27 @@ fn experimental_markdown_ir_fold_node_with_diags(
       let content_origin = span_origin_of_children(inline_children)
       let paragraph_origin = list_item_paragraph_origin(node, content_origin)
       let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_)
-      let marker = list_marker_from_node(node)
-      MarkdownIR::list_item(
-        [
-          MarkdownIR::paragraph(
-            inline_children, paragraph_origin, content_origin,
-          ),
-        ],
-        origin_from_node(node),
-        spread~,
-        content_origin,
-        marker~,
-      )
+      let children = [
+        MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
+      ]
+      match ordered_list_marker_from_node(node) {
+        Some(marker) =>
+          MarkdownIR::ordered_list_item(
+            children,
+            origin_from_node(node),
+            spread~,
+            content_origin,
+            marker=Some(marker),
+          )
+        None =>
+          MarkdownIR::list_item(
+            children,
+            origin_from_node(node),
+            spread~,
+            content_origin,
+            marker=list_marker_from_node(node),
+          )
+      }
     }
     CodeBlockNode =>
       MarkdownIR::code_block(
@@ -1028,9 +1123,9 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
       Inline::Error("expected inline MarkdownIR, got paragraph")
-    UnorderedList(_, _, _) =>
+    UnorderedList(_, _, _) | OrderedList(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got list")
-    ListItem(_, _, _, _) =>
+    ListItem(_, _, _, _) | OrderedListItem(_, _, _, _) =>
       Inline::Error("expected inline MarkdownIR, got list item")
     CodeBlock(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got code block")
@@ -1070,9 +1165,9 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Heading(depth, children, _) =>
       Block::Heading(depth, ir_children_to_inlines(children))
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
-    UnorderedList(children, _, _) =>
+    UnorderedList(children, _, _) | OrderedList(children, _, _) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
-    ListItem(children, _, _, _) =>
+    ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) =>
       Block::ListItem(list_item_flow_children_to_editor_inlines(children))
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     Text(_) => Block::Error("expected block MarkdownIR, got text")
@@ -1231,7 +1326,9 @@ fn mdast_position_origin(
     Heading(_, _, _)
     | Paragraph(_, _)
     | UnorderedList(_, _, _)
-    | ListItem(_, _, _, _) =>
+    | OrderedList(_, _, _)
+    | ListItem(_, _, _, _)
+    | OrderedListItem(_, _, _, _) =>
       origin_without_trailing_line_endings(ir.origin(), context.source)
     CodeBlock(_, _, _) =>
       code_block_mdast_position_origin(ir.origin(), context.source)
@@ -1264,6 +1361,21 @@ fn mdast_json_with_optional_spread(json : Json, spread : Bool) -> Json {
   match json {
     Object(fields) => {
       fields.set("spread", true)
+      Json::object(fields)
+    }
+    _ => json
+  }
+}
+
+///|
+fn mdast_json_with_optional_ordered_start(
+  json : Json,
+  marker : OrderedListMarker?,
+) -> Json {
+  guard marker is Some(marker) && marker.start != 1 else { return json }
+  match json {
+    Object(fields) => {
+      fields.set("start", Json::number(Double::from_int(marker.start)))
       Json::object(fields)
     }
     _ => json
@@ -1319,7 +1431,20 @@ fn markdown_ir_to_mdast_json(
         },
         spread,
       )
-    ListItem(children, spread, _, _) =>
+    OrderedList(children, spread, marker) =>
+      mdast_json_with_optional_spread(
+        mdast_json_with_optional_ordered_start(
+          {
+            "type": "list",
+            "ordered": true,
+            "children": mdast_children_json(children, context),
+          },
+          marker,
+        ),
+        spread,
+      )
+    ListItem(children, spread, _, _)
+    | OrderedListItem(children, spread, _, _) =>
       mdast_json_with_optional_spread(
         {
           "type": "listItem",
@@ -1657,7 +1782,7 @@ fn local_transform_render(
       }
       rendered + original_block_trailing_newline(source, ir.origin())
     }
-    UnorderedList(children, _, _) => {
+    UnorderedList(children, _, _) | OrderedList(children, _, _) => {
       let buf = StringBuilder::new()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
@@ -1691,6 +1816,25 @@ fn local_transform_render(
         )
       }
       unordered_list_marker_text(marker) + " " + rendered
+    }
+    OrderedListItem(children, _, content_origin, marker) => {
+      let rendered = if content_origin == Some(target_origin) {
+        replacement_text
+      } else {
+        local_transform_inline_text(
+          children, source, target_origin, replacement_text,
+        )
+      }
+      let prefix = match content_origin {
+        Some(origin) =>
+          source_slice_between(source, ir.origin().start(), origin.start())
+        None =>
+          match marker {
+            Some(marker) => marker.text() + " "
+            None => "1. "
+          }
+      }
+      prefix + rendered
     }
     CodeBlock(_info, _value, content_origin) =>
       if content_origin == Some(target_origin) {
@@ -1813,6 +1957,10 @@ fn canonical_document_format(children : Array[MarkdownIR]) -> String {
         buf.write_string(canonical_format_with_list_marker(child, marker))
         previous_list_marker = Some(marker)
       }
+      OrderedList(_, _, _) => {
+        buf.write_string(canonical_format_with_list_marker(child, Dash))
+        previous_list_marker = None
+      }
       _ => {
         buf.write_string(canonical_format_with_list_marker(child, Dash))
         previous_list_marker = None
@@ -1836,8 +1984,19 @@ fn canonical_format_with_list_marker(
       children
       .map(child => canonical_format_with_list_marker(child, list_marker))
       .join("\n")
+    OrderedList(children, _, _) =>
+      children
+      .map(child => canonical_format_with_list_marker(child, list_marker))
+      .join("\n")
     ListItem(children, _, _, _) =>
       list_marker.text() + " " + canonical_inline_text(children)
+    OrderedListItem(children, _, _, marker) => {
+      let item_marker = match marker {
+        Some(marker) => marker.text()
+        None => "1."
+      }
+      item_marker + " " + canonical_inline_text(children)
+    }
     CodeBlock(info, value, _) => code_block_markdown(info, value)
     Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"

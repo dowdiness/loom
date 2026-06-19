@@ -15,6 +15,7 @@ pub fn markdown_fold_node(
           HeadingNode
           | ParagraphNode
           | UnorderedListNode
+          | OrderedListNode
           | CodeBlockNode
           | ErrorNode => blocks.push(recurse(child))
           _ => () // skip BlankLine/Newline tokens at top level
@@ -43,7 +44,7 @@ pub fn markdown_fold_node(
       let inlines = convert_inline_children_with_newline(node, " ")
       Block::Paragraph(inlines)
     }
-    UnorderedListNode => {
+    UnorderedListNode | OrderedListNode => {
       let items : Array[Block] = []
       for child in node.children() {
         items.push(recurse(child))

@@ -101,6 +101,19 @@ pub(all) enum MarkdownLexMode {
   CodeBlock(Int)
 } derive(Eq, @debug.Debug)
 
+pub(all) enum OrderedListDelimiter {
+  Period
+  Paren
+} derive(Eq, @debug.Debug)
+
+pub struct OrderedListMarker {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn OrderedListMarker::OrderedListMarker(start~ : Int, delimiter~ : OrderedListDelimiter) -> Self
+pub fn OrderedListMarker::delimiter(Self) -> OrderedListDelimiter
+pub fn OrderedListMarker::start(Self) -> Int
+pub fn OrderedListMarker::text(Self) -> String
+
 pub(all) enum SyntaxKind {
   HeadingMarkerToken
   ListMarkerToken
@@ -119,10 +132,12 @@ pub(all) enum SyntaxKind {
   NewlineToken
   ErrorToken
   EofToken
+  OrderedListMarkerToken
   DocumentNode
   HeadingNode
   ParagraphNode
   UnorderedListNode
+  OrderedListNode
   ListItemNode
   CodeBlockNode
   BoldNode
@@ -139,6 +154,7 @@ pub impl Show for SyntaxKind
 pub(all) enum Token {
   HeadingMarker(Int)
   ListMarker
+  OrderedListMarker(OrderedListMarker)
   CodeFenceOpen(Int, String)
   CodeFenceClose
   BlankLine

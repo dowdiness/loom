@@ -2,11 +2,11 @@
 // The embedded data keeps `moon test` hermetic: no Node/npm or network access is
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline.
-// Baseline: pass=11, xfail=2, skip=1.
+// Baseline: pass=12, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (11, 2, 1)
+  (12, 2, 1)
 }
 
 ///|
@@ -74,6 +74,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "mixed-unordered-markers-start-new-list",
       source: "- foo\n- bar\n+ baz\n",
       expected_html: "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<ul>\n<li>baz</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 302,
+      section: "Lists",
+      name: "ordered-list-delimiter-change-starts-new-list",
+      source: "1. foo\n2. bar\n3) baz\n",
+      expected_html: "<ol>\n<li>foo</li>\n<li>bar</li>\n</ol>\n<ol start=\"3\">\n<li>baz</li>\n</ol>\n",
       status: CommonMarkHtmlPass,
     },
     {

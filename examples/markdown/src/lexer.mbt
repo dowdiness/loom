@@ -41,6 +41,18 @@ fn count_hashes(input : String, pos : Int) -> Int {
 }
 
 ///|
+fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
+  let digits = count_ordered_marker_digits(input, pos)
+  guard digits > 0 else { return None }
+  guard char_at(input, pos + digits + 1) == Some(' ') else { return None }
+  match char_at(input, pos + digits) {
+    Some('.') | Some(')') =>
+      ordered_list_marker_from_text(input[pos:pos + digits + 1].to_owned())
+    _ => None
+  }
+}
+
+///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
@@ -139,6 +151,20 @@ fn lex_line_start(
       // Not a list marker in LineStart; fall through to inline
       // (e.g., "**bold**" at line start — * not followed by space)
       lex_inline(input, pos)
+    [ch, ..] if is_decimal_digit(ch) =>
+      match ordered_list_marker_at(input, pos) {
+        Some(marker) => {
+          let marker_len = count_ordered_marker_digits(input, pos) + 2
+          (
+            Produced(
+              @core.TokenInfo::new(OrderedListMarker(marker), marker_len),
+              next_offset=pos + marker_len,
+            ),
+            Inline,
+          )
+        }
+        None => lex_inline(input, pos)
+      }
     ['`', ..] => {
       let n = count_backticks(input, pos)
       if n >= 3 {
