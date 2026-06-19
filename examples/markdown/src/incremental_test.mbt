@@ -189,6 +189,13 @@ test "incremental: unordered list blank separator edits match full parse" {
     @core.Edit::delete(first_item.length(), first_item.length() + "\n".length()),
     first_item + middle_item + last_item,
   )
+  let changed_marker_item = "+ two\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts mixed-marker blank separator",
+    first_item + changed_marker_item + last_item,
+    @core.Edit::insert(first_item.length(), "\n".length()),
+    first_item + "\n" + changed_marker_item + last_item,
+  )
 }
 
 ///|

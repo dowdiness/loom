@@ -76,29 +76,34 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
-/// Returns true when a run of blank lines is followed by another list item.
-fn blank_line_run_is_followed_by_list_marker(
+/// Returns true when a run of blank lines is followed by another list item with
+/// the same marker spelling as the item that came before the blank run.
+fn blank_line_run_is_followed_by_matching_list_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_text : String,
 ) -> Bool {
-  for offset = 0 {
-    match ctx.peek_nth(offset) {
-      BlankLine => continue offset + 1
-      ListMarker => break true
-      _ => break false
-    }
+  guard ctx.peek() is BlankLine else { return false }
+  let checkpoint = ctx.checkpoint()
+  while ctx.peek() is BlankLine {
+    ctx.emit_token(BlankLineToken)
   }
+  let matches = ctx.peek() is ListMarker &&
+    ctx.current_token_text().to_owned() == marker_text
+  ctx.restore(checkpoint)
+  matches
 }
 
 ///|
 /// Consume the separator after a list item, including blank-line separators
-/// that keep the following marker in the same loose list.
+/// that keep the following matching marker in the same loose list.
 fn consume_list_item_separator(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_text : String,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  if blank_line_run_is_followed_by_list_marker(ctx) {
+  if blank_line_run_is_followed_by_matching_list_marker(ctx, marker_text) {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }
@@ -110,8 +115,9 @@ fn consume_list_item_separator(
 fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(UnorderedListNode, fn() {
     while ctx.peek() is ListMarker {
+      let marker_text = ctx.current_token_text().to_owned()
       parse_list_item(ctx)
-      consume_list_item_separator(ctx)
+      consume_list_item_separator(ctx, marker_text)
     }
   })
 }
