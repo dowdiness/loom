@@ -14,33 +14,53 @@ fn html_escape_text(value : String) -> String {
 }
 
 ///|
+fn markdown_ir_nodes_to_commonmark_html(
+  children : Array[MarkdownIR],
+  parent_list_spread~ : Bool,
+) -> String {
+  children
+  .map(child => {
+    markdown_ir_to_commonmark_html_with_list_context(child, parent_list_spread)
+  })
+  .join("")
+}
+
+///|
 fn markdown_ir_children_to_commonmark_html(
   children : Array[MarkdownIR],
 ) -> String {
-  children.map(experimental_markdown_ir_to_commonmark_html).join("")
+  markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=false)
 }
 
 ///|
 fn markdown_ir_inline_children_to_commonmark_html(
   children : Array[MarkdownIR],
 ) -> String {
-  children.map(experimental_markdown_ir_to_commonmark_html).join("")
+  markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=false)
 }
 
 ///|
-fn markdown_ir_list_item_child_to_commonmark_html(child : MarkdownIR) -> String {
+fn markdown_ir_list_item_child_to_commonmark_html(
+  child : MarkdownIR,
+  render_paragraphs~ : Bool,
+) -> String {
   match child.node {
-    Paragraph(children, _) =>
+    Paragraph(children, _) if !render_paragraphs =>
       markdown_ir_inline_children_to_commonmark_html(children)
-    _ => experimental_markdown_ir_to_commonmark_html(child)
+    _ => markdown_ir_to_commonmark_html_with_list_context(child, false)
   }
 }
 
 ///|
 fn markdown_ir_list_item_children_to_commonmark_html(
   children : Array[MarkdownIR],
+  render_paragraphs~ : Bool,
 ) -> String {
-  children.map(markdown_ir_list_item_child_to_commonmark_html).join("")
+  children
+  .map(child => {
+    markdown_ir_list_item_child_to_commonmark_html(child, render_paragraphs~)
+  })
+  .join("")
 }
 
 ///|
@@ -62,13 +82,10 @@ fn markdown_ir_code_block_commonmark_html(
 }
 
 ///|
-/// Experimental CommonMark-style HTML rendering adapter for MarkdownIR.
-///
-/// This target adapter is intentionally separate from mdast export: mdast
-/// parity checks tree shape, while CommonMark HTML parity checks rendered
-/// behavior and escaping. Unsupported or recovered IR nodes render as escaped
-/// comments until later CommonMark semantics add explicit handling.
-pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
+fn markdown_ir_to_commonmark_html_with_list_context(
+  ir : MarkdownIR,
+  parent_list_spread : Bool,
+) -> String {
   match ir.node {
     Document(children) => markdown_ir_children_to_commonmark_html(children)
     Heading(depth, children, _) => {
@@ -85,12 +102,20 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
       "<p>" +
       markdown_ir_inline_children_to_commonmark_html(children) +
       "</p>\n"
-    UnorderedList(children, _) =>
-      "<ul>\n" + markdown_ir_children_to_commonmark_html(children) + "</ul>\n"
-    ListItem(children, _, _) =>
-      "<li>" +
-      markdown_ir_list_item_children_to_commonmark_html(children) +
+    UnorderedList(children, spread) =>
+      "<ul>\n" +
+      markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
+      "</ul>\n"
+    ListItem(children, spread, _) => {
+      let render_paragraphs = parent_list_spread || spread
+      let open = if render_paragraphs { "<li>\n" } else { "<li>" }
+      open +
+      markdown_ir_list_item_children_to_commonmark_html(
+        children,
+        render_paragraphs~,
+      ) +
       "</li>\n"
+    }
     CodeBlock(info, value, _) =>
       markdown_ir_code_block_commonmark_html(info, value)
     Text(value) | Raw(value, _) => html_escape_text(value)
@@ -114,4 +139,15 @@ pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
     Recovered(message, _) =>
       "<!-- recovered MarkdownIR: " + html_escape_text(message) + " -->"
   }
+}
+
+///|
+/// Experimental CommonMark-style HTML rendering adapter for MarkdownIR.
+///
+/// This target adapter is intentionally separate from mdast export: mdast
+/// parity checks tree shape, while CommonMark HTML parity checks rendered
+/// behavior and escaping. Unsupported or recovered IR nodes render as escaped
+/// comments until later CommonMark semantics add explicit handling.
+pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
+  markdown_ir_to_commonmark_html_with_list_context(ir, false)
 }

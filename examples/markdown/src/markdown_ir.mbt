@@ -874,7 +874,9 @@ fn experimental_markdown_ir_fold_node_with_diags(
           }
         })
         .collect()
-      MarkdownIR::unordered_list(children, origin_from_node(node), spread=false)
+      let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_) ||
+        children.iter().any(child => child.spread() == Some(true))
+      MarkdownIR::unordered_list(children, origin_from_node(node), spread~)
     }
     ListItemNode => {
       let inline_children = lower_inline_children_with_diags(
@@ -882,6 +884,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       )
       let content_origin = span_origin_of_children(inline_children)
       let paragraph_origin = list_item_paragraph_origin(node, content_origin)
+      let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_)
       MarkdownIR::list_item(
         [
           MarkdownIR::paragraph(
@@ -889,7 +892,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
           ),
         ],
         origin_from_node(node),
-        spread=false,
+        spread~,
         content_origin,
       )
     }

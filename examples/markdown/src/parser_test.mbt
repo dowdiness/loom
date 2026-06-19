@@ -41,6 +41,29 @@ test "parse: list" {
 }
 
 ///|
+test "parse: loose list separated by blank line" {
+  let block = parse("- one\n\n- two\n")
+  inspect(
+    block,
+    content="Document([UnorderedList([ListItem([Text(\"one\")]), ListItem([Text(\"two\")])])])",
+  )
+}
+
+///|
+test "parse: blank-line-separated marker change starts a new list" {
+  let block = parse("- one\n\n+ two\n")
+  match block {
+    Document(
+      [
+        UnorderedList([ListItem([Text("one")])]),
+        UnorderedList([ListItem([Text("two")])]),
+      ]
+    ) => inspect(true, content="true")
+    _ => inspect(block, content="two separate lists")
+  }
+}
+
+///|
 test "parse: mixed document" {
   let block = parse("# Title\n\nSome text\n\n- item\n")
   match block {

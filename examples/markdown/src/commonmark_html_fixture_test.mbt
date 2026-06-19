@@ -189,3 +189,49 @@ test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and li
     ),
   )
 }
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer uses loose list spread" {
+  let source = "- one\n\n- two\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>
+      #|<p>one</p>
+      #|</li>
+      #|<li>
+      #|<p>two</p>
+      #|</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps mixed-marker loose lists separate" {
+  let source = "- one\n\n+ two\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>one</li>
+      #|</ul>
+      #|<ul>
+      #|<li>two</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
