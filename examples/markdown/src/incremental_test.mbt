@@ -148,6 +148,22 @@ test "incremental: unordered list middle item edits use block reparse" {
 }
 
 ///|
+test "incremental: unordered list explicit marker metadata edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown loose list second marker changes to boundary",
+    "- one\n\n- two\n",
+    @core.Edit::new("- one\n\n".length(), "-".length(), "+".length()),
+    "- one\n\n+ two\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown adjacent list marker changes to continuation",
+    "- one\n+ two\n",
+    @core.Edit::new("- one\n".length(), "+".length(), "-".length()),
+    "- one\n- two\n",
+  )
+}
+
+///|
 test "incremental: unordered list marker spelling boundary edits match full parse" {
   let dash_to_star_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown unordered list changes middle marker from dash to star",

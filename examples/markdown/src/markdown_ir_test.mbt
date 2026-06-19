@@ -272,6 +272,38 @@ test "experimental MarkdownIR: loose list separator sets list spread" {
 }
 
 ///|
+test "experimental MarkdownIR: same-marker loose list carries marker metadata" {
+  let source = "- one\n\n- two\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] => {
+      debug_inspect(list.list_marker(), content="Some(Dash)")
+      match list.children() {
+        [first, second] => {
+          debug_inspect(first.list_marker(), content="Some(Dash)")
+          debug_inspect(second.list_marker(), content="Some(Dash)")
+        }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: marker-change boundary carries marker metadata" {
+  let source = "- one\n\n+ two\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [first, second] => {
+      debug_inspect(first.list_marker(), content="Some(Dash)")
+      debug_inspect(second.list_marker(), content="Some(Plus)")
+    }
+    _ => inspect("unexpected document children", content="two lists")
+  }
+}
+
+///|
 test "experimental MarkdownIR: blank-line-separated marker change stays separate lists" {
   let source = "- one\n\n+ two\n"
   let ir = markdown_ir_from_source(source)

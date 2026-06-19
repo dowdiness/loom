@@ -290,12 +290,18 @@ fn list_item_context_allows_reparse(
 ///|
 fn parse_list_item_if_unchanged(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  marker_text : String,
+  marker : UnorderedListMarker,
 ) -> Unit {
-  if ctx.peek() is ListMarker &&
-    ctx.current_token_text().to_owned() == marker_text &&
-    list_item_context_allows_reparse(ctx) {
+  if list_marker_matches(ctx, marker) && list_item_context_allows_reparse(ctx) {
     parse_list_item(ctx)
+  }
+}
+
+///|
+fn first_unordered_list_marker(text : String) -> UnorderedListMarker? {
+  match first_token_text(text) {
+    Some(marker_text) => unordered_list_marker_from_text(marker_text)
+    None => None
   }
 }
 
@@ -303,9 +309,8 @@ fn parse_list_item_if_unchanged(
 fn list_item_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  match first_token_text(node.text()) {
-    Some(marker_text) =>
-      Some(fn(ctx) { parse_list_item_if_unchanged(ctx, marker_text) })
+  match first_unordered_list_marker(node.text()) {
+    Some(marker) => Some(fn(ctx) { parse_list_item_if_unchanged(ctx, marker) })
     None => None
   }
 }
@@ -313,7 +318,7 @@ fn list_item_reparser(
 ///|
 fn unordered_list_context_allows_reparse(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker_text : String,
+  opening_marker : UnorderedListMarker,
 ) -> Bool {
   let checkpoint = ctx.checkpoint()
   let mut result = true
@@ -324,7 +329,7 @@ fn unordered_list_context_allows_reparse(
     match ctx.peek() {
       ListMarker =>
         if expect_marker &&
-          ctx.current_token_text().to_owned() == opening_marker_text {
+          current_unordered_list_marker(ctx) == Some(opening_marker) {
           expect_marker = false
           saw_marker = true
           saw_content = false
@@ -358,10 +363,10 @@ fn unordered_list_context_allows_reparse(
 ///|
 fn parse_unordered_list_if_unchanged(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker_text : String,
+  opening_marker : UnorderedListMarker,
 ) -> Unit {
-  if list_marker_matches(ctx, opening_marker_text) &&
-    unordered_list_context_allows_reparse(ctx, opening_marker_text) {
+  if list_marker_matches(ctx, opening_marker) &&
+    unordered_list_context_allows_reparse(ctx, opening_marker) {
     parse_list(ctx)
   }
 }
@@ -370,9 +375,9 @@ fn parse_unordered_list_if_unchanged(
 fn unordered_list_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  match first_token_text(node.text()) {
-    Some(marker_text) =>
-      Some(fn(ctx) { parse_unordered_list_if_unchanged(ctx, marker_text) })
+  match first_unordered_list_marker(node.text()) {
+    Some(marker) =>
+      Some(fn(ctx) { parse_unordered_list_if_unchanged(ctx, marker) })
     None => None
   }
 }

@@ -110,11 +110,11 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       "<p>" +
       markdown_ir_inline_children_to_commonmark_html(children) +
       "</p>\n"
-    UnorderedList(children, spread) =>
+    UnorderedList(children, spread, _) =>
       "<ul>\n" +
       markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +
       "</ul>\n"
-    ListItem(children, spread, _) => {
+    ListItem(children, spread, _, _) => {
       let render_paragraphs = parent_list_spread || spread
       let has_block_content = children
         .iter()
