@@ -247,6 +247,31 @@ test "experimental MarkdownIR: list items expose flow-content paragraphs" {
 }
 
 ///|
+test "experimental MarkdownIR: loose list separator sets list spread" {
+  let source = "- one\n\n- two\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [first, second] => {
+          debug_inspect(list.spread(), content="Some(true)")
+          debug_inspect(first.spread(), content="Some(false)")
+          debug_inspect(second.spread(), content="Some(false)")
+          inspect(
+            experimental_markdown_ir_to_mdast_json(ir).stringify(),
+            content=(
+              #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}],"spread":true}]}
+            ),
+          )
+          assert_markdown_ir_block_matches_direct_parse(source)
+        }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
 test "experimental MarkdownIR: Block adapter matches direct parse for fenced code blocks" {
   assert_markdown_ir_block_matches_direct_parse("```moonbit\nlet x = 1\n```\n")
   assert_markdown_ir_block_matches_direct_parse("````\n```\n````\n")

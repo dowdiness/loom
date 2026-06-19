@@ -173,6 +173,25 @@ test "incremental: unordered list marker spelling edits use block reparse" {
 }
 
 ///|
+test "incremental: unordered list blank separator edits match full parse" {
+  let first_item = "- one\n"
+  let middle_item = "- two\n"
+  let last_item = "- three\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list inserts loose-list blank separator",
+    first_item + middle_item + last_item,
+    @core.Edit::insert(first_item.length(), "\n".length()),
+    first_item + "\n" + middle_item + last_item,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list removes loose-list blank separator",
+    first_item + "\n" + middle_item + last_item,
+    @core.Edit::delete(first_item.length(), first_item.length() + "\n".length()),
+    first_item + middle_item + last_item,
+  )
+}
+
+///|
 test "incremental: unordered list boundary-breaking edits fall back" {
   let first_item = "- one\n"
   let middle_item = "- two\n"

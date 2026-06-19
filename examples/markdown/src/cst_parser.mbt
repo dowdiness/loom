@@ -76,15 +76,42 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+/// Returns true when a run of blank lines is followed by another list item.
+fn blank_line_run_is_followed_by_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  for offset = 0 {
+    match ctx.peek_nth(offset) {
+      BlankLine => continue offset + 1
+      ListMarker => break true
+      _ => break false
+    }
+  }
+}
+
+///|
+/// Consume the separator after a list item, including blank-line separators
+/// that keep the following marker in the same loose list.
+fn consume_list_item_separator(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  if ctx.peek() is Newline {
+    ctx.emit_token(NewlineToken)
+  }
+  if blank_line_run_is_followed_by_list_marker(ctx) {
+    while ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
+  }
+}
+
+///|
 /// Parse an unordered list: one or more ListItems.
 fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(UnorderedListNode, fn() {
     while ctx.peek() is ListMarker {
       parse_list_item(ctx)
-      // Consume newline after list item
-      if ctx.peek() is Newline {
-        ctx.emit_token(NewlineToken)
-      }
+      consume_list_item_separator(ctx)
     }
   })
 }
