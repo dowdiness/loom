@@ -53,6 +53,47 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 }
 
 ///|
+fn produce_token_from(
+  token : Token,
+  start : Int,
+  len : Int,
+  mode : MarkdownLexMode,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  (Produced(@core.TokenInfo::new(token, len), next_offset=start + len), mode)
+}
+
+///|
+fn lex_indented_list_marker(
+  input : String,
+  pos : Int,
+  marker_start : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let indent_len = marker_start - pos
+  match char_at(input, marker_start) {
+    Some('-') | Some('*') | Some('+') =>
+      if char_at(input, marker_start + 1) == Some(' ') {
+        produce_token_from(ListMarker, pos, indent_len + 2, Inline)
+      } else {
+        lex_inline(input, pos)
+      }
+    Some(ch) if is_decimal_digit(ch) =>
+      match ordered_list_marker_at(input, marker_start) {
+        Some(marker) => {
+          let marker_len = count_ordered_marker_digits(input, marker_start) + 2
+          produce_token_from(
+            OrderedListMarker(marker),
+            pos,
+            indent_len + marker_len,
+            Inline,
+          )
+        }
+        None => lex_inline(input, pos)
+      }
+    _ => lex_inline(input, pos)
+  }
+}
+
+///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
@@ -69,9 +110,14 @@ fn lex_line_start(
       // Check if this is a whitespace-only line (blank line with spaces/tabs)
       let mut end = pos
       let mut is_blank = false
+      let mut spaces_only = true
       while end < input.length() {
         match char_at(input, end) {
-          Some(' ') | Some('\t') => end = end + 1
+          Some(' ') => end = end + 1
+          Some('\t') => {
+            spaces_only = false
+            end = end + 1
+          }
           Some('\r') => {
             is_blank = true
             let next = @core.next_char_offset(input, end)
@@ -102,6 +148,8 @@ fn lex_line_start(
           Produced(@core.TokenInfo::new(BlankLine, end - pos), next_offset=end),
           LineStart,
         )
+      } else if spaces_only && end - pos <= 3 {
+        lex_indented_list_marker(input, pos, end)
       } else {
         // Leading whitespace followed by content — treat as paragraph
         lex_inline(input, pos)

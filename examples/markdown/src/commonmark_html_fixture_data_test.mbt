@@ -2,11 +2,11 @@
 // The embedded data keeps `moon test` hermetic: no Node/npm or network access is
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline.
-// Baseline: pass=12, xfail=2, skip=1.
+// Baseline: pass=14, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (12, 2, 1)
+  (14, 2, 1)
 }
 
 ///|
@@ -90,6 +90,22 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "loose-unordered-list-multiple-blank-lines",
       source: "- foo\n\n- bar\n\n\n- baz\n",
       expected_html: "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 310,
+      section: "Lists",
+      name: "indented-unordered-markers-stay-same-list",
+      source: "- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n",
+      expected_html: "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n<li>e</li>\n<li>f</li>\n<li>g</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 311,
+      section: "Lists",
+      name: "indented-ordered-markers-loose-list",
+      source: "1. a\n\n  2. b\n\n   3. c\n",
+      expected_html: "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ol>\n",
       status: CommonMarkHtmlPass,
     },
     {
