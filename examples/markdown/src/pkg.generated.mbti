@@ -84,6 +84,7 @@ pub fn MarkdownIR::heading_depth(Self) -> Int?
 pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool
 pub fn MarkdownIR::kind_tag(Self) -> String
+pub fn MarkdownIR::list_marker(Self) -> UnorderedListMarker?
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::spread(Self) -> Bool?
 pub fn MarkdownIR::text_value(Self) -> String?
@@ -158,6 +159,12 @@ pub impl @seam.IsEof for Token
 pub impl @seam.IsTrivia for Token
 pub impl @seam.ToRawKind for Token
 pub impl Show for Token
+
+pub(all) enum UnorderedListMarker {
+  Dash
+  Star
+  Plus
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

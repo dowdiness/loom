@@ -76,29 +76,39 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
-/// Returns true when the current token is a list marker with the given opening
-/// marker spelling.
+fn current_unordered_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> UnorderedListMarker? {
+  match ctx.peek() {
+    ListMarker =>
+      unordered_list_marker_from_text(ctx.current_token_text().to_owned())
+    _ => None
+  }
+}
+
+///|
+/// Returns true when the current token is a list marker with the same explicit
+/// marker metadata as the list's opening marker.
 fn list_marker_matches(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker_text : String,
+  opening_marker : UnorderedListMarker,
 ) -> Bool {
-  ctx.peek() is ListMarker &&
-  ctx.current_token_text().to_owned() == opening_marker_text
+  current_unordered_list_marker(ctx) == Some(opening_marker)
 }
 
 ///|
 /// Returns true when a run of blank lines is followed by another list item with
-/// the same marker spelling as the list's opening marker.
+/// the same marker metadata as the list's opening marker.
 fn blank_line_run_is_followed_by_matching_list_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker_text : String,
+  opening_marker : UnorderedListMarker,
 ) -> Bool {
   guard ctx.peek() is BlankLine else { return false }
   let checkpoint = ctx.checkpoint()
   while ctx.peek() is BlankLine {
     ctx.emit_token(BlankLineToken)
   }
-  let matches = list_marker_matches(ctx, opening_marker_text)
+  let matches = list_marker_matches(ctx, opening_marker)
   ctx.restore(checkpoint)
   matches
 }
@@ -108,14 +118,12 @@ fn blank_line_run_is_followed_by_matching_list_marker(
 /// that keep the following matching marker in the same loose list.
 fn consume_list_item_separator(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  opening_marker_text : String,
+  opening_marker : UnorderedListMarker,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  if blank_line_run_is_followed_by_matching_list_marker(
-      ctx, opening_marker_text,
-    ) {
+  if blank_line_run_is_followed_by_matching_list_marker(ctx, opening_marker) {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }
@@ -123,13 +131,16 @@ fn consume_list_item_separator(
 }
 
 ///|
-/// Parse an unordered list: one or more ListItems using the same marker spelling.
+/// Parse an unordered list: one or more ListItems using the same marker metadata.
 fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(UnorderedListNode, fn() {
-    let opening_marker_text = ctx.current_token_text().to_owned()
-    while list_marker_matches(ctx, opening_marker_text) {
-      parse_list_item(ctx)
-      consume_list_item_separator(ctx, opening_marker_text)
+    match current_unordered_list_marker(ctx) {
+      Some(opening_marker) =>
+        while list_marker_matches(ctx, opening_marker) {
+          parse_list_item(ctx)
+          consume_list_item_separator(ctx, opening_marker)
+        }
+      None => ()
     }
   })
 }

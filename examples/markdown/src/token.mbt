@@ -1,4 +1,30 @@
 ///|
+pub(all) enum UnorderedListMarker {
+  Dash
+  Star
+  Plus
+} derive(Eq, Debug)
+
+///|
+fn UnorderedListMarker::text(self : UnorderedListMarker) -> String {
+  match self {
+    Dash => "-"
+    Star => "*"
+    Plus => "+"
+  }
+}
+
+///|
+fn unordered_list_marker_from_text(text : String) -> UnorderedListMarker? {
+  match text {
+    ['-', ..] => Some(Dash)
+    ['*', ..] => Some(Star)
+    ['+', ..] => Some(Plus)
+    _ => None
+  }
+}
+
+///|
 pub(all) enum Token {
   HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
   ListMarker // "- " or "* " or "+ " (includes trailing space)
