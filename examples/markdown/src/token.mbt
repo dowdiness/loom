@@ -15,8 +15,30 @@ fn UnorderedListMarker::text(self : UnorderedListMarker) -> String {
 }
 
 ///|
+fn skip_leading_spaces(text : String, pos : Int) -> Int {
+  let mut i = pos
+  while i < text.length() {
+    match char_at(text, i) {
+      Some(' ') => i = i + 1
+      _ => break
+    }
+  }
+  i
+}
+
+///|
+fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
+  let marker_start = skip_leading_spaces(text, pos)
+  guard marker_start - pos <= 3 else { return None }
+  Some(marker_start)
+}
+
+///|
 fn unordered_list_marker_from_text(text : String) -> UnorderedListMarker? {
-  match text {
+  guard marker_start_after_optional_indent(text, 0) is Some(marker_start) else {
+    return None
+  }
+  match text.view(start_offset=marker_start) {
     ['-', ..] => Some(Dash)
     ['*', ..] => Some(Star)
     ['+', ..] => Some(Plus)
@@ -94,14 +116,18 @@ fn count_ordered_marker_digits(text : String, pos : Int) -> Int {
 
 ///|
 fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
-  let digits = count_ordered_marker_digits(text, 0)
+  guard marker_start_after_optional_indent(text, 0) is Some(marker_start) else {
+    return None
+  }
+  let digits = count_ordered_marker_digits(text, marker_start)
   guard digits > 0 else { return None }
-  let delimiter = match char_at(text, digits) {
+  let delimiter_offset = marker_start + digits
+  let delimiter = match char_at(text, delimiter_offset) {
     Some('.') => Period
     Some(')') => Paren
     _ => return None
   }
-  let start = @string.parse_int(text[:digits].to_owned()) catch {
+  let start = @string.parse_int(text[marker_start:delimiter_offset].to_owned()) catch {
     _ => return None
   }
   Some(OrderedListMarker(start~, delimiter~))

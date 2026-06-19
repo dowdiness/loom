@@ -2,11 +2,11 @@
 // Do not edit expected JSON by hand; edit fixture metadata in the generator,
 // then regenerate. The embedded data keeps `moon test` hermetic: no Node/npm or
 // network access is needed during normal MoonBit CI.
-// Baseline: pass=8, xfail=0, skip=0.
+// Baseline: pass=10, xfail=0, skip=0.
 
 ///|
 fn mdast_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (8, 0, 0)
+  (10, 0, 0)
 }
 
 ///|
@@ -28,6 +28,18 @@ fn mdast_fixture_cases() -> Array[MdastFixture] {
       name: "unordered-list",
       source: "- one\n- two\n",
       expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"one\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"two\"}]}]}]}]}",
+      status: Pass,
+    },
+    {
+      name: "indented-unordered-list-markers",
+      source: "- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"c\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"d\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"e\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"f\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"g\"}]}]}]}]}",
+      status: Pass,
+    },
+    {
+      name: "indented-ordered-list-markers-loose",
+      source: "1. a\n\n  2. b\n\n   3. c\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":true,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"c\"}]}]}],\"spread\":true}]}",
       status: Pass,
     },
     {

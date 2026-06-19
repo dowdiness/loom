@@ -221,6 +221,28 @@ test "incremental: ordered list marker boundary edits match full parse" {
 }
 
 ///|
+test "incremental: list marker indentation edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list marker gains allowed indentation",
+    "- a\n- b\n",
+    @core.Edit::insert("- a\n".length(), " ".length()),
+    "- a\n - b\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered list marker becomes indented paragraph",
+    "- a\n   - b\n",
+    @core.Edit::insert("- a\n".length(), " ".length()),
+    "- a\n    - b\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ordered list marker gains allowed indentation",
+    "1. a\n\n2. b\n",
+    @core.Edit::insert("1. a\n\n".length(), "  ".length()),
+    "1. a\n\n  2. b\n",
+  )
+}
+
+///|
 test "incremental: unordered list blank separator edits match full parse" {
   let first_item = "- one\n"
   let middle_item = "- two\n"

@@ -14,6 +14,16 @@ const fixtures = [
   { name: 'heading', source: '# Title\n', status: 'pass' },
   { name: 'paragraph-plain-text', source: 'Hello world\n', status: 'pass' },
   { name: 'unordered-list', source: '- one\n- two\n', status: 'pass' },
+  {
+    name: 'indented-unordered-list-markers',
+    source: '- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n',
+    status: 'pass',
+  },
+  {
+    name: 'indented-ordered-list-markers-loose',
+    source: '1. a\n\n  2. b\n\n   3. c\n',
+    status: 'pass',
+  },
   { name: 'fenced-code', source: '```moonbit\nlet x = 1\n```\n', status: 'pass' },
   { name: 'strong', source: '**world**\n', status: 'pass' },
   { name: 'emphasis', source: '*moon*\n', status: 'pass' },
@@ -55,6 +65,7 @@ function canonicalizeMdast(value) {
     if (key === 'position') continue
     if (child === null) continue
     if (key === 'spread' && child === false) continue
+    if (key === 'start' && child === 1) continue
     source[key] = canonicalizeMdast(child)
   }
 
