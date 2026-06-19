@@ -235,3 +235,52 @@ test "experimental MarkdownIR: CommonMark HTML renderer keeps mixed-marker loose
     ),
   )
 }
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer preserves marker-change boundary before loose separator" {
+  let source = "- one\n+ two\n\n+ three\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>one</li>
+      #|</ul>
+      #|<ul>
+      #|<li>
+      #|<p>two</p>
+      #|</li>
+      #|<li>
+      #|<p>three</p>
+      #|</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer leaves empty loose list items paragraphless" {
+  let source = "- \n\n- two\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li></li>
+      #|<li>
+      #|<p>two</p>
+      #|</li>
+      #|</ul>
+      #|
+    ),
+  )
+}

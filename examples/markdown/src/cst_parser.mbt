@@ -76,19 +76,29 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+/// Returns true when the current token is a list marker with the given opening
+/// marker spelling.
+fn list_marker_matches(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker_text : String,
+) -> Bool {
+  ctx.peek() is ListMarker &&
+  ctx.current_token_text().to_owned() == opening_marker_text
+}
+
+///|
 /// Returns true when a run of blank lines is followed by another list item with
-/// the same marker spelling as the item that came before the blank run.
+/// the same marker spelling as the list's opening marker.
 fn blank_line_run_is_followed_by_matching_list_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  marker_text : String,
+  opening_marker_text : String,
 ) -> Bool {
   guard ctx.peek() is BlankLine else { return false }
   let checkpoint = ctx.checkpoint()
   while ctx.peek() is BlankLine {
     ctx.emit_token(BlankLineToken)
   }
-  let matches = ctx.peek() is ListMarker &&
-    ctx.current_token_text().to_owned() == marker_text
+  let matches = list_marker_matches(ctx, opening_marker_text)
   ctx.restore(checkpoint)
   matches
 }
@@ -98,12 +108,14 @@ fn blank_line_run_is_followed_by_matching_list_marker(
 /// that keep the following matching marker in the same loose list.
 fn consume_list_item_separator(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  marker_text : String,
+  opening_marker_text : String,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  if blank_line_run_is_followed_by_matching_list_marker(ctx, marker_text) {
+  if blank_line_run_is_followed_by_matching_list_marker(
+      ctx, opening_marker_text,
+    ) {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }
@@ -111,13 +123,13 @@ fn consume_list_item_separator(
 }
 
 ///|
-/// Parse an unordered list: one or more ListItems.
+/// Parse an unordered list: one or more ListItems using the same marker spelling.
 fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(UnorderedListNode, fn() {
-    while ctx.peek() is ListMarker {
-      let marker_text = ctx.current_token_text().to_owned()
+    let opening_marker_text = ctx.current_token_text().to_owned()
+    while list_marker_matches(ctx, opening_marker_text) {
       parse_list_item(ctx)
-      consume_list_item_separator(ctx, marker_text)
+      consume_list_item_separator(ctx, opening_marker_text)
     }
   })
 }

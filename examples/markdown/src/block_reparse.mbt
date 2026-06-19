@@ -311,6 +311,73 @@ fn list_item_reparser(
 }
 
 ///|
+fn unordered_list_context_allows_reparse(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker_text : String,
+) -> Bool {
+  let checkpoint = ctx.checkpoint()
+  let mut result = true
+  let mut expect_marker = true
+  let mut saw_marker = false
+  let mut saw_content = false
+  while result && ctx.peek() != EOF {
+    match ctx.peek() {
+      ListMarker =>
+        if expect_marker &&
+          ctx.current_token_text().to_owned() == opening_marker_text {
+          expect_marker = false
+          saw_marker = true
+          saw_content = false
+          ctx.emit_current_token()
+        } else {
+          result = false
+        }
+      Newline => {
+        expect_marker = true
+        ctx.emit_current_token()
+      }
+      token if expect_marker || token_breaks_isolated_inline_block(token) =>
+        result = false
+      Text(text) =>
+        if !saw_content && text_starts_with_space_or_tab(text) {
+          result = false
+        } else {
+          saw_content = true
+          ctx.emit_current_token()
+        }
+      _ => {
+        saw_content = true
+        ctx.emit_current_token()
+      }
+    }
+  }
+  ctx.restore(checkpoint)
+  result && saw_marker
+}
+
+///|
+fn parse_unordered_list_if_unchanged(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker_text : String,
+) -> Unit {
+  if list_marker_matches(ctx, opening_marker_text) &&
+    unordered_list_context_allows_reparse(ctx, opening_marker_text) {
+    parse_list(ctx)
+  }
+}
+
+///|
+fn unordered_list_reparser(
+  node : @seam.SyntaxNode,
+) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
+  match first_token_text(node.text()) {
+    Some(marker_text) =>
+      Some(fn(ctx) { parse_unordered_list_if_unchanged(ctx, marker_text) })
+    None => None
+  }
+}
+
+///|
 let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
   is_reparseable: is_markdown_reparseable_block,
   get_reparser: fn(node) {
@@ -327,7 +394,7 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
         parse_heading,
       )
     } else if kind == UnorderedListNode.to_raw() {
-      marker_block_reparser(node, token => token is ListMarker, parse_list)
+      unordered_list_reparser(node)
     } else if kind == ListItemNode.to_raw() {
       list_item_reparser(node)
     } else {
