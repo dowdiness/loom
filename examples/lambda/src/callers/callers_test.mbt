@@ -91,10 +91,7 @@ test "build_callers_index: groups calls by callee" {
 
 ///|
 test "pipeline: initial query returns correct callers" {
-  let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\nlet h = f x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet g = f x\nlet h = f x\n")
   inspect(pipe.callers_of("f").length(), content="2")
   inspect(pipe.callers_of("g").length(), content="0")
   inspect(pipe.callers_of("nobody").length(), content="0")
@@ -153,10 +150,7 @@ test "pipeline: set_source forces full reparse" {
 test "pipeline: lambda body call site counted" {
   // `(x) => f x` — body is an AppExpr whose function position holds `f`,
   // which resolves to top-level (`x` is the lambda param, not `f`).
-  let parser = @loom.new_parser(
-    "let f = 1\nlet apply = (x) => f x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet apply = (x) => f x\n")
   inspect(pipe.callers_of("f").length(), content="1")
   inspect(pipe.callers_of("x").length(), content="0")
 }
@@ -184,10 +178,7 @@ test "pipeline: malformed LetDef without IdentToken emits no ghost def" {
   // Regression test for the missing direct IdentToken guard. Source with an
   // incomplete `let = 1` (no identifier) used to emit Def { name: "" }
   // because token_text() returns "" on a missing token.
-  let parser = @loom.new_parser(
-    "let = 1\nlet g = f x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let = 1\nlet g = f x\n")
   inspect(pipe.defs_of("").length(), content="0")
   inspect(pipe.defs_of("g").length(), content="1")
   pipe.dispose()
@@ -197,10 +188,7 @@ test "pipeline: malformed LetDef without IdentToken emits no ghost def" {
 test "pipeline: callers_of result is defensively copied" {
   // Regression test for the defensive copy. Mutating the returned array
   // must not affect subsequent reads of the cached index.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\nlet h = f x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet g = f x\nlet h = f x\n")
   let first = pipe.callers_of("f")
   inspect(first.length(), content="2")
   first.clear()
@@ -217,10 +205,7 @@ test "pipeline: lambda parameter shadows top-level def" {
   // body is `f x`. The inner `f` resolves to the lambda param, not to
   // the top-level. Tier 0 reported this as a caller of the top-level
   // `f`; scope structure excludes it.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet shadow = (f) => f x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet shadow = (f) => f x\n")
   // Pain-point #2 assertion: the inner `f` is the lambda's own param,
   // not a call to the top-level `f`.
   inspect(pipe.callers_of("f").length(), content="0")
@@ -236,8 +221,7 @@ test "pipeline: recursive lambda call resolves to top-level" {
   // lambda's only binding is `x`. So inner `f` resolves to the top-level
   // LetDef and IS counted as a caller. (This is the recursion case
   // Codex flagged as a check.)
-  let parser = @loom.new_parser("let f = (x) => f x\n", @lambda.lambda_grammar)
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = (x) => f x\n")
   inspect(pipe.callers_of("f").length(), content="1")
   inspect(pipe.callers_of("x").length(), content="0")
   pipe.dispose()
@@ -248,10 +232,7 @@ test "pipeline: nested lambdas — innermost shadow wins" {
   // `(x) => (x) => x x` — outer `x` is shadowed by inner `x`. The two `x`s in
   // the body resolve to the INNER lambda's param. Neither is a
   // top-level caller.
-  let parser = @loom.new_parser(
-    "let x = 1\nlet f = (x, x) => x x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let x = 1\nlet f = (x, x) => x x\n")
   inspect(pipe.callers_of("x").length(), content="0")
   // defs_of returns the top-level x + both lambda-param xs (= 3).
   inspect(pipe.defs_of("x").length(), content="3")
@@ -265,10 +246,7 @@ test "pipeline: strict call filter excludes data-position references" {
   // `let h = g f` — `g` is in AppExpr function position (a real call);
   // `f` is in argument position (passed as data). Tier 0 counted both
   // as callers; the strict filter excludes `f`.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet g = 2\nlet h = g f\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet g = 2\nlet h = g f\n")
   inspect(pipe.callers_of("g").length(), content="1")
   inspect(pipe.callers_of("f").length(), content="0")
   pipe.dispose()
@@ -279,10 +257,7 @@ test "pipeline: parenthesized callee still counts" {
   // `let h = (f) x` — `f` is wrapped in ParenExpr, which is the function
   // position of an AppExpr. ParenExpr is transparent for call-position
   // detection: `f` should still be recorded as a caller.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet h = (f) x\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet h = (f) x\n")
   inspect(pipe.callers_of("f").length(), content="1")
   pipe.dispose()
 }
@@ -291,10 +266,7 @@ test "pipeline: parenthesized callee still counts" {
 test "pipeline: VarRef as bare body — not a call" {
   // `let g = f` (bare value, no application) — `f` is referenced as
   // data, not called. The strict filter excludes it.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet g = f\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let f = 1\nlet g = f\n")
   inspect(pipe.callers_of("f").length(), content="0")
   pipe.dispose()
 }
@@ -306,10 +278,7 @@ test "pipeline: fn param shadows top-level def" {
   // `fn id(x) { x y` — the let-param `x` binds `x` in the body. }
   // The body's `x` resolves to the let-param (LambdaScope keyed by the
   // LetDef's range), NOT to the top-level `let x = ...`.
-  let parser = @loom.new_parser(
-    "let x = 1\nfn id(x) { x y }\n", @lambda.lambda_grammar,
-  )
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("let x = 1\nfn id(x) { x y }\n")
   inspect(pipe.callers_of("x").length(), content="0")
   // defs_of returns top-level + let-param.
   inspect(pipe.defs_of("x").length(), content="2")
@@ -324,10 +293,9 @@ test "pipeline: typed lambda param still shadows top-level def" {
   // body. The param `x` must still bind the body's `x` (resolved_scope =
   // LambdaScope, excluded from callers_of("x")), and the body's `f x`
   // must still record `f` as a call.
-  let parser = @loom.new_parser(
-    "let f = 1\nlet x = 2\nlet apply = (x: Int) => f x\n", @lambda.lambda_grammar,
+  let pipe = build_test_pipeline(
+    "let f = 1\nlet x = 2\nlet apply = (x: Int) => f x\n",
   )
-  let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="1")
   inspect(pipe.callers_of("x").length(), content="0")
   pipe.dispose()
@@ -337,8 +305,7 @@ test "pipeline: typed lambda param still shadows top-level def" {
 test "pipeline: empty source returns no defs or callers" {
   // Empty source — extraction returns ([], []) and queries return empty
   // arrays without aborting.
-  let parser = @loom.new_parser("", @lambda.lambda_grammar)
-  let pipe = CallersPipeline::from_parser(parser)
+  let pipe = build_test_pipeline("")
   inspect(pipe.callers_of("f").length(), content="0")
   inspect(pipe.defs_of("f").length(), content="0")
   pipe.dispose()
@@ -418,8 +385,10 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
 }
 
 ///|
-/// Helper: build a one-shot CallersPipeline for snapshot tests of the new
-/// public API. Modeled on the existing pipeline-construction helpers.
+/// Build a one-shot CallersPipeline from source. Use for tests that only
+/// query the pipeline (callers_of, defs_of, facts, visible_from, dispose);
+/// for tests that need to mutate via parser (apply_edit, set_source, gc),
+/// construct parser and pipeline separately.
 fn build_test_pipeline(source : String) -> CallersPipeline {
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
   CallersPipeline::from_parser(parser)
@@ -517,8 +486,7 @@ test "visible_from: fn params visible in their body's scope" {
 ///|
 test "pipeline: facts() returns defensive copies" {
   let src = "let f = (x) => x\nlet g = f y\n"
-  let parser = @loom.new_parser(src, @lambda.lambda_grammar)
-  let pipeline = CallersPipeline::from_parser(parser)
+  let pipeline = build_test_pipeline(src)
   let (defs, calls, enclosing) = pipeline.facts()
   // Returned arrays should contain the extracted facts.
   inspect(defs.length() >= 2, content="true")
