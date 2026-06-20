@@ -50,32 +50,24 @@ fn test_item_with_id(
 
 ///|
 fn test_item_ids(items : Array[TestStableProjectionItem]) -> Array[String] {
-  let ids : Array[String] = []
-  for item in items {
-    ids.push(item.id)
-  }
-  ids
+  items.map(fn(item) { item.id })
 }
 
 ///|
 fn test_item_summaries(
   items : Array[TestStableProjectionItem],
 ) -> Array[String] {
-  let summaries : Array[String] = []
-  for item in items {
-    summaries.push(
-      item.family +
-      ":" +
-      item.text +
-      "@" +
-      item.start.to_string() +
-      "-" +
-      item.end.to_string() +
-      "#" +
-      item.id,
-    )
-  }
-  summaries
+  items.map(fn(item) {
+    item.family +
+    ":" +
+    item.text +
+    "@" +
+    item.start.to_string() +
+    "-" +
+    item.end.to_string() +
+    "#" +
+    item.id
+  })
 }
 
 ///|

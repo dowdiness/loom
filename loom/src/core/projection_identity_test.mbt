@@ -15,11 +15,7 @@ fn test_stable(
 
 ///|
 fn test_ids(leaves : Array[StableProjectionLeaf[String]]) -> Array[String] {
-  let ids : Array[String] = []
-  for leaf in leaves {
-    ids.push(leaf.id)
-  }
-  ids
+  leaves.map(fn(leaf) { leaf.id })
 }
 
 ///|
