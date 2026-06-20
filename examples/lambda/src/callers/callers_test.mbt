@@ -30,8 +30,8 @@ test "extract_facts: defs and calls from three-deep call chain" {
   // f calls nothing; g calls f; h calls f. (Calls are AppExpr.func position.)
   let src = "let f = 1\nlet g = f x\nlet h = f x\n"
   let (defs, calls) = extract_facts(parse_to_syntax(src))
-  let def_names = defs.map(fn(d) { d.name })
-  let call_names = calls.map(fn(c) { c.callee })
+  let def_names = defs.map(d => d.name)
+  let call_names = calls.map(c => c.callee)
   debug_inspect(def_names, content="[\"f\", \"g\", \"h\"]")
   // Calls include every VarRef (both function- and arg-position); the
   // is_call_position flag is what `callers_of` uses to filter.
@@ -83,9 +83,9 @@ test "build_callers_index: groups calls by callee" {
   let idx = build_callers_index(calls)
   // f appears twice (in g, in h); g once (in i); each call body also has
   // an `x` VarRef in arg position.
-  debug_inspect(idx.get("f").map(fn(arr) { arr.length() }), content="Some(2)")
-  debug_inspect(idx.get("g").map(fn(arr) { arr.length() }), content="Some(1)")
-  debug_inspect(idx.get("x").map(fn(arr) { arr.length() }), content="Some(3)")
+  debug_inspect(idx.get("f").map(arr => arr.length()), content="Some(2)")
+  debug_inspect(idx.get("g").map(arr => arr.length()), content="Some(1)")
+  debug_inspect(idx.get("x").map(arr => arr.length()), content="Some(3)")
   debug_inspect(idx.get("undefined"), content="None")
 }
 
@@ -438,7 +438,7 @@ test "visible_from: shadowing not modeled — same name visible at both scopes" 
   // 2 defs: top-level f and lambda-param f.
   inspect(fdefs.length(), content="2")
   // Find the lambda-param def by scope kind.
-  guard fdefs.iter().filter(fn(d) { d.scope is LambdaScope(_, _) }).head()
+  guard fdefs.iter().filter(d => d.scope is LambdaScope(_, _)).head()
     is Some(d) else {
     abort("test setup: expected one LambdaScope def of f")
   }
