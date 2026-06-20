@@ -41,6 +41,50 @@ test "parse: list" {
 }
 
 ///|
+test "parse: nested list stays editor-compatible" {
+  let block = parse("- parent\n  - child\n")
+  inspect(
+    block,
+    content="Document([UnorderedList([ListItem([Text(\"parent\")])])])",
+  )
+}
+
+///|
+fn assert_nested_list_cst_shape(source : String) -> Unit raise {
+  let (cst, _) = try! parse_cst(source)
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] => {
+      let list_kind : SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
+      inspect(list_kind, content="UnorderedListNode")
+      match list.children() {
+        [item] => {
+          let item_kind : SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
+          inspect(item_kind, content="ListItemNode")
+          match item.children() {
+            [nested] => {
+              let nested_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                nested.kind(),
+              )
+              inspect(nested_kind, content="UnorderedListNode")
+              inspect(nested.children().length(), content="1")
+            }
+            _ => inspect(item.children().length(), content="one nested list")
+          }
+        }
+        _ => inspect(list.children().length(), content="one nested item")
+      }
+    }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
+test "parse: nested list has nested CST container" {
+  try! assert_nested_list_cst_shape("- parent\n  - child\n")
+}
+
+///|
 test "parse: loose list separated by blank line" {
   let block = parse("- one\n\n- two\n")
   inspect(

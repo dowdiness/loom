@@ -243,6 +243,22 @@ test "incremental: list marker indentation edits match full parse" {
 }
 
 ///|
+test "incremental: nested list indentation edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered child marker indents into nested list",
+    "- parent\n- child\n",
+    @core.Edit::insert("- parent\n".length(), "  ".length()),
+    "- parent\n  - child\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered nested child outdents to sibling",
+    "- parent\n  - child\n",
+    @core.Edit::delete("- parent\n".length(), "- parent\n  ".length()),
+    "- parent\n- child\n",
+  )
+}
+
+///|
 test "incremental: unordered list blank separator edits match full parse" {
   let first_item = "- one\n"
   let middle_item = "- two\n"

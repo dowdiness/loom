@@ -2,11 +2,11 @@
 // Do not edit expected JSON by hand; edit fixture metadata in the generator,
 // then regenerate. The embedded data keeps `moon test` hermetic: no Node/npm or
 // network access is needed during normal MoonBit CI.
-// Baseline: pass=10, xfail=0, skip=0.
+// Baseline: pass=11, xfail=0, skip=0.
 
 ///|
 fn mdast_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (10, 0, 0)
+  (11, 0, 0)
 }
 
 ///|
@@ -28,6 +28,12 @@ fn mdast_fixture_cases() -> Array[MdastFixture] {
       name: "unordered-list",
       source: "- one\n- two\n",
       expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"one\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"two\"}]}]}]}]}",
+      status: Pass,
+    },
+    {
+      name: "nested-unordered-list",
+      source: "- a\n  - b\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]},{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]}]}]}]}]}",
       status: Pass,
     },
     {
