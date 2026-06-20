@@ -52,16 +52,19 @@ every named rule is a frame and therefore a reuse window.
 
 ## 3. Verified findings (loom, live-checked 2026-06-20)
 
-1. **`ParserContext` is a rich execution layer** — ~45 public primitives
-   including per-node reuse (`try_reuse_repeat_group`, `set_reuse_cursor`,
+1. **`ParserContext` is a rich execution layer** — ≈43 public methods (`.mbti`
+   count) including per-node reuse (`try_reuse_repeat_group`, `set_reuse_cursor`,
    `checkpoint`/`mark`/`restore`), node-building (`node`, `wrap_at`,
    `node_with_recovery`, `emit_token`), cursor (`at`, `at_adjacent`, `peek*`),
    and recovery (`skip_until_balanced`, `emit_error_placeholder`,
    `report_expected`). Combinators live in `loom/src/core/parser_combinators.mbt`
    (`separated_list`, …). **Reuse is already per-node.**
-2. **lambda's actual parser is `examples/lambda/src/cst_parser.mbt` = 814 lines**
-   of hand-written recursive descent; its `grammar.mbt` is 31 lines. This 814-line
-   artifact is what a grammar-as-data interpreter would replace.
+2. **The bulk of lambda's hand-written recursive descent is
+   `examples/lambda/src/cst_parser.mbt` = 814 lines** (with smaller parser-related
+   siblings: `parser.mbt` 32, `typed_parser.mbt` 74); its `grammar.mbt` is 31
+   lines. `cst_parser.mbt` is the CST-producing RD artifact a grammar-as-data
+   interpreter would replace — "*the* parser" is shorthand for this bulk, not a
+   claim that it is the only parser file.
 3. **Plumbing is ~1,200 lines per language today** (`views.mbt` 644 +
    `syntax_kind.mbt` 195 + `proj_traits*` ~200 + `dot_node.mbt` 123 + parts of
    `term_convert`/`cst_convert`). The loomgen estimate still holds, arguably grew.
@@ -109,6 +112,16 @@ no current capability is *blocked* by hand-written RD the way plumbing is blocke
 by boilerplate. That thinner, less-certain payoff is precisely why B is
 spike-gated while loomgen is committed: you de-risk a direction before investing
 when its motive is feasibility-plus-elegance rather than acute pain.
+
+Unpacking B's motive into its three legs — **robust**, **easier to author**,
+**reusable across languages** — they have *different* evidential status. *Robust*
+is already backed: the recovery machinery (`node_with_recovery`,
+`skip_until_balanced`, `emit_error_placeholder`, diagnostics, per-node reuse)
+lives on `ParserContext`, and the §4.4-step-4 facade inherits it wholesale — "a
+robust parser for free" rests on verified API surface. *Easier-to-author* and
+*reusable* are **not** backed by anything yet; they are the legs the spike's
+ergonomics gate (§5.6) must measure, because they — not safety — are the actual
+reason to want B.
 
 ### 4.2 The first-principles ideal
 
@@ -168,6 +181,12 @@ languages, not in lambda. The premise that lambda's projectional behaviour
 predicts theirs is *asserted, not proven*; a second, more projectional language
 is a required follow-up gate before B graduates from hypothesis to target.
 
+**Two distinct jobs — do not conflate them.** D1/D2 (§5.2) prove **safety** (B is
+a drop-in for A with no downstream churn). But B's *motivation* is **ergonomics**
+(§4.1: easier authoring + reuse), an orthogonal axis safety does not touch. The
+spike must therefore *also* measure ergonomics (§5.6); a spike that proves only
+safety leaves the actual reason-to-want-B unvalidated.
+
 ### 5.2 The oracle
 
 Codex flagged the load-bearing risk as: a grammar IR can pass parser parity yet
@@ -209,12 +228,18 @@ preconditions. Three checks, all running the same edit sequence through A and B:
   the `AcceptedDerived` migration (§5.4).
 
 **The precise invariant (do not weaken it).** Stable IDs and last-good are pure
-functions of the *(CST sequence, edit sequence)* — not of any single CST. D2's
-step-by-step shared inputs (same edit sequence, same seeding fed to both A and B)
-are exactly what reproduce that function identically. So D2 must stay
+functions of the *(CST/leaf sequence, edit sequence, source sequence)* — not of
+any single CST. (`realign_projection_identities` takes `next_source` and falls
+back to a source diff when no `edit` is supplied; and `ProjectionIdentityTracker`
+**composes** pending edits across malformed intermediate inputs via
+`compose_projection_identity_edits`, so last-good depends on the composed edit
+history *across invalid states*, not just the latest tree.) D2's step-by-step
+shared inputs (same source + edit sequence, same seeding fed to both A and B) are
+exactly what reproduce that function identically. So D2 must stay
 **step-by-step**: collapsing it to a single final-CST snapshot comparison would
 silently lose history-dependent divergence — an ID churn that manifests only
-across the edit path, not in the final tree.
+across the edit path (especially across malformed intermediates), not in the
+final tree.
 
 ### 5.3 The central design fork — the equivalence bar
 
@@ -272,6 +297,32 @@ lambda validates the mechanism and the oracle, not the §8 sprawl risk. Treat a
 second, more projectional language as a required follow-up gate — the spike's
 green light is "the approach is viable and measurable," not "the approach
 survives loom's hardest case."
+
+### 5.6 Ergonomics: the motivation axis (safety ≠ ergonomics)
+
+D1/D2 prove **safety**; they say nothing about B's actual motivation (§4.1:
+easier authoring + cross-language reuse). The spike as scoped in §5.5
+hand-authors a grammar for an *already-solved* language to chase structural + ID
+parity — so it cannot tell whether writing that grammar was *cheaper* than the
+814-line hand parser, or whether it *reuses* across languages. Worse, escape-hatch
+sprawl (§8) is exactly what makes grammar-as-data *safe but pointless*: if the
+grammar needs a pile of language-specific imperative code, a grammar facade over
+it is hand-writing with extra steps — "easy" evaporates while D2 still passes.
+
+So the spike must **measure ergonomics**, not only safety:
+
+- **E1 — authoring cost.** The lambda grammar value's size/complexity vs the
+  814-line hand parser. Does it materially reduce authoring effort?
+- **E2 — escape-hatch count.** How much language-specific imperative code the
+  grammar needed. A high count means "easy" evaporated — grammar-as-data is not
+  worth it even if D2 passes.
+- **E3 — reuse (ideally).** A *second* small grammar, to measure cross-language
+  reuse — the claim lambda alone cannot test.
+
+**The GO decision needs safety AND ergonomics.** B graduates only if it is a safe
+drop-in (D1/D2) *and* materially cheaper to author (E1/E2). A safe-but-not-cheaper
+result is a **"no"** — the motivation was ergonomics, so ergonomics is the success
+metric, not a footnote.
 
 ## 6. ROADMAP non-goal #1 — revisit, evidence-gated
 
@@ -338,6 +389,24 @@ primitives, lambda 814 lines, `projection_identity` zero `@incr`, incr 0.9.0
 and "reuse is per-node" (finding 1) is verified at the primitive level and is
 itself re-exercised by the spike's D1/D2b.
 
+**Round-4 review (source-confirmed, design-principles based).** The reviewer read
+the actual source (`projection_identity.mbt`, `test_support.mbt`,
+`pipeline/parser.mbt`, lambda `grammar.mbt`, `core/pkg.generated.mbti`) and
+**confirmed findings 1, 4, 5, 6 as fact** (finding 2's 814-line count re-confirmed
+here; finding 7 / incr 0.9.0 remains verified-by-me in the main checkout, not by
+the reviewer). The W1 invariant was upgraded from "speculation" to fact against
+the real signature, with a new detail —
+`ProjectionIdentityTracker.compose_projection_identity_edits` composes pending
+edits across malformed intermediates — folded into §5.2 (invariant now over
+*(CST/leaf, edit, source)* sequences). **New, highest-value point: safety ≠
+ergonomics.** D1/D2 prove B is a *safe* drop-in, but B's motivation (easier
+authoring + reuse) is an orthogonal axis the spike did not measure — and lambda
+(the easiest, fewest-escape-hatch case) cannot validate it. Folded in: §4.1
+motivation triage (robust = API-backed; easy/reusable = unproven), §5.1
+safety-vs-ergonomics framing, new §5.6 ergonomics gate (E1/E2/E3 + "GO needs
+safety AND ergonomics"), §8 sprawl-attacks-motivation note, §9 ergonomics
+deliverable. Also softened the "*the* parser" singularization in finding 2.
+
 ## 8. Open risks / what would invalidate this direction
 
 - **Interpreter hot-path performance.** Walking a grammar IR per token may
@@ -348,8 +417,12 @@ itself re-exercised by the spike's D1/D2b.
   `node` / `wrap_at` / `separated_list` / repeat-group boundaries.
 - **Projectional escape-hatch sprawl.** If lambda (and especially the
   projectional languages) need so much language-specific logic that the grammar
-  cannot stay declarative, grammar-as-data is the wrong model. The spike's
-  structural-identity / ID-parity divergences are the early signal.
+  cannot stay declarative, grammar-as-data is the wrong model — *safe but
+  pointless*, because the sprawl destroys the ergonomics that motivate B. This
+  attacks the motivation axis, not safety; the direct measurement is **E2**
+  (escape-hatch count, §5.6), with structural/ID divergences as a secondary
+  signal. Note there is a *performance* gate (interpreter benchmark, above) but
+  the *ergonomics* gate (§5.6) is the one this risk lands on.
 - **incr freshness.** `AcceptedDerived` / `BackdateEq` shipped only at 0.9.0
   (#232) with a freshness fix at #233; any migration onto it leans on new code.
 
@@ -361,9 +434,12 @@ hand-author the minimal lambda grammar IR slice (§5.5), build the
 cross-implementation oracle (§5.2: D2a CST/diagnostics + D2b stable-ID parity),
 run it to structural + ID parity (§5.3), and record the divergences as the
 evidence that decides (i)-vs-(ii) and the grammar-as-data-vs-status-quo call. The
-plan must also (a) define the spike's **stop condition** (§5.3) and (b) name the
-**projectional-language follow-up gate** (§5.5) — the lambda spike's green light
-means "viable and measurable," not "survives loom's hardest case."
+plan must also (a) define the spike's **stop condition** (§5.3), (b) name the
+**projectional-language follow-up gate** (§5.5), and (c) include the **ergonomics
+measurement** (§5.6: E1 authoring cost, E2 escape-hatch count, E3 reuse) so the GO
+decision tests ergonomics — B's actual motivation — and not only safety. The
+lambda spike's green light means "viable and measurable," not "survives loom's
+hardest case."
 
 ## 10. Related
 
