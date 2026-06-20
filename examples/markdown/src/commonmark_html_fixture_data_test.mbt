@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=36, xfail=2, skip=1.
+// Baseline: pass=53, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (36, 2, 1)
+  (53, 2, 1)
 }
 
 ///|
@@ -334,6 +334,142 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "hard-line-breaks-646",
       source: "### foo\\\n",
       expected_html: "<h3>foo\\</h3>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 122,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-122",
+      source: "```\naaa\n~~~\n```\n",
+      expected_html: "<pre><code>aaa\n~~~\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 124,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-124",
+      source: "````\naaa\n```\n``````\n",
+      expected_html: "<pre><code>aaa\n```\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 126,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-126",
+      source: "```\n",
+      expected_html: "<pre><code></code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 127,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-127",
+      source: "`````\n\n```\naaa\n",
+      expected_html: "<pre><code>\n```\naaa\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 129,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-129",
+      source: "```\n\n  \n```\n",
+      expected_html: "<pre><code>\n  \n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 130,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-130",
+      source: "```\n```\n",
+      expected_html: "<pre><code></code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 137,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-137",
+      source: "```\naaa\n    ```\n",
+      expected_html: "<pre><code>aaa\n    ```\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 140,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-140",
+      source: "foo\n```\nbar\n```\nbaz\n",
+      expected_html: "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 142,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-142",
+      source: "```ruby\ndef foo(x)\n  return 3\nend\n```\n",
+      expected_html: "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 144,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-144",
+      source: "````;\n````\n",
+      expected_html: "<pre><code class=\"language-;\"></code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 147,
+      section: "Fenced code blocks",
+      name: "fenced-code-blocks-147",
+      source: "```\n``` aaa\n```\n",
+      expected_html: "<pre><code>``` aaa\n</code></pre>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 332,
+      section: "Code spans",
+      name: "code-spans-332",
+      source: "` a`\n",
+      expected_html: "<p><code> a</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 333,
+      section: "Code spans",
+      name: "code-spans-333",
+      source: "` b `\n",
+      expected_html: "<p><code> b </code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 618,
+      section: "Raw HTML",
+      name: "raw-html-618",
+      source: "<33> <__>\n",
+      expected_html: "<p>&lt;33&gt; &lt;__&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 620,
+      section: "Raw HTML",
+      name: "raw-html-620",
+      source: "<a href=\"hi'> <a href=hi'>\n",
+      expected_html: "<p>&lt;a href=&quot;hi'&gt; &lt;a href=hi'&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 622,
+      section: "Raw HTML",
+      name: "raw-html-622",
+      source: "<a href='bar'title=title>\n",
+      expected_html: "<p>&lt;a href='bar'title=title&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 624,
+      section: "Raw HTML",
+      name: "raw-html-624",
+      source: "</a href=\"foo\">\n",
+      expected_html: "<p>&lt;/a href=&quot;foo&quot;&gt;</p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
