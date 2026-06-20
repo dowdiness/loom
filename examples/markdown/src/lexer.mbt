@@ -63,13 +63,26 @@ fn produce_token_from(
 }
 
 ///|
-fn lex_indented_list_marker(
+fn lex_indented_block_marker(
   input : String,
   pos : Int,
   marker_start : Int,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let indent_len = marker_start - pos
   match char_at(input, marker_start) {
+    Some('>') => {
+      let marker_len = if char_at(input, marker_start + 1) == Some(' ') {
+        2
+      } else {
+        1
+      }
+      produce_token_from(
+        BlockQuoteMarker,
+        pos,
+        indent_len + marker_len,
+        BlockQuoteLineStart,
+      )
+    }
     Some('-') | Some('*') | Some('+') =>
       if char_at(input, marker_start + 1) == Some(' ') {
         produce_token_from(ListMarker, pos, indent_len + 2, Inline)
@@ -149,7 +162,7 @@ fn lex_line_start(
           LineStart,
         )
       } else if spaces_only && end - pos <= 3 {
-        lex_indented_list_marker(input, pos, end)
+        lex_indented_block_marker(input, pos, end)
       } else {
         // Leading whitespace followed by content — treat as paragraph
         lex_inline(input, pos)
@@ -186,6 +199,10 @@ fn lex_line_start(
         lex_inline(input, pos)
       }
     }
+    ['>', ' ', .. rest] =>
+      produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
+    ['>', ..] =>
+      produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
     ['-', ' ', .. rest] =>
       // List marker: must be followed by space
       produced_until(ListMarker, pos, rest, Inline)
@@ -243,6 +260,17 @@ fn lex_line_start(
     _ =>
       // No block marker recognized — switch to inline for paragraph content
       lex_inline(input, pos)
+  }
+}
+
+///|
+fn lex_block_quote_line_start(
+  input : String,
+  pos : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  match input.view(start_offset=pos) {
+    ['`', ..] => lex_inline(input, pos)
+    _ => lex_line_start(input, pos)
   }
 }
 
@@ -394,6 +422,7 @@ pub fn markdown_lex_step(
   }
   match mode {
     LineStart => lex_line_start(input, pos)
+    BlockQuoteLineStart => lex_block_quote_line_start(input, pos)
     Inline => lex_inline(input, pos)
     CodeBlock(n) => lex_code_block(input, pos, n)
   }

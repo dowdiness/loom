@@ -11,6 +11,12 @@ test "parse: paragraph" {
 }
 
 ///|
+test "parse: blockquote preserves legacy text projection" {
+  let block = parse("> quote\n")
+  inspect(block, content="Document([Paragraph([Text(\"> quote\")])])")
+}
+
+///|
 test "parse: multi-line paragraph" {
   let block = parse("line one\nline two\n\n")
   inspect(

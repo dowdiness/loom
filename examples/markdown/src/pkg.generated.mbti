@@ -97,6 +97,7 @@ pub fn MarkdownIROrigin::start(Self) -> Int
 
 pub(all) enum MarkdownLexMode {
   LineStart
+  BlockQuoteLineStart
   Inline
   CodeBlock(Int)
 } derive(Eq, @debug.Debug)
@@ -133,6 +134,7 @@ pub(all) enum SyntaxKind {
   ErrorToken
   EofToken
   OrderedListMarkerToken
+  BlockQuoteMarkerToken
   DocumentNode
   HeadingNode
   ParagraphNode
@@ -145,6 +147,7 @@ pub(all) enum SyntaxKind {
   InlineCodeNode
   LinkNode
   ErrorNode
+  BlockQuoteNode
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
@@ -155,6 +158,7 @@ pub(all) enum Token {
   HeadingMarker(Int)
   ListMarker
   OrderedListMarker(OrderedListMarker)
+  BlockQuoteMarker
   CodeFenceOpen(Int, String)
   CodeFenceClose
   BlankLine

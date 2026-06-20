@@ -41,6 +41,7 @@ priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
   Paragraph(Array[MarkdownIR], MarkdownIROrigin?)
+  BlockQuote(Array[MarkdownIR])
   UnorderedList(Array[MarkdownIR], Bool, UnorderedListMarker?)
   OrderedList(Array[MarkdownIR], Bool, OrderedListMarker?)
   ListItem(Array[MarkdownIR], Bool, MarkdownIROrigin?, UnorderedListMarker?)
@@ -100,6 +101,14 @@ fn MarkdownIR::paragraph(
   content_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
   { node: Paragraph(children, content_origin), origin }
+}
+
+///|
+fn MarkdownIR::block_quote(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+) -> MarkdownIR {
+  { node: BlockQuote(children), origin }
 }
 
 ///|
@@ -249,6 +258,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Document(_) => "Document"
     Heading(_, _, _) => "Heading"
     Paragraph(_, _) => "Paragraph"
+    BlockQuote(_) => "BlockQuote"
     UnorderedList(_, _, _) => "UnorderedList"
     OrderedList(_, _, _) => "OrderedList"
     ListItem(_, _, _, _) => "ListItem"
@@ -271,6 +281,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     Document(children)
     | Heading(_, children, _)
     | Paragraph(children, _)
+    | BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _)
     | ListItem(children, _, _, _)
@@ -487,6 +498,7 @@ fn lower_inline_children_skip_with_diags(
           HeadingMarkerToken
           | ListMarkerToken
           | OrderedListMarkerToken
+          | BlockQuoteMarkerToken
           | BlankLineToken
           | EofToken
           | CodeFenceOpenToken
@@ -546,6 +558,7 @@ fn lower_direct_inline_token_with_diags(
     HeadingMarkerToken
     | ListMarkerToken
     | OrderedListMarkerToken
+    | BlockQuoteMarkerToken
     | BlankLineToken
     | NewlineToken
     | EofToken
@@ -779,15 +792,38 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
 }
 
 ///|
-fn lower_document_child_with_diags(
+fn lower_paragraph_with_newline_and_diags(
+  node : @seam.SyntaxNode,
+  newline_text : String,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR {
+  let children = lower_inline_children_with_newline_and_diags(
+    node, newline_text, diagnostics_in_origin,
+  )
+  MarkdownIR::paragraph(
+    children,
+    origin_from_node(node),
+    span_origin_of_children(children),
+  )
+}
+
+///|
+fn lower_container_child_with_diags(
   child : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  paragraph_newline_text : String,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
+    ParagraphNode =>
+      Some(
+        lower_paragraph_with_newline_and_diags(
+          child, paragraph_newline_text, diagnostics_in_origin,
+        ),
+      )
     HeadingNode
-    | ParagraphNode
+    | BlockQuoteNode
     | UnorderedListNode
     | OrderedListNode
     | CodeBlockNode => Some(recurse(child))
@@ -1032,6 +1068,23 @@ fn lower_list_children(
 }
 
 ///|
+fn lower_block_quote_children(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  node
+  .children()
+  .iter()
+  .filter_map(child => {
+    lower_container_child_with_diags(
+      child, recurse, "\n", diagnostics_in_origin,
+    )
+  })
+  .collect()
+}
+
+///|
 fn list_spread_from_node(
   node : @seam.SyntaxNode,
   children : Array[MarkdownIR],
@@ -1057,7 +1110,9 @@ fn experimental_markdown_ir_fold_node_with_diags(
         .children()
         .iter()
         .filter_map(child => {
-          lower_document_child_with_diags(child, recurse, diagnostics_in_origin)
+          lower_container_child_with_diags(
+            child, recurse, " ", diagnostics_in_origin,
+          )
         })
         .collect()
       MarkdownIR::document(children, origin_from_node(node))
@@ -1081,16 +1136,13 @@ fn experimental_markdown_ir_fold_node_with_diags(
           )
       }
     }
-    ParagraphNode => {
-      let children = lower_inline_children_with_newline_and_diags(
-        node, " ", diagnostics_in_origin,
-      )
-      MarkdownIR::paragraph(
-        children,
+    ParagraphNode =>
+      lower_paragraph_with_newline_and_diags(node, " ", diagnostics_in_origin)
+    BlockQuoteNode =>
+      MarkdownIR::block_quote(
+        lower_block_quote_children(node, recurse, diagnostics_in_origin),
         origin_from_node(node),
-        span_origin_of_children(children),
       )
-    }
     UnorderedListNode => {
       let children = lower_list_children(node, recurse)
       let marker = match children {
@@ -1244,6 +1296,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     Heading(_, _, _) => Inline::Error("expected inline MarkdownIR, got heading")
     Paragraph(_, _) =>
       Inline::Error("expected inline MarkdownIR, got paragraph")
+    BlockQuote(_) => Inline::Error("expected inline MarkdownIR, got blockquote")
     UnorderedList(_, _, _) | OrderedList(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got list")
     ListItem(_, _, _, _) | OrderedListItem(_, _, _, _) =>
@@ -1263,7 +1316,7 @@ fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
   match child.node {
     Paragraph(paragraph_children, _) =>
       ir_children_to_inlines(paragraph_children)
-    UnorderedList(_, _, _) | OrderedList(_, _, _) => []
+    BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
     ListItem(item_children, _, _, _)
     | OrderedListItem(item_children, _, _, _) =>
       list_item_flow_children_to_editor_inlines(item_children)
@@ -1289,6 +1342,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Heading(depth, children, _) =>
       Block::Heading(depth, ir_children_to_inlines(children))
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
+    BlockQuote(_) => Block::Error("expected editor Block, got blockquote")
     UnorderedList(children, _, _) | OrderedList(children, _, _) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
     ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) =>
@@ -1449,6 +1503,7 @@ fn mdast_position_origin(
   match ir.node {
     Heading(_, _, _)
     | Paragraph(_, _)
+    | BlockQuote(_)
     | UnorderedList(_, _, _)
     | OrderedList(_, _, _)
     | ListItem(_, _, _, _)
@@ -1560,6 +1615,11 @@ fn markdown_ir_to_mdast_json(
     Paragraph(children, _) =>
       {
         "type": "paragraph",
+        "children": mdast_children_json(children, context),
+      }
+    BlockQuote(children) =>
+      {
+        "type": "blockquote",
         "children": mdast_children_json(children, context),
       }
     UnorderedList(children, spread, _) =>
@@ -1922,7 +1982,9 @@ fn local_transform_render(
       }
       rendered + original_block_trailing_newline(source, ir.origin())
     }
-    UnorderedList(children, _, _) | OrderedList(children, _, _) => {
+    BlockQuote(children)
+    | UnorderedList(children, _, _)
+    | OrderedList(children, _, _) => {
       let buf = StringBuilder::new()
       let final_cursor = for child in children; cursor = ir.origin().start() {
         let child_origin = child.origin()
@@ -2182,6 +2244,8 @@ fn canonical_format_with_list_marker(
     Heading(depth, children, _) =>
       "#".repeat(depth) + " " + canonical_inline_text(children)
     Paragraph(children, _) => canonical_inline_text(children)
+    BlockQuote(children) =>
+      indent_canonical_block(canonical_document_format(children), "> ")
     UnorderedList(children, _, _) =>
       children
       .map(child => canonical_format_with_list_marker(child, list_marker))

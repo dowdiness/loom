@@ -138,6 +138,7 @@ pub(all) enum Token {
   HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
   ListMarker // "- " or "* " or "+ " (includes trailing space)
   OrderedListMarker(OrderedListMarker) // "1. " or "1) " (includes trailing space)
+  BlockQuoteMarker // ">" plus optional following space, with up to three leading spaces
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
   BlankLine // empty or whitespace-only line
@@ -162,6 +163,7 @@ pub impl Show for Token with fn output(self, logger) {
       HeadingMarker(n) => "#".repeat(n) + " "
       ListMarker => "- "
       OrderedListMarker(marker) => marker.text() + " "
+      BlockQuoteMarker => "> "
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
       BlankLine => ""
@@ -201,6 +203,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       HeadingMarker(_) => 0 // HeadingMarkerToken
       ListMarker => 1 // ListMarkerToken
       OrderedListMarker(_) => 28 // OrderedListMarkerToken
+      BlockQuoteMarker => 30 // BlockQuoteMarkerToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
       BlankLine => 4 // BlankLineToken

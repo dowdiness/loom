@@ -414,6 +414,19 @@ test "incremental: unordered list separator newline delete uses block reparse" {
 }
 
 ///|
+test "incremental: blockquote list text edit preserves unquoted boundary" {
+  let prefix = "> - "
+  let quoted_item = prefix + "foo\n"
+  let unquoted_item = "- bar\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown blockquote list text edit preserves unquoted list boundary",
+    quoted_item + unquoted_item,
+    @core.Edit::new(prefix.length(), "foo".length(), "FOO".length()),
+    prefix + "FOO\n" + unquoted_item,
+  )
+}
+
+///|
 test "incremental: fenced code text edit matches full parse" {
   let prefix = "Intro\n\n```moonbit\nlet x = "
   let source = prefix + "1\n```\nAfter\n"

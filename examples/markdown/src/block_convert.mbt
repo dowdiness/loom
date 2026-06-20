@@ -14,6 +14,7 @@ pub fn markdown_fold_node(
         match child_kind {
           HeadingNode
           | ParagraphNode
+          | BlockQuoteNode
           | UnorderedListNode
           | OrderedListNode
           | CodeBlockNode
@@ -43,6 +44,17 @@ pub fn markdown_fold_node(
     ParagraphNode => {
       let inlines = convert_inline_children_with_newline(node, " ")
       Block::Paragraph(inlines)
+    }
+    BlockQuoteNode => {
+      let text = node.text()
+      let trimmed = if text.has_suffix("\r\n") {
+        text[:text.length() - 2].to_owned()
+      } else if text.has_suffix("\r") || text.has_suffix("\n") {
+        text[:text.length() - 1].to_owned()
+      } else {
+        text
+      }
+      Block::Paragraph([Inline::Text(trimmed)])
     }
     UnorderedListNode | OrderedListNode => {
       let items : Array[Block] = []
