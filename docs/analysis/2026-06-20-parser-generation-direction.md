@@ -97,11 +97,13 @@ every named rule is a frame and therefore a reuse window.
 
 ### 4.1 The literal question, answered precisely
 
-- **loomgen plumbing codegen = a real target. Commit to it** — *pending a
-  Layer-1 adversarial pass (§8) that has not yet happened.* Proven pattern,
-  ≈1,200 lines/language of mechanical glue, inspectable output, behaviour
-  verified by existing tests. (Caveat: every review round so far targeted Layer 2;
-  this "commit" is the least-scrutinised claim in the doc — see §8.) *Committing to loomgen as a target is separate from
+- **loomgen plumbing codegen = a real target. Commit to it** — *with two
+  conditions from the now-completed Layer-1 pass (§4.5):* fix the **L1-A** RawKind
+  registry/idempotency bug in the loomgen design, and **re-baseline** the
+  ≈1,200-line payoff on current (not textbook) lambda, since judgment-heavy views
+  (L1-B) resist codegen. Proven pattern, inspectable output, behaviour verified by
+  existing tests — but the structural majority being mechanical is now a *measured*
+  claim with named exceptions, not an assumption. *Committing to loomgen as a target is separate from
   its build order:* per §4.4 its build waits for the spike-derived IR contract so
   its annotation schema converges toward the grammar IR rather than diverging.
 - **Grammar-as-data interpreter (replacing the 814-line hand parser) = a
@@ -167,6 +169,59 @@ the ideal points the arrow grammar-first.
    `ParserContext` primitives + a new Pratt sub-engine** — not a from-scratch
    reuse engine. **Interpret-now / emit-later** stay two backends over one IR
    (monogram's proof), the emitter deferred behind a benchmark.
+
+### 4.5 Layer-1 (loomgen) adversarial pass — verdict
+
+Done 2026-06-20, reading the loomgen design + real `syntax_kind.mbt` + `views.mbt`
+(≈640 lines). **loomgen survives as a target, but with one correctness bug in its
+design and one payoff caveat — and Layer 1 carries the *same* load-bearing risk as
+Layer 2.** (This pass closes the §8 review-asymmetry: the committed target is no
+longer unreviewed.)
+
+**L1-A — correctness bug: RawKind numbering is a stability registry, not a
+mechanical sequence.** `syntax_kind.mbt`'s `to_raw` is append-only with preserved
+gaps: `FnKeyword => 43` and `FatArrowToken => 44` are appended despite their
+mid-enum positions; raw `24` and `26` are skipped (`LetKeyword 23 → EqToken 25 →
+LetDef 27`); comments hand-annotate "NEW:" / "(raw 37)". Raw values are an
+**identity contract** (CstNode interning/reuse compare them). But the loomgen
+design (`07-loomgen-design.md:381`) promises "*Stable ordering, sequential
+`to_raw` integers, never reads `.g.mbt` as input*." These collide: a sequential
+regenerator renumbers existing kinds on any `Term`-enum edit, breaking RawKind
+identity — actively undoing the hand-discipline the gaps/comments encode.
+Preserving identity requires a persistent kind→raw registry — a legitimate
+**second source of truth** the annotation schema lacks and the "never reads
+`.g.mbt`" rule forbids. A latent bug in the loomgen design, independent of the
+parser-gen direction. **Highest-priority follow-up: fix it in the loomgen design
+doc.**
+
+**L1-B — escape-hatch growth, symmetric to Layer 2's sprawl.** views.mbt is
+mechanical for the textbook core (`AppExpr`, `BinaryExpr`, `IfExpr`, `ParenExpr`,
+`VarRef`, `IntLiteral` — all `child(n)`/`cast`/`AstView`). But every feature
+*beyond* the core grew judgment a closed DSL cannot express:
+`LambdaExprView::params()` (custom filter + single-token fallback, `:78`),
+`body()`/`LetDefView::init()` (exclusion predicates "first child that is *not*
+ParamList/TypeAnnot", `:91`/`:483`), and `TypeAnnotView::to_type()` +
+`cst_to_type()` (recursive semantic lowering CST→`@typecheck.Type`, importing
+`@typecheck` — a dependency the design's views.g.mbt import table excludes,
+`:621`/`:629`). The design admits ~500 hand-crafted lines
+(`07-loomgen-design.md:541`); the verified finding is that this residue **grows
+with language maturity and concentrates the hardest judgment** (semantic
+lowering), so "~1,200 → ~50 annotations" is a textbook-core figure, not the
+steady-state. **Re-baseline the payoff on current lambda before relying on it.**
+
+**Synthesis — the real B2 payoff.** Layer 1 and Layer 2 are not "committed-safe vs
+hypothesis-risky"; they are the *same bet at two layers* — *can the declarative
+model cover real, evolving languages, or does judgment leak into escape hatches?*
+views.mbt is Layer 1's escape-hatch sprawl, the mirror of §8's Layer 2 sprawl. So
+the escape-hatch budget (§5.6 **E2**) must be measured across **both** layers, and
+§4.4's "one IR, derive contract first" is reinforced.
+
+**morm shape (Codex Q3) — half-right.** The *annotation→codegen mechanism* is
+morm-proven, but morm's *domain shape* is not loom's: morm maps flat `Record`
+structs (field→column); loom maps recursive `Variant` enums with projection/
+identity layers and a RawKind registry that have no morm equivalent. The design
+concedes this (`07-loomgen-design.md:421`: "new ground … written from scratch
+rather than adapted from morm").
 
 ## 5. The de-risk spike
 
@@ -319,7 +374,9 @@ So the spike must **measure ergonomics**, not only safety:
   814-line hand parser. Does it materially reduce authoring effort?
 - **E2 — escape-hatch count.** How much language-specific imperative code the
   grammar needed. A high count means "easy" evaporated — grammar-as-data is not
-  worth it even if D2 passes.
+  worth it even if D2 passes. (Per §4.5, apply E2 to **loomgen's plumbing too** —
+  views.mbt's judgment residue is Layer 1's escape-hatch budget; same bet, same
+  metric, measured across both layers.)
 - **E3 — reuse (ideally).** A *second* small grammar, to measure cross-language
   reuse — the claim lambda alone cannot test.
 
@@ -439,6 +496,19 @@ corrected: the ergonomics axis was **co-generated** — the "easier-to-author"
 motive was supplied earlier in-conversation; the reviewer supplied "the spike
 does not measure it."
 
+**Round-6 — the Layer-1 (loomgen) adversarial pass itself** (the action B2
+demanded), driven by the reviewer against real source and re-verified here. Result
+recorded as §4.5: **L1-A** (RawKind stability-registry vs the design's
+sequential/idempotent promise — a correctness bug, confirmed against
+`syntax_kind.mbt`'s appended `43`/`44` + skipped `24`/`26` and design line 381),
+**L1-B** (views.mbt judgment grows with maturity — confirmed against `params()`
+fallback, `body()`/`init()` exclusion predicates, `to_type`/`cst_to_type`
+importing `@typecheck`, design line 541), the "same bet at two layers" synthesis,
+and the morm half-right point (design line 421). §4.1/§8 updated to reflect the
+pass is done; the "converged" retraction was empirically vindicated — hitting the
+committed layer surfaced a design-promise-violating bug that four Layer-2 rounds
+never would have.
+
 ## 8. Open risks / what would invalidate this direction
 
 - **Interpreter hot-path performance.** Walking a grammar IR per token may
@@ -457,16 +527,13 @@ does not measure it."
   the *ergonomics* gate (§5.6) is the one this risk lands on.
 - **incr freshness.** `AcceptedDerived` / `BackdateEq` shipped only at 0.9.0
   (`#232`) with a freshness fix at `#233`; any migration onto it leans on new code.
-- **Layer 1 / loomgen is itself unreviewed (review-asymmetry risk).** All four
-  adversarial review rounds targeted Layer 2 (the grammar-as-data *hypothesis*).
-  The *committed* target — loomgen — has had **no** adversarial pass. The
-  symmetric, unexamined risk: is the ≈1,200 lines actually *mechanical*
-  (codegen-derivable from the `Term` enum), or does plumbing like `views.mbt`
-  (644 lines) encode projection judgment that resists codegen — making loomgen's
-  payoff evaporate the way escape-hatch sprawl threatens Layer 2's? "Commit to
-  loomgen" is contingent on a Layer-1 adversarial pass; declaring the doc
-  "converged" before that pass would repeat the "problem double-checked, solution
-  single-checked" asymmetry.
+- **Layer 1 / loomgen review-asymmetry — now CLOSED (§4.5).** The committed target
+  was unreviewed through four Layer-2 rounds; the Layer-1 pass (§4.5) closed it and
+  found **L1-A** (RawKind registry vs the design's sequential/idempotent promise —
+  a correctness bug) and confirmed **L1-B** (views.mbt judgment grows with language
+  maturity). The residual risks live on as: (L1-A) the loomgen design must add a
+  persistent kind→raw registry, and (L1-B) the escape-hatch budget (§5.6 E2) must
+  be measured for loomgen too, not only grammar-as-data — they are the *same bet*.
 
 ## 9. Decision status & next step
 
