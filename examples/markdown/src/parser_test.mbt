@@ -17,6 +17,76 @@ test "parse: blockquote preserves legacy text projection" {
 }
 
 ///|
+test "parse: blockquote lazy continuation stays in quoted paragraph CST" {
+  let (cst, _) = try! parse_cst("> bar\nbaz\n> foo\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] => {
+      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      inspect(quote_kind, content="BlockQuoteNode")
+      match quote.children() {
+        [paragraph] => {
+          let paragraph_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            paragraph.kind(),
+          )
+          inspect(paragraph_kind, content="ParagraphNode")
+        }
+        _ => inspect(quote.children().length(), content="one paragraph")
+      }
+    }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
+test "parse: blockquote lazy continuation preserves legacy text projection" {
+  let block = parse("> bar\nbaz\n")
+  inspect(block, content="Document([Paragraph([Text(\"> bar\\nbaz\")])])")
+}
+
+///|
+test "parse: blockquote lazy continuation rejects thematic break line" {
+  let (cst, _) = try! parse_cst("> foo\n---\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote, separator] => {
+      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      let separator_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+        separator.kind(),
+      )
+      inspect(quote_kind, content="BlockQuoteNode")
+      inspect(separator_kind, content="ParagraphNode")
+    }
+    _ =>
+      inspect(syntax.children().length(), content="blockquote then separator")
+  }
+}
+
+///|
+test "parse: blockquote lazy continuation accepts indented thematic text" {
+  for source in ["> foo\n    ---\n", "> foo\n\t---\n"] {
+    let (cst, _) = try! parse_cst(source)
+    let syntax = @seam.SyntaxNode::from_cst(cst)
+    match syntax.children() {
+      [quote] => {
+        let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+        inspect(quote_kind, content="BlockQuoteNode")
+        match quote.children() {
+          [paragraph] => {
+            let paragraph_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              paragraph.kind(),
+            )
+            inspect(paragraph_kind, content="ParagraphNode")
+          }
+          _ => inspect(quote.children().length(), content="one paragraph")
+        }
+      }
+      _ => inspect(syntax.children().length(), content="one blockquote")
+    }
+  }
+}
+
+///|
 test "parse: multi-line paragraph" {
   let block = parse("line one\nline two\n\n")
   inspect(

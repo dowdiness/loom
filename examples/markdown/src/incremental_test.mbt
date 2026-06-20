@@ -427,6 +427,23 @@ test "incremental: blockquote list text edit preserves unquoted boundary" {
 }
 
 ///|
+test "incremental: blockquote lazy continuation marker edits match full parse" {
+  let first_line = "> bar\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown blockquote removes paragraph continuation marker",
+    first_line + "> baz\n",
+    @core.Edit::delete(first_line.length(), first_line.length() + "> ".length()),
+    first_line + "baz\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown blockquote inserts paragraph continuation marker",
+    first_line + "baz\n",
+    @core.Edit::insert(first_line.length(), "> ".length()),
+    first_line + "> baz\n",
+  )
+}
+
+///|
 test "incremental: fenced code text edit matches full parse" {
   let prefix = "Intro\n\n```moonbit\nlet x = "
   let source = prefix + "1\n```\nAfter\n"

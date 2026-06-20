@@ -114,18 +114,100 @@ fn token_continues_block_quote_paragraph(token : Token) -> Bool {
 }
 
 ///|
+fn thematic_break_marker_text(text : String) -> Bool {
+  let (count, valid, seen_marker) = for
+    ch in text
+    marker = (None : Char?),
+    count = 0,
+    valid = true,
+    seen_marker = false,
+    indent = 0 {
+    if !valid {
+      continue marker, count, false, seen_marker, indent
+    }
+    match ch {
+      ' ' =>
+        if seen_marker {
+          continue marker, count, true, true, indent
+        } else if indent < 3 {
+          continue marker, count, true, false, indent + 1
+        } else {
+          continue marker, count, false, false, indent
+        }
+      '\t' =>
+        if seen_marker {
+          continue marker, count, true, true, indent
+        } else {
+          continue marker, count, false, false, indent
+        }
+      '-' | '_' | '*' =>
+        match marker {
+          Some(existing) if existing != ch =>
+            continue marker, count, false, seen_marker, indent
+          _ => continue Some(ch), count + 1, true, true, indent
+        }
+      _ => continue marker, count, false, seen_marker, indent
+    }
+  } nobreak {
+    (count, valid, seen_marker)
+  }
+  valid && seen_marker && count >= 3
+}
+
+///|
+fn line_at_offset_is_thematic_break(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> Bool {
+  let line = StringBuilder::new()
+  for i = offset {
+    match ctx.peek_nth(i) {
+      Newline | EOF => break thematic_break_marker_text(line.to_string())
+      Text(text) => line.write_string(text)
+      Star => line.write_string("*")
+      StarStar => line.write_string("**")
+      _ => break false
+    }
+    continue i + 1
+  }
+}
+
+///|
+fn next_unquoted_line_is_thematic_break(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  line_at_offset_is_thematic_break(ctx, 1)
+}
+
+///|
+fn consume_block_quote_paragraph_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek_nth(1) {
+    BlockQuoteMarker if token_continues_block_quote_paragraph(ctx.peek_nth(2)) => {
+      ctx.emit_token(NewlineToken)
+      ctx.emit_token(BlockQuoteMarkerToken)
+      parse_paragraph_continuation_line(ctx)
+      true
+    }
+    token if !next_unquoted_line_is_thematic_break(ctx) &&
+      token_continues_block_quote_paragraph(token) => {
+      ctx.emit_token(NewlineToken)
+      parse_paragraph_continuation_line(ctx)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ParagraphNode, fn() {
     parse_inline_content(ctx)
     while ctx.peek() is Newline {
-      if ctx.peek_nth(1) is BlockQuoteMarker &&
-        token_continues_block_quote_paragraph(ctx.peek_nth(2)) {
-        ctx.emit_token(NewlineToken)
-        ctx.emit_token(BlockQuoteMarkerToken)
-        parse_paragraph_continuation_line(ctx)
-      } else {
+      if !consume_block_quote_paragraph_continuation(ctx) {
         ctx.emit_token(NewlineToken)
         break
       }
