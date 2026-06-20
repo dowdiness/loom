@@ -29,6 +29,30 @@ fn list_marker_matches(
 }
 
 ///|
+fn current_list_marker_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int? {
+  marker_start_after_optional_indent(ctx.current_token_text().to_owned(), 0)
+}
+
+///|
+fn current_list_marker_token_width(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int {
+  ctx.current_token_text().length()
+}
+
+///|
+fn list_marker_matches_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : UnorderedListMarker,
+  min_indent : Int,
+) -> Bool {
+  list_marker_matches(ctx, opening_marker) &&
+  current_list_marker_indent(ctx).map_or(false, indent => indent >= min_indent)
+}
+
+///|
 fn first_unordered_list_marker(text : String) -> UnorderedListMarker? {
   first_token_text(text).bind(unordered_list_marker_from_text)
 }
@@ -57,47 +81,65 @@ fn ordered_list_marker_matches(
 }
 
 ///|
+fn ordered_list_marker_matches_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : OrderedListMarker,
+  min_indent : Int,
+) -> Bool {
+  ordered_list_marker_matches(ctx, opening_marker) &&
+  current_list_marker_indent(ctx).map_or(false, indent => indent >= min_indent)
+}
+
+///|
+fn blank_line_run_is_followed_by_marker_matching(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
+) -> Bool {
+  guard ctx.peek() is BlankLine else { return false }
+  let checkpoint = ctx.checkpoint()
+  while ctx.peek() is BlankLine {
+    ctx.emit_token(BlankLineToken)
+  }
+  let matches = matches_marker(ctx)
+  ctx.restore(checkpoint)
+  matches
+}
+
+///|
 /// Returns true when a run of blank lines is followed by another list item with
 /// the same marker metadata as the list's opening marker.
-fn blank_line_run_is_followed_by_matching_list_marker(
+fn blank_line_run_is_followed_by_matching_list_marker_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
+  min_indent : Int,
 ) -> Bool {
-  guard ctx.peek() is BlankLine else { return false }
-  let checkpoint = ctx.checkpoint()
-  while ctx.peek() is BlankLine {
-    ctx.emit_token(BlankLineToken)
-  }
-  let matches = list_marker_matches(ctx, opening_marker)
-  ctx.restore(checkpoint)
-  matches
+  blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
+    list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+  })
 }
 
 ///|
-fn blank_line_run_is_followed_by_matching_ordered_list_marker(
+fn blank_line_run_is_followed_by_matching_ordered_list_marker_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : OrderedListMarker,
+  min_indent : Int,
 ) -> Bool {
-  guard ctx.peek() is BlankLine else { return false }
-  let checkpoint = ctx.checkpoint()
-  while ctx.peek() is BlankLine {
-    ctx.emit_token(BlankLineToken)
-  }
-  let matches = ordered_list_marker_matches(ctx, opening_marker)
-  ctx.restore(checkpoint)
-  matches
+  blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
+    ordered_list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+  })
 }
 
 ///|
-fn consume_ordered_list_item_separator(
+fn consume_ordered_list_item_separator_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : OrderedListMarker,
+  min_indent : Int,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  if blank_line_run_is_followed_by_matching_ordered_list_marker(
-      ctx, opening_marker,
+  if blank_line_run_is_followed_by_matching_ordered_list_marker_at_min_indent(
+      ctx, opening_marker, min_indent,
     ) {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)

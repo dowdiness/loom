@@ -247,6 +247,58 @@ test "experimental MarkdownIR: list items expose flow-content paragraphs" {
 }
 
 ///|
+test "experimental MarkdownIR: nested list item lowers as flow child" {
+  let source = "- parent\n  - child\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          debug_inspect(list.spread(), content="Some(false)")
+          debug_inspect(item.spread(), content="Some(false)")
+          debug_inspect(
+            item.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\", \"UnorderedList\"]",
+          )
+          inspect(
+            experimental_markdown_ir_to_mdast_json(ir).stringify(),
+            content=(
+              #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"parent"}]},{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"child"}]}]}]}]}]}]}
+            ),
+          )
+          assert_markdown_ir_block_matches_direct_parse(source)
+        }
+        _ => inspect("unexpected list children", content="one item")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: adjacent nested marker boundary stays in list item flow" {
+  let source = "- parent\n  - child\n  + child2\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          debug_inspect(
+            item.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\", \"UnorderedList\", \"UnorderedList\"]",
+          )
+          inspect(
+            experimental_markdown_ir_canonical_format(ir),
+            content="- parent\n  - child\n  + child2",
+          )
+          assert_markdown_ir_block_matches_direct_parse(source)
+        }
+        _ => inspect("unexpected list children", content="one item")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
 test "experimental MarkdownIR: loose list separator sets list spread" {
   let source = "- one\n\n- two\n"
   let ir = markdown_ir_from_source(source)
@@ -1706,6 +1758,57 @@ test "experimental MarkdownIR: unordered list local transform and modes are dist
         _ => inspect("unexpected list children", content="two items")
       }
     _ => inspect("unexpected child count", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: nested unordered list rewrites preserve flow children" {
+  let source = "- parent\n  - child\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
+  inspect(
+    experimental_markdown_ir_canonical_format(ir),
+    content="- parent\n  - child",
+  )
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.content_origin() {
+            Some(parent_origin) => {
+              let parent_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=parent_origin,
+                replacement_text="grown",
+              )
+              inspect(parent_rewrite, content="- grown\n  - child\n")
+              match item.children() {
+                [_, nested] =>
+                  match nested.children() {
+                    [nested_item] =>
+                      match nested_item.content_origin() {
+                        Some(child_origin) => {
+                          let child_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                            ir,
+                            source,
+                            target_origin=child_origin,
+                            replacement_text="kid",
+                          )
+                          inspect(child_rewrite, content="- parent\n  - kid\n")
+                        }
+                        None => inspect("missing", content="child origin")
+                      }
+                    _ => inspect("unexpected", content="nested item")
+                  }
+                _ => inspect("unexpected", content="paragraph and nested list")
+              }
+            }
+            None => inspect("missing", content="parent origin")
+          }
+        _ => inspect("unexpected", content="one item")
+      }
+    _ => inspect("unexpected", content="one list")
   }
 }
 

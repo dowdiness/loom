@@ -106,14 +106,17 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 ///|
 /// Consume the separator after a list item, including blank-line separators
 /// that keep the following matching marker in the same loose list.
-fn consume_list_item_separator(
+fn consume_list_item_separator_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
+  min_indent : Int,
 ) -> Unit {
   if ctx.peek() is Newline {
     ctx.emit_token(NewlineToken)
   }
-  if blank_line_run_is_followed_by_matching_list_marker(ctx, opening_marker) {
+  if blank_line_run_is_followed_by_matching_list_marker_at_min_indent(
+      ctx, opening_marker, min_indent,
+    ) {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }
@@ -123,12 +126,22 @@ fn consume_list_item_separator(
 ///|
 /// Parse an unordered list: one or more ListItems using the same marker metadata.
 fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_list_at_min_indent(ctx, 0)
+}
+
+///|
+fn parse_list_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Unit {
   ctx.node(UnorderedListNode, fn() {
     match current_unordered_list_marker(ctx) {
       Some(opening_marker) =>
-        while list_marker_matches(ctx, opening_marker) {
+        while list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) {
           parse_list_item(ctx)
-          consume_list_item_separator(ctx, opening_marker)
+          consume_list_item_separator_at_min_indent(
+            ctx, opening_marker, min_indent,
+          )
         }
       None => ()
     }
@@ -136,23 +149,99 @@ fn parse_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+fn parse_nested_list_at_current_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  guard current_list_marker_indent(ctx).map_or(false, indent => {
+    indent >= content_indent
+  }) else {
+    return false
+  }
+  match ctx.peek() {
+    ListMarker => {
+      parse_list_at_min_indent(ctx, content_indent)
+      true
+    }
+    OrderedListMarker(_) => {
+      parse_ordered_list_at_min_indent(ctx, content_indent)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn next_list_marker_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int? {
+  let checkpoint = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  let indent = match ctx.peek() {
+    ListMarker | OrderedListMarker(_) => current_list_marker_indent(ctx)
+    _ => None
+  }
+  ctx.restore(checkpoint)
+  indent
+}
+
+///|
+fn parse_nested_list_item_flow(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Unit {
+  while true {
+    match ctx.peek() {
+      Newline =>
+        if next_list_marker_indent(ctx).map_or(false, indent => {
+            indent >= content_indent
+          }) {
+          ctx.emit_token(NewlineToken)
+          ignore(parse_nested_list_at_current_marker(ctx, content_indent))
+        } else {
+          break
+        }
+      ListMarker | OrderedListMarker(_) =>
+        if !parse_nested_list_at_current_marker(ctx, content_indent) {
+          break
+        }
+      _ => break
+    }
+  }
+}
+
+///|
 /// Parse a single list item: ListMarker followed by inline content.
 fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
+    let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(ListMarkerToken)
     parse_inline_content(ctx)
+    parse_nested_list_item_flow(ctx, content_indent)
   })
 }
 
 ///|
 /// Parse an ordered list: one or more ListItems using the same delimiter.
 fn parse_ordered_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_ordered_list_at_min_indent(ctx, 0)
+}
+
+///|
+fn parse_ordered_list_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Unit {
   ctx.node(OrderedListNode, fn() {
     match current_ordered_list_marker(ctx) {
       Some(opening_marker) =>
-        while ordered_list_marker_matches(ctx, opening_marker) {
+        while ordered_list_marker_matches_at_min_indent(
+                ctx, opening_marker, min_indent,
+              ) {
           parse_ordered_list_item(ctx)
-          consume_ordered_list_item_separator(ctx, opening_marker)
+          consume_ordered_list_item_separator_at_min_indent(
+            ctx, opening_marker, min_indent,
+          )
         }
       None => ()
     }
@@ -165,8 +254,10 @@ fn parse_ordered_list_item(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ListItemNode, fn() {
+    let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(OrderedListMarkerToken)
     parse_inline_content(ctx)
+    parse_nested_list_item_flow(ctx, content_indent)
   })
 }
 

@@ -60,15 +60,33 @@ fn markdown_ir_list_item_child_to_commonmark_html(
 }
 
 ///|
+fn markdown_ir_child_is_paragraph(ir : MarkdownIR) -> Bool {
+  match ir.node {
+    Paragraph(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn markdown_ir_list_item_children_to_commonmark_html(
   children : Array[MarkdownIR],
   render_paragraphs~ : Bool,
 ) -> String {
-  children
-  .map(child => {
-    markdown_ir_list_item_child_to_commonmark_html(child, render_paragraphs~)
-  })
-  .join("")
+  let buf = StringBuilder::new()
+  let mut previous_unwrapped_paragraph = false
+  for child in children {
+    let current_is_paragraph = markdown_ir_child_is_paragraph(child)
+    if !render_paragraphs &&
+      previous_unwrapped_paragraph &&
+      !current_is_paragraph {
+      buf.write_string("\n")
+    }
+    buf.write_string(
+      markdown_ir_list_item_child_to_commonmark_html(child, render_paragraphs~),
+    )
+    previous_unwrapped_paragraph = !render_paragraphs && current_is_paragraph
+  }
+  buf.to_string()
 }
 
 ///|

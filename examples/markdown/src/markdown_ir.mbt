@@ -532,6 +532,72 @@ fn lower_inline_children_with_newline_and_diags(
 }
 
 ///|
+fn lower_direct_inline_token_with_diags(
+  token : @seam.SyntaxToken,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR? {
+  let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+  match token_kind {
+    TextToken => Some(MarkdownIR::text(token.text(), origin_from_token(token)))
+    ErrorToken | ErrorNode => {
+      let origin = origin_from_token(token)
+      Some(MarkdownIR::raw(token.text(), origin, diagnostics_in_origin(origin)))
+    }
+    HeadingMarkerToken
+    | ListMarkerToken
+    | OrderedListMarkerToken
+    | BlankLineToken
+    | NewlineToken
+    | EofToken
+    | CodeFenceOpenToken
+    | CodeFenceCloseToken
+    | CodeTextToken => None
+    _ =>
+      delimiter_text(token_kind).map(text => {
+        MarkdownIR::text(text, origin_from_token(token))
+      })
+  }
+}
+
+///|
+fn lower_direct_inline_node_with_diags(
+  node : @seam.SyntaxNode,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR? {
+  let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  match node_kind {
+    UnorderedListNode | OrderedListNode => None
+    _ => Some(lower_inline_node_with_diags(node, diagnostics_in_origin))
+  }
+}
+
+///|
+fn lower_direct_inline_element_with_diags(
+  element : @seam.SyntaxElement,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> MarkdownIR? {
+  match element {
+    @seam.SyntaxElement::Token(token) =>
+      lower_direct_inline_token_with_diags(token, diagnostics_in_origin)
+    @seam.SyntaxElement::Node(node) =>
+      lower_direct_inline_node_with_diags(node, diagnostics_in_origin)
+  }
+}
+
+///|
+fn lower_direct_inline_children_with_diags(
+  node : @seam.SyntaxNode,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  node
+  .direct_elements_iter()
+  .filter_map(element => {
+    lower_direct_inline_element_with_diags(element, diagnostics_in_origin)
+  })
+  .collect()
+}
+
+///|
 fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
   let buf = StringBuilder::new()
   let content_tokens : Array[MarkdownIROrigin] = []
@@ -767,6 +833,39 @@ fn list_item_paragraph_origin(
 }
 
 ///|
+fn append_list_item_flow_block_children(
+  node : @seam.SyntaxNode,
+  children : Array[MarkdownIR],
+  recurse : (@seam.SyntaxNode) -> MarkdownIR,
+) -> Unit {
+  for child in node.children() {
+    let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+    match child_kind {
+      UnorderedListNode | OrderedListNode => children.push(recurse(child))
+      _ => ()
+    }
+  }
+}
+
+///|
+fn lower_list_item_flow_children_with_diags(
+  node : @seam.SyntaxNode,
+  recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> (Array[MarkdownIR], MarkdownIROrigin?) {
+  let inline_children = lower_direct_inline_children_with_diags(
+    node, diagnostics_in_origin,
+  )
+  let content_origin = span_origin_of_children(inline_children)
+  let paragraph_origin = list_item_paragraph_origin(node, content_origin)
+  let children = [
+    MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
+  ]
+  append_list_item_flow_block_children(node, children, recurse)
+  (children, content_origin)
+}
+
+///|
 fn code_block_info(node : @seam.SyntaxNode) -> String {
   match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
     Some(fence_token) => {
@@ -992,15 +1091,10 @@ fn experimental_markdown_ir_fold_node_with_diags(
       )
     }
     ListItemNode => {
-      let inline_children = lower_inline_children_with_diags(
-        node, diagnostics_in_origin,
+      let (children, content_origin) = lower_list_item_flow_children_with_diags(
+        node, recurse, diagnostics_in_origin,
       )
-      let content_origin = span_origin_of_children(inline_children)
-      let paragraph_origin = list_item_paragraph_origin(node, content_origin)
       let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_)
-      let children = [
-        MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
-      ]
       match ordered_list_marker_from_node(node) {
         Some(marker) =>
           MarkdownIR::ordered_list_item(
@@ -1142,6 +1236,10 @@ fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
   match child.node {
     Paragraph(paragraph_children, _) =>
       ir_children_to_inlines(paragraph_children)
+    UnorderedList(_, _, _) | OrderedList(_, _, _) => []
+    ListItem(item_children, _, _, _)
+    | OrderedListItem(item_children, _, _, _) =>
+      list_item_flow_children_to_editor_inlines(item_children)
     _ => [experimental_markdown_ir_to_inline(child)]
   }
 }
@@ -1150,11 +1248,10 @@ fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
 fn list_item_flow_children_to_editor_inlines(
   children : Array[MarkdownIR],
 ) -> Array[Inline] {
-  let inlines : Array[Inline] = []
-  for child in children {
-    inlines.append(list_item_flow_child_to_editor_inlines(child))
-  }
-  inlines
+  children
+  .iter()
+  .flat_map(child => list_item_flow_child_to_editor_inlines(child).iter())
+  .collect()
 }
 
 ///|
@@ -1385,14 +1482,6 @@ fn mdast_json_with_optional_ordered_start(
 ///|
 fn zero_width_origin_at(offset : Int) -> MarkdownIROrigin {
   MarkdownIROrigin(start=offset, end=offset)
-}
-
-///|
-fn unordered_list_marker_text(marker : UnorderedListMarker?) -> String {
-  match marker {
-    Some(marker) => marker.text()
-    None => "-"
-  }
 }
 
 ///|
@@ -1807,34 +1896,30 @@ fn local_transform_render(
       )
       buf.to_string()
     }
-    ListItem(children, _, content_origin, marker) => {
-      let rendered = if content_origin == Some(target_origin) {
-        replacement_text
-      } else {
-        local_transform_inline_text(
-          children, source, target_origin, replacement_text,
+    ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) => {
+      let buf = StringBuilder::new()
+      let final_cursor = for child in children; cursor = ir.origin().start() {
+        let child_origin = child.origin()
+        buf.write_string(
+          source_slice_between(source, cursor, child_origin.start()),
         )
+        if child_origin.contains(target_origin) {
+          buf.write_string(
+            local_transform_render(
+              child, source, target_origin, replacement_text,
+            ),
+          )
+        } else {
+          buf.write_string(source_slice(source, child_origin))
+        }
+        continue child_origin.end()
+      } nobreak {
+        cursor
       }
-      unordered_list_marker_text(marker) + " " + rendered
-    }
-    OrderedListItem(children, _, content_origin, marker) => {
-      let rendered = if content_origin == Some(target_origin) {
-        replacement_text
-      } else {
-        local_transform_inline_text(
-          children, source, target_origin, replacement_text,
-        )
-      }
-      let prefix = match content_origin {
-        Some(origin) =>
-          source_slice_between(source, ir.origin().start(), origin.start())
-        None =>
-          match marker {
-            Some(marker) => marker.text() + " "
-            None => "1. "
-          }
-      }
-      prefix + rendered
+      buf.write_string(
+        source_slice_between(source, final_cursor, ir.origin().end()),
+      )
+      buf.to_string()
     }
     CodeBlock(_info, _value, content_origin) =>
       if content_origin == Some(target_origin) {
@@ -1925,6 +2010,72 @@ fn canonical_inline_text(children : Array[MarkdownIR]) -> String {
 }
 
 ///|
+fn indent_canonical_block(text : String, indent : String) -> String {
+  text.split("\n").map(line => indent + line.to_owned()).join("\n")
+}
+
+///|
+fn canonical_nested_flow_child(
+  child : MarkdownIR,
+  list_marker : UnorderedListMarker,
+  previous_nested_marker : UnorderedListMarker?,
+) -> (String, UnorderedListMarker?) {
+  let (marker, next_previous) = match child.node {
+    UnorderedList(_, _, surface_marker) => {
+      let marker = match previous_nested_marker {
+        Some(previous_marker) =>
+          boundary_preserving_list_marker(previous_marker, surface_marker)
+        None => list_marker
+      }
+      (marker, Some(marker))
+    }
+    _ => (list_marker, None)
+  }
+  (
+    "\n" +
+    indent_canonical_block(
+      canonical_format_with_list_marker(child, marker),
+      "  ",
+    ),
+    next_previous,
+  )
+}
+
+///|
+fn canonical_nested_flow_children(
+  children : ArrayView[MarkdownIR],
+  list_marker : UnorderedListMarker,
+) -> String {
+  let buf = StringBuilder::new()
+  for child in children; previous_nested_marker = None {
+    let (rendered, next_previous) = canonical_nested_flow_child(
+      child, list_marker, previous_nested_marker,
+    )
+    buf.write_string(rendered)
+    continue next_previous
+  }
+  buf.to_string()
+}
+
+///|
+fn canonical_list_item_flow(
+  marker_text : String,
+  children : Array[MarkdownIR],
+  list_marker : UnorderedListMarker,
+) -> String {
+  match children {
+    [] => marker_text + " "
+    [first, .. rest] => {
+      let first_text = canonical_format_with_list_marker(first, list_marker)
+      marker_text +
+      " " +
+      first_text +
+      canonical_nested_flow_children(rest, list_marker)
+    }
+  }
+}
+
+///|
 fn boundary_preserving_list_marker(
   previous_marker : UnorderedListMarker,
   surface_marker : UnorderedListMarker?,
@@ -1989,13 +2140,13 @@ fn canonical_format_with_list_marker(
       .map(child => canonical_format_with_list_marker(child, list_marker))
       .join("\n")
     ListItem(children, _, _, _) =>
-      list_marker.text() + " " + canonical_inline_text(children)
+      canonical_list_item_flow(list_marker.text(), children, list_marker)
     OrderedListItem(children, _, _, marker) => {
       let item_marker = match marker {
         Some(marker) => marker.text()
         None => "1."
       }
-      item_marker + " " + canonical_inline_text(children)
+      canonical_list_item_flow(item_marker, children, list_marker)
     }
     CodeBlock(info, value, _) => code_block_markdown(info, value)
     Text(value) | Raw(value, _) => value
