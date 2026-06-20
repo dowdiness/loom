@@ -299,6 +299,80 @@ test "experimental MarkdownIR: adjacent nested marker boundary stays in list ite
 }
 
 ///|
+test "experimental MarkdownIR: multi-item nested list lowers as one flow child" {
+  let source = "- a\n  - b\n  - c\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          debug_inspect(
+            item.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\", \"UnorderedList\"]",
+          )
+          match item.children() {
+            [_, nested] => {
+              inspect(nested.children().length(), content="2")
+              inspect(
+                experimental_markdown_ir_to_mdast_json(ir).stringify(),
+                content=(
+                  #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"a"}]},{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"b"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"c"}]}]}]}]}]}]}
+                ),
+              )
+              inspect(
+                experimental_markdown_ir_canonical_format(ir),
+                content="- a\n  - b\n  - c",
+              )
+              assert_markdown_ir_block_matches_direct_parse(source)
+            }
+            _ =>
+              inspect(
+                "unexpected item children",
+                content="paragraph and nested list",
+              )
+          }
+        }
+        _ => inspect("unexpected list children", content="one item")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: outdented marker resumes top-level list after nested flow" {
+  let source = "- a\n  - b\n- c\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [first, second] => {
+          debug_inspect(
+            first.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\", \"UnorderedList\"]",
+          )
+          debug_inspect(
+            second.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\"]",
+          )
+          inspect(
+            experimental_markdown_ir_to_mdast_json(ir).stringify(),
+            content=(
+              #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"a"}]},{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"b"}]}]}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"c"}]}]}]}]}
+            ),
+          )
+          inspect(
+            experimental_markdown_ir_canonical_format(ir),
+            content="- a\n  - b\n- c",
+          )
+          assert_markdown_ir_block_matches_direct_parse(source)
+        }
+        _ => inspect("unexpected list children", content="two items")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
 test "experimental MarkdownIR: loose list separator sets list spread" {
   let source = "- one\n\n- two\n"
   let ir = markdown_ir_from_source(source)

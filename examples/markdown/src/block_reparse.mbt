@@ -314,6 +314,7 @@ fn list_item_reparser(
 fn unordered_list_context_allows_reparse(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
+  min_indent : Int,
 ) -> Bool {
   let checkpoint = ctx.checkpoint()
   let mut result = true
@@ -323,7 +324,8 @@ fn unordered_list_context_allows_reparse(
   while result && ctx.peek() != EOF {
     match ctx.peek() {
       ListMarker =>
-        if expect_marker && list_marker_matches(ctx, opening_marker) {
+        if expect_marker &&
+          list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) {
           expect_marker = false
           saw_marker = true
           saw_content = false
@@ -352,10 +354,11 @@ fn unordered_list_context_allows_reparse(
 fn parse_unordered_list_if_unchanged(
   ctx : @core.ParserContext[Token, SyntaxKind],
   opening_marker : UnorderedListMarker,
+  min_indent : Int,
 ) -> Unit {
-  if list_marker_matches(ctx, opening_marker) &&
-    unordered_list_context_allows_reparse(ctx, opening_marker) {
-    parse_list(ctx)
+  if list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+    unordered_list_context_allows_reparse(ctx, opening_marker, min_indent) {
+    parse_list_at_min_indent(ctx, min_indent)
   }
 }
 
@@ -363,9 +366,14 @@ fn parse_unordered_list_if_unchanged(
 fn unordered_list_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  first_unordered_list_marker(node.text()).map(marker => {
-    ctx => parse_unordered_list_if_unchanged(ctx, marker)
-  })
+  guard first_token_text(node.text()) is Some(marker_text) else { return None }
+  guard unordered_list_marker_from_text(marker_text) is Some(marker) else {
+    return None
+  }
+  guard marker_start_after_optional_indent(marker_text, 0) is Some(min_indent) else {
+    return None
+  }
+  Some(ctx => parse_unordered_list_if_unchanged(ctx, marker, min_indent))
 }
 
 ///|

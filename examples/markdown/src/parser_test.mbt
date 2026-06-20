@@ -50,15 +50,23 @@ test "parse: nested list stays editor-compatible" {
 }
 
 ///|
-fn assert_nested_list_cst_shape(source : String) -> Unit raise {
+fn assert_nested_list_cst_shape(
+  source : String,
+  top_level_item_count : Int,
+  nested_item_count : Int,
+) -> Unit raise {
   let (cst, _) = try! parse_cst(source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   match syntax.children() {
     [list] => {
       let list_kind : SyntaxKind = @seam.FromRawKind::from_raw(list.kind())
       inspect(list_kind, content="UnorderedListNode")
+      inspect(
+        list.children().length(),
+        content=top_level_item_count.to_string(),
+      )
       match list.children() {
-        [item] => {
+        [item, ..] => {
           let item_kind : SyntaxKind = @seam.FromRawKind::from_raw(item.kind())
           inspect(item_kind, content="ListItemNode")
           match item.children() {
@@ -67,12 +75,15 @@ fn assert_nested_list_cst_shape(source : String) -> Unit raise {
                 nested.kind(),
               )
               inspect(nested_kind, content="UnorderedListNode")
-              inspect(nested.children().length(), content="1")
+              inspect(
+                nested.children().length(),
+                content=nested_item_count.to_string(),
+              )
             }
             _ => inspect(item.children().length(), content="one nested list")
           }
         }
-        _ => inspect(list.children().length(), content="one nested item")
+        _ => inspect(list.children().length(), content="at least one item")
       }
     }
     _ => inspect(syntax.children().length(), content="one list")
@@ -81,7 +92,17 @@ fn assert_nested_list_cst_shape(source : String) -> Unit raise {
 
 ///|
 test "parse: nested list has nested CST container" {
-  try! assert_nested_list_cst_shape("- parent\n  - child\n")
+  try! assert_nested_list_cst_shape("- parent\n  - child\n", 1, 1)
+}
+
+///|
+test "parse: multi-item nested list stays in one CST container" {
+  try! assert_nested_list_cst_shape("- a\n  - b\n  - c\n", 1, 2)
+}
+
+///|
+test "parse: outdented marker resumes top-level list after nested CST container" {
+  try! assert_nested_list_cst_shape("- a\n  - b\n- c\n", 2, 1)
 }
 
 ///|

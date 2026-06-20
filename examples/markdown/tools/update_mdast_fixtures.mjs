@@ -16,6 +16,16 @@ const fixtures = [
   { name: 'unordered-list', source: '- one\n- two\n', status: 'pass' },
   { name: 'nested-unordered-list', source: '- a\n  - b\n', status: 'pass' },
   {
+    name: 'nested-unordered-list-multiple-items',
+    source: '- a\n  - b\n  - c\n',
+    status: 'pass',
+  },
+  {
+    name: 'nested-unordered-list-top-level-resumption',
+    source: '- a\n  - b\n- c\n',
+    status: 'pass',
+  },
+  {
     name: 'indented-unordered-list-markers',
     source: '- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n',
     status: 'pass',
