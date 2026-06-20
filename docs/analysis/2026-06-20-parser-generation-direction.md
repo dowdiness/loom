@@ -101,6 +101,15 @@ every named rule is a frame and therefore a reuse window.
   hypothesis, not yet a target.** It graduates to a target only after the spike
   (§5) validates it for loom's projectional case.
 
+*Why the asymmetric treatment (Principle 1 — problem first).* loomgen attacks a
+sharp, present pain: ≈1,200 lines of mechanical glue per language. B's motivation
+is real but softer — it is the keystone of the single-source ideal (§4.2) that
+eliminates the dual-source debt, and it lowers new-language authoring cost — but
+no current capability is *blocked* by hand-written RD the way plumbing is blocked
+by boilerplate. That thinner, less-certain payoff is precisely why B is
+spike-gated while loomgen is committed: you de-risk a direction before investing
+when its motive is feasibility-plus-elegance rather than acute pain.
+
 ### 4.2 The first-principles ideal
 
 **One annotated grammar value as the single source of truth**, carrying both
@@ -131,8 +140,12 @@ the ideal points the arrow grammar-first.
    the "forward-compatible subset" becomes legacy schema you must preserve
    (Codex finding 2).
 3. **(A) Build loomgen against that contract.** Its annotation schema designed as
-   a subset of the eventual grammar IR, so the dual-source period is
-   *convergent*, not divergent.
+   a subset of the eventual grammar IR, so the dual-source period is *intended* to
+   converge rather than diverge. Convergence is **contingent on the IR-first
+   sequencing of step 2** — it is not guaranteed by subset-design alone: a
+   spike-evolved IR can still drift the "subset," and step 2 (do not ship the
+   schema before the IR proves its projection semantics) is the only guard that
+   keeps the subset tracking the IR rather than fossilising against it.
 4. The interpreter, if it graduates, is a **facade over the verified
    `ParserContext` primitives + a new Pratt sub-engine** — not a from-scratch
    reuse engine. **Interpret-now / emit-later** stay two backends over one IR
@@ -146,6 +159,14 @@ That grammar-as-data parser **B** is a drop-in for hand parser **A** on lambda,
 with no downstream churn — validated end-to-end through the projectional layer,
 not just precedence (monogram already proved precedence; loom's novel risk is
 projection/identity).
+
+**Scope caveat (what the spike does *not* retire).** A lambda-only spike retires
+the *mechanism* risk (can grammar-as-data drive loom's reuse machinery?) and the
+*oracle-methodology* risk (can we even detect churn?). It does **not** retire the
+§8 escape-hatch-sprawl risk, which lives in the genuinely projectional/CRDT
+languages, not in lambda. The premise that lambda's projectional behaviour
+predicts theirs is *asserted, not proven*; a second, more projectional language
+is a required follow-up gate before B graduates from hypothesis to target.
 
 ### 5.2 The oracle
 
@@ -187,6 +208,14 @@ preconditions. Three checks, all running the same edit sequence through A and B:
   tracker matches on. D2b uses the existing pure helper — it does **not** require
   the `AcceptedDerived` migration (§5.4).
 
+**The precise invariant (do not weaken it).** Stable IDs and last-good are pure
+functions of the *(CST sequence, edit sequence)* — not of any single CST. D2's
+step-by-step shared inputs (same edit sequence, same seeding fed to both A and B)
+are exactly what reproduce that function identically. So D2 must stay
+**step-by-step**: collapsing it to a single final-CST snapshot comparison would
+silently lose history-dependent divergence — an ID churn that manifests only
+across the edit path, not in the final tree.
+
 ### 5.3 The central design fork — the equivalence bar
 
 - **(i) Structurally identical to A** (`tree_diff`-empty CST + equal diagnostics)
@@ -203,6 +232,14 @@ weaker property follows for free; if it cannot, the precise divergence shows exa
 where grammar-as-data's model parts ways from hand-RD, which is what the spike
 exists to learn. The (i)-vs-(ii) *migration* decision is then made **with** that
 evidence, not before it.
+
+**Stop condition (must be set in the execution plan — §9).** "All divergences are
+findings" needs a terminus, or the (i)-target chase never ends. The plan must
+define a threshold separating *grammar-as-data is the wrong model for loom* from
+*B merely hasn't replicated A's quirks yet* — e.g. if a divergence is a
+faithfully-reproducible recovery/wrapping quirk, the model is sound and the
+residual work is replication; if any divergence is a structural shape loom's
+reuse/identity layer **cannot** express, stop and report unsuitable.
 
 ### 5.4 Migration verdict: `projection_identity` → `AcceptedDerived`
 
@@ -228,6 +265,13 @@ lambda, a minimal grammar-IR slice chosen to hit the churn-prone cases:
 
 Small enough to hand-author the grammar value; broad enough that structural + ID
 parity means something.
+
+**Representativeness limit (review-flagged).** lambda exercises projection
+identity but is *not* one of the genuinely projectional/CRDT languages; passing on
+lambda validates the mechanism and the oracle, not the §8 sprawl risk. Treat a
+second, more projectional language as a required follow-up gate — the spike's
+green light is "the approach is viable and measurable," not "the approach
+survives loom's hardest case."
 
 ## 6. ROADMAP non-goal #1 — revisit, evidence-gated
 
@@ -276,6 +320,24 @@ the existing pure helper", not "upstream of"), and "byte-identity" replaced with
 the incr 0.9.0 claims were verified earlier in the populated main checkout —
 `incr/incr/cells/accepted_derived.mbt`, `incr/CHANGELOG.md`.)
 
+**Round-3 review (design-principles based).** An independent review against the
+project's design principles (reading the pre-round-2 version) judged the argument
+methodologically sound and flagged five weaknesses. W1 — the §5.2 "pure function
+of the CST" claim — was the *same* flaw Codex round-2 had already caught and
+fixed; the independent convergence confirms it was real, and the review's sharper
+formulation (IDs are a pure function of the *(CST sequence, edit sequence)*; do
+not collapse D2 to a final snapshot) was folded into §5.2. W2 (a lambda-only
+spike cannot retire the projectional-sprawl risk) → §5.1/§5.5 scope caveats + a
+follow-up gate. W3 (no stop condition) → §5.3 stop-condition requirement. W4
+("convergent" asserted) → §4.4 step 3 softened to contingent-on-IR-first. W5
+(Principle 1 — B's motivation is thinner than its feasibility) → §4.1 asymmetry
+rationale. The review correctly stressed the whole recommendation rests on §3;
+those findings were independently re-verified live this session (ParserContext
+primitives, lambda 814 lines, `projection_identity` zero `@incr`, incr 0.9.0
+`AcceptedDerived`, oracle scope) — the ≈1,200-line figure remains an estimate,
+and "reuse is per-node" (finding 1) is verified at the primitive level and is
+itself re-exercised by the spike's D1/D2b.
+
 ## 8. Open risks / what would invalidate this direction
 
 - **Interpreter hot-path performance.** Walking a grammar IR per token may
@@ -298,7 +360,10 @@ No decision is committed. The recommended next action is to take the **spike**
 hand-author the minimal lambda grammar IR slice (§5.5), build the
 cross-implementation oracle (§5.2: D2a CST/diagnostics + D2b stable-ID parity),
 run it to structural + ID parity (§5.3), and record the divergences as the
-evidence that decides (i)-vs-(ii) and the grammar-as-data-vs-status-quo call.
+evidence that decides (i)-vs-(ii) and the grammar-as-data-vs-status-quo call. The
+plan must also (a) define the spike's **stop condition** (§5.3) and (b) name the
+**projectional-language follow-up gate** (§5.5) — the lambda spike's green light
+means "viable and measurable," not "survives loom's hardest case."
 
 ## 10. Related
 
