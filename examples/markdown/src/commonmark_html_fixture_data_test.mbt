@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=106, xfail=2, skip=1.
+// Baseline: pass=112, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (106, 2, 1)
+  (112, 2, 1)
 }
 
 ///|
@@ -894,6 +894,54 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "links-501",
       source: "[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n",
       expected_html: "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"https://example.com#fragment\">link</a></p>\n<p><a href=\"https://example.com?foo=3#frag\">link</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 602,
+      section: "Autolinks",
+      name: "autolinks-602",
+      source: "<https://foo.bar/baz bim>\n",
+      expected_html: "<p>&lt;https://foo.bar/baz bim&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 608,
+      section: "Autolinks",
+      name: "autolinks-608",
+      source: "< https://foo.bar >\n",
+      expected_html: "<p>&lt; https://foo.bar &gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 609,
+      section: "Autolinks",
+      name: "autolinks-609",
+      source: "<m:abc>\n",
+      expected_html: "<p>&lt;m:abc&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 610,
+      section: "Autolinks",
+      name: "autolinks-610",
+      source: "<foo.bar.baz>\n",
+      expected_html: "<p>&lt;foo.bar.baz&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 611,
+      section: "Autolinks",
+      name: "autolinks-611",
+      source: "https://example.com\n",
+      expected_html: "<p>https://example.com</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 612,
+      section: "Autolinks",
+      name: "autolinks-612",
+      source: "foo@bar.example.com\n",
+      expected_html: "<p>foo@bar.example.com</p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
