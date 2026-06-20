@@ -13,7 +13,8 @@
 - Validation commands (run from `examples/lambda/`): `moon check` after EVERY file edit; `moon test -p dowdiness/lambda/spike` for the spike package; `moon info && moon fmt` before any commit; module-shaped fmt check `NEW_MOON_MOD=0 moon -C examples/lambda fmt --check`.
 - The spike is ADDITIVE and ISOLATED: new `examples/lambda/src/spike/` package only; zero edits to the main lambda package or to loom/seam/incr. No new loom-core APIs.
 - B reuses loom's engine; do NOT write a new reuse engine, a new TokenBuffer, or a new ReuseCursor. The ONLY new parser logic is the IR + interpreter producing a `parse_root` closure.
-- NON-GOALS: no interpreter hot-path throughput benchmark (deferred per doc §8); no loomgen build; no AST/Term fold (syntax-only spike); no second projectional language built in THIS plan (it's a documented follow-up GATE); no migration of loom's pipeline to `AcceptedDerived` (independent, deferred).
+- **Config-normalization invariant: A and B MUST share identical incremental config so only `parse_root` differs.** Both are built via `normalized_syntax_grammar` (Task 8) with `incremental_relex_enabled=false` and `block_reparse_spec=None`. VERIFIED confound: A's `lambda_grammar` uses `incremental_relex_enabled=false` + `block_reparse_spec=Some(...)` (`grammar.mbt:14-15`) while `SyntaxGrammar::new` defaults to `true`/`None` — so a B built with defaults would diverge from A on relex (newline edits) and block reparse (BlockExpr edits) for reasons unrelated to the grammar-IR under test. Never build A via `to_syntax_grammar()` (it bakes in A's config).
+- NON-GOALS: no interpreter hot-path throughput benchmark (deferred per doc §8); no loomgen build; no AST/Term fold (syntax-only spike); no second projectional language built in THIS plan (it's a documented follow-up GATE); no migration of loom's pipeline to `AcceptedDerived` (independent, deferred); **no block-reparse parity and no incremental-relex-path parity** (both axes pinned OFF for A and B via normalization — `block_reparse_spec=Some` would route B through A's hand reparser inside blocks, defeating the test; B-equivalent block reparse is a documented follow-up for when block-reparse parity must be measured, and BlockExpr is not in the §5.5 minimal slice).
 - This is a SPIKE: the GO/NO-GO outcome (with classified divergences + E1/E2/E3) is the deliverable, not a merged parser. If the stop condition fires (decision 9 "wrong model"), reaching that verdict with evidence is success.
 
 ---
@@ -38,10 +39,10 @@ The implementation must not assume any loom/lambda symbol outside this list. If 
 
 - `pub fn[T, K] SyntaxGrammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> SyntaxGrammar[T, K]`
 - `pub fn[T, K] SyntaxGrammar::parse_cst(Self[T, K], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`
-- `pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]`
+- `pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]` — exists, but the spike does **NOT** use it for A: it copies A's incremental config (`relex=false`, `block_reparse=Some`), which is a confound. Build A via `normalized_syntax_grammar(@lambda.lambda_grammar.spec, @lambda.lambda_grammar.lex)` instead. Listed only so workers recognize and avoid it.
 - `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(String, SyntaxGrammar[T, K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser`
 - `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_incremental_edit_matches_full_parse(String, String, @core.Edit, String, SyntaxGrammar[T, K]) -> Int`
-- `pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]`
+- `pub fn @core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]` — ⚠ lives in `dowdiness/loom/core` (import `@core`), NOT re-exported by the `@loom` facade. ALWAYS call it as `@core.tree_diff(...)`; `@loom.tree_diff` is unbound and fails `moon check`. (Empty array == structurally identical, up to hash collisions.)
 - `pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]`
 - `pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit`
 - `pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]`
@@ -284,7 +285,7 @@ test "minimal grammar IR exposes rules" {
 - Produces spike-local `pub fn parse_application_ir(ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind], ir : GrammarIr) -> Unit`.
 - Produces spike-local `pub fn parse_binary_ir(ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind], ir : GrammarIr) -> Unit`.
 
-- [ ] Write failing tests for `"let x = f y"` and `"let x = a + b - c"` comparing B's fresh CST to A's fresh CST via `@loom.tree_diff`.
+- [ ] Write failing tests for `"let x = f y"` and `"let x = a + b - c"` comparing B's fresh CST to A's fresh CST via `@core.tree_diff`.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because Pratt lowering is not implemented.
 - [ ] Implement application to reproduce A's call shape: `let mark = ctx.mark(); parse_atom; match ctx.peek() { <atom-start> => ctx.wrap_at(mark, @syntax.AppExpr, fn() { while <atom-start> { parse_atom } }) ; _ => () }`.
 - [ ] Implement binary to reproduce A's call shape: `let mark = ctx.mark(); parse_application; match ctx.peek() { Plus|Minus => ctx.wrap_at(mark, @syntax.BinaryExpr, fn() { while … { emit Plus/Minus token; parse_application } }) ; _ => () }`.
@@ -325,7 +326,7 @@ test "minimal grammar IR exposes rules" {
 - Consumes `pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit`.
 - Produces spike-local `pub fn parse_param_list_exact(ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit`.
 
-- [ ] Write failing A-vs-B fresh parse tests for parameter lists including `(x)`, `(x, y)`, and `(x,)`. Compare `@loom.tree_diff(a_cst, b_cst)` and diagnostics.
+- [ ] Write failing A-vs-B fresh parse tests for parameter lists including `(x)`, `(x, y)`, and `(x,)`. Compare `@core.tree_diff(a_cst, b_cst)` and diagnostics.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because B's param list is missing or structurally different.
 - [ ] Implement `ManualParamList` to target A's exact raw loop shape: mark, emit left paren, emit identifier-or-placeholder, then while comma emit comma and identifier-or-placeholder, expect right paren, then `ctx.start_at(mark, @syntax.ParamList); ctx.finish_node()`.
 - [ ] Do not lower lambda's ParamList through `ParserContext::separated_list` in the production B grammar. Keep a separate experimental helper only if needed to produce a classified divergence finding.
@@ -367,6 +368,7 @@ test "minimal grammar IR exposes rules" {
 - Consumes `pub fn[T, K] SyntaxGrammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> SyntaxGrammar[T, K]`.
 - Consumes `pub fn @lexer.lex(String) -> @core.LexResult[@token.Token]`.
 - Produces `pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr`.
+- Produces `pub fn normalized_syntax_grammar(spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind], lex : (String) -> @core.LexResult[@token.Token]) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]` — the shared config-normalizer both A and B go through.
 - Produces `pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]`.
 
 - [ ] Write a failing parse smoke test for B on `let x = 1\nlet y = x + 2` using `build_b_syntax_grammar().parse_cst(source)`.
@@ -392,7 +394,33 @@ pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@tok
     parse_root=parse_root,
     reuse_size_threshold=0,
   )
-  @loom.SyntaxGrammar::new(spec=b_spec, lex=@lexer.lex)
+  normalized_syntax_grammar(b_spec, @lexer.lex)
+}
+
+///|
+/// Build a SyntaxGrammar with the spike's NORMALIZED incremental config, so the
+/// ONLY difference between A and B is `spec.parse_root`. Both A and B go through
+/// this. VERIFIED confound (grammar.mbt:14-15): A's lambda_grammar uses
+/// incremental_relex_enabled=false + block_reparse_spec=Some(...), but
+/// SyntaxGrammar::new defaults are true/None — so without normalization, newline
+/// edits (relex) and BlockExpr edits (block reparse) would diverge in reuse_count
+/// and diagnostics because of PARSER CONFIG, not the grammar-IR under test. We
+/// pin both axes OFF for A and B: relex=false (matches A; full relex each edit is
+/// correct, just unoptimized) and block_reparse=None (NOT Some(lambda_block_reparse_spec)
+/// — that spec's get_reparser invokes A's HAND reparser, which would run A's
+/// parser inside blocks for B too, defeating the test). Block-reparse parity and
+/// incremental-relex-path parity are deferred follow-ups (see Global Constraints
+/// / NON-GOALS); BlockExpr is not in the minimal slice anyway.
+pub fn normalized_syntax_grammar(
+  spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind],
+  lex : (String) -> @core.LexResult[@token.Token],
+) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] {
+  @loom.SyntaxGrammar::new(
+    spec~,
+    lex~,
+    incremental_relex_enabled=false,
+    block_reparse_spec=None,
+  )
 }
 ```
 
@@ -409,13 +437,13 @@ pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@tok
 
 **Interfaces:**
 
-- Consumes `pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]`.
-- Consumes `pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]`.
+- Consumes `pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]` and its PUBLIC read-only fields `.spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]` and `.lex : (String) -> @core.LexResult[@token.Token]`. (`Grammar`'s fields are `pub`/read-only cross-package — `loom/src/grammar.mbt` — so the spike reads A's spec + lex WITHOUT importing the private `lambda_spec` binding.) Do **NOT** use `Grammar::to_syntax_grammar()` for A: it copies A's incremental config (`incremental_relex_enabled=false`, `block_reparse_spec=Some(...)`), which is a confound that must be normalized away.
+- Consumes `pub fn normalized_syntax_grammar(...)` (Task 8) — both A and B are built through it so the ONLY difference is `parse_root`.
 - Consumes `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(String, SyntaxGrammar[T, K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser`.
 - Consumes `pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit`.
 - Consumes `pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]`.
 - Consumes `pub fn[T, K] SyntaxGrammar::parse_cst(Self[T, K], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`.
-- Consumes `pub fn tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]`.
+- Consumes `pub fn @core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]` (from `@core`, NOT `@loom`).
 - Consumes `pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]`.
 - Consumes `pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]`.
 - Consumes `pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit`.
@@ -428,10 +456,11 @@ pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@tok
 
 - [ ] Write failing tests for a fixture sequence with at least one valid edit, one malformed intermediate, and one recovery edit. The test must assert that each `OracleStepResult` has `d1_ok`, `d2a_ok`, `d2b_ok`, and `reuse_parity_ok`.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because the oracle harness is missing.
-- [ ] Implement one persistent `SyntaxParser` for A and one persistent `SyntaxParser` for B, both seeded from the same initial source.
+- [ ] Build A's and B's grammars through the SAME normalizer so only `parse_root` differs: `let a_grammar = normalized_syntax_grammar(@lambda.lambda_grammar.spec, @lambda.lambda_grammar.lex)` and `let b_grammar = build_b_syntax_grammar()` (which also calls `normalized_syntax_grammar`). Do NOT use `@lambda.lambda_grammar.to_syntax_grammar()` — it would give A `incremental_relex_enabled=false` + `block_reparse_spec=Some(...)` while B gets the normalized config, so newline/BlockExpr edits would diverge on config, not `parse_root`.
+- [ ] Implement one persistent `SyntaxParser` for A (`@loom.new_syntax_parser(initial, a_grammar)`) and one for B (`@loom.new_syntax_parser(initial, b_grammar)`), both seeded from the same initial source.
 - [ ] On every step, call `a_parser.apply_edit(step.edit, step.after)` and `b_parser.apply_edit(step.edit, step.after)`, then read `parser.snapshot().read_or_abort()`.
-- [ ] Assert D1 for both A and B by fresh parsing the same source with each parser's grammar and checking `@loom.tree_diff(snapshot.syntax.cst_node(), fresh_cst)` empty and `snapshot.diagnostics == fresh_diagnostics` (FULL `==` is correct here: D1 is same-impl incremental-vs-fresh, so message strings must match exactly).
-- [ ] Assert D2a structurally. CST: `@loom.tree_diff(a_snapshot.syntax.cst_node(), b_snapshot.syntax.cst_node())` empty. Diagnostics: do NOT use full `==` (cross-impl B need not reproduce A's exact wording). Instead zip `a_snapshot.diagnostics.items()` and `b_snapshot.diagnostics.items()` and compare the STRUCTURAL fields pairwise — `source`, `severity`, `code`, and `primary` (the `TextRange?`) — plus equal `length()`. A `message`-string-only difference is NOT a D2a structural divergence: record it as a SEPARATE low-priority `ReplicationResidual` (message wording), so a structural finding (different code/range/severity/count) is never masked by, nor confused with, error-text wording noise. (The D2b success/failure classification still keys off `is_empty()`/count, which is unaffected by this split.)
+- [ ] Assert D1 for both A and B by fresh parsing the same source with each parser's grammar and checking `@core.tree_diff(snapshot.syntax.cst_node(), fresh_cst)` empty and `snapshot.diagnostics == fresh_diagnostics` (FULL `==` is correct here: D1 is same-impl incremental-vs-fresh, so message strings must match exactly).
+- [ ] Assert D2a structurally. CST: `@core.tree_diff(a_snapshot.syntax.cst_node(), b_snapshot.syntax.cst_node())` empty. Diagnostics: do NOT use full `==` (cross-impl B need not reproduce A's exact wording). Instead zip `a_snapshot.diagnostics.items()` and `b_snapshot.diagnostics.items()` and compare the STRUCTURAL fields pairwise — `source`, `severity`, `code`, and `primary` (the `TextRange?`) — plus equal `length()`. A `message`-string-only difference is NOT a D2a structural divergence: record it as a SEPARATE low-priority `ReplicationResidual` (message wording), so a structural finding (different code/range/severity/count) is never masked by, nor confused with, error-text wording noise. (The D2b success/failure classification still keys off `is_empty()`/count, which is unaffected by this split.)
 - [ ] Implement a small spike-local helper `diagnostics_structurally_equal(a : @core.DiagnosticSet, b : @core.DiagnosticSet) -> Bool` over `Diagnostic`'s public fields (`source`, `severity`, `code`, `primary`), and a `message_strings_equal(...)` companion for the residual classification.
 - [ ] Assert D2b by extracting leaves from each snapshot's CST with `project_lambda_leaves`, driving separate `ProjectionIdentityTracker[String]` and `ProjectionStringIdAllocator` instances identically, and comparing emitted `Array[@core.StableProjectionLeaf[String]]` every step.
 - [ ] Apply malformed-intermediate classification exactly: if shared diagnostics are non-empty, call `tracker.record_failed_input(source, source_before_edit=before, edit=edit)` and do not commit; if empty, call `tracker.realign_success(source, leaves, leaf => alloc.allocate(leaf), edit=edit)` then `tracker.commit_success(source, stable)`.
@@ -615,6 +644,7 @@ Type-consistency check:
 
 - All loom, pipeline, core, seam, lexer, lambda, token, and syntax signatures named above are copied from the verified API surface.
 - Every non-verified function/type named in tasks is explicitly produced as a spike-local artifact in `examples/lambda/src/spike/`.
-- A is reached only through `@lambda.lambda_grammar.to_syntax_grammar()` and `@lambda.parse_cst`.
-- B is built only through `@core.LanguageSpec::new(...)`, `@loom.SyntaxGrammar::new(...)`, `@lexer.lex`, and the spike-local interpreter closure.
+- A is reached only through public API: its parse logic via `@lambda.lambda_grammar.spec` / `.lex` (public read-only `Grammar` fields) wrapped by `normalized_syntax_grammar`, plus `@lambda.parse_cst` for fresh-parse comparisons. NOT via `to_syntax_grammar()` (config confound) and never via the private `lambda_spec`.
+- A and B grammars are BOTH built through `normalized_syntax_grammar` (`incremental_relex_enabled=false`, `block_reparse_spec=None`), so the only difference is `parse_root` (A = `lambda_grammar.spec.parse_root`; B = the spike interpreter closure via `@core.LanguageSpec::new(...)`).
+- All CST comparisons call `@core.tree_diff` (in `dowdiness/loom/core`), never `@loom.tree_diff` (unbound on the facade).
 - No task imports package-private `lambda_spec` or `parse_lambda_root`.
