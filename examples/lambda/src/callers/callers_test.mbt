@@ -318,13 +318,9 @@ test "pipeline: empty source returns no defs or callers" {
 /// does NOT leak body identifiers into the scope frame.
 fn lambda_scope_def_names_of(src : String) -> Array[String] {
   let (defs, _) = extract_facts(parse_to_syntax(src))
-  let out : Array[String] = []
-  for d in defs {
-    if !(d.scope is TopScope) {
-      out.push(d.name)
-    }
-  }
-  out
+  [
+    for d in defs if !(d.scope is TopScope) => d.name
+  ]
 }
 
 ///|
@@ -442,21 +438,14 @@ test "visible_from: shadowing not modeled — same name visible at both scopes" 
   // 2 defs: top-level f and lambda-param f.
   inspect(fdefs.length(), content="2")
   // Find the lambda-param def by scope kind.
-  let mut lambda_scope_opt : ScopeId? = None
-  for d in fdefs {
-    if d.scope is LambdaScope(_, _) {
-      lambda_scope_opt = Some(d.scope)
-    }
+  guard fdefs.iter().filter(fn(d) { d.scope is LambdaScope(_, _) }).head()
+    is Some(d) else {
+    abort("test setup: expected one LambdaScope def of f")
   }
-  match lambda_scope_opt {
-    Some(lambda_scope) => {
-      // Both scopes report `f` as visible. The caveat is that no API call
-      // distinguishes the inner-binding `f` from the inherited TopScope `f`.
-      inspect(p.visible_from(lambda_scope, "f"), content="true")
-      inspect(p.visible_from(TopScope, "f"), content="true")
-    }
-    None => abort("test setup: expected one LambdaScope def of f")
-  }
+  // Both scopes report `f` as visible. The caveat is that no API call
+  // distinguishes the inner-binding `f` from the inherited TopScope `f`.
+  inspect(p.visible_from(d.scope, "f"), content="true")
+  inspect(p.visible_from(TopScope, "f"), content="true")
   p.dispose()
 }
 
