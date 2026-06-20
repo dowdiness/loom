@@ -116,6 +116,17 @@ HTML, and `CommonMarkHtmlPass` / `CommonMarkHtmlXfail(reason)` /
 current pass/xfail/skip baseline. Normal MoonBit CI remains hermetic: `moon test`
 uses checked-in fixture data only and requires no Node, npm, or network access.
 
+To inspect the full CommonMark 0.31.2 corpus without turning it into a CI gate,
+run the optional audit command from `examples/markdown`:
+
+```bash
+NEW_MOON_MOD=0 moon run src/tools/commonmark_html_audit --target native
+```
+
+The command reads the pinned `tools/commonmark-0.31.2-spec.json` corpus and
+prints pass/fail/skip counts by section plus each example number and category.
+Use `-- --spec path/to/spec.json` to audit another local CommonMark spec file.
+
 ## Grammar
 
 `markdown_grammar` is the single integration surface. Pass it to

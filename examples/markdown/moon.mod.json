@@ -4,7 +4,8 @@
   "source": "src",
   "deps": {
     "dowdiness/loom": { "path": "../../loom" },
-    "dowdiness/seam": { "path": "../../seam" }
+    "dowdiness/seam": { "path": "../../seam" },
+    "moonbitlang/x": "0.4.38"
   },
   "test-deps": {
     "moonbitlang/core": "builtin"
