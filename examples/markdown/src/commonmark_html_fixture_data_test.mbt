@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=16, xfail=2, skip=1.
+// Baseline: pass=19, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (16, 2, 1)
+  (19, 2, 1)
 }
 
 ///|
@@ -67,6 +67,30 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "angle-brackets-as-text",
       source: "<>\n",
       expected_html: "<p>&lt;&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 650,
+      section: "Textual content",
+      name: "textual-content-punctuation",
+      source: "hello $.;'there\n",
+      expected_html: "<p>hello $.;'there</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 651,
+      section: "Textual content",
+      name: "textual-content-unicode",
+      source: "Foo χρῆν\n",
+      expected_html: "<p>Foo χρῆν</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 652,
+      section: "Textual content",
+      name: "textual-content-multiple-spaces",
+      source: "Multiple     spaces\n",
+      expected_html: "<p>Multiple     spaces</p>\n",
       status: CommonMarkHtmlPass,
     },
     {
