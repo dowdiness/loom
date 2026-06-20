@@ -194,6 +194,25 @@ Preserving identity requires a persistent kind→raw registry — a legitimate
 parser-gen direction. **Highest-priority follow-up: fix it in the loomgen design
 doc.**
 
+*Verified mechanism (why it's identity-affecting, not cosmetic).* `seam/cst_node.mbt`
+bakes the raw int into the content hash: `CstToken::CstToken` computes
+`combine_hash(combine_hash(k, string_hash(text)), provenance)` with `k =
+RawKind.inner` (`:46`), and `CstNode`'s hash is "derived recursively from `kind`
+and every child's hash" (`:212`), feeding `Eq`/`Hash`/interning. So renumbering a
+kind changes the content hash and structural identity of every node containing it.
+*Open question (inferred, NOT read this session):* whether the SSG/semantic
+pipeline's persisted annotation keys (`content_hash`/`structural_path` in
+`.md.annotations.json`) key off this seam hash. If yes → a renumber silently
+invalidates persisted annotation keys (**severe**); if keyed by name/another hash
+→ blast radius is in-memory only (**mild**). Reading the annotation-keying code
+settles it. Decision fork (one locus): **(i)** constrain loomgen with a persistent
+append-only kind→raw registry (retired slots kept) and replace "sequential /
+never-reads" with "idempotent *given the registry*" — keeps seam's fast int hash,
+adds a second loomgen input; or **(ii)** move seam's content hash off the raw int
+to a stable kind *name* — frees loomgen to renumber, at the cost of a one-time seam
+hash-contract migration + minor perf. (i) is local to loomgen; (ii) fixes it at
+the source.
+
 **L1-B — escape-hatch growth, symmetric to Layer 2's sprawl.** views.mbt is
 mechanical for the textbook core (`AppExpr`, `BinaryExpr`, `IfExpr`, `ParenExpr`,
 `VarRef`, `IntLiteral` — all `child(n)`/`cast`/`AstView`). But every feature
