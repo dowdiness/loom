@@ -2,11 +2,11 @@
 // Do not edit expected JSON by hand; edit fixture metadata in the generator,
 // then regenerate. The embedded data keeps `moon test` hermetic: no Node/npm or
 // network access is needed during normal MoonBit CI.
-// Baseline: pass=11, xfail=0, skip=0.
+// Baseline: pass=13, xfail=0, skip=0.
 
 ///|
 fn mdast_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (11, 0, 0)
+  (13, 0, 0)
 }
 
 ///|
@@ -34,6 +34,18 @@ fn mdast_fixture_cases() -> Array[MdastFixture] {
       name: "nested-unordered-list",
       source: "- a\n  - b\n",
       expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]},{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]}]}]}]}]}",
+      status: Pass,
+    },
+    {
+      name: "nested-unordered-list-multiple-items",
+      source: "- a\n  - b\n  - c\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]},{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"c\"}]}]}]}]}]}]}",
+      status: Pass,
+    },
+    {
+      name: "nested-unordered-list-top-level-resumption",
+      source: "- a\n  - b\n- c\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"a\"}]},{\"type\":\"list\",\"ordered\":false,\"children\":[{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"b\"}]}]}]}]},{\"type\":\"listItem\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"c\"}]}]}]}]}",
       status: Pass,
     },
     {

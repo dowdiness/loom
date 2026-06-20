@@ -256,6 +256,22 @@ test "incremental: nested list indentation edits match full parse" {
     @core.Edit::delete("- parent\n".length(), "- parent\n  ".length()),
     "- parent\n- child\n",
   )
+  let nested_prefix = "- a\n  - b\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered top-level sibling joins existing nested list",
+    nested_prefix + "- c\n",
+    @core.Edit::insert(nested_prefix.length(), "  ".length()),
+    nested_prefix + "  - c\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown unordered nested sibling outdents after existing nested list",
+    nested_prefix + "  - c\n",
+    @core.Edit::delete(
+      nested_prefix.length(),
+      nested_prefix.length() + "  ".length(),
+    ),
+    nested_prefix + "- c\n",
+  )
 }
 
 ///|

@@ -215,6 +215,54 @@ test "experimental MarkdownIR: CommonMark HTML renderer uses loose list spread" 
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps multi-item nested list tight" {
+  let source = "- a\n  - b\n  - c\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>a
+      #|<ul>
+      #|<li>b</li>
+      #|<li>c</li>
+      #|</ul>
+      #|</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer resumes top-level list after nested flow" {
+  let source = "- a\n  - b\n- c\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>a
+      #|<ul>
+      #|<li>b</li>
+      #|</ul>
+      #|</li>
+      #|<li>c</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer keeps mixed-marker loose lists separate" {
   let source = "- one\n\n+ two\n"
   let (cst, diagnostics) = try! parse_cst(source)
