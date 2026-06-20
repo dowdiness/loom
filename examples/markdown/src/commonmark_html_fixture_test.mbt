@@ -191,6 +191,26 @@ test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and li
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML renderer preserves whitespace-only list item inline syntax" {
+  let source = "- ` `\n- [](/)\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li><code> </code></li>
+      #|<li><a href="/"></a></li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer uses loose list spread" {
   let source = "- one\n\n- two\n"
   let (cst, diagnostics) = try! parse_cst(source)

@@ -373,6 +373,71 @@ test "experimental MarkdownIR: outdented marker resumes top-level list after nes
 }
 
 ///|
+test "experimental MarkdownIR: list item lazy continuation stays in item paragraph" {
+  let source = "- a\nb\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          debug_inspect(
+            item.children().map(child => child.kind_tag()),
+            content="[\"Paragraph\"]",
+          )
+          inspect(
+            experimental_markdown_ir_to_mdast_json(ir).stringify(),
+            content=(
+              #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"a\nb"}]}]}]}]}
+            ),
+          )
+          assert_markdown_ir_block_matches_direct_parse(source)
+        }
+        _ => inspect("unexpected list children", content="one item")
+      }
+    _ => inspect("unexpected document children", content="one list")
+  }
+}
+
+///|
+test "experimental MarkdownIR: non-one ordered marker lazy continuation stays in item paragraph" {
+  let source = "- a\n2. b\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"a\n2. b"}]}]}]}]}
+    ),
+  )
+  assert_markdown_ir_block_matches_direct_parse(source)
+}
+
+///|
+test "experimental MarkdownIR: indented non-one ordered marker starts nested ordered list" {
+  let source = "- a\n  2. b\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"a"}]},{"type":"list","ordered":true,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"b"}]}]}],"start":2}]}]}]}
+    ),
+  )
+  assert_markdown_ir_block_matches_direct_parse(source)
+}
+
+///|
+test "experimental MarkdownIR: list item preserves whitespace-only inline syntax" {
+  let source = "- ` `\n- [](/)\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"inlineCode","value":" "}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"link","url":"/","children":[]}]}]}]}]}
+    ),
+  )
+  assert_markdown_ir_block_matches_direct_parse(source)
+}
+
+///|
 test "experimental MarkdownIR: loose list separator sets list spread" {
   let source = "- one\n\n- two\n"
   let ir = markdown_ir_from_source(source)

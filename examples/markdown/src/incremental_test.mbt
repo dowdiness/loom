@@ -336,12 +336,66 @@ test "incremental: unordered list boundary-breaking edits fall back" {
   inspect(fence_reuse_count != 1, content="true")
   let marker_delete_start = first_item.length()
   let marker_delete_reuse_count = markdown_incremental_edit_reuse_count(
-    "markdown unordered list deletes unsafe middle marker",
+    "markdown unordered list deletes middle marker into lazy continuation",
     list_source,
     @core.Edit::delete(marker_delete_start, marker_delete_start + "- ".length()),
     first_item + "two\n" + last_item,
   )
-  inspect(marker_delete_reuse_count != 1, content="true")
+  inspect(marker_delete_reuse_count, content="1")
+}
+
+///|
+test "incremental: list item lazy continuation edits match full parse" {
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown lazy continuation text edit",
+    "- a\nb\n",
+    @core.Edit::new("- a\n".length(), "b".length(), "B".length()),
+    "- a\nB\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown non-one ordered marker lazy continuation text edit",
+    "- a\n2. b\n",
+    @core.Edit::new("- a\n2. ".length(), "b".length(), "B".length()),
+    "- a\n2. B\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown empty item rejects lazy paragraph continuation",
+    "- a\nfoo\n",
+    @core.Edit::delete("- ".length(), "- a".length()),
+    "- \nfoo\n",
+  )
+  let whitespace_only_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown whitespace-only item rejects lazy paragraph continuation",
+    "- a\nfoo\n",
+    @core.Edit::new("- ".length(), "a".length(), "  ".length()),
+    "-   \nfoo\n",
+  )
+  inspect(whitespace_only_reuse_count != 1, content="true")
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown empty item rejects ordered-marker lazy continuation",
+    "- a\n2. foo\n",
+    @core.Edit::delete("- ".length(), "- a".length()),
+    "- \n2. foo\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown whitespace-only item rejects ordered-marker lazy continuation",
+    "- a\n2. foo\n",
+    @core.Edit::new("- ".length(), "a".length(), "  ".length()),
+    "-   \n2. foo\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown indented ordered marker becomes nested list",
+    "- a\n2. b\n",
+    @core.Edit::insert("- a\n".length(), "  ".length()),
+    "- a\n  2. b\n",
+  )
+  let marker_delete_reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown middle marker deletion becomes lazy continuation",
+    "- one\n- two\n- three\n",
+    @core.Edit::delete("- one\n".length(), "- one\n- ".length()),
+    "- one\ntwo\n- three\n",
+  )
+  inspect(marker_delete_reuse_count, content="1")
 }
 
 ///|

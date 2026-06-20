@@ -26,6 +26,11 @@ const fixtures = [
     status: 'pass',
   },
   {
+    name: 'unordered-list-lazy-continuation',
+    source: '- a\nb\n',
+    status: 'pass',
+  },
+  {
     name: 'indented-unordered-list-markers',
     source: '- a\n - b\n  - c\n   - d\n  - e\n - f\n- g\n',
     status: 'pass',

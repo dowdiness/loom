@@ -572,29 +572,45 @@ fn lower_direct_inline_node_with_diags(
 }
 
 ///|
-fn lower_direct_inline_element_with_diags(
-  element : @seam.SyntaxElement,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
-) -> MarkdownIR? {
-  match element {
-    @seam.SyntaxElement::Token(token) =>
-      lower_direct_inline_token_with_diags(token, diagnostics_in_origin)
-    @seam.SyntaxElement::Node(node) =>
-      lower_direct_inline_node_with_diags(node, diagnostics_in_origin)
-  }
-}
-
-///|
-fn lower_direct_inline_children_with_diags(
+fn lower_direct_inline_children_with_newline_and_diags(
   node : @seam.SyntaxNode,
+  newline_text : String,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> Array[MarkdownIR] {
-  node
-  .direct_elements_iter()
-  .filter_map(element => {
-    lower_direct_inline_element_with_diags(element, diagnostics_in_origin)
-  })
-  .collect()
+  let children : Array[MarkdownIR] = []
+  let mut pending_newline : MarkdownIROrigin? = None
+  fn push_child(child : MarkdownIR) -> Unit {
+    match pending_newline {
+      Some(origin) => {
+        children.push(MarkdownIR::text(newline_text, origin))
+        pending_newline = None
+      }
+      None => ()
+    }
+    children.push(child)
+  }
+  for element in node.direct_elements_iter() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if token_kind == NewlineToken {
+          pending_newline = Some(origin_from_token(token))
+        } else {
+          match
+            lower_direct_inline_token_with_diags(token, diagnostics_in_origin) {
+            Some(child) => push_child(child)
+            None => ()
+          }
+        }
+      }
+      @seam.SyntaxElement::Node(node) =>
+        match lower_direct_inline_node_with_diags(node, diagnostics_in_origin) {
+          Some(child) => push_child(child)
+          None => ()
+        }
+    }
+  }
+  children
 }
 
 ///|
@@ -848,14 +864,36 @@ fn append_list_item_flow_block_children(
 }
 
 ///|
+fn markdown_ir_has_non_blank_inline_content(ir : MarkdownIR) -> Bool {
+  match ir.node {
+    Text(text) => string_has_non_blank_inline_content(text)
+    _ => true
+  }
+}
+
+///|
+fn markdown_ir_children_have_non_blank_content(
+  children : Array[MarkdownIR],
+) -> Bool {
+  children.iter().any(markdown_ir_has_non_blank_inline_content)
+}
+
+///|
 fn lower_list_item_flow_children_with_diags(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
-  let inline_children = lower_direct_inline_children_with_diags(
-    node, diagnostics_in_origin,
+  let lowered_inline_children = lower_direct_inline_children_with_newline_and_diags(
+    node, "\n", diagnostics_in_origin,
   )
+  let inline_children = if markdown_ir_children_have_non_blank_content(
+      lowered_inline_children,
+    ) {
+    lowered_inline_children
+  } else {
+    []
+  }
   let content_origin = span_origin_of_children(inline_children)
   let paragraph_origin = list_item_paragraph_origin(node, content_origin)
   let children = [
@@ -1489,7 +1527,31 @@ fn mdast_children_json(
   children : Array[MarkdownIR],
   context : MdastPositionContext?,
 ) -> Array[Json] {
-  children.map(child => markdown_ir_to_mdast_json(child, context))
+  match context {
+    Some(_) => children.map(child => markdown_ir_to_mdast_json(child, context))
+    None => {
+      let json_children : Array[Json] = []
+      let pending_text = StringBuilder::new()
+      fn flush_text() -> Unit {
+        let text = pending_text.to_string()
+        if text.length() > 0 {
+          json_children.push({ "type": "text", "value": text })
+          pending_text.reset()
+        }
+      }
+      for child in children {
+        match child.node {
+          Text(value) => pending_text.write_string(value)
+          _ => {
+            flush_text()
+            json_children.push(markdown_ir_to_mdast_json(child, None))
+          }
+        }
+      }
+      flush_text()
+      json_children
+    }
+  }
 }
 
 ///|

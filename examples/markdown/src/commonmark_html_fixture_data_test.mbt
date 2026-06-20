@@ -1,12 +1,13 @@
 // Selected from CommonMark 0.31.2 spec.json.
 // The embedded data keeps `moon test` hermetic: no Node/npm or network access is
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
-// and example number so later work can filter or promote the baseline.
-// Baseline: pass=15, xfail=2, skip=1.
+// and example number so later work can filter or promote the baseline. Example
+// 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
+// Baseline: pass=16, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (15, 2, 1)
+  (16, 2, 1)
 }
 
 ///|
@@ -130,6 +131,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "tight-nested-unordered-list",
       source: "- a\n  - b\n",
       expected_html: "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 0,
+      section: "Lists",
+      name: "lazy-unordered-list-item-continuation",
+      source: "- a\nb\n",
+      expected_html: "<ul>\n<li>a\nb</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

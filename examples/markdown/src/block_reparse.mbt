@@ -133,6 +133,7 @@ fn is_unordered_list_token_stream(
       let mut expect_marker = true
       let mut saw_marker = false
       let mut saw_content = false
+      let mut saw_non_blank_content = false
       for info in tokens {
         match info.token {
           EOF => ()
@@ -141,19 +142,44 @@ fn is_unordered_list_token_stream(
               expect_marker = false
               saw_marker = true
               saw_content = false
+              saw_non_blank_content = false
             } else {
               return false
             }
           Newline => expect_marker = true
+          token if token_continues_lazy_unordered_list_item(
+              token, expect_marker, saw_marker, saw_non_blank_content,
+            ) => {
+            expect_marker = false
+            saw_content = true
+            saw_non_blank_content = true
+          }
           token if expect_marker ||
             !token_stays_on_isolated_list_item_line(token, saw_content) =>
             return false
-          _ => saw_content = true
+          _ => {
+            saw_content = true
+            saw_non_blank_content = saw_non_blank_content ||
+              token_has_non_blank_inline_content(info.token)
+          }
         }
       }
       saw_marker
     }
   }
+}
+
+///|
+fn token_continues_lazy_unordered_list_item(
+  token : Token,
+  expect_marker : Bool,
+  saw_marker : Bool,
+  saw_non_blank_content : Bool,
+) -> Bool {
+  expect_marker &&
+  saw_marker &&
+  saw_non_blank_content &&
+  token_can_start_lazy_list_item_continuation(token, allow_ordered_marker=true)
 }
 
 ///|
@@ -321,6 +347,7 @@ fn unordered_list_context_allows_reparse(
   let mut expect_marker = true
   let mut saw_marker = false
   let mut saw_content = false
+  let mut saw_non_blank_content = false
   while result && ctx.peek() != EOF {
     match ctx.peek() {
       ListMarker =>
@@ -329,6 +356,7 @@ fn unordered_list_context_allows_reparse(
           expect_marker = false
           saw_marker = true
           saw_content = false
+          saw_non_blank_content = false
           ctx.emit_current_token()
         } else {
           result = false
@@ -337,11 +365,22 @@ fn unordered_list_context_allows_reparse(
         expect_marker = true
         ctx.emit_current_token()
       }
+      token if token_continues_lazy_unordered_list_item(
+          token, expect_marker, saw_marker, saw_non_blank_content,
+        ) => {
+        expect_marker = false
+        saw_content = true
+        saw_non_blank_content = true
+        ctx.emit_current_token()
+      }
       token if expect_marker ||
         !token_stays_on_isolated_list_item_line(token, saw_content) =>
         result = false
       _ => {
+        let token = ctx.peek()
         saw_content = true
+        saw_non_blank_content = saw_non_blank_content ||
+          token_has_non_blank_inline_content(token)
         ctx.emit_current_token()
       }
     }
