@@ -82,7 +82,6 @@ test "Parser: valid input - syntax_tree exists" {
 ///|
 test "Parser: set_source updates ast" {
   let parser = @loom.new_parser("1", @lambda.lambda_grammar)
-  let rt = parser.runtime()
   let t1 = parser.ast().read_or_abort()
   parser.set_source("2")
   let t2 = parser.ast().read_or_abort()
@@ -94,7 +93,6 @@ test "Parser: set_source updates ast" {
 test "Parser: set_source same value preserves ast (Eq)" {
   let source = "(f, x) => f x"
   let parser = @loom.new_parser(source, @lambda.lambda_grammar)
-  let rt = parser.runtime()
   let t1 = parser.ast().read_or_abort()
   parser.set_source(source)
   let t2 = parser.ast().read_or_abort()
@@ -106,7 +104,6 @@ test "Parser: set_source same value preserves ast (Eq)" {
 ///|
 test "Parser: set_source from error-recovery input to valid" {
   let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
-  let rt = parser.runtime()
   ignore(parser.syntax_tree().read_or_abort())
   parser.set_source("1 + 2")
   ignore(parser.syntax_tree().read_or_abort())
@@ -121,7 +118,6 @@ test "Parser: set_source from error-recovery input to valid" {
 /// an edit flows through all four published views in one batch.
 test "Parser: apply_edit updates source, ast, diagnostics" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
-  let rt = parser.runtime()
   inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
   // Replace "1 + 2" (length 5) with "3 + 4" (length 5).
@@ -136,7 +132,6 @@ test "Parser: apply_edit updates source, ast, diagnostics" {
 /// path even when the previous tree has error nodes.
 test "Parser: apply_edit from error state to valid" {
   let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
-  let rt = parser.runtime()
   assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
   // Append " x" — "(x) =>" (length 6) → "(x) => x".
   parser.apply_edit(@core.Edit::new(6, 0, 2), "(x) => x")
@@ -180,7 +175,6 @@ test "Parser: parity with parse" {
 /// identify unchanged trees across computation epochs.
 test "Parser: Term Eq holds after round-trip source change" {
   let parser = @loom.new_parser("(x) => x", lambda_grammar)
-  let rt = parser.runtime()
   let t1 = parser.ast().read_or_abort()
   parser.set_source("y") // change — triggers recomputation
   let _ = parser.ast().read_or_abort() // force the new computation epoch
