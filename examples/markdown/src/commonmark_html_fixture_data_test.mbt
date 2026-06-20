@@ -133,6 +133,11 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       expected_html: "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
+    // CommonMark 0.31.2 has numbered lazy-continuation coverage near this
+    // rule (notably list-item examples 290 and 292), but those fixtures also
+    // require ordered-list indentation plus indented-code/blockquote rendering
+    // or nested blockquote containers outside this fixture slice. Keep this
+    // minimal prose-rule guard until a narrow official fixture is available.
     {
       example: 0,
       section: "Lists",
