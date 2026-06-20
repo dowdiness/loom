@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=20, xfail=2, skip=1.
+// Baseline: pass=23, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (20, 2, 1)
+  (23, 2, 1)
 }
 
 ///|
@@ -206,6 +206,30 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "backslash-escapes-013",
       source: "\\\t\\A\\a\\ \\3\\φ\\«\n",
       expected_html: "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 29,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-029",
+      source: "&copy\n",
+      expected_html: "<p>&amp;copy</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 30,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-030",
+      source: "&MadeUpEntity;\n",
+      expected_html: "<p>&amp;MadeUpEntity;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 35,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-035",
+      source: "`f&ouml;&ouml;`\n",
+      expected_html: "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
