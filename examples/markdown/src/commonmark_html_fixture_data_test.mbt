@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=19, xfail=2, skip=1.
+// Baseline: pass=20, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (19, 2, 1)
+  (20, 2, 1)
 }
 
 ///|
@@ -199,6 +199,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlSkip(
         "Raw HTML passthrough mode is not part of the initial #326 baseline.",
       ),
+    },
+    {
+      example: 13,
+      section: "Backslash escapes",
+      name: "backslash-escapes-013",
+      source: "\\\t\\A\\a\\ \\3\\φ\\«\n",
+      expected_html: "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n",
+      status: CommonMarkHtmlPass,
     },
   ]
 }
