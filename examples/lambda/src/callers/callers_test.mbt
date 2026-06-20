@@ -438,8 +438,7 @@ test "visible_from: shadowing not modeled — same name visible at both scopes" 
   // 2 defs: top-level f and lambda-param f.
   inspect(fdefs.length(), content="2")
   // Find the lambda-param def by scope kind.
-  guard fdefs.iter().filter(d => d.scope is LambdaScope(_, _)).head()
-    is Some(d) else {
+  guard fdefs.iter().filter(d => d.scope is LambdaScope(_, _)).head() is Some(d) else {
     abort("test setup: expected one LambdaScope def of f")
   }
   // Both scopes report `f` as visible. The caveat is that no API call
