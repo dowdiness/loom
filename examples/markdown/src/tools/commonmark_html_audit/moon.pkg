@@ -1,0 +1,14 @@
+import {
+  "dowdiness/markdown",
+  "dowdiness/seam",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+}
+
+supported_targets = "+native"
+
+options(
+  "is-main": true,
+)

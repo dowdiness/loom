@@ -11,4 +11,3 @@ _build
 .worktrees/
 .slopless/
 graphify-out/
-examples/markdown/src/commonmark_html_audit_generated_test.mbt
