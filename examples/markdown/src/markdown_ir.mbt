@@ -866,16 +866,9 @@ fn append_list_item_flow_block_children(
 ///|
 fn markdown_ir_has_non_blank_inline_content(ir : MarkdownIR) -> Bool {
   match ir.node {
-    Text(text) => string_has_non_blank_inline_content(text)
+    Text(text) => direct_list_item_text_has_non_blank_content(text)
     _ => true
   }
-}
-
-///|
-fn markdown_ir_children_have_non_blank_content(
-  children : Array[MarkdownIR],
-) -> Bool {
-  children.iter().any(markdown_ir_has_non_blank_inline_content)
 }
 
 ///|
@@ -887,13 +880,9 @@ fn lower_list_item_flow_children_with_diags(
   let lowered_inline_children = lower_direct_inline_children_with_newline_and_diags(
     node, "\n", diagnostics_in_origin,
   )
-  let inline_children = if markdown_ir_children_have_non_blank_content(
-      lowered_inline_children,
-    ) {
-    lowered_inline_children
-  } else {
-    []
-  }
+  let inline_children = retain_direct_list_item_inline_children(
+    lowered_inline_children, markdown_ir_has_non_blank_inline_content,
+  )
   let content_origin = span_origin_of_children(inline_children)
   let paragraph_origin = list_item_paragraph_origin(node, content_origin)
   let children = [

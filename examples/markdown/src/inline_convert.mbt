@@ -93,14 +93,9 @@ fn convert_inline_children_with_newline(
 ///|
 fn inline_has_non_blank_content(inline : Inline) -> Bool {
   match inline {
-    Text(text) => string_has_non_blank_inline_content(text)
+    Text(text) => direct_list_item_text_has_non_blank_content(text)
     Bold(_) | Italic(_) | InlineCode(_) | Link(_, _) | Error(_) => true
   }
-}
-
-///|
-fn inline_children_have_non_blank_content(children : Array[Inline]) -> Bool {
-  children.iter().any(inline_has_non_blank_content)
 }
 
 ///|
@@ -142,11 +137,7 @@ fn convert_direct_inline_children_with_newline(
       }
     }
   }
-  if inline_children_have_non_blank_content(inlines) {
-    inlines
-  } else {
-    []
-  }
+  retain_direct_list_item_inline_children(inlines, inline_has_non_blank_content)
 }
 
 ///|
