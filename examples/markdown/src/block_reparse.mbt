@@ -13,7 +13,7 @@ fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
 /// that first character. Decline them without adding BlockReparseContext.
 fn paragraph_start_allows_reparse(text : String) -> Bool {
   match text {
-    ['#' | '-' | '*' | '+' | '`', ..] => false
+    ['#' | '-' | '*' | '+' | '`' | '>', ..] => false
     _ => true
   }
 }

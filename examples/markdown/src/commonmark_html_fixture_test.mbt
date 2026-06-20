@@ -352,3 +352,49 @@ test "experimental MarkdownIR: CommonMark HTML renderer leaves empty loose list 
     ),
   )
 }
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps quoted loose list in one blockquote" {
+  let source = "> - a\n>\n> - b\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<blockquote>
+      #|<ul>
+      #|<li>
+      #|<p>a</p>
+      #|</li>
+      #|<li>
+      #|<p>b</p>
+      #|</li>
+      #|</ul>
+      #|</blockquote>
+      #|
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps non-one quoted ordered markers in paragraphs" {
+  let source = "> text\n> 14. still text\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<blockquote>
+      #|<p>text
+      #|14. still text</p>
+      #|</blockquote>
+      #|
+    ),
+  )
+}

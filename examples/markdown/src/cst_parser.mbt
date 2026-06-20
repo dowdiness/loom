@@ -5,6 +5,7 @@ fn is_block_boundary(token : Token) -> Bool {
     HeadingMarker(_)
     | ListMarker
     | OrderedListMarker(_)
+    | BlockQuoteMarker
     | CodeFenceOpen(_, _)
     | BlankLine
     | EOF => true
@@ -33,6 +34,7 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_list(ctx)
     OrderedListMarker(_) => parse_ordered_list(ctx)
+    BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
     BlankLine =>
       // Consume blank lines (structural separators)
@@ -99,6 +101,174 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       // Continue paragraph on next line: consume newline and parse more inline.
       ctx.emit_token(NewlineToken)
       parse_paragraph_continuation_line(ctx)
+    }
+  })
+}
+
+///|
+fn token_continues_block_quote_paragraph(token : Token) -> Bool {
+  match token {
+    Newline | EOF => false
+    _ => !token_breaks_paragraph_after_newline(token)
+  }
+}
+
+///|
+fn parse_block_quote_paragraph(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(ParagraphNode, fn() {
+    parse_inline_content(ctx)
+    while ctx.peek() is Newline {
+      if ctx.peek_nth(1) is BlockQuoteMarker &&
+        token_continues_block_quote_paragraph(ctx.peek_nth(2)) {
+        ctx.emit_token(NewlineToken)
+        ctx.emit_token(BlockQuoteMarkerToken)
+        parse_paragraph_continuation_line(ctx)
+      } else {
+        ctx.emit_token(NewlineToken)
+        break
+      }
+    }
+  })
+}
+
+///|
+fn consume_quoted_list_item_separator_if_matching(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
+) -> Bool {
+  guard ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker else {
+    return false
+  }
+  ctx.emit_token(NewlineToken)
+  ctx.emit_token(BlockQuoteMarkerToken)
+  while ctx.peek() is BlankLine && ctx.peek_nth(1) is BlockQuoteMarker {
+    ctx.emit_token(BlankLineToken)
+    ctx.emit_token(BlockQuoteMarkerToken)
+  }
+  matches_marker(ctx)
+}
+
+///|
+fn block_quote_list_continuation_matches(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
+) -> Bool {
+  let checkpoint = ctx.checkpoint()
+  let matches = consume_quoted_list_item_separator_if_matching(
+    ctx, matches_marker,
+  )
+  ctx.restore(checkpoint)
+  matches
+}
+
+///|
+fn parse_block_quote_marker_scoped_list(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  list_kind : SyntaxKind,
+  marker_matches : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
+  parse_item : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
+) -> Unit {
+  ctx.node(list_kind, fn() {
+    while marker_matches(ctx) {
+      parse_item(ctx)
+      if block_quote_list_continuation_matches(ctx, marker_matches) {
+        ignore(
+          consume_quoted_list_item_separator_if_matching(ctx, marker_matches),
+        )
+      } else {
+        break
+      }
+    }
+  })
+}
+
+///|
+fn parse_block_quote_list_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Unit {
+  match current_unordered_list_marker(ctx) {
+    Some(opening_marker) =>
+      parse_block_quote_marker_scoped_list(
+        ctx,
+        UnorderedListNode,
+        ctx => {
+          list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+        },
+        parse_list_item,
+      )
+    None => ()
+  }
+}
+
+///|
+fn parse_block_quote_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_block_quote_list_at_min_indent(ctx, 0)
+}
+
+///|
+fn parse_block_quote_ordered_list_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Unit {
+  match current_ordered_list_marker(ctx) {
+    Some(opening_marker) =>
+      parse_block_quote_marker_scoped_list(
+        ctx,
+        OrderedListNode,
+        ctx => {
+          ordered_list_marker_matches_at_min_indent(
+            ctx, opening_marker, min_indent,
+          )
+        },
+        parse_ordered_list_item,
+      )
+    None => ()
+  }
+}
+
+///|
+fn parse_block_quote_ordered_list(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  parse_block_quote_ordered_list_at_min_indent(ctx, 0)
+}
+
+///|
+fn parse_block_quote_after_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  match ctx.peek() {
+    HeadingMarker(_) => parse_heading(ctx)
+    ListMarker => parse_block_quote_list(ctx)
+    OrderedListMarker(_) => parse_block_quote_ordered_list(ctx)
+    BlockQuoteMarker => parse_block_quote(ctx)
+    CodeFenceOpen(_, _) => parse_code_block(ctx)
+    Newline => ctx.emit_token(NewlineToken)
+    BlankLine => ctx.emit_token(BlankLineToken)
+    EOF => ()
+    _ => parse_block_quote_paragraph(ctx)
+  }
+}
+
+///|
+fn consume_block_quote_child_separator(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  if ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker {
+    ctx.emit_token(NewlineToken)
+  }
+}
+
+///|
+fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  ctx.node(BlockQuoteNode, fn() {
+    while ctx.peek() is BlockQuoteMarker {
+      ctx.emit_token(BlockQuoteMarkerToken)
+      parse_block_quote_after_marker(ctx)
+      consume_block_quote_child_separator(ctx)
     }
   })
 }

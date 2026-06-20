@@ -128,6 +128,10 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       "<p>" +
       markdown_ir_inline_children_to_commonmark_html(children) +
       "</p>\n"
+    BlockQuote(children) =>
+      "<blockquote>\n" +
+      markdown_ir_children_to_commonmark_html(children) +
+      "</blockquote>\n"
     UnorderedList(children, spread, _) =>
       "<ul>\n" +
       markdown_ir_nodes_to_commonmark_html(children, parent_list_spread=spread) +

@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=118, xfail=2, skip=1.
+// Baseline: pass=120, xfail=1, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (118, 2, 1)
+  (120, 1, 1)
 }
 
 ///|
@@ -186,9 +186,15 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "blockquote-container",
       source: "> # Foo\n> bar\n> baz\n",
       expected_html: "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n",
-      status: CommonMarkHtmlXfail(
-        "Block/container semantics are tracked by #327.",
-      ),
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 235,
+      section: "Block quotes",
+      name: "blockquote-list-closes-before-unquoted-list",
+      source: "> - foo\n- bar\n",
+      expected_html: "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
     },
     {
       example: 159,
