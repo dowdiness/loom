@@ -109,6 +109,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 
 Point-in-time diagnoses. Dated snapshots — verify against current code before acting.
 
+- [analysis/2026-06-20-parser-generation-direction.md](analysis/2026-06-20-parser-generation-direction.md) — recommendation + de-risk spike for "morm-style parser-generation-friendly" loom: loomgen plumbing = target, grammar-as-data interpreter = spike-gated hypothesis, ideal = one grammar value as single source; the spike's CST-master-invariant oracle and (i)-vs-(ii) equivalence-bar fork
 - [analysis/2026-05-08-architecture-status-update.md](analysis/2026-05-08-architecture-status-update.md) — delta on the 2026-04-19 diagnosis: what shipped, revised Stage C (egraph stays as peer library — supersedes prior `experiments/` proposal)
 - [analysis/2026-04-19-architecture-diagnosis.md](analysis/2026-04-19-architecture-diagnosis.md) — change pressures, sibling-module boundary issues, staged migration proposal (Stages A–D)
 
