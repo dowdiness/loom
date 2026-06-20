@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=45, xfail=2, skip=1.
+// Baseline: pass=54, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (45, 2, 1)
+  (54, 2, 1)
 }
 
 ///|
@@ -406,6 +406,78 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "blank-lines-227",
       source: "  \n\naaa\n  \n\n# aaa\n\n  \n",
       expected_html: "<p>aaa</p>\n<h1>aaa</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 261,
+      section: "List items",
+      name: "list-items-261",
+      source: "-one\n\n2.two\n",
+      expected_html: "<p>-one</p>\n<p>2.two</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 265,
+      section: "List items",
+      name: "list-items-265",
+      source: "123456789. ok\n",
+      expected_html: "<ol start=\"123456789\">\n<li>ok</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 266,
+      section: "List items",
+      name: "list-items-266",
+      source: "1234567890. not ok\n",
+      expected_html: "<p>1234567890. not ok</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 267,
+      section: "List items",
+      name: "list-items-267",
+      source: "0. ok\n",
+      expected_html: "<ol start=\"0\">\n<li>ok</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 268,
+      section: "List items",
+      name: "list-items-268",
+      source: "003. ok\n",
+      expected_html: "<ol start=\"3\">\n<li>ok</li>\n</ol>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 269,
+      section: "List items",
+      name: "list-items-269",
+      source: "-1. not ok\n",
+      expected_html: "<p>-1. not ok</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 282,
+      section: "List items",
+      name: "list-items-282",
+      source: "- foo\n-   \n- bar\n",
+      expected_html: "<ul>\n<li>foo</li>\n<li></li>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 295,
+      section: "List items",
+      name: "list-items-295",
+      source: "- foo\n - bar\n  - baz\n   - boo\n",
+      expected_html: "<ul>\n<li>foo</li>\n<li>bar</li>\n<li>baz</li>\n<li>boo</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 297,
+      section: "List items",
+      name: "list-items-297",
+      source: "10) foo\n   - bar\n",
+      expected_html: "<ol start=\"10\">\n<li>foo</li>\n</ol>\n<ul>\n<li>bar</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
   ]
