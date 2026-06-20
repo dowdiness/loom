@@ -127,7 +127,7 @@ test "experimental MarkdownIR: CommonMark HTML fixture filters use CommonMark me
     commonmark_html_fixture_cases_for_section("ATX headings").map(fixture => {
       fixture.example
     }),
-    content="[62, 65]",
+    content="[62, 65, 63, 64, 74, 75, 78]",
   )
   match commonmark_html_fixture_case_by_example(119) {
     Some(fixture) => inspect(fixture.section, content="Fenced code blocks")

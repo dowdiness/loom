@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=26, xfail=2, skip=1.
+// Baseline: pass=31, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (26, 2, 1)
+  (31, 2, 1)
 }
 
 ///|
@@ -254,6 +254,46 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "thematic-breaks-055",
       source: "_ _ _ _ a\n\na------\n\n---a---\n",
       expected_html: "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 63,
+      section: "ATX headings",
+      name: "atx-headings-063",
+      source: "####### foo\n",
+      expected_html: "<p>####### foo</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 64,
+      section: "ATX headings",
+      name: "atx-headings-064",
+      source: "#5 bolt\n\n#hashtag\n",
+      expected_html: "<p>#5 bolt</p>\n<p>#hashtag</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 74,
+      section: "ATX headings",
+      name: "atx-headings-074",
+      source: "### foo ### b\n",
+      expected_html: "<h3>foo ### b</h3>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 75,
+      section: "ATX headings",
+      name: "atx-headings-075",
+      source: "# foo#\n",
+      expected_html: "<h1>foo#</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 78,
+      section: "ATX headings",
+      name: "atx-headings-078",
+      source: "Foo bar\n# baz\nBar foo\n",
+      expected_html: "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
