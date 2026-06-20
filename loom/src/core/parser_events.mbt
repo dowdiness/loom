@@ -1,0 +1,136 @@
+// Generic parser infrastructure — event emission, nodes, and checkpoints
+
+///|
+/// Emit all consecutive trivia tokens at current position to the event stream,
+/// advancing position past each one. Call this before emitting syntactic tokens,
+/// and at the end of the top-level grammar function before returning.
+pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(
+  self : ParserContext[T, K],
+) -> Unit {
+  while self.position < self.token_count {
+    let token = (self.get_token)(self.position)
+    if token.is_trivia() {
+      let text = self.text_at(self.position)
+      self.events.push(
+        @seam.ParseEvent::Token(self.spec.whitespace_kind.to_raw(), text),
+      )
+      self.position = self.position + 1
+    } else {
+      break
+    }
+  }
+}
+
+///|
+/// Consume the current token and emit it as a leaf in the CST.
+/// Automatically flushes leading trivia before the token.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(
+  self : ParserContext[T, K],
+  kind : K,
+) -> Unit {
+  self.flush_trivia()
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let text = self.text_at(pos)
+      self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
+      self.position = pos + 1
+    }
+    _ => {
+      self.error("emit_token: unexpected EOF")
+      self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
+    }
+  }
+}
+
+///|
+/// Consume the current token and emit it using the token's own raw kind.
+///
+/// Use this only for grammars where the token raw kind is also the CST leaf
+/// kind. Grammars with a distinct syntax-kind layer should keep mapping
+/// `ctx.peek()` to a `K` and call `emit_token(kind)` instead.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_current_token(
+  self : ParserContext[T, K],
+) -> Unit {
+  self.flush_trivia()
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let token = (self.get_token)(pos)
+      let text = self.text_at(pos)
+      self.events.push(@seam.ParseEvent::Token(token.to_raw(), text))
+      self.position = pos + 1
+    }
+    _ => {
+      self.error("emit_current_token: unexpected EOF")
+      self.emit_incomplete_placeholder()
+    }
+  }
+}
+
+///|
+/// Open a new node. Must be followed by finish_node().
+pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(
+  self : ParserContext[T, K],
+  kind : K,
+) -> Unit {
+  self.open_nodes = self.open_nodes + 1
+  self.events.push(@seam.StartNode(kind.to_raw()))
+}
+
+///|
+/// Close the most recently opened node.
+pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
+  if self.open_nodes <= 0 {
+    return
+  }
+  self.open_nodes = self.open_nodes - 1
+  self.events.push(@seam.FinishNode)
+}
+
+///|
+/// Reserve a placeholder that can later be claimed by start_at.
+/// Used for retroactive wrapping (e.g. binary expressions, applications).
+pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
+  self.events.mark()
+}
+
+///|
+/// Save the current parse state for speculative parsing.
+pub fn[T, K] ParserContext::checkpoint(
+  self : ParserContext[T, K],
+) -> Checkpoint[T, K] {
+  let reuse_cursor = self.reuse_cursor.map(cursor => cursor.snapshot())
+  {
+    position: self.position,
+    events_len: self.events.length(),
+    error_count: self.error_count,
+    open_nodes: self.open_nodes,
+    reuse_cursor,
+    reuse_count: self.reuse_count,
+  }
+}
+
+///|
+/// Restore parser state saved by checkpoint().
+pub fn[T, K] ParserContext::restore(
+  self : ParserContext[T, K],
+  cp : Checkpoint[T, K],
+) -> Unit {
+  self.position = cp.position
+  self.events.truncate(cp.events_len)
+  self.diagnostics.truncate(cp.error_count)
+  self.error_count = cp.error_count
+  self.open_nodes = cp.open_nodes
+  self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
+  self.reuse_count = cp.reuse_count
+}
+
+///|
+/// Retroactively open a node at a previously marked position.
+pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
+  self : ParserContext[T, K],
+  mark : Int,
+  kind : K,
+) -> Unit {
+  self.events.start_at(mark, kind.to_raw())
+  self.open_nodes = self.open_nodes + 1
+}
