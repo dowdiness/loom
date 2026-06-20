@@ -50,14 +50,14 @@ fn test_item_with_id(
 
 ///|
 fn test_item_ids(items : Array[TestStableProjectionItem]) -> Array[String] {
-  items.map(fn(item) { item.id })
+  items.map(item => item.id)
 }
 
 ///|
 fn test_item_summaries(
   items : Array[TestStableProjectionItem],
 ) -> Array[String] {
-  items.map(fn(item) {
+  items.map(item => {
     item.family +
     ":" +
     item.text +

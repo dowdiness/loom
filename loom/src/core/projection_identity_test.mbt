@@ -15,7 +15,7 @@ fn test_stable(
 
 ///|
 fn test_ids(leaves : Array[StableProjectionLeaf[String]]) -> Array[String] {
-  leaves.map(fn(leaf) { leaf.id })
+  leaves.map(leaf => leaf.id)
 }
 
 ///|
