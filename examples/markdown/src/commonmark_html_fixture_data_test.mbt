@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=101, xfail=2, skip=1.
+// Baseline: pass=106, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (101, 2, 1)
+  (106, 2, 1)
 }
 
 ///|
@@ -854,6 +854,46 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-478",
       source: "*a `*`*\n",
       expected_html: "<p><em>a <code>*</code></em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 484,
+      section: "Links",
+      name: "links-484",
+      source: "[](./target.md)\n",
+      expected_html: "<p><a href=\"./target.md\"></a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 485,
+      section: "Links",
+      name: "links-485",
+      source: "[link]()\n",
+      expected_html: "<p><a href=\"\">link</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 487,
+      section: "Links",
+      name: "links-487",
+      source: "[]()\n",
+      expected_html: "<p><a href=\"\"></a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 496,
+      section: "Links",
+      name: "links-496",
+      source: "[link](foo(and(bar)))\n",
+      expected_html: "<p><a href=\"foo(and(bar))\">link</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 501,
+      section: "Links",
+      name: "links-501",
+      source: "[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n",
+      expected_html: "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"https://example.com#fragment\">link</a></p>\n<p><a href=\"https://example.com?foo=3#frag\">link</a></p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
