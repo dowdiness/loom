@@ -84,16 +84,6 @@ fn AuditOutcome::label(self : AuditOutcome) -> String {
 }
 
 ///|
-fn usage() -> String {
-  "Usage: moon run src/tools/commonmark_html_audit --target native -- [--spec path/to/spec.json]\n\n" +
-  "Reads CommonMark " +
-  COMMONMARK_VERSION +
-  " spec.json and audits MarkdownIR -> CommonMark HTML output.\n" +
-  "Default spec path: " +
-  DEFAULT_SPEC_PATH
-}
-
-///|
 fn program_args(args : Array[String]) -> ArrayView[String] {
   match args {
     [_, .. rest] => rest
@@ -102,32 +92,46 @@ fn program_args(args : Array[String]) -> ArrayView[String] {
 }
 
 ///|
+fn first_value(
+  values : Map[String, Array[String]],
+  key : String,
+  default : String,
+) -> String {
+  match values.get(key) {
+    Some([value, ..]) => value
+    _ => default
+  }
+}
+
+///|
+fn audit_command() -> @argparse.Command {
+  @argparse.Command(
+    "commonmark-html-audit",
+    options=[
+      @argparse.OptionArg(
+        "spec",
+        default_values=[DEFAULT_SPEC_PATH],
+        about="Path to CommonMark spec.json (default: " +
+          DEFAULT_SPEC_PATH +
+          ")",
+      ),
+    ],
+    about="Audit MarkdownIR -> CommonMark HTML output against CommonMark " +
+      COMMONMARK_VERSION +
+      ".",
+  )
+}
+
+///|
 fn parse_args(args : ArrayView[String]) -> AuditOptions {
-  for i = 0, spec_path = DEFAULT_SPEC_PATH {
-    if i >= args.length() {
-      break { spec_path, }
-    }
-    match args[i] {
-      "--help" | "-h" => {
-        println(usage())
-        @sys.exit(0)
-        break { spec_path, }
-      }
-      "--spec" => {
-        if i + 1 >= args.length() {
-          println("error: --spec requires a path")
-          @sys.exit(2)
-          break { spec_path, }
-        }
-        continue i + 2, args[i + 1].to_string()
-      }
-      unknown => {
-        println("error: unknown argument: " + unknown.to_string())
-        @sys.exit(2)
-        break { spec_path, }
-      }
+  let matches = audit_command().parse(argv=args, env={}) catch {
+    err => {
+      println(err.to_string())
+      @sys.exit(2)
+      return { spec_path: DEFAULT_SPEC_PATH }
     }
   }
+  { spec_path: first_value(matches.values, "spec", DEFAULT_SPEC_PATH) }
 }
 
 ///|

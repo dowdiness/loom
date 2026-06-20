@@ -1,6 +1,7 @@
 import {
   "dowdiness/markdown",
   "dowdiness/seam",
+  "moonbitlang/core/argparse",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/x/fs",
