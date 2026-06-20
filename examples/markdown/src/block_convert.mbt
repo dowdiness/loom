@@ -52,7 +52,7 @@ pub fn markdown_fold_node(
       Block::UnorderedList(items)
     }
     ListItemNode => {
-      let inlines = convert_inline_children(node)
+      let inlines = convert_direct_inline_children_with_newline(node, "\n")
       Block::ListItem(inlines)
     }
     CodeBlockNode => {

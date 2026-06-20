@@ -1,4 +1,19 @@
 ///|
+fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
+  match kind {
+    TextToken | ErrorToken | ErrorNode => Some(text)
+    StarToken => Some("*")
+    StarStarToken => Some("**")
+    BacktickToken => Some("`")
+    LeftBracketToken => Some("[")
+    RightBracketToken => Some("]")
+    LeftParenToken => Some("(")
+    RightParenToken => Some(")")
+    _ => None
+  }
+}
+
+///|
 /// Convert the inline children of a node to an Array[Inline].
 /// `skip_kind` optionally specifies a delimiter token kind to skip
 /// (e.g., StarStarToken inside BoldNode, StarToken inside ItalicNode).
@@ -27,7 +42,6 @@ fn convert_inline_children_skip(
           continue
         }
         match tok_kind {
-          TextToken => push_inline(Inline::Text(tok.text()))
           // Skip structural tokens (HeadingMarker, ListMarker, Newline, etc.)
           HeadingMarkerToken
           | ListMarkerToken
@@ -38,16 +52,11 @@ fn convert_inline_children_skip(
           | CodeFenceCloseToken
           | CodeTextToken => ()
           NewlineToken => pending_newline = newline_text is Some(_)
-          // Orphan delimiters in error recovery get rendered as text
-          StarToken => push_inline(Inline::Text("*"))
-          StarStarToken => push_inline(Inline::Text("**"))
-          BacktickToken => push_inline(Inline::Text("`"))
-          LeftBracketToken => push_inline(Inline::Text("["))
-          RightBracketToken => push_inline(Inline::Text("]"))
-          LeftParenToken => push_inline(Inline::Text("("))
-          RightParenToken => push_inline(Inline::Text(")"))
-          ErrorToken | ErrorNode => push_inline(Inline::Text(tok.text()))
-          _ => ()
+          _ =>
+            match inline_text_from_token_kind(tok_kind, tok.text()) {
+              Some(text) => push_inline(Inline::Text(text))
+              None => ()
+            }
         }
       }
       @seam.SyntaxElement::Node(child) => {
@@ -79,6 +88,65 @@ fn convert_inline_children_with_newline(
   newline_text : String,
 ) -> Array[Inline] {
   convert_inline_children_skip(node, None, Some(newline_text))
+}
+
+///|
+fn inline_has_non_blank_content(inline : Inline) -> Bool {
+  match inline {
+    Text(text) => string_has_non_blank_inline_content(text)
+    Bold(_) | Italic(_) | InlineCode(_) | Link(_, _) | Error(_) => true
+  }
+}
+
+///|
+fn inline_children_have_non_blank_content(children : Array[Inline]) -> Bool {
+  children.iter().any(inline_has_non_blank_content)
+}
+
+///|
+fn convert_direct_inline_children_with_newline(
+  node : @seam.SyntaxNode,
+  newline_text : String,
+) -> Array[Inline] {
+  let inlines : Array[Inline] = []
+  let mut pending_newline = false
+  fn flush_newline() -> Unit {
+    if pending_newline {
+      inlines.push(Inline::Text(newline_text))
+      pending_newline = false
+    }
+  }
+  for elem in node.direct_elements_iter() {
+    match elem {
+      @seam.SyntaxElement::Token(tok) => {
+        let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
+        match tok_kind {
+          NewlineToken => pending_newline = true
+          _ =>
+            match inline_text_from_token_kind(tok_kind, tok.text()) {
+              Some(text) => {
+                flush_newline()
+                inlines.push(Inline::Text(text))
+              }
+              None => ()
+            }
+        }
+      }
+      @seam.SyntaxElement::Node(child) => {
+        let converted : Array[Inline] = []
+        convert_inline_node(child, converted)
+        if converted.length() > 0 {
+          flush_newline()
+          inlines.append(converted)
+        }
+      }
+    }
+  }
+  if inline_children_have_non_blank_content(inlines) {
+    inlines
+  } else {
+    []
+  }
 }
 
 ///|

@@ -106,11 +106,98 @@ test "parse: outdented marker resumes top-level list after nested CST container"
 }
 
 ///|
+test "parse: indented non-one ordered marker starts nested ordered CST container" {
+  let (cst, _) = try! parse_cst("- a\n  2. b\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.children() {
+            [nested] => {
+              let nested_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                nested.kind(),
+              )
+              inspect(nested_kind, content="OrderedListNode")
+            }
+            _ => inspect(item.children().length(), content="one nested list")
+          }
+        _ => inspect(list.children().length(), content="one item")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
 test "parse: loose list separated by blank line" {
   let block = parse("- one\n\n- two\n")
   inspect(
     block,
     content="Document([UnorderedList([ListItem([Text(\"one\")]), ListItem([Text(\"two\")])])])",
+  )
+}
+
+///|
+test "parse: list item lazy continuation stays in item" {
+  let block = parse("- a\nb\n")
+  inspect(
+    block,
+    content="Document([UnorderedList([ListItem([Text(\"a\"), Text(\"\\n\"), Text(\"b\")])])])",
+  )
+}
+
+///|
+test "parse: non-one ordered marker lazy continuation stays in item" {
+  let block = parse("- a\n2. b\n")
+  inspect(
+    block,
+    content="Document([UnorderedList([ListItem([Text(\"a\"), Text(\"\\n\"), Text(\"2. \"), Text(\"b\")])])])",
+  )
+}
+
+///|
+test "parse: empty list item does not start lazy continuation paragraph" {
+  inspect(
+    parse("- \nfoo\n"),
+    content="Document([UnorderedList([ListItem([])]), Paragraph([Text(\"foo\")])])",
+  )
+  inspect(
+    parse("-   \nfoo\n"),
+    content="Document([UnorderedList([ListItem([])]), Paragraph([Text(\"foo\")])])",
+  )
+  inspect(
+    parse("- \n2. foo\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    UnorderedList([ListItem([])]),
+      #|    UnorderedList([ListItem([Text("foo")])]),
+      #|  ],
+      #|)
+    ),
+  )
+  inspect(
+    parse("-   \n2. foo\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    UnorderedList([ListItem([])]),
+      #|    UnorderedList([ListItem([Text("foo")])]),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
+test "parse: list item preserves whitespace-only inline syntax" {
+  inspect(
+    parse("- ` `\n"),
+    content="Document([UnorderedList([ListItem([InlineCode(\" \")])])])",
+  )
+  inspect(
+    parse("- [](/)\n"),
+    content="Document([UnorderedList([ListItem([Link([], \"/\")])])])",
   )
 }
 
