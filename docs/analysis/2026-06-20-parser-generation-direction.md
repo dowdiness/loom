@@ -85,9 +85,11 @@ every named rule is a frame and therefore a reuse window.
 7. **incr 0.9.0 shipped `AcceptedDerived[V, E]`** — an engine-level last-good
    primitive: an `Err(e)` candidate **retains** the prior accepted value while
    the current channel still reports the error. **`BackdateEq` is now a
-   first-class acceptance tier** (#232): `accepted_memo` gates acceptance by
-   *revision identity* for non-`Eq` values carrying a `Revision`. #233 fixed a
-   silent-freshness bug in the watched fold under dynamic diamond dependencies.
+   first-class acceptance tier** (`#232` — verified via the incr git-log commit
+   subject `24a87b0`; note the `[0.9.0]` CHANGELOG itself cites only `#233`):
+   `accepted_memo` gates acceptance by *revision identity* for non-`Eq` values
+   carrying a `Revision`. `#233` fixed a silent-freshness bug in the watched fold
+   under dynamic diamond dependencies.
    **loom does not consume `AcceptedDerived` yet** (it hand-rolls last-good in
    `projection_identity.mbt`).
 
@@ -95,9 +97,11 @@ every named rule is a frame and therefore a reuse window.
 
 ### 4.1 The literal question, answered precisely
 
-- **loomgen plumbing codegen = a real target. Commit to it.** Proven pattern,
-  ~1,200 lines/language of mechanical glue, inspectable output, behaviour
-  verified by existing tests. *Committing to loomgen as a target is separate from
+- **loomgen plumbing codegen = a real target. Commit to it** — *pending a
+  Layer-1 adversarial pass (§8) that has not yet happened.* Proven pattern,
+  ≈1,200 lines/language of mechanical glue, inspectable output, behaviour
+  verified by existing tests. (Caveat: every review round so far targeted Layer 2;
+  this "commit" is the least-scrutinised claim in the doc — see §8.) *Committing to loomgen as a target is separate from
   its build order:* per §4.4 its build waits for the spike-derived IR contract so
   its annotation schema converges toward the grammar IR rather than diverging.
 - **Grammar-as-data interpreter (replacing the 814-line hand parser) = a
@@ -324,6 +328,16 @@ drop-in (D1/D2) *and* materially cheaper to author (E1/E2). A safe-but-not-cheap
 result is a **"no"** — the motivation was ergonomics, so ergonomics is the success
 metric, not a footnote.
 
+**Shared vehicle, separate gates (do not fuse them).** E3 (reuse) and the §5.5
+projectional-language follow-up share *one test vehicle* — a second, harder
+language — and it is efficient to run them on that one vehicle at once. But they
+are **distinct measurements on distinct axes**: safety-sprawl via `tree_diff`
+(D2a), ergonomics-sprawl via escape-hatch count / authoring cost (E2/E1), reuse
+via the second grammar's marginal cost (E3). Calling them "the same experiment"
+risks dissolving the conjunctive gate ("safety AND ergonomics") into one holistic
+pass/fail — which is exactly the safety≠ergonomics axis-conflation this section
+warns against. Keep it: **one vehicle, three measurements, an explicit AND.**
+
 ## 6. ROADMAP non-goal #1 — revisit, evidence-gated
 
 Non-goal #1: "Parser generation. Hand-written recursive descent. Checkpoint-based
@@ -407,6 +421,24 @@ safety-vs-ergonomics framing, new §5.6 ergonomics gate (E1/E2/E3 + "GO needs
 safety AND ergonomics"), §8 sprawl-attacks-motivation note, §9 ergonomics
 deliverable. Also softened the "*the* parser" singularization in finding 2.
 
+**Round-5 review (meta — review of the assessment).** The reviewer re-verified
+finding 7 in the populated main checkout and caught a precision slip: the doc
+cited `#232` for the `BackdateEq` tier, but the `[0.9.0]` CHANGELOG cites only
+`#233`. Resolved — `#232` is real (git-log commit `24a87b0`) but
+CHANGELOG-unconfirmed; provenance now noted in finding 7. Three structural catches
+on the *assessment*, folded in: (A) "the ergonomics gate and the
+projectional-language follow-up are the same experiment" risked dissolving the
+conjunctive gate → reframed as **shared vehicle, separate gates** (§5.6). (B)
+"converged" was overstated — the best catch arriving in the *last* round is weak
+evidence for convergence, and all rounds targeted Layer 2 while the *committed*
+target (loomgen / Layer 1) had no adversarial pass → §4.1 commitment softened, §8
+review-asymmetry risk added, "converged" retracted pending a Layer-1 pass. (C)
+"Principle 1 catch, not Principle 4" was a false binary (the catch came *from*
+Principle-4 activity and *exposed* a Principle-1 problem) → conceded. Attribution
+corrected: the ergonomics axis was **co-generated** — the "easier-to-author"
+motive was supplied earlier in-conversation; the reviewer supplied "the spike
+does not measure it."
+
 ## 8. Open risks / what would invalidate this direction
 
 - **Interpreter hot-path performance.** Walking a grammar IR per token may
@@ -424,7 +456,17 @@ deliverable. Also softened the "*the* parser" singularization in finding 2.
   signal. Note there is a *performance* gate (interpreter benchmark, above) but
   the *ergonomics* gate (§5.6) is the one this risk lands on.
 - **incr freshness.** `AcceptedDerived` / `BackdateEq` shipped only at 0.9.0
-  (#232) with a freshness fix at #233; any migration onto it leans on new code.
+  (`#232`) with a freshness fix at `#233`; any migration onto it leans on new code.
+- **Layer 1 / loomgen is itself unreviewed (review-asymmetry risk).** All four
+  adversarial review rounds targeted Layer 2 (the grammar-as-data *hypothesis*).
+  The *committed* target — loomgen — has had **no** adversarial pass. The
+  symmetric, unexamined risk: is the ≈1,200 lines actually *mechanical*
+  (codegen-derivable from the `Term` enum), or does plumbing like `views.mbt`
+  (644 lines) encode projection judgment that resists codegen — making loomgen's
+  payoff evaporate the way escape-hatch sprawl threatens Layer 2's? "Commit to
+  loomgen" is contingent on a Layer-1 adversarial pass; declaring the doc
+  "converged" before that pass would repeat the "problem double-checked, solution
+  single-checked" asymmetry.
 
 ## 9. Decision status & next step
 
