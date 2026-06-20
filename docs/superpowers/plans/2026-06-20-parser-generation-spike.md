@@ -21,7 +21,7 @@
 
 ## File Structure
 
-- `examples/lambda/src/spike/moon.pkg.json` — isolated package manifest importing only lambda public packages and verified loom/seam/incr packages.
+- `examples/lambda/src/spike/moon.pkg` — isolated package manifest (stanza `import { … }` syntax, matching the repo's active `moon.pkg` format — NOT `moon.pkg.json`) importing only lambda public packages and verified loom/seam/incr packages.
 - `examples/lambda/src/spike/types.mbt` — spike-local grammar IR, rule identifiers, divergence classification, fixture, and measurement result types.
 - `examples/lambda/src/spike/interpreter.mbt` — IR interpreter that walks grammar data and calls verified `ParserContext` primitives.
 - `examples/lambda/src/spike/lambda_ir.mbt` — lambda grammar-IR value and B grammar construction.
@@ -97,55 +97,26 @@ The implementation must not assume any loom/lambda symbol outside this list. If 
 
 ### Task 0: Scaffold Isolated Spike Package
 
-**Files:** `examples/lambda/src/spike/moon.pkg.json`, `examples/lambda/src/spike/spike_smoke_test.mbt`
+**Files:** `examples/lambda/src/spike/moon.pkg`, `examples/lambda/src/spike/spike_smoke_test.mbt`
 
 **Interfaces:**
 
 - Consumes `pub fn @lambda.parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`.
 - Produces no public API yet.
 
-- [ ] Create `examples/lambda/src/spike/moon.pkg.json` with only public imports:
+- [ ] Create `examples/lambda/src/spike/moon.pkg` — the repo's active package-manifest format is the stanza `moon.pkg`, **not** `moon.pkg.json` (see `examples/lambda/src/moon.pkg` and `examples/lambda/src/lexer/moon.pkg`). Each path's default alias is its last segment, so no `@alias` is needed:
 
-```json
-{
-  "import": [
-    {
-      "path": "dowdiness/lambda",
-      "alias": "lambda"
-    },
-    {
-      "path": "dowdiness/lambda/token",
-      "alias": "token"
-    },
-    {
-      "path": "dowdiness/lambda/syntax",
-      "alias": "syntax"
-    },
-    {
-      "path": "dowdiness/lambda/lexer",
-      "alias": "lexer"
-    },
-    {
-      "path": "dowdiness/loom",
-      "alias": "loom"
-    },
-    {
-      "path": "dowdiness/loom/core",
-      "alias": "core"
-    },
-    {
-      "path": "dowdiness/loom/pipeline",
-      "alias": "pipeline"
-    },
-    {
-      "path": "dowdiness/seam",
-      "alias": "seam"
-    },
-    {
-      "path": "dowdiness/incr/cells",
-      "alias": "cells"
-    }
-  ]
+```
+import {
+  "dowdiness/lambda",
+  "dowdiness/lambda/token",
+  "dowdiness/lambda/syntax",
+  "dowdiness/lambda/lexer",
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/loom/pipeline",
+  "dowdiness/seam",
+  "dowdiness/incr/cells",
 }
 ```
 
@@ -302,11 +273,12 @@ test "minimal grammar IR exposes rules" {
 - Consumes `pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool`.
 - Consumes `pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit`.
 - Consumes `pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T`.
+- Consumes `pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit` — B consumes top-level delimiter newlines by emitting `@syntax.NewlineToken` exactly like A's `consume_newline_tokens` (`cst_parser.mbt:52`). `flush_trivia` (above) is terminal whitespace-trivia only, **not** a delimiter consumer: `@token.Newline` is non-trivia (`token.mbt:66` — `is_trivia(self) = self == Whitespace`).
 - Produces spike-local `pub fn parse_top_level_repeat(ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind], ir : GrammarIr, cripple_reuse : Bool) -> Unit`.
 
 - [ ] Write a failing test where B parses two top-level `let` definitions, applies an edit to the second definition through `@loom.new_syntax_parser`, reads `parser.snapshot().read_or_abort()`, and asserts `reuse_count > 0`.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because top-level IR does not call `ctx.try_reuse_repeat_group()`.
-- [ ] Implement `RepeatTopLevel(rule, cripple_reuse)` so non-crippled B lowers to A's top-level loop shape: while `token_starts_definition(ctx.peek())`, first call `ctx.try_reuse_repeat_group()`, flush trivia or consume newlines, continue on reuse success, otherwise parse the definition rule.
+- [ ] Implement `RepeatTopLevel(rule, cripple_reuse)` so non-crippled B lowers to A's top-level loop shape (`cst_parser.mbt:624` `parse_lambda_root`): while `token_starts_definition(ctx.peek())`, first call `ctx.try_reuse_repeat_group()`. **On reuse success, consume the delimiter newlines by emitting `@syntax.NewlineToken` while `ctx.peek() == @token.Newline` (mirroring A's `consume_newline_tokens`), then `continue`** — do **NOT** use `ctx.flush_trivia()` here: `@token.Newline` is non-trivia (`is_trivia = self == Whitespace`), so `flush_trivia` would leave the cursor on the delimiter newline, exit the definition loop early, and misparse the remaining definitions — and would also drop the `NewlineToken` CST leaf A emits, diverging D2a. Otherwise parse the definition rule, then consume the trailing delimiter newlines the same way (matching A's post-`parse_definition_item` `consume_newline_tokens` at `cst_parser.mbt:637`).
 - [ ] Ensure `build_b_syntax_grammar` in Task 8 passes `reuse_size_threshold=0`.
 - [ ] Run `cd examples/lambda && moon check`; expect PASS.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS for reuse smoke.
@@ -458,7 +430,7 @@ pub fn normalized_syntax_grammar(
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because the oracle harness is missing.
 - [ ] Build A's and B's grammars through the SAME normalizer so only `parse_root` differs: `let a_grammar = normalized_syntax_grammar(@lambda.lambda_grammar.spec, @lambda.lambda_grammar.lex)` and `let b_grammar = build_b_syntax_grammar()` (which also calls `normalized_syntax_grammar`). Do NOT use `@lambda.lambda_grammar.to_syntax_grammar()` — it would give A `incremental_relex_enabled=false` + `block_reparse_spec=Some(...)` while B gets the normalized config, so newline/BlockExpr edits would diverge on config, not `parse_root`.
 - [ ] Implement one persistent `SyntaxParser` for A (`@loom.new_syntax_parser(initial, a_grammar)`) and one for B (`@loom.new_syntax_parser(initial, b_grammar)`), both seeded from the same initial source.
-- [ ] On every step, call `a_parser.apply_edit(step.edit, step.after)` and `b_parser.apply_edit(step.edit, step.after)`, then read `parser.snapshot().read_or_abort()`.
+- [ ] **Seed both stable-ID trackers + allocators from the initial source BEFORE the first `apply_edit` (required — an unseeded tracker can make the D2b oracle falsely pass).** For BOTH A and B, read the initial snapshot, extract its leaves with `project_lambda_leaves`, then run a step-0 seed: `let stable0 = tracker.realign_success(initial, initial_leaves, leaf => alloc.allocate(leaf), edit=None)` followed by `tracker.commit_success(initial, stable0)`. This commits the initial `ProjectionIdentityBaseline` and primes each `ProjectionStringIdAllocator`'s path-dependent `used`/`counters` from the initial leaves; also assert A's `stable0` equals B's `stable0`. **Why required:** with an empty tracker the first edit allocates every leaf from scratch, so an edit that inserts before a repeated key — which this spike explicitly allows via `var:x` duplicates — can churn existing IDs identically in A and B and still compare equal, a false D2b pass. Seeding makes the first edit's `realign_success` measure churn relative to the committed initial baseline.
 - [ ] Assert D1 for both A and B by fresh parsing the same source with each parser's grammar and checking `@core.tree_diff(snapshot.syntax.cst_node(), fresh_cst)` empty and `snapshot.diagnostics == fresh_diagnostics` (FULL `==` is correct here: D1 is same-impl incremental-vs-fresh, so message strings must match exactly).
 - [ ] Assert D2a structurally. CST: `@core.tree_diff(a_snapshot.syntax.cst_node(), b_snapshot.syntax.cst_node())` empty. Diagnostics: do NOT use full `==` (cross-impl B need not reproduce A's exact wording). Instead zip `a_snapshot.diagnostics.items()` and `b_snapshot.diagnostics.items()` and compare the STRUCTURAL fields pairwise — `source`, `severity`, `code`, and `primary` (the `TextRange?`) — plus equal `length()`. A `message`-string-only difference is NOT a D2a structural divergence: record it as a SEPARATE low-priority `ReplicationResidual` (message wording), so a structural finding (different code/range/severity/count) is never masked by, nor confused with, error-text wording noise. (The D2b success/failure classification still keys off `is_empty()`/count, which is unaffected by this split.)
 - [ ] Implement a small spike-local helper `diagnostics_structurally_equal(a : @core.DiagnosticSet, b : @core.DiagnosticSet) -> Bool` over `Diagnostic`'s public fields (`source`, `severity`, `code`, `primary`), and a `message_strings_equal(...)` companion for the residual classification.
