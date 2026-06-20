@@ -299,11 +299,26 @@ preconditions. Three checks, all running the same edit sequence through A and B:
 - **D2b — stable-ID parity (do *not* skip).** Drive the *existing pure*
   `ProjectionIdentityTracker` + `ProjectionStringIdAllocator` for both A and B,
   identically seeded from the same initial baseline, over the same edit sequence;
-  assert the emitted stable-ID sequence is identical at every step. This is what
-  actually proves "no last-good / authoring-cache churn," because IDs are
-  path-dependent and `tree_diff` does not compare the `ProjectionLeaf` fields the
-  tracker matches on. D2b uses the existing pure helper — it does **not** require
-  the `AcceptedDerived` migration (§5.4).
+  assert the emitted stable-ID sequence is identical at every step. D2b uses the
+  existing pure helper — it does **not** require the `AcceptedDerived` migration
+  (§5.4). **Scope of what D2b proves (refined round-7 — do not overstate).**
+  Because the spike drives both trackers with the *same* edits and the *same*
+  success/failure classification (shared, since D2a asserts equal diagnostics) and
+  the leaf sequence is a deterministic function of each CST, a D2b A-vs-B mismatch
+  under target (i) *implies* a D2a mismatch — so D2b is **not an independent
+  discriminator of path-dependent last-good churn as wired.** Its
+  genuinely-independent residual is the **hash-collision blind spot**: `tree_diff`
+  returns early on equal `CstNode.hash` (`core/diff.mbt`), so a hash collision lets
+  D2a report an empty diff on structurally-different trees, which the leaf
+  extraction then sees through. So D2b earns its place as (1) the hash-collision
+  guard and (2) a *direct* assertion of the consumer-facing stable-ID invariant —
+  but the stronger claim, that it proves "no last-good / authoring-cache churn"
+  *independently of the CST*, holds only with a harness that drives the tracker via
+  consumer-style **independent** baseline/edit bookkeeping (not shared variables),
+  which is the real-consumer / projectional-language follow-up (§5.5), not the
+  lambda spike. The path-dependence itself is still real — which is exactly why
+  D2b must run **step-by-step** and must not be collapsed to a final-CST snapshot
+  (next paragraph).
 
 **The precise invariant (do not weaken it).** Stable IDs and last-good are pure
 functions of the *(CST/leaf sequence, edit sequence, source sequence)* — not of
@@ -527,6 +542,32 @@ and the morm half-right point (design line 421). §4.1/§8 updated to reflect th
 pass is done; the "converged" retraction was empirically vindicated — hitting the
 committed layer surfaced a design-promise-violating bug that four Layer-2 rounds
 never would have.
+
+**Round-7 — plan-authoring review (the writing-plans §9 handoff, source-confirmed).**
+Turning the spike into an execution plan surfaced refinements folded back here.
+(A) **Reuse parity is a fourth, load-bearing oracle check, not a perf footnote.**
+A's `parse_lambda_root` opts into repeat-group reuse via
+`ctx.try_reuse_repeat_group()`; a grammar-as-data B that omits the opt-in produces
+byte-identical CST + diagnostics + IDs (passing D1/D2a/D2b) while regressing
+O(log n) → O(n). `SyntaxSnapshot.reuse_count` parity is the *only* signal that
+catches this, and a deliberately-crippled B is the positive control proving the
+detector fires — §5.1's mechanism risk ("can grammar-as-data drive loom's reuse
+machinery") made measurable. The plan adds `reuse_count` parity + an explicit
+frame-boundary-residual-vs-no-reuse-floor classifier (a scalar delta otherwise
+collapses benign and fatal cases). (B) **D2b's independence is narrower than §5.2
+first claimed** (refined in §5.2 above): as wired with shared edits/seeding, a D2b
+mismatch implies a D2a mismatch, so D2b is not an independent path-dependence
+discriminator under (i); its independent residual is the `tree_diff`
+hash-collision blind spot plus a direct consumer-invariant assertion. (C) Two
+positional-API confounds caught against source and fixed in the plan:
+`Edit::replace(start, old_end, new_end)`'s third arg is an end *offset*, not a
+length (`core/edit.mbt`); and B's `LanguageSpec` must mirror A's `lambda_spec`
+arg-list exactly — omit `incomplete_kind`, which defaults to `error_kind`
+(`core/parser.mbt`), so "only `parse_root` differs" stays literally true. (D) D2a's
+diagnostic parity is operationalised structurally (code + severity + range), with
+message-string wording demoted to a separate low-priority replication residual, so
+structural findings are not masked by error-text noise. Execution plan:
+`docs/superpowers/plans/2026-06-20-parser-generation-spike.md`.
 
 ## 8. Open risks / what would invalidate this direction
 
