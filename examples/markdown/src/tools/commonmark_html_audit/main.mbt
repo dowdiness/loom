@@ -5,11 +5,6 @@ const COMMONMARK_VERSION = "0.31.2"
 const DEFAULT_SPEC_PATH = "tools/commonmark-0.31.2-spec.json"
 
 ///|
-struct AuditOptions {
-  spec_path : String
-}
-
-///|
 struct CommonMarkSpecExample {
   markdown : String
   html : String
@@ -123,15 +118,15 @@ fn audit_command() -> @argparse.Command {
 }
 
 ///|
-fn parse_args(args : ArrayView[String]) -> AuditOptions {
+fn parse_spec_path(args : ArrayView[String]) -> String {
   let matches = audit_command().parse(argv=args, env={}) catch {
     err => {
       println(err.to_string())
       @sys.exit(2)
-      return { spec_path: DEFAULT_SPEC_PATH }
+      return DEFAULT_SPEC_PATH
     }
   }
-  { spec_path: first_value(matches.values, "spec", DEFAULT_SPEC_PATH) }
+  first_value(matches.values, "spec", DEFAULT_SPEC_PATH)
 }
 
 ///|
@@ -232,8 +227,8 @@ fn audit_examples(examples : Array[CommonMarkSpecExample]) -> AuditCounts {
 
 ///|
 fn main {
-  let options = parse_args(program_args(@env.args()))
-  let examples = load_spec_examples(options.spec_path) catch {
+  let spec_path = parse_spec_path(program_args(@env.args()))
+  let examples = load_spec_examples(spec_path) catch {
     err => {
       println("error: " + err.to_string())
       @sys.exit(1)
