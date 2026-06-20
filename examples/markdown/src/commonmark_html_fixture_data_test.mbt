@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=19, xfail=2, skip=1.
+// Baseline: pass=36, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (19, 2, 1)
+  (36, 2, 1)
 }
 
 ///|
@@ -199,6 +199,142 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlSkip(
         "Raw HTML passthrough mode is not part of the initial #326 baseline.",
       ),
+    },
+    {
+      example: 13,
+      section: "Backslash escapes",
+      name: "backslash-escapes-013",
+      source: "\\\t\\A\\a\\ \\3\\φ\\«\n",
+      expected_html: "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 29,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-029",
+      source: "&copy\n",
+      expected_html: "<p>&amp;copy</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 30,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-030",
+      source: "&MadeUpEntity;\n",
+      expected_html: "<p>&amp;MadeUpEntity;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 35,
+      section: "Entity and numeric character references",
+      name: "entity-and-numeric-character-references-035",
+      source: "`f&ouml;&ouml;`\n",
+      expected_html: "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 44,
+      section: "Thematic breaks",
+      name: "thematic-breaks-044",
+      source: "+++\n",
+      expected_html: "<p>+++</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 45,
+      section: "Thematic breaks",
+      name: "thematic-breaks-045",
+      source: "===\n",
+      expected_html: "<p>===</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 55,
+      section: "Thematic breaks",
+      name: "thematic-breaks-055",
+      source: "_ _ _ _ a\n\na------\n\n---a---\n",
+      expected_html: "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 63,
+      section: "ATX headings",
+      name: "atx-headings-063",
+      source: "####### foo\n",
+      expected_html: "<p>####### foo</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 64,
+      section: "ATX headings",
+      name: "atx-headings-064",
+      source: "#5 bolt\n\n#hashtag\n",
+      expected_html: "<p>#5 bolt</p>\n<p>#hashtag</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 74,
+      section: "ATX headings",
+      name: "atx-headings-074",
+      source: "### foo ### b\n",
+      expected_html: "<h3>foo ### b</h3>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 75,
+      section: "ATX headings",
+      name: "atx-headings-075",
+      source: "# foo#\n",
+      expected_html: "<h1>foo#</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 78,
+      section: "ATX headings",
+      name: "atx-headings-078",
+      source: "Foo bar\n# baz\nBar foo\n",
+      expected_html: "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 97,
+      section: "Setext headings",
+      name: "setext-headings-097",
+      source: "\n====\n",
+      expected_html: "<p>====</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 221,
+      section: "Paragraphs",
+      name: "paragraphs-221",
+      source: "aaa\n\n\nbbb\n",
+      expected_html: "<p>aaa</p>\n<p>bbb</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 227,
+      section: "Blank lines",
+      name: "blank-lines-227",
+      source: "  \n\naaa\n  \n\n# aaa\n\n  \n",
+      expected_html: "<p>aaa</p>\n<h1>aaa</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 644,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-644",
+      source: "foo\\\n",
+      expected_html: "<p>foo\\</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 646,
+      section: "Hard line breaks",
+      name: "hard-line-breaks-646",
+      source: "### foo\\\n",
+      expected_html: "<h3>foo\\</h3>\n",
+      status: CommonMarkHtmlPass,
     },
   ]
 }
