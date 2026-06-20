@@ -147,34 +147,45 @@ with no downstream churn — validated end-to-end through the projectional layer
 not just precedence (monogram already proved precedence; loom's novel risk is
 projection/identity).
 
-### 5.2 The oracle — and the reduction that simplifies it
+### 5.2 The oracle
 
 Codex flagged the load-bearing risk as: a grammar IR can pass parser parity yet
 **churn stable IDs / authoring caches** by changing placeholder placement,
 transparent spans, error-node ownership, or list grouping.
 
-**Reduction (the key first-principles move):** Term, projection leaves, stable
-IDs, and last-good are **all pure functions of the CST** — the fold is
-deterministic, `realign_projection_identities` is a pure function of the leaf
-sequence, and the leaf sequence is extracted from the CST. Therefore **the CST
-is the master invariant**: if B produces a structurally identical CST to A
-(`tree_diff`-empty), every *CST-derived* downstream property is identical by
-construction. The four churn cases Codex named are all CST-*shape* facts, so they
-are all caught by CST comparison. (Diagnostics are *not* purely CST-derived in
-loom — the existing oracle checks them separately — so D2 below checks them too.)
+**Where churn can enter (root-cause framing — corrected after round-2 review).**
+The Term fold is deterministic and the projection-leaf sequence is extracted from
+the CST, so a *changed CST shape* is the only place new divergence can originate.
+**But stable IDs are *not* a pure function of the CST.**
+`realign_projection_identities(baseline, next_source, next_leaves, allocate,
+edit?)` (`loom/src/core/projection_identity.mbt:631`) and
+`ProjectionStringIdAllocator` — which carries `used`/`counters` state and
+seeds-then-skips prior-baseline IDs (`:531`, `:576`) — make the ID mapping
+**path-dependent** on the baseline, the accumulated allocator state, and the edit
+history. Identical CSTs yield identical IDs *only when* the baseline, allocator
+seeding, and edit sequence are also identical — which the spike can hold fixed
+across A and B, but must not assume away.
 
-The oracle has two dimensions:
+So CST parity is **necessary** for no-churn and is the only origin of divergence,
+but it is **not** a license to skip the downstream check: the spike verifies the
+downstream property empirically rather than by an inductive argument with subtle
+preconditions. Three checks, all running the same edit sequence through A and B:
 
 - **D1 — internal consistency (reuse existing infra).** Run
   `assert_incremental_edit_matches_full_parse` on parser B. Proves B is itself
   incrementally correct (B-incremental == B-fresh). Zero new code.
-- **D2 — cross-implementation equivalence (the new oracle).** Run the same edit
-  sequence through A and B; assert `@core.tree_diff(A_cst, B_cst)` is empty
-  **and** `A_diagnostics.equal(B_diagnostics)` at **every step.** Because of the
-  reduction, CST + diagnostics parity is the entire check — no need to run
-  `AcceptedDerived`, the tracker, or the reactive graph inside the spike.
-  (Precision the eventual spec must pin: the leaf comparison must compare exactly
-  the fields `ProjectionIdentityTracker` matches on.)
+- **D2a — CST + diagnostics parity.** Assert `@core.tree_diff(A_cst, B_cst)` is
+  empty (structural identity, *up to hash collisions* — `loom/src/core/diff.mbt`)
+  **and** `A_diagnostics.equal(B_diagnostics)` at **every step.** Catches the
+  root-cause divergence (the four churn cases are all CST-shape facts).
+- **D2b — stable-ID parity (do *not* skip).** Drive the *existing pure*
+  `ProjectionIdentityTracker` + `ProjectionStringIdAllocator` for both A and B,
+  identically seeded from the same initial baseline, over the same edit sequence;
+  assert the emitted stable-ID sequence is identical at every step. This is what
+  actually proves "no last-good / authoring-cache churn," because IDs are
+  path-dependent and `tree_diff` does not compare the `ProjectionLeaf` fields the
+  tracker matches on. D2b uses the existing pure helper — it does **not** require
+  the `AcceptedDerived` migration (§5.4).
 
 ### 5.3 The central design fork — the equivalence bar
 
@@ -187,8 +198,8 @@ The oracle has two dimensions:
 
 **Decision: the spike *targets* (i) and treats every divergence as a finding.**
 Not because (i) is the final migration bar, but because it is the most
-informative experiment — if B hits byte-identity on lambda, every weaker
-property follows for free; if it cannot, the precise divergence shows exactly
+informative experiment — if B hits structural + ID parity on lambda, every
+weaker property follows for free; if it cannot, the precise divergence shows exactly
 where grammar-as-data's model parts ways from hand-RD, which is what the spike
 exists to learn. The (i)-vs-(ii) *migration* decision is then made **with** that
 evidence, not before it.
@@ -196,14 +207,15 @@ evidence, not before it.
 ### 5.4 Migration verdict: `projection_identity` → `AcceptedDerived`
 
 **Neither a precondition nor a parallel track — an independent, deferred one.**
-The spike tests *upstream* of `projection_identity`, so the `AcceptedDerived`
-migration does not gate it. And "migrate `projection_identity` →
-`AcceptedDerived`" is really "*promote last-good from a pure caller-driven helper
-into the reactive pipeline as an `AcceptedDerived` cell*" — an architectural
-change to the pipeline. Do not churn pipeline architecture for a parser
-direction that is not yet validated. Sequence it after the spike, independently.
-(When it does happen, the spike must exercise the dynamic/diamond dependency
-case, since that path was only stabilised at incr 0.9.0 via #233.)
+The spike *does* run `projection_identity` (D2b), but it runs the **existing pure
+helper**, which does not require the `AcceptedDerived` migration. The migration
+would only change *where* last-good lives — "*promote it from a pure
+caller-driven helper into the reactive pipeline as an `AcceptedDerived` cell*", an
+architectural change to the pipeline — not the leaf→ID mapping D2b checks. So the
+migration does not gate the spike. Do not churn pipeline architecture for a parser
+direction that is not yet validated; sequence it after the spike, independently.
+(When it does happen, exercise the dynamic/diamond dependency case, since that
+path was only stabilised at incr 0.9.0 via #233.)
 
 ### 5.5 Scope
 
@@ -214,8 +226,8 @@ lambda, a minimal grammar-IR slice chosen to hit the churn-prone cases:
 - a Pratt operator (`App` / `Bop` precedence),
 - a deliberate error / incomplete input (placeholder + error-node ownership).
 
-Small enough to hand-author the grammar value; broad enough that byte-identity
-means something.
+Small enough to hand-author the grammar value; broad enough that structural + ID
+parity means something.
 
 ## 6. ROADMAP non-goal #1 — revisit, evidence-gated
 
@@ -229,8 +241,8 @@ Its protected reasons, and their status:
 2. **Precedence / left-recursion** → *dissolved.* Pratt-as-data (monogram).
 3. **Hot-path control, recovery shape, and CST compatibility kept transparent
    and debuggable** (Codex finding 4 — the unstated third reason) → *preserved
-   constraint.* Grammar-as-data must not sacrifice this. The spike's byte-identity
-   target (§5.3) is precisely the guard for it.
+   constraint.* Grammar-as-data must not sacrifice this. The spike's
+   structural-identity + ID-parity target (§5.2–5.3) is precisely the guard for it.
 
 Revisiting the non-goal is justified, but the revisit is gated on the spike's
 evidence, not on this argument.
@@ -240,15 +252,29 @@ evidence, not on this argument.
 Verdict: "Mostly valid, but underweights semantic/projection parity and
 overstates how much the ROADMAP rationale has dissolved. Approve the spike-first
 framing — but do not build loomgen in parallel until the spike has produced a
-concrete minimal IR contract." Corrections folded into this doc:
+concrete minimal IR contract." Round-1 corrections folded into this doc:
 
-- The existing oracle checks CST + diagnostics only → §5.2 D2 added.
+- The existing oracle checks CST + diagnostics only → §5.2 D2a added.
 - Do not build loomgen in parallel → §4.4 step 2 (derive contract first).
-- Generated CST shape is an implicit public identity/stability contract → §5.2
-  reduction + §5.3 byte-identity target.
+- Generated CST shape is an implicit public identity/stability contract → §5.2 +
+  §5.3 structural-identity target.
 - The facade can still regress reuse if rule frames do not align with
   `node`/`wrap_at`/`separated_list`/repeat-group boundaries → tracked in §8.
 - The third unstated ROADMAP reason → §6 item 3.
+
+**Round-2 review (of this written doc).** Codex verified the claims against source
+and found the §5.2 "reduction" overstated: it claimed stable IDs are a *pure
+function of the CST* and that the spike need *not* run the tracker. Verified
+false — `realign_projection_identities` takes `(baseline, next_source,
+next_leaves, allocate, edit?)` and `ProjectionStringIdAllocator` carries
+`used`/`counters` state and seeds-then-skips prior-baseline IDs, so IDs are
+**path-dependent**. Fixes folded in: §5.2 now adds **D2b** (run the existing pure
+tracker/allocator for both A and B and assert ID parity), §5.4 reworded ("runs
+the existing pure helper", not "upstream of"), and "byte-identity" replaced with
+"structural identity (`tree_diff`, up to hash collisions) + ID parity" throughout.
+(Round-2 also noted the `incr/` submodule is unpopulated in the review worktree;
+the incr 0.9.0 claims were verified earlier in the populated main checkout —
+`incr/incr/cells/accepted_derived.mbt`, `incr/CHANGELOG.md`.)
 
 ## 8. Open risks / what would invalidate this direction
 
@@ -261,7 +287,7 @@ concrete minimal IR contract." Corrections folded into this doc:
 - **Projectional escape-hatch sprawl.** If lambda (and especially the
   projectional languages) need so much language-specific logic that the grammar
   cannot stay declarative, grammar-as-data is the wrong model. The spike's
-  byte-identity divergences are the early signal.
+  structural-identity / ID-parity divergences are the early signal.
 - **incr freshness.** `AcceptedDerived` / `BackdateEq` shipped only at 0.9.0
   (#232) with a freshness fix at #233; any migration onto it leans on new code.
 
@@ -269,10 +295,10 @@ concrete minimal IR contract." Corrections folded into this doc:
 
 No decision is committed. The recommended next action is to take the **spike**
 (§5) into the writing-plans skill to produce a concrete execution plan:
-hand-author the minimal lambda grammar IR slice (§5.5), build the D2
-cross-implementation oracle (§5.2), run it to byte-identity (§5.3), and record
-the divergences as the evidence that decides (i)-vs-(ii) and the
-grammar-as-data-vs-status-quo call.
+hand-author the minimal lambda grammar IR slice (§5.5), build the
+cross-implementation oracle (§5.2: D2a CST/diagnostics + D2b stable-ID parity),
+run it to structural + ID parity (§5.3), and record the divergences as the
+evidence that decides (i)-vs-(ii) and the grammar-as-data-vs-status-quo call.
 
 ## 10. Related
 
