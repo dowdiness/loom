@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=112, xfail=2, skip=1.
+// Baseline: pass=116, xfail=2, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (112, 2, 1)
+  (116, 2, 1)
 }
 
 ///|
@@ -942,6 +942,38 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "autolinks-612",
       source: "foo@bar.example.com\n",
       expected_html: "<p>foo@bar.example.com</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 618,
+      section: "Raw HTML",
+      name: "raw-html-618",
+      source: "<33> <__>\n",
+      expected_html: "<p>&lt;33&gt; &lt;__&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 620,
+      section: "Raw HTML",
+      name: "raw-html-620",
+      source: "<a href=\"hi'> <a href=hi'>\n",
+      expected_html: "<p>&lt;a href=&quot;hi'&gt; &lt;a href=hi'&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 622,
+      section: "Raw HTML",
+      name: "raw-html-622",
+      source: "<a href='bar'title=title>\n",
+      expected_html: "<p>&lt;a href='bar'title=title&gt;</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 624,
+      section: "Raw HTML",
+      name: "raw-html-624",
+      source: "</a href=\"foo\">\n",
+      expected_html: "<p>&lt;/a href=&quot;foo&quot;&gt;</p>\n",
       status: CommonMarkHtmlPass,
     },
   ]
