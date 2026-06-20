@@ -438,6 +438,17 @@ test "experimental MarkdownIR: list item preserves whitespace-only inline syntax
 }
 
 ///|
+test "experimental MarkdownIR: direct list-item inline filtering matches Block adapter" {
+  for
+    source in [
+      "- \nfoo\n", "-   \nfoo\n", "- a\nb\n", "- parent\n  - child\n", "- ` `\n",
+      "- [](/)\n",
+    ] {
+    assert_markdown_ir_block_matches_direct_parse(source)
+  }
+}
+
+///|
 test "experimental MarkdownIR: loose list separator sets list spread" {
   let source = "- one\n\n- two\n"
   let ir = markdown_ir_from_source(source)

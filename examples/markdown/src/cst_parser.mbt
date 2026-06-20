@@ -211,20 +211,9 @@ fn parse_nested_list_item_flow(
 }
 
 ///|
-fn string_has_non_blank_inline_content(text : String) -> Bool {
-  for ch in text {
-    if ch != ' ' && ch != '\t' {
-      break true
-    }
-  } nobreak {
-    false
-  }
-}
-
-///|
 fn token_has_non_blank_inline_content(token : Token) -> Bool {
   match token {
-    Text(text) => string_has_non_blank_inline_content(text)
+    Text(text) => direct_list_item_text_has_non_blank_content(text)
     _ => true
   }
 }
