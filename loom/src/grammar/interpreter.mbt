@@ -36,12 +36,11 @@ pub fn[
 /// is an array index rather than a map lookup. Predicates are reified `Pred`
 /// data tested with `Pred::matches`, never host closures.
 ///
-/// This is the core interpreter stage. The structural / incremental-reuse nodes
-/// (`RepeatTopLevel`, `WrapIfNext`, `PrattApp`, `PrattBinary`), the counted
-/// `CountedRepeat`, and the `ManualNewlineAppExpr` residue are not handled here;
-/// reaching one surfaces a diagnostic placeholder so a grammar that uses them
-/// before those interpreter stages exist fails loudly instead of silently
-/// producing a wrong tree.
+/// Covers the core and incremental-reuse nodes. The counted `CountedRepeat`
+/// (escape-hatch reification stage) and the `ManualNewlineAppExpr` residue
+/// (evidence-gated) are not interpreted here; reaching one surfaces a
+/// diagnostic placeholder so a grammar that uses them before those stages
+/// exist fails loudly instead of silently producing a wrong tree.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
@@ -81,13 +80,62 @@ fn[
       ctx.error(msg)
       let _ = ctx.skip_until(t => stop.matches(t))
     }
-    RepeatTopLevel(_, _, _)
-    | WrapIfNext(_, _, _)
-    | PrattApp(_, _, _)
-    | PrattBinary(_, _, _)
-    | CountedRepeat(_, _, min=_, missing_message=_)
-    | ManualNewlineAppExpr => {
-      ctx.error("grammar: expression not handled by the core interpreter")
+    // Top-level repeat with per-group reuse: try to reuse the prior repeat
+    // group at each item; on a miss, parse the item rule. The trailing expr
+    // runs once after the loop (`Empty` to reject a tail).
+    RepeatTopLevel(slot, starts, tail) => {
+      while !ctx.at_eof() && starts.matches(ctx.peek()) {
+        if !ctx.try_reuse_repeat_group() {
+          run_expr(ctx, grammar, grammar.rule(slot))
+        }
+      }
+      run_expr(ctx, grammar, tail)
+    }
+    // Mark before peeking: when the next token matches, wrap the inner expr in
+    // the node kind from that mark; otherwise run it unwrapped.
+    WrapIfNext(kind, pred, body) => {
+      let mark = ctx.mark()
+      if pred.matches(ctx.peek()) {
+        ctx.wrap_at(mark, kind, () => run_expr(ctx, grammar, body))
+      } else {
+        run_expr(ctx, grammar, body)
+      }
+    }
+    // Pratt application: parse one atom; while the start predicate still holds,
+    // retroactively wrap the run in the app kind and parse further atoms.
+    PrattApp(slot, kind, starts) => {
+      let mark = ctx.mark()
+      run_expr(ctx, grammar, grammar.rule(slot))
+      if starts.matches(ctx.peek()) {
+        ctx.wrap_at(mark, kind, () => {
+          while starts.matches(ctx.peek()) {
+            run_expr(ctx, grammar, grammar.rule(slot))
+          }
+        })
+      }
+    }
+    // Pratt binary: parse one prefix; while the peek matches an operator table
+    // entry, wrap from the mark in the binary kind, emit the operator, and
+    // parse the next prefix.
+    PrattBinary(slot, kind, ops) => {
+      let mark = ctx.mark()
+      run_expr(ctx, grammar, grammar.rule(slot))
+      if ops.iter().any(pair => pair.0 == ctx.peek()) {
+        ctx.wrap_at(mark, kind, () => {
+          while true {
+            match ops.iter().find_first(pair => pair.0 == ctx.peek()) {
+              None => break
+              Some(pair) => {
+                ctx.emit_token(pair.1)
+                run_expr(ctx, grammar, grammar.rule(slot))
+              }
+            }
+          }
+        })
+      }
+    }
+    CountedRepeat(_, _, min=_, missing_message=_) | ManualNewlineAppExpr => {
+      ctx.error("grammar: expression not yet interpreted by this stage")
       ctx.emit_error_placeholder()
     }
   }

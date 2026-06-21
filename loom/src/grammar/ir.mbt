@@ -46,9 +46,10 @@ pub(all) enum Expr[T, K] {
   PrattBinary(RuleName, K, Array[(T, K)])
   /// Repeat the body while the predicate holds.
   RepeatWhile(Pred[T], Expr[T, K])
-  /// After parsing the inner expr, if the next token matches the predicate,
-  /// retroactively wrap from the entry mark in the node kind. The mark is
-  /// captured by the interpreter at node entry (no static mark in the IR).
+  /// Capture an entry mark and peek: if the next token matches the predicate,
+  /// wrap the inner expr in the node kind from that mark; otherwise run the
+  /// inner expr unwrapped. The mark is captured by the interpreter at node
+  /// entry (no static mark in the IR).
   WrapIfNext(K, Pred[T], Expr[T, K])
   /// Repeat the body while the predicate holds, then — if fewer than `min`
   /// iterations ran — emit `missing_message` (when present). Reifies the
