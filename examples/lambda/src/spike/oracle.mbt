@@ -13,13 +13,18 @@ pub struct EditStep {
 ///|
 /// Oracle result for one edit step. All four oracle booleans must be true
 /// for the step to count toward a GO verdict.
-pub struct OracleStepResult {
+///
+/// message_strings_matched: when D2a passes (structural fields equal), whether
+/// diagnostic message strings also matched. A false here with d2a_ok=true
+/// indicates a ReplicationResidual (wording difference, not a GO blocker).
+pub(all) struct OracleStepResult {
   label : String
   d1_ok : Bool
   d2a_ok : Bool
   d2b_ok : Bool
   reuse_parity_ok : Bool
   diagnostics_empty : Bool
+  message_strings_matched : Bool
   a_reuse_count : Int
   b_reuse_count : Int
 } derive(Debug, Eq)
@@ -206,7 +211,15 @@ pub fn run_oracle_fixture(
     }
 
     // REUSE-PARITY: incremental reuse counts must match.
+    // Note: per Task 10 finding, this is vacuous — engine node reuse
+    // compensates for any missing repeat-group reuse. See Task 13 for E3 probe.
     let reuse_parity_ok = a_snap.reuse_count == b_snap.reuse_count
+
+    // Message-string comparison (only meaningful when D2a passes).
+    let message_strings_matched = message_strings_equal(
+      a_snap.diagnostics,
+      b_snap.diagnostics,
+    )
 
     results.push(
       OracleStepResult::{
@@ -216,6 +229,7 @@ pub fn run_oracle_fixture(
         d2b_ok,
         reuse_parity_ok,
         diagnostics_empty,
+        message_strings_matched,
         a_reuse_count: a_snap.reuse_count,
         b_reuse_count: b_snap.reuse_count,
       },
@@ -247,4 +261,69 @@ fn check_d1(
   // message strings must also match (no cross-impl message wording tolerance).
   let diag_ok = snap.diagnostics == fresh_diag
   cst_ok && diag_ok
+}
+
+///|
+/// Classify a single oracle step result into a divergence class.
+///
+/// Priority (highest severity wins):
+/// 1. WrongModelStop: D1 or D2a CST failure. Parse tree disagrees — GO blocker.
+/// 2. ReplicationResidual: D2a passes structurally but message strings differ.
+///    Cross-impl wording difference. Not a GO blocker; file as known deviation.
+/// 3. NoDivergence: all oracle checks pass, messages agree.
+///
+/// D2b and reuse_parity are not classified here:
+/// - D2b failure implies a D2a CST failure (per Task 9 honesty scoping) so it
+///   would already be caught by WrongModelStop.
+/// - reuse_parity is vacuous (Task 10 finding) so it is not a divergence signal.
+pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
+  // D1 failure: incremental != fresh for A or B.
+  if !result.d1_ok {
+    return DivergenceClass::WrongModelStop(
+      "D1 failure at step \"" + result.label + "\": incremental parse does not match fresh parse",
+    )
+  }
+  // D2a CST failure: A and B parse trees differ.
+  if !result.d2a_ok {
+    return DivergenceClass::WrongModelStop(
+      "D2a failure at step \"" + result.label + "\": A and B parse trees or diagnostic structure differ",
+    )
+  }
+  // Structural D2a passed but message strings differ: wording divergence only.
+  if !result.message_strings_matched && !result.diagnostics_empty {
+    return DivergenceClass::ReplicationResidual(
+      "message wording difference at step \"" + result.label + "\"",
+    )
+  }
+  DivergenceClass::NoDivergence
+}
+
+///|
+/// Classify the overall oracle run: return the highest-severity divergence found
+/// across all steps, or NoDivergence if all steps pass.
+pub fn classify_run(results : Array[OracleStepResult]) -> DivergenceClass {
+  let mut worst = DivergenceClass::NoDivergence
+  for result in results {
+    let c = classify_divergence(result)
+    match (worst, c) {
+      // WrongModelStop beats everything.
+      (DivergenceClass::WrongModelStop(_), _) => ()
+      (_, DivergenceClass::WrongModelStop(_)) => worst = c
+      // ReplicationResidual beats NoDivergence.
+      (DivergenceClass::NoDivergence, DivergenceClass::ReplicationResidual(_)) =>
+        worst = c
+      _ => ()
+    }
+  }
+  worst
+}
+
+///|
+/// Stop condition: a WrongModelStop divergence anywhere in the run means GO is
+/// not warranted. ReplicationResidual divergences are noted but not blocking.
+pub fn is_go_verdict(results : Array[OracleStepResult]) -> Bool {
+  match classify_run(results) {
+    DivergenceClass::WrongModelStop(_) => false
+    _ => true
+  }
 }
