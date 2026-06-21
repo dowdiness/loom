@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=136, xfail=5, skip=1.
+// Baseline: pass=141, xfail=5, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (136, 5, 1)
+  (141, 5, 1)
 }
 
 ///|
@@ -471,11 +471,51 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 83,
+      section: "Setext headings",
+      name: "setext-headings-long-underline",
+      source: "Foo\n-------------------------\n\nFoo\n=\n",
+      expected_html: "<h2>Foo</h2>\n<h1>Foo</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 86,
+      section: "Setext headings",
+      name: "setext-headings-trailing-spaces",
+      source: "Foo\n   ----      \n",
+      expected_html: "<h2>Foo</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 95,
+      section: "Setext headings",
+      name: "setext-headings-multiline",
+      source: "Foo\nBar\n---\n",
+      expected_html: "<h2>Foo\nBar</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 96,
+      section: "Setext headings",
+      name: "setext-headings-tb-precedence",
+      source: "---\nFoo\n---\nBar\n---\nBaz\n",
+      expected_html: "<hr />\n<h2>Foo</h2>\n<h2>Bar</h2>\n<p>Baz</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 97,
       section: "Setext headings",
       name: "setext-headings-097",
       source: "\n====\n",
       expected_html: "<p>====</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 98,
+      section: "Setext headings",
+      name: "setext-headings-consecutive-tb",
+      source: "---\n---\n",
+      expected_html: "<hr />\n<hr />\n",
       status: CommonMarkHtmlPass,
     },
     {

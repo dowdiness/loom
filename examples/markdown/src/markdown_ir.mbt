@@ -531,14 +531,6 @@ fn lower_inline_children_skip_with_diags(
 }
 
 ///|
-fn lower_inline_children_with_diags(
-  node : @seam.SyntaxNode,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
-) -> Array[MarkdownIR] {
-  lower_inline_children_skip_with_diags(node, None, None, diagnostics_in_origin)
-}
-
-///|
 fn lower_inline_children_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
@@ -589,7 +581,8 @@ fn lower_direct_inline_node_with_diags(
 ) -> MarkdownIR? {
   let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match node_kind {
-    UnorderedListNode | OrderedListNode | ThematicBreakNode => None
+    HeadingNode | UnorderedListNode | OrderedListNode | ThematicBreakNode =>
+      None
     _ => Some(lower_inline_node_with_diags(node, diagnostics_in_origin))
   }
 }
@@ -794,7 +787,7 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
       if n >= 1 {
         Some(n)
       } else {
-        None
+        parse_setext_underline_depth(marker.text().view())
       }
     }
     None => None
@@ -904,7 +897,7 @@ fn append_list_item_flow_block_children(
   for child in node.children() {
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
-      UnorderedListNode | OrderedListNode | ThematicBreakNode =>
+      HeadingNode | UnorderedListNode | OrderedListNode | ThematicBreakNode =>
         children.push(recurse(child))
       _ => ()
     }
@@ -1130,8 +1123,8 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::document(children, origin_from_node(node))
     }
     HeadingNode => {
-      let children = lower_inline_children_with_diags(
-        node, diagnostics_in_origin,
+      let children = lower_inline_children_with_newline_and_diags(
+        node, "\n", diagnostics_in_origin,
       )
       match heading_depth_from_marker(node) {
         Some(depth) =>

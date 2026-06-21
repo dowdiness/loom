@@ -45,7 +45,146 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       // Consume stray newlines between blocks
       ctx.emit_token(NewlineToken)
     EOF => ()
-    _ => parse_paragraph(ctx)
+    _ => if !try_parse_setext_heading(ctx) { parse_paragraph(ctx) }
+  }
+}
+
+///|
+fn try_parse_setext_heading(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let cp = ctx.checkpoint()
+  ctx.start_node(HeadingNode)
+  parse_inline_content(ctx)
+  while ctx.peek() is Newline {
+    if setext_underline_depth_after_newline(
+        ctx,
+        allow_list_marker=true,
+        min_indent=0,
+      )
+      is Some(_) {
+      ctx.emit_token(NewlineToken)
+      emit_setext_underline_line(ctx)
+      ctx.finish_node()
+      return true
+    }
+    let next = ctx.peek_nth(1)
+    if token_breaks_paragraph_after_newline(next) ||
+      next is Newline ||
+      next is EOF {
+      break
+    }
+    ctx.emit_token(NewlineToken)
+    parse_paragraph_continuation_line(ctx)
+  }
+  ctx.finish_node()
+  ctx.restore(cp)
+  false
+}
+
+///|
+fn setext_list_marker_line_ends_after_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek_nth(1) {
+    Newline | BlankLine | EOF => true
+    Text(text) if !direct_list_item_text_has_non_blank_content(text) =>
+      ctx.peek_nth(2) is Newline ||
+      ctx.peek_nth(2) is BlankLine ||
+      ctx.peek_nth(2) is EOF
+    _ => false
+  }
+}
+
+///|
+fn text_has_min_leading_spaces(text : StringView, min_indent : Int) -> Bool {
+  let spaces = for ch in text; count = 0 {
+    match ch {
+      ' ' => continue count + 1
+      _ => break count
+    }
+  } nobreak {
+    count
+  }
+  spaces >= min_indent
+}
+
+///|
+fn current_token_text_has_min_leading_spaces(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  min_indent : Int,
+) -> Bool {
+  text_has_min_leading_spaces(ctx.current_token_text(), min_indent)
+}
+
+///|
+fn setext_underline_depth_at_current_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  allow_list_marker~ : Bool,
+  min_indent~ : Int,
+) -> Int? {
+  match ctx.peek() {
+    Text(text) if text_has_min_leading_spaces(text.view(), min_indent) =>
+      parse_setext_underline_depth(text.view())
+    ThematicBreak if current_token_text_has_min_leading_spaces(ctx, min_indent) =>
+      parse_setext_underline_depth(ctx.current_token_text())
+    ListMarker if allow_list_marker &&
+      current_token_text_has_min_leading_spaces(ctx, min_indent) &&
+      setext_list_marker_line_ends_after_marker(ctx) =>
+      parse_setext_underline_depth(ctx.current_token_text())
+    _ => None
+  }
+}
+
+///|
+fn setext_underline_depth_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  allow_list_marker~ : Bool,
+  min_indent~ : Int,
+) -> Int? {
+  let cp = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  let depth = setext_underline_depth_at_current_line(
+    ctx,
+    allow_list_marker~,
+    min_indent~,
+  )
+  ctx.restore(cp)
+  depth
+}
+
+///|
+fn quoted_setext_underline_depth_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int? {
+  let cp = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  let depth = match ctx.peek() {
+    BlockQuoteMarker => {
+      ctx.emit_token(BlockQuoteMarkerToken)
+      setext_underline_depth_at_current_line(
+        ctx,
+        allow_list_marker=true,
+        min_indent=0,
+      )
+    }
+    _ => None
+  }
+  ctx.restore(cp)
+  depth
+}
+
+///|
+fn emit_setext_underline_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  while !(ctx.peek() is Newline) &&
+        !(ctx.peek() is BlankLine) &&
+        ctx.peek() != EOF {
+    match ctx.peek() {
+      Text(_) | ThematicBreak | ListMarker => ctx.emit_token(HeadingMarkerToken)
+      _ => ctx.bump_error()
+    }
   }
 }
 
@@ -124,7 +263,8 @@ fn line_at_offset_is_thematic_break(
   for i = offset {
     match ctx.peek_nth(i) {
       ThematicBreak => break true
-      Newline | EOF => break thematic_break_marker_text(line.to_string().view())
+      Newline | EOF =>
+        break is_valid_thematic_break_markers(line.to_string().view())
       Text(text) => line.write_string(text)
       Star => line.write_string("*")
       StarStar => line.write_string("**")
@@ -175,6 +315,52 @@ fn parse_block_quote_paragraph(
       }
     }
   })
+}
+
+///|
+fn consume_quoted_setext_underline_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.emit_token(NewlineToken)
+  ctx.emit_token(BlockQuoteMarkerToken)
+  emit_setext_underline_line(ctx)
+}
+
+///|
+fn consume_block_quote_heading_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek_nth(1) {
+    BlockQuoteMarker if token_continues_block_quote_paragraph(ctx.peek_nth(2)) => {
+      ctx.emit_token(NewlineToken)
+      ctx.emit_token(BlockQuoteMarkerToken)
+      parse_paragraph_continuation_line(ctx)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn try_parse_block_quote_setext_heading(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let cp = ctx.checkpoint()
+  ctx.start_node(HeadingNode)
+  parse_inline_content(ctx)
+  while ctx.peek() is Newline {
+    if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
+      consume_quoted_setext_underline_line(ctx)
+      ctx.finish_node()
+      return true
+    }
+    if !consume_block_quote_heading_continuation(ctx) {
+      break
+    }
+  }
+  ctx.finish_node()
+  ctx.restore(cp)
+  false
 }
 
 ///|
@@ -294,7 +480,10 @@ fn parse_block_quote_after_marker(
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
     EOF => ()
-    _ => parse_block_quote_paragraph(ctx)
+    _ =>
+      if !try_parse_block_quote_setext_heading(ctx) {
+        parse_block_quote_paragraph(ctx)
+      }
   }
 }
 
@@ -517,6 +706,40 @@ fn parse_inline_thematic_break(
 }
 
 ///|
+fn try_parse_list_item_setext_heading(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  let cp = ctx.checkpoint()
+  ctx.start_node(HeadingNode)
+  parse_inline_content(ctx)
+  while ctx.peek() is Newline {
+    if setext_underline_depth_after_newline(
+        ctx,
+        allow_list_marker=false,
+        min_indent=content_indent,
+      )
+      is Some(_) {
+      ctx.emit_token(NewlineToken)
+      emit_setext_underline_line(ctx)
+      ctx.finish_node()
+      return true
+    }
+    let next = ctx.peek_nth(1)
+    if token_breaks_paragraph_after_newline(next) ||
+      next is Newline ||
+      next is EOF {
+      break
+    }
+    ctx.emit_token(NewlineToken)
+    parse_paragraph_continuation_line(ctx)
+  }
+  ctx.finish_node()
+  ctx.restore(cp)
+  false
+}
+
+///|
 fn parse_list_item_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
@@ -524,7 +747,7 @@ fn parse_list_item_body(
 ) -> Unit {
   if line_at_offset_is_thematic_break(ctx, 0) {
     parse_inline_thematic_break(ctx)
-  } else {
+  } else if !try_parse_list_item_setext_heading(ctx, content_indent) {
     parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
   }
   parse_nested_list_item_flow(ctx, content_indent)

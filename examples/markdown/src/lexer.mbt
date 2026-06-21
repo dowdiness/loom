@@ -122,7 +122,7 @@ fn lex_line_start(
       _ => line_end = @core.next_char_offset(input, line_end)
     }
   }
-  if thematic_break_marker_text(input[pos:line_end]) {
+  if is_valid_thematic_break_markers(input[pos:line_end]) {
     return produced_until(
       ThematicBreak,
       pos,

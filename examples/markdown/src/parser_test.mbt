@@ -5,6 +5,19 @@ test "parse: heading" {
 }
 
 ///|
+test "parse: setext heading preserves legacy heading depth" {
+  inspect(
+    parse("Foo\n---\n"),
+    content="Document([Heading(2, [Text(\"Foo\")])])",
+  )
+  inspect(parse("Foo\n- \n"), content="Document([Heading(2, [Text(\"Foo\")])])")
+  inspect(
+    parse("Foo\n-  \n"),
+    content="Document([Heading(2, [Text(\"Foo\")])])",
+  )
+}
+
+///|
 test "parse: paragraph" {
   let block = parse("Hello world\n")
   inspect(block, content="Document([Paragraph([Text(\"Hello world\")])])")
