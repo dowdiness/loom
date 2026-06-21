@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=141, xfail=5, skip=1.
+// Baseline: pass=144, xfail=4, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (141, 5, 1)
+  (144, 4, 1)
 }
 
 ///|
@@ -394,9 +394,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "thematic-breaks-emphasis-not-break",
       source: " *-*\n",
       expected_html: "<p><em>-</em></p>\n",
-      status: CommonMarkHtmlXfail(
-        "Leading paragraph indentation normalization is tracked separately.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 57,
@@ -479,10 +477,26 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 84,
+      section: "Setext headings",
+      name: "setext-headings-leading-spaces",
+      source: "   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===\n",
+      expected_html: "<h2>Foo</h2>\n<h2>Foo</h2>\n<h1>Foo</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 86,
       section: "Setext headings",
       name: "setext-headings-trailing-spaces",
       source: "Foo\n   ----      \n",
+      expected_html: "<h2>Foo</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 89,
+      section: "Setext headings",
+      name: "setext-headings-content-trailing-spaces",
+      source: "Foo  \n-----\n",
       expected_html: "<h2>Foo</h2>\n",
       status: CommonMarkHtmlPass,
     },

@@ -178,6 +178,80 @@ test "experimental MarkdownIR: paragraph lowers with text origin and Block adapt
 }
 
 ///|
+test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
+  let paragraph_source = "   Foo\n"
+  let paragraph_ir = markdown_ir_from_source(paragraph_source)
+  match paragraph_ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="Foo")
+            None => inspect("missing", content="Foo")
+          }
+          inspect(origin_source(paragraph_source, text.origin()), content="Foo")
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(text, paragraph_source),
+            content="Foo",
+          )
+        }
+        _ => inspect("unexpected paragraph children", content="one text")
+      }
+    _ => inspect("unexpected paragraph count", content="one paragraph")
+  }
+  let leading_heading_source = "   Foo\n---\n"
+  let leading_heading_ir = markdown_ir_from_source(leading_heading_source)
+  match leading_heading_ir.children() {
+    [heading] =>
+      match heading.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="Foo")
+            None => inspect("missing", content="Foo")
+          }
+          inspect(
+            origin_source(leading_heading_source, text.origin()),
+            content="Foo",
+          )
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(
+              text, leading_heading_source,
+            ),
+            content="Foo",
+          )
+        }
+        _ => inspect("unexpected heading children", content="one text")
+      }
+    _ => inspect("unexpected heading count", content="one heading")
+  }
+  let trailing_heading_source = "Foo  \n---\n"
+  let trailing_heading_ir = markdown_ir_from_source(trailing_heading_source)
+  match trailing_heading_ir.children() {
+    [heading] =>
+      match heading.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="Foo")
+            None => inspect("missing", content="Foo")
+          }
+          inspect(
+            origin_source(trailing_heading_source, text.origin()),
+            content="Foo",
+          )
+          inspect(
+            experimental_markdown_ir_preserve_rewrite(
+              text, trailing_heading_source,
+            ),
+            content="Foo",
+          )
+        }
+        _ => inspect("unexpected heading children", content="one text")
+      }
+    _ => inspect("unexpected heading count", content="one heading")
+  }
+}
+
+///|
 test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
   let source = current_parser_subset_source()
   let ir = markdown_ir_from_source(source)

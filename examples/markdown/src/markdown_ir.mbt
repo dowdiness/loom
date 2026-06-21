@@ -800,8 +800,10 @@ fn lower_paragraph_with_newline_and_diags(
   newline_text : String,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR {
-  let children = lower_inline_children_with_newline_and_diags(
-    node, newline_text, diagnostics_in_origin,
+  let children = normalize_paragraph_leading_spaces(
+    lower_inline_children_with_newline_and_diags(
+      node, newline_text, diagnostics_in_origin,
+    ),
   )
   MarkdownIR::paragraph(
     children,
@@ -960,6 +962,100 @@ fn trim_code_boundary_newlines(value : String) -> String {
     without_leading[:without_leading.length() - 1].to_owned()
   } else {
     without_leading
+  }
+}
+
+///|
+fn trim_commonmark_leading_indent_spaces(value : String) -> (String, Int) {
+  // CommonMark permits up to three literal spaces of block indentation before
+  // paragraph/setext heading content. Tabs and four-space indented-code
+  // semantics are parser concerns and intentionally stay outside this Slice A
+  // MarkdownIR normalization.
+  let count = for ch in value; count = 0 {
+    match ch {
+      ' ' if count < 3 => continue count + 1
+      _ => break count
+    }
+  } nobreak {
+    count
+  }
+  if count == 0 {
+    (value, 0)
+  } else {
+    (value[count:].to_owned(), count)
+  }
+}
+
+///|
+fn trim_commonmark_trailing_spaces(value : String) -> (String, Int) {
+  // Setext heading content excludes trailing literal spaces before the newline.
+  // Keep this ASCII-space-only so tab handling remains with the later full
+  // indentation semantics slice.
+  let count = for pos = value.length() - 1, count = 0 {
+    guard pos >= 0 else { break count }
+    match value.get_char(pos) {
+      Some(' ') => continue pos - 1, count + 1
+      _ => break count
+    }
+  }
+  if count == 0 {
+    (value, 0)
+  } else {
+    (value[:value.length() - count].to_owned(), count)
+  }
+}
+
+///|
+fn normalize_paragraph_leading_spaces(
+  children : Array[MarkdownIR],
+) -> Array[MarkdownIR] {
+  match children {
+    [{ node: Text(value), origin }, ..] => {
+      let (trimmed, cut) = trim_commonmark_leading_indent_spaces(value)
+      if cut == 0 {
+        children
+      } else {
+        children.mapi((index, child) => {
+          if index == 0 {
+            MarkdownIR::text(
+              trimmed,
+              MarkdownIROrigin(start=origin.start() + cut, end=origin.end()),
+            )
+          } else {
+            child
+          }
+        })
+      }
+    }
+    _ => children
+  }
+}
+
+///|
+fn normalize_heading_whitespace(
+  children : Array[MarkdownIR],
+) -> Array[MarkdownIR] {
+  let leading_normalized = normalize_paragraph_leading_spaces(children)
+  match leading_normalized {
+    [.., { node: Text(value), origin }] => {
+      let (trimmed, cut) = trim_commonmark_trailing_spaces(value)
+      if cut == 0 {
+        leading_normalized
+      } else {
+        let last_index = leading_normalized.length() - 1
+        leading_normalized.mapi((index, child) => {
+          if index == last_index {
+            MarkdownIR::text(
+              trimmed,
+              MarkdownIROrigin(start=origin.start(), end=origin.end() - cut),
+            )
+          } else {
+            child
+          }
+        })
+      }
+    }
+    _ => leading_normalized
   }
 }
 
@@ -1123,8 +1219,10 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::document(children, origin_from_node(node))
     }
     HeadingNode => {
-      let children = lower_inline_children_with_newline_and_diags(
-        node, "\n", diagnostics_in_origin,
+      let children = normalize_heading_whitespace(
+        lower_inline_children_with_newline_and_diags(
+          node, "\n", diagnostics_in_origin,
+        ),
       )
       match heading_depth_from_marker(node) {
         Some(depth) =>
