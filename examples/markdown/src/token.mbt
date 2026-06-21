@@ -103,6 +103,47 @@ fn is_decimal_digit(ch : Char) -> Bool {
 }
 
 ///|
+fn thematic_break_marker_text(text : StringView) -> Bool {
+  let (count, valid, seen_marker) = for
+    ch in text
+    marker = (None : Char?),
+    count = 0,
+    valid = true,
+    seen_marker = false,
+    indent = 0 {
+    if !valid {
+      continue marker, count, false, seen_marker, indent
+    }
+    match ch {
+      ' ' =>
+        if seen_marker {
+          continue marker, count, true, true, indent
+        } else if indent < 3 {
+          continue marker, count, true, false, indent + 1
+        } else {
+          continue marker, count, false, false, indent
+        }
+      '\t' =>
+        if seen_marker {
+          continue marker, count, true, true, indent
+        } else {
+          continue marker, count, false, false, indent
+        }
+      '-' | '_' | '*' =>
+        match marker {
+          Some(existing) if existing != ch =>
+            continue marker, count, false, seen_marker, indent
+          _ => continue Some(ch), count + 1, true, true, indent
+        }
+      _ => continue marker, count, false, seen_marker, indent
+    }
+  } nobreak {
+    (count, valid, seen_marker)
+  }
+  valid && seen_marker && count >= 3
+}
+
+///|
 fn count_ordered_marker_digits(text : String, pos : Int) -> Int {
   let mut n = 0
   while pos + n < text.length() && n < 9 {
@@ -139,6 +180,7 @@ pub(all) enum Token {
   ListMarker // "- " or "* " or "+ " (includes trailing space)
   OrderedListMarker(OrderedListMarker) // "1. " or "1) " (includes trailing space)
   BlockQuoteMarker // ">" plus optional following space, with up to three leading spaces
+  ThematicBreak
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
   BlankLine // empty or whitespace-only line
@@ -164,6 +206,7 @@ pub impl Show for Token with fn output(self, logger) {
       ListMarker => "- "
       OrderedListMarker(marker) => marker.text() + " "
       BlockQuoteMarker => "> "
+      ThematicBreak => "---"
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
       BlankLine => ""
@@ -204,6 +247,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       ListMarker => 1 // ListMarkerToken
       OrderedListMarker(_) => 28 // OrderedListMarkerToken
       BlockQuoteMarker => 30 // BlockQuoteMarkerToken
+      ThematicBreak => 32 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
       BlankLine => 4 // BlankLineToken

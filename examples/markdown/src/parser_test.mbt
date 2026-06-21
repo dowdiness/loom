@@ -55,11 +55,49 @@ test "parse: blockquote lazy continuation rejects thematic break line" {
         separator.kind(),
       )
       inspect(quote_kind, content="BlockQuoteNode")
-      inspect(separator_kind, content="ParagraphNode")
+      inspect(separator_kind, content="ThematicBreakNode")
     }
     _ =>
       inspect(syntax.children().length(), content="blockquote then separator")
   }
+}
+
+///|
+test "parse: thematic break preserves legacy text projection" {
+  let block = parse("---\n")
+  inspect(block, content="Document([Paragraph([Text(\"---\")])])")
+}
+
+///|
+test "parse: list-item thematic break after marker is CST block child" {
+  let (cst, _) = try! parse_cst("- Foo\n- * * *\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] =>
+      match list.children() {
+        [_, item] =>
+          match item.children() {
+            [separator] => {
+              let separator_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                separator.kind(),
+              )
+              inspect(separator_kind, content="ThematicBreakNode")
+            }
+            _ => inspect(item.children().length(), content="one thematic break")
+          }
+        _ => inspect(list.children().length(), content="two list items")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
+test "parse: list-item thematic break preserves legacy text projection" {
+  let block = parse("- * * *\n")
+  inspect(
+    block,
+    content="Document([UnorderedList([ListItem([Text(\"* * *\")])])])",
+  )
 }
 
 ///|

@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=123, xfail=1, skip=1.
+// Baseline: pass=136, xfail=5, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (123, 1, 1)
+  (136, 5, 1)
 }
 
 ///|
@@ -205,11 +205,27 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 234,
+      section: "Block quotes",
+      name: "thematic-breaks-after-blockquote",
+      source: "> foo\n---\n",
+      expected_html: "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 235,
       section: "Block quotes",
       name: "blockquote-list-closes-before-unquoted-list",
       source: "> - foo\n- bar\n",
       expected_html: "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 246,
+      section: "Block quotes",
+      name: "thematic-breaks-between-blockquotes",
+      source: "> aaa\n***\n> bbb\n",
+      expected_html: "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr />\n<blockquote>\n<p>bbb</p>\n</blockquote>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -263,6 +279,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 43,
+      section: "Thematic breaks",
+      name: "thematic-breaks-core",
+      source: "***\n---\n___\n",
+      expected_html: "<hr />\n<hr />\n<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 44,
       section: "Thematic breaks",
       name: "thematic-breaks-044",
@@ -279,11 +303,131 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 46,
+      section: "Thematic breaks",
+      name: "thematic-breaks-reject-two-chars",
+      source: "--\n**\n__\n",
+      expected_html: "<p>--\n**\n__</p>\n",
+      status: CommonMarkHtmlXfail(
+        "Unclosed strong emphasis delimiters still lower as recovered nodes.",
+      ),
+    },
+    {
+      example: 47,
+      section: "Thematic breaks",
+      name: "thematic-breaks-leading-spaces",
+      source: " ***\n  ***\n   ***\n",
+      expected_html: "<hr />\n<hr />\n<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 48,
+      section: "Thematic breaks",
+      name: "thematic-breaks-four-spaces-code",
+      source: "    ***\n",
+      expected_html: "<pre><code>***\n</code></pre>\n",
+      status: CommonMarkHtmlXfail(
+        "Indented code blocks are outside this thematic-break slice.",
+      ),
+    },
+    {
+      example: 49,
+      section: "Thematic breaks",
+      name: "thematic-breaks-four-spaces-paragraph",
+      source: "Foo\n    ***\n",
+      expected_html: "<p>Foo\n***</p>\n",
+      status: CommonMarkHtmlXfail(
+        "Indented continuation normalization is outside this thematic-break slice.",
+      ),
+    },
+    {
+      example: 50,
+      section: "Thematic breaks",
+      name: "thematic-breaks-many-underscores",
+      source: "_____________________________________\n",
+      expected_html: "<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 51,
+      section: "Thematic breaks",
+      name: "thematic-breaks-internal-dash-spaces",
+      source: " - - -\n",
+      expected_html: "<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 52,
+      section: "Thematic breaks",
+      name: "thematic-breaks-mixed-star-spaces",
+      source: " **  * ** * ** * **\n",
+      expected_html: "<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 53,
+      section: "Thematic breaks",
+      name: "thematic-breaks-internal-dash-wide-spaces",
+      source: "-     -      -      -\n",
+      expected_html: "<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 54,
+      section: "Thematic breaks",
+      name: "thematic-breaks-trailing-spaces",
+      source: "- - - -    \n",
+      expected_html: "<hr />\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 55,
       section: "Thematic breaks",
       name: "thematic-breaks-055",
       source: "_ _ _ _ a\n\na------\n\n---a---\n",
       expected_html: "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 56,
+      section: "Thematic breaks",
+      name: "thematic-breaks-emphasis-not-break",
+      source: " *-*\n",
+      expected_html: "<p><em>-</em></p>\n",
+      status: CommonMarkHtmlXfail(
+        "Leading paragraph indentation normalization is tracked separately.",
+      ),
+    },
+    {
+      example: 57,
+      section: "Thematic breaks",
+      name: "thematic-breaks-list-then-break-then-list",
+      source: "- foo\n***\n- bar\n",
+      expected_html: "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 58,
+      section: "Thematic breaks",
+      name: "thematic-breaks-paragraph-then-break-then-paragraph",
+      source: "Foo\n***\nbar\n",
+      expected_html: "<p>Foo</p>\n<hr />\n<p>bar</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 60,
+      section: "Thematic breaks",
+      name: "thematic-breaks-list-star-then-break-star-then-list",
+      source: "* Foo\n* * *\n* Bar\n",
+      expected_html: "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 61,
+      section: "Thematic breaks",
+      name: "thematic-breaks-list-item-break",
+      source: "- Foo\n- * * *\n",
+      expected_html: "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

@@ -6,6 +6,7 @@ fn is_block_boundary(token : Token) -> Bool {
     | ListMarker
     | OrderedListMarker(_)
     | BlockQuoteMarker
+    | ThematicBreak
     | CodeFenceOpen(_, _)
     | BlankLine
     | EOF => true
@@ -31,6 +32,7 @@ fn parse_document(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Parse a single block. Dispatches based on the current token.
 fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
+    ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_list(ctx)
     OrderedListMarker(_) => parse_ordered_list(ctx)
@@ -114,47 +116,6 @@ fn token_continues_block_quote_paragraph(token : Token) -> Bool {
 }
 
 ///|
-fn thematic_break_marker_text(text : String) -> Bool {
-  let (count, valid, seen_marker) = for
-    ch in text
-    marker = (None : Char?),
-    count = 0,
-    valid = true,
-    seen_marker = false,
-    indent = 0 {
-    if !valid {
-      continue marker, count, false, seen_marker, indent
-    }
-    match ch {
-      ' ' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
-        } else if indent < 3 {
-          continue marker, count, true, false, indent + 1
-        } else {
-          continue marker, count, false, false, indent
-        }
-      '\t' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
-        } else {
-          continue marker, count, false, false, indent
-        }
-      '-' | '_' | '*' =>
-        match marker {
-          Some(existing) if existing != ch =>
-            continue marker, count, false, seen_marker, indent
-          _ => continue Some(ch), count + 1, true, true, indent
-        }
-      _ => continue marker, count, false, seen_marker, indent
-    }
-  } nobreak {
-    (count, valid, seen_marker)
-  }
-  valid && seen_marker && count >= 3
-}
-
-///|
 fn line_at_offset_is_thematic_break(
   ctx : @core.ParserContext[Token, SyntaxKind],
   offset : Int,
@@ -162,7 +123,8 @@ fn line_at_offset_is_thematic_break(
   let line = StringBuilder::new()
   for i = offset {
     match ctx.peek_nth(i) {
-      Newline | EOF => break thematic_break_marker_text(line.to_string())
+      ThematicBreak => break true
+      Newline | EOF => break thematic_break_marker_text(line.to_string().view())
       Text(text) => line.write_string(text)
       Star => line.write_string("*")
       StarStar => line.write_string("**")
@@ -323,6 +285,7 @@ fn parse_block_quote_after_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   match ctx.peek() {
+    ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_block_quote_list(ctx)
     OrderedListMarker(_) => parse_block_quote_ordered_list(ctx)
@@ -538,17 +501,42 @@ fn parse_list_item_inline_content(
 }
 
 ///|
+fn parse_inline_thematic_break(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(ThematicBreakNode, fn() {
+    while !(ctx.peek() is Newline) && ctx.peek() != EOF {
+      match ctx.peek() {
+        Text(_) => ctx.emit_token(TextToken)
+        Star => ctx.emit_token(StarToken)
+        StarStar => ctx.emit_token(StarStarToken)
+        _ => ctx.bump_error()
+      }
+    }
+  })
+}
+
+///|
+fn parse_list_item_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> Unit {
+  if line_at_offset_is_thematic_break(ctx, 0) {
+    parse_inline_thematic_break(ctx)
+  } else {
+    parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
+  }
+  parse_nested_list_item_flow(ctx, content_indent)
+}
+
+///|
 /// Parse a single list item: ListMarker followed by inline content.
 fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
     let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(ListMarkerToken)
-    parse_list_item_inline_content(
-      ctx,
-      content_indent,
-      allow_ordered_marker=true,
-    )
-    parse_nested_list_item_flow(ctx, content_indent)
+    parse_list_item_body(ctx, content_indent, allow_ordered_marker=true)
   })
 }
 
@@ -587,12 +575,17 @@ fn parse_ordered_list_item(
   ctx.node(ListItemNode, fn() {
     let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(OrderedListMarkerToken)
-    parse_list_item_inline_content(
-      ctx,
-      content_indent,
-      allow_ordered_marker=false,
-    )
-    parse_nested_list_item_flow(ctx, content_indent)
+    parse_list_item_body(ctx, content_indent, allow_ordered_marker=false)
+  })
+}
+
+///|
+fn parse_thematic_break(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  ctx.node(ThematicBreakNode, fn() {
+    ctx.emit_token(ThematicBreakToken)
+    if ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
   })
 }
 

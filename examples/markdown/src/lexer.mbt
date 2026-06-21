@@ -115,6 +115,21 @@ fn lex_line_start(
   if pos >= input.length() {
     return (Done, LineStart)
   }
+  let mut line_end = pos
+  while line_end < input.length() {
+    match char_at(input, line_end) {
+      Some('\r') | Some('\n') | None => break
+      _ => line_end = @core.next_char_offset(input, line_end)
+    }
+  }
+  if thematic_break_marker_text(input[pos:line_end]) {
+    return produced_until(
+      ThematicBreak,
+      pos,
+      input.view(start_offset=line_end),
+      LineStart,
+    )
+  }
   match input.view(start_offset=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       // Empty line = BlankLine
