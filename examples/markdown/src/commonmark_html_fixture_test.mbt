@@ -171,6 +171,30 @@ test "experimental MarkdownIR: CommonMark HTML fixture xfail fixtures" {
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML renderer supports setext headings in containers" {
+  let blockquote = "> Foo\n> ---\n"
+  let (blockquote_cst, blockquote_diagnostics) = try! parse_cst(blockquote)
+  let blockquote_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(blockquote_cst),
+    blockquote_diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(blockquote_ir),
+    content="<blockquote>\n<h2>Foo</h2>\n</blockquote>\n",
+  )
+  let list_item = "- Bar\n  ---\n"
+  let (list_cst, list_diagnostics) = try! parse_cst(list_item)
+  let list_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(list_cst),
+    list_diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(list_ir),
+    content="<ul>\n<li>\n<h2>Bar</h2>\n</li>\n</ul>\n",
+  )
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer escapes text code and link attributes" {
   let source = "<>&\"\n\n```\n<>&\"\n```\n\n[<>&\"](https://example.com/?a=1&b=\"q\")\n"
   let (cst, diagnostics) = try! parse_cst(source)
