@@ -168,6 +168,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
     }
     CodeBlock(info, value, _) =>
       markdown_ir_code_block_commonmark_html(info, value)
+    ThematicBreak => "<hr />\n"
     Text(value) | Raw(value, _) => html_escape_text(value)
     Bold(children, _) =>
       "<strong>" +

@@ -55,7 +55,7 @@ test "parse: blockquote lazy continuation rejects thematic break line" {
         separator.kind(),
       )
       inspect(quote_kind, content="BlockQuoteNode")
-      inspect(separator_kind, content="ParagraphNode")
+      inspect(separator_kind, content="ThematicBreakNode")
     }
     _ =>
       inspect(syntax.children().length(), content="blockquote then separator")

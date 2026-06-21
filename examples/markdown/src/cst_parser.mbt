@@ -6,6 +6,7 @@ fn is_block_boundary(token : Token) -> Bool {
     | ListMarker
     | OrderedListMarker(_)
     | BlockQuoteMarker
+    | ThematicBreak
     | CodeFenceOpen(_, _)
     | BlankLine
     | EOF => true
@@ -31,6 +32,7 @@ fn parse_document(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Parse a single block. Dispatches based on the current token.
 fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
+    ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_list(ctx)
     OrderedListMarker(_) => parse_ordered_list(ctx)
@@ -114,47 +116,6 @@ fn token_continues_block_quote_paragraph(token : Token) -> Bool {
 }
 
 ///|
-fn thematic_break_marker_text(text : String) -> Bool {
-  let (count, valid, seen_marker) = for
-    ch in text
-    marker = (None : Char?),
-    count = 0,
-    valid = true,
-    seen_marker = false,
-    indent = 0 {
-    if !valid {
-      continue marker, count, false, seen_marker, indent
-    }
-    match ch {
-      ' ' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
-        } else if indent < 3 {
-          continue marker, count, true, false, indent + 1
-        } else {
-          continue marker, count, false, false, indent
-        }
-      '\t' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
-        } else {
-          continue marker, count, false, false, indent
-        }
-      '-' | '_' | '*' =>
-        match marker {
-          Some(existing) if existing != ch =>
-            continue marker, count, false, seen_marker, indent
-          _ => continue Some(ch), count + 1, true, true, indent
-        }
-      _ => continue marker, count, false, seen_marker, indent
-    }
-  } nobreak {
-    (count, valid, seen_marker)
-  }
-  valid && seen_marker && count >= 3
-}
-
-///|
 fn line_at_offset_is_thematic_break(
   ctx : @core.ParserContext[Token, SyntaxKind],
   offset : Int,
@@ -162,7 +123,8 @@ fn line_at_offset_is_thematic_break(
   let line = StringBuilder::new()
   for i = offset {
     match ctx.peek_nth(i) {
-      Newline | EOF => break thematic_break_marker_text(line.to_string())
+      ThematicBreak => break true
+      Newline | EOF => break thematic_break_marker_text(line.to_string().view())
       Text(text) => line.write_string(text)
       Star => line.write_string("*")
       StarStar => line.write_string("**")
@@ -323,6 +285,7 @@ fn parse_block_quote_after_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   match ctx.peek() {
+    ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
     ListMarker => parse_block_quote_list(ctx)
     OrderedListMarker(_) => parse_block_quote_ordered_list(ctx)
@@ -593,6 +556,16 @@ fn parse_ordered_list_item(
       allow_ordered_marker=false,
     )
     parse_nested_list_item_flow(ctx, content_indent)
+  })
+}
+
+///|
+fn parse_thematic_break(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  ctx.node(ThematicBreakNode, fn() {
+    ctx.emit_token(ThematicBreakToken)
+    if ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
   })
 }
 

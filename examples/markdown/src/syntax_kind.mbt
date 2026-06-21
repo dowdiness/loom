@@ -20,6 +20,7 @@ pub(all) enum SyntaxKind {
   EofToken
   OrderedListMarkerToken
   BlockQuoteMarkerToken
+  ThematicBreakToken
   // Node kinds
   DocumentNode
   HeadingNode
@@ -34,6 +35,7 @@ pub(all) enum SyntaxKind {
   LinkNode
   ErrorNode
   BlockQuoteNode
+  ThematicBreakNode
 } derive(Debug, Eq)
 
 ///|
@@ -62,7 +64,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | ErrorToken
     | EofToken
     | OrderedListMarkerToken
-    | BlockQuoteMarkerToken => true
+    | BlockQuoteMarkerToken
+    | ThematicBreakToken => true
     _ => false
   }
 }
@@ -103,6 +106,8 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       OrderedListNode => 29
       BlockQuoteMarkerToken => 30
       BlockQuoteNode => 31
+      ThematicBreakToken => 32
+      ThematicBreakNode => 33
     },
   )
 }
@@ -142,6 +147,8 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     29 => OrderedListNode
     30 => BlockQuoteMarkerToken
     31 => BlockQuoteNode
+    32 => ThematicBreakToken
+    33 => ThematicBreakNode
     _ => ErrorNode
   }
 }

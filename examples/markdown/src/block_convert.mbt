@@ -18,6 +18,7 @@ pub fn markdown_fold_node(
           | UnorderedListNode
           | OrderedListNode
           | CodeBlockNode
+          | ThematicBreakNode
           | ErrorNode => blocks.push(recurse(child))
           _ => () // skip BlankLine/Newline tokens at top level
         }
@@ -114,6 +115,7 @@ pub fn markdown_fold_node(
       }
       Block::CodeBlock(info, final_code)
     }
+    ThematicBreakNode => Block::Error("thematic break")
     ErrorNode => Block::Error("parse error")
     _ => Block::Error("unknown node: " + kind.to_string())
   }

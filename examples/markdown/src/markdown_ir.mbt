@@ -52,6 +52,7 @@ priv enum MarkdownIRNode {
     OrderedListMarker?
   )
   CodeBlock(String, String, MarkdownIROrigin?)
+  ThematicBreak
   Text(String)
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
@@ -164,6 +165,11 @@ fn MarkdownIR::code_block(
 }
 
 ///|
+fn MarkdownIR::thematic_break(origin : MarkdownIROrigin) -> MarkdownIR {
+  { node: ThematicBreak, origin }
+}
+
+///|
 fn MarkdownIR::text(value : String, origin : MarkdownIROrigin) -> MarkdownIR {
   { node: Text(value), origin }
 }
@@ -264,6 +270,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     ListItem(_, _, _, _) => "ListItem"
     OrderedListItem(_, _, _, _) => "OrderedListItem"
     CodeBlock(_, _, _) => "CodeBlock"
+    ThematicBreak => "ThematicBreak"
     Text(_) => "Text"
     Bold(_, _) => "Bold"
     Italic(_, _) => "Italic"
@@ -290,6 +297,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | Italic(children, _)
     | Link(children, _, _) => children.copy()
     CodeBlock(_, _, _)
+    | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
     | Unsupported(_)
@@ -499,6 +507,7 @@ fn lower_inline_children_skip_with_diags(
           | ListMarkerToken
           | OrderedListMarkerToken
           | BlockQuoteMarkerToken
+          | ThematicBreakToken
           | BlankLineToken
           | EofToken
           | CodeFenceOpenToken
@@ -559,6 +568,7 @@ fn lower_direct_inline_token_with_diags(
     | ListMarkerToken
     | OrderedListMarkerToken
     | BlockQuoteMarkerToken
+    | ThematicBreakToken
     | BlankLineToken
     | NewlineToken
     | EofToken
@@ -826,7 +836,8 @@ fn lower_container_child_with_diags(
     | BlockQuoteNode
     | UnorderedListNode
     | OrderedListNode
-    | CodeBlockNode => Some(recurse(child))
+    | CodeBlockNode
+    | ThematicBreakNode => Some(recurse(child))
     ErrorNode => {
       let origin = origin_from_node(child)
       Some(
@@ -1200,6 +1211,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         origin_from_node(node),
         code_block_content_origin(node),
       )
+    ThematicBreakNode => MarkdownIR::thematic_break(origin_from_node(node))
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
@@ -1303,6 +1315,8 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
       Inline::Error("expected inline MarkdownIR, got list item")
     CodeBlock(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got code block")
+    ThematicBreak =>
+      Inline::Error("expected inline MarkdownIR, got thematic break")
   }
 }
 
@@ -1348,6 +1362,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) =>
       Block::ListItem(list_item_flow_children_to_editor_inlines(children))
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
+    ThematicBreak => Block::Error("thematic break")
     Text(_) => Block::Error("expected block MarkdownIR, got text")
     Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
     Italic(_, _) => Block::Error("expected block MarkdownIR, got italic")
@@ -1511,6 +1526,8 @@ fn mdast_position_origin(
       origin_without_trailing_line_endings(ir.origin(), context.source)
     CodeBlock(_, _, _) =>
       code_block_mdast_position_origin(ir.origin(), context.source)
+    ThematicBreak =>
+      origin_without_trailing_line_endings(ir.origin(), context.source)
     _ => ir.origin()
   }
 }
@@ -1658,6 +1675,7 @@ fn markdown_ir_to_mdast_json(
       } else {
         { "type": "code", "value": value }
       }
+    ThematicBreak => { "type": "thematicBreak" }
     Text(value) => { "type": "text", "value": value }
     Bold(children, _) =>
       { "type": "strong", "children": mdast_children_json(children, context) }
@@ -2045,6 +2063,7 @@ fn local_transform_render(
       } else {
         source_slice(source, ir.origin())
       }
+    ThematicBreak => source_slice(source, ir.origin())
     Text(value) | Raw(value, _) => value
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
@@ -2264,6 +2283,7 @@ fn canonical_format_with_list_marker(
       canonical_list_item_flow(item_marker, children, list_marker)
     }
     CodeBlock(info, value, _) => code_block_markdown(info, value)
+    ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"

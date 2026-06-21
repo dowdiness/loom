@@ -135,6 +135,7 @@ pub(all) enum SyntaxKind {
   EofToken
   OrderedListMarkerToken
   BlockQuoteMarkerToken
+  ThematicBreakToken
   DocumentNode
   HeadingNode
   ParagraphNode
@@ -148,6 +149,7 @@ pub(all) enum SyntaxKind {
   LinkNode
   ErrorNode
   BlockQuoteNode
+  ThematicBreakNode
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
@@ -159,6 +161,7 @@ pub(all) enum Token {
   ListMarker
   OrderedListMarker(OrderedListMarker)
   BlockQuoteMarker
+  ThematicBreak
   CodeFenceOpen(Int, String)
   CodeFenceClose
   BlankLine
