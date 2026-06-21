@@ -1,0 +1,69 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loom/projection"
+
+import {
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[Id] realign_projection_identities(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableProjectionLeaf[Id]]
+
+pub fn[Id] realign_projection_identities_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableProjectionLeaf[Id]]
+
+pub fn[Item, Id, StableItem] realign_projection_items(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableItem]
+
+pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableItem]
+
+// Errors
+
+// Types and methods
+pub struct ProjectionIdentityBaseline[Id] {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
+pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
+
+pub struct ProjectionIdentityTracker[Id] {
+  // private fields
+}
+pub fn[Id] ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?
+pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit
+pub fn[Id] ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]
+pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]
+pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableProjectionLeaf[Id]]
+pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : @core.Edit) -> Unit
+pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, @core.Edit?) -> Unit
+
+type ProjectionIdentityWindow derive(Eq, @debug.Debug)
+
+pub struct ProjectionLeaf {
+  start : Int
+  end : Int
+  key : String
+} derive(Eq, @debug.Debug)
+pub fn ProjectionLeaf::new(Int, Int, String) -> Self
+
+pub struct ProjectionStringIdAllocator {
+  // private fields
+}
+pub fn ProjectionStringIdAllocator::allocate(Self, ProjectionLeaf) -> String
+pub fn ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int) -> String) -> Self
+pub fn ProjectionStringIdAllocator::new((String, Int) -> String) -> Self
+
+pub struct StableProjectionLeaf[Id] {
+  start : Int
+  end : Int
+  key : String
+  id : Id
+} derive(Eq, @debug.Debug)
+pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
+
+// Type aliases
+
+// Traits
+

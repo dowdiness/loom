@@ -1,4 +1,7 @@
 ///|
+using @core {type Edit}
+
+///|
 fn test_make_string_id(key : String, occurrence : Int) -> String {
   "mini:" + key + ":" + occurrence.to_string()
 }

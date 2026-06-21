@@ -4,5 +4,6 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/loom/pipeline",
+  "dowdiness/loom/projection",
   "moonbitlang/core/debug",
 }

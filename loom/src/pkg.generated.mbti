@@ -6,6 +6,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/incremental",
   "dowdiness/loom/pipeline",
+  "dowdiness/loom/projection",
   "dowdiness/seam",
 }
 
@@ -30,13 +31,13 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_synta
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(String, Int, (Int) -> T, (Int) -> Int, (Int) -> Int, @core.LanguageSpec[T, K], cursor? : @core.ReuseCursor[T, K]?, prev_diagnostics? : @core.DiagnosticSet?) -> (@seam.CstNode, @core.DiagnosticSet, Int)
 
-pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]
+pub fn[Id] realign_projection_identities(@projection.ProjectionIdentityBaseline[Id], String, Array[@projection.ProjectionLeaf], (@projection.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@projection.StableProjectionLeaf[Id]]
 
-pub fn[Id] realign_projection_identities_with_optional_edit(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, @core.Edit?) -> Array[@core.StableProjectionLeaf[Id]]
+pub fn[Id] realign_projection_identities_with_optional_edit(@projection.ProjectionIdentityBaseline[Id], String, Array[@projection.ProjectionLeaf], (@projection.ProjectionLeaf) -> Id, @core.Edit?) -> Array[@projection.StableProjectionLeaf[Id]]
 
-pub fn[Item, Id, StableItem] realign_projection_items(@core.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @core.ProjectionLeaf, (Item, Id) -> StableItem, (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableItem]
+pub fn[Item, Id, StableItem] realign_projection_items(@projection.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @projection.ProjectionLeaf, (Item, Id) -> StableItem, (@projection.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[StableItem]
 
-pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(@core.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @core.ProjectionLeaf, (Item, Id) -> StableItem, (@core.ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableItem]
+pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(@projection.ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> @projection.ProjectionLeaf, (Item, Id) -> StableItem, (@projection.ProjectionLeaf) -> Id, @core.Edit?) -> Array[StableItem]
 
 pub fn text_to_delta(String, String) -> Array[@core.TextDelta]
 
@@ -142,13 +143,13 @@ pub using @core {type ParserContext}
 
 pub using @core {type PrefixLexer}
 
-pub using @core {type ProjectionIdentityBaseline}
+pub using @projection {type ProjectionIdentityBaseline}
 
-pub using @core {type ProjectionIdentityTracker}
+pub using @projection {type ProjectionIdentityTracker}
 
-pub using @core {type ProjectionLeaf}
+pub using @projection {type ProjectionLeaf}
 
-pub using @core {type ProjectionStringIdAllocator}
+pub using @projection {type ProjectionStringIdAllocator}
 
 pub using @core {type Range}
 
@@ -156,7 +157,7 @@ pub using @seam {type RawKind}
 
 pub using @core {type ReuseCursor}
 
-pub using @core {type StableProjectionLeaf}
+pub using @projection {type StableProjectionLeaf}
 
 pub using @seam {type SyntaxElement}
 

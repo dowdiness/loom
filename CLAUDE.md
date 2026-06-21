@@ -54,6 +54,7 @@ moon test -p dowdiness/lambda/lexer -f lexer_test.mbt
 |---------|---------|
 | `loom/src/` (root) | Public API facade (`loom.mbt`, pure `pub using` re-export); `Grammar[T,K,Ast]`, `new_imperative_parser`, `new_parser` |
 | `loom/src/core/` | `Edit`, `Range`, `TextDelta`, `ReuseSlot`, `Editable`, `TokenBuffer`, `ReuseCursor`, `ParserContext[T,K]`, `LanguageSpec` — shared primitives |
+| `loom/src/projection/` | `ProjectionIdentityTracker`, `ProjectionIdentityBaseline`, `ProjectionLeaf`, `ProjectionStringIdAllocator`, `realign_projection_*` — stable cross-edit semantic IDs; consumer layer above core (engine MUST NOT import) |
 | `loom/src/pipeline/` | `Parser[Ast]` — unified wrapper: owns `ImperativeParser` engine + publishes source/syntax/ast/diagnostics as `@incr.Input`/`@incr.Derived` cells (post Stage 6, 2026-04-17) |
 | `loom/src/incremental/` | `ImperativeParser`, damage tracking |
 | `loom/src/viz/` | DOT graph renderer (`DotNode` trait) |

@@ -24,14 +24,6 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(String, LanguageSpec[T, K], (String) -> Array[TokenInfo[T]], (ParserContext[T, K]) -> Unit) -> (@seam.CstNode, DiagnosticSet)
 
-pub fn[Id] realign_projection_identities(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]
-
-pub fn[Id] realign_projection_identities_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]
-
-pub fn[Item, Id, StableItem] realign_projection_items(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableItem]
-
-pub fn[Item, Id, StableItem] realign_projection_items_with_optional_edit(ProjectionIdentityBaseline[Id], String, Array[Item], (Item) -> ProjectionLeaf, (Item, Id) -> StableItem, (ProjectionLeaf) -> Id, Edit?) -> Array[StableItem]
-
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
 pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
@@ -329,43 +321,6 @@ pub(all) struct PrefixLexer[T] {
 pub fn[T] PrefixLexer::lex_all(Self[T], String, Int) -> Array[LexStep[T]]
 pub fn[T] PrefixLexer::new(lex_step~ : (String, Int) -> LexStep[T]) -> Self[T]
 
-pub struct ProjectionIdentityBaseline[Id] {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn[Id] ProjectionIdentityBaseline::advance(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Self[Id]
-pub fn[Id] ProjectionIdentityBaseline::advance_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Self[Id]
-pub fn[Id] ProjectionIdentityBaseline::leaves(Self[Id]) -> Array[StableProjectionLeaf[Id]]
-pub fn[Id] ProjectionIdentityBaseline::new(String, Array[StableProjectionLeaf[Id]]) -> Self[Id]
-pub fn[Id] ProjectionIdentityBaseline::source(Self[Id]) -> String
-
-pub struct ProjectionIdentityTracker[Id] {
-  // private fields
-}
-pub fn[Id] ProjectionIdentityTracker::baseline(Self[Id]) -> ProjectionIdentityBaseline[Id]?
-pub fn[Id] ProjectionIdentityTracker::commit_success(Self[Id], String, Array[StableProjectionLeaf[Id]]) -> Unit
-pub fn[Id] ProjectionIdentityTracker::from_baseline(ProjectionIdentityBaseline[Id]) -> Self[Id]
-pub fn[Id] ProjectionIdentityTracker::new() -> Self[Id]
-pub fn[Id] ProjectionIdentityTracker::realign_success(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, edit? : Edit) -> Array[StableProjectionLeaf[Id]]
-pub fn[Id] ProjectionIdentityTracker::realign_success_with_optional_edit(Self[Id], String, Array[ProjectionLeaf], (ProjectionLeaf) -> Id, Edit?) -> Array[StableProjectionLeaf[Id]]
-pub fn[Id] ProjectionIdentityTracker::record_failed_input(Self[Id], String, source_before_edit? : String, edit? : Edit) -> Unit
-pub fn[Id] ProjectionIdentityTracker::record_failed_input_with_optional_edit(Self[Id], String, String?, Edit?) -> Unit
-
-type ProjectionIdentityWindow derive(Eq, @debug.Debug)
-
-pub struct ProjectionLeaf {
-  start : Int
-  end : Int
-  key : String
-} derive(Eq, @debug.Debug)
-pub fn ProjectionLeaf::new(Int, Int, String) -> Self
-
-pub struct ProjectionStringIdAllocator {
-  // private fields
-}
-pub fn ProjectionStringIdAllocator::allocate(Self, ProjectionLeaf) -> String
-pub fn ProjectionStringIdAllocator::from_baseline(ProjectionIdentityBaseline[String], (String, Int) -> String) -> Self
-pub fn ProjectionStringIdAllocator::new((String, Int) -> String) -> Self
-
 pub(all) struct Range {
   start : Int
   end : Int
@@ -410,14 +365,6 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_r
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] ReuseCursor::try_reuse_repeat_group(Self[T, K], Int, Int) -> @seam.CstNode?
 
 type ReuseRejectionReason derive(Eq, @debug.Debug)
-
-pub struct StableProjectionLeaf[Id] {
-  start : Int
-  end : Int
-  key : String
-  id : Id
-} derive(Eq, @debug.Debug)
-pub fn[Id] StableProjectionLeaf::new(Int, Int, String, Id) -> Self[Id]
 
 pub(all) enum TextDelta {
   Retain(Int)
