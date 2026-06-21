@@ -5,8 +5,10 @@
 # Rules enforced:
 #   1. Engine packages (core, incremental, pipeline) MUST NOT import loom/projection.
 #      Prevents the layering inversion from recurring (see docs/analysis/2026-06-20-architecture-restructuring.md §5).
-#   2. seam MUST NOT import dowdiness/loom or any examples/ package.
-#      Keeps the CST model reusable by packages above it.
+#   2. seam MUST NOT import dowdiness/loom.
+#      Keeps the CST model usable by packages above it.
+#      Note: seam importing example packages (dowdiness/json etc.) is already
+#      enforced at compile time — moon resolves it as a circular dependency.
 
 set -euo pipefail
 
@@ -48,7 +50,7 @@ for pkg in "${ENGINE_PKGS[@]}"; do
 done
 
 echo ""
-echo "Rule 2: seam must not import dowdiness/loom or examples"
+echo "Rule 2: seam must not import dowdiness/loom"
 
 # Find all moon.pkg files under seam/
 SEAM_PKGS=$(find seam -name "moon.pkg" 2>/dev/null)
@@ -58,10 +60,8 @@ else
   while IFS= read -r pkg_file; do
     if grep -q '"dowdiness/loom' "$pkg_file"; then
       fail "$pkg_file imports a dowdiness/loom package — seam must not depend on loom"
-    elif grep -q '"dowdiness/.*examples' "$pkg_file"; then
-      fail "$pkg_file imports an examples package — seam must not depend on examples"
     else
-      ok "$pkg_file: no loom or examples import"
+      ok "$pkg_file: no loom import"
     fi
   done <<< "$SEAM_PKGS"
 fi

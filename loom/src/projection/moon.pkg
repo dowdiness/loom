@@ -1,4 +1,4 @@
 import {
-  "dowdiness/loom/core" @core,
+  "dowdiness/loom/core",
   "dowdiness/text_change" @shared_text_change,
 }

@@ -1,3 +1,9 @@
+// `Edit` is defined in @core; bring it into scope without a prefix so the
+// rest of the file remains unchanged.
+
+///|
+using @core {type Edit}
+
 ///|
 /// A user-facing semantic leaf extracted from a successful CST projection.
 ///
