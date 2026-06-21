@@ -53,11 +53,9 @@ pub fn run_expr(
       ctx.emit_error_placeholder()
     }
     Expr::ManualParamList => parse_param_list_exact(ctx)
-    Expr::ErrorUntil(_, msg) => {
+    Expr::ErrorUntil(stop, msg) => {
       ctx.error(msg)
-      ctx.start_node(@syntax.ErrorNode)
-      ctx.emit_error_placeholder()
-      ctx.finish_node()
+      parse_error_node_until(ctx, stop)
     }
   }
 }
@@ -280,4 +278,54 @@ fn parse_block_expr_ir(
   }
   let _ = ctx.expect(@token.RBrace, @syntax.RBraceToken)
   ctx.finish_node()
+}
+
+///|
+/// Sync points: tokens where error recovery should stop consuming.
+/// Mirrors A's `is_sync_point` in cst_parser.mbt.
+pub fn spike_is_sync_point(t : @token.Token) -> Bool {
+  match t {
+    @token.Newline
+    | @token.RightParen
+    | @token.LBrace
+    | @token.RBrace
+    | @token.Semicolon
+    | @token.Lambda
+    | @token.Let
+    | @token.Fn
+    | @token.FatArrow
+    | @token.If
+    | @token.Then
+    | @token.Else
+    | @token.EOF => true
+    _ => false
+  }
+}
+
+///|
+/// Emit a missing-token diagnostic with an error placeholder.
+/// Use for required tokens that were not found.
+pub fn emit_missing(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  message : String,
+) -> Unit {
+  ctx.error(message)
+  ctx.emit_error_placeholder()
+}
+
+///|
+/// Emit an ErrorNode containing either an error placeholder (when already at a
+/// sync point) or bump'd tokens (when mid-garbage, consumed until sync).
+/// Mirrors A's parse_atom `_` fallthrough.
+pub fn parse_error_node_until(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  stop : (@token.Token) -> Bool,
+) -> Unit {
+  if stop(ctx.peek()) {
+    ctx.start_node(@syntax.ErrorNode)
+    ctx.emit_error_placeholder()
+    ctx.finish_node()
+  } else {
+    let _ = ctx.skip_until(stop)
+  }
 }
