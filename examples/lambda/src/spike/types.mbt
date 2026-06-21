@@ -26,7 +26,9 @@ pub enum Expr {
   Choice(Array[Alt])
   /// Repeat rule at the top level with optional reuse (cripple_reuse flag).
   /// starts_pred controls which tokens open an item; rule_id names the item rule.
-  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Bool)
+  /// tail_expr is evaluated when the item loop exits but EOF has not been reached
+  /// (e.g. a trailing expression). Pass Expr::Empty to reject tails as errors.
+  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Expr, Bool)
   /// Run each expression in sequence.
   Seq(Array[Expr])
   /// Pratt application: parse atom_rule repeatedly while starts(peek) holds,

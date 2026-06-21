@@ -70,21 +70,22 @@ Both trackers seeded before first `apply_edit`. Stable IDs agree across all non-
 ### E1: Rule coverage ratio
 
 **Track 1 (initial spike):** 1/7 rules declarative.  
-**Track 2 (Seq + Pratt extension):** **5 / 7 (~71%) rules are declarative.**
+**Track 2 (Seq + Pratt extension):** 5/7 declarative.  
+**P2 fixes (tail threading + block/newline combinators):** **5 / 7 (~71%)** — unchanged, but Source is now fully generic.
 
-| Rule | Classification | Track 2 encoding |
+| Rule | Classification | Encoding (after P2 fixes) |
 |------|---------------|---------|
-| Source | **Declarative** | `RepeatTopLevel` dispatched generically through `run_expr` |
-| Definition | Escape hatch | `parse_definition_ir` called directly by `parse_top_level_repeat`; soft-newline/param-list guards not yet IR-expressible |
-| Expression | **Declarative** | `Ref(Binary)` — generic dispatch (special case removed from `run_expr`) |
+| Source | **Declarative** | `RepeatTopLevel(rule_id, starts_pred, tail_expr, cripple_reuse)` — all behavior in IR value; interpreter is fully generic |
+| Definition | Escape hatch | `ManualDefinition` — `parse_definition_ir` dispatched via `run_expr`; complex let/fn logic not yet IR-expressible |
+| Expression | **Declarative** | `Ref(Binary)` — generic dispatch |
 | Binary | **Declarative** | `PrattBinary(Application, BinaryExpr, [(Plus,…),(Minus,…)])` |
 | Application | **Declarative** | `PrattApp(Atom, AppExpr, atom_starts_token)` |
-| Atom | **Declarative** | `Choice([…])` with `Seq+RepeatWhile` for paren/block/error arms |
+| Atom | **Declarative** | `Choice([…])` with `Seq` for paren/block/error arms; `ManualDefinition` and `ManualBlockDelimiterCheck` appear as sub-expressions, not rule-level escape hatches |
 | ParamList | Escape hatch | `ManualParamList` — mark/start_at retroactive-wrap dance not yet IR-expressible |
 
 ### E2: Lambda-specific escape hatches
 
-**Track 2:** Both missing combinators added. 2 escape hatches remain (Definition + ParamList).
+**Track 2:** Both missing combinators added. **P2 fixes: 3 sub-rule combinator gaps identified.**
 
 | Combinator | Status | Note |
 |------------|--------|------|
@@ -94,7 +95,15 @@ Both trackers seeded before first `apply_edit`. Stable IDs agree across all non-
 | `RepeatWhile(pred, body)` | **Wired** (was stubbed) | While-loop over predicate |
 | `EmitError(msg)` | **Added** | Diagnostic without placeholder node |
 
-Remaining escape hatches (Definition, ParamList) require two additional combinators not yet designed: a soft-newline skip annotation and a retroactive-wrap positional parameter list. Both are narrow lambda-specific patterns — not blocking for non-lambda grammars.
+**Remaining escape hatches (3):**
+
+| Escape hatch | Gap it fills |
+|---|---|
+| `ManualParamList` | Retroactive-wrap (`mark`/`start_at`) — deferred node-open not expressible with `Seq` |
+| `ManualBlockDelimiterCheck` | Counted repeat with conditional diagnostic — `RepeatWhile` cannot count iterations or branch on count |
+| `ManualNewlineAppExpr` | Context-sensitive `allow_newline_application` mode — `PrattApp` uses a fixed starts predicate; cannot vary newline-consumption by parse context (let-body vs trailing expression) |
+
+Rule-level escape hatches (Definition + ParamList) and sub-rule combinator gaps (ManualBlockDelimiterCheck + ManualNewlineAppExpr) are all lambda-specific and do not affect loomgen's ability to generate parsers for grammars without these patterns.
 
 ### E3: Second-grammar reuse probe
 
@@ -120,7 +129,7 @@ Token mapping (lambda lexer, no new lexer):
 | Value | `Choice([Integer, Identifier, Hole, Array, Object])` | ✓ |
 | Array | `Node(ParenExpr, Seq([Emit((), Choice([empty, elements+RepeatWhile(Comma,…)]), Expect()])` | ✓ |
 | Object | `Node(BlockExpr, Seq([Emit({), Choice([empty, members+RepeatWhile(Comma,…)]), Expect(})])` | ✓ |
-| Member | `Node(LetDef, Seq([Emit(Ident), Expect(Eq), Ref(Value)]))` | ✓ |
+| Member | `Node(LetDef, Seq([Expect(Ident), Expect(Eq), Ref(Value)]))` | ✓ |
 
 No `PrattBinary` or `PrattApp` required — the E3 grammar verifies that `Seq + RepeatWhile + Choice + Emit + Expect` alone suffice for a separator-structured grammar.
 
@@ -164,7 +173,7 @@ No `PrattBinary` or `PrattApp` required — the E3 grammar verifies that `Seq + 
 
 ### Remaining escape hatches (non-blocking)
 
-The 2 remaining lambda escape hatches (Definition, ParamList) are lambda-specific. They do not affect loomgen's ability to generate parsers for grammars without soft-newline rules or positional parameter lists (which covers most target use cases). They can be addressed as needed during loomgen implementation.
+3 lambda-specific escape hatches remain (see E2 table). All are lambda-specific patterns. They do not affect loomgen's ability to generate parsers for grammars without soft-newline rules, counted-delimiter constraints, or positional parameter lists (which covers most target use cases). They can be addressed as additional combinators during loomgen implementation.
 
 ---
 
@@ -181,3 +190,5 @@ The 2 remaining lambda escape hatches (Definition, ParamList) are lambda-specifi
 | e940102 | 12 | E1/E2 ergonomics measurements |
 | 691cfad | 13 | E3 second-grammar reuse probe plan |
 | (Track 2) | 14 | Seq + PrattBinary + PrattApp + RepeatWhile + EmitError; lambda E1 5/7; E3 JSON grammar 5/5; D1 oracle PASS |
+| fe75b4e | P2 | ManualNewlineAppExpr (top-level/block newline-app), ManualBlockDelimiterCheck (counted delimiter diagnostic), RepeatTopLevel rule_id threading, E3 Emit→Expect for member key; E2 hatches 1→3; 7 new tests |
+| (this commit) | P2-tail | Thread tail_expr through RepeatTopLevel; Source fully generic; update results doc |

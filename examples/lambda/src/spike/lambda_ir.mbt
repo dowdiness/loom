@@ -27,6 +27,7 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
     source: Expr::RepeatTopLevel(
       RuleId::Definition,
       token_starts_definition,
+      Expr::ManualNewlineAppExpr,
       cr,
     ),
     // Dispatched via ManualDefinition (in block arms) and via

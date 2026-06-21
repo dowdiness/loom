@@ -67,8 +67,10 @@ pub fn run_expr(
         }
       }
     }
-    Expr::RepeatTopLevel(rule_id, starts_pred, cripple_reuse) =>
-      parse_top_level_repeat(ctx, ir, rule_id, starts_pred, cripple_reuse)
+    Expr::RepeatTopLevel(rule_id, starts_pred, tail_expr, cripple_reuse) =>
+      parse_top_level_repeat(
+        ctx, ir, rule_id, starts_pred, tail_expr, cripple_reuse,
+      )
     Expr::WrapIfNext(_, _, _, _) => {
       ctx.error(
         "SPIKE: WrapIfNext not yet wired; ensure IR uses correct variant",
@@ -316,11 +318,15 @@ fn parse_app_with_newline(
 /// rule_id: the IR rule dispatched for each item (e.g. RuleId::Definition).
 /// starts_pred: lookahead predicate that determines whether the next token
 ///   opens a new item (e.g. token_starts_definition for lambda).
+/// tail_expr: evaluated once after the item loop exits but before EOF. Use
+///   Expr::Empty to silently accept an empty tail (statement-only grammars)
+///   or a rule/manual variant to parse a trailing expression.
 pub fn parse_top_level_repeat(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   ir : GrammarIr,
   rule_id : RuleId,
   starts_pred : (@token.Token) -> Bool,
+  tail_expr : Expr,
   cripple_reuse : Bool,
 ) -> Unit {
   let _ = consume_delimiter_newlines(ctx)
@@ -343,9 +349,7 @@ pub fn parse_top_level_repeat(
   }
   match ctx.peek() {
     @token.EOF => ()
-    // Mirror A's parse_expression_with_mode(ctx, true): top-level trailing
-    // expressions use allow_newline_application=true.
-    _ => run_expr(ctx, ir, Expr::ManualNewlineAppExpr)
+    _ => run_expr(ctx, ir, tail_expr)
   }
   let _ = consume_delimiter_newlines(ctx)
   match ctx.peek() {

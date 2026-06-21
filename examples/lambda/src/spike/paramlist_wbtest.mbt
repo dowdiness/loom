@@ -4,6 +4,7 @@ fn fn_grammar() -> GrammarIr {
     source: Expr::RepeatTopLevel(
       RuleId::Definition,
       token_starts_definition,
+      Expr::ManualNewlineAppExpr,
       false,
     ),
     definition: Expr::ManualDefinition,

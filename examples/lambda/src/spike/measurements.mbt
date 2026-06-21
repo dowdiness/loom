@@ -36,7 +36,9 @@ pub fn measure_e1() -> E1Measurement {
   //
   // Declarative (5):
   //   Source     — RepeatTopLevel dispatched generically via run_expr;
-  //     starts_pred + rule_id are now threaded so Source is truly generic.
+  //     rule_id + starts_pred + tail_expr are all threaded so RepeatTopLevel
+  //     is fully generic: all behavior expressed in the IR value, none in the
+  //     interpreter.
   //   Expression — Ref(Binary): generic Ref dispatch.
   //   Binary     — PrattBinary: fully declarative Pratt binary.
   //   Application— PrattApp: fully declarative Pratt left-assoc application.

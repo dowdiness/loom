@@ -55,7 +55,7 @@ pub fn param_list_churn_fixture() -> (String, Array[EditStep])
 
 pub fn parse_error_node_until(@core.ParserContext[@token.Token, @syntax.SyntaxKind], (@token.Token) -> Bool) -> Unit
 
-pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, RuleId, (@token.Token) -> Bool, Bool) -> Unit
+pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, RuleId, (@token.Token) -> Bool, Expr, Bool) -> Unit
 
 pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@core.ProjectionLeaf]
 
@@ -112,7 +112,7 @@ pub enum Expr {
   Expect(@token.Token, @syntax.SyntaxKind, String)
   Ref(RuleId)
   Choice(Array[Alt])
-  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Bool)
+  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Expr, Bool)
   Seq(Array[Expr])
   PrattApp(RuleId, @syntax.SyntaxKind, (@token.Token) -> Bool)
   PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
