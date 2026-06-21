@@ -6,14 +6,51 @@ import {
 }
 
 // Values
+pub fn[T, K] compile(GrammarIr[T, K]) -> CompiledGrammar[T, K] raise GrammarCompileError
 
 // Errors
+pub suberror GrammarCompileError {
+  MissingRoot(String)
+  MissingRef(String)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub(all) struct Alt[T, K] {
   starts : Pred[T]
   body : Expr[T, K]
 } derive(Eq, @debug.Debug)
+
+pub struct CompiledAlt[T, K] {
+  starts : Pred[T]
+  body : CompiledExpr[T, K]
+} derive(Eq, @debug.Debug)
+
+pub enum CompiledExpr[T, K] {
+  Node(K, CompiledExpr[T, K])
+  Emit(T, K)
+  Expect(T, K, String)
+  RefSlot(Int)
+  Choice(Array[CompiledAlt[T, K]])
+  RepeatTopLevel(Int, Pred[T], CompiledExpr[T, K])
+  Seq(Array[CompiledExpr[T, K]])
+  PrattApp(Int, K, Pred[T])
+  PrattBinary(Int, K, Array[(T, K)])
+  RepeatWhile(Pred[T], CompiledExpr[T, K])
+  WrapIfNext(K, Pred[T], CompiledExpr[T, K])
+  CountedRepeat(Pred[T], CompiledExpr[T, K], min~ : Int, missing_message~ : String?)
+  EmitError(String)
+  ErrorUntil(Pred[T], String)
+  ManualNewlineAppExpr
+  Empty
+} derive(Eq, @debug.Debug)
+
+pub struct CompiledGrammar[T, K] {
+  names : Array[String]
+  rules : Array[CompiledExpr[T, K]]
+  root : Int
+} derive(Eq, @debug.Debug)
+pub fn[T, K] CompiledGrammar::root_slot(Self[T, K]) -> Int
+pub fn[T, K] CompiledGrammar::rule(Self[T, K], Int) -> CompiledExpr[T, K]
 
 pub(all) enum Expr[T, K] {
   Node(K, Expr[T, K])
