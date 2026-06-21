@@ -11,8 +11,8 @@
 /// off node kind and binding structure. That is an E2 honesty caveat (Task 12).
 pub fn project_lambda_leaves(
   root : @seam.SyntaxNode,
-) -> Array[@core.ProjectionLeaf] {
-  let acc : Array[@core.ProjectionLeaf] = Array::new()
+) -> Array[@loom.ProjectionLeaf] {
+  let acc : Array[@loom.ProjectionLeaf] = Array::new()
   collect_lambda_leaves(root, acc)
   acc
 }
@@ -20,7 +20,7 @@ pub fn project_lambda_leaves(
 ///|
 fn collect_lambda_leaves(
   node : @seam.SyntaxNode,
-  acc : Array[@core.ProjectionLeaf],
+  acc : Array[@loom.ProjectionLeaf],
 ) -> Unit {
   collect_var_ref_leaf(node, acc)
   collect_int_literal_leaf(node, acc)
@@ -32,7 +32,7 @@ fn collect_lambda_leaves(
 ///|
 fn collect_var_ref_leaf(
   node : @seam.SyntaxNode,
-  acc : Array[@core.ProjectionLeaf],
+  acc : Array[@loom.ProjectionLeaf],
 ) -> Unit {
   match
     node.required_direct_token_of_kind(
@@ -41,7 +41,7 @@ fn collect_var_ref_leaf(
     ) {
     Ok(token) =>
       acc.push(
-        @core.ProjectionLeaf::new(
+        @loom.ProjectionLeaf::new(
           token.start(),
           token.end(),
           "var:" + token.text(),
@@ -54,7 +54,7 @@ fn collect_var_ref_leaf(
 ///|
 fn collect_int_literal_leaf(
   node : @seam.SyntaxNode,
-  acc : Array[@core.ProjectionLeaf],
+  acc : Array[@loom.ProjectionLeaf],
 ) -> Unit {
   match
     node.required_direct_token_of_kind(
@@ -63,7 +63,7 @@ fn collect_int_literal_leaf(
     ) {
     Ok(token) =>
       acc.push(
-        @core.ProjectionLeaf::new(
+        @loom.ProjectionLeaf::new(
           token.start(),
           token.end(),
           "int:" + token.text(),

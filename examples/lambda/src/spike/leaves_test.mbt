@@ -1,5 +1,5 @@
 ///|
-fn has_key(leaves : Array[@core.ProjectionLeaf], key : String) -> Bool {
+fn has_key(leaves : Array[@loom.ProjectionLeaf], key : String) -> Bool {
   for l in leaves {
     if l.key == key {
       return true
