@@ -53,13 +53,8 @@ pub using @core {
   type ModeRelexState,
   type ParserContext,
   type PrefixLexer,
-  type ProjectionIdentityBaseline,
-  type ProjectionIdentityTracker,
-  type ProjectionLeaf,
-  type ProjectionStringIdAllocator,
   type Range,
   type ReuseCursor,
-  type StableProjectionLeaf,
   type TextOffset,
   type TextRange,
   type TextDelta,
@@ -71,15 +66,25 @@ pub using @core {
   build_starts,
   erase_mode_lexer,
   parse_tokens_indexed,
-  realign_projection_identities,
-  realign_projection_identities_with_optional_edit,
-  realign_projection_items,
-  realign_projection_items_with_optional_edit,
   text_to_delta,
   to_edits,
   tokenize_via_steps_result,
   tokenize_via_steps,
   tokenize_with_modes,
+}
+
+///|
+// Projection identity — stable cross-edit semantic IDs for editor projections
+pub using @projection {
+  type ProjectionIdentityBaseline,
+  type ProjectionIdentityTracker,
+  type ProjectionLeaf,
+  type ProjectionStringIdAllocator,
+  type StableProjectionLeaf,
+  realign_projection_identities,
+  realign_projection_identities_with_optional_edit,
+  realign_projection_items,
+  realign_projection_items_with_optional_edit,
 }
 
 ///|

@@ -6,6 +6,16 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **`dowdiness/loom/core` — `@core` package surface reduction (Stage A1):**
+  `ProjectionIdentityBaseline`, `ProjectionIdentityTracker`, `ProjectionLeaf`,
+  `StableProjectionLeaf`, `ProjectionStringIdAllocator`, and the four
+  `realign_projection_*` functions are removed from the `@core` package's
+  public `.mbti`. They are now in the new `dowdiness/loom/projection` package
+  and continue to be re-exported unchanged by the `dowdiness/loom` facade.
+  **No change required for code that imports via `@loom.*`** — the facade
+  surface is identical. Direct `@core.ProjectionIdentity*` importers must
+  switch to `@loom.*` or `@projection.*`.
+
 - `dowdiness/seam`: hardened source-span/reuse APIs before stabilization.
   `CstToken::is_source_backed` is the stable token-provenance predicate;
   `CstToken::unsafe_backing_source`,
@@ -17,6 +27,13 @@ Notable user-facing changes to Loom and its sibling modules.
   compatibility aliases.
 
 ### Added
+
+- **`dowdiness/loom/projection`** — new package containing the stable
+  semantic projection-identity subsystem extracted from `loom/core` (Stage A1).
+  Depends on `loom/core` data types and `text_change`; the engine
+  (`loom/core` parser, `loom/incremental`, `loom/pipeline`) is structurally
+  prohibited from depending on it. All projection-identity symbols remain
+  accessible via the `dowdiness/loom` facade unchanged.
 
 - `dowdiness/loom`: added `ParserContext` grammar-author helpers:
   `emit_current_token`, `current_token_text`, `current_token_range`, and
