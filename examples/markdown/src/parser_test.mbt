@@ -5,6 +5,21 @@ test "parse: heading" {
 }
 
 ///|
+test "parse: ATX heading inline recovery stops at line ending" {
+  inspect(
+    parse("# *foo\nbar*\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    Heading(1, [Error("*"), Text("foo")]),
+      #|    Paragraph([Text("bar"), Error("*")]),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
 test "parse: setext heading preserves legacy heading depth" {
   inspect(
     parse("Foo\n---\n"),
@@ -26,6 +41,42 @@ test "parse: setext underline stops multiline emphasis recovery" {
       #|  [
       #|    Heading(1, [Text("Foo "), Error("*"), Text("bar")]),
       #|    Paragraph([Text("baz"), Error("*")]),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
+test "parse: setext continuation stops multiline emphasis recovery" {
+  inspect(
+    parse("Foo\nbar *baz\n====\nqux*\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    Heading(1, [Text("Foo"), Text("bar "), Error("*"), Text("baz")]),
+      #|    Paragraph([Text("qux"), Error("*")]),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
+test "parse: ordered list item setext probe stops at ordered item boundary" {
+  inspect(
+    parse("1. Foo\n2. bar\n---\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    OrderedList(
+      #|      [
+      #|        OrderedListItem([Text("Foo")], Some({ start: 1, delimiter: Period })),
+      #|        OrderedListItem([Text("bar")], Some({ start: 2, delimiter: Period })),
+      #|      ],
+      #|      Some({ start: 1, delimiter: Period }),
+      #|    ),
+      #|    Paragraph([Text("---")]),
       #|  ],
       #|)
     ),
@@ -126,6 +177,31 @@ test "parse: list-item thematic break preserves legacy text projection" {
     block,
     content="Document([UnorderedList([UnorderedListItem([Text(\"* * *\")])])])",
   )
+}
+
+///|
+test "parse: empty list item does not promote indented underline to setext heading" {
+  let (cst, _) = try! parse_cst("- \n  ---\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list, ..] =>
+      match list.children() {
+        [item] => {
+          for child in item.children() {
+            let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+              child.kind(),
+            )
+            if child_kind is HeadingNode {
+              fail("empty list item must not contain a setext heading")
+            }
+          }
+          inspect(item.children().length(), content="0")
+        }
+        _ => inspect(list.children().length(), content="one list item")
+      }
+    _ =>
+      inspect(syntax.children().length(), content="list plus following block")
+  }
 }
 
 ///|
