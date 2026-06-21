@@ -661,7 +661,7 @@ test "experimental MarkdownIR: recovered inline ErrorNodes stay explicit" {
   assert_recovered_markdown_ir_block_matches_direct_parse("`unclosed\n", "`")
   assert_recovered_markdown_ir_block_matches_direct_parse("[unclosed\n", "[")
   assert_recovered_markdown_ir_block_matches_direct_parse("[text\n", "[")
-  assert_recovered_markdown_ir_block_matches_direct_parse("**a *b** c*\n", "*")
+  assert_recovered_markdown_ir_block_matches_direct_parse("**a *b** c*\n", "**")
 }
 
 ///|

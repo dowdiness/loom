@@ -18,6 +18,21 @@ test "parse: setext heading preserves legacy heading depth" {
 }
 
 ///|
+test "parse: setext underline stops multiline emphasis recovery" {
+  inspect(
+    parse("Foo *bar\n====\nbaz*\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    Heading(1, [Text("Foo "), Error("*"), Text("bar")]),
+      #|    Paragraph([Text("baz"), Error("*")]),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
 test "parse: paragraph" {
   let block = parse("Hello world\n")
   inspect(block, content="Document([Paragraph([Text(\"Hello world\")])])")

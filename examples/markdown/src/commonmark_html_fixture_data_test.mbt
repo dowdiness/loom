@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=144, xfail=4, skip=1.
+// Baseline: pass=145, xfail=5, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (144, 4, 1)
+  (145, 5, 1)
 }
 
 ///|
@@ -467,6 +467,24 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       source: "Foo bar\n# baz\nBar foo\n",
       expected_html: "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n",
       status: CommonMarkHtmlPass,
+    },
+    {
+      example: 81,
+      section: "Setext headings",
+      name: "setext-headings-emphasis-multiline",
+      source: "Foo *bar\nbaz*\n====\n",
+      expected_html: "<h1>Foo <em>bar\nbaz</em></h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 82,
+      section: "Setext headings",
+      name: "setext-headings-emphasis-multiline-indented",
+      source: "  Foo *bar\nbaz*\t\n====\n",
+      expected_html: "<h1>Foo <em>bar\nbaz</em></h1>\n",
+      status: CommonMarkHtmlXfail(
+        "Trailing tab normalization is outside this softbreak slice.",
+      ),
     },
     {
       example: 83,
