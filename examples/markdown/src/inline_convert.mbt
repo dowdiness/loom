@@ -1,7 +1,8 @@
 ///|
 fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
   match kind {
-    TextToken | ErrorToken | ErrorNode => Some(text)
+    TextToken => Some(strip_backslash_escapes(text))
+    ErrorToken | ErrorNode => Some(text)
     StarToken => Some("*")
     StarStarToken => Some("**")
     BacktickToken => Some("`")

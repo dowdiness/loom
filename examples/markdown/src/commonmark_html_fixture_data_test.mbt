@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=148, xfail=5, skip=1.
+// Baseline: pass=152, xfail=4, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (148, 5, 1)
+  (152, 4, 1)
 }
 
 ///|
@@ -176,9 +176,31 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "backslash-escaped-heading-marker",
       source: "\\## foo\n",
       expected_html: "<p>## foo</p>\n",
-      status: CommonMarkHtmlXfail(
-        "Backslash escape semantics are tracked by #329.",
-      ),
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 90,
+      section: "Setext headings",
+      name: "setext-heading-backslash-line-ending",
+      source: "Foo\\\n----\n",
+      expected_html: "<h2>Foo\\</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 102,
+      section: "Setext headings",
+      name: "setext-heading-escaped-blockquote-marker",
+      source: "\\> foo\n------\n",
+      expected_html: "<h2>&gt; foo</h2>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 106,
+      section: "Setext headings",
+      name: "paragraph-escaped-setext-underline",
+      source: "Foo\nbar\n\\---\nbaz\n",
+      expected_html: "<p>Foo\nbar\n---\nbaz</p>\n",
+      status: CommonMarkHtmlPass,
     },
     {
       example: 228,

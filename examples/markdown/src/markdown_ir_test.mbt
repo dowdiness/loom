@@ -1491,6 +1491,32 @@ test "experimental MarkdownIR: local transform preserves inline container siblin
 }
 
 ///|
+test "experimental MarkdownIR: local transform preserves escaped text sibling" {
+  let source = "\\# **old**\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_, bold] =>
+          match bold.children() {
+            [old_text] => {
+              let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                ir,
+                source,
+                target_origin=old_text.origin(),
+                replacement_text="new",
+              )
+              inspect(local_rewrite, content="\\# **new**\n")
+            }
+            _ => inspect("unexpected bold children", content="one text")
+          }
+        _ => inspect("unexpected paragraph children", content="text plus bold")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: local transform preserves CRLF block ending" {
   let source = "# Old\r\nParagraph\r\n"
   let ir = markdown_ir_from_source(source)
