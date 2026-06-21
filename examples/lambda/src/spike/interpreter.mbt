@@ -25,9 +25,10 @@ pub fn run_expr(
     Expr::Expect(token, kind, msg) => {
       let _ = ctx.expect(token, kind)
       let _ = msg
-      // msg used in expect's error internally; no separate ctx.error needed
     }
     Expr::Node(kind, body) => ctx.node(kind, () => run_expr(ctx, ir, body))
+    Expr::Ref(RuleId::Application) => parse_application_ir(ctx, ir)
+    Expr::Ref(RuleId::Binary) => parse_binary_ir(ctx, ir)
     Expr::Ref(rule_id) => run_expr(ctx, ir, ir.rule(rule_id))
     Expr::Choice(alts) => {
       let token = ctx.peek()
@@ -68,5 +69,61 @@ pub fn run_expr(
       ctx.emit_error_placeholder()
       ctx.finish_node()
     }
+  }
+}
+
+///|
+fn atom_starts_token(t : @token.Token) -> Bool {
+  match t {
+    @token.LeftParen | @token.LBrace | @token.Identifier | @token.Integer | @token.Hole =>
+      true
+    _ => false
+  }
+}
+
+///|
+/// Pratt application parser — mirrors A's parse_application with
+/// allow_newline_application=false (newline-spanning application is a
+/// ReplicationResidual delta catalogued in Task 11).
+fn parse_application_ir(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  let mark = ctx.mark()
+  run_expr(ctx, ir, ir.rule(RuleId::Atom))
+  guard atom_starts_token(ctx.peek()) else { return }
+  ctx.wrap_at(mark, @syntax.AppExpr, fn() {
+    while atom_starts_token(ctx.peek()) {
+      run_expr(ctx, ir, ir.rule(RuleId::Atom))
+    }
+  })
+}
+
+///|
+/// Pratt binary parser — mirrors A's parse_binary_op.
+fn parse_binary_ir(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  let mark = ctx.mark()
+  parse_application_ir(ctx, ir)
+  match ctx.peek() {
+    @token.Plus | @token.Minus =>
+      ctx.wrap_at(mark, @syntax.BinaryExpr, fn() {
+        while true {
+          match ctx.peek() {
+            @token.Plus => {
+              ctx.emit_token(@syntax.PlusToken)
+              parse_application_ir(ctx, ir)
+            }
+            @token.Minus => {
+              ctx.emit_token(@syntax.MinusToken)
+              parse_application_ir(ctx, ir)
+            }
+            _ => break
+          }
+        }
+      })
+    _ => ()
   }
 }
