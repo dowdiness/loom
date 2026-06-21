@@ -216,6 +216,7 @@ fn convert_inline_node(
     ErrorNode =>
       // Error recovery node — preserve recovery as an explicit semantic error.
       inlines.push(Inline::Error(child.text()))
+    ThematicBreakNode => inlines.push(Inline::Text(child.text()))
     _ => ()
   }
 }

@@ -589,7 +589,7 @@ fn lower_direct_inline_node_with_diags(
 ) -> MarkdownIR? {
   let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match node_kind {
-    UnorderedListNode | OrderedListNode => None
+    UnorderedListNode | OrderedListNode | ThematicBreakNode => None
     _ => Some(lower_inline_node_with_diags(node, diagnostics_in_origin))
   }
 }
@@ -904,7 +904,8 @@ fn append_list_item_flow_block_children(
   for child in node.children() {
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
-      UnorderedListNode | OrderedListNode => children.push(recurse(child))
+      UnorderedListNode | OrderedListNode | ThematicBreakNode =>
+        children.push(recurse(child))
       _ => ()
     }
   }

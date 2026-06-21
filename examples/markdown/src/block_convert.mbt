@@ -1,4 +1,15 @@
 ///|
+fn trim_trailing_line_ending(text : String) -> String {
+  if text.has_suffix("\r\n") {
+    text[:text.length() - 2].to_owned()
+  } else if text.has_suffix("\r") || text.has_suffix("\n") {
+    text[:text.length() - 1].to_owned()
+  } else {
+    text
+  }
+}
+
+///|
 /// Algebra for CstFold: convert SyntaxNode to Block.
 pub fn markdown_fold_node(
   node : @seam.SyntaxNode,
@@ -46,17 +57,8 @@ pub fn markdown_fold_node(
       let inlines = convert_inline_children_with_newline(node, " ")
       Block::Paragraph(inlines)
     }
-    BlockQuoteNode => {
-      let text = node.text()
-      let trimmed = if text.has_suffix("\r\n") {
-        text[:text.length() - 2].to_owned()
-      } else if text.has_suffix("\r") || text.has_suffix("\n") {
-        text[:text.length() - 1].to_owned()
-      } else {
-        text
-      }
-      Block::Paragraph([Inline::Text(trimmed)])
-    }
+    BlockQuoteNode =>
+      Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
     UnorderedListNode | OrderedListNode => {
       let items : Array[Block] = []
       for child in node.children() {
@@ -115,7 +117,8 @@ pub fn markdown_fold_node(
       }
       Block::CodeBlock(info, final_code)
     }
-    ThematicBreakNode => Block::Error("thematic break")
+    ThematicBreakNode =>
+      Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
     ErrorNode => Block::Error("parse error")
     _ => Block::Error("unknown node: " + kind.to_string())
   }

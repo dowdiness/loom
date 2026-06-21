@@ -501,17 +501,42 @@ fn parse_list_item_inline_content(
 }
 
 ///|
+fn parse_inline_thematic_break(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(ThematicBreakNode, fn() {
+    while !(ctx.peek() is Newline) && ctx.peek() != EOF {
+      match ctx.peek() {
+        Text(_) => ctx.emit_token(TextToken)
+        Star => ctx.emit_token(StarToken)
+        StarStar => ctx.emit_token(StarStarToken)
+        _ => ctx.bump_error()
+      }
+    }
+  })
+}
+
+///|
+fn parse_list_item_body(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> Unit {
+  if line_at_offset_is_thematic_break(ctx, 0) {
+    parse_inline_thematic_break(ctx)
+  } else {
+    parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
+  }
+  parse_nested_list_item_flow(ctx, content_indent)
+}
+
+///|
 /// Parse a single list item: ListMarker followed by inline content.
 fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
     let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(ListMarkerToken)
-    parse_list_item_inline_content(
-      ctx,
-      content_indent,
-      allow_ordered_marker=true,
-    )
-    parse_nested_list_item_flow(ctx, content_indent)
+    parse_list_item_body(ctx, content_indent, allow_ordered_marker=true)
   })
 }
 
@@ -550,12 +575,7 @@ fn parse_ordered_list_item(
   ctx.node(ListItemNode, fn() {
     let content_indent = current_list_marker_token_width(ctx)
     ctx.emit_token(OrderedListMarkerToken)
-    parse_list_item_inline_content(
-      ctx,
-      content_indent,
-      allow_ordered_marker=false,
-    )
-    parse_nested_list_item_flow(ctx, content_indent)
+    parse_list_item_body(ctx, content_indent, allow_ordered_marker=false)
   })
 }
 
