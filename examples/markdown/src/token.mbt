@@ -187,6 +187,54 @@ fn parse_setext_underline_depth(text : StringView) -> Int? {
 }
 
 ///|
+fn strip_backslash_escapes(text : String) -> String {
+  let buf = StringBuilder::new()
+  let mut pending_backslash = false
+  for ch in text {
+    if pending_backslash {
+      if ch.is_ascii_punctuation() {
+        buf.write_char(ch)
+      } else {
+        buf.write_char('\\')
+        buf.write_char(ch)
+      }
+      pending_backslash = false
+    } else if ch == '\\' {
+      pending_backslash = true
+    } else {
+      buf.write_char(ch)
+    }
+  }
+  if pending_backslash {
+    buf.write_char('\\')
+  }
+  buf.to_string()
+}
+
+///|
+test "backslash escapes strip only ASCII punctuation" {
+  inspect(strip_backslash_escapes(""), content="")
+  inspect(strip_backslash_escapes("\\"), content="\\")
+  inspect(strip_backslash_escapes("\\\\"), content="\\")
+  inspect(strip_backslash_escapes("\\="), content="=")
+  inspect(strip_backslash_escapes("\\-"), content="-")
+  inspect(strip_backslash_escapes("\\*"), content="*")
+  inspect(strip_backslash_escapes("\\_"), content="_")
+  inspect(strip_backslash_escapes("\\["), content="[")
+  inspect(strip_backslash_escapes("\\`"), content="`")
+  inspect(strip_backslash_escapes("\\#\\*"), content="#*")
+  inspect(strip_backslash_escapes("\\## foo"), content="## foo")
+  inspect(strip_backslash_escapes("\\> foo"), content="> foo")
+  inspect(strip_backslash_escapes("Foo\\\n----"), content="Foo\\\n----")
+  inspect(
+    strip_backslash_escapes("\\A\\3\\φ\\«\\"),
+    content="\\A\\3\\φ\\«\\",
+  )
+  inspect(strip_backslash_escapes("\\φ"), content="\\φ")
+  inspect(strip_backslash_escapes("\\«"), content="\\«")
+}
+
+///|
 test "setext underline markers reject internal whitespace" {
   guard parse_setext_underline_depth("= =".view()) is None else {
     fail("setext underline must reject spaced equals markers")

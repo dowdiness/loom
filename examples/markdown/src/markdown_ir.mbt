@@ -491,7 +491,12 @@ fn lower_inline_children_skip_with_diags(
         }
         match token_kind {
           TextToken =>
-            push_child(MarkdownIR::text(token.text(), origin_from_token(token)))
+            push_child(
+              MarkdownIR::text(
+                strip_backslash_escapes(token.text()),
+                origin_from_token(token),
+              ),
+            )
           ErrorToken | ErrorNode => {
             let origin = origin_from_token(token)
             push_child(
@@ -553,7 +558,13 @@ fn lower_direct_inline_token_with_diags(
 ) -> MarkdownIR? {
   let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
   match token_kind {
-    TextToken => Some(MarkdownIR::text(token.text(), origin_from_token(token)))
+    TextToken =>
+      Some(
+        MarkdownIR::text(
+          strip_backslash_escapes(token.text()),
+          origin_from_token(token),
+        ),
+      )
     ErrorToken | ErrorNode => {
       let origin = origin_from_token(token)
       Some(MarkdownIR::raw(token.text(), origin, diagnostics_in_origin(origin)))
@@ -1959,7 +1970,8 @@ fn local_transform_inline_text(
           )
         } else {
           match child.node {
-            Text(value) | Raw(value, _) => buf.write_string(value)
+            Text(_) | Raw(_, _) =>
+              buf.write_string(source_slice(source, child_origin))
             InlineCode(value, _) => buf.write_string("`" + value + "`")
             _ => buf.write_string(source_slice(source, child_origin))
           }
@@ -2218,7 +2230,7 @@ fn local_transform_render(
         source_slice(source, ir.origin())
       }
     ThematicBreak => source_slice(source, ir.origin())
-    Text(value) | Raw(value, _) => value
+    Text(_) | Raw(_, _) => source_slice(source, ir.origin())
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
         replacement_text
