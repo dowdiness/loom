@@ -2,11 +2,17 @@
 package "dowdiness/loom/grammar"
 
 import {
+  "dowdiness/loom/core",
+  "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
 // Values
 pub fn[T, K] compile(GrammarIr[T, K]) -> CompiledGrammar[T, K] raise GrammarCompileError
+
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret(GrammarIr[T, K]) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError
+
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret_compiled(CompiledGrammar[T, K]) -> (@core.ParserContext[T, K]) -> Unit
 
 // Errors
 pub suberror GrammarCompileError {
