@@ -86,10 +86,14 @@ fn setext_underline_depth_after_newline(
   let depth = match ctx.peek() {
     Text(text) => parse_setext_underline_depth(text.view())
     ThematicBreak => parse_setext_underline_depth(ctx.current_token_text())
-    ListMarker if ctx.peek_nth(1) is Newline ||
-      ctx.peek_nth(1) is BlankLine ||
-      ctx.peek_nth(1) is EOF =>
-      parse_setext_underline_depth(ctx.current_token_text())
+    ListMarker if (match ctx.peek_nth(1) {
+        Newline | BlankLine | EOF => true
+        Text(text) if !direct_list_item_text_has_non_blank_content(text) =>
+          ctx.peek_nth(2) is Newline ||
+          ctx.peek_nth(2) is BlankLine ||
+          ctx.peek_nth(2) is EOF
+        _ => false
+      }) => parse_setext_underline_depth(ctx.current_token_text())
     _ => None
   }
   ctx.restore(cp)

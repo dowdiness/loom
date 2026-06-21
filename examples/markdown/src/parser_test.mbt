@@ -11,6 +11,10 @@ test "parse: setext heading preserves legacy heading depth" {
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
   inspect(parse("Foo\n- \n"), content="Document([Heading(2, [Text(\"Foo\")])])")
+  inspect(
+    parse("Foo\n-  \n"),
+    content="Document([Heading(2, [Text(\"Foo\")])])",
+  )
 }
 
 ///|
