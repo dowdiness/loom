@@ -52,12 +52,7 @@ pub fn run_expr(
       )
       ctx.emit_error_placeholder()
     }
-    Expr::ManualParamList => {
-      ctx.error(
-        "SPIKE: ManualParamList not yet implemented (Task 6); implement param list first",
-      )
-      ctx.emit_error_placeholder()
-    }
+    Expr::ManualParamList => parse_param_list_exact(ctx)
     Expr::ErrorUntil(_, msg) => {
       ctx.error(msg)
       ctx.start_node(@syntax.ErrorNode)
@@ -152,10 +147,30 @@ fn parse_definition_ir(
         let _ = ctx.expect(@token.Eq, @syntax.EqToken)
         parse_binary_ir(ctx, ir)
       })
-    @token.Fn => {
-      ctx.error("SPIKE: fn definitions not yet implemented (Task 6)")
-      ctx.emit_error_placeholder()
-    }
+    @token.Fn =>
+      ctx.node(@syntax.LetDef, fn() {
+        ctx.emit_token(@syntax.FnKeyword)
+        match ctx.peek() {
+          @token.Identifier => ctx.emit_token(@syntax.IdentToken)
+          _ => {
+            ctx.error("Expected function name after 'fn'")
+            ctx.emit_error_placeholder()
+          }
+        }
+        if ctx.peek() == @token.LeftParen {
+          parse_param_list_exact(ctx)
+        } else {
+          ctx.error("Expected parameter list after function name")
+          ctx.emit_error_placeholder()
+        }
+        match ctx.peek() {
+          @token.LBrace => parse_block_expr_ir(ctx, ir)
+          _ => {
+            ctx.error("Expected function body")
+            ctx.emit_error_placeholder()
+          }
+        }
+      })
     _ => ()
   }
 }
@@ -207,4 +222,62 @@ pub fn parse_top_level_repeat(
       ctx.finish_node()
     }
   }
+}
+
+///|
+/// Parameter list parser — mirrors A's parse_param_list(allow_empty=true).
+/// Uses start_at + finish_node to match A's mark-based CST shape.
+/// Type annotations are not parsed (spike scope: untyped lambda only).
+fn parse_param_list_exact(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  let mark = ctx.mark()
+  ctx.emit_token(@syntax.LeftParenToken)
+  match ctx.peek() {
+    @token.RightParen => ()
+    @token.Identifier => {
+      ctx.emit_token(@syntax.IdentToken)
+      while ctx.at(@token.Comma) {
+        ctx.emit_token(@syntax.CommaToken)
+        match ctx.peek() {
+          @token.Identifier => ctx.emit_token(@syntax.IdentToken)
+          @token.RightParen => {
+            ctx.error("Trailing comma in parameter list")
+            break
+          }
+          _ => {
+            ctx.error("Expected parameter name")
+            ctx.emit_error_placeholder()
+          }
+        }
+      }
+    }
+    _ => {
+      ctx.error("Expected parameter name")
+      ctx.emit_error_placeholder()
+    }
+  }
+  let _ = ctx.expect(@token.RightParen, @syntax.RightParenToken)
+  ctx.start_at(mark, @syntax.ParamList)
+  ctx.finish_node()
+}
+
+///|
+/// Minimal block-expression parser for fn definition bodies in the spike.
+/// Mirrors A's parse_block_expr for the subset: `{ expr }` and `{}`.
+fn parse_block_expr_ir(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  ctx.start_node(@syntax.BlockExpr)
+  ctx.emit_token(@syntax.LBraceToken)
+  consume_delimiter_newlines(ctx)
+  if ctx.peek() == @token.RBrace {
+    ctx.error("Empty block expression")
+  } else if ctx.peek() != @token.EOF {
+    parse_binary_ir(ctx, ir)
+    consume_delimiter_newlines(ctx)
+  }
+  let _ = ctx.expect(@token.RBrace, @syntax.RBraceToken)
+  ctx.finish_node()
 }
