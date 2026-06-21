@@ -85,3 +85,60 @@ pub fn measure_e2() -> E2Measurement {
 pub fn e1_coverage_ratio(m : E1Measurement) -> (Int, Int) {
   (m.declarative_rules, m.total_rules)
 }
+
+///|
+/// E3 probe: what would a second-grammar reuse test require, and is it gated?
+///
+/// E3 asks: "If we build a SECOND grammar (not lambda) using GrammarIr, would
+/// the safety oracles (D1/D2a/D2b) still pass? Does the architecture generalize
+/// to languages not known at IR-design time?"
+///
+/// Current gate status: BLOCKED on E2 findings. The spike required 5 escape
+/// hatches and/or hardcoded paths (ManualAtom, ManualParamList, parse_definition_ir,
+/// parse_binary_ir, parse_application_ir) for lambda's 7-rule grammar. Building
+/// a second grammar would require redesigning the IR to add Seq and Pratt
+/// combinators BEFORE the probe would be meaningful — otherwise the second
+/// grammar would face the same escape-hatch accumulation.
+pub struct ReuseProbePlan {
+  /// Description of the second grammar to build for the E3 probe.
+  target_grammar : String
+  /// IR extensions required before the probe is executable.
+  required_extensions : Array[String]
+  /// Expected safety oracle outcomes if extensions are implemented correctly.
+  expected_oracle_result : String
+  /// Gate condition: E3 is only meaningful when this holds.
+  gate_condition : String
+} derive(Debug)
+
+///|
+/// Return the E3 follow-up probe plan.
+pub fn e3_probe_plan() -> ReuseProbePlan {
+  ReuseProbePlan::{
+    target_grammar: "A minimal JSON-like language: object/array/string/number/null literals with no operators (avoids needing Pratt for E3 validation).",
+    required_extensions: [
+      "Seq combinator in GrammarIr.Expr — sequential composition of token emission and recursive calls without lambda-specific escape hatches.",
+      "RepeatWhile with separator support — for array/object element lists.",
+      "Error recovery Expr variant (or reuse ErrorUntil) — for malformed JSON recovery.",
+    ],
+    expected_oracle_result: "D1/D2a/D2b all pass across all oracle fixtures. No WrongModelStop divergences. Possible ReplicationResidual on error messages (as seen in lambda E2). REUSE-PARITY vacuous (same finding as lambda).",
+    gate_condition: "E1 coverage ratio for the new grammar must be >= 5/7 — at least 5 of 7 grammar rules encoded declaratively with no ManualX escape hatches. This proves the IR generalizes beyond the design-target language.",
+  }
+}
+
+///|
+/// E3 gate: returns false when E3 probe is blocked on outstanding E2 issues.
+/// When this returns false, the full GO decision should note that E3 requires
+/// IR extensions before it can validate generalizability.
+pub fn e3_follow_up_gate() -> (Bool, String) {
+  let e2 = measure_e2()
+  if e2.escape_hatch_count > 0 {
+    (
+      false,
+      "Blocked: " +
+      e2.escape_hatch_count.to_string() +
+      " lambda-specific escape hatches require IR redesign (add Seq, Pratt) before a second-grammar probe is meaningful.",
+    )
+  } else {
+    (true, "Ready: no lambda-specific escape hatches in IR.")
+  }
+}
