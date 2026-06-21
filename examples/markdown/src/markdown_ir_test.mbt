@@ -519,6 +519,26 @@ test "experimental MarkdownIR: ordered list delimiter boundary carries start met
           #|{"type":"root","children":[{"type":"list","ordered":true,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"one"}]}]},{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"two"}]}]}]},{"type":"list","ordered":true,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"text","value":"three"}]}]}],"start":3}]}
         ),
       )
+      inspect(
+        experimental_markdown_ir_to_block(ir),
+        content=(
+          #|Document(
+          #|  [
+          #|    OrderedList(
+          #|      [
+          #|        OrderedListItem([Text("one")], Some({ start: 1, delimiter: Period })),
+          #|        OrderedListItem([Text("two")], Some({ start: 2, delimiter: Period })),
+          #|      ],
+          #|      Some({ start: 1, delimiter: Period }),
+          #|    ),
+          #|    OrderedList(
+          #|      [OrderedListItem([Text("three")], Some({ start: 3, delimiter: Paren }))],
+          #|      Some({ start: 3, delimiter: Paren }),
+          #|    ),
+          #|  ],
+          #|)
+        ),
+      )
       assert_markdown_ir_block_matches_direct_parse(source)
     }
     _ => inspect("unexpected document children", content="two ordered lists")

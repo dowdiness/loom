@@ -50,16 +50,25 @@ pub fn markdown_fold_node(
     }
     BlockQuoteNode =>
       Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
-    UnorderedListNode | OrderedListNode => {
-      let items : Array[Block] = []
-      for child in node.children() {
-        items.push(recurse(child))
+    UnorderedListNode => Block::UnorderedList(node.children().map(recurse))
+    OrderedListNode => {
+      let items = node.children().map(recurse)
+      let marker = match items {
+        [OrderedListItem(_, marker), ..] => marker
+        _ => None
       }
-      Block::UnorderedList(items)
+      Block::OrderedList(items, marker)
     }
     ListItemNode => {
       let inlines = convert_direct_inline_children_with_newline(node, "\n")
-      Block::ListItem(inlines)
+      match node.direct_token_of_kind(OrderedListMarkerToken.to_raw()) {
+        Some(token) =>
+          Block::OrderedListItem(
+            inlines,
+            ordered_list_marker_from_text(token.text()),
+          )
+        None => Block::UnorderedListItem(inlines)
+      }
     }
     CodeBlockNode => {
       // Re-parse info string from CST token text (same reason as heading level above).
