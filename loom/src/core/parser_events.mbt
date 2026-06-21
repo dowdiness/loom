@@ -164,6 +164,35 @@ pub fn[T, K] ParserContext::restore(
 }
 
 ///|
+/// Run `body` speculatively: advance the parser normally during `body`, then
+/// restore the parser to its state before the call and return the body's result.
+///
+/// Use for lookahead computations that need to consume tokens to see what
+/// follows, but must not permanently advance the parse position. The body may
+/// call any ParserContext method — emitted events, diagnostics, and position
+/// changes are all rolled back.
+///
+/// Example (Markdown): what is the setext underline depth after the next newline?
+///
+///   fn depth_after_newline(ctx) -> Int? {
+///     ctx.speculative(fn() {
+///       ctx.emit_token(NewlineToken)
+///       current_setext_depth(ctx)
+///     })
+///   }
+///
+/// Closes loom#438.
+pub fn[T, K, R] ParserContext::speculative(
+  self : ParserContext[T, K],
+  body : () -> R,
+) -> R {
+  let cp = self.checkpoint()
+  let result = body()
+  self.restore(cp)
+  result
+}
+
+///|
 /// Retroactively open a node at a previously marked position.
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
   self : ParserContext[T, K],

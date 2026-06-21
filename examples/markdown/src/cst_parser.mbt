@@ -257,12 +257,9 @@ fn block_quote_list_continuation_matches(
   ctx : @core.ParserContext[Token, SyntaxKind],
   matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
 ) -> Bool {
-  let checkpoint = ctx.checkpoint()
-  let matches = consume_quoted_list_item_separator_if_matching(
-    ctx, matches_marker,
-  )
-  ctx.restore(checkpoint)
-  matches
+  ctx.speculative(() => {
+    consume_quoted_list_item_separator_if_matching(ctx, matches_marker)
+  })
 }
 
 ///|
@@ -451,14 +448,13 @@ fn parse_nested_list_at_current_marker(
 fn next_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  let checkpoint = ctx.checkpoint()
-  ctx.emit_token(NewlineToken)
-  let indent = match ctx.peek() {
-    ListMarker | OrderedListMarker(_) => current_list_marker_indent(ctx)
-    _ => None
-  }
-  ctx.restore(checkpoint)
-  indent
+  ctx.speculative(() => {
+    ctx.emit_token(NewlineToken)
+    match ctx.peek() {
+      ListMarker | OrderedListMarker(_) => current_list_marker_indent(ctx)
+      _ => None
+    }
+  })
 }
 
 ///|
