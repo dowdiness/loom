@@ -34,7 +34,11 @@ pub enum Expr {
   PrattApp(RuleId, @syntax.SyntaxKind, (@token.Token) -> Bool)
   /// Pratt binary: parse prefix_rule, then consume operator/prefix_rule pairs
   /// while peek matches any op token, retroactively wrapping in binary_kind.
-  PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
+  PrattBinary(
+    RuleId,
+    @syntax.SyntaxKind,
+    Array[(@token.Token, @syntax.SyntaxKind)]
+  )
   /// Repeat the given expr while the lookahead predicate holds.
   RepeatWhile((@token.Token) -> Bool, Expr)
   /// After parsing the inner expr, if the NEXT token satisfies the predicate,

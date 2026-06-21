@@ -4,12 +4,15 @@ fn error_recovery_grammar() -> GrammarIr {
     source: Expr::RepeatTopLevel(RuleId::Definition, false),
     definition: Expr::Empty,
     expression: Expr::Ref(RuleId::Binary),
-    binary: Expr::PrattBinary(
-      RuleId::Application,
-      @syntax.BinaryExpr,
-      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
+    binary: Expr::PrattBinary(RuleId::Application, @syntax.BinaryExpr, [
+      (@token.Plus, @syntax.PlusToken),
+      (@token.Minus, @syntax.MinusToken),
+    ]),
+    application: Expr::PrattApp(
+      RuleId::Atom,
+      @syntax.AppExpr,
+      atom_starts_token,
     ),
-    application: Expr::PrattApp(RuleId::Atom, @syntax.AppExpr, atom_starts_token),
     atom: Expr::Choice([
       Alt::{
         starts: fn(t) { t == @token.Integer },

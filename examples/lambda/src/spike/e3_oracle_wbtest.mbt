@@ -82,16 +82,10 @@ fn e3_grammar_ir() -> GrammarIr {
         starts: t => t == @token.LeftParen,
         body: Expr::Ref(RuleId::Expression),
       },
-      Alt::{
-        starts: t => t == @token.LBrace,
-        body: Expr::Ref(RuleId::Binary),
-      },
+      Alt::{ starts: t => t == @token.LBrace, body: Expr::Ref(RuleId::Binary) },
       Alt::{
         starts: _t => true,
-        body: Expr::ErrorUntil(
-          spike_is_sync_point,
-          "Unexpected JSON token",
-        ),
+        body: Expr::ErrorUntil(spike_is_sync_point, "Unexpected JSON token"),
       },
     ]),
     // Array: '(' (Value (',' Value)*)? ')'
@@ -206,22 +200,12 @@ test "e3: array literal D1 parity across element edits" {
   )
   // Edit 2: remove "42, " (4 chars) at offset 1 → "(foo, 3)".
   inspect(
-    e3_check_step(
-      parser,
-      grammar,
-      @core.Edit::new(1, 4, 0),
-      "(foo, 3)",
-    ),
+    e3_check_step(parser, grammar, @core.Edit::new(1, 4, 0), "(foo, 3)"),
     content="true",
   )
   // Edit 3: insert ", 99" (4 chars) before ')' at offset 7 → "(foo, 3, 99)".
   inspect(
-    e3_check_step(
-      parser,
-      grammar,
-      @core.Edit::new(7, 0, 4),
-      "(foo, 3, 99)",
-    ),
+    e3_check_step(parser, grammar, @core.Edit::new(7, 0, 4), "(foo, 3, 99)"),
     content="true",
   )
 }
@@ -239,12 +223,7 @@ test "e3: object literal D1 parity across member value edits" {
   )
   // Edit 2: add a second member.
   inspect(
-    e3_check_step(
-      parser,
-      grammar,
-      @core.Edit::new(7, 0, 7),
-      "{x = 42, y = 0}",
-    ),
+    e3_check_step(parser, grammar, @core.Edit::new(7, 0, 7), "{x = 42, y = 0}"),
     content="true",
   )
 }
@@ -276,12 +255,7 @@ test "e3: trailing token rejected — D1 parity" {
   // Append " 2" after the array: trailing Integer token should produce a
   // diagnostic; both incremental and fresh parse must agree (D1).
   inspect(
-    e3_check_step(
-      parser,
-      grammar,
-      @core.Edit::new(3, 0, 2),
-      "(1) 2",
-    ),
+    e3_check_step(parser, grammar, @core.Edit::new(3, 0, 2), "(1) 2"),
     content="true",
   )
 }

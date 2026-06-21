@@ -26,11 +26,10 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
     // Expression = Binary (no if-then-else in spike scope).
     expression: Expr::Ref(RuleId::Binary),
     // Pratt binary: left-associative + and - over applications.
-    binary: Expr::PrattBinary(
-      RuleId::Application,
-      @syntax.BinaryExpr,
-      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
-    ),
+    binary: Expr::PrattBinary(RuleId::Application, @syntax.BinaryExpr, [
+      (@token.Plus, @syntax.PlusToken),
+      (@token.Minus, @syntax.MinusToken),
+    ]),
     // Pratt application: left-associative juxtaposition of atoms.
     application: Expr::PrattApp(
       RuleId::Atom,
@@ -129,8 +128,7 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
       Alt::{
         starts: _t => true,
         body: Expr::ErrorUntil(
-          spike_is_sync_point,
-          "Unexpected token in expression",
+          spike_is_sync_point, "Unexpected token in expression",
         ),
       },
     ]),

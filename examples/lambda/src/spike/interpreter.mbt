@@ -24,7 +24,10 @@ pub fn run_expr(
     }
     Expr::Node(kind, body) => ctx.node(kind, () => run_expr(ctx, ir, body))
     Expr::Ref(rule_id) => run_expr(ctx, ir, ir.rule(rule_id))
-    Expr::Seq(exprs) => for e in exprs { run_expr(ctx, ir, e) }
+    Expr::Seq(exprs) =>
+      for e in exprs {
+        run_expr(ctx, ir, e)
+      }
     Expr::PrattApp(atom_rule, app_kind, starts) => {
       let mark = ctx.mark()
       run_expr(ctx, ir, ir.rule(atom_rule))
@@ -51,11 +54,10 @@ pub fn run_expr(
         }
       })
     }
-    Expr::RepeatWhile(pred, body) => {
+    Expr::RepeatWhile(pred, body) =>
       while !ctx.at_eof() && pred(ctx.peek()) {
         run_expr(ctx, ir, body)
       }
-    }
     Expr::Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
@@ -128,7 +130,6 @@ fn spike_starts_expression(t : @token.Token) -> Bool {
     _ => false
   }
 }
-
 
 ///|
 fn token_starts_definition(t : @token.Token) -> Bool {
@@ -345,4 +346,3 @@ pub fn parse_error_node_until(
     let _ = ctx.skip_until(stop)
   }
 }
-

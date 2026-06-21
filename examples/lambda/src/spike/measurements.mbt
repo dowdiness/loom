@@ -66,8 +66,7 @@ pub fn measure_e2() -> E2Measurement {
     missing_combinators: [],
     escape_hatches: [
       (
-        "ManualParamList",
-        "ParamList requires mark/start_at retroactive-wrap to match A's CST shape; Seq+RepeatWhile alone cannot express the deferred node-open pattern",
+        "ManualParamList", "ParamList requires mark/start_at retroactive-wrap to match A's CST shape; Seq+RepeatWhile alone cannot express the deferred node-open pattern",
       ),
     ],
   }
