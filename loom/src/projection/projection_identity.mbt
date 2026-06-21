@@ -488,12 +488,10 @@ fn source_prefix_matches(
   next_source : String,
   end : Int,
 ) -> Bool {
-  let mut i = 0
-  while i < end {
+  for i in 0..<end {
     if old_source[i] != next_source[i] {
       return false
     }
-    i += 1
   }
   true
 }
@@ -505,14 +503,11 @@ fn source_suffix_matches(
   old_start : Int,
   next_start : Int,
 ) -> Bool {
-  let old_len = old_source.length()
-  let suffix_len = old_len - old_start
-  let mut i = 0
-  while i < suffix_len {
+  let suffix_len = old_source.length() - old_start
+  for i in 0..<suffix_len {
     if old_source[old_start + i] != next_source[next_start + i] {
       return false
     }
-    i += 1
   }
   true
 }
@@ -721,49 +716,31 @@ fn[Id] realign_projection_identities_in_window(
 ) -> Array[StableProjectionLeaf[Id]] {
   let old_prefix_count = count_old_prefix(previous, window.old_start)
   let new_prefix_count = count_new_prefix(next, window.new_start)
-  let mut prefix_count = if old_prefix_count < new_prefix_count {
-    old_prefix_count
-  } else {
-    new_prefix_count
-  }
-  if prefix_count > previous.length() {
-    prefix_count = previous.length()
-  }
-  if prefix_count > next.length() {
-    prefix_count = next.length()
-  }
+  let prefix_count = @cmp.minimum(
+    @cmp.minimum(old_prefix_count, new_prefix_count),
+    @cmp.minimum(previous.length(), next.length()),
+  )
 
   let old_suffix_count = count_old_suffix(previous, window.old_end)
   let new_suffix_count = count_new_suffix(next, window.new_end)
-  let mut suffix_count = if old_suffix_count < new_suffix_count {
-    old_suffix_count
-  } else {
-    new_suffix_count
-  }
-  if suffix_count > previous.length() - prefix_count {
-    suffix_count = previous.length() - prefix_count
-  }
-  if suffix_count > next.length() - prefix_count {
-    suffix_count = next.length() - prefix_count
-  }
+  let suffix_count = @cmp.minimum(
+    @cmp.minimum(old_suffix_count, new_suffix_count),
+    @cmp.minimum(previous.length() - prefix_count, next.length() - prefix_count),
+  )
 
   let new_suffix_start = next.length() - suffix_count
   let old_suffix_start = previous.length() - suffix_count
 
-  let result : Array[StableProjectionLeaf[Id]] = Array::new(
-    capacity=next.length(),
-  )
-  for i = 0; i < next.length(); i = i + 1 {
+  Array::makei(next.length(), i => {
     if i < prefix_count {
-      result.push(align_or_allocate(previous[i], next[i], allocate))
+      align_or_allocate(previous[i], next[i], allocate)
     } else if i >= new_suffix_start {
       let old_index = old_suffix_start + (i - new_suffix_start)
-      result.push(align_or_allocate(previous[old_index], next[i], allocate))
+      align_or_allocate(previous[old_index], next[i], allocate)
     } else {
-      result.push(fresh_stable_projection_leaf(next[i], allocate))
+      fresh_stable_projection_leaf(next[i], allocate)
     }
-  }
-  result
+  })
 }
 
 ///|
@@ -771,20 +748,24 @@ fn[Id] count_old_prefix(
   leaves : Array[StableProjectionLeaf[Id]],
   old_start : Int,
 ) -> Int {
-  let mut count = 0
-  while count < leaves.length() && leaves[count].end <= old_start {
-    count += 1
+  for count = 0 {
+    if count < leaves.length() && leaves[count].end <= old_start {
+      continue count + 1
+    } else {
+      break count
+    }
   }
-  count
 }
 
 ///|
 fn count_new_prefix(leaves : Array[ProjectionLeaf], new_start : Int) -> Int {
-  let mut count = 0
-  while count < leaves.length() && leaves[count].end <= new_start {
-    count += 1
+  for count = 0 {
+    if count < leaves.length() && leaves[count].end <= new_start {
+      continue count + 1
+    } else {
+      break count
+    }
   }
-  count
 }
 
 ///|
@@ -792,24 +773,24 @@ fn[Id] count_old_suffix(
   leaves : Array[StableProjectionLeaf[Id]],
   old_end : Int,
 ) -> Int {
-  let mut count = 0
-  let mut i = leaves.length()
-  while i > 0 && leaves[i - 1].start >= old_end {
-    count += 1
-    i -= 1
+  for i = leaves.length(), count = 0 {
+    if i > 0 && leaves[i - 1].start >= old_end {
+      continue i - 1, count + 1
+    } else {
+      break count
+    }
   }
-  count
 }
 
 ///|
 fn count_new_suffix(leaves : Array[ProjectionLeaf], new_end : Int) -> Int {
-  let mut count = 0
-  let mut i = leaves.length()
-  while i > 0 && leaves[i - 1].start >= new_end {
-    count += 1
-    i -= 1
+  for i = leaves.length(), count = 0 {
+    if i > 0 && leaves[i - 1].start >= new_end {
+      continue i - 1, count + 1
+    } else {
+      break count
+    }
   }
-  count
 }
 
 ///|
