@@ -43,11 +43,29 @@ fn fn_grammar() -> GrammarIr {
               Alt::{
                 starts: fn(t) { t != @token.EOF },
                 body: Expr::Seq([
-                  Expr::Ref(RuleId::Binary),
                   Expr::RepeatWhile(
-                    fn(t) { t == @token.Newline },
-                    Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                    token_starts_definition,
+                    Expr::Seq([
+                      Expr::ManualDefinition,
+                      Expr::RepeatWhile(
+                        fn(t) { t == @token.Newline },
+                        Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                      ),
+                    ]),
                   ),
+                  Expr::Choice([
+                    Alt::{ starts: fn(t) { t == @token.RBrace }, body: Expr::Empty },
+                    Alt::{
+                      starts: fn(t) { t != @token.EOF },
+                      body: Expr::Seq([
+                        Expr::Ref(RuleId::Binary),
+                        Expr::RepeatWhile(
+                          fn(t) { t == @token.Newline },
+                          Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                        ),
+                      ]),
+                    },
+                  ]),
                 ]),
               },
             ]),

@@ -40,6 +40,9 @@ pub enum Expr {
   /// After parsing the inner expr, if the NEXT token satisfies the predicate,
   /// wrap from the given mark position in the given node kind.
   WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
+  /// Lambda-specific: call parse_definition_ir for one definition (let/fn).
+  /// Used inside block expressions to mirror A's definition loop.
+  ManualDefinition
   /// Lambda-specific: emit param list matching A's exact raw loop shape.
   ManualParamList
   /// Emit a diagnostic without creating an error node or placeholder.

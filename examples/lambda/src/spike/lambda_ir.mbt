@@ -79,11 +79,31 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
               Alt::{
                 starts: t => t != @token.EOF,
                 body: Expr::Seq([
-                  Expr::Ref(RuleId::Binary),
+                  // Mirror A's definition loop before the trailing expression.
                   Expr::RepeatWhile(
-                    t => t == @token.Newline,
-                    Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                    token_starts_definition,
+                    Expr::Seq([
+                      Expr::ManualDefinition,
+                      Expr::RepeatWhile(
+                        t => t == @token.Newline,
+                        Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                      ),
+                    ]),
                   ),
+                  // Optional trailing expression.
+                  Expr::Choice([
+                    Alt::{ starts: t => t == @token.RBrace, body: Expr::Empty },
+                    Alt::{
+                      starts: t => t != @token.EOF,
+                      body: Expr::Seq([
+                        Expr::Ref(RuleId::Binary),
+                        Expr::RepeatWhile(
+                          t => t == @token.Newline,
+                          Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                        ),
+                      ]),
+                    },
+                  ]),
                 ]),
               },
             ]),

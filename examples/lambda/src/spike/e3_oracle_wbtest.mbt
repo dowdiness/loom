@@ -40,8 +40,21 @@
 ///|
 fn e3_grammar_ir() -> GrammarIr {
   GrammarIr::{
-    // Source: the whole input is a single JSON value.
-    source: Expr::Ref(RuleId::Definition),
+    // Source: the whole input is a single JSON value; trailing non-trivia
+    // tokens are consumed into an error node.
+    source: Expr::Seq([
+      Expr::Ref(RuleId::Definition),
+      Expr::Choice([
+        Alt::{ starts: t => t == @token.EOF, body: Expr::Empty },
+        Alt::{
+          starts: _t => true,
+          body: Expr::ErrorUntil(
+            t => t == @token.EOF,
+            "unexpected tokens after JSON value",
+          ),
+        },
+      ]),
+    ]),
     // Value: JSON value dispatch.
     definition: Expr::Choice([
       Alt::{
@@ -249,6 +262,25 @@ test "e3: nested array-of-objects D1 parity" {
       grammar,
       @core.Edit::new(6, 1, 2),
       "({a = 99}, {b = 2})",
+    ),
+    content="true",
+  )
+}
+
+///|
+/// E3 probe: trailing tokens after a JSON value are rejected and D1 holds.
+test "e3: trailing token rejected — D1 parity" {
+  let grammar = build_e3_grammar()
+  let initial = "(1)"
+  let parser = @loom.new_syntax_parser(initial, grammar)
+  // Append " 2" after the array: trailing Integer token should produce a
+  // diagnostic; both incremental and fresh parse must agree (D1).
+  inspect(
+    e3_check_step(
+      parser,
+      grammar,
+      @core.Edit::new(3, 0, 2),
+      "(1) 2",
     ),
     content="true",
   )

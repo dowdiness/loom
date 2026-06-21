@@ -73,6 +73,7 @@ pub fn run_expr(
       )
       ctx.emit_error_placeholder()
     }
+    Expr::ManualDefinition => parse_definition_ir(ctx, ir)
     Expr::ManualParamList => parse_param_list_exact(ctx)
     Expr::EmitError(msg) => ctx.error(msg)
     Expr::ErrorUntil(stop, msg) => {

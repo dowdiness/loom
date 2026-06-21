@@ -116,3 +116,27 @@ test "oracle: let with param list diagnostic matches A (P2)" {
     inspect(result.d2b_ok, content="true")
   }
 }
+
+///|
+test "oracle: block with nested let definition matches A (D2a)" {
+  // fn f(x) { \n let y = 1 \n y \n } — A's parse_block_expr loops over
+  // definitions before the trailing expression; without the ManualDefinition
+  // fix B would leave 'let' unconsumed, emit a missing '}', and diverge.
+  let source = "fn f(x) {\nlet y = 1\ny\n}"
+  let (a_cst, _) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, _) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+test "oracle: block with fn nested definition matches A (D2a)" {
+  // fn outer(x) { \n fn inner(y) { y } \n inner x \n }
+  let source = "fn outer(x) {\nfn inner(y) { y }\ninner x\n}"
+  let (a_cst, _) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, _) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}

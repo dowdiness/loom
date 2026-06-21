@@ -118,6 +118,7 @@ pub enum Expr {
   PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
   RepeatWhile((@token.Token) -> Bool, Expr)
   WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
+  ManualDefinition
   ManualParamList
   EmitError(String)
   ErrorUntil((@token.Token) -> Bool, String)
