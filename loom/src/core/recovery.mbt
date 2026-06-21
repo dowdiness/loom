@@ -84,6 +84,36 @@ pub fn[
   }
 }
 
+// ─── expect_after_skip ────────────────────────────────────────────────────────
+
+///|
+/// Consume optional tokens matching `skip_pred` (emitting as `skip_kind`) when
+/// `expected` immediately follows the run, then expect `expected`.
+///
+/// The skip is conditioned on `expected` actually following the skippable run,
+/// so structural separators between unrelated constructs are never consumed.
+/// Equivalent to `consume_while_emit_if(skip_pred, skip_kind, t => t == expected)`
+/// followed by `expect(expected, kind)`.
+///
+/// The canonical use case is "soft line continuation before a required token":
+/// `let x\n= 1` is valid (newline is soft before `=`), but a newline between
+/// two top-level definitions is structural and must not be consumed.
+///
+/// Returns true when `expected` was consumed normally, false when recovery fired.
+pub fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] ParserContext::expect_after_skip(
+  self : ParserContext[T, K],
+  skip_pred : (T) -> Bool,
+  skip_kind : K,
+  expected : T,
+  kind : K,
+) -> Bool {
+  let _ = self.consume_while_emit_if(skip_pred, skip_kind, t => t == expected)
+  self.expect(expected, kind)
+}
+
 // ─── skip_until ───────────────────────────────────────────────────────────────
 
 ///|

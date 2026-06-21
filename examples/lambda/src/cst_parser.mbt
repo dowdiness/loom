@@ -37,27 +37,17 @@ fn token_starts_application_atom(token : @token.Token) -> Bool {
 }
 
 ///|
-fn peek_after_newlines(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> @token.Token {
-  for index = 0 {
-    match ctx.peek_nth(index) {
-      @token.Newline => continue index + 1
-      token => break token
-    }
-  }
-}
-
-///|
+/// Consume consecutive Newline tokens, emitting each into the CST.
+/// Returns the number consumed. Used by parse_lambda_root to check whether
+/// a required newline separator was present between top-level definitions.
 fn consume_newline_tokens(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Int {
-  let mut count = 0
-  while ctx.peek() == @token.Newline {
+  for count = 0 {
+    guard ctx.peek() == @token.Newline else { break count }
     ctx.emit_token(@syntax.NewlineToken)
-    count = count + 1
+    continue count + 1
   }
-  count
 }
 
 ///|
@@ -82,10 +72,11 @@ fn consume_delimiters(
 fn consume_soft_newlines_before_expression(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  if ctx.peek() == @token.Newline &&
-    token_starts_expression(peek_after_newlines(ctx)) {
-    let _ = consume_newline_tokens(ctx)
-  }
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    token_starts_expression,
+  )
 }
 
 ///|
@@ -93,29 +84,33 @@ fn consume_soft_newlines_before_expected(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   expected : @token.Token,
 ) -> Unit {
-  if ctx.peek() == @token.Newline && peek_after_newlines(ctx) == expected {
-    let _ = consume_newline_tokens(ctx)
-  }
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    t => t == expected,
+  )
 }
 
 ///|
 fn consume_soft_newlines_before_binary_operator(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  if ctx.peek() == @token.Newline &&
-    token_is_binary_operator(peek_after_newlines(ctx)) {
-    let _ = consume_newline_tokens(ctx)
-  }
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    token_is_binary_operator,
+  )
 }
 
 ///|
 fn consume_soft_newlines_before_application_atom(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  if ctx.peek() == @token.Newline &&
-    token_starts_application_atom(peek_after_newlines(ctx)) {
-    let _ = consume_newline_tokens(ctx)
-  }
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    token_starts_application_atom,
+  )
 }
 
 ///|

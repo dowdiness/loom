@@ -67,14 +67,13 @@ fn spike_expect(
   token : @token.Token,
   kind : @syntax.SyntaxKind,
 ) -> Unit {
-  // loom#434: consume_while_emit / peek_while_skip
-  // Consume soft newlines only when the expected token immediately follows them
-  // (mirrors lambda_expect → consume_soft_newlines_before_expected).
-  if ctx.at(@token.Newline) &&
-    ctx.peek_while_skip(t => t == @token.Newline) == token {
-    ctx.consume_while_emit(t => t == @token.Newline, @syntax.NewlineToken)
-  }
-  let _ = ctx.expect(token, kind)
+  // loom#436: expect_after_skip — mirrors lambda_expect → consume_soft_newlines_before_expected
+  let _ = ctx.expect_after_skip(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    token,
+    kind,
+  )
 }
 
 ///|
