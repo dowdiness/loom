@@ -523,7 +523,9 @@ fn lower_inline_children_skip_with_diags(
       }
       @seam.SyntaxElement::Node(child_node) =>
         push_child(
-          lower_inline_node_with_diags(child_node, diagnostics_in_origin),
+          lower_inline_node_with_diags(
+            child_node, newline_text, diagnostics_in_origin,
+          ),
         )
     }
   }
@@ -577,13 +579,17 @@ fn lower_direct_inline_token_with_diags(
 ///|
 fn lower_direct_inline_node_with_diags(
   node : @seam.SyntaxNode,
+  newline_text : String?,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR? {
   let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match node_kind {
     HeadingNode | UnorderedListNode | OrderedListNode | ThematicBreakNode =>
       None
-    _ => Some(lower_inline_node_with_diags(node, diagnostics_in_origin))
+    _ =>
+      Some(
+        lower_inline_node_with_diags(node, newline_text, diagnostics_in_origin),
+      )
   }
 }
 
@@ -620,7 +626,12 @@ fn lower_direct_inline_children_with_newline_and_diags(
         }
       }
       @seam.SyntaxElement::Node(node) =>
-        match lower_direct_inline_node_with_diags(node, diagnostics_in_origin) {
+        match
+          lower_direct_inline_node_with_diags(
+            node,
+            Some(newline_text),
+            diagnostics_in_origin,
+          ) {
           Some(child) => push_child(child)
           None => ()
         }
@@ -665,6 +676,7 @@ fn span_token_origins(origins : Array[MarkdownIROrigin]) -> MarkdownIROrigin? {
 ///|
 fn lower_link_node_with_diags(
   node : @seam.SyntaxNode,
+  newline_text : String?,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR {
   let display : Array[MarkdownIR] = []
@@ -715,7 +727,9 @@ fn lower_link_node_with_diags(
       @seam.SyntaxElement::Node(child_node) =>
         if !past_bracket && url_depth == 0 {
           display.push(
-            lower_inline_node_with_diags(child_node, diagnostics_in_origin),
+            lower_inline_node_with_diags(
+              child_node, newline_text, diagnostics_in_origin,
+            ),
           )
         }
     }
@@ -731,6 +745,7 @@ fn lower_link_node_with_diags(
 ///|
 fn lower_inline_node_with_diags(
   node : @seam.SyntaxNode,
+  newline_text : String?,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
@@ -739,7 +754,7 @@ fn lower_inline_node_with_diags(
       let children = lower_inline_children_skip_with_diags(
         node,
         Some(StarStarToken),
-        None,
+        newline_text,
         diagnostics_in_origin,
       )
       MarkdownIR::bold(
@@ -752,7 +767,7 @@ fn lower_inline_node_with_diags(
       let children = lower_inline_children_skip_with_diags(
         node,
         Some(StarToken),
-        None,
+        newline_text,
         diagnostics_in_origin,
       )
       MarkdownIR::italic(
@@ -765,7 +780,8 @@ fn lower_inline_node_with_diags(
       let (value, content_origin) = lower_code_span(node)
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
-    LinkNode => lower_link_node_with_diags(node, diagnostics_in_origin)
+    LinkNode =>
+      lower_link_node_with_diags(node, newline_text, diagnostics_in_origin)
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(node.text(), origin, diagnostics_in_origin(origin))

@@ -55,7 +55,7 @@ fn try_parse_setext_heading(
 ) -> Bool {
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
-  parse_inline_content(ctx)
+  parse_setext_heading_inline_content(ctx)
   while ctx.peek() is Newline {
     if setext_underline_depth_after_newline(
         ctx,
@@ -674,7 +674,12 @@ fn parse_list_item_inline_content(
   allow_ordered_marker~ : Bool,
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
-  parse_inline_content(ctx)
+  parse_inline_content_with_ordered_markers(
+    ctx,
+    allow_ordered_marker~,
+    list_item_context=true,
+    setext_heading_context=false,
+  )
   while has_paragraph_content && ctx.peek() is Newline {
     let next = ctx.peek_nth(1)
     if allow_ordered_marker &&
@@ -685,7 +690,16 @@ fn parse_list_item_inline_content(
       break
     }
     ctx.emit_token(NewlineToken)
-    parse_paragraph_continuation_line(ctx)
+    match ctx.peek() {
+      OrderedListMarker(_) if allow_ordered_marker => ctx.emit_token(TextToken)
+      _ => ()
+    }
+    parse_inline_content_with_ordered_markers(
+      ctx,
+      allow_ordered_marker~,
+      list_item_context=true,
+      setext_heading_context=false,
+    )
   }
 }
 

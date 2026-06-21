@@ -11,6 +11,51 @@ test "inline: italic" {
 }
 
 ///|
+test "inline: italic can contain bold" {
+  let block = parse("*foo **bar** baz*\n")
+  inspect(
+    block,
+    content="Document([Paragraph([Italic([Text(\"foo \"), Bold([Text(\"bar\")]), Text(\" baz\")])])])",
+  )
+}
+
+///|
+test "inline: ordered marker can remain paragraph text inside multiline emphasis" {
+  let block = parse("*foo\n2. bar*\n")
+  inspect(
+    block,
+    content="Document([Paragraph([Italic([Text(\"foo\"), Text(\"2. \"), Text(\"bar\")])])])",
+  )
+}
+
+///|
+test "inline: multiline emphasis stops at ordered list item boundary" {
+  let block = parse("1. *foo\n2. bar*\n")
+  inspect(
+    block,
+    content=(
+      #|Document(
+      #|  [
+      #|    OrderedList(
+      #|      [
+      #|        OrderedListItem(
+      #|          [Error("*"), Text("foo")],
+      #|          Some({ start: 1, delimiter: Period }),
+      #|        ),
+      #|        OrderedListItem(
+      #|          [Text("bar"), Error("*")],
+      #|          Some({ start: 2, delimiter: Period }),
+      #|        ),
+      #|      ],
+      #|      Some({ start: 1, delimiter: Period }),
+      #|    ),
+      #|  ],
+      #|)
+    ),
+  )
+}
+
+///|
 test "inline: inline code" {
   let block = parse("`code`\n")
   inspect(block, content="Document([Paragraph([InlineCode(\"code\")])])")
