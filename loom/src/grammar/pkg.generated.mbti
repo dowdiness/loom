@@ -10,6 +10,36 @@ import {
 // Errors
 
 // Types and methods
+pub(all) struct Alt[T, K] {
+  starts : Pred[T]
+  body : Expr[T, K]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Expr[T, K] {
+  Node(K, Expr[T, K])
+  Emit(T, K)
+  Expect(T, K, String)
+  Ref(String)
+  Choice(Array[Alt[T, K]])
+  RepeatTopLevel(String, Pred[T], Expr[T, K])
+  Seq(Array[Expr[T, K]])
+  PrattApp(String, K, Pred[T])
+  PrattBinary(String, K, Array[(T, K)])
+  RepeatWhile(Pred[T], Expr[T, K])
+  WrapIfNext(K, Pred[T], Expr[T, K])
+  CountedRepeat(Pred[T], Expr[T, K], min~ : Int, missing_message~ : String?)
+  EmitError(String)
+  ErrorUntil(Pred[T], String)
+  ManualNewlineAppExpr
+  Empty
+} derive(Eq, @debug.Debug)
+
+pub(all) struct GrammarIr[T, K] {
+  rules : Map[String, Expr[T, K]]
+  root : String
+} derive(Eq, @debug.Debug)
+pub fn[T, K] GrammarIr::GrammarIr(Map[String, Expr[T, K]], root~ : String) -> Self[T, K]
+
 pub(all) enum Pred[T] {
   Any
   IsToken(T)
@@ -19,6 +49,7 @@ pub(all) enum Pred[T] {
 pub fn[T : Eq] Pred::matches(Self[T], T) -> Bool
 
 // Type aliases
+pub type RuleName = String
 
 // Traits
 
