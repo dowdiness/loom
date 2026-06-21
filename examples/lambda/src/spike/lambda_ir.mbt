@@ -1,28 +1,37 @@
 ///|
 /// Hand-authored grammar IR for the lambda language.
 ///
-/// IR coverage note (E1 accounting after Track 2 Seq+Pratt extension):
+/// IR coverage note (P2 fixes applied after Track 2):
 ///   Declarative (5/7): source, expression, binary, application, atom.
 ///   Escape hatches (2/7):
-///     - definition: called directly from parse_top_level_repeat; the
-///       soft-newline-before-expression combinator + LeftParen guard +
-///       param-list are all in-function logic not yet in the IR.
+///     - definition: ManualDefinition — parse_definition_ir dispatched via
+///       run_expr; complex let/fn parsing not expressible with IR combinators.
 ///     - param_list: ManualParamList — mark/start_at retroactive-wrap
 ///       dance for the positional grammar cannot be expressed with current
 ///       combinators.
+///   Sub-rule escape hatches (lambda-specific combinator gaps, counted in E2):
+///     - ManualBlockDelimiterCheck: counted-repeat-with-conditional-diagnostic.
+///     - ManualNewlineAppExpr: context-sensitive application mode
+///       (allow_newline_application=true vs false) not expressible in PrattApp.
 ///
 /// Source, Expression: Ref delegation — declarative (zero escape-hatch).
 /// Binary: PrattBinary — fully declarative Pratt binary.
 /// Application: PrattApp — fully declarative Pratt left-assoc application.
-/// Atom: Choice + Seq — fully declarative per-token dispatch.
+/// Atom: Choice + Seq — fully declarative per-token dispatch (ManualDefinition
+///   and ManualBlockDelimiterCheck are sub-expressions, not rule-level hatches).
 pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
   let cr = cripple_reuse.unwrap_or(false)
   GrammarIr::{
     // Dispatched via interpret() → run_expr(ctx, ir, ir.rule(Source)).
-    source: Expr::RepeatTopLevel(RuleId::Definition, cr),
-    // Not dispatched via IR — parse_definition_ir() is called directly from
-    // parse_top_level_repeat. Documented Empty to avoid invisible gap.
-    definition: Expr::Empty,
+    // starts_pred wired so RepeatTopLevel is generically dispatchable.
+    source: Expr::RepeatTopLevel(
+      RuleId::Definition,
+      token_starts_definition,
+      cr,
+    ),
+    // Dispatched via ManualDefinition (in block arms) and via
+    // parse_top_level_repeat calling run_expr(ctx, ir, ir.rule(Definition)).
+    definition: Expr::ManualDefinition,
     // Expression = Binary (no if-then-else in spike scope).
     expression: Expr::Ref(RuleId::Binary),
     // Pratt binary: left-associative + and - over applications.
@@ -79,28 +88,24 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
                 starts: t => t != @token.EOF,
                 body: Expr::Seq([
                   // Mirror A's definition loop before the trailing expression.
+                  // ManualBlockDelimiterCheck mirrors A's delimiter-count logic:
+                  // consume newlines after each definition, emitting a diagnostic
+                  // when none are found before the next definition.
                   Expr::RepeatWhile(
                     token_starts_definition,
                     Expr::Seq([
                       Expr::ManualDefinition,
-                      Expr::RepeatWhile(
-                        t => t == @token.Newline,
-                        Expr::Emit(@token.Newline, @syntax.NewlineToken),
-                      ),
+                      Expr::ManualBlockDelimiterCheck,
                     ]),
                   ),
-                  // Optional trailing expression.
+                  // Optional trailing expression — uses ManualNewlineAppExpr so
+                  // `{ let x = 1\nf x }` forms AppExpr(f, x) matching A's
+                  // parse_expression_with_mode(ctx, allow_newline_application=true).
                   Expr::Choice([
                     Alt::{ starts: t => t == @token.RBrace, body: Expr::Empty },
                     Alt::{
                       starts: t => t != @token.EOF,
-                      body: Expr::Seq([
-                        Expr::Ref(RuleId::Binary),
-                        Expr::RepeatWhile(
-                          t => t == @token.Newline,
-                          Expr::Emit(@token.Newline, @syntax.NewlineToken),
-                        ),
-                      ]),
+                      body: Expr::ManualNewlineAppExpr,
                     },
                   ]),
                 ]),

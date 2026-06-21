@@ -67,8 +67,8 @@ pub fn run_expr(
         }
       }
     }
-    Expr::RepeatTopLevel(_, cripple_reuse) =>
-      parse_top_level_repeat(ctx, ir, cripple_reuse)
+    Expr::RepeatTopLevel(rule_id, starts_pred, cripple_reuse) =>
+      parse_top_level_repeat(ctx, ir, rule_id, starts_pred, cripple_reuse)
     Expr::WrapIfNext(_, _, _, _) => {
       ctx.error(
         "SPIKE: WrapIfNext not yet wired; ensure IR uses correct variant",
@@ -76,6 +76,8 @@ pub fn run_expr(
       ctx.emit_error_placeholder()
     }
     Expr::ManualDefinition => parse_definition_ir(ctx, ir)
+    Expr::ManualBlockDelimiterCheck => parse_block_delimiter_check(ctx)
+    Expr::ManualNewlineAppExpr => parse_newline_app_expr(ctx, ir)
     Expr::ManualParamList => parse_param_list_exact(ctx)
     Expr::EmitError(msg) => ctx.error(msg)
     Expr::ErrorUntil(stop, msg) => {
@@ -215,26 +217,124 @@ fn consume_delimiter_newlines(
 }
 
 ///|
+/// ManualBlockDelimiterCheck implementation: consume delimiter newlines after a
+/// block definition and emit a diagnostic when count is zero and the next token
+/// is not '}' or EOF (same as A's block delimiter check in parse_block_expr).
+fn parse_block_delimiter_check(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  let count = consume_delimiter_newlines(ctx)
+  if count == 0 {
+    match ctx.peek() {
+      @token.RBrace | @token.EOF => ()
+      _ => ctx.error("Expected ';' or newline between definitions")
+    }
+  }
+}
+
+///|
+/// ManualNewlineAppExpr implementation: parse a binary expression where the
+/// application sub-rule uses allow_newline_application=true. Mirrors A's
+/// parse_expression_with_mode(ctx, true) used for top-level and block trailing
+/// expressions.
+///
+/// Structure mirrors parse_binary_op in cst_parser.mbt:
+///   1. Mark for potential wrap.
+///   2. Parse application layer with newline consumption between atoms.
+///   3. Check for binary operators (consuming soft newlines before them).
+///   4. If operator found, wrap the whole expression in BinaryExpr and loop.
+fn parse_newline_app_expr(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  let mark = ctx.mark()
+  parse_app_with_newline(ctx, ir)
+  // Consume soft newlines only when followed by a binary operator, then wrap.
+  let op_pairs : Array[(@token.Token, @syntax.SyntaxKind)] = [
+    (@token.Plus, @syntax.PlusToken),
+    (@token.Minus, @syntax.MinusToken),
+  ]
+  let has_op = fn(t) { op_pairs.iter().any(fn(p) { t == p.0 }) }
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    has_op,
+  )
+  guard has_op(ctx.peek()) else { return }
+  ctx.wrap_at(mark, @syntax.BinaryExpr, fn() {
+    while true {
+      match op_pairs.iter().find_first(fn(p) { ctx.peek() == p.0 }) {
+        None => break
+        Some(pair) => {
+          ctx.emit_token(pair.1)
+          parse_app_with_newline(ctx, ir)
+          let _ = ctx.consume_while_emit_if(
+            t => t == @token.Newline,
+            @syntax.NewlineToken,
+            has_op,
+          )
+        }
+      }
+    }
+  })
+}
+
+///|
+/// Application parser with allow_newline_application=true. Mirrors A's
+/// parse_application(ctx, allow_newline_application=true): consumes soft
+/// newlines between atoms when the token after the newlines is an atom-starter.
+fn parse_app_with_newline(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  let mark = ctx.mark()
+  run_expr(ctx, ir, ir.rule(RuleId::Atom))
+  let _ = ctx.consume_while_emit_if(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    atom_starts_token,
+  )
+  guard atom_starts_token(ctx.peek()) else { return }
+  ctx.wrap_at(mark, @syntax.AppExpr, fn() {
+    while true {
+      run_expr(ctx, ir, ir.rule(RuleId::Atom))
+      let _ = ctx.consume_while_emit_if(
+        t => t == @token.Newline,
+        @syntax.NewlineToken,
+        atom_starts_token,
+      )
+      guard atom_starts_token(ctx.peek()) else { break }
+    }
+  })
+}
+
+///|
 /// Top-level source parser — mirrors A's parse_lambda_root.
 /// Handles definitions with repeat-group reuse, optional trailing expression,
 /// and trailing-token error recovery.
+///
+/// rule_id: the IR rule dispatched for each item (e.g. RuleId::Definition).
+/// starts_pred: lookahead predicate that determines whether the next token
+///   opens a new item (e.g. token_starts_definition for lambda).
 pub fn parse_top_level_repeat(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   ir : GrammarIr,
+  rule_id : RuleId,
+  starts_pred : (@token.Token) -> Bool,
   cripple_reuse : Bool,
 ) -> Unit {
   let _ = consume_delimiter_newlines(ctx)
-  while token_starts_definition(ctx.peek()) {
+  while starts_pred(ctx.peek()) {
     if !cripple_reuse && ctx.try_reuse_repeat_group() {
       let _ = consume_delimiter_newlines(ctx)
       continue
     }
-    parse_definition_ir(ctx, ir)
+    run_expr(ctx, ir, ir.rule(rule_id))
     // Mirror parse_lambda_root's delimiter_count check: when no newline
     // separates a definition from what follows, emit the same diagnostic A emits.
     let delimiter_count = consume_delimiter_newlines(ctx)
     if delimiter_count == 0 && ctx.peek() != @token.EOF {
-      if token_starts_definition(ctx.peek()) {
+      if starts_pred(ctx.peek()) {
         ctx.error("Expected newline between top-level definitions")
       } else {
         ctx.error("Expected newline after top-level definition")
@@ -243,7 +343,9 @@ pub fn parse_top_level_repeat(
   }
   match ctx.peek() {
     @token.EOF => ()
-    _ => run_expr(ctx, ir, ir.rule(RuleId::Expression))
+    // Mirror A's parse_expression_with_mode(ctx, true): top-level trailing
+    // expressions use allow_newline_application=true.
+    _ => run_expr(ctx, ir, Expr::ManualNewlineAppExpr)
   }
   let _ = consume_delimiter_newlines(ctx)
   match ctx.peek() {

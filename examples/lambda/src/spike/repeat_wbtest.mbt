@@ -1,8 +1,12 @@
 ///|
 fn let_grammar() -> GrammarIr {
   GrammarIr::{
-    source: Expr::RepeatTopLevel(RuleId::Definition, false),
-    definition: Expr::Empty,
+    source: Expr::RepeatTopLevel(
+      RuleId::Definition,
+      token_starts_definition,
+      false,
+    ),
+    definition: Expr::ManualDefinition,
     expression: Expr::Ref(RuleId::Binary),
     binary: Expr::Ref(RuleId::Application),
     application: Expr::Ref(RuleId::Atom),

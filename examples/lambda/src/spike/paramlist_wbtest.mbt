@@ -1,8 +1,12 @@
 ///|
 fn fn_grammar() -> GrammarIr {
   GrammarIr::{
-    source: Expr::RepeatTopLevel(RuleId::Definition, false),
-    definition: Expr::Empty,
+    source: Expr::RepeatTopLevel(
+      RuleId::Definition,
+      token_starts_definition,
+      false,
+    ),
+    definition: Expr::ManualDefinition,
     expression: Expr::Ref(RuleId::Binary),
     binary: Expr::PrattBinary(RuleId::Application, @syntax.BinaryExpr, [
       (@token.Plus, @syntax.PlusToken),
@@ -50,10 +54,7 @@ fn fn_grammar() -> GrammarIr {
                     token_starts_definition,
                     Expr::Seq([
                       Expr::ManualDefinition,
-                      Expr::RepeatWhile(
-                        fn(t) { t == @token.Newline },
-                        Expr::Emit(@token.Newline, @syntax.NewlineToken),
-                      ),
+                      Expr::ManualBlockDelimiterCheck,
                     ]),
                   ),
                   Expr::Choice([
@@ -63,13 +64,7 @@ fn fn_grammar() -> GrammarIr {
                     },
                     Alt::{
                       starts: fn(t) { t != @token.EOF },
-                      body: Expr::Seq([
-                        Expr::Ref(RuleId::Binary),
-                        Expr::RepeatWhile(
-                          fn(t) { t == @token.Newline },
-                          Expr::Emit(@token.Newline, @syntax.NewlineToken),
-                        ),
-                      ]),
+                      body: Expr::ManualNewlineAppExpr,
                     },
                   ]),
                 ]),

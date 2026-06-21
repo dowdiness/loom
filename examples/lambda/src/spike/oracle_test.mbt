@@ -140,3 +140,56 @@ test "oracle: block with fn nested definition matches A (D2a)" {
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
+
+///|
+test "oracle: top-level newline-application forms AppExpr matching A (P2 D2a)" {
+  // `f\nx` at the top level: A's parse_expression_with_mode(ctx, true) calls
+  // consume_soft_newlines_before_application_atom so the newline is consumed
+  // and `f` and `x` are wrapped in an AppExpr.
+  // B must produce the same CST via ManualNewlineAppExpr.
+  let source = "f\nx"
+  let (a_cst, _) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, _) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+test "oracle: let body newline does NOT form AppExpr (P2 D2a boundary)" {
+  // `let x = 1\ny` — A uses allow_newline_application=false for let bodies,
+  // so the newline separates `1` (let value) from `y` (top-level trailing expr).
+  // B's PrattApp + ManualNewlineAppExpr must reproduce this.
+  let source = "let x = 1\ny"
+  let (a_cst, _) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, _) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+test "oracle: block trailing newline-application forms AppExpr matching A (P2 D2a)" {
+  // `fn f(x) { f\nx }` — the trailing expression inside the block uses
+  // allow_newline_application=true in A; `f\nx` should be an AppExpr.
+  let source = "fn f(x) { f\nx }"
+  let (a_cst, _) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, _) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+test "oracle: missing block delimiter emits same diagnostic count as A (P2 D2a)" {
+  // `fn f() { let x = 1 let y = 2\ny }` — no newline between block definitions.
+  // A emits "Expected ';' or newline between definitions"; B must do the same.
+  let source = "fn f() { let x = 1 let y = 2\ny }"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+  inspect(a_diag.items().length() == b_diag.items().length(), content="true")
+  inspect(a_diag.items().length() > 0, content="true")
+}

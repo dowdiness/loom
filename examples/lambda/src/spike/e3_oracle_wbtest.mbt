@@ -141,10 +141,16 @@ fn e3_grammar_ir() -> GrammarIr {
       ]),
     ),
     // Member: Identifier '=' Value
+    // P2 fix: Expect (not Emit) so missing keys emit a diagnostic.
+    // Emit is a no-op on mismatch; Expect emits an error placeholder.
     application: Expr::Node(
       @syntax.LetDef,
       Expr::Seq([
-        Expr::Emit(@token.Identifier, @syntax.IdentToken),
+        Expr::Expect(
+          @token.Identifier,
+          @syntax.IdentToken,
+          "expected member key",
+        ),
         Expr::Expect(@token.Eq, @syntax.EqToken, "expected ="),
         Expr::Ref(RuleId::Definition),
       ]),
@@ -244,6 +250,20 @@ test "e3: nested array-of-objects D1 parity" {
     ),
     content="true",
   )
+}
+
+///|
+/// E3 probe: missing member key emits a diagnostic (P2 fix — Expect not Emit).
+/// D1 still holds: both incremental and fresh parse agree on the error tree.
+test "e3: missing member key emits diagnostic — D1 parity" {
+  let grammar = build_e3_grammar()
+  let initial = "{= 1}"
+  let parser = @loom.new_syntax_parser(initial, grammar)
+  let snap = parser.snapshot().read_or_abort()
+  // D1: incremental == fresh (check_d1 does tree_diff + diag equality).
+  inspect(check_d1(initial, snap, grammar), content="true")
+  // Diagnostic present: Expect emits an error for the missing Identifier.
+  inspect(snap.diagnostics.is_empty(), content="false")
 }
 
 ///|

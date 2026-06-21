@@ -25,7 +25,8 @@ pub enum Expr {
   /// Try alternatives in order; each branch has a lookahead predicate.
   Choice(Array[Alt])
   /// Repeat rule at the top level with optional reuse (cripple_reuse flag).
-  RepeatTopLevel(RuleId, Bool)
+  /// starts_pred controls which tokens open an item; rule_id names the item rule.
+  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Bool)
   /// Run each expression in sequence.
   Seq(Array[Expr])
   /// Pratt application: parse atom_rule repeatedly while starts(peek) holds,
@@ -47,6 +48,15 @@ pub enum Expr {
   /// Lambda-specific: call parse_definition_ir for one definition (let/fn).
   /// Used inside block expressions to mirror A's definition loop.
   ManualDefinition
+  /// Lambda-specific: consume delimiter newlines after a block definition and
+  /// emit "Expected ';' or newline between definitions" when count is zero and
+  /// the next token is neither '}' nor EOF. Replaces RepeatWhile(Newline, ...).
+  ManualBlockDelimiterCheck
+  /// Lambda-specific: expression parser with allow_newline_application=true.
+  /// Mirrors A's parse_expression_with_mode(ctx, true) for contexts where
+  /// newline-spanning application should form AppExpr (top-level trailing expr,
+  /// block trailing expr). PrattApp in run_expr uses false (matching let-body).
+  ManualNewlineAppExpr
   /// Lambda-specific: emit param list matching A's exact raw loop shape.
   ManualParamList
   /// Emit a diagnostic without creating an error node or placeholder.

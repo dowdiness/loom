@@ -32,21 +32,27 @@ pub struct E2Measurement {
 /// Rules classified as escape_hatch: represented in GrammarIr by ManualX
 /// variants that bypass the generic interpreter entirely.
 pub fn measure_e1() -> E1Measurement {
-  // Track 2 (Seq + PrattBinary + PrattApp + RepeatWhile + EmitError):
+  // P2 fixes (after Track 2):
   //
   // Declarative (5):
-  //   Source     — RepeatTopLevel dispatched generically via run_expr.
-  //   Expression — Ref(Binary): generic Ref dispatch (no special case in run_expr).
+  //   Source     — RepeatTopLevel dispatched generically via run_expr;
+  //     starts_pred + rule_id are now threaded so Source is truly generic.
+  //   Expression — Ref(Binary): generic Ref dispatch.
   //   Binary     — PrattBinary: fully declarative Pratt binary.
   //   Application— PrattApp: fully declarative Pratt left-assoc application.
-  //   Atom       — Choice([…]) with Seq+RepeatWhile; no ManualAtom escape hatch.
+  //   Atom       — Choice([…]) with Seq; ManualDefinition + ManualBlockDelimiterCheck
+  //     appear as sub-expressions but Atom itself is a declarative Choice dispatch.
   //
   // Hardcoded (0): no per-rule special cases remain in run_expr.
   //
   // Escape hatch (2):
-  //   Definition — parse_definition_ir called directly from parse_top_level_repeat;
-  //     Definition Expr is Empty (never dispatched via IR).
+  //   Definition — ManualDefinition: parse_definition_ir dispatched via run_expr;
+  //     complex let/fn logic not expressible with current IR combinators.
   //   ParamList  — ManualParamList: mark/start_at retroactive-wrap dance.
+  //
+  // Sub-rule combinator gaps (not rule-level escape hatches; counted in E2):
+  //   ManualBlockDelimiterCheck — counted-repeat-with-conditional-diagnostic.
+  //   ManualNewlineAppExpr      — context-sensitive allow_newline_application mode.
   E1Measurement::{
     total_rules: 7,
     declarative_rules: 5,
@@ -59,14 +65,28 @@ pub fn measure_e1() -> E1Measurement {
 /// Measure E2 escape hatches: lambda-specific code that cannot be expressed
 /// in the current GrammarIr without adding new combinators.
 pub fn measure_e2() -> E2Measurement {
-  // Track 2 added Seq, PrattBinary, PrattApp, RepeatWhile, EmitError.
-  // ManualAtom removed (now Choice+Seq). ManualParamList remains.
+  // P2 fixes: ManualBlockDelimiterCheck + ManualNewlineAppExpr added.
+  // These are sub-rule combinator gaps — logic that belongs inside GrammarIr
+  // combinators but cannot be expressed with the current set.
+  //
+  //   ManualParamList — retroactive-wrap (mark/start_at): combinator missing.
+  //   ManualBlockDelimiterCheck — counted-repeat-with-conditional-diagnostic:
+  //     RepeatWhile can loop but cannot count iterations or branch on the count.
+  //   ManualNewlineAppExpr — context-sensitive allow_newline_application=true:
+  //     PrattApp uses a fixed starts predicate; it cannot conditionally consume
+  //     soft newlines between atoms depending on parse context.
   E2Measurement::{
-    escape_hatch_count: 1,
+    escape_hatch_count: 3,
     missing_combinators: [],
     escape_hatches: [
       (
         "ManualParamList", "ParamList requires mark/start_at retroactive-wrap to match A's CST shape; Seq+RepeatWhile alone cannot express the deferred node-open pattern",
+      ),
+      (
+        "ManualBlockDelimiterCheck", "Block definition delimiter check requires counting consumed newlines and conditionally emitting a diagnostic; RepeatWhile cannot express count-gated conditionals",
+      ),
+      (
+        "ManualNewlineAppExpr", "Top-level and block trailing expressions use allow_newline_application=true (soft newlines between atoms form AppExpr); PrattApp uses a fixed lookahead predicate and cannot vary newline-consumption by parse context",
       ),
     ],
   }
