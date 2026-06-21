@@ -350,7 +350,7 @@ test "minimal grammar IR exposes rules" {
 
 ```moonbit
 pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] {
-  let ir = lambda_spike_ir(cripple_reuse=cripple_reuse.or(false))
+  let ir = lambda_spike_ir(cripple_reuse=cripple_reuse.unwrap_or(false))
   let parse_root = interpret(ir)
   let b_spec = @core.LanguageSpec::new(
     @syntax.WhitespaceToken,
@@ -398,7 +398,7 @@ pub fn normalized_syntax_grammar(
 
 - [ ] Verify B's `LanguageSpec` argument list is byte-for-byte the same shape as A's `lambda_spec` except for `parse_root`: positional `(@syntax.WhitespaceToken, @syntax.ErrorToken, @syntax.SourceFile, @token.EOF)` then named `reuse_size_threshold=0`, with `incomplete_kind` omitted on BOTH. Any extra/missing argument is a confound that makes D2a diverge independently of `parse_root`.
 
-- [ ] If `Option::or` is not available in MoonBit core, replace it with a local `bool_or_default(value : Bool?, fallback : Bool) -> Bool` helper in `types.mbt`.
+- [ ] Use `Option::unwrap_or` for the `cripple_reuse` default (`cripple_reuse.unwrap_or(false)`) — the builtin `Option` method (`Option::unwrap_or(T?, T) -> T`, `moonbitlang/core` `builtin`). `Option::or` does **not** exist in core (verified — builtin exposes only `unwrap_or`/`unwrap_or_default`/`unwrap_or_else`/`unwrap_or_error`), so do not use it; no local `bool_or_default` helper is needed.
 - [ ] Run `cd examples/lambda && moon check`; expect PASS.
 - [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS for B smoke.
 - [ ] Commit: `git add examples/lambda/src/spike && git commit -m "Assemble lambda grammar IR syntax grammar"`.
