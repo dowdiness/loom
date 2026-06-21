@@ -33,6 +33,9 @@ pub enum Expr {
   WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
   /// Lambda-specific: emit param list matching A's exact raw loop shape.
   ManualParamList
+  /// Lambda-specific: parse atom matching A's exact atom dispatch
+  /// (E2 escape hatch — paren/block/hole/int/ident/error).
+  ManualAtom
   /// Emit error node consuming until the stop predicate.
   ErrorUntil((@token.Token) -> Bool, String)
   /// No-op.

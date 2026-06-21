@@ -53,6 +53,7 @@ pub fn run_expr(
       ctx.emit_error_placeholder()
     }
     Expr::ManualParamList => parse_param_list_exact(ctx)
+    Expr::ManualAtom => parse_atom_ir(ctx, ir)
     Expr::ErrorUntil(stop, msg) => {
       ctx.error(msg)
       parse_error_node_until(ctx, stop)
@@ -327,5 +328,37 @@ pub fn parse_error_node_until(
     ctx.finish_node()
   } else {
     let _ = ctx.skip_until(stop)
+  }
+}
+
+///|
+/// Atom parser — E2 escape hatch mirroring A's parse_atom for the spike's
+/// supported subset: Int, Identifier, Hole, LeftParen (paren expr only, no
+/// arrow lambda), LBrace (block expr), and error fallback. If-then-else is
+/// out-of-scope for the spike and produces a D2a divergence (classified).
+fn parse_atom_ir(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  ir : GrammarIr,
+) -> Unit {
+  match ctx.peek() {
+    @token.Integer =>
+      ctx.node(@syntax.IntLiteral, fn() { ctx.emit_token(@syntax.IntToken) })
+    @token.Identifier =>
+      ctx.node(@syntax.VarRef, fn() { ctx.emit_token(@syntax.IdentToken) })
+    @token.Hole =>
+      ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
+    @token.LBrace => parse_block_expr_ir(ctx, ir)
+    @token.LeftParen =>
+      // Simplified: no arrow lambda detection — classified D2a divergence for
+      // arrow-lambda inputs. Paren expr only.
+      ctx.node(@syntax.ParenExpr, fn() {
+        ctx.emit_token(@syntax.LeftParenToken)
+        parse_binary_ir(ctx, ir)
+        let _ = ctx.expect(@token.RightParen, @syntax.RightParenToken)
+      })
+    _ => {
+      ctx.error("Unexpected token in expression")
+      parse_error_node_until(ctx, spike_is_sync_point)
+    }
   }
 }
