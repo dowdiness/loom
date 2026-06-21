@@ -89,6 +89,22 @@ fn atom_starts_token(t : @token.Token) -> Bool {
 }
 
 ///|
+/// Mirrors A's token_starts_expression: any token that may open a binary
+/// expression (atoms + if-then-else). Used to gate soft-newline consumption
+/// before an expression so that `let x =\n1` is treated like `let x = 1`.
+fn spike_starts_expression(t : @token.Token) -> Bool {
+  match t {
+    @token.If
+    | @token.LeftParen
+    | @token.LBrace
+    | @token.Hole
+    | @token.Identifier
+    | @token.Integer => true
+    _ => false
+  }
+}
+
+///|
 /// Pratt application parser — mirrors A's parse_application with
 /// allow_newline_application=false (newline-spanning application is a
 /// ReplicationResidual delta catalogued in Task 11).
@@ -161,7 +177,19 @@ fn parse_definition_ir(
             ctx.emit_error_placeholder()
           }
         }
+        // P2: mirror parse_let_item's LeftParen guard — A emits this diagnostic
+        // before expecting =, so D2a diverges without it.
+        if ctx.peek() == @token.LeftParen {
+          ctx.error("'let' declarations do not take parameter lists; use 'fn'")
+        }
         spike_expect(ctx, @token.Eq, @syntax.EqToken)
+        // P2: mirror parse_expression_with_mode's consume_soft_newlines_before_expression
+        // so `let x =\n1` is accepted (A routes through parse_expression_with_mode).
+        let _ = ctx.consume_while_emit_if(
+          t => t == @token.Newline,
+          @syntax.NewlineToken,
+          spike_starts_expression,
+        )
         parse_binary_ir(ctx, ir)
       })
     @token.Fn =>
@@ -193,15 +221,17 @@ fn parse_definition_ir(
 }
 
 ///|
-/// Consume delimiter newlines by emitting NewlineToken — mirrors A's
-/// consume_newline_tokens. flush_trivia MUST NOT be used here: @token.Newline
-/// is non-trivia (is_trivia = self == Whitespace), so flush_trivia leaves the
-/// cursor on the delimiter newline and exits the definition loop early.
+/// Consume delimiter newlines by emitting NewlineToken, returning the count.
+/// Mirrors A's consume_newline_tokens (returns Int). flush_trivia MUST NOT be
+/// used here: @token.Newline is non-trivia, so flush_trivia leaves the cursor
+/// on the delimiter newline and exits the definition loop early.
 fn consume_delimiter_newlines(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-) -> Unit {
-  while ctx.at(@token.Newline) {
+) -> Int {
+  for count = 0 {
+    guard ctx.at(@token.Newline) else { break count }
     ctx.emit_token(@syntax.NewlineToken)
+    continue count + 1
   }
 }
 
@@ -214,20 +244,29 @@ pub fn parse_top_level_repeat(
   ir : GrammarIr,
   cripple_reuse : Bool,
 ) -> Unit {
-  consume_delimiter_newlines(ctx)
+  let _ = consume_delimiter_newlines(ctx)
   while token_starts_definition(ctx.peek()) {
     if !cripple_reuse && ctx.try_reuse_repeat_group() {
-      consume_delimiter_newlines(ctx)
+      let _ = consume_delimiter_newlines(ctx)
       continue
     }
     parse_definition_ir(ctx, ir)
-    consume_delimiter_newlines(ctx)
+    // Mirror parse_lambda_root's delimiter_count check: when no newline
+    // separates a definition from what follows, emit the same diagnostic A emits.
+    let delimiter_count = consume_delimiter_newlines(ctx)
+    if delimiter_count == 0 && ctx.peek() != @token.EOF {
+      if token_starts_definition(ctx.peek()) {
+        ctx.error("Expected newline between top-level definitions")
+      } else {
+        ctx.error("Expected newline after top-level definition")
+      }
+    }
   }
   match ctx.peek() {
     @token.EOF => ()
     _ => parse_binary_ir(ctx, ir)
   }
-  consume_delimiter_newlines(ctx)
+  let _ = consume_delimiter_newlines(ctx)
   match ctx.peek() {
     @token.EOF => ()
     _ => {
@@ -288,12 +327,12 @@ fn parse_block_expr_ir(
 ) -> Unit {
   ctx.start_node(@syntax.BlockExpr)
   ctx.emit_token(@syntax.LBraceToken)
-  consume_delimiter_newlines(ctx)
+  let _ = consume_delimiter_newlines(ctx)
   if ctx.peek() == @token.RBrace {
     ctx.error("Empty block expression")
   } else if ctx.peek() != @token.EOF {
     parse_binary_ir(ctx, ir)
-    consume_delimiter_newlines(ctx)
+    let _ = consume_delimiter_newlines(ctx)
   }
   spike_expect(ctx, @token.RBrace, @syntax.RBraceToken)
   ctx.finish_node()

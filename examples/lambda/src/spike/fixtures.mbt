@@ -148,6 +148,55 @@ pub fn soft_newline_fixture() -> (String, Array[EditStep]) {
 }
 
 ///|
+/// Fixture: soft newline before the let RHS expression.
+/// "let x = 1" → "let x =\n1" — A calls parse_expression_with_mode which
+/// first runs consume_soft_newlines_before_expression; B must do the same
+/// after spike_expect(Eq) otherwise the newline is seen as the atom and an
+/// error placeholder is emitted before 1 becomes a trailing expression.
+pub fn rhs_newline_fixture() -> (String, Array[EditStep]) {
+  let initial = "let x = 1"
+  let steps = [
+    EditStep::{
+      label: "soft newline before RHS (let x =\\n1)",
+      before: "let x = 1",
+      after: "let x =\n1",
+      edit: @core.Edit::new(7, 1, 1),
+    },
+    EditStep::{
+      label: "restore space before RHS",
+      before: "let x =\n1",
+      after: "let x = 1",
+      edit: @core.Edit::new(7, 1, 1),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
+/// Fixture: legacy parameter list on a let binding.
+/// "let f(x) = 1" — A's parse_let_item records the 'let declarations do not
+/// take parameter lists' diagnostic before expecting =; B must emit the same
+/// diagnostic before calling spike_expect(Eq) so D2a counts match.
+pub fn let_param_list_fixture() -> (String, Array[EditStep]) {
+  let initial = "let f(x) = 1"
+  let steps = [
+    EditStep::{
+      label: "let with param list (legacy form)",
+      before: "let f(x) = 1",
+      after: "let g(x) = 1",
+      edit: @core.Edit::new(4, 1, 1),
+    },
+    EditStep::{
+      label: "restore original name",
+      before: "let g(x) = 1",
+      after: "let f(x) = 1",
+      edit: @core.Edit::new(4, 1, 1),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
 /// Combined fixture: LetDef + top-level reuse + error + recovery + Pratt.
 /// Used by the main oracle test to exercise all oracle checks in one run.
 pub fn combined_fixture() -> (String, Array[EditStep]) {
