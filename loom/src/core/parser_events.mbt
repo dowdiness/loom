@@ -43,6 +43,45 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
+/// Consume consecutive non-trivia tokens matching `pred`, emitting each as
+/// `kind` in the CST. Stops at the first non-matching token or at EOF.
+/// Use this to absorb a known class of tokens (e.g. soft newlines) before
+/// acting on the first non-matching token.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit(
+  self : ParserContext[T, K],
+  pred : (T) -> Bool,
+  kind : K,
+) -> Unit {
+  while !self.at_eof() && pred(self.peek()) {
+    self.emit_token(kind)
+  }
+}
+
+///|
+/// Consume a run of non-trivia tokens matching `skip_pred`, emitting each as
+/// `skip_kind`, only when the first token after the run satisfies `lookahead`.
+/// Has no effect when the current token does not match `skip_pred` or when the
+/// lookahead fails. Returns true when any tokens were consumed.
+///
+/// The canonical use case: "consume soft separator tokens before a syntactic
+/// category, but never eat structural separators between unrelated constructs."
+/// For example, consuming newlines before an expression-starting token without
+/// consuming the structural newlines that separate top-level definitions.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_if(
+  self : ParserContext[T, K],
+  skip_pred : (T) -> Bool,
+  skip_kind : K,
+  lookahead : (T) -> Bool,
+) -> Bool {
+  if skip_pred(self.peek()) && lookahead(self.peek_while_skip(skip_pred)) {
+    self.consume_while_emit(skip_pred, skip_kind)
+    true
+  } else {
+    false
+  }
+}
+
+///|
 /// Consume the current token and emit it using the token's own raw kind.
 ///
 /// Use this only for grammars where the token raw kind is also the CST leaf
@@ -122,6 +161,35 @@ pub fn[T, K] ParserContext::restore(
   self.open_nodes = cp.open_nodes
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.reuse_count = cp.reuse_count
+}
+
+///|
+/// Run `body` speculatively: advance the parser normally during `body`, then
+/// restore the parser to its state before the call and return the body's result.
+///
+/// Use for lookahead computations that need to consume tokens to see what
+/// follows, but must not permanently advance the parse position. The body may
+/// call any ParserContext method — emitted events, diagnostics, and position
+/// changes are all rolled back.
+///
+/// Example (Markdown): what is the setext underline depth after the next newline?
+///
+///   fn depth_after_newline(ctx) -> Int? {
+///     ctx.speculative(fn() {
+///       ctx.emit_token(NewlineToken)
+///       current_setext_depth(ctx)
+///     })
+///   }
+///
+/// Closes loom#438.
+pub fn[T, K, R] ParserContext::speculative(
+  self : ParserContext[T, K],
+  body : () -> R,
+) -> R {
+  let cp = self.checkpoint()
+  let result = body()
+  self.restore(cp)
+  result
 }
 
 ///|
