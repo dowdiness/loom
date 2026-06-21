@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loom/grammar"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Pred[T] {
+  Any
+  IsToken(T)
+  OneOf(Array[T])
+  Not(Pred[T])
+} derive(Eq, @debug.Debug)
+pub fn[T : Eq] Pred::matches(Self[T], T) -> Bool
+
+// Type aliases
+
+// Traits
+
