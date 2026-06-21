@@ -96,7 +96,7 @@ test "parse: list-item thematic break preserves legacy text projection" {
   let block = parse("- * * *\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"* * *\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"* * *\")])])])",
   )
 }
 
@@ -150,7 +150,7 @@ test "parse: list" {
   let block = parse("- one\n- two\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"one\")]), ListItem([Text(\"two\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"one\")]), UnorderedListItem([Text(\"two\")])])])",
   )
 }
 
@@ -159,7 +159,7 @@ test "parse: nested list stays editor-compatible" {
   let block = parse("- parent\n  - child\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"parent\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"parent\")])])])",
   )
 }
 
@@ -247,7 +247,7 @@ test "parse: loose list separated by blank line" {
   let block = parse("- one\n\n- two\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"one\")]), ListItem([Text(\"two\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"one\")]), UnorderedListItem([Text(\"two\")])])])",
   )
 }
 
@@ -256,7 +256,7 @@ test "parse: list item lazy continuation stays in item" {
   let block = parse("- a\nb\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"a\"), Text(\"\\n\"), Text(\"b\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"a\"), Text(\"\\n\"), Text(\"b\")])])])",
   )
 }
 
@@ -265,7 +265,7 @@ test "parse: non-one ordered marker lazy continuation stays in item" {
   let block = parse("- a\n2. b\n")
   inspect(
     block,
-    content="Document([UnorderedList([ListItem([Text(\"a\"), Text(\"\\n\"), Text(\"2. \"), Text(\"b\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"a\"), Text(\"\\n\"), Text(\"2. \"), Text(\"b\")])])])",
   )
 }
 
@@ -273,19 +273,22 @@ test "parse: non-one ordered marker lazy continuation stays in item" {
 test "parse: empty list item does not start lazy continuation paragraph" {
   inspect(
     parse("- \nfoo\n"),
-    content="Document([UnorderedList([ListItem([])]), Paragraph([Text(\"foo\")])])",
+    content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
     parse("-   \nfoo\n"),
-    content="Document([UnorderedList([ListItem([])]), Paragraph([Text(\"foo\")])])",
+    content="Document([UnorderedList([UnorderedListItem([])]), Paragraph([Text(\"foo\")])])",
   )
   inspect(
     parse("- \n2. foo\n"),
     content=(
       #|Document(
       #|  [
-      #|    UnorderedList([ListItem([])]),
-      #|    UnorderedList([ListItem([Text("foo")])]),
+      #|    UnorderedList([UnorderedListItem([])]),
+      #|    OrderedList(
+      #|      [OrderedListItem([Text("foo")], Some({ start: 2, delimiter: Period }))],
+      #|      Some({ start: 2, delimiter: Period }),
+      #|    ),
       #|  ],
       #|)
     ),
@@ -295,8 +298,11 @@ test "parse: empty list item does not start lazy continuation paragraph" {
     content=(
       #|Document(
       #|  [
-      #|    UnorderedList([ListItem([])]),
-      #|    UnorderedList([ListItem([Text("foo")])]),
+      #|    UnorderedList([UnorderedListItem([])]),
+      #|    OrderedList(
+      #|      [OrderedListItem([Text("foo")], Some({ start: 2, delimiter: Period }))],
+      #|      Some({ start: 2, delimiter: Period }),
+      #|    ),
       #|  ],
       #|)
     ),
@@ -307,11 +313,11 @@ test "parse: empty list item does not start lazy continuation paragraph" {
 test "parse: list item preserves whitespace-only inline syntax" {
   inspect(
     parse("- ` `\n"),
-    content="Document([UnorderedList([ListItem([InlineCode(\" \")])])])",
+    content="Document([UnorderedList([UnorderedListItem([InlineCode(\" \")])])])",
   )
   inspect(
     parse("- [](/)\n"),
-    content="Document([UnorderedList([ListItem([Link([], \"/\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Link([], \"/\")])])])",
   )
 }
 
@@ -321,8 +327,8 @@ test "parse: blank-line-separated marker change starts a new list" {
   match block {
     Document(
       [
-        UnorderedList([ListItem([Text("one")])]),
-        UnorderedList([ListItem([Text("two")])]),
+        UnorderedList([UnorderedListItem([Text("one")])]),
+        UnorderedList([UnorderedListItem([Text("two")])]),
       ]
     ) => inspect(true, content="true")
     _ => inspect(block, content="two separate lists")
@@ -335,10 +341,25 @@ test "parse: ordered list delimiter change starts a new editor-compatible list" 
   match block {
     Document(
       [
-        UnorderedList([ListItem([Text("one")]), ListItem([Text("two")])]),
-        UnorderedList([ListItem([Text("three")])]),
+        OrderedList(
+          [
+            OrderedListItem([Text("one")], Some(first_item_marker)),
+            OrderedListItem([Text("two")], Some(second_item_marker)),
+          ],
+          Some(first_list_marker)
+        ),
+        OrderedList(
+          [OrderedListItem([Text("three")], Some(third_item_marker))],
+          Some(second_list_marker)
+        ),
       ]
-    ) => inspect(true, content="true")
+    ) => {
+      inspect(first_list_marker.text(), content="1.")
+      inspect(first_item_marker.text(), content="1.")
+      inspect(second_item_marker.text(), content="2.")
+      inspect(second_list_marker.text(), content="3)")
+      inspect(third_item_marker.text(), content="3)")
+    }
     _ => inspect(block, content="ordered delimiter boundary")
   }
 }
@@ -368,10 +389,25 @@ test "parse: one-start ordered marker interrupts paragraph" {
   let block = parse("The number of windows is\n1.  The doors are 6.\n")
   match block {
     Document(
-      [Paragraph(_), UnorderedList([ListItem([Text(" The doors are 6.")])])]
-    ) => inspect(true, content="true")
+      [
+        Paragraph(_),
+        OrderedList(
+          [OrderedListItem([Text(" The doors are 6.")], Some(item_marker))],
+          Some(list_marker)
+        ),
+      ]
+    ) => {
+      inspect(list_marker.text(), content="1.")
+      inspect(item_marker.text(), content="1.")
+    }
     _ => inspect(block, content="paragraph then ordered list")
   }
+}
+
+///|
+test "parse: ordered list unparse preserves start and delimiter" {
+  let block = parse("3) three\n4) four\n")
+  inspect(@core.Renderable::unparse(block), content="3) three\n4) four")
 }
 
 ///|

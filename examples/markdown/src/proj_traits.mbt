@@ -41,9 +41,21 @@ fn inline_text(inlines : Array[Inline]) -> String {
 }
 
 ///|
+fn ordered_marker_text(
+  marker : OrderedListMarker?,
+  fallback_start : Int,
+  fallback_delimiter : OrderedListDelimiter,
+) -> String {
+  match marker {
+    Some(marker) => marker.text()
+    None => fallback_start.to_string() + fallback_delimiter.text()
+  }
+}
+
+///|
 pub impl @core.TreeNode for Block with fn children(self) {
   match self {
-    Document(blocks) | UnorderedList(blocks) => blocks
+    Document(blocks) | UnorderedList(blocks) | OrderedList(blocks, _) => blocks
     _ => []
   }
 }
@@ -55,7 +67,9 @@ pub impl @core.TreeNode for Block with fn same_kind(self, other) {
     (Heading(a, _), Heading(b, _)) => a == b
     (Paragraph(_), Paragraph(_)) => true
     (UnorderedList(_), UnorderedList(_)) => true
-    (ListItem(_), ListItem(_)) => true
+    (OrderedList(_, _), OrderedList(_, _)) => true
+    (UnorderedListItem(_), UnorderedListItem(_)) => true
+    (OrderedListItem(_, _), OrderedListItem(_, _)) => true
     (CodeBlock(a, _), CodeBlock(b, _)) => a == b
     (Error(_), Error(_)) => true
     _ => false
@@ -69,7 +83,9 @@ pub impl @core.Renderable for Block with fn kind_tag(self) {
     Heading(n, _) => "H" + n.to_string()
     Paragraph(_) => "Paragraph"
     UnorderedList(_) => "List"
-    ListItem(_) => "ListItem"
+    OrderedList(_, _) => "OrderedList"
+    UnorderedListItem(_) => "UnorderedListItem"
+    OrderedListItem(_, _) => "OrderedListItem"
     CodeBlock(info, _) =>
       if info.length() > 0 {
         "Code(" + info + ")"
@@ -93,8 +109,10 @@ pub impl @core.Renderable for Block with fn label(self) {
         text
       }
     }
-    UnorderedList(items) => "[" + items.length().to_string() + " items]"
-    ListItem(inlines) => inline_text(inlines)
+    UnorderedList(items) | OrderedList(items, _) =>
+      "[" + items.length().to_string() + " items]"
+    UnorderedListItem(inlines) | OrderedListItem(inlines, _) =>
+      inline_text(inlines)
     CodeBlock(_, code) =>
       if code.length() > 30 {
         code[:30].to_owned() + "..."
@@ -115,14 +133,37 @@ pub impl @core.Renderable for Block with fn unparse(self) {
   match self {
     Document(blocks) => {
       // Separate blocks with blank lines so paragraphs don't merge
-      let parts = blocks.map(fn(b) { @core.Renderable::unparse(b) })
+      let parts = blocks.map(b => @core.Renderable::unparse(b))
       parts.join("\n\n")
     }
     Heading(n, inlines) => "#".repeat(n) + " " + inline_text(inlines)
     Paragraph(inlines) => inline_text(inlines)
     UnorderedList(items) =>
-      items.map(fn(b) { @core.Renderable::unparse(b) }).join("\n")
-    ListItem(inlines) => "- " + inline_text(inlines)
+      items.map(item => @core.Renderable::unparse(item)).join("\n")
+    OrderedList(items, marker) => {
+      let start = match marker {
+        Some(marker) => marker.start()
+        None => 1
+      }
+      let delimiter = match marker {
+        Some(marker) => marker.delimiter()
+        None => Period
+      }
+      items
+      .mapi((index, item) => {
+        match item {
+          OrderedListItem(inlines, item_marker) =>
+            ordered_marker_text(item_marker, start + index, delimiter) +
+            " " +
+            inline_text(inlines)
+          _ => @core.Renderable::unparse(item)
+        }
+      })
+      .join("\n")
+    }
+    UnorderedListItem(inlines) => "- " + inline_text(inlines)
+    OrderedListItem(inlines, marker) =>
+      ordered_marker_text(marker, 1, Period) + " " + inline_text(inlines)
     CodeBlock(info, code) => {
       // Compute fence width: must be longer than any backtick run in code
       let mut max_run = 0

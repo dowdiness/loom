@@ -1358,10 +1358,22 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
       Block::Heading(depth, ir_children_to_inlines(children))
     Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
     BlockQuote(_) => Block::Error("expected editor Block, got blockquote")
-    UnorderedList(children, _, _) | OrderedList(children, _, _) =>
+    UnorderedList(children, _, _) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))
-    ListItem(children, _, _, _) | OrderedListItem(children, _, _, _) =>
-      Block::ListItem(list_item_flow_children_to_editor_inlines(children))
+    OrderedList(children, _, marker) =>
+      Block::OrderedList(
+        children.map(experimental_markdown_ir_to_block),
+        marker,
+      )
+    ListItem(children, _, _, _) =>
+      Block::UnorderedListItem(
+        list_item_flow_children_to_editor_inlines(children),
+      )
+    OrderedListItem(children, _, _, marker) =>
+      Block::OrderedListItem(
+        list_item_flow_children_to_editor_inlines(children),
+        marker,
+      )
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
     ThematicBreak => Block::Error("thematic break")
     Text(_) => Block::Error("expected block MarkdownIR, got text")

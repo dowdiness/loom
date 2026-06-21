@@ -204,7 +204,9 @@ pub(all) enum Block {
   Heading(Int, Array[Inline])
   Paragraph(Array[Inline])
   UnorderedList(Array[Block])
-  ListItem(Array[Inline])
+  OrderedList(Array[Block], OrderedListMarker?)
+  UnorderedListItem(Array[Inline])
+  OrderedListItem(Array[Inline], OrderedListMarker?)
   CodeBlock(String, String) // (language, content)
   Error(String)
 } derive(Eq, Debug)
@@ -221,6 +223,11 @@ pub(all) enum Inline {
 ```
 
 Both implement `Show`, `@core.Renderable`, and `@core.TreeNode`.
+
+For ordered lists, the container marker records the opening marker for the list
+and each `OrderedListItem` records its own source marker. When both are present,
+the item marker is the authoritative per-line source; the container marker is a
+fallback for rendering or constructing items without their own marker.
 
 ## Running
 
