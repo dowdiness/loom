@@ -103,44 +103,101 @@ fn is_decimal_digit(ch : Char) -> Bool {
 }
 
 ///|
-fn thematic_break_marker_text(text : StringView) -> Bool {
-  let (count, valid, seen_marker) = for
+fn parse_marker_line(
+  text : StringView,
+  is_marker : (Char) -> Bool,
+  min_count~ : Int,
+  allow_internal_whitespace~ : Bool,
+) -> (Char, Int)? {
+  let (marker, count, valid) = for
     ch in text
     marker = (None : Char?),
     count = 0,
     valid = true,
-    seen_marker = false,
-    indent = 0 {
+    indent = 0,
+    trailing_whitespace = false {
+    // `indent` only tracks leading spaces before the first marker; once
+    // `count > 0`, marker validation ignores it. `trailing_whitespace`
+    // distinguishes trailing whitespace from thematic-break marker separators.
     if !valid {
-      continue marker, count, false, seen_marker, indent
+      continue marker, count, valid, indent, trailing_whitespace
     }
     match ch {
-      ' ' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
-        } else if indent < 3 {
-          continue marker, count, true, false, indent + 1
+      ' ' | '\t' =>
+        if count > 0 {
+          continue marker, count, true, 0, true
+        } else if ch == ' ' && indent < 3 {
+          continue marker, count, true, indent + 1, false
         } else {
-          continue marker, count, false, false, indent
+          continue marker, count, false, indent, trailing_whitespace
         }
-      '\t' =>
-        if seen_marker {
-          continue marker, count, true, true, indent
+      marker_ch if is_marker(marker_ch) =>
+        if trailing_whitespace && !allow_internal_whitespace {
+          continue marker, count, false, 0, trailing_whitespace
         } else {
-          continue marker, count, false, false, indent
+          match marker {
+            Some(existing) if existing != marker_ch =>
+              continue marker, count, false, 0, false
+            _ => continue Some(marker_ch), count + 1, true, 0, false
+          }
         }
-      '-' | '_' | '*' =>
-        match marker {
-          Some(existing) if existing != ch =>
-            continue marker, count, false, seen_marker, indent
-          _ => continue Some(ch), count + 1, true, true, indent
-        }
-      _ => continue marker, count, false, seen_marker, indent
+      _ => continue marker, count, false, indent, trailing_whitespace
     }
   } nobreak {
-    (count, valid, seen_marker)
+    (marker, count, valid)
   }
-  valid && seen_marker && count >= 3
+  guard valid && count >= min_count else { return None }
+  marker.map(marker => (marker, count))
+}
+
+///|
+fn is_valid_thematic_break_markers(text : StringView) -> Bool {
+  parse_marker_line(
+    text,
+    marker => {
+      match marker {
+        '-' | '_' | '*' => true
+        _ => false
+      }
+    },
+    min_count=3,
+    allow_internal_whitespace=true,
+  )
+  is Some(_)
+}
+
+///|
+fn parse_setext_underline_depth(text : StringView) -> Int? {
+  match
+    parse_marker_line(
+      text,
+      marker => {
+        match marker {
+          '=' | '-' => true
+          _ => false
+        }
+      },
+      min_count=1,
+      allow_internal_whitespace=false,
+    ) {
+    Some(('=', _)) => Some(1)
+    Some(('-', _)) => Some(2)
+    _ => None
+  }
+}
+
+///|
+test "setext underline markers reject internal whitespace" {
+  guard parse_setext_underline_depth("= =".view()) is None else {
+    fail("setext underline must reject spaced equals markers")
+  }
+  guard parse_setext_underline_depth("--- -".view()) is None else {
+    fail("setext underline must reject spaced dash markers")
+  }
+  guard parse_setext_underline_depth("   ----      ".view()) is Some(2) else {
+    fail("setext underline must accept trailing spaces")
+  }
+  assert_true(is_valid_thematic_break_markers("--- -".view()))
 }
 
 ///|

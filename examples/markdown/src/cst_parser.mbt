@@ -45,7 +45,68 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       // Consume stray newlines between blocks
       ctx.emit_token(NewlineToken)
     EOF => ()
-    _ => parse_paragraph(ctx)
+    _ => if !try_parse_setext_heading(ctx) { parse_paragraph(ctx) }
+  }
+}
+
+///|
+fn try_parse_setext_heading(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  let cp = ctx.checkpoint()
+  ctx.start_node(HeadingNode)
+  parse_inline_content(ctx)
+  while ctx.peek() is Newline {
+    if setext_underline_depth_after_newline(ctx) is Some(_) {
+      ctx.emit_token(NewlineToken)
+      emit_setext_underline_line(ctx)
+      ctx.finish_node()
+      return true
+    }
+    let next = ctx.peek_nth(1)
+    if token_breaks_paragraph_after_newline(next) ||
+      next is Newline ||
+      next is EOF {
+      break
+    }
+    ctx.emit_token(NewlineToken)
+    parse_paragraph_continuation_line(ctx)
+  }
+  ctx.finish_node()
+  ctx.restore(cp)
+  false
+}
+
+///|
+fn setext_underline_depth_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int? {
+  let cp = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  let depth = match ctx.peek() {
+    Text(text) => parse_setext_underline_depth(text.view())
+    ThematicBreak => parse_setext_underline_depth(ctx.current_token_text())
+    ListMarker if ctx.peek_nth(1) is Newline ||
+      ctx.peek_nth(1) is BlankLine ||
+      ctx.peek_nth(1) is EOF =>
+      parse_setext_underline_depth(ctx.current_token_text())
+    _ => None
+  }
+  ctx.restore(cp)
+  depth
+}
+
+///|
+fn emit_setext_underline_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  while !(ctx.peek() is Newline) &&
+        !(ctx.peek() is BlankLine) &&
+        ctx.peek() != EOF {
+    match ctx.peek() {
+      Text(_) | ThematicBreak | ListMarker => ctx.emit_token(HeadingMarkerToken)
+      _ => ctx.bump_error()
+    }
   }
 }
 
@@ -124,7 +185,8 @@ fn line_at_offset_is_thematic_break(
   for i = offset {
     match ctx.peek_nth(i) {
       ThematicBreak => break true
-      Newline | EOF => break thematic_break_marker_text(line.to_string().view())
+      Newline | EOF =>
+        break is_valid_thematic_break_markers(line.to_string().view())
       Text(text) => line.write_string(text)
       Star => line.write_string("*")
       StarStar => line.write_string("**")
