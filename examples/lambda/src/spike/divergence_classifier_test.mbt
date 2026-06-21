@@ -64,6 +64,51 @@ test "classifier: message strings differ + empty diagnostics → NoDivergence" {
 }
 
 ///|
+test "classifier: D2b fail with D1/D2a pass → WrongModelStop (not NoDivergence)" {
+  // P1 regression: D2b=false must not fall through to NoDivergence even when
+  // D1 and D2a both pass. This is the hash-collision blind-spot case: tree_diff
+  // returns empty on equal CstNode.hash, but leaf extraction sees the difference.
+  let r = OracleStepResult::{
+    label: "hash-collision-guard",
+    d1_ok: true,
+    d2a_ok: true,
+    d2b_ok: false,
+    reuse_parity_ok: true,
+    diagnostics_empty: true,
+    message_strings_matched: true,
+    a_reuse_count: 0,
+    b_reuse_count: 0,
+  }
+  match classify_divergence(r) {
+    DivergenceClass::WrongModelStop(msg) =>
+      inspect(msg.contains("D2b failure"), content="true")
+    other => inspect(other, content="expected WrongModelStop")
+  }
+}
+
+///|
+test "classifier: seed parity failure (label seed:initial, d2b_ok=false) → WrongModelStop" {
+  // P2 regression: the synthetic seed result pushed by run_oracle_fixture when
+  // a_stable0 != b_stable0 must propagate as a WrongModelStop through
+  // classify_run and is_go_verdict.
+  let r = OracleStepResult::{
+    label: "seed:initial",
+    d1_ok: true,
+    d2a_ok: true,
+    d2b_ok: false,
+    reuse_parity_ok: true,
+    diagnostics_empty: true,
+    message_strings_matched: true,
+    a_reuse_count: 0,
+    b_reuse_count: 0,
+  }
+  match classify_divergence(r) {
+    DivergenceClass::WrongModelStop(_) => inspect(true, content="true")
+    other => inspect(other, content="expected WrongModelStop")
+  }
+}
+
+///|
 test "classify_run: all NoDivergence → NoDivergence" {
   let results = [
     make_result(true, true, true, true),

@@ -138,11 +138,25 @@ pub fn run_oracle_fixture(
   })
   a_tracker.commit_success(initial, a_stable0)
   b_tracker.commit_success(initial, b_stable0)
-  // Assert seed parity: initial A and B IDs must match (same source, no parse_root
-  // divergence at seed time since both parse deterministically).
-  let _ = a_stable0 == b_stable0 // deliberate assert-by-equality in D2b result below
 
   let results : Array[OracleStepResult] = Array::new()
+  // Assert seed parity: initial A and B IDs must match. Both parse the same
+  // initial source through normalized_syntax_grammar, so any divergence here
+  // indicates a fundamental oracle setup problem. Record as a failing D2b step
+  // so is_go_verdict detects it rather than silently committing mismatched baselines.
+  if a_stable0 != b_stable0 {
+    results.push(OracleStepResult::{
+      label: "seed:initial",
+      d1_ok: true,
+      d2a_ok: true,
+      d2b_ok: false,
+      reuse_parity_ok: true,
+      diagnostics_empty: true,
+      message_strings_matched: true,
+      a_reuse_count: 0,
+      b_reuse_count: 0,
+    })
+  }
   for step in steps {
     // Apply the edit to both parsers.
     a_parser.apply_edit(step.edit, step.after)
@@ -263,9 +277,11 @@ fn check_d1(
 ///    Cross-impl wording difference. Not a GO blocker; file as known deviation.
 /// 3. NoDivergence: all oracle checks pass, messages agree.
 ///
-/// D2b and reuse_parity are not classified here:
-/// - D2b failure implies a D2a CST failure (per Task 9 honesty scoping) so it
-///   would already be caught by WrongModelStop.
+/// D2b is classified here (not skipped):
+/// - D2b failure with D1/D2a pass catches the tree_diff hash-collision blind spot:
+///   tree_diff returns early on equal CstNode.hash, so two structurally different
+///   trees can make D2a pass while D2b leaf extraction still sees the difference.
+///   Always a WrongModelStop — never falls through to NoDivergence.
 /// - reuse_parity is vacuous (Task 10 finding) so it is not a divergence signal.
 pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
   // D1 failure: incremental != fresh for A or B.
@@ -282,6 +298,15 @@ pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
       "D2a failure at step \"" +
       result.label +
       "\": A and B parse trees or diagnostic structure differ",
+    )
+  }
+  // D2b failure: stable projection IDs diverge while D1 and D2a pass.
+  // This catches the tree_diff hash-collision blind spot — always a stop condition.
+  if !result.d2b_ok {
+    return DivergenceClass::WrongModelStop(
+      "D2b failure at step \"" +
+      result.label +
+      "\": stable projection IDs diverge (hash-collision guard or consumer-invariant failure)",
     )
   }
   // Structural D2a passed but message strings differ: wording divergence only.
