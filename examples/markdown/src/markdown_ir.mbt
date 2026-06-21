@@ -1228,7 +1228,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         .iter()
         .filter_map(child => {
           lower_container_child_with_diags(
-            child, recurse, " ", diagnostics_in_origin,
+            child, recurse, "\n", diagnostics_in_origin,
           )
         })
         .collect()
@@ -1256,7 +1256,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       }
     }
     ParagraphNode =>
-      lower_paragraph_with_newline_and_diags(node, " ", diagnostics_in_origin)
+      lower_paragraph_with_newline_and_diags(node, "\n", diagnostics_in_origin)
     BlockQuoteNode =>
       MarkdownIR::block_quote(
         lower_block_quote_children(node, recurse, diagnostics_in_origin),
@@ -1429,15 +1429,48 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
 }
 
 ///|
+fn experimental_markdown_ir_to_editor_inline(ir : MarkdownIR) -> Inline {
+  match ir.node {
+    Bold(children, _) =>
+      Inline::Bold(ir_children_to_editor_inlines(children, None))
+    Italic(children, _) =>
+      Inline::Italic(ir_children_to_editor_inlines(children, None))
+    Link(children, destination, _) =>
+      Inline::Link(ir_children_to_editor_inlines(children, None), destination)
+    _ => experimental_markdown_ir_to_inline(ir)
+  }
+}
+
+///|
 fn ir_children_to_inlines(children : Array[MarkdownIR]) -> Array[Inline] {
   children.map(experimental_markdown_ir_to_inline)
+}
+
+///|
+/// Convert IR inline children for the legacy editor Block adapter. The caller
+/// chooses how direct paragraph soft breaks render (`" "` for top-level
+/// paragraphs, `"\n"` for list-item paragraphs); inline-formatting soft breaks
+/// use `None` to match the direct CST adapter.
+fn ir_children_to_editor_inlines(
+  children : Array[MarkdownIR],
+  newline_text : String?,
+) -> Array[Inline] {
+  children
+  .iter()
+  .filter_map(child => {
+    match child.node {
+      Text("\n") => newline_text.map(text => Inline::Text(text))
+      _ => Some(experimental_markdown_ir_to_editor_inline(child))
+    }
+  })
+  .collect()
 }
 
 ///|
 fn list_item_flow_child_to_editor_inlines(child : MarkdownIR) -> Array[Inline] {
   match child.node {
     Paragraph(paragraph_children, _) =>
-      ir_children_to_inlines(paragraph_children)
+      ir_children_to_editor_inlines(paragraph_children, Some("\n"))
     BlockQuote(_) | UnorderedList(_, _, _) | OrderedList(_, _, _) => []
     ListItem(item_children, _, _, _)
     | OrderedListItem(item_children, _, _, _) =>
@@ -1462,8 +1495,9 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Document(children) =>
       Block::Document(children.map(experimental_markdown_ir_to_block))
     Heading(depth, children, _) =>
-      Block::Heading(depth, ir_children_to_inlines(children))
-    Paragraph(children, _) => Block::Paragraph(ir_children_to_inlines(children))
+      Block::Heading(depth, ir_children_to_editor_inlines(children, None))
+    Paragraph(children, _) =>
+      Block::Paragraph(ir_children_to_editor_inlines(children, Some(" ")))
     BlockQuote(_) => Block::Error("expected editor Block, got blockquote")
     UnorderedList(children, _, _) =>
       Block::UnorderedList(children.map(experimental_markdown_ir_to_block))

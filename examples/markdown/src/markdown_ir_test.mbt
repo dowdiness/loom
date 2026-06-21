@@ -1327,20 +1327,32 @@ test "experimental MarkdownIR: local transform splices changed text" {
 }
 
 ///|
+test "experimental MarkdownIR: Block adapter normalizes paragraph soft breaks" {
+  assert_markdown_ir_block_matches_direct_parse("a\nb\nc\n")
+}
+
+///|
+test "experimental MarkdownIR: Block adapter matches nested inline soft breaks" {
+  assert_markdown_ir_block_matches_direct_parse("**bold\ntext**\n")
+  assert_markdown_ir_block_matches_direct_parse("*italic\ntext*\n")
+  assert_markdown_ir_block_matches_direct_parse("[link\ntext](target)\n")
+}
+
+///|
 test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [first, _, _] => {
+        [text_before, _softbreak, _text_after] => {
           let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
-            target_origin=first.origin(),
+            target_origin=text_before.origin(),
             replacement_text="first line",
           )
-          inspect(local_rewrite, content="first line line two\n")
+          inspect(local_rewrite, content="first line\nline two\n")
         }
         _ =>
           inspect("unexpected paragraph children", content="three text nodes")
