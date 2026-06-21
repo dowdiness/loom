@@ -18,58 +18,67 @@ fn is_inline_end(token : Token) -> Bool {
 ///|
 /// Parse inline content until block boundary, newline, or EOF.
 fn parse_inline_content(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_inline_content_with_ordered_markers(
-    ctx,
-    allow_ordered_marker=true,
-    list_item_context=false,
-    setext_heading_context=false,
-  )
+  parse_inline_content_with_policy(ctx, InlineParsePolicy::paragraph())
+}
+
+///|
+fn parse_line_bound_inline_content(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  parse_inline_content_with_policy(ctx, InlineParsePolicy::line_bound())
 }
 
 ///|
 fn parse_setext_heading_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  allow_list_marker~ : Bool,
+  min_indent~ : Int,
 ) -> Unit {
-  parse_inline_content_with_ordered_markers(
+  parse_inline_content_with_policy(
     ctx,
-    allow_ordered_marker=true,
-    list_item_context=false,
-    setext_heading_context=true,
+    InlineParsePolicy::setext_heading(allow_list_marker~, min_indent~),
+  )
+}
+
+///|
+fn parse_list_item_setext_heading_inline_content(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  allow_ordered_marker~ : Bool,
+  min_indent~ : Int,
+) -> Unit {
+  parse_inline_content_with_policy(
+    ctx,
+    InlineParsePolicy::list_item_setext_heading(
+      allow_ordered_marker~,
+      min_indent~,
+    ),
   )
 }
 
 ///|
 fn token_is_inline_block_boundary(
   token : Token,
-  allow_ordered_marker~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Bool {
   match token {
-    OrderedListMarker(_) if allow_ordered_marker =>
+    OrderedListMarker(_) if policy.allows_ordered_marker() =>
       token_breaks_paragraph_after_newline(token)
     _ => is_block_boundary(token)
   }
 }
 
 ///|
-fn token_is_inline_end(token : Token, allow_ordered_marker~ : Bool) -> Bool {
-  token_is_inline_block_boundary(token, allow_ordered_marker~) ||
-  token is Newline
+fn token_is_inline_end(token : Token, policy : InlineParsePolicy) -> Bool {
+  token_is_inline_block_boundary(token, policy) || token is Newline
 }
 
 ///|
-fn parse_inline_content_with_ordered_markers(
+fn parse_inline_content_with_policy(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Unit {
-  while !token_is_inline_end(ctx.peek(), allow_ordered_marker~) {
-    parse_inline(
-      ctx,
-      allow_ordered_marker~,
-      list_item_context~,
-      setext_heading_context~,
-    )
+  while !token_is_inline_end(ctx.peek(), policy) {
+    parse_inline(ctx, policy)
   }
 }
 
@@ -77,35 +86,16 @@ fn parse_inline_content_with_ordered_markers(
 /// Parse a single inline element.
 fn parse_inline(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Unit {
   match ctx.peek() {
-    StarStar =>
-      parse_bold(
-        ctx,
-        allow_ordered_marker~,
-        list_item_context~,
-        setext_heading_context~,
-      )
-    Star =>
-      parse_italic(
-        ctx,
-        allow_ordered_marker~,
-        list_item_context~,
-        setext_heading_context~,
-      )
+    StarStar => parse_bold(ctx, policy)
+    Star => parse_italic(ctx, policy)
     Backtick => parse_inline_code(ctx)
-    LeftBracket =>
-      parse_link(
-        ctx,
-        allow_ordered_marker~,
-        list_item_context~,
-        setext_heading_context~,
-      )
+    LeftBracket => parse_link(ctx, policy)
     Text(_) => ctx.emit_token(TextToken)
-    OrderedListMarker(_) if allow_ordered_marker => ctx.emit_token(TextToken)
+    OrderedListMarker(_) if policy.allows_ordered_marker() =>
+      ctx.emit_token(TextToken)
     _ =>
       // Unexpected inline token — emit as error
       ctx.bump_error()
@@ -113,61 +103,24 @@ fn parse_inline(
 }
 
 ///|
-fn inline_softbreak_continues(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
-) -> Bool {
-  if setext_heading_context &&
-    setext_underline_depth_after_newline(
-      ctx,
-      allow_list_marker=true,
-      min_indent=0,
-    )
-    is Some(_) {
-    false
-  } else if list_item_context {
-    token_can_start_lazy_list_item_continuation(
-      ctx.peek_nth(1),
-      allow_ordered_marker~,
-    )
-  } else {
-    token_continues_block_quote_paragraph(ctx.peek_nth(1))
-  }
-}
-
-///|
 /// Parse bold: **content**
 fn parse_bold(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(BoldNode)
   ctx.emit_token(StarStarToken) // opening **
   // Parse inline content until closing ** or block boundary
   while !(ctx.peek() is StarStar) &&
-        !token_is_inline_block_boundary(ctx.peek(), allow_ordered_marker~) {
+        !token_is_inline_block_boundary(ctx.peek(), policy) {
     if ctx.peek() is Newline {
-      if !inline_softbreak_continues(
-          ctx,
-          allow_ordered_marker~,
-          list_item_context~,
-          setext_heading_context~,
-        ) {
+      if !policy.softbreak_continues(ctx) {
         break
       }
       ctx.emit_token(NewlineToken)
     } else {
-      parse_inline(
-        ctx,
-        allow_ordered_marker~,
-        list_item_context~,
-        setext_heading_context~,
-      )
+      parse_inline(ctx, policy)
     }
   }
   if ctx.peek() is StarStar {
@@ -188,33 +141,21 @@ fn parse_bold(
 /// Parse italic: *content*
 fn parse_italic(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(ItalicNode)
   ctx.emit_token(StarToken) // opening *
   // Parse inline content until closing * or block boundary
   while !(ctx.peek() is Star) &&
-        !token_is_inline_block_boundary(ctx.peek(), allow_ordered_marker~) {
+        !token_is_inline_block_boundary(ctx.peek(), policy) {
     if ctx.peek() is Newline {
-      if !inline_softbreak_continues(
-          ctx,
-          allow_ordered_marker~,
-          list_item_context~,
-          setext_heading_context~,
-        ) {
+      if !policy.softbreak_continues(ctx) {
         break
       }
       ctx.emit_token(NewlineToken)
     } else {
-      parse_inline(
-        ctx,
-        allow_ordered_marker~,
-        list_item_context~,
-        setext_heading_context~,
-      )
+      parse_inline(ctx, policy)
     }
   }
   if ctx.peek() is Star {
@@ -267,21 +208,14 @@ fn parse_inline_code(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Parse link: [text](url)
 fn parse_link(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  list_item_context~ : Bool,
-  setext_heading_context~ : Bool,
+  policy : InlineParsePolicy,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(LinkNode)
   ctx.emit_token(LeftBracketToken) // [
   // Parse link text content until ]
   while !(ctx.peek() is RightBracket) && !is_inline_end(ctx.peek()) {
-    parse_inline(
-      ctx,
-      allow_ordered_marker~,
-      list_item_context~,
-      setext_heading_context~,
-    )
+    parse_inline(ctx, policy)
   }
   if !(ctx.peek() is RightBracket) {
     // Unclosed bracket — restore and treat [ as text
