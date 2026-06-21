@@ -81,7 +81,7 @@ pub fn build_b_syntax_grammar(
     @syntax.ErrorToken,
     @syntax.SourceFile,
     @token.EOF,
-    parse_root=parse_root,
+    parse_root~,
     reuse_size_threshold=0,
   )
   normalized_syntax_grammar(b_spec, @lexer.lex)

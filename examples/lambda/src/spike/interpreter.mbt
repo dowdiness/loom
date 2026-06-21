@@ -17,11 +17,7 @@ pub fn run_expr(
 ) -> Unit {
   match expr {
     Expr::Empty => ()
-    Expr::Emit(token, kind) => {
-      if ctx.at(token) {
-        ctx.emit_token(kind)
-      }
-    }
+    Expr::Emit(token, kind) => if ctx.at(token) { ctx.emit_token(kind) }
     Expr::Expect(token, kind, msg) => {
       let _ = ctx.expect(token, kind)
       let _ = msg
@@ -39,7 +35,8 @@ pub fn run_expr(
         }
       }
     }
-    Expr::RepeatTopLevel(_, cripple_reuse) => parse_top_level_repeat(ctx, ir, cripple_reuse)
+    Expr::RepeatTopLevel(_, cripple_reuse) =>
+      parse_top_level_repeat(ctx, ir, cripple_reuse)
     Expr::RepeatWhile(_, _) => {
       ctx.error(
         "SPIKE: RepeatWhile not yet wired (Task 4+); ensure IR uses correct variant",
@@ -64,8 +61,11 @@ pub fn run_expr(
 ///|
 fn atom_starts_token(t : @token.Token) -> Bool {
   match t {
-    @token.LeftParen | @token.LBrace | @token.Identifier | @token.Integer | @token.Hole =>
-      true
+    @token.LeftParen
+    | @token.LBrace
+    | @token.Identifier
+    | @token.Integer
+    | @token.Hole => true
     _ => false
   }
 }

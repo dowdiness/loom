@@ -20,11 +20,13 @@ fn make_result(
   }
 }
 
+///|
 test "classifier: all pass → NoDivergence" {
   let r = make_result(true, true, true, true)
   inspect(classify_divergence(r), content="NoDivergence")
 }
 
+///|
 test "classifier: D1 fail → WrongModelStop" {
   let r = make_result(false, true, true, true)
   match classify_divergence(r) {
@@ -34,6 +36,7 @@ test "classifier: D1 fail → WrongModelStop" {
   }
 }
 
+///|
 test "classifier: D2a fail → WrongModelStop" {
   let r = make_result(true, false, true, false)
   match classify_divergence(r) {
@@ -43,6 +46,7 @@ test "classifier: D2a fail → WrongModelStop" {
   }
 }
 
+///|
 test "classifier: message strings differ + non-empty diagnostics → ReplicationResidual" {
   let r = make_result(true, true, false, false)
   match classify_divergence(r) {
@@ -52,12 +56,14 @@ test "classifier: message strings differ + non-empty diagnostics → Replication
   }
 }
 
+///|
 test "classifier: message strings differ + empty diagnostics → NoDivergence" {
   // When diagnostics are empty, message string comparison is irrelevant.
   let r = make_result(true, true, false, true)
   inspect(classify_divergence(r), content="NoDivergence")
 }
 
+///|
 test "classify_run: all NoDivergence → NoDivergence" {
   let results = [
     make_result(true, true, true, true),
@@ -66,6 +72,7 @@ test "classify_run: all NoDivergence → NoDivergence" {
   inspect(classify_run(results), content="NoDivergence")
 }
 
+///|
 test "classify_run: one WrongModelStop dominates" {
   let results = [
     make_result(true, true, true, true),
@@ -78,6 +85,7 @@ test "classify_run: one WrongModelStop dominates" {
   }
 }
 
+///|
 test "classify_run: ReplicationResidual beats NoDivergence" {
   let results = [
     make_result(true, true, true, true),
@@ -89,6 +97,7 @@ test "classify_run: ReplicationResidual beats NoDivergence" {
   }
 }
 
+///|
 test "is_go_verdict: combined fixture → true (no WrongModelStop)" {
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()
@@ -96,6 +105,7 @@ test "is_go_verdict: combined fixture → true (no WrongModelStop)" {
   inspect(is_go_verdict(results), content="true")
 }
 
+///|
 test "classify_run: combined fixture → ReplicationResidual (message wording)" {
   // B produces structurally identical diagnostics (D2a passes) but different
   // error message wording on malformed inputs. This is a ReplicationResidual

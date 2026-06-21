@@ -12,11 +12,17 @@ fn minimal_expr_ir() -> GrammarIr {
     atom: Expr::Choice([
       Alt::{
         starts: fn(t) { t == @token.Integer },
-        body: Expr::Node(@syntax.IntLiteral, Expr::Emit(@token.Integer, @syntax.IntToken)),
+        body: Expr::Node(
+          @syntax.IntLiteral,
+          Expr::Emit(@token.Integer, @syntax.IntToken),
+        ),
       },
       Alt::{
         starts: fn(t) { t == @token.Identifier },
-        body: Expr::Node(@syntax.VarRef, Expr::Emit(@token.Identifier, @syntax.IdentToken)),
+        body: Expr::Node(
+          @syntax.VarRef,
+          Expr::Emit(@token.Identifier, @syntax.IdentToken),
+        ),
       },
     ]),
     param_list: Expr::Empty,

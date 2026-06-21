@@ -1,3 +1,4 @@
+///|
 test "oracle: let def fixture passes all checks" {
   let (initial, steps) = let_def_fixture()
   let b = build_b_syntax_grammar()
@@ -10,6 +11,7 @@ test "oracle: let def fixture passes all checks" {
   }
 }
 
+///|
 test "oracle: top-level reuse fixture passes all checks" {
   let (initial, steps) = top_level_reuse_fixture()
   let b = build_b_syntax_grammar()
@@ -22,6 +24,7 @@ test "oracle: top-level reuse fixture passes all checks" {
   }
 }
 
+///|
 test "oracle: app/bop Pratt fixture passes all checks" {
   let (initial, steps) = app_bop_fixture()
   let b = build_b_syntax_grammar()
@@ -34,6 +37,7 @@ test "oracle: app/bop Pratt fixture passes all checks" {
   }
 }
 
+///|
 test "oracle: error recovery fixture — malformed then recovery" {
   let (initial, steps) = error_recovery_fixture()
   let b = build_b_syntax_grammar()
@@ -54,6 +58,7 @@ test "oracle: error recovery fixture — malformed then recovery" {
   inspect(recovered.reuse_parity_ok, content="true")
 }
 
+///|
 test "oracle: combined fixture — all oracle checks" {
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()

@@ -13,7 +13,6 @@
 /// because they parse the same source), not that the repeat-group optimization
 /// was applied. The relevant question — whether B achieves the same throughput
 /// as A — belongs to Task 13 (E3 benchmarking), not to the reuse_count oracle.
-
 test "positive control: crippled B passes ALL oracles including reuse-parity" {
   // Crippled B disables try_reuse_repeat_group but the engine still reuses
   // unchanged subtrees via ctx.node(). Both A and B end up with reuse_count = 1
@@ -32,6 +31,7 @@ test "positive control: crippled B passes ALL oracles including reuse-parity" {
   }
 }
 
+///|
 test "positive control: counts in detail for first edit step" {
   // Document actual reuse counts so the finding is machine-verifiable.
   let (initial, steps) = top_level_reuse_fixture()
@@ -52,6 +52,7 @@ test "positive control: counts in detail for first edit step" {
   inspect(step0_crippled.reuse_parity_ok, content="true")
 }
 
+///|
 test "positive control: normal B passes all checks" {
   // Verify un-crippled B also satisfies all oracles (baseline sanity).
   let (initial, steps) = top_level_reuse_fixture()

@@ -3,7 +3,10 @@ test "interpreter smoke: parse single integer literal via IR" {
   let ir = GrammarIr::{
     source: Expr::Node(
       @syntax.SourceFile,
-      Expr::Node(@syntax.IntLiteral, Expr::Emit(@token.Integer, @syntax.IntToken)),
+      Expr::Node(
+        @syntax.IntLiteral,
+        Expr::Emit(@token.Integer, @syntax.IntToken),
+      ),
     ),
     definition: Expr::Empty,
     expression: Expr::Empty,

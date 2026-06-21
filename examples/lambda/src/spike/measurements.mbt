@@ -63,17 +63,14 @@ pub fn measure_e2() -> E2Measurement {
   E2Measurement::{
     escape_hatch_count: 2,
     missing_combinators: [
-      "Seq — sequential composition of tokens/exprs in a single rule body",
-      "Pratt — infix operator table for binary expressions and left-associative application",
+      "Seq — sequential composition of tokens/exprs in a single rule body", "Pratt — infix operator table for binary expressions and left-associative application",
     ],
     escape_hatches: [
       (
-        "ManualAtom",
-        "Atom requires Seq to express 'EmitToken + recurse + ExpectToken' (paren expr) and multi-branch dispatch with embedded token emission (block, literal, ident)",
+        "ManualAtom", "Atom requires Seq to express 'EmitToken + recurse + ExpectToken' (paren expr) and multi-branch dispatch with embedded token emission (block, literal, ident)",
       ),
       (
-        "ManualParamList",
-        "ParamList is a comma-delimited identifier loop; requires Seq + RepeatWhile with separator, not expressible with current IR combinators",
+        "ManualParamList", "ParamList is a comma-delimited identifier loop; requires Seq + RepeatWhile with separator, not expressible with current IR combinators",
       ),
     ],
   }
@@ -117,8 +114,7 @@ pub fn e3_probe_plan() -> ReuseProbePlan {
     target_grammar: "A minimal JSON-like language: object/array/string/number/null literals with no operators (avoids needing Pratt for E3 validation).",
     required_extensions: [
       "Seq combinator in GrammarIr.Expr — sequential composition of token emission and recursive calls without lambda-specific escape hatches.",
-      "RepeatWhile with separator support — for array/object element lists.",
-      "Error recovery Expr variant (or reuse ErrorUntil) — for malformed JSON recovery.",
+      "RepeatWhile with separator support — for array/object element lists.", "Error recovery Expr variant (or reuse ErrorUntil) — for malformed JSON recovery.",
     ],
     expected_oracle_result: "D1/D2a/D2b all pass across all oracle fixtures. No WrongModelStop divergences. Possible ReplicationResidual on error messages (as seen in lambda E2). REUSE-PARITY vacuous (same finding as lambda).",
     gate_condition: "E1 coverage ratio for the new grammar must be >= 5/7 — at least 5 of 7 grammar rules encoded declaratively with no ManualX escape hatches. This proves the IR generalizes beyond the design-target language.",

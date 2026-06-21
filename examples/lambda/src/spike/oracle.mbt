@@ -114,12 +114,12 @@ pub fn run_oracle_fixture(
   // Projection identity trackers — INDEPENDENT instances for A and B.
   let a_tracker : @core.ProjectionIdentityTracker[String] = @core.ProjectionIdentityTracker::new()
   let b_tracker : @core.ProjectionIdentityTracker[String] = @core.ProjectionIdentityTracker::new()
-  let a_alloc = @core.ProjectionStringIdAllocator::new(
-    (key, count) => key + ":" + count.to_string(),
-  )
-  let b_alloc = @core.ProjectionStringIdAllocator::new(
-    (key, count) => key + ":" + count.to_string(),
-  )
+  let a_alloc = @core.ProjectionStringIdAllocator::new((key, count) => {
+    key + ":" + count.to_string()
+  })
+  let b_alloc = @core.ProjectionStringIdAllocator::new((key, count) => {
+    key + ":" + count.to_string()
+  })
 
   // Seed both trackers from the initial source BEFORE the first apply_edit.
   // Required: an unseeded tracker commits every leaf from scratch on the first
@@ -130,16 +130,12 @@ pub fn run_oracle_fixture(
   let b_initial_snapshot = b_parser.snapshot().read_or_abort()
   let a_initial_leaves = project_lambda_leaves(a_initial_snapshot.syntax)
   let b_initial_leaves = project_lambda_leaves(b_initial_snapshot.syntax)
-  let a_stable0 = a_tracker.realign_success(
-    initial,
-    a_initial_leaves,
-    leaf => a_alloc.allocate(leaf),
-  )
-  let b_stable0 = b_tracker.realign_success(
-    initial,
-    b_initial_leaves,
-    leaf => b_alloc.allocate(leaf),
-  )
+  let a_stable0 = a_tracker.realign_success(initial, a_initial_leaves, leaf => {
+    a_alloc.allocate(leaf)
+  })
+  let b_stable0 = b_tracker.realign_success(initial, b_initial_leaves, leaf => {
+    b_alloc.allocate(leaf)
+  })
   a_tracker.commit_success(initial, a_stable0)
   b_tracker.commit_success(initial, b_stable0)
   // Assert seed parity: initial A and B IDs must match (same source, no parse_root
@@ -163,9 +159,9 @@ pub fn run_oracle_fixture(
 
     // D2a: A and B incremental snapshots are structurally identical.
     let d2a_cst_ok = @core.tree_diff(
-        a_snap.syntax.cst_node(),
-        b_snap.syntax.cst_node(),
-      ).is_empty()
+      a_snap.syntax.cst_node(),
+      b_snap.syntax.cst_node(),
+    ).is_empty()
     let d2a_diag_ok = diagnostics_structurally_equal(
       a_snap.diagnostics,
       b_snap.diagnostics,
@@ -221,19 +217,17 @@ pub fn run_oracle_fixture(
       b_snap.diagnostics,
     )
 
-    results.push(
-      OracleStepResult::{
-        label: step.label,
-        d1_ok,
-        d2a_ok,
-        d2b_ok,
-        reuse_parity_ok,
-        diagnostics_empty,
-        message_strings_matched,
-        a_reuse_count: a_snap.reuse_count,
-        b_reuse_count: b_snap.reuse_count,
-      },
-    )
+    results.push(OracleStepResult::{
+      label: step.label,
+      d1_ok,
+      d2a_ok,
+      d2b_ok,
+      reuse_parity_ok,
+      diagnostics_empty,
+      message_strings_matched,
+      a_reuse_count: a_snap.reuse_count,
+      b_reuse_count: b_snap.reuse_count,
+    })
   }
   results
 }
@@ -248,13 +242,10 @@ fn check_d1(
 ) -> Bool {
   // Fresh parse — grammar.parse_cst may raise LexError but lambda has no
   // lex errors in spike inputs; abort on lex error to surface fixture problems.
-  let (fresh_cst, fresh_diag) = try {
-    grammar.parse_cst(source)
-  } catch {
-    _ => {
+  let (fresh_cst, fresh_diag) = grammar.parse_cst(source) catch {
+    _ =>
       // Lex error — spike fixtures should not trigger this; treat as D1 fail.
       return false
-    }
   }
   let cst_ok = @core.tree_diff(snap.syntax.cst_node(), fresh_cst).is_empty()
   // D1 uses FULL == for diagnostics: same impl, incremental vs fresh, so
@@ -280,13 +271,17 @@ pub fn classify_divergence(result : OracleStepResult) -> DivergenceClass {
   // D1 failure: incremental != fresh for A or B.
   if !result.d1_ok {
     return DivergenceClass::WrongModelStop(
-      "D1 failure at step \"" + result.label + "\": incremental parse does not match fresh parse",
+      "D1 failure at step \"" +
+      result.label +
+      "\": incremental parse does not match fresh parse",
     )
   }
   // D2a CST failure: A and B parse trees differ.
   if !result.d2a_ok {
     return DivergenceClass::WrongModelStop(
-      "D2a failure at step \"" + result.label + "\": A and B parse trees or diagnostic structure differ",
+      "D2a failure at step \"" +
+      result.label +
+      "\": A and B parse trees or diagnostic structure differ",
     )
   }
   // Structural D2a passed but message strings differ: wording divergence only.

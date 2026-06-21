@@ -1,0 +1,161 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/lambda/spike"
+
+import {
+  "dowdiness/lambda/syntax",
+  "dowdiness/lambda/token",
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn app_bop_fixture() -> (String, Array[EditStep])
+
+pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
+
+pub fn classify_divergence(OracleStepResult) -> DivergenceClass
+
+pub fn classify_run(Array[OracleStepResult]) -> DivergenceClass
+
+pub fn combined_fixture() -> (String, Array[EditStep])
+
+pub fn diagnostics_structurally_equal(@core.DiagnosticSet, @core.DiagnosticSet) -> Bool
+
+pub fn e1_coverage_ratio(E1Measurement) -> (Int, Int)
+
+pub fn e3_follow_up_gate() -> (Bool, String)
+
+pub fn e3_probe_plan() -> ReuseProbePlan
+
+pub fn emit_missing(@core.ParserContext[@token.Token, @syntax.SyntaxKind], String) -> Unit
+
+pub fn error_recovery_fixture() -> (String, Array[EditStep])
+
+pub fn interpret(GrammarIr) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
+
+pub fn is_go_verdict(Array[OracleStepResult]) -> Bool
+
+pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr
+
+pub fn let_def_fixture() -> (String, Array[EditStep])
+
+pub fn measure_e1() -> E1Measurement
+
+pub fn measure_e2() -> E2Measurement
+
+pub fn message_strings_equal(@core.DiagnosticSet, @core.DiagnosticSet) -> Bool
+
+pub fn normalized_syntax_grammar(@core.LanguageSpec[@token.Token, @syntax.SyntaxKind], (String) -> @core.LexResult[@token.Token]) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
+
+pub fn param_list_churn_fixture() -> (String, Array[EditStep])
+
+pub fn parse_error_node_until(@core.ParserContext[@token.Token, @syntax.SyntaxKind], (@token.Token) -> Bool) -> Unit
+
+pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, Bool) -> Unit
+
+pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@core.ProjectionLeaf]
+
+pub fn run_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, Expr) -> Unit
+
+pub fn run_oracle_fixture(String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
+
+pub fn spike_is_sync_point(@token.Token) -> Bool
+
+pub fn top_level_reuse_fixture() -> (String, Array[EditStep])
+
+// Errors
+
+// Types and methods
+pub struct Alt {
+  starts : (@token.Token) -> Bool
+  body : Expr
+}
+
+pub enum DivergenceClass {
+  NoDivergence
+  ReplicationResidual(String)
+  WrongModelStop(String)
+} derive(Eq, @debug.Debug)
+pub impl Show for DivergenceClass
+
+pub struct E1Measurement {
+  total_rules : Int
+  declarative_rules : Int
+  hardcoded_rules : Int
+  escape_hatch_rules : Int
+} derive(Eq, @debug.Debug)
+
+pub struct E2Measurement {
+  escape_hatch_count : Int
+  missing_combinators : Array[String]
+  escape_hatches : Array[(String, String)]
+} derive(@debug.Debug)
+
+pub struct EditStep {
+  label : String
+  before : String
+  after : String
+  edit : @core.Edit
+} derive(@debug.Debug)
+
+pub enum Expr {
+  Node(@syntax.SyntaxKind, Expr)
+  Emit(@token.Token, @syntax.SyntaxKind)
+  Expect(@token.Token, @syntax.SyntaxKind, String)
+  Ref(RuleId)
+  Choice(Array[Alt])
+  RepeatTopLevel(RuleId, Bool)
+  RepeatWhile((@token.Token) -> Bool, Expr)
+  WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
+  ManualParamList
+  ManualAtom
+  ErrorUntil((@token.Token) -> Bool, String)
+  Empty
+}
+
+pub struct GrammarIr {
+  source : Expr
+  definition : Expr
+  expression : Expr
+  binary : Expr
+  application : Expr
+  atom : Expr
+  param_list : Expr
+}
+pub fn GrammarIr::rule(Self, RuleId) -> Expr
+
+pub(all) struct OracleStepResult {
+  label : String
+  d1_ok : Bool
+  d2a_ok : Bool
+  d2b_ok : Bool
+  reuse_parity_ok : Bool
+  diagnostics_empty : Bool
+  message_strings_matched : Bool
+  a_reuse_count : Int
+  b_reuse_count : Int
+} derive(Eq, @debug.Debug)
+
+pub struct ReuseProbePlan {
+  target_grammar : String
+  required_extensions : Array[String]
+  expected_oracle_result : String
+  gate_condition : String
+} derive(@debug.Debug)
+
+pub enum RuleId {
+  Source
+  Definition
+  Expression
+  Binary
+  Application
+  Atom
+  ParamList
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

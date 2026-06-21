@@ -82,7 +82,8 @@ pub enum DivergenceClass {
   WrongModelStop(String)
 } derive(Eq, Debug)
 
-pub impl Show for DivergenceClass with to_string(self) {
+///|
+pub impl Show for DivergenceClass with fn to_string(self) {
   match self {
     DivergenceClass::NoDivergence => "NoDivergence"
     DivergenceClass::ReplicationResidual(s) => "ReplicationResidual(" + s + ")"
@@ -90,7 +91,8 @@ pub impl Show for DivergenceClass with to_string(self) {
   }
 }
 
-pub impl Show for DivergenceClass with output(self, logger) {
+///|
+pub impl Show for DivergenceClass with fn output(self, logger) {
   logger.write_string(self.to_string())
 }
 
@@ -107,4 +109,3 @@ pub fn GrammarIr::rule(self : GrammarIr, id : RuleId) -> Expr {
     RuleId::ParamList => self.param_list
   }
 }
-
