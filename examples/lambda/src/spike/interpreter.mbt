@@ -23,9 +23,39 @@ pub fn run_expr(
       let _ = msg
     }
     Expr::Node(kind, body) => ctx.node(kind, () => run_expr(ctx, ir, body))
-    Expr::Ref(RuleId::Application) => parse_application_ir(ctx, ir)
-    Expr::Ref(RuleId::Binary) => parse_binary_ir(ctx, ir)
     Expr::Ref(rule_id) => run_expr(ctx, ir, ir.rule(rule_id))
+    Expr::Seq(exprs) => for e in exprs { run_expr(ctx, ir, e) }
+    Expr::PrattApp(atom_rule, app_kind, starts) => {
+      let mark = ctx.mark()
+      run_expr(ctx, ir, ir.rule(atom_rule))
+      guard starts(ctx.peek()) else { return }
+      ctx.wrap_at(mark, app_kind, fn() {
+        while starts(ctx.peek()) {
+          run_expr(ctx, ir, ir.rule(atom_rule))
+        }
+      })
+    }
+    Expr::PrattBinary(prefix_rule, binary_kind, ops) => {
+      let mark = ctx.mark()
+      run_expr(ctx, ir, ir.rule(prefix_rule))
+      guard ops.iter().any(fn(pair) { ctx.peek() == pair.0 }) else { return }
+      ctx.wrap_at(mark, binary_kind, fn() {
+        while true {
+          match ops.iter().find_first(fn(pair) { ctx.peek() == pair.0 }) {
+            None => break
+            Some(pair) => {
+              ctx.emit_token(pair.1)
+              run_expr(ctx, ir, ir.rule(prefix_rule))
+            }
+          }
+        }
+      })
+    }
+    Expr::RepeatWhile(pred, body) => {
+      while !ctx.at_eof() && pred(ctx.peek()) {
+        run_expr(ctx, ir, body)
+      }
+    }
     Expr::Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
@@ -37,20 +67,14 @@ pub fn run_expr(
     }
     Expr::RepeatTopLevel(_, cripple_reuse) =>
       parse_top_level_repeat(ctx, ir, cripple_reuse)
-    Expr::RepeatWhile(_, _) => {
-      ctx.error(
-        "SPIKE: RepeatWhile not yet wired (Task 4+); ensure IR uses correct variant",
-      )
-      ctx.emit_error_placeholder()
-    }
     Expr::WrapIfNext(_, _, _, _) => {
       ctx.error(
-        "SPIKE: WrapIfNext not yet wired (Task 4); ensure IR uses correct variant",
+        "SPIKE: WrapIfNext not yet wired; ensure IR uses correct variant",
       )
       ctx.emit_error_placeholder()
     }
     Expr::ManualParamList => parse_param_list_exact(ctx)
-    Expr::ManualAtom => parse_atom_ir(ctx, ir)
+    Expr::EmitError(msg) => ctx.error(msg)
     Expr::ErrorUntil(stop, msg) => {
       ctx.error(msg)
       parse_error_node_until(ctx, stop)
@@ -104,52 +128,6 @@ fn spike_starts_expression(t : @token.Token) -> Bool {
   }
 }
 
-///|
-/// Pratt application parser — mirrors A's parse_application with
-/// allow_newline_application=false (newline-spanning application is a
-/// ReplicationResidual delta catalogued in Task 11).
-fn parse_application_ir(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  ir : GrammarIr,
-) -> Unit {
-  let mark = ctx.mark()
-  run_expr(ctx, ir, ir.rule(RuleId::Atom))
-  guard atom_starts_token(ctx.peek()) else { return }
-  ctx.wrap_at(mark, @syntax.AppExpr, fn() {
-    while atom_starts_token(ctx.peek()) {
-      run_expr(ctx, ir, ir.rule(RuleId::Atom))
-    }
-  })
-}
-
-///|
-/// Pratt binary parser — mirrors A's parse_binary_op.
-fn parse_binary_ir(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  ir : GrammarIr,
-) -> Unit {
-  let mark = ctx.mark()
-  parse_application_ir(ctx, ir)
-  match ctx.peek() {
-    @token.Plus | @token.Minus =>
-      ctx.wrap_at(mark, @syntax.BinaryExpr, fn() {
-        while true {
-          match ctx.peek() {
-            @token.Plus => {
-              ctx.emit_token(@syntax.PlusToken)
-              parse_application_ir(ctx, ir)
-            }
-            @token.Minus => {
-              ctx.emit_token(@syntax.MinusToken)
-              parse_application_ir(ctx, ir)
-            }
-            _ => break
-          }
-        }
-      })
-    _ => ()
-  }
-}
 
 ///|
 fn token_starts_definition(t : @token.Token) -> Bool {
@@ -161,7 +139,6 @@ fn token_starts_definition(t : @token.Token) -> Bool {
 
 ///|
 /// Parse one top-level definition — mirrors A's parse_definition_item/parse_let_item.
-/// Fn definitions are stubbed (Task 6 adds ParamList + BlockExpr).
 fn parse_definition_ir(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   ir : GrammarIr,
@@ -190,7 +167,7 @@ fn parse_definition_ir(
           @syntax.NewlineToken,
           spike_starts_expression,
         )
-        parse_binary_ir(ctx, ir)
+        run_expr(ctx, ir, ir.rule(RuleId::Expression))
       })
     @token.Fn =>
       ctx.node(@syntax.LetDef, fn() {
@@ -209,7 +186,7 @@ fn parse_definition_ir(
           ctx.emit_error_placeholder()
         }
         match ctx.peek() {
-          @token.LBrace => parse_block_expr_ir(ctx, ir)
+          @token.LBrace => run_expr(ctx, ir, ir.rule(RuleId::Atom))
           _ => {
             ctx.error("Expected function body")
             ctx.emit_error_placeholder()
@@ -264,7 +241,7 @@ pub fn parse_top_level_repeat(
   }
   match ctx.peek() {
     @token.EOF => ()
-    _ => parse_binary_ir(ctx, ir)
+    _ => run_expr(ctx, ir, ir.rule(RuleId::Expression))
   }
   let _ = consume_delimiter_newlines(ctx)
   match ctx.peek() {
@@ -319,26 +296,6 @@ fn parse_param_list_exact(
 }
 
 ///|
-/// Minimal block-expression parser for fn definition bodies in the spike.
-/// Mirrors A's parse_block_expr for the subset: `{ expr }` and `{}`.
-fn parse_block_expr_ir(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  ir : GrammarIr,
-) -> Unit {
-  ctx.start_node(@syntax.BlockExpr)
-  ctx.emit_token(@syntax.LBraceToken)
-  let _ = consume_delimiter_newlines(ctx)
-  if ctx.peek() == @token.RBrace {
-    ctx.error("Empty block expression")
-  } else if ctx.peek() != @token.EOF {
-    parse_binary_ir(ctx, ir)
-    let _ = consume_delimiter_newlines(ctx)
-  }
-  spike_expect(ctx, @token.RBrace, @syntax.RBraceToken)
-  ctx.finish_node()
-}
-
-///|
 /// Sync points: tokens where error recovery should stop consuming.
 /// Mirrors A's `is_sync_point` in cst_parser.mbt.
 pub fn spike_is_sync_point(t : @token.Token) -> Bool {
@@ -388,34 +345,3 @@ pub fn parse_error_node_until(
   }
 }
 
-///|
-/// Atom parser — E2 escape hatch mirroring A's parse_atom for the spike's
-/// supported subset: Int, Identifier, Hole, LeftParen (paren expr only, no
-/// arrow lambda), LBrace (block expr), and error fallback. If-then-else is
-/// out-of-scope for the spike and produces a D2a divergence (classified).
-fn parse_atom_ir(
-  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
-  ir : GrammarIr,
-) -> Unit {
-  match ctx.peek() {
-    @token.Integer =>
-      ctx.node(@syntax.IntLiteral, fn() { ctx.emit_token(@syntax.IntToken) })
-    @token.Identifier =>
-      ctx.node(@syntax.VarRef, fn() { ctx.emit_token(@syntax.IdentToken) })
-    @token.Hole =>
-      ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
-    @token.LBrace => parse_block_expr_ir(ctx, ir)
-    @token.LeftParen =>
-      // Simplified: no arrow lambda detection — classified D2a divergence for
-      // arrow-lambda inputs. Paren expr only.
-      ctx.node(@syntax.ParenExpr, fn() {
-        ctx.emit_token(@syntax.LeftParenToken)
-        parse_binary_ir(ctx, ir)
-        spike_expect(ctx, @token.RightParen, @syntax.RightParenToken)
-      })
-    _ => {
-      ctx.error("Unexpected token in expression")
-      parse_error_node_until(ctx, spike_is_sync_point)
-    }
-  }
-}

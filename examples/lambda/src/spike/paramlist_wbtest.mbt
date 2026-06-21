@@ -4,8 +4,12 @@ fn fn_grammar() -> GrammarIr {
     source: Expr::RepeatTopLevel(RuleId::Definition, false),
     definition: Expr::Empty,
     expression: Expr::Ref(RuleId::Binary),
-    binary: Expr::Ref(RuleId::Application),
-    application: Expr::Ref(RuleId::Atom),
+    binary: Expr::PrattBinary(
+      RuleId::Application,
+      @syntax.BinaryExpr,
+      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
+    ),
+    application: Expr::PrattApp(RuleId::Atom, @syntax.AppExpr, atom_starts_token),
     atom: Expr::Choice([
       Alt::{
         starts: fn(t) { t == @token.Integer },
@@ -19,6 +23,36 @@ fn fn_grammar() -> GrammarIr {
         body: Expr::Node(
           @syntax.VarRef,
           Expr::Emit(@token.Identifier, @syntax.IdentToken),
+        ),
+      },
+      Alt::{
+        starts: fn(t) { t == @token.LBrace },
+        body: Expr::Node(
+          @syntax.BlockExpr,
+          Expr::Seq([
+            Expr::Emit(@token.LBrace, @syntax.LBraceToken),
+            Expr::RepeatWhile(
+              fn(t) { t == @token.Newline },
+              Expr::Emit(@token.Newline, @syntax.NewlineToken),
+            ),
+            Expr::Choice([
+              Alt::{
+                starts: fn(t) { t == @token.RBrace },
+                body: Expr::EmitError("Empty block expression"),
+              },
+              Alt::{
+                starts: fn(t) { t != @token.EOF },
+                body: Expr::Seq([
+                  Expr::Ref(RuleId::Binary),
+                  Expr::RepeatWhile(
+                    fn(t) { t == @token.Newline },
+                    Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                  ),
+                ]),
+              },
+            ]),
+            Expr::Expect(@token.RBrace, @syntax.RBraceToken, "expected }"),
+          ]),
         ),
       },
     ]),

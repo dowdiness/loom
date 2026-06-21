@@ -1,17 +1,20 @@
 ///|
 /// Hand-authored grammar IR for the lambda language.
 ///
-/// IR coverage note (E2 accounting):
-/// - `source` and `atom` are the only rules dispatched through the IR via
-///   `run_expr`. All other rules are invoked directly by the hardcoded
-///   interpreter functions (`parse_definition_ir`, `parse_binary_ir`,
-///   `parse_top_level_repeat`). This is an E2 escape-hatch finding:
-///   the declarative IR model covers only 2 of 7 rules for lambda.
-/// - `atom`: ManualAtom (E2 lambda-specific — LeftParen/LBrace/error handling).
-/// - `param_list`: ManualParamList (E2 lambda-specific — mark/start_at dance).
-/// - `definition`: Empty (never dispatched via IR; called directly).
-/// - `expression`, `binary`, `application`: Ref variants (special-cased or
-///   never dispatched via IR in this spike).
+/// IR coverage note (E1 accounting after Track 2 Seq+Pratt extension):
+///   Declarative (5/7): source, expression, binary, application, atom.
+///   Escape hatches (2/7):
+///     - definition: called directly from parse_top_level_repeat; the
+///       soft-newline-before-expression combinator + LeftParen guard +
+///       param-list are all in-function logic not yet in the IR.
+///     - param_list: ManualParamList — mark/start_at retroactive-wrap
+///       dance for the positional grammar cannot be expressed with current
+///       combinators.
+///
+/// Source, Expression: Ref delegation — declarative (zero escape-hatch).
+/// Binary: PrattBinary — fully declarative Pratt binary.
+/// Application: PrattApp — fully declarative Pratt left-assoc application.
+/// Atom: Choice + Seq — fully declarative per-token dispatch.
 pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
   let cr = cripple_reuse.unwrap_or(false)
   GrammarIr::{
@@ -20,15 +23,97 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr {
     // Not dispatched via IR — parse_definition_ir() is called directly from
     // parse_top_level_repeat. Documented Empty to avoid invisible gap.
     definition: Expr::Empty,
-    // Simplified: no if-then-else in spike. parse_top_level_repeat calls
-    // parse_binary_ir directly for trailing expression.
+    // Expression = Binary (no if-then-else in spike scope).
     expression: Expr::Ref(RuleId::Binary),
-    // Special-cased in run_expr → parse_binary_ir(ctx, ir).
-    binary: Expr::Ref(RuleId::Binary),
-    // Special-cased in run_expr → parse_application_ir(ctx, ir).
-    application: Expr::Ref(RuleId::Application),
-    // Dispatched via run_expr in parse_application_ir.
-    atom: Expr::ManualAtom,
+    // Pratt binary: left-associative + and - over applications.
+    binary: Expr::PrattBinary(
+      RuleId::Application,
+      @syntax.BinaryExpr,
+      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
+    ),
+    // Pratt application: left-associative juxtaposition of atoms.
+    application: Expr::PrattApp(
+      RuleId::Atom,
+      @syntax.AppExpr,
+      atom_starts_token,
+    ),
+    // Atom: token-dispatched choice. BlockExpr uses RepeatWhile for newlines.
+    // No arrow-lambda (classified D2a divergence for lambda-literal inputs).
+    atom: Expr::Choice([
+      Alt::{
+        starts: t => t == @token.Integer,
+        body: Expr::Node(
+          @syntax.IntLiteral,
+          Expr::Emit(@token.Integer, @syntax.IntToken),
+        ),
+      },
+      Alt::{
+        starts: t => t == @token.Identifier,
+        body: Expr::Node(
+          @syntax.VarRef,
+          Expr::Emit(@token.Identifier, @syntax.IdentToken),
+        ),
+      },
+      Alt::{
+        starts: t => t == @token.Hole,
+        body: Expr::Node(
+          @syntax.HoleLiteral,
+          Expr::Emit(@token.Hole, @syntax.HoleToken),
+        ),
+      },
+      Alt::{
+        starts: t => t == @token.LBrace,
+        body: Expr::Node(
+          @syntax.BlockExpr,
+          Expr::Seq([
+            Expr::Emit(@token.LBrace, @syntax.LBraceToken),
+            Expr::RepeatWhile(
+              t => t == @token.Newline,
+              Expr::Emit(@token.Newline, @syntax.NewlineToken),
+            ),
+            Expr::Choice([
+              Alt::{
+                starts: t => t == @token.RBrace,
+                body: Expr::EmitError("Empty block expression"),
+              },
+              Alt::{
+                starts: t => t != @token.EOF,
+                body: Expr::Seq([
+                  Expr::Ref(RuleId::Binary),
+                  Expr::RepeatWhile(
+                    t => t == @token.Newline,
+                    Expr::Emit(@token.Newline, @syntax.NewlineToken),
+                  ),
+                ]),
+              },
+            ]),
+            Expr::Expect(@token.RBrace, @syntax.RBraceToken, "expected }"),
+          ]),
+        ),
+      },
+      Alt::{
+        starts: t => t == @token.LeftParen,
+        body: Expr::Node(
+          @syntax.ParenExpr,
+          Expr::Seq([
+            Expr::Emit(@token.LeftParen, @syntax.LeftParenToken),
+            Expr::Ref(RuleId::Binary),
+            Expr::Expect(
+              @token.RightParen,
+              @syntax.RightParenToken,
+              "expected )",
+            ),
+          ]),
+        ),
+      },
+      Alt::{
+        starts: _t => true,
+        body: Expr::ErrorUntil(
+          spike_is_sync_point,
+          "Unexpected token in expression",
+        ),
+      },
+    ]),
     // Not dispatched via IR — parse_param_list_exact is called directly.
     param_list: Expr::ManualParamList,
   }

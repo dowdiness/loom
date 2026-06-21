@@ -7,8 +7,12 @@ fn minimal_expr_ir() -> GrammarIr {
     source: Expr::Ref(RuleId::Expression),
     definition: Expr::Empty,
     expression: Expr::Ref(RuleId::Binary),
-    binary: Expr::Ref(RuleId::Application),
-    application: Expr::Ref(RuleId::Atom),
+    binary: Expr::PrattBinary(
+      RuleId::Application,
+      @syntax.BinaryExpr,
+      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
+    ),
+    application: Expr::PrattApp(RuleId::Atom, @syntax.AppExpr, atom_starts_token),
     atom: Expr::Choice([
       Alt::{
         starts: fn(t) { t == @token.Integer },

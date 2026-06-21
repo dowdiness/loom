@@ -26,6 +26,15 @@ pub enum Expr {
   Choice(Array[Alt])
   /// Repeat rule at the top level with optional reuse (cripple_reuse flag).
   RepeatTopLevel(RuleId, Bool)
+  /// Run each expression in sequence.
+  Seq(Array[Expr])
+  /// Pratt application: parse atom_rule repeatedly while starts(peek) holds,
+  /// retroactively wrapping the run in app_kind. No-op when the first atom
+  /// stands alone.
+  PrattApp(RuleId, @syntax.SyntaxKind, (@token.Token) -> Bool)
+  /// Pratt binary: parse prefix_rule, then consume operator/prefix_rule pairs
+  /// while peek matches any op token, retroactively wrapping in binary_kind.
+  PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
   /// Repeat the given expr while the lookahead predicate holds.
   RepeatWhile((@token.Token) -> Bool, Expr)
   /// After parsing the inner expr, if the NEXT token satisfies the predicate,
@@ -33,9 +42,8 @@ pub enum Expr {
   WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
   /// Lambda-specific: emit param list matching A's exact raw loop shape.
   ManualParamList
-  /// Lambda-specific: parse atom matching A's exact atom dispatch
-  /// (E2 escape hatch — paren/block/hole/int/ident/error).
-  ManualAtom
+  /// Emit a diagnostic without creating an error node or placeholder.
+  EmitError(String)
   /// Emit error node consuming until the stop predicate.
   ErrorUntil((@token.Token) -> Bool, String)
   /// No-op.

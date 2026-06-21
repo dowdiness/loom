@@ -41,6 +41,8 @@ pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr
 
 pub fn let_def_fixture() -> (String, Array[EditStep])
 
+pub fn let_param_list_fixture() -> (String, Array[EditStep])
+
 pub fn measure_e1() -> E1Measurement
 
 pub fn measure_e2() -> E2Measurement
@@ -57,9 +59,13 @@ pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKi
 
 pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@core.ProjectionLeaf]
 
+pub fn rhs_newline_fixture() -> (String, Array[EditStep])
+
 pub fn run_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, Expr) -> Unit
 
 pub fn run_oracle_fixture(String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
+
+pub fn soft_newline_fixture() -> (String, Array[EditStep])
 
 pub fn spike_is_sync_point(@token.Token) -> Bool
 
@@ -107,10 +113,13 @@ pub enum Expr {
   Ref(RuleId)
   Choice(Array[Alt])
   RepeatTopLevel(RuleId, Bool)
+  Seq(Array[Expr])
+  PrattApp(RuleId, @syntax.SyntaxKind, (@token.Token) -> Bool)
+  PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
   RepeatWhile((@token.Token) -> Bool, Expr)
   WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
   ManualParamList
-  ManualAtom
+  EmitError(String)
   ErrorUntil((@token.Token) -> Bool, String)
   Empty
 }
