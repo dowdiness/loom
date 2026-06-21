@@ -121,6 +121,33 @@ pub fn param_list_churn_fixture() -> (String, Array[EditStep]) {
 }
 
 ///|
+/// Fixture: soft newline before required token.
+/// "let x = 1" → "let x\n= 1" — A routes `=` through lambda_expect which
+/// first calls consume_soft_newlines_before_expected; B must do the same via
+/// spike_expect. Without the fix B sees Newline and emits a missing-= placeholder
+/// instead, diverging from A in both CST shape and diagnostics (D2a failure).
+pub fn soft_newline_fixture() -> (String, Array[EditStep]) {
+  let initial = "let x = 1"
+  let steps = [
+    // Replace space before `=` with newline: offset 5, old_len=1, new_len=1.
+    EditStep::{
+      label: "soft newline before = (let binding)",
+      before: "let x = 1",
+      after: "let x\n= 1",
+      edit: @core.Edit::new(5, 1, 1),
+    },
+    // Restore the space: verify recovery back to normal parse.
+    EditStep::{
+      label: "restore space before = (recovery)",
+      before: "let x\n= 1",
+      after: "let x = 1",
+      edit: @core.Edit::new(5, 1, 1),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
 /// Combined fixture: LetDef + top-level reuse + error + recovery + Pratt.
 /// Used by the main oracle test to exercise all oracle checks in one run.
 pub fn combined_fixture() -> (String, Array[EditStep]) {

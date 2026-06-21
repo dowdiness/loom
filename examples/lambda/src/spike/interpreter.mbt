@@ -19,7 +19,7 @@ pub fn run_expr(
     Expr::Empty => ()
     Expr::Emit(token, kind) => if ctx.at(token) { ctx.emit_token(kind) }
     Expr::Expect(token, kind, msg) => {
-      let _ = ctx.expect(token, kind)
+      spike_expect(ctx, token, kind)
       let _ = msg
     }
     Expr::Node(kind, body) => ctx.node(kind, () => run_expr(ctx, ir, body))
@@ -56,6 +56,25 @@ pub fn run_expr(
       parse_error_node_until(ctx, stop)
     }
   }
+}
+
+///|
+/// Mirror lambda_expect: consume soft newlines when the expected token follows,
+/// then call ctx.expect. All required-token sites route through here so B
+/// replicates A's consume_soft_newlines_before_expected behavior.
+fn spike_expect(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  token : @token.Token,
+  kind : @syntax.SyntaxKind,
+) -> Unit {
+  // loom#434: consume_while_emit / peek_while_skip
+  // Consume soft newlines only when the expected token immediately follows them
+  // (mirrors lambda_expect → consume_soft_newlines_before_expected).
+  if ctx.at(@token.Newline) &&
+    ctx.peek_while_skip(t => t == @token.Newline) == token {
+    ctx.consume_while_emit(t => t == @token.Newline, @syntax.NewlineToken)
+  }
+  let _ = ctx.expect(token, kind)
 }
 
 ///|
@@ -143,7 +162,7 @@ fn parse_definition_ir(
             ctx.emit_error_placeholder()
           }
         }
-        let _ = ctx.expect(@token.Eq, @syntax.EqToken)
+        spike_expect(ctx, @token.Eq, @syntax.EqToken)
         parse_binary_ir(ctx, ir)
       })
     @token.Fn =>
@@ -256,7 +275,7 @@ fn parse_param_list_exact(
       ctx.emit_error_placeholder()
     }
   }
-  let _ = ctx.expect(@token.RightParen, @syntax.RightParenToken)
+  spike_expect(ctx, @token.RightParen, @syntax.RightParenToken)
   ctx.start_at(mark, @syntax.ParamList)
   ctx.finish_node()
 }
@@ -277,7 +296,7 @@ fn parse_block_expr_ir(
     parse_binary_ir(ctx, ir)
     consume_delimiter_newlines(ctx)
   }
-  let _ = ctx.expect(@token.RBrace, @syntax.RBraceToken)
+  spike_expect(ctx, @token.RBrace, @syntax.RBraceToken)
   ctx.finish_node()
 }
 
@@ -354,7 +373,7 @@ fn parse_atom_ir(
       ctx.node(@syntax.ParenExpr, fn() {
         ctx.emit_token(@syntax.LeftParenToken)
         parse_binary_ir(ctx, ir)
-        let _ = ctx.expect(@token.RightParen, @syntax.RightParenToken)
+        spike_expect(ctx, @token.RightParen, @syntax.RightParenToken)
       })
     _ => {
       ctx.error("Unexpected token in expression")

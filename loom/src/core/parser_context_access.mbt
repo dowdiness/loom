@@ -90,6 +90,25 @@ pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(
 }
 
 ///|
+/// Return the first non-trivia token for which `skip` returns false, scanning
+/// forward from the current position. Returns the first non-skipped token, or
+/// the EOF token when all remaining tokens match `skip`. The predicate must
+/// return `false` for the grammar's EOF token to guarantee termination.
+pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(
+  self : ParserContext[T, K],
+  skip : (T) -> Bool,
+) -> T {
+  for index = 0 {
+    let t = self.peek_nth(index)
+    if skip(t) {
+      continue index + 1
+    } else {
+      break t
+    }
+  }
+}
+
+///|
 /// Return the TokenInfo for the next non-trivia token.
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(
   self : ParserContext[T, K],

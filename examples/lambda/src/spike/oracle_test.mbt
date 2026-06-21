@@ -69,3 +69,18 @@ test "oracle: combined fixture — all oracle checks" {
     inspect(result.d2b_ok, content="true")
   }
 }
+
+///|
+test "oracle: soft newline before = passes D2a (P3 regression)" {
+  // Without spike_expect consuming soft newlines, B sees Newline and emits
+  // a missing-= placeholder instead of consuming the newline and matching =.
+  // A passes the edit via lambda_expect → D2a fails unless fixed.
+  let (initial, steps) = soft_newline_fixture()
+  let b = build_b_syntax_grammar()
+  let results = run_oracle_fixture(initial, steps, b)
+  for result in results {
+    inspect(result.d1_ok, content="true")
+    inspect(result.d2a_ok, content="true")
+    inspect(result.d2b_ok, content="true")
+  }
+}

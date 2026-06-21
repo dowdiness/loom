@@ -43,6 +43,21 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
+/// Consume consecutive non-trivia tokens matching `pred`, emitting each as
+/// `kind` in the CST. Stops at the first non-matching token or at EOF.
+/// Use this to absorb a known class of tokens (e.g. soft newlines) before
+/// acting on the first non-matching token.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit(
+  self : ParserContext[T, K],
+  pred : (T) -> Bool,
+  kind : K,
+) -> Unit {
+  while !self.at_eof() && pred(self.peek()) {
+    self.emit_token(kind)
+  }
+}
+
+///|
 /// Consume the current token and emit it using the token's own raw kind.
 ///
 /// Use this only for grammars where the token raw kind is also the CST leaf
