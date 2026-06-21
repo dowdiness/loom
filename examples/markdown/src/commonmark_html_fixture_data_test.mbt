@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=120, xfail=1, skip=1.
+// Baseline: pass=123, xfail=1, skip=1.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (120, 1, 1)
+  (123, 1, 1)
 }
 
 ///|
@@ -189,11 +189,35 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 232,
+      section: "Block quotes",
+      name: "blockquote-paragraph-lazy-after-heading",
+      source: "> # Foo\n> bar\nbaz\n",
+      expected_html: "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 233,
+      section: "Block quotes",
+      name: "blockquote-paragraph-lazy-between-quoted-lines",
+      source: "> bar\nbaz\n> foo\n",
+      expected_html: "<blockquote>\n<p>bar\nbaz\nfoo</p>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 235,
       section: "Block quotes",
       name: "blockquote-list-closes-before-unquoted-list",
       source: "> - foo\n- bar\n",
       expected_html: "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 247,
+      section: "Block quotes",
+      name: "blockquote-paragraph-lazy-continuation",
+      source: "> bar\nbaz\n",
+      expected_html: "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n",
       status: CommonMarkHtmlPass,
     },
     {
