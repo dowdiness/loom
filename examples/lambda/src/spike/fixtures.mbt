@@ -253,25 +253,29 @@ pub fn expect_skip_eof_fixture() -> (String, Array[EditStep]) {
 
 ///|
 /// Watch-item fixture for finding #4 (block delimiter check, spec §5.3).
-/// "fn f() { 1\n2 }" ↔ "fn f() { 1 2 }" — removing the newline between two block
-/// expressions drops the required separator; A and B's RequireSep(Newline) must
-/// agree on the "expected delimiter" diagnostic appearing then clearing.
+/// RequireSep guards the separator between block DEFINITIONS (let/fn), not
+/// between bare expressions — `1 2` is application (one AppExpr), so it would
+/// never fire the check. This fixture uses two `let` defs (cf. the real test at
+/// oracle_test.mbt:184): dropping the newline between them leaves them with no
+/// separator, so A and B's RequireSep(Newline) must agree on the
+/// "between definitions" diagnostic appearing then clearing.
 pub fn block_delimiter_fixture() -> (String, Array[EditStep]) {
-  let initial = "fn f() { 1\n2 }"
+  let initial = "fn f() {\nlet x = 1\nlet y = 2\n}"
   let steps = [
-    // Replace the newline (offset 10, len 1) with a space (len 1): missing delim.
+    // Replace the newline between the two let defs (offset 18, len 1) with a
+    // space (len 1): the defs lose their required separator.
     EditStep::{
-      label: "drop block delimiter newline → diagnostic",
-      before: "fn f() { 1\n2 }",
-      after: "fn f() { 1 2 }",
-      edit: @core.Edit::new(10, 1, 1),
+      label: "drop newline between block defs → missing-delimiter diagnostic",
+      before: "fn f() {\nlet x = 1\nlet y = 2\n}",
+      after: "fn f() {\nlet x = 1 let y = 2\n}",
+      edit: @core.Edit::new(18, 1, 1),
     },
-    // Restore the newline: diagnostic clears.
+    // Restore the newline: the diagnostic clears.
     EditStep::{
-      label: "restore block delimiter newline (recovery)",
-      before: "fn f() { 1 2 }",
-      after: "fn f() { 1\n2 }",
-      edit: @core.Edit::new(10, 1, 1),
+      label: "restore newline between block defs (recovery)",
+      before: "fn f() {\nlet x = 1 let y = 2\n}",
+      after: "fn f() {\nlet x = 1\nlet y = 2\n}",
+      edit: @core.Edit::new(18, 1, 1),
     },
   ]
   (initial, steps)

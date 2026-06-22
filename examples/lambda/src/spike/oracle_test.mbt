@@ -204,11 +204,20 @@ test "watch-item: ExpectSkip missing = at EOF holds A/B parity (finding #1)" {
   let (initial, steps) = expect_skip_eof_fixture()
   let b = build_b_syntax_grammar()
   let results = run_oracle_fixture(initial, steps, b)
-  for result in results {
-    inspect(result.d1_ok, content="true")
-    inspect(result.d2a_ok, content="true")
-    inspect(result.d2b_ok, content="true")
-  }
+  inspect(results.length(), content="2")
+  // Positive control: the malformed step (missing `=`/RHS at EOF) must actually
+  // FIRE the ExpectSkip diagnostic — otherwise "A/B agree" is vacuous because the
+  // finding's path never ran. Step 0 = malformed, step 1 = recovery clears it.
+  let malformed = results[0]
+  inspect(malformed.diagnostics_empty, content="false")
+  inspect(malformed.d1_ok, content="true")
+  inspect(malformed.d2a_ok, content="true")
+  inspect(malformed.d2b_ok, content="true")
+  let recovered = results[1]
+  inspect(recovered.diagnostics_empty, content="true")
+  inspect(recovered.d1_ok, content="true")
+  inspect(recovered.d2a_ok, content="true")
+  inspect(recovered.d2b_ok, content="true")
 }
 
 ///|
@@ -219,11 +228,21 @@ test "watch-item: block delimiter drop/restore holds A/B parity (finding #4)" {
   let (initial, steps) = block_delimiter_fixture()
   let b = build_b_syntax_grammar()
   let results = run_oracle_fixture(initial, steps, b)
-  for result in results {
-    inspect(result.d1_ok, content="true")
-    inspect(result.d2a_ok, content="true")
-    inspect(result.d2b_ok, content="true")
-  }
+  inspect(results.length(), content="2")
+  // Positive control: dropping the newline between two `let` defs must FIRE the
+  // RequireSep "between definitions" diagnostic. Bare expressions (`1 2`) are
+  // application, not separated defs, so they would never trigger the check and
+  // "A/B agree" would be vacuous. Step 0 = malformed, step 1 = recovery clears it.
+  let malformed = results[0]
+  inspect(malformed.diagnostics_empty, content="false")
+  inspect(malformed.d1_ok, content="true")
+  inspect(malformed.d2a_ok, content="true")
+  inspect(malformed.d2b_ok, content="true")
+  let recovered = results[1]
+  inspect(recovered.diagnostics_empty, content="true")
+  inspect(recovered.d1_ok, content="true")
+  inspect(recovered.d2a_ok, content="true")
+  inspect(recovered.d2b_ok, content="true")
 }
 
 ///|
