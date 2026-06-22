@@ -288,6 +288,8 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
+  HtmlBlockOpen(String) // opening line of an HTML block
+  HtmlText(String) // line of HTML block content
   BlankLine // empty or whitespace-only line
   Star // *
   StarStar // **
@@ -314,6 +316,8 @@ pub impl Show for Token with fn output(self, logger) {
       ThematicBreak => "---"
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
+      HtmlBlockOpen(s) => s
+      HtmlText(s) => s
       BlankLine => ""
       Star => "*"
       StarStar => "**"
@@ -355,6 +359,8 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       ThematicBreak => 32 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
+      HtmlBlockOpen(_) => 34 // HtmlBlockOpenToken
+      HtmlText(_) => 35 // HtmlTextToken
       BlankLine => 4 // BlankLineToken
       Star => 5 // StarToken
       StarStar => 6 // StarStarToken

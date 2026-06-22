@@ -8,6 +8,7 @@ fn is_block_boundary(token : Token) -> Bool {
     | BlockQuoteMarker
     | ThematicBreak
     | CodeFenceOpen(_, _)
+    | HtmlBlockOpen(_)
     | BlankLine
     | EOF => true
     _ => false

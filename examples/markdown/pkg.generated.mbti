@@ -57,6 +57,7 @@ pub(all) enum Block {
   UnorderedListItem(Array[Inline])
   OrderedListItem(Array[Inline], OrderedListMarker?)
   CodeBlock(String, String)
+  HtmlBlock(String)
   Error(String)
 } derive(Eq, @debug.Debug)
 pub impl @core.Renderable for Block
@@ -103,6 +104,9 @@ pub(all) enum MarkdownLexMode {
   BlockQuoteLineStart
   Inline
   CodeBlock(Int)
+  HtmlBlockRaw
+  HtmlBlockUntil(String)
+  HtmlBlockEndLine
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OrderedListDelimiter {
@@ -139,6 +143,8 @@ pub(all) enum SyntaxKind {
   OrderedListMarkerToken
   BlockQuoteMarkerToken
   ThematicBreakToken
+  HtmlBlockOpenToken
+  HtmlTextToken
   DocumentNode
   HeadingNode
   ParagraphNode
@@ -153,6 +159,7 @@ pub(all) enum SyntaxKind {
   ErrorNode
   BlockQuoteNode
   ThematicBreakNode
+  HtmlBlockNode
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
@@ -167,6 +174,8 @@ pub(all) enum Token {
   ThematicBreak
   CodeFenceOpen(Int, String)
   CodeFenceClose
+  HtmlBlockOpen(String)
+  HtmlText(String)
   BlankLine
   Star
   StarStar

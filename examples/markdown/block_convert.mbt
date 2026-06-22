@@ -29,6 +29,7 @@ pub fn markdown_fold_node(
           | UnorderedListNode
           | OrderedListNode
           | CodeBlockNode
+          | HtmlBlockNode
           | ThematicBreakNode
           | ErrorNode => blocks.push(recurse(child))
           _ => () // skip BlankLine/Newline tokens at top level
@@ -72,51 +73,21 @@ pub fn markdown_fold_node(
     }
     CodeBlockNode => {
       // Re-parse info string from CST token text (same reason as heading level above).
-      let mut info = ""
-      match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
+      let info = match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
         Some(fence_tok) => {
           let text = fence_tok.text()
           let i = count_backticks(text, 0)
           if i < text.length() {
-            info = text[i:].to_owned()
+            text[i:].to_owned()
+          } else {
+            ""
           }
         }
-        None => ()
+        None => ""
       }
-      // Collect code content: walk all tokens between fences, preserving
-      // blank lines (Newline tokens without intervening CodeText).
-      let code_buf = StringBuilder::new()
-      let mut in_code = false
-      for elem in node.all_children() {
-        match elem {
-          @seam.SyntaxElement::Token(tok) => {
-            let tk : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
-            match tk {
-              CodeFenceOpenToken => in_code = true
-              CodeFenceCloseToken => in_code = false
-              CodeTextToken if in_code => code_buf.write_string(tok.text())
-              NewlineToken if in_code => code_buf.write_string("\n")
-              _ => ()
-            }
-          }
-          _ => ()
-        }
-      }
-      // Trim leading newline (the one right after CodeFenceOpen)
-      let code_str = code_buf.to_string()
-      let trimmed = if code_str.has_prefix("\n") {
-        code_str[1:].to_owned()
-      } else {
-        code_str
-      }
-      // Trim trailing newline (the one right before CodeFenceClose)
-      let final_code = if trimmed.has_suffix("\n") {
-        trimmed[:trimmed.length() - 1].to_owned()
-      } else {
-        trimmed
-      }
-      Block::CodeBlock(info, final_code)
+      Block::CodeBlock(info, code_block_value(node))
     }
+    HtmlBlockNode => Block::HtmlBlock(html_block_value(node))
     ThematicBreakNode =>
       Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
     ErrorNode => Block::Error(RECOVERED_PARSE_ERROR)

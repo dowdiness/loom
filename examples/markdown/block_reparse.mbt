@@ -1,6 +1,7 @@
 ///|
 fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
   kind == CodeBlockNode.to_raw() ||
+  kind == HtmlBlockNode.to_raw() ||
   kind == ParagraphNode.to_raw() ||
   kind == HeadingNode.to_raw() ||
   kind == UnorderedListNode.to_raw() ||
@@ -227,6 +228,7 @@ fn markdown_tokens_safe_for_block_reparse(
     [first, ..] =>
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
+        HtmlBlockOpen(_) => true
         HeadingMarker(_) => is_heading_token_stream(tokens)
         ListMarker =>
           is_list_item_token_stream(tokens) ||
@@ -422,6 +424,8 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
     let kind = node.kind()
     if kind == CodeBlockNode.to_raw() {
       Some(parse_code_block_if_still_code_block)
+    } else if kind == HtmlBlockNode.to_raw() {
+      Some(ctx => if ctx.peek() is HtmlBlockOpen(_) { parse_html_block(ctx) })
     } else if kind == ParagraphNode.to_raw() &&
       paragraph_start_allows_reparse(node.text()) {
       Some(parse_paragraph_if_still_paragraph)

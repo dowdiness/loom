@@ -53,6 +53,269 @@ fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
 }
 
 ///|
+priv enum HtmlBlockType {
+  Until(String)
+  Raw
+}
+
+///|
+fn find_line_end(input : String, pos : Int) -> Int {
+  let mut line_end = pos
+  while line_end < input.length() {
+    match char_at(input, line_end) {
+      Some('\r') | Some('\n') | None => break
+      _ => line_end = @core.next_char_offset(input, line_end)
+    }
+  }
+  line_end
+}
+
+///|
+fn line_is_blank(input : String, pos : Int, line_end : Int) -> Bool {
+  input[pos:line_end].is_blank()
+}
+
+///|
+fn is_ascii_letter(ch : Char) -> Bool {
+  match ch {
+    'A'..='Z' | 'a'..='z' => true
+    _ => false
+  }
+}
+
+///|
+fn is_html_name_char(ch : Char) -> Bool {
+  match ch {
+    'A'..='Z' | 'a'..='z' | '0'..='9' | '-' => true
+    _ => false
+  }
+}
+
+///|
+fn is_type1_tag_name(tag : String) -> Bool {
+  match tag.to_lower() {
+    "pre" | "script" | "style" | "textarea" => true
+    _ => false
+  }
+}
+
+///|
+fn is_type6_tag_name(tag : String) -> Bool {
+  match tag.to_lower() {
+    "address"
+    | "article"
+    | "aside"
+    | "base"
+    | "basefont"
+    | "blockquote"
+    | "body"
+    | "caption"
+    | "center"
+    | "col"
+    | "colgroup"
+    | "dd"
+    | "details"
+    | "dialog"
+    | "dir"
+    | "div"
+    | "dl"
+    | "dt"
+    | "fieldset"
+    | "figcaption"
+    | "figure"
+    | "footer"
+    | "form"
+    | "frame"
+    | "frameset"
+    | "h1"
+    | "h2"
+    | "h3"
+    | "h4"
+    | "h5"
+    | "h6"
+    | "head"
+    | "header"
+    | "hr"
+    | "html"
+    | "iframe"
+    | "legend"
+    | "li"
+    | "link"
+    | "main"
+    | "menu"
+    | "menuitem"
+    | "nav"
+    | "noframes"
+    | "ol"
+    | "optgroup"
+    | "option"
+    | "p"
+    | "param"
+    | "search"
+    | "section"
+    | "summary"
+    | "table"
+    | "tbody"
+    | "td"
+    | "tfoot"
+    | "th"
+    | "thead"
+    | "title"
+    | "tr"
+    | "track"
+    | "ul" => true
+    _ => false
+  }
+}
+
+///|
+fn extract_html_tag_name(line : StringView, pos : Int) -> (String, Int)? {
+  guard line.get_char(pos).map_or(false, is_ascii_letter) else { return None }
+  let mut end = pos
+  while end < line.length() {
+    match line.get_char(end) {
+      Some(ch) if is_html_name_char(ch) => end = end + 1
+      _ => break
+    }
+  }
+  Some((line[pos:end].to_owned(), end))
+}
+
+///|
+fn valid_html_tag_quote_follow(line : StringView, pos : Int) -> Bool {
+  if pos >= line.length() {
+    true
+  } else {
+    match line.get_char(pos) {
+      Some(' ') | Some('\t') | Some('/') | Some('>') => true
+      _ => false
+    }
+  }
+}
+
+///|
+fn first_html_tag_end(line : StringView) -> Int? {
+  let mut quote : Char? = None
+  for i, ch in line {
+    match quote {
+      Some(q) if ch == q => {
+        guard valid_html_tag_quote_follow(line, i + 1) else { return None }
+        quote = None
+      }
+      Some(_) => ()
+      None =>
+        match ch {
+          '\"' | '\'' => quote = Some(ch)
+          '>' => return Some(i)
+          _ => ()
+        }
+    }
+  }
+  None
+}
+
+///|
+fn line_has_only_tag(line : StringView) -> Bool {
+  match first_html_tag_end(line) {
+    Some(end) => line[end + 1:].trim().is_empty()
+    None => false
+  }
+}
+
+///|
+fn html_tag_name_follow_is_valid(line : StringView, tag_end : Int) -> Bool {
+  if tag_end >= line.length() {
+    true
+  } else {
+    match line.get_char(tag_end) {
+      Some(' ') | Some('\t') | Some('/') | Some('>') => true
+      _ => false
+    }
+  }
+}
+
+///|
+fn closing_line_has_only_tag(line : StringView, tag_end : Int) -> Bool {
+  let mut pos = tag_end
+  while pos < line.length() {
+    match line.get_char(pos) {
+      Some(' ') | Some('\t') => pos = pos + 1
+      Some('>') => return line[pos + 1:].trim().is_empty()
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
+fn classify_html_block_opening(line : StringView) -> HtmlBlockType? {
+  let trimmed = line.trim_start()
+  guard trimmed.has_prefix("<") else { return None }
+  if trimmed.has_prefix("<!--") {
+    return Some(Until("-->"))
+  }
+  if trimmed.has_prefix("<?") {
+    return Some(Until("?>"))
+  }
+  if trimmed.has_prefix("<![CDATA[") {
+    return Some(Until("]]>"))
+  }
+  if trimmed.has_prefix("<!") {
+    match trimmed.get_char(2) {
+      Some(ch) if is_ascii_letter(ch) => return Some(Until(">"))
+      _ => return None
+    }
+  }
+  let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
+  match extract_html_tag_name(trimmed, name_start) {
+    Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+      is_type1_tag_name(tag) => Some(Until("</" + tag.to_lower() + ">"))
+    Some((tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+      is_type6_tag_name(tag) => Some(Raw)
+    Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+      name_start == 2 &&
+      closing_line_has_only_tag(trimmed, tag_end) => Some(Raw)
+    Some((_tag, tag_end)) if html_tag_name_follow_is_valid(trimmed, tag_end) &&
+      name_start == 1 &&
+      line_has_only_tag(trimmed) => Some(Raw)
+    _ => None
+  }
+}
+
+///|
+fn html_block_mode_after_open(
+  line : StringView,
+  block_type : HtmlBlockType,
+) -> MarkdownLexMode {
+  match block_type {
+    Raw => HtmlBlockRaw
+    Until(delimiter) =>
+      if line.to_lower().contains(delimiter) {
+        HtmlBlockEndLine
+      } else {
+        HtmlBlockUntil(delimiter)
+      }
+  }
+}
+
+///|
+fn produce_html_block_open(
+  input : String,
+  pos : Int,
+  line_end : Int,
+  block_type : HtmlBlockType,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let line : StringView = input[pos:line_end]
+  (
+    Produced(
+      @core.TokenInfo::new(HtmlBlockOpen(line.to_owned()), line_end - pos),
+      next_offset=line_end,
+    ),
+    html_block_mode_after_open(line, block_type),
+  )
+}
+
+///|
 fn produce_token_from(
   token : Token,
   start : Int,
@@ -102,6 +365,15 @@ fn lex_indented_block_marker(
         }
         None => lex_inline(input, pos)
       }
+    Some('<') => {
+      let line_end = find_line_end(input, pos)
+      let line : StringView = input[pos:line_end]
+      match classify_html_block_opening(line) {
+        Some(block_type) =>
+          produce_html_block_open(input, pos, line_end, block_type)
+        None => lex_inline(input, pos)
+      }
+    }
     _ => lex_inline(input, pos)
   }
 }
@@ -115,13 +387,7 @@ fn lex_line_start(
   if pos >= input.length() {
     return (Done, LineStart)
   }
-  let mut line_end = pos
-  while line_end < input.length() {
-    match char_at(input, line_end) {
-      Some('\r') | Some('\n') | None => break
-      _ => line_end = @core.next_char_offset(input, line_end)
-    }
-  }
+  let line_end = find_line_end(input, pos)
   if is_valid_thematic_break_markers(input[pos:line_end]) {
     return produced_until(
       ThematicBreak,
@@ -245,6 +511,14 @@ fn lex_line_start(
         }
         None => lex_inline(input, pos)
       }
+    ['<', ..] => {
+      let line : StringView = input[pos:line_end]
+      match classify_html_block_opening(line) {
+        Some(block_type) =>
+          produce_html_block_open(input, pos, line_end, block_type)
+        None => lex_inline(input, pos)
+      }
+    }
     ['`', ..] => {
       let n = count_backticks(input, pos)
       if n >= 3 {
@@ -426,6 +700,110 @@ fn lex_code_block(
 }
 
 ///|
+fn lex_html_block_end_line(
+  input : String,
+  pos : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  match input.view(start_offset=pos) {
+    ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
+      produced_until(Newline, pos, rest, LineStart)
+    _ => (Done, LineStart)
+  }
+}
+
+///|
+fn emit_html_text_line(
+  input : String,
+  pos : Int,
+  mode : MarkdownLexMode,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let line_end = find_line_end(input, pos)
+  let text : StringView = input[pos:line_end]
+  (
+    Produced(
+      @core.TokenInfo::new(HtmlText(text.to_owned()), line_end - pos),
+      next_offset=line_end,
+    ),
+    mode,
+  )
+}
+
+///|
+fn lex_html_block_raw_newline_mode(
+  input : String,
+  next_pos : Int,
+) -> MarkdownLexMode {
+  if next_pos >= input.length() {
+    HtmlBlockRaw
+  } else {
+    match char_at(input, next_pos) {
+      Some('\r') | Some('\n') => LineStart
+      _ => HtmlBlockRaw
+    }
+  }
+}
+
+///|
+fn lex_html_block_raw(
+  input : String,
+  pos : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  if pos >= input.length() {
+    return (Done, HtmlBlockRaw)
+  }
+  let line_end = find_line_end(input, pos)
+  match input.view(start_offset=pos) {
+    ['\r', '\n', .. rest] =>
+      produced_until(
+        Newline,
+        pos,
+        rest,
+        lex_html_block_raw_newline_mode(input, rest.start_offset()),
+      )
+    ['\r', .. rest] | ['\n', .. rest] =>
+      produced_until(
+        Newline,
+        pos,
+        rest,
+        lex_html_block_raw_newline_mode(input, rest.start_offset()),
+      )
+    _ if line_is_blank(input, pos, line_end) => lex_line_start(input, pos)
+    _ => emit_html_text_line(input, pos, HtmlBlockRaw)
+  }
+}
+
+///|
+fn lex_html_block_until(
+  input : String,
+  pos : Int,
+  delimiter : String,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  if pos >= input.length() {
+    return (Done, HtmlBlockUntil(delimiter))
+  }
+  match input.view(start_offset=pos) {
+    ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
+      produced_until(Newline, pos, rest, HtmlBlockUntil(delimiter))
+    _ => {
+      let line_end = find_line_end(input, pos)
+      let text : StringView = input[pos:line_end]
+      let next_mode = if text.to_lower().contains(delimiter) {
+        HtmlBlockEndLine
+      } else {
+        HtmlBlockUntil(delimiter)
+      }
+      (
+        Produced(
+          @core.TokenInfo::new(HtmlText(text.to_owned()), line_end - pos),
+          next_offset=line_end,
+        ),
+        next_mode,
+      )
+    }
+  }
+}
+
+///|
 /// Mode-aware lex step. Dispatches to mode-specific lexer.
 pub fn markdown_lex_step(
   input : String,
@@ -440,6 +818,9 @@ pub fn markdown_lex_step(
     BlockQuoteLineStart => lex_block_quote_line_start(input, pos)
     Inline => lex_inline(input, pos)
     CodeBlock(n) => lex_code_block(input, pos, n)
+    HtmlBlockRaw => lex_html_block_raw(input, pos)
+    HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
+    HtmlBlockEndLine => lex_html_block_end_line(input, pos)
   }
 }
 
