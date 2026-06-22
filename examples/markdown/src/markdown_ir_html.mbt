@@ -187,8 +187,9 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       "</a>"
     Unsupported(message) =>
       "<!-- unsupported MarkdownIR: " + html_escape_text(message) + " -->"
-    Recovered(message, _) =>
+    Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
       "<!-- recovered MarkdownIR: " + html_escape_text(message) + " -->"
+    Recovered(message, _) => html_escape_text(message)
   }
 }
 
@@ -197,8 +198,9 @@ fn markdown_ir_to_commonmark_html_with_list_context(
 ///
 /// This target adapter is intentionally separate from mdast export: mdast
 /// parity checks tree shape, while CommonMark HTML parity checks rendered
-/// behavior and escaping. Unsupported or recovered IR nodes render as escaped
-/// comments until later CommonMark semantics add explicit handling.
+/// behavior and escaping. Unsupported IR and parse-error recovery placeholders
+/// render as escaped comments; recovered nodes that carry literal source text
+/// render as plain escaped text.
 pub fn experimental_markdown_ir_to_commonmark_html(ir : MarkdownIR) -> String {
   markdown_ir_to_commonmark_html_with_list_context(ir, false)
 }

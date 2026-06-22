@@ -1613,12 +1613,12 @@ test "experimental MarkdownIR: Inline adapter renders raw children as text" {
 }
 
 ///|
-test "experimental MarkdownIR: canonical formatter emits recovered comments" {
+test "experimental MarkdownIR: canonical formatter preserves recovered source text" {
   let source = "Hello *\n"
   let formatted = experimental_markdown_ir_canonical_format(
     markdown_ir_from_source(source),
   )
-  inspect(formatted, content="Hello <!-- recovered MarkdownIR: * -->")
+  inspect(formatted, content="Hello *")
 }
 
 ///|
@@ -1627,7 +1627,7 @@ test "experimental MarkdownIR: canonical formatter passes raw text through" {
   let formatted = experimental_markdown_ir_canonical_format(
     markdown_ir_from_source(source),
   )
-  inspect(formatted, content="<!-- recovered MarkdownIR: [ -->text](url")
+  inspect(formatted, content="[text](url")
 }
 
 ///|

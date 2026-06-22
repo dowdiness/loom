@@ -119,7 +119,7 @@ pub fn markdown_fold_node(
     }
     ThematicBreakNode =>
       Block::Paragraph([Inline::Text(trim_trailing_line_ending(node.text()))])
-    ErrorNode => Block::Error("parse error")
+    ErrorNode => Block::Error(RECOVERED_PARSE_ERROR)
     _ => Block::Error("unknown node: " + kind.to_string())
   }
 }
