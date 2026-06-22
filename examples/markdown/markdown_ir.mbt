@@ -481,15 +481,58 @@ fn lower_inline_children_skip_with_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
+    let mut was_pending = false
     match pending_newline {
       Some(origin) => {
+        // Trim trailing spaces from line before soft break
+        match children.last() {
+          Some({ node: Text(value), origin: child_origin }) => {
+            let trimmed = value.trim_end(chars=" ".view())
+            let removed = value.length() - trimmed.length()
+            if removed > 0 {
+              children[children.length() - 1] = {
+                node: Text(trimmed.to_owned()),
+                origin: MarkdownIROrigin(
+                  start=child_origin.start(),
+                  end=child_origin.end() - removed,
+                ),
+              }
+            }
+          }
+          _ => ()
+        }
         match newline_text {
           Some(text) => children.push(MarkdownIR::text(text, origin))
           None => ()
         }
         pending_newline = None
+        was_pending = true
       }
       None => ()
+    }
+    // Trim leading spaces from line after soft break
+    let child = if was_pending {
+      match child.node {
+        Text(value) => {
+          let trimmed = value.trim_start(chars=" ".view())
+          let removed = value.length() - trimmed.length()
+          if removed > 0 {
+            let child_origin = child.origin()
+            {
+              node: Text(trimmed.to_owned()),
+              origin: MarkdownIROrigin(
+                start=child_origin.start() + removed,
+                end=child_origin.end(),
+              ),
+            }
+          } else {
+            child
+          }
+        }
+        _ => child
+      }
+    } else {
+      child
     }
     children.push(child)
   }
@@ -624,12 +667,55 @@ fn lower_direct_inline_children_with_newline_and_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
+    let mut was_pending = false
     match pending_newline {
       Some(origin) => {
+        // Trim trailing spaces from line before soft break
+        match children.last() {
+          Some({ node: Text(value), origin: child_origin }) => {
+            let trimmed = value.trim_end(chars=" ".view())
+            let removed = value.length() - trimmed.length()
+            if removed > 0 {
+              children[children.length() - 1] = {
+                node: Text(trimmed.to_owned()),
+                origin: MarkdownIROrigin(
+                  start=child_origin.start(),
+                  end=child_origin.end() - removed,
+                ),
+              }
+            }
+          }
+          _ => ()
+        }
         children.push(MarkdownIR::text(newline_text, origin))
         pending_newline = None
+        was_pending = true
       }
       None => ()
+    }
+    // Trim leading spaces from line after soft break
+    let child = if was_pending {
+      match child.node {
+        Text(value) => {
+          let trimmed = value.trim_start(chars=" ".view())
+          let removed = value.length() - trimmed.length()
+          if removed > 0 {
+            let child_origin = child.origin()
+            {
+              node: Text(trimmed.to_owned()),
+              origin: MarkdownIROrigin(
+                start=child_origin.start() + removed,
+                end=child_origin.end(),
+              ),
+            }
+          } else {
+            child
+          }
+        }
+        _ => child
+      }
+    } else {
+      child
     }
     children.push(child)
   }
