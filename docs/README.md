@@ -157,7 +157,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-- [superpowers/plans/2026-06-22-loomgen-ir-contract.md](superpowers/plans/2026-06-22-loomgen-ir-contract.md) — **IN PROGRESS**: 10-task plan for the minimal grammar-IR contract (loomgen codegen stage 1) — `loom/src/grammar/` package, generic `[T,K]` IR, `Pred[T]` reification, dense-slot rule interning, three reified escape hatches, evidence-gated `ManualNewlineAppExpr` residue, and D1/D2a/D2b re-validation on lambda
+_Previously active: the minimal grammar-IR contract (loomgen codegen stage 1) is **implemented** on branch `feat/loomgen-ir-contract` (commits `999d555`..`a4ec9ba`), pending PR — `dowdiness/loom/grammar` package with generic `[T,K]` IR, `Pred[T]` reification, dense-slot rule interning, the reified escape hatches (grown vocabulary), the evidence-gated `ManualNewlineAppExpr` residue, and D1/D2a/D2b re-validated on the reified lambda IR. See [plan](superpowers/plans/2026-06-22-loomgen-ir-contract.md) and [design spec](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md)._
 
 _Previously active: ParserContext grammar-author boundary shipped 2026-06-11 as PR #290 (issue #251; see [ADR](decisions/2026-06-13-parsercontext-method-only-boundary.md) and [archived design](archive/completed-phases/2026-06-12-parsercontext-field-boundary-design.md))._
 _Previously active: separated-list parsing & grouping shipped 2026-06-11 as PR #285/#286 (issue #279; see [ADR](decisions/2026-06-11-separated-list-boundary-model.md), [archived design](archive/completed-phases/2026-06-11-separated-list-grouping.md), and [archived plan](archive/completed-phases/2026-06-11-separated-list-grouping-plan.md))._
