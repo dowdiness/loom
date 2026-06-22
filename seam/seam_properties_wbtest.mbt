@@ -5,11 +5,7 @@ fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_deb
   f : (A) -> P,
 ) -> Unit raise Failure {
   @qc.quick_check(
-    @qc.Gen::spawn().fmap(fn(input : A) {
-      @qc.shrinking(A::shrink, input, fn(shrunk_input : A) {
-        @qc.counterexample(f(shrunk_input), @debug.to_string(shrunk_input))
-      })
-    }),
+    @qc.Arrow(f),
   )
 }
 
