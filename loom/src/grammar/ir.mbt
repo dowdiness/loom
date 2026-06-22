@@ -25,9 +25,9 @@ pub(all) enum Expr[T, K] {
   Node(K, Expr[T, K])
   /// Emit the current token as the given kind if it matches.
   Emit(T, K)
-  /// Expect the given token, emit as the kind, or emit an error placeholder.
-  /// The message is surfaced on the missing-token path.
-  Expect(T, K, String)
+  /// Expect the given token, emit as the kind, or emit an error placeholder
+  /// with an auto-generated diagnostic on the missing-token path.
+  Expect(T, K)
   /// Delegate to another rule by name.
   Ref(RuleName)
   /// Try alternatives in order; each carries its own reified start predicate.

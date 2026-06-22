@@ -52,10 +52,9 @@ fn[
   match expr {
     Empty => ()
     Emit(token, kind) => if ctx.at(token) { ctx.emit_token(kind) }
-    Expect(token, kind, msg) =>
-      if !ctx.expect(token, kind) && msg.length() > 0 {
-        ctx.error(msg)
-      }
+    // `expect` already emits a diagnostic + placeholder on the missing-token
+    // path; discard the bool so the path produces exactly one diagnostic.
+    Expect(token, kind) => ctx.expect(token, kind) |> ignore
     Node(kind, body) => ctx.node(kind, () => run_expr(ctx, grammar, body))
     RefSlot(slot) => run_expr(ctx, grammar, grammar.rule(slot))
     Seq(exprs) =>

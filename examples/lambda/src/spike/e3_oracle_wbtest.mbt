@@ -111,11 +111,7 @@ fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
             ]),
           },
         ]),
-        @grammar.Expr::Expect(
-          @token.RightParen,
-          @syntax.RightParenToken,
-          "expected )",
-        ),
+        @grammar.Expr::Expect(@token.RightParen, @syntax.RightParenToken),
       ]),
     ),
     // Object: '{' (member (',' member)*)? '}'
@@ -142,7 +138,7 @@ fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
             ]),
           },
         ]),
-        @grammar.Expr::Expect(@token.RBrace, @syntax.RBraceToken, "expected }"),
+        @grammar.Expr::Expect(@token.RBrace, @syntax.RBraceToken),
       ]),
     ),
     // Member: Identifier '=' value. Expect (not Emit) so a missing key emits a
@@ -150,12 +146,8 @@ fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
     "member": @grammar.Expr::Node(
       @syntax.LetDef,
       @grammar.Expr::Seq([
-        @grammar.Expr::Expect(
-          @token.Identifier,
-          @syntax.IdentToken,
-          "expected member key",
-        ),
-        @grammar.Expr::Expect(@token.Eq, @syntax.EqToken, "expected ="),
+        @grammar.Expr::Expect(@token.Identifier, @syntax.IdentToken),
+        @grammar.Expr::Expect(@token.Eq, @syntax.EqToken),
         @grammar.Expr::Ref("value"),
       ]),
     ),
@@ -257,17 +249,22 @@ test "e3: nested array-of-objects D1 parity" {
 }
 
 ///|
-/// E3 probe: missing member key emits a diagnostic (Expect not Emit).
+/// E3 probe: a missing member key emits EXACTLY ONE diagnostic (Expect not
+/// Emit). `expect` emits the diagnostic + placeholder itself, so the interpreter
+/// must not add a second — this is the positive control for the double-report
+/// fix (P2). In `{= 1}` only the member-key `Expect(Identifier)` misses (it sees
+/// `=`); the following `Expect(Eq)` then matches the still-unconsumed `=`, and
+/// `1`/`}` match cleanly, so the missing-token path contributes one diagnostic.
 /// D1 still holds: both incremental and fresh parse agree on the error tree.
-test "e3: missing member key emits diagnostic — D1 parity" {
+test "e3: missing member key emits exactly one diagnostic — D1 parity" {
   let grammar = build_e3_grammar()
   let initial = "{= 1}"
   let parser = @loom.new_syntax_parser(initial, grammar)
   let snap = parser.snapshot().read_or_abort()
   // D1: incremental == fresh (check_d1 does tree_diff + diag equality).
   inspect(check_d1(initial, snap, grammar), content="true")
-  // Diagnostic present: Expect emits an error for the missing Identifier.
-  inspect(snap.diagnostics.is_empty(), content="false")
+  // Exactly one diagnostic on the missing-token path (no double-report).
+  inspect(snap.diagnostics.length() == 1, content="true")
 }
 
 ///|

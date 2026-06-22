@@ -34,7 +34,7 @@ pub struct CompiledAlt[T, K] {
 pub enum CompiledExpr[T, K] {
   Node(K, CompiledExpr[T, K])
   Emit(T, K)
-  Expect(T, K, String)
+  Expect(T, K)
   RefSlot(Int)
   Choice(Array[CompiledAlt[T, K]])
   RepeatTopLevel(Int, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
@@ -67,7 +67,7 @@ pub fn[T, K] CompiledGrammar::rule(Self[T, K], Int) -> CompiledExpr[T, K]
 pub(all) enum Expr[T, K] {
   Node(K, Expr[T, K])
   Emit(T, K)
-  Expect(T, K, String)
+  Expect(T, K)
   Ref(String)
   Choice(Array[Alt[T, K]])
   RepeatTopLevel(String, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)

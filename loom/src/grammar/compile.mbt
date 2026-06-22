@@ -14,7 +14,7 @@ pub suberror GrammarCompileError {
 pub enum CompiledExpr[T, K] {
   Node(K, CompiledExpr[T, K])
   Emit(T, K)
-  Expect(T, K, String)
+  Expect(T, K)
   RefSlot(Int)
   Choice(Array[CompiledAlt[T, K]])
   RepeatTopLevel(
@@ -125,7 +125,7 @@ fn[T, K] lower(
   match expr {
     Node(k, body) => CompiledExpr::Node(k, lower(body, slot_of))
     Emit(t, k) => CompiledExpr::Emit(t, k)
-    Expect(t, k, msg) => CompiledExpr::Expect(t, k, msg)
+    Expect(t, k) => CompiledExpr::Expect(t, k)
     Ref(name) => CompiledExpr::RefSlot(resolve(name, slot_of))
     Choice(alts) => {
       let compiled : Array[CompiledAlt[T, K]] = []
