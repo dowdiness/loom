@@ -39,12 +39,6 @@ jobs:
             path: moji
           - name: seam
             path: seam
-          - name: incr
-            path: incr
-          - name: egglog
-            path: egglog
-          - name: event-graph-walker
-            path: event-graph-walker
           - name: pretty
             path: pretty
           - name: examples-lambda
@@ -55,9 +49,10 @@ jobs:
             path: examples/json-settings
           - name: examples-markdown
             path: examples/markdown
-          - name: egraph
-            path: egraph
-    env:
+          - name: incr
+            path: incr
+          - name: event-graph-walker
+            path: event-graph-walker
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -67,9 +62,41 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          # Pinned to the known-good toolchain (CI green 2026-06-09) so an
-          # unannounced MoonBit release cannot break CI with zero repo changes.
-          # Bump this deliberately after verifying the new toolchain is clean.
+          version: 0.10.0+84519ca0a
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: ${{ matrix.path }}
+        run: moon update
+
+      - name: moon fmt --check
+        working-directory: ${{ matrix.path }}
+        run: moon fmt --check
+
+  fmt-check-submodules:
+    name: Format Check ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: egglog
+            path: egglog
+    env:
+      NEW_MOON_MOD: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
           version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -100,12 +127,6 @@ jobs:
             path: moji
           - name: seam
             path: seam
-          - name: incr
-            path: incr
-          - name: egglog
-            path: egglog
-          - name: event-graph-walker
-            path: event-graph-walker
           - name: pretty
             path: pretty
           - name: examples-lambda
@@ -116,9 +137,10 @@ jobs:
             path: examples/json-settings
           - name: examples-markdown
             path: examples/markdown
-          - name: egraph
-            path: egraph
-    env:
+          - name: incr
+            path: incr
+          - name: event-graph-walker
+            path: event-graph-walker
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -128,9 +150,45 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          # Pinned to the known-good toolchain (CI green 2026-06-09) so an
-          # unannounced MoonBit release cannot break CI with zero repo changes.
-          # Bump this deliberately after verifying the new toolchain is clean.
+          version: 0.10.0+84519ca0a
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: ${{ matrix.path }}
+        run: moon update
+
+      - name: moon check
+        working-directory: ${{ matrix.path }}
+        run: moon check
+
+      - name: moon test
+        working-directory: ${{ matrix.path }}
+        run: moon test
+
+  test-modules-submodules:
+    name: Check + Test ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: egglog
+            path: egglog
+    env:
+      NEW_MOON_MOD: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
           version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -155,7 +213,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fmt-check
+      - fmt-check-submodules
       - test-modules
+      - test-modules-submodules
     if: always()
     steps:
       - name: Verify all jobs succeeded
@@ -164,8 +224,16 @@ jobs:
             echo "fmt-check job failed"
             exit 1
           fi
+          if [[ "${{ needs.fmt-check-submodules.result }}" != "success" ]]; then
+            echo "fmt-check-submodules job failed"
+            exit 1
+          fi
           if [[ "${{ needs.test-modules.result }}" != "success" ]]; then
             echo "test-modules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test-modules-submodules.result }}" != "success" ]]; then
+            echo "test-modules-submodules job failed"
             exit 1
           fi
           echo "All checks passed"
