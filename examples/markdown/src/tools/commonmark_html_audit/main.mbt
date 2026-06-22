@@ -137,6 +137,15 @@ fn load_spec_examples(path : String) -> Array[CommonMarkSpecExample] raise {
 }
 
 ///|
+fn markdown_ir_contains_unsupported_or_recovered(
+  ir : @markdown.MarkdownIR,
+) -> Bool {
+  ir.is_recovered() ||
+  ir.kind_tag() == "Unsupported" ||
+  ir.children().any(markdown_ir_contains_unsupported_or_recovered)
+}
+
+///|
 fn CommonMarkSpecExample::outcome(self : CommonMarkSpecExample) -> AuditOutcome {
   let (cst, diagnostics) = @markdown.parse_cst(self.markdown) catch {
     _ => return LexError
@@ -146,11 +155,10 @@ fn CommonMarkSpecExample::outcome(self : CommonMarkSpecExample) -> AuditOutcome 
     diagnostics,
   )
   let actual = @markdown.experimental_markdown_ir_to_commonmark_html(ir)
-  if actual == self.html {
-    Pass
-  } else if actual.contains("unsupported MarkdownIR") ||
-    actual.contains("recovered MarkdownIR") {
+  if markdown_ir_contains_unsupported_or_recovered(ir) {
     UnsupportedIr
+  } else if actual == self.html {
+    Pass
   } else if diagnostics.length() > 0 {
     ParserDiagnostics
   } else {

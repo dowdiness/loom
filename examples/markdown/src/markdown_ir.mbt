@@ -37,6 +37,9 @@ fn MarkdownIROrigin::contains(
 }
 
 ///|
+const RECOVERED_PARSE_ERROR = "parse error"
+
+///|
 priv enum MarkdownIRNode {
   Document(Array[MarkdownIR])
   Heading(Int, Array[MarkdownIR], MarkdownIROrigin?)
@@ -864,7 +867,7 @@ fn lower_container_child_with_diags(
       let origin = origin_from_node(child)
       Some(
         MarkdownIR::recovered(
-          "parse error",
+          RECOVERED_PARSE_ERROR,
           origin,
           diagnostics_in_origin(origin),
         ),
@@ -1334,7 +1337,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
-        "parse error",
+        RECOVERED_PARSE_ERROR,
         origin,
         diagnostics_in_origin(origin),
       )
@@ -2457,7 +2460,9 @@ fn canonical_format_with_list_marker(
     Link(children, destination, _) =>
       "[" + canonical_inline_text(children) + "](" + destination + ")"
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
-    Recovered(message, _) => "<!-- recovered MarkdownIR: " + message + " -->"
+    Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>
+      "<!-- recovered MarkdownIR: " + message + " -->"
+    Recovered(message, _) => message
   }
 }
 
