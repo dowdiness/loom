@@ -4,7 +4,10 @@ import {
   "dowdiness/lambda",
   "dowdiness/loom/incremental",
   "dowdiness/lambda/token",
+  "dowdiness/lambda/syntax",
   "dowdiness/seam",
   "moonbitlang/core/bench",
   "dowdiness/loom",
+  "dowdiness/lambda/spike",
+  "dowdiness/incr/cells",
 }
