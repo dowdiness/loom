@@ -155,10 +155,10 @@ fn CommonMarkSpecExample::outcome(self : CommonMarkSpecExample) -> AuditOutcome 
     diagnostics,
   )
   let actual = @markdown.experimental_markdown_ir_to_commonmark_html(ir)
-  if markdown_ir_contains_unsupported_or_recovered(ir) {
-    UnsupportedIr
-  } else if actual == self.html {
+  if actual == self.html {
     Pass
+  } else if markdown_ir_contains_unsupported_or_recovered(ir) {
+    UnsupportedIr
   } else if diagnostics.length() > 0 {
     ParserDiagnostics
   } else {
