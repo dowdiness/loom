@@ -26,12 +26,39 @@ fn convert_inline_children_skip(
   let inlines : Array[Inline] = []
   let mut pending_newline = false
   fn push_inline(item : Inline) -> Unit {
+    let was_pending = pending_newline
     if pending_newline {
+      // Trim trailing spaces from line before soft break
+      match inlines.last() {
+        Some(Inline::Text(value)) => {
+          let trimmed = value.trim_end(chars=" ".view()).to_owned()
+          if trimmed.length() != value.length() {
+            inlines[inlines.length() - 1] = Inline::Text(trimmed)
+          }
+        }
+        _ => ()
+      }
       match newline_text {
         Some(text) => inlines.push(Inline::Text(text))
         None => ()
       }
       pending_newline = false
+    }
+    // Trim leading spaces from line after soft break
+    let item = if was_pending {
+      match item {
+        Inline::Text(value) => {
+          let trimmed = value.trim_start(chars=" ".view()).to_owned()
+          if trimmed.length() != value.length() {
+            Inline::Text(trimmed)
+          } else {
+            item
+          }
+        }
+        _ => item
+      }
+    } else {
+      item
     }
     inlines.push(item)
   }
@@ -61,14 +88,38 @@ fn convert_inline_children_skip(
         }
       }
       @seam.SyntaxElement::Node(child) => {
+        let was_pending = pending_newline
         if pending_newline {
+          // Trim trailing spaces from line before soft break
+          match inlines.last() {
+            Some(Inline::Text(value)) => {
+              let trimmed = value.trim_end(chars=" ".view()).to_owned()
+              if trimmed.length() != value.length() {
+                inlines[inlines.length() - 1] = Inline::Text(trimmed)
+              }
+            }
+            _ => ()
+          }
           match newline_text {
             Some(text) => inlines.push(Inline::Text(text))
             None => ()
           }
           pending_newline = false
         }
+        let before = inlines.length()
         convert_inline_node(child, inlines)
+        // Trim leading spaces from first child after soft break
+        if was_pending && inlines.length() > before {
+          match inlines[before] {
+            Inline::Text(value) => {
+              let trimmed = value.trim_start(chars=" ".view()).to_owned()
+              if trimmed.length() != value.length() {
+                inlines[before] = Inline::Text(trimmed)
+              }
+            }
+            _ => ()
+          }
+        }
       }
     }
   }
@@ -108,6 +159,16 @@ fn convert_direct_inline_children_with_newline(
   let mut pending_newline = false
   fn flush_newline() -> Unit {
     if pending_newline {
+      // Trim trailing spaces from line before soft break
+      match inlines.last() {
+        Some(Inline::Text(value)) => {
+          let trimmed = value.trim_end(chars=" ".view()).to_owned()
+          if trimmed.length() != value.length() {
+            inlines[inlines.length() - 1] = Inline::Text(trimmed)
+          }
+        }
+        _ => ()
+      }
       inlines.push(Inline::Text(newline_text))
       pending_newline = false
     }
@@ -121,7 +182,14 @@ fn convert_direct_inline_children_with_newline(
           _ =>
             match inline_text_from_token_kind(tok_kind, tok.text()) {
               Some(text) => {
+                let was_pending = pending_newline
                 flush_newline()
+                // Trim leading spaces from line after soft break
+                let text = if was_pending {
+                  text.trim_start(chars=" ".view()).to_owned()
+                } else {
+                  text
+                }
                 inlines.push(Inline::Text(text))
               }
               None => ()
@@ -132,7 +200,20 @@ fn convert_direct_inline_children_with_newline(
         let converted : Array[Inline] = []
         convert_inline_node(child, converted)
         if converted.length() > 0 {
+          let was_pending = pending_newline
           flush_newline()
+          // Trim leading spaces from first child after soft break
+          if was_pending {
+            match converted[0] {
+              Inline::Text(value) => {
+                let trimmed = value.trim_start(chars=" ".view()).to_owned()
+                if trimmed.length() != value.length() {
+                  converted[0] = Inline::Text(trimmed)
+                }
+              }
+              _ => ()
+            }
+          }
           inlines.append(converted)
         }
       }
