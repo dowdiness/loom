@@ -149,7 +149,13 @@ test "grammar A and B reuse on a FLAT in-place edit (is the gap general?)" {
   let a_reuse = a.snapshot().read_or_abort().reuse_count
   let b_reuse = b.snapshot().read_or_abort().reuse_count
   println("flat in-place reuse: A=\{a_reuse} B=\{b_reuse}")
+  // The ADR's "the reuse gap is deep-subtree-specific, not general" claim rests
+  // on B reusing AS MUCH AS A here (A=8 B=8). Assert both reuse and that B
+  // matches A — if B regresses to less-than-A reuse on a shallow in-place edit,
+  // the gap is no longer deep-only and the ADR verdict must be revisited.
   assert_true(a_reuse > 0)
+  assert_true(b_reuse > 0)
+  assert_eq(a_reuse, b_reuse)
 }
 
 // ── Tier 1: Initial parse (context — where does B's overhead live?) ──
