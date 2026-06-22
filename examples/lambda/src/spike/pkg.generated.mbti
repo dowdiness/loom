@@ -91,9 +91,9 @@ pub struct E1Measurement {
 } derive(Eq, @debug.Debug)
 
 pub struct E2Measurement {
-  escape_hatch_count : Int
-  missing_combinators : Array[String]
-  escape_hatches : Array[(String, String)]
+  residue_count : Int
+  residues : Array[(String, String)]
+  grown_nodes : Array[String]
 } derive(@debug.Debug)
 
 pub struct EditStep {
