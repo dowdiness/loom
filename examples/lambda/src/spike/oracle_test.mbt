@@ -258,3 +258,18 @@ test "oracle: missing block delimiter emits same diagnostic count as A (P2 D2a)"
   inspect(a_diag.items().length() == b_diag.items().length(), content="true")
   inspect(a_diag.items().length() > 0, content="true")
 }
+
+///|
+test "oracle: semicolon block delimiter parses both defs matching A (P2 D2a)" {
+  // A's consume_delimiters accepts ';' (emitting SemicolonToken) as well as
+  // newlines (cst_parser.mbt:56-68), so this is a clean two-definition block.
+  // B's block RequireSep must accept both delimiter tokens with their distinct
+  // kinds, or it leaves the ';' unconsumed and stops before `let y = 2`.
+  let source = "fn f() { let x = 1; let y = 2 }"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  let b_grammar = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b_grammar.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+  inspect(a_diag.items().length() == b_diag.items().length(), content="true")
+}

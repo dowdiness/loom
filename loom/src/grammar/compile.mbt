@@ -38,8 +38,7 @@ pub enum CompiledExpr[T, K] {
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
   RequireSep(
-    Pred[T],
-    K,
+    Array[(T, K)],
     Pred[T],
     Pred[T],
     msg_alt~ : String,
@@ -170,8 +169,8 @@ fn[T, K] lower(
       CompiledExpr::ExpectSkip(skip, skip_kind, expected, kind)
     ConsumeGated(skip, skip_kind, look) =>
       CompiledExpr::ConsumeGated(skip, skip_kind, look)
-    RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~) =>
-      CompiledExpr::RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~)
+    RequireSep(delims, stop, alt, msg_alt~, msg_else~) =>
+      CompiledExpr::RequireSep(delims, stop, alt, msg_alt~, msg_else~)
     ErrorNodeUntil(kind, stop, msg) =>
       CompiledExpr::ErrorNodeUntil(kind, stop, msg)
     ManualNewlineAppExpr => CompiledExpr::ManualNewlineAppExpr

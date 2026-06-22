@@ -50,7 +50,7 @@ pub enum CompiledExpr[T, K] {
   DiagnoseIf(Pred[T], String)
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
-  RequireSep(Pred[T], K, Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
+  RequireSep(Array[(T, K)], Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
   ErrorNodeUntil(K, Pred[T], String)
   ManualNewlineAppExpr
   Empty
@@ -83,7 +83,7 @@ pub(all) enum Expr[T, K] {
   DiagnoseIf(Pred[T], String)
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
-  RequireSep(Pred[T], K, Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
+  RequireSep(Array[(T, K)], Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
   ErrorNodeUntil(K, Pred[T], String)
   ManualNewlineAppExpr
   Empty

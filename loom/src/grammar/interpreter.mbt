@@ -197,10 +197,11 @@ fn[
       })
     }
     // Require a separator run; if none preceded and `stop` does not hold, emit
-    // `msg_alt` when `alt` matches the current token, else `msg_else`.
-    RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~) => {
-      let had = skip.matches(ctx.peek())
-      ctx.consume_while_emit(t => skip.matches(t), skip_kind)
+    // `msg_alt` when `alt` matches the current token, else `msg_else`. The delim
+    // run emits each token with its own kind (newline vs `;`); the consumed
+    // count tells whether a separator preceded.
+    RequireSep(delims, stop, alt, msg_alt~, msg_else~) => {
+      let had = ctx.consume_while_emit_mapped(delims) > 0
       if !had && !stop.matches(ctx.peek()) {
         if alt.matches(ctx.peek()) {
           ctx.error(msg_alt)

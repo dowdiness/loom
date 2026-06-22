@@ -82,6 +82,35 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
+/// Consume a contiguous run of delimiter tokens, emitting each with its own
+/// mapped kind, and return how many were consumed. Unlike `consume_while_emit`
+/// (which emits the whole run as a single kind), this preserves a distinct CST
+/// kind per delimiter token — e.g. a block accepting both a newline and a `;`
+/// separator emits `NewlineToken` / `SemicolonToken` respectively. The returned
+/// count lets callers distinguish "a separator preceded" from "none did"
+/// without a pre-consume peek. Stops at the first token absent from `delims` or
+/// at EOF.
+pub fn[
+  T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] ParserContext::consume_while_emit_mapped(
+  self : ParserContext[T, K],
+  delims : Array[(T, K)],
+) -> Int {
+  let mut count = 0
+  while !self.at_eof() {
+    match delims.iter().find_first(d => d.0 == self.peek()) {
+      Some((_, kind)) => {
+        self.emit_token(kind)
+        count += 1
+      }
+      None => break
+    }
+  }
+  count
+}
+
+///|
 /// Consume the current token and emit it using the token's own raw kind.
 ///
 /// Use this only for grammars where the token raw kind is also the CST leaf

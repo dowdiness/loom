@@ -251,8 +251,10 @@ pub fn lambda_grammar_ir() -> @grammar.GrammarIr[
                     @grammar.Expr::Seq([
                       @grammar.Expr::Ref("definition"),
                       @grammar.Expr::RequireSep(
-                        @grammar.Pred::IsToken(@token.Newline),
-                        @syntax.NewlineToken,
+                        [
+                          (@token.Newline, @syntax.NewlineToken),
+                          (@token.Semicolon, @syntax.SemicolonToken),
+                        ],
                         @grammar.Pred::OneOf([@token.RBrace, @token.EOF]),
                         @grammar.Pred::Any,
                         msg_alt=block_delimiter_msg,
