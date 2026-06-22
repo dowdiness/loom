@@ -846,7 +846,7 @@ fn trim_setext_heading_children(
         let mut origin = child.origin()
         // Trim leading whitespace on first child
         if i == 0 {
-          let trimmed_view = value.trim_start(chars=" ".view())
+          let trimmed_view = value.trim_start(chars=" \t".view())
           let removed = value.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
@@ -858,7 +858,7 @@ fn trim_setext_heading_children(
         }
         // Trim trailing whitespace on last child
         if i == len - 1 {
-          let trimmed_view = trimmed.trim_end(chars=" ".view())
+          let trimmed_view = trimmed.trim_end(chars=" \t".view())
           let removed = trimmed.length() - trimmed_view.length()
           if removed > 0 {
             trimmed = trimmed_view.to_owned()
