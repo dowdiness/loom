@@ -190,10 +190,14 @@ pub fn lambda_grammar_ir() -> @grammar.GrammarIr[
     // Expression = binary (no if-then-else in the spike scope).
     "expression": @grammar.Expr::Ref("binary"),
     // Pratt binary: left-associative + and - over applications.
-    "binary": @grammar.Expr::PrattBinary("application", @syntax.BinaryExpr, [
-      (@token.Plus, @syntax.PlusToken),
-      (@token.Minus, @syntax.MinusToken),
-    ]),
+    "binary": @grammar.Expr::PrattBinary(
+      "application",
+      @syntax.BinaryExpr,
+      [(@token.Plus, @syntax.PlusToken), (@token.Minus, @syntax.MinusToken)],
+      // Soft newlines before +/- are consumed (gated on an operator following),
+      // mirroring A's consume_soft_newlines_before_binary_operator.
+      skip=Some((@grammar.Pred::IsToken(@token.Newline), @syntax.NewlineToken)),
+    ),
     // Pratt application: left-associative juxtaposition of atoms.
     "application": @grammar.Expr::PrattApp(
       "atom",

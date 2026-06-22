@@ -54,8 +54,13 @@ pub(all) enum Expr[T, K] {
   /// run in the node kind. No-op when the first atom stands alone.
   PrattApp(RuleName, K, Pred[T])
   /// Pratt binary: parse the prefix rule, then consume operator/prefix pairs
-  /// while the peek matches an op token, wrapping in the binary kind.
-  PrattBinary(RuleName, K, Array[(T, K)])
+  /// while the peek matches an op token, wrapping in the binary kind. `skip`
+  /// (when `Some`) consumes a gated run of separator tokens (e.g. soft
+  /// newlines) before each operator check, emitting them as the given kind —
+  /// gated on an operator from the table following, so a separator that does
+  /// NOT precede an operator (a statement break) is left intact. The lookahead
+  /// is the op table itself; `None` disables skipping.
+  PrattBinary(RuleName, K, Array[(T, K)], skip~ : (Pred[T], K)?)
   /// Repeat the body while the predicate holds.
   RepeatWhile(Pred[T], Expr[T, K])
   /// Capture an entry mark and peek: if the next token matches the predicate,

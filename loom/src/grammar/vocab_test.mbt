@@ -248,3 +248,59 @@ test "RepeatTopLevel diagnoses a missing delimiter between items" {
   )
   inspect(diags.length(), content="1")
 }
+
+///|
+/// Pins the REAL @grammar interpreter's PrattBinary skip behavior — the lambda
+/// oracle exercises only the probe, so without this the real arm is unverified.
+/// `[Int Skip Word Int]` = operand, soft separator, operator, operand. With
+/// `skip=Some`, the gated consume (lookahead = the op table) reaches the
+/// operator, the binary forms over all four tokens, EOF follows → 0 diagnostics.
+/// With `skip=None` the operator is never reached and `Skip Word Int` is
+/// trailing garbage → 1 diagnostic — the pre-fix behavior, which doubles as this
+/// test's positive control.
+test "PrattBinary skip spans a gated separator before the operator (real interpreter)" {
+  let tokens = [
+    tok(TestToken::Int),
+    tok(TestToken::Skip),
+    tok(TestToken::Word),
+    tok(TestToken::Int),
+    tok(TestToken::EOF),
+  ]
+  fn rules(
+    skip : (Pred[TestToken], TestKind)?,
+  ) -> Map[RuleName, Expr[TestToken, TestKind]] {
+    {
+      "source": Expr::Seq([
+        Expr::Ref("binary"),
+        Expr::Choice([
+          Alt::{ starts: Pred::IsToken(TestToken::EOF), body: Expr::Empty },
+          Alt::{
+            starts: Pred::Any,
+            body: Expr::ErrorNodeUntil(
+              TestKind::Error,
+              Pred::IsToken(TestToken::EOF),
+              "trailing",
+            ),
+          },
+        ]),
+      ]),
+      "binary": Expr::PrattBinary(
+        "atom",
+        TestKind::WordNode,
+        [(TestToken::Word, TestKind::WordToken)],
+        skip~,
+      ),
+      "atom": Expr::Emit(TestToken::Int, TestKind::IntToken),
+    }
+  }
+
+  let with_skip = vocab_diags(
+    rules(Some((Pred::IsToken(TestToken::Skip), TestKind::SkipKind))),
+    "source",
+    tokens,
+    "iswi",
+  )
+  inspect(with_skip.length(), content="0")
+  let without_skip = vocab_diags(rules(None), "source", tokens, "iswi")
+  inspect(without_skip.length(), content="1")
+}
