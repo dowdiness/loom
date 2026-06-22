@@ -12,5 +12,4 @@ members = [
   "./examples/moonbit",
   "./incr/incr",
   "./event-graph-walker",
-  "./egraph",
 ]

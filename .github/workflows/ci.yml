@@ -141,8 +141,6 @@ jobs:
             path: incr
           - name: event-graph-walker
             path: event-graph-walker
-          - name: egraph
-            path: egraph
     steps:
       - name: Checkout
         uses: actions/checkout@v5
