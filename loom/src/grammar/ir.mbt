@@ -63,10 +63,6 @@ pub(all) enum Expr[T, K] {
   /// inner expr unwrapped. The mark is captured by the interpreter at node
   /// entry (no static mark in the IR).
   WrapIfNext(K, Pred[T], Expr[T, K])
-  /// Repeat the body while the predicate holds, then — if fewer than `min`
-  /// iterations ran — emit `missing_message` (when present). Reifies the
-  /// counted-delimiter-with-conditional-diagnostic escape hatch.
-  CountedRepeat(Pred[T], Expr[T, K], min~ : Int, missing_message~ : String?)
   /// Emit a diagnostic without creating an error node or placeholder.
   EmitError(String)
   /// Emit an error node consuming until the stop predicate holds.

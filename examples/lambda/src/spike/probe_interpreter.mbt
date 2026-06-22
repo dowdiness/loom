@@ -204,11 +204,6 @@ fn ProbeEnv::run(
     }
     // Residue: recursive newline-application mode (spec §5.1).
     ManualNewlineAppExpr => self.parse_newline_app(ctx)
-    // Unused by lambda; mirror `@grammar`'s loud placeholder.
-    CountedRepeat(_, _, min=_, missing_message=_) => {
-      ctx.error("grammar: CountedRepeat not interpreted by the lambda probe")
-      ctx.emit_error_placeholder()
-    }
   }
 }
 

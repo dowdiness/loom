@@ -36,11 +36,11 @@ pub fn[
 /// is an array index rather than a map lookup. Predicates are reified `Pred`
 /// data tested with `Pred::matches`, never host closures.
 ///
-/// Covers the core and incremental-reuse nodes. The counted `CountedRepeat`
-/// (escape-hatch reification stage) and the `ManualNewlineAppExpr` residue
-/// (evidence-gated) are not interpreted here; reaching one surfaces a
-/// diagnostic placeholder so a grammar that uses them before those stages
-/// exist fails loudly instead of silently producing a wrong tree.
+/// Covers the core and incremental-reuse nodes. The `ManualNewlineAppExpr`
+/// residue (the lone irreducible escape hatch, evidence-gated by the lambda
+/// spike probe — spec §5.3) is not interpreted here; reaching it surfaces a
+/// diagnostic placeholder so a grammar that uses it via the minimal contract
+/// fails loudly instead of silently producing a wrong tree.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
@@ -204,8 +204,10 @@ fn[
       }
       ctx.finish_node()
     }
-    CountedRepeat(_, _, min=_, missing_message=_) | ManualNewlineAppExpr => {
-      ctx.error("grammar: expression not yet interpreted by this stage")
+    ManualNewlineAppExpr => {
+      ctx.error(
+        "grammar: ManualNewlineAppExpr is a residue — interpret it with a language-specific probe, not the minimal contract",
+      )
       ctx.emit_error_placeholder()
     }
   }

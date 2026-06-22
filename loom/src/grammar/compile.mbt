@@ -30,12 +30,6 @@ pub enum CompiledExpr[T, K] {
   PrattBinary(Int, K, Array[(T, K)])
   RepeatWhile(Pred[T], CompiledExpr[T, K])
   WrapIfNext(K, Pred[T], CompiledExpr[T, K])
-  CountedRepeat(
-    Pred[T],
-    CompiledExpr[T, K],
-    min~ : Int,
-    missing_message~ : String?
-  )
   EmitError(String)
   ErrorUntil(Pred[T], String)
   Fail(String)
@@ -167,13 +161,6 @@ fn[T, K] lower(
       CompiledExpr::RepeatWhile(pred, lower(body, slot_of))
     WrapIfNext(k, pred, body) =>
       CompiledExpr::WrapIfNext(k, pred, lower(body, slot_of))
-    CountedRepeat(pred, body, min~, missing_message~) =>
-      CompiledExpr::CountedRepeat(
-        pred,
-        lower(body, slot_of),
-        min~,
-        missing_message~,
-      )
     EmitError(msg) => CompiledExpr::EmitError(msg)
     ErrorUntil(pred, msg) => CompiledExpr::ErrorUntil(pred, msg)
     Fail(msg) => CompiledExpr::Fail(msg)
