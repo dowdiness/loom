@@ -58,7 +58,6 @@ jobs:
           - name: egraph
             path: egraph
     env:
-      NEW_MOON_MOD: '0'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -120,7 +119,6 @@ jobs:
           - name: egraph
             path: egraph
     env:
-      NEW_MOON_MOD: '0'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
