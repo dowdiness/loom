@@ -817,6 +817,71 @@ fn lower_inline_node_with_diags(
 }
 
 ///|
+fn is_setext_heading(node : @seam.SyntaxNode) -> Bool {
+  match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
+    Some(marker) => count_hashes(marker.text(), 0) == 0
+    None => false
+  }
+}
+
+///|
+/// Trim leading and trailing whitespace from setext heading inline children.
+/// CommonMark spec: leading indentation (up to 3 spaces) and trailing
+/// whitespace on content lines are not part of the heading's text content.
+/// Also adjusts each child's origin so that position-aware consumers (mdast,
+/// content-origin) receive ranges that match the trimmed text value.
+fn trim_setext_heading_children(
+  children : Array[MarkdownIR],
+) -> Array[MarkdownIR] {
+  let len = children.length()
+  if len == 0 {
+    return children
+  }
+  let result : Array[MarkdownIR] = []
+  for i = 0; i < len; i = i + 1 {
+    let child = children[i]
+    let modified = match child.node {
+      Text(value) => {
+        let mut trimmed = value
+        let mut origin = child.origin()
+        // Trim leading whitespace on first child
+        if i == 0 {
+          let trimmed_view = value.trim_start(chars=" ".view())
+          let removed = value.length() - trimmed_view.length()
+          if removed > 0 {
+            trimmed = trimmed_view.to_owned()
+            origin = MarkdownIROrigin(
+              start=origin.start() + removed,
+              end=origin.end(),
+            )
+          }
+        }
+        // Trim trailing whitespace on last child
+        if i == len - 1 {
+          let trimmed_view = trimmed.trim_end(chars=" ".view())
+          let removed = trimmed.length() - trimmed_view.length()
+          if removed > 0 {
+            trimmed = trimmed_view.to_owned()
+            origin = MarkdownIROrigin(
+              start=origin.start(),
+              end=origin.end() - removed,
+            )
+          }
+        }
+        if trimmed.length() != value.length() {
+          { node: Text(trimmed), origin }
+        } else {
+          child
+        }
+      }
+      _ => child
+    }
+    result.push(modified)
+  }
+  result
+}
+
+///|
 fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
   match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
     Some(marker) => {
@@ -1262,13 +1327,18 @@ fn experimental_markdown_ir_fold_node_with_diags(
           node, "\n", diagnostics_in_origin,
         ),
       )
+      let content_children = if is_setext_heading(node) {
+        trim_setext_heading_children(children)
+      } else {
+        children
+      }
       match heading_depth_from_marker(node) {
         Some(depth) =>
           MarkdownIR::heading(
             depth,
-            children,
+            content_children,
             origin_from_node(node),
-            span_origin_of_children(children),
+            span_origin_of_children(content_children),
           )
         None =>
           MarkdownIR::unsupported(
