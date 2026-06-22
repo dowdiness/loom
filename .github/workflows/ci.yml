@@ -86,8 +86,6 @@ jobs:
         include:
           - name: egglog
             path: egglog
-          - name: egraph
-            path: egraph
     env:
       NEW_MOON_MOD: '0'
     steps:
@@ -143,6 +141,8 @@ jobs:
             path: incr
           - name: event-graph-walker
             path: event-graph-walker
+          - name: egraph
+            path: egraph
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -180,8 +180,6 @@ jobs:
         include:
           - name: egglog
             path: egglog
-          - name: egraph
-            path: egraph
     env:
       NEW_MOON_MOD: '0'
     steps:
