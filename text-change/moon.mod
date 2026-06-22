@@ -1,0 +1,15 @@
+name = "dowdiness/text_change"
+
+version = "0.1.0"
+
+import {
+  "dowdiness/moji@0.1.0",
+}
+
+repository = "https://github.com/dowdiness/loom"
+
+license = "Apache-2.0"
+
+keywords = [ "text", "diff", "moonbit" ]
+
+description = "Pure contiguous text-change utilities shared across modules"

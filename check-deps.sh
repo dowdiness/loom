@@ -31,9 +31,9 @@ echo ""
 echo "Rule 1: engine packages must not import dowdiness/loom/projection"
 
 ENGINE_PKGS=(
-  "loom/src/core"
-  "loom/src/incremental"
-  "loom/src/pipeline"
+  "loom/core"
+  "loom/incremental"
+  "loom/pipeline"
 )
 
 for pkg in "${ENGINE_PKGS[@]}"; do

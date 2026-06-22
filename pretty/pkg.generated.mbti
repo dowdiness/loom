@@ -96,13 +96,13 @@ pub impl Show for SyntaxCategory
 
 // Traits
 pub(open) trait Pretty {
-  to_layout(Self) -> Layout[SyntaxCategory]
+  fn to_layout(Self) -> Layout[SyntaxCategory]
 }
 
 pub(open) trait Printable : Show + @debug.Debug + Source + Pretty {
 }
 
 pub(open) trait Source {
-  to_source(Self) -> String
+  fn to_source(Self) -> String
 }
 
