@@ -140,21 +140,24 @@ fn load_spec_examples(path : String) -> Array[CommonMarkSpecExample] raise {
 fn markdown_ir_contains_unsupported_or_recovered(
   ir : @markdown.MarkdownIR,
 ) -> Bool {
+  ir.is_raw() ||
   ir.is_recovered() ||
-  ir.kind_tag() == "Unsupported" ||
+  ir.is_unsupported() ||
   ir.children().any(markdown_ir_contains_unsupported_or_recovered)
 }
 
 ///|
 fn CommonMarkSpecExample::outcome(self : CommonMarkSpecExample) -> AuditOutcome {
   let (cst, diagnostics) = @markdown.parse_cst(self.markdown) catch {
-    _ => return LexError
+    @core.LexError(_) => return LexError
   }
   let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
   let actual = @markdown.experimental_markdown_ir_to_commonmark_html(ir)
+  // Pass is based on rendered CommonMark HTML parity; recovery-assisted
+  // examples can still count as pass when the output matches the spec.
   if actual == self.html {
     Pass
   } else if markdown_ir_contains_unsupported_or_recovered(ir) {

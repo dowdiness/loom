@@ -384,6 +384,14 @@ pub fn MarkdownIR::is_recovered(self : MarkdownIR) -> Bool {
 }
 
 ///|
+pub fn MarkdownIR::is_unsupported(self : MarkdownIR) -> Bool {
+  match self.node {
+    Unsupported(_) => true
+    _ => false
+  }
+}
+
+///|
 pub fn MarkdownIR::diagnostics(self : MarkdownIR) -> Array[@core.Diagnostic] {
   match self.node {
     Raw(_, diagnostics) | Recovered(_, diagnostics) => diagnostics.copy()
