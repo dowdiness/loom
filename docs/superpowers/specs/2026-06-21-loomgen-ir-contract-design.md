@@ -100,6 +100,53 @@ The spike's four `Manual*` variants and the stubbed `WrapIfNext` are lambda-spec
 
 The minimal contract "graduates" when, for each escape hatch, we either (a) reify it to a named node **and D1/D2a/D2b still pass**, or (b) record it as residue with a `DivergenceClass`. No `Opaque` is added to force (a).
 
+### 5.3 Grow-vocabulary outcome (2026-06-22 execution)
+
+§5.1's "reduces" predictions assumed reification with the *existing* combinators
+(`Choice`/`Node`/`Seq`/`CountedRepeat`). Tracing against the now-on-disk spike
+falsified that: `parse_definition_ir`/`parse_param_list_exact`/
+`parse_block_delimiter_check` use **soft-newline-aware** behavior (consume soft
+newlines before a required token; consume newlines before an expression gated on
+a lookahead; a conditional `let (` diagnostic) that `Emit`/`Expect`/`Seq` cannot
+express. Concrete: fixture `"let x =\n1"` — a plain `Seq([…,Expect(Eq),Ref(expr)])`
+hits the atom `Choice`'s `ErrorUntil` on the newline (a sync point) and diverges.
+The spike's own E1/E2 had already classified these three as escape hatches.
+
+**Decision (user, 2026-06-22):** *grow the reified vocabulary* (monogram §4 — grow
+the vocabulary, never a procedural valve) rather than accept residue. Each new
+node reifies an **existing, tested `ParserContext` method** (loom#434–436 +
+#279), so no new parser behavior is introduced — only IR surface. Codex-validated
+(2 rounds, FAIL→PASS-with-fixes):
+
+| New `Expr[T,K]` node | Reifies | Engine method |
+|---|---|---|
+| `Fail(String)` | `error`+placeholder fallback | `error`/`emit_error_placeholder` |
+| `EmitOr(T,K,String)` | emit-token-or-diagnose (let/fn names) | `at`/`emit_token` + `Fail` |
+| `DiagnoseIf(Pred,String)` | conditional diagnostic, no consume | `peek`/`error` |
+| `ExpectSkip(Pred,K,T,K)` | soft-newline-aware `=`/`)`/`}` (`spike_expect`) | `expect_after_skip` |
+| `ConsumeGated(Pred,K,Pred)` | soft newline before an expression | `consume_while_emit_if` |
+| `RequireSep(Pred,K,Pred,Pred,String,String)` | block + top-level delimiter check (2 msgs) | `consume_while_emit` + count==0 guard |
+| `ErrorNodeUntil(K,Pred,String)` | trailing-garbage `ErrorNode` (EOF-guarded) | `start_node`/`bump_error`/`finish_node` |
+
+`SeparatedList` was considered and **dropped** — `ctx.separated_list` needs the
+private `position` accessor, emits separators with raw token kind (not lambda's
+`CommaToken`), and uses generic messages; the param-list comma-loop reifies
+directly via `Choice`/`RepeatWhile` + `EmitOr`/`Fail`/`EmitError` instead.
+`RepeatTopLevel` is **enriched** to carry delimiter handling (it must consume
+delimiters after a `try_reuse_repeat_group()` hit too, else multi-definition
+reuse exits the loop early). Reductions:
+
+- `ManualParamList` → `WrapIfNext(ParamList, IsToken(LeftParen), Seq[Emit(LeftParen), <Choice/RepeatWhile comma-loop>, ExpectSkip(…,RightParen)])`
+- `ManualDefinition` → `Choice[Alt(Let, Node(LetDef, Seq[Emit, EmitOr, DiagnoseIf, ExpectSkip, ConsumeGated, Ref(expr)])), Alt(Fn, Node(LetDef, Seq[Emit, EmitOr, Choice(paramlist|Fail), Choice(body|Fail)]))]`
+- `ManualBlockDelimiterCheck` → `RequireSep(IsToken(Newline), NewlineToken, OneOf[RBrace,EOF], …)`
+- top-level garbage → `Choice[Alt(EOF,Empty), Alt(Any, ErrorNodeUntil(ErrorNode, IsToken(EOF), …))]`
+
+Only `ManualNewlineAppExpr` remains residue (§5.1's lone irreducible), handled by
+the Task 8 evidence-gated probe. Findings #1 (`ExpectSkip` diag/EOF) and #4 (block
+semicolon) are non-blockers — the spike-B already uses these exact methods and
+passes 65/65 vs A; they become Task-9 watch-items only if the oracle expands
+beyond the spike fixture slice.
+
 ---
 
 ## 6. Backend story: a/b/c → (c), one reified IR

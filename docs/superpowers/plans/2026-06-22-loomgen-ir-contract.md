@@ -611,71 +611,37 @@ expect: PASS
 
 - [ ] Commit: `git add loom/src/grammar && git commit -m "Interpret incremental grammar nodes"`.
 
-### Task 6: Reify Reducible Lambda Escape Hatches
+### Task 6: Add Lambda Vocabulary To `@grammar`
+
+Code snippets in Tasks 6-10 are illustrative; executor fixes MoonBit surface details while preserving behavior (`min=_` patterns, manual `Show`, `@seam.RawKind(n)` wrapping, and generated interface spelling).
 
 **Files**
 
 - Modify `loom/src/grammar/ir.mbt`
+- Modify `loom/src/grammar/compile.mbt`
 - Modify `loom/src/grammar/interpreter.mbt`
-- Create `loom/src/grammar/counted_repeat_test.mbt`
-- Modify `examples/lambda/src/spike/lambda_ir.mbt`
-- Modify `examples/lambda/src/spike/interpreter.mbt`
+- Create or modify blackbox `loom/src/grammar/*_test.mbt`
 
 **Interfaces**
 
-- Consumes embedded spike hatches `ManualParamList`, `ManualDefinition`, and `ManualBlockDelimiterCheck`.
-- Produces generic `WrapIfNext(K, Pred[T], Expr[T,K])` use for parameter lists.
-- Produces generic `Node(K, Seq([...]))` plus `Choice` use for definitions.
-- Produces generic `CountedRepeat(Pred[T], Expr[T,K], min~ : Int, missing_message~ : String?)` use for block delimiter checks.
+- Extends `pub enum Expr[T,K]` with `Fail`, `EmitOr`, `DiagnoseIf`, `ExpectSkip`, `ConsumeGated`, `RequireSep`, and `ErrorNodeUntil`.
+- Extends `pub enum CompiledExpr[T,K]` and `lower()` with the same seven nodes, preserving `Ref` to `RefSlot(Int)` lowering.
+- Enriches `RepeatTopLevel` from `(item, starts, tail)` to a delimiter-aware form such as `RepeatTopLevel(item : RuleName, starts : Pred[T], delim : Pred[T], delim_kind : K, between : Pred[T], between_msg : String, after_msg : String)`.
+- Open question: keep this enriched signature or split a dedicated top-level node from the simpler `RepeatTopLevel`; either way, delimiter consumption after reuse hits is required.
 
-- [ ] Write failing grammar package test in `loom/src/grammar/counted_repeat_test.mbt`:
-
-```moonbit
-test "CountedRepeat emits configured error when minimum is not reached" {
-  let expr : Expr[TestToken, TestKind] = Expr::CountedRepeat(
-    Pred::IsToken(TestToken::Int),
-    Expr::Emit(TestToken::Int, TestKind::IntToken),
-    min=1,
-    missing_message=Some("expected at least one int"),
-  )
-  let rules : Map[RuleName, Expr[TestToken, TestKind]] = { "source": expr }
-  let parse_root = interpret(GrammarIr::GrammarIr(rules, root="source"))
-  let spec = @core.LanguageSpec::new(
-    TestKind::Root,
-    TestKind::Error,
-    TestKind::Root,
-    TestToken::EOF,
-    incomplete_kind=TestKind::Incomplete,
-    parse_root=parse_root,
-  )
-  let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
-  let ctx = @core.ParserContext::new(tokens, "", spec)
-  parse_root(ctx)
-  inspect(true, content="true")
-}
-```
-
-- [ ] Run `moon test -p dowdiness/loom/grammar`; expect FAIL because `CountedRepeat` is not interpreted.
-
-```text
-$ moon test -p dowdiness/loom/grammar
-expect: FAIL, unsupported CountedRepeat
-```
-
-- [ ] Implement `CountedRepeat`: count each successful `pred.test(ctx.peek())` iteration; run the body; after the loop, if `count < min` and `missing_message` is `Some(msg)`, call `ctx.error(msg)` and `ctx.emit_error_placeholder()`.
-- [ ] Run `moon check`; expect PASS.
-- [ ] Run `moon test -p dowdiness/loom/grammar`; expect PASS.
-- [ ] In `examples/lambda/src/spike/lambda_ir.mbt`, replace `ManualParamList` with `Expr::WrapIfNext(@syntax.ParamList, Pred::IsToken(@token.LeftParen), Expr::Seq([...]))`.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] In `examples/lambda/src/spike/lambda_ir.mbt`, replace `ManualDefinition` with `Expr::Choice([Alt::Alt(starts=Pred::IsToken(@token.Let), body=...), Alt::Alt(starts=Pred::IsToken(@token.Fn), body=...)])`, using `Expr::Node(@syntax.LetDef, Expr::Seq([...]))` for the let arm.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] In `examples/lambda/src/spike/lambda_ir.mbt`, replace `ManualBlockDelimiterCheck` with `Expr::CountedRepeat(Pred::Not(Pred::OneOf([@token.RBrace, @token.EOF])), body, min=0, missing_message=Some("expected block delimiter"))`.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Delete now-unused `ManualParamList`, `ManualDefinition`, and `ManualBlockDelimiterCheck` dispatch from `examples/lambda/src/spike/interpreter.mbt`.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS for existing non-newline oracle fixtures.
-- [ ] Run `moon info && moon fmt`; expect PASS.
-- [ ] Commit: `git add loom/src/grammar examples/lambda/src/spike && git commit -m "Reify reducible lambda grammar hatches"`.
+- [ ] Write failing blackbox tests routed through `@core.parse_with(src, spec, lex, parse_root)` and `diagnostics.is_empty()`; one test per new node, plus one `RepeatTopLevel` reuse/delimiter test.
+- [ ] For `Fail`, expect FAIL until the node calls `error(msg)` and `emit_error_placeholder()`.
+- [ ] For `EmitOr(T,K,msg)`, expect FAIL until success emits `K` at `T` and failure emits the diagnostic placeholder.
+- [ ] For `DiagnoseIf(Pred,msg)`, expect FAIL until matching `peek()` records a diagnostic without consuming.
+- [ ] For `ExpectSkip(skip, skip_kind, expected, kind)`, expect FAIL until it delegates to `expect_after_skip(t => skip.matches(t), skip_kind, expected, kind)`.
+- [ ] For `ConsumeGated(skip, skip_kind, lookahead)`, expect FAIL until it delegates to `consume_while_emit_if(t => skip.matches(t), skip_kind, t => lookahead.matches(t))`.
+- [ ] For `RequireSep(skip, skip_kind, stop, alt, msg_alt, msg_else)`, expect FAIL until it consumes skip tokens with `consume_while_emit`, then emits `msg_alt` when `alt` matches or `msg_else` otherwise if no separator was present and `stop` is false.
+- [ ] For `ErrorNodeUntil(error_kind, stop, msg)`, expect FAIL until it records `msg`, starts `error_kind`, bumps errors until `stop.matches(peek())`, and finishes the node; callers must guard EOF/stop with `Choice`.
+- [ ] For enriched `RepeatTopLevel`, write the RED around `try_reuse_repeat_group()` followed by delimiter consumption, so a reused first definition does not prematurely exit before a later definition.
+- [ ] Run `NEW_MOON_MOD=0 moon check -p src/grammar`; expect FAIL before implementation, then PASS after each node is implemented.
+- [ ] Run `NEW_MOON_MOD=0 moon test -p dowdiness/loom/grammar`; expect each new RED to turn GREEN through `parse_with` + `is_empty`.
+- [ ] Run `NEW_MOON_MOD=0 moon info && moon fmt`; expect PASS.
+- [ ] Commit: `git add loom/src/grammar && git commit -m "Expand grammar IR contract"`.
 
 ### Task 7: Port Lambda Spike To `@grammar`
 
@@ -689,71 +655,26 @@ expect: FAIL, unsupported CountedRepeat
 
 **Interfaces**
 
-- Consumes `pub enum @grammar.Expr[T,K]`.
-- Consumes `pub enum @grammar.Pred[T]`.
-- Consumes `pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] @grammar.interpret(@grammar.GrammarIr[T,K]) -> ((@core.ParserContext[T,K]) -> Unit) raise @grammar.GrammarCompileError`.
-- Produces `pub fn build_b_syntax_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]`.
+- Consumes `@grammar.Expr[@token.Token,@syntax.SyntaxKind]`, `@grammar.Pred[@token.Token]`, string `@grammar.RuleName`, and `@grammar.interpret`.
+- Produces B grammar through the shared `@grammar` interpreter, not the spike-local closure IR.
+- Deletes hand functions `parse_definition_ir`, `parse_param_list_exact`, `parse_block_delimiter_check`, and all `Manual*` dispatch arms except `ManualNewlineAppExpr` residue.
 
-- [ ] Add `dowdiness/loom/grammar` to `examples/lambda/src/spike/moon.pkg`:
-
-```moonbit
-import {
-  "dowdiness/lambda",
-  "dowdiness/lambda/token",
-  "dowdiness/lambda/syntax",
-  "dowdiness/lambda/lexer",
-  "dowdiness/loom",
-  "dowdiness/loom/core",
-  "dowdiness/loom/grammar",
-  "dowdiness/loom/pipeline",
-  "dowdiness/seam",
-  "dowdiness/incr/cells",
-}
-```
-
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Write failing adapter test in `examples/lambda/src/spike/ported_ir_test.mbt`:
-
-```moonbit
-test "lambda spike builds parser from shared grammar IR" {
-  let grammar = build_b_syntax_grammar()
-  let (_, diagnostics) = grammar.parse_cst("let x = 1")
-  inspect(diagnostics.is_empty(), content="true")
-}
-```
-
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because spike still uses local IR/interpreter.
-- [ ] Replace spike-local `RuleId` with string `@grammar.RuleName` values: `"source"`, `"definition"`, `"expression"`, `"binary"`, `"application"`, `"atom"`, and `"param_list"`.
-- [ ] Rewrite every declarative predicate closure to `@grammar.Pred`: `Any`, `IsToken`, `OneOf`, and `Not`. Do not add any closure or `Opaque` variant.
-- [ ] Replace the seven fixed `GrammarIr` fields with `Map[@grammar.RuleName, @grammar.Expr[@token.Token, @syntax.SyntaxKind]]`.
-- [ ] Build B with the shared interpreter:
-
-```moonbit
-pub fn build_b_syntax_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] {
-  let ir = build_lambda_ir()
-  let parse_root = @grammar.interpret(ir)
-  let spec = @core.LanguageSpec::new(
-    @syntax.SourceFile,
-    @syntax.ErrorNode,
-    @syntax.SourceFile,
-    @token.EOF,
-    incomplete_kind=@syntax.ErrorNode,
-    parse_root=parse_root,
-  )
-  @loom.SyntaxGrammar::new(
-    spec=spec,
-    lex=@lexer.lex,
-    incremental_relex_enabled=false,
-    block_reparse_spec=None,
-  )
-}
-```
-
-- [ ] Keep only `ManualNewlineAppExpr` as the lambda-specific residue path; all other `Manual*` constructors must be gone from lambda spike code.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS or newline-only oracle failures classified in Task 8.
-- [ ] Run `moon info && moon fmt`; expect PASS.
-- [ ] Commit: `git add examples/lambda/src/spike && git commit -m "Port lambda spike to shared grammar IR"`.
+- [ ] Add `dowdiness/loom/grammar` to `examples/lambda/src/spike/moon.pkg`.
+- [ ] Write a failing adapter test that parses `"let x = 1"` through `build_b_syntax_grammar()` and asserts `diagnostics.is_empty()`.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect FAIL until B uses the shared IR.
+- [ ] Replace spike-local `RuleId` with string rule names: `"source"`, `"definition"`, `"expression"`, `"binary"`, `"application"`, `"atom"`, and `"param_list"`.
+- [ ] Rewrite all closure predicates to `@grammar.Pred::{Any,IsToken,OneOf,Not}`; do not add `Opaque` or host closures.
+- [ ] Port `ManualParamList` to `WrapIfNext(ParamList, IsToken(LeftParen), Seq[Emit(LeftParen), Choice/RepeatWhile comma-loop, ExpectSkip(..., RightParen)])`; do not introduce `SeparatedList`.
+- [ ] Port `ManualDefinition` to `Choice` over `Let` and `Fn` arms using `Node`, `Seq`, `EmitOr`, `DiagnoseIf`, `ExpectSkip`, `ConsumeGated`, and `Fail` as needed.
+- [ ] Port `ManualBlockDelimiterCheck` to `RequireSep(IsToken(Newline), NewlineToken, OneOf([RBrace, EOF]), alt, msg_alt, msg_else)`.
+- [ ] Move top-level trailing garbage out of `RepeatTopLevel` into source-rule composition with `Choice[Alt(EOF, Empty), Alt(Any, ErrorNodeUntil(ErrorNode, IsToken(EOF), msg))]`.
+- [ ] Keep `parse_newline_app_expr` and `ManualNewlineAppExpr` only; delete all other `Manual*` constructors and dispatch.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon check -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect PASS or newline-only failures deferred to Task 8.
+- [ ] Run `NEW_MOON_MOD=0 moon check -p src/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon test -p dowdiness/loom/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon info && moon fmt`; expect PASS.
+- [ ] Commit: `git add examples/lambda/src/spike loom/src/grammar && git commit -m "Port lambda spike to shared grammar IR"`.
 
 ### Task 8: Evidence-Gate `ManualNewlineAppExpr`
 
@@ -768,32 +689,22 @@ pub fn build_b_syntax_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.Syn
 **Interfaces**
 
 - Consumes `pub enum DivergenceClass { NoDivergence; ReplicationResidual(String); WrongModelStop(String) } derive(Eq, Debug)` from the spike, preserving this public shape.
-- Produces one attempted reification branch for newline application.
+- Produces one probe-only attempted reification for newline application.
 - Produces one fallback branch that records residue and leaves lambda using the hand path if parity fails.
 
-- [ ] Write failing oracle test in `examples/lambda/src/spike/newline_app_reification_test.mbt`:
-
-```moonbit
-test "newline application reification attempt is evidence gated" {
-  let result = run_newline_application_reification_probe()
-  match result.divergence {
-    DivergenceClass::NoDivergence => ()
-    DivergenceClass::ReplicationResidual(_) => ()
-    DivergenceClass::WrongModelStop(_) => ()
-  }
-}
-```
-
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL because `run_newline_application_reification_probe` is missing.
-- [ ] Add a probe-only attempted reification using an interpreter mode stack, not a committed public `@grammar` feature. The mode stack has exactly two modes: `AllowNewlineApplication` and `DisallowNewlineApplication`.
-- [ ] Route recursive expression refs in the probe through the mode stack and compare only the newline-application fixtures against the hand path.
-- [ ] If D1/D2a/D2b pass for the probe, replace `ManualNewlineAppExpr` in `lambda_ir.mbt` with the reified mode-stack expression and set `DivergenceClass::NoDivergence`.
-- [ ] If any parity check fails, leave `ManualNewlineAppExpr` in `lambda_ir.mbt`, delete the probe from production dispatch, and record `DivergenceClass::ReplicationResidual("ManualNewlineAppExpr requires parameterized recursive mode")` in the oracle result.
+- [ ] Write failing oracle test in `examples/lambda/src/spike/newline_app_reification_test.mbt` that calls `run_newline_application_reification_probe()` and accepts `NoDivergence`, `ReplicationResidual`, or `WrongModelStop`.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect FAIL because the probe is missing.
+- [ ] Add a probe-only attempted reification using an interpreter mode stack, not a committed public `@grammar` feature; modes are exactly `AllowNewlineApplication` and `DisallowNewlineApplication`.
+- [ ] Route recursive expression refs in the probe through the mode stack and compare only newline-application fixtures against the hand path.
+- [ ] If D1/D2a/D2b pass for the probe, replace `ManualNewlineAppExpr` in `lambda_ir.mbt` with the reified expression and set `DivergenceClass::NoDivergence`.
+- [ ] If any parity check fails, leave `ManualNewlineAppExpr` in `lambda_ir.mbt`, delete probe-only production dispatch, and record `DivergenceClass::ReplicationResidual("ManualNewlineAppExpr requires parameterized recursive mode")`.
 - [ ] Do not add parameterized `Ref` or mode-stack machinery to `loom/src/grammar` in this task unless the probe passes all D1/D2a/D2b fixtures.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS with either `NoDivergence` or recorded residue.
-- [ ] Run `moon info && moon fmt`; expect PASS.
-- [ ] Commit: `git add examples/lambda/src/spike && git commit -m "Classify newline application grammar residue"`.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon check -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect PASS with either `NoDivergence` or recorded residue.
+- [ ] Run `NEW_MOON_MOD=0 moon check -p src/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon test -p dowdiness/loom/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon info && moon fmt`; expect PASS.
+- [ ] Commit: `git add examples/lambda/src/spike loom/src/grammar && git commit -m "Classify newline application grammar residue"`.
 
 ### Task 9: Re-Validate D1/D2a/D2b Oracle
 
@@ -806,37 +717,26 @@ test "newline application reification attempt is evidence gated" {
 
 **Interfaces**
 
-- Consumes B grammar from `build_b_syntax_grammar()`.
+- Consumes A as lambda's normalized hand parser and B as the shared `@grammar` interpreter output.
 - Consumes `@core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]`.
 - Consumes `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] @loom.new_syntax_parser(String, SyntaxGrammar[T,K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser`.
-- Produces fresh reified-IR oracle results for D1 fresh CST parity, D2a incremental-vs-full parity, and D2b projection identity parity.
+- Produces fresh reified-IR results for D1 fresh CST parity, D2a incremental-vs-full parity, and D2b projection identity parity.
 
-- [ ] Rewrite the oracle setup so A is still lambda's normalized hand parser and B is the shared `@grammar` interpreter output. Do not inherit any PASS result from the closure spike.
-- [ ] Write failing test:
-
-```moonbit
-test "reified grammar IR passes D1 D2a D2b oracle or records residue" {
-  let result = run_reified_ir_oracle()
-  inspect(result.d1_passed, content="true")
-  inspect(result.d2a_passed, content="true")
-  inspect(result.d2b_passed, content="true")
-  match result.divergence {
-    DivergenceClass::NoDivergence => ()
-    DivergenceClass::ReplicationResidual(_) => ()
-    DivergenceClass::WrongModelStop(message) => fail(message)
-  }
-}
-```
-
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect FAIL until the oracle calls the reified IR path.
-- [ ] Port D1: parse every fixture with A and B, compare CSTs with `@core.tree_diff`, and fail on non-empty diffs unless the fixture is explicitly newline-residue-classified.
+- [ ] Rewrite the oracle setup so no PASS result is inherited from the closure spike; every comparison must run against the reified `@grammar` path.
+- [ ] Write failing test `reified grammar IR passes D1 D2a D2b oracle or records residue` that asserts D1/D2a/D2b true and fails on `WrongModelStop`.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect FAIL until the oracle calls the reified IR path.
+- [ ] Port D1: parse every fixture with A and B, compare CSTs with `@core.tree_diff`, and fail on non-empty diffs unless explicitly classified as accepted newline residue.
 - [ ] Port D2a: for every edit sequence, apply incremental edits to B and compare against B full parse after each edit.
-- [ ] Port D2b: preserve projection identity comparison with the same leaf extractor as the spike; report mismatches as `WrongModelStop` unless tied to the accepted newline residue.
+- [ ] Port D2b: preserve projection identity comparison with the same leaf extractor as the spike; report mismatches as `WrongModelStop` unless tied to accepted newline residue.
 - [ ] Keep reuse cripple toggling in the oracle harness only; do not add it back to `Expr`.
-- [ ] Run `cd examples/lambda && moon check`; expect PASS.
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS.
-- [ ] Run `moon info && moon fmt`; expect PASS.
-- [ ] Commit: `git add examples/lambda/src/spike && git commit -m "Revalidate lambda oracle on reified grammar IR"`.
+- [ ] Add watch-item fixture coverage for finding #1: `ExpectSkip` diagnostics and EOF behavior around soft-newline-aware expected tokens.
+- [ ] Add watch-item fixture coverage for finding #4: block semicolon behavior around `RequireSep` and newline/brace stops.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon check -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon check -p src/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon test -p dowdiness/loom/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon info && moon fmt`; expect PASS.
+- [ ] Commit: `git add examples/lambda/src/spike loom/src/grammar && git commit -m "Revalidate lambda oracle on reified grammar IR"`.
 
 ### Task 10: Public Interface And Contract Review
 
@@ -848,17 +748,19 @@ test "reified grammar IR passes D1 D2a D2b oracle or records residue" {
 
 **Interfaces**
 
-- Consumes generated interface files from `moon info`.
-- Produces a reviewed public API where `grammar` exposes only the minimal contract: `Pred`, `RuleName`, `Expr`, `Alt`, `GrammarIr`, compile errors, compiled grammar inspection needed by tests, and `interpret`.
+- Consumes generated interface files from `NEW_MOON_MOD=0 moon info`.
+- Produces a reviewed public API where `grammar` exposes the minimal contract: `Pred`, `RuleName`, `Expr` with the seven new public nodes plus enriched `RepeatTopLevel`, `Alt`, `GrammarIr`, compile errors, compiled grammar inspection needed by tests, and `interpret`.
 
-- [ ] Run `moon info`; expect PASS and generated interface updates.
-- [ ] Inspect `loom/src/grammar/pkg.generated.mbti`; verify no `Opaque`, no closure fields in public IR, no analyzing interpreter, and no code emitter.
+- [ ] Run `NEW_MOON_MOD=0 moon info`; expect PASS and generated interface updates.
+- [ ] Inspect `loom/src/grammar/pkg.generated.mbti`; verify the seven new nodes are public, `RepeatTopLevel` carries delimiter fields, `Ref` still lowers to `RefSlot(Int)`, and there is no `SeparatedList`.
+- [ ] Verify no `Opaque`, no closure fields in public IR, no analyzing interpreter, no code emitter, no parameterized `Ref`, and no public mode-stack API unless Task 8 proved it with full D1/D2a/D2b parity.
 - [ ] Inspect `loom/src/core/pkg.generated.mbti`; verify it has no import of `dowdiness/loom/grammar`.
-- [ ] If `loom/src/core/pkg.generated.mbti` changed, stop and revert only the unintended core import/source change made by this plan; rerun `moon check`.
+- [ ] If `loom/src/core/pkg.generated.mbti` changed, stop and revert only the unintended core import/source change made by this plan; rerun `NEW_MOON_MOD=0 moon check -p src/grammar`.
 - [ ] Run `moon fmt`; expect PASS.
-- [ ] Run `moon check`; expect PASS.
-- [ ] Run `moon test -p dowdiness/loom/grammar`; expect PASS.
-- [ ] Run `cd examples/lambda && moon test -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon check -p src/grammar`; expect PASS.
+- [ ] Run `NEW_MOON_MOD=0 moon test -p dowdiness/loom/grammar`; expect PASS.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon check -p dowdiness/lambda/spike`; expect PASS.
+- [ ] Run `cd examples/lambda && NEW_MOON_MOD=0 moon test -p dowdiness/lambda/spike`; expect PASS.
 - [ ] Commit: `git add loom/src/grammar examples/lambda/src/spike && git commit -m "Finalize grammar IR contract surface"`.
 
 ## Self-Review
