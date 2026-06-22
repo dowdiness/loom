@@ -33,17 +33,11 @@ pub fn e3_follow_up_gate() -> (Bool, String)
 
 pub fn e3_probe_plan() -> ReuseProbePlan
 
-pub fn emit_missing(@core.ParserContext[@token.Token, @syntax.SyntaxKind], String) -> Unit
-
 pub fn error_recovery_fixture() -> (String, Array[EditStep])
-
-pub fn interpret(GrammarIr) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
 pub fn is_go_verdict(Array[OracleStepResult]) -> Bool
 
 pub fn lambda_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
-
-pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr
 
 pub fn let_def_fixture() -> (String, Array[EditStep])
 
@@ -59,32 +53,19 @@ pub fn normalized_syntax_grammar(@core.LanguageSpec[@token.Token, @syntax.Syntax
 
 pub fn param_list_churn_fixture() -> (String, Array[EditStep])
 
-pub fn parse_error_node_until(@core.ParserContext[@token.Token, @syntax.SyntaxKind], (@token.Token) -> Bool) -> Unit
-
-pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, RuleId, (@token.Token) -> Bool, Expr, Bool) -> Unit
-
 pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@projection.ProjectionLeaf]
 
 pub fn rhs_newline_fixture() -> (String, Array[EditStep])
 
-pub fn run_expr(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, Expr) -> Unit
-
 pub fn run_oracle_fixture(String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
 
 pub fn soft_newline_fixture() -> (String, Array[EditStep])
-
-pub fn spike_is_sync_point(@token.Token) -> Bool
 
 pub fn top_level_reuse_fixture() -> (String, Array[EditStep])
 
 // Errors
 
 // Types and methods
-pub struct Alt {
-  starts : (@token.Token) -> Bool
-  body : Expr
-}
-
 pub enum DivergenceClass {
   NoDivergence
   ReplicationResidual(String)
@@ -112,38 +93,6 @@ pub struct EditStep {
   edit : @core.Edit
 } derive(@debug.Debug)
 
-pub enum Expr {
-  Node(@syntax.SyntaxKind, Expr)
-  Emit(@token.Token, @syntax.SyntaxKind)
-  Expect(@token.Token, @syntax.SyntaxKind, String)
-  Ref(RuleId)
-  Choice(Array[Alt])
-  RepeatTopLevel(RuleId, (@token.Token) -> Bool, Expr, Bool)
-  Seq(Array[Expr])
-  PrattApp(RuleId, @syntax.SyntaxKind, (@token.Token) -> Bool)
-  PrattBinary(RuleId, @syntax.SyntaxKind, Array[(@token.Token, @syntax.SyntaxKind)])
-  RepeatWhile((@token.Token) -> Bool, Expr)
-  WrapIfNext(Int, @syntax.SyntaxKind, (@token.Token) -> Bool, Expr)
-  ManualDefinition
-  ManualBlockDelimiterCheck
-  ManualNewlineAppExpr
-  ManualParamList
-  EmitError(String)
-  ErrorUntil((@token.Token) -> Bool, String)
-  Empty
-}
-
-pub struct GrammarIr {
-  source : Expr
-  definition : Expr
-  expression : Expr
-  binary : Expr
-  application : Expr
-  atom : Expr
-  param_list : Expr
-}
-pub fn GrammarIr::rule(Self, RuleId) -> Expr
-
 pub(all) struct OracleStepResult {
   label : String
   d1_ok : Bool
@@ -162,16 +111,6 @@ pub struct ReuseProbePlan {
   expected_oracle_result : String
   gate_condition : String
 } derive(@debug.Debug)
-
-pub enum RuleId {
-  Source
-  Definition
-  Expression
-  Binary
-  Application
-  Atom
-  ParamList
-} derive(Eq, @debug.Debug)
 
 // Type aliases
 
