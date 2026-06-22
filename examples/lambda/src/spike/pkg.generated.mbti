@@ -17,6 +17,8 @@ pub fn app_bop_fixture() -> (String, Array[EditStep])
 
 pub fn b_parse_root(@grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind], Bool) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
+pub fn block_delimiter_fixture() -> (String, Array[EditStep])
+
 pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarCompileError
 
 pub fn classify_divergence(OracleStepResult) -> DivergenceClass
@@ -35,6 +37,8 @@ pub fn e3_probe_plan() -> ReuseProbePlan
 
 pub fn error_recovery_fixture() -> (String, Array[EditStep])
 
+pub fn expect_skip_eof_fixture() -> (String, Array[EditStep])
+
 pub fn is_go_verdict(Array[OracleStepResult]) -> Bool
 
 pub fn lambda_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
@@ -49,6 +53,8 @@ pub fn measure_e2() -> E2Measurement
 
 pub fn message_strings_equal(@core.DiagnosticSet, @core.DiagnosticSet) -> Bool
 
+pub fn newline_app_fixture() -> (String, Array[EditStep])
+
 pub fn normalized_syntax_grammar(@core.LanguageSpec[@token.Token, @syntax.SyntaxKind], (String) -> @core.LexResult[@token.Token]) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
 
 pub fn param_list_churn_fixture() -> (String, Array[EditStep])
@@ -57,7 +63,11 @@ pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@projection.ProjectionLe
 
 pub fn rhs_newline_fixture() -> (String, Array[EditStep])
 
+pub fn run_newline_application_reification_probe() -> NewlineAppProbeResult raise @grammar.GrammarCompileError
+
 pub fn run_oracle_fixture(String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
+
+pub fn run_reified_ir_oracle() -> ReifiedIrOracleResult raise @grammar.GrammarCompileError
 
 pub fn soft_newline_fixture() -> (String, Array[EditStep])
 
@@ -93,6 +103,10 @@ pub struct EditStep {
   edit : @core.Edit
 } derive(@debug.Debug)
 
+pub struct NewlineAppProbeResult {
+  divergence : DivergenceClass
+} derive(@debug.Debug)
+
 pub(all) struct OracleStepResult {
   label : String
   d1_ok : Bool
@@ -104,6 +118,13 @@ pub(all) struct OracleStepResult {
   a_reuse_count : Int
   b_reuse_count : Int
 } derive(Eq, @debug.Debug)
+
+pub struct ReifiedIrOracleResult {
+  d1_passed : Bool
+  d2a_passed : Bool
+  d2b_passed : Bool
+  divergence : DivergenceClass
+} derive(@debug.Debug)
 
 pub struct ReuseProbePlan {
   target_grammar : String

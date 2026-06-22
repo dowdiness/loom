@@ -141,11 +141,37 @@ reuse exits the loop early). Reductions:
 - `ManualBlockDelimiterCheck` → `RequireSep(IsToken(Newline), NewlineToken, OneOf[RBrace,EOF], …)`
 - top-level garbage → `Choice[Alt(EOF,Empty), Alt(Any, ErrorNodeUntil(ErrorNode, IsToken(EOF), …))]`
 
-Only `ManualNewlineAppExpr` remains residue (§5.1's lone irreducible), handled by
-the Task 8 evidence-gated probe. Findings #1 (`ExpectSkip` diag/EOF) and #4 (block
-semicolon) are non-blockers — the spike-B already uses these exact methods and
-passes 65/65 vs A; they become Task-9 watch-items only if the oracle expands
-beyond the spike fixture slice.
+**Residue accounting (corrected at Task 7/8 execution).** §5.1 predicted one
+irreducible residue (`ManualNewlineAppExpr`). Tracing the ported spike against
+A surfaced a **second** one the graduation table did not anticipate. The
+spike-local probe (`probe_interpreter.mbt`) diverges from `@grammar.interpret`
+in exactly two *behaviors*, both held probe-local so the minimal contract is not
+grown without oracle pressure:
+
+1. **`ManualNewlineAppExpr`** — §5.1's predicted irreducible. The recursive
+   newline-application mode (`parse_newline_app`); `@grammar.interpret`
+   placeholders the node. Classified `NoDivergence` *via the probe* by Task 8's
+   `run_newline_application_reification_probe` — parity bought with a spike-local
+   mechanism, not contract subsumption.
+2. **Atom-position error recovery (the `ErrorUntil` arm)** — A's `parse_atom`
+   `_` fallthrough (`parse_error_node_until`) opens an `ErrorNode` holding an
+   error *placeholder* when already at a sync point (e.g. EOF after a missing
+   RHS) — the missing-construct marker. Neither `@grammar.ErrorUntil`
+   (`error`+`skip_until`) nor the grown `ErrorNodeUntil` (`error`+bump-into-node,
+   which is *empty* at a sync point) expresses the at-sync placeholder, so the
+   probe special-cases it. Recorded as residue, **not** reified into a new
+   `@grammar` node: growing the vocabulary again here would cost minimality with
+   no oracle divergence forcing it (the probe already reaches parity).
+
+The `cripple_reuse` positive control is **not** a residue — it is a harness-only
+test lever (§3.1) the probe gates `RepeatTopLevel` on; no grammar value carries
+it.
+
+Findings #1 (`ExpectSkip` diag/EOF) and #4 (block semicolon) are non-blockers —
+spike-B already uses these exact engine methods and passes vs A. Task 9 pins
+them with watch-item fixtures (`expect_skip_eof_fixture`, `block_delimiter_fixture`)
+so a future oracle expansion beyond the original slice cannot silently regress
+them.
 
 ---
 
