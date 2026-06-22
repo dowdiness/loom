@@ -54,8 +54,13 @@ pub(all) enum Expr[T, K] {
   /// run in the node kind. No-op when the first atom stands alone.
   PrattApp(RuleName, K, Pred[T])
   /// Pratt binary: parse the prefix rule, then consume operator/prefix pairs
-  /// while the peek matches an op token, wrapping in the binary kind.
-  PrattBinary(RuleName, K, Array[(T, K)])
+  /// while the peek matches an op token, wrapping in the binary kind. `skip`
+  /// (when `Some`) consumes a gated run of separator tokens (e.g. soft
+  /// newlines) before each operator check, emitting them as the given kind —
+  /// gated on an operator from the table following, so a separator that does
+  /// NOT precede an operator (a statement break) is left intact. The lookahead
+  /// is the op table itself; `None` disables skipping.
+  PrattBinary(RuleName, K, Array[(T, K)], skip~ : (Pred[T], K)?)
   /// Repeat the body while the predicate holds.
   RepeatWhile(Pred[T], Expr[T, K])
   /// Capture an entry mark and peek: if the next token matches the predicate,
@@ -88,13 +93,14 @@ pub(all) enum Expr[T, K] {
   /// never the structural separators between constructs. Argument order: skip
   /// pred, skip kind, lookahead pred.
   ConsumeGated(Pred[T], K, Pred[T])
-  /// Require a separator run: consume skip-predicate tokens (each emitted as the
-  /// skip kind); then, if none preceded and the `stop` predicate does not hold,
-  /// emit `msg_alt` when `alt` matches the current token, else `msg_else`.
-  /// Argument order: skip pred, skip kind, stop pred, alt pred.
+  /// Require a separator run: consume a contiguous run of delimiter tokens (each
+  /// emitted with its own mapped kind from `delims`); then, if none preceded and
+  /// the `stop` predicate does not hold, emit `msg_alt` when `alt` matches the
+  /// current token, else `msg_else`. `delims` is a (token, kind) table so a
+  /// block accepting both newline and `;` separators emits the distinct CST
+  /// kinds for each. Argument order: delim table, stop pred, alt pred.
   RequireSep(
-    Pred[T],
-    K,
+    Array[(T, K)],
     Pred[T],
     Pred[T],
     msg_alt~ : String,

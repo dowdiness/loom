@@ -28,6 +28,21 @@
 ///   member → Identifier '=' value
 
 ///|
+/// JSON value-position sync points: the structural closers and separator that
+/// bound a JSON value (`]` = RightParen, `}` = RBrace, `,` = Comma) plus EOF.
+/// JSON carries no lambda keywords, so recovery must NOT sync on
+/// `lambda_sync_points()` — this keeps the E3 demonstration grammar self-
+/// consistent with the JSON token mapping above.
+fn json_sync_points() -> @grammar.Pred[@token.Token] {
+  @grammar.Pred::OneOf([
+    @token.RightParen,
+    @token.RBrace,
+    @token.Comma,
+    @token.EOF,
+  ])
+}
+
+///|
 fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
   let rules : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = {
     // Source: the whole input is a single JSON value; trailing non-trivia
@@ -82,7 +97,7 @@ fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
       @grammar.Alt::{
         starts: @grammar.Pred::Any,
         body: @grammar.Expr::ErrorUntil(
-          lambda_sync_points(),
+          json_sync_points(),
           "Unexpected JSON token",
         ),
       },

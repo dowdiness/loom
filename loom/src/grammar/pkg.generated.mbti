@@ -40,7 +40,7 @@ pub enum CompiledExpr[T, K] {
   RepeatTopLevel(Int, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
   Seq(Array[CompiledExpr[T, K]])
   PrattApp(Int, K, Pred[T])
-  PrattBinary(Int, K, Array[(T, K)])
+  PrattBinary(Int, K, Array[(T, K)], skip~ : (Pred[T], K)?)
   RepeatWhile(Pred[T], CompiledExpr[T, K])
   WrapIfNext(K, Pred[T], CompiledExpr[T, K])
   EmitError(String)
@@ -50,7 +50,7 @@ pub enum CompiledExpr[T, K] {
   DiagnoseIf(Pred[T], String)
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
-  RequireSep(Pred[T], K, Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
+  RequireSep(Array[(T, K)], Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
   ErrorNodeUntil(K, Pred[T], String)
   ManualNewlineAppExpr
   Empty
@@ -73,7 +73,7 @@ pub(all) enum Expr[T, K] {
   RepeatTopLevel(String, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
   Seq(Array[Expr[T, K]])
   PrattApp(String, K, Pred[T])
-  PrattBinary(String, K, Array[(T, K)])
+  PrattBinary(String, K, Array[(T, K)], skip~ : (Pred[T], K)?)
   RepeatWhile(Pred[T], Expr[T, K])
   WrapIfNext(K, Pred[T], Expr[T, K])
   EmitError(String)
@@ -83,7 +83,7 @@ pub(all) enum Expr[T, K] {
   DiagnoseIf(Pred[T], String)
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
-  RequireSep(Pred[T], K, Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
+  RequireSep(Array[(T, K)], Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
   ErrorNodeUntil(K, Pred[T], String)
   ManualNewlineAppExpr
   Empty

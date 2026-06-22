@@ -72,7 +72,11 @@ test "E2: grown vocabulary = the 7 nodes that reified the escape hatches" {
   // These nodes (spec §5.3) are what moved E1 from the spike's 5/7 to 7/7.
   let m = measure_e2()
   inspect(m.grown_nodes.length(), content="7")
+  inspect(m.grown_nodes.contains("Fail"), content="true")
+  inspect(m.grown_nodes.contains("EmitOr"), content="true")
+  inspect(m.grown_nodes.contains("DiagnoseIf"), content="true")
   inspect(m.grown_nodes.contains("ExpectSkip"), content="true")
+  inspect(m.grown_nodes.contains("ConsumeGated"), content="true")
   inspect(m.grown_nodes.contains("RequireSep"), content="true")
   inspect(m.grown_nodes.contains("ErrorNodeUntil"), content="true")
 }

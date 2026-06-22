@@ -61,7 +61,7 @@ The spike IR carries three artifacts that exist only because it was an interpret
 
 Replace **every** `(T) -> Bool` and `Alt.starts` closure with reified data:
 
-```
+```text
 enum Pred[T] { Any; IsToken(T); OneOf(Array[T]); Not(Pred[T]) }
 fn[T : Eq] Pred::test(self : Pred[T], t : T) -> Bool
 ```

@@ -27,7 +27,7 @@ pub enum CompiledExpr[T, K] {
   )
   Seq(Array[CompiledExpr[T, K]])
   PrattApp(Int, K, Pred[T])
-  PrattBinary(Int, K, Array[(T, K)])
+  PrattBinary(Int, K, Array[(T, K)], skip~ : (Pred[T], K)?)
   RepeatWhile(Pred[T], CompiledExpr[T, K])
   WrapIfNext(K, Pred[T], CompiledExpr[T, K])
   EmitError(String)
@@ -38,8 +38,7 @@ pub enum CompiledExpr[T, K] {
   ExpectSkip(Pred[T], K, T, K)
   ConsumeGated(Pred[T], K, Pred[T])
   RequireSep(
-    Pred[T],
-    K,
+    Array[(T, K)],
     Pred[T],
     Pred[T],
     msg_alt~ : String,
@@ -155,8 +154,8 @@ fn[T, K] lower(
     }
     PrattApp(name, k, pred) =>
       CompiledExpr::PrattApp(resolve(name, slot_of), k, pred)
-    PrattBinary(name, k, ops) =>
-      CompiledExpr::PrattBinary(resolve(name, slot_of), k, ops)
+    PrattBinary(name, k, ops, skip~) =>
+      CompiledExpr::PrattBinary(resolve(name, slot_of), k, ops, skip~)
     RepeatWhile(pred, body) =>
       CompiledExpr::RepeatWhile(pred, lower(body, slot_of))
     WrapIfNext(k, pred, body) =>
@@ -170,8 +169,8 @@ fn[T, K] lower(
       CompiledExpr::ExpectSkip(skip, skip_kind, expected, kind)
     ConsumeGated(skip, skip_kind, look) =>
       CompiledExpr::ConsumeGated(skip, skip_kind, look)
-    RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~) =>
-      CompiledExpr::RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~)
+    RequireSep(delims, stop, alt, msg_alt~, msg_else~) =>
+      CompiledExpr::RequireSep(delims, stop, alt, msg_alt~, msg_else~)
     ErrorNodeUntil(kind, stop, msg) =>
       CompiledExpr::ErrorNodeUntil(kind, stop, msg)
     ManualNewlineAppExpr => CompiledExpr::ManualNewlineAppExpr
