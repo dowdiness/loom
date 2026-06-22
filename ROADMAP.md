@@ -220,14 +220,28 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 
 1. **Parser generation.** Hand-written recursive descent remains the production
    path; checkpoint-based reuse compensates for lower reuse granularity vs
-   Lezer/tree-sitter. *Under active spike (#426):* a reified grammar-IR substrate
-   (`loom/src/grammar/`, added in PR #443) now exists and drives the lambda
-   example via a tree-walking interpreter, but the generated/emitted parser is
-   **deferred behind an incremental-throughput benchmark gate** (see
-   [docs/analysis/2026-06-20-parser-generation-direction.md](docs/analysis/2026-06-20-parser-generation-direction.md)).
-   Until that gate is run and passed, generated parsing stays out of the
-   production roadmap and `@grammar` is exploratory, not blessed (it is not
-   re-exported by the root facade).
+   Lezer/tree-sitter. The reified grammar-IR substrate (`loom/src/grammar/`,
+   added in PR #443) drives the lambda example via a tree-walking interpreter.
+   The incremental-throughput gate (#444) has now been **run** (3 passes,
+   wasm-gc): on the common incremental path (flat tail edits) the interpreter is
+   at parity with hand-written recursive descent (B/A ≈ 0.9–1.0×), with no
+   consistent raw-parse penalty (slower on flat full parse, *faster* on deep).
+   The one consistent deficiency, surfaced by stress-testing deep nested
+   structures, is **deep-subtree reuse granularity**: a wall-clock control
+   confirms B re-parses deep nested subtrees instead of reusing them (B's deep
+   per-edit cost ≈ its full-parse cost, while A's is ≪), costing ~1.15–2.4× on
+   deep nested-structure edits — see
+   [ADR 2026-06-22](docs/decisions/2026-06-22-grammar-incremental-throughput-gate.md)
+   and `examples/lambda/src/benchmarks/grammar_incremental_benchmark.mbt`.
+   **Outcome:** the tree-walking interpreter **graduates** as a kept, validated
+   framework substrate, while the **code-emitter stays deferred with a named
+   motivation** — closing that deep-subtree reuse gap (emitted code can establish
+   the reuse checkpoints the generic interpreter lacks; tracked as #449). Emission
+   is off the production roadmap until a consumer hits a deep-grammar incremental
+   workload;
+   shipped examples (lambda, JSON) are shallow enough that B is already at parity.
+   `@grammar` remains **unblessed by the root facade** until it has a non-spike
+   consumer.
 2. **GLR or Earley parsing.** Unambiguous grammars don't need generalized parsing.
 3. **Language server protocol.** An LSP layer sits on top of the CST; out of scope here.
 4. **Evaluation / type checking.** This is a parser framework roadmap.

@@ -66,6 +66,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-06-22-grammar-incremental-throughput-gate.md](decisions/2026-06-22-grammar-incremental-throughput-gate.md) — **Accepted** `@grammar` #444 throughput gate: the tree-walking interpreter is at incremental parity with hand-written recursive descent (B/A ≈ 0.99; ~1.22× only on full parse) — graduate the interpreter, defer the code-emitter with evidence (no per-edit gap to close), keep `@grammar` unblessed until a non-spike consumer
 - [decisions/2026-06-17-markdown-ir-recovery-adapter-contract.md](decisions/2026-06-17-markdown-ir-recovery-adapter-contract.md) — **Accepted** MarkdownIR target adapters must handle `Recovered` / `Raw` explicitly; future HTML adapters must choose escaped/sanitized/comment/error presentation rather than silent passthrough
 - [decisions/2026-06-17-diagnostic-range-filter-boundary.md](decisions/2026-06-17-diagnostic-range-filter-boundary.md) — **Accepted** keep downstream diagnostic attachment range/filter semantics language-local until multiple consumers prove a shared Loom-core helper
 - [decisions/2026-06-16-markdown-ir-performance-policy.md](decisions/2026-06-16-markdown-ir-performance-policy.md) — **Accepted** MarkdownIR performance, memoization, and eager/lazy policy; MarkdownIR is built lazily on demand and is not memoized by position-independent `CstFold` because it stores absolute source origins
