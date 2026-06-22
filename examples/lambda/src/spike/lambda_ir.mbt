@@ -182,9 +182,10 @@ pub fn normalized_syntax_grammar(
 /// break the literal mirror.
 pub fn build_b_syntax_grammar(
   cripple_reuse? : Bool,
-) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] {
-  let ir = lambda_spike_ir(cripple_reuse=cripple_reuse.unwrap_or(false))
-  let parse_root = interpret(ir)
+) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarCompileError {
+  let ir = lambda_grammar_ir()
+  let compiled = @grammar.compile(ir)
+  let parse_root = b_parse_root(compiled, cripple_reuse.unwrap_or(false))
   let b_spec = @core.LanguageSpec::new(
     @syntax.WhitespaceToken,
     @syntax.ErrorToken,

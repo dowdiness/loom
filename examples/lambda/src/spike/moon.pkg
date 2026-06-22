@@ -5,6 +5,7 @@ import {
   "dowdiness/lambda/lexer",
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
   "dowdiness/loom/pipeline",
   "dowdiness/seam",
   "dowdiness/incr/cells",

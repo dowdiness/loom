@@ -6,6 +6,8 @@ import {
   "dowdiness/lambda/token",
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
+  "dowdiness/loom/projection",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
@@ -13,7 +15,9 @@ import {
 // Values
 pub fn app_bop_fixture() -> (String, Array[EditStep])
 
-pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
+pub fn b_parse_root(@grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind], Bool) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
+
+pub fn build_b_syntax_grammar(cripple_reuse? : Bool) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarCompileError
 
 pub fn classify_divergence(OracleStepResult) -> DivergenceClass
 
@@ -37,6 +41,8 @@ pub fn interpret(GrammarIr) -> (@core.ParserContext[@token.Token, @syntax.Syntax
 
 pub fn is_go_verdict(Array[OracleStepResult]) -> Bool
 
+pub fn lambda_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
+
 pub fn lambda_spike_ir(cripple_reuse? : Bool) -> GrammarIr
 
 pub fn let_def_fixture() -> (String, Array[EditStep])
@@ -57,7 +63,7 @@ pub fn parse_error_node_until(@core.ParserContext[@token.Token, @syntax.SyntaxKi
 
 pub fn parse_top_level_repeat(@core.ParserContext[@token.Token, @syntax.SyntaxKind], GrammarIr, RuleId, (@token.Token) -> Bool, Expr, Bool) -> Unit
 
-pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@core.ProjectionLeaf]
+pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@projection.ProjectionLeaf]
 
 pub fn rhs_newline_fixture() -> (String, Array[EditStep])
 
