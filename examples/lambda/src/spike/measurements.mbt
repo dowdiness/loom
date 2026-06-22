@@ -1,7 +1,14 @@
 ///|
-/// E1 ergonomics measurement: what fraction of grammar rules are truly
-/// declarative (dispatched generically through the GrammarIr with no
-/// special-case logic in run_expr or parse_top_level_repeat)?
+/// E1 ergonomics measurement (RULE granularity): what fraction of lambda's
+/// grammar rules are expressed as `@grammar.Expr` values in the rule Map — i.e.
+/// driven by the tree-walking interpreter, with no host closure and no hardcoded
+/// `parse_*_ir` function.
+///
+/// After the port to the reified `@grammar` IR (Tasks 6–8), all seven rules
+/// reach this bar. The two spike escape hatches that kept E1 at 5/7 — Definition
+/// (`ManualDefinition`) and ParamList (`ManualParamList`) — reified into ordinary
+/// nodes (`Choice`/`Node`/`Seq` for Definition; `WrapIfNext` + a `Choice`/
+/// `RepeatWhile` comma-loop for ParamList; spec §5.3).
 pub struct E1Measurement {
   total_rules : Int
   declarative_rules : Int
@@ -10,86 +17,74 @@ pub struct E1Measurement {
 } derive(Debug, Eq)
 
 ///|
-/// E2 ergonomics measurement: lambda-specific escape hatches and missing
-/// combinators that prevented full-IR encoding.
+/// E2 ergonomics measurement (NODE granularity): the residue behaviors the
+/// MINIMAL `@grammar` interpreter cannot fully drive, plus the vocabulary grown
+/// to eliminate the rule-level hatches. Distinct from E1: a rule can be a fully
+/// declarative IR value (counted declarative in E1) while still containing a node
+/// whose behavior is held spike-local (counted here).
 pub struct E2Measurement {
-  escape_hatch_count : Int
-  /// Combinators missing from the IR that required escape hatches.
-  missing_combinators : Array[String]
-  /// Escape hatch names and their reason.
-  escape_hatches : Array[(String, String)]
+  /// Node-level residues held in the spike-local probe (`probe_interpreter.mbt`).
+  residue_count : Int
+  /// (residue name, why it does not reduce to the minimal `@grammar` contract).
+  residues : Array[(String, String)]
+  /// `@grammar.Expr` nodes grown from the spike's escape hatches to reach
+  /// E1 = 7/7 (spec §5.3). Each reifies an existing, tested `ParserContext`
+  /// method — IR surface grew, parser behavior did not.
+  grown_nodes : Array[String]
 } derive(Debug)
 
 ///|
-/// Measure E1 rule coverage for the lambda spike IR.
+/// Measure E1 rule coverage for the reified lambda grammar IR
+/// (`lambda_grammar_ir`).
 ///
-/// Rules classified as declarative: encoded as GrammarIr expressions that
-/// run_expr dispatches generically (no per-rule special-case).
-///
-/// Rules classified as hardcoded: logic lives in a named parse_*_ir function
-/// that is called directly rather than through the IR expression dispatch.
-///
-/// Rules classified as escape_hatch: represented in GrammarIr by ManualX
-/// variants that bypass the generic interpreter entirely.
+/// Declarative: the rule is a `@grammar.Expr` value in the Map, dispatched by the
+/// interpreter. Hardcoded: logic lives in a named `parse_*_ir` function called
+/// directly (none remain — all deleted in the port). Escape hatch: a rule
+/// represented by a `Manual*` variant bypassing the interpreter (none remain at
+/// rule level — the lone residues are node behaviors, counted in E2).
 pub fn measure_e1() -> E1Measurement {
-  // P2 fixes (after Track 2):
+  // Seven rules, all `@grammar.Expr` values in `lambda_grammar_ir`:
+  //   source      — Seq[RepeatTopLevel, trailing Choice, …]
+  //   definition  — Choice over let/fn (Node + Seq + EmitOr/DiagnoseIf/…)
+  //   expression  — Ref(binary)
+  //   binary      — PrattBinary
+  //   application — PrattApp
+  //   atom        — Choice([…]) (contains the two E2 node residues, but the rule
+  //                 itself is a declarative Choice value)
+  //   param_list  — WrapIfNext + Choice/RepeatWhile comma-loop
   //
-  // Declarative (5):
-  //   Source     — RepeatTopLevel dispatched generically via run_expr;
-  //     rule_id + starts_pred + tail_expr are all threaded so RepeatTopLevel
-  //     is fully generic: all behavior expressed in the IR value, none in the
-  //     interpreter.
-  //   Expression — Ref(Binary): generic Ref dispatch.
-  //   Binary     — PrattBinary: fully declarative Pratt binary.
-  //   Application— PrattApp: fully declarative Pratt left-assoc application.
-  //   Atom       — Choice([…]) with Seq; ManualDefinition + ManualBlockDelimiterCheck
-  //     appear as sub-expressions but Atom itself is a declarative Choice dispatch.
-  //
-  // Hardcoded (0): no per-rule special cases remain in run_expr.
-  //
-  // Escape hatch (2):
-  //   Definition — ManualDefinition: parse_definition_ir dispatched via run_expr;
-  //     complex let/fn logic not expressible with current IR combinators.
-  //   ParamList  — ManualParamList: mark/start_at retroactive-wrap dance.
-  //
-  // Sub-rule combinator gaps (not rule-level escape hatches; counted in E2):
-  //   ManualBlockDelimiterCheck — counted-repeat-with-conditional-diagnostic.
-  //   ManualNewlineAppExpr      — context-sensitive allow_newline_application mode.
+  // Hardcoded (0): parse_definition_ir / parse_param_list_exact /
+  //   parse_block_delimiter_check / parse_*_ir all deleted in the port.
+  // Escape hatch (0): no rule is a Manual* bypass; ManualDefinition and
+  //   ManualParamList reified (spec §5.3).
   E1Measurement::{
     total_rules: 7,
-    declarative_rules: 5,
+    declarative_rules: 7,
     hardcoded_rules: 0,
-    escape_hatch_rules: 2,
+    escape_hatch_rules: 0,
   }
 }
 
 ///|
-/// Measure E2 escape hatches: lambda-specific code that cannot be expressed
-/// in the current GrammarIr without adding new combinators.
+/// Measure E2 node residues for the reified lambda grammar IR.
+///
+/// `cripple_reuse` is deliberately NOT a residue: it is a harness-only positive
+/// control (spec §3.1) the probe gates `RepeatTopLevel` on; no grammar value
+/// carries it.
 pub fn measure_e2() -> E2Measurement {
-  // P2 fixes: ManualBlockDelimiterCheck + ManualNewlineAppExpr added.
-  // These are sub-rule combinator gaps — logic that belongs inside GrammarIr
-  // combinators but cannot be expressed with the current set.
-  //
-  //   ManualParamList — retroactive-wrap (mark/start_at): combinator missing.
-  //   ManualBlockDelimiterCheck — counted-repeat-with-conditional-diagnostic:
-  //     RepeatWhile can loop but cannot count iterations or branch on the count.
-  //   ManualNewlineAppExpr — context-sensitive allow_newline_application=true:
-  //     PrattApp uses a fixed starts predicate; it cannot conditionally consume
-  //     soft newlines between atoms depending on parse context.
   E2Measurement::{
-    escape_hatch_count: 3,
-    missing_combinators: [],
-    escape_hatches: [
+    residue_count: 2,
+    residues: [
       (
-        "ManualParamList", "ParamList requires mark/start_at retroactive-wrap to match A's CST shape; Seq+RepeatWhile alone cannot express the deferred node-open pattern",
+        "ManualNewlineAppExpr", "recursive newline-application mode (allow_newline_application) threaded through binary/application/atom/paren recursion in cst_parser.mbt; a flat IR node cannot carry recursion-threaded state, so @grammar.interpret placeholders it and the probe runs parse_newline_app",
       ),
       (
-        "ManualBlockDelimiterCheck", "Block definition delimiter check requires counting consumed newlines and conditionally emitting a diagnostic; RepeatWhile cannot express count-gated conditionals",
+        "AtomPositionErrorRecovery", "A's parse_atom fallthrough (parse_error_node_until) opens an ErrorNode holding an error placeholder at a sync point; neither @grammar.ErrorUntil (error + skip) nor ErrorNodeUntil (error + bump, empty at a sync point) expresses the at-sync placeholder, so the probe special-cases the ErrorUntil arm",
       ),
-      (
-        "ManualNewlineAppExpr", "Top-level and block trailing expressions use allow_newline_application=true (soft newlines between atoms form AppExpr); PrattApp uses a fixed lookahead predicate and cannot vary newline-consumption by parse context",
-      ),
+    ],
+    grown_nodes: [
+      "Fail", "EmitOr", "DiagnoseIf", "ExpectSkip", "ConsumeGated", "RequireSep",
+      "ErrorNodeUntil",
     ],
   }
 }
@@ -102,49 +97,42 @@ pub fn e1_coverage_ratio(m : E1Measurement) -> (Int, Int) {
 }
 
 ///|
-/// E3 probe: what would a second-grammar reuse test require, and is it gated?
+/// E3 probe (the second-grammar generalization check).
 ///
-/// E3 asks: "If we build a SECOND grammar (not lambda) using GrammarIr, would
-/// the safety oracles (D1/D2a/D2b) still pass? Does the architecture generalize
-/// to languages not known at IR-design time?"
-///
-/// Current gate status: BLOCKED on E2 findings. The spike required 5 escape
-/// hatches and/or hardcoded paths (ManualAtom, ManualParamList, parse_definition_ir,
-/// parse_binary_ir, parse_application_ir) for lambda's 7-rule grammar. Building
-/// a second grammar would require redesigning the IR to add Seq and Pratt
-/// combinators BEFORE the probe would be meaningful — otherwise the second
-/// grammar would face the same escape-hatch accumulation.
+/// E3 asks: "If we build a SECOND grammar (not lambda) on the reified IR, do the
+/// safety oracles still hold, and how much escape-hatch accumulation does it
+/// require?" The answer is the strongest cross-language signal in the spike: the
+/// JSON grammar (`e3_oracle_wbtest.mbt`) encodes all five rules in `@grammar` IR
+/// with ZERO residues and drives `@grammar.interpret` DIRECTLY — no spike-local
+/// probe. Lambda needs the probe; JSON does not, which is exactly the evidence
+/// that the residues are lambda-specific and the minimal contract stands alone.
 pub struct ReuseProbePlan {
-  /// Description of the second grammar to build for the E3 probe.
+  /// Description of the second grammar built for the E3 probe.
   target_grammar : String
-  /// IR extensions required before the probe is executable.
+  /// IR extensions required before the probe is executable (empty — the grown
+  /// vocabulary already covers JSON).
   required_extensions : Array[String]
-  /// Expected safety oracle outcomes if extensions are implemented correctly.
+  /// Expected safety-oracle outcomes for the JSON grammar.
   expected_oracle_result : String
-  /// Gate condition: E3 is only meaningful when this holds.
+  /// Gate condition: E3 is meaningful when this holds.
   gate_condition : String
 } derive(Debug)
 
 ///|
 /// Return the E3 follow-up probe plan.
 pub fn e3_probe_plan() -> ReuseProbePlan {
-  // Track 2: E3 probe complete. Seq, PrattBinary, PrattApp, RepeatWhile added.
-  // JSON-shaped grammar (e3_oracle_wbtest.mbt): 5/5 rules declarative, D1 PASS.
   ReuseProbePlan::{
     target_grammar: "JSON (RFC 8259) structure over lambda's lexer: Integer=number, Identifier=string-like, Hole=null, LeftParen/RightParen=array, LBrace/RBrace=object, Eq=member separator.",
     required_extensions: [],
-    expected_oracle_result: "D1 PASS — all E3 oracle fixtures pass (Track 2). No A-side for D2a (E3 has no hand-written parser). E3 grammar is 5/5 declarative with no escape hatches.",
-    gate_condition: "E3 probe complete. Gate condition met: E3 grammar encodes all 5 rules declaratively (no ManualX), D1 oracle passes on array/object/nested fixtures.",
+    expected_oracle_result: "D1 PASS on array/object/nested/missing-key/trailing-token fixtures. No A-side (JSON has no hand-written parser, so D1 is incremental-vs-full self-consistency). The JSON grammar is 5/5 declarative AND drives @grammar.interpret directly — no spike-local probe, no residue.",
+    gate_condition: "Met: JSON encodes all 5 rules as @grammar IR with zero residues; build_e3_grammar uses @grammar.interpret (not the lambda probe); D1 oracle passes.",
   }
 }
 
 ///|
-/// E3 gate: returns false when E3 probe is blocked on outstanding E2 issues.
-/// When this returns false, the full GO decision should note that E3 requires
-/// IR extensions before it can validate generalizability.
+/// E3 gate: true when the second-grammar probe is meaningful and passing.
 pub fn e3_follow_up_gate() -> (Bool, String) {
-  // Track 2: Seq, PrattBinary, PrattApp added. E3 JSON-shaped grammar is 5/5
-  // declarative and D1 oracle passes. ManualParamList remains but is
-  // lambda-specific — it does not appear in the JSON grammar.
-  (true, "Ready: E3 probe complete — 5/5 declarative, D1 PASS (Track 2).")
+  (
+    true, "Ready: JSON E3 is 5/5 declarative, drives @grammar.interpret directly with no probe, D1 PASS.",
+  )
 }

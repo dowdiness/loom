@@ -197,6 +197,91 @@ pub fn let_param_list_fixture() -> (String, Array[EditStep]) {
 }
 
 ///|
+/// Fixture: top-level newline application (the lone irreducible residue).
+/// "f x" ↔ "f\nx" — both are an AppExpr because A parses the top-level trailing
+/// expression with allow_newline_application=true. The newline is a soft
+/// separator between application atoms, NOT a statement break. B reproduces this
+/// only through the spike-local probe's `parse_newline_app` (ManualNewlineAppExpr
+/// is placeholdered by @grammar.interpret), so this fixture is what
+/// `run_newline_application_reification_probe` classifies. See spec §5.1/§5.3.
+pub fn newline_app_fixture() -> (String, Array[EditStep]) {
+  let initial = "f x"
+  let steps = [
+    // Replace the space (offset 1, len 1) with a newline (len 1): "f\nx".
+    EditStep::{
+      label: "space → soft newline between application atoms",
+      before: "f x",
+      after: "f\nx",
+      edit: @core.Edit::new(1, 1, 1),
+    },
+    // Restore the space: "f x" — both forms must stay a single AppExpr.
+    EditStep::{
+      label: "soft newline → space (recovery)",
+      before: "f\nx",
+      after: "f x",
+      edit: @core.Edit::new(1, 1, 1),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
+/// Watch-item fixture for finding #1 (ExpectSkip at EOF, spec §5.3).
+/// "let x = 1" → "let x" (delete " = 1") leaves the `=` and RHS missing at EOF;
+/// A's lambda_expect / B's ExpectSkip(IsToken(Newline), …, Eq, …) must agree on
+/// the missing-`=` diagnostic and placeholder when no newline precedes EOF.
+pub fn expect_skip_eof_fixture() -> (String, Array[EditStep]) {
+  let initial = "let x = 1"
+  let steps = [
+    // Delete " = 1" (offset 5, len 4) → "let x": missing `=` and RHS at EOF.
+    EditStep::{
+      label: "drop = and RHS, leaving missing-= at EOF",
+      before: "let x = 1",
+      after: "let x",
+      edit: @core.Edit::new(5, 4, 0),
+    },
+    // Restore: "let x = 1".
+    EditStep::{
+      label: "restore = and RHS (recovery)",
+      before: "let x",
+      after: "let x = 1",
+      edit: @core.Edit::new(5, 0, 4),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
+/// Watch-item fixture for finding #4 (block delimiter check, spec §5.3).
+/// RequireSep guards the separator between block DEFINITIONS (let/fn), not
+/// between bare expressions — `1 2` is application (one AppExpr), so it would
+/// never fire the check. This fixture uses two `let` defs (cf. the real test at
+/// oracle_test.mbt:184): dropping the newline between them leaves them with no
+/// separator, so A and B's RequireSep(Newline) must agree on the
+/// "between definitions" diagnostic appearing then clearing.
+pub fn block_delimiter_fixture() -> (String, Array[EditStep]) {
+  let initial = "fn f() {\nlet x = 1\nlet y = 2\n}"
+  let steps = [
+    // Replace the newline between the two let defs (offset 18, len 1) with a
+    // space (len 1): the defs lose their required separator.
+    EditStep::{
+      label: "drop newline between block defs → missing-delimiter diagnostic",
+      before: "fn f() {\nlet x = 1\nlet y = 2\n}",
+      after: "fn f() {\nlet x = 1 let y = 2\n}",
+      edit: @core.Edit::new(18, 1, 1),
+    },
+    // Restore the newline: the diagnostic clears.
+    EditStep::{
+      label: "restore newline between block defs (recovery)",
+      before: "fn f() {\nlet x = 1 let y = 2\n}",
+      after: "fn f() {\nlet x = 1\nlet y = 2\n}",
+      edit: @core.Edit::new(18, 1, 1),
+    },
+  ]
+  (initial, steps)
+}
+
+///|
 /// Combined fixture: LetDef + top-level reuse + error + recovery + Pratt.
 /// Used by the main oracle test to exercise all oracle checks in one run.
 pub fn combined_fixture() -> (String, Array[EditStep]) {

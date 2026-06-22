@@ -347,3 +347,62 @@ pub fn is_go_verdict(results : Array[OracleStepResult]) -> Bool {
     _ => true
   }
 }
+
+///|
+/// Result of the newline-application reification probe (Task 8).
+///
+/// `divergence` is the A-vs-B classification over the newline-application
+/// fixture run on the REIFIED IR. The architectural point this records: B
+/// reaches `NoDivergence` here only because the spike-local probe
+/// (`parse_newline_app`) interprets `ManualNewlineAppExpr` — `@grammar.interpret`
+/// placeholders it. So a NoDivergence outcome is *parity bought with a
+/// spike-local mechanism*, the residue that argues §5/§8's migration bar, not
+/// evidence the minimal contract subsumes lambda's newline mode.
+pub struct NewlineAppProbeResult {
+  divergence : DivergenceClass
+} derive(Debug)
+
+///|
+/// Task 8: classify the `ManualNewlineAppExpr` residue with oracle evidence.
+///
+/// Runs the newline-application fixture (top-level `f x` ↔ `f\nx`, both AppExpr)
+/// through the reified-IR B grammar against A and classifies the divergence.
+/// The residue is *recorded*, not promoted: the probe holds the recursive
+/// newline mode spike-local so `@grammar`'s contract stays minimal (Codex
+/// soundness finding — threading the mode into `@grammar` would bake lambda's
+/// paren-narrowing into the cross-language contract). See spec §5.1/§5.3.
+pub fn run_newline_application_reification_probe() -> NewlineAppProbeResult raise @grammar.GrammarCompileError {
+  let (initial, steps) = newline_app_fixture()
+  let b = build_b_syntax_grammar()
+  let results = run_oracle_fixture(initial, steps, b)
+  { divergence: classify_run(results) }
+}
+
+///|
+/// Aggregate D1/D2a/D2b result for the reified-IR oracle (Task 9).
+pub struct ReifiedIrOracleResult {
+  d1_passed : Bool
+  d2a_passed : Bool
+  d2b_passed : Bool
+  divergence : DivergenceClass
+} derive(Debug)
+
+///|
+/// Task 9: re-validate D1/D2a/D2b against the REIFIED `@grammar` IR.
+///
+/// No PASS is inherited from the closure spike: B is rebuilt here from
+/// `build_b_syntax_grammar` (which calls `@grammar.compile(lambda_grammar_ir())`
+/// every run), and A is lambda's normalized hand parser. The combined fixture
+/// drives LetDef + reuse + malformed/recovery + Pratt through the reified path,
+/// so every boolean below is freshly derived on the reified IR.
+pub fn run_reified_ir_oracle() -> ReifiedIrOracleResult raise @grammar.GrammarCompileError {
+  let (initial, steps) = combined_fixture()
+  let b = build_b_syntax_grammar()
+  let results = run_oracle_fixture(initial, steps, b)
+  {
+    d1_passed: results.all(r => r.d1_ok),
+    d2a_passed: results.all(r => r.d2a_ok),
+    d2b_passed: results.all(r => r.d2b_ok),
+    divergence: classify_run(results),
+  }
+}

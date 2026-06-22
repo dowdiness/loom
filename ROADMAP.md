@@ -218,7 +218,16 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
 
 ## What This Roadmap Does NOT Include
 
-1. **Parser generation.** Hand-written recursive descent. Checkpoint-based reuse compensates for lower reuse granularity vs Lezer/tree-sitter.
+1. **Parser generation.** Hand-written recursive descent remains the production
+   path; checkpoint-based reuse compensates for lower reuse granularity vs
+   Lezer/tree-sitter. *Under active spike (#426):* a reified grammar-IR substrate
+   (`loom/src/grammar/`, added in PR #443) now exists and drives the lambda
+   example via a tree-walking interpreter, but the generated/emitted parser is
+   **deferred behind an incremental-throughput benchmark gate** (see
+   [docs/analysis/2026-06-20-parser-generation-direction.md](docs/analysis/2026-06-20-parser-generation-direction.md)).
+   Until that gate is run and passed, generated parsing stays out of the
+   production roadmap and `@grammar` is exploratory, not blessed (it is not
+   re-exported by the root facade).
 2. **GLR or Earley parsing.** Unambiguous grammars don't need generalized parsing.
 3. **Language server protocol.** An LSP layer sits on top of the CST; out of scope here.
 4. **Evaluation / type checking.** This is a parser framework roadmap.
