@@ -5,6 +5,9 @@
 ///|
 enum TestToken {
   Int
+  Word
+  Skip
+  Expected
   EOF
 } derive(Eq, @debug.Debug)
 
@@ -13,6 +16,9 @@ impl Show for TestToken with fn output(self, logger) {
   logger.write_string(
     match self {
       Int => "Int"
+      Word => "Word"
+      Skip => "Skip"
+      Expected => "Expected"
       EOF => "EOF"
     },
   )
@@ -32,6 +38,9 @@ impl @seam.IsEof for TestToken with fn is_eof(self) {
 impl @seam.ToRawKind for TestToken with fn to_raw(self) {
   match self {
     Int => @seam.RawKind(1)
+    Word => @seam.RawKind(2)
+    Skip => @seam.RawKind(3)
+    Expected => @seam.RawKind(4)
     EOF => @seam.RawKind(0)
   }
 }
@@ -40,6 +49,10 @@ impl @seam.ToRawKind for TestToken with fn to_raw(self) {
 enum TestKind {
   Root
   IntToken
+  WordToken
+  WordNode
+  SkipKind
+  ExpectedKind
   Error
   Incomplete
 } derive(Eq, @debug.Debug)
@@ -49,6 +62,10 @@ impl @seam.ToRawKind for TestKind with fn to_raw(self) {
   match self {
     Root => @seam.RawKind(10)
     IntToken => @seam.RawKind(11)
+    WordToken => @seam.RawKind(14)
+    WordNode => @seam.RawKind(15)
+    SkipKind => @seam.RawKind(16)
+    ExpectedKind => @seam.RawKind(17)
     Error => @seam.RawKind(12)
     Incomplete => @seam.RawKind(13)
   }

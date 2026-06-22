@@ -17,7 +17,14 @@ pub enum CompiledExpr[T, K] {
   Expect(T, K, String)
   RefSlot(Int)
   Choice(Array[CompiledAlt[T, K]])
-  RepeatTopLevel(Int, Pred[T], CompiledExpr[T, K])
+  RepeatTopLevel(
+    Int,
+    starts~ : Pred[T],
+    delim~ : Pred[T],
+    delim_kind~ : K,
+    between_msg~ : String,
+    after_msg~ : String
+  )
   Seq(Array[CompiledExpr[T, K]])
   PrattApp(Int, K, Pred[T])
   PrattBinary(Int, K, Array[(T, K)])
@@ -31,6 +38,20 @@ pub enum CompiledExpr[T, K] {
   )
   EmitError(String)
   ErrorUntil(Pred[T], String)
+  Fail(String)
+  EmitOr(T, K, String)
+  DiagnoseIf(Pred[T], String)
+  ExpectSkip(Pred[T], K, T, K)
+  ConsumeGated(Pred[T], K, Pred[T])
+  RequireSep(
+    Pred[T],
+    K,
+    Pred[T],
+    Pred[T],
+    msg_alt~ : String,
+    msg_else~ : String
+  )
+  ErrorNodeUntil(K, Pred[T], String)
   ManualNewlineAppExpr
   Empty
 } derive(Eq, Debug)
@@ -122,11 +143,14 @@ fn[T, K] lower(
       }
       CompiledExpr::Choice(compiled)
     }
-    RepeatTopLevel(name, pred, tail) =>
+    RepeatTopLevel(name, starts~, delim~, delim_kind~, between_msg~, after_msg~) =>
       CompiledExpr::RepeatTopLevel(
         resolve(name, slot_of),
-        pred,
-        lower(tail, slot_of),
+        starts~,
+        delim~,
+        delim_kind~,
+        between_msg~,
+        after_msg~,
       )
     Seq(exprs) => {
       let compiled : Array[CompiledExpr[T, K]] = []
@@ -152,6 +176,17 @@ fn[T, K] lower(
       )
     EmitError(msg) => CompiledExpr::EmitError(msg)
     ErrorUntil(pred, msg) => CompiledExpr::ErrorUntil(pred, msg)
+    Fail(msg) => CompiledExpr::Fail(msg)
+    EmitOr(t, k, msg) => CompiledExpr::EmitOr(t, k, msg)
+    DiagnoseIf(pred, msg) => CompiledExpr::DiagnoseIf(pred, msg)
+    ExpectSkip(skip, skip_kind, expected, kind) =>
+      CompiledExpr::ExpectSkip(skip, skip_kind, expected, kind)
+    ConsumeGated(skip, skip_kind, look) =>
+      CompiledExpr::ConsumeGated(skip, skip_kind, look)
+    RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~) =>
+      CompiledExpr::RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~)
+    ErrorNodeUntil(kind, stop, msg) =>
+      CompiledExpr::ErrorNodeUntil(kind, stop, msg)
     ManualNewlineAppExpr => CompiledExpr::ManualNewlineAppExpr
     Empty => CompiledExpr::Empty
   }

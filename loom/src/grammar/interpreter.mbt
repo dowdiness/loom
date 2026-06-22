@@ -80,16 +80,31 @@ fn[
       ctx.error(msg)
       let _ = ctx.skip_until(t => stop.matches(t))
     }
-    // Top-level repeat with per-group reuse: try to reuse the prior repeat
-    // group at each item; on a miss, parse the item rule. The trailing expr
-    // runs once after the loop (`Empty` to reject a tail).
-    RepeatTopLevel(slot, starts, tail) => {
+    // Delimited top-level repeat. Consume leading delimiters, then loop while
+    // `starts` holds. Each iteration tries repeat-group reuse first — consuming
+    // delimiters after a hit so the reused group's trailing separator does not
+    // exit the loop early — and parses the item rule on a miss. When a parsed
+    // item is not followed by a delimiter and we are not at EOF, emit the
+    // between/after diagnostic. Trailing expr + garbage recovery compose in the
+    // caller.
+    RepeatTopLevel(slot, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
+      ctx.consume_while_emit(t => delim.matches(t), delim_kind)
       while !ctx.at_eof() && starts.matches(ctx.peek()) {
-        if !ctx.try_reuse_repeat_group() {
-          run_expr(ctx, grammar, grammar.rule(slot))
+        if ctx.try_reuse_repeat_group() {
+          ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+          continue
+        }
+        run_expr(ctx, grammar, grammar.rule(slot))
+        let had = delim.matches(ctx.peek())
+        ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+        if !had && !ctx.at_eof() {
+          if starts.matches(ctx.peek()) {
+            ctx.error(between_msg)
+          } else {
+            ctx.error(after_msg)
+          }
         }
       }
-      run_expr(ctx, grammar, tail)
     }
     // Mark before peeking: when the next token matches, wrap the inner expr in
     // the node kind from that mark; otherwise run it unwrapped.
@@ -133,6 +148,61 @@ fn[
           }
         })
       }
+    }
+    // Emit a diagnostic and an error placeholder (required construct missing).
+    Fail(msg) => {
+      ctx.error(msg)
+      ctx.emit_error_placeholder()
+    }
+    // Emit the token as the kind when present, else report it missing.
+    EmitOr(token, kind, msg) =>
+      if ctx.at(token) {
+        ctx.emit_token(kind)
+      } else {
+        ctx.error(msg)
+        ctx.emit_error_placeholder()
+      }
+    // Conditional lookahead diagnostic, no consume.
+    DiagnoseIf(pred, msg) => if pred.matches(ctx.peek()) { ctx.error(msg) }
+    // Soft-separator-aware expect: consume skip tokens when the expected token
+    // follows the run, then expect it.
+    ExpectSkip(skip, skip_kind, expected, kind) => {
+      let _ = ctx.expect_after_skip(
+        t => skip.matches(t),
+        skip_kind,
+        expected,
+        kind,
+      )
+    }
+    // Consume a soft-separator run only when the lookahead holds after it.
+    ConsumeGated(skip, skip_kind, look) => {
+      let _ = ctx.consume_while_emit_if(t => skip.matches(t), skip_kind, t => {
+        look.matches(t)
+      })
+    }
+    // Require a separator run; if none preceded and `stop` does not hold, emit
+    // `msg_alt` when `alt` matches the current token, else `msg_else`.
+    RequireSep(skip, skip_kind, stop, alt, msg_alt~, msg_else~) => {
+      let had = skip.matches(ctx.peek())
+      ctx.consume_while_emit(t => skip.matches(t), skip_kind)
+      if !had && !stop.matches(ctx.peek()) {
+        if alt.matches(ctx.peek()) {
+          ctx.error(msg_alt)
+        } else {
+          ctx.error(msg_else)
+        }
+      }
+    }
+    // Open an error node and bump tokens into it until `stop` (or EOF). Callers
+    // guard the stop-already-holds case with a `Choice`, so this never opens an
+    // empty node.
+    ErrorNodeUntil(error_kind, stop, msg) => {
+      ctx.error(msg)
+      ctx.start_node(error_kind)
+      while !ctx.at_eof() && !stop.matches(ctx.peek()) {
+        ctx.bump_error()
+      }
+      ctx.finish_node()
     }
     CountedRepeat(_, _, min=_, missing_message=_) | ManualNewlineAppExpr => {
       ctx.error("grammar: expression not yet interpreted by this stage")

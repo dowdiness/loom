@@ -32,10 +32,22 @@ pub(all) enum Expr[T, K] {
   Ref(RuleName)
   /// Try alternatives in order; each carries its own reified start predicate.
   Choice(Array[Alt[T, K]])
-  /// Repeat a rule at the top level with repeat-group reuse. `starts` gates
-  /// item entry; the trailing `Expr` runs once after the loop (e.g. a trailing
-  /// expression) — pass `Empty` to reject tails.
-  RepeatTopLevel(RuleName, Pred[T], Expr[T, K])
+  /// Delimited top-level repeat with per-group reuse. `starts` gates item entry;
+  /// each iteration tries `try_reuse_repeat_group` first and parses the item
+  /// rule on a miss. `delim` tokens are consumed (emitted as `delim_kind`)
+  /// before the loop, after every reused group, and after every parsed item;
+  /// when a parsed item is not followed by a delimiter and we are not at EOF,
+  /// `between_msg` is emitted if another item starts next (`starts` holds), else
+  /// `after_msg`. The trailing expression and trailing-garbage recovery compose
+  /// in the caller (e.g. a `Seq` around this node), not in the node itself.
+  RepeatTopLevel(
+    RuleName,
+    starts~ : Pred[T],
+    delim~ : Pred[T],
+    delim_kind~ : K,
+    between_msg~ : String,
+    after_msg~ : String
+  )
   /// Run each expression in sequence.
   Seq(Array[Expr[T, K]])
   /// Pratt application: parse the atom rule while `starts` holds, wrapping the
@@ -59,6 +71,44 @@ pub(all) enum Expr[T, K] {
   EmitError(String)
   /// Emit an error node consuming until the stop predicate holds.
   ErrorUntil(Pred[T], String)
+  /// Emit a diagnostic and an error placeholder — the generic "required
+  /// construct missing here" recovery fallback.
+  Fail(String)
+  /// Emit the token as the kind when present; otherwise emit the diagnostic and
+  /// an error placeholder. Reifies "emit this token, or report it missing".
+  EmitOr(T, K, String)
+  /// Emit a diagnostic when the next token matches the predicate, without
+  /// consuming. Reifies a conditional lookahead diagnostic.
+  DiagnoseIf(Pred[T], String)
+  /// Consume soft-separator tokens matching the predicate (each emitted as the
+  /// skip kind) when the expected token follows the run, then expect it.
+  /// Reifies `expect_after_skip` — soft line continuation before a required
+  /// token. Argument order mirrors the engine: skip pred, skip kind, expected
+  /// token, emit kind.
+  ExpectSkip(Pred[T], K, T, K)
+  /// Consume a run of skip-predicate tokens (each emitted as the skip kind) only
+  /// when the token after the run satisfies the lookahead predicate. Reifies
+  /// `consume_while_emit_if` — soft separators before a syntactic category,
+  /// never the structural separators between constructs. Argument order: skip
+  /// pred, skip kind, lookahead pred.
+  ConsumeGated(Pred[T], K, Pred[T])
+  /// Require a separator run: consume skip-predicate tokens (each emitted as the
+  /// skip kind); then, if none preceded and the `stop` predicate does not hold,
+  /// emit `msg_alt` when `alt` matches the current token, else `msg_else`.
+  /// Argument order: skip pred, skip kind, stop pred, alt pred.
+  RequireSep(
+    Pred[T],
+    K,
+    Pred[T],
+    Pred[T],
+    msg_alt~ : String,
+    msg_else~ : String
+  )
+  /// Emit a diagnostic, open an error node of the given kind, bump tokens into
+  /// it until the stop predicate holds, then close it. Callers guard the
+  /// stop-already-holds case (e.g. at EOF) with a `Choice`, so this never opens
+  /// an empty error node.
+  ErrorNodeUntil(K, Pred[T], String)
   /// Evidence-gated residue (Task 8): context-sensitive newline application
   /// whose mode is threaded through recursion. Not yet reified to data.
   ManualNewlineAppExpr
