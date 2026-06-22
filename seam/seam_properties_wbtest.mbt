@@ -4,9 +4,7 @@
 fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_debug(
   f : (A) -> P,
 ) -> Unit raise Failure {
-  @qc.quick_check(
-    @qc.Arrow(f),
-  )
+  @qc.quick_check(@qc.Arrow(f))
 }
 
 ///|

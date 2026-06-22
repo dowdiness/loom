@@ -1,0 +1,15 @@
+members = [
+  "./loom",
+  "./seam",
+  "./pretty",
+  "./text-change",
+  "./moji",
+  "./examples/markdown",
+  "./examples/json",
+  "./examples/lambda",
+  "./examples/graph-dsl",
+  "./examples/json-settings",
+  "./examples/moonbit",
+  "./incr/incr",
+  "./event-graph-walker",
+]
