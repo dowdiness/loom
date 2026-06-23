@@ -32,9 +32,19 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       ctx.emit_token(TextToken)
       parse_paragraph(ctx)
     }
-    BlockQuoteMarker => parse_block_quote(ctx)
+    BlockQuoteMarker if current_token_leading_indent(ctx) <= 3 =>
+      parse_block_quote(ctx)
+    BlockQuoteMarker => {
+      ctx.emit_token(TextToken)
+      parse_paragraph(ctx)
+    }
     CodeFenceOpen(_, _) => parse_code_block(ctx)
-    HtmlBlockOpen(_) => parse_html_block(ctx)
+    HtmlBlockOpen(_) if current_token_leading_indent(ctx) <= 3 =>
+      parse_html_block(ctx)
+    HtmlBlockOpen(_) => {
+      ctx.emit_token(TextToken)
+      parse_paragraph(ctx)
+    }
     BlankLine =>
       // Consume blank lines (structural separators)
       ctx.emit_token(BlankLineToken)
@@ -757,6 +767,13 @@ fn try_parse_list_item_setext_heading(
 }
 
 ///|
+fn current_token_leading_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int {
+  skip_leading_spaces(ctx.current_token_text().to_owned(), 0)
+}
+
+///|
 fn current_list_item_content_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int {
@@ -766,7 +783,22 @@ fn current_list_item_content_indent(
       let padding = text_leading_space_count(text)
       marker_width + padding.min(4)
     }
-    _ => marker_width
+    _ => {
+      // Empty list item (marker followed by newline/EOF).
+      // Per CommonMark §5.2, content indent for empty items is
+      // marker width + 1. When the marker text already ends with
+      // a space (e.g. "- "), marker_width already accounts for
+      // the separator so return it as-is. When it doesn't (e.g.
+      // lone "-" followed by newline), add 1.
+      let marker_text = ctx.current_token_text().to_owned()
+      let ends_with_space = marker_text.length() > 0 &&
+        char_at(marker_text, marker_text.length() - 1) == Some(' ')
+      if ends_with_space {
+        marker_width
+      } else {
+        marker_width + 1
+      }
+    }
   }
 }
 
