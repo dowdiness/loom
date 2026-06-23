@@ -519,8 +519,16 @@ fn flush_pending_inline_newline(
   origin : MarkdownIROrigin,
   newline_text : String?,
 ) -> Unit {
-  if trim_inline_text_end_before_newline(children) >= 2 {
-    children.push(MarkdownIR::hard_break(origin))
+  let hard_break_spaces = trim_inline_text_end_before_newline(children)
+  if hard_break_spaces >= 2 {
+    children.push(
+      MarkdownIR::hard_break(
+        MarkdownIROrigin(
+          start=origin.start() - hard_break_spaces,
+          end=origin.end(),
+        ),
+      ),
+    )
   } else {
     match newline_text {
       Some(text) => children.push(MarkdownIR::text(text, origin))
@@ -1891,7 +1899,8 @@ fn ir_children_to_editor_inlines(
   .iter()
   .filter_map(child => {
     match child.node {
-      Text("\n") | HardBreak(_) => newline_text.map(text => Inline::Text(text))
+      Text("\n") => newline_text.map(text => Inline::Text(text))
+      HardBreak(_) => Some(Inline::Text("\n"))
       _ => Some(experimental_markdown_ir_to_editor_inline(child))
     }
   })
