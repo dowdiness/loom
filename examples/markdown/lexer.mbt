@@ -61,7 +61,9 @@ fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
       Some('\\') => continue i - 1, count + 1
       _ => break count % 2 == 1
     }
-  } nobreak { false }
+  } nobreak {
+    false
+  }
 }
 
 ///|
@@ -373,7 +375,7 @@ fn lex_indented_block_marker(
     }
     Some('-') | Some('*') | Some('+') =>
       match char_at(input, marker_start + 1) {
-Some(' ') | Some('\t') =>
+        Some(' ') | Some('\t') =>
           produce_token_from(ListMarker, pos, indent_len + 2, Inline)
         Some('\n') | Some('\r') | None =>
           produce_token_from(ListMarker, pos, indent_len + 1, Inline)
