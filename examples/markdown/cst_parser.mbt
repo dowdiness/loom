@@ -727,6 +727,13 @@ fn parse_html_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
         ctx.emit_token(NewlineToken)
       }
     }
+    // Trailing newline run before EOF: when a delimiter-terminated block
+    // (type 1/2) runs to end-of-document without finding its closing tag,
+    // blank lines at the end are part of the block content, not structural
+    // separators.  Consume them so html_block_value includes them.
+    while ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    }
   })
 }
 

@@ -222,8 +222,11 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 ///|
 /// Reject HTML block streams when:
 /// - Tokens are left unconsumed (blank-line split, structural change).
-/// - A type-1/2 block (Until-delimiter) loses its closing delimiter,
-///   because the old span no longer covers the complete block extent.
+/// - A type-1/2 block (Until-delimiter) loses its closing delimiter
+///   or the delimiter is no longer the block terminator (e.g. an edit
+///   removed it, leaving the block unterminated at EOF).  Like fenced
+///   code requiring a closing fence, delimiter-backed HTML blocks must
+///   prove the matching terminator is still present.
 fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   match tokens {
     [] => false
@@ -257,9 +260,8 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
           _ => break
         }
       }
-      // Trailing newline (line ending of last content line) is consumed
-      // outside the node by the parser; accept it here.
-      if i < tokens.length() && tokens[i].token is Newline {
+      // Trailing newline run before EOF — match parse_html_block fix.
+      while i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
       // Trailing EOF is always accepted (token stream terminator).
@@ -267,24 +269,47 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
         i = i + 1
       }
       guard i >= tokens.length() else { return false }
-      // For type-1/2 blocks, verify the closing delimiter is still present
-      // in the consumed content.  If an interior edit removed or changed the
-      // delimiter, the old block span no longer covers the complete extent
-      // and a full reparse must determine the new boundary.
+      // For type-1/2 blocks, the closing delimiter must be present AND
+      // appear in the last line of consumed content (the block terminator),
+      // not just anywhere.  If the delimiter was removed or is only a
+      // leftover substring earlier in the block, the old span doesn't
+      // cover the complete extent.
       match block_class {
         HtmlBlockUntil(delimiter) =>
-          open_line.to_lower().contains(delimiter) ||
-          tokens
-          .iter()
-          .any(t => {
-            match t.token {
-              HtmlText(text) => text.to_lower().contains(delimiter)
-              _ => false
-            }
-          })
+          html_block_contains_delimiter_at_end(
+            tokens, open_line, delimiter,
+          )
         _ => true
       }
     }
+  }
+}
+
+///|
+/// Verify that an Until-delimiter HTML block's delimiter is the actual
+/// block terminator.  The delimiter must appear on the last HtmlText line
+/// (or the opening line if it's a single-line block), not as a stray
+/// substring earlier in the block.
+fn html_block_contains_delimiter_at_end(
+  tokens : Array[@core.TokenInfo[Token]],
+  open_line : String,
+  delimiter : String,
+) -> Bool {
+  // Single-line block: opening line contains the delimiter.
+  if open_line.to_lower().contains(delimiter) {
+    return true
+  }
+  // Find the last HtmlText token and check it for the delimiter.
+  let mut last_html = None
+  for t in tokens {
+    match t.token {
+      HtmlText(text) => last_html = Some(text)
+      _ => ()
+    }
+  }
+  match last_html {
+    Some(text) => text.to_lower().contains(delimiter)
+    None => false
   }
 }
 
