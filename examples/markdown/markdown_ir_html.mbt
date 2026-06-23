@@ -171,6 +171,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
     HtmlBlock(value, _) => value
     ThematicBreak => "<hr />\n"
     Text(value) | Raw(value, _) => html_escape_text(value)
+    HardBreak(_) => "<br />\n"
     Bold(children, _) =>
       "<strong>" +
       markdown_ir_inline_children_to_commonmark_html(children) +
