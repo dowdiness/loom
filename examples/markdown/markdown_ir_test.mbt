@@ -1357,6 +1357,25 @@ test "experimental MarkdownIR: canonical format preserves hard breaks" {
 }
 
 ///|
+test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
+  let strong_hard = markdown_ir_from_source("**foo  \n**\n")
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(strong_hard),
+    content="<p><strong>foo<br />\n</strong></p>\n",
+  )
+  inspect(
+    experimental_markdown_ir_canonical_format(strong_hard),
+    content="**foo  \n**",
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      markdown_ir_from_source("**foo\n**\n"),
+    ),
+    content="<p><strong>foo\n</strong></p>\n",
+  )
+}
+
+///|
 test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
   let ir = markdown_ir_from_source(source)

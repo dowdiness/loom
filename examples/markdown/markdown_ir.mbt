@@ -574,6 +574,13 @@ fn lower_inline_children_skip_with_diags(
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         if skip_kind is Some(kind) && token_kind == kind {
+          match pending_newline {
+            Some(origin) => {
+              flush_pending_inline_newline(children, origin, newline_text)
+              pending_newline = None
+            }
+            None => ()
+          }
           continue
         }
         match token_kind {
