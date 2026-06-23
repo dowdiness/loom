@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=192, xfail=9, skip=0.
+// Baseline: pass=200, xfail=9, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (192, 9, 0)
+  (200, 9, 0)
 }
 
 ///|
@@ -19,6 +19,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "atx-heading-levels",
       source: "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n",
       expected_html: "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 10,
+      section: "Tabs",
+      name: "tabs-atx-heading-separator",
+      source: "#\tFoo\n",
+      expected_html: "<h1>Foo</h1>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -176,6 +184,62 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "backslash-escaped-heading-marker",
       source: "\\## foo\n",
       expected_html: "<p>## foo</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 66,
+      section: "ATX headings",
+      name: "atx-heading-inline-content",
+      source: "# foo *bar* \\*baz\\*\n",
+      expected_html: "<h1>foo <em>bar</em> *baz*</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 67,
+      section: "ATX headings",
+      name: "atx-heading-trims-opening-spaces",
+      source: "#                  foo                     \n",
+      expected_html: "<h1>foo</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 68,
+      section: "ATX headings",
+      name: "atx-heading-leading-indent",
+      source: " ### foo\n  ## foo\n   # foo\n",
+      expected_html: "<h3>foo</h3>\n<h2>foo</h2>\n<h1>foo</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 71,
+      section: "ATX headings",
+      name: "atx-heading-closing-sequence",
+      source: "## foo ##\n  ###   bar    ###\n",
+      expected_html: "<h2>foo</h2>\n<h3>bar</h3>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 72,
+      section: "ATX headings",
+      name: "atx-heading-long-closing-sequence",
+      source: "# foo ##################################\n##### foo ##\n",
+      expected_html: "<h1>foo</h1>\n<h5>foo</h5>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 73,
+      section: "ATX headings",
+      name: "atx-heading-closing-sequence-trailing-spaces",
+      source: "### foo ###     \n",
+      expected_html: "<h3>foo</h3>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 79,
+      section: "ATX headings",
+      name: "atx-heading-empty-content",
+      source: "## \n#\n### ###\n",
+      expected_html: "<h2></h2>\n<h1></h1>\n<h3></h3>\n",
       status: CommonMarkHtmlPass,
     },
     {

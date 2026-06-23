@@ -39,7 +39,8 @@ fn current_list_marker_indent(
 fn current_list_marker_token_width(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int {
-  ctx.current_token_text().length()
+  let text = ctx.current_token_text().to_owned()
+  count_indent_columns(text, 0, text.length())
 }
 
 ///|
