@@ -41,10 +41,20 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     CodeFenceOpen(_, _) => parse_code_block(ctx)
     HtmlBlockOpen(_) if current_token_leading_indent(ctx) <= 3 =>
       parse_html_block(ctx)
-    HtmlBlockOpen(_) => {
-      ctx.emit_token(TextToken)
-      parse_paragraph(ctx)
-    }
+    HtmlBlockOpen(_) =>
+      // Over-indented HTML block — treat as paragraph text.
+      // Consume all remaining HtmlText lines so the lexer's HTML mode
+      // doesn't leave unconsumed tokens in the stream.
+      ctx.node(ParagraphNode, fn() {
+        ctx.emit_token(TextToken)
+        while ctx.peek() is Newline {
+          ctx.emit_token(NewlineToken)
+          match ctx.peek() {
+            HtmlText(_) => ctx.emit_token(TextToken)
+            _ => break
+          }
+        }
+      })
     BlankLine =>
       // Consume blank lines (structural separators)
       ctx.emit_token(BlankLineToken)
@@ -466,7 +476,10 @@ fn parse_list_at_min_indent(
   ctx.node(UnorderedListNode, fn() {
     match current_unordered_list_marker(ctx) {
       Some(opening_marker) =>
-        while list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) {
+        while list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+              current_list_marker_indent(ctx).map_or(false, indent => {
+                indent <= min_indent + 3
+              }) {
           parse_list_item(ctx)
           consume_list_item_separator_at_min_indent(
             ctx, opening_marker, min_indent,
@@ -884,7 +897,10 @@ fn parse_ordered_list_at_min_indent(
       Some(opening_marker) =>
         while ordered_list_marker_matches_at_min_indent(
                 ctx, opening_marker, min_indent,
-              ) {
+              ) &&
+              current_list_marker_indent(ctx).map_or(false, indent => {
+                indent <= min_indent + 3
+              }) {
           parse_ordered_list_item(ctx)
           consume_ordered_list_item_separator_at_min_indent(
             ctx, opening_marker, min_indent,
