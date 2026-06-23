@@ -4,4 +4,7 @@ pub(all) enum MarkdownLexMode {
   BlockQuoteLineStart
   Inline
   CodeBlock(Int)
+  HtmlBlockRaw
+  HtmlBlockUntil(String)
+  HtmlBlockEndLine
 } derive(Eq, Debug)

@@ -71,6 +71,7 @@ pub impl @core.TreeNode for Block with fn same_kind(self, other) {
     (UnorderedListItem(_), UnorderedListItem(_)) => true
     (OrderedListItem(_, _), OrderedListItem(_, _)) => true
     (CodeBlock(a, _), CodeBlock(b, _)) => a == b
+    (HtmlBlock(_), HtmlBlock(_)) => true
     (Error(_), Error(_)) => true
     _ => false
   }
@@ -92,6 +93,7 @@ pub impl @core.Renderable for Block with fn kind_tag(self) {
       } else {
         "Code"
       }
+    HtmlBlock(_) => "HtmlBlock"
     Error(_) => "Error"
   }
 }
@@ -119,6 +121,7 @@ pub impl @core.Renderable for Block with fn label(self) {
       } else {
         code
       }
+    HtmlBlock(s) => if s.length() > 40 { s[:40].to_owned() + "..." } else { s }
     Error(msg) => "Error: " + msg
   }
 }
@@ -183,6 +186,7 @@ pub impl @core.Renderable for Block with fn unparse(self) {
       let fence = "`".repeat(fence_width)
       fence + info + "\n" + code + "\n" + fence
     }
+    HtmlBlock(s) => s
     Error(msg) => "<error: " + msg + ">"
   }
 }

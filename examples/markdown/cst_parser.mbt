@@ -22,6 +22,7 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     OrderedListMarker(_) => parse_ordered_list(ctx)
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
+    HtmlBlockOpen(_) => parse_html_block(ctx)
     BlankLine =>
       // Consume blank lines (structural separators)
       ctx.emit_token(BlankLineToken)
@@ -346,6 +347,7 @@ fn parse_block_quote_after_marker(
     OrderedListMarker(_) => parse_block_quote_ordered_list(ctx)
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
+    HtmlBlockOpen(_) => parse_html_block(ctx)
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
     EOF => ()
@@ -690,6 +692,47 @@ fn parse_thematic_break(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     ctx.emit_token(ThematicBreakToken)
     if ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
+    }
+  })
+}
+
+///|
+fn html_newline_run_continues(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  for i = 1 {
+    match ctx.peek_nth(i) {
+      HtmlText(_) => break true
+      Newline => continue i + 1
+      _ => break false
+    }
+  }
+}
+
+///|
+fn parse_html_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  ctx.node(HtmlBlockNode, fn() {
+    ctx.emit_token(HtmlBlockOpenToken)
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    }
+    while ctx.peek() is HtmlText(_) ||
+          (ctx.peek() is Newline && html_newline_run_continues(ctx)) {
+      match ctx.peek() {
+        HtmlText(_) => ctx.emit_token(HtmlTextToken)
+        Newline => ctx.emit_token(NewlineToken)
+        _ => ()
+      }
+      if ctx.peek() is Newline && !(ctx.peek_nth(1) is Newline) {
+        ctx.emit_token(NewlineToken)
+      }
+    }
+    // Trailing newline run before EOF: when a delimiter-terminated block
+    // (type 1/2) runs to end-of-document without finding its closing tag,
+    // blank lines at the end are part of the block content, not structural
+    // separators.  Consume them so html_block_value includes them.
+    while ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
     }
   })
 }

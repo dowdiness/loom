@@ -55,6 +55,7 @@ priv enum MarkdownIRNode {
     OrderedListMarker?
   )
   CodeBlock(String, String, MarkdownIROrigin?)
+  HtmlBlock(String, MarkdownIROrigin?)
   ThematicBreak
   Text(String)
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
@@ -173,6 +174,15 @@ fn MarkdownIR::thematic_break(origin : MarkdownIROrigin) -> MarkdownIR {
 }
 
 ///|
+fn MarkdownIR::html_block(
+  value : String,
+  origin : MarkdownIROrigin,
+  content_origin : MarkdownIROrigin?,
+) -> MarkdownIR {
+  { node: HtmlBlock(value, content_origin), origin }
+}
+
+///|
 fn MarkdownIR::text(value : String, origin : MarkdownIROrigin) -> MarkdownIR {
   { node: Text(value), origin }
 }
@@ -273,6 +283,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     ListItem(_, _, _, _) => "ListItem"
     OrderedListItem(_, _, _, _) => "OrderedListItem"
     CodeBlock(_, _, _) => "CodeBlock"
+    HtmlBlock(_, _) => "HtmlBlock"
     ThematicBreak => "ThematicBreak"
     Text(_) => "Text"
     Bold(_, _) => "Bold"
@@ -300,6 +311,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | Italic(children, _)
     | Link(children, _, _) => children.copy()
     CodeBlock(_, _, _)
+    | HtmlBlock(_, _)
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
@@ -333,6 +345,7 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     | ListItem(_, _, origin, _)
     | OrderedListItem(_, _, origin, _)
     | CodeBlock(_, _, origin)
+    | HtmlBlock(_, origin)
     | Bold(_, origin)
     | Italic(_, origin)
     | InlineCode(_, origin) => origin
@@ -1021,6 +1034,7 @@ fn lower_container_child_with_diags(
     | UnorderedListNode
     | OrderedListNode
     | CodeBlockNode
+    | HtmlBlockNode
     | ThematicBreakNode => Some(recurse(child))
     ErrorNode => {
       let origin = origin_from_node(child)
@@ -1088,8 +1102,11 @@ fn append_list_item_flow_block_children(
   for child in node.children() {
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
-      HeadingNode | UnorderedListNode | OrderedListNode | ThematicBreakNode =>
-        children.push(recurse(child))
+      HeadingNode
+      | UnorderedListNode
+      | OrderedListNode
+      | HtmlBlockNode
+      | ThematicBreakNode => children.push(recurse(child))
       _ => ()
     }
   }
@@ -1268,6 +1285,58 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
     }
   }
   trim_code_boundary_newlines(buf.to_string())
+}
+
+///|
+/// Extract concatenated HTML content from an `HtmlBlockNode`, including the
+/// opening line, text lines, and interleaved newlines. HTML blocks preserve
+/// exact source formatting, so this does not trim leading or trailing newlines.
+fn html_block_value(node : @seam.SyntaxNode) -> String {
+  let buf = StringBuilder::new()
+  let mut in_html = false
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          HtmlBlockOpenToken => {
+            in_html = true
+            // NB: HtmlBlockOpen text does not include the trailing newline;
+            // the lexer emits that separately as a NewlineToken.
+            buf.write_string(token.text())
+          }
+          // Defensive: the parser guarantees HtmlBlockOpenToken is first, so
+          // in_html is always true here for well-formed CSTs.
+          HtmlTextToken if in_html => buf.write_string(token.text())
+          NewlineToken if in_html => buf.write_string("\n")
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  buf.to_string()
+}
+
+///|
+fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
+  // Unlike code_block_content_origin, include HtmlBlockOpenToken: HTML blocks
+  // have no close fence, and the opening line is content.
+  let content_tokens : Array[@seam.SyntaxToken] = Array::new()
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        match token_kind {
+          HtmlBlockOpenToken | HtmlTextToken | NewlineToken =>
+            content_tokens.push(token)
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  span_token_origins(content_tokens.map(origin_from_token))
 }
 
 ///|
@@ -1497,6 +1566,12 @@ fn experimental_markdown_ir_fold_node_with_diags(
         origin_from_node(node),
         code_block_content_origin(node),
       )
+    HtmlBlockNode =>
+      MarkdownIR::html_block(
+        html_block_value(node),
+        origin_from_node(node),
+        html_block_content_origin(node),
+      )
     ThematicBreakNode => MarkdownIR::thematic_break(origin_from_node(node))
     ErrorNode => {
       let origin = origin_from_node(node)
@@ -1601,6 +1676,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
       Inline::Error("expected inline MarkdownIR, got list item")
     CodeBlock(_, _, _) =>
       Inline::Error("expected inline MarkdownIR, got code block")
+    HtmlBlock(value, _) => Inline::Text(value)
     ThematicBreak =>
       Inline::Error("expected inline MarkdownIR, got thematic break")
   }
@@ -1694,6 +1770,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
         marker,
       )
     CodeBlock(info, value, _) => Block::CodeBlock(info, value)
+    HtmlBlock(value, _) => Block::HtmlBlock(value)
     ThematicBreak => Block::Error("thematic break")
     Text(_) => Block::Error("expected block MarkdownIR, got text")
     Bold(_, _) => Block::Error("expected block MarkdownIR, got bold")
@@ -2007,6 +2084,7 @@ fn markdown_ir_to_mdast_json(
       } else {
         { "type": "code", "value": value }
       }
+    HtmlBlock(value, _) => { "type": "html", "value": value }
     ThematicBreak => { "type": "thematicBreak" }
     Text(value) => { "type": "text", "value": value }
     Bold(children, _) =>
@@ -2397,6 +2475,7 @@ fn local_transform_render(
         source_slice(source, ir.origin())
       }
     ThematicBreak => source_slice(source, ir.origin())
+    HtmlBlock(_, _) => source_slice(source, ir.origin())
     Text(_) | Raw(_, _) => source_slice(source, ir.origin())
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
@@ -2616,6 +2695,7 @@ fn canonical_format_with_list_marker(
       canonical_list_item_flow(item_marker, children, list_marker)
     }
     CodeBlock(info, value, _) => code_block_markdown(info, value)
+    HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"

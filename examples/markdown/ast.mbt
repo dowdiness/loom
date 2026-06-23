@@ -8,6 +8,7 @@ pub(all) enum Block {
   UnorderedListItem(Array[Inline])
   OrderedListItem(Array[Inline], OrderedListMarker?)
   CodeBlock(String, String)
+  HtmlBlock(String)
   Error(String)
 } derive(Eq, Debug)
 

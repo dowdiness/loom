@@ -1,6 +1,7 @@
 ///|
 fn is_markdown_reparseable_block(kind : @seam.RawKind) -> Bool {
   kind == CodeBlockNode.to_raw() ||
+  kind == HtmlBlockNode.to_raw() ||
   kind == ParagraphNode.to_raw() ||
   kind == HeadingNode.to_raw() ||
   kind == UnorderedListNode.to_raw() ||
@@ -219,6 +220,154 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
+/// Reject HTML block streams when:
+/// - Tokens are left unconsumed (blank-line split, structural change).
+/// - A type-1/2 block (Until-delimiter) loses its closing delimiter
+///   or the delimiter is no longer the block terminator (e.g. an edit
+///   removed it, leaving the block unterminated at EOF).  Like fenced
+///   code requiring a closing fence, delimiter-backed HTML blocks must
+///   prove the matching terminator is still present.
+fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
+  match tokens {
+    [] => false
+    [first, ..] => {
+      guard first.token is HtmlBlockOpen(open_line) else { return false }
+      let block_class = classify_html_block_opening_for_reparse(open_line)
+      let mut i = 1
+      // Optional Newline after HtmlBlockOpen
+      if i < tokens.length() && tokens[i].token is Newline {
+        i = i + 1
+      }
+      // HtmlText / Newline loop matching parse_html_block.
+      while i < tokens.length() {
+        match tokens[i].token {
+          HtmlText(_) => i = i + 1
+          Newline =>
+            if html_newline_run_continues_in_stream(tokens, i) {
+              i = i + 1
+              if i < tokens.length() &&
+                tokens[i].token is Newline &&
+                !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
+                i = i + 1
+              }
+            } else {
+              break
+            }
+          EOF => {
+            i = i + 1
+            break
+          }
+          _ => break
+        }
+      }
+      // Trailing newline run before EOF — match parse_html_block fix.
+      while i < tokens.length() && tokens[i].token is Newline {
+        i = i + 1
+      }
+      // Trailing EOF is always accepted (token stream terminator).
+      if i < tokens.length() && tokens[i].token is EOF {
+        i = i + 1
+      }
+      guard i >= tokens.length() else { return false }
+      // For type-1/2 blocks, the closing delimiter must be present AND
+      // appear in the last line of consumed content (the block terminator),
+      // not just anywhere.  If the delimiter was removed or is only a
+      // leftover substring earlier in the block, the old span doesn't
+      // cover the complete extent.
+      match block_class {
+        HtmlBlockUntil(delimiter) =>
+          html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
+        _ => true
+      }
+    }
+  }
+}
+
+///|
+/// Verify that an Until-delimiter HTML block's delimiter is the actual
+/// block terminator.  The delimiter must appear on the last HtmlText line
+/// (or the opening line if it's a single-line block), not as a stray
+/// substring earlier in the block.
+fn html_block_contains_delimiter_at_end(
+  tokens : Array[@core.TokenInfo[Token]],
+  open_line : String,
+  delimiter : String,
+) -> Bool {
+  // Single-line block: opening line contains the delimiter.
+  if open_line.to_lower().contains(delimiter) {
+    return true
+  }
+  // Find the last HtmlText token and check it for the delimiter.
+  let mut last_html = None
+  for t in tokens {
+    match t.token {
+      HtmlText(text) => last_html = Some(text)
+      _ => ()
+    }
+  }
+  match last_html {
+    Some(text) => text.to_lower().contains(delimiter)
+    None => false
+  }
+}
+
+///|
+/// Lightweight classification copied from lexer.mbt:classify_html_block_opening
+/// so the balance check doesn't need to import private lexer internals.
+priv enum HtmlBlockClass {
+  HtmlBlockUntil(String)
+  HtmlBlockRaw
+}
+
+///|
+fn classify_html_block_opening_for_reparse(line : String) -> HtmlBlockClass {
+  let trimmed = line.trim_start()
+  guard trimmed.length() > 1 && trimmed[0] == '<' else { return HtmlBlockRaw }
+  // Type 2: comments, processing instructions, CDATA, declarations
+  if trimmed.has_prefix("<!--") {
+    return HtmlBlockUntil("-->")
+  }
+  if trimmed.has_prefix("<?") {
+    return HtmlBlockUntil("?>")
+  }
+  if trimmed.has_prefix("<![CDATA[") {
+    return HtmlBlockUntil("]]>")
+  }
+  if trimmed.has_prefix("<!") {
+    return HtmlBlockUntil(">")
+  }
+  // Type 1: pre / script / style / textarea
+  let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
+  let mut name_end = name_start
+  while name_end < trimmed.length() &&
+        trimmed.get_char(name_end).map_or(false, ch => ch.is_ascii_alphabetic()) {
+    name_end = name_end + 1
+  }
+  let tag = trimmed[name_start:name_end].to_owned().to_lower()
+  match tag {
+    "pre" | "script" | "style" | "textarea" => HtmlBlockUntil("</" + tag)
+    _ => HtmlBlockRaw
+  }
+}
+
+///|
+fn html_newline_run_continues_in_stream(
+  tokens : Array[@core.TokenInfo[Token]],
+  start : Int,
+) -> Bool {
+  for j = start {
+    if j >= tokens.length() {
+      break false
+    }
+    match tokens[j].token {
+      HtmlText(_) => break true
+      Newline => continue j + 1
+      _ => break false
+    }
+  }
+}
+
+///|
 fn markdown_tokens_safe_for_block_reparse(
   tokens : Array[@core.TokenInfo[Token]],
 ) -> Bool {
@@ -227,6 +376,7 @@ fn markdown_tokens_safe_for_block_reparse(
     [first, ..] =>
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
+        HtmlBlockOpen(_) => is_html_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
         ListMarker =>
           is_list_item_token_stream(tokens) ||
@@ -422,6 +572,8 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
     let kind = node.kind()
     if kind == CodeBlockNode.to_raw() {
       Some(parse_code_block_if_still_code_block)
+    } else if kind == HtmlBlockNode.to_raw() {
+      Some(ctx => if ctx.peek() is HtmlBlockOpen(_) { parse_html_block(ctx) })
     } else if kind == ParagraphNode.to_raw() &&
       paragraph_start_allows_reparse(node.text()) {
       Some(parse_paragraph_if_still_paragraph)
