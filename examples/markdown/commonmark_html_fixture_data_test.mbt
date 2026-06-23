@@ -7,7 +7,7 @@
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (200, 9, 0)
+  (204, 6, 0)
 }
 
 ///|
@@ -192,6 +192,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "atx-heading-inline-content",
       source: "# foo *bar* \\*baz\\*\n",
       expected_html: "<h1>foo <em>bar</em> *baz*</h1>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 69,
+      section: "ATX headings",
+      name: "atx-heading-indented-is-code",
+      source: "    # foo\n",
+      expected_html: "<pre><code># foo\n</code></pre>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -616,9 +624,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-183",
       source: "  <!-- foo -->\n\n    <!-- foo -->\n",
       expected_html: "  <!-- foo -->\n<pre><code>&lt;!-- foo --&gt;\n</code></pre>\n",
-      status: CommonMarkHtmlXfail(
-        "Indented code blocks are outside this HTML block slice.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 184,
@@ -626,9 +632,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "html-blocks-184",
       source: "  <div>\n\n    <div>\n",
       expected_html: "  <div>\n<pre><code>&lt;div&gt;\n</code></pre>\n",
-      status: CommonMarkHtmlXfail(
-        "Indented code blocks are outside this HTML block slice.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 185,
@@ -768,9 +772,7 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "thematic-breaks-four-spaces-code",
       source: "    ***\n",
       expected_html: "<pre><code>***\n</code></pre>\n",
-      status: CommonMarkHtmlXfail(
-        "Indented code blocks are outside this thematic-break slice.",
-      ),
+      status: CommonMarkHtmlPass,
     },
     {
       example: 49,

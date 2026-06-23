@@ -58,6 +58,7 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     BlankLine =>
       // Consume blank lines (structural separators)
       ctx.emit_token(BlankLineToken)
+    IndentedCodeText(_) => parse_indented_code_block(ctx)
     Newline =>
       // Consume stray newlines between blocks
       ctx.emit_token(NewlineToken)
@@ -999,6 +1000,30 @@ fn parse_code_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       ctx.emit_token(CodeFenceCloseToken)
     }
     // Consume trailing newline/blank after close fence
+    if ctx.peek() is Newline {
+      ctx.emit_token(NewlineToken)
+    } else if ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
+  })
+}
+
+///|
+/// Parse an indented code block: 4+ spaces of indentation per line.
+/// Consumes all subsequent IndentedCodeText lines and blank lines until
+/// a non-indented, non-blank line terminates the block.
+fn parse_indented_code_block(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Unit {
+  ctx.node(CodeBlockNode, fn() {
+    while ctx.peek() != EOF {
+      match ctx.peek() {
+        IndentedCodeText(_) => ctx.emit_token(IndentedCodeTextToken)
+        Newline => ctx.emit_token(NewlineToken)
+        BlankLine => ctx.emit_token(BlankLineToken)
+        _ => break
+      }
+    }
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     } else if ctx.peek() is BlankLine {
