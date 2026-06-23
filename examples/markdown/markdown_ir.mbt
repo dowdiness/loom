@@ -1325,6 +1325,7 @@ fn normalize_heading_whitespace(
   source_text : String,
   source_offset : Int,
   trim_all_leading~ : Bool,
+  skip_closing_hashes? : Bool = false,
 ) -> Array[MarkdownIR] {
   let leading_normalized = normalize_heading_leading_whitespace(
     children,
@@ -1334,9 +1335,13 @@ fn normalize_heading_whitespace(
     [.., { node: Text(value), origin }] => {
       let (space_trimmed, space_cut) = trim_commonmark_trailing_spaces(value)
       let trimmed_end = origin.end() - space_cut
-      let (trimmed, hash_cut) = trim_trailing_atx_closing_hashes(
-        space_trimmed, source_text, source_offset, trimmed_end,
-      )
+      let (trimmed, hash_cut) = if skip_closing_hashes {
+        (space_trimmed, 0)
+      } else {
+        trim_trailing_atx_closing_hashes(
+          space_trimmed, source_text, source_offset, trimmed_end,
+        )
+      }
       let cut = space_cut + hash_cut
       if cut == 0 {
         leading_normalized
@@ -1578,6 +1583,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         node.text(),
         node.start(),
         trim_all_leading=!setext,
+        skip_closing_hashes=setext,
       )
       let content_children = if setext {
         trim_setext_heading_children(children)

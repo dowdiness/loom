@@ -53,6 +53,24 @@ fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
 }
 
 ///|
+/// True when the character at `pos` is preceded by an odd-length contiguous
+/// backslash run (CommonMark §6.5: only odd runs escape the following char).
+fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
+  let mut count = 0
+  let mut i = pos - 1
+  while i >= 0 {
+    match char_at(input, i) {
+      Some('\\') => {
+        count = count + 1
+        i = i - 1
+      }
+      _ => break
+    }
+  }
+  count % 2 == 1
+}
+
+///|
 fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
   let digits = count_ordered_marker_digits(input, pos)
   guard digits > 0 else { return None }
@@ -613,7 +631,7 @@ fn lex_inline(
             if ch != '\r' &&
               ch != '\n' &&
               end > pos &&
-              char_at(input, end - 1) == Some('\\') {
+              preceded_by_odd_backslashes(input, end) {
               end = @core.next_char_offset(input, end)
             } else {
               break
