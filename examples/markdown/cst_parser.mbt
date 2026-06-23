@@ -18,8 +18,20 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
     ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
-    ListMarker => parse_list(ctx)
-    OrderedListMarker(_) => parse_ordered_list(ctx)
+    ListMarker if current_list_marker_indent(ctx).map_or(false, indent => {
+        indent <= 3
+      }) => parse_list(ctx)
+    ListMarker => {
+      ctx.emit_token(TextToken)
+      parse_paragraph(ctx)
+    }
+    OrderedListMarker(_) if current_list_marker_indent(ctx).map_or(false, indent => {
+        indent <= 3
+      }) => parse_ordered_list(ctx)
+    OrderedListMarker(_) => {
+      ctx.emit_token(TextToken)
+      parse_paragraph(ctx)
+    }
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
     HtmlBlockOpen(_) => parse_html_block(ctx)
@@ -514,7 +526,7 @@ fn token_can_start_list_item_continuation_paragraph(
 ) -> Bool {
   match token {
     Text(text) => text_leading_space_count(text) >= content_indent
-    _ => !is_block_boundary(token)
+    _ => !is_block_boundary(token) && content_indent <= 0
   }
 }
 
