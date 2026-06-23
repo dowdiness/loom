@@ -220,6 +220,80 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
+/// Reject HTML block streams that produce unconsumed tokens when the
+/// isolated reparse stops at a blank line where a full parse would emit
+/// a following block (paragraph, etc.).
+fn is_html_block_token_stream(
+  tokens : Array[@core.TokenInfo[Token]],
+) -> Bool {
+  match tokens {
+    [] => false
+    [first, ..] => {
+      guard first.token is HtmlBlockOpen(_) else { return false }
+      let mut i = 1
+      // Optional Newline after HtmlBlockOpen
+      if i < tokens.length() && tokens[i].token is Newline {
+        i = i + 1
+      }
+      // HtmlText / Newline loop matching parse_html_block.
+      // Each iteration consumes one HtmlText token or one continuing
+      // Newline (with a possible post-Newline extra newline per the
+      // parser's emit-double-newline pattern).
+      while i < tokens.length() {
+        match tokens[i].token {
+          HtmlText(_) => i = i + 1
+          Newline => {
+            if html_newline_run_continues_in_stream(tokens, i) {
+              i = i + 1
+              // parse_html_block emits a second NewlineToken after a
+              // non-adjacent newline (ctx.peek_nth(1) != Newline).
+              if i < tokens.length() && tokens[i].token is Newline &&
+                !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
+                i = i + 1
+              }
+            } else {
+              break
+            }
+          }
+          EOF => {
+            i = i + 1
+            break
+          }
+          _ => break
+        }
+      }
+      // Trailing newline (line ending of last content line) is consumed
+      // outside the node by the parser; accept it here.
+      if i < tokens.length() && tokens[i].token is Newline {
+        i = i + 1
+      }
+      // Trailing EOF is always accepted (token stream terminator).
+      if i < tokens.length() && tokens[i].token is EOF {
+        i = i + 1
+      }
+      i >= tokens.length()
+    }
+  }
+}
+
+///|
+fn html_newline_run_continues_in_stream(
+  tokens : Array[@core.TokenInfo[Token]],
+  start : Int,
+) -> Bool {
+  for j = start {
+    if j >= tokens.length() {
+      break false
+    }
+    match tokens[j].token {
+      HtmlText(_) => break true
+      Newline => continue j + 1
+      _ => break false
+    }
+  }
+}
+
+///|
 fn markdown_tokens_safe_for_block_reparse(
   tokens : Array[@core.TokenInfo[Token]],
 ) -> Bool {
@@ -228,7 +302,7 @@ fn markdown_tokens_safe_for_block_reparse(
     [first, ..] =>
       match first.token {
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
-        HtmlBlockOpen(_) => true
+        HtmlBlockOpen(_) => is_html_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
         ListMarker =>
           is_list_item_token_stream(tokens) ||
