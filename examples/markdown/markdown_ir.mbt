@@ -1421,6 +1421,15 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
           CodeTextToken if in_code => buf.write_string(token.text())
+          IndentedCodeTextToken => {
+            in_code = true
+            // Strip leading whitespace matching CommonMark indented code
+            // block semantics (the lexer tracks the correct content but
+            // the CST token span covers the full source line).
+            buf.write_string(
+              token.text().trim_start(chars=" \t".view()).to_owned(),
+            )
+          }
           NewlineToken if in_code => buf.write_string("\n")
           _ => ()
         }
@@ -1495,6 +1504,10 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
           CodeTextToken if in_code => content_tokens.push(token)
+          IndentedCodeTextToken => {
+            in_code = true
+            content_tokens.push(token)
+          }
           NewlineToken if in_code => content_tokens.push(token)
           _ => ()
         }

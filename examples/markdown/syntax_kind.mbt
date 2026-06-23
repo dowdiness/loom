@@ -15,6 +15,7 @@ pub(all) enum SyntaxKind {
   RightParenToken
   TextToken
   CodeTextToken
+  IndentedCodeTextToken
   NewlineToken
   ErrorToken
   EofToken
@@ -63,6 +64,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | RightParenToken
     | TextToken
     | CodeTextToken
+    | IndentedCodeTextToken
     | NewlineToken
     | ErrorToken
     | EofToken
@@ -93,29 +95,30 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       RightParenToken => 11
       TextToken => 12
       CodeTextToken => 13
-      NewlineToken => 14
-      ErrorToken => 15
-      EofToken => 16
-      DocumentNode => 17
-      HeadingNode => 18
-      ParagraphNode => 19
-      UnorderedListNode => 20
-      ListItemNode => 21
-      CodeBlockNode => 22
-      BoldNode => 23
-      ItalicNode => 24
-      InlineCodeNode => 25
-      LinkNode => 26
-      ErrorNode => 27
-      OrderedListMarkerToken => 28
-      OrderedListNode => 29
-      BlockQuoteMarkerToken => 30
-      BlockQuoteNode => 31
-      ThematicBreakToken => 32
-      ThematicBreakNode => 33
-      HtmlBlockOpenToken => 34
-      HtmlTextToken => 35
-      HtmlBlockNode => 36
+      IndentedCodeTextToken => 14
+      NewlineToken => 15
+      ErrorToken => 16
+      EofToken => 17
+      DocumentNode => 18
+      HeadingNode => 19
+      ParagraphNode => 20
+      UnorderedListNode => 21
+      ListItemNode => 22
+      CodeBlockNode => 23
+      BoldNode => 24
+      ItalicNode => 25
+      InlineCodeNode => 26
+      LinkNode => 27
+      ErrorNode => 28
+      OrderedListMarkerToken => 29
+      OrderedListNode => 30
+      BlockQuoteMarkerToken => 31
+      BlockQuoteNode => 32
+      ThematicBreakToken => 33
+      ThematicBreakNode => 34
+      HtmlBlockOpenToken => 35
+      HtmlTextToken => 36
+      HtmlBlockNode => 37
     },
   )
 }
@@ -137,29 +140,30 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     11 => RightParenToken
     12 => TextToken
     13 => CodeTextToken
-    14 => NewlineToken
-    15 => ErrorToken
-    16 => EofToken
-    17 => DocumentNode
-    18 => HeadingNode
-    19 => ParagraphNode
-    20 => UnorderedListNode
-    21 => ListItemNode
-    22 => CodeBlockNode
-    23 => BoldNode
-    24 => ItalicNode
-    25 => InlineCodeNode
-    26 => LinkNode
-    27 => ErrorNode
-    28 => OrderedListMarkerToken
-    29 => OrderedListNode
-    30 => BlockQuoteMarkerToken
-    31 => BlockQuoteNode
-    32 => ThematicBreakToken
-    33 => ThematicBreakNode
-    34 => HtmlBlockOpenToken
-    35 => HtmlTextToken
-    36 => HtmlBlockNode
+    14 => IndentedCodeTextToken
+    15 => NewlineToken
+    16 => ErrorToken
+    17 => EofToken
+    18 => DocumentNode
+    19 => HeadingNode
+    20 => ParagraphNode
+    21 => UnorderedListNode
+    22 => ListItemNode
+    23 => CodeBlockNode
+    24 => BoldNode
+    25 => ItalicNode
+    26 => InlineCodeNode
+    27 => LinkNode
+    28 => ErrorNode
+    29 => OrderedListMarkerToken
+    30 => OrderedListNode
+    31 => BlockQuoteMarkerToken
+    32 => BlockQuoteNode
+    33 => ThematicBreakToken
+    34 => ThematicBreakNode
+    35 => HtmlBlockOpenToken
+    36 => HtmlTextToken
+    37 => HtmlBlockNode
     _ => ErrorNode
   }
 }

@@ -533,8 +533,17 @@ fn lex_line_start(
           _ => lex_indented_block_marker(input, pos, end)
         }
       } else {
-        // Leading whitespace followed by content — treat as paragraph
-        lex_inline(input, pos)
+        // 4+ columns of indentation — start an indented code block line.
+        // Strip the leading whitespace from the token value so the code
+        // block content matches CommonMark rendering expectations.
+        let text = input[end:line_end].to_owned()
+        (
+          Produced(
+            @core.TokenInfo::new(IndentedCodeText(text), line_end - pos),
+            next_offset=line_end,
+          ),
+          LineStart,
+        )
       }
     }
     ['#', ..] => lex_heading_marker(input, pos, pos)
