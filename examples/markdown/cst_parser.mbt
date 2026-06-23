@@ -335,7 +335,8 @@ fn parse_block_quote_list_at_min_indent(
         ctx,
         UnorderedListNode,
         ctx => {
-          list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+          list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+          current_list_marker_indent(ctx).map_or(false, indent => indent <= 3)
         },
         parse_list_item,
       )
@@ -361,7 +362,8 @@ fn parse_block_quote_ordered_list_at_min_indent(
         ctx => {
           ordered_list_marker_matches_at_min_indent(
             ctx, opening_marker, min_indent,
-          )
+          ) &&
+          current_list_marker_indent(ctx).map_or(false, indent => indent <= 3)
         },
         parse_ordered_list_item,
       )
@@ -383,8 +385,20 @@ fn parse_block_quote_after_marker(
   match ctx.peek() {
     ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
-    ListMarker => parse_block_quote_list(ctx)
-    OrderedListMarker(_) => parse_block_quote_ordered_list(ctx)
+    ListMarker if current_list_marker_indent(ctx).map_or(false, indent => {
+        indent <= 3
+      }) => parse_block_quote_list(ctx)
+    ListMarker => {
+      ctx.emit_token(TextToken)
+      parse_block_quote_paragraph(ctx)
+    }
+    OrderedListMarker(_) if current_list_marker_indent(ctx).map_or(false, indent => {
+        indent <= 3
+      }) => parse_block_quote_ordered_list(ctx)
+    OrderedListMarker(_) => {
+      ctx.emit_token(TextToken)
+      parse_block_quote_paragraph(ctx)
+    }
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
     HtmlBlockOpen(_) => parse_html_block(ctx)
@@ -469,7 +483,7 @@ fn parse_nested_list_at_current_marker(
   content_indent : Int,
 ) -> Bool {
   guard current_list_marker_indent(ctx).map_or(false, indent => {
-    indent >= content_indent
+    indent >= content_indent && indent <= content_indent + 3
   }) else {
     return false
   }
@@ -508,7 +522,7 @@ fn parse_nested_list_item_flow(
     match ctx.peek() {
       Newline =>
         if next_list_marker_indent(ctx).map_or(false, indent => {
-            indent >= content_indent
+            indent >= content_indent && indent <= content_indent + 3
           }) {
           ctx.emit_token(NewlineToken)
           ignore(parse_nested_list_at_current_marker(ctx, content_indent))
