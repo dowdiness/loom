@@ -62,6 +62,7 @@ priv enum MarkdownIRNode {
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
   Link(Array[MarkdownIR], String, MarkdownIROrigin?)
+  HardBreak(MarkdownIROrigin?)
   Unsupported(String)
   Raw(String, Array[@core.Diagnostic])
   Recovered(String, Array[@core.Diagnostic])
@@ -225,6 +226,11 @@ fn MarkdownIR::link(
 }
 
 ///|
+fn MarkdownIR::hard_break(origin : MarkdownIROrigin) -> MarkdownIR {
+  { node: HardBreak(Some(origin)), origin }
+}
+
+///|
 fn MarkdownIR::unsupported(
   message : String,
   origin : MarkdownIROrigin,
@@ -290,6 +296,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
     Link(_, _, _) => "Link"
+    HardBreak(_) => "HardBreak"
     Unsupported(_) => "Unsupported"
     Raw(_, _) => "Raw"
     Recovered(_, _) => "Recovered"
@@ -315,6 +322,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | ThematicBreak
     | Text(_)
     | InlineCode(_, _)
+    | HardBreak(_)
     | Unsupported(_)
     | Raw(_, _)
     | Recovered(_, _) => []
@@ -348,7 +356,8 @@ pub fn MarkdownIR::content_origin(self : MarkdownIR) -> MarkdownIROrigin? {
     | HtmlBlock(_, origin)
     | Bold(_, origin)
     | Italic(_, origin)
-    | InlineCode(_, origin) => origin
+    | InlineCode(_, origin)
+    | HardBreak(origin) => origin
     _ => None
   }
 }
@@ -485,6 +494,70 @@ fn delimiter_text(kind : SyntaxKind) -> String? {
 }
 
 ///|
+fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int {
+  match children.last() {
+    Some({ node: Text(value), origin }) => {
+      let hard_break_spaces = value.length() -
+        value.trim_end(chars=" ".view()).length()
+      let trimmed = value.trim_end(chars=" \t".view())
+      let removed = value.length() - trimmed.length()
+      if removed > 0 {
+        children[children.length() - 1] = MarkdownIR::text(
+          trimmed.to_owned(),
+          MarkdownIROrigin(start=origin.start(), end=origin.end() - removed),
+        )
+      }
+      hard_break_spaces
+    }
+    _ => 0
+  }
+}
+
+///|
+fn flush_pending_inline_newline(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  newline_text : String?,
+) -> Unit {
+  let hard_break_spaces = trim_inline_text_end_before_newline(children)
+  if hard_break_spaces >= 2 {
+    children.push(
+      MarkdownIR::hard_break(
+        MarkdownIROrigin(
+          start=origin.start() - hard_break_spaces,
+          end=origin.end(),
+        ),
+      ),
+    )
+  } else {
+    match newline_text {
+      Some(text) => children.push(MarkdownIR::text(text, origin))
+      None => ()
+    }
+  }
+}
+
+///|
+fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
+  match child.node {
+    Text(value) => {
+      let trimmed = value.trim_start(chars=" \t".view())
+      let removed = value.length() - trimmed.length()
+      if removed > 0 {
+        let origin = child.origin()
+        MarkdownIR::text(
+          trimmed.to_owned(),
+          MarkdownIROrigin(start=origin.start() + removed, end=origin.end()),
+        )
+      } else {
+        child
+      }
+    }
+    _ => child
+  }
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -494,58 +567,13 @@ fn lower_inline_children_skip_with_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
-    let mut was_pending = false
-    match pending_newline {
+    let child = match pending_newline {
       Some(origin) => {
-        // Trim trailing spaces from line before soft break
-        match children.last() {
-          Some({ node: Text(value), origin: child_origin }) => {
-            let trimmed = value.trim_end(chars=" ".view())
-            let removed = value.length() - trimmed.length()
-            if removed > 0 {
-              children[children.length() - 1] = {
-                node: Text(trimmed.to_owned()),
-                origin: MarkdownIROrigin(
-                  start=child_origin.start(),
-                  end=child_origin.end() - removed,
-                ),
-              }
-            }
-          }
-          _ => ()
-        }
-        match newline_text {
-          Some(text) => children.push(MarkdownIR::text(text, origin))
-          None => ()
-        }
+        flush_pending_inline_newline(children, origin, newline_text)
         pending_newline = None
-        was_pending = true
+        trim_inline_text_start_after_newline(child)
       }
-      None => ()
-    }
-    // Trim leading spaces from line after soft break
-    let child = if was_pending {
-      match child.node {
-        Text(value) => {
-          let trimmed = value.trim_start(chars=" ".view())
-          let removed = value.length() - trimmed.length()
-          if removed > 0 {
-            let child_origin = child.origin()
-            {
-              node: Text(trimmed.to_owned()),
-              origin: MarkdownIROrigin(
-                start=child_origin.start() + removed,
-                end=child_origin.end(),
-              ),
-            }
-          } else {
-            child
-          }
-        }
-        _ => child
-      }
-    } else {
-      child
+      None => child
     }
     children.push(child)
   }
@@ -554,6 +582,13 @@ fn lower_inline_children_skip_with_diags(
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         if skip_kind is Some(kind) && token_kind == kind {
+          match pending_newline {
+            Some(origin) => {
+              flush_pending_inline_newline(children, origin, newline_text)
+              pending_newline = None
+            }
+            None => ()
+          }
           continue
         }
         match token_kind {
@@ -686,55 +721,13 @@ fn lower_direct_inline_children_with_newline_and_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
-    let mut was_pending = false
-    match pending_newline {
+    let child = match pending_newline {
       Some(origin) => {
-        // Trim trailing spaces from line before soft break
-        match children.last() {
-          Some({ node: Text(value), origin: child_origin }) => {
-            let trimmed = value.trim_end(chars=" ".view())
-            let removed = value.length() - trimmed.length()
-            if removed > 0 {
-              children[children.length() - 1] = {
-                node: Text(trimmed.to_owned()),
-                origin: MarkdownIROrigin(
-                  start=child_origin.start(),
-                  end=child_origin.end() - removed,
-                ),
-              }
-            }
-          }
-          _ => ()
-        }
-        children.push(MarkdownIR::text(newline_text, origin))
+        flush_pending_inline_newline(children, origin, Some(newline_text))
         pending_newline = None
-        was_pending = true
+        trim_inline_text_start_after_newline(child)
       }
-      None => ()
-    }
-    // Trim leading spaces from line after soft break
-    let child = if was_pending {
-      match child.node {
-        Text(value) => {
-          let trimmed = value.trim_start(chars=" ".view())
-          let removed = value.length() - trimmed.length()
-          if removed > 0 {
-            let child_origin = child.origin()
-            {
-              node: Text(trimmed.to_owned()),
-              origin: MarkdownIROrigin(
-                start=child_origin.start() + removed,
-                end=child_origin.end(),
-              ),
-            }
-          } else {
-            child
-          }
-        }
-        _ => child
-      }
-    } else {
-      child
+      None => child
     }
     children.push(child)
   }
@@ -945,10 +938,8 @@ fn trim_setext_heading_children(
   if len == 0 {
     return children
   }
-  let result : Array[MarkdownIR] = []
-  for i = 0; i < len; i = i + 1 {
-    let child = children[i]
-    let modified = match child.node {
+  children.mapi((i, child) => {
+    match child.node {
       Text(value) => {
         let mut trimmed = value
         let mut origin = child.origin()
@@ -977,16 +968,14 @@ fn trim_setext_heading_children(
           }
         }
         if trimmed.length() != value.length() {
-          { node: Text(trimmed), origin }
+          MarkdownIR::text(trimmed, origin)
         } else {
           child
         }
       }
       _ => child
     }
-    result.push(modified)
-  }
-  result
+  })
 }
 
 ///|
@@ -1012,7 +1001,7 @@ fn lower_paragraph_with_newline_and_diags(
   newline_text : String,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> MarkdownIR {
-  let children = normalize_paragraph_leading_spaces(
+  let children = normalize_paragraph_boundary_spaces(
     lower_inline_children_with_newline_and_diags(
       node, newline_text, diagnostics_in_origin,
     ),
@@ -1106,7 +1095,7 @@ fn list_item_paragraph_origin(
 ///|
 fn trim_list_item_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
   match ir.node {
-    Paragraph(children, content_origin) => {
+    Paragraph(children, _) => {
       let trimmed = match children {
         [{ node: Text(value), origin }, ..] => {
           let trimmed_value = value.trim_start(chars=" \t".view())
@@ -1131,7 +1120,11 @@ fn trim_list_item_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
         }
         _ => children
       }
-      MarkdownIR::paragraph(trimmed, ir.origin(), content_origin)
+      MarkdownIR::paragraph(
+        trimmed,
+        ir.origin(),
+        span_origin_of_children(trimmed),
+      )
     }
     _ => ir
   }
@@ -1174,7 +1167,7 @@ fn lower_list_item_flow_children_with_diags(
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
-  let lowered_inline_children = normalize_paragraph_leading_spaces(
+  let lowered_inline_children = normalize_paragraph_boundary_spaces(
     lower_direct_inline_children_with_newline_and_diags(
       node, "\n", diagnostics_in_origin,
     ),
@@ -1184,11 +1177,12 @@ fn lower_list_item_flow_children_with_diags(
   )
   let content_origin = span_origin_of_children(inline_children)
   let paragraph_origin = list_item_paragraph_origin(node, content_origin)
-  let children = [
+  let paragraph = trim_list_item_child_paragraph(
     MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
-  ]
+  )
+  let children = [paragraph]
   append_list_item_flow_block_children(node, children, recurse)
-  (children, content_origin)
+  (children, paragraph.content_origin())
 }
 
 ///|
@@ -1262,29 +1256,56 @@ fn trim_commonmark_trailing_spaces(value : String) -> (String, Int) {
 }
 
 ///|
-fn normalize_paragraph_leading_spaces(
+fn normalize_paragraph_boundary_spaces(
   children : Array[MarkdownIR],
 ) -> Array[MarkdownIR] {
-  match children {
-    [{ node: Text(value), origin }, ..] => {
-      let (trimmed, cut) = trim_commonmark_leading_indent_spaces(value)
-      if cut == 0 {
-        children
-      } else {
-        children.mapi((index, child) => {
-          if index == 0 {
-            MarkdownIR::text(
-              trimmed,
-              MarkdownIROrigin(start=origin.start() + cut, end=origin.end()),
+  let len = children.length()
+  if len == 0 {
+    return children
+  }
+  children.mapi((index, child) => {
+    match child.node {
+      Text(value) => {
+        let (trimmed, origin) = if index == 0 {
+          let (leading_trimmed, cut) = trim_commonmark_leading_indent_spaces(
+            value,
+          )
+          if cut > 0 {
+            (
+              leading_trimmed,
+              MarkdownIROrigin(
+                start=child.origin().start() + cut,
+                end=child.origin().end(),
+              ),
             )
           } else {
-            child
+            (value, child.origin())
           }
-        })
+        } else {
+          (value, child.origin())
+        }
+        let (trimmed, origin) = if index == len - 1 {
+          let (trailing_trimmed, cut) = trim_commonmark_trailing_spaces(trimmed)
+          if cut > 0 {
+            (
+              trailing_trimmed,
+              MarkdownIROrigin(start=origin.start(), end=origin.end() - cut),
+            )
+          } else {
+            (trimmed, origin)
+          }
+        } else {
+          (trimmed, origin)
+        }
+        if trimmed.length() == value.length() {
+          child
+        } else {
+          MarkdownIR::text(trimmed, origin)
+        }
       }
+      _ => child
     }
-    _ => children
-  }
+  })
 }
 
 ///|
@@ -1340,7 +1361,7 @@ fn normalize_heading_leading_whitespace(
   trim_all~ : Bool,
 ) -> Array[MarkdownIR] {
   if !trim_all {
-    return normalize_paragraph_leading_spaces(children)
+    return normalize_paragraph_boundary_spaces(children)
   }
   match children {
     [{ node: Text(value), origin }, ..] => {
@@ -1826,6 +1847,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     InlineCode(value, _) => Inline::InlineCode(value)
     Link(children, destination, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
+    HardBreak(_) => Inline::Text("\n")
     Unsupported(message) => Inline::Error(message)
     Raw(value, _) => Inline::Text(value)
     Recovered(message, _) => Inline::Error(message)
@@ -1878,6 +1900,7 @@ fn ir_children_to_editor_inlines(
   .filter_map(child => {
     match child.node {
       Text("\n") => newline_text.map(text => Inline::Text(text))
+      HardBreak(_) => Some(Inline::Text("\n"))
       _ => Some(experimental_markdown_ir_to_editor_inline(child))
     }
   })
@@ -1942,6 +1965,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     InlineCode(_, _) =>
       Block::Error("expected block MarkdownIR, got inline code")
     Link(_, _, _) => Block::Error("expected block MarkdownIR, got link")
+    HardBreak(_) => Block::Error("expected block MarkdownIR, got hard break")
     Unsupported(message) => Block::Error(message)
     Raw(value, _) =>
       Block::Error("expected block MarkdownIR, got raw: " + value)
@@ -2176,6 +2200,10 @@ fn mdast_children_json(
       for child in children {
         match child.node {
           Text(value) => pending_text.write_string(value)
+          HardBreak(_) => {
+            flush_text()
+            json_children.push(markdown_ir_to_mdast_json(child, None))
+          }
           _ => {
             flush_text()
             json_children.push(markdown_ir_to_mdast_json(child, None))
@@ -2251,6 +2279,7 @@ fn markdown_ir_to_mdast_json(
     HtmlBlock(value, _) => { "type": "html", "value": value }
     ThematicBreak => { "type": "thematicBreak" }
     Text(value) => { "type": "text", "value": value }
+    HardBreak(_) => { "type": "break" }
     Bold(children, _) =>
       { "type": "strong", "children": mdast_children_json(children, context) }
     Italic(children, _) =>
@@ -2379,7 +2408,7 @@ fn local_transform_inline_text(
           )
         } else {
           match child.node {
-            Text(_) | Raw(_, _) =>
+            Text(_) | Raw(_, _) | HardBreak(_) =>
               buf.write_string(source_slice(source, child_origin))
             InlineCode(value, _) => buf.write_string("`" + value + "`")
             _ => buf.write_string(source_slice(source, child_origin))
@@ -2640,7 +2669,7 @@ fn local_transform_render(
       }
     ThematicBreak => source_slice(source, ir.origin())
     HtmlBlock(_, _) => source_slice(source, ir.origin())
-    Text(_) | Raw(_, _) => source_slice(source, ir.origin())
+    Text(_) | Raw(_, _) | HardBreak(_) => source_slice(source, ir.origin())
     Bold(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
         replacement_text
@@ -2862,6 +2891,7 @@ fn canonical_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
+    HardBreak(_) => "  \n"
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => "`" + value + "`"

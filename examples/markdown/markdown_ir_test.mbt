@@ -1339,6 +1339,63 @@ test "experimental MarkdownIR: Block adapter matches nested inline soft breaks" 
 }
 
 ///|
+test "experimental MarkdownIR: canonical format preserves hard breaks" {
+  let source = "aaa     \nbbb     \n"
+  let ir = markdown_ir_from_source(source)
+  let canonical = experimental_markdown_ir_canonical_format(ir)
+  inspect(canonical, content="aaa  \nbbb")
+  inspect(
+    experimental_markdown_ir_to_block(ir),
+    content="Document([Paragraph([Text(\"aaa\"), Text(\"\\n\"), Text(\"bbb\")])])",
+  )
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_, hard_break, _] => {
+          inspect(hard_break.kind_tag(), content="HardBreak")
+          inspect(origin_source(source, hard_break.origin()), content="     \n")
+        }
+        _ => inspect("unexpected paragraph children", content="hard break")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+  let reparsed = markdown_ir_from_source(canonical)
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(reparsed),
+    content="<p>aaa<br />\nbbb</p>\n",
+  )
+  inspect(
+    experimental_markdown_ir_canonical_format(reparsed),
+    content=canonical,
+  )
+}
+
+///|
+test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
+  let strong_hard = markdown_ir_from_source("**foo  \n**\n")
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(strong_hard),
+    content="<p><strong>foo<br />\n</strong></p>\n",
+  )
+  inspect(
+    experimental_markdown_ir_canonical_format(strong_hard),
+    content="**foo  \n**",
+  )
+  inspect(
+    experimental_markdown_ir_to_block(strong_hard),
+    content=(
+      #|Document([Paragraph([Bold([Text("foo"), Text("\n")])])])
+    ),
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(
+      markdown_ir_from_source("**foo\n**\n"),
+    ),
+    content="<p><strong>foo\n</strong></p>\n",
+  )
+}
+
+///|
 test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
   let ir = markdown_ir_from_source(source)

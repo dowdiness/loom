@@ -542,7 +542,7 @@ fn lex_line_start(
             @core.TokenInfo::new(IndentedCodeText(text), line_end - pos),
             next_offset=line_end,
           ),
-          LineStart,
+          Inline,
         )
       }
     }
