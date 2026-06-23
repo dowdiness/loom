@@ -220,31 +220,28 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
-/// Reject HTML block streams that produce unconsumed tokens when the
-/// isolated reparse stops at a blank line where a full parse would emit
-/// a following block (paragraph, etc.).
+/// Reject HTML block streams when:
+/// - Tokens are left unconsumed (blank-line split, structural change).
+/// - A type-1/2 block (Until-delimiter) loses its closing delimiter,
+///   because the old span no longer covers the complete block extent.
 fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   match tokens {
     [] => false
     [first, ..] => {
-      guard first.token is HtmlBlockOpen(_) else { return false }
+      guard first.token is HtmlBlockOpen(open_line) else { return false }
+      let block_class = classify_html_block_opening_for_reparse(open_line)
       let mut i = 1
       // Optional Newline after HtmlBlockOpen
       if i < tokens.length() && tokens[i].token is Newline {
         i = i + 1
       }
       // HtmlText / Newline loop matching parse_html_block.
-      // Each iteration consumes one HtmlText token or one continuing
-      // Newline (with a possible post-Newline extra newline per the
-      // parser's emit-double-newline pattern).
       while i < tokens.length() {
         match tokens[i].token {
           HtmlText(_) => i = i + 1
           Newline =>
             if html_newline_run_continues_in_stream(tokens, i) {
               i = i + 1
-              // parse_html_block emits a second NewlineToken after a
-              // non-adjacent newline (ctx.peek_nth(1) != Newline).
               if i < tokens.length() &&
                 tokens[i].token is Newline &&
                 !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
@@ -269,8 +266,63 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
       if i < tokens.length() && tokens[i].token is EOF {
         i = i + 1
       }
-      i >= tokens.length()
+      guard i >= tokens.length() else { return false }
+      // For type-1/2 blocks, verify the closing delimiter is still present
+      // in the consumed content.  If an interior edit removed or changed the
+      // delimiter, the old block span no longer covers the complete extent
+      // and a full reparse must determine the new boundary.
+      match block_class {
+        HtmlBlockUntil(delimiter) =>
+          open_line.to_lower().contains(delimiter) ||
+          tokens.iter().any(t =>
+            match t.token {
+              HtmlText(text) => text.to_lower().contains(delimiter)
+              _ => false
+            },
+          )
+        _ => true
+      }
     }
+  }
+}
+
+///|
+/// Lightweight classification copied from lexer.mbt:classify_html_block_opening
+/// so the balance check doesn't need to import private lexer internals.
+priv enum HtmlBlockClass {
+  HtmlBlockUntil(String)
+  HtmlBlockRaw
+}
+
+///|
+fn classify_html_block_opening_for_reparse(line : String) -> HtmlBlockClass {
+  let trimmed = line.trim_start()
+  guard trimmed.length() > 1 && trimmed[0] == '<' else { return HtmlBlockRaw }
+  // Type 2: comments, processing instructions, CDATA, declarations
+  if trimmed.has_prefix("<!--") {
+    return HtmlBlockUntil("-->")
+  }
+  if trimmed.has_prefix("<?") {
+    return HtmlBlockUntil("?>")
+  }
+  if trimmed.has_prefix("<![CDATA[") {
+    return HtmlBlockUntil("]]>")
+  }
+  if trimmed.has_prefix("<!") {
+    return HtmlBlockUntil(">")
+  }
+  // Type 1: pre / script / style / textarea
+  let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
+  let mut name_end = name_start
+  while name_end < trimmed.length() &&
+    trimmed.get_char(name_end).map_or(false, ch => ch.is_ascii_alphabetic()) {
+    name_end = name_end + 1
+  }
+  let tag = trimmed[name_start:name_end].to_owned().to_lower()
+  match tag {
+    "pre" | "script" | "style" | "textarea" =>
+      HtmlBlockUntil("</" + tag)
+    _ => HtmlBlockRaw
   }
 }
 
