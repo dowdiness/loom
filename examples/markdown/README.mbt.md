@@ -6,7 +6,10 @@ Demonstrates **mode-aware lexing** — `@core.ModeLexer[Token, Mode]` —
 the way to handle languages whose token grammar depends on the current
 context (line start vs inline vs inside a fenced code block).
 
-## Public API
+## Public API overview
+
+This section highlights the main entry points. Full generated signatures,
+including exported type accessors, are in [`pkg.generated.mbti`](pkg.generated.mbti).
 
 ```mbt nocheck
 // ── Grammar ───────────────────────────────────────────────────────────────────
