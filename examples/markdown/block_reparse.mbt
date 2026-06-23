@@ -117,7 +117,7 @@ fn is_list_item_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   is_marker_line_token_stream(
     tokens,
     token => token is ListMarker,
-    allow_trailing_newline=false,
+    allow_trailing_newline=true,
   )
 }
 
