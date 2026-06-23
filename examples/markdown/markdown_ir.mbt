@@ -494,6 +494,62 @@ fn delimiter_text(kind : SyntaxKind) -> String? {
 }
 
 ///|
+fn trim_inline_text_end_before_newline(children : Array[MarkdownIR]) -> Int {
+  match children.last() {
+    Some({ node: Text(value), origin }) => {
+      let hard_break_spaces = value.length() -
+        value.trim_end(chars=" ".view()).length()
+      let trimmed = value.trim_end(chars=" \t".view())
+      let removed = value.length() - trimmed.length()
+      if removed > 0 {
+        children[children.length() - 1] = MarkdownIR::text(
+          trimmed.to_owned(),
+          MarkdownIROrigin(start=origin.start(), end=origin.end() - removed),
+        )
+      }
+      hard_break_spaces
+    }
+    _ => 0
+  }
+}
+
+///|
+fn flush_pending_inline_newline(
+  children : Array[MarkdownIR],
+  origin : MarkdownIROrigin,
+  newline_text : String?,
+) -> Unit {
+  if trim_inline_text_end_before_newline(children) >= 2 {
+    children.push(MarkdownIR::hard_break(origin))
+  } else {
+    match newline_text {
+      Some(text) => children.push(MarkdownIR::text(text, origin))
+      None => ()
+    }
+  }
+}
+
+///|
+fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
+  match child.node {
+    Text(value) => {
+      let trimmed = value.trim_start(chars=" \t".view())
+      let removed = value.length() - trimmed.length()
+      if removed > 0 {
+        let origin = child.origin()
+        MarkdownIR::text(
+          trimmed.to_owned(),
+          MarkdownIROrigin(start=origin.start() + removed, end=origin.end()),
+        )
+      } else {
+        child
+      }
+    }
+    _ => child
+  }
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -503,66 +559,13 @@ fn lower_inline_children_skip_with_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
-    let mut was_pending = false
-    match pending_newline {
+    let child = match pending_newline {
       Some(origin) => {
-        // Trim trailing spaces/tabs from line before a pending newline.
-        let mut removed = 0
-        let mut hard_break_spaces = 0
-        match children.last() {
-          Some({ node: Text(value), origin: child_origin }) => {
-            hard_break_spaces = value.length() -
-              value.trim_end(chars=" ".view()).length()
-            let trimmed = value.trim_end(chars=" \t".view())
-            removed = value.length() - trimmed.length()
-            if removed > 0 {
-              children[children.length() - 1] = {
-                node: Text(trimmed.to_owned()),
-                origin: MarkdownIROrigin(
-                  start=child_origin.start(),
-                  end=child_origin.end() - removed,
-                ),
-              }
-            }
-          }
-          _ => ()
-        }
-        if hard_break_spaces >= 2 {
-          children.push(MarkdownIR::hard_break(origin))
-        } else {
-          match newline_text {
-            Some(text) => children.push(MarkdownIR::text(text, origin))
-            None => ()
-          }
-        }
+        flush_pending_inline_newline(children, origin, newline_text)
         pending_newline = None
-        was_pending = true
+        trim_inline_text_start_after_newline(child)
       }
-      None => ()
-    }
-    // Trim leading spaces/tabs from line after a pending newline.
-    let child = if was_pending {
-      match child.node {
-        Text(value) => {
-          let trimmed = value.trim_start(chars=" \t".view())
-          let removed = value.length() - trimmed.length()
-          if removed > 0 {
-            let child_origin = child.origin()
-            {
-              node: Text(trimmed.to_owned()),
-              origin: MarkdownIROrigin(
-                start=child_origin.start() + removed,
-                end=child_origin.end(),
-              ),
-            }
-          } else {
-            child
-          }
-        }
-        _ => child
-      }
-    } else {
-      child
+      None => child
     }
     children.push(child)
   }
@@ -703,63 +706,13 @@ fn lower_direct_inline_children_with_newline_and_diags(
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
   fn push_child(child : MarkdownIR) -> Unit {
-    let mut was_pending = false
-    match pending_newline {
+    let child = match pending_newline {
       Some(origin) => {
-        // Trim trailing spaces/tabs from line before a pending newline.
-        let mut removed = 0
-        let mut hard_break_spaces = 0
-        match children.last() {
-          Some({ node: Text(value), origin: child_origin }) => {
-            hard_break_spaces = value.length() -
-              value.trim_end(chars=" ".view()).length()
-            let trimmed = value.trim_end(chars=" \t".view())
-            removed = value.length() - trimmed.length()
-            if removed > 0 {
-              children[children.length() - 1] = {
-                node: Text(trimmed.to_owned()),
-                origin: MarkdownIROrigin(
-                  start=child_origin.start(),
-                  end=child_origin.end() - removed,
-                ),
-              }
-            }
-          }
-          _ => ()
-        }
-        if hard_break_spaces >= 2 {
-          children.push(MarkdownIR::hard_break(origin))
-        } else {
-          children.push(MarkdownIR::text(newline_text, origin))
-        }
+        flush_pending_inline_newline(children, origin, Some(newline_text))
         pending_newline = None
-        was_pending = true
+        trim_inline_text_start_after_newline(child)
       }
-      None => ()
-    }
-    // Trim leading spaces/tabs from line after a pending newline.
-    let child = if was_pending {
-      match child.node {
-        Text(value) => {
-          let trimmed = value.trim_start(chars=" \t".view())
-          let removed = value.length() - trimmed.length()
-          if removed > 0 {
-            let child_origin = child.origin()
-            {
-              node: Text(trimmed.to_owned()),
-              origin: MarkdownIROrigin(
-                start=child_origin.start() + removed,
-                end=child_origin.end(),
-              ),
-            }
-          } else {
-            child
-          }
-        }
-        _ => child
-      }
-    } else {
-      child
+      None => child
     }
     children.push(child)
   }
@@ -1298,29 +1251,36 @@ fn normalize_paragraph_boundary_spaces(
   children.mapi((index, child) => {
     match child.node {
       Text(value) => {
-        let mut trimmed = value
-        let mut origin = child.origin()
-        if index == 0 {
+        let (trimmed, origin) = if index == 0 {
           let (leading_trimmed, cut) = trim_commonmark_leading_indent_spaces(
-            trimmed,
+            value,
           )
           if cut > 0 {
-            trimmed = leading_trimmed
-            origin = MarkdownIROrigin(
-              start=origin.start() + cut,
-              end=origin.end(),
+            (
+              leading_trimmed,
+              MarkdownIROrigin(
+                start=child.origin().start() + cut,
+                end=child.origin().end(),
+              ),
             )
+          } else {
+            (value, child.origin())
           }
+        } else {
+          (value, child.origin())
         }
-        if index == len - 1 {
+        let (trimmed, origin) = if index == len - 1 {
           let (trailing_trimmed, cut) = trim_commonmark_trailing_spaces(trimmed)
           if cut > 0 {
-            trimmed = trailing_trimmed
-            origin = MarkdownIROrigin(
-              start=origin.start(),
-              end=origin.end() - cut,
+            (
+              trailing_trimmed,
+              MarkdownIROrigin(start=origin.start(), end=origin.end() - cut),
             )
+          } else {
+            (trimmed, origin)
           }
+        } else {
+          (trimmed, origin)
         }
         if trimmed.length() == value.length() {
           child
