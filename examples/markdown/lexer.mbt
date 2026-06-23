@@ -373,8 +373,10 @@ fn lex_indented_block_marker(
     }
     Some('-') | Some('*') | Some('+') =>
       match char_at(input, marker_start + 1) {
-        Some(' ') | Some('\t') =>
+Some(' ') | Some('\t') =>
           produce_token_from(ListMarker, pos, indent_len + 2, Inline)
+        Some('\n') | Some('\r') | None =>
+          produce_token_from(ListMarker, pos, indent_len + 1, Inline)
         _ => lex_inline(input, pos)
       }
     Some(ch) if is_decimal_digit(ch) =>
@@ -388,7 +390,30 @@ fn lex_indented_block_marker(
             Inline,
           )
         }
-        None => lex_inline(input, pos)
+        None => {
+          let digits = count_ordered_marker_digits(input, marker_start)
+          match
+            (
+              char_at(input, marker_start + digits),
+              char_at(input, marker_start + digits + 1),
+            ) {
+            (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
+              match
+                ordered_list_marker_from_text(
+                  input[marker_start:marker_start + digits + 1].to_owned(),
+                ) {
+                Some(marker) =>
+                  produce_token_from(
+                    OrderedListMarker(marker),
+                    pos,
+                    indent_len + digits + 1,
+                    Inline,
+                  )
+                None => lex_inline(input, pos)
+              }
+            _ => lex_inline(input, pos)
+          }
+        }
       }
     Some('<') => {
       let line_end = find_line_end(input, pos)
@@ -519,9 +544,13 @@ fn lex_line_start(
       // List marker: must be followed by space or tab.
       produced_until(ListMarker, pos, rest, Inline)
     ['-' | '*' | '+', ..] =>
-      // Not a list marker in LineStart; fall through to inline
-      // (e.g., "**bold**" at line start — * not followed by space)
-      lex_inline(input, pos)
+      // A lone bullet marker is an empty list item; other marker-looking text
+      // falls through to inline (for example, "**bold**" at line start).
+      match char_at(input, pos + 1) {
+        Some('\n') | Some('\r') | None =>
+          produce_token_from(ListMarker, pos, 1, Inline)
+        _ => lex_inline(input, pos)
+      }
     [ch, ..] if is_decimal_digit(ch) =>
       match ordered_list_marker_at(input, pos) {
         Some(marker) => {
@@ -534,7 +563,27 @@ fn lex_line_start(
             Inline,
           )
         }
-        None => lex_inline(input, pos)
+        None => {
+          let digits = count_ordered_marker_digits(input, pos)
+          match
+            (char_at(input, pos + digits), char_at(input, pos + digits + 1)) {
+            (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
+              match
+                ordered_list_marker_from_text(
+                  input[pos:pos + digits + 1].to_owned(),
+                ) {
+                Some(marker) =>
+                  produce_token_from(
+                    OrderedListMarker(marker),
+                    pos,
+                    digits + 1,
+                    Inline,
+                  )
+                None => lex_inline(input, pos)
+              }
+            _ => lex_inline(input, pos)
+          }
+        }
       }
     ['<', ..] => {
       let line : StringView = input[pos:line_end]

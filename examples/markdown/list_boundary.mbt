@@ -115,7 +115,10 @@ fn blank_line_run_is_followed_by_matching_list_marker_at_min_indent(
   min_indent : Int,
 ) -> Bool {
   blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
-    list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+    list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+    current_list_marker_indent(ctx).map_or(false, indent => {
+      indent <= min_indent + 3
+    })
   })
 }
 
@@ -126,7 +129,10 @@ fn blank_line_run_is_followed_by_matching_ordered_list_marker_at_min_indent(
   min_indent : Int,
 ) -> Bool {
   blank_line_run_is_followed_by_marker_matching(ctx, ctx => {
-    ordered_list_marker_matches_at_min_indent(ctx, opening_marker, min_indent)
+    ordered_list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
+    current_list_marker_indent(ctx).map_or(false, indent => {
+      indent <= min_indent + 3
+    })
   })
 }
 

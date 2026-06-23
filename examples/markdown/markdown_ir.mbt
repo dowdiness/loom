@@ -662,8 +662,14 @@ fn lower_direct_inline_node_with_diags(
 ) -> MarkdownIR? {
   let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match node_kind {
-    HeadingNode | UnorderedListNode | OrderedListNode | ThematicBreakNode =>
-      None
+    HeadingNode
+    | ParagraphNode
+    | UnorderedListNode
+    | OrderedListNode
+    | HtmlBlockNode
+    | ThematicBreakNode
+    | CodeBlockNode
+    | BlockQuoteNode => None
     _ =>
       Some(
         lower_inline_node_with_diags(node, newline_text, diagnostics_in_origin),
@@ -1098,6 +1104,40 @@ fn list_item_paragraph_origin(
 }
 
 ///|
+fn trim_list_item_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
+  match ir.node {
+    Paragraph(children, content_origin) => {
+      let trimmed = match children {
+        [{ node: Text(value), origin }, ..] => {
+          let trimmed_value = value.trim_start(chars=" \t".view())
+          let removed = value.length() - trimmed_value.length()
+          if removed == 0 {
+            children
+          } else {
+            children.mapi((index, child) => {
+              if index == 0 {
+                MarkdownIR::text(
+                  trimmed_value.to_owned(),
+                  MarkdownIROrigin(
+                    start=origin.start() + removed,
+                    end=origin.end(),
+                  ),
+                )
+              } else {
+                child
+              }
+            })
+          }
+        }
+        _ => children
+      }
+      MarkdownIR::paragraph(trimmed, ir.origin(), content_origin)
+    }
+    _ => ir
+  }
+}
+
+///|
 fn append_list_item_flow_block_children(
   node : @seam.SyntaxNode,
   children : Array[MarkdownIR],
@@ -1106,11 +1146,15 @@ fn append_list_item_flow_block_children(
   for child in node.children() {
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
+      ParagraphNode =>
+        children.push(trim_list_item_child_paragraph(recurse(child)))
       HeadingNode
       | UnorderedListNode
       | OrderedListNode
       | HtmlBlockNode
-      | ThematicBreakNode => children.push(recurse(child))
+      | ThematicBreakNode
+      | CodeBlockNode
+      | BlockQuoteNode => children.push(recurse(child))
       _ => ()
     }
   }
@@ -1130,8 +1174,10 @@ fn lower_list_item_flow_children_with_diags(
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
-  let lowered_inline_children = lower_direct_inline_children_with_newline_and_diags(
-    node, "\n", diagnostics_in_origin,
+  let lowered_inline_children = normalize_paragraph_leading_spaces(
+    lower_direct_inline_children_with_newline_and_diags(
+      node, "\n", diagnostics_in_origin,
+    ),
   )
   let inline_children = retain_direct_list_item_inline_children(
     lowered_inline_children, markdown_ir_has_non_blank_inline_content,
