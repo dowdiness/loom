@@ -1430,7 +1430,7 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
               token.text().trim_start(chars=" \t".view()).to_owned(),
             )
           }
-          NewlineToken if in_code => buf.write_string("\n")
+          NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
           _ => ()
         }
       }
@@ -1461,6 +1461,8 @@ fn html_block_value(node : @seam.SyntaxNode) -> String {
           // Defensive: the parser guarantees HtmlBlockOpenToken is first, so
           // in_html is always true here for well-formed CSTs.
           HtmlTextToken if in_html => buf.write_string(token.text())
+          // HTML block parsing emits newline runs as NewlineToken; BlankLineToken
+          // remains structural outside code blocks.
           NewlineToken if in_html => buf.write_string("\n")
           _ => ()
         }
@@ -1508,7 +1510,7 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
             in_code = true
             content_tokens.push(token)
           }
-          NewlineToken if in_code => content_tokens.push(token)
+          NewlineToken | BlankLineToken if in_code => content_tokens.push(token)
           _ => ()
         }
       }
