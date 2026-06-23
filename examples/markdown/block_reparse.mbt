@@ -276,9 +276,7 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
       // cover the complete extent.
       match block_class {
         HtmlBlockUntil(delimiter) =>
-          html_block_contains_delimiter_at_end(
-            tokens, open_line, delimiter,
-          )
+          html_block_contains_delimiter_at_end(tokens, open_line, delimiter)
         _ => true
       }
     }
