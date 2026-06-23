@@ -41,10 +41,38 @@ fn count_hashes(input : String, pos : Int) -> Int {
 }
 
 ///|
+/// Count visual indentation columns with CommonMark 4-column tab stops.
+fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
+  input[start:end].fold(init=0, (col, ch) => {
+    match ch {
+      ' ' => col + 1
+      '\t' => (col / 4 + 1) * 4
+      _ => col + 1
+    }
+  })
+}
+
+///|
+/// True when the character at `pos` is preceded by an odd-length contiguous
+/// backslash run (CommonMark §6.5: only odd runs escape the following char).
+fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
+  for i = pos - 1, count = 0; i >= 0; {
+    match char_at(input, i) {
+      Some('\\') => continue i - 1, count + 1
+      _ => break count % 2 == 1
+    }
+  } nobreak {
+    false
+  }
+}
+
+///|
 fn ordered_list_marker_at(input : String, pos : Int) -> OrderedListMarker? {
   let digits = count_ordered_marker_digits(input, pos)
   guard digits > 0 else { return None }
-  guard char_at(input, pos + digits + 1) == Some(' ') else { return None }
+  guard char_at(input, pos + digits + 1) is Some(' ' | '\t') else {
+    return None
+  }
   match char_at(input, pos + digits) {
     Some('.') | Some(')') =>
       ordered_list_marker_from_text(input[pos:pos + digits + 1].to_owned())
@@ -334,10 +362,9 @@ fn lex_indented_block_marker(
   let indent_len = marker_start - pos
   match char_at(input, marker_start) {
     Some('>') => {
-      let marker_len = if char_at(input, marker_start + 1) == Some(' ') {
-        2
-      } else {
-        1
+      let marker_len = match char_at(input, marker_start + 1) {
+        Some(' ') | Some('\t') => 2
+        _ => 1
       }
       produce_token_from(
         BlockQuoteMarker,
@@ -348,7 +375,8 @@ fn lex_indented_block_marker(
     }
     Some('-') | Some('*') | Some('+') =>
       match char_at(input, marker_start + 1) {
-        Some(' ') => produce_token_from(ListMarker, pos, indent_len + 2, Inline)
+        Some(' ') | Some('\t') =>
+          produce_token_from(ListMarker, pos, indent_len + 2, Inline)
         Some('\n') | Some('\r') | None =>
           produce_token_from(ListMarker, pos, indent_len + 1, Inline)
         _ => lex_inline(input, pos)
@@ -403,6 +431,44 @@ fn lex_indented_block_marker(
 }
 
 ///|
+fn lex_heading_marker(
+  input : String,
+  token_pos : Int,
+  marker_pos : Int,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let n = count_hashes(input, marker_pos)
+  // Must be followed by space, tab, or EOL to be a heading.
+  if n > 0 && n <= 6 {
+    match char_at(input, marker_pos + n) {
+      Some(' ') | Some('\t') =>
+        // HeadingMarker includes the trailing separator.
+        (
+          Produced(
+            @core.TokenInfo::new(
+              HeadingMarker(n),
+              marker_pos - token_pos + n + 1,
+            ),
+            next_offset=marker_pos + n + 1,
+          ),
+          Inline,
+        )
+      Some('\r') | Some('\n') | None =>
+        // Heading with no content (just "##\n")
+        (
+          Produced(
+            @core.TokenInfo::new(HeadingMarker(n), marker_pos - token_pos + n),
+            next_offset=marker_pos + n,
+          ),
+          Inline,
+        )
+      _ => lex_inline(input, token_pos)
+    }
+  } else {
+    lex_inline(input, token_pos)
+  }
+}
+
+///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
@@ -428,14 +494,9 @@ fn lex_line_start(
       // Check if this is a whitespace-only line (blank line with spaces/tabs)
       let mut end = pos
       let mut is_blank = false
-      let mut spaces_only = true
       while end < input.length() {
         match char_at(input, end) {
-          Some(' ') => end = end + 1
-          Some('\t') => {
-            spaces_only = false
-            end = end + 1
-          }
+          Some(' ') | Some('\t') => end = end + 1
           Some('\r') => {
             is_blank = true
             let next = @core.next_char_offset(input, end)
@@ -466,56 +527,23 @@ fn lex_line_start(
           Produced(@core.TokenInfo::new(BlankLine, end - pos), next_offset=end),
           LineStart,
         )
-      } else if spaces_only {
-        lex_indented_block_marker(input, pos, end)
+      } else if count_indent_columns(input, pos, end) <= 3 {
+        match char_at(input, end) {
+          Some('#') => lex_heading_marker(input, pos, end)
+          _ => lex_indented_block_marker(input, pos, end)
+        }
       } else {
         // Leading whitespace followed by content — treat as paragraph
         lex_inline(input, pos)
       }
     }
-    ['#', ..] => {
-      let n = count_hashes(input, pos)
-      // Must be followed by space (or EOL) to be a heading
-      if n > 0 && n <= 6 {
-        match char_at(input, pos + n) {
-          Some(' ') =>
-            // HeadingMarker includes the trailing space
-            (
-              Produced(
-                @core.TokenInfo::new(HeadingMarker(n), n + 1),
-                next_offset=pos + n + 1,
-              ),
-              Inline,
-            )
-          Some('\r') | Some('\n') | None =>
-            // Heading with no content (just "##\n")
-            (
-              Produced(
-                @core.TokenInfo::new(HeadingMarker(n), n),
-                next_offset=pos + n,
-              ),
-              Inline,
-            )
-          _ =>
-            // Not a valid heading marker, treat as paragraph text
-            lex_inline(input, pos)
-        }
-      } else {
-        lex_inline(input, pos)
-      }
-    }
-    ['>', ' ', .. rest] =>
+    ['#', ..] => lex_heading_marker(input, pos, pos)
+    ['>', ' ' | '\t', .. rest] =>
       produced_until(BlockQuoteMarker, pos, rest, BlockQuoteLineStart)
     ['>', ..] =>
       produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
-    ['-', ' ', .. rest] =>
-      // List marker: must be followed by space
-      produced_until(ListMarker, pos, rest, Inline)
-    ['*', ' ', .. rest] =>
-      // List marker: must be followed by space
-      produced_until(ListMarker, pos, rest, Inline)
-    ['+', ' ', .. rest] =>
-      // List marker: must be followed by space
+    ['-' | '*' | '+', ' ' | '\t', .. rest] =>
+      // List marker: must be followed by space or tab.
       produced_until(ListMarker, pos, rest, Inline)
     ['-' | '*' | '+', ..] =>
       // A lone bullet marker is an empty list item; other marker-looking text
@@ -644,7 +672,15 @@ fn lex_inline(
       let mut end = @core.next_char_offset(input, pos)
       while end < input.length() {
         match char_at(input, end) {
-          Some(ch) if is_inline_special(ch) => break
+          Some(ch) if is_inline_special(ch) =>
+            if ch != '\r' &&
+              ch != '\n' &&
+              end > pos &&
+              preceded_by_odd_backslashes(input, end) {
+              end = @core.next_char_offset(input, end)
+            } else {
+              break
+            }
           None => break
           _ => end = @core.next_char_offset(input, end)
         }

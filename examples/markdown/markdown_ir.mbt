@@ -924,7 +924,10 @@ fn lower_inline_node_with_diags(
 ///|
 fn is_setext_heading(node : @seam.SyntaxNode) -> Bool {
   match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
-    Some(marker) => count_hashes(marker.text(), 0) == 0
+    Some(marker) => {
+      let marker_start = skip_leading_spaces(marker.text(), 0)
+      count_hashes(marker.text(), marker_start) == 0
+    }
     None => false
   }
 }
@@ -990,7 +993,8 @@ fn trim_setext_heading_children(
 fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
   match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
     Some(marker) => {
-      let n = count_hashes(marker.text(), 0)
+      let marker_start = skip_leading_spaces(marker.text(), 0)
+      let n = count_hashes(marker.text(), marker_start)
       // count_hashes caps at 6, so n <= 6 is guaranteed.
       if n >= 1 {
         Some(n)
@@ -1284,13 +1288,107 @@ fn normalize_paragraph_leading_spaces(
 }
 
 ///|
+fn trim_trailing_atx_closing_hashes(
+  value : String,
+  source_text : String,
+  source_offset : Int,
+  origin_end : Int,
+) -> (String, Int) {
+  let hash_count = for pos = value.length() - 1, count = 0 {
+    guard pos >= 0 else { break count }
+    match value.get_char(pos) {
+      Some('#') => continue pos - 1, count + 1
+      _ => break count
+    }
+  }
+  guard hash_count > 0 else { return (value, 0) }
+  let before_hash_pos = value.length() - hash_count
+  let space_count = for pos = before_hash_pos - 1, count = 0 {
+    guard pos >= 0 else { break count }
+    match value.get_char(pos) {
+      Some(' ') | Some('\t') => continue pos - 1, count + 1
+      _ => break count
+    }
+  }
+  guard origin_end >= source_offset else { return (value, 0) }
+  let raw_end = origin_end - source_offset
+  let raw_hash_count = for pos = raw_end - 1, count = 0 {
+    guard pos >= 0 else { break count }
+    match source_text.get_char(pos) {
+      Some('#') => continue pos - 1, count + 1
+      _ => break count
+    }
+  }
+  guard raw_hash_count > 0 else { return (value, 0) }
+  let raw_hash_start = raw_end - raw_hash_count
+  // Escaped trailing hashes are content, not an ATX closing sequence. The raw
+  // source still contains the backslash while `value` has already been unescaped.
+  guard raw_hash_start > 0 else { return (value, 0) }
+  match source_text.get_char(raw_hash_start - 1) {
+    Some('\\') => (value, 0)
+    Some(' ' | '\t') if before_hash_pos == 0 || space_count > 0 => {
+      let cut = hash_count + space_count
+      (value[:value.length() - cut].to_owned(), cut)
+    }
+    _ => (value, 0)
+  }
+}
+
+///|
+fn normalize_heading_leading_whitespace(
+  children : Array[MarkdownIR],
+  trim_all~ : Bool,
+) -> Array[MarkdownIR] {
+  if !trim_all {
+    return normalize_paragraph_leading_spaces(children)
+  }
+  match children {
+    [{ node: Text(value), origin }, ..] => {
+      let trimmed_view = value.trim_start(chars=" \t".view())
+      let cut = value.length() - trimmed_view.length()
+      if cut == 0 {
+        children
+      } else {
+        children.mapi((index, child) => {
+          if index == 0 {
+            MarkdownIR::text(
+              trimmed_view.to_owned(),
+              MarkdownIROrigin(start=origin.start() + cut, end=origin.end()),
+            )
+          } else {
+            child
+          }
+        })
+      }
+    }
+    _ => children
+  }
+}
+
+///|
 fn normalize_heading_whitespace(
   children : Array[MarkdownIR],
+  source_text : String,
+  source_offset : Int,
+  trim_all_leading~ : Bool,
+  skip_closing_hashes? : Bool = false,
 ) -> Array[MarkdownIR] {
-  let leading_normalized = normalize_paragraph_leading_spaces(children)
+  let leading_normalized = normalize_heading_leading_whitespace(
+    children,
+    trim_all=trim_all_leading,
+  )
   match leading_normalized {
     [.., { node: Text(value), origin }] => {
-      let (trimmed, cut) = trim_commonmark_trailing_spaces(value)
+      let (space_trimmed, space_cut) = trim_commonmark_trailing_spaces(value)
+      let trimmed_end = origin.end() - space_cut
+      let (trimmed, hash_cut) = if skip_closing_hashes {
+        (space_trimmed, 0)
+      } else {
+        trim_trailing_atx_closing_hashes(
+          space_trimmed, source_text, source_offset, trimmed_end,
+        )
+      }
+      let cut = space_cut + hash_cut
       if cut == 0 {
         leading_normalized
       } else {
@@ -1523,12 +1621,17 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::document(children, origin_from_node(node))
     }
     HeadingNode => {
+      let setext = is_setext_heading(node)
       let children = normalize_heading_whitespace(
         lower_inline_children_with_newline_and_diags(
           node, "\n", diagnostics_in_origin,
         ),
+        node.text(),
+        node.start(),
+        trim_all_leading=!setext,
+        skip_closing_hashes=setext,
       )
-      let content_children = if is_setext_heading(node) {
+      let content_children = if setext {
         trim_setext_heading_children(children)
       } else {
         children
