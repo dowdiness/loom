@@ -28,9 +28,7 @@ fn skip_leading_spaces(text : String, pos : Int) -> Int {
 
 ///|
 fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
-  let marker_start = skip_leading_spaces(text, pos)
-  guard marker_start - pos <= 3 else { return None }
-  Some(marker_start)
+  Some(skip_leading_spaces(text, pos))
 }
 
 ///|

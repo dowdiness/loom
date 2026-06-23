@@ -120,10 +120,25 @@ fn parse_paragraph_continuation_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   match ctx.peek() {
+    ListMarker => ctx.emit_token(TextToken)
     OrderedListMarker(_) => ctx.emit_token(TextToken)
     _ => ()
   }
   parse_inline_content(ctx)
+}
+
+///|
+fn next_token_after_newline_is_lone_list_marker(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek_nth(1) {
+    ListMarker | OrderedListMarker(_) =>
+      ctx.speculative(() => {
+        ctx.emit_token(NewlineToken)
+        setext_list_marker_line_ends_after_marker(ctx)
+      })
+    _ => false
+  }
 }
 
 ///|
@@ -136,9 +151,12 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     while ctx.peek() is Newline {
       // Peek ahead: if the token after the newline is a block boundary, stop.
       let next = ctx.peek_nth(1)
-      if token_breaks_paragraph_after_newline(next) ||
-        next is Newline ||
-        next is EOF {
+      if !next_token_after_newline_is_lone_list_marker(ctx) &&
+        (
+          token_breaks_paragraph_after_newline(next) ||
+          next is Newline ||
+          next is EOF
+        ) {
         // End of paragraph — consume the trailing newline.
         ctx.emit_token(NewlineToken)
         break
@@ -485,6 +503,109 @@ fn parse_nested_list_item_flow(
 }
 
 ///|
+fn text_leading_space_count(text : String) -> Int {
+  text.length() - text.trim_start(chars=" ".view()).length()
+}
+
+///|
+fn token_can_start_list_item_continuation_paragraph(
+  token : Token,
+  content_indent : Int,
+) -> Bool {
+  match token {
+    Text(text) => text_leading_space_count(text) >= content_indent
+    _ => !is_block_boundary(token)
+  }
+}
+
+///|
+fn token_can_continue_list_item_paragraph_after_newline(
+  token : Token,
+  allow_ordered_marker~ : Bool,
+) -> Bool {
+  match token {
+    Text(text) => direct_list_item_text_has_non_blank_content(text)
+    _ =>
+      token_can_start_lazy_list_item_continuation(token, allow_ordered_marker~)
+  }
+}
+
+///|
+fn try_continue_empty_list_item_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  guard ctx.peek() is Newline &&
+    token_can_start_list_item_continuation_paragraph(
+      ctx.peek_nth(1),
+      content_indent,
+    ) else {
+    return false
+  }
+  ctx.emit_token(NewlineToken)
+  parse_paragraph(ctx)
+  true
+}
+
+///|
+fn try_continue_list_item_after_blank_line(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  guard ctx.peek() is BlankLine ||
+    (ctx.peek() is Newline && ctx.peek_nth(1) is BlankLine) else {
+    return false
+  }
+  let checkpoint = ctx.checkpoint()
+  if ctx.peek() is Newline {
+    ctx.emit_token(NewlineToken)
+  }
+  while ctx.peek() is BlankLine {
+    ctx.emit_token(BlankLineToken)
+  }
+  match ctx.peek() {
+    BlockQuoteMarker if current_token_text_has_min_leading_spaces(
+        ctx, content_indent,
+      ) => {
+      parse_block_quote(ctx)
+      true
+    }
+    _ if token_can_start_list_item_continuation_paragraph(
+        ctx.peek(),
+        content_indent,
+      ) => {
+      parse_paragraph(ctx)
+      true
+    }
+    _ => {
+      ctx.restore(checkpoint)
+      false
+    }
+  }
+}
+
+///|
+fn try_parse_list_item_block_after_newline(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  guard ctx.peek() is Newline &&
+    ctx.peek_nth(1) is BlockQuoteMarker &&
+    !(ctx.peek_nth(2) is BlankLine) else {
+    return false
+  }
+  let checkpoint = ctx.checkpoint()
+  ctx.emit_token(NewlineToken)
+  if current_token_text_has_min_leading_spaces(ctx, content_indent) {
+    parse_block_quote(ctx)
+    true
+  } else {
+    ctx.restore(checkpoint)
+    false
+  }
+}
+
+///|
 fn token_has_non_blank_inline_content(token : Token) -> Bool {
   match token {
     Text(text) => direct_list_item_text_has_non_blank_content(text)
@@ -540,7 +661,10 @@ fn parse_list_item_inline_content(
       next_ordered_marker_starts_nested_list(ctx, content_indent) {
       break
     }
-    if !token_can_start_lazy_list_item_continuation(next, allow_ordered_marker~) {
+    if !token_can_continue_list_item_paragraph_after_newline(
+        next,
+        allow_ordered_marker~,
+      ) {
       break
     }
     ctx.emit_token(NewlineToken)
@@ -598,7 +722,10 @@ fn try_parse_list_item_setext_heading(
       next_ordered_marker_starts_nested_list(ctx, content_indent) {
       break
     }
-    if !token_can_start_lazy_list_item_continuation(next, allow_ordered_marker~) {
+    if !token_can_continue_list_item_paragraph_after_newline(
+        next,
+        allow_ordered_marker~,
+      ) {
       break
     }
     ctx.emit_token(NewlineToken)
@@ -618,12 +745,37 @@ fn try_parse_list_item_setext_heading(
 }
 
 ///|
+fn current_list_item_content_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Int {
+  let marker_width = current_list_marker_token_width(ctx)
+  match ctx.peek_nth(1) {
+    Text(text) if direct_list_item_text_has_non_blank_content(text) => {
+      let padding = text_leading_space_count(text)
+      marker_width + padding.min(4)
+    }
+    _ => marker_width
+  }
+}
+
+///|
 fn parse_list_item_body(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
   allow_ordered_marker~ : Bool,
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
+  match ctx.peek() {
+    ListMarker => {
+      parse_list_at_min_indent(ctx, 0)
+      return
+    }
+    OrderedListMarker(_) => {
+      parse_ordered_list_at_min_indent(ctx, 0)
+      return
+    }
+    _ => ()
+  }
   if line_at_offset_is_thematic_break(ctx, 0) {
     parse_inline_thematic_break(ctx)
   } else if !has_paragraph_content ||
@@ -634,6 +786,17 @@ fn parse_list_item_body(
     ) {
     parse_list_item_inline_content(ctx, content_indent, allow_ordered_marker~)
   }
+  if !has_paragraph_content {
+    ignore(try_continue_empty_list_item_after_newline(ctx, content_indent))
+  }
+  while try_parse_list_item_block_after_newline(ctx, content_indent) {
+    ()
+  }
+  if has_paragraph_content {
+    while try_continue_list_item_after_blank_line(ctx, content_indent) {
+      ()
+    }
+  }
   parse_nested_list_item_flow(ctx, content_indent)
 }
 
@@ -641,7 +804,7 @@ fn parse_list_item_body(
 /// Parse a single list item: ListMarker followed by inline content.
 fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
-    let content_indent = current_list_marker_token_width(ctx)
+    let content_indent = current_list_item_content_indent(ctx)
     ctx.emit_token(ListMarkerToken)
     parse_list_item_body(ctx, content_indent, allow_ordered_marker=true)
   })
@@ -680,7 +843,7 @@ fn parse_ordered_list_item(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ListItemNode, fn() {
-    let content_indent = current_list_marker_token_width(ctx)
+    let content_indent = current_list_item_content_indent(ctx)
     ctx.emit_token(OrderedListMarkerToken)
     parse_list_item_body(ctx, content_indent, allow_ordered_marker=false)
   })
