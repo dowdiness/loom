@@ -2875,7 +2875,7 @@ fn canonical_format_with_list_marker(
     HtmlBlock(value, _) => value
     ThematicBreak => "---"
     Text(value) | Raw(value, _) => value
-    HardBreak(_) => "\n"
+    HardBreak(_) => "  \n"
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => "`" + value + "`"

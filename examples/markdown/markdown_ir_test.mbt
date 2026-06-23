@@ -1339,6 +1339,24 @@ test "experimental MarkdownIR: Block adapter matches nested inline soft breaks" 
 }
 
 ///|
+test "experimental MarkdownIR: canonical format preserves hard breaks" {
+  let source = "aaa     \nbbb     \n"
+  let canonical = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(canonical, content="aaa  \nbbb")
+  let reparsed = markdown_ir_from_source(canonical)
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(reparsed),
+    content="<p>aaa<br />\nbbb</p>\n",
+  )
+  inspect(
+    experimental_markdown_ir_canonical_format(reparsed),
+    content=canonical,
+  )
+}
+
+///|
 test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
   let ir = markdown_ir_from_source(source)
