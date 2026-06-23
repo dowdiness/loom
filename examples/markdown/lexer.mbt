@@ -56,18 +56,12 @@ fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
 /// True when the character at `pos` is preceded by an odd-length contiguous
 /// backslash run (CommonMark §6.5: only odd runs escape the following char).
 fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
-  let mut count = 0
-  let mut i = pos - 1
-  while i >= 0 {
+  for i = pos - 1, count = 0; i >= 0; {
     match char_at(input, i) {
-      Some('\\') => {
-        count = count + 1
-        i = i - 1
-      }
-      _ => break
+      Some('\\') => continue i - 1, count + 1
+      _ => break count % 2 == 1
     }
-  }
-  count % 2 == 1
+  } nobreak { false }
 }
 
 ///|
