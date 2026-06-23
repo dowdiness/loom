@@ -223,9 +223,7 @@ fn is_code_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 /// Reject HTML block streams that produce unconsumed tokens when the
 /// isolated reparse stops at a blank line where a full parse would emit
 /// a following block (paragraph, etc.).
-fn is_html_block_token_stream(
-  tokens : Array[@core.TokenInfo[Token]],
-) -> Bool {
+fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   match tokens {
     [] => false
     [first, ..] => {
@@ -242,19 +240,19 @@ fn is_html_block_token_stream(
       while i < tokens.length() {
         match tokens[i].token {
           HtmlText(_) => i = i + 1
-          Newline => {
+          Newline =>
             if html_newline_run_continues_in_stream(tokens, i) {
               i = i + 1
               // parse_html_block emits a second NewlineToken after a
               // non-adjacent newline (ctx.peek_nth(1) != Newline).
-              if i < tokens.length() && tokens[i].token is Newline &&
+              if i < tokens.length() &&
+                tokens[i].token is Newline &&
                 !(i + 1 < tokens.length() && tokens[i + 1].token is Newline) {
                 i = i + 1
               }
             } else {
               break
             }
-          }
           EOF => {
             i = i + 1
             break
