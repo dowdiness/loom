@@ -274,12 +274,14 @@ fn is_html_block_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
       match block_class {
         HtmlBlockUntil(delimiter) =>
           open_line.to_lower().contains(delimiter) ||
-          tokens.iter().any(t =>
+          tokens
+          .iter()
+          .any(t => {
             match t.token {
               HtmlText(text) => text.to_lower().contains(delimiter)
               _ => false
-            },
-          )
+            }
+          })
         _ => true
       }
     }
@@ -315,13 +317,12 @@ fn classify_html_block_opening_for_reparse(line : String) -> HtmlBlockClass {
   let name_start = if trimmed.has_prefix("</") { 2 } else { 1 }
   let mut name_end = name_start
   while name_end < trimmed.length() &&
-    trimmed.get_char(name_end).map_or(false, ch => ch.is_ascii_alphabetic()) {
+        trimmed.get_char(name_end).map_or(false, ch => ch.is_ascii_alphabetic()) {
     name_end = name_end + 1
   }
   let tag = trimmed[name_start:name_end].to_owned().to_lower()
   match tag {
-    "pre" | "script" | "style" | "textarea" =>
-      HtmlBlockUntil("</" + tag)
+    "pre" | "script" | "style" | "textarea" => HtmlBlockUntil("</" + tag)
     _ => HtmlBlockRaw
   }
 }
