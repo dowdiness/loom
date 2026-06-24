@@ -292,27 +292,52 @@ fn try_parse_block_quote_setext_heading(
 }
 
 ///|
-fn consume_quoted_list_item_separator_if_matching(
+fn consume_quoted_blank_line_markers(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
-) -> Bool {
-  guard ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker else {
-    return false
-  }
-  ctx.emit_token(NewlineToken)
-  ctx.emit_token(BlockQuoteMarkerToken)
-  while ctx.peek() is BlankLine && ctx.peek_nth(1) is BlockQuoteMarker {
+  content_column : Int,
+  marker_end_column : Int,
+) -> (Int, Int) {
+  for content_column = content_column, marker_end_column = marker_end_column {
+    guard ctx.peek() is BlankLine && ctx.peek_nth(1) is BlockQuoteMarker else {
+      break (content_column, marker_end_column)
+    }
     ctx.emit_token(BlankLineToken)
+    let (next_content_column, next_marker_end_column) = current_block_quote_marker_columns(
+      ctx,
+    )
     ctx.emit_token(BlockQuoteMarkerToken)
+    continue next_content_column, next_marker_end_column
   }
-  matches_marker(ctx)
 }
 
 ///|
-fn block_quote_list_continuation_matches(
+fn consume_quoted_list_item_separator_if_matching(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
-) -> Bool {
+  matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
+) -> (Int, Int)? {
+  guard ctx.peek() is Newline && ctx.peek_nth(1) is BlockQuoteMarker else {
+    return None
+  }
+  ctx.emit_token(NewlineToken)
+  let (content_column, marker_end_column) = current_block_quote_marker_columns(
+    ctx,
+  )
+  ctx.emit_token(BlockQuoteMarkerToken)
+  let (content_column, marker_end_column) = consume_quoted_blank_line_markers(
+    ctx, content_column, marker_end_column,
+  )
+  if matches_marker(ctx, content_column, marker_end_column) {
+    Some((content_column, marker_end_column))
+  } else {
+    None
+  }
+}
+
+///|
+fn block_quote_list_continuation_columns(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
+) -> (Int, Int)? {
   ctx.speculative(() => {
     consume_quoted_list_item_separator_if_matching(ctx, matches_marker)
   })
@@ -322,36 +347,94 @@ fn block_quote_list_continuation_matches(
 fn parse_block_quote_marker_scoped_list(
   ctx : @core.ParserContext[Token, SyntaxKind],
   list_kind : SyntaxKind,
-  marker_matches : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
+  content_column : Int,
+  marker_end_column : Int,
+  marker_matches : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
   parse_item : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
 ) -> Unit {
   ctx.node(list_kind, fn() {
-    while marker_matches(ctx) {
-      parse_item(ctx)
-      if block_quote_list_continuation_matches(ctx, marker_matches) {
-        ignore(
-          consume_quoted_list_item_separator_if_matching(ctx, marker_matches),
-        )
-      } else {
+    for content_column = content_column, marker_end_column = marker_end_column {
+      guard marker_matches(ctx, content_column, marker_end_column) else {
         break
+      }
+      parse_item(ctx)
+      match block_quote_list_continuation_columns(ctx, marker_matches) {
+        Some((next_content_column, next_marker_end_column)) => {
+          ignore(
+            consume_quoted_list_item_separator_if_matching(ctx, marker_matches),
+          )
+          continue next_content_column, next_marker_end_column
+        }
+        None => break
       }
     }
   })
 }
 
 ///|
+fn current_block_quote_list_marker_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_column : Int,
+  marker_end_column : Int,
+) -> Int? {
+  match ctx.peek() {
+    ListMarker | OrderedListMarker(_) => {
+      let marker_column = marker_end_column +
+        leading_indent_columns_from(ctx.current_token_text(), marker_end_column)
+      Some(marker_column - content_column)
+    }
+    _ => None
+  }
+}
+
+///|
+fn block_quote_unordered_marker_matches_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : UnorderedListMarker,
+  min_indent : Int,
+  content_column : Int,
+  marker_end_column : Int,
+) -> Bool {
+  list_marker_matches(ctx, opening_marker) &&
+  current_block_quote_list_marker_indent(ctx, content_column, marker_end_column).map_or(
+    false,
+    indent => indent >= min_indent && indent <= min_indent + 3,
+  )
+}
+
+///|
+fn block_quote_ordered_marker_matches_at_min_indent(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  opening_marker : OrderedListMarker,
+  min_indent : Int,
+  content_column : Int,
+  marker_end_column : Int,
+) -> Bool {
+  ordered_list_marker_matches(ctx, opening_marker) &&
+  current_block_quote_list_marker_indent(ctx, content_column, marker_end_column).map_or(
+    false,
+    indent => indent >= min_indent && indent <= min_indent + 3,
+  )
+}
+
+///|
 fn parse_block_quote_list_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
+  content_column : Int,
+  marker_end_column : Int,
 ) -> Unit {
   match current_unordered_list_marker(ctx) {
     Some(opening_marker) =>
       parse_block_quote_marker_scoped_list(
         ctx,
         UnorderedListNode,
-        ctx => {
-          list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) &&
-          current_list_marker_indent(ctx).map_or(false, indent => indent <= 3)
+        content_column,
+        marker_end_column,
+        (ctx, content_column, marker_end_column) => {
+          block_quote_unordered_marker_matches_at_min_indent(
+            ctx, opening_marker, min_indent, content_column, marker_end_column,
+          )
         },
         parse_list_item,
       )
@@ -360,25 +443,34 @@ fn parse_block_quote_list_at_min_indent(
 }
 
 ///|
-fn parse_block_quote_list(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_block_quote_list_at_min_indent(ctx, 0)
+fn parse_block_quote_list(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_column : Int,
+  marker_end_column : Int,
+) -> Unit {
+  parse_block_quote_list_at_min_indent(
+    ctx, 0, content_column, marker_end_column,
+  )
 }
 
 ///|
 fn parse_block_quote_ordered_list_at_min_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
   min_indent : Int,
+  content_column : Int,
+  marker_end_column : Int,
 ) -> Unit {
   match current_ordered_list_marker(ctx) {
     Some(opening_marker) =>
       parse_block_quote_marker_scoped_list(
         ctx,
         OrderedListNode,
-        ctx => {
-          ordered_list_marker_matches_at_min_indent(
-            ctx, opening_marker, min_indent,
-          ) &&
-          current_list_marker_indent(ctx).map_or(false, indent => indent <= 3)
+        content_column,
+        marker_end_column,
+        (ctx, content_column, marker_end_column) => {
+          block_quote_ordered_marker_matches_at_min_indent(
+            ctx, opening_marker, min_indent, content_column, marker_end_column,
+          )
         },
         parse_ordered_list_item,
       )
@@ -389,8 +481,12 @@ fn parse_block_quote_ordered_list_at_min_indent(
 ///|
 fn parse_block_quote_ordered_list(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  content_column : Int,
+  marker_end_column : Int,
 ) -> Unit {
-  parse_block_quote_ordered_list_at_min_indent(ctx, 0)
+  parse_block_quote_ordered_list_at_min_indent(
+    ctx, 0, content_column, marker_end_column,
+  )
 }
 
 ///|
@@ -413,19 +509,25 @@ fn parse_block_quote_after_marker(
   match ctx.peek() {
     ThematicBreak => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
-    ListMarker if current_list_marker_indent(ctx).map_or(false, indent => {
-        indent <= 3
-      }) => parse_block_quote_list(ctx)
-    ListMarker if current_token_leading_indent(ctx) >= 4 =>
+    ListMarker if current_block_quote_list_marker_indent(
+        ctx, content_column, marker_end_column,
+      ).map_or(false, indent => indent <= 3) =>
+      parse_block_quote_list(ctx, content_column, marker_end_column)
+    ListMarker if current_block_quote_list_marker_indent(
+        ctx, content_column, marker_end_column,
+      ).map_or(false, indent => indent >= 4) =>
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
     ListMarker => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
     }
-    OrderedListMarker(_) if current_list_marker_indent(ctx).map_or(false, indent => {
-        indent <= 3
-      }) => parse_block_quote_ordered_list(ctx)
-    OrderedListMarker(_) if current_token_leading_indent(ctx) >= 4 =>
+    OrderedListMarker(_) if current_block_quote_list_marker_indent(
+        ctx, content_column, marker_end_column,
+      ).map_or(false, indent => indent <= 3) =>
+      parse_block_quote_ordered_list(ctx, content_column, marker_end_column)
+    OrderedListMarker(_) if current_block_quote_list_marker_indent(
+        ctx, content_column, marker_end_column,
+      ).map_or(false, indent => indent >= 4) =>
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
     OrderedListMarker(_) => {
       ctx.emit_token(TextToken)

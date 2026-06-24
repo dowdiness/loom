@@ -276,6 +276,49 @@ test "experimental MarkdownIR: CommonMark HTML renderer stops list code block be
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps quoted tab-indented marker as list" {
+  let source = "> \t- foo\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<blockquote>
+      #|<ul>
+      #|<li>foo</li>
+      #|</ul>
+      #|</blockquote>
+      #|
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: CommonMark HTML renderer preserves extra code indent after blank marker padding" {
+  let source = "-   \n        code\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<ul>
+      #|<li>
+      #|<pre><code>  code
+      #|</code></pre>
+      #|</li>
+      #|</ul>
+      #|
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer keeps column-relative blockquote tab as paragraph" {
   let source = "> \tfoo\n"
   let (cst, diagnostics) = try! parse_cst(source)

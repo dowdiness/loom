@@ -30,11 +30,14 @@ fn list_item_content_column_from_node(
   guard list_marker_body_end_offset(marker.text(), ordered~) is Some(body_end) else {
     return None
   }
-  let body_end_col = visual_column_at_offset(source, marker.start() + body_end)
+  let body_end_offset = marker.start() + body_end
+  let body_end_col = visual_column_at_offset(source, body_end_offset)
+  let line_end = line_end_offset(source, body_end_offset, source.length())
+  if source[body_end_offset:line_end].is_blank() {
+    return Some(body_end_col + 1)
+  }
   let (_, content_col) = leading_indent_end_offset_and_column(
-    source,
-    marker.start() + body_end,
-    body_end_col,
+    source, body_end_offset, body_end_col,
   )
   let padding = content_col - body_end_col
   if padding == 0 {
