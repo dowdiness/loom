@@ -47,19 +47,6 @@ fn list_item_content_column_from_node(
 }
 
 ///|
-fn block_quote_marker_gt_offset(text : String) -> Int? {
-  for i = 0; i < text.length(); {
-    match char_at(text, i) {
-      Some('>') => break Some(i)
-      Some(_) => continue i + 1
-      None => break None
-    }
-  } nobreak {
-    None
-  }
-}
-
-///|
 fn block_quote_content_column_from_node(
   node : @seam.SyntaxNode,
   source : String,

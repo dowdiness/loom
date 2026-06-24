@@ -1082,9 +1082,13 @@ fn lower_block_quote_children(
   .children()
   .iter()
   .filter_map(child => {
-    lower_container_child_with_diags(
-      child, recurse, "\n", diagnostics_in_origin,
-    )
+    match
+      lower_container_child_with_diags(
+        child, recurse, "\n", diagnostics_in_origin,
+      ) {
+      Some(ir) => Some(trim_list_item_child_paragraph(ir))
+      None => None
+    }
   })
   .collect()
 }

@@ -87,6 +87,34 @@ fn list_marker_body_end_offset(text : String, ordered~ : Bool) -> Int? {
 }
 
 ///|
+fn block_quote_marker_gt_offset(text : String) -> Int? {
+  for i = 0; i < text.length(); {
+    match char_at(text, i) {
+      Some('>') => break Some(i)
+      Some(_) => continue @core.next_char_offset(text, i)
+      None => break None
+    }
+  } nobreak {
+    None
+  }
+}
+
+///|
+fn block_quote_content_column_from_marker_text(text : String) -> Int {
+  match block_quote_marker_gt_offset(text) {
+    Some(gt_offset) => {
+      let body_end_col = count_indent_columns(text, 0, gt_offset + 1)
+      if gt_offset + 1 < text.length() {
+        body_end_col + 1
+      } else {
+        body_end_col
+      }
+    }
+    None => count_indent_columns(text, 0, text.length())
+  }
+}
+
+///|
 fn line_start_offset_before(source : String, offset : Int) -> Int {
   for i = offset - 1 {
     guard i >= 0 else { break 0 }

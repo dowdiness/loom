@@ -396,6 +396,8 @@ fn parse_block_quote_ordered_list(
 ///|
 fn parse_block_quote_after_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  content_column : Int,
+  marker_end_column : Int,
 ) -> Unit {
   match ctx.peek() {
     ThematicBreak => parse_thematic_break(ctx)
@@ -420,7 +422,12 @@ fn parse_block_quote_after_marker(
     }
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
-    IndentedCodeText(_) => parse_indented_code_block(ctx)
+    IndentedCodeText(_) if current_indented_text_reaches_column(
+        ctx,
+        marker_end_column,
+        content_column + 4,
+      ) => parse_indented_code_block(ctx)
+    IndentedCodeText(_) => parse_block_quote_paragraph(ctx)
     HtmlBlockOpen(_) => parse_html_block(ctx)
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
@@ -445,8 +452,17 @@ fn consume_block_quote_child_separator(
 fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(BlockQuoteNode, fn() {
     while ctx.peek() is BlockQuoteMarker {
+      let marker_text = ctx.current_token_text().to_owned()
+      let content_column = block_quote_content_column_from_marker_text(
+        marker_text,
+      )
+      let marker_end_column = count_indent_columns(
+        marker_text,
+        0,
+        marker_text.length(),
+      )
       ctx.emit_token(BlockQuoteMarkerToken)
-      parse_block_quote_after_marker(ctx)
+      parse_block_quote_after_marker(ctx, content_column, marker_end_column)
       consume_block_quote_child_separator(ctx)
     }
   })
@@ -849,7 +865,8 @@ fn current_list_marker_body_end_offset(
 ///|
 fn following_text_leading_indent(token : Token, start_col : Int) -> Int {
   match token {
-    Text(text) => leading_indent_columns_from(text, start_col)
+    Text(text) if direct_list_item_text_has_non_blank_content(text) =>
+      leading_indent_columns_from(text, start_col)
     _ => 0
   }
 }
@@ -890,6 +907,22 @@ fn current_text_reaches_indented_code_column(
       let first_content_column = marker_end_column +
         leading_indent_columns_from(text, marker_end_column)
       first_content_column >= content_indent + 4
+    }
+    _ => false
+  }
+}
+
+///|
+fn current_indented_text_reaches_column(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  start_column : Int,
+  target_column : Int,
+) -> Bool {
+  match ctx.peek() {
+    IndentedCodeText(text) => {
+      let first_content_column = start_column +
+        leading_indent_columns_from(text, start_column)
+      first_content_column >= target_column
     }
     _ => false
   }

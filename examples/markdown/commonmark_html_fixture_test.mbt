@@ -276,6 +276,25 @@ test "experimental MarkdownIR: CommonMark HTML renderer stops list code block be
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML renderer keeps column-relative blockquote tab as paragraph" {
+  let source = "> \tfoo\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @seam.SyntaxNode::from_cst(cst),
+    diagnostics,
+  )
+  inspect(
+    experimental_markdown_ir_to_commonmark_html(ir),
+    content=(
+      #|<blockquote>
+      #|<p>foo</p>
+      #|</blockquote>
+      #|
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML renderer normalizes tab paragraph continuation" {
   let source = "foo\n\tbar\n"
   let (cst, diagnostics) = try! parse_cst(source)
