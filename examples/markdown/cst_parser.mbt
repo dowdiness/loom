@@ -394,6 +394,17 @@ fn parse_block_quote_ordered_list(
 }
 
 ///|
+fn current_block_quote_marker_columns(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> (Int, Int) {
+  let marker_text = ctx.current_token_text().to_owned()
+  (
+    block_quote_content_column_from_marker_text(marker_text),
+    count_indent_columns(marker_text, 0, marker_text.length()),
+  )
+}
+
+///|
 fn parse_block_quote_after_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_column : Int,
@@ -452,14 +463,8 @@ fn consume_block_quote_child_separator(
 fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(BlockQuoteNode, fn() {
     while ctx.peek() is BlockQuoteMarker {
-      let marker_text = ctx.current_token_text().to_owned()
-      let content_column = block_quote_content_column_from_marker_text(
-        marker_text,
-      )
-      let marker_end_column = count_indent_columns(
-        marker_text,
-        0,
-        marker_text.length(),
+      let (content_column, marker_end_column) = current_block_quote_marker_columns(
+        ctx,
       )
       ctx.emit_token(BlockQuoteMarkerToken)
       parse_block_quote_after_marker(ctx, content_column, marker_end_column)

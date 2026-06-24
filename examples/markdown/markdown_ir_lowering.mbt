@@ -598,7 +598,7 @@ fn list_item_paragraph_origin(
 }
 
 ///|
-fn trim_list_item_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
+fn trim_container_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
   match ir.node {
     Paragraph(children, _) => {
       let trimmed = match children {
@@ -645,7 +645,7 @@ fn append_list_item_flow_block_children(
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
       ParagraphNode =>
-        children.push(trim_list_item_child_paragraph(recurse(child)))
+        children.push(trim_container_child_paragraph(recurse(child)))
       HeadingNode
       | UnorderedListNode
       | OrderedListNode
@@ -682,7 +682,7 @@ fn lower_list_item_flow_children_with_diags(
   )
   let content_origin = span_origin_of_children(inline_children)
   let paragraph_origin = list_item_paragraph_origin(node, content_origin)
-  let paragraph = trim_list_item_child_paragraph(
+  let paragraph = trim_container_child_paragraph(
     MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
   )
   let children = [paragraph]
@@ -1086,7 +1086,7 @@ fn lower_block_quote_children(
       lower_container_child_with_diags(
         child, recurse, "\n", diagnostics_in_origin,
       ) {
-      Some(ir) => Some(trim_list_item_child_paragraph(ir))
+      Some(ir) => Some(trim_container_child_paragraph(ir))
       None => None
     }
   })
