@@ -6,6 +6,10 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- `examples/markdown`: improved CommonMark tab handling for list and
+  blockquote indentation, including tab-expanded nested list markers and
+  container-relative indented code blocks.
+
 - **`dowdiness/loom/core` — `@core` package surface reduction (Stage A1):**
   `ProjectionIdentityBaseline`, `ProjectionIdentityTracker`, `ProjectionLeaf`,
   `StableProjectionLeaf`, `ProjectionStringIdAllocator`, and the four

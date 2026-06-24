@@ -15,6 +15,9 @@ fn UnorderedListMarker::text(self : UnorderedListMarker) -> String {
 }
 
 ///|
+/// Skip literal space characters only; CommonMark tabs expand to four-column
+/// indentation and are not interchangeable with optional 0–3 space prefixes in
+/// the setext/ATX source-slice helpers that use this.
 fn skip_leading_spaces(text : String, pos : Int) -> Int {
   let mut i = pos
   while i < text.length() {
@@ -24,26 +27,6 @@ fn skip_leading_spaces(text : String, pos : Int) -> Int {
     }
   }
   i
-}
-
-///|
-/// Count visual columns of leading whitespace using CommonMark 4-column tab
-/// stops. Stops at the first non-space, non-tab character.
-fn count_leading_indent(text : StringView) -> Int {
-  for ch in text; col = 0 {
-    match ch {
-      ' ' => continue col + 1
-      '\t' => continue (col / 4 + 1) * 4
-      _ => break col
-    }
-  } nobreak {
-    col
-  }
-}
-
-///|
-fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
-  Some(skip_leading_spaces(text, pos))
 }
 
 ///|
@@ -129,9 +112,11 @@ fn parse_marker_line(
     valid = true,
     indent = 0,
     trailing_whitespace = false {
-    // `indent` only tracks leading spaces before the first marker; once
-    // `count > 0`, marker validation ignores it. `trailing_whitespace`
-    // distinguishes trailing whitespace from thematic-break marker separators.
+    // `indent` only tracks leading literal spaces before the first marker;
+    // a leading tab is a 4-column indent and therefore not part of the
+    // 0–3-space marker prefix handled here. Once `count > 0`, marker validation
+    // ignores it. `trailing_whitespace` distinguishes trailing whitespace from
+    // thematic-break marker separators.
     if !valid {
       continue marker, count, valid, indent, trailing_whitespace
     }
@@ -313,7 +298,7 @@ pub(all) enum Token {
   RightParen // )
   Text(String) // plain text run (includes inter-word spaces)
   CodeText(String) // line of fenced code block content
-  IndentedCodeText(String) // line of indented code block content
+  IndentedCodeText(String) // source line for an indented code block candidate
   Newline // \n
   Error(String)
   EOF

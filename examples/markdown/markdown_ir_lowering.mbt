@@ -707,20 +707,6 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
-fn trim_code_boundary_newlines(value : String) -> String {
-  let without_leading = if value.has_prefix("\n") {
-    value[1:].to_owned()
-  } else {
-    value
-  }
-  if without_leading.has_suffix("\n") {
-    without_leading[:without_leading.length() - 1].to_owned()
-  } else {
-    without_leading
-  }
-}
-
-///|
 fn trim_commonmark_leading_indent_spaces(value : String) -> (String, Int) {
   // CommonMark permits up to three literal spaces of block indentation before
   // paragraph/setext heading content. Tabs and four-space indented-code
@@ -936,37 +922,6 @@ fn normalize_heading_whitespace(
 }
 
 ///|
-fn code_block_value(node : @seam.SyntaxNode) -> String {
-  let buf = StringBuilder::new()
-  let mut in_code = false
-  for element in node.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) => {
-        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-        match token_kind {
-          CodeFenceOpenToken => in_code = true
-          CodeFenceCloseToken => in_code = false
-          CodeTextToken if in_code => buf.write_string(token.text())
-          IndentedCodeTextToken => {
-            in_code = true
-            // Strip leading whitespace matching CommonMark indented code
-            // block semantics (the lexer tracks the correct content but
-            // the CST token span covers the full source line).
-            buf.write_string(
-              token.text().trim_start(chars=" \t".view()).to_owned(),
-            )
-          }
-          NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
-          _ => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  trim_code_boundary_newlines(buf.to_string())
-}
-
-///|
 /// Extract concatenated HTML content from an `HtmlBlockNode`, including the
 /// opening line, text lines, and interleaved newlines. HTML blocks preserve
 /// exact source formatting, so this does not trim leading or trailing newlines.
@@ -1022,6 +977,12 @@ fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
 
 ///|
 fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
+  // Indented code content is visually deindented using CommonMark tab stops;
+  // that mapping is not necessarily a single source slice. Keep local rewrite
+  // targets fenced-only until indented-code rewrites can reindent per line.
+  guard node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) else {
+    return None
+  }
   let mut in_code = false
   let content_tokens : Array[@seam.SyntaxToken] = Array::new()
   for element in node.all_children() {
