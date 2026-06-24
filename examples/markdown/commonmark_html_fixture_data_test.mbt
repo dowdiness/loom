@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=207, xfail=6, skip=0.
+// Baseline: pass=208, xfail=6, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (207, 6, 0)
+  (208, 6, 0)
 }
 
 ///|
@@ -19,6 +19,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "atx-heading-levels",
       source: "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n",
       expected_html: "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 4,
+      section: "Tabs",
+      name: "tabs-list-continuation-paragraph-after-blank",
+      source: "  - foo\n\n\tbar\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

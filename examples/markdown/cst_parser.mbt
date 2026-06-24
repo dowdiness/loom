@@ -553,7 +553,7 @@ fn parse_nested_list_item_flow(
 }
 
 ///|
-fn text_leading_space_count(text : String) -> Int {
+fn text_leading_space_char_count(text : String) -> Int {
   text.length() - text.trim_start(chars=" ".view()).length()
 }
 
@@ -563,7 +563,7 @@ fn token_can_start_list_item_continuation_paragraph(
   content_indent : Int,
 ) -> Bool {
   match token {
-    Text(text) => text_leading_space_count(text) >= content_indent
+    Text(text) => text_leading_space_char_count(text) >= content_indent
     _ => !is_block_boundary(token) && content_indent <= 0
   }
 }
@@ -619,6 +619,22 @@ fn try_continue_list_item_after_blank_line(
       ) => {
       parse_block_quote(ctx)
       true
+    }
+    IndentedCodeText(_) => {
+      let indent = current_token_leading_indent(ctx)
+      if indent >= content_indent && indent < content_indent + 4 {
+        parse_paragraph(ctx)
+        true
+      } else if token_can_start_list_item_continuation_paragraph(
+          ctx.peek(),
+          content_indent,
+        ) {
+        parse_paragraph(ctx)
+        true
+      } else {
+        ctx.restore(checkpoint)
+        false
+      }
     }
     _ if token_can_start_list_item_continuation_paragraph(
         ctx.peek(),
@@ -798,7 +814,7 @@ fn try_parse_list_item_setext_heading(
 fn current_token_leading_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int {
-  skip_leading_spaces(ctx.current_token_text().to_owned(), 0)
+  count_leading_indent(ctx.current_token_text())
 }
 
 ///|
@@ -808,7 +824,7 @@ fn current_list_item_content_indent(
   let marker_width = current_list_marker_token_width(ctx)
   match ctx.peek_nth(1) {
     Text(text) if direct_list_item_text_has_non_blank_content(text) => {
-      let padding = text_leading_space_count(text)
+      let padding = text_leading_space_char_count(text)
       marker_width + padding.min(4)
     }
     _ => {

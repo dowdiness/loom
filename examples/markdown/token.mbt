@@ -27,6 +27,21 @@ fn skip_leading_spaces(text : String, pos : Int) -> Int {
 }
 
 ///|
+/// Count visual columns of leading whitespace using CommonMark 4-column tab
+/// stops. Stops at the first non-space, non-tab character.
+fn count_leading_indent(text : StringView) -> Int {
+  for ch in text; col = 0 {
+    match ch {
+      ' ' => continue col + 1
+      '\t' => continue (col / 4 + 1) * 4
+      _ => break col
+    }
+  } nobreak {
+    col
+  }
+}
+
+///|
 fn marker_start_after_optional_indent(text : String, pos : Int) -> Int? {
   Some(skip_leading_spaces(text, pos))
 }
@@ -354,13 +369,13 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
     match self {
       HeadingMarker(_) => 0 // HeadingMarkerToken
       ListMarker => 1 // ListMarkerToken
-      OrderedListMarker(_) => 28 // OrderedListMarkerToken
-      BlockQuoteMarker => 30 // BlockQuoteMarkerToken
-      ThematicBreak => 32 // ThematicBreakToken
+      OrderedListMarker(_) => 29 // OrderedListMarkerToken
+      BlockQuoteMarker => 31 // BlockQuoteMarkerToken
+      ThematicBreak => 33 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
-      HtmlBlockOpen(_) => 34 // HtmlBlockOpenToken
-      HtmlText(_) => 35 // HtmlTextToken
+      HtmlBlockOpen(_) => 35 // HtmlBlockOpenToken
+      HtmlText(_) => 36 // HtmlTextToken
       BlankLine => 4 // BlankLineToken
       Star => 5 // StarToken
       StarStar => 6 // StarStarToken
@@ -371,10 +386,46 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       RightParen => 11 // RightParenToken
       Text(_) => 12 // TextToken
       CodeText(_) => 13 // CodeTextToken
-      IndentedCodeText(_) => 37 // IndentedCodeTextToken
-      Newline => 14 // NewlineToken
-      Error(_) => 15 // ErrorToken
-      EOF => 16 // EofToken
+      IndentedCodeText(_) => 14 // IndentedCodeTextToken
+      Newline => 15 // NewlineToken
+      Error(_) => 16 // ErrorToken
+      EOF => 17 // EofToken
     },
   )
+}
+
+///|
+test "tokens map to their corresponding syntax raw kind" {
+  let cases : Array[(Token, SyntaxKind)] = [
+    (HeadingMarker(1), HeadingMarkerToken),
+    (ListMarker, ListMarkerToken),
+    (
+      OrderedListMarker(OrderedListMarker(start=1, delimiter=Period)),
+      OrderedListMarkerToken,
+    ),
+    (BlockQuoteMarker, BlockQuoteMarkerToken),
+    (ThematicBreak, ThematicBreakToken),
+    (CodeFenceOpen(3, ""), CodeFenceOpenToken),
+    (CodeFenceClose, CodeFenceCloseToken),
+    (HtmlBlockOpen("<div>"), HtmlBlockOpenToken),
+    (HtmlText("text"), HtmlTextToken),
+    (BlankLine, BlankLineToken),
+    (Star, StarToken),
+    (StarStar, StarStarToken),
+    (Backtick, BacktickToken),
+    (LeftBracket, LeftBracketToken),
+    (RightBracket, RightBracketToken),
+    (LeftParen, LeftParenToken),
+    (RightParen, RightParenToken),
+    (Text("text"), TextToken),
+    (CodeText("code"), CodeTextToken),
+    (IndentedCodeText("code"), IndentedCodeTextToken),
+    (Newline, NewlineToken),
+    (Error("error"), ErrorToken),
+    (EOF, EofToken),
+  ]
+  for pair in cases {
+    let (token, kind) = pair
+    assert_eq(token.to_raw(), kind.to_raw())
+  }
 }
