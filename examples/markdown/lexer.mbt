@@ -41,18 +41,6 @@ fn count_hashes(input : String, pos : Int) -> Int {
 }
 
 ///|
-/// Count visual indentation columns with CommonMark 4-column tab stops.
-fn count_indent_columns(input : String, start : Int, end : Int) -> Int {
-  input[start:end].fold(init=0, (col, ch) => {
-    match ch {
-      ' ' => col + 1
-      '\t' => (col / 4 + 1) * 4
-      _ => col + 1
-    }
-  })
-}
-
-///|
 /// True when the character at `pos` is preceded by an odd-length contiguous
 /// backslash run (CommonMark §6.5: only odd runs escape the following char).
 fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
@@ -101,6 +89,26 @@ fn find_line_end(input : String, pos : Int) -> Int {
 ///|
 fn line_is_blank(input : String, pos : Int, line_end : Int) -> Bool {
   input[pos:line_end].is_blank()
+}
+
+///|
+fn line_end_including_break(input : String, line_end : Int) -> Int {
+  if line_end >= input.length() {
+    line_end
+  } else {
+    match char_at(input, line_end) {
+      Some('\r') => {
+        let next = @core.next_char_offset(input, line_end)
+        if next < input.length() && char_at(input, next) == Some('\n') {
+          @core.next_char_offset(input, next)
+        } else {
+          next
+        }
+      }
+      Some('\n') => @core.next_char_offset(input, line_end)
+      _ => line_end
+    }
+  }
 }
 
 ///|
@@ -469,6 +477,49 @@ fn lex_heading_marker(
 }
 
 ///|
+fn indentation_range_has_tab(input : String, start : Int, end : Int) -> Bool {
+  for i = start; i < end; {
+    match char_at(input, i) {
+      Some('\t') => break true
+      Some(_) => continue @core.next_char_offset(input, i)
+      None => break false
+    }
+  } nobreak {
+    false
+  }
+}
+
+///|
+fn ordered_list_marker_can_start_at(input : String, pos : Int) -> Bool {
+  if ordered_list_marker_at(input, pos) is Some(_) {
+    true
+  } else {
+    let digits = count_ordered_marker_digits(input, pos)
+    guard digits > 0 else { return false }
+    match (char_at(input, pos + digits), char_at(input, pos + digits + 1)) {
+      (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
+        ordered_list_marker_from_text(input[pos:pos + digits + 1].to_owned())
+        is Some(_)
+      _ => false
+    }
+  }
+}
+
+///|
+fn marker_can_start_after_indentation(input : String, pos : Int) -> Bool {
+  match char_at(input, pos) {
+    Some('-') | Some('*') | Some('+') =>
+      match char_at(input, pos + 1) {
+        Some(' ' | '\t' | '\n' | '\r') | None => true
+        _ => false
+      }
+    Some(ch) if is_decimal_digit(ch) =>
+      ordered_list_marker_can_start_at(input, pos)
+    _ => false
+  }
+}
+
+///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
@@ -491,52 +542,33 @@ fn lex_line_start(
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
     [' ', ..] | ['\t', ..] => {
-      // Check if this is a whitespace-only line (blank line with spaces/tabs)
-      let mut end = pos
-      let mut is_blank = false
-      while end < input.length() {
-        match char_at(input, end) {
-          Some(' ') | Some('\t') => end = end + 1
-          Some('\r') => {
-            is_blank = true
-            let next = @core.next_char_offset(input, end)
-            end = if next < input.length() {
-              match char_at(input, next) {
-                Some('\n') => @core.next_char_offset(input, next)
-                _ => next
-              }
-            } else {
-              next
-            }
-            break
-          }
-          Some('\n') => {
-            is_blank = true
-            end = @core.next_char_offset(input, end)
-            break
-          }
-          None => {
-            is_blank = true
-            break
-          }
-          _ => break
-        }
-      }
-      if is_blank {
+      let (end, indent_columns) = leading_indent_end_offset_and_column(
+        input, pos, 0,
+      )
+      if line_is_blank(input, pos, line_end) {
+        let blank_end = line_end_including_break(input, line_end)
         (
-          Produced(@core.TokenInfo::new(BlankLine, end - pos), next_offset=end),
+          Produced(
+            @core.TokenInfo::new(BlankLine, blank_end - pos),
+            next_offset=blank_end,
+          ),
           LineStart,
         )
-      } else if count_indent_columns(input, pos, end) <= 3 {
+      } else if indent_columns <= 3 {
         match char_at(input, end) {
           Some('#') => lex_heading_marker(input, pos, end)
           _ => lex_indented_block_marker(input, pos, end)
         }
+      } else if indentation_range_has_tab(input, pos, end) &&
+        marker_can_start_after_indentation(input, end) {
+        // Keep tab-indented marker candidates as marker tokens so the parser can
+        // apply container-relative list rules; at root, indent >= 4 is still
+        // routed to an indented code block.
+        lex_indented_block_marker(input, pos, end)
       } else {
-        // 4+ columns of indentation — start an indented code block line.
-        // Strip the leading whitespace from the token value so the code
-        // block content matches CommonMark rendering expectations.
-        let text = input[end:line_end].to_owned()
+        // 4+ columns of indentation — start an indented code block line. Keep
+        // the payload source-backed; deindenting happens during lowering.
+        let text = input[pos:line_end].to_owned()
         (
           Produced(
             @core.TokenInfo::new(IndentedCodeText(text), line_end - pos),

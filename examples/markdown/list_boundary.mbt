@@ -32,7 +32,10 @@ fn list_marker_matches(
 fn current_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  marker_start_after_optional_indent(ctx.current_token_text().to_owned(), 0)
+  marker_indent_columns_after_optional_indent(
+    ctx.current_token_text().to_owned(),
+    0,
+  )
 }
 
 ///|

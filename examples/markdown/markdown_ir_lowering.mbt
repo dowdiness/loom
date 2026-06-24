@@ -598,7 +598,7 @@ fn list_item_paragraph_origin(
 }
 
 ///|
-fn trim_list_item_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
+fn trim_container_child_paragraph(ir : MarkdownIR) -> MarkdownIR {
   match ir.node {
     Paragraph(children, _) => {
       let trimmed = match children {
@@ -645,7 +645,7 @@ fn append_list_item_flow_block_children(
     let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
     match child_kind {
       ParagraphNode =>
-        children.push(trim_list_item_child_paragraph(recurse(child)))
+        children.push(trim_container_child_paragraph(recurse(child)))
       HeadingNode
       | UnorderedListNode
       | OrderedListNode
@@ -682,7 +682,7 @@ fn lower_list_item_flow_children_with_diags(
   )
   let content_origin = span_origin_of_children(inline_children)
   let paragraph_origin = list_item_paragraph_origin(node, content_origin)
-  let paragraph = trim_list_item_child_paragraph(
+  let paragraph = trim_container_child_paragraph(
     MarkdownIR::paragraph(inline_children, paragraph_origin, content_origin),
   )
   let children = [paragraph]
@@ -703,20 +703,6 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       }
     }
     None => ""
-  }
-}
-
-///|
-fn trim_code_boundary_newlines(value : String) -> String {
-  let without_leading = if value.has_prefix("\n") {
-    value[1:].to_owned()
-  } else {
-    value
-  }
-  if without_leading.has_suffix("\n") {
-    without_leading[:without_leading.length() - 1].to_owned()
-  } else {
-    without_leading
   }
 }
 
@@ -936,37 +922,6 @@ fn normalize_heading_whitespace(
 }
 
 ///|
-fn code_block_value(node : @seam.SyntaxNode) -> String {
-  let buf = StringBuilder::new()
-  let mut in_code = false
-  for element in node.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) => {
-        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-        match token_kind {
-          CodeFenceOpenToken => in_code = true
-          CodeFenceCloseToken => in_code = false
-          CodeTextToken if in_code => buf.write_string(token.text())
-          IndentedCodeTextToken => {
-            in_code = true
-            // Strip leading whitespace matching CommonMark indented code
-            // block semantics (the lexer tracks the correct content but
-            // the CST token span covers the full source line).
-            buf.write_string(
-              token.text().trim_start(chars=" \t".view()).to_owned(),
-            )
-          }
-          NewlineToken | BlankLineToken if in_code => buf.write_string("\n")
-          _ => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  trim_code_boundary_newlines(buf.to_string())
-}
-
-///|
 /// Extract concatenated HTML content from an `HtmlBlockNode`, including the
 /// opening line, text lines, and interleaved newlines. HTML blocks preserve
 /// exact source formatting, so this does not trim leading or trailing newlines.
@@ -1022,6 +977,12 @@ fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
 
 ///|
 fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
+  // Indented code content is visually deindented using CommonMark tab stops;
+  // that mapping is not necessarily a single source slice. Keep local rewrite
+  // targets fenced-only until indented-code rewrites can reindent per line.
+  guard node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) is Some(_) else {
+    return None
+  }
   let mut in_code = false
   let content_tokens : Array[@seam.SyntaxToken] = Array::new()
   for element in node.all_children() {
@@ -1121,9 +1082,13 @@ fn lower_block_quote_children(
   .children()
   .iter()
   .filter_map(child => {
-    lower_container_child_with_diags(
-      child, recurse, "\n", diagnostics_in_origin,
-    )
+    match
+      lower_container_child_with_diags(
+        child, recurse, "\n", diagnostics_in_origin,
+      ) {
+      Some(ir) => Some(trim_container_child_paragraph(ir))
+      None => None
+    }
   })
   .collect()
 }

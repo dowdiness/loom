@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=207, xfail=6, skip=0.
+// Baseline: pass=213, xfail=6, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (207, 6, 0)
+  (213, 6, 0)
 }
 
 ///|
@@ -19,6 +19,46 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "atx-heading-levels",
       source: "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n",
       expected_html: "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 4,
+      section: "Tabs",
+      name: "tabs-list-continuation-paragraph-after-blank",
+      source: "  - foo\n\n\tbar\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 5,
+      section: "Tabs",
+      name: "tabs-list-indented-code-block-after-blank",
+      source: "- foo\n\n\t\tbar\n",
+      expected_html: "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 6,
+      section: "Tabs",
+      name: "tabs-blockquote-indented-code-block",
+      source: ">\t\tfoo\n",
+      expected_html: "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 7,
+      section: "Tabs",
+      name: "tabs-list-indented-code-block-initial-line",
+      source: "-\t\tfoo\n",
+      expected_html: "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 9,
+      section: "Tabs",
+      name: "tabs-nested-list-marker-after-tab",
+      source: " - foo\n   - bar\n\t - baz\n",
+      expected_html: "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -1260,6 +1300,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "list-items-269",
       source: "-1. not ok\n",
       expected_html: "<p>-1. not ok</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 279,
+      section: "List items",
+      name: "list-items-279",
+      source: "-   \n  foo\n",
+      expected_html: "<ul>\n<li>foo</li>\n</ul>\n",
       status: CommonMarkHtmlPass,
     },
     {

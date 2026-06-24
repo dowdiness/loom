@@ -559,7 +559,8 @@ fn unordered_list_reparser(
   guard unordered_list_marker_from_text(marker_text) is Some(marker) else {
     return None
   }
-  guard marker_start_after_optional_indent(marker_text, 0) is Some(min_indent) else {
+  guard marker_indent_columns_after_optional_indent(marker_text, 0)
+    is Some(min_indent) else {
     return None
   }
   Some(ctx => parse_unordered_list_if_unchanged(ctx, marker, min_indent))
