@@ -74,6 +74,100 @@ fn pratt_reuse_spec(
 }
 
 ///|
+fn pratt_parse(
+  source : String,
+  tokens : Array[@core.TokenInfo[TestToken]],
+  starts : Array[Int],
+  spec : @core.LanguageSpec[TestToken, TestToken],
+  cursor? : @core.ReuseCursor[TestToken, TestToken]? = None,
+  prev_diagnostics? : @core.DiagnosticSet? = None,
+) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
+  @core.parse_tokens_indexed(
+    source,
+    tokens.length(),
+    i => tokens[i].token,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
+    spec,
+    cursor~,
+    prev_diagnostics~,
+  )
+}
+
+///|
+fn binary_growth_tokens() -> Array[@core.TokenInfo[TestToken]] {
+  [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Word, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Word, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+}
+
+///|
+fn binary_growth_starts() -> Array[Int] {
+  [0, 1, 2, 3, 4, 5]
+}
+
+///|
+fn binary_growth_rules() -> Map[RuleName, Expr[TestToken, TestToken]] {
+  {
+    "source": Expr::Ref("binary"),
+    "binary": Expr::PrattBinary(
+      "atom",
+      TestToken::Word,
+      [(TestToken::Word, TestToken::Word)],
+      skip=None,
+    ),
+    "atom": Expr::Emit(TestToken::Int, TestToken::Int),
+  }
+}
+
+///|
+fn app_old_tokens() -> Array[@core.TokenInfo[TestToken]] {
+  [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+}
+
+///|
+fn app_old_starts() -> Array[Int] {
+  [0, 1, 2]
+}
+
+///|
+fn app_growth_rules() -> Map[RuleName, Expr[TestToken, TestToken]] {
+  {
+    "source": Expr::Ref("application"),
+    "application": Expr::PrattApp(
+      "atom",
+      TestToken::Word,
+      Pred::IsToken(TestToken::Int),
+    ),
+    "atom": Expr::Emit(TestToken::Int, TestToken::Int),
+  }
+}
+
+///|
+fn app_growth_tokens() -> Array[@core.TokenInfo[TestToken]] {
+  [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+}
+
+///|
+fn app_growth_starts() -> Array[Int] {
+  [0, 1, 2, 3]
+}
+
+///|
 test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   let parse_root = interpret(
     GrammarIr::GrammarIr(pratt_reuse_rules(), root="source"),
@@ -133,4 +227,107 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   )
   inspect(new_diags.is_empty(), content="true")
   inspect(reuse_count, content="1")
+}
+
+///|
+test "PrattBinary growth matches fresh full parse after suffix append" {
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(binary_growth_rules(), root="source"),
+  )
+  let spec = pratt_reuse_spec(parse_root)
+  let old_tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Word, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let old_starts = [0, 1, 2, 3]
+  let old_source = "1+2"
+  let new_tokens = binary_growth_tokens()
+  let new_starts = binary_growth_starts()
+  let new_source = "1+2+3"
+  let (old_tree, old_diags, _) = pratt_parse(
+    old_source, old_tokens, old_starts, spec,
+  )
+  inspect(old_diags.is_empty(), content="true")
+  let edit = @core.Edit::insert(3, 2)
+  let cursor = @core.ReuseCursor::new_with_edit(
+    old_tree,
+    edit,
+    new_tokens.length(),
+    i => new_tokens[i].token,
+    i => new_starts[i],
+    i => {
+      new_source.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_tokens[i].len,
+      )
+    },
+    spec,
+    reuse_size_threshold=0,
+  )
+  let (incremental_tree, incremental_diags, incremental_reuse) = pratt_parse(
+    new_source,
+    new_tokens,
+    new_starts,
+    spec,
+    cursor=Some(cursor),
+    prev_diagnostics=Some(old_diags),
+  )
+  let (full_tree, full_diags, _) = pratt_parse(
+    new_source, new_tokens, new_starts, spec,
+  )
+  inspect(incremental_diags == full_diags, content="true")
+  inspect(@core.tree_diff(incremental_tree, full_tree).length(), content="0")
+  inspect(incremental_reuse, content="0")
+  ignore(())
+}
+
+///|
+test "PrattApp growth matches fresh full parse after suffix append" {
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(app_growth_rules(), root="source"),
+  )
+  let spec = pratt_reuse_spec(parse_root)
+  let old_tokens = app_old_tokens()
+  let old_starts = app_old_starts()
+  let old_source = "12"
+  let new_tokens = app_growth_tokens()
+  let new_starts = app_growth_starts()
+  let new_source = "123"
+  let (old_tree, old_diags, _) = pratt_parse(
+    old_source, old_tokens, old_starts, spec,
+  )
+  inspect(old_diags.is_empty(), content="true")
+  let edit = @core.Edit::insert(2, 1)
+  let cursor = @core.ReuseCursor::new_with_edit(
+    old_tree,
+    edit,
+    new_tokens.length(),
+    i => new_tokens[i].token,
+    i => new_starts[i],
+    i => {
+      new_source.view(
+        start_offset=new_starts[i],
+        end_offset=new_starts[i] + new_tokens[i].len,
+      )
+    },
+    spec,
+    reuse_size_threshold=0,
+  )
+  let (incremental_tree, incremental_diags, incremental_reuse) = pratt_parse(
+    new_source,
+    new_tokens,
+    new_starts,
+    spec,
+    cursor=Some(cursor),
+    prev_diagnostics=Some(old_diags),
+  )
+  let (full_tree, full_diags, _) = pratt_parse(
+    new_source, new_tokens, new_starts, spec,
+  )
+  inspect(incremental_diags == full_diags, content="true")
+  inspect(@core.tree_diff(incremental_tree, full_tree).length(), content="0")
+  inspect(incremental_reuse, content="0")
+  ignore(())
 }
