@@ -86,9 +86,9 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   let (old_tree, old_diags, _) = @core.parse_tokens_indexed(
     old_source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + tokens[i].len },
+    i => tokens[i].token,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     spec,
   )
   inspect(old_diags.is_empty(), content="true")
@@ -104,9 +104,9 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
     old_tree,
     edit,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) {
+    i => tokens[i].token,
+    i => starts[i],
+    i => {
       new_source.view(
         start_offset=starts[i],
         end_offset=starts[i] + tokens[i].len,
@@ -124,9 +124,9 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   let (_, new_diags, reuse_count) = @core.parse_tokens_indexed(
     new_source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + tokens[i].len },
+    i => tokens[i].token,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     spec,
     cursor=Some(cursor),
     prev_diagnostics=Some(old_diags),
