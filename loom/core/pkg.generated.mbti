@@ -318,6 +318,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Un
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
 pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> StringView
 pub fn[T, K] ParserContext::too_many_errors(Self[T, K], Int) -> Bool
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_current_node(Self[T, K], K) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_repeat_group(Self[T, K]) -> Bool
 pub fn[T, K : @seam.ToRawKind] ParserContext::wrap_at(Self[T, K], Int, K, () -> Unit) -> Unit
 

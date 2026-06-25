@@ -129,49 +129,55 @@ fn ProbeEnv::run(
         self.run(ctx, body)
       }
     }
-    PrattApp(slot, kind, starts) => {
-      let mark = ctx.mark()
-      self.run(ctx, self.compiled.rule(slot))
-      if starts.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
-          while starts.matches(ctx.peek()) {
-            self.run(ctx, self.compiled.rule(slot))
-          }
-        })
-      }
-    }
-    PrattBinary(slot, kind, ops, skip~) => {
-      let mark = ctx.mark()
-      self.run(ctx, self.compiled.rule(slot))
-      // Mirrors @grammar's PrattBinary arm: gated soft-separator consume before
-      // each operator (lookahead = the op table), matching A's
-      // consume_soft_newlines_before_binary_operator.
-      let skip_to_op = () => {
-        match skip {
-          Some((sep, sep_kind)) =>
-            ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
-              ops.iter().any(pair => pair.0 == t)
-            })
-            |> ignore
-          None => ()
+    PrattApp(slot, kind, starts) =>
+      if ctx.try_reuse_current_node(kind) {
+        ()
+      } else {
+        let mark = ctx.mark()
+        self.run(ctx, self.compiled.rule(slot))
+        if starts.matches(ctx.peek()) {
+          ctx.wrap_at(mark, kind, () => {
+            while starts.matches(ctx.peek()) {
+              self.run(ctx, self.compiled.rule(slot))
+            }
+          })
         }
       }
-      skip_to_op()
-      if ops.iter().any(pair => pair.0 == ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
-          while true {
-            skip_to_op()
-            match ops.iter().find_first(pair => pair.0 == ctx.peek()) {
-              None => break
-              Some(pair) => {
-                ctx.emit_token(pair.1)
-                self.run(ctx, self.compiled.rule(slot))
+    PrattBinary(slot, kind, ops, skip~) =>
+      if ctx.try_reuse_current_node(kind) {
+        ()
+      } else {
+        let mark = ctx.mark()
+        self.run(ctx, self.compiled.rule(slot))
+        // Mirrors @grammar's PrattBinary arm: gated soft-separator consume before
+        // each operator (lookahead = the op table), matching A's
+        // consume_soft_newlines_before_binary_operator.
+        let skip_to_op = () => {
+          match skip {
+            Some((sep, sep_kind)) =>
+              ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
+                ops.iter().any(pair => pair.0 == t)
+              })
+              |> ignore
+            None => ()
+          }
+        }
+        skip_to_op()
+        if ops.iter().any(pair => pair.0 == ctx.peek()) {
+          ctx.wrap_at(mark, kind, () => {
+            while true {
+              skip_to_op()
+              match ops.iter().find_first(pair => pair.0 == ctx.peek()) {
+                None => break
+                Some(pair) => {
+                  ctx.emit_token(pair.1)
+                  self.run(ctx, self.compiled.rule(slot))
+                }
               }
             }
-          }
-        })
+          })
+        }
       }
-    }
     Fail(msg) => {
       ctx.error(msg)
       ctx.emit_error_placeholder()
@@ -269,9 +275,8 @@ fn ProbeEnv::parse_app_nl(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let atom_starts = lambda_atom_starts()
-  let atom = self.compiled.rule(self.atom_slot)
   let mark = ctx.mark()
-  self.run(ctx, atom)
+  self.run(ctx, self.compiled.rule(self.atom_slot))
   let _ = ctx.consume_while_emit_if(
     t => t == @token.Newline,
     @syntax.NewlineToken,
@@ -280,7 +285,7 @@ fn ProbeEnv::parse_app_nl(
   guard atom_starts.matches(ctx.peek()) else { return }
   ctx.wrap_at(mark, @syntax.AppExpr, () => {
     while true {
-      self.run(ctx, atom)
+      self.run(ctx, self.compiled.rule(self.atom_slot))
       let _ = ctx.consume_while_emit_if(
         t => t == @token.Newline,
         @syntax.NewlineToken,
