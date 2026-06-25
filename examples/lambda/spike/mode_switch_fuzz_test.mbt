@@ -11,7 +11,6 @@
 ///
 /// This keeps the generator at the lexical/context layer where the suspected bug
 /// lives, rather than normalizing it away via AST generation.
-
 enum ModeSeg {
   Lit(String)
   Sep(Array[String])
@@ -68,9 +67,7 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
     let (a_seed, a_seed_diag) = @lambda.parse_cst(initial)
     let (b_seed, b_seed_diag) = b_grammar.parse_cst(initial)
     guard @core.tree_diff(a_seed, b_seed).is_empty() else {
-      fail(
-        "seed CST divergence on source [\{mode_show_source(initial)}]",
-      )
+      fail("seed CST divergence on source [\{mode_show_source(initial)}]")
     }
     guard diagnostics_structurally_equal(a_seed_diag, b_seed_diag) else {
       fail(

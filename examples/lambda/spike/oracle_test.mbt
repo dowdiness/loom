@@ -219,7 +219,10 @@ test "oracle: prefix insert mode switch preserves A/B parity" {
   b_parser.apply_edit(edit, after)
   let a_snap = a_parser.snapshot().read_or_abort()
   let b_snap = b_parser.snapshot().read_or_abort()
-  inspect(@core.tree_diff(a_snap.syntax.cst_node(), b_snap.syntax.cst_node()).length(), content="0")
+  inspect(
+    @core.tree_diff(a_snap.syntax.cst_node(), b_snap.syntax.cst_node()).length(),
+    content="0",
+  )
   inspect(a_snap.diagnostics == b_snap.diagnostics, content="true")
 }
 
