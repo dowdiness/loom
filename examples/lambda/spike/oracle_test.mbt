@@ -181,6 +181,49 @@ test "oracle: block trailing newline-application forms AppExpr matching A (P2 D2
 }
 
 ///|
+test "oracle: prefix insert switches newline-app top-level into let-body mode for B D1" {
+  let initial = "f\nx + 1"
+  let after = "let a = f\nx + 1"
+  let edit = @core.Edit::insert(0, "let a = ".length())
+  let b_grammar = build_b_syntax_grammar()
+  let (a_seed, _) = @lambda.parse_cst(initial)
+  let (b_seed, _) = b_grammar.parse_cst(initial)
+  inspect(@core.tree_diff(a_seed, b_seed).length(), content="0")
+  let b_parser = @loom.new_syntax_parser(initial, b_grammar)
+  b_parser.apply_edit(edit, after)
+  let b_snap = b_parser.snapshot().read_or_abort()
+  let (fresh_cst, fresh_diag) = b_grammar.parse_cst(after)
+  inspect(
+    @core.tree_diff(b_snap.syntax.cst_node(), fresh_cst).is_empty(),
+    content="true",
+  )
+  inspect(b_snap.diagnostics == fresh_diag, content="true")
+}
+
+///|
+test "oracle: prefix insert mode switch preserves A/B parity" {
+  let initial = "f\nx + 1"
+  let after = "let a = f\nx + 1"
+  let edit = @core.Edit::insert(0, "let a = ".length())
+  let a_grammar = normalized_syntax_grammar(
+    @lambda.lambda_grammar.spec,
+    @lambda.lambda_grammar.lex,
+  )
+  let a_parser = @loom.new_syntax_parser(initial, a_grammar)
+  let b_grammar = build_b_syntax_grammar()
+  let b_parser = @loom.new_syntax_parser(initial, b_grammar)
+  let (a_seed, _) = @lambda.parse_cst(initial)
+  let (b_seed, _) = b_grammar.parse_cst(initial)
+  inspect(@core.tree_diff(a_seed, b_seed).length(), content="0")
+  a_parser.apply_edit(edit, after)
+  b_parser.apply_edit(edit, after)
+  let a_snap = a_parser.snapshot().read_or_abort()
+  let b_snap = b_parser.snapshot().read_or_abort()
+  inspect(@core.tree_diff(a_snap.syntax.cst_node(), b_snap.syntax.cst_node()).length(), content="0")
+  inspect(a_snap.diagnostics == b_snap.diagnostics, content="true")
+}
+
+///|
 /// Task 9: the headline re-validation. Every boolean is freshly derived against
 /// the reified `@grammar` IR (B rebuilt from compile() inside run_reified_ir_oracle),
 /// so no PASS is inherited from the closure spike.
