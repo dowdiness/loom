@@ -190,6 +190,27 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 }
 
 ///|
+/// Try to reuse a regular CST node at the current parse position.
+///
+/// Use this before retroactive wrappers (`mark`/`wrap_at`) whose stable node
+/// boundary begins at the current token but whose fallback parse must first emit
+/// a prefix before it can wrap. `node()` cannot express that shape because it
+/// opens the wrapper before parsing the prefix; this helper gives those parsers
+/// the same reuse fast path without changing their fallback CST event order.
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_current_node(
+  self : ParserContext[T, K],
+  kind : K,
+) -> Bool {
+  match self.try_reuse(kind) {
+    Some(reuse) => {
+      self.emit_reused(reuse)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 /// Retroactive node wrapper for expressions built via mark()/start_at().
 /// Reuse is not attempted here — the prefix is already emitted.
 /// Inner node() calls within body() still benefit from reuse.

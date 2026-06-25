@@ -117,54 +117,60 @@ fn[
     }
     // Pratt application: parse one atom; while the start predicate still holds,
     // retroactively wrap the run in the app kind and parse further atoms.
-    PrattApp(slot, kind, starts) => {
-      let mark = ctx.mark()
-      run_expr(ctx, grammar, grammar.rule(slot))
-      if starts.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
-          while starts.matches(ctx.peek()) {
-            run_expr(ctx, grammar, grammar.rule(slot))
-          }
-        })
+    PrattApp(slot, kind, starts) =>
+      if ctx.try_reuse_current_node(kind) {
+        ()
+      } else {
+        let mark = ctx.mark()
+        run_expr(ctx, grammar, grammar.rule(slot))
+        if starts.matches(ctx.peek()) {
+          ctx.wrap_at(mark, kind, () => {
+            while starts.matches(ctx.peek()) {
+              run_expr(ctx, grammar, grammar.rule(slot))
+            }
+          })
+        }
       }
-    }
     // Pratt binary: parse one prefix; while the peek matches an operator table
     // entry, wrap from the mark in the binary kind, emit the operator, and
     // parse the next prefix.
-    PrattBinary(slot, kind, ops, skip~) => {
-      let mark = ctx.mark()
-      run_expr(ctx, grammar, grammar.rule(slot))
-      // Mirrors A's consume_soft_newlines_before_binary_operator: consume a
-      // gated run of `skip` tokens when an operator from the table follows, so
-      // a separator that does NOT precede an operator (a statement break) is
-      // left intact. The lookahead is the op table, so skipping is scoped to
-      // the listed operators (e.g. +/-, not *,/).
-      let skip_to_op = () => {
-        match skip {
-          Some((sep, sep_kind)) =>
-            ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
-              ops.iter().any(pair => pair.0 == t)
-            })
-            |> ignore
-          None => ()
+    PrattBinary(slot, kind, ops, skip~) =>
+      if ctx.try_reuse_current_node(kind) {
+        ()
+      } else {
+        let mark = ctx.mark()
+        run_expr(ctx, grammar, grammar.rule(slot))
+        // Mirrors A's consume_soft_newlines_before_binary_operator: consume a
+        // gated run of `skip` tokens when an operator from the table follows, so
+        // a separator that does NOT precede an operator (a statement break) is
+        // left intact. The lookahead is the op table, so skipping is scoped to
+        // the listed operators (e.g. +/-, not *,/).
+        let skip_to_op = () => {
+          match skip {
+            Some((sep, sep_kind)) =>
+              ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
+                ops.iter().any(pair => pair.0 == t)
+              })
+              |> ignore
+            None => ()
+          }
         }
-      }
-      skip_to_op()
-      if ops.iter().any(pair => pair.0 == ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
-          while true {
-            skip_to_op()
-            match ops.iter().find_first(pair => pair.0 == ctx.peek()) {
-              None => break
-              Some(pair) => {
-                ctx.emit_token(pair.1)
-                run_expr(ctx, grammar, grammar.rule(slot))
+        skip_to_op()
+        if ops.iter().any(pair => pair.0 == ctx.peek()) {
+          ctx.wrap_at(mark, kind, () => {
+            while true {
+              skip_to_op()
+              match ops.iter().find_first(pair => pair.0 == ctx.peek()) {
+                None => break
+                Some(pair) => {
+                  ctx.emit_token(pair.1)
+                  run_expr(ctx, grammar, grammar.rule(slot))
+                }
               }
             }
-          }
-        })
+          })
+        }
       }
-    }
     // Emit a diagnostic and an error placeholder (required construct missing).
     Fail(msg) => {
       ctx.error(msg)
