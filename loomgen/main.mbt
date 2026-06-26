@@ -30,7 +30,8 @@ fn is_all_digits(s : String) -> Bool {
 
 ///|
 /// Extract (kind_name, raw) pairs from an existing syntax_kind.mbt file.
-/// Scans for `Name => number` patterns in the ToRawKind impl.
+/// Scans lines for `Name => number` or `Name => @seam.RawKind(number)` patterns
+/// in the ToRawKind impl or equivalent raw-kind assignment arms.
 fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
   let pairs : Array[(String, Int)] = []
   let lines = source.split("\n").to_array()
@@ -46,10 +47,48 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
     if first_char < 'A' || first_char > 'Z' {
       continue
     }
-    if !is_all_digits(raw_str) {
-      continue
+    // Accept bare numbers (Name => 14) or RawKind wrapper (Name => @seam.RawKind(14))
+    let raw_val = if is_all_digits(raw_str) {
+      Some(parse_int(raw_str))
+    } else {
+      // Try to extract from RawKind(N) wrapper
+      let stripped = raw_str.trim().to_owned()
+      // Match @seam.RawKind(N) or bare RawKind(N), no other prefix.
+      let inner_text : String? = if stripped.has_prefix("@seam.RawKind(") {
+        Some(stripped["@seam.RawKind(".length():].to_owned())
+      } else if stripped.has_prefix("RawKind(") {
+        Some(stripped["RawKind(".length():].to_owned())
+      } else {
+        None
+      }
+      match inner_text {
+        Some(body) => {
+          // Find closing paren position
+          let mut close = -1
+          for j = 0; j < body.length(); j = j + 1 {
+            if body[j] == ')' {
+              close = j
+              break
+            }
+          }
+          if close >= 0 {
+            let inner = body[:close].trim().to_owned()
+            if is_all_digits(inner) {
+              Some(parse_int(inner))
+            } else {
+              None
+            }
+          } else {
+            None
+          }
+        }
+        None => None
+      }
     }
-    pairs.push((name, parse_int(raw_str)))
+    match raw_val {
+      Some(raw) => pairs.push((name, raw))
+      None => continue
+    }
   }
   pairs
 }
