@@ -5,7 +5,7 @@ version = "0.1.0"
 import {
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.9.0",
+  "dowdiness/incr@0.11.0",
 }
 
 license = "Apache-2.0"
