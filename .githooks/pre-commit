@@ -1,0 +1,15 @@
+#!/bin/sh
+# Block accidental submodule commits (the most common CI-break in this repo).
+# Submodule changes should be intentional, not from `git add -A` picking up
+# dirty working trees. If you mean to change a submodule pointer, commit
+# with: SKIP_SUBMODULE_CHECK=1 git commit
+if [ -z "$SKIP_SUBMODULE_CHECK" ]; then
+  SUBMODULES=$(git diff --cached --name-only | grep -E '^(egglog|egraph|event-graph-walker|incr)$')
+  if [ -n "$SUBMODULES" ]; then
+    echo "Submodule changes detected:"
+    echo "$SUBMODULES"
+    echo ""
+    echo "If intentional, commit with: SKIP_SUBMODULE_CHECK=1 git commit"
+    exit 1
+  fi
+fi
