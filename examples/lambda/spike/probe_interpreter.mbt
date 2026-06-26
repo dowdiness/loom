@@ -386,6 +386,7 @@ fn parse_lambda_param(
     ctx.finish_node()
   }
 }
+
 ///|
 /// Parse lambda type: right-recursive arrow chains wrapped in nested TypeArrow.
 /// Mirrors A's parse_type: `Int -> Unit -> Int` → TypeArrow(TypeInt, ArrowToken,
