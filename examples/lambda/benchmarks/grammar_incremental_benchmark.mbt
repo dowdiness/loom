@@ -111,20 +111,18 @@ test "grammar A and B reuse comparably on a DEEP-subtree edit (deep-tier honesty
   let a_reuse = a.snapshot().read_or_abort().reuse_count
   let b_reuse = b.snapshot().read_or_abort().reuse_count
   println("deep-edit reuse: A=\{a_reuse} B=\{b_reuse}")
-  // FINDING (ADR 2026-06-22): on a deep-subtree edit the hand parser reuses
-  // subtrees the interpreter does NOT — B's reuse granularity is coarser than
-  // A's on nested structures. reuse_count alone would be weak evidence (the spec
-  // §6 flags it as "vacuous" — engine node reuse can mask repeat-group gaps), so
-  // the deep FULL-parse control benchmark below corroborates it by wall clock:
-  // across 3 runs B's deep PER-EDIT cost ≈ its full-parse cost (per-edit/full =
-  // 1.23, 1.03, 0.97 → B re-parses the whole deep tree each edit), whereas A's
-  // deep per-edit is ≪ its full-parse (0.70, 0.29, 0.49 → A reuses). That gap is
-  // the *cause* of the deep-tier ~1.15–2.4x B/A slowdown — a real, mechanism-
-  // confirmed reuse deficiency, not a slower-per-node constant factor. Guard it:
-  // A reuses, and B reuses strictly less. If B's reuse is later improved this
-  // test SHOULD fail — revisit the ADR's graduate-with-caveat verdict when it does.
+  // #476 fix (2026-06-26): B now parses the arrow-lambda workload without
+  // malformed-tree contamination, so deep-subtree reuse is comparable to A.
+  // Previously B's malformed initial CST (diag_count=4, has_any_error=true)
+  // caused B to report reuse=0 — masking whether the gap was a real reuse
+  // deficiency or just a broken old tree. With clean initial health, B's
+  // deep-edit reuse matches A's (both 7), and the !=-guard is retired.
+  // The deep-tier ~1.15-2.4x B/A wall-clock cost is now purely interpreter
+  // overhead at equal reuse count — a constant-factor performance question,
+  // not a structural reuse gap.
   assert_true(a_reuse > 0)
-  assert_true(b_reuse < a_reuse)
+  assert_true(b_reuse > 0)
+  assert_eq(a_reuse, b_reuse)
 }
 
 ///|

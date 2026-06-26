@@ -26,6 +26,8 @@ priv struct ProbeEnv {
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind]
   cripple_reuse : Bool
   atom_slot : Int
+  param_list_slot : Int
+  binary_slot : Int
 }
 
 ///|
@@ -36,14 +38,21 @@ pub fn b_parse_root(
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind],
   cripple_reuse : Bool,
 ) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit {
-  // `compile` resolves the `Ref("atom")` / `PrattApp("atom")` targets, so a
-  // compiled lambda grammar always defines `atom`; the None branch is
-  // unreachable and signals a corrupted grammar.
+  // compile resolves Ref targets, so every named rule in the grammar IR is
+  // guaranteed to have a slot; None branches are unreachable.
   let atom_slot = match compiled.names.search("atom") {
     Some(slot) => slot
     None => abort("lambda grammar IR must define an 'atom' rule")
   }
-  let env = ProbeEnv::{ compiled, cripple_reuse, atom_slot }
+  let param_list_slot = match compiled.names.search("param_list") {
+    Some(slot) => slot
+    None => abort("lambda grammar IR must define a 'param_list' rule")
+  }
+  let binary_slot = match compiled.names.search("binary") {
+    Some(slot) => slot
+    None => abort("lambda grammar IR must define a 'binary' rule")
+  }
+  let env = ProbeEnv::{ compiled, cripple_reuse, atom_slot, param_list_slot, binary_slot }
   let root = compiled.rule(compiled.root_slot())
   ctx => env.run(ctx, root)
 }
@@ -129,13 +138,13 @@ fn ProbeEnv::run(
         self.run(ctx, body)
       }
     }
-    PrattApp(slot, kind, starts) => {
+    PrattApp(_slot, kind, starts) => {
       let mark = ctx.mark()
-      self.run(ctx, self.compiled.rule(slot))
+      self.run_atom(ctx, false)
       if starts.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
+        ctx.wrap_at(mark, kind, fn() {
           while starts.matches(ctx.peek()) {
-            self.run(ctx, self.compiled.rule(slot))
+            self.run_atom(ctx, false)
           }
         })
       }
@@ -220,6 +229,107 @@ fn ProbeEnv::run(
   }
 }
 
+/// ─── Arrow-lambda helpers (#476) ────────────────────────────────────
+
+///|
+/// Check if the current `(` starts a `(params) => body` arrow lambda, by
+/// scanning ahead to find the matching `)` and checking whether `=>` follows
+/// it (skipping soft newlines). Mirrors A's `left_paren_starts_arrow_lambda`.
+fn is_arrow_lambda(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Bool {
+  token_after_matching_right_paren(ctx) is Some(@token.FatArrow)
+}
+
+///|
+/// Scan ahead through peek_nth to find the token after the matching `)` for
+/// the current `(`. Tracks paren depth so nested parens are handled correctly.
+/// Mirrors A's `token_after_matching_right_paren` + `token_after_soft_newlines`.
+fn token_after_matching_right_paren(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> @token.Token? {
+  for index = 1, paren_depth = 0 {
+    match ctx.peek_nth(index) {
+      @token.EOF => break None
+      @token.LeftParen => continue index + 1, paren_depth + 1
+      @token.RightParen =>
+        if paren_depth == 0 {
+          break token_after_soft_newlines(ctx, index + 1)
+        } else {
+          continue index + 1, paren_depth - 1
+        }
+      _ => continue index + 1, paren_depth
+    }
+  }
+}
+
+///|
+/// Skip Newline tokens from start_index onward and return the first non-Newline
+/// token (or None at EOF). Mirrors A's `token_after_soft_newlines`.
+fn token_after_soft_newlines(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  start_index : Int,
+) -> @token.Token? {
+  for index = start_index {
+    match ctx.peek_nth(index) {
+      @token.EOF => break None
+      @token.Newline => continue index + 1
+      token => break Some(token)
+    }
+  }
+}
+
+fn ProbeEnv::parse_arrow_lambda(
+  self : ProbeEnv,
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
+) -> Unit {
+  // node_with_recovery kind body is_sync mirroring A's parse_arrow_lambda
+  ctx.node_with_recovery(
+    @syntax.LambdaExpr,
+    fn() -> Bool {
+      self.run(ctx, self.compiled.rule(self.param_list_slot))
+      if !ctx.expect(@token.FatArrow, @syntax.FatArrowToken) {
+        return false
+      }
+      if allow_newline_application {
+        self.parse_newline_app(ctx)
+      } else {
+        self.run(ctx, self.compiled.rule(self.binary_slot))
+      }
+      true
+    },
+    fn(t : @token.Token) -> Bool {
+      match t {
+        @token.Newline | @token.RightParen | @token.LBrace | @token.RBrace
+        | @token.Semicolon | @token.Lambda | @token.Let | @token.Fn
+        | @token.FatArrow | @token.If | @token.Then | @token.Else
+        | @token.EOF => true
+        _ => false
+      }
+    },
+  )
+}
+
+
+///|
+/// Parse an atom with LeftParen lambda-or-paren dispatch. When LeftParen is
+/// the current token, checks for `(params) => body` via lookahead and parses
+/// a LambdaExpr when `=>` follows the matching `)`; otherwise falls through
+/// to the normal atom rule (ParenExpr body). The `allow_newline_application`
+/// flag is threaded into the lambda body so it matches A's expression mode.
+fn ProbeEnv::run_atom(
+  self : ProbeEnv,
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+  allow_newline_application : Bool,
+) -> Unit {
+  if ctx.peek() == @token.LeftParen && is_arrow_lambda(ctx) {
+    self.parse_arrow_lambda(ctx, allow_newline_application)
+  } else {
+    self.run(ctx, self.compiled.rule(self.atom_slot))
+  }
+}
+
 ///|
 /// Newline-application binary expression (`allow_newline_application=true`).
 /// Mirrors the spike's `parse_newline_app_expr`: a binary layer over a
@@ -269,18 +379,17 @@ fn ProbeEnv::parse_app_nl(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let atom_starts = lambda_atom_starts()
-  let atom = self.compiled.rule(self.atom_slot)
   let mark = ctx.mark()
-  self.run(ctx, atom)
+  self.run_atom(ctx, true)
   let _ = ctx.consume_while_emit_if(
     t => t == @token.Newline,
     @syntax.NewlineToken,
     t => atom_starts.matches(t),
   )
   guard atom_starts.matches(ctx.peek()) else { return }
-  ctx.wrap_at(mark, @syntax.AppExpr, () => {
+  ctx.wrap_at(mark, @syntax.AppExpr, fn() {
     while true {
-      self.run(ctx, atom)
+      self.run_atom(ctx, true)
       let _ = ctx.consume_while_emit_if(
         t => t == @token.Newline,
         @syntax.NewlineToken,
