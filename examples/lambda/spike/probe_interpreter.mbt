@@ -304,19 +304,21 @@ fn ProbeEnv::parse_arrow_lambda(
         ) {
         return false
       }
-      let expr_starts = lambda_expression_starts()
-      let _ = ctx.consume_while_emit_if(
-        t => t == @token.Newline,
-        @syntax.NewlineToken,
-        t => expr_starts.matches(t),
-      )
-      // Match A: block body goes through parse_block_expr, not expression path.
+      // Match A: only special-case { when immediately after => (no soft newlines).
       if ctx.peek() == @token.LBrace {
         self.run(ctx, self.compiled.rule(self.atom_slot))
-      } else if allow_newline_application {
-        self.parse_newline_app(ctx)
       } else {
-        self.run(ctx, self.compiled.rule(self.binary_slot))
+        let expr_starts = lambda_expression_starts()
+        let _ = ctx.consume_while_emit_if(
+          t => t == @token.Newline,
+          @syntax.NewlineToken,
+          t => expr_starts.matches(t),
+        )
+        if allow_newline_application {
+          self.parse_newline_app(ctx)
+        } else {
+          self.run(ctx, self.compiled.rule(self.binary_slot))
+        }
       }
       true
     },
@@ -368,14 +370,12 @@ fn parse_lambda_param_list(
     ctx.error("Expected parameter name")
     ctx.emit_error_placeholder()
   }
-  if !ctx.expect(@token.RightParen, @syntax.RightParenToken) {
-    let _ = ctx.skip_until(t => {
-      t == @token.RightParen || t == @token.FatArrow || t == @token.EOF
-    })
-    if ctx.peek() == @token.RightParen {
-      ctx.emit_token(@syntax.RightParenToken)
-    }
-  }
+  let _ = ctx.expect_after_skip(
+    t => t == @token.Newline,
+    @syntax.NewlineToken,
+    @token.RightParen,
+    @syntax.RightParenToken,
+  )
   ctx.finish_node()
 }
 

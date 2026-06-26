@@ -52,9 +52,11 @@ test "lambda chain: B parses simple arrow lambda cleanly" {
 /// P2: (x)\n=> x — soft newline between params and FatArrow must be consumed.
 test "lambda chain: B handles soft newline before FatArrow" {
   let source = "(x)\n=> x"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
   let b = build_b_syntax_grammar()
-  let (b_cst, _) = b.parse_cst(source)
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
@@ -63,9 +65,11 @@ test "lambda chain: B handles soft newline before FatArrow" {
 /// P2: (x) =>\nx — soft newline between FatArrow and body must be consumed.
 test "lambda chain: B handles soft newline before lambda body" {
   let source = "(x) =>\nx"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
   let b = build_b_syntax_grammar()
-  let (b_cst, _) = b.parse_cst(source)
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
