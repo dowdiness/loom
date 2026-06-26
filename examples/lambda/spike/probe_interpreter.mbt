@@ -295,12 +295,15 @@ fn ProbeEnv::parse_arrow_lambda(
     @syntax.LambdaExpr,
     fn() -> Bool {
       parse_lambda_param_list(ctx)
-      let _ = ctx.expect_after_skip(
+      // Return false when => is missing so node_with_recovery triggers recovery.
+      if !ctx.expect_after_skip(
         t => t == @token.Newline,
         @syntax.NewlineToken,
         @token.FatArrow,
         @syntax.FatArrowToken,
-      )
+      ) {
+        return false
+      }
       let expr_starts = lambda_expression_starts()
       let _ = ctx.consume_while_emit_if(
         t => t == @token.Newline,

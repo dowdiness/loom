@@ -83,3 +83,15 @@ test "lambda chain: B rejects empty param list with same diagnostic" {
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")
 }
+
+///|
+/// (x y) => z — malformed params. Both must report diagnostics; exact CST
+/// recovery shape may differ between A's node_with_recovery and B's probe.
+test "lambda chain: B recovers from malformed arrow params like A" {
+  let source = "(x y) => z"
+  let (_, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (_, b_diag) = b.parse_cst(source)
+  inspect(a_diag.is_empty(), content="false")
+  inspect(b_diag.is_empty(), content="false")
+}
