@@ -108,9 +108,16 @@ fn emit_token_impls(
   token_enum : EnumDecl,
   token_kinds : Array[(String, Int)],
 ) -> String {
-  let annotated = token_enum.variants.filter(fn(v) { v.token_role is Some(_) })
+  // Validate every variant has a token_role before generating.
+  for v in token_enum.variants {
+    if v.token_role is None {
+      abort("variant " + v.name + " has no #loom.* annotation")
+    }
+  }
+  // ErrorToken variants with payload must use a single String for generated Show:
+  // "#loom.error Error(msg)" produces Show output "<error: " + msg + ">".
+  let annotated = token_enum.variants
   let b = StringBuilder::new()
-
   // Show
   b.write_string("///|\n")
   b.write_string("pub impl Show for " + token_enum.name)

@@ -38,6 +38,7 @@ fn build_kind_entries(
 ) -> Array[(String, Int)] {
   let kinds : Array[(String, Int)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
+  let first_role : Map[String, TokenRole] = Map([])
   for variant in enum_decl.variants {
     let role = match variant.token_role {
       Some(r) => r
@@ -45,9 +46,26 @@ fn build_kind_entries(
     }
     let kind_name = derive_kind_name(variant.name, role, variant.kind_override)
     if seen.contains(kind_name) {
+      match first_role.get(kind_name) {
+        Some(existing) => {
+          let existing_is_trivia = existing is Trivia
+          let existing_is_error = existing is ErrorToken
+          let current_is_trivia = role is Trivia
+          let current_is_error = role is ErrorToken
+          if existing_is_trivia != current_is_trivia ||
+            existing_is_error != current_is_error {
+            abort(
+              "conflicting IsTrivia/IsError classification for kind " +
+              kind_name,
+            )
+          }
+        }
+        None => ()
+      }
       continue
     }
     seen.add(kind_name)
+    first_role.set(kind_name, role)
     kinds.push((kind_name, registry.assign(kind_name)))
   }
   kinds
