@@ -54,6 +54,7 @@ pub fn emit_syntax_kind(
   term_kinds : Array[(String, Int)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
+  retired_rawns : @hashset.HashSet[Int],
 ) -> String {
   let all = token_kinds + term_kinds
   let b = StringBuilder::new()
@@ -110,7 +111,13 @@ pub fn emit_syntax_kind(
     let (name, raw) = pair
     b.write_string("    " + raw.to_string() + " => " + name + "\n")
   }
-  b.write_string("    _ => ErrorToken\n")
+  let has_error = error_set.contains("ErrorToken")
+  let fallback = if has_error {
+    "ErrorToken"
+  } else {
+    "abort(\"unknown raw kind\")"
+  }
+  b.write_string("    _ => " + fallback + "\n")
   b.write_string("  }\n")
   b.write_string("}\n\n")
 
@@ -138,7 +145,18 @@ pub fn emit_syntax_kind(
     let parts = error_names.map(fn(n) { "self == " + n })
     b.write_string("  " + parts.join(" || ") + "\n")
   }
+
   b.write_string("}\n")
+
+  // Tombstoned raw numbers — persisted so future --seed runs can block reuse.
+  if retired_rawns.length() > 0 {
+    b.write_string("// #loom.retired: ")
+    let raws = retired_rawns.to_array()
+    raws.sort()
+    let parts = raws.map(fn(r) { r.to_string() })
+    b.write_string(parts.join(", "))
+    b.write_string("\n")
+  }
 
   b.to_string()
 }

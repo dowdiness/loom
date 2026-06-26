@@ -137,6 +137,8 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 
 - [development/managing-modules.md](development/managing-modules.md) — multi-module workflow, per-module development, publishing to mooncakes.io
 - [development/agent-docs-protocol.md](development/agent-docs-protocol.md) — coding-agent workflow for completing plans, deciding when ADRs are required, and keeping the docs index consistent
+- [../loomgen/README.md](../loomgen/README.md) — code generator for loom language plumbing (`#loom.*` annotated Token → `syntax_kind.g.mbt`)
+- [../loomgen/HANDOFF.md](../loomgen/HANDOFF.md) — session handoff context for loomgen Phase 1 implementation
 - [decisions-needed.md](decisions-needed.md) — triage items flagged `needs-human-review`
 
 ### Examples

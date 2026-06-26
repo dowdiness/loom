@@ -55,6 +55,28 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
 }
 
 ///|
+/// Parse tombstoned raw numbers from a previously-generated syntax_kind.g.mbt.
+/// Looks for comments matching `// #loom.retired: raw1, raw2, raw3`.
+fn extract_retired_raws(source : String) -> Array[Int] {
+  let raws : Array[Int] = []
+  let lines = source.split("\n").to_array()
+  for line in lines {
+    let trimmed = line.trim().to_owned()
+    let prefix = "// #loom.retired: "
+    if trimmed.has_prefix(prefix) {
+      let suffix = trimmed[prefix.length():].trim().to_owned()
+      for part in suffix.split(",").to_array() {
+        let raw_str = part.trim().to_owned()
+        if is_all_digits(raw_str) {
+          raws.push(parse_int(raw_str))
+        }
+      }
+    }
+  }
+  raws
+}
+
+///|
 fn main {
   let args = @sys.get_cli_args()
   let mut arg_idx = 1
@@ -139,6 +161,25 @@ fn main {
     None => ()
   }
 
+  // Auto-restore tombstoned raws from the previous generated file, if any.
+  // This ensures retired raw numbers survive regeneration cycles.
+  let prev_gen_path = out_dir + "/syntax_kind.g.mbt"
+  if @fs.path_exists(prev_gen_path) {
+    let prev_src = @fs.read_file_to_string(prev_gen_path) catch { _ => "" }
+    if prev_src.length() > 0 {
+      let retired_raws = extract_retired_raws(prev_src)
+      if retired_raws.length() > 0 {
+        registry.seed_retired(retired_raws)
+        println(
+          "Restored " +
+          retired_raws.length().to_string() +
+          " tombstoned raws from " +
+          prev_gen_path,
+        )
+      }
+    }
+  }
+
   let kinds = build_kind_entries(te, registry)
   let trivia_set : @hashset.HashSet[String] = @hashset.HashSet([])
   let error_set : @hashset.HashSet[String] = @hashset.HashSet([])
@@ -151,12 +192,14 @@ fn main {
     }
   }
   let empty_term_kinds : Array[(String, Int)] = []
-
-  let syntax_kind_content = emit_syntax_kind(
-    kinds, empty_term_kinds, trivia_set, error_set,
-  )
   let token_impls_content = emit_token_impls(te, kinds)
-
+  let syntax_kind_content = emit_syntax_kind(
+    kinds,
+    empty_term_kinds,
+    trivia_set,
+    error_set,
+    registry.tombstoned_rawns(),
+  )
   // Write both .g.mbt files
   // (syntax_kind.g.mbt is a token-only subset; not meant to replace existing hand-written
   //  syntax_kind.mbt that also includes term kinds)
