@@ -235,12 +235,11 @@ fn ProbeEnv::run(
   }
 }
 
-/// ─── Arrow-lambda helpers (#476) ────────────────────────────────────
+// ─── Arrow-lambda helpers (#476) ─────────────────────────────────────
 
 ///|
-/// Check if the current `(` starts a `(params) => body` arrow lambda, by
-/// scanning ahead to find the matching `)` and checking whether `=>` follows
-/// it (skipping soft newlines). Mirrors A's `left_paren_starts_arrow_lambda`.
+/// Whether `(` starts `(params) => body` — scans ahead for matching `)` then `=>`.
+/// Mirrors A's `left_paren_starts_arrow_lambda`.
 fn is_arrow_lambda(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Bool {
@@ -248,9 +247,7 @@ fn is_arrow_lambda(
 }
 
 ///|
-/// Scan ahead through peek_nth to find the token after the matching `)` for
-/// the current `(`. Tracks paren depth so nested parens are handled correctly.
-/// Mirrors A's `token_after_matching_right_paren` + `token_after_soft_newlines`.
+/// Token after the `)` matching the current `(`, counting paren depth for nesting.
 fn token_after_matching_right_paren(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> @token.Token? {
@@ -270,8 +267,7 @@ fn token_after_matching_right_paren(
 }
 
 ///|
-/// Skip Newline tokens from start_index onward and return the first non-Newline
-/// token (or None at EOF). Mirrors A's `token_after_soft_newlines`.
+/// Skip Newline tokens from start_index; return first non-Newline token or None.
 fn token_after_soft_newlines(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   start_index : Int,
@@ -285,6 +281,9 @@ fn token_after_soft_newlines(
   }
 }
 
+///|
+/// Parse `(params) => body` arrow lambda wrapping in LambdaExpr, with recovery.
+/// Soft-newline handling matches A's `lambda_expect` + `consume_soft_newlines_before_expression`.
 fn ProbeEnv::parse_arrow_lambda(
   self : ProbeEnv,
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
@@ -293,8 +292,7 @@ fn ProbeEnv::parse_arrow_lambda(
   ctx.node_with_recovery(
     @syntax.LambdaExpr,
     fn() -> Bool {
-      // Bug 3: Reject empty () parameter list with diagnostic (matching A's
-      // parse_param_list(allow_empty=false)).
+      // Arrow lambdas reject empty (); fn params do not.
       if ctx.peek() == @token.LeftParen && ctx.peek_nth(1) == @token.RightParen {
         ctx.start_node(@syntax.ParamList)
         ctx.emit_token(@syntax.LeftParenToken)
@@ -305,15 +303,13 @@ fn ProbeEnv::parse_arrow_lambda(
       } else {
         self.run(ctx, self.compiled.rule(self.param_list_slot))
       }
-      // Bug 1: Soft-newline before => (matching A's lambda_expect).
+      // Match A: soft newlines before => then body.
       let _ = ctx.expect_after_skip(
         t => t == @token.Newline,
         @syntax.NewlineToken,
         @token.FatArrow,
         @syntax.FatArrowToken,
       )
-      // Bug 2: Soft newlines before lambda body (matching A's
-      // consume_soft_newlines_before_expression in parse_expression_with_mode).
       let expr_starts = lambda_expression_starts()
       let _ = ctx.consume_while_emit_if(
         t => t == @token.Newline,
@@ -341,11 +337,8 @@ fn ProbeEnv::parse_arrow_lambda(
 
 
 ///|
-/// Parse an atom with LeftParen lambda-or-paren dispatch. When LeftParen is
-/// the current token, checks for `(params) => body` via lookahead and parses
-/// a LambdaExpr when `=>` follows the matching `)`; otherwise falls through
-/// to the normal atom rule (ParenExpr body). The `allow_newline_application`
-/// flag is threaded into the lambda body so it matches A's expression mode.
+/// Parse LeftParen as arrow lambda or fall through to the normal atom rule.
+/// Threads `allow_newline_application` into the lambda body.
 fn ProbeEnv::run_atom(
   self : ProbeEnv,
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
