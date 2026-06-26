@@ -54,9 +54,13 @@ pub fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           continue
         }
         let variants = extract_variants(td.components)
-        let classified = variants.map(fn(v) {
-          { ..v, token_role: classify_token_role(v) }
-        })
+        let classified : Array[VariantDecl] = []
+        for v in variants {
+          match classify_token_role(v) {
+            Err(msg) => return Err(msg)
+            Ok(role) => classified.push({ ..v, token_role: role })
+          }
+        }
         // All token variants MUST have a #loom.* annotation
         if is_token {
           for v in classified {
@@ -171,7 +175,8 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 /// Only `#loom.literal("IntToken")` supports positional kind override.
 fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
   match parsed {
-    Some(@attribute.Apply(id, props)) if id.name == "literal" =>
+    Some(@attribute.Apply(id, props)) if id.qual == Some("loom") &&
+      id.name == "literal" =>
       match props.head() {
         Some(@attribute.Expr(@attribute.String(lit))) => Some(lit.to_string())
         _ => None
@@ -181,7 +186,8 @@ fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
 }
 
 ///|
-pub fn classify_token_role(variant : VariantDecl) -> TokenRole? {
+pub fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
+  let mut assigned : TokenRole? = None
   for attr in variant.attrs {
     let matched = match attr.parsed {
       Some(@attribute.Apply(id, _)) => id
@@ -191,25 +197,32 @@ pub fn classify_token_role(variant : VariantDecl) -> TokenRole? {
     if matched.qual != Some("loom") {
       continue
     }
-    match matched.name {
+    let candidate : TokenRole? = match matched.name {
       "keyword" =>
         match first_string_from_apply(attr.parsed) {
-          Some(s) => return Some(Keyword(s))
+          Some(s) => Some(Keyword(s))
           None => continue
         }
       "punct" =>
         match first_string_from_apply(attr.parsed) {
-          Some(s) => return Some(Punct(s))
+          Some(s) => Some(Punct(s))
           None => continue
         }
-      "ident" => return Some(Ident)
-      "literal" => return Some(Literal)
-      "trivia" => return Some(Trivia)
-      "delimiter" => return Some(Delimiter)
-      "error" => return Some(ErrorToken)
-      "eof" => return Some(Eof)
+      "ident" => Some(Ident)
+      "literal" => Some(Literal)
+      "trivia" => Some(Trivia)
+      "delimiter" => Some(Delimiter)
+      "error" => Some(ErrorToken)
+      "eof" => Some(Eof)
       _ => continue
     }
+    // If we already assigned a loom role, the variant has conflicting annotations
+    if assigned is Some(_) {
+      return Err(
+        "variant " + variant.name + " has conflicting #loom.* annotations",
+      )
+    }
+    assigned = candidate
   }
-  None
+  Ok(assigned)
 }

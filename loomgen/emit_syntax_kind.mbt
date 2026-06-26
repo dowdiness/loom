@@ -43,7 +43,19 @@ pub fn build_kind_entries(
       None => continue
     }
     let kind_name = derive_kind_name(variant.name, role, variant.kind_override)
-    kinds.push((kind_name, registry.assign(kind_name)))
+    // Skip duplicates: if the same kind_name was already assigned, skip the push
+    // to avoid duplicate enum members and match arms in the generated output.
+    let mut already_seen = false
+    for existing in kinds {
+      let (kn, _) = existing
+      if kn == kind_name {
+        already_seen = true
+        break
+      }
+    }
+    if !already_seen {
+      kinds.push((kind_name, registry.assign(kind_name)))
+    }
   }
   kinds
 }
@@ -100,7 +112,6 @@ pub fn emit_syntax_kind(
   b.write_string("  }\n")
   b.write_string("  @seam.RawKind(n)\n")
   b.write_string("}\n\n")
-
   b.write_string("///|\n")
   b.write_string(
     "pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {\n",
@@ -126,6 +137,7 @@ pub fn emit_syntax_kind(
     "pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {\n",
   )
   let trivia_names = trivia_set.to_array()
+  trivia_names.sort()
   if trivia_names.length() == 0 {
     b.write_string("  false\n")
   } else {
@@ -139,13 +151,13 @@ pub fn emit_syntax_kind(
     "pub impl @seam.IsError for SyntaxKind with fn is_error(self) {\n",
   )
   let error_names = error_set.to_array()
+  error_names.sort()
   if error_names.length() == 0 {
     b.write_string("  false\n")
   } else {
     let parts = error_names.map(fn(n) { "self == " + n })
     b.write_string("  " + parts.join(" || ") + "\n")
   }
-
   b.write_string("}\n")
 
   // Tombstoned raw numbers — persisted so future --seed runs can block reuse.

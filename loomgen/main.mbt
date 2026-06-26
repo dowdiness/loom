@@ -187,7 +187,8 @@ fn main {
     match v.token_role {
       Some(Trivia) =>
         trivia_set.add(derive_kind_name(v.name, Trivia, v.kind_override))
-      Some(ErrorToken) => error_set.add("ErrorToken")
+      Some(ErrorToken) =>
+        error_set.add(derive_kind_name(v.name, ErrorToken, v.kind_override))
       _ => ()
     }
   }

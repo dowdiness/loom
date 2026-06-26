@@ -24,7 +24,7 @@ All Phase 1 deliverables are working and integrated with the lambda example:
 ## Build & Run
 
 ```bash
-cd /home/antisatori/ghq/github.com/dowdiness/canopy
+cd <repo-root>/loom
 # With seeding for idempotent regeneration:
 moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> <token.mbt> [output_dir]
 
@@ -52,7 +52,7 @@ Imports: `moonbitlang/x/fs`, `moonbitlang/x/sys`, `moonbitlang/core/hashset`.
 
 ## File Listing (`canopy/loomgen/`)
 
-```
+```text
 emit_syntax_kind.mbt   4361 bytes  — WORKING
 emit_token_impls.mbt   5429 bytes  — WORKING (error Show, proper patterns)
 emit_spec.mbt            57 bytes  — STUB (see Design Decisions)

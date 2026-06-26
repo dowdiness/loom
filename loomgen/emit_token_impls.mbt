@@ -50,9 +50,17 @@ fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
       _ => false
     }
     if for_show && is_error {
+      if variant.arg_count != 1 {
+        abort(
+          "ErrorToken variant " +
+          variant.name +
+          " has " +
+          variant.arg_count.to_string() +
+          " payload fields; Show expects exactly 1 (msg).",
+        )
+      }
       variant.name + "(msg)"
     } else {
-      // Generate correct number of _ placeholders for MoonBit
       let parts : Array[String] = []
       for i = 0; i < variant.arg_count; i = i + 1 {
         parts.push("_")
