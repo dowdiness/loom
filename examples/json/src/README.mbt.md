@@ -38,8 +38,6 @@ pub(all) enum JsonRole {
   Punctuation
   Error
 }
-pub fn JsonRole::export_name(JsonRole) -> String
-
 pub struct JsonRoleSpan { /* private fields */ }
 pub fn JsonRoleSpan::JsonRoleSpan(
   role~ : JsonRole,
@@ -49,21 +47,7 @@ pub fn JsonRoleSpan::JsonRoleSpan(
 pub fn JsonRoleSpan::role(JsonRoleSpan) -> JsonRole
 pub fn JsonRoleSpan::start(JsonRoleSpan) -> Int
 pub fn JsonRoleSpan::end(JsonRoleSpan) -> Int
-
-pub struct JsonRoleSpanExport { /* private fields */ }
-pub fn JsonRoleSpanExport::start(JsonRoleSpanExport) -> Int
-pub fn JsonRoleSpanExport::end(JsonRoleSpanExport) -> Int
-pub fn JsonRoleSpanExport::role(JsonRoleSpanExport) -> String
-pub impl ToJson for JsonRoleSpanExport
-
 pub fn project_json_roles(@seam.SyntaxNode) -> Array[JsonRoleSpan]
-pub fn export_json_role_spans(Array[JsonRoleSpan]) -> Array[JsonRoleSpanExport]
-
-pub struct JsonRoleSpansAttachment { /* private fields */ }
-pub fn attach_json_role_spans(@loom.SyntaxParser) -> JsonRoleSpansAttachment
-pub fn JsonRoleSpansAttachment::spans(JsonRoleSpansAttachment) -> Array[JsonRoleSpan]
-pub fn JsonRoleSpansAttachment::export_spans(JsonRoleSpansAttachment) -> Array[JsonRoleSpanExport]
-pub fn JsonRoleSpansAttachment::dispose(JsonRoleSpansAttachment) -> Unit
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
@@ -165,31 +149,14 @@ problems remain visible as structured diagnostics on parser snapshots.
 
 ## Editor role spans
 
-`project_json_roles` is the pure CST-to-role projection. For stateful editor
-sessions, attach the same projection to a `@loom.SyntaxParser` with
-`attach_json_role_spans`; the attachment shares the parser runtime and keeps a
-persistent watch so role spans stay reachable across `Runtime::gc()`.
+`project_json_roles` is the pure CST-to-role projection. Role spans describe the
+current recovered syntax. Parser diagnostics remain available separately from
+`parser.diagnostics()`; syntax highlighting does not use last-good semantic
+retention.
 
-Role spans describe the current recovered syntax. Parser diagnostics remain
-available separately from `parser.diagnostics()`; syntax highlighting does not
-use last-good semantic retention.
-
-`JsonRoleSpan` keeps the typed local role enum. `JsonRoleSpanExport` is the
-editor-neutral JSON/JS-facing shape: `{ start, end, role }`, where `start` and
-`end` are UTF-16 offsets and `role` is one of these stable lower-kebab names:
-
-| `JsonRole` | Export role |
-|------------|-------------|
-| `PropertyKey` | `property-key` |
-| `StringValue` | `string-value` |
-| `NumberLiteral` | `number-literal` |
-| `BooleanLiteral` | `boolean-literal` |
-| `NullLiteral` | `null-literal` |
-| `Punctuation` | `punctuation` |
-| `Error` | `error` |
-
-The export helpers intentionally do not depend on CodeMirror; editor code can
-map these role names to its own tags.
+`JsonRoleSpan` keeps the typed local role enum and UTF-16 source offsets. This
+package does not expose editor-neutral export adapters yet; downstream editor
+code can map `JsonRole` values after the projection shape is proven.
 
 ```mbt check
 ///|
@@ -198,13 +165,10 @@ test "quick start: parser-backed JSON role spans" {
     "{\"x\": 1}",
     json_grammar.to_syntax_grammar(),
   )
-  let roles = attach_json_role_spans(parser)
-  inspect(roles.spans().length() > 0, content="true")
-  let exported = roles.export_spans()
-  inspect(exported[0].role(), content="punctuation")
-  inspect(exported.to_json().stringify().contains("\"role\""), content="true")
+  let roles = project_json_roles(parser.syntax_tree().read_or_abort())
+  inspect(roles.length() > 0, content="true")
+  assert_true(roles[0].role() == Punctuation)
   inspect(parser.diagnostics().read_or_abort().is_empty(), content="true")
-  roles.dispose()
 }
 ```
 
