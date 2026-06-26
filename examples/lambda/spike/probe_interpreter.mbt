@@ -349,7 +349,7 @@ fn parse_lambda_param_list(
   if ctx.peek() == @token.RightParen {
     ctx.error("Empty parameter list")
     ctx.emit_error_placeholder()
-  } else {
+  } else if ctx.peek() == @token.Identifier {
     parse_lambda_param(ctx)
     while ctx.peek() == @token.Comma {
       ctx.emit_token(@syntax.CommaToken)
@@ -363,6 +363,9 @@ fn parse_lambda_param_list(
         ctx.emit_error_placeholder()
       }
     }
+  } else {
+    ctx.error("Expected parameter name")
+    ctx.emit_error_placeholder()
   }
   if !ctx.expect(@token.RightParen, @syntax.RightParenToken) {
     let _ = ctx.skip_until(t => {

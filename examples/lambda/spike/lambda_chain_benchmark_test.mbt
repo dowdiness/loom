@@ -122,3 +122,25 @@ test "lambda chain: B handles newline before closing paren" {
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
+
+///|
+/// (,) => x — non-identifier first param must emit diagnostic like A.
+test "lambda chain: B rejects non-identifier first param" {
+  let source = "(,) => x"
+  let (_, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (_, b_diag) = b.parse_cst(source)
+  inspect(a_diag.is_empty(), content="false")
+  inspect(b_diag.is_empty(), content="false")
+}
+
+///|
+/// (: Int) => x — colon as first param must emit diagnostic like A.
+test "lambda chain: B rejects colon-first param" {
+  let source = "(: Int) => x"
+  let (_, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (_, b_diag) = b.parse_cst(source)
+  inspect(a_diag.is_empty(), content="false")
+  inspect(b_diag.is_empty(), content="false")
+}
