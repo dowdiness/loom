@@ -31,33 +31,31 @@ priv struct ProbeEnv {
 }
 
 ///|
-/// Build B's `parse_root` from a compiled lambda grammar. Resolves the `atom`
-/// slot once (the newline-application probe re-enters it); raises if the
-/// compiled grammar somehow lacks it.
+/// Resolve a named rule to its compiled slot, aborting if missing.
+/// Callers know the grammar IR defines every rule they reference.
+fn slot(
+  compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind],
+  name : String,
+) -> Int {
+  match compiled.names.search(name) {
+    Some(s) => s
+    None => abort("lambda grammar IR must define a '" + name + "' rule")
+  }
+}
+
+///|
+/// Build B's `parse_root` from a compiled lambda grammar. Resolves named rule
+/// slots once so the hot path (ProbeEnv::run) never does a string lookup.
 pub fn b_parse_root(
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind],
   cripple_reuse : Bool,
 ) -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit {
-  // compile resolves Ref targets, so every named rule in the grammar IR is
-  // guaranteed to have a slot; None branches are unreachable.
-  let atom_slot = match compiled.names.search("atom") {
-    Some(slot) => slot
-    None => abort("lambda grammar IR must define an 'atom' rule")
-  }
-  let param_list_slot = match compiled.names.search("param_list") {
-    Some(slot) => slot
-    None => abort("lambda grammar IR must define a 'param_list' rule")
-  }
-  let binary_slot = match compiled.names.search("binary") {
-    Some(slot) => slot
-    None => abort("lambda grammar IR must define a 'binary' rule")
-  }
   let env = ProbeEnv::{
     compiled,
     cripple_reuse,
-    atom_slot,
-    param_list_slot,
-    binary_slot,
+    atom_slot: slot(compiled, "atom"),
+    param_list_slot: slot(compiled, "param_list"),
+    binary_slot: slot(compiled, "binary"),
   }
   let root = compiled.rule(compiled.root_slot())
   ctx => env.run(ctx, root)
