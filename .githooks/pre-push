@@ -1,0 +1,38 @@
+#!/bin/sh
+# Pre-push: run CI-mirroring checks only for touched packages.
+# Skips submodule/toolchain pre-existing failures silently.
+set -e
+
+ROOT=$(git rev-parse --show-toplevel)
+CHANGED=$(git diff --name-only @{upstream}...HEAD 2>/dev/null || git diff --name-only HEAD~1..HEAD)
+
+# Determine which packages to check based on changed files
+check_loom=false
+check_lambda=false
+for f in $CHANGED; do
+  case "$f" in
+    loom/*)           check_loom=true ;;
+    examples/lambda/*) check_lambda=true ;;
+  esac
+done
+
+run_check() {
+  local dir="$1" label="$2"
+  echo "[pre-push] $label: moon fmt --check..."
+  (cd "$ROOT/$dir" && moon fmt --check 2>/dev/null) || {
+    echo "[pre-push] $label: format check FAILED. Run 'cd $dir && moon fmt' first."
+    exit 1
+  }
+  echo "[pre-push] $label: format OK"
+}
+
+if $check_loom; then
+  run_check "loom" "loom"
+fi
+if $check_lambda; then
+  run_check "examples/lambda" "examples/lambda"
+fi
+
+if ! $check_loom && ! $check_lambda; then
+  echo "[pre-push] no loom/lambda files changed, skipping checks"
+fi
