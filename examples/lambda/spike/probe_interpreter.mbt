@@ -386,30 +386,25 @@ fn parse_lambda_param(
     ctx.finish_node()
   }
 }
-
 ///|
-/// Parse lambda type: atom types chained with `->` wrapped in TypeArrow.
-/// Mirrors A's parse_type: Int→TypeInt, Unit→TypeUnit, unknown→error.
+/// Parse lambda type: right-recursive arrow chains wrapped in nested TypeArrow.
+/// Mirrors A's parse_type: `Int -> Unit -> Int` → TypeArrow(TypeInt, ArrowToken,
+/// TypeArrow(TypeUnit, ArrowToken, TypeInt)).
 fn parse_lambda_type(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
   let mark = ctx.mark()
   parse_lambda_atom_type(ctx)
-  let mut has_arrow = false
-  while ctx.peek() == @token.Arrow {
-    if !has_arrow {
-      has_arrow = true
-    }
+  if ctx.peek() == @token.Arrow {
     ctx.emit_token(@syntax.ArrowToken)
-    parse_lambda_atom_type(ctx)
-  }
-  if has_arrow {
-    ctx.wrap_at(mark, @syntax.TypeArrow, fn() {  })
+    parse_lambda_type(ctx)
+    ctx.start_at(mark, @syntax.TypeArrow)
+    ctx.finish_node()
   }
 }
 
 ///|
-/// Parse one atom type: Int→TypeInt, Unit→TypeUnit, other identifier→error.
+/// Parse one atom type: Int→TypeInt, Unit→TypeUnit, (Type)→grouped, other→error.
 fn parse_lambda_atom_type(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
@@ -423,6 +418,10 @@ fn parse_lambda_atom_type(
       ctx.error("expected type, got identifier '" + text + "'")
       ctx.emit_error_placeholder()
     }
+  } else if ctx.peek() == @token.LeftParen {
+    ctx.emit_token(@syntax.LeftParenToken)
+    parse_lambda_type(ctx)
+    let _ = ctx.expect(@token.RightParen, @syntax.RightParenToken)
   } else {
     ctx.error("expected type")
     ctx.emit_error_placeholder()

@@ -49,3 +49,29 @@ test "lambda chain: B handles TypeArrow param" {
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
+
+///|
+/// (f : Int -> Unit -> Int) => f — right-associative nested TypeArrow.
+test "lambda chain: B handles nested TypeArrow param" {
+  let source = "(f : Int -> Unit -> Int) => f"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+/// (f : (Int -> Unit)) => f — parenthesized function type.
+test "lambda chain: B handles parenthesized TypeArrow param" {
+  let source = "(f : (Int -> Unit)) => f"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
