@@ -26,7 +26,6 @@ priv struct ProbeEnv {
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind]
   cripple_reuse : Bool
   atom_slot : Int
-  param_list_slot : Int
   binary_slot : Int
 }
 
@@ -54,7 +53,6 @@ pub fn b_parse_root(
     compiled,
     cripple_reuse,
     atom_slot: slot(compiled, "atom"),
-    param_list_slot: slot(compiled, "param_list"),
     binary_slot: slot(compiled, "binary"),
   }
   let root = compiled.rule(compiled.root_slot())
@@ -296,18 +294,7 @@ fn ProbeEnv::parse_arrow_lambda(
   ctx.node_with_recovery(
     @syntax.LambdaExpr,
     fn() -> Bool {
-      // Arrow lambdas reject empty (); fn params do not.
-      if ctx.peek() == @token.LeftParen && ctx.peek_nth(1) == @token.RightParen {
-        ctx.start_node(@syntax.ParamList)
-        ctx.emit_token(@syntax.LeftParenToken)
-        ctx.error("Empty parameter list")
-        ctx.emit_error_placeholder()
-        ctx.emit_token(@syntax.RightParenToken)
-        ctx.finish_node()
-      } else {
-        self.run(ctx, self.compiled.rule(self.param_list_slot))
-      }
-      // Match A: soft newlines before => then body.
+      parse_lambda_param_list(ctx)
       let _ = ctx.expect_after_skip(
         t => t == @token.Newline,
         @syntax.NewlineToken,
@@ -348,6 +335,92 @@ fn ProbeEnv::parse_arrow_lambda(
   )
 }
 
+///|
+fn parse_lambda_param_list(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.start_node(@syntax.ParamList)
+  ctx.emit_token(@syntax.LeftParenToken)
+  if ctx.peek() == @token.RightParen {
+    ctx.error("Empty parameter list")
+    ctx.emit_error_placeholder()
+  } else {
+    parse_lambda_param(ctx)
+    while ctx.peek() == @token.Comma {
+      ctx.emit_token(@syntax.CommaToken)
+      if ctx.peek() == @token.Identifier {
+        parse_lambda_param(ctx)
+      } else if ctx.peek() == @token.RightParen {
+        ctx.error("Trailing comma in parameter list")
+        break
+      } else {
+        ctx.error("Expected parameter name")
+        ctx.emit_error_placeholder()
+      }
+    }
+  }
+  if !ctx.expect(@token.RightParen, @syntax.RightParenToken) {
+    let _ = ctx.skip_until(t => t == @token.RightParen || t == @token.FatArrow || t == @token.EOF)
+    if ctx.peek() == @token.RightParen {
+      ctx.emit_token(@syntax.RightParenToken)
+    }
+  }
+  ctx.finish_node()
+}
+
+///|
+/// Parse one lambda param: `ident` or `ident : Type`.
+fn parse_lambda_param(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.emit_token(@syntax.IdentToken)
+  if ctx.peek() == @token.Colon {
+    ctx.start_node(@syntax.TypeAnnot)
+    ctx.emit_token(@syntax.ColonToken)
+    parse_lambda_type(ctx)
+    ctx.finish_node()
+  }
+}
+
+///|
+/// Parse lambda type: atom types chained with `->` wrapped in TypeArrow.
+/// Mirrors A's parse_type: Int→TypeInt, Unit→TypeUnit, unknown→error.
+fn parse_lambda_type(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  let mark = ctx.mark()
+  parse_lambda_atom_type(ctx)
+  let mut has_arrow = false
+  while ctx.peek() == @token.Arrow {
+    if !has_arrow { has_arrow = true }
+    ctx.emit_token(@syntax.ArrowToken)
+    parse_lambda_atom_type(ctx)
+  }
+  if has_arrow {
+    ctx.wrap_at(mark, @syntax.TypeArrow, fn() {})
+  }
+}
+
+///|
+/// Parse one atom type: Int→TypeInt, Unit→TypeUnit, other identifier→error.
+fn parse_lambda_atom_type(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  if ctx.peek() == @token.Identifier {
+    let text = ctx.current_token_text().to_owned()
+    if text == "Int" {
+      ctx.node(@syntax.TypeInt, fn() { ctx.emit_token(@syntax.IdentToken) })
+    } else if text == "Unit" {
+      ctx.node(@syntax.TypeUnit, fn() { ctx.emit_token(@syntax.IdentToken) })
+    } else {
+      ctx.error("expected type, got identifier '" + text + "'")
+      ctx.emit_error_placeholder()
+    }
+  } else {
+    ctx.error("expected type")
+    ctx.emit_error_placeholder()
+  }
+}
 ///|
 /// Parse LeftParen as arrow lambda or fall through to the normal atom rule.
 /// Threads `allow_newline_application` into the lambda body.
