@@ -290,14 +290,36 @@ fn ProbeEnv::parse_arrow_lambda(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   allow_newline_application : Bool,
 ) -> Unit {
-  // node_with_recovery kind body is_sync mirroring A's parse_arrow_lambda
   ctx.node_with_recovery(
     @syntax.LambdaExpr,
     fn() -> Bool {
-      self.run(ctx, self.compiled.rule(self.param_list_slot))
-      if !ctx.expect(@token.FatArrow, @syntax.FatArrowToken) {
-        return false
+      // Bug 3: Reject empty () parameter list with diagnostic (matching A's
+      // parse_param_list(allow_empty=false)).
+      if ctx.peek() == @token.LeftParen && ctx.peek_nth(1) == @token.RightParen {
+        ctx.start_node(@syntax.ParamList)
+        ctx.emit_token(@syntax.LeftParenToken)
+        ctx.error("Empty parameter list")
+        ctx.emit_error_placeholder()
+        ctx.emit_token(@syntax.RightParenToken)
+        ctx.finish_node()
+      } else {
+        self.run(ctx, self.compiled.rule(self.param_list_slot))
       }
+      // Bug 1: Soft-newline before => (matching A's lambda_expect).
+      let _ = ctx.expect_after_skip(
+        t => t == @token.Newline,
+        @syntax.NewlineToken,
+        @token.FatArrow,
+        @syntax.FatArrowToken,
+      )
+      // Bug 2: Soft newlines before lambda body (matching A's
+      // consume_soft_newlines_before_expression in parse_expression_with_mode).
+      let expr_starts = lambda_expression_starts()
+      let _ = ctx.consume_while_emit_if(
+        t => t == @token.Newline,
+        @syntax.NewlineToken,
+        t => expr_starts.matches(t),
+      )
       if allow_newline_application {
         self.parse_newline_app(ctx)
       } else {

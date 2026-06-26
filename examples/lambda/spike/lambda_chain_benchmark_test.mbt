@@ -45,3 +45,39 @@ test "lambda chain: B parses simple arrow lambda cleanly" {
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
+
+///|
+/// P2: (x)\n=> x — soft newline between params and FatArrow must be consumed.
+test "lambda chain: B handles soft newline before FatArrow" {
+  let source = "(x)\n=> x"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+/// P2: (x) =>\nx — soft newline between FatArrow and body must be consumed.
+test "lambda chain: B handles soft newline before lambda body" {
+  let source = "(x) =>\nx"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+/// P2: () => 1 — empty param list must emit the same diagnostic as A.
+test "lambda chain: B rejects empty param list with same diagnostic" {
+  let source = "() => 1"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+  // Both must report the empty-param-list diagnostic
+  inspect(a_diag.is_empty(), content="false")
+  inspect(b_diag.is_empty(), content="false")
+}
