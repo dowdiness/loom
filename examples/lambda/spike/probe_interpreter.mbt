@@ -310,12 +310,14 @@ fn ProbeEnv::parse_arrow_lambda(
         @syntax.NewlineToken,
         t => expr_starts.matches(t),
       )
-      if allow_newline_application {
+      // Match A: block body goes through parse_block_expr, not expression path.
+      if ctx.peek() == @token.LBrace {
+        self.run(ctx, self.compiled.rule(self.atom_slot))
+      } else if allow_newline_application {
         self.parse_newline_app(ctx)
       } else {
         self.run(ctx, self.compiled.rule(self.binary_slot))
       }
-      true
     },
     fn(t : @token.Token) -> Bool {
       match t {

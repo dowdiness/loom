@@ -95,3 +95,30 @@ test "lambda chain: B recovers from malformed arrow params like A" {
   inspect(a_diag.is_empty(), content="false")
   inspect(b_diag.is_empty(), content="false")
 }
+
+///|
+/// P2: (x) => { x } — block body lambda. A's parse_arrow_lambda routes { }
+/// through parse_block_expr, not the expression/application path.
+test "lambda chain: B parses block-bodied lambda cleanly" {
+  let source = "(x) => { x }"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
+
+///|
+/// P2: (x\n) => x — soft newline before closing paren.
+test "lambda chain: B handles newline before closing paren" {
+  let source = "(x\n) => x"
+  let (a_cst, a_diag) = @lambda.parse_cst(source)
+  inspect(a_diag.is_empty(), content="true")
+  let b = build_b_syntax_grammar()
+  let (b_cst, b_diag) = b.parse_cst(source)
+  inspect(b_diag.is_empty(), content="true")
+  let diff = @core.tree_diff(a_cst, b_cst)
+  inspect(diff.length() == 0, content="true")
+}
