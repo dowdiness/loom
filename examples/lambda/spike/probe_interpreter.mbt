@@ -297,11 +297,11 @@ fn ProbeEnv::parse_arrow_lambda(
       parse_lambda_param_list(ctx)
       // Return false when => is missing so node_with_recovery triggers recovery.
       if !ctx.expect_after_skip(
-        t => t == @token.Newline,
-        @syntax.NewlineToken,
-        @token.FatArrow,
-        @syntax.FatArrowToken,
-      ) {
+          t => t == @token.Newline,
+          @syntax.NewlineToken,
+          @token.FatArrow,
+          @syntax.FatArrowToken,
+        ) {
         return false
       }
       let expr_starts = lambda_expression_starts()
@@ -363,7 +363,9 @@ fn parse_lambda_param_list(
     }
   }
   if !ctx.expect(@token.RightParen, @syntax.RightParenToken) {
-    let _ = ctx.skip_until(t => t == @token.RightParen || t == @token.FatArrow || t == @token.EOF)
+    let _ = ctx.skip_until(t => {
+      t == @token.RightParen || t == @token.FatArrow || t == @token.EOF
+    })
     if ctx.peek() == @token.RightParen {
       ctx.emit_token(@syntax.RightParenToken)
     }
@@ -395,12 +397,14 @@ fn parse_lambda_type(
   parse_lambda_atom_type(ctx)
   let mut has_arrow = false
   while ctx.peek() == @token.Arrow {
-    if !has_arrow { has_arrow = true }
+    if !has_arrow {
+      has_arrow = true
+    }
     ctx.emit_token(@syntax.ArrowToken)
     parse_lambda_atom_type(ctx)
   }
   if has_arrow {
-    ctx.wrap_at(mark, @syntax.TypeArrow, fn() {})
+    ctx.wrap_at(mark, @syntax.TypeArrow, fn() {  })
   }
 }
 
@@ -424,6 +428,7 @@ fn parse_lambda_atom_type(
     ctx.emit_error_placeholder()
   }
 }
+
 ///|
 /// Parse LeftParen as arrow lambda or fall through to the normal atom rule.
 /// Threads `allow_newline_application` into the lambda body.
