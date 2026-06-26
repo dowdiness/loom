@@ -4,7 +4,7 @@
 **Status:** Accepted
 **Issue:** [#444](https://github.com/dowdiness/loom/issues/444)
 **Supersedes:** the interim in-PR annotation from [#443](https://github.com/dowdiness/loom/pull/443); finalizes the ROADMAP "Parser generation" deferral.
-**Benchmark:** `examples/lambda/src/benchmarks/grammar_incremental_benchmark.mbt`
+**Benchmark:** `examples/lambda/benchmarks/grammar_incremental_benchmark.mbt`
 **Spec gated:** [docs/superpowers/specs/2026-06-21-loomgen-ir-contract-design.md](../superpowers/specs/2026-06-21-loomgen-ir-contract-design.md) §6.
 
 ## Context

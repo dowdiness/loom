@@ -232,7 +232,7 @@ Phase 0: Reckoning                  ✅ COMPLETE (2026-02-01)
    per-edit cost ≈ its full-parse cost, while A's is ≪), costing ~1.15–2.4× on
    deep nested-structure edits — see
    [ADR 2026-06-22](docs/decisions/2026-06-22-grammar-incremental-throughput-gate.md)
-   and `examples/lambda/src/benchmarks/grammar_incremental_benchmark.mbt`.
+   and `examples/lambda/benchmarks/grammar_incremental_benchmark.mbt`.
    **Outcome:** the tree-walking interpreter **graduates** as a kept, validated
    framework substrate, while the **code-emitter stays deferred with a named
    motivation** — closing that deep-subtree reuse gap (emitted code can establish
