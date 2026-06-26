@@ -1,6 +1,6 @@
 ///|
 /// Parse `#loom.*` annotations from annotated MoonBit enums.
-pub(all) enum TokenRole {
+enum TokenRole {
   Keyword(String)
   Punct(String)
   Ident
@@ -12,18 +12,17 @@ pub(all) enum TokenRole {
 }
 
 ///|
-pub(all) struct VariantDecl {
+struct VariantDecl {
   name : String
   tag : String?
   attrs : Array[@attribute.Attribute]
   token_role : TokenRole?
-  has_args : Bool
   arg_count : Int
   kind_override : String?
 }
 
 ///|
-pub(all) struct EnumDecl {
+struct EnumDecl {
   name : String
   attrs : Array[@attribute.Attribute]
   variants : Array[VariantDecl]
@@ -31,13 +30,13 @@ pub(all) struct EnumDecl {
 }
 
 ///|
-pub(all) struct AnnotatedEnums {
+struct AnnotatedEnums {
   token_enum : EnumDecl?
   term_enum : EnumDecl?
 }
 
 ///|
-pub fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
+fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
   let (impls, diagnostics) = @parser.parse_string(source)
   if diagnostics.length() > 0 {
     let msgs = diagnostics.map(fn(r) { r.loc.to_string() + ": " + r.msg })
@@ -147,7 +146,6 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           tag: tag_str,
           attrs: cd.attrs.to_array(),
           token_role: None,
-          has_args: cd.args is Some(_),
           arg_count,
           kind_override,
         }
@@ -186,7 +184,7 @@ fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
 }
 
 ///|
-pub fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
+fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
   let mut assigned : TokenRole? = None
   for attr in variant.attrs {
     let matched = match attr.parsed {
@@ -201,12 +199,18 @@ pub fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] 
       "keyword" =>
         match first_string_from_apply(attr.parsed) {
           Some(s) => Some(Keyword(s))
-          None => continue
+          None =>
+            return Err(
+              "#loom.keyword on " + variant.name + " requires a string argument",
+            )
         }
       "punct" =>
         match first_string_from_apply(attr.parsed) {
           Some(s) => Some(Punct(s))
-          None => continue
+          None =>
+            return Err(
+              "#loom.punct on " + variant.name + " requires a string argument",
+            )
         }
       "ident" => Some(Ident)
       "literal" => Some(Literal)
@@ -216,7 +220,6 @@ pub fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] 
       "eof" => Some(Eof)
       _ => continue
     }
-    // If we already assigned a loom role, the variant has conflicting annotations
     if assigned is Some(_) {
       return Err(
         "variant " + variant.name + " has conflicting #loom.* annotations",

@@ -32,41 +32,34 @@ fn derive_kind_name(
 }
 
 ///|
-pub fn build_kind_entries(
+fn build_kind_entries(
   enum_decl : EnumDecl,
   registry : RawKindRegistry,
 ) -> Array[(String, Int)] {
   let kinds : Array[(String, Int)] = []
+  let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   for variant in enum_decl.variants {
     let role = match variant.token_role {
       Some(r) => r
       None => continue
     }
     let kind_name = derive_kind_name(variant.name, role, variant.kind_override)
-    // Skip duplicates: if the same kind_name was already assigned, skip the push
-    // to avoid duplicate enum members and match arms in the generated output.
-    let mut already_seen = false
-    for existing in kinds {
-      let (kn, _) = existing
-      if kn == kind_name {
-        already_seen = true
-        break
-      }
+    if seen.contains(kind_name) {
+      continue
     }
-    if !already_seen {
-      kinds.push((kind_name, registry.assign(kind_name)))
-    }
+    seen.add(kind_name)
+    kinds.push((kind_name, registry.assign(kind_name)))
   }
   kinds
 }
 
 ///|
-pub fn emit_syntax_kind(
+fn emit_syntax_kind(
   token_kinds : Array[(String, Int)],
   term_kinds : Array[(String, Int)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
-  retired_rawns : @hashset.HashSet[Int],
+  retired_rawns : Array[Int],
 ) -> String {
   let all = token_kinds + term_kinds
   let b = StringBuilder::new()
@@ -163,9 +156,7 @@ pub fn emit_syntax_kind(
   // Tombstoned raw numbers — persisted so future --seed runs can block reuse.
   if retired_rawns.length() > 0 {
     b.write_string("// #loom.retired: ")
-    let raws = retired_rawns.to_array()
-    raws.sort()
-    let parts = raws.map(fn(r) { r.to_string() })
+    let parts = retired_rawns.map(fn(r) { r.to_string() })
     b.write_string(parts.join(", "))
     b.write_string("\n")
   }

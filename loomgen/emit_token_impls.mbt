@@ -6,13 +6,14 @@
 fn escape_string(s : String) -> String {
   let b = StringBuilder::new()
   for i = 0; i < s.length(); i = i + 1 {
-    match s[i] {
-      '"' => b.write_string("\\\"")
-      '\\' => b.write_string("\\\\")
-      '\n' => b.write_string("\\n")
-      '\r' => b.write_string("\\r")
-      '\t' => b.write_string("\\t")
-      _ => b.write_string(s[i:i + 1].to_owned())
+    let c = s[i:i + 1].to_owned()
+    match c {
+      "\"" => b.write_string("\\\"")
+      "\\" => b.write_string("\\\\")
+      "\n" => b.write_string("\\n")
+      "\r" => b.write_string("\\r")
+      "\t" => b.write_string("\\t")
+      _ => b.write_string(c)
     }
   }
   b.to_string()
@@ -44,7 +45,7 @@ fn to_lowercase_first(s : String) -> String {
 /// Generate the match arm pattern for a variant.
 /// `for_show`: if true, Error variants with args use named binding for string concat.
 fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
-  if variant.has_args {
+  if variant.arg_count > 0 {
     let is_error = match variant.token_role {
       Some(ErrorToken) => true
       _ => false
@@ -76,7 +77,7 @@ fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
 /// Returns the full RHS expression for the Show match arm (the part after `=>`).
 fn show_expr_for(variant : VariantDecl) -> String {
   match variant.token_role {
-    Some(ErrorToken) if variant.has_args =>
+    Some(ErrorToken) if variant.arg_count > 0 =>
       // Error(msg) => "<error: " + msg + ">"
       "\"<error: \" + msg + \">\""
     _ => {
@@ -103,7 +104,7 @@ fn show_literal_for(variant : VariantDecl) -> String {
 }
 
 ///|
-pub fn emit_token_impls(
+fn emit_token_impls(
   token_enum : EnumDecl,
   token_kinds : Array[(String, Int)],
 ) -> String {

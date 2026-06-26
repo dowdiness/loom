@@ -41,6 +41,8 @@ jobs:
             path: seam
           - name: pretty
             path: pretty
+          - name: loomgen
+            path: loomgen
           - name: examples-lambda
             path: examples/lambda
           - name: examples-json
@@ -76,6 +78,29 @@ jobs:
       - name: moon fmt --check
         working-directory: ${{ matrix.path }}
         run: moon fmt --check
+
+  check-loomgen:
+    name: Check loomgen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: 0.10.0+84519ca0a
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Verify MoonBit
+        run: moon version --all
+      - name: moon update
+        working-directory: loomgen
+        run: moon update
+      - name: moon check --target native
+        working-directory: loomgen
+        run: moon check --target native
 
   fmt-check-submodules:
     name: Format Check ${{ matrix.name }}
@@ -211,12 +236,13 @@ jobs:
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
+    if: always()
     needs:
       - fmt-check
       - fmt-check-submodules
       - test-modules
       - test-modules-submodules
-    if: always()
+      - check-loomgen
     steps:
       - name: Verify all jobs succeeded
         run: |
@@ -234,6 +260,10 @@ jobs:
           fi
           if [[ "${{ needs.test-modules-submodules.result }}" != "success" ]]; then
             echo "test-modules-submodules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.check-loomgen.result }}" != "success" ]]; then
+            echo "check-loomgen job failed"
             exit 1
           fi
           echo "All checks passed"

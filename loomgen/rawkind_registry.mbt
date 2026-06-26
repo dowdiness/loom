@@ -1,10 +1,10 @@
 ///|
 /// Persistent append-only RawKind registry (fork i ADR).
 /// Tracks tombstoned raws so retired kind numbers are never reused.
-pub(all) struct RawKindRegistry {
-  mut known : Map[String, Int]
+struct RawKindRegistry {
+  known : Map[String, Int]
   mut next_raw : Int
-  mut tombstones : @hashset.HashSet[Int]
+  tombstones : @hashset.HashSet[Int]
 }
 
 ///|
@@ -105,8 +105,11 @@ pub fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
 }
 
 ///|
-pub fn RawKindRegistry::tombstoned_rawns(self : Self) -> @hashset.HashSet[Int] {
-  self.tombstones
+/// Return the set of tombstoned raws as a sorted array (copy, not live reference).
+pub fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
+  let raws = self.tombstones.to_array()
+  raws.sort()
+  raws
 }
 
 ///|
