@@ -393,7 +393,7 @@ fn ProbeEnv::parse_app_nl(
     t => atom_starts.matches(t),
   )
   guard atom_starts.matches(ctx.peek()) else { return }
-  ctx.wrap_at(mark, @syntax.AppExpr, fn() {
+  ctx.wrap_at(mark, @syntax.AppExpr, () => {
     while true {
       self.run_atom(ctx, true)
       let _ = ctx.consume_while_emit_if(
