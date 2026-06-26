@@ -318,6 +318,7 @@ fn ProbeEnv::parse_arrow_lambda(
       } else {
         self.run(ctx, self.compiled.rule(self.binary_slot))
       }
+      true
     },
     fn(t : @token.Token) -> Bool {
       match t {
