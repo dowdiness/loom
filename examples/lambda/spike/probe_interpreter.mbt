@@ -52,7 +52,13 @@ pub fn b_parse_root(
     Some(slot) => slot
     None => abort("lambda grammar IR must define a 'binary' rule")
   }
-  let env = ProbeEnv::{ compiled, cripple_reuse, atom_slot, param_list_slot, binary_slot }
+  let env = ProbeEnv::{
+    compiled,
+    cripple_reuse,
+    atom_slot,
+    param_list_slot,
+    binary_slot,
+  }
   let root = compiled.rule(compiled.root_slot())
   ctx => env.run(ctx, root)
 }
@@ -325,16 +331,24 @@ fn ProbeEnv::parse_arrow_lambda(
     },
     fn(t : @token.Token) -> Bool {
       match t {
-        @token.Newline | @token.RightParen | @token.LBrace | @token.RBrace
-        | @token.Semicolon | @token.Lambda | @token.Let | @token.Fn
-        | @token.FatArrow | @token.If | @token.Then | @token.Else
+        @token.Newline
+        | @token.RightParen
+        | @token.LBrace
+        | @token.RBrace
+        | @token.Semicolon
+        | @token.Lambda
+        | @token.Let
+        | @token.Fn
+        | @token.FatArrow
+        | @token.If
+        | @token.Then
+        | @token.Else
         | @token.EOF => true
         _ => false
       }
     },
   )
 }
-
 
 ///|
 /// Parse LeftParen as arrow lambda or fall through to the normal atom rule.

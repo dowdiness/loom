@@ -191,3 +191,4 @@ pub impl Show for MoonbitSyntaxKind
 // Type aliases
 
 // Traits
+

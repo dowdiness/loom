@@ -1,6 +1,8 @@
 ///|
 fn make_lambda_let_chain(count : Int) -> String {
-  let init : Array[String] = [ for i in 0..<count => "let x\{i} = ((f, x) => f (f x)) ((g) => g)" ]
+  let init : Array[String] = [
+    for i in 0..<count => "let x\{i} = ((f, x) => f (f x)) ((g) => g)"
+  ]
   init.push("x\{count - 1}")
   init.join("\n")
 }
