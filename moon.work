@@ -4,6 +4,7 @@ members = [
   "./pretty",
   "./text-change",
   "./moji",
+  "./loomgen",
   "./examples/markdown",
   "./examples/json",
   "./examples/lambda",

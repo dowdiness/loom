@@ -1,112 +1,59 @@
 ///|
+#loom.token
 pub(all) enum Token {
+  #loom.punct("λ")
   Lambda // legacy λ or \ (lexed for diagnostics; parser rejects as syntax)
+  #loom.punct(".")
   Dot // .
+  #loom.punct("(")
   LeftParen // (
+  #loom.punct(")")
   RightParen // )
+  #loom.punct("+")
   Plus // +
+  #loom.punct("-")
   Minus // -
+  #loom.keyword("if")
   If // if
+  #loom.keyword("then")
   Then // then
+  #loom.keyword("else")
   Else // else
+  #loom.keyword("fn")
   Fn // fn
+  #loom.keyword("let")
   Let // let value declaration
+  #loom.punct("=")
   Eq // =
+  #loom.punct("{")
   LBrace // {
+  #loom.punct("}")
   RBrace // }
+  #loom.punct(",")
   Comma // ,
+  #loom.punct(";")
   Semicolon // ;
+  #loom.punct(":")
   Colon // :
+  #loom.punct("->")
   Arrow // ->
+  #loom.punct("=>")
   FatArrow // =>
+  #loom.punct("_")
   Hole // _ (typed hole placeholder)
+  #loom.ident
   Identifier // variable names
+  #loom.literal("IntToken")
   Integer // integer literals
+  #loom.trivia
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
+  #loom.delimiter
   Newline // newline (\n or \r\n) — non-trivia in source-file grammar
+  #loom.error
   Error(String) // lexer error placeholder for step-based resilient mode
+  #loom.eof
   EOF // end of input
 } derive(Eq, Debug)
-
-///|
-pub impl Show for Token with fn output(self, logger) {
-  logger.write_string(
-    match self {
-      Lambda => "λ"
-      Dot => "."
-      LeftParen => "("
-      RightParen => ")"
-      Plus => "+"
-      Minus => "-"
-      If => "if"
-      Then => "then"
-      Else => "else"
-      Fn => "fn"
-      Let => "let"
-      Eq => "="
-      LBrace => "{"
-      RBrace => "}"
-      Comma => ","
-      Semicolon => ";"
-      Colon => ":"
-      Arrow => "->"
-      FatArrow => "=>"
-      Hole => "_"
-      Identifier => "<ident>"
-      Integer => "<int>"
-      Whitespace => "whitespace"
-      Newline => "newline"
-      Error(msg) => "<error: " + msg + ">"
-      EOF => "EOF"
-    },
-  )
-}
-
-///|
-pub impl @seam.IsTrivia for Token with fn is_trivia(self) {
-  self == Whitespace
-}
-
-///|
-pub impl @seam.IsEof for Token with fn is_eof(self) {
-  self == EOF
-}
-
-///|
-/// Maps tokens to the same raw-kind space as SyntaxKind.
-/// Fixed tokens map to their corresponding SyntaxKind raw values.
-/// Value-carrying tokens (Identifier, Integer) map to IdentToken/IntToken kinds.
-pub impl @seam.ToRawKind for Token with fn to_raw(self) {
-  let n : Int = match self {
-    Lambda => 0 // LambdaToken
-    Dot => 1 // DotToken
-    LeftParen => 2 // LeftParenToken
-    RightParen => 3 // RightParenToken
-    Plus => 4 // PlusToken
-    Minus => 5 // MinusToken
-    If => 6 // IfKeyword
-    Then => 7 // ThenKeyword
-    Else => 8 // ElseKeyword
-    Identifier => 9 // IdentToken
-    Integer => 10 // IntToken
-    Whitespace => 11 // WhitespaceToken
-    Error(_) => 12 // ErrorToken
-    EOF => 13 // EofToken
-    Let => 23 // LetKeyword
-    Eq => 25 // EqToken
-    Fn => 43 // FnKeyword
-    Newline => 28 // NewlineToken
-    LBrace => 29 // LBraceToken
-    RBrace => 30 // RBraceToken
-    Comma => 31 // CommaToken
-    Semicolon => 32 // SemicolonToken
-    Colon => 37 // ColonToken
-    Arrow => 38 // ArrowToken
-    FatArrow => 44 // FatArrowToken
-    Hole => 35 // HoleToken
-  }
-  @seam.RawKind(n)
-}
 
 ///|
 pub using @core {type TokenInfo}
