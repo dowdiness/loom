@@ -138,7 +138,7 @@ fn ProbeEnv::run(
         self.run(ctx, body)
       }
     }
-    PrattApp(slot, kind, starts) =>
+    PrattApp(_slot, kind, starts) =>
       if ctx.try_reuse_current_node(kind) {
         ()
       } else {
