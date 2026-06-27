@@ -1,5 +1,5 @@
 ///|
-/// Emit `syntax_kind.g.mbt` — SyntaxKind enum with seam traits.
+/// Emit `syntax_kind.mbt` — SyntaxKind enum with seam traits for tokens and terms.
 fn capitalize(s : String) -> String {
   if s.length() == 0 {
     s
@@ -12,7 +12,7 @@ fn capitalize(s : String) -> String {
 ///|
 fn derive_kind_name(
   variant_name : String,
-  role : TokenRole,
+  role : SyntaxRole,
   kind_override : String?,
 ) -> String {
   match kind_override {
@@ -27,6 +27,11 @@ fn derive_kind_name(
         Delimiter => variant_name + "Token"
         ErrorToken => "ErrorToken"
         Eof => "EofToken"
+        // Term roles — use variant name as-is for CST nodes
+        Leaf => variant_name
+        Node => variant_name
+        ErrorNode => variant_name
+        Root => variant_name
       }
   }
 }
@@ -38,7 +43,7 @@ fn build_kind_entries(
 ) -> Array[(String, Int)] {
   let kinds : Array[(String, Int)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
-  let first_role : Map[String, TokenRole] = Map([])
+  let first_role : Map[String, SyntaxRole] = Map([])
   for variant in enum_decl.variants {
     let role = match variant.token_role {
       Some(r) => r
@@ -77,6 +82,7 @@ fn emit_syntax_kind(
   term_kinds : Array[(String, Int)],
   trivia_set : @hashset.HashSet[String],
   error_set : @hashset.HashSet[String],
+  error_node_name : String?,
   retired_rawns : Array[Int],
 ) -> String {
   let all = token_kinds + term_kinds
@@ -133,11 +139,14 @@ fn emit_syntax_kind(
     let (name, raw) = pair
     b.write_string("    " + raw.to_string() + " => " + name + "\n")
   }
-  let has_error = error_set.contains("ErrorToken")
-  let fallback = if has_error {
-    "ErrorToken"
-  } else {
-    "abort(\"unknown raw kind\")"
+  let fallback = match error_node_name {
+    Some(name) => name
+    None =>
+      if error_set.contains("ErrorToken") {
+        "ErrorToken"
+      } else {
+        "abort(\"unknown raw kind\")"
+      }
   }
   b.write_string("    _ => " + fallback + "\n")
   b.write_string("  }\n")

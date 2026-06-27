@@ -1,6 +1,10 @@
 ///|
 /// Parse `#loom.*` annotations from annotated MoonBit enums.
-enum TokenRole {
+
+///|
+/// Role classification for annotated enum variants (token roles and term roles).
+enum SyntaxRole {
+  // Token roles
   Keyword(String)
   Punct(String)
   Ident
@@ -9,14 +13,19 @@ enum TokenRole {
   Delimiter
   ErrorToken
   Eof
+  // Term (CST node) roles
+  Leaf
+  Node
+  ErrorNode
+  Root
 }
 
 ///|
 struct VariantDecl {
   name : String
   tag : String?
+  token_role : SyntaxRole?
   attrs : Array[@attribute.Attribute]
-  token_role : TokenRole?
   arg_count : Int
   kind_override : String?
 }
@@ -52,6 +61,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         if !is_token && !is_term {
           continue
         }
+        // Reject #loom.token AND #loom.term on the same enum
+        if is_token && is_term {
+          return Err(
+            "enum " +
+            td.tycon +
+            " has both " +
+            "#" +
+            "loom.token and " +
+            "#" +
+            "loom.term",
+          )
+        }
         let variants = extract_variants(td.components)
         let classified : Array[VariantDecl] = []
         for v in variants {
@@ -60,7 +81,35 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             Ok(role) => classified.push({ ..v, token_role: role })
           }
         }
-        // All token variants MUST have a #loom.* annotation
+        // Cross-role validation: token enums can't have term roles, term enums can't have token roles.
+        let is_role_valid = fn(r : SyntaxRole?, for_token : Bool) -> Bool {
+          match r {
+            None => true
+            Some(
+              Keyword(_)
+              | Punct(_)
+              | Ident
+              | Literal
+              | Trivia
+              | Delimiter
+              | ErrorToken
+              | Eof
+            ) => for_token
+            Some(Leaf | Node | ErrorNode | Root) => !for_token
+          }
+        }
+        for v in classified {
+          if !is_role_valid(v.token_role, is_token) {
+            let kind = if is_token { "token" } else { "term" }
+            return Err(
+              "variant " +
+              v.name +
+              " has role incompatible with #loom." +
+              kind +
+              " enum",
+            )
+          }
+        }
         if is_token {
           for v in classified {
             if v.token_role is None {
@@ -70,6 +119,33 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 " in #loom.token enum is missing a #loom.* annotation",
               )
             }
+          }
+        }
+        // All term variants MUST have a #loom.* annotation
+        if is_term {
+          for v in classified {
+            if v.token_role is None {
+              return Err(
+                "variant " +
+                v.name +
+                " in #loom.term enum is missing a #loom.* annotation",
+              )
+            }
+          }
+        }
+        // Reject multiple ErrorNode variants — from_raw fallback would be ambiguous
+        if is_term {
+          let mut error_count = 0
+          for v in classified {
+            match v.token_role {
+              Some(ErrorNode) => error_count = error_count + 1
+              _ => ()
+            }
+          }
+          if error_count > 1 {
+            return Err(
+              "#loom.term enum has multiple #loom.errornode variants; at most one allowed",
+            )
           }
         }
         if is_token {
@@ -184,8 +260,10 @@ fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
 }
 
 ///|
-fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
-  let mut assigned : TokenRole? = None
+/// Classify a variant's #loom.* annotation into a SyntaxRole.
+/// Returns None for unannotated variants; caller validates completeness.
+fn classify_token_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
+  let mut assigned : SyntaxRole? = None
   for attr in variant.attrs {
     let matched = match attr.parsed {
       Some(@attribute.Apply(id, _)) => id
@@ -195,7 +273,7 @@ fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
     if matched.qual != Some("loom") {
       continue
     }
-    let candidate : TokenRole? = match matched.name {
+    let candidate : SyntaxRole? = match matched.name {
       "keyword" =>
         match first_string_from_apply(attr.parsed) {
           Some(s) => Some(Keyword(s))
@@ -218,6 +296,10 @@ fn classify_token_role(variant : VariantDecl) -> Result[TokenRole?, String] {
       "delimiter" => Some(Delimiter)
       "error" => Some(ErrorToken)
       "eof" => Some(Eof)
+      "leaf" => Some(Leaf)
+      "node" => Some(Node)
+      "errornode" => Some(ErrorNode)
+      "root" => Some(Root)
       _ => continue
     }
     if assigned is Some(_) {

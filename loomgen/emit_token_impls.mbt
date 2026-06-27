@@ -99,6 +99,10 @@ fn show_literal_for(variant : VariantDecl) -> String {
     Some(Delimiter) => to_lowercase_first(variant.name)
     Some(ErrorToken) => "<error>"
     Some(Eof) => "EOF"
+    Some(Leaf) => abort("term variant in token enum: " + variant.name)
+    Some(Node) => abort("term variant in token enum: " + variant.name)
+    Some(ErrorNode) => abort("term variant in token enum: " + variant.name)
+    Some(Root) => abort("term variant in token enum: " + variant.name)
     None => abort("unannotated variant: " + variant.name)
   }
 }
