@@ -166,9 +166,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           token_enum = Some({
             name: td.tycon,
-          _attrs: td.attrs.to_array(),
+            _attrs: td.attrs.to_array(),
             variants: classified,
-          _is_token: is_token,
+            _is_token: is_token,
           })
         }
         if is_term {
@@ -177,9 +177,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           term_enum = Some({
             name: td.tycon,
-          _attrs: td.attrs.to_array(),
+            _attrs: td.attrs.to_array(),
             variants: classified,
-          _is_token: false,
+            _is_token: false,
           })
         }
       }
