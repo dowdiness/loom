@@ -256,6 +256,18 @@ jobs:
             --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
             examples/lambda/token/token.mbt examples/lambda/token
           git diff --exit-code -- examples/lambda/token/token_impls.g.mbt
+  
+      - name: Verify spec generation matches fixture
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
+            --spec loomgen/fixtures/spec_fixture.g.mbt \
+            --language fixture \
+            --syntax-type SyntaxKind \
+            loomgen/fixtures/term_kind.mbt \
+            examples/lambda/token examples/lambda/syntax
+          git diff --exit-code -- loomgen/fixtures/spec_fixture.g.mbt
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest

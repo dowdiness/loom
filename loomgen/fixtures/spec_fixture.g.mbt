@@ -1,0 +1,18 @@
+///|
+/// Generated factory: fills derived LanguageSpec fields
+/// from annotation metadata.
+pub fn make_fixture_spec(
+  parse_root : (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit,
+  reuse_size_threshold? : Int = 64,
+  incomplete_kind? : @syntax.SyntaxKind = @syntax.ErrorToken,
+) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] {
+  @core.LanguageSpec::new(
+    @syntax.WhitespaceToken,
+    @syntax.ErrorToken,
+    @syntax.SourceFile,
+    @token.EOF,
+    parse_root=parse_root,
+    reuse_size_threshold=reuse_size_threshold,
+    incomplete_kind=incomplete_kind,
+  )
+}

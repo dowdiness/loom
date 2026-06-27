@@ -8,12 +8,12 @@ struct RawKindRegistry {
 }
 
 ///|
-pub fn RawKindRegistry::new() -> Self {
+fn RawKindRegistry::new() -> Self {
   { known: Map([]), next_raw: 0, tombstones: @hashset.HashSet([]) }
 }
 
 ///|
-pub fn RawKindRegistry::assign(self : Self, name : String) -> Int {
+fn RawKindRegistry::assign(self : Self, name : String) -> Int {
   match self.known.get(name) {
     Some(raw) => raw
     None => {
@@ -26,7 +26,7 @@ pub fn RawKindRegistry::assign(self : Self, name : String) -> Int {
 }
 
 ///|
-pub fn RawKindRegistry::reserve(self : Self, name : String, raw : Int) -> Unit {
+fn RawKindRegistry::reserve(self : Self, name : String, raw : Int) -> Unit {
   match self.known.get(name) {
     Some(existing) if existing == raw => ()
     Some(_) => abort("raw conflict for name: " + name)
@@ -50,26 +50,7 @@ pub fn RawKindRegistry::reserve(self : Self, name : String, raw : Int) -> Unit {
 }
 
 ///|
-/// Retire a kind by name: removes it from the active set and tombstoned its raw
-/// number so it will never be reassigned.
-pub fn RawKindRegistry::retire(self : Self, name : String) -> Unit {
-  match self.known.get(name) {
-    Some(raw) => {
-      self.known.remove(name)
-      self.tombstones.add(raw)
-      if raw >= self.next_raw {
-        self.next_raw = raw + 1
-      }
-    }
-    None => ()
-  }
-}
-
-///|
-pub fn RawKindRegistry::seed(
-  self : Self,
-  entries : Array[(String, Int)],
-) -> Unit {
+fn RawKindRegistry::seed(self : Self, entries : Array[(String, Int)]) -> Unit {
   for pair in entries {
     let (name, raw) = pair
     self.reserve(name, raw)
@@ -77,18 +58,9 @@ pub fn RawKindRegistry::seed(
 }
 
 ///|
-pub fn RawKindRegistry::to_pairs(self : Self) -> Array[(String, Int)] {
-  let pairs : Array[(String, Int)] = []
-  for pair in self.known {
-    pairs.push(pair)
-  }
-  pairs
-}
-
-///|
 /// Seed tombstoned raws so they block future reuse across regeneration cycles.
-/// `rawns`: raw numbers to block (taken from prior generated output).
-pub fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
+/// `rawns`: raw numbers to take from prior generated output.
+fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
   for raw in rawns {
     // Sanity-check: a tombstoned raw must not be in the active set.
     for pair in self.known {
@@ -106,13 +78,8 @@ pub fn RawKindRegistry::seed_retired(self : Self, rawns : Array[Int]) -> Unit {
 
 ///|
 /// Return the set of tombstoned raws as a sorted array (copy, not live reference).
-pub fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
+fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
   let raws = self.tombstones.to_array()
   raws.sort()
   raws
-}
-
-///|
-pub fn RawKindRegistry::has_retired(self : Self) -> Bool {
-  self.tombstones.length() > 0
 }
