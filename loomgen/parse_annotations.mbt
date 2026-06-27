@@ -64,7 +64,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         // Reject #loom.token AND #loom.term on the same enum
         if is_token && is_term {
           return Err(
-            "enum " + td.tycon + " has both " + "#" + "loom.token and " + "#" + "loom.term",
+            "enum " +
+            td.tycon +
+            " has both " +
+            "#" +
+            "loom.token and " +
+            "#" +
+            "loom.term",
           )
         }
         let variants = extract_variants(td.components)
@@ -79,8 +85,16 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         let is_role_valid = fn(r : SyntaxRole?, for_token : Bool) -> Bool {
           match r {
             None => true
-            Some(Keyword(_) | Punct(_) | Ident | Literal | Trivia | Delimiter | ErrorToken | Eof) =>
-              for_token
+            Some(
+              Keyword(_)
+              | Punct(_)
+              | Ident
+              | Literal
+              | Trivia
+              | Delimiter
+              | ErrorToken
+              | Eof
+            ) => for_token
             Some(Leaf | Node | ErrorNode | Root) => !for_token
           }
         }
@@ -88,7 +102,11 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           if !is_role_valid(v.token_role, is_token) {
             let kind = if is_token { "token" } else { "term" }
             return Err(
-              "variant " + v.name + " has role incompatible with #loom." + kind + " enum",
+              "variant " +
+              v.name +
+              " has role incompatible with #loom." +
+              kind +
+              " enum",
             )
           }
         }

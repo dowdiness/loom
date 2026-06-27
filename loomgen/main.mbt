@@ -270,7 +270,7 @@ fn main {
   }
   let mut error_node_name : String? = None
   match annotated.term_enum {
-    Some(term_enum) => {
+    Some(term_enum) =>
       for v in term_enum.variants {
         match v.token_role {
           Some(ErrorNode) =>
@@ -280,7 +280,6 @@ fn main {
           _ => ()
         }
       }
-    }
     None => ()
   }
   let token_impls_content = emit_token_impls(te, kinds)
