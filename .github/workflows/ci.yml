@@ -145,6 +145,7 @@ jobs:
             path: loomgen
           - name: event-graph-walker
             path: event-graph-walker
+    steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
