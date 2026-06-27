@@ -208,6 +208,50 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: moon test
 
+
+  check-loomgen:
+    name: Check Loomgen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: 0.10.0+84519ca0a
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: .
+        run: moon update
+
+      - name: Build loomgen
+        working-directory: .
+        run: moon build loomgen --target native
+
+      - name: Check generated files are up to date
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/lambda/syntax/syntax_kind.mbt \
+            loomgen/fixtures/term_kind.mbt \
+            examples/lambda/token examples/lambda/syntax
+          git diff --exit-code -- examples/lambda/syntax/syntax_kind.mbt
+
+      - name: Verify token impls regenerated
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
+            examples/lambda/token/token.mbt examples/lambda/token
+          git diff --exit-code -- examples/lambda/token/token_impls.g.mbt
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -216,6 +260,7 @@ jobs:
       - fmt-check-submodules
       - test-modules
       - test-modules-submodules
+      - check-loomgen
     if: always()
     steps:
       - name: Verify all jobs succeeded
@@ -234,6 +279,10 @@ jobs:
           fi
           if [[ "${{ needs.test-modules-submodules.result }}" != "success" ]]; then
             echo "test-modules-submodules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.check-loomgen.result }}" != "success" ]]; then
+            echo "check-loomgen job failed"
             exit 1
           fi
           echo "All checks passed"

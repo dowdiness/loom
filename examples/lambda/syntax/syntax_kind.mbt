@@ -10,9 +10,20 @@ pub(all) enum SyntaxKind {
   ThenKeyword
   ElseKeyword
   FnKeyword
+  LetKeyword
+  EqToken
+  LBraceToken
+  RBraceToken
+  CommaToken
+  SemicolonToken
+  ColonToken
+  ArrowToken
+  FatArrowToken
+  HoleToken
   IdentToken
   IntToken
   WhitespaceToken
+  NewlineToken
   ErrorToken
   EofToken
   LambdaExpr
@@ -24,25 +35,14 @@ pub(all) enum SyntaxKind {
   VarRef
   ErrorNode
   SourceFile
-  LetKeyword
-  EqToken
-  LetDef // top-level or block-local let name = value / fn name(params) { body }
-  NewlineToken // NEW: \n token — delimiter between LetDefs in source-file grammar
-  LBraceToken // {
-  RBraceToken // }
-  CommaToken // ,
-  SemicolonToken // ;
-  ParamList // ( Ident , Ident , ... )
-  BlockExpr // { LetDef* Expression? }
-  HoleToken // _
-  HoleLiteral // _ (hole expression node)
-  ColonToken // :    (raw 37)
-  ArrowToken // ->   (raw 38)
-  TypeAnnot // : Type  wrapper node (raw 39)
-  TypeInt // Int type keyword (raw 40)
-  TypeUnit // Unit type keyword (raw 41)
-  TypeArrow // Type -> Type (raw 42)
-  FatArrowToken // =>  (raw 44)
+  LetDef
+  ParamList
+  BlockExpr
+  HoleLiteral
+  TypeAnnot
+  TypeInt
+  TypeUnit
+  TypeArrow
 } derive(Debug, Eq)
 
 ///|
@@ -63,22 +63,22 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | ThenKeyword
     | ElseKeyword
     | FnKeyword
-    | IdentToken
-    | IntToken
-    | WhitespaceToken
-    | ErrorToken
-    | EofToken
     | LetKeyword
     | EqToken
-    | NewlineToken
     | LBraceToken
     | RBraceToken
     | CommaToken
     | SemicolonToken
-    | HoleToken
     | ColonToken
     | ArrowToken
-    | FatArrowToken => true
+    | FatArrowToken
+    | HoleToken
+    | IdentToken
+    | IntToken
+    | WhitespaceToken
+    | NewlineToken
+    | ErrorToken
+    | EofToken => true
     _ => false
   }
 }
@@ -96,9 +96,20 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     ThenKeyword => 7
     ElseKeyword => 8
     FnKeyword => 43
+    LetKeyword => 23
+    EqToken => 25
+    LBraceToken => 29
+    RBraceToken => 30
+    CommaToken => 31
+    SemicolonToken => 32
+    ColonToken => 37
+    ArrowToken => 38
+    FatArrowToken => 44
+    HoleToken => 35
     IdentToken => 9
     IntToken => 10
     WhitespaceToken => 11
+    NewlineToken => 28
     ErrorToken => 12
     EofToken => 13
     LambdaExpr => 14
@@ -110,25 +121,14 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     VarRef => 20
     ErrorNode => 21
     SourceFile => 22
-    LetKeyword => 23
-    EqToken => 25
     LetDef => 27
-    NewlineToken => 28
-    LBraceToken => 29
-    RBraceToken => 30
-    CommaToken => 31
-    SemicolonToken => 32
     ParamList => 33
     BlockExpr => 34
-    HoleToken => 35
     HoleLiteral => 36
-    ColonToken => 37
-    ArrowToken => 38
     TypeAnnot => 39
     TypeInt => 40
     TypeUnit => 41
     TypeArrow => 42
-    FatArrowToken => 44
   }
   @seam.RawKind(n)
 }
@@ -146,9 +146,21 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     6 => IfKeyword
     7 => ThenKeyword
     8 => ElseKeyword
+    43 => FnKeyword
+    23 => LetKeyword
+    25 => EqToken
+    29 => LBraceToken
+    30 => RBraceToken
+    31 => CommaToken
+    32 => SemicolonToken
+    37 => ColonToken
+    38 => ArrowToken
+    44 => FatArrowToken
+    35 => HoleToken
     9 => IdentToken
     10 => IntToken
     11 => WhitespaceToken
+    28 => NewlineToken
     12 => ErrorToken
     13 => EofToken
     14 => LambdaExpr
@@ -160,26 +172,14 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     20 => VarRef
     21 => ErrorNode
     22 => SourceFile
-    23 => LetKeyword
-    25 => EqToken
     27 => LetDef
-    28 => NewlineToken
-    29 => LBraceToken
-    30 => RBraceToken
-    31 => CommaToken
-    32 => SemicolonToken
     33 => ParamList
     34 => BlockExpr
-    35 => HoleToken
     36 => HoleLiteral
-    37 => ColonToken
-    38 => ArrowToken
     39 => TypeAnnot
     40 => TypeInt
     41 => TypeUnit
     42 => TypeArrow
-    43 => FnKeyword
-    44 => FatArrowToken
     _ => ErrorNode
   }
 }

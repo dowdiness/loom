@@ -22,9 +22,20 @@ pub(all) enum SyntaxKind {
   ThenKeyword
   ElseKeyword
   FnKeyword
+  LetKeyword
+  EqToken
+  LBraceToken
+  RBraceToken
+  CommaToken
+  SemicolonToken
+  ColonToken
+  ArrowToken
+  FatArrowToken
+  HoleToken
   IdentToken
   IntToken
   WhitespaceToken
+  NewlineToken
   ErrorToken
   EofToken
   LambdaExpr
@@ -36,25 +47,14 @@ pub(all) enum SyntaxKind {
   VarRef
   ErrorNode
   SourceFile
-  LetKeyword
-  EqToken
   LetDef
-  NewlineToken
-  LBraceToken
-  RBraceToken
-  CommaToken
-  SemicolonToken
   ParamList
   BlockExpr
-  HoleToken
   HoleLiteral
-  ColonToken
-  ArrowToken
   TypeAnnot
   TypeInt
   TypeUnit
   TypeArrow
-  FatArrowToken
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind
