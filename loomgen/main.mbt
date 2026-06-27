@@ -216,6 +216,319 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
 }
 
 ///|
+/// Phase 1: Create and seed the raw-kind registry from an existing file (--seed)
+/// and auto-restore tombstoned raws from prior output.
+fn setup_registry(
+  seed_path : String?,
+  skip_syntax : Bool,
+  token_out : String,
+  syntax_out : String,
+) -> Result[RawKindRegistry, Unit] {
+  let registry = RawKindRegistry::new()
+
+  // Seed from existing syntax_kind.mbt if --seed provided
+  match seed_path {
+    Some(path) => {
+      let seed_src = @fs.read_file_to_string(path) catch {
+        _ => {
+          println("Error reading " + path)
+          return Err(())
+        }
+      }
+      let seed_pairs = extract_raw_pairs(seed_src)
+      println(
+        "Seeded " +
+        seed_pairs.length().to_string() +
+        " raw kind entries from " +
+        path,
+      )
+      registry.seed(seed_pairs)
+    }
+    None => ()
+  }
+
+  // Auto-restore tombstoned raws from prior output.
+  // When --skip-syntax, the companion file (loom.registry.g.txt) takes priority;
+  let mut registry_path = syntax_out + "/syntax_kind.mbt"
+  // Backward compat: fall back to old .g.mbt filename
+  if !@fs.path_exists(registry_path) {
+    let old_path = syntax_out + "/syntax_kind.g.mbt"
+    if @fs.path_exists(old_path) {
+      registry_path = old_path
+    }
+  }
+  if skip_syntax {
+    let companion = token_out + "/loom.registry.g.txt"
+    if @fs.path_exists(companion) {
+      registry_path = companion
+    }
+  }
+  if @fs.path_exists(registry_path) {
+    let prev_src = @fs.read_file_to_string(registry_path) catch { _ => "" }
+    if prev_src.length() > 0 {
+      let retired_raws = extract_retired_raws(prev_src)
+      if retired_raws.length() > 0 {
+        registry.seed_retired(retired_raws)
+        println(
+          "Restored " +
+          retired_raws.length().to_string() +
+          " tombstoned raws from " +
+          registry_path,
+        )
+      }
+    }
+  }
+  Ok(registry)
+}
+
+///|
+struct KindBuildResult {
+  kinds : Array[(String, Int)]
+  term_kinds : Array[(String, Int)]
+  trivia_set : @hashset.HashSet[String]
+  error_set : @hashset.HashSet[String]
+  error_node_name : String?
+}
+
+///|
+/// Phase 2: Build kind entries from annotated enums, collect trivia/error sets,
+/// and validate cross-enum collisions.
+fn build_kinds(
+  te : EnumDecl,
+  registry : RawKindRegistry,
+  term_enum_decl : EnumDecl?,
+) -> Result[KindBuildResult, Unit] {
+  let kinds = build_kind_entries(te, registry)
+  let trivia_set : @hashset.HashSet[String] = @hashset.HashSet([])
+  let error_set : @hashset.HashSet[String] = @hashset.HashSet([])
+  for v in te.variants {
+    match v.role {
+      Some(Trivia) =>
+        trivia_set.add(derive_kind_name(v.name, Trivia, v.kind_override))
+      Some(ErrorToken) =>
+        error_set.add(derive_kind_name(v.name, ErrorToken, v.kind_override))
+      _ => ()
+    }
+  }
+  // Process term enum if present
+  let term_kinds = match term_enum_decl {
+    Some(term_enum) => build_kind_entries(term_enum, registry)
+    None => []
+  }
+  // Cross-enum collision: a derived token kind must not share a name
+  // with a term kind, or the generated SyntaxKind enum will have
+  // duplicate variants.
+  if term_kinds.length() > 0 {
+    let token_names : @hashset.HashSet[String] = @hashset.HashSet([])
+    for pair in kinds {
+      let (name, _) = pair
+      token_names.add(name)
+    }
+    for pair in term_kinds {
+      let (name, _) = pair
+      if token_names.contains(name) {
+        println(
+          "error: token kind \"" +
+          name +
+          "\" conflicts with a term kind of the same name\n" +
+          "  Both enums define \"" +
+          name +
+          "\". Rename the term variant or adjust the token annotation.",
+        )
+        return Err(())
+      }
+    }
+  }
+  // Find error_node_name from term enum for from_raw fallback
+  let mut error_node_name : String? = None
+  match term_enum_decl {
+    Some(term_enum) =>
+      for v in term_enum.variants {
+        match v.role {
+          Some(ErrorNode) =>
+            error_node_name = Some(
+              derive_kind_name(v.name, ErrorNode, v.kind_override),
+            )
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  Ok({ kinds, term_kinds, trivia_set, error_set, error_node_name })
+}
+
+///|
+/// Phase 3: Write all output files — token_impls.g.mbt, syntax_kind.mbt,
+/// companion registry file, and optional spec file.
+fn write_outputs(
+  te : EnumDecl,
+  kinds : Array[(String, Int)],
+  term_kinds : Array[(String, Int)],
+  trivia_set : @hashset.HashSet[String],
+  error_set : @hashset.HashSet[String],
+  error_node_name : String?,
+  retired_rawns : Array[Int],
+  skip_syntax : Bool,
+  token_out : String,
+  syntax_out : String,
+  spec_path : String?,
+  language_name : String?,
+  cli_token_type : String?,
+  cli_syntax_type : String?,
+  token_qual : String,
+  syntax_qual : String,
+  core_qual : String,
+  term_enum_decl : EnumDecl?,
+) -> Result[Unit, Unit] {
+  let token_impls_content = emit_token_impls(te, kinds)
+  // Write token_impls.g.mbt
+  @fs.write_string_to_file(
+    token_out + "/token_impls.g.mbt",
+    token_impls_content,
+  ) catch {
+    _ => {
+      println("Error writing " + token_out + "/token_impls.g.mbt")
+      return Err(())
+    }
+  }
+
+  // Write syntax_kind.mbt (only when --skip-syntax is not set)
+  if !skip_syntax {
+    let syntax_kind_content = emit_syntax_kind(
+      kinds, term_kinds, trivia_set, error_set, error_node_name, retired_rawns,
+    )
+    @fs.write_string_to_file(
+      syntax_out + "/syntax_kind.mbt",
+      syntax_kind_content,
+    ) catch {
+      _ => {
+        println("Error writing " + syntax_out + "/syntax_kind.mbt")
+        return Err(())
+      }
+    }
+    println("  " + syntax_out + "/syntax_kind.mbt")
+  }
+
+  // Persist retired raws for next --seed round-trip.
+  // Always write the companion file in skip-syntax mode, even when empty,
+  // so stale entries from previous runs are cleared.
+  if skip_syntax {
+    let parts = retired_rawns.map(fn(r) { r.to_string() })
+    let line = "// #loom.retired: " + parts.join(", ")
+    @fs.write_string_to_file(token_out + "/loom.registry.g.txt", line) catch {
+      _ => ()
+    }
+  }
+
+  // Write spec file if --spec is given and term_enum is present
+  match spec_path {
+    Some(sp) =>
+      match term_enum_decl {
+        None => {
+          println(
+            "--spec requires a #loom.term enum (use --term or annotate term enum in source)",
+          )
+          return Err(())
+        }
+        Some(term_enum_val) => {
+          let lang = match language_name {
+            Some(name) => name
+            None => {
+              println("--spec requires --language <name>")
+              return Err(())
+            }
+          }
+          if lang.length() == 0 {
+            println("--language must be a non-empty name")
+            return Err(())
+          }
+          if !is_valid_mbt_ident(lang) {
+            println(
+              "--language must be a valid MoonBit identifier (alphanumeric, underscores)",
+            )
+            return Err(())
+          }
+          let token_type_name = match cli_token_type {
+            Some(n) => n
+            None => te.name
+          }
+          let syntax_type_name = match cli_syntax_type {
+            Some(n) => n
+            None => term_enum_val.name
+          }
+          match
+            emit_spec(
+              te, term_enum_val, lang, token_type_name, syntax_type_name, token_qual,
+              syntax_qual, core_qual,
+            ) {
+            Ok(content) => {
+              @fs.write_string_to_file(sp, content) catch {
+                _ => {
+                  println("Error writing " + sp)
+                  return Err(())
+                }
+              }
+              println("  " + sp)
+            }
+            Err(msg) => {
+              println("error: " + msg)
+              return Err(())
+            }
+          }
+        }
+      }
+    None => ()
+  }
+
+  println("  " + token_out + "/token_impls.g.mbt")
+  Ok(())
+}
+
+///|
+/// Read, parse, and annotate a source file. Returns the AnnotatedEnums on success.
+fn read_and_parse(source_path : String) -> Result[AnnotatedEnums, Unit] {
+  let src = @fs.read_file_to_string(source_path) catch {
+    _ => {
+      println("Error reading " + source_path)
+      return Err(())
+    }
+  }
+  match parse_annotations(src) {
+    Err(msg) => {
+      println("Parse error: " + msg)
+      Err(())
+    }
+    Ok(a) => Ok(a)
+  }
+}
+
+///|
+/// Read and parse a --term file, validate it, and merge into term_enum_decl.
+/// Returns Some(term_enum) on success, Err on failure (already printed).
+fn load_term_enum(term_path : String) -> Result[AnnotatedEnums, Unit] {
+  let term_src = @fs.read_file_to_string(term_path) catch {
+    _ => {
+      println("Error reading " + term_path)
+      return Err(())
+    }
+  }
+  match parse_annotations(term_src) {
+    Err(msg) => {
+      println("Error parsing term source " + term_path + ": " + msg)
+      Err(())
+    }
+    Ok(a) => {
+      // Reject #loom.token in the term file
+      if a.token_enum is Some(_) {
+        println("--term file should not contain a #loom.token enum")
+        return Err(())
+      }
+      Ok(a)
+    }
+  }
+}
+
+///|
 fn main {
   let argv = @sys.get_cli_args()
   let matches = match parse_args(argv[1:].to_owned()) {
@@ -263,21 +576,8 @@ fn main {
     token_out,
   )
 
-  let src = @fs.read_file_to_string(source_path) catch {
-    _ => {
-      println("Error reading " + source_path)
-      @sys.exit(1)
-      return
-    }
-  }
-
-  let result = parse_annotations(src)
-  let annotated = match result {
-    Err(msg) => {
-      println("Parse error: " + msg)
-      @sys.exit(1)
-      return
-    }
+  let annotated = match read_and_parse(source_path) {
+    Err(_) => { @sys.exit(1); return }
     Ok(a) => a
   }
   let te = match annotated.token_enum {
@@ -295,27 +595,9 @@ fn main {
   // If --term is given, parse that file and merge term_enum
   match term_path {
     Some(tp) => {
-      let term_src = @fs.read_file_to_string(tp) catch {
-        _ => {
-          println("Error reading " + tp)
-          @sys.exit(1)
-          return
-        }
-      }
-      let term_result = parse_annotations(term_src)
-      let term_annotated = match term_result {
-        Err(msg) => {
-          println("Error parsing term source " + tp + ": " + msg)
-          @sys.exit(1)
-          return
-        }
+      let term_annotated = match load_term_enum(tp) {
+        Err(_) => { @sys.exit(1); return }
         Ok(a) => a
-      }
-      // Reject #loom.token in the term file
-      if term_annotated.token_enum is Some(_) {
-        println("--term file should not contain a #loom.token enum")
-        @sys.exit(1)
-        return
       }
       // Reject duplicate term_enum
       if term_enum_decl is Some(_) && term_annotated.term_enum is Some(_) {
@@ -344,228 +626,39 @@ fn main {
     }
   }
 
-  let registry = RawKindRegistry::new()
-
-  // Seed from existing syntax_kind.mbt if --seed provided
-  match seed_path {
-    Some(path) => {
-      let seed_src = @fs.read_file_to_string(path) catch {
-        _ => {
-          println("Error reading " + path)
-          @sys.exit(1)
-          return
-        }
-      }
-      let seed_pairs = extract_raw_pairs(seed_src)
-      println(
-        "Seeded " +
-        seed_pairs.length().to_string() +
-        " raw kind entries from " +
-        path,
-      )
-      registry.seed(seed_pairs)
-    }
-    None => ()
+  let registry = match setup_registry(seed_path, skip_syntax, token_out, syntax_out) {
+    Err(_) => { @sys.exit(1); return }
+    Ok(r) => r
   }
 
-  // Auto-restore tombstoned raws from prior output.
-  // When --skip-syntax, the companion file (loom.registry.g.txt) takes priority;
-  let mut registry_path = syntax_out + "/syntax_kind.mbt"
-  // Backward compat: fall back to old .g.mbt filename
-  if !@fs.path_exists(registry_path) {
-    let old_path = syntax_out + "/syntax_kind.g.mbt"
-    if @fs.path_exists(old_path) {
-      registry_path = old_path
-    }
-  }
-  if skip_syntax {
-    let companion = token_out + "/loom.registry.g.txt"
-    if @fs.path_exists(companion) {
-      registry_path = companion
-    }
-  }
-  if @fs.path_exists(registry_path) {
-    let prev_src = @fs.read_file_to_string(registry_path) catch { _ => "" }
-    if prev_src.length() > 0 {
-      let retired_raws = extract_retired_raws(prev_src)
-      if retired_raws.length() > 0 {
-        registry.seed_retired(retired_raws)
-        println(
-          "Restored " +
-          retired_raws.length().to_string() +
-          " tombstoned raws from " +
-          registry_path,
-        )
-      }
-    }
+  let build_result = match build_kinds(te, registry, term_enum_decl) {
+    Err(_) => { @sys.exit(1); return }
+    Ok(r) => r
   }
 
-  let kinds = build_kind_entries(te, registry)
-  let trivia_set : @hashset.HashSet[String] = @hashset.HashSet([])
-  let error_set : @hashset.HashSet[String] = @hashset.HashSet([])
-  for v in te.variants {
-    match v.role {
-      Some(Trivia) =>
-        trivia_set.add(derive_kind_name(v.name, Trivia, v.kind_override))
-      Some(ErrorToken) =>
-        error_set.add(derive_kind_name(v.name, ErrorToken, v.kind_override))
-      _ => ()
-    }
-  }
-  // Process term enum if present
-  let term_kinds = match term_enum_decl {
-    Some(term_enum) => build_kind_entries(term_enum, registry)
-    None => []
-  }
-  // Cross-enum collision: a derived token kind must not share a name
-  // with a term kind, or the generated SyntaxKind enum will have
-  // duplicate variants.
-  if term_kinds.length() > 0 {
-    let token_names : @hashset.HashSet[String] = @hashset.HashSet([])
-    for pair in kinds {
-      let (name, _) = pair
-      token_names.add(name)
-    }
-    for pair in term_kinds {
-      let (name, _) = pair
-      if token_names.contains(name) {
-        println(
-          "error: token kind \"" +
-          name +
-          "\" conflicts with a term kind of the same name\n" +
-          "  Both enums define \"" +
-          name +
-          "\". Rename the term variant or adjust the token annotation.",
-        )
-        @sys.exit(1)
-        return
-      }
-    }
-  }
-  let mut error_node_name : String? = None
-  match term_enum_decl {
-    Some(term_enum) =>
-      for v in term_enum.variants {
-        match v.role {
-          Some(ErrorNode) =>
-            error_node_name = Some(
-              derive_kind_name(v.name, ErrorNode, v.kind_override),
-            )
-          _ => ()
-        }
-      }
-    None => ()
-  }
-
-  let token_impls_content = emit_token_impls(te, kinds)
   let retired_rawns = registry.tombstoned_rawns()
-  // Write token_impls.g.mbt
-  @fs.write_string_to_file(
-    token_out + "/token_impls.g.mbt",
-    token_impls_content,
-  ) catch {
-    _ => {
-      println("Error writing " + token_out + "/token_impls.g.mbt")
-      @sys.exit(1)
-      return
-    }
-  }
 
-  // Write syntax_kind.mbt (only when --skip-syntax is not set)
-  if !skip_syntax {
-    let syntax_kind_content = emit_syntax_kind(
-      kinds, term_kinds, trivia_set, error_set, error_node_name, retired_rawns,
-    )
-    @fs.write_string_to_file(
-      syntax_out + "/syntax_kind.mbt",
-      syntax_kind_content,
-    ) catch {
-      _ => {
-        println("Error writing " + syntax_out + "/syntax_kind.mbt")
-        @sys.exit(1)
-        return
-      }
-    }
-    println("  " + syntax_out + "/syntax_kind.mbt")
+  match write_outputs(
+    te,
+    build_result.kinds,
+    build_result.term_kinds,
+    build_result.trivia_set,
+    build_result.error_set,
+    build_result.error_node_name,
+    retired_rawns,
+    skip_syntax,
+    token_out,
+    syntax_out,
+    spec_path,
+    language_name,
+    cli_token_type,
+    cli_syntax_type,
+    token_qual,
+    syntax_qual,
+    core_qual,
+    term_enum_decl,
+  ) {
+    Err(_) => { @sys.exit(1); return }
+    Ok(_) => ()
   }
-
-  // Persist retired raws for next --seed round-trip.
-  // Always write the companion file in skip-syntax mode, even when empty,
-  // so stale entries from previous runs are cleared.
-  if skip_syntax {
-    let parts = retired_rawns.map(fn(r) { r.to_string() })
-    let line = "// #loom.retired: " + parts.join(", ")
-    @fs.write_string_to_file(token_out + "/loom.registry.g.txt", line) catch {
-      _ => ()
-    }
-  }
-
-  // Write spec file if --spec is given and term_enum is present
-  match spec_path {
-    Some(sp) =>
-      match term_enum_decl {
-        None => {
-          println(
-            "--spec requires a #loom.term enum (use --term or annotate term enum in source)",
-          )
-          @sys.exit(1)
-          return
-        }
-        Some(term_enum_val) => {
-          let lang = match language_name {
-            Some(name) => name
-            None => {
-              println("--spec requires --language <name>")
-              @sys.exit(1)
-              return
-            }
-          }
-          if lang.length() == 0 {
-            println("--language must be a non-empty name")
-            @sys.exit(1)
-            return
-          }
-          if !is_valid_mbt_ident(lang) {
-            println(
-              "--language must be a valid MoonBit identifier (alphanumeric, underscores)",
-            )
-            @sys.exit(1)
-            return
-          }
-          let token_type_name = match cli_token_type {
-            Some(n) => n
-            None => te.name
-          }
-          let syntax_type_name = match cli_syntax_type {
-            Some(n) => n
-            None => term_enum_val.name
-          }
-          match
-            emit_spec(
-              te, term_enum_val, lang, token_type_name, syntax_type_name, token_qual,
-              syntax_qual, core_qual,
-            ) {
-            Ok(content) => {
-              @fs.write_string_to_file(sp, content) catch {
-                _ => {
-                  println("Error writing " + sp)
-                  @sys.exit(1)
-                  return
-                }
-              }
-              println("  " + sp)
-            }
-            Err(msg) => {
-              println("error: " + msg)
-              @sys.exit(1)
-              @sys.exit(1)
-              return
-            }
-          }
-        }
-      }
-    None => ()
-  }
-
-  println("  " + token_out + "/token_impls.g.mbt")
 }
