@@ -1,8 +1,8 @@
 ///|
 /// loomgen: code generator for loom/seam/projection pipeline.
-/// Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [output_dir]
+/// Usage: loomgen [--seed <syntax_kind.mbt>] [--skip-syntax] <token.mbt> [token_out_dir] [syntax_out_dir]
 ///
-/// Reads annotated MoonBit source, emits .g.mbt files.
+/// Reads annotated MoonBit source, emits token_impls.g.mbt and syntax_kind.mbt.
 /// --seed: seed raw-kind numbers from existing syntax_kind.mbt for idempotent re-generation.
 fn parse_int(s : String) -> Int {
   let mut n = 0
@@ -94,8 +94,7 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
 }
 
 ///|
-/// Parse tombstoned raw numbers from a previously-generated syntax_kind.g.mbt.
-/// Looks for comments matching `// #loom.retired: raw1, raw2, raw3`.
+/// Parse tombstoned raw numbers from a previously-generated syntax_kind.mbt (or .g.mbt).
 fn extract_retired_raws(source : String) -> Array[Int] {
   let raws : Array[Int] = []
   let lines = source.split("\n").to_array()
@@ -170,19 +169,19 @@ fn main {
   }
 
   let result = parse_annotations(src)
-  let te = match result {
+  let annotated = match result {
     Err(msg) => {
       println("Parse error: " + msg)
       return
     }
-    Ok(a) =>
-      match a.token_enum {
-        None => {
-          println("No #loom.token enum found in " + source_path)
-          return
-        }
-        Some(e) => e
-      }
+    Ok(a) => a
+  }
+  let te = match annotated.token_enum {
+    None => {
+      println("No #loom.token enum found in " + source_path)
+      return
+    }
+    Some(e) => e
   }
 
   // Create output directories if they don't exist
@@ -221,9 +220,15 @@ fn main {
   }
 
   // Auto-restore tombstoned raws from prior output.
-  // When --skip-syntax is set, prefer the companion file but fall back
-  // to syntax_kind.g.mbt for repos switching from non-skip to skip mode.
-  let mut registry_path = syntax_out + "/syntax_kind.g.mbt"
+  // When --skip-syntax, the companion file (loom.registry.g.txt) takes priority;
+  let mut registry_path = syntax_out + "/syntax_kind.mbt"
+  // Backward compat: fall back to old .g.mbt filename
+  if !@fs.path_exists(registry_path) {
+    let old_path = syntax_out + "/syntax_kind.g.mbt"
+    if @fs.path_exists(old_path) {
+      registry_path = old_path
+    }
+  }
   if skip_syntax {
     let companion = token_out + "/loom.registry.g.txt"
     if @fs.path_exists(companion) {
@@ -258,7 +263,26 @@ fn main {
       _ => ()
     }
   }
-  let empty_term_kinds : Array[(String, Int)] = []
+  // Process term enum if present
+  let term_kinds = match annotated.term_enum {
+    Some(term_enum) => build_kind_entries(term_enum, registry)
+    None => []
+  }
+  let mut error_node_name : String? = None
+  match annotated.term_enum {
+    Some(term_enum) => {
+      for v in term_enum.variants {
+        match v.token_role {
+          Some(ErrorNode) =>
+            error_node_name = Some(
+              derive_kind_name(v.name, ErrorNode, v.kind_override),
+            )
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
   let token_impls_content = emit_token_impls(te, kinds)
   let retired_rawns = registry.tombstoned_rawns()
 
@@ -273,21 +297,21 @@ fn main {
     }
   }
 
-  // Write syntax_kind.g.mbt (only when --skip-syntax is not set)
+  // Write syntax_kind.mbt (only when --skip-syntax is not set)
   if !skip_syntax {
     let syntax_kind_content = emit_syntax_kind(
-      kinds, empty_term_kinds, trivia_set, error_set, retired_rawns,
+      kinds, term_kinds, trivia_set, error_set, error_node_name, retired_rawns,
     )
     @fs.write_string_to_file(
-      syntax_out + "/syntax_kind.g.mbt",
+      syntax_out + "/syntax_kind.mbt",
       syntax_kind_content,
     ) catch {
       _ => {
-        println("Error writing " + syntax_out + "/syntax_kind.g.mbt")
+        println("Error writing " + syntax_out + "/syntax_kind.mbt")
         return
       }
     }
-    println("  " + syntax_out + "/syntax_kind.g.mbt")
+    println("  " + syntax_out + "/syntax_kind.mbt")
   }
 
   // Persist retired raws for next --seed round-trip.

@@ -41,8 +41,6 @@ jobs:
             path: seam
           - name: pretty
             path: pretty
-          - name: loomgen
-            path: loomgen
           - name: examples-lambda
             path: examples/lambda
           - name: examples-json
@@ -78,32 +76,6 @@ jobs:
       - name: moon fmt --check
         working-directory: ${{ matrix.path }}
         run: moon fmt --check
-
-  check-loomgen:
-    name: Check loomgen
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - name: Install MoonBit
-        uses: hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Verify MoonBit
-        run: moon version --all
-      - name: moon update
-        working-directory: loomgen
-        run: moon update
-      - name: moon check --target native
-        working-directory: loomgen
-        run: moon check --target native
 
   fmt-check-submodules:
     name: Format Check ${{ matrix.name }}
@@ -236,16 +208,60 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: moon test
 
+
+  check-loomgen:
+    name: Check Loomgen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: 0.10.0+84519ca0a
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: .
+        run: moon update
+
+      - name: Build loomgen
+        working-directory: .
+        run: moon build loomgen --target native
+
+      - name: Check generated files are up to date
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/lambda/syntax/syntax_kind.mbt \
+            loomgen/fixtures/term_kind.mbt \
+            examples/lambda/token examples/lambda/syntax
+          git diff --exit-code -- examples/lambda/syntax/syntax_kind.mbt
+
+      - name: Verify token impls regenerated
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
+            examples/lambda/token/token.mbt examples/lambda/token
+          git diff --exit-code -- examples/lambda/token/token_impls.g.mbt
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    if: always()
     needs:
       - fmt-check
       - fmt-check-submodules
       - test-modules
       - test-modules-submodules
       - check-loomgen
+    if: always()
     steps:
       - name: Verify all jobs succeeded
         run: |
