@@ -213,6 +213,20 @@ to a stable kind *name* — frees loomgen to renumber, at the cost of a one-time
 hash-contract migration + minor perf. (i) is local to loomgen; (ii) fixes it at
 the source.
 
+**L1-A resolution (2026-06-26).** Fixed in the canopy ADR
+`docs/decisions/2026-06-23-loomgen-rawkind-content-hash-identity.md`:
+fork **(i)** adopted — loomgen takes a persistent, append-only kind→raw registry as a
+second input; existing kinds keep their assigned raw, retired kinds are tombstoned,
+only new kinds get the next unused integer. The loomgen design doc
+(parent canopy `docs/design/07-loomgen-design.md` §"Generation idempotency") has been
+corrected from "sequential / never-reads" to "idempotent *given the registry*."
+Severity confirmed **MILD** (the seam content hash is in-memory only — no persisted or
+transmitted artifact keys off `RawKind.inner` or `CstNode.hash`). The codegen-payoff
+re-baseline on current lambda (§4.5 L1-B: ~1,200 lines, estimate holds) is recorded
+at §3 finding 3. **All gating conditions for loomgen build are now cleared:**
+§4.1 conditions (L1-A fix + re-baseline) and the §4.4 build-order constraint
+(spike-derived IR contract, #426) are resolved. loomgen build can begin (#427).
+
 **L1-B — escape-hatch growth, symmetric to Layer 2's sprawl.** views.mbt is
 mechanical for the textbook core (`AppExpr`, `BinaryExpr`, `IfExpr`, `ParenExpr`,
 `VarRef`, `IntLiteral` — all `child(n)`/`cast`/`AstView`). But every feature
