@@ -45,7 +45,7 @@ fn build_kind_entries(
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   let first_role : Map[String, SyntaxRole] = Map([])
   for variant in enum_decl.variants {
-    let role = match variant.token_role {
+    let role = match variant.role {
       Some(r) => r
       None => continue
     }

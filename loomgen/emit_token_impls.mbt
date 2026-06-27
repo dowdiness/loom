@@ -46,7 +46,7 @@ fn to_lowercase_first(s : String) -> String {
 /// `for_show`: if true, Error variants with args use named binding for string concat.
 fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
   if variant.arg_count > 0 {
-    let is_error = match variant.token_role {
+    let is_error = match variant.role {
       Some(ErrorToken) => true
       _ => false
     }
@@ -76,7 +76,7 @@ fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
 ///|
 /// Returns the full RHS expression for the Show match arm (the part after `=>`).
 fn show_expr_for(variant : VariantDecl) -> String {
-  match variant.token_role {
+  match variant.role {
     Some(ErrorToken) if variant.arg_count > 0 =>
       // Error(msg) => "<error: " + msg + ">"
       "\"<error: \" + msg + \">\""
@@ -90,7 +90,7 @@ fn show_expr_for(variant : VariantDecl) -> String {
 
 ///|
 fn show_literal_for(variant : VariantDecl) -> String {
-  match variant.token_role {
+  match variant.role {
     Some(Keyword(s)) => s
     Some(Punct(s)) => s
     Some(Ident) => "<ident>"
@@ -112,9 +112,9 @@ fn emit_token_impls(
   token_enum : EnumDecl,
   token_kinds : Array[(String, Int)],
 ) -> String {
-  // Validate every variant has a token_role before generating.
+  // Validate every variant has a role before generating.
   for v in token_enum.variants {
-    if v.token_role is None {
+    if v.role is None {
       abort("variant " + v.name + " has no #loom.* annotation")
     }
   }
@@ -139,7 +139,7 @@ fn emit_token_impls(
 
   // IsTrivia
   let trivia_variants = annotated.filter(fn(v) {
-    match v.token_role {
+    match v.role {
       Some(Trivia) => true
       _ => false
     }
@@ -162,7 +162,7 @@ fn emit_token_impls(
 
   // IsEof
   let eof_variants = annotated.filter(fn(v) {
-    match v.token_role {
+    match v.role {
       Some(Eof) => true
       _ => false
     }
@@ -191,11 +191,7 @@ fn emit_token_impls(
   b.write_string("  let n : Int = match self {\n")
   for v in annotated {
     let pat = pattern_for(v, false)
-    let kind_name = derive_kind_name(
-      v.name,
-      v.token_role.unwrap(),
-      v.kind_override,
-    )
+    let kind_name = derive_kind_name(v.name, v.role.unwrap(), v.kind_override)
     let raw = kind_name_to_raw(token_kinds, kind_name)
     b.write_string("    " + pat + " => " + raw.to_string() + "\n")
   }

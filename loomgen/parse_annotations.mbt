@@ -24,7 +24,7 @@ enum SyntaxRole {
 struct VariantDecl {
   name : String
   tag : String?
-  token_role : SyntaxRole?
+  role : SyntaxRole?
   attrs : Array[@attribute.Attribute]
   arg_count : Int
   kind_override : String?
@@ -76,9 +76,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         let variants = extract_variants(td.components)
         let classified : Array[VariantDecl] = []
         for v in variants {
-          match classify_token_role(v) {
+          match classify_role(v) {
             Err(msg) => return Err(msg)
-            Ok(role) => classified.push({ ..v, token_role: role })
+            Ok(role) => classified.push({ ..v, role, })
           }
         }
         // Cross-role validation: token enums can't have term roles, term enums can't have token roles.
@@ -99,7 +99,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
         }
         for v in classified {
-          if !is_role_valid(v.token_role, is_token) {
+          if !is_role_valid(v.role, is_token) {
             let kind = if is_token { "token" } else { "term" }
             return Err(
               "variant " +
@@ -112,7 +112,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         }
         if is_token {
           for v in classified {
-            if v.token_role is None {
+            if v.role is None {
               return Err(
                 "variant " +
                 v.name +
@@ -124,7 +124,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         // All term variants MUST have a #loom.* annotation
         if is_term {
           for v in classified {
-            if v.token_role is None {
+            if v.role is None {
               return Err(
                 "variant " +
                 v.name +
@@ -137,7 +137,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         if is_term {
           let mut error_count = 0
           for v in classified {
-            match v.token_role {
+            match v.role {
               Some(ErrorNode) => error_count = error_count + 1
               _ => ()
             }
@@ -146,6 +146,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             return Err(
               "#loom.term enum has multiple #loom.errornode variants; at most one allowed",
             )
+          }
+        }
+        // Reject #loom.eof variants with payload arguments
+        if is_token {
+          for v in classified {
+            if v.role is Some(Eof) && v.arg_count > 0 {
+              return Err(
+                "#loom.eof variant " +
+                v.name +
+                " must not have constructor arguments",
+              )
+            }
           }
         }
         if is_token {
@@ -221,7 +233,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           name: cd.name.name,
           tag: tag_str,
           attrs: cd.attrs.to_array(),
-          token_role: None,
+          role: None,
           arg_count,
           kind_override,
         }
@@ -249,20 +261,38 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 /// Only `#loom.literal("IntToken")` supports positional kind override.
 fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
   match parsed {
-    Some(@attribute.Apply(id, props)) if id.qual == Some("loom") &&
-      id.name == "literal" =>
-      match props.head() {
-        Some(@attribute.Expr(@attribute.String(lit))) => Some(lit.to_string())
-        _ => None
-      }
+    Some(@attribute.Apply(id, _)) if id.qual == Some("loom") &&
+      id.name == "literal" => first_string_from_apply(parsed)
     _ => None
+  }
+}
+
+///|
+/// Count all arguments (positional + KV) in a loom annotation.
+fn count_apply_args(parsed : @attribute.Expr?) -> Int {
+  match parsed {
+    Some(@attribute.Apply(_, props)) => props.length()
+    _ => 0
   }
 }
 
 ///|
 /// Classify a variant's #loom.* annotation into a SyntaxRole.
 /// Returns None for unannotated variants; caller validates completeness.
-fn classify_token_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
+let nullary_role_map : Map[String, SyntaxRole] = Map([
+  ("ident", Ident),
+  ("trivia", Trivia),
+  ("delimiter", Delimiter),
+  ("error", ErrorToken),
+  ("eof", Eof),
+  ("leaf", Leaf),
+  ("node", Node),
+  ("errornode", ErrorNode),
+  ("root", Root),
+])
+
+///|
+fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
   let mut assigned : SyntaxRole? = None
   for attr in variant.attrs {
     let matched = match attr.parsed {
@@ -274,7 +304,12 @@ fn classify_token_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
       continue
     }
     let candidate : SyntaxRole? = match matched.name {
-      "keyword" =>
+      "keyword" => {
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.keyword on " + variant.name + " requires exactly 1 argument",
+          )
+        }
         match first_string_from_apply(attr.parsed) {
           Some(s) => Some(Keyword(s))
           None =>
@@ -282,7 +317,13 @@ fn classify_token_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
               "#loom.keyword on " + variant.name + " requires a string argument",
             )
         }
-      "punct" =>
+      }
+      "punct" => {
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.punct on " + variant.name + " requires exactly 1 argument",
+          )
+        }
         match first_string_from_apply(attr.parsed) {
           Some(s) => Some(Punct(s))
           None =>
@@ -290,17 +331,42 @@ fn classify_token_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
               "#loom.punct on " + variant.name + " requires a string argument",
             )
         }
-      "ident" => Some(Ident)
-      "literal" => Some(Literal)
-      "trivia" => Some(Trivia)
-      "delimiter" => Some(Delimiter)
-      "error" => Some(ErrorToken)
-      "eof" => Some(Eof)
-      "leaf" => Some(Leaf)
-      "node" => Some(Node)
-      "errornode" => Some(ErrorNode)
-      "root" => Some(Root)
-      _ => continue
+      }
+      "literal" => {
+        let n = count_apply_args(attr.parsed)
+        if n > 1 {
+          return Err(
+            "#loom.literal on " + variant.name + " accepts at most 1 argument",
+          )
+        }
+        if n == 1 && first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom.literal on " +
+            variant.name +
+            " argument must be a string literal",
+          )
+        }
+        Some(Literal)
+      }
+      _ =>
+        match nullary_role_map.get(matched.name) {
+          Some(role) => {
+            if count_apply_args(attr.parsed) > 0 {
+              return Err(
+                "#loom." +
+                matched.name +
+                " on " +
+                variant.name +
+                " does not accept arguments",
+              )
+            }
+            Some(role)
+          }
+          None =>
+            return Err(
+              "unknown #loom." + matched.name + " annotation on " + variant.name,
+            )
+        }
     }
     if assigned is Some(_) {
       return Err(
