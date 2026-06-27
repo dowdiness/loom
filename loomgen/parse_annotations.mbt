@@ -23,7 +23,7 @@ enum SyntaxRole {
 ///|
 struct VariantDecl {
   name : String
-  tag : String?
+  _tag : String?
   role : SyntaxRole?
   attrs : Array[@attribute.Attribute]
   arg_count : Int
@@ -33,9 +33,9 @@ struct VariantDecl {
 ///|
 struct EnumDecl {
   name : String
-  attrs : Array[@attribute.Attribute]
+  _attrs : Array[@attribute.Attribute]
   variants : Array[VariantDecl]
-  is_token : Bool
+  _is_token : Bool
 }
 
 ///|
@@ -166,9 +166,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           token_enum = Some({
             name: td.tycon,
-            attrs: td.attrs.to_array(),
+          _attrs: td.attrs.to_array(),
             variants: classified,
-            is_token,
+          _is_token: is_token,
           })
         }
         if is_term {
@@ -177,9 +177,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           term_enum = Some({
             name: td.tycon,
-            attrs: td.attrs.to_array(),
+          _attrs: td.attrs.to_array(),
             variants: classified,
-            is_token: false,
+          _is_token: false,
           })
         }
       }
@@ -231,7 +231,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         }
         {
           name: cd.name.name,
-          tag: tag_str,
+          _tag: tag_str,
           attrs: cd.attrs.to_array(),
           role: None,
           arg_count,
