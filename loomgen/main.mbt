@@ -133,17 +133,30 @@ fn main {
 
   if arg_idx >= args.length() {
     println(
-      "Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [output_dir]",
+      "Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [token_out_dir] [syntax_out_dir]",
     )
     return
   }
   let source_path = args[arg_idx]
-  let out_dir = if arg_idx + 1 < args.length() {
+  // token_impls.g.mbt output directory
+  let token_out = if arg_idx + 1 < args.length() {
     args[arg_idx + 1]
   } else {
     "."
   }
-
+  // syntax_kind.g.mbt output directory (defaults to token_out for backward compat)
+  let syntax_out = if arg_idx + 2 < args.length() {
+    args[arg_idx + 2]
+  } else {
+    token_out
+  }
+  // Reject extra arguments beyond the two output directories
+  if arg_idx + 3 < args.length() {
+    println(
+      "Too many arguments. Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [token_out_dir] [syntax_out_dir]",
+    )
+    return
+  }
   let src = @fs.read_file_to_string(source_path) catch {
     _ => {
       println("Error reading " + source_path)
@@ -167,12 +180,14 @@ fn main {
       }
   }
 
-  // Create output directory if it doesn't exist
-  if !@fs.path_exists(out_dir) {
-    @fs.create_dir(out_dir) catch {
-      _ => {
-        println("Error creating directory " + out_dir)
-        return
+  // Create output directories if they don't exist
+  for dir in [token_out, syntax_out] {
+    if !@fs.path_exists(dir) {
+      @fs.create_dir(dir) catch {
+        _ => {
+          println("Error creating directory " + dir)
+          return
+        }
       }
     }
   }
@@ -200,9 +215,9 @@ fn main {
     None => ()
   }
 
-  // Auto-restore tombstoned raws from the previous generated file, if any.
+  // Auto-restore tombstoned raws from the previous generated syntax_kind.g.mbt, if any.
   // This ensures retired raw numbers survive regeneration cycles.
-  let prev_gen_path = out_dir + "/syntax_kind.g.mbt"
+  let prev_gen_path = syntax_out + "/syntax_kind.g.mbt"
   if @fs.path_exists(prev_gen_path) {
     let prev_src = @fs.read_file_to_string(prev_gen_path) catch { _ => "" }
     if prev_src.length() > 0 {
@@ -240,23 +255,29 @@ fn main {
     error_set,
     registry.tombstoned_rawns(),
   )
-  // Write both .g.mbt files
+  // Write files to their respective target directories
   // (syntax_kind.g.mbt is a token-only subset; not meant to replace existing hand-written
   //  syntax_kind.mbt that also includes term kinds)
-  @fs.write_string_to_file(out_dir + "/syntax_kind.g.mbt", syntax_kind_content) catch {
+  @fs.write_string_to_file(
+    syntax_out + "/syntax_kind.g.mbt",
+    syntax_kind_content,
+  ) catch {
     _ => {
-      println("Error writing " + out_dir + "/syntax_kind.g.mbt")
+      println("Error writing " + syntax_out + "/syntax_kind.g.mbt")
       return
     }
   }
-  @fs.write_string_to_file(out_dir + "/token_impls.g.mbt", token_impls_content) catch {
+  @fs.write_string_to_file(
+    token_out + "/token_impls.g.mbt",
+    token_impls_content,
+  ) catch {
     _ => {
-      println("Error writing " + out_dir + "/token_impls.g.mbt")
+      println("Error writing " + token_out + "/token_impls.g.mbt")
       return
     }
   }
 
   println("Generated:")
-  println("  " + out_dir + "/syntax_kind.g.mbt")
-  println("  " + out_dir + "/token_impls.g.mbt")
+  println("  " + syntax_out + "/syntax_kind.g.mbt")
+  println("  " + token_out + "/token_impls.g.mbt")
 }

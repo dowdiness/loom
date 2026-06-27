@@ -26,10 +26,17 @@ All Phase 1 deliverables are working and integrated with the lambda example:
 ```bash
 cd <repo-root>/loom
 # With seeding for idempotent regeneration:
-moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> <token.mbt> [output_dir]
+moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> <token.mbt> [token_out_dir] [syntax_out_dir]
+
+# Examples:
+# Single output directory (both files land in the same dir):
+moon run loomgen --target native -- --seed syntax_kind.mbt token.mbt examples/lambda/token
+
+# Split output (token_impls -> token/, syntax_kind -> syntax/):
+moon run loomgen --target native -- --seed examples/lambda/syntax/syntax_kind.mbt examples/lambda/token/token.mbt examples/lambda/token examples/lambda/syntax
 
 # Without seeding (sequential raw kinds):
-moon run loomgen --target native <token.mbt> [output_dir]
+moon run loomgen --target native <token.mbt> [token_out_dir] [syntax_out_dir]
 ```
 
 Dependencies: `moonbitlang/parser@0.3.3`, `moonbitlang/x@0.4.38`.
