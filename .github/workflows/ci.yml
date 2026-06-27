@@ -216,6 +216,8 @@ jobs:
   check-loomgen:
     name: Check Loomgen
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
