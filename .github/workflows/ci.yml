@@ -268,6 +268,18 @@ jobs:
             loomgen/fixtures/term_kind.mbt \
             examples/lambda/token examples/lambda/syntax
           git diff --exit-code -- loomgen/fixtures/spec_fixture.g.mbt
+
+      - name: Verify multi-trivia spec generation
+        working-directory: .
+        run: |
+          mkdir -p /tmp/mt-token /tmp/mt-syntax
+          moon run loomgen --target native -- \
+            --spec loomgen/fixtures/multi_trivia_spec.g.mbt \
+            --language MultiTrivia \
+            --syntax-type MultiTriviaSyntaxKind \
+            loomgen/fixtures/multi_trivia_fixture.mbt \
+            /tmp/mt-token /tmp/mt-syntax
+          git diff --exit-code -- loomgen/fixtures/multi_trivia_spec.g.mbt
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
