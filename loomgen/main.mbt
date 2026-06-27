@@ -120,43 +120,48 @@ fn main {
   let args = @sys.get_cli_args()
   let mut arg_idx = 1
   let mut seed_path : String? = None
+  let mut skip_syntax = false
 
-  // Parse optional --seed flag
-  while arg_idx < args.length() && args[arg_idx] == "--seed" {
-    if arg_idx + 1 >= args.length() {
-      println("--seed requires an argument")
-      return
+  // Parse optional --flags before positional args
+  while arg_idx < args.length() {
+    let a = args[arg_idx]
+    if a == "--seed" {
+      if arg_idx + 1 >= args.length() {
+        println("--seed requires an argument")
+        return
+      }
+      seed_path = Some(args[arg_idx + 1])
+      arg_idx = arg_idx + 2
+    } else if a == "--skip-syntax" {
+      skip_syntax = true
+      arg_idx = arg_idx + 1
+    } else {
+      break
     }
-    seed_path = Some(args[arg_idx + 1])
-    arg_idx = arg_idx + 2
   }
 
   if arg_idx >= args.length() {
     println(
-      "Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [token_out_dir] [syntax_out_dir]",
+      "Usage: loomgen [--seed <syntax_kind.mbt>] [--skip-syntax] <token.mbt> [token_out_dir] [syntax_out_dir]",
     )
     return
   }
   let source_path = args[arg_idx]
-  // token_impls.g.mbt output directory
   let token_out = if arg_idx + 1 < args.length() {
     args[arg_idx + 1]
   } else {
     "."
   }
-  // syntax_kind.g.mbt output directory (defaults to token_out for backward compat)
   let syntax_out = if arg_idx + 2 < args.length() {
     args[arg_idx + 2]
   } else {
     token_out
   }
-  // Reject extra arguments beyond the two output directories
   if arg_idx + 3 < args.length() {
-    println(
-      "Too many arguments. Usage: loomgen [--seed <syntax_kind.mbt>] <token.mbt> [token_out_dir] [syntax_out_dir]",
-    )
+    println("Too many arguments")
     return
   }
+
   let src = @fs.read_file_to_string(source_path) catch {
     _ => {
       println("Error reading " + source_path)
@@ -215,11 +220,18 @@ fn main {
     None => ()
   }
 
-  // Auto-restore tombstoned raws from the previous generated syntax_kind.g.mbt, if any.
-  // This ensures retired raw numbers survive regeneration cycles.
-  let prev_gen_path = syntax_out + "/syntax_kind.g.mbt"
-  if @fs.path_exists(prev_gen_path) {
-    let prev_src = @fs.read_file_to_string(prev_gen_path) catch { _ => "" }
+  // Auto-restore tombstoned raws from prior output.
+  // When --skip-syntax is set, prefer the companion file but fall back
+  // to syntax_kind.g.mbt for repos switching from non-skip to skip mode.
+  let mut registry_path = syntax_out + "/syntax_kind.g.mbt"
+  if skip_syntax {
+    let companion = token_out + "/loom.registry.g.txt"
+    if @fs.path_exists(companion) {
+      registry_path = companion
+    }
+  }
+  if @fs.path_exists(registry_path) {
+    let prev_src = @fs.read_file_to_string(registry_path) catch { _ => "" }
     if prev_src.length() > 0 {
       let retired_raws = extract_retired_raws(prev_src)
       if retired_raws.length() > 0 {
@@ -228,7 +240,7 @@ fn main {
           "Restored " +
           retired_raws.length().to_string() +
           " tombstoned raws from " +
-          prev_gen_path,
+          registry_path,
         )
       }
     }
@@ -248,25 +260,9 @@ fn main {
   }
   let empty_term_kinds : Array[(String, Int)] = []
   let token_impls_content = emit_token_impls(te, kinds)
-  let syntax_kind_content = emit_syntax_kind(
-    kinds,
-    empty_term_kinds,
-    trivia_set,
-    error_set,
-    registry.tombstoned_rawns(),
-  )
-  // Write files to their respective target directories
-  // (syntax_kind.g.mbt is a token-only subset; not meant to replace existing hand-written
-  //  syntax_kind.mbt that also includes term kinds)
-  @fs.write_string_to_file(
-    syntax_out + "/syntax_kind.g.mbt",
-    syntax_kind_content,
-  ) catch {
-    _ => {
-      println("Error writing " + syntax_out + "/syntax_kind.g.mbt")
-      return
-    }
-  }
+  let retired_rawns = registry.tombstoned_rawns()
+
+  // Write token_impls.g.mbt (always)
   @fs.write_string_to_file(
     token_out + "/token_impls.g.mbt",
     token_impls_content,
@@ -277,7 +273,33 @@ fn main {
     }
   }
 
-  println("Generated:")
-  println("  " + syntax_out + "/syntax_kind.g.mbt")
+  // Write syntax_kind.g.mbt (only when --skip-syntax is not set)
+  if !skip_syntax {
+    let syntax_kind_content = emit_syntax_kind(
+      kinds, empty_term_kinds, trivia_set, error_set, retired_rawns,
+    )
+    @fs.write_string_to_file(
+      syntax_out + "/syntax_kind.g.mbt",
+      syntax_kind_content,
+    ) catch {
+      _ => {
+        println("Error writing " + syntax_out + "/syntax_kind.g.mbt")
+        return
+      }
+    }
+    println("  " + syntax_out + "/syntax_kind.g.mbt")
+  }
+
+  // Persist retired raws for next --seed round-trip.
+  // Always write the companion file in skip-syntax mode, even when empty,
+  // so stale entries from previous runs are cleared.
+  if skip_syntax {
+    let parts = retired_rawns.map(fn(r) { r.to_string() })
+    let line = "// #loom.retired: " + parts.join(", ")
+    @fs.write_string_to_file(token_out + "/loom.registry.g.txt", line) catch {
+      _ => ()
+    }
+  }
+
   println("  " + token_out + "/token_impls.g.mbt")
 }
