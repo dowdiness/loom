@@ -32,6 +32,7 @@ fn derive_kind_name(
         Node => variant_name
         ErrorNode => variant_name
         Root => variant_name
+        View(_, _, _) => variant_name
       }
   }
 }

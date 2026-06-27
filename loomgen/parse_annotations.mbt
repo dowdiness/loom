@@ -2,6 +2,14 @@
 /// Parse `#loom.*` annotations from annotated MoonBit enums.
 
 ///|
+enum ViewCardinality {
+  ViewOne
+  ViewOptional
+  ViewZeroOrMore
+  ViewOneOrMore
+}
+
+///|
 /// Role classification for annotated enum variants (token roles and term roles).
 enum SyntaxRole {
   // Token roles
@@ -18,6 +26,7 @@ enum SyntaxRole {
   Node
   ErrorNode
   Root
+  View(String, String, ViewCardinality)
 }
 
 ///|
@@ -95,7 +104,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               | ErrorToken
               | Eof
             ) => for_token
-            Some(Leaf | Node | ErrorNode | Root) => !for_token
+            Some(Leaf | Node | ErrorNode | Root | View(_, _, _)) => !for_token
           }
         }
         for v in classified {
@@ -157,6 +166,63 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 v.name +
                 " must not have constructor arguments",
               )
+            }
+          }
+        }
+        // Cross-variant view target validation
+        if is_term {
+          let view_targets : Map[(String, String), Bool] = Map([])
+          let variant_names : @hashset.HashSet[String] = @hashset.HashSet([])
+          for v in classified {
+            variant_names.add(v.name)
+          }
+          for v in classified {
+            match v.role {
+              Some(View(target, property, _)) => {
+                if !variant_names.contains(target) {
+                  return Err(
+                    "#loom.view on " +
+                    v.name +
+                    " targets unknown variant \"" +
+                    target +
+                    "\"",
+                  )
+                }
+                // Validate target variant is a node-like role (Node or Root), not Leaf, ErrorNode, or View
+                let mut target_role_ok = false
+                for tv in classified {
+                  if tv.name == target {
+                    match tv.role {
+                      Some(Node) | Some(Root) => target_role_ok = true
+                      _ => ()
+                    }
+                  }
+                }
+                if !target_role_ok {
+                  return Err(
+                    "#loom.view on " +
+                    v.name +
+                    " targets \"" +
+                    target +
+                    "\" which is not a node/root variant",
+                  )
+                }
+                // Reject duplicate (target, property) pairs
+                let pair = (target, property)
+                if view_targets.contains(pair) {
+                  return Err(
+                    "#loom.view on " +
+                    v.name +
+                    " has duplicate (target, property) pair (\"" +
+                    target +
+                    "\", \"" +
+                    property +
+                    "\")",
+                  )
+                }
+                view_targets.set(pair, true)
+              }
+              _ => ()
             }
           }
         }
@@ -255,6 +321,27 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
     _ => None
   }
 }
+///|
+/// Extract the nth positional string argument from a loom annotation (0-indexed).
+fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
+  match parsed {
+    Some(@attribute.Apply(_, props)) => {
+      let mut i = 0
+      for prop in props {
+        if i == index {
+          match prop {
+            @attribute.Expr(@attribute.String(lit)) => return Some(lit.to_string())
+            _ => return None
+          }
+        }
+        i = i + 1
+      }
+      None
+    }
+    _ => None
+  }
+}
+
 
 ///|
 /// Extract the kind name override from a `#loom.literal` annotation.
@@ -347,6 +434,80 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
           )
         }
         Some(Literal)
+      }
+      "view" => {
+        let n = count_apply_args(attr.parsed)
+        if n < 2 {
+          return Err(
+            "#loom.view on " + variant.name + " requires at least 2 string arguments (target, property)",
+          )
+        }
+        if n > 3 {
+          return Err(
+            "#loom.view on " + variant.name + " accepts at most 3 arguments (target, property, cardinality)",
+          )
+        }
+        let target_node = match nth_string_from_apply(attr.parsed, 0) {
+          Some(s) => s
+          None =>
+            return Err(
+              "#loom.view on " + variant.name + " first argument must be a string literal (target node)",
+            )
+        }
+        let property_name = match nth_string_from_apply(attr.parsed, 1) {
+          Some(s) => s
+          None =>
+            return Err(
+              "#loom.view on " + variant.name + " second argument must be a string literal (property name)",
+            )
+        }
+        // Validate property_name is a valid MoonBit identifier (alphanumeric + underscores)
+        {
+          let first = property_name[0]
+          if !(first >= 'a' && first <= 'z') &&
+            !(first >= 'A' && first <= 'Z') &&
+            first != '_' {
+            return Err(
+              "#loom.view on " + variant.name + " property name \"" + property_name + "\" is not a valid MoonBit identifier",
+            )
+          }
+          for i = 1; i < property_name.length(); i = i + 1 {
+            let c = property_name[i]
+            if !(c >= 'a' && c <= 'z') &&
+              !(c >= 'A' && c <= 'Z') &&
+              !(c >= '0' && c <= '9') &&
+              c != '_' {
+              return Err(
+                "#loom.view on " + variant.name + " property name \"" + property_name + "\" is not a valid MoonBit identifier",
+              )
+            }
+          }
+        }
+        let cardinality = if n == 3 {
+          match nth_string_from_apply(attr.parsed, 2) {
+            Some(s) => {
+              match s {
+                "optional" => ViewOptional
+                "zero_or_more" => ViewZeroOrMore
+                "one_or_more" => ViewOneOrMore
+                "one" => ViewOne
+                _ =>
+                  return Err(
+                    "#loom.view on " +
+                    variant.name +
+                    " third argument must be \"optional\", \"zero_or_more\", \"one_or_more\", or \"one\"",
+                  )
+              }
+            }
+            None =>
+              return Err(
+                "#loom.view on " + variant.name + " third argument must be a string literal",
+              )
+          }
+        } else {
+          ViewOne
+        }
+        Some(View(target_node, property_name, cardinality))
       }
       _ =>
         match nullary_role_map.get(matched.name) {
