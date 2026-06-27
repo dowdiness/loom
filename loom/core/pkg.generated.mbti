@@ -274,7 +274,7 @@ pub struct ParserContext[T, K] {
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(Self[T, K], T) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(Self[T, K]) -> Bool
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::bump_error(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::checkpoint(Self[T, K]) -> Checkpoint[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit(Self[T, K], (T) -> Bool, K) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_if(Self[T, K], (T) -> Bool, K, (T) -> Bool) -> Bool
@@ -292,7 +292,7 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_after_skip(Self[T, K], (T) -> Bool, K, T, K) -> Bool
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_and_recover(Self[T, K], T, K, (T) -> Bool) -> Bool
 pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(Self[T, K]) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::new(Array[TokenInfo[T]], String, LanguageSpec[T, K]) -> Self[T, K]
 pub fn[T, K] ParserContext::new_indexed(Int, (Int) -> T, (Int) -> Int, (Int) -> Int, String, LanguageSpec[T, K]) -> Self[T, K]
@@ -310,9 +310,9 @@ pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool, element_start? : () -> Bool, wrap_element? : Bool) -> Int
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_balanced(Self[T, K], (T) -> Bool, (T) -> Bool) -> Int
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until_balanced(Self[T, K], (T) -> Bool, (T) -> Bool) -> Int
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until_progress(Self[T, K], (T) -> Bool) -> Int
 pub fn[T, K, R] ParserContext::speculative(Self[T, K], () -> R) -> R
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit

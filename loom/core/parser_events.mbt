@@ -4,16 +4,14 @@
 /// Emit all consecutive trivia tokens at current position to the event stream,
 /// advancing position past each one. Call this before emitting syntactic tokens,
 /// and at the end of the top-level grammar function before returning.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::flush_trivia(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(
   self : ParserContext[T, K],
 ) -> Unit {
   while self.position < self.token_count {
     let token = (self.get_token)(self.position)
     if token.is_trivia() {
       let text = self.text_at(self.position)
-      self.events.push(
-        @seam.ParseEvent::Token(self.spec.whitespace_kind.to_raw(), text),
-      )
+      self.events.push(@seam.ParseEvent::Token(token.to_raw(), text))
       self.position = self.position + 1
     } else {
       break

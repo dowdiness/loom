@@ -126,7 +126,7 @@ pub fn[
 ///
 /// Returns the number of tokens consumed. Zero means the current token was
 /// already a sync point (or EOF), so no recovery was needed.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until(
   self : ParserContext[T, K],
   is_sync : (T) -> Bool,
 ) -> Int {
@@ -149,7 +149,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 /// Like skip_until, but guarantees forward progress unless at EOF.
 /// If already at a sync point, consumes one token as error so recovery loops
 /// cannot spin at the same position.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_progress(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until_progress(
   self : ParserContext[T, K],
   is_sync : (T) -> Bool,
 ) -> Int {
@@ -179,7 +179,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::ski
 ///
 /// The closing token itself is NOT consumed — the caller decides whether
 /// to emit it (common for `)` recovery) or leave it for the parent.
-pub fn[T : @seam.IsTrivia + @seam.IsEof, K : @seam.ToRawKind] ParserContext::skip_until_balanced(
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until_balanced(
   self : ParserContext[T, K],
   is_open : (T) -> Bool,
   is_close : (T) -> Bool,
