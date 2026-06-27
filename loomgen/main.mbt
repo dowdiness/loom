@@ -222,6 +222,7 @@ fn main {
     Ok(m) => m
     Err(msg) => {
       println(msg)
+      @sys.exit(1)
       return
     }
   }
@@ -436,6 +437,7 @@ fn main {
           name +
           "\". Rename the term variant or adjust the token annotation.",
         )
+        @sys.exit(1)
         return
       }
     }
