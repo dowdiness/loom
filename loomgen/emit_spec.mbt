@@ -236,8 +236,12 @@ fn emit_spec(
     })
     let _ = b
       ..write_string("\n///|\n")
-      ..write_string("/// Returns true for all trivia syntax kinds in this language.\n")
-      ..write_string("/// Generated from all #loom.trivia-annotated token variants.\n")
+      ..write_string(
+        "/// Returns true for all trivia syntax kinds in this language.\n",
+      )
+      ..write_string(
+        "/// Generated from all #loom.trivia-annotated token variants.\n",
+      )
       ..write_string("pub fn ")
       ..write_string(helper_name)
       ..write_string("(kind : ")

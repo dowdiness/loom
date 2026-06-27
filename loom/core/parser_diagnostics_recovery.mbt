@@ -112,7 +112,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(
 ///|
 /// Consume the current token and emit it as an error token (for error recovery).
 /// Automatically flushes leading trivia before the token.
-pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind] ParserContext::bump_error(
+pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::bump_error(
   self : ParserContext[T, K],
 ) -> Unit {
   self.flush_trivia()
