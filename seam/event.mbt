@@ -481,16 +481,28 @@ fn intern_reuse_tokens_only(
     incomplete_kind~,
   )
 }
-
-///|
-fn build_tree_interned_buffered(
+///
+/// Shared core for stack-based CST construction from a flat event stream.
+/// Callbacks parameterize the variant operations: token creation, reuse
+/// handling, and node construction (used for both interior nodes and the
+/// implicit root).
+fn build_tree_buffered_with(
   events : Array[BufferedEvent],
   root_kind : RawKind,
-  interner : Interner,
+  on_token : (RawKind, StringView) -> CstElement,
+  on_reuse_node : (CstNode) -> CstElement,
+  on_reuse_node_at : (CstNode) -> CstElement,
+  on_reuse_node_at_unchecked : (CstNode) -> CstElement,
+  on_finish_node : (RawKind, Array[CstElement]) -> CstNode,
   trivia_kind? : RawKind? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
+  // stack and kinds move in lockstep:
+  // - StartNode pushes one frame + one kind
+  // - FinishNode pops one frame + one kind
+  //
+  // stack[0] / kinds[0] represent the implicit root passed in root_kind.
   let stack : Array[Array[CstElement]] = [[]]
   let kinds : Array[RawKind] = [root_kind]
   for event in events {
@@ -511,22 +523,16 @@ fn build_tree_interned_buffered(
         let children = balance_children(
           raw_children, trivia_kind, error_kind, incomplete_kind,
         )
-        let node = CstNode::new(
-          kind,
-          children,
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
-        )
+        let node = on_finish_node(kind, children)
         match stack.last() {
-          Some(parent) => parent.push(Node(node))
+          Some(parent) => parent.push(CstElement::Node(node))
           None => raise EventStreamError::UnbalancedFinish
         }
       }
       BufferedToken(kind, text) => {
-        let token = interner.intern_token(kind, text)
+        let elem = on_token(kind, text)
         match stack.last() {
-          Some(top) => top.push(CstElement::Token(token))
+          Some(top) => top.push(elem)
           None => raise EventStreamError::OrphanedEvent
         }
       }
@@ -538,11 +544,9 @@ fn build_tree_interned_buffered(
         }
       }
       BufferedReuseNode(node) => {
-        let interned = intern_reuse_tokens_only(
-          node, interner, trivia_kind, error_kind, incomplete_kind,
-        )
+        let elem = on_reuse_node(node)
         match stack.last() {
-          Some(parent) => parent.push(interned)
+          Some(parent) => parent.push(elem)
           None => raise EventStreamError::OrphanedEvent
         }
       }
@@ -550,11 +554,9 @@ fn build_tree_interned_buffered(
         let rebased = rebuild_subtree_for_source(
           node, source, source_start, trivia_kind, error_kind, incomplete_kind,
         )
-        let interned = intern_reuse_tokens_only(
-          rebased, interner, trivia_kind, error_kind, incomplete_kind,
-        )
+        let elem = on_reuse_node_at(rebased)
         match stack.last() {
-          Some(parent) => parent.push(interned)
+          Some(parent) => parent.push(elem)
           None => raise EventStreamError::OrphanedEvent
         }
       }
@@ -562,14 +564,13 @@ fn build_tree_interned_buffered(
         let rebased = rebase_subtree_to_source_unchecked(
           node, source, source_start, trivia_kind, error_kind, incomplete_kind,
         )
-        let interned = intern_reuse_tokens_only(
-          rebased, interner, trivia_kind, error_kind, incomplete_kind,
-        )
+        let elem = on_reuse_node_at_unchecked(rebased)
         match stack.last() {
-          Some(parent) => parent.push(interned)
+          Some(parent) => parent.push(elem)
           None => raise EventStreamError::OrphanedEvent
         }
       }
+      // Unclaimed marks are expected and intentionally ignored.
       BufferedTombstone => ()
     }
   }
@@ -582,12 +583,26 @@ fn build_tree_interned_buffered(
     error_kind,
     incomplete_kind,
   )
-  CstNode::new(
-    root_kind,
-    root_children,
-    trivia_kind~,
-    error_kind~,
-    incomplete_kind~,
+  on_finish_node(root_kind, root_children)
+}
+
+///|
+fn build_tree_interned_buffered(
+  events : Array[BufferedEvent],
+  root_kind : RawKind,
+  interner : Interner,
+  trivia_kind? : RawKind? = None,
+  error_kind? : RawKind? = None,
+  incomplete_kind? : RawKind? = None,
+) -> CstNode raise EventStreamError {
+  build_tree_buffered_with(
+    events, root_kind,
+    (kind, text) => CstElement::Token(interner.intern_token(kind, text)),
+    n => intern_reuse_tokens_only(n, interner, trivia_kind, error_kind, incomplete_kind),
+    n => intern_reuse_tokens_only(n, interner, trivia_kind, error_kind, incomplete_kind),
+    n => intern_reuse_tokens_only(n, interner, trivia_kind, error_kind, incomplete_kind),
+    (kind, children) => CstNode::new(kind, children, trivia_kind~, error_kind~, incomplete_kind~),
+    trivia_kind~, error_kind~, incomplete_kind~,
   )
 }
 
@@ -675,107 +690,14 @@ fn build_tree_fully_interned_buffered(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
-  let stack : Array[Array[CstElement]] = [[]]
-  let kinds : Array[RawKind] = [root_kind]
-  for event in events {
-    match event {
-      BufferedStartNode(kind) => {
-        stack.push([])
-        kinds.push(kind)
-      }
-      BufferedFinishNode => {
-        let raw_children = match stack.pop() {
-          Some(c) => c
-          None => raise EventStreamError::UnbalancedFinish
-        }
-        let kind = match kinds.pop() {
-          Some(k) => k
-          None => raise EventStreamError::UnbalancedFinish
-        }
-        let children = balance_children(
-          raw_children, trivia_kind, error_kind, incomplete_kind,
-        )
-        let node = node_interner.intern_node(
-          CstNode::new(
-            kind,
-            children,
-            trivia_kind~,
-            error_kind~,
-            incomplete_kind~,
-          ),
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(node))
-          None => raise EventStreamError::UnbalancedFinish
-        }
-      }
-      BufferedToken(kind, text) => {
-        let token = interner.intern_token(kind, text)
-        match stack.last() {
-          Some(top) => top.push(CstElement::Token(token))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedSyntheticZeroWidthToken(kind) => {
-        let token = CstToken::synthetic_zero_width(kind)
-        match stack.last() {
-          Some(top) => top.push(CstElement::Token(token))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNode(node) => {
-        let interned = re_intern_subtree(
-          node, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(interned))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNodeAt(node, source, source_start) => {
-        let rebased = rebuild_subtree_for_source(
-          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
-        )
-        let interned = re_intern_subtree(
-          rebased, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(interned))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNodeAtUnchecked(node, source, source_start) => {
-        let rebased = rebase_subtree_to_source_unchecked(
-          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
-        )
-        let interned = re_intern_subtree(
-          rebased, interner, node_interner, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(interned))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedTombstone => ()
-    }
-  }
-  if stack.length() != 1 {
-    raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
-  }
-  let root_children = balance_children(
-    stack[0],
-    trivia_kind,
-    error_kind,
-    incomplete_kind,
-  )
-  node_interner.intern_node(
-    CstNode::new(
-      root_kind,
-      root_children,
-      trivia_kind~,
-      error_kind~,
-      incomplete_kind~,
-    ),
+  build_tree_buffered_with(
+    events, root_kind,
+    (kind, text) => CstElement::Token(interner.intern_token(kind, text)),
+    n => CstElement::Node(re_intern_subtree(n, interner, node_interner, trivia_kind, error_kind, incomplete_kind)),
+    n => CstElement::Node(re_intern_subtree(n, interner, node_interner, trivia_kind, error_kind, incomplete_kind)),
+    n => CstElement::Node(re_intern_subtree(n, interner, node_interner, trivia_kind, error_kind, incomplete_kind)),
+    (kind, children) => node_interner.intern_node(CstNode::new(kind, children, trivia_kind~, error_kind~, incomplete_kind~)),
+    trivia_kind~, error_kind~, incomplete_kind~,
   )
 }
 
@@ -809,103 +731,14 @@ fn build_tree_buffered(
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode raise EventStreamError {
-  // stack and kinds move in lockstep:
-  // - StartNode pushes one frame + one kind
-  // - FinishNode pops one frame + one kind
-  //
-  // stack[0] / kinds[0] represent the implicit root passed in root_kind.
-  let stack : Array[Array[CstElement]] = [[]]
-  let kinds : Array[RawKind] = [root_kind]
-  for event in events {
-    match event {
-      BufferedStartNode(kind) => {
-        stack.push([])
-        kinds.push(kind)
-      }
-      BufferedFinishNode => {
-        let raw_children = match stack.pop() {
-          Some(c) => c
-          None => raise EventStreamError::UnbalancedFinish
-        }
-        let kind = match kinds.pop() {
-          Some(k) => k
-          None => raise EventStreamError::UnbalancedFinish
-        }
-        let children = balance_children(
-          raw_children, trivia_kind, error_kind, incomplete_kind,
-        )
-        let node = CstNode::new(
-          kind,
-          children,
-          trivia_kind~,
-          error_kind~,
-          incomplete_kind~,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(node))
-          None => raise EventStreamError::UnbalancedFinish
-        }
-      }
-      BufferedToken(kind, text) => {
-        let token = CstToken::CstToken(kind, text)
-        match stack.last() {
-          Some(top) => top.push(CstElement::Token(token))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedSyntheticZeroWidthToken(kind) => {
-        let token = CstToken::synthetic_zero_width(kind)
-        match stack.last() {
-          Some(top) => top.push(CstElement::Token(token))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNode(node) => {
-        let rebuilt = rebuild_subtree_owned(
-          node, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(rebuilt))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNodeAt(node, source, source_start) => {
-        let rebased = rebuild_subtree_for_source(
-          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(rebased))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      BufferedReuseNodeAtUnchecked(node, source, source_start) => {
-        let rebased = rebase_subtree_to_source_unchecked(
-          node, source, source_start, trivia_kind, error_kind, incomplete_kind,
-        )
-        match stack.last() {
-          Some(parent) => parent.push(Node(rebased))
-          None => raise EventStreamError::OrphanedEvent
-        }
-      }
-      // Unclaimed marks are expected and intentionally ignored.
-      BufferedTombstone => ()
-    }
-  }
-  if stack.length() != 1 {
-    raise EventStreamError::UnbalancedStart(missing_finishes=stack.length() - 1)
-  }
-  let root_children = balance_children(
-    stack[0],
-    trivia_kind,
-    error_kind,
-    incomplete_kind,
-  )
-  CstNode::new(
-    root_kind,
-    root_children,
-    trivia_kind~,
-    error_kind~,
-    incomplete_kind~,
+  build_tree_buffered_with(
+    events, root_kind,
+    (kind, text) => CstElement::Token(CstToken::CstToken(kind, text)),
+    n => CstElement::Node(rebuild_subtree_owned(n, trivia_kind, error_kind, incomplete_kind)),
+    n => CstElement::Node(n),
+    n => CstElement::Node(n),
+    (kind, children) => CstNode::new(kind, children, trivia_kind~, error_kind~, incomplete_kind~),
+    trivia_kind~, error_kind~, incomplete_kind~,
   )
 }
 
