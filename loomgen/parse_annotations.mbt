@@ -744,6 +744,17 @@ fn malformed_re(p : String) -> String? {
       }
       depth = depth - 1
       i = i + 1
+    } else if c == '{' {
+      // A counted quantifier must close; the re dialect errors on an unterminated
+      // `{` (e.g. `a{2`). Scan for the closing `}`.
+      let mut j = i + 1
+      while j < p.length() && p[j] != '}' {
+        j = j + 1
+      }
+      if j >= p.length() {
+        return Some("unterminated counted quantifier '{'")
+      }
+      i = j + 1
     } else {
       i = i + 1
     }
@@ -783,6 +794,15 @@ fn unsupported_re_construct(p : String) -> String? {
               "zero-width assertion escape " +
               p[i:i + 2].to_owned() +
               " is not supported by the re dialect",
+            )
+          // Perl-style character-class shorthands are rejected by the re dialect
+          // (it errors, not just deprecates), so they would emit a lexer that
+          // fails to compile. Point to the POSIX-class equivalents.
+          'd' | 'D' | 's' | 'S' | 'w' | 'W' =>
+            return Some(
+              "character-class escape " +
+              p[i:i + 2].to_owned() +
+              " is not supported by the re dialect; use a POSIX class such as [[:digit:]], [[:space:]], or [[:alnum:]]",
             )
           _ => ()
         }

@@ -482,3 +482,66 @@ test "emit_lexer computes span via after= (no Char-typed .length() binder)" {
   // The Char-fragile `as m` / `m.length()` form must NOT be emitted.
   inspect(generated.contains("m.length()"), content="false")
 }
+
+///|
+/// Review (escapes): Perl-style character-class escapes (`\d`, `\D`, `\s`, `\S`,
+/// `\w`, `\W`) are rejected by the re dialect, so emitting them verbatim would
+/// produce a non-compiling lexer. Reject them at generation time, pointing to the
+/// POSIX-class equivalents. `\x41` and literal escapes stay accepted.
+test "parse_annotations rejects Perl character-class escapes" {
+  let body = fn(pat : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.pattern(\"" +
+    pat +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(body("\\d+"), "character-class escape")
+  expect_parse_err(body("\\s"), "character-class escape")
+  expect_parse_err(body("\\w"), "character-class escape")
+  expect_parse_err(body("\\D"), "character-class escape")
+  // Hex escape and literal escapes remain accepted.
+  match parse_annotations(body("\\x41")) {
+    Ok(_) => ()
+    Err(m) => abort("expected \\x41 accepted, got: " + m)
+  }
+}
+
+///|
+/// Review (counted quantifier): an unterminated `{` (e.g. `a{2`) is rejected by
+/// the re dialect, so it must not be emitted. A complete `{m,n}` stays accepted.
+test "parse_annotations rejects an unterminated counted quantifier" {
+  let body = fn(pat : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.pattern(\"" +
+    pat +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(body("a{2"), "unterminated counted quantifier")
+  match parse_annotations(body("a{2,4}")) {
+    Ok(_) => ()
+    Err(m) => abort("expected a{2,4} accepted, got: " + m)
+  }
+}
+
+///|
+/// Review (keyword payload): keywords are post-classified as nullary constructors
+/// (`"let" => Let`), so a payload-bearing keyword variant would emit a call the
+/// generated lexer cannot type-check — rejected.
+test "emit_lexer rejects a payload-bearing #loom.keyword variant" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.pattern("[a-z]+")
+      #|  Id
+      #|  #loom.keyword("let")
+      #|  Let(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) => inspect(msg.contains("constructor arguments"), content="true")
+    Ok(_) => abort("expected payload-bearing-keyword rejection")
+  }
+}

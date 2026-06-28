@@ -63,6 +63,16 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
         " is a lexer candidate but has constructor arguments; pattern/punct candidates must be nullary",
       )
     }
+    // Keywords are post-classified as nullary constructors (`"let" => Let`), so a
+    // payload-bearing keyword variant would emit a call the generated lexer
+    // cannot type-check.
+    if v.role is Some(Keyword(_)) && v.arg_count > 0 {
+      return Err(
+        "#loom.keyword variant " +
+        v.name +
+        " has constructor arguments; the generated lexer post-classifies keywords as nullary constructors and cannot supply a payload",
+      )
+    }
     if v.pattern is Some(p) && p.contains("\"") {
       return Err(
         "token variant " +
