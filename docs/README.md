@@ -110,6 +110,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 
 Point-in-time diagnoses. Dated snapshots — verify against current code before acting.
 
+- [superpowers/plans/2026-06-28-grammar-ir-emitter.md](superpowers/plans/2026-06-28-grammar-ir-emitter.md) — implementation plan for the mode-agnostic Grammar IR emitter: generate `parse_root`/`parse_<rule>` MoonBit code from existing `@grammar.GrammarIr`, verify emitted parsers against `@grammar.interpret`, and keep `SwitchLexMode` deferred pending parser-runtime mode design
 - [superpowers/plans/2026-06-20-parser-generation-spike.md](superpowers/plans/2026-06-20-parser-generation-spike.md) — implementation plan for the lambda parser-generation de-risk spike: grammar-IR interpreter, persistent A-vs-B oracle, reuse-parity calibration, ergonomics gates, and decision record template
 - [analysis/2026-06-20-parser-generation-spike-results.md](analysis/2026-06-20-parser-generation-spike-results.md) — **CONDITIONAL GO**: D1/D2a/D2b all pass; E1=1/7 declarative rules; missing Seq+Pratt combinators block E3; next step = IR extension before full loomgen investment
 - [analysis/2026-06-20-parser-generation-direction.md](analysis/2026-06-20-parser-generation-direction.md) — recommendation + de-risk spike for "morm-style parser-generation-friendly" loom: loomgen plumbing = target, grammar-as-data interpreter = spike-gated hypothesis, ideal = one grammar value as single source; the spike's CST-master-invariant oracle and (i)-vs-(ii) equivalence-bar fork
