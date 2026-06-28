@@ -19,7 +19,7 @@
 | `let x = e in body` bindings | ✅ Complete (2026-02-28) |
 | `Term::Error(String)` variant | ✅ Complete (2026-03-05) |
 | Multi-expression files | ✅ Complete (2026-03-05) |
-| Finally Tagless layer (`TermSym`, `replay`, `Pretty`) | ✅ Complete (2026-03-28) |
+| Finally Tagless layer (`TermSym`, `interpret`, `Pretty`) | ✅ Complete (2026-03-28) |
 | Type annotations | Planned |
 | Typed SyntaxNode views | ✅ Complete (2026-03-03) |
 | CRDT integration | ✅ Complete (2026-03-03) |

@@ -3,7 +3,7 @@
 // This file is the SINGLE SOURCE OF TRUTH for Term's recursive structure.
 // Three things live here, and they must stay in sync:
 //
-//   1. TermSym trait + replay     — tagless final algebra and fold
+//   1. TermSym trait + interpret     — tagless final algebra and fold
 //   2. children_of                — which fields are recursive children
 //   3. rebuild_from               — inverse of children_of
 //
@@ -32,7 +32,7 @@
 ///
 /// Terms always arrive from the parser, which may produce Unbound (a name
 /// that failed name resolution) or Error (a recovery node for a parse error).
-/// Including them here keeps replay total — every Term value is convertible
+/// Including them here keeps interpret total — every Term value is convertible
 /// to any interpretation without a partial match. Interpreters that only
 /// run on well-typed trees (e.g. an evaluator after type checking) can
 /// implement these two methods as abort().
@@ -256,19 +256,19 @@ pub fn rebuild_from(shape : Term, children : Array[Term]) -> Term {
 ///|
 /// Converts a concrete Term into any TermSym interpretation.
 /// This is the single site updated when a new Term variant is added.
-/// Callers use type ascription: (replay(term) : Pretty)
-pub fn[T : TermSym] replay(term : Term) -> T {
+/// Callers use type ascription: (interpret(term) : Pretty)
+pub fn[T : TermSym] interpret(term : Term) -> T {
   match term {
     Int(n) => T::int_lit(n)
     Var(x) => T::variable(x)
-    Lam(x, body) => T::lam(x, replay(body))
-    App(f, a) => T::app(replay(f), replay(a))
-    Bop(op, l, r) => T::bop(op, replay(l), replay(r))
-    If(c, t, e) => T::if_then_else(replay(c), replay(t), replay(e))
-    LetDef(name, init) => T::let_def(name, replay(init))
+    Lam(x, body) => T::lam(x, interpret(body))
+    App(f, a) => T::app(interpret(f), interpret(a))
+    Bop(op, l, r) => T::bop(op, interpret(l), interpret(r))
+    If(c, t, e) => T::if_then_else(interpret(c), interpret(t), interpret(e))
+    LetDef(name, init) => T::let_def(name, interpret(init))
     Module(defs, body) => {
-      let mapped : Array[(String, T)] = defs.map(fn(d) { (d.0, replay(d.1)) })
-      T::mod(mapped, replay(body))
+      let mapped : Array[(String, T)] = defs.map(fn(d) { (d.0, interpret(d.1)) })
+      T::mod(mapped, interpret(body))
     }
     Unit => T::unit()
     Unbound(x) => T::unbound(x)

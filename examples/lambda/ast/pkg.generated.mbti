@@ -14,11 +14,13 @@ import {
 // Values
 pub fn children_of(Term) -> Array[Term]
 
+pub fn free_vars(Term) -> Array[String]
+
+pub fn[T : TermSym] interpret(Term) -> T
+
 pub fn print_term(Term) -> String
 
 pub fn rebuild_from(Term, Array[Term]) -> Term
-
-pub fn[T : TermSym] replay(Term) -> T
 
 // Errors
 
@@ -28,6 +30,8 @@ pub(all) enum Bop {
   Minus
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for Bop
+
+type FreeVars
 
 pub(all) struct Pretty {
   repr : String
