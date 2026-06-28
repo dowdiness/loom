@@ -307,16 +307,25 @@ fn normalize_anno_lines(source : String) -> String {
         let parts : Array[String] = line.split("#").to_array().map(fn(s) { s.to_owned() })
         if parts.length() > 2 {
           let indent = parts[0]
-          let first_anno = parts[1].trim().to_owned()
-          // Build rest by rejoining parts[2:] with #
-          let mut rest = ""
-          for i in 2..<parts.length() {
-            if i > 2 { rest = rest + "#" }
-            rest = rest + parts[i]
+          let first_anno = parts[1]
+          // Only split when the # boundary is NOT inside a string literal.
+          // Count quotes in the content before the second # — odd = inside string.
+          let quote_count = first_anno.split("\"").to_array().length() - 1
+          if quote_count % 2 == 1 {
+            // Inside a string — don't split (e.g. #loom.punct("#"))
+            out_lines.push(line)
+          } else {
+            let trimmed_anno = first_anno.trim().to_owned()
+            // Build rest by rejoining parts[2:] with #
+            let mut rest = ""
+            for i in 2..<parts.length() {
+              if i > 2 { rest = rest + "#" }
+              rest = rest + parts[i]
+            }
+            out_lines.push(indent + "#" + trimmed_anno)
+            out_lines.push(indent + "#" + rest)
+            changed = true
           }
-          out_lines.push(indent + "#" + first_anno)
-          out_lines.push(indent + "#" + rest)
-          changed = true
         } else {
           out_lines.push(line)
         }
@@ -521,6 +530,104 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
           )
         }
         Some(Literal)
+      }
+      "view" => {
+        let n = count_apply_args(attr.parsed)
+        if n < 2 {
+          return Err(
+            "#loom.view on " +
+            variant.name +
+            " requires at least 2 string arguments (target, property)",
+          )
+        }
+        if n > 3 {
+          return Err(
+            "#loom.view on " +
+            variant.name +
+            " accepts at most 3 arguments (target, property, cardinality)",
+          )
+        }
+        let target_node = match nth_string_from_apply(attr.parsed, 0) {
+          Some(s) => s
+          None =>
+            return Err(
+              "#loom.view on " +
+              variant.name +
+              " first argument must be a string literal (target node)",
+            )
+        }
+        let property_name = match nth_string_from_apply(attr.parsed, 1) {
+          Some(s) => s
+          None =>
+            return Err(
+              "#loom.view on " +
+              variant.name +
+              " second argument must be a string literal (property name)",
+            )
+        }
+        // Validate property_name is a non-empty valid MoonBit identifier (alphanumeric + underscores)
+        {
+          if property_name.length() == 0 {
+            return Err(
+              "#loom.view on " +
+              variant.name +
+              " property name must not be empty",
+            )
+          }
+          let first = property_name[0]
+          if !(first >= 'a' && first <= 'z') &&
+            !(first >= 'A' && first <= 'Z') &&
+            first != '_' {
+            return Err(
+              "#loom.view on " +
+              variant.name +
+              " property name \"" +
+              property_name +
+              "\" is not a valid MoonBit identifier",
+            )
+          }
+          for i = 1; i < property_name.length(); i = i + 1 {
+            let c = property_name[i]
+            if !(c >= 'a' && c <= 'z') &&
+              !(c >= 'A' && c <= 'Z') &&
+              !(c >= '0' && c <= '9') &&
+              c != '_' {
+              return Err(
+                "#loom.view on " +
+                variant.name +
+                " property name \"" +
+                property_name +
+                "\" is not a valid MoonBit identifier",
+              )
+            }
+          }
+        }
+        let cardinality = if n == 3 {
+          match nth_string_from_apply(attr.parsed, 2) {
+            Some(s) =>
+              match s {
+                "optional" => ViewOptional
+                "zero_or_more" => ViewZeroOrMore
+                "one_or_more" => ViewOneOrMore
+                "one" => ViewOne
+                _ =>
+                  return Err(
+                    "#loom.view on " +
+                    variant.name +
+                    " third argument must be \"optional\", \"zero_or_more\", \"one_or_more\", or \"one\"",
+                  )
+              }
+            None =>
+              return Err(
+                "#loom.view on " +
+                variant.name +
+                " third argument must be a string literal",
+              )
+          }
+        } else {
+          ViewOne
+        }
+        Some(View(target_node, property_name, cardinality))
       }
       "void" | "rawtext" => {
         // Modifier only — skip role assignment.
