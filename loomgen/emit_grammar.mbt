@@ -69,7 +69,7 @@ fn string_lit(s : String) -> String {
 }
 
 ///|
-fn[T] emit_pred_fn(
+fn[T] emit_pred_closure(
   pred : @grammar.Pred[T],
   token_ref : (T) -> String,
 ) -> String {
@@ -240,7 +240,7 @@ fn[T, K] emit_compiled_expr(
         ")\n" +
         indent +
         "ctx.skip_until(" +
-        emit_pred_fn(stop, token_ref) +
+        emit_pred_closure(stop, token_ref) +
         ") |> ignore\n",
       )
     @grammar.CompiledExpr::Fail(msg) =>
@@ -290,7 +290,7 @@ fn[T, K] emit_compiled_expr(
       Ok(
         indent +
         "ctx.expect_after_skip(" +
-        emit_pred_fn(skip, token_ref) +
+        emit_pred_closure(skip, token_ref) +
         ", " +
         kind_ref(skip_kind) +
         ", " +
@@ -303,11 +303,11 @@ fn[T, K] emit_compiled_expr(
       Ok(
         indent +
         "ctx.consume_while_emit_if(" +
-        emit_pred_fn(skip, token_ref) +
+        emit_pred_closure(skip, token_ref) +
         ", " +
         kind_ref(skip_kind) +
         ", " +
-        emit_pred_fn(look, token_ref) +
+        emit_pred_closure(look, token_ref) +
         ") |> ignore\n",
       )
     @grammar.CompiledExpr::RequireSep(delims, stop, alt, msg_alt~, msg_else~) =>
@@ -409,7 +409,7 @@ fn[T, K] emit_compiled_expr(
         "ctx.consume_while_emit(\n" +
         ind +
         "  " +
-        emit_pred_fn(delim, token_ref) +
+        emit_pred_closure(delim, token_ref) +
         ",\n" +
         ind +
         "  " +
@@ -513,7 +513,7 @@ fn[T, K] emit_compiled_expr(
       let skip_to_op = match skip {
         Some((sep, sep_kind)) =>
           "ctx.consume_while_emit_if(" +
-          emit_pred_fn(sep, token_ref) +
+          emit_pred_closure(sep, token_ref) +
           ", " +
           kind_ref(sep_kind) +
           ", fn(t) { " +
