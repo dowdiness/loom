@@ -26,31 +26,41 @@ fn emit_element_props(term_enum_decl : EnumDecl) -> String? {
   if void_kinds.length() == 0 && rawtext_kinds.length() == 0 {
     return None
   }
-  let b = StringBuilder()
+  let mut b : StringBuilder? = None
   if void_kinds.length() > 0 {
-    b.write_string("///|\n")
-    b.write_string("pub fn is_void_element(kind : SyntaxKind) -> Bool {\n")
-    b.write_string("  match kind {\n")
-    b.write_string("    ")
-    b.write_string(void_kinds.join(" | "))
-    b.write_string(" => true\n")
-    b.write_string("    _ => false\n")
-    b.write_string("  }\n")
-    b.write_string("}\n")
+    b = Some(
+      StringBuilder()
+      ..write_string("///|\n")
+      ..write_string("pub fn is_void_element(kind : SyntaxKind) -> Bool {\n")
+      ..write_string("  match kind {\n")
+      ..write_string("    ")
+      ..write_string(void_kinds.join(" | "))
+      ..write_string(" => true\n")
+      ..write_string("    _ => false\n")
+      ..write_string("  }\n")
+      ..write_string("}\n")
+    )
   }
   if rawtext_kinds.length() > 0 {
-    if void_kinds.length() > 0 {
-      b.write_string("\n")
+    let builder = match b {
+      Some(existing) => {
+        existing.write_string("\n")
+        existing
+      }
+      None => StringBuilder()
     }
-    b.write_string("///|\n")
-    b.write_string("pub fn is_raw_text_element(kind : SyntaxKind) -> Bool {\n")
-    b.write_string("  match kind {\n")
-    b.write_string("    ")
-    b.write_string(rawtext_kinds.join(" | "))
-    b.write_string(" => true\n")
-    b.write_string("    _ => false\n")
-    b.write_string("  }\n")
-    b.write_string("}\n")
+    b = Some(
+      builder
+      ..write_string("///|\n")
+      ..write_string("pub fn is_raw_text_element(kind : SyntaxKind) -> Bool {\n")
+      ..write_string("  match kind {\n")
+      ..write_string("    ")
+      ..write_string(rawtext_kinds.join(" | "))
+      ..write_string(" => true\n")
+      ..write_string("    _ => false\n")
+      ..write_string("  }\n")
+      ..write_string("}\n")
+    )
   }
-  Some(b.to_string())
+  Some(b.unwrap().to_string())
 }
