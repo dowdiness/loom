@@ -14,13 +14,12 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   let mode_to_kinds : Map[String, Array[String]] = Map([])
   for v in term_enum_decl.variants {
     match v.lexmode_name {
-      Some(mode) => {
+      Some(mode) =>
         if mode_to_kinds.contains(mode) {
           mode_to_kinds[mode].push(v.name)
         } else {
           mode_to_kinds.set(mode, [v.name])
         }
-      }
       None => ()
     }
   }
@@ -32,9 +31,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   for mode, _kinds in mode_to_kinds {
     modes.push(mode)
   }
-  modes.sort_by(fn(a, b) {
-    if a < b { -1 } else if a > b { 1 } else { 0 }
-  })
+  modes.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
   // Sort kind lists within each mode for stable match-arm output
   for mode in modes {
     mode_to_kinds[mode].sort()

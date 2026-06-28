@@ -470,7 +470,9 @@ fn write_outputs(
 
   // Clean up stale lexmode.g.mbt when syntax generation is skipped
   if skip_syntax {
-    @fs.remove_file(syntax_out + "/lexmode.g.mbt") catch { _ => () }
+    @fs.remove_file(syntax_out + "/lexmode.g.mbt") catch {
+      _ => ()
+    }
   }
 
   // Persist retired raws for next --seed round-trip.
