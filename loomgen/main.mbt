@@ -200,6 +200,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         "lexer",
         about="Output path for generated step lexer (.g.mbt)",
       ),
+      @argparse.OptionArg(
+        "grammar-ir",
+        about="Output path for generated GrammarIr from #loom.rule annotations (.g.mbt)",
+      ),
     ],
     positionals=[
       @argparse.PositionArg("source", about="Annotated token enum source file"),
@@ -658,6 +662,9 @@ fn main {
     matches.values.get_or_default("syntax-type", []),
   )
   let lexer_path = first_value(matches.values.get_or_default("lexer", []))
+  let grammar_ir_path = first_value(
+    matches.values.get_or_default("grammar-ir", []),
+  )
   let source_path = match
     first_value(matches.values.get_or_default("source", [])) {
     Some(p) => p
@@ -765,6 +772,52 @@ fn main {
     None => None
   }
 
+  // Preflight the GrammarIr emission BEFORE writing any output, so an invalid
+  // --grammar-ir request (unknown symbol, left recursion, malformed rule string)
+  // fails fast instead of leaving other outputs half-written. #522
+  let grammar_ir_job : (String, String)? = match grammar_ir_path {
+    Some(path) =>
+      match term_enum_decl {
+        None => {
+          println(
+            "error: --grammar-ir requires a #loom.term enum (use --term or annotate one in source)",
+          )
+          @sys.exit(1)
+          return
+        }
+        Some(term) => {
+          let lang = match language_name {
+            Some(l) => l
+            None => "loom"
+          }
+          // value_name is spliced into a generated `pub let`, so lang must be a
+          // valid identifier or the output won't compile. Fail closed.
+          guard is_mbt_identifier(lang) else {
+            println(
+              "error: --language '" +
+              lang +
+              "' is not a valid MoonBit identifier; it is used as the generated GrammarIr value name",
+            )
+            @sys.exit(1)
+            return
+          }
+          let value_name = lang + "_grammar_ir"
+          match
+            emit_grammar_ir(
+              term, te, token_qual, syntax_qual, "@grammar", value_name,
+            ) {
+            Ok(content) => Some((path, content))
+            Err(msg) => {
+              println("error: " + msg)
+              @sys.exit(1)
+              return
+            }
+          }
+        }
+      }
+    None => None
+  }
+
   match
     write_outputs(
       te,
@@ -795,6 +848,21 @@ fn main {
 
   // Write the preflighted step lexer (already built + validated above). #521
   match lexer_job {
+    Some((path, content)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => {
+          println("Error writing " + path)
+          @sys.exit(1)
+          return
+        }
+      }
+      println("  " + path)
+    }
+    None => ()
+  }
+
+  // Write the preflighted GrammarIr (already built + validated above). #522
+  match grammar_ir_job {
     Some((path, content)) => {
       @fs.write_string_to_file(path, content) catch {
         _ => {

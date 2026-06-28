@@ -45,6 +45,9 @@ struct VariantDecl {
   pattern : String?
   custom_lex : String?
   lexmode_name : String?
+  // #522. `rule` carries the raw EBNF-subset string from `#loom.rule("...")` on a
+  // #loom.term variant; the GrammarIr emitter lowers it to a `@grammar.Expr`.
+  rule : String?
 }
 
 ///|
@@ -160,6 +163,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 "token variant " +
                 v.name +
                 " cannot have #loom.lexmode annotation",
+              )
+            }
+            if v.rule is Some(_) {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.rule annotation (#loom.rule is only valid on #loom.term variants)",
               )
             }
           }
@@ -491,6 +501,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         let mut pattern : String? = None
         let mut custom_lex : String? = None
         let mut lexmode_name : String? = None
+        let mut rule : String? = None
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
@@ -510,6 +521,9 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
               } else if id.name == "lexmode" {
                 // Extract the mode name from #loom.lexmode("Name")
                 lexmode_name = first_string_from_apply(attr.parsed)
+              } else if id.name == "rule" {
+                // Extract the EBNF-subset string from #loom.rule("...")
+                rule = first_string_from_apply(attr.parsed)
               }
             _ => ()
           }
@@ -530,6 +544,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           pattern,
           custom_lex,
           lexmode_name,
+          rule,
         }
       })
       .to_array()
@@ -1139,6 +1154,26 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             " on " +
             variant.name +
             " does not accept arguments",
+          )
+        }
+        continue
+      }
+      "rule" => {
+        // Grammar-generation modifier (#522) — skip role assignment, but require
+        // exactly one string argument (the EBNF-subset rule body). The node kind
+        // comes from the separate #loom.node/#loom.root/#loom.leaf role.
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.rule on " +
+            variant.name +
+            " requires exactly 1 string argument",
+          )
+        }
+        if first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom.rule on " +
+            variant.name +
+            " argument must be a string literal",
           )
         }
         continue
