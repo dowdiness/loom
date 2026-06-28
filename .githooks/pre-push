@@ -19,7 +19,10 @@ done
 run_check() {
   local dir="$1" label="$2"
   echo "[pre-push] $label: moon fmt --check..."
-  (cd "$ROOT/$dir" && moon fmt --check 2>/dev/null) || {
+  # MOON_WORK=off scopes the check to this member only. Without it, moon walks
+  # up to the root moon.work and checks every workspace member, pulling in
+  # vendored-submodule drift (e.g. incr/) that this repo cannot fix here. See #499.
+  (cd "$ROOT/$dir" && MOON_WORK=off moon fmt --check 2>/dev/null) || {
     echo "[pre-push] $label: format check FAILED. Run 'cd $dir && moon fmt' first."
     exit 1
   }
