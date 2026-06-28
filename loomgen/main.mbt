@@ -196,6 +196,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         "syntax-type",
         about="Syntax kind type name override (default: from source)",
       ),
+      @argparse.OptionArg(
+        "lexer",
+        about="Output path for generated step lexer (.g.mbt)",
+      ),
     ],
     positionals=[
       @argparse.PositionArg("source", about="Annotated token enum source file"),
@@ -409,6 +413,72 @@ fn write_outputs(
     println("  " + syntax_out + "/syntax_kind.mbt")
   }
 
+  // Write element_props.g.mbt (only when syntax kinds are generated and term enum exists)
+  if !skip_syntax {
+    match term_enum_decl {
+      Some(term_enum_val) =>
+        match emit_element_props(term_enum_val) {
+          Some(content) => {
+            @fs.write_string_to_file(
+              syntax_out + "/element_props.g.mbt",
+              content,
+            ) catch {
+              _ => {
+                println("Error writing " + syntax_out + "/element_props.g.mbt")
+                return Err(())
+              }
+            }
+            println("  " + syntax_out + "/element_props.g.mbt")
+          }
+          None =>
+            // Remove stale file when no variants are flagged
+            @fs.remove_file(syntax_out + "/element_props.g.mbt") catch {
+              _ => ()
+            }
+        }
+      None =>
+        // Remove stale file when term enum is entirely absent
+        @fs.remove_file(syntax_out + "/element_props.g.mbt") catch {
+          _ => ()
+        }
+    }
+  }
+
+  // Write lexmode.g.mbt (lex mode dispatch) when term variants have #loom.lexmode annotations.
+  if !skip_syntax {
+    match term_enum_decl {
+      Some(term_enum_val) =>
+        match emit_lexmode(term_enum_val) {
+          Some(content) => {
+            @fs.write_string_to_file(syntax_out + "/lexmode.g.mbt", content) catch {
+              _ => {
+                println("Error writing " + syntax_out + "/lexmode.g.mbt")
+                return Err(())
+              }
+            }
+            println("  " + syntax_out + "/lexmode.g.mbt")
+          }
+          None =>
+            // Remove stale file when no variants have lexmode annotations
+            @fs.remove_file(syntax_out + "/lexmode.g.mbt") catch {
+              _ => ()
+            }
+        }
+      None =>
+        // Remove stale file when term enum is entirely absent
+        @fs.remove_file(syntax_out + "/lexmode.g.mbt") catch {
+          _ => ()
+        }
+    }
+  }
+
+  // Clean up stale lexmode.g.mbt when syntax generation is skipped
+  if skip_syntax {
+    @fs.remove_file(syntax_out + "/lexmode.g.mbt") catch {
+      _ => ()
+    }
+  }
+
   // Persist retired raws for next --seed round-trip.
   // Always write the companion file in skip-syntax mode, even when empty,
   // so stale entries from previous runs are cleared.
@@ -587,6 +657,7 @@ fn main {
   let cli_syntax_type = first_value(
     matches.values.get_or_default("syntax-type", []),
   )
+  let lexer_path = first_value(matches.values.get_or_default("lexer", []))
   let source_path = match
     first_value(matches.values.get_or_default("source", [])) {
     Some(p) => p
@@ -678,6 +749,22 @@ fn main {
 
   let retired_rawns = registry.tombstoned_rawns()
 
+  // Preflight the step lexer BEFORE writing any output, so an invalid --lexer
+  // request (nullable/unsupported pattern, unlexable variant) fails fast instead
+  // of leaving token_impls.g.mbt / syntax_kind.mbt half-written. #521
+  let lexer_job : (String, String)? = match lexer_path {
+    Some(path) =>
+      match emit_lexer(te, core_qual, "step_lex") {
+        Ok(content) => Some((path, content))
+        Err(msg) => {
+          println("error: " + msg)
+          @sys.exit(1)
+          return
+        }
+      }
+    None => None
+  }
+
   match
     write_outputs(
       te,
@@ -704,5 +791,20 @@ fn main {
       return
     }
     Ok(_) => ()
+  }
+
+  // Write the preflighted step lexer (already built + validated above). #521
+  match lexer_job {
+    Some((path, content)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => {
+          println("Error writing " + path)
+          @sys.exit(1)
+          return
+        }
+      }
+      println("  " + path)
+    }
+    None => ()
   }
 }
