@@ -196,6 +196,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         "syntax-type",
         about="Syntax kind type name override (default: from source)",
       ),
+      @argparse.OptionArg(
+        "lexer",
+        about="Output path for generated step lexer (.g.mbt)",
+      ),
     ],
     positionals=[
       @argparse.PositionArg("source", about="Annotated token enum source file"),
@@ -653,6 +657,7 @@ fn main {
   let cli_syntax_type = first_value(
     matches.values.get_or_default("syntax-type", []),
   )
+  let lexer_path = first_value(matches.values.get_or_default("lexer", []))
   let source_path = match
     first_value(matches.values.get_or_default("source", [])) {
     Some(p) => p
@@ -744,6 +749,22 @@ fn main {
 
   let retired_rawns = registry.tombstoned_rawns()
 
+  // Preflight the step lexer BEFORE writing any output, so an invalid --lexer
+  // request (nullable/unsupported pattern, unlexable variant) fails fast instead
+  // of leaving token_impls.g.mbt / syntax_kind.mbt half-written. #521
+  let lexer_job : (String, String)? = match lexer_path {
+    Some(path) =>
+      match emit_lexer(te, core_qual, "step_lex") {
+        Ok(content) => Some((path, content))
+        Err(msg) => {
+          println("error: " + msg)
+          @sys.exit(1)
+          return
+        }
+      }
+    None => None
+  }
+
   match
     write_outputs(
       te,
@@ -770,5 +791,20 @@ fn main {
       return
     }
     Ok(_) => ()
+  }
+
+  // Write the preflighted step lexer (already built + validated above). #521
+  match lexer_job {
+    Some((path, content)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => {
+          println("Error writing " + path)
+          @sys.exit(1)
+          return
+        }
+      }
+      println("  " + path)
+    }
+    None => ()
   }
 }
