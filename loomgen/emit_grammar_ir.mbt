@@ -1,0 +1,552 @@
+///|
+/// Emit `grammar_ir.g.mbt` — a `@grammar.GrammarIr` value built from `#loom.rule`
+/// annotations on `#loom.term` variants (#522).
+///
+/// Each rule string is parsed (`parse_rule_string`), its identifiers resolved
+/// against the token enum (terminal) or term enum (rule `Ref`), and lowered to a
+/// `@grammar.Expr`. The `#loom.node`/`#loom.root`/`#loom.leaf` role wraps the
+/// production body in `Node(kind, body)`. Alternation and repetition need FIRST
+/// sets, computed here from the rule map; the emitter fails closed on any
+/// out-of-subset construct (unknown symbol, left recursion, unresolvable Ref).
+
+///|
+suberror RuleLowerError {
+  RuleLowerError(String)
+}
+
+///|
+/// Resolution + emission context shared across the lowering recursion.
+struct LowerCtx {
+  /// Token variant name -> its CST leaf kind name (membership = "is a terminal").
+  token_kinds : Map[String, String]
+  /// Token variant names in declaration order — gives deterministic FIRST-set
+  /// emission order (`OneOf([...])`).
+  token_order : Array[String]
+  /// Parsed rule bodies by rule (term-variant) name, for `Ref` resolution.
+  rules : Map[String, RuleAst]
+  /// All term-variant names — lets a `Ref` to a ruleless term (e.g. a `#loom.leaf`
+  /// with no `#loom.rule`) fail closed with a precise message instead of being
+  /// reported as an unknown symbol.
+  term_names : @hashset.HashSet[String]
+  token_qual : String
+  syntax_qual : String
+  grammar_qual : String
+}
+
+///|
+/// Two-space indentation for `depth` levels.
+fn indent(depth : Int) -> String {
+  let b = StringBuilder()
+  for _ in 0..<depth {
+    b.write_string("  ")
+  }
+  b.to_string()
+}
+
+///|
+/// Wrap a rule/token name (always a MoonBit identifier) as a string literal for
+/// emission into the generated `Map` keys, `Ref`, and `root=`.
+fn quote(s : String) -> String {
+  "\"" + s + "\""
+}
+
+///|
+/// Whether `ast` can derive the empty string. Drives FIRST-set computation
+/// through nullable prefixes. A terminal and a fragment are never nullable; a
+/// `Ref` is nullable iff its rule body is. Revisiting a rule (a nullable cycle)
+/// returns `false` conservatively — `first_set` raises the real left-recursion
+/// error.
+fn nullable(
+  ast : RuleAst,
+  ctx : LowerCtx,
+  visiting : @hashset.HashSet[String],
+) -> Bool {
+  match ast {
+    Sym(name) =>
+      if ctx.token_kinds.contains(name) {
+        false
+      } else if visiting.contains(name) {
+        false
+      } else {
+        match ctx.rules.get(name) {
+          Some(body) => {
+            visiting.add(name)
+            let r = nullable(body, ctx, visiting)
+            visiting.remove(name)
+            r
+          }
+          None => false
+        }
+      }
+    Frag(_) => false
+    Seq(items) => items.iter().all(it => nullable(it, ctx, visiting))
+    Alt(branches) => branches.iter().any(b => nullable(b, ctx, visiting))
+    Star(_) | Opt(_) => true
+    Plus(inner) => nullable(inner, ctx, visiting)
+  }
+}
+
+///|
+/// FIRST set of `ast` — the token names that can begin it. Unions left-to-right
+/// through nullable prefixes of a `Seq`, stopping at the first non-nullable
+/// element. `visiting` detects a left-recursive `Ref` cycle and fails closed.
+fn first_set(
+  ast : RuleAst,
+  ctx : LowerCtx,
+  visiting : @hashset.HashSet[String],
+) -> @hashset.HashSet[String] raise RuleLowerError {
+  match ast {
+    Sym(name) =>
+      if ctx.token_kinds.contains(name) {
+        @hashset.HashSet([name])
+      } else if visiting.contains(name) {
+        raise RuleLowerError(
+          "left-recursive rule '" +
+          name +
+          "' — its FIRST set cannot be computed; the #loom.rule subset requires non-left-recursive productions",
+        )
+      } else {
+        match ctx.rules.get(name) {
+          Some(body) => {
+            visiting.add(name)
+            let r = first_set(body, ctx, visiting)
+            visiting.remove(name)
+            r
+          }
+          None =>
+            if ctx.term_names.contains(name) {
+              raise RuleLowerError(
+                "term '" +
+                name +
+                "' is referenced but has no #loom.rule annotation to derive its FIRST set from",
+              )
+            } else {
+              raise RuleLowerError(
+                "unknown symbol '" +
+                name +
+                "' — it is neither a #loom.token variant nor a #loom.term rule",
+              )
+            }
+        }
+      }
+    Frag(name) =>
+      raise RuleLowerError(
+        "cannot compute the FIRST set of fragment @" +
+        name +
+        "; a fragment may only stand as a whole production body, not inside an alternation, repetition, or sequence prefix",
+      )
+    Seq(items) => {
+      let acc : @hashset.HashSet[String] = @hashset.HashSet([])
+      for it in items {
+        for n in first_set(it, ctx, visiting) {
+          acc.add(n)
+        }
+        if !nullable(it, ctx, @hashset.HashSet([])) {
+          break
+        }
+      }
+      acc
+    }
+    Alt(branches) => {
+      let acc : @hashset.HashSet[String] = @hashset.HashSet([])
+      for b in branches {
+        for n in first_set(b, ctx, visiting) {
+          acc.add(n)
+        }
+      }
+      acc
+    }
+    Star(inner) | Plus(inner) | Opt(inner) => first_set(inner, ctx, visiting)
+  }
+}
+
+///|
+/// FIRST set of `ast` as token names in token-declaration order (deterministic
+/// emission). Raises if the set is empty (a nullable construct has no FIRST and
+/// cannot gate a `Choice`/`RepeatWhile`).
+fn first_names_ordered(
+  ast : RuleAst,
+  ctx : LowerCtx,
+  where_ : String,
+) -> Array[String] raise RuleLowerError {
+  let set = first_set(ast, ctx, @hashset.HashSet([]))
+  let ordered = [ for name in ctx.token_order if set.contains(name) => name ]
+  if ordered.length() == 0 {
+    raise RuleLowerError(
+      where_ +
+      " has an empty FIRST set (a nullable body cannot gate an alternation or repetition)",
+    )
+  }
+  ordered
+}
+
+///|
+/// Rule names in leading (FIRST) position of `ast`, looking through nullable
+/// prefixes. Tokens and fragments are opaque leaves (a fragment contributes no
+/// visible leading ref). Drives the build-time left-recursion check, which must
+/// fire even when a left-recursive rule never sits inside a `Choice`/`Repeat`
+/// (so `first_set` is never consulted on it). Unlike `first_set`, this never
+/// raises — it only collects graph edges.
+fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
+  match ast {
+    Sym(name) => if ctx.token_kinds.contains(name) { [] } else { [name] }
+    Frag(_) => []
+    Seq(items) => {
+      let acc : Array[String] = []
+      for it in items {
+        for r in leading_refs(it, ctx) {
+          acc.push(r)
+        }
+        if !nullable(it, ctx, @hashset.HashSet([])) {
+          break
+        }
+      }
+      acc
+    }
+    Alt(branches) => {
+      let acc : Array[String] = []
+      for b in branches {
+        for r in leading_refs(b, ctx) {
+          acc.push(r)
+        }
+      }
+      acc
+    }
+    Star(inner) | Plus(inner) | Opt(inner) => leading_refs(inner, ctx)
+  }
+}
+
+///|
+/// DFS for a cycle in the leading-reference graph. `state` maps a rule to 0/1/2
+/// (unvisited / on the current stack / done); a back-edge to a stacked rule is a
+/// left-recursive cycle. A name with no rule body (a token or ruleless term) is a
+/// dead end.
+fn left_rec_dfs(
+  name : String,
+  ctx : LowerCtx,
+  state : Map[String, Int],
+) -> String? {
+  match state.get(name) {
+    Some(1) => return Some(name)
+    Some(2) => return None
+    _ => ()
+  }
+  let body = match ctx.rules.get(name) {
+    Some(b) => b
+    None => return None
+  }
+  state.set(name, 1)
+  for r in leading_refs(body, ctx) {
+    match left_rec_dfs(r, ctx, state) {
+      Some(c) => return Some(c)
+      None => ()
+    }
+  }
+  state.set(name, 2)
+  None
+}
+
+///|
+/// Reject any left-recursive rule at build time. `first_set` detects left
+/// recursion only when consulted (inside a `Choice`/`Repeat`); a left-recursive
+/// rule used purely in `Seq`/`Node` position would otherwise generate cleanly and
+/// then infinite-loop the interpreter. Fails closed.
+fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
+  let state : Map[String, Int] = Map([])
+  for name, _ in ctx.rules {
+    match left_rec_dfs(name, ctx, state) {
+      Some(c) =>
+        return Err(
+          "left-recursive rule '" +
+          c +
+          "' — the #loom.rule subset requires non-left-recursive productions; rewrite the recursion or move it to a hand-authored @fragment",
+        )
+      None => ()
+    }
+  }
+  Ok(())
+}
+
+///|
+/// Emit a `@grammar.Pred` over `names` (already in declaration order): a single
+/// token becomes `IsToken`, several become `OneOf`.
+fn pred_text(names : Array[String], ctx : LowerCtx) -> String {
+  if names.length() == 1 {
+    ctx.grammar_qual + ".Pred::IsToken(" + ctx.token_qual + "." + names[0] + ")"
+  } else {
+    let toks = names.map(n => ctx.token_qual + "." + n)
+    ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
+  }
+}
+
+///|
+/// Lower a parsed rule node to `@grammar.Expr` source text. The returned text's
+/// first line is unindented (the caller places it); internal lines are indented
+/// absolutely from `depth`.
+fn lower(
+  ast : RuleAst,
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  match ast {
+    Sym(name) =>
+      match ctx.token_kinds.get(name) {
+        Some(kind) =>
+          ctx.grammar_qual +
+          ".Expr::Expect(" +
+          ctx.token_qual +
+          "." +
+          name +
+          ", " +
+          ctx.syntax_qual +
+          "." +
+          kind +
+          ")"
+        None =>
+          if ctx.rules.contains(name) {
+            ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
+          } else if ctx.term_names.contains(name) {
+            raise RuleLowerError(
+              "term '" +
+              name +
+              "' is referenced but has no #loom.rule annotation — a referenced #loom.leaf/#loom.node must carry a single rule to derive its body and FIRST set",
+            )
+          } else {
+            raise RuleLowerError(
+              "unknown symbol '" +
+              name +
+              "' — it is neither a #loom.token variant nor a #loom.term rule",
+            )
+          }
+      }
+    Frag(name) => ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
+    Seq(items) => {
+      let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Seq([\n")
+      for it in items {
+        b.write_string(indent(depth + 1) + lower(it, ctx, depth + 1) + ",\n")
+      }
+      b..write_string(indent(depth) + "])").to_string()
+    }
+    Star(_) | Plus(_) | Opt(_) | Alt(_) => lower_repetition(ast, ctx, depth)
+  }
+}
+
+///|
+/// Lower the FIRST-set-dependent constructs — `X*`, `X+`, `X?`, and `(A | B)` —
+/// to `RepeatWhile` / `Choice` source text. Every gate predicate is read from
+/// `first_set`, never re-derived inline, so a wrong predicate cannot slip past
+/// the tested FIRST machinery.
+fn lower_repetition(
+  ast : RuleAst,
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  match ast {
+    // X* — repeat the body while its FIRST set still gates entry.
+    Star(inner) => {
+      let pred = pred_text(
+        first_names_ordered(inner, ctx, "a '*' repetition body"),
+        ctx,
+      )
+      StringBuilder()
+      ..write_string(ctx.grammar_qual + ".Expr::RepeatWhile(\n")
+      ..write_string(indent(depth + 1) + pred + ",\n")
+      ..write_string(indent(depth + 1) + lower(inner, ctx, depth + 1) + ",\n")
+      ..write_string(indent(depth) + ")")
+      .to_string()
+    }
+    // X+ — parse one, then repeat: Seq([X, X*]). Reuses Seq/Star lowering so the
+    // formatting and the FIRST gate stay identical to the standalone forms.
+    Plus(inner) => lower(Seq([inner, Star(inner)]), ctx, depth)
+    // X? — a single-alt Choice: the interpreter peeks once, runs the alt when its
+    // FIRST matches, and otherwise does nothing — exactly "optionally X".
+    Opt(inner) => lower_choice([inner], ctx, depth)
+    // (A | B | ...) — one alt per branch, each gated on its own FIRST set.
+    Alt(branches) => lower_choice(branches, ctx, depth)
+    Sym(_) | Frag(_) | Seq(_) =>
+      raise RuleLowerError(
+        "internal: lower_repetition called on a non-repetition node",
+      )
+  }
+}
+
+///|
+/// Lower a list of alternatives to a `@grammar.Expr::Choice`, one `Alt` per
+/// branch gated on that branch's FIRST set. Shared by `Opt` (one branch) and
+/// `Alt` (several).
+fn lower_choice(
+  branches : Array[RuleAst],
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Choice([\n")
+  for branch in branches {
+    let pred = pred_text(
+      first_names_ordered(branch, ctx, "a choice alternative"),
+      ctx,
+    )
+    b
+    ..write_string(indent(depth + 1) + ctx.grammar_qual + ".Alt::{\n")
+    ..write_string(indent(depth + 2) + "starts: " + pred + ",\n")
+    ..write_string(
+      indent(depth + 2) + "body: " + lower(branch, ctx, depth + 2) + ",\n",
+    )
+    .write_string(indent(depth + 1) + "},\n")
+  }
+  b..write_string(indent(depth) + "])").to_string()
+}
+
+///|
+/// Wrap a production body in `Node(kind, body)` for the variant's node kind.
+fn lower_production(
+  kind_name : String,
+  body : RuleAst,
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  StringBuilder()
+  ..write_string(ctx.grammar_qual + ".Expr::Node(\n")
+  ..write_string(indent(depth + 1) + ctx.syntax_qual + "." + kind_name + ",\n")
+  ..write_string(indent(depth + 1) + lower(body, ctx, depth + 1) + ",\n")
+  ..write_string(indent(depth) + ")")
+  .to_string()
+}
+
+///|
+/// Build the resolution context: token vocabulary (name -> CST kind) and the
+/// parsed rule map. Fails closed if any rule string does not parse.
+fn build_lower_ctx(
+  term_enum : EnumDecl,
+  token_enum : EnumDecl,
+  token_qual : String,
+  syntax_qual : String,
+  grammar_qual : String,
+) -> Result[LowerCtx, String] {
+  let token_kinds : Map[String, String] = Map([])
+  let token_order : Array[String] = []
+  for v in token_enum.variants {
+    match v.role {
+      Some(role) => {
+        token_kinds.set(v.name, derive_kind_name(v.name, role, v.kind_override))
+        token_order.push(v.name)
+      }
+      None => ()
+    }
+  }
+  let rules : Map[String, RuleAst] = Map([])
+  let term_names : @hashset.HashSet[String] = @hashset.HashSet([])
+  for v in term_enum.variants {
+    term_names.add(v.name)
+    match v.rule {
+      Some(rule_str) =>
+        match parse_rule_string(rule_str, v.name) {
+          Ok(ast) => rules.set(v.name, ast)
+          Err(m) => return Err(m)
+        }
+      None => ()
+    }
+  }
+  Ok({
+    token_kinds,
+    token_order,
+    rules,
+    term_names,
+    token_qual,
+    syntax_qual,
+    grammar_qual,
+  })
+}
+
+///|
+/// Emit the generated `grammar_ir.g.mbt` source, or an error describing why the
+/// annotations cannot drive a GrammarIr.
+fn emit_grammar_ir(
+  term_enum : EnumDecl,
+  token_enum : EnumDecl,
+  token_qual : String,
+  syntax_qual : String,
+  grammar_qual : String,
+  value_name : String,
+) -> Result[String, String] {
+  let ctx = match
+    build_lower_ctx(
+      term_enum, token_enum, token_qual, syntax_qual, grammar_qual,
+    ) {
+    Ok(c) => c
+    Err(m) => return Err(m)
+  }
+  // Reject left recursion across all rule bodies before lowering — a
+  // left-recursive rule in plain Seq/Node position never consults `first_set`,
+  // so this is the only guard that catches it. Fails closed.
+  match check_left_recursion(ctx) {
+    Err(m) => return Err(m)
+    Ok(_) => ()
+  }
+  // Find the single #loom.root variant (the GrammarIr root rule).
+  let roots = term_enum.variants.filter(v => v.role is Some(Root))
+  let root_name = match roots {
+    [r] => r.name
+    [] =>
+      return Err(
+        "#loom.term enum has no #loom.root variant for the GrammarIr root",
+      )
+    _ =>
+      return Err(
+        "#loom.term enum has multiple #loom.root variants; exactly one is required",
+      )
+  }
+  let token_type = token_enum.name
+  let syntax_type = "SyntaxKind"
+  let b = StringBuilder()
+    ..write_string("// Generated by loomgen (#522) — do not edit.\n\n")
+    ..write_string("///|\n")
+    ..write_string(
+      "/// Generated GrammarIr initialization from #loom.rule annotations.\n",
+    )
+    ..write_string(
+      "pub let " +
+      value_name +
+      " : " +
+      grammar_qual +
+      ".GrammarIr[" +
+      token_qual +
+      "." +
+      token_type +
+      ", " +
+      syntax_qual +
+      "." +
+      syntax_type +
+      "] =\n",
+    )
+    ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
+    ..write_string(indent(2) + "{\n")
+  for v in term_enum.variants {
+    match v.rule {
+      Some(_) => {
+        let body = match ctx.rules.get(v.name) {
+          Some(ast) => ast
+          None => return Err("internal: rule for " + v.name + " not parsed")
+        }
+        let kind_name = match v.role {
+          Some(role) => derive_kind_name(v.name, role, v.kind_override)
+          None =>
+            return Err(
+              "variant " +
+              v.name +
+              " has #loom.rule but no #loom.node/root/leaf role",
+            )
+        }
+        let production = lower_production(kind_name, body, ctx, 3) catch {
+          RuleLowerError(m) => return Err(m)
+        }
+        b.write_string(indent(3) + quote(v.name) + ": " + production + ",\n")
+      }
+      None => ()
+    }
+  }
+  b
+  ..write_string(indent(2) + "},\n")
+  ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
+  .write_string(indent(1) + ")\n")
+  Ok(b.to_string())
+}
