@@ -231,6 +231,27 @@ test "parse_annotations rejects #loom.custom_lex on the #loom.eof variant" {
 }
 
 ///|
+/// CodeRabbit review (emit_lexer.mbt:83): a #loom.keyword variant is
+/// post-classified from the #loom.ident regex match and never lexed directly, so
+/// a #loom.custom_lex on it is meaningless and rejected (it would otherwise flow
+/// into codegen and never run).
+test "parse_annotations rejects #loom.custom_lex on a #loom.keyword variant" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.keyword("let")
+      #|  #loom.custom_lex("lex_let")
+      #|  Let
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "cannot have #loom.custom_lex",
+  )
+}
+
+///|
 /// #4 (Codex review): the #loom.custom_lex argument is emitted verbatim as a
 /// call, so a non-identifier is rejected at generation time rather than
 /// producing broken (or injected) source in the generated lexer.
@@ -270,16 +291,15 @@ test "parse_annotations accepts a qualified @pkg.fn custom_lex name" {
 
 ///|
 /// P1 (PR review): the emitted regex wraps the whole pattern in `^(?:..)` so the
-/// anchor binds EVERY top-level alternation branch. `re"^foo|bar"` parses as
-/// `(^foo)|(bar)`, and search-based `=~` would match the unanchored `bar`
-/// mid-view (advancing the cursor over the wrong span).
-test "emit_lexer anchors the whole pattern, including alternation" {
+/// leading anchor binds the ENTIRE pattern, not just its first piece. The wrap is
+/// the structural guarantee and is emitted for every pattern.
+test "emit_lexer wraps the whole pattern in ^(?:..)" {
   let te = token_enum_of(
     (
       #|#loom.token
       #|pub(all) enum T {
       #|  #loom.literal
-      #|  #loom.pattern("foo|bar")
+      #|  #loom.pattern("foo")
       #|  Word
       #|  #loom.eof
       #|  E
@@ -290,9 +310,29 @@ test "emit_lexer anchors the whole pattern, including alternation" {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
   }
-  inspect(generated.contains("re\"^(?:foo|bar)\""), content="true")
-  // The partially-anchored form must NOT appear.
-  inspect(generated.contains("re\"^foo|bar\""), content="false")
+  inspect(generated.contains("re\"^(?:foo)\""), content="true")
+  // The bare-anchored form (no non-capturing wrap) must NOT appear.
+  inspect(generated.contains("re\"^foo\""), content="false")
+}
+
+///|
+/// Codex review (emit_lexer.mbt:196): regex alternation is leftmost-match, not
+/// longest-match — `re"^(?:foo|foobar)"` returns the FIRST branch (`foo`, len 3),
+/// not the longest. The longest-match lexer would then split a `foobar` token, so
+/// alternation is rejected at validation. A `|` inside a character class is a
+/// literal, not an operator, and stays accepted.
+test "parse_annotations rejects alternation in #loom.pattern" {
+  let alt_src = fn(pat : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.pattern(\"" +
+    pat +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(alt_src("foo|bar"), "alternation")
+  expect_parse_err(alt_src("foo|foobar"), "alternation")
+  match parse_annotations(alt_src("[a|b]+")) {
+    Ok(_) => ()
+    Err(m) => abort("expected [a|b]+ accepted, got: " + m)
+  }
 }
 
 ///|
@@ -449,9 +489,9 @@ test "parse_annotations rejects lazy quantifiers" {
     Ok(_) => ()
     Err(m) => abort("expected a?b accepted, got: " + m)
   }
-  match parse_annotations(body("(foo|bar)?baz")) {
+  match parse_annotations(body("(ab)?baz")) {
     Ok(_) => ()
-    Err(m) => abort("expected (foo|bar)?baz accepted, got: " + m)
+    Err(m) => abort("expected (ab)?baz accepted, got: " + m)
   }
 }
 

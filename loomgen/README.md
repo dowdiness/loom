@@ -23,18 +23,25 @@ process string escapes), so write engine-valid MoonBit `re`-dialect regex — e.
 hyphen in a class is `\-`, not a bare `-`. A pattern that can match the empty string is
 rejected at generation time.
 
-**Supported `#loom.pattern` subset:** literals, escapes, character classes `[..]`, plain
-groups `(..)`, anchors `^`/`$`, and quantifiers `* + ? {m,n}`. Non-capturing/flag/lookaround
-groups `(?...)` and zero-width assertion escapes (`\b`, `\B`, `\A`, `\z`, `\Z`) are rejected
-at generation time — the nullability analyzer cannot soundly classify `(?:..)`, and the `re`
-dialect rejects the others at compile time anyway. Use a plain group `(..)` instead of `(?:..)`.
+**Supported `#loom.pattern` subset:** literals, *literal-meta* escapes (`\.`, `\-`, `\+`,
+`\xHH`, …), character classes `[..]` (including POSIX `[[:digit:]]`), plain groups `(..)`,
+anchors `^`/`$`, and *greedy* quantifiers `* + ? {m,n}`. Rejected at generation time:
+non-capturing/flag/lookaround groups `(?...)` (the nullability analyzer cannot soundly
+classify `(?:..)`; use a plain `(..)`); zero-width assertion escapes (`\b`, `\B`, `\A`, `\z`,
+`\Z`) and Perl class-shorthand escapes (`\d`, `\s`, `\w`, …) (the `re` dialect rejects both
+at compile time — use a POSIX class like `[[:digit:]]`); lazy quantifiers (`*?`, `+?`, …, a
+longest-match lexer needs greedy ones); and **alternation `|`** (regex alternation is
+leftmost-match, not longest-match, so `foo|foobar` would match `foo` and split the token —
+use separate token variants or a character class). A pattern that can match the empty string
+is also rejected.
 
 **`#loom.custom_lex` rules:** it is a *modifier* that must pair with a role annotation (the
 role gives the variant a kind for `token_impls`/`syntax_kind`; `custom_lex` overrides only
 *how* the token is lexed) — a roleless `custom_lex` variant is rejected. It may not sit on
-the `#loom.eof` variant (EOF is detected at scanner entry, never lexed), and its argument
-must be a valid function reference (`ident` or `@pkg.ident`), since it is emitted verbatim
-as a call.
+the `#loom.eof` variant (EOF is detected at scanner entry, never lexed) or a `#loom.keyword`
+variant (keywords are post-classified from the `#loom.ident` match, never lexed directly),
+and its argument must be a valid function reference (`ident` or `@pkg.ident`), since it is
+emitted verbatim as a call.
 
 ## Fixtures
 

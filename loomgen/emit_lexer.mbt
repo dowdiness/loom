@@ -182,10 +182,12 @@ fn emit_lexer(
       Some(p) => {
         let is_ident = v.role is Some(Ident)
         // Wrap the whole pattern in a non-capturing group so the leading `^`
-        // anchors EVERY top-level alternation branch. `re"^foo|bar"` parses as
-        // `(^foo)|(bar)`, and since `=~` is search-based the unanchored branch
-        // can match mid-view (`bar` in `xxbar`), advancing the cursor over the
-        // wrong span. `^(?:foo|bar)` anchors both branches.
+        // anchors the ENTIRE pattern. A bare `re"^foo|bar"` would parse as
+        // `(^foo)|(bar)`, letting the search-based `=~` match the unanchored
+        // branch mid-view; the `^(?:..)` wrap binds the anchor to the whole
+        // pattern. (Alternation itself is rejected at validation — it is
+        // leftmost-match, not longest-match — so the wrap is a defensive
+        // structural guarantee, not an alternation feature.)
         //
         // The match span is computed from the `after=` remainder rather than a
         // `... as m` binder: for a pattern that statically matches exactly one

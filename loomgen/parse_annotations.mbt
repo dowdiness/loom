@@ -241,6 +241,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                     " cannot have #loom.custom_lex; EOF is detected at scanner entry, not lexed",
                   )
                 }
+                if v.role is Some(Keyword(_)) {
+                  return Err(
+                    "#loom.keyword variant " +
+                    v.name +
+                    " cannot have #loom.custom_lex; keywords are post-classified from the #loom.ident match, never lexed directly",
+                  )
+                }
                 if !is_valid_lex_fn_name(fn_name) {
                   return Err(
                     "token variant " +
@@ -839,6 +846,16 @@ fn unsupported_re_construct(p : String) -> String? {
         "lazy quantifier '" +
         p[i:i + 2].to_owned() +
         "' is not supported; a longest-match lexer requires greedy quantifiers",
+      )
+    } else if c == '|' {
+      // Alternation is leftmost-match, not longest-match: in `re"^(?:foo|foobar)"`
+      // the engine returns the FIRST matching branch (`foo`, len 3), not the
+      // longest (`foobar`). The generated lexer's longest-match comparison only
+      // sees that short length, so a single token is silently split. (A `|`
+      // inside a character class is literal and skipped via class_end above;
+      // an escaped `\|` is skipped via the `\\` branch.) Reject the operator.
+      return Some(
+        "alternation '|' is not supported; regex alternation is leftmost-match, not longest-match, so a branch that is a prefix of a later branch would under-match and split tokens. Use separate token variants or a character class",
       )
     } else {
       i = i + 1
