@@ -38,7 +38,7 @@ fn emit_element_props(term_enum_decl : EnumDecl) -> String? {
       ..write_string(" => true\n")
       ..write_string("    _ => false\n")
       ..write_string("  }\n")
-      ..write_string("}\n")
+      ..write_string("}\n"),
     )
   }
   if rawtext_kinds.length() > 0 {
@@ -52,14 +52,16 @@ fn emit_element_props(term_enum_decl : EnumDecl) -> String? {
     b = Some(
       builder
       ..write_string("///|\n")
-      ..write_string("pub fn is_raw_text_element(kind : SyntaxKind) -> Bool {\n")
+      ..write_string(
+        "pub fn is_raw_text_element(kind : SyntaxKind) -> Bool {\n",
+      )
       ..write_string("  match kind {\n")
       ..write_string("    ")
       ..write_string(rawtext_kinds.join(" | "))
       ..write_string(" => true\n")
       ..write_string("    _ => false\n")
       ..write_string("  }\n")
-      ..write_string("}\n")
+      ..write_string("}\n"),
     )
   }
   Some(b.unwrap().to_string())

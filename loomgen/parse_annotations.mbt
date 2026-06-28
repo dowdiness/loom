@@ -304,22 +304,28 @@ fn normalize_anno_lines(source : String) -> String {
     for line in in_lines {
       let trimmed = line.trim()
       if trimmed.has_prefix("#") {
-        let parts : Array[String] = line.split("#").to_array().map(fn(s) { s.to_owned() })
+        let parts : Array[String] = line
+          .split("#")
+          .to_array()
+          .map(fn(s) { s.to_owned() })
         if parts.length() > 2 {
           let indent = parts[0]
           let first_anno = parts[1]
-          // Only split when the # boundary is NOT inside a string literal.
-          // Count quotes in the content before the second # — odd = inside string.
+          // Don't split when the # is inside a string literal or trailing // comment.
           let quote_count = first_anno.split("\"").to_array().length() - 1
-          if quote_count % 2 == 1 {
-            // Inside a string — don't split (e.g. #loom.punct("#"))
+          let comment_parts = first_anno.split("//").to_array()
+          let has_comment = comment_parts.length() > 1
+          if quote_count % 2 == 1 || has_comment {
+            // Inside string (e.g. #loom.punct("#")) or after // comment
             out_lines.push(line)
           } else {
             let trimmed_anno = first_anno.trim().to_owned()
             // Build rest by rejoining parts[2:] with #
             let mut rest = ""
             for i in 2..<parts.length() {
-              if i > 2 { rest = rest + "#" }
+              if i > 2 {
+                rest = rest + "#"
+              }
               rest = rest + parts[i]
             }
             out_lines.push(indent + "#" + trimmed_anno)
@@ -337,6 +343,8 @@ fn normalize_anno_lines(source : String) -> String {
   }
   in_lines.join("\n")
 }
+
+///|
 fn has_loom_attr(
   name : String,
   attrs : @list.List[@attribute.Attribute],
