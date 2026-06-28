@@ -1,4 +1,5 @@
 import {
+  "dowdiness/loom/grammar",
   "moonbitlang/parser",
   "moonbitlang/parser/attribute",
   "moonbitlang/parser/syntax",

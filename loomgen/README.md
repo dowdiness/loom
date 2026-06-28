@@ -9,6 +9,18 @@ Phase 2 (deferred): `#loom.term` enum support — emits `SyntaxKind` entries for
 Phase 3: `#loom.view` annotation on term variants — emits `views.g.mbt` with typed `*Proj`
 accessor structs wrapping projection_shape helpers.
 
+## Grammar IR Emitter
+
+`emit_grammar.mbt` converts a `@grammar.GrammarIr[T, K]` value to a `parse_root`/`parse_<rule>`
+MoonBit source file matching the semantics of `@grammar.interpret`.
+
+The emitter is library-only: there is no `--grammar <file.mbt>` CLI flag because
+loomgen cannot dynamically evaluate arbitrary MoonBit data from a file.
+Callers construct a `GrammarIr` in memory and pass it to `emit_grammar(...)`.
+
+Fixture parity packages (`fixtures/grammar_parity/`, `fixtures/grammar_parity_reuse/`)
+verify emitted parsers produce the same CST and diagnostics as `@grammar.interpret`.
+
 ## Fixtures
 
 - `fixtures/term_kind.mbt` — combined token+term enum for CI regression (no view variants)
