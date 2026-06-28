@@ -165,10 +165,73 @@ test "emit_grammar_ir rejects plain-position left recursion" {
 }
 
 ///|
-/// A fragment in leading position is an opaque leaf, not a left-recursion edge —
-/// `Foo := @bar` followed by recursion through `@bar` must NOT false-positive.
-/// (Fragments are hand-authored and outside the analyzable subset.)
-test "emit_grammar_ir does not false-positive a leading fragment" {
+/// @fragment references are not yet supported by --grammar-ir. The generated
+/// GrammarIr is a CLOSED value with no seam to bind a hand-authored fragment
+/// body, so emitting `Ref("bar")` would dangle — `@grammar.compile` raises
+/// `MissingRef("bar")`. The emitter must fail closed rather than emit an
+/// uncompilable grammar (binding mechanism tracked as a follow-up).
+test "emit_grammar_ir rejects @fragment references (not yet supported)" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("Foo Eof")
+      #|  Start
+      #|  #loom.node
+      #|  #loom.rule("@bar A")
+      #|  Foo
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("fragment"), content="true")
+}
+
+///|
+/// A REQUIRED alternation `(A | B)` must emit a trailing
+/// `Alt{starts: Pred::Any, body: Fail(...)}`. The interpreter's `Choice`
+/// silently no-ops when no alt's FIRST matches (interpreter.mbt), so without the
+/// fallback a required alternation given an out-of-set token would consume
+/// nothing and emit no diagnostic — silently accepting malformed input.
+test "emit_grammar_ir gives a required alternation an Any error fallback" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("(A | B)")
+    #|  Pick
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(generated.contains("@grammar.Pred::Any"), content="true")
+  inspect(generated.contains("@grammar.Expr::Fail("), content="true")
+}
+
+///|
+/// An optional `A?` must NOT get the Any/Fail fallback — "absent" is valid, not
+/// an error. Locks the required-vs-optional distinction: both `?` and `|` lower
+/// through `Choice`, but only the required form gets the error branch.
+test "emit_grammar_ir does not add an error fallback to an optional" {
   let src =
     #|#loom.token
     #|pub(all) enum Tok {
@@ -180,18 +243,16 @@ test "emit_grammar_ir does not false-positive a leading fragment" {
     #|#loom.term
     #|pub(all) enum T {
     #|  #loom.root
-    #|  #loom.rule("Foo Eof")
-    #|  Start
-    #|  #loom.node
-    #|  #loom.rule("@bar A")
-    #|  Foo
+    #|  #loom.rule("A?")
+    #|  Maybe
     #|} derive(Eq)
   let (token_enum, term_enum) = enums_of(src)
-  match
+  let generated = match
     emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
-    Ok(s) => inspect(s.contains("@grammar.Expr::Ref(\"bar\")"), content="true")
-    Err(m) => abort("leading fragment must not be rejected, got: " + m)
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
   }
+  inspect(generated.contains("@grammar.Expr::Fail("), content="false")
 }
 
 ///|

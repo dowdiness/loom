@@ -247,6 +247,49 @@ fn left_rec_dfs(
 }
 
 ///|
+/// The first fragment name reached anywhere in `ast`, or None. Fragments are an
+/// unfinished feature (see check_no_fragments) so any occurrence is rejected.
+fn first_fragment(ast : RuleAst) -> String? {
+  match ast {
+    Frag(name) => Some(name)
+    Sym(_) => None
+    Seq(items) | Alt(items) => {
+      for it in items {
+        match first_fragment(it) {
+          Some(n) => return Some(n)
+          None => ()
+        }
+      }
+      None
+    }
+    Star(inner) | Plus(inner) | Opt(inner) => first_fragment(inner)
+  }
+}
+
+///|
+/// Reject any `@fragment` reference at build time. A fragment would lower to
+/// `Ref("name")`, but the generated GrammarIr is a closed value (build_lower_ctx
+/// only inserts term-rule bodies into the map), so the Ref has no binding and
+/// `@grammar.compile` raises `MissingRef`. Until a fragment-binding mechanism
+/// exists, fail closed rather than emit an uncompilable grammar.
+fn check_no_fragments(ctx : LowerCtx) -> Result[Unit, String] {
+  for name, body in ctx.rules {
+    match first_fragment(body) {
+      Some(frag) =>
+        return Err(
+          "rule '" +
+          name +
+          "' references fragment @" +
+          frag +
+          " — @fragment references are not yet supported by --grammar-ir; the generated GrammarIr is a closed value with no way to bind a hand-authored fragment body, so the reference would dangle. Rewrite the production within the #loom.rule subset.",
+        )
+      None => ()
+    }
+  }
+  Ok(())
+}
+
+///|
 /// Reject any left-recursive rule at build time. `first_set` detects left
 /// recursion only when consulted (inside a `Choice`/`Repeat`); a left-recursive
 /// rule used purely in `Seq`/`Node` position would otherwise generate cleanly and
@@ -259,7 +302,7 @@ fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
         return Err(
           "left-recursive rule '" +
           c +
-          "' — the #loom.rule subset requires non-left-recursive productions; rewrite the recursion or move it to a hand-authored @fragment",
+          "' — the #loom.rule subset requires non-left-recursive productions; rewrite the recursion (e.g. into a repetition) so its FIRST set is well-defined",
         )
       None => ()
     }
@@ -319,7 +362,14 @@ fn lower(
             )
           }
       }
-    Frag(name) => ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
+    // Fragments are rejected up front by check_no_fragments; this arm is a
+    // defensive backstop so a fragment can never lower to a dangling Ref.
+    Frag(name) =>
+      raise RuleLowerError(
+        "fragment @" +
+        name +
+        " is not supported by --grammar-ir (no way to bind a hand-authored fragment body into the generated closed GrammarIr)",
+      )
     Seq(items) => {
       let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Seq([\n")
       for it in items {
@@ -358,11 +408,14 @@ fn lower_repetition(
     // X+ — parse one, then repeat: Seq([X, X*]). Reuses Seq/Star lowering so the
     // formatting and the FIRST gate stay identical to the standalone forms.
     Plus(inner) => lower(Seq([inner, Star(inner)]), ctx, depth)
-    // X? — a single-alt Choice: the interpreter peeks once, runs the alt when its
-    // FIRST matches, and otherwise does nothing — exactly "optionally X".
-    Opt(inner) => lower_choice([inner], ctx, depth)
-    // (A | B | ...) — one alt per branch, each gated on its own FIRST set.
-    Alt(branches) => lower_choice(branches, ctx, depth)
+    // X? — a single-alt Choice with NO fallback: the interpreter peeks once, runs
+    // the alt when its FIRST matches, and otherwise does nothing — exactly
+    // "optionally X". Absent is valid, so `required` is false.
+    Opt(inner) => lower_choice([inner], ctx, depth, required=false)
+    // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a
+    // trailing `Any → Fail` branch. A required alternation that matches no branch
+    // is an error; without the fallback the interpreter's Choice silently no-ops.
+    Alt(branches) => lower_choice(branches, ctx, depth, required=true)
     Sym(_) | Frag(_) | Seq(_) =>
       raise RuleLowerError(
         "internal: lower_repetition called on a non-repetition node",
@@ -372,24 +425,52 @@ fn lower_repetition(
 
 ///|
 /// Lower a list of alternatives to a `@grammar.Expr::Choice`, one `Alt` per
-/// branch gated on that branch's FIRST set. Shared by `Opt` (one branch) and
-/// `Alt` (several).
+/// branch gated on that branch's FIRST set. Shared by `Opt` (one branch,
+/// `required=false`) and `Alt` (several, `required=true`).
+///
+/// When `required`, a trailing `Alt{starts: Pred::Any, body: Fail(...)}` is
+/// appended: the interpreter's `Choice` silently runs nothing when no branch's
+/// FIRST matches, so a required alternation needs an explicit error branch to
+/// surface a diagnostic + placeholder instead of silently accepting the input.
+/// An optional construct legitimately matches nothing, so it omits the fallback.
 fn lower_choice(
   branches : Array[RuleAst],
   ctx : LowerCtx,
   depth : Int,
+  required~ : Bool,
 ) -> String raise RuleLowerError {
   let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Choice([\n")
+  let expected : Array[String] = []
   for branch in branches {
-    let pred = pred_text(
-      first_names_ordered(branch, ctx, "a choice alternative"),
-      ctx,
-    )
+    let names = first_names_ordered(branch, ctx, "a choice alternative")
+    for n in names {
+      if !expected.contains(n) {
+        expected.push(n)
+      }
+    }
+    let pred = pred_text(names, ctx)
     b
     ..write_string(indent(depth + 1) + ctx.grammar_qual + ".Alt::{\n")
     ..write_string(indent(depth + 2) + "starts: " + pred + ",\n")
     ..write_string(
       indent(depth + 2) + "body: " + lower(branch, ctx, depth + 2) + ",\n",
+    )
+    .write_string(indent(depth + 1) + "},\n")
+  }
+  if required {
+    let msg = "expected one of: " + expected.join(", ")
+    b
+    ..write_string(indent(depth + 1) + ctx.grammar_qual + ".Alt::{\n")
+    ..write_string(
+      indent(depth + 2) + "starts: " + ctx.grammar_qual + ".Pred::Any,\n",
+    )
+    ..write_string(
+      indent(depth + 2) +
+      "body: " +
+      ctx.grammar_qual +
+      ".Expr::Fail(" +
+      quote(msg) +
+      "),\n",
     )
     .write_string(indent(depth + 1) + "},\n")
   }
@@ -474,6 +555,12 @@ fn emit_grammar_ir(
     ) {
     Ok(c) => c
     Err(m) => return Err(m)
+  }
+  // Reject @fragment references before lowering — they would emit dangling Refs
+  // the closed GrammarIr cannot bind. Fails closed.
+  match check_no_fragments(ctx) {
+    Err(m) => return Err(m)
+    Ok(_) => ()
   }
   // Reject left recursion across all rule bodies before lowering — a
   // left-recursive rule in plain Seq/Node position never consults `first_set`,
