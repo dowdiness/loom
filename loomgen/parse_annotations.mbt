@@ -37,6 +37,8 @@ struct VariantDecl {
   attrs : Array[@attribute.Attribute]
   arg_count : Int
   kind_override : String?
+  is_void : Bool
+  is_rawtext : Bool
 }
 
 ///|
@@ -55,7 +57,12 @@ struct AnnotatedEnums {
 
 ///|
 fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
-  let (impls, diagnostics) = @parser.parse_string(source)
+  // Normalize: split lines with multiple #-delimited annotations onto separate lines.
+  // The MoonBit parser does not split on '#' within a line, so
+  // "#deprecated #loom.node Br" and "#loom.void #loom.node Br" both lose annotations.
+  // Iteratively split at each # boundary until every annotation is on its own line.
+  let normalized = normalize_anno_lines(source)
+  let (impls, diagnostics) = @parser.parse_string(normalized)
   if diagnostics.length() > 0 {
     let msgs = diagnostics.map(fn(r) { r.loc.to_string() + ": " + r.msg })
     return Err(msgs.join("; "))
@@ -129,6 +136,20 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
+          for v in classified {
+            if v.is_void {
+              return Err(
+                "token variant " + v.name + " cannot have #loom.void annotation",
+              )
+            }
+            if v.is_rawtext {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.rawtext annotation",
+              )
+            }
+          }
         }
         // All term variants MUST have a #loom.* annotation
         if is_term {
@@ -155,6 +176,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             return Err(
               "#loom.term enum has multiple #loom.errornode variants; at most one allowed",
             )
+          }
+        }
+        // Reject #loom.void AND #loom.rawtext on the same variant (contradictory)
+        if is_term {
+          for v in classified {
+            if v.is_void && v.is_rawtext {
+              return Err(
+                "variant " +
+                v.name +
+                " has both #loom.void and #loom.rawtext; at most one allowed",
+              )
+            }
           }
         }
         // Reject #loom.eof variants with payload arguments
@@ -256,6 +289,62 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
 }
 
 ///|
+/// Prepass: split lines with multiple #-delimited annotations onto separate lines.
+/// The MoonBit parser does not split on '#' within a line, so
+/// "#deprecated #loom.node Br" loses everything after the first #.
+/// Only processes lines whose trimmed form starts with # (annotation lines).
+/// Splits one # boundary per iteration until every annotation is on its own line.
+fn normalize_anno_lines(source : String) -> String {
+  let raw_lines = source.split("\n").to_array()
+  let mut in_lines : Array[String] = raw_lines.map(fn(s) { s.to_owned() })
+  let mut changed = true
+  while changed {
+    changed = false
+    let out_lines : Array[String] = []
+    for line in in_lines {
+      let trimmed = line.trim()
+      if trimmed.has_prefix("#") {
+        let parts : Array[String] = line
+          .split("#")
+          .to_array()
+          .map(fn(s) { s.to_owned() })
+        if parts.length() > 2 {
+          let indent = parts[0]
+          let first_anno = parts[1]
+          // Don't split when the # is inside a string literal or trailing // comment.
+          let quote_count = first_anno.split("\"").to_array().length() - 1
+          let comment_parts = first_anno.split("//").to_array()
+          let has_comment = comment_parts.length() > 1
+          if quote_count % 2 == 1 || has_comment {
+            // Inside string (e.g. #loom.punct("#")) or after // comment
+            out_lines.push(line)
+          } else {
+            let trimmed_anno = first_anno.trim().to_owned()
+            // Build rest by rejoining parts[2:] with #
+            let mut rest = ""
+            for i in 2..<parts.length() {
+              if i > 2 {
+                rest = rest + "#"
+              }
+              rest = rest + parts[i]
+            }
+            out_lines.push(indent + "#" + trimmed_anno)
+            out_lines.push(indent + "#" + rest)
+            changed = true
+          }
+        } else {
+          out_lines.push(line)
+        }
+      } else {
+        out_lines.push(line)
+      }
+    }
+    in_lines = out_lines
+  }
+  in_lines.join("\n")
+}
+
+///|
 fn has_loom_attr(
   name : String,
   attrs : @list.List[@attribute.Attribute],
@@ -284,13 +373,25 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         }
         // Find kind_override from any annotation on this variant
         let mut kind_override : String? = None
+        // Detect #loom.void and #loom.rawtext modifier annotations
+        let mut is_void = false
+        let mut is_rawtext = false
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
             kind_override = ko
           }
+          match attr.parsed {
+            Some(@attribute.Ident(id) | @attribute.Apply(id, _)) if id.qual ==
+              Some("loom") =>
+              if id.name == "void" {
+                is_void = true
+              } else if id.name == "rawtext" {
+                is_rawtext = true
+              }
+            _ => ()
+          }
         }
-        // Compute arg_count from constructor args (if present)
         let arg_count = match cd.args {
           Some(args) => args.length()
           None => 0
@@ -302,6 +403,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           role: None,
           arg_count,
           kind_override,
+          is_void,
+          is_rawtext,
         }
       })
       .to_array()
@@ -533,6 +636,20 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
           ViewOne
         }
         Some(View(target_node, property_name, cardinality))
+      }
+      "void" | "rawtext" => {
+        // Modifier only — skip role assignment.
+        // Validate that no arguments are given (these are bare annotations).
+        if count_apply_args(attr.parsed) > 0 {
+          return Err(
+            "#loom." +
+            matched.name +
+            " on " +
+            variant.name +
+            " does not accept arguments",
+          )
+        }
+        continue
       }
       _ =>
         match nullary_role_map.get(matched.name) {
