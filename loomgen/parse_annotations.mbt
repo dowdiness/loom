@@ -184,6 +184,17 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                     )
                   _ => ()
                 }
+                if malformed_re(p) is Some(reason) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has a malformed #loom.pattern \"" +
+                    p +
+                    "\": " +
+                    reason +
+                    ". This would emit a regex that fails to compile in the generated lexer.",
+                  )
+                }
                 if unsupported_re_construct(p) is Some(reason) {
                   return Err(
                     "token variant " +
@@ -609,12 +620,16 @@ fn nullable_atom(p : String, pos : Int) -> (Bool, Int) {
 ///|
 /// Apply a trailing quantifier to an atom's nullability. `*` and `?` make the
 /// atom optional; `+` preserves it; `{m,n}` is optional iff its lower bound is
-/// zero or absent. No quantifier leaves the atom's nullability unchanged.
+/// zero or absent. No quantifier leaves the atom's nullability unchanged. A
+/// lazy modifier (a `?` immediately after the quantifier, e.g. `a*?`) is
+/// consumed without changing nullability — otherwise it would be mis-read as a
+/// separate optional atom and a genuinely nullable pattern (`a*?`) would be
+/// classified non-nullable.
 fn apply_quantifier(atom_nullable : Bool, p : String, pos : Int) -> (Bool, Int) {
   if pos >= p.length() {
     return (atom_nullable, pos)
   }
-  match p[pos] {
+  let (nullable, next) = match p[pos] {
     '*' | '?' => (true, pos + 1)
     '+' => (atom_nullable, pos + 1)
     '{' => {
@@ -630,36 +645,58 @@ fn apply_quantifier(atom_nullable : Bool, p : String, pos : Int) -> (Bool, Int) 
       while j < p.length() && p[j] != '}' {
         j = j + 1
       }
-      let next = if j < p.length() { j + 1 } else { j }
-      if min_is_zero {
-        (true, next)
-      } else {
-        (atom_nullable, next)
-      }
+      let after_brace = if j < p.length() { j + 1 } else { j }
+      (min_is_zero || atom_nullable, after_brace)
     }
-    _ => (atom_nullable, pos)
+    // No quantifier — return immediately without consuming a following char.
+    _ => return (atom_nullable, pos)
+  }
+  // Consume a lazy `?` modifier on the quantifier just parsed.
+  if next < p.length() && p[next] == '?' {
+    (nullable, next + 1)
+  } else {
+    (nullable, next)
+  }
+}
+
+///|
+/// If a well-formed POSIX class element `[:name:]` (non-empty alphabetic name)
+/// opens at `pos` (which must point at the `[` and `p[pos+1]` must be `:`),
+/// return the index just past its `:]`. Otherwise return `None` — the `[` is an
+/// ordinary class member, not a POSIX element. This lookahead prevents a bare
+/// `[:` inside a class (e.g. `[a[:z]`) from being mistaken for a POSIX element
+/// and scanning past the real closing `]`.
+fn posix_element_end(p : String, pos : Int) -> Int? {
+  let start = pos + 2
+  let mut j = start
+  while j < p.length() && p[j] != ':' && p[j] != ']' {
+    j = j + 1
+  }
+  if j > start && j + 1 < p.length() && p[j] == ':' && p[j + 1] == ']' {
+    Some(j + 2)
+  } else {
+    None
   }
 }
 
 ///|
 /// Find the index just past the closing `]` of the character class that opens at
-/// `pos` (which must point at the `[`). Skips `\]` escapes and POSIX elements
-/// like `[:digit:]` — whose inner `]` is NOT the class terminator — so a class
-/// is always treated as exactly one consuming atom. Returns `p.length()` for an
-/// unterminated class. Shared by the nullability analyzer and the
-/// unsupported-construct scan so both agree on class boundaries.
+/// `pos` (which must point at the `[`). Skips `\]` escapes and well-formed POSIX
+/// elements like `[:digit:]` — whose inner `]` is NOT the class terminator — so
+/// a class is always treated as exactly one consuming atom. Returns `p.length()`
+/// for an unterminated class. Shared by the nullability analyzer, the
+/// unsupported-construct scan, and the structural validator so all agree on
+/// class boundaries.
 fn class_end(p : String, pos : Int) -> Int {
   let mut j = pos + 1
   while j < p.length() && p[j] != ']' {
     if p[j] == '\\' {
       j = j + 2
-    } else if p[j] == '[' && j + 1 < p.length() && p[j + 1] == ':' {
-      // POSIX element [:name:] — advance past its ':]' terminator.
-      j = j + 2
-      while j + 1 < p.length() && !(p[j] == ':' && p[j + 1] == ']') {
-        j = j + 1
-      }
-      j = j + 2
+    } else if p[j] == '[' &&
+      j + 1 < p.length() &&
+      p[j + 1] == ':' &&
+      posix_element_end(p, j) is Some(after) {
+      j = after
     } else {
       j = j + 1
     }
@@ -669,6 +706,52 @@ fn class_end(p : String, pos : Int) -> Int {
   } else {
     j
   }
+}
+
+///|
+/// Detect structurally malformed `#loom.pattern` regex: unbalanced parentheses,
+/// an unterminated character class, or a trailing unescaped backslash. The
+/// generator emits the pattern verbatim into `re"^(?:PATTERN)"`, so a malformed
+/// pattern produces a `lexer.g.mbt` that compiles "successfully" at generation
+/// time but fails the user's later `moon build` with a cryptic regex error — and
+/// the `(?:...)` wrapper turns a stray `)` / trailing `\` into an unbalanced or
+/// unterminated group. Reusing `class_end` keeps class boundaries consistent
+/// with the other scanners. Returns `Some(reason)` when malformed.
+fn malformed_re(p : String) -> String? {
+  let mut i = 0
+  let mut depth = 0
+  while i < p.length() {
+    let c = p[i]
+    if c == '\\' {
+      if i + 1 >= p.length() {
+        return Some("pattern ends with an unescaped backslash")
+      }
+      i = i + 2
+    } else if c == '[' {
+      let end = class_end(p, i)
+      // class_end returns p.length() (with no closing ']') for an unterminated
+      // class; a terminated class ends one past a ']'.
+      if end > p.length() || p[end - 1] != ']' {
+        return Some("unterminated character class '['")
+      }
+      i = end
+    } else if c == '(' {
+      depth = depth + 1
+      i = i + 1
+    } else if c == ')' {
+      if depth == 0 {
+        return Some("unbalanced ')'")
+      }
+      depth = depth - 1
+      i = i + 1
+    } else {
+      i = i + 1
+    }
+  }
+  if depth != 0 {
+    return Some("unbalanced '(' (" + depth.to_string() + " unclosed)")
+  }
+  None
 }
 
 ///|
@@ -723,25 +806,52 @@ fn unsupported_re_construct(p : String) -> String? {
 /// `@pkg.identifier` path? `#loom.custom_lex(name)` is emitted verbatim as a
 /// function call, so anything else would inject broken (or arbitrary) source
 /// into the generated lexer.
+///
+/// Grammar: an optional leading `@`, then one or more `.`-separated segments,
+/// each a non-empty identifier (first char a letter or `_`, rest alphanumeric
+/// or `_`). This rejects a leading digit (`3lex`), a bare/empty segment (`@`,
+/// `a.`, `a..b`), and any stray punctuation — all of which the old char-whitelist
+/// admitted and then emitted as a non-compiling call.
 fn is_valid_lex_fn_name(name : String) -> Bool {
-  if name.length() == 0 {
-    return false
+  let mut i = 0
+  if i < name.length() && name[i] == '@' {
+    i = i + 1
   }
-  for i in 0..<name.length() {
-    let c = name[i]
-    let is_alnum = (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9')
-    let ok = if i == 0 {
-      is_alnum || c == '_' || c == '@'
-    } else {
-      is_alnum || c == '_' || c == '.' || c == '@'
-    }
-    if !ok {
+  let mut seen_segment = false
+  while i < name.length() {
+    // Segment must start with a letter or '_'.
+    let start = name[i]
+    let starts_ident = (start >= 'a' && start <= 'z') ||
+      (start >= 'A' && start <= 'Z') ||
+      start == '_'
+    if !starts_ident {
       return false
     }
+    i = i + 1
+    while i < name.length() {
+      let c = name[i]
+      let is_ident_char = (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') ||
+        c == '_'
+      if !is_ident_char {
+        break
+      }
+      i = i + 1
+    }
+    seen_segment = true
+    // After a segment, accept end-of-name or a single '.' before the next.
+    if i < name.length() {
+      if name[i] != '.' {
+        return false
+      }
+      i = i + 1
+      if i >= name.length() {
+        return false // trailing '.'
+      }
+    }
   }
-  true
+  seen_segment
 }
 
 ///|

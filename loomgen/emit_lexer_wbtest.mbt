@@ -91,9 +91,23 @@ test "emit_lexer rejects a token with no pattern/punct/custom_lex" {
 }
 
 ///|
-test "contains_double_quote detects an embeddable-pattern hazard" {
-  inspect(contains_double_quote("a\"b"), content="true")
-  inspect(contains_double_quote("[a-z]+"), content="false")
+test "emit_lexer rejects a #loom.pattern containing a double-quote" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("a\"b")
+      #|  Q
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) => inspect(msg.contains("double-quote"), content="true")
+    Ok(_) => abort("expected double-quote rejection")
+  }
 }
 
 ///|
@@ -306,5 +320,111 @@ test "emit_lexer rejects #loom.keyword when the #loom.ident is custom_lex'd" {
     Err(msg) =>
       inspect(msg.contains("pattern-backed #loom.ident"), content="true")
     Ok(_) => abort("expected keyword-without-pattern-backed-ident rejection")
+  }
+}
+
+///|
+/// Review #1: structurally malformed patterns (unbalanced parens, unterminated
+/// class, trailing backslash) are rejected at generation time instead of being
+/// emitted verbatim into `re"^(?:..)"` and failing the user's later build.
+test "parse_annotations rejects structurally malformed patterns" {
+  let body = fn(pat : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.pattern(\"" +
+    pat +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(body("a)b"), "malformed") // stray ')'
+  expect_parse_err(body("(a"), "malformed") // unclosed '('
+  expect_parse_err(body("[abc"), "malformed") // unterminated class
+}
+
+///|
+/// Review #2: a bare `[:` inside a class (not a real POSIX element) must not
+/// scan past the class's real `]`. Before the fix `[a[:z](?:x)` swallowed the
+/// `(?:` and slipped past the unsupported-construct guard; now the `(?:` is seen
+/// and rejected.
+test "parse_annotations: false-POSIX class does not hide a later (?:..)" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("[a[:z](?:x)")
+      #|  Tok
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "(?...) groups",
+  )
+}
+
+///|
+/// Review #3: a #loom.custom_lex argument that is not a valid identifier/path
+/// (leading digit, stray punctuation, trailing/empty segment) is rejected rather
+/// than emitted as a non-compiling call.
+test "parse_annotations rejects invalid custom_lex names (leading digit, etc.)" {
+  let body = fn(name : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.custom_lex(\"" +
+    name +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(body("3lex"), "not a valid function name") // leading digit
+  expect_parse_err(body("a..b"), "not a valid function name") // empty segment
+  expect_parse_err(body("a."), "not a valid function name") // trailing dot
+}
+
+///|
+/// Review #5: a #loom.punct whose text equals a #loom.keyword shadows it (punct
+/// wins longest-match), so the keyword would never be produced — rejected.
+test "emit_lexer rejects a #loom.punct that shadows a #loom.keyword" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.punct("let")
+      #|  LetPunct
+      #|  #loom.ident
+      #|  #loom.pattern("[a-z]+")
+      #|  Id
+      #|  #loom.keyword("let")
+      #|  Let
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) =>
+      inspect(msg.contains("identical to #loom.keyword"), content="true")
+    Ok(_) => abort("expected punct-shadows-keyword rejection")
+  }
+}
+
+///|
+/// Review #5: with keywords present, more than one pattern-backed #loom.ident
+/// makes keyword post-classification ambiguous (single best_ident flag).
+test "emit_lexer rejects multiple pattern-backed idents alongside keywords" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.pattern("[a-z]+")
+      #|  Lower
+      #|  #loom.ident
+      #|  #loom.pattern("[A-Z]+")
+      #|  Upper
+      #|  #loom.keyword("let")
+      #|  Let
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) =>
+      inspect(msg.contains("more than one pattern-backed"), content="true")
+    Ok(_) => abort("expected multiple-ident rejection")
   }
 }

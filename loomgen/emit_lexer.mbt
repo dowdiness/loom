@@ -18,18 +18,6 @@ struct LexerInputs {
 }
 
 ///|
-/// Does `s` contain a double-quote? Such a pattern cannot be embedded in a
-/// generated `re"..."` literal and must use `#loom.custom_lex` instead.
-fn contains_double_quote(s : String) -> Bool {
-  for i in 0..<s.length() {
-    if s[i] == '"' {
-      return true
-    }
-  }
-  false
-}
-
-///|
 /// Collect and validate lexer candidates. Returns an error string for any
 /// state the generated scanner could not lex (unreachable variant, keyword
 /// without an identifier source, embeddable-pattern violations).
@@ -75,7 +63,7 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
         " is a lexer candidate but has constructor arguments; pattern/punct candidates must be nullary",
       )
     }
-    if v.pattern is Some(p) && contains_double_quote(p) {
+    if v.pattern is Some(p) && p.contains("\"") {
       return Err(
         "token variant " +
         v.name +
@@ -87,6 +75,36 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
     return Err(
       "#loom.token enum has #loom.keyword variants but no pattern-backed #loom.ident variant to post-classify from; keywords are classified from the #loom.ident regex match, so the identifier must use #loom.pattern (a #loom.custom_lex identifier bypasses the regex pass and would never be reclassified as a keyword)",
     )
+  }
+  // Keyword post-classification keys off a single `best_ident` flag set by the
+  // winning ident regex branch. Two pattern-backed idents both set it, so the
+  // keyword table would be applied to whichever wins longest-match — ambiguous.
+  if keywords.length() > 0 && ident_count > 1 {
+    return Err(
+      "#loom.token enum has #loom.keyword variants and more than one pattern-backed #loom.ident variant; keyword post-classification is ambiguous (it keys off a single identifier match). Keep exactly one #loom.ident, or handle the others via #loom.custom_lex",
+    )
+  }
+  // A #loom.punct whose text equals a keyword shadows it: the punct wins
+  // longest-match at equal length, so the keyword variant would never be
+  // produced. (General #loom.pattern/keyword overlap is the author's
+  // responsibility — it cannot be decided statically.)
+  for kw in keywords {
+    let (kw_text, kw_name) = kw
+    for v in variants {
+      if v.role is Some(Punct(lit)) && lit == kw_text {
+        return Err(
+          "#loom.punct variant " +
+          v.name +
+          " has text \"" +
+          lit +
+          "\" identical to #loom.keyword \"" +
+          kw_text +
+          "\" (variant " +
+          kw_name +
+          "); the punct wins longest-match, so the keyword would never be produced",
+        )
+      }
+    }
   }
   Ok({ variants, keywords, custom_lex_fns, has_keywords: keywords.length() > 0 })
 }
