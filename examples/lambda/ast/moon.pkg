@@ -3,6 +3,7 @@ import {
   "dowdiness/pretty",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
+  "moonbitlang/core/immut/hashset" @immut_hashset,
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
