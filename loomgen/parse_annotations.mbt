@@ -165,6 +165,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 " cannot have #loom.lexmode annotation",
               )
             }
+            if v.rule is Some(_) {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.rule annotation (#loom.rule is only valid on #loom.term variants)",
+              )
+            }
           }
           // Lexer-generation: #loom.pattern is only meaningful for real
           // scanning roles. Keywords are post-classified from the identifier

@@ -57,6 +57,20 @@ fn is_rule_ident_char(c : UInt16) -> Bool {
 }
 
 ///|
+/// Whether `s` is a valid (ASCII) MoonBit value identifier: non-empty, a leading
+/// letter or `_`, then letters/digits/`_`. Used to validate `--language` before
+/// it is spliced into a generated `pub let <lang>_grammar_ir` name.
+fn is_mbt_identifier(s : String) -> Bool {
+  guard s.length() > 0 && is_rule_ident_start(s[0]) else { return false }
+  for i in 1..<s.length() {
+    if !is_rule_ident_char(s[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 /// Scan an identifier starting at `pos` (which satisfies `is_rule_ident_start`),
 /// returning the identifier text and the index just past it.
 fn scan_ident(s : String, pos : Int) -> (String, Int) {

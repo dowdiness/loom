@@ -790,6 +790,17 @@ fn main {
             Some(l) => l
             None => "loom"
           }
+          // value_name is spliced into a generated `pub let`, so lang must be a
+          // valid identifier or the output won't compile. Fail closed.
+          guard is_mbt_identifier(lang) else {
+            println(
+              "error: --language '" +
+              lang +
+              "' is not a valid MoonBit identifier; it is used as the generated GrammarIr value name",
+            )
+            @sys.exit(1)
+            return
+          }
           let value_name = lang + "_grammar_ir"
           match
             emit_grammar_ir(

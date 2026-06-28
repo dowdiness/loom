@@ -452,13 +452,22 @@ fn lower_choice(
   required~ : Bool,
 ) -> String raise RuleLowerError {
   let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Choice([\n")
+  // Accumulate the FIRST tokens seen across branches: it both gates the
+  // disjointness check (a token already claimed by an earlier branch is a
+  // FIRST/FIRST conflict that would silently shadow this one) and supplies the
+  // `expected one of` message for the required fallback below.
   let expected : Array[String] = []
   for branch in branches {
     let names = first_names_ordered(branch, ctx, "a choice alternative")
     for n in names {
-      if !expected.contains(n) {
-        expected.push(n)
+      if expected.contains(n) {
+        raise RuleLowerError(
+          "ambiguous alternation: token '" +
+          n +
+          "' begins more than one alternative; the #loom.rule subset requires alternatives with disjoint FIRST sets",
+        )
       }
+      expected.push(n)
     }
     let pred = pred_text(names, ctx)
     b
@@ -581,10 +590,21 @@ fn emit_grammar_ir(
     Err(m) => return Err(m)
     Ok(_) => ()
   }
-  // Find the single #loom.root variant (the GrammarIr root rule).
+  // Find the single #loom.root variant (the GrammarIr root rule). It must carry
+  // a #loom.rule: only rule-bearing variants are emitted into the rules map, so a
+  // ruleless root would leave `root=` pointing at a nonexistent production.
   let roots = term_enum.variants.filter(v => v.role is Some(Root))
   let root_name = match roots {
-    [r] => r.name
+    [r] =>
+      if r.rule is Some(_) {
+        r.name
+      } else {
+        return Err(
+          "the #loom.root variant '" +
+          r.name +
+          "' has no #loom.rule — the root must carry a production for the GrammarIr to reference",
+        )
+      }
     [] =>
       return Err(
         "#loom.term enum has no #loom.root variant for the GrammarIr root",

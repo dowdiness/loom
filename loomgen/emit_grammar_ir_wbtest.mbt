@@ -345,3 +345,89 @@ test "emit_grammar_ir rejects an unbalanced rule string" {
   )
   inspect(msg.contains("unbalanced"), content="true")
 }
+
+///|
+/// The single #loom.root variant must itself carry a #loom.rule. Otherwise its
+/// production is never emitted into the rules map, but `root=` still names it —
+/// `@grammar.compile` then raises MissingRoot. Fail closed instead.
+test "emit_grammar_ir rejects a #loom.root variant with no #loom.rule" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  Start
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("no #loom.rule"), content="true")
+}
+
+///|
+/// Alternatives must have disjoint FIRST sets. `(A B | A C)` both begin with A,
+/// so the interpreter's first-match Choice would always run branch 1 and branch 2
+/// is dead. Reject the ambiguity rather than emit a silently-shadowing parser.
+test "emit_grammar_ir rejects an ambiguous alternation (overlapping FIRST)" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.punct("b")
+      #|  B
+      #|  #loom.punct("c")
+      #|  C
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("(A B | A C)")
+      #|  Pick
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("ambiguous"), content="true")
+}
+
+///|
+/// `--language` is spliced into a generated `pub let <lang>_grammar_ir`, so it
+/// must be a valid identifier — guarding it keeps the emitter from producing
+/// uncompilable output.
+test "is_mbt_identifier accepts identifiers and rejects the rest" {
+  inspect(is_mbt_identifier("loom"), content="true")
+  inspect(is_mbt_identifier("my_lang2"), content="true")
+  inspect(is_mbt_identifier("_x"), content="true")
+  inspect(is_mbt_identifier(""), content="false")
+  inspect(is_mbt_identifier("123"), content="false")
+  inspect(is_mbt_identifier("my-lang"), content="false")
+  inspect(is_mbt_identifier("a b"), content="false")
+}
+
+///|
+/// #loom.rule is only meaningful on #loom.term variants. On a #loom.token variant
+/// it would be silently dropped by build_lower_ctx, so reject it at parse time.
+test "parse_annotations rejects #loom.rule on a token variant" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  #loom.rule("A B")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+    ),
+    "token variant",
+  )
+}
