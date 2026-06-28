@@ -39,6 +39,7 @@ struct VariantDecl {
   kind_override : String?
   is_void : Bool
   is_rawtext : Bool
+  lexmode_name : String?
 }
 
 ///|
@@ -147,6 +148,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 "token variant " +
                 v.name +
                 " cannot have #loom.rawtext annotation",
+              )
+            }
+            if v.lexmode_name is Some(_) {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.lexmode annotation",
               )
             }
           }
@@ -373,9 +381,10 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         }
         // Find kind_override from any annotation on this variant
         let mut kind_override : String? = None
-        // Detect #loom.void and #loom.rawtext modifier annotations
+        // Detect #loom.void, #loom.rawtext, and #loom.lexmode modifier annotations
         let mut is_void = false
         let mut is_rawtext = false
+        let mut lexmode_name : String? = None
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
@@ -388,6 +397,9 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 is_void = true
               } else if id.name == "rawtext" {
                 is_rawtext = true
+              } else if id.name == "lexmode" {
+                // Extract the mode name from #loom.lexmode("Name")
+                lexmode_name = first_string_from_apply(attr.parsed)
               }
             _ => ()
           }
@@ -405,6 +417,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           kind_override,
           is_void,
           is_rawtext,
+          lexmode_name,
         }
       })
       .to_array()
@@ -648,6 +661,57 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             variant.name +
             " does not accept arguments",
           )
+        }
+        continue
+      }
+      "lexmode" => {
+        // Modifier only — skip role assignment.
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.lexmode on " +
+            variant.name +
+            " requires exactly 1 string argument (mode name)",
+          )
+        }
+        let mode_name = match first_string_from_apply(attr.parsed) {
+          Some(name) => name
+          None =>
+            return Err(
+              "#loom.lexmode on " +
+              variant.name +
+              " argument must be a string literal",
+            )
+        }
+        if mode_name.length() == 0 {
+          return Err(
+            "#loom.lexmode on " + variant.name + " mode name must not be empty",
+          )
+        }
+        let first = mode_name[0]
+        if !(first >= 'A' && first <= 'Z') {
+          return Err(
+            "#loom.lexmode on " +
+            variant.name +
+            " mode name \"" +
+            mode_name +
+            "\" must start with an uppercase letter",
+          )
+        }
+        for i = 1; i < mode_name.length(); i = i + 1 {
+          let c = mode_name[i]
+          if !(c >= 'a' && c <= 'z') &&
+            !(c >= 'A' && c <= 'Z') &&
+            !(c >= '0' && c <= '9') {
+            return Err(
+              "#loom.lexmode on " +
+              variant.name +
+              " mode name \"" +
+              mode_name +
+              "\" contains invalid character '" +
+              c.to_string() +
+              "'",
+            )
+          }
         }
         continue
       }
