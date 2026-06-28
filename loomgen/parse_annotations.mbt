@@ -37,6 +37,8 @@ struct VariantDecl {
   attrs : Array[@attribute.Attribute]
   arg_count : Int
   kind_override : String?
+  is_void : Bool
+  is_rawtext : Bool
 }
 
 ///|
@@ -55,7 +57,12 @@ struct AnnotatedEnums {
 
 ///|
 fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
-  let (impls, diagnostics) = @parser.parse_string(source)
+  // Normalize: split lines with multiple #-delimited annotations onto separate lines.
+  // The MoonBit parser does not split on '#' within a line, so
+  // "#deprecated #loom.node Br" and "#loom.void #loom.node Br" both lose annotations.
+  // Iteratively split at each # boundary until every annotation is on its own line.
+  let normalized = normalize_anno_lines(source)
+  let (impls, diagnostics) = @parser.parse_string(normalized)
   if diagnostics.length() > 0 {
     let msgs = diagnostics.map(fn(r) { r.loc.to_string() + ": " + r.msg })
     return Err(msgs.join("; "))
@@ -129,6 +136,20 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
+          for v in classified {
+            if v.is_void {
+              return Err(
+                "token variant " + v.name + " cannot have #loom.void annotation",
+              )
+            }
+            if v.is_rawtext {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.rawtext annotation",
+              )
+            }
+          }
         }
         // All term variants MUST have a #loom.* annotation
         if is_term {
@@ -155,6 +176,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             return Err(
               "#loom.term enum has multiple #loom.errornode variants; at most one allowed",
             )
+          }
+        }
+        // Reject #loom.void AND #loom.rawtext on the same variant (contradictory)
+        if is_term {
+          for v in classified {
+            if v.is_void && v.is_rawtext {
+              return Err(
+                "variant " +
+                v.name +
+                " has both #loom.void and #loom.rawtext; at most one allowed",
+              )
+            }
           }
         }
         // Reject #loom.eof variants with payload arguments
@@ -256,6 +289,45 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
 }
 
 ///|
+/// Prepass: split lines with multiple #-delimited annotations onto separate lines.
+/// The MoonBit parser does not split on '#' within a line, so
+/// "#deprecated #loom.node Br" loses everything after the first #.
+/// Only processes lines whose trimmed form starts with # (annotation lines).
+/// Splits one # boundary per iteration until every annotation is on its own line.
+fn normalize_anno_lines(source : String) -> String {
+  let raw_lines = source.split("\n").to_array()
+  let mut in_lines : Array[String] = raw_lines.map(fn(s) { s.to_owned() })
+  let mut changed = true
+  while changed {
+    changed = false
+    let out_lines : Array[String] = []
+    for line in in_lines {
+      let trimmed = line.trim()
+      if trimmed.has_prefix("#") {
+        let parts : Array[String] = line.split("#").to_array().map(fn(s) { s.to_owned() })
+        if parts.length() > 2 {
+          let indent = parts[0]
+          let first_anno = parts[1].trim().to_owned()
+          // Build rest by rejoining parts[2:] with #
+          let mut rest = ""
+          for i in 2..<parts.length() {
+            if i > 2 { rest = rest + "#" }
+            rest = rest + parts[i]
+          }
+          out_lines.push(indent + "#" + first_anno)
+          out_lines.push(indent + "#" + rest)
+          changed = true
+        } else {
+          out_lines.push(line)
+        }
+      } else {
+        out_lines.push(line)
+      }
+    }
+    in_lines = out_lines
+  }
+  in_lines.join("\n")
+}
 fn has_loom_attr(
   name : String,
   attrs : @list.List[@attribute.Attribute],
@@ -284,13 +356,25 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         }
         // Find kind_override from any annotation on this variant
         let mut kind_override : String? = None
+        // Detect #loom.void and #loom.rawtext modifier annotations
+        let mut is_void = false
+        let mut is_rawtext = false
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
             kind_override = ko
           }
+          match attr.parsed {
+            Some(@attribute.Ident(id) | @attribute.Apply(id, _)) if id.qual ==
+              Some("loom") =>
+              if id.name == "void" {
+                is_void = true
+              } else if id.name == "rawtext" {
+                is_rawtext = true
+              }
+            _ => ()
+          }
         }
-        // Compute arg_count from constructor args (if present)
         let arg_count = match cd.args {
           Some(args) => args.length()
           None => 0
@@ -302,6 +386,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           role: None,
           arg_count,
           kind_override,
+          is_void,
+          is_rawtext,
         }
       })
       .to_array()
@@ -436,103 +522,19 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
         }
         Some(Literal)
       }
-      "view" => {
-        let n = count_apply_args(attr.parsed)
-        if n < 2 {
+      "void" | "rawtext" => {
+        // Modifier only — skip role assignment.
+        // Validate that no arguments are given (these are bare annotations).
+        if count_apply_args(attr.parsed) > 0 {
           return Err(
-            "#loom.view on " +
+            "#loom." +
+            matched.name +
+            " on " +
             variant.name +
-            " requires at least 2 string arguments (target, property)",
+            " does not accept arguments",
           )
         }
-        if n > 3 {
-          return Err(
-            "#loom.view on " +
-            variant.name +
-            " accepts at most 3 arguments (target, property, cardinality)",
-          )
-        }
-        let target_node = match nth_string_from_apply(attr.parsed, 0) {
-          Some(s) => s
-          None =>
-            return Err(
-              "#loom.view on " +
-              variant.name +
-              " first argument must be a string literal (target node)",
-            )
-        }
-        let property_name = match nth_string_from_apply(attr.parsed, 1) {
-          Some(s) => s
-          None =>
-            return Err(
-              "#loom.view on " +
-              variant.name +
-              " second argument must be a string literal (property name)",
-            )
-        }
-        // Validate property_name is a non-empty valid MoonBit identifier (alphanumeric + underscores)
-        {
-          if property_name.length() == 0 {
-            return Err(
-              "#loom.view on " +
-              variant.name +
-              " property name must not be empty",
-            )
-          }
-          let first = property_name[0]
-          if !(first >= 'a' && first <= 'z') &&
-            !(first >= 'A' && first <= 'Z') &&
-            first != '_' {
-            return Err(
-              "#loom.view on " +
-              variant.name +
-              " property name \"" +
-              property_name +
-              "\" is not a valid MoonBit identifier",
-            )
-          }
-          for i = 1; i < property_name.length(); i = i + 1 {
-            let c = property_name[i]
-            if !(c >= 'a' && c <= 'z') &&
-              !(c >= 'A' && c <= 'Z') &&
-              !(c >= '0' && c <= '9') &&
-              c != '_' {
-              return Err(
-                "#loom.view on " +
-                variant.name +
-                " property name \"" +
-                property_name +
-                "\" is not a valid MoonBit identifier",
-              )
-            }
-          }
-        }
-        let cardinality = if n == 3 {
-          match nth_string_from_apply(attr.parsed, 2) {
-            Some(s) =>
-              match s {
-                "optional" => ViewOptional
-                "zero_or_more" => ViewZeroOrMore
-                "one_or_more" => ViewOneOrMore
-                "one" => ViewOne
-                _ =>
-                  return Err(
-                    "#loom.view on " +
-                    variant.name +
-                    " third argument must be \"optional\", \"zero_or_more\", \"one_or_more\", or \"one\"",
-                  )
-              }
-            None =>
-              return Err(
-                "#loom.view on " +
-                variant.name +
-                " third argument must be a string literal",
-              )
-          }
-        } else {
-          ViewOne
-        }
-        Some(View(target_node, property_name, cardinality))
+        continue
       }
       _ =>
         match nullary_role_map.get(matched.name) {

@@ -409,6 +409,37 @@ fn write_outputs(
     println("  " + syntax_out + "/syntax_kind.mbt")
   }
 
+  // Write element_props.g.mbt (only when syntax kinds are generated and term enum exists)
+  if !skip_syntax {
+    match term_enum_decl {
+      Some(term_enum_val) =>
+        match emit_element_props(term_enum_val) {
+          Some(content) => {
+            @fs.write_string_to_file(
+              syntax_out + "/element_props.g.mbt",
+              content,
+            ) catch {
+              _ => {
+                println("Error writing " + syntax_out + "/element_props.g.mbt")
+                return Err(())
+              }
+            }
+            println("  " + syntax_out + "/element_props.g.mbt")
+          }
+          None =>
+            // Remove stale file when no variants are flagged
+            @fs.remove_file(syntax_out + "/element_props.g.mbt") catch {
+              _ => ()
+            }
+        }
+      None =>
+        // Remove stale file when term enum is entirely absent
+        @fs.remove_file(syntax_out + "/element_props.g.mbt") catch {
+          _ => ()
+        }
+    }
+  }
+
   // Persist retired raws for next --seed round-trip.
   // Always write the companion file in skip-syntax mode, even when empty,
   // so stale entries from previous runs are cleared.
