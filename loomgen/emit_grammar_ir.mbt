@@ -36,11 +36,7 @@ struct LowerCtx {
 ///|
 /// Two-space indentation for `depth` levels.
 fn indent(depth : Int) -> String {
-  let b = StringBuilder()
-  for _ in 0..<depth {
-    b.write_string("  ")
-  }
-  b.to_string()
+  "  ".repeat(depth)
 }
 
 ///|
@@ -48,6 +44,90 @@ fn indent(depth : Int) -> String {
 /// emission into the generated `Map` keys, `Ref`, and `root=`.
 fn quote(s : String) -> String {
   "\"" + s + "\""
+}
+
+///|
+/// What a symbol in a rule string resolves to. Every walker (`nullable`,
+/// `first_set`, `leading_refs`, `lower`) classifies a `Sym` the same way; routing
+/// them through one `resolve_sym` keeps that classification — and its diagnostics
+/// — defined in exactly one place.
+enum SymKind {
+  Terminal(String) // a #loom.token variant; carries its CST leaf kind name
+  Rule(RuleAst) // a #loom.term variant with a #loom.rule body
+  RulelessTerm // a #loom.term variant with no #loom.rule
+  Unknown // neither a token nor a term
+}
+
+///|
+/// Classify a symbol name against the token enum (terminal), the rule map (`Ref`),
+/// and the term-name set (ruleless term), falling back to `Unknown`.
+fn resolve_sym(name : String, ctx : LowerCtx) -> SymKind {
+  match ctx.token_kinds.get(name) {
+    Some(kind) => Terminal(kind)
+    None =>
+      match ctx.rules.get(name) {
+        Some(body) => Rule(body)
+        None =>
+          if ctx.term_names.contains(name) {
+            RulelessTerm
+          } else {
+            Unknown
+          }
+      }
+  }
+}
+
+///|
+/// Diagnostic for a `Ref` to a term that carries no `#loom.rule`. One definition
+/// shared by `first_set` and `lower` so the wording cannot drift between passes.
+fn ruleless_term_msg(name : String) -> String {
+  "term '" +
+  name +
+  "' is referenced but has no #loom.rule annotation — a referenced #loom.leaf/#loom.node must carry a single rule to derive its body and FIRST set"
+}
+
+///|
+/// Diagnostic for a symbol that is neither a token nor a term.
+fn unknown_symbol_msg(name : String) -> String {
+  "unknown symbol '" +
+  name +
+  "' — it is neither a #loom.token variant nor a #loom.term rule"
+}
+
+///|
+/// Diagnostic for a left-recursive rule. Shared by `first_set` (demand-driven,
+/// inside a Choice/Repeat) and `check_left_recursion` (eager) so one defect has
+/// one wording.
+fn left_rec_msg(name : String) -> String {
+  "left-recursive rule '" +
+  name +
+  "' — the #loom.rule subset requires non-left-recursive productions; rewrite the recursion (e.g. into a repetition) so its FIRST set is well-defined"
+}
+
+///|
+/// Diagnostic for an unsupported `@fragment` reference. Shared by `lower` and
+/// `first_set` (defensive backstops; `check_no_fragments` is the primary gate).
+fn fragment_unsupported_msg(frag : String) -> String {
+  "fragment @" +
+  frag +
+  " is not supported by --grammar-ir; the generated GrammarIr is a closed value with no way to bind a hand-authored fragment body"
+}
+
+///|
+/// The prefix of `items` that sits in leading (FIRST) position: every element up
+/// to and including the first non-nullable one. Shared by `first_set` and
+/// `leading_refs` so the through-nullable-prefix logic lives in one place and the
+/// two analyses cannot drift (a drift would silently reopen the left-recursion
+/// gap, since `leading_refs` feeds the sole Seq/Node-position left-rec guard).
+fn seq_leading(items : Array[RuleAst], ctx : LowerCtx) -> Array[RuleAst] {
+  let acc : Array[RuleAst] = []
+  for it in items {
+    acc.push(it)
+    if !nullable(it, ctx, @hashset.HashSet([])) {
+      break
+    }
+  }
+  acc
 }
 
 ///|
@@ -63,20 +143,17 @@ fn nullable(
 ) -> Bool {
   match ast {
     Sym(name) =>
-      if ctx.token_kinds.contains(name) {
-        false
-      } else if visiting.contains(name) {
-        false
-      } else {
-        match ctx.rules.get(name) {
-          Some(body) => {
+      match resolve_sym(name, ctx) {
+        Rule(body) =>
+          if visiting.contains(name) {
+            false
+          } else {
             visiting.add(name)
             let r = nullable(body, ctx, visiting)
             visiting.remove(name)
             r
           }
-          None => false
-        }
+        Terminal(_) | RulelessTerm | Unknown => false
       }
     Frag(_) => false
     Seq(items) => items.iter().all(it => nullable(it, ctx, visiting))
@@ -97,52 +174,28 @@ fn first_set(
 ) -> @hashset.HashSet[String] raise RuleLowerError {
   match ast {
     Sym(name) =>
-      if ctx.token_kinds.contains(name) {
-        @hashset.HashSet([name])
-      } else if visiting.contains(name) {
-        raise RuleLowerError(
-          "left-recursive rule '" +
-          name +
-          "' — its FIRST set cannot be computed; the #loom.rule subset requires non-left-recursive productions",
-        )
-      } else {
-        match ctx.rules.get(name) {
-          Some(body) => {
+      match resolve_sym(name, ctx) {
+        Terminal(_) => @hashset.HashSet([name])
+        Rule(body) =>
+          if visiting.contains(name) {
+            raise RuleLowerError(left_rec_msg(name))
+          } else {
             visiting.add(name)
             let r = first_set(body, ctx, visiting)
             visiting.remove(name)
             r
           }
-          None =>
-            if ctx.term_names.contains(name) {
-              raise RuleLowerError(
-                "term '" +
-                name +
-                "' is referenced but has no #loom.rule annotation to derive its FIRST set from",
-              )
-            } else {
-              raise RuleLowerError(
-                "unknown symbol '" +
-                name +
-                "' — it is neither a #loom.token variant nor a #loom.term rule",
-              )
-            }
-        }
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
-    Frag(name) =>
-      raise RuleLowerError(
-        "cannot compute the FIRST set of fragment @" +
-        name +
-        "; a fragment may only stand as a whole production body, not inside an alternation, repetition, or sequence prefix",
-      )
+    // Unreachable for valid input — check_no_fragments rejects fragments before
+    // any FIRST set is computed — but kept as a defensive backstop.
+    Frag(name) => raise RuleLowerError(fragment_unsupported_msg(name))
     Seq(items) => {
       let acc : @hashset.HashSet[String] = @hashset.HashSet([])
-      for it in items {
+      for it in seq_leading(items, ctx) {
         for n in first_set(it, ctx, visiting) {
           acc.add(n)
-        }
-        if !nullable(it, ctx, @hashset.HashSet([])) {
-          break
         }
       }
       acc
@@ -171,7 +224,7 @@ fn first_names_ordered(
 ) -> Array[String] raise RuleLowerError {
   let set = first_set(ast, ctx, @hashset.HashSet([]))
   let ordered = [ for name in ctx.token_order if set.contains(name) => name ]
-  if ordered.length() == 0 {
+  guard ordered.length() > 0 else {
     raise RuleLowerError(
       where_ +
       " has an empty FIRST set (a nullable body cannot gate an alternation or repetition)",
@@ -189,16 +242,17 @@ fn first_names_ordered(
 /// raises — it only collects graph edges.
 fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
   match ast {
-    Sym(name) => if ctx.token_kinds.contains(name) { [] } else { [name] }
+    Sym(name) =>
+      match resolve_sym(name, ctx) {
+        Terminal(_) => []
+        Rule(_) | RulelessTerm | Unknown => [name]
+      }
     Frag(_) => []
     Seq(items) => {
       let acc : Array[String] = []
-      for it in items {
+      for it in seq_leading(items, ctx) {
         for r in leading_refs(it, ctx) {
           acc.push(r)
-        }
-        if !nullable(it, ctx, @hashset.HashSet([])) {
-          break
         }
       }
       acc
@@ -298,12 +352,7 @@ fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
   let state : Map[String, Int] = Map([])
   for name, _ in ctx.rules {
     match left_rec_dfs(name, ctx, state) {
-      Some(c) =>
-        return Err(
-          "left-recursive rule '" +
-          c +
-          "' — the #loom.rule subset requires non-left-recursive productions; rewrite the recursion (e.g. into a repetition) so its FIRST set is well-defined",
-        )
+      Some(c) => return Err(left_rec_msg(c))
       None => ()
     }
   }
@@ -333,8 +382,8 @@ fn lower(
 ) -> String raise RuleLowerError {
   match ast {
     Sym(name) =>
-      match ctx.token_kinds.get(name) {
-        Some(kind) =>
+      match resolve_sym(name, ctx) {
+        Terminal(kind) =>
           ctx.grammar_qual +
           ".Expr::Expect(" +
           ctx.token_qual +
@@ -345,31 +394,13 @@ fn lower(
           "." +
           kind +
           ")"
-        None =>
-          if ctx.rules.contains(name) {
-            ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
-          } else if ctx.term_names.contains(name) {
-            raise RuleLowerError(
-              "term '" +
-              name +
-              "' is referenced but has no #loom.rule annotation — a referenced #loom.leaf/#loom.node must carry a single rule to derive its body and FIRST set",
-            )
-          } else {
-            raise RuleLowerError(
-              "unknown symbol '" +
-              name +
-              "' — it is neither a #loom.token variant nor a #loom.term rule",
-            )
-          }
+        Rule(_) => ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
     // Fragments are rejected up front by check_no_fragments; this arm is a
     // defensive backstop so a fragment can never lower to a dangling Ref.
-    Frag(name) =>
-      raise RuleLowerError(
-        "fragment @" +
-        name +
-        " is not supported by --grammar-ir (no way to bind a hand-authored fragment body into the generated closed GrammarIr)",
-      )
+    Frag(name) => raise RuleLowerError(fragment_unsupported_msg(name))
     Seq(items) => {
       let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Seq([\n")
       for it in items {
@@ -377,21 +408,6 @@ fn lower(
       }
       b..write_string(indent(depth) + "])").to_string()
     }
-    Star(_) | Plus(_) | Opt(_) | Alt(_) => lower_repetition(ast, ctx, depth)
-  }
-}
-
-///|
-/// Lower the FIRST-set-dependent constructs — `X*`, `X+`, `X?`, and `(A | B)` —
-/// to `RepeatWhile` / `Choice` source text. Every gate predicate is read from
-/// `first_set`, never re-derived inline, so a wrong predicate cannot slip past
-/// the tested FIRST machinery.
-fn lower_repetition(
-  ast : RuleAst,
-  ctx : LowerCtx,
-  depth : Int,
-) -> String raise RuleLowerError {
-  match ast {
     // X* — repeat the body while its FIRST set still gates entry.
     Star(inner) => {
       let pred = pred_text(
@@ -416,10 +432,6 @@ fn lower_repetition(
     // trailing `Any → Fail` branch. A required alternation that matches no branch
     // is an error; without the fallback the interpreter's Choice silently no-ops.
     Alt(branches) => lower_choice(branches, ctx, depth, required=true)
-    Sym(_) | Frag(_) | Seq(_) =>
-      raise RuleLowerError(
-        "internal: lower_repetition called on a non-repetition node",
-      )
   }
 }
 

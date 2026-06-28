@@ -114,6 +114,12 @@ struct RuleParser {
 }
 
 ///|
+/// A fresh parser positioned at the first token.
+fn RuleParser::RuleParser(toks : Array[RuleTok]) -> RuleParser {
+  { toks, pos: 0 }
+}
+
+///|
 fn RuleParser::peek(self : RuleParser) -> RuleTok? {
   if self.pos < self.toks.length() {
     Some(self.toks[self.pos])
@@ -226,14 +232,12 @@ fn parse_rule_string(rule : String, where_ : String) -> Result[RuleAst, String] 
   let toks = tokenize_rule(rule) catch {
     RuleParseError(m) => return Err(prefix + m)
   }
-  if toks.length() == 0 {
-    return Err(prefix + "rule string is empty")
-  }
-  let parser = RuleParser::{ toks, pos: 0 }
+  guard toks.length() > 0 else { return Err(prefix + "rule string is empty") }
+  let parser = RuleParser(toks)
   let ast = parser.parse_alt() catch {
     RuleParseError(m) => return Err(prefix + m)
   }
-  if parser.pos != toks.length() {
+  guard parser.pos == toks.length() else {
     return Err(prefix + "trailing tokens after a complete rule")
   }
   Ok(ast)
