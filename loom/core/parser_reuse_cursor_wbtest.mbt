@@ -883,7 +883,7 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
 
   // Verify first_source_backed_token skips both trivia kinds
   let first = first_source_backed_token(node, trivia_kinds)
-  inspect(first.is_some(), content="true")
+  inspect(first is Some(_), content="true")
   match first {
     Some(tok) => inspect(@debug.to_string(tok.kind), content="RawKind(1)")
     None => ()
