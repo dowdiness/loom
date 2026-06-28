@@ -44,6 +44,12 @@ pub struct PrettyLayout {
 }
 pub impl TermSym for PrettyLayout
 
+pub(all) struct SourceText {
+  repr : String
+  prec : Int
+}
+pub impl TermSym for SourceText
+
 pub(all) enum Term {
   Int(Int)
   Var(String)

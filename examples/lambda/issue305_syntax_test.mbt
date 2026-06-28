@@ -13,7 +13,7 @@ test "issue305: arrow lambda allows newline before arrow" {
 ///|
 test "issue305: multi-parameter arrow lambda desugars to curried Lam" {
   let term = parse("(x, y) => x y") catch { _ => fail("parse failed") }
-  inspect(@ast.print_term(term), content="(x, y) => (x y)")
+  inspect(@ast.print_term(term), content="(x) => (y) => x y")
 }
 
 ///|
@@ -23,7 +23,10 @@ test "issue305: named fn definition parses and pretty-prints with params" {
   }
   inspect(
     @ast.print_term(term),
-    content="fn add(x, y) { (x + y) }\n((add 1) 2)",
+    content=(
+      #|{ let add = (x) => (y) => x + y
+      #|add 1 2 }
+    ),
   )
 }
 
@@ -32,7 +35,7 @@ test "issue305: let value declaration parses" {
   let term = parse("let answer = 42\nanswer") catch {
     _ => fail("parse failed")
   }
-  inspect(@ast.print_term(term), content="let answer = 42\nanswer")
+  inspect(@ast.print_term(term), content="{ let answer = 42\nanswer }")
 }
 
 ///|

@@ -93,7 +93,12 @@ test "resolve: mixed bound and free in rewritten term" {
     @ast.Term::Bop(@ast.Bop::Plus, @ast.Term::Var("x"), @ast.Term::Var("y")),
   )
   let (resolved_term, res) = resolve(term)
-  inspect(@ast.print_term(resolved_term), content="(x) => (x + <unbound: y>)")
+  inspect(
+    @ast.print_term(resolved_term),
+    content=(
+      #|(x) => x + <unbound: y>
+    ),
+  )
   debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   debug_inspect(res.vars.get(3), content="Some(Free)")
 }
@@ -112,7 +117,14 @@ test "resolve: nested let shadowing" {
   debug_inspect(res.vars.get(4), content="Some(Bound(depth=1))")
   debug_inspect(res.vars.get(5), content="Some(Bound(depth=1))")
   // no Unbound nodes — all vars are bound
-  inspect(@ast.print_term(resolved_term), content="let x = 1\nlet x = x\nx")
+  inspect(
+    @ast.print_term(resolved_term),
+    content=(
+      #|{ let x = 1
+      #|let x = x
+      #|x }
+    ),
+  )
 }
 
 ///|
@@ -125,7 +137,12 @@ test "resolve: idempotent on pre-resolved tree" {
   let (resolved_once, _) = resolve(term)
   let (resolved_twice, res2) = resolve(resolved_once)
   // Tree should be identical
-  inspect(@ast.print_term(resolved_twice), content="(x) => (x + <unbound: y>)")
+  inspect(
+    @ast.print_term(resolved_twice),
+    content=(
+      #|(x) => x + <unbound: y>
+    ),
+  )
   // Unbound node should still be marked Free in the resolution map
   debug_inspect(res2.vars.get(3), content="Some(Free)")
 }

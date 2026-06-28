@@ -30,6 +30,104 @@ let prec_app : Int = 4
 let prec_atom : Int = 5
 
 ///|
+/// SourceText: compact, minimal-parenthesized source-text interpretation.
+/// Named `SourceText` (not `Source`) to avoid colliding with the `@pretty.Source`
+/// trait that `Term` implements. Mirrors `PrettyLayout`'s precedence discipline:
+/// each node reports its own `prec`; the parent wraps a child via `wrap_source`.
+pub(all) struct SourceText {
+  repr : String
+  prec : Int
+}
+
+///|
+fn wrap_source(child : SourceText, ctx_prec : Int) -> String {
+  if child.prec < ctx_prec {
+    "(" + child.repr + ")"
+  } else {
+    child.repr
+  }
+}
+
+///|
+pub impl TermSym for SourceText with fn int_lit(n) {
+  { repr: n.to_string(), prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn variable(x) {
+  { repr: x, prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn lam(x, body) {
+  { repr: "(" + x + ") => " + body.repr, prec: prec_lam }
+}
+
+///|
+pub impl TermSym for SourceText with fn app(f, a) {
+  {
+    repr: wrap_source(f, prec_app) + " " + wrap_source(a, prec_atom),
+    prec: prec_app,
+  }
+}
+
+///|
+pub impl TermSym for SourceText with fn bop(op, l, r) {
+  let sym = match op {
+    Plus => "+"
+    Minus => "-"
+  }
+  {
+    repr: wrap_source(l, prec_bop) +
+    " " +
+    sym +
+    " " +
+    wrap_source(r, prec_bop + 1),
+    prec: prec_bop,
+  }
+}
+
+///|
+pub impl TermSym for SourceText with fn if_then_else(c, t, e) {
+  {
+    repr: "if " + c.repr + " then " + t.repr + " else " + e.repr,
+    prec: prec_if,
+  }
+}
+
+///|
+pub impl TermSym for SourceText with fn let_def(name, init) {
+  { repr: "let " + name + " = " + init.repr, prec: prec_top }
+}
+
+///|
+pub impl TermSym for SourceText with fn mod(defs, body) {
+  let parts : Array[String] = defs.map(fn(d) { "let " + d.0 + " = " + d.1.repr })
+  parts.push(body.repr)
+  { repr: "{ " + parts.join("\n") + " }", prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn unit() {
+  { repr: "()", prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn unbound(x) {
+  { repr: "<unbound: " + x + ">", prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn error_term(msg) {
+  { repr: "<error: " + msg + ">", prec: prec_atom }
+}
+
+///|
+pub impl TermSym for SourceText with fn hole(_n) {
+  { repr: "_", prec: prec_atom }
+}
+
+///|
 /// PrettyLayout: TermSym interpretation producing Layout[SyntaxCategory].
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
@@ -107,131 +205,8 @@ fn collect_lambda_params(term : Term) -> (Array[String], Term) {
 }
 
 ///|
-fn params_to_source(params : Array[String]) -> String {
-  "(" + params.join(", ") + ")"
-}
-
-///|
-fn module_contents_to_source(
-  defs : Array[(String, Term)],
-  body : Term,
-) -> String {
-  let parts = defs.map(fn(d) { def_to_source(d.0, d.1) })
-  parts.push(expression_to_source(body))
-  parts.join("\n")
-}
-
-///|
-fn module_to_block_source(defs : Array[(String, Term)], body : Term) -> String {
-  "{ " + module_contents_to_source(defs, body) + " }"
-}
-
-///|
-fn expression_to_source(term : Term) -> String {
-  match term {
-    Module(defs, body) => module_to_block_source(defs, body)
-    _ => term_to_source(term)
-  }
-}
-
-///|
-fn function_body_to_source(body : Term) -> String {
-  match body {
-    Module(defs, result) => module_contents_to_source(defs, result)
-    _ => term_to_source(body)
-  }
-}
-
-///|
-fn lambda_body_to_source(body : Term) -> String {
-  match body {
-    Module(defs, result) => module_to_block_source(defs, result)
-    _ => term_to_source_with_prec(body, prec_lam)
-  }
-}
-
-///|
-fn def_to_source(name : String, init : Term) -> String {
-  let (params, body) = collect_lambda_params(init)
-  if params.is_empty() {
-    "let " + name + " = " + expression_to_source(init)
-  } else {
-    "fn " +
-    name +
-    params_to_source(params) +
-    " { " +
-    function_body_to_source(body) +
-    " }"
-  }
-}
-
-///|
-fn term_to_source_with_prec(term : Term, ctx_prec : Int) -> String {
-  let text = match term {
-    Int(n) => n.to_string()
-    Var(name) => name
-    Lam(_, _) => {
-      let (params, body) = collect_lambda_params(term)
-      params_to_source(params) + " => " + lambda_body_to_source(body)
-    }
-    App(f, arg) =>
-      "(" +
-      term_to_source_with_prec(f, prec_app) +
-      " " +
-      term_to_source_with_prec(arg, prec_atom) +
-      ")"
-    Bop(op, left, right) => {
-      let sym = match op {
-        Plus => "+"
-        Minus => "-"
-      }
-      "(" +
-      term_to_source_with_prec(left, prec_bop) +
-      " " +
-      sym +
-      " " +
-      term_to_source_with_prec(right, prec_bop + 1) +
-      ")"
-    }
-    If(cond, then_, else_) =>
-      "if " +
-      expression_to_source(cond) +
-      " then " +
-      expression_to_source(then_) +
-      " else " +
-      expression_to_source(else_)
-    LetDef(name, init) => def_to_source(name, init)
-    Module(defs, body) =>
-      if ctx_prec == prec_top {
-        module_contents_to_source(defs, body)
-      } else {
-        module_to_block_source(defs, body)
-      }
-    Unit => "()"
-    Unbound(name) => "<unbound: " + name + ">"
-    Error(msg) => "<error: " + msg + ">"
-    Hole(_) => "_"
-  }
-  let prec = match term {
-    Lam(_, _) => prec_lam
-    If(_, _, _) => prec_if
-    Bop(_, _, _) => prec_bop
-    App(_, _) => prec_app
-    Int(_) | Var(_) | Unit | Unbound(_) | Error(_) | Hole(_) => prec_atom
-    LetDef(_, _) => prec_top
-    Module(_, _) if ctx_prec == prec_top => prec_top
-    Module(_, _) => prec_atom
-  }
-  if prec < ctx_prec {
-    "(" + text + ")"
-  } else {
-    text
-  }
-}
-
-///|
 fn term_to_source(term : Term) -> String {
-  term_to_source_with_prec(term, prec_top)
+  (interpret(term) : SourceText).repr
 }
 
 ///|

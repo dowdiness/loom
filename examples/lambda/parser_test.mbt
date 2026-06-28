@@ -44,21 +44,36 @@ test "parse identity function" {
 test "parse plus binary operator" {
   let expr = parse("1 + 2")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(1 + 2)")
+  inspect(
+    printed,
+    content=(
+      #|1 + 2
+    ),
+  )
 }
 
 ///|
 test "parse minus binary operator" {
   let expr = parse("5 - 2")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(5 - 2)")
+  inspect(
+    printed,
+    content=(
+      #|5 - 2
+    ),
+  )
 }
 
 ///|
 test "parse complex binary operators" {
   let expr = parse("10 - 5 + 2")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="((10 - 5) + 2)")
+  inspect(
+    printed,
+    content=(
+      #|10 - 5 + 2
+    ),
+  )
 }
 
 ///|
@@ -72,21 +87,36 @@ test "parse parenthesized expression" {
 test "parse multi-parameter lambda" {
   let expr = parse("(f, x) => x")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(f, x) => x")
+  inspect(
+    printed,
+    content=(
+      #|(f) => (x) => x
+    ),
+  )
 }
 
 ///|
 test "parse simple application" {
   let expr = parse("f x")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(f x)")
+  inspect(
+    printed,
+    content=(
+      #|f x
+    ),
+  )
 }
 
 ///|
 test "parse multiple applications" {
   let expr = parse("f x y")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="((f x) y)")
+  inspect(
+    printed,
+    content=(
+      #|f x y
+    ),
+  )
 }
 
 ///|
@@ -132,7 +162,12 @@ test "parse nested parentheses" {
 test "parse complex nested expression" {
   let expr = parse("((f, x) => f (f x))")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(f, x) => (f ((f x)))")
+  inspect(
+    printed,
+    content=(
+      #|(f) => (x) => f (f x)
+    ),
+  )
 }
 
 // ===== Error Handling Tests =====
@@ -296,7 +331,12 @@ test "parse arrow lambda" {
 test "parse application chain" {
   let expr = parse("a b c d")
   let printed = @ast.print_term(expr)
-  inspect(printed, content="(((a b) c) d)")
+  inspect(
+    printed,
+    content=(
+      #|a b c d
+    ),
+  )
 }
 
 ///|
@@ -314,7 +354,12 @@ test "parse mixed operators and applications" {
 test "parse complex expression with all features" {
   let expr = parse("((f, x) => if f x then x + 1 else x - 1)")
   let printed = @ast.print_term(expr)
-  inspect(printed.contains("(f, x) =>"), content="true")
+  inspect(
+    printed.contains("(f, x) =>"),
+    content=(
+      #|false
+    ),
+  )
   inspect(printed.contains("if"), content="true")
   inspect(printed.contains("then"), content="true")
   inspect(printed.contains("else"), content="true")
@@ -328,8 +373,8 @@ test "parse let expression" {
   inspect(
     @ast.print_term(expr),
     content=(
-      #|let x = 1
-      #|x
+      #|{ let x = 1
+      #|x }
     ),
   )
 }
@@ -340,8 +385,8 @@ test "parse let with binary op in body" {
   inspect(
     @ast.print_term(expr),
     content=(
-      #|let x = 3
-      #|(x + 1)
+      #|{ let x = 3
+      #|x + 1 }
     ),
   )
 }
@@ -352,9 +397,9 @@ test "parse nested let" {
   inspect(
     @ast.print_term(expr),
     content=(
-      #|let x = 1
+      #|{ let x = 1
       #|let y = 2
-      #|(x + y)
+      #|x + y }
     ),
   )
 }
@@ -365,8 +410,8 @@ test "parse let with lambda" {
   inspect(
     @ast.print_term(expr),
     content=(
-      #|fn f(x) { x }
-      #|(f 42)
+      #|{ let f = (x) => x
+      #|f 42 }
     ),
   )
 }
@@ -378,9 +423,9 @@ test "parse_term: two defs produce Module with Unit body" {
   inspect(
     @ast.print_term(term),
     content=(
-      #|let id = 1
+      #|{ let id = 1
       #|let const = 2
-      #|()
+      #|() }
     ),
   )
 }
@@ -392,8 +437,8 @@ test "parse_term: def + final expression" {
   inspect(
     @ast.print_term(term),
     content=(
-      #|let id = 1
-      #|id
+      #|{ let id = 1
+      #|id }
     ),
   )
 }
@@ -405,8 +450,8 @@ test "parse_term: leading newline before def + final expression" {
   inspect(
     @ast.print_term(term),
     content=(
-      #|let id = 1
-      #|id
+      #|{ let id = 1
+      #|id }
     ),
   )
 }
@@ -425,8 +470,8 @@ test "parse_term: single let definition with body" {
   inspect(
     @ast.print_term(term),
     content=(
-      #|let x = 1
-      #|x
+      #|{ let x = 1
+      #|x }
     ),
   )
 }
@@ -438,9 +483,9 @@ test "parse_term: multiple let definitions with body" {
   inspect(
     @ast.print_term(term),
     content=(
-      #|let x = 1
+      #|{ let x = 1
       #|let y = 2
-      #|(x + y)
+      #|x + y }
     ),
   )
 }
@@ -449,14 +494,24 @@ test "parse_term: multiple let definitions with body" {
 test "parse_term: multiline binary expression (no defs)" {
   let (term, diagnostics) = parse_term("1\n+2")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="(1 + 2)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|1 + 2
+    ),
+  )
 }
 
 ///|
 test "parse_term: multiline application (no defs)" {
   let (term, diagnostics) = parse_term("f\nx")
   inspect(diagnostics.length(), content="0")
-  inspect(@ast.print_term(term), content="(f x)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|f x
+    ),
+  )
 }
 
 ///|
@@ -484,7 +539,12 @@ test "desugar fn with params to nested Lam" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("fn f(x, y)"), content="true")
+  inspect(
+    printed.contains("fn f(x, y)"),
+    content=(
+      #|false
+    ),
+  )
 }
 
 ///|
@@ -530,7 +590,7 @@ test "desugar params plus block" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("fn f(x)"), content="true")
+  inspect(printed.contains("let f = (x) =>"), content="true")
 }
 
 // ===== Combined Grammar Tests =====
@@ -562,7 +622,12 @@ test "parse param list with block body" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(printed.contains("fn compute(x, y)"), content="true")
+  inspect(
+    printed.contains("fn compute(x, y)"),
+    content=(
+      #|false
+    ),
+  )
 }
 
 ///|
