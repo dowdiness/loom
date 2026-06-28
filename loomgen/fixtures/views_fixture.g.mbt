@@ -16,6 +16,11 @@ pub fn IfExprProj::cast(n : @seam.SyntaxNode) -> IfExprProj? {
 }
 
 ///|
+pub impl @seam.AstView for IfExprProj with fn syntax_node(self) {
+  self.node
+}
+
+///|
 pub fn IfExprProj::condition(
   self : IfExprProj,
   message? : String = "view IfExpr.condition expects exactly one IfCondition",
@@ -51,6 +56,11 @@ pub fn LambdaExprProj::cast(n : @seam.SyntaxNode) -> LambdaExprProj? {
   } else {
     None
   }
+}
+
+///|
+pub impl @seam.AstView for LambdaExprProj with fn syntax_node(self) {
+  self.node
 }
 
 ///|

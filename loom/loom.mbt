@@ -100,8 +100,7 @@ pub using @pipeline {type Parser, type SyntaxParser, type SyntaxSnapshot}
 // package.
 
 ///|
-// AstView trait — implement for every typed view type in your language package.
-pub using @core {trait AstView}
+pub using @seam {trait AstView}
 
 ///|
 // Memoized catamorphism — CstFold[Ast] for incremental CST → AST conversion

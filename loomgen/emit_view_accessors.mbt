@@ -80,7 +80,11 @@ fn emit_view_accessors(
     b.write_string("    Some({ node: n })\n")
     b.write_string("  } else {\n    None\n  }\n}\n")
 
-    // AstView impl omitted: target package (e.g. syntax/) may not import @core
+    // AstView impl
+    b.write_string("\n///|\n")
+    b.write_string("pub impl @seam.AstView for ")
+    b.write_string(view_struct_name)
+    b.write_string(" with fn syntax_node(self) {\n  self.node\n}\n")
 
     // Accessor methods
     for edge in edges {
