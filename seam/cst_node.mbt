@@ -263,14 +263,14 @@ fn is_error_signal(
 ///|
 /// Create a CstNode. text_len, hash, and token_count are computed from children.
 ///
-/// `trivia_kind`: when provided, leaf tokens with this kind are excluded from
-/// `token_count`.  Pass `Some(whitespace_raw_kind)` from the language layer to
-/// get a non-whitespace token count.  Pass nothing (or `None`) for a
+/// `trivia_kinds`: when provided, leaf tokens with these kinds are excluded from
+/// `token_count`.  Pass `Some([whitespace_raw_kind, ...])` from the language layer to
+/// get a non-trivia token count.  Pass nothing (or `None`) for a
 /// language-agnostic total leaf token count.
 pub fn CstNode::new(
   kind : RawKind,
   children : Array[CstElement],
-  trivia_kind? : RawKind? = None,
+  trivia_kinds? : Array[RawKind]? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode {
@@ -284,8 +284,11 @@ pub fn CstNode::new(
     h = combine_hash(h, child_hash(child))
     match child {
       Token(t) => {
-        match trivia_kind {
-          Some(ws) => if t.kind != ws { token_count = token_count + 1 }
+        match trivia_kinds {
+          Some(kinds) =>
+            if !kinds.contains(t.kind) {
+              token_count = token_count + 1
+            }
           None => token_count = token_count + 1
         }
         if !has_any_error &&
@@ -312,7 +315,7 @@ pub fn CstNode::with_replaced_child(
   self : CstNode,
   index : Int,
   new_child : CstElement,
-  trivia_kind? : RawKind? = None,
+  trivia_kinds? : Array[RawKind]? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstNode {
@@ -321,7 +324,7 @@ pub fn CstNode::with_replaced_child(
   CstNode::new(
     self.kind,
     new_children,
-    trivia_kind~,
+    trivia_kinds~,
     error_kind~,
     incomplete_kind~,
   )

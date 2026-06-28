@@ -237,7 +237,7 @@ fn zero_width_build_tree_from_events(
       ctx.events.build_tree_interned(
         spec.root_kind.to_raw(),
         @seam.Interner::new(),
-        trivia_kind=Some(spec.whitespace_kind.to_raw()),
+        trivia_kinds=Some([spec.whitespace_kind.to_raw()]),
         error_kind=Some(spec.error_kind.to_raw()),
         incomplete_kind=Some(spec.incomplete_kind.to_raw()),
       ) catch {
@@ -248,7 +248,7 @@ fn zero_width_build_tree_from_events(
         spec.root_kind.to_raw(),
         @seam.Interner::new(),
         @seam.NodeInterner::new(),
-        trivia_kind=Some(spec.whitespace_kind.to_raw()),
+        trivia_kinds=Some([spec.whitespace_kind.to_raw()]),
         error_kind=Some(spec.error_kind.to_raw()),
         incomplete_kind=Some(spec.incomplete_kind.to_raw()),
       ) catch {

@@ -133,6 +133,7 @@ fn make_test_fixtures() -> (
     eof_token: TestTok::TokEof,
     parse_root: _ => (),
     reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs],
   }
   let tokens = [
     { token: TestTok::Plus, len: 1 },

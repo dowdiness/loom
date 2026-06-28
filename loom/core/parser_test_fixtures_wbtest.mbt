@@ -7,6 +7,7 @@ enum TestTok {
   Num(Int)
   Plus
   Ws
+  Comment
   TokEof
 } derive(Eq, Debug)
 
@@ -17,7 +18,7 @@ impl Show for TestTok with fn output(self, logger) {
 
 ///|
 impl @seam.IsTrivia for TestTok with fn is_trivia(self) {
-  self == Ws
+  self == Ws || self == Comment
 }
 
 ///|
@@ -30,6 +31,7 @@ impl @seam.ToRawKind for TestTok with fn to_raw(self) {
   let n = match self {
     Num(_) => 0
     Plus => 1
+    Comment => 8
     Ws => 4
     TokEof => 7
   }
@@ -43,6 +45,7 @@ enum TestKind {
   KExpr
   KRoot
   KWs
+  KComment
   KErr
   KIncomplete
 } derive(Debug)
@@ -55,6 +58,7 @@ fn test_kind_raw(k : TestKind) -> @seam.RawKind {
     KExpr => 2
     KRoot => 3
     KWs => 4
+    KComment => 8
     KErr => 5
     KIncomplete => 6
   }
@@ -124,6 +128,7 @@ let test_spec : LanguageSpec[TestTok, TestKind] = {
   eof_token: TestTok::TokEof,
   parse_root: fn(_) { () },
   reuse_size_threshold: 64,
+  trivia_kinds_spec: [KWs],
 }
 
 ///|

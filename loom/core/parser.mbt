@@ -61,15 +61,11 @@ pub struct LanguageSpec[T, K] {
   incomplete_kind : K
   root_kind : K
   eof_token : T
-  // Grammar entry point. Called by parse_tokens_indexed to drive the full parse.
-  // Receives a fully-configured ParserContext; parse_tokens_indexed calls
-  // flush_trivia after parse_root returns, so parse_root need not call it.
-  // Set to a no-op by default for call sites (e.g. tests) that use
-  // parse_with() with an explicit grammar parameter instead.
+  /// All trivia kinds (including whitespace_kind). Used by the reuse cursor
+  /// to skip all trivia leaf tokens when walking the old CST.
+  /// Populated from all `#loom.trivia`-annotated variants in the language spec.
+  trivia_kinds_spec : Array[K]
   parse_root : (ParserContext[T, K]) -> Unit
-  // Minimum text_len (in code units) for a CST node to be eligible for reuse.
-  // Nodes smaller than this threshold are re-parsed instead of reused, avoiding
-  // the overhead of cursor seek + 4-condition check on tiny subtrees.
   reuse_size_threshold : Int
 }
 
@@ -83,6 +79,7 @@ pub fn[T, K] LanguageSpec::new(
   incomplete_kind? : K = error_kind,
   parse_root? : (ParserContext[T, K]) -> Unit = _ => (),
   reuse_size_threshold? : Int = 64,
+  trivia_kinds_spec? : Array[K] = [whitespace_kind],
 ) -> LanguageSpec[T, K] {
   {
     whitespace_kind,
@@ -90,6 +87,7 @@ pub fn[T, K] LanguageSpec::new(
     incomplete_kind,
     root_kind,
     eof_token,
+    trivia_kinds_spec,
     parse_root,
     reuse_size_threshold,
   }
@@ -138,4 +136,12 @@ pub(all) struct Checkpoint[T, K] {
   priv open_nodes : Int
   priv reuse_cursor : ReuseCursor[T, K]?
   priv reuse_count : Int
+}
+
+///|
+/// Convert trivia_kinds_spec to RawKind array. Requires ToRawKind on K.
+pub fn[T, K : @seam.ToRawKind] LanguageSpec::trivia_kinds_raw(
+  self : LanguageSpec[T, K],
+) -> Array[@seam.RawKind] {
+  self.trivia_kinds_spec.map(fn(k) { k.to_raw() })
 }

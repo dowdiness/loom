@@ -35,7 +35,7 @@ pub fn[R] CstElement::transform(
 /// accumulators (Int, String). For Array collection, use `transform` instead.
 ///
 /// **Performance:** Closures that capture outer variables (e.g., a
-/// `trivia_kind` for filtering) incur ~2x overhead from upvalue access.
+/// `trivia_kinds` for filtering) incur ~2x overhead from upvalue access.
 /// For parameterized hot-path folds, prefer hand-written methods like
 /// `CstElement::token_count`.
 pub fn[R] CstElement::fold(
@@ -188,7 +188,7 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 /// reconstructed element. For `Node` elements, a new `CstNode` is built
 /// with `CstNode::new` to ensure metadata consistency.
 ///
-/// Pass `trivia_kind`, `error_kind`, `incomplete_kind` for accurate
+/// Pass `trivia_kinds`, `error_kind`, `incomplete_kind` for accurate
 /// `token_count` and `has_any_error` metadata on reconstructed nodes.
 /// Without these, `token_count` counts all leaf tokens (including trivia)
 /// and `has_any_error` defaults to `false` at each reconstructed node.
@@ -197,11 +197,11 @@ pub fn CstElement::iter(self : CstElement) -> Iter[CstElement] {
 /// traversal), its cached metadata may reflect different classification
 /// assumptions. `CstNode::new` trusts child `token_count`/`has_any_error`
 /// without re-deriving from leaves, so mixing trees built under different
-/// `trivia_kind`/`error_kind` rules produces inconsistent metadata.
+/// `trivia_kinds`/`error_kind` rules produces inconsistent metadata.
 pub fn CstElement::map(
   self : CstElement,
   f : (CstElement) -> CstElement,
-  trivia_kind? : RawKind? = None,
+  trivia_kinds? : Array[RawKind]? = None,
   error_kind? : RawKind? = None,
   incomplete_kind? : RawKind? = None,
 ) -> CstElement {
@@ -211,7 +211,7 @@ pub fn CstElement::map(
       let new_children = Array::new(capacity=node.children.length())
       for child in node.children {
         new_children.push(
-          child.map(f, trivia_kind~, error_kind~, incomplete_kind~),
+          child.map(f, trivia_kinds~, error_kind~, incomplete_kind~),
         )
       }
       f(
@@ -219,7 +219,7 @@ pub fn CstElement::map(
           CstNode::new(
             node.kind,
             new_children,
-            trivia_kind~,
+            trivia_kinds~,
             error_kind~,
             incomplete_kind~,
           ),
@@ -264,7 +264,7 @@ pub fn[F : Finder] CstElement::find(self : CstElement, f : F) -> CstElement? {
 ///|
 /// Count non-trivia leaf tokens in the subtree.
 ///
-/// Use this when the tree wasn't built with `trivia_kind` (otherwise
+/// Use this when the tree wasn't built with `trivia_kinds` (otherwise
 /// prefer the cached `CstNode.token_count` field which is O(1)).
 pub fn CstElement::token_count(self : CstElement, trivia_kind : RawKind) -> Int {
   match self {
