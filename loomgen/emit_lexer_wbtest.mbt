@@ -65,7 +65,8 @@ test "emit_lexer rejects #loom.keyword without a #loom.ident source" {
     ),
   )
   match emit_lexer(te, "@core", "step_lex") {
-    Err(msg) => inspect(msg.contains("no #loom.ident"), content="true")
+    Err(msg) =>
+      inspect(msg.contains("no pattern-backed #loom.ident"), content="true")
     Ok(_) => abort("expected keyword-without-ident rejection")
   }
 }
@@ -250,5 +251,60 @@ test "parse_annotations accepts a qualified @pkg.fn custom_lex name" {
   match parse_annotations(src) {
     Ok(_) => ()
     Err(m) => abort("expected @css.lex_url to be accepted, got: " + m)
+  }
+}
+
+///|
+/// P1 (PR review): the emitted regex wraps the whole pattern in `^(?:..)` so the
+/// anchor binds EVERY top-level alternation branch. `re"^foo|bar"` parses as
+/// `(^foo)|(bar)`, and search-based `=~` would match the unanchored `bar`
+/// mid-view (advancing the cursor over the wrong span).
+test "emit_lexer anchors the whole pattern, including alternation" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("foo|bar")
+      #|  Word
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(generated.contains("re\"^(?:foo|bar)\""), content="true")
+  // The partially-anchored form must NOT appear.
+  inspect(generated.contains("re\"^foo|bar\""), content="false")
+}
+
+///|
+/// P2 (PR review): keywords are post-classified from the #loom.ident REGEX
+/// match, so a #loom.custom_lex identifier — which short-circuits before the
+/// regex pass and never sets best_ident — cannot back keyword classification.
+/// Reject it at generation time rather than silently emitting a lexer that
+/// returns `Ident` for `let`.
+test "emit_lexer rejects #loom.keyword when the #loom.ident is custom_lex'd" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.custom_lex("lex_ident")
+      #|  Id
+      #|  #loom.keyword("let")
+      #|  Let
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) =>
+      inspect(msg.contains("pattern-backed #loom.ident"), content="true")
+    Ok(_) => abort("expected keyword-without-pattern-backed-ident rejection")
   }
 }

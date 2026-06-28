@@ -40,7 +40,11 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
   let mut ident_count = 0
   for v in variants {
     match v.role {
-      Some(Ident) => ident_count = ident_count + 1
+      // Only a PATTERN-backed ident participates in keyword post-classification:
+      // it wins the regex pass and sets best_ident. A #loom.custom_lex ident
+      // short-circuits before the regex pass and never triggers classification,
+      // so it does not count as a keyword source.
+      Some(Ident) => if v.pattern is Some(_) { ident_count = ident_count + 1 }
       Some(Keyword(kw)) => keywords.push((kw, v.name))
       _ => ()
     }
@@ -81,7 +85,7 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
   }
   if keywords.length() > 0 && ident_count == 0 {
     return Err(
-      "#loom.token enum has #loom.keyword variants but no #loom.ident variant to post-classify from",
+      "#loom.token enum has #loom.keyword variants but no pattern-backed #loom.ident variant to post-classify from; keywords are classified from the #loom.ident regex match, so the identifier must use #loom.pattern (a #loom.custom_lex identifier bypasses the regex pass and would never be reclassified as a keyword)",
     )
   }
   Ok({ variants, keywords, custom_lex_fns, has_keywords: keywords.length() > 0 })
@@ -149,7 +153,12 @@ fn emit_lexer(
     match v.pattern {
       Some(p) => {
         let is_ident = v.role is Some(Ident)
-        b.write_string("  if view =~ (re\"^" + p + "\" as m) {\n")
+        // Wrap the whole pattern in a non-capturing group so the leading `^`
+        // anchors EVERY top-level alternation branch. `re"^foo|bar"` parses as
+        // `(^foo)|(bar)`, and since `=~` is search-based the unanchored branch
+        // can match mid-view (`bar` in `xxbar`), advancing the cursor over the
+        // wrong span. `^(?:foo|bar)` anchors both branches.
+        b.write_string("  if view =~ (re\"^(?:" + p + ")\" as m) {\n")
         b.write_string("    let len = m.length()\n")
         b.write_string("    if len > best_len {\n")
         b.write_string("      best_len = len\n")

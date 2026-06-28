@@ -21,7 +21,7 @@ pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
     best = Some(Arrow)
     best_ident = false
   }
-  if view =~ (re"^[a-zA-Z_][a-zA-Z0-9_]*" as m) {
+  if view =~ (re"^(?:[a-zA-Z_][a-zA-Z0-9_]*)" as m) {
     let len = m.length()
     if len > best_len {
       best_len = len
@@ -29,7 +29,7 @@ pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
       best_ident = true
     }
   }
-  if view =~ (re"^[0-9]+" as m) {
+  if view =~ (re"^(?:[0-9]+)" as m) {
     let len = m.length()
     if len > best_len {
       best_len = len
@@ -37,7 +37,7 @@ pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
       best_ident = false
     }
   }
-  if view =~ (re"^[ \t\r\n]+" as m) {
+  if view =~ (re"^(?:[ \t\r\n]+)" as m) {
     let len = m.length()
     if len > best_len {
       best_len = len
