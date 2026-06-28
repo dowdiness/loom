@@ -480,34 +480,31 @@ fn write_outputs(
     None => ()
   }
 
-  // Write views.g.mbt (view accessors) when term_enum has #loom.view variants
+  // Write views.g.mbt (view accessors) when term_enum has #loom.view variants.
+  // Always check for stale file to remove, even when no term enum exists.
+  let views_path = syntax_out + "/views.g.mbt"
+  let mut views_written = false
   match term_enum_decl {
-    Some(term_enum_val) => {
+    Some(term_enum_val) if !skip_syntax => {
       let syntax_type_name = "SyntaxKind"
-      if !skip_syntax {
-        let content = emit_view_accessors(term_enum_val, syntax_type_name)
-        let views_path = syntax_out + "/views.g.mbt"
-        if content.length() > 0 {
-          @fs.write_string_to_file(views_path, content) catch {
-            _ => {
-              println("Error writing " + views_path)
-              return Err(())
-            }
-          }
-          println("  " + views_path)
-        } else {
-          // Remove stale generated file when no view variants remain
-          if @fs.path_exists(views_path) {
-            @fs.remove_file(views_path) catch {
-              _ => {
-                println("Warning: could not remove stale " + views_path)
-              }
-            }
+      let content = emit_view_accessors(term_enum_val, syntax_type_name)
+      if content.length() > 0 {
+        @fs.write_string_to_file(views_path, content) catch {
+          _ => {
+            println("Error writing " + views_path)
+            return Err(())
           }
         }
+        println("  " + views_path)
+        views_written = true
       }
     }
-    None => ()
+    _ => ()
+  }
+  if !views_written && !skip_syntax && @fs.path_exists(views_path) {
+    @fs.remove_file(views_path) catch {
+      _ => println("Warning: could not remove stale " + views_path)
+    }
   }
 
   println("  " + token_out + "/token_impls.g.mbt")
@@ -607,7 +604,10 @@ fn main {
   )
 
   let annotated = match read_and_parse(source_path) {
-    Err(_) => { @sys.exit(1); return }
+    Err(_) => {
+      @sys.exit(1)
+      return
+    }
     Ok(a) => a
   }
   let te = match annotated.token_enum {
@@ -626,7 +626,10 @@ fn main {
   match term_path {
     Some(tp) => {
       let term_annotated = match load_term_enum(tp) {
-        Err(_) => { @sys.exit(1); return }
+        Err(_) => {
+          @sys.exit(1)
+          return
+        }
         Ok(a) => a
       }
       // Reject duplicate term_enum
@@ -656,39 +659,50 @@ fn main {
     }
   }
 
-  let registry = match setup_registry(seed_path, skip_syntax, token_out, syntax_out) {
-    Err(_) => { @sys.exit(1); return }
+  let registry = match
+    setup_registry(seed_path, skip_syntax, token_out, syntax_out) {
+    Err(_) => {
+      @sys.exit(1)
+      return
+    }
     Ok(r) => r
   }
 
   let build_result = match build_kinds(te, registry, term_enum_decl) {
-    Err(_) => { @sys.exit(1); return }
+    Err(_) => {
+      @sys.exit(1)
+      return
+    }
     Ok(r) => r
   }
 
   let retired_rawns = registry.tombstoned_rawns()
 
-  match write_outputs(
-    te,
-    build_result.kinds,
-    build_result.term_kinds,
-    build_result.trivia_set,
-    build_result.error_set,
-    build_result.error_node_name,
-    retired_rawns,
-    skip_syntax,
-    token_out,
-    syntax_out,
-    spec_path,
-    language_name,
-    cli_token_type,
-    cli_syntax_type,
-    token_qual,
-    syntax_qual,
-    core_qual,
-    term_enum_decl,
-  ) {
-    Err(_) => { @sys.exit(1); return }
+  match
+    write_outputs(
+      te,
+      build_result.kinds,
+      build_result.term_kinds,
+      build_result.trivia_set,
+      build_result.error_set,
+      build_result.error_node_name,
+      retired_rawns,
+      skip_syntax,
+      token_out,
+      syntax_out,
+      spec_path,
+      language_name,
+      cli_token_type,
+      cli_syntax_type,
+      token_qual,
+      syntax_qual,
+      core_qual,
+      term_enum_decl,
+    ) {
+    Err(_) => {
+      @sys.exit(1)
+      return
+    }
     Ok(_) => ()
   }
 }

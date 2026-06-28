@@ -321,6 +321,7 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
     _ => None
   }
 }
+
 ///|
 /// Extract the nth positional string argument from a loom annotation (0-indexed).
 fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
@@ -330,7 +331,8 @@ fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
       for prop in props {
         if i == index {
           match prop {
-            @attribute.Expr(@attribute.String(lit)) => return Some(lit.to_string())
+            @attribute.Expr(@attribute.String(lit)) =>
+              return Some(lit.to_string())
             _ => return None
           }
         }
@@ -341,7 +343,6 @@ fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
     _ => None
   }
 }
-
 
 ///|
 /// Extract the kind name override from a `#loom.literal` annotation.
@@ -439,36 +440,55 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
         let n = count_apply_args(attr.parsed)
         if n < 2 {
           return Err(
-            "#loom.view on " + variant.name + " requires at least 2 string arguments (target, property)",
+            "#loom.view on " +
+            variant.name +
+            " requires at least 2 string arguments (target, property)",
           )
         }
         if n > 3 {
           return Err(
-            "#loom.view on " + variant.name + " accepts at most 3 arguments (target, property, cardinality)",
+            "#loom.view on " +
+            variant.name +
+            " accepts at most 3 arguments (target, property, cardinality)",
           )
         }
         let target_node = match nth_string_from_apply(attr.parsed, 0) {
           Some(s) => s
           None =>
             return Err(
-              "#loom.view on " + variant.name + " first argument must be a string literal (target node)",
+              "#loom.view on " +
+              variant.name +
+              " first argument must be a string literal (target node)",
             )
         }
         let property_name = match nth_string_from_apply(attr.parsed, 1) {
           Some(s) => s
           None =>
             return Err(
-              "#loom.view on " + variant.name + " second argument must be a string literal (property name)",
+              "#loom.view on " +
+              variant.name +
+              " second argument must be a string literal (property name)",
             )
         }
-        // Validate property_name is a valid MoonBit identifier (alphanumeric + underscores)
+        // Validate property_name is a non-empty valid MoonBit identifier (alphanumeric + underscores)
         {
+          if property_name.length() == 0 {
+            return Err(
+              "#loom.view on " +
+              variant.name +
+              " property name must not be empty",
+            )
+          }
           let first = property_name[0]
           if !(first >= 'a' && first <= 'z') &&
             !(first >= 'A' && first <= 'Z') &&
             first != '_' {
             return Err(
-              "#loom.view on " + variant.name + " property name \"" + property_name + "\" is not a valid MoonBit identifier",
+              "#loom.view on " +
+              variant.name +
+              " property name \"" +
+              property_name +
+              "\" is not a valid MoonBit identifier",
             )
           }
           for i = 1; i < property_name.length(); i = i + 1 {
@@ -478,14 +498,18 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
               !(c >= '0' && c <= '9') &&
               c != '_' {
               return Err(
-                "#loom.view on " + variant.name + " property name \"" + property_name + "\" is not a valid MoonBit identifier",
+                "#loom.view on " +
+                variant.name +
+                " property name \"" +
+                property_name +
+                "\" is not a valid MoonBit identifier",
               )
             }
           }
         }
         let cardinality = if n == 3 {
           match nth_string_from_apply(attr.parsed, 2) {
-            Some(s) => {
+            Some(s) =>
               match s {
                 "optional" => ViewOptional
                 "zero_or_more" => ViewZeroOrMore
@@ -498,10 +522,11 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
                     " third argument must be \"optional\", \"zero_or_more\", \"one_or_more\", or \"one\"",
                   )
               }
-            }
             None =>
               return Err(
-                "#loom.view on " + variant.name + " third argument must be a string literal",
+                "#loom.view on " +
+                variant.name +
+                " third argument must be a string literal",
               )
           }
         } else {

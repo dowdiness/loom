@@ -10,10 +10,14 @@
 ///|
 /// Generate view accessor content for a `#loom.term` enum.
 /// Returns the file content (or empty string when there are no View variants).
-fn emit_view_accessors(term_enum : EnumDecl, syntax_type_name : String) -> String {
+fn emit_view_accessors(
+  term_enum : EnumDecl,
+  syntax_type_name : String,
+) -> String {
   // Collect all View variants, grouped by target.
   // Each group entry is (variant_name, property_name, cardinality).
-  let view_groups : Map[String, Array[(String, String, ViewCardinality)]] = Map([])
+  let view_groups : Map[String, Array[(String, String, ViewCardinality)]] = Map([],
+  )
   for v in term_enum.variants {
     match v.role {
       Some(View(target, property, cardinality)) => {
@@ -33,7 +37,9 @@ fn emit_view_accessors(term_enum : EnumDecl, syntax_type_name : String) -> Strin
 
   let b = StringBuilder::new()
   b.write_string("///|\n")
-  b.write_string("/// Generated typed projection accessors from #loom.view annotations.\n")
+  b.write_string(
+    "/// Generated typed projection accessors from #loom.view annotations.\n",
+  )
 
   // Sort targets for deterministic output
   let sorted_targets = view_groups.keys().to_array()
@@ -43,7 +49,13 @@ fn emit_view_accessors(term_enum : EnumDecl, syntax_type_name : String) -> Strin
     let edges = view_groups.get(target).unwrap()
     // Sort edges by property name (tuple index 1) for deterministic output
     edges.sort_by(fn(a, b) {
-      if a.1 < b.1 { -1 } else if a.1 > b.1 { 1 } else { 0 }
+      if a.1 < b.1 {
+        -1
+      } else if a.1 > b.1 {
+        1
+      } else {
+        0
+      }
     })
     let view_struct_name = target + "Proj"
 
@@ -71,13 +83,12 @@ fn emit_view_accessors(term_enum : EnumDecl, syntax_type_name : String) -> Strin
     // AstView impl omitted: target package (e.g. syntax/) may not import @core
 
     // Accessor methods
-    for i in 0..<edges.length() {
-      let (variant_name, property_name, cardinality) = edges[i]
+    for edge in edges {
+      let (variant_name, property_name, cardinality) = edge
       let (helper_name, raw_return_type) = match cardinality {
         ViewOne => ("required_direct_child_of_kind", "@seam.SyntaxNode")
         ViewOptional => ("optional_direct_child_of_kind", "@seam.SyntaxNode?")
-        ViewZeroOrMore =>
-          ("direct_children_of_kind", "Array[@seam.SyntaxNode]")
+        ViewZeroOrMore => ("direct_children_of_kind", "Array[@seam.SyntaxNode]")
         ViewOneOrMore =>
           ("required_direct_children_of_kind", "Array[@seam.SyntaxNode]")
       }
@@ -92,8 +103,13 @@ fn emit_view_accessors(term_enum : EnumDecl, syntax_type_name : String) -> Strin
         ViewZeroOrMore => "zero or more " + variant_name
         ViewOneOrMore => "at least one " + variant_name
       }
-      let default_message = "\"view " + target + "." + property_name +
-        " expects " + cardinality_desc + "\""
+      let default_message = "\"view " +
+        target +
+        "." +
+        property_name +
+        " expects " +
+        cardinality_desc +
+        "\""
 
       b.write_string("\n///|\n")
       b.write_string("pub fn ")
