@@ -63,3 +63,39 @@ fn prop_parse_pretty_roundtrip(term : @ast.Term) -> Bool {
 test "property: parse(pretty_print(term)) == term" {
   @qc.quick_check_fn(prop_parse_pretty_roundtrip)
 }
+
+///|
+/// Positive control: a block-bodied lambda contains a nested Module, the exact
+/// case `has_non_roundtrippable` discards from the @qc property. Always-braced
+/// output must reparse to the same term.
+test "roundtrip: block-bodied lambda (nested module)" {
+  let term : @ast.Term = @ast.Term::Module(
+    [
+      (
+        "f",
+        @ast.Term::Lam(
+          "x",
+          @ast.Term::Module(
+            [
+              (
+                "y",
+                @ast.Term::Bop(
+                  @ast.Bop::Plus,
+                  @ast.Term::Var("x"),
+                  @ast.Term::Int(1),
+                ),
+              ),
+            ],
+            @ast.Term::Var("y"),
+          ),
+        ),
+      ),
+    ],
+    @ast.Term::Var("f"),
+  )
+  let formatted = @pretty.pretty_print(term)
+  let reparsed = parse(formatted) catch {
+    _ => @ast.Term::Error("parse failed")
+  }
+  inspect(reparsed == term, content="true")
+}
