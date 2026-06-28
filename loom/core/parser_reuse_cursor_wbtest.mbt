@@ -851,17 +851,18 @@ test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
   let inc_kind = @seam.RawKind(6) // incomplete
   let trivia_kinds = [ws_kind, cmt_kind]
 
-  // Build: PlusToken, CommentToken, WhitespaceToken, PlusToken
-  let plus_tok1 = @seam.CstToken::CstToken(plus_kind, "+")
+  // Build: CommentToken, WhitespaceToken, PlusToken, PlusToken
+  // Trivia come first so first_source_backed_token must skip them.
   let cmt_tok = @seam.CstToken::CstToken(cmt_kind, "/* comment */")
   let ws_tok = @seam.CstToken::CstToken(ws_kind, " ")
+  let plus_tok1 = @seam.CstToken::CstToken(plus_kind, "+")
   let plus_tok2 = @seam.CstToken::CstToken(plus_kind, "+")
   let node = @seam.CstNode::new(
     @seam.RawKind(3), // root
     [
-      @seam.CstElement::Token(plus_tok1),
       @seam.CstElement::Token(cmt_tok),
       @seam.CstElement::Token(ws_tok),
+      @seam.CstElement::Token(plus_tok1),
       @seam.CstElement::Token(plus_tok2),
     ],
     trivia_kinds=Some(trivia_kinds),

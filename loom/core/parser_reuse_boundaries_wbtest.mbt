@@ -163,7 +163,7 @@ test "ParserContext reuse: interned zero-width lexer boundary advances position"
   let old_tree = old_ctx.events.build_tree_interned(
     test_spec.root_kind.to_raw(),
     @seam.Interner::new(),
-    trivia_kinds=Some([test_spec.whitespace_kind.to_raw()]),
+    trivia_kinds=Some(test_spec.trivia_kinds_raw()),
     error_kind=Some(test_spec.error_kind.to_raw()),
     incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
   ) catch {

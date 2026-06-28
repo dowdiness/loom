@@ -266,12 +266,15 @@ pub fn[F : Finder] CstElement::find(self : CstElement, f : F) -> CstElement? {
 ///
 /// Use this when the tree wasn't built with `trivia_kinds` (otherwise
 /// prefer the cached `CstNode.token_count` field which is O(1)).
-pub fn CstElement::token_count(self : CstElement, trivia_kind : RawKind) -> Int {
+pub fn CstElement::token_count(
+  self : CstElement,
+  trivia_kinds : Array[RawKind],
+) -> Int {
   match self {
-    Token(t) => if t.kind != trivia_kind { 1 } else { 0 }
+    Token(t) => if trivia_kinds.contains(t.kind) { 0 } else { 1 }
     Node({ children, .. }) =>
       for child in children; acc = 0 {
-        continue acc + child.token_count(trivia_kind)
+        continue acc + child.token_count(trivia_kinds)
       } nobreak {
         acc
       }
