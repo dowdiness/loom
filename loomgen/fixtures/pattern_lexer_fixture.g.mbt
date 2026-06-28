@@ -21,24 +21,24 @@ pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
     best = Some(Arrow)
     best_ident = false
   }
-  if view =~ (re"^(?:[a-zA-Z_][a-zA-Z0-9_]*)" as m) {
-    let len = m.length()
+  if view =~ (re"^(?:[a-zA-Z_][a-zA-Z0-9_]*)", after=rest) {
+    let len = view.length() - rest.length()
     if len > best_len {
       best_len = len
       best = Some(Ident)
       best_ident = true
     }
   }
-  if view =~ (re"^(?:[0-9]+)" as m) {
-    let len = m.length()
+  if view =~ (re"^(?:[0-9]+)", after=rest) {
+    let len = view.length() - rest.length()
     if len > best_len {
       best_len = len
       best = Some(Number)
       best_ident = false
     }
   }
-  if view =~ (re"^(?:[ \t\r\n]+)" as m) {
-    let len = m.length()
+  if view =~ (re"^(?:[ \t\r\n]+)", after=rest) {
+    let len = view.length() - rest.length()
     if len > best_len {
       best_len = len
       best = Some(Whitespace)

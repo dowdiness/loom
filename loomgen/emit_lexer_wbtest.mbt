@@ -428,3 +428,57 @@ test "emit_lexer rejects multiple pattern-backed idents alongside keywords" {
     Ok(_) => abort("expected multiple-ident rejection")
   }
 }
+
+///|
+/// Review P2-A: lazy quantifiers (`*?`, `+?`, `??`, `{m,n}?`) match minimally,
+/// which is incompatible with a longest-match lexer (`[0-9]+?` would split `123`
+/// into three tokens). They are rejected at generation time.
+test "parse_annotations rejects lazy quantifiers" {
+  let body = fn(pat : String) -> String {
+    "#loom.token\npub(all) enum T {\n  #loom.literal\n  #loom.pattern(\"" +
+    pat +
+    "\")\n  Tok\n  #loom.eof\n  E\n} derive(Eq)"
+  }
+  expect_parse_err(body("[0-9]+?"), "lazy quantifier")
+  expect_parse_err(body("a*?"), "lazy quantifier")
+  expect_parse_err(body("x??"), "lazy quantifier")
+  expect_parse_err(body("[0-9]{1,3}?"), "lazy quantifier")
+  // Greedy / non-lazy forms stay accepted (a `?`-quantifier or `(..)?` group is
+  // not a lazy modifier).
+  match parse_annotations(body("a?b")) {
+    Ok(_) => ()
+    Err(m) => abort("expected a?b accepted, got: " + m)
+  }
+  match parse_annotations(body("(foo|bar)?baz")) {
+    Ok(_) => ()
+    Err(m) => abort("expected (foo|bar)?baz accepted, got: " + m)
+  }
+}
+
+///|
+/// Review P2-B: a pattern that statically matches exactly one character (`.`,
+/// `[0-9]`) makes MoonBit's `... as m` binder a `Char`, which has no `.length()`.
+/// The emitter computes the span from the `after=` remainder instead, so the
+/// generated lexer type-checks for single-character patterns.
+test "emit_lexer computes span via after= (no Char-typed .length() binder)" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern(".")
+      #|  Dot
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(generated.contains("after=rest"), content="true")
+  inspect(generated.contains("view.length() - rest.length()"), content="true")
+  // The Char-fragile `as m` / `m.length()` form must NOT be emitted.
+  inspect(generated.contains("m.length()"), content="false")
+}

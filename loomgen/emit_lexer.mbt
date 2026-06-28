@@ -176,8 +176,15 @@ fn emit_lexer(
         // `(^foo)|(bar)`, and since `=~` is search-based the unanchored branch
         // can match mid-view (`bar` in `xxbar`), advancing the cursor over the
         // wrong span. `^(?:foo|bar)` anchors both branches.
-        b.write_string("  if view =~ (re\"^(?:" + p + ")\" as m) {\n")
-        b.write_string("    let len = m.length()\n")
+        //
+        // The match span is computed from the `after=` remainder rather than a
+        // `... as m` binder: for a pattern that statically matches exactly one
+        // character (`[0-9]`, `.`) the `as` binder is a `Char`, which has no
+        // `.length()`, so `m.length()` would not type-check. `view.length() -
+        // rest.length()` is the consumed code-unit count regardless of binder
+        // type.
+        b.write_string("  if view =~ (re\"^(?:" + p + ")\", after=rest) {\n")
+        b.write_string("    let len = view.length() - rest.length()\n")
         b.write_string("    if len > best_len {\n")
         b.write_string("      best_len = len\n")
         b.write_string("      best = Some(" + v.name + ")\n")

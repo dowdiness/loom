@@ -794,6 +794,19 @@ fn unsupported_re_construct(p : String) -> String? {
       return Some(
         "(?...) groups (non-capturing, flags, or lookaround) are not supported; use a plain group (..)",
       )
+    } else if (c == '*' || c == '+' || c == '?' || c == '}') &&
+      i + 1 < p.length() &&
+      p[i + 1] == '?' {
+      // A `?` immediately after a quantifier is a LAZY modifier (`*?`, `+?`,
+      // `??`, `{m,n}?`). Lazy = minimal match, which is incompatible with a
+      // longest-match lexer: `[0-9]+?` would match a single digit and split
+      // `123` into three tokens. Reject it (the re dialect would otherwise
+      // accept it and silently mis-tokenize).
+      return Some(
+        "lazy quantifier '" +
+        p[i:i + 2].to_owned() +
+        "' is not supported; a longest-match lexer requires greedy quantifiers",
+      )
     } else {
       i = i + 1
     }
