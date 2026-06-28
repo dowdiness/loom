@@ -1,6 +1,6 @@
 ///|
 /// Source trait: compact parseable text that roundtrips through the parser.
-/// Delegates to the existing Pretty TermSym interpretation.
+/// Delegates to the SourceText TermSym interpretation via interpret.
 pub impl @pretty.Source for Term with fn to_source(self) {
   print_term(self)
 }

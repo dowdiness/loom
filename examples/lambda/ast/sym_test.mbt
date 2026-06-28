@@ -35,13 +35,13 @@ test "interpret: Term roundtrip all variants" {
 }
 
 ///|
-test "interpret: Pretty and Term from same source" {
+test "interpret: SourceText and Term from same source" {
   let term = @ast.Term::Bop(
     @ast.Bop::Plus,
     @ast.Term::Int(1),
     @ast.Term::Int(2),
   )
-  inspect((@ast.interpret(term) : @ast.Pretty).repr, content="(1 + 2)")
+  inspect((@ast.interpret(term) : @ast.SourceText).repr, content="1 + 2")
   inspect(
     (@ast.interpret(term) : @ast.Term),
     content="Bop(Plus, Int(1), Int(2))",
@@ -49,26 +49,26 @@ test "interpret: Pretty and Term from same source" {
 }
 
 ///|
-test "interpret: Pretty Lam" {
+test "interpret: SourceText Lam" {
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
-  inspect((@ast.interpret(term) : @ast.Pretty).repr, content="(x) => x")
+  inspect((@ast.interpret(term) : @ast.SourceText).repr, content="(x) => x")
 }
 
 ///|
-test "interpret: Pretty LetDef" {
+test "interpret: SourceText LetDef" {
   let term = @ast.Term::LetDef("x", @ast.Term::Int(1))
-  inspect((@ast.interpret(term) : @ast.Pretty).repr, content="let x = 1")
+  inspect((@ast.interpret(term) : @ast.SourceText).repr, content="let x = 1")
 }
 
 ///|
-test "interpret: Pretty Module" {
+test "interpret: SourceText Module" {
   let term = @ast.Term::Module(
     [("x", @ast.Term::Int(1)), ("y", @ast.Term::Int(2))],
     @ast.Term::Var("x"),
   )
   inspect(
-    (@ast.interpret(term) : @ast.Pretty).repr,
-    content="let x = 1\nlet y = 2\nx",
+    (@ast.interpret(term) : @ast.SourceText).repr,
+    content="{ let x = 1\nlet y = 2\nx }",
   )
 }
 

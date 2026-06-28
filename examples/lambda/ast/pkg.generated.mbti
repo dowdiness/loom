@@ -33,11 +33,6 @@ pub impl Show for Bop
 
 type FreeVars
 
-pub(all) struct Pretty {
-  repr : String
-}
-pub impl TermSym for Pretty
-
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
   prec : Int

@@ -59,7 +59,7 @@ test "property: Canonical is idempotent" {
 /// Drift detector: `default_placeholder_via_canonical(t)` matches the
 /// frozen reference for fitting variants. If this fails, either
 /// `canonical` was changed in a way that drops an operationally-relevant
-/// discriminator, or the `Pretty` impl's layout changed for a canonical
+/// discriminator, or the `SourceText` impl's layout changed for a canonical
 /// instance. Both are real drift conditions; update the carve-out
 /// declaration or fix the regression, do not suppress the test.
 fn prop_default_placeholder_matches_reference(t : Term) -> Bool {

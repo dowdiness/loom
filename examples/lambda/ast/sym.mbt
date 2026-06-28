@@ -119,79 +119,6 @@ pub impl TermSym for Term with fn hole(n) {
 }
 
 ///|
-/// Pretty-printing interpretation: replays a Term as its source text.
-/// pub(all) exposes the repr field for cross-package access.
-pub(all) struct Pretty {
-  repr : String
-}
-
-///|
-pub impl TermSym for Pretty with fn int_lit(n) {
-  { repr: n.to_string() }
-}
-
-///|
-pub impl TermSym for Pretty with fn variable(x) {
-  { repr: x }
-}
-
-///|
-pub impl TermSym for Pretty with fn lam(x, body) {
-  { repr: "(\{x}) => \{body.repr}" }
-}
-
-///|
-pub impl TermSym for Pretty with fn app(f, a) {
-  { repr: "(\{f.repr} \{a.repr})" }
-}
-
-///|
-pub impl TermSym for Pretty with fn bop(op, l, r) {
-  let sym = match op {
-    Plus => "+"
-    Minus => "-"
-  }
-  { repr: "(\{l.repr} \{sym} \{r.repr})" }
-}
-
-///|
-pub impl TermSym for Pretty with fn if_then_else(c, t, e) {
-  { repr: "if \{c.repr} then \{t.repr} else \{e.repr}" }
-}
-
-///|
-pub impl TermSym for Pretty with fn let_def(name, init) {
-  { repr: "let \{name} = \{init.repr}" }
-}
-
-///|
-pub impl TermSym for Pretty with fn mod(defs, body) {
-  let parts : Array[String] = defs.map(fn(d) { "let \{d.0} = \{d.1.repr}" })
-  parts.push(body.repr)
-  { repr: parts.join("\n") }
-}
-
-///|
-pub impl TermSym for Pretty with fn unit() {
-  { repr: "()" }
-}
-
-///|
-pub impl TermSym for Pretty with fn unbound(x) {
-  { repr: "<unbound: \{x}>" }
-}
-
-///|
-pub impl TermSym for Pretty with fn error_term(msg) {
-  { repr: "<error: \{msg}>" }
-}
-
-///|
-pub impl TermSym for Pretty with fn hole(_n) {
-  { repr: "_" }
-}
-
-///|
 /// Extracts the immediate child Terms from a variant.
 /// This encodes which fields of each constructor are recursive (children)
 /// vs non-recursive (data like variable names, operators, literals).
@@ -256,7 +183,7 @@ pub fn rebuild_from(shape : Term, children : Array[Term]) -> Term {
 ///|
 /// Converts a concrete Term into any TermSym interpretation.
 /// This is the single site updated when a new Term variant is added.
-/// Callers use type ascription: (interpret(term) : Pretty)
+/// Callers use type ascription: (interpret(term) : SourceText)
 pub fn[T : TermSym] interpret(term : Term) -> T {
   match term {
     Int(n) => T::int_lit(n)
