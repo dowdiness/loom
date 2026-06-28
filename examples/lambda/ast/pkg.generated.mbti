@@ -16,11 +16,11 @@ pub fn children_of(Term) -> Array[Term]
 
 pub fn free_vars(Term) -> Array[String]
 
+pub fn[T : TermSym] interpret(Term) -> T
+
 pub fn print_term(Term) -> String
 
 pub fn rebuild_from(Term, Array[Term]) -> Term
-
-pub fn[T : TermSym] replay(Term) -> T
 
 // Errors
 

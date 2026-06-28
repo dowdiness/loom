@@ -1,16 +1,16 @@
 // free_vars.mbt — free-variable analysis as a TermSym interpretation.
 //
 // A worked example of adding a new interpretation by REUSING the existing
-// fold (`replay`, ast/sym.mbt) and the `TermSym` tagless algebra. There is no
+// fold (`interpret`, ast/sym.mbt) and the `TermSym` tagless algebra. There is no
 // new recursion here: each method is a per-constructor combine over the
-// already-folded children that `replay` hands in.
+// already-folded children that `interpret` hands in.
 //
 // Representation: an immutable hash set. A free-variable set is semantically
 // unordered, so we model it as a set and sort only at the `free_vars`
 // boundary, where ordering is a presentation concern.
 
 ///|
-/// The free variables of a subterm, accumulated bottom-up by `replay`.
+/// The free variables of a subterm, accumulated bottom-up by `interpret`.
 struct FreeVars {
   set : @immut_hashset.HashSet[VarName]
 }
@@ -113,9 +113,9 @@ impl TermSym for FreeVars with fn mod(defs, body) {
 
 ///|
 /// Free variables of `term`, sorted for a deterministic, presentation-stable
-/// result. Internally, `replay` folds the term into a `FreeVars` set.
+/// result. Internally, `interpret` folds the term into a `FreeVars` set.
 pub fn free_vars(term : Term) -> Array[VarName] {
-  let names = (replay(term) : FreeVars).set.iter().to_array()
+  let names = (interpret(term) : FreeVars).set.iter().to_array()
   names.sort()
   names
 }
