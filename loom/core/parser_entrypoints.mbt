@@ -25,7 +25,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
   }
   let tree = ctx.events.build_tree(
     spec.root_kind.to_raw(),
-    trivia_kind=Some(spec.whitespace_kind.to_raw()),
+    trivia_kinds=Some(spec.trivia_kinds_raw()),
     error_kind=Some(spec.error_kind.to_raw()),
     incomplete_kind=Some(spec.incomplete_kind.to_raw()),
   ) catch {
@@ -38,8 +38,6 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
 }
 
 ///|
-/// Construct a minimal error CST: root_kind( error_kind() ).
-/// Preserves root kind and sets has_any_error via the error child.
 fn[T, K : @seam.ToRawKind] make_error_tree(
   spec : LanguageSpec[T, K],
 ) -> @seam.CstNode {
@@ -48,7 +46,7 @@ fn[T, K : @seam.ToRawKind] make_error_tree(
   @seam.CstNode::new(
     spec.root_kind.to_raw(),
     [@seam.CstElement::Node(error_child)],
-    trivia_kind=Some(spec.whitespace_kind.to_raw()),
+    trivia_kinds=Some(spec.trivia_kinds_raw()),
     error_kind=Some(err_raw),
     incomplete_kind=Some(spec.incomplete_kind.to_raw()),
   )
@@ -70,10 +68,9 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
   buf : @seam.EventBuffer,
   spec : LanguageSpec[T, K],
 ) -> @seam.CstNode raise @seam.EventStreamError {
-  let ws = spec.whitespace_kind.to_raw()
   buf.build_tree(
     spec.root_kind.to_raw(),
-    trivia_kind=Some(ws),
+    trivia_kinds=Some(spec.trivia_kinds_raw()),
     error_kind=Some(spec.error_kind.to_raw()),
     incomplete_kind=Some(spec.incomplete_kind.to_raw()),
   )

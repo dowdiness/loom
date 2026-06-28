@@ -14,6 +14,10 @@ pub fn make_multiTrivia_spec(
     parse_root=parse_root,
     reuse_size_threshold=reuse_size_threshold,
     incomplete_kind=incomplete_kind,
+    trivia_kinds_spec=[
+      @syntax.WhitespaceToken,
+      @syntax.CommentToken
+    ],
   )
 }
 

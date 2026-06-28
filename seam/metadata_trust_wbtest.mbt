@@ -3,7 +3,7 @@
 ///
 /// `CstNode::new` computes `has_any_error` / `token_count` by *trusting* each
 /// child Node's cached metadata and *re-classifying* token children against the
-/// `error_kind` / `incomplete_kind` / `trivia_kind` passed to this call (see
+/// `error_kind` / `incomplete_kind` / `trivia_kinds` passed to this call (see
 /// cst_node.mbt and the caveat in cst_traverse.mbt). The invariant: every
 /// reconstruction path must thread the *same* classification kinds the subtree
 /// was originally built with, or the recomputed metadata silently diverges.

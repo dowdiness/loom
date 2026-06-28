@@ -615,6 +615,7 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
     eof_token: TestTok::TokEof,
     parse_root: grammar_item_nodes,
     reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs],
   }
   let old_src = "1+2+3"
   let new_src = "1+3"
@@ -665,6 +666,7 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     eof_token: TestTok::TokEof,
     parse_root: grammar_item_nodes,
     reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs],
   }
   let old_src = "1 + 2 + 3"
   let new_src = "2 + 3"
@@ -733,6 +735,7 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
     eof_token: TestTok::TokEof,
     parse_root: grammar_item_nodes,
     reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs],
   }
   let old_src = "1+2+3"
   let new_src = "2+3"
@@ -792,6 +795,7 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
     eof_token: TestTok::TokEof,
     parse_root: grammar_item_nodes,
     reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs],
   }
   let old_src = "1+2+3"
   let new_src = "1+2"
@@ -832,4 +836,138 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
   // damage boundary, so one unaffected prefix node is still expected to be
   // reused.
   inspect(reuse_count >= 1, content="true")
+}
+
+///|
+/// Regression: collect_old_tokens and first_source_backed_token skip ALL trivia
+/// kinds, not just the primary whitespace_kind.
+/// Constructs a node with tokens of kinds: Whitespace (raw=4), Comment (raw=8),
+/// Plus (raw=1), and asserts both trivia kinds are filtered out.
+test "multi-trivia: collect_old_tokens excludes all trivia kinds" {
+  let ws_kind = @seam.RawKind(4) // primary trivia (like KWs)
+  let cmt_kind = @seam.RawKind(8) // secondary trivia (e.g., CommentToken)
+  let plus_kind = @seam.RawKind(1) // non-trivia (like KPlus)
+  let err_kind = @seam.RawKind(5) // error kind, like KErr
+  let inc_kind = @seam.RawKind(6) // incomplete
+  let trivia_kinds = [ws_kind, cmt_kind]
+
+  // Build: CommentToken, WhitespaceToken, PlusToken, PlusToken
+  // Trivia come first so first_source_backed_token must skip them.
+  let cmt_tok = @seam.CstToken::CstToken(cmt_kind, "/* comment */")
+  let ws_tok = @seam.CstToken::CstToken(ws_kind, " ")
+  let plus_tok1 = @seam.CstToken::CstToken(plus_kind, "+")
+  let plus_tok2 = @seam.CstToken::CstToken(plus_kind, "+")
+  let node = @seam.CstNode::new(
+    @seam.RawKind(3), // root
+    [
+      @seam.CstElement::Token(cmt_tok),
+      @seam.CstElement::Token(ws_tok),
+      @seam.CstElement::Token(plus_tok1),
+      @seam.CstElement::Token(plus_tok2),
+    ],
+    trivia_kinds=Some(trivia_kinds),
+    error_kind=Some(err_kind),
+    incomplete_kind=Some(inc_kind),
+  )
+
+  // Verify token_count excludes both trivia kinds (2 tokens out of 4)
+  inspect(node.token_count, content="2")
+
+  // Verify collect_old_tokens returns only non-trivia tokens
+  let flat : Array[OldToken] = []
+  collect_old_tokens(node, 0, flat, trivia_kinds, err_kind, inc_kind)
+  inspect(flat.length(), content="2")
+  // Use @debug.to_string for RawKind comparison (no Show instance)
+  inspect(@debug.to_string(flat[0].kind), content="RawKind(1)")
+  inspect(@debug.to_string(flat[1].kind), content="RawKind(1)")
+
+  // Verify first_source_backed_token skips both trivia kinds
+  let first = first_source_backed_token(node, trivia_kinds)
+  inspect(first.is_some(), content="true")
+  match first {
+    Some(tok) => inspect(@debug.to_string(tok.kind), content="RawKind(1)")
+    None => ()
+  }
+}
+
+///|
+/// Regression: flush_trivia emits each trivia token using its actual raw kind,
+/// not spec.whitespace_kind.to_raw(). Previously all trivia was rewritten to the
+/// primary whitespace kind, making multi-trivia filtering ineffective for
+/// generated grammars.
+test "flush_trivia: emits trivia tokens with their actual raw kind" {
+  let multi_spec : LanguageSpec[TestTok, TestKind] = {
+    whitespace_kind: KWs,
+    error_kind: KErr,
+    incomplete_kind: KIncomplete,
+    root_kind: KRoot,
+    eof_token: TestTok::TokEof,
+    parse_root: fn(ctx) {
+      ctx.start_node(KExpr)
+      ctx.emit_token(KNum)
+      ctx.finish_node()
+    },
+    reuse_size_threshold: 64,
+    trivia_kinds_spec: [KWs, KComment],
+  }
+  // Source with Comment, Ws, then Num: "/*c*/ 42"
+  let source = "/*c*/ 42"
+  // Token ranges computed from source:
+  //   Comment "/*c*/" @ 0-5
+  //   Ws " "      @ 5-6
+  //   Num "42"    @ 6-8
+  let token_count = 3
+  let get_token : (Int) -> TestTok = fn(i) {
+    match i {
+      0 => TestTok::Comment
+      1 => TestTok::Ws
+      2 => TestTok::Num(42)
+      _ => TestTok::TokEof
+    }
+  }
+  let get_start : (Int) -> Int = fn(i) {
+    match i {
+      0 => 0
+      1 => 5
+      2 => 6
+      _ => 0
+    }
+  }
+  let get_end : (Int) -> Int = fn(i) {
+    match i {
+      0 => 5
+      1 => 6
+      2 => 8
+      _ => 0
+    }
+  }
+  let (tree, _, _) = parse_tokens_indexed(
+    source, token_count, get_token, get_start, get_end, multi_spec,
+  )
+  // Walk the CST looking for trivia leaf tokens. Should find both RawKind(4)=Ws
+  // and RawKind(8)=Comment. If flush_trivia still rewrites to whitespace_kind,
+  // only RawKind(4) would appear.
+  let ws_raw = test_kind_raw(KWs)
+  let cmt_raw = test_kind_raw(KComment)
+  let mut found_ws = false
+  let mut found_cmt = false
+  // Walk all tokens recursively (SyntaxNode::tokens() only walks direct children)
+  fn visit_tokens(node : @seam.SyntaxNode) -> Unit {
+    for child in node.all_children() {
+      match child {
+        @seam.SyntaxElement::Token(tok) => {
+          let k = tok.kind()
+          if k == ws_raw {
+            found_ws = true
+          } else if k == cmt_raw {
+            found_cmt = true
+          }
+        }
+        @seam.SyntaxElement::Node(n) => visit_tokens(n)
+      }
+    }
+  }
+  visit_tokens(@seam.SyntaxNode::from_cst(tree))
+  inspect(found_ws, content="true")
+  inspect(found_cmt, content="true")
 }

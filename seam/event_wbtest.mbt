@@ -226,7 +226,7 @@ test "build_tree: public ReuseNode recomputes metadata" {
   let root = build_tree(
     [ParseEvent::ReuseNode(reused)],
     RawKind(3),
-    trivia_kind=Some(ws),
+    trivia_kinds=Some([ws]),
   )
   match root.children[0] {
     CstElement::Node(node) => inspect(node.token_count, content="1")
@@ -359,14 +359,14 @@ test "build_tree_fully_interned: identical subtrees share canonical reference" {
     root_kind,
     interner,
     ni,
-    trivia_kind=Some(ws),
+    trivia_kinds=Some([ws]),
   )
   let t2 = build_tree_fully_interned(
     events,
     root_kind,
     interner,
     ni,
-    trivia_kind=Some(ws),
+    trivia_kinds=Some([ws]),
   )
   inspect(t1 == t2, content="true")
   inspect(ni.size() <= 2, content="true") // root + child, no duplication

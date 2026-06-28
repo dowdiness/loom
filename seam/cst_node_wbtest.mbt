@@ -102,7 +102,7 @@ test "CstNode token_count: trivia_kind excludes whitespace" {
   let node = CstNode::new(
     RawKind(20),
     [CstElement::Token(id_tok), CstElement::Token(ws_tok)],
-    trivia_kind=Some(ws_kind),
+    trivia_kinds=Some([ws_kind]),
   )
   inspect(node.token_count, content="1")
 }
@@ -116,7 +116,7 @@ test "CstNode token_count: propagates through sub-nodes" {
   let inner = CstNode::new(
     RawKind(19),
     [CstElement::Token(int_tok)],
-    trivia_kind=Some(ws_kind),
+    trivia_kinds=Some([ws_kind]),
   )
   let root = CstNode::new(
     RawKind(16),
@@ -125,7 +125,7 @@ test "CstNode token_count: propagates through sub-nodes" {
       CstElement::Token(ws_tok),
       CstElement::Node(inner),
     ],
-    trivia_kind=Some(ws_kind),
+    trivia_kinds=Some([ws_kind]),
   )
   // id_tok (1) + ws_tok (excluded) + inner.token_count (1) = 2
   inspect(root.token_count, content="2")

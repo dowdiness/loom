@@ -61,12 +61,12 @@ test "bench: build_tree with ReuseNode (rebuild_subtree)" (b : @bench.T) {
   let subtree = make_reuse_subtree(100)
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
-  let trivia_kind = Some(RawKind(11))
+  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
     let _ = try! build_tree(
       events,
       root_kind,
-      trivia_kind~,
+      trivia_kinds~,
       error_kind=Some(RawKind(99)),
       incomplete_kind=Some(RawKind(98)),
     )
@@ -80,13 +80,13 @@ test "bench: build_tree_interned with ReuseNode (re_intern_tokens_only)" (
   let subtree = make_reuse_subtree(100)
   let events = make_reuse_events(subtree, 50)
   let root_kind = RawKind(20)
-  let trivia_kind = Some(RawKind(11))
+  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
     let _ = try! build_tree_interned(
       events,
       root_kind,
       Interner::new(),
-      trivia_kind~,
+      trivia_kinds~,
       error_kind=Some(RawKind(99)),
       incomplete_kind=Some(RawKind(98)),
     )
@@ -102,11 +102,11 @@ test "bench: EventBuffer push_parser_reuse_node_rebased (matching source rebase)
   let source = make_reuse_source(100, reuse_count)
   let buf = make_reuse_at_buffer(subtree, source, reuse_count)
   let root_kind = RawKind(20)
-  let trivia_kind = Some(RawKind(11))
+  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
     let tree = try! buf.build_tree(
       root_kind,
-      trivia_kind~,
+      trivia_kinds~,
       error_kind=Some(RawKind(99)),
       incomplete_kind=Some(RawKind(98)),
     )
@@ -129,11 +129,11 @@ test "bench: EventBuffer push_parser_reuse_node_rebased_unchecked (validated sou
     let _ = i
   }
   let root_kind = RawKind(20)
-  let trivia_kind = Some(RawKind(11))
+  let trivia_kinds = Some([RawKind(11)])
   b.bench(fn() {
     let tree = try! buf.build_tree(
       root_kind,
-      trivia_kind~,
+      trivia_kinds~,
       error_kind=Some(RawKind(99)),
       incomplete_kind=Some(RawKind(98)),
     )

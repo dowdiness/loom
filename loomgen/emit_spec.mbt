@@ -41,7 +41,6 @@ fn find_variant_with_role(
 }
 
 ///|
-/// Collect all variants with the given nullary SyntaxRole.
 fn find_all_variants_with_role(
   enum_decl : EnumDecl,
   role : SyntaxRole,
@@ -57,7 +56,6 @@ fn find_all_variants_with_role(
 }
 
 ///|
-/// True when the enum declares two or more variants with the given role.
 fn has_duplicate(enum_decl : EnumDecl, role : SyntaxRole) -> Bool {
   find_all_variants_with_role(enum_decl, role).length() > 1
 }
@@ -83,7 +81,6 @@ fn emit_spec(
   syntax_qual : String,
   core_qual : String,
 ) -> Result[String, String] {
-  // Look up required variants by role
   let trivia_vars = find_all_variants_with_role(token_enum, Trivia)
   let error_var = find_variant_with_role(token_enum, ErrorToken)
   let eof_var = find_variant_with_role(token_enum, Eof)
@@ -111,7 +108,7 @@ fn emit_spec(
     )
   }
 
-  // Spec-scalar roles: error and eof must still be unique.
+  // Spec-scalar roles: collect ALL trivia variants, error/eof/root must have exactly one.
   if has_duplicate(token_enum, ErrorToken) {
     return Err(
       "#loom.token enum " +
@@ -137,15 +134,10 @@ fn emit_spec(
   let error_v = error_var.unwrap()
   let eof_v = eof_var.unwrap()
   let root_v = root_var.unwrap()
-  // First trivia variant is the primary whitespace_kind (LanguageSpec scalar).
-  // Additional variants are covered by the generated is_*_trivia_kind helper below.
-  let trivia_v = trivia_vars[0]
-
-  let whitespace_kind_name = derive_kind_name(
-    trivia_v.name,
-    Trivia,
-    trivia_v.kind_override,
-  )
+  let trivia_names : Array[String] = trivia_vars.map(fn(v) {
+    derive_kind_name(v.name, Trivia, v.kind_override)
+  })
+  let whitespace_kind_name = trivia_names[0]
   let error_kind_name = derive_kind_name(
     error_v.name,
     ErrorToken,
@@ -174,84 +166,91 @@ fn emit_spec(
   let core_prefix = if core_qual.length() > 0 { core_qual + "." } else { "" }
 
   let func_name = "make_" + to_lowercase_first(language_name) + "_spec"
+  // Build trivia kinds array string separately (for loop inside method chain doesn't work)
+  let trivia_array_buf = StringBuilder()
+  trivia_array_buf.write_string("    trivia_kinds_spec=[\n")
+  for i, name in trivia_names {
+    let sep = if i == trivia_names.length() - 1 { "" } else { ",\n" }
+    trivia_array_buf.write_string("      " + syntax_prefix + name + sep)
+  }
+  trivia_array_buf.write_string("\n    ],\n")
+  let trivia_array_str = trivia_array_buf.to_string()
   let b = StringBuilder()
-    ..write_string("///|\n")
-    ..write_string("/// Generated factory: fills derived LanguageSpec fields\n")
-    ..write_string("/// from annotation metadata.\n")
-    ..write_string("pub fn ")
-    ..write_string(func_name)
-    ..write_string("(\n")
-    ..write_string("  parse_root : (")
-    ..write_string(core_prefix)
-    ..write_string("ParserContext[")
-    ..write_string(token_type)
-    ..write_string(", ")
-    ..write_string(syntax_type)
-    ..write_string("]) -> Unit,\n")
-    ..write_string("  reuse_size_threshold? : Int = 64,\n")
-    ..write_string("  incomplete_kind? : ")
-    ..write_string(syntax_type)
-    ..write_string(" = ")
-    ..write_string(syntax_prefix)
-    ..write_string(error_kind_name)
-    ..write_string(",\n")
-    ..write_string(") -> ")
-    ..write_string(core_prefix)
-    ..write_string("LanguageSpec[")
-    ..write_string(token_type)
-    ..write_string(", ")
-    ..write_string(syntax_type)
-    ..write_string("] {\n")
-    ..write_string("  ")
-    ..write_string(core_prefix)
-    ..write_string("LanguageSpec::new(\n")
-    ..write_string("    ")
-    ..write_string(syntax_prefix)
-    ..write_string(whitespace_kind_name)
-    ..write_string(",\n")
-    ..write_string("    ")
-    ..write_string(syntax_prefix)
-    ..write_string(error_kind_name)
-    ..write_string(",\n")
-    ..write_string("    ")
-    ..write_string(syntax_prefix)
-    ..write_string(root_kind_name)
-    ..write_string(",\n")
-    ..write_string("    ")
-    ..write_string(token_prefix)
-    ..write_string(eof_token_name)
-    ..write_string(",\n")
-    ..write_string("    parse_root=parse_root,\n")
-    ..write_string("    reuse_size_threshold=reuse_size_threshold,\n")
-    ..write_string("    incomplete_kind=incomplete_kind,\n")
-    ..write_string("  )\n")
-    ..write_string("}\n")
+  b.write_string("///|\n")
+  b.write_string("/// Generated factory: fills derived LanguageSpec fields\n")
+  b.write_string("/// from annotation metadata.\n")
+  b.write_string("pub fn ")
+  b.write_string(func_name)
+  b.write_string("(\n")
+  b.write_string("  parse_root : (")
+  b.write_string(core_prefix)
+  b.write_string("ParserContext[")
+  b.write_string(token_type)
+  b.write_string(", ")
+  b.write_string(syntax_type)
+  b.write_string("]) -> Unit,\n")
+  b.write_string("  reuse_size_threshold? : Int = 64,\n")
+  b.write_string("  incomplete_kind? : ")
+  b.write_string(syntax_type)
+  b.write_string(" = ")
+  b.write_string(syntax_prefix)
+  b.write_string(error_kind_name)
+  b.write_string(",\n")
+  b.write_string(") -> ")
+  b.write_string(core_prefix)
+  b.write_string("LanguageSpec[")
+  b.write_string(token_type)
+  b.write_string(", ")
+  b.write_string(syntax_type)
+  b.write_string("] {\n")
+  b.write_string("  ")
+  b.write_string(core_prefix)
+  b.write_string("LanguageSpec::new(\n")
+  b.write_string("    ")
+  b.write_string(syntax_prefix)
+  b.write_string(whitespace_kind_name)
+  b.write_string(",\n")
+  b.write_string("    ")
+  b.write_string(syntax_prefix)
+  b.write_string(error_kind_name)
+  b.write_string(",\n")
+  b.write_string("    ")
+  b.write_string(syntax_prefix)
+  b.write_string(root_kind_name)
+  b.write_string(",\n")
+  b.write_string("    ")
+  b.write_string(token_prefix)
+  b.write_string(eof_token_name)
+  b.write_string(",\n")
+  b.write_string("    parse_root=parse_root,\n")
+  b.write_string("    reuse_size_threshold=reuse_size_threshold,\n")
+  b.write_string("    incomplete_kind=incomplete_kind,\n")
+  b.write_string(trivia_array_str)
+  b.write_string("  )\n")
+  b.write_string("}\n")
   // When there are multiple trivia variants, emit an is_*_trivia_kind helper.
-  // The primary whitespace_kind covers the auto-skip path in LanguageSpec;
-  // this helper lets grammar code test whether any CST kind is trivia.
-  if trivia_vars.length() > 1 {
+  let _ = if trivia_vars.length() > 1 {
     let helper_name = "is_" + to_lowercase_first(language_name) + "_trivia_kind"
     let arms = trivia_vars.map(fn(v) {
       syntax_prefix + derive_kind_name(v.name, Trivia, v.kind_override)
     })
-    let _ = b
-      ..write_string("\n///|\n")
-      ..write_string(
-        "/// Returns true for all trivia syntax kinds in this language.\n",
-      )
-      ..write_string(
-        "/// Generated from all #loom.trivia-annotated token variants.\n",
-      )
-      ..write_string("pub fn ")
-      ..write_string(helper_name)
-      ..write_string("(kind : ")
-      ..write_string(syntax_type)
-      ..write_string(") -> Bool {\n")
-      ..write_string("  match kind {\n    ")
-      ..write_string(arms.join(" | "))
-      ..write_string(" => true\n")
-      ..write_string("    _ => false\n")
-      ..write_string("  }\n}\n")
+    b.write_string("\n///|\n")
+    b.write_string(
+      "/// Returns true for all trivia syntax kinds in this language.\n",
+    )
+    b.write_string(
+      "/// Generated from all #loom.trivia-annotated token variants.\n",
+    )
+    b.write_string("pub fn ")
+    b.write_string(helper_name)
+    b.write_string("(kind : ")
+    b.write_string(syntax_type)
+    b.write_string(") -> Bool {\n")
+    b.write_string("  match kind {\n    ")
+    b.write_string(arms.join(" | "))
+    b.write_string(" => true\n")
+    b.write_string("    _ => false\n")
+    b.write_string("  }\n}\n")
   }
   Ok(b.to_string())
 }

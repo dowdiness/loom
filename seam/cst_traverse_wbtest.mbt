@@ -348,7 +348,7 @@ test "map: single token" {
 test "map: trivia_kind excludes whitespace from token_count" {
   let tree = make_test_tree()
   let ws_kind = RawKind(11)
-  let mapped = tree.map(elem => elem, trivia_kind=Some(ws_kind))
+  let mapped = tree.map(elem => elem, trivia_kinds=Some([ws_kind]))
   match mapped {
     Node(n) =>
       // 6 total tokens - 1 whitespace = 5

@@ -183,21 +183,21 @@ test "token_count: filters trivia" {
   let tree = make_trait_test_tree()
   let ws_kind = RawKind(11)
   // 6 total tokens - 1 whitespace = 5
-  inspect(tree.token_count(ws_kind), content="5")
+  inspect(tree.token_count([ws_kind]), content="5")
 }
 
 ///|
 test "token_count: single token non-trivia" {
   let tok = CstToken::CstToken(RawKind(9), "x")
   let elem = CstElement::Token(tok)
-  inspect(elem.token_count(RawKind(11)), content="1")
+  inspect(elem.token_count([RawKind(11)]), content="1")
 }
 
 ///|
 test "token_count: single token trivia" {
   let tok = CstToken::CstToken(RawKind(11), " ")
   let elem = CstElement::Token(tok)
-  inspect(elem.token_count(RawKind(11)), content="0")
+  inspect(elem.token_count([RawKind(11)]), content="0")
 }
 
 ///|
@@ -207,6 +207,6 @@ test "bench: token_count (trivia filter) via CstElement::token_count" (
   let tree = generate_large_cst(8, 4)
   let trivia_kind = RawKind(11)
   b.bench(() => {
-    let _ = tree.token_count(trivia_kind)
+    let _ = tree.token_count([trivia_kind])
   })
 }

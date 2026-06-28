@@ -26,7 +26,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(Str
 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(@seam.SyntaxNode, String, Edit, (String) -> LexResult[T], LanguageSpec[T, K], BlockReparseSpec[T, K], DiagnosticSet) -> (@seam.CstNode, DiagnosticSet)?
 
-pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
+pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode
 
 pub fn text_to_delta(String, String) -> Array[TextDelta]
 
@@ -170,10 +170,12 @@ pub struct LanguageSpec[T, K] {
   incomplete_kind : K
   root_kind : K
   eof_token : T
+  trivia_kinds_spec : Array[K]
   parse_root : (ParserContext[T, K]) -> Unit
   reuse_size_threshold : Int
 }
-pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int) -> Self[T, K]
+pub fn[T, K] LanguageSpec::new(K, K, K, T, incomplete_kind? : K, parse_root? : (ParserContext[T, K]) -> Unit, reuse_size_threshold? : Int, trivia_kinds_spec? : Array[K]) -> Self[T, K]
+pub fn[T, K : @seam.ToRawKind] LanguageSpec::trivia_kinds_raw(Self[T, K]) -> Array[@seam.RawKind]
 
 pub struct LexCursor {
   // private fields
@@ -347,7 +349,7 @@ pub struct ReuseCursor[T, K] {
   damage_end : Int
   new_damage_end : Int
   old_root : @seam.CstNode
-  ws_raw : @seam.RawKind
+  trivia_kinds : Array[@seam.RawKind]
   err_raw : @seam.RawKind
   incomplete_raw : @seam.RawKind
   cache : OldTokenCache

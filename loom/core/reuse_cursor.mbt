@@ -132,7 +132,7 @@ pub struct ReuseCursor[T, K] {
   damage_end : Int
   new_damage_end : Int
   old_root : @seam.CstNode
-  ws_raw : @seam.RawKind
+  trivia_kinds : Array[@seam.RawKind]
   err_raw : @seam.RawKind
   incomplete_raw : @seam.RawKind
   cache : OldTokenCache
@@ -161,12 +161,11 @@ impl OffsetIndexed for Array[OldToken] with fn offset_at(self, i) {
 }
 
 ///|
-/// Flatten non-trivia, non-error, non-incomplete leaves from old tree into out array.
 fn collect_old_tokens(
   node : @seam.CstNode,
   node_start : Int,
   out : Array[OldToken],
-  ws_raw : @seam.RawKind,
+  trivia_kinds : Array[@seam.RawKind],
   err_raw : @seam.RawKind,
   incomplete_raw : @seam.RawKind,
 ) -> Unit {
@@ -175,7 +174,7 @@ fn collect_old_tokens(
     match child {
       @seam.CstElement::Token(t) => {
         if t.is_source_backed() &&
-          t.kind != ws_raw &&
+          !trivia_kinds.contains(t.kind) &&
           t.kind != err_raw &&
           t.kind != incomplete_raw {
           out.push({ kind: t.kind, text: t.text().to_owned(), start: offset })
@@ -183,7 +182,9 @@ fn collect_old_tokens(
         offset = offset + t.text_len()
       }
       @seam.CstElement::Node(n) => {
-        collect_old_tokens(n, offset, out, ws_raw, err_raw, incomplete_raw)
+        collect_old_tokens(
+          n, offset, out, trivia_kinds, err_raw, incomplete_raw,
+        )
         offset = offset + n.text_len
       }
     }
@@ -216,7 +217,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
 ) -> ReuseCursor[T, K] {
   let reuse_globally_disabled = damage_start <= 0 &&
     damage_end >= old_tree.text_len
-  let ws_raw = spec.whitespace_kind.to_raw()
+  let trivia_kinds = spec.trivia_kinds_raw()
   let err_raw = spec.error_kind.to_raw()
   let incomplete_raw = spec.incomplete_kind.to_raw()
   let stack = [
@@ -229,7 +230,7 @@ pub fn[T, K : @seam.ToRawKind] ReuseCursor::new(
     damage_end,
     new_damage_end,
     old_root: old_tree,
-    ws_raw,
+    trivia_kinds,
     err_raw,
     incomplete_raw,
     cache: old_token_cache,
@@ -355,16 +356,16 @@ fn[T, K] ReuseCursor::to_new_offset(
 /// leading-token reuse checks.
 fn first_source_backed_token(
   node : @seam.CstNode,
-  trivia_raw : @seam.RawKind,
+  trivia_kinds : Array[@seam.RawKind],
 ) -> @seam.CstToken? {
   for child in node.children {
     match child {
       @seam.CstElement::Token(token) =>
-        if token.is_source_backed() && token.kind != trivia_raw {
+        if token.is_source_backed() && !trivia_kinds.contains(token.kind) {
           return Some(token)
         }
       @seam.CstElement::Node(child_node) =>
-        match first_source_backed_token(child_node, trivia_raw) {
+        match first_source_backed_token(child_node, trivia_kinds) {
           Some(token) => return Some(token)
           None => ()
         }
@@ -385,7 +386,7 @@ fn[T : @seam.ToRawKind, K] leading_token_matches(
     return false
   }
   let new_kind = (cursor.get_token)(token_pos).to_raw()
-  match first_source_backed_token(node, cursor.ws_raw) {
+  match first_source_backed_token(node, cursor.trivia_kinds) {
     None => false
     Some(old_tok) =>
       old_tok.kind == new_kind && old_tok.text() == (cursor.get_text)(token_pos)
@@ -407,7 +408,7 @@ fn[T, K] ReuseCursor::ensure_old_tokens(
         self.old_root,
         0,
         tokens,
-        self.ws_raw,
+        self.trivia_kinds,
         self.err_raw,
         self.incomplete_raw,
       )
@@ -886,7 +887,7 @@ pub fn[T, K] ReuseCursor::snapshot(
     damage_end: self.damage_end,
     new_damage_end: self.new_damage_end,
     old_root: self.old_root,
-    ws_raw: self.ws_raw,
+    trivia_kinds: self.trivia_kinds,
     err_raw: self.err_raw,
     incomplete_raw: self.incomplete_raw,
     cache: self.cache, // shared mutable cell — all snapshots see same materialized table

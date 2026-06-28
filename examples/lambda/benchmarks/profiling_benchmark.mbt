@@ -346,7 +346,7 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
       root_kind,
       interner,
       ni,
-      trivia_kind=Some(ws),
+      trivia_kinds=Some([ws]),
     )
     b.keep(tree)
   })

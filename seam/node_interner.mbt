@@ -22,8 +22,8 @@
 ///   - Total across all nodes: O(1 + 2 + ... + n) = O(n²)
 ///
 /// **trivia_kind invariant:** All `CstNode::new` calls feeding this interner
-/// MUST use the same `trivia_kind` value. `CstNode::Eq` compares `kind` and
-/// `children` but NOT `token_count`, which depends on `trivia_kind`. Mixing
+/// MUST use the same `trivia_kinds` value. `CstNode::Eq` compares `kind` and
+/// `children` but NOT `token_count`, which depends on `trivia_kinds`. Mixing
 /// trivia policies within one interner silently canonicalizes to the first-seen
 /// `token_count`, producing incorrect values for subsequent callers.
 ///

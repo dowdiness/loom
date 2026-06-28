@@ -15,11 +15,11 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_in
 
 pub fn[T] build_starts(Array[@core.TokenInfo[T]]) -> Array[Int]
 
-pub fn build_tree(Array[@seam.ParseEvent], @seam.RawKind, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+pub fn build_tree(Array[@seam.ParseEvent], @seam.RawKind, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
-pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, @seam.NodeInterner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, @seam.NodeInterner, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
-pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kind? : @seam.RawKind?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
+pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
 pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexState[T]
 

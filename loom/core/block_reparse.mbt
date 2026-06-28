@@ -130,7 +130,7 @@ pub fn splice_tree(
   root : @seam.CstNode,
   path : Array[Int],
   new_node : @seam.CstNode,
-  trivia_kind? : @seam.RawKind? = None,
+  trivia_kinds? : Array[@seam.RawKind]? = None,
   error_kind? : @seam.RawKind? = None,
   incomplete_kind? : @seam.RawKind? = None,
 ) -> @seam.CstNode {
@@ -159,7 +159,7 @@ pub fn splice_tree(
     let new_ancestor = ancestor.with_replaced_child(
       child_idx,
       replacement,
-      trivia_kind~,
+      trivia_kinds~,
       error_kind~,
       incomplete_kind~,
     )
@@ -207,12 +207,12 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
     ctx.open_nodes = ctx.open_nodes - 1
   }
   // Build tree using block_kind as root
-  let ws_raw = spec.whitespace_kind.to_raw()
+  let trivia_raws = spec.trivia_kinds_raw()
   let err_raw = spec.error_kind.to_raw()
   let inc_raw = spec.incomplete_kind.to_raw()
   let wrapper = ctx.events.build_tree(
     block_kind,
-    trivia_kind=Some(ws_raw),
+    trivia_kinds=Some(trivia_raws),
     error_kind=Some(err_raw),
     incomplete_kind=Some(inc_raw),
   ) catch {
@@ -390,18 +390,17 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
     Some(result) => result
     None => return None
   }
+  let root_cst = tree.cst_node()
   let new_diags = block_lex_diags.copy()
   new_diags.extend(parse_diags)
-  // 6. Splice new subtree into old tree
-  let root_cst = tree.cst_node()
-  let ws_raw = spec.whitespace_kind.to_raw()
+  let trivia_raws = spec.trivia_kinds_raw()
   let err_raw = spec.error_kind.to_raw()
   let inc_raw = spec.incomplete_kind.to_raw()
   let new_root = splice_tree(
     root_cst,
     path,
     new_block,
-    trivia_kind=Some(ws_raw),
+    trivia_kinds=Some(trivia_raws),
     error_kind=Some(err_raw),
     incomplete_kind=Some(inc_raw),
   )
