@@ -196,6 +196,14 @@ fn fold_node_inner(
     }
     @syntax.HoleLiteral => @ast.Term::Hole(0)
     @syntax.ErrorNode => @ast.Term::Error("ErrorNode")
+    @syntax.IfCondition
+    | @syntax.IfThen
+    | @syntax.IfElse
+    | @syntax.LambdaBody =>
+      match node.nth_child(0) {
+        Some(child) => recurse(child)
+        None => @ast.Term::Error("empty wrapper node")
+      }
     _ =>
       @ast.Term::Error(
         "unknown node kind: " +

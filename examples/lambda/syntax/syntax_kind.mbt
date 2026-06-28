@@ -43,6 +43,10 @@ pub(all) enum SyntaxKind {
   TypeInt
   TypeUnit
   TypeArrow
+  IfCondition
+  IfThen
+  IfElse
+  LambdaBody
 } derive(Debug, Eq)
 
 ///|
@@ -129,6 +133,10 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     TypeInt => 40
     TypeUnit => 41
     TypeArrow => 42
+    IfCondition => 45
+    IfThen => 46
+    IfElse => 47
+    LambdaBody => 48
   }
   @seam.RawKind(n)
 }
@@ -180,6 +188,10 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     40 => TypeInt
     41 => TypeUnit
     42 => TypeArrow
+    45 => IfCondition
+    46 => IfThen
+    47 => IfElse
+    48 => LambdaBody
     _ => ErrorNode
   }
 }

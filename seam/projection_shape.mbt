@@ -33,7 +33,7 @@ pub(all) struct ProjectionShapeError {
 } derive(Debug, Eq)
 
 ///|
-fn ProjectionShapeError::ProjectionShapeError(
+pub fn ProjectionShapeError::ProjectionShapeError(
   node : SyntaxNode,
   target_kind : RawKind,
   element : ProjectionShapeElement,
