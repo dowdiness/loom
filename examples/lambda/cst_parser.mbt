@@ -420,10 +420,12 @@ fn parse_arrow_lambda(
       if !lambda_expect(ctx, @token.FatArrow, @syntax.FatArrowToken) {
         return false
       }
-      match ctx.peek() {
-        @token.LBrace => parse_block_expr(ctx)
-        _ => parse_expression_with_mode(ctx, allow_newline_application)
-      }
+      ctx.node(@syntax.LambdaBody, fn() {
+        match ctx.peek() {
+          @token.LBrace => parse_block_expr(ctx)
+          _ => parse_expression_with_mode(ctx, allow_newline_application)
+        }
+      })
       true
     },
     is_sync_point,
@@ -448,15 +450,21 @@ fn parse_atom(
         @syntax.IfExpr,
         () => {
           ctx.emit_token(@syntax.IfKeyword)
-          parse_expression_with_mode(ctx, allow_newline_application)
+          ctx.node(@syntax.IfCondition, fn() {
+            parse_expression_with_mode(ctx, allow_newline_application)
+          })
           if !lambda_expect(ctx, @token.Then, @syntax.ThenKeyword) {
             return false
           }
-          parse_expression_with_mode(ctx, allow_newline_application)
+          ctx.node(@syntax.IfThen, fn() {
+            parse_expression_with_mode(ctx, allow_newline_application)
+          })
           if !lambda_expect(ctx, @token.Else, @syntax.ElseKeyword) {
             return false
           }
-          parse_expression_with_mode(ctx, allow_newline_application)
+          ctx.node(@syntax.IfElse, fn() {
+            parse_expression_with_mode(ctx, allow_newline_application)
+          })
           true
         },
         is_sync_point,

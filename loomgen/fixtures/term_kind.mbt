@@ -95,4 +95,12 @@ pub(all) enum TermKind {
   TypeUnit
   #loom.node
   TypeArrow
+  #loom.node
+  IfCondition
+  #loom.node
+  IfThen
+  #loom.node
+  IfElse
+  #loom.node
+  LambdaBody
 }

@@ -124,6 +124,14 @@ pub fn convert_from_cst(n : @seam.SyntaxNode) -> TypedTerm {
       .nth_child(0)
       .map_or(TypedTerm::Error("empty parentheses"), convert_from_cst)
     @syntax.SyntaxKind::BlockExpr => convert_block_expr(n)
+    @syntax.SyntaxKind::IfCondition
+    | @syntax.SyntaxKind::IfThen
+    | @syntax.SyntaxKind::IfElse
+    | @syntax.SyntaxKind::LambdaBody =>
+      match n.nth_child(0) {
+        Some(child) => convert_from_cst(child)
+        None => TypedTerm::Error("empty wrapper node")
+      }
     _ => TypedTerm::Error("unhandled CST kind")
   }
 }

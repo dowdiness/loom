@@ -304,22 +304,24 @@ fn ProbeEnv::parse_arrow_lambda(
         ) {
         return false
       }
-      // Match A: only special-case { when immediately after => (no soft newlines).
-      if ctx.peek() == @token.LBrace {
-        self.run(ctx, self.compiled.rule(self.atom_slot))
-      } else {
-        let expr_starts = lambda_expression_starts()
-        let _ = ctx.consume_while_emit_if(
-          t => t == @token.Newline,
-          @syntax.NewlineToken,
-          t => expr_starts.matches(t),
-        )
-        if allow_newline_application {
-          self.parse_newline_app(ctx)
+      ctx.node(@syntax.LambdaBody, fn() {
+        // Match A: only special-case { when immediately after => (no soft newlines).
+        if ctx.peek() == @token.LBrace {
+          self.run(ctx, self.compiled.rule(self.atom_slot))
         } else {
-          self.run(ctx, self.compiled.rule(self.binary_slot))
+          let expr_starts = lambda_expression_starts()
+          let _ = ctx.consume_while_emit_if(
+            t => t == @token.Newline,
+            @syntax.NewlineToken,
+            t => expr_starts.matches(t),
+          )
+          if allow_newline_application {
+            self.parse_newline_app(ctx)
+          } else {
+            self.run(ctx, self.compiled.rule(self.binary_slot))
+          }
         }
-      }
+      })
       true
     },
     fn(t : @token.Token) -> Bool {

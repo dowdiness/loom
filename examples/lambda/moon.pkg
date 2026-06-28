@@ -8,6 +8,8 @@ import {
   "dowdiness/loom/core",
   "dowdiness/loom/viz",
   "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck",
+  "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/string",
   "dowdiness/loom",
