@@ -9,9 +9,12 @@ Phase 2 (deferred): `#loom.term` enum support — emits `SyntaxKind` entries for
 Phase 3: `#loom.view` annotation on term variants — emits `views.g.mbt` with typed `*Proj`
 accessor structs wrapping projection_shape helpers.
 
-Phase 4 (`--lexer`, #521): `#loom.pattern("regex")` / `#loom.custom_lex("fn")` on token
+Phase 4: `#loom.lexmode("ModeName")` annotation on term variants — emits `lexmode.g.mbt`
+with a `LexMode` enum and `lexmode_for_kind(kind: SyntaxKind) -> LexMode?` dispatch function.
+
+Phase 5 (`--lexer`, #521): `#loom.pattern("regex")` / `#loom.custom_lex("fn")` on token
 variants — emits `lexer.g.mbt`, a longest-match step lexer. Each candidate matches with an
-anchored compile-time regex literal `cursor.view() =~ (re"^PATTERN" as m)`; the maximal
+anchored compile-time regex literal `view =~ (re"^(?:PATTERN)", after=rest)`; the maximal
 match wins and declaration order breaks ties. `#loom.keyword(...)` variants are
 post-classified from the `#loom.ident` match (no separate branch), and `#loom.custom_lex`
 names a hand-written `(String, Int) -> LexStep[Token]` escape hatch that runs before the
@@ -38,6 +41,8 @@ as a call.
 - `fixtures/term_kind.mbt` — combined token+term enum for CI regression (no view variants)
 - `fixtures/view_fixture.mbt` — token+term enum with `#loom.view` annotations
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression
+- `fixtures/lexmode_fixture.mbt` — token+term enum with `#loom.lexmode` annotations
+- `fixtures/lexmode_fixture.g.mbt` — expected output for lexmode fixture regression
 - `fixtures/spec_fixture.g.mbt` — expected output for spec generation regression
 - `fixtures/pattern_lexer_fixture.mbt` — token enum with `#loom.pattern` lexer annotations
 - `fixtures/pattern_lexer_fixture.g.mbt` — expected `--lexer` output (golden)
@@ -47,6 +52,12 @@ Generate and verify:
 moon run loomgen --target native -- loomgen/fixtures/view_fixture.mbt token_out syntax_out
 ```
 Diff `syntax_out/views.g.mbt` against `loomgen/fixtures/views_fixture.g.mbt` to verify.
+
+Lexmode fixture:
+```bash
+moon run loomgen --target native -- loomgen/fixtures/lexmode_fixture.mbt token_out syntax_out
+```
+Diff `syntax_out/lexmode.g.mbt` against `loomgen/fixtures/lexmode_fixture.g.mbt` to verify.
 
 Generate a lexer (independent of syntax-kind output):
 ```bash
