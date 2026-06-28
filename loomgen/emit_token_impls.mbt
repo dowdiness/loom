@@ -103,6 +103,7 @@ fn show_literal_for(variant : VariantDecl) -> String {
     Some(Node) => abort("term variant in token enum: " + variant.name)
     Some(ErrorNode) => abort("term variant in token enum: " + variant.name)
     Some(Root) => abort("term variant in token enum: " + variant.name)
+    Some(View(_, _, _)) => abort("term variant in token enum: " + variant.name)
     None => abort("unannotated variant: " + variant.name)
   }
 }

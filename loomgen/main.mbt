@@ -480,6 +480,33 @@ fn write_outputs(
     None => ()
   }
 
+  // Write views.g.mbt (view accessors) when term_enum has #loom.view variants.
+  // Always check for stale file to remove, even when no term enum exists.
+  let views_path = syntax_out + "/views.g.mbt"
+  let mut views_written = false
+  match term_enum_decl {
+    Some(term_enum_val) if !skip_syntax => {
+      let syntax_type_name = "SyntaxKind"
+      let content = emit_view_accessors(term_enum_val, syntax_type_name)
+      if content.length() > 0 {
+        @fs.write_string_to_file(views_path, content) catch {
+          _ => {
+            println("Error writing " + views_path)
+            return Err(())
+          }
+        }
+        println("  " + views_path)
+        views_written = true
+      }
+    }
+    _ => ()
+  }
+  if !views_written && !skip_syntax && @fs.path_exists(views_path) {
+    @fs.remove_file(views_path) catch {
+      _ => println("Warning: could not remove stale " + views_path)
+    }
+  }
+
   println("  " + token_out + "/token_impls.g.mbt")
   Ok(())
 }
