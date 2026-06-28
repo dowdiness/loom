@@ -1,0 +1,254 @@
+///|
+/// Whitebox tests for #521 lexer generation: golden snapshot of the emitter and
+/// the generation-time validation errors.
+
+///|
+fn read_fixture(path : String) -> String {
+  @fs.read_file_to_string(path) catch {
+    _ => abort("cannot read " + path)
+  }
+}
+
+///|
+/// Parse an inline annotated source and return its token enum, or abort.
+fn token_enum_of(src : String) -> EnumDecl {
+  match parse_annotations(src) {
+    Ok(a) =>
+      match a.token_enum {
+        Some(te) => te
+        None => abort("no token enum parsed")
+      }
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "emit_lexer golden matches fixtures/pattern_lexer_fixture.g.mbt" {
+  let src = read_fixture("fixtures/pattern_lexer_fixture.mbt")
+  let golden = read_fixture("fixtures/pattern_lexer_fixture.g.mbt")
+  let te = token_enum_of(src)
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+test "parse_annotations rejects a nullable #loom.pattern" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.ident
+    #|  #loom.pattern("a*")
+    #|  Id
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("nullable"), content="true")
+    Ok(_) => abort("expected nullable-pattern rejection")
+  }
+}
+
+///|
+test "emit_lexer rejects #loom.keyword without a #loom.ident source" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.keyword("if")
+      #|  If
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) => inspect(msg.contains("no #loom.ident"), content="true")
+    Ok(_) => abort("expected keyword-without-ident rejection")
+  }
+}
+
+///|
+test "emit_lexer rejects a token with no pattern/punct/custom_lex" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  Num
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) => inspect(msg.contains("cannot produce"), content="true")
+    Ok(_) => abort("expected unlexable-variant rejection")
+  }
+}
+
+///|
+test "contains_double_quote detects an embeddable-pattern hazard" {
+  inspect(contains_double_quote("a\"b"), content="true")
+  inspect(contains_double_quote("[a-z]+"), content="false")
+}
+
+///|
+/// #loom.custom_lex is a modifier on a role-bearing variant (the role gives it a
+/// kind for token_impls; custom_lex overrides only HOW it is lexed). The emitted
+/// lexer calls the named hook before the regex pass and falls through on `Done`.
+test "emit_lexer wires a #loom.custom_lex hook before the regex pass" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.custom_lex("lex_thing")
+      #|  Thing
+      #|  #loom.ident
+      #|  #loom.pattern("[a-zA-Z_]+")
+      #|  Name
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  // The custom hook is called, and its non-Done result short-circuits.
+  inspect(generated.contains("match lex_thing(source, pos)"), content="true")
+  inspect(generated.contains("other => return other"), content="true")
+  // The custom_lex variant does NOT also get a regex branch.
+  inspect(generated.contains("Some(Thing)"), content="false")
+}
+
+///|
+/// Assert that `parse_annotations(src)` fails with an error containing `needle`.
+fn expect_parse_err(src : String, needle : String) -> Unit {
+  match parse_annotations(src) {
+    Err(msg) =>
+      if !msg.contains(needle) {
+        abort("expected error containing \"" + needle + "\", got: " + msg)
+      }
+    Ok(_) => abort("expected a parse error containing \"" + needle + "\"")
+  }
+}
+
+///|
+/// #1 (Codex review): loomgen rejects #loom.pattern constructs outside its
+/// supported `re` subset at generation time — non-capturing/flag/lookaround
+/// `(?...)` groups and zero-width assertion escapes (`\b`, `\A`, ...). These
+/// either mis-classify under the nullability analyzer (`(?:a?)`) or fail to
+/// compile in the generated lexer (`\b`); rejecting them here turns both into a
+/// clear generation-time message.
+test "parse_annotations rejects a (?:..) non-capturing group pattern" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(?:ab)+")
+      #|  Pair
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "(?...) groups",
+  )
+}
+
+///|
+test "parse_annotations rejects a zero-width assertion escape pattern" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.pattern("\bfoo")
+      #|  Id
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "zero-width assertion escape",
+  )
+}
+
+///|
+/// Positive control: a plain `(..)` group is INSIDE the supported subset and
+/// must still be accepted — the rejection above is specific to `(?...)`.
+test "parse_annotations accepts a plain (..) group pattern" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.literal
+    #|  #loom.pattern("(ab)+")
+    #|  Pair
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Ok(_) => ()
+    Err(m) => abort("expected plain group (ab)+ to be accepted, got: " + m)
+  }
+}
+
+///|
+/// #3 (Codex review): #loom.custom_lex on the EOF sentinel is rejected — EOF is
+/// detected at scanner entry, never lexed, so a custom EOF hook could otherwise
+/// produce EOF mid-input.
+test "parse_annotations rejects #loom.custom_lex on the #loom.eof variant" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.eof
+      #|  #loom.custom_lex("lex_eof")
+      #|  E
+      #|} derive(Eq)
+    ),
+    "cannot have #loom.custom_lex",
+  )
+}
+
+///|
+/// #4 (Codex review): the #loom.custom_lex argument is emitted verbatim as a
+/// call, so a non-identifier is rejected at generation time rather than
+/// producing broken (or injected) source in the generated lexer.
+test "parse_annotations rejects an invalid #loom.custom_lex function name" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.custom_lex("bad name)")
+      #|  Thing
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "not a valid function name",
+  )
+}
+
+///|
+/// Positive control: a qualified `@pkg.fn` path is a valid lex-hook reference.
+test "parse_annotations accepts a qualified @pkg.fn custom_lex name" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.literal
+    #|  #loom.custom_lex("@css.lex_url")
+    #|  Url
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Ok(_) => ()
+    Err(m) => abort("expected @css.lex_url to be accepted, got: " + m)
+  }
+}

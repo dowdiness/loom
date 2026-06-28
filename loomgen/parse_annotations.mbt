@@ -39,6 +39,11 @@ struct VariantDecl {
   kind_override : String?
   is_void : Bool
   is_rawtext : Bool
+  // Lexer-generation modifiers (#521). `pattern` carries an opaque MoonBit `re`
+  // dialect regex emitted verbatim into an anchored `re"^..."` literal;
+  // `custom_lex` names a hand-written `(String, Int) -> LexStep[Token]` escape hatch.
+  pattern : String?
+  custom_lex : String?
 }
 
 ///|
@@ -148,6 +153,86 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 v.name +
                 " cannot have #loom.rawtext annotation",
               )
+            }
+          }
+          // Lexer-generation: #loom.pattern is only meaningful for real
+          // scanning roles. Keywords are post-classified from the identifier
+          // match, EOF is handled at scanner entry, and the error token is the
+          // no-match fallback — none of them may carry their own pattern. A
+          // nullable pattern would emit a zero-width producer, so reject it.
+          for v in classified {
+            match v.pattern {
+              Some(p) => {
+                match v.role {
+                  Some(Keyword(_)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has #loom.pattern together with #loom.keyword; keywords are post-classified from the identifier match and must not carry a pattern",
+                    )
+                  Some(Eof) =>
+                    return Err(
+                      "#loom.eof variant " +
+                      v.name +
+                      " cannot have #loom.pattern",
+                    )
+                  Some(ErrorToken) =>
+                    return Err(
+                      "#loom.error variant " +
+                      v.name +
+                      " cannot have #loom.pattern; the error token is the no-match fallback",
+                    )
+                  _ => ()
+                }
+                if unsupported_re_construct(p) is Some(reason) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has an unsupported #loom.pattern \"" +
+                    p +
+                    "\": " +
+                    reason +
+                    ". loomgen's #loom.pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
+                  )
+                }
+                if is_nullable_pattern(p) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has a nullable #loom.pattern \"" +
+                    p +
+                    "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
+                  )
+                }
+              }
+              None => ()
+            }
+          }
+          // #loom.custom_lex is a HOW-to-lex override on a role-bearing token.
+          // It is meaningless on the EOF sentinel (detected at scanner entry,
+          // never lexed), and its argument is emitted verbatim as a call, so it
+          // must name a callable lex function.
+          for v in classified {
+            match v.custom_lex {
+              Some(fn_name) => {
+                if v.role is Some(Eof) {
+                  return Err(
+                    "#loom.eof variant " +
+                    v.name +
+                    " cannot have #loom.custom_lex; EOF is detected at scanner entry, not lexed",
+                  )
+                }
+                if !is_valid_lex_fn_name(fn_name) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has #loom.custom_lex(\"" +
+                    fn_name +
+                    "\") whose argument is not a valid function name; expected an identifier or @pkg.identifier path",
+                  )
+                }
+              }
+              None => ()
             }
           }
         }
@@ -376,6 +461,9 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         // Detect #loom.void and #loom.rawtext modifier annotations
         let mut is_void = false
         let mut is_rawtext = false
+        // Detect #loom.pattern and #loom.custom_lex lexer-generation modifiers.
+        let mut pattern : String? = None
+        let mut custom_lex : String? = None
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
@@ -388,6 +476,10 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 is_void = true
               } else if id.name == "rawtext" {
                 is_rawtext = true
+              } else if id.name == "pattern" {
+                pattern = first_string_from_apply(attr.parsed)
+              } else if id.name == "custom_lex" {
+                custom_lex = first_string_from_apply(attr.parsed)
               }
             _ => ()
           }
@@ -405,6 +497,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           kind_override,
           is_void,
           is_rawtext,
+          pattern,
+          custom_lex,
         }
       })
       .to_array()
@@ -423,6 +517,231 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
       }
     _ => None
   }
+}
+
+///|
+/// Conservatively decide whether a `#loom.pattern` regex can match the empty
+/// string. The argument is the raw pattern body (MoonBit `re` dialect) WITHOUT
+/// the generator's leading `^` anchor.
+///
+/// Soundness requirement: NEVER return `false` for a genuinely nullable
+/// pattern — a false negative ships a lexer that can emit a zero-width token
+/// and stall. Over-rejecting some safe-but-complex patterns is acceptable; the
+/// caller's error message tells the author to add an explicit required atom.
+///
+/// A pattern is nullable when it has no *required* atom at the top level: the
+/// empty string `""`, an all-optional sequence like `[a-z]*` or `(foo)?`, or a
+/// top-level alternation `a|b` where some branch is nullable.
+fn is_nullable_pattern(pattern : String) -> Bool {
+  if pattern.length() == 0 {
+    return true
+  }
+  let (nullable, _) = nullable_alt(pattern, 0)
+  nullable
+}
+
+///|
+/// Parse a top-level alternation `seq ( '|' seq )*` from `pos`, stopping at an
+/// unmatched ')' or end of input. Nullable iff ANY branch is nullable.
+fn nullable_alt(p : String, pos : Int) -> (Bool, Int) {
+  let (first, next) = nullable_seq(p, pos)
+  let mut result = first
+  let mut i = next
+  while i < p.length() && p[i] == '|' {
+    let (branch, after) = nullable_seq(p, i + 1)
+    result = result || branch
+    i = after
+  }
+  (result, i)
+}
+
+///|
+/// Parse a concatenation of quantified atoms until '|', ')', or end. An empty
+/// sequence is nullable; otherwise nullable iff EVERY atom is optional.
+fn nullable_seq(p : String, pos : Int) -> (Bool, Int) {
+  let mut i = pos
+  let mut all_optional = true
+  while i < p.length() && p[i] != '|' && p[i] != ')' {
+    let (atom_nullable, after_atom) = nullable_atom(p, i)
+    let (quant_nullable, after_quant) = apply_quantifier(
+      atom_nullable, p, after_atom,
+    )
+    if !quant_nullable {
+      all_optional = false
+    }
+    i = after_quant
+  }
+  (all_optional, i)
+}
+
+///|
+/// Parse a single atom (literal, escape, char class, group, or zero-width
+/// anchor) and return (atom_is_nullable, next_pos) BEFORE any quantifier.
+fn nullable_atom(p : String, pos : Int) -> (Bool, Int) {
+  let c = p[pos]
+  if c == '\\' {
+    // Escaped char consumes one literal character — not nullable. (Zero-width
+    // escapes like \b are not analyzed; they are nonsensical in token patterns.)
+    let next = if pos + 1 < p.length() { pos + 2 } else { pos + 1 }
+    (false, next)
+  } else if c == '^' || c == '$' {
+    // Zero-width anchor matches the empty string.
+    (true, pos + 1)
+  } else if c == '[' {
+    // Char class matches exactly one character — not nullable. `class_end`
+    // finds the true closing `]`, accounting for `\]` escapes and POSIX
+    // elements like `[:digit:]` whose inner `]` must not close the class early.
+    (false, class_end(p, pos))
+  } else if c == '(' {
+    let (inner, after) = nullable_alt(p, pos + 1)
+    let next = if after < p.length() && p[after] == ')' {
+      after + 1
+    } else {
+      after
+    }
+    (inner, next)
+  } else {
+    // Ordinary literal character.
+    (false, pos + 1)
+  }
+}
+
+///|
+/// Apply a trailing quantifier to an atom's nullability. `*` and `?` make the
+/// atom optional; `+` preserves it; `{m,n}` is optional iff its lower bound is
+/// zero or absent. No quantifier leaves the atom's nullability unchanged.
+fn apply_quantifier(atom_nullable : Bool, p : String, pos : Int) -> (Bool, Int) {
+  if pos >= p.length() {
+    return (atom_nullable, pos)
+  }
+  match p[pos] {
+    '*' | '?' => (true, pos + 1)
+    '+' => (atom_nullable, pos + 1)
+    '{' => {
+      // {min,max}: nullable iff min is zero or absent.
+      let mut j = pos + 1
+      let mut min_is_zero = true
+      while j < p.length() && p[j] >= '0' && p[j] <= '9' {
+        if p[j] != '0' {
+          min_is_zero = false
+        }
+        j = j + 1
+      }
+      while j < p.length() && p[j] != '}' {
+        j = j + 1
+      }
+      let next = if j < p.length() { j + 1 } else { j }
+      if min_is_zero {
+        (true, next)
+      } else {
+        (atom_nullable, next)
+      }
+    }
+    _ => (atom_nullable, pos)
+  }
+}
+
+///|
+/// Find the index just past the closing `]` of the character class that opens at
+/// `pos` (which must point at the `[`). Skips `\]` escapes and POSIX elements
+/// like `[:digit:]` — whose inner `]` is NOT the class terminator — so a class
+/// is always treated as exactly one consuming atom. Returns `p.length()` for an
+/// unterminated class. Shared by the nullability analyzer and the
+/// unsupported-construct scan so both agree on class boundaries.
+fn class_end(p : String, pos : Int) -> Int {
+  let mut j = pos + 1
+  while j < p.length() && p[j] != ']' {
+    if p[j] == '\\' {
+      j = j + 2
+    } else if p[j] == '[' && j + 1 < p.length() && p[j + 1] == ':' {
+      // POSIX element [:name:] — advance past its ':]' terminator.
+      j = j + 2
+      while j + 1 < p.length() && !(p[j] == ':' && p[j + 1] == ']') {
+        j = j + 1
+      }
+      j = j + 2
+    } else {
+      j = j + 1
+    }
+  }
+  if j < p.length() {
+    j + 1
+  } else {
+    j
+  }
+}
+
+///|
+/// Detect `#loom.pattern` constructs outside loomgen's supported `re` subset.
+/// Returns `Some(reason)` for an unsupported construct, `None` otherwise.
+///
+/// The MoonBit `re` dialect rejects zero-width assertion escapes (`\b`, `\A`,
+/// ...) and lookaround at compile time, so emitting them would fail inside the
+/// generated lexer rather than here. Non-capturing `(?:...)` groups DO compile,
+/// but the nullability analyzer reads the `?:` prefix as two literal atoms and
+/// cannot soundly classify them. Rejecting every `(?...)` group and zero-width
+/// assertion escape keeps the analyzer's domain exactly the subset it is
+/// provably sound on, and turns a cryptic downstream compile error into a clear
+/// generation-time message.
+///
+/// Character classes are skipped wholesale via `class_end` so a `(` or `\b`
+/// *inside* `[...]` — where it is an ordinary class member — is not mistaken for
+/// an unsupported construct, and POSIX elements like `[:digit:]` do not desync
+/// the scan.
+fn unsupported_re_construct(p : String) -> String? {
+  let mut i = 0
+  while i < p.length() {
+    let c = p[i]
+    if c == '\\' {
+      if i + 1 < p.length() {
+        match p[i + 1] {
+          'b' | 'B' | 'A' | 'z' | 'Z' | 'G' =>
+            return Some(
+              "zero-width assertion escape " +
+              p[i:i + 2].to_owned() +
+              " is not supported by the re dialect",
+            )
+          _ => ()
+        }
+      }
+      i = i + 2
+    } else if c == '[' {
+      i = class_end(p, i)
+    } else if c == '(' && i + 1 < p.length() && p[i + 1] == '?' {
+      return Some(
+        "(?...) groups (non-capturing, flags, or lookaround) are not supported; use a plain group (..)",
+      )
+    } else {
+      i = i + 1
+    }
+  }
+  None
+}
+
+///|
+/// Is `name` a syntactically valid lex-hook reference — a bare identifier or an
+/// `@pkg.identifier` path? `#loom.custom_lex(name)` is emitted verbatim as a
+/// function call, so anything else would inject broken (or arbitrary) source
+/// into the generated lexer.
+fn is_valid_lex_fn_name(name : String) -> Bool {
+  if name.length() == 0 {
+    return false
+  }
+  for i in 0..<name.length() {
+    let c = name[i]
+    let is_alnum = (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9')
+    let ok = if i == 0 {
+      is_alnum || c == '_' || c == '@'
+    } else {
+      is_alnum || c == '_' || c == '.' || c == '@'
+    }
+    if !ok {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -647,6 +966,29 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             " on " +
             variant.name +
             " does not accept arguments",
+          )
+        }
+        continue
+      }
+      "pattern" | "custom_lex" => {
+        // Lexer-generation modifier — skip role assignment, but require
+        // exactly one string argument (the regex body / function name).
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom." +
+            matched.name +
+            " on " +
+            variant.name +
+            " requires exactly 1 string argument",
+          )
+        }
+        if first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom." +
+            matched.name +
+            " on " +
+            variant.name +
+            " argument must be a string literal",
           )
         }
         continue
