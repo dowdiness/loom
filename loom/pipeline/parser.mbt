@@ -55,27 +55,27 @@ pub fn[Ast : Eq] Parser::new(
     initial_snapshot,
     label="parser_snapshot",
   )
-  let snapshot_view = @incr.Derived::Derived(
+  let snapshot_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().copy() },
     label="parser_snapshot_view",
   )
-  let source_view = @incr.Derived::Derived(
+  let source_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().source },
     label="parser_source_view",
   )
-  let syntax_view = @incr.Derived::Derived(
+  let syntax_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().syntax },
     label="parser_syntax_view",
   )
-  let ast_view = @incr.Derived::Derived(
+  let ast_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().ast },
     label="parser_ast_view",
   )
-  let diagnostics_view = @incr.Derived::Derived(
+  let diagnostics_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().diagnostics.copy() },
     label="parser_diagnostics_view",

@@ -30,6 +30,119 @@ query language; it is to make the safe, reviewable projection shape explicit.
 5. Keep recursive traversals explicit. If a projection intentionally walks all
    descendants, write that traversal so reviewers can see the recursive boundary.
 
+## Using generated `*Proj` view accessors
+
+loomgen emits `views.g.mbt` containing typed `*Proj` structs for every `#loom.term`
+enum variant targeted by a `#loom.view` annotation. Each struct wraps a
+`@seam.SyntaxNode` and exposes named accessor methods that validate direct-child
+cardinality using the projection shape helpers.
+
+Each `*Proj` struct implements `@seam.AstView`, so any typed projection accessor
+is also a valid `AstView`:
+
+```mbt nocheck
+pub impl @seam.AstView for IfExprProj with fn syntax_node(self) { self.node }
+```
+
+### Imperative usage
+
+With `ImperativeParser`, parse, find the target child, cast, and access:
+
+```mbt nocheck
+let parser = @loom.new_imperative_parser(source, my_grammar)
+let snapshot = parser.parse()
+let root = snapshot.syntax
+// Pick a specific child by position — exact index depends on your grammar.
+let if_child = root.children()[0]
+let proj = match IfExprProj::cast(if_child) {
+  Some(p) => p
+  None => abort("expected IfExpr node")
+}
+
+// Access typed child slots with cardinality validation.
+match proj.condition() {
+  Ok(cond) => lower_condition(cond)
+  Err(err) => record_projection_error(err)
+}
+
+match proj.then_branch() {
+  Ok(body) => lower_body(body)
+  Err(err) => record_projection_error(err)
+}
+
+// Optional children are nullable.
+match proj.else_branch() {
+  Ok(Some(alt)) => lower_alternative(alt)
+  Ok(None) => ()  // else branch absent
+  Err(err) => record_projection_error(err)
+}
+```
+### Reactive usage
+
+With the unified `Parser[Ast]` or `SyntaxParser`, attach a `@incr.Derived` cell
+that casts the parsed `SyntaxNode` to your `*Proj` type. The cell recomputes
+whenever the parse snapshot changes:
+
+```mbt nocheck
+let parser = @loom.new_syntax_parser(source, my_language_spec)
+
+let if_view : @incr.Derived[IfExprProj?] = @incr.Derived(
+  parser.runtime(),
+  fn() {
+    let root = parser.syntax_tree().read_or_abort()
+    // Find the first child matching IfExpr. Selection logic is
+    // language-specific — adjust for your grammar's tree shape.
+    root.children().iter().find_map(IfExprProj::cast)
+  },
+  label="if_view",
+)
+
+// Subscribe via Watch or compose further derived cells.
+// if_view.read_or_abort() returns IfExprProj? reflecting the current parse.
+```
+
+The `parser.runtime()` is shared, so your derived cell lives in the same
+dependency graph as the parser's own reactive cells. Use `@incr.Scope`/
+`@incr.Watch` to manage the attachment lifecycle (see
+[choosing a parser](choosing-a-parser.md) for the ownership contract).
+
+### Accessor return types
+
+Each accessor returns the raw `@seam.SyntaxNode` (or `Array[@seam.SyntaxNode]`
+for `#loom.view("target", "name", "zero_or_more")`). The accessor validates
+cardinality — missing or duplicate direct children produce a
+`ProjectionShapeError` — but does not cast the returned node to a narrower type.
+To access children of a typed slot, downcast manually:
+
+```mbt nocheck
+let condition = match proj.condition() {
+  Ok(node) => node
+  Err(err) => return Err(err)
+}
+let condition_view = match IfConditionProj::cast(condition) {
+  Some(v) => v
+  None => abort("expected IfCondition — annotation target mismatch")
+}
+```
+
+This preserves the one-to-many relationship between a `*Proj` accessor and its
+callers: the accessor is a shape check, and the caller decides which typed view
+to cast the result to. See the [design spec's return-type and deferred-phase sections](../superpowers/specs/2026-06-28-view-framework-consumer-design.md) for the deferred plan to generate typed return types.
+
+### `*Proj` vs hand-written views
+
+`*Proj` structs validate immediate CST shape — they check that a node's direct
+children match the expected cardinality by kind. They are the right tool when
+your projection mirrors the grammar's surface structure.
+
+Hand-written views (like the lambda example's `LambdaExprView::params()`, which
+filters by semantic position rather than child kind) are better when traversal
+logic goes beyond direct-child shape — custom filtering, descendant exclusion,
+or semantic aggregation belong in a hand-written wrapper.
+
+The two compose naturally: a hand-written view can delegate shape validation to
+a `*Proj` for standard slots while adding custom logic for the rest.
+
 ## Why insert a private IR?
 
 A CST is concrete and parser-shaped. A semantic model is user-facing and should

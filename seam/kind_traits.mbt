@@ -31,3 +31,10 @@ pub(open) trait IsError {
 pub(open) trait IsEof {
   fn is_eof(Self) -> Bool
 }
+
+///|
+/// Marker trait for typed SyntaxNode view types.
+/// Every view type in your language package should implement this trait.
+pub(open) trait AstView {
+  fn syntax_node(Self) -> SyntaxNode
+}

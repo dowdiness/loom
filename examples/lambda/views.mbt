@@ -30,7 +30,7 @@ pub fn LambdaExprView::cast(n : @seam.SyntaxNode) -> LambdaExprView? {
 }
 
 ///|
-pub impl @core.AstView for LambdaExprView with fn syntax_node(self) {
+pub impl @seam.AstView for LambdaExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -131,7 +131,7 @@ pub fn AppExprView::cast(n : @seam.SyntaxNode) -> AppExprView? {
 }
 
 ///|
-pub impl @core.AstView for AppExprView with fn syntax_node(self) {
+pub impl @seam.AstView for AppExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -188,7 +188,7 @@ pub fn BinaryExprView::cast(n : @seam.SyntaxNode) -> BinaryExprView? {
 }
 
 ///|
-pub impl @core.AstView for BinaryExprView with fn syntax_node(self) {
+pub impl @seam.AstView for BinaryExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -286,7 +286,7 @@ pub fn IfExprView::cast(n : @seam.SyntaxNode) -> IfExprView? {
 }
 
 ///|
-pub impl @core.AstView for IfExprView with fn syntax_node(self) {
+pub impl @seam.AstView for IfExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -346,7 +346,7 @@ pub fn ParenExprView::cast(n : @seam.SyntaxNode) -> ParenExprView? {
 }
 
 ///|
-pub impl @core.AstView for ParenExprView with fn syntax_node(self) {
+pub impl @seam.AstView for ParenExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -386,7 +386,7 @@ pub fn IntLiteralView::cast(n : @seam.SyntaxNode) -> IntLiteralView? {
 }
 
 ///|
-pub impl @core.AstView for IntLiteralView with fn syntax_node(self) {
+pub impl @seam.AstView for IntLiteralView with fn syntax_node(self) {
   self.node
 }
 
@@ -431,7 +431,7 @@ pub fn VarRefView::cast(n : @seam.SyntaxNode) -> VarRefView? {
 }
 
 ///|
-pub impl @core.AstView for VarRefView with fn syntax_node(self) {
+pub impl @seam.AstView for VarRefView with fn syntax_node(self) {
   self.node
 }
 
@@ -467,7 +467,7 @@ pub fn LetDefView::cast(n : @seam.SyntaxNode) -> LetDefView? {
 }
 
 ///|
-pub impl @core.AstView for LetDefView with fn syntax_node(self) {
+pub impl @seam.AstView for LetDefView with fn syntax_node(self) {
   self.node
 }
 
@@ -531,7 +531,7 @@ pub fn BlockExprView::cast(n : @seam.SyntaxNode) -> BlockExprView? {
 }
 
 ///|
-pub impl @core.AstView for BlockExprView with fn syntax_node(self) {
+pub impl @seam.AstView for BlockExprView with fn syntax_node(self) {
   self.node
 }
 
@@ -582,7 +582,7 @@ pub fn HoleLiteralView::cast(n : @seam.SyntaxNode) -> HoleLiteralView? {
 }
 
 ///|
-pub impl @core.AstView for HoleLiteralView with fn syntax_node(self) {
+pub impl @seam.AstView for HoleLiteralView with fn syntax_node(self) {
   self.node
 }
 
@@ -612,7 +612,7 @@ pub fn TypeAnnotView::cast(n : @seam.SyntaxNode) -> TypeAnnotView? {
 }
 
 ///|
-pub impl @core.AstView for TypeAnnotView with fn syntax_node(self) {
+pub impl @seam.AstView for TypeAnnotView with fn syntax_node(self) {
   self.node
 }
 

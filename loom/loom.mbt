@@ -21,6 +21,7 @@ pub using @seam {
   trait IsEof,
   trait IsError,
   trait IsTrivia,
+  trait AstView,
   trait ToRawKind,
   build_tree,
   build_tree_fully_interned,
@@ -98,10 +99,6 @@ pub using @pipeline {type Parser, type SyntaxParser, type SyntaxSnapshot}
 // Grammar and factory functions (new_imperative_parser, new_parser,
 // new_syntax_parser) are defined in grammar.mbt and factories.mbt in this
 // package.
-
-///|
-// AstView trait — implement for every typed view type in your language package.
-pub using @core {trait AstView}
 
 ///|
 // Memoized catamorphism — CstFold[Ast] for incremental CST → AST conversion
