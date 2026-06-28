@@ -54,9 +54,13 @@ fn find_all_variants_with_role(
   }
   result
 }
+
+///|
 fn has_duplicate(enum_decl : EnumDecl, role : SyntaxRole) -> Bool {
   find_all_variants_with_role(enum_decl, role).length() > 1
 }
+
+///|
 /// Emit a `make_<language>_spec` factory function.
 ///
 /// `token_enum` — the #loom.token annotated enum (must have #loom.trivia,
@@ -163,7 +167,7 @@ fn emit_spec(
 
   let func_name = "make_" + to_lowercase_first(language_name) + "_spec"
   // Build trivia kinds array string separately (for loop inside method chain doesn't work)
-  let mut trivia_array_buf = StringBuilder()
+  let trivia_array_buf = StringBuilder()
   trivia_array_buf.write_string("    trivia_kinds_spec=[\n")
   for i, name in trivia_names {
     let sep = if i == trivia_names.length() - 1 { "" } else { ",\n" }
@@ -225,28 +229,28 @@ fn emit_spec(
   b.write_string("  )\n")
   b.write_string("}\n")
   // When there are multiple trivia variants, emit an is_*_trivia_kind helper.
-  if trivia_vars.length() > 1 {
+  let _ = if trivia_vars.length() > 1 {
     let helper_name = "is_" + to_lowercase_first(language_name) + "_trivia_kind"
     let arms = trivia_vars.map(fn(v) {
       syntax_prefix + derive_kind_name(v.name, Trivia, v.kind_override)
     })
-    let _ = b
-      ..write_string("\n///|\n")
-      ..write_string(
-        "/// Returns true for all trivia syntax kinds in this language.\n",
-      )
-      ..write_string(
-        "/// Generated from all #loom.trivia-annotated token variants.\n",
-      )
-      ..write_string("pub fn ")
-      ..write_string(helper_name)
-      ..write_string("(kind : ")
-      ..write_string(syntax_type)
-      ..write_string(") -> Bool {\n")
-      ..write_string("  match kind {\n    ")
-      ..write_string(arms.join(" | "))
-      ..write_string(" => true\n")
-      ..write_string("    _ => false\n")
-      ..write_string("  }\n}\n")
+    b.write_string("\n///|\n")
+    b.write_string(
+      "/// Returns true for all trivia syntax kinds in this language.\n",
+    )
+    b.write_string(
+      "/// Generated from all #loom.trivia-annotated token variants.\n",
+    )
+    b.write_string("pub fn ")
+    b.write_string(helper_name)
+    b.write_string("(kind : ")
+    b.write_string(syntax_type)
+    b.write_string(") -> Bool {\n")
+    b.write_string("  match kind {\n    ")
+    b.write_string(arms.join(" | "))
+    b.write_string(" => true\n")
+    b.write_string("    _ => false\n")
+    b.write_string("  }\n}\n")
   }
   Ok(b.to_string())
+}
