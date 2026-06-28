@@ -85,7 +85,7 @@ test "SyntaxParser::diagnostics is isolated from snapshot diagnostic mutation" {
 test "SyntaxParser exposes its runtime for downstream derived cells" {
   let parser = SyntaxParser::new("xy", syntax_test_language())
   let rt = parser.runtime()
-  let echo_derived : @incr.Derived[Int] = @incr.Derived::Derived(
+  let echo_derived : @incr.Derived[Int] = @incr.Derived(
     rt,
     fn() { parser.source().get_or_abort().length() },
     label="syntax-echo-length",

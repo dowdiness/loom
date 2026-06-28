@@ -74,22 +74,22 @@ pub fn SyntaxParser::new(
     initial_snapshot,
     label="syntax_parser_snapshot",
   )
-  let snapshot_view = @incr.Derived::Derived(
+  let snapshot_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().copy() },
     label="syntax_parser_snapshot_view",
   )
-  let source_view = @incr.Derived::Derived(
+  let source_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().source },
     label="syntax_parser_source_view",
   )
-  let syntax_view = @incr.Derived::Derived(
+  let syntax_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().syntax },
     label="syntax_parser_syntax_view",
   )
-  let diagnostics_view = @incr.Derived::Derived(
+  let diagnostics_view = @incr.Derived(
     rt,
     fn() { snapshot_input.get().diagnostics.copy() },
     label="syntax_parser_diagnostics_view",

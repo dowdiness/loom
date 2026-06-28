@@ -125,7 +125,7 @@ test "Parser exposes its runtime for downstream derived cells" {
   let rt = parser.runtime()
   // A downstream derived cell reads parser.source() inside its closure and
   // establishes a dependency edge through the pass-through Derived view.
-  let echo_derived : @incr.Derived[Int] = @incr.Derived::Derived(
+  let echo_derived : @incr.Derived[Int] = @incr.Derived(
     rt,
     fn() { parser.source().get_or_abort().length() },
     label="echo-length",

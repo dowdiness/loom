@@ -127,8 +127,7 @@ let condition_view = match IfConditionProj::cast(condition) {
 
 This preserves the one-to-many relationship between a `*Proj` accessor and its
 callers: the accessor is a shape check, and the caller decides which typed view
-to cast the result to. See the [design spec](../superpowers/specs/2026-06-28-view-framework-consumer-design.md)
-(§D4, §5.3) for the deferred plan to generate typed return types.
+to cast the result to. See the [design spec's return-type and deferred-phase sections](../superpowers/specs/2026-06-28-view-framework-consumer-design.md) for the deferred plan to generate typed return types.
 
 ### `*Proj` vs hand-written views
 
