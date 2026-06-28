@@ -271,6 +271,15 @@ jobs:
             examples/lambda/token examples/lambda/syntax
           git diff --exit-code -- loomgen/fixtures/spec_fixture.g.mbt
 
+      - name: Verify view fixture generation
+        working-directory: .
+        run: |
+          mkdir -p /tmp/vf-token /tmp/vf-syntax
+          moon run loomgen --target native -- \
+            loomgen/fixtures/view_fixture.mbt \
+            /tmp/vf-token /tmp/vf-syntax
+          git diff --exit-code -- /tmp/vf-syntax/views.g.mbt loomgen/fixtures/views_fixture.g.mbt
+
       - name: Verify multi-trivia spec generation
         working-directory: .
         run: |
