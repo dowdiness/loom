@@ -117,6 +117,8 @@ jobs:
   test-modules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -176,6 +178,8 @@ jobs:
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:

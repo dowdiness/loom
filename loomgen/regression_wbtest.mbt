@@ -24,12 +24,15 @@ fn read_regression_fixture(path : String) -> String {
     _ => abort("cannot read " + path)
   }
 }
+
 ///|
 /// Run the full loomgen pipeline against the lambda fixture, seeded from the
 /// canonical syntax_kind.mbt. Returns (token_impls_output, syntax_kind_output).
 fn run_regression_pipeline() -> (String, String) {
   // Seed registry from canonical output for stable raw numbers
-  let seed_src = read_regression_fixture("../examples/lambda/syntax/syntax_kind.mbt")
+  let seed_src = read_regression_fixture(
+    "../examples/lambda/syntax/syntax_kind.mbt",
+  )
   let pairs = extract_raw_pairs(seed_src)
   let registry = RawKindRegistry::new()
   registry.seed(pairs)
@@ -129,10 +132,7 @@ test "regression: IsTrivia true only for Whitespace in token_impls" {
 test "regression: IsTrivia true only for WhitespaceToken in syntax_kind" {
   let (_, syntax_kind) = run_regression_pipeline()
   // Positive: WhitespaceToken is the trivia kind
-  inspect(
-    syntax_kind.contains("self == WhitespaceToken"),
-    content="true",
-  )
+  inspect(syntax_kind.contains("self == WhitespaceToken"), content="true")
   // Negative: NewlineToken is a Delimiter — must NOT be classified as trivia.
   // A regression producing `self == WhitespaceToken || self == NewlineToken`
   // would be caught by this assertion.
@@ -212,7 +212,7 @@ test "regression: token/term kind name collision is rejected" {
   }
   let registry = RawKindRegistry::new()
   match build_kinds(te, registry, annotated.term_enum) {
-    Err(_) => ()  // expected — token kind "AToken" conflicts with term "AToken"
+    Err(_) => () // expected — token kind "AToken" conflicts with term "AToken"
     Ok(_) => abort("expected name collision error")
   }
 }

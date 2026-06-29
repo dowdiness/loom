@@ -83,6 +83,7 @@ fn RawKindRegistry::tombstoned_rawns(self : Self) -> Array[Int] {
   raws.sort()
   raws
 }
+
 ///|
 /// Extract (kind_name, raw) pairs from an existing syntax_kind.mbt file.
 /// Scans lines for `Name => number` or `Name => @seam.RawKind(number)` patterns
