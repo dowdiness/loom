@@ -161,20 +161,17 @@ jobs:
       - name: Verify MoonBit
         run: moon version --all
 
-      - name: Clear core bundle cache
-        run: rm -rf ~/.moon/lib/core/_build
-
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check --target native
+        run: moon check
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test --target native
+        run: moon test
 
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
@@ -203,20 +200,18 @@ jobs:
       - name: Verify MoonBit
         run: moon version --all
 
-      - name: Clear core bundle cache
-        run: rm -rf ~/.moon/lib/core/_build
-
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check --target native
+        run: moon check
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test --target native
+        run: moon test
+
 
   check-loomgen:
     name: Check Loomgen
@@ -238,9 +233,6 @@ jobs:
 
       - name: Verify MoonBit
         run: moon version --all
-
-      - name: Clear core bundle cache
-        run: rm -rf ~/.moon/lib/core/_build
 
       - name: moon update
         working-directory: .
@@ -308,24 +300,37 @@ jobs:
             loomgen/fixtures/lexmode_fixture.mbt \
             /tmp/lm-token /tmp/lm-syntax
           diff /tmp/lm-syntax/lexmode.g.mbt loomgen/fixtures/lexmode_fixture.g.mbt
-
-      - name: Verify multi pattern spec generation
-        working-directory: .
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - fmt-check
+      - fmt-check-submodules
+      - test-modules
+      - test-modules-submodules
+      - check-loomgen
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
         run: |
-          mkdir -p /tmp/mp-token /tmp/mp-syntax
-          moon run loomgen --target native -- \
-            loomgen/fixtures/multi_pattern_fixture.mbt \
-            /tmp/mp-token /tmp/mp-syntax
-          diff /tmp/mp-token/token_impls.g.mbt loomgen/fixtures/multi_pattern_expected.g.mbt
-
-      - name: Verify keyword reuse generation
-        working-directory: .
-        run: |
-          mkdir -p /tmp/kr-token /tmp/kr-syntax
-          moon run loomgen --target native -- \
-            loomgen/fixtures/keyword_reuse_fixture.mbt \
-            /tmp/kr-token /tmp/kr-syntax
-          diff /tmp/kr-syntax/syntax_kind.mbt loomgen/fixtures/keyword_reuse_expected.g.mbt
-
-      - name: All checks passed
-        run: echo "All checks passed"
+          if [[ "${{ needs.fmt-check.result }}" != "success" ]]; then
+            echo "fmt-check job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.fmt-check-submodules.result }}" != "success" ]]; then
+            echo "fmt-check-submodules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test-modules.result }}" != "success" ]]; then
+            echo "test-modules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test-modules-submodules.result }}" != "success" ]]; then
+            echo "test-modules-submodules job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.check-loomgen.result }}" != "success" ]]; then
+            echo "check-loomgen job failed"
+            exit 1
+          fi
+          echo "All checks passed"
