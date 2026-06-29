@@ -211,6 +211,8 @@ test "regression: token/term kind name collision is rejected" {
     None => abort("no token enum")
   }
   let registry = RawKindRegistry::new()
-  let result = build_kinds(te, registry, annotated.term_enum)
-  inspect(result is Err(_), content="true")
+  match build_kinds(te, registry, annotated.term_enum) {
+    Err(_) => ()  // expected — token kind "AToken" conflicts with term "AToken"
+    Ok(_) => abort("expected name collision error")
+  }
 }

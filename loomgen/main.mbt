@@ -4,7 +4,7 @@
 ///
 /// Reads annotated MoonBit source, emits token_impls.g.mbt and syntax_kind.mbt.
 /// --seed: seed raw-kind numbers from existing syntax_kind.mbt for idempotent re-generation.
-
+///   When omitted, loomgen auto-detects the prior output in the syntax_out directory.
 
 ///|
 fn first_value(arr : Array[String]) -> String? {
@@ -143,7 +143,26 @@ fn setup_registry(
       )
       registry.seed(seed_pairs)
     }
-    None => ()
+    None => {
+      // Auto-seed from existing syntax output for stable raw-kind numbers.
+      let prior_path = syntax_out + "/syntax_kind.mbt"
+      let prior = if @fs.path_exists(prior_path) { prior_path } else {
+        let alt = syntax_out + "/syntax_kind.g.mbt"
+        if @fs.path_exists(alt) { alt } else {
+          token_out + "/loom.registry.g.txt"
+        }
+      }
+      if @fs.path_exists(prior) {
+        let seed_src = @fs.read_file_to_string(prior) catch { _ => "" }
+        if seed_src.length() > 0 {
+          let seed_pairs = extract_raw_pairs(seed_src)
+          if seed_pairs.length() > 0 {
+            println("Auto-seeded " + seed_pairs.length().to_string() + " raw kind entries from " + prior)
+            registry.seed(seed_pairs)
+          }
+        }
+      }
+    }
   }
 
   // Auto-restore tombstoned raws from prior output.
