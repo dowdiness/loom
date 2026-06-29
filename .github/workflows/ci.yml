@@ -65,6 +65,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+84519ca0a
+          setup-core: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -100,6 +101,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+84519ca0a
+          setup-core: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -155,6 +157,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+84519ca0a
+          setup-core: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -164,6 +167,9 @@ jobs:
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
+      - name: Fetch core library
+        working-directory: ${{ matrix.path }}
+        run: moon install moonbitlang/core
 
       - name: moon check
         working-directory: ${{ matrix.path }}
@@ -194,6 +200,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+84519ca0a
+          setup-core: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -203,6 +210,9 @@ jobs:
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
+      - name: Fetch core library
+        working-directory: ${{ matrix.path }}
+        run: moon install moonbitlang/core
 
       - name: moon check
         working-directory: ${{ matrix.path }}
@@ -228,6 +238,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+84519ca0a
+          setup-core: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -237,6 +248,8 @@ jobs:
       - name: moon update
         working-directory: .
         run: moon update
+      - name: Fetch core library
+        run: moon install moonbitlang/core
 
       - name: Build loomgen
         working-directory: .
