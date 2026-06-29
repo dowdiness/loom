@@ -256,16 +256,16 @@ jobs:
       - name: Clear core bundle cache
         run: rm -rf ~/.moon/lib/core/_build
 
+      - name: moon update
+        working-directory: .
+        run: moon update
+
       - name: Warm up core library cache
         working-directory: .
         run: |
           echo 'fn __warmup__() -> Unit { () }' > __warmup__.mbt
           moon check --target native 2>&1 || true
           rm -f __warmup__.mbt
-
-      - name: moon update
-        working-directory: .
-        run: moon update
 
       - name: Build loomgen
         working-directory: .
