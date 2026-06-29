@@ -62,8 +62,10 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
@@ -95,8 +97,10 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
@@ -148,10 +152,11 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
-
       - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
@@ -187,10 +192,11 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
-
       - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
@@ -219,10 +225,11 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
-
       - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
