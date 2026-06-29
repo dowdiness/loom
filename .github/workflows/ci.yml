@@ -62,11 +62,9 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
         run: moon version --all
@@ -97,11 +95,9 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
         run: moon version --all
@@ -154,11 +150,9 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
         run: moon version --all
@@ -195,11 +189,9 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
         run: moon version --all
@@ -229,11 +221,9 @@ jobs:
           submodules: recursive
 
       - name: Install MoonBit
-        uses: hustcer/setup-moonbit@v1.22
-        with:
-          version: 0.10.0+84519ca0a
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version 0.10.0+84519ca0a
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
 
       - name: Verify MoonBit
         run: moon version --all
