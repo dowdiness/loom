@@ -167,11 +167,11 @@ jobs:
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check
+        run: moon check --target native
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test
+        run: moon test --target native
 
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
@@ -206,12 +206,11 @@ jobs:
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check
+        run: moon check --target native
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test
-
+        run: moon test --target native
 
   check-loomgen:
     name: Check Loomgen
