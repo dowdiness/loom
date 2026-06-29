@@ -39,7 +39,7 @@ pub struct PrettyLayout {
 }
 pub impl TermSym for PrettyLayout
 
-pub(all) struct SourceText {
+pub struct SourceText {
   repr : String
   prec : Int
 }

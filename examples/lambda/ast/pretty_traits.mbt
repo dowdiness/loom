@@ -34,7 +34,7 @@ let prec_atom : Int = 5
 /// Named `SourceText` (not `Source`) to avoid colliding with the `@pretty.Source`
 /// trait that `Term` implements. Mirrors `PrettyLayout`'s precedence discipline:
 /// each node reports its own `prec`; the parent wraps a child via `wrap_source`.
-pub(all) struct SourceText {
+pub struct SourceText {
   repr : String
   prec : Int
 }
@@ -45,6 +45,17 @@ fn wrap_source(child : SourceText, ctx_prec : Int) -> String {
     "(" + child.repr + ")"
   } else {
     child.repr
+  }
+}
+
+///|
+/// Single source of truth for binary-operator spelling, shared by both the
+/// SourceText and PrettyLayout `bop` impls so a new operator (or a renamed
+/// symbol) is updated in exactly one place.
+fn bop_sym(op : Bop) -> String {
+  match op {
+    Plus => "+"
+    Minus => "-"
   }
 }
 
@@ -73,10 +84,7 @@ pub impl TermSym for SourceText with fn app(f, a) {
 
 ///|
 pub impl TermSym for SourceText with fn bop(op, l, r) {
-  let sym = match op {
-    Plus => "+"
-    Minus => "-"
-  }
+  let sym = bop_sym(op)
   {
     repr: wrap_source(l, prec_bop) +
     " " +
@@ -102,8 +110,7 @@ pub impl TermSym for SourceText with fn let_def(name, init) {
 
 ///|
 pub impl TermSym for SourceText with fn mod(defs, body) {
-  let parts : Array[String] = defs.map(fn(d) { "let " + d.0 + " = " + d.1.repr })
-  parts.push(body.repr)
+  let parts = [..defs.map(d => "let " + d.0 + " = " + d.1.repr), body.repr]
   { repr: "{ " + parts.join("\n") + " }", prec: prec_atom }
 }
 
@@ -237,10 +244,7 @@ pub impl TermSym for PrettyLayout with fn app(f, arg) {
 
 ///|
 pub impl TermSym for PrettyLayout with fn bop(b, l, r) {
-  let sym = match b {
-    Plus => "+"
-    Minus => "-"
-  }
+  let sym = bop_sym(b)
   {
     layout: @pretty.group(
       wrap_if_needed(l, prec_bop) +
@@ -296,13 +300,15 @@ pub impl TermSym for PrettyLayout with fn mod(defs, body) {
     d,
   ) {
     let (name, val) = d
-    kw("let") +
-    @pretty.text(" ") +
-    ident(name) +
-    @pretty.text(" ") +
-    op_text("=") +
-    @pretty.text(" ") +
-    @pretty.nest(val.layout)
+    @pretty.group(
+      kw("let") +
+      @pretty.text(" ") +
+      ident(name) +
+      @pretty.text(" ") +
+      op_text("=") +
+      @pretty.text(" ") +
+      @pretty.nest(val.layout),
+    )
   })
   let defs_doc = @pretty.separate(@pretty.hardline(), def_layouts)
   let contents = if def_layouts.is_empty() {

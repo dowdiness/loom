@@ -354,12 +354,7 @@ test "parse mixed operators and applications" {
 test "parse complex expression with all features" {
   let expr = parse("((f, x) => if f x then x + 1 else x - 1)")
   let printed = @ast.print_term(expr)
-  inspect(
-    printed.contains("(f, x) =>"),
-    content=(
-      #|false
-    ),
-  )
+  inspect(printed.contains("(f) => (x) =>"), content="true")
   inspect(printed.contains("if"), content="true")
   inspect(printed.contains("then"), content="true")
   inspect(printed.contains("else"), content="true")
@@ -539,12 +534,7 @@ test "desugar fn with params to nested Lam" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(
-    printed.contains("fn f(x, y)"),
-    content=(
-      #|false
-    ),
-  )
+  inspect(printed.contains("let f = (x) => (y) =>"), content="true")
 }
 
 ///|
@@ -622,12 +612,7 @@ test "parse param list with block body" {
   let tree = @seam.SyntaxNode::from_cst(cst)
   let term = syntax_node_to_term(tree)
   let printed = @ast.print_term(term)
-  inspect(
-    printed.contains("fn compute(x, y)"),
-    content=(
-      #|false
-    ),
-  )
+  inspect(printed.contains("let compute = (x) => (y) =>"), content="true")
 }
 
 ///|

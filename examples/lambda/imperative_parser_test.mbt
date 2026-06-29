@@ -193,12 +193,7 @@ test "multiple incremental edits preserve correctness" {
   inspect(@ast.print_term(tree2).contains("2"), content="true")
   let edit3 = @core.Edit::insert(1, 3) // "(x) => x + 2" -> "(y, x) => x + 2"
   let tree3 = parser.edit(edit3, "(y, x) => x + 2").ast
-  inspect(
-    @ast.print_term(tree3).contains("(y, x) =>"),
-    content=(
-      #|false
-    ),
-  )
+  inspect(@ast.print_term(tree3).contains("(y) => (x) =>"), content="true")
 
   // Final result should match full reparse
   let full_tree = parse("(y, x) => x + 2") catch { _ => abort("parse failed") }
