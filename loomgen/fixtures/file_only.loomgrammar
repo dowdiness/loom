@@ -1,0 +1,5 @@
+// File-only grammar (#523): the FTerm enum carries only roles — no #loom.rule
+// annotations — so these bodies are the sole source of both productions.
+// Pair refs Inner, exercising a cross-rule Ref in file-only mode.
+Pair = LParen Inner RParen
+Inner = Comma

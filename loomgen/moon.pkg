@@ -4,6 +4,7 @@ import {
   "moonbitlang/parser/attribute",
   "moonbitlang/parser/syntax",
   "moonbitlang/core/argparse",
+  "moonbitlang/core/debug",
   "moonbitlang/core/list",
   "moonbitlang/core/hashset",
   "moonbitlang/x/fs",

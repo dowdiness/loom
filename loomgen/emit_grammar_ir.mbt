@@ -523,6 +523,7 @@ fn build_lower_ctx(
   token_qual : String,
   syntax_qual : String,
   grammar_qual : String,
+  file_rules? : Map[String, RuleAst] = Map([]),
 ) -> Result[LowerCtx, String] {
   let token_kinds : Map[String, String] = Map([])
   let token_order : Array[String] = []
@@ -548,6 +549,21 @@ fn build_lower_ctx(
       None => ()
     }
   }
+  // #523: a standalone `.loomgrammar` file overrides/extends the annotation rules
+  // per production (enabling incremental migration off annotations). Every file
+  // production must name a #loom.term variant, because the variant's
+  // #loom.node/root/leaf role is what supplies the production's CST kind — a
+  // production with no term variant has nowhere to get a kind. Fail closed.
+  for name, ast in file_rules {
+    guard term_names.contains(name) else {
+      return Err(
+        "grammar file production '" +
+        name +
+        "' is not a #loom.term variant — every production must name a term variant whose #loom.node/#loom.root/#loom.leaf role supplies its CST kind",
+      )
+    }
+    rules.set(name, ast)
+  }
   Ok({
     token_kinds,
     token_order,
@@ -569,10 +585,16 @@ fn emit_grammar_ir(
   syntax_qual : String,
   grammar_qual : String,
   value_name : String,
+  file_rules? : Map[String, RuleAst] = Map([]),
 ) -> Result[String, String] {
   let ctx = match
     build_lower_ctx(
-      term_enum, token_enum, token_qual, syntax_qual, grammar_qual,
+      term_enum,
+      token_enum,
+      token_qual,
+      syntax_qual,
+      grammar_qual,
+      file_rules~,
     ) {
     Ok(c) => c
     Err(m) => return Err(m)
@@ -596,13 +618,13 @@ fn emit_grammar_ir(
   let roots = term_enum.variants.filter(v => v.role is Some(Root))
   let root_name = match roots {
     [r] =>
-      if r.rule is Some(_) {
+      if ctx.rules.get(r.name) is Some(_) {
         r.name
       } else {
         return Err(
           "the #loom.root variant '" +
           r.name +
-          "' has no #loom.rule — the root must carry a production for the GrammarIr to reference",
+          "' has no grammar rule — the root must carry a production (via #loom.rule or the grammar file) for the GrammarIr to reference",
         )
       }
     [] =>
@@ -640,19 +662,17 @@ fn emit_grammar_ir(
     ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
     ..write_string(indent(2) + "{\n")
   for v in term_enum.variants {
-    match v.rule {
-      Some(_) => {
-        let body = match ctx.rules.get(v.name) {
-          Some(ast) => ast
-          None => return Err("internal: rule for " + v.name + " not parsed")
-        }
+    // A variant gets a production when a rule resolves for it — from a #loom.rule
+    // annotation or a .loomgrammar file entry (both merged into `ctx.rules`).
+    match ctx.rules.get(v.name) {
+      Some(body) => {
         let kind_name = match v.role {
           Some(role) => derive_kind_name(v.name, role, v.kind_override)
           None =>
             return Err(
               "variant " +
               v.name +
-              " has #loom.rule but no #loom.node/root/leaf role",
+              " has a grammar rule but no #loom.node/#loom.root/#loom.leaf role",
             )
         }
         let production = lower_production(kind_name, body, ctx, 3) catch {
