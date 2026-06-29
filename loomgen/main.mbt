@@ -159,7 +159,7 @@ fn setup_registry(
           ""
         }
       }
-      if @fs.path_exists(prior) {
+      if prior.length() > 0 && @fs.path_exists(prior) {
         let seed_src = @fs.read_file_to_string(prior) catch { _ => "" }
         if seed_src.length() > 0 {
           let seed_pairs = extract_raw_pairs(seed_src)
@@ -173,6 +173,12 @@ fn setup_registry(
             registry.seed(seed_pairs)
           }
         }
+      } else {
+        println(
+          "Note: no --seed flag given and no prior output found in " +
+          syntax_out +
+          "; raw-kind numbers may differ from previous runs",
+        )
       }
     }
   }
@@ -196,7 +202,7 @@ fn setup_registry(
   if @fs.path_exists(registry_path) {
     let prev_src = @fs.read_file_to_string(registry_path) catch { _ => "" }
     if prev_src.length() > 0 {
-      let retired_raws = extract_retired_raws(prev_src)
+      let retired_raws = extract_retired_rawns(prev_src)
       if retired_raws.length() > 0 {
         registry.seed_retired(retired_raws)
         println(

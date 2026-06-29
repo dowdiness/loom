@@ -8,9 +8,9 @@
 /// derivation, role classification, cross-enum collision detection, and emit
 /// formatting all running together.
 ///
-/// Typecheck + integration test verification is handled by
-/// scripts/loomgen_regression_check.sh (runs moon check + moon test on the
-/// regenerated lambda example).
+/// Typecheck + integration test verification (regenerate lambda from fixture,
+/// run moon check + moon test) is handled by scripts/loomgen_regression_check.sh
+/// in the canopy monorepo (parent repository, not the loom submodule).
 ///
 /// CWD convention: run tests from the `loomgen/` package directory.
 ///   cd loomgen && moon test --target native

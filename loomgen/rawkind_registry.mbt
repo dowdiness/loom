@@ -98,6 +98,9 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
       continue
     }
     let name = parts[0].to_owned()
+    if name.length() == 0 {
+      continue
+    }
     let raw_str = parts[1].to_owned()
     let first_char = name[0]
     if first_char < 'A' || first_char > 'Z' {
@@ -151,7 +154,7 @@ fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
 
 ///|
 /// Parse tombstoned raw numbers from a previously-generated syntax_kind.mbt (or .g.mbt).
-fn extract_retired_raws(source : String) -> Array[Int] {
+fn extract_retired_rawns(source : String) -> Array[Int] {
   let raws : Array[Int] = []
   let lines = source.split("\n").to_array()
   for line in lines {
@@ -175,7 +178,7 @@ fn parse_int(s : String) -> Int {
   for i = 0, n = 0; i < s.length(); {
     let c = s[i]
     if c >= '0' && c <= '9' {
-      continue i + 1, n * 10 + (c.to_int() - 48)
+      continue i + 1, n * 10 + (c.to_int() - '0'.to_int())
     }
     continue i + 1, n
   } nobreak {
