@@ -84,8 +84,18 @@ test "ImperativeParser::edit preserves structure" {
   let new_tree = parser.edit(edit, "(f, x) => f x").ast
 
   // Structure should be similar (both are lambda abstractions)
-  inspect(@ast.print_term(initial_tree).contains("(f, x) =>"), content="true")
-  inspect(@ast.print_term(new_tree).contains("(f, x) =>"), content="true")
+  inspect(
+    @ast.print_term(initial_tree).contains("(f) => (x) =>"),
+    content=(
+      #|true
+    ),
+  )
+  inspect(
+    @ast.print_term(new_tree).contains("(f) => (x) =>"),
+    content=(
+      #|true
+    ),
+  )
 }
 
 ///|
@@ -139,8 +149,18 @@ test "tree fragment reuse for unchanged regions" {
   // Both trees should have similar structure for unchanged parts
   let initial_str = @ast.print_term(initial_tree)
   let new_str = @ast.print_term(new_tree)
-  inspect(initial_str.contains("(f, x) =>"), content="true")
-  inspect(new_str.contains("(f, x) =>"), content="true")
+  inspect(
+    initial_str.contains("(f) => (x) =>"),
+    content=(
+      #|true
+    ),
+  )
+  inspect(
+    new_str.contains("(f) => (x) =>"),
+    content=(
+      #|true
+    ),
+  )
   inspect(new_str.contains("2"), content="true")
 }
 
@@ -173,12 +193,7 @@ test "multiple incremental edits preserve correctness" {
   inspect(@ast.print_term(tree2).contains("2"), content="true")
   let edit3 = @core.Edit::insert(1, 3) // "(x) => x + 2" -> "(y, x) => x + 2"
   let tree3 = parser.edit(edit3, "(y, x) => x + 2").ast
-  inspect(
-    @ast.print_term(tree3).contains("(y, x) =>"),
-    content=(
-      #|true
-    ),
-  )
+  inspect(@ast.print_term(tree3).contains("(y) => (x) =>"), content="true")
 
   // Final result should match full reparse
   let full_tree = parse("(y, x) => x + 2") catch { _ => abort("parse failed") }
@@ -682,7 +697,12 @@ test "Differential: identifier boundary split" {
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "x y").ast
   let full = parse("x y") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(full), content="(x y)")
+  inspect(
+    @ast.print_term(full),
+    content=(
+      #|x y
+    ),
+  )
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
 }
 
@@ -708,7 +728,12 @@ test "Differential: integer boundary split" {
   let edit = @core.Edit::insert(1, 1)
   let incremental = parser.edit(edit, "1 2").ast
   let full = parse("1 2") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(full), content="(1 2)")
+  inspect(
+    @ast.print_term(full),
+    content=(
+      #|1 2
+    ),
+  )
   inspect(@ast.print_term(incremental), content=@ast.print_term(full))
 }
 
@@ -884,7 +909,12 @@ test "ImperativeParser::reset clears old tree state" {
   // Subsequent edit from this new base should work correctly
   let edit = @core.Edit::insert(5, 4) // insert " + 3" (4 chars) at end of "1 + 2"
   let result = parser.edit(edit, "1 + 2 + 3").ast
-  inspect(@ast.print_term(result), content="((1 + 2) + 3)")
+  inspect(
+    @ast.print_term(result),
+    content=(
+      #|1 + 2 + 3
+    ),
+  )
 }
 
 // ============================================================================
@@ -980,11 +1010,21 @@ test "ImperativeParser: CstFold cache reuses unchanged subtrees after edit" {
   // The "1" subtree is structurally unchanged — CstFold should reuse it.
   let parser = @loom.new_imperative_parser("1 + 2", lambda_grammar)
   let t1 = parser.parse().ast
-  inspect(@ast.print_term(t1), content="(1 + 2)")
+  inspect(
+    @ast.print_term(t1),
+    content=(
+      #|1 + 2
+    ),
+  )
   // Edit: replace "2" with "3" (position 4, delete 1 char, insert 1 char)
   let edit = @core.Edit::new(4, 1, 1)
   let t2 = parser.edit(edit, "1 + 3").ast
-  inspect(@ast.print_term(t2), content="(1 + 3)")
+  inspect(
+    @ast.print_term(t2),
+    content=(
+      #|1 + 3
+    ),
+  )
   // Verify fold cache was used — reused count should be > 0
   let stats = parser.get_fold_stats().unwrap()
   inspect(stats.reused > 0, content="true")

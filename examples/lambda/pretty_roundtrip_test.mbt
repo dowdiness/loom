@@ -21,31 +21,30 @@ fn has_error_node(term : @ast.Term) -> Bool {
 
 ///|
 /// Check whether the term contains Unit/LetDef (not roundtrippable through
-/// parse) or Module nested inside non-top-level positions.
+/// parse). Modules — including nested ones — ARE roundtrippable since the
+/// printers always brace them, so they are no longer discarded.
 fn has_non_roundtrippable(term : @ast.Term) -> Bool {
-  fn go(t : @ast.Term, top_level : Bool) -> Bool {
-    match t {
-      Unit => true
-      LetDef(_, _) => true
-      Module(_, _) if !top_level => true
-      Module(defs, body) => {
-        for def in defs {
-          if go(def.1, false) {
-            return true
-          }
+  match term {
+    Unit => true
+    LetDef(_, _) => true
+    Module(defs, body) => {
+      for def in defs {
+        if has_non_roundtrippable(def.1) {
+          return true
         }
-        go(body, false)
       }
-      Int(_) | Var(_) => false
-      Lam(_, body) => go(body, false)
-      App(f, x) => go(f, false) || go(x, false)
-      Bop(_, l, r) => go(l, false) || go(r, false)
-      If(c, t, e) => go(c, false) || go(t, false) || go(e, false)
-      Error(_) | Unbound(_) | Hole(_) => true
+      has_non_roundtrippable(body)
     }
+    Int(_) | Var(_) => false
+    Lam(_, body) => has_non_roundtrippable(body)
+    App(f, x) => has_non_roundtrippable(f) || has_non_roundtrippable(x)
+    Bop(_, l, r) => has_non_roundtrippable(l) || has_non_roundtrippable(r)
+    If(c, t, e) =>
+      has_non_roundtrippable(c) ||
+      has_non_roundtrippable(t) ||
+      has_non_roundtrippable(e)
+    Error(_) | Unbound(_) | Hole(_) => true
   }
-
-  go(term, true)
 }
 
 ///|
@@ -62,4 +61,57 @@ fn prop_parse_pretty_roundtrip(term : @ast.Term) -> Bool {
 ///|
 test "property: parse(pretty_print(term)) == term" {
   @qc.quick_check_fn(prop_parse_pretty_roundtrip)
+}
+
+///|
+/// Property: parse(print_term(term)) == term — covers the SourceText (string)
+/// printer, the path the layout property above does not exercise.
+fn prop_parse_source_roundtrip(term : @ast.Term) -> Bool {
+  if has_error_node(term) || has_non_roundtrippable(term) {
+    return true // discard terms that can't roundtrip
+  }
+  let formatted = @ast.print_term(term)
+  let reparsed = parse(formatted) catch { _ => return false }
+  reparsed == term
+}
+
+///|
+test "property: parse(print_term(term)) == term" {
+  @qc.quick_check_fn(prop_parse_source_roundtrip)
+}
+
+///|
+/// Positive control: a block-bodied lambda contains a nested Module, the exact
+/// case `has_non_roundtrippable` discards from the @qc property. Always-braced
+/// output must reparse to the same term.
+test "roundtrip: block-bodied lambda (nested module)" {
+  let term : @ast.Term = @ast.Term::Module(
+    [
+      (
+        "f",
+        @ast.Term::Lam(
+          "x",
+          @ast.Term::Module(
+            [
+              (
+                "y",
+                @ast.Term::Bop(
+                  @ast.Bop::Plus,
+                  @ast.Term::Var("x"),
+                  @ast.Term::Int(1),
+                ),
+              ),
+            ],
+            @ast.Term::Var("y"),
+          ),
+        ),
+      ),
+    ],
+    @ast.Term::Var("f"),
+  )
+  let formatted = @pretty.pretty_print(term)
+  let reparsed = parse(formatted) catch {
+    _ => @ast.Term::Error("parse failed")
+  }
+  inspect(reparsed == term, content="true")
 }

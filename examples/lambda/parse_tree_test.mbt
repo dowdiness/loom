@@ -34,7 +34,7 @@ test "parse_cstidentity function" {
 test "parse_cstbinary operator" {
   let (cst, _) = parse_cst("1 + 2") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="(1 + 2)")
+  inspect(@ast.print_term(syntax_node_to_term(root)), content="1 + 2")
   let node = root.nth_child(0).unwrap()
   let v = match BinaryExprView::cast(node) {
     Some(v) => v
@@ -49,7 +49,7 @@ test "parse_cstbinary operator" {
 test "parse_cstapplication" {
   let (cst, _) = parse_cst("f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
-  inspect(@ast.print_term(syntax_node_to_term(root)), content="(f x)")
+  inspect(@ast.print_term(syntax_node_to_term(root)), content="f x")
   let node = root.nth_child(0).unwrap()
   let v = match AppExprView::cast(node) {
     Some(v) => v
@@ -89,7 +89,7 @@ test "parse_cstcomplex expression" {
   let (cst, _) = parse_cst("(f, x) => f x") catch { _ => abort("lex error") }
   let root = @seam.SyntaxNode::from_cst(cst)
   let printed = @ast.print_term(syntax_node_to_term(root))
-  inspect(printed, content="(f, x) => (f x)")
+  inspect(printed, content="(f) => (x) => f x")
   let node = root.nth_child(0).unwrap()
   let v = match LambdaExprView::cast(node) {
     Some(v) => v

@@ -211,31 +211,56 @@ test "cst: parse - lambda" {
 ///|
 test "cst: parse - lambda with body" {
   let term = parse("(x) => x + 1") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(x) => (x + 1)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|(x) => x + 1
+    ),
+  )
 }
 
 ///|
 test "cst: parse - application" {
   let term = parse("f x") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(f x)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|f x
+    ),
+  )
 }
 
 ///|
 test "cst: parse - nested application" {
   let term = parse("f x y") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="((f x) y)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|f x y
+    ),
+  )
 }
 
 ///|
 test "cst: parse - binary operation" {
   let term = parse("1 + 2") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(1 + 2)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|1 + 2
+    ),
+  )
 }
 
 ///|
 test "cst: parse - chained binary (same op)" {
   let term = parse("1 + 2 + 3") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="((1 + 2) + 3)")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|1 + 2 + 3
+    ),
+  )
 }
 
 ///|
@@ -253,7 +278,12 @@ test "cst: parse - parenthesized expression" {
 ///|
 test "cst: parse - complex expression" {
   let term = parse("(f, x) => f (f x)") catch { _ => abort("parse failed") }
-  inspect(@ast.print_term(term), content="(f, x) => (f ((f x)))")
+  inspect(
+    @ast.print_term(term),
+    content=(
+      #|(f) => (x) => f (f x)
+    ),
+  )
 }
 
 // ============================================================================

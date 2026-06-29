@@ -59,7 +59,12 @@ test "Parser: parse error produces non-empty diagnostics" {
 ///|
 test "Parser: valid input - integer addition" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
-  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
+  inspect(
+    @ast.print_term(parser.ast().read_or_abort()),
+    content=(
+      #|1 + 2
+    ),
+  )
 }
 
 ///|
@@ -107,7 +112,12 @@ test "Parser: set_source from error-recovery input to valid" {
   ignore(parser.syntax_tree().read_or_abort())
   parser.set_source("1 + 2")
   ignore(parser.syntax_tree().read_or_abort())
-  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
+  inspect(
+    @ast.print_term(parser.ast().read_or_abort()),
+    content=(
+      #|1 + 2
+    ),
+  )
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
@@ -118,12 +128,22 @@ test "Parser: set_source from error-recovery input to valid" {
 /// an edit flows through all four published views in one batch.
 test "Parser: apply_edit updates source, ast, diagnostics" {
   let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
-  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(1 + 2)")
+  inspect(
+    @ast.print_term(parser.ast().read_or_abort()),
+    content=(
+      #|1 + 2
+    ),
+  )
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
   // Replace "1 + 2" (length 5) with "3 + 4" (length 5).
   parser.apply_edit(@core.Edit::new(0, 5, 5), "3 + 4")
   inspect(parser.source().read_or_abort(), content="3 + 4")
-  inspect(@ast.print_term(parser.ast().read_or_abort()), content="(3 + 4)")
+  inspect(
+    @ast.print_term(parser.ast().read_or_abort()),
+    content=(
+      #|3 + 4
+    ),
+  )
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
 }
 
