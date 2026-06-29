@@ -4,116 +4,7 @@
 ///
 /// Reads annotated MoonBit source, emits token_impls.g.mbt and syntax_kind.mbt.
 /// --seed: seed raw-kind numbers from existing syntax_kind.mbt for idempotent re-generation.
-fn parse_int(s : String) -> Int {
-  for i = 0, n = 0; i < s.length(); {
-    let c = s[i]
-    if c >= '0' && c <= '9' {
-      continue i + 1, n * 10 + (c.to_int() - 48)
-    }
-    continue i + 1, n
-  } nobreak {
-    n
-  }
-}
-
-///|
-fn is_all_digits(s : String) -> Bool {
-  if s.length() == 0 {
-    return false
-  }
-  for i in 0..<s.length() {
-    if s[i] < '0' || s[i] > '9' {
-      return false
-    }
-  }
-  true
-}
-
-///|
-/// Extract (kind_name, raw) pairs from an existing syntax_kind.mbt file.
-/// Scans lines for `Name => number` or `Name => @seam.RawKind(number)` patterns
-/// in the ToRawKind impl or equivalent raw-kind assignment arms.
-fn extract_raw_pairs(source : String) -> Array[(String, Int)] {
-  let pairs : Array[(String, Int)] = []
-  let lines = source.split("\n").to_array()
-  for line in lines {
-    let trimmed = line.trim().to_owned()
-    let parts = trimmed.split(" => ").to_array()
-    if parts.length() != 2 {
-      continue
-    }
-    let name = parts[0].to_owned()
-    let raw_str = parts[1].to_owned()
-    let first_char = name[0]
-    if first_char < 'A' || first_char > 'Z' {
-      continue
-    }
-    // Accept bare numbers (Name => 14) or RawKind wrapper (Name => @seam.RawKind(14))
-    let raw_val = if is_all_digits(raw_str) {
-      Some(parse_int(raw_str))
-    } else {
-      // Try to extract from RawKind(N) wrapper
-      let stripped = raw_str.trim().to_owned()
-      // Match @seam.RawKind(N) or bare RawKind(N), no other prefix.
-      let inner_text : String? = if stripped.has_prefix("@seam.RawKind(") {
-        Some(stripped["@seam.RawKind(".length():].to_owned())
-      } else if stripped.has_prefix("RawKind(") {
-        Some(stripped["RawKind(".length():].to_owned())
-      } else {
-        None
-      }
-      match inner_text {
-        Some(body) => {
-          // Find closing paren position
-          let mut close = -1
-          for j = 0; j < body.length(); j = j + 1 {
-            if body[j] == ')' {
-              close = j
-              break
-            }
-          }
-          if close >= 0 {
-            let inner = body[:close].trim().to_owned()
-            if is_all_digits(inner) {
-              Some(parse_int(inner))
-            } else {
-              None
-            }
-          } else {
-            None
-          }
-        }
-        None => None
-      }
-    }
-    match raw_val {
-      Some(raw) => pairs.push((name, raw))
-      None => continue
-    }
-  }
-  pairs
-}
-
-///|
-/// Parse tombstoned raw numbers from a previously-generated syntax_kind.mbt (or .g.mbt).
-fn extract_retired_raws(source : String) -> Array[Int] {
-  let raws : Array[Int] = []
-  let lines = source.split("\n").to_array()
-  for line in lines {
-    let trimmed = line.trim().to_owned()
-    let prefix = "// #loom.retired: "
-    if trimmed.has_prefix(prefix) {
-      let suffix = trimmed[prefix.length():].trim().to_owned()
-      for part in suffix.split(",").to_array() {
-        let raw_str = part.trim().to_owned()
-        if is_all_digits(raw_str) {
-          raws.push(parse_int(raw_str))
-        }
-      }
-    }
-  }
-  raws
-}
+///   When omitted, loomgen auto-detects the prior output in the syntax_out directory.
 
 ///|
 fn first_value(arr : Array[String]) -> String? {
@@ -252,7 +143,44 @@ fn setup_registry(
       )
       registry.seed(seed_pairs)
     }
-    None => ()
+    None => {
+      // Auto-seed from existing syntax output for stable raw-kind numbers.
+      let prior_path = syntax_out + "/syntax_kind.mbt"
+      let prior = if @fs.path_exists(prior_path) {
+        prior_path
+      } else {
+        let alt = syntax_out + "/syntax_kind.g.mbt"
+        if @fs.path_exists(alt) {
+          alt
+        } else {
+          // loom.registry.g.txt only stores retired raws (comments), not
+          // active (name, raw) pairs — extract_raw_pairs returns nothing.
+          // No auto-seed is better than a silent no-op.
+          ""
+        }
+      }
+      if prior.length() > 0 && @fs.path_exists(prior) {
+        let seed_src = @fs.read_file_to_string(prior) catch { _ => "" }
+        if seed_src.length() > 0 {
+          let seed_pairs = extract_raw_pairs(seed_src)
+          if seed_pairs.length() > 0 {
+            println(
+              "Auto-seeded " +
+              seed_pairs.length().to_string() +
+              " raw kind entries from " +
+              prior,
+            )
+            registry.seed(seed_pairs)
+          }
+        }
+      } else {
+        println(
+          "Note: no --seed flag given and no prior output found in " +
+          syntax_out +
+          "; raw-kind numbers may differ from previous runs",
+        )
+      }
+    }
   }
 
   // Auto-restore tombstoned raws from prior output.
@@ -274,7 +202,7 @@ fn setup_registry(
   if @fs.path_exists(registry_path) {
     let prev_src = @fs.read_file_to_string(registry_path) catch { _ => "" }
     if prev_src.length() > 0 {
-      let retired_raws = extract_retired_raws(prev_src)
+      let retired_raws = extract_retired_rawns(prev_src)
       if retired_raws.length() > 0 {
         registry.seed_retired(retired_raws)
         println(

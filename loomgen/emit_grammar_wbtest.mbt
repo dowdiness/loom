@@ -342,7 +342,7 @@ test "emit_grammar output contains simple parity fixture markers" {
     fail("expected grammar emission to succeed")
   }
   let fixture = @fs.read_file_to_string(
-    "loomgen/fixtures/grammar_parity/simple_parser.g.mbt",
+    "fixtures/grammar_parity/simple_parser.g.mbt",
   ) catch {
     _ => fail("could not read generated parser fixture")
   }
@@ -385,7 +385,7 @@ test "emit_grammar output contains repeat parity fixture markers" {
     fail("expected grammar emission to succeed")
   }
   let fixture = @fs.read_file_to_string(
-    "loomgen/fixtures/grammar_parity_reuse/repeat_parser.g.mbt",
+    "fixtures/grammar_parity_reuse/repeat_parser.g.mbt",
   ) catch {
     _ => fail("could not read generated repeat parser fixture")
   }
