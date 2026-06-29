@@ -167,6 +167,9 @@ jobs:
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
+      - name: Fetch core library
+        working-directory: ${{ matrix.path }}
+        run: moon install moonbitlang/core
 
       - name: moon check
         working-directory: ${{ matrix.path }}
@@ -207,6 +210,9 @@ jobs:
       - name: moon update
         working-directory: ${{ matrix.path }}
         run: moon update
+      - name: Fetch core library
+        working-directory: ${{ matrix.path }}
+        run: moon install moonbitlang/core
 
       - name: moon check
         working-directory: ${{ matrix.path }}
@@ -242,6 +248,8 @@ jobs:
       - name: moon update
         working-directory: .
         run: moon update
+      - name: Fetch core library
+        run: moon install moonbitlang/core
 
       - name: Build loomgen
         working-directory: .
