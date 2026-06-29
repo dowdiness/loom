@@ -109,6 +109,9 @@ fn resolve_walk(
       res[node_id] = Free
       term
     }
-    _ => term // Int, Unit, Error, Hole — return unchanged
+    @ast.Term::Int(_)
+    | @ast.Term::Unit
+    | @ast.Term::Error(_)
+    | @ast.Term::Hole(_) => term
   }
 }
