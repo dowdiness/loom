@@ -1,5 +1,5 @@
 ///|
-/// Persistent append-only RawKind registry (fork i ADR).
+/// Persistent append-only RawKind registry derived from the Fork architecture decision.
 /// Tracks tombstoned raws so retired kind numbers are never reused.
 struct RawKindRegistry {
   known : Map[String, Int]
