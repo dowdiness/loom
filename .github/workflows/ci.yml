@@ -64,7 +64,7 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          version: 0.10.0+e66899a54
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -99,7 +99,7 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          version: 0.10.0+e66899a54
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -154,7 +154,7 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          version: 0.10.0+e66899a54
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -167,11 +167,11 @@ jobs:
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check --target native
+        run: moon check
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test --target native
+        run: moon test
 
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
@@ -193,7 +193,7 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          version: 0.10.0+e66899a54
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -206,11 +206,12 @@ jobs:
 
       - name: moon check
         working-directory: ${{ matrix.path }}
-        run: moon check --target native
+        run: moon check
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test --target native
+        run: moon test
+
 
   check-loomgen:
     name: Check Loomgen
@@ -226,7 +227,7 @@ jobs:
       - name: Install MoonBit
         uses: hustcer/setup-moonbit@v1.22
         with:
-          version: 0.10.0+e66899a54
+          version: 0.10.0+84519ca0a
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
