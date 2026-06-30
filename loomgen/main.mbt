@@ -600,9 +600,7 @@ fn load_grammar_file(
         path +
         ": production '" +
         name +
-        "' overrides the #loom.rule annotation on term variant '" +
-        name +
-        "'",
+        "' overrides its #loom.rule annotation",
       )
     }
     file_rules.set(name, ast)

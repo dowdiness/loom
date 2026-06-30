@@ -1,7 +1,7 @@
 ///|
 /// Whitebox tests for #523: the standalone `.loomgrammar` file parser. It reuses
 /// the `#loom.rule` notation (`RuleAst` + `parse_alt`) but adds a file-level
-/// tokenizer with line spans, `:=` production headers, `//` comments, and
+/// tokenizer with line spans, `=` production headers, `//` comments, and
 /// multi-line bodies.
 
 ///|
@@ -69,6 +69,17 @@ test "parse_grammar_file rejects an empty production body" {
     #|A =
     #|B = C
   match parse_grammar_file(src) {
+    Ok(_) => abort("expected an empty-body rejection, got Ok")
+    Err(m) =>
+      inspect(m.contains("production 'A' has an empty body"), content="true")
+  }
+}
+
+///|
+/// A body consisting only of a leading `|` (e.g. `A = |`) is effectively empty
+/// and must report "empty body", not the inner-parser "empty sequence" message.
+test "parse_grammar_file rejects a lone-pipe body as empty" {
+  match parse_grammar_file("A = |") {
     Ok(_) => abort("expected an empty-body rejection, got Ok")
     Err(m) =>
       inspect(m.contains("production 'A' has an empty body"), content="true")

@@ -217,6 +217,16 @@ fn parse_grammar_file(
         "' has an empty body",
       )
     }
+    // A body consisting solely of a leading '|' is also empty — the pipe is
+    // optional layout sugar, not an alternative, so nothing follows it.
+    guard !(body.length() == 1 && body[0] is TPipe) else {
+      return Err(
+        grammar_file_loc(name_line) +
+        "production '" +
+        name +
+        "' has an empty body",
+      )
+    }
     // Reuse the #522 recursive-descent body parser. A leading '|' (allowed for
     // multi-line alternation layout) is skipped by starting the parser past it.
     let parser = RuleParser(body)
