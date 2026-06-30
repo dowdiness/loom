@@ -562,9 +562,13 @@ fn build_lower_ctx(
     term_names.add(v.name)
     match v.rule {
       Some(rule_str) =>
-        match parse_rule_string(rule_str, v.name) {
-          Ok(ast) => rules.set(v.name, ast)
-          Err(m) => return Err(m)
+        // Skip parsing if a grammar-file rule overrides this annotation —
+        // allows migrating off a broken #loom.rule by moving to the grammar file.
+        if file_rules.get(v.name) is None {
+          match parse_rule_string(rule_str, v.name) {
+            Ok(ast) => rules.set(v.name, ast)
+            Err(m) => return Err(m)
+          }
         }
       None => ()
     }

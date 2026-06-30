@@ -603,6 +603,61 @@ test "emit_grammar_ir: a lowering error in a file rule carries the file line" {
 }
 
 ///|
+/// Migration path: a variant with a broken `#loom.rule` annotation that also has
+/// a grammar-file production must succeed. Before the fix, `parse_rule_string`
+/// would fire for the broken annotation and return early before the `file_rules`
+/// overlay applied, making it impossible to migrate off a broken annotation by
+/// moving it to the grammar file.
+test "emit_grammar_ir: grammar-file rule overrides a broken #loom.rule annotation" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum MigrTok {
+    #|  #loom.punct("(")
+    #|  LParen
+    #|  #loom.punct(")")
+    #|  RParen
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq, Debug)
+    #|
+    #|#loom.term
+    #|pub(all) enum MigrTerm {
+    #|  #loom.root
+    #|  #loom.rule("( A |")
+    #|  Parens
+    #|} derive(Eq, Debug)
+  let (token_enum, term_enum) = enums_of(src)
+  let file_rules : Map[String, RuleAst] = Map([])
+  let file_lines : Map[String, Int] = Map([])
+  match parse_grammar_file("Parens = LParen RParen") {
+    Ok(prods) =>
+      for p in prods {
+        let (name, ast, line) = p
+        file_rules.set(name, ast)
+        file_lines.set(name, line)
+      }
+    Err(m) => abort("unexpected grammar file parse failure: " + m)
+  }
+  match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "migr_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(_) => ()
+    Err(m) =>
+      abort(
+        "grammar-file rule should override broken annotation but got: " + m,
+      )
+  }
+}
+
+///|
 /// #loom.rule is only meaningful on #loom.term variants. On a #loom.token variant
 /// it would be silently dropped by build_lower_ctx, so reject it at parse time.
 test "parse_annotations rejects #loom.rule on a token variant" {
