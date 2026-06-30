@@ -3,9 +3,14 @@
 /// the generation-time validation errors.
 
 ///|
+/// Read a fixture file, trying both `fixtures/X` and `loomgen/fixtures/X` so
+/// the test works from both `loomgen/` and workspace root `loom/`.
 fn read_fixture(path : String) -> String {
   @fs.read_file_to_string(path) catch {
-    _ => abort("cannot read " + path)
+    _ =>
+      @fs.read_file_to_string("loomgen/" + path) catch {
+        _ => abort("cannot read " + path)
+      }
   }
 }
 

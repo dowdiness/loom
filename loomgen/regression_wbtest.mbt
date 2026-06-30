@@ -12,16 +12,16 @@
 /// run moon check + moon test) is handled by scripts/loomgen_regression_check.sh
 /// in the canopy monorepo (parent repository, not the loom submodule).
 ///
-/// CWD convention: run tests from the `loomgen/` package directory.
-///   cd loomgen && moon test --target native
-/// Fixture paths are relative to the package directory. The seed file is
-/// referenced via `../` since the canonical syntax_kind.mbt lives in
-/// examples/lambda/. The existing wbtests follow the same convention.
 
 ///|
-fn read_regression_fixture(path : String) -> String {
+/// Read a fixture file, trying an alternate path when the primary doesn't
+/// resolve (supports running from both `loomgen/` and workspace root `loom/`).
+fn read_fallback_fixture(path : String, alt : String) -> String {
   @fs.read_file_to_string(path) catch {
-    _ => abort("cannot read " + path)
+    _ =>
+      @fs.read_file_to_string(alt) catch {
+        _ => abort("cannot read " + path + " nor " + alt)
+      }
   }
 }
 
@@ -30,15 +30,17 @@ fn read_regression_fixture(path : String) -> String {
 /// canonical syntax_kind.mbt. Returns (token_impls_output, syntax_kind_output).
 fn run_regression_pipeline() -> (String, String) {
   // Seed registry from canonical output for stable raw numbers
-  let seed_src = read_regression_fixture(
-    "../examples/lambda/syntax/syntax_kind.mbt",
+  let seed_src = read_fallback_fixture(
+    "../examples/lambda/syntax/syntax_kind.mbt", "examples/lambda/syntax/syntax_kind.mbt",
   )
   let pairs = extract_raw_pairs(seed_src)
   let registry = RawKindRegistry::new()
   registry.seed(pairs)
 
   // Parse annotated enums
-  let fixture = read_regression_fixture("fixtures/term_kind.mbt")
+  let fixture = read_fallback_fixture(
+    "fixtures/term_kind.mbt", "loomgen/fixtures/term_kind.mbt",
+  )
   let annotated = match parse_annotations(fixture) {
     Ok(a) => a
     Err(m) => abort("annotation parse failed: " + m)

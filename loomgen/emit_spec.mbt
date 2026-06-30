@@ -12,17 +12,17 @@
 ///|
 /// True when two SyntaxRole values are the same nullary role.
 /// SyntaxRole does not derive Eq, so matching requires explicit `is` patterns.
+///
+/// NOTE: only the 5 roles passed to `find_variant_with_role` / `has_duplicate`
+/// are listed here. The remaining nullary variants (Leaf, Node, Ident, Literal,
+/// Delimiter) are never passed to these helpers — they are matched directly in
+/// `derive_kind_name` and `emit_element_props` instead.
 fn roles_match(a : SyntaxRole, b : SyntaxRole) -> Bool {
   (a is Trivia && b is Trivia) ||
   (a is ErrorToken && b is ErrorToken) ||
   (a is Eof && b is Eof) ||
   (a is Root && b is Root) ||
-  (a is Leaf && b is Leaf) ||
-  (a is Node && b is Node) ||
-  (a is ErrorNode && b is ErrorNode) ||
-  (a is Ident && b is Ident) ||
-  (a is Literal && b is Literal) ||
-  (a is Delimiter && b is Delimiter)
+  (a is ErrorNode && b is ErrorNode)
 }
 
 ///|

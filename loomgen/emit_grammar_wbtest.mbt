@@ -344,7 +344,12 @@ test "emit_grammar output contains simple parity fixture markers" {
   let fixture = @fs.read_file_to_string(
     "fixtures/grammar_parity/simple_parser.g.mbt",
   ) catch {
-    _ => fail("could not read generated parser fixture")
+    _ =>
+      @fs.read_file_to_string(
+        "loomgen/fixtures/grammar_parity/simple_parser.g.mbt",
+      ) catch {
+        _ => fail("could not read generated parser fixture")
+      }
   }
   inspect(source.contains("pub fn parse_root"), content="true")
   inspect(source.contains("fn parse_source"), content="true")
@@ -387,7 +392,12 @@ test "emit_grammar output contains repeat parity fixture markers" {
   let fixture = @fs.read_file_to_string(
     "fixtures/grammar_parity_reuse/repeat_parser.g.mbt",
   ) catch {
-    _ => fail("could not read generated repeat parser fixture")
+    _ =>
+      @fs.read_file_to_string(
+        "loomgen/fixtures/grammar_parity_reuse/repeat_parser.g.mbt",
+      ) catch {
+        _ => fail("could not read generated repeat parser fixture")
+      }
   }
   inspect(source.contains("pub fn parse_root"), content="true")
   inspect(fixture.contains("pub fn parse_root"), content="true")
