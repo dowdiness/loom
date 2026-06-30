@@ -570,7 +570,7 @@ fn load_term_enum(term_path : String) -> Result[AnnotatedEnums, Unit] {
 fn load_grammar_file(
   path : String,
   term_enum : EnumDecl,
-) -> Result[Map[String, RuleAst], Unit] {
+) -> Result[(Map[String, RuleAst], Map[String, Int]), Unit] {
   let src = @fs.read_file_to_string(path) catch {
     _ => {
       println("Error reading " + path)
@@ -591,8 +591,9 @@ fn load_grammar_file(
     }
   }
   let file_rules : Map[String, RuleAst] = Map([])
+  let file_lines : Map[String, Int] = Map([])
   for p in prods {
-    let (name, ast, _) = p
+    let (name, ast, line) = p
     if annotated.contains(name) {
       println(
         "warning: " +
@@ -605,8 +606,9 @@ fn load_grammar_file(
       )
     }
     file_rules.set(name, ast)
+    file_lines.set(name, line)
   }
-  Ok(file_rules)
+  Ok((file_rules, file_lines))
 }
 
 ///|
@@ -798,7 +800,7 @@ fn main {
           let value_name = lang + "_grammar_ir"
           // #523: load the optional .loomgrammar file; its productions override the
           // #loom.rule annotations (with a warning) before lowering.
-          let file_rules = match grammar_file_path {
+          let (file_rules, file_lines) = match grammar_file_path {
             Some(gf) =>
               match load_grammar_file(gf, term) {
                 Ok(fr) => fr
@@ -807,7 +809,7 @@ fn main {
                   return
                 }
               }
-            None => Map([])
+            None => (Map([]), Map([]))
           }
           match
             emit_grammar_ir(
@@ -818,6 +820,7 @@ fn main {
               "@grammar",
               value_name,
               file_rules~,
+              file_lines~,
             ) {
             Ok(content) => Some((path, content))
             Err(msg) => {

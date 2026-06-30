@@ -81,8 +81,11 @@ header (or EOF). Each production name must be a `#loom.term` variant — the
 variant's `#loom.node`/`#loom.root`/`#loom.leaf` role supplies its CST kind, and
 the `#loom.root` variant still designates the grammar root. A production that also
 carries a `#loom.rule` annotation is overridden by the file (with a warning), so a
-language can migrate off annotations incrementally. Parse errors carry the file
-line (`line N: …`) rather than an annotation offset. The parser fails closed:
+language can migrate off annotations incrementally. Both parse errors AND
+emission-stage rejections (a production naming a non-term variant, an `@fragment`
+body, a roleless variant, left recursion, an ambiguous alternation) carry the
+production's `line N:` prefix rather than an annotation offset, so every
+`.loomgrammar` diagnostic points at a real file position. The parser fails closed:
 duplicate names, empty bodies, stray `=`, unbalanced groups, and unknown
 characters all abort the whole file. `@fragment` references parse but are rejected
 at emission by the shared closed-GrammarIr guard until fragment binding lands (the
@@ -102,7 +105,8 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
 - `fixtures/file_only_grammar.mbt` + `fixtures/file_only.loomgrammar` — a
   roles-only `#loom.term` enum (no `#loom.rule`) plus the file that bodies it;
   drives the file-only emission path (multi-production, cross-rule `Ref`,
-  root-from-file) and the file-path fail-closed cases
+  root-from-file) and the file-path fail-closed cases. `fixtures/file_only.g.mbt`
+  is the golden the file-only test asserts against (full output, not substring)
 - `fixtures/term_kind.mbt` — combined token+term enum for CI regression (no view variants)
 - `fixtures/view_fixture.mbt` — token+term enum with `#loom.view` annotations
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression

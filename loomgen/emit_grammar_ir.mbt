@@ -28,9 +28,27 @@ struct LowerCtx {
   /// with no `#loom.rule`) fail closed with a precise message instead of being
   /// reported as an unknown symbol.
   term_names : @hashset.HashSet[String]
+  /// Rule (term-variant) name -> its 1-based line in the `.loomgrammar` file, for
+  /// productions supplied by a grammar file (#523). Empty in annotation-only mode,
+  /// so `loc` returns "" and every emission diagnostic is byte-identical to the
+  /// annotation path. Lets file-mode emission errors carry the same `line N:`
+  /// prefix the file's parse errors do.
+  file_lines : Map[String, Int]
   token_qual : String
   syntax_qual : String
   grammar_qual : String
+}
+
+///|
+/// `"line N: "` for a file-supplied rule, or "" for an annotation rule (or any
+/// name absent from a grammar file). Shared by every emission-stage diagnostic so
+/// a `.loomgrammar` user gets file positions on fragment/role/left-recursion/
+/// lowering errors, not just on parse errors.
+fn LowerCtx::loc(self : LowerCtx, name : String) -> String {
+  match self.file_lines.get(name) {
+    Some(line) => "line " + line.to_string() + ": "
+    None => ""
+  }
 }
 
 ///|
@@ -83,7 +101,7 @@ fn resolve_sym(name : String, ctx : LowerCtx) -> SymKind {
 fn ruleless_term_msg(name : String) -> String {
   "term '" +
   name +
-  "' is referenced but has no #loom.rule annotation — a referenced #loom.leaf/#loom.node must carry a single rule to derive its body and FIRST set"
+  "' is referenced but has no grammar rule (via #loom.rule or the grammar file) — a referenced #loom.leaf/#loom.node must carry a single rule to derive its body and FIRST set"
 }
 
 ///|
@@ -331,6 +349,7 @@ fn check_no_fragments(ctx : LowerCtx) -> Result[Unit, String] {
     match first_fragment(body) {
       Some(frag) =>
         return Err(
+          ctx.loc(name) +
           "rule '" +
           name +
           "' references fragment @" +
@@ -352,7 +371,7 @@ fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
   let state : Map[String, Int] = Map([])
   for name, _ in ctx.rules {
     match left_rec_dfs(name, ctx, state) {
-      Some(c) => return Err(left_rec_msg(c))
+      Some(c) => return Err(ctx.loc(c) + left_rec_msg(c))
       None => ()
     }
   }
@@ -524,6 +543,7 @@ fn build_lower_ctx(
   syntax_qual : String,
   grammar_qual : String,
   file_rules? : Map[String, RuleAst] = Map([]),
+  file_lines? : Map[String, Int] = Map([]),
 ) -> Result[LowerCtx, String] {
   let token_kinds : Map[String, String] = Map([])
   let token_order : Array[String] = []
@@ -556,7 +576,12 @@ fn build_lower_ctx(
   // production with no term variant has nowhere to get a kind. Fail closed.
   for name, ast in file_rules {
     guard term_names.contains(name) else {
+      let loc = match file_lines.get(name) {
+        Some(line) => "line " + line.to_string() + ": "
+        None => ""
+      }
       return Err(
+        loc +
         "grammar file production '" +
         name +
         "' is not a #loom.term variant — every production must name a term variant whose #loom.node/#loom.root/#loom.leaf role supplies its CST kind",
@@ -569,6 +594,7 @@ fn build_lower_ctx(
     token_order,
     rules,
     term_names,
+    file_lines,
     token_qual,
     syntax_qual,
     grammar_qual,
@@ -586,6 +612,7 @@ fn emit_grammar_ir(
   grammar_qual : String,
   value_name : String,
   file_rules? : Map[String, RuleAst] = Map([]),
+  file_lines? : Map[String, Int] = Map([]),
 ) -> Result[String, String] {
   let ctx = match
     build_lower_ctx(
@@ -595,6 +622,7 @@ fn emit_grammar_ir(
       syntax_qual,
       grammar_qual,
       file_rules~,
+      file_lines~,
     ) {
     Ok(c) => c
     Err(m) => return Err(m)
@@ -670,13 +698,14 @@ fn emit_grammar_ir(
           Some(role) => derive_kind_name(v.name, role, v.kind_override)
           None =>
             return Err(
+              ctx.loc(v.name) +
               "variant " +
               v.name +
               " has a grammar rule but no #loom.node/#loom.root/#loom.leaf role",
             )
         }
         let production = lower_production(kind_name, body, ctx, 3) catch {
-          RuleLowerError(m) => return Err(m)
+          RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
         }
         b.write_string(indent(3) + quote(v.name) + ": " + production + ",\n")
       }
