@@ -15,8 +15,9 @@ test "parse_grammar_file parses the smallest single production" {
     Err(m) => abort("parse failed: " + m)
   }
   inspect(prods.length(), content="1")
-  let (name, body, _line) = prods[0]
+  let (name, body, line) = prods[0]
   inspect(name, content="Parens")
+  inspect(line, content="1")
   @debug.assert_eq(body, Seq([Sym("LParen"), Sym("RParen")]))
 }
 
@@ -38,11 +39,13 @@ test "parse_grammar_file handles comments, multi-line bodies, and leading-pipe a
     Err(m) => abort("parse failed: " + m)
   }
   inspect(prods.length(), content="2")
-  let (n0, b0, _) = prods[0]
-  let (n1, b1, _) = prods[1]
+  let (n0, b0, l0) = prods[0]
+  let (n1, b1, l1) = prods[1]
   inspect(n0, content="Items")
+  inspect(l0, content="2")
   @debug.assert_eq(b0, Seq([Star(Sym("Item")), Sym("Eof")]))
   inspect(n1, content="Item")
+  inspect(l1, content="4")
   @debug.assert_eq(b1, Alt([Sym("A"), Sym("B")]))
 }
 

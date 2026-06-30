@@ -62,7 +62,7 @@ standalone `.loomgrammar` file passed via `--grammar-file`. It feeds the *same*
 `--grammar-ir` emitter — only the input parsing differs — so the generated
 `grammar_ir.g.mbt` is identical to the annotation path for an equivalent grammar.
 
-```
+```text
 // css.loomgrammar — '=' separates a production name from its body.
 DeclarationList = Declaration* Eof
 

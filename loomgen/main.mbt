@@ -707,6 +707,18 @@ fn main {
     None => ()
   }
 
+  // #523: --grammar-file is an INPUT; --grammar-ir names the OUTPUT path. A grammar
+  // file with no --grammar-ir has nowhere to emit, so fail closed rather than
+  // silently ignore it. Check BEFORE creating output directories so a wrong CLI
+  // invocation is side-effect free.
+  if grammar_file_path is Some(_) && grammar_ir_path is None {
+    println(
+      "error: --grammar-file requires --grammar-ir <out> (the grammar file is an input; --grammar-ir names the generated GrammarIr output)",
+    )
+    @sys.exit(1)
+    return
+  }
+
   // Create output directories if they don't exist
   for dir in [token_out, syntax_out] {
     if !@fs.path_exists(dir) {
@@ -753,17 +765,6 @@ fn main {
         }
       }
     None => None
-  }
-
-  // #523: --grammar-file is an INPUT; --grammar-ir names the OUTPUT path. A grammar
-  // file with no --grammar-ir has nowhere to emit, so fail closed rather than
-  // silently ignore it.
-  if grammar_file_path is Some(_) && grammar_ir_path is None {
-    println(
-      "error: --grammar-file requires --grammar-ir <out> (the grammar file is an input; --grammar-ir names the generated GrammarIr output)",
-    )
-    @sys.exit(1)
-    return
   }
 
   // Preflight the GrammarIr emission BEFORE writing any output, so an invalid
