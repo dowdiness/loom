@@ -2,16 +2,21 @@
 
 ///|
 /// Generated GrammarIr initialization from grammar rules.
-pub let mini_grammar_ir : @grammar.GrammarIr[@token.Tok, @syntax.SyntaxKind] =
+pub let fo_grammar_ir : @grammar.GrammarIr[@token.FTok, @syntax.SyntaxKind] =
   @grammar.GrammarIr::GrammarIr(
     {
-      "Parens": @grammar.Expr::Node(
-        @syntax.Parens,
+      "Pair": @grammar.Expr::Node(
+        @syntax.Pair,
         @grammar.Expr::Seq([
           @grammar.Expr::Expect(@token.LParen, @syntax.LParenToken),
+          @grammar.Expr::Ref("Inner"),
           @grammar.Expr::Expect(@token.RParen, @syntax.RParenToken),
         ]),
       ),
+      "Inner": @grammar.Expr::Node(
+        @syntax.Inner,
+        @grammar.Expr::Expect(@token.Comma, @syntax.CommaToken),
+      ),
     },
-    root="Parens",
+    root="Pair",
   )

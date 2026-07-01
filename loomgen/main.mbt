@@ -95,6 +95,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         "grammar-ir",
         about="Output path for generated GrammarIr from #loom.rule annotations (.g.mbt)",
       ),
+      @argparse.OptionArg(
+        "grammar-file",
+        about="Input .loomgrammar file whose productions override/extend #loom.rule annotations (#523)",
+      ),
     ],
     positionals=[
       @argparse.PositionArg("source", about="Annotated token enum source file"),
@@ -558,6 +562,54 @@ fn load_term_enum(term_path : String) -> Result[AnnotatedEnums, Unit] {
 }
 
 ///|
+/// Read and parse a `.loomgrammar` file (#523) into a `name -> RuleAst` map for
+/// `emit_grammar_ir`. Parse errors are prefixed with the file path so they point at
+/// a real file position. A production that also has a `#loom.rule` annotation on its
+/// term variant emits a warning (the file takes precedence), enabling incremental
+/// migration off annotations. Returns Err on read/parse failure (already printed).
+fn load_grammar_file(
+  path : String,
+  term_enum : EnumDecl,
+) -> Result[(Map[String, RuleAst], Map[String, Int]), Unit] {
+  let src = @fs.read_file_to_string(path) catch {
+    _ => {
+      println("Error reading " + path)
+      return Err(())
+    }
+  }
+  let prods = match parse_grammar_file(src) {
+    Ok(p) => p
+    Err(m) => {
+      println("error: " + path + ": " + m)
+      return Err(())
+    }
+  }
+  let annotated : @hashset.HashSet[String] = @hashset.HashSet([])
+  for v in term_enum.variants {
+    if v.rule is Some(_) {
+      annotated.add(v.name)
+    }
+  }
+  let file_rules : Map[String, RuleAst] = Map([])
+  let file_lines : Map[String, Int] = Map([])
+  for p in prods {
+    let (name, ast, line) = p
+    if annotated.contains(name) {
+      println(
+        "warning: " +
+        path +
+        ": production '" +
+        name +
+        "' overrides its #loom.rule annotation",
+      )
+    }
+    file_rules.set(name, ast)
+    file_lines.set(name, line)
+  }
+  Ok((file_rules, file_lines))
+}
+
+///|
 fn main {
   let argv = @sys.get_cli_args()
   let matches = match parse_args(argv[1:].to_owned()) {
@@ -592,6 +644,9 @@ fn main {
   let lexer_path = first_value(matches.values.get_or_default("lexer", []))
   let grammar_ir_path = first_value(
     matches.values.get_or_default("grammar-ir", []),
+  )
+  let grammar_file_path = first_value(
+    matches.values.get_or_default("grammar-file", []),
   )
   let source_path = match
     first_value(matches.values.get_or_default("source", [])) {
@@ -650,6 +705,18 @@ fn main {
       }
     }
     None => ()
+  }
+
+  // #523: --grammar-file is an INPUT; --grammar-ir names the OUTPUT path. A grammar
+  // file with no --grammar-ir has nowhere to emit, so fail closed rather than
+  // silently ignore it. Check BEFORE creating output directories so a wrong CLI
+  // invocation is side-effect free.
+  if grammar_file_path is Some(_) && grammar_ir_path is None {
+    println(
+      "error: --grammar-file requires --grammar-ir <out> (the grammar file is an input; --grammar-ir names the generated GrammarIr output)",
+    )
+    @sys.exit(1)
+    return
   }
 
   // Create output directories if they don't exist
@@ -730,9 +797,29 @@ fn main {
             return
           }
           let value_name = lang + "_grammar_ir"
+          // #523: load the optional .loomgrammar file; its productions override the
+          // #loom.rule annotations (with a warning) before lowering.
+          let (file_rules, file_lines) = match grammar_file_path {
+            Some(gf) =>
+              match load_grammar_file(gf, term) {
+                Ok(fr) => fr
+                Err(_) => {
+                  @sys.exit(1)
+                  return
+                }
+              }
+            None => (Map([]), Map([]))
+          }
           match
             emit_grammar_ir(
-              term, te, token_qual, syntax_qual, "@grammar", value_name,
+              term,
+              te,
+              token_qual,
+              syntax_qual,
+              "@grammar",
+              value_name,
+              file_rules~,
+              file_lines~,
             ) {
             Ok(content) => Some((path, content))
             Err(msg) => {

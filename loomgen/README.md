@@ -55,8 +55,58 @@ variant (keywords are post-classified from the `#loom.ident` match, never lexed 
 and its argument must be a valid function reference (`ident` or `@pkg.ident`), since it is
 emitted verbatim as a call.
 
+## Grammar file input (`.loomgrammar`, #523)
+
+When a grammar outgrows annotation strings, the same notation can live in a
+standalone `.loomgrammar` file passed via `--grammar-file`. It feeds the *same*
+`--grammar-ir` emitter — only the input parsing differs — so the generated
+`grammar_ir.g.mbt` is identical to the annotation path for an equivalent grammar.
+
+```text
+// css.loomgrammar — '=' separates a production name from its body.
+DeclarationList = Declaration* Eof
+
+// A leading '|' lines alternatives up vertically; '//' starts a line comment.
+Declaration =
+  | Property Colon Value Semicolon
+  | Property Colon Value
+
+Value = (Ident | Number | Hash)+
+```
+
+The file uses the exact `#loom.rule` notation subset (`Seq`, `Choice` via `|`,
+`Ref`, `*`/`+`/`?`, terminal refs, `@fragment` refs) and adds only `//` line
+comments and multi-line bodies. A body runs from its `=` to the next `Name =`
+header (or EOF). Each production name must be a `#loom.term` variant — the
+variant's `#loom.node`/`#loom.root`/`#loom.leaf` role supplies its CST kind, and
+the `#loom.root` variant still designates the grammar root. A production that also
+carries a `#loom.rule` annotation is overridden by the file (with a warning), so a
+language can migrate off annotations incrementally. Both parse errors AND
+emission-stage rejections (a production naming a non-term variant, an `@fragment`
+body, a roleless variant, left recursion, an ambiguous alternation) carry the
+production's `line N:` prefix rather than an annotation offset, so every
+`.loomgrammar` diagnostic points at a real file position. The parser fails closed:
+duplicate names, empty bodies, stray `=`, unbalanced groups, and unknown
+characters all abort the whole file. `@fragment` references parse but are rejected
+at emission by the shared closed-GrammarIr guard until fragment binding lands (the
+same deferred gap as the annotation path).
+
+```bash
+# .loomgrammar requires --grammar-ir to name the generated output.
+moon run loomgen --target native -- token.mbt token_out syntax_out \
+  --term term.mbt --grammar-ir syntax_out/grammar_ir.g.mbt \
+  --grammar-file grammar/css.loomgrammar --language css
+```
+
 ## Fixtures
 
+- `fixtures/parens.loomgrammar` — smallest `.loomgrammar` file; the differential
+  parity test asserts it emits the same GrammarIr as the equivalent annotation
+- `fixtures/file_only_grammar.mbt` + `fixtures/file_only.loomgrammar` — a
+  roles-only `#loom.term` enum (no `#loom.rule`) plus the file that bodies it;
+  drives the file-only emission path (multi-production, cross-rule `Ref`,
+  root-from-file) and the file-path fail-closed cases. `fixtures/file_only.g.mbt`
+  is the golden the file-only test asserts against (full output, not substring)
 - `fixtures/term_kind.mbt` — combined token+term enum for CI regression (no view variants)
 - `fixtures/view_fixture.mbt` — token+term enum with `#loom.view` annotations
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression

@@ -33,6 +33,44 @@ test "emit_grammar_ir golden: smallest terminals-only Seq production" {
 }
 
 ///|
+/// Differential oracle for #523: the `.loomgrammar` front-end and the `#loom.rule`
+/// annotation front-end feed the SAME emitter, so the same grammar expressed each
+/// way must emit byte-identical GrammarIr. Two independent input parsers converging
+/// on the golden is real signal (unlike a fresh emitter-generated golden, which
+/// would only pin the emitter to itself). The term enum still supplies roles, kinds
+/// and the root; the file supplies the production body, overriding the annotation.
+test "emit_grammar_ir: .loomgrammar path matches the annotation path byte-for-byte" {
+  let src = read_fixture("fixtures/rule_grammar_fixture.mbt")
+  let golden = read_fixture("fixtures/rule_grammar_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  // The same single production, written as a grammar file instead of an annotation.
+  let gf = read_fixture("fixtures/parens.loomgrammar")
+  let file_rules : Map[String, RuleAst] = Map([])
+  match parse_grammar_file(gf) {
+    Ok(prods) =>
+      for p in prods {
+        let (name, ast, _) = p
+        file_rules.set(name, ast)
+      }
+    Err(m) => abort("grammar file parse failed: " + m)
+  }
+  let generated = match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "mini_grammar_ir",
+      file_rules~,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
 /// Drives `lower_repetition`: the FIRST-set-dependent constructs. Asserts on the
 /// semantic essentials (which `Expr` constructor, which `Pred`) rather than exact
 /// formatting, so a correct lowering passes regardless of whitespace. `Item* Eof`
@@ -297,7 +335,7 @@ test "emit_grammar_ir rejects a referenced ruleless leaf" {
       #|} derive(Eq)
     ),
   )
-  inspect(msg.contains("has no #loom.rule"), content="true")
+  inspect(msg.contains("has no grammar rule"), content="true")
 }
 
 ///|
@@ -367,7 +405,7 @@ test "emit_grammar_ir rejects a #loom.root variant with no #loom.rule" {
       #|} derive(Eq)
     ),
   )
-  inspect(msg.contains("no #loom.rule"), content="true")
+  inspect(msg.contains("has no grammar rule"), content="true")
 }
 
 ///|
@@ -411,6 +449,210 @@ test "is_mbt_identifier accepts identifiers and rejects the rest" {
   inspect(is_mbt_identifier("123"), content="false")
   inspect(is_mbt_identifier("my-lang"), content="false")
   inspect(is_mbt_identifier("a b"), content="false")
+}
+
+///|
+/// Parse `fixtures/file_only_grammar.mbt` (roles-only term enum, NO annotations)
+/// and the given grammar-file source into the (token, term, file_rules, file_lines)
+/// the emitter needs. Aborts on a grammar-file parse error, since these tests supply
+/// well-formed files and want emitter behavior, not parse behavior. `file_lines`
+/// lets the reject tests assert the `line N:` prefix the emitter now attaches.
+fn file_only_inputs(
+  gf : String,
+) -> (EnumDecl, EnumDecl, Map[String, RuleAst], Map[String, Int]) {
+  let (token_enum, term_enum) = enums_of(
+    read_fixture("fixtures/file_only_grammar.mbt"),
+  )
+  let file_rules : Map[String, RuleAst] = Map([])
+  let file_lines : Map[String, Int] = Map([])
+  match parse_grammar_file(gf) {
+    Ok(prods) =>
+      for p in prods {
+        let (name, ast, line) = p
+        file_rules.set(name, ast)
+        file_lines.set(name, line)
+      }
+    Err(m) => abort("grammar file parse failed: " + m)
+  }
+  (token_enum, term_enum, file_rules, file_lines)
+}
+
+///|
+/// The headline #523 path the differential test does NOT cover: a term enum with
+/// roles but NO `#loom.rule` annotations, whose every production body comes solely
+/// from the grammar file. This is what exercises emission gated on `ctx.rules`
+/// (not `v.rule`): annotation rules are empty, so the root check and the emit loop
+/// both key off the file-supplied map. It is also multi-production with a cross-rule
+/// `Ref` (Pair -> Inner) and a root designated by `#loom.root` but bodied by the
+/// file — none of which the single-production override fixture runs through emission.
+test "emit_grammar_ir: file-only term enum (no annotations) emits multi-production output with a cross-Ref and file root" {
+  let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
+    read_fixture("fixtures/file_only.loomgrammar"),
+  )
+  let generated = match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "fo_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed (file-only path): " + m)
+  }
+  // Assert the FULL emitted source against a committed golden (not boolean
+  // `inspect(contains(...))` — a `moon test --update` would silently flip those
+  // true→false and mask a regression). The golden pins every property this path
+  // must have: both `Pair` and `Inner` Nodes, the cross-rule `Ref("Inner")`,
+  // Inner's single `Expect(@token.Comma, ...)`, and `root="Pair"` taken from the
+  // #loom.root variant but bodied entirely by the file.
+  assert_eq(generated, read_fixture("fixtures/file_only.g.mbt"))
+}
+
+///|
+/// README claims a file production with an `@fragment` body "parses but stays
+/// rejected by the shared closed-GrammarIr guard." Exercise that on the FILE path
+/// specifically: the fragment routes through `check_no_fragments` on the merged map.
+test "emit_grammar_ir: a file production with an @fragment body fails closed" {
+  let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
+    "Pair = LParen Inner RParen\nInner = @custom_inner",
+  )
+  match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "fo_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(_) => abort("expected an @fragment file production to fail closed")
+    Err(m) => {
+      inspect(m.contains("references fragment @custom_inner"), content="true")
+      // The emission-stage error carries the file line of the offending
+      // production (`Inner` is on line 2), matching the `line N:` prefix the
+      // file's parse errors use.
+      inspect(m.contains("line 2: "), content="true")
+    }
+  }
+}
+
+///|
+/// A file production whose name is not a `#loom.term` variant must fail closed —
+/// it has no role to supply a CST kind. `NotATerm` is absent from the term enum.
+test "emit_grammar_ir: a file production naming a non-term symbol fails closed" {
+  let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
+    "Pair = LParen Inner RParen\nInner = Comma\nNotATerm = Comma",
+  )
+  match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "fo_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(_) => abort("expected a non-term file production to fail closed")
+    Err(m) => {
+      inspect(
+        m.contains(
+          "grammar file production 'NotATerm' is not a #loom.term variant",
+        ),
+        content="true",
+      )
+      // `NotATerm` is on line 3 of the grammar file; the error points there.
+      inspect(m.contains("line 3: "), content="true")
+    }
+  }
+}
+
+///|
+/// Exercises the lowering-catch prefix site (the most complex one — it wraps any
+/// `RuleLowerError` with the rule's file line). An ambiguous alternation
+/// `Comma RParen | Comma LParen` (both alts begin with `Comma`) is detected during
+/// lowering of `Pair`, so its error must carry `Pair`'s line (1).
+test "emit_grammar_ir: a lowering error in a file rule carries the file line" {
+  let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
+    "Pair = Comma RParen | Comma LParen",
+  )
+  match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "fo_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(_) => abort("expected an ambiguous file alternation to fail closed")
+    Err(m) => {
+      inspect(m.contains("ambiguous alternation"), content="true")
+      inspect(m.contains("line 1: "), content="true")
+    }
+  }
+}
+
+///|
+/// Migration path: a variant with a broken `#loom.rule` annotation that also has
+/// a grammar-file production must succeed. Before the fix, `parse_rule_string`
+/// would fire for the broken annotation and return early before the `file_rules`
+/// overlay applied, making it impossible to migrate off a broken annotation by
+/// moving it to the grammar file.
+test "emit_grammar_ir: grammar-file rule overrides a broken #loom.rule annotation" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum MigrTok {
+    #|  #loom.punct("(")
+    #|  LParen
+    #|  #loom.punct(")")
+    #|  RParen
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq, Debug)
+    #|
+    #|#loom.term
+    #|pub(all) enum MigrTerm {
+    #|  #loom.root
+    #|  #loom.rule("( A |")
+    #|  Parens
+    #|} derive(Eq, Debug)
+  let (token_enum, term_enum) = enums_of(src)
+  let file_rules : Map[String, RuleAst] = Map([])
+  let file_lines : Map[String, Int] = Map([])
+  match parse_grammar_file("Parens = LParen RParen") {
+    Ok(prods) =>
+      for p in prods {
+        let (name, ast, line) = p
+        file_rules.set(name, ast)
+        file_lines.set(name, line)
+      }
+    Err(m) => abort("unexpected grammar file parse failure: " + m)
+  }
+  match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "migr_grammar_ir",
+      file_rules~,
+      file_lines~,
+    ) {
+    Ok(_) => ()
+    Err(m) =>
+      abort("grammar-file rule should override broken annotation but got: " + m)
+  }
 }
 
 ///|
