@@ -134,6 +134,44 @@ test "parse_grammar_file reports a body parse error with production and line" {
 }
 
 ///|
+/// RED (#549): `is_header_at`'s two-token lookahead (IDENT immediately followed
+/// by '=') fires inside a paren group too, mistaking "C =" for the next
+/// production's header. That truncates A's body before the ')' and reports
+/// "unbalanced '(' — missing ')'" instead of pointing at the stray '='. Once
+/// `is_header_at` is gated on paren depth == 0, this must report the same
+/// stray-'=' error the top-level case does.
+test "parse_grammar_file rejects a stray '=' inside a paren group, not an unbalanced paren" {
+  match parse_grammar_file("A = (B C = D)") {
+    Ok(_) => abort("expected a stray-'=' rejection, got Ok")
+    Err(m) =>
+      inspect(
+        m.contains("unexpected '=' inside the body of production 'A'"),
+        content="true",
+      )
+  }
+}
+
+///|
+/// RED: an unmatched ')' inside a body must not drive the paren-depth counter
+/// negative and permanently suppress header detection for every production
+/// that follows — it should still report A's own malformed body (trailing
+/// tokens after a complete rule) rather than swallowing 'C = D' as more of
+/// A's body and misreporting it as a stray '=' inside A (#549 follow-up).
+test "parse_grammar_file rejects an unmatched ')' without swallowing the next header" {
+  let src =
+    #|A = B )
+    #|C = D
+  match parse_grammar_file(src) {
+    Ok(_) => abort("expected a malformed-body rejection, got Ok")
+    Err(m) =>
+      inspect(
+        m.contains("in production 'A': trailing tokens after a complete rule"),
+        content="true",
+      )
+  }
+}
+
+///|
 /// An unexpected character fails closed at tokenization, with its line.
 test "parse_grammar_file rejects an unexpected character" {
   match parse_grammar_file("A = B ; C") {

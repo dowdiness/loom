@@ -190,14 +190,33 @@ fn parse_grammar_file(
       )
     }
     seen.add(name)
-    // Body: every token from after the '=' up to the next header or EOF.
+    // Body: every token from after the '=' up to the next header or EOF. The
+    // header lookahead only applies at paren depth 0 — an `IDENT '='` pair
+    // inside a `(...)` group (e.g. `A = (B C = D)`) is a stray '=' inside the
+    // body, not the start of the next production (#549).
     let body : Array[RuleTok] = []
     let mut j = i + 2
+    let mut depth = 0
     while j < n {
-      if is_header_at(lexed, j) {
+      if depth == 0 && is_header_at(lexed, j) {
         break
       }
       match lexed[j].tok {
+        GRule(TLParen) => {
+          depth = depth + 1
+          body.push(TLParen)
+        }
+        GRule(TRParen) => {
+          // Clamp at 0: an unmatched ')' must not drive depth negative and
+          // permanently suppress header detection for every production that
+          // follows. Leaving depth at 0 keeps header lookahead live; the
+          // unmatched ')' itself is still reported by the downstream body
+          // parser's own paren/trailing-token validation.
+          if depth > 0 {
+            depth = depth - 1
+          }
+          body.push(TRParen)
+        }
         GRule(rt) => body.push(rt)
         GAssign =>
           return Err(
