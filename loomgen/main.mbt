@@ -46,7 +46,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
     about="Generate loom code from annotated MoonBit source files.",
     flags=[
       @argparse.FlagArg("skip-syntax", about="Skip generating syntax_kind.mbt"),
-      @argparse.FlagArg("force-lexer", about="Overwrite existing lexer skeleton file"),
+      @argparse.FlagArg(
+        "force-lexer",
+        about="Overwrite existing lexer skeleton file",
+      ),
     ],
     options=[
       @argparse.OptionArg(
@@ -297,6 +300,8 @@ fn build_kinds(
   }
   Ok({ kinds, term_kinds, trivia_set, error_set, error_node_name })
 }
+
+///|
 fn write_outputs(
   te : EnumDecl,
   kinds : Array[(String, Int)],
@@ -437,12 +442,16 @@ fn write_outputs(
           }
         } else {
           // Remove stale file when no modes are declared
-          @fs.remove_file(skel_path) catch { _ => () }
+          @fs.remove_file(skel_path) catch {
+            _ => ()
+          }
         }
       }
       None =>
         // Remove stale file when term enum is absent
-        @fs.remove_file(skel_path) catch { _ => () }
+        @fs.remove_file(skel_path) catch {
+          _ => ()
+        }
     }
   }
   if skip_syntax {
@@ -858,27 +867,28 @@ fn main {
     None => None
   }
 
-  match write_outputs(
-    te,
-    build_result.kinds,
-    build_result.term_kinds,
-    build_result.trivia_set,
-    build_result.error_set,
-    build_result.error_node_name,
-    retired_rawns,
-    skip_syntax,
-    force_lexer,
-    token_out,
-    syntax_out,
-    spec_path,
-    language_name,
-    cli_token_type,
-    cli_syntax_type,
-    token_qual,
-    syntax_qual,
-    core_qual,
-    term_enum_decl,
-  ) {
+  match
+    write_outputs(
+      te,
+      build_result.kinds,
+      build_result.term_kinds,
+      build_result.trivia_set,
+      build_result.error_set,
+      build_result.error_node_name,
+      retired_rawns,
+      skip_syntax,
+      force_lexer,
+      token_out,
+      syntax_out,
+      spec_path,
+      language_name,
+      cli_token_type,
+      cli_syntax_type,
+      token_qual,
+      syntax_qual,
+      core_qual,
+      term_enum_decl,
+    ) {
     Err(_) => {
       @sys.exit(1)
       return

@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomgen/fixtures/grammar_parity_reuse"
+
+import {
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse_root(@core.ParserContext[ReuseToken, ReuseKind]) -> Unit
+
+// Errors
+
+// Types and methods
+type ReuseKind derive(Eq, @debug.Debug)
+
+type ReuseToken derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -16,7 +16,7 @@ fn mode_to_fn_name(mode : String) -> String {
     if i > 0 && ch >= 'A' && ch <= 'Z' {
       b.write_string("_")
     }
-    b.write_string(mode[i:i+1].to_string())
+    b.write_string(mode[i:i + 1].to_string())
   }
   b.to_string().to_lower()
 }
@@ -42,7 +42,9 @@ fn emit_lexer_skeleton(
   )
   b.write_string("  match mode {\n")
   for mode in modes {
-    b.write_string("    " + mode + " => " + mode_to_fn_name(mode) + "(source, pos)\n")
+    b.write_string(
+      "    " + mode + " => " + mode_to_fn_name(mode) + "(source, pos)\n",
+    )
   }
   b.write_string("  }\n")
   b.write_string("}\n")

@@ -64,6 +64,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   b.write_string("}\n")
   Some(b.to_string())
 }
+
 ///|
 /// Collect deduplicated `LexMode` variant names from term variants that have
 /// `#loom.lexmode("ModeName")`. Returns modes sorted alphabetically, matching

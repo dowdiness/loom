@@ -246,8 +246,10 @@ test "invalid annotation arguments produce specific error" {
 test "emit_lexer_skeleton produces correct dispatch skeleton" {
   let modes : Array[String] = ["Leaf", "Inline", "LineStart"]
   let output = emit_lexer_skeleton(modes, "Token", "@core")
-  inspect(output, content=read_fallback_fixture(
-    "fixtures/lexer_skeleton_fixture.g.mbt",
-    "loomgen/fixtures/lexer_skeleton_fixture.g.mbt",
-  ))
+  inspect(
+    output,
+    content=read_fallback_fixture(
+      "fixtures/lexer_skeleton_fixture.g.mbt", "loomgen/fixtures/lexer_skeleton_fixture.g.mbt",
+    ),
+  )
 }
