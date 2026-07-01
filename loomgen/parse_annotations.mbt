@@ -32,7 +32,6 @@ enum SyntaxRole {
 ///|
 struct VariantDecl {
   name : String
-  _tag : String?
   role : SyntaxRole?
   attrs : Array[@attribute.Attribute]
   arg_count : Int
@@ -53,9 +52,7 @@ struct VariantDecl {
 ///|
 struct EnumDecl {
   name : String
-  _attrs : Array[@attribute.Attribute]
   variants : Array[VariantDecl]
-  _is_token : Bool
 }
 
 ///|
@@ -386,9 +383,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           token_enum = Some({
             name: td.tycon,
-            _attrs: td.attrs.to_array(),
             variants: classified,
-            _is_token: is_token,
           })
         }
         if is_term {
@@ -397,9 +392,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
           term_enum = Some({
             name: td.tycon,
-            _attrs: td.attrs.to_array(),
             variants: classified,
-            _is_token: false,
           })
         }
       }
@@ -488,10 +481,6 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
     @syntax.Variant(constrs) | @syntax.ExtensibleEnum(constrs) =>
       constrs
       .map(fn(cd) {
-        let tag_str = match cd.tag {
-          Some((t, _)) => Some(t)
-          None => None
-        }
         // Find kind_override from any annotation on this variant
         let mut kind_override : String? = None
         // Detect #loom.void, #loom.rawtext, and #loom.lexmode modifier annotations
@@ -534,7 +523,6 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         }
         {
           name: cd.name.name,
-          _tag: tag_str,
           attrs: cd.attrs.to_array(),
           role: None,
           arg_count,
