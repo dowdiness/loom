@@ -651,9 +651,7 @@ test "emit_grammar_ir: grammar-file rule overrides a broken #loom.rule annotatio
     ) {
     Ok(_) => ()
     Err(m) =>
-      abort(
-        "grammar-file rule should override broken annotation but got: " + m,
-      )
+      abort("grammar-file rule should override broken annotation but got: " + m)
   }
 }
 
