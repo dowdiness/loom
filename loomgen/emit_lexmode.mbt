@@ -64,3 +64,23 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   b.write_string("}\n")
   Some(b.to_string())
 }
+///|
+/// Collect deduplicated `LexMode` variant names from term variants that have
+/// `#loom.lexmode("ModeName")`. Returns modes sorted alphabetically, matching
+/// the order `emit_lexmode` produces in the `LexMode` enum.
+/// Returns an empty array when no variants have a lexmode annotation.
+fn collect_lexmodes(decl : EnumDecl) -> Array[String] {
+  let seen : Map[String, Bool] = Map([])
+  for v in decl.variants {
+    match v.lexmode_name {
+      Some(mode) => seen.set(mode, true)
+      None => ()
+    }
+  }
+  let modes : Array[String] = []
+  for mode, _ in seen {
+    modes.push(mode)
+  }
+  modes.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
+  modes
+}

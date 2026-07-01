@@ -46,6 +46,7 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
     about="Generate loom code from annotated MoonBit source files.",
     flags=[
       @argparse.FlagArg("skip-syntax", about="Skip generating syntax_kind.mbt"),
+      @argparse.FlagArg("force-lexer", about="Overwrite existing lexer skeleton file"),
     ],
     options=[
       @argparse.OptionArg(
@@ -296,10 +297,6 @@ fn build_kinds(
   }
   Ok({ kinds, term_kinds, trivia_set, error_set, error_node_name })
 }
-
-///|
-/// Phase 3: Write all output files — token_impls.g.mbt, syntax_kind.mbt,
-/// companion registry file, and optional spec file.
 fn write_outputs(
   te : EnumDecl,
   kinds : Array[(String, Int)],
@@ -309,6 +306,7 @@ fn write_outputs(
   error_node_name : String?,
   retired_rawns : Array[Int],
   skip_syntax : Bool,
+  force_lexer : Bool,
   token_out : String,
   syntax_out : String,
   spec_path : String?,
@@ -415,13 +413,40 @@ fn write_outputs(
     }
   }
 
-  // Persist retired raws for next --seed round-trip.
-  // Always write the companion file in skip-syntax mode, even when empty,
-  // so stale entries from previous runs are cleared.
+  // Write lexer_skeleton.g.mbt (mode-dispatch skeleton, once semantics).
+  // Generated only when the file does not exist, unless --force-lexer is set.
+  if !skip_syntax {
+    let skel_path = syntax_out + "/lexer_skeleton.g.mbt"
+    match term_enum_decl {
+      Some(term_enum_val) => {
+        let modes = collect_lexmodes(term_enum_val)
+        if modes.length() > 0 {
+          if !@fs.path_exists(skel_path) || force_lexer {
+            let token_type_name = match cli_token_type {
+              Some(n) => n
+              None => te.name
+            }
+            let content = emit_lexer_skeleton(modes, token_type_name, core_qual)
+            @fs.write_string_to_file(skel_path, content) catch {
+              _ => {
+                println("Error writing " + skel_path)
+                return Err(())
+              }
+            }
+            println("  " + skel_path)
+          }
+        } else {
+          // Remove stale file when no modes are declared
+          @fs.remove_file(skel_path) catch { _ => () }
+        }
+      }
+      None =>
+        // Remove stale file when term enum is absent
+        @fs.remove_file(skel_path) catch { _ => () }
+    }
+  }
   if skip_syntax {
-    let parts = retired_rawns.map(fn(r) { r.to_string() })
-    let line = "// #loom.retired: " + parts.join(", ")
-    @fs.write_string_to_file(token_out + "/loom.registry.g.txt", line) catch {
+    @fs.remove_file(syntax_out + "/lexer_skeleton.g.mbt") catch {
       _ => ()
     }
   }
@@ -620,9 +645,9 @@ fn main {
       return
     }
   }
-
   let seed_path = first_value(matches.values.get_or_default("seed", []))
   let skip_syntax = matches.flags.get_or_default("skip-syntax", false)
+  let force_lexer = matches.flags.get_or_default("force-lexer", false)
   let term_path = first_value(matches.values.get_or_default("term", []))
   let spec_path = first_value(matches.values.get_or_default("spec", []))
   let language_name = first_value(matches.values.get_or_default("language", []))
@@ -833,27 +858,27 @@ fn main {
     None => None
   }
 
-  match
-    write_outputs(
-      te,
-      build_result.kinds,
-      build_result.term_kinds,
-      build_result.trivia_set,
-      build_result.error_set,
-      build_result.error_node_name,
-      retired_rawns,
-      skip_syntax,
-      token_out,
-      syntax_out,
-      spec_path,
-      language_name,
-      cli_token_type,
-      cli_syntax_type,
-      token_qual,
-      syntax_qual,
-      core_qual,
-      term_enum_decl,
-    ) {
+  match write_outputs(
+    te,
+    build_result.kinds,
+    build_result.term_kinds,
+    build_result.trivia_set,
+    build_result.error_set,
+    build_result.error_node_name,
+    retired_rawns,
+    skip_syntax,
+    force_lexer,
+    token_out,
+    syntax_out,
+    spec_path,
+    language_name,
+    cli_token_type,
+    cli_syntax_type,
+    token_qual,
+    syntax_qual,
+    core_qual,
+    term_enum_decl,
+  ) {
     Err(_) => {
       @sys.exit(1)
       return

@@ -238,3 +238,16 @@ test "invalid annotation arguments produce specific error" {
     Ok(_) => abort("expected error for invalid annotation args")
   }
 }
+
+///|
+/// `emit_lexer_skeleton` with the three modes from the lexmode fixture must
+/// produce the expected skeleton output. Mode order must match `LexMode` enum
+/// output: Leaf, Inline, LineStart.
+test "emit_lexer_skeleton produces correct dispatch skeleton" {
+  let modes : Array[String] = ["Leaf", "Inline", "LineStart"]
+  let output = emit_lexer_skeleton(modes, "Token", "@core")
+  inspect(output, content=read_fallback_fixture(
+    "fixtures/lexer_skeleton_fixture.g.mbt",
+    "loomgen/fixtures/lexer_skeleton_fixture.g.mbt",
+  ))
+}
