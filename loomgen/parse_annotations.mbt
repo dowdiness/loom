@@ -381,19 +381,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           if token_enum is Some(_) {
             return Err("multiple " + "#" + "loom.token enums found")
           }
-          token_enum = Some({
-            name: td.tycon,
-            variants: classified,
-          })
+          token_enum = Some({ name: td.tycon, variants: classified })
         }
         if is_term {
           if term_enum is Some(_) {
             return Err("multiple " + "#" + "loom.term enums found")
           }
-          term_enum = Some({
-            name: td.tycon,
-            variants: classified,
-          })
+          term_enum = Some({ name: td.tycon, variants: classified })
         }
       }
       _ => ()
