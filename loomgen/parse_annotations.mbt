@@ -996,7 +996,24 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
     let matched = match attr.parsed {
       Some(@attribute.Apply(id, _)) => id
       Some(@attribute.Ident(id)) => id
-      _ => continue
+      _ => {
+        // attr.parsed is None when MoonBit parser rejects argument syntax.
+        // Check raw text to detect attempted #loom.* annotations.
+        if attr.raw.has_prefix("#loom.") {
+          // Extract annotation name from e.g. "#loom.literal(42)"
+          let name_start = 6 // length of "#loom."
+          let paren_pos = attr.raw.find("(")
+          let end = match paren_pos {
+            Some(p) => p
+            None => attr.raw.length()
+          }
+          let ann_name = attr.raw.substring(start=name_start, end~)
+          return Err(
+            "invalid arguments for #loom." + ann_name + " on " + variant.name,
+          )
+        }
+        continue
+      }
     }
     if matched.qual != Some("loom") {
       continue
