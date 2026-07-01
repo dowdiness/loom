@@ -218,3 +218,23 @@ test "regression: token/term kind name collision is rejected" {
     Ok(_) => abort("expected name collision error")
   }
 }
+
+///|
+/// When an annotation has invalid arguments (e.g. `#loom.literal(42)` with an
+/// integer instead of a string), the error must say "invalid arguments" not
+/// "missing a #loom.* annotation".
+test "invalid annotation arguments produce specific error" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum BadAnnotationToken {
+    #|  #loom.literal(42)
+    #|  BadArg
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) if msg.contains("invalid arguments") => () // expected
+    Err(msg) => abort("unexpected error: " + msg)
+    Ok(_) => abort("expected error for invalid annotation args")
+  }
+}
