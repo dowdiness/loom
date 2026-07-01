@@ -394,6 +394,34 @@ test "emit_grammar rejects a name that is both a rule and a native as AmbiguousR
 }
 
 ///|
+/// `AmbiguousRule` only catches a name that is literally both a rule and a
+/// native. It can't see the `parse_` prefix the rule-stub generator adds, so
+/// a native named exactly `parse_<other rule>` would otherwise silently
+/// collide with that rule's generated stub in the emitted file.
+test "emit_grammar rejects a native name that collides with a generated rule stub" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Node("Root", @grammar.Expr::Ref("inner")),
+    "inner": @grammar.Expr::Emit("Int", "IntToken"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+    native_names=Set::Set(["parse_inner"]),
+  )
+  match rendered {
+    Err(
+      "grammar emitter: native \"parse_inner\" collides with the generated stub for rule \"inner\""
+    ) => ()
+    _ => fail("expected stub-collision error")
+  }
+}
+
+///|
 test "emit_grammar output contains simple parity fixture markers" {
   let rules : Map[String, @grammar.Expr[String, String]] = {
     "source": @grammar.Expr::Node(

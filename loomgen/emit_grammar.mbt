@@ -31,6 +31,24 @@ pub fn[T, K] emit_grammar(
         "grammar emitter: \"" + name + "\" is both a grammar rule and a native",
       )
   }
+  // `AmbiguousRule` above only rejects a name that is literally both a rule
+  // and a native. It can't see the `parse_` prefix the rule-stub generator
+  // adds below — that's a loomgen-only naming convention, not something
+  // `compile` (language-agnostic) knows about. A native named exactly
+  // `parse_<other rule>` would otherwise silently collide with that rule's
+  // generated stub in the emitted file, so check it here instead.
+  for name in compiled.names {
+    let stub_name = parse_rule_fn_name(name)
+    if native_names.contains(stub_name) {
+      return Err(
+        "grammar emitter: native \"" +
+        stub_name +
+        "\" collides with the generated stub for rule \"" +
+        name +
+        "\"",
+      )
+    }
+  }
   let root_name = compiled.names[compiled.root_slot()]
   let root_fn = parse_rule_fn_name(root_name)
   let parser_context = core_qual +

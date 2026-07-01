@@ -67,10 +67,12 @@ fn[
 ) -> Unit {
   match grammar.names.search(name) {
     Some(slot) => run_expr(ctx, grammar, natives, grammar.rule(slot))
-    None =>
+    None => {
       ctx.error(
         "grammar: native call_rule(\"" + name + "\") is not a grammar rule",
       )
+      ctx.emit_error_placeholder()
+    }
   }
 }
 

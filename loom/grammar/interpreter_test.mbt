@@ -219,3 +219,36 @@ test "NativeRef with no matching registry entry reports a diagnostic, does not a
   )
   inspect(diagnostics.is_empty(), content="false")
 }
+
+///|
+/// A native's `call_rule` with a name that isn't a grammar rule reports a
+/// diagnostic AND emits an error placeholder — not just a diagnostic, mirroring
+/// the `NativeRef`-registry-miss and `Fail` error paths, so the wrapping node
+/// isn't left empty.
+test "call_rule with an unknown name reports a diagnostic and emits a placeholder" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
+  }
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, call_rule) => {
+    call_rule("not_a_rule")
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "delegate": hook,
+  }
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(rules, root="source"),
+    natives~,
+  )
+  let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
+  let (tree, diagnostics) = @core.parse_with(
+    "",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  inspect(diagnostics.is_empty(), content="false")
+  match tree.children[0] {
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
+    @seam.CstElement::Token(_) => abort("expected the Root node")
+  }
+}
