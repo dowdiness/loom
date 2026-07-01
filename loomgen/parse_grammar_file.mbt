@@ -143,6 +143,48 @@ fn is_header_at(lexed : Array[GFileLexed], k : Int) -> Bool {
 }
 
 ///|
+/// Indices of `(` tokens with no matching `)` anywhere later in the file,
+/// found via one linear stack pass over the whole token stream. Matching is
+/// intentionally whole-file rather than scoped to one production: nothing in
+/// the token stream can tell "this paren will close soon, so the `IDENT '='`
+/// inside it is genuinely nested" (#549: `A = (B C = D)`) apart from whether
+/// it does, in fact, close — and any rule for bounding the search to "within
+/// this production" would need to already know the production boundary that
+/// paren matching itself decides, which is circular. The body-scan loop only
+/// treats a `(` as opening a group — and so only gates header lookahead on
+/// it — when it's in this set's complement, i.e. it does have a future
+/// match. A `(` that never closes can't be a real group: continuing to
+/// suppress header detection past it would swallow every later production
+/// into the current one, instead of letting the unclosed `(` surface as this
+/// production's own unbalanced-paren error the way a lone unclosed
+/// production already does.
+///
+/// Known limitation (accepted, not a bug to chase further): whole-file
+/// matching means an `IDENT '='` between a `(` and a `)` that closes it is
+/// always treated as inside the current group, even when that `)` actually
+/// belongs to a later, syntactically distinct production — e.g.
+/// `A = ( B\nC = D )` diagnoses a stray `=` in `A` rather than recognizing
+/// `C` as its own (also malformed) production. Disambiguating that case
+/// would require a format policy change (e.g. headers anchored to line
+/// start, ignored even inside open parens), which is out of scope here; both
+/// inputs are already malformed, and the file still fails closed either way.
+fn find_unmatched_lparens(lexed : Array[GFileLexed]) -> Array[Bool] {
+  let unmatched : Array[Bool] = Array::make(lexed.length(), false)
+  let opens : Array[Int] = []
+  for k, lx in lexed {
+    match lx.tok {
+      GRule(TLParen) => opens.push(k)
+      GRule(TRParen) => opens.pop() |> ignore
+      _ => ()
+    }
+  }
+  for k in opens {
+    unmatched[k] = true
+  }
+  unmatched
+}
+
+///|
 /// Parse a complete `.loomgrammar` source into an ordered list of
 /// `(name, body, line)` productions, reusing the `#loom.rule` body parser. Returns
 /// a fail-closed error message (with a `line N:` prefix) on any problem. The order
@@ -160,6 +202,7 @@ fn parse_grammar_file(
   }
   let prods : Array[(String, RuleAst, Int)] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
+  let unmatched_lparens = find_unmatched_lparens(lexed)
   let mut i = 0
   let n = lexed.length()
   while i < n {
@@ -190,15 +233,31 @@ fn parse_grammar_file(
       )
     }
     seen.add(name)
-    // Body: every token from after the '=' up to the next header or EOF.
+    // Body: every token from after the '=' up to the next header or EOF. The
+    // header lookahead only applies at paren depth 0 — an `IDENT '='` pair
+    // inside a `(...)` group (e.g. `A = (B C = D)`) is a stray '=' inside the
+    // body, not the start of the next production (#549). Depth only counts
+    // `(` tokens that actually have a future match (`unmatched_lparens`): an
+    // unclosed `(` must not suppress header detection for the rest of the
+    // file (#549 follow-up) — it surfaces as this production's own
+    // unbalanced-paren error instead. Depth is also clamped at 0 so a lone
+    // unmatched `)` can't drive it negative and have the same effect.
     let body : Array[RuleTok] = []
     let mut j = i + 2
+    let mut depth = 0
     while j < n {
-      if is_header_at(lexed, j) {
+      if depth == 0 && is_header_at(lexed, j) {
         break
       }
       match lexed[j].tok {
-        GRule(rt) => body.push(rt)
+        GRule(rt) => {
+          match rt {
+            TLParen => if !unmatched_lparens[j] { depth = depth + 1 }
+            TRParen => if depth > 0 { depth = depth - 1 }
+            _ => ()
+          }
+          body.push(rt)
+        }
         GAssign =>
           return Err(
             grammar_file_loc(lexed[j].line) +
