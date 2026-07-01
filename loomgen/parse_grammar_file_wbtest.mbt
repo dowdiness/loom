@@ -172,6 +172,29 @@ test "parse_grammar_file rejects an unmatched ')' without swallowing the next he
 }
 
 ///|
+/// RED (#549 follow-up, found in /review of PR #555): a never-closed '(' in a
+/// body must not permanently suppress header detection for the rest of the
+/// file. A running depth counter alone can't tell "temporarily open, closes
+/// later" (the #549 case above) from "permanently open, never closes" — this
+/// needs to still recognize 'C =' as the next header and let the unclosed
+/// '(' surface as A's own unbalanced-paren error, matching the diagnostic
+/// `parse_grammar_file reports a body parse error with production and line`
+/// already gives for a single unclosed production.
+test "parse_grammar_file rejects an unclosed '(' without swallowing the next header" {
+  let src =
+    #|A = ( B
+    #|C = D
+  match parse_grammar_file(src) {
+    Ok(_) => abort("expected an unbalanced-paren rejection, got Ok")
+    Err(m) => {
+      inspect(m.contains("line 1:"), content="true")
+      inspect(m.contains("in production 'A'"), content="true")
+      inspect(m.contains("unbalanced '('"), content="true")
+    }
+  }
+}
+
+///|
 /// An unexpected character fails closed at tokenization, with its line.
 test "parse_grammar_file rejects an unexpected character" {
   match parse_grammar_file("A = B ; C") {
