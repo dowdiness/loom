@@ -534,9 +534,14 @@ test "emit_grammar output contains native parity fixture markers" {
     fail("expected native grammar emission to succeed")
   }
   let fixture = @fs.read_file_to_string(
-    "loomgen/fixtures/grammar_parity_native/native_parser.g.mbt",
+    "fixtures/grammar_parity_native/native_parser.g.mbt",
   ) catch {
-    _ => fail("could not read generated native parser fixture")
+    _ =>
+      @fs.read_file_to_string(
+        "loomgen/fixtures/grammar_parity_native/native_parser.g.mbt",
+      ) catch {
+        _ => fail("could not read generated native parser fixture")
+      }
   }
   inspect(source.contains("  delegate_to_inner(ctx)\n"), content="true")
   inspect(fixture.contains("delegate_to_inner(ctx)"), content="true")

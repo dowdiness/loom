@@ -301,6 +301,15 @@ jobs:
             loomgen/fixtures/lexmode_fixture.mbt \
             /tmp/lm-token /tmp/lm-syntax
           diff /tmp/lm-syntax/lexmode.g.mbt loomgen/fixtures/lexmode_fixture.g.mbt
+
+      - name: Verify lexer skeleton generation
+        working-directory: .
+        run: |
+          mkdir -p /tmp/ls-token /tmp/ls-syntax
+          moon run loomgen --target native -- \
+            loomgen/fixtures/lexmode_fixture.mbt \
+            /tmp/ls-token /tmp/ls-syntax
+          diff /tmp/ls-syntax/lexer_skeleton.g.mbt loomgen/fixtures/lexer_skeleton_fixture.g.mbt
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
