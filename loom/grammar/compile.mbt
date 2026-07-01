@@ -5,6 +5,14 @@
 pub suberror GrammarCompileError {
   MissingRoot(RuleName)
   MissingRef(RuleName)
+  /// `Native(name)` appeared but `name` is absent from `compile`'s
+  /// `native_names` argument — resolved and validated at compile time, never
+  /// mid-parse, mirroring `MissingRef`.
+  MissingNative(RuleName)
+  /// `name` is declared in both `ir.rules` and `native_names` — a name must be
+  /// either a grammar rule or a native, never both. Checked globally over the
+  /// whole namespace, not only for names a `Native(...)` node reaches.
+  AmbiguousRule(RuleName)
 } derive(Eq, Debug)
 
 ///|
@@ -16,6 +24,7 @@ pub enum CompiledExpr[T, K] {
   Emit(T, K)
   Expect(T, K)
   RefSlot(Int)
+  NativeRef(RuleName)
   Choice(Array[CompiledAlt[T, K]])
   RepeatTopLevel(
     Int,
@@ -84,10 +93,22 @@ pub fn[T, K] CompiledGrammar::rule(
 /// remaining rules follow in sorted-name order for determinism. Every `Ref` is
 /// resolved during compile, so an unresolved reference fails here rather than
 /// mid-parse.
+///
+/// `native_names` declares which names `Native(...)` may delegate to (empty by
+/// default — existing callers are unaffected). A name must be either a grammar
+/// rule or a native, never both: this is checked once, globally, over the
+/// whole namespace, before any lowering — not only for names a reachable
+/// `Native(...)` node happens to reference.
 pub fn[T, K] compile(
   ir : GrammarIr[T, K],
+  native_names? : Set[RuleName] = Set::Set([]),
 ) -> CompiledGrammar[T, K] raise GrammarCompileError {
   guard ir.rules.get(ir.root) is Some(_) else { raise MissingRoot(ir.root) }
+  for name in ir.rules.keys() {
+    if native_names.contains(name) {
+      raise AmbiguousRule(name)
+    }
+  }
   let others = ir.rules.keys().filter(n => n != ir.root).collect()
   others.sort()
   let names = [ir.root, ..others]
@@ -98,7 +119,7 @@ pub fn[T, K] compile(
   let rules : Array[CompiledExpr[T, K]] = []
   for name in names {
     guard ir.rules.get(name) is Some(expr)
-    rules.push(lower(expr, slot_of))
+    rules.push(lower(expr, slot_of, native_names))
   }
   { names, rules, root: 0 }
 }
@@ -116,22 +137,40 @@ fn resolve(
 }
 
 ///|
-/// Lower one `Expr` to `CompiledExpr`, resolving every nested `Ref` to a slot.
+/// Resolve a native name to itself, or raise `MissingNative`. Validated at
+/// compile time so an unregistered `Native(...)` name fails here, never
+/// mid-parse — mirrors `resolve` for `Ref`.
+fn resolve_native(
+  name : RuleName,
+  native_names : Set[RuleName],
+) -> RuleName raise GrammarCompileError {
+  if native_names.contains(name) {
+    name
+  } else {
+    raise MissingNative(name)
+  }
+}
+
+///|
+/// Lower one `Expr` to `CompiledExpr`, resolving every nested `Ref` to a slot
+/// and every nested `Native` against the declared `native_names`.
 fn[T, K] lower(
   expr : Expr[T, K],
   slot_of : Map[RuleName, Int],
+  native_names : Set[RuleName],
 ) -> CompiledExpr[T, K] raise GrammarCompileError {
   match expr {
-    Node(k, body) => CompiledExpr::Node(k, lower(body, slot_of))
+    Node(k, body) => CompiledExpr::Node(k, lower(body, slot_of, native_names))
     Emit(t, k) => CompiledExpr::Emit(t, k)
     Expect(t, k) => CompiledExpr::Expect(t, k)
     Ref(name) => CompiledExpr::RefSlot(resolve(name, slot_of))
+    Native(name) => CompiledExpr::NativeRef(resolve_native(name, native_names))
     Choice(alts) => {
       let compiled : Array[CompiledAlt[T, K]] = []
       for a in alts {
         compiled.push(CompiledAlt::{
           starts: a.starts,
-          body: lower(a.body, slot_of),
+          body: lower(a.body, slot_of, native_names),
         })
       }
       CompiledExpr::Choice(compiled)
@@ -148,7 +187,7 @@ fn[T, K] lower(
     Seq(exprs) => {
       let compiled : Array[CompiledExpr[T, K]] = []
       for e in exprs {
-        compiled.push(lower(e, slot_of))
+        compiled.push(lower(e, slot_of, native_names))
       }
       CompiledExpr::Seq(compiled)
     }
@@ -157,9 +196,9 @@ fn[T, K] lower(
     PrattBinary(name, k, ops, skip~) =>
       CompiledExpr::PrattBinary(resolve(name, slot_of), k, ops, skip~)
     RepeatWhile(pred, body) =>
-      CompiledExpr::RepeatWhile(pred, lower(body, slot_of))
+      CompiledExpr::RepeatWhile(pred, lower(body, slot_of, native_names))
     WrapIfNext(k, pred, body) =>
-      CompiledExpr::WrapIfNext(k, pred, lower(body, slot_of))
+      CompiledExpr::WrapIfNext(k, pred, lower(body, slot_of, native_names))
     EmitError(msg) => CompiledExpr::EmitError(msg)
     ErrorUntil(pred, msg) => CompiledExpr::ErrorUntil(pred, msg)
     Fail(msg) => CompiledExpr::Fail(msg)

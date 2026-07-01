@@ -234,6 +234,16 @@ fn ProbeEnv::run(
     }
     // Residue: recursive newline-application mode (spec §5.1).
     ManualNewlineAppExpr => self.parse_newline_app(ctx)
+    // The lambda grammar does not use `Native` — degrade defensively rather
+    // than abort, mirroring `@grammar`'s own registry-miss diagnostic
+    // (loom/grammar/interpreter.mbt), so an accidental `Native(...)` node here
+    // fails loudly in the CST instead of crashing the probe.
+    NativeRef(name) => {
+      ctx.error(
+        "lambda probe: native rule \"" + name + "\" is not supported here",
+      )
+      ctx.emit_error_placeholder()
+    }
   }
 }
 

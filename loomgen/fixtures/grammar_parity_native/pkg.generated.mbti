@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomgen/fixtures/grammar_parity_native"
+
+import {
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse_root(@core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit
+
+// Errors
+
+// Types and methods
+type NativeParityKind derive(Eq, @debug.Debug)
+
+type NativeParityToken derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

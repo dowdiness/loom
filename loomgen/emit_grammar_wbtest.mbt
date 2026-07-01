@@ -322,6 +322,106 @@ test "emit_grammar rejects ManualNewlineAppExpr with explicit residue error" {
 }
 
 ///|
+test "emit_grammar lowers Native to a literal call, no parse_ prefix, no stub" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Node(
+      "Root",
+      @grammar.Expr::Native("parse_element_with_stack"),
+    ),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+    native_names=Set::Set(["parse_element_with_stack"]),
+  )
+  guard rendered is Ok(source) else {
+    fail("expected grammar emission to succeed")
+  }
+  inspect(source.contains("  parse_element_with_stack(ctx)\n"), content="true")
+  inspect(source.contains("fn parse_parse_element_with_stack"), content="false")
+  inspect(
+    source.contains(
+      "consumers must hand-write `fn parse_element_with_stack(ctx : ",
+    ),
+    content="true",
+  )
+}
+
+///|
+test "emit_grammar rejects Native with an unregistered name as MissingNative" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Native("missing_native"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+  )
+  match rendered {
+    Err("grammar emitter: missing native \"missing_native\"") => ()
+    _ => fail("expected missing-native error")
+  }
+}
+
+///|
+test "emit_grammar rejects a name that is both a rule and a native as AmbiguousRule" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Emit("Int", "IntToken"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+    native_names=Set::Set(["source"]),
+  )
+  match rendered {
+    Err("grammar emitter: \"source\" is both a grammar rule and a native") => ()
+    _ => fail("expected ambiguous-rule error")
+  }
+}
+
+///|
+/// `AmbiguousRule` only catches a name that is literally both a rule and a
+/// native. It can't see the `parse_` prefix the rule-stub generator adds, so
+/// a native named exactly `parse_<other rule>` would otherwise silently
+/// collide with that rule's generated stub in the emitted file.
+test "emit_grammar rejects a native name that collides with a generated rule stub" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Node("Root", @grammar.Expr::Ref("inner")),
+    "inner": @grammar.Expr::Emit("Int", "IntToken"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+    native_names=Set::Set(["parse_inner"]),
+  )
+  match rendered {
+    Err(
+      "grammar emitter: native \"parse_inner\" collides with the generated stub for rule \"inner\""
+    ) => ()
+    _ => fail("expected stub-collision error")
+  }
+}
+
+///|
 test "emit_grammar output contains simple parity fixture markers" {
   let rules : Map[String, @grammar.Expr[String, String]] = {
     "source": @grammar.Expr::Node(
@@ -405,6 +505,55 @@ test "emit_grammar output contains repeat parity fixture markers" {
   inspect(fixture.contains("fn parse_source"), content="true")
   inspect(source.contains("fn parse_item"), content="true")
   inspect(fixture.contains("fn parse_item"), content="true")
+}
+
+///|
+/// `emit_grammar`'s real output for a `Native`-containing grammar must
+/// actually contain the shape `grammar_parity_native/native_parser.g.mbt`
+/// hand-writes against, so the checked-in fixture can't silently drift from
+/// what the emitter produces (issue #541 correction 5).
+test "emit_grammar output contains native parity fixture markers" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::Node(
+      "Root",
+      @grammar.Expr::Native("delegate_to_inner"),
+    ),
+    "inner": @grammar.Expr::Emit("Int", "IntToken"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
+  let rendered = emit_grammar(
+    ir,
+    token_type="NativeParityToken",
+    syntax_type="NativeParityKind",
+    core_qual="@core",
+    token_ref=fn(t) { "NativeParityToken::" + t },
+    kind_ref=fn(k) { "NativeParityKind::" + k },
+    native_names=Set::Set(["delegate_to_inner"]),
+  )
+  guard rendered is Ok(source) else {
+    fail("expected native grammar emission to succeed")
+  }
+  let fixture = @fs.read_file_to_string(
+    "loomgen/fixtures/grammar_parity_native/native_parser.g.mbt",
+  ) catch {
+    _ => fail("could not read generated native parser fixture")
+  }
+  inspect(source.contains("  delegate_to_inner(ctx)\n"), content="true")
+  inspect(fixture.contains("delegate_to_inner(ctx)"), content="true")
+  inspect(source.contains("fn parse_delegate_to_inner"), content="false")
+  inspect(fixture.contains("fn parse_delegate_to_inner"), content="false")
+  inspect(
+    source.contains(
+      "consumers must hand-write `fn delegate_to_inner(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit`",
+    ),
+    content="true",
+  )
+  inspect(
+    fixture.contains(
+      "consumers must hand-write `fn delegate_to_inner(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit`",
+    ),
+    content="true",
+  )
 }
 
 ///|

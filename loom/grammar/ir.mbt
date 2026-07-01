@@ -30,6 +30,11 @@ pub(all) enum Expr[T, K] {
   Expect(T, K)
   /// Delegate to another rule by name.
   Ref(RuleName)
+  /// Delegate to a host-written production by name. The function is supplied
+  /// out-of-band (interpreter registry / emitted call), never stored here — the
+  /// IR stays closure-free and emittable. Mirrors `Ref`, but resolves against
+  /// host code rather than the grammar rule map.
+  Native(RuleName)
   /// Try alternatives in order; each carries its own reified start predicate.
   Choice(Array[Alt[T, K]])
   /// Delimited top-level repeat with per-group reuse. `starts` gates item entry;

@@ -4,6 +4,12 @@ fn parse_rule_fn_name(name : String) -> String {
 }
 
 ///|
+/// Emit a grammar to MoonBit source. `native_names` declares which names a
+/// `Native(...)` node may delegate to (empty by default). A `Native(name)`
+/// lowers to a literal `name(ctx)` call — no `parse_` prefix, no generated
+/// stub — because the consumer must hand-write `fn name(ctx) -> Unit` in the
+/// generated file's package; see the emitted header comment when any native
+/// is present.
 pub fn[T, K] emit_grammar(
   ir : @grammar.GrammarIr[T, K],
   token_type~ : String,
@@ -11,12 +17,37 @@ pub fn[T, K] emit_grammar(
   core_qual~ : String,
   token_ref~ : (T) -> String,
   kind_ref~ : (K) -> String,
+  native_names? : Set[String] = Set::Set([]),
 ) -> Result[String, String] {
-  let compiled = @grammar.compile(ir) catch {
+  let compiled = @grammar.compile(ir, native_names~) catch {
     @grammar.MissingRoot(name) =>
       return Err("grammar emitter: missing root rule \"" + name + "\"")
     @grammar.MissingRef(name) =>
       return Err("grammar emitter: missing ref \"" + name + "\"")
+    @grammar.MissingNative(name) =>
+      return Err("grammar emitter: missing native \"" + name + "\"")
+    @grammar.AmbiguousRule(name) =>
+      return Err(
+        "grammar emitter: \"" + name + "\" is both a grammar rule and a native",
+      )
+  }
+  // `AmbiguousRule` above only rejects a name that is literally both a rule
+  // and a native. It can't see the `parse_` prefix the rule-stub generator
+  // adds below — that's a loomgen-only naming convention, not something
+  // `compile` (language-agnostic) knows about. A native named exactly
+  // `parse_<other rule>` would otherwise silently collide with that rule's
+  // generated stub in the emitted file, so check it here instead.
+  for name in compiled.names {
+    let stub_name = parse_rule_fn_name(name)
+    if native_names.contains(stub_name) {
+      return Err(
+        "grammar emitter: native \"" +
+        stub_name +
+        "\" collides with the generated stub for rule \"" +
+        name +
+        "\"",
+      )
+    }
   }
   let root_name = compiled.names[compiled.root_slot()]
   let root_fn = parse_rule_fn_name(root_name)
@@ -28,6 +59,18 @@ pub fn[T, K] emit_grammar(
     "]"
   let b = StringBuilder()
   b.write_string("///|\n")
+  if native_names.length() > 0 {
+    let names = native_names.iter().collect()
+    names.sort()
+    for name in names {
+      b.write_string("/// consumers must hand-write `fn ")
+      b.write_string(name)
+      b.write_string("(ctx : ")
+      b.write_string(parser_context)
+      b.write_string(") -> Unit` in this file's package.\n")
+    }
+    b.write_string("///|\n")
+  }
   b.write_string("pub fn parse_root(ctx : ")
   b.write_string(parser_context)
   b.write_string(") -> Unit {\n")
@@ -157,6 +200,11 @@ fn[T, K] emit_compiled_expr(
       )
     @grammar.CompiledExpr::RefSlot(slot) =>
       Ok(indent + parse_rule_fn_name(compiled.names[slot]) + "(ctx)\n")
+    // Literal call, no `parse_` prefix and no generated stub: the consumer
+    // hand-writes `fn name(ctx) -> Unit` (documented in the emitted header).
+    // Re-entry is free here — the native calls sibling `parse_<rule>(ctx)`
+    // functions directly, so no `call_rule` plumbing needs to be emitted.
+    @grammar.CompiledExpr::NativeRef(name) => Ok(indent + name + "(ctx)\n")
     @grammar.CompiledExpr::Choice(alts) => {
       let b = StringBuilder()
       b.write_string(indent + "let token = ctx.peek()\n")
