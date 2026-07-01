@@ -7,6 +7,32 @@
 /// - `pub fn lexmode_for_kind(kind : SyntaxKind) -> LexMode?`
 ///
 /// Returns `None` when no variants have `#loom.lexmode` annotations.
+
+///|
+/// Collect deduplicated `LexMode` variant names from term variants.
+/// Uses the same `Map[String, Array[String]]` as `emit_lexmode` so iteration
+/// order is identical — single source of truth for mode ordering.
+/// Returns an empty array when no variants have a lexmode annotation.
+fn collect_lexmodes(decl : EnumDecl) -> Array[String] {
+  let mode_to_kinds : Map[String, Array[String]] = Map([])
+  for v in decl.variants {
+    match v.lexmode_name {
+      Some(mode) =>
+        if !mode_to_kinds.contains(mode) {
+          mode_to_kinds.set(mode, [])
+        }
+      None => ()
+    }
+  }
+  let modes : Array[String] = []
+  for mode, _ in mode_to_kinds {
+    modes.push(mode)
+  }
+  modes.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
+  modes
+}
+
+///|
 fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   // Collect unique mode names and their associated kind names.
   // Mode ordering is deterministic across runs (verified by CI golden diff).
@@ -26,12 +52,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   if mode_to_kinds.length() == 0 {
     return None
   }
-  // Sort mode names alphabetically for deterministic output
-  let modes : Array[String] = []
-  for mode, _kinds in mode_to_kinds {
-    modes.push(mode)
-  }
-  modes.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
+  let modes = collect_lexmodes(term_enum_decl)
   // Sort kind lists within each mode for stable match-arm output
   for mode in modes {
     mode_to_kinds[mode].sort()
@@ -63,25 +84,4 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   b.write_string("  }\n")
   b.write_string("}\n")
   Some(b.to_string())
-}
-
-///|
-/// Collect deduplicated `LexMode` variant names from term variants that have
-/// `#loom.lexmode("ModeName")`. Returns modes sorted alphabetically, matching
-/// the order `emit_lexmode` produces in the `LexMode` enum.
-/// Returns an empty array when no variants have a lexmode annotation.
-fn collect_lexmodes(decl : EnumDecl) -> Array[String] {
-  let seen : Map[String, Bool] = Map([])
-  for v in decl.variants {
-    match v.lexmode_name {
-      Some(mode) => seen.set(mode, true)
-      None => ()
-    }
-  }
-  let modes : Array[String] = []
-  for mode, _ in seen {
-    modes.push(mode)
-  }
-  modes.sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
-  modes
 }

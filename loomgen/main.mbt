@@ -302,6 +302,8 @@ fn build_kinds(
 }
 
 ///|
+/// Phase 3: Write all output files — token_impls.g.mbt, syntax_kind.mbt,
+/// companion registry file, and optional spec file.
 fn write_outputs(
   te : EnumDecl,
   kinds : Array[(String, Int)],
@@ -323,6 +325,10 @@ fn write_outputs(
   core_qual : String,
   term_enum_decl : EnumDecl?,
 ) -> Result[Unit, Unit] {
+  let token_type_name = match cli_token_type {
+    Some(n) => n
+    None => te.name
+  }
   let token_impls_content = emit_token_impls(te, kinds)
   // Write token_impls.g.mbt
   @fs.write_string_to_file(
@@ -427,10 +433,6 @@ fn write_outputs(
         let modes = collect_lexmodes(term_enum_val)
         if modes.length() > 0 {
           if !@fs.path_exists(skel_path) || force_lexer {
-            let token_type_name = match cli_token_type {
-              Some(n) => n
-              None => te.name
-            }
             let content = emit_lexer_skeleton(modes, token_type_name, core_qual)
             @fs.write_string_to_file(skel_path, content) catch {
               _ => {
@@ -456,6 +458,17 @@ fn write_outputs(
   }
   if skip_syntax {
     @fs.remove_file(syntax_out + "/lexer_skeleton.g.mbt") catch {
+      _ => ()
+    }
+  }
+
+  // Persist retired raws for next --seed round-trip.
+  // Always write the companion file in skip-syntax mode, even when empty,
+  // so stale entries from previous runs are cleared.
+  if skip_syntax {
+    let parts = retired_rawns.map(fn(r) { r.to_string() })
+    let line = "// #loom.retired: " + parts.join(", ")
+    @fs.write_string_to_file(token_out + "/loom.registry.g.txt", line) catch {
       _ => ()
     }
   }
@@ -487,10 +500,6 @@ fn write_outputs(
               "--language must be a valid MoonBit identifier (alphanumeric, underscores)",
             )
             return Err(())
-          }
-          let token_type_name = match cli_token_type {
-            Some(n) => n
-            None => te.name
           }
           let syntax_type_name = match cli_syntax_type {
             Some(n) => n

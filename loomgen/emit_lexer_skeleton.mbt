@@ -18,7 +18,7 @@ fn mode_to_fn_name(mode : String) -> String {
     if i > 0 && ch >= 'A' && ch <= 'Z' {
       b.write_string("_")
     }
-    b.write_string(mode[i:i + 1].to_string())
+    b.write_string(mode[i:i + 1].to_owned())
   }
   b.to_string().to_lower()
 }
@@ -48,7 +48,7 @@ fn emit_lexer_skeleton(
       "    " + mode + " => " + mode_to_fn_name(mode) + "(source, pos)\n",
     )
   }
-  b.write_string("  }\n" + "}\n" + "\n")
+  b.write_string("  }\n}\n\n")
   for i = 0; i < modes.length(); i = i + 1 {
     let mode = modes[i]
     let fn_name = mode_to_fn_name(mode)
