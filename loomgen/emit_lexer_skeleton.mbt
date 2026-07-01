@@ -8,9 +8,11 @@
 
 ///|
 /// Convert a CamelCase `LexMode` variant name to a snake_case lex function
+/// name with `lex_` prefix. Examples:
+///   "Content"   -> "lex_content"
+///   "LineStart" -> "lex_line_start"
 fn mode_to_fn_name(mode : String) -> String {
-  let b = StringBuilder()
-  b.write_string("lex_")
+  let b = StringBuilder()..write_string("lex_")
   for i = 0; i < mode.length(); i = i + 1 {
     let ch = mode[i]
     if i > 0 && ch >= 'A' && ch <= 'Z' {
@@ -30,25 +32,23 @@ fn emit_lexer_skeleton(
   core_qual : String,
 ) -> String {
   let b = StringBuilder()
-  b.write_string("///|\n")
-  b.write_string("/// Generated lex dispatch skeleton.\n")
-  b.write_string("/// Fill in the mode-specific `lex_*` functions below.\n")
-  b.write_string("pub fn lex(\n")
-  b.write_string("  source : String,\n")
-  b.write_string("  pos : Int,\n")
-  b.write_string("  mode : LexMode,\n")
-  b.write_string(
-    ") -> (" + core_qual + ".LexStep[" + token_type + "], LexMode) {\n",
-  )
-  b.write_string("  match mode {\n")
+    ..write_string("///|\n")
+    ..write_string("/// Generated lex dispatch skeleton.\n")
+    ..write_string("/// Fill in the mode-specific `lex_*` functions below.\n")
+    ..write_string("pub fn lex(\n")
+    ..write_string("  source : String,\n")
+    ..write_string("  pos : Int,\n")
+    ..write_string("  mode : LexMode,\n")
+    ..write_string(
+      ") -> (" + core_qual + ".LexStep[" + token_type + "], LexMode) {\n",
+    )
+    ..write_string("  match mode {\n")
   for mode in modes {
     b.write_string(
       "    " + mode + " => " + mode_to_fn_name(mode) + "(source, pos)\n",
     )
   }
-  b.write_string("  }\n")
-  b.write_string("}\n")
-  b.write_string("\n")
+  b.write_string("  }\n" + "}\n" + "\n")
   for i = 0; i < modes.length(); i = i + 1 {
     let mode = modes[i]
     let fn_name = mode_to_fn_name(mode)
@@ -61,8 +61,7 @@ fn emit_lexer_skeleton(
       token_type +
       "], LexMode) {\n",
     )
-    b.write_string("  abort(\"" + fn_name + " not implemented\")\n")
-    b.write_string("}\n")
+    b.write_string("  abort(\"" + fn_name + " not implemented\")\n" + "}\n")
     if i < modes.length() - 1 {
       b.write_string("\n")
     }
