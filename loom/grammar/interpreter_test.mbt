@@ -104,3 +104,118 @@ test "interpret emits a token through LanguageSpec parse_root" {
   parse_root(ctx)
   inspect(true, content="true")
 }
+
+///|
+/// A native mid-`Seq` runs in order with its declarative neighbors: emit Int,
+/// run the native (which emits Word as the marker kind), emit the second Int.
+test "Native runs in sequence between declarative neighbors" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(
+      TestKind::Root,
+      Expr::Seq([
+        Expr::Emit(TestToken::Int, TestKind::IntToken),
+        Expr::Native("mark"),
+        Expr::Emit(TestToken::Int, TestKind::IntToken),
+      ]),
+    ),
+  }
+  let hook : NativeRule[TestToken, TestKind] = (ctx, _call_rule) => {
+    ctx.emit_token(TestKind::WordToken)
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "mark": hook,
+  }
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(rules, root="source"),
+    natives~,
+  )
+  let spec = test_spec(parse_root)
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::Word, 1),
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (tree, diagnostics) = @core.parse_with(
+    "1 1",
+    spec,
+    _src => tokens,
+    parse_root,
+  )
+  inspect(diagnostics.is_empty(), content="true")
+  match tree.children[0] {
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="3")
+    @seam.CstElement::Token(_) => abort("expected the Root node")
+  }
+}
+
+///|
+/// A native re-enters the declarative grammar via `call_rule`, producing the
+/// same subtree an equivalent `Ref` would.
+test "Native re-enters the grammar through call_rule" {
+  let via_native_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
+    "inner": Expr::Emit(TestToken::Int, TestKind::IntToken),
+  }
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, call_rule) => {
+    call_rule("inner")
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "delegate": hook,
+  }
+  let native_parse_root = interpret(
+    GrammarIr::GrammarIr(via_native_rules, root="source"),
+    natives~,
+  )
+  let via_ref_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Ref("inner")),
+    "inner": Expr::Emit(TestToken::Int, TestKind::IntToken),
+  }
+  let ref_parse_root = interpret(
+    GrammarIr::GrammarIr(via_ref_rules, root="source"),
+  )
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (native_tree, native_diags) = @core.parse_with(
+    "1",
+    test_spec(native_parse_root),
+    _src => tokens,
+    native_parse_root,
+  )
+  let (ref_tree, ref_diags) = @core.parse_with(
+    "1",
+    test_spec(ref_parse_root),
+    _src => tokens,
+    ref_parse_root,
+  )
+  inspect(native_diags.is_empty(), content="true")
+  inspect(native_diags == ref_diags, content="true")
+  inspect(@core.tree_diff(native_tree, ref_tree).length(), content="0")
+}
+
+///|
+/// `interpret_compiled` with a registry that does not match the grammar's
+/// declared native names degrades to a diagnostic placeholder instead of
+/// aborting — the same defensive style as `ManualNewlineAppExpr`.
+test "NativeRef with no matching registry entry reports a diagnostic, does not abort" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("missing_at_runtime")),
+  }
+  let compiled = compile(
+    GrammarIr::GrammarIr(rules, root="source"),
+    native_names=Set::Set(["missing_at_runtime"]),
+  )
+  let parse_root : (@core.ParserContext[TestToken, TestKind]) -> Unit = interpret_compiled(
+    compiled,
+  )
+  let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
+  let (_tree, diagnostics) = @core.parse_with(
+    "",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  inspect(diagnostics.is_empty(), content="false")
+}

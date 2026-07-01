@@ -1,4 +1,11 @@
 ///|
+/// A hand-written production a `Native(name)` node delegates to. Takes the
+/// parser context plus a `call_rule` re-entry handle so the native can parse
+/// its own context-sensitive residue (e.g. an HTML open-tag stack) while
+/// delegating context-free sub-productions back to the declarative grammar.
+pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Unit) -> Unit
+
+///|
 /// Build a `parse_root` closure from an authored grammar IR.
 ///
 /// Compiles the IR (resolving every `Ref` to a dense slot, raising on an
@@ -6,13 +13,21 @@
 /// compiled form. This tree-walker is the only committed backend: the contract
 /// reifies predicates as `Pred` data precisely so an analyzing interpreter or a
 /// code emitter could be added later, but neither is built here.
+///
+/// `natives` supplies the host-written productions for any `Native(...)` nodes
+/// in `ir` (empty by default — existing callers are unaffected). Its keys are
+/// threaded into `compile` as `native_names`, so an IR that references a
+/// `Native(name)` absent from `natives` fails here with `MissingNative`,
+/// never mid-parse.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
 ] interpret(
   ir : GrammarIr[T, K],
+  natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
 ) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError {
-  interpret_compiled(compile(ir))
+  let native_names = Set::from_iter(natives.keys())
+  interpret_compiled(compile(ir, native_names~), natives~)
 }
 
 ///|
@@ -20,13 +35,43 @@ pub fn[
 /// closure dispatches the root rule's compiled body against a parser context.
 /// Splitting this from `interpret` lets callers compile once and reuse the
 /// dense-slot grammar across parser contexts.
+///
+/// `natives` must agree with the `native_names` the grammar was compiled
+/// with; a `NativeRef(name)` for which `natives` has no entry (e.g. a
+/// mismatched registry passed here vs. at `compile` time) degrades to a
+/// diagnostic placeholder rather than aborting — see `run_expr`.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
 ] interpret_compiled(
   grammar : CompiledGrammar[T, K],
+  natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
 ) -> (@core.ParserContext[T, K]) -> Unit {
-  ctx => run_expr(ctx, grammar, grammar.rule(grammar.root_slot()))
+  ctx => run_expr(ctx, grammar, natives, grammar.rule(grammar.root_slot()))
+}
+
+///|
+/// Resolve `name` to its dense slot and run it, for a native's `call_rule`
+/// re-entry handle. `name` is grammar-rule-only by contract (natives cannot
+/// call other natives through this handle); an unknown name reports a
+/// diagnostic rather than aborting, since the name came from host code the
+/// interpreter does not control.
+fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] call_rule(
+  ctx : @core.ParserContext[T, K],
+  grammar : CompiledGrammar[T, K],
+  natives : Map[RuleName, NativeRule[T, K]],
+  name : RuleName,
+) -> Unit {
+  match grammar.names.search(name) {
+    Some(slot) => run_expr(ctx, grammar, natives, grammar.rule(slot))
+    None =>
+      ctx.error(
+        "grammar: native call_rule(\"" + name + "\") is not a grammar rule",
+      )
+  }
 }
 
 ///|
@@ -47,6 +92,7 @@ fn[
 ] run_expr(
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
+  natives : Map[RuleName, NativeRule[T, K]],
   expr : CompiledExpr[T, K],
 ) -> Unit {
   match expr {
@@ -55,24 +101,45 @@ fn[
     // `expect` already emits a diagnostic + placeholder on the missing-token
     // path; discard the bool so the path produces exactly one diagnostic.
     Expect(token, kind) => ctx.expect(token, kind) |> ignore
-    Node(kind, body) => ctx.node(kind, () => run_expr(ctx, grammar, body))
-    RefSlot(slot) => run_expr(ctx, grammar, grammar.rule(slot))
+    Node(kind, body) =>
+      ctx.node(kind, () => run_expr(ctx, grammar, natives, body))
+    RefSlot(slot) => run_expr(ctx, grammar, natives, grammar.rule(slot))
+    // Delegate to a host-written production. `call_rule` re-enters the
+    // declarative grammar by name (grammar-rule-only — see `call_rule`
+    // above); an unregistered name degrades to a diagnostic placeholder
+    // instead of aborting, matching `ManualNewlineAppExpr`'s defensive style.
+    // Unreachable when `natives` matches the `native_names` the grammar was
+    // compiled with (validated in `compile`), but a mismatched registry
+    // passed to `interpret_compiled` can still reach here.
+    NativeRef(name) =>
+      match natives.get(name) {
+        Some(f) =>
+          f(ctx, rule_name => call_rule(ctx, grammar, natives, rule_name))
+        None => {
+          ctx.error(
+            "grammar: native rule \"" +
+            name +
+            "\" has no registered implementation",
+          )
+          ctx.emit_error_placeholder()
+        }
+      }
     Seq(exprs) =>
       for e in exprs {
-        run_expr(ctx, grammar, e)
+        run_expr(ctx, grammar, natives, e)
       }
     Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
         if alt.starts.matches(token) {
-          run_expr(ctx, grammar, alt.body)
+          run_expr(ctx, grammar, natives, alt.body)
           break
         }
       }
     }
     RepeatWhile(pred, body) =>
       while !ctx.at_eof() && pred.matches(ctx.peek()) {
-        run_expr(ctx, grammar, body)
+        run_expr(ctx, grammar, natives, body)
       }
     EmitError(msg) => ctx.error(msg)
     ErrorUntil(stop, msg) => {
@@ -93,7 +160,7 @@ fn[
           ctx.consume_while_emit(t => delim.matches(t), delim_kind)
           continue
         }
-        run_expr(ctx, grammar, grammar.rule(slot))
+        run_expr(ctx, grammar, natives, grammar.rule(slot))
         let had = delim.matches(ctx.peek())
         ctx.consume_while_emit(t => delim.matches(t), delim_kind)
         if !had && !ctx.at_eof() {
@@ -110,9 +177,9 @@ fn[
     WrapIfNext(kind, pred, body) => {
       let mark = ctx.mark()
       if pred.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => run_expr(ctx, grammar, body))
+        ctx.wrap_at(mark, kind, () => run_expr(ctx, grammar, natives, body))
       } else {
-        run_expr(ctx, grammar, body)
+        run_expr(ctx, grammar, natives, body)
       }
     }
     // Pratt application: parse one atom; while the start predicate still holds,
@@ -122,11 +189,11 @@ fn[
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, grammar.rule(slot))
+        run_expr(ctx, grammar, natives, grammar.rule(slot))
         if starts.matches(ctx.peek()) {
           ctx.wrap_at(mark, kind, () => {
             while starts.matches(ctx.peek()) {
-              run_expr(ctx, grammar, grammar.rule(slot))
+              run_expr(ctx, grammar, natives, grammar.rule(slot))
             }
           })
         }
@@ -139,7 +206,7 @@ fn[
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, grammar.rule(slot))
+        run_expr(ctx, grammar, natives, grammar.rule(slot))
         // Mirrors A's consume_soft_newlines_before_binary_operator: consume a
         // gated run of `skip` tokens when an operator from the table follows, so
         // a separator that does NOT precede an operator (a statement break) is
@@ -164,7 +231,7 @@ fn[
                 None => break
                 Some(pair) => {
                   ctx.emit_token(pair.1)
-                  run_expr(ctx, grammar, grammar.rule(slot))
+                  run_expr(ctx, grammar, natives, grammar.rule(slot))
                 }
               }
             }

@@ -5,19 +5,22 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+  "moonbitlang/core/set",
 }
 
 // Values
-pub fn[T, K] compile(GrammarIr[T, K]) -> CompiledGrammar[T, K] raise GrammarCompileError
+pub fn[T, K] compile(GrammarIr[T, K], native_names? : @set.Set[String]) -> CompiledGrammar[T, K] raise GrammarCompileError
 
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret(GrammarIr[T, K]) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret(GrammarIr[T, K], natives? : Map[String, (@core.ParserContext[T, K], (String) -> Unit) -> Unit]) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError
 
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret_compiled(CompiledGrammar[T, K]) -> (@core.ParserContext[T, K]) -> Unit
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret_compiled(CompiledGrammar[T, K], natives? : Map[String, (@core.ParserContext[T, K], (String) -> Unit) -> Unit]) -> (@core.ParserContext[T, K]) -> Unit
 
 // Errors
 pub suberror GrammarCompileError {
   MissingRoot(String)
   MissingRef(String)
+  MissingNative(String)
+  AmbiguousRule(String)
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -36,6 +39,7 @@ pub enum CompiledExpr[T, K] {
   Emit(T, K)
   Expect(T, K)
   RefSlot(Int)
+  NativeRef(String)
   Choice(Array[CompiledAlt[T, K]])
   RepeatTopLevel(Int, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
   Seq(Array[CompiledExpr[T, K]])
@@ -69,6 +73,7 @@ pub(all) enum Expr[T, K] {
   Emit(T, K)
   Expect(T, K)
   Ref(String)
+  Native(String)
   Choice(Array[Alt[T, K]])
   RepeatTopLevel(String, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
   Seq(Array[Expr[T, K]])
@@ -104,6 +109,8 @@ pub(all) enum Pred[T] {
 pub fn[T : Eq] Pred::matches(Self[T], T) -> Bool
 
 // Type aliases
+pub type NativeRule[T, K] = (@core.ParserContext[T, K], (String) -> Unit) -> Unit
+
 pub type RuleName = String
 
 // Traits
