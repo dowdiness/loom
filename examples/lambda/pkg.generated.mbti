@@ -28,6 +28,8 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Te
 
 pub let lambda_grammar_no_threshold : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
 
+pub fn make_lambda_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+
 pub fn make_reuse_cursor(@seam.CstNode, Int, Int, Array[@core.TokenInfo[@token.Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool, new_damage_end? : Int) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
 
 pub fn make_reuse_cursor_with_edit(@seam.CstNode, @core.Edit, Array[@core.TokenInfo[@token.Token]], String, old_token_cache? : @core.OldTokenCache, allow_left_adjacent_reuse? : Bool) -> @core.ReuseCursor[@token.Token, @syntax.SyntaxKind]
