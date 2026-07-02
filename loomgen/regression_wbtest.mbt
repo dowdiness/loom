@@ -58,10 +58,13 @@ fn run_regression_pipeline() -> (String, String) {
     Some(e) => e
     None => abort("no #loom.token enum in token.mbt")
   }
-  let term_enum = annotated_term.term_enum
+  let term_enum = match annotated_term.term_enum {
+    Some(e) => e
+    None => abort("no #loom.term enum in term_kind.mbt")
+  }
 
   // Build kind entries
-  let result = match build_kinds(te, registry, term_enum) {
+  let result = match build_kinds(te, registry, Some(term_enum)) {
     Ok(r) => r
     Err(_) => abort("build_kinds failed")
   }
