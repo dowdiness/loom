@@ -9,7 +9,6 @@ import {
   "dowdiness/loom/viz",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
-  "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/string",
   "dowdiness/loom",
@@ -22,3 +21,7 @@ import {
   "dowdiness/pretty",
   "dowdiness/event-graph-walker/text" @egw,
 } for "test"
+
+import {
+  "dowdiness/pretty",
+} for "wbtest"
