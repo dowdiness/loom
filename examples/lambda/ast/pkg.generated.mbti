@@ -31,8 +31,6 @@ pub(all) enum Bop {
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for Bop
 
-type FreeVars
-
 pub struct PrettyLayout {
   layout : @pretty.Layout[@pretty.SyntaxCategory]
   prec : Int

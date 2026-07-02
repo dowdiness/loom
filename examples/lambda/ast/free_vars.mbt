@@ -11,7 +11,7 @@
 
 ///|
 /// The free variables of a subterm, accumulated bottom-up by `interpret`.
-struct FreeVars {
+priv struct FreeVars {
   set : @immut_hashset.HashSet[VarName]
 }
 
