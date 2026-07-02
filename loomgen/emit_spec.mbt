@@ -166,15 +166,14 @@ fn emit_spec(
   let core_prefix = if core_qual.length() > 0 { core_qual + "." } else { "" }
 
   let func_name = "make_" + to_lowercase_first(language_name) + "_spec"
-  // Build trivia kinds array string separately (for loop inside method chain doesn't work)
-  let trivia_array_buf = StringBuilder()
-  trivia_array_buf.write_string("    trivia_kinds_spec=[\n")
-  for i, name in trivia_names {
-    let sep = if i == trivia_names.length() - 1 { "" } else { ",\n" }
-    trivia_array_buf.write_string("      " + syntax_prefix + name + sep)
-  }
-  trivia_array_buf.write_string("\n    ],\n")
-  let trivia_array_str = trivia_array_buf.to_string()
+  // Single-line array — matches moonfmt's canonical form so the output is a
+  // format fixed point when checked into a formatted package (see #500; the
+  // paired CI drift + fmt checks fail loudly if a trivia list ever outgrows
+  // moonfmt's line width).
+  let trivia_refs = trivia_names.map(name => syntax_prefix + name)
+  let trivia_array_str = "    trivia_kinds_spec=[" +
+    trivia_refs.join(", ") +
+    "],\n"
   let b = StringBuilder()
   b.write_string("///|\n")
   b.write_string("/// Generated factory: fills derived LanguageSpec fields\n")
@@ -222,9 +221,11 @@ fn emit_spec(
   b.write_string(token_prefix)
   b.write_string(eof_token_name)
   b.write_string(",\n")
-  b.write_string("    parse_root=parse_root,\n")
-  b.write_string("    reuse_size_threshold=reuse_size_threshold,\n")
-  b.write_string("    incomplete_kind=incomplete_kind,\n")
+  // Label punning (`x~` for `x=x`) — moonfmt's canonical form; keeps the
+  // generated file a format fixed point inside formatted packages.
+  b.write_string("    parse_root~,\n")
+  b.write_string("    reuse_size_threshold~,\n")
+  b.write_string("    incomplete_kind~,\n")
   b.write_string(trivia_array_str)
   b.write_string("  )\n")
   b.write_string("}\n")
