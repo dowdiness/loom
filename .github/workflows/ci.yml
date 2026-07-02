@@ -273,6 +273,21 @@ jobs:
             /tmp/spec-token /tmp/spec-syntax
           git diff --exit-code -- examples/lambda/spec.g.mbt
 
+      - name: Verify json spec generation matches compiled consumer
+        working-directory: .
+        run: |
+          mkdir -p /tmp/json-spec-token /tmp/json-spec-syntax
+          moon run loomgen --target native -- \
+            --seed examples/json/syntax_kind.mbt --skip-syntax \
+            --spec examples/json/spec.g.mbt \
+            --language json \
+            --syntax-type SyntaxKind \
+            --token-qual "" --syntax-qual "" \
+            examples/json/token.mbt \
+            --term examples/json/meta/term_kind.mbt \
+            /tmp/json-spec-token /tmp/json-spec-syntax
+          git diff --exit-code -- examples/json/spec.g.mbt
+
       - name: Verify view fixture generation
         working-directory: .
         run: |

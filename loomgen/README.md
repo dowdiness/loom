@@ -109,14 +109,20 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
   is the golden the file-only test asserts against (full output, not substring)
 - lambda token+term metadata is now split: `examples/lambda/token/token.mbt` (token source)
   and `examples/lambda/term_kind.mbt` (loaded via `--term`; see issue #563)
+- json token+term metadata follows the same split: `examples/json/token.mbt`
+  (token source) and `examples/json/meta/term_kind.mbt` (loaded via `--term`;
+  a non-package directory, since json is a single package and compiling
+  TermKind there would make its constructors ambiguous with SyntaxKind's —
+  see issue #565)
 - `fixtures/view_fixture.mbt` — token+term enum with `#loom.view` annotations
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression
 - `fixtures/lexmode_fixture.mbt` — token+term enum with `#loom.lexmode` annotations
 - `fixtures/lexmode_fixture.g.mbt` — expected output for lexmode fixture regression
-- Spec generation is drift-checked against its compiled consumer,
-  `examples/lambda/spec.g.mbt` (see the CI step "Verify spec generation
-  matches compiled consumer"); `fixtures/multi_trivia_spec.g.mbt` covers the
-  multi-trivia emitter branch
+- Spec generation is drift-checked against its compiled consumers,
+  `examples/lambda/spec.g.mbt` and `examples/json/spec.g.mbt` (see the CI
+  steps "Verify spec generation matches compiled consumer" and "Verify json
+  spec generation matches compiled consumer"); `fixtures/multi_trivia_spec.g.mbt`
+  covers the multi-trivia emitter branch
 - `fixtures/pattern_lexer_fixture.mbt` — token enum with `#loom.pattern` lexer annotations
 - `fixtures/pattern_lexer_fixture.g.mbt` — expected `--lexer` output (golden)
 

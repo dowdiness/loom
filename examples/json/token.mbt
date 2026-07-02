@@ -1,18 +1,33 @@
 ///|
+#loom.token
 pub(all) enum Token {
+  #loom.punct("{")
   LBrace // {
+  #loom.punct("}")
   RBrace // }
+  #loom.punct("[")
   LBracket // [
+  #loom.punct("]")
   RBracket // ]
+  #loom.punct(":")
   Colon // :
+  #loom.punct(",")
   Comma // ,
+  #loom.literal("StringToken")
   StringLit // "hello" (raw text including quotes)
+  #loom.literal("NumberToken")
   NumberLit // 42, 3.14e-2 (raw text)
+  #loom.keyword("true")
   True // true
+  #loom.keyword("false")
   False // false
+  #loom.keyword("null")
   Null // null
+  #loom.trivia
   Whitespace // spaces, tabs, newlines, carriage returns
+  #loom.error
   Error(String) // lexer error
+  #loom.eof
   EOF // end of input
 } derive(Eq, Debug)
 
