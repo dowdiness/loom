@@ -989,7 +989,7 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             Some(p) => p
             None => attr.raw.length()
           }
-          let ann_name = attr.raw.substring(start=name_start, end~)
+          let ann_name = attr.raw[name_start:end].to_owned()
           return Err(
             "invalid arguments for #loom." + ann_name + " on " + variant.name,
           )

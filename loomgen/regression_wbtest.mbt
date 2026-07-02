@@ -2,13 +2,13 @@
 /// End-to-end regression harness for the full loomgen pipeline.
 ///
 /// Exercises the complete generation workflow (parse → registry → build kinds →
-/// emit) against the combined token+term fixture and the canonical lambda seed.
-/// This is NOT a unit test — individual functions have their own wbtests.
-/// This catches regressions in the integrated pipeline: annotation parsing, kind
-/// derivation, role classification, cross-enum collision detection, and emit
-/// formatting all running together.
+/// emit) against the lambda example's token and term kind sources (split into
+/// separate files per issue #563). This is NOT a unit test — individual functions
+/// have their own wbtests. This catches regressions in the integrated pipeline:
+/// annotation parsing, kind derivation, role classification, cross-enum collision
+/// detection, and emit formatting all running together.
 ///
-/// Typecheck + integration test verification (regenerate lambda from fixture,
+/// Typecheck + integration test verification (regenerate lambda from source,
 /// run moon check + moon test) is handled by scripts/loomgen_regression_check.sh
 /// in the canopy monorepo (parent repository, not the loom submodule).
 ///
@@ -26,8 +26,6 @@ fn read_fallback_fixture(path : String, alt : String) -> String {
 }
 
 ///|
-/// Run the full loomgen pipeline against the lambda fixture, seeded from the
-/// canonical syntax_kind.mbt. Returns (token_impls_output, syntax_kind_output).
 fn run_regression_pipeline() -> (String, String) {
   // Seed registry from canonical output for stable raw numbers
   let seed_src = read_fallback_fixture(
@@ -37,21 +35,36 @@ fn run_regression_pipeline() -> (String, String) {
   let registry = RawKindRegistry::new()
   registry.seed(pairs)
 
-  // Parse annotated enums
-  let fixture = read_fallback_fixture(
-    "fixtures/term_kind.mbt", "loomgen/fixtures/term_kind.mbt",
+  // Parse token and term enums from their separate source files
+  let token_src = read_fallback_fixture(
+    "../examples/lambda/token/token.mbt", "examples/lambda/token/token.mbt",
   )
-  let annotated = match parse_annotations(fixture) {
+  let term_src = read_fallback_fixture(
+    "../examples/lambda/term_kind.mbt", "examples/lambda/term_kind.mbt",
+  )
+  let annotated_token = match parse_annotations(token_src) {
     Ok(a) => a
-    Err(m) => abort("annotation parse failed: " + m)
+    Err(m) => abort("token annotation parse failed: " + m)
   }
-  let te = match annotated.token_enum {
+  let annotated_term = match parse_annotations(term_src) {
+    Ok(a) => a
+    Err(m) => abort("term annotation parse failed: " + m)
+  }
+  // Reject #loom.token in the term file (mirrors load_term_enum validation, main.mbt:598)
+  if annotated_term.token_enum is Some(_) {
+    abort("term file must not contain a #loom.token enum")
+  }
+  let te = match annotated_token.token_enum {
     Some(e) => e
-    None => abort("no #loom.token enum in fixture")
+    None => abort("no #loom.token enum in token.mbt")
+  }
+  let term_enum = match annotated_term.term_enum {
+    Some(e) => e
+    None => abort("no #loom.term enum in term_kind.mbt")
   }
 
   // Build kind entries
-  let result = match build_kinds(te, registry, annotated.term_enum) {
+  let result = match build_kinds(te, registry, Some(term_enum)) {
     Ok(r) => r
     Err(_) => abort("build_kinds failed")
   }

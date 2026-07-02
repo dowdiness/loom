@@ -107,7 +107,8 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
   drives the file-only emission path (multi-production, cross-rule `Ref`,
   root-from-file) and the file-path fail-closed cases. `fixtures/file_only.g.mbt`
   is the golden the file-only test asserts against (full output, not substring)
-- `fixtures/term_kind.mbt` — combined token+term enum for CI regression (no view variants)
+- lambda token+term metadata is now split: `examples/lambda/token/token.mbt` (token source)
+  and `examples/lambda/term_kind.mbt` (loaded via `--term`; see issue #563)
 - `fixtures/view_fixture.mbt` — token+term enum with `#loom.view` annotations
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression
 - `fixtures/lexmode_fixture.mbt` — token+term enum with `#loom.lexmode` annotations
