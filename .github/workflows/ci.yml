@@ -260,17 +260,18 @@ jobs:
             examples/lambda/token/token.mbt examples/lambda/token
           git diff --exit-code -- examples/lambda/token/token_impls.g.mbt
   
-      - name: Verify spec generation matches fixture
+      - name: Verify spec generation matches compiled consumer
         working-directory: .
         run: |
+          mkdir -p /tmp/spec-token /tmp/spec-syntax
           moon run loomgen --target native -- \
             --seed examples/lambda/syntax/syntax_kind.mbt --skip-syntax \
-            --spec loomgen/fixtures/spec_fixture.g.mbt \
-            --language fixture \
+            --spec examples/lambda/spec.g.mbt \
+            --language lambda \
             --syntax-type SyntaxKind \
             loomgen/fixtures/term_kind.mbt \
-            examples/lambda/token examples/lambda/syntax
-          git diff --exit-code -- loomgen/fixtures/spec_fixture.g.mbt
+            /tmp/spec-token /tmp/spec-syntax
+          git diff --exit-code -- examples/lambda/spec.g.mbt
 
       - name: Verify view fixture generation
         working-directory: .

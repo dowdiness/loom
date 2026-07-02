@@ -112,7 +112,10 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
 - `fixtures/views_fixture.g.mbt` — expected output for view fixture regression
 - `fixtures/lexmode_fixture.mbt` — token+term enum with `#loom.lexmode` annotations
 - `fixtures/lexmode_fixture.g.mbt` — expected output for lexmode fixture regression
-- `fixtures/spec_fixture.g.mbt` — expected output for spec generation regression
+- Spec generation is drift-checked against its compiled consumer,
+  `examples/lambda/spec.g.mbt` (see the CI step "Verify spec generation
+  matches compiled consumer"); `fixtures/multi_trivia_spec.g.mbt` covers the
+  multi-trivia emitter branch
 - `fixtures/pattern_lexer_fixture.mbt` — token enum with `#loom.pattern` lexer annotations
 - `fixtures/pattern_lexer_fixture.g.mbt` — expected `--lexer` output (golden)
 
