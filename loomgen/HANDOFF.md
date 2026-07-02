@@ -21,7 +21,7 @@ All Phase 2 deliverables are working:
 - [x] **`term_enum` wiring** — `main.mbt` calls `build_kind_entries` on `annotated.term_enum` when present, tracks `error_node_name` for `from_raw` fallback
 - [x] **`from_raw` fallback** — prefers `error_node_name` (e.g., `ErrorNode`) when a term `#loom.errornode` is present; falls back to `ErrorToken`, then `abort`
 - [x] **`emit_syntax_kind` signature** — takes `error_node_name: String?` for fallback control
-- [x] **Fixture** — `loomgen/fixtures/term_kind.mbt` contains combined `#loom.token` + `#loom.term` enums for regeneration
+- [x] **Fixture** — `loomgen/fixtures/term_kind.mbt` contained combined `#loom.token` + `#loom.term` enums for regeneration; since 2026-07-02 (#563) the lambda metadata is split into `examples/lambda/token/token.mbt` + `--term examples/lambda/term_kind.mbt`
 - [x] **Lambda example swapped** — `examples/lambda/syntax/syntax_kind.mbt` is now generated output (not hand-written). Generated includes both token kinds (26) and term kinds (17). **437/437 tests pass**
 
 ### Raw Kind Verification
@@ -43,13 +43,14 @@ Full table in `examples/lambda/syntax/syntax_kind.mbt`.
 
 ```bash
 cd <repo-root>/loom
-# Combined generation (token + term):
-moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> <combined_enums.mbt> <token_out> <syntax_out>
+# Split-input generation (token source + --term):
+moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> --term <term_kind.mbt> <token.mbt> <token_out> <syntax_out>
 
-# Example with fixture:
+# Example with lambda sources:
 moon run loomgen --target native -- \
   --seed examples/lambda/syntax/syntax_kind.mbt \
-  loomgen/fixtures/term_kind.mbt \
+  examples/lambda/token/token.mbt \
+  --term examples/lambda/term_kind.mbt \
   examples/lambda/token examples/lambda/syntax
 
 # Token-only (backward compatible):
@@ -85,7 +86,6 @@ emit_spec.mbt           232 bytes  — STUB (see Design Decisions)
 main.mbt               8418 bytes  — WORKING (term_enum wiring)
 parse_annotations.mbt  6782 bytes  — WORKING (SyntaxRole, term annotations)
 rawkind_registry.mbt   2965 bytes  — WORKING (clean)
-fixtures/term_kind.mbt 1456 bytes  — combined token+term fixture
 moon.mod                380 bytes  — parser@0.3.3, x@0.4.38
 moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
 ```
@@ -94,9 +94,10 @@ moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
 
 - **`SyntaxRole` over separate `TokenRole`/`TermRole`**: A single enum handles both, since `derive_kind_name` and `build_kind_entries` operate uniformly on both. Term roles use variant name as-is (no suffix suffix like `Token`).
 
-- **`ErrorNode` fallback vs `is_error()`**: `from_raw` falls back to `ErrorNode` (term error node) when present, but `IsError::is_error()` only checks `ErrorToken`. The parser's `error_kind` spec references `ErrorToken` exclusively.
-
-- **Single source for both enums**: `parse_annotations` reads one source file and extracts both `#loom.token` and `#loom.term` enums. The fixture at `loomgen/fixtures/term_kind.mbt` demonstrates this.
+- **Separate token and term metadata sources** (since #563, 2026-07-02): `parse_annotations`
+  reads from the positional source (token enum, `examples/lambda/token/token.mbt`) and the
+  `--term` file (term enum, `examples/lambda/term_kind.mbt`). loomgen validates that the
+  term file does NOT contain a `#loom.token` enum, enforcing clean separation.
 
 - **Lambda example uses generated `syntax_kind.mbt`**: The hand-written file is replaced by generated output. Tests pass at 437/437 with identical raw numbering.
 
@@ -105,3 +106,11 @@ moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
 1. **`LanguageSpec` constants** — Wire `whitespace_kind`, `error_kind`, `root_kind`, `eof_token` as generated constants from annotation metadata.
 2. **`#loom.view`** — View role for projection identity (more complex, deferred from Phase 2).
 3. **`emit_spec.mbt`** — Still a stub. The originally-planned `syntax_kind_to_token_kind` and `cst_token_matches` functions were removed from the framework. Generate only when a consumer appears.
+
+## Post-Phase-2 Changes (issue #563)
+
+- **Lambda metadata split**: the combined `loomgen/fixtures/term_kind.mbt` fixture has
+  been replaced with split inputs: `examples/lambda/token/token.mbt` (token source, positional)
+  and `examples/lambda/term_kind.mbt` (term kind metadata, loaded via `--term`).
+  The regression test (`regression_wbtest.mbt`) now reads both files separately.
+  CI steps use the split form: `--seed <syntax> --term <term_kind> <token.mbt> <out>`.
