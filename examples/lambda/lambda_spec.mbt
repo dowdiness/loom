@@ -10,10 +10,3 @@ let lambda_spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind] = make_la
   parse_lambda_root,
   reuse_size_threshold=0,
 )
-
-///|
-/// LanguageSpec with reuse_size_threshold=0 (no skip — all nodes eligible).
-let lambda_spec_no_threshold : @core.LanguageSpec[
-  @token.Token,
-  @syntax.SyntaxKind,
-] = make_lambda_spec(parse_lambda_root, reuse_size_threshold=0)
