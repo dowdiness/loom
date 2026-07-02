@@ -4,7 +4,7 @@ version = "0.1.0"
 
 import {
   "dowdiness/seam@0.1.0",
-  "dowdiness/incr@0.11.0",
+  "dowdiness/incr@0.12.0",
   "dowdiness/pretty@0.1.0",
   "dowdiness/text_change@0.1.0",
   "dowdiness/graphviz@0.1.0",
