@@ -50,6 +50,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         "force-lexer",
         about="Overwrite existing lexer skeleton file",
       ),
+      @argparse.FlagArg(
+        "regenerate-fixtures",
+        about="Regenerate grammar-parity fixture .g.mbt files from current emitter output",
+      ),
     ],
     options=[
       @argparse.OptionArg(
@@ -662,6 +666,10 @@ fn main {
       @sys.exit(1)
       return
     }
+  }
+  if matches.flags.get_or_default("regenerate-fixtures", false) {
+    regenerate_fixtures()
+    return
   }
   let seed_path = first_value(matches.values.get_or_default("seed", []))
   let skip_syntax = matches.flags.get_or_default("skip-syntax", false)
