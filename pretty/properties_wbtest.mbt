@@ -21,44 +21,44 @@ fn[A : @coreqc.Arbitrary + @qc.Shrink + Debug, P : @qc.Testable] quick_check_deb
 }
 
 ///|
-/// Random document generator using a linear congruential PRNG.
-/// Produces Layout[Unit] trees of bounded depth with a mix of all
-/// constructors: Empty, Text, Line, HardLine, Nest, Concat, Group, Annotate.
-/// The depth bound prevents exponential blowup in tree size.
+// Random document generator using a linear congruential PRNG.
+// Produces Layout[Unit] trees of bounded depth with a mix of all
+// constructors: Empty, Text, Line, HardLine, Nest, Concat, Group, Annotate.
+// The depth bound prevents exponential blowup in tree size.
 fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
   fn go(s : Int, depth : Int) -> (Layout[Unit], Int) {
     let s = s * 1103515245 + 12345
     if depth <= 0 {
       let choice = s.abs() % 3
       match choice {
-        0 => (Empty, s)
-        1 => (Text("x"), s)
-        _ => (Text("ab"), s)
+        0 => (empty(), s)
+        1 => (text("x"), s)
+        _ => (text("ab"), s)
       }
     } else {
       let choice = s.abs() % 8
       match choice {
-        0 => (Empty, s)
-        1 => (Text("x"), s)
-        2 => (Line, s)
+        0 => (empty(), s)
+        1 => (text("x"), s)
+        2 => (line(), s)
         3 => {
           let (doc, s2) = go(s, depth - 1)
-          (Nest(2, doc), s2)
+          (nest(doc), s2)
         }
         4 => {
           let (l, s2) = go(s, depth - 1)
           let (r, s3) = go(s2, depth - 1)
-          (Concat(l, r), s3)
+          (concat(l, r), s3)
         }
         5 => {
           let (doc, s2) = go(s, depth - 1)
-          (Group(doc), s2)
+          (group(doc), s2)
         }
         6 => {
           let (doc, s2) = go(s, depth - 1)
-          (Annotate((), doc), s2)
+          (annotate((), doc), s2)
         }
-        _ => (HardLine, s)
+        _ => (hardline(), s)
       }
     }
   }
@@ -68,14 +68,7 @@ fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
 
 ///|
 fn has_hardline(layout : Layout[Unit]) -> Bool {
-  match layout {
-    Empty | Text(_) | Line => false
-    HardLine => true
-    Nest(_, doc) => has_hardline(doc)
-    Concat(l, r) => has_hardline(l) || has_hardline(r)
-    Group(doc) => has_hardline(doc)
-    Annotate(_, doc) => has_hardline(doc)
-  }
+  has_hardline_trait(layout)
 }
 
 ///|
@@ -101,10 +94,10 @@ fn max_line_width(s : String) -> Int {
 ///|
 fn max_token_width(layout : Layout[Unit]) -> Int {
   match layout {
-    Empty | Line | HardLine => 0
-    Text(s) => s.length()
-    Nest(_, doc) => max_token_width(doc)
-    Concat(l, r) => {
+    Empty(_) | Line(_) | HardLine(_) => 0
+    Text(s, _) => s.length()
+    Nest(_, doc, _) => max_token_width(doc)
+    Concat(l, r, _) => {
       let lw = max_token_width(l)
       let rw = max_token_width(r)
       if lw > rw {
@@ -113,8 +106,8 @@ fn max_token_width(layout : Layout[Unit]) -> Int {
         rw
       }
     }
-    Group(doc) => max_token_width(doc)
-    Annotate(_, doc) => max_token_width(doc)
+    Group(doc, _) => max_token_width(doc)
+    Annotate(_, doc, _) => max_token_width(doc)
   }
 }
 
@@ -223,8 +216,8 @@ test "property: Empty is identity for concat" {
     let width = width_raw.abs() % 40 + 5
     let doc = gen_layout(seed, 4)
     let base = render_string(doc, width~)
-    let left_id = render_string(Empty + doc, width~)
-    let right_id = render_string(doc + Empty, width~)
+    let left_id = render_string(empty() + doc, width~)
+    let right_id = render_string(doc + empty(), width~)
     base == left_id && base == right_id
   })
 }

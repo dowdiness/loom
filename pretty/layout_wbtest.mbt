@@ -1,11 +1,14 @@
 ///|
-test "Layout constructors" {
-  let doc : Layout[Unit] = Concat(
-    Text("hello"),
-    Concat(Text(" "), Text("world")),
-  )
+test "Layout constructors via combinators" {
+  let doc : Layout[Unit] = text("hello") + text(" ") + text("world")
   inspect(
     doc,
-    content="Concat(Text(\"hello\"), Concat(Text(\" \"), Text(\"world\")))",
+    content=(
+      #|Concat(
+      #|  Concat(Text("hello", 5), Text(" ", 1), 6),
+      #|  Text("world", 5),
+      #|  11,
+      #|)
+    ),
   )
 }
