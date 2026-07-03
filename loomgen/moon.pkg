@@ -1,4 +1,5 @@
 import {
+  "dowdiness/pretty" @pretty,
   "dowdiness/loom/grammar",
   "moonbitlang/parser",
   "moonbitlang/parser/attribute",

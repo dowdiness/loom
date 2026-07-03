@@ -138,7 +138,7 @@ test "emit_grammar lowers OneOf and Not predicates" {
   guard rendered is Ok(source) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("@token.Int | @token.Word => true"), content="true")
+  inspect(source.contains("token == @token.Int || token == @token.Word"), content="true")
   inspect(source.contains("!(token == @token.EOF)"), content="true")
 }
 
@@ -259,7 +259,7 @@ test "emit_grammar lowers error node wrap and separator arms" {
     fail("expected grammar emission to succeed")
   }
   inspect(
-    source.contains("ctx.skip_until(fn(t) { t == @token.EOF })"),
+    source.contains("skip_until") && source.contains("t == @token.EOF"),
     content="true",
   )
   inspect(source.contains("ctx.consume_while_emit_mapped(["), content="true")
@@ -342,7 +342,7 @@ test "emit_grammar lowers Native to a literal call, no parse_ prefix, no stub" {
   guard rendered is Ok(source) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("  parse_element_with_stack(ctx)\n"), content="true")
+  inspect(source.contains("parse_element_with_stack(ctx)"), content="true")
   inspect(source.contains("fn parse_parse_element_with_stack"), content="false")
   inspect(
     source.contains(
@@ -586,7 +586,7 @@ test "emit_grammar lowers RepeatTopLevel reuse loop" {
   guard rendered is Ok(source) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("ctx.consume_while_emit(\n"), content="true")
+  inspect(source.contains("ctx.consume_while_emit"), content="true")
   inspect(
     source.contains("while !ctx.at_eof() && ctx.peek() == @token.Let {"),
     content="true",
@@ -637,9 +637,9 @@ test "emit_grammar lowers PrattApp and PrattBinary reuse paths" {
     content="true",
   )
   inspect(
-    source.contains("ctx.consume_while_emit_if(fn(t) { t == @token.Newline }"),
+    source.contains("ctx.consume_while_emit_if") && source.contains("t == @token.Newline"),
     content="true",
   )
-  inspect(source.contains("@token.Plus | @token.Minus => true"), content="true")
+  inspect(source.contains("ctx.peek() == @token.Plus || ctx.peek() == @token.Minus"), content="true")
   inspect(source.contains("ctx.emit_token(pair.1)"), content="true")
 }

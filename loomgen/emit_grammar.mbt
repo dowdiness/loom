@@ -51,53 +51,57 @@ pub fn[T, K] emit_grammar(
   }
   let root_name = compiled.names[compiled.root_slot()]
   let root_fn = parse_rule_fn_name(root_name)
-  let parser_context = core_qual +
+  let parser_context =
+    core_qual +
     ".ParserContext[" +
     token_type +
     ", " +
     syntax_type +
     "]"
-  let b = StringBuilder()
-  b.write_string("///|\n")
+
+  // Build native consumer comments
+  let native_comments : Array[String] = []
   if native_names.length() > 0 {
     let names = native_names.iter().collect()
     names.sort()
     for name in names {
-      b.write_string("/// consumers must hand-write `fn ")
-      b.write_string(name)
-      b.write_string("(ctx : ")
-      b.write_string(parser_context)
-      b.write_string(") -> Unit` in this file's package.\n")
+      native_comments.push(name)
     }
-    b.write_string("///|\n")
   }
-  b.write_string("pub fn parse_root(ctx : ")
-  b.write_string(parser_context)
-  b.write_string(") -> Unit {\n")
-  b.write_string("  ")
-  b.write_string(root_fn)
-  b.write_string("(ctx)\n")
-  b.write_string("}\n\n")
+
+  // Build all function declarations
+  let fns : Array[MbtFnDecl] = []
+
+  // Root function
+  let root_decl = MbtFnDecl::{
+    pub_fn: true,
+    name: "parse_root",
+    params: [MbtParam::{ name: "ctx", type_: parser_context }],
+    return_type: "Unit",
+    body: MbtBlock::{ stmts: [ExprStmt(Call(root_fn, [Var("ctx")]))] },
+  }
+  fns.push(root_decl)
+
+  // Rule functions
   for i, name in compiled.names {
     let expr = compiled.rule(i)
-    let body = match
-      emit_compiled_expr(expr, compiled~, token_ref~, kind_ref~, indent="  ") {
+    let body_stmts = match
+      emit_compiled_expr(expr, compiled~, token_ref~, kind_ref~) {
       Ok(s) => s
       Err(msg) => return Err(msg)
     }
-    b.write_string("///|\n")
-    b.write_string("fn ")
-    b.write_string(parse_rule_fn_name(name))
-    b.write_string("(ctx : ")
-    b.write_string(parser_context)
-    b.write_string(") -> Unit {\n")
-    b.write_string(body)
-    b.write_string("}\n")
-    if i != compiled.names.length() - 1 {
-      b.write_string("\n")
+    let fn_decl = MbtFnDecl::{
+      pub_fn: false,
+      name: parse_rule_fn_name(name),
+      params: [MbtParam::{ name: "ctx", type_: parser_context }],
+      return_type: "Unit",
+      body: MbtBlock::{ stmts: body_stmts },
     }
+    fns.push(fn_decl)
   }
-  Ok(b.to_string())
+
+  let mbt_mod = MbtModule::{ native_comments, parser_context, fns }
+  Ok(@pretty.render_string(mbt_mod.to_layout(), width=80))
 }
 
 ///|
@@ -112,46 +116,61 @@ fn string_lit(s : String) -> String {
 }
 
 ///|
-fn[T] emit_pred_closure(
+fn[T] pred_to_expr(
   pred : @grammar.Pred[T],
+  token_expr : MbtExpr,
   token_ref : (T) -> String,
-) -> String {
-  "fn(t) { " + emit_pred(pred, "t", token_ref) + " }"
+) -> MbtExpr {
+  match pred {
+    @grammar.Pred::Any => Bool(true)
+    @grammar.Pred::IsToken(token) =>
+      BinOp(token_expr, "==", Var(token_ref(token)))
+    @grammar.Pred::OneOf(tokens) => {
+      if tokens.length() == 0 {
+        Bool(false)
+      } else {
+        let mut expr = BinOp(token_expr, "==", Var(token_ref(tokens[0])))
+        for i in 1..<tokens.length() {
+          expr = BinOp(expr, "||", BinOp(token_expr, "==", Var(token_ref(tokens[i]))))
+        }
+        expr
+      }
+    }
+    @grammar.Pred::Not(inner) =>
+      UnOp("!", pred_to_expr(inner, token_expr, token_ref))
+  }
 }
 
 ///|
-fn[T, K] emit_pair_array(
+fn[T] pred_closure_expr(
+  pred : @grammar.Pred[T],
+  token_ref : (T) -> String,
+) -> MbtExpr {
+  let body_expr = pred_to_expr(pred, Var("t"), token_ref)
+  Closure(
+    [MbtParam::{ name: "t", type_: "" }],
+    MbtBlock::{ stmts: [ExprStmt(body_expr)] },
+  )
+}
+
+///|
+fn[T, K] pair_array_expr(
   pairs : Array[(T, K)],
   token_ref : (T) -> String,
   kind_ref : (K) -> String,
-) -> String {
-  let parts = pairs.map(fn(pair) {
-    "(" + token_ref(pair.0) + ", " + kind_ref(pair.1) + ")"
+) -> MbtExpr {
+  let items = pairs.map(fn(pair) {
+    Tuple([Var(token_ref(pair.0)), Var(kind_ref(pair.1))])
   })
-  "[" + parts.join(", ") + "]"
+  Array(items)
 }
 
 ///|
-
-///|
-fn[T] emit_pred(
-  pred : @grammar.Pred[T],
-  token_var : String,
-  token_ref : (T) -> String,
-) -> String {
-  match pred {
-    @grammar.Pred::Any => "true"
-    @grammar.Pred::IsToken(token) => token_var + " == " + token_ref(token)
-    @grammar.Pred::OneOf(tokens) => {
-      if tokens.length() == 0 {
-        return "false"
-      }
-      let arms = tokens.map(fn(t) { token_ref(t) }).join(" | ")
-      "match " + token_var + " { " + arms + " => true; _ => false }"
-    }
-    @grammar.Pred::Not(inner) =>
-      "!(" + emit_pred(inner, token_var, token_ref) + ")"
-  }
+fn[T, K] rule_call_expr(
+  slot : Int,
+  compiled~ : @grammar.CompiledGrammar[T, K],
+) -> MbtExpr {
+  Call(parse_rule_fn_name(compiled.names[slot]), [Var("ctx")])
 }
 
 ///|
@@ -160,285 +179,342 @@ fn[T, K] emit_compiled_expr(
   compiled~ : @grammar.CompiledGrammar[T, K],
   token_ref~ : (T) -> String,
   kind_ref~ : (K) -> String,
-  indent~ : String,
-) -> Result[String, String] {
+) -> Result[Array[MbtStmt], String] {
   match expr {
     @grammar.CompiledExpr::Node(kind, body) => {
-      let inner = match
-        emit_compiled_expr(
-          body,
-          compiled~,
-          token_ref~,
-          kind_ref~,
-          indent=indent + "  ",
-        ) {
+      let body_stmts = match
+        emit_compiled_expr(body, compiled~, token_ref~, kind_ref~) {
         Ok(s) => s
         Err(msg) => return Err(msg)
       }
+      let closure = Closure(
+        [],
+        MbtBlock::{ stmts: body_stmts },
+      )
       Ok(
-        indent +
-        "ctx.node(" +
-        kind_ref(kind) +
-        ", fn() {\n" +
-        inner +
-        indent +
-        "})\n",
+        [ExprStmt(MethodCall(
+          Var("ctx"),
+          "node",
+          [Var(kind_ref(kind)), closure],
+        ))],
       )
     }
     @grammar.CompiledExpr::Emit(token, kind) =>
       Ok(
-        indent +
-        "if ctx.at(" +
-        token_ref(token) +
-        ") {\n" +
-        indent +
-        "  ctx.emit_token(" +
-        kind_ref(kind) +
-        ")\n" +
-        indent +
-        "}\n",
+        [MbtStmt::If(
+          MethodCall(Var("ctx"), "at", [Var(token_ref(token))]),
+          MbtBlock::{
+            stmts: [ExprStmt(MethodCall(
+              Var("ctx"),
+              "emit_token",
+              [Var(kind_ref(kind))],
+            ))],
+          },
+          [],
+        )],
       )
     @grammar.CompiledExpr::RefSlot(slot) =>
-      Ok(indent + parse_rule_fn_name(compiled.names[slot]) + "(ctx)\n")
+      Ok([ExprStmt(Call(
+        parse_rule_fn_name(compiled.names[slot]),
+        [Var("ctx")],
+      ))])
     // Literal call, no `parse_` prefix and no generated stub: the consumer
     // hand-writes `fn name(ctx) -> Unit` (documented in the emitted header).
     // Re-entry is free here — the native calls sibling `parse_<rule>(ctx)`
     // functions directly, so no `call_rule` plumbing needs to be emitted.
-    @grammar.CompiledExpr::NativeRef(name) => Ok(indent + name + "(ctx)\n")
+    @grammar.CompiledExpr::NativeRef(name) =>
+      Ok([ExprStmt(Call(name, [Var("ctx")]))])
     @grammar.CompiledExpr::Choice(alts) => {
-      let b = StringBuilder()
-      b.write_string(indent + "let token = ctx.peek()\n")
-      for i, alt in alts {
-        if i == 0 {
-          b.write_string(indent + "if ")
-        } else {
-          b.write_string(indent + "} else if ")
-        }
-        b.write_string(emit_pred(alt.starts, "token", token_ref))
-        b.write_string(" {\n")
-        let body = match
-          emit_compiled_expr(
-            alt.body,
-            compiled~,
-            token_ref~,
-            kind_ref~,
-            indent=indent + "  ",
-          ) {
-          Ok(s) => s
-          Err(msg) => return Err(msg)
-        }
-        b.write_string(body)
-      }
+      let stmts : Array[MbtStmt] = []
       if alts.length() > 0 {
-        b.write_string(indent + "}\n")
+        stmts.push(
+          Let("token", MethodCall(Var("ctx"), "peek", [])),
+        )
+        let else_chain : Array[MbtElseBranch] = []
+        for i, alt in alts {
+          let body_stmts = match
+            emit_compiled_expr(
+              alt.body,
+              compiled~,
+              token_ref~,
+              kind_ref~,
+            ) {
+            Ok(s) => s
+            Err(msg) => return Err(msg)
+          }
+          let cond = pred_to_expr(alt.starts, Var("token"), token_ref)
+          if i == 0 {
+            stmts.push(
+              MbtStmt::If(
+                cond,
+                MbtBlock::{ stmts: body_stmts },
+                [],
+              ),
+            )
+          } else {
+            else_chain.push(ElseIf(cond, MbtBlock::{ stmts: body_stmts }))
+          }
+        }
+        if alts.length() > 1 {
+          // Wire the else-if chain onto the first If statement
+          let first_if = stmts[1]
+          match first_if {
+            MbtStmt::If(cond, blk, _) => {
+              stmts[1] = MbtStmt::If(cond, blk, else_chain)
+            }
+            _ => ()
+          }
+        }
       }
-      Ok(b.to_string())
+      Ok(stmts)
     }
     @grammar.CompiledExpr::Seq(exprs) => {
-      let b = StringBuilder()
+      let mut stmts : Array[MbtStmt] = []
       for e in exprs {
         let part = match
-          emit_compiled_expr(e, compiled~, token_ref~, kind_ref~, indent~) {
+          emit_compiled_expr(e, compiled~, token_ref~, kind_ref~) {
           Ok(s) => s
           Err(msg) => return Err(msg)
         }
-        b.write_string(part)
+        stmts = stmts + part
       }
-      Ok(b.to_string())
+      Ok(stmts)
     }
     @grammar.CompiledExpr::Expect(token, kind) =>
       Ok(
-        indent +
-        "ctx.expect(" +
-        token_ref(token) +
-        ", " +
-        kind_ref(kind) +
-        ") |> ignore\n",
+        [ExprStmt(Pipe(
+          MethodCall(Var("ctx"), "expect", [Var(token_ref(token)), Var(kind_ref(kind))]),
+          Call("ignore", []),
+        ))],
       )
     @grammar.CompiledExpr::RepeatWhile(pred, body) => {
-      let inner = match
-        emit_compiled_expr(
-          body,
-          compiled~,
-          token_ref~,
-          kind_ref~,
-          indent=indent + "  ",
-        ) {
+      let body_stmts = match
+        emit_compiled_expr(body, compiled~, token_ref~, kind_ref~) {
         Ok(s) => s
         Err(msg) => return Err(msg)
       }
+      let peek_expr : MbtExpr = MethodCall(Var("ctx"), "peek", [])
+      let cond = BinOp(
+        UnOp("!", MethodCall(Var("ctx"), "at_eof", [])),
+        "&&",
+        pred_to_expr(pred, peek_expr, token_ref),
+      )
       Ok(
-        indent +
-        "while !ctx.at_eof() && " +
-        emit_pred(pred, "ctx.peek()", token_ref) +
-        " {\n" +
-        inner +
-        indent +
-        "}\n",
+        [While(cond, MbtBlock::{ stmts: body_stmts })],
       )
     }
-    @grammar.CompiledExpr::Empty => Ok("")
+    @grammar.CompiledExpr::Empty => Ok([])
     @grammar.CompiledExpr::EmitError(msg) =>
-      Ok(indent + "ctx.error(" + string_lit(msg) + ")\n")
+      Ok(
+        [ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))]))],
+      )
     @grammar.CompiledExpr::ErrorUntil(stop, msg) =>
       Ok(
-        indent +
-        "ctx.error(" +
-        string_lit(msg) +
-        ")\n" +
-        indent +
-        "ctx.skip_until(" +
-        emit_pred_closure(stop, token_ref) +
-        ") |> ignore\n",
+        [
+          ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))])),
+          ExprStmt(Pipe(
+            MethodCall(
+              Var("ctx"),
+              "skip_until",
+              [pred_closure_expr(stop, token_ref)],
+            ),
+            Call("ignore", []),
+          )),
+        ],
       )
     @grammar.CompiledExpr::Fail(msg) =>
       Ok(
-        indent +
-        "ctx.error(" +
-        string_lit(msg) +
-        ")\n" +
-        indent +
-        "ctx.emit_error_placeholder()\n",
+        [
+          ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))])),
+          ExprStmt(MethodCall(Var("ctx"), "emit_error_placeholder", [])),
+        ],
       )
     @grammar.CompiledExpr::EmitOr(token, kind, msg) =>
       Ok(
-        indent +
-        "if ctx.at(" +
-        token_ref(token) +
-        ") {\n" +
-        indent +
-        "  ctx.emit_token(" +
-        kind_ref(kind) +
-        ")\n" +
-        indent +
-        "} else {\n" +
-        indent +
-        "  ctx.error(" +
-        string_lit(msg) +
-        ")\n" +
-        indent +
-        "  ctx.emit_error_placeholder()\n" +
-        indent +
-        "}\n",
+        [MbtStmt::If(
+          MethodCall(Var("ctx"), "at", [Var(token_ref(token))]),
+          MbtBlock::{
+            stmts: [ExprStmt(MethodCall(
+              Var("ctx"),
+              "emit_token",
+              [Var(kind_ref(kind))],
+            ))],
+          },
+          [
+            Else(MbtBlock::{
+              stmts: [
+                ExprStmt(MethodCall(
+                  Var("ctx"),
+                  "error",
+                  [StrLit(string_lit(msg))],
+                )),
+                ExprStmt(MethodCall(Var("ctx"), "emit_error_placeholder", [])),
+              ],
+            }),
+          ],
+        )]
       )
     @grammar.CompiledExpr::DiagnoseIf(pred, msg) =>
       Ok(
-        indent +
-        "if " +
-        emit_pred(pred, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "  ctx.error(" +
-        string_lit(msg) +
-        ")\n" +
-        indent +
-        "}\n",
+        [MbtStmt::If(
+          pred_to_expr(pred, MethodCall(Var("ctx"), "peek", []), token_ref),
+          MbtBlock::{
+            stmts: [ExprStmt(MethodCall(
+              Var("ctx"),
+              "error",
+              [StrLit(string_lit(msg))],
+            ))],
+          },
+          [],
+        )],
       )
     @grammar.CompiledExpr::ExpectSkip(skip, skip_kind, expected, kind) =>
       Ok(
-        indent +
-        "ctx.expect_after_skip(" +
-        emit_pred_closure(skip, token_ref) +
-        ", " +
-        kind_ref(skip_kind) +
-        ", " +
-        token_ref(expected) +
-        ", " +
-        kind_ref(kind) +
-        ") |> ignore\n",
+        [ExprStmt(Pipe(
+          MethodCall(
+            Var("ctx"),
+            "expect_after_skip",
+            [
+              pred_closure_expr(skip, token_ref),
+              Var(kind_ref(skip_kind)),
+              Var(token_ref(expected)),
+              Var(kind_ref(kind)),
+            ],
+          ),
+          Call("ignore", []),
+        ))],
       )
     @grammar.CompiledExpr::ConsumeGated(skip, skip_kind, look) =>
       Ok(
-        indent +
-        "ctx.consume_while_emit_if(" +
-        emit_pred_closure(skip, token_ref) +
-        ", " +
-        kind_ref(skip_kind) +
-        ", " +
-        emit_pred_closure(look, token_ref) +
-        ") |> ignore\n",
+        [ExprStmt(Pipe(
+          MethodCall(
+            Var("ctx"),
+            "consume_while_emit_if",
+            [
+              pred_closure_expr(skip, token_ref),
+              Var(kind_ref(skip_kind)),
+              pred_closure_expr(look, token_ref),
+            ],
+          ),
+          Call("ignore", []),
+        ))],
       )
-    @grammar.CompiledExpr::RequireSep(delims, stop, alt, msg_alt~, msg_else~) =>
+    @grammar.CompiledExpr::RequireSep(
+      delims,
+      stop,
+      alt,
+      msg_alt~,
+      msg_else~,
+    ) => {
+      let peek_expr : MbtExpr = MethodCall(Var("ctx"), "peek", [])
+      let had_expr = BinOp(
+        MethodCall(
+          Var("ctx"),
+          "consume_while_emit_mapped",
+          [pair_array_expr(delims, token_ref, kind_ref)],
+        ),
+        ">",
+        Var("0"),
+      )
+      let stop_cond = pred_to_expr(stop, peek_expr, token_ref)
+      let alt_cond = pred_to_expr(alt, peek_expr, token_ref)
       Ok(
-        indent +
-        "let had = ctx.consume_while_emit_mapped(" +
-        emit_pair_array(delims, token_ref, kind_ref) +
-        ") > 0\n" +
-        indent +
-        "if !had && !(" +
-        emit_pred(stop, "ctx.peek()", token_ref) +
-        ") {\n" +
-        indent +
-        "  if " +
-        emit_pred(alt, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "    ctx.error(" +
-        string_lit(msg_alt) +
-        ")\n" +
-        indent +
-        "  } else {\n" +
-        indent +
-        "    ctx.error(" +
-        string_lit(msg_else) +
-        ")\n" +
-        indent +
-        "  }\n" +
-        indent +
-        "}\n",
+        [
+          Let("had", had_expr),
+          MbtStmt::If(
+            BinOp(
+              UnOp("!", Var("had")),
+              "&&",
+              UnOp("!", stop_cond),
+            ),
+            MbtBlock::{
+              stmts: [
+                MbtStmt::If(
+                  alt_cond,
+                  MbtBlock::{
+                    stmts: [ExprStmt(MethodCall(
+                      Var("ctx"),
+                      "error",
+                      [StrLit(string_lit(msg_alt))],
+                    ))],
+                  },
+                  [
+                    Else(MbtBlock::{
+                      stmts: [ExprStmt(MethodCall(
+                        Var("ctx"),
+                        "error",
+                        [StrLit(string_lit(msg_else))],
+                      ))],
+                    }),
+                  ],
+                ),
+              ],
+            },
+            [],
+          ),
+        ],
       )
+    }
     @grammar.CompiledExpr::ErrorNodeUntil(error_kind, stop, msg) =>
       Ok(
-        indent +
-        "ctx.error(" +
-        string_lit(msg) +
-        ")\n" +
-        indent +
-        "ctx.start_node(" +
-        kind_ref(error_kind) +
-        ")\n" +
-        indent +
-        "while !ctx.at_eof() && !(" +
-        emit_pred(stop, "ctx.peek()", token_ref) +
-        ") {\n" +
-        indent +
-        "  ctx.bump_error()\n" +
-        indent +
-        "}\n" +
-        indent +
-        "ctx.finish_node()\n",
+        [
+          ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))])),
+          ExprStmt(MethodCall(
+            Var("ctx"),
+            "start_node",
+            [Var(kind_ref(error_kind))],
+          )),
+          While(
+            BinOp(
+              UnOp("!", MethodCall(Var("ctx"), "at_eof", [])),
+              "&&",
+              UnOp(
+                "!",
+                pred_to_expr(
+                  stop,
+                  MethodCall(Var("ctx"), "peek", []),
+                  token_ref,
+                ),
+              ),
+            ),
+            MbtBlock::{
+              stmts: [ExprStmt(MethodCall(Var("ctx"), "bump_error", []))],
+            },
+          ),
+          ExprStmt(MethodCall(Var("ctx"), "finish_node", [])),
+        ],
       )
     @grammar.CompiledExpr::WrapIfNext(kind, pred, body) => {
-      let inner = match
-        emit_compiled_expr(
-          body,
-          compiled~,
-          token_ref~,
-          kind_ref~,
-          indent=indent + "  ",
-        ) {
+      let body_stmts = match
+        emit_compiled_expr(body, compiled~, token_ref~, kind_ref~) {
         Ok(s) => s
         Err(msg) => return Err(msg)
       }
       Ok(
-        indent +
-        "let mark = ctx.mark()\n" +
-        indent +
-        "if " +
-        emit_pred(pred, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "  ctx.wrap_at(mark, " +
-        kind_ref(kind) +
-        ", fn() {\n" +
-        inner +
-        indent +
-        "  })\n" +
-        indent +
-        "} else {\n" +
-        inner +
-        indent +
-        "}\n",
+        [
+          Let("mark", MethodCall(Var("ctx"), "mark", [])),
+          MbtStmt::If(
+            pred_to_expr(
+              pred,
+              MethodCall(Var("ctx"), "peek", []),
+              token_ref,
+            ),
+            MbtBlock::{
+              stmts: [ExprStmt(MethodCall(
+                Var("ctx"),
+                "wrap_at",
+                [
+                  Var("mark"),
+                  Var(kind_ref(kind)),
+                  Closure([], MbtBlock::{ stmts: body_stmts }),
+                ],
+              ))],
+            },
+            [
+              Else(MbtBlock::{ stmts: body_stmts }),
+            ],
+          ),
+        ],
       )
     }
     @grammar.CompiledExpr::RepeatTopLevel(
@@ -447,189 +523,284 @@ fn[T, K] emit_compiled_expr(
       delim~,
       delim_kind~,
       between_msg~,
-      after_msg~
+      after_msg~,
     ) => {
-      let item_call = indent +
-        "  " +
-        parse_rule_fn_name(compiled.names[slot]) +
-        "(ctx)\n"
-      let consume_delim = fn(ind : String) -> String {
-        "ctx.consume_while_emit(\n" +
-        ind +
-        "  " +
-        emit_pred_closure(delim, token_ref) +
-        ",\n" +
-        ind +
-        "  " +
-        kind_ref(delim_kind) +
-        ",\n" +
-        ind +
-        ")\n"
+      let delim_closure = pred_closure_expr(delim, token_ref)
+      let consume_delim = ExprStmt(MethodCall(
+        Var("ctx"),
+        "consume_while_emit",
+        [delim_closure, Var(kind_ref(delim_kind))],
+      ))
+      let peek_expr : MbtExpr = MethodCall(Var("ctx"), "peek", [])
+      let starts_cond = pred_to_expr(starts, peek_expr, token_ref)
+      let cond = BinOp(
+        UnOp("!", MethodCall(Var("ctx"), "at_eof", [])),
+        "&&",
+        starts_cond,
+      )
+      let reuse_body = MbtBlock::{
+        stmts: [
+          consume_delim,
+          ExprStmt(Continue),
+        ],
+      }
+      let item_call = ExprStmt(rule_call_expr(slot, compiled~))
+      let while_body = MbtBlock::{
+        stmts: [
+          MbtStmt::If(
+            MethodCall(Var("ctx"), "try_reuse_repeat_group", []),
+            reuse_body,
+            [],
+          ),
+          item_call,
+          Let(
+            "had",
+            pred_to_expr(delim, MethodCall(Var("ctx"), "peek", []), token_ref),
+          ),
+          consume_delim,
+          MbtStmt::If(
+            BinOp(
+              UnOp("!", Var("had")),
+              "&&",
+              UnOp("!", MethodCall(Var("ctx"), "at_eof", [])),
+            ),
+            MbtBlock::{
+              stmts: [
+                MbtStmt::If(
+                  starts_cond,
+                  MbtBlock::{
+                    stmts: [ExprStmt(MethodCall(
+                      Var("ctx"),
+                      "error",
+                      [StrLit(string_lit(between_msg))],
+                    ))],
+                  },
+                  [
+                    Else(MbtBlock::{
+                      stmts: [ExprStmt(MethodCall(
+                        Var("ctx"),
+                        "error",
+                        [StrLit(string_lit(after_msg))],
+                      ))],
+                    }),
+                  ],
+                ),
+              ],
+            },
+            [],
+          ),
+        ],
       }
       Ok(
-        indent +
-        consume_delim(indent) +
-        indent +
-        "while !ctx.at_eof() && " +
-        emit_pred(starts, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "  if ctx.try_reuse_repeat_group() {\n" +
-        indent +
-        "    " +
-        consume_delim(indent + "  ") +
-        indent +
-        "    continue\n" +
-        indent +
-        "  }\n" +
-        item_call +
-        indent +
-        "  let had = " +
-        emit_pred(delim, "ctx.peek()", token_ref) +
-        "\n" +
-        indent +
-        "  " +
-        consume_delim(indent + "  ") +
-        indent +
-        "  if !had && !ctx.at_eof() {\n" +
-        indent +
-        "    if " +
-        emit_pred(starts, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "      ctx.error(" +
-        string_lit(between_msg) +
-        ")\n" +
-        indent +
-        "    } else {\n" +
-        indent +
-        "      ctx.error(" +
-        string_lit(after_msg) +
-        ")\n" +
-        indent +
-        "    }\n" +
-        indent +
-        "  }\n" +
-        indent +
-        "}\n",
+        [consume_delim, While(cond, while_body)],
       )
     }
-    @grammar.CompiledExpr::PrattApp(slot, kind, starts) =>
-      Ok(
-        indent +
-        "if ctx.try_reuse_current_node(" +
-        kind_ref(kind) +
-        ") {\n" +
-        indent +
-        "} else {\n" +
-        indent +
-        "  let mark = ctx.mark()\n" +
-        indent +
-        "  " +
-        parse_rule_fn_name(compiled.names[slot]) +
-        "(ctx)\n" +
-        indent +
-        "  if " +
-        emit_pred(starts, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "    ctx.wrap_at(mark, " +
-        kind_ref(kind) +
-        ", fn() {\n" +
-        indent +
-        "      while " +
-        emit_pred(starts, "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "        " +
-        parse_rule_fn_name(compiled.names[slot]) +
-        "(ctx)\n" +
-        indent +
-        "      }\n" +
-        indent +
-        "    })\n" +
-        indent +
-        "  }\n" +
-        indent +
-        "}\n",
+    @grammar.CompiledExpr::PrattApp(slot, kind, starts) => {
+      let starts_cond = pred_to_expr(
+        starts,
+        MethodCall(Var("ctx"), "peek", []),
+        token_ref,
       )
+      Ok(
+        [
+          MbtStmt::If(
+            MethodCall(
+              Var("ctx"),
+              "try_reuse_current_node",
+              [Var(kind_ref(kind))],
+            ),
+            MbtBlock::{ stmts: [] },
+            [
+              Else(MbtBlock::{
+                stmts: [
+                  Let("mark", MethodCall(Var("ctx"), "mark", [])),
+                  ExprStmt(rule_call_expr(slot, compiled~)),
+                  MbtStmt::If(
+                    starts_cond,
+                    MbtBlock::{
+                      stmts: [ExprStmt(MethodCall(
+                        Var("ctx"),
+                        "wrap_at",
+                        [
+                          Var("mark"),
+                          Var(kind_ref(kind)),
+                          Closure(
+                            [],
+                            MbtBlock::{
+                              stmts: [
+                                While(
+                                  starts_cond,
+                                  MbtBlock::{
+                                    stmts: [ExprStmt(rule_call_expr(
+                                      slot,
+                                      compiled~,
+                                    ))],
+                                  },
+                                ),
+                              ],
+                            },
+                          ),
+                        ],
+                      ))],
+                    },
+                    [],
+                  ),
+                ],
+              }),
+            ],
+          )
+        ],
+      )
+    }
     @grammar.CompiledExpr::PrattBinary(slot, kind, ops, skip~) => {
       let op_tokens = ops.map(fn(pair) { pair.0 })
-      let op_match = "match t { " +
-        ops.map(fn(pair) { token_ref(pair.0) }).join(" | ") +
-        " => true; _ => false }"
-      let skip_to_op = match skip {
-        Some((sep, sep_kind)) =>
-          "ctx.consume_while_emit_if(" +
-          emit_pred_closure(sep, token_ref) +
-          ", " +
-          kind_ref(sep_kind) +
-          ", fn(t) { " +
-          op_match +
-          " }) |> ignore"
-        None => "()"
+      let pairs_expr = pair_array_expr(ops, token_ref, kind_ref)
+      let skip_to_op_expr : MbtExpr = match skip {
+        Some((sep, sep_kind)) => {
+          let op_match_closure = fn(t_expr : MbtExpr) -> MbtExpr {
+            let mut matching = Bool(false)
+            for op_t in op_tokens {
+              matching = BinOp(
+                matching,
+                "||",
+                BinOp(t_expr, "==", Var(token_ref(op_t))),
+              )
+            }
+            matching
+          }
+          let closure_body = op_match_closure(Var("t"))
+          MethodCall(
+            Var("ctx"),
+            "consume_while_emit_if",
+            [
+              pred_closure_expr(sep, token_ref),
+              Var(kind_ref(sep_kind)),
+              Closure(
+                [MbtParam::{ name: "t", type_: "" }],
+                MbtBlock::{
+                  stmts: [ExprStmt(closure_body)],
+                },
+              ),
+            ],
+          )
+        }
+        None => Var("()")
       }
-      let pairs = emit_pair_array(ops, token_ref, kind_ref)
-      let prefix_call = parse_rule_fn_name(compiled.names[slot]) + "(ctx)"
+
+      let op_cond_expr = pred_to_expr(
+        @grammar.Pred::OneOf(op_tokens),
+        MethodCall(Var("ctx"), "peek", []),
+        token_ref,
+      )
+      // Build the match expression for find_first
+      let scrutinee = MethodCall(
+        MethodCall(Var("ops"), "iter", []),
+        "find_first",
+        [
+          Closure(
+            [MbtParam::{ name: "pair", type_: "" }],
+            MbtBlock::{
+              stmts: [ExprStmt(BinOp(
+                FieldAccess(Var("pair"), "0"),
+                "==",
+                MethodCall(Var("ctx"), "peek", []),
+              ))],
+            },
+          ),
+        ],
+      )
       Ok(
-        indent +
-        "let ops = " +
-        pairs +
-        "\n" +
-        indent +
-        "if ctx.try_reuse_current_node(" +
-        kind_ref(kind) +
-        ") {\n" +
-        indent +
-        "} else {\n" +
-        indent +
-        "  let mark = ctx.mark()\n" +
-        indent +
-        "  " +
-        prefix_call +
-        "\n" +
-        indent +
-        "  " +
-        skip_to_op +
-        "\n" +
-        indent +
-        "  if " +
-        emit_pred(@grammar.Pred::OneOf(op_tokens), "ctx.peek()", token_ref) +
-        " {\n" +
-        indent +
-        "    ctx.wrap_at(mark, " +
-        kind_ref(kind) +
-        ", fn() {\n" +
-        indent +
-        "      while true {\n" +
-        indent +
-        "        " +
-        skip_to_op +
-        "\n" +
-        indent +
-        "        match ops.iter().find_first(fn(pair) { pair.0 == ctx.peek() }) {\n" +
-        indent +
-        "          None => break\n" +
-        indent +
-        "          Some(pair) => {\n" +
-        indent +
-        "            ctx.emit_token(pair.1)\n" +
-        indent +
-        "            " +
-        prefix_call +
-        "\n" +
-        indent +
-        "          }\n" +
-        indent +
-        "        }\n" +
-        indent +
-        "      }\n" +
-        indent +
-        "    })\n" +
-        indent +
-        "  }\n" +
-        indent +
-        "}\n",
+        [
+          MbtStmt::If(
+            MethodCall(
+              Var("ctx"),
+              "try_reuse_current_node",
+              [Var(kind_ref(kind))],
+            ),
+            MbtBlock::{ stmts: [] },
+            [
+              Else(MbtBlock::{
+                stmts: [
+                  Let("ops", pairs_expr),
+                  Let(
+                    "mark",
+                    MethodCall(Var("ctx"), "mark", []),
+                  ),
+                  ExprStmt(Call(
+                    parse_rule_fn_name(compiled.names[slot]),
+                    [Var("ctx")],
+                  )),
+                  ExprStmt(skip_to_op_expr),
+                  MbtStmt::If(
+                    op_cond_expr,
+                    MbtBlock::{
+                      stmts: [ExprStmt(MethodCall(
+                        Var("ctx"),
+                        "wrap_at",
+                        [
+                          Var("mark"),
+                          Var(kind_ref(kind)),
+                          Closure(
+                            [],
+                            MbtBlock::{
+                              stmts: [
+                                While(
+                                  Bool(true),
+                                  MbtBlock::{
+                                    stmts: [
+                                      ExprStmt(skip_to_op_expr),
+                                      ExprStmt(Match(
+                                        scrutinee,
+                                        [
+                                          MbtMatchArm::{
+                                            pat: Constructor(
+                                              "None",
+                                              Wildcard,
+                                            ),
+                                            body: Break,
+                                          },
+                                          MbtMatchArm::{
+                                            pat: Constructor(
+                                              "Some",
+                                              Bind("pair"),
+                                            ),
+                                            body: Block(MbtBlock::{
+                                              stmts: [
+                                                ExprStmt(MethodCall(
+                                                  Var("ctx"),
+                                                  "emit_token",
+                                                  [FieldAccess(
+                                                    Var("pair"),
+                                                    "1",
+                                                  )],
+                                                )),
+                                                ExprStmt(Call(
+                                                  parse_rule_fn_name(
+                                                    compiled.names[slot],
+                                                  ),
+                                                  [Var("ctx")],
+                                                )),
+                                              ],
+                                            }),
+                                          },
+                                        ],
+                                      )),
+                                    ],
+                                  },
+                                ),
+                              ],
+                            },
+                          ),
+                        ],
+                      ))],
+                    },
+                    [],
+                  ),
+                ],
+              }),
+            ],
+          )
+        ],
       )
     }
     @grammar.CompiledExpr::ManualNewlineAppExpr =>
