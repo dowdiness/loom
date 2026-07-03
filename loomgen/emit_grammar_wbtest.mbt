@@ -7,7 +7,7 @@ test "emit_grammar emits parse_root and one node rule" {
     ),
   }
   let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
-  let rendered = emit_grammar(
+  let rendered = emit_grammar_module(
     ir,
     token_type="Token",
     syntax_type="SyntaxKind",
@@ -15,13 +15,54 @@ test "emit_grammar emits parse_root and one node rule" {
     token_ref=fn(t) { "@token." + t },
     kind_ref=fn(k) { "@syntax." + k },
   )
-  guard rendered is Ok(source) else {
+  guard rendered is Ok(mod) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("pub fn parse_root"), content="true")
-  inspect(source.contains("fn parse_source"), content="true")
-  inspect(source.contains("ctx.node(@syntax.Root"), content="true")
-  inspect(source.contains("ctx.emit_token(@syntax.IntToken)"), content="true")
+  // Two functions: parse_root and parse_source
+  guard mod.fns.length() == 2 else {
+    fail("expected 2 functions, got " + mod.fns.length().to_string())
+  }
+  guard mod.fns[0].name == "parse_root" else {
+    fail("expected first fn to be parse_root, got " + mod.fns[0].name)
+  }
+  guard mod.fns[0].pub_fn else { fail("parse_root should be pub") }
+  guard mod.fns[0].body ==
+    MbtBlock::{ stmts: [ExprStmt(Call("parse_source", [Var("ctx")]))] } else {
+    fail("unexpected parse_root body")
+  }
+  guard mod.fns[1].name == "parse_source" else {
+    fail("expected second fn to be parse_source, got " + mod.fns[1].name)
+  }
+  guard !mod.fns[1].pub_fn else { fail("parse_source should not be pub") }
+  guard mod.fns[1].body ==
+    MbtBlock::{
+      stmts: [
+        ExprStmt(
+          MethodCall(Var("ctx"), "node", [
+            Var("@syntax.Root"),
+            Closure([], MbtBlock::{
+              stmts: [
+                MbtStmt::If(
+                  MethodCall(Var("ctx"), "at", [Var("@token.Int")]),
+                  MbtBlock::{
+                    stmts: [
+                      ExprStmt(
+                        MethodCall(Var("ctx"), "emit_token", [
+                          Var("@syntax.IntToken"),
+                        ]),
+                      ),
+                    ],
+                  },
+                  [],
+                ),
+              ],
+            }),
+          ]),
+        ),
+      ],
+    } else {
+    fail("unexpected parse_source body")
+  }
 }
 
 ///|
@@ -32,7 +73,7 @@ test "emit_grammar orders root first and lowers Ref to direct call" {
     "expr": @grammar.Expr::Emit("Int", "IntToken"),
   }
   let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
-  let rendered = emit_grammar(
+  let rendered = emit_grammar_module(
     ir,
     token_type="Token",
     syntax_type="SyntaxKind",
@@ -40,24 +81,50 @@ test "emit_grammar orders root first and lowers Ref to direct call" {
     token_ref=fn(t) { "@token." + t },
     kind_ref=fn(k) { "@syntax." + k },
   )
-  guard rendered is Ok(source) else {
+  guard rendered is Ok(mod) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("parse_expr(ctx)"), content="true")
-  let source_pos = match source.find("fn parse_source") {
-    Some(i) => i
-    None => fail("missing parse_source")
+  // Four functions: parse_root, parse_source, parse_expr, parse_z_tail
+  guard mod.fns.length() == 4 else {
+    fail("expected 4 functions, got " + mod.fns.length().to_string())
   }
-  let expr_pos = match source.find("fn parse_expr") {
-    Some(i) => i
-    None => fail("missing parse_expr")
+  // Order: parse_root, parse_source, parse_expr, parse_z_tail
+  guard mod.fns[0].name == "parse_root" else {
+    fail("expected first fn to be parse_root")
   }
-  let z_pos = match source.find("fn parse_z_tail") {
-    Some(i) => i
-    None => fail("missing parse_z_tail")
+  guard mod.fns[1].name == "parse_source" else {
+    fail("expected second fn to be parse_source, got " + mod.fns[1].name)
   }
-  inspect(source_pos < expr_pos, content="true")
-  inspect(expr_pos < z_pos, content="true")
+  guard mod.fns[2].name == "parse_expr" else {
+    fail("expected third fn to be parse_expr, got " + mod.fns[2].name)
+  }
+  guard mod.fns[3].name == "parse_z_tail" else {
+    fail("expected fourth fn to be parse_z_tail, got " + mod.fns[3].name)
+  }
+  // parse_source lowers Ref to direct call
+  guard mod.fns[1].body ==
+    MbtBlock::{ stmts: [ExprStmt(Call("parse_expr", [Var("ctx")]))] } else {
+    fail("expected parse_source to call parse_expr directly")
+  }
+  // parse_expr body: If(at(@token.Int), { emit_token(@syntax.IntToken) }, [])
+  guard mod.fns[2].body ==
+    MbtBlock::{
+      stmts: [
+        MbtStmt::If(
+          MethodCall(Var("ctx"), "at", [Var("@token.Int")]),
+          MbtBlock::{
+            stmts: [
+              ExprStmt(
+                MethodCall(Var("ctx"), "emit_token", [Var("@syntax.IntToken")]),
+              ),
+            ],
+          },
+          [],
+        ),
+      ],
+    } else {
+    fail("unexpected parse_expr body")
+  }
 }
 
 ///|
