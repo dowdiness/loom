@@ -50,6 +50,11 @@ pub fn[T, K] emit_grammar(
     }
   }
   let root_name = compiled.names[compiled.root_slot()]
+  if root_name == "root" {
+    return Err(
+      "grammar emitter: root rule name \"root\" produces \"parse_root\" which collides with the generated root entry point",
+    )
+  }
   let root_fn = parse_rule_fn_name(root_name)
   let parser_context = core_qual +
     ".ParserContext[" +
