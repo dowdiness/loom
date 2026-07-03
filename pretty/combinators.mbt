@@ -1,4 +1,9 @@
 ///|
+pub fn[A] empty() -> Layout[A] {
+  Empty(0)
+}
+
+///|
 pub fn[A] text(s : String) -> Layout[A] {
   Text(s, s.length())
 }
@@ -51,31 +56,9 @@ pub impl[A] Add for Layout[A] with fn add(self, other) {
 }
 
 ///|
-/// Width of content before the first HardLine in the layout.
-pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
-  match layout {
-    Empty(_) => 0
-    Text(s, _) => s.length()
-    Line(_) => 1
-    HardLine(_) => 0
-    Nest(_, doc, _) => prefix_flat_width(doc)
-    Concat(l, r, _) => {
-      let lw = prefix_flat_width(l)
-      if has_hardline_trait(l) {
-        lw
-      } else {
-        lw + prefix_flat_width(r)
-      }
-    }
-    Group(doc, _) => layout_fw(doc)
-    Annotate(_, doc, _) => prefix_flat_width(doc)
-  }
-}
-
-///|
 pub fn[A] separate(sep : Layout[A], docs : Array[Layout[A]]) -> Layout[A] {
   match docs {
-    [] => Empty(0)
+    [] => empty()
     [x, .. xs] => xs.iter().fold(init=x, fn(acc, d) { acc + sep + d })
   }
 }

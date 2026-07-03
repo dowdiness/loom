@@ -31,6 +31,31 @@ pub fn[A] flat_width(layout : Layout[A]) -> Int {
 }
 
 ///|
+/// Width of content before the first HardLine in the layout.
+/// Used when computing suffix width for the left child of a Concat
+/// whose right child contains a HardLine: only the text before that
+/// break shares a line with whatever Group is to the left.
+pub fn[A] prefix_flat_width(layout : Layout[A]) -> Int {
+  match layout {
+    Empty(_) => 0
+    Text(s, _) => s.length()
+    Line(_) => 1
+    HardLine(_) => 0
+    Nest(_, doc, _) => prefix_flat_width(doc)
+    Concat(l, r, _) => {
+      let lw = prefix_flat_width(l)
+      if has_hardline_trait(l) {
+        lw
+      } else {
+        lw + prefix_flat_width(r)
+      }
+    }
+    Group(doc, _) => layout_fw(doc)
+    Annotate(_, doc, _) => prefix_flat_width(doc)
+  }
+}
+
+///|
 /// Wadler-Lindig layout resolution with suffix-aware Group decisions.
 ///
 /// Walks the Layout tree recursively, resolving each Group's Flat/Break

@@ -31,16 +31,16 @@ fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
     if depth <= 0 {
       let choice = s.abs() % 3
       match choice {
-        0 => (Empty(0), s)
+        0 => (empty(), s)
         1 => (text("x"), s)
         _ => (text("ab"), s)
       }
     } else {
       let choice = s.abs() % 8
       match choice {
-        0 => (Empty(0), s)
+        0 => (empty(), s)
         1 => (text("x"), s)
-        2 => (Line(1), s)
+        2 => (line(), s)
         3 => {
           let (doc, s2) = go(s, depth - 1)
           (nest(doc), s2)
@@ -58,7 +58,7 @@ fn gen_layout(seed : Int, max_depth : Int) -> Layout[Unit] {
           let (doc, s2) = go(s, depth - 1)
           (annotate((), doc), s2)
         }
-        _ => (HardLine(-1), s)
+        _ => (hardline(), s)
       }
     }
   }
@@ -216,8 +216,8 @@ test "property: Empty is identity for concat" {
     let width = width_raw.abs() % 40 + 5
     let doc = gen_layout(seed, 4)
     let base = render_string(doc, width~)
-    let left_id = render_string(Empty(0) + doc, width~)
-    let right_id = render_string(doc + Empty(0), width~)
+    let left_id = render_string(empty() + doc, width~)
+    let right_id = render_string(doc + empty(), width~)
     base == left_id && base == right_id
   })
 }
