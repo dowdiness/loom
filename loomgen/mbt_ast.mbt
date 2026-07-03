@@ -4,14 +4,14 @@
 /// MoonBit AST. Rendered via `dowdiness/pretty`.
 
 ///|
-pub(all) struct MbtModule {
+pub struct MbtModule {
   native_comments : Array[String]
   parser_context : String
   fns : Array[MbtFnDecl]
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct MbtFnDecl {
+pub struct MbtFnDecl {
   pub_fn : Bool
   name : String
   params : Array[MbtParam]
@@ -20,18 +20,18 @@ pub(all) struct MbtFnDecl {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct MbtParam {
+pub struct MbtParam {
   name : String
   type_ : String
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct MbtBlock {
+pub struct MbtBlock {
   stmts : Array[MbtStmt]
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum MbtStmt {
+pub enum MbtStmt {
   Let(String, MbtExpr)
   ExprStmt(MbtExpr)
   If(MbtExpr, MbtBlock, Array[MbtElseBranch])
@@ -39,13 +39,13 @@ pub(all) enum MbtStmt {
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum MbtElseBranch {
+pub enum MbtElseBranch {
   ElseIf(MbtExpr, MbtBlock)
   Else(MbtBlock)
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum MbtExpr {
+pub enum MbtExpr {
   Var(String)
   Bool(Bool)
   StrLit(String)
@@ -65,14 +65,15 @@ pub(all) enum MbtExpr {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct MbtMatchArm {
+pub struct MbtMatchArm {
   pat : MbtPat
   body : MbtExpr
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum MbtPat {
+pub enum MbtPat {
   Wildcard
+  Nullary(String)
   Bind(String)
   Constructor(String, MbtPat)
 } derive(Eq, Debug)
@@ -99,10 +100,23 @@ fn op(s : String) -> @pretty.Layout[@pretty.SyntaxCategory] {
   @pretty.annotate(@pretty.SyntaxCategory::Operator, @pretty.text(s))
 }
 
+///|
+fn binop_prec(op : String) -> Int {
+  match op {
+    "||" => 1
+    "&&" => 2
+    "==" | "!=" => 3
+    "<" | ">" | "<=" | ">=" => 4
+    "+" | "-" => 5
+    "*" | "/" => 6
+    _ => 0
+  }
+}
+
 // ── Pretty for MbtModule ─────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   let docs : Array[@pretty.Layout[@pretty.SyntaxCategory]] = []
@@ -141,7 +155,7 @@ pub impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtFnDecl ─────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   let mut header : @pretty.Layout[@pretty.SyntaxCategory] = @pretty.empty()
@@ -170,7 +184,7 @@ pub impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtBlock ──────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   let doc_layouts = self.stmts.map(fn(s) { s.to_layout() })
@@ -180,7 +194,7 @@ pub impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtStmt ───────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtStmt with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtStmt with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   match self {
@@ -218,7 +232,7 @@ pub impl @pretty.Pretty for MbtStmt with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtElseBranch ─────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   match self {
@@ -237,7 +251,7 @@ pub impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Lay
 // ── Pretty for MbtExpr ───────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   match self {
@@ -265,23 +279,26 @@ pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
       @pretty.text(" ") +
       right.to_layout()
     BinOp(lhs, s, rhs) => {
-      let op_layout = match s {
-        "=="
-        | "!="
-        | "<"
-        | ">"
-        | "<="
-        | ">="
-        | "+"
-        | "-"
-        | "*"
-        | "/"
-        | "&&"
-        | "||" => @pretty.text(" ") + op(s) + @pretty.text(" ")
-        _ => @pretty.text(" ") + op(s) + @pretty.text(" ")
+      // Could also be computed with a helper, but we keep it inline for clarity.
+      let rhs_layout = match rhs {
+        // Parenthesize the RHS when the outer operator has strictly higher
+        // precedence (binds tighter) than the inner operator. Without parens,
+        // `!eof && A || B` would parse as `(!eof && A) || B` instead of
+        // the intended `!eof && (A || B)`.
+        BinOp(_, inner_op, _) => {
+          let outer_prec = binop_prec(s)
+          let inner_prec = binop_prec(inner_op)
+          if outer_prec > inner_prec {
+            punc("(") + rhs.to_layout() + punc(")")
+          } else {
+            rhs.to_layout()
+          }
+        }
+        _ => rhs.to_layout()
       }
-      // group so binary ops have a chance to break
-      @pretty.group(lhs.to_layout() + op_layout + rhs.to_layout())
+      let lhs_layout = lhs.to_layout()
+      let op_layout = @pretty.text(" ") + op(s) + @pretty.text(" ")
+      @pretty.group(lhs_layout + op_layout + rhs_layout)
     }
     UnOp(s, expr) => {
       let inner = expr.to_layout()
@@ -339,7 +356,7 @@ pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtMatchArm ───────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtMatchArm with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtMatchArm with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   self.pat.to_layout() +
@@ -352,11 +369,12 @@ pub impl @pretty.Pretty for MbtMatchArm with fn to_layout(self) -> @pretty.Layou
 // ── Pretty for MbtPat ──────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[
+impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   match self {
     Wildcard => punc("_")
+    Nullary(name) => ident(name)
     Bind(name) => ident(name)
     Constructor(name, inner) => ident(name) + parens_flat(inner.to_layout())
   }

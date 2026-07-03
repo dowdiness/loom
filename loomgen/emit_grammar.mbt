@@ -598,13 +598,16 @@ fn[T, K] emit_compiled_expr(
             matching
           }
           let closure_body = op_match_closure(Var("t"))
-          MethodCall(Var("ctx"), "consume_while_emit_if", [
-            pred_closure_expr(sep, token_ref),
-            Var(kind_ref(sep_kind)),
-            Closure([MbtParam::{ name: "t", type_: "" }], MbtBlock::{
-              stmts: [ExprStmt(closure_body)],
-            }),
-          ])
+          Pipe(
+            MethodCall(Var("ctx"), "consume_while_emit_if", [
+              pred_closure_expr(sep, token_ref),
+              Var(kind_ref(sep_kind)),
+              Closure([MbtParam::{ name: "t", type_: "" }], MbtBlock::{
+                stmts: [ExprStmt(closure_body)],
+              }),
+            ]),
+            Call("ignore", []),
+          )
         }
         None => Var("()")
       }
@@ -661,7 +664,7 @@ fn[T, K] emit_compiled_expr(
                                   ExprStmt(
                                     Match(scrutinee, [
                                       MbtMatchArm::{
-                                        pat: Constructor("None", Wildcard),
+                                        pat: Nullary("None"),
                                         body: Break,
                                       },
                                       MbtMatchArm::{
