@@ -733,6 +733,12 @@ test "emit_grammar emits find_first None arm in PrattBinary" {
       skip=None,
     ),
     "expr": @grammar.Expr::Emit("Int", "IntToken"),
+test "emit_grammar lowers OneOf predicate in RepeatWhile loop" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "source": @grammar.Expr::RepeatWhile(
+      @grammar.Pred::OneOf(["Int", "Word"]),
+      @grammar.Expr::Emit("Value", "ValueToken"),
+    ),
   }
   let ir = @grammar.GrammarIr::GrammarIr(rules, root="source")
   let rendered = emit_grammar(
@@ -752,4 +758,9 @@ test "emit_grammar emits find_first None arm in PrattBinary" {
   }
   inspect(source.contains("find_first"), content="true")
   inspect(source.contains("None => break"), content="true")
+  inspect(
+    source.contains("ctx.peek() == @token.Int || ctx.peek() == @token.Word"),
+    content="true",
+  )
+  inspect(source.contains("ctx.emit_token(@syntax.ValueToken)"), content="true")
 }
