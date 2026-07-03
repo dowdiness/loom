@@ -29,8 +29,14 @@ pub enum Layout[A] {
 ///|
 pub fn[A] layout_fw(layout : Layout[A]) -> Int {
   match layout {
-    Empty(fw) | Text(_, fw) | Line(fw) | HardLine(fw) | Nest(_, _, fw)
-    | Concat(_, _, fw) | Group(_, fw) | Annotate(_, _, fw) => fw
+    Empty(fw)
+    | Text(_, fw)
+    | Line(fw)
+    | HardLine(fw)
+    | Nest(_, _, fw)
+    | Concat(_, _, fw)
+    | Group(_, fw)
+    | Annotate(_, _, fw) => fw
   }
 }
 

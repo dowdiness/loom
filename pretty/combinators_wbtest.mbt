@@ -90,5 +90,8 @@ test "separate empty" {
 ///|
 test "parens" {
   let doc : Layout[Unit] = parens(text("x"))
-  inspect(doc, content="Concat(Concat(Text(\"(\", 1), Text(\"x\", 1), 2), Text(\")\", 1), 3)")
+  inspect(
+    doc,
+    content="Concat(Concat(Text(\"(\", 1), Text(\"x\", 1), 2), Text(\")\", 1), 3)",
+  )
 }
