@@ -19,6 +19,30 @@ pub fn[T, K] emit_grammar(
   kind_ref~ : (K) -> String,
   native_names? : Set[String] = Set::Set([]),
 ) -> Result[String, String] {
+  emit_grammar_module(
+    ir,
+    token_type~,
+    syntax_type~,
+    core_qual~,
+    token_ref~,
+    kind_ref~,
+    native_names~,
+  ).map(fn(m) { @pretty.render_string(m.to_layout(), width=80) })
+}
+
+///|
+/// Emit a grammar to an MbtModule AST for structural inspection.
+/// Returns the module before rendering, allowing tests to assert on
+/// structure rather than formatted output.
+pub fn[T, K] emit_grammar_module(
+  ir : @grammar.GrammarIr[T, K],
+  token_type~ : String,
+  syntax_type~ : String,
+  core_qual~ : String,
+  token_ref~ : (T) -> String,
+  kind_ref~ : (K) -> String,
+  native_names? : Set[String] = Set::Set([]),
+) -> Result[MbtModule, String] {
   let compiled = @grammar.compile(ir, native_names~) catch {
     @grammar.MissingRoot(name) =>
       return Err("grammar emitter: missing root rule \"" + name + "\"")
@@ -100,7 +124,7 @@ pub fn[T, K] emit_grammar(
   }
 
   let mbt_mod = MbtModule::{ native_comments, parser_context, fns }
-  Ok(@pretty.render_string(mbt_mod.to_layout(), width=80))
+  Ok(mbt_mod)
 }
 
 ///|
