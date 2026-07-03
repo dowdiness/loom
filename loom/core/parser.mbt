@@ -124,6 +124,10 @@ pub struct ParserContext[T, K] {
   // replay matching diagnostics by code-unit span to preserve exact messages.
   priv mut reuse_diagnostics : DiagnosticSet?
   priv mut reuse_count : Int
+  // Lex mode for parser-driven mode switching. 0 = initial/default mode.
+  // Set via set_lex_mode() to switch the lexer to a different mode mid-parse.
+  // The mode value is an opaque integer; the grammar assigns semantic meaning.
+  priv mut lex_mode : Int
 }
 
 ///|
@@ -135,6 +139,7 @@ pub(all) struct Checkpoint[T, K] {
   priv error_count : Int
   priv open_nodes : Int
   priv reuse_cursor : ReuseCursor[T, K]?
+  priv lex_mode : Int
   priv reuse_count : Int
 }
 
