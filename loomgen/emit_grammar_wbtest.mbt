@@ -650,3 +650,23 @@ test "emit_grammar lowers PrattApp and PrattBinary reuse paths" {
   )
   inspect(source.contains("ctx.emit_token(pair.1)"), content="true")
 }
+
+///|
+test "emit_grammar rejects root name \"root\" as parse_root collision" {
+  let rules : Map[String, @grammar.Expr[String, String]] = {
+    "root": @grammar.Expr::Emit("Int", "IntToken"),
+  }
+  let ir = @grammar.GrammarIr::GrammarIr(rules, root="root")
+  let rendered = emit_grammar(
+    ir,
+    token_type="Token",
+    syntax_type="SyntaxKind",
+    core_qual="@core",
+    token_ref=fn(t) { "@token." + t },
+    kind_ref=fn(k) { "@syntax." + k },
+  )
+  match rendered {
+    Err(err) if err.contains("parse_root") => ()
+    _ => fail("expected parse_root collision error")
+  }
+}
