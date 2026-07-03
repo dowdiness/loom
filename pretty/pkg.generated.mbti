@@ -18,15 +18,21 @@ pub fn[A] char(Char) -> Layout[A]
 
 pub fn[A] concat(Layout[A], Layout[A]) -> Layout[A]
 
+pub fn[A] flat_width(Layout[A]) -> Int
+
 pub fn[A] group(Layout[A]) -> Layout[A]
 
 pub fn[A] hardline() -> Layout[A]
+
+pub fn[A] layout_fw(Layout[A]) -> Int
 
 pub fn[A] line() -> Layout[A]
 
 pub fn[A] nest(Layout[A], indent? : Int) -> Layout[A]
 
 pub fn[A] parens(Layout[A]) -> Layout[A]
+
+pub fn[A] prefix_flat_width(Layout[A]) -> Int
 
 pub fn[T : Pretty] pretty_print(T, width? : Int) -> String
 
@@ -60,14 +66,14 @@ pub(all) enum Cmd[A] {
 pub impl[A : @debug.Debug] Show for Cmd[A]
 
 pub enum Layout[A] {
-  Empty
-  Text(String)
-  Line
-  HardLine
-  Nest(Int, Layout[A])
-  Concat(Layout[A], Layout[A])
-  Group(Layout[A])
-  Annotate(A, Layout[A])
+  Empty(Int)
+  Text(String, Int)
+  Line(Int)
+  HardLine(Int)
+  Nest(Int, Layout[A], Int)
+  Concat(Layout[A], Layout[A], Int)
+  Group(Layout[A], Int)
+  Annotate(A, Layout[A], Int)
 } derive(Eq, @debug.Debug)
 pub impl[A] Add for Layout[A]
 pub impl[A : @debug.Debug] Show for Layout[A]
