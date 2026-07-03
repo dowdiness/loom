@@ -72,7 +72,6 @@ pub struct MbtMatchArm {
 
 ///|
 pub enum MbtPat {
-  Wildcard
   Nullary(String)
   Bind(String)
   Constructor(String, MbtPat)
@@ -373,7 +372,6 @@ impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[
   @pretty.SyntaxCategory,
 ] {
   match self {
-    Wildcard => punc("_")
     Nullary(name) => ident(name)
     Bind(name) => ident(name)
     Constructor(name, inner) => ident(name) + parens_flat(inner.to_layout())
