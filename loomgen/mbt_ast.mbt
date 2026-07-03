@@ -38,7 +38,6 @@ pub(all) enum MbtStmt {
   While(MbtExpr, MbtBlock)
 } derive(Eq, Debug)
 
-
 ///|
 pub(all) enum MbtElseBranch {
   ElseIf(MbtExpr, MbtBlock)
@@ -102,12 +101,16 @@ fn op(s : String) -> @pretty.Layout[@pretty.SyntaxCategory] {
 
 // ── Pretty for MbtModule ─────────────────────────────────────────
 
-pub impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+///|
+pub impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   let docs : Array[@pretty.Layout[@pretty.SyntaxCategory]] = []
   // Native comment block (starts and ends with ///|, serves as parse_root's doc)
   if self.native_comments.length() > 0 {
-    let comment_lines : Array[@pretty.Layout[@pretty.SyntaxCategory]] =
-      [@pretty.text("///|")]
+    let comment_lines : Array[@pretty.Layout[@pretty.SyntaxCategory]] = [
+      @pretty.text("///|"),
+    ]
     for c in self.native_comments {
       let line = @pretty.text("/// consumers must hand-write `fn ") +
         @pretty.text(c) +
@@ -138,7 +141,9 @@ pub impl @pretty.Pretty for MbtModule with fn to_layout(self) -> @pretty.Layout[
 // ── Pretty for MbtFnDecl ─────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   let mut header : @pretty.Layout[@pretty.SyntaxCategory] = @pretty.empty()
   if self.pub_fn {
     header = kw("pub") + @pretty.text(" ") + kw("fn")
@@ -146,17 +151,28 @@ pub impl @pretty.Pretty for MbtFnDecl with fn to_layout(self) -> @pretty.Layout[
     header = kw("fn")
   }
   let param_layout = parens_layout(self.params)
-  header =
-    header + @pretty.text(" ") + ident(self.name) + param_layout + @pretty.text(" ") + op("->") + @pretty.text(" ") +
+  header = header +
+    @pretty.text(" ") +
+    ident(self.name) +
+    param_layout +
+    @pretty.text(" ") +
+    op("->") +
+    @pretty.text(" ") +
     @pretty.text(self.return_type)
-  header + @pretty.text(" ") + @pretty.char('{') + @pretty.nest(@pretty.hardline() + self.body.to_layout()) +
-    @pretty.hardline() + @pretty.char('}')
+  header +
+  @pretty.text(" ") +
+  @pretty.char('{') +
+  @pretty.nest(@pretty.hardline() + self.body.to_layout()) +
+  @pretty.hardline() +
+  @pretty.char('}')
 }
 
 // ── Pretty for MbtBlock ──────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   let doc_layouts = self.stmts.map(fn(s) { s.to_layout() })
   @pretty.separate(@pretty.hardline(), doc_layouts)
 }
@@ -164,32 +180,55 @@ pub impl @pretty.Pretty for MbtBlock with fn to_layout(self) -> @pretty.Layout[@
 // ── Pretty for MbtStmt ───────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtStmt with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtStmt with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   match self {
     Let(name, expr) =>
       @pretty.group(
-        kw("let") + @pretty.text(" ") + ident(name) + @pretty.text(" ") + op("=") + @pretty.text(" ") + expr.to_layout(),
+        kw("let") +
+        @pretty.text(" ") +
+        ident(name) +
+        @pretty.text(" ") +
+        op("=") +
+        @pretty.text(" ") +
+        expr.to_layout(),
       )
     ExprStmt(expr) => expr.to_layout()
     If(cond, then_blk, else_chain) => {
-      let mut result = kw("if") + @pretty.text(" ") + @pretty.group(cond.to_layout()) + @pretty.text(" ") + blk_layout(then_blk)
+      let mut result = kw("if") +
+        @pretty.text(" ") +
+        @pretty.group(cond.to_layout()) +
+        @pretty.text(" ") +
+        blk_layout(then_blk)
       for el in else_chain {
         result = result + @pretty.text(" ") + el.to_layout()
       }
       result
     }
     While(cond, body) =>
-      kw("while") + @pretty.text(" ") + @pretty.group(cond.to_layout()) + @pretty.text(" ") + blk_layout(body)
+      kw("while") +
+      @pretty.text(" ") +
+      @pretty.group(cond.to_layout()) +
+      @pretty.text(" ") +
+      blk_layout(body)
   }
 }
 
 // ── Pretty for MbtElseBranch ─────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   match self {
     ElseIf(cond, blk) =>
-      kw("else") + @pretty.text(" ") + kw("if") + @pretty.text(" ") + @pretty.group(cond.to_layout()) + @pretty.text(" ") +
+      kw("else") +
+      @pretty.text(" ") +
+      kw("if") +
+      @pretty.text(" ") +
+      @pretty.group(cond.to_layout()) +
+      @pretty.text(" ") +
       blk_layout(blk)
     Else(blk) => kw("else") + @pretty.text(" ") + blk_layout(blk)
   }
@@ -198,30 +237,47 @@ pub impl @pretty.Pretty for MbtElseBranch with fn to_layout(self) -> @pretty.Lay
 // ── Pretty for MbtExpr ───────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   match self {
     Var(name) => ident(name)
     Bool(b) => if b { kw("true") } else { kw("false") }
-    StrLit(s) => @pretty.annotate(
-      @pretty.SyntaxCategory::StringLit,
-      @pretty.text(s),
-    )
+    StrLit(s) =>
+      @pretty.annotate(@pretty.SyntaxCategory::StringLit, @pretty.text(s))
     Call(name, args) => {
       let arg_layouts = args.map(fn(a) { a.to_layout() })
-      ident(name) + @pretty.parens(@pretty.separate(@pretty.text(", "), arg_layouts))
+      ident(name) +
+      @pretty.parens(@pretty.separate(@pretty.text(", "), arg_layouts))
     }
     MethodCall(obj, name, args) => {
       let arg_layouts = args.map(fn(a) { a.to_layout() })
-      obj.to_layout() + punc(".") + ident(name) + @pretty.parens(@pretty.separate(@pretty.text(", "), arg_layouts))
+      obj.to_layout() +
+      punc(".") +
+      ident(name) +
+      @pretty.parens(@pretty.separate(@pretty.text(", "), arg_layouts))
     }
-    FieldAccess(obj, field) =>
-      obj.to_layout() + punc(".") + @pretty.text(field)
+    FieldAccess(obj, field) => obj.to_layout() + punc(".") + @pretty.text(field)
     Pipe(left, right) =>
-      left.to_layout() + @pretty.text(" ") + op("|>") + @pretty.text(" ") + right.to_layout()
+      left.to_layout() +
+      @pretty.text(" ") +
+      op("|>") +
+      @pretty.text(" ") +
+      right.to_layout()
     BinOp(lhs, s, rhs) => {
       let op_layout = match s {
-        "==" | "!=" | "<" | ">" | "<=" | ">=" | "+" | "-" | "*" | "/" | "&&" | "||" =>
-          @pretty.text(" ") + op(s) + @pretty.text(" ")
+        "=="
+        | "!="
+        | "<"
+        | ">"
+        | "<="
+        | ">="
+        | "+"
+        | "-"
+        | "*"
+        | "/"
+        | "&&"
+        | "||" => @pretty.text(" ") + op(s) + @pretty.text(" ")
         _ => @pretty.text(" ") + op(s) + @pretty.text(" ")
       }
       // group so binary ops have a chance to break
@@ -237,25 +293,45 @@ pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[@p
       }
       op(s) + @pretty.group(wrapped)
     }
-    Block(blk) => @pretty.char('{') + @pretty.nest(@pretty.hardline() + blk.to_layout()) + @pretty.hardline() + @pretty.char('}')
+    Block(blk) =>
+      @pretty.char('{') +
+      @pretty.nest(@pretty.hardline() + blk.to_layout()) +
+      @pretty.hardline() +
+      @pretty.char('}')
     Closure(params, body) => {
       let param_layout = parens_layout(params)
       @pretty.group(
-        kw("fn") + param_layout + @pretty.text(" ") + @pretty.char('{') +
-          @pretty.nest(@pretty.line() + body.to_layout()) + @pretty.line() + @pretty.char('}'),
+        kw("fn") +
+        param_layout +
+        @pretty.text(" ") +
+        @pretty.char('{') +
+        @pretty.nest(@pretty.line() + body.to_layout()) +
+        @pretty.line() +
+        @pretty.char('}'),
       )
     }
     Array(items) =>
-      @pretty.brackets(@pretty.separate(@pretty.text(", "), items.map(fn(e) { e.to_layout() })))
+      @pretty.brackets(
+        @pretty.separate(@pretty.text(", "), items.map(fn(e) { e.to_layout() })),
+      )
     Tuple(items) =>
-      @pretty.parens(@pretty.separate(@pretty.text(", "), items.map(fn(e) { e.to_layout() })))
+      @pretty.parens(
+        @pretty.separate(@pretty.text(", "), items.map(fn(e) { e.to_layout() })),
+      )
     Match(scrutinee, arms) => {
       let arm_layouts = arms.map(fn(arm) { arm.to_layout() })
-      kw("match") + @pretty.text(" ") + scrutinee.to_layout() + @pretty.text(" ") + @pretty.char('{') +
-        @pretty.nest(@pretty.hardline() + @pretty.separate(@pretty.hardline(), arm_layouts)) + @pretty.hardline() + @pretty.char('}')
+      kw("match") +
+      @pretty.text(" ") +
+      scrutinee.to_layout() +
+      @pretty.text(" ") +
+      @pretty.char('{') +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(@pretty.hardline(), arm_layouts),
+      ) +
+      @pretty.hardline() +
+      @pretty.char('}')
     }
     Continue => kw("continue")
-
     Break => kw("break")
   }
 }
@@ -263,19 +339,26 @@ pub impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[@p
 // ── Pretty for MbtMatchArm ───────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtMatchArm with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
-  self.pat.to_layout() + @pretty.text(" ") + op("=>") + @pretty.text(" ") + self.body.to_layout()
+pub impl @pretty.Pretty for MbtMatchArm with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
+  self.pat.to_layout() +
+  @pretty.text(" ") +
+  op("=>") +
+  @pretty.text(" ") +
+  self.body.to_layout()
 }
 
 // ── Pretty for MbtPat ──────────────────────────────────────────
 
 ///|
-pub impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[
+  @pretty.SyntaxCategory,
+] {
   match self {
     Wildcard => punc("_")
     Bind(name) => ident(name)
-    Constructor(name, inner) =>
-      ident(name) + parens_flat(inner.to_layout())
+    Constructor(name, inner) => ident(name) + parens_flat(inner.to_layout())
   }
 }
 
@@ -283,11 +366,16 @@ pub impl @pretty.Pretty for MbtPat with fn to_layout(self) -> @pretty.Layout[@pr
 
 ///|
 fn blk_layout(blk : MbtBlock) -> @pretty.Layout[@pretty.SyntaxCategory] {
-  @pretty.char('{') + @pretty.nest(@pretty.hardline() + blk.to_layout()) + @pretty.hardline() + @pretty.char('}')
+  @pretty.char('{') +
+  @pretty.nest(@pretty.hardline() + blk.to_layout()) +
+  @pretty.hardline() +
+  @pretty.char('}')
 }
 
 ///|
-fn parens_layout(params : Array[MbtParam]) -> @pretty.Layout[@pretty.SyntaxCategory] {
+fn parens_layout(
+  params : Array[MbtParam],
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
   let layouts = params.map(fn(p) {
     if p.type_.length() > 0 {
       ident(p.name) + @pretty.text(" : ") + @pretty.text(p.type_)
@@ -298,8 +386,9 @@ fn parens_layout(params : Array[MbtParam]) -> @pretty.Layout[@pretty.SyntaxCateg
   punc("(") + @pretty.separate(@pretty.text(", "), layouts) + punc(")")
 }
 
-
 ///|
-fn parens_flat(inner : @pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory] {
+fn parens_flat(
+  inner : @pretty.Layout[@pretty.SyntaxCategory],
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
   punc("(") + inner + punc(")")
 }

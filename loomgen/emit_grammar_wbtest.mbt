@@ -138,7 +138,10 @@ test "emit_grammar lowers OneOf and Not predicates" {
   guard rendered is Ok(source) else {
     fail("expected grammar emission to succeed")
   }
-  inspect(source.contains("token == @token.Int || token == @token.Word"), content="true")
+  inspect(
+    source.contains("token == @token.Int || token == @token.Word"),
+    content="true",
+  )
   inspect(source.contains("!(token == @token.EOF)"), content="true")
 }
 
@@ -637,9 +640,13 @@ test "emit_grammar lowers PrattApp and PrattBinary reuse paths" {
     content="true",
   )
   inspect(
-    source.contains("ctx.consume_while_emit_if") && source.contains("t == @token.Newline"),
+    source.contains("ctx.consume_while_emit_if") &&
+    source.contains("t == @token.Newline"),
     content="true",
   )
-  inspect(source.contains("ctx.peek() == @token.Plus || ctx.peek() == @token.Minus"), content="true")
+  inspect(
+    source.contains("ctx.peek() == @token.Plus || ctx.peek() == @token.Minus"),
+    content="true",
+  )
   inspect(source.contains("ctx.emit_token(pair.1)"), content="true")
 }
