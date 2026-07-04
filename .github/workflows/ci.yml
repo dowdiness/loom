@@ -34,6 +34,10 @@ jobs:
           # Full history so the changed-archived-plan decision-record check
           # can diff against origin/main instead of warn-skipping.
           fetch-depth: 0
+          # Submodules so links pointing INTO incr/egraph/egglog docs
+          # resolve — the link check validates them against the pinned
+          # submodule revision, same as a local --recursive clone.
+          submodules: recursive
       - name: Run check-docs.sh
         run: bash check-docs.sh
 
