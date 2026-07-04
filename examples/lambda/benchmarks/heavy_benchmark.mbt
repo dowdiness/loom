@@ -97,6 +97,46 @@ fn apply_char_replace(
   (new_source, edit)
 }
 
+///|
+/// Find the nearest position to `near` that is at a token boundary
+/// (both adjacent characters are non-identifier chars), so that inserting
+/// an alphanumeric character won't merge with adjacent tokens.
+fn find_safe_insert_pos(source : String, near : Int) -> Int {
+  let len = source.length()
+  fn is_id(i : Int) -> Bool {
+    let ch = source[i]
+    (ch >= 'a' && ch <= 'z') ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= '0' && ch <= '9')
+  }
+  if (near == 0 || !is_id(near - 1)) && (near >= len || !is_id(near)) {
+    return near
+  }
+  // Scan left
+  let mut p = near - 1
+  while p > 0 {
+    if !is_id(p - 1) && !is_id(p) {
+      return p
+    }
+    p = p - 1
+  }
+  if len == 0 || !is_id(0) {
+    return 0
+  }
+  // Scan right
+  p = near + 1
+  while p < len {
+    if !is_id(p - 1) && !is_id(p) {
+      return p
+    }
+    p = p + 1
+  }
+  if !is_id(len - 1) {
+    return len
+  }
+  near
+}
+
 // ─── Tier 1: Large document parse ────────────────────────────────────────────
 
 ///|
@@ -265,6 +305,7 @@ test "heavy: FULL REPARSE - 100 edits at end" (b : @bench.T) {
 test "heavy: FULL REPARSE - 100 edits in middle" (b : @bench.T) {
   let base = make_large_source()
   let mid = base.length() / 2
+  let safe_pos = find_safe_insert_pos(base, mid)
   let chars = [
     "x", " ", "+", " ", "y", " ", "+", " ", "1", " ", "+", " ", "2", " ", "+", " ",
     "z", " ", "+", " ",
@@ -273,7 +314,7 @@ test "heavy: FULL REPARSE - 100 edits in middle" (b : @bench.T) {
     let mut source = base
     let initial = @lambda.parse(source) catch { _ => abort("benchmark failed") }
     let mut tree = initial
-    let mut insert_pos = mid
+    let mut insert_pos = safe_pos
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let (new_source, _edit) = apply_char_insert(source, insert_pos, ch)
