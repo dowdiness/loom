@@ -62,7 +62,7 @@ The implementation is split across four MoonBit modules:
 
 - **`dowdiness/seam`** (`seam/`) — language-agnostic CST: `CstNode`, `SyntaxNode`, `EventBuffer`
 - **`dowdiness/incr`** (`incr/`) — reactive cells: `Input`, `Derived`
-- **`dowdiness/loom`** (`loom/`) — generic parser framework: `core`, `pipeline`, `incremental`, `viz`; root exports `Grammar`, `new_imperative_parser`, `new_parser` (unified reactive wrapper post Stage 6)
+- **`dowdiness/loom`** (`loom/`) — generic parser framework: `core`, `pipeline`, `incremental`, `projection`, `grammar`, `viz`; root exports `Grammar`, `new_imperative_parser`, `new_parser` (unified reactive wrapper post Stage 6)
 - **`dowdiness/lambda`** (`examples/lambda/`) — lambda calculus example: tokenizer, grammar, AST, benchmarks
 
 `loom` depends on `seam` and `incr`. `dowdiness/lambda` depends on `loom` and `seam` via path deps.

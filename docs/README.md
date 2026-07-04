@@ -35,7 +35,7 @@ Framework-level:
 - [api/cst-traversal-idioms.md](api/cst-traversal-idioms.md) — the three CST traversal idioms (`SyntaxNode` direct queries / `CstFold` / position-independent `CstElement` combinators) and when to use which
 - [api/authoring-only-integration.md](api/authoring-only-integration.md) — keep Loom-backed editor diagnostics/projections behind an authoring facade without leaking into runtime packages
 - [api/last-good-semantic-attachment.md](api/last-good-semantic-attachment.md) — authoring attachment pattern for immediate parser diagnostics plus last-good semantic document retention
-- [../loom/src/pkg.generated.mbti](../loom/src/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
+- [../loom/pkg.generated.mbti](../loom/pkg.generated.mbti) — generated `.mbti` signatures for the `@loom` facade
 
 Language-specific:
 
@@ -104,8 +104,6 @@ Short records of the *why* behind significant design choices. Most recent first.
 ## Correctness
 
 - [correctness/CORRECTNESS.md](correctness/CORRECTNESS.md) — correctness goals and verification
-- [correctness/STRUCTURAL_VALIDATION.md](correctness/STRUCTURAL_VALIDATION.md) — structural validation details
-- [correctness/EDGE_CASE_TESTS.md](correctness/EDGE_CASE_TESTS.md) — edge-case test catalog
 
 ## Analysis
 
@@ -164,9 +162,9 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
-_Active: `Native(RuleName)` IR escape-hatch node for context-sensitive productions (HTML tag matching) — issue [#541](https://github.com/dowdiness/loom/issues/541), design validated by Codex with 5 corrections folded in. See [plan](superpowers/plans/2026-07-01-native-rulename-ir-node.md)._
+_Shipped: `Native(RuleName)` IR escape-hatch node for context-sensitive productions (HTML tag matching) — issue [#541](https://github.com/dowdiness/loom/issues/541) closed, merged as PR #551. See [plan](superpowers/plans/2026-07-01-native-rulename-ir-node.md) (pending archival)._
 _Shipped: view framework consumer design (Phase A of #514) — `AstView` moved to `@seam`, loomgen generates `AstView` impl on `*Proj` structs. See [design spec](superpowers/specs/2026-06-28-view-framework-consumer-design.md)._
-_Previously active: the minimal grammar-IR contract (loomgen codegen stage 1) is **implemented** on branch `feat/loomgen-ir-contract` (commits `999d555`..`a4ec9ba`), pending PR — `dowdiness/loom/grammar` package with generic `[T,K]` IR, `Pred[T]` reification, dense-slot rule interning, the reified escape hatches (grown vocabulary), the evidence-gated `ManualNewlineAppExpr` residue, and D1/D2a/D2b re-validated on the reified lambda IR. See [plan](superpowers/plans/2026-06-22-loomgen-ir-contract.md) and [design spec](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md)._
+_Previously active: the minimal grammar-IR contract (loomgen codegen stage 1) **merged** as PR #443 — `dowdiness/loom/grammar` package with generic `[T,K]` IR, `Pred[T]` reification, dense-slot rule interning, the reified escape hatches (grown vocabulary), the evidence-gated `ManualNewlineAppExpr` residue, and D1/D2a/D2b re-validated on the reified lambda IR. See [plan](superpowers/plans/2026-06-22-loomgen-ir-contract.md) and [design spec](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md)._
 
 _Previously active: ParserContext grammar-author boundary shipped 2026-06-11 as PR #290 (issue #251; see [ADR](decisions/2026-06-13-parsercontext-method-only-boundary.md) and [archived design](archive/completed-phases/2026-06-12-parsercontext-field-boundary-design.md))._
 _Previously active: separated-list parsing & grouping shipped 2026-06-11 as PR #285/#286 (issue #279; see [ADR](decisions/2026-06-11-separated-list-boundary-model.md), [archived design](archive/completed-phases/2026-06-11-separated-list-grouping.md), and [archived plan](archive/completed-phases/2026-06-11-separated-list-grouping-plan.md))._
@@ -188,3 +186,4 @@ _Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026
   - [archive/2026-03-06-code-analysis-report.md](archive/2026-03-06-code-analysis-report.md) — *(stale 2026-04-17)* comprehensive code analysis — pre-unification architecture
   - [archive/2026-03-06-defect-analysis-report.md](archive/2026-03-06-defect-analysis-report.md) — *(stale 2026-04-17)* defect analysis — pre-unification architecture
   - [archive/TODO.md](archive/TODO.md), [archive/TODO_ARCHIVE.md](archive/TODO_ARCHIVE.md), [archive/COMPLETION_SUMMARY.md](archive/COMPLETION_SUMMARY.md), [archive/IMPLEMENTATION_COMPLETE.md](archive/IMPLEMENTATION_COMPLETE.md), [archive/IMPLEMENTATION_SUMMARY.md](archive/IMPLEMENTATION_SUMMARY.md) — historical status docs
+  - [archive/STRUCTURAL_VALIDATION.md](archive/STRUCTURAL_VALIDATION.md), [archive/EDGE_CASE_TESTS.md](archive/EDGE_CASE_TESTS.md) — *(archived 2026-07-04)* Lezer-era incremental-parser status docs; describe `TokenCache`/`ParseCache`/`RecoveringParser` code deleted in the Phase 0 cleanup
