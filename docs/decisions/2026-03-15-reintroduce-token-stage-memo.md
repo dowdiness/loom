@@ -1,7 +1,7 @@
 # ADR: Reintroduce TokenStage Memo
 
 **Date:** 2026-03-15
-**Status:** Accepted
+**Status:** Accepted — **Superseded by** [2026-04-17: Unified Parser](2026-04-17-unified-parser-proposal.md) (Stage 6 removed the `TokenStage` memo along with `ReactiveParser`; the unified `Parser[Ast]` does not use one)
 **Reverses:** [2026-02-27: Remove TokenStage Memo](2026-02-27-remove-tokenStage-memo.md)
 
 ## Context

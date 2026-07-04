@@ -6,17 +6,16 @@ Guidance for Claude Code when working in this repository.
 
 ## Commands
 
-Each module is self-contained. Run `moon` from the module's directory:
+The repo-root `moon.work` makes every module a workspace member — read it for
+the current member list. `moon test` / `moon check` run from **any** member
+directory cover the whole workspace, not just that module:
 
 ```bash
-cd loom && moon check && moon test    # 126 tests (framework only)
-cd seam && moon check && moon test    # 351 tests
-cd incr && moon check && moon test    # 508 tests
-cd text-change && moon check && moon test    # text utility tests
-cd moji && moon check && moon test           # UAX #29 conformance
-cd examples/lambda && moon check && moon test   # 405 tests
-cd examples/json && moon check && moon test     # JSON parser
+moon check && moon test    # entire workspace, from any member directory
 ```
+
+Scope to a single module's packages with `-p` (see "Run a single package or
+file" below). Do not quote test counts from memory — run the command.
 
 Before every commit (in the module you edited):
 ```bash

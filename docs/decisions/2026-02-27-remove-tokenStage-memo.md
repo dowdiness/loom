@@ -1,7 +1,7 @@
 # ADR: Remove `TokenStage` Memo from the Incremental Pipeline
 
 **Date:** 2026-02-27
-**Status:** Accepted
+**Status:** Accepted — **Reversed by** [2026-03-15: Reintroduce TokenStage Memo](2026-03-15-reintroduce-token-stage-memo.md), itself superseded by [2026-04-17: Unified Parser](2026-04-17-unified-parser-proposal.md)
 
 ## tl;dr
 
