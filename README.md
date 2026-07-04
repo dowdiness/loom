@@ -8,6 +8,21 @@ reactive pipeline. Any grammar plugs in via a single
 **New here?** Start with the [`dowdiness/loom` package README](loom/)
 for the API and a Quick Start, then browse the [docs index](docs/README.md).
 
+## Quick Start
+
+Monorepo — no root `moon.mod.json`; run `moon` from each module's directory.
+`incr`, `egraph`, `egglog`, and `event-graph-walker` are git submodules, so clone with `--recursive`:
+
+```bash
+git clone --recursive https://github.com/dowdiness/loom.git
+cd loom
+(cd loom && moon test)                    # framework module (loom/)
+(cd examples/lambda && moon test)         # lambda example
+(cd examples/lambda && moon bench --release)
+```
+
+Multi-module development workflow: [docs/development/managing-modules.md](docs/development/managing-modules.md).
+
 ## Modules
 
 Core framework (stable):
@@ -37,21 +52,6 @@ Sibling modules (see each module's README for scope and status):
 | [Markdown](examples/markdown/) | `examples/markdown/` | Mode-aware lexing via `ModeLexer` — line-start / inline / fenced code contexts |
 | [MoonBit](examples/moonbit/) | `examples/moonbit/` | Skeleton official MoonBit lexer adapter + coarse Loom CST grammar |
 | [Graph DSL](examples/graph-dsl/) | `examples/graph-dsl/` | Source-map/token-role graph authoring example with graph-operation lowering |
-
-## Quick Start
-
-Monorepo — every module is an independent MoonBit package, so run
-`moon` from the module directory:
-
-```bash
-git clone https://github.com/dowdiness/loom.git
-cd loom
-(cd loom && moon test)                    # framework
-(cd examples/lambda && moon test)         # lambda example
-(cd examples/lambda && moon bench --release)
-```
-
-Multi-module development workflow: [docs/development/managing-modules.md](docs/development/managing-modules.md).
 
 ## Documentation
 
