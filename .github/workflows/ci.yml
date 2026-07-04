@@ -415,6 +415,13 @@ jobs:
             loomgen/fixtures/lexmode_fixture.mbt \
             /tmp/ls-token /tmp/ls-syntax
           diff /tmp/ls-syntax/lexer_skeleton.g.mbt loomgen/fixtures/lexer_skeleton_fixture.g.mbt
+      - name: Verify grammar_ir compile-regression fixture
+        working-directory: .
+        run: |
+          bash fixtures/grammar_ir_regression/regenerate.sh
+          git diff --exit-code -- fixtures/grammar_ir_regression/grammar_ir.g.mbt
+          moon check --target native fixtures/grammar_ir_regression
+          moon test --target native fixtures/grammar_ir_regression
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest

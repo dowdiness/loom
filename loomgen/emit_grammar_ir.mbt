@@ -65,6 +65,18 @@ fn quote(s : String) -> String {
 }
 
 ///|
+/// Join a qualifier and name, omitting the dot when qualifier is empty.
+/// Used so `--token-qual "" --syntax-qual ""` produces bare type/constructor
+/// names for packages that define Token/SyntaxKind in the same compilation unit.
+fn qualify(qual : String, name : String) -> String {
+  if qual.length() > 0 {
+    qual + "." + name
+  } else {
+    name
+  }
+}
+
+///|
 /// What a symbol in a rule string resolves to. Every walker (`nullable`,
 /// `first_set`, `leading_refs`, `lower`) classifies a `Sym` the same way; routing
 /// them through one `resolve_sym` keeps that classification — and its diagnostics
@@ -383,9 +395,12 @@ fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
 /// token becomes `IsToken`, several become `OneOf`.
 fn pred_text(names : Array[String], ctx : LowerCtx) -> String {
   if names.length() == 1 {
-    ctx.grammar_qual + ".Pred::IsToken(" + ctx.token_qual + "." + names[0] + ")"
+    ctx.grammar_qual +
+    ".Pred::IsToken(" +
+    qualify(ctx.token_qual, names[0]) +
+    ")"
   } else {
-    let toks = names.map(n => ctx.token_qual + "." + n)
+    let toks = names.map(n => qualify(ctx.token_qual, n))
     ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
   }
 }
@@ -405,13 +420,9 @@ fn lower(
         Terminal(kind) =>
           ctx.grammar_qual +
           ".Expr::Expect(" +
-          ctx.token_qual +
-          "." +
-          name +
+          qualify(ctx.token_qual, name) +
           ", " +
-          ctx.syntax_qual +
-          "." +
-          kind +
+          qualify(ctx.syntax_qual, kind) +
           ")"
         Rule(_) => ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
         RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
@@ -527,7 +538,9 @@ fn lower_production(
 ) -> String raise RuleLowerError {
   StringBuilder()
   ..write_string(ctx.grammar_qual + ".Expr::Node(\n")
-  ..write_string(indent(depth + 1) + ctx.syntax_qual + "." + kind_name + ",\n")
+  ..write_string(
+    indent(depth + 1) + qualify(ctx.syntax_qual, kind_name) + ",\n",
+  )
   ..write_string(indent(depth + 1) + lower(body, ctx, depth + 1) + ",\n")
   ..write_string(indent(depth) + ")")
   .to_string()
@@ -682,13 +695,9 @@ fn emit_grammar_ir(
       " : " +
       grammar_qual +
       ".GrammarIr[" +
-      token_qual +
-      "." +
-      token_type +
+      qualify(token_qual, token_type) +
       ", " +
-      syntax_qual +
-      "." +
-      syntax_type +
+      qualify(syntax_qual, syntax_type) +
       "] =\n",
     )
     ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")

@@ -98,6 +98,28 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
   --grammar-file grammar/css.loomgrammar --language css
 ```
 
+## `--grammar-ir` flag
+
+`--grammar-ir <path>` generates a `<path>.g.mbt` file containing a
+`pub let <lang>_grammar_ir : @grammar.GrammarIr[Token, SyntaxKind]` value
+built from `#loom.rule` annotations on `#loom.term` variants.
+
+The annotation subset produces `Seq`, `Choice` (LL(1) disjoint), `Ref`,
+`RepeatWhile`, `Node`, and `Fail` constructs.  `@fragment` references are
+currently **rejected at generation time** — the fragment‑binding mechanism is
+deferred ([#540 item 4](https://github.com/dowdiness/loom/issues/540)).
+Until it lands, hand‑author `GrammarIr` directly for out‑of‑subset patterns.
+
+Usage:
+
+```bash
+moon run loomgen --target native -- token.mbt token_out syntax_out \
+  --term term.mbt --grammar-ir path/to/output.g.mbt --language mylang
+```
+
+A compile-regression fixture lives at `fixtures/grammar_ir_regression/` to
+guard against the generated output becoming uncompilable.
+
 ## Fixtures
 
 - `fixtures/parens.loomgrammar` — smallest `.loomgrammar` file; the differential
@@ -107,6 +129,8 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
   drives the file-only emission path (multi-production, cross-rule `Ref`,
   root-from-file) and the file-path fail-closed cases. `fixtures/file_only.g.mbt`
   is the golden the file-only test asserts against (full output, not substring)
+- `fixtures/grammar_ir_regression/` — compile-regression fixture guarding
+  against the `--grammar-ir` generated output becoming uncompilable
 - lambda token+term metadata is now split: `examples/lambda/token/token.mbt` (token source)
   and `examples/lambda/term_kind.mbt` (loaded via `--term`; see issue #563)
 - json token+term metadata follows the same split: `examples/json/token.mbt`
