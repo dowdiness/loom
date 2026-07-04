@@ -45,18 +45,6 @@ suberror RuleParseError {
 }
 
 ///|
-/// Code-unit predicates. `String[i]` is a UTF-16 `UInt16`; ASCII identifier
-/// characters are single code units, so byte-range checks are exact here.
-fn is_rule_ident_start(c : UInt16) -> Bool {
-  (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
-}
-
-///|
-fn is_rule_ident_char(c : UInt16) -> Bool {
-  is_rule_ident_start(c) || (c >= '0' && c <= '9')
-}
-
-///|
 /// Whether `s` is a valid (ASCII) MoonBit value identifier: non-empty, a leading
 /// letter or `_`, then letters/digits/`_`. Used to validate `--language` before
 /// it is spliced into a generated `pub let <lang>_grammar_ir` name.

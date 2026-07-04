@@ -62,6 +62,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
 
+- [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
 ### Architecture Decisions (ADRs)
 
 Short records of the *why* behind significant design choices. Most recent first.

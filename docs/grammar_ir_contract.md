@@ -1,0 +1,340 @@
+# Grammar IR Alternation Contract: Strict LL(1) Choice
+
+**Status:** Active contract
+**Date:** 2026-07-04
+**Issue:** [#540](https://github.com/dowdiness/loom/issues/540) (item 3)
+**Documents:** [design spec](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md),
+[implementation plan](superpowers/plans/2026-06-22-loomgen-ir-contract.md)
+
+---
+
+## 1. Purpose
+
+This document records the **deliberate** alternation semantics of the `#loom.rule` /
+`--grammar-ir` EBNF subset. The choice was validated (not inherited) against the
+subset's scope — **reasonably completable within ≤10 short productions** — and
+the decision to reject overlapping FIRST sets is a freedom the subset can afford
+that a full grammar language (e.g. monogram's ordered-choice) cannot.
+
+The contract covers the `#loom.rule` annotation and `.loomgrammar` file paths,
+both of which emit `@grammar.GrammarIr` values via
+`loomgen/emit_grammar_ir.mbt`.
+
+---
+
+## 2. Core Principle
+
+**Every `Choice` alternative must have a clean, disjoint FIRST set.** Overlapping
+FIRST sets are rejected at generation time, never compiled or interpreted. The
+generated `GrammarIr` is guaranteed to have no FIRST/FIRST conflicts: a consumer
+at the other side of the contract (`@grammar.interpret`, or a future code
+emitter) can dispatch any `Choice` by a single-token peek without a tiebreaker.
+
+The interpreter's `Choice` dispatch at runtime simply walks `Alt[]` in declaration
+order and runs the first whose `starts` matches (see
+[`interpreter.mbt`](../loom/grammar/interpreter.mbt), `run_expr`, the
+`Choice(alts)` arm). It **never** sees a conflict because the build gate already
+enforced one.
+
+---
+
+## 3. Produced `Expr` Nodes
+
+The `#loom.rule` annotation subset lowers to exactly six `@grammar.Expr` variants
+([`emit_grammar_ir.mbt`](../loomgen/emit_grammar_ir.mbt), function `lower`):
+
+| EBNF form | Generated `Expr` node | Semantics |
+|---|---|---|
+| `A B C` (space-separated) | `Seq([A, B, C])` | Sequential composition |
+| `A \| B` | `Choice([Alt{starts: FIRST(A), body: A}, Alt{starts: FIRST(B), body: B}])` + auto-synthesized `Any→Fail` fallback | First-match ordered, guaranteed disjoint FIRST sets |
+| `X?` | `Choice([Alt{starts: FIRST(X), body: X}])` — single-alt, no fallback | Optional. Matches nothing when absent (no error) |
+| `X*` | `RepeatWhile(FIRST(X), X)` | Zero-or-more, gated on FIRST |
+| `X+` | `Seq([X, RepeatWhile(FIRST(X), X)])` | One-or-more |
+| `Name` (terminal) | `Expect(token, kind)` | Consume-and-check a single token |
+| `Name` (term rule) | `Ref("Name")` | Delegate to another rule by name |
+
+**Node wrapping.** Every rule body is emitted inside a
+`Node(<kind>, <body>)` — the kind comes from the term variant's
+`#loom.node`/`#loom.leaf`/`#loom.root` role, which is the CST kind generated
+into `SyntaxKind`.
+
+**The `Fail` node** never appears in source `#loom.rule` text. It is auto-synthesized
+as the trailing `Any→Fail` fallback on required `Choice` nodes so a required
+alternation that matches no branch emits a diagnostic + placeholder instead of
+silently passing through.
+
+### How other `Expr` nodes are unreachable from `#loom.rule`
+
+The remaining `Expr` variants are **out of subset** — they cannot be produced
+by any `#loom.rule` annotation or `.loomgrammar` production. Fragments bound
+through `@fragment` references (see §5) reach the generated IR for these:
+
+`Emit`, `PrattBinary`, `PrattApp`, `RepeatTopLevel`, `WrapIfNext`,
+`EmitError`, `ErrorUntil`, `EmitOr`, `DiagnoseIf`, `ExpectSkip`,
+`ConsumeGated`, `RequireSep`, `ErrorNodeUntil`
+
+`Native(RuleName)` has its own escape hatch
+(`check_no_fragments` skips `Native`; see [`emit_grammar_ir.mbt`](../loomgen/emit_grammar_ir.mbt)) and
+is not fragment‑bound.  `ManualNewlineAppExpr` is interpreter‑only residue that
+cannot be authored in any notation path.
+
+These fragment‑bound variants are proven necessary by real usage in loom's own
+reference grammar (`examples/lambda/spike/lambda_grammar_ir.mbt`, cited in
+[#540 comment](https://github.com/dowdiness/loom/issues/540#issuecomment-4857593443)).
+They are not theoretical — but they are also not expressible in the notation
+subset.
+
+---
+
+## 4. FIRST-Set Computation and Conflict Rejection
+
+### 4.1 What is computed
+
+`loomgen/emit_grammar_ir.mbt` computes FIRST sets on the **EBNF** `RuleAst`
+before lowering to `GrammarIr`:
+
+- **`nullable(ast)`** — whether the construct derives the empty string. A
+terminal and a fragment are never nullable; a rule is nullable iff its body is.
+A nullable cycle returns `false` conservatively (the cycle is caught separately
+by the left-recursion check).
+- **`first_set(ast)`** — the set of token names that can begin `ast`. Unions
+left-to-right through nullable prefixes of `Seq`, stopping at the first
+non-nullable element. A rule cycle inside a FIRST query raises a left-recursion
+error.
+- **`leading_refs(ast)`** — rule-name edges in leading position, used for eager
+left-recursion detection (catches cycles in `Seq`/`Node` position where
+`first_set` would never be consulted).
+- **`first_names_ordered(ast)`** — the FIRST set as a declaration-order array,
+raising on empty set (a nullable construct cannot gate a `Choice` or `Repeat`).
+
+### 4.2 When rejection fires
+
+In `lower_choice` (line 467 of `emit_grammar_ir.mbt`), every token from every
+branch's `first_names_ordered` is checked against all previously accumulated
+branch tokens:
+
+```text
+if expected.contains(n):
+  raise RuleLowerError(
+    "ambiguous alternation: token '" + n +
+    "' begins more than one alternative; " +
+    "the #loom.rule subset requires alternatives " +
+    "with disjoint FIRST sets"
+  )
+```
+
+One token shared between two branches → the entire grammar generation fails
+closed. There is no ordered-choice fallback, no precedence tiebreaker, no
+"first match wins" escape valve.
+
+### 4.3 What is also rejected at generation time
+
+- **Left-recursive rules.** Checked both eagerly (3-color DFS over leading-ref
+graph in `check_left_recursion`) and on demand (cycle detection inside
+`first_set`).
+- **`@fragment` references.** Rejected by `check_no_fragments` (the primary
+gate) and defensively in both `lower` and `first_set`. See §5.
+- **Ruleless term references.** A `Name` referring to a `#loom.term` variant
+with no `#loom.rule` and no `.loomgrammar` production is rejected.
+- **Unknown symbols.** A `Name` that is neither a token nor a term variant is
+rejected.
+- **Empty FIRST sets.** A construct that can always derive the empty string
+cannot gate a `Choice` or `RepeatWhile`.
+
+### 4.4 For the interpreter: no runtime overlap check
+
+The interpreter's `Choice` dispatch
+([`interpreter.mbt`](../loom/grammar/interpreter.mbt)) is a simple first-match
+keeps the hot path tight.
+
+---
+
+## 5. `@fragment` Escape Hatch
+
+`@fragment` references are the **intended escape hatch** for non-LL(1) patterns
+and out-of-subset `Expr` nodes (Pratt, delimited repeats, gated skips, etc.).
+A fragment reference `@name` in a `#loom.rule` annotation or `.loomgrammar`
+file names a hand-authored `pub let name : Expr[T, K]` value that the caller
+supplies at grammar compilation time.
+
+### 5.1 Current status: rejected closed
+
+As of PR #534 (2026-06-28), `@fragment` references are **rejected at generation
+time**. The generated `GrammarIr` is a closed value with no seam to bind
+hand-authored `Expr` bodies, so a `Ref("frag")` from a fragment reference would
+dangle — `@grammar.compile` raises `MissingRef`.
+
+The rejection is enforced by `check_no_fragments` in `emit_grammar_ir.mbt`,
+which walks every rule body before FIRST-set computation and fails if any
+`Frag(name)` is found. Both the `lower` and `first_set` functions carry
+defensive backstop arms for fragments.
+
+### 5.2 Design for fragment binding (deferred, see #540 item 4)
+
+The intended binding path, sketched in
+[#540 item 4](https://github.com/dowdiness/loom/issues/540), works one of two ways:
+
+1. **Generated bindings.** The emitter emits the rule map with entries like
+   `"frag": name` where `name` resolves to a hand-authored
+   `pub let frag_rule : Expr[Token, SyntaxKind]` value. The `Ref("frag")`
+   then resolves at compile time; a missing binding becomes a **compile** error
+   (`MissingRef`), never a runtime anomally.
+
+2. **Extensible constructor.** The generated `GrammarIr` factory takes a
+   `fragments~` parameter — a `Map[RuleName, Expr[T, K]]` that the caller
+   provides. The emitter inserts a `Map::merge` or equivalent, so a fragment
+   reference hits the correct hand-authored body.
+
+Both approaches keep `Expr` closure-free — the fragment hand-author still writes
+data, never host closures — so the entire `GrammarIr` remains analyzable and
+emittable.
+
+### 5.3 What fragments enable
+
+13 fragment‑bound `Expr` variants (as counted in the
+[#540 follow-up comment](https://github.com/dowdiness/loom/issues/540#issuecomment-4857593443))
+require `@fragment` binding today — the 7 in‑subset nodes are the ones
+listed in §3.  Among the fragment‑bound forms, `Emit` and `ExpectSkip` have
+the highest call‑site frequency:
+
+```
+(every in‑subset variant is the 7 listed in §3)
+Emit            — 13 uses (non‑diagnosing token consume inside a gated arm)
+ExpectSkip      —  4 uses (gated skip then require)
+EmitOr          —  2 uses
+EmitError       —  2 uses
+WrapIfNext      —  1 use
+RequireSep      —  1 use
+RepeatTopLevel  —  1 use
+PrattBinary     —  1 use
+PrattApp        —  1 use
+ErrorUntil      —  1 use
+ErrorNodeUntil  —  1 use
+DiagnoseIf      —  1 use
+ConsumeGated    —  1 use
+```
+
+`Native(RuleName)` (added in [#541](https://github.com/dowdiness/loom/issues/541))
+is a separate escape‑hatch and is not fragment‑bound.
+`ManualNewlineAppExpr` is interpreter‑only residue with no reified form in
+either path.
+
+When fragment binding lands, a language author can drop out of the LL(1) subset
+for specific rules by hand-authoring `Expr` values that use any of these nodes
+— including overlapping FIRST sets, which the hand-written `Alt` predicates
+control directly without going through the FIRST-set gate.
+
+---
+
+## 6. Why Strict LL(1) (Decision Record)
+
+This contract is a **deliberate design decision** — not an inherited side effect
+of an implementation detail. Its basis is recorded in
+[#540 item 3](https://github.com/dowdiness/loom/issues/540):
+
+> Make this a conscious call and document it: keep strict LL(1) disjointness
+> (current behavior) and state it as the subset's contract.
+>
+> For the "≤10 short productions" scope strict LL(1) is defensible, but it
+> should be a decided contract, not an inherited side effect.
+
+### 6.1 What the subset's size buys us
+
+The `#loom.rule` annotation subset targets grammars that fit comfortably within
+a variant annotation string — typically 1–10 productions, each ≤15 tokens of
+EBNF. At this scale:
+
+- **Grammar-wide FIRST-set analysis is cheap.** The `nullable`/`first_set`/`leading_refs`
+  triple pass over a 10-rule grammar runs in microseconds and never enters a
+  performance-critical path.
+- **Disjoint FIRST sets are achievable without heroics.** At ≤10 productions,
+  a language author can almost always restructure a FIRST/FIRST conflict (e.g.
+  by factoring the common left-edge into a shared helper rule). The conflict
+  diagnostic points directly at the overlapping token, and the fix is local.
+- **No ordered-choice need.** The overlapping token in `(A B | A C)` is always
+  resolvable by introducing a factoring rule `A (B | C)`. Ordered choice would
+  silently shadow the second branch's error recovery, which is worse than
+  rejecting the grammar.
+
+### 6.2 What it costs
+
+- **`@fragment` binding is mandatory**, not optional, for any consumer that needs
+  Pratt parsing, delimited repeats, gated skip, or error recovery nodes.
+- **Fragment-free grammars are strictly LL(1).** A consumer whose grammar does
+  not use `@fragment` can assume single-token-lookahead dispatch everywhere.
+  This is a strong guarantee: the generated `GrammarIr` has zero FIRST/FIRST
+  conflicts by construction.
+- **Scaling beyond the subset.** A language whose grammar grows beyond the
+  "≤10 short productions" scope will encounter FIRST-set constraints more
+  frequently. At that point the pressure argues for either (a) more `@fragment`
+  usage (the subset is a design barrier, not a mistake), or (b) moving to the
+  hand-authored `GrammarIr` API directly, bypassing the annotation subset
+  entirely.
+
+### 6.3 Relationship to `@grammar.compile`
+
+The `@grammar.compile` function (in `loom/grammar/compile.mbt`) is **agnostic**
+to the LL(1) contract. It compiles any `GrammarIr` value, including one whose
+`Choice` nodes have overlapping FIRST sets — those are valid (first-match
+semantics, PEG-like) at the `@grammar` layer. The strict LL(1) contract is
+enforced at the **generation** boundary (`loomgen emit_grammar_ir.mbt`), not
+at the `@grammar` library boundary, so `@grammar` remains general while
+`--grammar-ir` is strict.
+
+---
+
+## 7. Implications for Consumers
+
+### 7.1 Downstream from `--grammar-ir` (the generated `GrammarIr`)
+
+- Every `Choice` has disjoint FIRST sets. The runtime interpreter
+  (`@grammar.interpret`) will never dispatch the wrong branch due to overlap.
+- Every required `Choice` has a trailing `Any→Fail` fallback. An input that
+  matches no branch surfaces a diagnostic + placeholder instead of silently
+  passing through.
+- Every optional `Choice` (from `X?`) has no fallback. Absence is silence.
+- Every top-level rule has a `Node` wrapper with its CST kind. The engine's
+  incremental reuse machinery keys on node kinds — so every parse gets its
+  root node and every rule-body subtree gets a structural root the seam model
+  can track across edits.
+
+### 7.2 Upstream (the language author writing `#loom.rule` or `.loomgrammar`)
+
+- `(A B | A C)` is rejected: rule grammar is LL(1) or it does not generate.
+- Left recursion is rejected — rewrite cycles as `(` x `)*` repetition.
+- `@fragment` references are rejected until the fragment-binding mechanism lands
+  (see §5.2 and #540 item 4). In the meantime, hand-author `GrammarIr` directly
+  for out-of-subset patterns.
+- A nullable body cannot gate a `Choice` or `RepeatWhile`: if a branch can
+  begin with nothing, it cannot have a defined FIRST set, and the rejection
+  prevents an infinite loop in `RepeatWhile` or a silent no-op in `Choice`.
+- `X+` / `X*` bodies with a partially-nullable inner are safe: the empty-FIRST
+  guard rejects fully-nullable bodies, and a partially-nullable body always
+  consumes its gating FIRST token (FIRST exists only because some derivation
+  `Expect`s the gating token, which the body reaches), so `RepeatWhile` always
+  progresses. The `Any→Fail` fallback cannot fire inside a repeat — the repeat
+  only enters on a real FIRST match.
+
+---
+
+## 8. Related
+
+- [#540 — loomgen #522 follow-ups](https://github.com/dowdiness/loom/issues/540)
+  — Parent issue covering compile-regression (item 1), interpret parity (item 2),
+  alternation semantics (this document, item 3), `@fragment` binding (item 4),
+  and documentation gaps (items 5-6).
+- [#541 — `Native(RuleName)` IR escape-hatch node](https://github.com/dowdiness/loom/issues/541)
+  — Context-sensitive production escape (HTML tag matching, hand-authored parse
+  functions), sharing the same compile-time validation discipline as fragment
+  binding.
+- [Design spec: minimal grammar-IR contract](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md)
+  — The full design, including predicate reification (`Pred[T]`), escape-hatch
+  policy, and the decision to reify-to-data rather than admit `Opaque` closures.
+- [Implementation plan: loomgen IR contract](superpowers/plans/2026-06-22-loomgen-ir-contract.md)
+  — Execution tasks for the reified `[T,K]` grammar IR.
+- `loomgen/emit_grammar_ir.mbt` — The `lower_choice` function where the
+  disjoint-FIRST check lives.
+- `loom/grammar/interpreter.mbt` — The `Choice(alts)` arm in `run_expr` where
+  the first-match peek-and-run dispatch executes.
+- `loom/grammar/compile.mbt` — Grammar compilation (rule interning, ref
+  resolution), independent of the LL(1) contract.

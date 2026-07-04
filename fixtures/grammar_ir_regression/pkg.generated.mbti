@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loom_tests/grammar_ir_regression"
+
+import {
+  "dowdiness/loom/grammar",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let fixture_grammar_ir : @grammar.GrammarIr[Token, SyntaxKind]
+
+// Errors
+
+// Types and methods
+pub(all) enum SyntaxKind {
+  Start
+  AToken
+  BToken
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Token {
+  A
+  B
+  Eof
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+
