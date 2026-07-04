@@ -24,6 +24,7 @@ pub fn[T, K] ParserContext::new(
     reuse_cursor: None,
     reuse_diagnostics: None,
     reuse_count: 0,
+    lex_mode: 0,
   }
 }
 
@@ -53,6 +54,7 @@ pub fn[T, K] ParserContext::new_indexed(
     open_nodes: 0,
     reuse_cursor: None,
     reuse_diagnostics: None,
+    lex_mode: 0,
     reuse_count: 0,
   }
 }
@@ -273,4 +275,21 @@ fn[T, K] ParserContext::text_at(
   pos : Int,
 ) -> StringView {
   self.token_text_at(pos)
+}
+
+///|
+/// Return the current lex mode. 0 = initial/default mode.
+/// The mode value is an opaque integer; the grammar assigns semantic meaning.
+pub fn[T, K] ParserContext::lex_mode(self : ParserContext[T, K]) -> Int {
+  self.lex_mode
+}
+
+///|
+/// Set the lex mode for parser-driven mode switching.
+/// The mode value is an opaque integer; the grammar assigns semantic meaning.
+pub fn[T, K] ParserContext::set_lex_mode(
+  self : ParserContext[T, K],
+  mode : Int,
+) -> Unit {
+  self.lex_mode = mode
 }

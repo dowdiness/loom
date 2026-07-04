@@ -150,6 +150,32 @@ test "ParserContext can be constructed" {
 }
 
 ///|
+test "lex_mode defaults to 0" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "ab", spec)
+  inspect(ctx.lex_mode(), content="0")
+}
+
+///|
+test "set_lex_mode updates the current lex mode" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "ab", spec)
+  ctx.set_lex_mode(3)
+  inspect(ctx.lex_mode(), content="3")
+}
+
+///|
+test "checkpoint/restore preserves lex mode" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "ab", spec)
+  ctx.set_lex_mode(7)
+  let cp = ctx.checkpoint()
+  ctx.set_lex_mode(42)
+  ctx.restore(cp)
+  inspect(ctx.lex_mode(), content="7")
+}
+
+///|
 test "peek returns current token" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
