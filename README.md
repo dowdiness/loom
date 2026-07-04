@@ -14,8 +14,8 @@ Monorepo — no root `moon.mod.json`; run `moon` from each module's directory.
 `incr`, `egraph`, `egglog`, and `event-graph-walker` are git submodules, so clone with `--recursive`:
 
 ```bash
-git clone --recursive https://github.com/dowdiness/loom.git
-cd loom
+git clone --recursive https://github.com/dowdiness/loom.git && cd loom
+moon update                               # fetch the package registry index
 (cd loom && moon test)                    # framework module (loom/)
 (cd examples/lambda && moon test)         # lambda example
 (cd examples/lambda && moon bench --release)
