@@ -81,6 +81,22 @@ If the ADR supersedes another ADR, add a `**Supersedes:**` line.
 If it is superseded later, update `**Status:**` and add a `**Superseded by:**`
 line.
 
+## Status Field Semantics
+
+`**Status:**` is advisory, not a source of truth for current code state. Do
+not infer "this decision is live in the code" from `Status: Accepted` —
+route current-state questions to `docs/architecture/` and the code itself;
+route "why" questions to the ADR body (which never goes stale).
+
+Supersession must be declared explicitly. If a new ADR undoes an earlier
+decision **even as a side effect** of a larger consolidation, update the
+earlier ADR's `**Status:**` line in the same change — a mention in the new
+ADR's References section does not count. (The 2026-03-15 TokenStage ADR sat
+at `Accepted` for months after Stage 6 removed the memo, because the
+superseding ADR only referenced it as "relevant".) The same applies to
+`**Reverses:**` — add the matching `**Reversed by:**` back-pointer to the
+older ADR.
+
 ## Final Response Requirement
 
 When a task completes or archives a plan, the agent's final response must state
