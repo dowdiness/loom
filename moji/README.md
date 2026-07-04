@@ -132,7 +132,7 @@ vendored UCD 15.1 files under `testdata/`. To bump the Unicode version
 or refresh after editing the generators:
 
 ```bash
-cd lib/moji
+cd moji
 python3 scripts/gen_property_tables.py     # → property_tables.mbt
 python3 scripts/gen_break_test_cases.py    # → graphemebreaktest_cases_wbtest.mbt
                                            # + wordbreaktest_cases_wbtest.mbt

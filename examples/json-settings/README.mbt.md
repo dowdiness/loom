@@ -29,7 +29,7 @@ three rules the grammar cannot —
   Parse/projection failures are *values*; a boundary `ReadError` is a distinct
   `GraphBlocked` state, never folded into a parser or projection diagnostic.
 - **Stable identity across edits.** It reuses
-  [`@loom.ProjectionIdentityTracker`](../../loom/src/core/projection_identity.mbt):
+  [`@loom.ProjectionIdentityTracker`](../../loom/projection/projection_identity.mbt):
   ids are opaque and allocation-order based, so an unchanged setting keeps its id
   even when keys are inserted/removed around it, and the baseline only advances
   on a *successful* projection.
