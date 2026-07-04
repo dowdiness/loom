@@ -19,7 +19,7 @@ Implemented in canopy [#251] from the original [#250] request; spec at
 - **1187/1187** Unicode 15.1 `GraphemeBreakTest.txt` cases pass
 - **1826/1826** Unicode 15.1 `WordBreakTest.txt` cases pass
 - **41** inline §4.1 / §4.2 spec fixtures
-- **43** total tests in the package
+- **47** total tests in the package
 
 ## Public API
 
@@ -136,5 +136,5 @@ cd moji
 python3 scripts/gen_property_tables.py     # → property_tables.mbt
 python3 scripts/gen_break_test_cases.py    # → graphemebreaktest_cases_wbtest.mbt
                                            # + wordbreaktest_cases_wbtest.mbt
-moon test --package dowdiness/moji         # 43 tests
+moon test --package dowdiness/moji         # currently 47 tests
 ```
