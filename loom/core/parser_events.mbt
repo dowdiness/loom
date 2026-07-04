@@ -172,6 +172,7 @@ pub fn[T, K] ParserContext::checkpoint(
     open_nodes: self.open_nodes,
     reuse_cursor,
     reuse_count: self.reuse_count,
+    lex_mode: self.lex_mode,
   }
 }
 
@@ -187,6 +188,7 @@ pub fn[T, K] ParserContext::restore(
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
+  self.lex_mode = cp.lex_mode
   self.reuse_count = cp.reuse_count
 }
 
