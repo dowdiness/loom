@@ -107,10 +107,7 @@ jobs:
       # transformations (clone → ls-remote, skip the post-clone cd).
       - name: Quick Start commands (tests)
         run: bash scripts/check-quickstart.sh --tests
-      # Known failing: moon bench --release hits #593. Non-blocking until
-      # that is fixed — flip continue-on-error off when closing #593.
-      - name: Quick Start commands (bench, non-blocking — #593)
-        continue-on-error: true
+      - name: Quick Start commands (bench)
         run: bash scripts/check-quickstart.sh --bench
 
   fmt-check:
