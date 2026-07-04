@@ -11,6 +11,42 @@ import {
 // Errors
 
 // Types and methods
+pub struct BlockExprProj {
+  node : @seam.SyntaxNode
+}
+pub fn BlockExprProj::cast(@seam.SyntaxNode) -> Self?
+pub fn BlockExprProj::defs(Self) -> Array[@seam.SyntaxNode]
+pub impl @seam.AstView for BlockExprProj
+
+pub struct IfConditionProj {
+  node : @seam.SyntaxNode
+}
+pub fn IfConditionProj::cast(@seam.SyntaxNode) -> Self?
+pub impl @seam.AstView for IfConditionProj
+
+pub struct IfExprProj {
+  node : @seam.SyntaxNode
+}
+pub fn IfExprProj::cast(@seam.SyntaxNode) -> Self?
+pub fn IfExprProj::condition(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
+pub fn IfExprProj::else_branch(Self, message? : String) -> Result[@seam.SyntaxNode?, @seam.ProjectionShapeError]
+pub fn IfExprProj::then_branch(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
+pub impl @seam.AstView for IfExprProj
+
+pub struct LambdaBodyProj {
+  node : @seam.SyntaxNode
+}
+pub fn LambdaBodyProj::cast(@seam.SyntaxNode) -> Self?
+pub fn LambdaBodyProj::inner(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
+pub impl @seam.AstView for LambdaBodyProj
+
+pub struct LambdaExprProj {
+  node : @seam.SyntaxNode
+}
+pub fn LambdaExprProj::body(Self, message? : String) -> Result[@seam.SyntaxNode, @seam.ProjectionShapeError]
+pub fn LambdaExprProj::cast(@seam.SyntaxNode) -> Self?
+pub impl @seam.AstView for LambdaExprProj
+
 pub(all) enum SyntaxKind {
   LambdaToken
   DotToken
@@ -55,6 +91,10 @@ pub(all) enum SyntaxKind {
   TypeInt
   TypeUnit
   TypeArrow
+  IfCondition
+  IfThen
+  IfElse
+  LambdaBody
 } derive(Eq, @debug.Debug)
 pub fn SyntaxKind::is_token(Self) -> Bool
 pub impl @seam.FromRawKind for SyntaxKind

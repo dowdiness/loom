@@ -181,7 +181,7 @@ pub using @core {type TokenEvidence}
 
 pub using @core {type TokenInfo}
 
-pub using @core {trait AstView}
+pub using @seam {trait AstView}
 
 pub using @seam {trait FromRawKind}
 

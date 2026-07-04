@@ -437,12 +437,9 @@ pub struct TokenInfo[T] {
 pub fn[T] TokenInfo::new(T, Int) -> Self[T]
 
 // Type aliases
+pub using @seam {trait AstView}
 
 // Traits
-pub(open) trait AstView {
-  fn syntax_node(Self) -> @seam.SyntaxNode
-}
-
 pub(open) trait Canonical {
   fn canonical(Self) -> Self
 }

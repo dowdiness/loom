@@ -67,7 +67,7 @@ pub fn AppExprView::arg(Self) -> @seam.SyntaxNode?
 pub fn AppExprView::args(Self) -> Array[@seam.SyntaxNode]
 pub fn AppExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn AppExprView::func(Self) -> @seam.SyntaxNode?
-pub impl @core.AstView for AppExprView
+pub impl @seam.AstView for AppExprView
 pub impl ToJson for AppExprView
 
 pub struct BinaryExprView {
@@ -79,7 +79,7 @@ pub fn BinaryExprView::op(Self) -> @ast.Bop?
 pub fn BinaryExprView::operands(Self) -> Array[@seam.SyntaxNode]
 pub fn BinaryExprView::ops(Self) -> Array[@ast.Bop]
 pub fn BinaryExprView::rhs(Self) -> @seam.SyntaxNode?
-pub impl @core.AstView for BinaryExprView
+pub impl @seam.AstView for BinaryExprView
 pub impl ToJson for BinaryExprView
 
 pub struct BlockExprView {
@@ -88,14 +88,14 @@ pub struct BlockExprView {
 pub fn BlockExprView::body(Self) -> @seam.SyntaxNode?
 pub fn BlockExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn BlockExprView::defs(Self) -> Array[LetDefView]
-pub impl @core.AstView for BlockExprView
+pub impl @seam.AstView for BlockExprView
 pub impl ToJson for BlockExprView
 
 pub struct HoleLiteralView {
   node : @seam.SyntaxNode
 }
 pub fn HoleLiteralView::cast(@seam.SyntaxNode) -> Self?
-pub impl @core.AstView for HoleLiteralView
+pub impl @seam.AstView for HoleLiteralView
 pub impl ToJson for HoleLiteralView
 
 pub struct IfExprView {
@@ -105,7 +105,7 @@ pub fn IfExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn IfExprView::condition(Self) -> @seam.SyntaxNode?
 pub fn IfExprView::else_branch(Self) -> @seam.SyntaxNode?
 pub fn IfExprView::then_branch(Self) -> @seam.SyntaxNode?
-pub impl @core.AstView for IfExprView
+pub impl @seam.AstView for IfExprView
 pub impl ToJson for IfExprView
 
 pub struct IntLiteralView {
@@ -113,7 +113,7 @@ pub struct IntLiteralView {
 }
 pub fn IntLiteralView::cast(@seam.SyntaxNode) -> Self?
 pub fn IntLiteralView::value(Self) -> Int?
-pub impl @core.AstView for IntLiteralView
+pub impl @seam.AstView for IntLiteralView
 pub impl ToJson for IntLiteralView
 
 pub(all) struct LambdaAnalysis {
@@ -150,7 +150,7 @@ pub fn LambdaExprView::body(Self) -> @seam.SyntaxNode?
 pub fn LambdaExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn LambdaExprView::param(Self) -> String
 pub fn LambdaExprView::params(Self) -> Array[String]
-pub impl @core.AstView for LambdaExprView
+pub impl @seam.AstView for LambdaExprView
 pub impl ToJson for LambdaExprView
 
 pub struct LetDefView {
@@ -160,7 +160,7 @@ pub fn LetDefView::cast(@seam.SyntaxNode) -> Self?
 pub fn LetDefView::init(Self) -> @seam.SyntaxNode?
 pub fn LetDefView::name(Self) -> String
 pub fn LetDefView::params(Self) -> Array[String]
-pub impl @core.AstView for LetDefView
+pub impl @seam.AstView for LetDefView
 pub impl ToJson for LetDefView
 
 pub struct ParenExprView {
@@ -168,19 +168,43 @@ pub struct ParenExprView {
 }
 pub fn ParenExprView::cast(@seam.SyntaxNode) -> Self?
 pub fn ParenExprView::inner(Self) -> @seam.SyntaxNode?
-pub impl @core.AstView for ParenExprView
+pub impl @seam.AstView for ParenExprView
 pub impl ToJson for ParenExprView
 
 pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
 } derive(Eq, @debug.Debug)
 
+pub(all) enum TermKind {
+  LambdaExpr
+  AppExpr
+  BinaryExpr
+  IfExpr
+  ParenExpr
+  IntLiteral
+  VarRef
+  ErrorNode
+  SourceFile
+  LetDef
+  ParamList
+  BlockExpr
+  HoleLiteral
+  TypeAnnot
+  TypeInt
+  TypeUnit
+  TypeArrow
+  IfCondition
+  IfThen
+  IfElse
+  LambdaBody
+}
+
 pub struct TypeAnnotView {
   node : @seam.SyntaxNode
 }
 pub fn TypeAnnotView::cast(@seam.SyntaxNode) -> Self?
 pub fn TypeAnnotView::to_type(Self) -> @typecheck.Type?
-pub impl @core.AstView for TypeAnnotView
+pub impl @seam.AstView for TypeAnnotView
 
 pub(all) struct TypecheckAttachment {
   scope : @cells.Scope
@@ -196,7 +220,7 @@ pub struct VarRefView {
 }
 pub fn VarRefView::cast(@seam.SyntaxNode) -> Self?
 pub fn VarRefView::name(Self) -> String
-pub impl @core.AstView for VarRefView
+pub impl @seam.AstView for VarRefView
 pub impl ToJson for VarRefView
 
 pub(all) enum VarStatus {
