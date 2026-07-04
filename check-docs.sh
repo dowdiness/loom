@@ -224,6 +224,38 @@ done < <(find . -name "*.md" \
   -print0 | sort -z)
 [[ "$link_rot" -eq 0 ]] && ok "All relative links resolve"
 
+# 8. Active Plans reflect GitHub state
+#
+# Every "_Active:" entry in docs/README.md must cite an OPEN issue/PR —
+# the first #NNN reference on the line is treated as the tracking issue.
+# Catches shipped work still advertised as in-flight (found 2026-07-04:
+# two entries claimed Active/pending for work merged weeks earlier).
+#
+# Needs gh with credentials (GH_TOKEN in CI); warn-skips offline.
+echo ""
+echo "Active plans state:"
+active_lines=$(grep -n '^_Active:' docs/README.md || true)
+if [[ -z "$active_lines" ]]; then
+  ok "No _Active: entries"
+elif ! command -v gh >/dev/null 2>&1; then
+  warn "gh not available; skipping Active-plan state check"
+else
+  while IFS= read -r entry; do
+    lineno="${entry%%:*}"
+    issue=$(echo "$entry" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+    if [[ -z "$issue" ]]; then
+      warn "docs/README.md:$lineno — _Active: entry cites no #issue"
+      continue
+    fi
+    state=$(gh api "repos/dowdiness/loom/issues/$issue" --jq .state 2>/dev/null || echo "unknown")
+    case "$state" in
+      open)    ok "docs/README.md:$lineno — #$issue is open" ;;
+      unknown) warn "docs/README.md:$lineno — could not query #$issue (offline or unauthenticated?)" ;;
+      *)       fail "docs/README.md:$lineno — _Active: cites #$issue but it is $state; update the entry" ;;
+    esac
+  done <<< "$active_lines"
+fi
+
 # Summary
 echo ""
 echo "-----------------"
