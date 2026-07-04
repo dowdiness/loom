@@ -177,6 +177,53 @@ done < <(find . -name "moon.mod.json" \
   -print0 | sort -z)
 [[ "$doctest_hits" -eq 0 ]] && ok "All packages with runnable snippets have README.mbt.md"
 
+# 7. Relative links resolve
+#
+# Every path-like relative link in current docs must point at an existing
+# file or directory. Catches link rot from file moves, renames, and dangling
+# symlinks (e.g. the 2026-07-04 examples/*/README.md symlink rot).
+#
+# Excluded: docs/archive (historical docs legitimately reference deleted
+# files), submodules (their docs belong to their own repos), and non-path
+# targets (inline code like "Self[Ast](x)" and template placeholders like
+# "<plan>.md" match the markdown link regex but are not links).
+echo ""
+echo "Relative links:"
+link_rot=0
+while IFS= read -r -d '' f; do
+  dir=$(dirname "$f")
+  while IFS= read -r raw; do
+    link="${raw#](}"
+    link="${link%)}"
+    link="${link%% *}"        # drop optional "title"
+    link="${link%%#*}"        # drop anchor
+    [[ -z "$link" ]] && continue
+    case "$link" in
+      http://*|https://*|mailto:*|/*) continue ;;
+    esac
+    [[ "$link" == *"<"* || "$link" == *"["* ]] && continue
+    # Only path-like targets: contain a slash or end in a known file extension
+    if [[ "$link" != */* ]] &&
+       [[ ! "$link" =~ \.(md|mbti|mbt|sh|py|mjs|json|tsv|toml|yml)$ ]]; then
+      continue
+    fi
+    if [[ ! -e "$dir/$link" ]]; then
+      fail "$f -> $link (missing)"
+      link_rot=1
+    fi
+  done < <(grep -oE '\]\([^)]+\)' "$f" 2>/dev/null || true)
+done < <(find . -name "*.md" \
+  ! -path "*/_build/*" \
+  ! -path "./.claude/*" \
+  ! -path "*/.mooncakes/*" \
+  ! -path "./docs/archive/*" \
+  ! -path "./incr/*" \
+  ! -path "./egraph/*" \
+  ! -path "./egglog/*" \
+  ! -path "./event-graph-walker/*" \
+  -print0 | sort -z)
+[[ "$link_rot" -eq 0 ]] && ok "All relative links resolve"
+
 # Summary
 echo ""
 echo "-----------------"

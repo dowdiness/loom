@@ -134,7 +134,7 @@ should keep the `Option` from `direct_token_of_kind(kind)` and branch explicitly
 
 The library satisfies all four structural independence properties (completeness,
 context-freedom, uniform error representation, transparent structure) described in
-[Incremental Hylomorphism §2](../../docs/architecture/Incremental-Hylomorphism.md).
+[Incremental Hylomorphism §2](https://github.com/dowdiness/canopy/blob/main/docs/architecture/Incremental-Hylomorphism.md).
 
 ---
 
