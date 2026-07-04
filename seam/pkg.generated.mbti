@@ -155,6 +155,7 @@ pub(all) struct ProjectionShapeError {
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
+pub fn ProjectionShapeError::ProjectionShapeError(SyntaxNode, RawKind, ProjectionShapeElement, ProjectionShapeExpectation, Int, Int, Int, message~ : String) -> Self
 
 pub(all) enum ProjectionShapeExpectation {
   ExpectedZero
@@ -251,6 +252,10 @@ pub enum TokenAtOffset {
 // Type aliases
 
 // Traits
+pub(open) trait AstView {
+  fn syntax_node(Self) -> SyntaxNode
+}
+
 pub(open) trait Finder {
   fn check(Self, CstElement) -> Bool
 }

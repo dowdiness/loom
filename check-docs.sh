@@ -127,6 +127,7 @@ while IFS= read -r -d '' f; do
   done
 done < <(find . -name "*.md" \
   ! -path "*/_build/*" \
+  ! -path "./.claude/*" \
   ! -path "./docs/archive/*" \
   ! -path "./docs/decisions/*" \
   ! -path "./docs/performance/benchmark_history.md" \
@@ -171,9 +172,89 @@ while IFS= read -r -d '' modfile; do
 done < <(find . -name "moon.mod.json" \
   ! -path "*/_build/*" \
   ! -path "*/.mooncakes/*" \
+  ! -path "./.claude/*" \
   ! -path "./incr/*" \
   -print0 | sort -z)
 [[ "$doctest_hits" -eq 0 ]] && ok "All packages with runnable snippets have README.mbt.md"
+
+# 7. Relative links resolve
+#
+# Every path-like relative link in current docs must point at an existing
+# file or directory. Catches link rot from file moves, renames, and dangling
+# symlinks (e.g. the 2026-07-04 examples/*/README.md symlink rot).
+#
+# Excluded: docs/archive (historical docs legitimately reference deleted
+# files), submodules (their docs belong to their own repos), and non-path
+# targets (inline code like "Self[Ast](x)" and template placeholders like
+# "<plan>.md" match the markdown link regex but are not links).
+echo ""
+echo "Relative links:"
+link_rot=0
+while IFS= read -r -d '' f; do
+  dir=$(dirname "$f")
+  while IFS= read -r raw; do
+    link="${raw#](}"
+    link="${link%)}"
+    link="${link%% *}"        # drop optional "title"
+    link="${link%%#*}"        # drop anchor
+    [[ -z "$link" ]] && continue
+    case "$link" in
+      http://*|https://*|mailto:*|/*) continue ;;
+    esac
+    [[ "$link" == *"<"* || "$link" == *"["* ]] && continue
+    # Only path-like targets: contain a slash or end in a known file extension
+    if [[ "$link" != */* ]] &&
+       [[ ! "$link" =~ \.(md|mbti|mbt|sh|py|mjs|json|tsv|toml|yml)$ ]]; then
+      continue
+    fi
+    if [[ ! -e "$dir/$link" ]]; then
+      fail "$f -> $link (missing)"
+      link_rot=1
+    fi
+  done < <(grep -oE '\]\([^)]+\)' "$f" 2>/dev/null || true)
+done < <(find . -name "*.md" \
+  ! -path "*/_build/*" \
+  ! -path "./.claude/*" \
+  ! -path "*/.mooncakes/*" \
+  ! -path "./docs/archive/*" \
+  ! -path "./incr/*" \
+  ! -path "./egraph/*" \
+  ! -path "./egglog/*" \
+  ! -path "./event-graph-walker/*" \
+  -print0 | sort -z)
+[[ "$link_rot" -eq 0 ]] && ok "All relative links resolve"
+
+# 8. Active Plans reflect GitHub state
+#
+# Every "_Active:" entry in docs/README.md must cite an OPEN issue/PR —
+# the first #NNN reference on the line is treated as the tracking issue.
+# Catches shipped work still advertised as in-flight (found 2026-07-04:
+# two entries claimed Active/pending for work merged weeks earlier).
+#
+# Needs gh with credentials (GH_TOKEN in CI); warn-skips offline.
+echo ""
+echo "Active plans state:"
+active_lines=$(grep -n '^_Active:' docs/README.md || true)
+if [[ -z "$active_lines" ]]; then
+  ok "No _Active: entries"
+elif ! command -v gh >/dev/null 2>&1; then
+  warn "gh not available; skipping Active-plan state check"
+else
+  while IFS= read -r entry; do
+    lineno="${entry%%:*}"
+    issue=$(echo "$entry" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+    if [[ -z "$issue" ]]; then
+      warn "docs/README.md:$lineno — _Active: entry cites no #issue"
+      continue
+    fi
+    state=$(gh api "repos/dowdiness/loom/issues/$issue" --jq .state 2>/dev/null || echo "unknown")
+    case "$state" in
+      open)    ok "docs/README.md:$lineno — #$issue is open" ;;
+      unknown) warn "docs/README.md:$lineno — could not query #$issue (offline or unauthenticated?)" ;;
+      *)       fail "docs/README.md:$lineno — _Active: cites #$issue but it is $state; update the entry" ;;
+    esac
+  done <<< "$active_lines"
+fi
 
 # Summary
 echo ""

@@ -64,7 +64,7 @@ Runtime rules:
 - Those pipelines own their `Watch` / priming / `dispose()` lifecycle.
 
 See
-[`docs/api/choosing-a-parser.md`](../../../docs/api/choosing-a-parser.md#runtime-ownership-and-attachments)
+[`docs/api/choosing-a-parser.md`](../../docs/api/choosing-a-parser.md#runtime-ownership-and-attachments)
 for the full pattern and example.
 
 ## Implementing a new language
@@ -98,7 +98,7 @@ attachment rooted on `parser.runtime()`.
 
 For the authoring pattern where diagnostics update immediately while the last
 successful semantic document is retained until projection succeeds again, see the
-[last-good semantic attachment guide](../../../docs/api/last-good-semantic-attachment.md).
+[last-good semantic attachment guide](../../docs/api/last-good-semantic-attachment.md).
 
 ## `Ast : Eq` requirement
 

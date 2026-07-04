@@ -10,66 +10,8 @@
 
 ## Target Architecture
 
-```
-                        +-----------------------+
-                        |     Edit Protocol     |
-                        |  (apply, get_tree)    |
-                        +-----------+-----------+
-                                    |
-                        +-----------v-----------+
-                        |   Incremental Engine  |
-                        |   - Damage tracking   |
-                        |   - Reuse decisions   |
-                        |   - Orchestration     |
-                        +-----------+-----------+
-                                    |
-                  +-----------------+------------------+
-                  |                                    |
-       +----------v----------+            +-----------v-----------+
-       |  Incremental Lexer  |            |  Incremental Parser   |
-       |  - Token buffer     |            |  - Subtree reuse at   |
-       |  - Edit-aware       |            |    grammar boundaries |
-       |  - Only re-lex      |            |  - Checkpoint-based   |
-       |    damaged region   |            |    validation         |
-       +----------+----------+            +-----------+-----------+
-                  |                                    |
-       +----------v----------+            +-----------v-----------+
-       |    Token Buffer     |            |   Green Tree (CST)    |
-       |  - Contiguous array |            |  - Immutable nodes    |
-       |  - Position-tracked |            |  - Structural sharing |
-       |  - Cheaply sliceable|            |  - Lossless syntax    |
-       +---------------------+            +-----------+-----------+
-                                                      |
-                                          +-----------v-----------+
-                                          |   Red Tree (Facade)   |
-                                          |  - Absolute positions |
-                                          |  - Parent pointers    |
-                                          |  - On-demand          |
-                                          +-----------+-----------+
-                                                      |
-                                          +-----------v-----------+
-                                          |   Typed AST (Lazy)    |
-                                          |  - Semantic analysis  |
-                                          |  - Derived from CST   |
-                                          +-----------+-----------+
-                                                      |
-                                          +-----------v-----------+
-                                          |   Error Recovery      |
-                                          |  - Integrated in      |
-                                          |    parser loop        |
-                                          |  - Sync point based   |
-                                          |  - Multiple errors    |
-                                          +-----------------------+
-```
-
-### Architectural Principles
-
-1. **No dead infrastructure.** Every cache, buffer, and data structure must be read by something during the parse pipeline.
-2. **Immutability enables sharing.** Green tree nodes are immutable. When nothing changed, the old node IS the new node — not a copy, the same pointer.
-3. **Separation of structure and position.** Green tree nodes store widths; red tree nodes compute absolute positions on demand.
-4. **Incremental lexing is the first real win.** Re-tokenizing only the damaged region and splicing gives the parser unchanged tokens for free.
-5. **Subtree reuse at grammar boundaries.** Check: kind match + leading token context + trailing token context + no damage overlap. All four must pass. The trailing context check is essential — a node's parse can depend on what follows it.
-6. **Error recovery is part of the parser, not around it.** Record error → synchronize to known point → continue parsing.
+Layer diagram and architectural principles:
+[docs/architecture/overview.md](docs/architecture/overview.md) (single source of truth).
 
 ---
 

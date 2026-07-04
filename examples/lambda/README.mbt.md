@@ -90,13 +90,13 @@ impl @viz.DotNode for TermDotNode with ...
 unwraps transparently — callers always work with plain `@ast.Term`.
 
 The same pattern applies whenever you need to bridge two foreign
-packages. See `src/viz/README.md` in the loom package for the `DotNode`
-trait contract.
+packages. See [`viz/README.md`](../../loom/viz/README.md) in the loom
+package for the `DotNode` trait contract.
 
 ## Roadmap
 
 Grammar expansion plans and CRDT exploration live in
-[ROADMAP.md](../ROADMAP.md) alongside this README.
+[ROADMAP.md](ROADMAP.md) alongside this README.
 
 ## Learn More
 

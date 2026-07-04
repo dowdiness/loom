@@ -18,6 +18,8 @@ pub fn[A] char(Char) -> Layout[A]
 
 pub fn[A] concat(Layout[A], Layout[A]) -> Layout[A]
 
+pub fn[A] empty() -> Layout[A]
+
 pub fn[A] flat_width(Layout[A]) -> Int
 
 pub fn[A] group(Layout[A]) -> Layout[A]

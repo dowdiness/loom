@@ -24,6 +24,95 @@ jobs:
       - name: Run check-deps.sh
         run: bash check-deps.sh
 
+  docs-check:
+    name: Docs Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Full history so the changed-archived-plan decision-record check
+          # can diff against origin/main instead of warn-skipping.
+          fetch-depth: 0
+          # Submodules so links pointing INTO incr/egraph/egglog docs
+          # resolve — the link check validates them against the pinned
+          # submodule revision, same as a local --recursive clone.
+          submodules: recursive
+      - name: Run check-docs.sh
+        env:
+          # For the Active-plans GitHub-state check (section 8).
+          GH_TOKEN: ${{ github.token }}
+        run: bash check-docs.sh
+
+  mbti-check:
+    name: Interface Drift Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # moon info resolves cross-member workspace deps, so submodule
+          # members must be present.
+          submodules: recursive
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+      - name: Verify MoonBit
+        run: moon version --all
+      - name: moon update
+        run: moon update
+      # Regenerate every workspace member's .mbti and fail on drift:
+      # committed interfaces must match what the pinned toolchain derives
+      # from the code. Submodules regenerate too but their inner files are
+      # invisible to the parent pathspec diff — each submodule owns its own
+      # interface hygiene.
+      - name: moon info
+        run: moon info
+      - name: Interfaces are committed and current
+        run: |
+          git diff --exit-code -- '*.mbti'
+          untracked=$(git ls-files --others --exclude-standard -- '*.mbti')
+          if [[ -n "$untracked" ]]; then
+            echo "Untracked generated interfaces:"
+            echo "$untracked"
+            exit 1
+          fi
+
+  quickstart-check:
+    name: README Quick Start
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+      - name: Verify MoonBit
+        run: moon version --all
+      # Runs the commands extracted from the root README's Quick Start fence,
+      # so a broken or drifted Quick Start fails CI instead of the next
+      # fresh clone. See scripts/check-quickstart.sh for the two documented
+      # transformations (clone → ls-remote, skip the post-clone cd).
+      - name: Quick Start commands (tests)
+        run: bash scripts/check-quickstart.sh --tests
+      # Known failing: moon bench --release hits #593. Non-blocking until
+      # that is fixed — flip continue-on-error off when closing #593.
+      - name: Quick Start commands (bench, non-blocking — #593)
+        continue-on-error: true
+        run: bash scripts/check-quickstart.sh --bench
+
   fmt-check:
     name: Format Check ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -330,6 +419,10 @@ jobs:
     name: All Checks Passed
     runs-on: ubuntu-latest
     needs:
+      - dep-check
+      - docs-check
+      - mbti-check
+      - quickstart-check
       - fmt-check
       - fmt-check-submodules
       - test-modules
@@ -339,6 +432,22 @@ jobs:
     steps:
       - name: Verify all jobs succeeded
         run: |
+          if [[ "${{ needs.dep-check.result }}" != "success" ]]; then
+            echo "dep-check job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.docs-check.result }}" != "success" ]]; then
+            echo "docs-check job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.mbti-check.result }}" != "success" ]]; then
+            echo "mbti-check job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.quickstart-check.result }}" != "success" ]]; then
+            echo "quickstart-check job failed"
+            exit 1
+          fi
           if [[ "${{ needs.fmt-check.result }}" != "success" ]]; then
             echo "fmt-check job failed"
             exit 1

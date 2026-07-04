@@ -1,8 +1,8 @@
 # text-change
 
-`compute_text_change(old, new) -> TextChange` — diff two strings into a single half-open splice (`start`, `delete_len`, `inserted`). Grapheme-aware: the diff respects extended grapheme clusters via [`lib/moji`](../moji/), so combining marks, emoji ZWJ sequences, and regional indicators are never split.
+`compute_text_change(old, new) -> TextChange` — diff two strings into a single half-open splice (`start`, `delete_len`, `inserted`). Grapheme-aware: the diff respects extended grapheme clusters via [`moji`](../moji/), so combining marks, emoji ZWJ sequences, and regional indicators are never split.
 
-This package is the canopy-module equivalent of a "minimal text diff". It is intentionally tiny and has no opinion about how the resulting splice is then applied to a CRDT or buffer.
+This module is a "minimal text diff": intentionally tiny, with no opinion about how the resulting splice is then applied to a CRDT or buffer. It lives in the loom monorepo (migrated from canopy in 2026-05, #147); its primary consumers are in the canopy repository.
 
 ## Public API
 
@@ -12,7 +12,7 @@ This package is the canopy-module equivalent of a "minimal text diff". It is int
 
 ## Consumers
 
-`editor` (computes edits for tree-edit round-trip and FlatProj splice translation). Used indirectly by every editor host.
+canopy's `editor` module (computes edits for tree-edit round-trip and FlatProj splice translation). Used indirectly by every editor host.
 
 ## Dependencies
 
@@ -20,7 +20,7 @@ This package is the canopy-module equivalent of a "minimal text diff". It is int
 
 ## Stability
 
-Internal but stable — the `TextChange` shape is consumed by the editor's tree-edit path. Field renames would propagate up through `editor/` and into `protocol/`'s `ViewPatch::TextChange`.
+Internal but stable — the `TextChange` shape is consumed by canopy's editor tree-edit path. Field renames would propagate up through canopy's `editor/` and into its `protocol/` `ViewPatch::TextChange`.
 
 ## Notes
 

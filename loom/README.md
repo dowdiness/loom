@@ -100,7 +100,7 @@ For smaller references, see [`examples/json`](../examples/json/),
 @loom.assert_incremental_edit_matches_full_parse
 ```
 
-Full signatures: [`src/pkg.generated.mbti`](src/pkg.generated.mbti).
+Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
 ## Choosing a Parser
 
