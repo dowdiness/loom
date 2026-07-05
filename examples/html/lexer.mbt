@@ -213,7 +213,7 @@ pub fn lex(input : String) -> @core.LexResult[Token] {
     @core.PrefixLexer::new(lex_step=html_step_lexer),
     eof_token=EOF,
     error_token=Error(""),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
   @core.LexResult::with_starts(
     buffer.get_tokens(),

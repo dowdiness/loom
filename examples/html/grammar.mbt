@@ -3,6 +3,6 @@
 pub let html_grammar : @loom.Grammar[Token, SyntaxKind, Unit] = @loom.Grammar::new(
   spec=html_spec,
   lex~,
-  fold_node=fn(_node, _recurse) { () },
+  fold_node=(_node, _recurse) => (),
   incremental_relex_enabled=false,
 )
