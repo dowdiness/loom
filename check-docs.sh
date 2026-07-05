@@ -135,6 +135,20 @@ done < <(find . -name "*.md" \
   -print0 | sort -z)
 [[ "$fossil_hits" -eq 0 ]] && ok "No fossil references found"
 
+# 5b. Backtick @pkg.Symbol references vs pkg.generated.mbti
+#
+# Catches stale API names in current docs automatically (issue #596).
+# Same path exclusions as the fossil scan, plus submodule doc trees.
+# Escape hatches: docs/symbol-check-allowlist.txt and inline HTML markers
+# (see scripts/check-docs-symbols.py).
+echo ""
+echo "Backtick @pkg.Symbol references:"
+symbol_hits=0
+if ! python3 scripts/check-docs-symbols.py; then
+  symbol_hits=1
+fi
+[[ "$symbol_hits" -eq 0 ]] || errors=$((errors + 1))
+
 # 6. Doctest regression guard (warn)
 #
 # A package's top-level README.md that contains runnable MoonBit code fences

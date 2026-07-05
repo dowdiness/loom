@@ -42,7 +42,7 @@ The implementation must not assume any loom/lambda symbol outside this list. If 
 - `pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]` — exists, but the spike does **NOT** use it for A: it copies A's incremental config (`relex=false`, `block_reparse=Some`), which is a confound. Build A via `normalized_syntax_grammar(@lambda.lambda_grammar.spec, @lambda.lambda_grammar.lex)` instead. Listed only so workers recognize and avoid it.
 - `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(String, SyntaxGrammar[T, K], runtime? : @cells.Runtime) -> @pipeline.SyntaxParser`
 - `pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_incremental_edit_matches_full_parse(String, String, @core.Edit, String, SyntaxGrammar[T, K]) -> Int`
-- `pub fn @core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]` — ⚠ lives in `dowdiness/loom/core` (import `@core`), NOT re-exported by the `@loom` facade. ALWAYS call it as `@core.tree_diff(...)`; `@loom.tree_diff` is unbound and fails `moon check`. (Empty array == structurally identical, up to hash collisions.)
+<!-- docs:skip-symbol-check --> - `pub fn @core.tree_diff(@seam.CstNode, @seam.CstNode) -> Array[@core.Edit]` — ⚠ lives in `dowdiness/loom/core` (import `@core`), NOT re-exported by the `@loom` facade. ALWAYS call it as `@core.tree_diff(...)`; `@loom.tree_diff` is unbound and fails `moon check`. (Empty array == structurally identical, up to hash collisions.)
 - `pub fn[Id] realign_projection_identities(@core.ProjectionIdentityBaseline[Id], String, Array[@core.ProjectionLeaf], (@core.ProjectionLeaf) -> Id, edit? : @core.Edit) -> Array[@core.StableProjectionLeaf[Id]]`
 - `pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit`
 - `pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]`
@@ -618,5 +618,5 @@ Type-consistency check:
 - Every non-verified function/type named in tasks is explicitly produced as a spike-local artifact in `examples/lambda/src/spike/`.
 - A is reached only through public API: its parse logic via `@lambda.lambda_grammar.spec` / `.lex` (public read-only `Grammar` fields) wrapped by `normalized_syntax_grammar`, plus `@lambda.parse_cst` for fresh-parse comparisons. NOT via `to_syntax_grammar()` (config confound) and never via the private `lambda_spec`.
 - A and B grammars are BOTH built through `normalized_syntax_grammar` (`incremental_relex_enabled=false`, `block_reparse_spec=None`), so the only difference is `parse_root` (A = `lambda_grammar.spec.parse_root`; B = the spike interpreter closure via `@core.LanguageSpec::new(...)`).
-- All CST comparisons call `@core.tree_diff` (in `dowdiness/loom/core`), never `@loom.tree_diff` (unbound on the facade).
+<!-- docs:skip-symbol-check --> - All CST comparisons call `@core.tree_diff` (in `dowdiness/loom/core`), never `@loom.tree_diff` (unbound on the facade).
 - No task imports package-private `lambda_spec` or `parse_lambda_root`.
