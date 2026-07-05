@@ -114,5 +114,5 @@ pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {
 
 ///|
 pub impl @seam.IsError for SyntaxKind with fn is_error(self) {
-  self == ErrorToken
+  self == ErrorToken || self == ErrorNode
 }

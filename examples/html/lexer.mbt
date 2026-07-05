@@ -9,12 +9,12 @@ fn is_whitespace_char(c : Char) -> Bool {
 ///|
 fn is_alpha(c : Char) -> Bool {
   let n = c.to_int()
-  n is ('a'..<'z') || n is ('A'..<'Z')
+  n is ('a'..='z') || n is ('A'..='Z')
 }
 
 ///|
 fn is_digit_char(c : Char) -> Bool {
-  c.to_int() is ('0'..<'9')
+  c.to_int() is ('0'..='9')
 }
 
 ///|
@@ -158,16 +158,6 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] 
           ignore(cursor.advance_char())
         }
         cursor.produced(@token.Comment)
-      } else if cursor.starts_with("<!") {
-        ignore(cursor.advance_code_units(2))
-        while !cursor.is_done() {
-          if cursor.peek() == Some('>') {
-            ignore(cursor.advance_char())
-            break
-          }
-          ignore(cursor.advance_char())
-        }
-        cursor.produced(@token.Doctype)
       } else if cursor.starts_with("<![CDATA[") {
         ignore(cursor.advance_code_units(9))
         while !cursor.is_done() {
@@ -178,6 +168,16 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] 
           ignore(cursor.advance_char())
         }
         cursor.produced(@token.CData)
+      } else if cursor.starts_with("<!") {
+        ignore(cursor.advance_code_units(2))
+        while !cursor.is_done() {
+          if cursor.peek() == Some('>') {
+            ignore(cursor.advance_char())
+            break
+          }
+          ignore(cursor.advance_char())
+        }
+        cursor.produced(@token.Doctype)
       } else {
         ignore(cursor.advance_char())
         let (tag_name, _) = read_open_tag_body(cursor)
