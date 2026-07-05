@@ -233,6 +233,7 @@ test "emit_grammar_ir accepts @fragment references with mangled Ref" {
   inspect(generated.contains("Ref(\"__loom_frag__bar\")"), content="true")
   inspect(generated.contains("fragments~"), content="true")
 }
+
 ///|
 /// A fragment in a FIRST-requiring position via a nullable prefix (e.g.
 /// `A? @frag` as a Choice branch) must fail closed. The fragment's body is

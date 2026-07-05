@@ -128,7 +128,7 @@ test "panic pipeline: wrong-runtime syntax pairing aborts through incr guard" {
   // Incr's own cross-runtime tests own detailed guard semantics. This smoke
   // test only pins CallersPipeline's precondition at the attachment boundary:
   // constructor priming must touch the foreign syntax read and fail fast.
-  let pipeline_rt = @incr.Runtime::new()
+  let pipeline_rt = @incr.Runtime()
   let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
   let _ = CallersPipeline::CallersPipeline(pipeline_rt, parser.syntax_tree())
 }

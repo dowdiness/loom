@@ -67,7 +67,7 @@ pub fn SyntaxParser::new(
   let initial_snapshot = syntax_snapshot_from_parse(engine.parse())
   let rt = match runtime {
     Some(r) => r
-    None => @incr.Runtime::new()
+    None => @incr.Runtime()
   }
   let snapshot_input = @incr.Input(
     rt,
