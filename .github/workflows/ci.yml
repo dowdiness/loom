@@ -139,8 +139,6 @@ jobs:
             path: examples/markdown
           - name: incr
             path: incr
-          - name: event-graph-walker
-            path: event-graph-walker
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -231,8 +229,6 @@ jobs:
             path: incr
           - name: loomgen
             path: loomgen
-          - name: event-graph-walker
-            path: event-graph-walker
     steps:
       - name: Checkout
         uses: actions/checkout@v5
