@@ -764,6 +764,7 @@ test "parse_annotations rejects #loom.rule on a token variant" {
     "token variant",
   )
 }
+
 ///|
 /// Golden test for M16 #598 ~ (Emit), #599 ! (EmitOr), #600 @until (ErrorUntil).
 test "emit_grammar_ir golden: ~ ! @until lower to Emit EmitOr ErrorUntil" {
