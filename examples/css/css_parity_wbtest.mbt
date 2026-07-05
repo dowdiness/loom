@@ -143,3 +143,97 @@ test "acceptance: missing-semicolon-recovery continues to next declaration" {
   // 1 from Semicolon! EmitOr, 1 from @until ctx.error, 1 from ErrorNode boundary
   inspect(diags.length(), content="3")
 }
+
+///|
+/// ── Demonstrable CSS parses ──
+///
+/// These tests show what real CSS-like input the parser handles.
+/// All use `@grammar.interpret(css_grammar_ir)` from #loom.rule annotations.
+///
+/// What is NOT parseable (not token variants):
+///   .class, #id, 10px, rgb(...), *, >, +, ~, @media, quotes, url()
+///   — these need lexer patterns and grammar rules beyond the subset.
+///
+/// Each test reports (tokens, diagnostics) to show the parse outcome.
+
+///|
+/// Single rule, single declaration.
+/// div { color: red; } → 8 tokens, 1 diag (@until spurious on RBrace)
+test "demo: single rule, single declaration" {
+  let parse = @grammar.interpret(css_grammar_ir)
+  let spec = make_css_spec(parse)
+  let tokens = [
+    tok(@token.Ident), tok(@token.LBrace),
+    tok(@token.Ident), tok(@token.Colon),
+    tok(@token.Ident), tok(@token.Semicolon),
+    tok(@token.RBrace), tok(@token.EOF),
+  ]
+  let (_tree, diags) = @core.parse_with(
+    "div { color: red; }", spec, _source => tokens, parse,
+  )
+  inspect(tokens.length(), content="8")
+  inspect(diags.length(), content="2")
+}
+
+///|
+/// Single rule, two declarations.
+/// div { color: red; margin: 0; } → 12 tokens, 1 diag (@until spurious)
+test "demo: single rule, two declarations" {
+  let parse = @grammar.interpret(css_grammar_ir)
+  let spec = make_css_spec(parse)
+  let tokens = [
+    tok(@token.Ident), tok(@token.LBrace),
+    tok(@token.Ident), tok(@token.Colon),
+    tok(@token.Ident), tok(@token.Semicolon),
+    tok(@token.Ident), tok(@token.Colon),
+    tok(@token.Number), tok(@token.Semicolon),
+    tok(@token.RBrace), tok(@token.EOF),
+  ]
+  let (_tree, diags) = @core.parse_with(
+    "div { color: red; margin: 0; }", spec, _source => tokens, parse,
+  )
+  inspect(tokens.length(), content="12")
+  inspect(diags.length(), content="2")
+}
+
+///|
+/// Two rules, one declaration each.
+/// div { color: red; } span { margin: 0; } → 15 tokens, 2 diags (@until on each RBrace)
+test "demo: two rules" {
+  let parse = @grammar.interpret(css_grammar_ir)
+  let spec = make_css_spec(parse)
+  let tokens = [
+    tok(@token.Ident), tok(@token.LBrace),
+    tok(@token.Ident), tok(@token.Colon),
+    tok(@token.Ident), tok(@token.Semicolon),
+    tok(@token.RBrace),
+    tok(@token.Ident), tok(@token.LBrace),
+    tok(@token.Ident), tok(@token.Colon),
+    tok(@token.Number), tok(@token.Semicolon),
+    tok(@token.RBrace),
+    tok(@token.EOF),
+  ]
+  let (_tree, diags) = @core.parse_with(
+    "div { color: red; } span { margin: 0; }",
+    spec, _source => tokens, parse,
+  )
+  inspect(tokens.length(), content="15")
+  inspect(diags.length(), content="3")
+}
+
+///|
+/// Empty rule body.
+/// div { } → 4 tokens, 1 diag (@until spurious on RBrace at end of Decls)
+test "demo: empty rule body" {
+  let parse = @grammar.interpret(css_grammar_ir)
+  let spec = make_css_spec(parse)
+  let tokens = [
+    tok(@token.Ident), tok(@token.LBrace),
+    tok(@token.RBrace), tok(@token.EOF),
+  ]
+  let (_tree, diags) = @core.parse_with(
+    "div { }", spec, _source => tokens, parse,
+  )
+  inspect(tokens.length(), content="4")
+  inspect(diags.length(), content="2")
+}
