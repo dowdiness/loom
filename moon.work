@@ -11,6 +11,7 @@ members = [
   "./examples/graph-dsl",
   "./examples/json-settings",
   "./examples/moonbit",
+  "./examples/html",
   "./incr/incr",
   "./egraph",
   "./fixtures/grammar_ir_regression",
