@@ -8,6 +8,7 @@ pub impl Show for Token with fn output(self, logger) {
       LBrace => "{"
       RBrace => "}"
       Number => "<int>"
+      Whitespace => "whitespace"
       Error(msg) => "<error: " + msg + ">"
       EOF => "EOF"
     },
@@ -16,7 +17,10 @@ pub impl Show for Token with fn output(self, logger) {
 
 ///|
 pub impl @seam.IsTrivia for Token with fn is_trivia(self) {
-  false
+  match self {
+    Whitespace => true
+    _ => false
+  }
 }
 
 ///|
@@ -37,8 +41,9 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
     LBrace => 3
     RBrace => 4
     Number => 5
-    Error(_) => 6
-    EOF => 7
+    Whitespace => 6
+    Error(_) => 7
+    EOF => 8
   }
   @seam.RawKind(n)
 }

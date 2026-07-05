@@ -15,6 +15,8 @@ pub(all) enum Token {
   RBrace // }
   #loom.literal("NumberToken")
   Number // numeric literals
+  #loom.trivia
+  Whitespace // whitespace (spaces, tabs)
   #loom.error
   Error(String) // lexer error
   #loom.eof

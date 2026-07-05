@@ -6,6 +6,7 @@ pub(all) enum SyntaxKind {
   LBraceToken
   RBraceToken
   NumberToken
+  WhitespaceToken
   ErrorToken
   EofToken
   Stylesheet
@@ -29,6 +30,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | LBraceToken
     | RBraceToken
     | NumberToken
+    | WhitespaceToken
     | ErrorToken
     | EofToken => true
     _ => false
@@ -44,13 +46,14 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     LBraceToken => 3
     RBraceToken => 4
     NumberToken => 5
-    ErrorToken => 6
-    EofToken => 7
-    Stylesheet => 8
-    Rule => 9
-    Decls => 10
-    Decl => 11
-    ErrorNode => 12
+    WhitespaceToken => 6
+    ErrorToken => 7
+    EofToken => 8
+    Stylesheet => 9
+    Rule => 10
+    Decls => 11
+    Decl => 12
+    ErrorNode => 13
   }
   @seam.RawKind(n)
 }
@@ -65,20 +68,21 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     3 => LBraceToken
     4 => RBraceToken
     5 => NumberToken
-    6 => ErrorToken
-    7 => EofToken
-    8 => Stylesheet
-    9 => Rule
-    10 => Decls
-    11 => Decl
-    12 => ErrorNode
+    6 => WhitespaceToken
+    7 => ErrorToken
+    8 => EofToken
+    9 => Stylesheet
+    10 => Rule
+    11 => Decls
+    12 => Decl
+    13 => ErrorNode
     _ => ErrorNode
   }
 }
 
 ///|
 pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {
-  false
+  self == WhitespaceToken
 }
 
 ///|
