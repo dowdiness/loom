@@ -221,7 +221,8 @@ fn first_set(
       // a predicate that gated on the visible prefix and excluded the fragment's
       // actual FIRST tokens. Trailing fragments (after `leading` ends) are fine.
       for it in leading {
-        if it is Frag(_) { raise RuleLowerError(
+        if it is Frag(_) {
+          raise RuleLowerError(
             "@fragment reference in a FIRST-requiring position (e.g. inside a nullable prefix) — the fragment's body is opaque at emit time, so its FIRST set is unknown; restructure to place the fragment in trailing (non-FIRST) position",
           )
         }

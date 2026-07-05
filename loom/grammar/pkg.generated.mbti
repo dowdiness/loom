@@ -19,6 +19,7 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam
 pub suberror GrammarCompileError {
   MissingRoot(String)
   MissingRef(String)
+  MissingFragment(String)
   MissingNative(String)
   AmbiguousRule(String)
 } derive(Eq, @debug.Debug)
