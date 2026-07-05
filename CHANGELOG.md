@@ -47,6 +47,10 @@ Notable user-facing changes to Loom and its sibling modules.
   node), `peek_index(n)` (trivia-inclusive token-buffer access), and
   `finish_nodes_until(kind)` (auto-close nodes above a target kind, used for
   HTML-style optional closing tags).
+- `dowdiness/loom`: added `finish_nodes_until_inclusive(kind)` —
+  like `finish_nodes_until` but also closes the matching node.
+  Eliminates the two-step pattern
+  (`if ctx.finish_nodes_until(K) { ctx.finish_node() }`).
 
 - `dowdiness/loom`: added `SyntaxGrammar`, `SyntaxParser`,
   `SyntaxSnapshot`, and `new_syntax_parser` for reactive CST/diagnostics
