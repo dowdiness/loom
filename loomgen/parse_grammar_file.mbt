@@ -64,6 +64,9 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GRule(TStar) => "'*'"
     GRule(TPlus) => "'+'"
     GRule(TQuest) => "'?'"
+    GRule(TTilde) => "'~'"
+    GRule(TEmitor) => "'!'"
+    GRule(TUntil) => "'@until()'"
   }
 }
 

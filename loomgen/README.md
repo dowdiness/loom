@@ -118,12 +118,16 @@ references) built from `#loom.rule` annotations on `#loom.term` variants, plus
 `#loom.token` (`#loom.punct`/`#loom.eof`) annotations on the Token enum for
 FIRST-set token resolution.
 
-The annotation subset covers 7 `@grammar.Expr` variants: `Expect`,
-`Seq`, `Choice` (disjoint FIRST sets enforced at generation time), `Ref`,
+The annotation subset covers 10 `@grammar.Expr` variants: `Expect`,
+`Emit`, `EmitOr`, `ErrorUntil`, `Seq`,
+`Choice` (disjoint FIRST sets enforced at generation time), `Ref`,
 `RepeatWhile` (`*`), `Node`, `Fail`, and `+`/`?` (lowered to `Seq`/`RepeatWhile`/
-`Choice`). The remaining variants (`Emit`, `ExpectSkip`, `PrattApp`,
+`Choice`). Postfix `~` lowers to `Emit` (optional token consume), `!` lowers to
+`EmitOr` (expect-or-continue with diagnostic), and `@until(Token)` /
+`@until(T1 | T2)` lowers to `ErrorUntil` (consume until synchronization point).
+The remaining variants (`ExpectSkip`, `PrattApp`,
 `PrattBinary`, `Native`, `RepeatTopLevel`, `WrapIfNext`, `ConsumeGated`,
-`RequireSep`, `EmitOr`, `EmitError`, `ErrorUntil`, `ErrorNodeUntil`,
+`RequireSep`, `EmitError`, `ErrorNodeUntil`,
 `DiagnoseIf`, `ManualNewlineAppExpr`, `Empty`) are out-of-subset — a rule
 string referencing any of these fails closed with a lowering error.
 
