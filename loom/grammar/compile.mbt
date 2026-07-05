@@ -5,6 +5,7 @@
 pub suberror GrammarCompileError {
   MissingRoot(RuleName)
   MissingRef(RuleName)
+  MissingFragment(RuleName)
   /// `Native(name)` appeared but `name` is absent from `compile`'s
   /// `native_names` argument — resolved and validated at compile time, never
   /// mid-parse, mirroring `MissingRef`.
@@ -132,7 +133,12 @@ fn resolve(
 ) -> Int raise GrammarCompileError {
   match slot_of.get(name) {
     Some(slot) => slot
-    None => raise MissingRef(name)
+    None =>
+      if name.has_prefix("__loom_frag__") {
+        raise MissingFragment(name)
+      } else {
+        raise MissingRef(name)
+      }
   }
 }
 
