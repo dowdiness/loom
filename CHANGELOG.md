@@ -42,6 +42,12 @@ Notable user-facing changes to Loom and its sibling modules.
 - `dowdiness/loom`: added `ParserContext` grammar-author helpers:
   `emit_current_token`, `current_token_text`, `current_token_range`, and
   `too_many_errors`.
+- `dowdiness/loom`: added `ParserContext` node-introspection helpers:
+  `current_node_kind()` (returns `K?` — the kind of the most recently opened
+  node), `peek_index(n)` (trivia-inclusive token-buffer access), and
+  `finish_nodes_until(kind)` (auto-close nodes above a target kind, used for
+  HTML-style optional closing tags).
+
 - `dowdiness/loom`: added `SyntaxGrammar`, `SyntaxParser`,
   `SyntaxSnapshot`, and `new_syntax_parser` for reactive CST/diagnostics
   consumers that do not have an AST fold or whose AST is not naturally `Eq`.
