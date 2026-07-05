@@ -297,12 +297,28 @@ pub fn[T, K] ParserContext::set_lex_mode(
 }
 
 ///|
-/// Return the nth token (0-indexed) from the current position, including
-/// trivia tokens. Unlike peek_nth() which skips trivia, this returns the
-/// token at the absolute index offset from the current cursor position.
-///
-/// Returns the spec's eof_token when n is out of bounds.
-/// Use for grammars where trivia carries syntactic meaning (e.g. attribute
+
+///| Return the token at absolute buffer position `self.position + n`,
+
+///| including trivia. Unlike peek_nth() which skips trivia, this returns
+
+///| the token at the raw index offset from the current cursor position.
+
+///|
+
+///| Negative `n` is clamped to 0 (returns the token at the current cursor
+
+///| position, identical to `peek_index(0)`). This differs from peek_nth(-1)
+
+///| which returns the first non-trivia token.
+
+///|
+
+///| Returns the spec's eof_token when `position + n` is out of bounds.
+
+///| Use for grammars where trivia carries syntactic meaning (e.g. attribute
+
+///|
 /// separators in HTML, indentation in Python).
 pub fn[T, K] ParserContext::peek_index(
   self : ParserContext[T, K],

@@ -150,7 +150,6 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
     return
   }
   self.open_nodes = self.open_nodes - 1
-  let _ = self.node_stack.pop()
   self.events.push(@seam.FinishNode)
 }
 
@@ -167,12 +166,16 @@ pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
   let reuse_cursor = self.reuse_cursor.map(cursor => cursor.snapshot())
+  let node_stack : Array[K] = []
+  for k in self.node_stack {
+    node_stack.push(k)
+  }
   {
     position: self.position,
     events_len: self.events.length(),
+    node_stack_snapshot: node_stack,
     error_count: self.error_count,
     open_nodes: self.open_nodes,
-    node_stack_len: self.node_stack.length(),
     reuse_cursor,
     reuse_count: self.reuse_count,
     lex_mode: self.lex_mode,
@@ -190,8 +193,10 @@ pub fn[T, K] ParserContext::restore(
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
-  while self.node_stack.length() > cp.node_stack_len {
-    let _ = self.node_stack.pop()
+  // Full stack restore — see BLOCKER note
+  self.node_stack = []
+  for k in cp.node_stack_snapshot {
+    self.node_stack.push(k)
   }
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.lex_mode = cp.lex_mode
