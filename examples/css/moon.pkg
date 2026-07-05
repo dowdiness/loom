@@ -1,0 +1,10 @@
+import {
+  "dowdiness/css-example/token",
+  "dowdiness/css-example/syntax",
+  "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
+}
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
