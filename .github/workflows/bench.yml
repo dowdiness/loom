@@ -1,0 +1,200 @@
+name: Bench
+
+# Scheduled benchmark regression check (#595). NOT a PR gate: shared-runner
+# benchmarks are too noisy to block merges on, so regressions open/update a
+# tracking issue instead of failing PRs. Distinct from the quickstart-check
+# bench step in ci.yml, which only verifies the README bench command runs.
+
+on:
+  schedule:
+    # Weekly, Monday 03:17 UTC (off-peak; non-round minute to dodge the
+    # top-of-hour scheduled-job stampede on shared runners).
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: >-
+          Run bench-check.sh --update and upload the refreshed baseline TSV
+          as an artifact for a human to review and commit (no auto-commit).
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bench-check:
+    name: Benchmark Regression Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.0+84519ca0a
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Verify MoonBit
+        run: moon version --all
+
+      - name: moon update
+        working-directory: examples/lambda
+        run: moon update
+
+      - name: Refresh baseline (--update)
+        if: inputs.update_baseline == true
+        run: bash bench-check.sh --update
+
+      - name: Upload refreshed baseline
+        if: inputs.update_baseline == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-baseline
+          path: docs/performance/bench-baseline.tsv
+
+      # Single-run comparison is too noisy even on an idle machine
+      # (back-to-back local runs flagged 117/421 benchmarks at the 15%
+      # threshold, heavy-tailed to +340%), so a regression only counts if
+      # it is flagged in EVERY run of up to three. One fully green run
+      # disproves persistence and short-circuits. MISSING entries are
+      # deterministic (renamed/removed benchmarks) and always count.
+      - name: Run bench-check (persistence filter, up to 3 runs)
+        if: inputs.update_baseline != true
+        id: bench
+        run: |
+          status=infra
+          runs_done=0
+          for i in 1 2 3; do
+            exit_code=0
+            BENCH_REPORT_TSV="$PWD/bench-report-$i.tsv" \
+              bash bench-check.sh 2>&1 | tee "bench-output-$i.txt" || exit_code=$?
+            runs_done=$i
+            if [[ "$exit_code" -eq 0 ]]; then
+              status=green
+              break
+            fi
+            if [[ ! -s "bench-report-$i.tsv" ]]; then
+              # Nonzero exit without a written comparison report: the
+              # script died before comparing (bench command broke, parse
+              # failure, missing baseline) — the verifier itself is broken.
+              status=infra
+              break
+            fi
+            status=flagged
+          done
+
+          if [[ "$status" == flagged ]]; then
+            for i in $(seq 1 "$runs_done"); do
+              grep '^REGRESSION' "bench-report-$i.tsv" | cut -f2 | sort -u > "flagged-$i.txt" || true
+            done
+            cp "flagged-1.txt" persistent.txt
+            for i in $(seq 2 "$runs_done"); do
+              comm -12 persistent.txt "flagged-$i.txt" > persistent.tmp
+              mv persistent.tmp persistent.txt
+            done
+            grep '^MISSING' "bench-report-$runs_done.tsv" | cut -f2 | sort -u > missing.txt || true
+            if [[ -s persistent.txt || -s missing.txt ]]; then
+              status=regression
+            else
+              status=noise
+            fi
+          fi
+
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "runs_done=$runs_done" >> "$GITHUB_OUTPUT"
+          echo "bench-check status: $status (runs: $runs_done)"
+
+      # status routing:
+      #   green      → close the tracking issue if one is open
+      #   noise      → runs disagreed; no issue action (a real regression
+      #                keeps firing next week, a fluke shouldn't close or
+      #                spam the issue)
+      #   regression → open/update the tracking issue; job stays GREEN —
+      #                the issue is the alert channel (avoids the
+      #                chronic-red habituation failure mode)
+      #   infra      → open/update the tracking issue AND fail the job:
+      #                the verifier itself is broken (cf. #593) and must
+      #                not read as "no regressions"
+      - name: Open, update, or close tracking issue
+        if: inputs.update_baseline != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.bench.outputs.status }}
+          RUNS_DONE: ${{ steps.bench.outputs.runs_done }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="ci: benchmark regression detected by scheduled bench-check"
+
+          existing=$(gh issue list --state open --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n 1)
+
+          if [[ "$STATUS" == green ]]; then
+            if [[ -n "$existing" ]]; then
+              gh issue close "$existing" \
+                --comment "Scheduled bench-check run is green again: $RUN_URL"
+            fi
+            echo "No regressions."
+            exit 0
+          fi
+
+          if [[ "$STATUS" == noise ]]; then
+            echo "Flagged benchmarks did not persist across $RUNS_DONE runs — noise, no issue action."
+            exit 0
+          fi
+
+          # Strip ANSI colour codes for the issue body; bound the size.
+          sed -e 's/\x1b\[[0-9;]*m//g' "bench-output-$RUNS_DONE.txt" \
+            | tail -c 50000 > bench-output-plain.txt
+
+          {
+            if [[ "$STATUS" == regression ]]; then
+              echo "The scheduled \`bench-check.sh\` run detected benchmark regressions (>15% vs \`docs/performance/bench-baseline.tsv\`) that persisted across $RUNS_DONE consecutive runs."
+              echo ""
+              if [[ -s persistent.txt ]]; then
+                echo "Persistent regressions:"
+                sed 's/^/- /' persistent.txt
+                echo ""
+              fi
+              if [[ -s missing.txt ]]; then
+                echo "Missing from current run (in baseline):"
+                sed 's/^/- /' missing.txt
+                echo ""
+              fi
+            else
+              echo "The scheduled \`bench-check.sh\` run failed before completing a comparison (infrastructure failure — bench command or parsing broke, cf. #593)."
+              echo ""
+            fi
+            echo "Run: $RUN_URL"
+            echo ""
+            echo "Shared-runner numbers are noisy; reproduce locally with \`bash bench-check.sh\` before acting. Accept intentional changes with \`bash bench-check.sh --update\` (or the workflow's \`update_baseline\` dispatch input)."
+            echo ""
+            echo "<details><summary>Last run output</summary>"
+            echo ""
+            echo '```'
+            cat bench-output-plain.txt
+            echo '```'
+            echo ""
+            echo "</details>"
+          } > issue-body.md
+
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file issue-body.md
+            echo "Updated tracking issue #$existing"
+          else
+            gh issue create --title "$TITLE" --body-file issue-body.md
+          fi
+
+          if [[ "$STATUS" == infra ]]; then
+            echo "bench-check did not complete a comparison — failing the job."
+            exit 1
+          fi

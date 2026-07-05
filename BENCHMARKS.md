@@ -2,7 +2,7 @@
 
 Performance benchmarks for the incremental parser implementation.
 
-**Last measured:** 2026-03-06 (`moon bench --release`)
+**Last measured:** the baseline's last commit date — `git log -1 --format=%cs -- docs/performance/bench-baseline.tsv`. A weekly CI job ([`.github/workflows/bench.yml`](.github/workflows/bench.yml)) re-runs the benchmarks against that baseline and opens a tracking issue on regression.
 
 ## Running Benchmarks
 
