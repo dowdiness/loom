@@ -6,15 +6,9 @@ pub(all) enum TermKind {
   #loom.node
   ElementNode
   #loom.node
-  VoidElementNode
-  #loom.node
-  SelfClosingElementNode
-  #loom.node
   DoctypeNode
   #loom.node
   CommentNode
-  #loom.node
-  AttributeNode
   #loom.leaf
   TextLeaf
   #loom.leaf

@@ -13,11 +13,8 @@ pub(all) enum SyntaxKind {
   ErrorToken
   EofToken
   ElementNode
-  VoidElementNode
-  SelfClosingElementNode
   DoctypeNode
   CommentNode
-  AttributeNode
   TextLeaf
   RawTextLeaf
   ErrorNode
@@ -64,15 +61,12 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     ErrorToken => 10
     EofToken => 11
     ElementNode => 12
-    VoidElementNode => 13
-    SelfClosingElementNode => 14
-    DoctypeNode => 15
-    CommentNode => 16
-    AttributeNode => 17
-    TextLeaf => 18
-    RawTextLeaf => 19
-    ErrorNode => 20
-    RootNode => 21
+    DoctypeNode => 13
+    CommentNode => 14
+    TextLeaf => 15
+    RawTextLeaf => 16
+    ErrorNode => 17
+    RootNode => 18
   }
   @seam.RawKind(n)
 }
@@ -94,15 +88,12 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     10 => ErrorToken
     11 => EofToken
     12 => ElementNode
-    13 => VoidElementNode
-    14 => SelfClosingElementNode
-    15 => DoctypeNode
-    16 => CommentNode
-    17 => AttributeNode
-    18 => TextLeaf
-    19 => RawTextLeaf
-    20 => ErrorNode
-    21 => RootNode
+    13 => DoctypeNode
+    14 => CommentNode
+    15 => TextLeaf
+    16 => RawTextLeaf
+    17 => ErrorNode
+    18 => RootNode
     _ => ErrorNode
   }
 }
