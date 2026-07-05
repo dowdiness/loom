@@ -100,7 +100,7 @@
 - Modify: `loomgen/emit_grammar_test.mbt`
 
 **Interfaces:**
-- `RepeatTopLevel`, `PrattApp`, and `PrattBinary` must be copied semantically from `@grammar.interpreter`.
+- `RepeatTopLevel`, `PrattApp`, and `PrattBinary` must be copied semantically from `@grammar.interpret`.
 - Preserve reuse calls: `try_reuse_repeat_group` and `try_reuse_current_node`.
 - Preserve gated soft-skip behavior in `PrattBinary`.
 

@@ -1,0 +1,6 @@
+# Escape hatch for backtick @pkg.Symbol checks (issue #596).
+# One full token per line (exact backtick content, without backticks).
+
+# incr internal API cited in architecture analysis (not on @incr public facade).
+@incr.FunctionalRelation
+@incr.FunctionalRelation[String, Value]
