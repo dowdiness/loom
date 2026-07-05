@@ -181,6 +181,8 @@ fn nullable(
     Alt(branches) => branches.iter().any(b => nullable(b, ctx, visiting))
     Star(_) | Opt(_) => true
     Plus(inner) => nullable(inner, ctx, visiting)
+    Emit(inner) | Emitor(inner) => nullable(inner, ctx, visiting)
+    ErrorUntil(_) => false
   }
 }
 
@@ -245,6 +247,8 @@ fn first_set(
       acc
     }
     Star(inner) | Plus(inner) | Opt(inner) => first_set(inner, ctx, visiting)
+    Emit(inner) | Emitor(inner) => first_set(inner, ctx, visiting)
+    ErrorUntil(_) => @hashset.HashSet([])
   }
 }
 
@@ -302,6 +306,8 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
       acc
     }
     Star(inner) | Plus(inner) | Opt(inner) => leading_refs(inner, ctx)
+    Emit(inner) | Emitor(inner) => leading_refs(inner, ctx)
+    ErrorUntil(_) => []
   }
 }
 
@@ -343,6 +349,8 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
       Sym(_) => false
       Seq(items) | Alt(items) => items.iter().any(go)
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
+      Emit(inner) | Emitor(inner) => go(inner)
+      ErrorUntil(_) => false
     }
   }
   for _, body in rules {
@@ -381,6 +389,39 @@ fn pred_text(names : Array[String], ctx : LowerCtx) -> String {
   } else {
     let toks = names.map(n => qualify(ctx.token_qual, n))
     ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
+  }
+}
+
+///|
+/// Resolve a `Sym(name)` inside a postfix `~`/`!` operator and return the
+/// `(token_name, kind_name)` pair, or fail closed on non-terminal or compound
+/// inner expressions. Shared by the `Emit` and `Emitor` lowering arms.
+fn resolve_optional_token(
+  inner : RuleAst,
+  ctx : LowerCtx,
+  postfix : String,
+) -> (String, String) raise RuleLowerError {
+  match inner {
+    Sym(name) =>
+      match resolve_sym(name, ctx) {
+        Terminal(kind) => (name, kind)
+        Rule(_) =>
+          raise RuleLowerError(
+            "'" +
+            postfix +
+            "' can only be applied to a terminal token, not a rule reference '" +
+            name +
+            "'",
+          )
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(name))
+      }
+    _ =>
+      raise RuleLowerError(
+        "'" +
+        postfix +
+        "' requires a terminal token as its operand; got a compound expression",
+      )
   }
 }
 
@@ -438,6 +479,52 @@ fn lower(
     // the alt when its FIRST matches, and otherwise does nothing — exactly
     // "optionally X". Absent is valid, so `required` is false.
     Opt(inner) => lower_choice([inner], ctx, depth, required=false)
+    Emit(inner) => {
+      let (name, kind) = resolve_optional_token(inner, ctx, "~")
+      ctx.grammar_qual +
+      ".Expr::Emit(" +
+      qualify(ctx.token_qual, name) +
+      ", " +
+      qualify(ctx.syntax_qual, kind) +
+      ")"
+    }
+    Emitor(inner) => {
+      let (name, kind) = resolve_optional_token(inner, ctx, "!")
+      ctx.grammar_qual +
+      ".Expr::EmitOr(" +
+      qualify(ctx.token_qual, name) +
+      ", " +
+      qualify(ctx.syntax_qual, kind) +
+      ", " +
+      quote("expected '" + name + "'") +
+      ")"
+    }
+    // @until(Token) — consume tokens (emitting diagnostic) until the sync
+    // token is found. Single token -> Pred::IsToken; multi (via |) -> OneOf.
+    ErrorUntil(tokens) => {
+      let pred = if tokens.length() == 1 {
+        ctx.grammar_qual +
+        ".Pred::IsToken(" +
+        qualify(ctx.token_qual, tokens[0]) +
+        ")"
+      } else {
+        let toks = tokens.map(n => qualify(ctx.token_qual, n))
+        ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
+      }
+      // Verify every named token is known before emitting.
+      for t in tokens {
+        guard ctx.token_kinds.contains(t) else {
+          raise RuleLowerError(
+            "'" +
+            t +
+            "' in @until() is not a #loom.token variant — only terminal tokens can be sync points",
+          )
+        }
+      }
+      let delim_names = tokens.join("' or '")
+      let msg = "expected '" + delim_names + "'"
+      ctx.grammar_qual + ".Expr::ErrorUntil(" + pred + ", " + quote(msg) + ")"
+    }
     // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a
     // trailing `Any → Fail` branch. A required alternation that matches no branch
     // is an error; without the fallback the interpreter's Choice silently no-ops.

@@ -6,8 +6,8 @@
 ///   rule    := alt
 ///   alt     := seq ('|' seq)*
 ///   seq     := postfix+
-///   postfix := atom ('*' | '+' | '?')?
-///   atom    := IDENT | '@' IDENT | '(' alt ')'
+///   postfix := atom ('*' | '+' | '?' | '~' | '!')?
+///   atom    := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'
 /// ```
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
@@ -25,6 +25,9 @@ enum RuleAst {
   Star(RuleAst)
   Plus(RuleAst)
   Opt(RuleAst)
+  Emit(RuleAst)
+  Emitor(RuleAst)
+  ErrorUntil(Array[String])
 } derive(Eq, Debug)
 
 ///|
@@ -37,6 +40,9 @@ enum RuleTok {
   TStar
   TPlus
   TQuest
+  TTilde
+  TEmitor
+  TUntil
 } derive(Eq, Debug)
 
 ///|
@@ -84,10 +90,16 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
       i = next
     } else if c == '@' {
       if i + 1 >= s.length() || !is_rule_ident_start(s[i + 1]) {
-        raise RuleParseError("'@' must be followed by a fragment name")
+        raise RuleParseError(
+          "'@' must be followed by a keyword or fragment name",
+        )
       }
       let (name, next) = scan_ident(s, i + 1)
-      toks.push(TFrag(name))
+      if name == "until" {
+        toks.push(TUntil)
+      } else {
+        toks.push(TFrag(name))
+      }
       i = next
     } else {
       let tok = match c {
@@ -97,6 +109,8 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
         '*' => TStar
         '+' => TPlus
         '?' => TQuest
+        '~' => TTilde
+        '!' => TEmitor
         _ =>
           raise RuleParseError(
             "unexpected character '" + s[i:i + 1].to_owned() + "' in rule",
@@ -177,7 +191,7 @@ fn not_seq_terminator(tok : RuleTok?) -> Bool {
 }
 
 ///|
-/// `postfix := atom ('*' | '+' | '?')?` — at most one postfix quantifier.
+/// `postfix := atom ('*' | '+' | '?' | '~' | '!')?` — at most one postfix.
 fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError {
   let atom = self.parse_atom()
   match self.peek() {
@@ -193,12 +207,20 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
       self.bump()
       Opt(atom)
     }
+    Some(TTilde) => {
+      self.bump()
+      Emit(atom)
+    }
+    Some(TEmitor) => {
+      self.bump()
+      Emitor(atom)
+    }
     _ => atom
   }
 }
 
 ///|
-/// `atom := IDENT | '@' IDENT | '(' alt ')'`.
+/// `atom := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'`.
 fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
   match self.peek() {
     Some(TIdent(name)) => {
@@ -209,6 +231,35 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       Frag(name)
     }
+    Some(TUntil) => {
+      self.bump()
+      guard self.peek() is Some(TLParen) else {
+        raise RuleParseError("'@until' must be followed by '(' tokens ')'")
+      }
+      self.bump()
+      let tokens : Array[String] = []
+      while true {
+        match self.peek() {
+          Some(TIdent(name)) => {
+            self.bump()
+            tokens.push(name)
+          }
+          _ =>
+            raise RuleParseError(
+              "@until() must contain at least one token identifier",
+            )
+        }
+        match self.peek() {
+          Some(TPipe) => self.bump()
+          _ => break
+        }
+      }
+      guard self.peek() is Some(TRParen) else {
+        raise RuleParseError("unbalanced '@until(' — missing ')'")
+      }
+      self.bump()
+      ErrorUntil(tokens)
+    }
     Some(TLParen) => {
       self.bump()
       let inner = self.parse_alt()
@@ -218,8 +269,10 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       inner
     }
-    Some(TStar) | Some(TPlus) | Some(TQuest) =>
-      raise RuleParseError("a quantifier ('*', '+', '?') has no atom to bind")
+    Some(TStar) | Some(TPlus) | Some(TQuest) | Some(TTilde) | Some(TEmitor) =>
+      raise RuleParseError(
+        "a postfix ('*', '+', '?', '~', '!') has no atom to bind",
+      )
     Some(TPipe) => raise RuleParseError("unexpected '|' with no left side")
     Some(TRParen) => raise RuleParseError("unexpected ')'")
     None => raise RuleParseError("unexpected end of rule")

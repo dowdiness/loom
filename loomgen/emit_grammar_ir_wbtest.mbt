@@ -706,3 +706,19 @@ test "parse_annotations rejects #loom.rule on a token variant" {
     "token variant",
   )
 }
+
+///|
+/// Golden test for M16 #598 ~ (Emit), #599 ! (EmitOr), #600 @until (ErrorUntil).
+test "emit_grammar_ir golden: ~ ! @until lower to Emit EmitOr ErrorUntil" {
+  let src = read_fixture("fixtures/rule_emit_fixture.mbt")
+  let golden = read_fixture("fixtures/rule_emit_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "emit_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}

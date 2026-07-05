@@ -7,6 +7,7 @@ members = [
   "./loomgen",
   "./examples/markdown",
   "./examples/json",
+  "./examples/css",
   "./examples/lambda",
   "./examples/graph-dsl",
   "./examples/json-settings",

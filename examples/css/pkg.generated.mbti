@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/css-example"
+
+import {
+  "dowdiness/css-example/syntax",
+  "dowdiness/css-example/token",
+  "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
+}
+
+// Values
+pub let css_grammar_ir : @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
+
+pub fn make_css_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+
+// Errors
+
+// Types and methods
+pub(all) enum TermKind {
+  Stylesheet
+  Rule
+  Decls
+  Decl
+  ErrorNode
+}
+
+// Type aliases
+
+// Traits
+

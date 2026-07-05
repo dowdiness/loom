@@ -148,6 +148,8 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 
 Each example demonstrates a different `@loom.Grammar` feature axis:
 
+
+- [../examples/css/](../examples/css/) — `#loom.rule` EBNF syntax `~` (Emit), `!` (EmitOr), `@until` (ErrorUntil) with parity-verified CSS declaration-list grammar
 - [../examples/lambda/README.md](../examples/lambda/README.md) — typed `SyntaxNode` views, classical recursive descent
 - [../examples/json/README.md](../examples/json/README.md) — step-based total lexing + `block_reparse_spec`
 - [../examples/json-settings/README.md](../examples/json-settings/README.md) — checked last-good semantic projection attachment (pure derived + imperative `settle`)

@@ -32,6 +32,13 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Added
 
+
+- **`dowdiness/loomgen` — M16 EBNF subset: `~` (Emit), `!` (EmitOr), `@until` (ErrorUntil):**
+  Postfix `Token~` lowers to `Expr::Emit(token, kind)` — silently skip if absent.
+  Postfix `Token!` lowers to `Expr::EmitOr(token, kind, msg)` — emit diagnostic + placeholder if absent.
+  `@until(Token)` / `@until(T1 | T2)` lowers to `Expr::ErrorUntil(Pred::IsToken/OneOf, msg)` — consume until synchronization point.
+  All three syntaxes available in `#loom.rule` annotations and `.loomgrammar` files.
+  Golden fixture + parity test added under `fixtures/rule_emit_fixture.*`.
 - **`dowdiness/loom/projection`** — new package containing the stable
   semantic projection-identity subsystem extracted from `loom/core` (Stage A1).
   Depends on `loom/core` data types and `text_change`; the engine
