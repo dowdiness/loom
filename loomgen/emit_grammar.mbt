@@ -48,6 +48,14 @@ pub fn[T, K] emit_grammar_module(
       return Err("grammar emitter: missing root rule \"" + name + "\"")
     @grammar.MissingRef(name) =>
       return Err("grammar emitter: missing ref \"" + name + "\"")
+    @grammar.MissingFragment(name) => {
+      let bare = name.replace(old="__loom_frag__", new="")
+      return Err(
+        "grammar emitter: fragment @" +
+        bare +
+        " is not bound — provide its body via the fragments~ parameter",
+      )
+    }
     @grammar.MissingNative(name) =>
       return Err("grammar emitter: missing native \"" + name + "\"")
     @grammar.AmbiguousRule(name) =>

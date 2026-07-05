@@ -28,6 +28,23 @@ test "compile rejects unresolved refs before parsing" {
 }
 
 ///|
+test "compile raises MissingFragment for unbound __loom_frag__ refs" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Ref("__loom_frag__pratt"),
+  }
+  let caught = try {
+    let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(MissingFragment("__loom_frag__pratt")) => ()
+    _ => fail("expected MissingFragment(\"__loom_frag__pratt\")")
+  }
+}
+
+///|
 test "compile raises MissingNative when Native names an unregistered host rule" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::Native("parse_element_with_stack"),
