@@ -18,6 +18,34 @@ struct LexerInputs {
 }
 
 ///|
+/// Default regex pattern for a syntax role when no explicit `#loom.pattern`
+/// annotation is present. Returns `None` for roles without a sensible default.
+fn default_pattern_for_role(role : SyntaxRole?) -> String? {
+  match role {
+    Some(Ident) => Some("[a-zA-Z_][a-zA-Z0-9_]*")
+    Some(Trivia) => Some("[ \\t\\r\\n]+")
+    Some(Literal) => Some("[0-9]+(\\.[0-9]+)?")
+    _ => None
+  }
+}
+
+///|
+/// The effective pattern for a variant: either its explicit `#loom.pattern`,
+/// or the default pattern for its role, or `None`.
+fn effective_pattern(v : VariantDecl) -> String? {
+  // Custom-lex variants short-circuit before the regex pass — they must not
+  // also get a pattern branch (explicit or default). The custom_lex hook is
+  // the sole producer for the variant.
+  if v.custom_lex is Some(_) {
+    return None
+  }
+  match v.pattern {
+    Some(p) => Some(p)
+    None => default_pattern_for_role(v.role)
+  }
+}
+
+///|
 /// Collect and validate lexer candidates. Returns an error string for any
 /// state the generated scanner could not lex (unreachable variant, keyword
 /// without an identifier source, embeddable-pattern violations).
@@ -28,11 +56,11 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
   let mut ident_count = 0
   for v in variants {
     match v.role {
-      // Only a PATTERN-backed ident participates in keyword post-classification:
-      // it wins the regex pass and sets best_ident. A #loom.custom_lex ident
-      // short-circuits before the regex pass and never triggers classification,
-      // so it does not count as a keyword source.
-      Some(Ident) => if v.pattern is Some(_) { ident_count = ident_count + 1 }
+      // Pattern-backed idents (explicit or default) participate in the regex
+      // pass and set best_ident for keyword post-classification. A
+      // #loom.custom_lex ident short-circuits before the regex pass and never
+      // triggers classification.
+      Some(Ident) => if v.custom_lex is None { ident_count = ident_count + 1 }
       Some(Keyword(kw)) => keywords.push((kw, v.name))
       _ => ()
     }
@@ -43,7 +71,8 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
   for v in variants {
     let is_candidate = v.pattern is Some(_) ||
       v.custom_lex is Some(_) ||
-      v.role is Some(Punct(_))
+      v.role is Some(Punct(_)) ||
+      default_pattern_for_role(v.role) is Some(_)
     let is_exempt = match v.role {
       Some(Keyword(_) | Eof | ErrorToken) => true
       _ => false
@@ -56,7 +85,8 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       )
     }
     // Pattern and punct candidates are emitted as nullary constructors.
-    if (v.pattern is Some(_) || v.role is Some(Punct(_))) && v.arg_count > 0 {
+    if (effective_pattern(v) is Some(_) || v.role is Some(Punct(_))) &&
+      v.arg_count > 0 {
       return Err(
         "token variant " +
         v.name +
@@ -120,6 +150,69 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
 }
 
 ///|
+/// Emit a regex `view =~ (re"^(?:PATTERN)", after=rest)` match branch for a
+/// pattern-backed token variant.  Updates `best_len`, `best`, and (when
+/// `has_keywords`) `best_ident` if the match beats the current best.
+fn emit_pattern_check(
+  b : StringBuilder,
+  pattern : String,
+  variant_name : String,
+  is_ident : Bool,
+  has_keywords : Bool,
+) -> Unit {
+  // Wrap the whole pattern in a non-capturing group so the leading `^`
+  // anchors the ENTIRE pattern. A bare `re"^foo|bar"` would parse as
+  // `(^foo)|(bar)`, letting the search-based `=~` match the unanchored
+  // branch mid-view; the `^(?:..)` wrap binds the anchor to the whole
+  // pattern. (Alternation itself is rejected at validation — it is
+  // leftmost-match, not longest-match — so the wrap is a defensive
+  // structural guarantee, not an alternation feature.)
+  //
+  // The match span is computed from the `after=` remainder rather than a
+  // `... as m` binder: for a pattern that statically matches exactly one
+  // character (`[0-9]`, `.`) the `as` binder is a `Char`, which has no
+  // `.length()`, so `m.length()` would not type-check. `view.length() -
+  // rest.length()` is the consumed code-unit count regardless of binder type.
+  b.write_string("  if view =~ (re\"^(?:" + pattern + ")\", after=rest) {\n")
+  b.write_string("    let len = view.length() - rest.length()\n")
+  b.write_string("    if len > best_len {\n")
+  b.write_string("      best_len = len\n")
+  b.write_string("      best = Some(" + variant_name + ")\n")
+  if has_keywords {
+    b.write_string(
+      "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+    )
+  }
+  b.write_string("    }\n  }\n")
+}
+
+///|
+/// Emit a `cursor.starts_with("LIT")` match branch for a punctuation token
+/// variant.  Unlike the regex pass, punct checks are pure substring lookups on
+/// the cursor — no `let view = cursor.view()` or `after=` computation needed.
+fn emit_punct_check(
+  b : StringBuilder,
+  lit : String,
+  variant_name : String,
+  has_keywords : Bool,
+) -> Unit {
+  let len = lit.length().to_string()
+  b.write_string(
+    "  if cursor.starts_with(\"" +
+    escape_string(lit) +
+    "\") && " +
+    len +
+    " > best_len {\n",
+  )
+  b.write_string("    best_len = " + len + "\n")
+  b.write_string("    best = Some(" + variant_name + ")\n")
+  if has_keywords {
+    b.write_string("    best_ident = false\n")
+  }
+  b.write_string("  }\n")
+}
+
+///|
 /// Emit the generated `lexer.g.mbt` source, or an error describing why the
 /// token enum cannot drive a generated lexer.
 fn emit_lexer(
@@ -133,7 +226,9 @@ fn emit_lexer(
   }
   let token_type = token_enum.name
   let has_keywords = inputs.has_keywords
-  let has_patterns = inputs.variants.iter().any(fn(v) { v.pattern is Some(_) })
+  let has_patterns = inputs.variants
+    .iter()
+    .any(fn(v) { effective_pattern(v) is Some(_) })
   let b = StringBuilder::new()
   b.write_string("// Generated by loomgen (#521) — do not edit.\n\n")
   b.write_string("///|\n")
@@ -178,55 +273,12 @@ fn emit_lexer(
   // Candidate checks in declaration order; strict `>` keeps the earlier
   // declaration on equal-length ties.
   for v in inputs.variants {
-    match v.pattern {
-      Some(p) => {
-        let is_ident = v.role is Some(Ident)
-        // Wrap the whole pattern in a non-capturing group so the leading `^`
-        // anchors the ENTIRE pattern. A bare `re"^foo|bar"` would parse as
-        // `(^foo)|(bar)`, letting the search-based `=~` match the unanchored
-        // branch mid-view; the `^(?:..)` wrap binds the anchor to the whole
-        // pattern. (Alternation itself is rejected at validation — it is
-        // leftmost-match, not longest-match — so the wrap is a defensive
-        // structural guarantee, not an alternation feature.)
-        //
-        // The match span is computed from the `after=` remainder rather than a
-        // `... as m` binder: for a pattern that statically matches exactly one
-        // character (`[0-9]`, `.`) the `as` binder is a `Char`, which has no
-        // `.length()`, so `m.length()` would not type-check. `view.length() -
-        // rest.length()` is the consumed code-unit count regardless of binder
-        // type.
-        b.write_string("  if view =~ (re\"^(?:" + p + ")\", after=rest) {\n")
-        b.write_string("    let len = view.length() - rest.length()\n")
-        b.write_string("    if len > best_len {\n")
-        b.write_string("      best_len = len\n")
-        b.write_string("      best = Some(" + v.name + ")\n")
-        if has_keywords {
-          b.write_string(
-            "      best_ident = " +
-            (if is_ident { "true" } else { "false" }) +
-            "\n",
-          )
-        }
-        b.write_string("    }\n  }\n")
-      }
+    match effective_pattern(v) {
+      Some(p) =>
+        emit_pattern_check(b, p, v.name, v.role is Some(Ident), has_keywords)
       None =>
         match v.role {
-          Some(Punct(lit)) => {
-            let len = lit.length().to_string()
-            b.write_string(
-              "  if cursor.starts_with(\"" +
-              escape_string(lit) +
-              "\") && " +
-              len +
-              " > best_len {\n",
-            )
-            b.write_string("    best_len = " + len + "\n")
-            b.write_string("    best = Some(" + v.name + ")\n")
-            if has_keywords {
-              b.write_string("    best_ident = false\n")
-            }
-            b.write_string("  }\n")
-          }
+          Some(Punct(lit)) => emit_punct_check(b, lit, v.name, has_keywords)
           _ => ()
         }
     }
