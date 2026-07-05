@@ -652,6 +652,75 @@ test "finish_nodes_until: combined with checkpoint restores node stack" {
   assert_current_kind(ctx, KRoot)
 }
 
+
+// ─── finish_nodes_until_inclusive ───────────────────────────────────────────────
+
+///|
+test "finish_nodes_until_inclusive: closes current matching node" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  ctx.start_node(KRoot)
+  ctx.start_node(KExpr)
+  // KExpr matches — finish_nodes_until_inclusive should close it
+  let found = ctx.finish_nodes_until_inclusive(KExpr)
+  inspect(found, content="true")
+  // KExpr was closed — KRoot is now the current node
+  assert_current_kind(ctx, KRoot)
+  ctx.finish_node()
+  assert_no_current_kind(ctx)
+}
+
+///|
+test "finish_nodes_until_inclusive: closes ancestor and all nodes above" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  ctx.start_node(KRoot)
+  ctx.start_node(KExpr)
+  ctx.start_node(KNum)
+  ctx.start_node(KPlus)
+  // KExpr matches — closes KPlus, KNum, and KExpr itself
+  let found = ctx.finish_nodes_until_inclusive(KExpr)
+  inspect(found, content="true")
+  // KRoot is now the only open node
+  assert_current_kind(ctx, KRoot)
+}
+
+///|
+test "finish_nodes_until_inclusive: closes root node when it matches" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  ctx.start_node(KRoot)
+  ctx.start_node(KExpr)
+  ctx.start_node(KNum)
+  // KRoot matches — closes KNum, KExpr, and KRoot
+  let found = ctx.finish_nodes_until_inclusive(KRoot)
+  inspect(found, content="true")
+  inspect(ctx.open_nodes, content="0")
+  assert_no_current_kind(ctx)
+}
+
+///|
+test "finish_nodes_until_inclusive: returns false when kind not found" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  ctx.start_node(KRoot)
+  ctx.start_node(KExpr)
+  ctx.start_node(KNum)
+  let found = ctx.finish_nodes_until_inclusive(KPlus)
+  inspect(found, content="false")
+  // All nodes were exhausted
+  inspect(ctx.open_nodes, content="0")
+  assert_no_current_kind(ctx)
+}
+
+///|
+test "finish_nodes_until_inclusive: returns false when no nodes open" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  let found = ctx.finish_nodes_until_inclusive(KRoot)
+  inspect(found, content="false")
+  inspect(ctx.open_nodes, content="0")
+}
 ///|
 struct FooView {
   node : @seam.SyntaxNode

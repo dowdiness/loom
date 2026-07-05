@@ -311,3 +311,30 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until(
   }
   false
 }
+
+///|
+/// Like `finish_nodes_until`, but also closes the matching node.
+///
+/// Calls `finish_nodes_until(kind)` and, when a match is found, calls
+/// `finish_node()` to close the matched node too.
+///
+/// Returns true when the matching node was found and closed, false when
+/// the open node stack was exhausted without finding a match (in which
+/// case no nodes were closed by this call — `finish_nodes_until` may
+/// have closed some, see its docs).
+///
+/// Example (auto-close <li> before opening another):
+/// ```ignore
+/// ctx.finish_nodes_until_inclusive(HTMLLiElement)
+/// ```
+pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until_inclusive(
+  self : ParserContext[T, K],
+  kind : K,
+) -> Bool {
+  if self.finish_nodes_until(kind) {
+    self.finish_node()
+    true
+  } else {
+    false
+  }
+}
