@@ -135,15 +135,6 @@ fn left_rec_msg(name : String) -> String {
 }
 
 ///|
-/// Diagnostic for an unsupported `@fragment` reference. Shared by `lower` and
-/// `first_set` (defensive backstops; `check_no_fragments` is the primary gate).
-fn fragment_unsupported_msg(frag : String) -> String {
-  "fragment @" +
-  frag +
-  " is not supported by --grammar-ir; the generated GrammarIr is a closed value with no way to bind a hand-authored fragment body"
-}
-
-///|
 /// The prefix of `items` that sits in leading (FIRST) position: every element up
 /// to and including the first non-nullable one. Shared by `first_set` and
 /// `leading_refs` so the through-nullable-prefix logic lives in one place and the
@@ -197,6 +188,9 @@ fn nullable(
 /// FIRST set of `ast` — the token names that can begin it. Unions left-to-right
 /// through nullable prefixes of a `Seq`, stopping at the first non-nullable
 /// element. `visiting` detects a left-recursive `Ref` cycle and fails closed.
+/// `Frag` references return an empty set — fragments are opaque at emit time,
+/// so they cannot gate a `Choice` or `RepeatWhile`; placing a fragment in a
+/// gating position triggers the empty-FIRST-set error in `first_names_ordered`.
 fn first_set(
   ast : RuleAst,
   ctx : LowerCtx,
@@ -218,12 +212,22 @@ fn first_set(
         RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
         Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
-    // Unreachable for valid input — check_no_fragments rejects fragments before
-    // any FIRST set is computed — but kept as a defensive backstop.
-    Frag(name) => raise RuleLowerError(fragment_unsupported_msg(name))
+    Frag(_) => @hashset.HashSet([])
     Seq(items) => {
+      let leading = seq_leading(items, ctx)
+      // A fragment in a leading (FIRST) position makes the Seq's FIRST set
+      // unsound: the fragment's actual body is opaque at emit time and may
+      // contribute tokens this pass cannot see. Fail closed rather than emit
+      // a predicate that gated on the visible prefix and excluded the fragment's
+      // actual FIRST tokens. Trailing fragments (after `leading` ends) are fine.
+      for it in leading {
+        if it is Frag(_) { raise RuleLowerError(
+            "@fragment reference in a FIRST-requiring position (e.g. inside a nullable prefix) — the fragment's body is opaque at emit time, so its FIRST set is unknown; restructure to place the fragment in trailing (non-FIRST) position",
+          )
+        }
+      }
       let acc : @hashset.HashSet[String] = @hashset.HashSet([])
-      for it in seq_leading(items, ctx) {
+      for it in leading {
         for n in first_set(it, ctx, visiting) {
           acc.add(n)
         }
@@ -331,47 +335,21 @@ fn left_rec_dfs(
 }
 
 ///|
-/// The first fragment name reached anywhere in `ast`, or None. Fragments are an
-/// unfinished feature (see check_no_fragments) so any occurrence is rejected.
-fn first_fragment(ast : RuleAst) -> String? {
-  match ast {
-    Frag(name) => Some(name)
-    Sym(_) => None
-    Seq(items) | Alt(items) => {
-      for it in items {
-        match first_fragment(it) {
-          Some(n) => return Some(n)
-          None => ()
-        }
-      }
-      None
-    }
-    Star(inner) | Plus(inner) | Opt(inner) => first_fragment(inner)
-  }
-}
-
-///|
-/// Reject any `@fragment` reference at build time. A fragment would lower to
-/// `Ref("name")`, but the generated GrammarIr is a closed value (build_lower_ctx
-/// only inserts term-rule bodies into the map), so the Ref has no binding and
-/// `@grammar.compile` raises `MissingRef`. Until a fragment-binding mechanism
-/// exists, fail closed rather than emit an uncompilable grammar.
-fn check_no_fragments(ctx : LowerCtx) -> Result[Unit, String] {
-  for name, body in ctx.rules {
-    match first_fragment(body) {
-      Some(frag) =>
-        return Err(
-          ctx.loc(name) +
-          "rule '" +
-          name +
-          "' references fragment @" +
-          frag +
-          " — @fragment references are not yet supported by --grammar-ir; the generated GrammarIr is a closed value with no way to bind a hand-authored fragment body, so the reference would dangle. Rewrite the production within the #loom.rule subset.",
-        )
-      None => ()
+fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
+  fn go(ast : RuleAst) -> Bool {
+    match ast {
+      Frag(_) => true
+      Sym(_) => false
+      Seq(items) | Alt(items) => items.iter().any(go)
+      Star(inner) | Plus(inner) | Opt(inner) => go(inner)
     }
   }
-  Ok(())
+  for _, body in rules {
+    if go(body) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -428,9 +406,10 @@ fn lower(
         RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
         Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
-    // Fragments are rejected up front by check_no_fragments; this arm is a
-    // defensive backstop so a fragment can never lower to a dangling Ref.
-    Frag(name) => raise RuleLowerError(fragment_unsupported_msg(name))
+    // Fragment references lower to a mangled Ref that the caller supplies
+    // via the fragments~ parameter (merged into the rules map before compile).
+    Frag(name) =>
+      ctx.grammar_qual + ".Expr::Ref(" + quote("__loom_frag__" + name) + ")"
     Seq(items) => {
       let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Seq([\n")
       for it in items {
@@ -644,12 +623,6 @@ fn emit_grammar_ir(
     Ok(c) => c
     Err(m) => return Err(m)
   }
-  // Reject @fragment references before lowering — they would emit dangling Refs
-  // the closed GrammarIr cannot bind. Fails closed.
-  match check_no_fragments(ctx) {
-    Err(m) => return Err(m)
-    Ok(_) => ()
-  }
   // Reject left recursion across all rule bodies before lowering — a
   // left-recursive rule in plain Seq/Node position never consults `first_set`,
   // so this is the only guard that catches it. Fails closed.
@@ -683,28 +656,39 @@ fn emit_grammar_ir(
   }
   let token_type = token_enum.name
   let syntax_type = "SyntaxKind"
+  let has_frags = has_fragment_refs(ctx.rules)
   let b = StringBuilder()
     ..write_string("// Generated by loomgen (#522) — do not edit.\n\n")
     ..write_string("///|\n")
     ..write_string(
       "/// Generated GrammarIr initialization from grammar rules.\n",
     )
-    ..write_string(
-      "pub let " +
-      value_name +
-      " : " +
-      grammar_qual +
-      ".GrammarIr[" +
-      qualify(token_qual, token_type) +
-      ", " +
-      qualify(syntax_qual, syntax_type) +
-      "] =\n",
-    )
-    ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
-    ..write_string(indent(2) + "{\n")
+  let gram_ir_type = grammar_qual +
+    ".GrammarIr[" +
+    qualify(token_qual, token_type) +
+    ", " +
+    qualify(syntax_qual, syntax_type) +
+    "]"
+  let expr_type = grammar_qual +
+    ".Expr[" +
+    qualify(token_qual, token_type) +
+    ", " +
+    qualify(syntax_qual, syntax_type) +
+    "]"
+  let rules_type = "Map[String, " + expr_type + "]"
+  if has_frags {
+    b
+    ..write_string("pub fn " + value_name + "(\n")
+    ..write_string(indent(1) + "fragments~ : " + rules_type + " = Map([]),\n")
+    .write_string(") -> " + gram_ir_type + " {\n")
+    b.write_string(indent(1) + "let rules : " + rules_type + " = {\n")
+  } else {
+    b
+    ..write_string("pub let " + value_name + " : " + gram_ir_type + " =\n")
+    .write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
+    b.write_string(indent(2) + "{\n")
+  }
   for v in term_enum.variants {
-    // A variant gets a production when a rule resolves for it — from a #loom.rule
-    // annotation or a .loomgrammar file entry (both merged into `ctx.rules`).
     match ctx.rules.get(v.name) {
       Some(body) => {
         let kind_name = match v.role {
@@ -720,14 +704,34 @@ fn emit_grammar_ir(
         let production = lower_production(kind_name, body, ctx, 3) catch {
           RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
         }
-        b.write_string(indent(3) + quote(v.name) + ": " + production + ",\n")
+        b.write_string(
+          indent(if has_frags { 2 } else { 3 }) +
+          quote(v.name) +
+          ": " +
+          production +
+          ",\n",
+        )
       }
       None => ()
     }
   }
-  b
-  ..write_string(indent(2) + "},\n")
-  ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
-  .write_string(indent(1) + ")\n")
+  if has_frags {
+    b
+    ..write_string(indent(1) + "}\n")
+    ..write_string(indent(1) + "for frag, body in fragments {\n")
+    ..write_string(indent(2) + "rules.set(frag, body)\n")
+    .write_string(indent(1) + "}\n")
+    b
+    ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
+    ..write_string(indent(2) + "rules,\n")
+    ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
+    .write_string(indent(1) + ")\n")
+    b.write_string("}\n")
+  } else {
+    b
+    ..write_string(indent(2) + "},\n")
+    ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
+    .write_string(indent(1) + ")\n")
+  }
   Ok(b.to_string())
 }
