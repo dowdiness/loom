@@ -12,7 +12,6 @@ members = [
   "./examples/json-settings",
   "./examples/moonbit",
   "./incr/incr",
-  "./event-graph-walker",
   "./egraph",
   "./fixtures/grammar_ir_regression",
 ]
