@@ -714,12 +714,7 @@ test "emit_grammar_ir golden: ~ ! @until lower to Emit EmitOr ErrorUntil" {
   let (token_enum, term_enum) = enums_of(src)
   let generated = match
     emit_grammar_ir(
-      term_enum,
-      token_enum,
-      "@token",
-      "@syntax",
-      "@grammar",
-      "emit_grammar_ir",
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "emit_grammar_ir",
     ) {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)

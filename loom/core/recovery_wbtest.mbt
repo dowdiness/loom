@@ -452,10 +452,10 @@ test "expect_adjacent: at EOF emits diagnostic" {
 }
 
 ///|
-test "expect_adjacent: eof_token as expected delegates to expect at EOF" {
-  // Pathological input, pinned for contract consistency: passing the eof
-  // token must behave exactly like expect (emit_token's EOF recovery),
-  // not the "intervening trivia" branch.
+/// Calling expect_adjacent with the EOF token at EOF succeeds with no
+/// diagnostic — identical to expect(TokEof, ...) at EOF, since EOF has no
+/// source text to emit as a CST token.
+test "expect_adjacent: eof_token as expected succeeds with no diagnostic at EOF" {
   let src = "1"
   let toks = test_tokenize(src)
   let ctx = ParserContext::new(toks, src, test_spec)
@@ -466,12 +466,10 @@ test "expect_adjacent: eof_token as expected delegates to expect at EOF" {
   reference.start_node(KRoot)
   reference.emit_token(KNum)
   let ok_expect = reference.expect(TestTok::TokEof, KErr)
-  inspect(ok == ok_expect, content="true")
-  inspect(
-    ctx.diagnostics.items()[0].message ==
-    reference.diagnostics.items()[0].message,
-    content="true",
-  )
-  reference.finish_node()
+  inspect(ok, content="true")
+  inspect(ok_expect, content="true")
+  inspect(ctx.diagnostics.is_empty(), content="true")
+  inspect(reference.diagnostics.is_empty(), content="true")
   ctx.finish_node()
+  reference.finish_node()
 }

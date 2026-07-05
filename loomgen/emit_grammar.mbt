@@ -327,14 +327,27 @@ fn[T, K] emit_compiled_expr(
       Ok([ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))]))])
     @grammar.CompiledExpr::ErrorUntil(stop, msg) =>
       Ok([
-        ExprStmt(MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))])),
-        ExprStmt(
-          Pipe(
-            MethodCall(Var("ctx"), "skip_until", [
-              pred_closure_expr(stop, token_ref),
-            ]),
-            Call("ignore", []),
+        MbtStmt::If(
+          UnOp(
+            "!",
+            pred_to_expr(stop, MethodCall(Var("ctx"), "peek", []), token_ref),
           ),
+          MbtBlock::{
+            stmts: [
+              ExprStmt(
+                MethodCall(Var("ctx"), "error", [StrLit(string_lit(msg))]),
+              ),
+              ExprStmt(
+                Pipe(
+                  MethodCall(Var("ctx"), "skip_until", [
+                    pred_closure_expr(stop, token_ref),
+                  ]),
+                  Call("ignore", []),
+                ),
+              ),
+            ],
+          },
+          [],
         ),
       ])
     @grammar.CompiledExpr::Fail(msg) =>

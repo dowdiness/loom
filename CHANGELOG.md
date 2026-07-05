@@ -39,12 +39,24 @@ Notable user-facing changes to Loom and its sibling modules.
   `@until(Token)` / `@until(T1 | T2)` lowers to `Expr::ErrorUntil(Pred::IsToken/OneOf, msg)` — consume until synchronization point.
   All three syntaxes available in `#loom.rule` annotations and `.loomgrammar` files.
   Golden fixture + parity test added under `fixtures/rule_emit_fixture.*`.
-- **`dowdiness/loom/projection`** — new package containing the stable
-  semantic projection-identity subsystem extracted from `loom/core` (Stage A1).
-  Depends on `loom/core` data types and `text_change`; the engine
-  (`loom/core` parser, `loom/incremental`, `loom/pipeline`) is structurally
-  prohibited from depending on it. All projection-identity symbols remain
-  accessible via the `dowdiness/loom` facade unchanged.
+
+### Fixed
+
+- **`dowdiness/loom/grammar` — `@until` no longer emits spurious diagnostic when already at sync point (#636):**
+  `ErrorUntil(stop, msg)` now guards `ctx.error(msg)` behind
+  `if !stop.matches(ctx.peek())` — when the current token already satisfies the
+  stop predicate (e.g. `@until(RBrace)` with `peek = RBrace`), no diagnostic is
+  emitted and `skip_until` is skipped. Fix applied to both the interpreter and
+  the compiled emission path.
+
+- **`dowdiness/loom/core` — `ParserContext::expect` and `expect_adjacent` no longer emit "emit_token: unexpected EOF" diagnostic:**
+  Both functions now skip `emit_token` when at EOF — EOF has no source text to
+  emit as a CST token, so attempting to do so produced a spurious diagnostic on
+  every well-formed parse that uses `Expect(EOF, ...)` (e.g. every grammar with
+  a trailing `EOF` in its root rule). The diagnostic was harmless but added
+  noise, obscuring real recovery diagnostics.
+
+### Added
 
 - `dowdiness/loom`: added `ParserContext` grammar-author helpers:
   `emit_current_token`, `current_token_text`, `current_token_range`, and
@@ -58,6 +70,13 @@ Notable user-facing changes to Loom and its sibling modules.
   like `finish_nodes_until` but also closes the matching node.
   Eliminates the two-step pattern
   (`if ctx.finish_nodes_until(K) { ctx.finish_node() }`).
+
+- **`dowdiness/loom/projection`** — new package containing the stable
+  semantic projection-identity subsystem extracted from `loom/core` (Stage A1).
+  Depends on `loom/core` data types and `text_change`; the engine
+  (`loom/core` parser, `loom/incremental`, `loom/pipeline`) is structurally
+  prohibited from depending on it. All projection-identity symbols remain
+  accessible via the `dowdiness/loom` facade unchanged.
 
 - `dowdiness/loom`: added `SyntaxGrammar`, `SyntaxParser`,
   `SyntaxSnapshot`, and `new_syntax_parser` for reactive CST/diagnostics
