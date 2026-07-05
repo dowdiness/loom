@@ -48,7 +48,7 @@ pub fn[Ast : Eq] Parser::new(
   let initial_snapshot = engine.parse()
   let rt = match runtime {
     Some(r) => r
-    None => @incr.Runtime::new()
+    None => @incr.Runtime()
   }
   let snapshot_input = @incr.Input(
     rt,

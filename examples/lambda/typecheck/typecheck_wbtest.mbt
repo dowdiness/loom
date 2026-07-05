@@ -9,7 +9,7 @@ fn infer_with_diags(
   env : TypeEnv,
   term : TypedTerm,
 ) -> (TypeResult, Array[TypeDiagnostic]) {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
   let memo = @incr.Derived(rt, () => infer_impl(env, term, ctx))
@@ -24,7 +24,7 @@ fn check_with_diags(
   term : TypedTerm,
   expected : Type,
 ) -> (TypeResult, Array[TypeDiagnostic]) {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
   let memo = @incr.Derived(rt, () => check_impl(env, term, expected, ctx))
@@ -388,7 +388,7 @@ test "resolve: non-module term" {
 ///|
 test "incremental: basic typecheck through pipeline" {
   // Module: def f = (x : Int) => x + 1, body = f 5
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
     [
@@ -420,7 +420,7 @@ test "incremental: basic typecheck through pipeline" {
 
 ///|
 test "incremental: source unchanged = cache hit" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
     [("a", TypedTerm::Int(42))],
@@ -437,7 +437,7 @@ test "incremental: source unchanged = cache hit" {
 
 ///|
 test "incremental: edit def body triggers recomputation" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Initially: def a = 1, body = a
   let module_term1 = TypedTerm::Module(
@@ -463,7 +463,7 @@ test "incremental: edit def body triggers recomputation" {
 
 ///|
 test "incremental: structural change rebuilds scope" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Initially: def a = 1, body = a
   let module_term1 = TypedTerm::Module(
@@ -491,7 +491,7 @@ test "incremental: structural change rebuilds scope" {
 
 ///|
 test "incremental: empty module" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module([], TypedTerm::Int(42))
   let term_input = scope.input(module_term, label="source_term")
@@ -506,7 +506,7 @@ test "incremental: empty module" {
 
 ///|
 test "incremental: diagnostics propagate through pipeline" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // def a = (x) => x (unannotated lambda → error), body = a
   let module_term = TypedTerm::Module(
@@ -526,7 +526,7 @@ test "incremental: diagnostics propagate through pipeline" {
 
 ///|
 test "incremental: editing one def updates only that def's diagnostics" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Two defs; `a` is ill-typed (unannotated lambda), `b` is well-typed.
   let ill_a = TypedTerm::Lam("x", None, TypedTerm::Var("x"))
@@ -568,7 +568,7 @@ test "incremental: editing one def updates only that def's diagnostics" {
 /// that def's `resolve_memo`. Other defs' resolve results must backdate
 /// (same `changed_at` after the edit as before).
 test "incremental: per-def resolve — body edit invalidates only that def's resolve_memo" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Three defs: a = 1, b = 2, c = a (Var reference to a)
   let v1 = TypedTerm::Module(
@@ -620,7 +620,7 @@ test "incremental: per-def resolve — body edit invalidates only that def's res
 /// invalidate only `body_resolve_memo`, leaving every def's resolve
 /// result backdated.
 test "incremental: per-def resolve — body edit invalidates only body_resolve_memo" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // def a = 1, body = a
   let v1 = TypedTerm::Module([("a", TypedTerm::Int(1))], TypedTerm::Var("a"))
@@ -652,7 +652,7 @@ test "incremental: per-def resolve — body edit invalidates only body_resolve_m
 /// in that form), the producing `resolve_memo` recomputes but its
 /// `changed_at` stays put — downstream `type_memo` skips its own work.
 test "incremental: per-def resolve — raw differs, resolved form equal, resolve_memo backdates" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // def a = Var("unknown"); no binding for "unknown" exists, so
   // resolve_walk rewrites Var → Unbound.
@@ -689,7 +689,7 @@ test "incremental: per-def resolve — raw differs, resolved form equal, resolve
 
 ///|
 test "DerivedMap: query by DefId" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
     [
@@ -732,7 +732,7 @@ test "DerivedMap: query by DefId" {
 
 ///|
 test "DerivedMap: cache hit for stable DefId after edit" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Module with def f = (x : Int) => x
   let module_term1 = TypedTerm::Module(
@@ -776,7 +776,7 @@ test "DerivedMap: cache hit for stable DefId after edit" {
 /// FIRST occurrence in `name_to_idx` and emits a "duplicate top-level
 /// definition: X" diagnostic for each additional occurrence.
 test "DerivedMap: duplicate def names diagnose and keep first-wins lookup" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // Two defs named `a`: the first types to `Int`, the second to
   // `Int -> Int`. Under the pre-fix last-wins rule, `derived_map.read_or_abort(a_id)`
@@ -819,7 +819,7 @@ test "DerivedMap: lookup of unknown def name returns error sentinel" {
   // `None` arm and returns an error result rather than aliasing into some
   // other slot. This replaces the old positional guard, which was needed
   // only while `DefEntry` hashed on `(name, encounter_order)`.
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   let module_term = TypedTerm::Module(
     [
@@ -857,7 +857,7 @@ test "DerivedMap: lookup of unknown def name returns error sentinel" {
 /// the same `InternId`; the DerivedMap compute closure routes via
 /// `PipelineState::name_to_idx` to find the new slot.
 test "DerivedMap: DefId stays stable after prepending a def at position 0" {
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // v1: [a = 1, b : Int -> Int, c : Int]
   let b_lam = TypedTerm::Lam(
@@ -910,7 +910,7 @@ test "DerivedMap: DefId stays stable after prepending a def at position 0" {
 test "DerivedMap: structural rebuild sweeps stale entries" {
   // Verify that `derived_map.clear_cache()` is invoked on rebuild so wrapper
   // Derived cells for old InternIds do not accumulate across structural edits.
-  let rt = @incr.Runtime::new()
+  let rt = @incr.Runtime()
   let scope = @incr.Scope::new(rt)
   // First module: defs = [a, b]
   let module_term1 = TypedTerm::Module(
