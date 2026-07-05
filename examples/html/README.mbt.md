@@ -159,6 +159,15 @@ moon check examples/html
 moon test examples/html/lexer_test.mbt examples/html/parser_test.mbt
 ```
 
+
+## Known Issues
+
+- **RawText tokens never emitted (`<script>`/`<style>`).** The lexer tokenizes
+  script/style content as `Text` rather than `RawText`, so the parser's
+  `RawTextLeaf` branch is unreachable. The correct fix is parser-driven
+  lex mode switching (`ParserContext.set_lex_mode()` via #532) as part of
+  the M19 capstone ([#609](https://github.com/dowdiness/loom/issues/609)).
+  Tracking issue: [#626](https://github.com/dowdiness/loom/issues/626).
 ## See Also
 
 - [`examples/json`](../json/) — step-based prefix lexer, block reparse spec
