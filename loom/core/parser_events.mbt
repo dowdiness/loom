@@ -150,6 +150,7 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
     return
   }
   self.open_nodes = self.open_nodes - 1
+  let _ = self.node_stack.pop()
   self.events.push(@seam.FinishNode)
 }
 

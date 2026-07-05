@@ -202,6 +202,8 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
   // Flush trailing trivia
   ctx.flush_trivia()
   // Auto-close any unclosed nodes
+  // node_stack intentionally NOT modified here — terminal loop. tree build follows.
+  // If a future caller reads node_stack after this loop, must pop it. 
   while ctx.open_nodes > 0 {
     ctx.events.push(@seam.ParseEvent::FinishNode)
     ctx.open_nodes = ctx.open_nodes - 1

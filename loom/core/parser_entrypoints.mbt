@@ -18,6 +18,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
   let ctx = ParserContext::new(tokens, source, spec)
   grammar(ctx)
   ctx.flush_trivia()
+  // node_stack intentionally NOT modified here — terminal auto-close before tree build.
+  // If a future caller reads node_stack after this loop, must pop it.
   while ctx.open_nodes > 0 {
     ctx.error("unclosed node (auto-closed)")
     ctx.open_nodes = ctx.open_nodes - 1
@@ -111,6 +113,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
   }
   (spec.parse_root)(ctx)
   ctx.flush_trivia()
+  // node_stack intentionally NOT modified here — terminal auto-close before tree build.
+  // If a future caller reads node_stack after this loop, must pop it.
   while ctx.open_nodes > 0 {
     ctx.error("unclosed node (auto-closed)")
     ctx.open_nodes = ctx.open_nodes - 1
