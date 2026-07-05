@@ -139,6 +139,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(
   kind : K,
 ) -> Unit {
   self.open_nodes = self.open_nodes + 1
+  self.node_stack.push(kind)
   self.events.push(@seam.StartNode(kind.to_raw()))
 }
 
@@ -165,9 +166,14 @@ pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
   let reuse_cursor = self.reuse_cursor.map(cursor => cursor.snapshot())
+  let node_stack : Array[K] = []
+  for k in self.node_stack {
+    node_stack.push(k)
+  }
   {
     position: self.position,
     events_len: self.events.length(),
+    node_stack_snapshot: node_stack,
     error_count: self.error_count,
     open_nodes: self.open_nodes,
     reuse_cursor,
@@ -187,6 +193,11 @@ pub fn[T, K] ParserContext::restore(
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
+  // Full stack restore — see BLOCKER note
+  self.node_stack = []
+  for k in cp.node_stack_snapshot {
+    self.node_stack.push(k)
+  }
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.lex_mode = cp.lex_mode
   self.reuse_count = cp.reuse_count
@@ -230,4 +241,5 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
 ) -> Unit {
   self.events.start_at(mark, kind.to_raw())
   self.open_nodes = self.open_nodes + 1
+  self.node_stack.push(kind)
 }

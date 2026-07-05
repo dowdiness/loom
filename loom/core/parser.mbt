@@ -118,6 +118,9 @@ pub struct ParserContext[T, K] {
   priv diagnostics : DiagnosticSet
   priv mut error_count : Int
   priv mut open_nodes : Int
+  /// Stack of currently open node kinds, parallel to open_nodes count.
+  /// Used by current_node_kind() and finish_nodes_until().
+  priv mut node_stack : Array[K]
   // Incremental reuse — None on a fresh parse, Some(cursor) for incremental.
   priv mut reuse_cursor : ReuseCursor[T, K]?
   // Diagnostics from the previous parse (optional). When present, reuse hits
@@ -136,6 +139,7 @@ pub struct ParserContext[T, K] {
 pub(all) struct Checkpoint[T, K] {
   priv position : Int
   priv events_len : Int
+  priv node_stack_snapshot : Array[K]
   priv error_count : Int
   priv open_nodes : Int
   priv reuse_cursor : ReuseCursor[T, K]?
