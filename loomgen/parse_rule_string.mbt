@@ -90,7 +90,9 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
       i = next
     } else if c == '@' {
       if i + 1 >= s.length() || !is_rule_ident_start(s[i + 1]) {
-        raise RuleParseError("'@' must be followed by a keyword or fragment name")
+        raise RuleParseError(
+          "'@' must be followed by a keyword or fragment name",
+        )
       }
       let (name, next) = scan_ident(s, i + 1)
       if name == "until" {
@@ -242,11 +244,10 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
             self.bump()
             tokens.push(name)
           }
-          _ => {
+          _ =>
             raise RuleParseError(
               "@until() must contain at least one token identifier",
             )
-          }
         }
         match self.peek() {
           Some(TPipe) => self.bump()
@@ -269,7 +270,9 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       inner
     }
     Some(TStar) | Some(TPlus) | Some(TQuest) | Some(TTilde) | Some(TEmitor) =>
-      raise RuleParseError("a postfix ('*', '+', '?', '~', '!') has no atom to bind")
+      raise RuleParseError(
+        "a postfix ('*', '+', '?', '~', '!') has no atom to bind",
+      )
     Some(TPipe) => raise RuleParseError("unexpected '|' with no left side")
     Some(TRParen) => raise RuleParseError("unexpected ')'")
     None => raise RuleParseError("unexpected end of rule")

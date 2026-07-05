@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/css-example/token"
+
+import {
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn print_token(Token) -> String
+
+pub fn print_tokens(Array[Token]) -> String
+
+// Errors
+
+// Types and methods
+pub(all) enum Token {
+  Ident
+  Colon
+  Semicolon
+  LBrace
+  RBrace
+  Number
+  Whitespace
+  Error(String)
+  EOF
+} derive(Eq, @debug.Debug)
+pub impl @seam.IsEof for Token
+pub impl @seam.IsTrivia for Token
+pub impl @seam.ToRawKind for Token
+pub impl Show for Token
+
+// Type aliases
+pub using @core {type TokenInfo}
+
+// Traits
+

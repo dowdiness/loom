@@ -163,13 +163,20 @@ test "demo: single rule, single declaration" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
   let tokens = [
-    tok(@token.Ident), tok(@token.LBrace),
-    tok(@token.Ident), tok(@token.Colon),
-    tok(@token.Ident), tok(@token.Semicolon),
-    tok(@token.RBrace), tok(@token.EOF),
+    tok(@token.Ident),
+    tok(@token.LBrace),
+    tok(@token.Ident),
+    tok(@token.Colon),
+    tok(@token.Ident),
+    tok(@token.Semicolon),
+    tok(@token.RBrace),
+    tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
-    "div { color: red; }", spec, _source => tokens, parse,
+    "div { color: red; }",
+    spec,
+    _source => tokens,
+    parse,
   )
   inspect(tokens.length(), content="8")
   inspect(diags.length(), content="2")
@@ -182,15 +189,24 @@ test "demo: single rule, two declarations" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
   let tokens = [
-    tok(@token.Ident), tok(@token.LBrace),
-    tok(@token.Ident), tok(@token.Colon),
-    tok(@token.Ident), tok(@token.Semicolon),
-    tok(@token.Ident), tok(@token.Colon),
-    tok(@token.Number), tok(@token.Semicolon),
-    tok(@token.RBrace), tok(@token.EOF),
+    tok(@token.Ident),
+    tok(@token.LBrace),
+    tok(@token.Ident),
+    tok(@token.Colon),
+    tok(@token.Ident),
+    tok(@token.Semicolon),
+    tok(@token.Ident),
+    tok(@token.Colon),
+    tok(@token.Number),
+    tok(@token.Semicolon),
+    tok(@token.RBrace),
+    tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
-    "div { color: red; margin: 0; }", spec, _source => tokens, parse,
+    "div { color: red; margin: 0; }",
+    spec,
+    _source => tokens,
+    parse,
   )
   inspect(tokens.length(), content="12")
   inspect(diags.length(), content="2")
@@ -203,19 +219,27 @@ test "demo: two rules" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
   let tokens = [
-    tok(@token.Ident), tok(@token.LBrace),
-    tok(@token.Ident), tok(@token.Colon),
-    tok(@token.Ident), tok(@token.Semicolon),
+    tok(@token.Ident),
+    tok(@token.LBrace),
+    tok(@token.Ident),
+    tok(@token.Colon),
+    tok(@token.Ident),
+    tok(@token.Semicolon),
     tok(@token.RBrace),
-    tok(@token.Ident), tok(@token.LBrace),
-    tok(@token.Ident), tok(@token.Colon),
-    tok(@token.Number), tok(@token.Semicolon),
+    tok(@token.Ident),
+    tok(@token.LBrace),
+    tok(@token.Ident),
+    tok(@token.Colon),
+    tok(@token.Number),
+    tok(@token.Semicolon),
     tok(@token.RBrace),
     tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
     "div { color: red; } span { margin: 0; }",
-    spec, _source => tokens, parse,
+    spec,
+    _source => tokens,
+    parse,
   )
   inspect(tokens.length(), content="15")
   inspect(diags.length(), content="3")
@@ -228,11 +252,16 @@ test "demo: empty rule body" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
   let tokens = [
-    tok(@token.Ident), tok(@token.LBrace),
-    tok(@token.RBrace), tok(@token.EOF),
+    tok(@token.Ident),
+    tok(@token.LBrace),
+    tok(@token.RBrace),
+    tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
-    "div { }", spec, _source => tokens, parse,
+    "div { }",
+    spec,
+    _source => tokens,
+    parse,
   )
   inspect(tokens.length(), content="4")
   inspect(diags.length(), content="2")
@@ -261,7 +290,11 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
       i = i + 1
       while i < len {
         let n = source[i]
-        if n == ' ' || n == '\t' || n == '\n' || n == '\r' { i = i + 1 } else { break }
+        if n == ' ' || n == '\t' || n == '\n' || n == '\r' {
+          i = i + 1
+        } else {
+          break
+        }
       }
       toks.push(@core.TokenInfo::new(@token.Whitespace, i - start))
     }
@@ -269,7 +302,9 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
     if c >= '0' && c <= '9' {
       let start = i
       i = i + 1
-      while i < len && source[i] >= '0' && source[i] <= '9' { i = i + 1 }
+      while i < len && source[i] >= '0' && source[i] <= '9' {
+        i = i + 1
+      }
       toks.push(@core.TokenInfo::new(@token.Number, i - start))
     }
     // Letter or underscore or hyphen -> Ident
@@ -278,16 +313,35 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
       i = i + 1
       while i < len {
         let n = source[i]
-        if (n >= 'a' && n <= 'z') || (n >= 'A' && n <= 'Z') ||
-           (n >= '0' && n <= '9') || n == '_' || n == '-' { i = i + 1 } else { break }
+        if (n >= 'a' && n <= 'z') ||
+          (n >= 'A' && n <= 'Z') ||
+          (n >= '0' && n <= '9') ||
+          n == '_' ||
+          n == '-' {
+          i = i + 1
+        } else {
+          break
+        }
       }
       toks.push(@core.TokenInfo::new(@token.Ident, i - start))
     }
     // Punctuators
-    if c == ':' { i = i + 1; toks.push(@core.TokenInfo::new(@token.Colon, 1)) }
-    if c == ';' { i = i + 1; toks.push(@core.TokenInfo::new(@token.Semicolon, 1)) }
-    if c == '{' { i = i + 1; toks.push(@core.TokenInfo::new(@token.LBrace, 1)) }
-    if c == '}' { i = i + 1; toks.push(@core.TokenInfo::new(@token.RBrace, 1)) }
+    if c == ':' {
+      i = i + 1
+      toks.push(@core.TokenInfo::new(@token.Colon, 1))
+    }
+    if c == ';' {
+      i = i + 1
+      toks.push(@core.TokenInfo::new(@token.Semicolon, 1))
+    }
+    if c == '{' {
+      i = i + 1
+      toks.push(@core.TokenInfo::new(@token.LBrace, 1))
+    }
+    if c == '}' {
+      i = i + 1
+      toks.push(@core.TokenInfo::new(@token.RBrace, 1))
+    }
     // Dot, hash, star — consume as error (not in grammar token set)
     if c == '.' || c == '#' || c == '*' || c == '>' || c == '+' || c == ',' {
       i = i + 1
@@ -296,10 +350,13 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
     // Other unrecognized chars: advance by 1 to avoid infinite loop.
     // Reached only if NONE of the above matched.
     if !(c == ' ' || c == '\t' || c == '\n' || c == '\r') &&
-       !(c >= '0' && c <= '9') &&
-       !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-') &&
-       !(c == ':') && !(c == ';') && !(c == '{') && !(c == '}') &&
-       !(c == '.' || c == '#' || c == '*' || c == '>' || c == '+' || c == ',') {
+      !(c >= '0' && c <= '9') &&
+      !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-') &&
+      !(c == ':') &&
+      !(c == ';') &&
+      !(c == '{') &&
+      !(c == '}') &&
+      !(c == '.' || c == '#' || c == '*' || c == '>' || c == '+' || c == ',') {
       i = i + 1
       toks.push(@core.TokenInfo::new(@token.Error("Unexpected"), 1))
     }
