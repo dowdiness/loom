@@ -1,4 +1,9 @@
 // Recursive descent parser for simplified HTML with error recovery.
+//
+// This is a simplified tree builder, NOT a full HTML5 spec parser.
+// Out of scope: optional closing tags, implied elements, foster parenting,
+// namespace handling, entity references, and attribute value resolution.
+// See AGENTS.md for the design rationale.
 
 ///|
 const MAX_ERRORS : Int = 50
@@ -33,23 +38,22 @@ fn is_raw_text_tag(name : String) -> Bool {
 }
 
 ///|
-fn is_sync_point(token : Token) -> Bool {
+fn is_sync_point(token : @token.Token) -> Bool {
   match token {
-    OpenTag(_) | CloseTag(_) | EOF => true
+    @token.OpenTag(_) | @token.CloseTag(_) | @token.EOF => true
     _ => false
   }
 }
 
 ///|
-/// Parse an HTML element: open tag, children, close tag.
 fn parse_element(
-  ctx : @core.ParserContext[Token, SyntaxKind],
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   depth~ : Int,
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum HTML nesting depth exceeded")
     if is_sync_point(ctx.peek()) {
-      ctx.start_node(ErrorNode)
+      ctx.start_node(@syntax.ErrorNode)
       ctx.emit_error_placeholder()
       ctx.finish_node()
     } else {
@@ -63,12 +67,12 @@ fn parse_element(
   }
 
   match ctx.peek() {
-    OpenTag(name) => {
+    @token.OpenTag(name) => {
       let tag_name = name
       let is_void = is_void_tag(tag_name)
       let is_raw = is_raw_text_tag(tag_name)
-      ctx.start_node(ElementNode)
-      ctx.emit_token(OpenTagToken)
+      ctx.start_node(@syntax.ElementNode)
+      ctx.emit_token(@syntax.OpenTagToken)
 
       if is_void {
         ctx.finish_node()
@@ -77,9 +81,9 @@ fn parse_element(
 
       if is_raw {
         match ctx.peek() {
-          RawText => {
-            ctx.start_node(RawTextLeaf)
-            ctx.emit_token(RawTextToken)
+          @token.RawText => {
+            ctx.start_node(@syntax.RawTextLeaf)
+            ctx.emit_token(@syntax.RawTextToken)
             ctx.finish_node()
           }
           _ => ()
@@ -89,7 +93,6 @@ fn parse_element(
         return
       }
 
-      // Normal element: parse children until matching close tag
       parse_content(ctx, tag_name, depth=depth + 1)
       ctx.finish_node()
     }
@@ -102,17 +105,17 @@ fn parse_element(
 
 ///|
 fn parse_content(
-  ctx : @core.ParserContext[Token, SyntaxKind],
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_name : String,
   depth~ : Int,
 ) -> Unit {
   while !ctx.at_eof() {
     match ctx.peek() {
-      CloseTag(name) if name == tag_name => {
-        ctx.emit_token(CloseTagToken)
+      @token.CloseTag(name) if name == tag_name => {
+        ctx.emit_token(@syntax.CloseTagToken)
         return
       }
-      CloseTag(other_name) => {
+      @token.CloseTag(other_name) => {
         ctx.error(
           "Mismatched close tag: expected </" +
           tag_name +
@@ -123,10 +126,10 @@ fn parse_content(
         ctx.emit_error_placeholder()
         return
       }
-      OpenTag(_) => parse_element(ctx, depth~)
-      Text => {
-        ctx.start_node(TextLeaf)
-        ctx.emit_token(TextToken)
+      @token.OpenTag(_) => parse_element(ctx, depth~)
+      @token.Text => {
+        ctx.start_node(@syntax.TextLeaf)
+        ctx.emit_token(@syntax.TextToken)
         ctx.finish_node()
       }
       _ => {
@@ -139,14 +142,16 @@ fn parse_content(
 }
 
 ///|
-/// Expect a matching close tag for the given tag name.
 fn finish_element(
-  ctx : @core.ParserContext[Token, SyntaxKind],
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_name : String,
 ) -> Unit {
+  // Loop invariant: peek() returns a CloseTag or we're at EOF.
+  // is_sync_point includes CloseTag(_) and EOF, so skip_until won't loop.
   match ctx.peek() {
-    CloseTag(name) if name == tag_name => ctx.emit_token(CloseTagToken)
-    CloseTag(name) => {
+    @token.CloseTag(name) if name == tag_name =>
+      ctx.emit_token(@syntax.CloseTagToken)
+    @token.CloseTag(name) => {
       ctx.error(
         "Mismatched close tag: expected </" +
         tag_name +
@@ -164,9 +169,11 @@ fn finish_element(
 }
 
 ///|
-fn parse_html_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  ctx.start_node(RootNode)
-  if ctx.peek() == EOF {
+fn parse_html_root(
+  ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
+) -> Unit {
+  ctx.start_node(@syntax.RootNode)
+  if ctx.peek() == @token.EOF {
     ctx.error("Empty HTML input")
     ctx.emit_error_placeholder()
     ctx.finish_node()
@@ -174,20 +181,20 @@ fn parse_html_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   }
   while !ctx.at_eof() {
     match ctx.peek() {
-      OpenTag(_) => parse_element(ctx, depth=0)
-      Comment => {
-        ctx.start_node(CommentNode)
-        ctx.emit_token(CommentToken)
+      @token.OpenTag(_) => parse_element(ctx, depth=0)
+      @token.Comment => {
+        ctx.start_node(@syntax.CommentNode)
+        ctx.emit_token(@syntax.CommentToken)
         ctx.finish_node()
       }
-      Doctype => {
-        ctx.start_node(DoctypeNode)
-        ctx.emit_token(DoctypeToken)
+      @token.Doctype => {
+        ctx.start_node(@syntax.DoctypeNode)
+        ctx.emit_token(@syntax.DoctypeToken)
         ctx.finish_node()
       }
-      Text => {
-        ctx.start_node(TextLeaf)
-        ctx.emit_token(TextToken)
+      @token.Text => {
+        ctx.start_node(@syntax.TextLeaf)
+        ctx.emit_token(@syntax.TextToken)
         ctx.finish_node()
       }
       _ => {
@@ -197,4 +204,11 @@ fn parse_html_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     }
   }
   ctx.finish_node()
+}
+
+///|
+pub fn parse_cst(
+  source : String,
+) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
+  html_grammar.parse_cst(source)
 }

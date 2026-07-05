@@ -23,7 +23,6 @@ fn is_tag_name_char(c : Char) -> Bool {
 }
 
 ///|
-/// Read a tag name at the current cursor position.
 fn read_tag_name(cursor : @core.LexCursor) -> String {
   let start = cursor.position()
   ignore(cursor.take_while(is_tag_name_char))
@@ -32,7 +31,6 @@ fn read_tag_name(cursor : @core.LexCursor) -> String {
 }
 
 ///|
-/// Read a quoted attribute value.
 fn read_attr_value(cursor : @core.LexCursor) -> String? {
   match cursor.peek() {
     Some('"') => {
@@ -134,7 +132,7 @@ fn read_close_tag_body(cursor : @core.LexCursor) -> String {
 }
 
 ///|
-fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
+fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] {
   let cursor = @core.LexCursor::new(source, start)
   if cursor.is_done() {
     return Done
@@ -143,13 +141,13 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
   match cursor.peek() {
     Some(ch) if is_whitespace_char(ch) => {
       ignore(cursor.take_while(is_whitespace_char))
-      cursor.produced(Whitespace)
+      cursor.produced(@token.Whitespace)
     }
     Some('<') =>
       if cursor.starts_with("</") {
         ignore(cursor.advance_code_units(2))
         let name = read_close_tag_body(cursor)
-        cursor.produced(CloseTag(name))
+        cursor.produced(@token.CloseTag(name))
       } else if cursor.starts_with("<!--") {
         ignore(cursor.advance_code_units(4))
         while !cursor.is_done() {
@@ -159,7 +157,7 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
           }
           ignore(cursor.advance_char())
         }
-        cursor.produced(Comment)
+        cursor.produced(@token.Comment)
       } else if cursor.starts_with("<!") {
         ignore(cursor.advance_code_units(2))
         while !cursor.is_done() {
@@ -169,7 +167,7 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
           }
           ignore(cursor.advance_char())
         }
-        cursor.produced(Doctype)
+        cursor.produced(@token.Doctype)
       } else if cursor.starts_with("<![CDATA[") {
         ignore(cursor.advance_code_units(9))
         while !cursor.is_done() {
@@ -179,19 +177,19 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
           }
           ignore(cursor.advance_char())
         }
-        cursor.produced(CData)
+        cursor.produced(@token.CData)
       } else {
         ignore(cursor.advance_char())
         let (tag_name, _) = read_open_tag_body(cursor)
-        cursor.produced(OpenTag(tag_name))
+        cursor.produced(@token.OpenTag(tag_name))
       }
     Some('=') => {
       ignore(cursor.advance_char())
-      cursor.produced(Eq)
+      cursor.produced(@token.Eq)
     }
     Some('"') | Some('\'') => {
       let _ = read_attr_value(cursor)
-      cursor.produced(StringLit)
+      cursor.produced(@token.StringLit)
     }
     Some(_) => {
       while !cursor.is_done() {
@@ -200,20 +198,20 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
         }
         ignore(cursor.advance_char())
       }
-      cursor.produced(Text)
+      cursor.produced(@token.Text)
     }
     None => Done
   }
 }
 
 ///|
-pub fn lex(input : String) -> @core.LexResult[Token] {
+pub fn lex(input : String) -> @core.LexResult[@token.Token] {
   let buffer = @core.TokenBuffer::new_from_steps(
     input,
     @core.PrefixLexer::new(lex_step=html_step_lexer),
-    eof_token=EOF,
-    error_token=Error(""),
-    error_token_from_message=Some(msg => Error(msg)),
+    eof_token=@token.EOF,
+    error_token=@token.Error(""),
+    error_token_from_message=Some(msg => @token.Error(msg)),
   )
   @core.LexResult::with_starts(
     buffer.get_tokens(),

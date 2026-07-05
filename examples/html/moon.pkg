@@ -1,6 +1,8 @@
 import {
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/html/token",
+  "dowdiness/html/syntax",
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
