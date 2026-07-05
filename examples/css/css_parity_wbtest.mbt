@@ -23,11 +23,11 @@ fn tok(t : @token.Token) -> @core.TokenInfo[@token.Token] {
 /// Input: "x { ; }"
 ///   Decl* RepeatWhile gate checks OneOf([Ident]). Current = Semicolon.
 ///   Not Ident → RepeatWhile stops immediately.
-///   @until(RBrace): ctx.error("expected 'RBrace'") → diag 1.
-///     skip_until(stop=RBrace): Semicolon ≠ RBrace → bump_error → diag 2
-///     (bump_error opens an ErrorNode and emits the consumed token as error).
+///   @until(RBrace): Semicolon ≠ RBrace → ctx.error("expected 'RBrace'") → diag 1.
+///     skip_until: consumes Semicolon inside ErrorNode (0 diags from tree structure).
 ///     RBrace found → stop.
-///   Total: 2 diagnostics.
+///   Expect(RBrace) succeeds. Expect(EOF) succeeds with no diag (fixed: EOF not emitted).
+///   Total: 1 diagnostic.
 test "acceptance: missing-property-name recovers via EmitOr" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -47,8 +47,8 @@ test "acceptance: missing-property-name recovers via EmitOr" {
     parse,
   )
 
-  // 1 from @until's ctx.error, 1 from skip_until's bump_error on ';'
-  inspect(diags.length(), content="2")
+  // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
+  inspect(diags.length(), content="1")
 }
 
 ///|
@@ -62,12 +62,10 @@ test "acceptance: missing-property-name recovers via EmitOr" {
 ///   Decl* RepeatWhile gate: OneOf([Ident]). Number(1) doesn't match → stops.
 ///   @until(RBrace): current = Number(1).
 ///     ctx.error("expected 'RBrace'") → diag 1.
-///     skip_until: Number(1) ≠ RBrace → bump_error → diag 2.
-///     Number(2) ≠ RBrace → bump_error → ...
-///   Three Numbers skipped = 3 × bump_error, but bump_error opens a
-///   single ErrorNode for the whole skip range. The diagnostic count
-///   reflects the @until error call (1) + the ErrorNode start (1) = 2.
-///   Total: 2 diagnostics.
+///     skip_until: consumes 3 Numbers inside ErrorNode (0 diags from structure).
+///     RBrace found → stop.
+///   Expect(EOF) succeeds with no diag (fixed: EOF not emitted).
+///   Total: 1 diagnostic.
 test "acceptance: @until recovers from garbage after declarations" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -93,8 +91,8 @@ test "acceptance: @until recovers from garbage after declarations" {
     parse,
   )
 
-  // 1 from @until's ctx.error, 1 from ErrorNode boundary for skipped range
-  inspect(diags.length(), content="2")
+  // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
+  inspect(diags.length(), content="1")
 }
 
 ///|
@@ -112,9 +110,10 @@ test "acceptance: @until recovers from garbage after declarations" {
 ///   Decl* RepeatWhile gate: OneOf([Ident]). Colon ≠ Ident → stops.
 ///   @until(RBrace): current = Colon.
 ///     ctx.error("expected 'RBrace'") → diag 2.
-///     skip_until: Colon ≠ RBrace → bump_error → sequence stops at RBrace
-///     with a single ErrorNode boundary → diag 3.
-///   Total: 3 diagnostics.
+///     skip_until: consumes Colon+Semicolon inside ErrorNode (0 diags from structure).
+///     RBrace found → stop.
+///   Expect(EOF) succeeds with no diag (fixed: EOF not emitted).
+///   Total: 2 diagnostics.
 test "acceptance: missing-semicolon-recovery continues to next declaration" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -140,8 +139,8 @@ test "acceptance: missing-semicolon-recovery continues to next declaration" {
     parse,
   )
 
-  // 1 from Semicolon! EmitOr, 1 from @until ctx.error, 1 from ErrorNode boundary
-  inspect(diags.length(), content="3")
+  // 1 from Semicolon! EmitOr, 1 from @until's ctx.error
+  inspect(diags.length(), content="2")
 }
 
 ///|
@@ -157,8 +156,9 @@ test "acceptance: missing-semicolon-recovery continues to next declaration" {
 /// Each test reports (tokens, diagnostics) to show the parse outcome.
 
 ///|
-/// Single rule, single declaration.
-/// div { color: red; } → 8 tokens, 1 diag (@until spurious on RBrace)
+/// Single rule, single declaration. All diagnostics eliminated:
+/// @until spares RBrace (fixed #636), expect(EOF) is no-op (fixed).
+/// div { color: red; } → 8 tokens, 0 diagnostics.
 test "demo: single rule, single declaration" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -179,12 +179,13 @@ test "demo: single rule, single declaration" {
     parse,
   )
   inspect(tokens.length(), content="8")
-  inspect(diags.length(), content="2")
+  inspect(diags.is_empty(), content="true")
 }
 
 ///|
-/// Single rule, two declarations.
-/// div { color: red; margin: 0; } → 12 tokens, 1 diag (@until spurious)
+/// Single rule, two declarations. All diagnostics eliminated:
+/// @until spares RBrace (fixed #636), expect(EOF) is no-op (fixed).
+/// div { color: red; margin: 0; } → 12 tokens, 0 diagnostics.
 test "demo: single rule, two declarations" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -209,12 +210,13 @@ test "demo: single rule, two declarations" {
     parse,
   )
   inspect(tokens.length(), content="12")
-  inspect(diags.length(), content="2")
+  inspect(diags.is_empty(), content="true")
 }
 
 ///|
-/// Two rules, one declaration each.
-/// div { color: red; } span { margin: 0; } → 15 tokens, 2 diags (@until on each RBrace)
+/// Two rules, one declaration each. All diagnostics eliminated:
+/// @until spares both RBraces (fixed #636), expect(EOF) is no-op (fixed).
+/// div { color: red; } span { margin: 0; } → 15 tokens, 0 diagnostics.
 test "demo: two rules" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -242,12 +244,13 @@ test "demo: two rules" {
     parse,
   )
   inspect(tokens.length(), content="15")
-  inspect(diags.length(), content="3")
+  inspect(diags.is_empty(), content="true")
 }
 
 ///|
-/// Empty rule body.
-/// div { } → 4 tokens, 1 diag (@until spurious on RBrace at end of Decls)
+/// Empty rule body. All diagnostics eliminated:
+/// @until spares RBrace (fixed #636), expect(EOF) is no-op (fixed).
+/// div { } → 4 tokens, 0 diagnostics.
 test "demo: empty rule body" {
   let parse = @grammar.interpret(css_grammar_ir)
   let spec = make_css_spec(parse)
@@ -264,7 +267,7 @@ test "demo: empty rule body" {
     parse,
   )
   inspect(tokens.length(), content="4")
-  inspect(diags.length(), content="2")
+  inspect(diags.is_empty(), content="true")
 }
 
 ///|
@@ -367,6 +370,7 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
 
 ///|
 /// Real CSS: two rules with bare ident selectors (no . or #).
+/// Both @until(RBrace) and expect(EOF) diagnostic sources are fixed.
 /// body { color: red; margin: 0; }
 /// h1   { font-size: 16; }
 test "real-css: multi-rule style block" {
@@ -375,14 +379,11 @@ test "real-css: multi-rule style block" {
   let source = "body { color: red; margin: 0; }\nh1 { font-size: 16; }"
   let toks = css_lex(source)
   let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
-  // Each rule triggers @until(RBrace) spurious diagnostic -> 2 total
-  inspect(diags.length() > 0, content="true")
-  // Parse produced a tree
-  let _ = _tree
+  inspect(diags.is_empty(), content="true")
 }
 
 ///|
-/// Real CSS: empty rule body.
+/// Real CSS: empty rule body. Both diagnostic sources fixed.
 /// div { }
 test "real-css: empty rule" {
   let parse = @grammar.interpret(css_grammar_ir)
@@ -390,5 +391,5 @@ test "real-css: empty rule" {
   let source = "div { }"
   let toks = css_lex(source)
   let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
-  inspect(diags.length() > 0, content="true")
+  inspect(diags.is_empty(), content="true")
 }

@@ -29,7 +29,9 @@ pub fn[
   kind : K,
 ) -> Bool {
   if self.at(expected) {
-    self.emit_token(kind)
+    if !self.at_eof() {
+      self.emit_token(kind)
+    }
     true
   } else {
     let got = self.peek()
@@ -67,7 +69,9 @@ pub fn[
   kind : K,
 ) -> Bool {
   if self.at_adjacent(expected) {
-    self.emit_token(kind)
+    if !self.at_eof() {
+      self.emit_token(kind)
+    }
     true
   } else if !self.at_eof() && self.at(expected) {
     // Right token, wrong spacing — trivia separates it from the previous one.

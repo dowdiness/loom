@@ -144,10 +144,11 @@ fn[
         run_expr(ctx, grammar, natives, body)
       }
     EmitError(msg) => ctx.error(msg)
-    ErrorUntil(stop, msg) => {
-      ctx.error(msg)
-      let _ = ctx.skip_until(t => stop.matches(t))
-    }
+    ErrorUntil(stop, msg) =>
+      if !stop.matches(ctx.peek()) {
+        ctx.error(msg)
+        let _ = ctx.skip_until(t => stop.matches(t))
+      }
     // Delimited top-level repeat. Consume leading delimiters, then loop while
     // `starts` holds. Each iteration tries repeat-group reuse first — consuming
     // delimiters after a hit so the reused group's trailing separator does not
