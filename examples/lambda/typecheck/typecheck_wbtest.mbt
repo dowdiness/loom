@@ -10,7 +10,7 @@ fn infer_with_diags(
   term : TypedTerm,
 ) -> (TypeResult, Array[TypeDiagnostic]) {
   let rt = @incr.Runtime()
-  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
+  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator(rt)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
   let memo = @incr.Derived(rt, () => infer_impl(env, term, ctx))
   let result = memo.read_or_abort()
@@ -25,7 +25,7 @@ fn check_with_diags(
   expected : Type,
 ) -> (TypeResult, Array[TypeDiagnostic]) {
   let rt = @incr.Runtime()
-  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator::new(rt~)
+  let acc : @incr.Accumulator[TypeDiagnostic] = @incr.Accumulator(rt)
   let ctx : DiagCtx = { def_name: None, diags: Some(acc) }
   let memo = @incr.Derived(rt, () => check_impl(env, term, expected, ctx))
   let result = memo.read_or_abort()
