@@ -139,6 +139,7 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(
   kind : K,
 ) -> Unit {
   self.open_nodes = self.open_nodes + 1
+  self.node_stack.push(kind)
   self.events.push(@seam.StartNode(kind.to_raw()))
 }
 
@@ -149,6 +150,7 @@ pub fn[T, K] ParserContext::finish_node(self : ParserContext[T, K]) -> Unit {
     return
   }
   self.open_nodes = self.open_nodes - 1
+  let _ = self.node_stack.pop()
   self.events.push(@seam.FinishNode)
 }
 
@@ -170,6 +172,7 @@ pub fn[T, K] ParserContext::checkpoint(
     events_len: self.events.length(),
     error_count: self.error_count,
     open_nodes: self.open_nodes,
+    node_stack_len: self.node_stack.length(),
     reuse_cursor,
     reuse_count: self.reuse_count,
     lex_mode: self.lex_mode,
@@ -187,6 +190,9 @@ pub fn[T, K] ParserContext::restore(
   self.diagnostics.truncate(cp.error_count)
   self.error_count = cp.error_count
   self.open_nodes = cp.open_nodes
+  while self.node_stack.length() > cp.node_stack_len {
+    let _ = self.node_stack.pop()
+  }
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
   self.lex_mode = cp.lex_mode
   self.reuse_count = cp.reuse_count
@@ -230,4 +236,5 @@ pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(
 ) -> Unit {
   self.events.start_at(mark, kind.to_raw())
   self.open_nodes = self.open_nodes + 1
+  self.node_stack.push(kind)
 }

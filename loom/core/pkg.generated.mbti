@@ -281,6 +281,7 @@ pub fn[T, K] ParserContext::checkpoint(Self[T, K]) -> Checkpoint[T, K]
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit(Self[T, K], (T) -> Bool, K) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_if(Self[T, K], (T) -> Bool, K, (T) -> Bool) -> Bool
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::consume_while_emit_mapped(Self[T, K], Array[(T, K)]) -> Int
+pub fn[T, K] ParserContext::current_node_kind(Self[T, K]) -> K?
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_range(Self[T, K]) -> Range
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_text(Self[T, K]) -> StringView
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_current_token(Self[T, K]) -> Unit
@@ -294,6 +295,7 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_after_skip(Self[T, K], (T) -> Bool, K, T, K) -> Bool
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect_and_recover(Self[T, K], T, K, (T) -> Bool) -> Bool
 pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
+pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until(Self[T, K], K) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(Self[T, K]) -> Unit
 pub fn[T, K] ParserContext::lex_mode(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
@@ -304,6 +306,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
+pub fn[T, K] ParserContext::peek_index(Self[T, K], Int) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(Self[T, K], (T) -> Bool) -> T
 pub fn[T, K] ParserContext::report(Self[T, K], Diagnostic) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(Self[T, K], message~ : String, code? : DiagnosticCode?) -> Unit

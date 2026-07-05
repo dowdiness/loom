@@ -282,3 +282,32 @@ pub fn[
     false
   }
 }
+
+// ─── finish_nodes_until ─────────────────────────────────────────────────────────
+
+///|
+/// Close open nodes until a node of the given `kind` is reached, or all
+/// nodes are closed. Returns true when a matching node was found (and
+/// preserved), false when the entire open node stack was exhausted without
+/// finding a match.
+///
+/// The matching node is NOT closed — only nodes above it are closed.
+/// Use for auto-close semantics: "close everything up to and including
+/// the </body> tag" or "close the current <li> before opening a new one."
+/// Example (auto-close <li> before opening another):
+///   if ctx.finish_nodes_until(HTMLLiElement) {
+///     ctx.finish_node()  // close the matched <li> too
+///   }
+pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until(
+  self : ParserContext[T, K],
+  kind : K,
+) -> Bool {
+  let target = kind.to_raw()
+  while self.open_nodes > 0 {
+    match self.current_node_kind() {
+      Some(k) if k.to_raw() == target => return true
+      _ => self.finish_node()
+    }
+  }
+  false
+}

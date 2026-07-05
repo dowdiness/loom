@@ -21,6 +21,7 @@ pub fn[T, K] ParserContext::new(
     diagnostics: DiagnosticSet::empty(),
     error_count: 0,
     open_nodes: 0,
+    node_stack: [],
     reuse_cursor: None,
     reuse_diagnostics: None,
     reuse_count: 0,
@@ -52,6 +53,7 @@ pub fn[T, K] ParserContext::new_indexed(
     diagnostics: DiagnosticSet::empty(),
     error_count: 0,
     open_nodes: 0,
+    node_stack: [],
     reuse_cursor: None,
     reuse_diagnostics: None,
     lex_mode: 0,
@@ -292,4 +294,40 @@ pub fn[T, K] ParserContext::set_lex_mode(
   mode : Int,
 ) -> Unit {
   self.lex_mode = mode
+}
+///|
+/// Return the nth token (0-indexed) from the current position, including
+/// trivia tokens. Unlike peek_nth() which skips trivia, this returns the
+/// token at the absolute index offset from the current cursor position.
+///
+/// Returns the spec's eof_token when n is out of bounds.
+/// Use for grammars where trivia carries syntactic meaning (e.g. attribute
+/// separators in HTML, indentation in Python).
+pub fn[T, K] ParserContext::peek_index(
+  self : ParserContext[T, K],
+  n : Int,
+) -> T {
+  let pos = if n < 0 { self.position } else { self.position + n }
+  if pos < 0 || pos >= self.token_count {
+    return self.spec.eof_token
+  }
+  (self.get_token)(pos)
+}
+
+///|
+/// Return the SyntaxKind of the most recently opened node, or None if no
+/// node is currently open.
+///
+/// Use for context-sensitive parsing decisions: e.g. "am I inside a <script>
+/// element?" or "should the current <li> auto-close the previous <li>?"
+///
+/// The returned kind corresponds to the most recent start_node() or start_at()
+/// call that has not yet been matched by finish_node().
+pub fn[T, K] ParserContext::current_node_kind(
+  self : ParserContext[T, K],
+) -> K? {
+  match self.node_stack.length() {
+    0 => None
+    len => Some(self.node_stack[len - 1])
+  }
 }
