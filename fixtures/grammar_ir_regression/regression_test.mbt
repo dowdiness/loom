@@ -9,3 +9,9 @@ test "compile-regression: generated GrammarIr compiles without raising" {
   let ir = fixture_grammar_ir
   let _ = @grammar.compile(ir)
 }
+
+///|
+test "interpret-parity: generated GrammarIr compiles interpretably" {
+  let ir = fixture_grammar_ir
+  let _parse = @grammar.interpret(ir)
+}
