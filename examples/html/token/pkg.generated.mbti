@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/html/token"
+
+import {
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Token {
+  OpenTag(String)
+  CloseTag(String)
+  Eq
+  StringLit
+  Text
+  Comment
+  Doctype
+  RawText
+  CData
+  Whitespace
+  Error(String)
+  EOF
+} derive(Eq, @debug.Debug)
+pub impl @seam.IsEof for Token
+pub impl @seam.IsTrivia for Token
+pub impl @seam.ToRawKind for Token
+pub impl Show for Token
+
+// Type aliases
+
+// Traits
+
