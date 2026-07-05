@@ -77,12 +77,15 @@ standalone `.loomgrammar` file passed via `--grammar-file`. It feeds the *same*
 // css.loomgrammar — '=' separates a production name from its body.
 DeclarationList = Declaration* Eof
 
-// A leading '|' lines alternatives up vertically; '//' starts a line comment.
-Declaration =
-  | Property Colon Value Semicolon
-  | Property Colon Value
+// Alternatives need disjoint FIRST sets — a trailing '?' expresses an
+// optional suffix instead of two Property-led alternatives.
+Declaration = Property Colon Value Semicolon?
 
-Value = (Ident | Number | Hash)+
+// A leading '|' lines alternatives up vertically; '//' starts a line comment.
+Value =
+  | Ident
+  | Number
+  | Hash
 ```
 
 The file uses the exact `#loom.rule` notation subset (`Seq`, `Choice` via `|`,
@@ -94,7 +97,8 @@ the `#loom.root` variant still designates the grammar root. A production that al
 carries a `#loom.rule` annotation is overridden by the file (with a warning), so a
 language can migrate off annotations incrementally. Both parse errors AND
 emission-stage rejections (a production naming a non-term variant,
-a roleless variant, left recursion, an ambiguous alternation) carry the
+a roleless variant, left recursion, an ambiguous alternation, a nullable
+alternative) carry the
 production's `line N:` prefix rather than an annotation offset, so every
 `.loomgrammar` diagnostic points at a real file position. The parser fails closed:
 duplicate names, empty bodies, stray `=`, unbalanced groups, and unknown

@@ -109,7 +109,7 @@ raising on empty set (a nullable construct cannot gate a `Choice` or `Repeat`).
 
 ### 4.2 When rejection fires
 
-In `lower_choice` (line 467 of `emit_grammar_ir.mbt`), every token from every
+In `lower_choice` (`emit_grammar_ir.mbt`), every token from every
 branch's `first_names_ordered` is checked against all previously accumulated
 branch tokens:
 
@@ -119,7 +119,10 @@ if expected.contains(n):
     "ambiguous alternation: token '" + n +
     "' begins more than one alternative; " +
     "the #loom.rule subset requires alternatives " +
-    "with disjoint FIRST sets"
+    "with disjoint FIRST sets — factor the common prefix " +
+    "into a shared rule (e.g. rewrite `(A B | A C)` as " +
+    "`A (B | C)`), or move the pattern into a " +
+    "hand-authored @fragment"
   )
 ```
 
@@ -140,8 +143,14 @@ empty-FIRST-set error. See §5.
 with no `#loom.rule` and no `.loomgrammar` production is rejected.
 - **Unknown symbols.** A `Name` that is neither a token nor a term variant is
 rejected.
-- **Empty FIRST sets.** A construct that can always derive the empty string
-cannot gate a `Choice` or `RepeatWhile`.
+- **Empty FIRST sets.** A construct with no reachable leading token (e.g. a
+bare `@fragment` alternative) cannot gate a `Choice` or `RepeatWhile`.
+- **Nullable alternatives in a required alternation.** An alternative that can
+derive the empty string (e.g. `A?` in `(A? | B)`) has a non-empty FIRST set
+but makes the alternation ε-derivable, while the emitted required `Choice`
+appends an `Any → Fail` fallback — the ε case would silently become a runtime
+error. Deciding ε needs FOLLOW sets, which the subset does not compute, so
+generation fails closed. Rewrite as `(A | B)?`.
 
 ### 4.4 For the interpreter: no runtime overlap check
 
@@ -315,9 +324,12 @@ at the `@grammar` library boundary, so `@grammar` remains general while
 - `@fragment` references emit a mangled `Ref("__loom_frag__<name>")` — the
   caller supplies fragment bodies via the `fragments~` map parameter (see §5).
   Without a matching entry, `@grammar.compile` raises `MissingRef`.
-- A nullable body cannot gate a `Choice` or `RepeatWhile`: if a branch can
-  begin with nothing, it cannot have a defined FIRST set, and the rejection
-  prevents an infinite loop in `RepeatWhile` or a silent no-op in `Choice`.
+- A nullable body cannot gate a `Choice` or `RepeatWhile`. Two distinct guards
+  enforce this: a construct with an *empty* FIRST set (nothing reachable can
+  begin it) is rejected outright, and a *nullable alternative* with a non-empty
+  FIRST set (e.g. `A?` in a required alternation) is rejected because the
+  emitted `Any → Fail` fallback would turn its ε case into a runtime error —
+  rewrite `(A? | B)` as `(A | B)?`.
 - `X+` / `X*` bodies with a partially-nullable inner are safe: the empty-FIRST
   guard rejects fully-nullable bodies, and a partially-nullable body always
   consumes its gating FIRST token (FIRST exists only because some derivation
