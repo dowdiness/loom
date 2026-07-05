@@ -3,6 +3,7 @@ package "dowdiness/loom_tests/grammar_ir_regression"
 
 import {
   "dowdiness/loom/grammar",
+  "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
@@ -17,12 +18,17 @@ pub(all) enum SyntaxKind {
   AToken
   BToken
 } derive(Eq, @debug.Debug)
+pub impl @seam.ToRawKind for SyntaxKind
 
 pub(all) enum Token {
   A
   B
   Eof
 } derive(Eq, @debug.Debug)
+pub impl @seam.IsEof for Token
+pub impl @seam.IsTrivia for Token
+pub impl @seam.ToRawKind for Token
+pub impl Show for Token
 
 // Type aliases
 
