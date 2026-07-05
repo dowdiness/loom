@@ -1,91 +1,421 @@
-parserdb: cold - new + term()	7030.00
-parserdb: warm - term() with no source change	20.00
-parserdb: signal no-op - set_source(same) + term()	40.00
-parserdb: full recompute - set_source(new) + term()	14380.00
-parserdb: undo/redo cycle	14300.00
-parserdb: diagnostics - malformed input	70.00
-parse scaling - small (5 tokens)	1760.00
-parse scaling - medium (15 tokens)	7960.00
-parse scaling - large (30+ tokens)	13710.00
-incremental vs full - edit at start	12190.00
-incremental vs full - edit at end	17040.00
-incremental vs full - edit in middle	16870.00
-sequential edits - typing simulation	2360.00
-sequential edits - backspace simulation	2400.00
-incremental state baseline - repeated parsing	5720.00
-incremental state baseline - similar expressions	3000.00
-memory pressure - large document	21160.00
-worst case - full invalidation	12540.00
-best case - cosmetic change	3420.00
-phase1: full tokenize - 110 tokens	2180.00
-phase1: incremental tokenize - edit at start (110 tokens)	3890.00
-phase1: incremental tokenize - edit in middle (110 tokens)	3650.00
-phase1: incremental tokenize - edit at end (110 tokens)	3480.00
-phase1: full re-tokenize after edit - 110 tokens	2210.00
-parse_cst_recover - small	1420.00
-parse_cst_recover - large	12160.00
-phase3: full CST reparse, no cursor - 110 tokens	34170.00
-phase3: cursor reuse, edit at end - 110 tokens	43140.00
-phase3: cursor reuse, edit at start - 110 tokens	37390.00
-phase4: let body edit - full reparse, no cursor (baseline)	2110.00
-phase4: let body edit - init IntLiteral reused via cursor	2350.00
-phase4: let init edit - cursor	2380.00
-phase4: nested let body edit - multiple inits reused	4300.00
-heavy: large document - initial parse	79120.00
-heavy: wide arithmetic 100 terms - initial parse	65880.00
-heavy: nested application depth 50 - initial parse	149920.00
-heavy: large document - cst parse only	77830.00
-heavy: typing session - 100 edits at end	7860000.00
-heavy: typing session - 100 edits in middle	8740000.00
-heavy: refactoring session - 100 scattered replacements	4530000.00
-heavy: FULL REPARSE - 100 edits at end	10230000.00
-heavy: FULL REPARSE - 100 edits in middle	11360000.00
-heavy: FULL REPARSE - 100 scattered replacements	5060000.00
-heavy: FULL REPARSE - large document initial parse	86700.00
-scale: 100 terms - full reparse	85860.00
-scale: 100 terms - incremental single edit	159120.00
-scale: 100 terms - 50-edit session incremental	4740000.00
-scale: 100 terms - 50-edit session full reparse	4260000.00
-scale: 500 terms - full reparse	515120.00
-scale: 500 terms - incremental single edit	962640.00
-scale: 500 terms - 50-edit session incremental	28470000.00
-scale: 500 terms - 50-edit session full reparse	23930000.00
-scale: 1000 terms - full reparse	1110000.00
-scale: 1000 terms - incremental single edit	1990000.00
-scale: 1000 terms - 50-edit session incremental	61950000.00
-scale: 1000 terms - 50-edit session full reparse	52000000.00
-concrete-syntax-tree - token constructor	20.00
-concrete-syntax-tree - node constructor from 32 children	80.00
-concrete-syntax-tree - equality identical 32 children	190.00
-concrete-syntax-tree - equality mismatch hash fast path	10.00
-interner - intern_token cold miss	100.00
-interner - intern_token warm hit	100.00
-build_tree - x + 1	200.00
-build_tree_interned - x + 1, cold interner	480.00
-build_tree_interned - x + 1, warm interner	330.00
-build_tree - 100 identical ident tokens	1290.00
-build_tree_interned - 100 identical tokens, warm interner	2440.00
-build_tree_fully_interned - x + x, cold	540.00
-build_tree_fully_interned - x + x, warm	520.00
-build_tree_interned - x + x, warm	300.00
-build_tree - x + x	200.00
-node_interner - intern_node cold miss	70.00
-node_interner - intern_node warm hit	50.00
-parse_cst_recover - end-to-end	3780.00
-full parse - simple	730.00
-full parse - lambda	1370.00
-full parse - nested lambdas	4180.00
-full parse - arithmetic	3540.00
-full parse - complex	8080.00
-tokenization	290.00
-incremental - initial parse	570.00
-incremental - small edit	2350.00
-incremental - multiple edits	4200.00
-incremental - replacement	3010.00
-damage tracking	20.00
-error recovery - valid	1350.00
-error recovery - error	1170.00
-full parse - let	2670.00
-full parse - nested let	5860.00
-incremental - let body edit	5960.00
-incremental - let init edit	6260.00
+rebuild: stable e-graph (100 classes)	46380.00
+rebuild: stable e-graph (1000 classes)	780190.00
+rebuild: setup + one union + rebuild	277920.00
+isolate: map alloc + populate + copy-back at 1000 entries	140030.00
+merge - concurrent edits (2 agents x 10)	50280.00
+merge - concurrent edits (2 agents x 50)	205740.00
+merge - concurrent edits (2 agents x 200)	739840.00
+merge - many agents (5 agents x 20)	268540.00
+merge - with deletes (50 inserts, 25 deletes)	159900.00
+merge - graph_diff advance (20 ops)	140530.00
+merge - repeated small (10 iterations x 5 ops)	219500.00
+merge - retreat concurrent deletes (500 items, 50 deletes)	426650.00
+merge - context apply operations (50 ops)	104170.00
+branch - checkout (10 ops)	13070.00
+branch - checkout (100 ops)	63890.00
+branch - checkout (1000 ops)	965000.00
+branch - advance (10 new ops)	29990.00
+branch - advance (100 new ops)	261290.00
+branch - checkout with concurrent branches	73220.00
+branch - checkout with deletes	113970.00
+branch - repeated advance steady-state (10 iterations)	58480.00
+branch - repeated advance with oplog mutations (10 iterations)	12200000.00
+branch - to_text (100 chars)	26230.00
+branch - to_text (1000 chars)	275440.00
+branch - single advance (1 new op)	7550.00
+branch - single advance (50 new ops)	118930.00
+branch - realistic typing (50 chars)	20500000.00
+branch - concurrent merge scenario	42440.00
+walker - linear history (10 ops)	1350.00
+walker - linear history (100 ops)	9500.00
+walker - linear history (1000 ops)	99850.00
+walker - concurrent branches (2 agents x 50)	9860.00
+walker - concurrent branches (5 agents x 20)	15150.00
+walker - diamond pattern (50 diamonds)	16680.00
+walker - diff advance only (10 new ops)	8170.00
+walker - diff with concurrent branches	14680.00
+walker - large history (10000 ops)	767390.00
+walker - linear history (100000 ops)	19860000.00
+walker - concurrent branches (100000 ops, 5 agents)	70360000.00
+version_vector - create (1 agent)	97.28
+version_vector - create (5 agents)	232.67
+version_vector - create (20 agents)	1890.00
+version_vector - compare equal (5 agents)	250.03
+version_vector - compare <= (5 agents)	268.27
+version_vector - compare <= (20 agents)	1070.00
+version_vector - merge (5 agents)	339.41
+version_vector - merge (20 agents)	3470.00
+version_vector - includes (5 agents)	523.28
+version_vector - concurrent (5 agents)	450.78
+version_vector - from_frontier (10 ops)	1240.00
+version_vector - from_frontier (100 ops, 5 agents)	8550.00
+version_vector - to_frontier (5 agents)	350.09
+version_vector - roundtrip (5 agents)	9430.00
+version_vector - agents (5 agents)	120.70
+version_vector - length (20 agents)	29.86
+bench: cache invalidate + position query (1000 chars)	709510.00
+bench: cache invalidate + position query (5000 chars)	8590000.00
+bench: cache invalidate + position query (10000 chars)	26040000.00
+bench: 10 remote inserts + queries (1000-char doc)	9010000.00
+bench: 10 remote inserts + queries (5000-char doc)	71470000.00
+bench: warm cache position query (1000 chars)	172.97
+bench: warm cache position query (10000 chars)	140.12
+bench: lv_to_position middle of 10K tree	1080000.00
+jump - sequential append 1K	317160.00
+jump - concurrent insert into 1K doc	348540.00
+jump - concurrent insert into 10K doc	9410000.00
+jump - degenerate chain remote insert	370380.00
+oplog - insert (100 ops)	135350.00
+oplog - insert (1000 ops)	1350000.00
+oplog - insert and delete mix (100 ops)	137470.00
+oplog - apply_remote (50 ops)	67210.00
+oplog - get_op (1000 ops)	531.40
+oplog - get_frontier (single agent)	59.25
+oplog - get_frontier (5 agents)	72.71
+oplog - walk_and_collect (100 ops)	24370.00
+oplog - walk_and_collect (concurrent)	33590.00
+oplog - diff_and_collect (advance 20)	10880.00
+oplog - walk_filtered (inserts only)	23180.00
+oplog - sequential typing (500 chars)	559980.00
+oplog - random position inserts (100 ops)	101160.00
+oplog - sequential typing (100000 chars)	512190000.00
+oplog - diff_and_collect (100000 ops advance)	148710000.00
+text - insert append (100 chars)	257250.00
+text - insert append (1000 chars)	2380000.00
+text - insert prepend (100 chars)	227150.00
+text - delete (100 deletes from 100-char doc)	538410.00
+text - text() (100-char doc)	41150.00
+text - text() (1000-char doc)	257060.00
+text - len() (1000-char doc)	30.38
+text - sync export_all (100 ops)	329.60
+text - sync export_all (1000 ops)	221.98
+text - sync export_since (50-op delta, 1000-op base)	64370.00
+text - sync apply (50 remote ops)	127720.00
+text - sync apply (500 remote ops)	1530000.00
+text - bidirectional sync (2 peers, 50 ops each)	259340.00
+text - checkout (midpoint of 100-op doc)	33740.00
+text - checkout (midpoint of 1000-op doc)	465350.00
+text - undo record_insert (100 ops, 1 group)	4950.00
+text - undo record_insert (100 ops, 100 groups)	7120.00
+text - undo undo() (10-op group)	84070.00
+text - undo undo() (50-op group)	1320000.00
+text - undo undo+redo roundtrip (10-op group)	82320.00
+text - undo 10 undo+redo cycles (10-op group)	746940.00
+cache - sequential append (1000 chars)	2540000.00
+cache - alternating pos (1000 chars)	6510000.00
+cache - jump to pos 0 every 10 chars (1000 chars)	5320000.00
+cache - jump to middle every 10 chars (1000 chars)	6040000.00
+cache - single non-seq insert on 1000-char doc	20120.00
+cache - single non-seq insert on 5000-char doc	16550.00
+push efficiency: input set, 100 reachable derived subs, no push nodes (baseline)	105.34
+push efficiency: input set, 100 reachable derived subs, distant reactive (mixed)	123.79
+push efficiency: input set, 1000 reachable derived subs, distant reactive (mixed)	118.51
+ui-static-probe: layered 1000 eager via dynamic Derived	693640.00
+ui-static-probe: layered 1000 eager via static Derived	670600.00
+ui-static-probe: tree 1023 dynamic Derived + 512 eager leaves	1830000.00
+ui-static-probe: tree 1023 static Derived + 512 eager leaves	1490000.00
+integrated-applicative-probe: map1 dynamic Derived stale	1430.00
+integrated-applicative-probe: map1 static Derived private stale	1130.00
+integrated-applicative-probe: map2 dynamic Derived stale	1060.00
+integrated-applicative-probe: map2 static Derived private stale	901.94
+integrated-applicative-probe: map3 dynamic Derived stale	1450.00
+integrated-applicative-probe: map3 static Derived private stale	760.57
+accumulator restore on abort: N=5 (claimed negligible)	614.71
+accumulator restore on abort: N=20 (medium driver load)	4030.00
+accumulator restore on abort: N=100 (worst case)	30070.00
+ui: flat 100 reactives (root mutation)	60480.00
+ui: flat 1000 reactives (root mutation)	610210.00
+ui: layered 1000 reactives via 1 memo (root mutation)	485630.00
+ui: flat 1000 reactives, only 10 subscribed (sparse mutation)	5360.00
+ui: tree 1023 memos + 512 leaf reactives (root mutation)	2400000.00
+applicative-probe: map1 dynamic Derived stale	1200.00
+applicative-probe: map1 manual fixed-dep lower bound	232.43
+applicative-probe: map2 dynamic Derived stale	1560.00
+applicative-probe: map2 manual fixed-dep lower bound	281.39
+applicative-probe: map3 dynamic Derived stale	1690.00
+applicative-probe: map3 manual fixed-dep lower bound	292.19
+graph editor: coarse parameter edit full render 100 nodes	13990.00
+graph editor: coarse parameter edit full render 1000 nodes	176150.00
+graph editor: per-node DerivedMap parameter edit full render 100 nodes	181350.00
+graph editor: per-node DerivedMap parameter edit full render 1000 nodes	1530000.00
+graph editor: ReachableDerived sparse inspector parameter edit 100 nodes	11740.00
+graph editor: ReachableDerived sparse inspector parameter edit 1000 nodes	91790.00
+graph editor: coarse viewport pan/zoom full render 1000 nodes	26230.00
+graph editor: per-node DerivedMap viewport pan/zoom full render 1000 nodes	782110.00
+graph editor: ReachableDerived sparse inspector hover change 1000 nodes	2640.00
+graph editor: coarse live drag preview 60 frames full render 1000 nodes	1600000.00
+graph editor: per-node DerivedMap live drag preview 60 frames full render 1000 nodes	41070000.00
+graph editor: coarse MoveNodes commit full render 1000 nodes	173270.00
+dsl authoring: coarse staged pipeline 20 nodes	10550.00
+dsl authoring: coarse staged pipeline 100 nodes	11760.00
+dsl authoring: coarse staged pipeline 500 nodes	45450.00
+dsl authoring: coarse staged pipeline 1000 nodes	99320.00
+dsl authoring: per-node DerivedMap full terminal 20 nodes	31940.00
+dsl authoring: per-node DerivedMap full terminal 100 nodes	177800.00
+dsl authoring: per-node DerivedMap full terminal 500 nodes	573870.00
+dsl authoring: per-node DerivedMap full terminal 1000 nodes	984210.00
+dsl authoring: ReachableDerived sparse inspector 20 nodes	4300.00
+dsl authoring: ReachableDerived sparse inspector 100 nodes	6110.00
+dsl authoring: ReachableDerived sparse inspector 500 nodes	25770.00
+dsl authoring: ReachableDerived sparse inspector 1000 nodes	30070.00
+runtime: new (full, all modes)	968.64
+input: get	95.14
+input: set same value (no-op)	27.08
+input: set new value	153.76
+memo: get warm (up-to-date, no recompute)	337.01
+memo: get stale (input changed, recompute)	1800.00
+memo: deep chain get (100 levels, stale)	65340.00
+memo: wide fanout get (1 input, 50 memos, stale)	61860.00
+memo: no-accumulator recompute fanout	54270.00
+hybrid: get warm (up-to-date, no recompute)	403.73
+hybrid: get stale (input changed, recompute)	1050.00
+batch: 10 inputs, single revision	2400.00
+baseline: input.set with clean runtime	88.04
+baseline: input.set with 10k unreferenced memos	189.17
+baseline: memo creation cost (monotonic SoA growth)	3840.00
+baseline: push propagation with 100 live reactives	40890.00
+baseline: push propagation with 100 disposed reactives	106.75
+baseline: push propagation with 100 abandoned reactives (handle dropped)	56790.00
+baseline: reactive create-dispose cycle (existing free list)	4630.00
+layer1: memo create-dispose cycle (free list)	4300.00
+layer1: input create-dispose cycle (free list)	2500.00
+layer2: scope create and dispose (empty)	41.53
+layer2: scope create 10 inputs and dispose	35620.00
+layer2: scope bulk dispose 100 mixed cells	273610.00
+layer2: nested scope (3 levels) create and dispose	8080.00
+observer: get warm (memo)	117.58
+observer: observe + dispose cycle	422.91
+gc: sweep 1k all-live	511760.00
+gc: sweep 1k all-dead	5810.00
+gc: sweep 1k 50pct dead	126290.00
+runtime: read one-shot	220.86
+fixpoint: one iteration, empty delta (stable convergence)	180.32
+fixpoint: one iteration, single fact delta (identity rule)	4370.00
+diagnostic: input set with cold runtime (no reactives ever created)	168.68
+diagnostic: input set with 100 disposed reactives on separate input	148.03
+linklist-port: fanout 500 reactives, steady-state set	242940.00
+linklist-port: fanout 1000 reactives, steady-state set	711780.00
+linklist-port: branchy-rebind 100 reactives	195720.00
+json: 20-member object - full reparse	116950.00
+json: 20-member object - incremental (edit last value)	363090.00
+json: 50-member object - full reparse	281540.00
+json: 50-member object - incremental (edit inner object)	280870.00
+json: 100-member object - full reparse	739700.00
+json: 100-member object - incremental (edit inner object)	436480.00
+json: 50-element array - full reparse	283390.00
+json: 50-element array - incremental (edit nested object)	207060.00
+zero-copy: tokenize - integers (baseline)	27240.00
+zero-copy: tokenize - short identifiers	24440.00
+zero-copy: tokenize - long identifiers	131560.00
+zero-copy: full parse - integers (baseline)	87900.00
+zero-copy: full parse - short identifiers	110620.00
+zero-copy: full parse - long identifiers	274370.00
+parser: cold - new + ast()	56800.00
+parser: warm - ast() with no source change	97.15
+parser: identity - set_source(same) + ast()	286.93
+parser: full recompute - set_source(new) + ast()	45360.00
+parser: undo/redo cycle (set_source)	69390.00
+parser: apply_edit - single char flip in nested lambda	55880.00
+parity: imperative edit - let init edit	31070.00
+parity: parser apply_edit - let init edit	39690.00
+parser: diagnostics - valid ↔ malformed cycle	18310.00
+realistic: 40 defs - full reparse	924810.00
+realistic: 40 defs - incremental (edit tail)	1090000.00
+realistic: 40 defs - incremental (edit head block)	460570.00
+realistic: 40 defs - incremental (edit middle block)	609520.00
+realistic: 80 defs - full reparse	1570000.00
+realistic: 80 defs - incremental (edit tail)	2810000.00
+realistic: 80 defs - incremental (edit middle block)	1190000.00
+realistic: 160 defs - full reparse	4380000.00
+realistic: 160 defs - incremental (edit tail)	8810000.00
+realistic: 160 defs - incremental (edit middle block)	3550000.00
+profile: 80 lets - tokenize only	146190.00
+profile: 80 lets - full reparse	359360.00
+profile: 80 lets - incremental (edit tail)	669740.00
+profile: 80 lets - incremental (edit head)	585340.00
+profile: 320 lets - tokenize only	471900.00
+profile: 320 lets - full reparse	1060000.00
+profile: 320 lets - incremental (edit tail)	2660000.00
+profile: 320 lets - incremental (edit head)	2020000.00
+profile: 80 lets - tree build (normal events)	119930.00
+profile: 80 lets - tree build (ReuseNode events)	114790.00
+profile: 320 lets - tree build (normal events)	907260.00
+profile: 320 lets - tree build (ReuseNode events)	418000.00
+profile: 20 deep lets - full reparse	400360.00
+profile: 20 deep lets - incremental (edit tail)	574450.00
+profile: 20 very deep lets - full reparse	679790.00
+profile: 20 very deep lets - incremental (edit tail)	899320.00
+profile: 20 deep lets - build_tree (ReuseNode)	79960.00
+profile: 20 deep lets - build_tree_fully_interned (ReuseNode)	121960.00
+profile: closure call overhead - 960 calls	5470.00
+profile: direct array access - 960 calls	3420.00
+parse scaling - small (5 tokens)	4590.00
+parse scaling - medium (15 tokens)	21730.00
+parse scaling - large (30+ tokens)	32190.00
+incremental vs full - edit at start	60070.00
+incremental vs full - edit at end	71340.00
+incremental vs full - edit in middle	70370.00
+sequential edits - typing simulation	11040.00
+sequential edits - backspace simulation	12050.00
+incremental state baseline - repeated parsing	39130.00
+incremental state baseline - similar expressions	23040.00
+memory pressure - large document	94900.00
+worst case - full invalidation	58910.00
+best case - cosmetic change	18880.00
+phase1: full tokenize - 110 tokens	29430.00
+phase1: incremental tokenize - edit at start (110 tokens)	29300.00
+phase1: incremental tokenize - edit in middle (110 tokens)	26670.00
+phase1: incremental tokenize - edit at end (110 tokens)	32180.00
+phase1: full re-tokenize after edit - 110 tokens	21860.00
+parse_cst - small	4030.00
+parse_cst - large	32540.00
+phase3: full CST reparse, no cursor - 110 tokens	59230.00
+phase3: cursor reuse, edit at end - 110 tokens	91940.00
+phase3: cursor reuse, edit at start - 110 tokens	83890.00
+phase4: let body edit - full reparse, no cursor (baseline)	3720.00
+phase4: let body edit - init IntLiteral reused via cursor	4090.00
+phase4: let init edit - cursor	4030.00
+phase4: nested let body edit - multiple inits reused	5130.00
+let-chain: 80 lets - initial parse	584850.00
+let-chain: 320 lets - initial parse	2620000.00
+let-chain: 80 lets - incremental single edit at tail	1030000.00
+let-chain: 320 lets - incremental single edit at tail	2850000.00
+let-chain: 80 lets - edit-only at tail	547450.00
+let-chain: 320 lets - edit-only at tail	1350000.00
+let-chain: 80 lets - full reparse	504590.00
+let-chain: 320 lets - full reparse	1670000.00
+let-chain: 80 lets - 50-edit session incremental	39970000.00
+let-chain: 80 lets - 50-edit session full reparse	23430000.00
+let-chain: 320 lets - 50-edit session incremental	186120000.00
+let-chain: 320 lets - 50-edit session full reparse	102870000.00
+let-chain: 20 lambda lets - initial parse	607720.00
+let-chain: 20 lambda lets - edit-only at tail	742330.00
+let-chain: 20 lambda lets - full reparse	456380.00
+heavy: large document - initial parse	452830.00
+heavy: wide arithmetic 100 terms - initial parse	372940.00
+heavy: nested application depth 50 - initial parse	2450000.00
+heavy: large document - cst parse only	198110.00
+heavy: typing session - 100 edits at end	36750000.00
+heavy: typing session - 100 edits in middle	76000000.00
+heavy: refactoring session - 100 scattered replacements	20170000.00
+heavy: FULL REPARSE - 100 edits at end	34010000.00
+heavy: FULL REPARSE - 100 edits in middle	44440000.00
+heavy: FULL REPARSE - 100 scattered replacements	12090000.00
+heavy: FULL REPARSE - large document initial parse	380130.00
+scale: 100 terms - full reparse	320230.00
+scale: 100 terms - incremental single edit	790580.00
+scale: 100 terms - 50-edit session incremental	17530000.00
+scale: 100 terms - 50-edit session full reparse	17230000.00
+scale: 500 terms - full reparse	1370000.00
+scale: 500 terms - incremental single edit	4350000.00
+scale: 500 terms - 50-edit session incremental	135630000.00
+scale: 500 terms - 50-edit session full reparse	61230000.00
+scale: 1000 terms - full reparse	2100000.00
+scale: 1000 terms - incremental single edit	7340000.00
+scale: 1000 terms - 50-edit session incremental	276870000.00
+scale: 1000 terms - 50-edit session full reparse	124690000.00
+grammar A (hand): let-chain 80 - initial parse	321940.00
+grammar B (interp): let-chain 80 - initial parse	349780.00
+grammar A (hand): deep lambda tree - full parse	491820.00
+grammar B (interp): deep lambda tree - full parse	623260.00
+grammar A (hand): let-chain 80 - incremental edit session (8 edits)	2470000.00
+grammar B (interp): let-chain 80 - incremental edit session (8 edits)	2510000.00
+grammar A (hand): deep lambda tree - incremental edit session	2550000.00
+grammar B (interp): deep lambda tree - incremental edit session	1950000.00
+fold benchmark: 80 lets - initial parse+fold	473570.00
+fold benchmark: 80 lets - incremental fold after single edit	626380.00
+fold benchmark: 320 lets - initial parse+fold	2560000.00
+fold benchmark: 320 lets - incremental fold after single edit	2870000.00
+concrete-syntax-tree - token constructor	98.61
+concrete-syntax-tree - node constructor from 32 children	509.55
+concrete-syntax-tree - equality identical 32 children	1480.00
+concrete-syntax-tree - equality mismatch hash fast path	15.99
+interner - intern_token cold miss	352.17
+interner - intern_token warm hit	174.86
+build_tree - x + 1	788.03
+build_tree_interned - x + 1, cold interner	1750.00
+build_tree_interned - x + 1, warm interner	872.29
+build_tree - 100 identical ident tokens	8350.00
+build_tree_interned - 100 identical tokens, warm interner	10570.00
+build_tree_fully_interned - x + x, cold	2470.00
+build_tree_fully_interned - x + x, warm	1290.00
+build_tree_interned - x + x, warm	835.62
+build_tree - x + x	1060.00
+node_interner - intern_node cold miss	235.42
+node_interner - intern_node warm hit	196.38
+parse_cst - end-to-end	11570.00
+block-reparse: 80 blocks - edit inside block	766380.00
+block-reparse: 320 blocks - edit inside block	3100000.00
+block-reparse: 80 blocks - full reparse (baseline)	1840000.00
+block-reparse: 320 blocks - full reparse (baseline)	6530000.00
+block-reparse: 80 blocks - 50-edit session	53190000.00
+block-reparse: 320 blocks - 50-edit session	298120000.00
+full parse - simple	2170.00
+full parse - lambda	8670.00
+full parse - nested lambdas	19790.00
+full parse - arithmetic	8500.00
+full parse - complex	26330.00
+tokenization	1730.00
+incremental - initial parse	3200.00
+incremental - small edit	11990.00
+incremental - multiple edits	20540.00
+incremental - replacement	23470.00
+damage tracking	76.66
+error recovery - valid	6840.00
+error recovery - error	9340.00
+full parse - let	8530.00
+full parse - nested let	15400.00
+incremental - let body edit	22280.00
+incremental - let init edit	23850.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=0	5770.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=1	9390.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=2	12940.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=4	14950.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=8	26090.00
+bench: zero-width boundary reuse regular items=8 old=plain zw=16	44570.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=0	2690.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=1	3240.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=2	7590.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=4	8520.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=8	9020.00
+bench: zero-width boundary reuse repeat items=64 old=plain zw=16	20800.00
+bench: zero-width boundary reuse regular items=4 old=plain zw=8	13060.00
+bench: zero-width boundary reuse repeat items=16 old=plain zw=8	6780.00
+bench: zero-width boundary reuse regular items=8 old=token-interned zw=16	32160.00
+bench: zero-width boundary reuse regular items=8 old=fully-interned zw=16	48960.00
+bench: zero-width boundary reuse repeat items=64 old=token-interned zw=16	27230.00
+bench: zero-width boundary reuse repeat items=64 old=fully-interned zw=16	20520.00
+markdown: 10x (~200 lines) - tokenize	181730.00
+markdown: 10x (~200 lines) - full parse	2000000.00
+markdown: 10x (~200 lines) - incremental	710800.00
+markdown: 50x (~1000 lines) - tokenize	664720.00
+markdown: 50x (~1000 lines) - full parse	10130000.00
+markdown: 50x (~1000 lines) - incremental	3460000.00
+markdown: 100x (~2000 lines) - tokenize	1220000.00
+markdown: 100x (~2000 lines) - full parse	71140000.00
+markdown: 100x (~2000 lines) - incremental	7130000.00
+markdown: realistic doc - full parse (CST)	193530.00
+markdown: realistic doc - full parse (CST+AST)	370480.00
+markdown: realistic doc - tokenize only	93040.00
+markdown: realistic doc - lowering SyntaxNode -> Block	128510.00
+markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block	123020.00
+markdown: 50x doc - lowering SyntaxNode -> Block	12670000.00
+markdown: 50x doc - lowering SyntaxNode -> MarkdownIR -> Block	12790000.00
+markdown: realistic doc - incremental (edit paragraph)	388900.00
+markdown: realistic doc - incremental (edit heading)	372080.00
+markdown: realistic doc - incremental (edit list item)	392620.00
+markdown: realistic doc - incremental (edit code block)	296120.00
+bench: token_at_offset interior hit mid-tree	3250.00
+bench: token_at_offset boundary Between mid-tree	8840.00
+bench: token_at_offset out-of-range miss (full scan)	7320.00
+bench: build_tree with ReuseNode (rebuild_subtree)	286450.00
+bench: build_tree_interned with ReuseNode (re_intern_tokens_only)	369870.00
+bench: EventBuffer push_parser_reuse_node_rebased (matching source rebase)	378840.00
+bench: EventBuffer push_parser_reuse_node_rebased_unchecked (validated source rebase)	301660.00
+bench: text_len hand-written	688290.00
+bench: text_len via accept_fold[TextLen]	1010000.00
+bench: text_len via closure fold	1430000.00
+bench: node_count hand-written	1230000.00
+bench: node_count via accept_transform_fold[NodeCount]	728240.00
+bench: node_count via closure transform_fold	605760.00
+bench: token_count (trivia filter) via CstElement::token_count	997250.00

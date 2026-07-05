@@ -127,6 +127,12 @@ results=$(awk -F'\t' \
    }' \
   "$BASELINE" <(echo "$current_tsv"))
 
+# Machine-readable copy of the comparison (tab-separated STATUS\tname\t...)
+# for CI consumers; the pretty-printed loop below stays the human interface.
+if [[ -n "${BENCH_REPORT_TSV:-}" ]]; then
+  printf '%s\n' "$results" > "$BENCH_REPORT_TSV"
+fi
+
 regressions=0
 new_count=0
 ok_count=0
