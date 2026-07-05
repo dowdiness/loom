@@ -2,72 +2,25 @@
 package "dowdiness/html"
 
 import {
+  "dowdiness/html/syntax",
+  "dowdiness/html/token",
   "dowdiness/loom",
   "dowdiness/loom/core",
   "dowdiness/seam",
-  "moonbitlang/core/debug",
 }
 
 // Values
-pub let html_grammar : @loom.Grammar[Token, SyntaxKind, Unit]
+pub let html_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, Unit]
 
-pub fn lex(String) -> @core.LexResult[Token]
+pub fn lex(String) -> @core.LexResult[@token.Token]
 
-pub fn make_html_spec((@core.ParserContext[Token, SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : SyntaxKind) -> @core.LanguageSpec[Token, SyntaxKind]
+pub fn make_html_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Errors
 
 // Types and methods
-pub(all) enum SyntaxKind {
-  OpenTagToken
-  CloseTagToken
-  EqToken
-  StringToken
-  TextToken
-  CommentToken
-  DoctypeToken
-  RawTextToken
-  CDataToken
-  WhitespaceToken
-  ErrorToken
-  EofToken
-  ElementNode
-  VoidElementNode
-  SelfClosingElementNode
-  DoctypeNode
-  CommentNode
-  AttributeNode
-  TextLeaf
-  RawTextLeaf
-  ErrorNode
-  RootNode
-} derive(Eq, @debug.Debug)
-pub fn SyntaxKind::is_token(Self) -> Bool
-pub impl @seam.FromRawKind for SyntaxKind
-pub impl @seam.IsError for SyntaxKind
-pub impl @seam.IsTrivia for SyntaxKind
-pub impl @seam.ToRawKind for SyntaxKind
-pub impl Show for SyntaxKind
-
-pub enum Token {
-  OpenTag(String)
-  CloseTag(String)
-  Eq
-  StringLit
-  Text
-  Comment
-  Doctype
-  RawText
-  CData
-  Whitespace
-  Error(String)
-  EOF
-} derive(Eq, @debug.Debug)
-pub impl @seam.FromRawKind for Token
-pub impl @seam.IsEof for Token
-pub impl @seam.IsTrivia for Token
-pub impl @seam.ToRawKind for Token
-pub impl Show for Token
 
 // Type aliases
 
