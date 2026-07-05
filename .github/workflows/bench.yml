@@ -31,6 +31,13 @@ jobs:
     permissions:
       contents: read
       issues: write
+    defaults:
+      run:
+        # Unspecified run shells are `bash -e {0}` WITHOUT pipefail, which
+        # would make `bench-check.sh | tee || exit_code=$?` capture tee's 0
+        # and report every run green. `shell: bash` upgrades to
+        # `bash --noprofile --norc -eo pipefail {0}`.
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v5
