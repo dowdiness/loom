@@ -468,13 +468,22 @@ fn lower_choice(
   // `expected one of` message for the required fallback below.
   let expected : Array[String] = []
   for branch in branches {
+    // A nullable alternative makes the alternation ε-derivable, but the
+    // required fallback below turns "no branch matched" into a Fail — the ε
+    // case would silently become a runtime error. Deciding ε needs FOLLOW
+    // sets, which this subset does not compute, so fail closed at emit time.
+    if required && nullable(branch, ctx, @hashset.HashSet([])) {
+      raise RuleLowerError(
+        "nullable alternative: an alternative that can match the empty string makes the alternation ε-derivable, but the emitted Choice fails when no branch matches; make each alternative non-nullable and wrap the whole alternation in `?` instead (e.g. rewrite `(A? | B)` as `(A | B)?`)",
+      )
+    }
     let names = first_names_ordered(branch, ctx, "a choice alternative")
     for n in names {
       if expected.contains(n) {
         raise RuleLowerError(
           "ambiguous alternation: token '" +
           n +
-          "' begins more than one alternative; the #loom.rule subset requires alternatives with disjoint FIRST sets",
+          "' begins more than one alternative; the #loom.rule subset requires alternatives with disjoint FIRST sets — factor the common prefix into a shared rule (e.g. rewrite `(A B | A C)` as `A (B | C)`), or move the pattern into a hand-authored @fragment",
         )
       }
       expected.push(n)

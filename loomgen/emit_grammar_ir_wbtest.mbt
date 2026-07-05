@@ -468,6 +468,64 @@ test "emit_grammar_ir rejects an ambiguous alternation (overlapping FIRST)" {
     ),
   )
   inspect(msg.contains("ambiguous"), content="true")
+  // The diagnostic must carry the remedy, not just the constraint — §6.1 of the
+  // contract claims "the fix is local", so the message says what the fix is.
+  inspect(msg.contains("factor the common prefix"), content="true")
+}
+
+///|
+/// A bare `@fragment` alternative has an empty FIRST set (fragments are opaque
+/// at emit time), so its `Choice` branch would gate on a predicate that matches
+/// nothing — a dead branch. Reject rather than emit it.
+test "emit_grammar_ir rejects an alternative with an empty FIRST set" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.punct("b")
+      #|  B
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("(@frag | B)")
+      #|  Pick
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("empty FIRST set"), content="true")
+}
+
+///|
+/// A nullable alternative (`A?`) makes the alternation ε-derivable, but the
+/// emitted required `Choice` appends an `Any → Fail` fallback — silently turning
+/// "match empty" into a runtime parse error. The subset computes no FOLLOW sets,
+/// so it cannot decide the ε case; fail closed at emit time instead.
+test "emit_grammar_ir rejects a nullable alternative in a required alternation" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.punct("b")
+      #|  B
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("(A? | B) Eof")
+      #|  Pick
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("nullable alternative"), content="true")
 }
 
 ///|
