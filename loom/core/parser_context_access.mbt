@@ -295,6 +295,7 @@ pub fn[T, K] ParserContext::set_lex_mode(
 ) -> Unit {
   self.lex_mode = mode
 }
+
 ///|
 /// Return the nth token (0-indexed) from the current position, including
 /// trivia tokens. Unlike peek_nth() which skips trivia, this returns the
@@ -323,9 +324,7 @@ pub fn[T, K] ParserContext::peek_index(
 ///
 /// The returned kind corresponds to the most recent start_node() or start_at()
 /// call that has not yet been matched by finish_node().
-pub fn[T, K] ParserContext::current_node_kind(
-  self : ParserContext[T, K],
-) -> K? {
+pub fn[T, K] ParserContext::current_node_kind(self : ParserContext[T, K]) -> K? {
   match self.node_stack.length() {
     0 => None
     len => Some(self.node_stack[len - 1])

@@ -304,9 +304,9 @@ pub fn[T, K] ParserContext::new_indexed(Int, (Int) -> T, (Int) -> Int, (Int) -> 
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node(Self[T, K], K, () -> Unit) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::node_with_recovery(Self[T, K], K, () -> Bool, (T) -> Bool) -> Unit
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(Self[T, K]) -> T
+pub fn[T, K] ParserContext::peek_index(Self[T, K], Int) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_info(Self[T, K]) -> TokenInfo[T]
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_nth(Self[T, K], Int) -> T
-pub fn[T, K] ParserContext::peek_index(Self[T, K], Int) -> T
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek_while_skip(Self[T, K], (T) -> Bool) -> T
 pub fn[T, K] ParserContext::report(Self[T, K], Diagnostic) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current(Self[T, K], message~ : String, code? : DiagnosticCode?) -> Unit
