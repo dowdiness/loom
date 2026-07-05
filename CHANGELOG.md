@@ -40,7 +40,7 @@ Notable user-facing changes to Loom and its sibling modules.
   All three syntaxes available in `#loom.rule` annotations and `.loomgrammar` files.
   Golden fixture + parity test added under `fixtures/rule_emit_fixture.*`.
 
-- **`dowdiness/loomgen` — default lex patterns for `#loom.ident`, `#loom.literal`, `#loom.trivia` (#635):**
+- **`dowdiness/loomgen` — default lex patterns for `#loom.ident`, `#loom.literal`, `#loom.trivia` (#635, #641):**
   Token variants annotated with `#loom.ident`, `#loom.literal`, or `#loom.trivia` no
   longer require an explicit `#loom.pattern("...")` annotation. The generated lexer
   uses sensible defaults: `[a-zA-Z_][a-zA-Z0-9_]*` for identifiers,
