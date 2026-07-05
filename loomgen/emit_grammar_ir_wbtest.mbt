@@ -203,33 +203,65 @@ test "emit_grammar_ir rejects plain-position left recursion" {
 }
 
 ///|
-/// @fragment references are not yet supported by --grammar-ir. The generated
-/// GrammarIr is a CLOSED value with no seam to bind a hand-authored fragment
-/// body, so emitting `Ref("bar")` would dangle — `@grammar.compile` raises
-/// `MissingRef("bar")`. The emitter must fail closed rather than emit an
-/// uncompilable grammar (binding mechanism tracked as a follow-up).
-test "emit_grammar_ir rejects @fragment references (not yet supported)" {
+/// @fragment references now emit a mangled `Ref("__loom_frag__<name>")` that the
+/// caller supplies via the `fragments~` map parameter. The mangled prefix avoids
+/// collision with bare variant names in the `GrammarIr.rules` map.
+test "emit_grammar_ir accepts @fragment references with mangled Ref" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("Foo Eof")
+    #|  Start
+    #|  #loom.node
+    #|  #loom.rule("@bar A")
+    #|  Foo
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for @fragment refs but got: " + m)
+  }
+  inspect(generated.contains("Ref(\"__loom_frag__bar\")"), content="true")
+  inspect(generated.contains("fragments~"), content="true")
+}
+///|
+/// A fragment in a FIRST-requiring position via a nullable prefix (e.g.
+/// `A? @frag` as a Choice branch) must fail closed. The fragment's body is
+/// opaque at emit time, so its FIRST set is unknown; gating on only the visible
+/// prefix (`A`) would silently exclude tokens from the fragment body.
+test "emit_grammar_ir: @fragment in leading position via nullable prefix fails" {
   let msg = emit_err_of(
     (
       #|#loom.token
       #|pub(all) enum Tok {
       #|  #loom.punct("a")
       #|  A
+      #|  #loom.punct("b")
+      #|  B
       #|  #loom.eof
       #|  Eof
       #|} derive(Eq)
       #|#loom.term
       #|pub(all) enum T {
       #|  #loom.root
-      #|  #loom.rule("Foo Eof")
+      #|  #loom.rule("Pick Eof")
       #|  Start
       #|  #loom.node
-      #|  #loom.rule("@bar A")
-      #|  Foo
+      #|  #loom.rule("(A? @frag | B)")
+      #|  Pick
       #|} derive(Eq)
     ),
   )
-  inspect(msg.contains("fragment"), content="true")
+  inspect(msg.contains("FIRST-requiring position"), content="true")
 }
 
 ///|
@@ -513,14 +545,14 @@ test "emit_grammar_ir: file-only term enum (no annotations) emits multi-producti
 }
 
 ///|
-/// README claims a file production with an `@fragment` body "parses but stays
-/// rejected by the shared closed-GrammarIr guard." Exercise that on the FILE path
-/// specifically: the fragment routes through `check_no_fragments` on the merged map.
-test "emit_grammar_ir: a file production with an @fragment body fails closed" {
+/// A file production with an `@fragment` body now emits a mangled `Ref` that the
+/// caller supplies via the `fragments~` map. The fragment reference routes through
+/// the shared emission path, same as annotation fragments.
+test "emit_grammar_ir: file production with @fragment body emits mangled Ref" {
   let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
     "Pair = LParen Inner RParen\nInner = @custom_inner",
   )
-  match
+  let generated = match
     emit_grammar_ir(
       term_enum,
       token_enum,
@@ -531,15 +563,15 @@ test "emit_grammar_ir: a file production with an @fragment body fails closed" {
       file_rules~,
       file_lines~,
     ) {
-    Ok(_) => abort("expected an @fragment file production to fail closed")
-    Err(m) => {
-      inspect(m.contains("references fragment @custom_inner"), content="true")
-      // The emission-stage error carries the file line of the offending
-      // production (`Inner` is on line 2), matching the `line N:` prefix the
-      // file's parse errors use.
-      inspect(m.contains("line 2: "), content="true")
-    }
+    Ok(s) => s
+    Err(m) =>
+      abort("emit should succeed for @fragment file production but got: " + m)
   }
+  inspect(
+    generated.contains("Ref(\"__loom_frag__custom_inner\")"),
+    content="true",
+  )
+  inspect(generated.contains("fragments~"), content="true")
 }
 
 ///|

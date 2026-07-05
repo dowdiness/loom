@@ -74,7 +74,7 @@ through `@fragment` references (see §5) reach the generated IR for these:
 `ConsumeGated`, `RequireSep`, `ErrorNodeUntil`
 
 `Native(RuleName)` has its own escape hatch
-(`check_no_fragments` skips `Native`; see [`emit_grammar_ir.mbt`](../loomgen/emit_grammar_ir.mbt)) and
+(`Frag` nodes skip `Native` in the FIRST-set and lowering passes) and
 is not fragment‑bound.  `ManualNewlineAppExpr` is interpreter‑only residue that
 cannot be authored in any notation path.
 
@@ -132,8 +132,10 @@ closed. There is no ordered-choice fallback, no precedence tiebreaker, no
 - **Left-recursive rules.** Checked both eagerly (3-color DFS over leading-ref
 graph in `check_left_recursion`) and on demand (cycle detection inside
 `first_set`).
-- **`@fragment` references.** Rejected by `check_no_fragments` (the primary
-gate) and defensively in both `lower` and `first_set`. See §5.
+- **`@fragment` references.** Emit a mangled `Ref("__loom_frag__<name>")` at
+the call site; FIRST-set computation treats fragments as opaque (empty set),
+so fragments in gate positions (`Choice`, `RepeatWhile`) trigger an
+empty-FIRST-set error. See §5.
 - **Ruleless term references.** A `Name` referring to a `#loom.term` variant
 with no `#loom.rule` and no `.loomgrammar` production is rejected.
 - **Unknown symbols.** A `Name` that is neither a token nor a term variant is
@@ -157,37 +159,45 @@ A fragment reference `@name` in a `#loom.rule` annotation or `.loomgrammar`
 file names a hand-authored `pub let name : Expr[T, K]` value that the caller
 supplies at grammar compilation time.
 
-### 5.1 Current status: rejected closed
+### 5.1 Current status: fragment binding via `fragments~` parameter
 
-As of PR #534 (2026-06-28), `@fragment` references are **rejected at generation
-time**. The generated `GrammarIr` is a closed value with no seam to bind
-hand-authored `Expr` bodies, so a `Ref("frag")` from a fragment reference would
-dangle — `@grammar.compile` raises `MissingRef`.
+As of PR #615 (2026-07-03), `@fragment` references emit a mangled
+`Ref("__loom_frag__<name>")` and the generated function takes a `fragments~`
+parameter (`Map[String, @grammar.Expr[Token, SyntaxKind]] = Map([])`) that binds
+hand-authored `Expr` bodies at the call site. The merge loop inserts fragment
+bodies into the rules map before `@grammar.compile` resolves them.
 
-The rejection is enforced by `check_no_fragments` in `emit_grammar_ir.mbt`,
-which walks every rule body before FIRST-set computation and fails if any
-`Frag(name)` is found. Both the `lower` and `first_set` functions carry
-defensive backstop arms for fragments.
+The old rejection gate `check_no_fragments` was removed — the fail-closed
+behavior is now `@grammar.compile` raising `MissingRef` when a caller provides
+no `fragments~` entry matching a fragment reference. A missing fragment is a
+compile error (caught by `@grammar.compile`), never a runtime anomaly.
 
-### 5.2 Design for fragment binding (deferred, see #540 item 4)
+Fragment references opaque to FIRST-set computation: `first_set` returns the
+empty set for `Frag(name)`, so a fragment in a `Choice` alternation or
+`RepeatWhile` body position triggers an empty-FIRST-set error. This is the
+correct conservative behavior — a fragment's FIRST set is not known at emit
+time. Fragment references in trailing position (after a non-nullable `Seq`
+prefix) never require FIRST-set computation and work without restriction.
 
-The intended binding path, sketched in
-[#540 item 4](https://github.com/dowdiness/loom/issues/540), works one of two ways:
+### 5.2 Implementation: `fragments~` parameter (option 2 from the design)
 
-1. **Generated bindings.** The emitter emits the rule map with entries like
-   `"frag": name` where `name` resolves to a hand-authored
-   `pub let frag_rule : Expr[Token, SyntaxKind]` value. The `Ref("frag")`
-   then resolves at compile time; a missing binding becomes a **compile** error
-   (`MissingRef`), never a runtime anomally.
+The binding follows option 2 from the original design ([#540 item 4](https://github.com/dowdiness/loom/issues/540)):
+the generated `GrammarIr` factory (now a `pub fn`) takes a `fragments~` parameter
+(`Map[String, @grammar.Expr[Token, SyntaxKind]] = Map([])`), and the emitter
+inserts a `for frag, body in fragments { rules.set(frag, body) }` merge loop
+before constructing the `GrammarIr` value. `@grammar.compile` resolves the
+mangled `Ref("__loom_frag__<name>")` against the merged map; a missing binding
+raises `MissingRef` at compile time.
 
-2. **Extensible constructor.** The generated `GrammarIr` factory takes a
-   `fragments~` parameter — a `Map[RuleName, Expr[T, K]]` that the caller
-   provides. The emitter inserts a `Map::merge` or equivalent, so a fragment
-   reference hits the correct hand-authored body.
+The mangled `__loom_frag__` prefix avoids collision with bare variant names in
+the `GrammarIr.rules` map. Fragment references use `@fragment` syntax in rule
+strings (parsing to `Frag(name)` in `RuleAst`), and the emitter's `lower()`
+function handles `Frag(name)` by emitting the mangled `Ref`.
 
-Both approaches keep `Expr` closure-free — the fragment hand-author still writes
-data, never host closures — so the entire `GrammarIr` remains analyzable and
-emittable.
+Both principles from the original design are preserved: the `GrammarIr` value
+remains closure-free (the fragment hand-author writes data, never closures) and
+analyzable, and a missing fragment is a compile error (`MissingRef`), never a
+runtime anomaly.
 
 ### 5.3 What fragments enable
 
@@ -219,9 +229,9 @@ is a separate escape‑hatch and is not fragment‑bound.
 `ManualNewlineAppExpr` is interpreter‑only residue with no reified form in
 either path.
 
-When fragment binding lands, a language author can drop out of the LL(1) subset
-for specific rules by hand-authoring `Expr` values that use any of these nodes
-— including overlapping FIRST sets, which the hand-written `Alt` predicates
+With fragment binding implemented, a language author can drop out of the LL(1)
+subset for specific rules by hand-authoring `Expr` values that use any of these
+nodes — including overlapping FIRST sets, which the hand-written `Alt` predicates
 control directly without going through the FIRST-set gate.
 
 ---
@@ -302,9 +312,9 @@ at the `@grammar` library boundary, so `@grammar` remains general while
 
 - `(A B | A C)` is rejected: rule grammar is LL(1) or it does not generate.
 - Left recursion is rejected — rewrite cycles as `(` x `)*` repetition.
-- `@fragment` references are rejected until the fragment-binding mechanism lands
-  (see §5.2 and #540 item 4). In the meantime, hand-author `GrammarIr` directly
-  for out-of-subset patterns.
+- `@fragment` references emit a mangled `Ref("__loom_frag__<name>")` — the
+  caller supplies fragment bodies via the `fragments~` map parameter (see §5).
+  Without a matching entry, `@grammar.compile` raises `MissingRef`.
 - A nullable body cannot gate a `Choice` or `RepeatWhile`: if a branch can
   begin with nothing, it cannot have a defined FIRST set, and the rejection
   prevents an infinite loop in `RepeatWhile` or a silent no-op in `Choice`.

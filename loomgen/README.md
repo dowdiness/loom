@@ -82,14 +82,14 @@ variant's `#loom.node`/`#loom.root`/`#loom.leaf` role supplies its CST kind, and
 the `#loom.root` variant still designates the grammar root. A production that also
 carries a `#loom.rule` annotation is overridden by the file (with a warning), so a
 language can migrate off annotations incrementally. Both parse errors AND
-emission-stage rejections (a production naming a non-term variant, an `@fragment`
-body, a roleless variant, left recursion, an ambiguous alternation) carry the
+emission-stage rejections (a production naming a non-term variant,
+a roleless variant, left recursion, an ambiguous alternation) carry the
 production's `line N:` prefix rather than an annotation offset, so every
 `.loomgrammar` diagnostic points at a real file position. The parser fails closed:
 duplicate names, empty bodies, stray `=`, unbalanced groups, and unknown
-characters all abort the whole file. `@fragment` references parse but are rejected
-at emission by the shared closed-GrammarIr guard until fragment binding lands (the
-same deferred gap as the annotation path).
+characters all abort the whole file. `@fragment` references produce a mangled
+`Ref("__loom_frag__<name>")` and the generated function accepts a `fragments~`
+parameter to bind the fragment bodies at the call site.
 
 ```bash
 # .loomgrammar requires --grammar-ir to name the generated output.
@@ -102,13 +102,17 @@ moon run loomgen --target native -- token.mbt token_out syntax_out \
 
 `--grammar-ir <path>` generates a `<path>.g.mbt` file containing a
 `pub let <lang>_grammar_ir : @grammar.GrammarIr[Token, SyntaxKind]` value
-built from `#loom.rule` annotations on `#loom.term` variants.
+(or `pub fn` with a `fragments~` parameter when the grammar uses `@fragment`
+references) built from `#loom.rule` annotations on `#loom.term` variants.
 
 The annotation subset produces `Seq`, `Choice` (LL(1) disjoint), `Ref`,
-`RepeatWhile`, `Node`, and `Fail` constructs.  `@fragment` references are
-currently **rejected at generation time** — the fragment‑binding mechanism is
-deferred ([#540 item 4](https://github.com/dowdiness/loom/issues/540)).
-Until it lands, hand‑author `GrammarIr` directly for out‑of‑subset patterns.
+`RepeatWhile`, `Node`, `Fail`, and `@fragment` constructs.  `@fragment` references
+emit a mangled `Ref("__loom_frag__<name>")` and the generated function adds a
+`fragments~` parameter; the caller provides fragment bodies at the call site.
+Map keys must use the mangled `"__loom_frag__<name>"` prefix (matching the
+emitted `Ref`), not the bare fragment name. Without a matching entry,
+`@grammar.compile` raises `MissingRef` — model the fallback as a
+`Map(["__loom_frag__fragname" => required_body])` default argument.
 
 Usage:
 
