@@ -652,7 +652,6 @@ test "finish_nodes_until: combined with checkpoint restores node stack" {
   assert_current_kind(ctx, KRoot)
 }
 
-
 // ─── finish_nodes_until_inclusive ───────────────────────────────────────────────
 
 ///|
@@ -721,6 +720,7 @@ test "finish_nodes_until_inclusive: returns false when no nodes open" {
   inspect(found, content="false")
   inspect(ctx.open_nodes, content="0")
 }
+
 ///|
 struct FooView {
   node : @seam.SyntaxNode
