@@ -57,7 +57,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_par
     spec,
   )
   let diagnostics = buffer.get_diagnostics()
-  diagnostics.extend(parse_diagnostics)
+  diagnostics.add_all(parse_diagnostics)
   (cst, diagnostics)
 }
 

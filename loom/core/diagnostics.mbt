@@ -690,7 +690,7 @@ fn DiagnosticSet::push_parser_unique(
 }
 
 ///|
-pub fn DiagnosticSet::extend(
+pub fn DiagnosticSet::add_all(
   self : DiagnosticSet,
   other : DiagnosticSet,
 ) -> Unit {

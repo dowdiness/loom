@@ -441,7 +441,7 @@ pub fn[T : Eq] TokenBuffer::update(
         delta,
         failure_context="incremental relex",
       )
-      shifted_diagnostics.extend(replacement_diagnostics)
+      shifted_diagnostics.add_all(replacement_diagnostics)
       self.diagnostics = shifted_diagnostics
       self.source = new_source
       self.version = self.version + 1
@@ -501,7 +501,7 @@ pub fn[T : Eq] TokenBuffer::update(
     delta,
     failure_context="incremental relex",
   )
-  updated_diagnostics.extend(replacement_diagnostics)
+  updated_diagnostics.add_all(replacement_diagnostics)
   self.diagnostics = updated_diagnostics
   self.source = new_source
   self.version = self.version + 1

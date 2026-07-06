@@ -96,7 +96,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       )
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
-      all_diagnostics.extend(diagnostics)
+      all_diagnostics.add_all(diagnostics)
       last_parse_diags.val = diagnostics
       let syntax = @seam.SyntaxNode::from_cst(cst)
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
@@ -129,7 +129,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
               )
               let lex_diagnostics = buffer.get_diagnostics()
               let all_diagnostics = lex_diagnostics.copy()
-              all_diagnostics.extend(new_diagnostics)
+              all_diagnostics.add_all(new_diagnostics)
               last_parse_diags.val = new_diagnostics
               token_buf.val = Some(buffer)
               return (@seam.SyntaxNode::from_cst(new_cst), all_diagnostics, 1)
@@ -195,7 +195,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       )
       let lex_diagnostics = buffer.get_diagnostics()
       let all_diagnostics = lex_diagnostics.copy()
-      all_diagnostics.extend(diagnostics)
+      all_diagnostics.add_all(diagnostics)
       last_parse_diags.val = diagnostics
       let new_syntax = @seam.SyntaxNode::from_cst(new_cst)
       (new_syntax, all_diagnostics, reuse_count)

@@ -109,7 +109,7 @@ pub struct DiagnosticSet {
 pub fn DiagnosticSet::after_relex(Self, Int, Int, Int, failure_context~ : String) -> Self
 pub fn DiagnosticSet::copy(Self) -> Self
 pub fn DiagnosticSet::empty() -> Self
-pub fn DiagnosticSet::extend(Self, Self) -> Unit
+pub fn DiagnosticSet::add_all(Self, Self) -> Unit
 pub fn DiagnosticSet::format(Self) -> Array[String]
 pub fn DiagnosticSet::format_with_line_col(Self, LineIndex) -> Array[String]
 pub fn DiagnosticSet::is_empty(Self) -> Bool

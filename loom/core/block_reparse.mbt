@@ -394,7 +394,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   }
   let root_cst = tree.cst_node()
   let new_diags = block_lex_diags.copy()
-  new_diags.extend(parse_diags)
+  new_diags.add_all(parse_diags)
   let trivia_raws = spec.trivia_kinds_raw()
   let err_raw = spec.error_kind.to_raw()
   let inc_raw = spec.incomplete_kind.to_raw()
