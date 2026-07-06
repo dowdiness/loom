@@ -7,7 +7,7 @@ import {
   "dowdiness/pretty@0.1.0",
   "dowdiness/seam@0.1.0",
   "moonbitlang/parser@0.3.3",
-  "moonbitlang/x@0.4.38",
+  "moonbitlang/x@0.4.40",
 }
 
 readme = "README.md"
