@@ -77,13 +77,13 @@ test "emit_lexer rejects #loom.keyword without a #loom.ident source" {
 }
 
 ///|
-test "emit_lexer rejects a token with no pattern/punct/custom_lex" {
+test "emit_lexer rejects a token with no pattern/punct/custom_lex or default role pattern" {
   let te = token_enum_of(
     (
       #|#loom.token
       #|pub(all) enum T {
-      #|  #loom.literal
-      #|  Num
+      #|  #loom.delimiter
+      #|  Bare
       #|  #loom.eof
       #|  E
       #|} derive(Eq)
@@ -589,4 +589,108 @@ test "emit_lexer rejects a payload-bearing #loom.keyword variant" {
     Err(msg) => inspect(msg.contains("constructor arguments"), content="true")
     Ok(_) => abort("expected payload-bearing-keyword rejection")
   }
+}
+
+// ── Default pattern tests (#635) ───────────────────────────────────────
+
+///|
+test "emit_lexer generates default ident pattern for bare #loom.ident" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  Ident
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  // The default ident pattern should be [a-zA-Z_][a-zA-Z0-9_]*
+  // Escape the backslash characters in the MoonBit string: [a-zA-Z_][a-zA-Z0-9_]*
+  inspect(
+    generated.contains("re\"^(?:[a-zA-Z_][a-zA-Z0-9_]*)\""),
+    content="true",
+  )
+}
+
+///|
+test "emit_lexer generates default trivia pattern for bare #loom.trivia" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.trivia
+      #|  Whitespace
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(generated.contains("re\"^(?:[ \\t\\r\\n]+)\""), content="true")
+}
+
+///|
+test "emit_lexer generates default literal pattern for bare #loom.literal" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  Number
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  // The default literal pattern [0-9]+(\.[0-9]+)? appears as \. in the re literal
+  inspect(generated.contains("re\"^(?:[0-9]+(\\.[0-9]+)?)\""), content="true")
+}
+
+///|
+test "emit_lexer keyword classification works with default-pattern ident" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  Ident
+      #|  #loom.keyword("let")
+      #|  Let
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  // Should have keyword classification: best_ident + keyword match
+  inspect(generated.contains("best_ident = true"), content="true")
+  inspect(generated.contains("\"let\" => Let"), content="true")
+}
+
+///|
+test "emit_lexer golden matches fixtures/default_lex_fixture.g.mbt" {
+  let src = read_fixture("fixtures/default_lex_fixture.mbt")
+  let golden = read_fixture("fixtures/default_lex_fixture.g.mbt")
+  let te = token_enum_of(src)
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
 }
