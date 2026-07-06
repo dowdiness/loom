@@ -23,7 +23,7 @@ test "eval: unit literal" {
 
 ///|
 test "eval: variable lookup" {
-  let env = Env::empty().extend("x", VInt(5))
+  let env = Env::empty().bind("x", VInt(5))
   let term = @ast.Term::Var("x")
   let result = eval_to_result(env, term)
   debug_inspect(result, content="Ok(VInt(5))")

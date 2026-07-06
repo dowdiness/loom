@@ -78,7 +78,7 @@ test "infer Unit" {
 
 ///|
 test "infer Var bound" {
-  let env = TypeEnv::Empty.extend("x", TInt)
+  let env = TypeEnv::Empty.bind("x", TInt)
   let result = infer(env, TypedTerm::Var("x"))
   inspect(result.typ, content="Int")
   inspect(result.had_error, content="false")
@@ -301,7 +301,7 @@ test "Show TypeDiagnostic: without def_name" {
 
 ///|
 test "TypeEnv lookup: shadowing" {
-  let env = TypeEnv::Empty.extend("x", TInt).extend("x", TUnit)
+  let env = TypeEnv::Empty.bind("x", TInt).bind("x", TUnit)
   debug_inspect(
     env.lookup("x"),
     content=(

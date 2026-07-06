@@ -98,7 +98,7 @@ fn infer_impl(
       if annot == TError {
         err(ctx, "malformed type annotation")
       } else {
-        let ext_env = env.extend(x, annot)
+        let ext_env = env.bind(x, annot)
         let body_result = infer_impl(ext_env, body, ctx)
         {
           typ: TArrow(annot, result_type(body_result)),
@@ -166,7 +166,7 @@ fn infer_impl(
         if def_result.had_error {
           had_error = true
         }
-        current_env = current_env.extend(name, result_type(def_result))
+        current_env = current_env.bind(name, result_type(def_result))
       }
       let body_result = infer_impl(current_env, body, ctx)
       {
@@ -188,7 +188,7 @@ fn check_impl(
 ) -> TypeResult raise Failure {
   match (term, expected) {
     (Lam(x, None, body), TArrow(param_t, ret_t)) => {
-      let ext_env = env.extend(x, param_t)
+      let ext_env = env.bind(x, param_t)
       let body_result = check_impl(ext_env, body, ret_t, ctx)
       let typ = if body_result.had_error {
         TError
@@ -200,11 +200,11 @@ fn check_impl(
     (Lam(x, Some(annot), body), TArrow(param_t, ret_t)) =>
       if annot != param_t {
         emit(ctx, "annotation mismatch: expected \{param_t}, got \{annot}")
-        let ext_env = env.extend(x, param_t)
+        let ext_env = env.bind(x, param_t)
         let _ = check_impl(ext_env, body, ret_t, ctx)
         { typ: TError, had_error: true }
       } else {
-        let ext_env = env.extend(x, annot)
+        let ext_env = env.bind(x, annot)
         let body_result = check_impl(ext_env, body, ret_t, ctx)
         let typ = if body_result.had_error {
           TError

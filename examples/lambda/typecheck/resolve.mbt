@@ -21,7 +21,7 @@ fn ResolveEnv::contains(self : ResolveEnv, name : String) -> Bool {
 }
 
 ///|
-fn ResolveEnv::extend(self : ResolveEnv, name : String) -> ResolveEnv {
+fn ResolveEnv::bind(self : ResolveEnv, name : String) -> ResolveEnv {
   Bind(self, name)
 }
 
@@ -35,7 +35,7 @@ pub fn resolve_typed(term : TypedTerm) -> ResolvedModule {
       let resolved_defs : Array[(String, TypedTerm)] = []
       for def in defs {
         let resolved = resolve_walk(def.1, env)
-        env = env.extend(def.0)
+        env = env.bind(def.0)
         resolved_defs.push((def.0, resolved))
       }
       { defs: resolved_defs, body: resolve_walk(body, env) }
@@ -48,7 +48,7 @@ pub fn resolve_typed(term : TypedTerm) -> ResolvedModule {
 fn resolve_walk(term : TypedTerm, env : ResolveEnv) -> TypedTerm {
   match term {
     Var(name) => if env.contains(name) { term } else { Unbound(name) }
-    Lam(x, annot, body) => Lam(x, annot, resolve_walk(body, env.extend(x)))
+    Lam(x, annot, body) => Lam(x, annot, resolve_walk(body, env.bind(x)))
     App(f, arg) => App(resolve_walk(f, env), resolve_walk(arg, env))
     Bop(op, l, r) => Bop(op, resolve_walk(l, env), resolve_walk(r, env))
     If(c, t, e) =>
@@ -58,7 +58,7 @@ fn resolve_walk(term : TypedTerm, env : ResolveEnv) -> TypedTerm {
       let resolved_defs : Array[(String, TypedTerm)] = []
       for def in defs {
         let resolved = resolve_walk(def.1, inner_env)
-        inner_env = inner_env.extend(def.0)
+        inner_env = inner_env.bind(def.0)
         resolved_defs.push((def.0, resolved))
       }
       Module(resolved_defs, resolve_walk(body, inner_env))

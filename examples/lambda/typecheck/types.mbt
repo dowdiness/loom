@@ -71,7 +71,7 @@ pub fn TypeEnv::lookup(self : TypeEnv, name : String) -> Type? {
 }
 
 ///|
-pub fn TypeEnv::extend(self : TypeEnv, name : String, typ : Type) -> TypeEnv {
+pub fn TypeEnv::bind(self : TypeEnv, name : String, typ : Type) -> TypeEnv {
   Bind(self, name, typ)
 }
 

@@ -263,7 +263,7 @@ fn rebuild_chain(
   let mut rolling_env : ResolveEnv = ResolveEnv::Empty
   for def in defs {
     resolve_envs.push(rolling_env)
-    rolling_env = rolling_env.extend(def.0)
+    rolling_env = rolling_env.bind(def.0)
   }
   let body_env = rolling_env
   // Per-def resolve Derived cells: resolve_walk(raw_body, env_i). Backdates
@@ -305,7 +305,7 @@ fn rebuild_chain(
           } else {
             prev_result.typ
           }
-          env.extend(prev_name, prev_type)
+          env.bind(prev_name, prev_type)
         },
         label="env_\{def_name}",
       )
@@ -361,7 +361,7 @@ fn rebuild_chain(
         } else {
           last_result.typ
         }
-        let body_type_env = env.extend(last_name, last_type)
+        let body_type_env = env.bind(last_name, last_type)
         let body_term = body_resolve_memo.get_or_abort()
         infer_impl(body_type_env, body_term, body_ctx)
       },

@@ -91,7 +91,7 @@ pub fn Env::lookup(self : Env, name : String) -> Value? {
 /// original. Without the copy, MoonBit's mutable Map would alias the
 /// original, and later `extend` calls would retroactively modify closures
 /// that captured the old environment — breaking lexical scoping.
-pub fn Env::extend(self : Env, name : String, value : Value) -> Env {
+pub fn Env::bind(self : Env, name : String, value : Value) -> Env {
   let new_bindings = self.bindings.copy()
   new_bindings[name] = value
   { bindings: new_bindings }
@@ -172,7 +172,7 @@ pub fn eval(
       let va = eval(env, arg, fuel=fuel - 1)
       match vf {
         VClosure(closure_env, param, body) => {
-          let ext = closure_env.extend(param, va)
+          let ext = closure_env.bind(param, va)
           eval(ext, body, fuel=fuel - 1)
         }
         _ => raise TypeMismatch("app: expected function")
@@ -187,7 +187,7 @@ pub fn eval(
       for def in defs {
         let (name, expr) = def
         let v = eval(current_env, expr, fuel=fuel - 1)
-        current_env = current_env.extend(name, v)
+        current_env = current_env.bind(name, v)
       }
       eval(current_env, body, fuel=fuel - 1)
     }
