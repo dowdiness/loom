@@ -115,6 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 5
       matrix:
         include:
           - name: loom
@@ -205,6 +206,7 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
+      max-parallel: 5
       matrix:
         include:
           - name: loom
