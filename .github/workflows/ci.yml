@@ -244,6 +244,18 @@ jobs:
             path: examples/html
             module: dowdiness/html
             target: native
+          - name: examples-css
+            path: examples/css
+            module: dowdiness/css-example
+            target: native
+          - name: examples-graph-dsl
+            path: examples/graph-dsl
+            module: dowdiness/graph-dsl
+            target: native
+          - name: examples-moonbit
+            path: examples/moonbit
+            module: dowdiness/moonbit-example
+            target: native
           - name: incr
             path: incr
             module: ''
