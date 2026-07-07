@@ -1,18 +1,39 @@
 ///|
-/// Mini-parser for the `#loom.rule` EBNF-subset notation (#522).
+/// Mini-parser for the `#loom.rule` EBNF-subset notation (#522, #601).
 ///
 /// Grammar (recursive descent, LL(1)):
 /// ```text
-///   rule    := alt
-///   alt     := seq ('|' seq)*
-///   seq     := postfix+
-///   postfix := atom ('*' | '+' | '?' | '~' | '!')?
-///   atom    := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'
+///   rule       := pratt_body | alt
+///   pratt_body := '@prefix' IDENT pratt_ann*
+///   pratt_ann  := '@app' IDENT | '@prec' '[' IDENT (',' IDENT)* ']'
+///              | '@skip' '(' IDENT ')'
+///   alt        := seq ('|' seq)*
+///   seq        := postfix+
+///   postfix    := atom ('*' | '+' | '?' | '~' | '!')?
+///   atom       := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')'
+///              | '(' alt ')'
 /// ```
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
-/// `@` marks a hand-authored fragment reference. The parser fails closed on any
+/// `@` marks a hand-authored fragment reference unless the keyword is reserved
+/// (`until`, `prefix`, `app`, `prec`, `skip`). The parser fails closed on any
 /// lexical or structural error so an unparseable rule never reaches the emitter.
+
+///|
+/// Pratt application production: left-associative juxtaposition over `@prefix`.
+struct PrattAppSpec {
+  prefix : String
+  app_kind : String?
+} derive(Eq, Debug)
+
+///|
+/// Pratt binary production: infix operators over `@prefix` with optional `@skip`.
+struct PrattBinarySpec {
+  prefix : String
+  ops : Array[String]
+  skip : String?
+  app_kind : String?
+} derive(Eq, Debug)
 
 ///|
 /// Parsed notation tree. Resolution of `Sym` (terminal vs rule Ref) and the
@@ -28,6 +49,8 @@ enum RuleAst {
   Emit(RuleAst)
   Emitor(RuleAst)
   ErrorUntil(Array[String])
+  PrattApp(PrattAppSpec)
+  PrattBinary(PrattBinarySpec)
 } derive(Eq, Debug)
 
 ///|
@@ -43,6 +66,13 @@ enum RuleTok {
   TTilde
   TEmitor
   TUntil
+  TPrefix
+  TApp
+  TPrec
+  TSkip
+  TLBracket
+  TRBracket
+  TComma
 } derive(Eq, Debug)
 
 ///|
@@ -76,6 +106,20 @@ fn scan_ident(s : String, pos : Int) -> (String, Int) {
 }
 
 ///|
+/// Map a bare `@keyword` name to a reserved Pratt/notation token, or `None` for
+/// fragment references (`@fragmentName`).
+fn rule_at_keyword(name : String) -> RuleTok? {
+  match name {
+    "until" => Some(TUntil)
+    "prefix" => Some(TPrefix)
+    "app" => Some(TApp)
+    "prec" => Some(TPrec)
+    "skip" => Some(TSkip)
+    _ => None
+  }
+}
+
+///|
 /// Tokenize a rule string, or fail closed on an unexpected character.
 fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
   let toks : Array[RuleTok] = []
@@ -95,10 +139,9 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
         )
       }
       let (name, next) = scan_ident(s, i + 1)
-      if name == "until" {
-        toks.push(TUntil)
-      } else {
-        toks.push(TFrag(name))
+      match rule_at_keyword(name) {
+        Some(kw) => toks.push(kw)
+        None => toks.push(TFrag(name))
       }
       i = next
     } else {
@@ -111,6 +154,9 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
         '?' => TQuest
         '~' => TTilde
         '!' => TEmitor
+        '[' => TLBracket
+        ']' => TRBracket
+        ',' => TComma
         _ =>
           raise RuleParseError(
             "unexpected character '" + s[i:i + 1].to_owned() + "' in rule",
@@ -147,6 +193,135 @@ fn RuleParser::peek(self : RuleParser) -> RuleTok? {
 ///|
 fn RuleParser::bump(self : RuleParser) -> Unit {
   self.pos = self.pos + 1
+}
+
+///|
+/// Parse `@prec[Op, ...]` after the `@prec` token has been consumed.
+fn RuleParser::parse_prec_ops(
+  self : RuleParser,
+) -> Array[String] raise RuleParseError {
+  guard self.peek() is Some(TLBracket) else {
+    raise RuleParseError("@prec must be followed by '[' operators ']'")
+  }
+  self.bump()
+  guard self.peek() is Some(TIdent(_)) else {
+    raise RuleParseError(
+      "@prec[] is empty — PrattBinary requires at least one operator",
+    )
+  }
+  let ops : Array[String] = []
+  let seen : @hashset.HashSet[String] = @hashset.HashSet([])
+  while true {
+    match self.peek() {
+      Some(TIdent(name)) => {
+        self.bump()
+        if seen.contains(name) {
+          raise RuleParseError(
+            "duplicate operator '" + name + "' in @prec[...]",
+          )
+        }
+        seen.add(name)
+        ops.push(name)
+      }
+      _ => raise RuleParseError("@prec[...] must contain token identifiers")
+    }
+    match self.peek() {
+      Some(TComma) => self.bump()
+      Some(TRBracket) => {
+        self.bump()
+        break
+      }
+      _ => raise RuleParseError("expected ',' or ']' in @prec[...]")
+    }
+  }
+  ops
+}
+
+///|
+/// Parse `@skip(Tok)` after the `@skip` token has been consumed.
+fn RuleParser::parse_skip_tok(self : RuleParser) -> String raise RuleParseError {
+  guard self.peek() is Some(TLParen) else {
+    raise RuleParseError("@skip must be followed by '(token)'")
+  }
+  self.bump()
+  let tok_name = match self.peek() {
+    Some(TIdent(name)) => {
+      self.bump()
+      name
+    }
+    _ => raise RuleParseError("@skip() must contain a token identifier")
+  }
+  guard self.peek() is Some(TRParen) else {
+    raise RuleParseError("unbalanced '@skip(' — missing ')'")
+  }
+  self.bump()
+  tok_name
+}
+
+///|
+/// `pratt_body := '@prefix' IDENT pratt_ann*` — annotation-only production body.
+fn RuleParser::parse_pratt_body(
+  self : RuleParser,
+) -> RuleAst raise RuleParseError {
+  guard self.peek() is Some(TPrefix) else {
+    raise RuleParseError("Pratt body must begin with '@prefix'")
+  }
+  self.bump()
+  let prefix = match self.peek() {
+    Some(TIdent(name)) => {
+      self.bump()
+      name
+    }
+    _ => raise RuleParseError("@prefix must be followed by a rule name")
+  }
+  let mut app_kind : String? = None
+  let mut ops : Array[String]? = None
+  let mut skip : String? = None
+  let mut prec_count = 0
+  while self.peek() is Some(tok) {
+    match tok {
+      TApp => {
+        self.bump()
+        match self.peek() {
+          Some(TIdent(name)) => {
+            self.bump()
+            app_kind = Some(name)
+          }
+          _ => raise RuleParseError("@app must be followed by a term name")
+        }
+      }
+      TPrec => {
+        prec_count = prec_count + 1
+        if prec_count > 1 {
+          raise RuleParseError(
+            "duplicate '@prec' — only one operator table per Pratt production",
+          )
+        }
+        self.bump()
+        ops = Some(self.parse_prec_ops())
+      }
+      TSkip => {
+        self.bump()
+        skip = Some(self.parse_skip_tok())
+      }
+      TPrefix => raise RuleParseError("duplicate '@prefix' in Pratt body")
+      _ =>
+        raise RuleParseError(
+          "unexpected token in Pratt body — Pratt productions contain only '@prefix', '@prec', '@skip', and '@app' annotations",
+        )
+    }
+  }
+  match ops {
+    Some(op_list) => PrattBinary({ prefix, ops: op_list, skip, app_kind })
+    None => {
+      if skip is Some(_) {
+        raise RuleParseError(
+          "@skip is only valid on PrattBinary productions with @prec[...]",
+        )
+      }
+      PrattApp({ prefix, app_kind })
+    }
+  }
 }
 
 ///|
@@ -220,6 +395,21 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
 }
 
 ///|
+/// Reject Pratt reserved tokens inside regular EBNF atoms.
+fn pratt_token_in_ebnf_err(tok : RuleTok) -> String {
+  match tok {
+    TPrefix => "'@prefix'"
+    TApp => "'@app'"
+    TPrec => "'@prec'"
+    TSkip => "'@skip'"
+    TLBracket => "'['"
+    TRBracket => "']'"
+    TComma => "','"
+    _ => "a Pratt annotation"
+  }
+}
+
+///|
 /// `atom := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'`.
 fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
   match self.peek() {
@@ -260,6 +450,17 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       ErrorUntil(tokens)
     }
+    Some(TPrefix)
+    | Some(TApp)
+    | Some(TPrec)
+    | Some(TSkip)
+    | Some(TLBracket)
+    | Some(TRBracket)
+    | Some(TComma) =>
+      raise RuleParseError(
+        pratt_token_in_ebnf_err(self.peek().unwrap()) +
+        " is only valid in a production-level Pratt body starting with '@prefix'",
+      )
     Some(TLParen) => {
       self.bump()
       let inner = self.parse_alt()
@@ -289,8 +490,24 @@ fn parse_rule_string(rule : String, where_ : String) -> Result[RuleAst, String] 
   }
   guard toks.length() > 0 else { return Err(prefix + "rule string is empty") }
   let parser = RuleParser(toks)
-  let ast = parser.parse_alt() catch {
-    RuleParseError(m) => return Err(prefix + m)
+  let ast = if toks[0] is TPrefix {
+    parser.parse_pratt_body() catch {
+      RuleParseError(m) => return Err(prefix + m)
+    }
+  } else {
+    match toks[0] {
+      TApp | TPrec | TSkip =>
+        return Err(
+          prefix +
+          "Pratt annotations must begin with '@prefix', not '" +
+          pratt_token_in_ebnf_err(toks[0]) +
+          "'",
+        )
+      _ =>
+        parser.parse_alt() catch {
+          RuleParseError(m) => return Err(prefix + m)
+        }
+    }
   }
   guard parser.pos == toks.length() else {
     return Err(prefix + "trailing tokens after a complete rule")

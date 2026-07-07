@@ -19,6 +19,8 @@ suberror RuleLowerError {
 struct LowerCtx {
   /// Token variant name -> its CST leaf kind name (membership = "is a terminal").
   token_kinds : Map[String, String]
+  /// Term variant name -> its CST node kind name (from #loom.node/root/leaf).
+  term_kind_names : Map[String, String]
   /// Token variant names in declaration order — gives deterministic FIRST-set
   /// emission order (`OneOf([...])`).
   token_order : Array[String]
@@ -183,6 +185,7 @@ fn nullable(
     Plus(inner) => nullable(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => nullable(inner, ctx, visiting)
     ErrorUntil(_) => false
+    PrattApp(_) | PrattBinary(_) => false
   }
 }
 
@@ -249,6 +252,8 @@ fn first_set(
     Star(inner) | Plus(inner) | Opt(inner) => first_set(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => first_set(inner, ctx, visiting)
     ErrorUntil(_) => @hashset.HashSet([])
+    PrattApp(spec) => first_set(Sym(spec.prefix), ctx, visiting)
+    PrattBinary(spec) => first_set(Sym(spec.prefix), ctx, visiting)
   }
 }
 
@@ -308,6 +313,8 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
     Star(inner) | Plus(inner) | Opt(inner) => leading_refs(inner, ctx)
     Emit(inner) | Emitor(inner) => leading_refs(inner, ctx)
     ErrorUntil(_) => []
+    PrattApp(spec) => [spec.prefix]
+    PrattBinary(spec) => [spec.prefix]
   }
 }
 
@@ -351,6 +358,8 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
       Emit(inner) | Emitor(inner) => go(inner)
       ErrorUntil(_) => false
+      PrattApp(spec) => go(Sym(spec.prefix))
+      PrattBinary(spec) => go(Sym(spec.prefix))
     }
   }
   for _, body in rules {
@@ -375,6 +384,165 @@ fn check_left_recursion(ctx : LowerCtx) -> Result[Unit, String] {
     }
   }
   Ok(())
+}
+
+///|
+/// Reject Pratt productions whose `@prefix` rule is nullable. Nullable prefixes
+/// are unsound for PrattApp starts and PrattBinary operand parsing. Phase 2
+/// analysis gate — runs before lowering.
+fn check_pratt_nullable_prefix(ctx : LowerCtx) -> Result[Unit, String] {
+  for name, body in ctx.rules {
+    let prefix = match body {
+      PrattApp(spec) => spec.prefix
+      PrattBinary(spec) => spec.prefix
+      _ => continue
+    }
+    if nullable(Sym(prefix), ctx, @hashset.HashSet([])) {
+      return Err(
+        ctx.loc(name) +
+        "Pratt production '" +
+        name +
+        "' has a nullable @prefix rule '" +
+        prefix +
+        "' — a Pratt prefix must be non-nullable",
+      )
+    }
+  }
+  Ok(())
+}
+
+///|
+/// Resolve the CST node kind for a Pratt production: default from the enclosing
+/// `#loom.node` role, or `@app` override naming another term variant.
+fn resolve_pratt_kind(
+  app_kind : String?,
+  default_kind : String,
+  ctx : LowerCtx,
+) -> String raise RuleLowerError {
+  match app_kind {
+    None => default_kind
+    Some(name) =>
+      match ctx.term_kind_names.get(name) {
+        Some(k) => k
+        None =>
+          raise RuleLowerError(
+            "@app '" + name + "' is not a #loom.term variant with a node kind",
+          )
+      }
+  }
+}
+
+///|
+/// `@prefix` must name an existing grammar rule, not a terminal.
+fn validate_pratt_prefix(
+  prefix : String,
+  ctx : LowerCtx,
+) -> Unit raise RuleLowerError {
+  match resolve_sym(prefix, ctx) {
+    Rule(_) => ()
+    RulelessTerm => raise RuleLowerError(ruleless_term_msg(prefix))
+    Unknown => raise RuleLowerError(unknown_symbol_msg(prefix))
+    Terminal(_) =>
+      raise RuleLowerError(
+        "@prefix '" +
+        prefix +
+        "' must name a grammar rule, not a terminal token",
+      )
+  }
+}
+
+///|
+fn lower_pratt_app(
+  spec : PrattAppSpec,
+  kind_name : String,
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  validate_pratt_prefix(spec.prefix, ctx)
+  let k = resolve_pratt_kind(spec.app_kind, kind_name, ctx)
+  let pred = pred_text(
+    first_names_ordered(Sym(spec.prefix), ctx, "a @prefix rule"),
+    ctx,
+  )
+  StringBuilder()
+  ..write_string(ctx.grammar_qual + ".Expr::PrattApp(\n")
+  ..write_string(indent(depth + 1) + quote(spec.prefix) + ",\n")
+  ..write_string(indent(depth + 1) + qualify(ctx.syntax_qual, k) + ",\n")
+  ..write_string(indent(depth + 1) + pred + ",\n")
+  ..write_string(indent(depth) + ")")
+  .to_string()
+}
+
+///|
+fn lower_pratt_binary(
+  spec : PrattBinarySpec,
+  kind_name : String,
+  ctx : LowerCtx,
+  depth : Int,
+) -> String raise RuleLowerError {
+  validate_pratt_prefix(spec.prefix, ctx)
+  guard spec.ops.length() > 0 else {
+    raise RuleLowerError(
+      "@prec[] is empty — PrattBinary requires at least one operator",
+    )
+  }
+  let pairs : Array[String] = []
+  let seen : @hashset.HashSet[String] = @hashset.HashSet([])
+  for op in spec.ops {
+    if seen.contains(op) {
+      raise RuleLowerError("duplicate operator '" + op + "' in @prec[...]")
+    }
+    seen.add(op)
+    match resolve_sym(op, ctx) {
+      Terminal(kind) =>
+        pairs.push(
+          "(" +
+          qualify(ctx.token_qual, op) +
+          ", " +
+          qualify(ctx.syntax_qual, kind) +
+          ")",
+        )
+      Rule(_) =>
+        raise RuleLowerError(
+          "@prec operator '" +
+          op +
+          "' must be a terminal token, not a rule reference",
+        )
+      RulelessTerm => raise RuleLowerError(ruleless_term_msg(op))
+      Unknown => raise RuleLowerError(unknown_symbol_msg(op))
+    }
+  }
+  let k = resolve_pratt_kind(spec.app_kind, kind_name, ctx)
+  let skip_part = match spec.skip {
+    None => ""
+    Some(tok) =>
+      match resolve_sym(tok, ctx) {
+        Terminal(kind) =>
+          ",\n" +
+          indent(depth + 1) +
+          "skip=Some((" +
+          ctx.grammar_qual +
+          ".Pred::IsToken(" +
+          qualify(ctx.token_qual, tok) +
+          "), " +
+          qualify(ctx.syntax_qual, kind) +
+          "))"
+        Rule(_) =>
+          raise RuleLowerError(
+            "@skip '" + tok + "' must be a terminal token, not a rule reference",
+          )
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(tok))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(tok))
+      }
+  }
+  StringBuilder()
+  ..write_string(ctx.grammar_qual + ".Expr::PrattBinary(\n")
+  ..write_string(indent(depth + 1) + quote(spec.prefix) + ",\n")
+  ..write_string(indent(depth + 1) + qualify(ctx.syntax_qual, k) + ",\n")
+  ..write_string(indent(depth + 1) + "[" + pairs.join(", ") + "]")
+  ..write_string(skip_part)
+  ..write_string(",\n" + indent(depth) + ")")
+  .to_string()
 }
 
 ///|
@@ -529,6 +697,10 @@ fn lower(
     // trailing `Any → Fail` branch. A required alternation that matches no branch
     // is an error; without the fallback the interpreter's Choice silently no-ops.
     Alt(branches) => lower_choice(branches, ctx, depth, required=true)
+    PrattApp(_) | PrattBinary(_) =>
+      raise RuleLowerError(
+        "Pratt annotations can only appear as a top-level production body",
+      )
   }
 }
 
@@ -635,6 +807,7 @@ fn build_lower_ctx(
   file_lines? : Map[String, Int] = Map([]),
 ) -> Result[LowerCtx, String] {
   let token_kinds : Map[String, String] = Map([])
+  let term_kind_names : Map[String, String] = Map([])
   let token_order : Array[String] = []
   for v in token_enum.variants {
     match v.role {
@@ -642,6 +815,16 @@ fn build_lower_ctx(
         token_kinds.set(v.name, derive_kind_name(v.name, role, v.kind_override))
         token_order.push(v.name)
       }
+      None => ()
+    }
+  }
+  for v in term_enum.variants {
+    match v.role {
+      Some(role) =>
+        term_kind_names.set(
+          v.name,
+          derive_kind_name(v.name, role, v.kind_override),
+        )
       None => ()
     }
   }
@@ -684,6 +867,7 @@ fn build_lower_ctx(
   }
   Ok({
     token_kinds,
+    term_kind_names,
     token_order,
     rules,
     term_names,
@@ -724,6 +908,10 @@ fn emit_grammar_ir(
   // left-recursive rule in plain Seq/Node position never consults `first_set`,
   // so this is the only guard that catches it. Fails closed.
   match check_left_recursion(ctx) {
+    Err(m) => return Err(m)
+    Ok(_) => ()
+  }
+  match check_pratt_nullable_prefix(ctx) {
     Err(m) => return Err(m)
     Ok(_) => ()
   }
@@ -798,8 +986,19 @@ fn emit_grammar_ir(
               " has a grammar rule but no #loom.node/#loom.root/#loom.leaf role",
             )
         }
-        let production = lower_production(kind_name, body, ctx, 3) catch {
-          RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
+        let production = match body {
+          PrattApp(spec) =>
+            lower_pratt_app(spec, kind_name, ctx, 3) catch {
+              RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
+            }
+          PrattBinary(spec) =>
+            lower_pratt_binary(spec, kind_name, ctx, 3) catch {
+              RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
+            }
+          _ =>
+            lower_production(kind_name, body, ctx, 3) catch {
+              RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
+            }
         }
         b.write_string(
           indent(if has_frags { 2 } else { 3 }) +

@@ -67,6 +67,13 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GRule(TTilde) => "'~'"
     GRule(TEmitor) => "'!'"
     GRule(TUntil) => "'@until()'"
+    GRule(TPrefix) => "'@prefix'"
+    GRule(TApp) => "'@app'"
+    GRule(TPrec) => "'@prec'"
+    GRule(TSkip) => "'@skip'"
+    GRule(TLBracket) => "'['"
+    GRule(TRBracket) => "']'"
+    GRule(TComma) => "','"
   }
 }
 
@@ -110,7 +117,10 @@ fn tokenize_grammar_file(
         )
       }
       let (name, next) = scan_ident(src, i + 1)
-      toks.push({ tok: GRule(TFrag(name)), line })
+      match rule_at_keyword(name) {
+        Some(kw) => toks.push({ tok: GRule(kw), line })
+        None => toks.push({ tok: GRule(TFrag(name)), line })
+      }
       i = next
     } else {
       let rt = match c {
@@ -120,6 +130,11 @@ fn tokenize_grammar_file(
         '*' => TStar
         '+' => TPlus
         '?' => TQuest
+        '~' => TTilde
+        '!' => TEmitor
+        '[' => TLBracket
+        ']' => TRBracket
+        ',' => TComma
         _ =>
           raise GrammarFileError(
             grammar_file_loc(line) +
@@ -289,17 +304,26 @@ fn parse_grammar_file(
         "' has an empty body",
       )
     }
-    // Reuse the #522 recursive-descent body parser. A leading '|' (allowed for
-    // multi-line alternation layout) is skipped by starting the parser past it.
+    // Reuse the #522 / #601 body parser. A leading '|' (allowed for multi-line
+    // alternation layout) is skipped by starting the parser past it. Pratt
+    // bodies (`@prefix ...`) use the dedicated `parse_pratt_body` path.
     let parser = RuleParser(body)
-    if body[0] is TPipe {
-      parser.pos = 1
-    }
-    let ast = parser.parse_alt() catch {
-      RuleParseError(m) =>
-        return Err(
-          grammar_file_loc(name_line) + "in production '" + name + "': " + m,
-        )
+    let start_pos = if body[0] is TPipe { 1 } else { 0 }
+    parser.pos = start_pos
+    let ast = if body.length() > start_pos && body[start_pos] is TPrefix {
+      parser.parse_pratt_body() catch {
+        RuleParseError(m) =>
+          return Err(
+            grammar_file_loc(name_line) + "in production '" + name + "': " + m,
+          )
+      }
+    } else {
+      parser.parse_alt() catch {
+        RuleParseError(m) =>
+          return Err(
+            grammar_file_loc(name_line) + "in production '" + name + "': " + m,
+          )
+      }
     }
     guard parser.pos == body.length() else {
       return Err(

@@ -1,0 +1,5 @@
+Source = Expression
+Expression = BinaryExpr
+BinaryExpr = @prefix AppExpr @prec[Plus, Minus] @skip(Newline)
+AppExpr = @prefix Atom
+Atom = Id
