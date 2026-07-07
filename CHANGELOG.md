@@ -51,6 +51,16 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Fixed
 
+- **`examples/html` — infinite loop on a stray close tag; native `moon test` no longer hangs (#646):**
+  `parse_html_root`'s fallthrough recovery called `skip_until(is_sync_point)`,
+  which consumes nothing when the current token is already a sync point. A
+  mismatched close tag (e.g. `<div></span>`) leaves a `CloseTag` — itself a sync
+  point — at the root, so the recovery loop spun forever at the same position
+  (observed as a 100% CPU `tcc @…html.blackbox_test.rspfile` spin under
+  `--target native`, and identically under `moonrun` on `wasm-gc`). Switched to
+  `skip_until_progress`, which guarantees forward progress by consuming one error
+  token when already at a sync point.
+
 - **`dowdiness/loom/grammar` — `@until` no longer emits spurious diagnostic when already at sync point (#636):**
   `ErrorUntil(stop, msg)` now guards `ctx.error(msg)` behind
   `if !stop.matches(ctx.peek())` — when the current token already satisfies the
