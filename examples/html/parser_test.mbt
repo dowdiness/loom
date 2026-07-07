@@ -34,3 +34,12 @@ test "parse empty input" {
   let (_, diagnostics) = result
   inspect(diagnostics.length() >= 1, content="true")
 }
+
+///|
+test "recover from mismatched close tag at root" {
+  // Regression for loom #646: a stray CloseTag at the root must not spin
+  // parse_html_root's recovery loop (skip_until on a sync point).
+  let result = html_grammar.parse_cst("<div></span>") catch { _ => return }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+}
