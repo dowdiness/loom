@@ -122,16 +122,35 @@ references) built from `#loom.rule` annotations on `#loom.term` variants, plus
 `#loom.token` (`#loom.punct`/`#loom.eof`) annotations on the Token enum for
 FIRST-set token resolution.
 
-The annotation subset covers 10 `@grammar.Expr` variants: `Expect`,
+The annotation subset covers 12 `@grammar.Expr` variants: `Expect`,
 `Emit`, `EmitOr`, `ErrorUntil`, `Seq`,
 `Choice` (disjoint FIRST sets enforced at generation time), `Ref`,
-`RepeatWhile` (`*`), `Node`, `Fail`, and `+`/`?` (lowered to `Seq`/`RepeatWhile`/
-`Choice`). Postfix `~` lowers to `Emit` (optional token consume), `!` lowers to
+`RepeatWhile` (`*`), `Node`, `Fail`, `PrattApp`, `PrattBinary`, and
+`+`/`?` (lowered to `Seq`/`RepeatWhile`/`Choice`). Postfix `~` lowers to
+`Emit` (optional token consume), `!` lowers to
 `EmitOr` (expect-or-continue with diagnostic), and `@until(Token)` /
 `@until(T1 | T2)` lowers to `ErrorUntil` (consume until synchronization point).
-The remaining variants (`ExpectSkip`, `PrattApp`,
-`PrattBinary`, `Native`, `RepeatTopLevel`, `WrapIfNext`, `ConsumeGated`,
-`RequireSep`, `EmitError`, `ErrorNodeUntil`,
+
+**Pratt productions (#601).** A production body that begins with `@prefix` is
+parsed as an annotation-only Pratt body (not regular EBNF):
+
+| Annotation | Meaning |
+|---|---|
+| `@prefix Rule` | Prefix rule for `PrattApp` or `PrattBinary` (case-sensitive `#loom.term` variant name) |
+| `@prec[Op, ...]` | Operator table for `PrattBinary` (required for binary; empty/duplicate ops rejected) |
+| `@skip(Tok)` | Gated soft-separator consume before each operator check (`PrattBinary` only) |
+| `@app KindTerm` | Optional CST node kind override (not “application production” — overrides the Pratt node kind) |
+
+`@prefix Atom` lowers to `PrattApp("Atom", <production kind>, FIRST(Atom))`.
+`@prefix AppExpr @prec[Plus, Minus] @skip(Newline)` lowers to
+`PrattBinary("AppExpr", <kind>, [(Plus,…),(Minus,…)], skip=Some((Newline,…)))`.
+Pratt productions emit `PrattApp`/`PrattBinary` **directly** — no outer
+`Node(kind, body)` wrapper. Multi-level precedence chains via separate
+productions linked by `Ref` (e.g. `Expression = BinaryExpr`, `BinaryExpr =
+@prefix AppExpr @prec[…]`, `AppExpr = @prefix Atom`).
+
+The remaining variants (`ExpectSkip`, `Native`, `RepeatTopLevel`, `WrapIfNext`,
+`ConsumeGated`, `RequireSep`, `EmitError`, `ErrorNodeUntil`,
 `DiagnoseIf`, `ManualNewlineAppExpr`, `Empty`) are out-of-subset — a rule
 string referencing any of these fails closed with a lowering error.
 
@@ -170,6 +189,8 @@ For `.loomgrammar` file input instead of inline annotations, see the
 
 - `fixtures/parens.loomgrammar` — smallest `.loomgrammar` file; the differential
   parity test asserts it emits the same GrammarIr as the equivalent annotation
+- `fixtures/pratt.loomgrammar` + `fixtures/pratt_grammar_fixture.mbt` — lambda-shaped
+  Pratt grammar (`@prefix`/`@prec`/`@skip`); differential + golden tests (#601)
 - `fixtures/file_only_grammar.mbt` + `fixtures/file_only.loomgrammar` — a
   roles-only `#loom.term` enum (no `#loom.rule`) plus the file that bodies it;
   drives the file-only emission path (multi-production, cross-rule `Ref`,

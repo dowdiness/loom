@@ -86,6 +86,7 @@ jobs:
   quickstart-check:
     name: README Quick Start
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -202,8 +203,11 @@ jobs:
   test-modules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
+    env:
+      NEW_MOON_MOD: '0'
     strategy:
       fail-fast: false
       max-parallel: 5
@@ -211,26 +215,38 @@ jobs:
         include:
           - name: loom
             path: loom
+            module: dowdiness/loom
           - name: text-change
             path: text-change
+            module: dowdiness/text_change
           - name: moji
             path: moji
+            module: dowdiness/moji
           - name: seam
             path: seam
+            module: dowdiness/seam
           - name: pretty
             path: pretty
+            module: dowdiness/pretty
           - name: examples-lambda
             path: examples/lambda
+            module: dowdiness/lambda
           - name: examples-json
             path: examples/json
+            module: dowdiness/json
           - name: examples-json-settings
             path: examples/json-settings
+            module: dowdiness/json-settings
           - name: examples-markdown
             path: examples/markdown
+            module: dowdiness/markdown
           - name: incr
             path: incr
+            module: ''
           - name: loomgen
             path: loomgen
+            module: dowdiness/loomgen
+            target: native
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -256,11 +272,20 @@ jobs:
 
       - name: moon test
         working-directory: ${{ matrix.path }}
-        run: moon test
+        run: |
+          args=()
+          if [[ -n "${{ matrix.module }}" ]]; then
+            args+=(-p "${{ matrix.module }}")
+          fi
+          if [[ -n "${{ matrix.target }}" ]]; then
+            args+=(--target "${{ matrix.target }}")
+          fi
+          moon test "${args[@]}"
 
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:

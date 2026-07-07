@@ -780,3 +780,175 @@ test "emit_grammar_ir golden: ~ ! @until lower to Emit EmitOr ErrorUntil" {
   }
   assert_eq(generated, golden)
 }
+
+///|
+/// Golden test for #601 Pratt: `@prefix`, `@prec`, `@skip` lower to PrattApp /
+/// PrattBinary without an outer `Node` wrapper.
+test "emit_grammar_ir golden: Pratt lowers to PrattApp and PrattBinary" {
+  let src = read_fixture("fixtures/pratt_grammar_fixture.mbt")
+  let golden = read_fixture("fixtures/pratt_grammar_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "pratt_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+/// #523 + #601: Pratt grammar file path must match annotation path byte-for-byte.
+test "emit_grammar_ir: pratt .loomgrammar matches annotation path" {
+  let src = read_fixture("fixtures/pratt_grammar_fixture.mbt")
+  let golden = read_fixture("fixtures/pratt_grammar_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let file_rules : Map[String, RuleAst] = Map([])
+  match parse_grammar_file(read_fixture("fixtures/pratt.loomgrammar")) {
+    Ok(prods) =>
+      for p in prods {
+        let (name, ast, _) = p
+        file_rules.set(name, ast)
+      }
+    Err(m) => abort("grammar file parse failed: " + m)
+  }
+  let generated = match
+    emit_grammar_ir(
+      term_enum,
+      token_enum,
+      "@token",
+      "@syntax",
+      "@grammar",
+      "pratt_grammar_ir",
+      file_rules~,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+/// Pratt `first_set` delegates through `@prefix`, so a `Ref` to a Pratt rule
+/// inherits the prefix chain's FIRST tokens for upstream Choice / RepeatWhile.
+test "emit_grammar_ir: Pratt FIRST propagates through Ref chain" {
+  let src = read_fixture("fixtures/pratt_grammar_fixture.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "pratt_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(generated.contains("@grammar.Expr::PrattApp("), content="true")
+  inspect(
+    generated.contains("@grammar.Pred::IsToken(@token.Id)"),
+    content="true",
+  )
+  inspect(
+    !generated.contains("@grammar.Expr::Node(\n        @syntax.AppExpr"),
+    content="true",
+  )
+}
+
+///|
+test "emit_grammar_ir rejects Pratt self-reference via @prefix" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("+")
+    #|  Plus
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq, Debug)
+    #|
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("@prefix Expr @prec[Plus]")
+    #|  Expr
+    #|} derive(Eq, Debug)
+  let (token_enum, term_enum) = enums_of(src)
+  match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "bad_grammar_ir",
+    ) {
+    Ok(_) => abort("expected left-recursion rejection")
+    Err(m) => inspect(m.contains("left-recursive rule 'Expr'"), content="true")
+  }
+}
+
+///|
+test "emit_grammar_ir rejects nullable Pratt prefix in analysis phase" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("i")
+    #|  Id
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq, Debug)
+    #|
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("@prefix NullableAtom")
+    #|  App
+    #|  #loom.node
+    #|  #loom.rule("Id?")
+    #|  NullableAtom
+    #|} derive(Eq, Debug)
+  let (token_enum, term_enum) = enums_of(src)
+  match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "bad_grammar_ir",
+    ) {
+    Ok(_) => abort("expected nullable-prefix rejection")
+    Err(m) =>
+      inspect(
+        m.contains("nullable @prefix rule 'NullableAtom'"),
+        content="true",
+      )
+  }
+}
+
+///|
+/// `@app` overrides the Pratt node kind on both PrattApp and PrattBinary.
+test "emit_grammar_ir: @app overrides Pratt node kind" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("i")
+    #|  Id
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq, Debug)
+    #|
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("@prefix Atom @app BinaryExpr")
+    #|  AppExpr
+    #|  #loom.node
+    #|  #loom.rule("Id")
+    #|  Atom
+    #|  #loom.node
+    #|  BinaryExpr
+    #|} derive(Eq, Debug)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "app_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(
+    generated.contains(
+      "@grammar.Expr::PrattApp(\n        \"Atom\",\n        @syntax.BinaryExpr,",
+    ),
+    content="true",
+  )
+}

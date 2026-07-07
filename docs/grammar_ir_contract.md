@@ -53,10 +53,22 @@ The `#loom.rule` annotation subset lowers to exactly six `@grammar.Expr` variant
 | `Name` (terminal) | `Expect(token, kind)` | Consume-and-check a single token |
 | `Name` (term rule) | `Ref("Name")` | Delegate to another rule by name |
 
-**Node wrapping.** Every rule body is emitted inside a
+**Node wrapping.** Every non-Pratt rule body is emitted inside a
 `Node(<kind>, <body>)` — the kind comes from the term variant's
 `#loom.node`/`#loom.leaf`/`#loom.root` role, which is the CST kind generated
-into `SyntaxKind`.
+into `SyntaxKind`. Pratt productions (`@prefix …`) emit `PrattApp` or
+`PrattBinary` directly with the node kind inside the combinator (optional
+`@app` override); they are **not** wrapped in an outer `Node`.
+
+| Pratt form | Generated `Expr` node | Semantics |
+|---|---|---|
+| `@prefix Rule` | `PrattApp("Rule", kind, FIRST(Rule))` | Left-associative application |
+| `@prefix Rule @prec[Op,…] [@skip(Tok)]` | `PrattBinary("Rule", kind, [(Op,kind),…], skip?)` | Left-associative infix operators |
+
+`FIRST` for Pratt productions delegates through the `@prefix` rule (so upstream
+`Ref` chains inherit the prefix chain's FIRST set). `leading_refs` records the
+prefix rule for left-recursion detection. Nullable prefixes are rejected in
+`check_pratt_nullable_prefix` before lowering.
 
 **The `Fail` node** never appears in source `#loom.rule` text. It is auto-synthesized
 as the trailing `Any→Fail` fallback on required `Choice` nodes so a required
@@ -69,7 +81,7 @@ The remaining `Expr` variants are **out of subset** — they cannot be produced
 by any `#loom.rule` annotation or `.loomgrammar` production. Fragments bound
 through `@fragment` references (see §5) reach the generated IR for these:
 
-`Emit`, `PrattBinary`, `PrattApp`, `RepeatTopLevel`, `WrapIfNext`,
+`Emit`, `RepeatTopLevel`, `WrapIfNext`,
 `EmitError`, `ErrorUntil`, `EmitOr`, `DiagnoseIf`, `ExpectSkip`,
 `ConsumeGated`, `RequireSep`, `ErrorNodeUntil`
 

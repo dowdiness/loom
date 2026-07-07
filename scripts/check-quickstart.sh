@@ -12,6 +12,10 @@
 #     still verifies the documented URL is real and reachable.
 #   - the `cd <clone-dir>` line that follows the clone → skipped; the
 #     working directory already is the repo root.
+#   - `(cd <module-dir> && moon test)` → append `-p <moon.mod name>` so CI
+#     exercises the documented module without fanning out to the whole workspace
+#     (unscoped `moon test` from any member directory runs every workspace
+#     member, including heavy native targets that can hang CI).
 #
 # Usage (from repo root):
 #   bash scripts/check-quickstart.sh --tests   # all commands except `moon bench`
@@ -41,6 +45,23 @@ fi
 run() {
   echo "+ $1"
   bash -c "$1"
+}
+
+# Map a `(cd <dir> && moon test)` Quick Start line to a module-scoped test.
+# Returns the transformed command, or empty when the line is not a moon test.
+scoped_moon_test_cmd() {
+  local cmd="$1"
+  if [[ ! "$cmd" =~ ^\(cd\ ([^[:space:]]+)\ \&\&\ moon\ test\)$ ]]; then
+    return 1
+  fi
+  local dir="${BASH_REMATCH[1]}"
+  if [[ ! -f "$dir/moon.mod" ]]; then
+    echo "Quick Start moon test references missing moon.mod: $dir" >&2
+    exit 1
+  fi
+  local module
+  module=$(grep -m1 '^name = ' "$dir/moon.mod" | sed -E 's/^name = "([^"]+)".*/\1/')
+  echo "(cd $dir && moon test -p $module)"
 }
 
 status=0
@@ -76,10 +97,18 @@ for line in "${lines[@]}"; do
       --bench) run "$cmd" || status=1 ;;
     esac
   else
-    case "$mode" in
-      --list)  echo "[tests] $cmd" ;;
-      --tests) run "$cmd" ;;
-    esac
+    scoped_cmd=""
+    if scoped_cmd=$(scoped_moon_test_cmd "$cmd"); then
+      case "$mode" in
+        --list)  echo "[tests] $scoped_cmd  (from: $cmd)" ;;
+        --tests) run "$scoped_cmd" ;;
+      esac
+    else
+      case "$mode" in
+        --list)  echo "[tests] $cmd" ;;
+        --tests) run "$cmd" ;;
+      esac
+    fi
   fi
 done
 
