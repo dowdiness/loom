@@ -441,36 +441,42 @@ pub fn MbtExpr::to_breakable_layout(
     Bool(b) => if b { kw("true") } else { kw("false") }
     StrLit(s) =>
       @pretty.annotate(@pretty.SyntaxCategory::StringLit, @pretty.text(s))
-    Call(name, args) => {
-      let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
-      ident(name) +
-      @pretty.text("(") +
-      @pretty.nest(
+    Call(name, args) =>
+      if args.length() == 0 {
+        ident(name) + @pretty.text("()")
+      } else {
+        let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
+        ident(name) +
+        @pretty.text("(") +
+        @pretty.nest(
+          @pretty.hardline() +
+          @pretty.separate(
+            @pretty.hardline(),
+            arg_layouts.map(fn(l) { l + @pretty.text(",") }),
+          ),
+        ) +
         @pretty.hardline() +
-        @pretty.separate(
-          @pretty.hardline(),
-          arg_layouts.map(fn(l) { l + @pretty.text(",") }),
-        ),
-      ) +
-      @pretty.hardline() +
-      @pretty.text(")")
-    }
-    MethodCall(obj, name, args) => {
-      let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
-      obj.to_breakable_layout() +
-      punc(".") +
-      ident(name) +
-      @pretty.text("(") +
-      @pretty.nest(
+        @pretty.text(")")
+      }
+    MethodCall(obj, name, args) =>
+      if args.length() == 0 {
+        obj.to_breakable_layout() + punc(".") + ident(name) + @pretty.text("()")
+      } else {
+        let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
+        obj.to_breakable_layout() +
+        punc(".") +
+        ident(name) +
+        @pretty.text("(") +
+        @pretty.nest(
+          @pretty.hardline() +
+          @pretty.separate(
+            @pretty.hardline(),
+            arg_layouts.map(fn(l) { l + @pretty.text(",") }),
+          ),
+        ) +
         @pretty.hardline() +
-        @pretty.separate(
-          @pretty.hardline(),
-          arg_layouts.map(fn(l) { l + @pretty.text(",") }),
-        ),
-      ) +
-      @pretty.hardline() +
-      @pretty.text(")")
-    }
+        @pretty.text(")")
+      }
     FieldAccess(obj, field) =>
       obj.to_breakable_layout() + punc(".") + @pretty.text(field)
     Pipe(left, right) =>

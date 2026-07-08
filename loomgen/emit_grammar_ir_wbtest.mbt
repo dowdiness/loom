@@ -103,12 +103,12 @@ test "emit_grammar_ir lowers Choice and Star with FIRST-set predicates" {
     content="true",
   )
   inspect(
-    generated.contains("@grammar.Pred::IsToken(@token.A)") ||
+    generated.contains("@grammar.Pred::IsToken(") &&
     generated.contains("@token.A"),
     content="true",
   )
   inspect(
-    generated.contains("@grammar.Pred::IsToken(@token.B)") ||
+    generated.contains("@grammar.Pred::IsToken(") &&
     generated.contains("@token.B"),
     content="true",
   )

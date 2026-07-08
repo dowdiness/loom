@@ -503,7 +503,7 @@ fn lower_pratt_binary(
   }
   let k = resolve_pratt_kind(spec.app_kind, kind_name, ctx)
   let skip_arg = match spec.skip {
-    None => MbtExpr::Call("None", [])
+    None => MbtExpr::Var("None")
     Some(tok) =>
       match resolve_sym(tok, ctx) {
         Terminal(kind) => {
