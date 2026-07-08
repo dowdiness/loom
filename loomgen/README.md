@@ -162,6 +162,14 @@ emitted `Ref`), not the bare fragment name. Without a matching entry,
 `@grammar.compile` raises `MissingRef` — model the fallback as a
 `Map(["__loom_frag__fragname" => required_body])` default argument.
 
+**Markdown inline is `@native`-only by decision, not an unfinished feature.**
+loomgen targets the CommonMark *block* subset; CommonMark *inline* parsing
+(emphasis, links, inline code) stays permanently hand-authored `@native` host
+code because it is not expressible as a data-only `GrammarIr` (emphasis is a
+delimiter-stack algorithm, link reference definitions are document-global and
+two-pass). See [ADR 2026-07-06](../docs/decisions/2026-07-06-markdown-inline-native-only.md)
+and [#642](https://github.com/dowdiness/loom/issues/642).
+
 **What is NOT emitted:** `--grammar-ir` emits only the `GrammarIr` value itself.
 It does not generate the `Token`/`SyntaxKind` enums, trait impls (`Show`,
 `IsTrivia`, `IsEof`, `ToRawKind`), `pkg.generated.mbti`, or `moon.pkg`.
