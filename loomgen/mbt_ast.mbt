@@ -443,7 +443,7 @@ pub fn MbtExpr::to_breakable_layout(
       @pretty.annotate(@pretty.SyntaxCategory::StringLit, @pretty.text(s))
     Call(name, args) =>
       if args.length() == 0 {
-        ident(name) + @pretty.text("()")
+        ident(name)
       } else {
         let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
         ident(name) +
@@ -460,7 +460,7 @@ pub fn MbtExpr::to_breakable_layout(
       }
     MethodCall(obj, name, args) =>
       if args.length() == 0 {
-        obj.to_breakable_layout() + punc(".") + ident(name) + @pretty.text("()")
+        obj.to_breakable_layout() + punc(".") + ident(name)
       } else {
         let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
         obj.to_breakable_layout() +

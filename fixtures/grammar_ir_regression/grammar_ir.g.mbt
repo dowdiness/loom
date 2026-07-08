@@ -16,7 +16,7 @@ pub let fixture_grammar_ir : @grammar.GrammarIr[Token, SyntaxKind] = @grammar.Gr
           body: @grammar.Expr::Expect(B, BToken),
         },
         @grammar.Alt::{
-          starts: @grammar.Pred::Any(),
+          starts: @grammar.Pred::Any,
           body: @grammar.Expr::Fail("expected one of: A, B"),
         },
       ]),
