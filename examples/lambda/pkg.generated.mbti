@@ -9,6 +9,7 @@ import {
   "dowdiness/lambda/typecheck",
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
   "dowdiness/loom/incremental",
   "dowdiness/loom/pipeline",
   "dowdiness/seam",
@@ -20,11 +21,15 @@ pub fn attach_lambda_analysis(@pipeline.Parser[@ast.Term]) -> LambdaAnalysis
 
 pub fn attach_typecheck(@pipeline.Parser[@ast.Term]) -> TypecheckAttachment
 
+pub fn default_grammar_fragments() -> Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]]
+
 pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
 
 pub fn lambda_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> @ast.Term) -> @ast.Term
 
 pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
+
+pub fn lambda_grammar_ir(fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]]) -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
 
 pub let lambda_grammar_no_threshold : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Term]
 

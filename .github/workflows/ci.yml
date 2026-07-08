@@ -410,6 +410,7 @@ jobs:
             examples/lambda/token/token.mbt \
             --term examples/lambda/term_kind.mbt \
             /tmp/lambda-ir-token /tmp/lambda-ir-syntax
+          moon fmt examples/lambda/grammar_ir.g.mbt
           git diff --exit-code -- examples/lambda/grammar_ir.g.mbt
 
 

@@ -3,17 +3,19 @@
 ///|
 /// Generated GrammarIr initialization from grammar rules.
 pub fn lambda_grammar_ir(
-  fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([],
-  ),
+  fragments~ : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([]),
 ) -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
   let rules : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = {
     "SourceFile": @grammar.Expr::Node(
-      @syntax.SourceFile,
-      @grammar.Expr::Ref("__loom_frag__source_toplevel"),
-    ),
+        @syntax.SourceFile,
+        @grammar.Expr::Ref("__loom_frag__source_toplevel"),
+      ),
   }
   for frag, body in fragments {
     rules.set(frag, body)
   }
-  @grammar.GrammarIr::GrammarIr(rules, root="SourceFile")
+  @grammar.GrammarIr::GrammarIr(
+    rules,
+    root="SourceFile",
+  )
 }
