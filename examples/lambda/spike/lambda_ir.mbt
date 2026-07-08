@@ -39,7 +39,9 @@ pub fn normalized_syntax_grammar(
 pub fn build_b_syntax_grammar(
   cripple_reuse? : Bool,
 ) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarCompileError {
-  let ir = lambda_grammar_ir()
+  let ir = @lambda.lambda_grammar_ir(
+    fragments=@lambda.default_grammar_fragments(),
+  )
   let compiled = @grammar.compile(ir)
   let parse_root = b_parse_root(compiled, cripple_reuse.unwrap_or(false))
   let b_spec = @core.LanguageSpec::new(

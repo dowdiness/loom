@@ -7,6 +7,7 @@ import {
   "dowdiness/incr",
   "dowdiness/loom/core",
   "dowdiness/loom/viz",
+  "dowdiness/loom/grammar",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
   "dowdiness/seam",
