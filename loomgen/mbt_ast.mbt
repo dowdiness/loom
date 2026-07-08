@@ -363,7 +363,7 @@ impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
     }
     Continue => kw("continue")
     Break => kw("break")
-}
+  }
 }
 
 // ── Pretty for MbtMatchArm ───────────────────────────────────────
@@ -433,7 +433,9 @@ fn parens_flat(
 /// Unlike `to_layout`, which stays flat for correctness of the
 /// emit_grammar output, this method always breaks at parentheses
 /// and brackets so that wide expressions wrap within the line width.
-pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.SyntaxCategory] {
+pub fn MbtExpr::to_breakable_layout(
+  self : MbtExpr,
+) -> @pretty.Layout[@pretty.SyntaxCategory] {
   match self {
     Var(name) => ident(name)
     Bool(b) => if b { kw("true") } else { kw("false") }
@@ -444,7 +446,8 @@ pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.Sy
       ident(name) +
       @pretty.text("(") +
       @pretty.nest(
-        @pretty.hardline() + @pretty.separate(
+        @pretty.hardline() +
+        @pretty.separate(
           @pretty.hardline(),
           arg_layouts.map(fn(l) { l + @pretty.text(",") }),
         ),
@@ -459,7 +462,8 @@ pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.Sy
       ident(name) +
       @pretty.text("(") +
       @pretty.nest(
-        @pretty.hardline() + @pretty.separate(
+        @pretty.hardline() +
+        @pretty.separate(
           @pretty.hardline(),
           arg_layouts.map(fn(l) { l + @pretty.text(",") }),
         ),
@@ -518,7 +522,9 @@ pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.Sy
       )
     }
     Array(items) => {
-      let layouts = items.map(fn(e : MbtExpr) { e.to_breakable_layout() + @pretty.text(",") })
+      let layouts = items.map(fn(e : MbtExpr) {
+        e.to_breakable_layout() + @pretty.text(",")
+      })
       @pretty.text("[") +
       @pretty.nest(
         @pretty.hardline() + @pretty.separate(@pretty.hardline(), layouts),
@@ -528,9 +534,10 @@ pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.Sy
     }
     Tuple(items) =>
       @pretty.parens(
-        @pretty.separate(@pretty.text(", "), items.map(fn(e : MbtExpr) {
-          e.to_breakable_layout()
-        })),
+        @pretty.separate(
+          @pretty.text(", "),
+          items.map(fn(e : MbtExpr) { e.to_breakable_layout() }),
+        ),
       )
     Record(type_name, fields) => {
       let field_layouts = fields.map(fn(f : (String, MbtExpr)) {

@@ -638,10 +638,7 @@ test "emit_grammar_ir: file production with @fragment body emits mangled Ref" {
     Err(m) =>
       abort("emit should succeed for @fragment file production but got: " + m)
   }
-  inspect(
-    generated.contains("__loom_frag__custom_inner"),
-    content="true",
-  )
+  inspect(generated.contains("__loom_frag__custom_inner"), content="true")
   inspect(generated.contains("fragments~"), content="true")
 }
 
@@ -856,7 +853,8 @@ test "emit_grammar_ir: Pratt FIRST propagates through Ref chain" {
   }
   inspect(generated.contains("@grammar.Expr::PrattApp("), content="true")
   inspect(
-    generated.contains("@grammar.Pred::IsToken(") && generated.contains("@token.Id"),
+    generated.contains("@grammar.Pred::IsToken(") &&
+    generated.contains("@token.Id"),
     content="true",
   )
   inspect(
@@ -966,4 +964,5 @@ test "emit_grammar_ir: @app overrides Pratt node kind" {
     content="true",
   )
 }
+
 ///|
