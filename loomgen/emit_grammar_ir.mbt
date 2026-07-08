@@ -54,12 +54,6 @@ fn LowerCtx::loc(self : LowerCtx, name : String) -> String {
 }
 
 ///|
-/// Two-space indentation for `depth` levels.
-fn indent(depth : Int) -> String {
-  "  ".repeat(depth)
-}
-
-///|
 /// Wrap a rule/token name (always a MoonBit identifier) as a string literal for
 /// emission into the generated `Map` keys, `Ref`, and `root=`.
 fn quote(s : String) -> String {
@@ -456,21 +450,18 @@ fn lower_pratt_app(
   spec : PrattAppSpec,
   kind_name : String,
   ctx : LowerCtx,
-  depth : Int,
-) -> String raise RuleLowerError {
+) -> MbtExpr raise RuleLowerError {
   validate_pratt_prefix(spec.prefix, ctx)
   let k = resolve_pratt_kind(spec.app_kind, kind_name, ctx)
   let pred = pred_text(
     first_names_ordered(Sym(spec.prefix), ctx, "a @prefix rule"),
     ctx,
   )
-  StringBuilder()
-  ..write_string(ctx.grammar_qual + ".Expr::PrattApp(\n")
-  ..write_string(indent(depth + 1) + quote(spec.prefix) + ",\n")
-  ..write_string(indent(depth + 1) + qualify(ctx.syntax_qual, k) + ",\n")
-  ..write_string(indent(depth + 1) + pred + ",\n")
-  ..write_string(indent(depth) + ")")
-  .to_string()
+  MbtExpr::Call(ctx.grammar_qual + ".Expr::PrattApp", [
+    MbtExpr::StrLit(quote(spec.prefix)),
+    MbtExpr::Var(qualify(ctx.syntax_qual, k)),
+    pred,
+  ])
 }
 
 ///|
@@ -478,15 +469,14 @@ fn lower_pratt_binary(
   spec : PrattBinarySpec,
   kind_name : String,
   ctx : LowerCtx,
-  depth : Int,
-) -> String raise RuleLowerError {
+) -> MbtExpr raise RuleLowerError {
   validate_pratt_prefix(spec.prefix, ctx)
   guard spec.ops.length() > 0 else {
     raise RuleLowerError(
       "@prec[] is empty — PrattBinary requires at least one operator",
     )
   }
-  let pairs : Array[String] = []
+  let pairs : Array[MbtExpr] = []
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   for op in spec.ops {
     if seen.contains(op) {
@@ -496,11 +486,10 @@ fn lower_pratt_binary(
     match resolve_sym(op, ctx) {
       Terminal(kind) =>
         pairs.push(
-          "(" +
-          qualify(ctx.token_qual, op) +
-          ", " +
-          qualify(ctx.syntax_qual, kind) +
-          ")",
+          MbtExpr::Tuple([
+            MbtExpr::Var(qualify(ctx.token_qual, op)),
+            MbtExpr::Var(qualify(ctx.syntax_qual, kind)),
+          ]),
         )
       Rule(_) =>
         raise RuleLowerError(
@@ -513,20 +502,17 @@ fn lower_pratt_binary(
     }
   }
   let k = resolve_pratt_kind(spec.app_kind, kind_name, ctx)
-  let skip_part = match spec.skip {
-    None => ""
+  let skip_arg = match spec.skip {
+    None => MbtExpr::Var("None")
     Some(tok) =>
       match resolve_sym(tok, ctx) {
-        Terminal(kind) =>
-          ",\n" +
-          indent(depth + 1) +
-          "skip=Some((" +
-          ctx.grammar_qual +
-          ".Pred::IsToken(" +
-          qualify(ctx.token_qual, tok) +
-          "), " +
-          qualify(ctx.syntax_qual, kind) +
-          "))"
+        Terminal(kind) => {
+          let sep_pred = MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
+            MbtExpr::Var(qualify(ctx.token_qual, tok)),
+          ])
+          let sep_kind = MbtExpr::Var(qualify(ctx.syntax_qual, kind))
+          MbtExpr::Call("Some", [MbtExpr::Tuple([sep_pred, sep_kind])])
+        }
         Rule(_) =>
           raise RuleLowerError(
             "@skip '" + tok + "' must be a terminal token, not a rule reference",
@@ -535,28 +521,25 @@ fn lower_pratt_binary(
         Unknown => raise RuleLowerError(unknown_symbol_msg(tok))
       }
   }
-  StringBuilder()
-  ..write_string(ctx.grammar_qual + ".Expr::PrattBinary(\n")
-  ..write_string(indent(depth + 1) + quote(spec.prefix) + ",\n")
-  ..write_string(indent(depth + 1) + qualify(ctx.syntax_qual, k) + ",\n")
-  ..write_string(indent(depth + 1) + "[" + pairs.join(", ") + "]")
-  ..write_string(skip_part)
-  ..write_string(",\n" + indent(depth) + ")")
-  .to_string()
+  MbtExpr::Call(ctx.grammar_qual + ".Expr::PrattBinary", [
+    MbtExpr::StrLit(quote(spec.prefix)),
+    MbtExpr::Var(qualify(ctx.syntax_qual, k)),
+    MbtExpr::Array(pairs),
+    skip_arg,
+  ])
 }
 
 ///|
 /// Emit a `@grammar.Pred` over `names` (already in declaration order): a single
 /// token becomes `IsToken`, several become `OneOf`.
-fn pred_text(names : Array[String], ctx : LowerCtx) -> String {
+fn pred_text(names : Array[String], ctx : LowerCtx) -> MbtExpr {
   if names.length() == 1 {
-    ctx.grammar_qual +
-    ".Pred::IsToken(" +
-    qualify(ctx.token_qual, names[0]) +
-    ")"
+    MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
+      MbtExpr::Var(qualify(ctx.token_qual, names[0])),
+    ])
   } else {
-    let toks = names.map(n => qualify(ctx.token_qual, n))
-    ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
+    let toks = names.map(n => MbtExpr::Var(qualify(ctx.token_qual, n)))
+    MbtExpr::Call(ctx.grammar_qual + ".Pred::OneOf", [MbtExpr::Array(toks)])
   }
 }
 
@@ -594,38 +577,32 @@ fn resolve_optional_token(
 }
 
 ///|
-/// Lower a parsed rule node to `@grammar.Expr` source text. The returned text's
-/// first line is unindented (the caller places it); internal lines are indented
-/// absolutely from `depth`.
-fn lower(
-  ast : RuleAst,
-  ctx : LowerCtx,
-  depth : Int,
-) -> String raise RuleLowerError {
+/// Lower a parsed rule node to an `MbtExpr` representing a `@grammar.Expr` value.
+fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
   match ast {
     Sym(name) =>
       match resolve_sym(name, ctx) {
         Terminal(kind) =>
-          ctx.grammar_qual +
-          ".Expr::Expect(" +
-          qualify(ctx.token_qual, name) +
-          ", " +
-          qualify(ctx.syntax_qual, kind) +
-          ")"
-        Rule(_) => ctx.grammar_qual + ".Expr::Ref(" + quote(name) + ")"
+          MbtExpr::Call(ctx.grammar_qual + ".Expr::Expect", [
+            MbtExpr::Var(qualify(ctx.token_qual, name)),
+            MbtExpr::Var(qualify(ctx.syntax_qual, kind)),
+          ])
+        Rule(_) =>
+          MbtExpr::Call(ctx.grammar_qual + ".Expr::Ref", [
+            MbtExpr::StrLit(quote(name)),
+          ])
         RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
         Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
     // Fragment references lower to a mangled Ref that the caller supplies
     // via the fragments~ parameter (merged into the rules map before compile).
     Frag(name) =>
-      ctx.grammar_qual + ".Expr::Ref(" + quote("__loom_frag__" + name) + ")"
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::Ref", [
+        MbtExpr::StrLit(quote("__loom_frag__" + name)),
+      ])
     Seq(items) => {
-      let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Seq([\n")
-      for it in items {
-        b.write_string(indent(depth + 1) + lower(it, ctx, depth + 1) + ",\n")
-      }
-      b..write_string(indent(depth) + "])").to_string()
+      let exprs = items.map(fn(it) { lower(it, ctx) })
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::Seq", [MbtExpr::Array(exprs)])
     }
     // X* — repeat the body while its FIRST set still gates entry.
     Star(inner) => {
@@ -633,51 +610,41 @@ fn lower(
         first_names_ordered(inner, ctx, "a '*' repetition body"),
         ctx,
       )
-      StringBuilder()
-      ..write_string(ctx.grammar_qual + ".Expr::RepeatWhile(\n")
-      ..write_string(indent(depth + 1) + pred + ",\n")
-      ..write_string(indent(depth + 1) + lower(inner, ctx, depth + 1) + ",\n")
-      ..write_string(indent(depth) + ")")
-      .to_string()
+      let body = lower(inner, ctx)
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::RepeatWhile", [pred, body])
     }
     // X+ — parse one, then repeat: Seq([X, X*]). Reuses Seq/Star lowering so the
     // formatting and the FIRST gate stay identical to the standalone forms.
-    Plus(inner) => lower(Seq([inner, Star(inner)]), ctx, depth)
+    Plus(inner) => lower(Seq([inner, Star(inner)]), ctx)
     // X? — a single-alt Choice with NO fallback: the interpreter peeks once, runs
     // the alt when its FIRST matches, and otherwise does nothing — exactly
     // "optionally X". Absent is valid, so `required` is false.
-    Opt(inner) => lower_choice([inner], ctx, depth, required=false)
+    Opt(inner) => lower_choice([inner], ctx, required=false)
     Emit(inner) => {
       let (name, kind) = resolve_optional_token(inner, ctx, "~")
-      ctx.grammar_qual +
-      ".Expr::Emit(" +
-      qualify(ctx.token_qual, name) +
-      ", " +
-      qualify(ctx.syntax_qual, kind) +
-      ")"
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::Emit", [
+        MbtExpr::Var(qualify(ctx.token_qual, name)),
+        MbtExpr::Var(qualify(ctx.syntax_qual, kind)),
+      ])
     }
     Emitor(inner) => {
       let (name, kind) = resolve_optional_token(inner, ctx, "!")
-      ctx.grammar_qual +
-      ".Expr::EmitOr(" +
-      qualify(ctx.token_qual, name) +
-      ", " +
-      qualify(ctx.syntax_qual, kind) +
-      ", " +
-      quote("expected '" + name + "'") +
-      ")"
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::EmitOr", [
+        MbtExpr::Var(qualify(ctx.token_qual, name)),
+        MbtExpr::Var(qualify(ctx.syntax_qual, kind)),
+        MbtExpr::StrLit(quote("expected '" + name + "'")),
+      ])
     }
     // @until(Token) — consume tokens (emitting diagnostic) until the sync
     // token is found. Single token -> Pred::IsToken; multi (via |) -> OneOf.
     ErrorUntil(tokens) => {
       let pred = if tokens.length() == 1 {
-        ctx.grammar_qual +
-        ".Pred::IsToken(" +
-        qualify(ctx.token_qual, tokens[0]) +
-        ")"
+        MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
+          MbtExpr::Var(qualify(ctx.token_qual, tokens[0])),
+        ])
       } else {
-        let toks = tokens.map(n => qualify(ctx.token_qual, n))
-        ctx.grammar_qual + ".Pred::OneOf([" + toks.join(", ") + "])"
+        let toks = tokens.map(n => MbtExpr::Var(qualify(ctx.token_qual, n)))
+        MbtExpr::Call(ctx.grammar_qual + ".Pred::OneOf", [MbtExpr::Array(toks)])
       }
       // Verify every named token is known before emitting.
       for t in tokens {
@@ -691,12 +658,15 @@ fn lower(
       }
       let delim_names = tokens.join("' or '")
       let msg = "expected '" + delim_names + "'"
-      ctx.grammar_qual + ".Expr::ErrorUntil(" + pred + ", " + quote(msg) + ")"
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::ErrorUntil", [
+        pred,
+        MbtExpr::StrLit(quote(msg)),
+      ])
     }
     // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a
     // trailing `Any → Fail` branch. A required alternation that matches no branch
     // is an error; without the fallback the interpreter's Choice silently no-ops.
-    Alt(branches) => lower_choice(branches, ctx, depth, required=true)
+    Alt(branches) => lower_choice(branches, ctx, required=true)
     PrattApp(_) | PrattBinary(_) =>
       raise RuleLowerError(
         "Pratt annotations can only appear as a top-level production body",
@@ -717,10 +687,9 @@ fn lower(
 fn lower_choice(
   branches : Array[RuleAst],
   ctx : LowerCtx,
-  depth : Int,
   required~ : Bool,
-) -> String raise RuleLowerError {
-  let b = StringBuilder()..write_string(ctx.grammar_qual + ".Expr::Choice([\n")
+) -> MbtExpr raise RuleLowerError {
+  let alts : Array[MbtExpr] = []
   // Accumulate the FIRST tokens seen across branches: it both gates the
   // disjointness check (a token already claimed by an earlier branch is a
   // FIRST/FIRST conflict that would silently shadow this one) and supplies the
@@ -748,32 +717,29 @@ fn lower_choice(
       expected.push(n)
     }
     let pred = pred_text(names, ctx)
-    b
-    ..write_string(indent(depth + 1) + ctx.grammar_qual + ".Alt::{\n")
-    ..write_string(indent(depth + 2) + "starts: " + pred + ",\n")
-    ..write_string(
-      indent(depth + 2) + "body: " + lower(branch, ctx, depth + 2) + ",\n",
+    let body = lower(branch, ctx)
+    alts.push(
+      MbtExpr::Record(ctx.grammar_qual + ".Alt", [
+        ("starts", pred),
+        ("body", body),
+      ]),
     )
-    .write_string(indent(depth + 1) + "},\n")
   }
   if required {
     let msg = "expected one of: " + expected.join(", ")
-    b
-    ..write_string(indent(depth + 1) + ctx.grammar_qual + ".Alt::{\n")
-    ..write_string(
-      indent(depth + 2) + "starts: " + ctx.grammar_qual + ".Pred::Any,\n",
+    alts.push(
+      MbtExpr::Record(ctx.grammar_qual + ".Alt", [
+        ("starts", MbtExpr::Call(ctx.grammar_qual + ".Pred::Any", [])),
+        (
+          "body",
+          MbtExpr::Call(ctx.grammar_qual + ".Expr::Fail", [
+            MbtExpr::StrLit(quote(msg)),
+          ]),
+        ),
+      ]),
     )
-    ..write_string(
-      indent(depth + 2) +
-      "body: " +
-      ctx.grammar_qual +
-      ".Expr::Fail(" +
-      quote(msg) +
-      "),\n",
-    )
-    .write_string(indent(depth + 1) + "},\n")
   }
-  b..write_string(indent(depth) + "])").to_string()
+  MbtExpr::Call(ctx.grammar_qual + ".Expr::Choice", [MbtExpr::Array(alts)])
 }
 
 ///|
@@ -782,16 +748,12 @@ fn lower_production(
   kind_name : String,
   body : RuleAst,
   ctx : LowerCtx,
-  depth : Int,
-) -> String raise RuleLowerError {
-  StringBuilder()
-  ..write_string(ctx.grammar_qual + ".Expr::Node(\n")
-  ..write_string(
-    indent(depth + 1) + qualify(ctx.syntax_qual, kind_name) + ",\n",
-  )
-  ..write_string(indent(depth + 1) + lower(body, ctx, depth + 1) + ",\n")
-  ..write_string(indent(depth) + ")")
-  .to_string()
+) -> MbtExpr raise RuleLowerError {
+  let body_expr = lower(body, ctx)
+  MbtExpr::Call(ctx.grammar_qual + ".Expr::Node", [
+    MbtExpr::Var(qualify(ctx.syntax_qual, kind_name)),
+    body_expr,
+  ])
 }
 
 ///|
@@ -942,12 +904,6 @@ fn emit_grammar_ir(
   let token_type = token_enum.name
   let syntax_type = "SyntaxKind"
   let has_frags = has_fragment_refs(ctx.rules)
-  let b = StringBuilder()
-    ..write_string("// Generated by loomgen (#522) — do not edit.\n\n")
-    ..write_string("///|\n")
-    ..write_string(
-      "/// Generated GrammarIr initialization from grammar rules.\n",
-    )
   let gram_ir_type = grammar_qual +
     ".GrammarIr[" +
     qualify(token_qual, token_type) +
@@ -961,18 +917,8 @@ fn emit_grammar_ir(
     qualify(syntax_qual, syntax_type) +
     "]"
   let rules_type = "Map[String, " + expr_type + "]"
-  if has_frags {
-    b
-    ..write_string("pub fn " + value_name + "(\n")
-    ..write_string(indent(1) + "fragments~ : " + rules_type + " = Map([]),\n")
-    .write_string(") -> " + gram_ir_type + " {\n")
-    b.write_string(indent(1) + "let rules : " + rules_type + " = {\n")
-  } else {
-    b
-    ..write_string("pub let " + value_name + " : " + gram_ir_type + " =\n")
-    .write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
-    b.write_string(indent(2) + "{\n")
-  }
+  // Build rule entries: "key": expr,
+  let rule_entries : Array[@pretty.Layout[@pretty.SyntaxCategory]] = []
   for v in term_enum.variants {
     match ctx.rules.get(v.name) {
       Some(body) => {
@@ -988,46 +934,94 @@ fn emit_grammar_ir(
         }
         let production = match body {
           PrattApp(spec) =>
-            lower_pratt_app(spec, kind_name, ctx, 3) catch {
+            lower_pratt_app(spec, kind_name, ctx) catch {
               RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
             }
           PrattBinary(spec) =>
-            lower_pratt_binary(spec, kind_name, ctx, 3) catch {
+            lower_pratt_binary(spec, kind_name, ctx) catch {
               RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
             }
           _ =>
-            lower_production(kind_name, body, ctx, 3) catch {
+            lower_production(kind_name, body, ctx) catch {
               RuleLowerError(m) => return Err(ctx.loc(v.name) + m)
             }
         }
-        b.write_string(
-          indent(if has_frags { 2 } else { 3 }) +
-          quote(v.name) +
-          ": " +
-          production +
-          ",\n",
+        rule_entries.push(
+          @pretty.text(quote(v.name)) +
+          @pretty.text(": ") +
+          production.to_breakable_layout() +
+          @pretty.text(","),
         )
       }
       None => ()
     }
   }
-  if has_frags {
-    b
-    ..write_string(indent(1) + "}\n")
-    ..write_string(indent(1) + "for frag, body in fragments {\n")
-    ..write_string(indent(2) + "rules.set(frag, body)\n")
-    .write_string(indent(1) + "}\n")
-    b
-    ..write_string(indent(1) + grammar_qual + ".GrammarIr::GrammarIr(\n")
-    ..write_string(indent(2) + "rules,\n")
-    ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
-    .write_string(indent(1) + ")\n")
-    b.write_string("}\n")
+  let rules_content = @pretty.separate(@pretty.hardline(), rule_entries)
+  // ── build the top-level declaration as Layout ──
+  let header = @pretty.text("// Generated by loomgen (#522) — do not edit.")
+  let doc = @pretty.text("///|") +
+    @pretty.hardline() +
+    @pretty.text("/// Generated GrammarIr initialization from grammar rules.")
+  let main : @pretty.Layout[@pretty.SyntaxCategory] = if has_frags {
+    // pub fn NAME(fragments~ : Type = Map([]),) -> Type { ... }
+    let fn_sig = @pretty.text("pub fn " + value_name + "(") +
+      @pretty.nest(
+        @pretty.hardline() +
+        @pretty.text("fragments~ : " + rules_type + " = Map([]),"),
+      ) +
+      @pretty.hardline() +
+      @pretty.text(") -> " + gram_ir_type + " {")
+    let rules_map = @pretty.text("let rules : " + rules_type + " = {") +
+      @pretty.nest(@pretty.hardline() + rules_content) +
+      @pretty.hardline() +
+      @pretty.text("}")
+    let for_loop = @pretty.text("for frag, body in fragments {") +
+      @pretty.nest(@pretty.hardline() + @pretty.text("rules.set(frag, body)")) +
+      @pretty.hardline() +
+      @pretty.text("}")
+    let ctor = @pretty.text(
+      grammar_qual +
+      ".GrammarIr::GrammarIr(rules, root=" +
+      quote(root_name) +
+      ")",
+    )
+    let body = @pretty.nest(
+      @pretty.hardline() +
+      rules_map +
+      @pretty.hardline() +
+      for_loop +
+      @pretty.hardline() +
+      ctor,
+    )
+    fn_sig + body + @pretty.hardline() + @pretty.text("}")
   } else {
-    b
-    ..write_string(indent(2) + "},\n")
-    ..write_string(indent(2) + "root=" + quote(root_name) + ",\n")
-    .write_string(indent(1) + ")\n")
+    // pub let NAME : Type =
+    //   GrammarIr::GrammarIr(
+    //     { ... }, root="root")
+    let let_decl = @pretty.text(
+      "pub let " + value_name + " : " + gram_ir_type + " =",
+    )
+    let rules_map = @pretty.text("{") +
+      @pretty.nest(@pretty.hardline() + rules_content) +
+      @pretty.hardline() +
+      @pretty.char('}')
+    let ctor = @pretty.text(grammar_qual + ".GrammarIr::GrammarIr(") +
+      @pretty.nest(
+        @pretty.hardline() +
+        rules_map +
+        @pretty.text(",") +
+        @pretty.hardline() +
+        @pretty.text("root=" + quote(root_name) + ","),
+      ) +
+      @pretty.hardline() +
+      @pretty.text(")")
+    let_decl + @pretty.nest(@pretty.hardline() + ctor)
   }
-  Ok(b.to_string())
+  let final_layout = @pretty.separate(@pretty.hardline(), [
+    header,
+    @pretty.text(""),
+    doc,
+    main,
+  ])
+  Ok(@pretty.render_string(final_layout, width=80))
 }

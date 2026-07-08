@@ -7,11 +7,25 @@ pub let emit_grammar_ir : @grammar.GrammarIr[@token.Tok, @syntax.SyntaxKind] =
     {
       "Source": @grammar.Expr::Node(
         @syntax.Source,
-        @grammar.Expr::Seq([
-          @grammar.Expr::Emit(@token.X, @syntax.XKeyword),
-          @grammar.Expr::EmitOr(@token.X, @syntax.XKeyword, "expected 'X'"),
-          @grammar.Expr::ErrorUntil(@grammar.Pred::IsToken(@token.Semicolon), "expected 'Semicolon'"),
-        ]),
+        @grammar.Expr::Seq(
+          [
+            @grammar.Expr::Emit(
+              @token.X,
+              @syntax.XKeyword,
+            ),
+            @grammar.Expr::EmitOr(
+              @token.X,
+              @syntax.XKeyword,
+              "expected 'X'",
+            ),
+            @grammar.Expr::ErrorUntil(
+              @grammar.Pred::IsToken(
+                @token.Semicolon,
+              ),
+              "expected 'Semicolon'",
+            ),
+          ],
+        ),
       ),
     },
     root="Source",
