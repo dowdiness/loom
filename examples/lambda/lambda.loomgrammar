@@ -1,0 +1,8 @@
+// Lambda Calculus grammar for loomgen (#611).
+//
+// All production bodies use @fragment references because the full grammar
+// uses many out-of-subset @grammar.Expr nodes. Fragment bodies are
+// hand-authored @grammar.Expr values supplied by the caller via the
+// generated function's fragments~ parameter.
+
+SourceFile = @source_toplevel
