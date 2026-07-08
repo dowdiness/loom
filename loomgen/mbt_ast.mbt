@@ -59,6 +59,7 @@ pub enum MbtExpr {
   Closure(Array[MbtParam], MbtBlock)
   Array(Array[MbtExpr])
   Tuple(Array[MbtExpr])
+  Record(String, Array[(String, MbtExpr)])
   Match(MbtExpr, Array[MbtMatchArm])
   Continue
   Break
@@ -334,6 +335,19 @@ impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
       @pretty.parens(
         @pretty.separate(@pretty.text(", "), items.map(fn(e) { e.to_layout() })),
       )
+    Record(type_name, fields) => {
+      let field_layouts = fields.map(fn(f) {
+        let (name, expr) = f
+        ident(name) + @pretty.text(": ") + expr.to_layout() + @pretty.text(",")
+      })
+      @pretty.text(type_name) +
+      @pretty.text("::{") +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(@pretty.hardline(), field_layouts),
+      ) +
+      @pretty.hardline() +
+      @pretty.char('}')
+    }
     Match(scrutinee, arms) => {
       let arm_layouts = arms.map(fn(arm) { arm.to_layout() })
       kw("match") +
@@ -349,7 +363,7 @@ impl @pretty.Pretty for MbtExpr with fn to_layout(self) -> @pretty.Layout[
     }
     Continue => kw("continue")
     Break => kw("break")
-  }
+}
 }
 
 // ── Pretty for MbtMatchArm ───────────────────────────────────────
@@ -407,4 +421,147 @@ fn parens_flat(
   inner : @pretty.Layout[@pretty.SyntaxCategory],
 ) -> @pretty.Layout[@pretty.SyntaxCategory] {
   punc("(") + inner + punc(")")
+}
+//
+// ── Breakable layout for deeply nested expressions (grammar-ir) ──
+//
+
+///|
+/// Render MbtExpr to a Layout that uses hardline breaks at every
+/// Call/Array boundary, producing multi-line output suitable for
+/// deeply nested constructor expressions (e.g. grammar-ir rules).
+/// Unlike `to_layout`, which stays flat for correctness of the
+/// emit_grammar output, this method always breaks at parentheses
+/// and brackets so that wide expressions wrap within the line width.
+pub fn MbtExpr::to_breakable_layout(self : MbtExpr) -> @pretty.Layout[@pretty.SyntaxCategory] {
+  match self {
+    Var(name) => ident(name)
+    Bool(b) => if b { kw("true") } else { kw("false") }
+    StrLit(s) =>
+      @pretty.annotate(@pretty.SyntaxCategory::StringLit, @pretty.text(s))
+    Call(name, args) => {
+      let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
+      ident(name) +
+      @pretty.text("(") +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(
+          @pretty.hardline(),
+          arg_layouts.map(fn(l) { l + @pretty.text(",") }),
+        ),
+      ) +
+      @pretty.hardline() +
+      @pretty.text(")")
+    }
+    MethodCall(obj, name, args) => {
+      let arg_layouts = args.map(fn(a : MbtExpr) { a.to_breakable_layout() })
+      obj.to_breakable_layout() +
+      punc(".") +
+      ident(name) +
+      @pretty.text("(") +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(
+          @pretty.hardline(),
+          arg_layouts.map(fn(l) { l + @pretty.text(",") }),
+        ),
+      ) +
+      @pretty.hardline() +
+      @pretty.text(")")
+    }
+    FieldAccess(obj, field) =>
+      obj.to_breakable_layout() + punc(".") + @pretty.text(field)
+    Pipe(left, right) =>
+      left.to_breakable_layout() +
+      @pretty.text(" ") +
+      op("|>") +
+      @pretty.text(" ") +
+      right.to_breakable_layout()
+    BinOp(lhs, s, rhs) => {
+      let rhs_layout = match rhs {
+        BinOp(_, inner_op, _) => {
+          let outer_prec = binop_prec(s)
+          let inner_prec = binop_prec(inner_op)
+          if outer_prec > inner_prec {
+            punc("(") + rhs.to_breakable_layout() + punc(")")
+          } else {
+            rhs.to_breakable_layout()
+          }
+        }
+        _ => rhs.to_breakable_layout()
+      }
+      let lhs_layout = lhs.to_breakable_layout()
+      let op_layout = @pretty.text(" ") + op(s) + @pretty.text(" ")
+      @pretty.group(lhs_layout + op_layout + rhs_layout)
+    }
+    UnOp(s, expr) => {
+      let inner = expr.to_breakable_layout()
+      let wrapped = match expr {
+        BinOp(_, _, _) => punc("(") + inner + punc(")")
+        _ => inner
+      }
+      op(s) + @pretty.group(wrapped)
+    }
+    Block(blk) =>
+      @pretty.char('{') +
+      @pretty.nest(@pretty.hardline() + blk.to_layout()) +
+      @pretty.hardline() +
+      @pretty.char('}')
+    Closure(params, body) => {
+      let param_layout = parens_layout(params)
+      @pretty.group(
+        kw("fn") +
+        param_layout +
+        @pretty.text(" ") +
+        @pretty.char('{') +
+        @pretty.nest(@pretty.line() + body.to_layout()) +
+        @pretty.line() +
+        @pretty.char('}'),
+      )
+    }
+    Array(items) => {
+      let layouts = items.map(fn(e : MbtExpr) { e.to_breakable_layout() + @pretty.text(",") })
+      @pretty.text("[") +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(@pretty.hardline(), layouts),
+      ) +
+      @pretty.hardline() +
+      @pretty.text("]")
+    }
+    Tuple(items) =>
+      @pretty.parens(
+        @pretty.separate(@pretty.text(", "), items.map(fn(e : MbtExpr) {
+          e.to_breakable_layout()
+        })),
+      )
+    Record(type_name, fields) => {
+      let field_layouts = fields.map(fn(f : (String, MbtExpr)) {
+        let (name, expr) = f
+        ident(name) +
+        @pretty.text(": ") +
+        expr.to_breakable_layout() +
+        @pretty.text(",")
+      })
+      @pretty.text(type_name) +
+      @pretty.text("::{") +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(@pretty.hardline(), field_layouts),
+      ) +
+      @pretty.hardline() +
+      @pretty.char('}')
+    }
+    Match(scrutinee, arms) => {
+      let arm_layouts = arms.map(fn(arm : MbtMatchArm) { arm.to_layout() })
+      kw("match") +
+      @pretty.text(" ") +
+      scrutinee.to_layout() +
+      @pretty.text(" ") +
+      @pretty.char('{') +
+      @pretty.nest(
+        @pretty.hardline() + @pretty.separate(@pretty.hardline(), arm_layouts),
+      ) +
+      @pretty.hardline() +
+      @pretty.char('}')
+    }
+    Continue => kw("continue")
+    Break => kw("break")
+  }
 }

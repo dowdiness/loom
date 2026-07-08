@@ -7,10 +7,18 @@ pub let mini_grammar_ir : @grammar.GrammarIr[@token.Tok, @syntax.SyntaxKind] =
     {
       "Parens": @grammar.Expr::Node(
         @syntax.Parens,
-        @grammar.Expr::Seq([
-          @grammar.Expr::Expect(@token.LParen, @syntax.LParenToken),
-          @grammar.Expr::Expect(@token.RParen, @syntax.RParenToken),
-        ]),
+        @grammar.Expr::Seq(
+          [
+            @grammar.Expr::Expect(
+              @token.LParen,
+              @syntax.LParenToken,
+            ),
+            @grammar.Expr::Expect(
+              @token.RParen,
+              @syntax.RParenToken,
+            ),
+          ],
+        ),
       ),
     },
     root="Parens",

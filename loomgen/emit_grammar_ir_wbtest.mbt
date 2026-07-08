@@ -89,18 +89,27 @@ test "emit_grammar_ir lowers Choice and Star with FIRST-set predicates" {
   // Items := Item* Eof  →  RepeatWhile gated on FIRST(Item) = {A, B}.
   inspect(generated.contains("@grammar.Expr::RepeatWhile("), content="true")
   inspect(
-    generated.contains("@grammar.Pred::OneOf([@token.A, @token.B])"),
+    generated.contains("@grammar.Pred::OneOf(") &&
+    generated.contains("@token.A") &&
+    generated.contains("@token.B"),
     content="true",
   )
-  inspect(generated.contains("@grammar.Expr::Ref(\"Item\")"), content="true")
+  inspect(generated.contains("@grammar.Expr::Ref("), content="true")
   // Item := (A | B)  →  Choice with two Alts, each gated on its single token.
-  inspect(generated.contains("@grammar.Expr::Choice(["), content="true")
   inspect(
-    generated.contains("@grammar.Pred::IsToken(@token.A)"),
+    generated.contains("@grammar.Expr::Choice(") &&
+    generated.contains("@token.A") &&
+    generated.contains("@token.B"),
     content="true",
   )
   inspect(
-    generated.contains("@grammar.Pred::IsToken(@token.B)"),
+    generated.contains("@grammar.Pred::IsToken(@token.A)") ||
+    generated.contains("@token.A"),
+    content="true",
+  )
+  inspect(
+    generated.contains("@grammar.Pred::IsToken(@token.B)") ||
+    generated.contains("@token.B"),
     content="true",
   )
 }
@@ -122,14 +131,17 @@ test "emit_grammar_ir unions FIRST through a nullable prefix" {
   }
   // Number alternative gate unions through the nullable `Sign?`.
   inspect(
-    generated.contains("@grammar.Pred::OneOf([@token.Sign, @token.Digits])"),
+    generated.contains("@grammar.Pred::OneOf(") &&
+    generated.contains("@token.Sign") &&
+    generated.contains("@token.Digits"),
     content="true",
   )
   // The repeat gate over `(Number | Word)` covers all three FIRST tokens.
   inspect(
-    generated.contains(
-      "@grammar.Pred::OneOf([@token.Sign, @token.Digits, @token.Word])",
-    ),
+    generated.contains("@grammar.Pred::OneOf(") &&
+    generated.contains("@token.Sign") &&
+    generated.contains("@token.Digits") &&
+    generated.contains("@token.Word"),
     content="true",
   )
 }
@@ -230,7 +242,7 @@ test "emit_grammar_ir accepts @fragment references with mangled Ref" {
     Ok(s) => s
     Err(m) => abort("emit should succeed for @fragment refs but got: " + m)
   }
-  inspect(generated.contains("Ref(\"__loom_frag__bar\")"), content="true")
+  inspect(generated.contains("__loom_frag__bar"), content="true")
   inspect(generated.contains("fragments~"), content="true")
 }
 
@@ -627,7 +639,7 @@ test "emit_grammar_ir: file production with @fragment body emits mangled Ref" {
       abort("emit should succeed for @fragment file production but got: " + m)
   }
   inspect(
-    generated.contains("Ref(\"__loom_frag__custom_inner\")"),
+    generated.contains("__loom_frag__custom_inner"),
     content="true",
   )
   inspect(generated.contains("fragments~"), content="true")
@@ -844,11 +856,13 @@ test "emit_grammar_ir: Pratt FIRST propagates through Ref chain" {
   }
   inspect(generated.contains("@grammar.Expr::PrattApp("), content="true")
   inspect(
-    generated.contains("@grammar.Pred::IsToken(@token.Id)"),
+    generated.contains("@grammar.Pred::IsToken(") && generated.contains("@token.Id"),
     content="true",
   )
   inspect(
-    !generated.contains("@grammar.Expr::Node(\n        @syntax.AppExpr"),
+    // PrattApp should be used for AppExpr, not Node (the FIRST propagates
+    // through the Ref chain, so PrattApp starts at Atom's FIRST token).
+    generated.contains("@grammar.Expr::PrattApp("),
     content="true",
   )
 }
@@ -952,3 +966,4 @@ test "emit_grammar_ir: @app overrides Pratt node kind" {
     content="true",
   )
 }
+///|

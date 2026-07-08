@@ -7,15 +7,28 @@ pub let fo_grammar_ir : @grammar.GrammarIr[@token.FTok, @syntax.SyntaxKind] =
     {
       "Pair": @grammar.Expr::Node(
         @syntax.Pair,
-        @grammar.Expr::Seq([
-          @grammar.Expr::Expect(@token.LParen, @syntax.LParenToken),
-          @grammar.Expr::Ref("Inner"),
-          @grammar.Expr::Expect(@token.RParen, @syntax.RParenToken),
-        ]),
+        @grammar.Expr::Seq(
+          [
+            @grammar.Expr::Expect(
+              @token.LParen,
+              @syntax.LParenToken,
+            ),
+            @grammar.Expr::Ref(
+              "Inner",
+            ),
+            @grammar.Expr::Expect(
+              @token.RParen,
+              @syntax.RParenToken,
+            ),
+          ],
+        ),
       ),
       "Inner": @grammar.Expr::Node(
         @syntax.Inner,
-        @grammar.Expr::Expect(@token.Comma, @syntax.CommaToken),
+        @grammar.Expr::Expect(
+          @token.Comma,
+          @syntax.CommaToken,
+        ),
       ),
     },
     root="Pair",
