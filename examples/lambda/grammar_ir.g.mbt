@@ -3,7 +3,8 @@
 ///|
 /// Generated GrammarIr initialization from grammar rules.
 pub fn lambda_grammar_ir(
-  fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map::new(),
+  fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([],
+  ),
 ) -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
   let rules : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = {
     "SourceFile": @grammar.Expr::Node(
