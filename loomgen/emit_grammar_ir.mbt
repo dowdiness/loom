@@ -964,7 +964,9 @@ fn emit_grammar_ir(
   if has_frags {
     b
     ..write_string("pub fn " + value_name + "(\n")
-    ..write_string(indent(1) + "fragments? : " + rules_type + " = Map::new(),\n")
+    ..write_string(
+      indent(1) + "fragments? : " + rules_type + " = Map::new(),\n",
+    )
     .write_string(") -> " + gram_ir_type + " {\n")
     b.write_string(indent(1) + "let rules : " + rules_type + " = {\n")
   } else {
