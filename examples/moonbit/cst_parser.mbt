@@ -466,6 +466,26 @@ fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
 }
 
+
+///|
+/// Check if the current token is a `while` keyword.
+fn is_while(token : MoonToken) -> Bool {
+  token is Official(kind=TK_WHILE)
+}
+
+///|
+/// Parse a `while cond { body }` expression.
+fn parse_while_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  ctx.node(WhileExprNode, fn() {
+    ctx.emit_token(WhileToken)
+    consume_until_body(ctx)
+    if !ctx.at_eof() && is_lbrace(ctx.peek()) {
+      ignore(parse_block_expr(ctx))
+    }
+  })
+}
 ///|
 /// Parse an `if cond { then } else { else }` expression.
 fn parse_if_expr(
@@ -512,9 +532,7 @@ fn parse_block_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
   ctx.node(BlockExprNode, fn() {
-    // Consume `{`
     ctx.emit_token(LbraceToken)
-    // Parse inner statements/expressions
     while !ctx.at_eof() {
       let token = ctx.peek()
       if is_rbrace(token) {
@@ -524,14 +542,14 @@ fn parse_block_expr(
         ctx.emit_token(token.syntax_kind())
         continue
       }
-      // Context-sensitive dispatch
       if is_if(token) {
         ignore(parse_if_expr(ctx))
+      } else if is_while(token) {
+        ignore(parse_while_expr(ctx))
       } else {
         ctx.emit_token(token.syntax_kind())
       }
     }
-    // Consume `}`
     if !ctx.at_eof() && is_rbrace(ctx.peek()) {
       ctx.emit_token(RbraceToken)
     }
