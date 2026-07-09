@@ -35,7 +35,7 @@ fn moonbit_fold_node(
         token_count: count_non_trivia_tokens(node),
         contains_errors: node_has_parse_errors(node),
       }
-    IfExprNode | BlockExprNode | WhileExprNode =>
+    IfExprNode | BlockExprNode | WhileExprNode | MatchExprNode | ForExprNode =>
       {
         item_count: 0,
         token_count: count_non_trivia_tokens(node),

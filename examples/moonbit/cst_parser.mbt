@@ -418,7 +418,12 @@ fn skip_balanced_prefix_group(
   }
 }
 
+///| Consume body tokens of a source item. At group_depth 0, dispatches
+
+///| context-sensitive constructs (block, if, match) and breaks on item
+
 ///|
+/// delimiters. Inside balanced groups, emits tokens flat.
 fn consume_source_item_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
@@ -437,6 +442,14 @@ fn consume_source_item_tokens(
         }
         Official(kind=TK_IF) => {
           ignore(parse_if_expr(ctx))
+          continue consumed + 1, 0
+        }
+        Official(kind=TK_MATCH) => {
+          ignore(parse_match_expr(ctx))
+          continue consumed + 1, 0
+        }
+        Official(kind=TK_FOR) => {
+          ignore(parse_for_expr(ctx))
           continue consumed + 1, 0
         }
         _ => ()
@@ -461,18 +474,48 @@ fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
 }
 
+///| Parse a keyword-before-body construct: emit `keyword_token`, consume
+
+///| the condition/scrutinee, then parse a `{ ... }` block. Used by match,
+
 ///|
-/// Parse a `while cond { body }` expression.
-fn parse_while_expr(
+/// while, and similar constructs whose shape is keyword + condition + block.
+fn parse_keyword_body_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  node_kind : MoonbitSyntaxKind,
+  keyword_token : MoonbitSyntaxKind,
 ) -> Unit {
-  ctx.node(WhileExprNode, fn() {
-    ctx.emit_token(WhileToken)
+  ctx.node(node_kind, fn() {
+    ctx.emit_token(keyword_token)
     consume_until_body(ctx)
     if !ctx.at_eof() && is_lbrace(ctx.peek()) {
       ignore(parse_block_expr(ctx))
     }
   })
+}
+
+///|
+/// Parse a `match expr { arm; arm; ... }` expression.
+fn parse_match_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  parse_keyword_body_expr(ctx, MatchExprNode, MatchToken)
+}
+
+///|
+/// Parse a `while cond { body }` expression.
+fn parse_while_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  parse_keyword_body_expr(ctx, WhileExprNode, WhileToken)
+}
+
+///|
+/// Parse a `for init; cond; step { body }` expression.
+fn parse_for_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  parse_keyword_body_expr(ctx, ForExprNode, ForToken)
 }
 
 ///|
@@ -509,8 +552,12 @@ fn consume_until_body(
   }
 }
 
+///| Parse a `{ ... }` block expression. Inner statements/expressions are
+
+///| separated by `;` or NEWLINE (ASI); context-sensitive constructs
+
 ///|
-/// separated by `;` or NEWLINE (ASI).
+/// (if, while, match, for) are parsed recursively.
 fn parse_block_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
@@ -528,6 +575,8 @@ fn parse_block_expr(
       match token {
         Official(kind=TK_IF) => ignore(parse_if_expr(ctx))
         Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
+        Official(kind=TK_MATCH) => ignore(parse_match_expr(ctx))
+        Official(kind=TK_FOR) => ignore(parse_for_expr(ctx))
         _ => ctx.emit_token(token.syntax_kind())
       }
     }
