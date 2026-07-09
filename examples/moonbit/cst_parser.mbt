@@ -439,6 +439,10 @@ fn consume_source_item_tokens(
           ignore(parse_if_expr(ctx))
           continue consumed + 1, 0
         }
+        Official(kind=TK_MATCH) => {
+          ignore(parse_match_expr(ctx))
+          continue consumed + 1, 0
+        }
         _ => ()
       }
     }
@@ -459,6 +463,20 @@ fn is_lbrace(token : MoonToken) -> Bool {
 /// Check if the current token is `}`.
 fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
+}
+
+///|
+/// Parse a `match expr { arm; arm; ... }` expression.
+fn parse_match_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  ctx.node(MatchExprNode, fn() {
+    ctx.emit_token(MatchToken)
+    consume_until_body(ctx)
+    if !ctx.at_eof() && is_lbrace(ctx.peek()) {
+      ignore(parse_block_expr(ctx))
+    }
+  })
 }
 
 ///|
@@ -528,6 +546,7 @@ fn parse_block_expr(
       match token {
         Official(kind=TK_IF) => ignore(parse_if_expr(ctx))
         Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
+        Official(kind=TK_MATCH) => ignore(parse_match_expr(ctx))
         _ => ctx.emit_token(token.syntax_kind())
       }
     }

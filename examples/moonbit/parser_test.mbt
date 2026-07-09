@@ -631,3 +631,49 @@ test "skeleton grammar parses while and if together" {
   )
   debug_inspect(kinds, content="[\"BlockExprNode\"]")
 }
+
+///|
+test "skeleton grammar parses match expression" {
+  let source =
+    #|fn f(x : Int) -> Int {
+    #|  match x {
+    #|    1 => 10
+    #|    _ => 0
+    #|  }
+    #|}
+    #|
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [_, body, ..] => {
+          let body_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            body.kind(),
+          )
+          inspect(body_kind.to_string(), content="BlockExprNode")
+          match body.children() {
+            [match_node, ..] => {
+              let mk : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                match_node.kind(),
+              )
+              inspect(mk.to_string(), content="MatchExprNode")
+              inspect(match_node.children().length() >= 0, content="true")
+            }
+            [] => abort("no children in block")
+          }
+        }
+        [_] => abort("unexpected single child")
+        [] => abort("no children in function item")
+      }
+    [] => abort("no top-level items")
+  }
+}
+
+///|
+test "skeleton grammar parses match in block expression" {
+  let kinds = first_child_of_first_item_kind_names(
+    "fn f() { match x { 1 => true; _ => false } }\n",
+  )
+  debug_inspect(kinds, content="[\"BlockExprNode\"]")
+}

@@ -186,6 +186,7 @@ pub(all) enum MoonbitSyntaxKind {
   IfExprNode
   BlockExprNode
   WhileExprNode
+  MatchExprNode
 } derive(Eq, @debug.Debug)
 pub impl @seam.FromRawKind for MoonbitSyntaxKind
 pub impl @seam.ToRawKind for MoonbitSyntaxKind
