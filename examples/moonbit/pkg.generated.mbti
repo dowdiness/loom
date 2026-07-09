@@ -183,6 +183,8 @@ pub(all) enum MoonbitSyntaxKind {
   StructItemHeaderNode
   EnumItemHeaderNode
   TypeItemHeaderNode
+  IfExprNode
+  BlockExprNode
 } derive(Eq, @debug.Debug)
 pub impl @seam.FromRawKind for MoonbitSyntaxKind
 pub impl @seam.ToRawKind for MoonbitSyntaxKind
