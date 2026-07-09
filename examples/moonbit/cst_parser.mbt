@@ -426,19 +426,20 @@ fn consume_source_item_tokens(
      !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
     if group_depth == 0 {
-      // Dispatch at top level: item delimiter breaks; block/if expressions
-      // are context-sensitive constructs.
       if token.is_item_delimiter() {
         ctx.emit_token(token.syntax_kind())
         break (consumed + 1, group_depth)
       }
-      if is_lbrace(token) {
-        ignore(parse_block_expr(ctx))
-        continue consumed + 1, 0
-      }
-      if is_if(token) {
-        ignore(parse_if_expr(ctx))
-        continue consumed + 1, 0
+      match token {
+        Official(kind=TK_LBRACE) => {
+          ignore(parse_block_expr(ctx))
+          continue consumed + 1, 0
+        }
+        Official(kind=TK_IF) => {
+          ignore(parse_if_expr(ctx))
+          continue consumed + 1, 0
+        }
+        _ => ()
       }
     }
     ctx.emit_token(token.syntax_kind())
@@ -446,12 +447,6 @@ fn consume_source_item_tokens(
   } nobreak {
     (consumed, group_depth)
   }
-}
-
-///|
-/// Check if the current token is an `if` keyword.
-fn is_if(token : MoonToken) -> Bool {
-  token is Official(kind=TK_IF)
 }
 
 ///|
@@ -464,12 +459,6 @@ fn is_lbrace(token : MoonToken) -> Bool {
 /// Check if the current token is `}`.
 fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
-}
-
-///|
-/// Check if the current token is a `while` keyword.
-fn is_while(token : MoonToken) -> Bool {
-  token is Official(kind=TK_WHILE)
 }
 
 ///|
@@ -497,19 +486,13 @@ fn parse_if_expr(
     if !ctx.at_eof() && is_lbrace(ctx.peek()) {
       ignore(parse_block_expr(ctx))
     }
-    if !ctx.at_eof() && is_else(ctx.peek()) {
+    if !ctx.at_eof() && ctx.peek() is Official(kind=TK_ELSE) {
       ctx.emit_token(ElseToken)
       if !ctx.at_eof() && is_lbrace(ctx.peek()) {
         ignore(parse_block_expr(ctx))
       }
     }
   })
-}
-
-///|
-/// Check if the current token is `else`.
-fn is_else(token : MoonToken) -> Bool {
-  token is Official(kind=TK_ELSE)
 }
 
 ///|
@@ -542,12 +525,10 @@ fn parse_block_expr(
         ctx.emit_token(token.syntax_kind())
         continue
       }
-      if is_if(token) {
-        ignore(parse_if_expr(ctx))
-      } else if is_while(token) {
-        ignore(parse_while_expr(ctx))
-      } else {
-        ctx.emit_token(token.syntax_kind())
+      match token {
+        Official(kind=TK_IF) => ignore(parse_if_expr(ctx))
+        Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
+        _ => ctx.emit_token(token.syntax_kind())
       }
     }
     if !ctx.at_eof() && is_rbrace(ctx.peek()) {
