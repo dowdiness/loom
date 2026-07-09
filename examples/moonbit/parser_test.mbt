@@ -677,3 +677,47 @@ test "skeleton grammar parses match in block expression" {
   )
   debug_inspect(kinds, content="[\"BlockExprNode\"]")
 }
+
+///|
+test "skeleton grammar parses for expression" {
+  let source =
+    #|fn f() {
+    #|  for i = 0; i < 10; i = i + 1 {
+    #|    1
+    #|  }
+    #|}
+    #|
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [_, body, ..] => {
+          let body_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            body.kind(),
+          )
+          inspect(body_kind.to_string(), content="BlockExprNode")
+          match body.children() {
+            [for_node, ..] => {
+              let fk : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                for_node.kind(),
+              )
+              inspect(fk.to_string(), content="ForExprNode")
+            }
+            [] => abort("no children in block")
+          }
+        }
+        [_] => abort("unexpected single child")
+        [] => abort("no children in function item")
+      }
+    [] => abort("no top-level items")
+  }
+}
+
+///|
+test "skeleton grammar parses for with if inside" {
+  let kinds = first_child_of_first_item_kind_names(
+    "fn f() { for i = 0; i < 10; i = i + 1 { if true { 1 } } }\n",
+  )
+  debug_inspect(kinds, content="[\"BlockExprNode\"]")
+}

@@ -448,6 +448,10 @@ fn consume_source_item_tokens(
           ignore(parse_match_expr(ctx))
           continue consumed + 1, 0
         }
+        Official(kind=TK_FOR) => {
+          ignore(parse_for_expr(ctx))
+          continue consumed + 1, 0
+        }
         _ => ()
       }
     }
@@ -507,6 +511,14 @@ fn parse_while_expr(
 }
 
 ///|
+/// Parse a `for init; cond; step { body }` expression.
+fn parse_for_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  parse_keyword_body_expr(ctx, ForExprNode, ForToken)
+}
+
+///|
 /// Parse an `if cond { then } else { else }` expression.
 fn parse_if_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
@@ -545,7 +557,7 @@ fn consume_until_body(
 ///| separated by `;` or NEWLINE (ASI); context-sensitive constructs
 
 ///|
-/// (if, while, match) are parsed recursively.
+/// (if, while, match, for) are parsed recursively.
 fn parse_block_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
@@ -564,6 +576,7 @@ fn parse_block_expr(
         Official(kind=TK_IF) => ignore(parse_if_expr(ctx))
         Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
         Official(kind=TK_MATCH) => ignore(parse_match_expr(ctx))
+        Official(kind=TK_FOR) => ignore(parse_for_expr(ctx))
         _ => ctx.emit_token(token.syntax_kind())
       }
     }
