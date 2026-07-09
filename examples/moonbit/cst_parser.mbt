@@ -466,7 +466,6 @@ fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
 }
 
-
 ///|
 /// Check if the current token is a `while` keyword.
 fn is_while(token : MoonToken) -> Bool {
@@ -486,6 +485,7 @@ fn parse_while_expr(
     }
   })
 }
+
 ///|
 /// Parse an `if cond { then } else { else }` expression.
 fn parse_if_expr(

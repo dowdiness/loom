@@ -419,19 +419,25 @@ test "moonbit top-level differential fixtures agree with official parser item ki
 test "moonbit top-level differential fixture boundary snapshot" {
   let snapshots = top_level_boundary_snapshots()
   let fixtures = top_level_differential_fixtures()
-  @debug.assert_eq(snapshots.length(), fixtures.length(),
-    msg="boundary snapshot count matches fixture count")
+  @debug.assert_eq(
+    snapshots.length(),
+    fixtures.length(),
+    msg="boundary snapshot count matches fixture count",
+  )
   for i, fixture in fixtures {
     let snap = snapshots[i]
-    @debug.assert_eq(snap.name, fixture.name,
-      msg="snapshot \{i}: name")
+    @debug.assert_eq(snap.name, fixture.name, msg="snapshot \{i}: name")
     let items = snap.item_boundaries
     for _, item_snap in items {
       // Every item must have a recognizable kind
-      let kinds = ["LetItemNode", "FunctionItemNode", "StructItemNode",
-        "EnumItemNode", "TypeItemNode", "SourceItemNode"]
-      assert_true(kinds.contains(item_snap.item_kind),
-        msg="\{snap.name}: unexpected item kind \{item_snap.item_kind}")
+      let kinds = [
+        "LetItemNode", "FunctionItemNode", "StructItemNode", "EnumItemNode", "TypeItemNode",
+        "SourceItemNode",
+      ]
+      assert_true(
+        kinds.contains(item_snap.item_kind),
+        msg="\{snap.name}: unexpected item kind \{item_snap.item_kind}",
+      )
     }
   }
 }

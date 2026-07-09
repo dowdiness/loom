@@ -557,11 +557,13 @@ test "skeleton grammar parses nested if expressions" {
             [outer_if] =>
               match outer_if.children() {
                 [then_block, else_block] => {
-                  let then_kind : MoonbitSyntaxKind =
-                    @seam.FromRawKind::from_raw(then_block.kind())
+                  let then_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                    then_block.kind(),
+                  )
                   inspect(then_kind.to_string(), content="BlockExprNode")
-                  let else_kind : MoonbitSyntaxKind =
-                    @seam.FromRawKind::from_raw(else_block.kind())
+                  let else_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                    else_block.kind(),
+                  )
                   inspect(else_kind.to_string(), content="BlockExprNode")
                   // Inner if is inside then_block (no child nodes = empty block
                   // for literal-only content, so check tokens instead)
@@ -601,8 +603,9 @@ test "skeleton grammar parses while expression" {
           inspect(body_kind.to_string(), content="BlockExprNode")
           match body.children() {
             [while_node, ..] => {
-              let wc_kind : MoonbitSyntaxKind =
-                @seam.FromRawKind::from_raw(while_node.kind())
+              let wc_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                while_node.kind(),
+              )
               inspect(wc_kind.to_string(), content="WhileExprNode")
             }
             [] => abort("no children in block")
@@ -617,9 +620,7 @@ test "skeleton grammar parses while expression" {
 
 ///|
 test "skeleton grammar parses multiple statements in block" {
-  let kinds = first_child_of_first_item_kind_names(
-    "fn f() { 1; 2; 3 }\n",
-  )
+  let kinds = first_child_of_first_item_kind_names("fn f() { 1; 2; 3 }\n")
   debug_inspect(kinds, content="[\"BlockExprNode\"]")
 }
 
