@@ -167,11 +167,6 @@ pub fn FoldStats::zero() -> Self
 pub(all) struct GoalCache[T] {
   // private fields
 }
-pub fn[T] GoalCache::goal_span_containing(Self[T], Int) -> (Int, Int)?
-pub fn[T] GoalCache::insert(Self[T], Int, Int, T, Int) -> Unit
-pub fn[T] GoalCache::invalidate(Self[T]) -> Unit
-pub fn[T] GoalCache::lookup(Self[T], Int, Int) -> (T, Int)?
-pub fn[T] GoalCache::new() -> Self[T]
 
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
@@ -434,7 +429,6 @@ pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
 pub fn[T] TokenBuffer::goal_span_exceeds(Self[T], Int, Int) -> Bool
 pub fn[T] TokenBuffer::goal_token_at(Self[T], Int, Int) -> (T, Int)
-pub fn[T] TokenBuffer::is_offset_goal_subsumed(Self[T], Int) -> Bool
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
 pub fn[T] TokenBuffer::new_from_lex(String, lex_fn~ : (String) -> LexResult[T], eof_token~ : T, incremental_relex_enabled? : Bool, mode_relex? : ModeRelexState[T]?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> Self[T]

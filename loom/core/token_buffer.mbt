@@ -440,18 +440,6 @@ fn[T] TokenBuffer::baseline_token_at(
 }
 
 ///|
-/// Check if the given source offset falls inside any cached goal-produced
-/// token span. Returns true when a previous goal_token_at query produced a
-/// token whose span contains this offset — meaning reuse of old CST nodes
-/// at this position must be skipped.
-pub fn[T] TokenBuffer::is_offset_goal_subsumed(
-  self : TokenBuffer[T],
-  offset : Int,
-) -> Bool {
-  self.goal_cache.goal_span_containing(offset) is Some(_)
-}
-
-///|
 /// Check if a goal-produced token span at `offset` exceeds the baseline
 /// token length at that position. Returns true only when the goal span is
 /// strictly longer than `baseline_len` — meaning the goal token subsumes

@@ -25,20 +25,20 @@ pub(all) struct GoalCache[T] {
 
 ///|
 /// Create an empty goal tokenization cache.
-pub fn[T] GoalCache::new() -> GoalCache[T] {
+fn[T] GoalCache::new() -> GoalCache[T] {
   { entries: [] }
 }
 
 ///|
 /// Clear all cached entries. Called on TokenBuffer::update().
-pub fn[T] GoalCache::invalidate(self : GoalCache[T]) -> Unit {
+fn[T] GoalCache::invalidate(self : GoalCache[T]) -> Unit {
   self.entries.clear()
 }
 
 ///|
 /// Look up a cached goal-directed token result.
 /// Returns None on cache miss.
-pub fn[T] GoalCache::lookup(
+fn[T] GoalCache::lookup(
   self : GoalCache[T],
   offset : Int,
   goal : Int,
@@ -51,7 +51,7 @@ pub fn[T] GoalCache::lookup(
 
 ///|
 /// Insert a goal-directed token result into the cache.
-pub fn[T] GoalCache::insert(
+fn[T] GoalCache::insert(
   self : GoalCache[T],
   offset : Int,
   goal : Int,
@@ -65,14 +65,12 @@ pub fn[T] GoalCache::insert(
 /// Check if the given offset falls inside any cached goal-produced token span.
 /// Returns `(start, end_exclusive)` of the containing span, or None.
 /// O(N) in cache size — cache is bounded by goal queries per parse pass.
-pub fn[T] GoalCache::goal_span_containing(
+fn[T] GoalCache::goal_span_containing(
   self : GoalCache[T],
   offset : Int,
 ) -> (Int, Int)? {
-  for entry in self.entries {
-    if offset >= entry.offset && offset < entry.end_offset {
-      return Some((entry.offset, entry.end_offset))
-    }
-  }
-  None
+  self.entries
+  .iter()
+  .find_first(fn(entry) { offset >= entry.offset && offset < entry.end_offset })
+  .map(fn(entry) { (entry.offset, entry.end_offset) })
 }
