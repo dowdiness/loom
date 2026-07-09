@@ -382,16 +382,7 @@ fn[T, K] ParserContext::baseline_token_at(
   self : ParserContext[T, K],
   offset : Int,
 ) -> (T, Int) {
-  let mut lo = 0
-  let mut hi = self.token_count
-  while lo < hi {
-    let mid = lo + (hi - lo) / 2
-    if (self.get_start)(mid) < offset {
-      lo = mid + 1
-    } else {
-      hi = mid
-    }
-  }
+  let lo = lower_bound(self, offset)
   if lo < self.token_count && (self.get_start)(lo) == offset {
     ((self.get_token)(lo), (self.get_end)(lo))
   } else {
@@ -405,17 +396,7 @@ fn[T, K] ParserContext::lower_bound_offset(
   self : ParserContext[T, K],
   target : Int,
 ) -> Int {
-  let mut lo = 0
-  let mut hi = self.token_count
-  while lo < hi {
-    let mid = lo + (hi - lo) / 2
-    if (self.get_start)(mid) < target {
-      lo = mid + 1
-    } else {
-      hi = mid
-    }
-  }
-  lo
+  lower_bound(self, target)
 }
 
 ///|

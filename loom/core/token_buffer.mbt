@@ -398,9 +398,8 @@ pub fn[T] TokenBuffer::goal_token_at(
       match self.tokenize_at_offset(offset, goal) {
         Produced(tok, next_offset~) =>
           if next_offset > offset && next_offset <= self.source.length() {
-            let result = (tok.token, next_offset)
-            self.goal_cache.insert(offset, goal, result.0, result.1)
-            result
+            self.goal_cache.insert(offset, goal, tok.token, next_offset)
+            (tok.token, next_offset)
           } else {
             self.baseline_token_at(offset)
           }

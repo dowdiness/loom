@@ -43,12 +43,10 @@ pub fn[T] GoalCache::lookup(
   offset : Int,
   goal : Int,
 ) -> (T, Int)? {
-  for entry in self.entries {
-    if entry.offset == offset && entry.goal == goal {
-      return Some((entry.token, entry.end_offset))
-    }
-  }
-  None
+  self.entries
+  .iter()
+  .find_first(fn(entry) { entry.offset == offset && entry.goal == goal })
+  .map(fn(entry) { (entry.token, entry.end_offset) })
 }
 
 ///|

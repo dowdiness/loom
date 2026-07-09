@@ -45,6 +45,16 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 }
 
 ///|
+impl[T, K] OffsetIndexed for ParserContext[T, K] with fn length(self) {
+  self.token_count
+}
+
+///|
+impl[T, K] OffsetIndexed for ParserContext[T, K] with fn offset_at(self, i) {
+  (self.get_start)(i)
+}
+
+///|
 /// Describes one language to the generic parser infrastructure.
 /// Create one instance at module init — it is reused across all parses.
 ///
