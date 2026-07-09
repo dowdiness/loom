@@ -164,6 +164,14 @@ pub struct FoldStats {
 } derive(@debug.Debug)
 pub fn FoldStats::zero() -> Self
 
+pub(all) struct GoalCache[T] {
+  // private fields
+}
+pub fn[T] GoalCache::insert(Self[T], Int, Int, T, Int) -> Unit
+pub fn[T] GoalCache::invalidate(Self[T]) -> Unit
+pub fn[T] GoalCache::lookup(Self[T], Int, Int) -> (T, Int)?
+pub fn[T] GoalCache::new() -> Self[T]
+
 pub struct LanguageSpec[T, K] {
   whitespace_kind : K
   error_kind : K
@@ -273,6 +281,7 @@ pub fn OldTokenCache::empty() -> Self
 pub struct ParserContext[T, K] {
   // private fields
 }
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(Self[T, K], Int) -> T
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at(Self[T, K], T) -> Bool
 pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(Self[T, K], T) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(Self[T, K]) -> Bool
@@ -288,6 +297,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T, K]) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token(Self[T, K], K) -> Unit
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token_with_goal(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_zero_width(Self[T, K], K) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::error(Self[T, K], String) -> Unit
 pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::expect(Self[T, K], T, K) -> Bool
@@ -315,6 +325,7 @@ pub fn[T, K] ParserContext::report_error(Self[T, K], message~ : String, code? : 
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(Self[T, K], expected~ : String, code? : DiagnosticCode?) -> Unit
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool, element_start? : () -> Bool, wrap_element? : Bool) -> Int
+pub fn[T, K] ParserContext::set_goal_source(Self[T, K], (Int, Int) -> (T, Int)) -> Unit
 pub fn[T, K] ParserContext::set_lex_mode(Self[T, K], Int) -> Unit
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit
@@ -324,6 +335,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 pub fn[T, K, R] ParserContext::speculative(Self[T, K], () -> R) -> R
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_at(Self[T, K], Int, K) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::start_node(Self[T, K], K) -> Unit
+pub fn[T, K] ParserContext::token_at(Self[T, K], Int, Int) -> (T, Int)
 pub fn[T, K] ParserContext::token_text_at(Self[T, K], Int) -> StringView
 pub fn[T, K] ParserContext::too_many_errors(Self[T, K], Int) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::try_reuse_current_node(Self[T, K], K) -> Bool
@@ -419,6 +431,7 @@ pub fn[T] TokenBuffer::get_token(Self[T], Int) -> T
 pub fn[T] TokenBuffer::get_tokens(Self[T]) -> Array[TokenInfo[T]]
 pub fn[T] TokenBuffer::get_version(Self[T]) -> Int
 pub fn[T] TokenBuffer::get_view(Self[T], Int) -> StringView
+pub fn[T] TokenBuffer::goal_token_at(Self[T], Int, Int) -> (T, Int)
 pub fn[T] TokenBuffer::new(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T) -> Self[T] raise LexError
 pub fn[T] TokenBuffer::new_from_lex(String, lex_fn~ : (String) -> LexResult[T], eof_token~ : T, incremental_relex_enabled? : Bool, mode_relex? : ModeRelexState[T]?) -> Self[T]
 pub fn[T] TokenBuffer::new_from_steps(String, PrefixLexer[T], eof_token~ : T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> Self[T]
@@ -427,7 +440,9 @@ pub fn[T] TokenBuffer::new_from_steps_strict(String, PrefixLexer[T], eof_token~ 
 pub fn[T] TokenBuffer::new_resilient(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_resilient_compat(String, tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError, eof_token~ : T, error_token~ : T) -> Self[T]
 pub fn[T] TokenBuffer::new_with_mode_relex(String, Array[TokenInfo[T]], Array[Int], T, ModeRelexState[T]) -> Self[T]
+pub fn[T] TokenBuffer::set_goal_step(Self[T], (String, Int, Int) -> LexStep[T]) -> Unit
 pub fn[T] TokenBuffer::token_count(Self[T]) -> Int
+pub fn[T] TokenBuffer::tokenize_at_offset(Self[T], Int, Int) -> LexStep[T]
 pub fn[T : Eq] TokenBuffer::update(Self[T], Edit, String) -> Unit raise LexError
 
 pub struct TokenEvidence {
