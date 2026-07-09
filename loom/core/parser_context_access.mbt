@@ -456,7 +456,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
     Some(pos) if !(self.get_token)(pos).is_eof() => {
       let offset = (self.get_start)(pos)
       let (_goal_token, end_offset) = self.token_at(offset, goal)
-      let text = self.source.view(start_offset=offset, end_offset=end_offset)
+      let text = self.source.view(start_offset=offset, end_offset~)
       self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
       let new_pos = self.lower_bound_offset(end_offset)
       self.position = new_pos

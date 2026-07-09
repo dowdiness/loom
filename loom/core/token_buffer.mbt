@@ -394,21 +394,21 @@ pub fn[T] TokenBuffer::goal_token_at(
 ) -> (T, Int) {
   match self.goal_cache.lookup(offset, goal) {
     Some(result) => result
-    None => match self.tokenize_at_offset(offset, goal) {
-      Produced(tok, next_offset~) => {
-        if next_offset > offset && next_offset <= self.source.length() {
-          let result = (tok.token, next_offset)
-          self.goal_cache.insert(offset, goal, result.0, result.1)
-          result
-        } else {
-          self.baseline_token_at(offset)
-        }
+    None =>
+      match self.tokenize_at_offset(offset, goal) {
+        Produced(tok, next_offset~) =>
+          if next_offset > offset && next_offset <= self.source.length() {
+            let result = (tok.token, next_offset)
+            self.goal_cache.insert(offset, goal, result.0, result.1)
+            result
+          } else {
+            self.baseline_token_at(offset)
+          }
+        // Invalid/Incomplete/Done: fall back to baseline token.
+        // No diagnostic pushed — goal queries are speculative and
+        // cache-shared across checkpoints.
+        _ => self.baseline_token_at(offset)
       }
-      // Invalid/Incomplete/Done: fall back to baseline token.
-      // No diagnostic pushed — goal queries are speculative and
-      // cache-shared across checkpoints.
-      _ => self.baseline_token_at(offset)
-    }
   }
 }
 
@@ -417,7 +417,10 @@ pub fn[T] TokenBuffer::goal_token_at(
 /// Returns `(token, end_exclusive)` from the TokenBuffer arrays.
 /// Uses binary search on the monotonic `starts` array.
 /// Returns EOF when no token starts at `offset`.
-fn[T] TokenBuffer::baseline_token_at(self : TokenBuffer[T], offset : Int) -> (T, Int) {
+fn[T] TokenBuffer::baseline_token_at(
+  self : TokenBuffer[T],
+  offset : Int,
+) -> (T, Int) {
   let len = self.tokens.length()
   let mut lo = 0
   let mut hi = len
@@ -436,6 +439,7 @@ fn[T] TokenBuffer::baseline_token_at(self : TokenBuffer[T], offset : Int) -> (T,
     (self.eof_token, self.source.length())
   }
 }
+
 ///|
 pub fn[T : Eq] TokenBuffer::update(
   self : TokenBuffer[T],

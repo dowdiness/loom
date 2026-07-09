@@ -7,6 +7,7 @@
 // storing results from goal-directed lex steps. Cache is cleared on
 // source edit via TokenBuffer.update().
 
+///|
 /// Internal cache entry for one goal-directed token result.
 priv struct GoalCacheEntry[T] {
   offset : Int
@@ -15,22 +16,26 @@ priv struct GoalCacheEntry[T] {
   end_offset : Int
 }
 
+///|
 /// Cache for parser-directed goal tokenization results.
 /// Lives on TokenBuffer; cleared on source edit.
 pub(all) struct GoalCache[T] {
   priv entries : Array[GoalCacheEntry[T]]
 }
 
+///|
 /// Create an empty goal tokenization cache.
 pub fn[T] GoalCache::new() -> GoalCache[T] {
   { entries: [] }
 }
 
+///|
 /// Clear all cached entries. Called on TokenBuffer::update().
 pub fn[T] GoalCache::invalidate(self : GoalCache[T]) -> Unit {
   self.entries.clear()
 }
 
+///|
 /// Look up a cached goal-directed token result.
 /// Returns None on cache miss.
 pub fn[T] GoalCache::lookup(
@@ -46,6 +51,7 @@ pub fn[T] GoalCache::lookup(
   None
 }
 
+///|
 /// Insert a goal-directed token result into the cache.
 pub fn[T] GoalCache::insert(
   self : GoalCache[T],
