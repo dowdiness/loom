@@ -992,3 +992,117 @@ test "emit_grammar_ir: @native(ident) lowers to Expr::Native" {
   inspect(generated.contains("Expr::Native"), content="true")
   inspect(generated.contains("parse_tag"), content="true")
 }
+
+///|
+/// A `@native` in the final Choice position is treated as a catch-all: emitted
+/// with `Pred::Any` (always-matching) instead of participating in FIRST-set
+/// dispatch. The catch-all replaces the required Any→Fail fallback — it IS the
+/// fallback, consuming whatever earlier branches did not match.
+/// `(A | B | @native(fallback))` should have two `Pred::Any` alts:
+/// one for the catch-all and NONE for an additional Fail.
+test "emit_grammar_ir: @native in final Choice position is catch-all with Pred::Any" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("(A | B | @native(fallback))")
+    #|  Pick
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for catch-all @native but got: " + m)
+  }
+  // The catch-all alt gets Pred::Any.
+  inspect(generated.contains("@grammar.Pred::Any"), content="true")
+  // The catch-all body is Expr::Native("fallback").
+  inspect(
+    generated.contains("Expr::Native") && generated.contains("fallback"),
+    content="true",
+  )
+  // No required Fail fallback — the catch-all IS the fallback.
+  inspect(generated.contains("@grammar.Expr::Fail("), content="false")
+  // Each non-catch-all branch still has its FIRST-set predicate.
+  inspect(generated.contains("@grammar.Pred::IsToken("), content="true")
+}
+
+///|
+/// A `@native` in a non-last position of a Choice must fail closed — it would
+/// shadow all following branches via its always-matching Pred::Any.
+test "emit_grammar_ir: @native in non-final Choice position is rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.punct("b")
+      #|  B
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("(A | @native(fallback) | B)")
+      #|  Pick
+      #|} derive(Eq)
+    ),
+  )
+  inspect(
+    msg.contains("catch-all @native must be the final alternative"),
+    content="true",
+  )
+}
+
+///|
+/// A `(A | @native(catch))` Choice with the catch-all as the second of two
+/// branches: the non-catch-all branch gets its FIRST-set predicate, the
+/// catch-all gets Pred::Any, and no additional Fail fallback is emitted.
+test "emit_grammar_ir: @native catch-all as second of two Choice branches" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("(A | @native(catch))")
+    #|  Pick
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for 2-branch catch-all but got: " + m)
+  }
+  // The A branch has IsToken(A).
+  inspect(
+    generated.contains("@grammar.Pred::IsToken(") &&
+    generated.contains("@token.A"),
+    content="true",
+  )
+  // The catch-all branch has Pred::Any.
+  inspect(generated.contains("@grammar.Pred::Any"), content="true")
+  // The catch-all body is Expr::Native("catch").
+  inspect(
+    generated.contains("Expr::Native") && generated.contains("catch"),
+    content="true",
+  )
+  // No required Fail fallback — the catch-all replaces it.
+  inspect(generated.contains("@grammar.Expr::Fail("), content="false")
+}
