@@ -415,7 +415,9 @@ fn first_child_of_first_item_kind_names(source : String) -> Array[String] {
       match item.children() {
         [_, rest, ..] => {
           // rest is the block/expression node; return its kind
-          let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(rest.kind())
+          let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            rest.kind(),
+          )
           [kind.to_string()]
         }
         [_] => []

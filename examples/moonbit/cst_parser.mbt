@@ -447,16 +447,19 @@ fn consume_source_item_tokens(
     (consumed, group_depth)
   }
 }
+
 ///|
 /// Check if the current token is an `if` keyword.
 fn is_if(token : MoonToken) -> Bool {
   token is Official(kind=TK_IF)
 }
+
 ///|
 /// Check if the current token is `{`.
 fn is_lbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_LBRACE)
 }
+
 ///|
 /// Check if the current token is `}`.
 fn is_rbrace(token : MoonToken) -> Bool {
@@ -482,11 +485,13 @@ fn parse_if_expr(
     }
   })
 }
+
 ///|
 /// Check if the current token is `else`.
 fn is_else(token : MoonToken) -> Bool {
   token is Official(kind=TK_ELSE)
 }
+
 ///|
 /// Consume tokens that form the condition, stopping at `{`, `}`, or item delimiter.
 fn consume_until_body(
@@ -500,6 +505,7 @@ fn consume_until_body(
     ctx.emit_token(token.syntax_kind())
   }
 }
+
 ///|
 /// separated by `;` or NEWLINE (ASI).
 fn parse_block_expr(
