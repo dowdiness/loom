@@ -192,9 +192,22 @@ TokenBuffer linear index. A new method is added for goal-directed access:
 fn ParserContext::token_at(self, offset: Int, goal: Int) -> (Token, Int)
 ```
 
-The reuse cursor matches old CST nodes to new token ranges by start offset.
-Since GoalTokenSource does not change TokenBuffer's offset→position mapping
-(the linear index is unchanged), ReuseCursor is unaffected.
+### ReuseCursor
+
+ReuseCursor is **indirectly affected**: it matches old CST nodes to new token
+ranges by start offset. Goal-produced tokens may have spans that subsume
+multiple baseline TokenBuffer positions (e.g. a `Regex` token spanning offsets
+42–48 subsumes positions that the baseline would have split across `Slash` +
+body tokens). This means:
+
+- CST nodes inside a goal-subsumed region cannot be reused — they correspond
+  to baseline tokens that no longer exist in the goal-aware token stream.
+- ReuseCursor matching remains correct for positions NOT queried through
+  GoalTokenSource (the common case — most tokens use the baseline path).
+- A concrete invalidation rule for reuse inside goal-subsumed regions is
+  **deferred to implementation** — the current design ensures correctness
+  (baseline STILL exists, so reuse never references dead tokens) but may
+  miss reuse opportunities inside goal-directed regions.
 
 ### Checkpoint / restore
 
