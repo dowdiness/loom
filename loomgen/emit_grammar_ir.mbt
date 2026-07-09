@@ -609,7 +609,7 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
         MbtExpr::StrLit(quote(name)),
       ])
     Seq(items) => {
-      let exprs = items.map((it) => lower(it, ctx))
+      let exprs = items.map(it => lower(it, ctx))
       MbtExpr::Call(ctx.grammar_qual + ".Expr::Seq", [MbtExpr::Array(exprs)])
     }
     // X* — repeat the body while its FIRST set still gates entry.
