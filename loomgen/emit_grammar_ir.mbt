@@ -172,7 +172,7 @@ fn nullable(
           }
         Terminal(_) | RulelessTerm | Unknown => false
       }
-    Frag(_) => false
+    Frag(_) | Native(_) => false
     Seq(items) => items.iter().all(it => nullable(it, ctx, visiting))
     Alt(branches) => branches.iter().any(b => nullable(b, ctx, visiting))
     Star(_) | Opt(_) => true
@@ -211,7 +211,7 @@ fn first_set(
         RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
         Unknown => raise RuleLowerError(unknown_symbol_msg(name))
       }
-    Frag(_) => @hashset.HashSet([])
+    Frag(_) | Native(_) => @hashset.HashSet([])
     Seq(items) => {
       let leading = seq_leading(items, ctx)
       // A fragment in a leading (FIRST) position makes the Seq's FIRST set
@@ -220,9 +220,9 @@ fn first_set(
       // a predicate that gated on the visible prefix and excluded the fragment's
       // actual FIRST tokens. Trailing fragments (after `leading` ends) are fine.
       for it in leading {
-        if it is Frag(_) {
+        if it is Frag(_) || it is Native(_) {
           raise RuleLowerError(
-            "@fragment reference in a FIRST-requiring position (e.g. inside a nullable prefix) — the fragment's body is opaque at emit time, so its FIRST set is unknown; restructure to place the fragment in trailing (non-FIRST) position",
+            "@fragment or @native reference in a FIRST-requiring position (e.g. inside a nullable prefix) — the fragment or native body is opaque at emit time, so its FIRST set is unknown; restructure to place it in trailing (non-FIRST) position",
           )
         }
       }
@@ -285,7 +285,7 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
         Terminal(_) => []
         Rule(_) | RulelessTerm | Unknown => [name]
       }
-    Frag(_) => []
+    Frag(_) | Native(_) => []
     Seq(items) => {
       let acc : Array[String] = []
       for it in seq_leading(items, ctx) {
@@ -347,6 +347,7 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
   fn go(ast : RuleAst) -> Bool {
     match ast {
       Frag(_) => true
+      Native(_) => false
       Sym(_) => false
       Seq(items) | Alt(items) => items.iter().any(go)
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
@@ -599,6 +600,12 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
     Frag(name) =>
       MbtExpr::Call(ctx.grammar_qual + ".Expr::Ref", [
         MbtExpr::StrLit(quote("__loom_frag__" + name)),
+      ])
+    // @native(name) lowers to Expr::Native(name) — a call to a hand-written
+    // production that the consumer supplies as `fn name(ctx) -> Unit`.
+    Native(name) =>
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::Native", [
+        MbtExpr::StrLit(quote(name)),
       ])
     Seq(items) => {
       let exprs = items.map(fn(it) { lower(it, ctx) })

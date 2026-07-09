@@ -58,6 +58,7 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GAssign => "'='"
     GRule(TIdent(n)) => "identifier '" + n + "'"
     GRule(TFrag(n)) => "fragment '@" + n + "'"
+    GRule(TNative) => "'@native()'"
     GRule(TLParen) => "'('"
     GRule(TRParen) => "')'"
     GRule(TPipe) => "'|'"

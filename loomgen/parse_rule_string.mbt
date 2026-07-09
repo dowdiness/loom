@@ -10,13 +10,13 @@
 ///   alt        := seq ('|' seq)*
 ///   seq        := postfix+
 ///   postfix    := atom ('*' | '+' | '?' | '~' | '!')?
-///   atom       := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')'
-///              | '(' alt ')'
+
+///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'
 /// ```
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
-/// `@` marks a hand-authored fragment reference unless the keyword is reserved
-/// (`until`, `prefix`, `app`, `prec`, `skip`). The parser fails closed on any
+
+///| (`until`, `native`, `prefix`, `app`, `prec`, `skip`). The parser fails closed on any
 /// lexical or structural error so an unparseable rule never reaches the emitter.
 
 ///|
@@ -41,6 +41,7 @@ struct PrattBinarySpec {
 enum RuleAst {
   Sym(String)
   Frag(String)
+  Native(String)
   Seq(Array[RuleAst])
   Alt(Array[RuleAst])
   Star(RuleAst)
@@ -57,6 +58,7 @@ enum RuleAst {
 enum RuleTok {
   TIdent(String)
   TFrag(String)
+  TNative
   TLParen
   TRParen
   TPipe
@@ -111,6 +113,7 @@ fn scan_ident(s : String, pos : Int) -> (String, Int) {
 fn rule_at_keyword(name : String) -> RuleTok? {
   match name {
     "until" => Some(TUntil)
+    "native" => Some(TNative)
     "prefix" => Some(TPrefix)
     "app" => Some(TApp)
     "prec" => Some(TPrec)
@@ -410,7 +413,9 @@ fn pratt_token_in_ebnf_err(tok : RuleTok) -> String {
 }
 
 ///|
-/// `atom := IDENT | '@' IDENT | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'`.
+
+///|
+/// `atom := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'`.
 fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
   match self.peek() {
     Some(TIdent(name)) => {
@@ -420,6 +425,25 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
     Some(TFrag(name)) => {
       self.bump()
       Frag(name)
+    }
+    Some(TNative) => {
+      self.bump()
+      guard self.peek() is Some(TLParen) else {
+        raise RuleParseError("'@native' must be followed by '(' name ')'")
+      }
+      self.bump()
+      let name = match self.peek() {
+        Some(TIdent(n)) => {
+          self.bump()
+          n
+        }
+        _ => raise RuleParseError("@native() must contain an identifier")
+      }
+      guard self.peek() is Some(TRParen) else {
+        raise RuleParseError("unbalanced '@native(' — missing ')'")
+      }
+      self.bump()
+      Native(name)
     }
     Some(TUntil) => {
       self.bump()

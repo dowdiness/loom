@@ -133,3 +133,82 @@ test "parse_rule_string rejects leading @app without @prefix" {
     Err(m) => inspect(m.contains("must begin with '@prefix'"), content="true")
   }
 }
+
+///|
+test "parse_rule_string: @native(ident) atom" {
+  match parse_rule_string("@native(parse_tag_open)", "Element") {
+    Ok(Native("parse_tag_open")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @native(ident) in Seq" {
+  match
+    parse_rule_string(
+      "LAngle @native(parse_tag_open) Attr* @native(parse_children_or_void) CloseTag",
+      "Element",
+    ) {
+    Ok(
+      Seq(
+        [
+          Sym("LAngle"),
+          Native("parse_tag_open"),
+          Star(Sym("Attr")),
+          Native("parse_children_or_void"),
+          Sym("CloseTag"),
+        ]
+      )
+    ) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @native(ident) in Alt" {
+  match parse_rule_string("Foo | @native(emit_flat)", "Rule") {
+    Ok(Alt([Sym("Foo"), Native("emit_flat")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @native(ident) as trailing fallthrough" {
+  match parse_rule_string("Foo | Bar | @native(fallback)", "Rule") {
+    Ok(Alt([Sym("Foo"), Sym("Bar"), Native("fallback")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @native() empty parens rejected" {
+  match parse_rule_string("@native()", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("must contain an identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @native without parens rejected" {
+  match parse_rule_string("@native", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(
+        m.contains("'@native' must be followed by '(' name ')'"),
+        content="true",
+      )
+  }
+}
+
+///|
+test "parse_rule_string: bare @native not confused with fragment" {
+  match parse_rule_string("@nativeX", "Bad") {
+    Ok(Frag("nativeX")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(_) => abort("expected '@nativeX' to parse as a fragment")
+  }
+}
