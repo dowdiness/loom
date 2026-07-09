@@ -43,11 +43,7 @@ impl @seam.ToRawKind for GoalTestTok with fn to_raw(self) {
 
 ///|
 enum GoalTestKind {
-  GTKSlash
   GTKRegex
-  GTKIdent
-  GTKNum
-  GTKExpr
   GTKWs
   GTKErr
   GTKRoot
@@ -57,14 +53,10 @@ enum GoalTestKind {
 ///|
 impl @seam.ToRawKind for GoalTestKind with fn to_raw(self) {
   let n = match self {
-    GTKSlash => 0
     GTKRegex => 1
-    GTKIdent => 2
-    GTKNum => 3
     GTKWs => 4
     GTKErr => 5
     GTKRoot => 6
-    GTKExpr => 7
     GTKIncomplete => 8
   }
   @seam.RawKind(n)
@@ -159,23 +151,21 @@ fn goal_lex_step(
 }
 
 ///|
-/// Baseline-only tokenizer (no goals, treats '/' as Slash).
-fn baseline_tokenize(
-  source : String,
-) -> Array[TokenInfo[GoalTestTok]] raise LexError {
-  let result : Array[TokenInfo[GoalTestTok]] = []
+fn baseline_tokenize(source : String) -> LexResult[GoalTestTok] {
+  let tokens : Array[TokenInfo[GoalTestTok]] = []
   let mut i = 0
   while i < source.length() {
-    let step = goal_lex_step(source, i, 0) // baseline always uses DivGoal
+    let step = goal_lex_step(source, i, 0)
     match step {
       Produced(tok, next_offset~) => {
-        result.push(tok)
+        tokens.push(tok)
         i = next_offset
       }
       _ => i = i + 1
     }
   }
-  result
+  let starts = build_starts(tokens)
+  LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
 }
 
 ///|
@@ -186,10 +176,10 @@ fn goal_step_fn(source : String, pos : Int, goal : Int) -> LexStep[GoalTestTok] 
 
 ///|
 /// Setup a TokenBuffer with goal-aware lexing for a given source.
-fn make_goal_buffer(source : String) -> TokenBuffer[GoalTestTok] raise LexError {
-  let buf = TokenBuffer::new(
+fn make_goal_buffer(source : String) -> TokenBuffer[GoalTestTok] {
+  let buf = TokenBuffer::new_from_lex(
     source,
-    tokenize_fn=baseline_tokenize,
+    lex_fn=baseline_tokenize,
     eof_token=GTEof,
   )
   buf.set_goal_step(goal_step_fn)
@@ -250,7 +240,7 @@ test "GoalCache: invalidate clears all entries" {
 
 ///|
 test "goal_token_at: cache miss lexes and caches" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   // DivGoal at offset 0: '/' → Slash
   let (tok0, end0) = buf.goal_token_at(0, 0)
   inspect(tok0, content="GTSlash")
@@ -263,7 +253,7 @@ test "goal_token_at: cache miss lexes and caches" {
 
 ///|
 test "goal_token_at: different goals at same offset" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   // RegExpGoal at offset 0: '/x/' → Regex("x")
   let (tok0, end0) = buf.goal_token_at(0, 1)
   match tok0 {
@@ -279,7 +269,7 @@ test "goal_token_at: different goals at same offset" {
 
 ///|
 test "goal_token_at: update invalidates cache" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   // Populate cache
   let (_, _) = buf.goal_token_at(0, 1)
   // Edit changes the source
@@ -295,13 +285,11 @@ test "goal_token_at: update invalidates cache" {
 
 ///|
 test "goal_token_at: no goal_step falls back to baseline" {
-  let buf = TokenBuffer::new(
+  let buf = TokenBuffer::new_from_lex(
     "/x/",
-    tokenize_fn=baseline_tokenize,
+    lex_fn=baseline_tokenize,
     eof_token=GTEof,
-  ) catch {
-    _ => abort("lex failed")
-  }
+  )
   // No set_goal_step — should fall back to baseline (Slash at offset 0)
   let (tok, end) = buf.goal_token_at(0, 1) // RegExpGoal, but no step
   inspect(tok, content="GTSlash")
@@ -312,7 +300,7 @@ test "goal_token_at: no goal_step falls back to baseline" {
 
 ///|
 test "ParserContext::token_at with goal_source set" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
     buf.token_count(),
@@ -336,8 +324,9 @@ test "ParserContext::token_at with goal_source set" {
 ///|
 test "ParserContext::token_at without goal_source falls back to baseline" {
   let spec = make_goal_spec()
-  let toks = baseline_tokenize("/x/") catch { _ => abort("lex failed") }
-  let starts = build_starts(toks)
+  let result = baseline_tokenize("/x/")
+  let toks = result.tokens
+  let starts = result.starts
   let ctx = ParserContext::new_indexed(
     toks.length(),
     fn(i) { toks[i].token },
@@ -354,7 +343,7 @@ test "ParserContext::token_at without goal_source falls back to baseline" {
 
 ///|
 test "minimal emit_token_with_goal produces CST with goal span" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
     buf.token_count(),
@@ -374,7 +363,7 @@ test "minimal emit_token_with_goal produces CST with goal span" {
 
 ///|
 test "advance_with_goal returns goal-directed token" {
-  let buf = make_goal_buffer("/x/") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
     buf.token_count(),
@@ -397,7 +386,7 @@ test "advance_with_goal returns goal-directed token" {
 
 ///|
 test "advance_with_goal at eof returns eof" {
-  let buf = make_goal_buffer("") catch { _ => abort("lex failed") }
+  let buf = make_goal_buffer("")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
     buf.token_count(),
