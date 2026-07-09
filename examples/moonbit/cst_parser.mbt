@@ -418,7 +418,12 @@ fn skip_balanced_prefix_group(
   }
 }
 
+///| Consume body tokens of a source item. At group_depth 0, dispatches
+
+///| context-sensitive constructs (block, if, match) and breaks on item
+
 ///|
+/// delimiters. Inside balanced groups, emits tokens flat.
 fn consume_source_item_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
@@ -527,8 +532,12 @@ fn consume_until_body(
   }
 }
 
+///| Parse a `{ ... }` block expression. Inner statements/expressions are
+
+///| separated by `;` or NEWLINE (ASI); context-sensitive constructs
+
 ///|
-/// separated by `;` or NEWLINE (ASI).
+/// (if, while, match) are parsed recursively.
 fn parse_block_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
