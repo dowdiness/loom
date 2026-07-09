@@ -355,7 +355,7 @@ pub fn[T, K] ParserContext::current_node_kind(self : ParserContext[T, K]) -> K? 
 pub fn[T, K] ParserContext::set_goal_source(
   self : ParserContext[T, K],
   source : (Int, Int) -> (T, Int),
-  subsumption_check? : (Int) -> Bool = fn(_) { false },
+  subsumption_check? : (Int, Int) -> Bool = fn(_, _) { false },
 ) -> Unit {
   self.goal_source = Some(source)
   self.goal_subsumption_check = Some(subsumption_check)

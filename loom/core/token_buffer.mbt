@@ -452,6 +452,22 @@ pub fn[T] TokenBuffer::is_offset_goal_subsumed(
 }
 
 ///|
+/// Check if a goal-produced token span at `offset` exceeds the baseline
+/// token length at that position. Returns true only when the goal span is
+/// strictly longer than `baseline_len` — meaning the goal token subsumes
+/// multiple baseline positions and reuse must be skipped.
+pub fn[T] TokenBuffer::goal_span_exceeds(
+  self : TokenBuffer[T],
+  offset : Int,
+  baseline_len : Int,
+) -> Bool {
+  match self.goal_cache.goal_span_containing(offset) {
+    Some((_start, end)) => end - offset > baseline_len
+    None => false
+  }
+}
+
+///|
 pub fn[T : Eq] TokenBuffer::update(
   self : TokenBuffer[T],
   edit : Edit,

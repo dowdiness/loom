@@ -417,16 +417,44 @@ test "advance_with_goal skips reuse for subsumed regions" {
   )
   ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) }, subsumption_check=fn(
     offset,
+    baseline_len,
   ) {
-    buf.is_offset_goal_subsumed(offset)
+    buf.goal_span_exceeds(offset, baseline_len)
   })
 
-  // Populate cache with RegExpGoal at offset 0
+  // Populate cache with RegExpGoal at offset 0 — spans 0..3 (len=3)
   let (_tok, _end) = ctx.token_at(0, 1)
 
-  // Now offset 0 is subsumed (the goal-produced Regex spans 0..3)
-  // An attempt to reuse an old node at offset 0 would be rejected
-  inspect(buf.is_offset_goal_subsumed(0), content="true")
+  // Baseline Slash would be len=1, goal is len=3 → subsumed
+  inspect(buf.goal_span_exceeds(0, 1), content="true")
   // Offset 3 (just past the regex) is NOT subsumed
-  inspect(buf.is_offset_goal_subsumed(3), content="false")
+  inspect(buf.goal_span_exceeds(3, 0), content="false")
+}
+
+///|
+test "goal_span_exceeds: DivGoal does not false-positive" {
+  let buf = make_goal_buffer("/x/")
+  let spec = make_goal_spec()
+  let ctx = ParserContext::new_indexed(
+    buf.token_count(),
+    fn(i) { buf.get_token(i) },
+    fn(i) { buf.get_start(i) },
+    fn(i) { buf.get_end(i) },
+    buf.get_source(),
+    spec,
+  )
+  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) }, subsumption_check=fn(
+    offset,
+    baseline_len,
+  ) {
+    buf.goal_span_exceeds(offset, baseline_len)
+  })
+
+  // Populate cache with DivGoal at offset 0 — Slash spans 0..1 (len=1)
+  let (_tok, _end) = ctx.token_at(0, 0)
+
+  // DivGoal Slash has same span as baseline Slash (both len=1)
+  inspect(buf.goal_span_exceeds(0, 1), content="false")
+  // With shorter baseline (len=0), it "exceeds" but never matches real data
+  inspect(buf.goal_span_exceeds(0, 0), content="true")
 }
