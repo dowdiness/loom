@@ -571,7 +571,7 @@ test "skeleton grammar parses nested if expressions" {
                 }
                 _ => abort("outer if should have 2 children (then, else)")
               }
-            [outer_if, ..] =>
+            [_, ..] =>
               // Continue checking if there are more children
               inspect(true, content="true")
             [] => abort("no children in block")
