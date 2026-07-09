@@ -149,6 +149,10 @@ pub(all) enum MoonbitSyntaxKind {
   StructItemHeaderNode
   EnumItemHeaderNode
   TypeItemHeaderNode
+  // Body/expression nodes
+  IfExprNode
+  BlockExprNode
+  WhileExprNode
 } derive(Eq, Debug)
 
 ///|
@@ -300,6 +304,9 @@ pub impl @seam.ToRawKind for MoonbitSyntaxKind with fn to_raw(self) {
       StructItemHeaderNode => 19
       EnumItemHeaderNode => 20
       TypeItemHeaderNode => 21
+      IfExprNode => 22
+      BlockExprNode => 23
+      WhileExprNode => 24
     },
   )
 }
@@ -323,6 +330,9 @@ pub impl @seam.FromRawKind for MoonbitSyntaxKind with fn from_raw(raw) {
     19 => StructItemHeaderNode
     20 => EnumItemHeaderNode
     21 => TypeItemHeaderNode
+    22 => IfExprNode
+    23 => BlockExprNode
+    24 => WhileExprNode
     100 => AmperToken
     101 => AmperAmperToken
     102 => AndToken

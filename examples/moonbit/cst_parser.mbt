@@ -425,13 +425,114 @@ fn consume_source_item_tokens(
   for consumed = 0, group_depth = 0; !ctx.at_eof() &&
      !ctx.too_many_errors(MAX_SKELETON_ERRORS); {
     let token = ctx.peek()
-    if group_depth == 0 && token.is_item_delimiter() {
-      ctx.emit_token(token.syntax_kind())
-      break (consumed + 1, group_depth)
+    if group_depth == 0 {
+      if token.is_item_delimiter() {
+        ctx.emit_token(token.syntax_kind())
+        break (consumed + 1, group_depth)
+      }
+      match token {
+        Official(kind=TK_LBRACE) => {
+          ignore(parse_block_expr(ctx))
+          continue consumed + 1, 0
+        }
+        Official(kind=TK_IF) => {
+          ignore(parse_if_expr(ctx))
+          continue consumed + 1, 0
+        }
+        _ => ()
+      }
     }
     ctx.emit_token(token.syntax_kind())
     continue consumed + 1, token.next_group_depth(group_depth)
   } nobreak {
     (consumed, group_depth)
   }
+}
+
+///|
+/// Check if the current token is `{`.
+fn is_lbrace(token : MoonToken) -> Bool {
+  token is Official(kind=TK_LBRACE)
+}
+
+///|
+/// Check if the current token is `}`.
+fn is_rbrace(token : MoonToken) -> Bool {
+  token is Official(kind=TK_RBRACE)
+}
+
+///|
+/// Parse a `while cond { body }` expression.
+fn parse_while_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  ctx.node(WhileExprNode, fn() {
+    ctx.emit_token(WhileToken)
+    consume_until_body(ctx)
+    if !ctx.at_eof() && is_lbrace(ctx.peek()) {
+      ignore(parse_block_expr(ctx))
+    }
+  })
+}
+
+///|
+/// Parse an `if cond { then } else { else }` expression.
+fn parse_if_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  ctx.node(IfExprNode, fn() {
+    ctx.emit_token(IfToken)
+    consume_until_body(ctx)
+    if !ctx.at_eof() && is_lbrace(ctx.peek()) {
+      ignore(parse_block_expr(ctx))
+    }
+    if !ctx.at_eof() && ctx.peek() is Official(kind=TK_ELSE) {
+      ctx.emit_token(ElseToken)
+      if !ctx.at_eof() && is_lbrace(ctx.peek()) {
+        ignore(parse_block_expr(ctx))
+      }
+    }
+  })
+}
+
+///|
+/// Consume tokens that form the condition, stopping at `{`, `}`, or item delimiter.
+fn consume_until_body(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  while !ctx.at_eof() {
+    let token = ctx.peek()
+    if is_lbrace(token) || is_rbrace(token) || token.is_item_delimiter() {
+      break
+    }
+    ctx.emit_token(token.syntax_kind())
+  }
+}
+
+///|
+/// separated by `;` or NEWLINE (ASI).
+fn parse_block_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  ctx.node(BlockExprNode, fn() {
+    ctx.emit_token(LbraceToken)
+    while !ctx.at_eof() {
+      let token = ctx.peek()
+      if is_rbrace(token) {
+        break
+      }
+      if token.is_layout_token() || token.is_item_delimiter() {
+        ctx.emit_token(token.syntax_kind())
+        continue
+      }
+      match token {
+        Official(kind=TK_IF) => ignore(parse_if_expr(ctx))
+        Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
+        _ => ctx.emit_token(token.syntax_kind())
+      }
+    }
+    if !ctx.at_eof() && is_rbrace(ctx.peek()) {
+      ctx.emit_token(RbraceToken)
+    }
+  })
 }
