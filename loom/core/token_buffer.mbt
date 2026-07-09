@@ -16,6 +16,12 @@ pub struct TokenBuffer[T] {
   priv mode_relex : ModeRelexState[T]?
   mut source : String
   mut version : Int
+  // Goal-directed tokenization cache. Lazy — populated only by goal queries.
+  // Cleared on source edit (see TokenBuffer::update).
+  priv goal_cache : GoalCache[T]
+  // Goal-aware lex step function. None when the grammar does not use goals.
+  // Set via TokenBuffer::set_goal_step.
+  priv mut goal_step : ((String, Int, Int) -> LexStep[T])?
 }
 
 ///|
@@ -105,6 +111,8 @@ pub fn[T] TokenBuffer::new(
     mode_relex: None,
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -129,6 +137,8 @@ pub fn[T] TokenBuffer::new_from_lex(
     mode_relex,
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -159,6 +169,8 @@ pub fn[T] TokenBuffer::new_resilient(
     mode_relex: None,
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -213,6 +225,8 @@ pub fn[T] TokenBuffer::new_from_steps(
     mode_relex: None,
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -239,6 +253,8 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
     mode_relex: None,
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -272,6 +288,8 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
     mode_relex: Some(mode_relex),
     source,
     version: 0,
+    goal_cache: GoalCache::new(),
+    goal_step: None,
   }
 }
 
@@ -338,12 +356,95 @@ pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int {
 }
 
 ///|
+/// Set the goal-aware lex step function for parser-directed goal tokenization.
+/// The step receives (source, position, goal) and returns a LexStep.
+/// Initialize before parsing; not safe to change mid-parse.
+pub fn[T] TokenBuffer::set_goal_step(
+  self : TokenBuffer[T],
+  step : (String, Int, Int) -> LexStep[T],
+) -> Unit {
+  self.goal_step = Some(step)
+}
+
+///|
+/// Tokenize one token at the given offset under the specified lexical goal.
+/// Returns Done when no goal_step is configured.
+pub fn[T] TokenBuffer::tokenize_at_offset(
+  self : TokenBuffer[T],
+  offset : Int,
+  goal : Int,
+) -> LexStep[T] {
+  match self.goal_step {
+    Some(step) => step(self.source, offset, goal)
+    None => Done
+  }
+}
+
+///|
+/// Memoized goal-directed token lookup.
+/// On cache hit: returns `(token, end_exclusive)` from cache.
+/// On miss: lexes at `offset` with `goal` via `tokenize_at_offset`.
+/// If the goal step returns something other than Produced, falls back to
+/// the baseline token at that offset (no diagnostic pushed — goal queries
+/// are speculative and cache-shared across checkpoints).
+pub fn[T] TokenBuffer::goal_token_at(
+  self : TokenBuffer[T],
+  offset : Int,
+  goal : Int,
+) -> (T, Int) {
+  match self.goal_cache.lookup(offset, goal) {
+    Some(result) => result
+    None => match self.tokenize_at_offset(offset, goal) {
+      Produced(tok, next_offset~) => {
+        if next_offset > offset && next_offset <= self.source.length() {
+          let result = (tok.token, next_offset)
+          self.goal_cache.insert(offset, goal, result.0, result.1)
+          result
+        } else {
+          self.baseline_token_at(offset)
+        }
+      }
+      // Invalid/Incomplete/Done: fall back to baseline token.
+      // No diagnostic pushed — goal queries are speculative and
+      // cache-shared across checkpoints.
+      _ => self.baseline_token_at(offset)
+    }
+  }
+}
+
+///|
+/// Find the baseline token whose start offset matches the given offset.
+/// Returns `(token, end_exclusive)` from the TokenBuffer arrays.
+/// Uses binary search on the monotonic `starts` array.
+/// Returns EOF when no token starts at `offset`.
+fn[T] TokenBuffer::baseline_token_at(self : TokenBuffer[T], offset : Int) -> (T, Int) {
+  let len = self.tokens.length()
+  let mut lo = 0
+  let mut hi = len
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if self.starts[mid] < offset {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  if lo < len && self.starts[lo] == offset {
+    let tok = self.tokens[lo]
+    (tok.token, self.starts[lo] + tok.len)
+  } else {
+    (self.eof_token, self.source.length())
+  }
+}
+///|
 pub fn[T : Eq] TokenBuffer::update(
   self : TokenBuffer[T],
   edit : Edit,
   new_source : String,
 ) -> Unit raise LexError {
   let old_tokens = self.tokens
+  // Goal cache invalidated on any edit — offset-based keys shift.
+  self.goal_cache.invalidate()
   let old_starts = self.starts
   let old_len = old_tokens.length()
   if !self.incremental_relex_enabled || old_len == 0 {

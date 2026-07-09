@@ -131,6 +131,10 @@ pub struct ParserContext[T, K] {
   // Set via set_lex_mode() to switch the lexer to a different mode mid-parse.
   // The mode value is an opaque integer; the grammar assigns semantic meaning.
   priv mut lex_mode : Int
+  // Goal-directed token source. None by default; set via set_goal_source().
+  // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
+  // Wraps TokenBuffer::goal_token_at for the parser's TokenBuffer instance.
+  priv mut goal_source : ((Int, Int) -> (T, Int))?
 }
 
 ///|

@@ -26,6 +26,7 @@ pub fn[T, K] ParserContext::new(
     reuse_diagnostics: None,
     reuse_count: 0,
     lex_mode: 0,
+    goal_source: None,
   }
 }
 
@@ -56,8 +57,9 @@ pub fn[T, K] ParserContext::new_indexed(
     node_stack: [],
     reuse_cursor: None,
     reuse_diagnostics: None,
-    lex_mode: 0,
     reuse_count: 0,
+    lex_mode: 0,
+    goal_source: None,
   }
 }
 
@@ -344,5 +346,124 @@ pub fn[T, K] ParserContext::current_node_kind(self : ParserContext[T, K]) -> K? 
   match self.node_stack.length() {
     0 => None
     len => Some(self.node_stack[len - 1])
+  }
+}
+
+///|
+/// Set the goal-directed token source for parser-directed goal tokenization.
+/// The closure wraps TokenBuffer::goal_token_at for the parser's TokenBuffer.
+pub fn[T, K] ParserContext::set_goal_source(
+  self : ParserContext[T, K],
+  source : (Int, Int) -> (T, Int),
+) -> Unit {
+  self.goal_source = Some(source)
+}
+
+///|
+/// Query the goal-directed token at the given source offset with the
+/// given lexical goal. Falls back to the baseline token when no
+/// goal_source is configured.
+pub fn[T, K] ParserContext::token_at(
+  self : ParserContext[T, K],
+  offset : Int,
+  goal : Int,
+) -> (T, Int) {
+  match self.goal_source {
+    Some(source_fn) => source_fn(offset, goal)
+    None => self.baseline_token_at(offset)
+  }
+}
+
+///|
+/// Find the baseline token whose start offset matches `offset`.
+/// Binary search on get_start. Returns (eof_token, source.length())
+/// when no baseline token starts at `offset`.
+fn[T, K] ParserContext::baseline_token_at(
+  self : ParserContext[T, K],
+  offset : Int,
+) -> (T, Int) {
+  let mut lo = 0
+  let mut hi = self.token_count
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if (self.get_start)(mid) < offset {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  if lo < self.token_count && (self.get_start)(lo) == offset {
+    ((self.get_token)(lo), (self.get_end)(lo))
+  } else {
+    (self.spec.eof_token, self.source.length())
+  }
+}
+
+///|
+/// Binary search for the first token index where get_start(i) >= target.
+fn[T, K] ParserContext::lower_bound_offset(
+  self : ParserContext[T, K],
+  target : Int,
+) -> Int {
+  let mut lo = 0
+  let mut hi = self.token_count
+  while lo < hi {
+    let mid = lo + (hi - lo) / 2
+    if (self.get_start)(mid) < target {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  lo
+}
+
+///|
+/// Advance past the current non-trivia token using goal-directed lexing.
+/// Returns the goal-directed token for the caller to emit.
+/// Does NOT flush trivia or emit CST events — use emit_token_with_goal
+/// for the combined flush+emit+advance operation.
+pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(
+  self : ParserContext[T, K],
+  goal : Int,
+) -> T {
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let offset = (self.get_start)(pos)
+      let (goal_token, end_offset) = self.token_at(offset, goal)
+      let new_pos = self.lower_bound_offset(end_offset)
+      self.position = new_pos
+      goal_token
+    }
+    _ => self.spec.eof_token
+  }
+}
+
+///|
+/// Consume the current non-trivia token under a lexical goal and emit
+/// it as a CST event with the given kind. Advances position past the
+/// full goal-produced span (which may subsume multiple baseline tokens).
+///
+/// The CST event text spans the full goal-produced token range (e.g.
+/// "/regex/flags"), not just the baseline "/".
+pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_token_with_goal(
+  self : ParserContext[T, K],
+  goal : Int,
+  kind : K,
+) -> Unit {
+  self.flush_trivia()
+  match self.current_token_position() {
+    Some(pos) if !(self.get_token)(pos).is_eof() => {
+      let offset = (self.get_start)(pos)
+      let (_goal_token, end_offset) = self.token_at(offset, goal)
+      let text = self.source.view(start_offset=offset, end_offset=end_offset)
+      self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
+      let new_pos = self.lower_bound_offset(end_offset)
+      self.position = new_pos
+    }
+    _ => {
+      self.error("emit_token_with_goal: unexpected EOF")
+      self.events.push_parser_synthetic_zero_width_token(kind.to_raw())
+    }
   }
 }
