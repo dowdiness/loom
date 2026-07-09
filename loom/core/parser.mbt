@@ -145,6 +145,11 @@ pub struct ParserContext[T, K] {
   // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
   // Wraps TokenBuffer::goal_token_at for the parser's TokenBuffer instance.
   priv mut goal_source : ((Int, Int) -> (T, Int))?
+  // Goal subsumption check. Set alongside goal_source.
+  // Closure: (offset: Int) -> Bool — true if offset falls inside a
+  // goal-produced token span, meaning reuse of old CST nodes at this
+  // offset must be skipped (baseline tokens don't match goal structure).
+  priv mut goal_subsumption_check : ((Int) -> Bool)?
 }
 
 ///|

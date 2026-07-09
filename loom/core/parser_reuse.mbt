@@ -43,6 +43,13 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
     return None
   }
   let byte_offset = (self.get_start)(self.position)
+  // If the current byte_offset falls inside a goal-produced token span,
+  // skip reuse — the old CST node was parsed under a different goal (or
+  // baseline) and its token structure doesn't match the current parse.
+  match self.goal_subsumption_check {
+    Some(check) if check(byte_offset) => return None
+    _ => ()
+  }
   // Skip trivia to find the logical token position for leading-token matching.
   let token_pos = self.current_token_position().unwrap_or(self.token_count)
   match self.reuse_cursor {

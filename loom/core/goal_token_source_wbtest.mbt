@@ -402,3 +402,31 @@ test "advance_with_goal at eof returns eof" {
   inspect(tok, content="GTEof")
   inspect(ctx.position, content="0")
 }
+
+///|
+test "advance_with_goal skips reuse for subsumed regions" {
+  let buf = make_goal_buffer("/x/")
+  let spec = make_goal_spec()
+  let ctx = ParserContext::new_indexed(
+    buf.token_count(),
+    fn(i) { buf.get_token(i) },
+    fn(i) { buf.get_start(i) },
+    fn(i) { buf.get_end(i) },
+    buf.get_source(),
+    spec,
+  )
+  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) }, subsumption_check=fn(
+    offset,
+  ) {
+    buf.is_offset_goal_subsumed(offset)
+  })
+
+  // Populate cache with RegExpGoal at offset 0
+  let (_tok, _end) = ctx.token_at(0, 1)
+
+  // Now offset 0 is subsumed (the goal-produced Regex spans 0..3)
+  // An attempt to reuse an old node at offset 0 would be rejected
+  inspect(buf.is_offset_goal_subsumed(0), content="true")
+  // Offset 3 (just past the regex) is NOT subsumed
+  inspect(buf.is_offset_goal_subsumed(3), content="false")
+}

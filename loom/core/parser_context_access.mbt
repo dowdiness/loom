@@ -27,6 +27,7 @@ pub fn[T, K] ParserContext::new(
     reuse_count: 0,
     lex_mode: 0,
     goal_source: None,
+    goal_subsumption_check: None,
   }
 }
 
@@ -60,6 +61,7 @@ pub fn[T, K] ParserContext::new_indexed(
     reuse_count: 0,
     lex_mode: 0,
     goal_source: None,
+    goal_subsumption_check: None,
   }
 }
 
@@ -350,13 +352,13 @@ pub fn[T, K] ParserContext::current_node_kind(self : ParserContext[T, K]) -> K? 
 }
 
 ///|
-/// Set the goal-directed token source for parser-directed goal tokenization.
-/// The closure wraps TokenBuffer::goal_token_at for the parser's TokenBuffer.
 pub fn[T, K] ParserContext::set_goal_source(
   self : ParserContext[T, K],
   source : (Int, Int) -> (T, Int),
+  subsumption_check? : (Int) -> Bool = fn(_) { false },
 ) -> Unit {
   self.goal_source = Some(source)
+  self.goal_subsumption_check = Some(subsumption_check)
 }
 
 ///|

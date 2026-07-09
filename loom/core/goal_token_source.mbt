@@ -60,3 +60,19 @@ pub fn[T] GoalCache::insert(
 ) -> Unit {
   self.entries.push({ offset, goal, token, end_offset })
 }
+
+///|
+/// Check if the given offset falls inside any cached goal-produced token span.
+/// Returns `(start, end_exclusive)` of the containing span, or None.
+/// O(N) in cache size — cache is bounded by goal queries per parse pass.
+pub fn[T] GoalCache::goal_span_containing(
+  self : GoalCache[T],
+  offset : Int,
+) -> (Int, Int)? {
+  for entry in self.entries {
+    if offset >= entry.offset && offset < entry.end_offset {
+      return Some((entry.offset, entry.end_offset))
+    }
+  }
+  None
+}
