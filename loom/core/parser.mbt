@@ -45,6 +45,16 @@ fn[S : OffsetIndexed] lower_bound(source : S, target : Int) -> Int {
 }
 
 ///|
+impl[T, K] OffsetIndexed for ParserContext[T, K] with fn length(self) {
+  self.token_count
+}
+
+///|
+impl[T, K] OffsetIndexed for ParserContext[T, K] with fn offset_at(self, i) {
+  (self.get_start)(i)
+}
+
+///|
 /// Describes one language to the generic parser infrastructure.
 /// Create one instance at module init — it is reused across all parses.
 ///
@@ -131,6 +141,16 @@ pub struct ParserContext[T, K] {
   // Set via set_lex_mode() to switch the lexer to a different mode mid-parse.
   // The mode value is an opaque integer; the grammar assigns semantic meaning.
   priv mut lex_mode : Int
+  // Goal-directed token source. None by default; set via set_goal_source().
+  // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
+  // Wraps TokenBuffer::goal_token_at for the parser's TokenBuffer instance.
+  priv mut goal_source : ((Int, Int) -> (T, Int))?
+  // Goal subsumption check. Set alongside goal_source.
+  // Closure: (offset: Int, baseline_len: Int) -> Bool
+  // True if offset falls inside a goal-produced token span AND the span
+  // exceeds the baseline token length — meaning the goal token subsumes
+  // multiple baseline positions and reuse must be skipped.
+  priv mut goal_subsumption_check : ((Int, Int) -> Bool)?
 }
 
 ///|

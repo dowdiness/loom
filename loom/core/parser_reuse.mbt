@@ -45,6 +45,19 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
   let byte_offset = (self.get_start)(self.position)
   // Skip trivia to find the logical token position for leading-token matching.
   let token_pos = self.current_token_position().unwrap_or(self.token_count)
+  // Goal subsumption check uses the logical (non-trivia) token offset so it
+  // evaluates the same token that try_reuse actually matches. Checking against
+  // raw byte_offset would mismatch when position points at trivia.
+  match self.goal_subsumption_check {
+    Some(check) if token_pos < self.token_count => {
+      let logical_offset = (self.get_start)(token_pos)
+      let logical_len = (self.get_end)(token_pos) - (self.get_start)(token_pos)
+      if check(logical_offset, logical_len) {
+        return None
+      }
+    }
+    _ => ()
+  }
   match self.reuse_cursor {
     None => None
     Some(cursor) =>
