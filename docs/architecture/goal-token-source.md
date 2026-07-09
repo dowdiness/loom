@@ -46,33 +46,79 @@ GoalTokenSource is a **parallel access path**, not a wrapper around TokenBuffer:
 
 - **TokenBuffer** owns the baseline token array, indexed by position (linear index).
   Tokens are lexed with the lexer's own contextual inference (current behavior).
-- **GoalTokenSource** answers `(source_offset: Int, goal: Int) -> Token`.
-  Entries come from running the lexer at that offset with the explicit goal.
-  On cache miss: lex one token at the offset with the given goal, store, return.
+- **GoalTokenSource** answers `(source_offset: Int, goal: Int) -> (Token, end_offset: Int)`.
+  On cache miss: lex one token at the given offset with the explicit goal.
+  Returns the token **and** its exclusive end offset (start + len, matching
+  TokenBuffer's convention).
 - **No shared state** between the two paths. Both call the same underlying lexer,
   but with different starting assumptions about goal.
 
-This means the same offset can produce two different tokens depending on which
+This means the same offset can produce different tokens depending on which
 path the parser uses — that is the intended behavior.
 
-```moonbit
-// TokenBuffer (baseline):
-//   tokens[5] = Slash(@ "/", offset=42, ...)
-//
-// GoalTokenSource (overlay):
-//   token_at(42, Div)     = Slash(...)      ← cache hit, matches baseline
-//   token_at(42, RegExp)  = Regex(...)      ← cache miss, re-lex with goal
+### The span mismatch problem
+
+The overlay model has a critical constraint: goal-produced tokens can subsume
+**multiple positions** in TokenBuffer's linear index.
+
 ```
+TokenBuffer baseline:
+  pos 5: Slash(@ "/", start=42, len=1)
+  pos 6: Ident("x", start=43, len=1)
+  pos 7: ...at offset 44
+
+GoalTokenSource:
+  token_at(42, RegExp) = Regex("foo", "g")   ← len=6, end=48
+```
+
+If the parser calls `token_at(42, RegExp)` and the TokenBuffer cursor is at
+position 5, `advance()` would only move to position 6 — which is inside the
+regex body. The position→offset mapping is desynchronized.
+
+### Solution: offset-based advancement
+
+`ParserContext.advance_with_goal(goal)` does NOT increment the position index
+by 1. Instead it:
+1. Get current offset: start = get_start(position)
+2. Query GoalTokenSource: (token, end_offset) = token_at(start, goal)
+3. Binary-search TokenBuffer's starts array for first entry ≥ end_offset
+4. Set position = found_index
+5. Return token
+
+This is valid because ParserContext already has the building blocks:
+
+- `get_start(position)` — current token's source offset
+- TokenBuffer's `starts` array is monotonic (non-decreasing offsets)
+- `lower_bound` (binary search) already exists in parser.mbt for OffsetIndexed
+
+Cost: O(log N) per goal-directed advance. For JS, at most the count of `/`
+tokens per parse (typically ≤ 100). Acceptable.
+
+`peek_nth(n)` after a goal advance works correctly — the position index is
+already past the subsumed region, so peek_nth(1) sees the token after the
+regex body.
+
+Baseline `advance()` (no goal) still increments position by 1 — unchanged.
+Mixing `advance()` and `advance_with_goal()` is safe; both update the same
+position index.
+
+### No mixing in speculative parsing
+
+Checkpoint captures `position` (linear index). If a speculative branch calls
+`advance_with_goal`, the position advances past subsumed positions. On
+`restore()`, position is rolled back — all subsumed positions are restored.
+The GoalTokenSource cache entries from the speculative branch persist, but
+that is safe (cache entries are idempotent for the current source).
 
 ### Why separate paths instead of one unified path?
 
-TokenBuffer's linear index is used for `peek_nth`, `advance`, `position` tracking,
+TokenBuffer's position index is used for `peek_nth`, `advance`, `position` tracking,
 and `ReuseCursor` matching. Making all of these goal-aware would require every
 indexed position to carry potential goal alternatives — a global architecture change.
 
 The overlay keeps the existing pipeline untouched. Goal-directed queries are used
 only at parser-chosen positions (typically `/` tokens and other goal-ambiguous
-sites), while the linear index handles routine token navigation.
+sites), while the position index handles routine token navigation.
 
 ## 4. Invalidation model
 
@@ -137,16 +183,14 @@ They can coexist in the same `TokenBuffer`:
 
 `ParserContext.peek()` / `ParserContext.advance()` continue to use the
 TokenBuffer linear index. A new method is added for goal-directed access:
-
 ```moonbit
 // Returns the token at the given source offset, tokenized with the
-// specified lexical goal. Returns the best-effort result: if the lexer
-// cannot produce output for the given goal (e.g. nonsense goal value),
-// returns the baseline token from TokenBuffer.
-fn ParserContext::token_at(self, offset: Int, goal: Int) -> Token
+// specified lexical goal, and its exclusive end offset.
+// Returns the best-effort result: if the lexer cannot produce output
+// for the given goal (e.g. nonsense goal value), returns the baseline
+// token from TokenBuffer.
+fn ParserContext::token_at(self, offset: Int, goal: Int) -> (Token, Int)
 ```
-
-### ReuseCursor
 
 The reuse cursor matches old CST nodes to new token ranges by start offset.
 Since GoalTokenSource does not change TokenBuffer's offset→position mapping
