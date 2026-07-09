@@ -470,13 +470,19 @@ fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
 }
 
+///| Parse a keyword-before-body construct: emit `keyword_token`, consume
+
+///| the condition/scrutinee, then parse a `{ ... }` block. Used by match,
+
 ///|
-/// Parse a `match expr { arm; arm; ... }` expression.
-fn parse_match_expr(
+/// while, and similar constructs whose shape is keyword + condition + block.
+fn parse_keyword_body_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  node_kind : MoonbitSyntaxKind,
+  keyword_token : MoonbitSyntaxKind,
 ) -> Unit {
-  ctx.node(MatchExprNode, fn() {
-    ctx.emit_token(MatchToken)
+  ctx.node(node_kind, fn() {
+    ctx.emit_token(keyword_token)
     consume_until_body(ctx)
     if !ctx.at_eof() && is_lbrace(ctx.peek()) {
       ignore(parse_block_expr(ctx))
@@ -485,17 +491,19 @@ fn parse_match_expr(
 }
 
 ///|
+/// Parse a `match expr { arm; arm; ... }` expression.
+fn parse_match_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  parse_keyword_body_expr(ctx, MatchExprNode, MatchToken)
+}
+
+///|
 /// Parse a `while cond { body }` expression.
 fn parse_while_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
-  ctx.node(WhileExprNode, fn() {
-    ctx.emit_token(WhileToken)
-    consume_until_body(ctx)
-    if !ctx.at_eof() && is_lbrace(ctx.peek()) {
-      ignore(parse_block_expr(ctx))
-    }
-  })
+  parse_keyword_body_expr(ctx, WhileExprNode, WhileToken)
 }
 
 ///|
