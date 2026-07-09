@@ -214,11 +214,12 @@ fn first_set(
     Frag(_) | Native(_) => @hashset.HashSet([])
     Seq(items) => {
       let leading = seq_leading(items, ctx)
-      // A fragment in a leading (FIRST) position makes the Seq's FIRST set
-      // unsound: the fragment's actual body is opaque at emit time and may
-      // contribute tokens this pass cannot see. Fail closed rather than emit
-      // a predicate that gated on the visible prefix and excluded the fragment's
-      // actual FIRST tokens. Trailing fragments (after `leading` ends) are fine.
+      // A fragment or @native in a leading (FIRST) position makes the Seq's
+      // FIRST set unsound: the construct's actual body is opaque at emit time
+      // and may contribute tokens this pass cannot see. Fail closed rather than
+      // emit a predicate that gated on the visible prefix and excluded the
+      // construct's actual FIRST tokens. Trailing ones (after `leading` ends)
+      // are fine.
       for it in leading {
         if it is Frag(_) || it is Native(_) {
           raise RuleLowerError(

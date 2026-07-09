@@ -413,8 +413,6 @@ fn pratt_token_in_ebnf_err(tok : RuleTok) -> String {
 }
 
 ///|
-
-///|
 /// `atom := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'`.
 fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
   match self.peek() {

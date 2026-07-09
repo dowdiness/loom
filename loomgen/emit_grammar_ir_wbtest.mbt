@@ -966,3 +966,29 @@ test "emit_grammar_ir: @app overrides Pratt node kind" {
 }
 
 ///|
+test "emit_grammar_ir: @native(ident) lowers to Expr::Native" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("A @native(parse_tag) B Eof")
+    #|  Start
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for @native but got: " + m)
+  }
+  inspect(generated.contains("Expr::Native"), content="true")
+  inspect(generated.contains("parse_tag"), content="true")
+}
