@@ -415,7 +415,9 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(
       let offset = (self.get_start)(pos)
       let (goal_token, end_offset) = self.token_at(offset, goal)
       let new_pos = self.lower_bound_offset(end_offset)
-      self.position = new_pos
+      // Zero-width goal tokens (end_offset == offset) return the same position
+      // via lower_bound; force advance past current token to prevent stalls.
+      self.position = if new_pos > pos { new_pos } else { pos + 1 }
       goal_token
     }
     _ => self.spec.eof_token
@@ -442,7 +444,8 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
       let text = self.source.view(start_offset=offset, end_offset~)
       self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
       let new_pos = self.lower_bound_offset(end_offset)
-      self.position = new_pos
+      // Zero-width goal tokens: force advance past current token.
+      self.position = if new_pos > pos { new_pos } else { pos + 1 }
     }
     _ => {
       self.error("emit_token_with_goal: unexpected EOF")

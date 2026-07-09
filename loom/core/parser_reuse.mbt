@@ -43,19 +43,21 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] Pars
     return None
   }
   let byte_offset = (self.get_start)(self.position)
-  let baseline_len = (self.get_end)(self.position) -
-    (self.get_start)(self.position)
-  // If the current byte_offset falls inside a goal-produced token span that
-  // exceeds the baseline token length, skip reuse — the old CST node was
-  // parsed under a different goal and its token structure doesn't match.
-  // When goal span equals baseline length (e.g. DivGoal Slash = baseline Slash),
-  // reuse is safe — no positions are subsumed.
-  match self.goal_subsumption_check {
-    Some(check) if check(byte_offset, baseline_len) => return None
-    _ => ()
-  }
   // Skip trivia to find the logical token position for leading-token matching.
   let token_pos = self.current_token_position().unwrap_or(self.token_count)
+  // Goal subsumption check uses the logical (non-trivia) token offset so it
+  // evaluates the same token that try_reuse actually matches. Checking against
+  // raw byte_offset would mismatch when position points at trivia.
+  match self.goal_subsumption_check {
+    Some(check) if token_pos < self.token_count => {
+      let logical_offset = (self.get_start)(token_pos)
+      let logical_len = (self.get_end)(token_pos) - (self.get_start)(token_pos)
+      if check(logical_offset, logical_len) {
+        return None
+      }
+    }
+    _ => ()
+  }
   match self.reuse_cursor {
     None => None
     Some(cursor) =>

@@ -33,7 +33,7 @@ a persisted tree with span annotations — that is deferred. This design covers
 
 ## 3. GoalTokenSource: overlay, not replacement
 
-```
+```text
 Before (current):
   ParserContext.get_token(position) → TokenBuffer.get_token(i)
 
@@ -61,7 +61,7 @@ path the parser uses — that is the intended behavior.
 The overlay model has a critical constraint: goal-produced tokens can subsume
 **multiple positions** in TokenBuffer's linear index.
 
-```
+```text
 TokenBuffer baseline:
   pos 5: Slash(@ "/", start=42, len=1)
   pos 6: Ident("x", start=43, len=1)
@@ -124,7 +124,7 @@ sites), while the position index handles routine token navigation.
 
 ### Edit lifecycle
 
-```
+```text
 1. Source edit occurs
 2. TokenBuffer.update(edit) — re-maps offset→position, re-lexes changed range
 3. GoalTokenSource.invalidate() — clears entire cache

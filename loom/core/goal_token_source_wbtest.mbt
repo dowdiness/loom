@@ -85,12 +85,16 @@ fn goal_lex_step(
   } else if code == 0x2F {
     // '/'
     if goal == 1 {
-      // RegExpGoal: consume until closing '/', then flags
+      // RegExpGoal: consume until closing '/', then optional flags.
       let mut end = pos + 1
+      // Record closing slash position before flag scanning — flags follow '/' and
+      // shift end past them, making end-1 the last flag, not the slash.
+      let mut close_slash = -1
       while end < source.length() && source.code_unit_at(end).to_int() != 0x2F {
         end = end + 1
       }
       if end < source.length() {
+        close_slash = end
         end = end + 1 // consume closing '/'
         while end < source.length() {
           let c = source.code_unit_at(end).to_int()
@@ -102,12 +106,7 @@ fn goal_lex_step(
         }
       }
       let body_start = pos + 1
-      let body_end = if end > body_start &&
-        source.code_unit_at(end - 1).to_int() == 0x2F {
-        end - 1
-      } else {
-        end
-      }
+      let body_end = if close_slash >= 0 { close_slash } else { end }
       let body_raw : StringView = source[body_start:body_end]
       Produced(
         TokenInfo::new(GTRegex(body_raw.to_owned()), end - pos),
