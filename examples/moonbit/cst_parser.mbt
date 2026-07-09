@@ -418,12 +418,7 @@ fn skip_balanced_prefix_group(
   }
 }
 
-///| Consume body tokens of a source item. At group_depth 0, dispatches
-
-///| context-sensitive constructs (block, if, match) and breaks on item
-
 ///|
-/// delimiters. Inside balanced groups, emits tokens flat.
 fn consume_source_item_tokens(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> (Int, Int) {
@@ -444,6 +439,10 @@ fn consume_source_item_tokens(
           ignore(parse_if_expr(ctx))
           continue consumed + 1, 0
         }
+        Official(kind=TK_WHILE) => {
+          ignore(parse_while_expr(ctx))
+          continue consumed + 1, 0
+        }
         Official(kind=TK_MATCH) => {
           ignore(parse_match_expr(ctx))
           continue consumed + 1, 0
@@ -452,7 +451,15 @@ fn consume_source_item_tokens(
           ignore(parse_for_expr(ctx))
           continue consumed + 1, 0
         }
-        _ => ()
+        _ =>
+          // Only parse as binary expression if a binary operator follows
+          if is_atom_start_token(token) {
+            let next = next_non_trivial_token(ctx, 1)
+            if infix_op_precedence(next) > 0 {
+              ignore(parse_bin_expr(ctx, 0))
+              continue consumed + 1, 0
+            }
+          }
       }
     }
     ctx.emit_token(token.syntax_kind())
@@ -474,11 +481,9 @@ fn is_rbrace(token : MoonToken) -> Bool {
   token is Official(kind=TK_RBRACE)
 }
 
-///| Parse a keyword-before-body construct: emit `keyword_token`, consume
-
-///| the condition/scrutinee, then parse a `{ ... }` block. Used by match,
-
 ///|
+/// Parse a keyword-before-body construct: emit `keyword_token`, consume
+/// the condition/scrutinee, then parse a `{ ... }` block. Used by match,
 /// while, and similar constructs whose shape is keyword + condition + block.
 fn parse_keyword_body_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
@@ -520,6 +525,9 @@ fn parse_for_expr(
 
 ///|
 /// Parse an `if cond { then } else { else }` expression.
+
+///|
+/// Parse an `if cond { then } else { else }` expression.
 fn parse_if_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
@@ -548,16 +556,20 @@ fn consume_until_body(
     if is_lbrace(token) || is_rbrace(token) || token.is_item_delimiter() {
       break
     }
-    ctx.emit_token(token.syntax_kind())
+    if token.is_layout_token() {
+      ctx.emit_token(token.syntax_kind())
+      continue
+    }
+    if is_atom_start_token(token) {
+      ignore(parse_bin_expr(ctx, 0))
+    } else {
+      ctx.emit_token(token.syntax_kind())
+    }
   }
 }
 
-///| Parse a `{ ... }` block expression. Inner statements/expressions are
-
-///| separated by `;` or NEWLINE (ASI); context-sensitive constructs
-
 ///|
-/// (if, while, match, for) are parsed recursively.
+/// separated by `;` or NEWLINE (ASI).
 fn parse_block_expr(
   ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
 ) -> Unit {
@@ -577,11 +589,134 @@ fn parse_block_expr(
         Official(kind=TK_WHILE) => ignore(parse_while_expr(ctx))
         Official(kind=TK_MATCH) => ignore(parse_match_expr(ctx))
         Official(kind=TK_FOR) => ignore(parse_for_expr(ctx))
-        _ => ctx.emit_token(token.syntax_kind())
+        _ =>
+          if is_atom_start_token(token) {
+            ignore(parse_bin_expr(ctx, 0))
+          } else {
+            ctx.emit_token(token.syntax_kind())
+          }
       }
     }
     if !ctx.at_eof() && is_rbrace(ctx.peek()) {
       ctx.emit_token(RbraceToken)
+    }
+  })
+}
+
+///|
+/// Pratt parser precedence for MoonBit infix operators.
+/// Follows the official MoonBit parser precedence table:
+///   `&` (6), INFIX1 (7), INFIX2 (8), `+`/`-` (9), INFIX3 (10), INFIX4 (11)
+fn infix_op_precedence(token : MoonToken) -> Int {
+  match token {
+    Official(kind=TK_AMPER) => 6
+    Official(kind=TK_INFIX1) => 7
+    Official(kind=TK_INFIX2) => 8
+    Official(kind=TK_PLUS | TK_MINUS) => 9
+    Official(kind=TK_INFIX3) => 10
+    Official(kind=TK_INFIX4) => 11
+    _ => 0
+  }
+}
+
+///|
+/// Check if `token` can start an atomic expression.
+fn is_atom_start_token(token : MoonToken) -> Bool {
+  match token {
+    Official(kind~) =>
+      match kind {
+        TK_INT
+        | TK_STRING
+        | TK_CHAR
+        | TK_BYTE
+        | TK_BYTES
+        | TK_FLOAT
+        | TK_DOUBLE
+        | TK_FALSE
+        | TK_TRUE
+        | TK_LIDENT
+        | TK_UIDENT
+        | TK_UNDERSCORE
+        | TK_DOT_INT
+        | TK_DOT_LIDENT
+        | TK_DOT_UIDENT
+        | TK_LPAREN => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn next_non_trivial_token(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  start : Int,
+) -> MoonToken {
+  for i = start; ; i = i + 1 {
+    let t = ctx.peek_nth(i)
+    if t == EOF || (t != Whitespace && !t.is_layout_token()) {
+      break t
+    }
+  } nobreak {
+    ctx.peek_nth(start)
+  }
+}
+
+///|
+/// Parse an atomic expression: literals, identifiers, parenthesized groups.
+fn parse_atom_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+) -> Unit {
+  if ctx.at_eof() {
+    return
+  }
+  let token = ctx.peek()
+  match token {
+    Official(kind=TK_LPAREN) => {
+      ctx.emit_token(LparenToken)
+      // Recursively parse the content as a binary expression
+      parse_bin_expr(ctx, 0)
+      if !ctx.at_eof() && ctx.peek() is Official(kind=TK_RPAREN) {
+        ctx.emit_token(RparenToken)
+      }
+    }
+    _ =>
+      // Non-special tokens and Whitespace/Error/EOF — emit normally
+      ctx.emit_token(token.syntax_kind())
+  }
+}
+
+///|
+/// Parse a binary expression using a Pratt parser loop.
+/// Breaks at `{`, `}`, `(`, `)`, `[`, `]`, `;`, layout tokens, and item delimiters.
+fn parse_bin_expr(
+  ctx : @core.ParserContext[MoonToken, MoonbitSyntaxKind],
+  min_prec : Int,
+) -> Unit {
+  if ctx.at_eof() {
+    return
+  }
+  ctx.node(BinExprNode, fn() {
+    parse_atom_expr(ctx)
+    // Pratt loop: consume operators at or above min_prec
+    while !ctx.at_eof() {
+      let token = ctx.peek()
+      // Stop at block/item boundaries, balanced delimiters, layout
+      if token.is_layout_token() ||
+        token.is_item_delimiter() ||
+        token.closes_balanced_group() ||
+        is_lbrace(token) {
+        break
+      }
+      let prec = infix_op_precedence(token)
+      // prec == 0 means not a binary operator
+      if prec == 0 || prec < min_prec {
+        break
+      }
+      // Consume the operator
+      ctx.emit_token(token.syntax_kind())
+      // Parse right-hand side with higher min precedence (left-assoc)
+      parse_bin_expr(ctx, prec + 1)
     }
   })
 }

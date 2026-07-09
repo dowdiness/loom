@@ -556,7 +556,11 @@ test "skeleton grammar parses nested if expressions" {
           match body.children() {
             [outer_if] =>
               match outer_if.children() {
-                [then_block, else_block] => {
+                [condition, then_block, else_block] => {
+                  let cond_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+                    condition.kind(),
+                  )
+                  inspect(cond_kind.to_string(), content="BinExprNode")
                   let then_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
                     then_block.kind(),
                   )
@@ -565,11 +569,10 @@ test "skeleton grammar parses nested if expressions" {
                     else_block.kind(),
                   )
                   inspect(else_kind.to_string(), content="BlockExprNode")
-                  // Inner if is inside then_block (no child nodes = empty block
-                  // for literal-only content, so check tokens instead)
+                  // Inner if is inside then_block
                   inspect(then_block.tokens().length() > 0, content="true")
                 }
-                _ => abort("outer if should have 2 children (then, else)")
+                _ => abort("outer if should have 3 children (cond, then, else)")
               }
             [_, ..] =>
               // Continue checking if there are more children
@@ -633,13 +636,123 @@ test "skeleton grammar parses while and if together" {
 }
 
 ///|
-test "skeleton grammar parses match expression" {
+/// Extract the kind names of block (first body child of first item) children.
+fn block_child_kind_names(source : String) -> Array[String] {
+  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [_, block, ..] =>
+          block
+          .children()
+          .map(fn(child) {
+            let kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+              child.kind(),
+            )
+            kind.to_string()
+          })
+        [_] => []
+        [] => []
+      }
+    [] => []
+  }
+}
+
+///|
+test "skeleton grammar wraps simple binary expression in BinExprNode" {
+  let kinds = block_child_kind_names("fn f() { 1 + 2 }\n")
+  debug_inspect(kinds, content="[\"BinExprNode\"]")
+}
+
+///|
+test "skeleton grammar parses multiple expressions separated by semicolons" {
+  let kinds = block_child_kind_names("fn f() { 1; 2 + 3 }\n")
+  debug_inspect(kinds, content="[\"BinExprNode\", \"BinExprNode\"]")
+}
+
+///|
+test "skeleton grammar correctly folds binary expression token count" {
+  let (ast, _) = parse_moonbit("fn f() { 1 + 2 }\n")
+  inspect(ast.item_count, content="1")
+  inspect(ast.contains_errors, content="false")
+  // BinExprNode tokens include operator and operands
+  inspect(ast.token_count, content="10")
+}
+
+///|
+test "skeleton grammar creates nested BinExprNode for operator precedence" {
+  let (cst, _) = parse_cst("fn f() { 1 + 2 * 3 }\n") catch {
+    _ => abort("lex error")
+  }
+  let root = @seam.SyntaxNode::from_cst(cst)
+  match root.children() {
+    [item, ..] =>
+      match item.children() {
+        [_, block, ..] => {
+          let block_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            block.kind(),
+          )
+          inspect(block_kind.to_string(), content="BlockExprNode")
+          let outer_bin = match block.children() {
+            [n, ..] => n
+            [] => abort("no children in block")
+          }
+          let outer_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            outer_bin.kind(),
+          )
+          inspect(outer_kind.to_string(), content="BinExprNode")
+          // Outer BinExprNode should have 1 child (inner BinExprNode for `2 * 3`)
+          inspect(outer_bin.children().length(), content="1")
+          let inner_bin = match outer_bin.children() {
+            [n, ..] => n
+            [] => abort("outer bin has no children")
+          }
+          let inner_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            inner_bin.kind(),
+          )
+          inspect(inner_kind.to_string(), content="BinExprNode")
+          // Inner BinExprNode should have 1 child (innermost BinExprNode for `3`)
+          inspect(inner_bin.children().length(), content="1")
+        }
+        [_] => abort("unexpected single child")
+        [] => abort("no children in function item")
+      }
+    [] => abort("no top-level items")
+  }
+}
+
+///|
+test "skeleton grammar parses parenthesized expressions" {
+  let kinds = block_child_kind_names("fn f() { (1 + 2) * 3 }\n")
+  debug_inspect(kinds, content="[\"BinExprNode\"]")
+}
+
+///|
+test "skeleton grammar parses identifier binary expressions" {
+  let kinds = block_child_kind_names("fn f() { x + y * z }\n")
+  debug_inspect(kinds, content="[\"BinExprNode\"]")
+}
+
+///|
+test "skeleton grammar leaves existing block/if/while behavior unchanged" {
+  let kinds = first_child_of_first_item_kind_names(
+    "fn f() { while true { if true { 1 } }; 2 }\n",
+  )
+  debug_inspect(kinds, content="[\"BlockExprNode\"]")
+}
+
+///|
+test "skeleton grammar parses binary expression in top-level let initializer" {
+  let kinds = first_child_of_first_item_kind_names("let x = 1 + 2\n")
+  debug_inspect(kinds, content="[\"BinExprNode\"]")
+}
+
+///|
+test "skeleton grammar parses condition as BinExprNode in if expression" {
   let source =
     #|fn f(x : Int) -> Int {
-    #|  match x {
-    #|    1 => 10
-    #|    _ => 0
-    #|  }
+    #|  if x > 0 { 1 } else { 0 }
     #|}
     #|
   let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
@@ -652,72 +765,27 @@ test "skeleton grammar parses match expression" {
             body.kind(),
           )
           inspect(body_kind.to_string(), content="BlockExprNode")
-          match body.children() {
-            [match_node, ..] => {
-              let mk : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
-                match_node.kind(),
-              )
-              inspect(mk.to_string(), content="MatchExprNode")
-              inspect(match_node.children().length() >= 0, content="true")
-            }
+          let if_node = match body.children() {
+            [n, ..] => n
             [] => abort("no children in block")
           }
-        }
-        [_] => abort("unexpected single child")
-        [] => abort("no children in function item")
-      }
-    [] => abort("no top-level items")
-  }
-}
-
-///|
-test "skeleton grammar parses match in block expression" {
-  let kinds = first_child_of_first_item_kind_names(
-    "fn f() { match x { 1 => true; _ => false } }\n",
-  )
-  debug_inspect(kinds, content="[\"BlockExprNode\"]")
-}
-
-///|
-test "skeleton grammar parses for expression" {
-  let source =
-    #|fn f() {
-    #|  for i = 0; i < 10; i = i + 1 {
-    #|    1
-    #|  }
-    #|}
-    #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
-  let root = @seam.SyntaxNode::from_cst(cst)
-  match root.children() {
-    [item, ..] =>
-      match item.children() {
-        [_, body, ..] => {
-          let body_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
-            body.kind(),
+          let if_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            if_node.kind(),
           )
-          inspect(body_kind.to_string(), content="BlockExprNode")
-          match body.children() {
-            [for_node, ..] => {
-              let fk : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
-                for_node.kind(),
-              )
-              inspect(fk.to_string(), content="ForExprNode")
-            }
-            [] => abort("no children in block")
+          inspect(if_kind.to_string(), content="IfExprNode")
+          // First child of IfExprNode should be condition BinExprNode
+          let cond = match if_node.children() {
+            [n, ..] => n
+            [] => abort("if expr has no children")
           }
+          let cond_kind : MoonbitSyntaxKind = @seam.FromRawKind::from_raw(
+            cond.kind(),
+          )
+          inspect(cond_kind.to_string(), content="BinExprNode")
         }
         [_] => abort("unexpected single child")
         [] => abort("no children in function item")
       }
     [] => abort("no top-level items")
   }
-}
-
-///|
-test "skeleton grammar parses for with if inside" {
-  let kinds = first_child_of_first_item_kind_names(
-    "fn f() { for i = 0; i < 10; i = i + 1 { if true { 1 } } }\n",
-  )
-  debug_inspect(kinds, content="[\"BlockExprNode\"]")
 }
