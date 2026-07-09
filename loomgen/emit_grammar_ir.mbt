@@ -367,6 +367,20 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
 }
 
 ///|
+/// Whether `ast` is a `@native` node eligible for catch-all treatment in a
+/// `Choice`. A catch-all in the final branch position is emitted with
+/// `Pred::Any` as its `starts` predicate — it only fires when no earlier
+/// branch's FIRST set matches, serving as the "else clause" for an
+/// alternation. The `@native` must be the **last** alternative; placing it
+/// earlier would silently shadow all following branches.
+fn RuleAst::is_catch_all(self : RuleAst) -> Bool {
+  match self {
+    Native(_) => true
+    _ => false
+  }
+}
+
+///|
 /// Reject any left-recursive rule at build time. `first_set` detects left
 /// recursion only when consulted (inside a `Choice`/`Repeat`); a left-recursive
 /// rule used purely in `Seq`/`Node` position would otherwise generate cleanly and
@@ -692,6 +706,33 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
 /// FIRST matches, so a required alternation needs an explicit error branch to
 /// surface a diagnostic + placeholder instead of silently accepting the input.
 /// An optional construct legitimately matches nothing, so it omits the fallback.
+
+///|
+/// Emit a single `Alt{starts: Pred::Any, body: lower(branch)}` for a catch-all
+/// `@native` branch. The catch-all is excluded from FIRST-set dispatch —
+/// it fires only when no earlier branch's predicate matches.
+fn lower_catch_all_alt(
+  branch : RuleAst,
+  ctx : LowerCtx,
+) -> MbtExpr raise RuleLowerError {
+  let body = lower(branch, ctx)
+  MbtExpr::Record(ctx.grammar_qual + ".Alt", [
+    ("starts", MbtExpr::Call(ctx.grammar_qual + ".Pred::Any", [])),
+    ("body", body),
+  ])
+}
+
+///|
+/// Lower a list of alternatives to a `@grammar.Expr::Choice`, one `Alt` per
+/// branch gated on that branch's FIRST set. Shared by `Opt` (one branch,
+/// `required=false`) and `Alt` (several, `required=true`).
+///
+/// When `required`, a trailing `Alt{starts: Pred::Any, body: Fail(...)}` is
+/// appended: the interpreter's `Choice` silently runs nothing when no branch's
+/// FIRST matches, so a required alternation needs an explicit error branch to
+/// surface a diagnostic + placeholder instead of silently accepting the input.
+/// An optional construct legitimately matches nothing, so it omits the fallback.
+/// A catch-all `@native` in the final branch replaces this fallback.
 fn lower_choice(
   branches : Array[RuleAst],
   ctx : LowerCtx,
@@ -703,7 +744,20 @@ fn lower_choice(
   // FIRST/FIRST conflict that would silently shadow this one) and supplies the
   // `expected one of` message for the required fallback below.
   let expected : Array[String] = []
-  for branch in branches {
+  for i in 0..<branches.length() {
+    let branch = branches[i]
+    // A @native catch-all is only valid as the final alternative. It emits
+    // with Pred::Any (always-matching) semantics, excluding it from FIRST-set
+    // dispatch — it fires only when no earlier branch's FIRST predicate matches.
+    if branch.is_catch_all() && i == branches.length() - 1 {
+      alts.push(lower_catch_all_alt(branch, ctx))
+      continue
+    }
+    if branch.is_catch_all() {
+      raise RuleLowerError(
+        "catch-all @native must be the final alternative in an alternation — a non-final @native would shadow all following branches",
+      )
+    }
     // A nullable alternative makes the alternation ε-derivable, but the
     // required fallback below turns "no branch matched" into a Fail — the ε
     // case would silently become a runtime error. Deciding ε needs FOLLOW
@@ -734,18 +788,26 @@ fn lower_choice(
     )
   }
   if required {
-    let msg = "expected one of: " + expected.join(", ")
-    alts.push(
-      MbtExpr::Record(ctx.grammar_qual + ".Alt", [
-        ("starts", MbtExpr::Call(ctx.grammar_qual + ".Pred::Any", [])),
-        (
-          "body",
-          MbtExpr::Call(ctx.grammar_qual + ".Expr::Fail", [
-            MbtExpr::StrLit(quote(msg)),
-          ]),
-        ),
-      ]),
-    )
+    // A catch-all branch replaces the required Any → Fail fallback — it IS
+    // the fallback, consuming whatever earlier branches did not match.
+    let has_catch_all = match branches {
+      [.., last] if last.is_catch_all() => true
+      _ => false
+    }
+    if !has_catch_all {
+      let msg = "expected one of: " + expected.join(", ")
+      alts.push(
+        MbtExpr::Record(ctx.grammar_qual + ".Alt", [
+          ("starts", MbtExpr::Call(ctx.grammar_qual + ".Pred::Any", [])),
+          (
+            "body",
+            MbtExpr::Call(ctx.grammar_qual + ".Expr::Fail", [
+              MbtExpr::StrLit(quote(msg)),
+            ]),
+          ),
+        ]),
+      )
+    }
   }
   MbtExpr::Call(ctx.grammar_qual + ".Expr::Choice", [MbtExpr::Array(alts)])
 }
