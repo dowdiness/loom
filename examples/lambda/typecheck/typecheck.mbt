@@ -39,6 +39,7 @@ priv struct PipelineState {
   mut body_term_input : @incr.Input[TypedTerm]?
   mut body_resolve_memo : @incr.Derived[TypedTerm]?
   mut body_memo : @incr.Derived[TypeResult]?
+  mut syncing : Bool
   // Accumulator for per-def diagnostics. Allocated in `rebuild_chain`
   // bound to the current `chain_scope`, so it is disposed automatically
   // when the chain is torn down on structural rebuild.
@@ -60,6 +61,7 @@ fn PipelineState::new() -> PipelineState {
     body_term_input: None,
     body_resolve_memo: None,
     body_memo: None,
+    syncing: false,
     diags: None,
   }
 }
@@ -94,22 +96,19 @@ fn build_typecheck_pipeline_internal(
   source_term : @incr.Derived[TypedTerm],
 ) -> (@incr.Derived[ModuleTypeResult], PipelineState) {
   let state = PipelineState::new()
-  ignore(rt)
+  ignore(sync_pipeline_state(state, parent_scope, source_term))
+  let _sync_listener = rt.add_on_change_listener(() => {
+    if !state.syncing && !source_term.is_disposed() {
+      state.syncing = true
+      ignore(sync_pipeline_state(state, parent_scope, source_term))
+      state.syncing = false
+    }
+  })
   let derived = parent_scope.derived(
     () => {
-      let term = source_term.get_or_abort()
-      let (defs, body) = split_defs(term)
-      let def_names = defs.map(fn(d) { d.0 })
-      // Detect structural change: first run or different def names
-      let needs_rebuild = match state.chain_scope {
-        None => true
-        Some(_) => def_names != state.prev_def_names
-      }
-      if needs_rebuild {
-        rebuild_chain(state, parent_scope, defs, body)
-      } else {
-        update_terms(state, defs, body)
-      }
+      // Keep the source dependency on the pure result cell. State mutation
+      // is performed by the sibling Effect above, outside this compute body.
+      ignore(source_term.get_or_abort())
       collect_results(state)
     },
     label="typecheck_pipeline",
@@ -155,27 +154,23 @@ pub fn build_typecheck_pipeline_with_index(
     },
     label="typecheck_index",
   )
-  let result_derived = parent_scope.derived(
-    () => {
-      let term = source_term.get_or_abort()
-      let (defs, body) = split_defs(term)
-      let def_names = defs.map(fn(d) { d.0 })
-      let needs_rebuild = match state.chain_scope {
-        None => true
-        Some(_) => def_names != state.prev_def_names
-      }
-      if needs_rebuild {
+  ignore(sync_pipeline_state(state, parent_scope, source_term))
+  let _sync_listener = rt.add_on_change_listener(() => {
+    if !state.syncing && !source_term.is_disposed() {
+      state.syncing = true
+      if sync_pipeline_state(state, parent_scope, source_term) {
         // Wrapper Derived cells in `derived_map` captured references to the
         // previous chain's `type_memos` slots. After `rebuild_chain` replaces
-        // those slots (and their chain scope is disposed), every cached wrapper
-        // reads through a dangling pointer. Dispose them up front —
-        // `derived_map` is Runtime-owned, so chain-scope disposal can't
-        // reach it.
+        // those slots (and their chain scope is disposed), every cached
+        // wrapper reads through a dangling pointer.
         derived_map.clear_cache()
-        rebuild_chain(state, parent_scope, defs, body)
-      } else {
-        update_terms(state, defs, body)
       }
+      state.syncing = false
+    }
+  })
+  let result_derived = parent_scope.derived(
+    () => {
+      ignore(source_term.get_or_abort())
       collect_results(state)
     },
     label="typecheck_pipeline",
@@ -194,6 +189,33 @@ fn split_defs(term : TypedTerm) -> (Array[(String, TypedTerm)], TypedTerm) {
     Module(defs, body) => (defs, body)
     _ => ([], term)
   }
+}
+
+///|
+/// Synchronize the mutable per-definition pipeline from the current source.
+///
+/// This runs from a push Effect, not from the result Derived's compute body:
+/// updating an Input calls propagation and is forbidden while a pull compute
+/// frame is active. Returns whether the chain was structurally rebuilt so
+/// callers can invalidate auxiliary caches.
+fn sync_pipeline_state(
+  state : PipelineState,
+  parent_scope : @incr.Scope,
+  source_term : @incr.Derived[TypedTerm],
+) -> Bool {
+  let term = source_term.read_or_abort()
+  let (defs, body) = split_defs(term)
+  let def_names = defs.map(fn(d) { d.0 })
+  let needs_rebuild = match state.chain_scope {
+    None => true
+    Some(_) => def_names != state.prev_def_names
+  }
+  if needs_rebuild {
+    rebuild_chain(state, parent_scope, defs, body)
+  } else {
+    update_terms(state, defs, body)
+  }
+  needs_rebuild
 }
 
 ///|
