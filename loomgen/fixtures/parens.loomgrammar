@@ -2,4 +2,5 @@
 // exercising a `//` comment. It is the file-format equivalent of the
 // #loom.rule("LParen RParen") annotation in rule_grammar_fixture.mbt, and the
 // differential parity test asserts both paths emit byte-identical GrammarIr.
-Parens = LParen RParen
+// #loom.rule("Newline~>LParen RParen") annotation in rule_grammar_fixture.mbt.
+Parens = Newline~>LParen RParen

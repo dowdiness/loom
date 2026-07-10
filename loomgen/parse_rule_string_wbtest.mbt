@@ -287,3 +287,51 @@ test "parse_rule_string: @error_node(Kind, Token, Token) extra comma rejected" {
     Err(m) => inspect(m.contains("unbalanced '@error_node('"), content="true")
   }
 }
+
+///|
+test "parse_rule_string: Token~>Token yields ExpectSkip" {
+  match parse_rule_string("A~>B", "Rule") {
+    Ok(ExpectSkip("A", "B")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Token~>Token in Seq context" {
+  match parse_rule_string("A~>B C", "Rule") {
+    Ok(Seq([ExpectSkip("A", "B"), Sym("C")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Token~>Token in Alt context" {
+  match parse_rule_string("A~>B | C", "Rule") {
+    Ok(Alt([ExpectSkip("A", "B"), Sym("C")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: ~> at start rejected" {
+  match parse_rule_string("~>A", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(
+        m.contains("has no atom to bind") || m.contains("unexpected"),
+        content="true",
+      )
+  }
+}
+
+///|
+test "parse_rule_string: compound atom as skip rejected" {
+  match parse_rule_string("(A | B)~>C", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("requires a simple token name"), content="true")
+  }
+}

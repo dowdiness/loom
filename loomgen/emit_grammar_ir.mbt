@@ -181,7 +181,7 @@ fn nullable(
     Star(_) | Opt(_) => true
     Plus(inner) => nullable(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => nullable(inner, ctx, visiting)
-    ErrorUntil(_) | ErrorNodeUntil(_, _) => false
+    ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) => false
     PrattApp(_) | PrattBinary(_) => false
   }
 }
@@ -250,6 +250,7 @@ fn first_set(
     Star(inner) | Plus(inner) | Opt(inner) => first_set(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => first_set(inner, ctx, visiting)
     ErrorUntil(_) | ErrorNodeUntil(_, _) => @hashset.HashSet([])
+    ExpectSkip(_, expected_name) => @hashset.HashSet([expected_name])
     PrattApp(spec) => first_set(Sym(spec.prefix), ctx, visiting)
     PrattBinary(spec) => first_set(Sym(spec.prefix), ctx, visiting)
   }
@@ -311,6 +312,7 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
     Star(inner) | Plus(inner) | Opt(inner) => leading_refs(inner, ctx)
     Emit(inner) | Emitor(inner) => leading_refs(inner, ctx)
     ErrorUntil(_) | ErrorNodeUntil(_, _) => []
+    ExpectSkip(_, _) => []
     PrattApp(spec) => [spec.prefix]
     PrattBinary(spec) => [spec.prefix]
   }
@@ -356,7 +358,7 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
       Seq(items) | Alt(items) => items.iter().any(go)
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
       Emit(inner) | Emitor(inner) => go(inner)
-      ErrorUntil(_) | ErrorNodeUntil(_, _) => false
+      ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) => false
       PrattApp(spec) => go(Sym(spec.prefix))
       PrattBinary(spec) => go(Sym(spec.prefix))
     }
@@ -644,6 +646,32 @@ fn resolve_optional_token(
 }
 
 ///|
+/// Resolve a terminal token name to its `(name, kind)` pair, or fail closed
+/// if it is not a `#loom.token` variant. `context` names the construct (e.g.
+/// `"~>"`) for error diagnostics. Shared by lowering arms that validate bare
+/// token names (as opposed to `resolve_optional_token` which takes a `RuleAst`
+/// operand from postfix operators).
+fn resolve_terminal(
+  name : String,
+  ctx : LowerCtx,
+  context : String,
+) -> (String, String) raise RuleLowerError {
+  match resolve_sym(name, ctx) {
+    Terminal(kind) => (name, kind)
+    Rule(_) =>
+      raise RuleLowerError(
+        "'" +
+        name +
+        "' in " +
+        context +
+        " must be a terminal token, not a rule reference",
+      )
+    RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
+    Unknown => raise RuleLowerError(unknown_symbol_msg(name))
+  }
+}
+
+///|
 /// Lower a parsed rule node to an `MbtExpr` representing a `@grammar.Expr` value.
 fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
   match ast {
@@ -752,6 +780,22 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
         MbtExpr::Var(qualify(ctx.syntax_qual, kind_ref)),
         pred_text(tokens, ctx),
         MbtExpr::StrLit(quote(msg)),
+      ])
+    }
+    // Token~> — consume skip tokens via IsToken before expecting another token.
+    ExpectSkip(skip_name, expected_name) => {
+      let (skip_tok, skip_kind) = resolve_terminal(skip_name, ctx, "'~>'")
+      let (expected_tok, expected_kind) = resolve_terminal(
+        expected_name, ctx, "'~>'",
+      )
+      let skip_pred = MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
+        MbtExpr::Var(qualify(ctx.token_qual, skip_tok)),
+      ])
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::ExpectSkip", [
+        skip_pred,
+        MbtExpr::Var(qualify(ctx.syntax_qual, skip_kind)),
+        MbtExpr::Var(qualify(ctx.token_qual, expected_tok)),
+        MbtExpr::Var(qualify(ctx.syntax_qual, expected_kind)),
       ])
     }
     // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a
