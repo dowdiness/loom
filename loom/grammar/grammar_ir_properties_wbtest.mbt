@@ -102,11 +102,7 @@ impl @qc.Shrink for QcKind with fn shrink(self) -> Iter[QcKind] {
 ///|
 /// Generate a safe Expr body.  No `Pred::Any` in predicates — only
 /// `Pred::IsToken` with explicit tokens.
-fn gen_expr(
-  size : Int,
-  rs : @splitmix.RandomState,
-  _rule_names : Array[String],
-) -> Expr[QcToken, QcKind] {
+fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
   let tk = fn() { QcToken::arbitrary(0, rs) }
   let kn = fn() { QcKind::arbitrary(0, rs) }
   if size <= 0 {
@@ -120,9 +116,9 @@ fn gen_expr(
     }
   } else {
     let next = size - 1
-    let pick = (rs.next_uint() % 19).reinterpret_as_int()
+    let pick = (rs.next_uint() % 18).reinterpret_as_int()
     if pick == 0 {
-      Expr::Node(kn(), gen_expr(next, rs, _rule_names))
+      Expr::Node(kn(), gen_expr(next, rs))
     } else if pick == 1 {
       Expr::Emit(tk(), kn())
     } else if pick == 2 {
@@ -131,7 +127,7 @@ fn gen_expr(
       let n = (rs.next_uint() % 3 + 1).reinterpret_as_int()
       let exprs : Array[Expr[QcToken, QcKind]] = []
       for _i in 0..<n {
-        exprs.push(gen_expr(next, rs, _rule_names))
+        exprs.push(gen_expr(next, rs))
       }
       Expr::Seq(exprs)
     } else if pick == 4 {
@@ -143,34 +139,22 @@ fn gen_expr(
     } else if pick == 7 {
       Expr::DiagnoseIf(Pred::IsToken(tk()), "diag")
     } else if pick == 8 {
-      Expr::RepeatWhile(Pred::IsToken(tk()), gen_expr(next, rs, _rule_names))
-    } else if pick == 9 {
       Expr::EmitOr(tk(), kn(), "missing")
-    } else if pick == 10 {
+    } else if pick == 9 {
       Expr::ErrorUntil(Pred::IsToken(tk()), "err-until")
+    } else if pick == 10 {
+      Expr::WrapIfNext(kn(), Pred::IsToken(tk()), gen_expr(next, rs))
     } else if pick == 11 {
-      Expr::WrapIfNext(
-        kn(),
-        Pred::IsToken(tk()),
-        gen_expr(next, rs, _rule_names),
-      )
-    } else if pick == 12 {
       Expr::ErrorNodeUntil(kn(), Pred::IsToken(tk()), "err-node")
-    } else if pick == 13 {
-      let alt1 = Alt::{
-        starts: Pred::IsToken(tk()),
-        body: gen_expr(next, rs, _rule_names),
-      }
-      let alt2 = Alt::{
-        starts: Pred::IsToken(tk()),
-        body: gen_expr(next, rs, _rule_names),
-      }
+    } else if pick == 12 {
+      let alt1 = Alt::{ starts: Pred::IsToken(tk()), body: gen_expr(next, rs) }
+      let alt2 = Alt::{ starts: Pred::IsToken(tk()), body: gen_expr(next, rs) }
       Expr::Choice([alt1, alt2])
-    } else if pick == 14 {
+    } else if pick == 13 {
       Expr::ExpectSkip(Pred::IsToken(tk()), kn(), tk(), kn())
-    } else if pick == 15 {
+    } else if pick == 14 {
       Expr::ConsumeGated(Pred::IsToken(tk()), kn(), Pred::IsToken(tk()))
-    } else if pick == 16 {
+    } else if pick == 15 {
       let pairs : Array[(QcToken, QcKind)] = [(tk(), kn()), (tk(), kn())]
       Expr::RequireSep(
         pairs,
@@ -179,10 +163,10 @@ fn gen_expr(
         msg_alt="sep-alt",
         msg_else="sep-else",
       )
-    } else if pick == 17 {
+    } else if pick == 16 {
       Expr::ManualNewlineAppExpr
     } else {
-      gen_expr(next, rs, _rule_names)
+      gen_expr(next, rs)
     }
   }
 }
@@ -202,17 +186,14 @@ impl @coreqc.Arbitrary for GrammarIr[QcToken, QcKind] with fn arbitrary(
     (rs.next_uint() % 2 + 1).reinterpret_as_int()
   }
   let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
-  // Peer rule names for rule-referencing nodes (RepeatTopLevel, PrattApp, PrattBinary).
-  // Excludes the root name to prevent self-reference loops.
-  let source_peers : Array[String] = if num_rules > 1 { ["expr"] } else { [] }
   let source_body = if num_rules > 1 && size > 0 && rs.next_double() < 0.4 {
-    Expr::Seq([Expr::Ref("expr"), gen_expr(size, rs, source_peers)])
+    Expr::Seq([Expr::Ref("expr"), gen_expr(size, rs)])
   } else {
-    gen_expr(size, rs, source_peers)
+    gen_expr(size, rs)
   }
   rules["source"] = source_body
   if num_rules > 1 {
-    rules["expr"] = gen_expr(size, rs, ["source"])
+    rules["expr"] = gen_expr(size, rs)
   }
   GrammarIr::GrammarIr(rules, root="source")
 }
