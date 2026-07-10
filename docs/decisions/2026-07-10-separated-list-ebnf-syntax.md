@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-10
 **Status:** Accepted
+**PR:** [#667](https://github.com/dowdiness/loom/pull/667)
 **Issue:** [#604](https://github.com/dowdiness/loom/issues/604)
 
 ## Context
