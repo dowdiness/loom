@@ -792,9 +792,7 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
       let (expected_tok, expected_kind) = resolve_terminal(
         expected_name, ctx, "'~>'",
       )
-      let skip_pred = MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
-        MbtExpr::Var(qualify(ctx.token_qual, skip_tok)),
-      ])
+      let skip_pred = pred_text([skip_tok], ctx)
       MbtExpr::Call(ctx.grammar_qual + ".Expr::ExpectSkip", [
         skip_pred,
         MbtExpr::Var(qualify(ctx.syntax_qual, skip_kind)),
@@ -802,9 +800,9 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
         MbtExpr::Var(qualify(ctx.syntax_qual, expected_kind)),
       ])
     }
-    // Expr{Sep} — one or more items separated by a delimiter token, lowered
-    // to RepeatTopLevel for incremental list reuse. The item must be a rule
-    // Ref (not a terminal), and the separator must be a terminal token.
+    // Expr{Sep} — a zero-or-more separated list lowered to RepeatTopLevel
+    // for incremental list reuse. The item must be a rule Ref (not a
+    // terminal), and the separator must be a terminal token.
     SeparatedList(item_name, sep_name) => {
       // Validate the item exists and is a grammar rule.
       match resolve_sym(item_name, ctx) {
@@ -820,15 +818,13 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
       }
       // Resolve the separator as a terminal token.
       let (sep_tok, sep_kind) = resolve_terminal(sep_name, ctx, "'{...}'")
-      // FIRST set of the item rule gates entry to each list element.
+      // FIRST set of the item rule gates entry to each list element;
+      // delimiter predicate uses pred_text for single-token IsToken.
       let starts = pred_text(
         first_names_ordered(Sym(item_name), ctx, "a '{Sep}' list item"),
         ctx,
       )
-      // Delimiter predicate — always a single token.
-      let delim_pred = MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
-        MbtExpr::Var(qualify(ctx.token_qual, sep_tok)),
-      ])
+      let delim_pred = pred_text([sep_tok], ctx)
       MbtExpr::Call(ctx.grammar_qual + ".Expr::RepeatTopLevel", [
         MbtExpr::StrLit(quote(item_name)),
         starts,
