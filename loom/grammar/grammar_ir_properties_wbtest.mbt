@@ -3,6 +3,7 @@
 //! Uses a safe generator (no Ref, no Pred-based nodes) to ensure
 //! compile never raises and interpret never loops on empty context.
 
+///|
 priv enum QcToken {
   A
   B
@@ -10,7 +11,8 @@ priv enum QcToken {
   Eof
 } derive(Eq, @debug.Debug)
 
-impl @coreqc.Arbitrary for QcToken with arbitrary(_size, rs) {
+///|
+impl @coreqc.Arbitrary for QcToken with fn arbitrary(_size, rs) {
   match rs.next_positive_int() % 4 {
     0 => A
     1 => B
@@ -19,10 +21,12 @@ impl @coreqc.Arbitrary for QcToken with arbitrary(_size, rs) {
   }
 }
 
-impl @qc.Shrink for QcToken with shrink(_self) {
+///|
+impl @qc.Shrink for QcToken with fn shrink(_self) {
   Iter::empty()
 }
 
+///|
 impl Show for QcToken with fn output(self, logger) {
   logger.write_string(
     match self {
@@ -34,12 +38,17 @@ impl Show for QcToken with fn output(self, logger) {
   )
 }
 
-impl @seam.IsTrivia for QcToken with fn is_trivia(_self) { false }
+///|
+impl @seam.IsTrivia for QcToken with fn is_trivia(_self) {
+  false
+}
 
+///|
 impl @seam.IsEof for QcToken with fn is_eof(self) {
   self == QcToken::Eof
 }
 
+///|
 impl @seam.ToRawKind for QcToken with fn to_raw(self) {
   match self {
     A => @seam.RawKind(1)
@@ -49,6 +58,7 @@ impl @seam.ToRawKind for QcToken with fn to_raw(self) {
   }
 }
 
+///|
 priv enum QcKind {
   Root
   NodeA
@@ -56,7 +66,8 @@ priv enum QcKind {
   Error
 } derive(Eq, @debug.Debug)
 
-impl @coreqc.Arbitrary for QcKind with arbitrary(_size, rs) {
+///|
+impl @coreqc.Arbitrary for QcKind with fn arbitrary(_size, rs) {
   match rs.next_positive_int() % 4 {
     0 => Root
     1 => NodeA
@@ -65,10 +76,12 @@ impl @coreqc.Arbitrary for QcKind with arbitrary(_size, rs) {
   }
 }
 
-impl @qc.Shrink for QcKind with shrink(_self) {
+///|
+impl @qc.Shrink for QcKind with fn shrink(_self) {
   Iter::empty()
 }
 
+///|
 impl @seam.ToRawKind for QcKind with fn to_raw(self) {
   match self {
     Root => @seam.RawKind(10)
@@ -78,7 +91,7 @@ impl @seam.ToRawKind for QcKind with fn to_raw(self) {
   }
 }
 
-
+///|
 fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
   let tk = fn() { QcToken::arbitrary(0, rs) }
   let kn = fn() { QcKind::arbitrary(0, rs) }
@@ -105,32 +118,41 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
   }
 }
 
-impl @coreqc.Arbitrary for GrammarIr[QcToken, QcKind] with arbitrary(size, rs) {
+///|
+impl @coreqc.Arbitrary for GrammarIr[QcToken, QcKind] with fn arbitrary(
+  size,
+  rs,
+) {
   let rules : Map[String, Expr[QcToken, QcKind]] = {
     "source": gen_expr(size, rs),
   }
   GrammarIr::GrammarIr(rules, root="source")
 }
 
-impl @qc.Shrink for GrammarIr[QcToken, QcKind] with shrink(_self) {
+///|
+impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) {
   Iter::empty()
 }
 
+///|
 fn prop_compile(ir : GrammarIr[QcToken, QcKind]) -> Bool {
-  try { let _ = compile(ir); true } catch { _ => false }
+  try {
+    let _ = compile(ir)
+    true
+  } catch {
+    _ => false
+  }
 }
 
+///|
 test "prop_compile_well_formed" {
   @qc.quick_check_fn(prop_compile, max_success=25, max_size=4)
 }
 
+///|
 test "prop_interpret_no_crash" {
   fn prop(ir : GrammarIr[QcToken, QcKind]) -> Bool {
-    let pr = try {
-      interpret(ir)
-    } catch {
-      _ => return true
-    }
+    let pr = interpret(ir) catch { _ => return true }
     let spec = @core.LanguageSpec::new(
       QcKind::Root,
       QcKind::Error,
