@@ -1363,7 +1363,9 @@ test "emit_grammar_ir golden: @error_node catch-all in Choice" {
   let golden = read_fixture("fixtures/error_node_fixture.g.mbt")
   let (token_enum, term_enum) = enums_of(src)
   let generated = match
-    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir") {
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir",
+    ) {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
   }
