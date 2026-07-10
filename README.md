@@ -1,9 +1,8 @@
 # Loom
 
-A generic incremental parser framework for MoonBit — edit-aware lexing,
-a lossless green tree (CST), subtree reuse, error recovery, and a
-reactive pipeline. Any grammar plugs in via a single
-`Grammar[T, K, Ast]` value.
+A generic incremental parser framework for MoonBit — edit-aware lexing, a
+lossless green tree (CST), subtree reuse, error recovery, and a reactive
+pipeline. Any grammar plugs in via a single `Grammar[T, K, Ast]` value.
 
 **New here?** Start with the [`dowdiness/loom` package README](loom/)
 for the API and a Quick Start, then browse the [docs index](docs/README.md).
