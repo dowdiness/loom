@@ -137,11 +137,13 @@ deep-subtree reuse gap that motivated the emitter was closed by #476.
 
 - `emit_grammar_ir.mbt` — GrammarIr **data** generation (unchanged, feeds `@grammar.interpret`)
 - All other generators (syntax_kind, token_impls, views, lexer, spec, lexmode) — unchanged
-- `mbt_ast.mbt` — kept as-is (dead types produce warnings but no errors; cleanup deferred)
+### mbt_ast.mbt cleanup (2026-07-10)
 
-### Files to remove on next pass (cosmetic)
-
-- Dead types in `mbt_ast.mbt`: `MbtModule`, `MbtFnDecl`, `MbtStmt`, `MbtBlock`,
-  `MbtElseBranch`, `MbtMatchArm`, `MbtPat`, `MbtParam` (only `MbtExpr` with 6 variants
-  is actually used by `emit_grammar_ir.mbt`), plus unused `@pretty.Pretty` impls and
-  helper functions (kw, ident, punc, op, binop_prec)
+- **Cleaned** `loomgen/mbt_ast.mbt` — removed all 8 dead types (`MbtModule`, `MbtFnDecl`,
+  `MbtStmt`, `MbtBlock`, `MbtElseBranch`, `MbtMatchArm`, `MbtParam`, `MbtPat`), 10 unused
+  `MbtExpr` variants (Bool, MethodCall, FieldAccess, Pipe, BinOp, UnOp, Block, Closure,
+  Match, Continue, Break), all dead `@pretty.Pretty` trait impls, and 7 helper functions
+  (kw, punc, op, binop_prec, blk_layout, parens_layout, parens_flat)
+- Kept: `MbtExpr` with 6 variants (Var, StrLit, Call, Tuple, Array, Record), `ident` helper,
+  `to_breakable_layout` method
+- 0 errors, 0 warnings (was 26 warnings), 151/151 tests pass
