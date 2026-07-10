@@ -6,13 +6,11 @@
 ///   rule       := pratt_body | alt
 ///   pratt_body := '@prefix' IDENT pratt_ann*
 ///   pratt_ann  := '@app' IDENT | '@prec' '[' IDENT (',' IDENT)* ']'
-///              | '@skip' '(' IDENT ')'
+///   postfix    := atom ('*' | '+' | '?' | '~>' atom | '~' | '!' | '{' IDENT '}')?
 ///   alt        := seq ('|' seq)*
 ///   seq        := postfix+
-///   postfix    := atom ('*' | '+' | '?' | '~>' atom | '~' | '!')?
 
 ///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '@error_node' '(' IDENT ',' IDENT ('|' IDENT)* ')' | '(' alt ')'
-/// ```
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
 
@@ -57,6 +55,9 @@ enum RuleAst {
   /// Token~> — consume soft-separator tokens matching a predicate before
   /// expecting another token. Stores (skip_token_name, expected_token_name).
   ExpectSkip(String, String)
+  /// Expr{Sep} — one or more of Expr separated by Sep, lowered to
+  /// Expr::RepeatTopLevel. Stores (item_rule_name, delimiter_token_name).
+  SeparatedList(String, String)
   PrattApp(PrattAppSpec)
   PrattBinary(PrattBinarySpec)
 } derive(Eq, Debug)
@@ -81,6 +82,8 @@ enum RuleTok {
   TApp
   TPrec
   TSkip
+  TLBrace
+  TRBrace
   TLBracket
   TRBracket
   TComma
@@ -173,6 +176,8 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
             TTilde
           }
         '!' => TEmitor
+        '{' => TLBrace
+        '}' => TRBrace
         '[' => TLBracket
         ']' => TRBracket
         ',' => TComma
@@ -385,7 +390,7 @@ fn not_seq_terminator(tok : RuleTok?) -> Bool {
 }
 
 ///|
-/// `postfix := atom ('*' | '+' | '?' | '~>' atom | '~' | '!')?` — at most one
+/// `postfix := atom ('*' | '+' | '?' | '~>' atom | '~' | '!' | '{' IDENT '}')?` — at most one
 /// postfix. `~>` is a binary postfix consuming skip tokens before expecting.
 fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError {
   let atom = self.parse_atom()
@@ -429,6 +434,33 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
       }
       ExpectSkip(skip_name, expected_name)
     }
+    Some(TLBrace) => {
+      self.bump()
+      let sep_name = match self.peek() {
+        Some(TIdent(name)) => {
+          self.bump()
+          name
+        }
+        _ =>
+          raise RuleParseError(
+            "'{...}' must contain a token identifier for the separator",
+          )
+      }
+      guard self.peek() is Some(TRBrace) else {
+        raise RuleParseError(
+          "'{' must be closed with '}' after the separator token name",
+        )
+      }
+      self.bump()
+      let item_name = match atom {
+        Sym(n) => n
+        _ =>
+          raise RuleParseError(
+            "'{...}' requires a simple rule name as the list item",
+          )
+      }
+      SeparatedList(item_name, sep_name)
+    }
     _ => atom
   }
 }
@@ -441,6 +473,8 @@ fn pratt_token_in_ebnf_err(tok : RuleTok) -> String {
     TApp => "'@app'"
     TPrec => "'@prec'"
     TSkip => "'@skip'"
+    TLBrace => "'{'"
+    TRBrace => "'}'"
     TLBracket => "'['"
     TRBracket => "']'"
     TComma => "','"
@@ -578,10 +612,12 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
     | Some(TQuest)
     | Some(TTilde)
     | Some(TExpectSkip)
-    | Some(TEmitor) =>
+    | Some(TEmitor)
+    | Some(TLBrace) =>
       raise RuleParseError(
-        "a postfix ('*', '+', '?', '~>', '~', '!') has no atom to bind",
+        "a postfix ('*', '+', '?', '~>', '~', '!', '{Sep}') has no atom to bind",
       )
+    Some(TRBrace) => raise RuleParseError("unexpected '}'")
     Some(TPipe) => raise RuleParseError("unexpected '|' with no left side")
     Some(TRParen) => raise RuleParseError("unexpected ')'")
     None => raise RuleParseError("unexpected end of rule")

@@ -335,3 +335,65 @@ test "parse_rule_string: compound atom as skip rejected" {
       inspect(m.contains("requires a simple token name"), content="true")
   }
 }
+
+// ── SeparatedList ({Sep}) syntax (#604) ─────────────────────────────────
+
+///|
+test "parse_rule_string: Expr{Sep} yields SeparatedList" {
+  match parse_rule_string("Expr{Comma}", "Rule") {
+    Ok(SeparatedList("Expr", "Comma")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Expr{Sep} in Seq context" {
+  match parse_rule_string("Expr{Comma} Eof", "Rule") {
+    Ok(Seq([SeparatedList("Expr", "Comma"), Sym("Eof")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Expr{Sep} in Alt context" {
+  match parse_rule_string("Expr{Comma} | Single", "Rule") {
+    Ok(Alt([SeparatedList("Expr", "Comma"), Sym("Single")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: {Sep} at start rejected (no atom)" {
+  match parse_rule_string("{Comma}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("has no atom to bind"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: compound atom in {Sep} rejected" {
+  match parse_rule_string("(A | B){Comma}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("requires a simple rule name"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: empty braces rejected" {
+  match parse_rule_string("Foo{}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a token identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: unclosed brace rejected" {
+  match parse_rule_string("Foo{Comma", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("must be closed with"), content="true")
+  }
+}

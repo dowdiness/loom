@@ -76,6 +76,8 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GRule(TSkip) => "'@skip'"
     GRule(TLBracket) => "'['"
     GRule(TRBracket) => "']'"
+    GRule(TLBrace) => "'{'"
+    GRule(TRBrace) => "'}'"
     GRule(TComma) => "','"
   }
 }
@@ -141,6 +143,8 @@ fn tokenize_grammar_file(
             TTilde
           }
         '!' => TEmitor
+        '{' => TLBrace
+        '}' => TRBrace
         '[' => TLBracket
         ']' => TRBracket
         ',' => TComma
