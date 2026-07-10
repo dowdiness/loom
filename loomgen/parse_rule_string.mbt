@@ -11,7 +11,7 @@
 ///   seq        := postfix+
 ///   postfix    := atom ('*' | '+' | '?' | '~' | '!')?
 
-///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'
+///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '@error_node' '(' IDENT ',' IDENT ('|' IDENT)* ')' | '(' alt ')'
 /// ```
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
@@ -49,6 +49,10 @@ enum RuleAst {
   Opt(RuleAst)
   Emit(RuleAst)
   Emitor(RuleAst)
+  /// @error_node(Kind, Token) — consume tokens into an ErrorNode of the given
+  /// Kind until the sync token is found. Variant form @error_node(Kind, A | B)
+  /// accepts any of the listed tokens as the stop condition.
+  ErrorNodeUntil(String, Array[String])
   ErrorUntil(Array[String])
   PrattApp(PrattAppSpec)
   PrattBinary(PrattBinarySpec)
@@ -67,6 +71,7 @@ enum RuleTok {
   TQuest
   TTilde
   TEmitor
+  TErrorNode
   TUntil
   TPrefix
   TApp
@@ -112,6 +117,7 @@ fn scan_ident(s : String, pos : Int) -> (String, Int) {
 /// fragment references (`@fragmentName`).
 fn rule_at_keyword(name : String) -> RuleTok? {
   match name {
+    "error_node" => Some(TErrorNode)
     "until" => Some(TUntil)
     "native" => Some(TNative)
     "prefix" => Some(TPrefix)
@@ -471,6 +477,46 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       }
       self.bump()
       ErrorUntil(tokens)
+    }
+    Some(TErrorNode) => {
+      self.bump()
+      guard self.peek() is Some(TLParen) else {
+        raise RuleParseError("'@error_node' must be followed by '(kind, tokens)'")
+      }
+      self.bump()
+      let kind_name = match self.peek() {
+        Some(TIdent(n)) => {
+          self.bump()
+          n
+        }
+        _ => raise RuleParseError("@error_node() must contain a kind identifier")
+      }
+      guard self.peek() is Some(TComma) else {
+        raise RuleParseError("@error_node(kind, ...) requires a comma after the kind")
+      }
+      self.bump()
+      let tokens : Array[String] = []
+      while true {
+        match self.peek() {
+          Some(TIdent(name)) => {
+            self.bump()
+            tokens.push(name)
+          }
+          _ =>
+            raise RuleParseError(
+              "@error_node() must contain at least one token identifier after the kind",
+            )
+        }
+        match self.peek() {
+          Some(TPipe) => self.bump()
+          _ => break
+        }
+      }
+      guard self.peek() is Some(TRParen) else {
+        raise RuleParseError("unbalanced '@error_node(' — missing ')'")
+      }
+      self.bump()
+      ErrorNodeUntil(kind_name, tokens)
     }
     Some(TPrefix)
     | Some(TApp)
