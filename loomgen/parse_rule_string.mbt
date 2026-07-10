@@ -390,8 +390,24 @@ fn not_seq_terminator(tok : RuleTok?) -> Bool {
 }
 
 ///|
+/// Extract the name from a `Sym(atom)` variant, or fail closed with a
+/// diagnostic naming the construct. Shared by postfix operators (`~>`,
+/// `{Sep}`) that require a simple name as their operand.
+fn RuleAst::sym_name(
+  self : RuleAst,
+  context : String,
+  what : String,
+) -> String raise RuleParseError {
+  match self {
+    Sym(n) => n
+    _ => raise RuleParseError(context + " requires a simple " + what)
+  }
+}
+
+///|
 /// `postfix := atom ('*' | '+' | '?' | '~>' atom | '~' | '!' | '{' IDENT '}')?` — at most one
-/// postfix. `~>` is a binary postfix consuming skip tokens before expecting.
+/// postfix. `~>` is a binary postfix consuming skip tokens before expecting; `{Sep}` adds
+/// a zero-or-more separated list lowered to RepeatTopLevel.
 fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError {
   let atom = self.parse_atom()
   match self.peek() {
@@ -418,20 +434,10 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
     Some(TExpectSkip) => {
       self.bump()
       let expected_atom = self.parse_atom()
-      let skip_name = match atom {
-        Sym(n) => n
-        _ =>
-          raise RuleParseError(
-            "'~>' requires a simple token name as the skip token",
-          )
-      }
-      let expected_name = match expected_atom {
-        Sym(n) => n
-        _ =>
-          raise RuleParseError(
-            "'~>' requires a simple token name as the expected token",
-          )
-      }
+      let skip_name = atom.sym_name("'~>'", "token name as the skip token")
+      let expected_name = expected_atom.sym_name(
+        "'~>'", "token name as the expected token",
+      )
       ExpectSkip(skip_name, expected_name)
     }
     Some(TLBrace) => {
@@ -452,13 +458,7 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
         )
       }
       self.bump()
-      let item_name = match atom {
-        Sym(n) => n
-        _ =>
-          raise RuleParseError(
-            "'{...}' requires a simple rule name as the list item",
-          )
-      }
+      let item_name = atom.sym_name("'{...}'", "rule name as the list item")
       SeparatedList(item_name, sep_name)
     }
     _ => atom
