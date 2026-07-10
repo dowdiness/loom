@@ -481,7 +481,9 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
     Some(TErrorNode) => {
       self.bump()
       guard self.peek() is Some(TLParen) else {
-        raise RuleParseError("'@error_node' must be followed by '(kind, tokens)'")
+        raise RuleParseError(
+          "'@error_node' must be followed by '(kind, tokens)'",
+        )
       }
       self.bump()
       let kind_name = match self.peek() {
@@ -489,10 +491,13 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
           self.bump()
           n
         }
-        _ => raise RuleParseError("@error_node() must contain a kind identifier")
+        _ =>
+          raise RuleParseError("@error_node() must contain a kind identifier")
       }
       guard self.peek() is Some(TComma) else {
-        raise RuleParseError("@error_node(kind, ...) requires a comma after the kind")
+        raise RuleParseError(
+          "@error_node(kind, ...) requires a comma after the kind",
+        )
       }
       self.bump()
       let tokens : Array[String] = []

@@ -370,22 +370,39 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
 }
 
 ///| Whether `ast` is a catch-all node eligible for special treatment in a
+
 ///| `Choice`. A catch-all in the final branch position is emitted with
+
 ///| `Pred::Any` as its `starts` predicate — it only fires when no earlier
+
 ///| branch's FIRST set matches, serving as the "else clause" for an
+
 ///| alternation. The catch-all must be the **last** alternative; placing it
+
 ///| earlier would silently shadow all following branches.
+
 ///|
+
 ///| Two node kinds are catch-alls:
+
 ///| - `@native(fn)`: a hand-written production (the original catch-all).
+
 ///| - `@error_node(Kind, Token)`: error recovery that consumes until a sync
+
 ///|   token, wrapping the consumed range in an ErrorNode. Its FIRST set is
+
 ///|   empty (it matches any token), so it must be treated as a catch-all to
+
 ///|   avoid the empty-FIRST-set rejection in `lower_choice`.
+
 ///|
+
 ///| Placing a catch-all in non-last position is rejected by the existing
+
 ///| FIRST-set logic: an empty-FIRST alternative fails `first_names_ordered`,
-///| so the constraint is enforced without an explicit position check here.
+
+///|
+/// so the constraint is enforced without an explicit position check here.
 fn RuleAst::is_catch_all(self : RuleAst) -> Bool {
   match self {
     Native(_) | ErrorNodeUntil(_, _) => true
@@ -575,11 +592,19 @@ fn pred_text(names : Array[String], ctx : LowerCtx) -> MbtExpr {
 ///|
 /// Verify every token in `tokens` is a known #loom.token variant. Fails closed
 /// with a diagnostic naming `context` (e.g. "@until()" or "@error_node()").
-fn validate_tokens_known(tokens : Array[String], ctx : LowerCtx, context_name : String) -> Unit raise RuleLowerError {
+fn validate_tokens_known(
+  tokens : Array[String],
+  ctx : LowerCtx,
+  context_name : String,
+) -> Unit raise RuleLowerError {
   for t in tokens {
     guard ctx.token_kinds.contains(t) else {
       raise RuleLowerError(
-        "'" + t + "' in " + context_name + " is not a #loom.token variant — only terminal tokens can be sync points",
+        "'" +
+        t +
+        "' in " +
+        context_name +
+        " is not a #loom.token variant — only terminal tokens can be sync points",
       )
     }
   }
@@ -700,18 +725,25 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
     ErrorNodeUntil(kind_name, tokens) => {
       guard ctx.error_node_variant == Some(kind_name) else {
         let hint = match ctx.error_node_variant {
-          Some(name) => " — the only #loom.errornode variant is '" + name + "'"
+          Some(name) =>
+            " — the only #loom.errornode variant is '" + name + "'"
           None => " — the term enum has no #loom.errornode variant"
         }
         raise RuleLowerError(
-          "'" + kind_name + "' in @error_node() is not a #loom.errornode variant" + hint,
+          "'" +
+          kind_name +
+          "' in @error_node() is not a #loom.errornode variant" +
+          hint,
         )
       }
       let kind_ref = match ctx.term_kind_names.get(kind_name) {
         Some(k) => k
-        None => raise RuleLowerError(
-          "'" + kind_name + "' in @error_node() has no CST kind — this should not happen if error_node_variant is set",
-        )
+        None =>
+          raise RuleLowerError(
+            "'" +
+            kind_name +
+            "' in @error_node() has no CST kind — this should not happen if error_node_variant is set",
+          )
       }
       validate_tokens_known(tokens, ctx, "@error_node()")
       let delim_names = tokens.join("' or '")
@@ -745,9 +777,13 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
 /// An optional construct legitimately matches nothing, so it omits the fallback.
 
 ///|
+
 ///| Emit a single `Alt{starts: Pred::Any, body: lower(branch)}` for a catch-all
+
 ///| branch (`@native` or `@error_node`). The catch-all is excluded from FIRST-set
-///| dispatch — it fires only when no earlier branch's predicate matches.
+
+///|
+/// dispatch — it fires only when no earlier branch's predicate matches.
 fn lower_catch_all_alt(
   branch : RuleAst,
   ctx : LowerCtx,
@@ -798,7 +834,10 @@ fn lower_choice(
         _ => "catch-all"
       }
       raise RuleLowerError(
-        name + " must be the final alternative in an alternation — a non-final " + name + " would shadow all following branches",
+        name +
+        " must be the final alternative in an alternation — a non-final " +
+        name +
+        " would shadow all following branches",
       )
     }
     // A nullable alternative makes the alternation ε-derivable, but the

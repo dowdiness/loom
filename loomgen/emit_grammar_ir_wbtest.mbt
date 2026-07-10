@@ -1059,7 +1059,10 @@ test "emit_grammar_ir: @native in non-final Choice position is rejected" {
       #|} derive(Eq)
     ),
   )
-  inspect(msg.contains("@native must be the final alternative in an alternation"), content="true")
+  inspect(
+    msg.contains("@native must be the final alternative in an alternation"),
+    content="true",
+  )
 }
 
 ///|
@@ -1258,13 +1261,15 @@ test "emit_grammar_ir: @error_node as catch-all in final Choice position" {
   let generated = match
     emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
     Ok(s) => s
-    Err(m) => abort("emit should succeed for @error_node catch-all but got: " + m)
+    Err(m) =>
+      abort("emit should succeed for @error_node catch-all but got: " + m)
   }
   // The @error_node alt gets Pred::Any (catch-all).
   inspect(generated.contains("@grammar.Pred::Any"), content="true")
   // The catch-all body is Expr::ErrorNodeUntil.
   inspect(
-    generated.contains("Expr::ErrorNodeUntil") && generated.contains("@syntax.ErrorNode"),
+    generated.contains("Expr::ErrorNodeUntil") &&
+    generated.contains("@syntax.ErrorNode"),
     content="true",
   )
   // No required Fail fallback — the catch-all replaces it.
@@ -1297,7 +1302,10 @@ test "emit_grammar_ir: @error_node in non-final Choice position is rejected" {
     #|  Pick
     #|} derive(Eq)
   let msg = emit_err_of(src)
-  inspect(msg.contains("@error_node must be the final alternative"), content="true")
+  inspect(
+    msg.contains("@error_node must be the final alternative"),
+    content="true",
+  )
 }
 
 ///|
@@ -1328,18 +1336,23 @@ test "emit_grammar_ir: @error_node catch-all as third of three Choice branches" 
   let generated = match
     emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
     Ok(s) => s
-    Err(m) => abort("emit should succeed for @error_node catch-all but got: " + m)
+    Err(m) =>
+      abort("emit should succeed for @error_node catch-all but got: " + m)
   }
   // The @error_node alt gets Pred::Any (catch-all).
   inspect(generated.contains("@grammar.Pred::Any"), content="true")
   // The catch-all body is Expr::ErrorNodeUntil.
   inspect(
-    generated.contains("Expr::ErrorNodeUntil") && generated.contains("@syntax.ErrorNode"),
+    generated.contains("Expr::ErrorNodeUntil") &&
+    generated.contains("@syntax.ErrorNode"),
     content="true",
   )
   // No required Fail fallback — the catch-all replaces it.
   inspect(generated.contains("@grammar.Expr::Fail("), content="false")
   // Non-catch-all branches have their FIRST-set predicates.
   inspect(generated.contains("@grammar.Pred::IsToken("), content="true")
-  inspect(generated.contains("@token.A") && generated.contains("@token.B"), content="true")
+  inspect(
+    generated.contains("@token.A") && generated.contains("@token.B"),
+    content="true",
+  )
 }
