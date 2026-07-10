@@ -13,6 +13,7 @@ members = [
   "./examples/json-settings",
   "./examples/moonbit",
   "./examples/html",
+  "./examples/jsx",
   "./incr/incr",
   "./egraph",
   "./fixtures/grammar_ir_regression",

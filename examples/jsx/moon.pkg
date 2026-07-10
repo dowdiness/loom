@@ -1,0 +1,8 @@
+import {
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/jsx/token",
+  "dowdiness/jsx/syntax",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
