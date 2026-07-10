@@ -6,3 +6,9 @@ import {
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
 }
+
+// QuickCheck implementations and property helpers are exercised by whitebox
+// tests; suppress package-level unused warnings that vendored consumers treat
+// as errors.
+
+warnings = "-1-23-29"
