@@ -212,3 +212,78 @@ test "parse_rule_string: bare @native not confused with fragment" {
     Err(_) => abort("expected '@nativeX' to parse as a fragment")
   }
 }
+
+///|
+test "parse_rule_string: @error_node(Kind, Token) yields ErrorNodeUntil" {
+  match parse_rule_string("@error_node(ErrorNode, EOF)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["EOF"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, A | B) with multi-token sync" {
+  match
+    parse_rule_string("@error_node(ErrorNode, Semicolon | EOF)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["Semicolon", "EOF"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, A | B | C) with three sync tokens" {
+  match parse_rule_string("@error_node(ErrorNode, A | B | C)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["A", "B", "C"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node() missing content rejected" {
+  match parse_rule_string("@error_node()", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a kind identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind) missing comma rejected" {
+  match parse_rule_string("@error_node(ErrorNode)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("requires a comma after the kind"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(, Token) missing kind rejected" {
+  match parse_rule_string("@error_node(, EOF)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a kind identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind,) missing tokens rejected" {
+  match parse_rule_string("@error_node(ErrorNode,)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(
+        m.contains("must contain at least one token identifier after the kind"),
+        content="true",
+      )
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, Token, Token) extra comma rejected" {
+  match parse_rule_string("@error_node(ErrorNode, EOF,)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("unbalanced '@error_node('"), content="true")
+  }
+}

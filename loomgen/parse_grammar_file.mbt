@@ -68,6 +68,7 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GRule(TTilde) => "'~'"
     GRule(TEmitor) => "'!'"
     GRule(TUntil) => "'@until()'"
+    GRule(TErrorNode) => "'@error_node()'"
     GRule(TPrefix) => "'@prefix'"
     GRule(TApp) => "'@app'"
     GRule(TPrec) => "'@prec'"
