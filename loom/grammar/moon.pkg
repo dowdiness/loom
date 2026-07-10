@@ -2,4 +2,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck" @coreqc,
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
 }
