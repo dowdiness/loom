@@ -280,12 +280,9 @@ fn html_mode_lex_step(
     Normal => {
       let step = html_step_lexer(source, start)
       let next_mode = match step {
-        Produced(info, ..) =>
-          match info.token {
-            @token.OpenTag(name) if is_raw_text_tag(name) =>
-              RawText(name.to_lower())
-            _ => Normal
-          }
+        Produced({ token: @token.OpenTag(name), .. }, ..) if is_raw_text_tag(
+            name,
+          ) => RawText(name.to_lower())
         _ => Normal
       }
       (step, next_mode)
