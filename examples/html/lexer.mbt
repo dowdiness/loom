@@ -205,17 +205,123 @@ fn html_step_lexer(source : String, start : Int) -> @core.LexStep[@token.Token] 
 }
 
 ///|
+/// Lexer mode for `<script>`/`<style>` raw-text content (loom #626).
+/// `RawText(tag)` holds the lowercased raw-text tag name being scanned for,
+/// so scanning resumes correctly even with `<script>`/`<style>` nested at
+/// different points in the source.
+priv enum HtmlLexMode {
+  Normal
+  RawText(String)
+} derive(Eq)
+
+///|
+fn is_close_tag_boundary(c : Char?) -> Bool {
+  match c {
+    None => true
+    Some(c) => !is_tag_name_char(c)
+  }
+}
+
+///|
+/// Case-insensitive, non-consuming probe for `</tag` at `cursor`'s current
+/// position, followed by a tag-name boundary — so `</script` does not match
+/// inside `</scripts>`. `tag` must already be lowercased.
+fn matches_raw_text_close(cursor : @core.LexCursor, tag : String) -> Bool {
+  let start = cursor.position()
+  if !cursor.consume_char('<') || !cursor.consume_char('/') {
+    cursor.set_position(start)
+    return false
+  }
+  for c in tag {
+    match cursor.peek() {
+      Some(ch) if ch.to_ascii_lowercase() == c => ignore(cursor.advance_char())
+      _ => {
+        cursor.set_position(start)
+        return false
+      }
+    }
+  }
+  let matched = is_close_tag_boundary(cursor.peek())
+  cursor.set_position(start)
+  matched
+}
+
+///|
+/// Offset where raw-text content for `tag` ends: the start of the matching
+/// case-insensitive `</tag` close sequence, or `source.length()` if
+/// unterminated. `tag` must already be lowercased. Content is scanned
+/// literally — no nested-tag parsing, matching real raw-text-element
+/// semantics (a stray `<` that isn't part of the exact close sequence is
+/// just raw content).
+fn find_raw_text_close(source : String, start : Int, tag : String) -> Int {
+  let cursor = @core.LexCursor::new(source, start)
+  while !cursor.is_done() {
+    if cursor.peek() == Some('<') && matches_raw_text_close(cursor, tag) {
+      return cursor.position()
+    }
+    ignore(cursor.advance_char())
+  }
+  cursor.position()
+}
+
+///|
+/// Mode-aware lex step. `Normal` mode is the existing step lexer, except an
+/// `OpenTag` for a raw-text tag (script/style, case-insensitively — see
+/// `is_raw_text_tag`) switches into `RawText` mode. `RawText` mode scans to
+/// the matching close tag and emits a single `@token.RawText` token,
+/// without consuming the close tag itself (the next step, back in `Normal`
+/// mode, lexes it as an ordinary `CloseTag`).
+fn html_mode_lex_step(
+  source : String,
+  start : Int,
+  mode : HtmlLexMode,
+) -> (@core.LexStep[@token.Token], HtmlLexMode) {
+  match mode {
+    Normal => {
+      let step = html_step_lexer(source, start)
+      let next_mode = match step {
+        Produced(info, ..) =>
+          match info.token {
+            @token.OpenTag(name) if is_raw_text_tag(name) =>
+              RawText(name.to_lower())
+            _ => Normal
+          }
+        _ => Normal
+      }
+      (step, next_mode)
+    }
+    RawText(tag) => {
+      let close_at = find_raw_text_close(source, start, tag)
+      if close_at > start {
+        let cursor = @core.LexCursor::new(source, start)
+        cursor.set_position(close_at)
+        (cursor.produced(@token.RawText), Normal)
+      } else {
+        // Empty content (e.g. `<script></script>`) — do not emit a
+        // zero-width token (loom #646 was exactly this class of bug).
+        // Re-dispatch at the same position in Normal mode so the close tag
+        // is lexed immediately as an ordinary CloseTag.
+        html_mode_lex_step(source, start, Normal)
+      }
+    }
+  }
+}
+
+///|
+let html_mode_lexer : @core.ModeLexer[@token.Token, HtmlLexMode] = {
+  lex_step: html_mode_lex_step,
+  initial_mode: Normal,
+}
+
+///|
+let html_mode_relex_state : @core.ModeRelexState[@token.Token] = @loom.erase_mode_lexer(
+  html_mode_lexer,
+  @token.EOF,
+  error_token=@token.Error(""),
+  error_token_from_message=Some(msg => @token.Error(msg)),
+)
+
+///|
 pub fn lex(input : String) -> @core.LexResult[@token.Token] {
-  let buffer = @core.TokenBuffer::new_from_steps(
-    input,
-    @core.PrefixLexer::new(lex_step=html_step_lexer),
-    eof_token=@token.EOF,
-    error_token=@token.Error(""),
-    error_token_from_message=Some(msg => @token.Error(msg)),
-  )
-  @core.LexResult::with_starts(
-    buffer.get_tokens(),
-    buffer.get_starts(),
-    diagnostics=buffer.get_diagnostics(),
-  )
+  (html_mode_relex_state.tokenize)(input)
 }

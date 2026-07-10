@@ -33,8 +33,12 @@ fn is_void_tag(name : String) -> Bool {
 }
 
 ///|
+/// HTML tag/element names are ASCII case-insensitive per spec — the lexer's
+/// raw-text mode switch and this parser-side gate must agree, so both call
+/// this single function rather than duplicating the tag-name check.
 fn is_raw_text_tag(name : String) -> Bool {
-  name == "script" || name == "style"
+  let lower = name.to_lower()
+  lower == "script" || lower == "style"
 }
 
 ///|

@@ -5,4 +5,5 @@ pub let html_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, Unit] = @
   lex~,
   fold_node=(_node, _recurse) => (),
   incremental_relex_enabled=false,
+  mode_relex=Some(html_mode_relex_state),
 )

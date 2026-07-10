@@ -101,3 +101,41 @@ test "lex input with whitespace before tag" {
     _ => fail("Expected OpenTag as second token")
   }
 }
+
+///|
+test "lex script content as raw text, not text" {
+  // Regression for loom #626.
+  let result = lex("<script>var x = 1;</script>")
+  let tokens = result.tokens()
+  let starts = result.starts()
+  inspect(tokens.length(), content="4")
+  match tokens[1].token {
+    @token.RawText => {
+      inspect(starts[1], content="8")
+      inspect(tokens[1].len, content="10")
+    }
+    _ => fail("Expected RawText as second token")
+  }
+  match tokens[2].token {
+    @token.CloseTag(name) => inspect(name, content="script")
+    _ => fail("Expected CloseTag as third token")
+  }
+}
+
+///|
+test "lex script raw text is case-insensitive and empty-safe" {
+  // Regression for loom #626 — mixed-case tag names and an immediately
+  // closed raw-text element (no zero-width RawText token, no hang).
+  let mixed_case = lex("<SCRIPT>a</SCRIPT>").tokens()
+  inspect(mixed_case.length(), content="4")
+  match mixed_case[1].token {
+    @token.RawText => ()
+    _ => fail("Expected RawText for mixed-case script tag")
+  }
+  let empty = lex("<script></script>").tokens()
+  inspect(empty.length(), content="3")
+  match empty[1].token {
+    @token.CloseTag(name) => inspect(name, content="script")
+    _ => fail("Expected immediate CloseTag, no zero-width RawText token")
+  }
+}
