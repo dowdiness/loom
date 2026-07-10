@@ -1,25 +1,11 @@
 # loomgen
 
-Code generator for loom language plumbing files.
-
-Phase 1: reads `#loom.*`-annotated `Token` enum, emits `syntax_kind.g.mbt` and `token_impls.g.mbt`.
-
-Phase 2 (deferred): `#loom.term` enum support — emits `SyntaxKind` entries for CST node types.
-
-Phase 3: `#loom.view` annotation on term variants — emits `views.g.mbt` with typed `*Proj`
-accessor structs wrapping projection_shape helpers.
-
-## Grammar IR Emitter (`emit_grammar.mbt`)
-
-`emit_grammar.mbt` converts a `@grammar.GrammarIr[T, K]` value to a `parse_root`/`parse_<rule>`
-MoonBit source file matching the semantics of `@grammar.interpret`.
-
-The emitter is library-only: there is no `--grammar <file.mbt>` CLI flag because
-loomgen cannot dynamically evaluate arbitrary MoonBit data from a file.
-Callers construct a `GrammarIr` in memory and pass it to `emit_grammar(...)`.
-
-Fixture parity packages (`fixtures/grammar_parity/`, `fixtures/grammar_parity_reuse/`)
-verify emitted parsers produce the same CST and diagnostics as `@grammar.interpret`.
+Code generator for loom MoonBit plumbing files. Generates `syntax_kind.g.mbt`,
+`token_impls.g.mbt`, `lexer.g.mbt`, `views.g.mbt`, `lexmode.g.mbt`,
+`spec.g.mbt`, and `grammar_ir.g.mbt` from `#loom.*` annotated enums.
+Parser execution is delegated to [`@grammar.interpret`](../loom/grammar/interpreter.mbt)
+at runtime. See [ADR 2026-07-10](../docs/decisions/2026-07-10-remove-emit-grammar-code-generator.md)
+for why the parser code generator (`emit_grammar.mbt`) was removed.
 
 ## LexMode (`#loom.lexmode`)
 
@@ -142,7 +128,7 @@ parsed as an annotation-only Pratt body (not regular EBNF):
 | `@prefix Rule` | Prefix rule for `PrattApp` or `PrattBinary` (case-sensitive `#loom.term` variant name) |
 | `@prec[Op, ...]` | Operator table for `PrattBinary` (required for binary; empty/duplicate ops rejected) |
 | `@skip(Tok)` | Gated soft-separator consume before each operator check (`PrattBinary` only) |
-| `@app KindTerm` | Optional CST node kind override (not “application production” — overrides the Pratt node kind) |
+| `@app KindTerm` | Optional CST node kind override (not "application production" — overrides the Pratt node kind) |
 
 `@prefix Atom` lowers to `PrattApp("Atom", <production kind>, FIRST(Atom))`.
 `@prefix AppExpr @prec[Plus, Minus] @skip(Newline)` lowers to
@@ -244,4 +230,3 @@ metadata split across source files:
   (loaded via `--term`; a non-package directory, since json is a single package and
   compiling TermKind there would make its constructors ambiguous with SyntaxKind's —
   see issue #565)
-
