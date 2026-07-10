@@ -1,9 +1,7 @@
 ///|
-/// Regenerate all 3 grammar-parity fixture `.g.mbt` files from the current
-/// emitter output.  Intended to be run after a PR that changes the emitter
-/// output format (e.g. PR #573 AST-builder backend), so the checked-in
-/// fixtures stay byte-identical to what `emit_grammar` produces.
-///
+///| Regenerate grammar-parity fixture `.g.mbt` files from the current
+///| emitter and IR-level fixture `.g.mbt` files from the current
+///| EBNF-to-IR lowering.
 /// Usage: `moon run loomgen --target native -- --regenerate-fixtures`
 pub fn regenerate_fixtures() -> Unit {
   // ---------- simple_parser.g.mbt (ParityToken / ParityKind) ----------
@@ -116,6 +114,45 @@ pub fn regenerate_fixtures() -> Unit {
         _ => println("ERROR: failed to write " + path)
       }
       println("  " + path)
+    }
+  }
+
+  // ------ error_node_fixture.g.mbt (IR-level fixture) ------
+  // Reads the EBNS fixture, parses annotations, and emits the IR through
+  // emit_grammar_ir — the same path the golden test exercises.
+  {
+    let src = @fs.read_file_to_string("loomgen/fixtures/error_node_fixture.mbt") catch {
+      _ => {
+        println("ERROR: failed to read error_node_fixture.mbt")
+        return
+      }
+    }
+    match parse_annotations(src) {
+      Err(msg) => println("ERROR: error_node_fixture.mbt — " + msg)
+      Ok(ann) => {
+        guard ann.token_enum is Some(token_enum) else {
+          println("ERROR: error_node_fixture.mbt has no #loom.token enum")
+          return
+        }
+        guard ann.term_enum is Some(term_enum) else {
+          println("ERROR: error_node_fixture.mbt has no #loom.term enum")
+          return
+        }
+        match emit_grammar_ir(
+          term_enum, token_enum,
+          "@token", "@syntax",
+          "@grammar", "error_node_grammar_ir",
+        ) {
+          Err(msg) => println("ERROR: emitter — " + msg)
+          Ok(content) => {
+            let path = "loomgen/fixtures/error_node_fixture.g.mbt"
+            @fs.write_string_to_file(path, content) catch {
+              _ => println("ERROR: failed to write " + path)
+            }
+            println("  " + path)
+          }
+        }
+      }
     }
   }
 }
