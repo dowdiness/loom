@@ -59,6 +59,8 @@ pub(all) enum JsxNode {
   ExprSpan(raw~ : String)
   Error(String)
 } derive(Eq, @debug.Debug)
+pub impl @core.Renderable for JsxNode
+pub impl @core.TreeNode for JsxNode
 
 // Type aliases
 
