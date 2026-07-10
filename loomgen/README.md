@@ -122,14 +122,16 @@ references) built from `#loom.rule` annotations on `#loom.term` variants, plus
 `#loom.token` (`#loom.punct`/`#loom.eof`) annotations on the Token enum for
 FIRST-set token resolution.
 
-The annotation subset covers 12 `@grammar.Expr` variants: `Expect`,
-`Emit`, `EmitOr`, `ErrorUntil`, `Seq`,
+The annotation subset covers 13 `@grammar.Expr` variants: `Expect`,
+`Emit`, `EmitOr`, `ErrorUntil`, `ErrorNodeUntil`, `Seq`,
 `Choice` (disjoint FIRST sets enforced at generation time), `Ref`,
-`RepeatWhile` (`*`), `Node`, `Fail`, `PrattApp`, `PrattBinary`, and
+`RepeatWhile` (`*`), `Node`, `Native`, `Fail`, `PrattApp`, `PrattBinary`, and
 `+`/`?` (lowered to `Seq`/`RepeatWhile`/`Choice`). Postfix `~` lowers to
 `Emit` (optional token consume), `!` lowers to
-`EmitOr` (expect-or-continue with diagnostic), and `@until(Token)` /
-`@until(T1 | T2)` lowers to `ErrorUntil` (consume until synchronization point).
+`EmitOr` (expect-or-continue with diagnostic), `@until(Token)` /
+`@until(T1 | T2)` lowers to `ErrorUntil` (consume until synchronization point),
+and `@error_node(Kind, Token)` / `@error_node(Kind, T1 | T2)` lowers to
+`ErrorNodeUntil` (consume into error node until synchronization point).
 
 **Pratt productions (#601).** A production body that begins with `@prefix` is
 parsed as an annotation-only Pratt body (not regular EBNF):
@@ -149,8 +151,8 @@ Pratt productions emit `PrattApp`/`PrattBinary` **directly** — no outer
 productions linked by `Ref` (e.g. `Expression = BinaryExpr`, `BinaryExpr =
 @prefix AppExpr @prec[…]`, `AppExpr = @prefix Atom`).
 
-The remaining variants (`ExpectSkip`, `Native`, `RepeatTopLevel`, `WrapIfNext`,
-`ConsumeGated`, `RequireSep`, `EmitError`, `ErrorNodeUntil`,
+The remaining variants (`ExpectSkip`, `RepeatTopLevel`, `WrapIfNext`,
+`ConsumeGated`, `RequireSep`, `EmitError`,
 `DiagnoseIf`, `ManualNewlineAppExpr`, `Empty`) are out-of-subset — a rule
 string referencing any of these fails closed with a lowering error.
 
