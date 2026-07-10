@@ -5,6 +5,7 @@ import {
   "dowdiness/jsx/syntax",
   "dowdiness/jsx/token",
   "dowdiness/loom/core",
+  "dowdiness/seam",
   "moonbitlang/core/debug",
 }
 
@@ -16,6 +17,8 @@ pub let jsx_mode_lexer : @core.ModeLexer[@token.Token, JsxLexMode]
 pub fn lex(String) -> @core.LexResult[@token.Token]
 
 pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Errors
 
