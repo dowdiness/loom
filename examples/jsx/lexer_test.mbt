@@ -303,3 +303,45 @@ test "lex whitespace between attributes is trivia" {
     _ => fail("Expected Whitespace")
   }
 }
+
+///|
+test "lex two levels of nested braces inside expression" {
+  // Codex round-2 post-implementation-review case: confirms local_depth
+  // increments/decrements correctly through two nesting levels and stops
+  // only at the true outermost closing brace.
+  let result = lex("<p>{a({b: {c: 1}})}</p>")
+  let tokens = result.tokens()
+  inspect(tokens.length(), content="11")
+  match tokens[4].token {
+    @token.ExprRawText =>
+      inspect(
+        text_at("<p>{a({b: {c: 1}})}</p>", result, 4),
+        content="a({b: {c: 1}})",
+      )
+    _ => fail("Expected one ExprRawText token spanning both nesting levels")
+  }
+  match tokens[5].token {
+    @token.BraceClose => ()
+    _ => fail("Expected BraceClose to be the true outermost closing brace")
+  }
+}
+
+///|
+test "lex close tag does not misclassify a following attribute-like token" {
+  // Codex round-2 post-implementation-review case: a malformed close tag
+  // with attribute-like content still lexes `div` as TagName (first
+  // identifier after OpenTagStart+Slash) and `attr` as AttrName (not a
+  // second TagName) — expects_tag_name only applies to the first
+  // identifier, never resets for a later one.
+  let result = lex("</div attr>")
+  let tokens = result.tokens()
+  match tokens[2].token {
+    @token.TagName => inspect(text_at("</div attr>", result, 2), content="div")
+    _ => fail("Expected TagName for the close tag's own name")
+  }
+  match tokens[4].token {
+    @token.AttrName =>
+      inspect(text_at("</div attr>", result, 4), content="attr")
+    _ => fail("Expected AttrName, not a second TagName")
+  }
+}
