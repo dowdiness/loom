@@ -52,7 +52,7 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
       ),
       @argparse.FlagArg(
         "regenerate-fixtures",
-        about="Regenerate grammar-parity fixture .g.mbt files from current emitter output. Requires `moon fmt loomgen/fixtures/` after regeneration because @pretty.render_string output disagrees with moon fmt.",
+        about="Regenerate fixture .g.mbt files (IR-level fixtures: error_node, rule_grammar, separated_list) from current emitter output.",
       ),
     ],
     options=[
