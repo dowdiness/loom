@@ -6,7 +6,6 @@
 /// The 6 remaining variants (Var, StrLit, Call, Tuple, Array, Record) are
 /// the only ones `emit_grammar_ir.mbt` constructs. Other variants were
 /// removed together with the parser code generator (`emit_grammar.mbt`).
-
 pub enum MbtExpr {
   Var(String)
   StrLit(String)
@@ -18,12 +17,14 @@ pub enum MbtExpr {
 
 // ── annotation helper ──────────────────────────────────────────────
 
+///|
 fn ident(s : String) -> @pretty.Layout[@pretty.SyntaxCategory] {
   @pretty.annotate(@pretty.SyntaxCategory::Identifier, @pretty.text(s))
 }
 
 // ── Breakable layout for deeply nested expressions ─────────────────
 
+///|
 /// Render MbtExpr to a Layout that uses hardline breaks at every
 /// Call/Array boundary, producing multi-line output suitable for
 /// deeply nested constructor expressions (e.g. grammar-ir rules).

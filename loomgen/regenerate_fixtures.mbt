@@ -1,6 +1,9 @@
 ///| Regenerate fixture `.g.mbt` files from the current
+
 ///| EBNF-to-IR lowering.
-///| Usage: `moon run loomgen --target native -- --regenerate-fixtures`
+
+///|
+/// Usage: `moon run loomgen --target native -- --regenerate-fixtures`
 pub fn regenerate_fixtures() -> Unit {
   // ------ error_node_fixture.g.mbt (IR-level fixture) ------
   // Reads the EBNS fixture, parses annotations, and emits the IR through
