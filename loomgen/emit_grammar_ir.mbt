@@ -182,6 +182,7 @@ fn nullable(
     Plus(inner) => nullable(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => nullable(inner, ctx, visiting)
     ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) => false
+    SeparatedList(_, _) => true
     PrattApp(_) | PrattBinary(_) => false
   }
 }
@@ -251,6 +252,7 @@ fn first_set(
     Emit(inner) | Emitor(inner) => first_set(inner, ctx, visiting)
     ErrorUntil(_) | ErrorNodeUntil(_, _) => @hashset.HashSet([])
     ExpectSkip(_, expected_name) => @hashset.HashSet([expected_name])
+    SeparatedList(item_name, _) => first_set(Sym(item_name), ctx, visiting)
     PrattApp(spec) => first_set(Sym(spec.prefix), ctx, visiting)
     PrattBinary(spec) => first_set(Sym(spec.prefix), ctx, visiting)
   }
@@ -313,6 +315,7 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
     Emit(inner) | Emitor(inner) => leading_refs(inner, ctx)
     ErrorUntil(_) | ErrorNodeUntil(_, _) => []
     ExpectSkip(_, _) => []
+    SeparatedList(item_name, _) => leading_refs(Sym(item_name), ctx)
     PrattApp(spec) => [spec.prefix]
     PrattBinary(spec) => [spec.prefix]
   }
@@ -359,6 +362,7 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
       Emit(inner) | Emitor(inner) => go(inner)
       ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) => false
+      SeparatedList(_, _) => false
       PrattApp(spec) => go(Sym(spec.prefix))
       PrattBinary(spec) => go(Sym(spec.prefix))
     }
@@ -796,6 +800,46 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
         MbtExpr::Var(qualify(ctx.syntax_qual, skip_kind)),
         MbtExpr::Var(qualify(ctx.token_qual, expected_tok)),
         MbtExpr::Var(qualify(ctx.syntax_qual, expected_kind)),
+      ])
+    }
+    // Expr{Sep} — one or more items separated by a delimiter token, lowered
+    // to RepeatTopLevel for incremental list reuse. The item must be a rule
+    // Ref (not a terminal), and the separator must be a terminal token.
+    SeparatedList(item_name, sep_name) => {
+      // Validate the item exists and is a grammar rule.
+      match resolve_sym(item_name, ctx) {
+        Rule(_) => ()
+        Terminal(_) =>
+          raise RuleLowerError(
+            "'" +
+            item_name +
+            "' in '{...}' must be a rule reference, not a terminal token",
+          )
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(item_name))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(item_name))
+      }
+      // Resolve the separator as a terminal token.
+      let (sep_tok, sep_kind) = resolve_terminal(sep_name, ctx, "'{...}'")
+      // FIRST set of the item rule gates entry to each list element.
+      let starts = pred_text(
+        first_names_ordered(Sym(item_name), ctx, "a '{Sep}' list item"),
+        ctx,
+      )
+      // Delimiter predicate — always a single token.
+      let delim_pred = MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
+        MbtExpr::Var(qualify(ctx.token_qual, sep_tok)),
+      ])
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::RepeatTopLevel", [
+        MbtExpr::StrLit(quote(item_name)),
+        starts,
+        delim_pred,
+        MbtExpr::Var(qualify(ctx.syntax_qual, sep_kind)),
+        MbtExpr::StrLit(
+          quote("expected '" + sep_name + "' between " + item_name + " items"),
+        ),
+        MbtExpr::StrLit(
+          quote("expected '" + sep_name + "' or end of " + item_name + " items"),
+        ),
       ])
     }
     // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a

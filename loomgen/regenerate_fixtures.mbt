@@ -192,4 +192,40 @@ pub fn regenerate_fixtures() -> Unit {
       }
     }
   }
+
+  // ------ separated_list_fixture.g.mbt (IR-level fixture) ------
+  let src = @fs.read_file_to_string(
+    "loomgen/fixtures/separated_list_fixture.mbt",
+  ) catch {
+    _ => {
+      println("ERROR: failed to read separated_list_fixture.mbt")
+      return
+    }
+  }
+  match parse_annotations(src) {
+    Err(msg) => println("ERROR: separated_list_fixture.mbt — " + msg)
+    Ok(ann) => {
+      guard ann.token_enum is Some(token_enum) else {
+        println("ERROR: separated_list_fixture.mbt has no #loom.token enum")
+        return
+      }
+      guard ann.term_enum is Some(term_enum) else {
+        println("ERROR: separated_list_fixture.mbt has no #loom.term enum")
+        return
+      }
+      match
+        emit_grammar_ir(
+          term_enum, token_enum, "@token", "@syntax", "@grammar", "separated_list_grammar_ir",
+        ) {
+        Err(msg) => println("ERROR: emitter — " + msg)
+        Ok(content) => {
+          let path = "loomgen/fixtures/separated_list_fixture.g.mbt"
+          @fs.write_string_to_file(path, content) catch {
+            _ => println("ERROR: failed to write " + path)
+          }
+          println("  " + path)
+        }
+      }
+    }
+  }
 }

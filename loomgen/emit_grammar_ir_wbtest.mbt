@@ -72,6 +72,21 @@ test "emit_grammar_ir: .loomgrammar path matches the annotation path byte-for-by
 }
 
 ///|
+test "emit_grammar_ir golden: SeparatedList lowers to RepeatTopLevel" {
+  let src = read_fixture("fixtures/separated_list_fixture.mbt")
+  let golden = read_fixture("fixtures/separated_list_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "separated_list_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
 /// Drives `lower_repetition`: the FIRST-set-dependent constructs. Asserts on the
 /// semantic essentials (which `Expr` constructor, which `Pred`) rather than exact
 /// formatting, so a correct lowering passes regardless of whitespace. `Item* Eof`
@@ -1485,4 +1500,105 @@ test "emit_grammar_ir: ~> with unknown symbol rejected" {
     ),
   )
   inspect(msg.contains("unknown symbol"), content="true")
+}
+
+// ── SeparatedList ({Sep}) lowering (#604) ───────────────────────────────
+
+///|
+test "emit_grammar_ir: Expr{Comma} lowers to RepeatTopLevel with IsToken" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("Item{Comma} Eof")
+    #|  Start
+    #|  #loom.leaf
+    #|  #loom.rule("A")
+    #|  Item
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed: " + m)
+  }
+  // RepeatTopLevel constructor with labelled fields
+  inspect(generated.contains("Expr::RepeatTopLevel("), content="true")
+  // Item rule name as the slot
+  inspect(generated.contains("\"Item\""), content="true")
+  // Delimiter predicate: IsToken(Comma)
+  inspect(
+    generated.contains("Pred::IsToken") && generated.contains("Comma"),
+    content="true",
+  )
+  // Between/after diagnostic messages
+  inspect(
+    generated.contains("expected 'Comma' between Item items"),
+    content="true",
+  )
+  inspect(
+    generated.contains("expected 'Comma' or end of Item items"),
+    content="true",
+  )
+}
+
+///|
+test "emit_grammar_ir: {Sep} with terminal item rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct(",")
+      #|  Comma
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A{Comma} Eof")
+      #|  Start
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a rule reference"), content="true")
+}
+
+///|
+test "emit_grammar_ir: {Sep} with unknown separator rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("Item{Unknown} Eof")
+      #|  Start
+      #|  #loom.leaf
+      #|  #loom.rule("A")
+      #|  Item
+      #|} derive(Eq)
+    ),
+  )
+  inspect(
+    msg.contains("must be a terminal token") || msg.contains("unknown symbol"),
+    content="true",
+  )
 }

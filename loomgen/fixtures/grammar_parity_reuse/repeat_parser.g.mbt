@@ -6,21 +6,21 @@ pub fn parse_root(ctx : @core.ParserContext[ReuseToken, ReuseKind]) -> Unit {
 ///|
 fn parse_source(ctx : @core.ParserContext[ReuseToken, ReuseKind]) -> Unit {
   ctx.node(ReuseKind::Root, fn() {
-    ctx.consume_while_emit(fn(t) { t == ReuseToken::Skip }, ReuseKind::SkipKind)
+    ctx.consume_while_emit(fn(t) {
+      t == ReuseToken::Skip
+    }, ReuseKind::SkipKind)
     while !ctx.at_eof() && ctx.peek() == ReuseToken::Int {
       if ctx.try_reuse_repeat_group() {
-        ctx.consume_while_emit(
-          fn(t) { t == ReuseToken::Skip },
-          ReuseKind::SkipKind,
-        )
+        ctx.consume_while_emit(fn(t) {
+          t == ReuseToken::Skip
+        }, ReuseKind::SkipKind)
         continue
       }
       parse_item(ctx)
       let had = ctx.peek() == ReuseToken::Skip
-      ctx.consume_while_emit(
-        fn(t) { t == ReuseToken::Skip },
-        ReuseKind::SkipKind,
-      )
+      ctx.consume_while_emit(fn(t) {
+        t == ReuseToken::Skip
+      }, ReuseKind::SkipKind)
       if !had && !ctx.at_eof() {
         if ctx.peek() == ReuseToken::Int {
           ctx.error("between")

@@ -1,29 +1,23 @@
 ///|
 /// consumers must hand-write `fn delegate_to_inner(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit` in this file's package.
-
 ///|
-pub fn parse_root(
-  ctx : @core.ParserContext[NativeParityToken, NativeParityKind],
-) -> Unit {
+pub fn parse_root(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit {
   parse_source(ctx)
 }
 
 ///|
-fn parse_source(
-  ctx : @core.ParserContext[NativeParityToken, NativeParityKind],
-) -> Unit {
-  ctx.node(NativeParityKind::Root, fn() { delegate_to_inner(ctx) })
+fn parse_source(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit {
+  ctx.node(NativeParityKind::Root, fn() {
+    delegate_to_inner(ctx)
+  })
 }
 
 ///|
-fn parse_inner(
-  ctx : @core.ParserContext[NativeParityToken, NativeParityKind],
-) -> Unit {
+fn parse_inner(ctx : @core.ParserContext[NativeParityToken, NativeParityKind]) -> Unit {
   if ctx.at(NativeParityToken::Int) {
     ctx.emit_token(NativeParityKind::IntToken)
   }
 }
-
 ///|
 /// Hand-written per the header comment above (`emit_grammar` never emits a
 /// native's body). Re-entry is free in the emitted path: this calls the
