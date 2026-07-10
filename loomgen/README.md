@@ -3,7 +3,7 @@
 Code generator for loom MoonBit plumbing files. Generates `syntax_kind.g.mbt`,
 `token_impls.g.mbt`, `lexer.g.mbt`, `views.g.mbt`, `lexmode.g.mbt`,
 `spec.g.mbt`, and `grammar_ir.g.mbt` from `#loom.*` annotated enums.
-Parser execution is delegated to [`@grammar.interpret`](../grammar/interpreter.mbt)
+Parser execution is delegated to [`@grammar.interpret`](../loom/grammar/interpreter.mbt)
 at runtime. See [ADR 2026-07-10](../docs/decisions/2026-07-10-remove-emit-grammar-code-generator.md)
 for why the parser code generator (`emit_grammar.mbt`) was removed.
 
