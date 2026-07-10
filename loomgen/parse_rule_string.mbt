@@ -9,7 +9,7 @@
 ///              | '@skip' '(' IDENT ')'
 ///   alt        := seq ('|' seq)*
 ///   seq        := postfix+
-///   postfix    := atom ('*' | '+' | '?' | '~' | '!')?
+///   postfix    := atom ('*' | '+' | '?' | '~>' atom | '~' | '!')?
 
 ///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '@error_node' '(' IDENT ',' IDENT ('|' IDENT)* ')' | '(' alt ')'
 /// ```
@@ -54,6 +54,9 @@ enum RuleAst {
   /// accepts any of the listed tokens as the stop condition.
   ErrorNodeUntil(String, Array[String])
   ErrorUntil(Array[String])
+  /// Token~> — consume soft-separator tokens matching a predicate before
+  /// expecting another token. Stores (skip_token_name, expected_token_name).
+  ExpectSkip(String, String)
   PrattApp(PrattAppSpec)
   PrattBinary(PrattBinarySpec)
 } derive(Eq, Debug)
@@ -69,6 +72,7 @@ enum RuleTok {
   TStar
   TPlus
   TQuest
+  TExpectSkip
   TTilde
   TEmitor
   TErrorNode
@@ -161,7 +165,13 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
         '*' => TStar
         '+' => TPlus
         '?' => TQuest
-        '~' => TTilde
+        '~' =>
+          if i + 1 < s.length() && s[i + 1] == '>' {
+            i = i + 1
+            TExpectSkip
+          } else {
+            TTilde
+          }
         '!' => TEmitor
         '[' => TLBracket
         ']' => TRBracket
@@ -375,7 +385,8 @@ fn not_seq_terminator(tok : RuleTok?) -> Bool {
 }
 
 ///|
-/// `postfix := atom ('*' | '+' | '?' | '~' | '!')?` — at most one postfix.
+/// `postfix := atom ('*' | '+' | '?' | '~>' atom | '~' | '!')?` — at most one
+/// postfix. `~>` is a binary postfix consuming skip tokens before expecting.
 fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError {
   let atom = self.parse_atom()
   match self.peek() {
@@ -398,6 +409,25 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
     Some(TEmitor) => {
       self.bump()
       Emitor(atom)
+    }
+    Some(TExpectSkip) => {
+      self.bump()
+      let expected_atom = self.parse_atom()
+      let skip_name = match atom {
+        Sym(n) => n
+        _ =>
+          raise RuleParseError(
+            "'~>' requires a simple token name as the skip token",
+          )
+      }
+      let expected_name = match expected_atom {
+        Sym(n) => n
+        _ =>
+          raise RuleParseError(
+            "'~>' requires a simple token name as the expected token",
+          )
+      }
+      ExpectSkip(skip_name, expected_name)
     }
     _ => atom
   }
@@ -543,9 +573,14 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       inner
     }
-    Some(TStar) | Some(TPlus) | Some(TQuest) | Some(TTilde) | Some(TEmitor) =>
+    Some(TStar)
+    | Some(TPlus)
+    | Some(TQuest)
+    | Some(TTilde)
+    | Some(TExpectSkip)
+    | Some(TEmitor) =>
       raise RuleParseError(
-        "a postfix ('*', '+', '?', '~', '!') has no atom to bind",
+        "a postfix ('*', '+', '?', '~>', '~', '!') has no atom to bind",
       )
     Some(TPipe) => raise RuleParseError("unexpected '|' with no left side")
     Some(TRParen) => raise RuleParseError("unexpected ')'")

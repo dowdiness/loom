@@ -1,7 +1,11 @@
 ///|
+
 ///| Regenerate grammar-parity fixture `.g.mbt` files from the current
+
 ///| emitter and IR-level fixture `.g.mbt` files from the current
-///| EBNF-to-IR lowering.
+
+///|
+/// EBNF-to-IR lowering.
 /// Usage: `moon run loomgen --target native -- --regenerate-fixtures`
 pub fn regenerate_fixtures() -> Unit {
   // ---------- simple_parser.g.mbt (ParityToken / ParityKind) ----------
@@ -138,11 +142,10 @@ pub fn regenerate_fixtures() -> Unit {
           println("ERROR: error_node_fixture.mbt has no #loom.term enum")
           return
         }
-        match emit_grammar_ir(
-          term_enum, token_enum,
-          "@token", "@syntax",
-          "@grammar", "error_node_grammar_ir",
-        ) {
+        match
+          emit_grammar_ir(
+            term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir",
+          ) {
           Err(msg) => println("ERROR: emitter — " + msg)
           Ok(content) => {
             let path = "loomgen/fixtures/error_node_fixture.g.mbt"
@@ -151,6 +154,40 @@ pub fn regenerate_fixtures() -> Unit {
             }
             println("  " + path)
           }
+        }
+      }
+    }
+  }
+
+  // ------ rule_grammar_fixture.g.mbt (IR-level fixture) ------
+  let src = @fs.read_file_to_string("loomgen/fixtures/rule_grammar_fixture.mbt") catch {
+    _ => {
+      println("ERROR: failed to read rule_grammar_fixture.mbt")
+      return
+    }
+  }
+  match parse_annotations(src) {
+    Err(msg) => println("ERROR: rule_grammar_fixture.mbt — " + msg)
+    Ok(ann) => {
+      guard ann.token_enum is Some(token_enum) else {
+        println("ERROR: rule_grammar_fixture.mbt has no #loom.token enum")
+        return
+      }
+      guard ann.term_enum is Some(term_enum) else {
+        println("ERROR: rule_grammar_fixture.mbt has no #loom.term enum")
+        return
+      }
+      match
+        emit_grammar_ir(
+          term_enum, token_enum, "@token", "@syntax", "@grammar", "mini_grammar_ir",
+        ) {
+        Err(msg) => println("ERROR: emitter — " + msg)
+        Ok(content) => {
+          let path = "loomgen/fixtures/rule_grammar_fixture.g.mbt"
+          @fs.write_string_to_file(path, content) catch {
+            _ => println("ERROR: failed to write " + path)
+          }
+          println("  " + path)
         }
       }
     }

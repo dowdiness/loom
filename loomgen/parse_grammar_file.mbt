@@ -67,6 +67,7 @@ fn describe_gfile_tok(t : GFileTok) -> String {
     GRule(TQuest) => "'?'"
     GRule(TTilde) => "'~'"
     GRule(TEmitor) => "'!'"
+    GRule(TExpectSkip) => "'~>'"
     GRule(TUntil) => "'@until()'"
     GRule(TErrorNode) => "'@error_node()'"
     GRule(TPrefix) => "'@prefix'"
@@ -132,7 +133,13 @@ fn tokenize_grammar_file(
         '*' => TStar
         '+' => TPlus
         '?' => TQuest
-        '~' => TTilde
+        '~' =>
+          if i + 1 < len && src[i + 1] == '>' {
+            i = i + 1
+            TExpectSkip
+          } else {
+            TTilde
+          }
         '!' => TEmitor
         '[' => TLBracket
         ']' => TRBracket

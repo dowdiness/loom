@@ -1,14 +1,15 @@
-/// Fixture for #522 GrammarIr generation. Smallest case: one #loom.root
-/// production over two punctuation terminals. No alternation or repetition, so
-/// it exercises notation parsing, identifier resolution, Node wrapping, and
-/// Expect lowering — but NO FIRST-set logic (that is covered by later fixtures).
+/// Fixture for #522 GrammarIr generation. Covers notation parsing, identifier
+/// resolution, Node wrapping, Expect lowering, and ExpectSkip (~>).
 
+///|
 #loom.token
 pub(all) enum Tok {
   #loom.punct("(")
   LParen
   #loom.punct(")")
   RParen
+  #loom.punct("\n")
+  Newline
   #loom.error
   Error(String)
   #loom.eof
@@ -18,6 +19,6 @@ pub(all) enum Tok {
 #loom.term
 pub(all) enum MiniTerm {
   #loom.root
-  #loom.rule("LParen RParen")
+  #loom.rule("Newline~>LParen RParen")
   Parens
 } derive(Eq, Debug)

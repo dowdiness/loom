@@ -213,3 +213,16 @@ test "parse_grammar_file rejects a comment-only file" {
       inspect(m.contains("grammar file has no productions"), content="true")
   }
 }
+
+///|
+test "parse_grammar_file parses ~> (ExpectSkip) in a production body" {
+  let prods = match parse_grammar_file("Parens = Newline~>LParen RParen") {
+    Ok(p) => p
+    Err(m) => abort("parse failed: " + m)
+  }
+  inspect(prods.length(), content="1")
+  let (name, body, line) = prods[0]
+  inspect(name, content="Parens")
+  inspect(line, content="1")
+  @debug.assert_eq(body, Seq([ExpectSkip("Newline", "LParen"), Sym("RParen")]))
+}

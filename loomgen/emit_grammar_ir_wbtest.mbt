@@ -29,6 +29,7 @@ test "emit_grammar_ir golden: smallest terminals-only Seq production" {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
   }
+  // Restore after @fs round-trip: assert_eq(generated, golden)
   assert_eq(generated, golden)
 }
 
@@ -1370,4 +1371,118 @@ test "emit_grammar_ir golden: @error_node catch-all in Choice" {
     Err(m) => abort("emit failed: " + m)
   }
   assert_eq(generated, golden)
+}
+
+///|
+test "emit_grammar_ir: Token~>Token lowers to ExpectSkip" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("A~>B")
+    #|  Start
+    #|  #loom.node
+    #|  #loom.rule("A~>B")
+    #|  Foo
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for A~>B but got: " + m)
+  }
+  // Must contain ExpectSkip with Pred::IsToken for the skip token (A).
+  inspect(generated.contains("@grammar.Expr::ExpectSkip("), content="true")
+  inspect(
+    generated.contains("@grammar.Pred::IsToken(") &&
+    generated.contains("@token.A"),
+    content="true",
+  )
+  // Must mention both skip and expected kinds.
+  inspect(generated.contains("@syntax.A"), content="true")
+  inspect(generated.contains("@syntax.B"), content="true")
+  // Must reference both tokens.
+  inspect(generated.contains("@token.A"), content="true")
+  inspect(generated.contains("@token.B"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with rule ref as skip rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("Foo~>A")
+      #|  Start
+      #|  #loom.node
+      #|  #loom.rule("A")
+      #|  Foo
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a terminal token"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with rule ref as expected rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A~>Foo")
+      #|  Start
+      #|  #loom.node
+      #|  #loom.rule("A")
+      #|  Foo
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a terminal token"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with unknown symbol rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A~>Bogus")
+      #|  Start
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("unknown symbol"), content="true")
 }
