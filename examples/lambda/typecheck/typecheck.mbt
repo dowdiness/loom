@@ -104,10 +104,11 @@ fn build_typecheck_pipeline_internal(
       state.syncing = false
     }
   })
+  parent_scope.on_dispose(() => rt.remove_on_change_listener(_sync_listener))
   let derived = parent_scope.derived(
     () => {
       // Keep the source dependency on the pure result cell. State mutation
-      // is performed by the sibling Effect above, outside this compute body.
+      // is performed by the runtime listener above, outside this compute body.
       ignore(source_term.get_or_abort())
       collect_results(state)
     },
@@ -168,6 +169,7 @@ pub fn build_typecheck_pipeline_with_index(
       state.syncing = false
     }
   })
+  parent_scope.on_dispose(() => rt.remove_on_change_listener(_sync_listener))
   let result_derived = parent_scope.derived(
     () => {
       ignore(source_term.get_or_abort())
@@ -194,10 +196,10 @@ fn split_defs(term : TypedTerm) -> (Array[(String, TypedTerm)], TypedTerm) {
 ///|
 /// Synchronize the mutable per-definition pipeline from the current source.
 ///
-/// This runs from a push Effect, not from the result Derived's compute body:
-/// updating an Input calls propagation and is forbidden while a pull compute
-/// frame is active. Returns whether the chain was structurally rebuilt so
-/// callers can invalidate auxiliary caches.
+/// This runs from a runtime on-change listener, not from the result Derived's
+/// compute body: updating an Input calls propagation and is forbidden while a
+/// pull compute frame is active. Returns whether the chain was structurally
+/// rebuilt so callers can invalidate auxiliary caches.
 fn sync_pipeline_state(
   state : PipelineState,
   parent_scope : @incr.Scope,
