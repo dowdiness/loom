@@ -364,19 +364,8 @@ fn parse_jsx_root(
 }
 
 ///|
-/// Syntax-only grammar for Step 4: CST + diagnostics without an AST fold.
-/// Step 5 (fold_node/ast.mbt) will add the full Grammar on top of the same
-/// spec and lexer.
-let jsx_syntax_grammar : @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] = @loom.SyntaxGrammar::new(
-  spec=jsx_spec,
-  lex~,
-  incremental_relex_enabled=false,
-  mode_relex=Some(jsx_mode_relex_state),
-)
-
-///|
 pub fn parse_cst(
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
-  jsx_syntax_grammar.parse_cst(source)
+  jsx_grammar.parse_cst(source)
 }
