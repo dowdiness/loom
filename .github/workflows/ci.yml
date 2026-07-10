@@ -139,6 +139,8 @@ jobs:
             path: examples/json-settings
           - name: examples-markdown
             path: examples/markdown
+          - name: examples-jsx
+            path: examples/jsx
           - name: incr
             path: incr
     steps:
@@ -255,6 +257,10 @@ jobs:
           - name: examples-moonbit
             path: examples/moonbit
             module: dowdiness/moonbit-example
+            target: native
+          - name: examples-jsx
+            path: examples/jsx
+            module: dowdiness/jsx
             target: native
           - name: incr
             path: incr
