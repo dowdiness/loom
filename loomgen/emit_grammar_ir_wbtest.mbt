@@ -1356,3 +1356,16 @@ test "emit_grammar_ir: @error_node catch-all as third of three Choice branches" 
     content="true",
   )
 }
+
+///|
+test "emit_grammar_ir golden: @error_node catch-all in Choice" {
+  let src = read_fixture("fixtures/error_node_fixture.mbt")
+  let golden = read_fixture("fixtures/error_node_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
