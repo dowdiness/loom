@@ -53,20 +53,20 @@ fn is_jsx_quote(c : Char) -> Bool {
 /// Design A/B specify (a separate `ExprRawText`/`ExprStringUnterminated`
 /// token per string boundary, so the parser can see where a string starts
 /// and ends) without needing a fifth mode variant to thread across calls.
-pub(all) enum JsxLexMode {
+priv enum JsxLexMode {
   Children
   TagBody(expects_tag_name~ : Bool)
   JsExprRaw(depth~ : Int, origin~ : ExprOrigin)
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 /// Which context an embedded `{...}` expression was entered from, so its
 /// closing `}` knows which mode to resume — `TagBody` is the one concrete
 /// resume state for `FromAttrValue` (Design A, Codex round-2 fix).
-pub(all) enum ExprOrigin {
+priv enum ExprOrigin {
   FromChildren
   FromAttrValue
-} derive(Eq, Debug)
+} derive(Eq)
 
 ///|
 fn lex_children(
@@ -286,7 +286,7 @@ fn lex_expr_raw(
 
 ///|
 /// Mode-aware lex step. Dispatches to mode-specific lexer.
-pub fn jsx_lex_step(
+fn jsx_lex_step(
   source : String,
   pos : Int,
   mode : JsxLexMode,
@@ -303,7 +303,7 @@ pub fn jsx_lex_step(
 
 ///|
 /// The ModeLexer instance for JSX.
-pub let jsx_mode_lexer : @core.ModeLexer[@token.Token, JsxLexMode] = {
+let jsx_mode_lexer : @core.ModeLexer[@token.Token, JsxLexMode] = {
   lex_step: jsx_lex_step,
   initial_mode: Children,
 }

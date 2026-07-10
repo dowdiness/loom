@@ -24,7 +24,9 @@ pub(all) enum JsxNode {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct JsxAttr {
+/// Fields are readable cross-package (`pub` closes construction only);
+/// construct via the JsxAttr::JsxAttr constructor.
+pub struct JsxAttr {
   name : String
   value : JsxAttrValue
 } derive(Eq, Debug)

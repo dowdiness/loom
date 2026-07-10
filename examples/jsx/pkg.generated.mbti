@@ -13,10 +13,6 @@ import {
 // Values
 pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode]
 
-pub fn jsx_lex_step(String, Int, JsxLexMode) -> (@core.LexStep[@token.Token], JsxLexMode)
-
-pub let jsx_mode_lexer : @core.ModeLexer[@token.Token, JsxLexMode]
-
 pub fn lex(String) -> @core.LexResult[@token.Token]
 
 pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
@@ -28,12 +24,7 @@ pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.Lex
 // Errors
 
 // Types and methods
-pub(all) enum ExprOrigin {
-  FromChildren
-  FromAttrValue
-} derive(Eq, @debug.Debug)
-
-pub(all) struct JsxAttr {
+pub struct JsxAttr {
   name : String
   value : JsxAttrValue
 } derive(Eq, @debug.Debug)
@@ -43,12 +34,6 @@ pub(all) enum JsxAttrValue {
   StringLit(String)
   ExprSpan(raw~ : String)
   Bare
-} derive(Eq, @debug.Debug)
-
-pub(all) enum JsxLexMode {
-  Children
-  TagBody(expects_tag_name~ : Bool)
-  JsExprRaw(depth~ : Int, origin~ : ExprOrigin)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum JsxNode {
