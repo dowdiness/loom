@@ -302,6 +302,7 @@ impl @coreqc.Arbitrary for GrammarIr[QcToken, QcKind] with fn arbitrary(
 ///   forms via fewer steps.
 /// Leaf nodes (Emit, Expect, Empty, etc.) produce no candidates — they are
 /// already minimal.
+#warnings("-1-2")
 fn shrink_expr(
   expr : Expr[QcToken, QcKind],
   rules : Map[RuleName, Expr[QcToken, QcKind]],
@@ -381,6 +382,7 @@ fn shrink_expr(
 }
 
 ///|
+#warnings("-1-2")
 impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) -> Iter[
   GrammarIr[QcToken, QcKind],
 ] {
@@ -490,6 +492,7 @@ impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
 /// The grammar stays identical — only the input is reduced, making
 /// counterexamples simpler without changing the structure that caused
 /// the failure.
+#warnings("-1-2")
 impl @qc.Shrink for GrammarWithTokens with fn shrink(self) -> Iter[
   GrammarWithTokens,
 ] {

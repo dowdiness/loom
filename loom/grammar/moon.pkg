@@ -10,7 +10,3 @@ import {
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"
 
-// QuickCheck Shrink implementations intentionally exist only for property
-// tests; suppress their unused-value/unused-variable warnings for vendored
-// consumers that promote warnings to errors.
-warnings = "-1-2"
