@@ -25,6 +25,29 @@ string escapes), so write engine-valid MoonBit `re`-dialect regex — e.g. a lit
 hyphen in a class is `\-`, not a bare `-`. A pattern that can match the empty string is
 rejected at generation time.
 
+
+## Line-mode lexer generation (`--line-lexer`, #561)
+
+`#loom.line_pattern("regex")` on token variants — emits `line_lexer.g.mbt` with
+per-mode lexer functions for each `#loom.line_mode` `#loom.lexmode`. Each function
+matches `#loom.line_pattern` regexes against the current line (pos → newline) in
+declaration order. Patterns with a declared `#loom.lexmode("ModeName")` are only
+emitted in that mode's function; patterns without one appear in all line_mode
+functions. Nullary tokens are produced directly; payload-carrying tokens require
+`#loom.custom_lex` for extraction. Generated function names follow the same
+`lex_<lowercase_mode>` convention as `lexer_skeleton.g.mbt` stubs, so they can
+replace the skeleton's `abort("not implemented")` stubs.
+
+Reuses the same supported regex subset, nullability checks, and structural
+validation as `#loom.pattern`. Alternation `|` is rejected (leftmost-match, not
+longest-match). Patterns are wrapped in `^(?:...)` so they should not include
+their own `^` anchor.
+
+Usage:
+```bash
+moon run loomgen --target native -- --line-lexer <path>/line_lexer.g.mbt \
+  --term <term.mbt> <token.mbt> <token_out> <syntax_out>
+```
 ### Supported `#loom.pattern` subset
 
 Literals, *literal-meta* escapes (`\.`, `\-`, `\+`, `\xHH`, …), character classes `[..]`

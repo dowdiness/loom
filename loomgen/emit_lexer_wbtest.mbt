@@ -865,3 +865,103 @@ test "parse_annotations rejects #loom.line_pattern with payload but no #loom.cus
     Ok(_) => abort("expected rejection for payload-carrying line_pattern without custom_lex")
   }
 }
+
+///|
+test "emit_line_lexer golden matches fixtures/line_pattern_fixture.g.mbt" {
+  let src = read_fixture("fixtures/line_pattern_fixture.mbt")
+  let golden = read_fixture("fixtures/line_pattern_fixture.g.mbt")
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+test "emit_line_lexer accepts #loom.line_pattern with #loom.custom_lex" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("#{1,6} ")
+    #|  #loom.custom_lex("lex_heading")
+    #|  HeadingMarker(Int)
+    #|  #loom.line_pattern(">")
+    #|  BlockQuoteMarker
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  guard emit_line_lexer(te, Some(term_enum), "@core") is Some(_) else {
+    fail("expected Some for valid line_pattern with custom_lex")
+  }
+}
+
+///|
+test "emit_line_lexer filters candidates by mode via lexmode_name" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("#{1,6} ")
+    #|  HeadingMarker
+    #|  #loom.line_pattern(">")
+    #|  #loom.lexmode("BlockQuoteLineStart")
+    #|  BlockQuoteMarker
+    #|  #loom.line_pattern("--- ")
+    #|  ThematicBreak
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.leaf
+    #|  #loom.lexmode("BlockQuoteLineStart")
+    #|  #loom.line_mode
+    #|  BlockQuote
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  // lex_line_start should include HeadingMarker and ThematicBreak (no lexmode constraint)
+  inspect(generated.contains("HeadingMarker"), content="true")
+  inspect(generated.contains("ThematicBreak"), content="true")
+  // lex_line_start should NOT include BlockQuoteMarker (assigned to BlockQuoteLineStart)
+  // Check that lex_line_start function body contains neither the name nor its pattern
+  inspect(generated.contains("fn lex_line_start"), content="true")
+  inspect(generated.contains("fn lex_block_quote_line_start"), content="true")
+  // BlockQuoteMarker should only appear in the block_quote_line_start function.
+  let line_start_idx = generated.find("fn lex_line_start")
+  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
+    fail("expected both lex functions in output")
+  }
+  let line_start_section = generated[ls:bq]
+  inspect(line_start_section.contains("BlockQuoteMarker"), content="false")
+  let bq_section = generated[bq:]
+  inspect(bq_section.contains("BlockQuoteMarker"), content="true")
+}
