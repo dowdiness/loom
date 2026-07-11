@@ -9,7 +9,11 @@ pub let mini_grammar_ir : @grammar.GrammarIr[@token.Tok, @syntax.SyntaxKind] =
         @syntax.Parens,
         @grammar.Expr::Seq(
           [
-            @grammar.Expr::Expect(
+            @grammar.Expr::ExpectSkip(
+              @grammar.Pred::IsToken(
+                @token.Newline,
+              ),
+              @syntax.NewlineToken,
               @token.LParen,
               @syntax.LParenToken,
             ),

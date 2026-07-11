@@ -29,6 +29,7 @@ test "emit_grammar_ir golden: smallest terminals-only Seq production" {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
   }
+  // Restore after @fs round-trip: assert_eq(generated, golden)
   assert_eq(generated, golden)
 }
 
@@ -63,6 +64,21 @@ test "emit_grammar_ir: .loomgrammar path matches the annotation path byte-for-by
       "@grammar",
       "mini_grammar_ir",
       file_rules~,
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+test "emit_grammar_ir golden: SeparatedList lowers to RepeatTopLevel" {
+  let src = read_fixture("fixtures/separated_list_fixture.mbt")
+  let golden = read_fixture("fixtures/separated_list_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "separated_list_grammar_ir",
     ) {
     Ok(s) => s
     Err(m) => abort("emit failed: " + m)
@@ -1065,7 +1081,7 @@ test "emit_grammar_ir: @native in non-final Choice position is rejected" {
     ),
   )
   inspect(
-    msg.contains("catch-all @native must be the final alternative"),
+    msg.contains("@native must be the final alternative in an alternation"),
     content="true",
   )
 }
@@ -1110,4 +1126,484 @@ test "emit_grammar_ir: @native catch-all as second of two Choice branches" {
   )
   // No required Fail fallback — the catch-all replaces it.
   inspect(generated.contains("@grammar.Expr::Fail("), content="false")
+}
+
+///|
+test "emit_grammar_ir: @error_node(Kind, Token) lowers to Expr::ErrorNodeUntil" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("@error_node(ErrorNode, Eof)")
+    #|  Source
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for @error_node but got: " + m)
+  }
+  inspect(generated.contains("@grammar.Expr::ErrorNodeUntil("), content="true")
+  inspect(generated.contains("@grammar.Pred::IsToken("), content="true")
+  inspect(generated.contains("@token.Eof"), content="true")
+  inspect(generated.contains("@syntax.ErrorNode"), content="true")
+}
+
+///|
+test "emit_grammar_ir: @error_node(Kind, A | B) lowers with Pred::OneOf" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.punct(";")
+    #|  Semicolon
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("@error_node(ErrorNode, Comma | Semicolon)")
+    #|  Source
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for @error_node but got: " + m)
+  }
+  inspect(generated.contains("Expr::ErrorNodeUntil("), content="true")
+  inspect(generated.contains("Pred::OneOf"), content="true")
+  inspect(generated.contains("@token.Comma"), content="true")
+  inspect(generated.contains("@token.Semicolon"), content="true")
+}
+
+///|
+test "emit_grammar_ir rejects @error_node with wrong kind name" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("@error_node(WrongKind, Eof)")
+    #|  Source
+    #|} derive(Eq)
+  let msg = emit_err_of(src)
+  inspect(msg.contains("not a #loom.errornode variant"), content="true")
+}
+
+///|
+test "emit_grammar_ir rejects @error_node when term enum has no errornode" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("@error_node(ErrorNode, Eof)")
+    #|  Source
+    #|} derive(Eq)
+  let msg = emit_err_of(src)
+  inspect(msg.contains("not a #loom.errornode variant"), content="true")
+  inspect(msg.contains("no #loom.errornode variant"), content="true")
+}
+
+///|
+test "emit_grammar_ir rejects @error_node with unknown token" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("@error_node(ErrorNode, UnknownToken)")
+    #|  Source
+    #|} derive(Eq)
+  let msg = emit_err_of(src)
+  inspect(msg.contains("not a #loom.token variant"), content="true")
+}
+
+///|
+/// A `(A | @error_node(ErrorNode, B))` Choice with @error_node as the second
+/// of two branches: @error_node is a catch-all, so it gets Pred::Any treatment
+/// and replaces the required Fail fallback.
+test "emit_grammar_ir: @error_node as catch-all in final Choice position" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("(A | @error_node(ErrorNode, B))")
+    #|  Pick
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) =>
+      abort("emit should succeed for @error_node catch-all but got: " + m)
+  }
+  // The @error_node alt gets Pred::Any (catch-all).
+  inspect(generated.contains("@grammar.Pred::Any"), content="true")
+  // The catch-all body is Expr::ErrorNodeUntil.
+  inspect(
+    generated.contains("Expr::ErrorNodeUntil") &&
+    generated.contains("@syntax.ErrorNode"),
+    content="true",
+  )
+  // No required Fail fallback — the catch-all replaces it.
+  inspect(generated.contains("@grammar.Expr::Fail("), content="false")
+  // The non-catch-all branch still has its FIRST-set predicate.
+  inspect(generated.contains("@grammar.Pred::IsToken("), content="true")
+  inspect(generated.contains("@token.A"), content="true")
+}
+
+///|
+test "emit_grammar_ir: @error_node in non-final Choice position is rejected" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.punct("c")
+    #|  C
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("(A | @error_node(ErrorNode, B) | C)")
+    #|  Pick
+    #|} derive(Eq)
+  let msg = emit_err_of(src)
+  inspect(
+    msg.contains("@error_node must be the final alternative"),
+    content="true",
+  )
+}
+
+///|
+/// A `(A | B | @error_node(ErrorNode, C))` Choice: at most one Pred::Any
+/// (for the catch-all). No required Fail fallback — the catch-all replaces it.
+test "emit_grammar_ir: @error_node catch-all as third of three Choice branches" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.punct("c")
+    #|  C
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|  #loom.root
+    #|  #loom.rule("(A | B | @error_node(ErrorNode, C))")
+    #|  Pick
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) =>
+      abort("emit should succeed for @error_node catch-all but got: " + m)
+  }
+  // The @error_node alt gets Pred::Any (catch-all).
+  inspect(generated.contains("@grammar.Pred::Any"), content="true")
+  // The catch-all body is Expr::ErrorNodeUntil.
+  inspect(
+    generated.contains("Expr::ErrorNodeUntil") &&
+    generated.contains("@syntax.ErrorNode"),
+    content="true",
+  )
+  // No required Fail fallback — the catch-all replaces it.
+  inspect(generated.contains("@grammar.Expr::Fail("), content="false")
+  // Non-catch-all branches have their FIRST-set predicates.
+  inspect(generated.contains("@grammar.Pred::IsToken("), content="true")
+  inspect(
+    generated.contains("@token.A") && generated.contains("@token.B"),
+    content="true",
+  )
+}
+
+///|
+test "emit_grammar_ir golden: @error_node catch-all in Choice" {
+  let src = read_fixture("fixtures/error_node_fixture.mbt")
+  let golden = read_fixture("fixtures/error_node_fixture.g.mbt")
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir",
+    ) {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  assert_eq(generated, golden)
+}
+
+///|
+test "emit_grammar_ir: Token~>Token lowers to ExpectSkip" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("A~>B")
+    #|  Start
+    #|  #loom.node
+    #|  #loom.rule("A~>B")
+    #|  Foo
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed for A~>B but got: " + m)
+  }
+  // Must contain ExpectSkip with Pred::IsToken for the skip token (A).
+  inspect(generated.contains("@grammar.Expr::ExpectSkip("), content="true")
+  inspect(
+    generated.contains("@grammar.Pred::IsToken(") &&
+    generated.contains("@token.A"),
+    content="true",
+  )
+  // Must mention both skip and expected kinds.
+  inspect(generated.contains("@syntax.A"), content="true")
+  inspect(generated.contains("@syntax.B"), content="true")
+  // Must reference both tokens.
+  inspect(generated.contains("@token.A"), content="true")
+  inspect(generated.contains("@token.B"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with rule ref as skip rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("Foo~>A")
+      #|  Start
+      #|  #loom.node
+      #|  #loom.rule("A")
+      #|  Foo
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a terminal token"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with rule ref as expected rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A~>Foo")
+      #|  Start
+      #|  #loom.node
+      #|  #loom.rule("A")
+      #|  Foo
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a terminal token"), content="true")
+}
+
+///|
+test "emit_grammar_ir: ~> with unknown symbol rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A~>Bogus")
+      #|  Start
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("unknown symbol"), content="true")
+}
+
+// ── SeparatedList ({Sep}) lowering (#604) ───────────────────────────────
+
+///|
+test "emit_grammar_ir: Expr{Comma} lowers to RepeatTopLevel with IsToken" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Tok {
+    #|  #loom.punct(",")
+    #|  Comma
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.eof
+    #|  Eof
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum T {
+    #|  #loom.root
+    #|  #loom.rule("Item{Comma} Eof")
+    #|  Start
+    #|  #loom.leaf
+    #|  #loom.rule("A")
+    #|  Item
+    #|} derive(Eq)
+  let (token_enum, term_enum) = enums_of(src)
+  let generated = match
+    emit_grammar_ir(term_enum, token_enum, "@token", "@syntax", "@grammar", "g") {
+    Ok(s) => s
+    Err(m) => abort("emit should succeed: " + m)
+  }
+  // RepeatTopLevel constructor with labelled fields
+  inspect(generated.contains("Expr::RepeatTopLevel("), content="true")
+  // Item rule name as the slot
+  inspect(generated.contains("\"Item\""), content="true")
+  // Delimiter predicate: IsToken(Comma)
+  inspect(
+    generated.contains("Pred::IsToken") && generated.contains("Comma"),
+    content="true",
+  )
+  // Between/after diagnostic messages
+  inspect(
+    generated.contains("expected 'Comma' between Item items"),
+    content="true",
+  )
+  inspect(
+    generated.contains("expected 'Comma' or end of Item items"),
+    content="true",
+  )
+}
+
+///|
+test "emit_grammar_ir: {Sep} with terminal item rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct(",")
+      #|  Comma
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("A{Comma} Eof")
+      #|  Start
+      #|} derive(Eq)
+    ),
+  )
+  inspect(msg.contains("must be a rule reference"), content="true")
+}
+
+///|
+test "emit_grammar_ir: {Sep} with unknown separator rejected" {
+  let msg = emit_err_of(
+    (
+      #|#loom.token
+      #|pub(all) enum Tok {
+      #|  #loom.punct("a")
+      #|  A
+      #|  #loom.eof
+      #|  Eof
+      #|} derive(Eq)
+      #|#loom.term
+      #|pub(all) enum T {
+      #|  #loom.root
+      #|  #loom.rule("Item{Unknown} Eof")
+      #|  Start
+      #|  #loom.leaf
+      #|  #loom.rule("A")
+      #|  Item
+      #|} derive(Eq)
+    ),
+  )
+  inspect(
+    msg.contains("must be a terminal token") || msg.contains("unknown symbol"),
+    content="true",
+  )
 }

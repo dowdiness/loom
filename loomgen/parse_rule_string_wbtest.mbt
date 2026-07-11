@@ -212,3 +212,188 @@ test "parse_rule_string: bare @native not confused with fragment" {
     Err(_) => abort("expected '@nativeX' to parse as a fragment")
   }
 }
+
+///|
+test "parse_rule_string: @error_node(Kind, Token) yields ErrorNodeUntil" {
+  match parse_rule_string("@error_node(ErrorNode, EOF)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["EOF"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, A | B) with multi-token sync" {
+  match
+    parse_rule_string("@error_node(ErrorNode, Semicolon | EOF)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["Semicolon", "EOF"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, A | B | C) with three sync tokens" {
+  match parse_rule_string("@error_node(ErrorNode, A | B | C)", "SourceFile") {
+    Ok(ErrorNodeUntil("ErrorNode", ["A", "B", "C"])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: @error_node() missing content rejected" {
+  match parse_rule_string("@error_node()", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a kind identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind) missing comma rejected" {
+  match parse_rule_string("@error_node(ErrorNode)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("requires a comma after the kind"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(, Token) missing kind rejected" {
+  match parse_rule_string("@error_node(, EOF)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a kind identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind,) missing tokens rejected" {
+  match parse_rule_string("@error_node(ErrorNode,)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(
+        m.contains("must contain at least one token identifier after the kind"),
+        content="true",
+      )
+  }
+}
+
+///|
+test "parse_rule_string: @error_node(Kind, Token, Token) extra comma rejected" {
+  match parse_rule_string("@error_node(ErrorNode, EOF,)", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("unbalanced '@error_node('"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: Token~>Token yields ExpectSkip" {
+  match parse_rule_string("A~>B", "Rule") {
+    Ok(ExpectSkip("A", "B")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Token~>Token in Seq context" {
+  match parse_rule_string("A~>B C", "Rule") {
+    Ok(Seq([ExpectSkip("A", "B"), Sym("C")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Token~>Token in Alt context" {
+  match parse_rule_string("A~>B | C", "Rule") {
+    Ok(Alt([ExpectSkip("A", "B"), Sym("C")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: ~> at start rejected" {
+  match parse_rule_string("~>A", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(
+        m.contains("has no atom to bind") || m.contains("unexpected"),
+        content="true",
+      )
+  }
+}
+
+///|
+test "parse_rule_string: compound atom as skip rejected" {
+  match parse_rule_string("(A | B)~>C", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("requires a simple token name"), content="true")
+  }
+}
+
+// ── SeparatedList ({Sep}) syntax (#604) ─────────────────────────────────
+
+///|
+test "parse_rule_string: Expr{Sep} yields SeparatedList" {
+  match parse_rule_string("Expr{Comma}", "Rule") {
+    Ok(SeparatedList("Expr", "Comma")) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Expr{Sep} in Seq context" {
+  match parse_rule_string("Expr{Comma} Eof", "Rule") {
+    Ok(Seq([SeparatedList("Expr", "Comma"), Sym("Eof")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: Expr{Sep} in Alt context" {
+  match parse_rule_string("Expr{Comma} | Single", "Rule") {
+    Ok(Alt([SeparatedList("Expr", "Comma"), Sym("Single")])) => ()
+    Ok(other) => abort("unexpected ast: " + @debug.to_string(other))
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "parse_rule_string: {Sep} at start rejected (no atom)" {
+  match parse_rule_string("{Comma}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("has no atom to bind"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: compound atom in {Sep} rejected" {
+  match parse_rule_string("(A | B){Comma}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("requires a simple rule name"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: empty braces rejected" {
+  match parse_rule_string("Foo{}", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) =>
+      inspect(m.contains("must contain a token identifier"), content="true")
+  }
+}
+
+///|
+test "parse_rule_string: unclosed brace rejected" {
+  match parse_rule_string("Foo{Comma", "Bad") {
+    Ok(_) => abort("expected rejection")
+    Err(m) => inspect(m.contains("must be closed with"), content="true")
+  }
+}

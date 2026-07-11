@@ -36,6 +36,9 @@ struct LowerCtx {
   /// annotation path. Lets file-mode emission errors carry the same `line N:`
   /// prefix the file's parse errors do.
   file_lines : Map[String, Int]
+  /// The variant name of the #loom.errornode variant (at most one per term enum),
+  /// or `None` if no errornode is declared.
+  error_node_variant : String?
   token_qual : String
   syntax_qual : String
   grammar_qual : String
@@ -178,7 +181,8 @@ fn nullable(
     Star(_) | Opt(_) => true
     Plus(inner) => nullable(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => nullable(inner, ctx, visiting)
-    ErrorUntil(_) => false
+    ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) => false
+    SeparatedList(_, _) => true
     PrattApp(_) | PrattBinary(_) => false
   }
 }
@@ -246,7 +250,9 @@ fn first_set(
     }
     Star(inner) | Plus(inner) | Opt(inner) => first_set(inner, ctx, visiting)
     Emit(inner) | Emitor(inner) => first_set(inner, ctx, visiting)
-    ErrorUntil(_) => @hashset.HashSet([])
+    ErrorUntil(_) | ErrorNodeUntil(_, _) => @hashset.HashSet([])
+    ExpectSkip(_, expected_name) => @hashset.HashSet([expected_name])
+    SeparatedList(item_name, _) => first_set(Sym(item_name), ctx, visiting)
     PrattApp(spec) => first_set(Sym(spec.prefix), ctx, visiting)
     PrattBinary(spec) => first_set(Sym(spec.prefix), ctx, visiting)
   }
@@ -307,7 +313,9 @@ fn leading_refs(ast : RuleAst, ctx : LowerCtx) -> Array[String] {
     }
     Star(inner) | Plus(inner) | Opt(inner) => leading_refs(inner, ctx)
     Emit(inner) | Emitor(inner) => leading_refs(inner, ctx)
-    ErrorUntil(_) => []
+    ErrorUntil(_) | ErrorNodeUntil(_, _) => []
+    ExpectSkip(_, _) => []
+    SeparatedList(item_name, _) => leading_refs(Sym(item_name), ctx)
     PrattApp(spec) => [spec.prefix]
     PrattBinary(spec) => [spec.prefix]
   }
@@ -348,7 +356,6 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
   get_fragment_names(rules).length() > 0
 }
 
-
 ///
 /// Collect distinct fragment names referenced across all grammar rules.
 /// Returns sorted unique names (in deterministic emission order).
@@ -357,7 +364,7 @@ fn get_fragment_names(rules : Map[String, RuleAst]) -> Array[String] {
   fn go(ast : RuleAst) -> Unit {
     match ast {
       Frag(name) => seen.add(name)
-      Native(_) | Sym(_) => ()
+      Native(_) | Sym(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) | SeparatedList(_, _) => ()
       Seq(items) | Alt(items) => items.iter().each(go)
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
       Emit(inner) | Emitor(inner) => go(inner)
@@ -377,17 +384,43 @@ fn get_fragment_names(rules : Map[String, RuleAst]) -> Array[String] {
   result
 }
 
+///| Whether `ast` is a catch-all node eligible for special treatment in a
+
+///| `Choice`. A catch-all in the final branch position is emitted with
+
+///| `Pred::Any` as its `starts` predicate — it only fires when no earlier
+
+///| branch's FIRST set matches, serving as the "else clause" for an
+
+///| alternation. The catch-all must be the **last** alternative; placing it
+
+///| earlier would silently shadow all following branches.
 
 ///|
-/// Whether `ast` is a `@native` node eligible for catch-all treatment in a
-/// `Choice`. A catch-all in the final branch position is emitted with
-/// `Pred::Any` as its `starts` predicate — it only fires when no earlier
-/// branch's FIRST set matches, serving as the "else clause" for an
-/// alternation. The `@native` must be the **last** alternative; placing it
-/// earlier would silently shadow all following branches.
+
+///| Two node kinds are catch-alls:
+
+///| - `@native(fn)`: a hand-written production (the original catch-all).
+
+///| - `@error_node(Kind, Token)`: error recovery that consumes until a sync
+
+///|   token, wrapping the consumed range in an ErrorNode. Its FIRST set is
+
+///|   empty (it matches any token), so it must be treated as a catch-all to
+
+///|   avoid the empty-FIRST-set rejection in `lower_choice`.
+
+///|
+
+///| Placing a catch-all in non-last position is rejected by the existing
+
+///| FIRST-set logic: an empty-FIRST alternative fails `first_names_ordered`,
+
+///|
+/// so the constraint is enforced without an explicit position check here.
 fn RuleAst::is_catch_all(self : RuleAst) -> Bool {
   match self {
-    Native(_) => true
+    Native(_) | ErrorNodeUntil(_, _) => true
     _ => false
   }
 }
@@ -572,6 +605,27 @@ fn pred_text(names : Array[String], ctx : LowerCtx) -> MbtExpr {
 }
 
 ///|
+/// Verify every token in `tokens` is a known #loom.token variant. Fails closed
+/// with a diagnostic naming `context` (e.g. "@until()" or "@error_node()").
+fn validate_tokens_known(
+  tokens : Array[String],
+  ctx : LowerCtx,
+  context_name : String,
+) -> Unit raise RuleLowerError {
+  for t in tokens {
+    guard ctx.token_kinds.contains(t) else {
+      raise RuleLowerError(
+        "'" +
+        t +
+        "' in " +
+        context_name +
+        " is not a #loom.token variant — only terminal tokens can be sync points",
+      )
+    }
+  }
+}
+
+///|
 /// Resolve a `Sym(name)` inside a postfix `~`/`!` operator and return the
 /// `(token_name, kind_name)` pair, or fail closed on non-terminal or compound
 /// inner expressions. Shared by the `Emit` and `Emitor` lowering arms.
@@ -601,6 +655,32 @@ fn resolve_optional_token(
         postfix +
         "' requires a terminal token as its operand; got a compound expression",
       )
+  }
+}
+
+///|
+/// Resolve a terminal token name to its `(name, kind)` pair, or fail closed
+/// if it is not a `#loom.token` variant. `context` names the construct (e.g.
+/// `"~>"`) for error diagnostics. Shared by lowering arms that validate bare
+/// token names (as opposed to `resolve_optional_token` which takes a `RuleAst`
+/// operand from postfix operators).
+fn resolve_terminal(
+  name : String,
+  ctx : LowerCtx,
+  context : String,
+) -> (String, String) raise RuleLowerError {
+  match resolve_sym(name, ctx) {
+    Terminal(kind) => (name, kind)
+    Rule(_) =>
+      raise RuleLowerError(
+        "'" +
+        name +
+        "' in " +
+        context +
+        " must be a terminal token, not a rule reference",
+      )
+    RulelessTerm => raise RuleLowerError(ruleless_term_msg(name))
+    Unknown => raise RuleLowerError(unknown_symbol_msg(name))
   }
 }
 
@@ -672,29 +752,99 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
     // @until(Token) — consume tokens (emitting diagnostic) until the sync
     // token is found. Single token -> Pred::IsToken; multi (via |) -> OneOf.
     ErrorUntil(tokens) => {
-      let pred = if tokens.length() == 1 {
-        MbtExpr::Call(ctx.grammar_qual + ".Pred::IsToken", [
-          MbtExpr::Var(qualify(ctx.token_qual, tokens[0])),
-        ])
-      } else {
-        let toks = tokens.map(n => MbtExpr::Var(qualify(ctx.token_qual, n)))
-        MbtExpr::Call(ctx.grammar_qual + ".Pred::OneOf", [MbtExpr::Array(toks)])
-      }
-      // Verify every named token is known before emitting.
-      for t in tokens {
-        guard ctx.token_kinds.contains(t) else {
-          raise RuleLowerError(
-            "'" +
-            t +
-            "' in @until() is not a #loom.token variant — only terminal tokens can be sync points",
-          )
-        }
-      }
+      validate_tokens_known(tokens, ctx, "@until()")
       let delim_names = tokens.join("' or '")
       let msg = "expected '" + delim_names + "'"
       MbtExpr::Call(ctx.grammar_qual + ".Expr::ErrorUntil", [
-        pred,
+        pred_text(tokens, ctx),
         MbtExpr::StrLit(quote(msg)),
+      ])
+    }
+    // @error_node(Kind, Token) — consume tokens into an ErrorNode until the sync
+    // token is found. Single token -> Pred::IsToken; multi (via |) -> OneOf.
+    // The Kind must be a #loom.errornode variant.
+    ErrorNodeUntil(kind_name, tokens) => {
+      guard ctx.error_node_variant == Some(kind_name) else {
+        let hint = match ctx.error_node_variant {
+          Some(name) =>
+            " — the only #loom.errornode variant is '" + name + "'"
+          None => " — the term enum has no #loom.errornode variant"
+        }
+        raise RuleLowerError(
+          "'" +
+          kind_name +
+          "' in @error_node() is not a #loom.errornode variant" +
+          hint,
+        )
+      }
+      let kind_ref = match ctx.term_kind_names.get(kind_name) {
+        Some(k) => k
+        None =>
+          raise RuleLowerError(
+            "'" +
+            kind_name +
+            "' in @error_node() has no CST kind — this should not happen if error_node_variant is set",
+          )
+      }
+      validate_tokens_known(tokens, ctx, "@error_node()")
+      let delim_names = tokens.join("' or '")
+      let msg = "expected '" + delim_names + "'"
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::ErrorNodeUntil", [
+        MbtExpr::Var(qualify(ctx.syntax_qual, kind_ref)),
+        pred_text(tokens, ctx),
+        MbtExpr::StrLit(quote(msg)),
+      ])
+    }
+    // Token~> — consume skip tokens via IsToken before expecting another token.
+    ExpectSkip(skip_name, expected_name) => {
+      let (skip_tok, skip_kind) = resolve_terminal(skip_name, ctx, "'~>'")
+      let (expected_tok, expected_kind) = resolve_terminal(
+        expected_name, ctx, "'~>'",
+      )
+      let skip_pred = pred_text([skip_tok], ctx)
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::ExpectSkip", [
+        skip_pred,
+        MbtExpr::Var(qualify(ctx.syntax_qual, skip_kind)),
+        MbtExpr::Var(qualify(ctx.token_qual, expected_tok)),
+        MbtExpr::Var(qualify(ctx.syntax_qual, expected_kind)),
+      ])
+    }
+    // Expr{Sep} — a zero-or-more separated list lowered to RepeatTopLevel
+    // for incremental list reuse. The item must be a rule Ref (not a
+    // terminal), and the separator must be a terminal token.
+    SeparatedList(item_name, sep_name) => {
+      // Validate the item exists and is a grammar rule.
+      match resolve_sym(item_name, ctx) {
+        Rule(_) => ()
+        Terminal(_) =>
+          raise RuleLowerError(
+            "'" +
+            item_name +
+            "' in '{...}' must be a rule reference, not a terminal token",
+          )
+        RulelessTerm => raise RuleLowerError(ruleless_term_msg(item_name))
+        Unknown => raise RuleLowerError(unknown_symbol_msg(item_name))
+      }
+      // Resolve the separator as a terminal token.
+      let (sep_tok, sep_kind) = resolve_terminal(sep_name, ctx, "'{...}'")
+      // FIRST set of the item rule gates entry to each list element;
+      // delimiter predicate uses pred_text for single-token IsToken.
+      let starts = pred_text(
+        first_names_ordered(Sym(item_name), ctx, "a '{Sep}' list item"),
+        ctx,
+      )
+      let delim_pred = pred_text([sep_tok], ctx)
+      MbtExpr::Call(ctx.grammar_qual + ".Expr::RepeatTopLevel", [
+        MbtExpr::StrLit(quote(item_name)),
+        starts,
+        delim_pred,
+        MbtExpr::Var(qualify(ctx.syntax_qual, sep_kind)),
+        MbtExpr::StrLit(
+          quote("expected '" + sep_name + "' between " + item_name + " items"),
+        ),
+        MbtExpr::StrLit(
+          quote("expected '" + sep_name + "' or end of " + item_name + " items"),
+        ),
       ])
     }
     // (A | B | ...) — one alt per branch, each gated on its own FIRST set, plus a
@@ -720,9 +870,13 @@ fn lower(ast : RuleAst, ctx : LowerCtx) -> MbtExpr raise RuleLowerError {
 /// An optional construct legitimately matches nothing, so it omits the fallback.
 
 ///|
-/// Emit a single `Alt{starts: Pred::Any, body: lower(branch)}` for a catch-all
-/// `@native` branch. The catch-all is excluded from FIRST-set dispatch —
-/// it fires only when no earlier branch's predicate matches.
+
+///| Emit a single `Alt{starts: Pred::Any, body: lower(branch)}` for a catch-all
+
+///| branch (`@native` or `@error_node`). The catch-all is excluded from FIRST-set
+
+///|
+/// dispatch — it fires only when no earlier branch's predicate matches.
 fn lower_catch_all_alt(
   branch : RuleAst,
   ctx : LowerCtx,
@@ -758,16 +912,25 @@ fn lower_choice(
   let expected : Array[String] = []
   for i in 0..<branches.length() {
     let branch = branches[i]
-    // A @native catch-all is only valid as the final alternative. It emits
-    // with Pred::Any (always-matching) semantics, excluding it from FIRST-set
-    // dispatch — it fires only when no earlier branch's FIRST predicate matches.
+    // A catch-all (@native or @error_node) is only valid as the final
+    // alternative. It emits with Pred::Any (always-matching) semantics,
+    // excluding it from FIRST-set dispatch — it fires only when no earlier
+    // branch's FIRST predicate matches.
     if branch.is_catch_all() && i == branches.length() - 1 {
       alts.push(lower_catch_all_alt(branch, ctx))
       continue
     }
     if branch.is_catch_all() {
+      let name = match branch {
+        Native(_) => "@native"
+        ErrorNodeUntil(_, _) => "@error_node"
+        _ => "catch-all"
+      }
       raise RuleLowerError(
-        "catch-all @native must be the final alternative in an alternation — a non-final @native would shadow all following branches",
+        name +
+        " must be the final alternative in an alternation — a non-final " +
+        name +
+        " would shadow all following branches",
       )
     }
     // A nullable alternative makes the alternation ε-derivable, but the
@@ -872,6 +1035,13 @@ fn build_lower_ctx(
       None => ()
     }
   }
+  let mut error_node_variant : String? = None
+  for v in term_enum.variants {
+    match v.role {
+      Some(ErrorNode) => error_node_variant = Some(v.name)
+      _ => ()
+    }
+  }
   let rules : Map[String, RuleAst] = Map([])
   let term_names : @hashset.HashSet[String] = @hashset.HashSet([])
   for v in term_enum.variants {
@@ -916,6 +1086,7 @@ fn build_lower_ctx(
     rules,
     term_names,
     file_lines,
+    error_node_variant,
     token_qual,
     syntax_qual,
     grammar_qual,

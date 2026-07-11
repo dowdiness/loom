@@ -114,3 +114,36 @@ moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
   and `examples/lambda/term_kind.mbt` (term kind metadata, loaded via `--term`).
   The regression test (`regression_wbtest.mbt`) now reads both files separately.
   CI steps use the split form: `--seed <syntax> --term <term_kind> <token.mbt> <out>`.
+
+## Post-Phase-2: emit_grammar.mbt Removal (2026-07-10)
+
+### Changes
+
+- **Deleted** `loomgen/emit_grammar.mbt` (766 lines) — parser code generator
+- **Deleted** `loomgen/emit_grammar_wbtest.mbt` (~620 lines) — tests
+- **Deleted** 3 fixture parity packages: `grammar_parity/`, `grammar_parity_reuse/`, `grammar_parity_native/` (~15 files)
+- **Updated** `loomgen/regenerate_fixtures.mbt` — removed emit_grammar calls (kept emit_grammar_ir calls for IR-level fixtures)
+- **Updated** `loomgen/moon.pkg` — removed unused `dowdiness/loom/grammar` import
+- **Updated** `loomgen/README.md` — removed "Grammar IR Emitter" section, rewrote opening to reflect realigned scope
+- **Rewrote** `docs/decisions/2026-07-10-remove-emit-grammar-code-generator.md` — ADR superseding the 2026-06-22 gate
+
+### Rationale
+
+`@grammar.interpret` reached full incremental throughput parity with hand-written
+parsers (benchmark: flat incremental B/A=0.95×, deep incremental B/A=0.91×). The
+deep-subtree reuse gap that motivated the emitter was closed by #476.
+
+### What remains
+
+- `emit_grammar_ir.mbt` — GrammarIr **data** generation (unchanged, feeds `@grammar.interpret`)
+- All other generators (syntax_kind, token_impls, views, lexer, spec, lexmode) — unchanged
+### mbt_ast.mbt cleanup (2026-07-10)
+
+- **Cleaned** `loomgen/mbt_ast.mbt` — removed all 8 dead types (`MbtModule`, `MbtFnDecl`,
+  `MbtStmt`, `MbtBlock`, `MbtElseBranch`, `MbtMatchArm`, `MbtParam`, `MbtPat`), 10 unused
+  `MbtExpr` variants (Bool, MethodCall, FieldAccess, Pipe, BinOp, UnOp, Block, Closure,
+  Match, Continue, Break), all dead `@pretty.Pretty` trait impls, and 7 helper functions
+  (kw, punc, op, binop_prec, blk_layout, parens_layout, parens_flat)
+- Kept: `MbtExpr` with 6 variants (Var, StrLit, Call, Tuple, Array, Record), `ident` helper,
+  `to_breakable_layout` method
+- 0 errors, 0 warnings (was 26 warnings), 151/151 tests pass

@@ -52,7 +52,7 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
       ),
       @argparse.FlagArg(
         "regenerate-fixtures",
-        about="Regenerate grammar-parity fixture .g.mbt files from current emitter output. Requires `moon fmt loomgen/fixtures/` after regeneration because @pretty.render_string output disagrees with moon fmt.",
+        about="Regenerate fixture .g.mbt files (IR-level fixtures: error_node, rule_grammar, separated_list) from current emitter output.",
       ),
     ],
     options=[
@@ -344,6 +344,15 @@ fn write_outputs(
       return Err(())
     }
   }
+  // Write sync_point.g.mbt (generated is_sync_point from #loom.recovery("sync") annotations)
+  let sync_point_content = emit_sync_point(te)
+  @fs.write_string_to_file(token_out + "/sync_point.g.mbt", sync_point_content) catch {
+    _ => {
+      println("Error writing " + token_out + "/sync_point.g.mbt")
+      return Err(())
+    }
+  }
+  println("  " + token_out + "/sync_point.g.mbt")
 
   // Write syntax_kind.mbt (only when --skip-syntax is not set)
   if !skip_syntax {

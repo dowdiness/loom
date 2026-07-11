@@ -6,13 +6,11 @@
 ///   rule       := pratt_body | alt
 ///   pratt_body := '@prefix' IDENT pratt_ann*
 ///   pratt_ann  := '@app' IDENT | '@prec' '[' IDENT (',' IDENT)* ']'
-///              | '@skip' '(' IDENT ')'
+///   postfix    := atom ('*' | '+' | '?' | '~>' atom | '~' | '!' | '{' IDENT '}')?
 ///   alt        := seq ('|' seq)*
 ///   seq        := postfix+
-///   postfix    := atom ('*' | '+' | '?' | '~' | '!')?
 
-///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '(' alt ')'
-/// ```
+///|   atom       := IDENT | '@' IDENT | '@native' '(' IDENT ')' | '@until' '(' IDENT ('|' IDENT)* ')' | '@error_node' '(' IDENT ',' IDENT ('|' IDENT)* ')' | '(' alt ')'
 /// An IDENT is resolved to a token terminal or a rule `Ref` later, at lowering
 /// time (the notation parser does not know the grammar vocabulary). A leading
 
@@ -49,7 +47,17 @@ enum RuleAst {
   Opt(RuleAst)
   Emit(RuleAst)
   Emitor(RuleAst)
+  /// @error_node(Kind, Token) — consume tokens into an ErrorNode of the given
+  /// Kind until the sync token is found. Variant form @error_node(Kind, A | B)
+  /// accepts any of the listed tokens as the stop condition.
+  ErrorNodeUntil(String, Array[String])
   ErrorUntil(Array[String])
+  /// Token~> — consume soft-separator tokens matching a predicate before
+  /// expecting another token. Stores (skip_token_name, expected_token_name).
+  ExpectSkip(String, String)
+  /// Expr{Sep} — one or more of Expr separated by Sep, lowered to
+  /// Expr::RepeatTopLevel. Stores (item_rule_name, delimiter_token_name).
+  SeparatedList(String, String)
   PrattApp(PrattAppSpec)
   PrattBinary(PrattBinarySpec)
 } derive(Eq, Debug)
@@ -65,13 +73,17 @@ enum RuleTok {
   TStar
   TPlus
   TQuest
+  TExpectSkip
   TTilde
   TEmitor
+  TErrorNode
   TUntil
   TPrefix
   TApp
   TPrec
   TSkip
+  TLBrace
+  TRBrace
   TLBracket
   TRBracket
   TComma
@@ -112,6 +124,7 @@ fn scan_ident(s : String, pos : Int) -> (String, Int) {
 /// fragment references (`@fragmentName`).
 fn rule_at_keyword(name : String) -> RuleTok? {
   match name {
+    "error_node" => Some(TErrorNode)
     "until" => Some(TUntil)
     "native" => Some(TNative)
     "prefix" => Some(TPrefix)
@@ -155,8 +168,16 @@ fn tokenize_rule(s : String) -> Array[RuleTok] raise RuleParseError {
         '*' => TStar
         '+' => TPlus
         '?' => TQuest
-        '~' => TTilde
+        '~' =>
+          if i + 1 < s.length() && s[i + 1] == '>' {
+            i = i + 1
+            TExpectSkip
+          } else {
+            TTilde
+          }
         '!' => TEmitor
+        '{' => TLBrace
+        '}' => TRBrace
         '[' => TLBracket
         ']' => TRBracket
         ',' => TComma
@@ -369,7 +390,24 @@ fn not_seq_terminator(tok : RuleTok?) -> Bool {
 }
 
 ///|
-/// `postfix := atom ('*' | '+' | '?' | '~' | '!')?` — at most one postfix.
+/// Extract the name from a `Sym(atom)` variant, or fail closed with a
+/// diagnostic naming the construct. Shared by postfix operators (`~>`,
+/// `{Sep}`) that require a simple name as their operand.
+fn RuleAst::sym_name(
+  self : RuleAst,
+  context : String,
+  what : String,
+) -> String raise RuleParseError {
+  match self {
+    Sym(n) => n
+    _ => raise RuleParseError(context + " requires a simple " + what)
+  }
+}
+
+///|
+/// `postfix := atom ('*' | '+' | '?' | '~>' atom | '~' | '!' | '{' IDENT '}')?` — at most one
+/// postfix. `~>` is a binary postfix consuming skip tokens before expecting; `{Sep}` adds
+/// a zero-or-more separated list lowered to RepeatTopLevel.
 fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError {
   let atom = self.parse_atom()
   match self.peek() {
@@ -393,6 +431,36 @@ fn RuleParser::parse_postfix(self : RuleParser) -> RuleAst raise RuleParseError 
       self.bump()
       Emitor(atom)
     }
+    Some(TExpectSkip) => {
+      self.bump()
+      let expected_atom = self.parse_atom()
+      let skip_name = atom.sym_name("'~>'", "token name as the skip token")
+      let expected_name = expected_atom.sym_name(
+        "'~>'", "token name as the expected token",
+      )
+      ExpectSkip(skip_name, expected_name)
+    }
+    Some(TLBrace) => {
+      self.bump()
+      let sep_name = match self.peek() {
+        Some(TIdent(name)) => {
+          self.bump()
+          name
+        }
+        _ =>
+          raise RuleParseError(
+            "'{...}' must contain a token identifier for the separator",
+          )
+      }
+      guard self.peek() is Some(TRBrace) else {
+        raise RuleParseError(
+          "'{' must be closed with '}' after the separator token name",
+        )
+      }
+      self.bump()
+      let item_name = atom.sym_name("'{...}'", "rule name as the list item")
+      SeparatedList(item_name, sep_name)
+    }
     _ => atom
   }
 }
@@ -405,6 +473,8 @@ fn pratt_token_in_ebnf_err(tok : RuleTok) -> String {
     TApp => "'@app'"
     TPrec => "'@prec'"
     TSkip => "'@skip'"
+    TLBrace => "'{'"
+    TRBrace => "'}'"
     TLBracket => "'['"
     TRBracket => "']'"
     TComma => "','"
@@ -472,6 +542,51 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       ErrorUntil(tokens)
     }
+    Some(TErrorNode) => {
+      self.bump()
+      guard self.peek() is Some(TLParen) else {
+        raise RuleParseError(
+          "'@error_node' must be followed by '(kind, tokens)'",
+        )
+      }
+      self.bump()
+      let kind_name = match self.peek() {
+        Some(TIdent(n)) => {
+          self.bump()
+          n
+        }
+        _ =>
+          raise RuleParseError("@error_node() must contain a kind identifier")
+      }
+      guard self.peek() is Some(TComma) else {
+        raise RuleParseError(
+          "@error_node(kind, ...) requires a comma after the kind",
+        )
+      }
+      self.bump()
+      let tokens : Array[String] = []
+      while true {
+        match self.peek() {
+          Some(TIdent(name)) => {
+            self.bump()
+            tokens.push(name)
+          }
+          _ =>
+            raise RuleParseError(
+              "@error_node() must contain at least one token identifier after the kind",
+            )
+        }
+        match self.peek() {
+          Some(TPipe) => self.bump()
+          _ => break
+        }
+      }
+      guard self.peek() is Some(TRParen) else {
+        raise RuleParseError("unbalanced '@error_node(' — missing ')'")
+      }
+      self.bump()
+      ErrorNodeUntil(kind_name, tokens)
+    }
     Some(TPrefix)
     | Some(TApp)
     | Some(TPrec)
@@ -492,10 +607,17 @@ fn RuleParser::parse_atom(self : RuleParser) -> RuleAst raise RuleParseError {
       self.bump()
       inner
     }
-    Some(TStar) | Some(TPlus) | Some(TQuest) | Some(TTilde) | Some(TEmitor) =>
+    Some(TStar)
+    | Some(TPlus)
+    | Some(TQuest)
+    | Some(TTilde)
+    | Some(TExpectSkip)
+    | Some(TEmitor)
+    | Some(TLBrace) =>
       raise RuleParseError(
-        "a postfix ('*', '+', '?', '~', '!') has no atom to bind",
+        "a postfix ('*', '+', '?', '~>', '~', '!', '{Sep}') has no atom to bind",
       )
+    Some(TRBrace) => raise RuleParseError("unexpected '}'")
     Some(TPipe) => raise RuleParseError("unexpected '|' with no left side")
     Some(TRParen) => raise RuleParseError("unexpected ')'")
     None => raise RuleParseError("unexpected end of rule")

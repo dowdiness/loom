@@ -3,3 +3,9 @@ import {
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }
+
+import {
+  "moonbitlang/core/quickcheck" @coreqc,
+  "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/quickcheck" @qc,
+} for "wbtest"
