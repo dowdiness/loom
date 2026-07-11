@@ -2,13 +2,10 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+}
+
+import {
   "moonbitlang/core/quickcheck" @coreqc,
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
-}
-
-// QuickCheck implementations and property helpers are exercised by whitebox
-// tests; suppress package-level unused warnings that vendored consumers treat
-// as errors.
-
-warnings = "-1-23-29"
+} for "wbtest"
