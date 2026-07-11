@@ -97,12 +97,74 @@ impl @qc.Shrink for QcKind with fn shrink(self) -> Iter[QcKind] {
   Iter::empty()
 }
 
+// ─── Token Stream Helpers ─────────────────────────────────────────────────────
+
+///|
+/// Generate a non-EOF content token.
+fn gen_content_token(rs : @splitmix.RandomState) -> QcToken {
+  match rs.next_uint() % 3 {
+    0 => A
+    1 => B
+    _ => C
+  }
+}
+
+///|
+/// Generate an array of TokenInfo from a list of content tokens plus an EOF
+/// sentinel.  `content_tok` is guaranteed to appear at least once (as the
+/// first element) so that `RepeatTopLevel("expr", starts=IsToken(t), …)` has
+/// a token to match.
+fn gen_tokens(
+  num_content : Int,
+  rs : @splitmix.RandomState,
+  content_tok : QcToken,
+) -> Array[@core.TokenInfo[QcToken]] {
+  let tokens : Array[@core.TokenInfo[QcToken]] = []
+  tokens.push(@core.TokenInfo::new(content_tok, 1))
+  for _i in 1..<num_content {
+    // 50% chance of consumer_tok, so RepeatTopLevel/PrattApp loops
+    // have a realistic chance of multiple iterations.
+    let t = if rs.next_double() < 0.5 {
+      content_tok
+    } else {
+      gen_content_token(rs)
+    }
+    tokens.push(@core.TokenInfo::new(t, 1))
+  }
+  tokens.push(@core.TokenInfo::new(QcToken::Eof, 0))
+  tokens
+}
+
 // ─── Expression Generator ─────────────────────────────────────────────────────
 
 ///|
-/// Generate a safe Expr body.  No `Pred::Any` in predicates — only
-/// `Pred::IsToken` with explicit tokens.
+/// Generate a safe Expr body (single-rule mode: no Ref/RepeatTopLevel/
+/// PrattApp/PrattBinary — just the core variants).
 fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
+  gen_expr_impl(size, rs, [], A, QcKind::Root)
+}
+
+///|
+/// Internal: full-signature generator with multi-rule support.  See
+/// `GrammarWithTokens::arbitrary` for the coordinating caller.
+///
+/// When `rule_names` has >=2 entries, also produces `Ref`, `RepeatTopLevel`,
+/// `PrattApp`, and `PrattBinary` that reference `rule_names[1]` (the "atom"
+/// rule, e.g. `"expr"`).  `consumer_tok` and `consumer_knd` specify the
+/// token/kind that the atom rule body will emit, so these constructs'
+/// predicates can safely reference a token that the body will consume
+/// (guaranteeing loop termination).
+fn gen_expr_impl(
+  size : Int,
+  rs : @splitmix.RandomState,
+  rule_names : Array[String],
+  consumer_tok : QcToken,
+  consumer_knd : QcKind,
+) -> Expr[QcToken, QcKind] {
+  // `rule_names[1]` (not [0]) is the atom rule because the caller passes
+  // `["source", "expr"]` — see GrammarWithTokens::arbitrary.
+  let has_rules = rule_names.length() >= 2
+  let atom_name = if has_rules { rule_names[1] } else { "" }
   let tk = fn() { QcToken::arbitrary(0, rs) }
   let kn = fn() { QcKind::arbitrary(0, rs) }
   if size <= 0 {
@@ -116,9 +178,13 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
     }
   } else {
     let next = size - 1
-    let pick = (rs.next_uint() % 18).reinterpret_as_int()
+    let num_arms = if has_rules { 21 } else { 18 }
+    let pick = (rs.next_uint() % num_arms.reinterpret_as_uint()).reinterpret_as_int()
     if pick == 0 {
-      Expr::Node(kn(), gen_expr(next, rs))
+      Expr::Node(
+        kn(),
+        gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd),
+      )
     } else if pick == 1 {
       Expr::Emit(tk(), kn())
     } else if pick == 2 {
@@ -127,7 +193,9 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
       let n = (rs.next_uint() % 3 + 1).reinterpret_as_int()
       let exprs : Array[Expr[QcToken, QcKind]] = []
       for _i in 0..<n {
-        exprs.push(gen_expr(next, rs))
+        exprs.push(
+          gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd),
+        )
       }
       Expr::Seq(exprs)
     } else if pick == 4 {
@@ -143,12 +211,22 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
     } else if pick == 9 {
       Expr::ErrorUntil(Pred::IsToken(tk()), "err-until")
     } else if pick == 10 {
-      Expr::WrapIfNext(kn(), Pred::IsToken(tk()), gen_expr(next, rs))
+      Expr::WrapIfNext(
+        kn(),
+        Pred::IsToken(tk()),
+        gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd),
+      )
     } else if pick == 11 {
       Expr::ErrorNodeUntil(kn(), Pred::IsToken(tk()), "err-node")
     } else if pick == 12 {
-      let alt1 = Alt::{ starts: Pred::IsToken(tk()), body: gen_expr(next, rs) }
-      let alt2 = Alt::{ starts: Pred::IsToken(tk()), body: gen_expr(next, rs) }
+      let alt1 = Alt::{
+        starts: Pred::IsToken(tk()),
+        body: gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd),
+      }
+      let alt2 = Alt::{
+        starts: Pred::IsToken(tk()),
+        body: gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd),
+      }
       Expr::Choice([alt1, alt2])
     } else if pick == 13 {
       Expr::ExpectSkip(Pred::IsToken(tk()), kn(), tk(), kn())
@@ -165,8 +243,29 @@ fn gen_expr(size : Int, rs : @splitmix.RandomState) -> Expr[QcToken, QcKind] {
       )
     } else if pick == 16 {
       Expr::ManualNewlineAppExpr
+    } else if pick == 17 && has_rules {
+      Expr::Ref(atom_name)
+    } else if pick == 18 && has_rules {
+      let delim_tok = tk()
+      Expr::RepeatTopLevel(
+        atom_name,
+        starts=Pred::IsToken(consumer_tok),
+        delim=Pred::IsToken(delim_tok),
+        delim_kind=kn(),
+        between_msg="btwn",
+        after_msg="after",
+      )
+    } else if pick == 19 && has_rules {
+      Expr::PrattApp(atom_name, kn(), Pred::IsToken(consumer_tok))
+    } else if pick == 20 && has_rules {
+      let skip = if rs.next_double() < 0.3 {
+        Some((Pred::IsToken(tk()), kn()))
+      } else {
+        None
+      }
+      Expr::PrattBinary(atom_name, kn(), [(consumer_tok, kn())], skip~)
     } else {
-      gen_expr(next, rs)
+      gen_expr_impl(next, rs, rule_names, consumer_tok, consumer_knd)
     }
   }
 }
@@ -203,6 +302,81 @@ impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(self) -> Iter[
   GrammarIr[QcToken, QcKind],
 ] {
   Iter::empty()
+}
+
+// ─── GrammarWithTokens (wraps grammar + compatible token stream) ─────────────
+
+///|
+/// A grammar IR paired with a token stream that aligns with the grammar's
+/// predicates.  The atom rule (`"expr"`) is always `Emit(consumer_tok,
+/// consumer_knd)`, so `RepeatTopLevel`/`PrattApp`/`PrattBinary` nodes have a
+/// matching token to consume and do not loop infinitely.
+struct GrammarWithTokens {
+  ir : GrammarIr[QcToken, QcKind]
+  tokens : Array[@core.TokenInfo[QcToken]]
+} derive(Debug)
+
+///|
+impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
+  // Pick the content token that the atom rule will emit.
+  // This is the token that RepeatTopLevel/PrattApp/PrattBinary predicates
+  // will check for, guaranteeing loop termination.
+  let consumer_tok = gen_content_token(rs)
+  let consumer_knd = QcKind::arbitrary(0, rs)
+
+  let num_rules = if size <= 0 {
+    1
+  } else {
+    (rs.next_uint() % 2 + 1).reinterpret_as_int()
+  }
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  let rule_names : Array[String] = if num_rules > 1 {
+    // The atom rule body MUST consume consumer_tok so that
+    // RepeatTopLevel/PrattApp loops terminate.
+    rules["expr"] = Expr::Emit(consumer_tok, consumer_knd)
+    ["source", "expr"]
+  } else {
+    []
+  }
+
+  let source_body = gen_expr_impl(
+    size, rs, rule_names, consumer_tok, consumer_knd,
+  )
+  rules["source"] = source_body
+
+  // Build the token stream. Include consumer_tok first so that
+  // RepeatTopLevel/PrattApp have something to match.
+  let num_content = if size <= 0 {
+    2
+  } else {
+    (rs.next_uint() % 2 + 2).reinterpret_as_int()
+  }
+  let tokens = gen_tokens(num_content, rs, consumer_tok)
+
+  GrammarWithTokens::{ ir: GrammarIr::GrammarIr(rules, root="source"), tokens }
+}
+
+///|
+/// Shrink a GrammarWithTokens by shortening the token stream.
+/// The grammar stays identical — only the input is reduced, making
+/// counterexamples simpler without changing the structure that caused
+/// the failure.
+impl @qc.Shrink for GrammarWithTokens with fn shrink(self) -> Iter[
+  GrammarWithTokens,
+] {
+  let tlen = self.tokens.length()
+  if tlen <= 2 {
+    Iter::empty()
+  } else {
+    // Build a candidate: remove the last content token (index tlen-2)
+    let shorter : Array[@core.TokenInfo[QcToken]] = []
+    let limit = tlen - 2
+    for i in 0..<limit {
+      shorter.push(self.tokens[i])
+    }
+    shorter.push(self.tokens[tlen - 1]) // preserve EOF
+    [GrammarWithTokens::{ ir: self.ir, tokens: shorter }].iter()
+  }
 }
 
 // ─── LanguageSpec Builder ─────────────────────────────────────────────────────
@@ -418,6 +592,8 @@ fn[
   }
 }
 
+// ─── Plain GrammarIr Properties (fixed token stream [A, B, Eof]) ──────────────
+
 ///|
 /// Property: compiling any grammar IR never crashes (compile errors are
 /// accepted — the generator may produce broken grammars).
@@ -514,6 +690,84 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   )
 }
 
+// ─── GrammarWithTokens Properties (random token stream) ───────────────────────
+
+///|
+/// Property: interpreting a GrammarWithTokens on its random token stream
+/// never crashes (compile errors accepted).
+fn prop_interpret_no_crash_tokens(gwt : GrammarWithTokens) -> Bool {
+  let parse_root = interpret(gwt.ir) catch { _ => return true }
+  let spec = qc_spec(parse_root)
+  let ctx = @core.ParserContext::new(gwt.tokens, "", spec)
+  parse_root(ctx)
+  true
+}
+
+///|
+/// Property: the reference interpreter matches the real interpreter on the
+/// random token stream.
+fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
+  let tokens = gwt.tokens
+  let ir = gwt.ir
+  // Reference parse
+  let ref_parse = reference_interpret(ir)
+  let ref_spec = qc_spec(ref_parse)
+  let (ref_tree, _ref_diags) = @core.parse_with(
+    "src",
+    ref_spec,
+    fn(_src) { tokens },
+    ref_parse,
+  )
+  // Real parse
+  let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
+  let real_spec = qc_spec(real_parse)
+  let (real_tree, _real_diags) = @core.parse_with(
+    "src",
+    real_spec,
+    fn(_src) { tokens },
+    real_parse,
+  )
+  // Trees must be structurally equal
+  let diffs = @core.tree_diff(ref_tree, real_tree)
+  @qc.counterexample(
+    diffs.length() == 0,
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  reference vs interpret diffs = \{@debug.to_string(diffs)}",
+  )
+}
+
+///|
+/// Property: `interpret(ir)` and `interpret_compiled(compile(ir))` produce
+/// structurally equal CSTs for a GrammarWithTokens on its random stream.
+fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
+  let tokens = gwt.tokens
+  let ir = gwt.ir
+  // First parse: via interpret
+  let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
+  let spec = qc_spec(parse_root)
+  let (tree1, _diags1) = @core.parse_with(
+    "src",
+    spec,
+    fn(_src) { tokens },
+    parse_root,
+  )
+  // Second parse: via interpret_compiled(compile(ir))
+  let compiled = compile(ir) catch { _ => return @qc.property(true) }
+  let parse_root2 = interpret_compiled(compiled)
+  let spec2 = qc_spec(parse_root2)
+  let (tree2, _diags2) = @core.parse_with(
+    "src",
+    spec2,
+    fn(_src) { tokens },
+    parse_root2,
+  )
+  // Trees must be structurally equal
+  let diffs = @core.tree_diff(tree1, tree2)
+  @qc.counterexample(
+    diffs.length() == 0,
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}",
+  )
+}
+
 // ─── Test Blocks ──────────────────────────────────────────────────────────────
 
 ///|
@@ -534,4 +788,197 @@ test "property: interpret matches interpret_compiled(compile(ir)) CST" {
 ///|
 test "property: reference interpreter matches real interpreter CST" {
   @qc.quick_check_fn(prop_reference_matches, max_success=25, max_size=3)
+}
+
+///|
+test "property: GrammarWithTokens no-crash on random token stream" {
+  @qc.quick_check_fn(prop_interpret_no_crash_tokens, max_success=15, max_size=4)
+}
+
+///|
+test "property: GrammarWithTokens reference matches real on random stream" {
+  @qc.quick_check_fn(prop_reference_matches_tokens, max_success=25, max_size=4)
+}
+
+///|
+test "property: GrammarWithTokens interpret matches interpret_compiled on random stream" {
+  @qc.quick_check_fn(prop_cst_equivalence_tokens, max_success=15, max_size=4)
+}
+
+///|
+/// Safe wrapper: interpret or return None on compile error.
+fn try_interpret(
+  ir : GrammarIr[QcToken, QcKind],
+) -> ((@core.ParserContext[QcToken, QcKind]) -> Unit)? {
+  Some(interpret(ir)) catch {
+    _ => None
+  }
+}
+
+///|
+/// Helper: verify reference and real interpreters produce identical CSTs
+/// for a given grammar + token stream.
+fn check_equiv(
+  ir : GrammarIr[QcToken, QcKind],
+  tokens : Array[@core.TokenInfo[QcToken]],
+  label : String,
+) -> Unit raise Failure {
+  let ref_parse = reference_interpret(ir)
+  let (ref_tree, _) = @core.parse_with(
+    "src",
+    qc_spec(ref_parse),
+    fn(_) { tokens },
+    ref_parse,
+  )
+  let real_parse = try_interpret(ir)
+  let real_parse = match real_parse {
+    Some(f) => f
+    None => fail(label + ": interpret failed")
+  }
+  let (real_tree, _) = @core.parse_with(
+    "src",
+    qc_spec(real_parse),
+    fn(_) { tokens },
+    real_parse,
+  )
+  let diffs = @core.tree_diff(ref_tree, real_tree)
+  if diffs.length() != 0 {
+    fail(label + ": trees differ: \{@debug.to_string(diffs)}")
+  }
+}
+
+///|
+test "deterministic: Ref dispatches to sub-rule" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::B, QcKind::NodeA)
+  rules["source"] = Expr::Seq([
+    Expr::Ref("expr"),
+    Expr::Emit(QcToken::C, QcKind::NodeB),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "Ref")
+}
+
+///|
+test "deterministic: RepeatTopLevel loops over matching items" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::B, QcKind::NodeA)
+  rules["source"] = Expr::RepeatTopLevel(
+    "expr",
+    starts=Pred::IsToken(QcToken::B),
+    delim=Pred::IsToken(QcToken::C),
+    delim_kind=QcKind::NodeB,
+    between_msg="btwn",
+    after_msg="after",
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // Leading delim + 2 items + trailing delim (consumed on next loop check, no next item)
+  let tokens = [
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "RepeatTopLevel")
+}
+
+///|
+test "deterministic: PrattApp wraps run in app kind" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::B, QcKind::NodeA)
+  rules["source"] = Expr::PrattApp(
+    "expr",
+    QcKind::NodeB,
+    Pred::IsToken(QcToken::B),
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // Two Bs — wrapping fires after first atom, loop runs second atom
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattApp")
+}
+
+///|
+test "deterministic: PrattBinary parses infix with operator" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::C, QcKind::NodeA)
+  rules["source"] = Expr::PrattBinary(
+    "expr",
+    QcKind::NodeB,
+    [(QcToken::B, QcKind::NodeB)],
+    skip=None,
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // Atom C, operator B, atom C
+  let tokens = [
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattBinary")
+}
+
+///|
+test "deterministic: RepeatTopLevel on empty stream skips loop" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::B, QcKind::NodeA)
+  rules["source"] = Expr::RepeatTopLevel(
+    "expr",
+    starts=Pred::IsToken(QcToken::B),
+    delim=Pred::IsToken(QcToken::C),
+    delim_kind=QcKind::NodeB,
+    between_msg="btwn",
+    after_msg="after",
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // Only EOF — no starts match, loop body never runs
+  let tokens = [@core.TokenInfo::new(QcToken::Eof, 0)]
+  check_equiv(ir, tokens, "RepeatTopLevel-empty")
+}
+
+///|
+test "deterministic: PrattApp with non-matching second token skips wrap" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::B, QcKind::NodeA)
+  rules["source"] = Expr::PrattApp(
+    "expr",
+    QcKind::NodeB,
+    Pred::IsToken(QcToken::B),
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // First token B matches Emit, second token C ≠ starts — no wrapping
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattApp-no-wrap")
+}
+
+///|
+test "deterministic: PrattBinary with no operator exits immediately" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::C, QcKind::NodeA)
+  rules["source"] = Expr::PrattBinary(
+    "expr",
+    QcKind::NodeB,
+    [(QcToken::B, QcKind::NodeB)],
+    skip=None,
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // Just atom C — no B operator follows, no wrapping
+  let tokens = [
+    @core.TokenInfo::new(QcToken::C, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattBinary-no-op")
 }
