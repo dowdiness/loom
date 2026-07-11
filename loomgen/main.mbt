@@ -346,10 +346,7 @@ fn write_outputs(
   }
   // Write sync_point.g.mbt (generated is_sync_point from #loom.recovery("sync") annotations)
   let sync_point_content = emit_sync_point(te)
-  @fs.write_string_to_file(
-    token_out + "/sync_point.g.mbt",
-    sync_point_content,
-  ) catch {
+  @fs.write_string_to_file(token_out + "/sync_point.g.mbt", sync_point_content) catch {
     _ => {
       println("Error writing " + token_out + "/sync_point.g.mbt")
       return Err(())
