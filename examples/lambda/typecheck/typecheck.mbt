@@ -104,7 +104,6 @@ fn build_typecheck_pipeline_internal(
       state.syncing = false
     }
   })
-  parent_scope.on_dispose(() => rt.remove_on_change_listener(_sync_listener))
   let derived = parent_scope.derived(
     () => {
       // Keep the source dependency on the pure result cell. State mutation
@@ -169,7 +168,6 @@ pub fn build_typecheck_pipeline_with_index(
       state.syncing = false
     }
   })
-  parent_scope.on_dispose(() => rt.remove_on_change_listener(_sync_listener))
   let result_derived = parent_scope.derived(
     () => {
       ignore(source_term.get_or_abort())
