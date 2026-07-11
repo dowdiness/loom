@@ -41,6 +41,7 @@ test "root directly contains ElementNode (no double-wrap)" {
     ),
   )
 }
+
 ///|
 test "parse void element" {
   let result = html_grammar.parse_cst("<br>") catch { _ => return }
