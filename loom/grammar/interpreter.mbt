@@ -35,8 +35,13 @@ pub fn[
 ) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError {
   let native_names = Set::from_iter(natives.keys())
   let guard_names = Set::from_iter(guards.keys())
-  interpret_compiled(compile(ir, native_names~, guard_names~), natives~, guards~)
+  interpret_compiled(
+    compile(ir, native_names~, guard_names~),
+    natives~,
+    guards~,
+  )
 }
+
 ///|
 /// Build a `parse_root` closure from an already-compiled grammar. The returned
 /// closure dispatches the root rule's compiled body against a parser context.
@@ -54,8 +59,11 @@ pub fn[
   natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
   guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
 ) -> (@core.ParserContext[T, K]) -> Unit {
-  ctx => run_expr(ctx, grammar, natives, guards, grammar.rule(grammar.root_slot()))
+  ctx => {
+    run_expr(ctx, grammar, natives, guards, grammar.rule(grammar.root_slot()))
+  }
 }
+
 ///|
 /// Resolve `name` to its dense slot and run it, for a native's `call_rule`
 /// re-entry handle. `name` is grammar-rule-only by contract (natives cannot
@@ -139,10 +147,14 @@ fn[
     NativeRef(name) =>
       match natives.get(name) {
         Some(f) =>
-          f(ctx, rule_name => call_rule(ctx, grammar, natives, guards, rule_name))
+          f(ctx, rule_name => {
+            call_rule(ctx, grammar, natives, guards, rule_name)
+          })
         None => {
           ctx.error(
-            "grammar: native rule \"" + name + "\" has no registered implementation",
+            "grammar: native rule \"" +
+            name +
+            "\" has no registered implementation",
           )
           ctx.emit_error_placeholder()
         }
@@ -192,7 +204,9 @@ fn[
     WrapIfNext(kind, pred, body) => {
       let mark = ctx.mark()
       if pred.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => run_expr(ctx, grammar, natives, guards, body))
+        ctx.wrap_at(mark, kind, () => {
+          run_expr(ctx, grammar, natives, guards, body)
+        })
       } else {
         run_expr(ctx, grammar, natives, guards, body)
       }
@@ -256,7 +270,12 @@ fn[
       }
     DiagnoseIf(pred, msg) => if pred.matches(ctx.peek()) { ctx.error(msg) }
     ExpectSkip(skip, skip_kind, expected, kind) => {
-      let _ = ctx.expect_after_skip(t => skip.matches(t), skip_kind, expected, kind)
+      let _ = ctx.expect_after_skip(
+        t => skip.matches(t),
+        skip_kind,
+        expected,
+        kind,
+      )
     }
     ConsumeGated(skip, skip_kind, look) => {
       let _ = ctx.consume_while_emit_if(t => skip.matches(t), skip_kind, t => {
@@ -282,7 +301,9 @@ fn[
       ctx.finish_node()
     }
     ManualNewlineAppExpr => {
-      ctx.error("grammar: ManualNewlineAppExpr is a residue — interpret it with a language-specific probe, not the minimal contract")
+      ctx.error(
+        "grammar: ManualNewlineAppExpr is a residue — interpret it with a language-specific probe, not the minimal contract",
+      )
       ctx.emit_error_placeholder()
     }
   }

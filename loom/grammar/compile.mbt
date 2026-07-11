@@ -201,7 +201,8 @@ fn[T, K] lower(
   guard_names : Set[RuleName],
 ) -> CompiledExpr[T, K] raise GrammarCompileError {
   match expr {
-    Node(k, body) => CompiledExpr::Node(k, lower(body, slot_of, native_names, guard_names))
+    Node(k, body) =>
+      CompiledExpr::Node(k, lower(body, slot_of, native_names, guard_names))
     Emit(t, k) => CompiledExpr::Emit(t, k)
     Expect(t, k) => CompiledExpr::Expect(t, k)
     Ref(name) => CompiledExpr::RefSlot(resolve(name, slot_of))
@@ -249,11 +250,18 @@ fn[T, K] lower(
     }
     RepeatWhile(pred, body) => {
       check_pred_guards(pred, guard_names)
-      CompiledExpr::RepeatWhile(pred, lower(body, slot_of, native_names, guard_names))
+      CompiledExpr::RepeatWhile(
+        pred,
+        lower(body, slot_of, native_names, guard_names),
+      )
     }
     WrapIfNext(k, pred, body) => {
       check_pred_guards(pred, guard_names)
-      CompiledExpr::WrapIfNext(k, pred, lower(body, slot_of, native_names, guard_names))
+      CompiledExpr::WrapIfNext(
+        k,
+        pred,
+        lower(body, slot_of, native_names, guard_names),
+      )
     }
     EmitError(msg) => CompiledExpr::EmitError(msg)
     ErrorUntil(pred, msg) => {

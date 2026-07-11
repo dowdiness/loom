@@ -256,22 +256,25 @@ test "call_rule with an unknown name reports a diagnostic and emits a placeholde
 ///|
 test "interpret resolves HostGuard predicate via guards map in Choice" {
   let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Node(TestKind::Root, Expr::Choice([
-      Alt::{
-        starts: Pred::All(
-          Pred::IsToken(TestToken::Int),
-          Pred::HostGuard("int_is_even"),
-        ),
-        body: Expr::Seq([
-          Expr::Emit(TestToken::Int, TestKind::IntToken),
-          Expr::Emit(TestToken::Word, TestKind::WordToken),
-        ]),
-      },
-      Alt::{
-        starts: Pred::IsToken(TestToken::Int),
-        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
-      },
-    ])),
+    "source": Expr::Node(
+      TestKind::Root,
+      Expr::Choice([
+        Alt::{
+          starts: Pred::All(
+            Pred::IsToken(TestToken::Int),
+            Pred::HostGuard("int_is_even"),
+          ),
+          body: Expr::Seq([
+            Expr::Emit(TestToken::Int, TestKind::IntToken),
+            Expr::Emit(TestToken::Word, TestKind::WordToken),
+          ]),
+        },
+        Alt::{
+          starts: Pred::IsToken(TestToken::Int),
+          body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+        },
+      ]),
+    ),
   }
   let mut call_count = 0
   let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
@@ -291,12 +294,15 @@ test "interpret resolves HostGuard predicate via guards map in Choice" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
-  let (tree_odd, _) = @core.parse_with("1", spec, _src => tokens_odd, parse_root)
+  let (tree_odd, _) = @core.parse_with(
+    "1",
+    spec,
+    _src => tokens_odd,
+    parse_root,
+  )
   match tree_odd.children[0] {
-    @seam.CstElement::Node(root) => {
-      inspect(root.children.length(), content="1")
-      // Token 1 (odd) → second Choice arm: only one IntToken emitted
-    }
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
+    // Token 1 (odd) → second Choice arm: only one IntToken emitted
     _ => fail("expected Root node")
   }
   // Token 2 (even) → first Choice arm (guard matches, produces IntToken + WordToken)
@@ -305,31 +311,39 @@ test "interpret resolves HostGuard predicate via guards map in Choice" {
     @core.TokenInfo::new(TestToken::Word, 1), // second token for the Word emit
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
-  let (tree_even, _) = @core.parse_with("2w", spec, _src => tokens_even, parse_root)
+  let (tree_even, _) = @core.parse_with(
+    "2w",
+    spec,
+    _src => tokens_even,
+    parse_root,
+  )
   match tree_even.children[0] {
-    @seam.CstElement::Node(root) => {
+    @seam.CstElement::Node(root) =>
       // Token 2 (even) → first Choice arm: IntToken + WordToken
       inspect(root.children.length(), content="2")
-    }
     _ => fail("expected Root node")
   }
 }
+
 ///|
 test "interpret falls back on second Choice arm when HostGuard returns false" {
   let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
-    "source": Expr::Node(TestKind::Root, Expr::Choice([
-      Alt::{
-        starts: Pred::All(
-          Pred::IsToken(TestToken::Int),
-          Pred::HostGuard("never_pass"),
-        ),
-        body: Expr::Emit(TestToken::Int, TestKind::WordToken),
-      },
-      Alt::{
-        starts: Pred::IsToken(TestToken::Int),
-        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
-      },
-    ])),
+    "source": Expr::Node(
+      TestKind::Root,
+      Expr::Choice([
+        Alt::{
+          starts: Pred::All(
+            Pred::IsToken(TestToken::Int),
+            Pred::HostGuard("never_pass"),
+          ),
+          body: Expr::Emit(TestToken::Int, TestKind::WordToken),
+        },
+        Alt::{
+          starts: Pred::IsToken(TestToken::Int),
+          body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+        },
+      ]),
+    ),
   }
   let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
     "never_pass": fn(_ctx) { false },
@@ -345,9 +359,7 @@ test "interpret falls back on second Choice arm when HostGuard returns false" {
   ]
   let (tree, _) = @core.parse_with("1", spec, _src => tokens, parse_root)
   match tree.children[0] {
-    @seam.CstElement::Node(root) => {
-      inspect(root.children.length(), content="1")
-    }
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
     _ => fail("expected Root node")
   }
 }

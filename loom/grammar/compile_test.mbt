@@ -155,10 +155,7 @@ test "compile passes HostGuard refs when guard_names contains the name" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::Choice([
       Alt::{
-        starts: Pred::All(
-          Pred::IsToken(1),
-          Pred::HostGuard("is_at_indent_4"),
-        ),
+        starts: Pred::All(Pred::IsToken(1), Pred::HostGuard("is_at_indent_4")),
         body: Expr::Emit(1, 10),
       },
     ]),
