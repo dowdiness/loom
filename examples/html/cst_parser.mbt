@@ -168,11 +168,9 @@ fn finish_element(
 fn parse_html_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> Unit {
-  ctx.start_node(@syntax.RootNode)
   if ctx.peek() == @token.EOF {
     ctx.error("Empty HTML input")
     ctx.emit_error_placeholder()
-    ctx.finish_node()
     return
   }
   while !ctx.at_eof() {
@@ -194,15 +192,11 @@ fn parse_html_root(
         ctx.finish_node()
       }
       _ => {
-        // A stray CloseTag at the root is itself a sync point, so plain
-        // skip_until would consume nothing and spin here forever (loom #646).
-        // skip_until_progress guarantees we consume the offending token.
         ctx.error("Unexpected token")
         let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }
-  ctx.finish_node()
 }
 
 ///|
