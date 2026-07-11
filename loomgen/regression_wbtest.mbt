@@ -40,7 +40,7 @@ fn run_regression_pipeline() -> (String, String) {
     "../examples/lambda/token/token.mbt", "examples/lambda/token/token.mbt",
   )
   let term_src = read_fallback_fixture(
-    "../examples/lambda/term_kind.mbt", "examples/lambda/term_kind.mbt",
+    "../examples/lambda/meta/term_kind.mbt", "examples/lambda/meta/term_kind.mbt",
   )
   let annotated_token = match parse_annotations(token_src) {
     Ok(a) => a

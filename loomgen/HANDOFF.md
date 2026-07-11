@@ -21,7 +21,7 @@ All Phase 2 deliverables are working:
 - [x] **`term_enum` wiring** — `main.mbt` calls `build_kind_entries` on `annotated.term_enum` when present, tracks `error_node_name` for `from_raw` fallback
 - [x] **`from_raw` fallback** — prefers `error_node_name` (e.g., `ErrorNode`) when a term `#loom.errornode` is present; falls back to `ErrorToken`, then `abort`
 - [x] **`emit_syntax_kind` signature** — takes `error_node_name: String?` for fallback control
-- [x] **Fixture** — `loomgen/fixtures/term_kind.mbt` contained combined `#loom.token` + `#loom.term` enums for regeneration; since 2026-07-02 (#563) the lambda metadata is split into `examples/lambda/token/token.mbt` + `--term examples/lambda/term_kind.mbt`
+- [x] **Fixture** — `loomgen/fixtures/term_kind.mbt` contained combined `#loom.token` + `#loom.term` enums for regeneration; since 2026-07-02 (#563) the lambda metadata is split into `examples/lambda/token/token.mbt` + `--term examples/lambda/meta/term_kind.mbt`
 - [x] **Lambda example swapped** — `examples/lambda/syntax/syntax_kind.mbt` is now generated output (not hand-written). Generated includes both token kinds (26) and term kinds (17). **437/437 tests pass**
 
 ### Raw Kind Verification
@@ -50,7 +50,7 @@ moon run loomgen --target native -- --seed <existing_syntax_kind.mbt> --term <te
 moon run loomgen --target native -- \
   --seed examples/lambda/syntax/syntax_kind.mbt \
   examples/lambda/token/token.mbt \
-  --term examples/lambda/term_kind.mbt \
+  --term examples/lambda/meta/term_kind.mbt \
   examples/lambda/token examples/lambda/syntax
 
 # Token-only (backward compatible):
@@ -96,7 +96,7 @@ moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
 
 - **Separate token and term metadata sources** (since #563, 2026-07-02): `parse_annotations`
   reads from the positional source (token enum, `examples/lambda/token/token.mbt`) and the
-  `--term` file (term enum, `examples/lambda/term_kind.mbt`). loomgen validates that the
+  `--term` file (term enum, `examples/lambda/meta/term_kind.mbt`). loomgen validates that the
   term file does NOT contain a `#loom.token` enum, enforcing clean separation.
 
 - **Lambda example uses generated `syntax_kind.mbt`**: The hand-written file is replaced by generated output. Tests pass at 437/437 with identical raw numbering.
@@ -111,7 +111,7 @@ moon.pkg                294 bytes  — x/fs, x/sys, hashset, parser
 
 - **Lambda metadata split**: the combined `loomgen/fixtures/term_kind.mbt` fixture has
   been replaced with split inputs: `examples/lambda/token/token.mbt` (token source, positional)
-  and `examples/lambda/term_kind.mbt` (term kind metadata, loaded via `--term`).
+  and `examples/lambda/meta/term_kind.mbt` (term kind metadata, loaded via `--term`).
   The regression test (`regression_wbtest.mbt`) now reads both files separately.
   CI steps use the split form: `--seed <syntax> --term <term_kind> <token.mbt> <out>`.
 
