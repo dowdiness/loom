@@ -41,7 +41,6 @@ fn is_raw_text_tag(name : String) -> Bool {
   lower == "script" || lower == "style"
 }
 
-
 ///|
 fn parse_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],

@@ -17,7 +17,6 @@ const MAX_ERRORS : Int = 50
 ///|
 const MAX_DEPTH : Int = 512
 
-
 ///|
 /// True when the next tokens form a close-tag prefix (`<` `/`). jsx has no
 /// dedicated close-tag token: `</name>` lexes as OpenTagStart, Slash,

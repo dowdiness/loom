@@ -136,7 +136,6 @@ fn lambda_expect(
   }
 }
 
-
 ///|
 /// Skip malformed paren payload while preserving parent-level sync tokens.
 ///
@@ -172,7 +171,9 @@ fn skip_until_paren_close_or_sync(
       }
     } else if token == @token.LBrace {
       brace_depth = brace_depth + 1
-    } else if paren_depth == 0 && brace_depth == 0 && @token.is_sync_point(token) {
+    } else if paren_depth == 0 &&
+      brace_depth == 0 &&
+      @token.is_sync_point(token) {
       break
     }
     if !wrapped {
@@ -445,7 +446,7 @@ fn parse_atom(
           })
           true
         },
-    @token.is_sync_point,
+        @token.is_sync_point,
       )
     @token.Hole =>
       ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
