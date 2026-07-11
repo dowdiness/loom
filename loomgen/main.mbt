@@ -668,7 +668,6 @@ fn load_grammar_file(
 ///|
 fn main {
   let argv = @sys.get_cli_args()
-  println("DEBUG: main() entered")
   let matches = match parse_args(argv[1:].to_owned()) {
     Ok(m) => m
     Err(msg) => {
@@ -871,7 +870,6 @@ fn main {
               }
             None => (Map([]), Map([]))
           }
-          println("DEBUG pre-emit: file_rules.size=" + file_rules.size().to_string())
           match
             emit_grammar_ir(
               term,
