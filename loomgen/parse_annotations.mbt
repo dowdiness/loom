@@ -52,6 +52,8 @@ struct VariantDecl {
   // this term variant is line-oriented (dispatches on full lines, not individual
   // characters). Only valid on term variants alongside `#loom.lexmode("ModeName")`.
   line_mode : Bool
+  // #700. Names a hand-written mode lexer for line-mode no-match input.
+  fallback_lex : String?
   // #627. `is_sync` carries the bool from `#loom.recovery("sync")` on a
   // #loom.token variant — marks the variant as an error-recovery synchronization point.
   is_sync : Bool
@@ -363,6 +365,15 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
+          for v in classified {
+            if v.fallback_lex is Some(_) {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.fallback_lex; it is only valid on #loom.term variants",
+              )
+            }
+          }
           // #561: #loom.line_pattern must be paired with #loom.custom_lex when the
           // token variant has constructor arguments. line_pattern tokens with args
           // need a custom_lex to extract the payload.
@@ -437,6 +448,47 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 v.name +
                 " has #loom.line_mode without #loom.lexmode; #loom.line_mode must accompany a #loom.lexmode(\"ModeName\") annotation",
               )
+            }
+          }
+        }
+        if is_term {
+          for v in classified {
+            match v.fallback_lex {
+              Some(_) if !v.line_mode =>
+                return Err(
+                  "term variant " +
+                  v.name +
+                  " has #loom.fallback_lex without #loom.line_mode",
+                )
+              Some(_) if v.lexmode_name is None =>
+                return Err(
+                  "term variant " +
+                  v.name +
+                  " has #loom.fallback_lex without #loom.lexmode",
+                )
+              _ => ()
+            }
+          }
+          for i = 0; i < classified.length(); i = i + 1 {
+            for j = i + 1; j < classified.length(); j = j + 1 {
+              match (classified[i].lexmode_name, classified[j].lexmode_name) {
+                (Some(mode_a), Some(mode_b)) if mode_a == mode_b =>
+                  match
+                    (classified[i].fallback_lex, classified[j].fallback_lex) {
+                    (Some(fallback_a), Some(fallback_b)) if fallback_a !=
+                      fallback_b =>
+                      return Err(
+                        "term variants " +
+                        classified[i].name +
+                        " and " +
+                        classified[j].name +
+                        " have conflicting #loom.fallback_lex names for mode " +
+                        mode_a,
+                      )
+                    _ => ()
+                  }
+                _ => ()
+              }
             }
           }
         }
@@ -617,6 +669,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         let mut custom_lex : String? = None
         let mut line_pattern : String? = None
         let mut lexmode_name : String? = None
+        let mut fallback_lex : String? = None
         let mut rule : String? = None
         let mut is_sync = false
         let mut line_mode = false
@@ -648,6 +701,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 line_pattern = first_string_from_apply(attr.parsed)
               } else if id.name == "line_mode" {
                 line_mode = true
+              } else if id.name == "fallback_lex" {
+                fallback_lex = first_string_from_apply(attr.parsed)
               }
             _ => ()
           }
@@ -669,6 +724,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           lexmode_name,
           line_pattern,
           line_mode,
+          fallback_lex,
           is_sync,
           rule,
         }
@@ -1439,6 +1495,35 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             "#loom.line_pattern on " +
             variant.name +
             " argument must be a string literal",
+          )
+        }
+        continue
+      }
+      "fallback_lex" => {
+        // Modifier only — skip role assignment.
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.fallback_lex on " +
+            variant.name +
+            " requires exactly 1 string argument (function name)",
+          )
+        }
+        let fn_name = match first_string_from_apply(attr.parsed) {
+          Some(name) => name
+          None =>
+            return Err(
+              "#loom.fallback_lex on " +
+              variant.name +
+              " argument must be a string literal",
+            )
+        }
+        if !is_valid_lex_fn_name(fn_name) {
+          return Err(
+            "variant " +
+            variant.name +
+            " has #loom.fallback_lex(\"" +
+            fn_name +
+            "\") whose argument is not a valid function name; expected an identifier or @pkg.identifier path",
           )
         }
         continue

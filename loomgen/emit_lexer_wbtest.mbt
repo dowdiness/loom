@@ -745,10 +745,11 @@ test "emit_line_lexer generates line-mode lexer functions for line_pattern token
   inspect(generated.contains("fn lex_inline"), content="false")
   // Should return Done when pos >= length
   inspect(generated.contains("return (Done, LineStart)"), content="true")
-  // Should have Invalid fallthrough
+  // The fixture declares a fallback for LineStart.
+  inspect(generated.contains("return lex_inline(source, pos)"), content="true")
   inspect(
     generated.contains("Not a block-level token (line_pattern)"),
-    content="true",
+    content="false",
   )
 }
 
@@ -882,6 +883,109 @@ test "emit_line_lexer golden matches fixtures/line_pattern_fixture.g.mbt" {
 }
 
 ///|
+
+///|
+test "emit_line_lexer emits declared fallback for line-mode no-match" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern(">")
+    #|  BlockQuoteMarker
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  #loom.fallback_lex("lex_inline")
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  inspect(generated.contains("return lex_inline(source, pos)"), content="true")
+  inspect(
+    generated.contains("Not a block-level token (line_pattern)"),
+    content="false",
+  )
+}
+
+///|
+test "parse_annotations rejects fallback_lex on token variants" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.line_pattern(">")
+      #|  #loom.fallback_lex("lex_inline")
+      #|  BlockQuoteMarker
+      #|  #loom.error
+      #|  Error(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "only valid on #loom.term variants",
+  )
+}
+
+///|
+test "parse_annotations rejects fallback_lex without line_mode" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.lexmode("LineStart")
+      #|  #loom.fallback_lex("lex_inline")
+      #|  Node
+      #|  #loom.root
+      #|  Root
+      #|  #loom.errornode
+      #|  ErrorNode
+      #|} derive(Eq)
+    ),
+    "without #loom.line_mode",
+  )
+}
+
+///|
+test "parse_annotations rejects conflicting mode fallbacks" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.lexmode("LineStart")
+      #|  #loom.line_mode
+      #|  #loom.fallback_lex("lex_inline")
+      #|  First
+      #|  #loom.leaf
+      #|  #loom.lexmode("LineStart")
+      #|  #loom.line_mode
+      #|  #loom.fallback_lex("lex_other")
+      #|  Second
+      #|  #loom.root
+      #|  Root
+      #|  #loom.errornode
+      #|  ErrorNode
+      #|} derive(Eq)
+    ),
+    "conflicting #loom.fallback_lex",
+  )
+}
+
+///|
 test "emit_line_lexer accepts #loom.line_pattern with #loom.custom_lex" {
   let src =
     #|#loom.token
@@ -967,4 +1071,9 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
   inspect(line_start_section.contains("BlockQuoteMarker"), content="false")
   let bq_section = generated[bq:]
   inspect(bq_section.contains("BlockQuoteMarker"), content="true")
+  // No fallback is declared in this source, so both modes retain Invalid.
+  inspect(
+    generated.contains("Not a block-level token (line_pattern)"),
+    content="true",
+  )
 }

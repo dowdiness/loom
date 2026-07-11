@@ -47,6 +47,5 @@ fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode)
     let len = rest.length() - after.length()
     return (Produced(@core.TokenInfo::new(BlockQuoteMarker, len), next_offset=pos + len), LineStart)
   }
-  let next = @core.next_char_offset(source, pos)
-  (@core.LexStep::Invalid(at=pos, width=next - pos, message="Not a block-level token (line_pattern)"), LineStart)
+  return lex_inline(source, pos)
 }

@@ -6,8 +6,8 @@
 ///   1. Reads the current line (pos → newline)
 ///   2. Tries each `#loom.line_pattern` regex in declaration order
 ///   3. Produces the matching token (via `#loom.custom_lex` when specified)
-///   4. Falls through to `Invalid` when no pattern matches (caller handles retry)
-///
+///   4. Delegates no-match input to `#loom.fallback_lex` when declared, or
+///      preserves the existing `Invalid` step otherwise.
 /// Generated functions follow the same signature as `emit_lexer_skeleton` stubs:
 /// `(source: String, pos: Int) -> (@core.LexStep[Token], LexMode)`.
 
@@ -36,6 +36,7 @@ fn emit_mode_line_lexer(
   token_type : String,
   core_qual : String,
   fn_name : String,
+  fallback_lex : String?,
 ) -> Unit {
   b.write_string(
     "fn " +
@@ -113,18 +114,24 @@ fn emit_mode_line_lexer(
     }
     b.write_string("  }\n")
   }
-  // No pattern matched — advance one character position
-  b.write_string(
-    "  let next = " + core_qual + ".next_char_offset(source, pos)\n",
-  )
-  b.write_string(
-    "  (" +
-    core_qual +
-    ".LexStep::Invalid(at=pos, width=next - pos, " +
-    "message=\"Not a block-level token (line_pattern)\"), " +
-    mode_name +
-    ")\n",
-  )
+  // No pattern matched — delegate to the fallback when declared, otherwise
+  // preserve the existing Invalid recovery step.
+  match fallback_lex {
+    Some(fn_name) => b.write_string("  return " + fn_name + "(source, pos)\n")
+    None => {
+      b.write_string(
+        "  let next = " + core_qual + ".next_char_offset(source, pos)\n",
+      )
+      b.write_string(
+        "  (" +
+        core_qual +
+        ".LexStep::Invalid(at=pos, width=next - pos, " +
+        "message=\"Not a block-level token (line_pattern)\"), " +
+        mode_name +
+        ")\n",
+      )
+    }
+  }
   b.write_string("}\n")
 }
 
@@ -140,6 +147,7 @@ fn emit_line_lexer(
     None => return None
     Some(c) => c
   }
+  let fallback_by_mode : Map[String, String] = Map([])
   // Collect which modes are line_mode from term enum
   let line_modes : @hashset.HashSet[String] = @hashset.HashSet([])
   match term_enum_decl {
@@ -147,7 +155,13 @@ fn emit_line_lexer(
       for v in term_enum.variants {
         if v.line_mode {
           match v.lexmode_name {
-            Some(name) => line_modes.add(name)
+            Some(mode_name) => {
+              line_modes.add(mode_name)
+              match v.fallback_lex {
+                Some(fn_name) => fallback_by_mode.set(mode_name, fn_name)
+                None => ()
+              }
+            }
             None => ()
           }
         }
@@ -185,6 +199,7 @@ fn emit_line_lexer(
       token_type,
       core_qual,
       mode_to_fn_name(mode),
+      fallback_by_mode.get(mode),
     )
   }
   Some(b.to_string())

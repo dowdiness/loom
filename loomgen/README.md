@@ -38,6 +38,12 @@ functions. Nullary tokens are produced directly; payload-carrying tokens require
 `lex_<lowercase_mode>` convention as `lexer_skeleton.g.mbt` stubs, so they can
 replace the skeleton's `abort("not implemented")` stubs.
 
+`#loom.fallback_lex("fn")` on a term variant with both `#loom.lexmode("Mode")`
+and `#loom.line_mode` delegates no-match input to the named mode-compatible
+lexer (`(String, Int) -> (@core.LexStep[Token], LexMode)`). Without this
+annotation, the generated function keeps its `Invalid` no-match step for
+backward compatibility.
+
 Reuses the same supported regex subset, nullability checks, and structural
 validation as `#loom.pattern`. Alternation `|` is rejected (leftmost-match, not
 longest-match). Patterns are wrapped in `^(?:...)` so they should not include
