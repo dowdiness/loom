@@ -1,6 +1,5 @@
 ///|
 pub(all) enum SyntaxKind {
-  // Token kinds
   LBraceToken
   RBraceToken
   LBracketToken
@@ -15,7 +14,6 @@ pub(all) enum SyntaxKind {
   WhitespaceToken
   ErrorToken
   EofToken
-  // Node kinds
   ObjectNode
   ArrayNode
   MemberNode
@@ -55,36 +53,38 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 
 ///|
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
-  match self {
-    LBraceToken => @seam.RawKind(0)
-    RBraceToken => @seam.RawKind(1)
-    LBracketToken => @seam.RawKind(2)
-    RBracketToken => @seam.RawKind(3)
-    ColonToken => @seam.RawKind(4)
-    CommaToken => @seam.RawKind(5)
-    StringToken => @seam.RawKind(6)
-    NumberToken => @seam.RawKind(7)
-    TrueKeyword => @seam.RawKind(8)
-    FalseKeyword => @seam.RawKind(9)
-    NullKeyword => @seam.RawKind(10)
-    WhitespaceToken => @seam.RawKind(11)
-    ErrorToken => @seam.RawKind(12)
-    EofToken => @seam.RawKind(13)
-    ObjectNode => @seam.RawKind(14)
-    ArrayNode => @seam.RawKind(15)
-    MemberNode => @seam.RawKind(16)
-    StringValue => @seam.RawKind(17)
-    NumberValue => @seam.RawKind(18)
-    BoolValue => @seam.RawKind(19)
-    NullValue => @seam.RawKind(20)
-    ErrorNode => @seam.RawKind(21)
-    RootNode => @seam.RawKind(22)
+  let n : Int = match self {
+    LBraceToken => 0
+    RBraceToken => 1
+    LBracketToken => 2
+    RBracketToken => 3
+    ColonToken => 4
+    CommaToken => 5
+    StringToken => 6
+    NumberToken => 7
+    TrueKeyword => 8
+    FalseKeyword => 9
+    NullKeyword => 10
+    WhitespaceToken => 11
+    ErrorToken => 12
+    EofToken => 13
+    ObjectNode => 14
+    ArrayNode => 15
+    MemberNode => 16
+    StringValue => 17
+    NumberValue => 18
+    BoolValue => 19
+    NullValue => 20
+    ErrorNode => 21
+    RootNode => 22
   }
+  @seam.RawKind(n)
 }
 
 ///|
-pub fn SyntaxKind::from_raw(raw : @seam.RawKind) -> SyntaxKind {
-  match raw.0 {
+pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
+  let @seam.RawKind(n) = raw
+  match n {
     0 => LBraceToken
     1 => RBraceToken
     2 => LBracketToken
@@ -108,6 +108,16 @@ pub fn SyntaxKind::from_raw(raw : @seam.RawKind) -> SyntaxKind {
     20 => NullValue
     21 => ErrorNode
     22 => RootNode
-    _ => ErrorToken
+    _ => ErrorNode
   }
+}
+
+///|
+pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {
+  self == WhitespaceToken
+}
+
+///|
+pub impl @seam.IsError for SyntaxKind with fn is_error(self) {
+  self == ErrorToken
 }
