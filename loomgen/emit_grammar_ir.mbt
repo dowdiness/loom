@@ -373,7 +373,6 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
     }
   }
   false
-}
 
 ///| Whether `ast` is a catch-all node eligible for special treatment in a
 
@@ -1268,4 +1267,5 @@ fn emit_grammar_ir(
     main,
   ])
   Ok(@pretty.render_string(final_layout, width=80))
+}
 }
