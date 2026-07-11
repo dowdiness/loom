@@ -903,6 +903,10 @@ test "emit_line_lexer emits declared fallback for line-mode no-match" {
     #|  #loom.line_mode
     #|  #loom.fallback_lex("lex_inline")
     #|  Heading
+    #|  #loom.leaf
+    #|  #loom.lexmode("BlockQuoteLineStart")
+    #|  #loom.line_mode
+    #|  BlockQuote
     #|  #loom.root
     #|  Root
     #|  #loom.errornode
@@ -913,10 +917,28 @@ test "emit_line_lexer emits declared fallback for line-mode no-match" {
     Some(s) => s
     None => abort("emit_line_lexer returned None")
   }
-  inspect(generated.contains("return lex_inline(source, pos)"), content="true")
+  let line_start_idx = generated.find("fn lex_line_start")
+  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
+    fail("expected both line-mode functions in output")
+  }
+  let line_start_section = generated[ls:bq]
+  let bq_section = generated[bq:]
   inspect(
-    generated.contains("Not a block-level token (line_pattern)"),
+    line_start_section.contains("return lex_inline(source, pos)"),
+    content="true",
+  )
+  inspect(
+    line_start_section.contains("Not a block-level token (line_pattern)"),
     content="false",
+  )
+  inspect(
+    bq_section.contains("return lex_inline(source, pos)"),
+    content="false",
+  )
+  inspect(
+    bq_section.contains("Not a block-level token (line_pattern)"),
+    content="true",
   )
 }
 
@@ -957,6 +979,39 @@ test "parse_annotations rejects fallback_lex without line_mode" {
     ),
     "without #loom.line_mode",
   )
+}
+
+///|
+test "parse_annotations validates fallback_lex function references" {
+  let source = fn(name : String) -> String {
+    "#loom.term\npub(all) enum Term {\n" +
+    "  #loom.leaf\n" +
+    "  #loom.lexmode(\"LineStart\")\n" +
+    "  #loom.line_mode\n" +
+    "  #loom.fallback_lex(\"" +
+    name +
+    "\")\n" +
+    "  Node\n" +
+    "  #loom.root\n" +
+    "  Root\n" +
+    "  #loom.errornode\n" +
+    "  ErrorNode\n" +
+    "} derive(Eq)"
+  }
+  expect_parse_err(source("bad name)"), "not a valid function name")
+  expect_parse_err(source("a..b"), "not a valid function name")
+  match parse_annotations(source("@pkg.fn")) {
+    Ok(a) =>
+      match a.term_enum {
+        Some(term) =>
+          match term.variants[0].fallback_lex {
+            Some(name) => inspect(name, content="@pkg.fn")
+            None => abort("fallback_lex metadata missing")
+          }
+        None => abort("term enum missing")
+      }
+    Err(msg) => abort("qualified fallback_lex was rejected: " + msg)
+  }
 }
 
 ///|
@@ -1071,9 +1126,13 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
   inspect(line_start_section.contains("BlockQuoteMarker"), content="false")
   let bq_section = generated[bq:]
   inspect(bq_section.contains("BlockQuoteMarker"), content="true")
-  // No fallback is declared in this source, so both modes retain Invalid.
+  // Neither mode declares a fallback, so each mode retains Invalid handling.
   inspect(
-    generated.contains("Not a block-level token (line_pattern)"),
+    line_start_section.contains("Not a block-level token (line_pattern)"),
+    content="true",
+  )
+  inspect(
+    bq_section.contains("Not a block-level token (line_pattern)"),
     content="true",
   )
 }
