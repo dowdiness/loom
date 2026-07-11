@@ -1,4 +1,47 @@
 ///|
+fn dump(node : @seam.CstNode) -> String {
+  let kind_name = @syntax.SyntaxKind::from_raw(node.kind).to_string()
+  let parts = node.children.filter_map(dump_element)
+  if parts.is_empty() {
+    "(" + kind_name + ")"
+  } else {
+    "(" + kind_name + " " + parts.join(" ") + ")"
+  }
+}
+
+///|
+fn dump_element(elem : @seam.CstElement) -> String? {
+  match elem {
+    @seam.CstElement::Node(n) => Some(dump(n))
+    @seam.CstElement::Token(tok) => {
+      let whitespace_kind = @syntax.SyntaxKind::WhitespaceToken.to_raw()
+      let error_kind = @syntax.SyntaxKind::ErrorToken.to_raw()
+      if tok.kind == whitespace_kind {
+        None
+      } else if tok.kind == error_kind {
+        Some("ERR:\"" + tok.text().to_owned() + "\"")
+      } else {
+        Some("\"" + tok.text().to_owned() + "\"")
+      }
+    }
+  }
+}
+
+///|
+test "root directly contains ElementNode (no double-wrap)" {
+  let result = html_grammar.parse_cst("<p>hello</p>") catch {
+    _ => return fail("lex error")
+  }
+  let (tree, diagnostics) = result
+  inspect(diagnostics.length(), content="0")
+  inspect(
+    dump(tree),
+    content=(
+      #|(RootNode (ElementNode "<p>" (TextLeaf "hello") "</p>"))
+    ),
+  )
+}
+///|
 test "parse void element" {
   let result = html_grammar.parse_cst("<br>") catch { _ => return }
   let (_, diagnostics) = result
