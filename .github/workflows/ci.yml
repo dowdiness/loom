@@ -420,6 +420,16 @@ jobs:
           git diff --exit-code -- examples/lambda/grammar_ir.g.mbt
 
 
+      - name: Verify json syntax_kind regenerated
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/json/syntax_kind.mbt \
+            examples/json/token.mbt \
+            --term examples/json/meta/term_kind.mbt \
+            /tmp/json-token /tmp/json-syntax
+          git diff --exit-code -- examples/json/syntax_kind.mbt
+
       - name: Verify json spec generation matches compiled consumer
         working-directory: .
         run: |
