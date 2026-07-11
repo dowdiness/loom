@@ -23,6 +23,8 @@ pub fn attach_typecheck(@pipeline.Parser[@ast.Term]) -> TypecheckAttachment
 
 pub fn default_grammar_fragments() -> Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]]
 
+pub let frag_source_toplevel : @grammar.Expr[@token.Token, @syntax.SyntaxKind]
+
 pub let lambda_block_reparse_spec : @core.BlockReparseSpec[@token.Token, @syntax.SyntaxKind]
 
 pub fn lambda_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> @ast.Term) -> @ast.Term

@@ -144,11 +144,36 @@ string referencing any of these fails closed with a lowering error.
 
 `@fragment` references serve as the escape hatch for out-of-subset logic. They
 emit a mangled `Ref("__loom_frag__<name>")` and the generated function adds a
-`fragments~` parameter; the caller provides fragment bodies at the call site.
-Map keys must use the mangled `"__loom_frag__<name>"` prefix (matching the
-emitted `Ref`), not the bare fragment name. Without a matching entry,
-`@grammar.compile` raises `MissingRef` — model the fallback as a
-`Map(["__loom_frag__fragname" => required_body])` default argument.
+`fragments~` parameter. Additionally, each referenced fragment gets a generated
+`pub let frag_<name> : Expr[T,K]` declaration that the consumer fills in with the
+hand-authored `Expr` body. The grammar function pre-registers these fragment vars
+into the rules map before the `fragments~` merge loop, so the `fragments~`
+parameter is only needed for dynamic override or testing:
+
+```moonbit
+/// @fragment 'source_toplevel'
+pub let frag_source_toplevel : @grammar.Expr[Token, SyntaxKind] = @grammar.Expr::Fail(
+  "TODO: fill in @fragment 'source_toplevel' body",
+)
+
+pub fn lambda_grammar_ir(
+  fragments~ : Map[String, @grammar.Expr[Token, SyntaxKind]] = Map([]),
+) -> @grammar.GrammarIr[Token, SyntaxKind] {
+  let rules = { ... }
+  rules.set("__loom_frag__source_toplevel", frag_source_toplevel)
+  for frag, body in fragments {
+    rules.set(frag, body)
+  }
+  ...
+}
+```
+
+Each `pub let` uses `@grammar.Expr::Fail("TODO: ...")` as a placeholder — the
+consumer replaces this with the actual `@grammar.Expr` body. For backward
+compatibility, the `fragments~` parameter still accepts the mangled
+`"__loom_frag__<name>"` keys and overrides the pre-registered fragment vars.
+Without any matching entry (neither a filled-in `pub let` nor a `fragments~`
+entry), `@grammar.compile` raises `MissingFragment`.
 
 **Markdown inline is `@native`-only by decision, not an unfinished feature.**
 loomgen targets the CommonMark *block* subset; CommonMark *inline* parsing
