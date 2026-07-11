@@ -182,30 +182,6 @@ pub(all) struct Resolution {
   vars : Map[Int, VarStatus]
 } derive(Eq, @debug.Debug)
 
-pub(all) enum TermKind {
-  LambdaExpr
-  AppExpr
-  BinaryExpr
-  IfExpr
-  ParenExpr
-  IntLiteral
-  VarRef
-  ErrorNode
-  SourceFile
-  LetDef
-  ParamList
-  BlockExpr
-  HoleLiteral
-  TypeAnnot
-  TypeInt
-  TypeUnit
-  TypeArrow
-  IfCondition
-  IfThen
-  IfElse
-  LambdaBody
-}
-
 pub struct TypeAnnotView {
   node : @seam.SyntaxNode
 }
