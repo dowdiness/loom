@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-12  
 **Status:** Accepted  
-**Implementation plan:** [docs/plans/2026-07-fallback-lex.md](../plans/2026-07-fallback-lex.md)  
+**Implementation plan:** [docs/archive/completed-phases/2026-07-fallback-lex.md](../archive/completed-phases/2026-07-fallback-lex.md)  
 **Design specification:** [docs/superpowers/specs/2026-07-12-fallback-lex-design.md](../superpowers/specs/2026-07-12-fallback-lex-design.md)
 
 ## Context

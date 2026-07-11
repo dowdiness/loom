@@ -1,6 +1,8 @@
 # Line-mode lexer fallback Implementation Plan
+**Status:** Complete
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+> **For agentic workers:** Implemented on branch `feat/700-fallback-lex`; verification evidence is recorded below.
 
 **Goal:** Add `#loom.fallback_lex("fn")` so generated line-mode lexers delegate ordinary no-match input to a hand-written mode lexer while preserving `Invalid` when no fallback is declared.
 
@@ -29,7 +31,7 @@
 - Produces `VariantDecl.fallback_lex : String?` for later emitter use.
 - Keeps the existing `is_valid_lex_fn_name(String) -> Bool` contract.
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Add these tests before implementation:
 
@@ -112,13 +114,13 @@ test "parse_annotations rejects fallback_lex without line_mode" {
 }
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 Run: `moon test loomgen --target native -f "fallback_lex"`
 
 Expected: FAIL because `VariantDecl` has no `fallback_lex` field and the modifier is unknown.
 
-- [ ] **Step 3: Add the field and parser support**
+- [x] **Step 3: Add the field and parser support**
 
 Add after `line_mode : Bool`:
 
@@ -135,13 +137,13 @@ Reuse `is_valid_lex_fn_name` to reject invalid function references.
 
 Add same-mode conflict validation: for every pair of term variants with the same non-`None` `lexmode_name`, reject when both fallback names are non-`None` and differ.
 
-- [ ] **Step 4: Run focused parser tests**
+- [x] **Step 4: Run focused parser tests**
 
 Run: `moon test loomgen --target native -f "fallback_lex"`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit parser changes**
+- [x] **Step 5: Commit parser changes**
 
 ```bash
 git add loomgen/parse_annotations.mbt loomgen/emit_lexer_wbtest.mbt
@@ -162,7 +164,7 @@ git commit -m "feat(loomgen): parse fallback_lex line-mode metadata"
 - `emit_line_lexer` builds `Map[String, String]` of mode fallback names.
 - No fallback emits the existing `Invalid` branch; fallback emits `return <fn>(source, pos)`.
 
-- [ ] **Step 1: Add failing emitter tests**
+- [x] **Step 1: Add failing emitter tests**
 
 Add assertions for the fixture output:
 
@@ -173,13 +175,13 @@ inspect(generated.contains("Not a block-level token (line_pattern)"), content="f
 
 Add a separate no-fallback source and assert its generated output still contains `Not a block-level token (line_pattern)`.
 
-- [ ] **Step 2: Run focused emitter tests and verify failure**
+- [x] **Step 2: Run focused emitter tests and verify failure**
 
 Run: `moon test loomgen --target native -f "line_mode"`
 
 Expected: FAIL because the fixture has no fallback annotation and generated output still emits `Invalid`.
 
-- [ ] **Step 3: Add fallback collection and emission**
+- [x] **Step 3: Add fallback collection and emission**
 
 While collecting `line_modes` in `emit_line_lexer`, collect fallback names into `Map[String, String]`. For each line-mode term variant:
 
@@ -214,23 +216,23 @@ match fallback_lex {
 }
 ```
 
-- [ ] **Step 4: Add fallback annotation to the line-pattern fixture**
+- [x] **Step 4: Add fallback annotation to the line-pattern fixture**
 
 Add `#loom.fallback_lex("lex_inline")` to the `LineStart` line-mode term metadata in `loomgen/fixtures/line_pattern_fixture.mbt`.
 
-- [ ] **Step 5: Regenerate the golden fixture**
+- [x] **Step 5: Regenerate the golden fixture**
 
 Run: `moon run loomgen --target native -- --regenerate-fixtures`
 
 Expected: `loomgen/fixtures/line_pattern_fixture.g.mbt` contains `return lex_inline(source, pos)` in `lex_line_start`.
 
-- [ ] **Step 6: Run emitter tests**
+- [x] **Step 6: Run emitter tests**
 
 Run: `moon test loomgen --target native -f "line_mode"`
 
 Expected: PASS, including both fallback and no-fallback behavior.
 
-- [ ] **Step 7: Commit emitter changes**
+- [x] **Step 7: Commit emitter changes**
 
 ```bash
 git add loomgen/emit_line_lexer.mbt loomgen/emit_lexer_wbtest.mbt loomgen/fixtures/line_pattern_fixture.mbt loomgen/fixtures/line_pattern_fixture.g.mbt
@@ -246,7 +248,7 @@ git commit -m "feat(loomgen): delegate line-mode fallthrough to fallback lexer"
 **Interfaces:**
 - Documents syntax, validity constraints, function signature, and no-fallback compatibility behavior.
 
-- [ ] **Step 1: Update loomgen README**
+- [x] **Step 1: Update loomgen README**
 
 Add:
 
@@ -258,11 +260,11 @@ same shape as a generated mode function: `(String, Int) ->
 retains its `Invalid` no-match fallback for backward compatibility.
 ```
 
-- [ ] **Step 2: Verify docs wording against generated output**
+- [x] **Step 2: Verify docs wording against generated output**
 
 Confirm the README example uses `return lex_inline(source, pos)` and does not claim that the fallback function receives a match length.
 
-- [ ] **Step 3: Commit documentation**
+- [x] **Step 3: Commit documentation**
 
 ```bash
 git add loomgen/README.md docs/README.md
@@ -274,32 +276,49 @@ git commit -m "docs(loomgen): document fallback_lex annotation"
 **Files:**
 - No source changes expected; inspect all changed files and generated output.
 
-- [ ] **Step 1: Format check**
+- [x] **Step 1: Format check**
 
 Run: `moon fmt --check`
 
 Expected: exit 0 with no diff.
 
-- [ ] **Step 2: Package check**
+- [x] **Step 2: Package check**
 
 Run: `moon check loomgen --target native`
 
 Expected: exit 0.
 
-- [ ] **Step 3: Loomgen tests**
+- [x] **Step 3: Loomgen tests**
 
 Run: `moon test loomgen --target native`
 
 Expected: all loomgen tests pass, including fallback positive, negative, conflict, and backward-compatibility tests.
 
-- [ ] **Step 4: Full project tests**
+- [x] **Step 4: Full project tests**
 
 Run: `moon test --target native`
 
 Expected: all project tests pass.
 
-- [ ] **Step 5: Regeneration determinism**
+- [x] **Step 5: Regeneration determinism**
 
 Run: `moon run loomgen --target native -- --regenerate-fixtures`, then `git diff --exit-code -- loomgen/fixtures/line_pattern_fixture.g.mbt`.
 
 Expected: no generated fixture diff.
+
+## Completion
+
+Implemented on branch `feat/700-fallback-lex` for issue #700.
+
+Verification:
+
+- `moon fmt --check` passed.
+- `moon check loomgen --target native` passed.
+- `moon test loomgen --target native` passed: 169/169.
+- `moon test --target native` passed: 3323/3323.
+- Regeneration was run twice and produced identical `sha256sum` values for `loomgen/fixtures/line_pattern_fixture.g.mbt`.
+
+Decision record:
+
+- ADR: [2026-07-12-line-mode-fallback-lexer.md](../../decisions/2026-07-12-line-mode-fallback-lexer.md).
+
