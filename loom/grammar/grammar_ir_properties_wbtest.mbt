@@ -55,11 +55,6 @@ impl @coreqc.Arbitrary for QcToken with fn arbitrary(_size, rs) {
   }
 }
 
-///|
-impl @qc.Shrink for QcToken with fn shrink(self) -> Iter[QcToken] {
-  Iter::empty()
-}
-
 // ─── Test Kind Type ───────────────────────────────────────────────────────────
 
 ///|
@@ -90,11 +85,6 @@ impl @coreqc.Arbitrary for QcKind with fn arbitrary(_size, rs) {
     2 => NodeB
     _ => Error
   }
-}
-
-///|
-impl @qc.Shrink for QcKind with fn shrink(self) -> Iter[QcKind] {
-  Iter::empty()
 }
 
 // ─── Token Stream Helpers ─────────────────────────────────────────────────────
@@ -298,10 +288,149 @@ impl @coreqc.Arbitrary for GrammarIr[QcToken, QcKind] with fn arbitrary(
 }
 
 ///|
-impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(self) -> Iter[
+/// Recursively shrink an Expr into structurally simpler alternatives.
+/// Each compound variant produces unwrapped forms.
+///
+/// Recursion strategy (intentionally asymmetric):
+/// - `Node` and `WrapIfNext` — also recursively shrink the inner expression
+///   and re-wrap, because QC's outer shrink loop cannot produce
+///   "keep the wrapper, shrink the inside" candidates on its own.
+/// - `Seq` and `Choice` — one-level only (shorter prefixes / each alt body).
+///   Recursive element-wise shrinking here would combinatorially explode
+///   candidates (~ O(k^n)), and QC's loop already re-applies `shrink_expr`
+///   to each candidate in subsequent iterations, reaching the same minimal
+///   forms via fewer steps.
+/// Leaf nodes (Emit, Expect, Empty, etc.) produce no candidates — they are
+/// already minimal.
+fn shrink_expr(
+  expr : Expr[QcToken, QcKind],
+  rules : Map[RuleName, Expr[QcToken, QcKind]],
+) -> Iter[Expr[QcToken, QcKind]] {
+  match expr {
+    // ── Leaf nodes — already minimal ──
+    Emit(_, _)
+    | Expect(_, _)
+    | Empty
+    | EmitError(_)
+    | Fail(_)
+    | ManualNewlineAppExpr
+    | Native(_) => Iter::empty()
+
+    // ── Ref — try inlining the referenced rule body ──
+    Ref(name) =>
+      match rules.get(name) {
+        Some(body) => [body].iter()
+        None => Iter::empty()
+      }
+
+    // ── Node — unwrap, or recursively shrink inner ──
+    Node(k, body) => {
+      let cands : Array[Expr[QcToken, QcKind]] = [body]
+      shrink_expr(body, rules).each(fn(s) { cands.push(Node(k, s)) })
+      cands.iter()
+    }
+
+    // ── Seq — each shorter prefix ──
+    Seq(exprs) => {
+      let n = exprs.length()
+      let cands : Array[Expr[QcToken, QcKind]] = []
+      for i in 1..<n {
+        let prefix : Array[Expr[QcToken, QcKind]] = []
+        for j in 0..<i {
+          prefix.push(exprs[j])
+        }
+        cands.push(Seq(prefix))
+      }
+      cands.iter()
+    }
+
+    // ── Choice — each alt body alone ──
+    Choice(alts) => {
+      let cands : Array[Expr[QcToken, QcKind]] = []
+      for alt in alts {
+        cands.push(alt.body)
+      }
+      cands.iter()
+    }
+
+    // ── RepeatTopLevel — simplify to Ref ──
+    RepeatTopLevel(name, ..) => [Expr::Ref(name)].iter()
+
+    // ── RepeatWhile — body only (excluded by generator, but handle anyway) ──
+    RepeatWhile(_, body) => [body].iter()
+
+    // ── PrattApp — simplify to Ref ──
+    PrattApp(name, _, _) => [Expr::Ref(name)].iter()
+
+    // ── PrattBinary — simplify to Ref ──
+    PrattBinary(name, _, _, ..) => [Expr::Ref(name)].iter()
+
+    // ── WrapIfNext — unwrap, or recursively shrink inner ──
+    WrapIfNext(k, pred, body) => {
+      let cands : Array[Expr[QcToken, QcKind]] = [body]
+      shrink_expr(body, rules).each(fn(s) { cands.push(WrapIfNext(k, pred, s)) })
+      cands.iter()
+    }
+    ErrorUntil(_, _) | ErrorNodeUntil(_, _, _) | DiagnoseIf(_, _) =>
+      [Expr::Empty].iter()
+    EmitOr(t, k, _) => [Expr::Emit(t, k)].iter()
+    ExpectSkip(_, _, t, k) => [Expr::Expect(t, k)].iter()
+    ConsumeGated(_, _, _) => [Expr::Empty].iter()
+    RequireSep(_, _, _, ..) => [Expr::Empty].iter()
+  }
+}
+
+///|
+impl @qc.Shrink for GrammarIr[QcToken, QcKind] with fn shrink(_self) -> Iter[
   GrammarIr[QcToken, QcKind],
 ] {
-  Iter::empty()
+  let cands : Array[GrammarIr[QcToken, QcKind]] = []
+
+  // Strategy: produce structurally simpler alternatives for the source rule
+  // body via recursive expression walking.  Leaf nodes produce no candidates;
+  // compound nodes are unwrapped (Node→body, Seq→prefix, Choice→alt, etc.),
+  // and the body is also recursively shrunk.
+  match _self.rules.get("source") {
+    Some(source_body) =>
+      for shrunk in shrink_expr(source_body, _self.rules) {
+        // Defensive copy of the rules map — Map is a mutable reference type.
+        let new_rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+        for key in _self.rules.keys() {
+          match _self.rules.get(key) {
+            Some(val) => {
+              new_rules[key] = val
+              ()
+            }
+            None => ()
+          }
+        }
+        new_rules["source"] = shrunk
+        cands.push(GrammarIr::GrammarIr(new_rules, root="source"))
+      }
+    None => ()
+  }
+
+  // Also try removing the "expr" rule (simplify to single-rule grammar).
+  // When the atom rule is absent, RepeatTopLevel/PrattApp/PrattBinary are no
+  // longer valid — the interpreter handles this gracefully (fails to resolve
+  // the ref), producing a different parse result.
+  if _self.rules.contains("expr") {
+    let single_rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+    for key in _self.rules.keys() {
+      if key != "expr" {
+        match _self.rules.get(key) {
+          Some(val) => {
+            single_rules[key] = val
+            ()
+          }
+          None => ()
+        }
+      }
+    }
+    cands.push(GrammarIr::GrammarIr(single_rules, root="source"))
+  }
+
+  cands.iter()
 }
 
 // ─── GrammarWithTokens (wraps grammar + compatible token stream) ─────────────
@@ -585,7 +714,7 @@ fn[
     }
     ManualNewlineAppExpr => {
       ctx.error(
-        "grammar: ManualNewlineAppExpr is a residue — interpret with a language-specific probe",
+        "grammar: ManualNewlineAppExpr is a residue — interpret it with a language-specific probe, not the minimal contract",
       )
       ctx.emit_error_placeholder()
     }
@@ -630,7 +759,7 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // First parse: via interpret
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
-  let (tree1, _diags1) = @core.parse_with(
+  let (tree1, diags1) = @core.parse_with(
     "ab",
     spec,
     fn(_src) { tokens },
@@ -640,17 +769,18 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
   let parse_root2 = interpret_compiled(compiled)
   let spec2 = qc_spec(parse_root2)
-  let (tree2, _diags2) = @core.parse_with(
+  let (tree2, diags2) = @core.parse_with(
     "ab",
     spec2,
     fn(_src) { tokens },
     parse_root2,
   )
-  // Trees must be structurally equal
+  // Trees and diagnostics must be structurally equal
   let diffs = @core.tree_diff(tree1, tree2)
+  let diags_match = diags1 == diags2
   @qc.counterexample(
-    diffs.length() == 0,
-    "ir = \{@debug.to_string(ir)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}",
+    diffs.length() == 0 && diags_match,
+    "ir = \{@debug.to_string(ir)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
@@ -667,7 +797,7 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // Reference parse
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
-  let (ref_tree, _ref_diags) = @core.parse_with(
+  let (ref_tree, ref_diags) = @core.parse_with(
     "ab",
     ref_spec,
     fn(_src) { tokens },
@@ -676,21 +806,20 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
-  let (real_tree, _real_diags) = @core.parse_with(
+  let (real_tree, real_diags) = @core.parse_with(
     "ab",
     real_spec,
     fn(_src) { tokens },
     real_parse,
   )
-  // Trees must be structurally equal
+  // Trees and diagnostics must be structurally equal
   let diffs = @core.tree_diff(ref_tree, real_tree)
+  let diags_match = ref_diags == real_diags
   @qc.counterexample(
-    diffs.length() == 0,
-    "ir = \{@debug.to_string(ir)}\n  reference vs interpret diffs = \{@debug.to_string(diffs)}",
+    diffs.length() == 0 && diags_match,
+    "ir = \{@debug.to_string(ir)}\n  reference vs interpret diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
-
-// ─── GrammarWithTokens Properties (random token stream) ───────────────────────
 
 ///|
 /// Property: interpreting a GrammarWithTokens on its random token stream
@@ -712,7 +841,7 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // Reference parse
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
-  let (ref_tree, _ref_diags) = @core.parse_with(
+  let (ref_tree, ref_diags) = @core.parse_with(
     "src",
     ref_spec,
     fn(_src) { tokens },
@@ -721,17 +850,18 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
-  let (real_tree, _real_diags) = @core.parse_with(
+  let (real_tree, real_diags) = @core.parse_with(
     "src",
     real_spec,
     fn(_src) { tokens },
     real_parse,
   )
-  // Trees must be structurally equal
+  // Trees and diagnostics must be structurally equal
   let diffs = @core.tree_diff(ref_tree, real_tree)
+  let diags_match = ref_diags == real_diags
   @qc.counterexample(
-    diffs.length() == 0,
-    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  reference vs interpret diffs = \{@debug.to_string(diffs)}",
+    diffs.length() == 0 && diags_match,
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  reference vs interpret diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}\n  ref diags = \{@debug.to_string(ref_diags)}\n  real diags = \{@debug.to_string(real_diags)}",
   )
 }
 
@@ -744,7 +874,7 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // First parse: via interpret
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
-  let (tree1, _diags1) = @core.parse_with(
+  let (tree1, diags1) = @core.parse_with(
     "src",
     spec,
     fn(_src) { tokens },
@@ -754,17 +884,18 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
   let parse_root2 = interpret_compiled(compiled)
   let spec2 = qc_spec(parse_root2)
-  let (tree2, _diags2) = @core.parse_with(
+  let (tree2, diags2) = @core.parse_with(
     "src",
     spec2,
     fn(_src) { tokens },
     parse_root2,
   )
-  // Trees must be structurally equal
+  // Trees and diagnostics must be structurally equal
   let diffs = @core.tree_diff(tree1, tree2)
+  let diags_match = diags1 == diags2
   @qc.counterexample(
-    diffs.length() == 0,
-    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}",
+    diffs.length() == 0 && diags_match,
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
@@ -824,7 +955,7 @@ fn check_equiv(
   label : String,
 ) -> Unit raise Failure {
   let ref_parse = reference_interpret(ir)
-  let (ref_tree, _) = @core.parse_with(
+  let (ref_tree, ref_diags) = @core.parse_with(
     "src",
     qc_spec(ref_parse),
     fn(_) { tokens },
@@ -835,15 +966,23 @@ fn check_equiv(
     Some(f) => f
     None => fail(label + ": interpret failed")
   }
-  let (real_tree, _) = @core.parse_with(
+  let (real_tree, real_diags) = @core.parse_with(
     "src",
     qc_spec(real_parse),
     fn(_) { tokens },
     real_parse,
   )
+  // Trees must be structurally equal
   let diffs = @core.tree_diff(ref_tree, real_tree)
   if diffs.length() != 0 {
     fail(label + ": trees differ: \{@debug.to_string(diffs)}")
+  }
+  // Diagnostics must be identical
+  if ref_diags != real_diags {
+    fail(
+      label +
+      ": diagnostics differ\n  ref={@Debug.to_string(ref_diags)}\n  real={@Debug.to_string(real_diags)}",
+    )
   }
 }
 
@@ -981,4 +1120,154 @@ test "deterministic: PrattBinary with no operator exits immediately" {
     @core.TokenInfo::new(QcToken::Eof, 0),
   ]
   check_equiv(ir, tokens, "PrattBinary-no-op")
+}
+
+// ─── Deterministic Diagnostic Tests ────────────────────────────────────────────
+//
+// Each test verifies that a specific Expr variant produces the expected
+// diagnostic message content. Uses the reference interpreter for determinism
+// (the CST equivalence+diagnostics properties already confirm the real
+// interpreter matches).
+
+///|
+/// Parse with reference interpreter and return diagnostics.
+fn ref_diags(
+  ir : GrammarIr[QcToken, QcKind],
+  tokens : Array[@core.TokenInfo[QcToken]],
+) -> @core.DiagnosticSet {
+  let parse_root = reference_interpret(ir)
+  let spec = qc_spec(parse_root)
+  let (_, diags) = @core.parse_with("src", spec, fn(_) { tokens }, parse_root)
+  diags
+}
+
+///|
+/// Verify the first (and only) diagnostic message contains `expected`.
+fn check_diag_message(
+  diags : @core.DiagnosticSet,
+  expected : String,
+  label : String,
+) -> Unit raise Failure {
+  let items = diags.items()
+  if items.length() != 1 {
+    fail(
+      label +
+      ": expected 1 diagnostic, got \{items.length()}:\n  \{@debug.to_string(diags)}",
+    )
+  }
+  if !items[0].message.contains(expected) {
+    fail(
+      label +
+      ": message should contain '" +
+      expected +
+      "', got: " +
+      items[0].message,
+    )
+  }
+}
+
+///|
+test "diagnostic: Fail emits exact message" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::Fail("boom")
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [@core.TokenInfo::new(QcToken::Eof, 0)]
+  check_diag_message(ref_diags(ir, tokens), "boom", "Fail")
+}
+
+///|
+test "diagnostic: EmitOr silent when token present" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::EmitOr(QcToken::A, QcKind::NodeA, "missing A")
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::A, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  let diags = ref_diags(ir, tokens)
+  if !diags.is_empty() {
+    fail(
+      "EmitOr: expected 0 diagnostics when token present, got \{diags.length()}",
+    )
+  }
+}
+
+///|
+test "diagnostic: EmitOr reports diagnostic when token absent" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::EmitOr(QcToken::A, QcKind::NodeA, "missing A")
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_diag_message(ref_diags(ir, tokens), "missing A", "EmitOr-absent")
+}
+
+///|
+test "diagnostic: ErrorUntil emits diagnostic and consumes until stop" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::Seq([
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+    Expr::ErrorUntil(Pred::IsToken(QcToken::Eof), "err-until"),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  // A consumed by Emit, ErrorUntil starts at B, stops at Eof
+  let tokens = [
+    @core.TokenInfo::new(QcToken::A, 1),
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_diag_message(ref_diags(ir, tokens), "err-until", "ErrorUntil")
+}
+
+///|
+test "diagnostic: ErrorNodeUntil emits diagnostic and opens error node" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::ErrorNodeUntil(
+    QcKind::NodeA,
+    Pred::IsToken(QcToken::Eof),
+    "err-node",
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_diag_message(ref_diags(ir, tokens), "err-node", "ErrorNodeUntil")
+}
+
+///|
+test "diagnostic: DiagnoseIf fires when predicate matches" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::Seq([
+    Expr::DiagnoseIf(Pred::IsToken(QcToken::A), "found A"),
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::A, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_diag_message(ref_diags(ir, tokens), "found A", "DiagnoseIf-match")
+}
+
+///|
+test "diagnostic: DiagnoseIf silent when predicate does not match" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::Seq([
+    Expr::DiagnoseIf(Pred::IsToken(QcToken::A), "found A"),
+    Expr::Emit(QcToken::B, QcKind::NodeA),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  let diags = ref_diags(ir, tokens)
+  if !diags.is_empty() {
+    fail(
+      "DiagnoseIf: expected 0 diagnostics when no match, got \{diags.length()}",
+    )
+  }
 }
