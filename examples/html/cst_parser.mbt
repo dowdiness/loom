@@ -42,26 +42,18 @@ fn is_raw_text_tag(name : String) -> Bool {
 }
 
 ///|
-fn is_sync_point(token : @token.Token) -> Bool {
-  match token {
-    @token.OpenTag(_) | @token.CloseTag(_) | @token.EOF => true
-    _ => false
-  }
-}
-
-///|
 fn parse_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   depth~ : Int,
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum HTML nesting depth exceeded")
-    if is_sync_point(ctx.peek()) {
+    if @token.is_sync_point(ctx.peek()) {
       ctx.start_node(@syntax.ErrorNode)
       ctx.emit_error_placeholder()
       ctx.finish_node()
     } else {
-      let _ = ctx.skip_until(is_sync_point)
+      let _ = ctx.skip_until(@token.is_sync_point)
     }
     return
   }
@@ -138,7 +130,7 @@ fn parse_content(
       }
       _ => {
         ctx.error("Unexpected token in element content")
-        let _ = ctx.skip_until(is_sync_point)
+        let _ = ctx.skip_until(@token.is_sync_point)
       }
     }
   }
@@ -201,7 +193,7 @@ fn parse_html_root(
       }
       _ => {
         ctx.error("Unexpected token")
-        let _ = ctx.skip_until_progress(is_sync_point)
+        let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }

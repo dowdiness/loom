@@ -2,42 +2,53 @@
 #loom.token
 pub(all) enum Token {
   #loom.punct("λ")
+  #loom.recovery("sync")
   Lambda // legacy λ or \ (lexed for diagnostics; parser rejects as syntax)
   #loom.punct(".")
   Dot // .
   #loom.punct("(")
   LeftParen // (
   #loom.punct(")")
+  #loom.recovery("sync")
   RightParen // )
   #loom.punct("+")
   Plus // +
   #loom.punct("-")
   Minus // -
   #loom.keyword("if")
+  #loom.recovery("sync")
   If // if
   #loom.keyword("then")
+  #loom.recovery("sync")
   Then // then
   #loom.keyword("else")
+  #loom.recovery("sync")
   Else // else
   #loom.keyword("fn")
+  #loom.recovery("sync")
   Fn // fn
   #loom.keyword("let")
+  #loom.recovery("sync")
   Let // let value declaration
   #loom.punct("=")
   Eq // =
   #loom.punct("{")
+  #loom.recovery("sync")
   LBrace // {
   #loom.punct("}")
+  #loom.recovery("sync")
   RBrace // }
   #loom.punct(",")
   Comma // ,
   #loom.punct(";")
+  #loom.recovery("sync")
   Semicolon // ;
   #loom.punct(":")
   Colon // :
   #loom.punct("->")
   Arrow // ->
   #loom.punct("=>")
+  #loom.recovery("sync")
   FatArrow // =>
   #loom.punct("_")
   Hole // _ (typed hole placeholder)
@@ -48,10 +59,12 @@ pub(all) enum Token {
   #loom.trivia
   Whitespace // whitespace (spaces, tabs — not newlines in layout mode)
   #loom.delimiter
+  #loom.recovery("sync")
   Newline // newline (\n or \r\n) — non-trivia in source-file grammar
   #loom.error
   Error(String) // lexer error placeholder for step-based resilient mode
   #loom.eof
+  #loom.recovery("sync")
   EOF // end of input
 } derive(Eq, Debug)
 
