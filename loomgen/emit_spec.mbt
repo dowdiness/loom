@@ -166,10 +166,9 @@ fn emit_spec(
   let core_prefix = if core_qual.length() > 0 { core_qual + "." } else { "" }
 
   let func_name = "make_" + to_lowercase_first(language_name) + "_spec"
-  // Single-line array — matches moonfmt's canonical form so the output is a
-  // format fixed point when checked into a formatted package (see #500; the
-  // paired CI drift + fmt checks fail loudly if a trivia list ever outgrows
-  // moonfmt's line width).
+  // Single-line array — tested against moonfmt: even 30 trivia variants
+  // (~474 chars) stay single-line. No current language comes close.
+  // See #564 for the investigation.
   let trivia_refs = trivia_names.map(name => syntax_prefix + name)
   let trivia_array_str = "    trivia_kinds_spec=[" +
     trivia_refs.join(", ") +
