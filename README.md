@@ -1,9 +1,8 @@
 # Loom
 
-A generic incremental parser framework for MoonBit — edit-aware lexing,
-a lossless green tree (CST), subtree reuse, error recovery, and a
-reactive pipeline. Any grammar plugs in via a single
-`Grammar[T, K, Ast]` value.
+A generic incremental parser framework for MoonBit — edit-aware lexing, a
+lossless green tree (CST), subtree reuse, error recovery, and a reactive
+pipeline. Any grammar plugs in via a single `Grammar[T, K, Ast]` value.
 
 **New here?** Start with the [`dowdiness/loom` package README](loom/)
 for the API and a Quick Start, then browse the [docs index](docs/README.md).
@@ -50,6 +49,7 @@ Sibling modules (see each module's README for scope and status):
 | [Lambda Calculus](examples/lambda/) | `examples/lambda/` | Reference grammar — typed `SyntaxNode` views, error recovery, CRDT exploration |
 | [JSON](examples/json/) | `examples/json/` | Step-based `prefix_lexer` + `block_reparse_spec` — exercises every `Grammar::new` option |
 | [Markdown](examples/markdown/) | `examples/markdown/` | Mode-aware lexing via `ModeLexer` — line-start / inline / fenced code contexts |
+| [JSX](examples/jsx/) | `examples/jsx/` | Streaming-prefix error recovery — every EOF truncation keeps already-parsed content (generative-UI foundation) |
 | [MoonBit](examples/moonbit/) | `examples/moonbit/` | Skeleton official MoonBit lexer adapter + coarse Loom CST grammar |
 | [Graph DSL](examples/graph-dsl/) | `examples/graph-dsl/` | Source-map/token-role graph authoring example with graph-operation lowering |
 

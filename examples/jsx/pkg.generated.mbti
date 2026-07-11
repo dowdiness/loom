@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/jsx"
+
+import {
+  "dowdiness/jsx/syntax",
+  "dowdiness/jsx/token",
+  "dowdiness/loom",
+  "dowdiness/loom/core",
+  "dowdiness/seam",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode]
+
+pub fn lex(String) -> @core.LexResult[@token.Token]
+
+pub fn make_jsx_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
+
+pub fn parse_ast(String) -> (JsxNode, @core.DiagnosticSet) raise @core.LexError
+
+pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+
+// Errors
+
+// Types and methods
+pub struct JsxAttr {
+  name : String
+  value : JsxAttrValue
+} derive(Eq, @debug.Debug)
+pub fn JsxAttr::JsxAttr(name~ : String, value~ : JsxAttrValue) -> Self
+
+pub(all) enum JsxAttrValue {
+  StringLit(String)
+  ExprSpan(raw~ : String)
+  Bare
+} derive(Eq, @debug.Debug)
+
+pub(all) enum JsxNode {
+  Root(children~ : Array[JsxNode])
+  Element(tag~ : String, attrs~ : Array[JsxAttr], children~ : Array[JsxNode])
+  Fragment(children~ : Array[JsxNode])
+  Text(String)
+  ExprSpan(raw~ : String)
+  Error(String)
+} derive(Eq, @debug.Debug)
+pub impl @core.Renderable for JsxNode
+pub impl @core.TreeNode for JsxNode
+
+// Type aliases
+
+// Traits
+
