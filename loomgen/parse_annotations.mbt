@@ -145,7 +145,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           for v in classified {
             // #loom.line_pattern tokens are produced by the line-mode lexer;
             // they don't need a scanning role annotation.
-            if v.line_pattern is Some(_) { continue }
+            if v.line_pattern is Some(_) {
+              continue
+            }
             if v.role is None {
               return Err(
                 "variant " +
@@ -437,7 +439,7 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
-          }
+        }
         // Reject #loom.eof variants with payload arguments
         if is_token {
           for v in classified {
@@ -1445,9 +1447,7 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
         // Modifier only — skip role assignment.
         if count_apply_args(attr.parsed) > 0 {
           return Err(
-            "#loom.line_mode on " +
-            variant.name +
-            " does not accept arguments",
+            "#loom.line_mode on " + variant.name + " does not accept arguments",
           )
         }
         continue

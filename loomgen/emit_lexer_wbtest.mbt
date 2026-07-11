@@ -726,7 +726,10 @@ test "emit_line_lexer generates line-mode lexer functions for line_pattern token
   }
   // Should contain the lex_line_start function
   // Should contain custom_lex call for HeadingMarker
-  inspect(generated.contains("lex_heading_marker(source, pos, len)"), content="true")
+  inspect(
+    generated.contains("lex_heading_marker(source, pos, len)"),
+    content="true",
+  )
   // Should contain pattern checks for each line_pattern token
   inspect(generated.contains("ListMarkerDash"), content="true")
   inspect(generated.contains("ListMarkerStar"), content="true")
@@ -743,7 +746,10 @@ test "emit_line_lexer generates line-mode lexer functions for line_pattern token
   // Should return Done when pos >= length
   inspect(generated.contains("return (Done, LineStart)"), content="true")
   // Should have Invalid fallthrough
-  inspect(generated.contains("Not a block-level token (line_pattern)"), content="true")
+  inspect(
+    generated.contains("Not a block-level token (line_pattern)"),
+    content="true",
+  )
 }
 
 ///|

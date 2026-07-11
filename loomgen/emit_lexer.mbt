@@ -151,7 +151,12 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       }
     }
   }
-  Ok({ variants: char_variants, keywords, custom_lex_fns, has_keywords: keywords.length() > 0 })
+  Ok({
+    variants: char_variants,
+    keywords,
+    custom_lex_fns,
+    has_keywords: keywords.length() > 0,
+  })
 }
 
 ///|
