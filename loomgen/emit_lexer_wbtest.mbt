@@ -862,7 +862,10 @@ test "parse_annotations rejects #loom.line_pattern with payload but no #loom.cus
     #|} derive(Eq)
   match parse_annotations(src) {
     Err(msg) => inspect(msg.contains("#loom.custom_lex"), content="true")
-    Ok(_) => abort("expected rejection for payload-carrying line_pattern without custom_lex")
+    Ok(_) =>
+      abort(
+        "expected rejection for payload-carrying line_pattern without custom_lex",
+      )
   }
 }
 
