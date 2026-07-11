@@ -106,3 +106,72 @@ test "compile with no native_names argument still compiles ordinary grammars" {
   let compiled = compile(GrammarIr::GrammarIr(rules, root="source"))
   inspect(compiled.root_slot(), content="0")
 }
+
+///|
+test "compile raises MissingHostGuard when HostGuard references an unregistered guard" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Choice([
+      Alt::{
+        starts: Pred::HostGuard("is_at_indent_4"),
+        body: Expr::Emit(1, 10),
+      },
+    ]),
+  }
+  let caught = try {
+    let _ = compile(
+      GrammarIr::GrammarIr(rules, root="source"),
+      guard_names=Set::Set([]),
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(MissingHostGuard("is_at_indent_4")) => ()
+    _ => fail("expected MissingHostGuard(\"is_at_indent_4\")")
+  }
+}
+
+///|
+test "compile raises AmbiguousGuard when a name is both a grammar rule and a guard, even unreferenced" {
+  let rules : Map[RuleName, Expr[Int, Int]] = { "source": Expr::Emit(1, 10) }
+  let caught = try {
+    let _ = compile(
+      GrammarIr::GrammarIr(rules, root="source"),
+      guard_names=Set::Set(["source"]),
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(AmbiguousGuard("source")) => ()
+    _ => fail("expected AmbiguousGuard(\"source\")")
+  }
+}
+
+///|
+test "compile passes HostGuard refs when guard_names contains the name" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Choice([
+      Alt::{
+        starts: Pred::All(Pred::IsToken(1), Pred::HostGuard("is_at_indent_4")),
+        body: Expr::Emit(1, 10),
+      },
+    ]),
+  }
+  let compiled = compile(
+    GrammarIr::GrammarIr(rules, root="source"),
+    guard_names=Set::Set(["is_at_indent_4"]),
+  )
+  match compiled.rule(compiled.root_slot()) {
+    CompiledExpr::Choice(alts) => {
+      inspect(alts.length(), content="1")
+      match alts[0].starts {
+        Pred::All(_, Pred::HostGuard("is_at_indent_4")) => ()
+        _ => fail("expected All(IsToken(1), HostGuard(...))")
+      }
+    }
+    _ => fail("expected Choice")
+  }
+}

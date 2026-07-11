@@ -6,6 +6,12 @@
 pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Unit) -> Unit
 
 ///|
+/// A hand-written guard predicate a `HostGuard(name)` node delegates to.
+/// Takes the parser context and returns whether the guard passes.
+/// Mirrors `NativeRule` in that the name resolves against host code.
+pub type HostGuard[T, K] = (@core.ParserContext[T, K]) -> Bool
+
+///|
 /// Build a `parse_root` closure from an authored grammar IR.
 ///
 /// Compiles the IR (resolving every `Ref` to a dense slot, raising on an
@@ -25,9 +31,15 @@ pub fn[
 ] interpret(
   ir : GrammarIr[T, K],
   natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
+  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
 ) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError {
   let native_names = Set::from_iter(natives.keys())
-  interpret_compiled(compile(ir, native_names~), natives~)
+  let guard_names = Set::from_iter(guards.keys())
+  interpret_compiled(
+    compile(ir, native_names~, guard_names~),
+    natives~,
+    guards~,
+  )
 }
 
 ///|
@@ -39,15 +51,17 @@ pub fn[
 /// `natives` must agree with the `native_names` the grammar was compiled
 /// with; a `NativeRef(name)` for which `natives` has no entry (e.g. a
 /// mismatched registry passed here vs. at `compile` time) degrades to a
-/// diagnostic placeholder rather than aborting — see `run_expr`.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
 ] interpret_compiled(
   grammar : CompiledGrammar[T, K],
   natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
+  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
 ) -> (@core.ParserContext[T, K]) -> Unit {
-  ctx => run_expr(ctx, grammar, natives, grammar.rule(grammar.root_slot()))
+  ctx => {
+    run_expr(ctx, grammar, natives, guards, grammar.rule(grammar.root_slot()))
+  }
 }
 
 ///|
@@ -63,10 +77,11 @@ fn[
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
   natives : Map[RuleName, NativeRule[T, K]],
+  guards : Map[RuleName, HostGuard[T, K]],
   name : RuleName,
 ) -> Unit {
   match grammar.names.search(name) {
-    Some(slot) => run_expr(ctx, grammar, natives, grammar.rule(slot))
+    Some(slot) => run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
     None => {
       ctx.error(
         "grammar: native call_rule(\"" + name + "\") is not a grammar rule",
@@ -77,11 +92,35 @@ fn[
 }
 
 ///|
+/// Test whether `token` satisfies `pred`, resolving `HostGuard` references
+/// against the `guards` map. `HostGuard` cannot be resolved by `Pred::matches`
+/// alone (which takes only a token), so this function provides the
+/// `ParserContext`-aware dispatch path.
+fn[T : Eq, K] pred_matches_ctx(
+  pred : Pred[T],
+  token : T,
+  ctx : @core.ParserContext[T, K],
+  guards : Map[RuleName, HostGuard[T, K]],
+) -> Bool {
+  match pred {
+    HostGuard(name) =>
+      match guards.get(name) {
+        Some(f) => f(ctx)
+        None => false
+      }
+    All(left, right) =>
+      pred_matches_ctx(left, token, ctx, guards) &&
+      pred_matches_ctx(right, token, ctx, guards)
+    Any | IsToken(_) | OneOf(_) | Not(_) => pred.matches(token)
+  }
+}
+
+///|
 /// Evaluate one compiled grammar expression against a parser context.
 ///
 /// Rule references dispatch by dense slot through `grammar.rule`, so recursion
 /// is an array index rather than a map lookup. Predicates are reified `Pred`
-/// data tested with `Pred::matches`, never host closures.
+/// data tested with `Pred::matches` or `pred_matches_ctx` for HostGuard.
 ///
 /// Covers the core and incremental-reuse nodes. The `ManualNewlineAppExpr`
 /// residue (the lone irreducible escape hatch, evidence-gated by the lambda
@@ -95,28 +134,22 @@ fn[
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
   natives : Map[RuleName, NativeRule[T, K]],
+  guards : Map[RuleName, HostGuard[T, K]],
   expr : CompiledExpr[T, K],
 ) -> Unit {
   match expr {
     Empty => ()
     Emit(token, kind) => if ctx.at(token) { ctx.emit_token(kind) }
-    // `expect` already emits a diagnostic + placeholder on the missing-token
-    // path; discard the bool so the path produces exactly one diagnostic.
     Expect(token, kind) => ctx.expect(token, kind) |> ignore
     Node(kind, body) =>
-      ctx.node(kind, () => run_expr(ctx, grammar, natives, body))
-    RefSlot(slot) => run_expr(ctx, grammar, natives, grammar.rule(slot))
-    // Delegate to a host-written production. `call_rule` re-enters the
-    // declarative grammar by name (grammar-rule-only — see `call_rule`
-    // above); an unregistered name degrades to a diagnostic placeholder
-    // instead of aborting, matching `ManualNewlineAppExpr`'s defensive style.
-    // Unreachable when `natives` matches the `native_names` the grammar was
-    // compiled with (validated in `compile`), but a mismatched registry
-    // passed to `interpret_compiled` can still reach here.
+      ctx.node(kind, () => run_expr(ctx, grammar, natives, guards, body))
+    RefSlot(slot) => run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
     NativeRef(name) =>
       match natives.get(name) {
         Some(f) =>
-          f(ctx, rule_name => call_rule(ctx, grammar, natives, rule_name))
+          f(ctx, rule_name => {
+            call_rule(ctx, grammar, natives, guards, rule_name)
+          })
         None => {
           ctx.error(
             "grammar: native rule \"" +
@@ -128,20 +161,20 @@ fn[
       }
     Seq(exprs) =>
       for e in exprs {
-        run_expr(ctx, grammar, natives, e)
+        run_expr(ctx, grammar, natives, guards, e)
       }
     Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
-        if alt.starts.matches(token) {
-          run_expr(ctx, grammar, natives, alt.body)
+        if pred_matches_ctx(alt.starts, token, ctx, guards) {
+          run_expr(ctx, grammar, natives, guards, alt.body)
           break
         }
       }
     }
     RepeatWhile(pred, body) =>
       while !ctx.at_eof() && pred.matches(ctx.peek()) {
-        run_expr(ctx, grammar, natives, body)
+        run_expr(ctx, grammar, natives, guards, body)
       }
     EmitError(msg) => ctx.error(msg)
     ErrorUntil(stop, msg) =>
@@ -149,13 +182,6 @@ fn[
         ctx.error(msg)
         let _ = ctx.skip_until(t => stop.matches(t))
       }
-    // Delimited top-level repeat. Consume leading delimiters, then loop while
-    // `starts` holds. Each iteration tries repeat-group reuse first — consuming
-    // delimiters after a hit so the reused group's trailing separator does not
-    // exit the loop early — and parses the item rule on a miss. When a parsed
-    // item is not followed by a delimiter and we are not at EOF, emit the
-    // between/after diagnostic. Trailing expr + garbage recovery compose in the
-    // caller.
     RepeatTopLevel(slot, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
       ctx.consume_while_emit(t => delim.matches(t), delim_kind)
       while !ctx.at_eof() && starts.matches(ctx.peek()) {
@@ -163,7 +189,7 @@ fn[
           ctx.consume_while_emit(t => delim.matches(t), delim_kind)
           continue
         }
-        run_expr(ctx, grammar, natives, grammar.rule(slot))
+        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
         let had = delim.matches(ctx.peek())
         ctx.consume_while_emit(t => delim.matches(t), delim_kind)
         if !had && !ctx.at_eof() {
@@ -175,46 +201,36 @@ fn[
         }
       }
     }
-    // Mark before peeking: when the next token matches, wrap the inner expr in
-    // the node kind from that mark; otherwise run it unwrapped.
     WrapIfNext(kind, pred, body) => {
       let mark = ctx.mark()
       if pred.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => run_expr(ctx, grammar, natives, body))
+        ctx.wrap_at(mark, kind, () => {
+          run_expr(ctx, grammar, natives, guards, body)
+        })
       } else {
-        run_expr(ctx, grammar, natives, body)
+        run_expr(ctx, grammar, natives, guards, body)
       }
     }
-    // Pratt application: parse one atom; while the start predicate still holds,
-    // retroactively wrap the run in the app kind and parse further atoms.
     PrattApp(slot, kind, starts) =>
       if ctx.try_reuse_current_node(kind) {
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, natives, grammar.rule(slot))
+        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
         if starts.matches(ctx.peek()) {
           ctx.wrap_at(mark, kind, () => {
             while starts.matches(ctx.peek()) {
-              run_expr(ctx, grammar, natives, grammar.rule(slot))
+              run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
             }
           })
         }
       }
-    // Pratt binary: parse one prefix; while the peek matches an operator table
-    // entry, wrap from the mark in the binary kind, emit the operator, and
-    // parse the next prefix.
     PrattBinary(slot, kind, ops, skip~) =>
       if ctx.try_reuse_current_node(kind) {
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, natives, grammar.rule(slot))
-        // Mirrors A's consume_soft_newlines_before_binary_operator: consume a
-        // gated run of `skip` tokens when an operator from the table follows, so
-        // a separator that does NOT precede an operator (a statement break) is
-        // left intact. The lookahead is the op table, so skipping is scoped to
-        // the listed operators (e.g. +/-, not *,/).
+        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
         let skip_to_op = () => {
           match skip {
             Some((sep, sep_kind)) =>
@@ -234,19 +250,17 @@ fn[
                 None => break
                 Some(pair) => {
                   ctx.emit_token(pair.1)
-                  run_expr(ctx, grammar, natives, grammar.rule(slot))
+                  run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
                 }
               }
             }
           })
         }
       }
-    // Emit a diagnostic and an error placeholder (required construct missing).
     Fail(msg) => {
       ctx.error(msg)
       ctx.emit_error_placeholder()
     }
-    // Emit the token as the kind when present, else report it missing.
     EmitOr(token, kind, msg) =>
       if ctx.at(token) {
         ctx.emit_token(kind)
@@ -254,10 +268,7 @@ fn[
         ctx.error(msg)
         ctx.emit_error_placeholder()
       }
-    // Conditional lookahead diagnostic, no consume.
     DiagnoseIf(pred, msg) => if pred.matches(ctx.peek()) { ctx.error(msg) }
-    // Soft-separator-aware expect: consume skip tokens when the expected token
-    // follows the run, then expect it.
     ExpectSkip(skip, skip_kind, expected, kind) => {
       let _ = ctx.expect_after_skip(
         t => skip.matches(t),
@@ -266,16 +277,11 @@ fn[
         kind,
       )
     }
-    // Consume a soft-separator run only when the lookahead holds after it.
     ConsumeGated(skip, skip_kind, look) => {
       let _ = ctx.consume_while_emit_if(t => skip.matches(t), skip_kind, t => {
         look.matches(t)
       })
     }
-    // Require a separator run; if none preceded and `stop` does not hold, emit
-    // `msg_alt` when `alt` matches the current token, else `msg_else`. The delim
-    // run emits each token with its own kind (newline vs `;`); the consumed
-    // count tells whether a separator preceded.
     RequireSep(delims, stop, alt, msg_alt~, msg_else~) => {
       let had = ctx.consume_while_emit_mapped(delims) > 0
       if !had && !stop.matches(ctx.peek()) {
@@ -286,9 +292,6 @@ fn[
         }
       }
     }
-    // Open an error node and bump tokens into it until `stop` (or EOF). Callers
-    // guard the stop-already-holds case with a `Choice`, so this never opens an
-    // empty node.
     ErrorNodeUntil(error_kind, stop, msg) => {
       ctx.error(msg)
       ctx.start_node(error_kind)

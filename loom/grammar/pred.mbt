@@ -1,15 +1,23 @@
 ///|
 /// Reified predicate over a token type `T`.
 ///
-/// The grammar IR carries no host closures: lookahead is data, so a static
-/// analysis and a future code emitter can both consume these variants, unlike
-/// an opaque `(T) -> Bool`. This is a closed-but-growable vocabulary — new
-/// predicate shapes are added as variants, never as an escape-hatch closure.
+/// `HostGuard(name)` references a named hand-written `fn(ParserContext) -> Bool`
+/// supplied out-of-band via the interpreter's `guards` map. It is never resolved
+/// by `matches` (which takes only a token), so it always returns `false` there;
+/// the interpreter's `Choice` arm handles it separately. Mirrors `Native(RuleName)`
+/// in that the name resolves against host code, not token-identity data.
 pub(all) enum Pred[T] {
   Any
   IsToken(T)
   OneOf(Array[T])
   Not(Pred[T])
+  /// Reference a host-written predicate function by name. Resolved
+  /// out-of-band through the interpreter's `guards` map — never by `matches`,
+  /// which returns `false` unconditionally for this variant.
+  HostGuard(String)
+  /// Both sides must match. Composes `IsToken`/`OneOf` with `HostGuard` so
+  /// a Choice arm can gate on both a specific token AND a computed guard.
+  All(Pred[T], Pred[T])
 } derive(Eq, Debug)
 
 ///|
@@ -23,5 +31,7 @@ pub fn[T : Eq] Pred::matches(self : Self[T], token : T) -> Bool {
     IsToken(expected) => token == expected
     OneOf(tokens) => tokens.iter().any(t => t == token)
     Not(inner) => !inner.matches(token)
+    HostGuard(_) => false
+    All(left, right) => left.matches(token) && right.matches(token)
   }
 }
