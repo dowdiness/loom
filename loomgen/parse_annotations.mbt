@@ -45,7 +45,9 @@ struct VariantDecl {
   custom_lex : String?
   lexmode_name : String?
   // #522. `rule` carries the raw EBNF-subset string from `#loom.rule("...")` on a
-  // #loom.term variant; the GrammarIr emitter lowers it to a `@grammar.Expr`.
+  // #627. `is_sync` carries the bool from `#loom.recovery("sync")` on a
+  // #loom.token variant — marks the variant as an error-recovery synchronization point.
+  is_sync : Bool
   rule : String?
 }
 
@@ -308,6 +310,17 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             }
           }
         }
+        if is_term {
+          for v in classified {
+            if v.is_sync {
+              return Err(
+                "term variant " +
+                v.name +
+                " cannot have #loom.recovery annotation (#loom.recovery is only valid on #loom.token variants)",
+              )
+            }
+          }
+        }
         // Reject #loom.eof variants with payload arguments
         if is_token {
           for v in classified {
@@ -485,6 +498,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         let mut custom_lex : String? = None
         let mut lexmode_name : String? = None
         let mut rule : String? = None
+        let mut is_sync = false
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
@@ -507,6 +521,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
               } else if id.name == "rule" {
                 // Extract the EBNF-subset string from #loom.rule("...")
                 rule = first_string_from_apply(attr.parsed)
+              } else if id.name == "recovery" {
+                is_sync = true
               }
             _ => ()
           }
@@ -526,6 +542,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           pattern,
           custom_lex,
           lexmode_name,
+          is_sync,
           rule,
         }
       })
@@ -1197,6 +1214,36 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
             variant.name +
             " argument must be a string literal",
           )
+        }
+        continue
+      }
+      "recovery" => {
+        // #627: mark a token variant as a synchronization point for error recovery.
+        // Exactly 1 string argument required; the only supported value is "sync".
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.recovery on " +
+            variant.name +
+            " requires exactly 1 string argument (e.g. #loom.recovery(\"sync\"))",
+          )
+        }
+        match first_string_from_apply(attr.parsed) {
+          Some(mode) =>
+            if mode != "sync" {
+              return Err(
+                "#loom.recovery on " +
+                variant.name +
+                " only supports mode \"sync\", got \"" +
+                mode +
+                "\"",
+              )
+            }
+          None =>
+            return Err(
+              "#loom.recovery on " +
+              variant.name +
+              " argument must be a string literal",
+            )
         }
         continue
       }

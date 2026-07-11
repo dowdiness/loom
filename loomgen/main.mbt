@@ -344,6 +344,18 @@ fn write_outputs(
       return Err(())
     }
   }
+  // Write sync_point.g.mbt (generated is_sync_point from #loom.recovery("sync") annotations)
+  let sync_point_content = emit_sync_point(te)
+  @fs.write_string_to_file(
+    token_out + "/sync_point.g.mbt",
+    sync_point_content,
+  ) catch {
+    _ => {
+      println("Error writing " + token_out + "/sync_point.g.mbt")
+      return Err(())
+    }
+  }
+  println("  " + token_out + "/sync_point.g.mbt")
 
   // Write syntax_kind.mbt (only when --skip-syntax is not set)
   if !skip_syntax {
