@@ -8,9 +8,11 @@
 pub(all) enum Token {
   // `<tag ... >` — full opening tag including name and attributes up to `>`
   #loom.literal("OpenTagToken")
+  #loom.recovery("sync")
   OpenTag(String)
   // `</tag>` — closing tag including `</` and name and `>`
   #loom.literal("CloseTagToken")
+  #loom.recovery("sync")
   CloseTag(String)
   // `=` in attribute context
   #loom.punct("=")
@@ -41,5 +43,6 @@ pub(all) enum Token {
   Error(String)
   // end of input
   #loom.eof
+  #loom.recovery("sync")
   EOF
 } derive(Eq, Debug)

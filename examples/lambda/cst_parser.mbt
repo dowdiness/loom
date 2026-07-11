@@ -136,28 +136,6 @@ fn lambda_expect(
   }
 }
 
-///|
-/// Tokens where error recovery should stop — structural delimiters and
-/// expression-starters that can begin a valid recovery parse.
-/// Excludes Identifier/Integer (too common to be reliable sync points).
-fn is_sync_point(t : @token.Token) -> Bool {
-  match t {
-    @token.Newline
-    | @token.RightParen
-    | @token.LBrace
-    | @token.RBrace
-    | @token.Semicolon
-    | @token.Lambda
-    | @token.Let
-    | @token.Fn
-    | @token.FatArrow
-    | @token.If
-    | @token.Then
-    | @token.Else
-    | @token.EOF => true
-    _ => false
-  }
-}
 
 ///|
 /// Skip malformed paren payload while preserving parent-level sync tokens.
@@ -194,7 +172,7 @@ fn skip_until_paren_close_or_sync(
       }
     } else if token == @token.LBrace {
       brace_depth = brace_depth + 1
-    } else if paren_depth == 0 && brace_depth == 0 && is_sync_point(token) {
+    } else if paren_depth == 0 && brace_depth == 0 && @token.is_sync_point(token) {
       break
     }
     if !wrapped {
@@ -428,7 +406,7 @@ fn parse_arrow_lambda(
       })
       true
     },
-    is_sync_point,
+    @token.is_sync_point,
   )
 }
 
@@ -467,7 +445,7 @@ fn parse_atom(
           })
           true
         },
-        is_sync_point,
+    @token.is_sync_point,
       )
     @token.Hole =>
       ctx.node(@syntax.HoleLiteral, fn() { ctx.emit_token(@syntax.HoleToken) })
@@ -491,12 +469,12 @@ fn parse_atom(
       }
     _ => {
       ctx.error("Unexpected token")
-      if is_sync_point(ctx.peek()) {
+      if @token.is_sync_point(ctx.peek()) {
         ctx.start_node(@syntax.ErrorNode)
         ctx.emit_error_placeholder()
         ctx.finish_node()
       } else {
-        let _ = ctx.skip_until(is_sync_point)
+        let _ = ctx.skip_until(@token.is_sync_point)
       }
     }
   }

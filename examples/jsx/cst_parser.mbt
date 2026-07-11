@@ -17,20 +17,6 @@ const MAX_ERRORS : Int = 50
 ///|
 const MAX_DEPTH : Int = 512
 
-///|
-/// Sync points for recovery: tag boundaries and EOF, mirroring html's
-/// OpenTag/CloseTag/EOF set at jsx's finer token granularity.
-fn is_sync_point(token : @token.Token) -> Bool {
-  match token {
-    @token.OpenTagStart
-    | @token.TagEnd
-    | @token.SelfCloseEnd
-    | @token.FragmentOpen
-    | @token.FragmentClose
-    | @token.EOF => true
-    _ => false
-  }
-}
 
 ///|
 /// True when the next tokens form a close-tag prefix (`<` `/`). jsx has no
@@ -164,7 +150,7 @@ fn parse_element(
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum JSX nesting depth exceeded")
-    let _ = ctx.skip_until_progress(is_sync_point)
+    let _ = ctx.skip_until_progress(@token.is_sync_point)
     return
   }
   if ctx.too_many_errors(MAX_ERRORS) {
@@ -202,7 +188,7 @@ fn parse_element(
       }
       _ => {
         ctx.error("Unexpected token in tag")
-        let _ = ctx.skip_until_progress(is_sync_point)
+        let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }
@@ -257,7 +243,7 @@ fn parse_content(
       @token.BraceOpen => parse_expr_span(ctx)
       _ => {
         ctx.error("Unexpected token in element content")
-        let _ = ctx.skip_until_progress(is_sync_point)
+        let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }
@@ -271,7 +257,7 @@ fn parse_fragment(
 ) -> Unit {
   if depth > MAX_DEPTH {
     ctx.error("Maximum JSX nesting depth exceeded")
-    let _ = ctx.skip_until_progress(is_sync_point)
+    let _ = ctx.skip_until_progress(@token.is_sync_point)
     return
   }
   if ctx.too_many_errors(MAX_ERRORS) {
@@ -313,7 +299,7 @@ fn parse_fragment_content(
       @token.BraceOpen => parse_expr_span(ctx)
       _ => {
         ctx.error("Unexpected token in fragment content")
-        let _ = ctx.skip_until_progress(is_sync_point)
+        let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }
@@ -357,7 +343,7 @@ fn parse_jsx_root(
       @token.BraceOpen => parse_expr_span(ctx)
       _ => {
         ctx.error("Unexpected token")
-        let _ = ctx.skip_until_progress(is_sync_point)
+        let _ = ctx.skip_until_progress(@token.is_sync_point)
       }
     }
   }

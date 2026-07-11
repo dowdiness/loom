@@ -4,14 +4,17 @@ pub(all) enum Token {
   #loom.punct("{")
   LBrace // {
   #loom.punct("}")
+  #loom.recovery("sync")
   RBrace // }
   #loom.punct("[")
   LBracket // [
   #loom.punct("]")
+  #loom.recovery("sync")
   RBracket // ]
   #loom.punct(":")
   Colon // :
   #loom.punct(",")
+  #loom.recovery("sync")
   Comma // ,
   #loom.literal("StringToken")
   StringLit // "hello" (raw text including quotes)
@@ -28,6 +31,7 @@ pub(all) enum Token {
   #loom.error
   Error(String) // lexer error
   #loom.eof
+  #loom.recovery("sync")
   EOF // end of input
 } derive(Eq, Debug)
 

@@ -17,6 +17,7 @@ pub(all) enum Token {
   // (`</name>` lexes as OpenTagStart, Slash, TagName, TagEnd — there is no
   // dedicated "close tag start" token).
   #loom.punct("<")
+  #loom.recovery("sync")
   OpenTagStart
   // tag name or attribute name identifier
   #loom.literal("TagNameToken")
@@ -27,9 +28,11 @@ pub(all) enum Token {
   Slash
   // `>` closing a tag
   #loom.punct(">")
+  #loom.recovery("sync")
   TagEnd
   // `/>` self-closing tag end
   #loom.punct("/>")
+  #loom.recovery("sync")
   SelfCloseEnd
   // attribute name identifier
   #loom.literal("AttrNameToken")
@@ -74,9 +77,11 @@ pub(all) enum Token {
   // `<>` fragment open — has no tag name, so it cannot be decomposed into
   // OpenTagStart + TagName like a named element; needs its own token.
   #loom.punct("<>")
+  #loom.recovery("sync")
   FragmentOpen
   // `</>` fragment close — same reasoning as FragmentOpen.
   #loom.punct("</>")
+  #loom.recovery("sync")
   FragmentClose
   // whitespace
   #loom.trivia
@@ -86,5 +91,6 @@ pub(all) enum Token {
   Error(String)
   // end of input
   #loom.eof
+  #loom.recovery("sync")
   EOF
 } derive(Eq, Debug)
