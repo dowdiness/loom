@@ -373,6 +373,35 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
     }
   }
   false
+}
+
+///
+/// Collect distinct fragment names referenced across all grammar rules.
+/// Returns sorted unique names (in deterministic emission order).
+fn get_fragment_names(rules : Map[String, RuleAst]) -> Array[String] {
+  let seen : @hashset.HashSet[String] = @hashset.HashSet([])
+  fn go(ast : RuleAst) -> Unit {
+    match ast {
+      Frag(name) => seen.add(name)
+      Native(_) | Sym(_) => ()
+      Seq(items) | Alt(items) => items.iter().each(go)
+      Star(inner) | Plus(inner) | Opt(inner) => go(inner)
+      Emit(inner) | Emitor(inner) => go(inner)
+      ErrorUntil(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) | SeparatedList(_, _) => ()
+      PrattApp(spec) => go(Sym(spec.prefix))
+      PrattBinary(spec) => go(Sym(spec.prefix))
+    }
+  }
+  for _, body in rules {
+    go(body)
+  }
+  let result : Array[String] = []
+  for name in seen {
+    result.push(name)
+  }
+  result.sort()
+  result
+}
 
 ///| Whether `ast` is a catch-all node eligible for special treatment in a
 
@@ -1147,6 +1176,7 @@ fn emit_grammar_ir(
   let token_type = token_enum.name
   let syntax_type = "SyntaxKind"
   let has_frags = has_fragment_refs(ctx.rules)
+  let frag_names = if has_frags { get_fragment_names(ctx.rules) } else { [] }
   let gram_ir_type = grammar_qual +
     ".GrammarIr[" +
     qualify(token_qual, token_type) +
@@ -1267,5 +1297,4 @@ fn emit_grammar_ir(
     main,
   ])
   Ok(@pretty.render_string(final_layout, width=80))
-}
 }
