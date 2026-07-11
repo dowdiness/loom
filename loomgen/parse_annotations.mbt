@@ -52,7 +52,7 @@ struct VariantDecl {
   // this term variant is line-oriented (dispatches on full lines, not individual
   // characters). Only valid on term variants alongside `#loom.lexmode("ModeName")`.
   line_mode : Bool
-  // #700. Names a hand-written mode lexer for line-mode no-match input.
+  // Names the hand-written lexer used when a line-mode lexer finds no match.
   fallback_lex : String?
   // #627. `is_sync` carries the bool from `#loom.recovery("sync")` on a
   // #loom.token variant — marks the variant as an error-recovery synchronization point.
@@ -439,7 +439,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             }
           }
         }
-        // #561: #loom.line_mode is only valid alongside #loom.lexmode on term variants.
+        // A line-oriented term mode must name its lexmode explicitly.
+        // A term variant may declare one fallback function for its mode.
+        // Every declaration for a mode must use the same function name.
         if is_term {
           for v in classified {
             if v.line_mode && v.lexmode_name is None {
@@ -449,10 +451,6 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 " has #loom.line_mode without #loom.lexmode; #loom.line_mode must accompany a #loom.lexmode(\"ModeName\") annotation",
               )
             }
-          }
-        }
-        if is_term {
-          for v in classified {
             match v.fallback_lex {
               Some(_) if !v.line_mode =>
                 return Err(
@@ -469,26 +467,25 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               _ => ()
             }
           }
-          for i = 0; i < classified.length(); i = i + 1 {
-            for j = i + 1; j < classified.length(); j = j + 1 {
-              match (classified[i].lexmode_name, classified[j].lexmode_name) {
-                (Some(mode_a), Some(mode_b)) if mode_a == mode_b =>
-                  match
-                    (classified[i].fallback_lex, classified[j].fallback_lex) {
-                    (Some(fallback_a), Some(fallback_b)) if fallback_a !=
-                      fallback_b =>
-                      return Err(
-                        "term variants " +
-                        classified[i].name +
-                        " and " +
-                        classified[j].name +
-                        " have conflicting #loom.fallback_lex names for mode " +
-                        mode_a,
-                      )
-                    _ => ()
-                  }
-                _ => ()
-              }
+          let fallback_by_mode : Map[String, (String, String)] = Map([])
+          for v in classified {
+            match (v.lexmode_name, v.fallback_lex) {
+              (Some(mode), Some(fallback)) =>
+                match fallback_by_mode.get(mode) {
+                  Some((previous_variant, previous_fallback)) if previous_fallback !=
+                    fallback =>
+                    return Err(
+                      "term variants " +
+                      previous_variant +
+                      " and " +
+                      v.name +
+                      " have conflicting #loom.fallback_lex names for mode " +
+                      mode,
+                    )
+                  None => fallback_by_mode.set(mode, (v.name, fallback))
+                  _ => ()
+                }
+              _ => ()
             }
           }
         }
