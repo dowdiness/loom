@@ -356,7 +356,7 @@ fn has_fragment_refs(rules : Map[String, RuleAst]) -> Bool {
   get_fragment_names(rules).length() > 0
 }
 
-///
+///|
 /// Collect distinct fragment names referenced across all grammar rules.
 /// Returns sorted unique names (in deterministic emission order).
 fn get_fragment_names(rules : Map[String, RuleAst]) -> Array[String] {
@@ -364,7 +364,11 @@ fn get_fragment_names(rules : Map[String, RuleAst]) -> Array[String] {
   fn go(ast : RuleAst) -> Unit {
     match ast {
       Frag(name) => seen.add(name)
-      Native(_) | Sym(_) | ErrorNodeUntil(_, _) | ExpectSkip(_, _) | SeparatedList(_, _) => ()
+      Native(_)
+      | Sym(_)
+      | ErrorNodeUntil(_, _)
+      | ExpectSkip(_, _)
+      | SeparatedList(_, _) => ()
       Seq(items) | Alt(items) => items.iter().each(go)
       Star(inner) | Plus(inner) | Opt(inner) => go(inner)
       Emit(inner) | Emitor(inner) => go(inner)
@@ -1214,15 +1218,20 @@ fn emit_grammar_ir(
   // ── build fragment pub let declarations string ──
   let frag_decls_str : String = if frag_names.length() > 0 {
     let lines : Array[String] = [
-      "///|",
-      "/// Generated @fragment bindings — fill in the Expr body for each",
-      "/// fragment. The grammar function pre-registers these into the rules",
-      "/// map; the fragments~ parameter overrides them.",
+      "///|", "/// Generated @fragment bindings — fill in the Expr body for each",
+      "/// fragment. The grammar function pre-registers these into the rules", "/// map; the fragments~ parameter overrides them.",
     ]
     for name in frag_names {
       let var_name = "frag_" + name
-      let decl = "pub let " + var_name + " : " + expr_type +
-        " = " + grammar_qual + ".Expr::Fail(\"TODO: fill in @fragment '" + name + "' body\")"
+      let decl = "pub let " +
+        var_name +
+        " : " +
+        expr_type +
+        " = " +
+        grammar_qual +
+        ".Expr::Fail(\"TODO: fill in @fragment '" +
+        name +
+        "' body\")"
       lines.push("")
       lines.push("/// @fragment '" + name + "'")
       lines.push(decl)
@@ -1289,9 +1298,7 @@ fn emit_grammar_ir(
     body_layouts.push(for_loop)
     body_layouts.push(@pretty.hardline())
     body_layouts.push(ctor)
-    let body = @pretty.nest(
-      @pretty.separate(@pretty.text(""), body_layouts),
-    )
+    let body = @pretty.nest(@pretty.separate(@pretty.text(""), body_layouts))
     fn_sig + body + @pretty.hardline() + @pretty.text("}")
   } else {
     // pub let NAME : Type =

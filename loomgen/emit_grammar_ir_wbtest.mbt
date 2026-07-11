@@ -262,7 +262,10 @@ test "emit_grammar_ir accepts @fragment references with mangled Ref" {
   inspect(generated.contains("__loom_frag__bar"), content="true")
   inspect(generated.contains("fragments~"), content="true")
   inspect(generated.contains("pub let frag_bar"), content="true")
-  inspect(generated.contains("rules.set(\"__loom_frag__bar\", frag_bar)"), content="true")
+  inspect(
+    generated.contains("rules.set(\"__loom_frag__bar\", frag_bar)"),
+    content="true",
+  )
 }
 
 ///|
@@ -660,7 +663,12 @@ test "emit_grammar_ir: file production with @fragment body" {
   inspect(generated.contains("__loom_frag__custom_inner"), content="true")
   inspect(generated.contains("fragments~"), content="true")
   inspect(generated.contains("pub let frag_custom_inner"), content="true")
-  inspect(generated.contains("rules.set(\"__loom_frag__custom_inner\", frag_custom_inner)"), content="true")
+  inspect(
+    generated.contains(
+      "rules.set(\"__loom_frag__custom_inner\", frag_custom_inner)",
+    ),
+    content="true",
+  )
 }
 
 ///|
