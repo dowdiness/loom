@@ -694,3 +694,150 @@ test "emit_lexer golden matches fixtures/default_lex_fixture.g.mbt" {
   }
   assert_eq(generated, golden)
 }
+
+// ── #561 line_pattern / line_mode tests ──────────────────────────────
+
+///|
+/// Helper: parse a fixture file that has both #loom.token and #loom.term enums.
+fn full_enums_of(src : String) -> (EnumDecl, EnumDecl) {
+  match parse_annotations(src) {
+    Ok(a) =>
+      (
+        match a.token_enum {
+          Some(te) => te
+          None => abort("no token enum parsed")
+        },
+        match a.term_enum {
+          Some(te) => te
+          None => abort("no term enum parsed")
+        },
+      )
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "emit_line_lexer generates line-mode lexer functions for line_pattern tokens" {
+  let src = read_fixture("fixtures/line_pattern_fixture.mbt")
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  // Should contain the lex_line_start function
+  // Should contain custom_lex call for HeadingMarker
+  inspect(generated.contains("lex_heading_marker(source, pos, len)"), content="true")
+  // Should contain pattern checks for each line_pattern token
+  inspect(generated.contains("ListMarkerDash"), content="true")
+  inspect(generated.contains("ListMarkerStar"), content="true")
+  inspect(generated.contains("ListMarkerPlus"), content="true")
+  inspect(generated.contains("ThematicBreak"), content="true")
+  inspect(generated.contains("BlockQuoteMarker"), content="true")
+  // Should contain the regex patterns
+  inspect(generated.contains("re\"^"), content="true")
+  inspect(generated.contains("#{1,6} "), content="true")
+  // Check ListMarkerDash uses escaped hyphen in regex
+  inspect(generated.contains("\\- "), content="true")
+  // Should NOT contain Inline mode function (only LineStart has #loom.line_mode)
+  inspect(generated.contains("fn lex_inline"), content="false")
+  // Should return Done when pos >= length
+  inspect(generated.contains("return (Done, LineStart)"), content="true")
+  // Should have Invalid fallthrough
+  inspect(generated.contains("Not a block-level token (line_pattern)"), content="true")
+}
+
+///|
+test "emit_line_lexer returns None when no line_pattern variants exist" {
+  let src = read_fixture("fixtures/pattern_lexer_fixture.mbt")
+  match parse_annotations(src) {
+    Ok(a) =>
+      match a.token_enum {
+        Some(te) => {
+          let result = emit_line_lexer(te, a.term_enum, "@core")
+          guard result is None else {
+            fail("expected None for pattern-only fixture")
+          }
+        }
+        None => abort("no token enum")
+      }
+    Err(m) => abort("parse failed: " + m)
+  }
+}
+
+///|
+test "emit_line_lexer returns None when no term enum has line_mode" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("^test")
+    #|  TestToken
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("Inline")
+    #|  SomeNode
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  guard emit_line_lexer(te, Some(term_enum), "@core") is None else {
+    fail("expected None when no mode has line_mode")
+  }
+}
+
+///|
+test "parse_annotations rejects #loom.line_pattern with #loom.keyword" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.keyword("let")
+    #|  #loom.line_pattern("^let")
+    #|  Let
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("#loom.keyword"), content="true")
+    Ok(_) => abort("expected rejection")
+  }
+}
+
+///|
+test "parse_annotations rejects nullable #loom.line_pattern" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("a*")
+    #|  A
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("nullable"), content="true")
+    Ok(_) => abort("expected rejection")
+  }
+}
+
+///|
+test "parse_annotations rejects #loom.line_pattern on #loom.eof" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("^test")
+    #|  Test
+    #|  #loom.eof
+    #|  #loom.line_pattern("^$")
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("#loom.eof"), content="true")
+    Ok(_) => abort("expected rejection")
+  }
+}
