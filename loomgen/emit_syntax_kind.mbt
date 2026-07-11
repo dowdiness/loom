@@ -46,11 +46,14 @@ fn build_kind_entries(
   let seen : @hashset.HashSet[String] = @hashset.HashSet([])
   let first_role : Map[String, SyntaxRole] = Map([])
   for variant in enum_decl.variants {
-    let role = match variant.role {
-      Some(r) => r
+    // #loom.line_pattern tokens may not have a role — synthesize a kind name
+    // directly using variant name + "Token" suffix.
+    let (kind_name, role) = match variant.role {
+      Some(r) => (derive_kind_name(variant.name, r, variant.kind_override), r)
+      None if variant.line_pattern is Some(_) =>
+        (variant.name + "Token", Punct(variant.name))
       None => continue
     }
-    let kind_name = derive_kind_name(variant.name, role, variant.kind_override)
     if seen.contains(kind_name) {
       match first_role.get(kind_name) {
         Some(existing) => {

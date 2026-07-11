@@ -100,6 +100,10 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
         about="Output path for generated step lexer (.g.mbt)",
       ),
       @argparse.OptionArg(
+        "line-lexer",
+        about="Output path for generated line-mode lexer functions (.g.mbt) (#561)",
+      ),
+      @argparse.OptionArg(
         "grammar-ir",
         about="Output path for generated GrammarIr from #loom.rule annotations (.g.mbt)",
       ),
@@ -702,6 +706,9 @@ fn main {
     matches.values.get_or_default("syntax-type", []),
   )
   let lexer_path = first_value(matches.values.get_or_default("lexer", []))
+  let line_lexer_path = first_value(
+    matches.values.get_or_default("line-lexer", []),
+  )
   let grammar_ir_path = first_value(
     matches.values.get_or_default("grammar-ir", []),
   )
@@ -827,6 +834,22 @@ fn main {
     None => None
   }
 
+  // Preflight the line-mode lexer (#561) BEFORE writing any output.
+  let line_lexer_job : (String, String)? = match line_lexer_path {
+    Some(path) =>
+      match emit_line_lexer(te, term_enum_decl, core_qual) {
+        Some(content) => Some((path, content))
+        None => {
+          println(
+            "error: --line-lexer requires #loom.line_pattern annotations on token variants and #loom.line_mode annotations on #loom.lexmode term variants",
+          )
+          @sys.exit(1)
+          return
+        }
+      }
+    None => None
+  }
+
   // Preflight the GrammarIr emission BEFORE writing any output, so an invalid
   // --grammar-ir request (unknown symbol, left recursion, malformed rule string)
   // fails fast instead of leaving other outputs half-written. #522
@@ -924,6 +947,21 @@ fn main {
 
   // Write the preflighted step lexer (already built + validated above). #521
   match lexer_job {
+    Some((path, content)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => {
+          println("Error writing " + path)
+          @sys.exit(1)
+          return
+        }
+      }
+      println("  " + path)
+    }
+    None => ()
+  }
+
+  // Write the preflighted line-mode lexer (already built + validated above). #561
+  match line_lexer_job {
     Some((path, content)) => {
       @fs.write_string_to_file(path, content) catch {
         _ => {

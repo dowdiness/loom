@@ -110,4 +110,34 @@ pub fn regenerate_fixtures() -> Unit {
       }
     }
   }
+  // ------ line_pattern_fixture.g.mbt (line-lexer fixture, #561) ------
+  let src = @fs.read_file_to_string("loomgen/fixtures/line_pattern_fixture.mbt") catch {
+    _ => {
+      println("ERROR: failed to read line_pattern_fixture.mbt")
+      return
+    }
+  }
+  match parse_annotations(src) {
+    Err(msg) => println("ERROR: line_pattern_fixture.mbt — " + msg)
+    Ok(ann) => {
+      guard ann.token_enum is Some(token_enum) else {
+        println("ERROR: line_pattern_fixture.mbt has no #loom.token enum")
+        return
+      }
+      guard ann.term_enum is Some(term_enum) else {
+        println("ERROR: line_pattern_fixture.mbt has no #loom.term enum")
+        return
+      }
+      match emit_line_lexer(token_enum, Some(term_enum), "@core") {
+        None => println("ERROR: emit_line_lexer returned None")
+        Some(content) => {
+          let path = "loomgen/fixtures/line_pattern_fixture.g.mbt"
+          @fs.write_string_to_file(path, content) catch {
+            _ => println("ERROR: failed to write " + path)
+          }
+          println("  " + path)
+        }
+      }
+    }
+  }
 }

@@ -44,7 +44,14 @@ struct VariantDecl {
   pattern : String?
   custom_lex : String?
   lexmode_name : String?
-  // #522. `rule` carries the raw EBNF-subset string from `#loom.rule("...")` on a
+  // #561. `line_pattern` carries a regex matched against a whole line (rest-of-line
+  // from current position to newline). Only valid in token variants consumed by a
+  // `#loom.line_mode` lexmode's generated lexer function.
+  line_pattern : String?
+  // #561. `line_mode` marks that the lexmode referenced by `#loom.lexmode(...)` on
+  // this term variant is line-oriented (dispatches on full lines, not individual
+  // characters). Only valid on term variants alongside `#loom.lexmode("ModeName")`.
+  line_mode : Bool
   // #627. `is_sync` carries the bool from `#loom.recovery("sync")` on a
   // #loom.token variant — marks the variant as an error-recovery synchronization point.
   is_sync : Bool
@@ -136,6 +143,11 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
         }
         if is_token {
           for v in classified {
+            // #loom.line_pattern tokens are produced by the line-mode lexer;
+            // they don't need a scanning role annotation.
+            if v.line_pattern is Some(_) {
+              continue
+            }
             if v.role is None {
               return Err(
                 "variant " +
@@ -157,11 +169,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 " cannot have #loom.rawtext annotation",
               )
             }
-            if v.lexmode_name is Some(_) {
+            // #loom.line_pattern tokens may carry #loom.lexmode to associate
+            // them with a line_mode lexmode.
+            if v.lexmode_name is Some(_) && v.line_pattern is None {
               return Err(
                 "token variant " +
                 v.name +
-                " cannot have #loom.lexmode annotation",
+                " cannot have #loom.lexmode annotation without #loom.line_pattern",
               )
             }
             if v.rule is Some(_) {
@@ -270,6 +284,99 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               None => ()
             }
           }
+          // #561: #loom.line_pattern validation — similar to #loom.pattern but
+          // for line-level patterns. line_pattern tokens may carry constructor
+          // arguments (payload extracted by #loom.custom_lex).
+          for v in classified {
+            match v.line_pattern {
+              Some(p) => {
+                match v.role {
+                  Some(Keyword(_)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has #loom.line_pattern together with #loom.keyword; keywords are post-classified and must not carry a line pattern",
+                    )
+                  Some(Eof) =>
+                    return Err(
+                      "#loom.eof variant " +
+                      v.name +
+                      " cannot have #loom.line_pattern",
+                    )
+                  Some(ErrorToken) =>
+                    return Err(
+                      "#loom.error variant " +
+                      v.name +
+                      " cannot have #loom.line_pattern; the error token is the no-match fallback",
+                    )
+                  Some(Ident) =>
+                    return Err(
+                      "#loom.ident variant " +
+                      v.name +
+                      " cannot have #loom.line_pattern; line patterns are for block-level tokens, not identifiers",
+                    )
+                  _ => ()
+                }
+                if malformed_re(p) is Some(reason) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has a malformed #loom.line_pattern \"" +
+                    p +
+                    "\": " +
+                    reason +
+                    ". This would emit a regex that fails to compile in the generated line lexer.",
+                  )
+                }
+                if unsupported_re_construct(p) is Some(reason) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has an unsupported #loom.line_pattern \"" +
+                    p +
+                    "\": " +
+                    reason +
+                    ". loomgen's #loom.line_pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
+                  )
+                }
+                if is_nullable_pattern(p) {
+                  return Err(
+                    "token variant " +
+                    v.name +
+                    " has a nullable #loom.line_pattern \"" +
+                    p +
+                    "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
+                  )
+                }
+              }
+              None => ()
+            }
+          }
+          // #561: #loom.line_mode is only valid on term variants alongside
+          // #loom.lexmode. Validate on token enums.
+          for v in classified {
+            if v.line_mode {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.line_mode; #loom.line_mode is only valid on #loom.term variants",
+              )
+            }
+          }
+          // #561: #loom.line_pattern must be paired with #loom.custom_lex when the
+          // token variant has constructor arguments. line_pattern tokens with args
+          // need a custom_lex to extract the payload.
+          for v in classified {
+            match v.line_pattern {
+              Some(_) if v.arg_count > 0 && v.custom_lex is None =>
+                return Err(
+                  "token variant " +
+                  v.name +
+                  " has constructor arguments and #loom.line_pattern but no #loom.custom_lex; the generated line lexer needs a custom_lex function to extract the payload from the match text",
+                )
+              _ => ()
+            }
+          }
         }
         // All term variants MUST have a #loom.* annotation
         if is_term {
@@ -317,6 +424,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 "term variant " +
                 v.name +
                 " cannot have #loom.recovery annotation (#loom.recovery is only valid on #loom.token variants)",
+              )
+            }
+          }
+        }
+        // #561: #loom.line_mode is only valid alongside #loom.lexmode on term variants.
+        if is_term {
+          for v in classified {
+            if v.line_mode && v.lexmode_name is None {
+              return Err(
+                "term variant " +
+                v.name +
+                " has #loom.line_mode without #loom.lexmode; #loom.line_mode must accompany a #loom.lexmode(\"ModeName\") annotation",
               )
             }
           }
@@ -496,9 +615,11 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         // Detect #loom.pattern and #loom.custom_lex lexer-generation modifiers.
         let mut pattern : String? = None
         let mut custom_lex : String? = None
+        let mut line_pattern : String? = None
         let mut lexmode_name : String? = None
         let mut rule : String? = None
         let mut is_sync = false
+        let mut line_mode = false
         for attr in cd.attrs {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
@@ -523,6 +644,10 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 rule = first_string_from_apply(attr.parsed)
               } else if id.name == "recovery" {
                 is_sync = true
+              } else if id.name == "line_pattern" {
+                line_pattern = first_string_from_apply(attr.parsed)
+              } else if id.name == "line_mode" {
+                line_mode = true
               }
             _ => ()
           }
@@ -542,6 +667,8 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           pattern,
           custom_lex,
           lexmode_name,
+          line_pattern,
+          line_mode,
           is_sync,
           rule,
         }
@@ -1295,6 +1422,33 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
               "'",
             )
           }
+        }
+        continue
+      }
+      "line_pattern" => {
+        // Modifier only — skip role assignment.
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.line_pattern on " +
+            variant.name +
+            " requires exactly 1 string argument (regex pattern)",
+          )
+        }
+        if first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom.line_pattern on " +
+            variant.name +
+            " argument must be a string literal",
+          )
+        }
+        continue
+      }
+      "line_mode" => {
+        // Modifier only — skip role assignment.
+        if count_apply_args(attr.parsed) > 0 {
+          return Err(
+            "#loom.line_mode on " + variant.name + " does not accept arguments",
+          )
         }
         continue
       }

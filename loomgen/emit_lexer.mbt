@@ -64,11 +64,18 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       Some(Keyword(kw)) => keywords.push((kw, v.name))
       _ => ()
     }
-    if v.custom_lex is Some(fn_name) {
+    // custom_lex functions for #loom.line_pattern variants belong to the
+    // line-mode lexer, not the character-level lexer — skip them here.
+    if v.custom_lex is Some(fn_name) && v.line_pattern is None {
       custom_lex_fns.push(fn_name)
     }
   }
   for v in variants {
+    // #loom.line_pattern variants are produced by the line-mode lexer, not the
+    // character-level lexer — skip them entirely.
+    if v.line_pattern is Some(_) {
+      continue
+    }
     let is_candidate = v.pattern is Some(_) ||
       v.custom_lex is Some(_) ||
       v.role is Some(Punct(_)) ||
@@ -124,13 +131,13 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       "#loom.token enum has #loom.keyword variants and more than one pattern-backed #loom.ident variant; keyword post-classification is ambiguous (it keys off a single identifier match). Keep exactly one #loom.ident, or handle the others via #loom.custom_lex",
     )
   }
-  // A #loom.punct whose text equals a keyword shadows it: the punct wins
-  // longest-match at equal length, so the keyword variant would never be
-  // produced. (General #loom.pattern/keyword overlap is the author's
-  // responsibility — it cannot be decided statically.)
+  // Filter out #loom.line_pattern variants — they're produced by the line-mode
+  // lexer, not the character-level lexer.
+  let char_variants = variants.filter(fn(v) { v.line_pattern is None })
+  // Skip line_pattern variants in keyword/punct collision check
   for kw in keywords {
     let (kw_text, kw_name) = kw
-    for v in variants {
+    for v in char_variants {
       if v.role is Some(Punct(lit)) && lit == kw_text {
         return Err(
           "#loom.punct variant " +
@@ -146,7 +153,12 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       }
     }
   }
-  Ok({ variants, keywords, custom_lex_fns, has_keywords: keywords.length() > 0 })
+  Ok({
+    variants: char_variants,
+    keywords,
+    custom_lex_fns,
+    has_keywords: keywords.length() > 0,
+  })
 }
 
 ///|

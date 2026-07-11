@@ -104,7 +104,7 @@ fn show_literal_for(variant : VariantDecl) -> String {
     Some(ErrorNode) => abort("term variant in token enum: " + variant.name)
     Some(Root) => abort("term variant in token enum: " + variant.name)
     Some(View(_, _, _)) => abort("term variant in token enum: " + variant.name)
-    None => abort("unannotated variant: " + variant.name)
+    None => to_lowercase_first(variant.name) // #loom.line_pattern tokens without role
   }
 }
 
@@ -114,8 +114,10 @@ fn emit_token_impls(
   token_kinds : Array[(String, Int)],
 ) -> String {
   // Validate every variant has a role before generating.
+  // #loom.line_pattern tokens without a role are exempt — they're produced by
+  // the line-mode lexer and don't need a scanning role.
   for v in token_enum.variants {
-    if v.role is None {
+    if v.role is None && v.line_pattern is None {
       abort("variant " + v.name + " has no #loom.* annotation")
     }
   }
@@ -192,7 +194,12 @@ fn emit_token_impls(
   b.write_string("  let n : Int = match self {\n")
   for v in annotated {
     let pat = pattern_for(v, false)
-    let kind_name = derive_kind_name(v.name, v.role.unwrap(), v.kind_override)
+    // #loom.line_pattern tokens may not have a role — synthesize kind name
+    // using variant name + "Token" to match build_kind_entries.
+    let kind_name = match v.role {
+      Some(r) => derive_kind_name(v.name, r, v.kind_override)
+      None => v.name + "Token"
+    }
     let raw = kind_name_to_raw(token_kinds, kind_name)
     b.write_string("    " + pat + " => " + raw.to_string() + "\n")
   }
