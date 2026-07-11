@@ -57,11 +57,25 @@ fn emit_mode_line_lexer(
   b.write_string("      _ => line_end = line_end + 1\n")
   b.write_string("    }\n  }\n")
   b.write_string("  let rest = source[pos:line_end].view()\n\n")
-  // Emit each line_pattern check in declaration order
+  // Emit each line_pattern check in declaration order.
+  // Only emit candidates whose lexmode_name matches the enclosing mode (or
+  // candidates with no lexmode_name, which apply to all line_mode modes).
+  // Nullary tokens use the candidate's declared lexmode_name as the transition
+  // target when present, falling back to the enclosing mode_name.
   for v in candidates {
+    // Skip candidates explicitly assigned to a different mode
+    match v.lexmode_name {
+      Some(name) if name != mode_name => continue
+      _ => ()
+    }
     let pattern = v.line_pattern.unwrap()
     // Escape double quotes for re"..." literal
     let safe_pattern = pattern.replace(old="\"", new="\\\"")
+    // Determine transition target: candidate's lexmode_name, or enclosing mode
+    let transition = match v.lexmode_name {
+      Some(name) => name
+      None => mode_name
+    }
     b.write_string("  // " + v.name + "\n")
     b.write_string(
       "  if rest =~ (re\"^(?:" + safe_pattern + ")\", after=after) {\n",
@@ -73,14 +87,14 @@ fn emit_mode_line_lexer(
         b.write_string("    return " + lex_fn + "(source, pos, len)\n")
       None =>
         if v.arg_count == 0 {
-          // Nullary token — produce directly
+          // Nullary token — produce directly with transition target
           b.write_string(
             "    return (Produced(" +
             core_qual +
             ".TokenInfo::new(" +
             v.name +
             ", len), next_offset=pos + len), " +
-            mode_name +
+            transition +
             ")\n",
           )
         } else {

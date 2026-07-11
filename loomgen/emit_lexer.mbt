@@ -64,7 +64,9 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
       Some(Keyword(kw)) => keywords.push((kw, v.name))
       _ => ()
     }
-    if v.custom_lex is Some(fn_name) {
+    // custom_lex functions for #loom.line_pattern variants belong to the
+    // line-mode lexer, not the character-level lexer — skip them here.
+    if v.custom_lex is Some(fn_name) && v.line_pattern is None {
       custom_lex_fns.push(fn_name)
     }
   }

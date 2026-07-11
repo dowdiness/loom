@@ -847,3 +847,21 @@ test "parse_annotations rejects #loom.line_pattern on #loom.eof" {
     Ok(_) => abort("expected rejection")
   }
 }
+
+///|
+test "parse_annotations rejects #loom.line_pattern with payload but no #loom.custom_lex" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("#{1,6} ")
+    #|  HeadingMarker(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("#loom.custom_lex"), content="true")
+    Ok(_) => abort("expected rejection for payload-carrying line_pattern without custom_lex")
+  }
+}
