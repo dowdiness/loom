@@ -2,6 +2,19 @@
 
 ///|
 /// Generated GrammarIr initialization from grammar rules.
+
+///|
+/// Generated @fragment bindings — fill in the Expr body for each
+/// fragment. The grammar function pre-registers these into the rules
+/// map; the fragments~ parameter overrides them.
+
+///|
+/// @fragment 'source_toplevel'
+pub let frag_source_toplevel : @grammar.Expr[@token.Token, @syntax.SyntaxKind] = @grammar.Expr::Fail(
+  "TODO: fill in @fragment 'source_toplevel' body",
+)
+
+///|
 pub fn lambda_grammar_ir(
   fragments? : Map[String, @grammar.Expr[@token.Token, @syntax.SyntaxKind]] = Map([],
   ),
@@ -12,6 +25,7 @@ pub fn lambda_grammar_ir(
       @grammar.Expr::Ref("__loom_frag__source_toplevel"),
     ),
   }
+  rules.set("__loom_frag__source_toplevel", frag_source_toplevel)
   for frag, body in fragments {
     rules.set(frag, body)
   }

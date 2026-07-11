@@ -215,9 +215,10 @@ test "emit_grammar_ir rejects plain-position left recursion" {
 }
 
 ///|
-/// @fragment references now emit a mangled `Ref("__loom_frag__<name>")` that the
-/// caller supplies via the `fragments~` map parameter. The mangled prefix avoids
-/// collision with bare variant names in the `GrammarIr.rules` map.
+/// @fragment references emit a mangled `Ref("__loom_frag__<name>")` plus a
+/// generated `pub let frag_<name>` declaration that the consumer fills in.
+/// The grammar function pre-registers the fragment var in the rules map
+/// before the fragments~ merge loop.
 test "emit_grammar_ir accepts @fragment references with mangled Ref" {
   let src =
     #|#loom.token
@@ -244,6 +245,8 @@ test "emit_grammar_ir accepts @fragment references with mangled Ref" {
   }
   inspect(generated.contains("__loom_frag__bar"), content="true")
   inspect(generated.contains("fragments~"), content="true")
+  inspect(generated.contains("pub let frag_bar"), content="true")
+  inspect(generated.contains("rules.set(\"__loom_frag__bar\", frag_bar)"), content="true")
 }
 
 ///|
@@ -616,10 +619,10 @@ test "emit_grammar_ir: file-only term enum (no annotations) emits multi-producti
 }
 
 ///|
-/// A file production with an `@fragment` body now emits a mangled `Ref` that the
-/// caller supplies via the `fragments~` map. The fragment reference routes through
-/// the shared emission path, same as annotation fragments.
-test "emit_grammar_ir: file production with @fragment body emits mangled Ref" {
+/// A file production with an `@fragment` body emits a mangled `Ref` and
+/// a generated `pub let` declaration for the fragment. The pre-registration
+/// in the function body merges the fragment into the rules map.
+test "emit_grammar_ir: file production with @fragment body" {
   let (token_enum, term_enum, file_rules, file_lines) = file_only_inputs(
     "Pair = LParen Inner RParen\nInner = @custom_inner",
   )
@@ -640,6 +643,8 @@ test "emit_grammar_ir: file production with @fragment body emits mangled Ref" {
   }
   inspect(generated.contains("__loom_frag__custom_inner"), content="true")
   inspect(generated.contains("fragments~"), content="true")
+  inspect(generated.contains("pub let frag_custom_inner"), content="true")
+  inspect(generated.contains("rules.set(\"__loom_frag__custom_inner\", frag_custom_inner)"), content="true")
 }
 
 ///|
