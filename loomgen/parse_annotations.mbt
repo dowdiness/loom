@@ -144,6 +144,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
         }
         if is_token {
+          // A token cannot be produced by both the character-level and line-mode
+          // lexer; reject the ambiguous combination instead of silently ignoring
+          // the character-level pattern.
+          for v in classified {
+            if v.pattern is Some(_) && v.line_pattern is Some(_) {
+              return Err(
+                "variant " +
+                v.name +
+                " has both #loom.pattern and #loom.line_pattern; a token cannot be produced by both the character-level and line-mode lexer",
+              )
+            }
+          }
           for v in classified {
             // #loom.line_pattern tokens are produced by the line-mode lexer;
             // they don't need a scanning role annotation.
