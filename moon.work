@@ -16,5 +16,6 @@ members = [
   "./examples/jsx",
   "./incr/incr",
   "./egraph",
+  "./egglog",
   "./fixtures/grammar_ir_regression",
 ]
