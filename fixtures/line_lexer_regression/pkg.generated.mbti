@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loom_tests/line_lexer_regression"
+
+import {
+  "dowdiness/loom/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn lex(String, Int, LexMode) -> (@core.LexStep[Token], LexMode)
+
+// Errors
+
+// Types and methods
+pub(all) enum LexMode {
+  Inline
+  LineStart
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Token {
+  HeadingMarker(Int)
+  ListMarker
+  BlockQuoteMarker
+  Text(String)
+  BlankLine
+  Error(String)
+  EOF
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+
