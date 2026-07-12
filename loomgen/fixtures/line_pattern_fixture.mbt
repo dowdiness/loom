@@ -32,6 +32,7 @@ pub(all) enum Term {
   #loom.leaf
   #loom.lexmode("LineStart")
   #loom.line_mode
+  #loom.fallback_lex("lex_inline")
   Heading
   #loom.leaf
   #loom.lexmode("LineStart")
