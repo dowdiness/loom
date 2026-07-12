@@ -127,6 +127,7 @@ while IFS= read -r -d '' f; do
   done
 done < <(find . -name "*.md" \
   ! -path "*/_build/*" \
+  ! -path "*/.worktrees/*" \
   ! -path "./.claude/*" \
   ! -path "./docs/archive/*" \
   ! -path "./docs/decisions/*" \
@@ -187,6 +188,7 @@ done < <(find . -name "moon.mod.json" \
   ! -path "*/_build/*" \
   ! -path "*/.mooncakes/*" \
   ! -path "./.claude/*" \
+  ! -path "*/.worktrees/*" \
   ! -path "./incr/*" \
   -print0 | sort -z)
 [[ "$doctest_hits" -eq 0 ]] && ok "All packages with runnable snippets have README.mbt.md"
@@ -229,6 +231,7 @@ while IFS= read -r -d '' f; do
 done < <(find . -name "*.md" \
   ! -path "*/_build/*" \
   ! -path "./.claude/*" \
+  ! -path "*/.worktrees/*" \
   ! -path "*/.mooncakes/*" \
   ! -path "./docs/archive/*" \
   ! -path "./incr/*" \
