@@ -266,3 +266,83 @@ test "emit_lexer_skeleton produces correct dispatch skeleton" {
     ),
   )
 }
+
+///|
+test "emit_lexer_skeleton_with_line_delegates delegates line modes, stubs others" {
+  // Inline is not a line mode, so it keeps the aborting stub; LineStart
+  // delegates to the generated helper.
+  let output = emit_lexer_skeleton_with_line_delegates(
+    ["Inline", "LineStart"],
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(
+    output.contains("generated_lex_line_start(source, pos)"),
+    content="true",
+  )
+  inspect(
+    output.contains("abort(\"lex_inline not implemented\")"),
+    content="true",
+  )
+  inspect(
+    output.contains("abort(\"lex_line_start not implemented\")"),
+    content="false",
+  )
+}
+
+///|
+test "integrate_line_lexer_skeleton migrates only exact stubs and is idempotent" {
+  // Base skeleton with the exact historical aborting stubs for Inline and
+  // LineStart.
+  let base = emit_lexer_skeleton(["Inline", "LineStart"], "Token", "@core")
+  // Replace the exact lex_inline stub with a handwritten custom body.
+  let custom_inline = "fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+    "  // user override\n" +
+    "  lex_inline_custom(source, pos)\n" +
+    "}"
+  let existing = base.replace(
+    old="fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n  abort(\"lex_inline not implemented\")\n}",
+    new=custom_inline,
+  )
+  inspect(existing.contains("// user override"), content="true")
+  inspect(
+    existing.contains("abort(\"lex_line_start not implemented\")"),
+    content="true",
+  )
+  // Only the exact LineStart stub is migrated; the custom lex_inline is preserved.
+  let migrated = integrate_line_lexer_skeleton(
+    existing,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(
+    migrated.contains("generated_lex_line_start(source, pos)"),
+    content="true",
+  )
+  inspect(
+    migrated.contains("abort(\"lex_line_start not implemented\")"),
+    content="false",
+  )
+  inspect(migrated.contains("// user override"), content="true")
+  inspect(
+    migrated.contains("generated_lex_inline(source, pos)"),
+    content="false",
+  )
+
+  // `String::replace` is first-occurrence-only and each unique mode's stub
+  // appears once, so migration applies the delegate exactly once per mode.
+  inspect(
+    migrated.split("generated_lex_line_start(source, pos)").length() - 1,
+    content="1",
+  )
+  // A second pass must be a no-op (deterministic, idempotent).
+  let migrated2 = integrate_line_lexer_skeleton(
+    migrated,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(migrated2 == migrated, content="true")
+}

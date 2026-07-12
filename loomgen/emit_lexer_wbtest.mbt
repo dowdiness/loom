@@ -754,6 +754,20 @@ test "emit_line_lexer generates line-mode lexer functions for line_pattern token
 }
 
 ///|
+test "emit_line_lexer emits generated_lex_<mode> helpers, not lex_<mode>" {
+  let src = read_fixture("fixtures/line_pattern_fixture.mbt")
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  // Generated line helpers use the `generated_lex_<mode>` prefix so they do not
+  // collide with the user-owned `lex_<mode>` override points in the skeleton.
+  inspect(generated.contains("fn generated_lex_line_start"), content="true")
+  inspect(generated.contains("fn lex_line_start"), content="false")
+}
+
+///|
 test "emit_line_lexer returns None when no line_pattern variants exist" {
   let src = read_fixture("fixtures/pattern_lexer_fixture.mbt")
   match parse_annotations(src) {
@@ -959,8 +973,8 @@ test "emit_line_lexer emits declared fallback for line-mode no-match" {
     Some(s) => s
     None => abort("emit_line_lexer returned None")
   }
-  let line_start_idx = generated.find("fn lex_line_start")
-  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  let line_start_idx = generated.find("fn generated_lex_line_start")
+  let bq_start_idx = generated.find("fn generated_lex_block_quote_line_start")
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both line-mode functions in output")
   }
@@ -1156,11 +1170,14 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
   inspect(generated.contains("ThematicBreak"), content="true")
   // lex_line_start should NOT include BlockQuoteMarker (assigned to BlockQuoteLineStart)
   // Check that lex_line_start function body contains neither the name nor its pattern
-  inspect(generated.contains("fn lex_line_start"), content="true")
-  inspect(generated.contains("fn lex_block_quote_line_start"), content="true")
+  inspect(generated.contains("fn generated_lex_line_start"), content="true")
+  inspect(
+    generated.contains("fn generated_lex_block_quote_line_start"),
+    content="true",
+  )
   // BlockQuoteMarker should only appear in the block_quote_line_start function.
-  let line_start_idx = generated.find("fn lex_line_start")
-  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  let line_start_idx = generated.find("fn generated_lex_line_start")
+  let bq_start_idx = generated.find("fn generated_lex_block_quote_line_start")
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both lex functions in output")
   }

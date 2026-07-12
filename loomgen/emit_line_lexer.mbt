@@ -28,6 +28,29 @@ fn collect_line_patterns(token_enum : EnumDecl) -> Array[VariantDecl]? {
 }
 
 ///|
+/// Collect `#loom.line_mode` lex mode names from a term enum, returned in a
+/// deterministic (length-ascending, stable) order. Returns an empty array when
+/// no term enum is available or none of its variants are line modes.
+fn collect_line_lexer_modes(term_enum_decl : EnumDecl?) -> Array[String] {
+  let line_modes : @hashset.HashSet[String] = @hashset.HashSet([])
+  match term_enum_decl {
+    Some(term_enum) =>
+      for v in term_enum.variants {
+        if v.line_mode {
+          match v.lexmode_name {
+            Some(mode_name) => line_modes.add(mode_name)
+            None => ()
+          }
+        }
+      }
+    None => ()
+  }
+  let arr = line_modes.to_array()
+  arr.sort()
+  arr
+}
+
+///|
 /// Generate the line-mode lexer function for a single mode.
 fn emit_mode_line_lexer(
   b : StringBuilder,
@@ -148,26 +171,27 @@ fn emit_line_lexer(
     Some(c) => c
   }
   let fallback_by_mode : Map[String, String] = Map([])
-  // Collect which modes are line_mode from term enum
-  let line_modes : @hashset.HashSet[String] = @hashset.HashSet([])
+  // Collect fallback-by-mode declarations from the term enum (independent of
+  // the line-mode set used for emission).
   match term_enum_decl {
     Some(term_enum) =>
       for v in term_enum.variants {
         if v.line_mode {
           match v.lexmode_name {
-            Some(mode_name) => {
-              line_modes.add(mode_name)
+            Some(mode_name) =>
               match v.fallback_lex {
                 Some(fn_name) => fallback_by_mode.set(mode_name, fn_name)
                 None => ()
               }
-            }
             None => ()
           }
         }
       }
     None => ()
   }
+  // Collect the deterministically sorted set of line modes and bail out when
+  // there are none.
+  let line_modes = collect_line_lexer_modes(term_enum_decl)
   if line_modes.length() == 0 {
     return None
   }
@@ -179,26 +203,16 @@ fn emit_line_lexer(
   b.write_string(
     "/// Each function matches #loom.line_pattern tokens against whole lines.\n\n",
   )
-  // Sort modes for deterministic output
-  let sorted_modes : Array[String] = line_modes.to_array()
-  sorted_modes.sort_by(fn(a, b) {
-    if a < b {
-      -1
-    } else if a > b {
-      1
-    } else {
-      0
-    }
-  })
-  // Emit one function per line_mode using mode_to_fn_name naming (same as lexer_skeleton stubs)
-  for mode in sorted_modes {
+  // Emit one generated helper per line mode using generated_lex_<mode> naming
+  // so the helpers integrate with the skeleton's lex_<mode> override points.
+  for mode in line_modes {
     emit_mode_line_lexer(
       b,
       mode,
       candidates,
       token_type,
       core_qual,
-      mode_to_fn_name(mode),
+      generated_line_lexer_fn_name(mode),
       fallback_by_mode.get(mode),
     )
   }

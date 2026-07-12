@@ -4,7 +4,7 @@
 /// Line-mode lexer functions for #loom.line_mode modes.
 /// Each function matches #loom.line_pattern tokens against whole lines.
 
-fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {
+fn generated_lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {
   if pos >= source.length() {
     return (Done, LineStart)
   }
