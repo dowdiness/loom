@@ -817,6 +817,48 @@ test "parse_annotations rejects #loom.line_pattern with #loom.keyword" {
 }
 
 ///|
+test "parse_annotations rejects #loom.line_pattern with #loom.error" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("^test")
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  expect_parse_err(src, "#loom.error")
+}
+
+///|
+test "parse_annotations rejects #loom.line_pattern with #loom.ident" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("^test")
+    #|  #loom.ident
+    #|  Ident
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+  expect_parse_err(src, "#loom.ident")
+}
+
+///|
+test "parse_annotations rejects both #loom.pattern and #loom.line_pattern" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("^>")
+    #|  #loom.pattern("^>")
+    #|  BlockQuoteMarker
+    #|} derive(Eq)
+  expect_parse_err(
+    src, "variant BlockQuoteMarker has both #loom.pattern and #loom.line_pattern; a token cannot be produced by both the character-level and line-mode lexer",
+  )
+}
+
+///|
 test "parse_annotations rejects nullable #loom.line_pattern" {
   let src =
     #|#loom.token

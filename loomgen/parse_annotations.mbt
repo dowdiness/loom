@@ -144,6 +144,18 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           }
         }
         if is_token {
+          // A token cannot be produced by both the character-level and line-mode
+          // lexer; reject the ambiguous combination instead of silently ignoring
+          // the character-level pattern.
+          for v in classified {
+            if v.pattern is Some(_) && v.line_pattern is Some(_) {
+              return Err(
+                "variant " +
+                v.name +
+                " has both #loom.pattern and #loom.line_pattern; a token cannot be produced by both the character-level and line-mode lexer",
+              )
+            }
+          }
           for v in classified {
             // #loom.line_pattern tokens are produced by the line-mode lexer;
             // they don't need a scanning role annotation.
@@ -1115,20 +1127,11 @@ fn is_valid_lex_fn_name(name : String) -> Bool {
 /// Extract the nth positional string argument from a loom annotation (0-indexed).
 fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
   match parsed {
-    Some(@attribute.Apply(_, props)) => {
-      let mut i = 0
-      for prop in props {
-        if i == index {
-          match prop {
-            @attribute.Expr(@attribute.String(lit)) =>
-              return Some(lit.to_string())
-            _ => return None
-          }
-        }
-        i = i + 1
+    Some(@attribute.Apply(_, props)) =>
+      match props.nth(index) {
+        Some(@attribute.Expr(@attribute.String(lit))) => Some(lit.to_string())
+        _ => None
       }
-      None
-    }
     _ => None
   }
 }

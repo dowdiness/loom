@@ -19,12 +19,13 @@ DOC_EXCLUDE_PREFIXES = (
     "egraph",
     "event-graph-walker",
     ".mooncakes",
+    ".worktrees",
 )
 DOC_EXCLUDE_FILES = frozenset(
     {"docs/performance/benchmark_history.md", "ROADMAP.md"}
 )
 
-PKG_SKIP_PREFIXES = ("/_build/", "/.mooncakes/", "/.claude/")
+PKG_SKIP_PREFIXES = ("/_build/", "/.mooncakes/", "/.claude/", "/.worktrees/")
 
 PROPOSED_START = "<!-- docs:proposed-api -->"
 PROPOSED_END = "<!-- /docs:proposed-api -->"
@@ -139,9 +140,14 @@ def should_scan_doc(path: Path) -> bool:
     rel = path.relative_to(ROOT).as_posix()
     if rel in DOC_EXCLUDE_FILES:
         return False
-    return not any(
-        rel == prefix or rel.startswith(prefix + "/") for prefix in DOC_EXCLUDE_PREFIXES
-    )
+    # Prefix-based exclusion (root-level directories)
+    for prefix in DOC_EXCLUDE_PREFIXES:
+        if rel == prefix or rel.startswith(prefix + "/"):
+            return False
+    # Component-aware exclusion: reject .worktrees at any depth
+    if "/.worktrees/" in rel:
+        return False
+    return True
 
 
 def strip_generics(text: str) -> str:
