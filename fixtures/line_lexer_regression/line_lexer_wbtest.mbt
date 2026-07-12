@@ -1,10 +1,14 @@
 ///|
+
+///|
+fn fixture_lexer() -> @core.ModeLexer[Token, LexMode] {
+  { lex_step: lex, initial_mode: LineStart }
+}
+
+///|
 test "generated line-mode lexer tokenizes Markdown lines" {
   let source = "# Heading\n\n- item\n> quote\n"
-  let lexer : @core.ModeLexer[Token, LexMode] = {
-    lex_step: lex,
-    initial_mode: LineStart,
-  }
+  let lexer = fixture_lexer()
   let (tokens, modes) = @core.tokenize_with_modes(lexer, source, EOF)
   guard tokens ==
     [
@@ -44,10 +48,7 @@ test "generated line-mode lexer tokenizes Markdown lines" {
 ///|
 test "generated line-mode lexer preserves CRLF line lengths" {
   let source = "# H\r\n\r\n- x\r\n"
-  let lexer : @core.ModeLexer[Token, LexMode] = {
-    lex_step: lex,
-    initial_mode: LineStart,
-  }
+  let lexer = fixture_lexer()
   let (tokens, _modes) = @core.tokenize_with_modes(lexer, source, EOF)
   guard tokens ==
     [
