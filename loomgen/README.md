@@ -25,6 +25,10 @@ string escapes), so write engine-valid MoonBit `re`-dialect regex — e.g. a lit
 hyphen in a class is `\-`, not a bare `-`. A pattern that can match the empty string is
 rejected at generation time.
 
+`#loom.pattern` and `#loom.line_pattern` are mutually exclusive on the same
+variant — a token cannot be produced by both the character-level and line-mode
+lexer. A variant annotated with both is rejected at generation time.
+
 
 ## Line-mode lexer generation (`--line-lexer`, #561)
 
@@ -48,6 +52,10 @@ Reuses the same supported regex subset, nullability checks, and structural
 validation as `#loom.pattern`. Alternation `|` is rejected (leftmost-match, not
 longest-match). Patterns are wrapped in `^(?:...)` so they should not include
 their own `^` anchor.
+
+`#loom.line_pattern` and `#loom.pattern` are mutually exclusive on the same
+variant — a token cannot be produced by both the line-mode and character-level
+lexer. A variant annotated with both is rejected at generation time.
 
 Usage:
 ```bash
