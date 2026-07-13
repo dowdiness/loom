@@ -110,11 +110,9 @@ rtk git commit -m "ci: clarify benchmark inventory update guard"
 
 - [ ] **Step 1: Resolve exact benchmark selectors**
 
-Use repository search to identify the test declarations and line/index selectors:
-
-```bash
-rtk grep -n 'ui-static-probe: tree 1023 static Derived + 512 eager leaves|realistic: 160 defs - incremental (edit tail)' incr loom seam examples
-```
+Use the built-in repository grep tool to identify the test declarations and
+line/index selectors in `incr`, `loom`, `seam`, and `examples`. Do not use a
+shell grep command for content search.
 
 Inspect the containing benchmark files and verify the exact package and index before running any measurement.
 
@@ -123,12 +121,15 @@ Inspect the containing benchmark files and verify the exact package and index be
 Run:
 
 ```bash
+rtk git status --short --branch
+rtk git -C /home/antisatori/worktrees/loom/test/644-benchmark-baseline status --short --branch
 rtk moon version --all
 rtk git -C /home/antisatori/worktrees/loom/test/644-benchmark-baseline rev-parse HEAD
 rtk git -C /home/antisatori/worktrees/loom/test/644-benchmark-baseline show -s --format='%H %s' 6e17167
 ```
 
-Expected: Moon `0.1.20260703 (6fbf8c3)` and baseline worktree commit `6e17167`.
+Expected: both worktrees are clean, Moon is
+`0.1.20260703 (6fbf8c3)`, and the baseline worktree commit is `6e17167`.
 
 - [ ] **Step 3: Run candidate 1 with alternating paired order**
 
