@@ -77,6 +77,8 @@ module, and fake `moon` executable. It must cover:
 8. informational threshold breach (`INFO`, exit 0)
 9. stale policy key (no report, exit 1)
 10. duplicate current or baseline key (no report, exit 1)
+11. `bench-check.sh --validate` validates the checked-in baseline/policy
+    without running MoonBit; PR CI runs this alongside the fixture self-test.
 
 Tests assert observable status text, report existence/absence, and exit code.
 They must run without MoonBit or the real benchmark suite.
@@ -92,6 +94,8 @@ policy regressions visible before merge.
   rows and policy membership against that prospective baseline, then atomically
   replaces the baseline. Existing zero-row and 75% baseline-size safety guards
   remain.
+- `--validate` is the shared production-file validation path used by PR CI; it
+  never invokes the benchmark command.
 - No benchmark implementation or baseline values are changed by this policy
   work.
 - No workflow persistence-count change is required; the existing report format

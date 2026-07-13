@@ -69,6 +69,37 @@ run_case() {
     exit 1
   }
 }
+run_update_case() {
+  local fixture_file="$1" expected_exit="$2"
+  set +e
+  BENCH_BASELINE="$baseline" BENCH_POLICY="$policy" \
+    BENCH_MODULE_DIR="$fixture/module" BENCH_FIXTURE="$fixture_file" \
+    PATH="$fixture/bin:$PATH" bash "$checker" --update \
+    > "$fixture/stdout" 2> "$fixture/stderr"
+  actual=$?
+  set -e
+  [[ "$actual" -eq "$expected_exit" ]] || {
+    printf 'SELFTEST FAIL: update expected exit %s, got %s\n' "$expected_exit" "$actual"
+    cat "$fixture/stdout" "$fixture/stderr"
+    exit 1
+  }
+}
+run_command_failure_case() {
+  local fixture_file="$1"
+  rm -f "$report"
+  set +e
+  BENCH_BASELINE="$baseline" BENCH_POLICY="$policy" \
+    BENCH_MODULE_DIR="$fixture/module" BENCH_REPORT_TSV="$report" \
+    BENCH_FIXTURE="$fixture_file" BENCH_MOON_EXIT=7 \
+    PATH="$fixture/bin:$PATH" bash "$checker" > "$fixture/stdout" 2> "$fixture/stderr"
+  actual=$?
+  set -e
+  [[ "$actual" -eq 1 ]] || {
+    printf 'SELFTEST FAIL: benchmark failure expected exit 1, got %s\n' "$actual"
+    cat "$fixture/stdout" "$fixture/stderr"
+    exit 1
+  }
+}
 assert_output_contains() {
   local needle="$1"
   [[ "$(cat "$fixture/stdout")" == *"$needle"* ]] || {
@@ -84,7 +115,7 @@ assert_report_contains() {
   }
 }
 assert_no_report() {
-  [[ ! -s "$report" ]] || {
+  [[ ! -e "$report" ]] || {
     printf 'SELFTEST FAIL: unexpected comparison report\n'
     cat "$report"
     exit 1
@@ -190,11 +221,14 @@ assert_no_report
 
 run_case "$fixture/unknown-unit" 1
 assert_no_report
+run_command_failure_case "$fixture/ok"
+assert_no_report
 ```
 
 - [ ] **Step 4: Add fail-closed metadata cases**
 
-Add fixtures/cases proving stale policy and duplicate keys fail without a report:
+Add fixtures/cases proving policy version, stale policy, and duplicate keys
+fail without a report:
 
 ```bash
 cat > "$fixture/stale-policy" <<'EOF'
@@ -207,6 +241,16 @@ run_case "$fixture/ok" 1
 assert_no_report
 cp "$fixture/policy.good" "$policy"
 
+printf 'noisy row	informational	missing version\n' > "$policy"
+run_case "$fixture/ok" 1
+assert_no_report
+
+printf '# policy_version=999\nnoisy row	informational	wrong version\n' > "$policy"
+run_case "$fixture/ok" 1
+assert_no_report
+
+cp "$fixture/policy.good" "$policy"
+
 cat > "$fixture/duplicate-current" <<'EOF'
 [bench] ("gated row") ok
   100 ns
@@ -217,6 +261,23 @@ cat > "$fixture/duplicate-current" <<'EOF'
 EOF
 run_case "$fixture/duplicate-current" 1
 assert_no_report
+baseline_before_update=$(cat "$baseline")
+cat > "$policy" <<'EOF'
+# policy_version=1
+removed row	informational	stale metadata
+EOF
+run_update_case "$fixture/ok" 1
+[[ "$(cat "$baseline")" == "$baseline_before_update" ]] || {
+  printf 'SELFTEST FAIL: stale update changed baseline\n'
+  exit 1
+}
+cp "$fixture/policy.good" "$policy"
+run_update_case "$fixture/new" 0
+[[ "$(wc -l < "$baseline")" -eq 4 ]] || {
+  printf 'SELFTEST FAIL: valid update did not replace baseline\n'
+  exit 1
+}
+
 
 cp "$baseline" "$fixture/baseline.good"
 cat > "$baseline" <<'EOF'
@@ -276,17 +337,21 @@ Create the initial policy with only the classified high-variance rows. Keep reas
 
 ```tsv
 # policy_version=1
-baseline: reactive create-dispose cycle (existing free list) informational high-variance lifecycle benchmark
-layer1: input create-dispose cycle (free list) informational high-variance lifecycle benchmark
-layer2: scope create and dispose (empty) informational high-variance empty-scope benchmark
-fixpoint: one iteration, single fact delta (identity rule) informational high-variance single-delta benchmark
-bench: node_count hand-written informational unclassifiable measurement
-bench: node_count via closure transform_fold informational unclassifiable measurement
+baseline: reactive create-dispose cycle (existing free list)	informational	high-variance lifecycle benchmark
+layer1: input create-dispose cycle (free list)	informational	high-variance lifecycle benchmark
+layer2: scope create and dispose (empty)	informational	high-variance empty-scope benchmark
+fixpoint: one iteration, single fact delta (identity rule)	informational	high-variance single-delta benchmark
+bench: node_count hand-written	informational	unclassifiable measurement
+bench: node_count via closure transform_fold	informational	unclassifiable measurement
 ```
 
 - [ ] **Step 2: Make unit parse errors observable and preserve zero-row detection**
 
-In `parse_bench_output`, track an AWK `bad` flag when a unit is not recognized and `exit 1` in `END` if any bad unit occurred. In both update and check modes, capture parsing through an `if ! parsed=$(...); then ... fi` guard so parse errors print an infra message and exit before writing or comparing.
+In `parse_bench_output`, track an AWK `bad` flag when a unit is not recognized,
+match units by exact name (`ns`, `µs`/`us`/`μs`, `ms`, `s`) rather than suffix,
+and `exit 1` in `END` if any bad unit occurred. In both update and check
+modes, capture parsing through an `if ! parsed=$(...); then ... fi` guard so
+parse errors print an infra message and exit before writing or comparing.
 
 - [ ] **Step 3: Add TSV and policy validators**
 
@@ -319,7 +384,16 @@ validate_policy() {
       }
       close(baseline)
     }
-    /^[[:space:]]*#/ || NF == 0 { next }
+    /^[[:space:]]*#/ {
+      if ($0 == "# policy_version=1") {
+        version_count++
+      } else if ($0 ~ /^[[:space:]]*# policy_version=/) {
+        print "policy: unsupported version: " $0 > "/dev/stderr"
+        bad = 1
+      }
+      next
+    }
+    NF == 0 { next }
     NF != 3 || ($2 != "gated" && $2 != "informational") {
       print "policy: malformed row or mode: " $0 > "/dev/stderr"
       bad = 1
@@ -333,7 +407,13 @@ validate_policy() {
       print "policy: stale benchmark: " $1 > "/dev/stderr"
       bad = 1
     }
-    END { exit bad }
+    END {
+      if (version_count != 1) {
+        print "policy: exactly one # policy_version=1 declaration required" > "/dev/stderr"
+        bad = 1
+      }
+      exit bad
+    }
   ' "$POLICY_FILE"
 }
 ```
@@ -429,6 +509,8 @@ Add a job after `dep-check` that checks out the repository and runs:
         uses: actions/checkout@v5
       - name: Detector policy self-test
         run: bash scripts/bench-check-selftest.sh
+      - name: Validate checked-in detector policy
+        run: bash bench-check.sh --validate
 ```
 
 This job must not install MoonBit or run `moon bench`.
@@ -482,6 +564,7 @@ Run:
 
 ```bash
 rtk bash scripts/bench-check-selftest.sh
+rtk bash bench-check.sh --validate
 rtk bash -n bench-check.sh
 rtk bash -n scripts/bench-check-selftest.sh
 rtk python3 - <<'PY'
