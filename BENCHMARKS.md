@@ -26,6 +26,8 @@ visible as `INFO` but do not alert. `REGRESSION` and `MISSING` fail the check;
 `NEW` and `INFO` are warning-only.
 
 ```bash
+# Validate the checked-in baseline and detector policy without benchmarking
+bash bench-check.sh --validate
 # Check for regressions (from repo root)
 bash bench-check.sh
 
