@@ -332,6 +332,7 @@ fn write_outputs(
   syntax_qual : String,
   core_qual : String,
   term_enum_decl : EnumDecl?,
+  line_lexer_modes : Array[String]?,
 ) -> Result[Unit, Unit] {
   let token_type_name = match cli_token_type {
     Some(n) => n
@@ -442,15 +443,22 @@ fn write_outputs(
   }
 
   // Write lexer_skeleton.g.mbt (mode-dispatch skeleton, once semantics).
-  // Generated only when the file does not exist, unless --force-lexer is set.
-  if !skip_syntax {
+  // A valid --line-lexer request also needs this dispatcher when syntax output
+  // is otherwise skipped, but ordinary --skip-syntax behavior still removes it.
+  if !skip_syntax || line_lexer_modes is Some(_) {
     let skel_path = syntax_out + "/lexer_skeleton.g.mbt"
     match term_enum_decl {
       Some(term_enum_val) => {
         let modes = collect_lexmodes(term_enum_val)
         if modes.length() > 0 {
           if !@fs.path_exists(skel_path) || force_lexer {
-            let content = emit_lexer_skeleton(modes, token_type_name, core_qual)
+            let content = match line_lexer_modes {
+              Some(line_modes) =>
+                emit_lexer_skeleton_with_line_delegates(
+                  modes, line_modes, token_type_name, core_qual,
+                )
+              None => emit_lexer_skeleton(modes, token_type_name, core_qual)
+            }
             @fs.write_string_to_file(skel_path, content) catch {
               _ => {
                 println("Error writing " + skel_path)
@@ -458,22 +466,46 @@ fn write_outputs(
               }
             }
             println("  " + skel_path)
+          } else {
+            match line_lexer_modes {
+              Some(line_modes) => {
+                let existing = @fs.read_file_to_string(skel_path) catch {
+                  _ => {
+                    println("Error reading " + skel_path)
+                    return Err(())
+                  }
+                }
+                let integrated = integrate_line_lexer_skeleton(
+                  existing, line_modes, token_type_name, core_qual,
+                )
+                if integrated != existing {
+                  @fs.write_string_to_file(skel_path, integrated) catch {
+                    _ => {
+                      println("Error writing " + skel_path)
+                      return Err(())
+                    }
+                  }
+                  println("  " + skel_path)
+                }
+              }
+              None => ()
+            }
           }
         } else {
-          // Remove stale file when no modes are declared
+          // Remove stale file when no modes are declared.
           @fs.remove_file(skel_path) catch {
             _ => ()
           }
         }
       }
       None =>
-        // Remove stale file when term enum is absent
+        // Remove stale file when term enum is absent.
         @fs.remove_file(skel_path) catch {
           _ => ()
         }
     }
   }
-  if skip_syntax {
+  if skip_syntax && line_lexer_modes is None {
     @fs.remove_file(syntax_out + "/lexer_skeleton.g.mbt") catch {
       _ => ()
     }
@@ -835,10 +867,12 @@ fn main {
   }
 
   // Preflight the line-mode lexer (#561) BEFORE writing any output.
-  let line_lexer_job : (String, String)? = match line_lexer_path {
+  let line_lexer_job : (String, String, Array[String])? = match
+    line_lexer_path {
     Some(path) =>
       match emit_line_lexer(te, term_enum_decl, core_qual) {
-        Some(content) => Some((path, content))
+        Some(content) =>
+          Some((path, content, collect_line_lexer_modes(term_enum_decl)))
         None => {
           println(
             "error: --line-lexer requires #loom.line_pattern annotations on token variants and #loom.line_mode annotations on #loom.lexmode term variants",
@@ -848,6 +882,13 @@ fn main {
         }
       }
     None => None
+  }
+  // `emit_line_lexer` only succeeds with line modes; retain the explicit
+  // non-empty guard so --skip-syntax keeps its historical cleanup behavior if
+  // that invariant changes.
+  let line_lexer_modes : Array[String]? = match line_lexer_job {
+    Some((_, _, modes)) if modes.length() > 0 => Some(modes)
+    _ => None
   }
 
   // Preflight the GrammarIr emission BEFORE writing any output, so an invalid
@@ -937,6 +978,7 @@ fn main {
       syntax_qual,
       core_qual,
       term_enum_decl,
+      line_lexer_modes,
     ) {
     Err(_) => {
       @sys.exit(1)
@@ -962,7 +1004,7 @@ fn main {
 
   // Write the preflighted line-mode lexer (already built + validated above). #561
   match line_lexer_job {
-    Some((path, content)) => {
+    Some((path, content, _)) => {
       @fs.write_string_to_file(path, content) catch {
         _ => {
           println("Error writing " + path)
