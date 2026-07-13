@@ -380,7 +380,6 @@ test "integrate_line_lexer_skeleton preserves custom requested line-mode body" {
   inspect(migrated.contains("generated_lex_line_start"), content="false")
 }
 
-
 ///|
 test "build_line_lexer_regression_outputs regenerates the combined fixture" {
   let source = read_fallback_fixture(
