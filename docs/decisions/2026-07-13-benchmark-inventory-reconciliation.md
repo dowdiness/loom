@@ -88,8 +88,8 @@ below `1.15`. Non-reproduction is robust.
 The candidate evidence set for this reconciliation is fixed to these six
 initial candidates plus the two additional candidates selected from the Task 2
 final sweep. Subsequent real detector runs remain useful for checking
-`NEW`/`MISSING` inventory and infrastructure state, but stochastic gated rows
-that appear in later sweeps do not expand this evidence set retroactively.
+`NEW`/`MISSING` inventory and infrastructure state, but newly surfaced gated
+rows that appear in later sweeps do not expand this evidence set retroactively.
 
 
 ## Consequences
