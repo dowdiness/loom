@@ -85,6 +85,11 @@ pairing. The lowest ratio (`0.785507`) pairs current trial `2710000` ns
 with the baseline outlier `3450000` ns; the other two baseline trials
 (`2770000`, `2730000` ns) produce ratios `0.964` and `1.015`, both far
 below `1.15`. Non-reproduction is robust.
+The candidate evidence set for this reconciliation is fixed to these six
+initial candidates plus the two additional candidates selected from the Task 2
+final sweep. Subsequent real detector runs remain useful for checking
+`NEW`/`MISSING` inventory and infrastructure state, but stochastic gated rows
+that appear in later sweeps do not expand this evidence set retroactively.
 
 
 ## Consequences
