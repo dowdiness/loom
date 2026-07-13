@@ -388,7 +388,8 @@ test "build_line_lexer_regression_outputs regenerates the combined fixture" {
   let skeleton = read_fallback_fixture(
     "../fixtures/line_lexer_regression/lexer_skeleton.g.mbt", "fixtures/line_lexer_regression/lexer_skeleton.g.mbt",
   )
-  match build_line_lexer_regression_outputs(source, skeleton) {
+  match
+    build_line_lexer_regression_outputs(source, "line_lexer_src.mbt", skeleton) {
     Ok((line_lexer, integrated_skeleton)) => {
       inspect(
         line_lexer.contains("fn generated_lex_line_start"),
@@ -416,5 +417,26 @@ test "regenerate_line_lexer_regression_fixture reports unreadable source" {
     Err(msg) =>
       inspect(msg.contains("missing-line-lexer-source.mbt"), content="true")
     Ok(_) => fail("expected missing fixture source to fail regeneration")
+  }
+}
+
+///|
+test "write_line_lexer_job reports an unwritable helper path" {
+  match
+    write_line_lexer_job(
+      Some(
+        (
+          "missing-line-lexer-output/line_lexer.g.mbt",
+          "generated",
+          ["LineStart"],
+        ),
+      ),
+    ) {
+    Err(msg) =>
+      inspect(
+        msg.contains("missing-line-lexer-output/line_lexer.g.mbt"),
+        content="true",
+      )
+    Ok(_) => fail("expected unwritable line lexer output to fail")
   }
 }

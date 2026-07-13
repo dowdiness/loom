@@ -11,24 +11,25 @@
 /// historical line-mode stub may be replaced by a generated delegate.
 fn build_line_lexer_regression_outputs(
   source : String,
+  source_path : String,
   existing_skeleton : String,
 ) -> Result[(String, String), String] {
   let annotations = match parse_annotations(source) {
     Ok(annotations) => annotations
-    Err(msg) => return Err(msg)
+    Err(msg) => return Err(source_path + " — " + msg)
   }
   guard annotations.token_enum is Some(token_enum) else {
-    return Err("line_lexer_src.mbt has no #loom.token enum")
+    return Err(source_path + " has no #loom.token enum")
   }
   guard annotations.term_enum is Some(term_enum) else {
-    return Err("line_lexer_src.mbt has no #loom.term enum")
+    return Err(source_path + " has no #loom.term enum")
   }
   match emit_line_lexer(token_enum, Some(term_enum), "@core") {
     None => Err("emit_line_lexer returned None")
     Some(line_lexer) => {
       let line_modes = collect_line_lexer_modes(Some(term_enum))
       if line_modes.length() == 0 {
-        Err("line_lexer_src.mbt has no #loom.line_mode variants")
+        Err(source_path + " has no #loom.line_mode variants")
       } else {
         Ok(
           (
@@ -79,7 +80,7 @@ fn regenerate_line_lexer_regression_fixture(
     Ok(skeleton) => skeleton
     Err(msg) => return Err(msg)
   }
-  match build_line_lexer_regression_outputs(source, skeleton) {
+  match build_line_lexer_regression_outputs(source, source_path, skeleton) {
     Err(msg) => Err(msg)
     Ok((line_lexer, integrated_skeleton)) =>
       match write_regeneration_fixture(line_lexer_path, line_lexer) {
@@ -148,39 +149,42 @@ fn regenerate_line_pattern_fixture(
 /// failure is returned to the CLI so a successful process exit proves that the
 /// generated artifacts were refreshed.
 fn regenerate_fixtures() -> Result[Unit, String] {
-  match
-    regenerate_grammar_ir_fixture(
-      "loomgen/fixtures/error_node_fixture.mbt", "loomgen/fixtures/error_node_fixture.g.mbt",
-      "error_node_grammar_ir",
-    ) {
-    Err(msg) => Err(msg)
-    Ok(_) =>
-      match
-        regenerate_grammar_ir_fixture(
-          "loomgen/fixtures/rule_grammar_fixture.mbt", "loomgen/fixtures/rule_grammar_fixture.g.mbt",
-          "mini_grammar_ir",
-        ) {
-        Err(msg) => Err(msg)
-        Ok(_) =>
-          match
-            regenerate_grammar_ir_fixture(
-              "loomgen/fixtures/separated_list_fixture.mbt", "loomgen/fixtures/separated_list_fixture.g.mbt",
-              "separated_list_grammar_ir",
-            ) {
-            Err(msg) => Err(msg)
-            Ok(_) =>
-              match
-                regenerate_line_pattern_fixture(
-                  "loomgen/fixtures/line_pattern_fixture.mbt", "loomgen/fixtures/line_pattern_fixture.g.mbt",
-                ) {
-                Err(msg) => Err(msg)
-                Ok(_) =>
-                  regenerate_line_lexer_regression_fixture(
-                    "fixtures/line_lexer_regression/src/line_lexer_src.mbt", "fixtures/line_lexer_regression/line_lexer.g.mbt",
-                    "fixtures/line_lexer_regression/lexer_skeleton.g.mbt",
-                  )
-              }
-          }
-      }
+  let jobs : Array[() -> Result[Unit, String]] = [
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/error_node_fixture.mbt", "loomgen/fixtures/error_node_fixture.g.mbt",
+        "error_node_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/rule_grammar_fixture.mbt", "loomgen/fixtures/rule_grammar_fixture.g.mbt",
+        "mini_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/separated_list_fixture.mbt", "loomgen/fixtures/separated_list_fixture.g.mbt",
+        "separated_list_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_line_pattern_fixture(
+        "loomgen/fixtures/line_pattern_fixture.mbt", "loomgen/fixtures/line_pattern_fixture.g.mbt",
+      )
+    },
+    () => {
+      regenerate_line_lexer_regression_fixture(
+        "fixtures/line_lexer_regression/src/line_lexer_src.mbt", "fixtures/line_lexer_regression/line_lexer.g.mbt",
+        "fixtures/line_lexer_regression/lexer_skeleton.g.mbt",
+      )
+    },
+  ]
+  for job in jobs {
+    match job() {
+      Err(msg) => return Err(msg)
+      Ok(_) => ()
+    }
   }
+  Ok(())
 }

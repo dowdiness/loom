@@ -740,6 +740,24 @@ fn load_grammar_file(
 }
 
 ///|
+/// Write a preflighted line-mode helper before installing a skeleton delegate
+/// that calls it, so helper-write failures cannot leave a dangling reference.
+fn write_line_lexer_job(
+  job : (String, String, Array[String])?,
+) -> Result[Unit, String] {
+  match job {
+    None => Ok(())
+    Some((path, content, _)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => return Err("Error writing " + path)
+      }
+      println("  " + path)
+      Ok(())
+    }
+  }
+}
+
+///|
 fn main {
   let argv = @sys.get_cli_args()
   let matches = match parse_args(argv[1:].to_owned()) {
@@ -1020,6 +1038,16 @@ fn main {
     None => None
   }
 
+  // Write the preflighted line-mode lexer before any skeleton can delegate to it.
+  match write_line_lexer_job(line_lexer_job) {
+    Err(msg) => {
+      println(msg)
+      @sys.exit(1)
+      return
+    }
+    Ok(_) => ()
+  }
+
   match
     write_outputs(
       te,
@@ -1053,21 +1081,6 @@ fn main {
   // Write the preflighted step lexer (already built + validated above). #521
   match lexer_job {
     Some((path, content)) => {
-      @fs.write_string_to_file(path, content) catch {
-        _ => {
-          println("Error writing " + path)
-          @sys.exit(1)
-          return
-        }
-      }
-      println("  " + path)
-    }
-    None => ()
-  }
-
-  // Write the preflighted line-mode lexer (already built + validated above). #561
-  match line_lexer_job {
-    Some((path, content, _)) => {
       @fs.write_string_to_file(path, content) catch {
         _ => {
           println("Error writing " + path)
