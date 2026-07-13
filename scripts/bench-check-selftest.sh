@@ -83,6 +83,13 @@ assert_output_contains() {
     exit 1
   }
 }
+assert_stderr_contains() {
+  local needle="$1"
+  [[ "$(cat "$fixture/stderr")" == *"$needle"* ]] || {
+    printf 'SELFTEST FAIL: stderr missing %s\n' "$needle"
+    exit 1
+  }
+}
 assert_report_contains() {
   local needle="$1"
   [[ -f "$report" && "$(cat "$report")" == *"$needle"* ]] || {
@@ -273,6 +280,7 @@ assert_no_report
 cp "$fixture/baseline.good" "$baseline"
 cp "$baseline" "$fixture/baseline.before-missing-update"
 run_update_case "$fixture/missing-with-new" 1
+assert_stderr_contains 'update: benchmark missing from current run: missing row'
 cmp -s "$fixture/baseline.before-missing-update" "$baseline" || {
   printf 'SELFTEST FAIL: missing update changed baseline\n'
   exit 1
