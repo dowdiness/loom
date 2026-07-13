@@ -41,34 +41,40 @@ fn is_valid_mbt_ident(s : String) -> Bool {
 
 ///|
 /// Extract the immediate parent directory from a file path.
-/// Returns `Some(".")` when the path is a bare filename.
-/// No filesystem canonicalization — purely textual.
-fn path_parent(path : String) -> String? {
-  let mut last_sep = -1
-  for i = 0; i < path.length(); i = i + 1 {
-    if path[i] == '/' {
-      last_sep = i
-    }
-  }
-  if last_sep >= 0 {
-    Some(path[0:last_sep].to_owned())
-  } else {
-    Some(".")
+/// A bare filename maps to the current directory. No filesystem
+/// canonicalization is performed.
+fn path_parent(path : String) -> String {
+  match path.rev_find("/") {
+    None => "."
+    Some(separator) => path[:separator].to_owned()
   }
 }
 
 ///|
-/// Textually normalize a directory path for comparison:
-/// strip trailing `/` (preserving bare `"/"`) and leading `"./"`.
+/// Textually normalize a directory path for comparison by stripping one trailing
+/// `/` (except root) and one leading `./`.
 fn normalize_dir(s : String) -> String {
-  let mut result = s
-  if result.length() > 1 && result[result.length() - 1] == '/' {
-    result = result[0:result.length() - 1].to_owned()
+  let without_trailing = if s.length() > 1 && s[s.length() - 1] == '/' {
+    s[:s.length() - 1].to_owned()
+  } else {
+    s
   }
-  if result.length() >= 2 && result[0] == '.' && result[1] == '/' {
-    result = result[2:].to_owned()
+  if without_trailing.length() >= 2 &&
+    without_trailing[0] == '.' &&
+    without_trailing[1] == '/' {
+    without_trailing[2:].to_owned()
+  } else {
+    without_trailing
   }
-  result
+}
+
+///|
+/// Check whether generated line helpers will share the skeleton's package.
+fn line_lexer_shares_syntax_output(
+  line_lexer_path : String,
+  syntax_out : String,
+) -> Bool {
+  normalize_dir(path_parent(line_lexer_path)) == normalize_dir(syntax_out)
 }
 
 ///|
@@ -903,20 +909,16 @@ fn main {
   // the same MoonBit package as lexer_skeleton.g.mbt (syntax_out).
   match line_lexer_path {
     Some(path) =>
-      match path_parent(path) {
-        Some(parent) =>
-          if normalize_dir(parent) != normalize_dir(syntax_out) {
-            println(
-              "error: --line-lexer path \"" +
-              path +
-              "\" is not in --syntax-out directory \"" +
-              syntax_out +
-              "\"; generated helpers and skeleton must share the same package",
-            )
-            @sys.exit(1)
-            return
-          }
-        None => ()
+      if !line_lexer_shares_syntax_output(path, syntax_out) {
+        println(
+          "error: --line-lexer path \"" +
+          path +
+          "\" is not in --syntax-out directory \"" +
+          syntax_out +
+          "\"; generated helpers and skeleton must share the same package",
+        )
+        @sys.exit(1)
+        return
       }
     None => ()
   }
