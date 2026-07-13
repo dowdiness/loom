@@ -13,6 +13,7 @@ import {
 
 import {
   "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
 } for "wbtest"
 
 supported_targets = "+native"

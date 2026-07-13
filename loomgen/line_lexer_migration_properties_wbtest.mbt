@@ -40,8 +40,8 @@ fn migration_property_words() -> Array[MigrationWord] {
     { camel: "Fast", snake: "fast" },
     { camel: "Kind", snake: "kind" },
     { camel: "Line", snake: "line" },
-    { camel: "Mode", snake: "mode" },
-    { camel: "Text", snake: "text" },
+    { camel: "HTTP", snake: "h_t_t_p" },
+    { camel: "V2Id", snake: "v2_id" },
   ]
 }
 
@@ -158,12 +158,7 @@ fn migration_property_render_block(
     MigrationAlreadyDelegated =>
       Some(canonical_header + "  " + mode.helper_name + "(source, pos)\n}")
     MigrationHandwritten =>
-      Some(
-        canonical_header +
-        "  custom_" +
-        mode.fn_name +
-        "(source, pos)\n}",
-      )
+      Some(canonical_header + "  custom_" + mode.fn_name + "(source, pos)\n}")
     MigrationMutatedAbortMessage =>
       Some(
         canonical_header +
@@ -271,6 +266,7 @@ fn migration_property_assert_exact(
 
 ///|
 fn migration_property_check_case(case : MigrationCase) -> Unit {
+  migration_property_assert_unique_names(case)
   let existing = migration_property_render_skeleton(case, false)
   let expected = migration_property_render_skeleton(case, true)
   let selections = [
@@ -281,12 +277,11 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
   ]
   for selection in selections {
     let actual = integrate_line_lexer_skeleton(
-      existing,
-      selection,
-      "Token",
-      "@core",
+      existing, selection, "Token", "@core",
     )
-    migration_property_assert_exact("migration mismatch", case, actual, expected)
+    migration_property_assert_exact(
+      "migration mismatch", case, actual, expected,
+    )
   }
   let migrated_again = integrate_line_lexer_skeleton(
     expected,
@@ -295,10 +290,7 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
     "@core",
   )
   migration_property_assert_exact(
-    "migration is not idempotent",
-    case,
-    migrated_again,
-    expected,
+    "migration is not idempotent", case, migrated_again, expected,
   )
 }
 
@@ -306,10 +298,7 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
 fn migration_property_golden_case() -> MigrationCase {
   let bold = migration_property_mode([0], MigrationCanonical)
   let calm_line = migration_property_mode([1, 5], MigrationHandwritten)
-  {
-    modes: [bold, calm_line],
-    selected_modes: [bold.mode_name],
-  }
+  { modes: [bold, calm_line], selected_modes: [bold.mode_name] }
 }
 
 ///|
@@ -446,9 +435,7 @@ test "line skeleton migration basis covers ownership and selection classes" {
     for mode in case.modes {
       identifier_depths[mode.component_count] = true
       if migration_property_contains(case.selected_modes, mode.mode_name) {
-        selected_ownerships[migration_property_ownership_index(
-          mode.ownership,
-        )] = true
+        selected_ownerships[migration_property_ownership_index(mode.ownership)] = true
       } else if mode.ownership == MigrationCanonical {
         saw_unselected_canonical = true
       }
@@ -491,4 +478,227 @@ test "line skeleton migration basis covers ownership and selection classes" {
   inspect(identifier_depths[1], content="true")
   inspect(identifier_depths[2], content="true")
   inspect(identifier_depths[3], content="true")
+}
+
+///|
+fn migration_property_assert_unique_names(case : MigrationCase) -> Unit {
+  if case.modes.length() < 1 || case.modes.length() > 7 {
+    abort("migration cases need one to seven modes")
+  }
+  for i, left in case.modes {
+    for j in (i + 1)..<case.modes.length() {
+      let right = case.modes[j]
+      if left.mode_name == right.mode_name ||
+        left.fn_name == right.fn_name ||
+        left.helper_name == right.helper_name {
+        abort("migration case contains colliding generated identifiers")
+      }
+    }
+  }
+  for selected in case.selected_modes {
+    ignore(migration_property_mode_index(case.modes, selected))
+  }
+}
+
+///|
+fn migration_property_pick(random : @splitmix.RandomState, modulo : Int) -> Int {
+  if modulo <= 0 {
+    abort("migration_property_pick requires a positive modulo")
+  }
+  (random.next_uint() % modulo.reinterpret_as_uint()).reinterpret_as_int()
+}
+
+///|
+fn migration_property_shuffle_ints(
+  values : Array[Int],
+  random : @splitmix.RandomState,
+) -> Unit {
+  for i = values.length() - 1; i > 0; i = i - 1 {
+    let j = migration_property_pick(random, i + 1)
+    let value = values[i]
+    values[i] = values[j]
+    values[j] = value
+  }
+}
+
+///|
+fn migration_property_shuffle_strings(
+  values : Array[String],
+  random : @splitmix.RandomState,
+) -> Unit {
+  for i = values.length() - 1; i > 0; i = i - 1 {
+    let j = migration_property_pick(random, i + 1)
+    let value = values[i]
+    values[i] = values[j]
+    values[j] = value
+  }
+}
+
+///|
+fn migration_property_ownership_from_pick(index : Int) -> MigrationOwnership {
+  match index {
+    0 => MigrationCanonical
+    1 => MigrationAlreadyDelegated
+    2 => MigrationHandwritten
+    3 => MigrationMutatedAbortMessage
+    4 => MigrationMutatedWhitespace
+    5 => MigrationMutatedSignature
+    6 => MigrationCommentInserted
+    7 => MigrationAbsent
+    _ => abort("migration ownership pick is out of bounds")
+  }
+}
+
+///|
+impl @quickcheck.Arbitrary for MigrationCase with fn arbitrary(_size, random) {
+  let first_word_indices : Array[Int] = []
+  for i in 0..<migration_property_words().length() {
+    first_word_indices.push(i)
+  }
+  migration_property_shuffle_ints(first_word_indices, random)
+  let mode_count = 1 + migration_property_pick(random, 7)
+  let modes : Array[MigrationMode] = []
+  for i in 0..<mode_count {
+    let component_count = 1 + migration_property_pick(random, 3)
+    let word_indices = [first_word_indices[i]]
+    for _ in 1..<component_count {
+      word_indices.push(
+        migration_property_pick(random, migration_property_words().length()),
+      )
+    }
+    modes.push(
+      migration_property_mode(
+        word_indices,
+        migration_property_ownership_from_pick(
+          migration_property_pick(random, 8),
+        ),
+      ),
+    )
+  }
+  let selected_modes : Array[String] = []
+  match migration_property_pick(random, 5) {
+    0 => ()
+    1 =>
+      selected_modes.push(
+        modes[migration_property_pick(random, modes.length())].mode_name,
+      )
+    2 => {
+      for mode in modes {
+        if migration_property_pick(random, 2) == 0 {
+          selected_modes.push(mode.mode_name)
+        }
+      }
+      if selected_modes.length() == 0 {
+        selected_modes.push(
+          modes[migration_property_pick(random, modes.length())].mode_name,
+        )
+      }
+    }
+    3 =>
+      for mode in modes {
+        selected_modes.push(mode.mode_name)
+      }
+    _ => {
+      for mode in modes {
+        selected_modes.push(mode.mode_name)
+      }
+      selected_modes.push(
+        selected_modes[migration_property_pick(random, selected_modes.length())],
+      )
+    }
+  }
+  migration_property_shuffle_strings(selected_modes, random)
+  let case = { modes, selected_modes }
+  migration_property_assert_unique_names(case)
+  case
+}
+
+///|
+fn migration_property_fixed_seed_cases() -> Array[MigrationCase] {
+  let seeds : Array[UInt64] = [
+    0UL, 1UL, 2UL, 3UL, 4UL, 5UL, 6UL, 7UL, 8UL, 9UL, 10UL, 11UL, 12UL, 13UL, 14UL,
+    15UL, 16UL, 17UL, 18UL, 19UL, 20UL, 21UL, 22UL, 23UL, 24UL, 25UL, 26UL, 27UL,
+    28UL, 29UL, 30UL, 31UL,
+  ]
+  let cases : Array[MigrationCase] = []
+  for seed in seeds {
+    let random = @splitmix.new(seed~)
+    let case : MigrationCase = @quickcheck.Arbitrary::arbitrary(12, random)
+    cases.push(case)
+  }
+  cases
+}
+
+///|
+test "property: structural line skeleton migration matches exact oracle" {
+  let basis_cases = migration_property_basis_cases()
+  let fixed_seed_cases = migration_property_fixed_seed_cases()
+  let generated_cases : Array[MigrationCase] = @quickcheck.samples(96)
+  for case in basis_cases {
+    migration_property_check_case(case)
+  }
+  for case in fixed_seed_cases {
+    migration_property_check_case(case)
+  }
+  for case in generated_cases {
+    migration_property_check_case(case)
+  }
+
+  let generated_ownerships = Array::make(8, false)
+  let generated_identifier_depths = Array::make(4, false)
+  let mut saw_empty = false
+  let mut saw_singleton = false
+  let mut saw_multiple = false
+  let mut saw_duplicate = false
+  let mut saw_reordered = false
+  let mut saw_acronym = false
+  let mut saw_digit = false
+  for case in fixed_seed_cases {
+    for mode in case.modes {
+      generated_ownerships[migration_property_ownership_index(mode.ownership)] = true
+      generated_identifier_depths[mode.component_count] = true
+      if mode.mode_name.contains("HTTP") {
+        saw_acronym = true
+      }
+      if mode.mode_name.contains("V2Id") {
+        saw_digit = true
+      }
+    }
+    let deduplicated = migration_property_stable_deduplicate(
+      case.selected_modes,
+    )
+    if case.selected_modes.length() == 0 {
+      saw_empty = true
+    }
+    if case.selected_modes.length() == 1 {
+      saw_singleton = true
+    }
+    if deduplicated.length() > 1 {
+      saw_multiple = true
+    }
+    if deduplicated.length() < case.selected_modes.length() {
+      saw_duplicate = true
+    }
+    let mut previous_index = -1
+    for selected in deduplicated {
+      let current_index = migration_property_mode_index(case.modes, selected)
+      if current_index < previous_index {
+        saw_reordered = true
+      }
+      previous_index = current_index
+    }
+  }
+  for covered in generated_ownerships {
+    inspect(covered, content="true")
+  }
+  inspect(generated_identifier_depths[1], content="true")
+  inspect(generated_identifier_depths[2], content="true")
+  inspect(generated_identifier_depths[3], content="true")
+  inspect(saw_empty, content="true")
+  inspect(saw_singleton, content="true")
+  inspect(saw_multiple, content="true")
+  inspect(saw_duplicate, content="true")
+  inspect(saw_reordered, content="true")
+  inspect(saw_acronym, content="true")
+  inspect(saw_digit, content="true")
 }
