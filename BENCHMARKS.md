@@ -17,8 +17,10 @@ moon test --package parser
 **Note:** Use `moon bench` to run performance benchmarks. The `moon test` command runs functional tests only.
 
 
-The checked-in baseline covers the benchmarks discovered by the
-`examples/lambda` module run and its active local workspace dependencies.
+The checked-in baseline covers the active benchmark packages discovered by
+Moon's enclosing root `moon.work` workspace when the command is launched from
+`examples/lambda`. This includes benchmark packages from e-graph, incr, loom,
+seam, and the lambda example.
 The 105 event-graph-walker benchmark rows that were present in the July 5
 baseline were retired when that module was removed from `moon.work` in
 `f56e497`; they are intentionally not part of the current inventory.

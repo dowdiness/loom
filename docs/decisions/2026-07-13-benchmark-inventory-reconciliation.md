@@ -28,8 +28,9 @@ package only.
 1. Treat all 105 missing rows as retired inventory, not performance findings.
 2. Remove exactly those 105 rows from `docs/performance/bench-baseline.tsv`.
    Keep all remaining benchmark names and measurements unchanged.
-3. Keep `bench-check.sh` scoped to the existing `examples/lambda` benchmark
-   command and its active local workspace dependencies.
+3. Keep `bench-check.sh` launched from `examples/lambda`; Moon resolves the
+   enclosing root `moon.work` workspace and discovers the active benchmark
+   packages across e-graph, incr, loom, seam, and the lambda example.
 4. Make `bench-check.sh --update` fail closed when any existing baseline name
    is absent from the current run. A legitimate retirement must remove the
    reviewed baseline row first; new names remain allowed.
@@ -69,8 +70,11 @@ baseline-value, or detector-policy change is justified by these measurements.
 ## Consequences
 
 The baseline is now comparable to the benchmark command used by the detector:
-316 expected names, with no inventory-only `MISSING` rows. The retired
-CRDT/event-graph-walker suite is no longer silently represented as parser
-benchmark coverage. Reintroducing those measurements requires an explicit
-multi-module runner and a separately documented baseline scope; it is not
-implicitly restored by a future baseline update.
+316 expected names, with no inventory-only `MISSING` rows. The active scope is
+the enclosing root `moon.work` workspace discovered from the
+`examples/lambda` launch directory. The retired CRDT/event-graph-walker suite
+is no longer silently represented as parser benchmark coverage. Reintroducing
+those measurements requires deliberately restoring event-graph-walker as a
+`moon.work` member (or adding a separate explicit command), then reviewing the
+resulting inventory and baseline; it is not implicitly restored by a future
+baseline update.
