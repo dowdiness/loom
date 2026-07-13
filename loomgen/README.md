@@ -42,6 +42,14 @@ functions. Nullary tokens are produced directly; payload-carrying tokens require
 Generated helpers are named `generated_lex_<mode>` in `line_lexer.g.mbt`,
 reserving `lex_<mode>` for skeleton-owned dispatcher override points.
 
+`--line-lexer` automatically integrates these helpers with
+`lexer_skeleton.g.mbt`: a new skeleton delegates each line-mode
+`lex_<mode>` function to `generated_lex_<mode>`, and regeneration upgrades only
+the exact historical `abort` stub. Replace a delegate with handwritten
+`lex_<mode>` code to override that mode; later regeneration preserves that
+non-generated body byte-for-byte. `--force-lexer` is the explicit operation for
+replacing the entire skeleton.
+
 `#loom.fallback_lex("fn")` on a term variant with both `#loom.lexmode("Mode")`
 and `#loom.line_mode` delegates no-match input to the named mode-compatible
 lexer (`(String, Int) -> (@core.LexStep[Token], LexMode)`). Without this
