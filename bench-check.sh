@@ -107,7 +107,8 @@ validate_policy() {
       next
     }
     NF == 0 { next }
-    NF != 3 || ($2 != "gated" && $2 != "informational") {
+    NF != 3 || $1 == "" || $3 !~ /[^[:space:]]/ ||
+      ($2 != "gated" && $2 != "informational") {
       print "policy: malformed row or mode: " $0 > "/dev/stderr"
       bad = 1
       next

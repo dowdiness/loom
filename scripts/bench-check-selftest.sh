@@ -147,6 +147,14 @@ cat > "$fixture/mixed" <<'EOF'
 [bench] ("new row") ok
   100 ns
 EOF
+cat > "$fixture/info-only" <<'EOF'
+[bench] ("gated row") ok
+  100 ns
+[bench] ("noisy row") ok
+  150 ns
+[bench] ("missing row") ok
+  100 ns
+EOF
 cat > "$fixture/unknown-unit" <<'EOF'
 [bench] ("gated row") ok
   100 ns
@@ -179,6 +187,21 @@ assert_report_contains $'REGRESSION	gated row'
 assert_report_contains $'INFO	noisy row'
 assert_report_contains $'NEW	new row'
 assert_report_contains $'MISSING	missing row'
+
+cp "$policy" "$fixture/policy.good"
+run_case "$fixture/info-only" 0
+assert_output_contains 'INFO  noisy row'
+assert_output_contains 'No regressions.'
+assert_report_contains $'INFO	noisy row'
+
+printf '# policy_version=1\nnoisy row	informational	\n' > "$policy"
+run_case "$fixture/ok" 1
+assert_no_report
+
+printf '# policy_version=1\nnoisy row	informational	   \n' > "$policy"
+run_case "$fixture/ok" 1
+assert_no_report
+cp "$fixture/policy.good" "$policy"
 
 : > "$fixture/empty"
 run_case "$fixture/empty" 1
