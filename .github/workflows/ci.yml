@@ -24,6 +24,17 @@ jobs:
       - name: Run check-deps.sh
         run: bash check-deps.sh
 
+  bench-detector-selftest:
+    name: Benchmark Detector Self-Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Detector policy self-test
+        run: bash scripts/bench-check-selftest.sh
+
   docs-check:
     name: Docs Health Check
     runs-on: ubuntu-latest
