@@ -3,7 +3,7 @@
 **Date:** 2026-07-13  
 **Issue:** #644  
 **Status:** Implemented
-**Implementation:** [ADR: Explicit Benchmark Detector Eligibility Policy](../decisions/2026-07-13-benchmark-detector-policy.md); [archived implementation plan](../archive/completed-phases/2026-07-13-benchmark-detector-policy.md)
+**Implementation:** [ADR: Explicit Benchmark Detector Eligibility Policy](../../decisions/2026-07-13-benchmark-detector-policy.md); [archived implementation plan](../../archive/completed-phases/2026-07-13-benchmark-detector-policy.md)
 
 ## Problem
 

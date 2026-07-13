@@ -590,7 +590,7 @@ Set `**Status:** Complete` and record the implementation commits in the plan hea
 
 The plan is archived under `docs/archive/completed-phases/` after implementation and verification.
 
-## Decision record
+## Decision record:
 
 - ADR: [2026-07-13 benchmark detector policy](../../decisions/2026-07-13-benchmark-detector-policy.md)
 
