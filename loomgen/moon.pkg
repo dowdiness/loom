@@ -7,10 +7,13 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/list",
   "moonbitlang/core/hashset",
-  "moonbitlang/core/quickcheck",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
 }
+
+import {
+  "moonbitlang/core/quickcheck",
+} for "wbtest"
 
 supported_targets = "+native"
 
