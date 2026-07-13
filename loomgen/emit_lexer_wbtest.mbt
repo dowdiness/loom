@@ -717,6 +717,32 @@ fn full_enums_of(src : String) -> (EnumDecl, EnumDecl) {
 }
 
 ///|
+/// Extract the full `fn NAME(...) { ... }` block starting at `start` (the index
+/// of `fn NAME`), matching braces so nested bodies are included. Order-independent:
+/// the result is the single function that begins at `start`, regardless of where
+/// it sits relative to other functions.
+fn extract_fn_block(src : String, start : Int) -> String {
+  let rel = src[start:].find("{")
+  guard rel is Some(r) else { return "" }
+  let mut depth = 0
+  let mut i = start + r
+  let n = src.length()
+  while i < n {
+    let ch = src[i]
+    if ch == '{' {
+      depth = depth + 1
+    } else if ch == '}' {
+      depth = depth - 1
+      if depth == 0 {
+        return src[start:i + 1].to_owned()
+      }
+    }
+    i = i + 1
+  }
+  src[start:].to_owned()
+}
+
+///|
 test "emit_line_lexer generates line-mode lexer functions for line_pattern tokens" {
   let src = read_fixture("fixtures/line_pattern_fixture.mbt")
   let (te, term_enum) = full_enums_of(src)
@@ -978,8 +1004,8 @@ test "emit_line_lexer emits declared fallback for line-mode no-match" {
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both line-mode functions in output")
   }
-  let line_start_section = generated[ls:bq]
-  let bq_section = generated[bq:]
+  let line_start_section = extract_fn_block(generated, ls)
+  let bq_section = extract_fn_block(generated, bq)
   inspect(
     line_start_section.contains("return lex_inline(source, pos)"),
     content="true",
@@ -1181,9 +1207,9 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both lex functions in output")
   }
-  let line_start_section = generated[ls:bq]
+  let line_start_section = extract_fn_block(generated, ls)
   inspect(line_start_section.contains("BlockQuoteMarker"), content="false")
-  let bq_section = generated[bq:]
+  let bq_section = extract_fn_block(generated, bq)
   inspect(bq_section.contains("BlockQuoteMarker"), content="true")
   // Neither mode declares a fallback, so each mode retains Invalid handling.
   inspect(

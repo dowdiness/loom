@@ -38,9 +38,9 @@ matches `#loom.line_pattern` regexes against the current line (pos → newline) 
 declaration order. Patterns with a declared `#loom.lexmode("ModeName")` are only
 emitted in that mode's function; patterns without one appear in all line_mode
 functions. Nullary tokens are produced directly; payload-carrying tokens require
-`#loom.custom_lex` for extraction. Generated function names follow the same
-`lex_<lowercase_mode>` convention as `lexer_skeleton.g.mbt` stubs, so they can
-replace the skeleton's `abort("not implemented")` stubs.
+`#loom.custom_lex` for extraction.
+Generated helpers are named `generated_lex_<mode>` in `line_lexer.g.mbt`,
+reserving `lex_<mode>` for skeleton-owned dispatcher override points.
 
 `#loom.fallback_lex("fn")` on a term variant with both `#loom.lexmode("Mode")`
 and `#loom.line_mode` delegates no-match input to the named mode-compatible

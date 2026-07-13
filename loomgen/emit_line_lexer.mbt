@@ -28,9 +28,35 @@ fn collect_line_patterns(token_enum : EnumDecl) -> Array[VariantDecl]? {
 }
 
 ///|
+/// Lexicographic (codepoint) comparator for mode names. MoonBit's built-in
+/// string ordering is not guaranteed to be lexicographic, so compare explicitly
+/// for a stable, well-defined order.
+fn compare_mode_names(a : String, b : String) -> Int {
+  let n = if a.length() < b.length() { a.length() } else { b.length() }
+  for i = 0; i < n; i = i + 1 {
+    let ca = a[i].to_int()
+    let cb = b[i].to_int()
+    if ca < cb {
+      return -1
+    }
+    if ca > cb {
+      return 1
+    }
+  }
+  if a.length() < b.length() {
+    return -1
+  } else if a.length() > b.length() {
+    return 1
+  } else {
+    return 0
+  }
+}
+
+///|
 /// Collect `#loom.line_mode` lex mode names from a term enum, returned in a
-/// deterministic (length-ascending, stable) order. Returns an empty array when
-/// no term enum is available or none of its variants are line modes.
+/// deterministic lexicographic (codepoint) order via `compare_mode_names`.
+/// Returns an empty array when no term enum is available or none of its
+/// variants are line modes.
 fn collect_line_lexer_modes(term_enum_decl : EnumDecl?) -> Array[String] {
   let line_modes : @hashset.HashSet[String] = @hashset.HashSet([])
   match term_enum_decl {
@@ -46,7 +72,7 @@ fn collect_line_lexer_modes(term_enum_decl : EnumDecl?) -> Array[String] {
     None => ()
   }
   let arr = line_modes.to_array()
-  arr.sort()
+  arr.sort_by(compare_mode_names)
   arr
 }
 

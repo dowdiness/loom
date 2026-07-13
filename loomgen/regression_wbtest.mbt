@@ -346,3 +346,36 @@ test "integrate_line_lexer_skeleton migrates only exact stubs and is idempotent"
   )
   inspect(migrated2 == migrated, content="true")
 }
+
+///|
+test "integrate_line_lexer_skeleton preserves custom requested line-mode body" {
+  // A requested line mode whose skeleton function is a handwritten
+  // (non-canonical) override must stay byte-for-byte identical: the exact stub
+  // is absent, so no delegate is written for it.
+  let base = emit_lexer_skeleton(["Inline", "LineStart"], "Token", "@core")
+  let custom_line_start = "fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+    "  // user override for line start\n" +
+    "  lex_line_start_custom(source, pos)\n" +
+    "}"
+  let existing = base.replace(
+    old="fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n  abort(\"lex_line_start not implemented\")\n}",
+    new=custom_line_start,
+  )
+  let ls_before = existing.find("fn lex_line_start")
+  guard ls_before is Some(s) else {
+    fail("expected lex_line_start in existing")
+  }
+  let block_before = extract_fn_block(existing, s)
+  let migrated = integrate_line_lexer_skeleton(
+    existing,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  let ls_after = migrated.find("fn lex_line_start")
+  guard ls_after is Some(t) else { fail("expected lex_line_start in migrated") }
+  let block_after = extract_fn_block(migrated, t)
+  // The custom requested-mode function is preserved byte-for-byte.
+  inspect(block_before == block_after, content="true")
+  inspect(migrated.contains("generated_lex_line_start"), content="false")
+}
