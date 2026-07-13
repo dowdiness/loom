@@ -50,6 +50,10 @@ the exact historical `abort` stub. Replace a delegate with handwritten
 non-generated body byte-for-byte. `--force-lexer` is the explicit operation for
 replacing the entire skeleton.
 
+The `--line-lexer` output file must be directly under `syntax_out`, because its
+helpers and the skeleton must compile in the same MoonBit package. Loom rejects
+an output path in a different directory before writing generated files.
+
 `#loom.fallback_lex("fn")` on a term variant with both `#loom.lexmode("Mode")`
 and `#loom.line_mode` delegates no-match input to the named mode-compatible
 lexer (`(String, Int) -> (@core.LexStep[Token], LexMode)`). Without this

@@ -40,6 +40,38 @@ fn is_valid_mbt_ident(s : String) -> Bool {
 }
 
 ///|
+/// Extract the immediate parent directory from a file path.
+/// Returns `Some(".")` when the path is a bare filename.
+/// No filesystem canonicalization — purely textual.
+fn path_parent(path : String) -> String? {
+  let mut last_sep = -1
+  for i = 0; i < path.length(); i = i + 1 {
+    if path[i] == '/' {
+      last_sep = i
+    }
+  }
+  if last_sep >= 0 {
+    Some(path[0:last_sep].to_owned())
+  } else {
+    Some(".")
+  }
+}
+
+///|
+/// Textually normalize a directory path for comparison:
+/// strip trailing `/` (preserving bare `"/"`) and leading `"./"`.
+fn normalize_dir(s : String) -> String {
+  let mut result = s
+  if result.length() > 1 && result[result.length() - 1] == '/' {
+    result = result[0:result.length() - 1].to_owned()
+  }
+  if result.length() >= 2 && result[0] == '.' && result[1] == '/' {
+    result = result[2:].to_owned()
+  }
+  result
+}
+
+///|
 fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
   let cmd = @argparse.Command(
     "loomgen",
@@ -864,6 +896,29 @@ fn main {
         }
       }
     None => None
+  }
+
+  // Before line-lexer preflight, validate the same-directory constraint:
+  // generated helpers use unqualified calls, so line_lexer.g.mbt must share
+  // the same MoonBit package as lexer_skeleton.g.mbt (syntax_out).
+  match line_lexer_path {
+    Some(path) =>
+      match path_parent(path) {
+        Some(parent) =>
+          if normalize_dir(parent) != normalize_dir(syntax_out) {
+            println(
+              "error: --line-lexer path \"" +
+              path +
+              "\" is not in --syntax-out directory \"" +
+              syntax_out +
+              "\"; generated helpers and skeleton must share the same package",
+            )
+            @sys.exit(1)
+            return
+          }
+        None => ()
+      }
+    None => ()
   }
 
   // Preflight the line-mode lexer (#561) BEFORE writing any output.

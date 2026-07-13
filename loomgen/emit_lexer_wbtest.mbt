@@ -1221,3 +1221,94 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
     content="true",
   )
 }
+
+///|
+test "path_parent returns Some parent for syntax/line_lexer.g.mbt" {
+  let parent = path_parent("syntax/line_lexer.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  assert_eq(p, "syntax")
+}
+
+///|
+test "path_parent accepts any basename in the same directory" {
+  let parent = path_parent("syntax/arbitrary_name.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  assert_eq(p, "syntax")
+}
+
+///|
+test "path_parent rejects token/line_lexer.g.mbt vs syntax parent" {
+  let parent = path_parent("token/line_lexer.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  guard p != "syntax" else { fail("parent should not be syntax") }
+}
+
+///|
+test "path_parent returns Some(\".\") for bare filename" {
+  let parent = path_parent("line_lexer.g.mbt")
+  guard parent is Some(p) else {
+    fail("expected Some(\".\") for bare filename")
+  }
+  assert_eq(p, ".")
+}
+
+///|
+test "path_parent works with nested dirs" {
+  let parent = path_parent("syntax/nested/line_lexer.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  assert_eq(p, "syntax/nested")
+}
+
+///|
+test "path_parent works with absolute paths" {
+  let parent = path_parent("/abs/path/line_lexer.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  assert_eq(p, "/abs/path")
+}
+
+///|
+test "path_parent works with dot-prefixed relative path" {
+  let parent = path_parent("./line_lexer.g.mbt")
+  guard parent is Some(p) else { fail("expected Some parent") }
+  assert_eq(p, ".")
+}
+
+///|
+test "normalize_dir strips trailing slash" {
+  assert_eq(normalize_dir("syntax/"), "syntax")
+}
+
+///|
+test "normalize_dir strips leading dot-slash" {
+  assert_eq(normalize_dir("./syntax"), "syntax")
+}
+
+///|
+test "normalize_dir strips both leading dot-slash and trailing slash" {
+  assert_eq(normalize_dir("./syntax/"), "syntax")
+}
+
+///|
+test "normalize_dir leaves bare dot unchanged" {
+  assert_eq(normalize_dir("."), ".")
+}
+
+///|
+test "normalize_dir leaves plain dir unchanged" {
+  assert_eq(normalize_dir("syntax"), "syntax")
+}
+
+///|
+test "normalize_dir leaves nested dir unchanged" {
+  assert_eq(normalize_dir("syntax/nested"), "syntax/nested")
+}
+
+///|
+test "normalize_dir leaves absolute path unchanged" {
+  assert_eq(normalize_dir("/abs/path"), "/abs/path")
+}
+
+///|
+test "normalize_dir leaves single slash root unchanged" {
+  assert_eq(normalize_dir("/"), "/")
+}
