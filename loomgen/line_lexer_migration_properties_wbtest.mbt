@@ -29,6 +29,8 @@ struct MigrationMode {
 struct MigrationCase {
   modes : Array[MigrationMode]
   selected_modes : Array[String]
+  token_type : String
+  core_qual : String
 } derive(Debug, Eq)
 
 ///|
@@ -43,6 +45,16 @@ fn migration_property_words() -> Array[MigrationWord] {
     { camel: "HTTP", snake: "h_t_t_p" },
     { camel: "V2Id", snake: "v2_id" },
   ]
+}
+
+///|
+fn migration_property_token_types() -> Array[String] {
+  ["Token", "GeneratedToken", "LexToken"]
+}
+
+///|
+fn migration_property_core_quals() -> Array[String] {
+  ["@core", "@runtime", "@syntax"]
 }
 
 ///|
@@ -143,10 +155,16 @@ fn migration_property_effective_ownership(
 fn migration_property_render_block(
   mode : MigrationMode,
   ownership : MigrationOwnership,
+  token_type : String,
+  core_qual : String,
 ) -> String? {
   let canonical_header = "fn " +
     mode.fn_name +
-    "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n"
+    "(source : String, pos : Int) -> (" +
+    core_qual +
+    ".LexStep[" +
+    token_type +
+    "], LexMode) {\n"
   match ownership {
     MigrationCanonical =>
       Some(
@@ -170,7 +188,11 @@ fn migration_property_render_block(
       Some(
         "fn " +
         mode.fn_name +
-        "(source: String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+        "(source: String, pos : Int) -> (" +
+        core_qual +
+        ".LexStep[" +
+        token_type +
+        "], LexMode) {\n" +
         "  abort(\"" +
         mode.fn_name +
         " not implemented\")\n}",
@@ -179,7 +201,7 @@ fn migration_property_render_block(
       Some(
         "fn " +
         mode.fn_name +
-        "(source : String, pos : Int) -> (@core.LexStep[OtherToken], LexMode) {\n" +
+        "(source : String, pos : Int) -> (@other.LexStep[OtherToken], LexMode) {\n" +
         "  abort(\"" +
         mode.fn_name +
         " not implemented\")\n}",
@@ -209,7 +231,13 @@ fn migration_property_render_skeleton(
     ..write_string("  source : String,\n")
     ..write_string("  pos : Int,\n")
     ..write_string("  mode : LexMode,\n")
-    ..write_string(") -> (@core.LexStep[Token], LexMode) {\n")
+    ..write_string(
+      ") -> (" +
+      case.core_qual +
+      ".LexStep[" +
+      case.token_type +
+      "], LexMode) {\n",
+    )
     ..write_string("  match mode {\n")
   for mode in case.modes {
     output
@@ -227,7 +255,13 @@ fn migration_property_render_skeleton(
       case.selected_modes,
       migrate_selected,
     )
-    match migration_property_render_block(mode, ownership) {
+    match
+      migration_property_render_block(
+        mode,
+        ownership,
+        case.token_type,
+        case.core_qual,
+      ) {
       Some(block) => blocks.push(block)
       None => ()
     }
@@ -277,7 +311,10 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
   ]
   for selection in selections {
     let actual = integrate_line_lexer_skeleton(
-      existing, selection, "Token", "@core",
+      existing,
+      selection,
+      case.token_type,
+      case.core_qual,
     )
     migration_property_assert_exact(
       "migration mismatch", case, actual, expected,
@@ -286,8 +323,8 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
   let migrated_again = integrate_line_lexer_skeleton(
     expected,
     case.selected_modes,
-    "Token",
-    "@core",
+    case.token_type,
+    case.core_qual,
   )
   migration_property_assert_exact(
     "migration is not idempotent", case, migrated_again, expected,
@@ -298,7 +335,12 @@ fn migration_property_check_case(case : MigrationCase) -> Unit {
 fn migration_property_golden_case() -> MigrationCase {
   let bold = migration_property_mode([0], MigrationCanonical)
   let calm_line = migration_property_mode([1, 5], MigrationHandwritten)
-  { modes: [bold, calm_line], selected_modes: [bold.mode_name] }
+  {
+    modes: [bold, calm_line],
+    selected_modes: [bold.mode_name],
+    token_type: "Token",
+    core_qual: "@core",
+  }
 }
 
 ///|
@@ -323,10 +365,27 @@ fn migration_property_basis_cases() -> Array[MigrationCase] {
     selected_states[3].mode_name,
   ]
   let unselected = migration_property_mode([0, 1, 2], MigrationCanonical)
+  let alternate = migration_property_mode([2, 6], MigrationCanonical)
   [
     migration_property_golden_case(),
-    { modes: selected_states, selected_modes },
-    { modes: [unselected], selected_modes: [] },
+    {
+      modes: selected_states,
+      selected_modes,
+      token_type: "GeneratedToken",
+      core_qual: "@runtime",
+    },
+    {
+      modes: [unselected],
+      selected_modes: [],
+      token_type: "LexToken",
+      core_qual: "@syntax",
+    },
+    {
+      modes: [alternate],
+      selected_modes: [alternate.mode_name],
+      token_type: "GeneratedToken",
+      core_qual: "@syntax",
+    },
   ]
 }
 
@@ -481,6 +540,19 @@ test "line skeleton migration basis covers ownership and selection classes" {
 }
 
 ///|
+fn migration_property_value_index(
+  values : Array[String],
+  needle : String,
+) -> Int {
+  for i, value in values {
+    if value == needle {
+      return i
+    }
+  }
+  abort("migration case contains an unsupported signature parameter")
+}
+
+///|
 fn migration_property_assert_unique_names(case : MigrationCase) -> Unit {
   if case.modes.length() < 1 || case.modes.length() > 7 {
     abort("migration cases need one to seven modes")
@@ -495,6 +567,18 @@ fn migration_property_assert_unique_names(case : MigrationCase) -> Unit {
       }
     }
   }
+  ignore(
+    migration_property_value_index(
+      migration_property_token_types(),
+      case.token_type,
+    ),
+  )
+  ignore(
+    migration_property_value_index(
+      migration_property_core_quals(),
+      case.core_qual,
+    ),
+  )
   for selected in case.selected_modes {
     ignore(migration_property_mode_index(case.modes, selected))
   }
@@ -608,7 +692,18 @@ impl @quickcheck.Arbitrary for MigrationCase with fn arbitrary(_size, random) {
     }
   }
   migration_property_shuffle_strings(selected_modes, random)
-  let case = { modes, selected_modes }
+  let case = {
+    modes,
+    selected_modes,
+    token_type: migration_property_token_types()[migration_property_pick(
+      random,
+      migration_property_token_types().length(),
+    )],
+    core_qual: migration_property_core_quals()[migration_property_pick(
+      random,
+      migration_property_core_quals().length(),
+    )],
+  }
   migration_property_assert_unique_names(case)
   case
 }
@@ -646,6 +741,8 @@ test "property: structural line skeleton migration matches exact oracle" {
 
   let generated_ownerships = Array::make(8, false)
   let generated_identifier_depths = Array::make(4, false)
+  let generated_token_types = Array::make(3, false)
+  let generated_core_quals = Array::make(3, false)
   let mut saw_empty = false
   let mut saw_singleton = false
   let mut saw_multiple = false
@@ -654,6 +751,14 @@ test "property: structural line skeleton migration matches exact oracle" {
   let mut saw_acronym = false
   let mut saw_digit = false
   for case in fixed_seed_cases {
+    generated_token_types[migration_property_value_index(
+      migration_property_token_types(),
+      case.token_type,
+    )] = true
+    generated_core_quals[migration_property_value_index(
+      migration_property_core_quals(),
+      case.core_qual,
+    )] = true
     for mode in case.modes {
       generated_ownerships[migration_property_ownership_index(mode.ownership)] = true
       generated_identifier_depths[mode.component_count] = true
@@ -694,6 +799,12 @@ test "property: structural line skeleton migration matches exact oracle" {
   inspect(generated_identifier_depths[1], content="true")
   inspect(generated_identifier_depths[2], content="true")
   inspect(generated_identifier_depths[3], content="true")
+  for covered in generated_token_types {
+    inspect(covered, content="true")
+  }
+  for covered in generated_core_quals {
+    inspect(covered, content="true")
+  }
   inspect(saw_empty, content="true")
   inspect(saw_singleton, content="true")
   inspect(saw_multiple, content="true")
