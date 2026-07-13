@@ -197,6 +197,7 @@ if [[ "${1:-}" == "--update" ]]; then
     fail "Current benchmark TSV validation failed — verifier infrastructure error"
     exit 1
   fi
+  count=$(printf '%s\n' "$parsed" | wc -l)
 
   if [[ -f "$BASELINE" ]]; then
     if ! validate_benchmark_tsv baseline "$(<"$BASELINE")"; then
@@ -222,7 +223,7 @@ if [[ "${1:-}" == "--update" ]]; then
   fi
   mv "$staged_baseline" "$BASELINE"
   staged_baseline=""
-  ok "Baseline saved: $BASELINE"
+  ok "Baseline saved: $BASELINE ($count benchmarks)"
   echo ""
   echo "Commit with:"
   echo "  git add $BASELINE && git commit -m 'perf: update bench baseline'"
