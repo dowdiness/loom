@@ -16,6 +16,15 @@ moon test --package parser
 
 **Note:** Use `moon bench` to run performance benchmarks. The `moon test` command runs functional tests only.
 
+
+The checked-in baseline covers the active benchmark packages discovered by
+Moon's enclosing root `moon.work` workspace when the command is launched from
+`examples/lambda`. This includes benchmark packages from e-graph, incr, loom,
+seam, and the lambda example.
+The 105 event-graph-walker benchmark rows that were present in the July 5
+baseline were retired when that module was removed from `moon.work` in
+`f56e497`; they are intentionally not part of the current inventory.
+
 ## Regression Guard
 
 `bench-check.sh` compares a live benchmark run against the saved baseline.
@@ -40,6 +49,11 @@ policy entries are verifier infrastructure failures. They produce no comparison
 report and must be fixed rather than accepted as a baseline update. Policy
 changes require a reason in the TSV and coverage in
 `scripts/bench-check-selftest.sh`.
+
+`--update` refuses to overwrite a baseline when any existing benchmark name is
+absent from the current run, even if replacement `NEW` rows keep the count
+similar. If a benchmark is intentionally retired, remove its baseline row as a
+reviewed inventory change before updating measurements.
 
 The baseline is stored in `docs/performance/bench-baseline.tsv` (tab-separated: `name\tmean_ns`). Commit it after running `--update` so the CI boundary moves forward intentionally:
 

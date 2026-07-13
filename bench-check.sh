@@ -86,6 +86,22 @@ validate_benchmark_tsv() {
   '
 }
 
+# --- validate that --update does not discard baseline benchmark names ---
+validate_update_inventory() {
+  local current_data="$1" baseline_data="$2"
+  awk -F '\t' '
+    NR == FNR {
+      current[$1] = 1
+      next
+    }
+    !($1 in current) {
+      printf "update: benchmark missing from current run: %s\n", $1 > "/dev/stderr"
+      bad = 1
+    }
+    END { exit bad }
+  ' <(printf '%s\n' "$current_data") <(printf '%s\n' "$baseline_data")
+}
+
 # --- validate policy format, version, unique keys, and baseline membership ---
 validate_policy() {
   local prospective_baseline="$1"
@@ -181,17 +197,16 @@ if [[ "${1:-}" == "--update" ]]; then
     fail "Current benchmark TSV validation failed — verifier infrastructure error"
     exit 1
   fi
-
   count=$(printf '%s\n' "$parsed" | wc -l)
+
   if [[ -f "$BASELINE" ]]; then
     if ! validate_benchmark_tsv baseline "$(<"$BASELINE")"; then
       fail "Baseline TSV validation failed — verifier infrastructure error"
       exit 1
     fi
-    baseline_count=$(wc -l < "$BASELINE")
-    if [[ "$count" -lt $((baseline_count * 3 / 4)) ]]; then
-      fail "Parsed only $count benchmarks vs $baseline_count in baseline — refusing to update"
-      fail "If benchmarks were intentionally removed, delete the baseline and re-run."
+    if ! validate_update_inventory "$parsed" "$(<"$BASELINE")"; then
+      fail "Benchmark inventory differs from baseline — refusing to update"
+      fail "Remove intentionally retired baseline rows manually, then re-run."
       exit 1
     fi
   fi
