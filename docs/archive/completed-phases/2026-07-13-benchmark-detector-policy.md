@@ -1,4 +1,6 @@
 # Benchmark Detector Policy Implementation Plan
+**Status:** Complete
+**Completion:** Implemented in commits `a3f301f`, `c3fb13e`, `af275b6`, `6cc8cb3`, `b3a50a4`, `ac69aa5`, with focused self-test and production `--validate` checks passing.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -29,7 +31,7 @@
 - Consumes: `bench-check.sh` environment seams `BENCH_BASELINE`, `BENCH_MODULE_DIR`, `BENCH_POLICY`, and `BENCH_REPORT_TSV`.
 - Produces: executable self-test that exits nonzero when any expected detector contract is violated.
 
-- [ ] **Step 1: Create temporary fixture helpers and assertions**
+- [x] **Step 1: Create temporary fixture helpers and assertions**
 
 Create a Bash self-test with `set -euo pipefail`, a temporary directory/trap, a fake module directory, and a fake `moon` executable that prints the fixture selected by `BENCH_FIXTURE` and optionally exits with `BENCH_MOON_EXIT`. Use shell substring assertions rather than external content-search commands:
 
@@ -123,7 +125,7 @@ assert_no_report() {
 }
 ```
 
-- [ ] **Step 2: Add policy and benchmark fixtures for all behavior cases**
+- [x] **Step 2: Add policy and benchmark fixtures for all behavior cases**
 
 Use three baseline rows and one informational policy row:
 
@@ -185,7 +187,7 @@ cat > "$fixture/unknown-unit" <<'EOF'
 EOF
 ```
 
-- [ ] **Step 3: Add assertions for status routing and verifier failures**
+- [x] **Step 3: Add assertions for status routing and verifier failures**
 
 Append cases for matching, gated regression, missing, new, mixed, empty output, and unknown units:
 
@@ -225,7 +227,7 @@ run_command_failure_case "$fixture/ok"
 assert_no_report
 ```
 
-- [ ] **Step 4: Add fail-closed metadata cases**
+- [x] **Step 4: Add fail-closed metadata cases**
 
 Add fixtures/cases proving policy version, stale policy, and duplicate keys
 fail without a report:
@@ -293,7 +295,7 @@ cp "$fixture/baseline.good" "$baseline"
 printf 'SELFTEST PASS\n'
 ```
 
-- [ ] **Step 5: Run the new test before implementation**
+- [x] **Step 5: Run the new test before implementation**
 
 Run:
 
@@ -303,7 +305,7 @@ rtk bash scripts/bench-check-selftest.sh
 
 Expected: FAIL because `bench-check.sh` does not yet accept the fixture environment, informational policy, or fail-closed validation. Do not weaken the test to make this first run pass.
 
-- [ ] **Step 6: Commit the failing test**
+- [x] **Step 6: Commit the failing test**
 
 ```bash
 rtk git add scripts/bench-check-selftest.sh
@@ -322,7 +324,7 @@ rtk git commit -m "test(#644): specify benchmark detector policy"
 - Consumes: the fixture environment variables and real benchmark output.
 - Produces: validated `OK`, `REGRESSION`, `INFO`, `NEW`, and `MISSING` report rows; exit codes matching Task 1.
 
-- [ ] **Step 1: Add configurable paths and policy data**
+- [x] **Step 1: Add configurable paths and policy data**
 
 Replace fixed path assignments with default-preserving seams:
 
@@ -345,7 +347,7 @@ bench: node_count hand-written	informational	unclassifiable measurement
 bench: node_count via closure transform_fold	informational	unclassifiable measurement
 ```
 
-- [ ] **Step 2: Make unit parse errors observable and preserve zero-row detection**
+- [x] **Step 2: Make unit parse errors observable and preserve zero-row detection**
 
 In `parse_bench_output`, track an AWK `bad` flag when a unit is not recognized,
 match units by exact name (`ns`, `µs`/`us`/`μs`, `ms`, `s`) rather than suffix,
@@ -353,7 +355,7 @@ and `exit 1` in `END` if any bad unit occurred. In both update and check
 modes, capture parsing through an `if ! parsed=$(...); then ... fi` guard so
 parse errors print an infra message and exit before writing or comparing.
 
-- [ ] **Step 3: Add TSV and policy validators**
+- [x] **Step 3: Add TSV and policy validators**
 
 Add functions before update/check mode:
 
@@ -420,7 +422,7 @@ validate_policy() {
 
 The implementation may factor these validators differently, but must retain the exact fail-closed behavior and diagnostics needed by the self-test.
 
-- [ ] **Step 4: Validate current output before comparison and report creation**
+- [x] **Step 4: Validate current output before comparison and report creation**
 
 After parsing in check mode:
 
@@ -449,7 +451,7 @@ fi
 
 Do not create `BENCH_REPORT_TSV` until every validation has passed.
 
-- [ ] **Step 5: Apply policy mode in AWK comparison**
+- [x] **Step 5: Apply policy mode in AWK comparison**
 
 Load policy modes in the comparison AWK `BEGIN` block. For an existing row over threshold, emit `INFO` instead of `REGRESSION` when its mode is `informational`; retain baseline/current values and percentage in the report. Continue emitting `MISSING` for every baseline key not seen, independent of policy mode. Add an `informational_count` shell counter and display INFO with the existing cyan `info` helper.
 
@@ -461,11 +463,11 @@ if [[ "$regressions" -gt 0 || "$missing_count" -gt 0 ]]; then
 fi
 ```
 
-- [ ] **Step 6: Make `--update` prospective and atomic**
+- [x] **Step 6: Make `--update` prospective and atomic**
 
 Parse to a temporary TSV in the same directory as the target baseline. Reject parse failure, zero rows, malformed/duplicate rows, and the existing 75% lower-count guard. Validate the policy against the staged TSV before replacing the baseline; then `mv` the staged file into place. Remove the temp file through a trap on every failure path. This prevents `--update` from creating a baseline that the next check rejects for stale policy metadata.
 
-- [ ] **Step 7: Run the focused self-test**
+- [x] **Step 7: Run the focused self-test**
 
 Run:
 
@@ -475,7 +477,7 @@ rtk bash scripts/bench-check-selftest.sh
 
 Expected: `SELFTEST PASS`.
 
-- [ ] **Step 8: Commit the implementation**
+- [x] **Step 8: Commit the implementation**
 
 ```bash
 rtk git add bench-check.sh docs/performance/bench-detector-policy.tsv
@@ -494,7 +496,7 @@ rtk git commit -m "ci(#644): make benchmark detector policy explicit"
 - Consumes: `scripts/bench-check-selftest.sh` from Task 1.
 - Produces: ordinary PR CI coverage and contributor-facing policy documentation.
 
-- [ ] **Step 1: Add a dedicated fast CI job**
+- [x] **Step 1: Add a dedicated fast CI job**
 
 Add a job after `dep-check` that checks out the repository and runs:
 
@@ -515,7 +517,7 @@ Add a job after `dep-check` that checks out the repository and runs:
 
 This job must not install MoonBit or run `moon bench`.
 
-- [ ] **Step 2: Document policy routing**
+- [x] **Step 2: Document policy routing**
 
 In `BENCHMARKS.md`, document that:
 
@@ -525,7 +527,7 @@ In `BENCHMARKS.md`, document that:
 - empty/invalid output is infrastructure failure and not a benchmark inventory result;
 - policy changes require a reason and self-test coverage.
 
-- [ ] **Step 3: Run the self-test and YAML sanity check**
+- [x] **Step 3: Run the self-test and YAML sanity check**
 
 Run:
 
@@ -542,7 +544,7 @@ PY
 
 Expected: `SELFTEST PASS` and `CI detector wiring ok`.
 
-- [ ] **Step 4: Commit CI and documentation**
+- [x] **Step 4: Commit CI and documentation**
 
 ```bash
 rtk git add .github/workflows/ci.yml BENCHMARKS.md
@@ -558,7 +560,7 @@ rtk git commit -m "docs(ci): document benchmark detector policy"
 - Modify: `docs/README.md` to index the ADR
 - Modify: `docs/superpowers/plans/2026-07-13-benchmark-detector-policy.md` to mark complete
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run:
 
@@ -578,25 +580,23 @@ PY
 
 Expected: all commands succeed, including `SELFTEST PASS`.
 
-- [ ] **Step 2: Write the ADR after implementation is verified**
+- [x] **Step 2: Write the ADR after implementation is verified**
 
 Create an accepted ADR recording that benchmark detector eligibility is an explicit versioned policy, that informational rows do not alert, and that inventory/verifier failures remain fail-closed. Link the implementation spec and plan. Add the ADR to `docs/README.md`.
 
-- [ ] **Step 3: Mark the plan complete and record closure**
+- [x] **Step 3: Mark the plan complete and record closure**
 
-Set `**Status:** Complete`, add the issue/commit links, and add:
+Set `**Status:** Complete` and record the implementation commits in the plan header.
 
-```md
-Decision record:
+The plan is archived under `docs/archive/completed-phases/` after implementation and verification.
 
-- ADR: [2026-07-13 benchmark detector policy](../decisions/2026-07-13-benchmark-detector-policy.md)
-```
+## Decision record
 
-The plan is not archived in this task because it remains the active implementation record; archive only after the PR/issue closure workflow is complete.
+- ADR: [2026-07-13 benchmark detector policy](../../decisions/2026-07-13-benchmark-detector-policy.md)
 
-- [ ] **Step 4: Commit closure documentation**
+- [x] **Step 4: Commit closure documentation**
 
 ```bash
-rtk git add docs/decisions/2026-07-13-benchmark-detector-policy.md docs/README.md docs/superpowers/plans/2026-07-13-benchmark-detector-policy.md
+rtk git add docs/decisions/2026-07-13-benchmark-detector-policy.md docs/README.md docs/archive/completed-phases/2026-07-13-benchmark-detector-policy.md
 rtk git commit -m "docs(#644): record detector policy decision"
 ```
