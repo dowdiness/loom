@@ -490,6 +490,19 @@ jobs:
           git diff --exit-code -- fixtures/grammar_ir_regression/grammar_ir.g.mbt
           moon check --target native fixtures/grammar_ir_regression
           moon test --target native fixtures/grammar_ir_regression
+      - name: Verify line lexer compile-regression fixture
+        working-directory: .
+        run: |
+          bash fixtures/line_lexer_regression/regenerate.sh
+          git diff --exit-code -- \
+            loomgen/fixtures/error_node_fixture.g.mbt \
+            loomgen/fixtures/rule_grammar_fixture.g.mbt \
+            loomgen/fixtures/separated_list_fixture.g.mbt \
+            loomgen/fixtures/line_pattern_fixture.g.mbt \
+            fixtures/line_lexer_regression/line_lexer.g.mbt \
+            fixtures/line_lexer_regression/lexer_skeleton.g.mbt
+          moon check --target native fixtures/line_lexer_regression
+          moon test --target native fixtures/line_lexer_regression
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest

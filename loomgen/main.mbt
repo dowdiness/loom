@@ -90,7 +90,7 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
       ),
       @argparse.FlagArg(
         "regenerate-fixtures",
-        about="Regenerate fixture .g.mbt files (IR-level fixtures: error_node, rule_grammar, separated_list) from current emitter output.",
+        about="Regenerate all fixture .g.mbt files; run moon fmt loomgen/fixtures/ fixtures/line_lexer_regression afterward.",
       ),
     ],
     options=[
@@ -751,7 +751,13 @@ fn main {
     }
   }
   if matches.flags.get_or_default("regenerate-fixtures", false) {
-    regenerate_fixtures()
+    match regenerate_fixtures() {
+      Ok(_) => ()
+      Err(msg) => {
+        println("error: fixture regeneration failed — " + msg)
+        @sys.exit(1)
+      }
+    }
     return
   }
   let seed_path = first_value(matches.values.get_or_default("seed", []))
