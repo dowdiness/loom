@@ -5,7 +5,8 @@ enum MigrationOwnership {
   MigrationHandwritten
   MigrationMutatedAbortMessage
   MigrationMutatedWhitespace
-  MigrationMutatedSignature
+  MigrationMutatedTokenType
+  MigrationMutatedCoreQualifier
   MigrationCommentInserted
   MigrationAbsent
 } derive(Debug, Eq)
@@ -197,11 +198,24 @@ fn migration_property_render_block(
         mode.fn_name +
         " not implemented\")\n}",
       )
-    MigrationMutatedSignature =>
+    MigrationMutatedTokenType =>
       Some(
         "fn " +
         mode.fn_name +
-        "(source : String, pos : Int) -> (@other.LexStep[OtherToken], LexMode) {\n" +
+        "(source : String, pos : Int) -> (" +
+        core_qual +
+        ".LexStep[OtherToken], LexMode) {\n" +
+        "  abort(\"" +
+        mode.fn_name +
+        " not implemented\")\n}",
+      )
+    MigrationMutatedCoreQualifier =>
+      Some(
+        "fn " +
+        mode.fn_name +
+        "(source : String, pos : Int) -> (@other.LexStep[" +
+        token_type +
+        "], LexMode) {\n" +
         "  abort(\"" +
         mode.fn_name +
         " not implemented\")\n}",
@@ -350,7 +364,7 @@ fn migration_property_basis_cases() -> Array[MigrationCase] {
     migration_property_mode([2, 0], MigrationHandwritten),
     migration_property_mode([3, 1, 5], MigrationMutatedAbortMessage),
     migration_property_mode([4], MigrationMutatedWhitespace),
-    migration_property_mode([5, 3], MigrationMutatedSignature),
+    migration_property_mode([5, 3], MigrationMutatedTokenType),
     migration_property_mode([6, 4, 0], MigrationCommentInserted),
     migration_property_mode([7], MigrationAbsent),
   ]
@@ -366,6 +380,10 @@ fn migration_property_basis_cases() -> Array[MigrationCase] {
   ]
   let unselected = migration_property_mode([0, 1, 2], MigrationCanonical)
   let alternate = migration_property_mode([2, 6], MigrationCanonical)
+  let wrong_core = migration_property_mode(
+    [4, 7],
+    MigrationMutatedCoreQualifier,
+  )
   [
     migration_property_golden_case(),
     {
@@ -386,6 +404,12 @@ fn migration_property_basis_cases() -> Array[MigrationCase] {
       token_type: "GeneratedToken",
       core_qual: "@syntax",
     },
+    {
+      modes: [wrong_core],
+      selected_modes: [wrong_core.mode_name],
+      token_type: "GeneratedToken",
+      core_qual: "@runtime",
+    },
   ]
 }
 
@@ -397,9 +421,10 @@ fn migration_property_ownership_index(ownership : MigrationOwnership) -> Int {
     MigrationHandwritten => 2
     MigrationMutatedAbortMessage => 3
     MigrationMutatedWhitespace => 4
-    MigrationMutatedSignature => 5
-    MigrationCommentInserted => 6
-    MigrationAbsent => 7
+    MigrationMutatedTokenType => 5
+    MigrationMutatedCoreQualifier => 6
+    MigrationCommentInserted => 7
+    MigrationAbsent => 8
   }
 }
 
@@ -473,7 +498,7 @@ test "line skeleton migration oracle matches literal skeleton bytes" {
 ///|
 test "line skeleton migration basis covers ownership and selection classes" {
   let cases = migration_property_basis_cases()
-  let selected_ownerships = Array::make(8, false)
+  let selected_ownerships = Array::make(9, false)
   let identifier_depths = Array::make(4, false)
   let mut saw_unselected_canonical = false
   let mut saw_empty = false
@@ -626,9 +651,10 @@ fn migration_property_ownership_from_pick(index : Int) -> MigrationOwnership {
     2 => MigrationHandwritten
     3 => MigrationMutatedAbortMessage
     4 => MigrationMutatedWhitespace
-    5 => MigrationMutatedSignature
-    6 => MigrationCommentInserted
-    7 => MigrationAbsent
+    5 => MigrationMutatedTokenType
+    6 => MigrationMutatedCoreQualifier
+    7 => MigrationCommentInserted
+    8 => MigrationAbsent
     _ => abort("migration ownership pick is out of bounds")
   }
 }
@@ -654,7 +680,7 @@ impl @quickcheck.Arbitrary for MigrationCase with fn arbitrary(_size, random) {
       migration_property_mode(
         word_indices,
         migration_property_ownership_from_pick(
-          migration_property_pick(random, 8),
+          migration_property_pick(random, 9),
         ),
       ),
     )
@@ -739,7 +765,7 @@ test "property: structural line skeleton migration matches exact oracle" {
     migration_property_check_case(case)
   }
 
-  let generated_ownerships = Array::make(8, false)
+  let generated_ownerships = Array::make(9, false)
   let generated_identifier_depths = Array::make(4, false)
   let generated_token_types = Array::make(3, false)
   let generated_core_quals = Array::make(3, false)
