@@ -412,6 +412,13 @@ test "property: line skeleton migration is exact, idempotent, and order-independ
       other_fn +
       " not implemented\")\n" +
       "}"
+    let line_delegate = "fn " +
+      line_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  " +
+      generated_line_lexer_fn_name(line_mode) +
+      "(source, pos)\n" +
+      "}"
     let handwritten = base.replace(old=exact_stub, new=custom_body)
     inspect(
       integrate_line_lexer_skeleton(handwritten, [line_mode], "Token", "@core") ==
@@ -441,9 +448,7 @@ test "property: line skeleton migration is exact, idempotent, and order-independ
       "@core",
     )
     inspect(
-      migrated.contains(
-        generated_line_lexer_fn_name(line_mode) + "(source, pos)",
-      ),
+      migrated == base.replace(old=exact_stub, new=line_delegate),
       content="true",
     )
     inspect(migrated.contains(other_stub), content="true")
@@ -465,7 +470,18 @@ test "property: line skeleton migration is exact, idempotent, and order-independ
       "Token",
       "@core",
     )
-    inspect(forward == reverse, content="true")
+    let other_delegate = "fn " +
+      other_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  " +
+      generated_line_lexer_fn_name(other_mode) +
+      "(source, pos)\n" +
+      "}"
+    let expected_both = base
+      .replace(old=exact_stub, new=line_delegate)
+      .replace(old=other_stub, new=other_delegate)
+    inspect(forward == expected_both, content="true")
+    inspect(reverse == expected_both, content="true")
   }
 }
 
