@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-13
 **Status:** Accepted
-**Implementation plan:** [Issue #712](https://github.com/dowdiness/loom/issues/712)
+**Implementation plan:** [docs/archive/completed-phases/2026-07-13-benchmark-inventory-reconciliation-improvements.md](../archive/completed-phases/2026-07-13-benchmark-inventory-reconciliation-improvements.md)
 
 ## Context
 
