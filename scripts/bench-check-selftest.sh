@@ -90,6 +90,14 @@ assert_report_contains() {
     exit 1
   }
 }
+assert_report_not_contains() {
+  local needle="$1"
+  [[ -f "$report" && "$(cat "$report")" != *"$needle"* ]] || {
+    printf 'SELFTEST FAIL: report unexpectedly contains %s\n' "$needle"
+    exit 1
+  }
+}
+
 assert_no_report() {
   [[ ! -e "$report" ]] || {
     printf 'SELFTEST FAIL: unexpected comparison report\n'
@@ -193,6 +201,7 @@ run_case "$fixture/info-only" 0
 assert_output_contains 'INFO  noisy row'
 assert_output_contains 'No regressions.'
 assert_report_contains $'INFO	noisy row'
+assert_report_not_contains $'REGRESSION	'
 
 printf '# policy_version=1\nnoisy row	informational	\n' > "$policy"
 run_case "$fixture/ok" 1
