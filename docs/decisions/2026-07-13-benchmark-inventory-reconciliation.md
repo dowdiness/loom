@@ -79,11 +79,12 @@ Across both the initial six and final two candidates, none exceeds `1.15`, so no
 baseline value, detector policy, or implementation change is justified by these
 measurements.
 
-Candidate 2 has higher run variance; baseline trials are `2770000`, `2730000`, and
-`3450000` ns, including the outlier `3450000` ns vs `2770000` and `2730000` ns.
-Paired current/baseline ratios are `0.963899`, `1.014652`, and `0.785507`; the
-other two values `0.964` and `1.015` are far below `1.15`, so non-reproduction is
-robust.
+All three paired current/baseline ratios (`0.963899`, `1.014652`,
+`0.785507`) are below `1.15`, confirming non-reproduction on every
+pairing. The lowest ratio (`0.785507`) pairs current trial `2710000` ns
+with the baseline outlier `3450000` ns; the other two baseline trials
+(`2770000`, `2730000` ns) produce ratios `0.964` and `1.015`, both far
+below `1.15`. Non-reproduction is robust.
 
 
 ## Consequences
