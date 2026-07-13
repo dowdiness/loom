@@ -266,3 +266,177 @@ test "emit_lexer_skeleton produces correct dispatch skeleton" {
     ),
   )
 }
+
+///|
+test "emit_lexer_skeleton_with_line_delegates delegates line modes, stubs others" {
+  // Inline is not a line mode, so it keeps the aborting stub; LineStart
+  // delegates to the generated helper.
+  let output = emit_lexer_skeleton_with_line_delegates(
+    ["Inline", "LineStart"],
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(
+    output.contains("generated_lex_line_start(source, pos)"),
+    content="true",
+  )
+  inspect(
+    output.contains("abort(\"lex_inline not implemented\")"),
+    content="true",
+  )
+  inspect(
+    output.contains("abort(\"lex_line_start not implemented\")"),
+    content="false",
+  )
+}
+
+///|
+test "integrate_line_lexer_skeleton migrates only exact stubs and is idempotent" {
+  // Base skeleton with the exact historical aborting stubs for Inline and
+  // LineStart.
+  let base = emit_lexer_skeleton(["Inline", "LineStart"], "Token", "@core")
+  // Replace the exact lex_inline stub with a handwritten custom body.
+  let custom_inline = "fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+    "  // user override\n" +
+    "  lex_inline_custom(source, pos)\n" +
+    "}"
+  let existing = base.replace(
+    old="fn lex_inline(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n  abort(\"lex_inline not implemented\")\n}",
+    new=custom_inline,
+  )
+  inspect(existing.contains("// user override"), content="true")
+  inspect(
+    existing.contains("abort(\"lex_line_start not implemented\")"),
+    content="true",
+  )
+  // Only the exact LineStart stub is migrated; the custom lex_inline is preserved.
+  let migrated = integrate_line_lexer_skeleton(
+    existing,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(
+    migrated.contains("generated_lex_line_start(source, pos)"),
+    content="true",
+  )
+  inspect(
+    migrated.contains("abort(\"lex_line_start not implemented\")"),
+    content="false",
+  )
+  inspect(migrated.contains("// user override"), content="true")
+  inspect(
+    migrated.contains("generated_lex_inline(source, pos)"),
+    content="false",
+  )
+
+  // `String::replace` is first-occurrence-only and each unique mode's stub
+  // appears once, so migration applies the delegate exactly once per mode.
+  inspect(
+    migrated.split("generated_lex_line_start(source, pos)").length() - 1,
+    content="1",
+  )
+  // A second pass must be a no-op (deterministic, idempotent).
+  let migrated2 = integrate_line_lexer_skeleton(
+    migrated,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  inspect(migrated2 == migrated, content="true")
+}
+
+///|
+test "integrate_line_lexer_skeleton preserves custom requested line-mode body" {
+  // A requested line mode whose skeleton function is a handwritten
+  // (non-canonical) override must stay byte-for-byte identical: the exact stub
+  // is absent, so no delegate is written for it.
+  let base = emit_lexer_skeleton(["Inline", "LineStart"], "Token", "@core")
+  let custom_line_start = "fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+    "  // user override for line start\n" +
+    "  lex_line_start_custom(source, pos)\n" +
+    "}"
+  let existing = base.replace(
+    old="fn lex_line_start(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n  abort(\"lex_line_start not implemented\")\n}",
+    new=custom_line_start,
+  )
+  let ls_before = existing.find("fn lex_line_start")
+  guard ls_before is Some(s) else {
+    fail("expected lex_line_start in existing")
+  }
+  let block_before = extract_fn_block(existing, s)
+  let migrated = integrate_line_lexer_skeleton(
+    existing,
+    ["LineStart"],
+    "Token",
+    "@core",
+  )
+  let ls_after = migrated.find("fn lex_line_start")
+  guard ls_after is Some(t) else { fail("expected lex_line_start in migrated") }
+  let block_after = extract_fn_block(migrated, t)
+  // The custom requested-mode function is preserved byte-for-byte.
+  inspect(block_before == block_after, content="true")
+  inspect(migrated.contains("generated_lex_line_start"), content="false")
+}
+
+///|
+test "build_line_lexer_regression_outputs regenerates the combined fixture" {
+  let source = read_fallback_fixture(
+    "../fixtures/line_lexer_regression/src/line_lexer_src.mbt", "fixtures/line_lexer_regression/src/line_lexer_src.mbt",
+  )
+  let skeleton = read_fallback_fixture(
+    "../fixtures/line_lexer_regression/lexer_skeleton.g.mbt", "fixtures/line_lexer_regression/lexer_skeleton.g.mbt",
+  )
+  match
+    build_line_lexer_regression_outputs(source, "line_lexer_src.mbt", skeleton) {
+    Ok((line_lexer, integrated_skeleton)) => {
+      inspect(
+        line_lexer.contains("fn generated_lex_line_start"),
+        content="true",
+      )
+      inspect(
+        integrated_skeleton.contains("generated_lex_line_start(source, pos)"),
+        content="true",
+      )
+      inspect(
+        integrated_skeleton.contains("handwritten fallback"),
+        content="true",
+      )
+    }
+    Err(msg) => fail("expected line lexer fixture output: " + msg)
+  }
+}
+
+///|
+test "regenerate_line_lexer_regression_fixture reports unreadable source" {
+  match
+    regenerate_line_lexer_regression_fixture(
+      "missing-line-lexer-source.mbt", "unused-line-lexer.g.mbt", "unused-lexer-skeleton.g.mbt",
+    ) {
+    Err(msg) =>
+      inspect(msg.contains("missing-line-lexer-source.mbt"), content="true")
+    Ok(_) => fail("expected missing fixture source to fail regeneration")
+  }
+}
+
+///|
+test "write_line_lexer_job reports an unwritable helper path" {
+  match
+    write_line_lexer_job(
+      Some(
+        (
+          "missing-line-lexer-output/line_lexer.g.mbt",
+          "generated",
+          ["LineStart"],
+        ),
+      ),
+    ) {
+    Err(msg) =>
+      inspect(
+        msg.contains("missing-line-lexer-output/line_lexer.g.mbt"),
+        content="true",
+      )
+    Ok(_) => fail("expected unwritable line lexer output to fail")
+  }
+}

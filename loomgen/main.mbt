@@ -40,6 +40,44 @@ fn is_valid_mbt_ident(s : String) -> Bool {
 }
 
 ///|
+/// Extract the immediate parent directory from a file path.
+/// A bare filename maps to the current directory. No filesystem
+/// canonicalization is performed.
+fn path_parent(path : String) -> String {
+  match path.rev_find("/") {
+    None => "."
+    Some(separator) => path[:separator].to_owned()
+  }
+}
+
+///|
+/// Textually normalize a directory path for comparison by stripping one trailing
+/// `/` (except root) and one leading `./`.
+fn normalize_dir(s : String) -> String {
+  let without_trailing = if s.length() > 1 && s[s.length() - 1] == '/' {
+    s[:s.length() - 1].to_owned()
+  } else {
+    s
+  }
+  if without_trailing.length() >= 2 &&
+    without_trailing[0] == '.' &&
+    without_trailing[1] == '/' {
+    without_trailing[2:].to_owned()
+  } else {
+    without_trailing
+  }
+}
+
+///|
+/// Check whether generated line helpers will share the skeleton's package.
+fn line_lexer_shares_syntax_output(
+  line_lexer_path : String,
+  syntax_out : String,
+) -> Bool {
+  normalize_dir(path_parent(line_lexer_path)) == normalize_dir(syntax_out)
+}
+
+///|
 fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
   let cmd = @argparse.Command(
     "loomgen",
@@ -52,7 +90,7 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
       ),
       @argparse.FlagArg(
         "regenerate-fixtures",
-        about="Regenerate fixture .g.mbt files (IR-level fixtures: error_node, rule_grammar, separated_list) from current emitter output.",
+        about="Regenerate all fixture .g.mbt files; run moon fmt loomgen/fixtures/ fixtures/line_lexer_regression afterward.",
       ),
     ],
     options=[
@@ -332,6 +370,7 @@ fn write_outputs(
   syntax_qual : String,
   core_qual : String,
   term_enum_decl : EnumDecl?,
+  line_lexer_modes : Array[String]?,
 ) -> Result[Unit, Unit] {
   let token_type_name = match cli_token_type {
     Some(n) => n
@@ -442,15 +481,22 @@ fn write_outputs(
   }
 
   // Write lexer_skeleton.g.mbt (mode-dispatch skeleton, once semantics).
-  // Generated only when the file does not exist, unless --force-lexer is set.
-  if !skip_syntax {
+  // A valid --line-lexer request also needs this dispatcher when syntax output
+  // is otherwise skipped, but ordinary --skip-syntax behavior still removes it.
+  if !skip_syntax || line_lexer_modes is Some(_) {
     let skel_path = syntax_out + "/lexer_skeleton.g.mbt"
     match term_enum_decl {
       Some(term_enum_val) => {
         let modes = collect_lexmodes(term_enum_val)
         if modes.length() > 0 {
           if !@fs.path_exists(skel_path) || force_lexer {
-            let content = emit_lexer_skeleton(modes, token_type_name, core_qual)
+            let content = match line_lexer_modes {
+              Some(line_modes) =>
+                emit_lexer_skeleton_with_line_delegates(
+                  modes, line_modes, token_type_name, core_qual,
+                )
+              None => emit_lexer_skeleton(modes, token_type_name, core_qual)
+            }
             @fs.write_string_to_file(skel_path, content) catch {
               _ => {
                 println("Error writing " + skel_path)
@@ -458,22 +504,46 @@ fn write_outputs(
               }
             }
             println("  " + skel_path)
+          } else {
+            match line_lexer_modes {
+              Some(line_modes) => {
+                let existing = @fs.read_file_to_string(skel_path) catch {
+                  _ => {
+                    println("Error reading " + skel_path)
+                    return Err(())
+                  }
+                }
+                let integrated = integrate_line_lexer_skeleton(
+                  existing, line_modes, token_type_name, core_qual,
+                )
+                if integrated != existing {
+                  @fs.write_string_to_file(skel_path, integrated) catch {
+                    _ => {
+                      println("Error writing " + skel_path)
+                      return Err(())
+                    }
+                  }
+                  println("  " + skel_path)
+                }
+              }
+              None => ()
+            }
           }
         } else {
-          // Remove stale file when no modes are declared
+          // Remove stale file when no modes are declared.
           @fs.remove_file(skel_path) catch {
             _ => ()
           }
         }
       }
       None =>
-        // Remove stale file when term enum is absent
+        // Remove stale file when term enum is absent.
         @fs.remove_file(skel_path) catch {
           _ => ()
         }
     }
   }
-  if skip_syntax {
+  if skip_syntax && line_lexer_modes is None {
     @fs.remove_file(syntax_out + "/lexer_skeleton.g.mbt") catch {
       _ => ()
     }
@@ -670,6 +740,24 @@ fn load_grammar_file(
 }
 
 ///|
+/// Write a preflighted line-mode helper before installing a skeleton delegate
+/// that calls it, so helper-write failures cannot leave a dangling reference.
+fn write_line_lexer_job(
+  job : (String, String, Array[String])?,
+) -> Result[Unit, String] {
+  match job {
+    None => Ok(())
+    Some((path, content, _)) => {
+      @fs.write_string_to_file(path, content) catch {
+        _ => return Err("Error writing " + path)
+      }
+      println("  " + path)
+      Ok(())
+    }
+  }
+}
+
+///|
 fn main {
   let argv = @sys.get_cli_args()
   let matches = match parse_args(argv[1:].to_owned()) {
@@ -681,7 +769,13 @@ fn main {
     }
   }
   if matches.flags.get_or_default("regenerate-fixtures", false) {
-    regenerate_fixtures()
+    match regenerate_fixtures() {
+      Ok(_) => ()
+      Err(msg) => {
+        println("error: fixture regeneration failed — " + msg)
+        @sys.exit(1)
+      }
+    }
     return
   }
   let seed_path = first_value(matches.values.get_or_default("seed", []))
@@ -834,11 +928,32 @@ fn main {
     None => None
   }
 
+  // Before line-lexer preflight, validate the same-directory constraint:
+  // generated helpers use unqualified calls, so line_lexer.g.mbt must share
+  // the same MoonBit package as lexer_skeleton.g.mbt (syntax_out).
+  match line_lexer_path {
+    Some(path) =>
+      if !line_lexer_shares_syntax_output(path, syntax_out) {
+        println(
+          "error: --line-lexer path \"" +
+          path +
+          "\" is not in --syntax-out directory \"" +
+          syntax_out +
+          "\"; generated helpers and skeleton must share the same package",
+        )
+        @sys.exit(1)
+        return
+      }
+    None => ()
+  }
+
   // Preflight the line-mode lexer (#561) BEFORE writing any output.
-  let line_lexer_job : (String, String)? = match line_lexer_path {
+  let line_lexer_job : (String, String, Array[String])? = match
+    line_lexer_path {
     Some(path) =>
       match emit_line_lexer(te, term_enum_decl, core_qual) {
-        Some(content) => Some((path, content))
+        Some(content) =>
+          Some((path, content, collect_line_lexer_modes(term_enum_decl)))
         None => {
           println(
             "error: --line-lexer requires #loom.line_pattern annotations on token variants and #loom.line_mode annotations on #loom.lexmode term variants",
@@ -848,6 +963,13 @@ fn main {
         }
       }
     None => None
+  }
+  // `emit_line_lexer` only succeeds with line modes; retain the explicit
+  // non-empty guard so --skip-syntax keeps its historical cleanup behavior if
+  // that invariant changes.
+  let line_lexer_modes : Array[String]? = match line_lexer_job {
+    Some((_, _, modes)) if modes.length() > 0 => Some(modes)
+    _ => None
   }
 
   // Preflight the GrammarIr emission BEFORE writing any output, so an invalid
@@ -916,6 +1038,16 @@ fn main {
     None => None
   }
 
+  // Write the preflighted line-mode lexer before any skeleton can delegate to it.
+  match write_line_lexer_job(line_lexer_job) {
+    Err(msg) => {
+      println(msg)
+      @sys.exit(1)
+      return
+    }
+    Ok(_) => ()
+  }
+
   match
     write_outputs(
       te,
@@ -937,6 +1069,7 @@ fn main {
       syntax_qual,
       core_qual,
       term_enum_decl,
+      line_lexer_modes,
     ) {
     Err(_) => {
       @sys.exit(1)
@@ -947,21 +1080,6 @@ fn main {
 
   // Write the preflighted step lexer (already built + validated above). #521
   match lexer_job {
-    Some((path, content)) => {
-      @fs.write_string_to_file(path, content) catch {
-        _ => {
-          println("Error writing " + path)
-          @sys.exit(1)
-          return
-        }
-      }
-      println("  " + path)
-    }
-    None => ()
-  }
-
-  // Write the preflighted line-mode lexer (already built + validated above). #561
-  match line_lexer_job {
     Some((path, content)) => {
       @fs.write_string_to_file(path, content) catch {
         _ => {

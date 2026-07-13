@@ -38,9 +38,21 @@ matches `#loom.line_pattern` regexes against the current line (pos → newline) 
 declaration order. Patterns with a declared `#loom.lexmode("ModeName")` are only
 emitted in that mode's function; patterns without one appear in all line_mode
 functions. Nullary tokens are produced directly; payload-carrying tokens require
-`#loom.custom_lex` for extraction. Generated function names follow the same
-`lex_<lowercase_mode>` convention as `lexer_skeleton.g.mbt` stubs, so they can
-replace the skeleton's `abort("not implemented")` stubs.
+`#loom.custom_lex` for extraction.
+Generated helpers are named `generated_lex_<mode>` in `line_lexer.g.mbt`,
+reserving `lex_<mode>` for skeleton-owned dispatcher override points.
+
+`--line-lexer` automatically integrates these helpers with
+`lexer_skeleton.g.mbt`: a new skeleton delegates each line-mode
+`lex_<mode>` function to `generated_lex_<mode>`, and regeneration upgrades only
+the exact historical `abort` stub. Replace a delegate with handwritten
+`lex_<mode>` code to override that mode; later regeneration preserves that
+non-generated body byte-for-byte. `--force-lexer` is the explicit operation for
+replacing the entire skeleton.
+
+The `--line-lexer` output file must be directly under `syntax_out`, because its
+helpers and the skeleton must compile in the same MoonBit package. Loom rejects
+an output path in a different directory before writing generated files.
 
 `#loom.fallback_lex("fn")` on a term variant with both `#loom.lexmode("Mode")`
 and `#loom.line_mode` delegates no-match input to the named mode-compatible

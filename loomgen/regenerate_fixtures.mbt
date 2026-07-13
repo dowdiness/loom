@@ -4,140 +4,187 @@
 
 ///|
 /// Usage: `moon run loomgen --target native -- --regenerate-fixtures`
-pub fn regenerate_fixtures() -> Unit {
-  // ------ error_node_fixture.g.mbt (IR-level fixture) ------
-  // Reads the EBNS fixture, parses annotations, and emits the IR through
-  // emit_grammar_ir — the same path the golden test exercises.
-  {
-    let src = @fs.read_file_to_string("loomgen/fixtures/error_node_fixture.mbt") catch {
-      _ => {
-        println("ERROR: failed to read error_node_fixture.mbt")
-        return
-      }
-    }
-    match parse_annotations(src) {
-      Err(msg) => println("ERROR: error_node_fixture.mbt — " + msg)
-      Ok(ann) => {
-        guard ann.token_enum is Some(token_enum) else {
-          println("ERROR: error_node_fixture.mbt has no #loom.token enum")
-          return
-        }
-        guard ann.term_enum is Some(term_enum) else {
-          println("ERROR: error_node_fixture.mbt has no #loom.term enum")
-          return
-        }
-        match
-          emit_grammar_ir(
-            term_enum, token_enum, "@token", "@syntax", "@grammar", "error_node_grammar_ir",
-          ) {
-          Err(msg) => println("ERROR: emitter — " + msg)
-          Ok(content) => {
-            let path = "loomgen/fixtures/error_node_fixture.g.mbt"
-            @fs.write_string_to_file(path, content) catch {
-              _ => println("ERROR: failed to write " + path)
-            }
-            println("  " + path)
-          }
-        }
+
+///|
+/// Build both generated outputs for the compiled line-lexer regression fixture.
+/// The existing skeleton supplies its handwritten inline fallback; only Loom's
+/// historical line-mode stub may be replaced by a generated delegate.
+fn build_line_lexer_regression_outputs(
+  source : String,
+  source_path : String,
+  existing_skeleton : String,
+) -> Result[(String, String), String] {
+  let annotations = match parse_annotations(source) {
+    Ok(annotations) => annotations
+    Err(msg) => return Err(source_path + " — " + msg)
+  }
+  guard annotations.token_enum is Some(token_enum) else {
+    return Err(source_path + " has no #loom.token enum")
+  }
+  guard annotations.term_enum is Some(term_enum) else {
+    return Err(source_path + " has no #loom.term enum")
+  }
+  match emit_line_lexer(token_enum, Some(term_enum), "@core") {
+    None => Err("emit_line_lexer returned None")
+    Some(line_lexer) => {
+      let line_modes = collect_line_lexer_modes(Some(term_enum))
+      if line_modes.length() == 0 {
+        Err(source_path + " has no #loom.line_mode variants")
+      } else {
+        Ok(
+          (
+            line_lexer,
+            integrate_line_lexer_skeleton(
+              existing_skeleton, line_modes, "Token", "@core",
+            ),
+          ),
+        )
       }
     }
   }
-  // ------ rule_grammar_fixture.g.mbt (IR-level fixture) ------
-  let src = @fs.read_file_to_string("loomgen/fixtures/rule_grammar_fixture.mbt") catch {
-    _ => {
-      println("ERROR: failed to read rule_grammar_fixture.mbt")
-      return
+}
+
+///|
+fn read_regeneration_fixture(path : String) -> Result[String, String] {
+  let content = @fs.read_file_to_string(path) catch {
+    _ => return Err("failed to read " + path)
+  }
+  Ok(content)
+}
+
+///|
+fn write_regeneration_fixture(
+  path : String,
+  content : String,
+) -> Result[Unit, String] {
+  @fs.write_string_to_file(path, content) catch {
+    _ => return Err("failed to write " + path)
+  }
+  println("  " + path)
+  Ok(())
+}
+
+///|
+/// Regenerate the compiled fixture and report any unavailable source, skeleton,
+/// or output so the CLI can fail instead of silently accepting stale artifacts.
+fn regenerate_line_lexer_regression_fixture(
+  source_path : String,
+  line_lexer_path : String,
+  skeleton_path : String,
+) -> Result[Unit, String] {
+  let source = match read_regeneration_fixture(source_path) {
+    Ok(source) => source
+    Err(msg) => return Err(msg)
+  }
+  let skeleton = match read_regeneration_fixture(skeleton_path) {
+    Ok(skeleton) => skeleton
+    Err(msg) => return Err(msg)
+  }
+  match build_line_lexer_regression_outputs(source, source_path, skeleton) {
+    Err(msg) => Err(msg)
+    Ok((line_lexer, integrated_skeleton)) =>
+      match write_regeneration_fixture(line_lexer_path, line_lexer) {
+        Err(msg) => Err(msg)
+        Ok(_) => write_regeneration_fixture(skeleton_path, integrated_skeleton)
+      }
+  }
+}
+
+///|
+fn regenerate_grammar_ir_fixture(
+  source_path : String,
+  output_path : String,
+  grammar_name : String,
+) -> Result[Unit, String] {
+  let source = match read_regeneration_fixture(source_path) {
+    Ok(source) => source
+    Err(msg) => return Err(msg)
+  }
+  let annotations = match parse_annotations(source) {
+    Ok(annotations) => annotations
+    Err(msg) => return Err(source_path + " — " + msg)
+  }
+  guard annotations.token_enum is Some(token_enum) else {
+    return Err(source_path + " has no #loom.token enum")
+  }
+  guard annotations.term_enum is Some(term_enum) else {
+    return Err(source_path + " has no #loom.term enum")
+  }
+  match
+    emit_grammar_ir(
+      term_enum, token_enum, "@token", "@syntax", "@grammar", grammar_name,
+    ) {
+    Err(msg) => Err("emitter — " + msg)
+    Ok(content) => write_regeneration_fixture(output_path, content)
+  }
+}
+
+///|
+fn regenerate_line_pattern_fixture(
+  source_path : String,
+  output_path : String,
+) -> Result[Unit, String] {
+  let source = match read_regeneration_fixture(source_path) {
+    Ok(source) => source
+    Err(msg) => return Err(msg)
+  }
+  let annotations = match parse_annotations(source) {
+    Ok(annotations) => annotations
+    Err(msg) => return Err(source_path + " — " + msg)
+  }
+  guard annotations.token_enum is Some(token_enum) else {
+    return Err(source_path + " has no #loom.token enum")
+  }
+  guard annotations.term_enum is Some(term_enum) else {
+    return Err(source_path + " has no #loom.term enum")
+  }
+  match emit_line_lexer(token_enum, Some(term_enum), "@core") {
+    None => Err("emit_line_lexer returned None")
+    Some(content) => write_regeneration_fixture(output_path, content)
+  }
+}
+
+///|
+/// Regenerate every committed Loomgen fixture. Any read, parse, emit, or write
+/// failure is returned to the CLI so a successful process exit proves that the
+/// generated artifacts were refreshed.
+fn regenerate_fixtures() -> Result[Unit, String] {
+  let jobs : Array[() -> Result[Unit, String]] = [
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/error_node_fixture.mbt", "loomgen/fixtures/error_node_fixture.g.mbt",
+        "error_node_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/rule_grammar_fixture.mbt", "loomgen/fixtures/rule_grammar_fixture.g.mbt",
+        "mini_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_grammar_ir_fixture(
+        "loomgen/fixtures/separated_list_fixture.mbt", "loomgen/fixtures/separated_list_fixture.g.mbt",
+        "separated_list_grammar_ir",
+      )
+    },
+    () => {
+      regenerate_line_pattern_fixture(
+        "loomgen/fixtures/line_pattern_fixture.mbt", "loomgen/fixtures/line_pattern_fixture.g.mbt",
+      )
+    },
+    () => {
+      regenerate_line_lexer_regression_fixture(
+        "fixtures/line_lexer_regression/src/line_lexer_src.mbt", "fixtures/line_lexer_regression/line_lexer.g.mbt",
+        "fixtures/line_lexer_regression/lexer_skeleton.g.mbt",
+      )
+    },
+  ]
+  for job in jobs {
+    match job() {
+      Err(msg) => return Err(msg)
+      Ok(_) => ()
     }
   }
-  match parse_annotations(src) {
-    Err(msg) => println("ERROR: rule_grammar_fixture.mbt — " + msg)
-    Ok(ann) => {
-      guard ann.token_enum is Some(token_enum) else {
-        println("ERROR: rule_grammar_fixture.mbt has no #loom.token enum")
-        return
-      }
-      guard ann.term_enum is Some(term_enum) else {
-        println("ERROR: rule_grammar_fixture.mbt has no #loom.term enum")
-        return
-      }
-      match
-        emit_grammar_ir(
-          term_enum, token_enum, "@token", "@syntax", "@grammar", "mini_grammar_ir",
-        ) {
-        Err(msg) => println("ERROR: emitter — " + msg)
-        Ok(content) => {
-          let path = "loomgen/fixtures/rule_grammar_fixture.g.mbt"
-          @fs.write_string_to_file(path, content) catch {
-            _ => println("ERROR: failed to write " + path)
-          }
-          println("  " + path)
-        }
-      }
-    }
-  }
-  // ------ separated_list_fixture.g.mbt (IR-level fixture) ------
-  let src = @fs.read_file_to_string(
-    "loomgen/fixtures/separated_list_fixture.mbt",
-  ) catch {
-    _ => {
-      println("ERROR: failed to read separated_list_fixture.mbt")
-      return
-    }
-  }
-  match parse_annotations(src) {
-    Err(msg) => println("ERROR: separated_list_fixture.mbt — " + msg)
-    Ok(ann) => {
-      guard ann.token_enum is Some(token_enum) else {
-        println("ERROR: separated_list_fixture.mbt has no #loom.token enum")
-        return
-      }
-      guard ann.term_enum is Some(term_enum) else {
-        println("ERROR: separated_list_fixture.mbt has no #loom.term enum")
-        return
-      }
-      match
-        emit_grammar_ir(
-          term_enum, token_enum, "@token", "@syntax", "@grammar", "separated_list_grammar_ir",
-        ) {
-        Err(msg) => println("ERROR: emitter — " + msg)
-        Ok(content) => {
-          let path = "loomgen/fixtures/separated_list_fixture.g.mbt"
-          @fs.write_string_to_file(path, content) catch {
-            _ => println("ERROR: failed to write " + path)
-          }
-          println("  " + path)
-        }
-      }
-    }
-  }
-  // ------ line_pattern_fixture.g.mbt (line-lexer fixture, #561) ------
-  let src = @fs.read_file_to_string("loomgen/fixtures/line_pattern_fixture.mbt") catch {
-    _ => {
-      println("ERROR: failed to read line_pattern_fixture.mbt")
-      return
-    }
-  }
-  match parse_annotations(src) {
-    Err(msg) => println("ERROR: line_pattern_fixture.mbt — " + msg)
-    Ok(ann) => {
-      guard ann.token_enum is Some(token_enum) else {
-        println("ERROR: line_pattern_fixture.mbt has no #loom.token enum")
-        return
-      }
-      guard ann.term_enum is Some(term_enum) else {
-        println("ERROR: line_pattern_fixture.mbt has no #loom.term enum")
-        return
-      }
-      match emit_line_lexer(token_enum, Some(term_enum), "@core") {
-        None => println("ERROR: emit_line_lexer returned None")
-        Some(content) => {
-          let path = "loomgen/fixtures/line_pattern_fixture.g.mbt"
-          @fs.write_string_to_file(path, content) catch {
-            _ => println("ERROR: failed to write " + path)
-          }
-          println("  " + path)
-        }
-      }
-    }
-  }
+  Ok(())
 }

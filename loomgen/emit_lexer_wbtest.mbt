@@ -717,6 +717,32 @@ fn full_enums_of(src : String) -> (EnumDecl, EnumDecl) {
 }
 
 ///|
+/// Extract the full `fn NAME(...) { ... }` block starting at `start` (the index
+/// of `fn NAME`), matching braces so nested bodies are included. Order-independent:
+/// the result is the single function that begins at `start`, regardless of where
+/// it sits relative to other functions.
+fn extract_fn_block(src : String, start : Int) -> String {
+  let rel = src[start:].find("{")
+  guard rel is Some(r) else { return "" }
+  let mut depth = 0
+  let mut i = start + r
+  let n = src.length()
+  while i < n {
+    let ch = src[i]
+    if ch == '{' {
+      depth = depth + 1
+    } else if ch == '}' {
+      depth = depth - 1
+      if depth == 0 {
+        return src[start:i + 1].to_owned()
+      }
+    }
+    i = i + 1
+  }
+  src[start:].to_owned()
+}
+
+///|
 test "emit_line_lexer generates line-mode lexer functions for line_pattern tokens" {
   let src = read_fixture("fixtures/line_pattern_fixture.mbt")
   let (te, term_enum) = full_enums_of(src)
@@ -751,6 +777,20 @@ test "emit_line_lexer generates line-mode lexer functions for line_pattern token
     generated.contains("Not a block-level token (line_pattern)"),
     content="false",
   )
+}
+
+///|
+test "emit_line_lexer emits generated_lex_<mode> helpers, not lex_<mode>" {
+  let src = read_fixture("fixtures/line_pattern_fixture.mbt")
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("emit_line_lexer returned None")
+  }
+  // Generated line helpers use the `generated_lex_<mode>` prefix so they do not
+  // collide with the user-owned `lex_<mode>` override points in the skeleton.
+  inspect(generated.contains("fn generated_lex_line_start"), content="true")
+  inspect(generated.contains("fn lex_line_start"), content="false")
 }
 
 ///|
@@ -959,13 +999,13 @@ test "emit_line_lexer emits declared fallback for line-mode no-match" {
     Some(s) => s
     None => abort("emit_line_lexer returned None")
   }
-  let line_start_idx = generated.find("fn lex_line_start")
-  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  let line_start_idx = generated.find("fn generated_lex_line_start")
+  let bq_start_idx = generated.find("fn generated_lex_block_quote_line_start")
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both line-mode functions in output")
   }
-  let line_start_section = generated[ls:bq]
-  let bq_section = generated[bq:]
+  let line_start_section = extract_fn_block(generated, ls)
+  let bq_section = extract_fn_block(generated, bq)
   inspect(
     line_start_section.contains("return lex_inline(source, pos)"),
     content="true",
@@ -1156,17 +1196,20 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
   inspect(generated.contains("ThematicBreak"), content="true")
   // lex_line_start should NOT include BlockQuoteMarker (assigned to BlockQuoteLineStart)
   // Check that lex_line_start function body contains neither the name nor its pattern
-  inspect(generated.contains("fn lex_line_start"), content="true")
-  inspect(generated.contains("fn lex_block_quote_line_start"), content="true")
+  inspect(generated.contains("fn generated_lex_line_start"), content="true")
+  inspect(
+    generated.contains("fn generated_lex_block_quote_line_start"),
+    content="true",
+  )
   // BlockQuoteMarker should only appear in the block_quote_line_start function.
-  let line_start_idx = generated.find("fn lex_line_start")
-  let bq_start_idx = generated.find("fn lex_block_quote_line_start")
+  let line_start_idx = generated.find("fn generated_lex_line_start")
+  let bq_start_idx = generated.find("fn generated_lex_block_quote_line_start")
   guard line_start_idx is Some(ls) && bq_start_idx is Some(bq) else {
     fail("expected both lex functions in output")
   }
-  let line_start_section = generated[ls:bq]
+  let line_start_section = extract_fn_block(generated, ls)
   inspect(line_start_section.contains("BlockQuoteMarker"), content="false")
-  let bq_section = generated[bq:]
+  let bq_section = extract_fn_block(generated, bq)
   inspect(bq_section.contains("BlockQuoteMarker"), content="true")
   // Neither mode declares a fallback, so each mode retains Invalid handling.
   inspect(
@@ -1177,4 +1220,28 @@ test "emit_line_lexer filters candidates by mode via lexmode_name" {
     bq_section.contains("Not a block-level token (line_pattern)"),
     content="true",
   )
+}
+
+///|
+test "line_lexer_shares_syntax_output accepts equivalent package directories" {
+  assert_true(line_lexer_shares_syntax_output("line_lexer.g.mbt", "."))
+  assert_true(
+    line_lexer_shares_syntax_output("./syntax/line_lexer.g.mbt", "syntax/"),
+  )
+  assert_true(
+    line_lexer_shares_syntax_output(
+      "syntax/nested/line_lexer.g.mbt", "syntax/nested",
+    ),
+  )
+  assert_true(
+    line_lexer_shares_syntax_output("/abs/path/line_lexer.g.mbt", "/abs/path"),
+  )
+}
+
+///|
+test "line_lexer_shares_syntax_output rejects other package directories" {
+  assert_true(
+    !line_lexer_shares_syntax_output("token/line_lexer.g.mbt", "syntax"),
+  )
+  assert_true(!line_lexer_shares_syntax_output("/line_lexer.g.mbt", "/"))
 }
