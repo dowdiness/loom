@@ -88,7 +88,7 @@ validate_benchmark_tsv() {
 
 # --- validate that --update does not discard baseline benchmark names ---
 validate_update_inventory() {
-  local baseline_data="$1" current_data="$2"
+  local current_data="$1" baseline_data="$2"
   awk -F '\t' '
     NR == FNR {
       current[$1] = 1
@@ -198,13 +198,12 @@ if [[ "${1:-}" == "--update" ]]; then
     exit 1
   fi
 
-  count=$(printf '%s\n' "$parsed" | wc -l)
   if [[ -f "$BASELINE" ]]; then
     if ! validate_benchmark_tsv baseline "$(<"$BASELINE")"; then
       fail "Baseline TSV validation failed — verifier infrastructure error"
       exit 1
     fi
-    if ! validate_update_inventory "$(<"$BASELINE")" "$parsed"; then
+    if ! validate_update_inventory "$parsed" "$(<"$BASELINE")"; then
       fail "Benchmark inventory differs from baseline — refusing to update"
       fail "Remove intentionally retired baseline rows manually, then re-run."
       exit 1
@@ -223,7 +222,7 @@ if [[ "${1:-}" == "--update" ]]; then
   fi
   mv "$staged_baseline" "$BASELINE"
   staged_baseline=""
-  ok "Baseline saved: $BASELINE ($count benchmarks)"
+  ok "Baseline saved: $BASELINE"
   echo ""
   echo "Commit with:"
   echo "  git add $BASELINE && git commit -m 'perf: update bench baseline'"
