@@ -18,15 +18,28 @@ moon test --package parser
 
 ## Regression Guard
 
-`bench-check.sh` compares a live benchmark run against a saved baseline and fails (exit 1) if any benchmark regresses more than 15%.
+`bench-check.sh` compares a live benchmark run against the saved baseline.
+Rows are gated by default; a gated row fails when it regresses more than 15%.
+The reviewed exceptions in
+`docs/performance/bench-detector-policy.tsv` are `informational`: they remain
+visible as `INFO` but do not alert. `REGRESSION` and `MISSING` fail the check;
+`NEW` and `INFO` are warning-only.
 
 ```bash
+# Validate the checked-in baseline and detector policy without benchmarking
+bash bench-check.sh --validate
 # Check for regressions (from repo root)
 bash bench-check.sh
 
 # Accept new performance as the baseline
 bash bench-check.sh --update
 ```
+
+Empty or malformed benchmark output, unknown units, duplicate keys, and stale
+policy entries are verifier infrastructure failures. They produce no comparison
+report and must be fixed rather than accepted as a baseline update. Policy
+changes require a reason in the TSV and coverage in
+`scripts/bench-check-selftest.sh`.
 
 The baseline is stored in `docs/performance/bench-baseline.tsv` (tab-separated: `name\tmean_ns`). Commit it after running `--update` so the CI boundary moves forward intentionally:
 

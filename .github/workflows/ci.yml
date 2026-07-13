@@ -24,6 +24,19 @@ jobs:
       - name: Run check-deps.sh
         run: bash check-deps.sh
 
+  bench-detector-selftest:
+    name: Benchmark Detector Self-Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Detector policy self-test
+        run: bash scripts/bench-check-selftest.sh
+      - name: Validate checked-in detector policy
+        run: bash bench-check.sh --validate
+
   docs-check:
     name: Docs Health Check
     runs-on: ubuntu-latest
@@ -508,6 +521,7 @@ jobs:
     name: All Checks Passed
     runs-on: ubuntu-latest
     needs:
+      - bench-detector-selftest
       - dep-check
       - docs-check
       - mbti-check
@@ -521,6 +535,10 @@ jobs:
     steps:
       - name: Verify all jobs succeeded
         run: |
+          if [[ "${{ needs.bench-detector-selftest.result }}" != "success" ]]; then
+            echo "bench-detector-selftest job failed"
+            exit 1
+          fi
           if [[ "${{ needs.dep-check.result }}" != "success" ]]; then
             echo "dep-check job failed"
             exit 1

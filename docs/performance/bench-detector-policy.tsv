@@ -1,0 +1,7 @@
+# policy_version=1
+baseline: reactive create-dispose cycle (existing free list)	informational	high-variance lifecycle benchmark
+layer1: input create-dispose cycle (free list)	informational	high-variance lifecycle benchmark
+layer2: scope create and dispose (empty)	informational	high-variance empty-scope benchmark
+fixpoint: one iteration, single fact delta (identity rule)	informational	high-variance single-delta benchmark
+bench: node_count hand-written	informational	unclassifiable measurement
+bench: node_count via closure transform_fold	informational	unclassifiable measurement
