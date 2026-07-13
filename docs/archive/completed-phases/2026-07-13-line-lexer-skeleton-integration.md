@@ -10,7 +10,7 @@
 
 **Status:** Complete
 
-**Completion:** Implemented for [#699](https://github.com/dowdiness/loom/issues/699) in source commits `86d953a`, `f5a7cb6`, `5de95b5`, and `4144ce7`. Verification: `moon check --deny-warn --target native`; `moon test --target native` — 3446 passed; focused loomgen and generated-fixture tests; two deterministic fixture regeneration passes. No PR exists yet; add its link when created.
+**Completion:** Implemented for [#699](https://github.com/dowdiness/loom/issues/699) in source commits `86d953a`, `f5a7cb6`, `5de95b5`, and `4144ce7`; delivered as [PR #706](https://github.com/dowdiness/loom/pull/706). Verification: `moon check --deny-warn --target native`; `moon test --target native` — 3446 passed; focused loomgen and generated-fixture tests; two deterministic fixture regeneration passes.
 
 **Decision record:** [ADR: Line-mode lexer skeleton integration](../../decisions/2026-07-13-line-lexer-skeleton-integration.md).
 
