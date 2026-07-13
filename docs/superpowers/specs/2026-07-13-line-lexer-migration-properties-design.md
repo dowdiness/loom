@@ -32,19 +32,20 @@ It does not call production skeleton emitters or naming helpers when constructin
 - `Handwritten`: a user-owned implementation.
 - `MutatedAbortMessage`: the canonical abort text with a changed message.
 - `MutatedWhitespace`: the canonical function with changed whitespace.
-- `MutatedSignature`: the canonical function with a changed signature.
+- `MutatedTokenType`: the canonical function with only the token type changed.
+- `MutatedCoreQualifier`: the canonical function with only the core qualifier changed.
 - `CommentInserted`: the canonical function with a user comment.
 - `Absent`: the dispatcher contains the mode, but its function block is missing.
 
 `MigrationMode` stores a mode name, an independently derived function name, its helper name, its identifier component count, and its ownership state. Every case asserts that mode, function, and helper names are each unique.
 
-`MigrationCase` stores one to seven unique modes and an ordered selected-mode list. Selection may be empty, contain one or several modes, appear in a different order from declaration, or contain duplicates. An absent selected mode is valid and must be a no-op.
+`MigrationCase` stores one to seven unique modes, an ordered selected-mode list, a token type, and a core qualifier. Selection may be empty, contain one or several modes, appear in a different order from declaration, or contain duplicates. An absent selected mode is valid and must be a no-op. Token type and core qualifier vary independently because both participate in the exact historical-stub match.
 
 ## Structural generator
 
 Implement `@quickcheck.Arbitrary` for `MigrationCase`. Bound the generated structure so failed cases remain readable.
 
-Use a finite catalog of equal-width, single-word identifier components. Each component carries separate CamelCase and snake_case spellings, for example `{ camel: "Bold", snake: "bold" }`. Equal-width atomic words make one-, two-, and three-component concatenations unambiguous. Shuffle the catalog and take distinct first components without replacement for each case; choose remaining components independently. The unique first component guarantees unique mode, function, and helper names without a retry loop. The generator asserts all three uniqueness invariants and never runs the production uppercase-scanning transformation.
+Use a finite catalog of equal-width identifier components. Each component carries independent source and snake-case spellings: ordinary TitleCase (`Bold` / `bold`), consecutive uppercase (`HTTP` / `h_t_t_p`), and digit-bearing (`V2Id` / `v2_id`). Equal-width source components make one-, two-, and three-component concatenations unambiguous. Shuffle the catalog and take distinct first components without replacement for each case; choose remaining components independently. The unique first component guarantees unique mode, function, and helper names without a retry loop. The generator asserts all three uniqueness invariants and never runs the production uppercase-scanning transformation.
 
 Generate independently:
 
@@ -54,8 +55,10 @@ Generate independently:
 - selected subset;
 - selected order;
 - duplicate selections.
+- token type;
+- core qualifier.
 
-Use QuickCheck's `RandomState` directly through the custom `Arbitrary` implementation. Collect 96 ordinary generated cases with `@quickcheck.samples(96)`. Also invoke the same `Arbitrary` implementation with documented fixed `@splitmix.RandomState` seeds selected to cover every identifier depth and multiple ownership and selection shapes. This makes generator coverage reproducible rather than dependent on an implicit sample distribution.
+Use QuickCheck's `RandomState` directly through the custom `Arbitrary` implementation. Collect 96 ordinary generated cases with `@quickcheck.samples(96)`. Also invoke the same `Arbitrary` implementation with documented fixed `@splitmix.RandomState` seeds selected to cover every identifier depth, all nine ownership states, all token types and core qualifiers, and multiple selection shapes. This makes generator coverage reproducible rather than dependent on an implicit sample distribution.
 
 ## Independent exact oracle
 
@@ -77,14 +80,14 @@ For every deterministic basis case and generated case:
 1. Production migration equals the independently rendered expected skeleton exactly.
 2. Reapplying migration to the result is byte-identical, proving idempotence.
 3. Running the original selection, a stable deduplicated selection, its reverse, and a one-position rotation against the same original skeleton produces the same exact expected output. This covers duplicates, reversal, and a non-reversal permutation.
-4. Selected noncanonical and absent modes remain unchanged.
+4. Selected noncanonical and absent modes remain unchanged, including cases where only the token type or only the core qualifier differs from the requested exact signature.
 5. Unselected canonical modes remain unchanged.
 
 Use exact string assertions rather than substring checks. Derive `Debug` for case types and include the case in mismatch diagnostics.
 
 ## Deterministic basis and coverage
 
-Basis cases guarantee every ownership state is exercised while selected, including `Absent`. Additional basis cases guarantee an unselected canonical mode and these selection shapes:
+Basis cases guarantee all nine ownership states are exercised while selected, including `Absent`, `MutatedTokenType`, and `MutatedCoreQualifier`. Additional basis cases guarantee an unselected canonical mode and these selection shapes:
 
 - empty;
 - singleton;
@@ -92,9 +95,9 @@ Basis cases guarantee every ownership state is exercised while selected, includi
 - declaration-order permutation;
 - duplicate selection.
 
-The basis also guarantees one-, two-, and three-component identifiers and minimum and maximum mode counts. A literal golden basis pins the complete historical input and migrated output bytes independently of the renderer.
+The basis also guarantees one-, two-, and three-component identifiers; ordinary, acronym, and digit-bearing identifier shapes; alternate token types and core qualifiers; isolated wrong-token and wrong-qualifier near matches; and minimum and maximum mode counts. A literal golden basis pins the complete historical input and migrated output bytes independently of the renderer.
 
-Coverage counters over all cases assert that every required ownership, selection, identifier-depth, and mode-count class ran. Separate counters over documented fixed-seed `Arbitrary` cases prove that the custom generator itself produces multiple ownership states, all identifier depths, and multiple selection shapes; ordinary QuickCheck samples add variation but are not responsible for mandatory coverage.
+Coverage counters over all cases assert that every required ownership, selection, identifier-depth, signature-parameter, and mode-count class ran. Separate counters over documented fixed-seed `Arbitrary` cases prove that the custom generator itself produces all nine ownership states, all identifier depths, all signature-parameter values, and multiple selection shapes; ordinary QuickCheck samples add variation but are not responsible for mandatory coverage.
 
 ## Verification
 
