@@ -137,6 +137,14 @@ cat > "$fixture/missing" <<'EOF'
 [bench] ("noisy row") ok
   100 ns
 EOF
+cat > "$fixture/missing-with-new" <<'EOF'
+[bench] ("gated row") ok
+  100 ns
+[bench] ("noisy row") ok
+  100 ns
+[bench] ("new row") ok
+  100 ns
+EOF
 cat > "$fixture/new" <<'EOF'
 [bench] ("gated row") ok
   100 ns
@@ -263,6 +271,12 @@ EOF
 run_case "$fixture/ok" 1
 assert_no_report
 cp "$fixture/baseline.good" "$baseline"
+cp "$baseline" "$fixture/baseline.before-missing-update"
+run_update_case "$fixture/missing-with-new" 1
+cmp -s "$fixture/baseline.before-missing-update" "$baseline" || {
+  printf 'SELFTEST FAIL: missing update changed baseline\n'
+  exit 1
+}
 cp "$baseline" "$fixture/baseline.before-update"
 cat > "$policy" <<'EOF'
 # policy_version=1
