@@ -47,6 +47,35 @@ run_update_case() {
     exit 1
   }
 }
+run_command_failure_case() {
+  local fixture_file="$1"
+  rm -f "$report"
+  set +e
+  BENCH_BASELINE="$baseline" BENCH_POLICY="$policy" \
+    BENCH_MODULE_DIR="$fixture/module" BENCH_REPORT_TSV="$report" \
+    BENCH_FIXTURE="$fixture_file" BENCH_MOON_EXIT=7 \
+    PATH="$fixture/bin:$PATH" bash "$checker" > "$fixture/stdout" 2> "$fixture/stderr"
+  actual=$?
+  set -e
+  [[ "$actual" -eq 1 ]] || {
+    printf 'SELFTEST FAIL: benchmark failure expected exit 1, got %s\n' "$actual"
+    cat "$fixture/stdout" "$fixture/stderr"
+    exit 1
+  }
+}
+run_validate_case() {
+  local expected_exit="$1"
+  set +e
+  BENCH_BASELINE="$baseline" BENCH_POLICY="$policy" \
+    bash "$checker" --validate > "$fixture/stdout" 2> "$fixture/stderr"
+  actual=$?
+  set -e
+  [[ "$actual" -eq "$expected_exit" ]] || {
+    printf 'SELFTEST FAIL: validate expected exit %s, got %s\n' "$expected_exit" "$actual"
+    cat "$fixture/stdout" "$fixture/stderr"
+    exit 1
+  }
+}
 assert_output_contains() {
   local needle="$1"
   [[ "$(cat "$fixture/stdout")" == *"$needle"* ]] || {
@@ -124,6 +153,8 @@ cat > "$fixture/unknown-unit" <<'EOF'
 [bench] ("noisy row") ok
   100 bananas
 EOF
+run_validate_case 0
+
 
 run_case "$fixture/ok" 0
 assert_output_contains 'OK: 3'
@@ -152,6 +183,9 @@ assert_report_contains $'MISSING	missing row'
 : > "$fixture/empty"
 run_case "$fixture/empty" 1
 assert_no_report
+run_command_failure_case "$fixture/ok"
+assert_no_report
+
 
 run_case "$fixture/unknown-unit" 1
 assert_no_report

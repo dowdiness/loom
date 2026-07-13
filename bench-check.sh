@@ -144,6 +144,24 @@ run_benchmarks() {
   fi
 }
 
+# --- --validate mode: validate checked-in baseline and policy without running benchmarks ---
+if [[ "${1:-}" == "--validate" ]]; then
+  if [[ ! -f "$BASELINE" || ! -f "$POLICY_FILE" ]]; then
+    fail "Baseline or detector policy not found — verifier infrastructure error"
+    exit 1
+  fi
+  if ! validate_benchmark_tsv baseline "$(<"$BASELINE")"; then
+    fail "Baseline TSV validation failed — verifier infrastructure error"
+    exit 1
+  fi
+  if ! validate_policy "$BASELINE"; then
+    fail "Detector policy validation failed — verifier infrastructure error"
+    exit 1
+  fi
+  ok "Baseline and detector policy are valid"
+  exit 0
+fi
+
 # --- --update mode: run benchmarks and write baseline ---
 if [[ "${1:-}" == "--update" ]]; then
   echo "Benchmark baseline update"
