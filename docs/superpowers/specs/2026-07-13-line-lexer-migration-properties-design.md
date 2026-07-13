@@ -36,7 +36,7 @@ It does not call production skeleton emitters or naming helpers when constructin
 - `CommentInserted`: the canonical function with a user comment.
 - `Absent`: the dispatcher contains the mode, but its function block is missing.
 
-`MigrationMode` stores a mode name, an independently derived function name, its helper name, its identifier component count, and its ownership state.
+`MigrationMode` stores a mode name, an independently derived function name, its helper name, its identifier component count, and its ownership state. Every case asserts that mode, function, and helper names are each unique.
 
 `MigrationCase` stores one to seven unique modes and an ordered selected-mode list. Selection may be empty, contain one or several modes, appear in a different order from declaration, or contain duplicates. An absent selected mode is valid and must be a no-op.
 
@@ -44,22 +44,22 @@ It does not call production skeleton emitters or naming helpers when constructin
 
 Implement `@quickcheck.Arbitrary` for `MigrationCase`. Bound the generated structure so failed cases remain readable.
 
-Generate identifiers from one to three predeclared word components. Each component carries separate CamelCase and snake_case spellings, for example `{ camel: "Block", snake: "block" }`. The generator composes the mode name from CamelCase fields and the function name from snake_case fields. It never runs the production uppercase-scanning transformation.
+Use a finite catalog of equal-width, single-word identifier components. Each component carries separate CamelCase and snake_case spellings, for example `{ camel: "Bold", snake: "bold" }`. Equal-width atomic words make one-, two-, and three-component concatenations unambiguous. Shuffle the catalog and take distinct first components without replacement for each case; choose remaining components independently. The unique first component guarantees unique mode, function, and helper names without a retry loop. The generator asserts all three uniqueness invariants and never runs the production uppercase-scanning transformation.
 
 Generate independently:
 
 - mode count;
-- component count and component choices for each unique mode;
+- component count and trailing component choices for each mode;
 - ownership state for each mode;
 - selected subset;
 - selected order;
 - duplicate selections.
 
-Use QuickCheck's `RandomState` directly through the custom `Arbitrary` implementation. Collect 96 generated cases with `@quickcheck.samples(96)`.
+Use QuickCheck's `RandomState` directly through the custom `Arbitrary` implementation. Collect 96 ordinary generated cases with `@quickcheck.samples(96)`. Also invoke the same `Arbitrary` implementation with documented fixed `@splitmix.RandomState` seeds selected to cover every identifier depth and multiple ownership and selection shapes. This makes generator coverage reproducible rather than dependent on an implicit sample distribution.
 
 ## Independent exact oracle
 
-A test-only renderer builds the complete existing skeleton directly from `MigrationCase` data. It renders the dispatch and each present function block according to its ownership state. `Absent` modes remain in dispatch but omit their function block.
+A test-only renderer builds the complete existing skeleton directly from `MigrationCase` data. It uses byte-exact constants for dispatcher punctuation, indentation, blank lines, function-block separators, declaration order, and final-newline policy. It renders each present function block according to its ownership state. `Absent` modes remain in dispatch but omit their function block.
 
 A second rendering pass builds the expected skeleton from the same case data with one rule:
 
@@ -68,7 +68,7 @@ selected Canonical -> AlreadyDelegated
 all other states   -> unchanged
 ```
 
-This expected-state transition is data-derived. It does not perform textual replacement and does not use production naming helpers. Exact equality of the complete strings proves that migration changes only recognized canonical blocks and preserves every other byte.
+This expected-state transition is data-derived. It does not perform textual replacement and does not use production naming helpers. Exact equality of the complete strings proves that migration changes only recognized canonical blocks and preserves every other byte. One deterministic basis case separately asserts both complete rendered strings against independently written full-string literals, preventing a shared renderer-layout defect from becoming self-consistent.
 
 ## Properties
 
@@ -76,12 +76,11 @@ For every deterministic basis case and generated case:
 
 1. Production migration equals the independently rendered expected skeleton exactly.
 2. Reapplying migration to the result is byte-identical, proving idempotence.
-3. Reversing the selected list produces the same exact expected skeleton, proving order independence.
-4. Duplicate selections do not alter the expected result.
-5. Selected noncanonical and absent modes remain unchanged.
-6. Unselected canonical modes remain unchanged.
+3. Running the original selection, a stable deduplicated selection, its reverse, and a one-position rotation against the same original skeleton produces the same exact expected output. This covers duplicates, reversal, and a non-reversal permutation.
+4. Selected noncanonical and absent modes remain unchanged.
+5. Unselected canonical modes remain unchanged.
 
-Use exact string assertions rather than substring checks. Derive `Debug` for case types so a failure identifies the generated structure.
+Use exact string assertions rather than substring checks. Derive `Debug` for case types and include the case in mismatch diagnostics.
 
 ## Deterministic basis and coverage
 
@@ -93,9 +92,9 @@ Basis cases guarantee every ownership state is exercised while selected, includi
 - declaration-order permutation;
 - duplicate selection.
 
-The basis also guarantees one-, two-, and three-component identifiers and minimum and maximum mode counts.
+The basis also guarantees one-, two-, and three-component identifiers and minimum and maximum mode counts. A literal golden basis pins the complete historical input and migrated output bytes independently of the renderer.
 
-Coverage counters over all cases assert that every required ownership, selection, identifier-depth, and mode-count class ran. Separate counters over generated cases prove that the custom generator itself produces multiple ownership states, all identifier depths, and multiple selection shapes; deterministic basis coverage cannot conceal a collapsed generator.
+Coverage counters over all cases assert that every required ownership, selection, identifier-depth, and mode-count class ran. Separate counters over documented fixed-seed `Arbitrary` cases prove that the custom generator itself produces multiple ownership states, all identifier depths, and multiple selection shapes; ordinary QuickCheck samples add variation but are not responsible for mandatory coverage.
 
 ## Verification
 
