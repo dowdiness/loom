@@ -494,6 +494,7 @@ jobs:
         working-directory: .
         run: |
           bash fixtures/line_lexer_regression/regenerate.sh
+          bash fixtures/line_lexer_regression/helper_write_failure.sh
           git diff --exit-code -- \
             loomgen/fixtures/error_node_fixture.g.mbt \
             loomgen/fixtures/rule_grammar_fixture.g.mbt \
