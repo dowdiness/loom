@@ -11,6 +11,10 @@ import {
   "moonbitlang/x/sys",
 }
 
+import {
+  "moonbitlang/core/quickcheck",
+} for "wbtest"
+
 supported_targets = "+native"
 
 options(

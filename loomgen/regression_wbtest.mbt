@@ -381,6 +381,130 @@ test "integrate_line_lexer_skeleton preserves custom requested line-mode body" {
 }
 
 ///|
+test "property: line skeleton migration is exact, idempotent, and order-independent" {
+  let seeds : Array[Int] = @quickcheck.samples(96)
+  for i in 0..<seeds.length() {
+    let seed = seeds[i]
+    let suffix = seed.to_string().replace(old="-", new="neg")
+    let line_mode = "LineMode" + suffix
+    let other_mode = "InlineMode" + suffix
+    let modes = [line_mode, other_mode]
+    let base = emit_lexer_skeleton(modes, "Token", "@core")
+    let line_fn = mode_to_fn_name(line_mode)
+    let other_fn = mode_to_fn_name(other_mode)
+    let custom_body = "fn " +
+      line_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  custom_" +
+      suffix +
+      "(source, pos)\n" +
+      "}"
+    let exact_stub = "fn " +
+      line_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  abort(\"" +
+      line_fn +
+      " not implemented\")\n" +
+      "}"
+    let other_stub = "fn " +
+      other_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  abort(\"" +
+      other_fn +
+      " not implemented\")\n" +
+      "}"
+    let line_delegate = "fn " +
+      line_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  " +
+      generated_line_lexer_fn_name(line_mode) +
+      "(source, pos)\n" +
+      "}"
+    let handwritten = base.replace(old=exact_stub, new=custom_body)
+    inspect(
+      integrate_line_lexer_skeleton(handwritten, [line_mode], "Token", "@core") ==
+      handwritten,
+      content="true",
+    )
+    let one_byte_mutation = exact_stub.replace(
+      old="not implemented",
+      new="not implemented!",
+    )
+    let near_canonical = base.replace(old=exact_stub, new=one_byte_mutation)
+    inspect(
+      integrate_line_lexer_skeleton(
+        near_canonical,
+        [line_mode],
+        "Token",
+        "@core",
+      ) ==
+      near_canonical,
+      content="true",
+    )
+
+    let migrated = integrate_line_lexer_skeleton(
+      base,
+      [line_mode],
+      "Token",
+      "@core",
+    )
+    inspect(
+      migrated == base.replace(old=exact_stub, new=line_delegate),
+      content="true",
+    )
+    inspect(migrated.contains(other_stub), content="true")
+    inspect(
+      integrate_line_lexer_skeleton(migrated, [line_mode], "Token", "@core") ==
+      migrated,
+      content="true",
+    )
+
+    let forward = integrate_line_lexer_skeleton(
+      base,
+      [line_mode, other_mode],
+      "Token",
+      "@core",
+    )
+    let reverse = integrate_line_lexer_skeleton(
+      base,
+      [other_mode, line_mode],
+      "Token",
+      "@core",
+    )
+    let other_delegate = "fn " +
+      other_fn +
+      "(source : String, pos : Int) -> (@core.LexStep[Token], LexMode) {\n" +
+      "  " +
+      generated_line_lexer_fn_name(other_mode) +
+      "(source, pos)\n" +
+      "}"
+    let expected_both = base
+      .replace(old=exact_stub, new=line_delegate)
+      .replace(old=other_stub, new=other_delegate)
+    inspect(forward == expected_both, content="true")
+    inspect(reverse == expected_both, content="true")
+    let selected_modes = match i % 5 {
+      0 => [line_mode]
+      1 => [other_mode]
+      2 => [line_mode, line_mode]
+      3 => [other_mode, line_mode]
+      _ => []
+    }
+    let expected_selected = match i % 5 {
+      0 | 2 => base.replace(old=exact_stub, new=line_delegate)
+      1 => base.replace(old=other_stub, new=other_delegate)
+      3 => expected_both
+      _ => base
+    }
+    inspect(
+      integrate_line_lexer_skeleton(base, selected_modes, "Token", "@core") ==
+      expected_selected,
+      content="true",
+    )
+  }
+}
+
+///|
 test "build_line_lexer_regression_outputs regenerates the combined fixture" {
   let source = read_fallback_fixture(
     "../fixtures/line_lexer_regression/src/line_lexer_src.mbt", "fixtures/line_lexer_regression/src/line_lexer_src.mbt",
