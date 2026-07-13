@@ -209,12 +209,6 @@ if [[ "${1:-}" == "--update" ]]; then
       fail "Remove intentionally retired baseline rows manually, then re-run."
       exit 1
     fi
-    baseline_count=$(wc -l < "$BASELINE")
-    if [[ "$count" -lt $((baseline_count * 3 / 4)) ]]; then
-      fail "Parsed only $count benchmarks vs $baseline_count in baseline — refusing to update"
-      fail "If benchmarks were intentionally removed, delete the baseline and re-run."
-      exit 1
-    fi
   fi
 
   if [[ ! -f "$POLICY_FILE" ]]; then
