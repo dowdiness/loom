@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Complete the two remaining benchmark candidate classifications and remove dead/readability-confusing guard code without changing detector behavior.
+**Goal:** Complete the two remaining benchmark candidate classifications and clarify the `validate_update_inventory` argument/data-flow without changing output contracts.
 
 **Architecture:** Keep benchmark detection and inventory validation in `bench-check.sh`. Keep measured candidate evidence in the existing inventory reconciliation ADR. Use paired, alternating current/baseline trials before assigning a regression classification.
 
@@ -43,17 +43,7 @@ rtk bash bench-check.sh --validate
 
 Expected: `SELFTEST PASS` and `Baseline and detector policy are valid`.
 
-- [ ] **Step 2: Remove dead count assignment**
-
-Delete the unused line:
-
-```bash
-count=$(printf '%s\n' "$parsed" | wc -l)
-```
-
-Do not replace it with a count check or introduce any new update behavior.
-
-- [ ] **Step 3: Make guard argument order match data flow**
+- [ ] **Step 2: Make guard argument order match data flow**
 
 Change the function signature and call site to use current data first:
 
@@ -86,7 +76,7 @@ to:
 validate_update_inventory "$parsed" "$(<"$BASELINE")"
 ```
 
-- [ ] **Step 4: Verify the existing behavioral contract**
+- [ ] **Step 3: Verify the existing behavioral contract**
 
 Run:
 
@@ -98,7 +88,7 @@ rtk moon check
 
 Expected: `SELFTEST PASS`, successful Bash syntax validation, and `Finished. moon: no work to do`.
 
-- [ ] **Step 5: Commit the cleanup**
+- [ ] **Step 4: Commit the cleanup**
 
 ```bash
 rtk git add bench-check.sh

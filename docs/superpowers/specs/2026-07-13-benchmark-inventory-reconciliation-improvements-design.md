@@ -43,11 +43,15 @@ from a non-reproduced result.
 
 Preserve the existing `--update` behavior and contract:
 
-- delete the unused `count` assignment in `bench-check.sh`;
+- keep the `count` assignment and the successful baseline-save message unchanged
+  — they are part of the user-visible `--update` output contract;
 - rename/reorder `validate_update_inventory` inputs to
   `current_data baseline_data`;
 - keep the current-data-first and baseline-data-second awk input order;
 - retain existing self-tests for missing-name rejection and unchanged baseline.
+
+Task 1 scope is limited to `validate_update_inventory` argument/data-flow
+clarification. No output contract changes.
 
 No new detector behavior is introduced.
 
