@@ -67,7 +67,7 @@ additional candidates came from the final benchmark sweep in Task 2.
 
 | Benchmark | Current trials | Baseline-origin trials | Ratio range | Classification |
 | --- | --- | --- | --- | --- |
-| `ui static probe: tree 1023 static Derived + 512 eager leaves` | 537480, 537590, 547100 | 526550, 531600, 535480 | 1.011268–1.021700 | non-reproduced / measurement variance |
+| `ui-static-probe: tree 1023 static Derived + 512 eager leaves` | 537480, 537590, 547100 | 526550, 531600, 535480 | 1.011268–1.021700 | non-reproduced / measurement variance |
 | `realistic: 160 defs - incremental (edit tail)` | 2670000, 2770000, 2710000 | 2770000, 2730000, 3450000 | 0.785507–1.014652 | non-reproduced / measurement variance |
 
 ### Shared classification rule
