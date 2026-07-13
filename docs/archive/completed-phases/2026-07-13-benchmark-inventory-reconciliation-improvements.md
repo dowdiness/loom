@@ -5,8 +5,7 @@
 
 **Completed:** 2026-07-13. PR [#713](https://github.com/dowdiness/loom/pull/713)
 contains the guard clarification, two additional candidate classifications,
-ADR evidence, and final verification. The latest CI run
-`29259275241` passed all checks for HEAD `1065905`.
+the implementation evidence and PR #713 CI passed before archival.
 
 
 **Goal:** Complete the two remaining benchmark candidate classifications and clarify the `validate_update_inventory` argument/data-flow without changing output contracts.
@@ -284,10 +283,9 @@ Do not merge PR #713 without a separate explicit confirmation.
 
 - Final focused validation passed: self-test, `--validate`, Bash syntax,
   `moon check`, and `check-docs.sh`.
-- Final real detector run: `OK: 305 INFO: 4 NEW: 0 MISSING: 0 REGRESSIONS: 7`,
-  exit 1 due to gated threshold rows; the evidence set and its boundary are
-  documented in the ADR.
-- PR CI run `29259275241` passed all checks for HEAD `1065905`.
+- Final real detector run: `OK: 309 INFO: 2 NEW: 0 MISSING: 0 REGRESSIONS: 5`,
+  exit 1 due to five gated threshold rows; no inventory mismatch remains.
+- PR #713 CI passed for the implementation and archival changes; the PR checks are the authoritative record for the final head.
 
 Decision record:
 
