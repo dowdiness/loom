@@ -31,11 +31,13 @@ Use the same conditions as the existing ADR table:
 - paired current/baseline trials, three repetitions per candidate
 
 Record current values, baseline-origin values, and the paired ratio range in
-`docs/decisions/2026-07-13-benchmark-inventory-reconciliation.md`. Classify a
-candidate as a confirmed regression only if a current-over-baseline slowdown
-above 15% is stably reproduced. Otherwise classify it as measurement variance
-or non-reproduced. Do not change implementation, baseline values, or detector
-policy solely from a non-reproduced result.
+`docs/decisions/2026-07-13-benchmark-inventory-reconciliation.md`. Alternate
+the paired execution order as current→baseline, baseline→current,
+current→baseline. Classify a candidate as a confirmed regression only if all
+three paired current-over-baseline ratios exceed 1.15. Otherwise classify it as
+measurement variance or non-reproduced, while still reporting the full ratio
+range. Do not change implementation, baseline values, or detector policy solely
+from a non-reproduced result.
 
 ### Guard readability cleanup
 
