@@ -49,22 +49,41 @@ package only.
 
 ## Candidate classification after reconciliation
 
-Three interleaved targeted trials were run for each gated candidate on the
-current checkout and on baseline-origin `6e17167`, using Moon
-`0.1.20260703 (6fbf8c3)`. Values are nanoseconds; the ratio range is computed
-from each paired current/baseline trial.
+The six initial candidates below came from the first reconciled run; the two
+additional candidates came from the final benchmark sweep in Task 2.
 
-| Benchmark | Current trials | Baseline-origin trials | Ratio range |
-| --- | --- | --- | ---: |
-| `runtime: new (full, all modes)` | 197.74, 211.76, 213.65 | 268.50, 288.26, 293.42 | 0.728–0.736 |
-| `baseline: memo creation cost (monotonic SoA growth)` | 1440, 1430, 1450 | 1490, 1320, 1520 | 0.954–1.083 |
-| `bench: text_len hand-written` | 487640, 529510, 508800 | 764630, 499710, 481150 | 0.638–1.060 |
-| `bench: text_len via accept_fold[TextLen]` | 445600, 449840, 519920 | 476570, 428550, 467320 | 0.935–1.113 |
-| `bench: node_count via accept_transform_fold[NodeCount]` | 326710, 339400, 324020 | 342880, 339610, 328330 | 0.953–0.999 |
-| `bench: token_count (trivia filter) via CstElement::token_count` | 540880, 472440, 569590 | 493230, 550340, 513190 | 0.858–1.110 |
+### Initial 6 candidates (first reconciled run)
 
-None reproduces a >15% current-over-baseline slowdown. No implementation,
-baseline-value, or detector-policy change is justified by these measurements.
+| Benchmark | Current trials | Baseline-origin trials | Ratio range | Classification |
+| --- | --- | --- | --- | --- |
+| `runtime: new (full, all modes)` | 197.74, 211.76, 213.65 | 268.50, 288.26, 293.42 | 0.728–0.736 | non-reproduced / measurement variance |
+| `baseline: memo creation cost (monotonic SoA growth)` | 1440, 1430, 1450 | 1490, 1320, 1520 | 0.954–1.083 | non-reproduced / measurement variance |
+| `bench: text_len hand-written` | 487640, 529510, 508800 | 764630, 499710, 481150 | 0.638–1.060 | non-reproduced / measurement variance |
+| `bench: text_len via accept_fold[TextLen]` | 445600, 449840, 519920 | 476570, 428550, 467320 | 0.935–1.113 | non-reproduced / measurement variance |
+| `bench: node_count via accept_transform_fold[NodeCount]` | 326710, 339400, 324020 | 342880, 339610, 328330 | 0.953–0.999 | non-reproduced / measurement variance |
+| `bench: token_count (trivia filter) via CstElement::token_count` | 540880, 472440, 569590 | 493230, 550340, 513190 | 0.858–1.110 | non-reproduced / measurement variance |
+
+### Additional 2 candidates (Task 2 final run)
+
+| Benchmark | Current trials | Baseline-origin trials | Ratio range | Classification |
+| --- | --- | --- | --- | --- |
+| `ui static probe: tree 1023 static Derived + 512 eager leaves` | 537480, 537590, 547100 | 526550, 531600, 535480 | 1.011268–1.021700 | non-reproduced / measurement variance |
+| `realistic: 160 defs - incremental (edit tail)` | 2670000, 2770000, 2710000 | 2770000, 2730000, 3450000 | 0.785507–1.014652 | non-reproduced / measurement variance |
+
+### Shared classification rule
+
+Classify a candidate as a confirmed regression only when all three paired
+current/baseline ratios exceed `1.15`.
+
+Across both the initial six and final two candidates, none exceeds `1.15`, so no
+baseline value, detector policy, or implementation change is justified by these
+measurements.
+
+Candidate 2 has higher run variance; baseline trials are `2770000`, `2730000`, and
+`3450000` ns, including the outlier `3450000` ns vs `2770000` and `2730000` ns.
+Paired current/baseline ratios are `0.963899`, `1.014652`, and `0.785507`; the
+other two values `0.964` and `1.015` are far below `1.15`, so non-reproduction is
+robust.
 
 
 ## Consequences
