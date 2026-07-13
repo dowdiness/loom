@@ -19,4 +19,5 @@ members = [
   "./egglog",
   "./fixtures/grammar_ir_regression",
   "./fixtures/line_lexer_regression",
+  "./fixtures/pattern_lexer_regression",
 ]

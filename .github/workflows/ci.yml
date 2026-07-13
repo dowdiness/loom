@@ -504,6 +504,13 @@ jobs:
             fixtures/line_lexer_regression/lexer_skeleton.g.mbt
           moon check --target native fixtures/line_lexer_regression
           moon test --target native fixtures/line_lexer_regression
+      - name: Verify pattern lexer compile-runtime regression fixture
+        working-directory: .
+        run: |
+          bash fixtures/pattern_lexer_regression/regenerate.sh
+          git diff --exit-code -- fixtures/pattern_lexer_regression/pattern_lexer.g.mbt
+          moon check --target native fixtures/pattern_lexer_regression
+          moon test --target native fixtures/pattern_lexer_regression
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
