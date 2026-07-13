@@ -383,7 +383,8 @@ test "integrate_line_lexer_skeleton preserves custom requested line-mode body" {
 ///|
 test "property: line skeleton migration is exact, idempotent, and order-independent" {
   let seeds : Array[Int] = @quickcheck.samples(96)
-  for seed in seeds {
+  for i in 0..<seeds.length() {
+    let seed = seeds[i]
     let suffix = seed.to_string().replace(old="-", new="neg")
     let line_mode = "LineMode" + suffix
     let other_mode = "InlineMode" + suffix
@@ -482,6 +483,24 @@ test "property: line skeleton migration is exact, idempotent, and order-independ
       .replace(old=other_stub, new=other_delegate)
     inspect(forward == expected_both, content="true")
     inspect(reverse == expected_both, content="true")
+    let selected_modes = match i % 5 {
+      0 => [line_mode]
+      1 => [other_mode]
+      2 => [line_mode, line_mode]
+      3 => [other_mode, line_mode]
+      _ => []
+    }
+    let expected_selected = match i % 5 {
+      0 | 2 => base.replace(old=exact_stub, new=line_delegate)
+      1 => base.replace(old=other_stub, new=other_delegate)
+      3 => expected_both
+      _ => base
+    }
+    inspect(
+      integrate_line_lexer_skeleton(base, selected_modes, "Token", "@core") ==
+      expected_selected,
+      content="true",
+    )
   }
 }
 
