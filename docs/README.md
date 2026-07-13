@@ -69,6 +69,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-07-13-benchmark-detector-policy.md](decisions/2026-07-13-benchmark-detector-policy.md) — **Accepted** benchmark rows are explicitly gated or informational; inventory and verifier failures remain fail-closed (#644)
+- [decisions/2026-07-13-benchmark-inventory-reconciliation.md](decisions/2026-07-13-benchmark-inventory-reconciliation.md) — **Accepted** baseline scope matches `examples/lambda` benchmark discovery; 105 event-graph-walker rows retired with the removed workspace member (#712)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
 - [decisions/2026-07-13-line-lexer-skeleton-integration.md](decisions/2026-07-13-line-lexer-skeleton-integration.md) — **Accepted** generated line-mode helpers delegate through preserved skeleton override points; exact stubs migrate automatically (#699)
 - [decisions/2026-07-12-line-mode-fallback-lexer.md](decisions/2026-07-12-line-mode-fallback-lexer.md) — **Accepted** `#loom.fallback_lex("fn")` delegates line-mode no-match input to a mode-compatible fallback lexer while preserving `Invalid` without the annotation (#700)
