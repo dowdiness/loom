@@ -62,6 +62,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/polymorphism-patterns.md](architecture/polymorphism-patterns.md) — choosing between generic, trait object, struct-of-closures, defunctionalization
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
+- [superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md](superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md) — approved #716 clean cutover from `ParserContext::speculative` to `ParserContext::lookahead`
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
 ### Architecture Decisions (ADRs)
