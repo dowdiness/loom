@@ -69,7 +69,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
-- [decisions/2026-07-14-lookahead-rollback-boundary.md](decisions/2026-07-14-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::lookahead` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PR #715)
+- [decisions/2026-07-14-lookahead-rollback-boundary.md](decisions/2026-07-14-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::lookahead` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PRs #715 and #717)
 - [decisions/2026-07-13-benchmark-detector-policy.md](decisions/2026-07-13-benchmark-detector-policy.md) — **Accepted** benchmark rows are explicitly gated or informational; inventory and verifier failures remain fail-closed (#644)
 - [decisions/2026-07-13-benchmark-inventory-reconciliation.md](decisions/2026-07-13-benchmark-inventory-reconciliation.md) — **Accepted** baseline scope matches Moon's root `moon.work` discovery from the `examples/lambda` launch directory; 105 event-graph-walker rows retired with the removed workspace member (#712)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
@@ -121,7 +121,7 @@ Short records of the *why* behind significant design choices. Most recent first.
 
 Point-in-time diagnoses. Dated snapshots — verify against current code before acting.
 > Archive: Do not read files in this section unless user explicitly asks for historical context.
-- [superpowers/plans/2026-07-14-parser-context-lookahead-rename.md](superpowers/plans/2026-07-14-parser-context-lookahead-rename.md) — active implementation plan for #716 clean rename from `ParserContext::speculative` to `ParserContext::lookahead`
+- [archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md](archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md) — **Complete** #716 clean rename from `ParserContext::speculative` to `ParserContext::lookahead` (PR #717)
 
 - [archive/completed-phases/2026-07-10-remove-emit-grammar-realign-loomgen.md](archive/completed-phases/2026-07-10-remove-emit-grammar-realign-loomgen.md) — **Complete** implementation plan for removing the `emit_grammar.mbt` parser code generator (`@grammar.interpret` reached full parity) and trimming `mbt_ast.mbt` to the subset used by `emit_grammar_ir.mbt`; 6 tasks, supersedes 2026-06-28 plan
 - [archive/completed-phases/2026-07-fallback-lex.md](archive/completed-phases/2026-07-fallback-lex.md) — **Complete** implementation plan for `#loom.fallback_lex`, including parser validation, line-mode emission, fixture regeneration, and verification

@@ -3,9 +3,9 @@
 **Date:** 2026-07-14
 **Status:** Accepted
 **Issue:** [#438](https://github.com/dowdiness/loom/issues/438)
-**Implementation:** [PR #715](https://github.com/dowdiness/loom/pull/715)
+**Implementation:** [PR #715](https://github.com/dowdiness/loom/pull/715) introduced the rollback helper; [PR #717](https://github.com/dowdiness/loom/pull/717) renamed it to `ParserContext::lookahead`.
 **Related:** [ADR 2026-06-07 ParserContext grammar-author helpers](2026-06-07-parser-context-grammar-author-helpers.md), [ADR 2026-06-13 ParserContext method-only boundary](2026-06-13-parsercontext-method-only-boundary.md)
-**Implementation plan:** [#716 terminology cutover](../superpowers/plans/2026-07-14-parser-context-lookahead-rename.md)
+**Implementation plan:** [#716 terminology cutover](../archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md)
 
 ## Context
 
