@@ -100,13 +100,12 @@ fn blank_line_run_is_followed_by_marker_matching(
   matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
 ) -> Bool {
   guard ctx.peek() is BlankLine else { return false }
-  let checkpoint = ctx.checkpoint()
-  while ctx.peek() is BlankLine {
-    ctx.emit_token(BlankLineToken)
-  }
-  let matches = matches_marker(ctx)
-  ctx.restore(checkpoint)
-  matches
+  ctx.speculative(() => {
+    while ctx.peek() is BlankLine {
+      ctx.emit_token(BlankLineToken)
+    }
+    matches_marker(ctx)
+  })
 }
 
 ///|

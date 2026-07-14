@@ -154,7 +154,7 @@ pub struct ParserContext[T, K] {
 }
 
 ///|
-/// Opaque snapshot of parser state for speculative parsing.
+/// Opaque snapshot of checkpointed parser execution state.
 /// Create with checkpoint(), restore with restore().
 pub(all) struct Checkpoint[T, K] {
   priv position : Int
