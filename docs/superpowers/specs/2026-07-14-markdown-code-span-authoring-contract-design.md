@@ -118,6 +118,14 @@ width continues to use the existing tab rules. The remaining line uses the
 ordinary line-start marker classifier, preserving heading, block-quote, list,
 and fence candidates after indentation.
 
+Before classifying the remaining tokens, the CST parser consumes
+`IndentationToken` into a Markdown-local `LinePrefix` record containing its
+exact source span and computed column width. All marker classification and
+body-offset calculations use this record: list-marker indentation/width,
+heading and setext checks, block-quote continuation, and nested-container
+minimum-indent rules. They must not read indentation from the current marker
+token after decomposition. The record resets at each physical line boundary.
+
 The CST block parser then classifies indentation relative to its current root
 or list-item context. A paragraph continuation exposes the normal inline
 tokens—including maximal backtick runs—and retains `IndentationToken` as a
@@ -330,6 +338,8 @@ Focused tests must establish:
    list-paragraph continuation, while root- and list-relative indented code
    reassembles exact same-line text before deindent. Post-indent heading,
    block-quote, list, and fence candidates retain their block classification.
+   Parity tests cover marker indentation/body offsets, setext recognition,
+   block-quote continuation, and nested lists after a `LinePrefix`.
 5. The escaped-pair example above is literal text and cannot open a code span.
    It produces the specified MarkdownIR/`Inline` semantic text and CommonMark
    HTML; its maximal token remains visible and preserves every backtick.
