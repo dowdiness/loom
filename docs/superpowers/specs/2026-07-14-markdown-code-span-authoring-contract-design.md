@@ -110,6 +110,21 @@ block-specific continuation decision, but it must provide one internal
 container parse that uses that same decision for both delimiter indexing and
 token emission. An ATX heading remains line-bound. A blank line or true block
 boundary ends the container and cannot supply a code-span closer.
+
+The baseline line-start lexer replaces opaque `IndentedCodeText` with an exact
+`Indentation` token followed by normal tokens for the rest of that source line.
+The indentation token preserves its exact spaces/tabs and absolute span; column
+width continues to use the existing tab rules. The remaining line uses the
+ordinary line-start marker classifier, preserving heading, block-quote, list,
+and fence candidates after indentation.
+
+The CST block parser then classifies indentation relative to its current root
+or list-item context. A paragraph continuation exposes the normal inline
+tokens—including maximal backtick runs—and retains `IndentationToken` as a
+structural prefix. An indented-code line instead gathers all same-line token
+texts in source order before deindent, replacing the current whole-line
+`IndentedCodeText` lowering assumption. The legacy token has no compatibility
+path after callers migrate.
 A code span is formed by a left-to-right parse of the inline token stream:
 
 - an eligible outer-inline backtick run of length `n` begins a code span only
@@ -130,11 +145,12 @@ excluded by semantic conversion and MarkdownIR lowering. Every intervening
 
 When a code span crosses a structural continuation, the container parser keeps
 the `InlineCodeNode` open while emitting the continuation newline and prefix
-token (for example `BlockQuoteMarkerToken`) as direct node children. The CST
-therefore remains lossless and contiguous. Lowering skips those structural
-prefix tokens from code content and returns `content_origin = None`; it retains
-the full node envelope as `origin`. Conversion must classify tokens by
-direct-child position and structural role, not discard every `BacktickToken`.
+token (such as `BlockQuoteMarkerToken` or `IndentationToken`) as direct node
+children. The CST therefore remains lossless and contiguous. Lowering skips
+those structural prefix tokens from code content and returns
+`content_origin = None`; it retains the full node envelope as `origin`.
+Conversion must classify tokens by direct-child position and structural role,
+not discard every `BacktickToken`.
 
 Both semantic projections share the code-span normalization rule. They append
 each interior raw-content token's actual source text, then normalize exactly
@@ -154,6 +170,11 @@ For a successful span:
    least one non-space character, remove exactly one leading and exactly one
    trailing ASCII space.
 3. Preserve every other character and interior space exactly.
+
+This code-span-specific normalizer never calls `strip_backslash_escapes`.
+Backslashes are preserved verbatim in successful code-span content, including a
+backslash immediately before a closing backtick run; only the three rules above
+may change the raw interior.
 
 The `InlineCode` semantic value is this normalized result. `content_origin`
 continues to identify the unnormalized raw content range. Every successful code
@@ -301,30 +322,35 @@ Focused tests must establish:
 2. Normalization replaces each line ending with one ASCII space, removes exactly
    one boundary ASCII space only when non-space content remains, preserves
    all-space content, and preserves interior and Unicode whitespace.
-3. A code span across a permitted soft-line continuation is indexed as one
-   container and normalizes its line ending to one ASCII space. A blank line or
-   true block boundary cannot supply its closer; the preceding eligible run then
-   follows literal fallback.
-4. The escaped-pair example above is literal text and cannot open a code span.
+3. A code span across a permitted paragraph, block-quote, or list-item
+   soft-line continuation is indexed as one container and normalizes its line
+   ending to one ASCII space. A blank line or true block boundary cannot supply
+   its closer; the preceding eligible run then follows literal fallback.
+4. Baseline indentation decomposition exposes backtick runs in a valid
+   list-paragraph continuation, while root- and list-relative indented code
+   reassembles exact same-line text before deindent. Post-indent heading,
+   block-quote, list, and fence candidates retain their block classification.
+5. The escaped-pair example above is literal text and cannot open a code span.
    It produces the specified MarkdownIR/`Inline` semantic text and CommonMark
    HTML; its maximal token remains visible and preserves every backtick.
-5. Within a successful span, a matching run preceded by a backslash closes the
-   span and the backslash is included in raw, then normalized, code content.
-6. A maximal unmatched run preserves every backtick in concatenated MarkdownIR
+6. Within a successful span, a matching run preceded by a backslash closes the
+   span and the backslash is preserved verbatim except for code-span line and
+   boundary-space normalization.
+7. A maximal unmatched run preserves every backtick in concatenated MarkdownIR
    and `Inline` semantic text; it emits no parser diagnostic or `Inline::Error`.
-7. An unmatched run does not prevent subsequent inline syntax from being parsed.
-8. A contiguous code span has `content_origin = Some(...)`; one crossing a
+8. An unmatched run does not prevent subsequent inline syntax from being parsed.
+9. A contiguous code span has `content_origin = Some(...)`; one crossing a
    stripped continuation prefix has `content_origin = None`, skips that prefix
    in semantic content, and rejects content-only source rewrites.
-9. MarkdownIR, mdast, CommonMark HTML, canonical formatting, and
-   source-preserving rewrite consume the semantic value and permitted origins
-   through their established responsibilities.
-10. The authoring facade reports only unescaped runs that were eligible openers
+10. MarkdownIR, mdast, CommonMark HTML, canonical formatting, and
+    source-preserving rewrite consume the semantic value and permitted origins
+    through their established responsibilities.
+11. The authoring facade reports only unescaped runs that were eligible openers
     but found no equal-length closer; escaped literal runs report no fact.
-11. An authoring fact from an older parser/source snapshot is not applied after
+12. An authoring fact from an older parser/source snapshot is not applied after
     an editor source update.
-12. No touched public Loom-core API or Grammar IR interface changes.
-13. A stress test with many distinct, unmatched backtick runs verifies one
+13. No touched public Loom-core API or Grammar IR interface changes.
+14. A stress test with many distinct, unmatched backtick runs verifies one
     delimiter-index prepass and linear token/run traversal, rejecting repeated
     scan-to-boundary work.
 
