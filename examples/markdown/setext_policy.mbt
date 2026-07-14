@@ -58,34 +58,28 @@ fn setext_underline_depth_after_newline(
   allow_list_marker~ : Bool,
   min_indent~ : Int,
 ) -> Int? {
-  let cp = ctx.checkpoint()
-  ctx.emit_token(NewlineToken)
-  let depth = setext_underline_depth_at_current_line(
-    ctx,
-    allow_list_marker~,
-    min_indent~,
-  )
-  ctx.restore(cp)
-  depth
+  ctx.speculative(() => {
+    ctx.emit_token(NewlineToken)
+    setext_underline_depth_at_current_line(ctx, allow_list_marker~, min_indent~)
+  })
 }
 
 ///|
 fn quoted_setext_underline_depth_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  let cp = ctx.checkpoint()
-  ctx.emit_token(NewlineToken)
-  let depth = match ctx.peek() {
-    BlockQuoteMarker => {
-      ctx.emit_token(BlockQuoteMarkerToken)
-      setext_underline_depth_at_current_line(
-        ctx,
-        allow_list_marker=true,
-        min_indent=0,
-      )
+  ctx.speculative(() => {
+    ctx.emit_token(NewlineToken)
+    match ctx.peek() {
+      BlockQuoteMarker => {
+        ctx.emit_token(BlockQuoteMarkerToken)
+        setext_underline_depth_at_current_line(
+          ctx,
+          allow_list_marker=true,
+          min_indent=0,
+        )
+      }
+      _ => None
     }
-    _ => None
-  }
-  ctx.restore(cp)
-  depth
+  })
 }
