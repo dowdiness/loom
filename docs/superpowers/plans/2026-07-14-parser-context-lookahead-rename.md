@@ -236,11 +236,9 @@ Rename its file and title to `2026-07-14-lookahead-rollback-boundary.md` / `# AD
 
 - [ ] **Step 3: Update the documentation index.**
 
-Change the ADR summary at `docs/README.md` to name `ParserContext::lookahead`. Add the new implementation-plan link in the existing analysis/planning list:
-
-```markdown
-- [superpowers/plans/2026-07-14-parser-context-lookahead-rename.md](superpowers/plans/2026-07-14-parser-context-lookahead-rename.md) — active implementation plan for #716 clean rename from `ParserContext::speculative` to `ParserContext::lookahead`
-```
+Change the ADR summary at `docs/README.md` to name `ParserContext::lookahead`.
+Add the active #716 implementation-plan entry to that index with the relative
+target `superpowers/plans/2026-07-14-parser-context-lookahead-rename.md`.
 
 - [ ] **Step 4: Commit documentation with the API terminology correction.**
 
