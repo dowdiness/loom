@@ -69,7 +69,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
-- [decisions/2026-07-14-speculative-lookahead-rollback-boundary.md](decisions/2026-07-14-speculative-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::speculative` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PR #715)
+- [decisions/2026-07-14-lookahead-rollback-boundary.md](decisions/2026-07-14-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::lookahead` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PR #715)
 - [decisions/2026-07-13-benchmark-detector-policy.md](decisions/2026-07-13-benchmark-detector-policy.md) — **Accepted** benchmark rows are explicitly gated or informational; inventory and verifier failures remain fail-closed (#644)
 - [decisions/2026-07-13-benchmark-inventory-reconciliation.md](decisions/2026-07-13-benchmark-inventory-reconciliation.md) — **Accepted** baseline scope matches Moon's root `moon.work` discovery from the `examples/lambda` launch directory; 105 event-graph-walker rows retired with the removed workspace member (#712)
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)

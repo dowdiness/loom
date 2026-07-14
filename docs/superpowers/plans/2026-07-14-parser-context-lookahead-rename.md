@@ -22,18 +22,18 @@
 ### Task 1: Pin the public lookahead rollback contract
 
 **Files:**
-- Modify: `loom/core/parser_context_wbtest.mbt:168-175,656-671`
-- Modify: `loom/core/parser_robustness_wbtest.mbt:234-260,305-342`
+- Modify: `loom/core/parser_context_wbtest.mbt:168-189,656-673`
+- Modify: `loom/core/parser_robustness_wbtest.mbt:234-280,324-399`
 
 **Interfaces:**
 - Consumes: the existing `ParserContext::speculative(Self[T, K], () -> R) -> R` declaration.
 - Produces: tests that require `ParserContext::lookahead(Self[T, K], () -> R) -> R` and establish unconditional restoration.
 
-- [ ] **Step 1: Replace the lex-mode checkpoint test with a lookahead test.**
+- [ ] **Step 1: Add a lookahead test beside the direct lex-mode checkpoint test.**
 
 ```moonbit
 ///|
-test "lookahead: restores lex mode" {
+test "lookahead: restores lex mode and preserves callback result" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
   ctx.set_lex_mode(7)
@@ -50,7 +50,7 @@ test "lookahead: restores lex mode" {
 
 Keep the existing setup and assertions, but rename the test to `finish_nodes_until: lookahead restores node stack` and invoke `ctx.lookahead`. Its callback starts `KNum` and `KPlus`, calls `ctx.finish_nodes_until(KRoot)`, returns that `Bool`, and the test asserts the returned `true` plus intact `KExpr` and `KRoot` stack order.
 
-- [ ] **Step 3: Replace manual position/event and diagnostic restoration tests with lookahead tests.**
+- [ ] **Step 3: Add position/event and diagnostic lookahead restoration coverage.**
 
 ```moonbit
 ///|
@@ -73,9 +73,9 @@ test "lookahead: rewinds position, events, and diagnostics" {
 }
 ```
 
-- [ ] **Step 4: Replace the reuse checkpoint regression with a lookahead regression.**
+- [ ] **Step 4: Add a reuse-cursor lookahead regression.**
 
-Preserve its `grammar_one_expr`, old tree, `ReuseCursor`, and parser setup. Replace `checkpoint()`/`restore()` with:
+Preserve the direct `checkpoint()`/`restore()` regression. Add a separate lookahead test using the same `grammar_one_expr`, old tree, `ReuseCursor`, and parser setup:
 
 ```moonbit
 let reused = ctx.lookahead(() => {
@@ -94,12 +94,12 @@ This proves the cursor is restored as well as the count: the same candidate is r
 
 - [ ] **Step 5: Run the new focused tests and verify they fail.**
 
-Run:
+
+Run from `loom/`:
 
 ```bash
-rtk moon -C loom test core --filter '*lookahead*'
+rtk moon test -p dowdiness/loom/core --filter '*lookahead*'
 ```
-
 Expected: compilation failure because `ParserContext::lookahead` does not yet exist.
 
 - [ ] **Step 6: Commit the test-first change.**
@@ -113,7 +113,7 @@ rtk git commit -m "test(core): specify lookahead rollback"
 
 **Files:**
 - Modify: `loom/core/parser_events.mbt:208-236`
-- Modify: `loom/pkg.generated.mbti:331` via `moon info`
+- Modify: `loom/core/pkg.generated.mbti:308` via `moon info`
 - Modify: `examples/jsx/cst_parser.mbt:31-46`
 - Modify: `examples/markdown/block_reparse.mbt:490-539`
 - Modify: `examples/markdown/cst_parser.mbt:168-178,337-344,650-659,1039-1048`
@@ -126,19 +126,23 @@ rtk git commit -m "test(core): specify lookahead rollback"
 
 - [ ] **Step 1: Use semantic references before editing the exported method.**
 
-Run from the repository root:
+Run from `loom/`:
 
 ```bash
 rtk moon ide find-references ParserContext::speculative
 ```
 
-Record every code caller and the declaration. Then run:
+Record the declaration and every caller. Do not use `moon ide rename` for this
+method: its preview resolves this spelling as the `ParserContext` type and
+proposes a type-wide rename. Rename only the method declaration and these
+verified call sites with scoped edits:
 
-```bash
-rtk moon ide rename ParserContext::speculative lookahead --loc loom/core/parser_events.mbt:228:21
-```
-
-If the IDE rename does not update Markdown, generated interfaces, or comments, update those explicit textual artifacts in subsequent steps.
+- `examples/jsx/cst_parser.mbt:38`
+- `examples/markdown/block_reparse.mbt:495`
+- `examples/markdown/cst_parser.mbt:173,341,653,1042`
+- `examples/markdown/list_boundary.mbt:103`
+- `examples/markdown/setext_policy.mbt:61,71`
+- `loom/core/parser_context_wbtest.mbt:674`
 
 - [ ] **Step 2: Preserve the implementation exactly while changing its public name and doc comment.**
 
@@ -171,10 +175,11 @@ Change `ctx.speculative(` to `ctx.lookahead(` in the six listed example files. D
 
 - [ ] **Step 4: Generate and inspect the public interface.**
 
-Run:
+
+Run from `loom/`:
 
 ```bash
-rtk moon -C loom info
+rtk moon info
 ```
 
 Expected interface delta:
@@ -187,10 +192,11 @@ There must be no generated `ParserContext::speculative` declaration.
 
 - [ ] **Step 5: Run focused core tests and prove the new behavior compiles and passes.**
 
-Run:
+
+Run from `loom/`:
 
 ```bash
-rtk moon -C loom test core --filter '*lookahead*'
+rtk moon test -p dowdiness/loom/core --filter '*lookahead*'
 ```
 
 Expected: all lookahead rollback tests pass.
@@ -198,7 +204,7 @@ Expected: all lookahead rollback tests pass.
 - [ ] **Step 6: Commit the source and caller cutover.**
 
 ```bash
-rtk git add loom/core/parser_events.mbt loom/pkg.generated.mbti examples/jsx/cst_parser.mbt examples/markdown/block_reparse.mbt examples/markdown/cst_parser.mbt examples/markdown/list_boundary.mbt examples/markdown/setext_policy.mbt
+rtk git add loom/core/parser_events.mbt loom/core/pkg.generated.mbti examples/jsx/cst_parser.mbt examples/markdown/block_reparse.mbt examples/markdown/cst_parser.mbt examples/markdown/list_boundary.mbt examples/markdown/setext_policy.mbt
 rtk git commit -m "refactor(core): rename speculative to lookahead"
 ```
 
@@ -206,7 +212,7 @@ rtk git commit -m "refactor(core): rename speculative to lookahead"
 
 **Files:**
 - Modify: `docs/architecture/generic-parser.md:149-189`
-- Modify: `docs/decisions/2026-07-14-speculative-lookahead-rollback-boundary.md:1-84`
+- Modify: `docs/decisions/2026-07-14-lookahead-rollback-boundary.md:1-84`
 - Modify: `docs/README.md:64-72,125-140`
 
 **Interfaces:**
@@ -224,9 +230,9 @@ execution state documented by `ParserContext::checkpoint`.
 
 Retain the warning that it is not a general configuration transaction and the explicit checkpoint/restore guidance for success-committing parses.
 
-- [ ] **Step 2: Update the existing ADR in place.**
+- [ ] **Step 2: Rename and update the existing ADR.**
 
-Rename its title to `# ADR: ParserContext Lookahead Rollback Boundary`. Replace public-API uses of `speculative` with `lookahead`, including the decision and consequences sections. Preserve its state boundary, non-transactional exclusions, issue/PR provenance, and consumer-evidence rule; this is a terminology correction, not a new design decision.
+Rename its file and title to `2026-07-14-lookahead-rollback-boundary.md` / `# ADR: ParserContext Lookahead Rollback Boundary`. Replace public-API uses of `speculative` with `lookahead`, link this implementation plan, and preserve its state boundary, non-transactional exclusions, issue/PR provenance, and consumer-evidence rule; this is a terminology correction, not a new design decision.
 
 - [ ] **Step 3: Update the documentation index.**
 
@@ -239,7 +245,7 @@ Change the ADR summary at `docs/README.md` to name `ParserContext::lookahead`. A
 - [ ] **Step 4: Commit documentation with the API terminology correction.**
 
 ```bash
-rtk git add docs/architecture/generic-parser.md docs/decisions/2026-07-14-speculative-lookahead-rollback-boundary.md docs/README.md docs/superpowers/plans/2026-07-14-parser-context-lookahead-rename.md
+rtk git add docs/architecture/generic-parser.md docs/decisions/2026-07-14-lookahead-rollback-boundary.md docs/README.md docs/superpowers/plans/2026-07-14-parser-context-lookahead-rename.md
 rtk git commit -m "docs: name pure parser lookahead"
 ```
 
@@ -254,33 +260,53 @@ rtk git commit -m "docs: name pure parser lookahead"
 
 - [ ] **Step 1: Run semantic API and diagnostics checks.**
 
+Run from the repository root:
+
 ```bash
 rtk moon ide find-references ParserContext::lookahead
 rtk moon ide analyze loom/core
-rtk moon -C loom check --warn-list +73
+```
+
+Then run from `loom/`:
+
+```bash
+rtk moon check --warn-list +73
 ```
 
 Expected: the method has the intended callers and core has no diagnostics.
 
 - [ ] **Step 2: Run affected test suites.**
+Run the following commands from their named module directories:
 
 ```bash
-rtk moon -C loom test core
-rtk moon -C examples/markdown test
-rtk moon -C examples/jsx test
+# cwd: loom/
+rtk moon test -p dowdiness/loom/core
+# cwd: examples/markdown/
+rtk moon test
+# cwd: examples/jsx/
+rtk moon test
 ```
 
 Expected: every test passes.
 
 - [ ] **Step 3: Format, regenerate, and rerun package verification.**
 
+Run the formatter in each modified MoonBit module, then regenerate and check core:
+
 ```bash
+# cwd: loom/
 rtk moon fmt
-rtk moon -C loom info
-rtk moon -C loom check --warn-list +73
+rtk moon info
+rtk moon check core
+# cwd: examples/markdown/
+rtk moon fmt
+rtk moon check
+# cwd: examples/jsx/
+rtk moon fmt
+rtk moon check
 ```
 
-Expected: formatter leaves intended source, the generated interface contains only `ParserContext::lookahead`, and the check passes.
+Expected: formatters leave intended source, the generated core interface contains only `ParserContext::lookahead`, and all checks pass.
 
 - [ ] **Step 4: Verify stale-name absence with a scoped repository search.**
 
@@ -289,7 +315,7 @@ Search `loom`, `examples`, and live API documentation for `ParserContext::specul
 - [ ] **Step 5: Commit formatter-generated changes only when present.**
 
 ```bash
-rtk git add loom/pkg.generated.mbti
+rtk git add loom/core/pkg.generated.mbti
 rtk git diff --cached --quiet || rtk git commit -m "chore(core): refresh generated interface"
 ```
 
