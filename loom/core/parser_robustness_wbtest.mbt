@@ -262,6 +262,25 @@ test "checkpoint/restore: removes diagnostics added after checkpoint" {
 }
 
 ///|
+test "lookahead: rewinds position, events, and diagnostics" {
+  let src = "1 + 2"
+  let toks = test_tokenize(src)
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.start_node(KRoot)
+  let result = ctx.lookahead(() => {
+    ctx.emit_token(KNum)
+    ctx.error("lookahead error")
+    ctx.at_eof()
+  })
+  inspect(result, content="false")
+  inspect(ctx.position, content="0")
+  inspect(ctx.peek(), content="Num(1)")
+  inspect(ctx.events.length(), content="1")
+  inspect(ctx.diagnostics.length(), content="0")
+  ctx.finish_node()
+}
+
+///|
 test "checkpoint/restore: speculative parse picks successful branch" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
@@ -333,6 +352,45 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
   inspect(ctx.reuse_count, content="1")
 
   ctx.restore(cp)
+  inspect(ctx.reuse_count, content="0")
+  inspect(ctx.position, content="0")
+
+  ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  inspect(ctx.reuse_count, content="1")
+  inspect(ctx.at_eof(), content="true")
+}
+
+///|
+test "lookahead: restores reuse cursor and reuse count" {
+  fn grammar_one_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+  }
+
+  let src = "1"
+  let (toks, starts) = test_tokenize_with_starts(src)
+  let (old_tree, _) = parse_with(
+    src, test_spec, test_tokenize, grammar_one_expr,
+  )
+  let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
+    old_tree,
+    99,
+    99,
+    toks.length(),
+    fn(i) { toks[i].token },
+    fn(i) { starts[i] },
+    fn(i) {
+      src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
+    },
+    test_spec,
+  )
+
+  let ctx = ParserContext::new(toks, src, test_spec)
+  ctx.set_reuse_cursor(cursor)
+  let reused = ctx.lookahead(() => {
+    ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
+    ctx.reuse_count
+  })
+  inspect(reused, content="1")
   inspect(ctx.reuse_count, content="0")
   inspect(ctx.position, content="0")
 
