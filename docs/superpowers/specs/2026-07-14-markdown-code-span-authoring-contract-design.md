@@ -130,10 +130,12 @@ The record resets at each physical line boundary.
 The CST block parser then classifies indentation relative to its current root
 or list-item context. A paragraph continuation exposes the normal inline
 tokens—including maximal backtick runs—and retains `IndentationToken` as a
-structural prefix. An indented-code line instead gathers all same-line token
-texts in source order before deindent, replacing the current whole-line
-`IndentedCodeText` lowering assumption. The legacy token has no compatibility
-path after callers migrate.
+structural prefix. An indented-code node emits its `IndentationToken` followed
+by every direct non-newline child for that physical line. Both indented-code
+lowerers collect those token texts in source order, retain the existing
+`line_parts` join/deindent behavior, and do not predicate collection on the
+removed `IndentedCodeTextToken`. The legacy token has no compatibility path
+after callers migrate.
 A code span is formed by a left-to-right parse of the inline token stream:
 
 - an eligible outer-inline backtick run of length `n` begins a code span only
@@ -338,10 +340,11 @@ Focused tests must establish:
 4. Baseline indentation decomposition exposes backtick runs in a valid
    list-paragraph continuation, while root- and list-relative indented code
    reassembles exact same-line text before deindent. Post-indent heading,
-   block-quote, list, and fence candidates retain their block classification.
-   Parity tests cover marker indentation/body offsets, setext recognition,
-   block-quote continuation, nested lists, and lossless `IndentationToken`
-   parent/span ownership after a captured `LinePrefix`.
+   block-quote, list, and fence candidates retain their block classification,
+   including when they are the first indented-code content token. Parity tests
+   cover marker indentation/body offsets, setext recognition, block-quote
+   continuation, nested lists, and lossless `IndentationToken` parent/span
+   ownership after a captured `LinePrefix`.
 5. The escaped-pair example above is literal text and cannot open a code span.
    It produces the specified MarkdownIR/`Inline` semantic text and CommonMark
    HTML; its maximal token remains visible and preserves every backtick.
