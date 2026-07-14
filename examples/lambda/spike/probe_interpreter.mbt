@@ -334,24 +334,7 @@ fn ProbeEnv::parse_arrow_lambda(
       })
       true
     },
-    fn(t : @token.Token) -> Bool {
-      match t {
-        @token.Newline
-        | @token.RightParen
-        | @token.LBrace
-        | @token.RBrace
-        | @token.Semicolon
-        | @token.Lambda
-        | @token.Let
-        | @token.Fn
-        | @token.FatArrow
-        | @token.If
-        | @token.Then
-        | @token.Else
-        | @token.EOF => true
-        _ => false
-      }
-    },
+    @token.is_sync_point,
   )
 }
 
