@@ -45,17 +45,20 @@ This design separates three concerns:
 
 ## Existing Boundaries to Preserve
 
-`MarkdownIR::InlineCode(value, origin, content_origin)` already separates the
-normalized semantic value from raw source locations:
+`MarkdownIR::InlineCode(value, origin, content_origin)` keeps its existing
+shape:
 
-- `origin` covers the full source span, including both delimiter runs.
-- `content_origin` covers the raw source between delimiters.
+- `origin` is the contiguous source envelope from opening through closing
+  delimiter, including any structural continuation bytes inside that envelope.
+- `content_origin` is `Some` only when all logical raw code content occupies one
+  contiguous source slice; it is `None` when a stripped structural prefix makes
+  that content discontinuous.
 - `value` is the rendered CommonMark code-span value.
 
-No extra MarkdownIR field is introduced for delimiter length or normalized
-source. Delimiter spelling and length remain derivable from the original
-source slice described by `origin`; the raw interior remains derivable from
-`content_origin`.
+No MarkdownIR field or public type changes. Delimiter spelling and length are
+read from the lossless CST token text. When `content_origin` is `None`, the CST
+is the raw-content authority and content-only source rewrites are disabled; no
+consumer may pretend the envelope is an exact content slice.
 
 `Block` / `Inline` remain the compact editor projection. They do not gain
 editor interaction state. `UnmatchedBacktickRun` facts remain outside
@@ -65,20 +68,77 @@ MarkdownIR and outside `Block` / `Inline`.
 
 ### Delimiter runs
 
-The lexer produces one existing `Backtick` token for a maximal contiguous
-backtick run. The token enum stays payload-free; the parser derives run length
-from that token's source slice through `ParserContext::current_token_text()`.
-It must not reconstruct a run from a sequence of single-backtick tokens.
+The lexer produces one existing `Backtick` token for every maximal contiguous
+backtick run, including a run preceded by backslashes. The token enum stays
+payload-free; the parser derives run length from that token's source slice
+through `ParserContext::current_token_text()`. It must not reconstruct a run
+from a sequence of single-backtick tokens.
 
+This is a required lexer/parser change, not a statement of current behavior.
+Text lexing must stop before every backtick run instead of absorbing an escaped
+run into generic `Text`.
+
+### Container delimiter index
+
+Before consuming an inline container, the native Markdown parser runs one
+pure `ParserContext::lookahead` prepass over its token range. The prepass tracks
+trailing-backslash parity for each immediately preceding `Text` token and
+records every maximal run's source start, length, and outer-inline opener
+eligibility. It resets that parity after any other token, newline, or inline
+boundary. Parser state is restored unconditionally when the prepass returns.
+
+The prepass builds a Markdown-local successor index: for each run, its next
+equal-length run in the same inline container, if any. Actual parse dispatch
+uses the current run's source start to query this index. An eligible opener
+with no successor emits its whole maximal source as literal `TextToken` content;
+it does not checkpoint-scan and then reparse the container. For a successful
+pair, the parser emits raw interior tokens through the indexed closer once.
+The closer is valid regardless of preceding backslashes; those backslashes,
+unequal runs, and line endings are raw interior content because escape
+processing does not apply within code spans.
+
+This gives each container $O(T + R)$ delimiter work and $O(R)$ temporary
+Markdown-local memory, where $T$ is token count and $R$ is backtick-run count.
+
+### Inline container boundary
+
+An inline container is one Markdown semantic inline region, not one call of the
+current line-bound parser. It includes all soft-line continuations of a
+paragraph, setext heading, list-item paragraph (including lazy continuation),
+or block-quote paragraph. The CST block parser continues to own the
+block-specific continuation decision, but it must provide one internal
+container parse that uses that same decision for both delimiter indexing and
+token emission. An ATX heading remains line-bound. A blank line or true block
+boundary ends the container and cannot supply a code-span closer.
 A code span is formed by a left-to-right parse of the inline token stream:
 
-- a backtick run of length `n` begins a code span only when the parser finds
-  the next eligible backtick run of the same length `n` for that parse;
+- an eligible outer-inline backtick run of length `n` begins a code span only
+  when the parser finds the next backtick run of the same length `n`;
 - backtick runs of another length inside a successful span are raw content;
 - after a successful pair is consumed, its interior is not reconsidered as
   inline syntax;
 - a run that is not consumed by any successful code-span delimiter pair is
   emitted as literal text, after which ordinary inline parsing continues.
+
+### CST delimiter positions
+
+For each successful `InlineCodeNode`, the first and last direct
+`BacktickToken` children are the opening and closing delimiters. They alone are
+excluded by semantic conversion and MarkdownIR lowering. Every intervening
+`BacktickToken` is an unequal-length raw-content run and contributes
+`token.text()` exactly like other interior content.
+
+When a code span crosses a structural continuation, the container parser keeps
+the `InlineCodeNode` open while emitting the continuation newline and prefix
+token (for example `BlockQuoteMarkerToken`) as direct node children. The CST
+therefore remains lossless and contiguous. Lowering skips those structural
+prefix tokens from code content and returns `content_origin = None`; it retains
+the full node envelope as `origin`. Conversion must classify tokens by
+direct-child position and structural role, not discard every `BacktickToken`.
+
+Both semantic projections share the code-span normalization rule. They append
+each interior raw-content token's actual source text, then normalize exactly
+once. This preserves unequal interior runs while preventing projection drift.
 
 The final clause is essential. An unmatched run owns only its own source range;
 it never owns the remaining inline container. For example, the unmatched
@@ -103,19 +163,36 @@ only spaces remains nonempty because the boundary-space rule does not trim it.
 
 ### Literal fallback
 
-An unmatched backtick run is valid CommonMark input. The concatenated semantic
-text of the MarkdownIR and existing `Inline` projection preserves the literal
+An unmatched backtick run is valid CommonMark input. The parser emits the
+whole maximal run as literal content, and the concatenated semantic text of
+both MarkdownIR and the existing `Inline` projection preserves its actual
 source text:
 
 ```text
-`foo  →  "`foo"
+``foo  →  "``foo"
 ```
 
 This is a semantic-content example, not a requirement to coalesce the delimiter
-and following text into one AST node.
+and following text into one AST node. Neither projection may synthesize literal
+backticks from the token kind: it must append the unmatched token's actual
+source text, so a maximal run is not collapsed to one character.
 
-It does not produce an `ErrorNode`, `Recovered` MarkdownIR node, parser
-diagnostic, or `Inline::Error` solely because it is unmatched.
+Because uniform tokenization splits an outer escape pair at the backtick,
+literal-text normalization operates on each contiguous literal-token segment
+before applying backslash escapes:
+
+```text
+source:   \`
+semantic: `
+HTML:     <p>`</p>
+```
+
+The implementation may choose its text-node grouping, but must not strip escapes
+independently from the preceding `TextToken` and the literal `BacktickToken`;
+their raw origins remain source-preserving.
+
+An unmatched run does not produce an `ErrorNode`, `Recovered` MarkdownIR node,
+parser diagnostic, or `Inline::Error` solely because it is unmatched.
 
 ## Block Editor Authoring Contract
 
@@ -134,11 +211,12 @@ UnmatchedBacktickRun {
 
 The fact means:
 
-> In this inline parse result, this maximal backtick run was not consumed by
-> any successful code-span delimiter pair and was interpreted as literal text.
+> In this inline parse result, this maximal unescaped run was eligible to open
+> a code span, found no equal-length closer, and was interpreted as literal text.
 
 It does not claim that the run is a code-span opener, a parser error, a warning,
-or a completion command. The fact range covers the run alone, never following
+or a completion command. A backslash-escaped, opener-ineligible literal run
+does not produce this fact. The fact range covers the run alone, never following
 inline content.
 
 ### Snapshot lifetime
@@ -217,24 +295,38 @@ union before a second compatible syntax fact would be a premature abstraction.
 
 Focused tests must establish:
 
-1. Matching delimiter runs require equal length; unequal runs remain raw content
-   within a successful span or literal text when unmatched.
-2. Line endings, boundary-space removal, and interior spaces follow CommonMark
-   normalization exactly; inputs that only appear to be empty delimiter pairs
-   are literal maximal runs, not successful spans.
-3. An unmatched run becomes text and does not emit a parser diagnostic or
-   `Inline::Error`.
-4. An unmatched run does not prevent subsequent inline syntax from being parsed.
-5. `InlineCode.origin` covers raw delimiters and `content_origin` covers the
-   nonempty raw interior of every successful span.
-6. MarkdownIR, mdast, CommonMark HTML, canonical formatting, and
-   source-preserving rewrite consume the semantic value and raw origins through
-   their established responsibilities.
-7. The authoring facade reports only runs classified as literal by the parser
-   result; its fact range covers the run alone.
-8. An authoring fact from an older parser/source snapshot is not applied after
-   an editor source update.
-9. No touched public Loom-core API or Grammar IR interface changes.
+1. Matching delimiter runs require equal length. The successful span
+   `` `a``b` `` lowers to semantic code content `a``b`: its interior
+   two-backtick run is preserved. Unmatched runs remain literal text.
+2. Normalization replaces each line ending with one ASCII space, removes exactly
+   one boundary ASCII space only when non-space content remains, preserves
+   all-space content, and preserves interior and Unicode whitespace.
+3. A code span across a permitted soft-line continuation is indexed as one
+   container and normalizes its line ending to one ASCII space. A blank line or
+   true block boundary cannot supply its closer; the preceding eligible run then
+   follows literal fallback.
+4. The escaped-pair example above is literal text and cannot open a code span.
+   It produces the specified MarkdownIR/`Inline` semantic text and CommonMark
+   HTML; its maximal token remains visible and preserves every backtick.
+5. Within a successful span, a matching run preceded by a backslash closes the
+   span and the backslash is included in raw, then normalized, code content.
+6. A maximal unmatched run preserves every backtick in concatenated MarkdownIR
+   and `Inline` semantic text; it emits no parser diagnostic or `Inline::Error`.
+7. An unmatched run does not prevent subsequent inline syntax from being parsed.
+8. A contiguous code span has `content_origin = Some(...)`; one crossing a
+   stripped continuation prefix has `content_origin = None`, skips that prefix
+   in semantic content, and rejects content-only source rewrites.
+9. MarkdownIR, mdast, CommonMark HTML, canonical formatting, and
+   source-preserving rewrite consume the semantic value and permitted origins
+   through their established responsibilities.
+10. The authoring facade reports only unescaped runs that were eligible openers
+    but found no equal-length closer; escaped literal runs report no fact.
+11. An authoring fact from an older parser/source snapshot is not applied after
+    an editor source update.
+12. No touched public Loom-core API or Grammar IR interface changes.
+13. A stress test with many distinct, unmatched backtick runs verifies one
+    delimiter-index prepass and linear token/run traversal, rejecting repeated
+    scan-to-boundary work.
 
 ## Proposed ADR Amendment
 
