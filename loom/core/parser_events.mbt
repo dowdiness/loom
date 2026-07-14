@@ -206,8 +206,8 @@ pub fn[T, K] ParserContext::restore(
 }
 
 ///|
-/// Run `body` speculatively, then restore checkpointed parser execution state
-/// and return the body's result.
+/// Run `body` as pure lookahead, then restore checkpointed parser execution
+/// state and return the body's result.
 ///
 /// Use for pure lookahead whose effects are limited to token consumption,
 /// events, diagnostic additions, open-node count/stack, reuse cursor/count,
@@ -218,14 +218,14 @@ pub fn[T, K] ParserContext::restore(
 /// Example (Markdown): what is the setext underline depth after the next newline?
 ///
 ///   fn depth_after_newline(ctx) -> Int? {
-///     ctx.speculative(fn() {
+///     ctx.lookahead(fn() {
 ///       ctx.emit_token(NewlineToken)
 ///       current_setext_depth(ctx)
 ///     })
 ///   }
 ///
 /// Closes loom#438.
-pub fn[T, K, R] ParserContext::speculative(
+pub fn[T, K, R] ParserContext::lookahead(
   self : ParserContext[T, K],
   body : () -> R,
 ) -> R {

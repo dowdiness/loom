@@ -170,7 +170,7 @@ fn next_token_after_newline_is_lone_list_marker(
 ) -> Bool {
   match ctx.peek_nth(1) {
     ListMarker | OrderedListMarker(_) =>
-      ctx.speculative(() => {
+      ctx.lookahead(() => {
         ctx.emit_token(NewlineToken)
         setext_list_marker_line_ends_after_marker(ctx)
       })
@@ -338,7 +338,7 @@ fn block_quote_list_continuation_columns(
   ctx : @core.ParserContext[Token, SyntaxKind],
   matches_marker : (@core.ParserContext[Token, SyntaxKind], Int, Int) -> Bool,
 ) -> (Int, Int)? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     consume_quoted_list_item_separator_if_matching(ctx, matches_marker)
   })
 }
@@ -650,7 +650,7 @@ fn parse_nested_list_at_current_marker(
 fn next_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       ListMarker | OrderedListMarker(_) => current_list_marker_indent(ctx)
@@ -1039,7 +1039,7 @@ fn current_indented_text_reaches_column(
 fn next_indented_text_indent_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       IndentedCodeText(_) => Some(current_token_leading_indent(ctx))

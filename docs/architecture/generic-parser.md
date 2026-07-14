@@ -158,7 +158,7 @@ ctx.current_token_range()     // source range for the current non-trivia token
 ctx.too_many_errors(max)      // max-error guard helper (`>= max`)
 ctx.checkpoint()              // capture checkpointed execution state for a conditional parse
 ctx.restore(checkpoint)       // restore checkpointed execution state
-ctx.speculative(body)         // pure lookahead: restore checkpointed execution state, return body's value
+ctx.lookahead(body)           // pure lookahead: restore checkpointed execution state, return body's value
 ctx.node(kind, body)          // reuse-aware node: try reuse, else start_node→body→finish_node
 ctx.emit_token(kind)          // consume current token, emit it as a leaf with the given kind
 ctx.emit_current_token()      // emit using the token's own raw kind
@@ -181,7 +181,7 @@ ctx.node_with_recovery(kind, body, sync)   // reuse-aware node with automatic re
 ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 ```
 
-Use `ctx.speculative(body)` for pure lookahead: it restores the checkpointed
+Use `ctx.lookahead(body)` for pure lookahead: it restores the checkpointed
 execution state documented by `ParserContext::checkpoint`. It is not a general
 configuration transaction; do not use it with setters such as
 `set_goal_source` or `set_reuse_diagnostics`. Use an explicit

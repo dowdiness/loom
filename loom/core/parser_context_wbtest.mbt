@@ -176,6 +176,19 @@ test "checkpoint/restore preserves lex mode" {
 }
 
 ///|
+test "lookahead: restores lex mode and preserves callback result" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "ab", spec)
+  ctx.set_lex_mode(7)
+  let result = ctx.lookahead(() => {
+    ctx.set_lex_mode(42)
+    "observed"
+  })
+  inspect(result, content="observed")
+  inspect(ctx.lex_mode(), content="7")
+}
+
+///|
 test "peek returns current token" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
@@ -653,12 +666,12 @@ test "finish_nodes_until: combined with checkpoint restores node stack" {
 }
 
 ///|
-test "finish_nodes_until: speculative restores node stack" {
+test "finish_nodes_until: lookahead restores node stack" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "+42", spec)
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
-  let found = ctx.speculative(() => {
+  let found = ctx.lookahead(() => {
     // Start some nodes, then finish until KRoot.
     ctx.start_node(KNum)
     ctx.start_node(KPlus)

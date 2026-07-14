@@ -1,23 +1,23 @@
-# ADR: ParserContext Speculative Lookahead Rollback Boundary
+# ADR: ParserContext Lookahead Rollback Boundary
 
 **Date:** 2026-07-14
 **Status:** Accepted
 **Issue:** [#438](https://github.com/dowdiness/loom/issues/438)
-**Implementation:** [PR #715](https://github.com/dowdiness/loom/pull/715)
+**Implementation:** [PR #715](https://github.com/dowdiness/loom/pull/715) introduced the rollback helper; [PR #717](https://github.com/dowdiness/loom/pull/717) renamed it to `ParserContext::lookahead`.
 **Related:** [ADR 2026-06-07 ParserContext grammar-author helpers](2026-06-07-parser-context-grammar-author-helpers.md), [ADR 2026-06-13 ParserContext method-only boundary](2026-06-13-parsercontext-method-only-boundary.md)
-**Implementation plan:** N/A — issue-scoped additive API with focused Markdown migration and regression coverage.
+**Implementation plan:** [#716 terminology cutover](../archive/completed-phases/2026-07-14-parser-context-lookahead-rename.md)
 
 ## Context
 
 Markdown had four pure lookahead computations with the same manual pattern:
 capture a `ParserContext` checkpoint, consume and emit while inspecting later
-tokens, restore, then return the computed result. `ParserContext::speculative`
+tokens, restore, then return the computed result. `ParserContext::lookahead`
 centralizes that unconditional rollback pattern while preserving conditional
 `checkpoint`/`restore` pairs for parses that commit a successful branch.
 
 The helper is public to grammar authors. Its closure can call `ParserContext`
 methods and capture state outside the parser. A broad statement that every
-mutation in a speculative body rolls back would therefore be false.
+mutation in a pure-lookahead body rolls back would therefore be false.
 
 A checkpoint records parser position, event length, diagnostic count, open-node
 count and stack, reuse cursor and count, and lex mode. Restore truncates
@@ -28,7 +28,7 @@ or reuse diagnostics.
 
 ## Decision
 
-`ParserContext::speculative` is a limited, unconditional rollback helper for
+`ParserContext::lookahead` is a limited, unconditional rollback helper for
 pure lookahead over the checkpointed `ParserContext` state. It is not a general
 transaction mechanism.
 
@@ -38,8 +38,8 @@ checkpoint. “Pure” means that the computation confines its parser-owned effe
 to that documented rollback set; it does not mean arbitrary closure side effects
 are undone.
 
-Any concrete caller that needs a speculative mutation outside this set must
-pause for a correctness and contract decision before implementation. That
+Any concrete caller that needs a pure-lookahead body to mutate state outside
+this set must pause for a correctness and contract decision before implementation. That
 decision must choose one of these contracts:
 
 1. extend checkpoint/restore so the relevant **ParserContext-owned** state is
@@ -72,13 +72,13 @@ repeated use and should not stabilize broad abstractions preemptively.
 
 ## Consequences
 
-`speculative` callers must use it only for lookahead whose parser-owned effects
+`lookahead` callers must use it only for lookahead whose parser-owned effects
 are inside the documented checkpoint set. Conditional parsing that commits on
 success continues to use explicit checkpoint/restore.
 
-Any new speculative mutation outside the current contract requires a decision
+Any new pure-lookahead mutation outside the current contract requires a decision
 record before implementation. Broadening the public helper additionally
 requires repeated use in at least one independent grammar.
 
-The `speculative` API does not provide rollback for external captured state.
-Grammar authors must keep external side effects outside speculative bodies.
+The `lookahead` API does not provide rollback for external captured state.
+Grammar authors must keep external side effects outside lookahead bodies.

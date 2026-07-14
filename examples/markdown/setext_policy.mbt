@@ -58,7 +58,7 @@ fn setext_underline_depth_after_newline(
   allow_list_marker~ : Bool,
   min_indent~ : Int,
 ) -> Int? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     setext_underline_depth_at_current_line(ctx, allow_list_marker~, min_indent~)
   })
@@ -68,7 +68,7 @@ fn setext_underline_depth_after_newline(
 fn quoted_setext_underline_depth_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
       BlockQuoteMarker => {
