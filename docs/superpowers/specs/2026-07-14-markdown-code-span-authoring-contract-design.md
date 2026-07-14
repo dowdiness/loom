@@ -118,13 +118,14 @@ width continues to use the existing tab rules. The remaining line uses the
 ordinary line-start marker classifier, preserving heading, block-quote, list,
 and fence candidates after indentation.
 
-Before classifying the remaining tokens, the CST parser consumes
-`IndentationToken` into a Markdown-local `LinePrefix` record containing its
-exact source span and computed column width. All marker classification and
-body-offset calculations use this record: list-marker indentation/width,
-heading and setext checks, block-quote continuation, and nested-container
-minimum-indent rules. They must not read indentation from the current marker
-token after decomposition. The record resets at each physical line boundary.
+Before classifying the remaining tokens, the CST parser captures the current
+`IndentationToken` into a Markdown-local `LinePrefix` record without advancing
+or emitting it. The selected block or container parser emits that exact token
+as its first structural child, then uses the captured source span and column
+width for list-marker indentation/width, heading and setext checks, block-quote
+continuation, and nested-container minimum-indent rules. Those calculations
+must not read indentation from the current marker token after decomposition.
+The record resets at each physical line boundary.
 
 The CST block parser then classifies indentation relative to its current root
 or list-item context. A paragraph continuation exposes the normal inline
@@ -339,7 +340,8 @@ Focused tests must establish:
    reassembles exact same-line text before deindent. Post-indent heading,
    block-quote, list, and fence candidates retain their block classification.
    Parity tests cover marker indentation/body offsets, setext recognition,
-   block-quote continuation, and nested lists after a `LinePrefix`.
+   block-quote continuation, nested lists, and lossless `IndentationToken`
+   parent/span ownership after a captured `LinePrefix`.
 5. The escaped-pair example above is literal text and cannot open a code span.
    It produces the specified MarkdownIR/`Inline` semantic text and CommonMark
    HTML; its maximal token remains visible and preserves every backtick.
