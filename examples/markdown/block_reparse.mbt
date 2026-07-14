@@ -492,7 +492,7 @@ fn unordered_list_context_allows_reparse(
   opening_marker : UnorderedListMarker,
   min_indent : Int,
 ) -> Bool {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     let mut result = true
     let mut expect_marker = true
     let mut saw_marker = false

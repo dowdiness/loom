@@ -100,7 +100,7 @@ fn blank_line_run_is_followed_by_marker_matching(
   matches_marker : (@core.ParserContext[Token, SyntaxKind]) -> Bool,
 ) -> Bool {
   guard ctx.peek() is BlankLine else { return false }
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     while ctx.peek() is BlankLine {
       ctx.emit_token(BlankLineToken)
     }

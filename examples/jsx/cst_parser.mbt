@@ -28,14 +28,14 @@ fn at_close_tag(
 }
 
 ///|
-/// Read the close tag's name without consuming anything. jsx tokens carry
-/// no payload, so the name is only reachable as the TagName token's source
-/// text — consume up to it speculatively and roll back. Returns None when
-/// no TagName follows `</` (input truncated right after the slash).
+/// Read the close tag's name without consuming anything. JSX tokens carry no
+/// payload, so the name is only reachable as the TagName token's source text:
+/// consume up to it as pure lookahead, then roll back. Returns None when no
+/// TagName follows `</` (input truncates right after the slash).
 fn peek_close_tag_name(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
 ) -> String? {
-  ctx.speculative(() => {
+  ctx.lookahead(() => {
     ctx.emit_token(@syntax.OpenTagStartToken)
     ctx.emit_token(@syntax.SlashToken)
     if ctx.peek() is @token.TagName {
