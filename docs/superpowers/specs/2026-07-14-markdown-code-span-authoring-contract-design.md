@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-14  
 **Issue:** [#484](https://github.com/dowdiness/loom/issues/484)  
-**Status:** Draft — review required
+**Status:** Approved — 2026-07-14
 
 ## Goal
 
