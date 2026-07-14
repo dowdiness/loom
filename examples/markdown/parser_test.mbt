@@ -30,6 +30,14 @@ test "parse: setext heading preserves legacy heading depth" {
     parse("Foo\n-  \n"),
     content="Document([Heading(2, [Text(\"Foo\")])])",
   )
+  inspect(
+    parse("First\nsecond\n---\n"),
+    content="Document([Heading(2, [Text(\"First\"), Text(\"second\")])])",
+  )
+  inspect(
+    parse("First\nsecond\n===\n"),
+    content="Document([Heading(1, [Text(\"First\"), Text(\"second\")])])",
+  )
 }
 
 ///|
@@ -225,6 +233,28 @@ test "parse: blockquote lazy continuation accepts indented thematic text" {
       }
       _ => inspect(syntax.children().length(), content="one blockquote")
     }
+  }
+}
+
+///|
+test "parse: blockquote setext heading has heading CST child" {
+  let (cst, _) = try! parse_cst("> foo\n> ---\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] => {
+      let quote_kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      inspect(quote_kind, content="BlockQuoteNode")
+      match quote.children() {
+        [heading] => {
+          let heading_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            heading.kind(),
+          )
+          inspect(heading_kind, content="HeadingNode")
+        }
+        _ => inspect(quote.children().length(), content="one heading")
+      }
+    }
+    _ => inspect(syntax.children().length(), content="one blockquote")
   }
 }
 
@@ -427,6 +457,11 @@ test "parse: list item preserves whitespace-only inline syntax" {
 
 ///|
 test "parse: blank-line-separated marker change starts a new list" {
+  let same = parse("- one\n\n- two\n")
+  inspect(
+    same,
+    content="Document([UnorderedList([UnorderedListItem([Text(\"one\")]), UnorderedListItem([Text(\"two\")])])])",
+  )
   let block = parse("- one\n\n+ two\n")
   match block {
     Document(

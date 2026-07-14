@@ -98,6 +98,20 @@ test "incremental: list item text edit uses block reparse" {
 }
 
 ///|
+test "incremental: unordered list last item edit uses block reparse matches full parse" {
+  let prefix = "- one\n- two\n- "
+  let source = prefix + "three\n"
+  let new_source = prefix + "THREE\n"
+  let reuse_count = markdown_incremental_edit_reuse_count(
+    "markdown unordered list last item text edit",
+    source,
+    @core.Edit::new(prefix.length(), "three".length(), "THREE".length()),
+    new_source,
+  )
+  inspect(reuse_count, content="1")
+}
+
+///|
 test "incremental: list item boundary edits match full parse" {
   let marker_reuse_count = markdown_incremental_edit_reuse_count(
     "markdown list marker edit falls back",

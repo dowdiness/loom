@@ -652,6 +652,24 @@ test "finish_nodes_until: combined with checkpoint restores node stack" {
   assert_current_kind(ctx, KRoot)
 }
 
+///|
+test "finish_nodes_until: speculative restores node stack" {
+  let (spec, tokens) = make_test_fixtures()
+  let ctx = ParserContext::new(tokens, "+42", spec)
+  ctx.start_node(KRoot)
+  ctx.start_node(KExpr)
+  let found = ctx.speculative(() => {
+    // Start some nodes, then finish until KRoot.
+    ctx.start_node(KNum)
+    ctx.start_node(KPlus)
+    ctx.finish_nodes_until(KRoot)
+  })
+  inspect(found, content="true")
+  assert_current_kind(ctx, KExpr)
+  ctx.finish_node()
+  assert_current_kind(ctx, KRoot)
+}
+
 // ─── finish_nodes_until_inclusive ───────────────────────────────────────────────
 
 ///|
