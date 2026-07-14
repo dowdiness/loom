@@ -2,13 +2,13 @@
 
 **Date:** 2026-07-14  
 **Issue:** [#484](https://github.com/dowdiness/loom/issues/484)  
-**Status:** Approved — 2026-07-14
+**Status:** Approved — 2026-07-14; authoring-fact delivery deferred pending a concrete editor host
 
 ## Goal
 
-Make CommonMark code spans semantically correct while retaining enough lossless,
-snapshot-scoped syntax information for the planned block editor to assist an
-author typing an unmatched backtick run.
+Make CommonMark code spans semantically correct while retaining lossless syntax
+needed to define future editor assistance; fact delivery waits for a concrete
+block-editor host that owns a parser/source snapshot identity.
 
 This design separates three concerns:
 
@@ -16,9 +16,9 @@ This design separates three concerns:
    value; an unmatched backtick run is ordinary literal text.
 2. **Source fidelity:** raw delimiters and raw content remain recoverable from
    existing source origins for rewrites and formatting.
-3. **Authoring assistance:** a Markdown-local facade reports unmatched
-   backtick runs as neutral facts. The block editor decides whether to decorate
-   them or offer a completion.
+3. **Deferred authoring assistance:** a future Markdown-local facade may report
+   unmatched backtick runs as neutral facts only after a concrete block-editor
+   host supplies the snapshot identity that owns their ranges.
 
 ## Scope
 
@@ -27,16 +27,17 @@ This design separates three concerns:
 - CommonMark 0.31.2 code span delimiter matching and content normalization.
 - Existing `MarkdownIR::InlineCode` origin and content-origin policy.
 - Literal fallback for unmatched backtick runs.
-- A Markdown-local, parser-result-based authoring fact for unmatched backtick
-  runs.
-- Snapshot-lifetime rules for authoring fact ranges.
-- Focused parser, MarkdownIR, adapter, rewrite, and authoring-fact tests.
+- Definition—but not delivery—of a future Markdown-local parser-result fact for
+  unmatched backtick runs and its snapshot-lifetime rule.
+- Focused parser, MarkdownIR, adapter, and rewrite tests.
 - A proposed amendment to the Markdown inline native-only ADR.
 
 ### Excluded
 
 - `ParserContext` conditional-commit APIs or a change to `lookahead`.
-- `GrammarIr` variants, loomgen annotations, and #603.
+- GrammarIr variants, loomgen annotations, and #603.
+- Markdown authoring-fact delivery, a facade, or a snapshot/revision
+  abstraction before a concrete block-editor host exists.
 - Emphasis/strong-emphasis delimiter resolution.
 - Inline links, images, and reference-link resolution.
 - Generic Loom-core completion, diagnostic, or revision APIs.
@@ -61,7 +62,7 @@ is the raw-content authority and content-only source rewrites are disabled; no
 consumer may pretend the envelope is an exact content slice.
 
 `Block` / `Inline` remain the compact editor projection. They do not gain
-editor interaction state. `UnmatchedBacktickRun` facts remain outside
+editor interaction state. Any future `UnmatchedBacktickRun` fact remains outside
 MarkdownIR and outside `Block` / `Inline`.
 
 ## Code Span Semantic Contract
@@ -226,13 +227,15 @@ their raw origins remain source-preserving.
 An unmatched run does not produce an `ErrorNode`, `Recovered` MarkdownIR node,
 parser diagnostic, or `Inline::Error` solely because it is unmatched.
 
-## Block Editor Authoring Contract
+## Deferred Block Editor Authoring Contract
 
-### Neutral syntax fact
+The concrete block-editor integration is not present in this repository. This
+issue therefore implements no authoring facade, fact carrier, or revision
+abstraction. Inventing one would assign snapshot ownership to the parser rather
+than the editor host and violate the native-only boundary.
 
-The block editor needs interaction assistance without changing document
-semantics. A Markdown authoring facade therefore derives this fact from the
-completed parser result:
+When a concrete host exists, it must derive this neutral fact from a completed
+parser result:
 
 ```text
 UnmatchedBacktickRun {
@@ -241,46 +244,23 @@ UnmatchedBacktickRun {
 }
 ```
 
-The fact means:
+The fact means that a maximal unescaped outer-inline run was eligible to open,
+found no equal-length closer, and was interpreted as literal text. It is not an
+opener, parser error, warning, or completion command. Its range covers the run
+alone; escaped or matched runs do not produce it.
 
-> In this inline parse result, this maximal unescaped run was eligible to open
-> a code span, found no equal-length closer, and was interpreted as literal text.
+The future host, not MarkdownIR or Loom core, owns the association with its
+parser/source snapshot. Consumers discard facts when their source snapshot no
+longer matches the editor document and request fresh facts rather than
+translating stale offsets. The first editor policy remains neutral decoration
+plus an explicit matching-run completion—never autopairing, diagnostics, or
+automatic edits.
 
-It does not claim that the run is a code-span opener, a parser error, a warning,
-or a completion command. A backslash-escaped, opener-ineligible literal run
-does not produce this fact. The fact range covers the run alone, never following
-inline content.
-
-### Snapshot lifetime
-
-Facts are delivered by the Markdown authoring integration as part of one
-parser/source snapshot. Their ranges are valid only for that snapshot's source
-revision.
-
-The authoring integration, not MarkdownIR, owns the revision association.
-Before implementation, the integration must map these facts onto the concrete
-host snapshot identity used by the block-editor pipeline; it must not introduce
-a second universal `Revision` or snapshot abstraction in Loom.
-
-Consumers must discard facts when their source snapshot no longer matches the
-current editor document. They must request facts from the latest parser result
-rather than translating stale offsets themselves.
-
-### Initial editor policy
-
-The initial block-editor policy is deliberately conservative:
-
-- show a neutral, non-error decoration only while the cursor is relevant to an
-  unmatched run;
-- offer an explicit completion that inserts a closing run with the same length;
-- do not auto-pair on typing;
-- do not show a parser warning or problem-list diagnostic;
-- do not add source changes without an explicit editor action.
-
-The fact is data, so later editor features—hover help, accessibility narration,
-quick fixes, or team-specific lint—can consume it without changing parser
-semantics. A shared cross-language authoring-fact abstraction is deferred until
-another language proves the same range, lifecycle, and state contract.
+The implementation plan for #484 is intentionally limited to native code-span
+semantics, lossless CST/source behavior, and semantic projections. A future
+host-integration issue must map this fact onto the real editor snapshot type
+before it may add delivery code. No shared cross-language fact abstraction is
+introduced until another consumer establishes the same lifecycle contract.
 
 ## Alternatives Considered
 
@@ -300,8 +280,9 @@ editor UX and enlarge a compatibility surface without a second consumer.
 ### Expose raw CST directly to the block editor
 
 Rejected. The existing architecture keeps `SyntaxNode`, parser diagnostics, and
-Loom/Seam internals behind language-owned authoring integration. The facade may
-inspect CST internally, but editor consumers receive language-owned facts.
+Loom/Seam internals behind language-owned integration. If a concrete editor host
+is added, its facade may inspect CST internally; no direct-CST editor API is
+introduced by this issue.
 
 ### Add a generic conditional-commit primitive
 
@@ -360,12 +341,10 @@ Focused tests must establish:
 10. MarkdownIR, mdast, CommonMark HTML, canonical formatting, and
     source-preserving rewrite consume the semantic value and permitted origins
     through their established responsibilities.
-11. The authoring facade reports only unescaped runs that were eligible openers
-    but found no equal-length closer; escaped literal runs report no fact.
-12. An authoring fact from an older parser/source snapshot is not applied after
-    an editor source update.
-13. No touched public Loom-core API or Grammar IR interface changes.
-14. A stress test with many distinct, unmatched backtick runs verifies one
+11. No Markdown authoring-fact facade, snapshot/revision abstraction, or editor
+    behavior is added before a concrete host supplies ownership.
+12. No touched public Loom-core API or Grammar IR interface changes.
+13. A stress test with many distinct, unmatched backtick runs verifies one
     delimiter-index prepass and linear token/run traversal, rejecting repeated
     scan-to-boundary work.
 
@@ -385,6 +364,6 @@ closure-free. It will correct two over-broad claims:
 2. Code spans, emphasis, links, and reference links have different generation
    constraints and must be evaluated separately.
 
-The amendment will also state that native Markdown code-span and authoring
-support is compatible with the no-generation boundary. It will not authorize a
-new Grammar IR feature.
+The amendment will also state that native Markdown code-span support is
+compatible with the no-generation boundary. It will not authorize a new Grammar
+IR feature or an authoring-fact delivery API.
