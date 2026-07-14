@@ -162,7 +162,8 @@ pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
 }
 
 ///|
-/// Save the current parse state for speculative parsing.
+/// Save checkpointed parser execution state: position, events, diagnostics,
+/// open nodes, reuse cursor/count, and lex mode.
 pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
@@ -184,7 +185,7 @@ pub fn[T, K] ParserContext::checkpoint(
 }
 
 ///|
-/// Restore parser state saved by checkpoint().
+/// Restore checkpointed execution state saved by checkpoint().
 pub fn[T, K] ParserContext::restore(
   self : ParserContext[T, K],
   cp : Checkpoint[T, K],
@@ -205,13 +206,13 @@ pub fn[T, K] ParserContext::restore(
 }
 
 ///|
-/// Run `body` speculatively: advance the parser normally during `body`, then
-/// restore the parser to its state before the call and return the body's result.
+/// Run `body` speculatively, then restore checkpointed parser execution state
+/// and return the body's result.
 ///
-/// Use for lookahead computations that need to consume tokens to see what
-/// follows, but must not permanently advance the parse position. The body may
-/// call any ParserContext method — emitted events, diagnostics, and position
-/// changes are all rolled back.
+/// Use for pure lookahead whose effects are limited to token consumption,
+/// events, diagnostics, open nodes, reuse cursor/count, and lex mode. It does
+/// not roll back parser configuration such as goal sources, goal subsumption
+/// checks, or reuse diagnostics.
 ///
 /// Example (Markdown): what is the setext underline depth after the next newline?
 ///

@@ -132,11 +132,13 @@ pub struct ParserContext[T, K] {
 }
 ```
 
-The grammar-author surface is **exactly the methods** listed below. Every field
-(the token accessors, cursor `position`, `error_count`, `open_nodes`, the reuse
-state, etc.) is `priv`, so the generated interface renders the struct body as
-`// private fields` and grammars cannot read or pattern-match on parser internals
-(loom#251). This boundary is language-enforced, not a convention.
+The grammar-author surface consists of public `ParserContext` methods. The
+generated `loom/core/pkg.generated.mbti` is the authoritative complete list;
+the common methods below are a guide. Every field (the token accessors, cursor
+`position`, `error_count`, `open_nodes`, the reuse state, etc.) is `priv`, so
+the generated interface renders the struct body as `// private fields` and
+grammars cannot read or pattern-match on parser internals (loom#251). This
+boundary is language-enforced, not a convention.
 
 If a grammar genuinely needs to observe some piece of state, add a named accessor
 method with explicit, documented semantics — fields are never re-exposed directly,
@@ -144,7 +146,7 @@ and accessors are added on demand rather than preemptively.
 
 ## Grammar API
 
-Methods that grammar functions call on `ParserContext`:
+Common `ParserContext` methods used by grammar functions:
 
 ```moonbit
 ctx.peek()                    // next non-trivia token (does not consume)
@@ -154,9 +156,9 @@ ctx.at_eof()                  // test whether all input has been consumed
 ctx.current_token_text()      // zero-copy text for the current non-trivia token
 ctx.current_token_range()     // source range for the current non-trivia token
 ctx.too_many_errors(max)      // max-error guard helper (`>= max`)
-ctx.checkpoint()              // snapshot parser state for a conditional parse
-ctx.restore(checkpoint)       // roll back to a prior checkpoint
-ctx.speculative(body)         // run pure lookahead, always roll back, return body's value
+ctx.checkpoint()              // capture checkpointed execution state for a conditional parse
+ctx.restore(checkpoint)       // restore checkpointed execution state
+ctx.speculative(body)         // pure lookahead: restore checkpointed execution state, return body's value
 ctx.node(kind, body)          // reuse-aware node: try reuse, else start_node→body→finish_node
 ctx.emit_token(kind)          // consume current token, emit it as a leaf with the given kind
 ctx.emit_current_token()      // emit using the token's own raw kind
@@ -179,10 +181,12 @@ ctx.node_with_recovery(kind, body, sync)   // reuse-aware node with automatic re
 ctx.expect_and_recover(token, kind, sync)  // expect + skip + retry pattern
 ```
 
-Use `ctx.speculative(body)` for pure lookahead: it restores position, events,
-diagnostics, open nodes, reuse state, and lexer mode after `body` returns. Use
-an explicit `checkpoint`/`restore` pair only when a parser must commit a
-successful branch and roll back a failed one.
+Use `ctx.speculative(body)` for pure lookahead: it restores the checkpointed
+execution state documented by `ParserContext::checkpoint`. It is not a general
+configuration transaction; do not use it with setters such as
+`set_goal_source` or `set_reuse_diagnostics`. Use an explicit
+`checkpoint`/`restore` pair only when a parser must commit a successful branch
+and roll back a failed one.
 
 `ctx.node(kind, body)` is the primary building block: it attempts incremental reuse from a prior parse, falling back to `start_node → body() → finish_node` on a miss. Prefer it over bare `start_node`/`finish_node` whenever incremental parsing is needed.
 
