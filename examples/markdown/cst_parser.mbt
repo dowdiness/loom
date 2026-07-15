@@ -18,6 +18,36 @@ priv struct LinePrefix {
 }
 
 ///|
+fn prefixed_root_block_starts(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match ctx.peek() {
+    Indentation(_) if current_token_leading_indent(ctx) <= 3 =>
+      match ctx.peek_nth(1) {
+        ListMarker | OrderedListMarker(_) =>
+          ctx.lookahead(() => {
+            ctx.emit_token(IndentationToken)
+            token_breaks_paragraph_after_newline(ctx.peek()) &&
+            !setext_list_marker_line_ends_after_marker(ctx)
+          })
+        ThematicBreak | HeadingMarker(_) | BlockQuoteMarker | CodeFenceOpen(_, _) |
+        HtmlBlockOpen(_) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn next_prefix_requires_root_block_dispatch(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  ctx.lookahead(() => {
+    ctx.emit_token(NewlineToken)
+    prefixed_root_block_starts(ctx)
+  })
+}
+///|
 fn parse_prefixed_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   let prefix = match ctx.peek() {
     Indentation(_) => LinePrefix::{ columns: current_token_leading_indent(ctx) }
@@ -245,11 +275,14 @@ fn parse_paragraph_with_prefix(
     parse_inline_content(ctx)
     while ctx.peek() is Newline {
       let next = ctx.peek_nth(1)
-      if !next_token_after_newline_is_lone_list_marker(ctx) &&
+      if next_prefix_requires_root_block_dispatch(ctx) ||
         (
-          token_breaks_paragraph_after_newline(next) ||
-          next is Newline ||
-          next is EOF
+          !next_token_after_newline_is_lone_list_marker(ctx) &&
+          (
+            token_breaks_paragraph_after_newline(next) ||
+            next is Newline ||
+            next is EOF
+          )
         ) {
         ctx.emit_token(NewlineToken)
         break
@@ -904,6 +937,10 @@ fn try_continue_list_item_after_blank_line(
         ctx, content_indent,
       ) => {
       parse_block_quote(ctx)
+      true
+    }
+    Indentation(_) if prefixed_list_item_block_starts(ctx, content_indent) => {
+      parse_list_item_prefixed_block(ctx)
       true
     }
     Indentation(_) => {

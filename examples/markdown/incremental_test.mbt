@@ -327,6 +327,12 @@ test "incremental: nested list indentation edits match full parse" {
     ),
     nested_prefix + "- c\n",
   )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown over-indented nested marker matches full parse",
+    "- parent\n  - child\n",
+    @core.Edit::insert("- parent\n".length(), "    ".length()),
+    "- parent\n      - child\n",
+  )
 }
 ///|
 test "incremental: unordered list blank separator edits match full parse" {

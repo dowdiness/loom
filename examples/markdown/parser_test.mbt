@@ -106,6 +106,40 @@ test "parse: three-space-prefixed fence is code block" {
 }
 
 ///|
+test "parse: indented fence interrupts root paragraph" {
+  inspect(
+    parse("foo\n  ```\ncode\n```\n"),
+    content="Document([Paragraph([Text(\"foo\")]), CodeBlock(\"\", \"code\")])",
+  )
+}
+
+///|
+test "parse: prefixed non-one ordered marker remains paragraph" {
+  let (cst, _) = try! parse_cst("foo\n  2. bar\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [paragraph] => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+      inspect(kind, content="ParagraphNode")
+    }
+    _ => inspect(syntax.children().length(), content="one paragraph")
+  }
+}
+
+///|
+test "parse: prefixed lone list marker preserves setext heading" {
+  let (cst, _) = try! parse_cst("foo\n  -\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [heading] => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
+      inspect(kind, content="HeadingNode")
+    }
+    _ => inspect(syntax.children().length(), content="one heading")
+  }
+}
+
+///|
 test "parse: three-space-prefixed quote is block quote" {
   let (cst, _) = try! parse_cst("   > quote\n")
   let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -345,6 +379,22 @@ test "parse: list-item indented continuation remains paragraph" {
       }
     _ => inspect(syntax.children().length(), content="one list")
   }
+}
+
+///|
+test "parse: blank-line list-item indented quote remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n\n  > quote\n",
+    BlockQuoteNode,
+  )
+}
+
+///|
+test "parse: blank-line list-item indented fence remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n\n  ```\n",
+    CodeBlockNode,
+  )
 }
 
 ///|
