@@ -45,7 +45,7 @@ Expected: FAIL because the current `reparse_block` stops after the first `get_re
 
 Run: `rtk moon test loom/core --filter "reparse_block selected failure does not widen"`
 
-Expected: FAIL because the current selector has no new candidate context and cannot exercise the new failure boundary.
+Expected: PASS on the current implementation and after widening; the current core already returns `None` after `parse_block_isolated` produces no node. This test pins the rule that widening is selector-only.
 
 - [ ] **Step 3: Implement ordered candidate enumeration and selector context**
 
@@ -146,9 +146,17 @@ Expected before this task: `incremental: nested list indentation edits match ful
 
 - [ ] **Step 2: Add a token-stream ownership predicate**
 
-Add a helper that returns true only when an isolated list-item candidate's new token stream begins with `Indentation(_)` followed by `ListMarker`, or otherwise contains a newline followed by that pair. Require the marker indentation to be within the normal nested-list threshold; use the same visual-column helpers already used by `current_list_marker_indent` rather than byte counts.
+Add a helper that compares the old node's leading marker/indent signature with
+the new candidate stream. It returns true only when the old node starts at an
+unindented compatible `ListMarker` and the new stream starts with
+`Indentation(_)` followed by that marker at the normal nested-list threshold.
+This is the sibling-to-nested transition; an old already-indented nested item
+must retain its local reparser. Use the same visual-column helpers already used
+by `current_list_marker_indent`, never byte counts.
 
-In `list_item_reparser(node, _, tokens)`, return `None` when that predicate is true. Retain the old-node marker extraction and existing `parse_list_item_if_unchanged` closure for every other stream.
+In `list_item_reparser(node, _, tokens)`, return `None` only when that helper
+reports the transition. Retain the old-node marker extraction and existing
+`parse_list_item_if_unchanged` closure for every other stream.
 
 - [ ] **Step 3: Admit the widened stream at the list-container level**
 

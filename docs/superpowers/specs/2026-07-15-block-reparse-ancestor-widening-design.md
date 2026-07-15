@@ -51,12 +51,14 @@ preserves the present normal incremental/full-parse fallback.
 
 ### Markdown policy
 
-Markdown's list-item selector examines the candidate's **new** token stream.
-It rejects a `ListItemNode` when a continuation contains an indentation prefix
-followed by a compatible list marker at the list's nesting threshold: the
-prefix can turn an old sibling into a nested child, changing ownership outside
-the isolated item. The enclosing `UnorderedListNode` is then considered by the
-core and is parsed with the normal list parser.
+Markdown's list-item selector compares the candidate's old and **new** leading
+marker/indent signatures. It rejects a `ListItemNode` only when the old node
+begins at an unindented compatible marker and the new token stream begins with
+an indentation prefix followed by that marker at the list's nesting threshold.
+That transition can turn an old sibling into a nested child, changing ownership
+outside the isolated item. An already-indented nested item retains its
+item-local reparser. The enclosing `UnorderedListNode` is then considered by
+the core and is parsed with the normal list parser.
 
 Ordinary item-local text edits retain the existing `ListItemNode` reparser and
 its reuse behavior. The policy does not add a special fresh-parser mode or
