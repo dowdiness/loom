@@ -620,7 +620,19 @@ fn parse_block_quote_after_marker(
         marker_end_column,
         content_column + 4,
       ) => parse_indented_code_block(ctx)
-    Indentation(_) => parse_block_quote_paragraph(ctx)
+    Indentation(_) => {
+      let prefix = LinePrefix::{
+        columns: current_token_leading_indent(ctx),
+      }
+      match ctx.peek_nth(1) {
+        ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
+        HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
+        BlockQuoteMarker => parse_block_quote(ctx)
+        CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
+        HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
+        _ => parse_block_quote_paragraph(ctx)
+      }
+    }
     HtmlBlockOpen(_) => parse_html_block(ctx, None)
     Newline => ctx.emit_token(NewlineToken)
     BlankLine => ctx.emit_token(BlankLineToken)
@@ -931,20 +943,34 @@ fn try_continue_list_item_after_blank_line(
 fn try_parse_list_item_block_after_newline(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
+  allow_prefixed_blocks~ : Bool,
 ) -> Bool {
-  guard ctx.peek() is Newline &&
-    ctx.peek_nth(1) is BlockQuoteMarker &&
-    !(ctx.peek_nth(2) is BlankLine) else {
-    return false
-  }
+  guard ctx.peek() is Newline else { return false }
   let checkpoint = ctx.checkpoint()
   ctx.emit_token(NewlineToken)
-  if current_token_text_has_min_leading_spaces(ctx, content_indent) {
-    parse_block_quote(ctx)
-    true
-  } else {
-    ctx.restore(checkpoint)
-    false
+  match ctx.peek() {
+    BlockQuoteMarker if !(ctx.peek_nth(1) is BlankLine) &&
+      current_token_text_has_min_leading_spaces(ctx, content_indent) => {
+      parse_block_quote(ctx)
+      true
+    }
+    Indentation(_) if allow_prefixed_blocks &&
+      prefixed_list_item_block_starts(ctx, content_indent) => {
+      parse_list_item_prefixed_block(ctx)
+      true
+    }
+    Indentation(_) if allow_prefixed_blocks &&
+      current_token_leading_indent(ctx) >= content_indent + 4 => {
+      parse_indented_code_block_at_min_indent(
+        ctx,
+        content_indent + 4,
+      )
+      true
+    }
+    _ => {
+      ctx.restore(checkpoint)
+      false
+    }
   }
 }
 
@@ -1008,6 +1034,45 @@ fn next_prefix_is_list_marker_boundary(
   }
 }
 
+///|
+fn prefixed_list_item_block_starts(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  match ctx.peek() {
+    Indentation(_) => {
+      let indent = current_token_leading_indent(ctx)
+      if indent < content_indent || indent >= content_indent + 4 {
+        false
+      } else {
+        match ctx.peek_nth(1) {
+          ThematicBreak | HeadingMarker(_) | CodeFenceOpen(_, _) | HtmlBlockOpen(_) =>
+            true
+          BlockQuoteMarker => !(ctx.peek_nth(2) is BlankLine)
+          _ => false
+        }
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn next_prefix_requires_list_item_block_dispatch(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+) -> Bool {
+  ctx.lookahead(() => {
+    ctx.emit_token(NewlineToken)
+    match ctx.peek() {
+      Indentation(_) =>
+        current_token_leading_indent(ctx) >= content_indent + 4 ||
+        prefixed_list_item_block_starts(ctx, content_indent)
+      _ => false
+    }
+  })
+}
+
 /// Parse list-item paragraph content, including lazy continuation lines.
 fn parse_list_item_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1023,7 +1088,8 @@ fn parse_list_item_inline_content(
     let next = ctx.peek_nth(1)
     if (allow_ordered_marker &&
       next_ordered_marker_starts_nested_list(ctx, content_indent)) ||
-      next_prefix_is_list_marker_boundary(ctx, content_indent) {
+      next_prefix_is_list_marker_boundary(ctx, content_indent) ||
+      next_prefix_requires_list_item_block_dispatch(ctx, content_indent) {
       break
     }
     if !token_can_continue_list_item_paragraph_after_newline(
@@ -1085,7 +1151,8 @@ fn try_parse_list_item_setext_heading(
     let next = ctx.peek_nth(1)
     if (allow_ordered_marker &&
       next_ordered_marker_starts_nested_list(ctx, content_indent)) ||
-      next_prefix_is_list_marker_boundary(ctx, content_indent) {
+      next_prefix_is_list_marker_boundary(ctx, content_indent) ||
+      next_prefix_requires_list_item_block_dispatch(ctx, content_indent) {
       break
     }
     if !token_can_continue_list_item_paragraph_after_newline(
@@ -1250,6 +1317,9 @@ fn parse_list_item_prefixed_block(
   match ctx.peek_nth(1) {
     ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
     HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
+    BlockQuoteMarker => parse_block_quote(ctx)
+    CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
+    HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
     _ => parse_paragraph_with_prefix(ctx, Some(prefix))
   }
 }
@@ -1363,7 +1433,11 @@ fn parse_list_item_body(
   if !has_paragraph_content {
     ignore(try_continue_empty_list_item_after_newline(ctx, content_indent))
   }
-  while try_parse_list_item_block_after_newline(ctx, content_indent) {
+  while try_parse_list_item_block_after_newline(
+    ctx,
+    content_indent,
+    allow_prefixed_blocks=has_paragraph_content,
+  ) {
     ()
   }
   if has_paragraph_content {

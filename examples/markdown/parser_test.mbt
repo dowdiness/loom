@@ -119,6 +119,59 @@ test "parse: three-space-prefixed quote is block quote" {
 }
 
 ///|
+test "parse: indented blockquote heading remains quoted CST child" {
+  let (cst, _) = try! parse_cst(">   # heading\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [heading] => {
+          let heading_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            heading.kind(),
+          )
+          inspect(heading_kind, content="HeadingNode")
+        }
+        _ => inspect(quote.children().length(), content="one heading")
+      }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
+test "parse: indented blockquote fence remains quoted CST child" {
+  let (cst, _) = try! parse_cst(">   ```\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [code] => {
+          let code_kind : SyntaxKind = @seam.FromRawKind::from_raw(code.kind())
+          inspect(code_kind, content="CodeBlockNode")
+        }
+        _ => inspect(quote.children().length(), content="one code block")
+      }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
+test "parse: indented blockquote HTML remains quoted CST child" {
+  let (cst, _) = try! parse_cst(">   <div>\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [html] => {
+          let html_kind : SyntaxKind = @seam.FromRawKind::from_raw(html.kind())
+          inspect(html_kind, content="HtmlBlockNode")
+        }
+        _ => inspect(quote.children().length(), content="one HTML block")
+      }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
 test "parse: blockquote preserves legacy text projection" {
   let block = parse("> quote\n")
   inspect(block, content="Document([Paragraph([Text(\"> quote\")])])")
@@ -197,6 +250,64 @@ test "parse: list-item thematic break after marker is CST block child" {
       }
     _ => inspect(syntax.children().length(), content="one list")
   }
+}
+
+///|
+fn assert_list_item_prefixed_block_child(
+  source : String,
+  expected_kind : SyntaxKind,
+) -> Unit raise {
+  let (cst, _) = try! parse_cst(source)
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          let mut found = false
+          for child in item.children() {
+            let kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+            if kind == expected_kind {
+              found = true
+            }
+          }
+          inspect(found, content="true")
+        }
+        _ => inspect(list.children().length(), content="one list item")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
+test "parse: list-item indented quote remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n  > quote\n",
+    BlockQuoteNode,
+  )
+}
+
+///|
+test "parse: list-item indented fence remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n  ```\n",
+    CodeBlockNode,
+  )
+}
+
+///|
+test "parse: list-item indented code remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n      code\n",
+    CodeBlockNode,
+  )
+}
+
+///|
+test "parse: list-item indented HTML remains list child" {
+  try! assert_list_item_prefixed_block_child(
+    "- item\n  <div>\n",
+    HtmlBlockNode,
+  )
 }
 
 ///|

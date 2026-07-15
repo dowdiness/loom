@@ -190,6 +190,13 @@ test "lexer: list-relative indentation preserves marker candidates" {
 }
 
 ///|
+test "lexer: list-content indentation preserves quote candidate" {
+  let tokens = tokenize("- item\n  > quote\n")
+  inspect(@debug.to_string(tokens[3].token), content="Indentation(\"  \")")
+  inspect(@debug.to_string(tokens[4].token), content="BlockQuoteMarker")
+}
+
+///|
 test "lexer: indented thematic break preserves indentation token" {
   let tokens = tokenize("  ---\n")
   inspect(@debug.to_string(tokens[0].token), content="Indentation(\"  \")")
