@@ -6,7 +6,7 @@ pub let lambda_block_reparse_spec : @loom.BlockReparseSpec[
   @syntax.SyntaxKind,
 ] = {
   is_reparseable: fn(kind) { kind == @syntax.BlockExpr.to_raw() },
-  get_reparser: fn(node) {
+  get_reparser: fn(node, _, _) {
     if node.kind() == @syntax.BlockExpr.to_raw() {
       Some(parse_block_expr)
     } else {

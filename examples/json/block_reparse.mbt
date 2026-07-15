@@ -22,7 +22,7 @@ fn json_container_depth(node : @seam.SyntaxNode) -> Int {
 /// in isolation instead of reparsing the entire document.
 pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
   is_reparseable: is_json_container_kind,
-  get_reparser: fn(node) {
+  get_reparser: fn(node, _, _) {
     let kind = node.kind()
     let depth = json_container_depth(node)
     if kind == ObjectNode.to_raw() {
