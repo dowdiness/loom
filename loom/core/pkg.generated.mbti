@@ -53,7 +53,7 @@ pub(all) suberror LexError {
 // Types and methods
 pub(all) struct BlockReparseSpec[T, K] {
   is_reparseable : (@seam.RawKind) -> Bool
-  get_reparser : (@seam.SyntaxNode) -> ((ParserContext[T, K]) -> Unit)?
+  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
 

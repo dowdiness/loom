@@ -5,14 +5,16 @@
 pub(all) struct BlockReparseSpec[T, K] {
   /// Returns true for node kinds that can be reparsed in isolation.
   is_reparseable : (@seam.RawKind) -> Bool
-  /// Returns the parse function for a reparseable node.
+  /// Selects an isolated parser after lexing a strict candidate range.
   ///
-  /// The full `SyntaxNode` is provided so language-specific reparsers can
-  /// preserve absolute context that is not present in isolated block text
-  /// (for example nesting-depth limits). Return `None` to fall back to the
-  /// normal incremental/full parse path when isolated parsing cannot enforce
-  /// the same invariants as a root parse.
-  get_reparser : (@seam.SyntaxNode) -> ((ParserContext[T, K]) -> Unit)?
+  /// The old `SyntaxNode` preserves stable context; the new source and token
+  /// stream let a language reject a candidate whose ownership changed. Returning
+  /// `None` explicitly asks the core to try the next strict reparseable parent.
+  get_reparser : (
+    @seam.SyntaxNode,
+    String,
+    Array[TokenInfo[T]],
+  ) -> ((ParserContext[T, K]) -> Unit)?
   /// Structural integrity check on re-lexed tokens.
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
@@ -85,9 +87,36 @@ fn build_physical_path(
 }
 
 ///|
-/// Walk up from edit position via SyntaxNode::parent(), find first
-/// reparseable ancestor that strictly contains the edit.
-/// Returns the ancestor SyntaxNode and the physical path from root to it.
+/// Walk up from edit position and collect strict reparseable ancestors from
+/// innermost to outermost, with physical paths rooted at the current CST.
+fn find_reparseable_ancestors(
+  tree : @seam.SyntaxNode,
+  edit : Edit,
+  is_reparseable : (@seam.RawKind) -> Bool,
+) -> Array[(@seam.SyntaxNode, Array[Int])] {
+  let candidates : Array[(@seam.SyntaxNode, Array[Int])] = []
+  let root_cst = tree.cst_node()
+  let leaf = tree.find_at(edit.start)
+  let mut current : @seam.SyntaxNode? = Some(leaf)
+  while current is Some(node) {
+    if is_reparseable(node.kind()) {
+      let block_start = node.start()
+      let block_new_end = node.end() + edit.delta()
+      if edit.start > block_start && edit.start + edit.new_len < block_new_end {
+        match
+          build_physical_path(root_cst, node.start(), node.end(), node.kind()) {
+          Some(path) => candidates.push((node, path))
+          None => ()
+        }
+      }
+    }
+    current = node.parent()
+  }
+  candidates
+}
+
+///|
+/// Find the innermost strict reparseable ancestor.
 ///
 /// "Strictly interior" means the edit is fully inside the block:
 ///   edit.start > block.start() AND edit.start + edit.new_len < block.end() + edit.delta()
@@ -96,30 +125,10 @@ pub fn find_reparseable_ancestor(
   edit : Edit,
   is_reparseable : (@seam.RawKind) -> Bool,
 ) -> (@seam.SyntaxNode, Array[Int])? {
-  // Start at the deepest node containing the edit position
-  let leaf = tree.find_at(edit.start)
-  // Walk up via parent chain
-  let mut current : @seam.SyntaxNode? = Some(leaf)
-  while current is Some(node) {
-    if is_reparseable(node.kind()) {
-      // Check "strictly interior": edit must be fully inside the block
-      // NOTE: This strictly-interior check assumes single-edit-at-a-time.
-      // Multi-edit support would need accumulated delta tracking.
-      let block_start = node.start()
-      let block_new_end = node.end() + edit.delta()
-      if edit.start > block_start && edit.start + edit.new_len < block_new_end {
-        // Build physical path from root CST to this node
-        let root_cst = tree.cst_node()
-        match
-          build_physical_path(root_cst, node.start(), node.end(), node.kind()) {
-          Some(path) => return Some((node, path))
-          None => ()
-        }
-      }
-    }
-    current = node.parent()
+  match find_reparseable_ancestors(tree, edit, is_reparseable) {
+    [first, ..] => Some(first)
+    [] => None
   }
-  None
 }
 
 ///|
@@ -351,68 +360,61 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   block_spec : BlockReparseSpec[T, K],
   old_diagnostics : DiagnosticSet,
 ) -> (@seam.CstNode, DiagnosticSet)? {
-  // 1. Find reparseable ancestor
-  let (ancestor, path) = match
-    find_reparseable_ancestor(tree, edit, block_spec.is_reparseable) {
-    Some(result) => result
-    None => return None
-  }
-  let block_kind = ancestor.kind()
-  let block_start = ancestor.start()
-  let block_old_end = ancestor.end()
-  let block_new_end = block_old_end + edit.delta()
-  // 2. Extract block text from new source
-  if block_start < 0 ||
-    block_new_end > new_source.length() ||
-    block_start > block_new_end {
-    return None
-  }
-  let block_text_view : StringView = new_source[block_start:block_new_end]
-  let block_text = block_text_view.to_owned()
-  // 3. Tokenize and check balance
-  let block_lex = lex(block_text)
-  let block_tokens = block_lex.tokens
-  let block_starts = block_lex.starts
-  let block_lex_diags = block_lex.diagnostics
-  if !(block_spec.is_balanced)(block_tokens) {
-    return None
-  }
-  // 4. Get the reparser for this block node. The spec receives the absolute
-  // syntax node, not just its kind, so it can decline or preserve context when
-  // isolated parsing would otherwise diverge from a root parse.
-  let reparse_fn = match (block_spec.get_reparser)(ancestor) {
-    Some(f) => f
-    None => return None
-  }
-  // 5. Parse in isolation
-  let (new_block, parse_diags) = match
-    parse_block_isolated(
-      block_text, block_kind, block_tokens, block_starts, reparse_fn, spec,
-    ) {
-    Some(result) => result
-    None => return None
-  }
   let root_cst = tree.cst_node()
-  let new_diags = block_lex_diags.copy()
-  new_diags.add_all(parse_diags)
-  let trivia_raws = spec.trivia_kinds_raw()
-  let err_raw = spec.error_kind.to_raw()
-  let inc_raw = spec.incomplete_kind.to_raw()
-  let new_root = splice_tree(
-    root_cst,
-    path,
-    new_block,
-    trivia_kinds=Some(trivia_raws),
-    error_kind=Some(err_raw),
-    incomplete_kind=Some(inc_raw),
-  )
-  // 7. Merge diagnostics
-  let merged = merge_diagnostics(
-    old_diagnostics,
-    block_start,
-    block_old_end,
-    new_diags,
-    edit.delta(),
-  )
-  Some((new_root, merged))
+  for candidate in
+    find_reparseable_ancestors(tree, edit, block_spec.is_reparseable) {
+    let (ancestor, path) = candidate
+    let block_kind = ancestor.kind()
+    let block_start = ancestor.start()
+    let block_old_end = ancestor.end()
+    let block_new_end = block_old_end + edit.delta()
+    if block_start < 0 ||
+      block_new_end > new_source.length() ||
+      block_start > block_new_end {
+      return None
+    }
+    let block_text_view : StringView = new_source[block_start:block_new_end]
+    let block_text = block_text_view.to_owned()
+    let block_lex = lex(block_text)
+    let block_tokens = block_lex.tokens
+    let block_starts = block_lex.starts
+    let block_lex_diags = block_lex.diagnostics
+    if !(block_spec.is_balanced)(block_tokens) {
+      return None
+    }
+    match (block_spec.get_reparser)(ancestor, block_text, block_tokens) {
+      None => continue
+      Some(reparse_fn) => {
+        let (new_block, parse_diags) = match
+          parse_block_isolated(
+            block_text, block_kind, block_tokens, block_starts, reparse_fn, spec,
+          ) {
+          Some(result) => result
+          None => return None
+        }
+        let new_diags = block_lex_diags.copy()
+        new_diags.add_all(parse_diags)
+        let trivia_raws = spec.trivia_kinds_raw()
+        let err_raw = spec.error_kind.to_raw()
+        let inc_raw = spec.incomplete_kind.to_raw()
+        let new_root = splice_tree(
+          root_cst,
+          path,
+          new_block,
+          trivia_kinds=Some(trivia_raws),
+          error_kind=Some(err_raw),
+          incomplete_kind=Some(inc_raw),
+        )
+        let merged = merge_diagnostics(
+          old_diagnostics,
+          block_start,
+          block_old_end,
+          new_diags,
+          edit.delta(),
+        )
+        return Some((new_root, merged))
+      }
+    }
+  }
+  None
 }
