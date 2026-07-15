@@ -137,7 +137,7 @@ pub(all) enum SyntaxKind {
   RightParenToken
   TextToken
   CodeTextToken
-  IndentedCodeTextToken
+  IndentationToken
   NewlineToken
   ErrorToken
   EofToken
@@ -187,7 +187,7 @@ pub(all) enum Token {
   RightParen
   Text(String)
   CodeText(String)
-  IndentedCodeText(String)
+  Indentation(String)
   Newline
   Error(String)
   EOF

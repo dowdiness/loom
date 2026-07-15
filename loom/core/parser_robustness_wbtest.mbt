@@ -144,7 +144,7 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
   )
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
     is_reparseable: kind => kind == test_kind_raw(KExpr),
-    get_reparser: node => {
+    get_reparser: fn(node, _, _) {
       if node.kind() == test_kind_raw(KExpr) {
         Some(parse_expr)
       } else {
@@ -564,4 +564,162 @@ test "at_adjacent: leading trivia consumed by emit_token keeps adjacency" {
   ctx.emit_token(KNum)
   inspect(ctx.at_adjacent(TestTok::Plus), content="true")
   ctx.finish_node()
+}
+
+///|
+test "reparse_block selector decline widens to parent" {
+  fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+    })
+  }
+
+  let (old_tree, _) = parse_with(
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+  )
+  let seen : Array[Int] = []
+  let seen_texts : Array[String] = []
+  let seen_token_counts : Array[Int] = []
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(node, candidate_text, tokens) {
+      seen.push(node.start())
+      seen_texts.push(candidate_text)
+      seen_token_counts.push(tokens.length())
+      if node.start() == 2 {
+        None
+      } else {
+        Some(parse_nested_expr)
+      }
+    },
+    is_balanced: _ => true,
+  }
+  let lex = fn(source : String) -> LexResult[TestTok] {
+    let (tokens, starts) = test_tokenize_with_starts(source)
+    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  }
+  let result = reparse_block(
+    @seam.SyntaxNode::from_cst(old_tree),
+    "1+2+9+4",
+    Edit::new(4, 1, 1),
+    lex,
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is Some(_), content="true")
+  inspect(seen.length(), content="2")
+  inspect(seen[0], content="2")
+  inspect(seen[1], content="0")
+  inspect(seen_texts[0], content="2+9+4")
+  inspect(seen_texts[1], content="1+2+9+4")
+  inspect(seen_token_counts[0], content="5")
+}
+
+///|
+test "reparse_block selected failure does not widen" {
+  fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+    })
+  }
+
+  let (old_tree, _) = parse_with(
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+  )
+  let seen : Array[Int] = []
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(node, _, _) {
+      seen.push(node.start())
+      if node.start() == 2 {
+        Some(fn(_) {  })
+      } else {
+        Some(parse_nested_expr)
+      }
+    },
+    is_balanced: _ => true,
+  }
+  let lex = fn(source : String) -> LexResult[TestTok] {
+    let (tokens, starts) = test_tokenize_with_starts(source)
+    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  }
+  let result = reparse_block(
+    @seam.SyntaxNode::from_cst(old_tree),
+    "1+2+3+4",
+    Edit::new(3, 1, 1),
+    lex,
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
+  inspect(seen.length(), content="1")
+  inspect(seen[0], content="2")
+}
+
+///|
+test "reparse_block balance failure does not widen" {
+  fn parse_nested_expr(ctx : ParserContext[TestTok, TestKind]) -> Unit {
+    ctx.node(KExpr, fn() {
+      ctx.emit_token(KNum)
+      ctx.emit_token(KPlus)
+      ctx.node(KExpr, fn() {
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+        ctx.emit_token(KPlus)
+        ctx.emit_token(KNum)
+      })
+    })
+  }
+
+  let (old_tree, _) = parse_with(
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+  )
+  let selector_calls : Array[Int] = []
+  let block_spec : BlockReparseSpec[TestTok, TestKind] = {
+    is_reparseable: kind => kind == test_kind_raw(KExpr),
+    get_reparser: fn(node, _, _) {
+      selector_calls.push(node.start())
+      Some(parse_nested_expr)
+    },
+    is_balanced: tokens => {
+      match tokens {
+        [first, ..] => first.token != TestTok::Num(2)
+        [] => false
+      }
+    },
+  }
+  let lex = fn(source : String) -> LexResult[TestTok] {
+    let (tokens, starts) = test_tokenize_with_starts(source)
+    LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
+  }
+  let result = reparse_block(
+    @seam.SyntaxNode::from_cst(old_tree),
+    "1+2+9+4",
+    Edit::new(4, 1, 1),
+    lex,
+    test_spec,
+    block_spec,
+    DiagnosticSet::empty(),
+  )
+  inspect(result is None, content="true")
+  inspect(selector_calls.length(), content="0")
 }

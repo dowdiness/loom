@@ -14,7 +14,7 @@ pub struct Grammar[T, K, Ast] {
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
-  mode_relex : @core.ModeRelexState[T]?
+  mode_relex : @core.ModeRelexFactory[T]?
 }
 
 ///|
@@ -28,7 +28,7 @@ pub struct SyntaxGrammar[T, K] {
   lex : (String) -> @core.LexResult[T]
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
-  mode_relex : @core.ModeRelexState[T]?
+  mode_relex : @core.ModeRelexFactory[T]?
 }
 
 ///|
@@ -39,7 +39,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_par
   spec : @core.LanguageSpec[T, K],
   lex : (String) -> @core.LexResult[T],
   incremental_relex_enabled : Bool,
-  mode_relex : @core.ModeRelexState[T]?,
+  mode_relex : @core.ModeRelexFactory[T]?,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   let buffer = create_buffer(
     source,
@@ -102,7 +102,7 @@ pub fn[T, K, Ast] Grammar::new(
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
   incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
-  mode_relex? : @core.ModeRelexState[T]? = None,
+  mode_relex? : @core.ModeRelexFactory[T]? = None,
 ) -> Grammar[T, K, Ast] {
   {
     spec,
@@ -120,7 +120,7 @@ pub fn[T, K] SyntaxGrammar::new(
   lex~ : (String) -> @core.LexResult[T],
   incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
-  mode_relex? : @core.ModeRelexState[T]? = None,
+  mode_relex? : @core.ModeRelexFactory[T]? = None,
 ) -> SyntaxGrammar[T, K] {
   { spec, lex, incremental_relex_enabled, block_reparse_spec, mode_relex }
 }

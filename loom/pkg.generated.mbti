@@ -21,7 +21,7 @@ pub fn build_tree_fully_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.I
 
 pub fn build_tree_interned(Array[@seam.ParseEvent], @seam.RawKind, @seam.Interner, trivia_kinds? : Array[@seam.RawKind]?, error_kind? : @seam.RawKind?, incomplete_kind? : @seam.RawKind?) -> @seam.CstNode raise @seam.EventStreamError
 
-pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexState[T]
+pub fn[T, M : Eq] erase_mode_lexer(@core.ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> @core.ModeRelexFactory[T]
 
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(String, Grammar[T, K, Ast]) -> @incremental.ImperativeParser[Ast]
 
@@ -58,9 +58,9 @@ pub struct Grammar[T, K, Ast] {
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
-  mode_relex : @core.ModeRelexState[T]?
+  mode_relex : @core.ModeRelexFactory[T]?
 }
-pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K, Ast]
+pub fn[T, K, Ast] Grammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast, incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexFactory[T]?) -> Self[T, K, Ast]
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(Self[T, K, Ast], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 pub fn[T, K, Ast] Grammar::to_syntax_grammar(Self[T, K, Ast]) -> SyntaxGrammar[T, K]
 
@@ -69,9 +69,9 @@ pub struct SyntaxGrammar[T, K] {
   lex : (String) -> @core.LexResult[T]
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
-  mode_relex : @core.ModeRelexState[T]?
+  mode_relex : @core.ModeRelexFactory[T]?
 }
-pub fn[T, K] SyntaxGrammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexState[T]?) -> Self[T, K]
+pub fn[T, K] SyntaxGrammar::new(spec~ : @core.LanguageSpec[T, K], lex~ : (String) -> @core.LexResult[T], incremental_relex_enabled? : Bool, block_reparse_spec? : @core.BlockReparseSpec[T, K]?, mode_relex? : @core.ModeRelexFactory[T]?) -> Self[T, K]
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar::parse_cst(Self[T, K], String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
 // Type aliases
@@ -126,6 +126,8 @@ pub using @core {type LineRange}
 pub using @core {type LocatedToken}
 
 pub using @core {type ModeLexer}
+
+pub using @core {type ModeRelexFactory}
 
 pub using @core {type ModeRelexResult}
 

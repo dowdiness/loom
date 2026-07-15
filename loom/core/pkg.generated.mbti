@@ -14,7 +14,7 @@ pub let core_interner : @seam.Interner
 
 pub fn[T : Canonical + @pretty.Pretty] default_placeholder_via_canonical(T) -> String
 
-pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexState[T]
+pub fn[T, M : Eq] erase_mode_lexer(ModeLexer[T, M], T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> ModeRelexFactory[T]
 
 pub fn find_reparseable_ancestor(@seam.SyntaxNode, Edit, (@seam.RawKind) -> Bool) -> (@seam.SyntaxNode, Array[Int])?
 
@@ -31,6 +31,8 @@ pub fn splice_tree(@seam.CstNode, Array[Int], @seam.CstNode, trivia_kinds? : Arr
 pub fn text_to_delta(String, String) -> Array[TextDelta]
 
 pub fn to_edits(Array[TextDelta]) -> Array[Edit]
+
+pub fn[T, M] tokenize_mode_lexer_recovering(ModeLexer[T, M], String, T, error_token~ : T, error_token_from_message? : ((String) -> T)?) -> LexResult[T]
 
 pub fn[T] tokenize_via_steps((String, Int) -> LexStep[T], String, T) -> Array[TokenInfo[T]] raise LexError
 
@@ -53,7 +55,7 @@ pub(all) suberror LexError {
 // Types and methods
 pub(all) struct BlockReparseSpec[T, K] {
   is_reparseable : (@seam.RawKind) -> Bool
-  get_reparser : (@seam.SyntaxNode) -> ((ParserContext[T, K]) -> Unit)?
+  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((ParserContext[T, K]) -> Unit)?
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
 
@@ -251,6 +253,11 @@ pub(all) struct ModeLexer[T, M] {
   initial_mode : M
 }
 
+pub struct ModeRelexFactory[T] {
+  tokenize : (String) -> LexResult[T]
+  new_session : () -> ModeRelexState[T]
+}
+
 pub struct ModeRelexResult[T] {
   tokens : Array[TokenInfo[T]]
   starts : Array[Int]
@@ -260,7 +267,7 @@ pub struct ModeRelexResult[T] {
 
 pub struct ModeRelexState[T] {
   tokenize : (String) -> LexResult[T]
-  relex_from : (String, Int, Int, Int, Array[Int], Int) -> ModeRelexResult[T]
+  relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[T]
 }
 
 type OldToken derive(Compare, Eq, @debug.Debug)

@@ -162,7 +162,7 @@ Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
 
 ```mbt nocheck
 ///|
-let mode_state : @core.ModeRelexState[Token] = @core.erase_mode_lexer(
+let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
   markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
@@ -174,7 +174,7 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
   spec=markdown_spec,
   lex=lex_for_grammar,
   fold_node=markdown_fold_node,
-  mode_relex=Some(mode_state),
+  mode_relex=Some(mode_factory),
 )
 ```
 

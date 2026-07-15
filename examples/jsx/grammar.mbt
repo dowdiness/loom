@@ -101,7 +101,7 @@ pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode] =
   lex~,
   fold_node=jsx_fold_node,
   incremental_relex_enabled=false,
-  mode_relex=Some(jsx_mode_relex_state),
+  mode_relex=Some(jsx_mode_relex_factory),
 )
 
 ///|

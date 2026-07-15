@@ -362,83 +362,6 @@ fn produce_token_from(
 }
 
 ///|
-fn lex_indented_block_marker(
-  input : String,
-  pos : Int,
-  marker_start : Int,
-) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let indent_len = marker_start - pos
-  match char_at(input, marker_start) {
-    Some('>') => {
-      let marker_len = match char_at(input, marker_start + 1) {
-        Some(' ') | Some('\t') => 2
-        _ => 1
-      }
-      produce_token_from(
-        BlockQuoteMarker,
-        pos,
-        indent_len + marker_len,
-        BlockQuoteLineStart,
-      )
-    }
-    Some('-') | Some('*') | Some('+') =>
-      match char_at(input, marker_start + 1) {
-        Some(' ') | Some('\t') =>
-          produce_token_from(ListMarker, pos, indent_len + 2, Inline)
-        Some('\n') | Some('\r') | None =>
-          produce_token_from(ListMarker, pos, indent_len + 1, Inline)
-        _ => lex_inline(input, pos)
-      }
-    Some(ch) if is_decimal_digit(ch) =>
-      match ordered_list_marker_at(input, marker_start) {
-        Some(marker) => {
-          let marker_len = count_ordered_marker_digits(input, marker_start) + 2
-          produce_token_from(
-            OrderedListMarker(marker),
-            pos,
-            indent_len + marker_len,
-            Inline,
-          )
-        }
-        None => {
-          let digits = count_ordered_marker_digits(input, marker_start)
-          match
-            (
-              char_at(input, marker_start + digits),
-              char_at(input, marker_start + digits + 1),
-            ) {
-            (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
-              match
-                ordered_list_marker_from_text(
-                  input[marker_start:marker_start + digits + 1].to_owned(),
-                ) {
-                Some(marker) =>
-                  produce_token_from(
-                    OrderedListMarker(marker),
-                    pos,
-                    indent_len + digits + 1,
-                    Inline,
-                  )
-                None => lex_inline(input, pos)
-              }
-            _ => lex_inline(input, pos)
-          }
-        }
-      }
-    Some('<') => {
-      let line_end = find_line_end(input, pos)
-      let line : StringView = input[pos:line_end]
-      match classify_html_block_opening(line) {
-        Some(block_type) =>
-          produce_html_block_open(input, pos, line_end, block_type)
-        None => lex_inline(input, pos)
-      }
-    }
-    _ => lex_inline(input, pos)
-  }
-}
-
-///|
 fn lex_heading_marker(
   input : String,
   token_pos : Int,
@@ -477,49 +400,6 @@ fn lex_heading_marker(
 }
 
 ///|
-fn indentation_range_has_tab(input : String, start : Int, end : Int) -> Bool {
-  for i = start; i < end; {
-    match char_at(input, i) {
-      Some('\t') => break true
-      Some(_) => continue @core.next_char_offset(input, i)
-      None => break false
-    }
-  } nobreak {
-    false
-  }
-}
-
-///|
-fn ordered_list_marker_can_start_at(input : String, pos : Int) -> Bool {
-  if ordered_list_marker_at(input, pos) is Some(_) {
-    true
-  } else {
-    let digits = count_ordered_marker_digits(input, pos)
-    guard digits > 0 else { return false }
-    match (char_at(input, pos + digits), char_at(input, pos + digits + 1)) {
-      (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
-        ordered_list_marker_from_text(input[pos:pos + digits + 1].to_owned())
-        is Some(_)
-      _ => false
-    }
-  }
-}
-
-///|
-fn marker_can_start_after_indentation(input : String, pos : Int) -> Bool {
-  match char_at(input, pos) {
-    Some('-') | Some('*') | Some('+') =>
-      match char_at(input, pos + 1) {
-        Some(' ' | '\t' | '\n' | '\r') | None => true
-        _ => false
-      }
-    Some(ch) if is_decimal_digit(ch) =>
-      ordered_list_marker_can_start_at(input, pos)
-    _ => false
-  }
-}
-
-///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
 fn lex_line_start(
   input : String,
@@ -529,7 +409,12 @@ fn lex_line_start(
     return (Done, LineStart)
   }
   let line_end = find_line_end(input, pos)
-  if is_valid_thematic_break_markers(input[pos:line_end]) {
+  let starts_with_indentation = match char_at(input, pos) {
+    Some(' ') | Some('\t') => true
+    _ => false
+  }
+  if !starts_with_indentation &&
+    is_valid_thematic_break_markers(input[pos:line_end]) {
     return produced_until(
       ThematicBreak,
       pos,
@@ -542,9 +427,7 @@ fn lex_line_start(
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
     [' ', ..] | ['\t', ..] => {
-      let (end, indent_columns) = leading_indent_end_offset_and_column(
-        input, pos, 0,
-      )
+      let (end, _) = leading_indent_end_offset_and_column(input, pos, 0)
       if line_is_blank(input, pos, line_end) {
         let blank_end = line_end_including_break(input, line_end)
         (
@@ -554,27 +437,16 @@ fn lex_line_start(
           ),
           LineStart,
         )
-      } else if indent_columns <= 3 {
-        match char_at(input, end) {
-          Some('#') => lex_heading_marker(input, pos, end)
-          _ => lex_indented_block_marker(input, pos, end)
-        }
-      } else if indentation_range_has_tab(input, pos, end) &&
-        marker_can_start_after_indentation(input, end) {
-        // Keep tab-indented marker candidates as marker tokens so the parser can
-        // apply container-relative list rules; at root, indent >= 4 is still
-        // routed to an indented code block.
-        lex_indented_block_marker(input, pos, end)
       } else {
-        // 4+ columns of indentation — start an indented code block line. Keep
-        // the payload source-backed; deindenting happens during lowering.
-        let text = input[pos:line_end].to_owned()
         (
           Produced(
-            @core.TokenInfo::new(IndentedCodeText(text), line_end - pos),
-            next_offset=line_end,
+            @core.TokenInfo::new(
+              Indentation(input[pos:end].to_owned()),
+              end - pos,
+            ),
+            next_offset=end,
           ),
-          Inline,
+          LineStart,
         )
       }
     }
@@ -764,6 +636,37 @@ fn emit_code_text_line(
 }
 
 ///|
+
+///|
+fn code_fence_close_end(
+  input : String,
+  fence_start : Int,
+  fence_len : Int,
+) -> Int? {
+  let n = count_backticks(input, fence_start)
+  if n < fence_len {
+    return None
+  }
+  let mut after = fence_start + n
+  while after < input.length() {
+    match char_at(input, after) {
+      Some('\r') | Some('\n') | None => break
+      Some(' ') | Some('\t') => after = after + 1
+      _ => return None
+    }
+  }
+  if after < input.length() {
+    match input.view(start_offset=after) {
+      ['\r', '\n', .. rest] => Some(rest.start_offset())
+      ['\r', .. rest] | ['\n', .. rest] => Some(rest.start_offset())
+      _ => Some(after)
+    }
+  } else {
+    Some(after)
+  }
+}
+
+///|
 /// Lex from CodeBlock mode. Emits CodeText lines until closing fence.
 fn lex_code_block(
   input : String,
@@ -773,54 +676,29 @@ fn lex_code_block(
   if pos >= input.length() {
     return (Done, CodeBlock(fence_len))
   }
-  match input.view(start_offset=pos) {
-    ['\r', '\n', .. rest] =>
-      produced_until(Newline, pos, rest, CodeBlock(fence_len))
-    ['\r', .. rest] | ['\n', .. rest] =>
-      produced_until(Newline, pos, rest, CodeBlock(fence_len))
-    ['`', ..] => {
-      let n = count_backticks(input, pos)
-      if n >= fence_len {
-        // Check that rest of line is empty (only whitespace/newline)
-        let mut after = pos + n
-        let mut is_close = true
-        while after < input.length() {
-          match char_at(input, after) {
-            Some('\r') | Some('\n') | None => break
-            Some(' ') | Some('\t') => after = after + 1
-            _ => {
-              is_close = false
-              break
-            }
-          }
-        }
-        if is_close {
-          // Closing fence: consume backticks + trailing whitespace + newline.
-          // Including the newline prevents lex_line_start from seeing it as BlankLine.
-          let fence_end = if after < input.length() {
-            match input.view(start_offset=after) {
-              ['\r', '\n', .. rest] => rest.start_offset()
-              ['\r', .. rest] | ['\n', .. rest] => rest.start_offset()
-              _ => after
-            }
-          } else {
-            after
-          }
-          (
-            Produced(
-              @core.TokenInfo::new(CodeFenceClose, fence_end - pos),
-              next_offset=fence_end,
-            ),
-            LineStart,
-          )
-        } else {
-          emit_code_text_line(input, pos, fence_len)
-        }
-      } else {
-        emit_code_text_line(input, pos, fence_len)
+  let mut fence_start = pos
+  let mut leading_spaces = 0
+  while leading_spaces < 3 && char_at(input, fence_start) is Some(' ') {
+    fence_start = fence_start + 1
+    leading_spaces = leading_spaces + 1
+  }
+  match code_fence_close_end(input, fence_start, fence_len) {
+    Some(fence_end) =>
+      (
+        Produced(
+          @core.TokenInfo::new(CodeFenceClose, fence_end - pos),
+          next_offset=fence_end,
+        ),
+        LineStart,
+      )
+    None =>
+      match input.view(start_offset=pos) {
+        ['\r', '\n', .. rest] =>
+          produced_until(Newline, pos, rest, CodeBlock(fence_len))
+        ['\r', .. rest] | ['\n', .. rest] =>
+          produced_until(Newline, pos, rest, CodeBlock(fence_len))
+        _ => emit_code_text_line(input, pos, fence_len)
       }
-    }
-    _ => emit_code_text_line(input, pos, fence_len)
   }
 }
 

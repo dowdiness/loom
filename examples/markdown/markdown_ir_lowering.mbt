@@ -933,6 +933,7 @@ fn html_block_value(node : @seam.SyntaxNode) -> String {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
+          IndentationToken => buf.write_string(token.text())
           HtmlBlockOpenToken => {
             in_html = true
             // NB: HtmlBlockOpen text does not include the trailing newline;
@@ -964,8 +965,10 @@ fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          HtmlBlockOpenToken | HtmlTextToken | NewlineToken =>
-            content_tokens.push(token)
+          IndentationToken
+          | HtmlBlockOpenToken
+          | HtmlTextToken
+          | NewlineToken => content_tokens.push(token)
           _ => ()
         }
       }
@@ -993,7 +996,7 @@ fn code_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
           CodeFenceOpenToken => in_code = true
           CodeFenceCloseToken => in_code = false
           CodeTextToken if in_code => content_tokens.push(token)
-          IndentedCodeTextToken => {
+          IndentationToken => {
             in_code = true
             content_tokens.push(token)
           }

@@ -122,8 +122,8 @@ fn is_list_item_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 }
 
 ///|
-/// Accept only a contiguous unordered-list container: each non-empty line must
-/// start with a list marker, and inline content must stay on that marker line.
+/// Accept a root-aligned unordered-list container, including nested marker
+/// lines whose indentation is resolved by `parse_list_at_min_indent`.
 fn is_unordered_list_token_stream(
   tokens : Array[@core.TokenInfo[Token]],
 ) -> Bool {
@@ -148,6 +148,7 @@ fn is_unordered_list_token_stream(
               return false
             }
           Newline => expect_marker = true
+          Indentation(_) if expect_marker => ()
           token if token_continues_lazy_unordered_list_item(
               token, expect_marker, saw_marker, saw_non_blank_content,
             ) => {
@@ -515,6 +516,8 @@ fn unordered_list_context_allows_reparse(
           expect_marker = true
           ctx.emit_current_token()
         }
+        Indentation(_) if expect_marker && ctx.peek_nth(1) is ListMarker =>
+          ctx.emit_current_token()
         token if token_continues_lazy_unordered_list_item(
             token, expect_marker, saw_marker, saw_non_blank_content,
           ) => {
@@ -567,14 +570,64 @@ fn unordered_list_reparser(
 }
 
 ///|
+/// Returns whether each unordered marker line has a non-zero visual indent.
+fn unordered_list_marker_indent_prefixes(
+  tokens : Array[@core.TokenInfo[Token]],
+) -> Array[Bool] {
+  let prefixes : Array[Bool] = []
+  let mut indent_columns = 0
+  for info in tokens {
+    match info.token {
+      Indentation(text) =>
+        indent_columns = count_indent_columns(text, 0, text.length())
+      ListMarker => {
+        prefixes.push(indent_columns > 0)
+        indent_columns = 0
+      }
+      Newline => indent_columns = 0
+      _ => ()
+    }
+  }
+  prefixes
+}
+
+///|
+/// Declines a list candidate when a marker line gains or loses an indentation
+/// prefix, because that changes sibling/nested ownership beyond a local splice.
+fn unordered_list_ownership_changes(
+  node : @seam.SyntaxNode,
+  new_tokens : Array[@core.TokenInfo[Token]],
+) -> Bool {
+  let old_tokens = tokenize(node.text()) catch { _ => return false }
+  let old_prefixes = unordered_list_marker_indent_prefixes(old_tokens)
+  let new_prefixes = unordered_list_marker_indent_prefixes(new_tokens)
+  if old_prefixes.length() != new_prefixes.length() {
+    return false
+  }
+  for i in 0..<old_prefixes.length() {
+    if old_prefixes[i] != new_prefixes[i] {
+      return true
+    }
+  }
+  false
+}
+
+///|
 let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
   is_reparseable: is_markdown_reparseable_block,
-  get_reparser: fn(node) {
+  get_reparser: fn(node, _, tokens) {
     let kind = node.kind()
-    if kind == CodeBlockNode.to_raw() {
+    if kind == ListItemNode.to_raw() &&
+      unordered_list_ownership_changes(node, tokens) {
+      None
+    } else if kind == CodeBlockNode.to_raw() {
       Some(parse_code_block_if_still_code_block)
     } else if kind == HtmlBlockNode.to_raw() {
-      Some(ctx => if ctx.peek() is HtmlBlockOpen(_) { parse_html_block(ctx) })
+      Some(ctx => {
+        if ctx.peek() is HtmlBlockOpen(_) {
+          parse_html_block(ctx, None)
+        }
+      })
     } else if kind == ParagraphNode.to_raw() &&
       paragraph_start_allows_reparse(node.text()) {
       Some(parse_paragraph_if_still_paragraph)

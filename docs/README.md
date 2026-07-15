@@ -63,12 +63,14 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/block-reparse.md](architecture/block-reparse.md) — Block Reparse Architecture
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
 - [superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md](superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md) — approved #716 clean cutover from `ParserContext::speculative` to `ParserContext::lookahead`
+- [superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md](superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md) — draft #484 contract for CommonMark code-span normalization, raw-source fidelity, and block-editor authoring facts
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
 ### Architecture Decisions (ADRs)
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-15-block-reparse-ancestor-widening.md](decisions/2026-07-15-block-reparse-ancestor-widening.md) — **Accepted** `BlockReparseSpec` selectors receive candidate-local source/tokens; core widens only after explicit decline, and `ModeRelexFactory` keeps lexer-mode snapshots session-owned
 - [decisions/2026-07-14-lookahead-rollback-boundary.md](decisions/2026-07-14-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::lookahead` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PRs #715 and #717)
 - [decisions/2026-07-13-benchmark-detector-policy.md](decisions/2026-07-13-benchmark-detector-policy.md) — **Accepted** benchmark rows are explicitly gated or informational; inventory and verifier failures remain fail-closed (#644)
 - [decisions/2026-07-13-benchmark-inventory-reconciliation.md](decisions/2026-07-13-benchmark-inventory-reconciliation.md) — **Accepted** baseline scope matches Moon's root `moon.work` discovery from the `examples/lambda` launch directory; 105 event-graph-walker rows retired with the removed workspace member (#712)
@@ -130,6 +132,9 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 - [superpowers/specs/2026-07-13-line-lexer-skeleton-design.md](superpowers/specs/2026-07-13-line-lexer-skeleton-design.md) — approved design for non-destructive line-mode lexer skeleton integration (#699)
 - [archive/completed-phases/2026-07-13-line-lexer-skeleton-integration.md](archive/completed-phases/2026-07-13-line-lexer-skeleton-integration.md) — **Complete** implementation plan for automatic, non-destructive line-mode lexer skeleton integration (#699)
 - [superpowers/specs/2026-07-12-fallback-lex-design.md](superpowers/specs/2026-07-12-fallback-lex-design.md) — approved design for mode-compatible line-mode lexer fallback delegation (#700)
+- [superpowers/specs/2026-07-15-block-reparse-ancestor-widening-design.md](superpowers/specs/2026-07-15-block-reparse-ancestor-widening-design.md) — approved design for context-aware block-reparse candidate widening after explicit language rejection
+- [archive/completed-phases/2026-07-15-block-reparse-ancestor-widening.md](archive/completed-phases/2026-07-15-block-reparse-ancestor-widening.md) — **Complete** implementation plan for context-aware block-reparse candidate widening after explicit language rejection
+- [superpowers/plans/2026-07-14-markdown-code-span-authoring-contract.md](superpowers/plans/2026-07-14-markdown-code-span-authoring-contract.md) — active implementation plan for native CommonMark code spans, baseline indentation decomposition, and lossless raw-content origins (#484; authoring-fact delivery deferred)
 - [superpowers/plans/2026-06-28-grammar-ir-emitter.md](superpowers/plans/2026-06-28-grammar-ir-emitter.md) — *(superseded by 2026-07-10 ADR)* implementation plan for the mode-agnostic Grammar IR emitter: generate `parse_root`/`parse_<rule>` MoonBit code from existing `@grammar.GrammarIr`, verify emitted parsers against `@grammar.interpret`, and keep `SwitchLexMode` deferred pending parser-runtime mode design
 - [superpowers/plans/2026-06-20-parser-generation-spike.md](superpowers/plans/2026-06-20-parser-generation-spike.md) — implementation plan for the lambda parser-generation de-risk spike: grammar-IR interpreter, persistent A-vs-B oracle, reuse-parity calibration, ergonomics gates, and decision record template
 - [analysis/2026-06-20-parser-generation-spike-results.md](analysis/2026-06-20-parser-generation-spike-results.md) — **CONDITIONAL GO**: D1/D2a/D2b all pass; E1=1/7 declarative rules; missing Seq+Pratt combinators block E3; next step = IR extension before full loomgen investment
@@ -191,6 +196,8 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
+_Active: [#484 Markdown code span contract](superpowers/plans/2026-07-14-markdown-code-span-authoring-contract.md) — approved native-only design; authoring-fact delivery deferred until a concrete editor host owns snapshot identity; execution is gated on independent algorithm/plan review._
+_Shipped: block reparse ancestor widening — context-aware candidate selection widened to strict reparseable ancestors. See [archived plan](archive/completed-phases/2026-07-15-block-reparse-ancestor-widening.md) and [ADR](decisions/2026-07-15-block-reparse-ancestor-widening.md)._
 _Shipped: `Native(RuleName)` IR escape-hatch node for context-sensitive productions (HTML tag matching) — issue [#541](https://github.com/dowdiness/loom/issues/541) closed, merged as PR #551. See [plan](superpowers/plans/2026-07-01-native-rulename-ir-node.md) (pending archival)._
 _Shipped: view framework consumer design (Phase A of #514) — `AstView` moved to `@seam`, loomgen generates `AstView` impl on `*Proj` structs. See [design spec](superpowers/specs/2026-06-28-view-framework-consumer-design.md)._
 _Previously active: the minimal grammar-IR contract (loomgen codegen stage 1) **merged** as PR #443 — `dowdiness/loom/grammar` package with generic `[T,K]` IR, `Pred[T]` reification, dense-slot rule interning, the reified escape hatches (grown vocabulary), the evidence-gated `ManualNewlineAppExpr` residue, and D1/D2a/D2b re-validated on the reified lambda IR. See [plan](superpowers/plans/2026-06-22-loomgen-ir-contract.md) and [design spec](superpowers/specs/2026-06-21-loomgen-ir-contract-design.md)._

@@ -24,7 +24,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_in
     abort(
       "incremental-vs-full CST mismatch (" +
       label +
-      "): tree_diff length=\{diffs.length()}",
+      "): tree_diff=\{@debug.to_string(diffs)}",
     )
   }
   if !incremental.diagnostics.equal(full_diagnostics) {

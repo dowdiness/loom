@@ -8,12 +8,13 @@ fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] {
     lex_step: mock_lex_step,
     initial_mode: Normal,
   }
-  let state = erase_mode_lexer(
+  let factory = erase_mode_lexer(
     lexer,
     MockToken::EOF,
     error_token=Error("error"),
     error_token_from_message=Some(fn(msg) { Error(msg) }),
   )
+  let state = (factory.new_session)()
   let result = (state.tokenize)(source)
   TokenBuffer::new_with_mode_relex(
     source,
@@ -61,6 +62,51 @@ test "mode relex: delete quote reverts mode" {
 }
 
 ///|
+test "mode relex: sessions retain independent mode snapshots" {
+  let lexer : ModeLexer[MockToken, MockMode] = {
+    lex_step: mock_lex_step,
+    initial_mode: Normal,
+  }
+  let factory = erase_mode_lexer(
+    lexer,
+    MockToken::EOF,
+    error_token=Error("error"),
+  )
+  let source = "hello\"world\"end"
+  let control = (factory.new_session)()
+  let control_initial = (control.tokenize)(source)
+  let expected = (control.relex_from)(
+    source,
+    11,
+    3,
+    control_initial.tokens().length(),
+    control_initial.starts(),
+    0,
+    source.length(),
+  )
+  let first = (factory.new_session)()
+  let second = (factory.new_session)()
+  let initial = (first.tokenize)(source)
+  ignore((second.tokenize)("x"))
+  let result = (first.relex_from)(
+    source,
+    11,
+    3,
+    initial.tokens().length(),
+    initial.starts(),
+    0,
+    source.length(),
+  )
+  inspect(result.tokens == expected.tokens, content="true")
+  inspect(result.starts == expected.starts, content="true")
+  inspect(result.diagnostics.equal(expected.diagnostics), content="true")
+  inspect(
+    result.converged_at_old_token == expected.converged_at_old_token,
+    content="true",
+  )
+}
+
+///|
 test "mode relex validates initial token stream" {
   let state : ModeRelexState[MockToken] = {
     tokenize: fn(_source) {
@@ -77,6 +123,7 @@ test "mode relex validates initial token stream" {
       old_token_count,
       _old_starts,
       _edit_delta,
+      _new_damage_end,
     ) {
       let replacement : Array[TokenInfo[MockToken]] = []
       {

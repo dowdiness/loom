@@ -60,7 +60,27 @@ fn setext_underline_depth_after_newline(
 ) -> Int? {
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
-    setext_underline_depth_at_current_line(ctx, allow_list_marker~, min_indent~)
+    match ctx.peek() {
+      Indentation(_) => {
+        let indent = current_token_leading_indent(ctx)
+        if indent >= min_indent && indent < min_indent + 4 {
+          ctx.emit_token(IndentationToken)
+          setext_underline_depth_at_current_line(
+            ctx,
+            allow_list_marker~,
+            min_indent=0,
+          )
+        } else {
+          None
+        }
+      }
+      _ =>
+        setext_underline_depth_at_current_line(
+          ctx,
+          allow_list_marker~,
+          min_indent~,
+        )
+    }
   })
 }
 

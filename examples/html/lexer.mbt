@@ -311,7 +311,7 @@ let html_mode_lexer : @core.ModeLexer[@token.Token, HtmlLexMode] = {
 }
 
 ///|
-let html_mode_relex_state : @core.ModeRelexState[@token.Token] = @loom.erase_mode_lexer(
+let html_mode_relex_factory : @core.ModeRelexFactory[@token.Token] = @loom.erase_mode_lexer(
   html_mode_lexer,
   @token.EOF,
   error_token=@token.Error(""),
@@ -320,5 +320,5 @@ let html_mode_relex_state : @core.ModeRelexState[@token.Token] = @loom.erase_mod
 
 ///|
 pub fn lex(input : String) -> @core.LexResult[@token.Token] {
-  (html_mode_relex_state.tokenize)(input)
+  (html_mode_relex_factory.tokenize)(input)
 }

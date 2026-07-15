@@ -94,7 +94,7 @@ fn parse_inline(
     Backtick => parse_inline_code(ctx)
     LeftBracket => parse_link(ctx, policy)
     Text(_) => ctx.emit_token(TextToken)
-    IndentedCodeText(_) => ctx.emit_token(TextToken)
+    Indentation(_) => ctx.emit_token(TextToken)
     OrderedListMarker(_) if policy.allows_ordered_marker() =>
       ctx.emit_token(TextToken)
     _ =>

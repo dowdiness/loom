@@ -235,6 +235,40 @@ test "incremental: ordered list marker boundary edits match full parse" {
 }
 
 ///|
+test "incremental: ordered marker delimiter relex matches detached tokenize" {
+  let source = "1. one\n2. two\n"
+  let new_source = "1. one\n2) two\n"
+  let edit = @core.Edit::new("1. one\n2".length(), ".".length(), ")".length())
+  let factory = @core.erase_mode_lexer(
+    markdown_mode_lexer,
+    Token::EOF,
+    error_token=Token::Error("lex error"),
+    error_token_from_message=Some(fn(msg) { Token::Error(msg) }),
+  )
+  let state = (factory.new_session)()
+  let initial = (state.tokenize)(source)
+  let buffer = @core.TokenBuffer::new_with_mode_relex(
+    source,
+    initial.tokens(),
+    initial.starts(),
+    Token::EOF,
+    state,
+  )
+  buffer.update(edit, new_source)
+  let full = (factory.tokenize)(new_source)
+  inspect(buffer.get_tokens() == full.tokens(), content="true")
+  inspect(buffer.get_starts() == full.starts(), content="true")
+  for i in 0..<buffer.token_count() {
+    let start = full.starts()[i]
+    let end = start + full.tokens()[i].len
+    inspect(
+      buffer.get_view(i) == new_source.view(start_offset=start, end_offset=end),
+      content="true",
+    )
+  }
+}
+
+///|
 test "incremental: list marker indentation edits match full parse" {
   assert_markdown_incremental_edit_matches_full_parse(
     "markdown unordered list marker gains allowed indentation",
@@ -295,6 +329,12 @@ test "incremental: nested list indentation edits match full parse" {
       nested_prefix.length() + "  ".length(),
     ),
     nested_prefix + "- c\n",
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown over-indented nested marker matches full parse",
+    "- parent\n  - child\n",
+    @core.Edit::insert("- parent\n".length(), "    ".length()),
+    "- parent\n      - child\n",
   )
 }
 
