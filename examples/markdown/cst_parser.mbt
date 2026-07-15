@@ -959,14 +959,6 @@ fn try_parse_list_item_block_after_newline(
       parse_list_item_prefixed_block(ctx)
       true
     }
-    Indentation(_) if allow_prefixed_blocks &&
-      current_token_leading_indent(ctx) >= content_indent + 4 => {
-      parse_indented_code_block_at_min_indent(
-        ctx,
-        content_indent + 4,
-      )
-      true
-    }
     _ => {
       ctx.restore(checkpoint)
       false
@@ -1065,9 +1057,7 @@ fn next_prefix_requires_list_item_block_dispatch(
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
-      Indentation(_) =>
-        current_token_leading_indent(ctx) >= content_indent + 4 ||
-        prefixed_list_item_block_starts(ctx, content_indent)
+      Indentation(_) => prefixed_list_item_block_starts(ctx, content_indent)
       _ => false
     }
   })

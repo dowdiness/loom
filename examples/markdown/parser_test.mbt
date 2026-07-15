@@ -172,6 +172,42 @@ test "parse: indented blockquote HTML remains quoted CST child" {
 }
 
 ///|
+test "parse: blockquote indented continuation remains one paragraph" {
+  let (cst, _) = try! parse_cst("> item\n>     code\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [paragraph] => {
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(paragraph.kind())
+          inspect(kind, content="ParagraphNode")
+        }
+        _ => inspect(quote.children().length(), content="one paragraph")
+      }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
+test "parse: blank-line blockquote indented code remains quoted child" {
+  let (cst, _) = try! parse_cst("> item\n>\n>     code\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] => {
+      let mut has_code = false
+      for child in quote.children() {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+        if kind is CodeBlockNode {
+          has_code = true
+        }
+      }
+      inspect(has_code, content="true")
+    }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
 test "parse: blockquote preserves legacy text projection" {
   let block = parse("> quote\n")
   inspect(block, content="Document([Paragraph([Text(\"> quote\")])])")
@@ -295,13 +331,29 @@ test "parse: list-item indented fence remains list child" {
 }
 
 ///|
-test "parse: list-item indented code remains list child" {
+test "parse: list-item indented continuation remains paragraph" {
+  let (cst, _) = try! parse_cst("- item\n      code\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] =>
+      match list.children() {
+        [item] => {
+          inspect(item.text(), content="- item\n      code")
+          inspect(item.children().length(), content="0")
+        }
+        _ => inspect(list.children().length(), content="one list item")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
+
+///|
+test "parse: list-item blank-line indented code remains list child" {
   try! assert_list_item_prefixed_block_child(
-    "- item\n      code\n",
+    "- item\n\n      code\n",
     CodeBlockNode,
   )
 }
-
 ///|
 test "parse: list-item indented HTML remains list child" {
   try! assert_list_item_prefixed_block_child(
