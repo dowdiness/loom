@@ -361,82 +361,6 @@ fn produce_token_from(
   (Produced(@core.TokenInfo::new(token, len), next_offset=start + len), mode)
 }
 
-///|
-fn lex_indented_block_marker(
-  input : String,
-  pos : Int,
-  marker_start : Int,
-) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let indent_len = marker_start - pos
-  match char_at(input, marker_start) {
-    Some('>') => {
-      let marker_len = match char_at(input, marker_start + 1) {
-        Some(' ') | Some('\t') => 2
-        _ => 1
-      }
-      produce_token_from(
-        BlockQuoteMarker,
-        pos,
-        indent_len + marker_len,
-        BlockQuoteLineStart,
-      )
-    }
-    Some('-') | Some('*') | Some('+') =>
-      match char_at(input, marker_start + 1) {
-        Some(' ') | Some('\t') =>
-          produce_token_from(ListMarker, pos, indent_len + 2, Inline)
-        Some('\n') | Some('\r') | None =>
-          produce_token_from(ListMarker, pos, indent_len + 1, Inline)
-        _ => lex_inline(input, pos)
-      }
-    Some(ch) if is_decimal_digit(ch) =>
-      match ordered_list_marker_at(input, marker_start) {
-        Some(marker) => {
-          let marker_len = count_ordered_marker_digits(input, marker_start) + 2
-          produce_token_from(
-            OrderedListMarker(marker),
-            pos,
-            indent_len + marker_len,
-            Inline,
-          )
-        }
-        None => {
-          let digits = count_ordered_marker_digits(input, marker_start)
-          match
-            (
-              char_at(input, marker_start + digits),
-              char_at(input, marker_start + digits + 1),
-            ) {
-            (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
-              match
-                ordered_list_marker_from_text(
-                  input[marker_start:marker_start + digits + 1].to_owned(),
-                ) {
-                Some(marker) =>
-                  produce_token_from(
-                    OrderedListMarker(marker),
-                    pos,
-                    indent_len + digits + 1,
-                    Inline,
-                  )
-                None => lex_inline(input, pos)
-              }
-            _ => lex_inline(input, pos)
-          }
-        }
-      }
-    Some('<') => {
-      let line_end = find_line_end(input, pos)
-      let line : StringView = input[pos:line_end]
-      match classify_html_block_opening(line) {
-        Some(block_type) =>
-          produce_html_block_open(input, pos, line_end, block_type)
-        None => lex_inline(input, pos)
-      }
-    }
-    _ => lex_inline(input, pos)
-  }
-}
 
 ///|
 fn lex_heading_marker(
@@ -476,48 +400,7 @@ fn lex_heading_marker(
   }
 }
 
-///|
-fn indentation_range_has_tab(input : String, start : Int, end : Int) -> Bool {
-  for i = start; i < end; {
-    match char_at(input, i) {
-      Some('\t') => break true
-      Some(_) => continue @core.next_char_offset(input, i)
-      None => break false
-    }
-  } nobreak {
-    false
-  }
-}
 
-///|
-fn ordered_list_marker_can_start_at(input : String, pos : Int) -> Bool {
-  if ordered_list_marker_at(input, pos) is Some(_) {
-    true
-  } else {
-    let digits = count_ordered_marker_digits(input, pos)
-    guard digits > 0 else { return false }
-    match (char_at(input, pos + digits), char_at(input, pos + digits + 1)) {
-      (Some('.') | Some(')'), Some('\n') | Some('\r') | None) =>
-        ordered_list_marker_from_text(input[pos:pos + digits + 1].to_owned())
-        is Some(_)
-      _ => false
-    }
-  }
-}
-
-///|
-fn marker_can_start_after_indentation(input : String, pos : Int) -> Bool {
-  match char_at(input, pos) {
-    Some('-') | Some('*') | Some('+') =>
-      match char_at(input, pos + 1) {
-        Some(' ' | '\t' | '\n' | '\r') | None => true
-        _ => false
-      }
-    Some(ch) if is_decimal_digit(ch) =>
-      ordered_list_marker_can_start_at(input, pos)
-    _ => false
-  }
-}
 
 ///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
@@ -547,9 +430,7 @@ fn lex_line_start(
       // Empty line = BlankLine
       produced_until(BlankLine, pos, rest, LineStart)
     [' ', ..] | ['\t', ..] => {
-      let (end, indent_columns) = leading_indent_end_offset_and_column(
-        input, pos, 0,
-      )
+      let (end, _) = leading_indent_end_offset_and_column(input, pos, 0)
       if line_is_blank(input, pos, line_end) {
         let blank_end = line_end_including_break(input, line_end)
         (

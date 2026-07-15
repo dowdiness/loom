@@ -76,8 +76,6 @@ pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
 
-type LinePrefix
-
 pub struct MarkdownIR {
   // private fields
 } derive(Eq, @debug.Debug)

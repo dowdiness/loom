@@ -13,7 +13,7 @@ fn parse_document(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 
-struct LinePrefix {
+priv struct LinePrefix {
   columns : Int
 }
 
