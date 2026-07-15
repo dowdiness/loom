@@ -1,4 +1,6 @@
 # Block Reparse Ancestor Widening Implementation Plan
+**Status:** Complete — 2026-07-15
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -30,13 +32,13 @@
 - Consumes: existing `find_reparseable_ancestor`, `reparse_block`, `BlockReparseSpec`, and `test_spec` fixtures.
 - Produces: white-box coverage for selector-decline widening and no-widen-after-selection failure; an internal ordered candidate enumerator for `reparse_block`.
 
-- [ ] **Step 1: Add failing core tests for explicit decline and selected-parser failure**
+- [x] **Step 1: Add failing core tests for explicit decline and selected-parser failure**
 
 Add nested `KExpr` test grammars in `parser_robustness_wbtest.mbt`. Build an old CST with a strict inner `KExpr` inside an outer `KExpr`. Configure `is_reparseable` for both. In the selector, record the candidate starts and return `None` for the inner candidate and `Some(parse_expr)` for the outer candidate. Assert the reparse result is `Some` and the selector observed `[inner.start(), outer.start()]` in that order.
 
 Add a paired test whose inner selector returns `Some(fn(ctx) { () })`, producing no replacement node. Assert `reparse_block(...) is None` and the selector saw only the inner candidate. This distinguishes an explicit selector decline from a selected parser execution failure.
 
-- [ ] **Step 2: Run the new core tests before implementation**
+- [x] **Step 2: Run the new core tests before implementation**
 
 Run: `rtk moon test loom/core --filter "reparse_block selector decline widens to parent"`
 
@@ -46,7 +48,7 @@ Run: `rtk moon test loom/core --filter "reparse_block selected failure does not 
 
 Expected: PASS on the current implementation and after widening; the current core already returns `None` after `parse_block_isolated` produces no node. This test pins the rule that widening is selector-only.
 
-- [ ] **Step 3: Implement ordered candidate enumeration and selector context**
+- [x] **Step 3: Implement ordered candidate enumeration and selector context**
 
 In `loom/core/block_reparse.mbt`, add an internal helper with this shape:
 
@@ -72,7 +74,7 @@ get_reparser : (
 
 Rewrite `reparse_block` as a loop over `find_reparseable_ancestors(...)`. For each candidate, calculate the candidate-local new end, extract `block_text`, lex it, and immediately return `None` on a balance failure. Call the selector only after balance succeeds. Continue only when the selector returns `None`; after `Some(reparse_fn)`, preserve the existing isolated parse, splice, and diagnostic merge code and return its result directly, including `None` on any failure.
 
-- [ ] **Step 4: Run core tests and typecheck**
+- [x] **Step 4: Run core tests and typecheck**
 
 Run: `rtk moon check loom/core`
 
@@ -82,7 +84,7 @@ Run: `rtk moon test loom/core --filter "reparse_block"`
 
 Expected: the new widening/failure-boundary tests and existing diagnostic-offset test pass.
 
-- [ ] **Step 5: Commit the core contract**
+- [x] **Step 5: Commit the core contract**
 
 ```bash
 rtk git add loom/core/block_reparse.mbt loom/core/parser_robustness_wbtest.mbt loom/core/pkg.generated.mbti
@@ -102,7 +104,7 @@ rtk git commit -m "feat(core): widen declined block reparses"
 - Consumes: `BlockReparseSpec.get_reparser(old_node, new_text, tokens)` from Task 1.
 - Produces: migrated JSON, Lambda, Markdown, and white-box selector initializers.
 
-- [ ] **Step 1: Update every existing initializer to the new signature**
+- [x] **Step 1: Update every existing initializer to the new signature**
 
 Change each selector to accept `node, _, _` when its existing behavior needs only the old node:
 
@@ -114,13 +116,13 @@ get_reparser: fn(node, _, _) {
 
 Do this for JSON, Lambda, and the existing core test fixture. Change Markdown's selector entry point to accept named `node, _, tokens` so Task 3 can use `tokens` without another API migration.
 
-- [ ] **Step 2: Check all migrated packages**
+- [x] **Step 2: Check all migrated packages**
 
 Run: `rtk moon check loom/core && rtk moon check examples/json && rtk moon check examples/lambda && rtk moon check examples/markdown`
 
 Expected: success; any remaining `get_reparser: fn(node)` compiler diagnostic identifies a missed callsite and must be migrated before proceeding.
 
-- [ ] **Step 3: Commit callsite migration**
+- [x] **Step 3: Commit callsite migration**
 
 ```bash
 rtk git add loom/core/parser_robustness_wbtest.mbt loom/core/pkg.generated.mbti examples/json/block_reparse.mbt examples/lambda/block_reparse.mbt examples/markdown/block_reparse.mbt
@@ -137,7 +139,7 @@ rtk git commit -m "refactor: pass block reparse selector context"
 - Consumes: the Task 1 selector arguments and unchanged `parse_list_item` / `parse_list_at_min_indent` grammar entry points.
 - Produces: a selector that declines exactly the observed ownership-changing candidate; a regression test that proves the fallback or parent widening restores full-parse parity.
 
-- [ ] **Step 1: Capture the actual strict candidate before writing the policy**
+- [x] **Step 1: Capture the actual strict candidate before writing the policy**
 
 Temporarily add a diagnostic test beside `incremental: nested list indentation edits match full parse`. For each of the four ownership transitions in that test — child indent, child outdent, top-level sibling joining an existing nested list, and nested sibling outdenting after an existing nested list — parse the old CST and call `@core.find_reparseable_ancestor` with that assertion's exact edit.
 
@@ -147,18 +149,18 @@ Run: `rtk moon test examples/markdown`
 
 Expected: the output identifies the strict candidate for all four transitions. Delete the temporary diagnostic test immediately after recording all four observations in this plan's Task 3 implementation notes; do not retain debug output in production or tests.
 
-- [ ] **Step 2: Derive the selector predicate from the probe**
+- [x] **Step 2: Derive the selector predicate from the probe**
 
 Update this task's implementation notes with the observed candidate kind and token transition. Add a helper that checks only that candidate's observed ownership-changing transition, using existing visual-column helpers rather than byte counts. The helper must return false for the same transition inside an already-nested item so ordinary local nested edits retain reuse.
 
 In `markdown_block_reparse_spec.get_reparser(node, _, tokens)`, return `None` only when the helper reports that observed transition. Preserve the existing old-node marker extraction and parser closure in every other case.
 
-- [ ] **Step 3: Let the normal fallback or selected parent establish ownership**
+- [x] **Step 3: Let the normal fallback or selected parent establish ownership**
 
 Do not add a fresh parser or duplicate list grammar. If a strict reparseable parent is observed, accept it only when its existing isolated reparser validates the new stream and parses with `parse_list_at_min_indent`. If no parent exists, the selector decline must let the established normal incremental/full-parse fallback rebuild the document. Keep `is_unordered_list_token_stream` and `unordered_list_context_allows_reparse` unchanged unless the probe proves the parent is selected and its existing validation rejects a structurally valid stream.
 
 
-- [ ] **Step 4: Verify the regression and retained reuse behavior**
+- [x] **Step 4: Verify the regression and retained reuse behavior**
 
 Run: `rtk moon test examples/markdown --filter "nested list indentation edits match full parse"`
 
@@ -172,7 +174,7 @@ Run: `rtk moon check examples/markdown && rtk moon test examples/markdown`
 
 Expected: check success and the complete Markdown package suite passes.
 
-- [ ] **Step 5: Commit the Markdown ownership fix**
+- [x] **Step 5: Commit the Markdown ownership fix**
 
 ```bash
 rtk git add examples/markdown/block_reparse.mbt examples/markdown/incremental_test.mbt examples/markdown/pkg.generated.mbti
@@ -190,19 +192,28 @@ rtk git commit -m "fix(markdown): widen ownership-changing list reparses"
 - Consumes: passing core and Markdown checks from Tasks 1–3.
 - Produces: completed-plan status, documentation index integrity, and an ADR/no-ADR closure decision.
 
-- [ ] **Step 1: Run integrated verification**
+- [x] **Step 1: Run integrated verification**
 
 Run: `rtk moon check && rtk moon test loom/core && rtk moon test examples/json && rtk moon test examples/lambda && rtk moon test examples/markdown`
 
 Expected: all commands succeed. The Markdown parity regression and core widening boundary tests are included in their package suites.
 
-- [ ] **Step 2: Record the plan completion and architecture decision**
+- [x] **Step 2: Record the plan completion and architecture decision**
 
 Because this changes the public `BlockReparseSpec` contract and establishes reusable widening policy, create an ADR under `docs/decisions/` with Context, Decision, Rationale, Consequences, and a link to this archived plan. Mark this plan `**Status:** Complete`, add command evidence and the commit/PR reference, move it to `docs/archive/completed-phases/`, and update `docs/README.md` links in the same change.
 
-- [ ] **Step 3: Commit documentation closure**
+- [x] **Step 3: Commit documentation closure**
 
 ```bash
 rtk git add docs/README.md docs/superpowers/plans/2026-07-15-block-reparse-ancestor-widening.md docs/archive/completed-phases/ docs/decisions/
 rtk git commit -m "docs: record block reparse widening decision"
 ```
+
+## Completion
+
+- Core contract committed as `6387ae2` (`feat(core): select block reparsers by candidate context`).
+- Integrated verification on 2026-07-15: `rtk moon check`; `rtk moon test loom/core` (331 passed); `rtk moon test examples/json` (115 passed); `rtk moon test examples/lambda` (450 passed); `rtk moon test examples/markdown` (239 passed).
+
+Decision record:
+
+- [ADR: Widen Block Reparse Only After Explicit Decline](../../decisions/2026-07-15-block-reparse-ancestor-widening.md).
