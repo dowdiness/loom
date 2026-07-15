@@ -17,7 +17,7 @@ fn[T] create_buffer(
   lex : (String) -> @core.LexResult[T],
   eof_token : T,
   incremental_relex_enabled? : Bool = true,
-  mode_relex? : @core.ModeRelexState[T]? = None,
+  mode_relex? : @core.ModeRelexFactory[T]? = None,
 ) -> @core.TokenBuffer[T] {
   if !incremental_relex_enabled {
     return @core.TokenBuffer::new_from_lex(
@@ -28,7 +28,8 @@ fn[T] create_buffer(
     )
   }
   match mode_relex {
-    Some(state) => {
+    Some(factory) => {
+      let state = (factory.new_session)()
       ignore((state.tokenize)(source))
       @core.TokenBuffer::new_from_lex(
         source,
@@ -65,6 +66,10 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let incremental_relex_enabled = grammar.incremental_relex_enabled
   let block_reparse_spec = grammar.block_reparse_spec
   let mode_relex = grammar.mode_relex
+  let detached_lex = match mode_relex {
+    Some(factory) => factory.tokenize
+    None => lex
+  }
   let token_buf : Ref[@core.TokenBuffer[T]?] = Ref(None)
   let last_parse_diags : Ref[@core.DiagnosticSet] = Ref(
     @core.DiagnosticSet::empty(),
@@ -114,7 +119,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
               old_syntax,
               source,
               edit,
-              lex,
+              detached_lex,
               spec,
               block_spec,
               last_parse_diags.val,

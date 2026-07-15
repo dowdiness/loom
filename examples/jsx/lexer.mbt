@@ -309,7 +309,7 @@ let jsx_mode_lexer : @core.ModeLexer[@token.Token, JsxLexMode] = {
 }
 
 ///|
-let jsx_mode_relex_state : @core.ModeRelexState[@token.Token] = @core.erase_mode_lexer(
+let jsx_mode_relex_factory : @core.ModeRelexFactory[@token.Token] = @core.erase_mode_lexer(
   jsx_mode_lexer,
   @token.EOF,
   error_token=@token.Error(""),
@@ -318,5 +318,5 @@ let jsx_mode_relex_state : @core.ModeRelexState[@token.Token] = @core.erase_mode
 
 ///|
 pub fn lex(input : String) -> @core.LexResult[@token.Token] {
-  (jsx_mode_relex_state.tokenize)(input)
+  (jsx_mode_relex_factory.tokenize)(input)
 }

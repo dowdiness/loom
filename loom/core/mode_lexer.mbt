@@ -47,17 +47,20 @@ pub fn[T, M] tokenize_with_modes(
 }
 
 ///|
-/// Type-erased closure bundle for mode-aware tokenization.
-/// Hides M — Grammar only sees T.
+/// Type-erased mode-lexer factory. Grammar stores this immutable value.
 ///
-///   tokenize — full recoverable retokenize with structured diagnostics
-///   relex_from — convergence-based partial re-lex; also splices the
-///     internal modes array, so the caller only deals with token chunks.
-///     params: (new_source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta)
-///     returns: replacement tokens, starts, diagnostics, and convergence index
+/// `tokenize` is detached and never retains a snapshot. `new_session` creates
+/// the mutable state owned by one TokenBuffer.
+pub struct ModeRelexFactory[T] {
+  tokenize : (String) -> LexResult[T]
+  new_session : () -> ModeRelexState[T]
+}
+
+///|
+/// Per-TokenBuffer mutable mode snapshot for convergence-based re-lexing.
 pub struct ModeRelexState[T] {
   tokenize : (String) -> LexResult[T]
-  relex_from : (String, Int, Int, Int, Array[Int], Int) -> ModeRelexResult[T]
+  relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[T]
 }
 
 ///|
@@ -202,7 +205,29 @@ fn[T, M] tokenize_with_modes_recovering(
   tokens.push(TokenInfo::new(eof_token, 0))
   (LexResult::with_starts(tokens, starts, diagnostics~), modes)
 }
+///|
+/// Tokenize recoverably without retaining a mode snapshot.
+///
+/// Use this for detached work such as isolated block reparsing. Incremental
+/// mode snapshots belong to the `ModeRelexState` installed in a TokenBuffer.
+pub fn[T, M] tokenize_mode_lexer_recovering(
+  lexer : ModeLexer[T, M],
+  input : String,
+  eof_token : T,
+  error_token~ : T,
+  error_token_from_message? : ((String) -> T)? = None,
+) -> LexResult[T] {
+  let (result, _) = tokenize_with_modes_recovering(
+    lexer,
+    input,
+    eof_token,
+    error_token,
+    error_token_from_message~,
+  )
+  result
+}
 
+///|
 ///|
 fn[M : Eq] mode_relex_converged(
   old_idx : Int,
@@ -227,6 +252,7 @@ fn[T, M : Eq] mode_relex_recovering(
   old_token_count : Int,
   old_starts : Array[Int],
   edit_delta : Int,
+  new_damage_end : Int,
   old_modes : Array[M],
   error_token : T,
   error_token_from_message : ((String) -> T)?,
@@ -258,7 +284,8 @@ fn[T, M : Eq] mode_relex_recovering(
       old_idx = old_token_count
       break
     }
-    if mode_relex_converged(
+    if pos > new_damage_end &&
+      mode_relex_converged(
         old_idx, old_modes, old_starts, edit_delta, mode, pos,
       ) {
       break
@@ -271,17 +298,14 @@ fn[T, M : Eq] mode_relex_recovering(
 }
 
 ///|
-/// Erase the mode type M, producing a type-erased, recoverable closure bundle
-/// that Grammar can store without knowing M.
-/// M : Eq is required for convergence checking during incremental re-lex.
-pub fn[T, M : Eq] erase_mode_lexer(
+fn[T, M : Eq] new_mode_relex_session(
   lexer : ModeLexer[T, M],
   eof_token : T,
-  error_token~ : T,
-  error_token_from_message? : ((String) -> T)? = None,
+  error_token : T,
+  error_token_from_message : ((String) -> T)?,
 ) -> ModeRelexState[T] {
   // Internal modes array — tracks the mode BEFORE each token.
-  // Parallel to the token array in TokenBuffer.
+  // Parallel to the token array in one TokenBuffer.
   let modes_ref : Ref[Array[M]] = Ref([])
   let tokenize = fn(source : String) -> LexResult[T] {
     let (result, modes) = tokenize_with_modes_recovering(
@@ -294,10 +318,6 @@ pub fn[T, M : Eq] erase_mode_lexer(
     modes_ref.val = modes
     result
   }
-  // Convergence-based partial re-lex.
-  // Re-lexes from the mode at start_tok_idx until mode + position converge
-  // with the old state. Also splices the modes array internally so the
-  // caller (TokenBuffer::update) never needs to touch modes.
   let relex_from = fn(
     source : String,
     start_offset : Int,
@@ -305,14 +325,14 @@ pub fn[T, M : Eq] erase_mode_lexer(
     old_token_count : Int,
     old_starts : Array[Int],
     edit_delta : Int,
+    new_damage_end : Int,
   ) -> ModeRelexResult[T] {
     let old_modes = modes_ref.val
     let internal = mode_relex_recovering(
       lexer, source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta,
-      old_modes, error_token, error_token_from_message,
+      new_damage_end, old_modes, error_token, error_token_from_message,
     )
     let chunk = internal.chunk
-    // Splice modes array: replace old_modes[start_tok_idx..old_idx) with new_modes.
     let old_idx = chunk.converged_at_old_token
     let delete_count = old_idx - start_tok_idx
     let result : Array[M] = Array::new(
@@ -331,4 +351,35 @@ pub fn[T, M : Eq] erase_mode_lexer(
     chunk
   }
   { tokenize, relex_from }
+}
+
+///|
+/// Erase the mode type M into an immutable factory.
+///
+/// Each `new_session` call owns a distinct mode snapshot. Grammar may safely
+/// share this factory across parser instances and detached lexing operations.
+pub fn[T, M : Eq] erase_mode_lexer(
+  lexer : ModeLexer[T, M],
+  eof_token : T,
+  error_token~ : T,
+  error_token_from_message? : ((String) -> T)? = None,
+) -> ModeRelexFactory[T] {
+  let tokenize = fn(source : String) {
+    tokenize_mode_lexer_recovering(
+      lexer,
+      source,
+      eof_token,
+      error_token=error_token,
+      error_token_from_message~,
+    )
+  }
+  let new_session = fn() {
+    new_mode_relex_session(
+      lexer,
+      eof_token,
+      error_token,
+      error_token_from_message,
+    )
+  }
+  { tokenize, new_session }
 }

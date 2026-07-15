@@ -51,6 +51,7 @@ pub using @core {
   type LineRange,
   type ModeLexer,
   type ModeRelexResult,
+  type ModeRelexFactory,
   type ModeRelexState,
   type ParserContext,
   type PrefixLexer,

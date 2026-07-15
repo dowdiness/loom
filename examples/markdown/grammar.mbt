@@ -1,5 +1,5 @@
 ///|
-let mode_state : @core.ModeRelexState[Token] = @core.erase_mode_lexer(
+let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
   markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
@@ -8,7 +8,7 @@ let mode_state : @core.ModeRelexState[Token] = @core.erase_mode_lexer(
 
 ///|
 fn lex_for_grammar(source : String) -> @core.LexResult[Token] {
-  (mode_state.tokenize)(source)
+  (mode_factory.tokenize)(source)
 }
 
 ///|
@@ -17,5 +17,5 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
   lex=lex_for_grammar,
   fold_node=markdown_fold_node,
   block_reparse_spec=Some(markdown_block_reparse_spec),
-  mode_relex=Some(mode_state),
+  mode_relex=Some(mode_factory),
 )
