@@ -17,6 +17,16 @@
 ## Global Constraints
 
 - This issue changes only `examples/markdown`; it adds no Grammar IR node, loomgen annotation, public Loom-core API, or `ParserContext` conditional-commit primitive.
+
+**2026-07-15 accepted deviation:** Before Task 2, this branch added a reusable
+core prerequisite: `BlockReparseSpec` now selects a candidate-local parser
+from its old node, new source, and re-lexed tokens; mode-aware relex snapshots
+are session-owned. This changes the public Loom-core contract and migrates
+JSON and Lambda consumers. The prerequisite is documented by
+[Widen Block Reparse Only After Explicit Decline](../../decisions/2026-07-15-block-reparse-ancestor-widening.md)
+and remains in separate commits from Markdown's baseline-indentation migration,
+preserving independent review and revert boundaries. Tasks 2–4 retain the
+original Markdown-only scope.
 - `ParserContext::lookahead` remains unconditional rollback. The delimiter prepass is pure: it restores position, node/event stacks, diagnostics, and lexical mode.
 - Lexer output is one payload-free `BacktickToken` per maximal contiguous run; all run lengths and text derive from existing source-range access.
 - Per semantic inline container, successor indexing is $O(T+R)$ time and $O(R)$ temporary storage for $T$ tokens and $R$ backtick runs. Never rescan to a boundary for each candidate.
