@@ -4,12 +4,11 @@
 
 **Goal:** Reparse the first strict block ancestor that a language explicitly accepts with new candidate context, so Markdown sibling-to-nested list edits retain CST parity.
 
-**Architecture:** `loom/core` enumerates strict reparseable ancestors from innermost to outermost. For each candidate it extracts and lexes the new range, rejects balance failures globally, then asks a context-aware language selector for a reparser. Only selector `None` advances to a parent; every failure after selection returns the existing fallback result. Markdown rejects an isolated `ListItemNode` when its new candidate token stream begins with indentation before a list marker, allowing the enclosing `UnorderedListNode` to parse normally.
+**Architecture:** `loom/core` enumerates strict reparseable ancestors from innermost to outermost. For each candidate it extracts and lexes the new range, rejects balance failures globally, then asks a context-aware language selector for a reparser. Only selector `None` advances to a parent; every failure after selection returns the existing fallback result. Markdown first probes the actual strict candidate selected for the boundary regression, then derives its candidate-level ownership rejection from the observed old/new range and token prefixes.
 
 **Tech Stack:** MoonBit; `@dowdiness/loom/core`; `@dowdiness/seam`; Markdown, JSON, and Lambda example grammars.
 
 ## Global Constraints
-
 - Preserve the single-edit strict-interior rule: `edit.start > block.start()` and `edit.start + edit.new_len < block.end() + edit.delta()`.
 - Candidate order is innermost to outermost.
 - Per candidate: extract → lex → balance; balance failure returns `None` without widening.
@@ -128,7 +127,7 @@ rtk git add loom/core/parser_robustness_wbtest.mbt loom/core/pkg.generated.mbti 
 rtk git commit -m "refactor: pass block reparse selector context"
 ```
 
-### Task 3: Make Markdown Decline Ownership-Changing Item Replacements
+### Task 3: Derive and Apply Markdown Ownership Rejection
 
 **Files:**
 - Modify: `examples/markdown/block_reparse.mbt:116-170,451-567`
@@ -136,31 +135,26 @@ rtk git commit -m "refactor: pass block reparse selector context"
 
 **Interfaces:**
 - Consumes: the Task 1 selector arguments and unchanged `parse_list_item` / `parse_list_at_min_indent` grammar entry points.
-- Produces: a selector that declines only isolated list-item candidates whose new stream can change list ownership; an outer-list token/context validator that accepts that same stream for normal list parsing.
+- Produces: a selector that declines exactly the observed ownership-changing candidate; a regression test that proves the fallback or parent widening restores full-parse parity.
 
-- [ ] **Step 1: Confirm the existing regression is red**
+- [ ] **Step 1: Capture the actual strict candidate before writing the policy**
+
+Temporarily add a diagnostic test beside `incremental: nested list indentation edits match full parse`. Parse the old `- parent\n- child\n` CST, call `@core.find_reparseable_ancestor` with the exact insertion edit used by the regression, and print the selected node kind, start/end, `node.text()` prefix, and the first three tokens from the candidate's re-lexed new text. Repeat for the deletion direction.
 
 Run: `rtk moon test examples/markdown`
 
-Expected before this task: `incremental: nested list indentation edits match full parse` fails, while `incremental: unordered list middle item edits use block reparse` remains a passing reuse contract.
+Expected: the output identifies the actual strict candidate for both edits. Delete the temporary diagnostic test immediately after recording the two observations in this plan's Task 3 implementation notes; do not retain debug output in production or tests.
 
-- [ ] **Step 2: Add a token-stream ownership predicate**
+- [ ] **Step 2: Derive the selector predicate from the probe**
 
-Add a helper that compares the old node's leading marker/indent signature with
-the new candidate stream. It returns true only when the old node starts at an
-unindented compatible `ListMarker` and the new stream starts with
-`Indentation(_)` followed by that marker at the normal nested-list threshold.
-This is the sibling-to-nested transition; an old already-indented nested item
-must retain its local reparser. Use the same visual-column helpers already used
-by `current_list_marker_indent`, never byte counts.
+Update this task's implementation notes with the observed candidate kind and token transition. Add a helper that checks only that candidate's observed ownership-changing transition, using existing visual-column helpers rather than byte counts. The helper must return false for the same transition inside an already-nested item so ordinary local nested edits retain reuse.
 
-In `list_item_reparser(node, _, tokens)`, return `None` only when that helper
-reports the transition. Retain the old-node marker extraction and existing
-`parse_list_item_if_unchanged` closure for every other stream.
+In `markdown_block_reparse_spec.get_reparser(node, _, tokens)`, return `None` only when the helper reports that observed transition. Preserve the existing old-node marker extraction and parser closure in every other case.
 
-- [ ] **Step 3: Admit the widened stream at the list-container level**
+- [ ] **Step 3: Let the normal fallback or selected parent establish ownership**
 
-Extend `is_unordered_list_token_stream` and `unordered_list_context_allows_reparse` consistently: after a newline expecting a marker, recognize an indentation token plus a compatible unordered marker at an allowed relative indentation. The token-stream predicate must consume both conceptual tokens; the context lookahead must emit both within the lookahead before continuing. Do not change `parse_list_at_min_indent`; isolated block parse has no reuse cursor, so normal grammar parsing establishes the nested CST ownership.
+Do not add a fresh parser or duplicate list grammar. If a strict reparseable parent is observed, accept it only when its existing isolated reparser validates the new stream and parses with `parse_list_at_min_indent`. If no parent exists, the selector decline must let the established normal incremental/full-parse fallback rebuild the document. Keep `is_unordered_list_token_stream` and `unordered_list_context_allows_reparse` unchanged unless the probe proves the parent is selected and its existing validation rejects a structurally valid stream.
+
 
 - [ ] **Step 4: Verify the regression and retained reuse behavior**
 
