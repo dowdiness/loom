@@ -139,11 +139,13 @@ rtk git commit -m "refactor: pass block reparse selector context"
 
 - [ ] **Step 1: Capture the actual strict candidate before writing the policy**
 
-Temporarily add a diagnostic test beside `incremental: nested list indentation edits match full parse`. Parse the old `- parent\n- child\n` CST, call `@core.find_reparseable_ancestor` with the exact insertion edit used by the regression, and print the selected node kind, start/end, `node.text()` prefix, and the first three tokens from the candidate's re-lexed new text. Repeat for the deletion direction.
+Temporarily add a diagnostic test beside `incremental: nested list indentation edits match full parse`. For each of the four ownership transitions in that test — child indent, child outdent, top-level sibling joining an existing nested list, and nested sibling outdenting after an existing nested list — parse the old CST and call `@core.find_reparseable_ancestor` with that assertion's exact edit.
+
+Print each selected node kind, start/end, `node.text()` prefix, and the first three tokens from the candidate's re-lexed new text. The tab-indented text-only edit is a reuse control, not an ownership-transition probe.
 
 Run: `rtk moon test examples/markdown`
 
-Expected: the output identifies the actual strict candidate for both edits. Delete the temporary diagnostic test immediately after recording the two observations in this plan's Task 3 implementation notes; do not retain debug output in production or tests.
+Expected: the output identifies the strict candidate for all four transitions. Delete the temporary diagnostic test immediately after recording all four observations in this plan's Task 3 implementation notes; do not retain debug output in production or tests.
 
 - [ ] **Step 2: Derive the selector predicate from the probe**
 
