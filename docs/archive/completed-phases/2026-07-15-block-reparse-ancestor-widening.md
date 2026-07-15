@@ -211,7 +211,7 @@ rtk git commit -m "docs: record block reparse widening decision"
 
 ## Completion
 
-- Core contract committed as `6387ae2` (`feat(core): select block reparsers by candidate context`).
+- Implementation commits: `6387ae2` (`feat(core): select block reparsers by candidate context`); `df93a56` (`refactor: pass block reparse selector context`); `7baee13` (`fix(core): isolate mode relex sessions`); `e999d19` (`refactor(markdown): decompose baseline indentation`).
 - Integrated verification on 2026-07-15: `rtk moon check`; `rtk moon test loom/core` (331 passed); `rtk moon test examples/json` (115 passed); `rtk moon test examples/lambda` (450 passed); `rtk moon test examples/markdown` (239 passed).
 
 Decision record:
