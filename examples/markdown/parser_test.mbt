@@ -98,6 +98,27 @@ test "parse: paragraph" {
 }
 
 ///|
+test "parse: three-space-prefixed fence is code block" {
+  inspect(
+    parse("   ```\ncode\n   ```\n"),
+    content="Document([CodeBlock(\"\", \"code\")])",
+  )
+}
+
+///|
+test "parse: three-space-prefixed quote is block quote" {
+  let (cst, _) = try! parse_cst("   > quote\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(quote.kind())
+      inspect(kind, content="BlockQuoteNode")
+    }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
+///|
 test "parse: blockquote preserves legacy text projection" {
   let block = parse("> quote\n")
   inspect(block, content="Document([Paragraph([Text(\"> quote\")])])")

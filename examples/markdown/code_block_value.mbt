@@ -157,7 +157,7 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
             in_code = false
           }
           CodeTextToken if in_code => buf.write_string(token.text())
-          IndentedCodeTextToken => {
+          IndentationToken => {
             in_code = true
             if first_indented_token is None {
               first_indented_token = Some(token)
@@ -168,6 +168,7 @@ fn code_block_value(node : @seam.SyntaxNode) -> String {
             flush_indented_line()
             buf.write_string("\n")
           }
+          _ if first_indented_token is Some(_) => line_parts.push(token.text())
           _ => ()
         }
       }

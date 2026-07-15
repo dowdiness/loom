@@ -298,7 +298,7 @@ pub(all) enum Token {
   RightParen // )
   Text(String) // plain text run (includes inter-word spaces)
   CodeText(String) // line of fenced code block content
-  IndentedCodeText(String) // source line for an indented code block candidate
+  Indentation(String) // exact leading spaces/tabs of a nonblank physical line
   Newline // \n
   Error(String)
   EOF
@@ -327,7 +327,7 @@ pub impl Show for Token with fn output(self, logger) {
       RightParen => ")"
       Text(s) => s
       CodeText(s) => s
-      IndentedCodeText(s) => s
+      Indentation(s) => s
       Newline => "\n"
       Error(msg) => "<error: " + msg + ">"
       EOF => ""
@@ -371,7 +371,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       RightParen => 11 // RightParenToken
       Text(_) => 12 // TextToken
       CodeText(_) => 13 // CodeTextToken
-      IndentedCodeText(_) => 14 // IndentedCodeTextToken
+      Indentation(_) => 14 // IndentationToken
       Newline => 15 // NewlineToken
       Error(_) => 16 // ErrorToken
       EOF => 17 // EofToken
@@ -404,7 +404,7 @@ test "tokens map to their corresponding syntax raw kind" {
     (RightParen, RightParenToken),
     (Text("text"), TextToken),
     (CodeText("code"), CodeTextToken),
-    (IndentedCodeText("code"), IndentedCodeTextToken),
+    (Indentation("  "), IndentationToken),
     (Newline, NewlineToken),
     (Error("error"), ErrorToken),
     (EOF, EofToken),

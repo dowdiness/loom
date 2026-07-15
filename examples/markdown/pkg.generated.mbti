@@ -76,6 +76,8 @@ pub impl @core.Renderable for Inline
 pub impl @core.TreeNode for Inline
 pub impl Show for Inline
 
+type LinePrefix
+
 pub struct MarkdownIR {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -137,7 +139,7 @@ pub(all) enum SyntaxKind {
   RightParenToken
   TextToken
   CodeTextToken
-  IndentedCodeTextToken
+  IndentationToken
   NewlineToken
   ErrorToken
   EofToken
@@ -187,7 +189,7 @@ pub(all) enum Token {
   RightParen
   Text(String)
   CodeText(String)
-  IndentedCodeText(String)
+  Indentation(String)
   Newline
   Error(String)
   EOF

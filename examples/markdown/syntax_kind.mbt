@@ -15,7 +15,7 @@ pub(all) enum SyntaxKind {
   RightParenToken
   TextToken
   CodeTextToken
-  IndentedCodeTextToken
+  IndentationToken
   NewlineToken
   ErrorToken
   EofToken
@@ -64,7 +64,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | RightParenToken
     | TextToken
     | CodeTextToken
-    | IndentedCodeTextToken
+    | IndentationToken
     | NewlineToken
     | ErrorToken
     | EofToken
@@ -95,7 +95,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       RightParenToken => 11
       TextToken => 12
       CodeTextToken => 13
-      IndentedCodeTextToken => 14
+      IndentationToken => 14
       NewlineToken => 15
       ErrorToken => 16
       EofToken => 17
@@ -140,7 +140,7 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     11 => RightParenToken
     12 => TextToken
     13 => CodeTextToken
-    14 => IndentedCodeTextToken
+    14 => IndentationToken
     15 => NewlineToken
     16 => ErrorToken
     17 => EofToken

@@ -14,6 +14,10 @@ fn current_unordered_list_marker(
   match ctx.peek() {
     ListMarker =>
       unordered_list_marker_from_text(ctx.current_token_text().to_owned())
+    Indentation(_) => ctx.lookahead(() => {
+      ctx.emit_token(IndentationToken)
+      current_unordered_list_marker(ctx)
+    })
     _ => None
   }
 }
@@ -32,10 +36,15 @@ fn list_marker_matches(
 fn current_list_marker_indent(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Int? {
-  marker_indent_columns_after_optional_indent(
-    ctx.current_token_text().to_owned(),
-    0,
-  )
+  match ctx.peek() {
+    Indentation(_) => Some(current_token_leading_indent(ctx))
+    ListMarker | OrderedListMarker(_) =>
+      marker_indent_columns_after_optional_indent(
+        ctx.current_token_text().to_owned(),
+        0,
+      )
+    _ => None
+  }
 }
 
 ///|
@@ -67,6 +76,10 @@ fn current_ordered_list_marker(
 ) -> OrderedListMarker? {
   match ctx.peek() {
     OrderedListMarker(marker) => Some(marker)
+    Indentation(_) => ctx.lookahead(() => {
+      ctx.emit_token(IndentationToken)
+      current_ordered_list_marker(ctx)
+    })
     _ => None
   }
 }

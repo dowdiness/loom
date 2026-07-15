@@ -128,3 +128,76 @@ test "lexer: link brackets" {
   inspect(@debug.to_string(tokens[4].token), content="Text(\"url\")")
   inspect(@debug.to_string(tokens[5].token), content="RightParen")
 }
+
+///|
+test "lexer: baseline indentation exposes normal line-start tokens" {
+  let tokens = tokenize("    `code`\n  # heading\n")
+  inspect(@debug.to_string(tokens[0].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(tokens[1].token), content="Backtick")
+  inspect(@debug.to_string(tokens[2].token), content="Text(\"code\")")
+  inspect(@debug.to_string(tokens[3].token), content="Backtick")
+  inspect(@debug.to_string(tokens[4].token), content="Newline")
+  inspect(@debug.to_string(tokens[5].token), content="Indentation(\"  \")")
+  inspect(@debug.to_string(tokens[6].token), content="HeadingMarker(1)")
+  inspect(@debug.to_string(tokens[7].token), content="Text(\"heading\")")
+}
+
+///|
+test "lexer: baseline indentation preserves marker candidates" {
+  let heading = tokenize("  # heading\n")
+  inspect(@debug.to_string(heading[0].token), content="Indentation(\"  \")")
+  inspect(@debug.to_string(heading[1].token), content="HeadingMarker(1)")
+
+  let quote = tokenize("    > quote\n")
+  inspect(@debug.to_string(quote[0].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(quote[1].token), content="BlockQuoteMarker")
+
+  let list = tokenize("    - item\n")
+  inspect(@debug.to_string(list[0].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(list[1].token), content="ListMarker")
+
+  let fence = tokenize("    ```\n")
+  inspect(@debug.to_string(fence[0].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(fence[1].token), content="CodeFenceOpen(3, \"\")")
+}
+
+///|
+test "lexer: list-relative indentation exposes inline candidates" {
+  let tokens = tokenize("- item\n    `code`\n")
+  inspect(@debug.to_string(tokens[3].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(tokens[4].token), content="Backtick")
+  inspect(@debug.to_string(tokens[5].token), content="Text(\"code\")")
+  inspect(@debug.to_string(tokens[6].token), content="Backtick")
+}
+
+///|
+test "lexer: list-relative indentation preserves marker candidates" {
+  let heading = tokenize("- item\n    # heading\n")
+  inspect(@debug.to_string(heading[3].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(heading[4].token), content="HeadingMarker(1)")
+
+  let quote = tokenize("- item\n    > quote\n")
+  inspect(@debug.to_string(quote[3].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(quote[4].token), content="BlockQuoteMarker")
+
+  let list = tokenize("- item\n    - nested\n")
+  inspect(@debug.to_string(list[3].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(list[4].token), content="ListMarker")
+
+  let fence = tokenize("- item\n    ```\n")
+  inspect(@debug.to_string(fence[3].token), content="Indentation(\"    \")")
+  inspect(@debug.to_string(fence[4].token), content="CodeFenceOpen(3, \"\")")
+}
+
+///|
+test "lexer: indented thematic break preserves indentation token" {
+  let tokens = tokenize("  ---\n")
+  inspect(@debug.to_string(tokens[0].token), content="Indentation(\"  \")")
+  inspect(@debug.to_string(tokens[1].token), content="ThematicBreak")
+}
+
+///|
+test "lexer: three-space-prefixed closing fence closes code block" {
+  let tokens = tokenize("   ```\ncode\n   ```\n")
+  inspect(@debug.to_string(tokens[5].token), content="CodeFenceClose")
+}
