@@ -965,8 +965,10 @@ fn html_block_content_origin(node : @seam.SyntaxNode) -> MarkdownIROrigin? {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          IndentationToken | HtmlBlockOpenToken | HtmlTextToken | NewlineToken =>
-            content_tokens.push(token)
+          IndentationToken
+          | HtmlBlockOpenToken
+          | HtmlTextToken
+          | NewlineToken => content_tokens.push(token)
           _ => ()
         }
       }

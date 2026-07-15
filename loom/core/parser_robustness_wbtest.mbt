@@ -583,10 +583,7 @@ test "reparse_block selector decline widens to parent" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4",
-    test_spec,
-    test_tokenize,
-    parse_nested_expr,
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
   )
   let seen : Array[Int] = []
   let seen_texts : Array[String] = []
@@ -644,10 +641,7 @@ test "reparse_block selected failure does not widen" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4",
-    test_spec,
-    test_tokenize,
-    parse_nested_expr,
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
   )
   let seen : Array[Int] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
@@ -655,7 +649,7 @@ test "reparse_block selected failure does not widen" {
     get_reparser: fn(node, _, _) {
       seen.push(node.start())
       if node.start() == 2 {
-        Some(fn(_) {})
+        Some(fn(_) {  })
       } else {
         Some(parse_nested_expr)
       }
@@ -697,10 +691,7 @@ test "reparse_block balance failure does not widen" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4",
-    test_spec,
-    test_tokenize,
-    parse_nested_expr,
+    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
   )
   let selector_calls : Array[Int] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
@@ -709,11 +700,12 @@ test "reparse_block balance failure does not widen" {
       selector_calls.push(node.start())
       Some(parse_nested_expr)
     },
-    is_balanced: tokens =>
+    is_balanced: tokens => {
       match tokens {
         [first, ..] => first.token != TestTok::Num(2)
         [] => false
-      },
+      }
+    },
   }
   let lex = fn(source : String) -> LexResult[TestTok] {
     let (tokens, starts) = test_tokenize_with_starts(source)

@@ -60,6 +60,7 @@ test "mode relex: delete quote reverts mode" {
   inspect(buffer.get_token(1), content="Quote")
   inspect(buffer.get_token(2), content="StringContent(\"end\")")
 }
+
 ///|
 test "mode relex: sessions retain independent mode snapshots" {
   let lexer : ModeLexer[MockToken, MockMode] = {
@@ -98,16 +99,12 @@ test "mode relex: sessions retain independent mode snapshots" {
   )
   inspect(result.tokens == expected.tokens, content="true")
   inspect(result.starts == expected.starts, content="true")
-  inspect(
-    result.diagnostics.equal(expected.diagnostics),
-    content="true",
-  )
+  inspect(result.diagnostics.equal(expected.diagnostics), content="true")
   inspect(
     result.converged_at_old_token == expected.converged_at_old_token,
     content="true",
   )
 }
-
 
 ///|
 test "mode relex validates initial token stream" {

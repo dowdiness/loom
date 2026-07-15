@@ -358,10 +358,7 @@ test "parse: list-item indented quote remains list child" {
 
 ///|
 test "parse: list-item indented fence remains list child" {
-  try! assert_list_item_prefixed_block_child(
-    "- item\n  ```\n",
-    CodeBlockNode,
-  )
+  try! assert_list_item_prefixed_block_child("- item\n  ```\n", CodeBlockNode)
 }
 
 ///|
@@ -391,10 +388,7 @@ test "parse: blank-line list-item indented quote remains list child" {
 
 ///|
 test "parse: blank-line list-item indented fence remains list child" {
-  try! assert_list_item_prefixed_block_child(
-    "- item\n\n  ```\n",
-    CodeBlockNode,
-  )
+  try! assert_list_item_prefixed_block_child("- item\n\n  ```\n", CodeBlockNode)
 }
 
 ///|
@@ -404,12 +398,10 @@ test "parse: list-item blank-line indented code remains list child" {
     CodeBlockNode,
   )
 }
+
 ///|
 test "parse: list-item indented HTML remains list child" {
-  try! assert_list_item_prefixed_block_child(
-    "- item\n  <div>\n",
-    HtmlBlockNode,
-  )
+  try! assert_list_item_prefixed_block_child("- item\n  <div>\n", HtmlBlockNode)
 }
 
 ///|

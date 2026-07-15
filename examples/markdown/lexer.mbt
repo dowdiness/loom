@@ -361,7 +361,6 @@ fn produce_token_from(
   (Produced(@core.TokenInfo::new(token, len), next_offset=start + len), mode)
 }
 
-
 ///|
 fn lex_heading_marker(
   input : String,
@@ -399,8 +398,6 @@ fn lex_heading_marker(
     lex_inline(input, token_pos)
   }
 }
-
-
 
 ///|
 /// Lex from LineStart mode. Recognizes block markers at line beginning.
@@ -443,7 +440,10 @@ fn lex_line_start(
       } else {
         (
           Produced(
-            @core.TokenInfo::new(Indentation(input[pos:end].to_owned()), end - pos),
+            @core.TokenInfo::new(
+              Indentation(input[pos:end].to_owned()),
+              end - pos,
+            ),
             next_offset=end,
           ),
           LineStart,
@@ -636,6 +636,7 @@ fn emit_code_text_line(
 }
 
 ///|
+
 ///|
 fn code_fence_close_end(
   input : String,
@@ -665,6 +666,7 @@ fn code_fence_close_end(
   }
 }
 
+///|
 /// Lex from CodeBlock mode. Emits CodeText lines until closing fence.
 fn lex_code_block(
   input : String,

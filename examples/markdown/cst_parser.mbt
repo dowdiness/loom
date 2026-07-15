@@ -12,7 +12,7 @@ fn parse_document(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   }
 }
 
-
+///|
 priv struct LinePrefix {
   columns : Int
 }
@@ -30,8 +30,11 @@ fn prefixed_root_block_starts(
             token_breaks_paragraph_after_newline(ctx.peek()) &&
             !setext_list_marker_line_ends_after_marker(ctx)
           })
-        ThematicBreak | HeadingMarker(_) | BlockQuoteMarker | CodeFenceOpen(_, _) |
-        HtmlBlockOpen(_) => true
+        ThematicBreak
+        | HeadingMarker(_)
+        | BlockQuoteMarker
+        | CodeFenceOpen(_, _)
+        | HtmlBlockOpen(_) => true
         _ => false
       }
     _ => false
@@ -47,6 +50,7 @@ fn next_prefix_requires_root_block_dispatch(
     prefixed_root_block_starts(ctx)
   })
 }
+
 ///|
 fn parse_prefixed_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   let prefix = match ctx.peek() {
@@ -71,7 +75,9 @@ fn parse_prefixed_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     }
   }
 }
+
 ///|
+
 ///|
 /// Parse a single block. Dispatches based on the current token.
 fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
@@ -129,7 +135,6 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     EOF => ()
     _ => if !try_parse_setext_heading(ctx, None) { parse_paragraph(ctx) }
   }
-
 }
 
 ///|
@@ -476,16 +481,17 @@ fn current_block_quote_list_marker_indent(
         leading_indent_columns_from(ctx.current_token_text(), marker_end_column)
       Some(marker_column - content_column)
     }
-    Indentation(text) => ctx.lookahead(() => {
-      let marker_column = marker_end_column +
-        leading_indent_columns_from(text, marker_end_column)
-      ctx.emit_token(IndentationToken)
-      match ctx.peek() {
-        ListMarker | OrderedListMarker(_) =>
-          Some(marker_column - content_column)
-        _ => None
-      }
-    })
+    Indentation(text) =>
+      ctx.lookahead(() => {
+        let marker_column = marker_end_column +
+          leading_indent_columns_from(text, marker_end_column)
+        ctx.emit_token(IndentationToken)
+        match ctx.peek() {
+          ListMarker | OrderedListMarker(_) =>
+            Some(marker_column - content_column)
+          _ => None
+        }
+      })
     _ => None
   }
 }
@@ -654,9 +660,7 @@ fn parse_block_quote_after_marker(
         content_column + 4,
       ) => parse_indented_code_block(ctx)
     Indentation(_) => {
-      let prefix = LinePrefix::{
-        columns: current_token_leading_indent(ctx),
-      }
+      let prefix = LinePrefix::{ columns: current_token_leading_indent(ctx) }
       match ctx.peek_nth(1) {
         ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
         HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
@@ -1042,6 +1046,7 @@ fn next_ordered_marker_starts_nested_list(
 }
 
 ///|
+
 ///|
 fn next_prefix_is_list_marker_boundary(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1075,8 +1080,10 @@ fn prefixed_list_item_block_starts(
         false
       } else {
         match ctx.peek_nth(1) {
-          ThematicBreak | HeadingMarker(_) | CodeFenceOpen(_, _) | HtmlBlockOpen(_) =>
-            true
+          ThematicBreak
+          | HeadingMarker(_)
+          | CodeFenceOpen(_, _)
+          | HtmlBlockOpen(_) => true
           BlockQuoteMarker => !(ctx.peek_nth(2) is BlankLine)
           _ => false
         }
@@ -1100,6 +1107,7 @@ fn next_prefix_requires_list_item_block_dispatch(
   })
 }
 
+///|
 /// Parse list-item paragraph content, including lazy continuation lines.
 fn parse_list_item_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1113,8 +1121,10 @@ fn parse_list_item_inline_content(
   )
   while has_paragraph_content && ctx.peek() is Newline {
     let next = ctx.peek_nth(1)
-    if (allow_ordered_marker &&
-      next_ordered_marker_starts_nested_list(ctx, content_indent)) ||
+    if (
+        allow_ordered_marker &&
+        next_ordered_marker_starts_nested_list(ctx, content_indent)
+      ) ||
       next_prefix_is_list_marker_boundary(ctx, content_indent) ||
       next_prefix_requires_list_item_block_dispatch(ctx, content_indent) {
       break
@@ -1176,8 +1186,10 @@ fn try_parse_list_item_setext_heading(
       return true
     }
     let next = ctx.peek_nth(1)
-    if (allow_ordered_marker &&
-      next_ordered_marker_starts_nested_list(ctx, content_indent)) ||
+    if (
+        allow_ordered_marker &&
+        next_ordered_marker_starts_nested_list(ctx, content_indent)
+      ) ||
       next_prefix_is_list_marker_boundary(ctx, content_indent) ||
       next_prefix_requires_list_item_block_dispatch(ctx, content_indent) {
       break
@@ -1337,8 +1349,7 @@ fn parse_list_item_prefixed_block(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   let prefix = match ctx.peek() {
-    Indentation(_) =>
-      LinePrefix::{ columns: current_token_leading_indent(ctx) }
+    Indentation(_) => LinePrefix::{ columns: current_token_leading_indent(ctx) }
     _ => abort("parse_list_item_prefixed_block requires indentation")
   }
   match ctx.peek_nth(1) {
@@ -1357,12 +1368,11 @@ fn try_parse_list_item_indented_flow(
   content_indent : Int,
 ) -> Bool {
   match ctx.peek() {
-    Indentation(_) if current_token_leading_indent(ctx) >=
-      content_indent + 4 => {
+    Indentation(_) if current_token_leading_indent(ctx) >= content_indent + 4 => {
       parse_indented_code_block_at_min_indent(ctx, content_indent + 4)
       true
     }
-    Indentation(_) if current_token_leading_indent(ctx) >= content_indent => {
+    Indentation(_) if current_token_leading_indent(ctx) >= content_indent =>
       match ctx.peek_nth(1) {
         ListMarker | OrderedListMarker(_) =>
           parse_nested_list_at_current_marker(ctx, content_indent)
@@ -1371,7 +1381,6 @@ fn try_parse_list_item_indented_flow(
           true
         }
       }
-    }
     _ => false
   }
 }
@@ -1461,10 +1470,10 @@ fn parse_list_item_body(
     ignore(try_continue_empty_list_item_after_newline(ctx, content_indent))
   }
   while try_parse_list_item_block_after_newline(
-    ctx,
-    content_indent,
-    allow_prefixed_blocks=has_paragraph_content,
-  ) {
+          ctx,
+          content_indent,
+          allow_prefixed_blocks=has_paragraph_content,
+        ) {
     ()
   }
   if has_paragraph_content {
@@ -1484,8 +1493,7 @@ fn parse_list_item(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   ctx.node(ListItemNode, fn() {
     let marker_start_column = consume_list_item_prefix(ctx)
     let content_indent = current_list_item_content_indent(
-      ctx,
-      marker_start_column,
+      ctx, marker_start_column,
     )
     let marker_end_column = columns_after(
       ctx.current_token_text().to_owned(),
@@ -1539,8 +1547,7 @@ fn parse_ordered_list_item(
   ctx.node(ListItemNode, fn() {
     let marker_start_column = consume_list_item_prefix(ctx)
     let content_indent = current_list_item_content_indent(
-      ctx,
-      marker_start_column,
+      ctx, marker_start_column,
     )
     let marker_end_column = columns_after(
       ctx.current_token_text().to_owned(),

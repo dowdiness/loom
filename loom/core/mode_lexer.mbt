@@ -60,7 +60,9 @@ pub struct ModeRelexFactory[T] {
 /// Per-TokenBuffer mutable mode snapshot for convergence-based re-lexing.
 pub struct ModeRelexState[T] {
   tokenize : (String) -> LexResult[T]
-  relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[T]
+  relex_from : (String, Int, Int, Int, Array[Int], Int, Int) -> ModeRelexResult[
+    T,
+  ]
 }
 
 ///|
@@ -205,6 +207,7 @@ fn[T, M] tokenize_with_modes_recovering(
   tokens.push(TokenInfo::new(eof_token, 0))
   (LexResult::with_starts(tokens, starts, diagnostics~), modes)
 }
+
 ///|
 /// Tokenize recoverably without retaining a mode snapshot.
 ///
@@ -228,6 +231,7 @@ pub fn[T, M] tokenize_mode_lexer_recovering(
 }
 
 ///|
+
 ///|
 fn[M : Eq] mode_relex_converged(
   old_idx : Int,
@@ -369,16 +373,13 @@ pub fn[T, M : Eq] erase_mode_lexer(
       lexer,
       source,
       eof_token,
-      error_token=error_token,
+      error_token~,
       error_token_from_message~,
     )
   }
   let new_session = fn() {
     new_mode_relex_session(
-      lexer,
-      eof_token,
-      error_token,
-      error_token_from_message,
+      lexer, eof_token, error_token, error_token_from_message,
     )
   }
   { tokenize, new_session }

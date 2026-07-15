@@ -506,7 +506,12 @@ pub fn[T : Eq] TokenBuffer::update(
       )
       let delta = edit.delta()
       let relexed = (state.relex_from)(
-        new_source, left_clamped, left_tok_idx, old_len, old_starts, delta,
+        new_source,
+        left_clamped,
+        left_tok_idx,
+        old_len,
+        old_starts,
+        delta,
         edit.new_end(),
       )
       let checked_relex = LexResult::with_starts(

@@ -233,6 +233,7 @@ test "incremental: ordered list marker boundary edits match full parse" {
     "The number of windows is\n1.  The doors are 6.\n",
   )
 }
+
 ///|
 test "incremental: ordered marker delimiter relex matches detached tokenize" {
   let source = "1. one\n2. two\n"
@@ -260,10 +261,12 @@ test "incremental: ordered marker delimiter relex matches detached tokenize" {
   for i in 0..<buffer.token_count() {
     let start = full.starts()[i]
     let end = start + full.tokens()[i].len
-    inspect(buffer.get_view(i) == new_source.view(start_offset=start, end_offset=end), content="true")
+    inspect(
+      buffer.get_view(i) == new_source.view(start_offset=start, end_offset=end),
+      content="true",
+    )
   }
 }
-
 
 ///|
 test "incremental: list marker indentation edits match full parse" {
@@ -334,6 +337,7 @@ test "incremental: nested list indentation edits match full parse" {
     "- parent\n      - child\n",
   )
 }
+
 ///|
 test "incremental: unordered list blank separator edits match full parse" {
   let first_item = "- one\n"
@@ -627,5 +631,3 @@ test "incremental: fence length and info edits match full parse" {
   )
   inspect(reuse_count != 1, content="true")
 }
-
-

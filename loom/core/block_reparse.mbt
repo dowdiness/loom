@@ -10,11 +10,9 @@ pub(all) struct BlockReparseSpec[T, K] {
   /// The old `SyntaxNode` preserves stable context; the new source and token
   /// stream let a language reject a candidate whose ownership changed. Returning
   /// `None` explicitly asks the core to try the next strict reparseable parent.
-  get_reparser : (
-    @seam.SyntaxNode,
-    String,
-    Array[TokenInfo[T]],
-  ) -> ((ParserContext[T, K]) -> Unit)?
+  get_reparser : (@seam.SyntaxNode, String, Array[TokenInfo[T]]) -> ((
+    ParserContext[T, K],
+  ) -> Unit)?
   /// Structural integrity check on re-lexed tokens.
   is_balanced : (Array[TokenInfo[T]]) -> Bool
 }
@@ -361,8 +359,12 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
   old_diagnostics : DiagnosticSet,
 ) -> (@seam.CstNode, DiagnosticSet)? {
   let root_cst = tree.cst_node()
-  for candidate in
-    find_reparseable_ancestors(tree, edit, block_spec.is_reparseable) {
+  for
+    candidate in find_reparseable_ancestors(
+      tree,
+      edit,
+      block_spec.is_reparseable,
+    ) {
     let (ancestor, path) = candidate
     let block_kind = ancestor.kind()
     let block_start = ancestor.start()

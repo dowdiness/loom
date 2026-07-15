@@ -521,11 +521,11 @@ fn unordered_list_context_allows_reparse(
         token if token_continues_lazy_unordered_list_item(
             token, expect_marker, saw_marker, saw_non_blank_content,
           ) => {
-            expect_marker = false
-            saw_content = true
-            saw_non_blank_content = true
-            ctx.emit_current_token()
-          }
+          expect_marker = false
+          saw_content = true
+          saw_non_blank_content = true
+          ctx.emit_current_token()
+        }
         token if expect_marker ||
           !token_stays_on_isolated_list_item_line(token, saw_content) =>
           result = false
@@ -623,7 +623,11 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
     } else if kind == CodeBlockNode.to_raw() {
       Some(parse_code_block_if_still_code_block)
     } else if kind == HtmlBlockNode.to_raw() {
-      Some(ctx => if ctx.peek() is HtmlBlockOpen(_) { parse_html_block(ctx, None) })
+      Some(ctx => {
+        if ctx.peek() is HtmlBlockOpen(_) {
+          parse_html_block(ctx, None)
+        }
+      })
     } else if kind == ParagraphNode.to_raw() &&
       paragraph_start_allows_reparse(node.text()) {
       Some(parse_paragraph_if_still_paragraph)
@@ -643,4 +647,3 @@ let markdown_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind] = {
   },
   is_balanced: markdown_tokens_safe_for_block_reparse,
 }
-

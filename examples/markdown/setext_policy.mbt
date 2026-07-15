@@ -74,11 +74,12 @@ fn setext_underline_depth_after_newline(
           None
         }
       }
-      _ => setext_underline_depth_at_current_line(
-        ctx,
-        allow_list_marker~,
-        min_indent~,
-      )
+      _ =>
+        setext_underline_depth_at_current_line(
+          ctx,
+          allow_list_marker~,
+          min_indent~,
+        )
     }
   })
 }
