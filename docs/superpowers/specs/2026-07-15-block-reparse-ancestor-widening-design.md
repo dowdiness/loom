@@ -31,25 +31,23 @@ The core will enumerate strict, reparseable ancestors from innermost to
 outermost. Each candidate retains its old `SyntaxNode`, physical path, and
 old/new byte bounds.
 
-For a candidate, the core extracts its new text and lexes it before asking the
-language whether isolated reparse is allowed. The language hook receives:
+For each candidate, the core performs this exact sequence:
 
-- the old candidate `SyntaxNode` for stable context;
-- the candidate's new source text; and
-- the candidate's re-lexed `TokenInfo` stream.
+1. extract its new text;
+2. lex the text;
+3. check `is_balanced` — failure aborts block reparse without widening;
+4. call the language selector with the old node, new text, and lexed tokens;
+5. on selector `None`, consider the next strict, reparseable parent;
+6. on a selected reparser, parse and splice the candidate.
 
-The hook returns a reparser only when the candidate can preserve root-parse
-semantics. `None` is an explicit request to try the next eligible parent.
+An isolated parse, tree-build, splice, or diagnostic merge failure after
+selection aborts block reparse. It does not consider a parent: those are
+execution failures, not an explicit language judgment that the parent has the
+same semantics.
 
-### Failure boundary
+No eligible candidate, no selected reparser, or any failure after selection
+preserves the present normal incremental/full-parse fallback.
 
-Only an explicit language rejection widens selection. Once a language returns
-a reparser, balance failure, isolated parse failure, tree-build failure, splice
-failure, or diagnostic merge failure returns the existing `None` result. These
-are execution failures, not evidence that a parent has the same semantics.
-
-No eligible candidate or no successful candidate preserves the present normal
-incremental/full-parse fallback.
 
 ### Markdown policy
 
@@ -80,8 +78,8 @@ and tokens unless they need them.
 1. A selected replacement is always a strict, reparseable old-tree ancestor.
 2. Parents are tried only after a language explicitly rejects a smaller
    candidate using the new candidate context.
-3. The first selected candidate whose isolated parse succeeds is the only
-   spliced replacement.
+3. A selected candidate is spliced only when its isolated parse succeeds;
+   failure aborts block reparse without trying a parent.
 4. Reparse execution failures never masquerade as semantic widening requests.
 5. Markdown incremental CST and diagnostics match a fresh full parse for the
    sibling-to-nested indentation edit.
