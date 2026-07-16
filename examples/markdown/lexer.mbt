@@ -28,6 +28,22 @@ fn count_backticks(input : String, pos : Int) -> Int {
 }
 
 ///|
+fn count_fence_characters(
+  input : String,
+  pos : Int,
+  fence_character : Char,
+) -> Int {
+  let mut n = 0
+  while pos + n < input.length() {
+    match char_at(input, pos + n) {
+      Some(ch) if ch == fence_character => n = n + 1
+      _ => break
+    }
+  }
+  n
+}
+
+///|
 /// Count consecutive '#' starting at pos.
 fn count_hashes(input : String, pos : Int) -> Int {
   let mut n = 0
@@ -508,37 +524,39 @@ fn lex_line_start(
         None => lex_inline(input, pos)
       }
     }
-    ['`', ..] => {
-      let n = count_backticks(input, pos)
-      if n >= 3 {
-        // Code fence — consume info string until newline
-        let mut info_end = pos + n
-        while info_end < input.length() {
-          match char_at(input, info_end) {
-            Some('\r') | Some('\n') | None => break
-            _ => info_end = @core.next_char_offset(input, info_end)
-          }
-        }
-        let info : StringView = input[pos + n:info_end]
-        (
-          Produced(
-            @core.TokenInfo::new(
-              CodeFenceOpen(n, info.to_owned()),
-              info_end - pos,
-            ),
-            next_offset=info_end,
-          ),
-          CodeBlock(n),
-        )
-      } else {
-        // Less than 3 backticks — not a fence, treat as inline
-        lex_inline(input, pos)
-      }
-    }
+    ['`', ..] => lex_code_fence(input, pos, '`')
+    ['~', ..] => lex_code_fence(input, pos, '~')
     _ =>
       // No block marker recognized — switch to inline for paragraph content
       lex_inline(input, pos)
   }
+}
+
+///|
+fn lex_code_fence(
+  input : String,
+  pos : Int,
+  fence_character : Char,
+) -> (@core.LexStep[Token], MarkdownLexMode) {
+  let n = count_fence_characters(input, pos, fence_character)
+  if n < 3 {
+    return lex_inline(input, pos)
+  }
+  let mut info_end = pos + n
+  while info_end < input.length() {
+    match char_at(input, info_end) {
+      Some('\r') | Some('\n') | None => break
+      _ => info_end = @core.next_char_offset(input, info_end)
+    }
+  }
+  let info : StringView = input[pos + n:info_end]
+  (
+    Produced(
+      @core.TokenInfo::new(CodeFenceOpen(n, info.to_owned()), info_end - pos),
+      next_offset=info_end,
+    ),
+    CodeBlock(n, fence_character),
+  )
 }
 
 ///|
@@ -627,6 +645,7 @@ fn emit_code_text_line(
   input : String,
   pos : Int,
   fence_len : Int,
+  fence_character : Char,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   let mut line_end = pos
   while line_end < input.length() {
@@ -641,7 +660,7 @@ fn emit_code_text_line(
       @core.TokenInfo::new(CodeText(text.to_owned()), line_end - pos),
       next_offset=line_end,
     ),
-    CodeBlock(fence_len),
+    CodeBlock(fence_len, fence_character),
   )
 }
 
@@ -652,8 +671,9 @@ fn code_fence_close_end(
   input : String,
   fence_start : Int,
   fence_len : Int,
+  fence_character : Char,
 ) -> Int? {
-  let n = count_backticks(input, fence_start)
+  let n = count_fence_characters(input, fence_start, fence_character)
   if n < fence_len {
     return None
   }
@@ -682,9 +702,10 @@ fn lex_code_block(
   input : String,
   pos : Int,
   fence_len : Int,
+  fence_character : Char,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
   if pos >= input.length() {
-    return (Done, CodeBlock(fence_len))
+    return (Done, CodeBlock(fence_len, fence_character))
   }
   let mut fence_start = pos
   let mut leading_spaces = 0
@@ -692,7 +713,7 @@ fn lex_code_block(
     fence_start = fence_start + 1
     leading_spaces = leading_spaces + 1
   }
-  match code_fence_close_end(input, fence_start, fence_len) {
+  match code_fence_close_end(input, fence_start, fence_len, fence_character) {
     Some(fence_end) =>
       (
         Produced(
@@ -704,10 +725,20 @@ fn lex_code_block(
     None =>
       match input.view(start_offset=pos) {
         ['\r', '\n', .. rest] =>
-          produced_until(Newline, pos, rest, CodeBlock(fence_len))
+          produced_until(
+            Newline,
+            pos,
+            rest,
+            CodeBlock(fence_len, fence_character),
+          )
         ['\r', .. rest] | ['\n', .. rest] =>
-          produced_until(Newline, pos, rest, CodeBlock(fence_len))
-        _ => emit_code_text_line(input, pos, fence_len)
+          produced_until(
+            Newline,
+            pos,
+            rest,
+            CodeBlock(fence_len, fence_character),
+          )
+        _ => emit_code_text_line(input, pos, fence_len, fence_character)
       }
   }
 }
@@ -830,7 +861,8 @@ pub fn markdown_lex_step(
     LineStart => lex_line_start(input, pos)
     BlockQuoteLineStart => lex_block_quote_line_start(input, pos)
     Inline => lex_inline(input, pos)
-    CodeBlock(n) => lex_code_block(input, pos, n)
+    CodeBlock(n, fence_character) =>
+      lex_code_block(input, pos, n, fence_character)
     HtmlBlockRaw => lex_html_block_raw(input, pos)
     HtmlBlockUntil(delimiter) => lex_html_block_until(input, pos, delimiter)
     HtmlBlockEndLine => lex_html_block_end_line(input, pos)

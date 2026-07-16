@@ -17,6 +17,245 @@ priv struct MarkdownNodeId {
 } derive(Eq, Debug)
 
 ///|
+fn MarkdownNodeId::new(value : String) -> MarkdownNodeId {
+  { value, }
+}
+
+///|
+priv struct MarkdownProjectionIdentityTracker {
+  tracker : @projection.ProjectionIdentityTracker[MarkdownNodeId]
+  mut next_id : Int
+  mut last_good_candidates : Array[MarkdownIdentityCandidate]?
+  mut preview_candidates : Array[MarkdownIdentityCandidate]?
+}
+
+///|
+fn MarkdownProjectionIdentityTracker::new() -> MarkdownProjectionIdentityTracker {
+  {
+    tracker: @projection.ProjectionIdentityTracker::new(),
+    next_id: 0,
+    last_good_candidates: None,
+    preview_candidates: None,
+  }
+}
+
+///|
+fn MarkdownProjectionIdentityTracker::realign_success(
+  self : MarkdownProjectionIdentityTracker,
+  source : String,
+  ir : MarkdownIR,
+  edit : @core.Edit?,
+) -> Array[@projection.StableProjectionLeaf[MarkdownNodeId]] {
+  let candidates = markdown_ir_identity_candidates(ir)
+  let leaves = candidates.map(candidate => candidate.projection_leaf())
+  let baseline = self.tracker.baseline()
+  let preview = self.tracker.realign_success_with_optional_edit(
+    source,
+    leaves,
+    fn(_leaf) { self.allocate_id() },
+    edit,
+  )
+  self.preview_candidates = Some(candidates)
+  apply_markdown_local_identity_overrides(
+    baseline,
+    self.last_good_candidates,
+    candidates,
+    preview,
+  )
+}
+
+///|
+fn MarkdownProjectionIdentityTracker::record_failed_input(
+  self : MarkdownProjectionIdentityTracker,
+  current_source : String,
+  source_before_edit : String?,
+  edit : @core.Edit?,
+) -> Unit {
+  self.preview_candidates = None
+  self.tracker.record_failed_input_with_optional_edit(
+    current_source, source_before_edit, edit,
+  )
+}
+
+///|
+fn MarkdownProjectionIdentityTracker::commit_success(
+  self : MarkdownProjectionIdentityTracker,
+  source : String,
+  stable : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+) -> Unit {
+  self.tracker.commit_success(source, stable)
+  self.last_good_candidates = self.preview_candidates
+  self.preview_candidates = None
+}
+
+///|
+fn MarkdownProjectionIdentityTracker::allocate_id(
+  self : MarkdownProjectionIdentityTracker,
+) -> MarkdownNodeId {
+  let id = MarkdownNodeId::new("markdown#" + self.next_id.to_string())
+  self.next_id += 1
+  id
+}
+
+///|
+fn MarkdownIdentityCandidate::projection_leaf(
+  self : MarkdownIdentityCandidate,
+) -> @projection.ProjectionLeaf {
+  self.leaf.projection_leaf()
+}
+
+///|
+fn markdown_candidates_share_context(
+  previous : MarkdownIdentityCandidate,
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Bool {
+  previous.leaf.key == next.leaf.key && previous.parent == previous_parent
+}
+
+///|
+fn markdown_matching_previous_parent(
+  next : MarkdownIdentityCandidate,
+  matched_previous : Map[Int, Int],
+) -> Int? {
+  match next.parent {
+    None => None
+    Some(parent) => matched_previous.get(parent)
+  }
+}
+
+///|
+fn markdown_matching_candidate_count(
+  candidates : Array[MarkdownIdentityCandidate],
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Int {
+  let mut count = 0
+  for candidate in candidates {
+    if markdown_candidates_share_context(candidate, next, previous_parent) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn markdown_matching_candidate_index(
+  candidates : Array[MarkdownIdentityCandidate],
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Int? {
+  for i, candidate in candidates {
+    if markdown_candidates_share_context(candidate, next, previous_parent) {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+fn markdown_stable_id_is_used_elsewhere(
+  leaves : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+  id : MarkdownNodeId,
+  except : Int,
+) -> Bool {
+  for i, leaf in leaves {
+    if i != except && leaf.id == id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn markdown_stable_ids_are_unique(
+  leaves : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+) -> Bool {
+  for i, leaf in leaves {
+    if markdown_stable_id_is_used_elsewhere(leaves, leaf.id, i) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn apply_markdown_local_identity_overrides(
+  baseline : @projection.ProjectionIdentityBaseline[MarkdownNodeId]?,
+  previous : Array[MarkdownIdentityCandidate]?,
+  next : Array[MarkdownIdentityCandidate],
+  preview : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+) -> Array[@projection.StableProjectionLeaf[MarkdownNodeId]] {
+  match baseline {
+    None => preview
+    Some(baseline) =>
+      match previous {
+        None => preview
+        Some(previous) => {
+          let previous_stable = baseline.leaves()
+          if previous_stable.length() != previous.length() {
+            return preview
+          }
+          let result = preview.copy()
+          let matched_previous : Map[Int, Int] = {}
+          for next_index, next_candidate in next {
+            let previous_parent = markdown_matching_previous_parent(
+              next_candidate, matched_previous,
+            )
+            if next_candidate.parent is Some(_) && previous_parent is None {
+              continue
+            }
+            if markdown_matching_candidate_count(
+                previous, next_candidate, previous_parent,
+              ) !=
+              1 ||
+              markdown_matching_candidate_count(
+                next,
+                next_candidate,
+                next_candidate.parent,
+              ) !=
+              1 {
+              continue
+            }
+            match
+              markdown_matching_candidate_index(
+                previous, next_candidate, previous_parent,
+              ) {
+              Some(previous_index) => {
+                let previous_candidate = previous[previous_index]
+                let previous_id = previous_stable[previous_index].id
+                if previous_candidate.payload != next_candidate.payload {
+                  matched_previous[next_index] = previous_index
+                } else if result[next_index].id == previous_id {
+                  matched_previous[next_index] = previous_index
+                } else if !markdown_stable_id_is_used_elsewhere(
+                    result, previous_id, next_index,
+                  ) {
+                  let next_leaf = next_candidate.projection_leaf()
+                  result[next_index] = @projection.StableProjectionLeaf::new(
+                    next_leaf.start,
+                    next_leaf.end,
+                    next_leaf.key,
+                    previous_id,
+                  )
+                  matched_previous[next_index] = previous_index
+                }
+              }
+              None => ()
+            }
+          }
+          if result.length() == next.length() &&
+            markdown_stable_ids_are_unique(result) {
+            result
+          } else {
+            preview
+          }
+        }
+      }
+  }
+}
+
+///|
 priv struct MarkdownIdentityLeaf {
   anchor : MarkdownIROrigin
   key : MarkdownSemanticKey
@@ -39,6 +278,23 @@ fn MarkdownIdentityLeaf::projection_leaf(
     self.anchor.end(),
     self.key.projection_key(),
   )
+}
+
+///|
+priv struct MarkdownIdentityCandidate {
+  leaf : MarkdownIdentityLeaf
+  payload : String
+  parent : Int?
+}
+
+///|
+fn MarkdownIdentityCandidate::new(
+  anchor : MarkdownIROrigin,
+  key : MarkdownSemanticKey,
+  payload : String,
+  parent : Int?,
+) -> MarkdownIdentityCandidate {
+  { leaf: MarkdownIdentityLeaf::new(anchor, key), payload, parent }
 }
 
 ///|
@@ -88,6 +344,7 @@ fn normalized_link_label_fingerprint(children : Array[MarkdownIR]) -> String {
   }
   buf.to_string()
 }
+
 
 ///|
 fn append_normalized_link_label_node(
@@ -184,80 +441,166 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
 
 ///|
 fn markdown_ir_identity_leaves(ir : MarkdownIR) -> Array[MarkdownIdentityLeaf] {
-  let leaves = []
-  collect_markdown_ir_identity_leaves(ir, leaves)
-  leaves
+  markdown_ir_identity_candidates(ir).map(candidate => candidate.leaf)
 }
 
 ///|
-fn append_markdown_identity_leaf(
-  leaves : Array[MarkdownIdentityLeaf],
+fn markdown_ir_identity_candidates(
+  ir : MarkdownIR,
+) -> Array[MarkdownIdentityCandidate] {
+  let candidates = []
+  collect_markdown_ir_identity_candidates(ir, candidates, None)
+  candidates
+}
+
+///|
+fn append_markdown_identity_candidate(
+  candidates : Array[MarkdownIdentityCandidate],
   origin : MarkdownIROrigin?,
   key : MarkdownSemanticKey,
-) -> Unit {
+  payload : String,
+  parent : Int?,
+) -> Int? {
   match origin {
-    Some(anchor) => leaves.push(MarkdownIdentityLeaf::new(anchor, key))
-    None => ()
+    Some(anchor) => {
+      let index = candidates.length()
+      candidates.push(
+        MarkdownIdentityCandidate::new(anchor, key, payload, parent),
+      )
+      Some(index)
+    }
+    None => None
   }
 }
 
 ///|
-fn collect_markdown_ir_identity_leaves(
+fn markdown_identity_child_context(current : Int?, parent : Int?) -> Int? {
+  match current {
+    Some(index) => Some(index)
+    None => parent
+  }
+}
+
+///|
+fn collect_markdown_ir_identity_candidates(
   ir : MarkdownIR,
-  leaves : Array[MarkdownIdentityLeaf],
+  candidates : Array[MarkdownIdentityCandidate],
+  parent : Int?,
 ) -> Unit {
   match ir.node {
     Document(children) =>
-      collect_markdown_ir_identity_children(children, leaves)
+      collect_markdown_ir_identity_children(children, candidates, parent)
     Heading(depth, children, content_origin) => {
-      append_markdown_identity_leaf(leaves, content_origin, Heading(depth))
-      collect_markdown_ir_identity_children(children, leaves)
+      let current = append_markdown_identity_candidate(
+        candidates,
+        content_origin,
+        Heading(depth),
+        normalized_link_label_fingerprint(children),
+        parent,
+      )
+      collect_markdown_ir_identity_children(
+        children,
+        candidates,
+        markdown_identity_child_context(current, parent),
+      )
     }
     Paragraph(children, content_origin) => {
-      append_markdown_identity_leaf(leaves, content_origin, Paragraph)
-      collect_markdown_ir_identity_children(children, leaves)
+      let current = append_markdown_identity_candidate(
+        candidates,
+        content_origin,
+        Paragraph,
+        normalized_link_label_fingerprint(children),
+        parent,
+      )
+      collect_markdown_ir_identity_children(
+        children,
+        candidates,
+        markdown_identity_child_context(current, parent),
+      )
     }
     BlockQuote(children)
     | UnorderedList(children, _, _)
     | OrderedList(children, _, _) =>
-      collect_markdown_ir_identity_children(children, leaves)
+      collect_markdown_ir_identity_children(children, candidates, parent)
     ListItem(children, spread, content_origin, _) => {
-      append_markdown_identity_leaf(
-        leaves,
+      let current = append_markdown_identity_candidate(
+        candidates,
         content_origin,
         UnorderedListItem(spread),
+        normalized_link_label_fingerprint(children),
+        parent,
       )
-      collect_markdown_ir_identity_children(children, leaves)
+      collect_markdown_ir_identity_children(
+        children,
+        candidates,
+        markdown_identity_child_context(current, parent),
+      )
     }
     OrderedListItem(children, spread, content_origin, _) => {
-      append_markdown_identity_leaf(
-        leaves,
+      let current = append_markdown_identity_candidate(
+        candidates,
         content_origin,
         OrderedListItem(spread),
+        normalized_link_label_fingerprint(children),
+        parent,
       )
-      collect_markdown_ir_identity_children(children, leaves)
+      collect_markdown_ir_identity_children(
+        children,
+        candidates,
+        markdown_identity_child_context(current, parent),
+      )
     }
-    CodeBlock(language, _, content_origin) =>
-      append_markdown_identity_leaf(leaves, content_origin, CodeBlock(language))
+    CodeBlock(language, value, content_origin) =>
+      ignore(
+        append_markdown_identity_candidate(
+          candidates,
+          content_origin,
+          CodeBlock(language),
+          value,
+          parent,
+        ),
+      )
     HtmlBlock(_, _)
     | ThematicBreak
     | HardBreak(_)
     | Raw(_, _)
     | Recovered(_, _)
     | Unsupported(_) => ()
-    Text(_) => leaves.push(MarkdownIdentityLeaf::new(ir.origin, Text))
-    Bold(children, _) | Italic(children, _) =>
-      collect_markdown_ir_identity_children(children, leaves)
-    InlineCode(_, content_origin) =>
-      append_markdown_identity_leaf(leaves, content_origin, InlineCode)
-    Link(children, destination, label_origin, destination_origin) => {
-      append_markdown_identity_leaf(leaves, label_origin, LinkLabel)
-      append_markdown_identity_leaf(
-        leaves,
-        destination_origin,
-        LinkDestination(destination),
+    Text(value) =>
+      candidates.push(
+        MarkdownIdentityCandidate::new(ir.origin, Text, value, parent),
       )
-      collect_markdown_ir_identity_children(children, leaves)
+    Bold(children, _) | Italic(children, _) =>
+      collect_markdown_ir_identity_children(children, candidates, parent)
+    InlineCode(value, content_origin) =>
+      ignore(
+        append_markdown_identity_candidate(
+          candidates,
+          content_origin,
+          InlineCode,
+          value,
+          parent,
+        ),
+      )
+    Link(children, destination, label_origin, destination_origin) => {
+      let label = append_markdown_identity_candidate(
+        candidates,
+        label_origin,
+        LinkLabel,
+        normalized_link_label_fingerprint(children),
+        parent,
+      )
+      let link_context = markdown_identity_child_context(label, parent)
+      ignore(
+        append_markdown_identity_candidate(
+          candidates,
+          destination_origin,
+          LinkDestination(destination),
+          destination,
+          link_context,
+        ),
+      )
+      collect_markdown_ir_identity_children(children, candidates, link_context)
     }
   }
 }
@@ -265,9 +608,10 @@ fn collect_markdown_ir_identity_leaves(
 ///|
 fn collect_markdown_ir_identity_children(
   children : Array[MarkdownIR],
-  leaves : Array[MarkdownIdentityLeaf],
+  candidates : Array[MarkdownIdentityCandidate],
+  parent : Int?,
 ) -> Unit {
   for child in children {
-    collect_markdown_ir_identity_leaves(child, leaves)
+    collect_markdown_ir_identity_candidates(child, candidates, parent)
   }
 }

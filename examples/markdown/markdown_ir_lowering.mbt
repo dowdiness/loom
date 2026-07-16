@@ -983,7 +983,7 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
   match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
     Some(fence_token) => {
       let text = fence_token.text()
-      let i = count_backticks(text, 0)
+      let i = count_leading_fence_characters(text)
       if i < text.length() {
         text[i:].to_owned()
       } else {
@@ -991,6 +991,23 @@ fn code_block_info(node : @seam.SyntaxNode) -> String {
       }
     }
     None => ""
+  }
+}
+
+///|
+fn count_leading_fence_characters(text : String) -> Int {
+  match text.get_char(0) {
+    None => 0
+    Some(fence_character) => {
+      let mut count = 0
+      while count < text.length() {
+        match text.get_char(count) {
+          Some(ch) if ch == fence_character => count = count + 1
+          _ => break
+        }
+      }
+      count
+    }
   }
 }
 

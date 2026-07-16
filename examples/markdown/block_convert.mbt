@@ -76,7 +76,11 @@ pub fn markdown_fold_node(
       let info = match node.direct_token_of_kind(CodeFenceOpenToken.to_raw()) {
         Some(fence_tok) => {
           let text = fence_tok.text()
-          let i = count_backticks(text, 0)
+          let i = match text.get_char(0) {
+            Some(fence_character) =>
+              count_fence_characters(text, 0, fence_character)
+            None => 0
+          }
           if i < text.length() {
             text[i:].to_owned()
           } else {

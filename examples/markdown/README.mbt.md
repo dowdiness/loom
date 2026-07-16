@@ -180,14 +180,14 @@ pub let markdown_grammar : @loom.Grammar[Token, SyntaxKind, Block] = @loom.Gramm
 
 `MarkdownLexMode` tracks whether the lexer is at a line start, inside
 inline text, or inside a fenced code block (carrying the open fence
-length):
+length and fence character):
 
 ```mbt nocheck
 ///|
 pub(all) enum MarkdownLexMode {
   LineStart
   Inline
-  CodeBlock(Int)
+  CodeBlock(Int, Char)
 }
 ```
 
