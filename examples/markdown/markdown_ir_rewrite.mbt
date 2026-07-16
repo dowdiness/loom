@@ -104,7 +104,9 @@ fn local_code_block_suffix(
   match code_fence_close_line_start(origin, source) {
     Some(close_start) => {
       let close_marker_start = code_fence_marker_start(
-        source, close_start, origin.end(),
+        source,
+        close_start,
+        origin.end(),
       )
       let close_width = count_fence_characters(
         source, close_marker_start, fence_character,
@@ -113,7 +115,9 @@ fn local_code_block_suffix(
         source_slice_between(source, close_start, close_marker_start) +
         fence_character.to_string().repeat(fence_width) +
         source_slice_between(
-          source, close_marker_start + close_width, origin.end(),
+          source,
+          close_marker_start + close_width,
+          origin.end(),
         )
       } else {
         source_slice_between(source, close_start, origin.end())
@@ -155,7 +159,9 @@ fn local_code_block_markdown(
     _ => '`'
   }
   let original_width = count_fence_characters(
-    source, origin.start(), fence_character,
+    source,
+    origin.start(),
+    fence_character,
   )
   let minimum_width = if original_width >= 3 { original_width } else { 3 }
   let fence_width = code_block_fence_width(

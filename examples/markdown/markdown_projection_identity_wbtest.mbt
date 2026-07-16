@@ -250,7 +250,6 @@ fn stable_markdown_identity_ids(
   leaves.map(leaf => leaf.id.value)
 }
 
-
 ///|
 fn successful_identity_transition(
   initial_source : String,
@@ -346,7 +345,6 @@ test "MarkdownIR identity tracker: distinct list payloads survive a surface rewr
   inspect(dash == star, content="true")
 }
 
-
 ///|
 test "MarkdownIR identity tracker: sibling reorders reallocate moved payload ids" {
   let (before, after) = successful_identity_transition(
@@ -373,6 +371,7 @@ test "MarkdownIR identity tracker: duplicate list siblings remain ambiguous" {
     }
   }
 }
+
 ///|
 test "MarkdownIR identity matching: duplicate payloads remain ambiguous" {
   let origin = MarkdownIROrigin(start=0, end=1)
@@ -460,4 +459,3 @@ test "MarkdownIR identity tracker: failed input retains the last-good baseline" 
     content="true",
   )
 }
-

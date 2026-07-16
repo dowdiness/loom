@@ -24,22 +24,19 @@ fn next_line_start(source : String, line_end : Int, limit : Int) -> Int {
 }
 
 ///|
-fn code_fence_marker_start(
-  source : String,
-  line_start : Int,
-  end : Int,
-) -> Int {
+fn code_fence_marker_start(source : String, line_start : Int, end : Int) -> Int {
   let mut marker_start = line_start
   let mut indentation = 0
   while marker_start < end &&
-    indentation < 3 &&
-    char_at(source, marker_start) is Some(' ') {
+        indentation < 3 &&
+        char_at(source, marker_start) is Some(' ') {
     marker_start = marker_start + 1
     indentation = indentation + 1
   }
   marker_start
 }
 
+///|
 fn code_fence_close_line_start(
   origin : MarkdownIROrigin,
   source : String,
@@ -50,15 +47,15 @@ fn code_fence_close_line_start(
     _ => return None
   }
   let fence_len = count_fence_characters(
-    source, origin.start(), fence_character,
+    source,
+    origin.start(),
+    fence_character,
   )
   guard fence_len >= 3 else { return None }
   let open_line_end = line_end_offset(source, origin.start(), origin.end())
   let mut line_start = next_line_start(source, open_line_end, origin.end())
   while line_start < origin.end() {
-    let marker_start = code_fence_marker_start(
-      source, line_start, origin.end(),
-    )
+    let marker_start = code_fence_marker_start(source, line_start, origin.end())
     let fence_width = count_fence_characters(
       source, marker_start, fence_character,
     )

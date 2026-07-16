@@ -284,17 +284,16 @@ fn apply_markdown_local_identity_overrides(
               )
               continue
             }
-            let has_unique_payload =
-              markdown_matching_candidate_count(
+            let has_unique_payload = markdown_matching_candidate_count(
                 previous, next_candidate, previous_parent,
               ) ==
-                1 &&
+              1 &&
               markdown_matching_candidate_count(
                 next,
                 next_candidate,
                 next_candidate.parent,
               ) ==
-                1
+              1
             if has_unique_payload {
               match
                 markdown_matching_candidate_index(
@@ -321,15 +320,15 @@ fn apply_markdown_local_identity_overrides(
               }
             } else {
               if markdown_matching_context_candidate_count(
-                previous, next_candidate, previous_parent,
-              ) ==
+                  previous, next_candidate, previous_parent,
+                ) ==
                 1 &&
                 markdown_matching_context_candidate_count(
                   next,
                   next_candidate,
                   next_candidate.parent,
                 ) ==
-                  1 {
+                1 {
                 match
                   markdown_matching_context_candidate_index(
                     previous, next_candidate, previous_parent,
@@ -447,7 +446,6 @@ fn normalized_link_label_fingerprint(children : Array[MarkdownIR]) -> String {
   }
   buf.to_string()
 }
-
 
 ///|
 fn append_normalized_link_label_node(
