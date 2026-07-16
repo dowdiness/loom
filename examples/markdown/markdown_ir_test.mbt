@@ -1457,13 +1457,56 @@ test "experimental MarkdownIR: local transform rewrites inline code content orig
                 ir,
                 source,
                 target_origin=origin,
-                replacement_text="new",
+                replacement_text="`",
               )
-              inspect(local_rewrite, content="`new`\n")
+              inspect(local_rewrite, content="`` ` ``\n")
+              inspect(
+                experimental_markdown_ir_local_transform_rewrite(
+                  ir,
+                  source,
+                  target_origin=origin,
+                  replacement_text="",
+                ),
+                content="\n",
+              )
             }
             None => inspect("missing", content="inline code content origin")
           }
         _ => inspect("unexpected paragraph children", content="inline code")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves noncanonical inline code sibling" {
+  let source = "`` foo ` bar ``old\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [_inline_code, text] => {
+          let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+            ir,
+            source,
+            target_origin=text.origin(),
+            replacement_text="new",
+          )
+          inspect(local_rewrite, content="`` foo ` bar ``new\n")
+          inspect(
+            experimental_markdown_ir_to_mdast_json(
+              markdown_ir_from_source(local_rewrite),
+            ).stringify(),
+            content=experimental_markdown_ir_to_mdast_json(
+              markdown_ir_from_source("`` foo ` bar ``new\n"),
+            ).stringify(),
+          )
+        }
+        _ =>
+          inspect(
+            "unexpected paragraph children",
+            content="inline code and text",
+          )
       }
     _ => inspect("unexpected child count", content="one paragraph")
   }
@@ -1610,6 +1653,66 @@ test "experimental MarkdownIR: canonical code fence exceeds content backtick run
   )
   inspect(formatted, content="````\n```\n````")
   inspect(parse(formatted), content="Document([CodeBlock(\"\", \"```\")])")
+}
+
+///|
+test "experimental MarkdownIR: canonical inline code protects interior backticks" {
+  let source = "``foo ` bar``\n"
+  let canonical = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(canonical, content="``foo ` bar``")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    content=experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(source),
+    ).stringify(),
+  )
+}
+
+///|
+test "experimental MarkdownIR: canonical inline code preserves boundary spaces around backticks" {
+  let source = "``  `  ``\n"
+  let canonical = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(canonical, content="``  `  ``")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    content=experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(source),
+    ).stringify(),
+  )
+}
+
+///|
+test "experimental MarkdownIR: canonical inline code keeps all and one-sided spaces" {
+  let source = "`  ` ``  foo `` `` foo  ``\n"
+  let canonical = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(canonical, content="`  ` ` foo` `foo `")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    content=experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(source),
+    ).stringify(),
+  )
+}
+
+///|
+test "experimental MarkdownIR: canonical inline code protects edge and maximal runs" {
+  let source = "`` `foo `` `` foo` `` ```foo `` bar```\n"
+  let canonical = experimental_markdown_ir_canonical_format(
+    markdown_ir_from_source(source),
+  )
+  inspect(canonical, content="`` `foo `` `` foo` `` ```foo `` bar```")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    content=experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(source),
+    ).stringify(),
+  )
 }
 
 ///|
