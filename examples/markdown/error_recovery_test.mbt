@@ -21,3 +21,13 @@ test "error recovery: unclosed code fence" {
     content="Document([CodeBlock(\"\", \"code without close\")])",
   )
 }
+
+///|
+test "error recovery: unmatched code-span run stays literal" {
+  inspect(
+    parse("``unclosed *em*\n"),
+    content=(
+      "Document([Paragraph([Text(\"``\"), Text(\"unclosed \"), Italic([Text(\"em\")])])])"
+    ),
+  )
+}

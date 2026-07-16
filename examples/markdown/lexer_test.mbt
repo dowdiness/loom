@@ -208,3 +208,17 @@ test "lexer: three-space-prefixed closing fence closes code block" {
   let tokens = tokenize("   ```\ncode\n   ```\n")
   inspect(@debug.to_string(tokens[5].token), content="CodeFenceClose")
 }
+
+///|
+test "lexer: inline backtick runs are maximal and escaped runs remain visible" {
+  let runs = tokenize("``code```\n")
+  inspect(@debug.to_string(runs[0].token), content="Backtick")
+  inspect(runs[0].len, content="2")
+  inspect(@debug.to_string(runs[1].token), content="Text(\"code\")")
+  inspect(@debug.to_string(runs[2].token), content="Backtick")
+  inspect(runs[2].len, content="3")
+
+  let escaped = tokenize("\\`literal\n")
+  inspect(escaped[0].len, content="1")
+  inspect(@debug.to_string(escaped[1].token), content="Backtick")
+}

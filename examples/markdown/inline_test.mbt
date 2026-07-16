@@ -105,3 +105,85 @@ test "inline: bold in heading" {
     content="Document([Heading(1, [Bold([Text(\"Bold\")]), Text(\" title\")])])",
   )
 }
+
+///|
+test "inline: equal-length code span preserves unequal interior delimiter run" {
+  inspect(
+    parse("`a``b`\n"),
+    content="Document([Paragraph([InlineCode(\"a``b\")])])",
+  )
+}
+
+///|
+test "inline: unmatched code-span run preserves following inline syntax" {
+  inspect(
+    parse("``unclosed *em* [link](/)\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    Paragraph(
+      #|      [
+      #|        Text("``"),
+      #|        Text("unclosed "),
+      #|        Italic([Text("em")]),
+      #|        Text(" "),
+      #|        Link([Text("link")], "/"),
+      #|      ],
+      #|    ),
+      #|  ],
+      #|)
+
+    ),
+  )
+}
+
+///|
+test "inline: escaped outer run stays literal before a later code span" {
+  inspect(
+    parse("\\`literal `code`\n"),
+    content="Document([Paragraph([Text(\"`literal \"), InlineCode(\"code\")])])",
+  )
+}
+///|
+test "inline: escaped literal backtick joins text in link display" {
+  inspect(
+    parse("[\\`literal](/)\n"),
+    content="Document([Paragraph([Link([Text(\"`literal\")], \"/\")])])",
+  )
+}
+
+///|
+test "inline: even backslash parity permits a code span" {
+  match parse("\\\\``code``\n") {
+    Document([Paragraph([Text(prefix), InlineCode(value)])]) => {
+      inspect(prefix, content="\\")
+      inspect(value, content="code")
+    }
+    _ => inspect(false, content="even backslash parity permits a code span")
+  }
+}
+
+///|
+test "inline: backslash before code-span closer remains raw content" {
+  match parse("`a\\`\n") {
+    Document([Paragraph([InlineCode(value)])]) =>
+      inspect(value, content="a\\")
+    _ => inspect(false, content="backslash before closer remains code content")
+  }
+}
+
+///|
+test "inline: emphasis delegates maximal code spans to the container index" {
+  inspect(
+    parse("*`a``b`*\n"),
+    content="Document([Paragraph([Italic([InlineCode(\"a``b\")])])])",
+  )
+}
+
+///|
+test "inline: link text delegates maximal code spans to the container index" {
+  inspect(
+    parse("[`a``b`](/)\n"),
+    content="Document([Paragraph([Link([InlineCode(\"a``b\")], \"/\")])])",
+  )
+}

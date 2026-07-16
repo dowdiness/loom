@@ -483,6 +483,30 @@ test "parse: blockquote setext heading has heading CST child" {
     _ => inspect(syntax.children().length(), content="one blockquote")
   }
 }
+///|
+test "parse: quoted setext heading code span crosses soft-line continuation" {
+  let (cst, _) = try! parse_cst("> ``a\n> b``\n> ---\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [heading] =>
+          match heading.children() {
+            [inline_code] => {
+              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                inline_code.kind(),
+              )
+              inspect(kind, content="InlineCodeNode")
+              inspect(inline_code.text(), content="``a\n> b``")
+            }
+            _ => inspect(heading.children().length(), content="one inline code")
+          }
+        _ => inspect(quote.children().length(), content="one heading")
+      }
+    _ => inspect(syntax.children().length(), content="one blockquote")
+  }
+}
+
 
 ///|
 test "parse: multi-line paragraph" {
@@ -782,4 +806,156 @@ test "parse: mixed document" {
     Document(blocks) => inspect(blocks.length(), content="3")
     _ => inspect(false, content="true")
   }
+}
+
+///|
+test "parse: code span owns equal-length delimiters and unequal raw interior" {
+  let (cst, _) = try! parse_cst("`a``b`\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [inline_code] => {
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(inline_code.kind())
+          inspect(kind, content="InlineCodeNode")
+          inspect(inline_code.text(), content="`a``b`")
+        }
+        _ => inspect(paragraph.children().length(), content="one inline code node")
+      }
+    _ => inspect(syntax.children().length(), content="one paragraph")
+  }
+}
+
+///|
+test "parse: code span crosses a paragraph soft-line continuation" {
+  let (cst, _) = try! parse_cst("`code\nmore`\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [inline_code] => {
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(inline_code.kind())
+          inspect(kind, content="InlineCodeNode")
+          inspect(inline_code.text(), content="`code\nmore`")
+        }
+        _ => inspect(paragraph.children().length(), content="one inline code node")
+      }
+    _ => inspect(syntax.children().length(), content="one paragraph")
+  }
+}
+
+///|
+test "parse: blank line does not supply a code-span closer" {
+  inspect(
+    parse("`open\n\nclose`\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    Paragraph([Text("`"), Text("open")]),
+      #|    Paragraph([Text("close"), Text("`")]),
+      #|  ],
+      #|)
+
+    ),
+  )
+}
+///|
+test "parse: code span crosses a block quote soft-line continuation" {
+  let (cst, _) = try! parse_cst("> `code\n> more`\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [paragraph] =>
+          match paragraph.children() {
+            [inline_code] => {
+              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                inline_code.kind(),
+              )
+              inspect(kind, content="InlineCodeNode")
+              inspect(inline_code.text(), content="`code\n> more`")
+            }
+            _ => inspect(paragraph.children().length(), content="one inline code")
+          }
+        _ => inspect(quote.children().length(), content="one quote paragraph")
+      }
+    _ => inspect(syntax.children().length(), content="one block quote")
+  }
+}
+///|
+test "parse: nested emphasis uses block quote code-span continuation" {
+  let (cst, _) = try! parse_cst("> *`code\n> more`*\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [quote] =>
+      match quote.children() {
+        [paragraph] =>
+          match paragraph.children() {
+            [italic] =>
+              match italic.children() {
+                [inline_code] => {
+                  let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                    inline_code.kind(),
+                  )
+                  inspect(kind, content="InlineCodeNode")
+                  inspect(inline_code.text(), content="`code\n> more`")
+                }
+                _ => inspect(italic.children().length(), content="one code node")
+              }
+            _ => inspect(paragraph.children().length(), content="one italic node")
+          }
+        _ => inspect(quote.children().length(), content="one quote paragraph")
+      }
+    _ => inspect(syntax.children().length(), content="one block quote")
+  }
+}
+///|
+test "parse: ATX heading uses maximal code-span runs" {
+  inspect(
+    parse("# ``a`b``\n"),
+    content="Document([Heading(1, [InlineCode(\"a`b\")])])",
+  )
+}
+
+///|
+test "parse: setext heading uses maximal code-span runs" {
+  inspect(
+    parse("``a`b``\n---\n"),
+    content="Document([Heading(2, [InlineCode(\"a`b\")])])",
+  )
+}
+///|
+test "parse: setext heading code span crosses soft-line continuation" {
+  inspect(
+    parse("``a\nb``\n---\n"),
+    content="Document([Heading(2, [InlineCode(\"a b\")])])",
+  )
+}
+
+
+
+
+///|
+test "parse: code span crosses a list item lazy continuation" {
+  inspect(
+    parse("- `code\nmore`\n"),
+    content=(
+      "Document([UnorderedList([UnorderedListItem([InlineCode(\"code more\")])])])"
+    ),
+  )
+}
+
+///|
+test "parse: code span does not cross a list-item paragraph boundary" {
+  inspect(
+    parse("- `open\n\n`close\n"),
+    content=(
+      #|Document(
+      #|  [
+      #|    UnorderedList([UnorderedListItem([Text("`"), Text("open")])]),
+      #|    Paragraph([Text("`"), Text("close")]),
+      #|  ],
+      #|)
+    ),
+  )
 }

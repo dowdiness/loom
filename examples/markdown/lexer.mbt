@@ -575,7 +575,16 @@ fn lex_inline(
       produced_until(Newline, pos, rest, LineStart)
     [.. "**", .. rest] => produced_until(StarStar, pos, rest, Inline)
     ['*', .. rest] => produced_until(Star, pos, rest, Inline)
-    ['`', .. rest] => produced_until(Backtick, pos, rest, Inline)
+    ['`', ..] => {
+      let run_len = count_backticks(input, pos)
+      (
+        Produced(
+          @core.TokenInfo::new(Backtick, run_len),
+          next_offset=pos + run_len,
+        ),
+        Inline,
+      )
+    }
     ['[', .. rest] => produced_until(LeftBracket, pos, rest, Inline)
     [']', .. rest] => produced_until(RightBracket, pos, rest, Inline)
     ['(', .. rest] => produced_until(LeftParen, pos, rest, Inline)
@@ -586,7 +595,8 @@ fn lex_inline(
       while end < input.length() {
         match char_at(input, end) {
           Some(ch) if is_inline_special(ch) =>
-            if ch != '\r' &&
+            if ch != '`' &&
+              ch != '\r' &&
               ch != '\n' &&
               end > pos &&
               preceded_by_odd_backslashes(input, end) {
