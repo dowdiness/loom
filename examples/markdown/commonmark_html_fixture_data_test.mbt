@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=213, xfail=6, skip=0.
+// Baseline: pass=217, xfail=6, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (213, 6, 0)
+  (217, 6, 0)
 }
 
 ///|
@@ -91,6 +91,38 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "inline-code",
       source: "`foo`\n",
       expected_html: "<p><code>foo</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 329,
+      section: "Code spans",
+      name: "code-spans-329-unequal-interior-run",
+      source: "`` foo ` bar ``\n",
+      expected_html: "<p><code>foo ` bar</code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 331,
+      section: "Code spans",
+      name: "code-spans-331-boundary-space-trim",
+      source: "`  ``  `\n",
+      expected_html: "<p><code> `` </code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 334,
+      section: "Code spans",
+      name: "code-spans-334-all-space-preservation",
+      source: "` `\n`  `\n",
+      expected_html: "<p><code> </code>\n<code>  </code></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 335,
+      section: "Code spans",
+      name: "code-spans-335-multiline-normalization",
+      source: "``\nfoo\nbar  \nbaz\n``\n",
+      expected_html: "<p><code>foo bar   baz</code></p>\n",
       status: CommonMarkHtmlPass,
     },
     {

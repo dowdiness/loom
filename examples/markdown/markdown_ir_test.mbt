@@ -658,7 +658,6 @@ test "experimental MarkdownIR: recovered inline ErrorNodes stay explicit" {
   assert_recovered_markdown_ir_block_matches_direct_parse(
     "Hello **unclosed\n", "**",
   )
-  assert_recovered_markdown_ir_block_matches_direct_parse("`unclosed\n", "`")
   assert_recovered_markdown_ir_block_matches_direct_parse("[unclosed\n", "[")
   assert_recovered_markdown_ir_block_matches_direct_parse("[text\n", "[")
   assert_recovered_markdown_ir_block_matches_direct_parse("**a *b** c*\n", "**")
@@ -2175,4 +2174,148 @@ test "experimental MarkdownIR: ordered list local transform preserves marker sou
       }
     _ => inspect("unexpected child count", content="one list")
   }
+}
+
+///|
+test "experimental MarkdownIR: unmatched maximal backtick run remains literal text" {
+  let ir = markdown_ir_from_source("``unclosed\n")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"``unclosed"}]}]}
+    ),
+  )
+}
+///|
+test "experimental MarkdownIR: escaped literal backtick spans token boundaries" {
+  let ir = markdown_ir_from_source("\\`\n")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"text","value":"`"}]}]}
+    ),
+  )
+}
+///|
+test "experimental MarkdownIR: escaped literal backtick joins adjacent text" {
+  let source = "\\`literal\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="`literal")
+            None => inspect("missing", content="text value")
+          }
+          inspect(origin_source(source, text.origin()), content="\\`literal")
+        }
+        _ => inspect(paragraph.children().length(), content="one text child")
+      }
+    _ => inspect(ir.children().length(), content="one paragraph")
+  }
+}
+///|
+test "experimental MarkdownIR: code spans normalize line endings and boundaries" {
+  let ir = markdown_ir_from_source("` a\nb `\n")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"inlineCode","value":"a b"}]}]}
+    ),
+  )
+}
+///|
+test "experimental MarkdownIR: code spans normalize CRLF and carriage returns" {
+  for source in ["`a\r\nb`\n", "`a\rb`\n"] {
+    let ir = markdown_ir_from_source(source)
+    inspect(
+      experimental_markdown_ir_to_mdast_json(ir).stringify(),
+      content=(
+        #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"inlineCode","value":"a b"}]}]}
+      ),
+    )
+  }
+}
+///|
+test "experimental MarkdownIR: code spans retain root indentation and content origin" {
+  let source = "`a\n  b`\n"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"inlineCode","value":"a   b"}]}]}
+    ),
+  )
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [inline_code] =>
+          match inline_code.content_origin() {
+            Some(origin) => inspect(origin_source(source, origin), content="a\n  b")
+            None => inspect("missing", content="inline code content origin")
+          }
+        _ => inspect("unexpected paragraph children", content="inline code")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+///|
+test "experimental MarkdownIR: code spans retain excess list continuation indentation" {
+  let ir = markdown_ir_from_source("- `a\n    b`\n")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"list","ordered":false,"children":[{"type":"listItem","children":[{"type":"paragraph","children":[{"type":"inlineCode","value":"a   b"}]}]}]}]}
+    ),
+  )
+}
+///|
+test "experimental MarkdownIR: code spans crossing a block quote have no content origin" {
+  let ir = markdown_ir_from_source("> `a\n> b`\n")
+  match ir.children() {
+    [quote] =>
+      match quote.children() {
+        [paragraph] =>
+          match paragraph.children() {
+            [inline_code] =>
+              inspect(inline_code.content_origin() is None, content="true")
+            _ => inspect("unexpected paragraph children", content="inline code")
+          }
+        _ => inspect("unexpected quote children", content="paragraph")
+      }
+    _ => inspect("unexpected root children", content="block quote")
+  }
+}
+
+///|
+test "experimental MarkdownIR: code spans crossing a list continuation have no content origin" {
+  let ir = markdown_ir_from_source("- `a\n  b`\n")
+  match ir.children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.children() {
+            [paragraph] =>
+              match paragraph.children() {
+                [inline_code] =>
+                  inspect(inline_code.content_origin() is None, content="true")
+                _ => inspect("unexpected paragraph children", content="inline code")
+              }
+            _ => inspect("unexpected list item children", content="paragraph")
+          }
+        _ => inspect("unexpected list children", content="list item")
+      }
+    _ => inspect("unexpected root children", content="list")
+  }
+}
+///|
+test "experimental MarkdownIR: link label retains escaped literal backtick" {
+  let ir = markdown_ir_from_source("[\\`literal](/)\n")
+  inspect(
+    experimental_markdown_ir_to_mdast_json(ir).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"paragraph","children":[{"type":"link","url":"/","children":[{"type":"text","value":"`literal"}]}]}]}
+    ),
+  )
 }
