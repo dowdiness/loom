@@ -1,7 +1,7 @@
 # Markdown Execution Roadmap
 
 **Status:** Active dependency map.
-**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721)
+**Related:** [MarkdownIR architecture and target contract](markdown-ir.md), [#327](https://github.com/dowdiness/loom/issues/327), [#329](https://github.com/dowdiness/loom/issues/329), [#330](https://github.com/dowdiness/loom/issues/330), [#721](https://github.com/dowdiness/loom/issues/721), [#723](https://github.com/dowdiness/loom/issues/723)
 
 ---
 
@@ -89,9 +89,9 @@ the M7 conformance exit audit. It runs after #327, #329, and #330 and records:
 - ownership for every residual failure; and
 - representative direct and incremental parity evidence.
 
-Do not add feature-delivery scope to #721. A dedicated tracking issue should be
-linked from the M2, M5, M6, M7, and M15 milestone descriptions, leaving #721
-as the conformance gate.
+Do not add feature-delivery scope to #721. The dedicated tracking issue
+[#723](https://github.com/dowdiness/loom/issues/723) is linked from the M2, M5,
+M6, M7, and M15 milestone descriptions; #721 remains the conformance gate.
 
 ## Independent loomgen lane
 
