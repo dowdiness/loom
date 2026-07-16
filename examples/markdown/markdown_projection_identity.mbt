@@ -16,7 +16,6 @@ priv struct MarkdownNodeId {
   value : String
 } derive(Eq, Debug)
 
-
 ///|
 priv struct MarkdownIdentityLeaf {
   anchor : MarkdownIROrigin

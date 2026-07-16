@@ -1,4 +1,13 @@
 ///|
+fn parsed_markdown_identity_leaves(
+  source : String,
+) -> Array[MarkdownIdentityLeaf] raise {
+  let (cst, _) = parse_cst(source)
+  let ir = experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
+  markdown_ir_identity_leaves(ir)
+}
+
+///|
 test "MarkdownIR identity leaves: emit semantic anchors in preorder" {
   let heading_origin = MarkdownIROrigin(start=0, end=7)
   let heading_content_origin = MarkdownIROrigin(start=2, end=7)
@@ -130,25 +139,100 @@ test "MarkdownIR identity leaves: preserve parsed semantic anchor order" {
   let ir = experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
   inspect(
     @debug.to_string(markdown_ir_identity_leaves(ir)),
-    content=@debug.to_string(
-      [
-        MarkdownIdentityLeaf::new(
-          MarkdownIROrigin(start=2, end=14),
-          MarkdownSemanticKey::Heading(1),
-        ),
-        MarkdownIdentityLeaf::new(
-          MarkdownIROrigin(start=3, end=10),
-          MarkdownSemanticKey::LinkLabel,
-        ),
-        MarkdownIdentityLeaf::new(
-          MarkdownIROrigin(start=12, end=13),
-          MarkdownSemanticKey::LinkDestination("u"),
-        ),
-        MarkdownIdentityLeaf::new(
-          MarkdownIROrigin(start=4, end=9),
-          MarkdownSemanticKey::Text,
-        ),
-      ],
-    ),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=2, end=14),
+        MarkdownSemanticKey::Heading(1),
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=3, end=10),
+        MarkdownSemanticKey::LinkLabel,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=12, end=13),
+        MarkdownSemanticKey::LinkDestination("u"),
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=4, end=9),
+        MarkdownSemanticKey::Text,
+      ),
+    ]),
+  )
+}
+
+///|
+test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads" {
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves("text\n")),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=0, end=4),
+        MarkdownSemanticKey::Paragraph,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=0, end=4),
+        MarkdownSemanticKey::Text,
+      ),
+    ]),
+  )
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves("- text\n")),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=2, end=6),
+        MarkdownSemanticKey::UnorderedListItem(false),
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=2, end=6),
+        MarkdownSemanticKey::Paragraph,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=2, end=6),
+        MarkdownSemanticKey::Text,
+      ),
+    ]),
+  )
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves("1. text\n")),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=3, end=7),
+        MarkdownSemanticKey::OrderedListItem(false),
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=3, end=7),
+        MarkdownSemanticKey::Paragraph,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=3, end=7),
+        MarkdownSemanticKey::Text,
+      ),
+    ]),
+  )
+}
+
+///|
+test "MarkdownIR identity leaves: anchor parsed code payloads" {
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves("```rust\ncode\n```\n")),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=8, end=12),
+        MarkdownSemanticKey::CodeBlock("rust"),
+      ),
+    ]),
+  )
+  inspect(
+    @debug.to_string(parsed_markdown_identity_leaves("`span`\n")),
+    content=@debug.to_string([
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=0, end=6),
+        MarkdownSemanticKey::Paragraph,
+      ),
+      MarkdownIdentityLeaf::new(
+        MarkdownIROrigin(start=1, end=5),
+        MarkdownSemanticKey::InlineCode,
+      ),
+    ]),
   )
 }
