@@ -1235,6 +1235,7 @@ fn consume_list_item_setext_heading_inline_continuation(
     } else {
       ctx.emit_token(NewlineToken)
       match ctx.peek() {
+        Indentation(_) => ctx.emit_token(IndentationToken)
         OrderedListMarker(_) if allow_ordered_marker =>
           ctx.emit_token(TextToken)
         _ => ()
