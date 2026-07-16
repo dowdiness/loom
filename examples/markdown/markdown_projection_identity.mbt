@@ -61,6 +61,7 @@ fn MarkdownProjectionIdentityTracker::realign_success(
     self.last_good_candidates,
     candidates,
     preview,
+    fn() { self.allocate_id() },
   )
 }
 
@@ -114,6 +115,16 @@ fn markdown_candidates_share_context(
 }
 
 ///|
+fn markdown_candidates_share_identity(
+  previous : MarkdownIdentityCandidate,
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Bool {
+  markdown_candidates_share_context(previous, next, previous_parent) &&
+  previous.payload == next.payload
+}
+
+///|
 fn markdown_matching_previous_parent(
   next : MarkdownIdentityCandidate,
   matched_previous : Map[Int, Int],
@@ -125,7 +136,7 @@ fn markdown_matching_previous_parent(
 }
 
 ///|
-fn markdown_matching_candidate_count(
+fn markdown_matching_context_candidate_count(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
   previous_parent : Int?,
@@ -140,13 +151,42 @@ fn markdown_matching_candidate_count(
 }
 
 ///|
-fn markdown_matching_candidate_index(
+fn markdown_matching_context_candidate_index(
   candidates : Array[MarkdownIdentityCandidate],
   next : MarkdownIdentityCandidate,
   previous_parent : Int?,
 ) -> Int? {
   for i, candidate in candidates {
     if markdown_candidates_share_context(candidate, next, previous_parent) {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+fn markdown_matching_candidate_count(
+  candidates : Array[MarkdownIdentityCandidate],
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Int {
+  let mut count = 0
+  for candidate in candidates {
+    if markdown_candidates_share_identity(candidate, next, previous_parent) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn markdown_matching_candidate_index(
+  candidates : Array[MarkdownIdentityCandidate],
+  next : MarkdownIdentityCandidate,
+  previous_parent : Int?,
+) -> Int? {
+  for i, candidate in candidates {
+    if markdown_candidates_share_identity(candidate, next, previous_parent) {
       return Some(i)
     }
   }
@@ -168,6 +208,38 @@ fn markdown_stable_id_is_used_elsewhere(
 }
 
 ///|
+fn markdown_stable_id_is_in_baseline(
+  baseline : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+  id : MarkdownNodeId,
+) -> Bool {
+  for leaf in baseline {
+    if leaf.id == id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn markdown_refresh_preview_id_if_unproven(
+  baseline : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+  candidate : MarkdownIdentityCandidate,
+  preview : @projection.StableProjectionLeaf[MarkdownNodeId],
+  make_id : () -> MarkdownNodeId,
+) -> @projection.StableProjectionLeaf[MarkdownNodeId] {
+  if !markdown_stable_id_is_in_baseline(baseline, preview.id) {
+    return preview
+  }
+  let leaf = candidate.projection_leaf()
+  @projection.StableProjectionLeaf::new(
+    leaf.start,
+    leaf.end,
+    leaf.key,
+    make_id(),
+  )
+}
+
+///|
 fn markdown_stable_ids_are_unique(
   leaves : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
 ) -> Bool {
@@ -185,6 +257,7 @@ fn apply_markdown_local_identity_overrides(
   previous : Array[MarkdownIdentityCandidate]?,
   next : Array[MarkdownIdentityCandidate],
   preview : Array[@projection.StableProjectionLeaf[MarkdownNodeId]],
+  make_id : () -> MarkdownNodeId,
 ) -> Array[@projection.StableProjectionLeaf[MarkdownNodeId]] {
   match baseline {
     None => preview
@@ -203,45 +276,75 @@ fn apply_markdown_local_identity_overrides(
               next_candidate, matched_previous,
             )
             if next_candidate.parent is Some(_) && previous_parent is None {
+              result[next_index] = markdown_refresh_preview_id_if_unproven(
+                previous_stable,
+                next_candidate,
+                result[next_index],
+                make_id,
+              )
               continue
             }
-            if markdown_matching_candidate_count(
+            let has_unique_payload =
+              markdown_matching_candidate_count(
                 previous, next_candidate, previous_parent,
-              ) !=
-              1 ||
+              ) ==
+                1 &&
               markdown_matching_candidate_count(
                 next,
                 next_candidate,
                 next_candidate.parent,
-              ) !=
-              1 {
-              continue
-            }
-            match
-              markdown_matching_candidate_index(
+              ) ==
+                1
+            if has_unique_payload {
+              match
+                markdown_matching_candidate_index(
+                  previous, next_candidate, previous_parent,
+                ) {
+                Some(previous_index) => {
+                  let previous_id = previous_stable[previous_index].id
+                  if result[next_index].id == previous_id {
+                    matched_previous[next_index] = previous_index
+                  } else if !markdown_stable_id_is_used_elsewhere(
+                      result, previous_id, next_index,
+                    ) {
+                    let next_leaf = next_candidate.projection_leaf()
+                    result[next_index] = @projection.StableProjectionLeaf::new(
+                      next_leaf.start,
+                      next_leaf.end,
+                      next_leaf.key,
+                      previous_id,
+                    )
+                    matched_previous[next_index] = previous_index
+                  }
+                }
+                None => ()
+              }
+            } else {
+              if markdown_matching_context_candidate_count(
                 previous, next_candidate, previous_parent,
-              ) {
-              Some(previous_index) => {
-                let previous_candidate = previous[previous_index]
-                let previous_id = previous_stable[previous_index].id
-                if previous_candidate.payload != next_candidate.payload {
-                  matched_previous[next_index] = previous_index
-                } else if result[next_index].id == previous_id {
-                  matched_previous[next_index] = previous_index
-                } else if !markdown_stable_id_is_used_elsewhere(
-                    result, previous_id, next_index,
+              ) ==
+                1 &&
+                markdown_matching_context_candidate_count(
+                  next,
+                  next_candidate,
+                  next_candidate.parent,
+                ) ==
+                  1 {
+                match
+                  markdown_matching_context_candidate_index(
+                    previous, next_candidate, previous_parent,
                   ) {
-                  let next_leaf = next_candidate.projection_leaf()
-                  result[next_index] = @projection.StableProjectionLeaf::new(
-                    next_leaf.start,
-                    next_leaf.end,
-                    next_leaf.key,
-                    previous_id,
-                  )
-                  matched_previous[next_index] = previous_index
+                  Some(previous_index) =>
+                    matched_previous[next_index] = previous_index
+                  None => ()
                 }
               }
-              None => ()
+              result[next_index] = markdown_refresh_preview_id_if_unproven(
+                previous_stable,
+                next_candidate,
+                result[next_index],
+                make_id,
+              )
             }
           }
           if result.length() == next.length() &&

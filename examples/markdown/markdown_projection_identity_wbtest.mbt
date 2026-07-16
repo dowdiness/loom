@@ -250,6 +250,7 @@ fn stable_markdown_identity_ids(
   leaves.map(leaf => leaf.id.value)
 }
 
+
 ///|
 fn successful_identity_transition(
   initial_source : String,
@@ -336,6 +337,74 @@ test "MarkdownIR identity tracker: surface rewrites preserve unchanged payload i
 }
 
 ///|
+test "MarkdownIR identity tracker: distinct list payloads survive a surface rewrite" {
+  let (dash, star) = successful_identity_transition(
+    "- first\n- second\n",
+    "* first\n* second\n",
+    None,
+  )
+  inspect(dash == star, content="true")
+}
+
+
+///|
+test "MarkdownIR identity tracker: sibling reorders reallocate moved payload ids" {
+  let (before, after) = successful_identity_transition(
+    "- first\n- second\n",
+    "- second\n- first\n",
+    None,
+  )
+  inspect(before[0] == after[0], content="false")
+  inspect(before[0] == after[2], content="false")
+  inspect(before[1] == after[1], content="false")
+  inspect(before[1] == after[3], content="false")
+}
+
+///|
+test "MarkdownIR identity tracker: duplicate list siblings remain ambiguous" {
+  let (dash, star) = successful_identity_transition(
+    "- same\n* same\n",
+    "* same\n- same\n",
+    None,
+  )
+  for id in star {
+    for previous_id in dash {
+      inspect(id == previous_id, content="false")
+    }
+  }
+}
+///|
+test "MarkdownIR identity matching: duplicate payloads remain ambiguous" {
+  let origin = MarkdownIROrigin(start=0, end=1)
+  let first = MarkdownIdentityCandidate::new(
+    origin,
+    MarkdownSemanticKey::Text,
+    "first",
+    None,
+  )
+  let second = MarkdownIdentityCandidate::new(
+    origin,
+    MarkdownSemanticKey::Text,
+    "second",
+    None,
+  )
+  let duplicate = MarkdownIdentityCandidate::new(
+    origin,
+    MarkdownSemanticKey::Text,
+    "first",
+    None,
+  )
+  inspect(
+    markdown_matching_candidate_count([first, second], first, None),
+    content="1",
+  )
+  inspect(
+    markdown_matching_candidate_count([first, duplicate], first, None),
+    content="2",
+  )
+}
+
+///|
 test "MarkdownIR identity tracker: semantic changes reset their owner" {
   let (heading, deeper_heading) = successful_identity_transition(
     "# Title\n",
@@ -391,3 +460,4 @@ test "MarkdownIR identity tracker: failed input retains the last-good baseline" 
     content="true",
   )
 }
+

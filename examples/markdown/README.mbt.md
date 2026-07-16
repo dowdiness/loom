@@ -79,6 +79,29 @@ surfaces (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
 `markdown_fold_node`) remain the compatibility path for the editor-facing
 `Block` / `Inline` model.
 
+### Projection identity policy
+
+The private MarkdownIR identity adapter extracts content-attached, typed
+semantic leaves and previews the full sequence through Loom's
+`ProjectionIdentityTracker`. It commits only after a successful MarkdownIR
+projection. `Raw`, `Recovered`, and `Unsupported` nodes receive no durable ID;
+failed input retains the last successful baseline for recovery.
+
+Surface-only rewrites retain IDs when their semantic payload is unchanged:
+ATX/setext headings, unordered-marker spelling, and code-fence character or
+width. Heading depth, list semantics, code language, payload text, and link
+destination changes receive fresh IDs. Link-label formatting may retain an ID
+when its lowered child fingerprint is unchanged; changed label content does not.
+Local continuity requires a unique match on typed key, matched parent context,
+and semantic payload. Duplicate siblings and descendants without a matched
+parent receive fresh IDs rather than retaining a generic preview ID.
+
+`MarkdownNodeId` is intentionally private. `Block` / `Inline`, `ProjNode`, and
+`SourceMap` remain view-local compatibility surfaces. The Canopy-owned
+`ProjNode` attachment path is not implemented in this package; a later
+compatibility PR must rebuild that mapping from the current projection rather
+than persist a path or `ProjNode` ID in the identity baseline.
+
 ### mdast fixture parity
 
 `mdast_fixture_parity_test.mbt` compares MarkdownIR mdast export against checked-in

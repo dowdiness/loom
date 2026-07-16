@@ -53,7 +53,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 - [architecture/overview.md](architecture/overview.md) — layer diagram, architectural principles
 - [architecture/pipeline.md](architecture/pipeline.md) — parse pipeline step by step
-- [architecture/markdown-ir.md](architecture/markdown-ir.md) — MarkdownIR responsibilities, invariants, anti-CST-cloning rule, extension scope, and M0/M1 exit criteria
+- [architecture/markdown-ir.md](architecture/markdown-ir.md) — MarkdownIR responsibilities, identity boundary, invariants, anti-CST-cloning rule, extension scope, and M0/M1 exit criteria
 - [architecture/language.md](architecture/language.md) — grammar, syntax, Token/Term data types
 - [architecture/seam-model.md](architecture/seam-model.md) — `CstNode`/`SyntaxNode` two-tree model
 - [architecture/generic-parser.md](architecture/generic-parser.md) — `LanguageSpec`, `ParserContext` API
@@ -73,6 +73,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-15-markdown-projection-identity-boundary.md](decisions/2026-07-15-markdown-projection-identity-boundary.md) — **Accepted** Markdown owns typed semantic identity alignment; Canopy owns the ephemeral current-view attachment (#341, #332)
 - [decisions/2026-07-15-block-reparse-ancestor-widening.md](decisions/2026-07-15-block-reparse-ancestor-widening.md) — **Accepted** `BlockReparseSpec` selectors receive candidate-local source/tokens; core widens only after explicit decline, and `ModeRelexFactory` keeps lexer-mode snapshots session-owned
 - [decisions/2026-07-14-lookahead-rollback-boundary.md](decisions/2026-07-14-lookahead-rollback-boundary.md) — **Accepted** `ParserContext::lookahead` rolls back a defined parser-owned checkpoint state for pure lookahead; any concrete out-of-contract mutation triggers review, while broadening requires independent-grammar evidence (#438, PRs #715 and #717)
 - [decisions/2026-07-13-benchmark-detector-policy.md](decisions/2026-07-13-benchmark-detector-policy.md) — **Accepted** benchmark rows are explicitly gated or informational; inventory and verifier failures remain fail-closed (#644)
