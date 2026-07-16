@@ -1,5 +1,13 @@
 # Markdown Projection Identity Implementation Plan
 
+**Status:** Complete
+
+**Completion:** Implemented by [PR #724](https://github.com/dowdiness/loom/pull/724), merged 2026-07-16; closes [#341](https://github.com/dowdiness/loom/issues/341).
+
+Decision record:
+
+- ADR: [Markdown projection identity boundary](../../decisions/2026-07-15-markdown-projection-identity-boundary.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Establish tested, domain-owned Markdown editor identity across MarkdownIR projections without treating `ProjNode` IDs, paths, or source offsets as durable identity.

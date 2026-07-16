@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Status:** Accepted
-**Implementation plan:** [Markdown projection identity implementation plan](../superpowers/plans/2026-07-15-markdown-projection-identity.md)
+**Implementation plan:** [Markdown projection identity implementation plan](../archive/completed-phases/2026-07-15-markdown-projection-identity.md)
 **Related:** [#341](https://github.com/dowdiness/loom/issues/341), [#332](https://github.com/dowdiness/loom/issues/332)
 
 ## Context
