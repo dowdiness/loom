@@ -148,35 +148,31 @@ fn try_parse_setext_heading(
     Some(_) => ctx.emit_token(IndentationToken)
     None => ()
   }
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::setext_heading(),
-    () => {
-      guard ctx.peek() is Newline else { return false }
-      if setext_underline_depth_after_newline(
-          ctx,
-          allow_list_marker=true,
-          min_indent=0,
-        )
-        is Some(_) {
+  parse_indexed_inline_container(ctx, InlineParsePolicy::setext_heading(), () => {
+    guard ctx.peek() is Newline else { return false }
+    if setext_underline_depth_after_newline(
+        ctx,
+        allow_list_marker=true,
+        min_indent=0,
+      )
+      is Some(_) {
+      false
+    } else {
+      let next = ctx.peek_nth(1)
+      if token_breaks_paragraph_after_newline(next) ||
+        next is Newline ||
+        next is EOF {
         false
       } else {
-        let next = ctx.peek_nth(1)
-        if token_breaks_paragraph_after_newline(next) ||
-          next is Newline ||
-          next is EOF {
-          false
-        } else {
-          ctx.emit_token(NewlineToken)
-          match ctx.peek() {
-            OrderedListMarker(_) => ctx.emit_token(TextToken)
-            _ => ()
-          }
-          true
+        ctx.emit_token(NewlineToken)
+        match ctx.peek() {
+          OrderedListMarker(_) => ctx.emit_token(TextToken)
+          _ => ()
         }
+        true
       }
-    },
-  )
+    }
+  })
   if consume_setext_underline_after_newline(
       ctx,
       allow_list_marker=true,
@@ -234,11 +230,9 @@ fn parse_heading_with_prefix(
       None => ()
     }
     ctx.emit_token(HeadingMarkerToken)
-    parse_indexed_inline_container(
-      ctx,
-      InlineParsePolicy::line_bound(),
-      () => false,
-    )
+    parse_indexed_inline_container(ctx, InlineParsePolicy::line_bound(), () => {
+      false
+    })
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -264,7 +258,6 @@ fn emit_paragraph_continuation_prefix(
     _ => ()
   }
 }
-
 
 ///|
 fn next_token_after_newline_is_lone_list_marker(
@@ -321,11 +314,9 @@ fn parse_paragraph_with_prefix(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    parse_indexed_inline_container(
-      ctx,
-      InlineParsePolicy::paragraph(),
-      () => consume_root_paragraph_inline_continuation(ctx),
-    )
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
+      consume_root_paragraph_inline_continuation(ctx)
+    })
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -365,11 +356,9 @@ fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ParagraphNode, fn() {
-    parse_indexed_inline_container(
-      ctx,
-      InlineParsePolicy::paragraph(),
-      () => consume_block_quote_paragraph_continuation(ctx),
-    )
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
+      consume_block_quote_paragraph_continuation(ctx)
+    })
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -408,18 +397,14 @@ fn try_parse_block_quote_setext_heading(
 ) -> Bool {
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::paragraph(),
-    () => {
-      guard ctx.peek() is Newline else { return false }
-      if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
-        false
-      } else {
-        consume_block_quote_heading_continuation(ctx)
-      }
-    },
-  )
+  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
+    guard ctx.peek() is Newline else { return false }
+    if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
+      false
+    } else {
+      consume_block_quote_heading_continuation(ctx)
+    }
+  })
   if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
     consume_quoted_setext_underline_line(ctx)
     ctx.finish_node()
@@ -1191,13 +1176,14 @@ fn parse_list_item_inline_content(
   parse_indexed_inline_container(
     ctx,
     InlineParsePolicy::list_item(allow_ordered_marker~),
-    () =>
+    () => {
       has_paragraph_content &&
       consume_list_item_inline_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
-      ),
+      )
+    },
   )
 }
 
@@ -1218,6 +1204,7 @@ fn parse_inline_thematic_break(
 }
 
 ///|
+
 ///|
 fn consume_list_item_setext_heading_inline_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1248,7 +1235,8 @@ fn consume_list_item_setext_heading_inline_continuation(
     } else {
       ctx.emit_token(NewlineToken)
       match ctx.peek() {
-        OrderedListMarker(_) if allow_ordered_marker => ctx.emit_token(TextToken)
+        OrderedListMarker(_) if allow_ordered_marker =>
+          ctx.emit_token(TextToken)
         _ => ()
       }
       true
@@ -1256,6 +1244,7 @@ fn consume_list_item_setext_heading_inline_continuation(
   }
 }
 
+///|
 fn try_parse_list_item_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
@@ -1266,12 +1255,13 @@ fn try_parse_list_item_setext_heading(
   parse_indexed_inline_container(
     ctx,
     InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
-    () =>
+    () => {
       consume_list_item_setext_heading_inline_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
-      ),
+      )
+    },
   )
   if consume_setext_underline_after_newline(
       ctx,

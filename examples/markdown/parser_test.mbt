@@ -483,6 +483,7 @@ test "parse: blockquote setext heading has heading CST child" {
     _ => inspect(syntax.children().length(), content="one blockquote")
   }
 }
+
 ///|
 test "parse: quoted setext heading code span crosses soft-line continuation" {
   let (cst, _) = try! parse_cst("> ``a\n> b``\n> ---\n")
@@ -506,7 +507,6 @@ test "parse: quoted setext heading code span crosses soft-line continuation" {
     _ => inspect(syntax.children().length(), content="one blockquote")
   }
 }
-
 
 ///|
 test "parse: multi-line paragraph" {
@@ -816,11 +816,14 @@ test "parse: code span owns equal-length delimiters and unequal raw interior" {
     [paragraph] =>
       match paragraph.children() {
         [inline_code] => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(inline_code.kind())
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            inline_code.kind(),
+          )
           inspect(kind, content="InlineCodeNode")
           inspect(inline_code.text(), content="`a``b`")
         }
-        _ => inspect(paragraph.children().length(), content="one inline code node")
+        _ =>
+          inspect(paragraph.children().length(), content="one inline code node")
       }
     _ => inspect(syntax.children().length(), content="one paragraph")
   }
@@ -834,11 +837,14 @@ test "parse: code span crosses a paragraph soft-line continuation" {
     [paragraph] =>
       match paragraph.children() {
         [inline_code] => {
-          let kind : SyntaxKind = @seam.FromRawKind::from_raw(inline_code.kind())
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+            inline_code.kind(),
+          )
           inspect(kind, content="InlineCodeNode")
           inspect(inline_code.text(), content="`code\nmore`")
         }
-        _ => inspect(paragraph.children().length(), content="one inline code node")
+        _ =>
+          inspect(paragraph.children().length(), content="one inline code node")
       }
     _ => inspect(syntax.children().length(), content="one paragraph")
   }
@@ -855,10 +861,10 @@ test "parse: blank line does not supply a code-span closer" {
       #|    Paragraph([Text("close"), Text("`")]),
       #|  ],
       #|)
-
     ),
   )
 }
+
 ///|
 test "parse: code span crosses a block quote soft-line continuation" {
   let (cst, _) = try! parse_cst("> `code\n> more`\n")
@@ -875,13 +881,15 @@ test "parse: code span crosses a block quote soft-line continuation" {
               inspect(kind, content="InlineCodeNode")
               inspect(inline_code.text(), content="`code\n> more`")
             }
-            _ => inspect(paragraph.children().length(), content="one inline code")
+            _ =>
+              inspect(paragraph.children().length(), content="one inline code")
           }
         _ => inspect(quote.children().length(), content="one quote paragraph")
       }
     _ => inspect(syntax.children().length(), content="one block quote")
   }
 }
+
 ///|
 test "parse: nested emphasis uses block quote code-span continuation" {
   let (cst, _) = try! parse_cst("> *`code\n> more`*\n")
@@ -900,15 +908,18 @@ test "parse: nested emphasis uses block quote code-span continuation" {
                   inspect(kind, content="InlineCodeNode")
                   inspect(inline_code.text(), content="`code\n> more`")
                 }
-                _ => inspect(italic.children().length(), content="one code node")
+                _ =>
+                  inspect(italic.children().length(), content="one code node")
               }
-            _ => inspect(paragraph.children().length(), content="one italic node")
+            _ =>
+              inspect(paragraph.children().length(), content="one italic node")
           }
         _ => inspect(quote.children().length(), content="one quote paragraph")
       }
     _ => inspect(syntax.children().length(), content="one block quote")
   }
 }
+
 ///|
 test "parse: ATX heading uses maximal code-span runs" {
   inspect(
@@ -924,6 +935,7 @@ test "parse: setext heading uses maximal code-span runs" {
     content="Document([Heading(2, [InlineCode(\"a`b\")])])",
   )
 }
+
 ///|
 test "parse: setext heading code span crosses soft-line continuation" {
   inspect(
@@ -932,16 +944,11 @@ test "parse: setext heading code span crosses soft-line continuation" {
   )
 }
 
-
-
-
 ///|
 test "parse: code span crosses a list item lazy continuation" {
   inspect(
     parse("- `code\nmore`\n"),
-    content=(
-      "Document([UnorderedList([UnorderedListItem([InlineCode(\"code more\")])])])"
-    ),
+    content="Document([UnorderedList([UnorderedListItem([InlineCode(\"code more\")])])])",
   )
 }
 

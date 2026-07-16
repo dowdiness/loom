@@ -2186,6 +2186,7 @@ test "experimental MarkdownIR: unmatched maximal backtick run remains literal te
     ),
   )
 }
+
 ///|
 test "experimental MarkdownIR: escaped literal backtick spans token boundaries" {
   let ir = markdown_ir_from_source("\\`\n")
@@ -2196,6 +2197,7 @@ test "experimental MarkdownIR: escaped literal backtick spans token boundaries" 
     ),
   )
 }
+
 ///|
 test "experimental MarkdownIR: escaped literal backtick joins adjacent text" {
   let source = "\\`literal\n"
@@ -2215,6 +2217,7 @@ test "experimental MarkdownIR: escaped literal backtick joins adjacent text" {
     _ => inspect(ir.children().length(), content="one paragraph")
   }
 }
+
 ///|
 test "experimental MarkdownIR: code spans normalize line endings and boundaries" {
   let ir = markdown_ir_from_source("` a\nb `\n")
@@ -2225,6 +2228,7 @@ test "experimental MarkdownIR: code spans normalize line endings and boundaries"
     ),
   )
 }
+
 ///|
 test "experimental MarkdownIR: code spans normalize CRLF and carriage returns" {
   for source in ["`a\r\nb`\n", "`a\rb`\n"] {
@@ -2237,6 +2241,7 @@ test "experimental MarkdownIR: code spans normalize CRLF and carriage returns" {
     )
   }
 }
+
 ///|
 test "experimental MarkdownIR: code spans retain root indentation and content origin" {
   let source = "`a\n  b`\n"
@@ -2252,7 +2257,8 @@ test "experimental MarkdownIR: code spans retain root indentation and content or
       match paragraph.children() {
         [inline_code] =>
           match inline_code.content_origin() {
-            Some(origin) => inspect(origin_source(source, origin), content="a\n  b")
+            Some(origin) =>
+              inspect(origin_source(source, origin), content="a\n  b")
             None => inspect("missing", content="inline code content origin")
           }
         _ => inspect("unexpected paragraph children", content="inline code")
@@ -2260,6 +2266,7 @@ test "experimental MarkdownIR: code spans retain root indentation and content or
     _ => inspect("unexpected child count", content="one paragraph")
   }
 }
+
 ///|
 test "experimental MarkdownIR: code spans retain excess list continuation indentation" {
   let ir = markdown_ir_from_source("- `a\n    b`\n")
@@ -2270,6 +2277,7 @@ test "experimental MarkdownIR: code spans retain excess list continuation indent
     ),
   )
 }
+
 ///|
 test "experimental MarkdownIR: code spans crossing a block quote have no content origin" {
   let ir = markdown_ir_from_source("> `a\n> b`\n")
@@ -2300,7 +2308,11 @@ test "experimental MarkdownIR: code spans crossing a list continuation have no c
               match paragraph.children() {
                 [inline_code] =>
                   inspect(inline_code.content_origin() is None, content="true")
-                _ => inspect("unexpected paragraph children", content="inline code")
+                _ =>
+                  inspect(
+                    "unexpected paragraph children",
+                    content="inline code",
+                  )
               }
             _ => inspect("unexpected list item children", content="paragraph")
           }
@@ -2309,6 +2321,7 @@ test "experimental MarkdownIR: code spans crossing a list continuation have no c
     _ => inspect("unexpected root children", content="list")
   }
 }
+
 ///|
 test "experimental MarkdownIR: link label retains escaped literal backtick" {
   let ir = markdown_ir_from_source("[\\`literal](/)\n")

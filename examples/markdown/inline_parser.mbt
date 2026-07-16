@@ -13,7 +13,6 @@ fn is_inline_end(token : Token) -> Bool {
   is_block_boundary(token) || token is Newline || token == EOF
 }
 
-
 ///|
 fn token_is_inline_block_boundary(
   token : Token,
@@ -138,7 +137,9 @@ fn parse_indexed_inline_code(
   ctx.emit_token(BacktickToken)
   while ctx.current_token_range().start != closer_start {
     if ctx.peek() is Newline {
-      guard continue_line() else { abort("indexed code span crossed its container boundary") }
+      guard continue_line() else {
+        abort("indexed code span crossed its container boundary")
+      }
       continue
     }
     match ctx.peek() {
@@ -157,7 +158,6 @@ fn parse_indexed_inline_code(
   ctx.emit_token(BacktickToken)
   ctx.finish_node()
 }
-
 
 ///|
 /// Parse a single inline element.
@@ -252,7 +252,6 @@ fn parse_italic(
     ctx.finish_node()
   }
 }
-
 
 ///|
 /// Parse link: [text](url)

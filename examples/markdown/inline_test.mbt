@@ -132,7 +132,6 @@ test "inline: unmatched code-span run preserves following inline syntax" {
       #|    ),
       #|  ],
       #|)
-
     ),
   )
 }
@@ -144,6 +143,7 @@ test "inline: escaped outer run stays literal before a later code span" {
     content="Document([Paragraph([Text(\"`literal \"), InlineCode(\"code\")])])",
   )
 }
+
 ///|
 test "inline: escaped literal backtick joins text in link display" {
   inspect(
@@ -166,8 +166,7 @@ test "inline: even backslash parity permits a code span" {
 ///|
 test "inline: backslash before code-span closer remains raw content" {
   match parse("`a\\`\n") {
-    Document([Paragraph([InlineCode(value)])]) =>
-      inspect(value, content="a\\")
+    Document([Paragraph([InlineCode(value)])]) => inspect(value, content="a\\")
     _ => inspect(false, content="backslash before closer remains code content")
   }
 }

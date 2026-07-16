@@ -63,6 +63,7 @@ fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
 }
 
 ///|
+
 ///|
 fn append_literal_backtick_ir(
   children : Array[MarkdownIR],
@@ -93,6 +94,7 @@ fn append_literal_backtick_ir(
     children.push(MarkdownIR::text(text, origin))
   }
 }
+
 ///|
 fn append_inline_text_ir(
   children : Array[MarkdownIR],
@@ -105,10 +107,7 @@ fn append_inline_text_ir(
         Text(value) =>
           children[children.length() - 1] = MarkdownIR::text(
             value + text,
-            MarkdownIROrigin(
-              start=previous.origin().start(),
-              end=origin.end(),
-            ),
+            MarkdownIROrigin(start=previous.origin().start(), end=origin.end()),
           )
         _ => children.push(MarkdownIR::text(text, origin))
       }
@@ -116,7 +115,7 @@ fn append_inline_text_ir(
   }
 }
 
-
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -367,8 +366,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
             _ => {
               match
                 lower_direct_inline_token_with_diags(
-                  token,
-                  diagnostics_in_origin,
+                  token, diagnostics_in_origin,
                 ) {
                 Some(child) => push_child(child)
                 None => ()
@@ -398,6 +396,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
 }
 
 ///|
+
 ///|
 fn normalize_inline_code_value(value : String) -> String {
   let line_normalized = StringBuilder::new()
@@ -442,6 +441,7 @@ fn normalize_inline_code_value(value : String) -> String {
     normalized
   }
 }
+
 ///|
 fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
   let mut delimiter_count = 0
@@ -473,7 +473,9 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
               Some(source) => source
               None => {
                 let source = syntax_root(node).text()
-                continuation_content_column = nearest_container_content_column(node, source)
+                continuation_content_column = nearest_container_content_column(
+                  node, source,
+                )
                 continuation_source = Some(source)
                 source
               }

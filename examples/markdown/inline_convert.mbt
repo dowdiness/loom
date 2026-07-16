@@ -13,6 +13,7 @@ fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
     _ => None
   }
 }
+
 ///|
 fn append_literal_backtick_text(
   inlines : Array[Inline],
@@ -31,6 +32,7 @@ fn append_literal_backtick_text(
     inlines.push(Inline::Text(text))
   }
 }
+
 ///|
 fn append_inline_text(inlines : Array[Inline], text : String) -> Unit {
   match inlines.last() {
@@ -39,8 +41,6 @@ fn append_inline_text(inlines : Array[Inline], text : String) -> Unit {
     _ => inlines.push(Inline::Text(text))
   }
 }
-
-
 
 ///|
 /// Convert the inline children of a node to an Array[Inline].

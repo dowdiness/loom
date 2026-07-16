@@ -41,8 +41,6 @@ fn InlineParsePolicy::allows_ordered_marker(self : InlineParsePolicy) -> Bool {
   match self {
     Paragraph | LineBound | SetextHeading => true
     ListItem(allow_ordered_marker)
-    | ListItemSetextHeading(allow_ordered_marker) =>
-      allow_ordered_marker
+    | ListItemSetextHeading(allow_ordered_marker) => allow_ordered_marker
   }
 }
-
