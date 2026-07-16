@@ -192,7 +192,7 @@ fn canonical_format_with_list_marker(
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
     InlineCode(value, _) => inline_code_markdown(value)
-    Link(children, destination, _) =>
+    Link(children, destination, _, _) =>
       "[" + canonical_inline_text(children) + "](" + destination + ")"
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"
     Recovered(message, _) if message == RECOVERED_PARSE_ERROR =>

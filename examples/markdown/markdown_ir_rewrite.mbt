@@ -61,26 +61,30 @@ fn local_transform_inline_text(
 }
 
 ///|
-fn max_backtick_run(value : String) -> Int {
+fn max_fence_run(value : String, fence_character : Char) -> Int {
   let mut max_run = 0
-  let mut cur_run = 0
+  let mut current_run = 0
   for i = 0; i < value.length(); i = i + 1 {
     match value.code_unit_at(i).to_char() {
-      Some('`') => {
-        cur_run = cur_run + 1
-        if cur_run > max_run {
-          max_run = cur_run
+      Some(ch) if ch == fence_character => {
+        current_run = current_run + 1
+        if current_run > max_run {
+          max_run = current_run
         }
       }
-      _ => cur_run = 0
+      _ => current_run = 0
     }
   }
   max_run
 }
 
 ///|
-fn code_block_backtick_width(value : String, minimum_width : Int) -> Int {
-  let run_width = max_backtick_run(value)
+fn code_block_fence_width(
+  value : String,
+  minimum_width : Int,
+  fence_character : Char,
+) -> Int {
+  let run_width = max_fence_run(value, fence_character)
   let required_width = if run_width >= 3 { run_width + 1 } else { 3 }
   if minimum_width > required_width {
     minimum_width
@@ -95,13 +99,26 @@ fn local_code_block_suffix(
   origin : MarkdownIROrigin,
   content_origin : MarkdownIROrigin,
   fence_width : Int,
+  fence_character : Char,
 ) -> String {
   match code_fence_close_line_start(origin, source) {
     Some(close_start) => {
-      let close_width = count_backticks(source, close_start)
+      let close_marker_start = code_fence_marker_start(
+        source,
+        close_start,
+        origin.end(),
+      )
+      let close_width = count_fence_characters(
+        source, close_marker_start, fence_character,
+      )
       if close_width < fence_width {
-        "`".repeat(fence_width) +
-        source_slice_between(source, close_start + close_width, origin.end())
+        source_slice_between(source, close_start, close_marker_start) +
+        fence_character.to_string().repeat(fence_width) +
+        source_slice_between(
+          source,
+          close_marker_start + close_width,
+          origin.end(),
+        )
       } else {
         source_slice_between(source, close_start, origin.end())
       }
@@ -137,10 +154,20 @@ fn local_code_block_markdown(
   content_origin : MarkdownIROrigin,
   value : String,
 ) -> String {
-  let original_width = count_backticks(source, origin.start())
+  let fence_character = match char_at(source, origin.start()) {
+    Some('~') => '~'
+    _ => '`'
+  }
+  let original_width = count_fence_characters(
+    source,
+    origin.start(),
+    fence_character,
+  )
   let minimum_width = if original_width >= 3 { original_width } else { 3 }
-  let fence_width = code_block_backtick_width(value, minimum_width)
-  let opening = "`".repeat(fence_width) +
+  let fence_width = code_block_fence_width(
+    value, minimum_width, fence_character,
+  )
+  let opening = fence_character.to_string().repeat(fence_width) +
     source_slice_between(
       source,
       origin.start() + original_width,
@@ -164,7 +191,7 @@ fn local_code_block_markdown(
     ""
   }
   let suffix = local_code_block_suffix(
-    source, origin, content_origin, fence_width,
+    source, origin, content_origin, fence_width, fence_character,
   )
   let replacement_ends_with_line_ending = value.has_suffix("\n") ||
     value.has_suffix("\r")
@@ -333,7 +360,7 @@ fn local_transform_render(
       } else {
         inline_code_markdown(value)
       }
-    Link(children, destination, destination_origin) => {
+    Link(children, destination, _, destination_origin) => {
       let rendered_destination = if destination_origin == Some(target_origin) {
         replacement_text
       } else {

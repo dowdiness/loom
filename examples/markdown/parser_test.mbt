@@ -106,6 +106,22 @@ test "parse: three-space-prefixed fence is code block" {
 }
 
 ///|
+test "parse: tilde fence is code block" {
+  inspect(
+    parse("~~~moonbit\nlet x = 1\n~~~\n"),
+    content="Document([CodeBlock(\"moonbit\", \"let x = 1\")])",
+  )
+}
+
+///|
+test "parse: tilde fence retains backticks in info string" {
+  inspect(
+    parse("~~~`moonbit\nlet x = 1\n~~~\n"),
+    content="Document([CodeBlock(\"`moonbit\", \"let x = 1\")])",
+  )
+}
+
+///|
 test "parse: indented fence interrupts root paragraph" {
   inspect(
     parse("foo\n  ```\ncode\n```\n"),

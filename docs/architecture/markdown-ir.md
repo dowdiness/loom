@@ -65,6 +65,32 @@ Current public surfaces stay valid while MarkdownIR is introduced:
 contracts. MarkdownIR lowering may reuse existing parser and fold APIs, but M0
 does not add parser-core API surface.
 
+### Projection identity boundary
+
+MarkdownIR owns a private, typed identity adapter for semantic leaves. It uses
+content origins as anchors, injectively encoded semantic keys, and Loom's
+`ProjectionIdentityTracker` to preserve IDs through surface-only rewrites while
+retaining the last successful baseline across malformed input. Raw, recovered,
+and unsupported nodes have no durable Markdown identity.
+
+Surface spelling can preserve an unchanged payload ID: ATX/setext headings,
+unordered-list marker spelling, and fenced-code delimiter character or width.
+Heading depth, list semantics, code language, payload text, and link
+destination changes receive a fresh ID. Link-label formatting preserves its
+identity only when the lowered child fingerprint is unchanged.
+Local overrides require a unique match on typed key, matched parent context,
+and semantic payload. Duplicate siblings remain ambiguous: they and descendants
+without a matched parent receive fresh IDs rather than retaining a generic
+preview ID.
+
+The durable ID sequence is intentionally independent of `Block` / `Inline`
+paths, `ProjNode` allocations, and `SourceMap` ranges. No Markdown
+`ProjNode`/`SourceMap` constructor exists in this repository; the
+Canopy-owned compatibility path remains the only owner of the current
+ID-to-view attachment. That later integration must rebuild an ephemeral mapping
+from the current projection and must not persist a path, source offset, or
+`ProjNode` ID in the Markdown identity baseline.
+
 ---
 
 ## Anti-CST-cloning rule

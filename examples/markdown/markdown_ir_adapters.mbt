@@ -5,7 +5,7 @@ fn experimental_markdown_ir_to_inline(ir : MarkdownIR) -> Inline {
     Bold(children, _) => Inline::Bold(ir_children_to_inlines(children))
     Italic(children, _) => Inline::Italic(ir_children_to_inlines(children))
     InlineCode(value, _) => Inline::InlineCode(value)
-    Link(children, destination, _) =>
+    Link(children, destination, _, _) =>
       Inline::Link(ir_children_to_inlines(children), destination)
     HardBreak(_) => Inline::Text("\n")
     Unsupported(message) => Inline::Error(message)
@@ -35,7 +35,7 @@ fn experimental_markdown_ir_to_editor_inline(ir : MarkdownIR) -> Inline {
       Inline::Bold(ir_children_to_editor_inlines(children, None))
     Italic(children, _) =>
       Inline::Italic(ir_children_to_editor_inlines(children, None))
-    Link(children, destination, _) =>
+    Link(children, destination, _, _) =>
       Inline::Link(ir_children_to_editor_inlines(children, None), destination)
     _ => experimental_markdown_ir_to_inline(ir)
   }
@@ -124,7 +124,7 @@ pub fn experimental_markdown_ir_to_block(ir : MarkdownIR) -> Block {
     Italic(_, _) => Block::Error("expected block MarkdownIR, got italic")
     InlineCode(_, _) =>
       Block::Error("expected block MarkdownIR, got inline code")
-    Link(_, _, _) => Block::Error("expected block MarkdownIR, got link")
+    Link(_, _, _, _) => Block::Error("expected block MarkdownIR, got link")
     HardBreak(_) => Block::Error("expected block MarkdownIR, got hard break")
     Unsupported(message) => Block::Error(message)
     Raw(value, _) =>
@@ -380,7 +380,7 @@ fn markdown_ir_to_mdast_json(
     Italic(children, _) =>
       { "type": "emphasis", "children": mdast_children_json(children, context) }
     InlineCode(value, _) => { "type": "inlineCode", "value": value }
-    Link(children, destination, _) =>
+    Link(children, destination, _, _) =>
       {
         "type": "link",
         "url": destination,

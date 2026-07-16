@@ -931,6 +931,30 @@ test "experimental MarkdownIR: mdast position export trims code block separator 
 }
 
 ///|
+test "experimental MarkdownIR: mdast position export trims tilde code block separator blank lines" {
+  let source = "~~~\nx\n~~~\n\nnext"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"x","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":4,"offset":9}}},{"type":"paragraph","children":[{"type":"text","value":"next","position":{"start":{"line":5,"column":1,"offset":11},"end":{"line":5,"column":5,"offset":15}}}],"position":{"start":{"line":5,"column":1,"offset":11},"end":{"line":5,"column":5,"offset":15}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":5,"column":5,"offset":15}}}
+    ),
+  )
+}
+
+///|
+test "experimental MarkdownIR: mdast position export finds indented tilde close fence" {
+  let source = "~~~\nx\n  ~~~\n\nnext"
+  let ir = markdown_ir_from_source(source)
+  inspect(
+    experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
+    content=(
+      #|{"type":"root","children":[{"type":"code","value":"x","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":3,"column":6,"offset":11}}},{"type":"paragraph","children":[{"type":"text","value":"next","position":{"start":{"line":5,"column":1,"offset":13},"end":{"line":5,"column":5,"offset":17}}}],"position":{"start":{"line":5,"column":1,"offset":13},"end":{"line":5,"column":5,"offset":17}}}],"position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":5,"column":5,"offset":17}}}
+    ),
+  )
+}
+
+///|
 test "experimental MarkdownIR: mdast position export handles CRLF code fences" {
   let source = "```\r\nx\r\n```\r\n\r\nnext"
   let ir = markdown_ir_from_source(source)
@@ -1095,6 +1119,20 @@ fn assert_local_code_block_content_rewrite(
 test "experimental MarkdownIR: local transform rewrites code block content origin" {
   let _ = assert_local_code_block_content_rewrite(
     "```moonbit\nlet x = 1\n```\n", "let y = 2", "```moonbit\nlet y = 2\n```\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves tilde code fence" {
+  let _ = assert_local_code_block_content_rewrite(
+    "~~~moonbit\nlet x = 1\n~~~\n", "let y = 2", "~~~moonbit\nlet y = 2\n~~~\n",
+  )
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves indented tilde close fence" {
+  let _ = assert_local_code_block_content_rewrite(
+    "~~~\nold\n  ~~~\n", "new", "~~~\nnew\n  ~~~\n",
   )
 }
 
@@ -1436,6 +1474,46 @@ test "experimental MarkdownIR: local transform rewrites link destination origin"
               inspect(local_rewrite, content="[label](new)\n")
             }
             None => inspect("missing", content="link destination origin")
+          }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: link label origin excludes brackets" {
+  let ir = markdown_ir_from_source("[label](old)\n")
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          match link.label_origin() {
+            Some(origin) => {
+              inspect(origin.start(), content="1")
+              inspect(origin.end(), content="6")
+            }
+            None => inspect("missing", content="link label origin")
+          }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: formatted link label origin includes delimiters" {
+  let ir = markdown_ir_from_source("[**label**](old)\n")
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          match link.label_origin() {
+            Some(origin) => {
+              inspect(origin.start(), content="1")
+              inspect(origin.end(), content="10")
+            }
+            None => inspect("missing", content="formatted link label origin")
           }
         _ => inspect("unexpected paragraph children", content="link")
       }
