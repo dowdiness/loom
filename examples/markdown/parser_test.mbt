@@ -437,6 +437,53 @@ test "parse: empty list item does not promote indented underline to setext headi
       inspect(syntax.children().length(), content="list plus following block")
   }
 }
+///|
+test "parse: list setext code span owns continuation indentation structurally" {
+  let (cst, _) = parse_cst("- x `a\n  b`\n  ---\n")
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  match syntax.children() {
+    [list] =>
+      match list.children() {
+        [item] =>
+          match item.children() {
+            [heading] => {
+              let kind : SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
+              inspect(kind, content="HeadingNode")
+              let mut saw_structural_indentation = false
+              for element in heading.all_children() {
+                match element {
+                  @seam.SyntaxElement::Node(inline) => {
+                    let inline_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                      inline.kind(),
+                    )
+                    if inline_kind is InlineCodeNode {
+                      for element in inline.all_children() {
+                        match element {
+                          @seam.SyntaxElement::Token(token) => {
+                            let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                              token.kind(),
+                            )
+                            if token_kind is IndentationToken {
+                              saw_structural_indentation = true
+                            }
+                          }
+                          _ => ()
+                        }
+                      }
+                    }
+                  }
+                  _ => ()
+                }
+              }
+              inspect(saw_structural_indentation, content="true")
+            }
+            _ => inspect(item.children().length(), content="one heading")
+          }
+        _ => inspect(list.children().length(), content="one list item")
+      }
+    _ => inspect(syntax.children().length(), content="one list")
+  }
+}
 
 ///|
 test "parse: blockquote lazy continuation accepts indented thematic text" {
