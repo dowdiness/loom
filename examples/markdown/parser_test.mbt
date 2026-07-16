@@ -437,6 +437,7 @@ test "parse: empty list item does not promote indented underline to setext headi
       inspect(syntax.children().length(), content="list plus following block")
   }
 }
+
 ///|
 test "parse: list setext code span owns continuation indentation structurally" {
   let (cst, _) = parse_cst("- x `a\n  b`\n  ---\n")
@@ -447,7 +448,9 @@ test "parse: list setext code span owns continuation indentation structurally" {
         [item] =>
           match item.children() {
             [heading] => {
-              let kind : SyntaxKind = @seam.FromRawKind::from_raw(heading.kind())
+              let kind : SyntaxKind = @seam.FromRawKind::from_raw(
+                heading.kind(),
+              )
               inspect(kind, content="HeadingNode")
               let mut saw_structural_indentation = false
               for element in heading.all_children() {
