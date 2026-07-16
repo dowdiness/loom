@@ -64,6 +64,8 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/egraph-vs-egglog.md](architecture/egraph-vs-egglog.md) — EGraph vs Egglog: when to use which, how Canopy uses both
 - [superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md](superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md) — approved #716 clean cutover from `ParserContext::speculative` to `ParserContext::lookahead`
 - [superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md](superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md) — draft #484 contract for CommonMark code-span normalization, raw-source fidelity, and block-editor authoring facts
+- [superpowers/specs/2026-07-15-markdown-projection-identity-design.md](superpowers/specs/2026-07-15-markdown-projection-identity-design.md) — approved #341 policy for MarkdownIR-to-editor identity anchors, semantic keys, recovery, and view-local projection IDs
+- [superpowers/plans/2026-07-15-markdown-projection-identity.md](superpowers/plans/2026-07-15-markdown-projection-identity.md) — implementation plan for #341 MarkdownIR editor identity extraction, alignment, recovery, and view-local separation
 - [architecture/markdown-execution-roadmap.md](architecture/markdown-execution-roadmap.md) — dependency order for MarkdownIR editor compatibility, CommonMark block/inline work, incremental conformance hardening, and the independent loomgen lane
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
