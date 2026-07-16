@@ -526,6 +526,25 @@ fn span_token_origins(origins : Array[MarkdownIROrigin]) -> MarkdownIROrigin? {
 }
 
 ///|
+fn contiguous_label_origin(
+  children : Array[MarkdownIR],
+  start : Int,
+  end : Int,
+) -> MarkdownIROrigin? {
+  let mut cursor = start
+  for child in children {
+    let origin = child.origin()
+    guard origin.start() == cursor else { return None }
+    cursor = origin.end()
+  }
+  if cursor == end {
+    Some(MarkdownIROrigin(start~, end~))
+  } else {
+    None
+  }
+}
+
+///|
 fn lower_link_node_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
@@ -534,6 +553,8 @@ fn lower_link_node_with_diags(
   let display : Array[MarkdownIR] = []
   let destination_buf = StringBuilder::new()
   let destination_origins : Array[MarkdownIROrigin] = []
+  let mut label_start : Int? = None
+  let mut label_end : Int? = None
   let mut url_depth = 0
   let mut past_bracket = false
   let mut preceding_text_ends_escaped = false
@@ -543,8 +564,12 @@ fn lower_link_node_with_diags(
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          LeftBracketToken if !past_bracket && url_depth == 0 => ()
-          RightBracketToken if url_depth == 0 => past_bracket = true
+          LeftBracketToken if !past_bracket && url_depth == 0 =>
+            label_start = Some(origin_from_token(token).end())
+          RightBracketToken if url_depth == 0 => {
+            label_end = Some(origin_from_token(token).start())
+            past_bracket = true
+          }
           LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
           LeftParenToken if past_bracket => {
             url_depth = url_depth + 1
@@ -616,10 +641,16 @@ fn lower_link_node_with_diags(
       }
     }
   }
+  let label_origin = match (label_start, label_end) {
+    (Some(start), Some(end)) if start <= end =>
+      contiguous_label_origin(display, start, end)
+    _ => None
+  }
   MarkdownIR::link(
     display,
     destination_buf.to_string(),
     origin_from_node(node),
+    label_origin,
     span_token_origins(destination_origins),
   )
 }

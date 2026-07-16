@@ -333,7 +333,7 @@ fn local_transform_render(
       } else {
         inline_code_markdown(value)
       }
-    Link(children, destination, destination_origin) => {
+    Link(children, destination, _, destination_origin) => {
       let rendered_destination = if destination_origin == Some(target_origin) {
         replacement_text
       } else {

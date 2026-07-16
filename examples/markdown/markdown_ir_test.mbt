@@ -1444,6 +1444,46 @@ test "experimental MarkdownIR: local transform rewrites link destination origin"
 }
 
 ///|
+test "experimental MarkdownIR: link label origin excludes brackets" {
+  let ir = markdown_ir_from_source("[label](old)\n")
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          match link.label_origin() {
+            Some(origin) => {
+              inspect(origin.start(), content="1")
+              inspect(origin.end(), content="6")
+            }
+            None => inspect("missing", content="link label origin")
+          }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: formatted link label origin includes delimiters" {
+  let ir = markdown_ir_from_source("[**label**](old)\n")
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [link] =>
+          match link.label_origin() {
+            Some(origin) => {
+              inspect(origin.start(), content="1")
+              inspect(origin.end(), content="10")
+            }
+            None => inspect("missing", content="formatted link label origin")
+          }
+        _ => inspect("unexpected paragraph children", content="link")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: local transform rewrites inline code content origin" {
   let source = "`code`\n"
   let ir = markdown_ir_from_source(source)

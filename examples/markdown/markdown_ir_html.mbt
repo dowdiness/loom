@@ -181,7 +181,7 @@ fn markdown_ir_to_commonmark_html_with_list_context(
       markdown_ir_inline_children_to_commonmark_html(children) +
       "</em>"
     InlineCode(value, _) => "<code>" + html_escape_text(value) + "</code>"
-    Link(children, destination, _) =>
+    Link(children, destination, _, _) =>
       "<a href=\"" +
       html_escape_text(destination) +
       "\">" +

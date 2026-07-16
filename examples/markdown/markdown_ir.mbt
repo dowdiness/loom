@@ -61,7 +61,7 @@ priv enum MarkdownIRNode {
   Bold(Array[MarkdownIR], MarkdownIROrigin?)
   Italic(Array[MarkdownIR], MarkdownIROrigin?)
   InlineCode(String, MarkdownIROrigin?)
-  Link(Array[MarkdownIR], String, MarkdownIROrigin?)
+  Link(Array[MarkdownIR], String, MarkdownIROrigin?, MarkdownIROrigin?)
   HardBreak(MarkdownIROrigin?)
   Unsupported(String)
   Raw(String, Array[@core.Diagnostic])
@@ -220,9 +220,13 @@ fn MarkdownIR::link(
   children : Array[MarkdownIR],
   destination : String,
   origin : MarkdownIROrigin,
+  label_origin : MarkdownIROrigin?,
   destination_origin : MarkdownIROrigin?,
 ) -> MarkdownIR {
-  { node: Link(children, destination, destination_origin), origin }
+  {
+    node: Link(children, destination, label_origin, destination_origin),
+    origin,
+  }
 }
 
 ///|
@@ -295,7 +299,7 @@ pub fn MarkdownIR::kind_tag(self : MarkdownIR) -> String {
     Bold(_, _) => "Bold"
     Italic(_, _) => "Italic"
     InlineCode(_, _) => "InlineCode"
-    Link(_, _, _) => "Link"
+    Link(_, _, _, _) => "Link"
     HardBreak(_) => "HardBreak"
     Unsupported(_) => "Unsupported"
     Raw(_, _) => "Raw"
@@ -316,7 +320,7 @@ pub fn MarkdownIR::children(self : MarkdownIR) -> Array[MarkdownIR] {
     | OrderedListItem(children, _, _, _)
     | Bold(children, _)
     | Italic(children, _)
-    | Link(children, _, _) => children.copy()
+    | Link(children, _, _, _) => children.copy()
     CodeBlock(_, _, _)
     | HtmlBlock(_, _)
     | ThematicBreak
@@ -382,9 +386,17 @@ pub fn MarkdownIR::list_marker(self : MarkdownIR) -> UnorderedListMarker? {
 }
 
 ///|
+pub fn MarkdownIR::label_origin(self : MarkdownIR) -> MarkdownIROrigin? {
+  match self.node {
+    Link(_, _, origin, _) => origin
+    _ => None
+  }
+}
+
+///|
 pub fn MarkdownIR::destination_origin(self : MarkdownIR) -> MarkdownIROrigin? {
   match self.node {
-    Link(_, _, origin) => origin
+    Link(_, _, _, origin) => origin
     _ => None
   }
 }

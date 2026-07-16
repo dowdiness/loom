@@ -88,6 +88,7 @@ pub fn MarkdownIR::is_raw(Self) -> Bool
 pub fn MarkdownIR::is_recovered(Self) -> Bool
 pub fn MarkdownIR::is_unsupported(Self) -> Bool
 pub fn MarkdownIR::kind_tag(Self) -> String
+pub fn MarkdownIR::label_origin(Self) -> MarkdownIROrigin?
 pub fn MarkdownIR::list_marker(Self) -> UnorderedListMarker?
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::spread(Self) -> Bool?
