@@ -468,7 +468,6 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
           BlockQuoteMarkerToken | ListMarkerToken | OrderedListMarkerToken =>
             crosses_structural_prefix = true
           IndentationToken => {
-            crosses_structural_prefix = true
             let source = match continuation_source {
               Some(source) => source
               None => {
@@ -481,13 +480,15 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
               }
             }
             let token_column = visual_column_at_offset(source, token.start())
-            buf.write_string(
-              strip_visual_columns(
-                token.text(),
-                token_column,
-                (continuation_content_column - token_column).max(0),
-              ),
+            let stripped = strip_visual_columns(
+              token.text(),
+              token_column,
+              (continuation_content_column - token_column).max(0),
             )
+            if stripped != token.text() {
+              crosses_structural_prefix = true
+            }
+            buf.write_string(stripped)
           }
           BacktickToken => {
             seen_delimiters = seen_delimiters + 1

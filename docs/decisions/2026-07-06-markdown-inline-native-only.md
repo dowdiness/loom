@@ -28,8 +28,7 @@ is imperative:
 - a container-local, pure-lookahead equal-length backtick-run successor index
   for inline code ([#484](https://github.com/dowdiness/loom/issues/484)), with
   literal fallback for unmatched or escaped runs;
-- balanced-paren depth counting for link destinations
-  (`let mut depth = 1` … `while depth > 0`, L242–248).
+- balanced-paren depth counting for link destinations in `parse_link`.
 
 It is reached from the block grammar via `@native` inline dispatch. The current
 example is already narrower than full CommonMark inline — it has no
