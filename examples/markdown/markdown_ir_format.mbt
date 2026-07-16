@@ -4,6 +4,41 @@ fn code_block_markdown(info : String, value : String) -> String {
 }
 
 ///|
+fn inline_code_markdown(value : String) -> String {
+  let mut longest_run = 0
+  let mut run = 0
+  let mut has_non_space = false
+  for ch in value {
+    match ch {
+      '`' => {
+        run = run + 1
+        if run > longest_run {
+          longest_run = run
+        }
+        has_non_space = true
+      }
+      ' ' => run = 0
+      _ => {
+        run = 0
+        has_non_space = true
+      }
+    }
+  }
+  let delimiter = "`".repeat(longest_run + 1)
+  let boundary_spaces = value.has_prefix(" ") &&
+    value.has_suffix(" ") &&
+    has_non_space
+  let padding = if value.has_prefix("`") ||
+    value.has_suffix("`") ||
+    boundary_spaces {
+    " "
+  } else {
+    ""
+  }
+  delimiter + padding + value + padding + delimiter
+}
+
+///|
 fn canonical_inline_text(children : Array[MarkdownIR]) -> String {
   children.map(child => canonical_format_with_list_marker(child, Dash)).join("")
 }
@@ -156,7 +191,7 @@ fn canonical_format_with_list_marker(
     HardBreak(_) => "  \n"
     Bold(children, _) => "**" + canonical_inline_text(children) + "**"
     Italic(children, _) => "*" + canonical_inline_text(children) + "*"
-    InlineCode(value, _) => "`" + value + "`"
+    InlineCode(value, _) => inline_code_markdown(value)
     Link(children, destination, _) =>
       "[" + canonical_inline_text(children) + "](" + destination + ")"
     Unsupported(message) => "<!-- unsupported MarkdownIR: " + message + " -->"

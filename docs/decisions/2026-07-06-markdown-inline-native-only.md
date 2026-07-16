@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-06
 **Status:** Accepted
-**Issues:** [#642](https://github.com/dowdiness/loom/issues/642), [#608](https://github.com/dowdiness/loom/issues/608)
+**Issues:** [#642](https://github.com/dowdiness/loom/issues/642), [#608](https://github.com/dowdiness/loom/issues/608), [#484](https://github.com/dowdiness/loom/issues/484)
 
 loomgen targets the CommonMark **block** subset as a generation goal, but
 CommonMark **inline** parsing (emphasis, links, inline code) stays permanently
@@ -24,10 +24,11 @@ Inline parsing in the hand-written example (`examples/markdown/inline_parser.mbt
 is imperative:
 
 - speculative `ctx.checkpoint()` / `ctx.restore()` delimiter matching for
-  bold / italic / inline-code / link (L112–235), re-emitting unclosed openers as
-  literal text;
-- balanced-paren depth counting for link destinations
-  (`let mut depth = 1` … `while depth > 0`, L242–248).
+  bold, italic, and links, re-emitting unclosed openers as literal text;
+- a container-local, pure-lookahead equal-length backtick-run successor index
+  for inline code ([#484](https://github.com/dowdiness/loom/issues/484)), with
+  literal fallback for unmatched or escaped runs;
+- balanced-paren depth counting for link destinations in `parse_link`.
 
 It is reached from the block grammar via `@native` inline dispatch. The current
 example is already narrower than full CommonMark inline — it has no

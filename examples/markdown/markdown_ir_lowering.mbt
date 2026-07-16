@@ -63,6 +63,59 @@ fn trim_inline_text_start_after_newline(child : MarkdownIR) -> MarkdownIR {
 }
 
 ///|
+
+///|
+fn append_literal_backtick_ir(
+  children : Array[MarkdownIR],
+  text : String,
+  origin : MarkdownIROrigin,
+  preceded_by_escaped_text : Bool,
+) -> Unit {
+  if preceded_by_escaped_text {
+    match children.last() {
+      Some(previous) =>
+        match previous.node {
+          Text(value) if value.length() > 0 => {
+            let prefix = value[:value.length() - 1].to_owned()
+            let merged_origin = MarkdownIROrigin(
+              start=previous.origin().start(),
+              end=origin.end(),
+            )
+            children[children.length() - 1] = MarkdownIR::text(
+              prefix + text,
+              merged_origin,
+            )
+          }
+          _ => children.push(MarkdownIR::text(text, origin))
+        }
+      None => children.push(MarkdownIR::text(text, origin))
+    }
+  } else {
+    children.push(MarkdownIR::text(text, origin))
+  }
+}
+
+///|
+fn append_inline_text_ir(
+  children : Array[MarkdownIR],
+  text : String,
+  origin : MarkdownIROrigin,
+) -> Unit {
+  match children.last() {
+    Some(previous) =>
+      match previous.node {
+        Text(value) =>
+          children[children.length() - 1] = MarkdownIR::text(
+            value + text,
+            MarkdownIROrigin(start=previous.origin().start(), end=origin.end()),
+          )
+        _ => children.push(MarkdownIR::text(text, origin))
+      }
+    None => children.push(MarkdownIR::text(text, origin))
+  }
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -71,6 +124,8 @@ fn lower_inline_children_skip_with_diags(
 ) -> Array[MarkdownIR] {
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
+  let mut preceding_text_ends_escaped = false
+  let mut previous_was_escaped_backtick = false
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
@@ -94,16 +149,35 @@ fn lower_inline_children_skip_with_diags(
             }
             None => ()
           }
+          preceding_text_ends_escaped = false
+          previous_was_escaped_backtick = false
           continue
         }
         match token_kind {
-          TextToken =>
-            push_child(
-              MarkdownIR::text(
-                strip_backslash_escapes(token.text()),
-                origin_from_token(token),
-              ),
+          TextToken => {
+            let origin = origin_from_token(token)
+            let text = strip_backslash_escapes(token.text())
+            if previous_was_escaped_backtick {
+              append_inline_text_ir(children, text, origin)
+            } else {
+              push_child(MarkdownIR::text(text, origin))
+            }
+            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
+              token.text(),
             )
+            previous_was_escaped_backtick = false
+          }
+          BacktickToken => {
+            let origin = origin_from_token(token)
+            let escaped = preceding_text_ends_escaped
+            if escaped {
+              append_literal_backtick_ir(children, token.text(), origin, true)
+            } else {
+              push_child(MarkdownIR::text(token.text(), origin))
+            }
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = escaped
+          }
           ErrorToken | ErrorNode => {
             let origin = origin_from_token(token)
             push_child(
@@ -113,8 +187,14 @@ fn lower_inline_children_skip_with_diags(
                 diagnostics_in_origin(origin),
               ),
             )
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
           }
-          NewlineToken => pending_newline = Some(origin_from_token(token))
+          NewlineToken => {
+            pending_newline = Some(origin_from_token(token))
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
+          }
           HeadingMarkerToken
           | ListMarkerToken
           | OrderedListMarkerToken
@@ -124,21 +204,30 @@ fn lower_inline_children_skip_with_diags(
           | EofToken
           | CodeFenceOpenToken
           | CodeFenceCloseToken
-          | CodeTextToken => ()
-          _ =>
+          | CodeTextToken => {
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
+          }
+          _ => {
             match delimiter_text(token_kind) {
               Some(text) =>
                 push_child(MarkdownIR::text(text, origin_from_token(token)))
               None => ()
             }
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
+          }
         }
       }
-      @seam.SyntaxElement::Node(child_node) =>
+      @seam.SyntaxElement::Node(child_node) => {
+        preceding_text_ends_escaped = false
+        previous_was_escaped_backtick = false
         push_child(
           lower_inline_node_with_diags(
             child_node, newline_text, diagnostics_in_origin,
           ),
         )
+      }
     }
   }
   children
@@ -172,6 +261,8 @@ fn lower_direct_inline_token_with_diags(
           origin_from_token(token),
         ),
       )
+    BacktickToken =>
+      Some(MarkdownIR::text(token.text(), origin_from_token(token)))
     ErrorToken | ErrorNode => {
       let origin = origin_from_token(token)
       Some(MarkdownIR::raw(token.text(), origin, diagnostics_in_origin(origin)))
@@ -225,6 +316,8 @@ fn lower_direct_inline_children_with_newline_and_diags(
 ) -> Array[MarkdownIR] {
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
+  let mut preceding_text_ends_escaped = false
+  let mut previous_was_escaped_backtick = false
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
@@ -242,15 +335,51 @@ fn lower_direct_inline_children_with_newline_and_diags(
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         if token_kind == NewlineToken {
           pending_newline = Some(origin_from_token(token))
+          preceding_text_ends_escaped = false
+          previous_was_escaped_backtick = false
         } else {
-          match
-            lower_direct_inline_token_with_diags(token, diagnostics_in_origin) {
-            Some(child) => push_child(child)
-            None => ()
+          match token_kind {
+            TextToken => {
+              let origin = origin_from_token(token)
+              let text = strip_backslash_escapes(token.text())
+              if previous_was_escaped_backtick {
+                append_inline_text_ir(children, text, origin)
+              } else {
+                push_child(MarkdownIR::text(text, origin))
+              }
+              preceding_text_ends_escaped = text_ends_with_odd_backslashes(
+                token.text(),
+              )
+              previous_was_escaped_backtick = false
+            }
+            BacktickToken => {
+              let origin = origin_from_token(token)
+              let escaped = preceding_text_ends_escaped
+              if escaped {
+                append_literal_backtick_ir(children, token.text(), origin, true)
+              } else {
+                push_child(MarkdownIR::text(token.text(), origin))
+              }
+              preceding_text_ends_escaped = false
+              previous_was_escaped_backtick = escaped
+            }
+            _ => {
+              match
+                lower_direct_inline_token_with_diags(
+                  token, diagnostics_in_origin,
+                ) {
+                Some(child) => push_child(child)
+                None => ()
+              }
+              preceding_text_ends_escaped = false
+              previous_was_escaped_backtick = false
+            }
           }
         }
       }
-      @seam.SyntaxElement::Node(node) =>
+      @seam.SyntaxElement::Node(node) => {
+        preceding_text_ends_escaped = false
+        previous_was_escaped_backtick = false
         match
           lower_direct_inline_node_with_diags(
             node,
@@ -260,21 +389,114 @@ fn lower_direct_inline_children_with_newline_and_diags(
           Some(child) => push_child(child)
           None => ()
         }
+      }
     }
   }
   children
 }
 
 ///|
+
+///|
+fn normalize_inline_code_value(value : String) -> String {
+  let line_normalized = StringBuilder::new()
+  let mut pending_carriage_return = false
+  for ch in value {
+    if pending_carriage_return {
+      line_normalized.write_char(' ')
+      pending_carriage_return = false
+      if ch == '\n' {
+        continue
+      }
+    }
+    if ch == '\r' {
+      pending_carriage_return = true
+    } else if ch == '\n' {
+      line_normalized.write_char(' ')
+    } else {
+      line_normalized.write_char(ch)
+    }
+  }
+  if pending_carriage_return {
+    line_normalized.write_char(' ')
+  }
+  let normalized = line_normalized.to_string()
+  if normalized.length() >= 2 &&
+    normalized.has_prefix(" ") &&
+    normalized.has_suffix(" ") {
+    let interior = normalized[1:normalized.length() - 1].to_owned()
+    let has_non_space = for ch in interior {
+      if ch != ' ' {
+        break true
+      }
+    } nobreak {
+      false
+    }
+    if has_non_space {
+      interior
+    } else {
+      normalized
+    }
+  } else {
+    normalized
+  }
+}
+
+///|
 fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
+  let mut delimiter_count = 0
+  for element in node.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) =>
+        if @seam.FromRawKind::from_raw(token.kind()) is BacktickToken {
+          delimiter_count = delimiter_count + 1
+        }
+      _ => ()
+    }
+  }
+  let mut seen_delimiters = 0
+  let mut crosses_structural_prefix = false
   let buf = StringBuilder::new()
   let content_tokens : Array[MarkdownIROrigin] = []
+  let mut continuation_source : String? = None
+  let mut continuation_content_column = 0
   for element in node.all_children() {
     match element {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          BacktickToken => ()
+          BlockQuoteMarkerToken | ListMarkerToken | OrderedListMarkerToken =>
+            crosses_structural_prefix = true
+          IndentationToken => {
+            let source = match continuation_source {
+              Some(source) => source
+              None => {
+                let source = syntax_root(node).text()
+                continuation_content_column = nearest_container_content_column(
+                  node, source,
+                )
+                continuation_source = Some(source)
+                source
+              }
+            }
+            let token_column = visual_column_at_offset(source, token.start())
+            let stripped = strip_visual_columns(
+              token.text(),
+              token_column,
+              (continuation_content_column - token_column).max(0),
+            )
+            if stripped != token.text() {
+              crosses_structural_prefix = true
+            }
+            buf.write_string(stripped)
+          }
+          BacktickToken => {
+            seen_delimiters = seen_delimiters + 1
+            if seen_delimiters != 1 && seen_delimiters != delimiter_count {
+              buf.write_string(token.text())
+              content_tokens.push(origin_from_token(token))
+            }
+          }
           _ => {
             buf.write_string(token.text())
             content_tokens.push(origin_from_token(token))
@@ -284,7 +506,12 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
       _ => ()
     }
   }
-  (buf.to_string(), span_token_origins(content_tokens))
+  let content_origin = if crosses_structural_prefix {
+    None
+  } else {
+    span_token_origins(content_tokens)
+  }
+  (normalize_inline_code_value(buf.to_string()), content_origin)
 }
 
 ///|
@@ -309,6 +536,8 @@ fn lower_link_node_with_diags(
   let destination_origins : Array[MarkdownIROrigin] = []
   let mut url_depth = 0
   let mut past_bracket = false
+  let mut preceding_text_ends_escaped = false
+  let mut previous_was_escaped_backtick = false
   for element in node.all_children() {
     match element {
       @seam.SyntaxElement::Token(token) => {
@@ -332,10 +561,30 @@ fn lower_link_node_with_diags(
             destination_buf.write_string(token.text())
             destination_origins.push(origin_from_token(token))
           }
-          TextToken if !past_bracket =>
-            display.push(
-              MarkdownIR::text(token.text(), origin_from_token(token)),
+          TextToken if !past_bracket => {
+            let origin = origin_from_token(token)
+            let text = strip_backslash_escapes(token.text())
+            if previous_was_escaped_backtick {
+              append_inline_text_ir(display, text, origin)
+            } else {
+              display.push(MarkdownIR::text(text, origin))
+            }
+            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
+              token.text(),
             )
+            previous_was_escaped_backtick = false
+          }
+          BacktickToken if !past_bracket => {
+            let origin = origin_from_token(token)
+            let escaped = preceding_text_ends_escaped
+            if escaped {
+              append_literal_backtick_ir(display, token.text(), origin, true)
+            } else {
+              display.push(MarkdownIR::text(token.text(), origin))
+            }
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = escaped
+          }
           ErrorToken | ErrorNode if !past_bracket => {
             let origin = origin_from_token(token)
             display.push(
@@ -345,11 +594,16 @@ fn lower_link_node_with_diags(
                 diagnostics_in_origin(origin),
               ),
             )
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
           }
-          _ => ()
+          _ => {
+            preceding_text_ends_escaped = false
+            previous_was_escaped_backtick = false
+          }
         }
       }
-      @seam.SyntaxElement::Node(child_node) =>
+      @seam.SyntaxElement::Node(child_node) => {
         if !past_bracket && url_depth == 0 {
           display.push(
             lower_inline_node_with_diags(
@@ -357,6 +611,9 @@ fn lower_link_node_with_diags(
             ),
           )
         }
+        preceding_text_ends_escaped = false
+        previous_was_escaped_backtick = false
+      }
     }
   }
   MarkdownIR::link(

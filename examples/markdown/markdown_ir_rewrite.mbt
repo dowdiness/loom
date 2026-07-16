@@ -50,12 +50,7 @@ fn local_transform_inline_text(
             ),
           )
         } else {
-          match child.node {
-            Text(_) | Raw(_, _) | HardBreak(_) =>
-              buf.write_string(source_slice(source, child_origin))
-            InlineCode(value, _) => buf.write_string("`" + value + "`")
-            _ => buf.write_string(source_slice(source, child_origin))
-          }
+          buf.write_string(source_slice(source, child_origin))
         }
         continue child_origin.end()
       } nobreak {
@@ -330,9 +325,13 @@ fn local_transform_render(
     }
     InlineCode(value, content_origin) =>
       if content_origin == Some(target_origin) {
-        "`" + replacement_text + "`"
+        if replacement_text == "" {
+          ""
+        } else {
+          inline_code_markdown(replacement_text)
+        }
       } else {
-        "`" + value + "`"
+        inline_code_markdown(value)
       }
     Link(children, destination, destination_origin) => {
       let rendered_destination = if destination_origin == Some(target_origin) {

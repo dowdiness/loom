@@ -1,58 +1,16 @@
 // Inline parser for Markdown.
 //
-// Markdown delimiters (*, **, `, [) are ambiguous: `*foo` might be
-// an italic opener or literal text. We resolve this via speculative
-// parsing with checkpoint/restore: open a CST node, parse content,
-// and if the closing delimiter is missing before the line/block ends,
-// restore the checkpoint and re-emit the opener as literal text
-// wrapped in an ErrorNode. This preserves source fidelity while
-// producing correct AST structure for well-formed markup.
+// Markdown delimiters (*, **, `, [) are ambiguous. Bold, italic, and links
+// use speculative checkpoint/restore so malformed markup remains lossless.
+// Code spans instead use a container-local delimiter index that pairs each
+// eligible maximal backtick run with its next equal-length run. This keeps
+// matching linear while preserving literal source spelling for unmatched runs.
 
 ///|
 /// True when the current token ends an inline run: block markers, newlines,
 /// blank lines, or EOF. Inline parsers check this to know when to stop.
 fn is_inline_end(token : Token) -> Bool {
   is_block_boundary(token) || token is Newline || token == EOF
-}
-
-///|
-/// Parse inline content until block boundary, newline, or EOF.
-fn parse_inline_content(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  parse_inline_content_with_policy(ctx, InlineParsePolicy::paragraph())
-}
-
-///|
-fn parse_line_bound_inline_content(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Unit {
-  parse_inline_content_with_policy(ctx, InlineParsePolicy::line_bound())
-}
-
-///|
-fn parse_setext_heading_inline_content(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_list_marker~ : Bool,
-  min_indent~ : Int,
-) -> Unit {
-  parse_inline_content_with_policy(
-    ctx,
-    InlineParsePolicy::setext_heading(allow_list_marker~, min_indent~),
-  )
-}
-
-///|
-fn parse_list_item_setext_heading_inline_content(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  allow_ordered_marker~ : Bool,
-  min_indent~ : Int,
-) -> Unit {
-  parse_inline_content_with_policy(
-    ctx,
-    InlineParsePolicy::list_item_setext_heading(
-      allow_ordered_marker~,
-      min_indent~,
-    ),
-  )
 }
 
 ///|
@@ -73,13 +31,132 @@ fn token_is_inline_end(token : Token, policy : InlineParsePolicy) -> Bool {
 }
 
 ///|
-fn parse_inline_content_with_policy(
+priv struct CodeSpanDelimiterIndex {
+  eligible_openers : Map[Int, Bool]
+  successors : Map[Int, Int]
+}
+
+///|
+fn text_ends_with_odd_backslashes(text : StringView) -> Bool {
+  let mut count = 0
+  for ch in text {
+    if ch == '\\' {
+      count = count + 1
+    } else {
+      count = 0
+    }
+  }
+  count % 2 == 1
+}
+
+///|
+fn index_code_span_delimiter_run(
+  index : CodeSpanDelimiterIndex,
+  previous_by_length : Map[Int, Int],
+  start : Int,
+  run_length : Int,
+  eligible_opener : Bool,
+) -> Unit {
+  index.eligible_openers[start] = eligible_opener
+  match previous_by_length.get(run_length) {
+    Some(previous) => index.successors[previous] = start
+    None => ()
+  }
+  previous_by_length[run_length] = start
+}
+
+///|
+fn parse_indexed_inline_container(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  continue_line : () -> Bool,
 ) -> Unit {
-  while !token_is_inline_end(ctx.peek(), policy) {
-    parse_inline(ctx, policy)
+  let delimiters = ctx.lookahead(() => {
+    let index : CodeSpanDelimiterIndex = {
+      eligible_openers: {},
+      successors: {},
+    }
+    let previous_by_length : Map[Int, Int] = {}
+    let mut preceding_text_ends_escaped = false
+    while true {
+      while !token_is_inline_end(ctx.peek(), policy) {
+        match ctx.peek() {
+          Text(_) =>
+            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
+              ctx.current_token_text(),
+            )
+          Backtick => {
+            let range = ctx.current_token_range()
+            let start = range.start
+            let run_length = range.length()
+            index_code_span_delimiter_run(
+              index,
+              previous_by_length,
+              start,
+              run_length,
+              !preceding_text_ends_escaped,
+            )
+            preceding_text_ends_escaped = false
+          }
+          _ => preceding_text_ends_escaped = false
+        }
+        ctx.emit_current_token()
+      }
+      guard ctx.peek() is Newline && continue_line() else { break }
+      preceding_text_ends_escaped = false
+    }
+    index
+  })
+  while true {
+    while !token_is_inline_end(ctx.peek(), policy) {
+      match ctx.peek() {
+        Backtick => parse_indexed_inline_code(ctx, delimiters, continue_line)
+        _ => parse_inline(ctx, policy, delimiters, continue_line)
+      }
+    }
+    guard ctx.peek() is Newline && continue_line() else { break }
   }
+}
+
+///|
+fn parse_indexed_inline_code(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  delimiters : CodeSpanDelimiterIndex,
+  continue_line : () -> Bool,
+) -> Unit {
+  let opener_start = ctx.current_token_range().start
+  guard delimiters.eligible_openers.get(opener_start).unwrap_or(false) else {
+    ctx.emit_token(BacktickToken)
+    return
+  }
+  guard delimiters.successors.get(opener_start) is Some(closer_start) else {
+    ctx.emit_token(BacktickToken)
+    return
+  }
+  ctx.start_node(InlineCodeNode)
+  ctx.emit_token(BacktickToken)
+  while ctx.current_token_range().start != closer_start {
+    if ctx.peek() is Newline {
+      guard continue_line() else {
+        abort("indexed code span crossed its container boundary")
+      }
+      continue
+    }
+    match ctx.peek() {
+      Text(_) => ctx.emit_token(TextToken)
+      Indentation(_) => ctx.emit_token(TextToken)
+      Star => ctx.emit_token(StarToken)
+      StarStar => ctx.emit_token(StarStarToken)
+      Backtick => ctx.emit_token(BacktickToken)
+      LeftBracket => ctx.emit_token(LeftBracketToken)
+      RightBracket => ctx.emit_token(RightBracketToken)
+      LeftParen => ctx.emit_token(LeftParenToken)
+      RightParen => ctx.emit_token(RightParenToken)
+      _ => ctx.bump_error()
+    }
+  }
+  ctx.emit_token(BacktickToken)
+  ctx.finish_node()
 }
 
 ///|
@@ -87,12 +164,14 @@ fn parse_inline_content_with_policy(
 fn parse_inline(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  delimiters : CodeSpanDelimiterIndex,
+  continue_line : () -> Bool,
 ) -> Unit {
   match ctx.peek() {
-    StarStar => parse_bold(ctx, policy)
-    Star => parse_italic(ctx, policy)
-    Backtick => parse_inline_code(ctx)
-    LeftBracket => parse_link(ctx, policy)
+    StarStar => parse_bold(ctx, policy, delimiters, continue_line)
+    Star => parse_italic(ctx, policy, delimiters, continue_line)
+    Backtick => parse_indexed_inline_code(ctx, delimiters, continue_line)
+    LeftBracket => parse_link(ctx, policy, delimiters, continue_line)
     Text(_) => ctx.emit_token(TextToken)
     Indentation(_) => ctx.emit_token(TextToken)
     OrderedListMarker(_) if policy.allows_ordered_marker() =>
@@ -108,6 +187,8 @@ fn parse_inline(
 fn parse_bold(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  delimiters : CodeSpanDelimiterIndex,
+  continue_line : () -> Bool,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(BoldNode)
@@ -116,12 +197,11 @@ fn parse_bold(
   while !(ctx.peek() is StarStar) &&
         !token_is_inline_block_boundary(ctx.peek(), policy) {
     if ctx.peek() is Newline {
-      if !policy.softbreak_continues(ctx) {
+      if !continue_line() {
         break
       }
-      ctx.emit_token(NewlineToken)
     } else {
-      parse_inline(ctx, policy)
+      parse_inline(ctx, policy, delimiters, continue_line)
     }
   }
   if ctx.peek() is StarStar {
@@ -143,6 +223,8 @@ fn parse_bold(
 fn parse_italic(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  delimiters : CodeSpanDelimiterIndex,
+  continue_line : () -> Bool,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(ItalicNode)
@@ -151,12 +233,11 @@ fn parse_italic(
   while !(ctx.peek() is Star) &&
         !token_is_inline_block_boundary(ctx.peek(), policy) {
     if ctx.peek() is Newline {
-      if !policy.softbreak_continues(ctx) {
+      if !continue_line() {
         break
       }
-      ctx.emit_token(NewlineToken)
     } else {
-      parse_inline(ctx, policy)
+      parse_inline(ctx, policy, delimiters, continue_line)
     }
   }
   if ctx.peek() is Star {
@@ -173,50 +254,19 @@ fn parse_italic(
 }
 
 ///|
-/// Parse inline code: `content`
-fn parse_inline_code(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
-  let cp = ctx.checkpoint()
-  ctx.start_node(InlineCodeNode)
-  ctx.emit_token(BacktickToken) // opening `
-  // Consume text tokens until closing ` or block boundary
-  while !(ctx.peek() is Backtick) && !is_inline_end(ctx.peek()) {
-    // Inside inline code, everything is text
-    match ctx.peek() {
-      Text(_) => ctx.emit_token(TextToken)
-      Star => ctx.emit_token(StarToken)
-      StarStar => ctx.emit_token(StarStarToken)
-      LeftBracket => ctx.emit_token(LeftBracketToken)
-      RightBracket => ctx.emit_token(RightBracketToken)
-      LeftParen => ctx.emit_token(LeftParenToken)
-      RightParen => ctx.emit_token(RightParenToken)
-      _ => ctx.bump_error()
-    }
-  }
-  if ctx.peek() is Backtick {
-    ctx.emit_token(BacktickToken) // closing `
-    ctx.finish_node()
-  } else {
-    // Unclosed inline code — restore and treat ` as text
-    ctx.finish_node()
-    ctx.restore(cp)
-    ctx.start_node(ErrorNode)
-    ctx.emit_token(BacktickToken)
-    ctx.finish_node()
-  }
-}
-
-///|
 /// Parse link: [text](url)
 fn parse_link(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  delimiters : CodeSpanDelimiterIndex,
+  continue_line : () -> Bool,
 ) -> Unit {
   let cp = ctx.checkpoint()
   ctx.start_node(LinkNode)
   ctx.emit_token(LeftBracketToken) // [
   // Parse link text content until ]
   while !(ctx.peek() is RightBracket) && !is_inline_end(ctx.peek()) {
-    parse_inline(ctx, policy)
+    parse_inline(ctx, policy, delimiters, continue_line)
   }
   if !(ctx.peek() is RightBracket) {
     // Unclosed bracket — restore and treat [ as text
