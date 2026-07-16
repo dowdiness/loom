@@ -114,7 +114,8 @@ original Markdown-only scope.
 
 - [x] Run the full Markdown package suite, incremental/parser/source-fidelity tests, MarkdownIR property tests, mdast parity, CommonMark HTML fixtures, and the 512/1024/2048 adversarial delimiter benchmark/check established in Task 2.
 - [ ] Run workspace `moon check` and diagnostics for each changed Markdown file using `moon ide`; repair only actual exhaustive-match/interface fallout from Tasks 1–3.
-- [ ] Update the native-only ADR only if the final code confirms the exact scoped claim: Markdown code-span parsing remains native and does not justify Grammar IR or conditional-commit API expansion.
+  - Deviation (2026-07-15): `moon ide --help` confirms this toolchain exposes no diagnostics subcommand; `moon check` passed after every final change instead. The diagnostics-specific acceptance criterion remains intentionally unchecked.
+- [x] Update the native-only ADR only if the final code confirms the exact scoped claim: Markdown code-span parsing remains native and does not justify Grammar IR or conditional-commit API expansion.
 - [ ] Update `docs/README.md` for plan/ADR status. Mark this plan executed only after every checkbox has concrete verification evidence; archive it only under `docs/development/agent-docs-protocol.md`.
 - [ ] Record `No ADR needed:` only if no accepted architectural boundary changes; otherwise create/update the ADR and index it. The deferred authoring-fact integration requires neither an API nor ADR in this issue.
 - [ ] Commit documentation separately: `docs: close markdown code span plan`.
