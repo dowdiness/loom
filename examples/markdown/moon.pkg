@@ -2,6 +2,7 @@ import {
   "dowdiness/loom/core",
   "dowdiness/seam",
   "dowdiness/loom",
+  "dowdiness/loom/projection",
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
   "moonbitlang/core/string",
