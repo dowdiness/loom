@@ -14,9 +14,9 @@
 
 **Known boundary:** List-item setext headings preserve their CST shape and structural code-span continuation ownership, including the P2 regression. Current legacy AST and MarkdownIR list-item projections do not expose that heading as a block child; this plan does not claim an end-to-end `InlineCode.content_origin` contract for that unsupported projection shape.
 
-## Decision record
+## Decision record:
 
-- Updated ADR: [Markdown Inline Parsing Stays `@native`](../../decisions/2026-07-06-markdown-inline-native-only.md) records #484's container-local indexed native code-span algorithm; no Grammar IR or conditional-commit API expansion was introduced.
+- [ADR: Markdown Inline Parsing Stays `@native`](../../decisions/2026-07-06-markdown-inline-native-only.md) records #484's container-local indexed native code-span algorithm; no Grammar IR or conditional-commit API expansion was introduced.
 
 **Architecture:** Baseline lexer indentation becomes a structural `Indentation` prefix followed by ordinary line tokens. The Markdown CST parser keeps per-line classification through a private `LinePrefix`; each semantic inline container uses a pure-lookahead prepass to map eligible backtick runs to their next equal-length successor. CST conversion and MarkdownIR lowering normalize successful span content while exposing a content origin only when raw content is contiguous.
 
