@@ -497,13 +497,34 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
               prev_dash = false
             }
             None => {
-              if !has_content {
-                self.note_malformed(self.pos)
+              match class_posix_name_prefix(self.pattern, self.pos) {
+                Some((name, after_name)) => {
+                  if is_posix_allowed(name) {
+                    self.note_malformed(self.pos)
+                    self.pos = after_name
+                    has_content = true
+                    prev_token = true
+                    prev_dash = false
+                  } else {
+                    if !has_content {
+                      self.note_malformed(self.pos)
+                    }
+                    self.bump(1)
+                    has_content = true
+                    prev_token = true
+                    prev_dash = false
+                  }
+                }
+                None => {
+                  if !has_content {
+                    self.note_malformed(self.pos)
+                  }
+                  self.bump(1)
+                  has_content = true
+                  prev_token = true
+                  prev_dash = false
+                }
               }
-              self.bump(1)
-              has_content = true
-              prev_token = true
-              prev_dash = false
             }
           }
         } else {
@@ -524,6 +545,19 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
 
   self.note_malformed(open)
   Class
+}
+
+///|
+fn class_posix_name_prefix(pattern : String, pos : Int) -> (String, Int)? {
+  let mut name_end = pos + 2
+  if name_end >= pattern.length() || !is_ascii_alpha(pattern[name_end]) {
+    None
+  } else {
+    while name_end < pattern.length() && is_ascii_alpha(pattern[name_end]) {
+      name_end = name_end + 1
+    }
+    Some((pattern[pos + 2:name_end].to_owned(), name_end))
+  }
 }
 
 ///|

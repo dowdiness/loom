@@ -188,5 +188,6 @@ test "pattern parser rejects unknown and malformed escapes" {
 test "pattern parser rejects malformed POSIX attempts after class content" {
   expect_pattern_err("[a[:alpha_1:]]")
   expect_pattern_err("[a[:not_a_real_class:]]")
+  expect_pattern_err("[a[:digit]")
   expect_pattern_ok("[a[:z]X")
 }
