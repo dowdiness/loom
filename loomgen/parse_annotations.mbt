@@ -756,7 +756,7 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
   }
 }
 
-
+///|
 fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
   match parse_pattern(pattern) {
     Ok(parsed) =>
@@ -776,6 +776,7 @@ fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
   }
 }
 
+///|
 /// Conservatively decide whether a `#loom.pattern` regex can match the empty
 /// string. The argument is the raw pattern body (MoonBit `re` dialect) WITHOUT
 /// the generator's leading `^` anchor.

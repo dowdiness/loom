@@ -145,6 +145,8 @@ fn PatternParser::peek(self : PatternParser) -> UInt16? {
 fn PatternParser::bump(self : PatternParser, count : Int) -> Unit {
   self.pos = self.pos + count
 }
+
+///|
 fn is_ascii_digit(c : UInt16) -> Bool {
   c >= '0' && c <= '9'
 }
@@ -154,19 +156,30 @@ fn is_ascii_alpha(c : UInt16) -> Bool {
   (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
-
 ///|
 fn is_hex_digit(c : UInt16) -> Bool {
-  (c >= '0' && c <= '9') ||
-    (c >= 'a' && c <= 'f') ||
-    (c >= 'A' && c <= 'F')
+  (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 ///|
 fn is_literal_meta_escape(c : UInt16) -> Bool {
   match c {
-    '\\' | '"' | '.' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '|' |
-    '^' | '$' | '-' => true
+    '\\'
+    | '"'
+    | '.'
+    | '['
+    | ']'
+    | '('
+    | ')'
+    | '{'
+    | '}'
+    | '*'
+    | '+'
+    | '?'
+    | '|'
+    | '^'
+    | '$'
+    | '-' => true
     _ => false
   }
 }
@@ -215,26 +228,43 @@ fn parser_error_reason(
     if pos < pattern.length() && pattern[pos] == '|' {
       return "alternation '|' is not supported; regex alternation is leftmost-match, not longest-match, so a branch that is a prefix of a later branch would under-match and split tokens. Use separate token variants or a character class"
     }
-    if pos > 0 && pattern[pos] == '?' &&
-      (pattern[pos - 1] == '*' || pattern[pos - 1] == '+' || pattern[pos - 1] == '?' ||
-        pattern[pos - 1] == '}') {
-      return "lazy quantifier '" + pattern[pos - 1:pos + 1].to_owned() +
+    if pos > 0 &&
+      pattern[pos] == '?' &&
+      (
+        pattern[pos - 1] == '*' ||
+        pattern[pos - 1] == '+' ||
+        pattern[pos - 1] == '?' ||
+        pattern[pos - 1] == '}'
+      ) {
+      return "lazy quantifier '" +
+        pattern[pos - 1:pos + 1].to_owned() +
         "' is not supported; a longest-match lexer requires greedy quantifiers"
     }
     if pos + 1 < pattern.length() && pattern[pos] == '\\' {
       let esc = pattern[pos + 1]
-      if esc == 'b' || esc == 'B' || esc == 'A' || esc == 'z' ||
-        esc == 'Z' || esc == 'G' {
-        return "zero-width assertion escape " + pattern[pos:pos + 2].to_owned() +
+      if esc == 'b' ||
+        esc == 'B' ||
+        esc == 'A' ||
+        esc == 'z' ||
+        esc == 'Z' ||
+        esc == 'G' {
+        return "zero-width assertion escape " +
+          pattern[pos:pos + 2].to_owned() +
           " is not supported by the re dialect"
       }
-      if esc == 'd' || esc == 'D' || esc == 's' || esc == 'S' ||
-        esc == 'w' || esc == 'W' {
-        return "character-class escape " + pattern[pos:pos + 2].to_owned() +
+      if esc == 'd' ||
+        esc == 'D' ||
+        esc == 's' ||
+        esc == 'S' ||
+        esc == 'w' ||
+        esc == 'W' {
+        return "character-class escape " +
+          pattern[pos:pos + 2].to_owned() +
           " is not supported by the re dialect; use a POSIX class such as [[:digit:]], [[:space:]], or [[:alnum:]]"
       }
     }
-    if pos + 1 < pattern.length() && pattern[pos] == '(' &&
+    if pos + 1 < pattern.length() &&
+      pattern[pos] == '(' &&
       pattern[pos + 1] == '?' {
       return "(?...) groups (non-capturing, flags, or lookaround) are not supported; use a plain group (..)"
     }
@@ -246,7 +276,8 @@ fn parser_error_reason(
         '{' => return "unterminated counted quantifier '{'"
         '\\' => return "pattern ends with an unescaped backslash"
         ')' => return "unbalanced ')'"
-        '(' => return "unbalanced '(' (" + group_depth.to_string() + " unclosed)"
+        '(' =>
+          return "unbalanced '(' (" + group_depth.to_string() + " unclosed)"
         _ => ()
       }
     }
@@ -254,6 +285,7 @@ fn parser_error_reason(
   }
 }
 
+///|
 fn parse_pattern(pattern : String) -> Result[Pattern, PatternError] {
   let parser = PatternParser::PatternParser(pattern)
   let tree = parser.parse_top()
@@ -262,11 +294,21 @@ fn parse_pattern(pattern : String) -> Result[Pattern, PatternError] {
   }
   match parser.first_malformed {
     Some(pos) =>
-      Err(PatternError::Malformed(pos, parser_error_reason(pattern, pos, false, parser.group_depth)))
+      Err(
+        PatternError::Malformed(
+          pos,
+          parser_error_reason(pattern, pos, false, parser.group_depth),
+        ),
+      )
     None =>
       match parser.first_unsupported {
         Some(pos) =>
-          Err(PatternError::Unsupported(pos, parser_error_reason(pattern, pos, true, 0)))
+          Err(
+            PatternError::Unsupported(
+              pos,
+              parser_error_reason(pattern, pos, true, 0),
+            ),
+          )
         None => Ok(tree)
       }
   }
@@ -526,14 +568,13 @@ fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
       self.bump(2)
     }
     't' | 'r' | 'n' => self.bump(2)
-    _ => {
+    _ =>
       if is_literal_meta_escape(esc) {
         self.bump(2)
       } else {
         self.note_unsupported(open)
         self.bump(2)
       }
-    }
   }
   Escape
 }
@@ -594,9 +635,9 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
               prev_token = true
               prev_dash = false
             }
-            None => {
+            None =>
               match class_posix_name_prefix(self.pattern, self.pos) {
-                Some((name, after_name)) => {
+                Some((name, after_name)) =>
                   if is_posix_allowed(name) {
                     self.note_malformed(self.pos)
                     self.pos = after_name
@@ -612,7 +653,6 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
                     prev_token = true
                     prev_dash = false
                   }
-                }
                 None => {
                   if !has_content {
                     self.note_malformed(self.pos)
@@ -623,7 +663,6 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
                   prev_dash = false
                 }
               }
-            }
           }
         } else {
           self.bump(1)
@@ -693,4 +732,3 @@ fn class_posix_class(pattern : String, pos : Int) -> (String, Int)? {
   }
   None
 }
-
