@@ -24,10 +24,10 @@ enum Pattern {
   Escape
   Class
   Group(Pattern)
-  ZeroOrMore(Pattern)
-  OneOrMore(Pattern)
-  Optional(Pattern)
-  Repeat(Pattern, Int, Int?)
+  ZeroOrMore(Pattern, Bool)
+  OneOrMore(Pattern, Bool)
+  Optional(Pattern, Bool)
+  Repeat(Pattern, Int, Int?, Bool)
 }
 
 ///|
@@ -49,10 +49,10 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
     Escape => false
     Class => false
     Group(inner) => inner.is_nullable()
-    ZeroOrMore(_) => true
-    OneOrMore(inner) => inner.is_nullable()
-    Optional(_) => true
-    Repeat(inner, min, _) => min == 0 || inner.is_nullable()
+    ZeroOrMore(_, _) => true
+    OneOrMore(inner, _) => inner.is_nullable()
+    Optional(_, _) => true
+    Repeat(inner, min, _, _) => min == 0 || inner.is_nullable()
   }
 }
 
@@ -276,28 +276,34 @@ fn PatternParser::parse_quantifier(
   let quantized = match self.peek() {
     Some('*') => {
       self.bump(1)
-      ZeroOrMore(node)
+      ZeroOrMore(node, false)
     }
     Some('+') => {
       self.bump(1)
-      OneOrMore(node)
+      OneOrMore(node, false)
     }
     Some('?') => {
       self.bump(1)
-      Optional(node)
+      Optional(node, false)
     }
     Some('{') => self.parse_counted(node)
     _ => node
   }
 
-  match self.peek() {
+  let is_lazy = match self.peek() {
     Some('?') => {
-      self.note_unsupported(self.pos)
       self.bump(1)
+      true
     }
-    _ => ()
+    _ => false
   }
-  quantized
+  match quantized {
+    ZeroOrMore(inner, _) => ZeroOrMore(inner, is_lazy)
+    OneOrMore(inner, _) => OneOrMore(inner, is_lazy)
+    Optional(inner, _) => Optional(inner, is_lazy)
+    Repeat(inner, min, max, _) => Repeat(inner, min, max, is_lazy)
+    other => other
+  }
 }
 
 ///|
@@ -338,7 +344,7 @@ fn PatternParser::parse_counted(
 
   if self.pattern[i] == '}' {
     self.pos = i + 1
-    return Repeat(node, min, Some(min))
+    return Repeat(node, min, Some(min), false)
   }
 
   if self.pattern[i] != ',' {
@@ -362,7 +368,7 @@ fn PatternParser::parse_counted(
 
   if self.pattern[i] == '}' {
     self.pos = i + 1
-    return Repeat(node, min, None)
+    return Repeat(node, min, None, false)
   }
 
   if !is_ascii_digit(self.pattern[i]) {
@@ -385,7 +391,7 @@ fn PatternParser::parse_counted(
   }
   if j < self.length && self.pattern[j] == '}' {
     self.pos = j + 1
-    return Repeat(node, min, Some(max))
+    return Repeat(node, min, Some(max), false)
   }
 
   self.note_malformed(open)

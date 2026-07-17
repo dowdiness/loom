@@ -85,8 +85,8 @@ fn expect_nullable(pattern : String, expected : Bool) -> Unit {
 test "pattern parser accepts atoms and greedy quantifiers" {
   for
     pattern in [
-      "a", "\\.", "\\x41", "^a$", "(ab)+", "a*", "a+", "a?b", "a{2}", "a{2,4}", "a{2,}",
-      "a{0,3}", "a{0}", "[a-z]", "[a|b]", "[a\\-z]", "[^a]",
+      "a", "\\.", "\\x41", "^a$", "(ab)+", "a*", "a+", "a?b", "a*?", "a+?", "a??", "a{1,3}?",
+      "a{2}", "a{2,4}", "a{2,}", "a{0,3}", "a{0}", "[a-z]", "[a|b]", "[a\\-z]", "[^a]",
     ] {
     expect_pattern_ok(pattern)
   }
@@ -123,8 +123,7 @@ test "pattern parser rejects unsupported POSIX classes" {
 test "pattern parser rejects unsupported constructs at every group depth" {
   for
     pattern in [
-      "(?ab)", "(foo|bar)", "(foo|foobar)", "\\bfoo", "\\d+", "a*?", "a+?", "a??",
-      "a{1,3}?", "foo|bar",
+      "(?ab)", "(foo|bar)", "(foo|foobar)", "\\bfoo", "\\d+", "foo|bar",
     ] {
     expect_pattern_err(pattern)
   }

@@ -756,7 +756,7 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
   }
 }
 
-///|
+
 /// Conservatively decide whether a `#loom.pattern` regex can match the empty
 /// string. The argument is the raw pattern body (MoonBit `re` dialect) WITHOUT
 /// the generator's leading `^` anchor.
@@ -770,120 +770,12 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 /// empty string `""`, an all-optional sequence like `[a-z]*` or `(foo)?`, or a
 /// top-level alternation `a|b` where some branch is nullable.
 fn is_nullable_pattern(pattern : String) -> Bool {
-  if pattern.length() == 0 {
-    return true
-  }
-  let (nullable, _) = nullable_alt(pattern, 0)
-  nullable
-}
-
-///|
-/// Parse a top-level alternation `seq ( '|' seq )*` from `pos`, stopping at an
-/// unmatched ')' or end of input. Nullable iff ANY branch is nullable.
-fn nullable_alt(p : String, pos : Int) -> (Bool, Int) {
-  let (first, next) = nullable_seq(p, pos)
-  let mut result = first
-  let mut i = next
-  while i < p.length() && p[i] == '|' {
-    let (branch, after) = nullable_seq(p, i + 1)
-    result = result || branch
-    i = after
-  }
-  (result, i)
-}
-
-///|
-/// Parse a concatenation of quantified atoms until '|', ')', or end. An empty
-/// sequence is nullable; otherwise nullable iff EVERY atom is optional.
-fn nullable_seq(p : String, pos : Int) -> (Bool, Int) {
-  let mut i = pos
-  let mut all_optional = true
-  while i < p.length() && p[i] != '|' && p[i] != ')' {
-    let (atom_nullable, after_atom) = nullable_atom(p, i)
-    let (quant_nullable, after_quant) = apply_quantifier(
-      atom_nullable, p, after_atom,
-    )
-    if !quant_nullable {
-      all_optional = false
-    }
-    i = after_quant
-  }
-  (all_optional, i)
-}
-
-///|
-/// Parse a single atom (literal, escape, char class, group, or zero-width
-/// anchor) and return (atom_is_nullable, next_pos) BEFORE any quantifier.
-fn nullable_atom(p : String, pos : Int) -> (Bool, Int) {
-  let c = p[pos]
-  if c == '\\' {
-    // Escaped char consumes one literal character — not nullable. (Zero-width
-    // escapes like \b are not analyzed; they are nonsensical in token patterns.)
-    let next = if pos + 1 < p.length() { pos + 2 } else { pos + 1 }
-    (false, next)
-  } else if c == '^' || c == '$' {
-    // Zero-width anchor matches the empty string.
-    (true, pos + 1)
-  } else if c == '[' {
-    // Char class matches exactly one character — not nullable. `class_end`
-    // finds the true closing `]`, accounting for `\]` escapes and POSIX
-    // elements like `[:digit:]` whose inner `]` must not close the class early.
-    (false, class_end(p, pos))
-  } else if c == '(' {
-    let (inner, after) = nullable_alt(p, pos + 1)
-    let next = if after < p.length() && p[after] == ')' {
-      after + 1
-    } else {
-      after
-    }
-    (inner, next)
-  } else {
-    // Ordinary literal character.
-    (false, pos + 1)
+  match parse_pattern(pattern) {
+    Ok(parsed) => parsed.is_nullable()
+    Err(_) => true
   }
 }
 
-///|
-/// Apply a trailing quantifier to an atom's nullability. `*` and `?` make the
-/// atom optional; `+` preserves it; `{m,n}` is optional iff its lower bound is
-/// zero or absent. No quantifier leaves the atom's nullability unchanged. A
-/// lazy modifier (a `?` immediately after the quantifier, e.g. `a*?`) is
-/// consumed without changing nullability — otherwise it would be mis-read as a
-/// separate optional atom and a genuinely nullable pattern (`a*?`) would be
-/// classified non-nullable.
-fn apply_quantifier(atom_nullable : Bool, p : String, pos : Int) -> (Bool, Int) {
-  if pos >= p.length() {
-    return (atom_nullable, pos)
-  }
-  let (nullable, next) = match p[pos] {
-    '*' | '?' => (true, pos + 1)
-    '+' => (atom_nullable, pos + 1)
-    '{' => {
-      // {min,max}: nullable iff min is zero or absent.
-      let mut j = pos + 1
-      let mut min_is_zero = true
-      while j < p.length() && p[j] >= '0' && p[j] <= '9' {
-        if p[j] != '0' {
-          min_is_zero = false
-        }
-        j = j + 1
-      }
-      while j < p.length() && p[j] != '}' {
-        j = j + 1
-      }
-      let after_brace = if j < p.length() { j + 1 } else { j }
-      (min_is_zero || atom_nullable, after_brace)
-    }
-    // No quantifier — return immediately without consuming a following char.
-    _ => return (atom_nullable, pos)
-  }
-  // Consume a lazy `?` modifier on the quantifier just parsed.
-  if next < p.length() && p[next] == '?' {
-    (nullable, next + 1)
-  } else {
-    (nullable, next)
-  }
-}
 
 ///|
 /// If a well-formed POSIX class element `[:name:]` (non-empty alphabetic name)
