@@ -1,11 +1,21 @@
 ///|
 /// Whitebox tests for the conservative nullable-pattern guard (#521).
 /// Soundness: a genuinely nullable pattern must NEVER be classified `false`.
+fn is_nullable_pattern(pattern : String) -> Bool {
+  match parse_pattern(pattern) {
+    Ok(parsed) => parsed.is_nullable()
+    Err(_) => true
+  }
+}
 
 ///|
 test "is_nullable_pattern: nullable forms are rejected" {
   // empty pattern
   inspect(is_nullable_pattern(""), content="true")
+  // Parser errors conservatively return true rather than false negatives.
+  inspect(is_nullable_pattern("a|b"), content="true")
+  inspect(is_nullable_pattern("\\d+"), content="true")
+  inspect(is_nullable_pattern("a)"), content="true")
   // every atom optional
   inspect(is_nullable_pattern("[a-z]*"), content="true")
   inspect(is_nullable_pattern("(foo)?"), content="true")
@@ -49,8 +59,8 @@ test "is_nullable_pattern: patterns with a required atom are accepted" {
   // the deprecated `\d+`; must stay accepted after the class-scan fix.
   inspect(is_nullable_pattern("[[:digit:]]+"), content="false")
   inspect(is_nullable_pattern("[[:alpha:]][[:alnum:]]*"), content="false")
-  // Lazy modifier on a required quantifier stays non-nullable.
-  inspect(is_nullable_pattern("a+?"), content="false")
+  // Malformed/unsupported lazy syntax is conservative-nullable.
+  inspect(is_nullable_pattern("a+?"), content="true")
   // A class containing a bare `[:` that is NOT a POSIX element must close at its
   // real `]`, leaving the following required atom intact (class-scan regression).
   inspect(is_nullable_pattern("[a[:z]X"), content="false")

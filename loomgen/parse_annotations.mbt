@@ -229,36 +229,40 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                     )
                   _ => ()
                 }
-                if malformed_re(p) is Some(reason) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has a malformed #loom.pattern \"" +
-                    p +
-                    "\": " +
-                    reason +
-                    ". This would emit a regex that fails to compile in the generated lexer.",
-                  )
-                }
-                if unsupported_re_construct(p) is Some(reason) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has an unsupported #loom.pattern \"" +
-                    p +
-                    "\": " +
-                    reason +
-                    ". loomgen's #loom.pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
-                  )
-                }
-                if is_nullable_pattern(p) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has a nullable #loom.pattern \"" +
-                    p +
-                    "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
-                  )
+                match validate_pattern(p) {
+                  Err(Malformed(at, reason)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has a malformed #loom.pattern \"" +
+                      p +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
+                      reason +
+                      ". This would emit a regex that fails to compile in the generated lexer.",
+                    )
+                  Err(Unsupported(at, reason)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has an unsupported #loom.pattern \"" +
+                      p +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
+                      reason +
+                      ". loomgen's #loom.pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
+                    )
+                  Ok(true) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has a nullable #loom.pattern \"" +
+                      p +
+                      "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
+                    )
+                  Ok(false) => ()
                 }
               }
               None => ()
@@ -331,36 +335,40 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                     )
                   _ => ()
                 }
-                if malformed_re(p) is Some(reason) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has a malformed #loom.line_pattern \"" +
-                    p +
-                    "\": " +
-                    reason +
-                    ". This would emit a regex that fails to compile in the generated line lexer.",
-                  )
-                }
-                if unsupported_re_construct(p) is Some(reason) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has an unsupported #loom.line_pattern \"" +
-                    p +
-                    "\": " +
-                    reason +
-                    ". loomgen's #loom.line_pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
-                  )
-                }
-                if is_nullable_pattern(p) {
-                  return Err(
-                    "token variant " +
-                    v.name +
-                    " has a nullable #loom.line_pattern \"" +
-                    p +
-                    "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
-                  )
+                match validate_pattern(p) {
+                  Err(Malformed(at, reason)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has a malformed #loom.line_pattern \"" +
+                      p +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
+                      reason +
+                      ". This would emit a regex that fails to compile in the generated line lexer.",
+                    )
+                  Err(Unsupported(at, reason)) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has an unsupported #loom.line_pattern \"" +
+                      p +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
+                      reason +
+                      ". loomgen's #loom.line_pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
+                    )
+                  Ok(true) =>
+                    return Err(
+                      "token variant " +
+                      v.name +
+                      " has a nullable #loom.line_pattern \"" +
+                      p +
+                      "\" that can match the empty string; this would produce a zero-width token. Rewrite it with a required atom (e.g. + instead of *).",
+                    )
+                  Ok(false) => ()
                 }
               }
               None => ()
@@ -757,6 +765,14 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 }
 
 ///|
+fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
+  match parse_pattern(pattern) {
+    Ok(parsed) => Ok(parsed.is_nullable())
+    Err(error) => Err(error)
+  }
+}
+
+///|
 /// Conservatively decide whether a `#loom.pattern` regex can match the empty
 /// string. The argument is the raw pattern body (MoonBit `re` dialect) WITHOUT
 /// the generator's leading `^` anchor.
@@ -766,309 +782,6 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 /// and stall. Over-rejecting some safe-but-complex patterns is acceptable; the
 /// caller's error message tells the author to add an explicit required atom.
 ///
-/// A pattern is nullable when it has no *required* atom at the top level: the
-/// empty string `""`, an all-optional sequence like `[a-z]*` or `(foo)?`, or a
-/// top-level alternation `a|b` where some branch is nullable.
-fn is_nullable_pattern(pattern : String) -> Bool {
-  if pattern.length() == 0 {
-    return true
-  }
-  let (nullable, _) = nullable_alt(pattern, 0)
-  nullable
-}
-
-///|
-/// Parse a top-level alternation `seq ( '|' seq )*` from `pos`, stopping at an
-/// unmatched ')' or end of input. Nullable iff ANY branch is nullable.
-fn nullable_alt(p : String, pos : Int) -> (Bool, Int) {
-  let (first, next) = nullable_seq(p, pos)
-  let mut result = first
-  let mut i = next
-  while i < p.length() && p[i] == '|' {
-    let (branch, after) = nullable_seq(p, i + 1)
-    result = result || branch
-    i = after
-  }
-  (result, i)
-}
-
-///|
-/// Parse a concatenation of quantified atoms until '|', ')', or end. An empty
-/// sequence is nullable; otherwise nullable iff EVERY atom is optional.
-fn nullable_seq(p : String, pos : Int) -> (Bool, Int) {
-  let mut i = pos
-  let mut all_optional = true
-  while i < p.length() && p[i] != '|' && p[i] != ')' {
-    let (atom_nullable, after_atom) = nullable_atom(p, i)
-    let (quant_nullable, after_quant) = apply_quantifier(
-      atom_nullable, p, after_atom,
-    )
-    if !quant_nullable {
-      all_optional = false
-    }
-    i = after_quant
-  }
-  (all_optional, i)
-}
-
-///|
-/// Parse a single atom (literal, escape, char class, group, or zero-width
-/// anchor) and return (atom_is_nullable, next_pos) BEFORE any quantifier.
-fn nullable_atom(p : String, pos : Int) -> (Bool, Int) {
-  let c = p[pos]
-  if c == '\\' {
-    // Escaped char consumes one literal character — not nullable. (Zero-width
-    // escapes like \b are not analyzed; they are nonsensical in token patterns.)
-    let next = if pos + 1 < p.length() { pos + 2 } else { pos + 1 }
-    (false, next)
-  } else if c == '^' || c == '$' {
-    // Zero-width anchor matches the empty string.
-    (true, pos + 1)
-  } else if c == '[' {
-    // Char class matches exactly one character — not nullable. `class_end`
-    // finds the true closing `]`, accounting for `\]` escapes and POSIX
-    // elements like `[:digit:]` whose inner `]` must not close the class early.
-    (false, class_end(p, pos))
-  } else if c == '(' {
-    let (inner, after) = nullable_alt(p, pos + 1)
-    let next = if after < p.length() && p[after] == ')' {
-      after + 1
-    } else {
-      after
-    }
-    (inner, next)
-  } else {
-    // Ordinary literal character.
-    (false, pos + 1)
-  }
-}
-
-///|
-/// Apply a trailing quantifier to an atom's nullability. `*` and `?` make the
-/// atom optional; `+` preserves it; `{m,n}` is optional iff its lower bound is
-/// zero or absent. No quantifier leaves the atom's nullability unchanged. A
-/// lazy modifier (a `?` immediately after the quantifier, e.g. `a*?`) is
-/// consumed without changing nullability — otherwise it would be mis-read as a
-/// separate optional atom and a genuinely nullable pattern (`a*?`) would be
-/// classified non-nullable.
-fn apply_quantifier(atom_nullable : Bool, p : String, pos : Int) -> (Bool, Int) {
-  if pos >= p.length() {
-    return (atom_nullable, pos)
-  }
-  let (nullable, next) = match p[pos] {
-    '*' | '?' => (true, pos + 1)
-    '+' => (atom_nullable, pos + 1)
-    '{' => {
-      // {min,max}: nullable iff min is zero or absent.
-      let mut j = pos + 1
-      let mut min_is_zero = true
-      while j < p.length() && p[j] >= '0' && p[j] <= '9' {
-        if p[j] != '0' {
-          min_is_zero = false
-        }
-        j = j + 1
-      }
-      while j < p.length() && p[j] != '}' {
-        j = j + 1
-      }
-      let after_brace = if j < p.length() { j + 1 } else { j }
-      (min_is_zero || atom_nullable, after_brace)
-    }
-    // No quantifier — return immediately without consuming a following char.
-    _ => return (atom_nullable, pos)
-  }
-  // Consume a lazy `?` modifier on the quantifier just parsed.
-  if next < p.length() && p[next] == '?' {
-    (nullable, next + 1)
-  } else {
-    (nullable, next)
-  }
-}
-
-///|
-/// If a well-formed POSIX class element `[:name:]` (non-empty alphabetic name)
-/// opens at `pos` (which must point at the `[` and `p[pos+1]` must be `:`),
-/// return the index just past its `:]`. Otherwise return `None` — the `[` is an
-/// ordinary class member, not a POSIX element. This lookahead prevents a bare
-/// `[:` inside a class (e.g. `[a[:z]`) from being mistaken for a POSIX element
-/// and scanning past the real closing `]`.
-fn posix_element_end(p : String, pos : Int) -> Int? {
-  let start = pos + 2
-  let mut j = start
-  while j < p.length() && p[j] != ':' && p[j] != ']' {
-    j = j + 1
-  }
-  if j > start && j + 1 < p.length() && p[j] == ':' && p[j + 1] == ']' {
-    Some(j + 2)
-  } else {
-    None
-  }
-}
-
-///|
-/// Find the index just past the closing `]` of the character class that opens at
-/// `pos` (which must point at the `[`). Skips `\]` escapes and well-formed POSIX
-/// elements like `[:digit:]` — whose inner `]` is NOT the class terminator — so
-/// a class is always treated as exactly one consuming atom. Returns `p.length()`
-/// for an unterminated class. Shared by the nullability analyzer, the
-/// unsupported-construct scan, and the structural validator so all agree on
-/// class boundaries.
-fn class_end(p : String, pos : Int) -> Int {
-  let mut j = pos + 1
-  while j < p.length() && p[j] != ']' {
-    if p[j] == '\\' {
-      j = j + 2
-    } else if p[j] == '[' &&
-      j + 1 < p.length() &&
-      p[j + 1] == ':' &&
-      posix_element_end(p, j) is Some(after) {
-      j = after
-    } else {
-      j = j + 1
-    }
-  }
-  if j < p.length() {
-    j + 1
-  } else {
-    j
-  }
-}
-
-///|
-/// Detect structurally malformed `#loom.pattern` regex: unbalanced parentheses,
-/// an unterminated character class, or a trailing unescaped backslash. The
-/// generator emits the pattern verbatim into `re"^(?:PATTERN)"`, so a malformed
-/// pattern produces a `lexer.g.mbt` that compiles "successfully" at generation
-/// time but fails the user's later `moon build` with a cryptic regex error — and
-/// the `(?:...)` wrapper turns a stray `)` / trailing `\` into an unbalanced or
-/// unterminated group. Reusing `class_end` keeps class boundaries consistent
-/// with the other scanners. Returns `Some(reason)` when malformed.
-fn malformed_re(p : String) -> String? {
-  let mut i = 0
-  let mut depth = 0
-  while i < p.length() {
-    let c = p[i]
-    if c == '\\' {
-      if i + 1 >= p.length() {
-        return Some("pattern ends with an unescaped backslash")
-      }
-      i = i + 2
-    } else if c == '[' {
-      let end = class_end(p, i)
-      // class_end returns p.length() (with no closing ']') for an unterminated
-      // class; a terminated class ends one past a ']'.
-      if end > p.length() || p[end - 1] != ']' {
-        return Some("unterminated character class '['")
-      }
-      i = end
-    } else if c == '(' {
-      depth = depth + 1
-      i = i + 1
-    } else if c == ')' {
-      if depth == 0 {
-        return Some("unbalanced ')'")
-      }
-      depth = depth - 1
-      i = i + 1
-    } else if c == '{' {
-      // A counted quantifier must close; the re dialect errors on an unterminated
-      // `{` (e.g. `a{2`). Scan for the closing `}`.
-      let mut j = i + 1
-      while j < p.length() && p[j] != '}' {
-        j = j + 1
-      }
-      if j >= p.length() {
-        return Some("unterminated counted quantifier '{'")
-      }
-      i = j + 1
-    } else {
-      i = i + 1
-    }
-  }
-  if depth != 0 {
-    return Some("unbalanced '(' (" + depth.to_string() + " unclosed)")
-  }
-  None
-}
-
-///|
-/// Detect `#loom.pattern` constructs outside loomgen's supported `re` subset.
-/// Returns `Some(reason)` for an unsupported construct, `None` otherwise.
-///
-/// The MoonBit `re` dialect rejects zero-width assertion escapes (`\b`, `\A`,
-/// ...) and lookaround at compile time, so emitting them would fail inside the
-/// generated lexer rather than here. Non-capturing `(?:...)` groups DO compile,
-/// but the nullability analyzer reads the `?:` prefix as two literal atoms and
-/// cannot soundly classify them. Rejecting every `(?...)` group and zero-width
-/// assertion escape keeps the analyzer's domain exactly the subset it is
-/// provably sound on, and turns a cryptic downstream compile error into a clear
-/// generation-time message.
-///
-/// Character classes are skipped wholesale via `class_end` so a `(` or `\b`
-/// *inside* `[...]` — where it is an ordinary class member — is not mistaken for
-/// an unsupported construct, and POSIX elements like `[:digit:]` do not desync
-/// the scan.
-fn unsupported_re_construct(p : String) -> String? {
-  let mut i = 0
-  while i < p.length() {
-    let c = p[i]
-    if c == '\\' {
-      if i + 1 < p.length() {
-        match p[i + 1] {
-          'b' | 'B' | 'A' | 'z' | 'Z' | 'G' =>
-            return Some(
-              "zero-width assertion escape " +
-              p[i:i + 2].to_owned() +
-              " is not supported by the re dialect",
-            )
-          // Perl-style character-class shorthands are rejected by the re dialect
-          // (it errors, not just deprecates), so they would emit a lexer that
-          // fails to compile. Point to the POSIX-class equivalents.
-          'd' | 'D' | 's' | 'S' | 'w' | 'W' =>
-            return Some(
-              "character-class escape " +
-              p[i:i + 2].to_owned() +
-              " is not supported by the re dialect; use a POSIX class such as [[:digit:]], [[:space:]], or [[:alnum:]]",
-            )
-          _ => ()
-        }
-      }
-      i = i + 2
-    } else if c == '[' {
-      i = class_end(p, i)
-    } else if c == '(' && i + 1 < p.length() && p[i + 1] == '?' {
-      return Some(
-        "(?...) groups (non-capturing, flags, or lookaround) are not supported; use a plain group (..)",
-      )
-    } else if (c == '*' || c == '+' || c == '?' || c == '}') &&
-      i + 1 < p.length() &&
-      p[i + 1] == '?' {
-      // A `?` immediately after a quantifier is a LAZY modifier (`*?`, `+?`,
-      // `??`, `{m,n}?`). Lazy = minimal match, which is incompatible with a
-      // longest-match lexer: `[0-9]+?` would match a single digit and split
-      // `123` into three tokens. Reject it (the re dialect would otherwise
-      // accept it and silently mis-tokenize).
-      return Some(
-        "lazy quantifier '" +
-        p[i:i + 2].to_owned() +
-        "' is not supported; a longest-match lexer requires greedy quantifiers",
-      )
-    } else if c == '|' {
-      // Alternation is leftmost-match, not longest-match: in `re"^(?:foo|foobar)"`
-      // the engine returns the FIRST matching branch (`foo`, len 3), not the
-      // longest (`foobar`). The generated lexer's longest-match comparison only
-      // sees that short length, so a single token is silently split. (A `|`
-      // inside a character class is literal and skipped via class_end above;
-      // an escaped `\|` is skipped via the `\\` branch.) Reject the operator.
-      return Some(
-        "alternation '|' is not supported; regex alternation is leftmost-match, not longest-match, so a branch that is a prefix of a later branch would under-match and split tokens. Use separate token variants or a character class",
-      )
-    } else {
-      i = i + 1
-    }
-  }
-  None
-}
 
 ///|
 /// Is `name` a syntactically valid lex-hook reference — a bare identifier or an
