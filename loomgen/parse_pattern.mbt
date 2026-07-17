@@ -179,45 +179,53 @@ fn is_posix_allowed(name : String) -> Bool {
 ///|
 fn parser_error_reason(pattern : String, pos : Int, unsupported : Bool) -> String {
   if unsupported {
-    if pos < pattern.length() && pattern[pos] == '"' {
-      return "double-quote"
-    }
     if pos < pattern.length() && pattern[pos] == '|' {
-      return "alternation '|' is not supported"
+      return "alternation '|' is not supported; regex alternation is leftmost-match, not longest-match, so a branch that is a prefix of a later branch would under-match and split tokens. Use separate token variants or a character class"
     }
     if pos > 0 && pattern[pos] == '?' &&
       (pattern[pos - 1] == '*' || pattern[pos - 1] == '+' || pattern[pos - 1] == '?' ||
         pattern[pos - 1] == '}') {
-      return "lazy quantifier is not supported"
+      return "lazy quantifier '" + pattern[pos - 1:pos + 1].to_owned() +
+        "' is not supported; a longest-match lexer requires greedy quantifiers"
     }
     if pos + 1 < pattern.length() && pattern[pos] == '\\' {
       let esc = pattern[pos + 1]
       if esc == 'b' || esc == 'B' || esc == 'A' || esc == 'z' ||
         esc == 'Z' || esc == 'G' {
-        return "zero-width assertion escape is not supported"
+        return "zero-width assertion escape " + pattern[pos:pos + 2].to_owned() +
+          " is not supported by the re dialect"
       }
-    }
-    if pos + 1 < pattern.length() && pattern[pos] == '\\' {
-      let esc = pattern[pos + 1]
       if esc == 'd' || esc == 'D' || esc == 's' || esc == 'S' ||
         esc == 'w' || esc == 'W' {
-        return "character-class escape is not supported"
+        return "character-class escape " + pattern[pos:pos + 2].to_owned() +
+          " is not supported by the re dialect; use a POSIX class such as [[:digit:]], [[:space:]], or [[:alnum:]]"
       }
     }
     if pos + 1 < pattern.length() && pattern[pos] == '(' &&
       pattern[pos + 1] == '?' {
-      return "(?...) groups are not supported"
+      return "(?...) groups (non-capturing, flags, or lookaround) are not supported; use a plain group (..)"
     }
     "unsupported pattern"
   } else {
     if pos < pattern.length() {
       match pattern[pos] {
-        '[' => return "unterminated character class"
-        '{' => return "unterminated counted quantifier"
+        '[' => return "unterminated character class '['"
+        '{' => return "unterminated counted quantifier '{'"
         '\\' => return "pattern ends with an unescaped backslash"
         ')' => return "unbalanced ')'"
         _ => ()
       }
+    }
+    let mut depth = 0
+    for c in pattern {
+      if c == '(' {
+        depth = depth + 1
+      } else if c == ')' && depth > 0 {
+        depth = depth - 1
+      }
+    }
+    if depth > 0 {
+      return "unbalanced '(' (" + depth.to_string() + " unclosed)"
     }
     "malformed pattern"
   }

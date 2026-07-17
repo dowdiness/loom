@@ -6,6 +6,10 @@
 test "is_nullable_pattern: nullable forms are rejected" {
   // empty pattern
   inspect(is_nullable_pattern(""), content="true")
+  // Parser errors conservatively return true rather than false negatives.
+  inspect(is_nullable_pattern("a|b"), content="true")
+  inspect(is_nullable_pattern("\\d+"), content="true")
+  inspect(is_nullable_pattern("a)"), content="true")
   // every atom optional
   inspect(is_nullable_pattern("[a-z]*"), content="true")
   inspect(is_nullable_pattern("(foo)?"), content="true")
