@@ -86,10 +86,10 @@ fn Pattern::lazy_quantifier(self : Pattern) -> String? {
 ///|
 fn Pattern::quantifier_symbol(self : Pattern) -> String {
   match self {
-    ZeroOrMore(_, _) => "*"
-    OneOrMore(_, _) => "+"
-    Optional(_, _) => "?"
-    Repeat(_, _, _, _) => "}"
+    ZeroOrMore(_, _) => "*?"
+    OneOrMore(_, _) => "+?"
+    Optional(_, _) => "??"
+    Repeat(_, _, _, _) => "}?"
     _ => "?"
   }
 }
@@ -99,6 +99,7 @@ struct PatternParser {
   pattern : String
   length : Int
   mut pos : Int
+  mut group_depth : Int
   mut first_malformed : Int?
   mut first_unsupported : Int?
 }
@@ -109,6 +110,7 @@ fn PatternParser::PatternParser(pattern : String) -> PatternParser {
     pattern,
     length: pattern.length(),
     pos: 0,
+    group_depth: 0,
     first_malformed: None,
     first_unsupported: None,
   }
@@ -203,7 +205,12 @@ fn is_posix_allowed(name : String) -> Bool {
 }
 
 ///|
-fn parser_error_reason(pattern : String, pos : Int, unsupported : Bool) -> String {
+fn parser_error_reason(
+  pattern : String,
+  pos : Int,
+  unsupported : Bool,
+  group_depth : Int,
+) -> String {
   if unsupported {
     if pos < pattern.length() && pattern[pos] == '|' {
       return "alternation '|' is not supported; regex alternation is leftmost-match, not longest-match, so a branch that is a prefix of a later branch would under-match and split tokens. Use separate token variants or a character class"
@@ -239,7 +246,7 @@ fn parser_error_reason(pattern : String, pos : Int, unsupported : Bool) -> Strin
         '{' => return "unterminated counted quantifier '{'"
         '\\' => return "pattern ends with an unescaped backslash"
         ')' => return "unbalanced ')'"
-        '(' => return "unbalanced '(' (unclosed)"
+        '(' => return "unbalanced '(' (" + group_depth.to_string() + " unclosed)"
         _ => ()
       }
     }
@@ -255,11 +262,11 @@ fn parse_pattern(pattern : String) -> Result[Pattern, PatternError] {
   }
   match parser.first_malformed {
     Some(pos) =>
-      Err(PatternError::Malformed(pos, parser_error_reason(pattern, pos, false)))
+      Err(PatternError::Malformed(pos, parser_error_reason(pattern, pos, false, parser.group_depth)))
     None =>
       match parser.first_unsupported {
         Some(pos) =>
-          Err(PatternError::Unsupported(pos, parser_error_reason(pattern, pos, true)))
+          Err(PatternError::Unsupported(pos, parser_error_reason(pattern, pos, true, 0)))
         None => Ok(tree)
       }
   }
@@ -655,6 +662,7 @@ fn class_posix_name_prefix(pattern : String, pos : Int) -> (String, Int)? {
 fn PatternParser::parse_group(self : PatternParser) -> Pattern {
   let open = self.pos
   self.bump(1)
+  self.group_depth = self.group_depth + 1
 
   if self.pos < self.length && self.pattern[self.pos] == '?' {
     self.note_unsupported(open)
@@ -664,6 +672,7 @@ fn PatternParser::parse_group(self : PatternParser) -> Pattern {
   let inner = self.parse_alternation(true)
   if self.pos < self.length && self.pattern[self.pos] == ')' {
     self.bump(1)
+    self.group_depth = self.group_depth - 1
   } else {
     self.note_malformed(open)
   }
