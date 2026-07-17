@@ -95,9 +95,10 @@ test "pattern parser accepts atoms and greedy quantifiers" {
 
 ///|
 test "pattern parser rejects lazy quantifiers" {
-  for pattern in ["a*?", "a+?", "a??", "a{1,3}?"] {
-    expect_pattern_err(pattern)
-  }
+  expect_unsupported("a*?", 2)
+  expect_unsupported("a+?", 2)
+  expect_unsupported("a??", 2)
+  expect_unsupported("a{1,3}?", 6)
 }
 
 ///|
