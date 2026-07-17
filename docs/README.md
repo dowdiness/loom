@@ -200,6 +200,7 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 
 ### Active Plans
 
+- [superpowers/plans/2026-07-17-pattern-allowlist-tokenizer.md](superpowers/plans/2026-07-17-pattern-allowlist-tokenizer.md) — proposed #529 plan: replace overlapping `#loom.pattern`/`#loom.line_pattern` validators with one fail-closed allowlist parser
 _Shipped: [#484 Markdown code span contract](archive/completed-phases/2026-07-14-markdown-code-span-authoring-contract.md) — native-only parsing with maximal delimiter runs and CommonMark normalization; structural continuation ownership and contiguous-only content origins apply to supported projections. List-item setext headings remain CST-only and await MarkdownIR block-child lowering. Authoring-fact delivery remains deferred until a concrete editor host owns snapshot identity._
 _Shipped: block reparse ancestor widening — context-aware candidate selection widened to strict reparseable ancestors. See [archived plan](archive/completed-phases/2026-07-15-block-reparse-ancestor-widening.md) and [ADR](decisions/2026-07-15-block-reparse-ancestor-widening.md)._
 _Shipped: `Native(RuleName)` IR escape-hatch node for context-sensitive productions (HTML tag matching) — issue [#541](https://github.com/dowdiness/loom/issues/541) closed, merged as PR #551. See [plan](superpowers/plans/2026-07-01-native-rulename-ir-node.md) (pending archival)._
