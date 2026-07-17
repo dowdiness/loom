@@ -1,6 +1,12 @@
 ///|
 /// Whitebox tests for the conservative nullable-pattern guard (#521).
 /// Soundness: a genuinely nullable pattern must NEVER be classified `false`.
+fn is_nullable_pattern(pattern : String) -> Bool {
+  match parse_pattern(pattern) {
+    Ok(parsed) => parsed.is_nullable()
+    Err(_) => true
+  }
+}
 
 ///|
 test "is_nullable_pattern: nullable forms are rejected" {

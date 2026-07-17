@@ -8,11 +8,45 @@ enum PatternError {
 }
 
 ///|
-fn PatternError::to_string(self : PatternError) -> String {
-  match self {
-    Malformed(at, reason) => "Malformed(" + at.to_string() + "): " + reason
-    Unsupported(at, reason) => "Unsupported(" + at.to_string() + "): " + reason
-  }
+suberror CountError {
+  OutOfRange
+  Reversed
+}
+
+///|
+struct Count {
+  value : Int
+}
+
+///|
+struct CountRange {
+  min : Count
+  max : Count
+}
+
+///|
+enum RepeatBounds {
+  Exact(Count)
+  AtLeast(Count)
+  Range(CountRange)
+}
+
+///|
+enum QuantifierKind {
+  ZeroOrMore
+  OneOrMore
+  Optional
+  Counted(RepeatBounds)
+}
+
+///|
+struct Quantifier {
+  kind : QuantifierKind
+}
+
+///|
+fn Quantifier::Quantifier(kind : QuantifierKind) -> Quantifier {
+  { kind, }
 }
 
 ///|
@@ -24,10 +58,85 @@ enum Pattern {
   Escape
   Class
   Group(Pattern)
-  ZeroOrMore(Pattern, String?)
-  OneOrMore(Pattern, String?)
-  Optional(Pattern, String?)
-  Repeat(Pattern, Int, Int?, String?)
+  Quantified(Pattern, Quantifier)
+}
+
+///|
+fn Count::Count(value : Int) -> Count raise CountError {
+  guard value >= 0 && value <= counted_quantifier_limit() else {
+    raise OutOfRange
+  }
+  { value, }
+}
+
+///|
+fn checked_count(value : Int) -> Count? {
+  try Count(value) catch {
+    _ => None
+  } noraise {
+    count => Some(count)
+  }
+}
+
+///|
+fn Count::to_int(self : Count) -> Int {
+  self.value
+}
+
+///|
+fn CountRange::CountRange(
+  min : Count,
+  max : Count,
+) -> CountRange raise CountError {
+  let range = { min, max }
+  guard range.min.to_int() <= range.max.to_int() else { raise Reversed }
+  range
+}
+
+///|
+fn RepeatBounds::exact(value : Int) -> RepeatBounds? {
+  match checked_count(value) {
+    Some(count) => Some(Exact(count))
+    None => None
+  }
+}
+
+///|
+fn RepeatBounds::at_least(value : Int) -> RepeatBounds? {
+  match checked_count(value) {
+    Some(count) => Some(AtLeast(count))
+    None => None
+  }
+}
+
+///|
+fn RepeatBounds::range(min : Int, max : Int) -> RepeatBounds? {
+  match (checked_count(min), checked_count(max)) {
+    (Some(min), Some(max)) =>
+      try CountRange(min, max) catch {
+        _ => None
+      } noraise {
+        bounds => Some(Range(bounds))
+      }
+    _ => None
+  }
+}
+
+///|
+fn RepeatBounds::min(self : RepeatBounds) -> Int {
+  match self {
+    Exact(min) | AtLeast(min) => min.to_int()
+    Range(bounds) => bounds.min.to_int()
+  }
+}
+
+///|
+fn Quantifier::is_nullable(self : Quantifier) -> Bool {
+  match self.kind {
+    ZeroOrMore | Optional => true
+    OneOrMore => false
+    Counted(bounds) => bounds.min() == 0
+  }
 }
 
 ///|
@@ -36,8 +145,8 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
     Empty => true
     Seq(parts) => {
       let mut all = true
-      for p in parts {
-        if !p.is_nullable() {
+      for part in parts {
+        if !part.is_nullable() {
           all = false
           break
         }
@@ -49,48 +158,8 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
     Escape => false
     Class => false
     Group(inner) => inner.is_nullable()
-    ZeroOrMore(_, _) => true
-    OneOrMore(inner, _) => inner.is_nullable()
-    Optional(_, _) => true
-    Repeat(inner, min, _, _) => min == 0 || inner.is_nullable()
-  }
-}
-
-///|
-fn Pattern::lazy_quantifier(self : Pattern) -> String? {
-  match self {
-    Empty | Anchor | Literal | Escape | Class => None
-    Seq(parts) => {
-      let mut result : String? = None
-      for part in parts {
-        if result is None {
-          result = part.lazy_quantifier()
-        }
-      }
-      result
-    }
-    Group(inner) => inner.lazy_quantifier()
-    ZeroOrMore(inner, lazy) | OneOrMore(inner, lazy) | Optional(inner, lazy) =>
-      match lazy {
-        Some(value) => Some(value)
-        None => inner.lazy_quantifier()
-      }
-    Repeat(inner, _, _, lazy) =>
-      match lazy {
-        Some(value) => Some(value)
-        None => inner.lazy_quantifier()
-      }
-  }
-}
-
-///|
-fn Pattern::quantifier_symbol(self : Pattern) -> String {
-  match self {
-    ZeroOrMore(_, _) => "*?"
-    OneOrMore(_, _) => "+?"
-    Optional(_, _) => "??"
-    Repeat(_, _, _, _) => "}?"
-    _ => "?"
+    Quantified(inner, quantifier) =>
+      quantifier.is_nullable() || inner.is_nullable()
   }
 }
 
@@ -409,35 +478,128 @@ fn PatternParser::parse_quantifier(
   let quantized = match self.peek() {
     Some('*') => {
       self.bump(1)
-      ZeroOrMore(node, None)
+      Quantified(node, Quantifier(ZeroOrMore))
     }
     Some('+') => {
       self.bump(1)
-      OneOrMore(node, None)
+      Quantified(node, Quantifier(OneOrMore))
     }
     Some('?') => {
       self.bump(1)
-      Optional(node, None)
+      Quantified(node, Quantifier(Optional))
     }
     Some('{') => self.parse_counted(node)
     _ => node
   }
-
-  let lazy_operator = match self.peek() {
+  match self.peek() {
     Some('?') => {
-      self.note_unsupported(self.pos)
+      let pos = self.pos
       self.bump(1)
-      Some(quantized.quantifier_symbol())
+      self.note_unsupported(pos)
     }
-    _ => None
+    _ => ()
   }
-  match quantized {
-    ZeroOrMore(inner, _) => ZeroOrMore(inner, lazy_operator)
-    OneOrMore(inner, _) => OneOrMore(inner, lazy_operator)
-    Optional(inner, _) => Optional(inner, lazy_operator)
-    Repeat(inner, min, max, _) => Repeat(inner, min, max, lazy_operator)
-    other => other
+  quantized
+}
+
+///|
+/// MoonBit `re` rejects counted bounds above 256 (native compile probe).
+fn counted_quantifier_limit() -> Int {
+  256
+}
+
+///|
+fn decimal_to_int(pattern : String, start : Int, end : Int) -> Int {
+  let mut value = 0
+  let mut i = start
+  while i < end {
+    value = value * 10 + (pattern[i].to_int() - '0'.to_int())
+    i = i + 1
   }
+  value
+}
+
+///|
+fn decimal_leq(
+  pattern : String,
+  left_start : Int,
+  left_end : Int,
+  right_start : Int,
+  right_end : Int,
+) -> Bool {
+  let mut left = left_start
+  while left < left_end && pattern[left] == '0' {
+    left = left + 1
+  }
+  let mut right = right_start
+  while right < right_end && pattern[right] == '0' {
+    right = right + 1
+  }
+  let left_length = left_end - left
+  let right_length = right_end - right
+  if left_length != right_length {
+    return left_length < right_length
+  }
+  let mut i = 0
+  while i < left_length {
+    if pattern[left + i] != pattern[right + i] {
+      return pattern[left + i] < pattern[right + i]
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+fn decimal_leq_limit(
+  pattern : String,
+  start : Int,
+  end : Int,
+  limit : String,
+) -> Bool {
+  let mut value = start
+  while value < end && pattern[value] == '0' {
+    value = value + 1
+  }
+  let value_length = end - value
+  if value_length != limit.length() {
+    return value_length < limit.length()
+  }
+  let mut i = 0
+  while i < value_length {
+    if pattern[value + i] != limit[i] {
+      return pattern[value + i] < limit[i]
+    }
+    i = i + 1
+  }
+  true
+}
+
+///|
+fn PatternParser::scan_decimal_end(self : PatternParser, from : Int) -> Int {
+  let mut end = from
+  while end < self.length && is_ascii_digit(self.pattern[end]) {
+    end = end + 1
+  }
+  end
+}
+
+///|
+fn PatternParser::recover_counted(
+  self : PatternParser,
+  node : Pattern,
+  open : Int,
+  from : Int,
+) -> Pattern {
+  self.note_malformed(open)
+  self.pos = from
+  while self.pos < self.length && self.pattern[self.pos] != '}' {
+    self.pos = self.pos + 1
+  }
+  if self.pos < self.length {
+    self.pos = self.pos + 1
+  }
+  node
 }
 
 ///|
@@ -447,96 +609,94 @@ fn PatternParser::parse_counted(
 ) -> Pattern {
   let open = self.pos
   self.bump(1)
-
   if self.pos >= self.length {
     self.note_malformed(open)
     return node
   }
-
   if !is_ascii_digit(self.pattern[self.pos]) {
+    return self.recover_counted(node, open, self.pos)
+  }
+
+  let min_start = self.pos
+  let min_end = self.scan_decimal_end(min_start)
+  if min_start == min_end ||
+    !decimal_leq_limit(
+      self.pattern,
+      min_start,
+      min_end,
+      counted_quantifier_limit().to_string(),
+    ) {
+    return self.recover_counted(node, open, min_end)
+  }
+  let min = decimal_to_int(self.pattern, min_start, min_end)
+  if min_end >= self.length {
     self.note_malformed(open)
-    while self.pos < self.length && self.pattern[self.pos] != '}' {
-      self.pos = self.pos + 1
-    }
-    if self.pos < self.length {
-      self.pos = self.pos + 1
-    }
+    self.pos = min_end
     return node
   }
 
-  let mut min = 0
-  let mut i = self.pos
-  while i < self.length && is_ascii_digit(self.pattern[i]) {
-    min = min * 10 + (self.pattern[i].to_int() - '0'.to_int())
-    i = i + 1
+  if self.pattern[min_end] == '}' {
+    self.pos = min_end + 1
+    let result = match RepeatBounds::exact(min) {
+      Some(bounds) => Quantified(node, Quantifier(Counted(bounds)))
+      None => {
+        self.note_malformed(open)
+        node
+      }
+    }
+    return result
   }
-  if i >= self.length {
+  if self.pattern[min_end] != ',' {
+    return self.recover_counted(node, open, min_end)
+  }
+
+  let max_start = min_end + 1
+  if max_start >= self.length {
     self.note_malformed(open)
-    self.pos = i
+    self.pos = max_start
+    return node
+  }
+  if self.pattern[max_start] == '}' {
+    self.pos = max_start + 1
+    let result = match RepeatBounds::at_least(min) {
+      Some(bounds) => Quantified(node, Quantifier(Counted(bounds)))
+      None => {
+        self.note_malformed(open)
+        node
+      }
+    }
+    return result
+  }
+  if !is_ascii_digit(self.pattern[max_start]) {
+    return self.recover_counted(node, open, max_start)
+  }
+
+  let max_end = self.scan_decimal_end(max_start)
+  if max_end >= self.length || self.pattern[max_end] != '}' {
+    return self.recover_counted(node, open, max_end)
+  }
+  if !decimal_leq_limit(
+      self.pattern,
+      max_start,
+      max_end,
+      counted_quantifier_limit().to_string(),
+    ) ||
+    !decimal_leq(self.pattern, min_start, min_end, max_start, max_end) {
+    self.pos = max_end + 1
+    self.note_malformed(open)
     return node
   }
 
-  if self.pattern[i] == '}' {
-    self.pos = i + 1
-    return Repeat(node, min, Some(min), None)
-  }
-
-  if self.pattern[i] != ',' {
-    self.note_malformed(open)
-    self.pos = i
-    while self.pos < self.length && self.pattern[self.pos] != '}' {
-      self.pos = self.pos + 1
+  let max = decimal_to_int(self.pattern, max_start, max_end)
+  self.pos = max_end + 1
+  let result = match RepeatBounds::range(min, max) {
+    Some(bounds) => Quantified(node, Quantifier(Counted(bounds)))
+    None => {
+      self.note_malformed(open)
+      node
     }
-    if self.pos < self.length {
-      self.pos = self.pos + 1
-    }
-    return node
   }
-
-  i = i + 1
-  if i >= self.length {
-    self.note_malformed(open)
-    self.pos = i
-    return node
-  }
-
-  if self.pattern[i] == '}' {
-    self.pos = i + 1
-    return Repeat(node, min, None, None)
-  }
-
-  if !is_ascii_digit(self.pattern[i]) {
-    self.note_malformed(open)
-    self.pos = i
-    while self.pos < self.length && self.pattern[self.pos] != '}' {
-      self.pos = self.pos + 1
-    }
-    if self.pos < self.length {
-      self.pos = self.pos + 1
-    }
-    return node
-  }
-
-  let mut max = 0
-  let mut j = i
-  while j < self.length && is_ascii_digit(self.pattern[j]) {
-    max = max * 10 + (self.pattern[j].to_int() - '0'.to_int())
-    j = j + 1
-  }
-  if j < self.length && self.pattern[j] == '}' {
-    self.pos = j + 1
-    return Repeat(node, min, Some(max), None)
-  }
-
-  self.note_malformed(open)
-  self.pos = j
-  while self.pos < self.length && self.pattern[self.pos] != '}' {
-    self.pos = self.pos + 1
-  }
-  if self.pos < self.length {
-    self.pos = self.pos + 1
-  }
-  node
+  result
 }
 
 ///|

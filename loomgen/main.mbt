@@ -164,7 +164,9 @@ fn parse_args(argv : Array[String]) -> Result[@argparse.Matches, String] {
       ),
     ],
   )
-  let m = cmd.parse(argv~, env={}) catch { err => return Err(err.to_string()) }
+  let m = cmd.parse(argv~, env=Map([])) catch {
+    err => return Err(err.to_string())
+  }
   Ok(m)
 }
 
@@ -287,7 +289,7 @@ fn build_kinds(
   te : EnumDecl,
   registry : RawKindRegistry,
   term_enum_decl : EnumDecl?,
-) -> Result[KindBuildResult, Unit] {
+) -> Result[KindBuildResult, String] {
   let kinds = build_kind_entries(te, registry)
   let trivia_set : @hashset.HashSet[String] = @hashset.HashSet([])
   let error_set : @hashset.HashSet[String] = @hashset.HashSet([])
@@ -317,15 +319,14 @@ fn build_kinds(
     for pair in term_kinds {
       let (name, _) = pair
       if token_names.contains(name) {
-        println(
-          "error: token kind \"" +
+        return Err(
+          "token kind \"" +
           name +
           "\" conflicts with a term kind of the same name\n" +
           "  Both enums define \"" +
           name +
           "\". Rename the term variant or adjust the token annotation.",
         )
-        return Err(())
       }
     }
   }
@@ -903,7 +904,8 @@ fn main {
   }
 
   let build_result = match build_kinds(te, registry, term_enum_decl) {
-    Err(_) => {
+    Err(message) => {
+      println("error: " + message)
       @sys.exit(1)
       return
     }

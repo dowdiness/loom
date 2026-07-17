@@ -230,23 +230,27 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                   _ => ()
                 }
                 match validate_pattern(p) {
-                  Err(Malformed(_, reason)) =>
+                  Err(Malformed(at, reason)) =>
                     return Err(
                       "token variant " +
                       v.name +
                       " has a malformed #loom.pattern \"" +
                       p +
-                      "\": " +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
                       reason +
                       ". This would emit a regex that fails to compile in the generated lexer.",
                     )
-                  Err(Unsupported(_, reason)) =>
+                  Err(Unsupported(at, reason)) =>
                     return Err(
                       "token variant " +
                       v.name +
                       " has an unsupported #loom.pattern \"" +
                       p +
-                      "\": " +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
                       reason +
                       ". loomgen's #loom.pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
                     )
@@ -332,23 +336,27 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                   _ => ()
                 }
                 match validate_pattern(p) {
-                  Err(Malformed(_, reason)) =>
+                  Err(Malformed(at, reason)) =>
                     return Err(
                       "token variant " +
                       v.name +
                       " has a malformed #loom.line_pattern \"" +
                       p +
-                      "\": " +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
                       reason +
                       ". This would emit a regex that fails to compile in the generated line lexer.",
                     )
-                  Err(Unsupported(_, reason)) =>
+                  Err(Unsupported(at, reason)) =>
                     return Err(
                       "token variant " +
                       v.name +
                       " has an unsupported #loom.line_pattern \"" +
                       p +
-                      "\": " +
+                      "\": at position " +
+                      at.to_string() +
+                      ": " +
                       reason +
                       ". loomgen's #loom.line_pattern supports literals, escapes, character classes [..], plain groups (..), anchors ^ $, and quantifiers * + ? {m,n}.",
                     )
@@ -759,19 +767,7 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 ///|
 fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
   match parse_pattern(pattern) {
-    Ok(parsed) =>
-      match parsed.lazy_quantifier() {
-        Some(quantifier) =>
-          Err(
-            Unsupported(
-              0,
-              "lazy quantifier '" +
-              quantifier +
-              "' is not supported; a longest-match lexer requires greedy quantifiers",
-            ),
-          )
-        None => Ok(parsed.is_nullable())
-      }
+    Ok(parsed) => Ok(parsed.is_nullable())
     Err(error) => Err(error)
   }
 }
@@ -786,15 +782,6 @@ fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
 /// and stall. Over-rejecting some safe-but-complex patterns is acceptable; the
 /// caller's error message tells the author to add an explicit required atom.
 ///
-/// A pattern is nullable when it has no *required* atom at the top level: the
-/// empty string `""`, an all-optional sequence like `[a-z]*` or `(foo)?`, or a
-/// top-level alternation `a|b` where some branch is nullable.
-fn is_nullable_pattern(pattern : String) -> Bool {
-  match parse_pattern(pattern) {
-    Ok(parsed) => parsed.is_nullable()
-    Err(_) => true
-  }
-}
 
 ///|
 /// Is `name` a syntactically valid lex-hook reference — a bare identifier or an

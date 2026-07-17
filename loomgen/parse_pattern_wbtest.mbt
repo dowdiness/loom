@@ -3,6 +3,21 @@
 ///
 /// These tests intentionally precede the parser implementation. They define the
 /// accepted MoonBit `re` subset and the fail-closed boundaries.
+fn format_pattern_error(error : PatternError) -> String {
+  match error {
+    Malformed(at, reason) => "Malformed(" + at.to_string() + "): " + reason
+    Unsupported(at, reason) => "Unsupported(" + at.to_string() + "): " + reason
+  }
+}
+
+///|
+fn repeat_bounds_max(bounds : RepeatBounds) -> Int? {
+  match bounds {
+    Exact(max) => Some(max.to_int())
+    AtLeast(_) => None
+    Range(bounds) => Some(bounds.max.to_int())
+  }
+}
 
 ///|
 fn expect_pattern_ok(pattern : String) -> Unit {
@@ -10,7 +25,10 @@ fn expect_pattern_ok(pattern : String) -> Unit {
     Ok(_) => ()
     Err(error) =>
       abort(
-        "expected pattern to parse: " + pattern + "; got " + error.to_string(),
+        "expected pattern to parse: " +
+        pattern +
+        "; got " +
+        format_pattern_error(error),
       )
   }
 }
@@ -77,7 +95,76 @@ fn expect_nullable(pattern : String, expected : Bool) -> Unit {
         abort("unexpected nullability for " + pattern)
       }
     Err(error) =>
-      abort("expected nullable test pattern to parse: " + error.to_string())
+      abort(
+        "expected nullable test pattern to parse: " +
+        format_pattern_error(error),
+      )
+  }
+}
+
+///|
+enum ExpectedBoundShape {
+  ExactShape
+  AtLeastShape
+  RangeShape
+}
+
+///|
+fn expect_counted_bounds(
+  pattern : String,
+  expected_shape : ExpectedBoundShape,
+  expected_min : Int,
+  expected_max : Int?,
+) -> Unit {
+  match parse_pattern(pattern) {
+    Ok(Quantified(_, { kind: Counted(bounds) })) => {
+      let shape_ok = match expected_shape {
+        ExactShape => bounds is Exact(_)
+        AtLeastShape => bounds is AtLeast(_)
+        RangeShape => bounds is Range(_)
+      }
+      if !shape_ok ||
+        bounds.min() != expected_min ||
+        repeat_bounds_max(bounds) != expected_max {
+        abort("unexpected counted bounds: " + pattern)
+      }
+    }
+    Ok(_) => abort("expected counted quantifier: " + pattern)
+    Err(error) =>
+      abort("expected counted pattern: " + format_pattern_error(error))
+  }
+}
+
+///|
+test "quantifier AST preserves bound values and shapes" {
+  expect_counted_bounds("a{2}", ExactShape, 2, Some(2))
+  expect_counted_bounds("a{2,}", AtLeastShape, 2, None)
+  expect_counted_bounds("a{2,4}", RangeShape, 2, Some(4))
+  expect_counted_bounds("a{1,256}", RangeShape, 1, Some(256))
+  expect_counted_bounds("a{000256}", ExactShape, 256, Some(256))
+}
+
+///|
+test "quantifier parser consumes lazy syntax before policy rejection" {
+  let parser = PatternParser::PatternParser("a*?")
+  let parsed = parser.parse_top()
+  assert_true(parsed is Quantified(_, { kind: ZeroOrMore }))
+  match parser.first_unsupported {
+    Some(pos) => assert_true(pos == 2)
+    None => fail("expected lazy quantifier rejection")
+  }
+}
+
+///|
+test "repeat bound constructors reject invalid semantic values" {
+  assert_true(checked_count(257) is None)
+  assert_true(checked_count(256) is Some(_))
+  assert_true(RepeatBounds::exact(257) is None)
+  assert_true(RepeatBounds::at_least(-1) is None)
+  assert_true(RepeatBounds::range(4, 2) is None)
+  match RepeatBounds::range(1, 256) {
+    Some(bounds) => assert_true(repeat_bounds_max(bounds) == Some(256))
+    None => fail("expected max boundary range")
   }
 }
 
@@ -91,6 +178,39 @@ test "pattern parser accepts atoms and greedy quantifiers" {
     ] {
     expect_pattern_ok(pattern)
   }
+}
+
+///|
+test "pattern parser rejects reversed and oversized counted quantifiers" {
+  for
+    pattern in [
+      "a{4,2}", "a{257}", "a{1,257}", "a{,}", "a{,2}", "a{999999999999999999999999999999999999999999}",
+      "a{1,999999999999999999999999999999999999999999}",
+    ] {
+    expect_pattern_err(pattern)
+  }
+  expect_pattern_ok("a{0004,0004}")
+  expect_pattern_ok("a{0000,0004}")
+}
+
+///|
+test "counted quantifier recovery consumes malformed bodies" {
+  for
+    pattern in [
+      "a{,}b", "a{,2}b", "a{2,x}b", "a{2,4x}b", "a{4,2}b", "a{257}b", "a{2", "a{2,4",
+      "a{999999999999999999999999999999999999999999}b",
+    ] {
+    let parser = PatternParser::PatternParser(pattern)
+    let _ = parser.parse_top()
+    assert_true(parser.pos == parser.length)
+  }
+}
+
+///|
+test "native re accepts the counted quantifier limit" {
+  let view = "a"
+  let _rest = ""
+  let _ = view =~ (re"^(?:a{256})", after=_rest)
 }
 
 ///|
