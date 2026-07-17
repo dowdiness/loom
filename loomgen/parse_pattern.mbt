@@ -57,6 +57,18 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
 }
 
 ///|
+fn Pattern::has_lazy_quantifier(self : Pattern) -> Bool {
+  match self {
+    Empty | Anchor | Literal | Escape | Class => false
+    Seq(parts) => parts.any(fn(part) { part.has_lazy_quantifier() })
+    Group(inner) => inner.has_lazy_quantifier()
+    ZeroOrMore(inner, lazy) | OneOrMore(inner, lazy) | Optional(inner, lazy) =>
+      lazy || inner.has_lazy_quantifier()
+    Repeat(inner, _, _, lazy) => lazy || inner.has_lazy_quantifier()
+  }
+}
+
+///|
 struct PatternParser {
   pattern : String
   length : Int
@@ -125,7 +137,7 @@ fn is_hex_digit(c : UInt16) -> Bool {
 ///|
 fn is_literal_meta_escape(c : UInt16) -> Bool {
   match c {
-    '\\' | '.' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '|' |
+    '\\' | '"' | '.' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '|' |
     '^' | '$' | '-' => true
     _ => false
   }
@@ -165,6 +177,52 @@ fn is_posix_allowed(name : String) -> Bool {
 }
 
 ///|
+fn parser_error_reason(pattern : String, pos : Int, unsupported : Bool) -> String {
+  if unsupported {
+    if pos < pattern.length() && pattern[pos] == '"' {
+      return "double-quote"
+    }
+    if pos < pattern.length() && pattern[pos] == '|' {
+      return "alternation '|' is not supported"
+    }
+    if pos > 0 && pattern[pos] == '?' &&
+      (pattern[pos - 1] == '*' || pattern[pos - 1] == '+' || pattern[pos - 1] == '?' ||
+        pattern[pos - 1] == '}') {
+      return "lazy quantifier is not supported"
+    }
+    if pos + 1 < pattern.length() && pattern[pos] == '\\' {
+      let esc = pattern[pos + 1]
+      if esc == 'b' || esc == 'B' || esc == 'A' || esc == 'z' ||
+        esc == 'Z' || esc == 'G' {
+        return "zero-width assertion escape is not supported"
+      }
+    }
+    if pos + 1 < pattern.length() && pattern[pos] == '\\' {
+      let esc = pattern[pos + 1]
+      if esc == 'd' || esc == 'D' || esc == 's' || esc == 'S' ||
+        esc == 'w' || esc == 'W' {
+        return "character-class escape is not supported"
+      }
+    }
+    if pos + 1 < pattern.length() && pattern[pos] == '(' &&
+      pattern[pos + 1] == '?' {
+      return "(?...) groups are not supported"
+    }
+    "unsupported pattern"
+  } else {
+    if pos < pattern.length() {
+      match pattern[pos] {
+        '[' => return "unterminated character class"
+        '{' => return "unterminated counted quantifier"
+        '\\' => return "pattern ends with an unescaped backslash"
+        ')' => return "unbalanced ')'"
+        _ => ()
+      }
+    }
+    "malformed pattern"
+  }
+}
+
 fn parse_pattern(pattern : String) -> Result[Pattern, PatternError] {
   let parser = PatternParser::PatternParser(pattern)
   let tree = parser.parse_top()
@@ -172,10 +230,12 @@ fn parse_pattern(pattern : String) -> Result[Pattern, PatternError] {
     parser.note_malformed(parser.pos)
   }
   match parser.first_malformed {
-    Some(pos) => Err(PatternError::Malformed(pos, "malformed pattern"))
+    Some(pos) =>
+      Err(PatternError::Malformed(pos, parser_error_reason(pattern, pos, false)))
     None =>
       match parser.first_unsupported {
-        Some(pos) => Err(PatternError::Unsupported(pos, "unsupported pattern"))
+        Some(pos) =>
+          Err(PatternError::Unsupported(pos, parser_error_reason(pattern, pos, true)))
         None => Ok(tree)
       }
   }
@@ -434,6 +494,7 @@ fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
       self.note_unsupported(open)
       self.bump(2)
     }
+    't' | 'r' | 'n' => self.bump(2)
     _ => {
       if is_literal_meta_escape(esc) {
         self.bump(2)
