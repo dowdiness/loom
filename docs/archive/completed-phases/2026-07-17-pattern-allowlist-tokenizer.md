@@ -4,7 +4,7 @@
 
 **Status:** Complete
 **Completed:** 2026-07-17; issue #529 implementation is present on branch `feat/529-allowlist-tokenizer`.
-**Evidence:** `moon check --target native loomgen`; parser 14/14; nullable 2/2; emitter 52/52; compiled fixture 5/5.
+**Evidence:** `moon check --target native loomgen`; parser 14/14; nullable 2/2; emitter 52/52; compiled fixture 5/5. `loomgen/moon.pkg` supports native only, so the all-target check is inapplicable; its Wasm attempt correctly failed during build-plan calculation.
 **Issue:** [dowdiness/loom#529](https://github.com/dowdiness/loom/issues/529)
 **Design basis:** preserve the intended safe regex subset and all currently valid fixtures; deliberately reject constructs that the current fail-open scanners accept but the MoonBit `re` consumer rejects.
 
@@ -122,7 +122,7 @@ Keep the tokenizer/parser algorithm and all TDD decisions in the main context. A
 - Existing golden output is unchanged unless a separately justified fixture drift is identified.
 - The compiled/runtime lexer fixture passes, proving the generated regex and `@core` integration compile and execute.
 - No public API change is introduced.
-- Full loomgen checks/tests and all-target checks pass.
+- Native loomgen checks/tests pass. All-target checks are inapplicable because `loomgen/moon.pkg` declares `supported_targets = "+native"`; the attempted all-target command failed before compilation when requesting unsupported Wasm.
 
 ## Decision record
 
