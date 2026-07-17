@@ -1,8 +1,8 @@
 # Refactor `loomgen/parse_pattern.mbt`
 
-**Status:** Planned
+**Status:** Complete
 **Created:** 2026-07-17
-**Related:** [#529](https://github.com/dowdiness/loom/issues/529), [fail-closed parser ADR](../decisions/2026-07-17-pattern-allowlist-tokenizer.md)
+**Related:** [#529](https://github.com/dowdiness/loom/issues/529), [fail-closed parser ADR](../../decisions/2026-07-17-pattern-allowlist-tokenizer.md)
 
 ## Goal
 
@@ -44,3 +44,13 @@ Reduce the maintenance cost of the private pattern parser without changing the a
 3. Extract one responsibility at a time, running targeted MoonBit checks after each edit.
 4. Run the full `loomgen` validation and fixture checks.
 5. Review the final diff for policy drift and unnecessary public surface.
+
+## Completion
+
+- Extracted private quantifier, atom/class/escape, and nullability responsibilities into package-local files without adding public APIs.
+- Verified parser, nullability, lexer golden, regression, and runtime-related white-box coverage through `rtk moon check --target native loomgen` and `rtk moon test --target native loomgen` (205 passed, 0 failed).
+- Preserved the existing parser error precedence and cursor recovery paths; the staged refactor passed independent review with no findings.
+
+Decision record:
+
+- No ADR needed: this is a mechanical boundary refactor that implements the already accepted #529 parser policy without changing public contracts or syntax.
