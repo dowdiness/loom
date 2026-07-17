@@ -583,6 +583,9 @@ fn PatternParser::parse_group(self : PatternParser) -> Pattern {
 fn class_posix_class(pattern : String, pos : Int) -> (String, Int)? {
   let mut i = pos + 2
   while i + 1 < pattern.length() {
+    if pattern[i] == ']' {
+      return None
+    }
     if pattern[i] == ':' && pattern[i + 1] == ']' {
       return Some((pattern[pos + 2:i].to_owned(), i + 2))
     }
