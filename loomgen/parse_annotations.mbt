@@ -757,19 +757,20 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 }
 
 
-///|
 fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
   match parse_pattern(pattern) {
     Ok(parsed) =>
-      if parsed.has_lazy_quantifier() {
-        Err(
-          Unsupported(
-            0,
-            "lazy quantifiers are not supported; a longest-match lexer requires greedy quantifiers",
-          ),
-        )
-      } else {
-        Ok(parsed.is_nullable())
+      match parsed.lazy_quantifier() {
+        Some(quantifier) =>
+          Err(
+            Unsupported(
+              0,
+              "lazy quantifier '" +
+              quantifier +
+              "' is not supported; a longest-match lexer requires greedy quantifiers",
+            ),
+          )
+        None => Ok(parsed.is_nullable())
       }
     Err(error) => Err(error)
   }

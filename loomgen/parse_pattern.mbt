@@ -24,10 +24,10 @@ enum Pattern {
   Escape
   Class
   Group(Pattern)
-  ZeroOrMore(Pattern, Bool)
-  OneOrMore(Pattern, Bool)
-  Optional(Pattern, Bool)
-  Repeat(Pattern, Int, Int?, Bool)
+  ZeroOrMore(Pattern, String?)
+  OneOrMore(Pattern, String?)
+  Optional(Pattern, String?)
+  Repeat(Pattern, Int, Int?, String?)
 }
 
 ///|
@@ -57,14 +57,40 @@ fn Pattern::is_nullable(self : Pattern) -> Bool {
 }
 
 ///|
-fn Pattern::has_lazy_quantifier(self : Pattern) -> Bool {
+fn Pattern::lazy_quantifier(self : Pattern) -> String? {
   match self {
-    Empty | Anchor | Literal | Escape | Class => false
-    Seq(parts) => parts.any(fn(part) { part.has_lazy_quantifier() })
-    Group(inner) => inner.has_lazy_quantifier()
+    Empty | Anchor | Literal | Escape | Class => None
+    Seq(parts) => {
+      let mut result : String? = None
+      for part in parts {
+        if result is None {
+          result = part.lazy_quantifier()
+        }
+      }
+      result
+    }
+    Group(inner) => inner.lazy_quantifier()
     ZeroOrMore(inner, lazy) | OneOrMore(inner, lazy) | Optional(inner, lazy) =>
-      lazy || inner.has_lazy_quantifier()
-    Repeat(inner, _, _, lazy) => lazy || inner.has_lazy_quantifier()
+      match lazy {
+        Some(value) => Some(value)
+        None => inner.lazy_quantifier()
+      }
+    Repeat(inner, _, _, lazy) =>
+      match lazy {
+        Some(value) => Some(value)
+        None => inner.lazy_quantifier()
+      }
+  }
+}
+
+///|
+fn Pattern::quantifier_symbol(self : Pattern) -> String {
+  match self {
+    ZeroOrMore(_, _) => "*"
+    OneOrMore(_, _) => "+"
+    Optional(_, _) => "?"
+    Repeat(_, _, _, _) => "}"
+    _ => "?"
   }
 }
 
@@ -213,19 +239,9 @@ fn parser_error_reason(pattern : String, pos : Int, unsupported : Bool) -> Strin
         '{' => return "unterminated counted quantifier '{'"
         '\\' => return "pattern ends with an unescaped backslash"
         ')' => return "unbalanced ')'"
+        '(' => return "unbalanced '(' (unclosed)"
         _ => ()
       }
-    }
-    let mut depth = 0
-    for c in pattern {
-      if c == '(' {
-        depth = depth + 1
-      } else if c == ')' && depth > 0 {
-        depth = depth - 1
-      }
-    }
-    if depth > 0 {
-      return "unbalanced '(' (" + depth.to_string() + " unclosed)"
     }
     "malformed pattern"
   }
@@ -344,32 +360,32 @@ fn PatternParser::parse_quantifier(
   let quantized = match self.peek() {
     Some('*') => {
       self.bump(1)
-      ZeroOrMore(node, false)
+      ZeroOrMore(node, None)
     }
     Some('+') => {
       self.bump(1)
-      OneOrMore(node, false)
+      OneOrMore(node, None)
     }
     Some('?') => {
       self.bump(1)
-      Optional(node, false)
+      Optional(node, None)
     }
     Some('{') => self.parse_counted(node)
     _ => node
   }
 
-  let is_lazy = match self.peek() {
+  let lazy_operator = match self.peek() {
     Some('?') => {
       self.bump(1)
-      true
+      Some(quantized.quantifier_symbol())
     }
-    _ => false
+    _ => None
   }
   match quantized {
-    ZeroOrMore(inner, _) => ZeroOrMore(inner, is_lazy)
-    OneOrMore(inner, _) => OneOrMore(inner, is_lazy)
-    Optional(inner, _) => Optional(inner, is_lazy)
-    Repeat(inner, min, max, _) => Repeat(inner, min, max, is_lazy)
+    ZeroOrMore(inner, _) => ZeroOrMore(inner, lazy_operator)
+    OneOrMore(inner, _) => OneOrMore(inner, lazy_operator)
+    Optional(inner, _) => Optional(inner, lazy_operator)
+    Repeat(inner, min, max, _) => Repeat(inner, min, max, lazy_operator)
     other => other
   }
 }
@@ -412,7 +428,7 @@ fn PatternParser::parse_counted(
 
   if self.pattern[i] == '}' {
     self.pos = i + 1
-    return Repeat(node, min, Some(min), false)
+    return Repeat(node, min, Some(min), None)
   }
 
   if self.pattern[i] != ',' {
@@ -436,7 +452,7 @@ fn PatternParser::parse_counted(
 
   if self.pattern[i] == '}' {
     self.pos = i + 1
-    return Repeat(node, min, None, false)
+    return Repeat(node, min, None, None)
   }
 
   if !is_ascii_digit(self.pattern[i]) {
@@ -459,7 +475,7 @@ fn PatternParser::parse_counted(
   }
   if j < self.length && self.pattern[j] == '}' {
     self.pos = j + 1
-    return Repeat(node, min, Some(max), false)
+    return Repeat(node, min, Some(max), None)
   }
 
   self.note_malformed(open)
