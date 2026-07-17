@@ -53,8 +53,8 @@ test "is_nullable_pattern: patterns with a required atom are accepted" {
   // the deprecated `\d+`; must stay accepted after the class-scan fix.
   inspect(is_nullable_pattern("[[:digit:]]+"), content="false")
   inspect(is_nullable_pattern("[[:alpha:]][[:alnum:]]*"), content="false")
-  // Lazy modifier on a required quantifier stays non-nullable.
-  inspect(is_nullable_pattern("a+?"), content="false")
+  // Malformed/unsupported lazy syntax is conservative-nullable.
+  inspect(is_nullable_pattern("a+?"), content="true")
   // A class containing a bare `[:` that is NOT a POSIX element must close at its
   // real `]`, leaving the following required atom intact (class-scan regression).
   inspect(is_nullable_pattern("[a[:z]X"), content="false")

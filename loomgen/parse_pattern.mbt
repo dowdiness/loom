@@ -425,6 +425,7 @@ fn PatternParser::parse_quantifier(
 
   let lazy_operator = match self.peek() {
     Some('?') => {
+      self.note_unsupported(self.pos)
       self.bump(1)
       Some(quantized.quantifier_symbol())
     }

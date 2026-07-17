@@ -86,10 +86,17 @@ test "pattern parser accepts atoms and greedy quantifiers" {
   for
     pattern in [
       "a", "\\.", "\\x41", "\\t", "\\r", "\\n", "a\"b", "^a$", "(ab)+", "a*", "a+",
-      "a?b", "a*?", "a+?", "a??", "a{1,3}?", "a{2}", "a{2,4}", "a{2,}", "a{0,3}",
-      "a{0}", "[a-z]", "[a|b]", "[a\\-z]", "[^a]",
+      "a?b", "a{2}", "a{2,4}", "a{2,}", "a{0,3}", "a{0}", "[a-z]", "[a|b]", "[a\\-z]",
+      "[^a]",
     ] {
     expect_pattern_ok(pattern)
+  }
+}
+
+///|
+test "pattern parser rejects lazy quantifiers" {
+  for pattern in ["a*?", "a+?", "a??", "a{1,3}?"] {
+    expect_pattern_err(pattern)
   }
 }
 
