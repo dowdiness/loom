@@ -4,7 +4,8 @@
 
 **Status:** Complete
 **Completed:** 2026-07-17; issue #529 implementation is present on branch `feat/529-allowlist-tokenizer`.
-**Evidence:** `moon check --target native loomgen`; parser 14/14; nullable 2/2; emitter 52/52; compiled fixture 5/5. `loomgen/moon.pkg` supports native only, so the all-target check is inapplicable; its Wasm attempt correctly failed during build-plan calculation.
+**Evidence:** `moon check --target native loomgen`; parser 19/19 focused tests; full loomgen suite 205/205. `loomgen/moon.pkg` supports native only, so the all-target check is inapplicable.
+**Decision record:** [ADR: Fail-Closed Pattern Allowlist Parser](../../decisions/2026-07-17-pattern-allowlist-tokenizer.md)
 **Issue:** [dowdiness/loom#529](https://github.com/dowdiness/loom/issues/529)
 **Design basis:** preserve the intended safe regex subset and all currently valid fixtures; deliberately reject constructs that the current fail-open scanners accept but the MoonBit `re` consumer rejects.
 
@@ -13,8 +14,7 @@
 Replace the independent `malformed_re`, `unsupported_re_construct`, `class_end`, and nullability scanners with one package-private allowlist parser whose result is consumed by both `#loom.pattern` and `#loom.line_pattern` validation, while preserving accepted syntax, diagnostics, and generated lexer output.
 
 ## Architecture
-
-Add a focused `loomgen/parse_pattern.mbt` module that parses a raw pattern into a nested private IR: sequences contain atoms; atoms represent literals, supported escapes, character classes, plain groups, anchors, and attached greedy quantifiers. The parser owns all delimiter, escape, quantifier, class-item, and POSIX-item recognition; unknown constructs fail closed.
+Add a focused `loomgen/parse_pattern.mbt` module that parses a raw pattern into a nested private IR: sequences contain atoms; atoms represent literals, supported escapes, character classes, plain groups, anchors, and attached quantifier kinds. The parser owns all delimiter, escape, quantifier, class-item, and POSIX-item recognition; unknown constructs fail closed. Lazy suffixes are consumed and rejected as unsupported rather than retained in the IR.
 
 `parse_annotations.mbt` consumes the parsed IR for validation and nullability. `emit_lexer.mbt` and `emit_line_lexer.mbt` continue emitting the original raw pattern, so this change does not introduce a serializer or golden-output churn. No public API or `.mbti` surface should change.
 

@@ -1,17 +1,17 @@
 # Quantifier Unification Implementation Plan
 **Status:** Complete
 
-Completed 2026-07-17 on `feat/529-allowlist-tokenizer`. Focused parser tests pass (19/19), lazy annotation rejection passes (1/1), and the full loomgen suite reports 204 passing tests while emitting the pre-existing `AToken` token-kind conflict in a fixture.
+Completed 2026-07-17 on `feat/529-allowlist-tokenizer`. Focused parser tests and lazy annotation rejection pass; the full loomgen suite reports 205 passing tests.
 
 Decision record:
 
-- Updated ADR: [Fail-Closed Pattern Allowlist Parser](../../decisions/2026-07-17-pattern-allowlist-tokenizer.md) to record the typed quantifier IR and bounded-count invariant.
+- Updated ADR: [Fail-Closed Pattern Allowlist Parser](../../decisions/2026-07-17-pattern-allowlist-tokenizer.md) to record the typed quantifier IR, bounded-count invariant, and rejection of unused lazy state.
 
 > **For agentic workers:** Execute this plan inline with test-first checkpoints.
 
 **Goal:** Replace the parser's ad-hoc quantifier variants with a typed `Pattern::Quantified` representation and verified counted bounds.
 
-**Architecture:** `Pattern` stores one `Quantified(Pattern, Quantifier)` node. `Quantifier` is a product of `QuantifierKind` and `Greediness`; counted quantifiers use `RepeatBounds`. Bound constructors are private smart constructors that enforce the native `re` limit and ordering before values become semantic `Int`s.
+**Architecture:** `Pattern` stores one `Quantified(Pattern, Quantifier)` node. `Quantifier` stores the `QuantifierKind`; counted quantifiers use `RepeatBounds`. Bound constructors are private smart constructors that enforce the native `re` limit and ordering before values become semantic `Int`s. Lazy suffixes are consumed and rejected rather than retained in the IR.
 
 **Tech Stack:** MoonBit native target, loomgen white-box tests, existing parser validation and lexer fixture tests.
 
@@ -28,11 +28,11 @@ Decision record:
 - Modify: `loomgen/parse_pattern.mbt`
 - Test: `loomgen/parse_pattern_wbtest.mbt`
 
-- [x] Add failing white-box tests for exact, at-least, range, greedy, lazy, and nullable quantifier semantics using the new internal constructors/accessors.
+- [x] Add failing white-box tests for exact, at-least, range, nullable quantifier semantics, and lazy-suffix rejection using the new internal constructors/accessors.
 - [x] Run the focused tests and confirm failure because the new types/functions do not exist.
-- [x] Add `Greediness`, `QuantifierKind`, `Quantifier`, and `RepeatBounds` with private smart constructors for `Count`, `AtLeast`, and `Range`; make invalid bounds return `None`.
+- [x] Add `QuantifierKind`, `Quantifier`, and `RepeatBounds` with private smart constructors for `Count`, `AtLeast`, and `Range`; make invalid bounds return `None`.
 - [x] Replace the four quantifier fields in `Pattern` with `Quantified(Pattern, Quantifier)`.
-- [x] Add semantic helpers for minimum count and nullability; preserve lazy syntax in the AST while parser error tracking reports the policy diagnostic directly, avoiding a second lazy-quantifier traversal.
+- [x] Add semantic helpers for minimum count and nullability; consume lazy suffixes as unsupported syntax without retaining unused greediness state.
 - [x] Run `moon check --target native loomgen` and the focused white-box tests.
 
 ### Task 2: Migrate parser construction
@@ -44,7 +44,7 @@ Decision record:
 - [x] Extend counted-bound tests with `{256}`, `{1,256}`, `{000256}`, `{257}`, `{1,257}`, reversed ranges, and unbounded `{n,}`.
 - [x] Run tests before the parser migration and confirm the new semantic expectations fail.
 - [x] Parse bounds as decimal slices, validate against 0..256 and `min <= max`, convert only after validation, and construct `Exact`, `AtLeast`, or `Range` through smart constructors.
-- [x] Migrate simple quantifiers and lazy suffix handling to `QuantifierKind` plus `Greediness`.
+- [x] Migrate simple quantifiers and lazy suffix handling to `QuantifierKind`; lazy suffixes are consumed and rejected.
 - [x] Preserve malformed-input consumption and earliest-error behavior.
 - [x] Run focused parser tests and `moon check --target native loomgen`.
 
