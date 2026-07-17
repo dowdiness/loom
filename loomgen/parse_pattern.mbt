@@ -105,8 +105,6 @@ fn PatternParser::peek(self : PatternParser) -> UInt16? {
 fn PatternParser::bump(self : PatternParser, count : Int) -> Unit {
   self.pos = self.pos + count
 }
-
-///|
 fn is_ascii_digit(c : UInt16) -> Bool {
   c >= '0' && c <= '9'
 }
@@ -114,6 +112,39 @@ fn is_ascii_digit(c : UInt16) -> Bool {
 ///|
 fn is_ascii_alpha(c : UInt16) -> Bool {
   (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+
+///|
+fn is_hex_digit(c : UInt16) -> Bool {
+  (c >= '0' && c <= '9') ||
+    (c >= 'a' && c <= 'f') ||
+    (c >= 'A' && c <= 'F')
+}
+
+///|
+fn is_literal_meta_escape(c : UInt16) -> Bool {
+  match c {
+    '\\' | '.' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '|' |
+    '^' | '$' | '-' => true
+    _ => false
+  }
+}
+
+///|
+fn is_posix_name(name : String) -> Bool {
+  if name.length() == 0 {
+    false
+  } else {
+    let mut i = 0
+    while i < name.length() {
+      if !is_ascii_alpha(name[i]) {
+        return false
+      }
+      i = i + 1
+    }
+    true
+  }
 }
 
 ///|
@@ -375,12 +406,37 @@ fn PatternParser::parse_escape(self : PatternParser) -> Pattern {
     self.bump(1)
     return Escape
   }
-  match self.pattern[self.pos + 1] {
-    'b' | 'B' | 'A' | 'z' | 'Z' | 'G' | 'd' | 'D' | 's' | 'S' | 'w' | 'W' =>
-      self.note_unsupported(self.pos)
-    _ => ()
+
+  let open = self.pos
+  let esc = self.pattern[self.pos + 1]
+  if esc == 'x' {
+    if self.pos + 3 >= self.length {
+      self.note_malformed(open)
+      self.bump(self.length - self.pos)
+    } else if is_hex_digit(self.pattern[self.pos + 2]) &&
+      is_hex_digit(self.pattern[self.pos + 3]) {
+      self.bump(4)
+    } else {
+      self.note_malformed(open)
+      self.bump(4)
+    }
+    return Escape
   }
-  self.bump(2)
+
+  match esc {
+    'b' | 'B' | 'A' | 'z' | 'Z' | 'G' | 'd' | 'D' | 's' | 'S' | 'w' | 'W' => {
+      self.note_unsupported(open)
+      self.bump(2)
+    }
+    _ => {
+      if is_literal_meta_escape(esc) {
+        self.bump(2)
+      } else {
+        self.note_unsupported(open)
+        self.bump(2)
+      }
+    }
+  }
   Escape
 }
 
@@ -406,19 +462,12 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
         self.bump(1)
         return Class
       }
-      Some('\\') =>
-        if self.pos + 1 >= self.length {
-          self.note_malformed(self.pos)
-          self.bump(1)
-          has_content = true
-          prev_token = true
-          prev_dash = false
-        } else {
-          self.bump(2)
-          has_content = true
-          prev_token = true
-          prev_dash = false
-        }
+      Some('\\') => {
+        let _ = self.parse_escape()
+        has_content = true
+        prev_token = true
+        prev_dash = false
+      }
       Some('-') => {
         if !has_content ||
           !prev_token ||
@@ -435,12 +484,14 @@ fn PatternParser::parse_class(self : PatternParser) -> Pattern {
         if self.pos + 1 < self.length && self.pattern[self.pos + 1] == ':' {
           match class_posix_class(self.pattern, self.pos) {
             Some((name, after)) => {
-              if is_posix_allowed(name) {
-                self.pos = after
-              } else {
+              if name.length() == 0 {
+                self.note_malformed(self.pos)
+              } else if !is_posix_name(name) {
                 self.note_unsupported(self.pos)
-                self.pos = after
+              } else if !is_posix_allowed(name) {
+                self.note_unsupported(self.pos)
               }
+              self.pos = after
               has_content = true
               prev_token = true
               prev_dash = false
@@ -496,19 +547,13 @@ fn PatternParser::parse_group(self : PatternParser) -> Pattern {
 
 ///|
 fn class_posix_class(pattern : String, pos : Int) -> (String, Int)? {
-  if pos + 3 >= pattern.length() {
-    return None
-  }
   let mut i = pos + 2
-  if i >= pattern.length() || !is_ascii_alpha(pattern[i]) {
-    return None
-  }
-  while i < pattern.length() && is_ascii_alpha(pattern[i]) {
+  while i + 1 < pattern.length() {
+    if pattern[i] == ':' && pattern[i + 1] == ']' {
+      return Some((pattern[pos + 2:i].to_owned(), i + 2))
+    }
     i = i + 1
   }
-  if i + 1 < pattern.length() && pattern[i] == ':' && pattern[i + 1] == ']' {
-    Some((pattern[pos + 2:i].to_owned(), i + 2))
-  } else {
-    None
-  }
+  None
 }
+

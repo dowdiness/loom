@@ -176,3 +176,17 @@ test "pattern parser exposes IR nullability" {
   expect_nullable("[[:digit:]]+", false)
   expect_nullable("a{2}", false)
 }
+
+///|
+test "pattern parser rejects unknown and malformed escapes" {
+  for pattern in ["\\q", "\\x", "\\x1", "\\xZZ", "[\\d]", "[\\q]", "[\\x1]"] {
+    expect_pattern_err(pattern)
+  }
+}
+
+///|
+test "pattern parser rejects malformed POSIX attempts after class content" {
+  expect_pattern_err("[a[:alpha_1:]]")
+  expect_pattern_err("[a[:not_a_real_class:]]")
+  expect_pattern_ok("[a[:z]X")
+}
