@@ -213,14 +213,14 @@ fn emit_line_lexer(
   token_enum : EnumDecl,
   term_enum_decl : EnumDecl?,
   core_qual : String,
-) -> String? {
+) -> String? raise PayloadExprError {
   let candidates = match collect_line_patterns(token_enum) {
     None => return None
     Some(c) => c
   }
-  let fallback_by_mode : Map[String, String] = Map([])
   // Collect fallback-by-mode declarations from the term enum (independent of
   // the line-mode set used for emission).
+  let fallback_by_mode : Map[String, String] = Map([])
   match term_enum_decl {
     Some(term_enum) =>
       for v in term_enum.variants {
@@ -251,7 +251,6 @@ fn emit_line_lexer(
   b.write_string(
     "/// Each function matches #loom.line_pattern tokens against whole lines.\n\n",
   )
-  // so the helpers integrate with the skeleton's lex_<mode> override points.
   for mode in line_modes {
     emit_mode_line_lexer(
       b,
@@ -262,7 +261,7 @@ fn emit_line_lexer(
       generated_line_lexer_fn_name(mode),
       fallback_by_mode.get(mode),
     ) catch {
-      PayloadExprError::Invalid(msg) => abort(msg)
+      PayloadExprError::Invalid(msg) => raise PayloadExprError::Invalid(msg)
       _ => return None
     }
   }

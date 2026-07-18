@@ -952,18 +952,29 @@ fn main {
   // Preflight the line-mode lexer (#561) BEFORE writing any output.
   let line_lexer_job : (String, String, Array[String])? = match
     line_lexer_path {
-    Some(path) =>
-      match emit_line_lexer(te, term_enum_decl, core_qual) {
-        Some(content) =>
+    Some(path) => {
+      let result : Result[String?, PayloadExprError] = Ok(
+        emit_line_lexer(te, term_enum_decl, core_qual),
+      ) catch {
+        err => Err(err)
+      }
+      match result {
+        Ok(Some(content)) =>
           Some((path, content, collect_line_lexer_modes(term_enum_decl)))
-        None => {
+        Ok(None) => {
           println(
             "error: --line-lexer requires #loom.line_pattern annotations on token variants and #loom.line_mode annotations on #loom.lexmode term variants",
           )
           @sys.exit(1)
           return
         }
+        Err(PayloadExprError::Invalid(msg)) => {
+          println("error: invalid #loom.payload expression: " + msg)
+          @sys.exit(1)
+          return
+        }
       }
+    }
     None => None
   }
   // `emit_line_lexer` only succeeds with line modes; retain the explicit

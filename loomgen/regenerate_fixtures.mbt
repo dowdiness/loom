@@ -24,9 +24,16 @@ fn build_line_lexer_regression_outputs(
   guard annotations.term_enum is Some(term_enum) else {
     return Err(source_path + " has no #loom.term enum")
   }
-  match emit_line_lexer(token_enum, Some(term_enum), "@core") {
-    None => Err("emit_line_lexer returned None")
-    Some(line_lexer) => {
+  let result : Result[String?, PayloadExprError] = Ok(
+    emit_line_lexer(token_enum, Some(term_enum), "@core"),
+  ) catch {
+    err => Err(err)
+  }
+  match result {
+    Err(PayloadExprError::Invalid(msg)) =>
+      Err(source_path + " — invalid #loom.payload expression: " + msg)
+    Ok(None) => Err("emit_line_lexer returned None")
+    Ok(Some(line_lexer)) => {
       let line_modes = collect_line_lexer_modes(Some(term_enum))
       if line_modes.length() == 0 {
         Err(source_path + " has no #loom.line_mode variants")
@@ -138,9 +145,16 @@ fn regenerate_line_pattern_fixture(
   guard annotations.term_enum is Some(term_enum) else {
     return Err(source_path + " has no #loom.term enum")
   }
-  match emit_line_lexer(token_enum, Some(term_enum), "@core") {
-    None => Err("emit_line_lexer returned None")
-    Some(content) => write_regeneration_fixture(output_path, content)
+  let result : Result[String?, PayloadExprError] = Ok(
+    emit_line_lexer(token_enum, Some(term_enum), "@core"),
+  ) catch {
+    err => Err(err)
+  }
+  match result {
+    Err(PayloadExprError::Invalid(msg)) =>
+      Err(source_path + " — invalid #loom.payload expression: " + msg)
+    Ok(None) => Err("emit_line_lexer returned None")
+    Ok(Some(content)) => write_regeneration_fixture(output_path, content)
   }
 }
 
