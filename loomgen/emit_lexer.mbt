@@ -231,16 +231,14 @@ fn emit_pattern_check(
       }
       args.push(lowered)
     }
-    let arg_text = args.join(", ")
+    let arg_text = format_payload_constructor(variant_name, args)
     b.write_string(
       "  match re\"^(?:" + pattern + ")\".execute(view) {\n    Some(m) => {\n",
     )
     b.write_string("    let len = m.content().length()\n")
     b.write_string("    if len > best_len {\n")
     b.write_string("      best_len = len\n")
-    b.write_string(
-      "      best = Some(" + variant_name + "(" + arg_text + "))\n",
-    )
+    b.write_string("      best = Some(" + arg_text + ")\n")
     if has_keywords {
       b.write_string(
         "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",

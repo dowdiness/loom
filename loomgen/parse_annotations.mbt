@@ -342,6 +342,16 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               }
             }
           }
+          // Punctuation emission has no payload-construction path.
+          for v in classified {
+            if v.role is Some(Punct(_)) && v.payloads.length() > 0 {
+              return Err(
+                "token variant " +
+                v.name +
+                " with #loom.punct cannot have #loom.payload",
+              )
+            }
+          }
           // #688: payload metadata is positional and must match constructor arity.
           for v in classified {
             if v.payloads.length() > v.arg_count {

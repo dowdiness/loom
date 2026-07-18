@@ -1352,7 +1352,113 @@ test "emit_line_lexer inlines fully annotated payloads" {
     Some(s) => s
     None => abort("expected line lexer")
   }
-  inspect(generated.contains("HeadingMarker(m.group(1)"), content="true")
+  inspect(generated.contains("HeadingMarker(\n"), content="true")
+  inspect(
+    generated.contains("m.group(1).unwrap_or(\"\").length()"),
+    content="true",
+  )
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "emit_line_lexer keeps None arm inside payload match" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(a+)")
+    #|  #loom.payload("$1.length() // line")
+    #|  A(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  ANode
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("expected line lexer")
+  }
+  inspect(generated.contains("    }\n    None => ()\n  }"), content="true")
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "parse_annotations rejects payload-bearing punctuation" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.punct("+")
+      #|  #loom.payload("$0.to_owned()")
+      #|  Plus(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "punct",
+  )
+}
+
+///|
+test "emit_lexer preserves payload line comments before delimiters" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("$1.to_owned() // trim")
+      #|  A(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  inspect(generated.contains("A(\n"), content="true")
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "emit_lexer keeps multi-field payload comments parseable" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)(b)")
+      #|  #loom.payload("$1.to_owned() // first")
+      #|  #loom.payload("$2.to_owned()")
+      #|  Pair(String, String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+  inspect(generated.contains("Pair(\n"), content="true")
 }
 
 ///|
@@ -1374,7 +1480,13 @@ test "emit_lexer inlines fully annotated payload pattern" {
     Ok(s) => s
     Err(msg) => abort(msg)
   }
-  inspect(generated.contains("Word(m.group(1)"), content="true")
+  inspect(generated.contains("Word(\n"), content="true")
+  inspect(
+    generated.contains("m.group(1).unwrap_or(\"\").to_owned()"),
+    content="true",
+  )
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
 }
 
 ///|

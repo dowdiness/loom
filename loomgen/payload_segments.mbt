@@ -2,6 +2,7 @@
 enum PayloadSegmentKind {
   Code
   String
+  CharLiteral
   LineComment
   BlockComment
   MultilineString
@@ -77,9 +78,25 @@ fn lex_payload_segments(
           state = 0
         }
       }
+    } else if state == 5 {
+      if c == '\\' {
+        let next = @core.next_char_offset(source, i)
+        i = if next < n { @core.next_char_offset(source, next) } else { next }
+      } else if c == '\'' {
+        i = @core.next_char_offset(source, i)
+        flush(CharLiteral, i)
+        state = 0
+      } else {
+        i = @core.next_char_offset(source, i)
+      }
     } else if c == '"' {
       flush(Code, i)
       state = 1
+      segment_start = i
+      i = @core.next_char_offset(source, i)
+    } else if c == '\'' {
+      flush(Code, i)
+      state = 5
       segment_start = i
       i = @core.next_char_offset(source, i)
     } else if (c == '$' || c == '#') &&
@@ -112,6 +129,7 @@ fn lex_payload_segments(
     2 => LineComment
     3 => BlockComment
     4 => MultilineString
+    5 => CharLiteral
     _ => Code
   }
   flush(final_kind, n)

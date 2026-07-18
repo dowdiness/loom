@@ -19,6 +19,30 @@ test "payload expression preserves non-BMP strings while rewriting captures" {
 }
 
 ///|
+test "payload expression preserves character literals containing placeholders" {
+  inspect(
+    rewrite_payload_expr("'$' == '$' && $1.length() > 0", "m"),
+    content="'$' == '$' && m.group(1).unwrap_or(\"\").length() > 0",
+  )
+}
+
+///|
+test "payload expression preserves escaped character literals" {
+  inspect(
+    rewrite_payload_expr("'\\'' == '\\\\' && $1.length() > 0", "m"),
+    content="'\\'' == '\\\\' && m.group(1).unwrap_or(\"\").length() > 0",
+  )
+}
+
+///|
+test "payload expression advances across non-BMP character literals" {
+  inspect(
+    rewrite_payload_expr("'😈' == '😈' && $1.length() > 0", "m"),
+    content="'😈' == '😈' && m.group(1).unwrap_or(\"\").length() > 0",
+  )
+}
+
+///|
 test "payload expression preserves non-BMP comments while validating" {
   inspect(
     rewrite_payload_expr("$1 /* 😈 */", "m"),

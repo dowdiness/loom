@@ -130,9 +130,10 @@ fn emit_mode_line_lexer(
     if v.payloads.length() == v.arg_count &&
       v.arg_count > 0 &&
       v.custom_lex is None {
-      let args = v.payloads
-        .map(expr => rewrite_payload_expr(expr, "m"))
-        .join(", ")
+      let payload_constructor = format_payload_constructor(
+        v.name,
+        v.payloads.map(expr => rewrite_payload_expr(expr, "m")),
+      )
       b.write_string(
         "  match re\"^(?:" +
         safe_pattern +
@@ -143,14 +144,12 @@ fn emit_mode_line_lexer(
         "    return (Produced(" +
         core_qual +
         ".TokenInfo::new(" +
-        v.name +
-        "(" +
-        args +
-        "), len), next_offset=pos + len), " +
+        payload_constructor +
+        ", len), next_offset=pos + len), " +
         transition +
         ")\n",
       )
-      b.write_string("    }\n  }\n    None => ()\n  }\n")
+      b.write_string("    }\n    None => ()\n  }\n")
     } else {
       b.write_string(
         "  if rest =~ (re\"^(?:" + safe_pattern + ")\", after=after) {\n",

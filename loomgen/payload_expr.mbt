@@ -7,6 +7,7 @@ fn strip_payload_comments(source : String) -> String raise PayloadExprError {
     match segment.kind {
       Code => out.write_string(text.to_owned())
       String => out.write_string(text.to_owned())
+      CharLiteral => out.write_string(text.to_owned())
       MultilineString => out.write_string(text.to_owned())
       LineComment => {
         let mut i = segment.start
@@ -64,6 +65,7 @@ fn rewrite_payload_expr(
       String => out.write_string(text)
       LineComment => out.write_string(text)
       BlockComment => out.write_string(text)
+      CharLiteral => out.write_string(text)
       MultilineString => out.write_string(text)
     }
   }
@@ -159,4 +161,21 @@ fn rewrite_payload_code(
     }
   }
   out.to_string()
+}
+
+///|
+fn format_payload_constructor(
+  variant_name : String,
+  args : Array[String],
+) -> String {
+  let b = StringBuilder()
+  b.write_string(variant_name + "(\n")
+  for i = 0; i < args.length(); i = i + 1 {
+    b.write_string("        " + args[i] + "\n")
+    if i + 1 < args.length() {
+      b.write_string("        ,\n")
+    }
+  }
+  b.write_string("      )")
+  b.to_string()
 }
