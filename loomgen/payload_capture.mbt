@@ -10,7 +10,7 @@ fn max_payload_capture_index(source : String) -> Int {
     let mut i = segment.start
     while i < segment.end {
       if source.get_char(i).unwrap() == '$' {
-        i += 1
+        i = @core.next_char_offset(source, i)
         let mut value = 0
         let mut found = false
         while i < segment.end {
@@ -20,13 +20,13 @@ fn max_payload_capture_index(source : String) -> Int {
           }
           found = true
           value = value * 10 + digit.to_int() - '0'.to_int()
-          i += 1
+          i = @core.next_char_offset(source, i)
         }
         if found && value > max {
           max = value
         }
       } else {
-        i += 1
+        i = @core.next_char_offset(source, i)
       }
     }
   }

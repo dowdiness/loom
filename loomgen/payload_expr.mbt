@@ -9,25 +9,25 @@ fn strip_payload_comments(source : String) -> String raise PayloadExprError {
       String => out.write_string(text.to_owned())
       MultilineString => out.write_string(text.to_owned())
       LineComment => {
-        let mut i = 0
-        while i < text.length() {
-          if text.get_char(i).unwrap() == '\n' {
+        let mut i = segment.start
+        while i < segment.end {
+          if source.get_char(i).unwrap() == '\n' {
             out.write_char('\n')
           } else {
             out.write_char(' ')
           }
-          i += 1
+          i = @core.next_char_offset(source, i)
         }
       }
       BlockComment => {
-        let mut i = 0
-        while i < text.length() {
-          if text.get_char(i).unwrap() == '\n' {
+        let mut i = segment.start
+        while i < segment.end {
+          if source.get_char(i).unwrap() == '\n' {
             out.write_char('\n')
           } else {
             out.write_char(' ')
           }
-          i += 1
+          i = @core.next_char_offset(source, i)
         }
       }
     }
@@ -57,10 +57,7 @@ fn rewrite_payload_expr(
         let rewritten_code = rewrite_payload_code(text, match_name)
         let trimmed_code = rewritten_code.trim()
         if trimmed_code.length() > 0 {
-          trailing_code_dot = trimmed_code
-            .get_char(trimmed_code.length() - 1)
-            .unwrap() ==
-            '.'
+          trailing_code_dot = trimmed_code.has_suffix(".")
         }
         out.write_string(rewritten_code)
       }
@@ -96,7 +93,7 @@ fn rewrite_payload_code(
     let c = source.get_char(i).unwrap()
     if c == '$' {
       let start = i
-      i += 1
+      i = @core.next_char_offset(source, i)
       guard i < n else {
         raise PayloadExprError::Invalid("invalid capture placeholder")
       }
@@ -109,12 +106,12 @@ fn rewrite_payload_code(
         let digit = source.get_char(i).unwrap()
         guard digit >= '0' && digit <= '9' else { break }
         index = index * 10 + (digit.to_int() - '0'.to_int())
-        i += 1
+        i = @core.next_char_offset(source, i)
       }
       let suffix = if i < n && source.get_char(i).unwrap() == '_' {
         let suffix_start = i
         while i < n && source.get_char(i).unwrap() != '(' {
-          i += 1
+          i = @core.next_char_offset(source, i)
         }
         guard i < n &&
           i + 1 < n &&
@@ -123,7 +120,8 @@ fn rewrite_payload_code(
           raise PayloadExprError::Invalid("invalid capture placeholder")
         }
         let s = source[suffix_start:i].to_owned()
-        i += 2
+        i = @core.next_char_offset(source, i)
+        i = @core.next_char_offset(source, i)
         s
       } else {
         ""
@@ -157,7 +155,7 @@ fn rewrite_payload_code(
       }
     } else {
       out.write_char(c)
-      i += 1
+      i = @core.next_char_offset(source, i)
     }
   }
   out.to_string()

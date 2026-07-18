@@ -32,17 +32,18 @@ fn lex_payload_segments(
   while i < n {
     let c = source.get_char(i).unwrap()
     if state == 1 {
-      if c == '\\' && i + 1 < n {
-        i += 2
+      if c == '\\' {
+        let next = @core.next_char_offset(source, i)
+        i = if next < n { @core.next_char_offset(source, next) } else { next }
       } else if c == '"' {
-        i += 1
+        i = @core.next_char_offset(source, i)
         flush(String, i)
         state = 0
       } else {
-        i += 1
+        i = @core.next_char_offset(source, i)
       }
     } else if state == 2 {
-      i += 1
+      i = @core.next_char_offset(source, i)
       if c == '\n' {
         flush(LineComment, i)
         state = 0
@@ -53,10 +54,10 @@ fn lex_payload_segments(
         flush(BlockComment, i)
         state = 0
       } else {
-        i += 1
+        i = @core.next_char_offset(source, i)
       }
     } else if state == 4 {
-      i += 1
+      i = @core.next_char_offset(source, i)
       if c == '\n' {
         let mut next = i
         while next < n &&
@@ -64,7 +65,7 @@ fn lex_payload_segments(
                 source.get_char(next).unwrap() == ' ' ||
                 source.get_char(next).unwrap() == '\t'
               ) {
-          next += 1
+          next = @core.next_char_offset(source, next)
         }
         if !(next + 1 < n &&
           (
@@ -80,7 +81,7 @@ fn lex_payload_segments(
       flush(Code, i)
       state = 1
       segment_start = i
-      i += 1
+      i = @core.next_char_offset(source, i)
     } else if (c == '$' || c == '#') &&
       i + 1 < n &&
       source.get_char(i + 1).unwrap() == '|' {
@@ -99,7 +100,7 @@ fn lex_payload_segments(
       segment_start = i
       i += 2
     } else {
-      i += 1
+      i = @core.next_char_offset(source, i)
     }
   }
   if state == 3 {

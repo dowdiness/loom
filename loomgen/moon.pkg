@@ -3,6 +3,7 @@ import {
   "moonbitlang/parser",
   "moonbitlang/parser/attribute",
   "moonbitlang/parser/syntax",
+  "dowdiness/loom/core",
   "moonbitlang/core/argparse",
   "moonbitlang/core/debug",
   "moonbitlang/core/list",

@@ -11,6 +11,22 @@ test "payload expression rewrites captures and preserves MoonBit syntax" {
 }
 
 ///|
+test "payload expression preserves non-BMP strings while rewriting captures" {
+  inspect(
+    rewrite_payload_expr("\"😈\" + $1", "m"),
+    content="\"😈\" + m.group(1).unwrap_or(\"\")",
+  )
+}
+
+///|
+test "payload expression preserves non-BMP comments while validating" {
+  inspect(
+    rewrite_payload_expr("$1 /* 😈 */", "m"),
+    content="m.group(1).unwrap_or(\"\") /* 😈 */",
+  )
+}
+
+///|
 test "payload expression uses full content for capture zero" {
   inspect(
     rewrite_payload_expr("$0 + $1", "m"),
@@ -103,4 +119,9 @@ test "payload expression accepts mixed multiline prefixes" {
 ///|
 test "payload capture index ignores multiline string placeholders" {
   inspect(max_payload_capture_index("(\n  $| text $2\n) + $1"), content="1")
+}
+
+///|
+test "payload capture indexing advances across non-BMP code" {
+  inspect(max_payload_capture_index("😈 + $1"), content="1")
 }

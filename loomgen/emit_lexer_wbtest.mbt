@@ -1394,3 +1394,24 @@ test "parse_annotations rejects payload capture overflow" {
     "references capture group $2",
   )
 }
+
+///|
+test "emit_lexer rejects payload capture overflow in a default pattern" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.payload("$1")
+      #|  Ident(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) =>
+      inspect(msg.contains("references capture group $1"), content="true")
+    Ok(_) => abort("expected default-pattern capture overflow rejection")
+  }
+}

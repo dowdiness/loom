@@ -46,6 +46,42 @@ fn effective_pattern(v : VariantDecl) -> String? {
 }
 
 ///|
+fn validate_payload_captures(
+  variant : VariantDecl,
+  pattern : String,
+) -> Result[Unit, String] {
+  if variant.payloads.length() == 0 {
+    return Ok(())
+  }
+  let parsed = match parse_pattern(pattern) {
+    Ok(value) => value
+    Err(_) => return Ok(())
+  }
+  let max_ref = variant.payloads.fold(init=-1, fn(max_ref, expr) {
+    let index = max_payload_capture_index(expr)
+    if index > max_ref {
+      index
+    } else {
+      max_ref
+    }
+  })
+  let group_count = pattern_capture_count(parsed)
+  if max_ref > group_count {
+    Err(
+      "token variant " +
+      variant.name +
+      " references capture group $" +
+      max_ref.to_string() +
+      " but its pattern has only " +
+      group_count.to_string() +
+      " capture groups",
+    )
+  } else {
+    Ok(())
+  }
+}
+
+///|
 /// Collect and validate lexer candidates. Returns an error string for any
 /// state the generated scanner could not lex (unreachable variant, keyword
 /// without an identifier source, embeddable-pattern violations).
@@ -90,6 +126,14 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
         v.name +
         " has no #loom.pattern, #loom.punct, or #loom.custom_lex; the generated lexer cannot produce it",
       )
+    }
+    match effective_pattern(v) {
+      Some(pattern) =>
+        match validate_payload_captures(v, pattern) {
+          Ok(_) => ()
+          Err(msg) => return Err(msg)
+        }
+      None => ()
     }
     // Pattern and punct candidates are nullary unless every payload field is
     // supplied by #loom.payload; partial payloads retain custom_lex behavior.
