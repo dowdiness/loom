@@ -1573,3 +1573,18 @@ test "parse_annotations rejects payload without one string argument" {
     "requires exactly 1 string argument",
   )
 }
+
+///|
+test "parse_annotations rejects payload on term variants" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.payload("$1")
+      #|  Node
+      #|} derive(Eq)
+    ),
+    "cannot have #loom.payload",
+  )
+}

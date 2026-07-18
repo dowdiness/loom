@@ -493,6 +493,15 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
+          for v in classified {
+            if v.payloads.length() > 0 {
+              return Err(
+                "term variant " +
+                v.name +
+                " cannot have #loom.payload; payloads are only valid on #loom.token variants",
+              )
+            }
+          }
         }
         // Reject multiple ErrorNode variants — from_raw fallback would be ambiguous
         if is_term {
