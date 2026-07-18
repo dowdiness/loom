@@ -99,3 +99,8 @@ test "payload expression accepts mixed multiline prefixes" {
     content="(\n  #| heading\n  $| details\n) + m.group(1).unwrap_or(\"\")",
   )
 }
+
+///|
+test "payload capture index ignores multiline string placeholders" {
+  inspect(max_payload_capture_index("(\n  $| text $2\n) + $1"), content="1")
+}

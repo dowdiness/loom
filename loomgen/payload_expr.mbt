@@ -1,86 +1,36 @@
 ///|
 fn strip_payload_comments(source : String) -> String raise PayloadExprError {
   let out = StringBuilder()
-  let mut i = 0
-  let mut state = 0
-  while i < source.length() {
-    let c = source.get_char(i).unwrap()
-    if state == 1 {
-      out.write_char(c)
-      if c == '\\' && i + 1 < source.length() {
-        i += 1
-        out.write_char(source.get_char(i).unwrap())
-      } else if c == '"' {
-        state = 0
-      }
-      i += 1
-    } else if state == 2 {
-      if c == '\n' {
-        out.write_char(c)
-        state = 0
-      }
-      i += 1
-    } else if state == 3 {
-      if c == '*' &&
-        i + 1 < source.length() &&
-        source.get_char(i + 1).unwrap() == '/' {
-        i += 2
-        state = 0
-      } else {
-        i += 1
-      }
-    } else if state == 4 {
-      out.write_char(c)
-      i += 1
-      if c == '\n' {
-        let mut next = i
-        while next < source.length() &&
-              (
-                source.get_char(next).unwrap() == ' ' ||
-                source.get_char(next).unwrap() == '\t'
-              ) {
-          next += 1
-        }
-        if !(next + 1 < source.length() &&
-          (
-            source.get_char(next).unwrap() == '$' ||
-            source.get_char(next).unwrap() == '#'
-          ) &&
-          source.get_char(next + 1).unwrap() == '|') {
-          state = 0
+  let segments = lex_payload_segments(source)
+  for segment in segments {
+    let text = source[segment.start:segment.end]
+    match segment.kind {
+      Code => out.write_string(text.to_owned())
+      String => out.write_string(text.to_owned())
+      MultilineString => out.write_string(text.to_owned())
+      LineComment => {
+        let mut i = 0
+        while i < text.length() {
+          if text.get_char(i).unwrap() == '\n' {
+            out.write_char('\n')
+          } else {
+            out.write_char(' ')
+          }
+          i += 1
         }
       }
-    } else if (c == '$' || c == '#') &&
-      i + 1 < source.length() &&
-      source.get_char(i + 1).unwrap() == '|' {
-      out.write_char(c)
-      i += 1
-      out.write_char('|')
-      i += 1
-      state = 4
-    } else if c == '"' {
-      out.write_char(c)
-      state = 1
-      i += 1
-    } else if c == '/' &&
-      i + 1 < source.length() &&
-      source.get_char(i + 1).unwrap() == '/' {
-      out.write_char(' ')
-      i += 2
-      state = 2
-    } else if c == '/' &&
-      i + 1 < source.length() &&
-      source.get_char(i + 1).unwrap() == '*' {
-      out.write_char(' ')
-      i += 2
-      state = 3
-    } else {
-      out.write_char(c)
-      i += 1
+      BlockComment => {
+        let mut i = 0
+        while i < text.length() {
+          if text.get_char(i).unwrap() == '\n' {
+            out.write_char('\n')
+          } else {
+            out.write_char(' ')
+          }
+          i += 1
+        }
+      }
     }
-  }
-  if state == 3 {
-    raise PayloadExprError::Invalid("unterminated block comment")
   }
   out.to_string()
 }
@@ -98,82 +48,53 @@ fn rewrite_payload_expr(
   match_name : String,
 ) -> String raise PayloadExprError {
   let out = StringBuilder()
+  let mut trailing_code_dot = false
+  let segments = lex_payload_segments(source)
+  for segment in segments {
+    let text = source[segment.start:segment.end].to_owned()
+    match segment.kind {
+      Code => {
+        let rewritten_code = rewrite_payload_code(text, match_name)
+        let trimmed_code = rewritten_code.trim()
+        if trimmed_code.length() > 0 {
+          trailing_code_dot = trimmed_code
+            .get_char(trimmed_code.length() - 1)
+            .unwrap() ==
+            '.'
+        }
+        out.write_string(rewritten_code)
+      }
+      String => out.write_string(text)
+      LineComment => out.write_string(text)
+      BlockComment => out.write_string(text)
+      MultilineString => out.write_string(text)
+    }
+  }
+  let rewritten = out.to_string()
+  if trailing_code_dot {
+    raise PayloadExprError::Invalid("payload expression ends with '.'")
+  }
+  let validation_source = strip_payload_comments(rewritten)
+  let (_, diagnostics) = @parser.parse_string(
+    "fn __loom_validate_payload() { let _ = (" + validation_source + "\n) }",
+  )
+  if diagnostics.length() > 0 {
+    raise PayloadExprError::Invalid(diagnostics[0].msg)
+  }
+  rewritten
+}
+
+///|
+fn rewrite_payload_code(
+  source : String,
+  match_name : String,
+) -> String raise PayloadExprError {
+  let out = StringBuilder()
   let mut i = 0
   let n = source.length()
-  let mut state = 0 // 0 code, 1 string, 2 line comment, 3 block comment, 4 multiline string
-  let mut trailing_code_dot = false
   while i < n {
     let c = source.get_char(i).unwrap()
-    if state == 1 {
-      out.write_char(c)
-      if c == '\\' && i + 1 < n {
-        i += 1
-        out.write_char(source.get_char(i).unwrap())
-      } else if c == '"' {
-        state = 0
-      }
-      i += 1
-    } else if state == 2 {
-      out.write_char(c)
-      i += 1
-      if c == '\n' {
-        state = 0
-      }
-    } else if state == 3 {
-      out.write_char(c)
-      if c == '*' && i + 1 < n && source.get_char(i + 1).unwrap() == '/' {
-        i += 1
-        out.write_char('/')
-        state = 0
-      }
-      i += 1
-    } else if state == 4 {
-      out.write_char(c)
-      i += 1
-      if c == '\n' {
-        let mut next = i
-        while next < n &&
-              (
-                source.get_char(next).unwrap() == ' ' ||
-                source.get_char(next).unwrap() == '\t'
-              ) {
-          next += 1
-        }
-        if !(next + 1 < n &&
-          (
-            source.get_char(next).unwrap() == '$' ||
-            source.get_char(next).unwrap() == '#'
-          ) &&
-          source.get_char(next + 1).unwrap() == '|') {
-          state = 0
-        }
-      }
-    } else if (c == '$' || c == '#') &&
-      i + 1 < n &&
-      source.get_char(i + 1).unwrap() == '|' {
-      out.write_char(c)
-      i += 1
-      out.write_char('|')
-      i += 1
-      state = 4
-    } else if c == '"' {
-      out.write_char(c)
-      state = 1
-      i += 1
-    } else if c == '/' && i + 1 < n && source.get_char(i + 1).unwrap() == '/' {
-      out.write_char(c)
-      i += 1
-      out.write_char('/')
-      i += 1
-      state = 2
-    } else if c == '/' && i + 1 < n && source.get_char(i + 1).unwrap() == '*' {
-      out.write_char(c)
-      i += 1
-      out.write_char('*')
-      i += 1
-      state = 3
-    } else if c == '$' {
-      trailing_code_dot = false
+    if c == '$' {
       let start = i
       i += 1
       guard i < n else {
@@ -236,22 +157,8 @@ fn rewrite_payload_expr(
       }
     } else {
       out.write_char(c)
-      if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
-        trailing_code_dot = c == '.'
-      }
       i += 1
     }
   }
-  let rewritten = out.to_string()
-  let validation_source = strip_payload_comments(rewritten)
-  let (_, diagnostics) = @parser.parse_string(
-    "fn __loom_validate_payload() { let _ = (" + validation_source + "\n) }",
-  )
-  if trailing_code_dot {
-    raise PayloadExprError::Invalid("payload expression ends with '.'")
-  }
-  if diagnostics.length() > 0 {
-    raise PayloadExprError::Invalid(diagnostics[0].msg)
-  }
-  rewritten
+  out.to_string()
 }
