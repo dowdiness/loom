@@ -37,3 +37,65 @@ test "payload expression rejects malformed placeholder" {
     _ => fail("expected malformed placeholder to raise")
   }
 }
+
+///|
+test "payload expression rejects trailing dot" {
+  try rewrite_payload_expr("$1.", "m") catch {
+    PayloadExprError::Invalid(_) => ()
+  } noraise {
+    _ => fail("expected trailing dot to raise")
+  }
+}
+
+///|
+test "payload expression allows punctuation in trailing comments" {
+  inspect(
+    rewrite_payload_expr("$1 // explanation.", "m"),
+    content="m.group(1).unwrap_or(\"\") // explanation.",
+  )
+}
+
+///|
+test "payload expression allows punctuation in strings and block comments" {
+  let actual = rewrite_payload_expr("\".\" + $1 /* explanation. */", "m") catch {
+    PayloadExprError::Invalid(msg) => fail(msg)
+  }
+  inspect(
+    actual,
+    content="\".\" + m.group(1).unwrap_or(\"\") /* explanation. */",
+  )
+}
+
+///|
+test "payload expression rejects unterminated block comments" {
+  try rewrite_payload_expr("$1 /* explanation.", "m") catch {
+    PayloadExprError::Invalid(_) => ()
+  } noraise {
+    _ => fail("expected unterminated block comment to raise")
+  }
+}
+
+///|
+test "payload expression preserves multiline string contents" {
+  let expr = "$| heading\n$| $1\n$| // comment"
+  let rewritten = rewrite_payload_expr(expr, "m")
+  inspect(rewritten, content=expr)
+}
+
+///|
+test "payload expression rewrites after nested multiline string" {
+  let expr = "(\n  $| heading\n  $| /* explanation. */\n) + $1"
+  inspect(
+    rewrite_payload_expr(expr, "m"),
+    content="(\n  $| heading\n  $| /* explanation. */\n) + m.group(1).unwrap_or(\"\")",
+  )
+}
+
+///|
+test "payload expression accepts mixed multiline prefixes" {
+  let expr = "(\n  #| heading\n  $| details\n) + $1"
+  inspect(
+    rewrite_payload_expr(expr, "m"),
+    content="(\n  #| heading\n  $| details\n) + m.group(1).unwrap_or(\"\")",
+  )
+}

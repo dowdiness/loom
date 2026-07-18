@@ -1,4 +1,91 @@
 ///|
+fn strip_payload_comments(source : String) -> String raise PayloadExprError {
+  let out = StringBuilder()
+  let mut i = 0
+  let mut state = 0
+  while i < source.length() {
+    let c = source.get_char(i).unwrap()
+    if state == 1 {
+      out.write_char(c)
+      if c == '\\' && i + 1 < source.length() {
+        i += 1
+        out.write_char(source.get_char(i).unwrap())
+      } else if c == '"' {
+        state = 0
+      }
+      i += 1
+    } else if state == 2 {
+      if c == '\n' {
+        out.write_char(c)
+        state = 0
+      }
+      i += 1
+    } else if state == 3 {
+      if c == '*' &&
+        i + 1 < source.length() &&
+        source.get_char(i + 1).unwrap() == '/' {
+        i += 2
+        state = 0
+      } else {
+        i += 1
+      }
+    } else if state == 4 {
+      out.write_char(c)
+      i += 1
+      if c == '\n' {
+        let mut next = i
+        while next < source.length() &&
+              (
+                source.get_char(next).unwrap() == ' ' ||
+                source.get_char(next).unwrap() == '\t'
+              ) {
+          next += 1
+        }
+        if !(next + 1 < source.length() &&
+          (
+            source.get_char(next).unwrap() == '$' ||
+            source.get_char(next).unwrap() == '#'
+          ) &&
+          source.get_char(next + 1).unwrap() == '|') {
+          state = 0
+        }
+      }
+    } else if (c == '$' || c == '#') &&
+      i + 1 < source.length() &&
+      source.get_char(i + 1).unwrap() == '|' {
+      out.write_char(c)
+      i += 1
+      out.write_char('|')
+      i += 1
+      state = 4
+    } else if c == '"' {
+      out.write_char(c)
+      state = 1
+      i += 1
+    } else if c == '/' &&
+      i + 1 < source.length() &&
+      source.get_char(i + 1).unwrap() == '/' {
+      out.write_char(' ')
+      i += 2
+      state = 2
+    } else if c == '/' &&
+      i + 1 < source.length() &&
+      source.get_char(i + 1).unwrap() == '*' {
+      out.write_char(' ')
+      i += 2
+      state = 3
+    } else {
+      out.write_char(c)
+      i += 1
+    }
+  }
+  if state == 3 {
+    raise PayloadExprError::Invalid("unterminated block comment")
+  }
+  out.to_string()
+}
+
+///|
 /// Errors raised while lowering a `#loom.payload` expression.
 suberror PayloadExprError {
   Invalid(String)
@@ -13,7 +100,8 @@ fn rewrite_payload_expr(
   let out = StringBuilder()
   let mut i = 0
   let n = source.length()
-  let mut state = 0 // 0 code, 1 string, 2 line comment, 3 block comment
+  let mut state = 0 // 0 code, 1 string, 2 line comment, 3 block comment, 4 multiline string
+  let mut trailing_code_dot = false
   while i < n {
     let c = source.get_char(i).unwrap()
     if state == 1 {
@@ -39,6 +127,35 @@ fn rewrite_payload_expr(
         state = 0
       }
       i += 1
+    } else if state == 4 {
+      out.write_char(c)
+      i += 1
+      if c == '\n' {
+        let mut next = i
+        while next < n &&
+              (
+                source.get_char(next).unwrap() == ' ' ||
+                source.get_char(next).unwrap() == '\t'
+              ) {
+          next += 1
+        }
+        if !(next + 1 < n &&
+          (
+            source.get_char(next).unwrap() == '$' ||
+            source.get_char(next).unwrap() == '#'
+          ) &&
+          source.get_char(next + 1).unwrap() == '|') {
+          state = 0
+        }
+      }
+    } else if (c == '$' || c == '#') &&
+      i + 1 < n &&
+      source.get_char(i + 1).unwrap() == '|' {
+      out.write_char(c)
+      i += 1
+      out.write_char('|')
+      i += 1
+      state = 4
     } else if c == '"' {
       out.write_char(c)
       state = 1
@@ -56,6 +173,7 @@ fn rewrite_payload_expr(
       i += 1
       state = 3
     } else if c == '$' {
+      trailing_code_dot = false
       let start = i
       i += 1
       guard i < n else {
@@ -118,13 +236,20 @@ fn rewrite_payload_expr(
       }
     } else {
       out.write_char(c)
+      if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+        trailing_code_dot = c == '.'
+      }
       i += 1
     }
   }
   let rewritten = out.to_string()
+  let validation_source = strip_payload_comments(rewritten)
   let (_, diagnostics) = @parser.parse_string(
-    "fn __loom_validate_payload() { " + rewritten + " }",
+    "fn __loom_validate_payload() { let _ = (" + validation_source + "\n) }",
   )
+  if trailing_code_dot {
+    raise PayloadExprError::Invalid("payload expression ends with '.'")
+  }
   if diagnostics.length() > 0 {
     raise PayloadExprError::Invalid(diagnostics[0].msg)
   }
