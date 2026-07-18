@@ -17,6 +17,7 @@ pub fn step_lex(String, Int) -> @core.LexStep[Token]
 // Types and methods
 pub(all) enum Token {
   HeadingMarker(Int)
+  OffsetWord(Int)
   CodeFenceOpen(Int, String)
   EOF
 } derive(Eq, @debug.Debug)

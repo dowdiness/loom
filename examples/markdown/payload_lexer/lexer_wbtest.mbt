@@ -25,6 +25,34 @@ test "generated heading payload levels" {
 }
 
 ///|
+test "generated payload offsets remain absolute after a prefix" {
+  match step_lex("prefix abc", 7) {
+    @core.LexStep::Produced(info, next_offset=next) =>
+      match info.token {
+        OffsetWord(start) => {
+          inspect(start, content="710")
+          inspect(info.len, content="3")
+          inspect(next, content="10")
+        }
+        _ => fail("expected offset payload token")
+      }
+    _ => fail("expected produced offset token")
+  }
+  match step_lex("😈prefix abc", 9) {
+    @core.LexStep::Produced(info, next_offset=next) =>
+      match info.token {
+        OffsetWord(start) => {
+          inspect(start, content="912")
+          inspect(info.len, content="3")
+          inspect(next, content="12")
+        }
+        _ => fail("expected non-BMP offset payload token")
+      }
+    _ => fail("expected produced non-BMP offset token")
+  }
+}
+
+///|
 fn assert_fence_payload(
   source : String,
   expected : String,

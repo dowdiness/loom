@@ -1415,3 +1415,49 @@ test "emit_lexer rejects payload capture overflow in a default pattern" {
     Ok(_) => abort("expected default-pattern capture overflow rejection")
   }
 }
+
+///|
+test "parse_annotations rejects payload without one string argument" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "requires exactly 1 string argument",
+  )
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload(123)
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "invalid arguments for #loom.payload",
+  )
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("a", "b")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "requires exactly 1 string argument",
+  )
+}

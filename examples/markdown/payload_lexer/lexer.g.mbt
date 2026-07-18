@@ -20,6 +20,21 @@ pub fn step_lex(source : String, pos : Int) -> @core.LexStep[Token] {
     }
     None => ()
   }
+  match re"^(?:([a-z]+))".execute(view) {
+    Some(m) => {
+      let len = m.content().length()
+      if len > best_len {
+        best_len = len
+        best = Some(
+          OffsetWord(
+            m.group(1).map(fn(v) { v.start_offset() }).unwrap_or(0) * 100 +
+            m.group(1).map(fn(v) { v.start_offset() + v.length() }).unwrap_or(0),
+          ),
+        )
+      }
+    }
+    None => ()
+  }
   match re"^(?:(`{3,})([^\r\n]*))".execute(view) {
     Some(m) => {
       let len = m.content().length()
