@@ -147,6 +147,38 @@ test "emit_lexer wires a #loom.custom_lex hook before the regex pass" {
 }
 
 ///|
+test "emit_lexer preserves declaration order for multiple custom hooks" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.custom_lex("lex_first")
+      #|  First
+      #|  #loom.literal
+      #|  #loom.custom_lex("lex_second")
+      #|  Second
+      #|  #loom.ident
+      #|  #loom.pattern("[a-zA-Z_]+")
+      #|  Name
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(
+    generated.contains(
+      "match lex_first(source, pos) {\n    Done => ()\n    other => return other\n  }\n  // custom_lex hook — expected signature: (String, Int) -> @core.LexStep[T]\n  match lex_second(source, pos)",
+    ),
+    content="true",
+  )
+}
+
+///|
 /// Assert that `parse_annotations(src)` fails with an error containing `needle`.
 fn expect_parse_err(src : String, needle : String) -> Unit {
   match parse_annotations(src) {
@@ -1149,9 +1181,12 @@ test "emit_line_lexer accepts #loom.line_pattern with #loom.custom_lex" {
     #|  ErrorNode
     #|} derive(Eq)
   let (te, term_enum) = full_enums_of(src)
-  guard emit_line_lexer(te, Some(term_enum), "@core") is Some(_) else {
-    fail("expected Some for valid line_pattern with custom_lex")
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(value) => value
+    None => fail("expected Some for valid line_pattern with custom_lex")
   }
+  inspect(generated.contains("lex_heading(source, pos, len)"), content="true")
+  inspect(generated.contains("next_offset=pos + len"), content="true")
 }
 
 ///|
