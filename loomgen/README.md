@@ -11,7 +11,7 @@ for why the parser code generator (`emit_grammar.mbt`) was removed.
 
 Before opening a PR that changes an emitter, complete every applicable item:
 
-- [ ] `moon check --target native loomgen` — no errors or warnings.
+- [ ] `moon check --target native loomgen` — no errors or new warnings attributable to the change.
 - [ ] `moon test --target native loomgen` — all tests pass.
 - [ ] `moon fmt --check loomgen/` — formatting is clean.
 - [ ] Generated sources parse and typecheck in their consuming package.
