@@ -57,7 +57,7 @@ fn emit_lexmode(term_enum_decl : EnumDecl) -> String? {
   for mode in modes {
     mode_to_kinds[mode].sort()
   }
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   b.write_string("///|\n")
   b.write_string("pub(all) enum LexMode {\n")
   for i = 0; i < modes.length(); i = i + 1 {

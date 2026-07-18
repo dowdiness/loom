@@ -35,7 +35,7 @@ fn emit_view_accessors(
     return ""
   }
 
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   b.write_string("///|\n")
   b.write_string(
     "/// Generated typed projection accessors from #loom.view annotations.\n",

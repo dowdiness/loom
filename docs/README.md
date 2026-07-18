@@ -65,6 +65,9 @@ Understanding how the layers fit together. Principles only — no specific types
 - [superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md](superpowers/specs/2026-07-14-parser-context-lookahead-rename-design.md) — approved #716 clean cutover from `ParserContext::speculative` to `ParserContext::lookahead`
 - [superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md](superpowers/specs/2026-07-14-markdown-code-span-authoring-contract-design.md) — draft #484 contract for CommonMark code-span normalization, raw-source fidelity, and block-editor authoring facts
 - [superpowers/specs/2026-07-15-markdown-projection-identity-design.md](superpowers/specs/2026-07-15-markdown-projection-identity-design.md) — approved #341 policy for MarkdownIR-to-editor identity anchors, semantic keys, recovery, and view-local projection IDs
+- [superpowers/specs/2026-07-17-payload-capture-design.md](superpowers/specs/2026-07-17-payload-capture-design.md) — approved private design for #loom.payload capture extraction (#688)
+- [decisions/2026-07-17-payload-capture.md](decisions/2026-07-17-payload-capture.md) — **Accepted** private regex capture payload annotations and Markdown helper integration (#688)
+- [superpowers/archive/completed-phases/2026-07-17-payload-capture.md](archive/completed-phases/2026-07-17-payload-capture.md) — completed implementation plan for #loom.payload capture extraction (#688)
 - [architecture/markdown-execution-roadmap.md](architecture/markdown-execution-roadmap.md) — dependency order for MarkdownIR editor compatibility, CommonMark block/inline work, incremental conformance hardening, and the independent loomgen lane
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)

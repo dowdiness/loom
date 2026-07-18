@@ -1155,6 +1155,48 @@ test "emit_line_lexer accepts #loom.line_pattern with #loom.custom_lex" {
 }
 
 ///|
+test "emit_line_lexer rejects malformed fully annotated payload" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(#{1,6}) ")
+    #|  #loom.payload("$1 +")
+    #|  HeadingMarker(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, _) = full_enums_of(src)
+  let candidates = collect_line_patterns(te).unwrap()
+  let mut raised = false
+  emit_mode_line_lexer(
+    StringBuilder(),
+    "LineStart",
+    candidates,
+    "T",
+    "@core",
+    "generated_line_start",
+    None,
+  ) catch {
+    PayloadExprError::Invalid(_) => raised = true
+    _ => raised = true
+  }
+  inspect(raised, content="true")
+}
+
+///|
 test "emit_line_lexer filters candidates by mode via lexmode_name" {
   let src =
     #|#loom.token
@@ -1244,4 +1286,76 @@ test "line_lexer_shares_syntax_output rejects other package directories" {
     !line_lexer_shares_syntax_output("token/line_lexer.g.mbt", "syntax"),
   )
   assert_true(!line_lexer_shares_syntax_output("/line_lexer.g.mbt", "/"))
+}
+
+///|
+test "emit_line_lexer inlines fully annotated payloads" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(#{1,6}) ")
+    #|  #loom.payload("$1.length()")
+    #|  HeadingMarker(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("expected line lexer")
+  }
+  inspect(generated.contains("HeadingMarker(m.group(1)"), content="true")
+}
+
+///|
+test "emit_lexer inlines fully annotated payload pattern" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("([a-z]+)")
+      #|  #loom.payload("$1.to_owned()")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  inspect(generated.contains("Word(m.group(1)"), content="true")
+}
+
+///|
+test "parse_annotations rejects payload capture overflow" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("$2")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "references capture group $2",
+  )
 }

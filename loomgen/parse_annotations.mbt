@@ -43,10 +43,12 @@ struct VariantDecl {
   // `custom_lex` names a hand-written `(String, Int) -> LexStep[Token]` escape hatch.
   pattern : String?
   custom_lex : String?
+  // #688. Ordered payload expressions mapped to constructor fields.
+  payloads : Array[String]
   lexmode_name : String?
   // #561. `line_pattern` carries a regex matched against a whole line (rest-of-line
-  // from current position to newline). Only valid in token variants consumed by a
-  // `#loom.line_mode` lexmode's generated lexer function.
+  // from current position to newline). Only valid in token variants consumed by
+  // a `#loom.line_mode` lexmode's generated lexer function.
   line_pattern : String?
   // #561. `line_mode` marks that the lexmode referenced by `#loom.lexmode(...)` on
   // this term variant is line-oriented (dispatches on full lines, not individual
@@ -302,6 +304,65 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               None => ()
             }
           }
+          for v in classified {
+            if v.payloads.length() > 0 {
+              let pattern = match (v.pattern, v.line_pattern) {
+                (Some(p), _) => Some(p)
+                (_, Some(p)) => Some(p)
+                _ => None
+              }
+              match pattern {
+                Some(p) =>
+                  match parse_pattern(p) {
+                    Ok(parsed) => {
+                      let max_ref = v.payloads.fold(init=-1, fn(max_ref, expr) {
+                        let index = max_payload_capture_index(expr)
+                        if index > max_ref {
+                          index
+                        } else {
+                          max_ref
+                        }
+                      })
+                      let group_count = pattern_capture_count(parsed)
+                      if max_ref > group_count {
+                        return Err(
+                          "token variant " +
+                          v.name +
+                          " references capture group $" +
+                          max_ref.to_string() +
+                          " but its pattern has only " +
+                          group_count.to_string() +
+                          " capture groups",
+                        )
+                      }
+                    }
+                    Err(_) => ()
+                  }
+                None => ()
+              }
+            }
+          }
+          // #688: payload metadata is positional and must match constructor arity.
+          for v in classified {
+            if v.payloads.length() > v.arg_count {
+              return Err(
+                "token variant " +
+                v.name +
+                " has " +
+                v.payloads.length().to_string() +
+                " #loom.payload annotations but only " +
+                v.arg_count.to_string() +
+                " constructor fields",
+              )
+            }
+            if v.payloads.length() > 0 && v.arg_count == 0 {
+              return Err(
+                "token variant " +
+                v.name +
+                " cannot have #loom.payload annotations without constructor fields",
+              )
+            }
+          }
           // #561: #loom.line_pattern validation — similar to #loom.pattern but
           // for line-level patterns. line_pattern tokens may carry constructor
           // arguments (payload extracted by #loom.custom_lex).
@@ -399,7 +460,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           // need a custom_lex to extract the payload.
           for v in classified {
             match v.line_pattern {
-              Some(_) if v.arg_count > 0 && v.custom_lex is None =>
+              Some(_) if v.arg_count > 0 &&
+                v.custom_lex is None &&
+                v.payloads.length() != v.arg_count =>
                 return Err(
                   "token variant " +
                   v.name +
@@ -684,6 +747,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
         // Detect #loom.pattern and #loom.custom_lex lexer-generation modifiers.
         let mut pattern : String? = None
         let mut custom_lex : String? = None
+        let payloads : Array[String] = []
         let mut line_pattern : String? = None
         let mut lexmode_name : String? = None
         let mut fallback_lex : String? = None
@@ -706,6 +770,11 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 pattern = first_string_from_apply(attr.parsed)
               } else if id.name == "custom_lex" {
                 custom_lex = first_string_from_apply(attr.parsed)
+              } else if id.name == "payload" {
+                match first_string_from_apply(attr.parsed) {
+                  Some(expr) => payloads.push(expr)
+                  None => ()
+                }
               } else if id.name == "lexmode" {
                 // Extract the mode name from #loom.lexmode("Name")
                 lexmode_name = first_string_from_apply(attr.parsed)
@@ -738,6 +807,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           is_rawtext,
           pattern,
           custom_lex,
+          payloads,
           lexmode_name,
           line_pattern,
           line_mode,
@@ -765,9 +835,25 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
 }
 
 ///|
+
+///|
+fn pattern_capture_count(pattern : Pattern) -> Int {
+  match pattern {
+    Group(inner) => 1 + pattern_capture_count(inner)
+    Seq(items) =>
+      items.fold(init=0, fn(total, item) { total + pattern_capture_count(item) })
+    Quantified(inner, _) => pattern_capture_count(inner)
+    _ => 0
+  }
+}
+
+///|
 fn validate_pattern(pattern : String) -> Result[Bool, PatternError] {
   match parse_pattern(pattern) {
-    Ok(parsed) => Ok(parsed.is_nullable())
+    Ok(parsed) => {
+      let _capture_count = pattern_capture_count(parsed)
+      Ok(parsed.is_nullable())
+    }
     Err(error) => Err(error)
   }
 }
@@ -1090,7 +1176,7 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
         }
         continue
       }
-      "pattern" | "custom_lex" => {
+      "pattern" | "custom_lex" | "payload" => {
         // Lexer-generation modifier — skip role assignment, but require
         // exactly one string argument (the regex body / function name).
         if count_apply_args(attr.parsed) != 1 {
