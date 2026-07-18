@@ -4,7 +4,7 @@
 
 ///|
 fn emit_sync_point(token_enum : EnumDecl) -> String {
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   let sync_variants = token_enum.variants.filter(fn(v) { v.is_sync })
   b.write_string("///|\n")
   b.write_string(

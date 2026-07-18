@@ -90,7 +90,7 @@ fn emit_syntax_kind(
   retired_rawns : Array[Int],
 ) -> String {
   let all = token_kinds + term_kinds
-  let b = StringBuilder::new()
+  let b = StringBuilder()
 
   b.write_string("///|\n")
   b.write_string("pub(all) enum SyntaxKind {\n")

@@ -46,6 +46,42 @@ fn effective_pattern(v : VariantDecl) -> String? {
 }
 
 ///|
+fn validate_payload_captures(
+  variant : VariantDecl,
+  pattern : String,
+) -> Result[Unit, String] {
+  if variant.payloads.length() == 0 {
+    return Ok(())
+  }
+  let parsed = match parse_pattern(pattern) {
+    Ok(value) => value
+    Err(_) => return Ok(())
+  }
+  let max_ref = variant.payloads.fold(init=-1, fn(max_ref, expr) {
+    let index = max_payload_capture_index(expr)
+    if index > max_ref {
+      index
+    } else {
+      max_ref
+    }
+  })
+  let group_count = pattern_capture_count(parsed)
+  if max_ref > group_count {
+    Err(
+      "token variant " +
+      variant.name +
+      " references capture group $" +
+      max_ref.to_string() +
+      " but its pattern has only " +
+      group_count.to_string() +
+      " capture groups",
+    )
+  } else {
+    Ok(())
+  }
+}
+
+///|
 /// Collect and validate lexer candidates. Returns an error string for any
 /// state the generated scanner could not lex (unreachable variant, keyword
 /// without an identifier source, embeddable-pattern violations).
@@ -91,13 +127,24 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
         " has no #loom.pattern, #loom.punct, or #loom.custom_lex; the generated lexer cannot produce it",
       )
     }
-    // Pattern and punct candidates are emitted as nullary constructors.
+    match effective_pattern(v) {
+      Some(pattern) =>
+        match validate_payload_captures(v, pattern) {
+          Ok(_) => ()
+          Err(msg) => return Err(msg)
+        }
+      None => ()
+    }
+    // Pattern and punct candidates are nullary unless every payload field is
+    // supplied by #loom.payload; partial payloads retain custom_lex behavior.
     if (effective_pattern(v) is Some(_) || v.role is Some(Punct(_))) &&
-      v.arg_count > 0 {
+      v.arg_count > 0 &&
+      v.payloads.length() != v.arg_count &&
+      v.custom_lex is None {
       return Err(
         "token variant " +
         v.name +
-        " is a lexer candidate but has constructor arguments; pattern/punct candidates must be nullary",
+        " is a lexer candidate but has constructor arguments without a #loom.payload expression for every field",
       )
     }
     // Keywords are post-classified as nullary constructors (`"let" => Let`), so a
@@ -165,37 +212,53 @@ fn collect_lexer_inputs(token_enum : EnumDecl) -> Result[LexerInputs, String] {
 /// Emit a regex `view =~ (re"^(?:PATTERN)", after=rest)` match branch for a
 /// pattern-backed token variant.  Updates `best_len`, `best`, and (when
 /// `has_keywords`) `best_ident` if the match beats the current best.
+/// Emit a pattern match branch. Payload-bearing variants use `MatchResult` so
+/// capture expressions can be lowered; nullary variants retain the existing
+/// `=~ after=` path.
 fn emit_pattern_check(
   b : StringBuilder,
   pattern : String,
-  variant_name : String,
+  variant : VariantDecl,
   is_ident : Bool,
   has_keywords : Bool,
-) -> Unit {
-  // Wrap the whole pattern in a non-capturing group so the leading `^`
-  // anchors the ENTIRE pattern. A bare `re"^foo|bar"` would parse as
-  // `(^foo)|(bar)`, letting the search-based `=~` match the unanchored
-  // branch mid-view; the `^(?:..)` wrap binds the anchor to the whole
-  // pattern. (Alternation itself is rejected at validation — it is
-  // leftmost-match, not longest-match — so the wrap is a defensive
-  // structural guarantee, not an alternation feature.)
-  //
-  // The match span is computed from the `after=` remainder rather than a
-  // `... as m` binder: for a pattern that statically matches exactly one
-  // character (`[0-9]`, `.`) the `as` binder is a `Char`, which has no
-  // `.length()`, so `m.length()` would not type-check. `view.length() -
-  // rest.length()` is the consumed code-unit count regardless of binder type.
-  b.write_string("  if view =~ (re\"^(?:" + pattern + ")\", after=rest) {\n")
-  b.write_string("    let len = view.length() - rest.length()\n")
-  b.write_string("    if len > best_len {\n")
-  b.write_string("      best_len = len\n")
-  b.write_string("      best = Some(" + variant_name + ")\n")
-  if has_keywords {
+) -> Result[Unit, String] {
+  let variant_name = variant.name
+  if variant.payloads.length() == variant.arg_count && variant.arg_count > 0 {
+    let args : Array[String] = []
+    for expr in variant.payloads {
+      let lowered = rewrite_payload_expr(expr, "m") catch {
+        PayloadExprError::Invalid(msg) => return Err(msg)
+      }
+      args.push(lowered)
+    }
+    let arg_text = format_payload_constructor(variant_name, args)
     b.write_string(
-      "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+      "  match re\"^(?:" + pattern + ")\".execute(view) {\n    Some(m) => {\n",
     )
+    b.write_string("    let len = m.content().length()\n")
+    b.write_string("    if len > best_len {\n")
+    b.write_string("      best_len = len\n")
+    b.write_string("      best = Some(" + arg_text + ")\n")
+    if has_keywords {
+      b.write_string(
+        "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+      )
+    }
+    b.write_string("    }\n  }\n    None => ()\n  }\n")
+  } else {
+    b.write_string("  if view =~ (re\"^(?:" + pattern + ")\", after=rest) {\n")
+    b.write_string("    let len = view.length() - rest.length()\n")
+    b.write_string("    if len > best_len {\n")
+    b.write_string("      best_len = len\n")
+    b.write_string("      best = Some(" + variant_name + ")\n")
+    if has_keywords {
+      b.write_string(
+        "      best_ident = " + (if is_ident { "true" } else { "false" }) + "\n",
+      )
+    }
+    b.write_string("    }\n  }\n")
   }
-  b.write_string("    }\n  }\n")
+  Ok(())
 }
 
 ///|
@@ -241,7 +304,7 @@ fn emit_lexer(
   let has_patterns = inputs.variants
     .iter()
     .any(fn(v) { effective_pattern(v) is Some(_) })
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   b.write_string("// Generated by loomgen (#521) — do not edit.\n\n")
   b.write_string("///|\n")
   b.write_string(
@@ -287,7 +350,10 @@ fn emit_lexer(
   for v in inputs.variants {
     match effective_pattern(v) {
       Some(p) =>
-        emit_pattern_check(b, p, v.name, v.role is Some(Ident), has_keywords)
+        match emit_pattern_check(b, p, v, v.role is Some(Ident), has_keywords) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
       None =>
         match v.role {
           Some(Punct(lit)) => emit_punct_check(b, lit, v.name, has_keywords)

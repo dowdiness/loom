@@ -383,35 +383,43 @@ fn lex_heading_marker(
   token_pos : Int,
   marker_pos : Int,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let n = count_hashes(input, marker_pos)
-  // Must be followed by space, tab, or EOL to be a heading.
-  if n > 0 && n <= 6 {
-    match char_at(input, marker_pos + n) {
-      Some(' ') | Some('\t') =>
-        // HeadingMarker includes the trailing separator.
-        (
-          Produced(
-            @core.TokenInfo::new(
-              HeadingMarker(n),
-              marker_pos - token_pos + n + 1,
+  match @payload_lexer.step_lex(input, marker_pos) {
+    @core.LexStep::Produced(info, next_offset=next) =>
+      match info.token {
+        @payload_lexer.Token::HeadingMarker(level) =>
+          (
+            Produced(
+              @core.TokenInfo::new(
+                HeadingMarker(level),
+                info.len + marker_pos - token_pos,
+              ),
+              next_offset=next,
             ),
-            next_offset=marker_pos + n + 1,
-          ),
-          Inline,
-        )
-      Some('\r') | Some('\n') | None =>
-        // Heading with no content (just "##\n")
-        (
-          Produced(
-            @core.TokenInfo::new(HeadingMarker(n), marker_pos - token_pos + n),
-            next_offset=marker_pos + n,
-          ),
-          Inline,
-        )
-      _ => lex_inline(input, token_pos)
+            Inline,
+          )
+        _ => lex_inline(input, token_pos)
+      }
+    _ => {
+      let n = count_hashes(input, marker_pos)
+      if n > 0 && n <= 6 {
+        match char_at(input, marker_pos + n) {
+          Some('\r') | Some('\n') | None =>
+            (
+              Produced(
+                @core.TokenInfo::new(
+                  HeadingMarker(n),
+                  marker_pos - token_pos + n,
+                ),
+                next_offset=marker_pos + n,
+              ),
+              Inline,
+            )
+          _ => lex_inline(input, token_pos)
+        }
+      } else {
+        lex_inline(input, token_pos)
+      }
     }
-  } else {
-    lex_inline(input, token_pos)
   }
 }
 
@@ -538,25 +546,43 @@ fn lex_code_fence(
   pos : Int,
   fence_character : Char,
 ) -> (@core.LexStep[Token], MarkdownLexMode) {
-  let n = count_fence_characters(input, pos, fence_character)
-  if n < 3 {
-    return lex_inline(input, pos)
-  }
-  let mut info_end = pos + n
-  while info_end < input.length() {
-    match char_at(input, info_end) {
-      Some('\r') | Some('\n') | None => break
-      _ => info_end = @core.next_char_offset(input, info_end)
+  if fence_character == '`' {
+    match @payload_lexer.step_lex(input, pos) {
+      @core.LexStep::Produced(info, next_offset=next) =>
+        match info.token {
+          @payload_lexer.Token::CodeFenceOpen(length, info_text) =>
+            (
+              Produced(
+                @core.TokenInfo::new(CodeFenceOpen(length, info_text), info.len),
+                next_offset=next,
+              ),
+              CodeBlock(length, fence_character),
+            )
+          _ => lex_inline(input, pos)
+        }
+      _ => lex_inline(input, pos)
     }
+  } else {
+    let n = count_fence_characters(input, pos, fence_character)
+    if n < 3 {
+      return lex_inline(input, pos)
+    }
+    let mut info_end = pos + n
+    while info_end < input.length() {
+      match char_at(input, info_end) {
+        Some('\r') | Some('\n') | None => break
+        _ => info_end = @core.next_char_offset(input, info_end)
+      }
+    }
+    let info : StringView = input[pos + n:info_end]
+    (
+      Produced(
+        @core.TokenInfo::new(CodeFenceOpen(n, info.to_owned()), info_end - pos),
+        next_offset=info_end,
+      ),
+      CodeBlock(n, fence_character),
+    )
   }
-  let info : StringView = input[pos + n:info_end]
-  (
-    Produced(
-      @core.TokenInfo::new(CodeFenceOpen(n, info.to_owned()), info_end - pos),
-      next_offset=info_end,
-    ),
-    CodeBlock(n, fence_character),
-  )
 }
 
 ///|

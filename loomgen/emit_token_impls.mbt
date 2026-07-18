@@ -4,7 +4,7 @@
 ///|
 /// Escape special characters for MoonBit string literal embedding.
 fn escape_string(s : String) -> String {
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   for i = 0; i < s.length(); i = i + 1 {
     let c = s[i:i + 1].to_owned()
     match c {
@@ -124,7 +124,7 @@ fn emit_token_impls(
   // ErrorToken variants with payload must use a single String for generated Show:
   // "#loom.error Error(msg)" produces Show output "<error: " + msg + ">".
   let annotated = token_enum.variants
-  let b = StringBuilder::new()
+  let b = StringBuilder()
   // Show
   b.write_string("///|\n")
   b.write_string("pub impl Show for " + token_enum.name)

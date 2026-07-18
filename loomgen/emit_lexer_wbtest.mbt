@@ -147,6 +147,38 @@ test "emit_lexer wires a #loom.custom_lex hook before the regex pass" {
 }
 
 ///|
+test "emit_lexer preserves declaration order for multiple custom hooks" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.custom_lex("lex_first")
+      #|  First
+      #|  #loom.literal
+      #|  #loom.custom_lex("lex_second")
+      #|  Second
+      #|  #loom.ident
+      #|  #loom.pattern("[a-zA-Z_]+")
+      #|  Name
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(m) => abort("emit failed: " + m)
+  }
+  inspect(
+    generated.contains(
+      "match lex_first(source, pos) {\n    Done => ()\n    other => return other\n  }\n  // custom_lex hook — expected signature: (String, Int) -> @core.LexStep[T]\n  match lex_second(source, pos)",
+    ),
+    content="true",
+  )
+}
+
+///|
 /// Assert that `parse_annotations(src)` fails with an error containing `needle`.
 fn expect_parse_err(src : String, needle : String) -> Unit {
   match parse_annotations(src) {
@@ -1149,9 +1181,54 @@ test "emit_line_lexer accepts #loom.line_pattern with #loom.custom_lex" {
     #|  ErrorNode
     #|} derive(Eq)
   let (te, term_enum) = full_enums_of(src)
-  guard emit_line_lexer(te, Some(term_enum), "@core") is Some(_) else {
-    fail("expected Some for valid line_pattern with custom_lex")
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(value) => value
+    None => fail("expected Some for valid line_pattern with custom_lex")
   }
+  inspect(generated.contains("lex_heading(source, pos, len)"), content="true")
+  inspect(generated.contains("next_offset=pos + len"), content="true")
+}
+
+///|
+test "emit_line_lexer rejects malformed fully annotated payload" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(#{1,6}) ")
+    #|  #loom.payload("$1 +")
+    #|  HeadingMarker(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, _) = full_enums_of(src)
+  let candidates = collect_line_patterns(te).unwrap()
+  let mut raised = false
+  emit_mode_line_lexer(
+    StringBuilder(),
+    "LineStart",
+    candidates,
+    "T",
+    "@core",
+    "generated_line_start",
+    None,
+  ) catch {
+    PayloadExprError::Invalid(_) => raised = true
+    _ => raised = true
+  }
+  inspect(raised, content="true")
 }
 
 ///|
@@ -1244,4 +1321,270 @@ test "line_lexer_shares_syntax_output rejects other package directories" {
     !line_lexer_shares_syntax_output("token/line_lexer.g.mbt", "syntax"),
   )
   assert_true(!line_lexer_shares_syntax_output("/line_lexer.g.mbt", "/"))
+}
+
+///|
+test "emit_line_lexer inlines fully annotated payloads" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(#{1,6}) ")
+    #|  #loom.payload("$1.length()")
+    #|  HeadingMarker(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  Heading
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("expected line lexer")
+  }
+  inspect(generated.contains("HeadingMarker(\n"), content="true")
+  inspect(
+    generated.contains("m.group(1).unwrap_or(\"\").length()"),
+    content="true",
+  )
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "emit_line_lexer keeps None arm inside payload match" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum T {
+    #|  #loom.line_pattern("(a+)")
+    #|  #loom.payload("$1.length() // line")
+    #|  A(Int)
+    #|  #loom.error
+    #|  Error(String)
+    #|  #loom.eof
+    #|  E
+    #|} derive(Eq)
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.leaf
+    #|  #loom.lexmode("LineStart")
+    #|  #loom.line_mode
+    #|  ANode
+    #|  #loom.root
+    #|  Root
+    #|  #loom.errornode
+    #|  ErrorNode
+    #|} derive(Eq)
+  let (te, term_enum) = full_enums_of(src)
+  let generated = match emit_line_lexer(te, Some(term_enum), "@core") {
+    Some(s) => s
+    None => abort("expected line lexer")
+  }
+  inspect(generated.contains("    }\n    None => ()\n  }"), content="true")
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "parse_annotations rejects payload-bearing punctuation" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.punct("+")
+      #|  #loom.payload("$0.to_owned()")
+      #|  Plus(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "punct",
+  )
+}
+
+///|
+test "emit_lexer preserves payload line comments before delimiters" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("$1.to_owned() // trim")
+      #|  A(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  inspect(generated.contains("A(\n"), content="true")
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "emit_lexer keeps multi-field payload comments parseable" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)(b)")
+      #|  #loom.payload("$1.to_owned() // first")
+      #|  #loom.payload("$2.to_owned()")
+      #|  Pair(String, String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+  inspect(generated.contains("Pair(\n"), content="true")
+}
+
+///|
+test "emit_lexer inlines fully annotated payload pattern" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("([a-z]+)")
+      #|  #loom.payload("$1.to_owned()")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  let generated = match emit_lexer(te, "@core", "step_lex") {
+    Ok(s) => s
+    Err(msg) => abort(msg)
+  }
+  inspect(generated.contains("Word(\n"), content="true")
+  inspect(
+    generated.contains("m.group(1).unwrap_or(\"\").to_owned()"),
+    content="true",
+  )
+  let (_, diagnostics) = @parser.parse_string(generated)
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "parse_annotations rejects payload capture overflow" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("$2")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "references capture group $2",
+  )
+}
+
+///|
+test "emit_lexer rejects payload capture overflow in a default pattern" {
+  let te = token_enum_of(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.ident
+      #|  #loom.payload("$1")
+      #|  Ident(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+  )
+  match emit_lexer(te, "@core", "step_lex") {
+    Err(msg) =>
+      inspect(msg.contains("references capture group $1"), content="true")
+    Ok(_) => abort("expected default-pattern capture overflow rejection")
+  }
+}
+
+///|
+test "parse_annotations rejects payload without one string argument" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "requires exactly 1 string argument",
+  )
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload(123)
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "invalid arguments for #loom.payload",
+  )
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum T {
+      #|  #loom.literal
+      #|  #loom.pattern("(a)")
+      #|  #loom.payload("a", "b")
+      #|  Word(String)
+      #|  #loom.eof
+      #|  E
+      #|} derive(Eq)
+    ),
+    "requires exactly 1 string argument",
+  )
+}
+
+///|
+test "parse_annotations rejects payload on term variants" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.payload("$1")
+      #|  Node
+      #|} derive(Eq)
+    ),
+    "cannot have #loom.payload",
+  )
 }
