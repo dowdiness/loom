@@ -7,6 +7,31 @@ Parser execution is delegated to [`@grammar.interpret`](../loom/grammar/interpre
 at runtime. See [ADR 2026-07-10](../docs/decisions/2026-07-10-remove-emit-grammar-code-generator.md)
 for why the parser code generator (`emit_grammar.mbt`) was removed.
 
+## Emitter pre-merge checklist
+
+Before opening a PR that changes an emitter, complete every applicable item:
+
+- [ ] `moon check --target native loomgen` — no errors or new warnings attributable to the change.
+- [ ] `moon test --target native loomgen` — all tests pass.
+- [ ] `moon fmt --check loomgen/` — formatting is clean.
+- [ ] Generated sources parse and typecheck in their consuming package.
+- [ ] Render a trivial grammar and inspect generated `None(_)` handling plus `&&`/`||` precedence.
+- [ ] Exercise every current `CompiledExpr` variant in emitter coverage or fixture inspection; the current baseline is 23 variants.
+- [ ] Review generated declarations for intended `pub` versus `pub(all)` visibility.
+- [ ] Inspect generated `.mbti` changes for unintended public API exposure.
+- [ ] Declarations and their source order are preserved where the emitter promises it.
+- [ ] Generated constructors have the correct arity, including `Nullary` for zero-argument variants.
+- [ ] Generated expressions preserve precedence with required parentheses.
+- [ ] Generated patterns preserve every required literal, anchor, and alternation marker.
+- [ ] Longest-match behavior, tie-breaking, and pattern anchoring remain correct for lexer emitters.
+- [ ] Custom lexer fallbacks and hook ordering remain correct.
+- [ ] Unicode and non-BMP offsets are covered when emitted code handles source positions.
+- [ ] Regenerated fixtures are formatted, and the diff contains only expected output changes.
+- [ ] An independent reviewer has checked the emitter diff and generated output.
+
+Record any intentionally skipped item in the PR description with the reason and the
+alternative verification performed.
+
 ## LexMode (`#loom.lexmode`)
 
 `#loom.lexmode("ModeName")` annotation on term variants — emits `lexmode.g.mbt`
