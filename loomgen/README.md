@@ -151,7 +151,9 @@ Value =
 The file uses the exact `#loom.rule` notation subset (`Seq`, `Choice` via `|`,
 `Ref`, `*`/`+`/`?`, terminal refs, `@fragment` refs) and adds only `//` line
 comments and multi-line bodies. A body runs from its `=` to the next `Name =`
-header (or EOF). Each production name must be a `#loom.term` variant — the
+header whose identifier is the first token on a physical line (indentation is
+allowed), or EOF. Same-line `Name =` pairs remain body syntax and are rejected
+as an unexpected `=`. Each production name must be a `#loom.term` variant — the
 variant's `#loom.node`/`#loom.root`/`#loom.leaf` role supplies its CST kind, and
 the `#loom.root` variant still designates the grammar root. A production that also
 carries a `#loom.rule` annotation is overridden by the file (with a warning), so a
