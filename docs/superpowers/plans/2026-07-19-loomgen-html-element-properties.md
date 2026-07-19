@@ -33,7 +33,7 @@
 - Modify `examples/html/lexer.mbt`: replace raw-text membership with generated classification while preserving source spans and `OpenTag(String)` payload.
 - Modify `examples/html/cst_parser.mbt`: replace handwritten void/raw-text checks, use canonical names for matching, and connect native stack operations.
 - Modify `examples/html/grammar.mbt`, `examples/html/html_spec.mbt`, or a focused HTML adapter file: add `make_html_parse_root()`, compile the IR once, and pass per-parse native/guard maps to `interpret_compiled`.
-- Create: `examples/html/html_grammar_ir.mbt`: explicit `html_ir`, native rule names, and guard names consumed by the compile-once adapter.
+- Modify `examples/html/moon.pkg`: add the `dowdiness/loom/grammar` dependency required by `@grammar.compile`, `@grammar.interpret_compiled`, and `@grammar.GrammarCompileError`.
 - Modify `examples/html/*_test.mbt`: direct acceptance tests and parse-between-invocations state-isolation tests.
 - Modify `docs/superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md` and `docs/decisions/2026-07-19-loomgen-html-element-properties.md` only if implementation reveals a contract correction; keep the proposed ADR status until acceptance is complete.
 
@@ -394,11 +394,11 @@ Expected: zero errors and all HTML tests pass, including source-span fidelity, u
 - [ ] **Step 3: Verify generated artifacts and stale helper removal**
 
 ```bash
-if rtk proxy grep -n 'is_void_tag\|is_raw_text_tag' examples/html; then
+if rtk proxy grep -R -n --include='*.mbt' -E 'is_void_tag|is_raw_text_tag' examples/html; then
   echo "stale handwritten membership helper found"
   exit 1
 fi
-rtk proxy grep -n 'classify_element\|is_void_element\|is_raw_text_element' examples/html loomgen
+rtk proxy grep -R -n --include='*.mbt' -E 'classify_element|is_void_element|is_raw_text_element' examples/html loomgen
 rtk proxy git diff --check
 ```
 
