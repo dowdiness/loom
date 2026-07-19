@@ -36,6 +36,7 @@ struct VariantDecl {
   attrs : Array[@attribute.Attribute]
   arg_count : Int
   kind_override : String?
+  display : String?
   is_void : Bool
   is_rawtext : Bool
   // Lexer-generation modifiers (#521). `pattern` carries an opaque MoonBit `re`
@@ -63,9 +64,16 @@ struct VariantDecl {
 }
 
 ///|
+struct NamedTokenSet {
+  name : String
+  variants : Array[String]
+}
+
+///|
 struct EnumDecl {
   name : String
   variants : Array[VariantDecl]
+  token_sets : Array[NamedTokenSet]
 }
 
 ///|
@@ -93,6 +101,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
       @syntax.TopTypeDef(td) => {
         let is_token = has_loom_attr("token", td.attrs)
         let is_term = has_loom_attr("term", td.attrs)
+        if (
+            has_loom_attr("token_set", td.attrs) ||
+            has_raw_loom_attr("token_set", td.attrs)
+          ) &&
+          !is_token {
+          return Err("#loom.token_set is only valid on #loom.token enums")
+        }
         if !is_token && !is_term {
           continue
         }
@@ -664,13 +679,21 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
           if token_enum is Some(_) {
             return Err("multiple " + "#" + "loom.token enums found")
           }
-          token_enum = Some({ name: td.tycon, variants: classified })
+          let token_sets = match extract_token_sets(td.attrs, classified) {
+            Ok(sets) => sets
+            Err(msg) => return Err(msg)
+          }
+          token_enum = Some({ name: td.tycon, variants: classified, token_sets })
         }
         if is_term {
           if term_enum is Some(_) {
             return Err("multiple " + "#" + "loom.term enums found")
           }
-          term_enum = Some({ name: td.tycon, variants: classified })
+          term_enum = Some({
+            name: td.tycon,
+            variants: classified,
+            token_sets: [],
+          })
         }
       }
       _ => ()
@@ -753,13 +776,102 @@ fn has_loom_attr(
 }
 
 ///|
+fn has_raw_loom_attr(
+  name : String,
+  attrs : @list.List[@attribute.Attribute],
+) -> Bool {
+  let prefix = "#loom." + name
+  for attr in attrs {
+    if attr.raw == prefix ||
+      attr.raw.has_prefix(prefix + "(") ||
+      attr.raw.has_prefix(prefix + " ") {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Collect enum-level named token sets. Identifier arguments are retained as
+/// names and validated against the token variants after extraction.
+fn extract_token_sets(
+  attrs : @list.List[@attribute.Attribute],
+  variants : Array[VariantDecl],
+) -> Result[Array[NamedTokenSet], String] {
+  let sets : Array[NamedTokenSet] = []
+  for attr in attrs {
+    match attr.parsed {
+      Some(@attribute.Apply(id, props)) if id.qual == Some("loom") &&
+        id.name == "token_set" => {
+        if props.length() < 2 {
+          return Err("#loom.token_set requires a name and at least one variant")
+        }
+        let name = match props.nth(0) {
+          Some(@attribute.Expr(@attribute.Ident(arg))) if arg.qual is None =>
+            arg.name
+          _ => return Err("#loom.token_set name must be an identifier")
+        }
+        if !is_valid_mbt_ident(name) {
+          return Err("#loom.token_set name must be a valid MoonBit identifier")
+        }
+        if name == "sync_point" {
+          return Err(
+            "#loom.token_set sync_point generates reserved function is_sync_point",
+          )
+        }
+        if sets.any(set => set.name == name) {
+          return Err("duplicate #loom.token_set declaration: " + name)
+        }
+        let member_names : Array[String] = []
+        for i in 1..<props.length() {
+          match props.nth(i) {
+            Some(@attribute.Expr(@attribute.Ident(arg))) if arg.qual is None =>
+              if member_names.contains(arg.name) {
+                return Err(
+                  "#loom.token_set " +
+                  name +
+                  " lists variant " +
+                  arg.name +
+                  " more than once",
+                )
+              } else {
+                member_names.push(arg.name)
+              }
+            _ => return Err("#loom.token_set members must be identifiers")
+          }
+        }
+        for variant_name in member_names {
+          if !variants.any(variant => variant.name == variant_name) {
+            return Err(
+              "unknown token variant " +
+              variant_name +
+              " in #loom.token_set " +
+              name,
+            )
+          }
+        }
+        sets.push(NamedTokenSet::{ name, variants: member_names })
+      }
+      Some(@attribute.Ident(id)) if id.qual == Some("loom") &&
+        id.name == "token_set" =>
+        return Err("#loom.token_set requires a name and at least one variant")
+      _ =>
+        if attr.raw.has_prefix("#loom.token_set") {
+          return Err("#loom.token_set arguments must be identifiers")
+        }
+    }
+  }
+  Ok(sets)
+}
+
+///|
 fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
   match comp {
     @syntax.Variant(constrs) | @syntax.ExtensibleEnum(constrs) =>
       constrs
       .map(fn(cd) {
-        // Find kind_override from any annotation on this variant
         let mut kind_override : String? = None
+        let mut display : String? = None
         // Detect #loom.void, #loom.rawtext, and #loom.lexmode modifier annotations
         let mut is_void = false
         let mut is_rawtext = false
@@ -777,6 +889,10 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           let ko = find_literal_kind_override(attr.parsed)
           if ko is Some(_) {
             kind_override = ko
+          }
+          let rendered = find_display_text(attr.parsed)
+          if rendered is Some(_) {
+            display = rendered
           }
           match attr.parsed {
             Some(@attribute.Ident(id) | @attribute.Apply(id, _)) if id.qual ==
@@ -822,6 +938,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           role: None,
           arg_count,
           kind_override,
+          display,
           is_void,
           is_rawtext,
           pattern,
@@ -955,6 +1072,16 @@ fn nth_string_from_apply(parsed : @attribute.Expr?, index : Int) -> String? {
 }
 
 ///|
+/// Extract the generated token display text from a `#loom.display` annotation.
+fn find_display_text(parsed : @attribute.Expr?) -> String? {
+  match parsed {
+    Some(@attribute.Apply(id, _)) if id.qual == Some("loom") &&
+      id.name == "display" => first_string_from_apply(parsed)
+    _ => None
+  }
+}
+
+///|
 /// Extract the kind name override from a `#loom.literal` annotation.
 /// Only `#loom.literal("IntToken")` supports positional kind override.
 fn find_literal_kind_override(parsed : @attribute.Expr?) -> String? {
@@ -1032,6 +1159,21 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
               "#loom.keyword on " + variant.name + " requires a string argument",
             )
         }
+      }
+      "display" => {
+        if count_apply_args(attr.parsed) != 1 {
+          return Err(
+            "#loom.display on " + variant.name + " requires exactly 1 argument",
+          )
+        }
+        if first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom.display on " +
+            variant.name +
+            " argument must be a string literal",
+          )
+        }
+        continue
       }
       "punct" => {
         if count_apply_args(attr.parsed) != 1 {

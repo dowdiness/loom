@@ -44,7 +44,7 @@ test "emit_sync_point: one sync variant with args" {
     #|#loom.token
     #|pub(all) enum Tok {
     #|  #loom.punct("<") #loom.recovery("sync")
-    #|  OpenTag(String)
+    #|  OpenTag(String, Int)
     #|  #loom.eof
     #|  EOF
     #|}
@@ -56,7 +56,7 @@ test "emit_sync_point: one sync variant with args" {
     #|/// Generated from `#loom.recovery("sync")` annotations.
     #|pub fn is_sync_point(token : Tok) -> Bool {
     #|  match token {
-    #|    OpenTag(_) => true
+    #|    OpenTag(_, _) => true
     #|    _ => false
     #|  }
     #|}

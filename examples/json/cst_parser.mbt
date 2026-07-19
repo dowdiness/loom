@@ -13,22 +13,6 @@ const MAX_NESTING_DEPTH : Int = 512
 // ─── Grammar helpers ──────────────────────────────────────────────────────────
 
 ///|
-fn is_value_start(token : Token) -> Bool {
-  match token {
-    LBrace | LBracket | StringLit | NumberLit | True | False | Null => true
-    _ => false
-  }
-}
-
-///|
-fn is_sync_point(token : Token) -> Bool {
-  match token {
-    RBrace | RBracket | Comma | EOF => true
-    _ => false
-  }
-}
-
-///|
 /// Adapt value parsing to `separated_list`'s Boolean element contract.
 fn parse_value_list_element(
   ctx : @core.ParserContext[Token, SyntaxKind],

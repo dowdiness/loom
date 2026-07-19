@@ -46,27 +46,35 @@ fn to_lowercase_first(s : String) -> String {
 /// `for_show`: if true, Error variants with args use named binding for string concat.
 fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
   if variant.arg_count > 0 {
-    let is_error = match variant.role {
-      Some(ErrorToken) => true
-      _ => false
-    }
-    if for_show && is_error {
-      if variant.arg_count != 1 {
-        abort(
-          "ErrorToken variant " +
-          variant.name +
-          " has " +
-          variant.arg_count.to_string() +
-          " payload fields; Show expects exactly 1 (msg).",
-        )
-      }
-      variant.name + "(msg)"
-    } else {
+    if for_show && variant.display is Some(_) {
       let parts : Array[String] = []
       for i = 0; i < variant.arg_count; i = i + 1 {
         parts.push("_")
       }
       variant.name + "(" + parts.join(", ") + ")"
+    } else {
+      let is_error = match variant.role {
+        Some(ErrorToken) => true
+        _ => false
+      }
+      if for_show && is_error {
+        if variant.arg_count != 1 {
+          abort(
+            "ErrorToken variant " +
+            variant.name +
+            " has " +
+            variant.arg_count.to_string() +
+            " payload fields; Show expects exactly 1 (msg).",
+          )
+        }
+        variant.name + "(msg)"
+      } else {
+        let parts : Array[String] = []
+        for i = 0; i < variant.arg_count; i = i + 1 {
+          parts.push("_")
+        }
+        variant.name + "(" + parts.join(", ") + ")"
+      }
     }
   } else {
     variant.name
@@ -76,35 +84,44 @@ fn pattern_for(variant : VariantDecl, for_show : Bool) -> String {
 ///|
 /// Returns the full RHS expression for the Show match arm (the part after `=>`).
 fn show_expr_for(variant : VariantDecl) -> String {
-  match variant.role {
-    Some(ErrorToken) if variant.arg_count > 0 =>
-      // Error(msg) => "<error: " + msg + ">"
-      "\"<error: \" + msg + \">\""
-    _ => {
-      // Simple string literal
-      let s = show_literal_for(variant)
-      "\"" + escape_string(s) + "\""
-    }
+  match variant.display {
+    Some(text) => "\"" + escape_string(text) + "\""
+    None =>
+      match variant.role {
+        Some(ErrorToken) if variant.arg_count > 0 =>
+          // Error(msg) => "<error: " + msg + ">"
+          "\"<error: \" + msg + \">\""
+        _ => {
+          // Simple string literal
+          let s = show_literal_for(variant)
+          "\"" + escape_string(s) + "\""
+        }
+      }
   }
 }
 
 ///|
 fn show_literal_for(variant : VariantDecl) -> String {
-  match variant.role {
-    Some(Keyword(s)) => s
-    Some(Punct(s)) => s
-    Some(Ident) => "<ident>"
-    Some(Literal) => "<int>"
-    Some(Trivia) => to_lowercase_first(variant.name)
-    Some(Delimiter) => to_lowercase_first(variant.name)
-    Some(ErrorToken) => "<error>"
-    Some(Eof) => "EOF"
-    Some(Leaf) => abort("term variant in token enum: " + variant.name)
-    Some(Node) => abort("term variant in token enum: " + variant.name)
-    Some(ErrorNode) => abort("term variant in token enum: " + variant.name)
-    Some(Root) => abort("term variant in token enum: " + variant.name)
-    Some(View(_, _, _)) => abort("term variant in token enum: " + variant.name)
-    None => to_lowercase_first(variant.name) // #loom.line_pattern tokens without role
+  match variant.display {
+    Some(text) => text
+    None =>
+      match variant.role {
+        Some(Keyword(s)) => s
+        Some(Punct(s)) => s
+        Some(Ident) => "<ident>"
+        Some(Literal) => "<int>"
+        Some(Trivia) => to_lowercase_first(variant.name)
+        Some(Delimiter) => to_lowercase_first(variant.name)
+        Some(ErrorToken) => "<error>"
+        Some(Eof) => "EOF"
+        Some(Leaf) => abort("term variant in token enum: " + variant.name)
+        Some(Node) => abort("term variant in token enum: " + variant.name)
+        Some(ErrorNode) => abort("term variant in token enum: " + variant.name)
+        Some(Root) => abort("term variant in token enum: " + variant.name)
+        Some(View(_, _, _)) =>
+          abort("term variant in token enum: " + variant.name)
+        None => to_lowercase_first(variant.name) // #loom.line_pattern tokens without role
+      }
   }
 }
 

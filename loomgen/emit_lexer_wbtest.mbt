@@ -1320,7 +1320,18 @@ test "line_lexer_shares_syntax_output rejects other package directories" {
   assert_true(
     !line_lexer_shares_syntax_output("token/line_lexer.g.mbt", "syntax"),
   )
-  assert_true(!line_lexer_shares_syntax_output("/line_lexer.g.mbt", "/"))
+}
+
+///|
+test "line_lexer_shares_syntax_output normalizes dot segments and root" {
+  assert_true(
+    line_lexer_shares_syntax_output("out/../out/line_lexer.g.mbt", "out"),
+  )
+  assert_true(
+    line_lexer_shares_syntax_output("/out/../out/line_lexer.g.mbt", "/out"),
+  )
+  assert_true(line_lexer_shares_syntax_output("/line_lexer.g.mbt", "/"))
+  assert_true(!line_lexer_shares_syntax_output("/out/line_lexer.g.mbt", "out"))
 }
 
 ///|
