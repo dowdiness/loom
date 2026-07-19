@@ -484,14 +484,12 @@ fn write_outputs(
     println("  " + token_out + "/token_membership.g.mbt")
   } else if @fs.path_exists(token_out + "/token_membership.g.mbt") {
     @fs.remove_file(token_out + "/token_membership.g.mbt") catch {
-      _ => {
+      _ =>
         println(
           "Warning: could not remove stale " +
           token_out +
           "/token_membership.g.mbt",
         )
-        return Err(())
-      }
     }
   }
   // Write sync_point.g.mbt (generated is_sync_point from #loom.recovery("sync") annotations)

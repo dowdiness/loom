@@ -599,6 +599,21 @@ test "display annotation validates its argument" {
 }
 
 ///|
+test "display annotation is rejected on term variants" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.display("<term>")
+      #|  Item
+      #|}
+    ),
+    "only valid on token variants",
+  )
+}
+
+///|
 test "display annotation overrides error token Show text" {
   let src =
     #|#loom.token

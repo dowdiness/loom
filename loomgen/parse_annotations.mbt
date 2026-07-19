@@ -517,6 +517,20 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               )
             }
           }
+          for v in classified {
+            for attr in v.attrs {
+              match attr.parsed {
+                Some(@attribute.Apply(id, _)) if id.qual == Some("loom") &&
+                  id.name == "display" =>
+                  return Err(
+                    "#loom.display on term variant " +
+                    v.name +
+                    " is only valid on token variants",
+                  )
+                _ => ()
+              }
+            }
+          }
         }
         // Reject multiple ErrorNode variants — from_raw fallback would be ambiguous
         if is_term {
