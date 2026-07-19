@@ -15,6 +15,10 @@ pub fn attach_json_role_spans(@pipeline.SyntaxParser) -> JsonRoleSpansAttachment
 
 pub fn export_json_role_spans(Array[JsonRoleSpan]) -> Array[JsonRoleSpanExport]
 
+pub fn is_sync_point(Token) -> Bool
+
+pub fn is_value_start(Token) -> Bool
+
 pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 
 pub fn json_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> JsonValue) -> JsonValue

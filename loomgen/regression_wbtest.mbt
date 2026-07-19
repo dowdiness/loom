@@ -446,3 +446,307 @@ test "write_line_lexer_job reports an unwritable helper path" {
     Ok(_) => fail("expected unwritable line lexer output to fail")
   }
 }
+
+///|
+test "emits named token-set membership predicate" {
+  let src =
+    #|#loom.token_set(value_start, LBrace, Pair)
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.punct("{")
+    #|  LBrace
+    #|  #loom.literal
+    #|  Pair(String, String)
+    #|}
+  let annotated = match parse_annotations(src) {
+    Ok(a) => a
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(enum_decl) => enum_decl
+    None => abort("no token enum")
+  }
+  let generated = emit_token_membership(token_enum)
+  inspect(
+    generated.contains("pub fn is_value_start(token : Token) -> Bool"),
+    content="true",
+  )
+  inspect(generated.contains("match token {"), content="true")
+  inspect(generated.contains("Pair(_, _) => true"), content="true")
+}
+
+///|
+test "emits named token sets in declaration and variant order" {
+  let src =
+    #|#loom.token_set(first, B, A)
+    #|#loom.token_set(second, A)
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.punct("a")
+    #|  A
+    #|  #loom.punct("b")
+    #|  B
+    #|}
+  let annotated = match parse_annotations(src) {
+    Ok(a) => a
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(enum_decl) => enum_decl
+    None => abort("no token enum")
+  }
+  assert_eq(
+    emit_token_membership(token_enum),
+    (
+      #|///|
+      #|pub fn is_first(token : Token) -> Bool {
+      #|  match token {
+      #|    B | A => true
+      #|    _ => false
+      #|  }
+      #|}
+      #|///|
+      #|pub fn is_second(token : Token) -> Bool {
+      #|  match token {
+      #|    A => true
+      #|    _ => false
+      #|  }
+      #|}
+      #|
+    ),
+  )
+}
+
+///|
+test "emits no membership functions without named token sets" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.punct("a")
+    #|  A
+    #|}
+  let annotated = match parse_annotations(src) {
+    Ok(a) => a
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(enum_decl) => enum_decl
+    None => abort("no token enum")
+  }
+  assert_eq(emit_token_membership(token_enum), "")
+}
+
+///|
+test "rejects MoonBit declaration keywords as token-set names" {
+  let src =
+    #|#loom.token_set(test, A)
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.punct("a")
+    #|  A
+    #|}
+  match parse_annotations(src) {
+    Err(msg) => inspect(msg.contains("#loom.token_set"), content="true")
+    Ok(_) => abort("expected keyword token-set name rejection")
+  }
+}
+
+///|
+test "display annotation overrides generated token Show text" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.punct("a")
+    #|  #loom.display("<custom>")
+    #|  A
+    #|}
+  let annotated = match parse_annotations(src) {
+    Ok(a) => a
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(enum_decl) => enum_decl
+    None => abort("no token enum")
+  }
+  let generated = emit_token_impls(token_enum, [("AToken", 0)])
+  inspect(generated.contains("A => \"<custom>\""), content="true")
+}
+
+///|
+test "display annotation validates its argument" {
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum Token {
+      #|  #loom.punct("a")
+      #|  #loom.display
+      #|  A
+      #|}
+    ),
+    "requires exactly 1 argument",
+  )
+  expect_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum Token {
+      #|  #loom.punct("a")
+      #|  #loom.display(42)
+      #|  A
+      #|}
+    ),
+    "invalid arguments",
+  )
+}
+
+///|
+test "display annotation is rejected on term variants" {
+  expect_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.leaf
+      #|  #loom.display("<term>")
+      #|  Item
+      #|}
+    ),
+    "only valid on token variants",
+  )
+}
+
+///|
+test "display annotation overrides error token Show text" {
+  let src =
+    #|#loom.token
+    #|pub(all) enum Token {
+    #|  #loom.error
+    #|  #loom.display("<custom-error>")
+    #|  Error(String)
+    #|}
+  let annotated = match parse_annotations(src) {
+    Ok(a) => a
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(enum_decl) => enum_decl
+    None => abort("no token enum")
+  }
+  let generated = emit_token_impls(token_enum, [("ErrorToken", 0)])
+  inspect(generated.contains("Error(_) => \"<custom-error>\""), content="true")
+}
+
+///|
+test "rejects malformed token sets outside token enums" {
+  expect_parse_err(
+    (
+      #|#loom.token_set(test, A)
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.root
+      #|  Root
+      #|}
+    ),
+    "only valid on #loom.token enums",
+  )
+}
+
+///|
+test "rejects named token set collisions with generated helpers" {
+  let annotated = match
+    parse_annotations(
+      (
+        #|#loom.token
+        #|#loom.token_set(void_element, A)
+        #|#loom.token_set(loom_trivia_kind, B, C)
+        #|pub(all) enum Token {
+        #|  #loom.punct("a")
+        #|  A
+        #|  #loom.trivia
+        #|  B
+        #|  #loom.trivia
+        #|  C
+        #|}
+        #|#loom.term
+        #|pub(all) enum Term {
+        #|  #loom.void
+        #|  #loom.root
+        #|  Root
+        #|}
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => abort("token annotation parse failed: " + msg)
+  }
+  let token_enum = match annotated.token_enum {
+    Some(value) => value
+    None => abort("no token enum")
+  }
+  let term_enum = match annotated.term_enum {
+    Some(value) => value
+    None => abort("no term enum")
+  }
+  inspect(
+    token_set_output_conflict(
+      token_enum,
+      Some(term_enum),
+      None,
+      ".",
+      ".",
+      None,
+      false,
+    )
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    token_set_output_conflict(
+      token_enum,
+      Some(term_enum),
+      None,
+      ".",
+      "./syntax",
+      None,
+      false,
+    )
+    is None,
+    content="true",
+  )
+  inspect(
+    token_set_output_conflict(
+      token_enum,
+      Some(term_enum),
+      Some("Loom"),
+      ".",
+      "./syntax",
+      Some("./spec.g.mbt"),
+      false,
+    )
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    token_set_output_conflict(
+      token_enum,
+      Some(term_enum),
+      None,
+      "out",
+      "out/../out",
+      None,
+      false,
+    )
+    is Some(_),
+    content="true",
+  )
+  inspect(
+    token_set_output_conflict(
+      token_enum,
+      Some(term_enum),
+      Some("Loom"),
+      "out",
+      "out/syntax",
+      Some("out/../out/spec.g.mbt"),
+      false,
+    )
+    is Some(_),
+    content="true",
+  )
+}

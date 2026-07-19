@@ -40,31 +40,113 @@ fn is_valid_mbt_ident(s : String) -> Bool {
 }
 
 ///|
+/// Reject named token-set functions that would collide with other generated
+/// top-level helpers in a shared output package.
+fn token_set_output_conflict(
+  token_enum : EnumDecl,
+  term_enum : EnumDecl?,
+  language_name : String?,
+  token_out : String,
+  syntax_out : String,
+  spec_path : String?,
+  skip_syntax : Bool,
+) -> String? {
+  let same_token_syntax = normalize_dir(token_out) == normalize_dir(syntax_out)
+  let has_void = match term_enum {
+    Some(term) => term.variants.any(v => v.is_void)
+    None => false
+  }
+  let has_rawtext = match term_enum {
+    Some(term) => term.variants.any(v => v.is_rawtext)
+    None => false
+  }
+  let trivia_helper = match language_name {
+    Some(lang) if token_enum.variants
+      .filter(v => {
+        match v.role {
+          Some(Trivia) => true
+          _ => false
+        }
+      })
+      .length() >
+      1 =>
+      match spec_path {
+        Some(path) if normalize_dir(path_parent(path)) ==
+          normalize_dir(token_out) =>
+          Some("is_" + to_lowercase_first(lang) + "_trivia_kind")
+        _ => None
+      }
+    _ => None
+  }
+  for token_set in token_enum.token_sets {
+    let generated_name = "is_" + token_set.name
+    if !skip_syntax &&
+      same_token_syntax &&
+      generated_name == "is_void_element" &&
+      has_void {
+      return Some(token_set.name + " conflicts with generated is_void_element")
+    }
+    if !skip_syntax &&
+      same_token_syntax &&
+      generated_name == "is_raw_text_element" &&
+      has_rawtext {
+      return Some(
+        token_set.name + " conflicts with generated is_raw_text_element",
+      )
+    }
+    match trivia_helper {
+      Some(name) if generated_name == name =>
+        return Some(token_set.name + " conflicts with generated " + name)
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 /// Extract the immediate parent directory from a file path.
 /// A bare filename maps to the current directory. No filesystem
 /// canonicalization is performed.
 fn path_parent(path : String) -> String {
   match path.rev_find("/") {
     None => "."
+    Some(0) => "/"
     Some(separator) => path[:separator].to_owned()
   }
 }
 
 ///|
-/// Textually normalize a directory path for comparison by stripping one trailing
-/// `/` (except root) and one leading `./`.
+/// Lexically normalize a package path for comparisons. Dot segments are
+/// resolved without touching the filesystem; unresolved leading `..` segments
+/// remain on relative paths, while absolute paths stay rooted.
 fn normalize_dir(s : String) -> String {
-  let without_trailing = if s.length() > 1 && s[s.length() - 1] == '/' {
-    s[:s.length() - 1].to_owned()
-  } else {
-    s
+  let absolute = s.length() > 0 && s[0] == '/'
+  let mut segments : Array[String] = []
+  for segment in s.split("/") {
+    if segment == "" || segment == "." {
+      continue
+    }
+    if segment == ".." {
+      if segments.length() > 0 && segments[segments.length() - 1] != ".." {
+        segments = segments[:segments.length() - 1].to_owned()
+      } else if !absolute {
+        segments.push("..")
+      }
+    } else {
+      segments.push(segment.to_owned())
+    }
   }
-  if without_trailing.length() >= 2 &&
-    without_trailing[0] == '.' &&
-    without_trailing[1] == '/' {
-    without_trailing[2:].to_owned()
+  let joined = segments.join("/")
+  if absolute {
+    if joined.length() == 0 {
+      "/"
+    } else {
+      "/" + joined
+    }
+  } else if joined.length() == 0 {
+    "."
   } else {
-    without_trailing
+    joined
   }
 }
 
@@ -386,6 +468,28 @@ fn write_outputs(
     _ => {
       println("Error writing " + token_out + "/token_impls.g.mbt")
       return Err(())
+    }
+  }
+  let token_membership_content = emit_token_membership(te)
+  if token_membership_content.length() > 0 {
+    @fs.write_string_to_file(
+      token_out + "/token_membership.g.mbt",
+      token_membership_content,
+    ) catch {
+      _ => {
+        println("Error writing " + token_out + "/token_membership.g.mbt")
+        return Err(())
+      }
+    }
+    println("  " + token_out + "/token_membership.g.mbt")
+  } else if @fs.path_exists(token_out + "/token_membership.g.mbt") {
+    @fs.remove_file(token_out + "/token_membership.g.mbt") catch {
+      _ =>
+        println(
+          "Warning: could not remove stale " +
+          token_out +
+          "/token_membership.g.mbt",
+        )
     }
   }
   // Write sync_point.g.mbt (generated is_sync_point from #loom.recovery("sync") annotations)
@@ -865,6 +969,17 @@ fn main {
       if term_annotated.term_enum is Some(_) {
         term_enum_decl = term_annotated.term_enum
       }
+    }
+    None => ()
+  }
+  match
+    token_set_output_conflict(
+      te, term_enum_decl, language_name, token_out, syntax_out, spec_path, skip_syntax,
+    ) {
+    Some(message) => {
+      println("error: " + message)
+      @sys.exit(1)
+      return
     }
     None => ()
   }

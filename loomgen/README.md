@@ -1,11 +1,31 @@
 # loomgen
 
 Code generator for loom MoonBit plumbing files. Generates `syntax_kind.g.mbt`,
-`token_impls.g.mbt`, `lexer.g.mbt`, `views.g.mbt`, `lexmode.g.mbt`,
-`spec.g.mbt`, and `grammar_ir.g.mbt` from `#loom.*` annotated enums.
+`token_impls.g.mbt`, an optional `token_membership.g.mbt`, `lexer.g.mbt`,
+`views.g.mbt`, `lexmode.g.mbt`, `spec.g.mbt`, and `grammar_ir.g.mbt` from
+`#loom.*` annotated enums.
 Parser execution is delegated to [`@grammar.interpret`](../loom/grammar/interpreter.mbt)
 at runtime. See [ADR 2026-07-10](../docs/decisions/2026-07-10-remove-emit-grammar-code-generator.md)
 for why the parser code generator (`emit_grammar.mbt`) was removed.
+
+## Named token sets and display overrides
+
+Declare finite token membership policies at token-enum level:
+
+```moonbit
+#loom.token_set(value_start, LBrace, LBracket, StringLit)
+```
+
+loomgen emits one public `is_<name>(Token) -> Bool` function per declaration
+in `token_membership.g.mbt`. Set names must be valid identifiers; members must
+be identifiers present in the token enum. Duplicate, empty, malformed, and
+reserved recovery names are rejected. Payload fields are matched with
+arity-aware wildcards.
+
+Use `#loom.display("text")` on a token variant to override the generated
+`Show` text while retaining its normal role annotation. The override is useful
+when a token's diagnostic spelling differs from its variant or role-derived
+name.
 
 ## Emitter pre-merge checklist
 
