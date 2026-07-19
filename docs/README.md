@@ -79,6 +79,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Proposed** #607 design for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
+- [superpowers/plans/2026-07-19-loomgen-html-element-properties.md](superpowers/plans/2026-07-19-loomgen-html-element-properties.md) — implementation plan for #607, including failing tests, generated classifier, source-span fidelity, and compile-once HostGuard lifecycle
 - [decisions/2026-07-15-markdown-projection-identity-boundary.md](decisions/2026-07-15-markdown-projection-identity-boundary.md) — **Accepted** Markdown owns typed semantic identity alignment; Canopy owns the ephemeral current-view attachment (#341, #332)
 - [decisions/2026-07-17-pattern-allowlist-tokenizer.md](decisions/2026-07-17-pattern-allowlist-tokenizer.md) — **Accepted** one fail-closed pattern parser with typed quantifiers and native counted-bound validation (#529)
 - [decisions/2026-07-17-loomgrammar-production-boundaries.md](decisions/2026-07-17-loomgrammar-production-boundaries.md) — **Accepted** `.loomgrammar` production headers are first-token-on-line boundaries for diagnostic isolation (#556)
