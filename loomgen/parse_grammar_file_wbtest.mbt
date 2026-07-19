@@ -195,6 +195,69 @@ test "parse_grammar_file rejects an unclosed '(' without swallowing the next hea
 }
 
 ///|
+/// A production header beginning a new physical line remains a boundary even
+/// when the preceding production has an unmatched opening parenthesis. The
+/// first-token-on-line rule permits indentation while separating malformed
+/// productions for diagnostics.
+test "parse_grammar_file attributes an unmatched paren to the preceding production" {
+  let src =
+    #|A = ( B
+    #|  C = D )
+  match parse_grammar_file(src) {
+    Ok(_) => abort("expected an unbalanced-paren rejection")
+    Err(m) => {
+      inspect(m.contains("line 1:"), content="true")
+      inspect(m.contains("in production 'A'"), content="true")
+      inspect(m.contains("unbalanced '('"), content="true")
+      inspect(
+        m.contains("unexpected '=' inside the body of production 'A'"),
+        content="false",
+      )
+    }
+  }
+}
+
+///|
+/// Once isolated, the later production reports its own unmatched closing
+/// parenthesis rather than being swallowed by the preceding body.
+test "parse_grammar_file reports an unmatched close in the later production" {
+  match parse_grammar_file("C = D )") {
+    Ok(_) => abort("expected a trailing-token rejection")
+    Err(m) =>
+      inspect(
+        m.contains("in production 'C': trailing tokens after a complete rule"),
+        content="true",
+      )
+  }
+}
+
+///|
+/// Production headers are physical-line anchored; a same-line `IDENT =`
+/// remains part of the preceding body and is rejected as malformed input.
+test "parse_grammar_file rejects a same-line production header" {
+  match parse_grammar_file("A = a B = b") {
+    Ok(_) => abort("expected a same-line-header rejection")
+    Err(m) =>
+      inspect(
+        m.contains("unexpected '=' inside the body of production 'A'"),
+        content="true",
+      )
+  }
+}
+
+///|
+/// Indented headers are still physical-line boundaries and therefore support
+/// ordinary multi-production grammar files.
+test "parse_grammar_file accepts indented production headers" {
+  let prods = match parse_grammar_file("A = a\n  B = b") {
+    Ok(p) => p
+    Err(m) => abort("parse failed: " + m)
+  }
+  inspect(prods.length(), content="2")
+  inspect(prods[1].0, content="B")
+}
+
+///|
 /// An unexpected character fails closed at tokenization, with its line.
 test "parse_grammar_file rejects an unexpected character" {
   match parse_grammar_file("A = B ; C") {
