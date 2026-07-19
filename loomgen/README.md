@@ -16,7 +16,7 @@ Before opening a PR that changes an emitter, complete every applicable item:
 - [ ] `moon fmt --check loomgen/` — formatting is clean.
 - [ ] Generated sources parse and typecheck in their consuming package.
 - [ ] Render a trivial grammar and inspect generated `None(_)` handling plus `&&`/`||` precedence.
-- [ ] Exercise all 23 current `CompiledExpr` variants in emitter coverage or fixture inspection.
+- [ ] Exercise every current `CompiledExpr` variant in emitter coverage or fixture inspection; the current baseline is 23 variants.
 - [ ] Review generated declarations for intended `pub` versus `pub(all)` visibility.
 - [ ] Inspect generated `.mbti` changes for unintended public API exposure.
 - [ ] Declarations and their source order are preserved where the emitter promises it.
