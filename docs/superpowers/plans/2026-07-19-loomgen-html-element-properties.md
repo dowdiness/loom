@@ -33,6 +33,7 @@
 - Modify `examples/html/lexer.mbt`: replace raw-text membership with generated classification while preserving source spans and `OpenTag(String)` payload.
 - Modify `examples/html/cst_parser.mbt`: replace handwritten void/raw-text checks, use canonical names for matching, and connect native stack operations.
 - Modify `examples/html/grammar.mbt`, `examples/html/html_spec.mbt`, or a focused HTML adapter file: add `make_html_parse_root()`, compile the IR once, and pass per-parse native/guard maps to `interpret_compiled`.
+- Create: `examples/html/html_grammar_ir.mbt`: explicit `html_ir`, native rule names, and guard names consumed by the compile-once adapter.
 - Modify `examples/html/*_test.mbt`: direct acceptance tests and parse-between-invocations state-isolation tests.
 - Modify `docs/superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md` and `docs/decisions/2026-07-19-loomgen-html-element-properties.md` only if implementation reveals a contract correction; keep the proposed ADR status until acceptance is complete.
 
@@ -40,7 +41,6 @@
 
 ### Task 1: Lock annotation validation with failing tests
 
-**Files:**
 - Modify: `loomgen/attribute_ast_wbtest.mbt` or the existing annotation validation whitebox test file
 - Modify: `loomgen/regression_wbtest.mbt` if the malformed enum fixtures belong there
 - Reference: `loomgen/parse_annotations.mbt`
@@ -196,6 +196,19 @@ rtk moon test --target native examples/html/lexer_test.mbt examples/html/parser_
 Expected: generated classifier APIs and/or source-span assertion are not yet available in the generated HTML artifacts.
 
 - [ ] **Step 3: Regenerate HTML artifacts and implement the minimum classifier consumer**
+- [ ] **Step 3a: Add the classifier-enabled HTML term metadata before regeneration**
+
+Modify `examples/html/meta/term_kind.mbt` to add tag-specific variants that become `SyntaxKind` values, for example `Br`, `Img`, `Script`, `Style`, and `Div`, with `#loom.tag`, role, and property annotations. Keep the existing generic CST variants needed by the current tree. Add the corresponding expected raw-kind / generated-file assertions before copying outputs. This step is required before any HTML generation can produce `Some(Br)` or `Some(Script)`.
+
+The regeneration workflow must also copy every generated syntax artifact, including:
+
+```bash
+cp /tmp/ht-syntax/syntax_kind.mbt examples/html/syntax/
+cp /tmp/ht-syntax/element_props.g.mbt examples/html/syntax/
+cp /tmp/ht-token/token_impls.g.mbt examples/html/token/
+```
+
+If the emitter uses a different generated filename, use that exact output and add it to the package's generated-file list; do not silently omit element-property output.
 
 Use the documented loomgen commands in `examples/html/README.mbt.md`. Regenerate syntax and spec outputs; do not hand-edit `.g.mbt` files. Keep `OpenTag(String)` name-only and obtain complete opening-tag text through the token span API.
 
@@ -276,6 +289,11 @@ rtk proxy git commit -m "feat(html): use generated element classification"
 **Interfaces:**
 - Consumes: HTML IR, native rule names, guard names, classifier behavior, and migrated parser from Task 4.
 - Produces: `make_html_parse_root()` that compiles once and invokes `interpret_compiled` with fresh per-parse registries.
+- [ ] **Step 0: Create the HTML GrammarIr source and registry contract**
+
+Add the smallest HTML grammar source that contains the rules used by the adapter and declares the native rule and HostGuard names. It must represent the root, opening element, content, close-tag boundary, and the native tag-stack operation without duplicating the classifier membership table. Generate or construct the `html_ir` value in the same package as the adapter, and define the exact `native_names` / `guard_names` passed to `@grammar.compile`.
+
+Add a focused compile test that omits the guard name and expects `MissingHostGuard` before wiring the runtime adapter. This step supplies the `html_ir` value consumed by Step 3 and prevents Task 5 from assuming a nonexistent IR.
 
 - [ ] **Step 1: Write failing lifecycle tests**
 
