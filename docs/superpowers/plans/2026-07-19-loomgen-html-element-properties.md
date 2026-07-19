@@ -63,6 +63,8 @@ test "tag annotation stores canonical tag metadata" {
 test "tag annotation rejects duplicate ASCII-case-folded names" {
   let src = "#loom.term\npub(all) enum Term {\n#loom.tag(\"Br\")\n#loom.node\nBr\n#loom.tag(\"br\")\n#loom.node\nBrLower\n}"
   expect_parse_error(src, "duplicate canonical tag name")
+  expect_parse_error(src, "Br")
+  expect_parse_error(src, "BrLower")
 }
 
 test "tag annotation rejects invalid and empty names" {
@@ -111,6 +113,10 @@ rtk proxy git commit -m "test(loomgen): specify HTML tag annotation validation"
 
 **Interfaces:**
 - Consumes: validated classifier-enabled `VariantDecl` metadata from Task 1.
+- [ ] **Step 0: Write failing generated-output tests**
+
+Before changing `parse_annotations.mbt` or `emit_element_props.mbt`, add emitter whitebox tests that feed a classifier-enabled term enum with `Br` and `Script` variants and assert the generated source contains `classify_element`, the canonical `"br"` / `"script"` cases, `Some(Br)` / `Some(Script)`, and the `_ => None` fallback. Add a property-only fixture assertion proving the existing `is_void_element` / `is_raw_text_element` output remains unchanged. Run these tests and record the expected failure because the current emitter has no classifier output.
+
 - Produces: `classify_element(name : String) -> SyntaxKind?` in the generated syntax package; existing property-only fixtures remain unchanged.
 
 - [ ] **Step 1: Implement only the minimum metadata and validation**
@@ -388,7 +394,10 @@ Expected: zero errors and all HTML tests pass, including source-span fidelity, u
 - [ ] **Step 3: Verify generated artifacts and stale helper removal**
 
 ```bash
-rtk proxy grep -n 'is_void_tag\|is_raw_text_tag' examples/html
+if rtk proxy grep -n 'is_void_tag\|is_raw_text_tag' examples/html; then
+  echo "stale handwritten membership helper found"
+  exit 1
+fi
 rtk proxy grep -n 'classify_element\|is_void_element\|is_raw_text_element' examples/html loomgen
 rtk proxy git diff --check
 ```
