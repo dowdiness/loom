@@ -1,7 +1,7 @@
 # Grammar compiled capabilities migration
 
 **Date:** 2026-07-20
-**Status:** Proposed
+**Status:** Accepted
 **Issue:** #607 follow-up
 
 ## Context
@@ -43,7 +43,7 @@ The rule root remains slot zero. Remaining rule names, native names, and guard n
 
 ### Compiled predicates
 
-Add a package-private compiled predicate representation. It is not exported as an authored grammar construction type:
+Add a public compiled predicate snapshot representation. It is not the authored grammar construction type; callers may inspect snapshots but only compiler-owned `CompiledGrammar` storage is executable:
 
 ```text
 CompiledPred[T] =
