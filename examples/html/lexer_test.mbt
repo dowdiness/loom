@@ -139,3 +139,40 @@ test "lex script raw text is case-insensitive and empty-safe" {
     _ => fail("Expected immediate CloseTag, no zero-width RawText token")
   }
 }
+
+///|
+test "generated element classifier is case insensitive and custom safe" {
+  inspect(@syntax.classify_element("BR"), content="Some(Br)")
+  inspect(@syntax.classify_element("ScRiPt"), content="Some(Script)")
+  inspect(@syntax.classify_element("my-widget"), content="None")
+}
+
+///|
+test "open tag preserves complete source span while payload stays name only" {
+  let source = "<div class=\"foo\">"
+  let result = lex(source)
+  let tokens = result.tokens()
+  inspect(tokens[0].len, content="17")
+  inspect(result.starts()[0], content="0")
+  match tokens[0].token {
+    @token.OpenTag(name) => inspect(name, content="div")
+    _ => fail("Expected OpenTag")
+  }
+}
+
+///|
+test "syntax kinds preserve legacy raw IDs and append new tag kinds" {
+  inspect(@syntax.DoctypeNode.to_raw(), content="RawKind(13)")
+  inspect(@syntax.CommentNode.to_raw(), content="RawKind(14)")
+  inspect(@syntax.TextLeaf.to_raw(), content="RawKind(15)")
+  inspect(@syntax.RawTextLeaf.to_raw(), content="RawKind(16)")
+  inspect(@syntax.ErrorNode.to_raw(), content="RawKind(17)")
+  inspect(@syntax.RootNode.to_raw(), content="RawKind(18)")
+  inspect(@syntax.Div.to_raw(), content="RawKind(19)")
+  inspect(@syntax.Style.to_raw(), content="RawKind(35)")
+  inspect(
+    @syntax.SyntaxKind::from_raw(@seam.RawKind(13)),
+    content="DoctypeNode",
+  )
+  inspect(@syntax.SyntaxKind::from_raw(@seam.RawKind(19)), content="Div")
+}

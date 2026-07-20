@@ -175,3 +175,63 @@ test "compile passes HostGuard refs when guard_names contains the name" {
     _ => fail("expected Choice")
   }
 }
+
+///|
+test "compile succeeds when dispatch target is a top-level Choice" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Native("native"),
+    "choice": Expr::Choice([
+      Alt::{ starts: Pred::IsToken(1), body: Expr::Emit(1, 10) },
+    ]),
+  }
+  let compiled = compile(
+    GrammarIr::GrammarIr(rules, root="source"),
+    native_names=Set::Set(["native"]),
+    native_rule_refs={ "native": Set::Set(["choice"]) },
+  )
+  inspect(compiled.root_slot(), content="0")
+}
+
+///|
+test "compile raises MissingNativeDispatchRule for undeclared dispatch target" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Native("native"),
+  }
+  let caught = try {
+    let _ = compile(
+      GrammarIr::GrammarIr(rules, root="source"),
+      native_names=Set::Set(["native"]),
+      native_rule_refs={ "native": Set::Set(["missing"]) },
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(MissingNativeDispatchRule("native", "missing")) => ()
+    _ => fail("expected MissingNativeDispatchRule(\"native\", \"missing\")")
+  }
+}
+
+///|
+test "compile raises NativeDispatchTargetNotChoice for non-Choice target" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Native("native"),
+    "emit_only": Expr::Emit(1, 10),
+  }
+  let caught = try {
+    let _ = compile(
+      GrammarIr::GrammarIr(rules, root="source"),
+      native_names=Set::Set(["native"]),
+      native_rule_refs={ "native": Set::Set(["emit_only"]) },
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(NativeDispatchTargetNotChoice("native", "emit_only")) => ()
+    _ =>
+      fail("expected NativeDispatchTargetNotChoice(\"native\", \"emit_only\")")
+  }
+}

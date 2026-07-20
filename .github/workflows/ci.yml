@@ -396,6 +396,25 @@ jobs:
             --term examples/lambda/meta/term_kind.mbt \
             examples/lambda/token examples/lambda/syntax
           git diff --exit-code -- examples/lambda/syntax/syntax_kind.mbt
+      - name: Verify HTML syntax kinds preserve seeded raw IDs
+        working-directory: .
+        run: |
+          moon run loomgen --target native -- \
+            --seed examples/html/syntax/syntax_kind.mbt \
+            examples/html/token/token.mbt \
+            --term examples/html/meta/term_kind.mbt \
+            examples/html/token examples/html/syntax
+          moon fmt \
+            examples/html/syntax/syntax_kind.mbt \
+            examples/html/syntax/element_props.g.mbt \
+            examples/html/token/token_impls.g.mbt \
+            examples/html/token/sync_point.g.mbt
+          git diff --exit-code -- \
+            examples/html/syntax/syntax_kind.mbt \
+            examples/html/syntax/element_props.g.mbt \
+            examples/html/token/token_impls.g.mbt \
+            examples/html/token/sync_point.g.mbt
+
       - name: Verify token impls regenerated
         working-directory: .
         run: |

@@ -7,6 +7,18 @@ fn is_whitespace_char(c : Char) -> Bool {
 }
 
 ///|
+fn ascii_lower_tag_name(name : String) -> String {
+  let out = StringBuilder()
+  for c in name {
+    let n = c.to_int()
+    out.write_char(
+      (if n >= 65 && n <= 90 { n + 32 } else { n }).to_char().unwrap(),
+    )
+  }
+  out.to_string()
+}
+
+///|
 fn is_alpha(c : Char) -> Bool {
   let n = c.to_int()
   n is ('a'..='z') || n is ('A'..='Z')
@@ -266,8 +278,8 @@ fn find_raw_text_close(source : String, start : Int, tag : String) -> Int {
 
 ///|
 /// Mode-aware lex step. `Normal` mode is the existing step lexer, except an
-/// `OpenTag` for a raw-text tag (script/style, case-insensitively — see
-/// `is_raw_text_tag`) switches into `RawText` mode. `RawText` mode scans to
+/// `classify_element` and `is_raw_text_element`) switches into `RawText`
+/// mode. `RawText` mode scans to
 /// the matching close tag and emits a single `@token.RawText` token,
 /// without consuming the close tag itself (the next step, back in `Normal`
 /// mode, lexes it as an ordinary `CloseTag`).
@@ -280,9 +292,12 @@ fn html_mode_lex_step(
     Normal => {
       let step = html_step_lexer(source, start)
       let next_mode = match step {
-        Produced({ token: @token.OpenTag(name), .. }, ..) if is_raw_text_tag(
-            name,
-          ) => RawText(name.to_lower())
+        Produced({ token: @token.OpenTag(name), .. }, ..) =>
+          match @syntax.classify_element(name) {
+            Some(kind) if @syntax.is_raw_text_element(kind) =>
+              RawText(ascii_lower_tag_name(name))
+            _ => Normal
+          }
         _ => Normal
       }
       (step, next_mode)

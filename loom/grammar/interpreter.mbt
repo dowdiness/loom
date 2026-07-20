@@ -1,9 +1,8 @@
 ///|
 /// A hand-written production a `Native(name)` node delegates to. Takes the
-/// parser context plus a `call_rule` re-entry handle so the native can parse
-/// its own context-sensitive residue (e.g. an HTML open-tag stack) while
-/// delegating context-free sub-productions back to the declarative grammar.
-pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Unit) -> Unit
+/// parser context plus a `try_parse_rule` gate for declared top-level Choice
+/// rules. The gate returns whether an arm matched.
+pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Bool) -> Unit
 
 ///|
 /// A hand-written guard predicate a `HostGuard(name)` node delegates to.
@@ -32,11 +31,12 @@ pub fn[
   ir : GrammarIr[T, K],
   natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
   guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
+  native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([]),
 ) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError {
   let native_names = Set::from_iter(natives.keys())
   let guard_names = Set::from_iter(guards.keys())
   interpret_compiled(
-    compile(ir, native_names~, guard_names~),
+    compile(ir, native_names~, guard_names~, native_rule_refs~),
     natives~,
     guards~,
   )
@@ -65,28 +65,68 @@ pub fn[
 }
 
 ///|
-/// Resolve `name` to its dense slot and run it, for a native's `call_rule`
-/// re-entry handle. `name` is grammar-rule-only by contract (natives cannot
-/// call other natives through this handle); an unknown name reports a
-/// diagnostic rather than aborting, since the name came from host code the
-/// interpreter does not control.
+/// Try one declared native-dispatch target. Only a matching top-level Choice
+/// arm executes; a non-match returns false without changing parser state.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
-] call_rule(
+] try_parse_rule(
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
   natives : Map[RuleName, NativeRule[T, K]],
   guards : Map[RuleName, HostGuard[T, K]],
-  name : RuleName,
-) -> Unit {
-  match grammar.names.search(name) {
-    Some(slot) => run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
+  caller_name : RuleName,
+  target_name : RuleName,
+) -> Bool {
+  guard grammar.names.search(target_name) is Some(slot) else {
+    ctx.error(
+      "grammar: try_parse_rule(\"" + target_name + "\") is not a grammar rule",
+    )
+    ctx.emit_error_placeholder()
+    return false
+  }
+  match grammar.native_rule_refs.get(caller_name) {
     None => {
       ctx.error(
-        "grammar: native call_rule(\"" + name + "\") is not a grammar rule",
+        "grammar: native \"" +
+        caller_name +
+        "\" has no declared dispatch dependencies",
       )
       ctx.emit_error_placeholder()
+      return false
+    }
+    Some(allowed) =>
+      if !allowed.contains(target_name) {
+        ctx.error(
+          "grammar: native \"" +
+          caller_name +
+          "\" cannot dispatch to \"" +
+          target_name +
+          "\" — not in declared dependencies",
+        )
+        ctx.emit_error_placeholder()
+        return false
+      }
+  }
+  match grammar.rule(slot) {
+    CompiledExpr::Choice(alts) => {
+      let token = ctx.peek()
+      for alt in alts {
+        if pred_matches_ctx(alt.starts, token, ctx, guards) {
+          run_expr(ctx, grammar, natives, guards, alt.body)
+          return true
+        }
+      }
+      false
+    }
+    _ => {
+      ctx.error(
+        "grammar: try_parse_rule(\"" +
+        target_name +
+        "\") target is not a Choice rule",
+      )
+      ctx.emit_error_placeholder()
+      false
     }
   }
 }
@@ -111,7 +151,8 @@ fn[T : Eq, K] pred_matches_ctx(
     All(left, right) =>
       pred_matches_ctx(left, token, ctx, guards) &&
       pred_matches_ctx(right, token, ctx, guards)
-    Any | IsToken(_) | OneOf(_) | Not(_) => pred.matches(token)
+    Any | IsToken(_) | OneOf(_) => pred.matches(token)
+    Not(inner) => !pred_matches_ctx(inner, token, ctx, guards)
   }
 }
 
@@ -148,7 +189,7 @@ fn[
       match natives.get(name) {
         Some(f) =>
           f(ctx, rule_name => {
-            call_rule(ctx, grammar, natives, guards, rule_name)
+            try_parse_rule(ctx, grammar, natives, guards, name, rule_name)
           })
         None => {
           ctx.error(

@@ -3,8 +3,8 @@
 Simplified HTML parser example for [`dowdiness/loom`](../../loom/).
 
 Designed to evaluate loomgen's real-world utility for language grammars.
-Loomgen handles ~19% of the implementation (enum boilerplate + spec factory);
-the remaining ~62% is hand-written Native rules (lexer + tree construction).
+Loomgen handles ~28% of the implementation (enum boilerplate, classifiers, and spec factory);
+the remaining ~59% is hand-written Native rules (lexer, grammar adapter, and tree construction).
 
 ## Scope
 
@@ -85,10 +85,10 @@ The example was built to measure how much of a real parser loomgen generates vs.
 
 | Category | Lines | % | Files |
 |----------|-------|---|-------|
-| Loomgen annotations (input) | 141 | 19% | `token/token.mbt`, `meta/term_kind.mbt` |
-| Loomgen generated | 141 | 19% | `spec.g.mbt`, `syntax/syntax_kind.mbt`, `token/token_impls.g.mbt` |
-| Hand-written native | 448 | 62% | `lexer.mbt`, `cst_parser.mbt`, `grammar.mbt`, `html_spec.mbt` |
-| **Total (non-test)** | **730** | **100%** | |
+| Loomgen annotations (input) | 135 | 12.97% | `token/token.mbt`, `meta/term_kind.mbt` |
+| Loomgen generated | 291 | 27.95% | `spec.g.mbt`, `syntax/syntax_kind.mbt`, `syntax/element_props.g.mbt`, `token/token_impls.g.mbt`, `token/sync_point.g.mbt` |
+| Hand-written native | 615 | 59.08% | `lexer.mbt`, `cst_parser.mbt`, `html_grammar_ir.mbt`, `grammar.mbt`, `html_spec.mbt` |
+| **Total (non-test)** | **1041** | **100.00%** | |
 
 **Key insight:** Loomgen eliminates mechanical boilerplate (enum raw-kind numbering, trait impls, spec factory construction) but the core parsing logic — tokenizer and tree construction — remains unavoidably hand-written Native rules.
 
@@ -97,6 +97,7 @@ The example was built to measure how much of a real parser loomgen generates vs.
 - Generates `ToRawKind` / `FromRawKind` / `Show` / `IsTrivia` / `IsError` for both `Token` and `SyntaxKind` from `#loom.token` / `#loom.term` annotations
 - Maintains raw-kind numbering consistency between token and syntax kinds
 - Generates the `LanguageSpec` factory (`make_html_spec`) with correct trivia/error/root configuration
+- Generates the canonical element classifier plus void/raw-text predicates from `#loom.tag`, `#loom.void`, and `#loom.rawtext`
 - Re-numbers when variants are added or removed (proven by [SelfClose removal commit](https://github.com/dowdiness/loom/commit/faca0a9))
 
 ## Architecture
@@ -110,17 +111,20 @@ examples/html/
 ├── token/
 │   ├── moon.pkg
 │   ├── token.mbt                   # #loom.token enum (loomgen input)
+│   ├── sync_point.g.mbt            # generated sync-point predicate (loomgen output)
 │   └── token_impls.g.mbt           # generated trait impls (loomgen output)
 ├── syntax/
 │   ├── moon.pkg
-│   └── syntax_kind.mbt             # generated SyntaxKind (loomgen output)
+│   ├── syntax_kind.mbt             # generated SyntaxKind (loomgen output)
+│   └── element_props.g.mbt         # generated element classifier/predicates
 ├── spec.g.mbt                      # generated make_html_spec factory
 ├── lexer.mbt                       # hand-written peek/advance tokenizer
 ├── cst_parser.mbt                  # hand-written recursive descent parser
 ├── grammar.mbt                     # Grammar::new wiring
 ├── html_spec.mbt                   # LanguageSpec construction
-├── lexer_test.mbt                  # 12 lexer tests
-└── parser_test.mbt                 # 5 parser tests
+├── html_grammar_ir.mbt             # hand-written GrammarIr and HTML adapter
+├── lexer_test.mbt                  # lexer regression tests
+└── parser_test.mbt                 # parser regression tests
 ```
 
 ### Design Decisions
@@ -135,13 +139,17 @@ examples/html/
 After modifying `token/token.mbt` or `meta/term_kind.mbt`:
 
 ```bash
-# Step 1: Fresh generate syntax_kind.mbt and token_impls.g.mbt
+# Step 1: Freshly generate syntax_kind.mbt, element_props.g.mbt,
+# sync_point.g.mbt, and token_impls.g.mbt
 moon run loomgen --target native -- \
   examples/html/token/token.mbt \
   --term examples/html/meta/term_kind.mbt \
+  --seed examples/html/syntax/syntax_kind.mbt \
   /tmp/ht-token /tmp/ht-syntax
 cp /tmp/ht-syntax/syntax_kind.mbt examples/html/syntax/
+cp /tmp/ht-syntax/element_props.g.mbt examples/html/syntax/
 cp /tmp/ht-token/token_impls.g.mbt examples/html/token/
+cp /tmp/ht-token/sync_point.g.mbt examples/html/token/
 
 # Step 2: Regenerate spec.g.mbt with seed
 moon run loomgen --target native -- \
@@ -154,7 +162,11 @@ moon run loomgen --target native -- \
   --term examples/html/meta/term_kind.mbt \
   /tmp/ht-spec-token /tmp/ht-spec-syntax
 
-# Step 3: Verify
+# Step 3: Regenerate interfaces and verify
+moon info
+git diff -- examples/html/pkg.generated.mbti \
+  examples/html/token/pkg.generated.mbti \
+  examples/html/syntax/pkg.generated.mbti
 moon check examples/html
 moon test examples/html/lexer_test.mbt examples/html/parser_test.mbt
 ```
@@ -162,12 +174,11 @@ moon test examples/html/lexer_test.mbt examples/html/parser_test.mbt
 
 ## Known Issues
 
-- **RawText tokens never emitted (`<script>`/`<style>`).** The lexer tokenizes
-  script/style content as `Text` rather than `RawText`, so the parser's
-  `RawTextLeaf` branch is unreachable. The correct fix is parser-driven
-  lex mode switching (`ParserContext.set_lex_mode()` via #532) as part of
-  the M19 capstone ([#609](https://github.com/dowdiness/loom/issues/609)).
-  Tracking issue: [#626](https://github.com/dowdiness/loom/issues/626).
+- **Parser-driven lex mode switching remains out of scope for this simplified
+  HTML example.** Raw-text `<script>`/`<style>` content is handled by the
+  current mode-aware lexer and covered by parser tests; the separate
+  `ParserContext.set_lex_mode()` API remains tracked by [#609](https://github.com/dowdiness/loom/issues/609).
+
 ## See Also
 
 - [`examples/json`](../json/) — step-based prefix lexer, block reparse spec

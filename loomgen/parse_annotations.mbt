@@ -37,6 +37,7 @@ struct VariantDecl {
   arg_count : Int
   kind_override : String?
   display : String?
+  tag_name : String?
   is_void : Bool
   is_rawtext : Bool
   // Lexer-generation modifiers (#521). `pattern` carries an opaque MoonBit `re`
@@ -180,6 +181,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               continue
             }
             if v.role is None {
+              if v.tag_name is Some(_) {
+                return Err(
+                  "token variant " +
+                  v.name +
+                  " cannot have #loom.tag annotation",
+                )
+              }
               return Err(
                 "variant " +
                 v.name +
@@ -460,6 +468,13 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               None => ()
             }
           }
+          for v in classified {
+            if v.tag_name is Some(_) {
+              return Err(
+                "token variant " + v.name + " cannot have #loom.tag annotation",
+              )
+            }
+          }
           // #561: #loom.line_mode is only valid on term variants alongside
           // #loom.lexmode. Validate on token enums.
           for v in classified {
@@ -506,6 +521,57 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 v.name +
                 " in #loom.term enum is missing a #loom.* annotation",
               )
+            }
+          }
+          for v in classified {
+            if v.tag_name is Some(_) {
+              match v.role {
+                Some(View(_, _, _)) =>
+                  return Err(
+                    "variant " +
+                    v.name +
+                    " cannot have #loom.tag annotation on a #loom.view variant",
+                  )
+                _ => ()
+              }
+            }
+          }
+          let mut classifier_enabled = false
+          for v in classified {
+            if v.tag_name is Some(_) {
+              classifier_enabled = true
+            }
+          }
+          if classifier_enabled {
+            for v in classified {
+              if v.tag_name is None && (v.is_void || v.is_rawtext) {
+                return Err(
+                  "variant " +
+                  v.name +
+                  " in classifier-enabled #loom.term enum requires #loom.tag",
+                )
+              }
+            }
+            let seen : Map[String, String] = Map([])
+            for v in classified {
+              match v.tag_name {
+                Some(tag) if tag == "" =>
+                  return Err("invalid tag name on variant " + v.name)
+                Some(tag) =>
+                  match seen.get(tag) {
+                    Some(previous) =>
+                      return Err(
+                        "duplicate canonical tag name \"" +
+                        tag +
+                        "\" on variants " +
+                        previous +
+                        " and " +
+                        v.name,
+                      )
+                    None => seen.set(tag, v.name)
+                  }
+                None => ()
+              }
             }
           }
           for v in classified {
@@ -864,7 +930,7 @@ fn extract_token_sets(
             )
           }
         }
-        sets.push(NamedTokenSet::{ name, variants: member_names })
+        sets.push({ name, variants: member_names })
       }
       Some(@attribute.Ident(id)) if id.qual == Some("loom") &&
         id.name == "token_set" =>
@@ -886,6 +952,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
       .map(fn(cd) {
         let mut kind_override : String? = None
         let mut display : String? = None
+        let mut tag_name : String? = None
         // Detect #loom.void, #loom.rawtext, and #loom.lexmode modifier annotations
         let mut is_void = false
         let mut is_rawtext = false
@@ -915,6 +982,15 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
                 is_void = true
               } else if id.name == "rawtext" {
                 is_rawtext = true
+              } else if id.name == "tag" {
+                match first_string_from_apply(attr.parsed) {
+                  Some(raw) =>
+                    match canonical_tag_name(raw) {
+                      Ok(value) => tag_name = Some(value)
+                      Err(_) => tag_name = Some("")
+                    }
+                  None => tag_name = Some("")
+                }
               } else if id.name == "pattern" {
                 pattern = first_string_from_apply(attr.parsed)
               } else if id.name == "custom_lex" {
@@ -953,6 +1029,7 @@ fn extract_variants(comp : @syntax.TypeDesc) -> Array[VariantDecl] {
           arg_count,
           kind_override,
           display,
+          tag_name,
           is_void,
           is_rawtext,
           pattern,
@@ -982,6 +1059,27 @@ fn first_string_from_apply(parsed : @attribute.Expr?) -> String? {
       }
     _ => None
   }
+}
+
+///|
+fn canonical_tag_name(raw : String) -> Result[String, String] {
+  if raw.length() == 0 {
+    return Err("tag name must not be empty")
+  }
+  let out = StringBuilder()
+  for i = 0; i < raw.length(); i = i + 1 {
+    let c = raw.code_unit_at(i).to_int()
+    let lower = if c >= 65 && c <= 90 { c + 32 } else { c }
+    let valid = (lower >= 97 && lower <= 122) ||
+      (lower >= 48 && lower <= 57) ||
+      lower == 45 ||
+      lower == 58
+    if !valid || (i == 0 && lower >= 48 && lower <= 57) {
+      return Err("invalid tag name: " + raw)
+    }
+    out.write_char(lower.to_char().unwrap())
+  }
+  Ok(out.to_string())
 }
 
 ///|
@@ -1507,6 +1605,17 @@ fn classify_role(variant : VariantDecl) -> Result[SyntaxRole?, String] {
         if count_apply_args(attr.parsed) > 0 {
           return Err(
             "#loom.line_mode on " + variant.name + " does not accept arguments",
+          )
+        }
+        continue
+      }
+      "tag" => {
+        if count_apply_args(attr.parsed) != 1 ||
+          first_string_from_apply(attr.parsed) is None {
+          return Err(
+            "#loom.tag on " +
+            variant.name +
+            " requires exactly 1 string argument",
           )
         }
         continue

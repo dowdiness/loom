@@ -6,13 +6,18 @@ import {
   "dowdiness/html/token",
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
   "dowdiness/seam",
 }
 
 // Values
 pub let html_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, Unit]
 
+pub let html_grammar_ir : @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind]
+
 pub fn lex(String) -> @core.LexResult[@token.Token]
+
+pub fn make_html_parse_root() -> (@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit
 
 pub fn make_html_spec((@core.ParserContext[@token.Token, @syntax.SyntaxKind]) -> Unit, reuse_size_threshold? : Int, incomplete_kind? : @syntax.SyntaxKind) -> @core.LanguageSpec[@token.Token, @syntax.SyntaxKind]
 

@@ -1,6 +1,7 @@
 import {
   "dowdiness/loom",
   "dowdiness/loom/core",
+  "dowdiness/loom/grammar",
   "dowdiness/html/token",
   "dowdiness/html/syntax",
   "dowdiness/seam",

@@ -7,6 +7,11 @@ import {
 }
 
 // Values
+pub fn classify_element(String) -> SyntaxKind?
+
+pub fn is_raw_text_element(SyntaxKind) -> Bool
+
+pub fn is_void_element(SyntaxKind) -> Bool
 
 // Errors
 
@@ -25,6 +30,23 @@ pub(all) enum SyntaxKind {
   ErrorToken
   EofToken
   ElementNode
+  Div
+  Br
+  Img
+  Area
+  Base
+  Col
+  Embed
+  Hr
+  Input
+  Link
+  Meta
+  Param
+  Source
+  Track
+  Wbr
+  Script
+  Style
   DoctypeNode
   CommentNode
   TextLeaf
