@@ -119,7 +119,7 @@ test "Native runs in sequence between declarative neighbors" {
       ]),
     ),
   }
-  let hook : NativeRule[TestToken, TestKind] = (ctx, _call_rule) => {
+  let hook : NativeRule[TestToken, TestKind] = (ctx, _try_parse_rule) => {
     ctx.emit_token(TestKind::WordToken)
   }
   let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
@@ -150,15 +150,16 @@ test "Native runs in sequence between declarative neighbors" {
 }
 
 ///|
-/// A native re-enters the declarative grammar via `call_rule`, producing the
+/// A native re-enters the declarative grammar via `try_parse_rule`, producing the
 /// same subtree an equivalent `Ref` would.
-test "Native re-enters the grammar through call_rule" {
+test "Native re-enters the grammar through try_parse_rule" {
   let via_native_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
     "inner": Expr::Emit(TestToken::Int, TestKind::IntToken),
   }
-  let hook : NativeRule[TestToken, TestKind] = (_ctx, call_rule) => {
-    call_rule("inner")
+  let mut reentered = false
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
+    reentered = try_parse_rule("inner")
   }
   let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
     "delegate": hook,
@@ -190,6 +191,7 @@ test "Native re-enters the grammar through call_rule" {
     _src => tokens,
     ref_parse_root,
   )
+  inspect(reentered, content="true")
   inspect(native_diags.is_empty(), content="true")
   inspect(native_diags == ref_diags, content="true")
   inspect(@core.tree_diff(native_tree, ref_tree).length(), content="0")
@@ -221,16 +223,16 @@ test "NativeRef with no matching registry entry reports a diagnostic, does not a
 }
 
 ///|
-/// A native's `call_rule` with a name that isn't a grammar rule reports a
+/// A native's `try_parse_rule` with a name that isn't a grammar rule reports a
 /// diagnostic AND emits an error placeholder — not just a diagnostic, mirroring
 /// the `NativeRef`-registry-miss and `Fail` error paths, so the wrapping node
 /// isn't left empty.
-test "call_rule with an unknown name reports a diagnostic and emits a placeholder" {
+test "try_parse_rule with an unknown name reports a diagnostic and emits a placeholder" {
   let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
   }
-  let hook : NativeRule[TestToken, TestKind] = (_ctx, call_rule) => {
-    call_rule("not_a_rule")
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
+    try_parse_rule("not_a_rule") |> ignore
   }
   let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
     "delegate": hook,
@@ -322,6 +324,51 @@ test "interpret resolves HostGuard predicate via guards map in Choice" {
       // Token 2 (even) → first Choice arm: IntToken + WordToken
       inspect(root.children.length(), content="2")
     _ => fail("expected Root node")
+  }
+}
+
+///|
+/// `try_parse_rule` on a top-level `Choice` whose only arm has a failing
+/// HostGuard returns false without emitting tokens or diagnostics.
+test "try_parse_rule atomic gate skips body when HostGuard returns false" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("gate_caller")),
+    "gate_rule": Expr::Choice([
+      Alt::{
+        starts: Pred::All(
+          Pred::IsToken(TestToken::Int),
+          Pred::HostGuard("always_false"),
+        ),
+        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+      },
+    ]),
+  }
+  let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
+    "always_false": fn(_ctx) { false },
+  }
+  let mut gate_result = true
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
+    gate_result = try_parse_rule("gate_rule")
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "gate_caller": hook,
+  }
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(rules, root="source"),
+    natives~,
+    guards~,
+  )
+  let spec = test_spec(parse_root)
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (tree, diagnostics) = @core.parse_with("1", spec, _src => tokens, parse_root)
+  inspect(gate_result, content="false")
+  inspect(diagnostics.is_empty(), content="true")
+  match tree.children[0] {
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="0")
+    @seam.CstElement::Token(_) => abort("expected the Root node with no children")
   }
 }
 

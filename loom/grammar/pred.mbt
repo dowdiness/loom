@@ -14,6 +14,11 @@ pub(all) enum Pred[T] {
   /// Reference a host-written predicate function by name. Resolved
   /// out-of-band through the interpreter's `guards` map — never by `matches`,
   /// which returns `false` unconditionally for this variant.
+  ///
+  /// NOTE: when used as a native-dispatch entry predicate (through
+  /// `try_parse_rule`), a HostGuard must be a pure query — it may inspect
+  /// parser context and parse-local state but must not mutate either. The
+  /// interpreter cannot enforce this; it is an implementation contract.
   HostGuard(String)
   /// Both sides must match. Composes `IsToken`/`OneOf` with `HostGuard` so
   /// a Choice arm can gate on both a specific token AND a computed guard.
