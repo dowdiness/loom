@@ -750,3 +750,198 @@ test "rejects named token set collisions with generated helpers" {
     content="true",
   )
 }
+
+///|
+fn expect_tag_parse_err(src : String, needle : String) -> Unit {
+  match parse_annotations(src) {
+    Err(msg) =>
+      if !msg.contains(needle) {
+        abort("expected error containing \"" + needle + "\", got: " + msg)
+      }
+    Ok(_) => abort("expected tag parse failure containing \"" + needle + "\"")
+  }
+}
+
+///|
+test "tag annotation stores canonical tag metadata" {
+  let src =
+    #|#loom.term
+    #|pub(all) enum Term {
+    #|  #loom.tag("SCRIPT")
+    #|  #loom.rawtext
+    #|  #loom.node
+    #|  Script
+    #|}
+  let parsed = match parse_annotations(src) {
+    Ok(value) => value
+    Err(msg) => abort("parse failed: " + msg)
+  }
+  let term = match parsed.term_enum {
+    Some(value) => value
+    None => abort("expected term enum")
+  }
+  inspect(term.variants[0].tag_name, content="Some(script)")
+}
+
+///|
+test "tag annotation is rejected on token variants" {
+  expect_tag_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum Token {
+      #|  #loom.tag("div")
+      #|  #loom.keyword("div")
+      #|  DivToken
+      #|}
+    ),
+    "#loom.tag",
+  )
+}
+
+///|
+test "tag annotation rejects duplicate ASCII-case-folded names" {
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("Br")
+      #|  #loom.node
+      #|  Br
+      #|  #loom.tag("br")
+      #|  #loom.node
+      #|  BrLower
+      #|}
+    ),
+    "BrLower",
+  )
+}
+
+///|
+test "tag annotation rejects invalid and empty names" {
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("")
+      #|  #loom.node
+      #|  Empty
+      #|}
+    ),
+    "tag name",
+  )
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("my tag")
+      #|  #loom.node
+      #|  Invalid
+      #|}
+    ),
+    "tag name",
+  )
+}
+
+///|
+test "classifier-enabled property variant requires tag annotation" {
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("div")
+      #|  #loom.node
+      #|  Div
+      #|  #loom.void
+      #|  #loom.node
+      #|  Br
+      #|}
+    ),
+    "#loom.tag",
+  )
+}
+
+///|
+test "void and rawtext annotations remain mutually exclusive" {
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("script")
+      #|  #loom.void
+      #|  #loom.rawtext
+      #|  #loom.node
+      #|  Script
+      #|}
+    ),
+    "both #loom.void and #loom.rawtext",
+  )
+}
+
+///|
+test "element emitter generates canonical classifier cases" {
+  let parsed = match
+    parse_annotations(
+      (
+        #|#loom.term
+        #|pub(all) enum Term {
+        #|  #loom.tag("BR")
+        #|  #loom.void
+        #|  #loom.node
+        #|  Br
+        #|  #loom.tag("SCRIPT")
+        #|  #loom.rawtext
+        #|  #loom.node
+        #|  Script
+        #|}
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => abort("parse failed: " + msg)
+  }
+  let term = match parsed.term_enum {
+    Some(value) => value
+    None => abort("expected term enum")
+  }
+  let output = match emit_element_props(term) {
+    Some(value) => value
+    None => abort("expected element property output")
+  }
+  assert_true(output.contains("classify_element"))
+  assert_true(output.contains("\"br\""))
+  assert_true(output.contains("\"script\""))
+  assert_true(output.contains("Some(Br)"))
+  assert_true(output.contains("Some(Script)"))
+  assert_true(output.contains("_ => None"))
+}
+
+///|
+test "property-only element emitter keeps predicate output" {
+  let parsed = match
+    parse_annotations(
+      (
+        #|#loom.term
+        #|pub(all) enum Term {
+        #|  #loom.void
+        #|  #loom.node
+        #|  Br
+        #|  #loom.rawtext
+        #|  #loom.node
+        #|  Script
+        #|}
+      ),
+    ) {
+    Ok(value) => value
+    Err(msg) => abort("parse failed: " + msg)
+  }
+  let term = match parsed.term_enum {
+    Some(value) => value
+    None => abort("expected term enum")
+  }
+  let output = match emit_element_props(term) {
+    Some(value) => value
+    None => abort("expected element property output")
+  }
+  assert_true(!output.contains("classify_element"))
+  assert_true(output.contains("pub fn is_void_element"))
+  assert_true(output.contains("pub fn is_raw_text_element"))
+}

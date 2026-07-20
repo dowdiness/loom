@@ -1,7 +1,7 @@
 # Loomgen HTML Element Properties and Classification
 
 **Date:** 2026-07-19
-**Status:** Proposed
+**Status:** Accepted
 **Issue:** [#607](https://github.com/dowdiness/loom/issues/607)
 **Related:** [#508](https://github.com/dowdiness/loom/issues/508), [#559](https://github.com/dowdiness/loom/issues/559), [#602](https://github.com/dowdiness/loom/issues/602)
 
@@ -224,4 +224,8 @@ The migration removes `is_void_tag`, `is_raw_text_tag`, and duplicated case-fold
 
 ## Decision record
 
-This design requires a proposed ADR because it adds a public annotation/classifier contract and establishes a reusable generated metadata policy. See [ADR: Loomgen HTML Element Properties and Classification](../../decisions/2026-07-19-loomgen-html-element-properties.md).
+This design requires an ADR because it adds a public annotation/classifier contract and establishes a reusable generated metadata policy. See [ADR: Loomgen HTML Element Properties and Classification](../../decisions/2026-07-19-loomgen-html-element-properties.md).
+
+## Implementation Evidence
+
+Implemented in the shared loomgen/grammar/HTML path. Focused native verification passed: grammar tests 23/23, loomgen tests 262/262, and HTML tests 42/42. Generated HTML syntax artifacts were regenerated and compared against seeded loomgen output; no handwritten membership helpers remain; scoped formatting and diff checks passed; independent `moonbit-reviewer` re-review returned PASS.

@@ -7,6 +7,7 @@
 **Architecture:** Static HTML tag properties remain generated from `#loom.term` metadata. The grammar interpreter keeps its existing non-transactional `Unit` expression semantics and adds one native-only atomic gate, `try_parse_rule(name) -> Bool`, restricted to named rules whose top-level expression is `Choice`. The gate evaluates ordered arm predicates first and executes the first matching body once. HTML parser frames own their stack entries and unwind them on every return path.
 
 **Tech Stack:** MoonBit, `@grammar` IR/interpreter, `@core.ParserContext`, loomgen-generated MoonBit artifacts, native-target focused tests.
+**Status:** Complete
 
 ## Global Constraints
 
@@ -50,7 +51,7 @@
 - `compile` gains optional `native_rule_refs : Map[RuleName, Set[RuleName]]` metadata defaulting to an empty map.
 - A declared dispatch target must resolve to an existing top-level `Choice` rule in `ir.rules`.
 
-- [ ] **Step 1: Migrate existing native test fixtures to the new callback shape**
+- [x] **Step 1: Migrate existing native test fixtures to the new callback shape**
 
 Change native fixtures that only emit tokens to accept `_try_parse_rule` (unused, type `(RuleName) -> Bool`).
 
@@ -62,7 +63,7 @@ let hook : NativeRule[TestToken, TestKind] = (ctx, _try_parse_rule) => {
 }
 ```
 
-- [ ] **Step 2: Add a failing atomic gate test**
+- [x] **Step 2: Add a failing atomic gate test**
 
 Add a top-level `Choice` rule with one `HostGuard("never_pass")` arm and an `Emit` body. Invoke it from a native production through the new callback. Assert that the native sees `false`, the body emits no token, and diagnostics remain empty.
 
@@ -78,7 +79,7 @@ Grammar IR for the test:
 
 The native `gate_caller` calls `try_parse_rule("gate_rule")` and asserts the return is `false`. Then assert no token was emitted in the CST.
 
-- [ ] **Step 3: Add failing compile metadata tests**
+- [x] **Step 3: Add failing compile metadata tests**
 
 Add tests that compile with a native dependency map:
 
@@ -91,7 +92,7 @@ Assert:
 - `MissingNativeDispatchRule("native", "missing")` when the target rule does not exist in `ir.rules`.
 - `NativeDispatchTargetNotChoice("native", "emit_only")` when the target is an `Emit` rule (not `Choice`).
 
-- [ ] **Step 4: Run the focused tests and confirm the expected red baseline**
+- [x] **Step 4: Run the focused tests and confirm the expected red baseline**
 
 ```bash
 rtk moon check --target native loom/grammar
@@ -100,7 +101,7 @@ rtk moon test --target native loom/grammar/interpreter_test.mbt loom/grammar/com
 
 Expected: the new callback/metadata tests fail against the current `(RuleName) -> Unit` callback contract and the `compile` function that lacks the `native_rule_refs` parameter. Failures are compile-time type mismatches and missing-parameter errors.
 
-- [ ] **Step 5: Document HostGuard purity**
+- [x] **Step 5: Document HostGuard purity**
 
 Add a doc comment to `HostGuard` in `loom/grammar/pred.mbt`:
 
@@ -111,7 +112,7 @@ Add a doc comment to `HostGuard` in `loom/grammar/pred.mbt`:
 /// interpreter cannot enforce this; it is an implementation contract.
 ```
 
-- [ ] **Step 6: Run the package check after the documentation/test edit**
+- [x] **Step 6: Run the package check after the documentation/test edit**
 
 ```bash
 rtk moon check --target native loom/grammar
@@ -158,11 +159,11 @@ native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([])
 
 - Keep existing `native_names` and `guard_names` behavior unchanged for callers that do not provide dispatch metadata.
 
-- [ ] **Step 1: Add the new compile error variants**
+- [x] **Step 1: Add the new compile error variants**
 
 Add `MissingNativeDispatchRule(RuleName, RuleName)` and `NativeDispatchTargetNotChoice(RuleName, RuleName)` to `GrammarCompileError` with `Eq`/`Debug` derivation.
 
-- [ ] **Step 2: Add `native_rule_refs` parameter to `compile` and `CompiledGrammar`**
+- [x] **Step 2: Add `native_rule_refs` parameter to `compile` and `CompiledGrammar`**
 
 1. Add `native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([])` to `compile`.
 2. Add `native_rule_refs : Map[RuleName, Set[RuleName]]` field to `CompiledGrammar`.
@@ -174,7 +175,7 @@ Add `MissingNativeDispatchRule(RuleName, RuleName)` and `NativeDispatchTargetNot
 
 Do not synthesize a rule-level FIRST predicate and do not add an `Or` constructor to `Pred`.
 
-- [ ] **Step 3: Update compile tests to cover all validation branches**
+- [x] **Step 3: Update compile tests to cover all validation branches**
 
 Add tests in `compile_test.mbt`:
 
@@ -200,7 +201,7 @@ test "compile succeeds when dispatch target is a top-level Choice" {
 
 Keep existing `MissingNative`, `MissingHostGuard`, `AmbiguousRule`, and `AmbiguousGuard` tests unchanged.
 
-- [ ] **Step 4: Check the grammar package**
+- [x] **Step 4: Check the grammar package**
 
 ```bash
 rtk moon check --target native loom/grammar
@@ -233,7 +234,7 @@ Expected: zero compile errors in `compile.mbt` and `compile_test.mbt`. The `inte
 
 - `run_expr` remains `-> Unit`; no `RuleResult` is introduced.
 
-- [ ] **Step 1: Change `NativeRule` type definition**
+- [x] **Step 1: Change `NativeRule` type definition**
 
 In `interpreter.mbt`, change:
 
@@ -247,7 +248,7 @@ to:
 pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Bool) -> Unit
 ```
 
-- [ ] **Step 2: Replace the inline `call_rule` closure with `try_parse_rule` in `run_expr`**
+- [x] **Step 2: Replace the inline `call_rule` closure with `try_parse_rule` in `run_expr`**
 
 In `run_expr`'s `NativeRef` arm, construct a `try_parse_rule` closure instead of `call_rule`:
 
@@ -267,7 +268,7 @@ NativeRef(name) =>
 
 The `try_parse_rule` function receives both the native's own `name` (to look up declared dependencies) and the `target_name` being dispatched to.
 
-- [ ] **Step 3: Implement the `try_parse_rule` helper function**
+- [x] **Step 3: Implement the `try_parse_rule` helper function**
 
 Add a new private function to `interpreter.mbt`:
 
@@ -323,11 +324,11 @@ fn try_parse_rule[T, K](
 
 Note: checking `grammar.names.search` on each call is O(n). As a follow-up optimization (outside #607), the slot could be pre-resolved and stored in `CompiledGrammar` if profiling shows it matters. The current `names` array is typically < 20 entries for HTML.
 
-- [ ] **Step 4: Remove the old `call_rule` function and dead code**
+- [x] **Step 4: Remove the old `call_rule` function and dead code**
 
 Delete the existing `call_rule` function from `interpreter.mbt`. All callers now use `try_parse_rule`.
 
-- [ ] **Step 5: Add pure-guard atomicity tests**
+- [x] **Step 5: Add pure-guard atomicity tests**
 
 Use a pure guard that always returns `false`. Verify:
 - native receives `false`;
@@ -338,7 +339,7 @@ Use a pure guard that always returns `false`. Verify:
 
 Do not assert that arbitrary captured host state is unchanged; that is the separate HostGuard purity contract.
 
-- [ ] **Step 6: Migrate native re-entry tests**
+- [x] **Step 6: Migrate native re-entry tests**
 
 Change the existing "Native re-enters the grammar through call_rule" test:
 
@@ -349,7 +350,7 @@ Change the existing "Native re-enters the grammar through call_rule" test:
 
 Also change the "call_rule with an unknown name" test to use `try_parse_rule` and assert `false` is returned (plus diagnostic, plus placeholder).
 
-- [ ] **Step 7: Run focused interpreter tests**
+- [x] **Step 7: Run focused interpreter tests**
 
 ```bash
 rtk moon check --target native loom/grammar
@@ -380,7 +381,7 @@ native_rule_refs={
 - `close_boundary` remains a top-level `Choice` with `HostGuard("html_tag_stack_valid")` and `Empty` body.
 - Every `parse_element` frame records `base = tag_stack.length()` before pushing and unwinds with `while tag_stack.length() > base { ignore(tag_stack.pop()) }` on every return path.
 
-- [ ] **Step 1: Add failing HTML recovery and isolation tests**
+- [x] **Step 1: Add failing HTML recovery and isolation tests**
 
 Add these tests to `parser_test.mbt`:
 
@@ -483,7 +484,7 @@ test "MAX_DEPTH recovery: deep nesting then sibling parse is clean" {
 }
 ```
 
-- [ ] **Step 2: Run the new HTML tests to establish the red baseline**
+- [x] **Step 2: Run the new HTML tests to establish the red baseline**
 
 ```bash
 rtk moon test --target native examples/html/parser_test.mbt
@@ -491,7 +492,7 @@ rtk moon test --target native examples/html/parser_test.mbt
 
 Expected: the new tests expose (a) ignored HostGuard result (manual comparison still decides), (b) stale stack ownership (stack leaks across frames and parse invocations), (c) missing MAX_DEPTH/MAX_ERRORS unwind.
 
-- [ ] **Step 3: Rename `call_rule` parameter to `try_parse_rule` in all parser functions**
+- [x] **Step 3: Rename `call_rule` parameter to `try_parse_rule` in all parser functions**
 
 In `cst_parser.mbt`, rename the parameter in these signatures:
 - `parse_html_root(ctx, tag_stack, call_rule)` → `parse_html_root(ctx, tag_stack, try_parse_rule)` with type `(String) -> Bool`
@@ -501,7 +502,7 @@ In `cst_parser.mbt`, rename the parameter in these signatures:
 
 All internal call sites pass the renamed parameter through.
 
-- [ ] **Step 4: Replace close-tag manual comparison with the atomic gate**
+- [x] **Step 4: Replace close-tag manual comparison with the atomic gate**
 
 In `parse_content`, replace the current close-tag handling:
 
@@ -573,7 +574,7 @@ fn finish_element(ctx, tag_stack, try_parse_rule, tag_name) -> Unit {
 
 Remove the manual `ascii_lower_tag_name(name) == ascii_lower_tag_name(tag_name)` comparison from both functions. The HostGuard is now the sole authority.
 
-- [ ] **Step 5: Give each element frame scoped stack ownership on ALL return paths**
+- [x] **Step 5: Give each element frame scoped stack ownership on ALL return paths**
 
 In `parse_element`, after the non-void path pushes `normalized_name`:
 
@@ -661,7 +662,7 @@ fn parse_element(ctx, tag_stack, try_parse_rule, depth~) -> Unit {
 
 Key invariant: `parse_content` no longer calls `tag_stack.pop()` itself. The frame-level unwind handles it. `finish_element` also does not call `tag_stack.pop()` — the caller (`parse_element`) unwinds after `finish_element` returns.
 
-- [ ] **Step 6: Make the HTML HostGuard a pure query**
+- [x] **Step 6: Make the HTML HostGuard a pure query**
 
 `html_tag_stack_valid` in `html_grammar_ir.mbt` currently:
 
@@ -677,7 +678,7 @@ fn(inner) {
 
 This already does not push, pop, emit diagnostics, or consume tokens — it only inspects `inner.peek()` and `tag_stack.last()`. It is already pure. No change needed except confirming the doc comment states the purity contract (already present in the design spec).
 
-- [ ] **Step 7: Pass native dispatch metadata at compile time**
+- [x] **Step 7: Pass native dispatch metadata at compile time**
 
 Update `html_grammar_ir.mbt`:
 
@@ -719,7 +720,7 @@ pub fn make_html_parse_root() -> HtmlParseRoot {
 
 Note: the native callback parameter was `call_rule : (String) -> Unit` and is now `try_parse_rule : (String) -> Bool`. The pass-through to `parse_html_root` just renames and type-changes.
 
-- [ ] **Step 8: Run HTML checks and tests**
+- [x] **Step 8: Run HTML checks and tests**
 
 ```bash
 rtk moon check --target native examples/html
@@ -741,7 +742,7 @@ Expected: valid close tags have zero diagnostics (HostGuard passes → `try_pars
 - `#loom.tag` remains metadata on term variants only.
 - Token variants carrying `#loom.tag` produce a parse error: `"token variant {name} cannot have #loom.tag annotation"`.
 
-- [ ] **Step 1: Add the failing token-scope fixture**
+- [x] **Step 1: Add the failing token-scope fixture**
 
 Add to `regression_wbtest.mbt`:
 
@@ -763,7 +764,7 @@ test "tag annotation is rejected on token variants" {
 
 Note: use the existing `expect_tag_parse_err` helper (defined around line 759 of `regression_wbtest.mbt`) which asserts the error message contains the needle string.
 
-- [ ] **Step 2: Run the focused loomgen test and verify failure**
+- [x] **Step 2: Run the focused loomgen test and verify failure**
 
 ```bash
 rtk moon check --target native loomgen
@@ -772,7 +773,7 @@ rtk moon test --target native loomgen --filter 'tag annotation'
 
 Expected: the new token-scope fixture fails (parse succeeds when it should reject).
 
-- [ ] **Step 3: Add token-enum scope validation**
+- [x] **Step 3: Add token-enum scope validation**
 
 In `parse_annotations.mbt`, in the token-enum processing block, after the existing validation loop that checks `is_void` and `is_rawtext` on token variants (around line ~228), add:
 
@@ -784,7 +785,7 @@ if v.tag_name is Some(_) {
 
 This rejects `#loom.tag` on any `#loom.token` variant. Keep existing token property behavior and all term classifier validation unchanged.
 
-- [ ] **Step 4: Run loomgen tests to confirm the fix**
+- [x] **Step 4: Run loomgen tests to confirm the fix**
 
 ```bash
 rtk moon check --target native loomgen
@@ -793,7 +794,7 @@ rtk moon test --target native loomgen --filter 'tag annotation'
 
 Expected: all tag annotation tests pass, including the new token-scope rejection.
 
-- [ ] **Step 5: Regenerate HTML artifacts**
+- [x] **Step 5: Regenerate HTML artifacts**
 
 Run the repository workflow (exact command depends on loomgen CLI — verify the current command with `rtk moon run --help` or the existing makefile/script):
 
@@ -814,7 +815,7 @@ rtk moon test --target native loomgen --filter 'tag annotation|element emitter'
 rtk moon test --target native examples/html
 ```
 
-- [ ] **Step 6: Verify no handwritten membership helper remains**
+- [x] **Step 6: Verify no handwritten membership helper remains**
 
 ```bash
 if rtk proxy grep -R -n --include='*.mbt' -E 'is_void_tag|is_raw_text_tag' examples/html; then
@@ -833,7 +834,7 @@ Expected: no matches.
 - Verify: all changed code, generated artifacts, and `docs/superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md`
 - Modify: `docs/decisions/2026-07-19-loomgen-html-element-properties.md` only after every acceptance row passes.
 
-- [ ] **Step 1: Run focused generator verification**
+- [x] **Step 1: Run focused generator verification**
 
 ```bash
 rtk moon check --target native loomgen
@@ -842,7 +843,7 @@ rtk moon test --target native loomgen
 
 Expected: zero errors and all loomgen tests pass.
 
-- [ ] **Step 2: Run focused grammar verification**
+- [x] **Step 2: Run focused grammar verification**
 
 ```bash
 rtk moon check --target native loom/grammar
@@ -851,7 +852,7 @@ rtk moon test --target native loom/grammar
 
 Expected: zero errors and all interpreter/compile tests pass, including atomic false-path and dispatch metadata tests.
 
-- [ ] **Step 3: Run focused HTML verification**
+- [x] **Step 3: Run focused HTML verification**
 
 ```bash
 rtk moon check --target native examples/html
@@ -860,7 +861,7 @@ rtk moon test --target native examples/html
 
 Expected: zero errors and all HTML tests pass, including classifier, raw-text, void, malformed nesting, sibling recovery, MAX_DEPTH unwind, MAX_ERRORS unwind, HostGuard dispatch, and parse isolation.
 
-- [ ] **Step 4: Run formatting and diff hygiene checks**
+- [x] **Step 4: Run formatting and diff hygiene checks**
 
 ```bash
 rtk moon fmt examples/html loom/grammar loomgen
@@ -870,7 +871,7 @@ rtk moon check --target native examples/html
 rtk proxy git diff --check
 ```
 
-- [ ] **Step 5: Verify public API changes**
+- [x] **Step 5: Verify public API changes**
 
 ```bash
 rtk moon info --target native loom/grammar
@@ -879,11 +880,11 @@ rtk moon info --target native examples/html
 
 Review the generated `.mbti` changes. The `NativeRule` callback contract (`(RuleName) -> Bool` replacing `(RuleName) -> Unit`) and `native_rule_refs` compile metadata are intentional public API changes; unrelated API changes are not acceptable.
 
-- [ ] **Step 6: Update ADR evidence only after implementation works**
+- [x] **Step 6: Update ADR evidence only after implementation works**
 
 Update `docs/decisions/2026-07-19-loomgen-html-element-properties.md` from Proposed only when every acceptance row in the design spec is evidenced. Keep the spec's purity distinction: interpreter-owned false-path guarantees do not claim to constrain arbitrary HostGuard closures.
 
-- [ ] **Step 7: Run the independent review**
+- [x] **Step 7: Run the independent review**
 
 Review the final diff for:
 - top-level Choice restriction and compile-time dispatch validation;
@@ -893,10 +894,24 @@ Review the final diff for:
 - no manual HTML membership helper or manual close comparison;
 - generated artifact consistency.
 
-- [ ] **Step 8: Final status check**
+- [x] **Step 8: Final status check**
 
 ```bash
 rtk proxy git status --short
 ```
 
 Report any remaining uncommitted files explicitly; do not claim completion while generated artifacts or code changes are omitted.
+
+---
+
+## Completion Evidence
+
+Implemented and verified for issue #607. The generator now validates term-only `#loom.tag` metadata and emits ASCII-case-insensitive classification alongside void/raw-text predicates. The grammar compiler validates native dispatch metadata, and the interpreter exposes the atomic `try_parse_rule : (RuleName) -> Bool` gate. HTML uses a compile-once grammar adapter with parse-local tag-stack and HostGuard state, classifier-driven lexer/parser behavior, and progress-guaranteeing MAX_DEPTH/MAX_ERRORS recovery.
+
+Verification: `rtk moon check --target native loom/grammar`, `rtk moon check --target native loomgen`, and `rtk moon check --target native examples/html` passed; focused grammar tests passed 23/23, loomgen tests passed 262/262, HTML tests passed 42/42; scoped `moon fmt --check` and `git diff --check` passed; seeded loomgen output matched the checked-in generated artifacts; stale handwritten helper search returned no matches; the independent `moonbit-reviewer` re-review returned PASS with no findings.
+
+Decision record:
+
+- Updated [ADR: Loomgen HTML Element Properties and Classification](../../decisions/2026-07-19-loomgen-html-element-properties.md) to Accepted with implementation evidence.
+
+No ADR needed for plan archival itself: the implementation decision is recorded by the linked ADR.

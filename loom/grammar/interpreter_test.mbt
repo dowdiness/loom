@@ -173,7 +173,7 @@ test "Native re-enters the grammar through try_parse_rule" {
   let native_parse_root = interpret(
     GrammarIr::GrammarIr(via_native_rules, root="source"),
     natives~,
-    native_rule_refs={"delegate": Set::Set(["inner"])},
+    native_rule_refs={ "delegate": Set::Set(["inner"]) },
   )
   let via_ref_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Ref("inner")),
@@ -261,12 +261,16 @@ test "try_parse_rule with an unknown name reports a diagnostic and emits a place
     @seam.CstElement::Token(_) => abort("expected the Root node")
   }
 }
+
 ///|
 test "try_parse_rule rejects an undeclared valid target" {
   let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
     "inner": Expr::Choice([
-      Alt::{ starts: Pred::Any, body: Expr::Emit(TestToken::Int, TestKind::IntToken) },
+      Alt::{
+        starts: Pred::Any,
+        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+      },
     ]),
   }
   let mut gate_result = true
@@ -397,19 +401,71 @@ test "try_parse_rule atomic gate skips body when HostGuard returns false" {
     GrammarIr::GrammarIr(rules, root="source"),
     natives~,
     guards~,
-    native_rule_refs={"gate_caller": Set::Set(["gate_rule"])},
+    native_rule_refs={ "gate_caller": Set::Set(["gate_rule"]) },
   )
   let spec = test_spec(parse_root)
   let tokens = [
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
-  let (tree, diagnostics) = @core.parse_with("1", spec, _src => tokens, parse_root)
+  let (tree, diagnostics) = @core.parse_with(
+    "1",
+    spec,
+    _src => tokens,
+    parse_root,
+  )
   inspect(gate_result, content="false")
   inspect(diagnostics.is_empty(), content="true")
   match tree.children[0] {
     @seam.CstElement::Node(root) => inspect(root.children.length(), content="0")
-    @seam.CstElement::Token(_) => abort("expected the Root node with no children")
+    @seam.CstElement::Token(_) =>
+      abort("expected the Root node with no children")
+  }
+}
+
+///|
+test "try_parse_rule resolves negated HostGuard predicates" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("gate_caller")),
+    "gate_rule": Expr::Choice([
+      Alt::{
+        starts: Pred::Not(Pred::HostGuard("always_false")),
+        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+      },
+    ]),
+  }
+  let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
+    "always_false": fn(_ctx) { false },
+  }
+  let mut gate_result = false
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
+    gate_result = try_parse_rule("gate_rule")
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "gate_caller": hook,
+  }
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(rules, root="source"),
+    natives~,
+    guards~,
+    native_rule_refs={ "gate_caller": Set::Set(["gate_rule"]) },
+  )
+  let spec = test_spec(parse_root)
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (tree, diagnostics) = @core.parse_with(
+    "1",
+    spec,
+    _src => tokens,
+    parse_root,
+  )
+  inspect(gate_result, content="true")
+  inspect(diagnostics.is_empty(), content="true")
+  match tree.children[0] {
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
+    @seam.CstElement::Token(_) => abort("expected the Root node")
   }
 }
 

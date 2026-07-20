@@ -13,6 +13,23 @@ pub(all) enum SyntaxKind {
   ErrorToken
   EofToken
   ElementNode
+  Div
+  Br
+  Img
+  Area
+  Base
+  Col
+  Embed
+  Hr
+  Input
+  Link
+  Meta
+  Param
+  Source
+  Track
+  Wbr
+  Script
+  Style
   DoctypeNode
   CommentNode
   TextLeaf
@@ -61,12 +78,29 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
     ErrorToken => 10
     EofToken => 11
     ElementNode => 12
-    DoctypeNode => 13
-    CommentNode => 14
-    TextLeaf => 15
-    RawTextLeaf => 16
-    ErrorNode => 17
-    RootNode => 18
+    Div => 13
+    Br => 14
+    Img => 15
+    Area => 24
+    Base => 25
+    Col => 26
+    Embed => 27
+    Hr => 28
+    Input => 29
+    Link => 30
+    Meta => 31
+    Param => 32
+    Source => 33
+    Track => 34
+    Wbr => 35
+    Script => 16
+    Style => 17
+    DoctypeNode => 18
+    CommentNode => 19
+    TextLeaf => 20
+    RawTextLeaf => 21
+    ErrorNode => 22
+    RootNode => 23
   }
   @seam.RawKind(n)
 }
@@ -88,12 +122,29 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     10 => ErrorToken
     11 => EofToken
     12 => ElementNode
-    13 => DoctypeNode
-    14 => CommentNode
-    15 => TextLeaf
-    16 => RawTextLeaf
-    17 => ErrorNode
-    18 => RootNode
+    13 => Div
+    14 => Br
+    15 => Img
+    24 => Area
+    25 => Base
+    26 => Col
+    27 => Embed
+    28 => Hr
+    29 => Input
+    30 => Link
+    31 => Meta
+    32 => Param
+    33 => Source
+    34 => Track
+    35 => Wbr
+    16 => Script
+    17 => Style
+    18 => DoctypeNode
+    19 => CommentNode
+    20 => TextLeaf
+    21 => RawTextLeaf
+    22 => ErrorNode
+    23 => RootNode
     _ => ErrorNode
   }
 }
@@ -105,5 +156,5 @@ pub impl @seam.IsTrivia for SyntaxKind with fn is_trivia(self) {
 
 ///|
 pub impl @seam.IsError for SyntaxKind with fn is_error(self) {
-  self == ErrorToken || self == ErrorNode
+  self == ErrorToken
 }

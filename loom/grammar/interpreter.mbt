@@ -151,7 +151,8 @@ fn[T : Eq, K] pred_matches_ctx(
     All(left, right) =>
       pred_matches_ctx(left, token, ctx, guards) &&
       pred_matches_ctx(right, token, ctx, guards)
-    Any | IsToken(_) | OneOf(_) | Not(_) => pred.matches(token)
+    Any | IsToken(_) | OneOf(_) => pred.matches(token)
+    Not(inner) => !pred_matches_ctx(inner, token, ctx, guards)
   }
 }
 

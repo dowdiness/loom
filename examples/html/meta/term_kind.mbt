@@ -5,6 +5,73 @@
 pub(all) enum TermKind {
   #loom.node
   ElementNode
+  #loom.tag("div")
+  #loom.node
+  Div
+  #loom.tag("br")
+  #loom.void
+  #loom.node
+  Br
+  #loom.tag("img")
+  #loom.void
+  #loom.node
+  Img
+  #loom.tag("area")
+  #loom.void
+  #loom.node
+  Area
+  #loom.tag("base")
+  #loom.void
+  #loom.node
+  Base
+  #loom.tag("col")
+  #loom.void
+  #loom.node
+  Col
+  #loom.tag("embed")
+  #loom.void
+  #loom.node
+  Embed
+  #loom.tag("hr")
+  #loom.void
+  #loom.node
+  Hr
+  #loom.tag("input")
+  #loom.void
+  #loom.node
+  Input
+  #loom.tag("link")
+  #loom.void
+  #loom.node
+  Link
+  #loom.tag("meta")
+  #loom.void
+  #loom.node
+  Meta
+  #loom.tag("param")
+  #loom.void
+  #loom.node
+  Param
+  #loom.tag("source")
+  #loom.void
+  #loom.node
+  Source
+  #loom.tag("track")
+  #loom.void
+  #loom.node
+  Track
+  #loom.tag("wbr")
+  #loom.void
+  #loom.node
+  Wbr
+  #loom.tag("script")
+  #loom.rawtext
+  #loom.node
+  Script
+  #loom.tag("style")
+  #loom.rawtext
+  #loom.node
+  Style
   #loom.node
   DoctypeNode
   #loom.node

@@ -111,3 +111,165 @@ test "script content is raw text" {
   }
   inspect(tok.text().to_owned(), content="var x = 1;")
 }
+
+///|
+test "compiled HTML root isolates parse-local native state" {
+  let first = html_grammar.parse_cst("<div>open") catch { _ => return }
+  let (_, first_diagnostics) = first
+  inspect(first_diagnostics.length() >= 1, content="true")
+  let second = html_grammar.parse_cst("<div>ok</div>") catch { _ => return }
+  let (_, second_diagnostics) = second
+  inspect(second_diagnostics.length(), content="0")
+}
+
+///|
+test "void elements do not require a close-tag stack entry" {
+  let result = html_grammar.parse_cst("<br>") catch { _ => return }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "HTML IR compile rejects an unregistered guard" {
+  let caught = try {
+    let _ = @grammar.compile(
+      html_grammar_ir,
+      native_names=Set::Set(["parse_html_root"]),
+      guard_names=Set::Set([]),
+    )
+    None
+  } catch {
+    error => Some(error)
+  }
+  match caught {
+    Some(@grammar.MissingHostGuard("html_tag_stack_valid")) => ()
+    _ => fail("expected MissingHostGuard(html_tag_stack_valid)")
+  }
+}
+
+///|
+test "mismatched close tags report diagnostics through close boundary" {
+  let result = html_grammar.parse_cst("<div><span></div></span>") catch {
+    _ => return
+  }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+}
+
+///|
+test "unclosed tags report diagnostics after stack remains nonempty" {
+  let result = html_grammar.parse_cst("<div><span>text") catch { _ => return }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+}
+
+///|
+test "nested tags and void elements balance the parse-local stack" {
+  let result = html_grammar.parse_cst("<div><br><span>ok</span></div>") catch {
+    _ => return
+  }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length(), content="0")
+}
+
+///|
+test "mismatched nesting preserves a valid sibling" {
+  let result = html_grammar.parse_cst("<div><span></div><p>ok</p>") catch {
+    _ => return fail("mismatched parse raised")
+  }
+  let (tree, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+  inspect(
+    dump(tree).contains("(ElementNode \"<p>\" (TextLeaf \"ok\") \"</p>\")"),
+    content="true",
+  )
+}
+
+///|
+test "extra mismatched close does not prevent the following sibling" {
+  let result = html_grammar.parse_cst("<div><span></div></span><p>ok</p>") catch {
+    _ => return fail("extra-close parse raised")
+  }
+  let (tree, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+  inspect(
+    dump(tree).contains("(ElementNode \"<p>\" (TextLeaf \"ok\") \"</p>\")"),
+    content="true",
+  )
+}
+
+///|
+test "unclosed element reports a diagnostic" {
+  let result = html_grammar.parse_cst("<div>open") catch {
+    _ => return fail("unclosed parse raised")
+  }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+}
+
+///|
+test "MAX_DEPTH recovery reports an error without stack overflow" {
+  let source = StringBuilder()
+  for _ in 0..<520 {
+    source.write_string("<div>")
+  }
+  let input = source.to_string()
+  let result = html_grammar.parse_cst(input) catch {
+    _ => return fail("MAX_DEPTH parse raised")
+  }
+  let (tree, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+  inspect(tree.text_len == input.length(), content="true")
+}
+
+///|
+test "MAX_ERRORS recovery reaches EOF without retrying sentinel" {
+  let source = StringBuilder()
+  for _ in 0..<30 {
+    source.write_string("<div></span>")
+  }
+  source.write_string("<p>ok</p>")
+  let input = source.to_string()
+  let result = html_grammar.parse_cst(input) catch {
+    _ => return fail("MAX_ERRORS parse raised")
+  }
+  let (tree, diagnostics) = result
+  inspect(diagnostics.length() >= 1, content="true")
+  inspect(tree.text_len == input.length(), content="true")
+}
+
+///|
+test "malformed parse does not leak stack into the next parse" {
+  let first = html_grammar.parse_cst("<div><span></div>") catch {
+    _ => return fail("malformed parse raised")
+  }
+  let (_, first_diags) = first
+  inspect(first_diags.length() >= 1, content="true")
+  let second = html_grammar.parse_cst("<div>ok</div>") catch {
+    _ => return fail("isolated parse raised")
+  }
+  let (tree, second_diags) = second
+  inspect(second_diags.length(), content="0")
+  inspect(
+    dump(tree),
+    content="(RootNode (ElementNode \"<div>\" (TextLeaf \"ok\") \"</div>\"))",
+  )
+}
+
+///|
+test "MAX_DEPTH recovery does not poison a later parse" {
+  let deep = StringBuilder()
+  for _ in 0..<520 {
+    deep.write_string("<div>")
+  }
+  let first = html_grammar.parse_cst(deep.to_string()) catch {
+    _ => return fail("MAX_DEPTH parse raised")
+  }
+  let (_, first_diags) = first
+  inspect(first_diags.length() >= 1, content="true")
+  let second = html_grammar.parse_cst("<div>ok</div>") catch {
+    _ => return fail("post-depth parse raised")
+  }
+  let (_, second_diags) = second
+  inspect(second_diags.length(), content="0")
+}

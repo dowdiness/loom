@@ -187,7 +187,7 @@ test "compile succeeds when dispatch target is a top-level Choice" {
   let compiled = compile(
     GrammarIr::GrammarIr(rules, root="source"),
     native_names=Set::Set(["native"]),
-    native_rule_refs={"native": Set::Set(["choice"])},
+    native_rule_refs={ "native": Set::Set(["choice"]) },
   )
   inspect(compiled.root_slot(), content="0")
 }
@@ -201,7 +201,7 @@ test "compile raises MissingNativeDispatchRule for undeclared dispatch target" {
     let _ = compile(
       GrammarIr::GrammarIr(rules, root="source"),
       native_names=Set::Set(["native"]),
-      native_rule_refs={"native": Set::Set(["missing"])},
+      native_rule_refs={ "native": Set::Set(["missing"]) },
     )
     None
   } catch {
@@ -223,7 +223,7 @@ test "compile raises NativeDispatchTargetNotChoice for non-Choice target" {
     let _ = compile(
       GrammarIr::GrammarIr(rules, root="source"),
       native_names=Set::Set(["native"]),
-      native_rule_refs={"native": Set::Set(["emit_only"])},
+      native_rule_refs={ "native": Set::Set(["emit_only"]) },
     )
     None
   } catch {
@@ -231,6 +231,7 @@ test "compile raises NativeDispatchTargetNotChoice for non-Choice target" {
   }
   match caught {
     Some(NativeDispatchTargetNotChoice("native", "emit_only")) => ()
-    _ => fail("expected NativeDispatchTargetNotChoice(\"native\", \"emit_only\")")
+    _ =>
+      fail("expected NativeDispatchTargetNotChoice(\"native\", \"emit_only\")")
   }
 }

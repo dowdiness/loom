@@ -1,8 +1,9 @@
 # ADR: Loomgen HTML Element Properties and Classification
 
 **Date:** 2026-07-19
-**Status:** Proposed
-**Implementation plan:** [docs/superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md](../superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md)
+**Status:** Accepted
+**Implementation plan:** [docs/archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](../archive/completed-phases/2026-07-19-loomgen-html-element-properties.md)
+**Design specification:** [docs/superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md](../superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md)
 
 ## Context
 
@@ -31,3 +32,10 @@ This preserves one syntax-kind taxonomy and one source of truth. It avoids both 
 - HostGuard registration is explicit in the HTML-side adapter; a general guard-annotation API remains out of scope.
 - Existing untagged `#loom.void` / `#loom.rawtext` property-only generation remains compatible.
 - Acceptance is tied directly to #607: generated predicates, classifier fallback, raw-text mode, native push/pop, HostGuard dispatch, and parity tests.
+
+## Implementation Evidence
+
+- `#loom.tag` is term-only, canonicalized, duplicate-checked, and emitted as an ASCII-case-insensitive classifier; generated void/raw-text predicates remain compatible.
+- Native grammar dispatch uses compile-time dependency validation and an atomic `try_parse_rule(name) -> Bool` gate restricted to top-level `Choice` rules. Context-aware negated `HostGuard` predicates are covered by regression tests.
+- HTML uses a compile-once grammar adapter with parse-local tag-stack and pure HostGuard state. Lexer/parser behavior is classifier-driven, and MAX_DEPTH/MAX_ERRORS recovery guarantees progress.
+- Focused verification passed: grammar tests 23/23, loomgen tests 262/262, HTML tests 42/42; package checks, scoped formatting checks, seeded artifact comparison, stale-helper search, and `git diff --check` passed. The independent `moonbit-reviewer` re-review returned PASS with no findings.
