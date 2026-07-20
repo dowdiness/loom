@@ -10,6 +10,8 @@ pub suberror GrammarCompileError {
   /// `native_names` argument — resolved and validated at compile time, never
   /// mid-parse, mirroring `MissingRef`.
   MissingNative(RuleName)
+  MissingNativeDispatchRule(RuleName, RuleName)
+  NativeDispatchTargetNotChoice(RuleName, RuleName)
   /// `name` is declared in both `ir.rules` and `native_names` — a name must be
   /// either a grammar rule or a native, never both. Checked globally over the
   /// whole namespace, not only for names a `Native(...)` node reaches.
@@ -80,6 +82,7 @@ pub struct CompiledGrammar[T, K] {
   names : Array[RuleName]
   rules : Array[CompiledExpr[T, K]]
   root : Int
+  native_rule_refs : Map[RuleName, Set[RuleName]]
 } derive(Eq, Debug)
 
 ///|
@@ -112,6 +115,7 @@ pub fn[T, K] compile(
   ir : GrammarIr[T, K],
   native_names? : Set[RuleName] = Set::Set([]),
   guard_names? : Set[RuleName] = Set::Set([]),
+  native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([]),
 ) -> CompiledGrammar[T, K] raise GrammarCompileError {
   guard ir.rules.get(ir.root) is Some(_) else { raise MissingRoot(ir.root) }
   for name in ir.rules.keys() {
@@ -120,6 +124,23 @@ pub fn[T, K] compile(
     }
     if guard_names.contains(name) {
       raise AmbiguousGuard(name)
+    }
+  }
+  for native_name in native_rule_refs.keys() {
+    // Metadata keys must already be registered natives.
+    if !native_names.contains(native_name) {
+      raise MissingNative(native_name)
+    }
+    guard native_rule_refs.get(native_name) is Some(targets) else { () }
+    for target_name in targets {
+      // Validate the declared dependency edge exists, and is a top-level Choice.
+      guard ir.rules.get(target_name) is Some(target_expr) else {
+        raise MissingNativeDispatchRule(native_name, target_name)
+      }
+      match target_expr {
+        Choice(_) => ()
+        _ => raise NativeDispatchTargetNotChoice(native_name, target_name)
+      }
     }
   }
   let others = ir.rules.keys().filter(n => n != ir.root).collect()
@@ -134,7 +155,7 @@ pub fn[T, K] compile(
     guard ir.rules.get(name) is Some(expr)
     rules.push(lower(expr, slot_of, native_names, guard_names))
   }
-  { names, rules, root: 0 }
+  { names, rules, root: 0, native_rule_refs }
 }
 
 ///|
