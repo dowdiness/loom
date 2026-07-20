@@ -39,7 +39,7 @@ NativeSlot
 GuardSlot
 ```
 
-The rule root remains slot zero. Remaining rule names, native names, and guard names are sorted before slot assignment. The explicit `compile` call receives `native_names`, `guard_names`, and `native_rule_refs` declarations alongside `GrammarIr`; it assigns deterministic slots and records the ordered names for binding. The convenience `interpret` path derives those declarations from its handler maps.
+The rule root remains slot zero. Remaining rule names, native names, and guard names are sorted before slot assignment. The explicit `compile` call receives `native_names`, `guard_names`, and `native_rule_refs` declarations alongside `GrammarIr`; it assigns deterministic slots and records the ordered names for binding. Each native dependency target set is sorted by resolved `RuleSlot` before storage. The convenience `interpret` path derives those declarations from its factory and guard maps.
 
 ### Compiled predicates
 
@@ -59,7 +59,7 @@ CompiledPred[T] =
 
 ### Compiled grammar
 
-`CompiledExpr::Ref` becomes `RefSlot(RuleSlot)`. `CompiledExpr::Native` becomes `NativeSlot(NativeSlot)`. Native dependency metadata becomes an array indexed by `NativeSlot`, whose entries contain resolved `RuleSlot` targets. The compiler still verifies that each target exists and is a top-level `Choice`.
+`CompiledExpr::Ref` becomes `RefSlot(RuleSlot)`. `CompiledExpr::Native` becomes `NativeSlot(NativeSlot)`. Native dependency metadata becomes an array indexed by `NativeSlot`, whose entries contain resolved `RuleSlot` targets sorted by slot order. The compiler still verifies that each target exists and is a top-level `Choice`.
 
 `CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot)`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque slot without exposing its integer representation; `rule_snapshot` copies every compiler-owned nested array in the expression tree. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
 
@@ -88,7 +88,7 @@ ExecutableGrammar[T, K] {
 The fields shown above are conceptual; the public `ExecutableGrammar` value is also opaque, and its arrays/brands cannot be mutated or extracted by callers.
 The explicit execution method is `ExecutableGrammar::parse_root(self) -> ParseRoot`. It is the only public bridge from an opaque compiled/bound grammar to a parser root; it executes the root rule against each supplied parser context.
 
-`bind` performs the only registry-to-array conversion. For an explicitly compiled grammar, missing or unexpected handlers raise `GrammarBindError` before a parser context is touched. The convenience `interpret` path derives its compile-time name declarations from the handler maps it receives, so those maps are the declaration source and cannot independently contain an "unexpected" handler; callers needing strict registry comparison use explicit `compile` followed by `bind`. The interpreter receives only `ExecutableGrammar`; it indexes arrays by slots and never performs `Map.get` or fallback validation.
+`bind` performs the only registry-to-array conversion. Both `bind` and `interpret` accept native factories, so every native caller uses the same setup-time capability acquisition path. For an explicitly compiled grammar, missing or unexpected handlers raise `GrammarBindError` before a parser context is touched. The convenience `interpret` path derives its compile-time native/guard name declarations from the factory and guard maps it receives, then delegates to `bind`; an empty factory map is the normal no-native case. The interpreter receives only `ExecutableGrammar`; it indexes arrays by slots and never performs `Map.get` or fallback validation.
 
 `interpret` remains as a convenience API that compiles and binds. `interpret_compiled` is removed rather than retained as an unsafe bypass.
 
@@ -156,7 +156,7 @@ All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `
 
 `compile` has the signature `GrammarIr × native_names × guard_names × native_rule_refs -> CompiledGrammar raise GrammarCompileError`. The declaration arguments are part of the compile boundary and are not inferred from mutable runtime handler registries.
 
-`bind` has the signature `CompiledGrammar × registries -> ExecutableGrammar raise GrammarBindError`. It raises for a handler registry that does not match an explicitly compiled grammar, or when a native factory propagates a failed capability selection. Capability pairs are constructed from compiler-owned dispatch metadata; a native factory can select only a declared opaque capability and cannot create or receive an arbitrary slot.
+`bind` has the signature `CompiledGrammar × Map[RuleName, NativeFactory] × Map[RuleName, HostGuard] -> ExecutableGrammar raise GrammarBindError`. It raises for a handler registry that does not match an explicitly compiled grammar, or when a native factory propagates a failed capability selection. Capability pairs are constructed from compiler-owned dispatch metadata; a native factory can select only a declared opaque capability and cannot create or receive an arbitrary slot.
 
 `GrammarBuildError` is the named combined error:
 
@@ -166,7 +166,8 @@ GrammarBuildError =
   Bind(GrammarBindError)
 ```
 
-`interpret` has the signature `GrammarIr × registries -> ParseRoot raise GrammarBuildError`; it wraps compile failures as `Compile` and bind/factory failures as `Bind`. The convenience path derives its compile-time name declarations from the handler maps it receives. Parser recovery diagnostics remain parser-context output and are not used for grammar construction failures.
+`interpret` has the signature `GrammarIr × Map[RuleName, NativeFactory] × Map[RuleName, HostGuard] × native_rule_refs -> ParseRoot raise GrammarBuildError`; it derives `native_names` and `guard_names` from those maps, calls `compile`, then calls `bind` with the same factory/guard maps. It wraps compile failures as `Compile` and bind/factory failures as `Bind`. Parser recovery diagnostics remain parser-context output and are not used for grammar construction failures.
+
 The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root`. `bind` returns the opaque executable value; it does not itself start parsing.
 
 ## Tests and acceptance
