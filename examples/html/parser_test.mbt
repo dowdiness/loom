@@ -168,7 +168,6 @@ test "mismatched close diagnostics preserve original tag spelling" {
   )
 }
 
-
 ///|
 test "mixed-case close tags match case-insensitively" {
   let result = html_grammar.parse_cst("<DIV></div>") catch {
@@ -177,6 +176,7 @@ test "mixed-case close tags match case-insensitively" {
   let (_, diagnostics) = result
   inspect(diagnostics.length(), content="0")
 }
+
 ///|
 test "unclosed tags report diagnostics after stack remains nonempty" {
   let result = html_grammar.parse_cst("<div><span>text") catch { _ => return }

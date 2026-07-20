@@ -812,7 +812,6 @@ test "tag-only annotation is rejected on token variants" {
   )
 }
 
-
 ///|
 test "tag annotation is rejected on view variants" {
   expect_tag_parse_err(
@@ -829,6 +828,7 @@ test "tag annotation is rejected on view variants" {
     "#loom.tag",
   )
 }
+
 ///|
 test "tag annotation rejects duplicate ASCII-case-folded names" {
   expect_tag_parse_err(

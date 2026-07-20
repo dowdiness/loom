@@ -183,7 +183,9 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
             if v.role is None {
               if v.tag_name is Some(_) {
                 return Err(
-                  "token variant " + v.name + " cannot have #loom.tag annotation",
+                  "token variant " +
+                  v.name +
+                  " cannot have #loom.tag annotation",
                 )
               }
               return Err(
