@@ -155,11 +155,17 @@ test "Native runs in sequence between declarative neighbors" {
 test "Native re-enters the grammar through try_parse_rule" {
   let via_native_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
-    "inner": Expr::Emit(TestToken::Int, TestKind::IntToken),
+    "inner": Expr::Choice([
+      Alt::{
+        starts: Pred::Any,
+        body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+      },
+    ]),
   }
   let mut reentered = false
   let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
-    reentered = try_parse_rule("inner")
+    reentered = true
+    ignore(try_parse_rule("inner"))
   }
   let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
     "delegate": hook,
