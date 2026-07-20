@@ -39,11 +39,11 @@ NativeSlot
 GuardSlot
 ```
 
-The rule root remains slot zero. Remaining rule names, native names, and guard names are sorted before slot assignment. Slot assignment is deterministic and recorded in the compiled grammar's name arrays for binding and diagnostics setup only.
+The rule root remains slot zero. Remaining rule names, native names, and guard names are sorted before slot assignment. The explicit `compile` call receives `native_names`, `guard_names`, and `native_rule_refs` declarations alongside `GrammarIr`; it assigns deterministic slots and records the ordered names for binding. The convenience `interpret` path derives those declarations from its handler maps.
 
 ### Compiled predicates
 
-Add an internal/public compiled predicate representation:
+Add a package-private compiled predicate representation. It is not exported as an authored grammar construction type:
 
 ```text
 CompiledPred[T] =
@@ -61,14 +61,16 @@ CompiledPred[T] =
 
 `CompiledExpr::Ref` becomes `RefSlot(RuleSlot)`. `CompiledExpr::Native` becomes `NativeSlot(NativeSlot)`. Native dependency metadata becomes an array indexed by `NativeSlot`, whose entries contain resolved `RuleSlot` targets. The compiler still verifies that each target exists and is a top-level `Choice`.
 
-`CompiledGrammar` contains:
+`CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot)`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque slot without exposing its integer representation; `rule_snapshot` copies every compiler-owned nested array in the expression tree. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
+
+The compiled grammar contains:
 
 - rule names and compiled rule bodies;
 - root `RuleSlot`;
 - native names and guard names in deterministic slot order;
 - slot-based native dispatch metadata.
 
-It does not contain name-keyed runtime dispatch metadata.
+`CompiledExpr`, `CompiledAlt`, and `CompiledPred` remain public snapshot representations for analyzer/spike consumers. Their values cannot be passed back into `bind`; only the compiler-owned `CompiledGrammar` storage is executable. This preserves the external probe without exposing mutable compiled arrays.
 
 ### Executable binding
 
@@ -83,7 +85,10 @@ ExecutableGrammar[T, K] {
 }
 ```
 
-`bind` performs the only registry-to-array conversion. Missing or unexpected handlers raise `GrammarBindError` before a parser context is touched. The interpreter receives only `ExecutableGrammar`; it indexes arrays by slots and never performs `Map.get` or fallback validation.
+The fields shown above are conceptual; the public `ExecutableGrammar` value is also opaque, and its arrays/brands cannot be mutated or extracted by callers.
+The explicit execution method is `ExecutableGrammar::parse_root(self) -> ParseRoot`. It is the only public bridge from an opaque compiled/bound grammar to a parser root; it executes the root rule against each supplied parser context.
+
+`bind` performs the only registry-to-array conversion. For an explicitly compiled grammar, missing or unexpected handlers raise `GrammarBindError` before a parser context is touched. The convenience `interpret` path derives its compile-time name declarations from the handler maps it receives, so those maps are the declaration source and cannot independently contain an "unexpected" handler; callers needing strict registry comparison use explicit `compile` followed by `bind`. The interpreter receives only `ExecutableGrammar`; it indexes arrays by slots and never performs `Map.get` or fallback validation.
 
 `interpret` remains as a convenience API that compiles and binds. `interpret_compiled` is removed rather than retained as an unsafe bypass.
 
@@ -93,18 +98,25 @@ Replace the native callback's arbitrary `(RuleName) -> Bool` gate with opaque, s
 
 ```text
 NativeCapabilityBrand {
-  // private identity token created once per ExecutableGrammar and NativeSlot
+  // private token : Ref[Unit], allocated fresh per ExecutableGrammar and NativeSlot
+  // compare token identity with physical_equal; never structural Eq or slot-derived Int
 }
 
 RuleCapability[T, K] {
   // private (NativeCapabilityBrand, RuleSlot) representation
 }
 
-NativeCapabilities[T, K] =
-  Array[(RuleName, RuleCapability[T, K])]
+NativeCapabilities[T, K] {
+  pairs : Array[(RuleName, RuleCapability[T, K])]
+}
+
+NativeCapabilities::require(
+  self : NativeCapabilities[T, K],
+  name : RuleName,
+) -> RuleCapability[T, K] raise GrammarBindError
 
 NativeFactory[T, K] =
-  (NativeCapabilities[T, K]) -> NativeRule[T, K]
+  (NativeCapabilities[T, K]) -> NativeRule[T, K] raise GrammarBindError
 
 NativeRule[T, K] =
   (ParserContext[T, K], NativeDispatcher[T, K]) -> Unit
@@ -117,7 +129,7 @@ NativeDispatcher[T, K] {
 
 For each native slot in each binding, `bind` creates one fresh opaque `NativeCapabilityBrand`. It creates named capability pairs for exactly that native's compiled, allowed target slots, all carrying the native's brand, and passes them to its factory. The factory selects capabilities by name during setup and captures only the opaque capability values it needs; positional coupling is not part of the contract. It cannot create an arbitrary rule capability, and the returned runtime callback does not capture a registry, builder, or name-lookup closure.
 
-At native execution time, the interpreter constructs a dispatcher containing the current native's brand and the current executable grammar. `try_rule` verifies both the native brand and allowed-target invariant, then executes the rule encoded by the capability. A capability from another executable binding or another native in the same binding is a programmer defect and fails before dispatch; it is never interpreted against the current grammar's numeric slot. The dispatcher does not accept `RuleSlot` directly, so an arbitrary slot cannot be introduced at the native call site.
+At native execution time, the interpreter constructs a dispatcher containing the current native's brand and the current executable grammar. `try_rule` verifies both the native brand and allowed-target invariant, then executes the rule encoded by the capability. A capability from another executable binding or another native in the same binding is a programmer defect: the dispatcher calls `fail` before dispatch, never emits a parser diagnostic, and never interprets the foreign numeric slot against the current grammar. A valid capability whose `Choice` predicate does not match returns `false`. The dispatcher does not accept `RuleSlot` directly, so an arbitrary slot cannot be introduced at the native call site.
 
 A target that fails to compile or bind is a build error. A target whose `Choice` predicate does not match returns `false` as normal parser semantics; it is not a registry failure.
 
@@ -135,17 +147,27 @@ All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `
 4. Add `GrammarBindError`, `RuleCapability`, `NativeCapabilities`, `NativeFactory`, and `ExecutableGrammar` in `loom/grammar/interpreter.mbt`.
 5. Replace all runtime registry maps with bound arrays and replace every predicate call with the single compiled evaluator.
 6. Migrate interpreter tests and property tests from `interpret_compiled` to `compile -> bind -> parse_root`.
-7. Migrate `examples/html/html_grammar_ir.mbt` to per-parse capability factories. `close_boundary` is captured as a `RuleCapability`; `cst_parser.mbt` no longer accepts `(String) -> Bool`.
-8. Regenerate `loom/grammar/pkg.generated.mbti` and update all affected generated/API fixtures.
-9. Remove `check_pred_guards`, `NativeRef(RuleName)`, name-keyed dispatch metadata, `interpret_compiled`, and runtime mismatch diagnostics.
+7. Migrate `examples/lambda/spike` from direct `CompiledGrammar` field access to defensive snapshots and `RuleSlot` accessors. Keep its intentional `ManualNewlineAppExpr` and crippled-reuse behavior spike-local; it no longer depends on `interpret_compiled`.
+8. Migrate `examples/html/html_grammar_ir.mbt` to per-parse capability factories. `close_boundary` is captured as a `RuleCapability`; `cst_parser.mbt` no longer accepts `(String) -> Bool`.
+9. Regenerate `loom/grammar/pkg.generated.mbti` and update all affected generated/API fixtures.
+10. Remove `check_pred_guards`, `NativeRef(RuleName)`, name-keyed dispatch metadata, `interpret_compiled`, and runtime mismatch diagnostics.
 
 ## Error boundaries
 
-`compile` continues to raise `GrammarCompileError` for malformed authored IR and unresolved compile-time names.
+`compile` has the signature `GrammarIr × native_names × guard_names × native_rule_refs -> CompiledGrammar raise GrammarCompileError`. The declaration arguments are part of the compile boundary and are not inferred from mutable runtime handler registries.
 
-`bind` raises `GrammarBindError` for a handler registry that does not match the compiled grammar. Capability pairs are constructed from compiler-owned dispatch metadata; a native factory can select only a declared opaque capability and cannot create or receive an arbitrary slot.
+`bind` has the signature `CompiledGrammar × registries -> ExecutableGrammar raise GrammarBindError`. It raises for a handler registry that does not match an explicitly compiled grammar, or when a native factory propagates a failed capability selection. Capability pairs are constructed from compiler-owned dispatch metadata; a native factory can select only a declared opaque capability and cannot create or receive an arbitrary slot.
 
-`interpret` exposes a combined build error containing compile or bind failure because callers normally handle those failures at the same construction boundary. Parser recovery diagnostics remain parser-context output and are not used for grammar construction failures.
+`GrammarBuildError` is the named combined error:
+
+```text
+GrammarBuildError =
+  Compile(GrammarCompileError)
+  Bind(GrammarBindError)
+```
+
+`interpret` has the signature `GrammarIr × registries -> ParseRoot raise GrammarBuildError`; it wraps compile failures as `Compile` and bind/factory failures as `Bind`. The convenience path derives its compile-time name declarations from the handler maps it receives. Parser recovery diagnostics remain parser-context output and are not used for grammar construction failures.
+The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root`. `bind` returns the opaque executable value; it does not itself start parsing.
 
 ## Tests and acceptance
 
@@ -159,10 +181,16 @@ All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `
 
 ### Interpreter
 
-- Context-aware guard behavior is covered in every predicate-bearing runtime family, including `Not(HostGuard(...))`.
+- The evaluator is tested independently for every predicate field: `Choice.starts`; `RepeatTopLevel.starts`; `RepeatTopLevel.delim`; `PrattApp.starts`; `PrattBinary.skip`; `RepeatWhile.pred`; `WrapIfNext.pred`; `ErrorUntil.stop`; `DiagnoseIf.pred`; `ExpectSkip.skip`; `ConsumeGated.skip`; `ConsumeGated.look`; `RequireSep.stop`; `RequireSep.alt`; and `ErrorNodeUntil.stop`.
+- Every listed field has both a direct `HostGuard` case and a `Not(HostGuard(...))` case.
 - `HostGuard` is never silently treated as a token-only predicate.
-- `bind` rejects missing and unexpected handlers before parsing.
+- Explicit `bind` rejects missing and unexpected handlers before parsing.
+- A native factory calling `NativeCapabilities::require` with an undeclared target raises `GrammarBindError` before parsing.
 - Native factories receive only declared target capabilities.
+- A dispatcher rejects a foreign-binding or cross-native capability with `fail`, while a valid nonmatching Choice capability returns `false`.
+- Binding-brand tests use distinct fresh `Ref[Unit]` identities and verify that capabilities from different bindings and different native slots are rejected.
+- Snapshot-array mutation tests prove that modifying `names_snapshot()` or `rule_snapshot()` results cannot alter later binding or execution; the test does not claim to clone arbitrary generic `T`/`K` payload internals.
+- The lambda spike migrates name resolution from `compiled.names.search(name)` to `slot_for_name(name)` and passes the returned opaque slots through its probe environment.
 - Native capability calls preserve the old successful and failing Choice behavior without runtime registry diagnostics.
 
 ### Equivalence and HTML
