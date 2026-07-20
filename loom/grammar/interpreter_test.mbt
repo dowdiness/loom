@@ -261,6 +261,39 @@ test "try_parse_rule with an unknown name reports a diagnostic and emits a place
     @seam.CstElement::Token(_) => abort("expected the Root node")
   }
 }
+///|
+test "try_parse_rule rejects an undeclared valid target" {
+  let rules : Map[RuleName, Expr[TestToken, TestKind]] = {
+    "source": Expr::Node(TestKind::Root, Expr::Native("delegate")),
+    "inner": Expr::Choice([
+      Alt::{ starts: Pred::Any, body: Expr::Emit(TestToken::Int, TestKind::IntToken) },
+    ]),
+  }
+  let mut gate_result = true
+  let hook : NativeRule[TestToken, TestKind] = (_ctx, try_parse_rule) => {
+    gate_result = try_parse_rule("inner")
+  }
+  let natives : Map[RuleName, NativeRule[TestToken, TestKind]] = {
+    "delegate": hook,
+  }
+  let parse_root = interpret(
+    GrammarIr::GrammarIr(rules, root="source"),
+    natives~,
+  )
+  let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
+  let (tree, diagnostics) = @core.parse_with(
+    "",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  inspect(gate_result, content="false")
+  inspect(diagnostics.is_empty(), content="false")
+  match tree.children[0] {
+    @seam.CstElement::Node(root) => inspect(root.children.length(), content="1")
+    @seam.CstElement::Token(_) => abort("expected the Root node")
+  }
+}
 
 ///|
 test "interpret resolves HostGuard predicate via guards map in Choice" {
