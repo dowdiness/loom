@@ -55,7 +55,7 @@ The existing term-to-`SyntaxKind` generation path must produce these variants in
 
 ## Validation and canonicalization
 
-`#loom.tag` is valid only on variants in a `#loom.term` enum that opts into tag classification. The existing `#loom.void` / `#loom.rawtext` property-only fixtures remain valid without `#loom.tag`; this new constraint applies only to the classifier-enabled term enum. The parser validates:
+`#loom.tag` is valid only on variants in a `#loom.term` enum that opts into tag classification. It is rejected on token variants and is not silently ignored. The existing `#loom.void` / `#loom.rawtext` property-only fixtures remain valid without `#loom.tag`; this new constraint applies only to the classifier-enabled term enum. The parser validates:
 
 - non-empty tag names;
 - ASCII HTML tag-name characters only;
@@ -104,7 +104,7 @@ None
   → original tag name remains available for CST and diagnostics
 ```
 
-Open/close matching compares canonical ASCII names while diagnostics preserve the original spellings.
+The close-boundary HostGuard compares canonical ASCII names while diagnostics preserve the original spellings.
 
 ## Native tag-stack and HostGuard
 
@@ -118,7 +118,52 @@ make_html_parse_root()
   → return parse_root(ctx)
 ```
 
-Each invocation of the returned `parse_root(ctx)` allocates a fresh mutable tag stack, builds `natives` and `guards` closures that capture that stack, obtains `interpret_compiled(compiled_ir, natives~, guards~)`, and dispatches it on the current context. `LanguageSpec` and the compiled grammar are reused; the stack and captured maps are never shared between parse invocations.
+Each invocation of the returned `parse_root(ctx)` allocates a fresh mutable tag stack and builds a native registry and guard registry whose closures capture that stack. `LanguageSpec` and the compiled grammar are reused; the stack and captured registries are never shared between parse invocations.
+
+The interpreter does not propagate a general parse-result value through every `Expr`. Existing non-transactional semantics remain unchanged: `Emit` may be a no-op on token mismatch, `Expect` performs its existing diagnostic recovery, and `Seq` does not roll back already-emitted CST events.
+
+`try_parse_rule` applies only to named rules whose top-level expression is `Choice`. This is an explicit native-dispatch contract, not a general rule parser or a synthesized rule-level FIRST-set system. The existing ordered `Choice` arm scan is reused:
+
+```text
+try_parse_rule(name : RuleName) -> Bool
+  resolve named rule
+  require top-level Choice
+  scan arms in authored order
+  evaluate each arm.starts with current context and HostGuards
+  on first match: execute that arm.body once, return true
+  when no arm matches: return false without executing any body
+```
+
+The interpreter-side false-path contract is limited to its own operations: when no arm matches, `try_parse_rule` does not execute any body and does not change the parser cursor, token source, CST event stream, or diagnostic set. It does not provide transactional rollback and cannot constrain effects performed by an arbitrary `HostGuard` closure. HostGuard implementations must therefore be pure queries: they may inspect the parser context and parse-local state, but must not mutate either. This purity requirement is an implementation contract separate from the interpreter's guarantees. After an entry predicate passes, the selected body runs once and no body-failure state is exposed. Rules intended for native dispatch must put their context-dependent entry predicates in a top-level `Choice`.
+
+Native rule dependencies are declared in the registry. Compile-time validation checks that every declared dependency names an IR rule with a top-level `Choice`; the runtime dispatcher rejects calls outside the declared dependency set. For HTML:
+
+```text
+parse_html_root
+  declared dependencies = { "close_boundary" }
+```
+
+The HTML IR contains the actual close-boundary rule:
+
+```text
+close_boundary:
+  Choice([
+    starts = HostGuard("html_tag_stack_valid")
+    body = Empty
+  ])
+```
+
+
+The native parser calls `try_parse_rule("close_boundary")` at every close-tag boundary:
+
+```text
+true  → the close boundary rule was accepted; consume CloseTagToken
+false → emit the mismatch diagnostic; leave the close tag unconsumed
+```
+
+The HostGuard is therefore the only authority for close-tag acceptance. The parser does not perform a second manual tag-name comparison.
+
+Tag-stack ownership is scoped to recursive parser frames. Each `parse_element` records the stack length before pushing its own canonical tag, and unwinds the stack back to that length on every return path: matching close, mismatch, EOF, depth limit, and error-limit recovery. A successful close does not independently pop an entry. This prevents a parent frame from accidentally popping a child frame after malformed nesting.
 
 The adapter must use the actual APIs:
 
@@ -133,29 +178,19 @@ parse_root(ctx) =
 
 `@loom.Grammar::new` receives this `parse_root` through the generated `LanguageSpec` factory. No parse calls `@grammar.interpret`, so compilation is not repeated. The adapter's construction function and registry functions are part of the #607 implementation contract.
 
-The native operations are:
-
-1. opening a non-void element pushes its canonical tag name;
-2. closing an element pops and compares canonical names;
-3. mismatch reports a diagnostic while preserving source tokens;
-4. end-of-input with non-empty stack reports unclosed elements;
-5. void elements do not push and do not require a closing tag;
-6. raw-text elements use the classifier-selected lexer mode before child parsing.
-
-The HTML grammar registers the required guard in `html_guard_registry(stack)` and uses `Pred::HostGuard` only for the context-dependent tag-stack check. Generated membership functions handle static void/raw-text classification; HostGuard handles stack state. Two failure checks are required: compiling the IR without the guard name must raise `MissingHostGuard`, while the HTML adapter must always pass the registered per-parse guard map to `interpret_compiled`. A missing runtime map entry follows the current interpreter contract and returns `false`; it is not claimed as a separate diagnostic.
-
 ## Responsibility map and removals
 
 | Responsibility | Owner after migration |
 |---|---|
 | tag annotation parsing and duplicate validation | `loomgen/parse_annotations.mbt` |
+| `#loom.tag` scope validation | `loomgen/parse_annotations.mbt` |
 | `SyntaxKind` variant generation | existing term/syntax emitter |
 | tag classifier generation | new element-property/classifier emitter |
 | static void/raw-text membership | generated `is_void_element` / `is_raw_text_element` |
 | structural tag payload | `examples/html` `OpenTag(String)` / `CloseTag(String)` |
 | raw-text scanning | HTML mode lexer, selected by generated classifier |
 | tag-stack state | parse-local HTML native rule |
-| stack-dependent guard | explicit HTML `HostGuard` registration |
+| stack-dependent close acceptance | compiled `close_boundary` rule and explicit HTML `HostGuard` registration |
 | generic/custom tag fallback | HTML parser, retaining original name |
 
 The migration removes `is_void_tag`, `is_raw_text_tag`, and duplicated case-fold/membership logic from `examples/html`. Raw-text scanning and tag-stack mechanics remain handwritten because they are stateful behavior, not static membership tables.
@@ -171,6 +206,7 @@ The migration removes `is_void_tag`, `is_raw_text_tag`, and duplicated case-fold
 | `#loom.void` / `#loom.rawtext` tables are generated | generated-source fixture and compile test |
 | `@native` tag-stack push/pop | matching, mismatch, unclosed, and void-stack tests |
 | `Pred::HostGuard` dispatch | compile-time missing-name test raises `MissingHostGuard`; registered per-parse adapter runtime test exercises the guard and stack behavior |
+| `try_parse_rule` false-path contract | focused interpreter test with a pure HostGuard proves no body, cursor, CST, or diagnostic mutation; HostGuard implementations are separately reviewed/tested for query purity |
 | unknown/custom tags remain generic | `my-widget` test preserving `OpenTag(String)` payload |
 | ASCII case-insensitive behavior | mixed-case open/close and raw-text tests |
 | no drift table remains | source-level regression or generated output check proving handwritten membership helpers are removed |
