@@ -173,6 +173,7 @@ test "Native re-enters the grammar through try_parse_rule" {
   let native_parse_root = interpret(
     GrammarIr::GrammarIr(via_native_rules, root="source"),
     natives~,
+    native_rule_refs={"delegate": Set::Set(["inner"])},
   )
   let via_ref_rules : Map[RuleName, Expr[TestToken, TestKind]] = {
     "source": Expr::Node(TestKind::Root, Expr::Ref("inner")),
@@ -363,6 +364,7 @@ test "try_parse_rule atomic gate skips body when HostGuard returns false" {
     GrammarIr::GrammarIr(rules, root="source"),
     natives~,
     guards~,
+    native_rule_refs={"gate_caller": Set::Set(["gate_rule"])},
   )
   let spec = test_spec(parse_root)
   let tokens = [
