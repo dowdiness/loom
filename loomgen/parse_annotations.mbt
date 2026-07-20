@@ -181,6 +181,11 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
               continue
             }
             if v.role is None {
+              if v.tag_name is Some(_) {
+                return Err(
+                  "token variant " + v.name + " cannot have #loom.tag annotation",
+                )
+              }
               return Err(
                 "variant " +
                 v.name +
@@ -514,6 +519,19 @@ fn parse_annotations(source : String) -> Result[AnnotatedEnums, String] {
                 v.name +
                 " in #loom.term enum is missing a #loom.* annotation",
               )
+            }
+          }
+          for v in classified {
+            if v.tag_name is Some(_) {
+              match v.role {
+                Some(View(_, _, _)) =>
+                  return Err(
+                    "variant " +
+                    v.name +
+                    " cannot have #loom.tag annotation on a #loom.view variant",
+                  )
+                _ => ()
+              }
             }
           }
           let mut classifier_enabled = false

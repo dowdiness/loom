@@ -157,6 +157,27 @@ test "mismatched close tags report diagnostics through close boundary" {
 }
 
 ///|
+test "mismatched close diagnostics preserve original tag spelling" {
+  let result = html_grammar.parse_cst("<DIV></span>") catch {
+    _ => fail("mismatched close diagnostic parse raised")
+  }
+  let (_, diagnostics) = result
+  inspect(
+    diagnostics.items()[0].message,
+    content="Mismatched close tag: expected </DIV>, got </span>",
+  )
+}
+
+
+///|
+test "mixed-case close tags match case-insensitively" {
+  let result = html_grammar.parse_cst("<DIV></div>") catch {
+    _ => fail("mixed-case HTML parse raised")
+  }
+  let (_, diagnostics) = result
+  inspect(diagnostics.length(), content="0")
+}
+///|
 test "unclosed tags report diagnostics after stack remains nonempty" {
   let result = html_grammar.parse_cst("<div><span>text") catch { _ => return }
   let (_, diagnostics) = result

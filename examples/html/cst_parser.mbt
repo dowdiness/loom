@@ -49,8 +49,7 @@ fn parse_element(
       }
 
       let base = tag_stack.length()
-      let normalized_name = ascii_lower_tag_name(tag_name)
-      tag_stack.push(normalized_name)
+      tag_stack.push(tag_name)
       if is_raw {
         match ctx.peek() {
           @token.RawText => {

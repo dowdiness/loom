@@ -55,7 +55,7 @@ The existing term-to-`SyntaxKind` generation path must produce these variants in
 
 ## Validation and canonicalization
 
-`#loom.tag` is valid only on variants in a `#loom.term` enum that opts into tag classification. It is rejected on token variants and is not silently ignored. The existing `#loom.void` / `#loom.rawtext` property-only fixtures remain valid without `#loom.tag`; this new constraint applies only to the classifier-enabled term enum. The parser validates:
+`#loom.tag` is valid only on variants in a `#loom.term` enum that opts into tag classification. It is rejected on token variants and is not silently ignored. The existing `#loom.void` / `#loom.rawtext` property-only fixtures remain valid without `#loom.tag`; this new constraint applies only to the classifier-enabled term enum. Tag classification applies only to concrete syntax roles (`Leaf`, `Node`, `ErrorNode`, and `Root`). `#loom.view` variants are projection metadata rather than classifier cases, so `#loom.tag` on a view variant is rejected instead of being silently omitted. The parser validates:
 
 - non-empty tag names;
 - ASCII HTML tag-name characters only;
@@ -228,4 +228,4 @@ This design requires an ADR because it adds a public annotation/classifier contr
 
 ## Implementation Evidence
 
-Implemented in the shared loomgen/grammar/HTML path. Focused native verification passed: grammar tests 23/23, loomgen tests 262/262, and HTML tests 42/42. Generated HTML syntax artifacts were regenerated and compared against seeded loomgen output; no handwritten membership helpers remain; scoped formatting and diff checks passed; independent `moonbit-reviewer` re-review returned PASS.
+Implemented in the shared loomgen/grammar/HTML path. Focused native verification passed: grammar tests 64/64, loomgen tests 264/264, and HTML tests 44/44. Generated HTML syntax artifacts were regenerated and compared against seeded loomgen output; no handwritten membership helpers remain; scoped formatting and diff checks passed.

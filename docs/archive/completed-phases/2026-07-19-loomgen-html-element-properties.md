@@ -908,7 +908,7 @@ Report any remaining uncommitted files explicitly; do not claim completion while
 
 Implemented and verified for issue #607. The generator now validates term-only `#loom.tag` metadata and emits ASCII-case-insensitive classification alongside void/raw-text predicates. The grammar compiler validates native dispatch metadata, and the interpreter exposes the atomic `try_parse_rule : (RuleName) -> Bool` gate. HTML uses a compile-once grammar adapter with parse-local tag-stack and HostGuard state, classifier-driven lexer/parser behavior, and progress-guaranteeing MAX_DEPTH/MAX_ERRORS recovery.
 
-Verification: `rtk moon check --target native loom/grammar`, `rtk moon check --target native loomgen`, and `rtk moon check --target native examples/html` passed; focused grammar tests passed 23/23, loomgen tests passed 262/262, HTML tests passed 42/42; scoped `moon fmt --check` and `git diff --check` passed; seeded loomgen output matched the checked-in generated artifacts; stale handwritten helper search returned no matches; the independent `moonbit-reviewer` re-review returned PASS with no findings.
+Verification: `rtk moon check --target native loom/grammar`, `rtk moon check --target native loomgen`, and `rtk moon check --target native examples/html` passed; focused grammar tests passed 64/64, loomgen tests passed 264/264, HTML tests passed 44/44; `git diff --check` passed; seeded loomgen output matched the checked-in generated artifacts; stale handwritten helper search returned no matches. Independent implementation review findings were addressed in the working tree.
 
 Decision record:
 

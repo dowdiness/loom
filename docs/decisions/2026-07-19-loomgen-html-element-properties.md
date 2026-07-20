@@ -13,7 +13,7 @@ Issue #607 requires generated element properties, native tag-stack behavior, and
 
 ## Decision
 
-Add tag-name metadata to `#loom.term` variants through `#loom.tag("name")`. Generate `classify_element(String) -> SyntaxKind?` from the same classifier-enabled term metadata that drives the existing `is_void_element(SyntaxKind)` and `is_raw_text_element(SyntaxKind)` functions. Existing untagged property-only term fixtures remain supported.
+Add tag-name metadata to concrete `#loom.term` syntax variants (`Leaf`, `Node`, `ErrorNode`, or `Root`) through `#loom.tag("name")`. `#loom.view` projection variants cannot carry `#loom.tag`; loomgen rejects that combination. Generate `classify_element(String) -> SyntaxKind?` from the same classifier-enabled term metadata that drives the existing `is_void_element(SyntaxKind)` and `is_raw_text_element(SyntaxKind)` functions. Existing untagged property-only term fixtures remain supported.
 
 Keep `OpenTag(String)` and `CloseTag(String)` as structural tokens. The name-only `OpenTag(String)` payload remains unchanged; complete opening-tag spelling and attributes are recovered from the token source span/text, so #607 does not migrate the payload. Known names classify to existing `SyntaxKind` variants; unknown/custom names return `None` and retain their original spelling. Static membership is generated; parse-local tag-stack checks remain native.
 
@@ -38,4 +38,4 @@ This preserves one syntax-kind taxonomy and one source of truth. It avoids both 
 - `#loom.tag` is term-only, canonicalized, duplicate-checked, and emitted as an ASCII-case-insensitive classifier; generated void/raw-text predicates remain compatible.
 - Native grammar dispatch uses compile-time dependency validation and an atomic `try_parse_rule(name) -> Bool` gate restricted to top-level `Choice` rules. Context-aware negated `HostGuard` predicates are covered by regression tests.
 - HTML uses a compile-once grammar adapter with parse-local tag-stack and pure HostGuard state. Lexer/parser behavior is classifier-driven, and MAX_DEPTH/MAX_ERRORS recovery guarantees progress.
-- Focused verification passed: grammar tests 23/23, loomgen tests 262/262, HTML tests 42/42; package checks, scoped formatting checks, seeded artifact comparison, stale-helper search, and `git diff --check` passed. The independent `moonbit-reviewer` re-review returned PASS with no findings.
+- Focused verification passed: grammar package tests 64/64, loomgen tests 264/264, and HTML tests 44/44; package checks and `git diff --check` passed. The generated classifier, element properties, parse-local stack, raw-text behavior, and case-insensitive close matching are covered by the committed tests.

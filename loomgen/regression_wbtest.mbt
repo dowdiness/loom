@@ -799,6 +799,37 @@ test "tag annotation is rejected on token variants" {
 }
 
 ///|
+test "tag-only annotation is rejected on token variants" {
+  expect_tag_parse_err(
+    (
+      #|#loom.token
+      #|pub(all) enum Token {
+      #|  #loom.tag("div")
+      #|  DivToken
+      #|}
+    ),
+    "#loom.tag",
+  )
+}
+
+
+///|
+test "tag annotation is rejected on view variants" {
+  expect_tag_parse_err(
+    (
+      #|#loom.term
+      #|pub(all) enum Term {
+      #|  #loom.tag("div")
+      #|  #loom.view("Root", "child")
+      #|  ChildView
+      #|  #loom.node
+      #|  Root
+      #|}
+    ),
+    "#loom.tag",
+  )
+}
+///|
 test "tag annotation rejects duplicate ASCII-case-folded names" {
   expect_tag_parse_err(
     (

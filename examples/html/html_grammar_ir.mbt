@@ -47,7 +47,7 @@ pub fn make_html_parse_root() -> HtmlParseRoot {
       "html_tag_stack_valid": fn(inner) {
         match (inner.peek(), tag_stack.last()) {
           (@token.CloseTag(name), Some(expected)) =>
-            ascii_lower_tag_name(name) == expected
+            ascii_lower_tag_name(name) == ascii_lower_tag_name(expected)
           _ => false
         }
       },
