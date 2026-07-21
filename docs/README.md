@@ -70,6 +70,8 @@ Understanding how the layers fit together. Principles only — no specific types
 - [superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md](superpowers/specs/2026-07-19-loomgen-html-element-properties-design.md) — accepted #607 design for one tag classifier, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [superpowers/specs/2026-07-20-grammar-compiled-capabilities-design.md](superpowers/specs/2026-07-20-grammar-compiled-capabilities-design.md) — accepted #607 follow-up for slot-resolved compiled grammar, executable binding, and native capabilities
 - [superpowers/plans/2026-07-20-grammar-compiled-capabilities.md](superpowers/plans/2026-07-20-grammar-compiled-capabilities.md) — implementation plan for the accepted #607 compiled grammar capabilities migration
+- [archive/completed-phases/2026-07-20-markdown-delimiter-frontier.md](archive/completed-phases/2026-07-20-markdown-delimiter-frontier.md) — completed #719 investigation; production frontier integration deferred pending boundary, invalidation, and benchmark evidence
+- [superpowers/specs/2026-07-20-markdown-delimiter-frontier-design.md](superpowers/specs/2026-07-20-markdown-delimiter-frontier-design.md) — candidate no-goal-source `ParserContext::token_at` transport; production integration deferred for #719
 - [superpowers/specs/2026-07-17-payload-producer-boundary-design.md](superpowers/specs/2026-07-17-payload-producer-boundary-design.md) — proposed future boundary separating lexer-level custom hooks from generated variant plans (#688)
 - [decisions/2026-07-17-payload-capture.md](decisions/2026-07-17-payload-capture.md) — **Accepted** private regex capture payload annotations and Markdown helper integration (#688)
 - [superpowers/archive/completed-phases/2026-07-17-payload-capture.md](archive/completed-phases/2026-07-17-payload-capture.md) — completed implementation plan for #loom.payload capture extraction (#688)
@@ -80,6 +82,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Accepted** #607 decision for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](archive/completed-phases/2026-07-19-loomgen-html-element-properties.md) — **Complete** implementation plan for #607, including generated classifier, atomic HostGuard dispatch, source-span fidelity, and parse-local stack ownership
 - [decisions/2026-07-15-markdown-projection-identity-boundary.md](decisions/2026-07-15-markdown-projection-identity-boundary.md) — **Accepted** Markdown owns typed semantic identity alignment; Canopy owns the ephemeral current-view attachment (#341, #332)
