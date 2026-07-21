@@ -461,11 +461,11 @@ The cmark and Lezer precedents use opener-time forward scanning; they are compar
 
 - [x] **3. Apply the documentation closure protocol.**
 
-  When all acceptance criteria are evidenced, mark this plan `**Status:** Complete`, add PR/issue links, decide whether an ADR is required, and move the completed plan to `docs/archive/completed-phases/`. Update `docs/README.md` in the same change. An ADR is required if the investigation rejects an architecture, changes a parser contract, or establishes a reusable maintenance rule.
+  The acceptance criteria are evidenced below. The implementation tree is fixed by commit `64840ba`; this closure metadata is a subsequent documentation-only commit. The related issue is [#719](https://github.com/dowdiness/loom/issues/719); no PR was created for this investigation. The ADR decision is recorded, and the plan is archived here with the README index updated.
 
 ## Closure evidence
 
-- Revision: `e7d3b77e881cf5a0041ed3ff1e3085d7c414bbca`; branch `fix/732-benchmark-classification`.
+- Tested implementation revision: `64840ba` (`test(markdown): classify delimiter frontier regression`); closure metadata is applied in a subsequent documentation-only commit on branch `fix/732-benchmark-classification`.
 - `rtk moon check examples/markdown`: 57 warnings, 0 errors.
 - `rtk moon test --target native examples/markdown/inline_test.mbt`: 19 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/incremental_test.mbt`: 26 passed, 0 failed.
