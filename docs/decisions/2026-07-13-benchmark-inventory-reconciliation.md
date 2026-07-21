@@ -128,20 +128,29 @@ optimization and are not used as quantitative evidence. The measured #719
 contribution is therefore accepted as a design cost rather than treated as an
 accidental code regression.
 
-The actual current revision `e4c7148` was then measured in a clean worktree with
-the stable control `zero-copy: tokenize - long identifiers`. The interleaved
-schedule was `control→CST→CST+AST` repeated three times:
+The actual current revision `e4c7148` was measured again in a clean worktree
+with the stable control `zero-copy: tokenize - long identifiers`. To
+counterbalance benchmark-order effects, the schedule alternated equally:
+
+```text
+A = control → CST → CST+AST
+B = control → CST+AST → CST
+A → B → A → B
+```
+
+With four trials, each median below is the arithmetic mean of the two middle
+values after sorting the four observations:
 
 | Benchmark | Clean current trials (ns) | Median (ns) |
 | --- | ---: | ---: |
-| Stable control | 49980, 50190, 50350 | 50190 |
-| `markdown: realistic doc - full parse (CST)` | 172460, 169300, 174600 | 172460 |
-| `markdown: realistic doc - full parse (CST+AST)` | 259040, 251610, 251400 | 251610 |
+| Stable control | 51260, 51900, 52350, 50920 | 51580 |
+| `markdown: realistic doc - full parse (CST)` | 181960, 183220, 178660, 176110 | 180310 |
+| `markdown: realistic doc - full parse (CST+AST)` | 269330, 271100, 255710, 266750 | 268040 |
 
-The control spread was `0.74%`, so these runs provide a stable local
-calibration. The checked-in baseline rows use these clean current medians:
-`172460.00 ns` for CST and `251610.00 ns` for CST+AST. Other Markdown rows
-remain unchanged because their evidence did not meet the shared `1.15` rule.
+The control range was `2.8%`; the checked-in baseline rows use the medians
+from this equally order-counterbalanced run: `180310.00 ns` for CST and
+`268040.00 ns` for CST+AST. Other Markdown rows remain unchanged because
+their evidence did not meet the shared `1.15` rule.
 
 ## Post-update detector status
 
