@@ -92,6 +92,84 @@ final sweep. Subsequent real detector runs remain useful for checking
 rows that appear in later sweeps do not expand this evidence set retroactively.
 
 
+## Issue #732 Markdown classification
+
+The initial comparison below used grouped current and `#718` trials rather than
+temporally paired runs. It is descriptive revision evidence only; its ratios
+cannot establish causality because execution-order and later-revision effects
+remain confounded:
+
+| Benchmark | Current trials (grouped, ns) | #718 trials (grouped, ns) | Descriptive ratios |
+| --- | --- | --- | --- |
+| `markdown: realistic doc - full parse (CST)` | 170970, 175240, 187130 | 124330, 125100, 143850 | 1.375, 1.401, 1.301 |
+| `markdown: realistic doc - full parse (CST+AST)` | 265220, 262730, 263980 | 199380, 199580, 207880 | 1.330, 1.316, 1.270 |
+
+The required causal control compares the direct #719 parent `0bf67c1` with
+the #719 commit `907d5dd`; submodules were synchronized in both worktrees.
+Each benchmark used the counterbalanced schedule `718→719`, `719→718`,
+`718→719`:
+
+| Benchmark | #718 parent (ns) | #719 commit (ns) | Paired ratios |
+| --- | ---: | ---: | ---: |
+| `markdown: realistic doc - full parse (CST)` | 123940, 135940, 126660 | 173410, 163390, 164500 | 1.399, 1.202, 1.299 |
+| `markdown: realistic doc - full parse (CST+AST)` | 200180, 194250, 196040 | 248910, 249370, 255510 | 1.243, 1.284, 1.303 |
+
+All six causal-control ratios exceed `1.15`. This supports a measurable
+performance cost caused by #719 itself for both realistic full-parse paths.
+It does not establish that every `e4c7148` versus `#718` difference is caused
+only by #719; later revisions remain a separate possible source of change.
+
+The causal control establishes a measurable cost for the two realistic full-parse
+paths. #719 introduces normalized-code-span handling and delimiter-index data
+structures; those are plausible mechanisms [INFERENCE], but this evidence set
+does not isolate their individual costs and does not include clean Markdown
+tokenize-only trials. Earlier disposable experiments did not yield a safe
+optimization and are not used as quantitative evidence. The measured #719
+contribution is therefore accepted as a design cost rather than treated as an
+accidental code regression.
+
+The actual current revision `e4c7148` was then measured in a clean worktree with
+the stable control `zero-copy: tokenize - long identifiers`. The interleaved
+schedule was `control→CST→CST+AST` repeated three times:
+
+| Benchmark | Clean current trials (ns) | Median (ns) |
+| --- | ---: | ---: |
+| Stable control | 49980, 50190, 50350 | 50190 |
+| `markdown: realistic doc - full parse (CST)` | 172460, 169300, 174600 | 172460 |
+| `markdown: realistic doc - full parse (CST+AST)` | 259040, 251610, 251400 | 251610 |
+
+The control spread was `0.74%`, so these runs provide a stable local
+calibration. The checked-in baseline rows use these clean current medians:
+`172460.00 ns` for CST and `251610.00 ns` for CST+AST. Other Markdown rows
+remain unchanged because their evidence did not meet the shared `1.15` rule.
+
+## Post-update detector status
+
+The final whole-workspace detector invocation completed with `298` gated
+regressions, `35` `NEW` rows, and `0` `MISSING` rows. This run is not evidence
+for 298 code regressions: unrelated e-graph, incr, lambda, seam, and Markdown
+families all inflated simultaneously, including the already-isolated parser
+rows. The result is a contaminated local benchmark run, not a green detector
+result, so no broad baseline update is justified.
+
+Independent package-level controls taken outside that run were near or below
+their checked-in baselines:
+
+| Control | Current (ns) | Baseline (ns) | Ratio |
+| --- | ---: | ---: | ---: |
+| `ui: tree 1023 memos + 512 leaf reactives` | 754210 | 688820 | 1.095 |
+| `dsl authoring: coarse staged pipeline 20 nodes` | 3070 | 3690 | 0.832 |
+| `runtime: new (full, all modes)` | 189.96 | 243.54 | 0.780 |
+| `gc: sweep 1k all-live` | 129580 | 162900 | 0.795 |
+| `zero-copy: tokenize - long identifiers` | 53650 | 64590 | 0.831 |
+| `zero-copy: full parse - integers` | 34600 | 37250 | 0.929 |
+
+The previously recorded three-pair seam measurements likewise remain below
+the `1.15` rule. These controls support classifying the broad detector failure
+as local measurement contamination, but do not replace a clean CI measurement.
+The causal control above, rather than the grouped current/#718 comparison, is
+the evidence for the two confirmed #719 design costs.
+
 ## Consequences
 
 The baseline is now comparable to the benchmark command used by the detector:
