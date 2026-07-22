@@ -463,11 +463,11 @@ The cmark and Lezer precedents use opener-time forward scanning; they are compar
 
 - [x] **3. Apply the documentation closure protocol.**
 
-  The acceptance criteria are evidenced below. The investigation patch and affected file contents from tested commit `64840ba` are preserved by cherry-picked commit `f1d345d` on clean branch `perf/719-delimiter-frontier-pr`; the full Git trees differ because the clean branch starts from `origin/main`. Closure metadata is maintained on this clean branch. The related issue is [#719](https://github.com/dowdiness/loom/issues/719), and the dedicated investigation PR is [#736](https://github.com/dowdiness/loom/pull/736). The ADR decision is recorded, and the plan is archived here with the README index updated.
+  The acceptance criteria are evidenced below. The investigation patch originates from tested commit `64840ba`; the final clean branch carries its cherry-pick as `f1d345d` and the final probe formatting/comment correction as `2602ec6`. The full Git trees differ because the clean branch starts from `origin/main`. Closure metadata is maintained on this clean branch. The related issue is [#719](https://github.com/dowdiness/loom/issues/719), and the dedicated investigation PR is [#736](https://github.com/dowdiness/loom/pull/736). The ADR decision is recorded, and the plan is archived here with the README index updated.
 
 ## Closure evidence
 
-- Tested implementation evidence: `64840ba` (`test(markdown): classify delimiter frontier regression`); clean-branch cherry-pick `f1d345d` preserves the investigation patch, and the focused checks and benchmarks below passed on the clean branch.
+- Tested implementation evidence: `64840ba` (`test(markdown): classify delimiter frontier regression`); final clean-branch probe revision is `2602ec6` (`ci: format delimiter frontier probe`), and the focused checks and benchmarks below passed on the clean branch.
 - `rtk moon check examples/markdown`: 57 warnings, 0 errors.
 - `rtk moon test --target native examples/markdown/inline_test.mbt`: 19 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/incremental_test.mbt`: 26 passed, 0 failed.
