@@ -132,6 +132,7 @@ enum ListItemContinuationKind {
 }
 
 enum ListItemSetextContinuationKind {
+  NoPrefix
   IndentationPrefix
   OrderedMarkerAsText
 }
@@ -229,7 +230,8 @@ The refactor must add or update tests for the following observable contracts:
 2. Block quote paragraph decisions distinguish `MarkerAndPrefix` and `PrefixOnly` with
    each `ContinuationPrefixKind`.
 3. Block quote setext, root setext, list-item, and list-item-setext decisions each emit
-   their named action variants, including ordered-marker-as-text and indentation cases.
+   every named action variant, including no-prefix, ordered-marker-as-text, and indentation
+   cases.
 4. Setext and list-item continuation behavior remains unchanged.
 5. Calling each `decide_*` directly on an ordinary parser context leaves parser position,
    event count, diagnostics, and reuse state unchanged. This call is not wrapped in an
