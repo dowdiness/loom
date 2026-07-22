@@ -461,11 +461,11 @@ The cmark and Lezer precedents use opener-time forward scanning; they are compar
 
 - [x] **3. Apply the documentation closure protocol.**
 
-  The acceptance criteria are evidenced below. The implementation tree is tree-identical to tested commit `64840ba` and is represented on the clean PR branch by cherry-picked commit `f1d345d`; closure metadata is maintained on `perf/719-delimiter-frontier-pr`. The related issue is [#719](https://github.com/dowdiness/loom/issues/719). The dedicated investigation PR is pending creation; its URL will be recorded before merge. The ADR decision is recorded, and the plan is archived here with the README index updated.
+  The acceptance criteria are evidenced below. The investigation patch and affected file contents from tested commit `64840ba` are preserved by cherry-picked commit `f1d345d` on clean branch `perf/719-delimiter-frontier-pr`; the full Git trees differ because the clean branch starts from `origin/main`. Closure metadata is maintained on this clean branch. The related issue is [#719](https://github.com/dowdiness/loom/issues/719). The dedicated investigation PR is pending creation; its URL will be recorded before merge. The ADR decision is recorded, and the plan is archived here with the README index updated.
 
 ## Closure evidence
 
-- Tested implementation revision: `f1d345d` (tree-identical cherry-pick of `64840ba`, `test(markdown): classify delimiter frontier regression`); closure metadata is applied on `perf/719-delimiter-frontier-pr`.
+- Tested implementation evidence: `64840ba` (`test(markdown): classify delimiter frontier regression`); clean-branch cherry-pick `f1d345d` preserves the investigation patch, and the focused checks below passed on the clean branch.
 - `rtk moon check examples/markdown`: 57 warnings, 0 errors.
 - `rtk moon test --target native examples/markdown/inline_test.mbt`: 19 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/incremental_test.mbt`: 26 passed, 0 failed.
