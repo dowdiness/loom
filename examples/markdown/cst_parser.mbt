@@ -143,10 +143,11 @@ fn decide_setext_continuation(
 ) -> ContinuationDecision[SetextContinuationKind] {
   guard ctx.peek() is Newline else { return Stop }
   if setext_underline_depth_after_newline(
-    ctx,
-    allow_list_marker=true,
-    min_indent=0,
-  ) is Some(_) {
+      ctx,
+      allow_list_marker=true,
+      min_indent=0,
+    )
+    is Some(_) {
     Stop
   } else {
     let next = ctx.peek_nth(1)
@@ -411,11 +412,7 @@ fn parse_paragraph_with_prefix(
       decide: () => decide_root_paragraph_continuation(ctx),
       consume: action => consume_root_continuation(ctx, action),
     }
-    parse_indexed_inline_container(
-      ctx,
-      InlineParsePolicy::paragraph(),
-      handler,
-    )
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -434,8 +431,7 @@ fn decide_block_quote_paragraph_continuation(
   match ctx.peek_nth(1) {
     BlockQuoteMarker if token_continues_paragraph_after_softbreak(
         ctx.peek_nth(2),
-      ) =>
-      Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
+      ) => Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
     token if !next_unquoted_line_is_thematic_break(ctx) &&
       token_continues_paragraph_after_softbreak(token) =>
       Continue(PrefixOnly(observe_continuation_prefix(ctx, 1)))
@@ -470,11 +466,7 @@ fn parse_block_quote_paragraph(
       decide: () => decide_block_quote_paragraph_continuation(ctx),
       consume: action => consume_block_quote_continuation(ctx, action),
     }
-    parse_indexed_inline_container(
-      ctx,
-      InlineParsePolicy::paragraph(),
-      handler,
-    )
+    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -501,8 +493,7 @@ fn decide_block_quote_heading_continuation(
     match ctx.peek_nth(1) {
       BlockQuoteMarker if token_continues_paragraph_after_softbreak(
           ctx.peek_nth(2),
-        ) =>
-        Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
+        ) => Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
       _ => Stop
     }
   }
@@ -532,11 +523,7 @@ fn try_parse_block_quote_setext_heading(
     decide: () => decide_block_quote_heading_continuation(ctx),
     consume: action => consume_block_quote_heading_continuation(ctx, action),
   }
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::paragraph(),
-    handler,
-  )
+  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
   if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
     consume_quoted_setext_underline_line(ctx)
     ctx.finish_node()
@@ -1319,13 +1306,14 @@ fn parse_list_item_inline_content(
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
   let handler : ContinuationHandler[ListItemContinuationKind] = {
-    decide: () =>
+    decide: () => {
       decide_list_item_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
         has_paragraph_content~,
-      ),
+      )
+    },
     consume: action => consume_list_item_continuation(ctx, action),
   }
   parse_indexed_inline_container(
@@ -1411,12 +1399,13 @@ fn try_parse_list_item_setext_heading(
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
   let handler : ContinuationHandler[ListItemSetextContinuationKind] = {
-    decide: () =>
+    decide: () => {
       decide_list_item_setext_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
-      ),
+      )
+    },
     consume: action => consume_list_item_setext_continuation(ctx, action),
   }
   parse_indexed_inline_container(

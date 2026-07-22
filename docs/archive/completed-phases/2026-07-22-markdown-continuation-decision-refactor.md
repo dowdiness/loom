@@ -1,5 +1,13 @@
 # Markdown Continuation Decision Refactor Implementation Plan
 
+**Status:** Complete
+
+**Completion note:** Implemented in commits `8df3581..4f43ef6`, with final private-visibility cleanup in `c4f2688`. The focused continuation, inline, and parser tests pass; the Markdown package check returns to the 57-warning baseline with zero errors; documentation and diff checks pass.
+
+**Decision record:**
+
+- No ADR needed: this implements the already accepted Markdown-local continuation design without changing public APIs, parser ownership, or architectural scope.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace Markdown's boolean continuation callback with typed decision/consumption handlers while preserving CST output, speculative rollback, incremental behavior, and all existing continuation semantics.
@@ -57,7 +65,7 @@
 
 ### Steps
 
-- [ ] **1. Add the private generic decision and handler declarations.**
+- [x] **1. Add the private generic decision and handler declarations.**
 
   Place the declarations near `parse_indexed_inline_container` in `inline_parser.mbt`:
 
@@ -75,7 +83,7 @@ priv struct ContinuationHandler[T] {
 
   Keep both types private to the Markdown package. Do not add a stop-only variant to either type.
 
-- [ ] **2. Add all owner-specific action enums in `cst_parser.mbt`.**
+- [x] **2. Add all owner-specific action enums in `cst_parser.mbt`.**
 
   Add the exact variants from the approved design:
 
@@ -121,7 +129,7 @@ priv enum ListItemSetextContinuationKind {
 
   Keep the enums package-private. Do not add `derive(Eq)` solely for the refactor; tests can match each expected variant and payload directly.
 
-- [ ] **3. Check the type-only change before any behavioral edit.**
+- [x] **3. Check the type-only change before any behavioral edit.**
 
   Run:
 
@@ -152,7 +160,7 @@ priv enum ListItemSetextContinuationKind {
 
 ### Steps
 
-- [ ] **1. Create the focused continuation test fixture helper.**
+- [x] **1. Create the focused continuation test fixture helper.**
 
   In `continuation_wbtest.mbt`, add a package-local context constructor using the existing Markdown tokenizer and spec:
 
@@ -169,7 +177,7 @@ priv enum ListItemSetextContinuationKind {
 
   Test sources should begin at a newline when exercising a continuation decision, for example `"\nbar\n"`, so the context is at the same observation point used by the inline driver.
 
-- [ ] **2. Extract root paragraph decision logic without effects.**
+- [x] **2. Extract root paragraph decision logic without effects.**
 
   Replace the boolean decision/effect mixture in `consume_root_paragraph_inline_continuation` with a decision that preserves the current predicates and returns an action:
 
@@ -201,7 +209,7 @@ priv enum ListItemSetextContinuationKind {
 
   The decision may retain existing `ctx.lookahead` calls in observation helpers, but it must not emit tokens or start/finish nodes.
 
-- [ ] **3. Extract root paragraph consumption.**
+- [x] **3. Extract root paragraph consumption.**
 
   Implement `consume_root_continuation` so it emits exactly the events previously emitted by the `else` branch, based only on the typed action:
 
@@ -222,7 +230,7 @@ priv enum ListItemSetextContinuationKind {
   }
   ```
 
-- [ ] **4. Extract the root setext lambda into named decision and consumer functions.**
+- [x] **4. Extract the root setext lambda into named decision and consumer functions.**
 
   Preserve the current newline guard, underline lookahead, block-boundary checks, and ordered-marker-as-text behavior:
 
@@ -265,7 +273,7 @@ priv enum ListItemSetextContinuationKind {
 
   Verify the exact token used for the ordered-marker branch against the current lambda before implementing; the action must describe the token at the post-newline cursor position, not `peek_nth(1)` after the cursor has moved.
 
-- [ ] **5. Add root/setext direct decision tests before migrating callers.**
+- [x] **5. Add root/setext direct decision tests before migrating callers.**
 
   Add tests that invoke the named decisions directly and match every action:
 
@@ -314,7 +322,7 @@ priv enum ListItemSetextContinuationKind {
 
   Use a test-specific `decision` binding when the decision returns different owner types. The test must not wrap the decision in an outer `lookahead`.
 
-- [ ] **6. Run focused tests and package check.**
+- [x] **6. Run focused tests and package check.**
 
   Run:
 
@@ -345,7 +353,7 @@ Keep the existing boolean callbacks until Task 6 completes the driver migration;
 new functions are an additive extraction, not a compatibility API.
 ### Steps
 
-- [ ] **1. Name the block-quote prefix observation.**
+- [x] **1. Name the block-quote prefix observation.**
 
   Add a pure helper that classifies the current post-newline token without emitting:
 
@@ -366,7 +374,7 @@ new functions are an additive extraction, not a compatibility API.
 
   Keep `emit_paragraph_continuation_prefix` as the shared effectful helper used by consumers. Do not inline it into only one owner.
 
-- [ ] **2. Extract block-quote paragraph decision logic.**
+- [x] **2. Extract block-quote paragraph decision logic.**
 
   Preserve both current branches:
 
@@ -376,11 +384,11 @@ new functions are an additive extraction, not a compatibility API.
 
   The decision may call `next_unquoted_line_is_thematic_break(ctx)` and other existing observation helpers. It must not emit `NewlineToken`, `BlockQuoteMarkerToken`, or prefix tokens. Use `observe_continuation_prefix(ctx, 2)` for a `BlockQuoteMarker` branch and `observe_continuation_prefix(ctx, 1)` for a `PrefixOnly` branch; block-quote setext marker continuation also observes offset `2`.
 
-- [ ] **3. Implement typed block-quote consumers.**
+- [x] **3. Implement typed block-quote consumers.**
 
   `MarkerAndPrefix(prefix)` emits `NewlineToken`, `BlockQuoteMarkerToken`, then the same prefix events as `emit_paragraph_continuation_prefix`. `PrefixOnly(prefix)` emits `NewlineToken` and the prefix events only. Use the action payload to make the consumed branch explicit; do not re-run a boundary predicate in the consumer.
 
-- [ ] **4. Extract block-quote setext decision with all existing guards.**
+- [x] **4. Extract block-quote setext decision with all existing guards.**
 
   `decide_block_quote_heading_continuation` must include, in order:
 
@@ -391,11 +399,11 @@ new functions are an additive extraction, not a compatibility API.
 
   Do not implement only the marker-matching portion; the setext underline guard currently lives in the surrounding lambda and must move into the decision.
 
-- [ ] **5. Add block-quote variant and purity tests.**
+- [x] **5. Add block-quote variant and purity tests.**
 
   Cover `MarkerAndPrefix(NoPrefix)`, `MarkerAndPrefix(ThematicBreakPrefix)`, `MarkerAndPrefix(ListMarkerPrefix)`, `PrefixOnly(NoPrefix)`, `PrefixOnly(ThematicBreakPrefix)`, `PrefixOnly(ListMarkerPrefix)`, and both stop conditions. Cover block-quote setext marker continuation and its setext-underline stop condition. Repeat the public-state and exact mark-delta assertions.
 
-- [ ] **6. Check the package.**
+- [x] **6. Check the package.**
 
   Run:
 
@@ -425,11 +433,11 @@ new functions are an additive extraction, not a compatibility API.
 
 ### Steps
 
-- [ ] **1. Preserve the `has_paragraph_content` capture in the decision input.**
+- [x] **1. Preserve the `has_paragraph_content` capture in the decision input.**
 
   `parse_list_item_inline_content` currently captures `has_paragraph_content` before creating its callback. Move that value into `decide_list_item_continuation`; when it is false, return `Stop` before evaluating continuation boundaries. Do not recompute the value after the inline scan begins.
 
-- [ ] **2. Extract list-item action classification.**
+- [x] **2. Extract list-item action classification.**
 
   The decision must preserve, in order, the existing ordered-marker nested-list check, list-marker boundary check, block-dispatch check, and `token_can_continue_list_item_paragraph_after_newline` check. Classify `let next = ctx.peek_nth(1)` as:
 
@@ -441,19 +449,19 @@ new functions are an additive extraction, not a compatibility API.
 
   The decision emits nothing.
 
-- [ ] **3. Extract list-item consumption.**
+- [x] **3. Extract list-item consumption.**
 
   `consume_list_item_continuation` emits `NewlineToken`, then emits `IndentationToken` or `TextToken` according to the typed action. The consumer must not repeat the boundary predicates.
 
-- [ ] **4. Extract list-item-setext decision and consumption.**
+- [x] **4. Extract list-item-setext decision and consumption.**
 
   Preserve `setext_underline_depth_after_newline(... allow_list_marker=false ...)`, ordered nested-list checks, list boundary checks, block-dispatch checks, and the existing ordered-marker/indentation token treatment. Return `Stop` for an underline or any existing boundary condition.
 
-- [ ] **5. Add list-item action tests.**
+- [x] **5. Add list-item action tests.**
 
   Cover `NoPrefix`, `IndentationPrefix`, `OrderedMarkerAsText`, and `Stop` for both list-item and list-item-setext decisions. Include both `has_paragraph_content=false` and `true`; the false case must stop without invoking continuation boundary consumption. Repeat direct public-state and exact mark-delta assertions.
 
-- [ ] **6. Check the package.**
+- [x] **6. Check the package.**
 
   Run:
 
@@ -479,7 +487,7 @@ immediate call-site migration in Task 6.
 
 ### Steps
 
-- [ ] **1. Add the private handler-to-boolean bridge.**
+- [x] **1. Add the private handler-to-boolean bridge.**
 
   The existing nested functions (`parse_indexed_inline_code`, `parse_inline`, `parse_bold`, `parse_italic`, and `parse_link`) all need a `() -> Bool` continuation callback to preserve their local loops. Synthesize that callback only inside the driver:
 
@@ -501,7 +509,7 @@ immediate call-site migration in Task 6.
 
   Do not expose this bridge to `cst_parser.mbt`, and do not let a block-parser call site pass a boolean callback.
 
-- [ ] **2. Route the generic active driver through the bridge.**
+- [x] **2. Route the generic active driver through the bridge.**
 
   Change the signature to:
 
@@ -520,7 +528,7 @@ immediate call-site migration in Task 6.
 
   Preserve the existing delimiter index, token emission, and `parse_indexed_inline_code` behavior. A `Continue(action)` must consume the action in both speculative and actual passes exactly as the current callback emits tokens in both passes.
 
-- [ ] **3. Add the non-generic stop driver.**
+- [x] **3. Add the non-generic stop driver.**
 
   Implement:
 
@@ -539,11 +547,11 @@ immediate call-site migration in Task 6.
 
   If a shared private scanner helper is needed, name it explicitly and keep it private. Its boolean callback is an internal loop mechanism, not a public continuation policy API. Do not introduce a generic stop handler or fake action.
 
-- [ ] **4. Verify nested parser boundaries.**
+- [x] **4. Verify nested parser boundaries.**
 
   Ensure a newline inside code spans, emphasis, or links calls the synthesized continuation step and therefore consumes the same typed action as the outer driver. A `Stop` must preserve existing recovery behavior, including the indexed code-span boundary abort path and unclosed emphasis/link restoration.
 
-- [ ] **5. Check the driver before caller migration.**
+- [x] **5. Check the driver before caller migration.**
 
   Run:
 
@@ -569,11 +577,11 @@ immediate call-site migration in Task 6.
 
 ### Steps
 
-- [ ] **1. Migrate root setext.**
+- [x] **1. Migrate root setext.**
 
   Replace the inline lambda at `try_parse_setext_heading` with a handler whose `decide` calls `decide_setext_continuation(ctx)` and whose `consume` calls `consume_setext_continuation(ctx, action)`. Preserve the surrounding setext underline consumption, finish-node, checkpoint, and restore logic.
 
-- [ ] **2. Migrate line-bound headings.**
+- [x] **2. Migrate line-bound headings.**
 
   Replace the always-false callback in `parse_heading_with_prefix` with:
 
@@ -586,23 +594,23 @@ immediate call-site migration in Task 6.
 
   Preserve the following newline emission outside the inline driver.
 
-- [ ] **3. Migrate root paragraphs.**
+- [x] **3. Migrate root paragraphs.**
 
   Construct a `ContinuationHandler[RootContinuationKind]` from `decide_root_paragraph_continuation` and `consume_root_continuation`, then pass it to `parse_indexed_inline_container`.
 
-- [ ] **4. Migrate block-quote paragraphs and block-quote setext.**
+- [x] **4. Migrate block-quote paragraphs and block-quote setext.**
 
   Use `ContinuationHandler[BlockQuoteContinuationKind]` for ordinary block quotes. Use `ContinuationHandler[BlockQuoteHeadingContinuationKind]` for `try_parse_block_quote_setext_heading`; the decision must include the setext-specific underline guard from the old lambda.
 
-- [ ] **5. Migrate list-item content while preserving captured state.**
+- [x] **5. Migrate list-item content while preserving captured state.**
 
   In `parse_list_item_inline_content`, capture `has_paragraph_content` once as today. Construct a `ContinuationHandler[ListItemContinuationKind]` whose decision receives `content_indent`, `allow_ordered_marker`, and the captured boolean. The consumer receives only the action and emits the same prefix events.
 
-- [ ] **6. Migrate list-item setext.**
+- [x] **6. Migrate list-item setext.**
 
   Construct `ContinuationHandler[ListItemSetextContinuationKind]` with the existing `content_indent` and `allow_ordered_marker` values. Preserve the surrounding setext underline consumption and checkpoint restore.
 
-- [ ] **7. Delete the old callback implementations.**
+- [x] **7. Delete the old callback implementations.**
 
   After every caller uses a typed handler or the non-generic stop driver, delete
   `consume_root_paragraph_inline_continuation`,
@@ -613,7 +621,7 @@ immediate call-site migration in Task 6.
   The root setext inline lambda is removed by its call-site migration. Do not leave
   aliases, wrappers, or unused boolean continuation APIs.
 
-- [ ] **8. Prove call-site completeness.**
+- [x] **8. Prove call-site completeness.**
 
   Search the Markdown package for remaining block-parser uses of the old shape:
 
@@ -623,7 +631,7 @@ immediate call-site migration in Task 6.
 
   Expected: `cst_parser.mbt` contains only typed handler construction or the non-generic no-continuation entry point; `inline_parser.mbt` contains the private nested boolean bridge only. No compatibility wrapper is permitted.
 
-- [ ] **9. Run focused parser tests.**
+- [x] **9. Run focused parser tests.**
 
   Run:
 
@@ -647,7 +655,7 @@ immediate call-site migration in Task 6.
 
 ### Steps
 
-- [ ] **1. Run the complete Markdown package test target.**
+- [x] **1. Run the complete Markdown package test target.**
 
   From the repository root, run:
 
@@ -657,7 +665,7 @@ immediate call-site migration in Task 6.
 
   Expected: all Markdown tests pass with no failures. Record the exact result in the implementation PR or completion note.
 
-- [ ] **2. Run final formatting and checks.**
+- [x] **2. Run final formatting and checks.**
 
   Run:
 
@@ -669,18 +677,18 @@ immediate call-site migration in Task 6.
 
   `moon fmt` is the only formatter invocation. If formatting changes MoonBit files, rerun `rtk moon check examples/markdown` and the focused tests.
 
-- [ ] **3. Inspect generated interfaces.**
+- [x] **3. Inspect generated interfaces.**
 
   Read `examples/markdown/pkg.generated.mbti` after `moon info`. Confirm the new continuation types and functions remain package-private and that no `loom/core/pkg.generated.mbti` or other core interface changes occurred. Never hand-edit generated interfaces.
 
-- [ ] **4. Update the documentation index.**
+- [x] **4. Update the documentation index.**
 
   Add an index entry next to the related Markdown continuation design in `docs/README.md`.
   The entry target must be `superpowers/plans/2026-07-22-markdown-continuation-decision-refactor.md`
   and its description must identify this as the implementation plan for the Markdown-local
   typed continuation decision/consumption refactor.
 
-- [ ] **5. Run documentation and diff checks.**
+- [x] **5. Run documentation and diff checks.**
 
   Run:
 
@@ -691,7 +699,7 @@ immediate call-site migration in Task 6.
 
   Expected: both commands pass; the docs index resolves the new plan link, no fossil references are introduced, and no generated-interface drift is present.
 
-- [ ] **6. Perform final independent review after implementation and before completion/PR.**
+- [x] **6. Perform final independent review after implementation and before completion/PR.**
 
   Review the implementation diff against the approved design spec with a different model. Require exact file/line findings for:
 
@@ -705,12 +713,12 @@ immediate call-site migration in Task 6.
 
 ## Completion Criteria
 
-- [ ] No Markdown block-parser call site constructs the old `() -> Bool` continuation callback.
-- [ ] The only always-stop path is the non-generic no-continuation driver.
-- [ ] Every continuing owner uses its named action type and matching `ContinuationHandler[T]` consumer.
-- [ ] Direct decisions have no observable public parser-state mutation and satisfy the exact event-mark delta.
-- [ ] Speculative delimiter indexing and actual parsing preserve the existing event/diagnostic behavior.
-- [ ] Existing inline, incremental, source-fidelity, and Markdown block tests pass.
-- [ ] `examples/markdown/pkg.generated.mbti` shows no unintended public API change.
-- [ ] `check-docs.sh` and `git diff --check` pass.
-- [ ] No ADR is required for plan creation; an ADR decision is revisited only if the implementation changes the architectural scope or closes a major plan.
+- [x] No Markdown block-parser call site constructs the old `() -> Bool` continuation callback.
+- [x] The only always-stop path is the non-generic no-continuation driver.
+- [x] Every continuing owner uses its named action type and matching `ContinuationHandler[T]` consumer.
+- [x] Direct decisions have no observable public parser-state mutation and satisfy the exact event-mark delta.
+- [x] Speculative delimiter indexing and actual parsing preserve the existing event/diagnostic behavior.
+- [x] Existing inline, incremental, source-fidelity, and Markdown block tests pass.
+- [x] `examples/markdown/pkg.generated.mbti` shows no unintended public API change.
+- [x] `check-docs.sh` and `git diff --check` pass.
+- [x] No ADR is required for plan creation; an ADR decision is revisited only if the implementation changes the architectural scope or closes a major plan.

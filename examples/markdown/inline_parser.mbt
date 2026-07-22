@@ -78,9 +78,7 @@ priv struct ContinuationHandler[T] {
 }
 
 ///|
-fn[T] continuation_step(
-  handler : ContinuationHandler[T],
-) -> () -> Bool {
+fn[T] continuation_step(handler : ContinuationHandler[T]) -> () -> Bool {
   () => {
     match (handler.decide)() {
       Continue(action) => {
