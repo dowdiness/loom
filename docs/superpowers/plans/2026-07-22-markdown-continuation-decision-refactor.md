@@ -129,7 +129,11 @@
   rtk moon check examples/markdown
   ```
 
-  Expected: the Markdown package checks successfully, with at most existing warnings and no errors. Do not continue until this check is clean of errors.
+  Expected: the Markdown package checks successfully with no errors. The newly added
+  package-private declarations may add `unused_*` and `missing_priv` warnings until
+  later tasks wire the types; record those as expected staged warnings and do not
+  suppress them with `priv` or fake uses. The final verification must return to the
+  pre-refactor warning baseline.
 
 ---
 
