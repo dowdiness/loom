@@ -42,7 +42,7 @@ struct ContinuationHandler[T] {
 continuation owner supplies its own `T`, so a root-paragraph action cannot be passed to a
 block-quote consumer.
 
-The inline driver becomes conceptually:
+The generic driver is reserved for policies that can continue:
 
 ```moonbit
 fn parse_indexed_inline_container[T](
@@ -52,9 +52,20 @@ fn parse_indexed_inline_container[T](
 ) -> Unit
 ```
 
-At a newline, the driver obtains one decision. A `Continue(action)` is passed to the same
-handler's `consume`; a `Stop` closes the current inline run. No cross-policy
-variant match or `abort("wrong continuation policy")` is required.
+At a newline, the driver obtains one `ContinuationDecision[T]`. A `Continue(action)` is
+passed to the same handler's `consume`; a `Stop` closes the current inline run.
+
+Policies that are always line-bound do not construct a handler and do not instantiate the
+generic driver. They use a separate non-generic entry point:
+
+```moonbit
+fn parse_indexed_inline_container_without_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+) -> Unit
+```
+
+The stop-only path has no type parameter, fake action, or `consume` callback.
 
 ## Ownership
 
@@ -140,8 +151,9 @@ enum ListItemSetextContinuationKind {
 
 `try_parse_block_quote_setext_heading` uses
 `ContinuationDecision[BlockQuoteHeadingContinuationKind]`. The root setext, list-item,
-and list-item-setext call sites use their corresponding action types. A policy that never
-continues uses a stop-only handler rather than a fake cross-policy action type.
+and list-item-setext call sites use their corresponding action types. A line-bound policy
+uses `parse_indexed_inline_container_without_continuation` rather than a stop-only
+handler, so no fake cross-policy action type is required.
 
 
 ## Observation and consumption
@@ -160,13 +172,15 @@ This is an observational contract, not a static purity guarantee. A decision may
 `ParserContext::lookahead`, whose implementation can perform temporary parser-owned work
 and then restore its own checkpoint. Each `decide_*` function must nevertheless be called
 directly on an ordinary parser context in its dedicated purity test, without an outer
-`lookahead`. The test snapshots parser position, event count, diagnostics, and reuse state
-before and after the call and requires all four to be unchanged. This catches a decision
-that commits an effect itself; an outer rollback would otherwise hide that defect.
+`lookahead`. That test compares `current_token_range`, `current_node_kind`, and `lex_mode`
+before and after the call. Since `mark()` returns the pre-push event length and appends
+one tombstone, a no-event decision must satisfy `after_mark == before_mark + 1`. It does
+not inspect private diagnostics or reuse fields.
 
 The driver also retains a separate test for the complete speculative pass wrapped in the
 existing outer `lookahead`, verifying that the driver's temporary events and parser state
-are rolled back. These are distinct contracts: direct decision observation detects
+are rolled back without adding diagnostics. Existing incremental tests continue to cover
+reuse behavior. These are distinct contracts: direct decision observation detects
 decision-owned effects, while the driver test verifies speculative integration.
 
 The first refactor does not claim that a closure or a function signature prevents all
@@ -201,11 +215,14 @@ actual parse pass applies the same typed action through the effectful consumer.
 
 The refactor changes only the Markdown continuation seam and its driver wiring:
 
-- introduce the generic typed decision and handler shape;
+- introduce the generic typed decision and handler shape for continuing policies;
 - update `parse_indexed_inline_container` to use the typed handler;
+- add the non-generic `parse_indexed_inline_container_without_continuation` entry point;
+- route line-bound headings through the non-generic entry point;
 - split root paragraph decision from root paragraph consumption;
-- split block quote paragraph decision from block quote consumption;
-- migrate setext and list-item continuation call sites to typed handlers; and
+- split block quote paragraph decision from block quote paragraph consumption;
+- migrate block-quote setext, root setext, list-item, and list-item-setext continuation call
+  sites to typed handlers; and
 - preserve all existing parser behavior.
 
 The refactor does not change:
@@ -222,6 +239,15 @@ core-owned read-only capability. That is a separate design gate, not an implicit
 this refactor.
 
 ## Tests
+Direct decision tests are limited to observations available through the existing
+`ParserContext` API. They compare `current_token_range`, `current_node_kind`, and
+`lex_mode` before and after each decision. Since `mark()` returns the pre-push event
+length and appends one tombstone, a no-event decision must satisfy
+`after_mark == before_mark + 1`. The tests do not inspect private diagnostics or reuse
+fields, and this refactor does not add core introspection for those fields. Diagnostics and
+incremental reuse behavior remain covered by the complete driver and existing incremental
+test contracts.
+
 
 The refactor must add or update tests for the following observable contracts:
 
@@ -233,14 +259,17 @@ The refactor must add or update tests for the following observable contracts:
    every named action variant, including no-prefix, ordered-marker-as-text, and indentation
    cases.
 4. Setext and list-item continuation behavior remains unchanged.
-5. Calling each `decide_*` directly on an ordinary parser context leaves parser position,
-   event count, diagnostics, and reuse state unchanged. This call is not wrapped in an
-   outer `lookahead`.
+5. Calling each `decide_*` directly on an ordinary parser context leaves the publicly
+   observable parser state unchanged: current token range, current node kind, and lex
+   mode. A no-event decision satisfies `after_mark == before_mark + 1`.
 6. Running the complete inline driver's speculative pass through the existing outer
-   `lookahead` rolls back its temporary parser state and events.
-7. Each typed action is consumed only by its matching handler.
-8. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
-   pass.
+   `lookahead` rolls back its temporary parser state and events without adding diagnostics.
+7. Re-evaluating a decision from the same restored parser state produces the same typed
+   action variant and payload.
+8. Each typed action is consumed only by its matching handler.
+9. Line-bound parsing uses the non-generic entry point without a handler or fake action.
+10. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
+    pass.
 
 No benchmark result is used to claim a performance improvement at this stage.
 
