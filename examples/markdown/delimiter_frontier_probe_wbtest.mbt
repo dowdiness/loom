@@ -1,6 +1,8 @@
 // Standalone delimiter-frontier probe over real Markdown lexer facts.
-// This file must remain disconnected from ParserContext until the cursor gate passes.
+// This remains a standalone validation artifact; production integration also requires
+// continuation-boundary, invalidation, and performance gates.
 
+///|
 enum ProbeTokenKind {
   Text
   Backtick
@@ -10,23 +12,27 @@ enum ProbeTokenKind {
   Other
 } derive(Eq)
 
+///|
 struct ProbeToken {
   kind : ProbeTokenKind
   start : Int
   end : Int
 }
 
+///|
 struct ProbeContainer {
   tokens : Array[ProbeToken]
   end : Int
 }
 
+///|
 struct ProbeRun {
   token_index : Int
   start : Int
   length : Int
 }
 
+///|
 struct DelimiterScanFrontier {
   mut frontier_token : Int
   runs_by_length : Map[Int, Array[ProbeRun]]
@@ -35,6 +41,7 @@ struct DelimiterScanFrontier {
   mut visits : Int
 }
 
+///|
 fn probe_kind(token : Token) -> ProbeTokenKind {
   match token {
     Text(_) => Text
@@ -56,6 +63,7 @@ fn probe_kind(token : Token) -> ProbeTokenKind {
   }
 }
 
+///|
 fn probe_container_from_source(
   source : String,
   container_end : Int,
@@ -83,6 +91,7 @@ fn probe_container_from_source(
   { tokens, end: container_end }
 }
 
+///|
 fn in_container_token_count(container : ProbeContainer) -> Int {
   let mut count = 0
   for token in container.tokens {
@@ -93,6 +102,7 @@ fn in_container_token_count(container : ProbeContainer) -> Int {
   count
 }
 
+///|
 fn frontier_new() -> DelimiterScanFrontier {
   {
     frontier_token: 0,
@@ -103,16 +113,15 @@ fn frontier_new() -> DelimiterScanFrontier {
   }
 }
 
-fn record_run(
-  frontier : DelimiterScanFrontier,
-  run : ProbeRun,
-) -> Unit {
+///|
+fn record_run(frontier : DelimiterScanFrontier, run : ProbeRun) -> Unit {
   match frontier.runs_by_length.get(run.length) {
     Some(runs) => runs.push(run)
     None => frontier.runs_by_length[run.length] = [run]
   }
 }
 
+///|
 fn frontier_observe_until(
   frontier : DelimiterScanFrontier,
   container : ProbeContainer,
@@ -148,6 +157,7 @@ fn frontier_observe_until(
   }
 }
 
+///|
 fn frontier_next_closer(
   frontier : DelimiterScanFrontier,
   opener : ProbeRun,
@@ -220,7 +230,10 @@ test "delimiter frontier: ignores a same-length run after the boundary" {
     container,
   )
   inspect(closer is None, content="true")
-  inspect(frontier.visits == in_container_token_count(container), content="true")
+  inspect(
+    frontier.visits == in_container_token_count(container),
+    content="true",
+  )
 }
 
 ///|
@@ -235,8 +248,7 @@ test "delimiter frontier: ignores an extended post-boundary tail" {
     _ => abort("lexer failed")
   }
   let extended_container = probe_container_from_source(
-    extended_source,
-    container_end,
+    extended_source, container_end,
   ) catch {
     _ => abort("lexer failed")
   }
@@ -255,7 +267,10 @@ test "delimiter frontier: ignores an extended post-boundary tail" {
     extended_container,
   )
   inspect(frontier.visits == visits_before, content="true")
-  inspect(frontier.visits == in_container_token_count(container), content="true")
+  inspect(
+    frontier.visits == in_container_token_count(container),
+    content="true",
+  )
   inspect(
     extended_frontier.visits == in_container_token_count(extended_container),
     content="true",
@@ -276,8 +291,14 @@ test "delimiter frontier: visits full in-container stream once" {
     { token_index: 1, start: 5, length: 1 },
     container,
   )
-  inspect(frontier.visits <= in_container_token_count(container) * 3, content="true")
-  inspect(frontier.visits <= in_container_token_count(container), content="true")
+  inspect(
+    frontier.visits <= in_container_token_count(container) * 3,
+    content="true",
+  )
+  inspect(
+    frontier.visits <= in_container_token_count(container),
+    content="true",
+  )
 }
 
 ///|
@@ -327,9 +348,7 @@ test "delimiter frontier: third run remains unmatched" {
 ///|
 test "parser context baseline token_at scans delimiter facts without moving" {
   let source = "`a\n`b`"
-  let tokens = tokenize(source) catch {
-    _ => abort("lexer failed")
-  }
+  let tokens = tokenize(source) catch { _ => abort("lexer failed") }
   let ctx = @core.ParserContext::new(tokens, source, markdown_spec)
   let before = ctx.peek_index(0)
   let (first, first_end) = ctx.token_at(0, 0)
