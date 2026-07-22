@@ -185,3 +185,128 @@ test "continuation decisions: setext Stop" {
     }
   })
 }
+
+
+///|
+test "continuation decisions: block-quote variants" {
+  let marker_no_prefix = continuation_context("\n> bar\n")
+  assert_decision_public_state_pure(marker_no_prefix, () => {
+    match decide_block_quote_paragraph_continuation(marker_no_prefix) {
+      Continue(MarkerAndPrefix(ContinuationPrefixKind::NoPrefix)) => ()
+      _ => abort("expected MarkerAndPrefix(NoPrefix)")
+    }
+  })
+
+  // Indented thematic-break-looking line after `>` continues as text.
+  let marker_thematic = continuation_context("\n>    ---\n")
+  assert_decision_public_state_pure(marker_thematic, () => {
+    match decide_block_quote_paragraph_continuation(marker_thematic) {
+      Continue(MarkerAndPrefix(ThematicBreakPrefix)) => ()
+      _ => abort("expected MarkerAndPrefix(ThematicBreakPrefix)")
+    }
+  })
+
+  // Ordered markers with start != 1 continue as text after `>`.
+  let marker_list = continuation_context("\n>2. x\n")
+  assert_decision_public_state_pure(marker_list, () => {
+    match decide_block_quote_paragraph_continuation(marker_list) {
+      Continue(MarkerAndPrefix(ListMarkerPrefix)) => ()
+      _ => abort("expected MarkerAndPrefix(ListMarkerPrefix)")
+    }
+  })
+
+  let prefix_only = continuation_context("\nbar\n")
+  assert_decision_public_state_pure(prefix_only, () => {
+    match decide_block_quote_paragraph_continuation(prefix_only) {
+      Continue(PrefixOnly(ContinuationPrefixKind::NoPrefix)) => ()
+      _ => abort("expected PrefixOnly(NoPrefix)")
+    }
+  })
+
+  let prefix_thematic = continuation_context("\n    ---\n")
+  assert_decision_public_state_pure(prefix_thematic, () => {
+    match decide_block_quote_paragraph_continuation(prefix_thematic) {
+      Continue(PrefixOnly(ThematicBreakPrefix)) => ()
+      _ => abort("expected PrefixOnly(ThematicBreakPrefix)")
+    }
+  })
+
+  let prefix_list = continuation_context("\n2. x\n")
+  assert_decision_public_state_pure(prefix_list, () => {
+    match decide_block_quote_paragraph_continuation(prefix_list) {
+      Continue(PrefixOnly(ListMarkerPrefix)) => ()
+      _ => abort("expected PrefixOnly(ListMarkerPrefix)")
+    }
+  })
+}
+
+///|
+test "continuation decisions: block-quote Stop" {
+  let thematic = continuation_context("\n---\n")
+  assert_decision_public_state_pure(thematic, () => {
+    match decide_block_quote_paragraph_continuation(thematic) {
+      Stop => ()
+      _ => abort("expected block-quote Stop for thematic break")
+    }
+  })
+
+  let list_item = continuation_context("\n- item\n")
+  assert_decision_public_state_pure(list_item, () => {
+    match decide_block_quote_paragraph_continuation(list_item) {
+      Stop => ()
+      _ => abort("expected block-quote Stop for list item")
+    }
+  })
+}
+
+///|
+test "continuation decisions: block-quote setext variants" {
+  let marker = continuation_context_at_newline("para\n> bar\n")
+  assert_decision_public_state_pure(marker, () => {
+    match decide_block_quote_heading_continuation(marker) {
+      Continue(
+          BlockQuoteHeadingContinuationKind::MarkerAndPrefix(
+            ContinuationPrefixKind::NoPrefix,
+          ),
+        ) => ()
+      _ => abort("expected block-quote setext MarkerAndPrefix(NoPrefix)")
+    }
+  })
+
+  let ordered = continuation_context_at_newline("para\n>2. x\n")
+  assert_decision_public_state_pure(ordered, () => {
+    match decide_block_quote_heading_continuation(ordered) {
+      Continue(
+          BlockQuoteHeadingContinuationKind::MarkerAndPrefix(ListMarkerPrefix),
+        ) => ()
+      _ => abort("expected block-quote setext MarkerAndPrefix(ListMarkerPrefix)")
+    }
+  })
+}
+
+///|
+test "continuation decisions: block-quote setext Stop" {
+  let not_newline = continuation_context("bar\n")
+  assert_decision_public_state_pure(not_newline, () => {
+    match decide_block_quote_heading_continuation(not_newline) {
+      Stop => ()
+      _ => abort("expected block-quote setext Stop when not at newline")
+    }
+  })
+
+  let underline = continuation_context_at_newline("para\n> ===\n")
+  assert_decision_public_state_pure(underline, () => {
+    match decide_block_quote_heading_continuation(underline) {
+      Stop => ()
+      _ => abort("expected block-quote setext Stop for underline")
+    }
+  })
+
+  let thematic_underline = continuation_context_at_newline("para\n> ---\n")
+  assert_decision_public_state_pure(thematic_underline, () => {
+    match decide_block_quote_heading_continuation(thematic_underline) {
+      Stop => ()
+      _ => abort("expected block-quote setext Stop for thematic underline")
+    }
+  })
+}

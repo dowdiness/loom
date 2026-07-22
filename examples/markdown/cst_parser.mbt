@@ -311,17 +311,31 @@ enum ListItemSetextContinuationKind {
 }
 
 ///|
+fn observe_continuation_prefix(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationPrefixKind {
+  let next = ctx.peek_nth(offset)
+  match next {
+    Indentation(_) if ctx.peek_nth(offset + 1) is ThematicBreak =>
+      ThematicBreakPrefix
+    ListMarker | OrderedListMarker(_) => ListMarkerPrefix
+    _ => NoPrefix
+  }
+}
+
+///|
 fn emit_paragraph_continuation_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ContinuationPrefixKind,
 ) -> Unit {
-  match ctx.peek() {
-    Indentation(_) if ctx.peek_nth(1) is ThematicBreak => {
+  match kind {
+    ThematicBreakPrefix => {
       ctx.emit_token(TextToken)
       ctx.emit_token(TextToken)
     }
-    ListMarker => ctx.emit_token(TextToken)
-    OrderedListMarker(_) => ctx.emit_token(TextToken)
-    _ => ()
+    ListMarkerPrefix => ctx.emit_token(TextToken)
+    NoPrefix => ()
   }
 }
 
@@ -420,25 +434,49 @@ fn parse_paragraph(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
-fn consume_block_quote_paragraph_continuation(
+fn decide_block_quote_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
+) -> ContinuationDecision[BlockQuoteContinuationKind] {
   match ctx.peek_nth(1) {
     BlockQuoteMarker if token_continues_paragraph_after_softbreak(
         ctx.peek_nth(2),
-      ) => {
+      ) =>
+      Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
+    token if !next_unquoted_line_is_thematic_break(ctx) &&
+      token_continues_paragraph_after_softbreak(token) =>
+      Continue(PrefixOnly(observe_continuation_prefix(ctx, 1)))
+    _ => Stop
+  }
+}
+
+///|
+fn consume_block_quote_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : BlockQuoteContinuationKind,
+) -> Unit {
+  match kind {
+    MarkerAndPrefix(prefix) => {
       ctx.emit_token(NewlineToken)
       ctx.emit_token(BlockQuoteMarkerToken)
-      emit_paragraph_continuation_prefix(ctx)
-      true
+      emit_paragraph_continuation_prefix(ctx, prefix)
     }
-    token if !next_unquoted_line_is_thematic_break(ctx) &&
-      token_continues_paragraph_after_softbreak(token) => {
+    PrefixOnly(prefix) => {
       ctx.emit_token(NewlineToken)
-      emit_paragraph_continuation_prefix(ctx)
+      emit_paragraph_continuation_prefix(ctx, prefix)
+    }
+  }
+}
+
+///|
+fn consume_block_quote_paragraph_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match decide_block_quote_paragraph_continuation(ctx) {
+    Stop => false
+    Continue(kind) => {
+      consume_block_quote_continuation(ctx, kind)
       true
     }
-    _ => false
   }
 }
 
@@ -466,19 +504,34 @@ fn consume_quoted_setext_underline_line(
 }
 
 ///|
+fn decide_block_quote_heading_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> ContinuationDecision[BlockQuoteHeadingContinuationKind] {
+  guard ctx.peek() is Newline else { return Stop }
+  if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
+    Stop
+  } else {
+    match ctx.peek_nth(1) {
+      BlockQuoteMarker if token_continues_paragraph_after_softbreak(
+          ctx.peek_nth(2),
+        ) =>
+        Continue(MarkerAndPrefix(observe_continuation_prefix(ctx, 2)))
+      _ => Stop
+    }
+  }
+}
+
+///|
 fn consume_block_quote_heading_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
-  match ctx.peek_nth(1) {
-    BlockQuoteMarker if token_continues_paragraph_after_softbreak(
-        ctx.peek_nth(2),
-      ) => {
+  kind : BlockQuoteHeadingContinuationKind,
+) -> Unit {
+  match kind {
+    MarkerAndPrefix(prefix) => {
       ctx.emit_token(NewlineToken)
       ctx.emit_token(BlockQuoteMarkerToken)
-      emit_paragraph_continuation_prefix(ctx)
-      true
+      emit_paragraph_continuation_prefix(ctx, prefix)
     }
-    _ => false
   }
 }
 
@@ -489,11 +542,12 @@ fn try_parse_block_quote_setext_heading(
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
   parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
-    guard ctx.peek() is Newline else { return false }
-    if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
-      false
-    } else {
-      consume_block_quote_heading_continuation(ctx)
+    match decide_block_quote_heading_continuation(ctx) {
+      Stop => false
+      Continue(kind) => {
+        consume_block_quote_heading_continuation(ctx, kind)
+        true
+      }
     }
   })
   if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
