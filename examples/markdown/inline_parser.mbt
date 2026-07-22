@@ -66,13 +66,13 @@ fn index_code_span_delimiter_run(
 }
 
 ///|
-enum ContinuationDecision[T] {
+priv enum ContinuationDecision[T] {
   Continue(T)
   Stop
 }
 
 ///|
-struct ContinuationHandler[T] {
+priv struct ContinuationHandler[T] {
   decide : () -> ContinuationDecision[T]
   consume : (T) -> Unit
 }
