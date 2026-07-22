@@ -138,6 +138,43 @@ fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+fn decide_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> ContinuationDecision[SetextContinuationKind] {
+  guard ctx.peek() is Newline else { return Stop }
+  if setext_underline_depth_after_newline(
+    ctx,
+    allow_list_marker=true,
+    min_indent=0,
+  ) is Some(_) {
+    Stop
+  } else {
+    let next = ctx.peek_nth(1)
+    if token_breaks_paragraph_after_newline(next) ||
+      next is Newline ||
+      next is EOF {
+      Stop
+    } else if next is OrderedListMarker(_) {
+      Continue(OrderedMarkerAsText)
+    } else {
+      Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn consume_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : SetextContinuationKind,
+) -> Unit {
+  ctx.emit_token(NewlineToken)
+  match kind {
+    OrderedMarkerAsText => ctx.emit_token(TextToken)
+    NoPrefix => ()
+  }
+}
+
+///|
 fn try_parse_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   prefix : LinePrefix?,
@@ -149,26 +186,10 @@ fn try_parse_setext_heading(
     None => ()
   }
   parse_indexed_inline_container(ctx, InlineParsePolicy::setext_heading(), () => {
-    guard ctx.peek() is Newline else { return false }
-    if setext_underline_depth_after_newline(
-        ctx,
-        allow_list_marker=true,
-        min_indent=0,
-      )
-      is Some(_) {
-      false
-    } else {
-      let next = ctx.peek_nth(1)
-      if token_breaks_paragraph_after_newline(next) ||
-        next is Newline ||
-        next is EOF {
-        false
-      } else {
-        ctx.emit_token(NewlineToken)
-        match ctx.peek() {
-          OrderedListMarker(_) => ctx.emit_token(TextToken)
-          _ => ()
-        }
+    match decide_setext_continuation(ctx) {
+      Stop => false
+      Continue(kind) => {
+        consume_setext_continuation(ctx, kind)
         true
       }
     }
@@ -319,9 +340,9 @@ fn next_token_after_newline_is_lone_list_marker(
 }
 
 ///|
-fn consume_root_paragraph_inline_continuation(
+fn decide_root_paragraph_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
+) -> ContinuationDecision[RootContinuationKind] {
   let next = ctx.peek_nth(1)
   if next_prefix_requires_root_block_dispatch(ctx) ||
     (
@@ -332,18 +353,43 @@ fn consume_root_paragraph_inline_continuation(
         next is EOF
       )
     ) {
-    false
+    Stop
   } else {
-    ctx.emit_token(NewlineToken)
-    match ctx.peek() {
-      Indentation(_) if ctx.peek_nth(1) is ThematicBreak => {
-        ctx.emit_token(TextToken)
-        ctx.emit_token(TextToken)
-      }
-      ListMarker | OrderedListMarker(_) => ctx.emit_token(TextToken)
-      _ => ()
+    match next {
+      Indentation(_) if ctx.peek_nth(2) is ThematicBreak =>
+        Continue(ThematicBreakPrefix)
+      ListMarker | OrderedListMarker(_) => Continue(ListMarkerPrefix)
+      _ => Continue(NoPrefix)
     }
-    true
+  }
+}
+
+///|
+fn consume_root_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : RootContinuationKind,
+) -> Unit {
+  ctx.emit_token(NewlineToken)
+  match kind {
+    ThematicBreakPrefix => {
+      ctx.emit_token(TextToken)
+      ctx.emit_token(TextToken)
+    }
+    ListMarkerPrefix => ctx.emit_token(TextToken)
+    NoPrefix => ()
+  }
+}
+
+///|
+fn consume_root_paragraph_inline_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+) -> Bool {
+  match decide_root_paragraph_continuation(ctx) {
+    Stop => false
+    Continue(kind) => {
+      consume_root_continuation(ctx, kind)
+      true
+    }
   }
 }
 
