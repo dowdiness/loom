@@ -3,6 +3,8 @@
 **Decision:** The standalone frontier probe is retained, and production integration is deferred because the pure continuation-boundary, invalidation, and benchmark gates remain unproven. When no `goal_source` is configured, `ParserContext::token_at(offset, goal=0)` is documented as a viable candidate facts transport; configured goal sources require separate isolation evidence. See [ADR 2026-07-20](../../decisions/2026-07-20-markdown-delimiter-frontier.md).
 **Related issue:** #719
 
+Decision record: [ADR 2026-07-20](../../decisions/2026-07-20-markdown-delimiter-frontier.md)
+
 > **For agentic workers:** This archived plan records the completed investigation and its evidence; checklist items use checkbox (`- [x]`) syntax.
 
 **Goal:** Determine whether the #719 Markdown code-span delimiter regression can be reduced with a cmark-style container-local monotonic frontier without changing CommonMark semantics, and only then select a bounded read-only cursor, facts transport, or fused-commit implementation.
