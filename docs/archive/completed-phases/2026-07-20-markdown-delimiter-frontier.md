@@ -465,16 +465,16 @@ The cmark and Lezer precedents use opener-time forward scanning; they are compar
 
 ## Closure evidence
 
-- Tested implementation evidence: `64840ba` (`test(markdown): classify delimiter frontier regression`); clean-branch cherry-pick `f1d345d` preserves the investigation patch, and the focused checks below passed on the clean branch.
+- Tested implementation evidence: `64840ba` (`test(markdown): classify delimiter frontier regression`); clean-branch cherry-pick `f1d345d` preserves the investigation patch, and the focused checks and benchmarks below passed on the clean branch.
 - `rtk moon check examples/markdown`: 57 warnings, 0 errors.
 - `rtk moon test --target native examples/markdown/inline_test.mbt`: 19 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/incremental_test.mbt`: 26 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/source_fidelity_test.mbt`: 6 passed, 0 failed.
 - `rtk moon test --target native examples/markdown/delimiter_frontier_probe_wbtest.mbt`: 8 passed, 0 failed, including no-goal-source `token_at` scanning, non-boundary, out-of-range, same-length post-boundary, and extended post-boundary-tail rejection.
-- `rtk moon bench --release --package dowdiness/markdown --file benchmark_test.mbt --index 9`: CST mean 209.65 us.
-- `rtk moon bench --release --package dowdiness/markdown --file benchmark_test.mbt --index 10`: CST+AST mean 309.98 us.
-- `rtk moon bench --release --quiet --package dowdiness/markdown --file delimiter_index_wbtest.mbt --index 0`: R=512 mean 28.02 us.
-- Frozen baseline means were CST 175.52 us, CST+AST 273.60 us, and delimiter index 25.23 us. The latest single-run measurements are slower and do not establish a stable optimization, so the baseline is unchanged.
+- `rtk moon bench --release --package dowdiness/markdown --file benchmark_test.mbt --index 9`: clean-branch CST mean 172.91 us.
+- `rtk moon bench --release --package dowdiness/markdown --file benchmark_test.mbt --index 10`: clean-branch CST+AST mean 263.10 us.
+- `rtk moon bench --release --quiet --package dowdiness/markdown --file delimiter_index_wbtest.mbt --index 0`: clean-branch R=512 mean 24.91 us.
+- Frozen baseline means were CST 175.52 us, CST+AST 273.60 us, and delimiter index 25.23 us. The latest clean-branch single-run measurements are below the frozen baseline but do not establish a stable optimization, so the baseline is unchanged.
 - The frontier probe retains real lexer facts, validates exact token-end boundaries and post-boundary token ranges, bounds visits by the in-container token count, and proves that an after-boundary same-length run is ignored and that extending the post-boundary tail or scanning past the boundary adds no visits. It is not wired into `ParserContext`.
 - Independent review found that no-goal-source `ParserContext::token_at(offset, goal=0)` is sufficient for the probe's token-facts transport; configured `goal_source` delegates regardless of `goal`. The pure continuation-boundary split, invalidation contract, and production performance gate remain unresolved; no production parser or generic core API was changed.
 

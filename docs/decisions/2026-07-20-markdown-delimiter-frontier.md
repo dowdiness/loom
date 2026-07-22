@@ -44,10 +44,11 @@ continuation ownership, invalidation, or performance contracts needed for produc
 Those gates—not the absence of arbitrary token access—are the reason integration is
 deferred.
 
-The probe and focused tests pass. The latest benchmark verification measured CST 209.65 us,
-CST+AST 309.98 us, and delimiter index R=512 at 28.02 us, versus frozen baselines of
-175.52 us, 273.60 us, and 25.23 us. These single-run measurements are slower and do not
-prove a stable optimization. The baseline therefore remains unchanged.
+The probe and focused tests pass. The latest clean-branch benchmark verification measured
+CST 172.91 us, CST+AST 263.10 us, and delimiter index R=512 at 24.91 us, versus frozen
+baselines of 175.52 us, 273.60 us, and 25.23 us. These single-run measurements are below
+the frozen baseline but do not prove a stable optimization. The baseline therefore
+remains unchanged.
 
 ## Consequences
 

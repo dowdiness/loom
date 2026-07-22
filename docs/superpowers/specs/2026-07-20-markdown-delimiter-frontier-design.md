@@ -36,15 +36,15 @@ The probe in `examples/markdown/delimiter_frontier_probe_wbtest.mbt`:
   out-of-range, same-length post-boundary, and extended post-boundary-tail rejection.
 
 The focused Markdown tests also pass: inline 19/19, incremental 26/26, source fidelity
-6/6, and probe 8/8. The latest regression benchmark verification, without production
-parser edits, measured:
+6/6, and probe 8/8. The latest clean-branch regression benchmark verification, without
+production parser edits, measured:
 
-- realistic CST: 209.65 us mean, versus frozen 175.52 us;
-- realistic CST+AST: 309.98 us mean, versus frozen 273.60 us; and
-- delimiter index R=512: 28.02 us mean, versus frozen 25.23 us.
+- realistic CST: 172.91 us mean, versus frozen 175.52 us;
+- realistic CST+AST: 263.10 us mean, versus frozen 273.60 us; and
+- delimiter index R=512: 24.91 us mean, versus frozen 25.23 us.
 
-These measurements are single runs and do not establish a stable optimization. They are
-slower than the frozen baseline, so the existing baseline remains unchanged.
+These measurements are single runs and do not establish a stable optimization. Although
+they are below the frozen baseline, the existing baseline remains unchanged.
 
 ## Transport gate
 
