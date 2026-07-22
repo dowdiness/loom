@@ -92,9 +92,15 @@ fn consume_root_continuation(
 Block quote paragraphs use a distinct action type:
 
 ```moonbit
+enum ContinuationPrefixKind {
+  NoPrefix
+  ThematicBreakPrefix
+  ListMarkerPrefix
+}
+
 enum BlockQuoteContinuationKind {
-  MarkerAndPrefix
-  Prefix
+  MarkerAndPrefix(ContinuationPrefixKind)
+  PrefixOnly(ContinuationPrefixKind)
 }
 
 fn decide_block_quote_paragraph_continuation(
@@ -107,9 +113,34 @@ fn consume_block_quote_continuation(
 ) -> Unit
 ```
 
-Setext, list-item, and list-item-setext call sites use distinct action types as needed.
-A policy that never continues uses a stop-only handler rather than a fake cross-policy
-action type.
+The other continuation owners also have named action types:
+
+```moonbit
+enum BlockQuoteHeadingContinuationKind {
+  MarkerAndPrefix(ContinuationPrefixKind)
+}
+
+enum SetextContinuationKind {
+  NoPrefix
+  OrderedMarkerAsText
+}
+
+enum ListItemContinuationKind {
+  NoPrefix
+  IndentationPrefix
+  OrderedMarkerAsText
+}
+
+enum ListItemSetextContinuationKind {
+  IndentationPrefix
+  OrderedMarkerAsText
+}
+```
+
+`try_parse_block_quote_setext_heading` uses
+`ContinuationDecision[BlockQuoteHeadingContinuationKind]`. The root setext, list-item,
+and list-item-setext call sites use their corresponding action types. A policy that never
+continues uses a stop-only handler rather than a fake cross-policy action type.
 
 
 ## Observation and consumption
@@ -193,18 +224,20 @@ this refactor.
 
 The refactor must add or update tests for the following observable contracts:
 
-1. Root paragraph decisions distinguish ordinary continuation, thematic-break prefix,
-   list-marker prefix, block boundaries, blank lines, and EOF.
-2. Block quote decisions distinguish marker-and-prefix, prefix-only, thematic-break, and
-   stop cases.
-3. Setext and list-item continuation behavior remains unchanged.
-4. Calling each `decide_*` directly on an ordinary parser context leaves parser position,
+1. Root paragraph decisions distinguish `NoPrefix`, `ThematicBreakPrefix`, and
+   `ListMarkerPrefix`, plus block boundaries, blank lines, and EOF.
+2. Block quote paragraph decisions distinguish `MarkerAndPrefix` and `PrefixOnly` with
+   each `ContinuationPrefixKind`.
+3. Block quote setext, root setext, list-item, and list-item-setext decisions each emit
+   their named action variants, including ordered-marker-as-text and indentation cases.
+4. Setext and list-item continuation behavior remains unchanged.
+5. Calling each `decide_*` directly on an ordinary parser context leaves parser position,
    event count, diagnostics, and reuse state unchanged. This call is not wrapped in an
    outer `lookahead`.
-5. Running the complete inline driver's speculative pass through the existing outer
+6. Running the complete inline driver's speculative pass through the existing outer
    `lookahead` rolls back its temporary parser state and events.
-6. Each typed action is consumed only by its matching handler.
-7. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
+7. Each typed action is consumed only by its matching handler.
+8. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
    pass.
 
 No benchmark result is used to claim a performance improvement at this stage.
