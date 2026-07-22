@@ -310,3 +310,140 @@ test "continuation decisions: block-quote setext Stop" {
     }
   })
 }
+
+///|
+test "continuation decisions: list-item variants" {
+  let no_prefix = continuation_context_at_newline("para\nchild\n")
+  assert_decision_public_state_pure(no_prefix, () => {
+    match decide_list_item_continuation(
+      no_prefix,
+      2,
+      allow_ordered_marker=true,
+      has_paragraph_content=true,
+    ) {
+      Continue(ListItemContinuationKind::NoPrefix) => ()
+      _ => abort("expected list-item NoPrefix")
+    }
+  })
+
+  let indentation = continuation_context_at_newline("para\n  child\n")
+  assert_decision_public_state_pure(indentation, () => {
+    match decide_list_item_continuation(
+      indentation,
+      2,
+      allow_ordered_marker=true,
+      has_paragraph_content=true,
+    ) {
+      Continue(ListItemContinuationKind::IndentationPrefix) => ()
+      _ => abort("expected list-item IndentationPrefix")
+    }
+  })
+
+  let ordered = continuation_context_at_newline("para\n2. child\n")
+  assert_decision_public_state_pure(ordered, () => {
+    match decide_list_item_continuation(
+      ordered,
+      2,
+      allow_ordered_marker=true,
+      has_paragraph_content=true,
+    ) {
+      Continue(ListItemContinuationKind::OrderedMarkerAsText) => ()
+      _ => abort("expected list-item OrderedMarkerAsText")
+    }
+  })
+}
+
+///|
+test "continuation decisions: list-item Stop" {
+  let no_paragraph = continuation_context_at_newline("para\nchild\n")
+  assert_decision_public_state_pure(no_paragraph, () => {
+    match decide_list_item_continuation(
+      no_paragraph,
+      2,
+      allow_ordered_marker=true,
+      has_paragraph_content=false,
+    ) {
+      Stop => ()
+      _ => abort("expected list-item Stop without paragraph content")
+    }
+  })
+
+  let boundary = continuation_context_at_newline("para\n# heading\n")
+  assert_decision_public_state_pure(boundary, () => {
+    match decide_list_item_continuation(
+      boundary,
+      2,
+      allow_ordered_marker=true,
+      has_paragraph_content=true,
+    ) {
+      Stop => ()
+      _ => abort("expected list-item Stop at block boundary")
+    }
+  })
+}
+
+///|
+test "continuation decisions: list-item setext variants" {
+  let no_prefix = continuation_context_at_newline("para\nchild\n")
+  assert_decision_public_state_pure(no_prefix, () => {
+    match decide_list_item_setext_continuation(
+      no_prefix,
+      2,
+      allow_ordered_marker=true,
+    ) {
+      Continue(ListItemSetextContinuationKind::NoPrefix) => ()
+      _ => abort("expected list-item setext NoPrefix")
+    }
+  })
+
+  let indentation = continuation_context_at_newline("para\n  child\n")
+  assert_decision_public_state_pure(indentation, () => {
+    match decide_list_item_setext_continuation(
+      indentation,
+      2,
+      allow_ordered_marker=true,
+    ) {
+      Continue(ListItemSetextContinuationKind::IndentationPrefix) => ()
+      _ => abort("expected list-item setext IndentationPrefix")
+    }
+  })
+
+  let ordered = continuation_context_at_newline("para\n2. child\n")
+  assert_decision_public_state_pure(ordered, () => {
+    match decide_list_item_setext_continuation(
+      ordered,
+      2,
+      allow_ordered_marker=true,
+    ) {
+      Continue(ListItemSetextContinuationKind::OrderedMarkerAsText) => ()
+      _ => abort("expected list-item setext OrderedMarkerAsText")
+    }
+  })
+}
+
+///|
+test "continuation decisions: list-item setext Stop" {
+  let underline = continuation_context_at_newline("para\n===\n")
+  assert_decision_public_state_pure(underline, () => {
+    match decide_list_item_setext_continuation(
+      underline,
+      0,
+      allow_ordered_marker=true,
+    ) {
+      Stop => ()
+      _ => abort("expected list-item setext Stop for underline")
+    }
+  })
+
+  let boundary = continuation_context_at_newline("para\n# heading\n")
+  assert_decision_public_state_pure(boundary, () => {
+    match decide_list_item_setext_continuation(
+      boundary,
+      2,
+      allow_ordered_marker=true,
+    ) {
+      Stop => ()
+      _ => abort("expected list-item setext Stop at block boundary")
+    }
+  })
+}

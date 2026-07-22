@@ -1280,6 +1280,50 @@ fn next_prefix_requires_list_item_block_dispatch(
 }
 
 ///|
+fn decide_list_item_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+  has_paragraph_content~ : Bool,
+) -> ContinuationDecision[ListItemContinuationKind] {
+  guard has_paragraph_content else { return Stop }
+  guard ctx.peek() is Newline else { return Stop }
+  let next = ctx.peek_nth(1)
+  if (
+      allow_ordered_marker &&
+      next_ordered_marker_starts_nested_list(ctx, content_indent)
+    ) ||
+    next_prefix_is_list_marker_boundary(ctx, content_indent) ||
+    next_prefix_requires_list_item_block_dispatch(ctx, content_indent) ||
+    !token_can_continue_list_item_paragraph_after_newline(
+      next,
+      allow_ordered_marker~,
+    ) {
+    Stop
+  } else {
+    match next {
+      Indentation(_) => Continue(IndentationPrefix)
+      OrderedListMarker(_) if allow_ordered_marker =>
+        Continue(OrderedMarkerAsText)
+      _ => Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn consume_list_item_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListItemContinuationKind,
+) -> Unit {
+  ctx.emit_token(NewlineToken)
+  match kind {
+    IndentationPrefix => ctx.emit_token(IndentationToken)
+    OrderedMarkerAsText => ctx.emit_token(TextToken)
+    NoPrefix => ()
+  }
+}
+
+///|
 /// Parse list-item paragraph content, including lazy continuation lines.
 fn consume_list_item_inline_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
@@ -1349,6 +1393,55 @@ fn parse_inline_thematic_break(
 }
 
 ///|
+fn decide_list_item_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> ContinuationDecision[ListItemSetextContinuationKind] {
+  guard ctx.peek() is Newline else { return Stop }
+  if setext_underline_depth_after_newline(
+      ctx,
+      allow_list_marker=false,
+      min_indent=content_indent,
+    )
+    is Some(_) {
+    Stop
+  } else {
+    let next = ctx.peek_nth(1)
+    if (
+        allow_ordered_marker &&
+        next_ordered_marker_starts_nested_list(ctx, content_indent)
+      ) ||
+      next_prefix_is_list_marker_boundary(ctx, content_indent) ||
+      next_prefix_requires_list_item_block_dispatch(ctx, content_indent) ||
+      !token_can_continue_list_item_paragraph_after_newline(
+        next,
+        allow_ordered_marker~,
+      ) {
+      Stop
+    } else {
+      match next {
+        Indentation(_) => Continue(IndentationPrefix)
+        OrderedListMarker(_) if allow_ordered_marker =>
+          Continue(OrderedMarkerAsText)
+        _ => Continue(NoPrefix)
+      }
+    }
+  }
+}
+
+///|
+fn consume_list_item_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  kind : ListItemSetextContinuationKind,
+) -> Unit {
+  ctx.emit_token(NewlineToken)
+  match kind {
+    IndentationPrefix => ctx.emit_token(IndentationToken)
+    OrderedMarkerAsText => ctx.emit_token(TextToken)
+    NoPrefix => ()
+  }
+}
 
 ///|
 fn consume_list_item_setext_heading_inline_continuation(
