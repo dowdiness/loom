@@ -62,12 +62,12 @@
   Place the declarations near `parse_indexed_inline_container` in `inline_parser.mbt`:
 
   ```moonbit
-  enum ContinuationDecision[T] {
+priv enum ContinuationDecision[T] {
     Continue(T)
     Stop
   }
 
-  struct ContinuationHandler[T] {
+priv struct ContinuationHandler[T] {
     decide : () -> ContinuationDecision[T]
     consume : (T) -> Unit
   }
@@ -80,39 +80,39 @@
   Add the exact variants from the approved design:
 
   ```moonbit
-  enum RootContinuationKind {
+priv enum RootContinuationKind {
     NoPrefix
     ThematicBreakPrefix
     ListMarkerPrefix
   }
 
-  enum ContinuationPrefixKind {
+priv enum ContinuationPrefixKind {
     NoPrefix
     ThematicBreakPrefix
     ListMarkerPrefix
   }
 
-  enum BlockQuoteContinuationKind {
+priv enum BlockQuoteContinuationKind {
     MarkerAndPrefix(ContinuationPrefixKind)
     PrefixOnly(ContinuationPrefixKind)
   }
 
-  enum BlockQuoteHeadingContinuationKind {
+priv enum BlockQuoteHeadingContinuationKind {
     MarkerAndPrefix(ContinuationPrefixKind)
   }
 
-  enum SetextContinuationKind {
+priv enum SetextContinuationKind {
     NoPrefix
     OrderedMarkerAsText
   }
 
-  enum ListItemContinuationKind {
+priv enum ListItemContinuationKind {
     NoPrefix
     IndentationPrefix
     OrderedMarkerAsText
   }
 
-  enum ListItemSetextContinuationKind {
+priv enum ListItemSetextContinuationKind {
     NoPrefix
     IndentationPrefix
     OrderedMarkerAsText
@@ -129,11 +129,10 @@
   rtk moon check examples/markdown
   ```
 
-  Expected: the Markdown package checks successfully with no errors. The newly added
-  package-private declarations may add `unused_*` and `missing_priv` warnings until
-  later tasks wire the types; record those as expected staged warnings and do not
-  suppress them with `priv` or fake uses. The final verification must return to the
-  pre-refactor warning baseline.
+  Expected: the Markdown package checks successfully with no errors and no warning
+  delta from the pre-task baseline. Mark all package-internal continuation types as
+  `priv`; MoonBit permits cross-file use within the package. Do not suppress warnings
+  with fake uses or leave package-internal declarations unqualified.
 
 ---
 
