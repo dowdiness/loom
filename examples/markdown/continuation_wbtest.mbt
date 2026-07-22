@@ -457,3 +457,28 @@ test "continuation decisions: list-item setext Stop" {
     }
   })
 }
+
+///|
+/// The delimiter-indexing lookahead and the actual inline pass must invoke the
+/// same typed continuation action. External counters observe both passes even
+/// though ParserContext restores its own state after the speculative pass.
+test "continuation driver: speculative and actual passes consume same action" {
+  let ctx = continuation_context("para\nchild\n")
+  let consume_calls = [0]
+  let no_prefix_calls = [0]
+  let handler : ContinuationHandler[RootContinuationKind] = {
+    decide: () => decide_root_paragraph_continuation(ctx),
+    consume: action => {
+      consume_calls[0] = consume_calls[0] + 1
+      match action {
+        RootContinuationKind::NoPrefix =>
+          no_prefix_calls[0] = no_prefix_calls[0] + 1
+        _ => abort("expected NoPrefix in both parser passes")
+      }
+      consume_root_continuation(ctx, action)
+    },
+  }
+  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+  inspect(consume_calls[0], content="2")
+  inspect(no_prefix_calls[0], content="2")
+}

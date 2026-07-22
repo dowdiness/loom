@@ -6,7 +6,7 @@
 
 **Decision record:**
 
-- No ADR needed: this implements the already accepted Markdown-local continuation design without changing public APIs, parser ownership, or architectural scope.
+- No ADR needed: this implements the documented Markdown-local continuation design without changing public APIs, parser ownership, or architectural scope.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -684,9 +684,9 @@ immediate call-site migration in Task 6.
 - [x] **4. Update the documentation index.**
 
   Add an index entry next to the related Markdown continuation design in `docs/README.md`.
-  The entry target must be `superpowers/plans/2026-07-22-markdown-continuation-decision-refactor.md`
-  and its description must identify this as the implementation plan for the Markdown-local
-  typed continuation decision/consumption refactor.
+  The archived entry target is `archive/completed-phases/2026-07-22-markdown-continuation-decision-refactor.md`
+  and its description must identify this as the completed implementation plan for the
+  Markdown-local typed continuation decision/consumption refactor.
 
 - [x] **5. Run documentation and diff checks.**
 
