@@ -292,11 +292,7 @@ test "delimiter frontier: visits full in-container stream once" {
     container,
   )
   inspect(
-    frontier.visits <= in_container_token_count(container) * 3,
-    content="true",
-  )
-  inspect(
-    frontier.visits <= in_container_token_count(container),
+    frontier.visits == in_container_token_count(container),
     content="true",
   )
 }
@@ -351,6 +347,7 @@ test "parser context baseline token_at scans delimiter facts without moving" {
   let tokens = tokenize(source) catch { _ => abort("lexer failed") }
   let ctx = @core.ParserContext::new(tokens, source, markdown_spec)
   let before = ctx.peek_index(0)
+  let before_third = ctx.peek_index(2)
   let (first, first_end) = ctx.token_at(0, 0)
   let (second, second_end) = ctx.token_at(first_end, 0)
   let (third, third_end) = ctx.token_at(second_end, 0)
@@ -365,4 +362,5 @@ test "parser context baseline token_at scans delimiter facts without moving" {
   inspect(after_boundary is Backtick, content="true")
   inspect(after_boundary_end, content="4")
   inspect(ctx.peek_index(0) == before, content="true")
+  inspect(ctx.peek_index(2) == before_third, content="true")
 }
