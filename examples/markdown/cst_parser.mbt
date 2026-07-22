@@ -245,6 +245,51 @@ fn parse_heading(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 }
 
 ///|
+enum RootContinuationKind {
+  NoPrefix
+  ThematicBreakPrefix
+  ListMarkerPrefix
+}
+
+///|
+enum ContinuationPrefixKind {
+  NoPrefix
+  ThematicBreakPrefix
+  ListMarkerPrefix
+}
+
+///|
+enum BlockQuoteContinuationKind {
+  MarkerAndPrefix(ContinuationPrefixKind)
+  PrefixOnly(ContinuationPrefixKind)
+}
+
+///|
+enum BlockQuoteHeadingContinuationKind {
+  MarkerAndPrefix(ContinuationPrefixKind)
+}
+
+///|
+enum SetextContinuationKind {
+  NoPrefix
+  OrderedMarkerAsText
+}
+
+///|
+enum ListItemContinuationKind {
+  NoPrefix
+  IndentationPrefix
+  OrderedMarkerAsText
+}
+
+///|
+enum ListItemSetextContinuationKind {
+  NoPrefix
+  IndentationPrefix
+  OrderedMarkerAsText
+}
+
+///|
 fn emit_paragraph_continuation_prefix(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {

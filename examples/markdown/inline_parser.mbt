@@ -66,6 +66,18 @@ fn index_code_span_delimiter_run(
 }
 
 ///|
+enum ContinuationDecision[T] {
+  Continue(T)
+  Stop
+}
+
+///|
+struct ContinuationHandler[T] {
+  decide : () -> ContinuationDecision[T]
+  consume : (T) -> Unit
+}
+
+///|
 fn parse_indexed_inline_container(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
