@@ -4,6 +4,7 @@
 **Status:** Accepted
 **Issue:** #719
 **Related:** [Markdown delimiter frontier design](../superpowers/specs/2026-07-20-markdown-delimiter-frontier-design.md); [investigation plan](../archive/completed-phases/2026-07-20-markdown-delimiter-frontier.md)
+**Implementation plan:** [Investigation plan](../archive/completed-phases/2026-07-20-markdown-delimiter-frontier.md)
 
 ## Context
 
