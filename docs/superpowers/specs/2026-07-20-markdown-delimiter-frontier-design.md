@@ -9,17 +9,18 @@
 Do not integrate the standalone delimiter frontier into Markdown production parsing in this
 change.
 
-The probe is retained as a disconnected experiment. Its new `ParserContext` test
-demonstrates that Markdown's `ParserContext::token_at(offset, goal=0)` can scan token kind
-and end facts from caller-owned offsets without moving parser position when no
-`goal_source` is configured. The transport is therefore a viable candidate for a future
-Markdown-local integration; the earlier claim that no arbitrary-position transport exists
-was incorrect.
+The probe is retained as a standalone validation artifact, not wired into production
+parsing. Its new `ParserContext` test demonstrates that Markdown's
+`ParserContext::token_at(offset, goal=0)` can scan token kind and end facts from
+caller-owned offsets without moving parser position when no `goal_source` is configured.
+The conditional facts transport gate therefore passes for this context; production
+integration remains deferred because the continuation-boundary, invalidation, and
+performance gates have not passed.
 
-Production integration remains deferred because the pure continuation-boundary query has
-not been separated from CST token consumption, and no production benchmark has shown that
-the candidate transport reduces the #719 regression. Do not add speculative emission, an
-opener-specific cache, or a partial compatibility path.
+The remaining blockers are the pure continuation-boundary split and the absence of a
+production benchmark showing that the candidate transport reduces the #719 regression.
+Do not add speculative emission, an opener-specific cache, or a partial compatibility
+path.
 
 ## Evidence
 
