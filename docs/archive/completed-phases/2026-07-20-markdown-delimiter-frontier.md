@@ -461,7 +461,7 @@ The cmark and Lezer precedents use opener-time forward scanning; they are compar
 
 - [x] **3. Apply the documentation closure protocol.**
 
-  The acceptance criteria are evidenced below. The investigation patch and affected file contents from tested commit `64840ba` are preserved by cherry-picked commit `f1d345d` on clean branch `perf/719-delimiter-frontier-pr`; the full Git trees differ because the clean branch starts from `origin/main`. Closure metadata is maintained on this clean branch. The related issue is [#719](https://github.com/dowdiness/loom/issues/719). The dedicated investigation PR is pending creation; its URL will be recorded before merge. The ADR decision is recorded, and the plan is archived here with the README index updated.
+  The acceptance criteria are evidenced below. The investigation patch and affected file contents from tested commit `64840ba` are preserved by cherry-picked commit `f1d345d` on clean branch `perf/719-delimiter-frontier-pr`; the full Git trees differ because the clean branch starts from `origin/main`. Closure metadata is maintained on this clean branch. The related issue is [#719](https://github.com/dowdiness/loom/issues/719), and the dedicated investigation PR is [#736](https://github.com/dowdiness/loom/pull/736). The ADR decision is recorded, and the plan is archived here with the README index updated.
 
 ## Closure evidence
 
