@@ -185,15 +185,15 @@ fn try_parse_setext_heading(
     Some(_) => ctx.emit_token(IndentationToken)
     None => ()
   }
-  parse_indexed_inline_container(ctx, InlineParsePolicy::setext_heading(), () => {
-    match decide_setext_continuation(ctx) {
-      Stop => false
-      Continue(kind) => {
-        consume_setext_continuation(ctx, kind)
-        true
-      }
-    }
-  })
+  let handler : ContinuationHandler[SetextContinuationKind] = {
+    decide: () => decide_setext_continuation(ctx),
+    consume: action => consume_setext_continuation(ctx, action),
+  }
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::setext_heading(),
+    handler,
+  )
   if consume_setext_underline_after_newline(
       ctx,
       allow_list_marker=true,
@@ -251,9 +251,10 @@ fn parse_heading_with_prefix(
       None => ()
     }
     ctx.emit_token(HeadingMarkerToken)
-    parse_indexed_inline_container(ctx, InlineParsePolicy::line_bound(), () => {
-      false
-    })
+    parse_indexed_inline_container_without_continuation(
+      ctx,
+      InlineParsePolicy::line_bound(),
+    )
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -395,19 +396,6 @@ fn consume_root_continuation(
 }
 
 ///|
-fn consume_root_paragraph_inline_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
-  match decide_root_paragraph_continuation(ctx) {
-    Stop => false
-    Continue(kind) => {
-      consume_root_continuation(ctx, kind)
-      true
-    }
-  }
-}
-
-///|
 /// Parse a paragraph: inline content possibly spanning multiple lines.
 /// Continues across Newline tokens if the next token is not a block marker.
 fn parse_paragraph_with_prefix(
@@ -419,9 +407,15 @@ fn parse_paragraph_with_prefix(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
-      consume_root_paragraph_inline_continuation(ctx)
-    })
+    let handler : ContinuationHandler[RootContinuationKind] = {
+      decide: () => decide_root_paragraph_continuation(ctx),
+      consume: action => consume_root_continuation(ctx, action),
+    }
+    parse_indexed_inline_container(
+      ctx,
+      InlineParsePolicy::paragraph(),
+      handler,
+    )
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -468,26 +462,19 @@ fn consume_block_quote_continuation(
 }
 
 ///|
-fn consume_block_quote_paragraph_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-) -> Bool {
-  match decide_block_quote_paragraph_continuation(ctx) {
-    Stop => false
-    Continue(kind) => {
-      consume_block_quote_continuation(ctx, kind)
-      true
-    }
-  }
-}
-
-///|
 fn parse_block_quote_paragraph(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Unit {
   ctx.node(ParagraphNode, fn() {
-    parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
-      consume_block_quote_paragraph_continuation(ctx)
-    })
+    let handler : ContinuationHandler[BlockQuoteContinuationKind] = {
+      decide: () => decide_block_quote_paragraph_continuation(ctx),
+      consume: action => consume_block_quote_continuation(ctx, action),
+    }
+    parse_indexed_inline_container(
+      ctx,
+      InlineParsePolicy::paragraph(),
+      handler,
+    )
     if ctx.peek() is Newline {
       ctx.emit_token(NewlineToken)
     }
@@ -541,15 +528,15 @@ fn try_parse_block_quote_setext_heading(
 ) -> Bool {
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
-  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), () => {
-    match decide_block_quote_heading_continuation(ctx) {
-      Stop => false
-      Continue(kind) => {
-        consume_block_quote_heading_continuation(ctx, kind)
-        true
-      }
-    }
-  })
+  let handler : ContinuationHandler[BlockQuoteHeadingContinuationKind] = {
+    decide: () => decide_block_quote_heading_continuation(ctx),
+    consume: action => consume_block_quote_heading_continuation(ctx, action),
+  }
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::paragraph(),
+    handler,
+  )
   if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
     consume_quoted_setext_underline_line(ctx)
     ctx.finish_node()
@@ -1325,54 +1312,26 @@ fn consume_list_item_continuation(
 
 ///|
 /// Parse list-item paragraph content, including lazy continuation lines.
-fn consume_list_item_inline_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  content_indent : Int,
-  allow_ordered_marker~ : Bool,
-) -> Bool {
-  guard ctx.peek() is Newline else { return false }
-  let next = ctx.peek_nth(1)
-  if (
-      allow_ordered_marker &&
-      next_ordered_marker_starts_nested_list(ctx, content_indent)
-    ) ||
-    next_prefix_is_list_marker_boundary(ctx, content_indent) ||
-    next_prefix_requires_list_item_block_dispatch(ctx, content_indent) ||
-    !token_can_continue_list_item_paragraph_after_newline(
-      next,
-      allow_ordered_marker~,
-    ) {
-    false
-  } else {
-    ctx.emit_token(NewlineToken)
-    match ctx.peek() {
-      Indentation(_) => ctx.emit_token(IndentationToken)
-      OrderedListMarker(_) if allow_ordered_marker => ctx.emit_token(TextToken)
-      _ => ()
-    }
-    true
-  }
-}
-
-///|
-/// Parse list-item paragraph content, including lazy continuation lines.
 fn parse_list_item_inline_content(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
   allow_ordered_marker~ : Bool,
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::list_item(allow_ordered_marker~),
-    () => {
-      has_paragraph_content &&
-      consume_list_item_inline_continuation(
+  let handler : ContinuationHandler[ListItemContinuationKind] = {
+    decide: () =>
+      decide_list_item_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
-      )
-    },
+        has_paragraph_content~,
+      ),
+    consume: action => consume_list_item_continuation(ctx, action),
+  }
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::list_item(allow_ordered_marker~),
+    handler,
   )
 }
 
@@ -1444,46 +1403,6 @@ fn consume_list_item_setext_continuation(
 }
 
 ///|
-fn consume_list_item_setext_heading_inline_continuation(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  content_indent : Int,
-  allow_ordered_marker~ : Bool,
-) -> Bool {
-  guard ctx.peek() is Newline else { return false }
-  if setext_underline_depth_after_newline(
-      ctx,
-      allow_list_marker=false,
-      min_indent=content_indent,
-    )
-    is Some(_) {
-    false
-  } else {
-    let next = ctx.peek_nth(1)
-    if (
-        allow_ordered_marker &&
-        next_ordered_marker_starts_nested_list(ctx, content_indent)
-      ) ||
-      next_prefix_is_list_marker_boundary(ctx, content_indent) ||
-      next_prefix_requires_list_item_block_dispatch(ctx, content_indent) ||
-      !token_can_continue_list_item_paragraph_after_newline(
-        next,
-        allow_ordered_marker~,
-      ) {
-      false
-    } else {
-      ctx.emit_token(NewlineToken)
-      match ctx.peek() {
-        Indentation(_) => ctx.emit_token(IndentationToken)
-        OrderedListMarker(_) if allow_ordered_marker =>
-          ctx.emit_token(TextToken)
-        _ => ()
-      }
-      true
-    }
-  }
-}
-
-///|
 fn try_parse_list_item_setext_heading(
   ctx : @core.ParserContext[Token, SyntaxKind],
   content_indent : Int,
@@ -1491,16 +1410,19 @@ fn try_parse_list_item_setext_heading(
 ) -> Bool {
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
-  parse_indexed_inline_container(
-    ctx,
-    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
-    () => {
-      consume_list_item_setext_heading_inline_continuation(
+  let handler : ContinuationHandler[ListItemSetextContinuationKind] = {
+    decide: () =>
+      decide_list_item_setext_continuation(
         ctx,
         content_indent,
         allow_ordered_marker~,
-      )
-    },
+      ),
+    consume: action => consume_list_item_setext_continuation(ctx, action),
+  }
+  parse_indexed_inline_container(
+    ctx,
+    InlineParsePolicy::list_item_setext_heading(allow_ordered_marker~),
+    handler,
   )
   if consume_setext_underline_after_newline(
       ctx,

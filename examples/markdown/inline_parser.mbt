@@ -78,7 +78,22 @@ struct ContinuationHandler[T] {
 }
 
 ///|
-fn parse_indexed_inline_container(
+fn[T] continuation_step(
+  handler : ContinuationHandler[T],
+) -> () -> Bool {
+  () => {
+    match (handler.decide)() {
+      Continue(action) => {
+        (handler.consume)(action)
+        true
+      }
+      Stop => false
+    }
+  }
+}
+
+///|
+fn parse_indexed_inline_container_with_continue_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
   continue_line : () -> Bool,
@@ -128,6 +143,24 @@ fn parse_indexed_inline_container(
     }
     guard ctx.peek() is Newline && continue_line() else { break }
   }
+}
+
+///|
+fn[T] parse_indexed_inline_container(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+  handler : ContinuationHandler[T],
+) -> Unit {
+  let continue_line = continuation_step(handler)
+  parse_indexed_inline_container_with_continue_line(ctx, policy, continue_line)
+}
+
+///|
+fn parse_indexed_inline_container_without_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  policy : InlineParsePolicy,
+) -> Unit {
+  parse_indexed_inline_container_with_continue_line(ctx, policy, () => false)
 }
 
 ///|
