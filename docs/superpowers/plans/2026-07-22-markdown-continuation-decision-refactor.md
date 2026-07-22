@@ -276,13 +276,24 @@
       Continue(NoPrefix) => ()
       _ => abort("expected root NoPrefix")
     }
-    match decide_root_paragraph_continuation(continuation_context("\n---\n")) {
+    match decide_root_paragraph_continuation(continuation_context("\n    ---\n")) {
       Continue(ThematicBreakPrefix) => ()
       _ => abort("expected root ThematicBreakPrefix")
     }
-    match decide_root_paragraph_continuation(continuation_context("\n- item\n")) {
+    match decide_root_paragraph_continuation(continuation_context("\n-\n")) {
       Continue(ListMarkerPrefix) => ()
       _ => abort("expected root ListMarkerPrefix")
+    }
+  }
+
+  test "continuation decisions: root interruption cases stop" {
+    match decide_root_paragraph_continuation(continuation_context("\n---\n")) {
+      Stop => ()
+      _ => abort("expected bare thematic break to stop")
+    }
+    match decide_root_paragraph_continuation(continuation_context("\n- item\n")) {
+      Stop => ()
+      _ => abort("expected list item to stop")
     }
   }
   ```
