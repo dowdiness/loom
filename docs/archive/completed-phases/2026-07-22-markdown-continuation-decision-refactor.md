@@ -2,7 +2,7 @@
 
 **Status:** Complete
 
-**Completion note:** Implemented in commits `8df3581..4f43ef6`, with final private-visibility cleanup in `c4f2688`. The focused continuation, inline, and parser tests pass; the Markdown package check returns to the 57-warning baseline with zero errors; documentation and diff checks pass.
+**Completion note:** Implemented in commits `8df3581..4f43ef6`, with final private-visibility cleanup in `c4f2688`. The focused continuation, inline, and parser tests pass; `moon test --target native examples/markdown` reports `Total tests: 338, passed: 338, failed: 0`; the Markdown package check returns to the 57-warning baseline with zero errors; documentation and diff checks pass.
 
 **Decision record:**
 
