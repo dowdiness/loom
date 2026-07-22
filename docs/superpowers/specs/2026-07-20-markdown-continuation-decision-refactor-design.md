@@ -126,9 +126,16 @@ A decision function must not directly call `emit_token`, `start_node`, `finish_n
 
 This is an observational contract, not a static purity guarantee. A decision may use
 `ParserContext::lookahead`, whose implementation can perform temporary parser-owned work
-and then restore its checkpoint. The externally visible parser state must be unchanged
-when the decision returns. The existing rollback contract and focused tests are the
-current enforcement mechanism.
+and then restore its own checkpoint. Each `decide_*` function must nevertheless be called
+directly on an ordinary parser context in its dedicated purity test, without an outer
+`lookahead`. The test snapshots parser position, event count, diagnostics, and reuse state
+before and after the call and requires all four to be unchanged. This catches a decision
+that commits an effect itself; an outer rollback would otherwise hide that defect.
+
+The driver also retains a separate test for the complete speculative pass wrapped in the
+existing outer `lookahead`, verifying that the driver's temporary events and parser state
+are rolled back. These are distinct contracts: direct decision observation detects
+decision-owned effects, while the driver test verifies speculative integration.
 
 The first refactor does not claim that a closure or a function signature prevents all
 side effects. It only makes the intended boundary explicit and keeps all committed CST
@@ -191,10 +198,13 @@ The refactor must add or update tests for the following observable contracts:
 2. Block quote decisions distinguish marker-and-prefix, prefix-only, thematic-break, and
    stop cases.
 3. Setext and list-item continuation behavior remains unchanged.
-4. Calling a decision through the existing speculative path does not leave parser
-   position, event count, diagnostics, or reuse state changed after rollback.
-5. Each typed action is consumed only by its matching handler.
-6. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
+4. Calling each `decide_*` directly on an ordinary parser context leaves parser position,
+   event count, diagnostics, and reuse state unchanged. This call is not wrapped in an
+   outer `lookahead`.
+5. Running the complete inline driver's speculative pass through the existing outer
+   `lookahead` rolls back its temporary parser state and events.
+6. Each typed action is consumed only by its matching handler.
+7. Existing inline, incremental, source-fidelity, and Markdown block tests continue to
    pass.
 
 No benchmark result is used to claim a performance improvement at this stage.
