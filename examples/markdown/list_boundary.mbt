@@ -12,8 +12,7 @@ fn current_unordered_list_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> UnorderedListMarker? {
   match ctx.peek() {
-    ListMarker =>
-      unordered_list_marker_from_text(ctx.current_token_text().to_owned())
+    ListMarker(marker) => Some(marker)
     Indentation(_) =>
       ctx.lookahead(() => {
         ctx.emit_token(IndentationToken)
@@ -39,7 +38,7 @@ fn current_list_marker_indent(
 ) -> Int? {
   match ctx.peek() {
     Indentation(_) => Some(current_token_leading_indent(ctx))
-    ListMarker | OrderedListMarker(_) =>
+    ListMarker(_) | OrderedListMarker(_) =>
       marker_indent_columns_after_optional_indent(
         ctx.current_token_text().to_owned(),
         0,

@@ -440,7 +440,7 @@ fn lex_line_start(
   if !starts_with_indentation &&
     is_valid_thematic_break_markers(input[pos:line_end]) {
     return produced_until(
-      ThematicBreak,
+      ThematicBreak(input[pos:line_end].to_owned()),
       pos,
       input.view(start_offset=line_end),
       LineStart,
@@ -481,13 +481,21 @@ fn lex_line_start(
       produce_token_from(BlockQuoteMarker, pos, 1, BlockQuoteLineStart)
     ['-' | '*' | '+', ' ' | '\t', .. rest] =>
       // List marker: must be followed by space or tab.
-      produced_until(ListMarker, pos, rest, Inline)
+      match unordered_list_marker_from_text(input[pos:line_end].to_owned()) {
+        Some(marker) => produced_until(ListMarker(marker), pos, rest, Inline)
+        None => lex_inline(input, pos)
+      }
     ['-' | '*' | '+', ..] =>
       // A lone bullet marker is an empty list item; other marker-looking text
       // falls through to inline (for example, "**bold**" at line start).
       match char_at(input, pos + 1) {
         Some('\n') | Some('\r') | None =>
-          produce_token_from(ListMarker, pos, 1, Inline)
+          match
+            unordered_list_marker_from_text(input[pos:line_end].to_owned()) {
+            Some(marker) =>
+              produce_token_from(ListMarker(marker), pos, 1, Inline)
+            None => lex_inline(input, pos)
+          }
         _ => lex_inline(input, pos)
       }
     [ch, ..] if is_decimal_digit(ch) =>

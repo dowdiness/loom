@@ -89,8 +89,31 @@ test "lexer: inline markers" {
 ///|
 test "lexer: list marker consumes trailing space" {
   let tokens = tokenize("- item\n")
-  inspect(@debug.to_string(tokens[0].token), content="ListMarker")
+  inspect(@debug.to_string(tokens[0].token), content="ListMarker(Dash)")
   inspect(@debug.to_string(tokens[1].token), content="Text(\"item\")")
+}
+
+///|
+test "lexer: transports thematic and unordered-list marker facts" {
+  let thematic = tokenize("  * * *  \n")
+  inspect(@debug.to_string(thematic[0].token), content="Indentation(\"  \")")
+  inspect(
+    @debug.to_string(thematic[1].token),
+    content="ThematicBreak(\"* * *  \")",
+  )
+  inspect(thematic[1].len, content="7")
+
+  let dash = tokenize("- \n")
+  inspect(@debug.to_string(dash[0].token), content="ListMarker(Dash)")
+  inspect(dash[0].len, content="2")
+
+  let star = tokenize("* item\n")
+  inspect(@debug.to_string(star[0].token), content="ListMarker(Star)")
+  inspect(star[0].len, content="2")
+
+  let plus = tokenize("+\n")
+  inspect(@debug.to_string(plus[0].token), content="ListMarker(Plus)")
+  inspect(plus[0].len, content="1")
 }
 
 ///|
@@ -154,7 +177,7 @@ test "lexer: baseline indentation preserves marker candidates" {
 
   let list = tokenize("    - item\n")
   inspect(@debug.to_string(list[0].token), content="Indentation(\"    \")")
-  inspect(@debug.to_string(list[1].token), content="ListMarker")
+  inspect(@debug.to_string(list[1].token), content="ListMarker(Dash)")
 
   let fence = tokenize("    ```\n")
   inspect(@debug.to_string(fence[0].token), content="Indentation(\"    \")")
@@ -182,7 +205,7 @@ test "lexer: list-relative indentation preserves marker candidates" {
 
   let list = tokenize("- item\n    - nested\n")
   inspect(@debug.to_string(list[3].token), content="Indentation(\"    \")")
-  inspect(@debug.to_string(list[4].token), content="ListMarker")
+  inspect(@debug.to_string(list[4].token), content="ListMarker(Dash)")
 
   let fence = tokenize("- item\n    ```\n")
   inspect(@debug.to_string(fence[3].token), content="Indentation(\"    \")")
@@ -200,7 +223,7 @@ test "lexer: list-content indentation preserves quote candidate" {
 test "lexer: indented thematic break preserves indentation token" {
   let tokens = tokenize("  ---\n")
   inspect(@debug.to_string(tokens[0].token), content="Indentation(\"  \")")
-  inspect(@debug.to_string(tokens[1].token), content="ThematicBreak")
+  inspect(@debug.to_string(tokens[1].token), content="ThematicBreak(\"---\")")
 }
 
 ///|

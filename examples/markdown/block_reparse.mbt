@@ -116,7 +116,7 @@ fn is_heading_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
 fn is_list_item_token_stream(tokens : Array[@core.TokenInfo[Token]]) -> Bool {
   is_marker_line_token_stream(
     tokens,
-    token => token is ListMarker,
+    token => token is ListMarker(_),
     allow_trailing_newline=true,
   )
 }
@@ -130,7 +130,7 @@ fn is_unordered_list_token_stream(
   match tokens {
     [] => false
     [first, ..] => {
-      guard first.token is ListMarker else { return false }
+      guard first.token is ListMarker(_) else { return false }
       let mut expect_marker = true
       let mut saw_marker = false
       let mut saw_content = false
@@ -138,7 +138,7 @@ fn is_unordered_list_token_stream(
       for info in tokens {
         match info.token {
           EOF => ()
-          ListMarker =>
+          ListMarker(_) =>
             if expect_marker {
               expect_marker = false
               saw_marker = true
@@ -379,7 +379,7 @@ fn markdown_tokens_safe_for_block_reparse(
         CodeFenceOpen(_, _) => is_code_block_token_stream(tokens)
         HtmlBlockOpen(_) => is_html_block_token_stream(tokens)
         HeadingMarker(_) => is_heading_token_stream(tokens)
-        ListMarker =>
+        ListMarker(_) =>
           is_list_item_token_stream(tokens) ||
           is_unordered_list_token_stream(tokens)
         _ => is_paragraph_token_stream(tokens)
@@ -501,7 +501,7 @@ fn unordered_list_context_allows_reparse(
     let mut saw_non_blank_content = false
     while result && ctx.peek() != EOF {
       match ctx.peek() {
-        ListMarker =>
+        ListMarker(_) =>
           if expect_marker &&
             list_marker_matches_at_min_indent(ctx, opening_marker, min_indent) {
             expect_marker = false
@@ -516,7 +516,7 @@ fn unordered_list_context_allows_reparse(
           expect_marker = true
           ctx.emit_current_token()
         }
-        Indentation(_) if expect_marker && ctx.peek_nth(1) is ListMarker =>
+        Indentation(_) if expect_marker && ctx.peek_nth(1) is ListMarker(_) =>
           ctx.emit_current_token()
         token if token_continues_lazy_unordered_list_item(
             token, expect_marker, saw_marker, saw_non_blank_content,
@@ -580,7 +580,7 @@ fn unordered_list_marker_indent_prefixes(
     match info.token {
       Indentation(text) =>
         indent_columns = count_indent_columns(text, 0, text.length())
-      ListMarker => {
+      ListMarker(_) => {
         prefixes.push(indent_columns > 0)
         indent_columns = 0
       }
