@@ -9,9 +9,11 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(
 ) -> Unit {
   while self.position < self.token_count {
     let token = (self.get_token)(self.position)
-    if token.is_trivia() {
+    if @seam.IsTrivia::is_trivia(token) {
       let text = self.text_at(self.position)
-      self.events.push(@seam.ParseEvent::Token(token.to_raw(), text))
+      self.events.push(
+        @seam.ParseEvent::Token(@seam.ToRawKind::to_raw(token), text),
+      )
       self.position = self.position + 1
     } else {
       break
@@ -28,7 +30,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 ) -> Unit {
   self.flush_trivia()
   match self.current_token_position() {
-    Some(pos) if !(self.get_token)(pos).is_eof() => {
+    Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let text = self.text_at(pos)
       self.events.push(@seam.ParseEvent::Token(kind.to_raw(), text))
       self.position = pos + 1
@@ -119,10 +121,12 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 ) -> Unit {
   self.flush_trivia()
   match self.current_token_position() {
-    Some(pos) if !(self.get_token)(pos).is_eof() => {
+    Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let token = (self.get_token)(pos)
       let text = self.text_at(pos)
-      self.events.push(@seam.ParseEvent::Token(token.to_raw(), text))
+      self.events.push(
+        @seam.ParseEvent::Token(@seam.ToRawKind::to_raw(token), text),
+      )
       self.position = pos + 1
     }
     _ => {

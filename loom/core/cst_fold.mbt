@@ -43,7 +43,7 @@ pub struct CstFold[Ast] {
 pub fn[Ast] CstFold::new(
   algebra : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
 ) -> CstFold[Ast] {
-  { algebra, cache: {}, stats: FoldStats::zero() }
+  { algebra, cache: Map([]), stats: FoldStats::zero() }
 }
 
 ///|
@@ -69,7 +69,7 @@ fn[Ast] CstFold::fold_node(self : CstFold[Ast], node : @seam.SyntaxNode) -> Ast 
   }
   // Cache miss — call algebra with tracked recurse function
   // Key by (start, end) to distinguish siblings at the same offset (e.g. zero-length nodes)
-  let visited : Map[(Int, Int), Unit] = {}
+  let visited : Map[(Int, Int), Unit] = Map([])
   let recurse = fn(child : @seam.SyntaxNode) -> Ast {
     visited[(child.start(), child.end())] = ()
     self.fold_node(child)

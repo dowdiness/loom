@@ -23,11 +23,11 @@ fn render_cst_element(elem : @seam.CstElement) -> String {
 fn render_list_tree(ctx : ParserContext[TestTok, TestKind]) -> String {
   ctx.flush_trivia()
   let tree = ctx.events.build_tree_interned(
-    test_spec.root_kind.to_raw(),
+    @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
     trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(test_spec.error_kind.to_raw()),
-    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
+    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
   ) catch {
     _ => abort("expected separated_list tree to build")
   }
@@ -224,11 +224,11 @@ test "separated_list element slots hit incremental reuse like node()" {
   inspect(old_count, content="3")
   old_ctx.flush_trivia()
   let old_tree = old_ctx.events.build_tree_interned(
-    test_spec.root_kind.to_raw(),
+    @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
     trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(test_spec.error_kind.to_raw()),
-    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
+    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
   ) catch {
     _ => abort("expected interned old tree")
   }
@@ -268,11 +268,11 @@ test "separated_list missing separator still recovers after element reuse" {
   inspect(old_count, content="2")
   old_ctx.flush_trivia()
   let old_tree = old_ctx.events.build_tree_interned(
-    test_spec.root_kind.to_raw(),
+    @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
     trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(test_spec.error_kind.to_raw()),
-    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
+    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
   ) catch {
     _ => abort("expected interned old tree")
   }

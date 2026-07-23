@@ -44,7 +44,7 @@ fn test_parser_diagnostic(
     severity=Error,
     message~,
     primary=Some(range),
-    token=Some({ kind: token.to_raw(), range }),
+    token=Some({ kind: @seam.ToRawKind::to_raw(token), range }),
   )
 }
 
@@ -407,12 +407,12 @@ fn assert_current_kind(
 ) -> Unit {
   match ctx.current_node_kind() {
     Some(k) =>
-      if k.to_raw() != test_kind_raw(expected) {
+      if @seam.ToRawKind::to_raw(k) != test_kind_raw(expected) {
         abort(
           "expected current node kind " +
           @debug.to_string(expected) +
           ", got " +
-          @debug.to_string(k.to_raw()),
+          @debug.to_string(@seam.ToRawKind::to_raw(k)),
         )
       }
     None =>
@@ -430,7 +430,10 @@ fn assert_no_current_kind(ctx : ParserContext[TestTok, TestKind]) -> Unit {
   match ctx.current_node_kind() {
     None => ()
     Some(k) =>
-      abort("expected no open node, got " + @debug.to_string(k.to_raw()))
+      abort(
+        "expected no open node, got " +
+        @debug.to_string(@seam.ToRawKind::to_raw(k)),
+      )
   }
 }
 // ─── current_node_kind ─────────────────────────────────────────────────────────
@@ -767,5 +770,5 @@ test "AstView: a concrete impl exposes its SyntaxNode" {
   let cst = @seam.CstNode::new(@seam.RawKind(0), [])
   let syn = @seam.SyntaxNode::from_cst(cst)
   let v : FooView = { node: syn }
-  inspect(v.syntax_node() == syn, content="true")
+  inspect(@seam.AstView::syntax_node(v) == syn, content="true")
 }

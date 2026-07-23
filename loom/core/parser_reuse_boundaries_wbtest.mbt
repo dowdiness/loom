@@ -161,11 +161,11 @@ test "ParserContext reuse: interned zero-width lexer boundary advances position"
   grammar_with_zero_width_boundary(old_ctx)
   old_ctx.flush_trivia()
   let old_tree = old_ctx.events.build_tree_interned(
-    test_spec.root_kind.to_raw(),
+    @seam.ToRawKind::to_raw(test_spec.root_kind),
     @seam.Interner::new(),
     trivia_kinds=Some(test_spec.trivia_kinds_raw()),
-    error_kind=Some(test_spec.error_kind.to_raw()),
-    incomplete_kind=Some(test_spec.incomplete_kind.to_raw()),
+    error_kind=Some(@seam.ToRawKind::to_raw(test_spec.error_kind)),
+    incomplete_kind=Some(@seam.ToRawKind::to_raw(test_spec.incomplete_kind)),
   ) catch {
     _ => abort("expected interned old tree")
   }

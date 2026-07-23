@@ -35,7 +35,9 @@ pub fn[
     true
   } else {
     let got = self.peek()
-    self.error("expected " + expected.to_string() + ", got " + got.to_string())
+    self.error(
+      "expected " + Show::to_string(expected) + ", got " + Show::to_string(got),
+    )
     if self.at_eof() {
       self.emit_incomplete_placeholder()
     } else {
@@ -77,7 +79,7 @@ pub fn[
     // Right token, wrong spacing — trivia separates it from the previous one.
     self.error(
       "expected " +
-      expected.to_string() +
+      Show::to_string(expected) +
       " immediately adjacent, found intervening trivia",
     )
     self.emit_error_placeholder()
@@ -270,7 +272,9 @@ pub fn[
   }
   // Record diagnostic before skipping
   let got = self.peek()
-  self.error("expected " + expected.to_string() + ", got " + got.to_string())
+  self.error(
+    "expected " + Show::to_string(expected) + ", got " + Show::to_string(got),
+  )
   // Skip garbage
   let _ = self.skip_until(t => t == expected || is_sync(t))
   // Try once more after recovery
