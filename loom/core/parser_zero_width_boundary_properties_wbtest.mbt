@@ -235,22 +235,22 @@ fn zero_width_build_tree_from_events(
       }
     TokenInternedOldTree =>
       ctx.events.build_tree_interned(
-        spec.root_kind.to_raw(),
+        @seam.ToRawKind::to_raw(spec.root_kind),
         @seam.Interner::new(),
-        trivia_kinds=Some([spec.whitespace_kind.to_raw()]),
-        error_kind=Some(spec.error_kind.to_raw()),
-        incomplete_kind=Some(spec.incomplete_kind.to_raw()),
+        trivia_kinds=Some([@seam.ToRawKind::to_raw(spec.whitespace_kind)]),
+        error_kind=Some(@seam.ToRawKind::to_raw(spec.error_kind)),
+        incomplete_kind=Some(@seam.ToRawKind::to_raw(spec.incomplete_kind)),
       ) catch {
         _ => abort("expected token-interned old tree to build")
       }
     FullyInternedOldTree =>
       ctx.events.build_tree_fully_interned(
-        spec.root_kind.to_raw(),
+        @seam.ToRawKind::to_raw(spec.root_kind),
         @seam.Interner::new(),
         @seam.NodeInterner::new(),
-        trivia_kinds=Some([spec.whitespace_kind.to_raw()]),
-        error_kind=Some(spec.error_kind.to_raw()),
-        incomplete_kind=Some(spec.incomplete_kind.to_raw()),
+        trivia_kinds=Some([@seam.ToRawKind::to_raw(spec.whitespace_kind)]),
+        error_kind=Some(@seam.ToRawKind::to_raw(spec.error_kind)),
+        incomplete_kind=Some(@seam.ToRawKind::to_raw(spec.incomplete_kind)),
       ) catch {
         _ => abort("expected fully-interned old tree to build")
       }

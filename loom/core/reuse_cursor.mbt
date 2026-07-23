@@ -500,10 +500,10 @@ fn[T : @seam.IsTrivia + @seam.IsEof, K] new_follow_token_with_pos(
   let mut lo = lower_bound(cursor, byte_offset)
   while lo < cursor.token_count {
     let t = (cursor.get_token)(lo)
-    if t.is_eof() {
+    if @seam.IsEof::is_eof(t) {
       break
     }
-    if t.is_trivia() {
+    if @seam.IsTrivia::is_trivia(t) {
       lo = lo + 1
       continue
     }
@@ -525,7 +525,7 @@ fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K] trailing_context_match
   match (old_follow, new_follow) {
     (None, None) => true
     (Some(old), Some((new_tok, new_pos))) =>
-      old.kind == new_tok.to_raw() &&
+      old.kind == @seam.ToRawKind::to_raw(new_tok) &&
       old.text.view() == (cursor.get_text)(new_pos)
     _ => false
   }

@@ -169,13 +169,16 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
 ) -> Bool {
   guard self.position < self.token_count else { return false }
   let next = (self.get_token)(self.position)
-  guard !next.is_trivia() && next == expected else { return false }
+  guard !@seam.IsTrivia::is_trivia(next) && next == expected else {
+    return false
+  }
   // Trivia consumed via flush_trivia still separates — including
   // zero-width trivia, which offsets cannot see — so the token
   // immediately before the cursor must itself be non-trivia. Its end is
   // the frontier (0 before the first token); the next token must start
   // exactly there.
-  guard self.position == 0 || !(self.get_token)(self.position - 1).is_trivia() else {
+  guard self.position == 0 ||
+    !@seam.IsTrivia::is_trivia((self.get_token)(self.position - 1)) else {
     return false
   }
   let frontier = if self.position == 0 {
@@ -191,7 +194,7 @@ pub fn[T : Eq + @seam.IsTrivia, K] ParserContext::at_adjacent(
 pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
   self : ParserContext[T, K],
 ) -> Bool {
-  self.peek().is_eof()
+  @seam.IsEof::is_eof(self.peek())
 }
 
 ///|
@@ -411,7 +414,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::advance_with_goal(
   goal : Int,
 ) -> T {
   match self.current_token_position() {
-    Some(pos) if !(self.get_token)(pos).is_eof() => {
+    Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let offset = (self.get_start)(pos)
       let (goal_token, end_offset) = self.token_at(offset, goal)
       let new_pos = self.lower_bound_offset(end_offset)
@@ -438,7 +441,7 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] 
 ) -> Unit {
   self.flush_trivia()
   match self.current_token_position() {
-    Some(pos) if !(self.get_token)(pos).is_eof() => {
+    Some(pos) if !@seam.IsEof::is_eof((self.get_token)(pos)) => {
       let offset = (self.get_start)(pos)
       let (_goal_token, end_offset) = self.token_at(offset, goal)
       let text = self.source.view(start_offset=offset, end_offset~)

@@ -192,7 +192,7 @@ fn[T : @seam.IsEof + @seam.ToRawKind, K] ParserContext::reused_boundary_zero_wid
     if position >= self.token_count ||
       (self.get_start)(position) != new_node_end ||
       (self.get_end)(position) != new_node_end ||
-      (self.get_token)(position).to_raw() != old.kind ||
+      @seam.ToRawKind::to_raw((self.get_token)(position)) != old.kind ||
       self.token_text_at(position) != old.text {
       return false
     }
