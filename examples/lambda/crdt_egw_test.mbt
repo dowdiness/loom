@@ -38,7 +38,7 @@ struct EgwPeer {
 }
 
 ///|
-fn EgwPeer::new(agent_id : String) -> EgwPeer {
+fn EgwPeer::new(agent_id : String) -> EgwPeer raise @egw.TextError {
   let doc = @egw.TextState::new(agent_id)
   let parser = new_imperative_parser("")
   let _ = parser.parse().ast
@@ -63,9 +63,7 @@ fn EgwPeer::local_insert(self : EgwPeer, pos : @egw.Pos, text : String) -> Unit 
 fn EgwPeer::bridge_sync(self : EgwPeer, message : @egw.SyncMessage) -> Unit {
   let old_text = self.doc.text()
   let session = self.doc.sync()
-  session.apply(message) catch {
-    _ => return
-  }
+  let _ = session.apply(message) catch { _ => return }
   drive_parser_update(self.parser, old_text, self.doc.text())
 }
 
