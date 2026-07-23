@@ -42,9 +42,10 @@ fn setext_underline_depth_at_current_line(
   match ctx.peek() {
     Text(text) if text_has_min_leading_spaces(text.view(), min_indent) =>
       parse_setext_underline_depth(text.view())
-    ThematicBreak if current_token_text_has_min_leading_spaces(ctx, min_indent) =>
-      parse_setext_underline_depth(ctx.current_token_text())
-    ListMarker if allow_list_marker &&
+    ThematicBreak(_) if current_token_text_has_min_leading_spaces(
+        ctx, min_indent,
+      ) => parse_setext_underline_depth(ctx.current_token_text())
+    ListMarker(_) if allow_list_marker &&
       current_token_text_has_min_leading_spaces(ctx, min_indent) &&
       setext_list_marker_line_ends_after_marker(ctx) =>
       parse_setext_underline_depth(ctx.current_token_text())

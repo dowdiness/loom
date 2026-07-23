@@ -280,10 +280,10 @@ fn ordered_list_marker_from_text(text : String) -> OrderedListMarker? {
 ///|
 pub(all) enum Token {
   HeadingMarker(Int) // "# " = 1, "## " = 2, etc. (includes trailing space)
-  ListMarker // "- " or "* " or "+ " (includes trailing space)
+  ListMarker(UnorderedListMarker) // "- " or "* " or "+ " (includes trailing space)
   OrderedListMarker(OrderedListMarker) // "1. " or "1) " (includes trailing space)
   BlockQuoteMarker // ">" plus optional following space, with up to three leading spaces
-  ThematicBreak
+  ThematicBreak(String)
   CodeFenceOpen(Int, String) // backtick count, info string
   CodeFenceClose // closing fence
   HtmlBlockOpen(String) // opening line of an HTML block
@@ -309,10 +309,10 @@ pub impl Show for Token with fn output(self, logger) {
   logger.write_string(
     match self {
       HeadingMarker(n) => "#".repeat(n) + " "
-      ListMarker => "- "
+      ListMarker(marker) => marker.text() + " "
       OrderedListMarker(marker) => marker.text() + " "
       BlockQuoteMarker => "> "
-      ThematicBreak => "---"
+      ThematicBreak(text) => text
       CodeFenceOpen(n, info) => "`".repeat(n) + info
       CodeFenceClose => "```"
       HtmlBlockOpen(s) => s
@@ -353,10 +353,10 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   @seam.RawKind(
     match self {
       HeadingMarker(_) => 0 // HeadingMarkerToken
-      ListMarker => 1 // ListMarkerToken
+      ListMarker(_) => 1 // ListMarkerToken
       OrderedListMarker(_) => 29 // OrderedListMarkerToken
       BlockQuoteMarker => 31 // BlockQuoteMarkerToken
-      ThematicBreak => 33 // ThematicBreakToken
+      ThematicBreak(_) => 33 // ThematicBreakToken
       CodeFenceOpen(_, _) => 2 // CodeFenceOpenToken
       CodeFenceClose => 3 // CodeFenceCloseToken
       HtmlBlockOpen(_) => 35 // HtmlBlockOpenToken
@@ -383,13 +383,13 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
 test "tokens map to their corresponding syntax raw kind" {
   let cases : Array[(Token, SyntaxKind)] = [
     (HeadingMarker(1), HeadingMarkerToken),
-    (ListMarker, ListMarkerToken),
+    (ListMarker(Dash), ListMarkerToken),
     (
       OrderedListMarker(OrderedListMarker(start=1, delimiter=Period)),
       OrderedListMarkerToken,
     ),
     (BlockQuoteMarker, BlockQuoteMarkerToken),
-    (ThematicBreak, ThematicBreakToken),
+    (ThematicBreak("---"), ThematicBreakToken),
     (CodeFenceOpen(3, ""), CodeFenceOpenToken),
     (CodeFenceClose, CodeFenceCloseToken),
     (HtmlBlockOpen("<div>"), HtmlBlockOpenToken),

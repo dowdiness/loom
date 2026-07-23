@@ -6,7 +6,7 @@ fn line_at_offset_is_thematic_break(
   let line = StringBuilder::new()
   for i = offset {
     match ctx.peek_nth(i) {
-      ThematicBreak => break true
+      ThematicBreak(_) => break true
       Newline | EOF =>
         break is_valid_thematic_break_markers(line.to_string().view())
       Text(text) => line.write_string(text)

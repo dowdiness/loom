@@ -170,10 +170,10 @@ pub impl Show for SyntaxKind
 
 pub(all) enum Token {
   HeadingMarker(Int)
-  ListMarker
+  ListMarker(UnorderedListMarker)
   OrderedListMarker(OrderedListMarker)
   BlockQuoteMarker
-  ThematicBreak
+  ThematicBreak(String)
   CodeFenceOpen(Int, String)
   CodeFenceClose
   HtmlBlockOpen(String)

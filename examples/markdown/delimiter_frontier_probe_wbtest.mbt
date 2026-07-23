@@ -49,9 +49,9 @@ fn probe_kind(token : Token) -> ProbeTokenKind {
     Newline => Newline
     Indentation(_) | BlockQuoteMarker => Prefix
     HeadingMarker(_)
-    | ListMarker
+    | ListMarker(_)
     | OrderedListMarker(_)
-    | ThematicBreak
+    | ThematicBreak(_)
     | CodeFenceOpen(_, _)
     | CodeFenceClose
     | HtmlBlockOpen(_)

@@ -3,10 +3,10 @@
 fn is_block_boundary(token : Token) -> Bool {
   match token {
     HeadingMarker(_)
-    | ListMarker
+    | ListMarker(_)
     | OrderedListMarker(_)
     | BlockQuoteMarker
-    | ThematicBreak
+    | ThematicBreak(_)
     | CodeFenceOpen(_, _)
     | HtmlBlockOpen(_)
     | BlankLine

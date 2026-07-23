@@ -24,13 +24,13 @@ fn prefixed_root_block_starts(
   match ctx.peek() {
     Indentation(_) if current_token_leading_indent(ctx) <= 3 =>
       match ctx.peek_nth(1) {
-        ListMarker | OrderedListMarker(_) =>
+        ListMarker(_) | OrderedListMarker(_) =>
           ctx.lookahead(() => {
             ctx.emit_token(IndentationToken)
             token_breaks_paragraph_after_newline(ctx.peek()) &&
             !setext_list_marker_line_ends_after_marker(ctx)
           })
-        ThematicBreak
+        ThematicBreak(_)
         | HeadingMarker(_)
         | BlockQuoteMarker
         | CodeFenceOpen(_, _)
@@ -61,9 +61,9 @@ fn parse_prefixed_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
     parse_indented_code_block(ctx)
   } else {
     match ctx.peek_nth(1) {
-      ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
+      ThematicBreak(_) => parse_thematic_break_with_prefix(ctx, Some(prefix))
       HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
-      ListMarker => parse_list(ctx)
+      ListMarker(_) => parse_list(ctx)
       OrderedListMarker(_) => parse_ordered_list(ctx)
       BlockQuoteMarker => parse_block_quote(ctx)
       CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
@@ -82,14 +82,14 @@ fn parse_prefixed_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 /// Parse a single block. Dispatches based on the current token.
 fn parse_block(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   match ctx.peek() {
-    ThematicBreak => parse_thematic_break(ctx)
+    ThematicBreak(_) => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
-    ListMarker if current_list_marker_indent(ctx).map_or(false, indent => {
+    ListMarker(_) if current_list_marker_indent(ctx).map_or(false, indent => {
         indent <= 3
       }) => parse_list(ctx)
-    ListMarker if current_token_leading_indent(ctx) >= 4 =>
+    ListMarker(_) if current_token_leading_indent(ctx) >= 4 =>
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
-    ListMarker => {
+    ListMarker(_) => {
       ctx.emit_token(TextToken)
       parse_paragraph(ctx)
     }
@@ -234,7 +234,8 @@ fn emit_setext_underline_line(
         ctx.peek() != EOF {
     match ctx.peek() {
       Indentation(_) => ctx.emit_token(IndentationToken)
-      Text(_) | ThematicBreak | ListMarker => ctx.emit_token(HeadingMarkerToken)
+      Text(_) | ThematicBreak(_) | ListMarker(_) =>
+        ctx.emit_token(HeadingMarkerToken)
       _ => ctx.bump_error()
     }
   }
@@ -319,9 +320,9 @@ fn observe_continuation_prefix(
 ) -> ContinuationPrefixKind {
   let next = ctx.peek_nth(offset)
   match next {
-    Indentation(_) if ctx.peek_nth(offset + 1) is ThematicBreak =>
+    Indentation(_) if ctx.peek_nth(offset + 1) is ThematicBreak(_) =>
       ThematicBreakPrefix
-    ListMarker | OrderedListMarker(_) => ListMarkerPrefix
+    ListMarker(_) | OrderedListMarker(_) => ListMarkerPrefix
     _ => NoPrefix
   }
 }
@@ -346,7 +347,7 @@ fn next_token_after_newline_is_lone_list_marker(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> Bool {
   match ctx.peek_nth(1) {
-    ListMarker | OrderedListMarker(_) =>
+    ListMarker(_) | OrderedListMarker(_) =>
       ctx.lookahead(() => {
         ctx.emit_token(NewlineToken)
         setext_list_marker_line_ends_after_marker(ctx)
@@ -372,9 +373,9 @@ fn decide_root_paragraph_continuation(
     Stop
   } else {
     match next {
-      Indentation(_) if ctx.peek_nth(2) is ThematicBreak =>
+      Indentation(_) if ctx.peek_nth(2) is ThematicBreak(_) =>
         Continue(ThematicBreakPrefix)
-      ListMarker | OrderedListMarker(_) => Continue(ListMarkerPrefix)
+      ListMarker(_) | OrderedListMarker(_) => Continue(ListMarkerPrefix)
       _ => Continue(NoPrefix)
     }
   }
@@ -622,7 +623,7 @@ fn current_block_quote_list_marker_indent(
   marker_end_column : Int,
 ) -> Int? {
   match ctx.peek() {
-    ListMarker | OrderedListMarker(_) => {
+    ListMarker(_) | OrderedListMarker(_) => {
       let marker_column = marker_end_column +
         leading_indent_columns_from(ctx.current_token_text(), marker_end_column)
       Some(marker_column - content_column)
@@ -633,7 +634,7 @@ fn current_block_quote_list_marker_indent(
           leading_indent_columns_from(text, marker_end_column)
         ctx.emit_token(IndentationToken)
         match ctx.peek() {
-          ListMarker | OrderedListMarker(_) =>
+          ListMarker(_) | OrderedListMarker(_) =>
             Some(marker_column - content_column)
           _ => None
         }
@@ -762,17 +763,17 @@ fn parse_block_quote_after_marker(
   marker_end_column : Int,
 ) -> Unit {
   match ctx.peek() {
-    ThematicBreak => parse_thematic_break(ctx)
+    ThematicBreak(_) => parse_thematic_break(ctx)
     HeadingMarker(_) => parse_heading(ctx)
-    ListMarker if current_block_quote_list_marker_indent(
+    ListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
       parse_block_quote_list(ctx, content_column, marker_end_column)
-    ListMarker if current_block_quote_list_marker_indent(
+    ListMarker(_) if current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent >= 4) =>
       parse_indented_code_block_from_current_line(ctx, min_indent=4)
-    ListMarker => {
+    ListMarker(_) => {
       ctx.emit_token(TextToken)
       parse_block_quote_paragraph(ctx)
     }
@@ -790,7 +791,7 @@ fn parse_block_quote_after_marker(
     }
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block(ctx)
-    Indentation(_) if ctx.peek_nth(1) is ListMarker &&
+    Indentation(_) if ctx.peek_nth(1) is ListMarker(_) &&
       current_block_quote_list_marker_indent(
         ctx, content_column, marker_end_column,
       ).map_or(false, indent => indent <= 3) =>
@@ -808,7 +809,7 @@ fn parse_block_quote_after_marker(
     Indentation(_) => {
       let prefix = LinePrefix::{ columns: current_token_leading_indent(ctx) }
       match ctx.peek_nth(1) {
-        ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
+        ThematicBreak(_) => parse_thematic_break_with_prefix(ctx, Some(prefix))
         HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
         BlockQuoteMarker => parse_block_quote(ctx)
         CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
@@ -940,7 +941,7 @@ fn parse_nested_list_at_current_marker(
     return false
   }
   match ctx.peek() {
-    ListMarker => {
+    ListMarker(_) => {
       parse_list_at_min_indent(ctx, content_indent)
       true
     }
@@ -950,7 +951,7 @@ fn parse_nested_list_at_current_marker(
     }
     Indentation(_) =>
       match ctx.peek_nth(1) {
-        ListMarker => {
+        ListMarker(_) => {
           parse_list_at_min_indent(ctx, content_indent)
           true
         }
@@ -971,11 +972,11 @@ fn next_list_marker_indent(
   ctx.lookahead(() => {
     ctx.emit_token(NewlineToken)
     match ctx.peek() {
-      ListMarker | OrderedListMarker(_) | Indentation(_) =>
+      ListMarker(_) | OrderedListMarker(_) | Indentation(_) =>
         match ctx.peek() {
           Indentation(_) =>
             match ctx.peek_nth(1) {
-              ListMarker | OrderedListMarker(_) =>
+              ListMarker(_) | OrderedListMarker(_) =>
                 current_list_marker_indent(ctx)
               _ => None
             }
@@ -1002,7 +1003,7 @@ fn parse_nested_list_item_flow(
         } else {
           break
         }
-      ListMarker | OrderedListMarker(_) | Indentation(_) =>
+      ListMarker(_) | OrderedListMarker(_) | Indentation(_) =>
         if !parse_nested_list_at_current_marker(ctx, content_indent) {
           break
         }
@@ -1055,7 +1056,7 @@ fn try_continue_empty_list_item_after_newline(
   let is_prefixed_thematic_break = match ctx.peek_nth(1) {
     Indentation(text) =>
       count_indent_columns(text, 0, text.length()) < content_indent + 4 &&
-      ctx.peek_nth(2) is ThematicBreak
+      ctx.peek_nth(2) is ThematicBreak(_)
     _ => false
   }
   guard starts_continuation && !is_prefixed_thematic_break else { return false }
@@ -1205,7 +1206,7 @@ fn next_prefix_is_list_marker_boundary(
         false
       } else {
         match ctx.peek_nth(2) {
-          ListMarker | OrderedListMarker(_) => true
+          ListMarker(_) | OrderedListMarker(_) => true
           _ => false
         }
       }
@@ -1226,7 +1227,7 @@ fn prefixed_list_item_block_starts(
         false
       } else {
         match ctx.peek_nth(1) {
-          ThematicBreak
+          ThematicBreak(_)
           | HeadingMarker(_)
           | CodeFenceOpen(_, _)
           | HtmlBlockOpen(_) => true
@@ -1440,7 +1441,7 @@ fn current_list_marker_body_end_offset(
 ) -> Int? {
   let marker_text = ctx.current_token_text().to_owned()
   match ctx.peek() {
-    ListMarker => list_marker_body_end_offset(marker_text, ordered=false)
+    ListMarker(_) => list_marker_body_end_offset(marker_text, ordered=false)
     OrderedListMarker(_) =>
       list_marker_body_end_offset(marker_text, ordered=true)
     _ => None
@@ -1564,7 +1565,7 @@ fn parse_list_item_prefixed_block(
     _ => abort("parse_list_item_prefixed_block requires indentation")
   }
   match ctx.peek_nth(1) {
-    ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
+    ThematicBreak(_) => parse_thematic_break_with_prefix(ctx, Some(prefix))
     HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
     BlockQuoteMarker => parse_block_quote(ctx)
     CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
@@ -1585,7 +1586,7 @@ fn try_parse_list_item_indented_flow(
     }
     Indentation(_) if current_token_leading_indent(ctx) >= content_indent =>
       match ctx.peek_nth(1) {
-        ListMarker | OrderedListMarker(_) =>
+        ListMarker(_) | OrderedListMarker(_) =>
           parse_nested_list_at_current_marker(ctx, content_indent)
         _ => {
           parse_list_item_prefixed_block(ctx)
@@ -1650,7 +1651,7 @@ fn parse_list_item_body(
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
   match ctx.peek() {
-    ListMarker => {
+    ListMarker(_) => {
       parse_list_at_min_indent(ctx, 0)
       return
     }
