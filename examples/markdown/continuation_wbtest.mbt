@@ -59,7 +59,7 @@ fn assert_decision_public_state_pure(
 
 ///|
 test "continuation decisions: root variants" {
-  let no_prefix = continuation_context("\nbar\n")
+  let no_prefix = continuation_context_at_newline("para\nbar\n")
   assert_decision_public_state_pure(no_prefix, () => {
     match decide_root_paragraph_continuation(no_prefix) {
       Continue(RootContinuationKind::NoPrefix) => ()
@@ -69,7 +69,7 @@ test "continuation decisions: root variants" {
 
   // Indented thematic-break-looking line (indent >= 4) continues as text.
   // Bare "\n---\n" / "\n ---\n" stop via prefix dispatch or block boundary.
-  let thematic = continuation_context("\n    ---\n")
+  let thematic = continuation_context_at_newline("para\n    ---\n")
   assert_decision_public_state_pure(thematic, () => {
     match decide_root_paragraph_continuation(thematic) {
       Continue(ThematicBreakPrefix) => ()
@@ -78,7 +78,7 @@ test "continuation decisions: root variants" {
   })
 
   // Lone list marker continues as text; "\n- item\n" interrupts as a list.
-  let list_marker = continuation_context("\n-\n")
+  let list_marker = continuation_context_at_newline("para\n-\n")
   assert_decision_public_state_pure(list_marker, () => {
     match decide_root_paragraph_continuation(list_marker) {
       Continue(ListMarkerPrefix) => ()
@@ -87,7 +87,7 @@ test "continuation decisions: root variants" {
   })
 
   // Ordered markers with start != 1 are ListMarkerPrefix continuations.
-  let ordered = continuation_context("\n2. x\n")
+  let ordered = continuation_context_at_newline("para\n2. x\n")
   assert_decision_public_state_pure(ordered, () => {
     match decide_root_paragraph_continuation(ordered) {
       Continue(ListMarkerPrefix) => ()
@@ -98,7 +98,7 @@ test "continuation decisions: root variants" {
 
 ///|
 test "continuation decisions: root Stop" {
-  let blank = continuation_context("\n\n")
+  let blank = continuation_context_at_newline("para\n\n")
   assert_decision_public_state_pure(blank, () => {
     match decide_root_paragraph_continuation(blank) {
       Stop => ()
@@ -106,7 +106,7 @@ test "continuation decisions: root Stop" {
     }
   })
 
-  let thematic = continuation_context("\n---\n")
+  let thematic = continuation_context_at_newline("para\n---\n")
   assert_decision_public_state_pure(thematic, () => {
     match decide_root_paragraph_continuation(thematic) {
       Stop => ()
@@ -114,7 +114,7 @@ test "continuation decisions: root Stop" {
     }
   })
 
-  let list_item = continuation_context("\n- item\n")
+  let list_item = continuation_context_at_newline("para\n- item\n")
   assert_decision_public_state_pure(list_item, () => {
     match decide_root_paragraph_continuation(list_item) {
       Stop => ()
@@ -122,7 +122,7 @@ test "continuation decisions: root Stop" {
     }
   })
 
-  let ordered_one = continuation_context("\n1. x\n")
+  let ordered_one = continuation_context_at_newline("para\n1. x\n")
   assert_decision_public_state_pure(ordered_one, () => {
     match decide_root_paragraph_continuation(ordered_one) {
       Stop => ()
@@ -188,7 +188,7 @@ test "continuation decisions: setext Stop" {
 
 ///|
 test "continuation decisions: block-quote variants" {
-  let marker_no_prefix = continuation_context("\n> bar\n")
+  let marker_no_prefix = continuation_context_at_newline("para\n> bar\n")
   assert_decision_public_state_pure(marker_no_prefix, () => {
     match decide_block_quote_paragraph_continuation(marker_no_prefix) {
       Continue(MarkerAndPrefix(ContinuationPrefixKind::NoPrefix)) => ()
@@ -197,7 +197,7 @@ test "continuation decisions: block-quote variants" {
   })
 
   // Indented thematic-break-looking line after `>` continues as text.
-  let marker_thematic = continuation_context("\n>    ---\n")
+  let marker_thematic = continuation_context_at_newline("para\n>    ---\n")
   assert_decision_public_state_pure(marker_thematic, () => {
     match decide_block_quote_paragraph_continuation(marker_thematic) {
       Continue(MarkerAndPrefix(ThematicBreakPrefix)) => ()
@@ -206,7 +206,7 @@ test "continuation decisions: block-quote variants" {
   })
 
   // Ordered markers with start != 1 continue as text after `>`.
-  let marker_list = continuation_context("\n>2. x\n")
+  let marker_list = continuation_context_at_newline("para\n>2. x\n")
   assert_decision_public_state_pure(marker_list, () => {
     match decide_block_quote_paragraph_continuation(marker_list) {
       Continue(MarkerAndPrefix(ListMarkerPrefix)) => ()
@@ -214,7 +214,7 @@ test "continuation decisions: block-quote variants" {
     }
   })
 
-  let prefix_only = continuation_context("\nbar\n")
+  let prefix_only = continuation_context_at_newline("para\nbar\n")
   assert_decision_public_state_pure(prefix_only, () => {
     match decide_block_quote_paragraph_continuation(prefix_only) {
       Continue(PrefixOnly(ContinuationPrefixKind::NoPrefix)) => ()
@@ -222,7 +222,7 @@ test "continuation decisions: block-quote variants" {
     }
   })
 
-  let prefix_thematic = continuation_context("\n    ---\n")
+  let prefix_thematic = continuation_context_at_newline("para\n    ---\n")
   assert_decision_public_state_pure(prefix_thematic, () => {
     match decide_block_quote_paragraph_continuation(prefix_thematic) {
       Continue(PrefixOnly(ThematicBreakPrefix)) => ()
@@ -230,7 +230,7 @@ test "continuation decisions: block-quote variants" {
     }
   })
 
-  let prefix_list = continuation_context("\n2. x\n")
+  let prefix_list = continuation_context_at_newline("para\n2. x\n")
   assert_decision_public_state_pure(prefix_list, () => {
     match decide_block_quote_paragraph_continuation(prefix_list) {
       Continue(PrefixOnly(ListMarkerPrefix)) => ()
@@ -241,7 +241,7 @@ test "continuation decisions: block-quote variants" {
 
 ///|
 test "continuation decisions: block-quote Stop" {
-  let thematic = continuation_context("\n---\n")
+  let thematic = continuation_context_at_newline("para\n---\n")
   assert_decision_public_state_pure(thematic, () => {
     match decide_block_quote_paragraph_continuation(thematic) {
       Stop => ()
@@ -249,7 +249,7 @@ test "continuation decisions: block-quote Stop" {
     }
   })
 
-  let list_item = continuation_context("\n- item\n")
+  let list_item = continuation_context_at_newline("para\n- item\n")
   assert_decision_public_state_pure(list_item, () => {
     match decide_block_quote_paragraph_continuation(list_item) {
       Stop => ()
