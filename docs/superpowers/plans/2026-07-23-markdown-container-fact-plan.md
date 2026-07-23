@@ -56,7 +56,7 @@
 parsing of the same isolated, realistic multi-line container.
 
 **Files:**
-- New: `examples/markdown/prepass_benchmark_test.mbt`
+- New: `examples/markdown/prepass_benchmark_wbtest.mbt`
 - Read-only reference: `examples/markdown/benchmark_test.mbt`, `examples/markdown/inline_parser.mbt:96-135`
 
 **Interfaces:**
@@ -72,7 +72,7 @@ parsing of the same isolated, realistic multi-line container.
 
 - [ ] **1. Write a test-only benchmark that measures the current speculative prepass in isolation.**
 
-  Create `examples/markdown/prepass_benchmark_test.mbt`. Its test-only helper
+  Create `examples/markdown/prepass_benchmark_wbtest.mbt`. Its test-only helper
   must mirror the current `ctx.lookahead` loop in
   `parse_indexed_inline_container_with_continue_line`
   (`inline_parser.mbt:99–135`) without changing production parser code. For
@@ -90,7 +90,7 @@ parsing of the same isolated, realistic multi-line container.
   Run:
 
   ```bash
-  cd examples/markdown && rtk moon bench --release --target wasm-gc prepass_benchmark_test.mbt
+  cd examples/markdown && rtk moon bench --release --package dowdiness/markdown --file prepass_benchmark_wbtest.mbt --target wasm-gc
   ```
 
   Expected: benchmark compiles and runs; raw observations and the ratio
@@ -462,7 +462,7 @@ paired-performance adoption gate.
 
 ## Files to Modify (summary)
 
-- `examples/markdown/prepass_benchmark_test.mbt` — new isolated,
+- `examples/markdown/prepass_benchmark_wbtest.mbt` — new isolated,
   same-container prepass benchmark (Task 1).
 - `examples/markdown/token.mbt`, `lexer.mbt`, `block_boundary_policy.mbt`,
   `thematic_policy.mbt`, and every diagnostic-reported `ThematicBreak` match
@@ -493,7 +493,7 @@ paired-performance adoption gate.
 
 ### Build, test, and evidence commands
 
-- Task 1: `rtk moon bench --release --target wasm-gc prepass_benchmark_test.mbt`;
+- Task 1: `rtk moon bench --release --package dowdiness/markdown --file prepass_benchmark_wbtest.mbt --target wasm-gc`;
   retain raw observations and bootstrap calculation.
 - Task 2: `rtk moon check --target wasm-gc`, focused lexer tests, then
   `rtk moon test --target wasm-gc`.
