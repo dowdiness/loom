@@ -1,7 +1,7 @@
 # Markdown Continuation Decision Refactor
 
 **Date:** 2026-07-20
-**Status:** Proposed
+**Status:** Implemented
 **Related:** [Markdown delimiter frontier design](2026-07-20-markdown-delimiter-frontier-design.md); [completed #719 investigation](../../archive/completed-phases/2026-07-20-markdown-delimiter-frontier.md); [ADR 2026-07-20](../../decisions/2026-07-20-markdown-delimiter-frontier.md)
 
 ## Context
