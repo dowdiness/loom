@@ -50,9 +50,36 @@ The planner does not emit tokens, start or finish nodes, add diagnostics, or
 change parser position. The authoritative inline parser alone calls the
 existing typed continuation consumer and emits the CST.
 
+
+### Markdown fact transport
+
+The Markdown lexer enriches the two token variants whose current context-based
+setext policy inspects spelling:
+
+- `Token::ThematicBreak` carries its exact token spelling, from the thematic
+  token's inclusive start through its exclusive end. It excludes a preceding,
+  separately tokenized `Indentation` and its following newline, exactly
+  matching `current_token_text()` at that thematic token.
+- `Token::ListMarker` carries the existing `UnorderedListMarker` identity
+  (`Dash`, `Star`, or `Plus`). This adds no string allocation. The remaining
+  list-line facts are already represented by following token variants.
+
+These Markdown-local payloads supply every spelling fact needed by the pure
+setext observer. It applies the existing underline-depth policy to thematic
+text and uses list-marker identity with the existing trailing-content rule.
+Other Markdown code ignores these payloads unless it applies that policy. The
+authoritative consumer remains context-based and continues to read its current
+token text. Direct decision parity makes the representations observable.
+
+The thematic string is produced once by the lexer for each thematic-break
+token; the list-marker enum is an existing value. `token_at` transports token
+values and end offsets only. It adds no core accessor, callback, parser cursor,
+or cache.
+
 No generic parser cursor, parser-session callback change, `LanguageSpec`
-change, baseline-only core token accessor, goal-source detection API, or
-cross-revision cache is in scope.
+change, baseline-only core token accessor, goal-source detection API,
+arbitrary-source-slice API, or cross-revision cache is in scope.
+
 
 ## Responsibilities and data flow
 
@@ -60,26 +87,29 @@ cross-revision cache is in scope.
 
 The block parser remains the authority for continuation semantics. Every
 current owner—root paragraph, block-quote paragraph, block-quote setext, root
-setext, list item, and list-item setext—provides three aligned Markdown-local
-operations:
+setext, list item, and list-item setext—currently has a context-based typed
+`decide` operation and an effectful `consume` operation.
 
-1. observe a typed continuation decision from read-only token facts;
+The integration adds two Markdown-local pure operations per owner:
+
+1. observe the same typed continuation decision from read-only token facts; and
 2. advance a read-only fact cursor past the token sequence represented by a
-   `Continue(action)`; and
-3. consume that same action on the authoritative `ParserContext`.
+   `Continue(action)`.
 
-The first two operations must not emit parser events. The third is the existing
-CST operation. An action’s fact-cursor advance and its consumer must end at the
-same token offset; tests make this correspondence observable.
+The existing consumer remains the third aligned operation on the authoritative
+`ParserContext`. The two new operations must not emit parser events. An
+action’s fact-cursor advance and its consumer must end at the same token
+offset; tests make this correspondence observable.
 
 ### Fact planner
 
 Starting at the inline container’s current source offset, the planner advances
 only its own offset. At every fact offset it first applies the same
-policy-specific inline-boundary classification as the driver. A block boundary
-or EOF establishes the exclusive end at the current offset and is not recorded
-as inline or delimiter content. EOF is terminal and is the sole case that does
-not require an advancing next offset.
+policy-specific inline-boundary classification as the driver. It detects EOF
+from the `Token` variant returned by `token_at`, terminates immediately, and
+does not compute a next offset from that EOF fact. A block boundary likewise
+establishes the exclusive end at the current offset and is not recorded as
+inline or delimiter content.
 
 A newline is handled as the driver handles it: the owning policy observes the
 continuation decision before the planner can continue. `Stop` establishes the
@@ -123,9 +153,13 @@ changing CST ownership.
    run beyond that offset is visible to the container.
 6. Equal-length closer ownership is left-to-right; unmatched or escaped runs
    retain the current literal fallback and subsequent emphasis/link parsing.
-7. Markdown production parsing never configures `goal_source` while this
+7. A `ThematicBreak` payload equals the authoritative parser's current token
+   text at that same token, including every recognized marker spelling and
+   after separately tokenized indentation. A `ListMarker` payload preserves
+   its exact `Dash`/`Star`/`Plus` identity.
+8. Markdown production parsing never configures `goal_source` while this
    transport is in use.
-8. One-shot parsing, incremental parsing, and isolated block reparsing produce
+9. One-shot parsing, incremental parsing, and isolated block reparsing produce
    the same CST, diagnostics, source fidelity, and Markdown IR as before.
 
 ## Validation order
@@ -141,6 +175,10 @@ Only after the isolated benchmark confirms the claimed cost may implementation
 add the plan and its tests. Required behavioral evidence is:
 
 - action-plan parity for every named continuation action and `Stop` case;
+- thematic-break payload equality with `current_token_text()` for unindented
+  and separately indented marker lines; `ListMarker` identity parity for
+  dash, star, and plus; and pure setext decision parity for every recognized
+  spelling;
 - consumer/advance offset parity for every action;
 - no-event planning on an ordinary parser context;
 - source fidelity for matched, unmatched, escaped, and boundary-adjacent
@@ -167,9 +205,16 @@ Before a candidate implementation is evaluated:
 
 1. Run three unrecorded warm-up invocations for every metric in each of two
    same-commit worktrees.
-2. Run at least fifteen counterbalanced A/A pairs with the exact candidate
+2. Run at least fifteen counterbalanced A/A pairs with the chosen comparison
    command, target, submodule revisions, benchmark indices, and host setup.
-3. Bootstrap the median paired delta with 10,000 resamples and a two-sided
+3. For each A/A pair, label the two worktrees `A` and `B` independently of
+   execution order and form `(B - A) / A * 100`. For each candidate pair,
+   always form `(candidate - baseline) / baseline * 100`, regardless of which
+   revision ran first. Record order as a blocking variable; never let it change
+   delta sign. Bootstrap the median of the paired deltas with 10,000 ordinary
+   nonparametric resamples of whole pairs, sampled with replacement. Use Python
+   3 standard-library `random.Random(0xC0FFEE)` and `statistics.median`; sort
+   the 10,000 bootstrap medians and use indices 250 and 9749 as the two-sided
    95% percentile interval. The A/A interval for every metric must contain
    zero; otherwise increase the sample or stabilize the environment before
    comparing a candidate.
