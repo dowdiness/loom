@@ -40,7 +40,7 @@ fn project_settings(
   }
   let raws : Array[RawSetting] = []
   let errors : Array[String] = []
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   for
     member_node in object.direct_children_of_kind(
       @json.SyntaxKind::MemberNode.to_raw(),

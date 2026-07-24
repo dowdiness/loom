@@ -164,9 +164,14 @@ fn emit_token_impls(
       _ => false
     }
   })
+  let receiver_name = if trivia_variants.length() == 0 {
+    "_self"
+  } else {
+    "self"
+  }
   b.write_string("///|\n")
   b.write_string("pub impl @seam.IsTrivia for " + token_enum.name)
-  b.write_string(" with fn is_trivia(self) {\n")
+  b.write_string(" with fn is_trivia(" + receiver_name + ") {\n")
   if trivia_variants.length() == 0 {
     b.write_string("  false\n")
   } else {

@@ -98,10 +98,10 @@ fn parse_indexed_inline_container_with_continue_line(
 ) -> Unit {
   let delimiters = ctx.lookahead(() => {
     let index : CodeSpanDelimiterIndex = {
-      eligible_openers: {},
-      successors: {},
+      eligible_openers: Map([]),
+      successors: Map([]),
     }
-    let previous_by_length : Map[Int, Int] = {}
+    let previous_by_length : Map[Int, Int] = Map([])
     let mut preceding_text_ends_escaped = false
     while true {
       while !token_is_inline_end(ctx.peek(), policy) {

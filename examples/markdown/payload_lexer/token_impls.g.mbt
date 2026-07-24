@@ -11,7 +11,7 @@ pub impl Show for Token with fn output(self, logger) {
 }
 
 ///|
-pub impl @seam.IsTrivia for Token with fn is_trivia(self) {
+pub impl @seam.IsTrivia for Token with fn is_trivia(_self) {
   false
 }
 

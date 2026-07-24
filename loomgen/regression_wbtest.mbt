@@ -570,6 +570,7 @@ test "display annotation overrides generated token Show text" {
   }
   let generated = emit_token_impls(token_enum, [("AToken", 0)])
   inspect(generated.contains("A => \"<custom>\""), content="true")
+  inspect(generated.contains("is_trivia(_self)"), content="true")
 }
 
 ///|
@@ -780,7 +781,7 @@ test "tag annotation stores canonical tag metadata" {
     Some(value) => value
     None => abort("expected term enum")
   }
-  inspect(term.variants[0].tag_name, content="Some(script)")
+  debug_inspect(term.variants[0].tag_name, content="Some(\"script\")")
 }
 
 ///|

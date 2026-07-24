@@ -76,7 +76,7 @@ pub struct Env {
 
 ///|
 pub fn Env::empty() -> Env {
-  { bindings: {} }
+  { bindings: Map([]) }
 }
 
 ///|
