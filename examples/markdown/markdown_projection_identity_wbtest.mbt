@@ -287,9 +287,9 @@ test "MarkdownIR identity tracker: formatting a link label preserves semantic id
     parsed_markdown_ir(formatted_source),
     None,
   )
-  inspect(
+  debug_inspect(
     stable_markdown_identity_ids(formatted),
-    content="[markdown#0, markdown#1, markdown#2, markdown#3]",
+    content="[\"markdown#0\", \"markdown#1\", \"markdown#2\", \"markdown#3\"]",
   )
 }
 

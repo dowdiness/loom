@@ -12,6 +12,7 @@ priv enum MarkdownSemanticKey {
 } derive(Eq, Debug)
 
 ///|
+#warnings("-unused_value")
 priv struct MarkdownNodeId {
   value : String
 } derive(Eq, Debug)
@@ -30,6 +31,7 @@ priv struct MarkdownProjectionIdentityTracker {
 }
 
 ///|
+#warnings("-unused_value")
 fn MarkdownProjectionIdentityTracker::new() -> MarkdownProjectionIdentityTracker {
   {
     tracker: @projection.ProjectionIdentityTracker::new(),
@@ -40,6 +42,7 @@ fn MarkdownProjectionIdentityTracker::new() -> MarkdownProjectionIdentityTracker
 }
 
 ///|
+#warnings("-unused_value")
 fn MarkdownProjectionIdentityTracker::realign_success(
   self : MarkdownProjectionIdentityTracker,
   source : String,
@@ -66,6 +69,7 @@ fn MarkdownProjectionIdentityTracker::realign_success(
 }
 
 ///|
+#warnings("-unused_value")
 fn MarkdownProjectionIdentityTracker::record_failed_input(
   self : MarkdownProjectionIdentityTracker,
   current_source : String,
@@ -79,6 +83,7 @@ fn MarkdownProjectionIdentityTracker::record_failed_input(
 }
 
 ///|
+#warnings("-unused_value")
 fn MarkdownProjectionIdentityTracker::commit_success(
   self : MarkdownProjectionIdentityTracker,
   source : String,
@@ -270,7 +275,7 @@ fn apply_markdown_local_identity_overrides(
             return preview
           }
           let result = preview.copy()
-          let matched_previous : Map[Int, Int] = {}
+          let matched_previous : Map[Int, Int] = Map([])
           for next_index, next_candidate in next {
             let previous_parent = markdown_matching_previous_parent(
               next_candidate, matched_previous,
@@ -358,6 +363,7 @@ fn apply_markdown_local_identity_overrides(
 }
 
 ///|
+#warnings("-unused_value")
 priv struct MarkdownIdentityLeaf {
   anchor : MarkdownIROrigin
   key : MarkdownSemanticKey
@@ -541,6 +547,7 @@ fn normalized_link_label_node_fingerprint(ir : MarkdownIR) -> String {
 }
 
 ///|
+#warnings("-unused_value")
 fn markdown_ir_identity_leaves(ir : MarkdownIR) -> Array[MarkdownIdentityLeaf] {
   markdown_ir_identity_candidates(ir).map(candidate => candidate.leaf)
 }

@@ -14,8 +14,15 @@ fn emit_token_membership_function(
     Some(text) => b.write_string("/// " + text + "\n")
     None => ()
   }
+  let argument_name = if variants.length() == 0 { "_token" } else { "token" }
   b.write_string(
-    "pub fn " + function_name + "(token : " + token_type + ") -> Bool {\n",
+    "pub fn " +
+    function_name +
+    "(" +
+    argument_name +
+    " : " +
+    token_type +
+    ") -> Bool {\n",
   )
   if variants.length() == 0 {
     b.write_string("  false\n")

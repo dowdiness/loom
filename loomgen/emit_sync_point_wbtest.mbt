@@ -30,7 +30,7 @@ test "emit_sync_point: no sync variants" {
     #|///|
     #|/// Returns `true` if `token` is an error-recovery synchronization point.
     #|/// Generated from `#loom.recovery("sync")` annotations.
-    #|pub fn is_sync_point(token : Tok) -> Bool {
+    #|pub fn is_sync_point(_token : Tok) -> Bool {
     #|  false
     #|}
     #|

@@ -142,9 +142,9 @@ test "lex script raw text is case-insensitive and empty-safe" {
 
 ///|
 test "generated element classifier is case insensitive and custom safe" {
-  inspect(@syntax.classify_element("BR"), content="Some(Br)")
-  inspect(@syntax.classify_element("ScRiPt"), content="Some(Script)")
-  inspect(@syntax.classify_element("my-widget"), content="None")
+  debug_inspect(@syntax.classify_element("BR"), content="Some(Br)")
+  debug_inspect(@syntax.classify_element("ScRiPt"), content="Some(Script)")
+  debug_inspect(@syntax.classify_element("my-widget"), content="None")
 }
 
 ///|
