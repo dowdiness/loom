@@ -74,7 +74,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [superpowers/specs/2026-07-20-markdown-delimiter-frontier-design.md](superpowers/specs/2026-07-20-markdown-delimiter-frontier-design.md) — candidate no-goal-source `ParserContext::token_at` transport; production integration deferred for #719
 - [superpowers/specs/2026-07-20-markdown-continuation-decision-refactor-design.md](superpowers/specs/2026-07-20-markdown-continuation-decision-refactor-design.md) — proposed Markdown-local typed continuation decision/consumption seam; no core parser API or frontier integration
 - [superpowers/specs/2026-07-23-markdown-container-fact-plan-design.md](superpowers/specs/2026-07-23-markdown-container-fact-plan-design.md) — proposed Markdown-local fact-plan investigation; no production integration without isolated-cost and calibrated paired-performance evidence
-- [superpowers/plans/2026-07-23-markdown-container-fact-plan.md](superpowers/plans/2026-07-23-markdown-container-fact-plan.md) — implementation plan for the proposed container fact plan investigation; five gated tasks, stop if prepass or performance gate fails
+- [archive/completed-phases/2026-07-23-markdown-container-fact-plan.md](archive/completed-phases/2026-07-23-markdown-container-fact-plan.md) — **Complete** #739 investigation; behavior passed, but the calibrated gate rejected production adoption
 - [superpowers/archive/completed-phases/2026-07-22-markdown-continuation-decision-refactor.md](archive/completed-phases/2026-07-22-markdown-continuation-decision-refactor.md) — completed implementation plan for the Markdown-local typed continuation decision/consumption refactor
 - [superpowers/specs/2026-07-17-payload-producer-boundary-design.md](superpowers/specs/2026-07-17-payload-producer-boundary-design.md) — proposed future boundary separating lexer-level custom hooks from generated variant plans (#688)
 - [decisions/2026-07-17-payload-capture.md](decisions/2026-07-17-payload-capture.md) — **Accepted** private regex capture payload annotations and Markdown helper integration (#688)
@@ -86,6 +86,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-24-markdown-container-fact-plan-stop-gate.md](decisions/2026-07-24-markdown-container-fact-plan-stop-gate.md) — **Accepted** decision not to adopt the #739 Markdown container fact plan after its calibrated performance gate failed
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Accepted** #607 decision for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](archive/completed-phases/2026-07-19-loomgen-html-element-properties.md) — **Complete** implementation plan for #607, including generated classifier, atomic HostGuard dispatch, source-span fidelity, and parse-local stack ownership

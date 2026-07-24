@@ -1,6 +1,12 @@
 # Markdown Container Fact Plan Implementation Plan
+**Status:** Complete — stopped at the calibrated performance gate; production integration is not adopted.
+**Completion:** Tasks 1–4 completed and Task 5’s behavioral suite passed 3,430 tests. The calibrated candidate gate failed for realistic CST, realistic CST+AST, and tokenize-only. The committed evidence is `docs/performance/2026-07-24-markdown-container-fact-plan-task5-gate.json` (`a23cb0d`).
+**Decision:** Retain this branch only as investigation evidence; do not merge the Task 2–4 production candidate.
+**Related issue:** #739
+**Decision record:** [ADR: Do Not Adopt Markdown Container Fact Plan](../../decisions/2026-07-24-markdown-container-fact-plan-stop-gate.md)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+> **For agentic workers:** This archived plan records the completed, stopped investigation and its evidence; checklist items use checkbox (`- [x]`) syntax.
 
 **Goal:** Replace the speculative CST-emitting delimiter prepass (`ParserContext::lookahead` in `parse_indexed_inline_container_with_continue_line`) with a Markdown-local container fact plan that walks baseline token facts through `ParserContext::token_at(offset, goal=0)`, records continuation decisions and backtick-run successors without emitting parser events, and feeds the plan to the authoritative inline driver. The investigation is gated: it stops at the isolated prepass benchmark if the speculative cost is not measurable, and stops at the calibrated paired-performance gate if the candidate does not achieve the required improvement. No core parser API, no cache, no goal-source accessor, no arbitrary source-slice API.
 
@@ -8,7 +14,7 @@
 
 **Tech Stack:** MoonBit 0.10.0+; `dowdiness/loom` core; `examples/markdown`; MoonBit generated `.mbti` interfaces; existing Markdown CST, inline, continuation, incremental, source-fidelity, and MarkdownIR fixture suites.
 
-**Related:** [Design spec](../specs/2026-07-23-markdown-container-fact-plan-design.md); [ADR: defer Markdown delimiter frontier integration](../../decisions/2026-07-20-markdown-delimiter-frontier.md); [continuation decision refactor design](../specs/2026-07-20-markdown-continuation-decision-refactor-design.md)
+**Related:** [Design spec](../../superpowers/specs/2026-07-23-markdown-container-fact-plan-design.md); [ADR: defer Markdown delimiter frontier integration](../../decisions/2026-07-20-markdown-delimiter-frontier.md); [continuation decision refactor design](../../superpowers/specs/2026-07-20-markdown-continuation-decision-refactor-design.md)
 
 ---
 
@@ -251,7 +257,7 @@ required for this task.
 
 ### Steps
 
-- [ ] **1. Add failing parity tests for all six typed owners.**
+- [x] **1. Add failing parity tests for all six typed owners.**
 
   Extend `continuation_wbtest.mbt` using its existing newline-positioning
   helpers. For each owner, cover every `Continue` action and `Stop`: compare
@@ -270,7 +276,7 @@ required for this task.
 
   Expected: failure until the typed pure closures exist.
 
-- [ ] **2. Extend the generic handler without erasing owner types.**
+- [x] **2. Extend the generic handler without erasing owner types.**
 
   Update `ContinuationHandler[T]` in `inline_parser.mbt` to carry the pure
   observer and advance closures alongside `decide` and `consume`. Update each
@@ -278,7 +284,7 @@ required for this task.
   operations. Preserve the current parser-facing `decide` and `consume`
   signatures and behavior.
 
-- [ ] **3. Implement and co-locate the six fact operations.**
+- [x] **3. Implement and co-locate the six fact operations.**
 
   Beside every owner’s existing decision/consumer pair in `cst_parser.mbt`,
   add its `token_at`-only observer and action advance. Factor only shared
@@ -288,7 +294,7 @@ required for this task.
   through helpers in `setext_policy.mbt`; the existing context path must retain
   `current_token_text()`.
 
-- [ ] **4. Verify purity and full action/offset correspondence.**
+- [x] **4. Verify purity and full action/offset correspondence.**
 
   Extend the focused tests to assert that every observer and advance leaves
   `current_token_range`, current node kind, lex mode, and mark unchanged.
@@ -301,7 +307,7 @@ required for this task.
 
   Expected: all typed parity, action/offset, and no-event tests pass.
 
-- [ ] **5. Run package verification and format after correctness passes.**
+- [x] **5. Run package verification and format after correctness passes.**
 
   ```bash
   cd examples/markdown && rtk moon check --target wasm-gc && rtk moon test --target wasm-gc && rtk moon fmt
@@ -356,7 +362,7 @@ handler, and reuses the existing left-to-right delimiter-index semantics.
 
 ### Steps
 
-- [ ] **1. Add failing typed planner tests.**
+- [x] **1. Add failing typed planner tests.**
 
   Create `container_fact_plan_wbtest.mbt`. Cover single-line and multi-line
   ends, `Stop` newline ends, every owner’s recorded typed action, exact
@@ -374,7 +380,7 @@ handler, and reuses the existing left-to-right delimiter-index semantics.
 
   Expected: failure until the planner exists.
 
-- [ ] **2. Define a private generic plan and fact walk.**
+- [x] **2. Define a private generic plan and fact walk.**
 
   In `container_fact_plan.mbt`, define `ContainerFactPlan[T]` and the generic
   builder from the interfaces above. Reuse the existing package-private
@@ -383,7 +389,7 @@ handler, and reuses the existing left-to-right delimiter-index semantics.
   `token_at(offset, 0)` for every fact; do not add any source accessor, cache,
   or parser mutation.
 
-- [ ] **3. Integrate without altering unrelated inline parsing.**
+- [x] **3. Integrate without altering unrelated inline parsing.**
 
   In `inline_parser.mbt`, replace the `ctx.lookahead` block that builds
   delimiters with plan construction. Keep `parse_inline`, bold, italic, and
@@ -393,7 +399,7 @@ handler, and reuses the existing left-to-right delimiter-index semantics.
   preceding-text escape state after every successful continuation, preserving
   the current literal fallback for unmatched or escaped backticks.
 
-- [ ] **4. Prove boundaries and parser equivalence.**
+- [x] **4. Prove boundaries and parser equivalence.**
 
   Run the focused plan tests, then the complete Markdown package suite. If a
   differential fixture fails, diagnose and correct the plan before beginning
@@ -403,7 +409,7 @@ handler, and reuses the existing left-to-right delimiter-index semantics.
   cd examples/markdown && rtk moon test --target wasm-gc container_fact_plan_wbtest.mbt && rtk moon test --target wasm-gc
   ```
 
-- [ ] **5. Format and verify package interfaces.**
+- [x] **5. Format and verify package interfaces.**
 
   ```bash
   cd examples/markdown && rtk moon fmt && rtk moon check --target wasm-gc
@@ -428,7 +434,7 @@ paired-performance adoption gate.
 
 ### Steps
 
-- [ ] **1. Run the full behavioral differential validation.**
+- [x] **1. Run the full behavioral differential validation.**
 
   ```bash
   cd examples/markdown && rtk moon test --target wasm-gc
@@ -437,7 +443,7 @@ paired-performance adoption gate.
   Expected: every test passes. A failure is a parser defect: reproduce and
   correct it, then rerun the complete behavioral suite before performance work.
 
-- [ ] **2. Run the calibrated A/A protocol.**
+- [x] **2. Run the calibrated A/A protocol.**
 
   In two same-commit worktrees (both at the Task 4 commit), run three unrecorded warm-up invocations for each benchmark metric, then at least fifteen counterbalanced A/A pairs. Use the existing wasm-gc Markdown benchmarks (`benchmark_test.mbt`). The metrics are:
   - realistic CST
@@ -447,14 +453,14 @@ paired-performance adoption gate.
 
   Bootstrap the median of paired deltas with 10,000 resamples (Python 3, `random.Random(0xC0FFEE)`, `statistics.median`, two-sided 95% percentile interval at indices 250 and 9749). Every metric's A/A interval must contain zero. If not, increase sample size or stabilize environment.
 
-- [ ] **3. Run the candidate-versus-baseline paired benchmark.**
+- [x] **3. Run the candidate-versus-baseline paired benchmark.**
 
   Build the baseline from the commit immediately before Task 2: it contains
   only the Task 1 benchmark artifact and no token payload, pure handler
   closures, or fact plan. Run at least fifteen counterbalanced
   candidate-versus-baseline pairs.
 
-- [ ] **4. Evaluate the performance gate.**
+- [x] **4. Evaluate the performance gate.**
 
   Compute the bootstrap 95% percentile interval for the median paired delta of each metric. The candidate is eligible only when:
   - Realistic CST: upper endpoint ≤ -3.0%
@@ -464,9 +470,12 @@ paired-performance adoption gate.
 
   If any metric fails, the investigation stops. Document the intervals, commit IDs, and the stop decision.
 
-- [ ] **5. If the gate passes, document the evidence.**
+- [x] **5. Record the failing gate evidence.**
 
-  Attach to the candidate PR: raw invocation means, warm-up count, pair ordering, bootstrap seed and algorithm, computed intervals, commands, target, host details, and both commit IDs. Do not update `docs/performance/bench-baseline.tsv` — baseline changes are a separate review decision.
+  The calibrated gate failed, so no candidate PR or benchmark-baseline update
+  is permitted. The committed artifact records raw invocation means, warm-up
+  count, pair ordering, bootstrap seed and algorithm, computed intervals,
+  commands, target, host details, and both commit IDs.
 
 **Commit message (if gate passes):** `markdown: container fact plan — calibrated performance evidence`
 
