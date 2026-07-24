@@ -289,8 +289,8 @@ markdown: 50x (~1000 lines) - incremental	1760000.00
 markdown: 100x (~2000 lines) - tokenize	773450.00
 markdown: 100x (~2000 lines) - full parse	28010000.00
 markdown: 100x (~2000 lines) - incremental	3600000.00
-markdown: realistic doc - full parse (CST)	128110.00
-markdown: realistic doc - full parse (CST+AST)	209000.00
+markdown: realistic doc - full parse (CST)	180310.00
+markdown: realistic doc - full parse (CST+AST)	268040.00
 markdown: realistic doc - tokenize only	39360.00
 markdown: realistic doc - lowering SyntaxNode -> Block	68870.00
 markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block	69220.00
