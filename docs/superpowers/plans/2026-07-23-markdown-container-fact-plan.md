@@ -111,10 +111,13 @@ parsing of the same isolated, realistic multi-line container.
 `docs/performance/2026-07-24-markdown-prepass-stop-gate-pre-task2.json`
 records 3 unrecorded warm-ups per ordered variant and 16 alternating pairs per
 fixture at `50c18d3275cfb63504828ff1e71b0d0c96199189`, whose parent is
-`f430d5a` and contains no Task 2 token transport. With 10,000
-`random.Random(0xC0FFEE)` median-ratio resamples, the lower 95% endpoints are
-root 13.45%, block quote 10.95%, and list item 11.95%. Each exceeds 3.0%;
-proceed to Task 2.
+`f430d5a` and contains no Task 2 token transport. This measurement was made
+after Task 2 was initially implemented; it repairs source-level provenance and
+confirms that the gate would have passed, but cannot reconstruct a historical
+pre-implementation decision. With 10,000 `random.Random(0xC0FFEE)`
+median-ratio resamples, the lower 95% endpoints are root 13.45%, block quote
+10.95%, and list item 11.95%. Each exceeds 3.0%, supporting retention of Task
+2 and the start of Task 3.
 
 ---
 
