@@ -1,0 +1,141 @@
+{
+  "aa_calibration": {
+    "incremental_paragraph_edit": {
+      "bootstrap_95_percent_interval": [
+        -3.436042309966513,
+        2.4603087302460294
+      ],
+      "lower_index": 250,
+      "median_percent": 0.5235808204078483,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749
+    },
+    "realistic_cst": {
+      "bootstrap_95_percent_interval": [
+        -4.638014709561214,
+        1.5121729925903482
+      ],
+      "lower_index": 250,
+      "median_percent": 0.24376896671808237,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749
+    },
+    "realistic_cst_ast": {
+      "bootstrap_95_percent_interval": [
+        -4.098382569175238,
+        7.2469382281951304
+      ],
+      "lower_index": 250,
+      "median_percent": 1.2432723358450075,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749
+    },
+    "tokenize_only": {
+      "bootstrap_95_percent_interval": [
+        -3.206222728135064,
+        1.0655408122235557
+      ],
+      "lower_index": 250,
+      "median_percent": -0.3878223773511695,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749
+    }
+  },
+  "baseline_commit": "17ebd1b5b7f14f0a45486ee6d4af9b430d0f0fe9",
+  "benchmark_command": "rtk proxy moon bench --release --package dowdiness/markdown --file benchmark_test.mbt --target wasm-gc --index <index>",
+  "candidate_commit": "66e46940c74d531b836525d151d2f18d14140a1f",
+  "candidate_vs_baseline": {
+    "incremental_paragraph_edit": {
+      "bootstrap_95_percent_interval": [
+        -1.5460113644749462,
+        1.8324401008827367
+      ],
+      "lower_index": 250,
+      "median_percent": -0.26011336283872133,
+      "passes_gate": true,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749,
+      "upper_threshold_percent": 2.0
+    },
+    "realistic_cst": {
+      "bootstrap_95_percent_interval": [
+        -4.425253926350173,
+        2.664548343168405
+      ],
+      "lower_index": 250,
+      "median_percent": -2.6373326045367516,
+      "passes_gate": false,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749,
+      "upper_threshold_percent": -3.0
+    },
+    "realistic_cst_ast": {
+      "bootstrap_95_percent_interval": [
+        -5.296829428920888,
+        -0.9734647460197011
+      ],
+      "lower_index": 250,
+      "median_percent": -3.625896678521898,
+      "passes_gate": false,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749,
+      "upper_threshold_percent": -3.0
+    },
+    "tokenize_only": {
+      "bootstrap_95_percent_interval": [
+        2.2231204527081645,
+        12.15996751928543
+      ],
+      "lower_index": 250,
+      "median_percent": 5.518809425382375,
+      "passes_gate": false,
+      "resamples": 10000,
+      "seed": 12648430,
+      "upper_index": 9749,
+      "upper_threshold_percent": 2.0
+    }
+  },
+  "decision": "stop: candidate does not meet the calibrated performance gate",
+  "host": {
+    "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.14.2"
+  },
+  "metrics": {
+    "incremental_paragraph_edit": {
+      "benchmark_index": 16
+    },
+    "realistic_cst": {
+      "benchmark_index": 9
+    },
+    "realistic_cst_ast": {
+      "benchmark_index": 10
+    },
+    "tokenize_only": {
+      "benchmark_index": 11
+    }
+  },
+  "protocol": {
+    "bootstrap": {
+      "lower_index": 250,
+      "resamples": 10000,
+      "seed": 12648430,
+      "statistic": "median paired delta percent",
+      "upper_index": 9749
+    },
+    "delta_percent": "(right_mean_seconds - left_mean_seconds) / left_mean_seconds * 100",
+    "pair_order": "odd pairs left-right; even pairs right-left",
+    "pairs_per_metric": 15,
+    "warmups_per_worktree_metric": 3
+  },
+  "reason": "three required metric thresholds failed; do not proceed to adoption",
+  "schema": 1,
+  "target": "wasm-gc",
+  "timestamp_utc": "2026-07-24T12:13:41.582246+00:00"
+}
