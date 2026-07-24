@@ -70,7 +70,7 @@ parsing of the same isolated, realistic multi-line container.
 
 ### Steps
 
-- [ ] **1. Write a test-only benchmark that measures the current speculative prepass in isolation.**
+- [x] **1. Write a test-only benchmark that measures the current speculative prepass in isolation.**
 
   Create `examples/markdown/prepass_benchmark_wbtest.mbt`. Its test-only helper
   must mirror the current `ctx.lookahead` loop in
@@ -96,7 +96,7 @@ parsing of the same isolated, realistic multi-line container.
   Expected: benchmark compiles and runs; raw observations and the ratio
   interval are retained as the Task 1 decision evidence.
 
-- [ ] **2. Apply the stop condition before changing production behavior.**
+- [x] **2. Apply the stop condition before changing production behavior.**
 
   Continue only if the lower 95% bootstrap endpoint for the median
   prepass/full-CST ratio is strictly greater than 3.0% for at least one
@@ -106,6 +106,15 @@ parsing of the same isolated, realistic multi-line container.
 
   **Stop gate evidence:** raw observations, the ratio interval, fixture
   identity, bootstrap seed/algorithm, and the go/no-go decision.
+
+**Recorded pre-Task-2 evidence (2026-07-24):**
+`docs/performance/2026-07-24-markdown-prepass-stop-gate-pre-task2.json`
+records 3 unrecorded warm-ups per ordered variant and 16 alternating pairs per
+fixture at `50c18d3275cfb63504828ff1e71b0d0c96199189`, whose parent is
+`f430d5a` and contains no Task 2 token transport. With 10,000
+`random.Random(0xC0FFEE)` median-ratio resamples, the lower 95% endpoints are
+root 13.45%, block quote 10.95%, and list item 11.95%. Each exceeds 3.0%;
+proceed to Task 2.
 
 ---
 
