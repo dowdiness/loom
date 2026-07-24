@@ -540,7 +540,7 @@ pub struct ProjectionStringIdAllocator {
 pub fn ProjectionStringIdAllocator::new(
   make_id : (String, Int) -> String,
 ) -> ProjectionStringIdAllocator {
-  { used: {}, counters: {}, make_id }
+  { used: Map([]), counters: Map([]), make_id }
 }
 
 ///|
