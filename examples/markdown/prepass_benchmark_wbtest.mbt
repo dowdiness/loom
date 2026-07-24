@@ -98,6 +98,9 @@ fn root_prepass(
   let handler : ContinuationHandler[RootContinuationKind] = {
     decide: () => decide_root_paragraph_continuation(ctx),
     consume: action => consume_root_continuation(ctx, action),
+    speculate: action => consume_root_continuation(ctx, action),
+    observe: offset => observe_root_paragraph_continuation(ctx, offset),
+    advance: (offset, action) => advance_root_continuation(ctx, offset, action),
   }
   benchmark_indexed_prepass(
     ctx,
@@ -113,6 +116,10 @@ fn block_quote_prepass(
   let handler : ContinuationHandler[BlockQuoteContinuationKind] = {
     decide: () => decide_block_quote_paragraph_continuation(ctx),
     consume: action => consume_block_quote_continuation(ctx, action),
+    speculate: action => consume_block_quote_continuation(ctx, action),
+    observe: offset => observe_block_quote_paragraph_continuation(ctx, offset),
+    advance: (offset, action) =>
+      advance_block_quote_continuation(ctx, offset, action),
   }
   benchmark_indexed_prepass(
     ctx,
@@ -135,6 +142,18 @@ fn list_item_prepass(
       )
     },
     consume: action => consume_list_item_continuation(ctx, action),
+    speculate: action => consume_list_item_continuation(ctx, action),
+    observe: offset => {
+      observe_list_item_continuation(
+        ctx,
+        offset,
+        2,
+        allow_ordered_marker=false,
+        has_paragraph_content=true,
+      )
+    },
+    advance: (offset, action) =>
+      advance_list_item_continuation(ctx, offset, action),
   }
   benchmark_indexed_prepass(
     ctx,

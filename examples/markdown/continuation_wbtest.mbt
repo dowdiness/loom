@@ -56,6 +56,123 @@ fn assert_decision_public_state_pure(
   inspect(ctx.lex_mode(), content=before_mode.to_string())
   inspect(after_mark, content=(before_mark + 1).to_string())
 }
+///|
+test "continuation facts: root observer mirrors decisions" {
+  let no_prefix = continuation_context_at_newline("para\nbar\n")
+  let no_prefix_offset = no_prefix.current_token_range().start
+  match observe_root_paragraph_continuation(no_prefix, no_prefix_offset) {
+    Continue(RootContinuationKind::NoPrefix) => ()
+    _ => abort("expected fact-observed root NoPrefix")
+  }
+
+  let thematic = continuation_context_at_newline("para\n    ---\n")
+  let thematic_offset = thematic.current_token_range().start
+  match observe_root_paragraph_continuation(thematic, thematic_offset) {
+    Continue(RootContinuationKind::ThematicBreakPrefix) => ()
+    _ => abort("expected fact-observed root ThematicBreakPrefix")
+  }
+
+  let boundary = continuation_context_at_newline("para\n---\n")
+  let boundary_offset = boundary.current_token_range().start
+  match observe_root_paragraph_continuation(boundary, boundary_offset) {
+    Stop => ()
+    _ => abort("expected fact-observed root Stop")
+  }
+}
+
+///|
+test "continuation facts: block-quote prefix-only thematic line stops" {
+  let ctx = continuation_context_at_newline("para\n---\n")
+  let offset = ctx.current_token_range().start
+  match observe_block_quote_paragraph_continuation(ctx, offset) {
+    Stop => ()
+    _ => abort("expected fact-observed block-quote thematic line Stop")
+  }
+}
+///|
+test "continuation facts: setext observers mirror decisions" {
+  let root = continuation_context_at_newline("para\nbar\n")
+  match observe_setext_continuation(root, root.current_token_range().start) {
+    Continue(SetextContinuationKind::NoPrefix) => ()
+    _ => abort("expected fact-observed setext NoPrefix")
+  }
+
+  let quoted = continuation_context_at_newline("para\n> bar\n")
+  match observe_block_quote_heading_continuation(
+    quoted,
+    quoted.current_token_range().start,
+  ) {
+    Continue(BlockQuoteHeadingContinuationKind::MarkerAndPrefix(NoPrefix)) => ()
+    _ => abort("expected fact-observed quoted setext MarkerAndPrefix(NoPrefix)")
+  }
+
+  let quoted_underline = continuation_context_at_newline("para\n> ---\n")
+  match observe_block_quote_heading_continuation(
+    quoted_underline,
+    quoted_underline.current_token_range().start,
+  ) {
+    Stop => ()
+    _ => abort("expected fact-observed quoted setext underline Stop")
+  }
+}
+
+///|
+test "continuation facts: list observers mirror decisions" {
+  let item = continuation_context_at_newline("para\n  child\n")
+  match observe_list_item_continuation(
+    item,
+    item.current_token_range().start,
+    2,
+    allow_ordered_marker=true,
+    has_paragraph_content=true,
+  ) {
+    Continue(ListItemContinuationKind::IndentationPrefix) => ()
+    _ => abort("expected fact-observed list indentation prefix")
+  }
+
+  let setext = continuation_context_at_newline("para\n2. child\n")
+  match observe_list_item_setext_continuation(
+    setext,
+    setext.current_token_range().start,
+    2,
+    allow_ordered_marker=true,
+  ) {
+    Continue(ListItemSetextContinuationKind::OrderedMarkerAsText) => ()
+    _ => abort("expected fact-observed list setext ordered marker")
+  }
+
+  let unindented_underline = continuation_context_at_newline("para\n---\n")
+  match observe_list_item_setext_continuation(
+    unindented_underline,
+    unindented_underline.current_token_range().start,
+    2,
+    allow_ordered_marker=true,
+  ) {
+    Stop => ()
+    _ => abort("expected fact-observed list setext Stop for unindented underline")
+  }
+
+  match setext_underline_depth_after_newline_at(
+    unindented_underline,
+    unindented_underline.current_token_range().start,
+    allow_list_marker=false,
+    min_indent=2,
+  ) {
+    None => ()
+    _ => abort("unindented thematic fact must not satisfy list indentation")
+  }
+
+  let indented_underline = continuation_context_at_newline("para\n  ---\n")
+  match setext_underline_depth_after_newline_at(
+    indented_underline,
+    indented_underline.current_token_range().start,
+    allow_list_marker=false,
+    min_indent=2,
+  ) {
+    Some(2) => ()
+    _ => abort("indented thematic fact must satisfy list indentation")
+  }
+}
 
 ///|
 test "continuation decisions: root variants" {
@@ -459,10 +576,9 @@ test "continuation decisions: list-item setext Stop" {
 }
 
 ///|
-/// The delimiter-indexing lookahead and the actual inline pass must invoke the
-/// same typed continuation action. External counters observe both passes even
-/// though ParserContext restores its own state after the speculative pass.
-test "continuation driver: speculative and actual passes consume same action" {
+/// The pure fact walk records the typed action; only the actual parser pass
+/// consumes it, so external counters observe exactly one consumption.
+test "continuation driver: planned action consumes once" {
   let ctx = continuation_context("para\nchild\n")
   let consume_calls = [0]
   let no_prefix_calls = [0]
@@ -473,12 +589,51 @@ test "continuation driver: speculative and actual passes consume same action" {
       match action {
         RootContinuationKind::NoPrefix =>
           no_prefix_calls[0] = no_prefix_calls[0] + 1
-        _ => abort("expected NoPrefix in both parser passes")
+        _ => abort("expected planned NoPrefix")
       }
       consume_root_continuation(ctx, action)
     },
+    speculate: action => consume_root_continuation(ctx, action),
+    observe: offset => observe_root_paragraph_continuation(ctx, offset),
+    advance: (offset, action) => advance_root_continuation(ctx, offset, action),
   }
   parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
-  inspect(consume_calls[0], content="2")
-  inspect(no_prefix_calls[0], content="2")
+  inspect(consume_calls[0], content="1")
+  inspect(no_prefix_calls[0], content="1")
+}
+
+///|
+test "continuation driver: unclosed multiline bold consumes once" {
+  let ctx = continuation_context("**one\ntwo\n")
+  let consume_calls = [0]
+  let handler : ContinuationHandler[RootContinuationKind] = {
+    decide: () => decide_root_paragraph_continuation(ctx),
+    consume: action => {
+      consume_calls[0] = consume_calls[0] + 1
+      consume_root_continuation(ctx, action)
+    },
+    speculate: action => consume_root_continuation(ctx, action),
+    observe: offset => observe_root_paragraph_continuation(ctx, offset),
+    advance: (offset, action) => advance_root_continuation(ctx, offset, action),
+  }
+  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+  inspect(consume_calls[0], content="1")
+}
+
+///|
+test "continuation driver: outer link rollback consumes nested action once" {
+  let ctx = continuation_context("[**one\ntwo**]\n")
+  let consume_calls = [0]
+  let handler : ContinuationHandler[RootContinuationKind] = {
+    decide: () => decide_root_paragraph_continuation(ctx),
+    consume: action => {
+      consume_calls[0] = consume_calls[0] + 1
+      consume_root_continuation(ctx, action)
+    },
+    speculate: action => consume_root_continuation(ctx, action),
+    observe: offset => observe_root_paragraph_continuation(ctx, offset),
+    advance: (offset, action) => advance_root_continuation(ctx, offset, action),
+  }
+  parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
+  inspect(consume_calls[0], content="1")
 }

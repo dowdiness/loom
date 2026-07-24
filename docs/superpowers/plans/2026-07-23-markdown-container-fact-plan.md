@@ -274,7 +274,11 @@ required for this task.
   authority out of its owner. The pure setext path must map
   `Dash`→depth 2 and `Star`/`Plus`→no underline, and consume thematic text
   through helpers in `setext_policy.mbt`; the existing context path must retain
-  `current_token_text()`.
+  `current_token_text()`. Add a token_at-only equivalent of
+  `next_unquoted_line_is_thematic_break` for the block-quote paragraph observer:
+  it may build a line only from `Text`, `Star`, `StarStar`,
+  `ThematicBreak(payload)`, `Newline`, and `EOF` facts, and must otherwise
+  return false.
 
 - [ ] **4. Verify purity and full action/offset correspondence.**
 

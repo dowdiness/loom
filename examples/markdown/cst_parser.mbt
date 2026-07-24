@@ -189,6 +189,9 @@ fn try_parse_setext_heading(
   let handler : ContinuationHandler[SetextContinuationKind] = {
     decide: () => decide_setext_continuation(ctx),
     consume: action => consume_setext_continuation(ctx, action),
+    speculate: action => consume_setext_continuation(ctx, action),
+    observe: offset => observe_setext_continuation(ctx, offset),
+    advance: (offset, action) => advance_setext_continuation(ctx, offset, action),
   }
   parse_indexed_inline_container(
     ctx,
@@ -326,6 +329,257 @@ fn observe_continuation_prefix(
     _ => NoPrefix
   }
 }
+///|
+fn observe_continuation_prefix_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationPrefixKind {
+  let (next, next_end) = ctx.token_at(offset, 0)
+  match next {
+    Indentation(_) => {
+      let (following, _) = ctx.token_at(next_end, 0)
+      if following is ThematicBreak(_) {
+        ThematicBreakPrefix
+      } else {
+        NoPrefix
+      }
+    }
+    ListMarker(_) | OrderedListMarker(_) => ListMarkerPrefix
+    _ => NoPrefix
+  }
+}
+
+///|
+fn next_prefix_requires_root_block_dispatch_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> Bool {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return false }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    Indentation(text) if count_leading_indent(text.view()) <= 3 => {
+      let (following, _) = ctx.token_at(next_end, 0)
+      match following {
+        ListMarker(_) | OrderedListMarker(_) =>
+          token_breaks_paragraph_after_newline(following) &&
+          !setext_list_marker_line_ends_after_marker_at(ctx, next_end)
+        ThematicBreak(_)
+        | HeadingMarker(_)
+        | BlockQuoteMarker
+        | CodeFenceOpen(_, _)
+        | HtmlBlockOpen(_) => true
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn next_token_after_newline_is_lone_list_marker_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> Bool {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return false }
+  let (next, _) = ctx.token_at(next_offset, 0)
+  match next {
+    ListMarker(_) | OrderedListMarker(_) =>
+      setext_list_marker_line_ends_after_marker_at(ctx, next_offset)
+    _ => false
+  }
+}
+
+///|
+fn observe_root_paragraph_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationDecision[RootContinuationKind] {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  if next_prefix_requires_root_block_dispatch_at(ctx, offset) ||
+    (
+      !next_token_after_newline_is_lone_list_marker_at(ctx, offset) &&
+      (token_breaks_paragraph_after_newline(next) || next is Newline || next is EOF)
+    ) {
+    Stop
+  } else {
+    match next {
+      Indentation(_) => {
+        let (following, _) = ctx.token_at(next_end, 0)
+        if following is ThematicBreak(_) {
+          Continue(ThematicBreakPrefix)
+        } else {
+          Continue(NoPrefix)
+        }
+      }
+      ListMarker(_) | OrderedListMarker(_) => Continue(ListMarkerPrefix)
+      _ => Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn observe_block_quote_paragraph_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationDecision[BlockQuoteContinuationKind] {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    BlockQuoteMarker => {
+      let (following, _) = ctx.token_at(next_end, 0)
+      if token_continues_paragraph_after_softbreak(following) {
+        Continue(MarkerAndPrefix(observe_continuation_prefix_at(ctx, next_end)))
+      } else {
+        Stop
+      }
+    }
+    _ if !line_at_offset_is_thematic_break_from_facts(ctx, next_offset) &&
+      token_continues_paragraph_after_softbreak(next) =>
+      Continue(PrefixOnly(observe_continuation_prefix_at(ctx, next_offset)))
+    _ => Stop
+  }
+}
+
+
+///|
+fn advance_fact_token(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> Int {
+  let (_, end) = ctx.token_at(offset, 0)
+  end
+}
+
+///|
+fn advance_continuation_prefix(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : ContinuationPrefixKind,
+) -> Int {
+  match kind {
+    NoPrefix => offset
+    ListMarkerPrefix => advance_fact_token(ctx, offset)
+    ThematicBreakPrefix =>
+      advance_fact_token(ctx, advance_fact_token(ctx, offset))
+  }
+}
+
+///|
+fn advance_root_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : RootContinuationKind,
+) -> Int {
+  let next_offset = advance_fact_token(ctx, offset)
+  match kind {
+    NoPrefix => next_offset
+    ListMarkerPrefix => advance_fact_token(ctx, next_offset)
+    ThematicBreakPrefix =>
+      advance_fact_token(ctx, advance_fact_token(ctx, next_offset))
+  }
+}
+
+///|
+fn observe_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationDecision[SetextContinuationKind] {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  if setext_underline_depth_after_newline_at(
+      ctx,
+      offset,
+      allow_list_marker=true,
+      min_indent=0,
+    )
+    is Some(_) {
+    Stop
+  } else {
+    let (next, _) = ctx.token_at(next_offset, 0)
+    if token_breaks_paragraph_after_newline(next) ||
+      next is Newline ||
+      next is EOF {
+      Stop
+    } else if next is OrderedListMarker(_) {
+      Continue(OrderedMarkerAsText)
+    } else {
+      Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn advance_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : SetextContinuationKind,
+) -> Int {
+  let next_offset = advance_fact_token(ctx, offset)
+  match kind {
+    OrderedMarkerAsText => advance_fact_token(ctx, next_offset)
+    NoPrefix => next_offset
+  }
+}
+
+///|
+fn observe_block_quote_heading_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> ContinuationDecision[BlockQuoteHeadingContinuationKind] {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  if quoted_setext_underline_depth_after_newline_at(ctx, offset) is Some(_) {
+    Stop
+  } else {
+    let (next, next_end) = ctx.token_at(next_offset, 0)
+    match next {
+      BlockQuoteMarker => {
+        let (following, _) = ctx.token_at(next_end, 0)
+        if token_continues_paragraph_after_softbreak(following) {
+          Continue(MarkerAndPrefix(observe_continuation_prefix_at(ctx, next_end)))
+        } else {
+          Stop
+        }
+      }
+      _ => Stop
+    }
+  }
+}
+
+///|
+fn advance_block_quote_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : BlockQuoteContinuationKind,
+) -> Int {
+  let next_offset = advance_fact_token(ctx, offset)
+  match kind {
+    MarkerAndPrefix(prefix) =>
+      advance_continuation_prefix(ctx, advance_fact_token(ctx, next_offset), prefix)
+    PrefixOnly(prefix) => advance_continuation_prefix(ctx, next_offset, prefix)
+  }
+}
+
+///|
+fn advance_block_quote_heading_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : BlockQuoteHeadingContinuationKind,
+) -> Int {
+  match kind {
+    MarkerAndPrefix(prefix) =>
+      advance_continuation_prefix(
+        ctx,
+        advance_fact_token(ctx, advance_fact_token(ctx, offset)),
+        prefix,
+      )
+  }
+}
 
 ///|
 fn emit_paragraph_continuation_prefix(
@@ -341,6 +595,196 @@ fn emit_paragraph_continuation_prefix(
     NoPrefix => ()
   }
 }
+
+///|
+fn next_list_marker_indent_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+) -> Int? {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return None }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    Indentation(text) => {
+      let (following, _) = ctx.token_at(next_end, 0)
+      match following {
+        ListMarker(_) | OrderedListMarker(_) =>
+          Some(count_leading_indent(text.view()))
+        _ => None
+      }
+    }
+    ListMarker(_) | OrderedListMarker(_) => Some(0)
+    _ => None
+  }
+}
+
+///|
+fn next_prefix_is_list_marker_boundary_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  content_indent : Int,
+) -> Bool {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return false }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    Indentation(text) if count_leading_indent(text.view()) < content_indent + 4 => {
+      let (following, _) = ctx.token_at(next_end, 0)
+      following is ListMarker(_) || following is OrderedListMarker(_)
+    }
+    _ => false
+  }
+}
+
+///|
+fn next_prefix_requires_list_item_block_dispatch_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  content_indent : Int,
+) -> Bool {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return false }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    Indentation(text) => {
+      let indent = count_leading_indent(text.view())
+      if indent < content_indent || indent >= content_indent + 4 {
+        false
+      } else {
+        let (following, following_end) = ctx.token_at(next_end, 0)
+        match following {
+          ThematicBreak(_)
+          | HeadingMarker(_)
+          | CodeFenceOpen(_, _)
+          | HtmlBlockOpen(_) => true
+          BlockQuoteMarker => {
+            let (after_marker, _) = ctx.token_at(following_end, 0)
+            !(after_marker is BlankLine)
+          }
+          _ => false
+        }
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn observe_list_item_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+  has_paragraph_content~ : Bool,
+) -> ContinuationDecision[ListItemContinuationKind] {
+  guard has_paragraph_content else { return Stop }
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  let (next, _) = ctx.token_at(next_offset, 0)
+  let nested_ordered = if !allow_ordered_marker {
+    false
+  } else {
+    match next {
+      OrderedListMarker(_) =>
+        next_list_marker_indent_at(ctx, offset).map_or(false, indent => {
+          indent >= content_indent
+        })
+      _ => false
+    }
+  }
+  if nested_ordered ||
+    next_prefix_is_list_marker_boundary_at(ctx, offset, content_indent) ||
+    next_prefix_requires_list_item_block_dispatch_at(ctx, offset, content_indent) ||
+    !token_can_continue_list_item_paragraph_after_newline(
+      next,
+      allow_ordered_marker~,
+    ) {
+    Stop
+  } else {
+    match next {
+      Indentation(_) => Continue(IndentationPrefix)
+      OrderedListMarker(_) if allow_ordered_marker =>
+        Continue(OrderedMarkerAsText)
+      _ => Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn advance_list_item_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : ListItemContinuationKind,
+) -> Int {
+  let next_offset = advance_fact_token(ctx, offset)
+  match kind {
+    IndentationPrefix | OrderedMarkerAsText =>
+      advance_fact_token(ctx, next_offset)
+    NoPrefix => next_offset
+  }
+}
+///|
+fn observe_list_item_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  content_indent : Int,
+  allow_ordered_marker~ : Bool,
+) -> ContinuationDecision[ListItemSetextContinuationKind] {
+  let (newline, next_offset) = ctx.token_at(offset, 0)
+  guard newline is Newline else { return Stop }
+  if setext_underline_depth_after_newline_at(
+      ctx,
+      offset,
+      allow_list_marker=false,
+      min_indent=content_indent,
+    )
+    is Some(_) {
+    return Stop
+  }
+  let (next, _) = ctx.token_at(next_offset, 0)
+  let nested_ordered = if !allow_ordered_marker {
+    false
+  } else {
+    match next {
+      OrderedListMarker(_) =>
+        next_list_marker_indent_at(ctx, offset).map_or(false, indent => {
+          indent >= content_indent
+        })
+      _ => false
+    }
+  }
+  if nested_ordered ||
+    next_prefix_is_list_marker_boundary_at(ctx, offset, content_indent) ||
+    next_prefix_requires_list_item_block_dispatch_at(ctx, offset, content_indent) ||
+    !token_can_continue_list_item_paragraph_after_newline(
+      next,
+      allow_ordered_marker~,
+    ) {
+    Stop
+  } else {
+    match next {
+      Indentation(_) => Continue(IndentationPrefix)
+      OrderedListMarker(_) if allow_ordered_marker =>
+        Continue(OrderedMarkerAsText)
+      _ => Continue(NoPrefix)
+    }
+  }
+}
+
+///|
+fn advance_list_item_setext_continuation(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  kind : ListItemSetextContinuationKind,
+) -> Int {
+  let next_offset = advance_fact_token(ctx, offset)
+  match kind {
+    IndentationPrefix | OrderedMarkerAsText =>
+      advance_fact_token(ctx, next_offset)
+    NoPrefix => next_offset
+  }
+}
+
 
 ///|
 fn next_token_after_newline_is_lone_list_marker(
@@ -412,6 +856,9 @@ fn parse_paragraph_with_prefix(
     let handler : ContinuationHandler[RootContinuationKind] = {
       decide: () => decide_root_paragraph_continuation(ctx),
       consume: action => consume_root_continuation(ctx, action),
+      speculate: action => consume_root_continuation(ctx, action),
+      observe: offset => observe_root_paragraph_continuation(ctx, offset),
+      advance: (offset, action) => advance_root_continuation(ctx, offset, action),
     }
     parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
     if ctx.peek() is Newline {
@@ -466,6 +913,10 @@ fn parse_block_quote_paragraph(
     let handler : ContinuationHandler[BlockQuoteContinuationKind] = {
       decide: () => decide_block_quote_paragraph_continuation(ctx),
       consume: action => consume_block_quote_continuation(ctx, action),
+      speculate: action => consume_block_quote_continuation(ctx, action),
+      observe: offset => observe_block_quote_paragraph_continuation(ctx, offset),
+      advance: (offset, action) =>
+        advance_block_quote_continuation(ctx, offset, action),
     }
     parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
     if ctx.peek() is Newline {
@@ -523,6 +974,10 @@ fn try_parse_block_quote_setext_heading(
   let handler : ContinuationHandler[BlockQuoteHeadingContinuationKind] = {
     decide: () => decide_block_quote_heading_continuation(ctx),
     consume: action => consume_block_quote_heading_continuation(ctx, action),
+    speculate: action => consume_block_quote_heading_continuation(ctx, action),
+    observe: offset => observe_block_quote_heading_continuation(ctx, offset),
+    advance: (offset, action) =>
+      advance_block_quote_heading_continuation(ctx, offset, action),
   }
   parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
   if quoted_setext_underline_depth_after_newline(ctx) is Some(_) {
@@ -1316,6 +1771,18 @@ fn parse_list_item_inline_content(
       )
     },
     consume: action => consume_list_item_continuation(ctx, action),
+    speculate: action => consume_list_item_continuation(ctx, action),
+    observe: offset => {
+      observe_list_item_continuation(
+        ctx,
+        offset,
+        content_indent,
+        allow_ordered_marker~,
+        has_paragraph_content~,
+      )
+    },
+    advance: (offset, action) =>
+      advance_list_item_continuation(ctx, offset, action),
   }
   parse_indexed_inline_container(
     ctx,
@@ -1408,6 +1875,17 @@ fn try_parse_list_item_setext_heading(
       )
     },
     consume: action => consume_list_item_setext_continuation(ctx, action),
+    speculate: action => consume_list_item_setext_continuation(ctx, action),
+    observe: offset => {
+      observe_list_item_setext_continuation(
+        ctx,
+        offset,
+        content_indent,
+        allow_ordered_marker~,
+      )
+    },
+    advance: (offset, action) =>
+      advance_list_item_setext_continuation(ctx, offset, action),
   }
   parse_indexed_inline_container(
     ctx,

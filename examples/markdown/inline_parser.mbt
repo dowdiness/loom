@@ -75,6 +75,9 @@ priv enum ContinuationDecision[T] {
 priv struct ContinuationHandler[T] {
   decide : () -> ContinuationDecision[T]
   consume : (T) -> Unit
+  speculate : (T) -> Unit
+  observe : (Int) -> ContinuationDecision[T]
+  advance : (Int, T) -> Int
 }
 
 ///|
@@ -90,58 +93,7 @@ fn[T] continuation_step(handler : ContinuationHandler[T]) -> () -> Bool {
   }
 }
 
-///|
-fn parse_indexed_inline_container_with_continue_line(
-  ctx : @core.ParserContext[Token, SyntaxKind],
-  policy : InlineParsePolicy,
-  continue_line : () -> Bool,
-) -> Unit {
-  let delimiters = ctx.lookahead(() => {
-    let index : CodeSpanDelimiterIndex = {
-      eligible_openers: {},
-      successors: {},
-    }
-    let previous_by_length : Map[Int, Int] = {}
-    let mut preceding_text_ends_escaped = false
-    while true {
-      while !token_is_inline_end(ctx.peek(), policy) {
-        match ctx.peek() {
-          Text(_) =>
-            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-              ctx.current_token_text(),
-            )
-          Backtick => {
-            let range = ctx.current_token_range()
-            let start = range.start
-            let run_length = range.length()
-            index_code_span_delimiter_run(
-              index,
-              previous_by_length,
-              start,
-              run_length,
-              !preceding_text_ends_escaped,
-            )
-            preceding_text_ends_escaped = false
-          }
-          _ => preceding_text_ends_escaped = false
-        }
-        ctx.emit_current_token()
-      }
-      guard ctx.peek() is Newline && continue_line() else { break }
-      preceding_text_ends_escaped = false
-    }
-    index
-  })
-  while true {
-    while !token_is_inline_end(ctx.peek(), policy) {
-      match ctx.peek() {
-        Backtick => parse_indexed_inline_code(ctx, delimiters, continue_line)
-        _ => parse_inline(ctx, policy, delimiters, continue_line)
-      }
-    }
-    guard ctx.peek() is Newline && continue_line() else { break }
-  }
-}
+
 
 ///|
 fn[T] parse_indexed_inline_container(
@@ -149,8 +101,31 @@ fn[T] parse_indexed_inline_container(
   policy : InlineParsePolicy,
   handler : ContinuationHandler[T],
 ) -> Unit {
-  let continue_line = continuation_step(handler)
-  parse_indexed_inline_container_with_continue_line(ctx, policy, continue_line)
+  let plan = build_container_fact_plan(ctx, policy, Some(handler))
+  let continue_line = () => {
+    let newline_offset = ctx.current_token_range().start
+    match plan.actions.get(newline_offset) {
+      Some(action) => {
+        let expected_end = (handler.advance)(newline_offset, action)
+        (handler.consume)(action)
+        guard ctx.current_token_range().start == expected_end else {
+          abort("continuation consumer diverged from fact advance")
+        }
+        true
+      }
+      None if newline_offset == plan.end_offset => false
+      None => abort("missing planned continuation action")
+    }
+  }
+  while true {
+    while !token_is_inline_end(ctx.peek(), policy) {
+      match ctx.peek() {
+        Backtick => parse_indexed_inline_code(ctx, plan.delimiters, continue_line)
+        _ => parse_inline(ctx, policy, plan.delimiters, continue_line)
+      }
+    }
+    guard ctx.peek() is Newline && continue_line() else { break }
+  }
 }
 
 ///|
@@ -158,8 +133,16 @@ fn parse_indexed_inline_container_without_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
 ) -> Unit {
-  parse_indexed_inline_container_with_continue_line(ctx, policy, () => false)
+  let plan : ContainerFactPlan[Unit] =
+    build_container_fact_plan(ctx, policy, None)
+  while !token_is_inline_end(ctx.peek(), policy) {
+    match ctx.peek() {
+      Backtick => parse_indexed_inline_code(ctx, plan.delimiters, () => false)
+      _ => parse_inline(ctx, policy, plan.delimiters, () => false)
+  }
 }
+}
+
 
 ///|
 fn parse_indexed_inline_code(
