@@ -40,7 +40,7 @@ fn continuation_context_at_newline(
 ///|
 fn assert_decision_public_state_pure(
   ctx : @core.ParserContext[Token, SyntaxKind],
-  decision : () -> Unit,
+  decision : () -> Unit raise,
 ) -> Unit raise {
   let before_range = ctx.current_token_range()
   let before_node = ctx.current_node_kind()
@@ -477,8 +477,280 @@ test "continuation driver: speculative and actual passes consume same action" {
       }
       consume_root_continuation(ctx, action)
     },
+    observe: offset => observe_root_paragraph_continuation(ctx, offset),
+    advance: (offset, action) => {
+      advance_root_paragraph_continuation(ctx, offset, action)
+    },
   }
   parse_indexed_inline_container(ctx, InlineParsePolicy::paragraph(), handler)
   inspect(consume_calls[0], content="2")
   inspect(no_prefix_calls[0], content="2")
+}
+
+///|
+
+///|
+fn describe_continuation_prefix(prefix : ContinuationPrefixKind) -> String {
+  match prefix {
+    ContinuationPrefixKind::NoPrefix => "NoPrefix"
+    ContinuationPrefixKind::ThematicBreakPrefix => "ThematicBreakPrefix"
+    ContinuationPrefixKind::ListMarkerPrefix => "ListMarkerPrefix"
+  }
+}
+
+///|
+fn describe_root_continuation(
+  decision : ContinuationDecision[RootContinuationKind],
+) -> String {
+  match decision {
+    Continue(RootContinuationKind::NoPrefix) => "Continue(NoPrefix)"
+    Continue(RootContinuationKind::ThematicBreakPrefix) =>
+      "Continue(ThematicBreakPrefix)"
+    Continue(RootContinuationKind::ListMarkerPrefix) =>
+      "Continue(ListMarkerPrefix)"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn describe_setext_continuation(
+  decision : ContinuationDecision[SetextContinuationKind],
+) -> String {
+  match decision {
+    Continue(SetextContinuationKind::NoPrefix) => "Continue(NoPrefix)"
+    Continue(SetextContinuationKind::OrderedMarkerAsText) =>
+      "Continue(OrderedMarkerAsText)"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn describe_block_quote_continuation(
+  decision : ContinuationDecision[BlockQuoteContinuationKind],
+) -> String {
+  match decision {
+    Continue(BlockQuoteContinuationKind::MarkerAndPrefix(prefix)) =>
+      "Continue(MarkerAndPrefix(" + describe_continuation_prefix(prefix) + "))"
+    Continue(BlockQuoteContinuationKind::PrefixOnly(prefix)) =>
+      "Continue(PrefixOnly(" + describe_continuation_prefix(prefix) + "))"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn describe_block_quote_heading_continuation(
+  decision : ContinuationDecision[BlockQuoteHeadingContinuationKind],
+) -> String {
+  match decision {
+    Continue(BlockQuoteHeadingContinuationKind::MarkerAndPrefix(prefix)) =>
+      "Continue(MarkerAndPrefix(" + describe_continuation_prefix(prefix) + "))"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn describe_list_item_continuation(
+  decision : ContinuationDecision[ListItemContinuationKind],
+) -> String {
+  match decision {
+    Continue(ListItemContinuationKind::NoPrefix) => "Continue(NoPrefix)"
+    Continue(ListItemContinuationKind::IndentationPrefix) =>
+      "Continue(IndentationPrefix)"
+    Continue(ListItemContinuationKind::OrderedMarkerAsText) =>
+      "Continue(OrderedMarkerAsText)"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn describe_list_item_setext_continuation(
+  decision : ContinuationDecision[ListItemSetextContinuationKind],
+) -> String {
+  match decision {
+    Continue(ListItemSetextContinuationKind::NoPrefix) => "Continue(NoPrefix)"
+    Continue(ListItemSetextContinuationKind::IndentationPrefix) =>
+      "Continue(IndentationPrefix)"
+    Continue(ListItemSetextContinuationKind::OrderedMarkerAsText) =>
+      "Continue(OrderedMarkerAsText)"
+    Stop => "Stop"
+  }
+}
+
+///|
+fn[T] assert_continuation_fact_parity(
+  source : String,
+  decide : (@core.ParserContext[Token, SyntaxKind]) -> ContinuationDecision[T],
+  consume : (@core.ParserContext[Token, SyntaxKind], T) -> Unit,
+  observe : (@core.ParserContext[Token, SyntaxKind], Int) -> ContinuationDecision[
+    T,
+  ],
+  advance : (@core.ParserContext[Token, SyntaxKind], Int, T) -> Int,
+  describe : (ContinuationDecision[T]) -> String,
+) -> Unit raise {
+  let expected_ctx = continuation_context_at_newline(source)
+  let expected = decide(expected_ctx)
+  let fact_ctx = continuation_context_at_newline(source)
+  let offset = fact_ctx.current_token_range().start
+  assert_decision_public_state_pure(fact_ctx, fn() raise {
+    inspect(describe(observe(fact_ctx, offset)), content=describe(expected))
+  })
+  match (expected, observe(fact_ctx, offset)) {
+    (Continue(expected_action), Continue(observed_action)) => {
+      consume(expected_ctx, expected_action)
+      let expected_end = expected_ctx.current_token_range().start
+      assert_decision_public_state_pure(fact_ctx, fn() raise {
+        inspect(
+          advance(fact_ctx, offset, observed_action),
+          content=expected_end.to_string(),
+        )
+      })
+    }
+    (Stop, Stop) => ()
+    _ => abort("fact observer decision diverged from context decision")
+  }
+}
+
+///|
+fn assert_setext_marker_underline_depth(
+  marker : String,
+  suffix : String,
+  expected : Int?,
+) -> Unit raise {
+  let ctx = continuation_context_at_newline("para\n" + marker + suffix)
+  let offset = ctx.current_token_range().start
+  let context_depth = setext_underline_depth_after_newline(
+    ctx,
+    allow_list_marker=true,
+    min_indent=0,
+  )
+  let fact_depth = setext_underline_depth_after_newline_at(
+    ctx,
+    offset,
+    allow_list_marker=true,
+    min_indent=0,
+  )
+  match (expected, context_depth, fact_depth) {
+    (Some(expected), Some(context), Some(fact)) => {
+      inspect(context, content=expected.to_string())
+      inspect(fact, content=expected.to_string())
+    }
+    (None, None, None) => ()
+    _ => abort("setext list-marker underline depth mismatch")
+  }
+}
+
+///|
+test "continuation facts: setext list markers end at every allowed shape" {
+  for suffix in ["\n", "\n\n", "", " \n", " \n\n", " "] {
+    assert_setext_marker_underline_depth("-", suffix, Some(2))
+    assert_setext_marker_underline_depth("*", suffix, None)
+    assert_setext_marker_underline_depth("+", suffix, None)
+  }
+}
+
+///|
+test "continuation facts: root paragraph actions and Stop" {
+  for source in ["para\nbar\n", "para\n    ---\n", "para\n2. x\n", "para\n\n"] {
+    assert_continuation_fact_parity(
+      source, decide_root_paragraph_continuation, consume_root_continuation, observe_root_paragraph_continuation,
+      advance_root_paragraph_continuation, describe_root_continuation,
+    )
+  }
+}
+
+///|
+test "continuation facts: setext actions and Stop" {
+  for source in ["para\nbar\n", "para\n2. x\n", "para\n===\n"] {
+    assert_continuation_fact_parity(
+      source, decide_setext_continuation, consume_setext_continuation, observe_setext_continuation,
+      advance_setext_continuation, describe_setext_continuation,
+    )
+  }
+}
+
+///|
+test "continuation facts: block quote paragraph actions and Stop" {
+  for
+    source in [
+      "para\n> bar\n", "para\n>    ---\n", "para\n>2. x\n", "para\nbar\n", "para\n    ---\n",
+      "para\n2. x\n", "para\n---\n",
+    ] {
+    assert_continuation_fact_parity(
+      source, decide_block_quote_paragraph_continuation, consume_block_quote_continuation,
+      observe_block_quote_paragraph_continuation, advance_block_quote_paragraph_continuation,
+      describe_block_quote_continuation,
+    )
+  }
+}
+
+///|
+test "continuation facts: block quote setext actions and Stop" {
+  for
+    source in [
+      "para\n> bar\n", "para\n>    ---\n", "para\n>2. x\n", "para\n> ===\n",
+    ] {
+    assert_continuation_fact_parity(
+      source, decide_block_quote_heading_continuation, consume_block_quote_heading_continuation,
+      observe_block_quote_heading_continuation, advance_block_quote_heading_continuation,
+      describe_block_quote_heading_continuation,
+    )
+  }
+}
+
+///|
+test "continuation facts: list item actions and Stop" {
+  for
+    source in [
+      "para\nchild\n", "para\n  child\n", "para\n2. child\n", "para\n# heading\n",
+    ] {
+    assert_continuation_fact_parity(
+      source,
+      ctx => {
+        decide_list_item_continuation(
+          ctx,
+          2,
+          allow_ordered_marker=true,
+          has_paragraph_content=true,
+        )
+      },
+      consume_list_item_continuation,
+      (ctx, offset) => {
+        observe_list_item_continuation(
+          ctx,
+          offset,
+          2,
+          allow_ordered_marker=true,
+          has_paragraph_content=true,
+        )
+      },
+      advance_list_item_continuation,
+      describe_list_item_continuation,
+    )
+  }
+}
+
+///|
+test "continuation facts: list item setext actions and Stop" {
+  for
+    source in [
+      "para\nchild\n", "para\n  child\n", "para\n2. child\n", "para\n===\n",
+    ] {
+    assert_continuation_fact_parity(
+      source,
+      ctx => {
+        decide_list_item_setext_continuation(ctx, 2, allow_ordered_marker=true)
+      },
+      consume_list_item_setext_continuation,
+      (ctx, offset) => {
+        observe_list_item_setext_continuation(
+          ctx,
+          offset,
+          2,
+          allow_ordered_marker=true,
+        )
+      },
+      advance_list_item_setext_continuation,
+      describe_list_item_setext_continuation,
+    )
+  }
 }

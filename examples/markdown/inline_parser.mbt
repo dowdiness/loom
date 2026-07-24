@@ -75,6 +75,8 @@ priv enum ContinuationDecision[T] {
 priv struct ContinuationHandler[T] {
   decide : () -> ContinuationDecision[T]
   consume : (T) -> Unit
+  observe : (Int) -> ContinuationDecision[T]
+  advance : (Int, T) -> Int
 }
 
 ///|

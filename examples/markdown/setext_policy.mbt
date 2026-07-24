@@ -34,6 +34,97 @@ fn setext_list_marker_line_ends_after_marker(
 }
 
 ///|
+fn setext_list_marker_line_ends_after_marker_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  marker_end : Int,
+) -> Bool {
+  let (next, next_end) = ctx.token_at(marker_end, 0)
+  match next {
+    Newline | BlankLine | EOF => true
+    Text(text) if !direct_list_item_text_has_non_blank_content(text) =>
+      match ctx.token_at(next_end, 0).0 {
+        Newline | BlankLine | EOF => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn setext_underline_depth_at_offset(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  offset : Int,
+  allow_list_marker~ : Bool,
+  min_indent~ : Int,
+) -> Int? {
+  let (token, token_end) = ctx.token_at(offset, 0)
+  match token {
+    Text(text) if text_has_min_leading_spaces(text.view(), min_indent) =>
+      parse_setext_underline_depth(text.view())
+    ThematicBreak(text) if text_has_min_leading_spaces(text.view(), min_indent) =>
+      parse_setext_underline_depth(text.view())
+    ListMarker(marker) if allow_list_marker &&
+      setext_list_marker_line_ends_after_marker_at(ctx, token_end) =>
+      match marker {
+        Dash => Some(2)
+        Star | Plus => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn setext_underline_depth_after_newline_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  newline_offset : Int,
+  allow_list_marker~ : Bool,
+  min_indent~ : Int,
+) -> Int? {
+  let (newline, next_offset) = ctx.token_at(newline_offset, 0)
+  guard newline is Newline else { return None }
+  let (next, next_end) = ctx.token_at(next_offset, 0)
+  match next {
+    Indentation(text) => {
+      let indent = count_leading_indent(text.view())
+      if indent >= min_indent && indent < min_indent + 4 {
+        setext_underline_depth_at_offset(
+          ctx,
+          next_end,
+          allow_list_marker~,
+          min_indent=0,
+        )
+      } else {
+        None
+      }
+    }
+    _ =>
+      setext_underline_depth_at_offset(
+        ctx,
+        next_offset,
+        allow_list_marker~,
+        min_indent~,
+      )
+  }
+}
+
+///|
+fn quoted_setext_underline_depth_after_newline_at(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  newline_offset : Int,
+) -> Int? {
+  let (newline, marker_offset) = ctx.token_at(newline_offset, 0)
+  guard newline is Newline else { return None }
+  let (marker, marker_end) = ctx.token_at(marker_offset, 0)
+  guard marker is BlockQuoteMarker else { return None }
+  setext_underline_depth_at_offset(
+    ctx,
+    marker_end,
+    allow_list_marker=true,
+    min_indent=0,
+  )
+}
+
+///|
 fn setext_underline_depth_at_current_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   allow_list_marker~ : Bool,
