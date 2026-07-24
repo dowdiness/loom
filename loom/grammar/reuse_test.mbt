@@ -188,7 +188,8 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   inspect(old_diags.is_empty(), content="true")
   match old_tree.children[0] {
     @seam.CstElement::Node(node) =>
-      if node.kind != TestToken::Word.to_raw() || node.text_len != 3 {
+      if node.kind != @seam.ToRawKind::to_raw(TestToken::Word) ||
+        node.text_len != 3 {
         abort("expected first Pratt wrapper to span '1+2'")
       }
     @seam.CstElement::Token(_) => abort("expected first Pratt wrapper node")
@@ -211,7 +212,11 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   )
   inspect(
     @debug.to_string(
-      cursor.explain_reuse_rejection(TestToken::Word.to_raw(), 0, 0),
+      cursor.explain_reuse_rejection(
+        @seam.ToRawKind::to_raw(TestToken::Word),
+        0,
+        0,
+      ),
     ),
     content="None",
   )

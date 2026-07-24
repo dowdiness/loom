@@ -155,8 +155,8 @@ fn gen_expr_impl(
   // `["source", "expr"]` — see GrammarWithTokens::arbitrary.
   let has_rules = rule_names.length() >= 2
   let atom_name = if has_rules { rule_names[1] } else { "" }
-  let tk = fn() { QcToken::arbitrary(0, rs) }
-  let kn = fn() { QcKind::arbitrary(0, rs) }
+  let tk = fn() { @coreqc.Arbitrary::arbitrary(0, rs) }
+  let kn = fn() { @coreqc.Arbitrary::arbitrary(0, rs) }
   if size <= 0 {
     let branch = (rs.next_uint() % 3).reinterpret_as_int()
     if branch == 0 {
@@ -453,7 +453,7 @@ impl @coreqc.Arbitrary for GrammarWithTokens with fn arbitrary(size, rs) {
   // This is the token that RepeatTopLevel/PrattApp/PrattBinary predicates
   // will check for, guaranteeing loop termination.
   let consumer_tok = gen_content_token(rs)
-  let consumer_knd = QcKind::arbitrary(0, rs)
+  let consumer_knd = @coreqc.Arbitrary::arbitrary(0, rs)
 
   let num_rules = if size <= 0 {
     1
