@@ -187,7 +187,6 @@ fn try_parse_setext_heading(
     None => ()
   }
   let handler : ContinuationHandler[SetextContinuationKind] = {
-    decide: () => decide_setext_continuation(ctx),
     consume: action => consume_setext_continuation(ctx, action),
     observe: offset => observe_setext_continuation(ctx, offset),
     advance: (offset, action) => {
@@ -316,7 +315,6 @@ priv enum ListItemSetextContinuationKind {
   IndentationPrefix
   OrderedMarkerAsText
 }
-
 
 ///|
 fn observe_continuation_prefix_at(
@@ -843,7 +841,6 @@ fn parse_paragraph_with_prefix(
       None => ()
     }
     let handler : ContinuationHandler[RootContinuationKind] = {
-      decide: () => decide_root_paragraph_continuation(ctx),
       consume: action => consume_root_continuation(ctx, action),
       observe: offset => observe_root_paragraph_continuation(ctx, offset),
       advance: (offset, action) => {
@@ -901,7 +898,6 @@ fn parse_block_quote_paragraph(
 ) -> Unit {
   ctx.node(ParagraphNode, fn() {
     let handler : ContinuationHandler[BlockQuoteContinuationKind] = {
-      decide: () => decide_block_quote_paragraph_continuation(ctx),
       consume: action => consume_block_quote_continuation(ctx, action),
       observe: offset => observe_block_quote_paragraph_continuation(ctx, offset),
       advance: (offset, action) => {
@@ -962,7 +958,6 @@ fn try_parse_block_quote_setext_heading(
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
   let handler : ContinuationHandler[BlockQuoteHeadingContinuationKind] = {
-    decide: () => decide_block_quote_heading_continuation(ctx),
     consume: action => consume_block_quote_heading_continuation(ctx, action),
     observe: offset => observe_block_quote_heading_continuation(ctx, offset),
     advance: (offset, action) => {
@@ -1752,14 +1747,6 @@ fn parse_list_item_inline_content(
 ) -> Unit {
   let has_paragraph_content = list_item_line_starts_paragraph(ctx)
   let handler : ContinuationHandler[ListItemContinuationKind] = {
-    decide: () => {
-      decide_list_item_continuation(
-        ctx,
-        content_indent,
-        allow_ordered_marker~,
-        has_paragraph_content~,
-      )
-    },
     consume: action => consume_list_item_continuation(ctx, action),
     observe: offset => {
       observe_list_item_continuation(
@@ -1857,13 +1844,6 @@ fn try_parse_list_item_setext_heading(
   let cp = ctx.checkpoint()
   ctx.start_node(HeadingNode)
   let handler : ContinuationHandler[ListItemSetextContinuationKind] = {
-    decide: () => {
-      decide_list_item_setext_continuation(
-        ctx,
-        content_indent,
-        allow_ordered_marker~,
-      )
-    },
     consume: action => consume_list_item_setext_continuation(ctx, action),
     observe: offset => {
       observe_list_item_setext_continuation(

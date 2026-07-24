@@ -73,67 +73,18 @@ priv enum ContinuationDecision[T] {
 
 ///|
 priv struct ContinuationHandler[T] {
-  decide : () -> ContinuationDecision[T]
   consume : (T) -> Unit
   observe : (Int) -> ContinuationDecision[T]
   advance : (Int, T) -> Int
 }
 
 ///|
-fn[T] continuation_step(handler : ContinuationHandler[T]) -> () -> Bool {
-  () => {
-    match (handler.decide)() {
-      Continue(action) => {
-        (handler.consume)(action)
-        true
-      }
-      Stop => false
-    }
-  }
-}
-
-///|
 fn parse_indexed_inline_container_with_continue_line(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
+  delimiters : CodeSpanDelimiterIndex,
   continue_line : () -> Bool,
 ) -> Unit {
-  let delimiters = ctx.lookahead(() => {
-    let index : CodeSpanDelimiterIndex = {
-      eligible_openers: {},
-      successors: {},
-    }
-    let previous_by_length : Map[Int, Int] = {}
-    let mut preceding_text_ends_escaped = false
-    while true {
-      while !token_is_inline_end(ctx.peek(), policy) {
-        match ctx.peek() {
-          Text(_) =>
-            preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-              ctx.current_token_text(),
-            )
-          Backtick => {
-            let range = ctx.current_token_range()
-            let start = range.start
-            let run_length = range.length()
-            index_code_span_delimiter_run(
-              index,
-              previous_by_length,
-              start,
-              run_length,
-              !preceding_text_ends_escaped,
-            )
-            preceding_text_ends_escaped = false
-          }
-          _ => preceding_text_ends_escaped = false
-        }
-        ctx.emit_current_token()
-      }
-      guard ctx.peek() is Newline && continue_line() else { break }
-      preceding_text_ends_escaped = false
-    }
-    index
-  })
   while true {
     while !token_is_inline_end(ctx.peek(), policy) {
       match ctx.peek() {
@@ -151,8 +102,32 @@ fn[T] parse_indexed_inline_container(
   policy : InlineParsePolicy,
   handler : ContinuationHandler[T],
 ) -> Unit {
-  let continue_line = continuation_step(handler)
-  parse_indexed_inline_container_with_continue_line(ctx, policy, continue_line)
+  let plan = build_container_fact_plan(
+    ctx,
+    ctx.current_token_range().start,
+    policy,
+    handler,
+  )
+  let continue_line = () => {
+    let offset = ctx.current_token_range().start
+    if offset == plan.end_offset {
+      false
+    } else {
+      match plan.actions.get(offset) {
+        Some(action) => {
+          (handler.consume)(action)
+          true
+        }
+        None => abort("container fact plan lacks a continuing newline action")
+      }
+    }
+  }
+  parse_indexed_inline_container_with_continue_line(
+    ctx,
+    policy,
+    plan.delimiters,
+    continue_line,
+  )
 }
 
 ///|
@@ -160,7 +135,17 @@ fn parse_indexed_inline_container_without_continuation(
   ctx : @core.ParserContext[Token, SyntaxKind],
   policy : InlineParsePolicy,
 ) -> Unit {
-  parse_indexed_inline_container_with_continue_line(ctx, policy, () => false)
+  let plan = build_line_container_fact_plan(
+    ctx,
+    ctx.current_token_range().start,
+    policy,
+  )
+  parse_indexed_inline_container_with_continue_line(
+    ctx,
+    policy,
+    plan.delimiters,
+    () => false,
+  )
 }
 
 ///|

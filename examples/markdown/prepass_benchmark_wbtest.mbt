@@ -14,6 +14,22 @@ fn prepass_context(source : String) -> @core.ParserContext[Token, SyntaxKind] {
 }
 
 ///|
+fn[T] benchmark_continuation_step(
+  decide : () -> ContinuationDecision[T],
+  consume : (T) -> Unit,
+) -> () -> Bool {
+  () => {
+    match decide() {
+      Continue(action) => {
+        consume(action)
+        true
+      }
+      Stop => false
+    }
+  }
+}
+
+///|
 fn benchmark_root_source() -> String {
   "alpha `matched` ``two ticks`` \\`escaped` `unmatched\ncontinuation `again` ``second pair`` \\`escaped again` `trailing"
 }
@@ -95,18 +111,12 @@ fn list_item_prepass_context() -> @core.ParserContext[Token, SyntaxKind] {
 fn root_prepass(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> CodeSpanDelimiterIndex {
-  let handler : ContinuationHandler[RootContinuationKind] = {
-    decide: () => decide_root_paragraph_continuation(ctx),
-    consume: action => consume_root_continuation(ctx, action),
-    observe: offset => observe_root_paragraph_continuation(ctx, offset),
-    advance: (offset, action) => {
-      advance_root_paragraph_continuation(ctx, offset, action)
-    },
-  }
   benchmark_indexed_prepass(
     ctx,
     InlineParsePolicy::paragraph(),
-    continuation_step(handler),
+    benchmark_continuation_step(() => decide_root_paragraph_continuation(ctx), action => {
+      consume_root_continuation(ctx, action)
+    }),
   )
 }
 
@@ -114,18 +124,13 @@ fn root_prepass(
 fn block_quote_prepass(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> CodeSpanDelimiterIndex {
-  let handler : ContinuationHandler[BlockQuoteContinuationKind] = {
-    decide: () => decide_block_quote_paragraph_continuation(ctx),
-    consume: action => consume_block_quote_continuation(ctx, action),
-    observe: offset => observe_block_quote_paragraph_continuation(ctx, offset),
-    advance: (offset, action) => {
-      advance_block_quote_paragraph_continuation(ctx, offset, action)
-    },
-  }
   benchmark_indexed_prepass(
     ctx,
     InlineParsePolicy::paragraph(),
-    continuation_step(handler),
+    benchmark_continuation_step(
+      () => decide_block_quote_paragraph_continuation(ctx),
+      action => consume_block_quote_continuation(ctx, action),
+    ),
   )
 }
 
@@ -133,33 +138,20 @@ fn block_quote_prepass(
 fn list_item_prepass(
   ctx : @core.ParserContext[Token, SyntaxKind],
 ) -> CodeSpanDelimiterIndex {
-  let handler : ContinuationHandler[ListItemContinuationKind] = {
-    decide: () => {
-      decide_list_item_continuation(
-        ctx,
-        2,
-        allow_ordered_marker=false,
-        has_paragraph_content=true,
-      )
-    },
-    consume: action => consume_list_item_continuation(ctx, action),
-    observe: offset => {
-      observe_list_item_continuation(
-        ctx,
-        offset,
-        2,
-        allow_ordered_marker=false,
-        has_paragraph_content=true,
-      )
-    },
-    advance: (offset, action) => {
-      advance_list_item_continuation(ctx, offset, action)
-    },
-  }
   benchmark_indexed_prepass(
     ctx,
     InlineParsePolicy::list_item(allow_ordered_marker=false),
-    continuation_step(handler),
+    benchmark_continuation_step(
+      () => {
+        decide_list_item_continuation(
+          ctx,
+          2,
+          allow_ordered_marker=false,
+          has_paragraph_content=true,
+        )
+      },
+      action => consume_list_item_continuation(ctx, action),
+    ),
   )
 }
 
