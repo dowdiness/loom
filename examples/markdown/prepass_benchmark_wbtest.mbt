@@ -144,7 +144,7 @@ fn list_item_prepass(
 }
 
 ///|
-test "markdown prepass: root paragraph" (b : @bench.T) {
+test "markdown prepass: root paragraph prepass-first" (b : @bench.T) {
   let source = benchmark_root_source()
   let ctx = root_prepass_context()
   b.bench(fn() {
@@ -158,7 +158,21 @@ test "markdown prepass: root paragraph" (b : @bench.T) {
 }
 
 ///|
-test "markdown prepass: block quote paragraph" (b : @bench.T) {
+test "markdown prepass: root paragraph cst-first" (b : @bench.T) {
+  let source = benchmark_root_source()
+  let ctx = root_prepass_context()
+  b.bench(fn() {
+    let (cst, _) = parse_cst(source) catch { _ => abort("root parse failed") }
+    b.keep(cst)
+  })
+  b.bench(fn() {
+    let index = root_prepass(ctx)
+    b.keep(index)
+  })
+}
+
+///|
+test "markdown prepass: block quote paragraph prepass-first" (b : @bench.T) {
   let source = benchmark_block_quote_source()
   let ctx = block_quote_prepass_context()
   b.bench(fn() {
@@ -174,7 +188,23 @@ test "markdown prepass: block quote paragraph" (b : @bench.T) {
 }
 
 ///|
-test "markdown prepass: list item paragraph" (b : @bench.T) {
+test "markdown prepass: block quote paragraph cst-first" (b : @bench.T) {
+  let source = benchmark_block_quote_source()
+  let ctx = block_quote_prepass_context()
+  b.bench(fn() {
+    let (cst, _) = parse_cst(source) catch {
+      _ => abort("block quote parse failed")
+    }
+    b.keep(cst)
+  })
+  b.bench(fn() {
+    let index = block_quote_prepass(ctx)
+    b.keep(index)
+  })
+}
+
+///|
+test "markdown prepass: list item paragraph prepass-first" (b : @bench.T) {
   let source = benchmark_list_item_source()
   let ctx = list_item_prepass_context()
   b.bench(fn() {
@@ -186,5 +216,21 @@ test "markdown prepass: list item paragraph" (b : @bench.T) {
       _ => abort("list item parse failed")
     }
     b.keep(cst)
+  })
+}
+
+///|
+test "markdown prepass: list item paragraph cst-first" (b : @bench.T) {
+  let source = benchmark_list_item_source()
+  let ctx = list_item_prepass_context()
+  b.bench(fn() {
+    let (cst, _) = parse_cst(source) catch {
+      _ => abort("list item parse failed")
+    }
+    b.keep(cst)
+  })
+  b.bench(fn() {
+    let index = list_item_prepass(ctx)
+    b.keep(index)
   })
 }
