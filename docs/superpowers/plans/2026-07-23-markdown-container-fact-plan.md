@@ -151,7 +151,7 @@ transport commit.
 
 ### Steps
 
-- [ ] **1. Make both token facts explicit and observe compiler fallout.**
+- [x] **1. Make both token facts explicit and observe compiler fallout.**
 
   Change the two token variants in `token.mbt`, retaining the existing
   `UnorderedListMarker` type. Use `moon ide` diagnostics and `moon check` to
@@ -161,7 +161,7 @@ transport commit.
   cd examples/markdown && rtk moon check --target wasm-gc
   ```
 
-- [ ] **2. Preserve lexer range semantics while supplying both payloads.**
+- [x] **2. Preserve lexer range semantics while supplying both payloads.**
 
   Update `lex_line_start` so thematic production stores the exact
   marker-to-line-end slice, while each unordered-list production maps its
@@ -170,7 +170,7 @@ transport commit.
   behavior unchanged, including lone markers and markers followed by
   whitespace.
 
-- [ ] **3. Update matches mechanically and prove lexed facts.**
+- [x] **3. Update matches mechanically and prove lexed facts.**
 
   Change all reported variant patterns to ignore payloads unless the test is
   asserting transport. In `lexer_test.mbt`, cover thematic marker spellings
@@ -182,7 +182,7 @@ transport commit.
   cd examples/markdown && rtk moon test --target wasm-gc lexer_test.mbt
   ```
 
-- [ ] **4. Run behavioral and interface verification.**
+- [x] **4. Run behavioral and interface verification.**
 
   ```bash
   cd examples/markdown && rtk moon test --target wasm-gc && rtk moon fmt && rtk moon check --target wasm-gc
