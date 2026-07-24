@@ -1,0 +1,394 @@
+{
+  "schema": 1,
+  "timestamp_utc": "2026-07-24T09:05:13.271551+00:00",
+  "commit": "7728071d475f895d140c2ca3cff225181d8058d1",
+  "target": "wasm-gc",
+  "command": "rtk proxy moon bench --release --package dowdiness/markdown --file prepass_benchmark_wbtest.mbt --target wasm-gc --index <index>",
+  "pairs_per_fixture": 16,
+  "bootstrap": {
+    "resamples": 10000,
+    "seed": 12648430,
+    "lower_index": 250,
+    "upper_index": 9749,
+    "statistic": "median ratio_percent"
+  },
+  "host": {
+    "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.14.2"
+  },
+  "fixtures": [
+    {
+      "fixture": "root",
+      "warmups_per_order": 3,
+      "observations": [
+        {
+          "pair": 1,
+          "order": "prepass-first",
+          "prepass_ns": 3760.0,
+          "cst_ns": 27910.0,
+          "ratio_percent": 13.471873880329632
+        },
+        {
+          "pair": 2,
+          "order": "cst-first",
+          "prepass_ns": 4400.0,
+          "cst_ns": 24360.0,
+          "ratio_percent": 18.0623973727422
+        },
+        {
+          "pair": 3,
+          "order": "prepass-first",
+          "prepass_ns": 3620.0,
+          "cst_ns": 31390.0,
+          "ratio_percent": 11.532335138579166
+        },
+        {
+          "pair": 4,
+          "order": "cst-first",
+          "prepass_ns": 4410.0,
+          "cst_ns": 24460.0,
+          "ratio_percent": 18.02943581357318
+        },
+        {
+          "pair": 5,
+          "order": "prepass-first",
+          "prepass_ns": 3650.0,
+          "cst_ns": 27430.0,
+          "ratio_percent": 13.306598614655488
+        },
+        {
+          "pair": 6,
+          "order": "cst-first",
+          "prepass_ns": 4300.0,
+          "cst_ns": 24750.0,
+          "ratio_percent": 17.373737373737374
+        },
+        {
+          "pair": 7,
+          "order": "prepass-first",
+          "prepass_ns": 3720.0,
+          "cst_ns": 27980.0,
+          "ratio_percent": 13.295210864903503
+        },
+        {
+          "pair": 8,
+          "order": "cst-first",
+          "prepass_ns": 4500.0,
+          "cst_ns": 26790.0,
+          "ratio_percent": 16.7973124300112
+        },
+        {
+          "pair": 9,
+          "order": "prepass-first",
+          "prepass_ns": 3780.0,
+          "cst_ns": 27800.0,
+          "ratio_percent": 13.597122302158274
+        },
+        {
+          "pair": 10,
+          "order": "cst-first",
+          "prepass_ns": 4340.0,
+          "cst_ns": 24330.0,
+          "ratio_percent": 17.838060008220307
+        },
+        {
+          "pair": 11,
+          "order": "prepass-first",
+          "prepass_ns": 3630.0,
+          "cst_ns": 27060.0,
+          "ratio_percent": 13.414634146341465
+        },
+        {
+          "pair": 12,
+          "order": "cst-first",
+          "prepass_ns": 4330.0,
+          "cst_ns": 24700.0,
+          "ratio_percent": 17.530364372469638
+        },
+        {
+          "pair": 13,
+          "order": "prepass-first",
+          "prepass_ns": 3730.0,
+          "cst_ns": 27660.0,
+          "ratio_percent": 13.485177151120753
+        },
+        {
+          "pair": 14,
+          "order": "cst-first",
+          "prepass_ns": 4230.0,
+          "cst_ns": 25480.0,
+          "ratio_percent": 16.601255886970172
+        },
+        {
+          "pair": 15,
+          "order": "prepass-first",
+          "prepass_ns": 3660.0,
+          "cst_ns": 27230.0,
+          "ratio_percent": 13.44105765699596
+        },
+        {
+          "pair": 16,
+          "order": "cst-first",
+          "prepass_ns": 4400.0,
+          "cst_ns": 25110.0,
+          "ratio_percent": 17.522899243329352
+        }
+      ],
+      "median_ratio_percent": 15.099189094564224,
+      "bootstrap_95_percent_interval": [
+        13.44105765699596,
+        17.522899243329352
+      ],
+      "passes_stop_gate": true
+    },
+    {
+      "fixture": "block-quote",
+      "warmups_per_order": 3,
+      "observations": [
+        {
+          "pair": 1,
+          "order": "prepass-first",
+          "prepass_ns": 3780.0,
+          "cst_ns": 36240.0,
+          "ratio_percent": 10.43046357615894
+        },
+        {
+          "pair": 2,
+          "order": "cst-first",
+          "prepass_ns": 4110.0,
+          "cst_ns": 30690.0,
+          "ratio_percent": 13.391984359726294
+        },
+        {
+          "pair": 3,
+          "order": "prepass-first",
+          "prepass_ns": 3650.0,
+          "cst_ns": 32330.0,
+          "ratio_percent": 11.289823693164244
+        },
+        {
+          "pair": 4,
+          "order": "cst-first",
+          "prepass_ns": 4570.0,
+          "cst_ns": 33450.0,
+          "ratio_percent": 13.662182361733933
+        },
+        {
+          "pair": 5,
+          "order": "prepass-first",
+          "prepass_ns": 5580.0,
+          "cst_ns": 41210.0,
+          "ratio_percent": 13.540402814850763
+        },
+        {
+          "pair": 6,
+          "order": "cst-first",
+          "prepass_ns": 4430.0,
+          "cst_ns": 30820.0,
+          "ratio_percent": 14.37378325762492
+        },
+        {
+          "pair": 7,
+          "order": "prepass-first",
+          "prepass_ns": 3930.0,
+          "cst_ns": 36460.0,
+          "ratio_percent": 10.778935820076796
+        },
+        {
+          "pair": 8,
+          "order": "cst-first",
+          "prepass_ns": 5410.0,
+          "cst_ns": 33460.0,
+          "ratio_percent": 16.168559473998805
+        },
+        {
+          "pair": 9,
+          "order": "prepass-first",
+          "prepass_ns": 3850.0,
+          "cst_ns": 45860.0,
+          "ratio_percent": 8.39511556912342
+        },
+        {
+          "pair": 10,
+          "order": "cst-first",
+          "prepass_ns": 4250.0,
+          "cst_ns": 33790.0,
+          "ratio_percent": 12.577685705830127
+        },
+        {
+          "pair": 11,
+          "order": "prepass-first",
+          "prepass_ns": 3770.0,
+          "cst_ns": 32400.0,
+          "ratio_percent": 11.635802469135804
+        },
+        {
+          "pair": 12,
+          "order": "cst-first",
+          "prepass_ns": 4360.0,
+          "cst_ns": 34100.0,
+          "ratio_percent": 12.78592375366569
+        },
+        {
+          "pair": 13,
+          "order": "prepass-first",
+          "prepass_ns": 3640.0,
+          "cst_ns": 33450.0,
+          "ratio_percent": 10.881913303437967
+        },
+        {
+          "pair": 14,
+          "order": "cst-first",
+          "prepass_ns": 4130.0,
+          "cst_ns": 31300.0,
+          "ratio_percent": 13.194888178913738
+        },
+        {
+          "pair": 15,
+          "order": "prepass-first",
+          "prepass_ns": 3540.0,
+          "cst_ns": 31900.0,
+          "ratio_percent": 11.097178683385579
+        },
+        {
+          "pair": 16,
+          "order": "cst-first",
+          "prepass_ns": 4570.0,
+          "cst_ns": 34860.0,
+          "ratio_percent": 13.10958118187034
+        }
+      ],
+      "median_ratio_percent": 12.68180472974791,
+      "bootstrap_95_percent_interval": [
+        11.097178683385579,
+        13.391984359726294
+      ],
+      "passes_stop_gate": true
+    },
+    {
+      "fixture": "list-item",
+      "warmups_per_order": 3,
+      "observations": [
+        {
+          "pair": 1,
+          "order": "prepass-first",
+          "prepass_ns": 3870.0,
+          "cst_ns": 32980.0,
+          "ratio_percent": 11.73438447543966
+        },
+        {
+          "pair": 2,
+          "order": "cst-first",
+          "prepass_ns": 4370.0,
+          "cst_ns": 30770.0,
+          "ratio_percent": 14.202144946376341
+        },
+        {
+          "pair": 3,
+          "order": "prepass-first",
+          "prepass_ns": 4050.0,
+          "cst_ns": 35480.0,
+          "ratio_percent": 11.414881623449832
+        },
+        {
+          "pair": 4,
+          "order": "cst-first",
+          "prepass_ns": 4380.0,
+          "cst_ns": 32330.0,
+          "ratio_percent": 13.547788431797091
+        },
+        {
+          "pair": 5,
+          "order": "prepass-first",
+          "prepass_ns": 3820.0,
+          "cst_ns": 35780.0,
+          "ratio_percent": 10.6763555058692
+        },
+        {
+          "pair": 6,
+          "order": "cst-first",
+          "prepass_ns": 4820.0,
+          "cst_ns": 41050.0,
+          "ratio_percent": 11.741778319123021
+        },
+        {
+          "pair": 7,
+          "order": "prepass-first",
+          "prepass_ns": 4210.0,
+          "cst_ns": 35040.0,
+          "ratio_percent": 12.014840182648403
+        },
+        {
+          "pair": 8,
+          "order": "cst-first",
+          "prepass_ns": 4730.0,
+          "cst_ns": 30520.0,
+          "ratio_percent": 15.498034076015726
+        },
+        {
+          "pair": 9,
+          "order": "prepass-first",
+          "prepass_ns": 4430.0,
+          "cst_ns": 36390.0,
+          "ratio_percent": 12.173674086287441
+        },
+        {
+          "pair": 10,
+          "order": "cst-first",
+          "prepass_ns": 4600.0,
+          "cst_ns": 34180.0,
+          "ratio_percent": 13.458162668227033
+        },
+        {
+          "pair": 11,
+          "order": "prepass-first",
+          "prepass_ns": 4059.9999999999995,
+          "cst_ns": 33780.0,
+          "ratio_percent": 12.018946121965659
+        },
+        {
+          "pair": 12,
+          "order": "cst-first",
+          "prepass_ns": 4540.0,
+          "cst_ns": 31400.0,
+          "ratio_percent": 14.45859872611465
+        },
+        {
+          "pair": 13,
+          "order": "prepass-first",
+          "prepass_ns": 4130.0,
+          "cst_ns": 36120.0,
+          "ratio_percent": 11.434108527131782
+        },
+        {
+          "pair": 14,
+          "order": "cst-first",
+          "prepass_ns": 4710.0,
+          "cst_ns": 32330.0,
+          "ratio_percent": 14.568512217754407
+        },
+        {
+          "pair": 15,
+          "order": "prepass-first",
+          "prepass_ns": 3890.0,
+          "cst_ns": 33030.0,
+          "ratio_percent": 11.777172267635482
+        },
+        {
+          "pair": 16,
+          "order": "cst-first",
+          "prepass_ns": 4410.0,
+          "cst_ns": 31140.0,
+          "ratio_percent": 14.16184971098266
+        }
+      ],
+      "median_ratio_percent": 12.09631010412655,
+      "bootstrap_95_percent_interval": [
+        11.741778319123021,
+        14.16184971098266
+      ],
+      "passes_stop_gate": true
+    }
+  ],
+  "decision": "proceed"
+}
