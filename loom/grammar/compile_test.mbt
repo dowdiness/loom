@@ -599,17 +599,21 @@ fn diamond_chain_rules(
 /// Progress classification must be memoized on `(rule, visiting path)`. Without
 /// the cache each shared reference re-expands its whole subtree, so this grammar
 /// takes exponential time to compile (measured: depth 22 ~1s, depth 26 ~65s).
+///
+/// Depth is 64, not larger: 2^64 paths is already unreachable without the memo,
+/// while the memo itself costs O(depth^2) entries, so a deeper chain buys no
+/// extra proof and makes this the heaviest compile in the suite.
 test "compile classifies progress without re-expanding shared references" {
-  let rules = diamond_chain_rules(200, Expr::Emit(1, 10))
+  let rules = diamond_chain_rules(64, Expr::Emit(1, 10))
   let compiled = compile(GrammarIr::GrammarIr(rules, root="r0"))
-  inspect(compiled.names_snapshot().length(), content="201")
+  inspect(compiled.names_snapshot().length(), content="65")
 }
 
 ///|
 /// The memo must not lose a cycle that is only reachable through the shared
 /// references, so the same shape with a back edge still fails to compile.
 test "compile still detects left recursion behind shared references" {
-  let rules = diamond_chain_rules(200, Expr::Ref("r0"))
+  let rules = diamond_chain_rules(64, Expr::Ref("r0"))
   let caught = try {
     let _ = compile(GrammarIr::GrammarIr(rules, root="r0"))
     None
