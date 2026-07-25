@@ -285,14 +285,15 @@ pub fn[T, K] compile(
     guard ir.rules.get(name) is Some(expr)
     rules.push(lower(expr, rule_slots, native_slots, guard_slots))
   }
+  let progress_memo : ProgressMemo = Map([])
   for i, expr in rules {
     let owner = names[i]
     guard rule_slots.get(owner) is Some(owner_slot)
-    match progress_of(expr, rules, [owner_slot]) {
+    match progress_of(expr, rules, [owner_slot], progress_memo) {
       Cycle(_) => raise LeftRecursiveRule(owner)
       _ => ()
     }
-    validate_progress(expr, owner, owner_slot, rules)
+    validate_progress(expr, owner, owner_slot, rules, progress_memo)
   }
   {
     names,
@@ -500,22 +501,64 @@ priv enum ProgressFact {
 }
 
 ///|
+/// Cache of already-classified `(rule slot, active visiting path)` pairs.
+type ProgressMemo = Map[String, ProgressFact]
+
+///|
+/// Identify one `progress_of` call on a rule body. The separator keeps adjacent
+/// indices unambiguous, so distinct paths never share a key.
+fn progress_key(slot : RuleSlot, visiting : Array[RuleSlot]) -> String {
+  let buf = StringBuilder::new()
+  buf.write_string(slot.index.to_string())
+  for current in visiting {
+    buf.write_string("|")
+    buf.write_string(current.index.to_string())
+  }
+  buf.to_string()
+}
+
+///|
+/// Memoized `progress_of` for one rule body under an active visiting path.
+///
+/// `progress_of` is a pure function of `(expr, rules, visiting)` and `rules` is
+/// fixed for one compilation, so caching on `(slot, visiting)` is exact. Without
+/// the cache, a rule referenced twice from the same position re-expands its
+/// whole subtree twice, which is exponential in reference depth.
+fn[T, K] progress_of_rule(
+  slot : RuleSlot,
+  rules : Array[CompiledExpr[T, K]],
+  visiting : Array[RuleSlot],
+  memo : ProgressMemo,
+) -> ProgressFact {
+  let key = progress_key(slot, visiting)
+  match memo.get(key) {
+    Some(fact) => fact
+    None => {
+      let fact = progress_of(rules[slot.index], rules, visiting, memo)
+      memo[key] = fact
+      fact
+    }
+  }
+}
+
+///|
 fn[T, K] progress_of(
   expr : CompiledExpr[T, K],
   rules : Array[CompiledExpr[T, K]],
   visiting : Array[RuleSlot],
+  memo : ProgressMemo,
 ) -> ProgressFact {
   match expr {
     Empty | EmitError(_) | Fail(_) | DiagnoseIf(_, _) => Never
     Emit(_, _) | Expect(_, _) | EmitOr(_, _, _) => Unknown
-    Node(_, body) => progress_of(body, rules, visiting)
+    Node(_, body) => progress_of(body, rules, visiting, memo)
     RefSlot(slot) =>
       if visiting.iter().any(current => current == slot) {
         Cycle(slot)
       } else {
         let next = visiting.copy()
         next.push(slot)
-        progress_of(rules[slot.index], rules, next)
+        progress_of_rule(slot, rules, next, memo)
       }
     NativeSlot(_) => Unknown
     Choice(alts) => {
@@ -525,7 +568,7 @@ fn[T, K] progress_of(
         if definitely_false(alt.starts) {
           continue
         }
-        match progress_of(alt.body, rules, visiting) {
+        match progress_of(alt.body, rules, visiting, memo) {
           Never => ()
           Unknown => saw_unknown = true
           Cycle(slot) => cycle = Some(slot)
@@ -543,7 +586,7 @@ fn[T, K] progress_of(
       if definitely_false(starts) {
         Never
       } else {
-        match progress_of(rules[slot.index], rules, visiting) {
+        match progress_of_rule(slot, rules, visiting, memo) {
           Cycle(cycle_slot) => Cycle(cycle_slot)
           _ => Never
         }
@@ -551,7 +594,7 @@ fn[T, K] progress_of(
     Seq(exprs) => {
       let mut saw_unknown = false
       for part in exprs {
-        match progress_of(part, rules, visiting) {
+        match progress_of(part, rules, visiting, memo) {
           Never => ()
           Unknown => saw_unknown = true
           Cycle(slot) => {
@@ -569,12 +612,12 @@ fn[T, K] progress_of(
       }
     }
     PrattApp(slot, _, _) | PrattBinary(slot, _, _, ..) =>
-      match progress_of(rules[slot.index], rules, visiting) {
+      match progress_of_rule(slot, rules, visiting, memo) {
         Cycle(cycle_slot) => Cycle(cycle_slot)
         _ => Unknown
       }
     RepeatWhile(_, _) => Never
-    WrapIfNext(_, _, body) => progress_of(body, rules, visiting)
+    WrapIfNext(_, _, body) => progress_of(body, rules, visiting, memo)
     ErrorUntil(stop, _) => if definitely_true(stop) { Never } else { Unknown }
     ExpectSkip(_, _, _, _) => Unknown
     ConsumeGated(_, _, _) => Unknown
@@ -616,25 +659,26 @@ fn[T, K] validate_progress(
   owner : RuleName,
   owner_slot : RuleSlot,
   rules : Array[CompiledExpr[T, K]],
+  memo : ProgressMemo,
 ) -> Unit raise GrammarCompileError {
   match expr {
     RepeatWhile(pred, body) => {
       if definitely_false(pred) {
         return ()
       }
-      match progress_of(body, rules, [owner_slot]) {
+      match progress_of(body, rules, [owner_slot], memo) {
         Never => raise ZeroProgressRepeat(owner)
         Cycle(_) => raise LeftRecursiveRule(owner)
         _ => ()
       }
-      validate_progress(body, owner, owner_slot, rules)
+      validate_progress(body, owner, owner_slot, rules, memo)
     }
     Node(_, body) | WrapIfNext(_, _, body) =>
-      validate_progress(body, owner, owner_slot, rules)
+      validate_progress(body, owner, owner_slot, rules, memo)
     Choice(alts) =>
       for alt in alts {
         if !definitely_false(alt.starts) {
-          validate_progress(alt.body, owner, owner_slot, rules)
+          validate_progress(alt.body, owner, owner_slot, rules, memo)
         }
         if definitely_true(alt.starts) {
           break
@@ -642,11 +686,11 @@ fn[T, K] validate_progress(
       }
     Seq(exprs) =>
       for part in exprs {
-        validate_progress(part, owner, owner_slot, rules)
+        validate_progress(part, owner, owner_slot, rules, memo)
       }
     RepeatTopLevel(slot, starts~, ..) =>
       if !definitely_false(starts) {
-        match progress_of(rules[slot.index], rules, [owner_slot]) {
+        match progress_of_rule(slot, rules, [owner_slot], memo) {
           Never => raise ZeroProgressRepeat(owner)
           Cycle(_) => raise LeftRecursiveRule(owner)
           _ => ()

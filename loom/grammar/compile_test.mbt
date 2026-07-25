@@ -578,3 +578,46 @@ test "compile leaves opaque Native progress for runtime enforcement" {
     _ => fail("expected opaque Native repeat to compile")
   }
 }
+
+///|
+/// Build `r0 .. rn` where every rule references its successor twice, so the
+/// number of distinct reference *paths* through the grammar is 2^n while the
+/// number of distinct `(rule, visiting path)` pairs stays linear.
+fn diamond_chain_rules(
+  depth : Int,
+  leaf : Expr[Int, Int],
+) -> Map[RuleName, Expr[Int, Int]] {
+  let rules : Map[RuleName, Expr[Int, Int]] = Map([])
+  for i in 0..<depth {
+    rules["r\{i}"] = Expr::Seq([Expr::Ref("r\{i + 1}"), Expr::Ref("r\{i + 1}")])
+  }
+  rules["r\{depth}"] = leaf
+  rules
+}
+
+///|
+/// Progress classification must be memoized on `(rule, visiting path)`. Without
+/// the cache each shared reference re-expands its whole subtree, so this grammar
+/// takes exponential time to compile (measured: depth 22 ~1s, depth 26 ~65s).
+test "compile classifies progress without re-expanding shared references" {
+  let rules = diamond_chain_rules(200, Expr::Emit(1, 10))
+  let compiled = compile(GrammarIr::GrammarIr(rules, root="r0"))
+  inspect(compiled.names_snapshot().length(), content="201")
+}
+
+///|
+/// The memo must not lose a cycle that is only reachable through the shared
+/// references, so the same shape with a back edge still fails to compile.
+test "compile still detects left recursion behind shared references" {
+  let rules = diamond_chain_rules(200, Expr::Ref("r0"))
+  let caught = try {
+    let _ = compile(GrammarIr::GrammarIr(rules, root="r0"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(GrammarCompileError::LeftRecursiveRule("r0")) => ()
+    _ => fail("expected LeftRecursiveRule(\"r0\") through shared references")
+  }
+}
