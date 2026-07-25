@@ -25,7 +25,7 @@ let compiled_html_grammar : @grammar.CompiledGrammar[
   guard_names=Set::Set(["html_tag_stack_valid"]),
   native_rule_refs={ "parse_html_root": Set::Set(["close_boundary"]) },
 ) catch {
-  _ => abort("HTML grammar compilation failed")
+  e => abort("HTML grammar compilation failed: \{@debug.to_string(e)}")
 }
 
 ///|
@@ -61,7 +61,7 @@ pub fn make_html_parse_root() -> HtmlParseRoot {
       },
     }
     let executable = @grammar.bind(compiled_html_grammar, natives~, guards~) catch {
-      _ => abort("HTML grammar binding failed")
+      e => abort("HTML grammar binding failed: \{@debug.to_string(e)}")
     }
     executable.parse_root()(ctx)
   }
