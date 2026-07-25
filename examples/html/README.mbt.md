@@ -175,9 +175,12 @@ moon test examples/html/lexer_test.mbt examples/html/parser_test.mbt
 ## Known Issues
 
 - **Parser-driven lex mode switching remains out of scope for this simplified
-  HTML example.** Raw-text `<script>`/`<style>` content is handled by the
-  current mode-aware lexer and covered by parser tests; the separate
-  `ParserContext.set_lex_mode()` API remains tracked by [#609](https://github.com/dowdiness/loom/issues/609).
+  HTML example.** The current mode-aware lexer handles raw-text `<script>` and
+  `<style>` content, with parser tests covering that behavior.
+
+  `ParserContext.set_lex_mode()` only updates a parser-side scalar. The eager
+  tokenization pipeline does not consume that value, so parser-directed mode
+  switching would require a separate tokenization contract.
 
 ## See Also
 
