@@ -14,7 +14,9 @@
 - Shell commands use `rtk`.
 - Use TDD: write failing tests before production code.
 - `@grammar.interpret` is the semantic oracle; goldens alone are insufficient.
-- `SwitchLexMode` is out of scope for this implementation because current `ParserContext` has no `lex_mode` / `set_lex_mode` API.
+- `SwitchLexMode` remains out of scope. `ParserContext::lex_mode` and
+  `set_lex_mode` preserve parser-local state but do not drive eager
+  tokenization.
 - Unsupported IR nodes must fail loudly at emit time, not generate partial parser code.
 - Verify with `rtk moon check loomgen --target native`; add narrower `moon test` commands as tests land.
 
@@ -116,7 +118,9 @@
 
 **Interfaces:**
 - `ManualNewlineAppExpr` returns an emitter error.
-- `SwitchLexMode` is not added in this phase. If a placeholder type appears later, it must return an emitter error until the runtime contract exists.
+- `SwitchLexMode` is not added in this phase. If a placeholder type appears
+  later, it must return an emitter error because parser-local mode state does
+  not drive eager tokenization.
 
 - [ ] Add a failing test that `ManualNewlineAppExpr` returns a clear error mentioning the unsupported residue.
 - [ ] Implement unsupported-node detection.
