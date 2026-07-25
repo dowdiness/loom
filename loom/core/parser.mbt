@@ -137,13 +137,13 @@ pub struct ParserContext[T, K] {
   // replay matching diagnostics by code-unit span to preserve exact messages.
   priv mut reuse_diagnostics : DiagnosticSet?
   priv mut reuse_count : Int
-  // Lex mode for parser-driven mode switching. 0 = initial/default mode.
-  // Set via set_lex_mode() to switch the lexer to a different mode mid-parse.
-  // The mode value is an opaque integer; the grammar assigns semantic meaning.
+  // Parser-local opaque mode state. 0 = initial/default.
+  // Checkpoints preserve this value, and the grammar assigns its meaning.
+  // It does not configure TokenBuffer, ModeLexer, or already-produced tokens.
   priv mut lex_mode : Int
   // Goal-directed token source. None by default; set via set_goal_source().
   // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
-  // Wraps TokenBuffer::goal_token_at for the parser's TokenBuffer instance.
+  // Supplied explicitly by the caller; standard factories do not install it.
   priv mut goal_source : ((Int, Int) -> (T, Int))?
   // Goal subsumption check. Set alongside goal_source.
   // Closure: (offset: Int, baseline_len: Int) -> Bool

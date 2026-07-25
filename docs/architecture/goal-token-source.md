@@ -1,7 +1,7 @@
 # Parser-Directed Goal Tokenization (GoalTokenSource)
 
-**Status:** Design note — resolves architectural premises for [#657]
-**Date:** 2026-07-09
+**Status:** Implemented — low-level opt-in goal-directed tokenization
+**Date:** 2026-07-09 (updated 2026-07-25)
 **Issues:** [#657], [#532], js_engine incremental reuse
 
 [#657]: https://github.com/dowdiness/loom/issues/657
@@ -9,7 +9,7 @@
 
 ## 1. Problem
 
-loom's current token model is:
+loom's baseline token path is:
 
 - `TokenBuffer[T]` — linear `Array[TokenInfo[T]]` indexed by position
 - Token identity depends only on source content and lexer state
@@ -21,37 +21,41 @@ parser is in `DivGoal` or `RegExpGoal`.
 
 ## 2. Persistent artifact
 
-**TokenBuffer is the minimal artifact that persists across edits.** It provides:
+`TokenBuffer` owns tokenization state across edits. It provides:
 
 - `get_tokens()` — linear token array (baseline, lexer-inferred goals)
-- `update(edit)` — range re-lex + offset patching, O(edit size)
-- `mode_relex` — optional ModeRelexState for lexer-driven mode switching (Markdown)
+- `update(edit)` — range re-lex plus offset patching
+- `mode_relex` — optional `ModeRelexState` for lexer-driven mode switching
+- `GoalCache` — lazy goal-directed results, invalidated on every source edit
 
-**No CST or AST tree persists yet.** Parse reuse (skipping unchanged regions) requires
-a persisted tree with span annotations — that is deferred. This design covers
-**incremental re-lexing only**.
+Incremental parser sessions may separately retain old syntax and a
+`ReuseCursor`. GoalTokenSource owns neither. Its low-level APIs expose
+goal-directed results and a goal-span check that callers can wire into reuse.
 
 ## 3. GoalTokenSource: overlay, not replacement
 
 ```text
-Before (current):
+Baseline:
   ParserContext.get_token(position) → TokenBuffer.get_token(i)
 
-After:
+With explicit goal-source wiring:
   ParserContext.get_token(position) → TokenBuffer.get_token(i)   (baseline)
   ParserContext.token_at(offset, goal) → GoalTokenSource         (goal-directed)
 ```
 
-GoalTokenSource is a **parallel access path**, not a wrapper around TokenBuffer:
+GoalTokenSource is a **parallel access path**, not a wrapper around the
+baseline path:
 
-- **TokenBuffer** owns the baseline token array, indexed by position (linear index).
-  Tokens are lexed with the lexer's own contextual inference (current behavior).
-- **GoalTokenSource** answers `(source_offset: Int, goal: Int) -> (Token, end_offset: Int)`.
-  On cache miss: lex one token at the given offset with the explicit goal.
-  Returns the token **and** its exclusive end offset (start + len, matching
-  TokenBuffer's convention).
-- **No shared state** between the two paths. Both call the same underlying lexer,
-  but with different starting assumptions about goal.
+- **TokenBuffer** owns the baseline token array, `GoalCache`, and an optional
+  goal-step closure installed with `set_goal_step`.
+- **ParserContext** receives a goal-source closure and optional subsumption
+  predicate through `set_goal_source`.
+- **Standard `Grammar` and parser factories do not wire these closures.** A
+  caller must opt in explicitly.
+- When wired through `TokenBuffer`, the paths share source and edit lifecycle
+  but keep separate token results and query semantics. The goal step is
+  explicitly supplied; Loom does not derive it from the baseline lexer,
+  `ModeLexer`, or `lex_mode`.
 
 This means the same offset can produce different tokens depending on which
 path the parser uses — that is the intended behavior.
@@ -91,24 +95,23 @@ This is valid because ParserContext already has the building blocks:
 - TokenBuffer's `starts` array is monotonic (non-decreasing offsets)
 - `lower_bound` (binary search) already exists in parser.mbt for OffsetIndexed
 
-Cost: O(log N) per goal-directed advance. For JS, at most the count of `/`
-tokens per parse (typically ≤ 100). Acceptable.
+Cursor alignment costs O(log N) per goal-directed advance.
 
-`peek_nth(n)` after a goal advance works correctly — the position index is
-already past the subsumed region, so peek_nth(1) sees the token after the
-regex body.
+After a goal advance, the position index is already past the subsumed region,
+so `peek_nth(0)` sees the next non-trivia token after the regex body.
 
-Baseline `advance()` (no goal) still increments position by 1 — unchanged.
-Mixing `advance()` and `advance_with_goal()` is safe; both update the same
-position index.
+Normal `emit_token` continues to advance over the baseline path.
+`emit_token_with_goal` advances the same cursor to the goal token's returned
+end offset.
 
 ### No mixing in speculative parsing
 
 Checkpoint captures `position` (linear index). If a speculative branch calls
 `advance_with_goal`, the position advances past subsumed positions. On
 `restore()`, position is rolled back — all subsumed positions are restored.
-The GoalTokenSource cache entries from the speculative branch persist, but
-that is safe (cache entries are idempotent for the current source).
+Goal-cache entries from the speculative branch persist. The goal-step contract
+must therefore return a stable result for the same source, offset, and goal;
+`TokenBuffer::update` invalidates entries when the source changes.
 
 ### Why separate paths instead of one unified path?
 
@@ -127,7 +130,7 @@ sites), while the position index handles routine token navigation.
 ```text
 1. Source edit occurs
 2. TokenBuffer.update(edit) — re-maps offset→position, re-lexes changed range
-3. GoalTokenSource.invalidate() — clears entire cache
+3. TokenBuffer clears GoalCache
 4. Future goal queries re-lex as needed (cache miss → populate)
 ```
 
@@ -156,41 +159,32 @@ Rejected alternatives:
 
 ### Cache size bound
 
-The cache is bounded by the number of goal-directed queries in a single parse
-pass. For ECMAScript, this is at most the number of `/` tokens (each of which
-may be queried as both `Div` and `RegExp` in speculative branches), plus
-goal transitions for `yield`/`await` context. Empirically ≤ a few hundred
-entries for typical files. No eviction policy needed — entries live for one
-parse pass and are cleared on the next edit.
+The cache contains successful `(offset, goal)` queries accumulated since the
+most recent source edit. Repeated parses can add entries when they query new
+offsets or goals. No eviction policy is currently implemented; the full cache
+is cleared on the next edit.
 
 ## 5. Relationship with existing consumers
 
-### ModeLexer / ModeRelexState (JSON, Lambda, Markdown)
+### ModeLexer / ModeRelexState
 
-**Independent axes.** ModeLexer handles *lexer-driven* mode switching: the lexer
-itself decides when to switch modes (Markdown's ` ``` ` switching to CodeBlock).
-GoalTokenSource handles *parser-driven* goal direction: the parser tells the
-lexer which goal to use.
+These mechanisms have separate state and trigger semantics:
 
-They can coexist in the same `TokenBuffer`:
+- `ModeLexer` chooses its next native mode while lexing and stores mode snapshots
+  for incremental re-lex.
+- GoalTokenSource accepts an explicit opaque goal at each query.
+- `ParserContext::lex_mode` is checkpointed parser-local state and does not
+  configure either path.
 
-- `TokenBuffer.mode_relex` — lexer-driven mode switching (existing).
-- `GoalTokenSource` — parser-driven goal direction (new, overlay).
-- A grammar can use both: Markdown uses `ModeLexer` for code-fence switching
-  AND `GoalTokenSource` for inline goal-ambiguous constructs (if any).
+Mode re-lex and goal queries can coexist on one `TokenBuffer`, but there is no
+automatic bridge between them.
 
 ### ParserContext
 
-`ParserContext.peek()` / `ParserContext.advance()` continue to use the
-TokenBuffer linear index. A new method is added for goal-directed access:
-```moonbit
-// Returns the token at the given source offset, tokenized with the
-// specified lexical goal, and its exclusive end offset.
-// Returns the best-effort result: if the lexer cannot produce output
-// for the given goal (e.g. nonsense goal value), returns the baseline
-// token from TokenBuffer.
-fn ParserContext::token_at(self, offset: Int, goal: Int) -> (Token, Int)
-```
+`ParserContext::peek` and `advance` continue to use the baseline linear index.
+The low-level `token_at`, `advance_with_goal`, and `emit_token_with_goal`
+methods use an explicitly installed goal-source closure. Without one,
+`token_at` falls back to the baseline token.
 
 ### ReuseCursor
 
@@ -200,27 +194,20 @@ multiple baseline TokenBuffer positions (e.g. a `Regex` token spanning offsets
 42–48 subsumes positions that the baseline would have split across `Slash` +
 body tokens). This means:
 
-- CST nodes inside a goal-subsumed region cannot be reused — they correspond
-  to baseline tokens that no longer exist in the goal-aware token stream.
+- CST nodes inside a goal-subsumed region cannot be reused safely because
+  their baseline token boundaries differ from the goal-produced span.
 - ReuseCursor matching remains correct for positions NOT queried through
   GoalTokenSource (the common case — most tokens use the baseline path).
-- A concrete invalidation rule for reuse inside goal-subsumed regions is
-  **deferred to implementation** — the current design ensures correctness
-  (baseline STILL exists, so reuse never references dead tokens) but may
-  miss reuse opportunities inside goal-directed regions.
+- The implemented reuse path invokes the installed goal-subsumption predicate
+  before accepting a candidate. It bypasses reuse when a cached goal span at
+  the current offset exceeds the baseline token length.
 
 ### Checkpoint / restore
 
-Checkpoint captures `position` (linear index), `events_len`, `node_stack`,
-`lex_mode`. GoalTokenSource entries are **not checkpointed** — the cache
-is shared across speculative branches. This is safe because:
-
-- Cache entries are idempotent for the current source: `(offset, goal)` always
-  produces the same token for the same source content.
-- A speculative branch may populate cache entries that a later committed
-  branch also needs — sharing is beneficial.
-- If speculative parsing restores and the source has not changed, cached
-  entries remain valid.
+Checkpoints restore parser-owned state, including the cursor and `lex_mode`.
+They do not snapshot or roll back `GoalCache`; entries are shared across
+speculative branches. The goal-step contract must return stable results for a
+given source, offset, and goal, and source edits invalidate the cache.
 
 ## 6. peeking with goals
 
@@ -229,43 +216,27 @@ linear index **with the lexer's baseline goal inference**. This is correct becau
 peek_nth is used for lookahead decisions (FIRST sets, token classification), not
 for tokenizing goal-ambiguous positions.
 
-For goal-directed lookahead at a specific position, the parser calls:
+A caller that needs goal-directed lookahead must supply both the source offset
+and goal to `token_at`. Loom does not infer either value from `lex_mode`.
+Keeping this path explicit leaves `peek_nth` cheap and baseline-only.
 
-```moonbit
-let goal = if ctx.in_regex_context() { RegExpGoal } else { DivGoal }
-let tok = ctx.token_at(ctx.current_offset(), goal)
-```
+## 7. Implemented boundary
 
-This keeps peek_nth cheap (no goal parameter threading) while providing the
-escape hatch for positions where the goal matters.
+1. `TokenBuffer` owns `GoalCache` and the optional goal-step closure, keeping
+   cache invalidation coupled to source edits.
+2. Goals are opaque `Int` values whose meaning belongs to the caller.
+3. `ParserContext` receives the goal-source and subsumption closures explicitly.
+4. Offset-based advancement keeps the baseline cursor aligned when a goal token
+   spans several baseline positions.
+5. The reuse path can reject candidates inside goal-subsumed spans.
+6. Standard `Grammar` and parser factories do not install this capability.
 
-## 7. Open questions for #657 implementation
-
-These are deferred to the implementation plan but constrained by this design:
-
-1. **TokenBuffer API** — where does `GoalTokenSource` live? On `TokenBuffer`
-   as a field? Independent struct passed alongside? First option preferred
-   (makes invalidation colocated with edit handling).
-
-2. **Goal type** — `Int` (same as `ParserContext.lex_mode`) or generic `G`?
-   Same reasoning as [#532] Q1: `Int` is cheap, comparable, and the grammar
-   maps `Int` → semantic goal. If grammar needs richer goal types, it can
-   own a side-channel.
-
-3. **Goal-to-offset mapping** — The parser must know the source offset of the
-   current token to call `token_at`. ParserContext already has this via
-   `get_start(position)`. No new offset tracking needed.
-
-4. **Lexer reuse** — Re-lexing one token at an offset requires the lexer to be
-   able to start at an arbitrary offset, not just from the beginning. This is
-   the existing contract of `PrefixLexer` and `ModeLexer` — they accept a
-   `(source, pos)` or `(source, pos, mode)` pair. No new capability needed.
-
-## 8. Summary: what this design does and does not provide
+## 8. Summary
 
 | Provides | Does not provide |
 |---|---|
-| Parser-directed goal queries by source offset | Parse reuse (CST/AST across edits) |
-| Memoized re-lex for speculative goal branches | Unified goal-aware `peek_nth` |
-| Coexistence with TokenBuffer's linear index | Automatic edit invalidation of cached entries (clear-on-edit) |
-| Coexistence with ModeLexer/ModeRelexState | Goal-transition trace (#509 deferred) |
+| Explicit goal queries by source offset | Standard `Grammar`/factory auto-wiring |
+| Memoized results with full invalidation on edit | Unified goal-aware `peek_nth` |
+| Offset-based cursor advancement | Parser-driven mode switching |
+| Reuse suppression for goal-subsumed spans | Automatic `lex_mode` integration |
+| Coexistence with `ModeRelexState` | A goal-transition trace |
