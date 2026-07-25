@@ -506,16 +506,18 @@ fn[T, K] lower(
 ///
 /// The lattice is about *evidence*, not about behaviour, and the two are easy
 /// to confuse. Nothing here claims an expression cannot consume input; the
-/// question is whether the compiler can prove it must.
+/// question is whether the compiled structure provides usable evidence of
+/// progress.
 ///
 /// - `NoProgressEvidence` — the analysis found nothing that must consume a
 ///   token. This is *not* "never consumes": `RepeatWhile` and `RepeatTopLevel`
 ///   land here because zero iterations is possible, and they may otherwise
 ///   consume the whole input. It is the rejecting fact, because a repetition
 ///   body that may consume nothing can spin on an unchanged cursor.
-/// - `RuntimeDependent` — consumption exists but is decided by the token
-///   stream (`Emit`, `Expect`, a `Choice` whose arms disagree) or by opaque
-///   host code (`Native`, host guards). Deliberately accepted: the interpreter's
+/// - `RuntimeDependent` — a potentially consuming operation is reached, but
+///   actual consumption is decided by the token stream (`Emit`, `Expect`, a
+///   `Choice` whose arms disagree) or by opaque host code (`Native`, host
+///   guards). Deliberately accepted: the interpreter's
 ///   cursor checks and rule stack enforce progress for these at parse time.
 /// - `Cycle(slot)` — a path that consumes nothing re-enters `slot`, so the
 ///   grammar is left-recursive. The payload records where the cycle was
