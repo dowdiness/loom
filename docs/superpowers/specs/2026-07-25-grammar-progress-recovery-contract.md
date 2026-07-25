@@ -17,7 +17,7 @@ Implemented evidence includes:
 - `ErrorUntil` boundary semantics and required-element diagnostics;
 - real-language malformed-input tests for Lambda, CSS, and HTML;
 - full Loom workspace validation via `NEW_MOON_MOD=0 moon test --frozen`
-  from the repository root: 3470 passing tests.
+  from the repository root.
 
 The #751–#755 implementation is complete. Ongoing work is limited to contract maintenance, future grammar coverage, and the documented host responsibility for Native callbacks that never return. The throwaway prototype and audit have been deleted after their conclusions were captured here.
 
