@@ -184,17 +184,20 @@ pub fn[
       let token = ctx.peek()
       for alt in alts {
         if eval_compiled_pred(alt.starts, token, ctx, self.guards) {
-          run_rule_body(
-            ctx,
-            self.grammar,
-            self.natives,
-            self.guards,
-            self.brands,
-            self.stack,
-            capability.slot,
-            alt.body,
-          )
-          return true
+          // The cycle guard consumed nothing, so report the dispatch as
+          // unmatched and let the host recover. Answering `true` here would
+          // tell the native that a rule it never parsed had succeeded.
+          return run_rule_body(
+              ctx,
+              self.grammar,
+              self.natives,
+              self.guards,
+              self.brands,
+              self.stack,
+              capability.slot,
+              alt.body,
+            )
+            is Executed
         }
       }
       false
@@ -246,6 +249,19 @@ fn[T : Eq, K] eval_compiled_pred(
 }
 
 ///|
+/// Whether a rule body actually ran, or was stopped by the cycle guard.
+///
+/// The two outcomes need different recovery, so `run_rule_body` reports the
+/// guard instead of choosing a recovery itself: ordinary execution has no caller
+/// that can retry and must keep the CST complete with an error placeholder,
+/// while native dispatch must report "did not match" and consume nothing so the
+/// host's own fallback runs.
+priv enum RuleOutcome {
+  Executed
+  CycleGuarded
+}
+
+///|
 /// Run one rule body with a parse-local cycle guard.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
@@ -259,18 +275,18 @@ fn[
   stack : RuleCallStack,
   slot : RuleSlot,
   body : CompiledExpr[T, K],
-) -> Unit {
+) -> RuleOutcome {
   let position = ctx.cursor_position()
   if stack.frames
     .iter()
     .any(frame => frame.slot == slot && frame.position == position) {
     ctx.error("grammar: recursive rule re-entered without progress")
-    ctx.emit_error_placeholder()
-    return
+    return CycleGuarded
   }
   stack.frames.push(RuleFrame::{ slot, position })
   run_expr(ctx, grammar, natives, guards, brands, stack, body)
   ignore(stack.frames.pop())
+  Executed
 }
 
 ///|
@@ -287,16 +303,20 @@ fn[
   stack : RuleCallStack,
   slot : RuleSlot,
 ) -> Unit {
-  run_rule_body(
-    ctx,
-    grammar,
-    natives,
-    guards,
-    brands,
-    stack,
-    slot,
-    grammar.rules[slot.index],
-  )
+  match
+    run_rule_body(
+      ctx,
+      grammar,
+      natives,
+      guards,
+      brands,
+      stack,
+      slot,
+      grammar.rules[slot.index],
+    ) {
+    Executed => ()
+    CycleGuarded => ctx.emit_error_placeholder()
+  }
 }
 
 ///|

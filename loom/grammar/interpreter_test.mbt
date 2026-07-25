@@ -817,3 +817,45 @@ test "compiled execution defers native callbacks until parsing" {
   inspect(native_calls, content="1")
   inspect(diagnostics.is_empty(), content="true")
 }
+
+///|
+/// The cycle guard must be visible to the host. A dispatch stopped without
+/// consuming input has to report "did not match" so the native runs its own
+/// recovery, instead of trusting a rule that never parsed.
+test "native dispatch reports the cycle guard as an unmatched rule" {
+  let ir : GrammarIr[TestToken, TestKind] = GrammarIr::GrammarIr(
+    {
+      "source": Expr::Native("delegate"),
+      "choice": Expr::Choice([
+        Alt::{ starts: Pred::Any, body: Expr::Native("delegate") },
+      ]),
+    },
+    root="source",
+  )
+  let results : Array[Bool] = []
+  let factories : Map[RuleName, NativeFactory[TestToken, TestKind]] = {
+    "delegate": caps => {
+      let target = caps.require("choice")
+      (ctx, dispatcher) => results.push(dispatcher.try_rule(ctx, target))
+    },
+  }
+  let parse_root = interpret(ir, natives=factories, native_rule_refs={
+    "delegate": Set::Set(["choice"]),
+  })
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (_, diagnostics) = @core.parse_with(
+    "1",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  // The inner dispatch re-entered `choice` at the same cursor and was stopped;
+  // the outer dispatch did run its alternative.
+  inspect(results.length(), content="2")
+  inspect(results[0], content="false")
+  inspect(results[1], content="true")
+  inspect(diagnostics.is_empty(), content="false")
+}
