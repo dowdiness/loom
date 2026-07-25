@@ -80,6 +80,7 @@ Understanding how the layers fit together. Principles only — no specific types
 - [architecture/markdown-execution-roadmap.md](architecture/markdown-execution-roadmap.md) — dependency order for MarkdownIR editor compatibility, CommonMark block/inline work, incremental conformance hardening, and the independent loomgen lane
 
 - [grammar_ir_contract.md](grammar_ir_contract.md) — strict LL(1) alternation contract for the `#loom.rule` / `--grammar-ir` subset: disjoint FIRST sets enforced at generation time, `@fragment` escape hatch for non-LL(1) patterns, decision rationale (issue #540)
+- [superpowers/specs/2026-07-25-grammar-progress-recovery-contract.md](superpowers/specs/2026-07-25-grammar-progress-recovery-contract.md) — draft contract for compile-time progress analysis, runtime cycle guards, and malformed-input recovery semantics
 ### Architecture Decisions (ADRs)
 
 Short records of the *why* behind significant design choices. Most recent first.

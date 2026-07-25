@@ -139,6 +139,56 @@ The generic capability array is intentionally minimal. A later generated API may
 
 All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `HostGuardSlot(slot)` directly invokes `guards[slot]`. There is no `None => false` branch. The evaluator is used by `Choice`, `RepeatWhile`, `ErrorUntil`, `RepeatTopLevel`, `WrapIfNext`, Pratt expressions, diagnostic/skip expressions, separator expressions, and error-node expressions.
 
+### Progress invariant
+
+Every compiled grammar must satisfy the following execution invariant:
+
+> A recursive re-entry or repetition may continue only when the current
+> execution cycle has either advanced the parser's input cursor, consumed a
+> token, or reached a statically bounded termination condition. A cycle that
+> can re-enter with no such progress is invalid.
+
+For this contract, **progress** means an observable monotonic advance of the
+parser context's input position. Emitting a diagnostic, emitting an error
+placeholder, or merely calling a native callback does not count as progress.
+The invariant applies to both authored rules and host callbacks reached through
+`Native`.
+
+The invariant is enforced in layers:
+
+- **`compile`** rejects what it can prove statically:
+  - direct and nullable left-recursive cycles;
+  - `RepeatWhile` bodies that are nullable or structurally zero-progress;
+  - recursive paths that can re-enter before consuming input.
+- **`bind`** treats an opaque `Native` as unproven. A future native progress
+  contract may discharge that obligation at binding time; until such a contract
+  exists, the executable binding must retain a runtime progress check for every
+  native call used by a repeating or recursive path.
+- **`interpreter`** checks dynamic progress at repetition and native boundaries.
+  If a callback returns without advancing the parser context, it must stop the
+  cycle and report a grammar-execution failure rather than spin indefinitely.
+  A runtime check cannot rescue a host callback that never returns; native
+  callbacks therefore remain responsible for being finite and non-blocking.
+
+`ErrorUntil` and other recovery expressions have a separate diagnostic
+contract. Reaching a stop token without consuming it is valid recovery progress
+only when the surrounding grammar has already diagnosed the missing required
+construct. Recovery stopping at the current token must not silently turn a
+missing required value into a successful parse.
+
+The generated strict-LL(1) subset already rejects many nullable and leading
+cycles. This invariant also applies to hand-authored `GrammarIr`: direct use of
+`compile` is not an exemption. A grammar that cannot be statically classified
+must be marked by an explicit host-progress contract or protected by the
+interpreter's dynamic check; it must not be accepted merely because it contains
+an opaque `Native` node.
+
+This is a semantic acceptance invariant, not an optimization. It is tested with
+adversarial direct `GrammarIr` cases, generated grammar corpus audits, and
+malformed-input recovery cases. The current compile/bind migration establishes
+the layer boundaries; progress analysis and dynamic enforcement are the next
+implementation required to make this invariant executable.
+
 ## Migration sequence
 
 1. Add opaque slot wrappers and deterministic slot tables in `loom/grammar/compile.mbt`.

@@ -96,6 +96,26 @@ reference grammar (`examples/lambda/spike/lambda_grammar_ir.mbt`, cited in
 They are not theoretical — but they are also not expressible in the notation
 subset.
 
+### 3.1 Malformed-input recovery contract
+
+`ErrorUntil` is trailing recovery, not a required-element parser:
+
+- when the current token matches `stop`, it emits no diagnostic and leaves the
+  stop token for the enclosing rule;
+- when the cursor is at EOF, it emits no diagnostic and consumes nothing;
+- otherwise, it emits one diagnostic and skips unexpected tokens until `stop`
+  or EOF, without consuming the synchronization token.
+
+A missing required construct at a delimiter or EOF must be diagnosed by the
+required operation itself (`Expect`, `EmitOr`, `ExpectSkip`, or `Fail`) before
+`ErrorUntil` runs. This distinction keeps valid CSS-style trailing recovery
+silent while making malformed forms such as `(1,)`, `{x = }`, and empty input
+diagnosable when their required child rule is invoked.
+
+`ErrorNodeUntil` is the explicit unconditional-error variant: it emits its
+diagnostic and error node, then consumes unexpected tokens up to (but not
+including) the stop token or EOF.
+
 ---
 
 ## 4. FIRST-Set Computation and Conflict Rejection
