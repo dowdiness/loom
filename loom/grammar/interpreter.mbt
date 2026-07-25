@@ -320,6 +320,35 @@ fn[
 }
 
 ///|
+const REPEAT_TOP_LEVEL_NO_PROGRESS : String = "grammar: RepeatTopLevel body made no progress"
+
+///|
+const REPEAT_WHILE_NO_PROGRESS : String = "grammar: RepeatWhile body made no progress"
+
+///|
+const PRATT_APP_NO_PROGRESS : String = "grammar: PrattApp atom made no progress"
+
+///|
+/// The repetition progress contract, stated once for every loop that depends on
+/// it: a body that returns without moving the cursor is a defect, not an empty
+/// match. Diagnose it, keep the CST complete with an error placeholder, and
+/// report the failure so the caller can stop its own loop.
+///
+/// Returns true when the cursor advanced past `before`.
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] required_progress(
+  ctx : @core.ParserContext[T, K],
+  before : Int,
+  message : String,
+) -> Bool {
+  if ctx.cursor_position() > before {
+    return true
+  }
+  ctx.error(message)
+  ctx.emit_error_placeholder()
+  false
+}
+
+///|
 /// Walk one compiled expression using only resolved slots and arrays.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
@@ -377,9 +406,7 @@ fn[
           // child_end`, which a zero-width child never satisfies. This keeps
           // the loop from silently depending on that invariant holding in
           // another module.
-          if ctx.cursor_position() <= before {
-            ctx.error("grammar: RepeatTopLevel body made no progress")
-            ctx.emit_error_placeholder()
+          if !required_progress(ctx, before, REPEAT_TOP_LEVEL_NO_PROGRESS) {
             break
           }
           ctx.consume_while_emit(
@@ -389,9 +416,7 @@ fn[
           continue
         }
         run_rule(ctx, grammar, natives, guards, brands, stack, slot)
-        if ctx.cursor_position() <= before {
-          ctx.error("grammar: RepeatTopLevel body made no progress")
-          ctx.emit_error_placeholder()
+        if !required_progress(ctx, before, REPEAT_TOP_LEVEL_NO_PROGRESS) {
           break
         }
         let had = eval_compiled_pred(delim, ctx.peek(), ctx, guards)
@@ -419,17 +444,13 @@ fn[
         let mark = ctx.mark()
         let before = ctx.cursor_position()
         run_rule(ctx, grammar, natives, guards, brands, stack, slot)
-        if ctx.cursor_position() <= before {
-          ctx.error("grammar: PrattApp atom made no progress")
-          ctx.emit_error_placeholder()
-        } else if eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
+        if required_progress(ctx, before, PRATT_APP_NO_PROGRESS) &&
+          eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
           ctx.wrap_at(mark, kind, () => {
             while eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
               let before = ctx.cursor_position()
               run_rule(ctx, grammar, natives, guards, brands, stack, slot)
-              if ctx.cursor_position() <= before {
-                ctx.error("grammar: PrattApp atom made no progress")
-                ctx.emit_error_placeholder()
+              if !required_progress(ctx, before, PRATT_APP_NO_PROGRESS) {
                 break
               }
             }
@@ -474,9 +495,7 @@ fn[
       while !ctx.at_eof() && eval_compiled_pred(pred, ctx.peek(), ctx, guards) {
         let before = ctx.cursor_position()
         run_expr(ctx, grammar, natives, guards, brands, stack, body)
-        if ctx.cursor_position() <= before {
-          ctx.error("grammar: RepeatWhile body made no progress")
-          ctx.emit_error_placeholder()
+        if !required_progress(ctx, before, REPEAT_WHILE_NO_PROGRESS) {
           break
         }
       }
