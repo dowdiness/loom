@@ -859,3 +859,47 @@ test "native dispatch reports the cycle guard as an unmatched rule" {
   inspect(results[1], content="true")
   inspect(diagnostics.is_empty(), content="false")
 }
+
+///|
+/// Reaches the guard *inside* the PrattApp repetition, which the empty-atom
+/// test above does not: the first atom consumes, so the wrap is entered, and
+/// only a later atom stops consuming. This is the site that can actually spin —
+/// the head check runs once, this one runs in a loop — and it is the site whose
+/// `before` is shadowed, so a missing snapshot here compiles and loops forever.
+test "PrattApp runtime guard stops a repeated atom that stops consuming" {
+  let ir : GrammarIr[TestToken, TestKind] = GrammarIr::GrammarIr(
+    {
+      "source": Expr::PrattApp("atom", TestKind::WordNode, Pred::Any),
+      "atom": Expr::Choice([
+        Alt::{
+          starts: Pred::IsToken(TestToken::Int),
+          body: Expr::Emit(TestToken::Int, TestKind::IntToken),
+        },
+      ]),
+    },
+    root="source",
+  )
+  let parse_root = interpret(ir)
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (tree, diagnostics) = @core.parse_with(
+    "1",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  // The WordNode wrap proves the head atom consumed and the repetition was
+  // entered, so the diagnostic can only have come from the guard inside the
+  // loop, not from the head check.
+  guard tree.children[0] is @seam.CstElement::Node(wrapped) else {
+    fail("expected the PrattApp wrap node")
+  }
+  inspect(wrapped.kind, content="RawKind(15)")
+  inspect(diagnostics.length(), content="1")
+  inspect(
+    diagnostics.items()[0].message,
+    content="grammar: PrattApp atom made no progress",
+  )
+}
