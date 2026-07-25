@@ -501,12 +501,32 @@ fn[T, K] lower(
 }
 
 ///|
-/// Conservative progress classification used by compile-time safety checks.
-/// `Unknown` is intentionally accepted: context-sensitive token consumption and
-/// opaque native callbacks require a runtime or host-level progress contract.
+/// Abstract classification of "does evaluating this expression consume input?",
+/// computed over the compiled rule table before any parsing happens.
+///
+/// The lattice is about *evidence*, not about behaviour, and the two are easy
+/// to confuse. Nothing here claims an expression cannot consume input; the
+/// question is whether the compiler can prove it must.
+///
+/// - `NoProgressEvidence` — the analysis found nothing that must consume a
+///   token. This is *not* "never consumes": `RepeatWhile` and `RepeatTopLevel`
+///   land here because zero iterations is possible, and they may otherwise
+///   consume the whole input. It is the rejecting fact, because a repetition
+///   body that may consume nothing can spin on an unchanged cursor.
+/// - `RuntimeDependent` — consumption exists but is decided by the token
+///   stream (`Emit`, `Expect`, a `Choice` whose arms disagree) or by opaque
+///   host code (`Native`, host guards). Deliberately accepted: the interpreter's
+///   cursor checks and rule stack enforce progress for these at parse time.
+/// - `Cycle(slot)` — a path that consumes nothing re-enters `slot`, so the
+///   grammar is left-recursive. The payload records where the cycle was
+///   observed; it depends on traversal order and no caller reads it.
+///
+/// The public errors keep the vocabulary of the defect rather than of the
+/// lattice: `NoProgressEvidence` on a repetition raises `ZeroProgressRepeat`,
+/// and `Cycle` raises `LeftRecursiveRule`.
 priv enum ProgressFact {
-  Never
-  Unknown
+  NoProgressEvidence
+  RuntimeDependent
   Cycle(RuleSlot)
 }
 
@@ -559,8 +579,8 @@ fn[T, K] progress_of(
   memo : ProgressMemo,
 ) -> ProgressFact {
   match expr {
-    Empty | EmitError(_) | Fail(_) | DiagnoseIf(_, _) => Never
-    Emit(_, _) | Expect(_, _) | EmitOr(_, _, _) => Unknown
+    Empty | EmitError(_) | Fail(_) | DiagnoseIf(_, _) => NoProgressEvidence
+    Emit(_, _) | Expect(_, _) | EmitOr(_, _, _) => RuntimeDependent
     Node(_, body) => progress_of(body, rules, visiting, memo)
     RefSlot(slot) =>
       if visiting.iter().any(current => current == slot) {
@@ -570,17 +590,17 @@ fn[T, K] progress_of(
         next.push(slot)
         progress_of_rule(slot, rules, next, memo)
       }
-    NativeSlot(_) => Unknown
+    NativeSlot(_) => RuntimeDependent
     Choice(alts) => {
-      let mut saw_unknown = false
+      let mut saw_runtime_dependent = false
       let mut cycle : RuleSlot? = None
       for alt in alts {
         if definitely_false(alt.starts) {
           continue
         }
         match progress_of(alt.body, rules, visiting, memo) {
-          Never => ()
-          Unknown => saw_unknown = true
+          NoProgressEvidence => ()
+          RuntimeDependent => saw_runtime_dependent = true
           Cycle(slot) => cycle = Some(slot)
         }
         if definitely_true(alt.starts) {
@@ -589,56 +609,66 @@ fn[T, K] progress_of(
       }
       match cycle {
         Some(slot) => Cycle(slot)
-        None => if saw_unknown { Unknown } else { Never }
+        None =>
+          if saw_runtime_dependent {
+            RuntimeDependent
+          } else {
+            NoProgressEvidence
+          }
       }
     }
     RepeatTopLevel(slot, starts~, ..) =>
       if definitely_false(starts) {
-        Never
+        NoProgressEvidence
       } else {
         match progress_of_rule(slot, rules, visiting, memo) {
           Cycle(cycle_slot) => Cycle(cycle_slot)
-          _ => Never
+          _ => NoProgressEvidence
         }
       }
     Seq(exprs) => {
-      let mut saw_unknown = false
+      let mut saw_runtime_dependent = false
       for part in exprs {
         match progress_of(part, rules, visiting, memo) {
-          Never => ()
-          Unknown => saw_unknown = true
+          NoProgressEvidence => ()
+          RuntimeDependent => saw_runtime_dependent = true
           Cycle(slot) => {
-            if saw_unknown {
-              return Unknown
+            if saw_runtime_dependent {
+              return RuntimeDependent
             }
             return Cycle(slot)
           }
         }
       }
-      if saw_unknown {
-        Unknown
+      if saw_runtime_dependent {
+        RuntimeDependent
       } else {
-        Never
+        NoProgressEvidence
       }
     }
     PrattApp(slot, _, _) | PrattBinary(slot, _, _, ..) =>
       match progress_of_rule(slot, rules, visiting, memo) {
         Cycle(cycle_slot) => Cycle(cycle_slot)
-        _ => Unknown
+        _ => RuntimeDependent
       }
-    RepeatWhile(_, _) => Never
+    RepeatWhile(_, _) => NoProgressEvidence
     WrapIfNext(_, _, body) => progress_of(body, rules, visiting, memo)
-    ErrorUntil(stop, _) => if definitely_true(stop) { Never } else { Unknown }
-    ExpectSkip(_, _, _, _) => Unknown
-    ConsumeGated(_, _, _) => Unknown
-    RequireSep(_, _, _, ..) => Unknown
+    ErrorUntil(stop, _) =>
+      if definitely_true(stop) {
+        NoProgressEvidence
+      } else {
+        RuntimeDependent
+      }
+    ExpectSkip(_, _, _, _) => RuntimeDependent
+    ConsumeGated(_, _, _) => RuntimeDependent
+    RequireSep(_, _, _, ..) => RuntimeDependent
     ErrorNodeUntil(_, stop, _) =>
       if definitely_true(stop) {
-        Never
+        NoProgressEvidence
       } else {
-        Unknown
+        RuntimeDependent
       }
-    ManualNewlineAppExpr => Unknown
+    ManualNewlineAppExpr => RuntimeDependent
   }
 }
 
@@ -677,7 +707,7 @@ fn[T, K] validate_progress(
         return ()
       }
       match progress_of(body, rules, [owner_slot], memo) {
-        Never => raise ZeroProgressRepeat(owner)
+        NoProgressEvidence => raise ZeroProgressRepeat(owner)
         Cycle(_) => raise LeftRecursiveRule(owner)
         _ => ()
       }
@@ -701,7 +731,7 @@ fn[T, K] validate_progress(
     RepeatTopLevel(slot, starts~, ..) =>
       if !definitely_false(starts) {
         match progress_of_rule(slot, rules, [owner_slot], memo) {
-          Never => raise ZeroProgressRepeat(owner)
+          NoProgressEvidence => raise ZeroProgressRepeat(owner)
           Cycle(_) => raise LeftRecursiveRule(owner)
           _ => ()
         }
