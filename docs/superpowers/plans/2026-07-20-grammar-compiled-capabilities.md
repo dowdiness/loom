@@ -114,10 +114,10 @@
   names_snapshot() -> Array[RuleName]
   slot_for_name(RuleName) -> RuleSlot?
   root_slot() -> RuleSlot
-  rule_snapshot(RuleSlot) -> CompiledExpr[T,K]
+  rule_snapshot(RuleSlot) -> CompiledExpr[T,K]?
   native_names_snapshot() -> Array[RuleName]
   guard_names_snapshot() -> Array[RuleName]
-  native_dispatch_snapshot(NativeSlot) -> Array[RuleSlot]
+  native_dispatch_snapshot(NativeSlot) -> Array[RuleSlot]?
   ```
 
   `rule_snapshot` copies compiler-owned nested arrays. Do not claim to clone arbitrary `T` or `K` payload internals.
@@ -326,7 +326,7 @@ Expected: `loom/grammar` cannot be considered green until the interpreter is mig
 
 - [ ] **2. Migrate lambda slot/name access.**
 
-  Replace `compiled.names.search(name)` with `compiled.slot_for_name(name)`, preserving the existing abort message for an impossible missing grammar rule. Replace `compiled.rule(slot)` with `compiled.rule_snapshot(slot)`, and use `RuleSlot` values throughout `ProbeEnv`.
+  Replace `compiled.names.search(name)` with `compiled.slot_for_name(name)`, preserving the existing abort message for an impossible missing grammar rule. Replace `compiled.rule(slot)` with `compiled.rule_snapshot(slot).unwrap()` for slots obtained from that same compiled grammar, and use `RuleSlot` values throughout `ProbeEnv`.
 
   Match `RefSlot(RuleSlot)` and `NativeSlot(NativeSlot)` without destructuring private fields. Keep `ManualNewlineAppExpr` and crippled reuse behavior spike-local.
 

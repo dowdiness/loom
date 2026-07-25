@@ -96,6 +96,26 @@ reference grammar (`examples/lambda/spike/lambda_grammar_ir.mbt`, cited in
 They are not theoretical — but they are also not expressible in the notation
 subset.
 
+### 3.1 Malformed-input recovery contract
+
+`ErrorUntil` is trailing recovery, not a required-element parser:
+
+- when the current token matches `stop`, it emits no diagnostic and leaves the
+  stop token for the enclosing rule;
+- when the cursor is at EOF, it emits no diagnostic and consumes nothing;
+- otherwise, it emits one diagnostic and skips unexpected tokens until `stop`
+  or EOF, without consuming the synchronization token.
+
+A missing required construct at a delimiter or EOF must be diagnosed by the
+required operation itself (`Expect`, `EmitOr`, `ExpectSkip`, or `Fail`) before
+`ErrorUntil` runs. This distinction keeps valid CSS-style trailing recovery
+silent while making malformed forms such as `(1,)`, `{x = }`, and empty input
+diagnosable when their required child rule is invoked.
+
+`ErrorNodeUntil` is the explicit unconditional-error variant: it emits its
+diagnostic and error node, then consumes unexpected tokens up to (but not
+including) the stop token or EOF.
+
 ---
 
 ## 4. FIRST-Set Computation and Conflict Rejection
@@ -189,9 +209,9 @@ hand-authored `Expr` bodies at the call site. The merge loop inserts fragment
 bodies into the rules map before `@grammar.compile` resolves them.
 
 The old rejection gate `check_no_fragments` was removed — the fail-closed
-behavior is now `@grammar.compile` raising `MissingRef` when a caller provides
-no `fragments~` entry matching a fragment reference. A missing fragment is a
-compile error (caught by `@grammar.compile`), never a runtime anomaly.
+behavior is now `@grammar.compile` raising `MissingFragment` when a caller
+provides no `fragments~` entry matching a fragment reference. A missing fragment
+is a compile error (caught by `@grammar.compile`), never a runtime anomaly.
 
 Fragment references opaque to FIRST-set computation: `first_set` returns the
 empty set for `Frag(name)`, so a fragment in a `Choice` alternation or
@@ -208,7 +228,7 @@ the generated `GrammarIr` factory (now a `pub fn`) takes a `fragments~` paramete
 inserts a `for frag, body in fragments { rules.set(frag, body) }` merge loop
 before constructing the `GrammarIr` value. `@grammar.compile` resolves the
 mangled `Ref("__loom_frag__<name>")` against the merged map; a missing binding
-raises `MissingRef` at compile time.
+raises `MissingFragment` at compile time.
 
 The mangled `__loom_frag__` prefix avoids collision with bare variant names in
 the `GrammarIr.rules` map. Fragment references use `@fragment` syntax in rule
@@ -217,8 +237,8 @@ function handles `Frag(name)` by emitting the mangled `Ref`.
 
 Both principles from the original design are preserved: the `GrammarIr` value
 remains closure-free (the fragment hand-author writes data, never closures) and
-analyzable, and a missing fragment is a compile error (`MissingRef`), never a
-runtime anomaly.
+analyzable, and a missing fragment is a compile error (`MissingFragment`),
+never a runtime anomaly.
 
 ### 5.3 What fragments enable
 
@@ -335,7 +355,7 @@ at the `@grammar` library boundary, so `@grammar` remains general while
 - Left recursion is rejected — rewrite cycles as `(` x `)*` repetition.
 - `@fragment` references emit a mangled `Ref("__loom_frag__<name>")` — the
   caller supplies fragment bodies via the `fragments~` map parameter (see §5).
-  Without a matching entry, `@grammar.compile` raises `MissingRef`.
+  Without a matching entry, `@grammar.compile` raises `MissingFragment`.
 - A nullable body cannot gate a `Choice` or `RepeatWhile`. Two distinct guards
   enforce this: a construct with an *empty* FIRST set (nothing reachable can
   begin it) is rejected outright, and a *nullable alternative* with a non-empty

@@ -18,7 +18,7 @@ fn vocab_diags(
   root : RuleName,
   tokens : Array[@core.TokenInfo[TestToken]],
   src : String,
-) -> @core.DiagnosticSet raise GrammarCompileError {
+) -> @core.DiagnosticSet raise GrammarBuildError {
   let parse_root = interpret(GrammarIr::GrammarIr(rules, root~))
   let spec = test_spec(parse_root)
   let (_, diags) = @core.parse_with(src, spec, _s => tokens, parse_root)

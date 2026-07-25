@@ -28,6 +28,14 @@ fn dump_element(elem : @seam.CstElement) -> String? {
 }
 
 ///|
+fn html_diagnostic_start(diag : @core.Diagnostic) -> Int {
+  match diag.primary {
+    Some(range) => range.start().value()
+    None => abort("expected HTML diagnostic range")
+  }
+}
+
+///|
 test "root directly contains ElementNode (no double-wrap)" {
   let result = html_grammar.parse_cst("<p>hello</p>") catch {
     _ => return fail("lex error")
@@ -173,6 +181,7 @@ test "mismatched close diagnostics preserve original tag spelling" {
     diagnostics.items()[0].message,
     content="Mismatched close tag: expected </DIV>, got </span>",
   )
+  inspect(html_diagnostic_start(diagnostics.items()[0]), content="5")
 }
 
 ///|
@@ -191,6 +200,14 @@ test "unclosed tags report diagnostics after stack remains nonempty" {
   }
   let (_, diagnostics) = result
   inspect(diagnostics.length() >= 1, content="true")
+  let unclosed = diagnostics
+    .items()
+    .iter()
+    .find_first(d => d.message == "Unclosed element: span")
+  match unclosed {
+    Some(diag) => inspect(html_diagnostic_start(diag), content="15")
+    None => fail("expected span unclosed diagnostic")
+  }
 }
 
 ///|

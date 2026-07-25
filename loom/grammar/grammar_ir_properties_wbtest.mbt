@@ -535,6 +535,17 @@ fn qc_spec(
 /// Walk an `Expr` directly (no `compile` step) and resolve `Ref(name)` by
 /// looking up the grammar rule map.  Mirrors the real `run_expr` behavior but
 /// has no incremental reuse, no slot resolution — the CST should be identical.
+///
+/// What the differential property this feeds actually establishes is that
+/// **compilation preserves behavior**: name-to-slot resolution does not change
+/// the tree or the diagnostics. It is not independent evidence for any rule
+/// this reference reproduces. The progress guards below are the clearest case:
+/// they are transcribed from `run_expr` because a reference without them would
+/// hang on a generated zero-progress loop — and this reference runs *before*
+/// the real interpreter, so it cannot rely on `compile` rejecting the grammar
+/// first. Progress semantics are covered by the direct tests in
+/// `interpreter_test.mbt` and `compile_test.mbt`; do not count this property
+/// toward them.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
@@ -601,12 +612,24 @@ fn[
     }
     RepeatWhile(pred, body) =>
       while !ctx.at_eof() && pred.matches(ctx.peek()) {
+        let before = ctx.cursor_position()
         run_expr_ref_body(ctx, rules, body)
+        if ctx.cursor_position() <= before {
+          ctx.error("grammar: RepeatWhile body made no progress")
+          ctx.emit_error_placeholder()
+          break
+        }
       }
     RepeatTopLevel(name, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
       ctx.consume_while_emit(t => delim.matches(t), delim_kind)
       while !ctx.at_eof() && starts.matches(ctx.peek()) {
+        let before = ctx.cursor_position()
         run_expr_ref(ctx, rules, name)
+        if ctx.cursor_position() <= before {
+          ctx.error("grammar: RepeatTopLevel body made no progress")
+          ctx.emit_error_placeholder()
+          break
+        }
         let had = delim.matches(ctx.peek())
         ctx.consume_while_emit(t => delim.matches(t), delim_kind)
         if !had && !ctx.at_eof() {
@@ -620,11 +643,21 @@ fn[
     }
     PrattApp(name, kind, starts) => {
       let mark = ctx.mark()
+      let before = ctx.cursor_position()
       run_expr_ref(ctx, rules, name)
-      if starts.matches(ctx.peek()) {
+      if ctx.cursor_position() <= before {
+        ctx.error("grammar: PrattApp atom made no progress")
+        ctx.emit_error_placeholder()
+      } else if starts.matches(ctx.peek()) {
         ctx.wrap_at(mark, kind, fn() {
           while starts.matches(ctx.peek()) {
+            let before = ctx.cursor_position()
             run_expr_ref(ctx, rules, name)
+            if ctx.cursor_position() <= before {
+              ctx.error("grammar: PrattApp atom made no progress")
+              ctx.emit_error_placeholder()
+              break
+            }
           }
         })
       }
@@ -668,7 +701,7 @@ fn[
     }
     EmitError(msg) => ctx.error(msg)
     ErrorUntil(stop, msg) =>
-      if !stop.matches(ctx.peek()) {
+      if !ctx.at_eof() && !stop.matches(ctx.peek()) {
         ctx.error(msg)
         let _ = ctx.skip_until(t => stop.matches(t))
       }
@@ -751,7 +784,7 @@ fn prop_interpret_no_crash(ir : GrammarIr[QcToken, QcKind]) -> Bool {
 }
 
 ///|
-/// Property: `interpret(ir)` and `interpret_compiled(compile(ir))` produce
+/// Property: convenience interpret and explicit compile -> bind produce
 /// structurally equal CSTs for any grammar with a fixed token stream.
 fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let tokens = [
@@ -768,9 +801,10 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
     fn(_src) { tokens },
     parse_root,
   )
-  // Second parse: via interpret_compiled(compile(ir))
+  // Second parse: via explicit compile -> bind -> parse_root.
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
-  let parse_root2 = interpret_compiled(compiled)
+  let executable = bind(compiled) catch { _ => return @qc.property(true) }
+  let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
     "ab",
@@ -783,14 +817,14 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let diags_match = diags1 == diags2
   @qc.counterexample(
     diffs.length() == 0 && diags_match,
-    "ir = \{@debug.to_string(ir)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
+    "ir = \{@debug.to_string(ir)}\n  interpret vs compile -> bind diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
 ///|
 /// Property: the reference interpreter (Expr-direct walk) and the real
-/// interpreter (compile + interpret_compiled) produce structurally equal
-/// CSTs for any grammar with a fixed token stream.
+/// interpreter (compile + bind) produce structurally equal CSTs for any grammar
+/// with a fixed token stream.
 fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let tokens = [
     @core.TokenInfo::new(QcToken::A, 1),
@@ -869,7 +903,7 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
 }
 
 ///|
-/// Property: `interpret(ir)` and `interpret_compiled(compile(ir))` produce
+/// Property: convenience interpret and explicit compile -> bind produce
 /// structurally equal CSTs for a GrammarWithTokens on its random stream.
 fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let tokens = gwt.tokens
@@ -883,9 +917,10 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
     fn(_src) { tokens },
     parse_root,
   )
-  // Second parse: via interpret_compiled(compile(ir))
+  // Second parse: via explicit compile -> bind -> parse_root.
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
-  let parse_root2 = interpret_compiled(compiled)
+  let executable = bind(compiled) catch { _ => return @qc.property(true) }
+  let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
     "src",
@@ -898,7 +933,7 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let diags_match = diags1 == diags2
   @qc.counterexample(
     diffs.length() == 0 && diags_match,
-    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs compile -> bind diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
@@ -915,7 +950,7 @@ test "property: interpreting grammar IR on empty context never crashes" {
 }
 
 ///|
-test "property: interpret matches interpret_compiled(compile(ir)) CST" {
+test "property: interpret matches compile -> bind CST" {
   @qc.quick_check_fn(prop_cst_equivalence, max_success=15, max_size=3)
 }
 
@@ -935,7 +970,7 @@ test "property: GrammarWithTokens reference matches real on random stream" {
 }
 
 ///|
-test "property: GrammarWithTokens interpret matches interpret_compiled on random stream" {
+test "property: GrammarWithTokens interpret matches compile -> bind on random stream" {
   @qc.quick_check_fn(prop_cst_equivalence_tokens, max_success=15, max_size=4)
 }
 
@@ -1104,6 +1139,57 @@ test "deterministic: PrattApp with non-matching second token skips wrap" {
     @core.TokenInfo::new(QcToken::Eof, 0),
   ]
   check_equiv(ir, tokens, "PrattApp-no-wrap")
+}
+
+///|
+test "deterministic: reference mirrors PrattApp no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::A, QcKind::NodeA)
+  rules["source"] = Expr::Seq([
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+    Expr::PrattApp("expr", QcKind::NodeB, Pred::IsToken(QcToken::A)),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::A, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattApp-no-progress")
+}
+
+///|
+test "deterministic: reference mirrors RepeatWhile no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::RepeatWhile(
+    Pred::IsToken(QcToken::B),
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "RepeatWhile-no-progress")
+}
+
+///|
+test "deterministic: reference mirrors RepeatTopLevel no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::A, QcKind::NodeA)
+  rules["source"] = Expr::RepeatTopLevel(
+    "expr",
+    starts=Pred::IsToken(QcToken::B),
+    delim=Pred::IsToken(QcToken::C),
+    delim_kind=QcKind::NodeB,
+    between_msg="btwn",
+    after_msg="after",
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "RepeatTopLevel-no-progress")
 }
 
 ///|

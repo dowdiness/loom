@@ -1,181 +1,365 @@
 ///|
-/// A hand-written production a `Native(name)` node delegates to. Takes the
-/// parser context plus a `try_parse_rule` gate for declared top-level Choice
-/// rules. The gate returns whether an arm matched.
-pub type NativeRule[T, K] = (@core.ParserContext[T, K], (RuleName) -> Bool) -> Unit
-
-///|
-/// A hand-written guard predicate a `HostGuard(name)` node delegates to.
-/// Takes the parser context and returns whether the guard passes.
-/// Mirrors `NativeRule` in that the name resolves against host code.
 pub type HostGuard[T, K] = (@core.ParserContext[T, K]) -> Bool
 
 ///|
-/// Build a `parse_root` closure from an authored grammar IR.
-///
-/// Compiles the IR (resolving every `Ref` to a dense slot, raising on an
-/// unresolved reference) and returns a tree-walking interpreter over the
-/// compiled form. This tree-walker is the only committed backend: the contract
-/// reifies predicates as `Pred` data precisely so an analyzing interpreter or a
-/// code emitter could be added later, but neither is built here.
-///
-/// `natives` supplies the host-written productions for any `Native(...)` nodes
-/// in `ir` (empty by default — existing callers are unaffected). Its keys are
-/// threaded into `compile` as `native_names`, so an IR that references a
-/// `Native(name)` absent from `natives` fails here with `MissingNative`,
-/// never mid-parse.
+pub type NativeRule[T, K] = (@core.ParserContext[T, K], NativeDispatcher[T, K]) -> Unit
+
+///|
+pub type NativeFactory[T, K] = (NativeCapabilities[T, K]) -> NativeRule[T, K] raise GrammarBindError
+
+///|
+pub suberror GrammarBindError {
+  MissingNative(RuleName)
+  UnexpectedNative(RuleName)
+  MissingGuard(RuleName)
+  UnexpectedGuard(RuleName)
+  CapabilityRejected(RuleName)
+} derive(Eq, Debug)
+
+///|
+pub suberror GrammarBuildError {
+  Compile(GrammarCompileError)
+  Bind(GrammarBindError)
+} derive(Eq, Debug)
+
+///|
+/// Fresh identity brand private to one native in one executable binding.
+priv struct NativeCapabilityBrand {
+  token : Ref[Unit]
+}
+
+///|
+/// Opaque capability for one declared native-dispatch target.
+pub struct RuleCapability[T, K] {
+  priv brand : NativeCapabilityBrand
+  priv slot : RuleSlot
+  priv marker : (T, K)?
+}
+
+///|
+/// One active rule invocation and the cursor at which it began.
+priv struct RuleFrame {
+  slot : RuleSlot
+  position : Int
+}
+
+///|
+/// Parse-local rule call stack shared by interpreter and native dispatch.
+priv struct RuleCallStack {
+  frames : Array[RuleFrame]
+}
+
+///|
+/// Named capabilities available to one native factory during binding.
+pub struct NativeCapabilities[T, K] {
+  priv pairs : Array[(RuleName, RuleCapability[T, K])]
+}
+
+///|
+pub fn[T, K] NativeCapabilities::require(
+  self : Self[T, K],
+  name : RuleName,
+) -> RuleCapability[T, K] raise GrammarBindError {
+  match self.pairs.iter().find_first(pair => pair.0 == name) {
+    Some(pair) => pair.1
+    None => raise CapabilityRejected(name)
+  }
+}
+
+///|
+/// Opaque dispatcher passed to a native callback at parse time.
+pub struct NativeDispatcher[T, K] {
+  priv grammar : CompiledGrammar[T, K]
+  priv natives : Array[NativeRule[T, K]]
+  priv guards : Array[HostGuard[T, K]]
+  priv brands : Array[NativeCapabilityBrand]
+  priv stack : RuleCallStack
+  priv native_slot : NativeSlot
+  priv brand : NativeCapabilityBrand
+}
+
+///|
+/// Opaque executable grammar. Binding is complete before parsing starts.
+pub struct ExecutableGrammar[T, K] {
+  priv grammar : CompiledGrammar[T, K]
+  priv natives : Array[NativeRule[T, K]]
+  priv guards : Array[HostGuard[T, K]]
+  priv brands : Array[NativeCapabilityBrand]
+}
+
+///|
+/// Bind host factories and guards to a compiled grammar before parsing.
+pub fn[T, K] bind(
+  compiled : CompiledGrammar[T, K],
+  natives? : Map[RuleName, NativeFactory[T, K]] = Map([]),
+  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
+) -> ExecutableGrammar[T, K] raise GrammarBindError {
+  for name in compiled.native_names {
+    guard natives.get(name) is Some(_) else { raise MissingNative(name) }
+  }
+  for name in natives.keys() {
+    if !compiled.native_names.contains(name) {
+      raise UnexpectedNative(name)
+    }
+  }
+  for name in compiled.guard_names {
+    guard guards.get(name) is Some(_) else { raise MissingGuard(name) }
+  }
+  for name in guards.keys() {
+    if !compiled.guard_names.contains(name) {
+      raise UnexpectedGuard(name)
+    }
+  }
+
+  let brands : Array[NativeCapabilityBrand] = []
+  let bound_natives : Array[NativeRule[T, K]] = []
+  for i in 0..<compiled.native_names.length() {
+    let name = compiled.native_names[i]
+    let brand = NativeCapabilityBrand::{ token: Ref::Ref(()) }
+    brands.push(brand)
+    let pairs : Array[(RuleName, RuleCapability[T, K])] = []
+    for target in compiled.native_dispatch[i] {
+      pairs.push(
+        (
+          compiled.names[target.index],
+          RuleCapability::{ brand, slot: target, marker: None },
+        ),
+      )
+    }
+    let capabilities = NativeCapabilities::{ pairs, }
+    guard natives.get(name) is Some(factory)
+    bound_natives.push(factory(capabilities))
+  }
+
+  let bound_guards : Array[HostGuard[T, K]] = []
+  for name in compiled.guard_names {
+    guard guards.get(name) is Some(guard_fn)
+    bound_guards.push(guard_fn)
+  }
+  { grammar: compiled, natives: bound_natives, guards: bound_guards, brands }
+}
+
+///|
+/// Execute the compiled root against a parser context.
+pub fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] ExecutableGrammar::parse_root(
+  self : Self[T, K],
+) -> (@core.ParserContext[T, K]) -> Unit {
+  ctx => {
+    let stack = RuleCallStack::{ frames: [] }
+    run_rule(
+      ctx,
+      self.grammar,
+      self.natives,
+      self.guards,
+      self.brands,
+      stack,
+      self.grammar.root,
+    )
+  }
+}
+
+///|
+/// Dispatch one opaque capability against the current native's allow-list.
+pub fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] NativeDispatcher::try_rule(
+  self : Self[T, K],
+  ctx : @core.ParserContext[T, K],
+  capability : RuleCapability[T, K],
+) -> Bool {
+  ignore(capability.marker)
+  if !physical_equal(self.brand.token, capability.brand.token) {
+    abort("grammar: native capability belongs to another binding or native")
+  }
+  let allowed = self.grammar.native_dispatch[self.native_slot.index]
+  if !allowed.iter().any(slot => slot == capability.slot) {
+    abort("grammar: native capability is not an allowed dispatch target")
+  }
+  match self.grammar.rules[capability.slot.index] {
+    Choice(alts) => {
+      let token = ctx.peek()
+      for alt in alts {
+        if eval_compiled_pred(alt.starts, token, ctx, self.guards) {
+          // The cycle guard consumed nothing, so report the dispatch as
+          // unmatched and let the host recover. Answering `true` here would
+          // tell the native that a rule it never parsed had succeeded.
+          return run_rule_body(
+              ctx,
+              self.grammar,
+              self.natives,
+              self.guards,
+              self.brands,
+              self.stack,
+              capability.slot,
+              alt.body,
+            )
+            is Executed
+        }
+      }
+      false
+    }
+    _ => abort("grammar: native capability target is not a Choice rule")
+  }
+}
+
+///|
+/// Build a parse root by compiling and binding in one setup operation.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
 ] interpret(
   ir : GrammarIr[T, K],
-  natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
+  natives? : Map[RuleName, NativeFactory[T, K]] = Map([]),
   guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
   native_rule_refs? : Map[RuleName, Set[RuleName]] = Map([]),
-) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError {
+) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarBuildError {
   let native_names = Set::from_iter(natives.keys())
   let guard_names = Set::from_iter(guards.keys())
-  interpret_compiled(
-    compile(ir, native_names~, guard_names~, native_rule_refs~),
-    natives~,
-    guards~,
-  )
+  let compiled = compile(ir, native_names~, guard_names~, native_rule_refs~) catch {
+    error => raise GrammarBuildError::Compile(error)
+  }
+  let executable = bind(compiled, natives~, guards~) catch {
+    error => raise GrammarBuildError::Bind(error)
+  }
+  executable.parse_root()
 }
 
 ///|
-/// Build a `parse_root` closure from an already-compiled grammar. The returned
-/// closure dispatches the root rule's compiled body against a parser context.
-/// Splitting this from `interpret` lets callers compile once and reuse the
-/// dense-slot grammar across parser contexts.
-///
-/// `natives` must agree with the `native_names` the grammar was compiled
-/// with; a `NativeRef(name)` for which `natives` has no entry (e.g. a
-/// mismatched registry passed here vs. at `compile` time) degrades to a
-pub fn[
-  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
-  K : @seam.ToRawKind,
-] interpret_compiled(
-  grammar : CompiledGrammar[T, K],
-  natives? : Map[RuleName, NativeRule[T, K]] = Map([]),
-  guards? : Map[RuleName, HostGuard[T, K]] = Map([]),
-) -> (@core.ParserContext[T, K]) -> Unit {
-  ctx => {
-    run_expr(ctx, grammar, natives, guards, grammar.rule(grammar.root_slot()))
+/// Evaluate every compiled predicate variant in parser context.
+fn[T : Eq, K] eval_compiled_pred(
+  pred : CompiledPred[T],
+  token : T,
+  ctx : @core.ParserContext[T, K],
+  guards : Array[HostGuard[T, K]],
+) -> Bool {
+  match pred {
+    Any => true
+    IsToken(expected) => token == expected
+    OneOf(tokens) => tokens.iter().any(t => t == token)
+    Not(inner) => !eval_compiled_pred(inner, token, ctx, guards)
+    All(left, right) =>
+      eval_compiled_pred(left, token, ctx, guards) &&
+      eval_compiled_pred(right, token, ctx, guards)
+    HostGuardSlot(slot) => guards[slot.index](ctx)
   }
 }
 
 ///|
-/// Try one declared native-dispatch target. Only a matching top-level Choice
-/// arm executes; a non-match returns false without changing parser state.
+/// Whether a rule body actually ran, or was stopped by the cycle guard.
+///
+/// The two outcomes need different recovery, so `run_rule_body` reports the
+/// guard instead of choosing a recovery itself: ordinary execution has no caller
+/// that can retry and must keep the CST complete with an error placeholder,
+/// while native dispatch must report "did not match" and consume nothing so the
+/// host's own fallback runs.
+priv enum RuleOutcome {
+  Executed
+  CycleGuarded
+}
+
+///|
+/// Run one rule body with a parse-local cycle guard.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
-] try_parse_rule(
+] run_rule_body(
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
-  natives : Map[RuleName, NativeRule[T, K]],
-  guards : Map[RuleName, HostGuard[T, K]],
-  caller_name : RuleName,
-  target_name : RuleName,
-) -> Bool {
-  guard grammar.names.search(target_name) is Some(slot) else {
-    ctx.error(
-      "grammar: try_parse_rule(\"" + target_name + "\") is not a grammar rule",
-    )
-    ctx.emit_error_placeholder()
-    return false
+  natives : Array[NativeRule[T, K]],
+  guards : Array[HostGuard[T, K]],
+  brands : Array[NativeCapabilityBrand],
+  stack : RuleCallStack,
+  slot : RuleSlot,
+  body : CompiledExpr[T, K],
+) -> RuleOutcome {
+  let position = ctx.cursor_position()
+  if stack.frames
+    .iter()
+    .any(frame => frame.slot == slot && frame.position == position) {
+    ctx.error("grammar: recursive rule re-entered without progress")
+    return CycleGuarded
   }
-  match grammar.native_rule_refs.get(caller_name) {
-    None => {
-      ctx.error(
-        "grammar: native \"" +
-        caller_name +
-        "\" has no declared dispatch dependencies",
-      )
-      ctx.emit_error_placeholder()
-      return false
-    }
-    Some(allowed) =>
-      if !allowed.contains(target_name) {
-        ctx.error(
-          "grammar: native \"" +
-          caller_name +
-          "\" cannot dispatch to \"" +
-          target_name +
-          "\" — not in declared dependencies",
-        )
-        ctx.emit_error_placeholder()
-        return false
-      }
-  }
-  match grammar.rule(slot) {
-    CompiledExpr::Choice(alts) => {
-      let token = ctx.peek()
-      for alt in alts {
-        if pred_matches_ctx(alt.starts, token, ctx, guards) {
-          run_expr(ctx, grammar, natives, guards, alt.body)
-          return true
-        }
-      }
-      false
-    }
-    _ => {
-      ctx.error(
-        "grammar: try_parse_rule(\"" +
-        target_name +
-        "\") target is not a Choice rule",
-      )
-      ctx.emit_error_placeholder()
-      false
-    }
-  }
+  stack.frames.push(RuleFrame::{ slot, position })
+  run_expr(ctx, grammar, natives, guards, brands, stack, body)
+  ignore(stack.frames.pop())
+  Executed
 }
 
 ///|
-/// Test whether `token` satisfies `pred`, resolving `HostGuard` references
-/// against the `guards` map. `HostGuard` cannot be resolved by `Pred::matches`
-/// alone (which takes only a token), so this function provides the
-/// `ParserContext`-aware dispatch path.
-fn[T : Eq, K] pred_matches_ctx(
-  pred : Pred[T],
-  token : T,
+/// Run one complete rule with a parse-local cycle guard.
+fn[
+  T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
+  K : @seam.ToRawKind,
+] run_rule(
   ctx : @core.ParserContext[T, K],
-  guards : Map[RuleName, HostGuard[T, K]],
-) -> Bool {
-  match pred {
-    HostGuard(name) =>
-      match guards.get(name) {
-        Some(f) => f(ctx)
-        None => false
-      }
-    All(left, right) =>
-      pred_matches_ctx(left, token, ctx, guards) &&
-      pred_matches_ctx(right, token, ctx, guards)
-    Any | IsToken(_) | OneOf(_) => pred.matches(token)
-    Not(inner) => !pred_matches_ctx(inner, token, ctx, guards)
+  grammar : CompiledGrammar[T, K],
+  natives : Array[NativeRule[T, K]],
+  guards : Array[HostGuard[T, K]],
+  brands : Array[NativeCapabilityBrand],
+  stack : RuleCallStack,
+  slot : RuleSlot,
+) -> Unit {
+  match
+    run_rule_body(
+      ctx,
+      grammar,
+      natives,
+      guards,
+      brands,
+      stack,
+      slot,
+      grammar.rules[slot.index],
+    ) {
+    Executed => ()
+    CycleGuarded => ctx.emit_error_placeholder()
   }
 }
 
 ///|
-/// Evaluate one compiled grammar expression against a parser context.
+const REPEAT_TOP_LEVEL_NO_PROGRESS : String = "grammar: RepeatTopLevel body made no progress"
+
+///|
+const REPEAT_WHILE_NO_PROGRESS : String = "grammar: RepeatWhile body made no progress"
+
+///|
+const PRATT_APP_NO_PROGRESS : String = "grammar: PrattApp atom made no progress"
+
+///|
+/// The repetition progress contract, stated once for every loop that depends on
+/// it: a body that returns without moving the cursor is a defect, not an empty
+/// match. Diagnose it, keep the CST complete with an error placeholder, and
+/// report the failure so the caller can stop its own loop.
 ///
-/// Rule references dispatch by dense slot through `grammar.rule`, so recursion
-/// is an array index rather than a map lookup. Predicates are reified `Pred`
-/// data tested with `Pred::matches` or `pred_matches_ctx` for HostGuard.
-///
-/// Covers the core and incremental-reuse nodes. The `ManualNewlineAppExpr`
-/// residue (the lone irreducible escape hatch, evidence-gated by the lambda
-/// spike probe — spec §5.3) is not interpreted here; reaching it surfaces a
-/// diagnostic placeholder so a grammar that uses it via the minimal contract
-/// fails loudly instead of silently producing a wrong tree.
+/// Returns true when the cursor advanced past `before`.
+fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] required_progress(
+  ctx : @core.ParserContext[T, K],
+  before : Int,
+  message : String,
+) -> Bool {
+  if ctx.cursor_position() > before {
+    return true
+  }
+  ctx.error(message)
+  ctx.emit_error_placeholder()
+  false
+}
+
+///|
+/// Walk one compiled expression using only resolved slots and arrays.
 fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
 ] run_expr(
   ctx : @core.ParserContext[T, K],
   grammar : CompiledGrammar[T, K],
-  natives : Map[RuleName, NativeRule[T, K]],
-  guards : Map[RuleName, HostGuard[T, K]],
+  natives : Array[NativeRule[T, K]],
+  guards : Array[HostGuard[T, K]],
+  brands : Array[NativeCapabilityBrand],
+  stack : RuleCallStack,
   expr : CompiledExpr[T, K],
 ) -> Unit {
   match expr {
@@ -183,58 +367,65 @@ fn[
     Emit(token, kind) => if ctx.at(token) { ctx.emit_token(kind) }
     Expect(token, kind) => ctx.expect(token, kind) |> ignore
     Node(kind, body) =>
-      ctx.node(kind, () => run_expr(ctx, grammar, natives, guards, body))
-    RefSlot(slot) => run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
-    NativeRef(name) =>
-      match natives.get(name) {
-        Some(f) =>
-          f(ctx, rule_name => {
-            try_parse_rule(ctx, grammar, natives, guards, name, rule_name)
-          })
-        None => {
-          ctx.error(
-            "grammar: native rule \"" +
-            name +
-            "\" has no registered implementation",
-          )
-          ctx.emit_error_placeholder()
-        }
+      ctx.node(kind, () => {
+        run_expr(ctx, grammar, natives, guards, brands, stack, body)
+      })
+    RefSlot(slot) =>
+      run_rule(ctx, grammar, natives, guards, brands, stack, slot)
+    NativeSlot(slot) => {
+      let dispatcher = NativeDispatcher::{
+        grammar,
+        natives,
+        guards,
+        brands,
+        stack,
+        native_slot: slot,
+        brand: brands[slot.index],
       }
-    Seq(exprs) =>
-      for e in exprs {
-        run_expr(ctx, grammar, natives, guards, e)
-      }
+      natives[slot.index](ctx, dispatcher)
+    }
     Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
-        if pred_matches_ctx(alt.starts, token, ctx, guards) {
-          run_expr(ctx, grammar, natives, guards, alt.body)
+        if eval_compiled_pred(alt.starts, token, ctx, guards) {
+          run_expr(ctx, grammar, natives, guards, brands, stack, alt.body)
           break
         }
       }
     }
-    RepeatWhile(pred, body) =>
-      while !ctx.at_eof() && pred.matches(ctx.peek()) {
-        run_expr(ctx, grammar, natives, guards, body)
-      }
-    EmitError(msg) => ctx.error(msg)
-    ErrorUntil(stop, msg) =>
-      if !stop.matches(ctx.peek()) {
-        ctx.error(msg)
-        let _ = ctx.skip_until(t => stop.matches(t))
-      }
     RepeatTopLevel(slot, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
-      ctx.consume_while_emit(t => delim.matches(t), delim_kind)
-      while !ctx.at_eof() && starts.matches(ctx.peek()) {
+      ctx.consume_while_emit(
+        t => eval_compiled_pred(delim, t, ctx, guards),
+        delim_kind,
+      )
+      while !ctx.at_eof() && eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
+        let before = ctx.cursor_position()
         if ctx.try_reuse_repeat_group() {
-          ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+          // Backstop, not a live fix. `ReuseCursor` cannot currently offer a
+          // zero-width group: its child scan requires `source_offset <
+          // child_end`, which a zero-width child never satisfies. This keeps
+          // the loop from silently depending on that invariant holding in
+          // another module.
+          if !required_progress(ctx, before, REPEAT_TOP_LEVEL_NO_PROGRESS) {
+            break
+          }
+          ctx.consume_while_emit(
+            t => eval_compiled_pred(delim, t, ctx, guards),
+            delim_kind,
+          )
           continue
         }
-        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
-        let had = delim.matches(ctx.peek())
-        ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+        run_rule(ctx, grammar, natives, guards, brands, stack, slot)
+        if !required_progress(ctx, before, REPEAT_TOP_LEVEL_NO_PROGRESS) {
+          break
+        }
+        let had = eval_compiled_pred(delim, ctx.peek(), ctx, guards)
+        ctx.consume_while_emit(
+          t => eval_compiled_pred(delim, t, ctx, guards),
+          delim_kind,
+        )
         if !had && !ctx.at_eof() {
-          if starts.matches(ctx.peek()) {
+          if eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
             ctx.error(between_msg)
           } else {
             ctx.error(after_msg)
@@ -242,26 +433,26 @@ fn[
         }
       }
     }
-    WrapIfNext(kind, pred, body) => {
-      let mark = ctx.mark()
-      if pred.matches(ctx.peek()) {
-        ctx.wrap_at(mark, kind, () => {
-          run_expr(ctx, grammar, natives, guards, body)
-        })
-      } else {
-        run_expr(ctx, grammar, natives, guards, body)
+    Seq(exprs) =>
+      for expr in exprs {
+        run_expr(ctx, grammar, natives, guards, brands, stack, expr)
       }
-    }
     PrattApp(slot, kind, starts) =>
       if ctx.try_reuse_current_node(kind) {
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
-        if starts.matches(ctx.peek()) {
+        let before = ctx.cursor_position()
+        run_rule(ctx, grammar, natives, guards, brands, stack, slot)
+        if required_progress(ctx, before, PRATT_APP_NO_PROGRESS) &&
+          eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
           ctx.wrap_at(mark, kind, () => {
-            while starts.matches(ctx.peek()) {
-              run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
+            while eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
+              let before = ctx.cursor_position()
+              run_rule(ctx, grammar, natives, guards, brands, stack, slot)
+              if !required_progress(ctx, before, PRATT_APP_NO_PROGRESS) {
+                break
+              }
             }
           })
         }
@@ -271,13 +462,15 @@ fn[
         ()
       } else {
         let mark = ctx.mark()
-        run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
+        run_rule(ctx, grammar, natives, guards, brands, stack, slot)
         let skip_to_op = () => {
           match skip {
             Some((sep, sep_kind)) =>
-              ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
-                ops.iter().any(pair => pair.0 == t)
-              })
+              ctx.consume_while_emit_if(
+                t => eval_compiled_pred(sep, t, ctx, guards),
+                sep_kind,
+                t => ops.iter().any(pair => pair.0 == t),
+              )
               |> ignore
             None => ()
           }
@@ -291,12 +484,36 @@ fn[
                 None => break
                 Some(pair) => {
                   ctx.emit_token(pair.1)
-                  run_expr(ctx, grammar, natives, guards, grammar.rule(slot))
+                  run_rule(ctx, grammar, natives, guards, brands, stack, slot)
                 }
               }
             }
           })
         }
+      }
+    RepeatWhile(pred, body) =>
+      while !ctx.at_eof() && eval_compiled_pred(pred, ctx.peek(), ctx, guards) {
+        let before = ctx.cursor_position()
+        run_expr(ctx, grammar, natives, guards, brands, stack, body)
+        if !required_progress(ctx, before, REPEAT_WHILE_NO_PROGRESS) {
+          break
+        }
+      }
+    WrapIfNext(kind, pred, body) => {
+      let mark = ctx.mark()
+      if eval_compiled_pred(pred, ctx.peek(), ctx, guards) {
+        ctx.wrap_at(mark, kind, () => {
+          run_expr(ctx, grammar, natives, guards, brands, stack, body)
+        })
+      } else {
+        run_expr(ctx, grammar, natives, guards, brands, stack, body)
+      }
+    }
+    EmitError(msg) => ctx.error(msg)
+    ErrorUntil(stop, msg) =>
+      if !ctx.at_eof() && !eval_compiled_pred(stop, ctx.peek(), ctx, guards) {
+        ctx.error(msg)
+        let _ = ctx.skip_until(t => eval_compiled_pred(stop, t, ctx, guards))
       }
     Fail(msg) => {
       ctx.error(msg)
@@ -309,24 +526,29 @@ fn[
         ctx.error(msg)
         ctx.emit_error_placeholder()
       }
-    DiagnoseIf(pred, msg) => if pred.matches(ctx.peek()) { ctx.error(msg) }
+    DiagnoseIf(pred, msg) =>
+      if eval_compiled_pred(pred, ctx.peek(), ctx, guards) {
+        ctx.error(msg)
+      }
     ExpectSkip(skip, skip_kind, expected, kind) => {
       let _ = ctx.expect_after_skip(
-        t => skip.matches(t),
+        t => eval_compiled_pred(skip, t, ctx, guards),
         skip_kind,
         expected,
         kind,
       )
     }
     ConsumeGated(skip, skip_kind, look) => {
-      let _ = ctx.consume_while_emit_if(t => skip.matches(t), skip_kind, t => {
-        look.matches(t)
-      })
+      let _ = ctx.consume_while_emit_if(
+        t => eval_compiled_pred(skip, t, ctx, guards),
+        skip_kind,
+        t => eval_compiled_pred(look, t, ctx, guards),
+      )
     }
     RequireSep(delims, stop, alt, msg_alt~, msg_else~) => {
       let had = ctx.consume_while_emit_mapped(delims) > 0
-      if !had && !stop.matches(ctx.peek()) {
-        if alt.matches(ctx.peek()) {
+      if !had && !eval_compiled_pred(stop, ctx.peek(), ctx, guards) {
+        if eval_compiled_pred(alt, ctx.peek(), ctx, guards) {
           ctx.error(msg_alt)
         } else {
           ctx.error(msg_else)
@@ -336,7 +558,7 @@ fn[
     ErrorNodeUntil(error_kind, stop, msg) => {
       ctx.error(msg)
       ctx.start_node(error_kind)
-      while !ctx.at_eof() && !stop.matches(ctx.peek()) {
+      while !ctx.at_eof() && !eval_compiled_pred(stop, ctx.peek(), ctx, guards) {
         ctx.bump_error()
       }
       ctx.finish_node()

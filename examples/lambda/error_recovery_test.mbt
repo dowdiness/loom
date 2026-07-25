@@ -62,6 +62,34 @@ test "parse_cst: valid inputs produce no diagnostics" {
   }
 }
 
+///|
+test "real grammar recovery: missing item before comma" {
+  let source = "(1,)"
+  let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.length(), content="1")
+  inspect(diagnostics.items()[0].message, content="Expected )")
+  inspect(diagnostic_start(diagnostics.items()[0]), content="2")
+}
+
+///|
+test "real grammar recovery: missing let initializer before block close" {
+  let source = "{ let x = }"
+  let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.length(), content="1")
+  inspect(diagnostics.items()[0].message, content="Unexpected token")
+  inspect(diagnostic_start(diagnostics.items()[0]), content="10")
+}
+
+///|
+test "real grammar: empty source is a valid empty module" {
+  let source = ""
+  let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
+  assert_cst_complete(source, cst)
+  inspect(diagnostics.is_empty(), content="true")
+}
+
 // ============================================================================
 // lambda_expect error paths — verify Bool return + diagnostic + CST completeness
 // ============================================================================

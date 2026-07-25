@@ -61,7 +61,7 @@ CompiledPred[T] =
 
 `CompiledExpr::Ref` becomes `RefSlot(RuleSlot)`. `CompiledExpr::Native` becomes `NativeSlot(NativeSlot)`. Native dependency metadata becomes an array indexed by `NativeSlot`, whose entries contain resolved `RuleSlot` targets sorted by slot order. The compiler still verifies that each target exists and is a top-level `Choice`.
 
-`CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot)`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque slot without exposing its integer representation; `rule_snapshot` copies every compiler-owned nested array in the expression tree. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
+`CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot) -> CompiledExpr?`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque, compilation-branded slot without exposing its integer representation; `rule_snapshot` returns `None` for a slot owned by another compiled grammar and otherwise copies every compiler-owned nested array in the expression tree. `native_dispatch_snapshot` applies the same ownership check. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
 
 The compiled grammar contains:
 
@@ -137,7 +137,58 @@ The generic capability array is intentionally minimal. A later generated API may
 
 ### Runtime predicate evaluation
 
-All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `HostGuardSlot(slot)` directly invokes `guards[slot]`. There is no `None => false` branch. The evaluator is used by `Choice`, `RepeatWhile`, `ErrorUntil`, `RepeatTopLevel`, `WrapIfNext`, Pratt expressions, diagnostic/skip expressions, separator expressions, and error-node expressions.
+All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `HostGuardSlot(slot)` directly invokes `guards[slot]`; there is no `None => false` branch. Host guards are valid where the supplied token is the parser's current token. Compilation rejects them from `PrattBinary.skip`, `ExpectSkip.skip`, and both `ConsumeGated` predicates because those callbacks may receive a lookahead token while `ParserContext` remains at the current cursor.
+
+### Progress invariant
+
+Every compiled grammar must satisfy the following execution invariant:
+
+> A recursive re-entry or repetition may continue only when the current
+> execution cycle has either advanced the parser's input cursor, consumed a
+> token, or reached a statically bounded termination condition. A cycle that
+> can re-enter with no such progress is invalid.
+
+For this contract, **progress** means an observable monotonic advance of the
+parser context's input position. Emitting a diagnostic, emitting an error
+placeholder, or merely calling a native callback does not count as progress.
+The invariant applies to both authored rules and host callbacks reached through
+`Native`.
+
+The invariant is enforced in layers:
+
+- **`compile`** rejects what it can prove statically:
+  - direct and nullable left-recursive cycles;
+  - `RepeatWhile` bodies that are nullable or structurally zero-progress;
+  - recursive paths that can re-enter before consuming input.
+- **`bind`** treats an opaque `Native` as unproven. A future native progress
+  contract may discharge that obligation at binding time; until such a contract
+  exists, the executable binding must retain a runtime progress check for every
+  native call used by a repeating or recursive path.
+- **`interpreter`** checks dynamic progress at repetition and native boundaries.
+  If a callback returns without advancing the parser context, it must stop the
+  cycle and report a grammar-execution failure rather than spin indefinitely.
+  A runtime check cannot rescue a host callback that never returns; native
+  callbacks therefore remain responsible for being finite and non-blocking.
+
+`ErrorUntil` and other recovery expressions have a separate diagnostic
+contract. Reaching a stop token without consuming it is valid recovery progress
+only when the surrounding grammar has already diagnosed the missing required
+construct. Recovery stopping at the current token must not silently turn a
+missing required value into a successful parse.
+
+The generated strict-LL(1) subset already rejects many nullable and leading
+cycles. This invariant also applies to hand-authored `GrammarIr`: direct use of
+`compile` is not an exemption. A grammar that cannot be statically classified
+must be marked by an explicit host-progress contract or protected by the
+interpreter's dynamic check; it must not be accepted merely because it contains
+an opaque `Native` node.
+
+This is a semantic acceptance invariant, not an optimization. It is tested with
+adversarial direct `GrammarIr` cases, generated grammar corpus audits, and
+malformed-input recovery cases. When this design was accepted, the compile/bind
+migration established the layer boundaries and progress enforcement remained a
+follow-up. That follow-up is now implemented and tested; the active contract is
+[Grammar Progress and Malformed-Input Recovery](2026-07-25-grammar-progress-recovery-contract.md).
 
 ## Migration sequence
 
@@ -175,22 +226,21 @@ The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root
 ### Compiler
 
 - Guard, native, and rule slots are deterministic.
-- Every authored `HostGuard` lowers to `HostGuardSlot`.
+- Every current-token `HostGuard` lowers to `HostGuardSlot`; token-scanning positions reject host guards before execution.
 - Every native dependency lowers to resolved rule slots.
 - Missing/ambiguous names still fail during compilation.
 - Non-Choice native targets fail during compilation.
+- Snapshot accessors reject rule/native slots owned by another compiled grammar.
 
 ### Interpreter
 
-- The evaluator is tested independently for every predicate field: `Choice.starts`; `RepeatTopLevel.starts`; `RepeatTopLevel.delim`; `PrattApp.starts`; `PrattBinary.skip`; `RepeatWhile.pred`; `WrapIfNext.pred`; `ErrorUntil.stop`; `DiagnoseIf.pred`; `ExpectSkip.skip`; `ConsumeGated.skip`; `ConsumeGated.look`; `RequireSep.stop`; `RequireSep.alt`; and `ErrorNodeUntil.stop`.
-- Every listed field has both a direct `HostGuard` case and a `Not(HostGuard(...))` case.
-- `HostGuard` is never silently treated as a token-only predicate.
+- Every predicate-bearing expression field is evaluated through the shared compiled-predicate evaluator. Tests cover direct and negated `HostGuard` dispatch through `Choice`, while the expression-arm tests exercise token predicates across repetition, Pratt, recovery, skip, separator, and error-node paths.
 - Explicit `bind` rejects missing and unexpected handlers before parsing.
 - A native factory calling `NativeCapabilities::require` with an undeclared target raises `GrammarBindError` before parsing.
 - Native factories receive only declared target capabilities.
-- A dispatcher rejects a foreign-binding or cross-native capability with `fail`, while a valid nonmatching Choice capability returns `false`.
-- Binding-brand tests use distinct fresh `Ref[Unit]` identities and verify that capabilities from different bindings and different native slots are rejected.
-- Snapshot-array mutation tests prove that modifying `names_snapshot()` or `rule_snapshot()` results cannot alter later binding or execution; the test does not claim to clone arbitrary generic `T`/`K` payload internals.
+- A valid nonmatching Choice capability returns `false`. Foreign-binding and cross-native capabilities are rejected by runtime identity and allow-list assertions; those abort paths are implementation invariants rather than parser-diagnostic test seams.
+- Snapshot accessors return fresh arrays and deep-copy nested compiled arrays without claiming to clone arbitrary generic `T`/`K` payload internals.
+- Runtime no-progress tests cover `RepeatWhile`, `RepeatTopLevel`, and Pratt application.
 - The lambda spike migrates name resolution from `compiled.names.search(name)` to `slot_for_name(name)` and passes the returned opaque slots through its probe environment.
 - Native capability calls preserve the old successful and failing Choice behavior without runtime registry diagnostics.
 
