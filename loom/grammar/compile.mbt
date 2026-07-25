@@ -31,6 +31,14 @@ pub struct RuleSlot {
 } derive(Debug)
 
 ///|
+/// Equality is *structural*, over the slot index alone, so that `CompiledExpr`
+/// values remain comparable across compilations of the same grammar.
+///
+/// Ownership is a separate concern and is enforced where it matters — at the
+/// API boundary, by `rule_snapshot` and `native_dispatch_snapshot`, which
+/// reject a slot carrying a foreign brand. Do not fold the brand into `Eq` to
+/// get a second layer: it would make every derived `CompiledExpr` equality
+/// compilation-specific, which is not what those derives are for.
 pub impl Eq for RuleSlot with fn equal(self, other) {
   self.index == other.index
 }
@@ -48,6 +56,9 @@ pub struct NativeSlot {
 } derive(Debug)
 
 ///|
+/// Structural, like `RuleSlot`'s — see the note there. Native-capability
+/// ownership is enforced by the per-native brand check in
+/// `NativeDispatcher::try_rule`, not here.
 pub impl Eq for NativeSlot with fn equal(self, other) {
   self.index == other.index
 }
@@ -250,11 +261,10 @@ pub fn[T, K] compile(
     guard_slots[name] = GuardSlot::{ index: i }
   }
 
-  for native_name in native_rule_refs.keys() {
+  for native_name, targets in native_rule_refs {
     if !native_names.contains(native_name) {
       raise MissingNative(native_name)
     }
-    guard native_rule_refs.get(native_name) is Some(targets) else { () }
     for target_name in targets {
       guard ir.rules.get(target_name) is Some(target_expr) else {
         raise MissingNativeDispatchRule(native_name, target_name)

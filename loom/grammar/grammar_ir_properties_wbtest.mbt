@@ -535,6 +535,17 @@ fn qc_spec(
 /// Walk an `Expr` directly (no `compile` step) and resolve `Ref(name)` by
 /// looking up the grammar rule map.  Mirrors the real `run_expr` behavior but
 /// has no incremental reuse, no slot resolution — the CST should be identical.
+///
+/// What the differential property this feeds actually establishes is that
+/// **compilation preserves behavior**: name-to-slot resolution does not change
+/// the tree or the diagnostics. It is not independent evidence for any rule
+/// this reference reproduces. The progress guards below are the clearest case:
+/// they are transcribed from `run_expr` because a reference without them would
+/// hang on a generated zero-progress loop — and this reference runs *before*
+/// the real interpreter, so it cannot rely on `compile` rejecting the grammar
+/// first. Progress semantics are covered by the direct tests in
+/// `interpreter_test.mbt` and `compile_test.mbt`; do not count this property
+/// toward them.
 pub fn[
   T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind,
   K : @seam.ToRawKind,
