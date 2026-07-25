@@ -1,6 +1,6 @@
 # Grammar Progress and Malformed-Input Recovery Contract
 
-**Status:** Draft for implementation handoff
+**Status:** Active contract
 **Date:** 2026-07-25
 **Scope:** Loom grammar execution after the compiled-capabilities migration
 
@@ -16,9 +16,10 @@ Implemented evidence includes:
 - Native capability dispatch sharing the same cycle protection;
 - `ErrorUntil` boundary semantics and required-element diagnostics;
 - real-language malformed-input tests for Lambda, CSS, and HTML;
-- full Loom validation at 3720 passing tests.
+- full Loom workspace validation via `NEW_MOON_MOD=0 moon test --frozen`
+  from the repository root: 3470 passing tests.
 
-Remaining work is limited to contract maintenance, future grammar coverage, and the documented host responsibility for Native callbacks that never return. The throwaway prototype and audit have been deleted after their conclusions were captured here.
+The #751–#755 implementation is complete. Ongoing work is limited to contract maintenance, future grammar coverage, and the documented host responsibility for Native callbacks that never return. The throwaway prototype and audit have been deleted after their conclusions were captured here.
 
 ## Problem Statement
 

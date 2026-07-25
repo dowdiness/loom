@@ -8,7 +8,7 @@ test "compile interns string rule refs to dense slots" {
   guard compiled.slot_for_name("source") is Some(source_slot)
   guard compiled.slot_for_name("expr") is Some(expr_slot)
   assert_true(compiled.root_slot() == source_slot)
-  match compiled.rule_snapshot(source_slot) {
+  match compiled.rule_snapshot(source_slot).unwrap() {
     CompiledExpr::RefSlot(slot) => assert_true(slot == expr_slot)
     _ => fail("source should point at dense expr slot")
   }
@@ -93,7 +93,7 @@ test "compile lowers a declared Native to NativeSlot, not RefSlot" {
     GrammarIr::GrammarIr(rules, root="source"),
     native_names=Set::Set(["parse_element_with_stack"]),
   )
-  match compiled.rule_snapshot(compiled.root_slot()) {
+  match compiled.rule_snapshot(compiled.root_slot()).unwrap() {
     CompiledExpr::NativeSlot(_) => ()
     _ => fail("expected NativeSlot")
   }
@@ -136,6 +136,37 @@ test "compile raises MissingHostGuard when HostGuard references an unregistered 
 }
 
 ///|
+test "compile rejects HostGuard in a token-scanning predicate" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::ExpectSkip(Pred::HostGuard("skip"), 1, 2, 2),
+  }
+  let caught = try {
+    let _ = compile(
+      GrammarIr::GrammarIr(rules, root="source"),
+      guard_names=Set::Set(["skip"]),
+    )
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(HostGuardInTokenScan("ExpectSkip.skip")) => ()
+    _ => fail("expected HostGuardInTokenScan for ExpectSkip.skip")
+  }
+}
+
+///|
+test "compile accepts HostGuard at a current-token recovery boundary" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::ErrorUntil(Pred::HostGuard("stop"), "stop"),
+  }
+  let _ = compile(
+    GrammarIr::GrammarIr(rules, root="source"),
+    guard_names=Set::Set(["stop"]),
+  )
+}
+
+///|
 test "compile raises AmbiguousGuard when a name is both a grammar rule and a guard, even unreferenced" {
   let rules : Map[RuleName, Expr[Int, Int]] = { "source": Expr::Emit(1, 10) }
   let caught = try {
@@ -167,7 +198,7 @@ test "compile passes HostGuard refs when guard_names contains the name" {
     GrammarIr::GrammarIr(rules, root="source"),
     guard_names=Set::Set(["is_at_indent_4"]),
   )
-  match compiled.rule_snapshot(compiled.root_slot()) {
+  match compiled.rule_snapshot(compiled.root_slot()).unwrap() {
     CompiledExpr::Choice(alts) => {
       inspect(alts.length(), content="1")
       match alts[0].starts {
@@ -273,16 +304,16 @@ test "compile assigns deterministic rule native guard and dispatch slots" {
   guard compiled.slot_for_name("a_rule") is Some(a_slot)
   guard compiled.slot_for_name("z_rule") is Some(z_slot)
   assert_true(compiled.root_slot() == source_slot)
-  match compiled.rule_snapshot(source_slot) {
+  match compiled.rule_snapshot(source_slot).unwrap() {
     CompiledExpr::NativeSlot(native_slot) => {
-      let targets = compiled.native_dispatch_snapshot(native_slot)
+      let targets = compiled.native_dispatch_snapshot(native_slot).unwrap()
       assert_true(targets.length() == 2)
       assert_true(targets[0] == a_slot)
       assert_true(targets[1] == z_slot)
     }
     _ => fail("expected native root")
   }
-  match compiled.rule_snapshot(a_slot) {
+  match compiled.rule_snapshot(a_slot).unwrap() {
     CompiledExpr::Choice(alts) =>
       match alts[0].starts {
         CompiledPred::HostGuardSlot(_) => ()
@@ -290,6 +321,32 @@ test "compile assigns deterministic rule native guard and dispatch slots" {
       }
     _ => fail("expected choice rule")
   }
+}
+
+///|
+test "compiled grammar rejects a rule slot from another grammar" {
+  let first : CompiledGrammar[Int, Int] = compile(
+    GrammarIr::GrammarIr({ "source": Expr::Emit(1, 10) }, root="source"),
+  )
+  let second : CompiledGrammar[Int, Int] = compile(
+    GrammarIr::GrammarIr({ "source": Expr::Empty }, root="source"),
+  )
+  inspect(second.rule_snapshot(first.root_slot()) is None, content="true")
+}
+
+///|
+test "compiled grammar rejects a native slot from another grammar" {
+  let first : CompiledGrammar[Int, Int] = compile(
+    GrammarIr::GrammarIr({ "source": Expr::Native("first") }, root="source"),
+    native_names=Set::Set(["first"]),
+  )
+  guard first.rule_snapshot(first.root_slot())
+    is Some(CompiledExpr::NativeSlot(foreign_slot))
+  let second : CompiledGrammar[Int, Int] = compile(
+    GrammarIr::GrammarIr({ "source": Expr::Native("second") }, root="source"),
+    native_names=Set::Set(["second"]),
+  )
+  inspect(second.native_dispatch_snapshot(foreign_slot) is None, content="true")
 }
 
 ///|
@@ -340,6 +397,23 @@ test "compile rejects nullable leading recursion" {
   match caught {
     Some(GrammarCompileError::LeftRecursiveRule("source")) => ()
     _ => fail("expected nullable leading recursion to be rejected")
+  }
+}
+
+///|
+test "compile rejects leading recursion before a later consuming expression" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::Seq([Expr::Ref("source"), Expr::Emit(1, 10)]),
+  }
+  let caught = try {
+    let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(GrammarCompileError::LeftRecursiveRule("source")) => ()
+    _ => fail("expected leading recursion before Emit to be rejected")
   }
 }
 
@@ -499,7 +573,7 @@ test "compile leaves opaque Native progress for runtime enforcement" {
     GrammarIr::GrammarIr(rules, root="source"),
     native_names=Set::Set(["native"]),
   )
-  match compiled.rule_snapshot(compiled.root_slot()) {
+  match compiled.rule_snapshot(compiled.root_slot()).unwrap() {
     CompiledExpr::RepeatWhile(_, CompiledExpr::NativeSlot(_)) => ()
     _ => fail("expected opaque Native repeat to compile")
   }

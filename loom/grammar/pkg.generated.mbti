@@ -39,6 +39,7 @@ pub suberror GrammarCompileError {
   AmbiguousRule(String)
   MissingHostGuard(String)
   AmbiguousGuard(String)
+  HostGuardInTokenScan(String)
   LeftRecursiveRule(String)
   ZeroProgressRepeat(String)
 } derive(Eq, @debug.Debug)
@@ -85,10 +86,10 @@ pub struct CompiledGrammar[T, K] {
 }
 pub fn[T, K] CompiledGrammar::guard_names_snapshot(Self[T, K]) -> Array[String]
 pub fn[T, K] CompiledGrammar::names_snapshot(Self[T, K]) -> Array[String]
-pub fn[T, K] CompiledGrammar::native_dispatch_snapshot(Self[T, K], NativeSlot) -> Array[RuleSlot]
+pub fn[T, K] CompiledGrammar::native_dispatch_snapshot(Self[T, K], NativeSlot) -> Array[RuleSlot]?
 pub fn[T, K] CompiledGrammar::native_names_snapshot(Self[T, K]) -> Array[String]
 pub fn[T, K] CompiledGrammar::root_slot(Self[T, K]) -> RuleSlot
-pub fn[T, K] CompiledGrammar::rule_snapshot(Self[T, K], RuleSlot) -> CompiledExpr[T, K]
+pub fn[T, K] CompiledGrammar::rule_snapshot(Self[T, K], RuleSlot) -> CompiledExpr[T, K]?
 pub fn[T, K] CompiledGrammar::slot_for_name(Self[T, K], String) -> RuleSlot?
 
 pub enum CompiledPred[T] {
@@ -153,7 +154,9 @@ pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam
 
 pub struct NativeSlot {
   // private fields
-} derive(Compare, Eq, @debug.Debug)
+} derive(@debug.Debug)
+pub impl Compare for NativeSlot
+pub impl Eq for NativeSlot
 
 pub(all) enum Pred[T] {
   Any
@@ -171,7 +174,9 @@ pub struct RuleCapability[T, K] {
 
 pub struct RuleSlot {
   // private fields
-} derive(Compare, Eq, @debug.Debug)
+} derive(@debug.Debug)
+pub impl Compare for RuleSlot
+pub impl Eq for RuleSlot
 
 // Type aliases
 pub type HostGuard[T, K] = (@core.ParserContext[T, K]) -> Bool

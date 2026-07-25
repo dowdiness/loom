@@ -226,7 +226,7 @@ test "valid nonmatching native capability returns false without diagnostics" {
 }
 
 ///|
-test "HostGuard lowers and evaluates in Choice" {
+test "HostGuard lowers and evaluates both Choice outcomes" {
   let ir = GrammarIr::GrammarIr(
     {
       "source": Expr::Node(
@@ -248,30 +248,32 @@ test "HostGuard lowers and evaluates in Choice" {
     },
     root="source",
   )
-  let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
-    "allow": fn(_ctx) { false },
-  }
-  let parse_root = interpret(ir, guards~)
   let tokens = [
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
-  let (tree, diagnostics) = @core.parse_with(
-    "1",
-    test_spec(parse_root),
-    _src => tokens,
-    parse_root,
-  )
-  inspect(diagnostics.is_empty(), content="true")
-  match tree.children[0] {
-    @seam.CstElement::Node(root) =>
-      match root.children[0] {
-        @seam.CstElement::Token(token) =>
-          inspect(token.kind, content="RawKind(11)")
-        _ => fail("expected emitted token")
-      }
-    _ => fail("expected Root node")
+  let parse_kind = allow => {
+    let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
+      "allow": _ctx => allow,
+    }
+    let parse_root = interpret(ir, guards~)
+    let (tree, diagnostics) = @core.parse_with(
+      "1",
+      test_spec(parse_root),
+      _src => tokens,
+      parse_root,
+    )
+    guard diagnostics.is_empty() else { fail("unexpected diagnostics") }
+    guard tree.children[0] is @seam.CstElement::Node(root) else {
+      fail("expected Root node")
+    }
+    guard root.children[0] is @seam.CstElement::Token(token) else {
+      fail("expected emitted token")
+    }
+    token.kind
   }
+  inspect(parse_kind(false), content="RawKind(11)")
+  inspect(parse_kind(true), content="RawKind(14)")
 }
 
 ///|

@@ -12,27 +12,61 @@ pub suberror GrammarCompileError {
   AmbiguousRule(RuleName)
   MissingHostGuard(RuleName)
   AmbiguousGuard(RuleName)
+  HostGuardInTokenScan(String)
   LeftRecursiveRule(RuleName)
   ZeroProgressRepeat(RuleName)
 } derive(Eq, Debug)
 
 ///|
+/// Fresh owner identity shared by every rule/native slot in one compilation.
+priv struct SlotBrand {
+  token : Ref[Unit]
+} derive(Debug)
+
+///|
 /// Opaque dense slot for an authored grammar rule.
 pub struct RuleSlot {
+  priv brand : SlotBrand
   priv index : Int
-} derive(Eq, Debug, Compare)
+} derive(Debug)
+
+///|
+pub impl Eq for RuleSlot with fn equal(self, other) {
+  self.index == other.index
+}
+
+///|
+pub impl Compare for RuleSlot with fn compare(self, other) {
+  self.index.compare(other.index)
+}
 
 ///|
 /// Opaque dense slot for a declared native.
 pub struct NativeSlot {
+  priv brand : SlotBrand
   priv index : Int
-} derive(Eq, Debug, Compare)
+} derive(Debug)
+
+///|
+pub impl Eq for NativeSlot with fn equal(self, other) {
+  self.index == other.index
+}
+
+///|
+pub impl Compare for NativeSlot with fn compare(self, other) {
+  self.index.compare(other.index)
+}
 
 ///|
 /// Opaque dense slot for a declared host guard.
 pub struct GuardSlot {
   priv index : Int
 } derive(Eq, Debug, Compare)
+
+///|
+fn SlotBrand::same(self : SlotBrand, other : SlotBrand) -> Bool {
+  physical_equal(self.token, other.token)
+}
 
 ///|
 /// Compiled, context-aware predicate snapshot.
@@ -102,6 +136,7 @@ pub struct CompiledGrammar[T, K] {
   priv guard_names : Array[RuleName]
   priv native_dispatch : Array[Array[RuleSlot]]
   priv rule_slots : Map[RuleName, RuleSlot]
+  priv slot_brand : SlotBrand
 }
 
 ///|
@@ -148,8 +183,13 @@ pub fn[T, K] CompiledGrammar::guard_names_snapshot(
 pub fn[T, K] CompiledGrammar::native_dispatch_snapshot(
   self : Self[T, K],
   slot : NativeSlot,
-) -> Array[RuleSlot] {
-  self.native_dispatch[slot.index].copy()
+) -> Array[RuleSlot]? {
+  if !self.slot_brand.same(slot.brand) ||
+    slot.index < 0 ||
+    slot.index >= self.native_dispatch.length() {
+    return None
+  }
+  Some(self.native_dispatch[slot.index].copy())
 }
 
 ///|
@@ -157,8 +197,13 @@ pub fn[T, K] CompiledGrammar::native_dispatch_snapshot(
 pub fn[T, K] CompiledGrammar::rule_snapshot(
   self : Self[T, K],
   slot : RuleSlot,
-) -> CompiledExpr[T, K] {
-  clone_compiled_expr(self.rules[slot.index])
+) -> CompiledExpr[T, K]? {
+  if !self.slot_brand.same(slot.brand) ||
+    slot.index < 0 ||
+    slot.index >= self.rules.length() {
+    return None
+  }
+  Some(clone_compiled_expr(self.rules[slot.index]))
 }
 
 ///|
@@ -185,16 +230,17 @@ pub fn[T, K] compile(
     .collect()
   others.sort()
   let names : Array[RuleName] = [ir.root, ..others]
+  let slot_brand = SlotBrand::{ token: Ref::Ref(()) }
   let rule_slots : Map[RuleName, RuleSlot] = Map([])
   for i, name in names {
-    rule_slots[name] = RuleSlot::{ index: i }
+    rule_slots[name] = RuleSlot::{ brand: slot_brand, index: i }
   }
 
   let ordered_natives : Array[RuleName] = native_names.iter().collect()
   ordered_natives.sort()
   let native_slots : Map[RuleName, NativeSlot] = Map([])
   for i, name in ordered_natives {
-    native_slots[name] = NativeSlot::{ index: i }
+    native_slots[name] = NativeSlot::{ brand: slot_brand, index: i }
   }
 
   let ordered_guards : Array[RuleName] = guard_names.iter().collect()
@@ -241,20 +287,22 @@ pub fn[T, K] compile(
   }
   for i, expr in rules {
     let owner = names[i]
-    match progress_of(expr, rules, [RuleSlot::{ index: i }]) {
+    guard rule_slots.get(owner) is Some(owner_slot)
+    match progress_of(expr, rules, [owner_slot]) {
       Cycle(_) => raise LeftRecursiveRule(owner)
       _ => ()
     }
-    validate_progress(expr, owner, RuleSlot::{ index: i }, rules)
+    validate_progress(expr, owner, owner_slot, rules)
   }
   {
     names,
     rules,
-    root: RuleSlot::{ index: 0 },
+    root: RuleSlot::{ brand: slot_brand, index: 0 },
     native_names: ordered_natives,
     guard_names: ordered_guards,
     native_dispatch,
     rule_slots,
+    slot_brand,
   }
 }
 
@@ -312,6 +360,31 @@ fn[T] lower_pred(
 }
 
 ///|
+/// Reject context-sensitive guards where the token callback may inspect a
+/// lookahead token while the ParserContext remains at the current token.
+fn[T] lower_token_scan_pred(
+  pred : Pred[T],
+  guard_slots : Map[RuleName, GuardSlot],
+  position : String,
+) -> CompiledPred[T] raise GrammarCompileError {
+  if pred_contains_host_guard(pred) {
+    raise HostGuardInTokenScan(position)
+  }
+  lower_pred(pred, guard_slots)
+}
+
+///|
+fn[T] pred_contains_host_guard(pred : Pred[T]) -> Bool {
+  match pred {
+    HostGuard(_) => true
+    Not(inner) => pred_contains_host_guard(inner)
+    All(left, right) =>
+      pred_contains_host_guard(left) || pred_contains_host_guard(right)
+    Any | IsToken(_) | OneOf(_) => false
+  }
+}
+
+///|
 /// Lower one authored expression, resolving every nested reference.
 fn[T, K] lower(
   expr : Expr[T, K],
@@ -363,7 +436,12 @@ fn[T, K] lower(
         resolve(name, rule_slots),
         k,
         ops.copy(),
-        skip=skip.map(pair => (lower_pred(pair.0, guard_slots), pair.1)),
+        skip=skip.map(pair => {
+          (
+            lower_token_scan_pred(pair.0, guard_slots, "PrattBinary.skip"),
+            pair.1,
+          )
+        }),
       )
     RepeatWhile(pred, body) =>
       CompiledExpr::RepeatWhile(
@@ -385,16 +463,16 @@ fn[T, K] lower(
       CompiledExpr::DiagnoseIf(lower_pred(pred, guard_slots), msg)
     ExpectSkip(skip, skip_kind, expected, kind) =>
       CompiledExpr::ExpectSkip(
-        lower_pred(skip, guard_slots),
+        lower_token_scan_pred(skip, guard_slots, "ExpectSkip.skip"),
         skip_kind,
         expected,
         kind,
       )
     ConsumeGated(skip, skip_kind, look) =>
       CompiledExpr::ConsumeGated(
-        lower_pred(skip, guard_slots),
+        lower_token_scan_pred(skip, guard_slots, "ConsumeGated.skip"),
         skip_kind,
-        lower_pred(look, guard_slots),
+        lower_token_scan_pred(look, guard_slots, "ConsumeGated.look"),
       )
     RequireSep(delims, stop, alt, msg_alt~, msg_else~) =>
       CompiledExpr::RequireSep(
@@ -472,7 +550,6 @@ fn[T, K] progress_of(
       }
     Seq(exprs) => {
       let mut saw_unknown = false
-      let mut cycle : RuleSlot? = None
       for part in exprs {
         match progress_of(part, rules, visiting) {
           Never => ()
@@ -481,17 +558,14 @@ fn[T, K] progress_of(
             if saw_unknown {
               return Unknown
             }
-            cycle = Some(slot)
+            return Cycle(slot)
           }
         }
       }
       if saw_unknown {
         Unknown
       } else {
-        match cycle {
-          Some(slot) => Cycle(slot)
-          None => Never
-        }
+        Never
       }
     }
     PrattApp(slot, _, _) | PrattBinary(slot, _, _, ..) =>

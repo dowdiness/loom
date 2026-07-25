@@ -3,9 +3,12 @@
 ///
 /// `HostGuard(name)` references a named hand-written `fn(ParserContext) -> Bool`
 /// supplied out-of-band via the interpreter's `guards` map. It is never resolved
-/// by `matches` (which takes only a token), so it always returns `false` there;
-/// the interpreter's `Choice` arm handles it separately. Mirrors `Native(RuleName)`
-/// in that the name resolves against host code, not token-identity data.
+/// by `matches` (which takes only a token), so it always returns `false` there.
+/// The compiled interpreter resolves it in predicates evaluated at the current
+/// cursor. Compilation rejects it in token scans where the callback may receive
+/// a lookahead token while the context remains at the current cursor. Mirrors
+/// `Native(RuleName)` in that the name resolves against host code, not
+/// token-identity data.
 pub(all) enum Pred[T] {
   Any
   IsToken(T)
@@ -15,13 +18,12 @@ pub(all) enum Pred[T] {
   /// out-of-band through the interpreter's `guards` map — never by `matches`,
   /// which returns `false` unconditionally for this variant.
   ///
-  /// NOTE: when used as a native-dispatch entry predicate (through
-  /// `try_parse_rule`), a HostGuard must be a pure query — it may inspect
-  /// parser context and parse-local state but must not mutate either. The
-  /// interpreter cannot enforce this; it is an implementation contract.
+  /// A HostGuard must be a pure query: it may inspect parser context and
+  /// parse-local state but must not mutate either. The interpreter cannot
+  /// enforce this; it is an implementation contract.
   HostGuard(String)
-  /// Both sides must match. Composes `IsToken`/`OneOf` with `HostGuard` so
-  /// a Choice arm can gate on both a specific token AND a computed guard.
+  /// Both sides must match. Composes token predicates with `HostGuard` at
+  /// current-cursor predicate positions.
   All(Pred[T], Pred[T])
 } derive(Eq, Debug)
 

@@ -601,12 +601,24 @@ fn[
     }
     RepeatWhile(pred, body) =>
       while !ctx.at_eof() && pred.matches(ctx.peek()) {
+        let before = ctx.cursor_position()
         run_expr_ref_body(ctx, rules, body)
+        if ctx.cursor_position() <= before {
+          ctx.error("grammar: RepeatWhile body made no progress")
+          ctx.emit_error_placeholder()
+          break
+        }
       }
     RepeatTopLevel(name, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
       ctx.consume_while_emit(t => delim.matches(t), delim_kind)
       while !ctx.at_eof() && starts.matches(ctx.peek()) {
+        let before = ctx.cursor_position()
         run_expr_ref(ctx, rules, name)
+        if ctx.cursor_position() <= before {
+          ctx.error("grammar: RepeatTopLevel body made no progress")
+          ctx.emit_error_placeholder()
+          break
+        }
         let had = delim.matches(ctx.peek())
         ctx.consume_while_emit(t => delim.matches(t), delim_kind)
         if !had && !ctx.at_eof() {
@@ -620,11 +632,21 @@ fn[
     }
     PrattApp(name, kind, starts) => {
       let mark = ctx.mark()
+      let before = ctx.cursor_position()
       run_expr_ref(ctx, rules, name)
-      if starts.matches(ctx.peek()) {
+      if ctx.cursor_position() <= before {
+        ctx.error("grammar: PrattApp atom made no progress")
+        ctx.emit_error_placeholder()
+      } else if starts.matches(ctx.peek()) {
         ctx.wrap_at(mark, kind, fn() {
           while starts.matches(ctx.peek()) {
+            let before = ctx.cursor_position()
             run_expr_ref(ctx, rules, name)
+            if ctx.cursor_position() <= before {
+              ctx.error("grammar: PrattApp atom made no progress")
+              ctx.emit_error_placeholder()
+              break
+            }
           }
         })
       }
@@ -1106,6 +1128,57 @@ test "deterministic: PrattApp with non-matching second token skips wrap" {
     @core.TokenInfo::new(QcToken::Eof, 0),
   ]
   check_equiv(ir, tokens, "PrattApp-no-wrap")
+}
+
+///|
+test "deterministic: reference mirrors PrattApp no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::A, QcKind::NodeA)
+  rules["source"] = Expr::Seq([
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+    Expr::PrattApp("expr", QcKind::NodeB, Pred::IsToken(QcToken::A)),
+  ])
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::A, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "PrattApp-no-progress")
+}
+
+///|
+test "deterministic: reference mirrors RepeatWhile no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["source"] = Expr::RepeatWhile(
+    Pred::IsToken(QcToken::B),
+    Expr::Emit(QcToken::A, QcKind::NodeA),
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "RepeatWhile-no-progress")
+}
+
+///|
+test "deterministic: reference mirrors RepeatTopLevel no-progress diagnostics" {
+  let rules : Map[RuleName, Expr[QcToken, QcKind]] = Map([])
+  rules["expr"] = Expr::Emit(QcToken::A, QcKind::NodeA)
+  rules["source"] = Expr::RepeatTopLevel(
+    "expr",
+    starts=Pred::IsToken(QcToken::B),
+    delim=Pred::IsToken(QcToken::C),
+    delim_kind=QcKind::NodeB,
+    between_msg="btwn",
+    after_msg="after",
+  )
+  let ir = GrammarIr::GrammarIr(rules, root="source")
+  let tokens = [
+    @core.TokenInfo::new(QcToken::B, 1),
+    @core.TokenInfo::new(QcToken::Eof, 0),
+  ]
+  check_equiv(ir, tokens, "RepeatTopLevel-no-progress")
 }
 
 ///|

@@ -16,9 +16,13 @@
 ///      "disable repeat-group reuse" switch (only `reuse_size_threshold`), so
 ///      the harness toggles it here, NOT in the grammar value (spec §3.1).
 ///
-/// Every other node mirrors `@grammar`'s tree-walking interpreter exactly. The
-/// duplication is the price of holding the residue spike-local; it is removed
-/// when the §5/§8 migration target is chosen.
+/// Tree-shape behavior otherwise follows `@grammar` closely, with compiled
+/// predicates evaluated by the probe-local `pred_matches`. This probe does not
+/// implement the production interpreter's cursor-progress guards or its
+/// `(RuleSlot, cursor position)` cycle stack, so malformed `RepeatWhile`,
+/// `RepeatTopLevel`, or `PrattApp` input can spin here instead of producing a
+/// grammar-execution diagnostic. It remains an oracle-specific probe, not the
+/// execution-safety reference.
 
 ///|
 /// Resolved-grammar environment threaded through the probe walk.
@@ -75,14 +79,15 @@ pub fn b_parse_root(
     atom_slot: slot(compiled, "atom"),
     binary_slot: slot(compiled, "binary"),
   }
-  let root = compiled.rule_snapshot(compiled.root_slot())
+  let root = compiled.rule_snapshot(compiled.root_slot()).unwrap()
   ctx => env.run(ctx, root)
 }
 
 ///|
-/// Evaluate one compiled expression. Mirrors `@grammar`'s `run_expr` (rule
-/// dispatch by dense slot, `Pred` data tested with `matches`), diverging only at
-/// `ManualNewlineAppExpr` (residue) and `RepeatTopLevel` (cripple gate).
+/// Evaluate one compiled expression. It follows `@grammar`'s tree-shape walk
+/// with dense-slot dispatch and probe-local `pred_matches`, while diverging for
+/// `ManualNewlineAppExpr`, the `RepeatTopLevel` cripple gate, and the omitted
+/// production progress/cycle guards documented above.
 fn ProbeEnv::run(
   self : ProbeEnv,
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
@@ -95,7 +100,7 @@ fn ProbeEnv::run(
     // path; discard the bool so the path produces exactly one diagnostic.
     Expect(token, kind) => ctx.expect(token, kind) |> ignore
     Node(kind, body) => ctx.node(kind, () => self.run(ctx, body))
-    RefSlot(slot) => self.run(ctx, self.compiled.rule_snapshot(slot))
+    RefSlot(slot) => self.run(ctx, self.compiled.rule_snapshot(slot).unwrap())
     Seq(exprs) =>
       for e in exprs {
         self.run(ctx, e)
@@ -140,7 +145,7 @@ fn ProbeEnv::run(
           ctx.consume_while_emit(t => pred_matches(delim, t), delim_kind)
           continue
         }
-        self.run(ctx, self.compiled.rule_snapshot(slot))
+        self.run(ctx, self.compiled.rule_snapshot(slot).unwrap())
         let had = pred_matches(delim, ctx.peek())
         ctx.consume_while_emit(t => pred_matches(delim, t), delim_kind)
         if !had && !ctx.at_eof() {
@@ -179,7 +184,7 @@ fn ProbeEnv::run(
         ()
       } else {
         let mark = ctx.mark()
-        self.run(ctx, self.compiled.rule_snapshot(slot))
+        self.run(ctx, self.compiled.rule_snapshot(slot).unwrap())
         // Mirrors @grammar's PrattBinary arm: gated soft-separator consume before
         // each operator (lookahead = the op table), matching A's
         // consume_soft_newlines_before_binary_operator.
@@ -202,7 +207,7 @@ fn ProbeEnv::run(
                 None => break
                 Some(pair) => {
                   ctx.emit_token(pair.1)
-                  self.run(ctx, self.compiled.rule_snapshot(slot))
+                  self.run(ctx, self.compiled.rule_snapshot(slot).unwrap())
                 }
               }
             }
@@ -337,7 +342,7 @@ fn ProbeEnv::parse_arrow_lambda(
       ctx.node(@syntax.LambdaBody, fn() {
         // Match A: only special-case { when immediately after => (no soft newlines).
         if ctx.peek() == @token.LBrace {
-          self.run(ctx, self.compiled.rule_snapshot(self.atom_slot))
+          self.run(ctx, self.compiled.rule_snapshot(self.atom_slot).unwrap())
         } else {
           let expr_starts = lambda_expression_starts()
           let _ = ctx.consume_while_emit_if(
@@ -348,7 +353,10 @@ fn ProbeEnv::parse_arrow_lambda(
           if allow_newline_application {
             self.parse_newline_app(ctx)
           } else {
-            self.run(ctx, self.compiled.rule_snapshot(self.binary_slot))
+            self.run(
+              ctx,
+              self.compiled.rule_snapshot(self.binary_slot).unwrap(),
+            )
           }
         }
       })
@@ -461,7 +469,7 @@ fn ProbeEnv::run_atom(
   if ctx.peek() == @token.LeftParen && is_arrow_lambda(ctx) {
     self.parse_arrow_lambda(ctx, allow_newline_application)
   } else {
-    self.run(ctx, self.compiled.rule_snapshot(self.atom_slot))
+    self.run(ctx, self.compiled.rule_snapshot(self.atom_slot).unwrap())
   }
 }
 

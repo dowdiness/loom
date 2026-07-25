@@ -61,7 +61,7 @@ CompiledPred[T] =
 
 `CompiledExpr::Ref` becomes `RefSlot(RuleSlot)`. `CompiledExpr::Native` becomes `NativeSlot(NativeSlot)`. Native dependency metadata becomes an array indexed by `NativeSlot`, whose entries contain resolved `RuleSlot` targets sorted by slot order. The compiler still verifies that each target exists and is a top-level `Choice`.
 
-`CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot)`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque slot without exposing its integer representation; `rule_snapshot` copies every compiler-owned nested array in the expression tree. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
+`CompiledGrammar` owns its storage behind private fields. To preserve the existing lambda spike's custom residue interpreter, public snapshot/query accessors expose `names_snapshot()`, `slot_for_name(name) -> RuleSlot?`, `root_slot()`, and `rule_snapshot(slot) -> CompiledExpr?`. `names_snapshot` returns a fresh name array; `slot_for_name` returns an opaque, compilation-branded slot without exposing its integer representation; `rule_snapshot` returns `None` for a slot owned by another compiled grammar and otherwise copies every compiler-owned nested array in the expression tree. `native_dispatch_snapshot` applies the same ownership check. Generic `T` and `K` payload values are not cloned because the grammar package cannot assume a clone operation; their ownership/immutability remains the authored token and syntax-kind contract. No accessor aliases compiler-owned storage, so mutating snapshot arrays cannot change slot mappings or executable behavior.
 
 The compiled grammar contains:
 
@@ -137,7 +137,7 @@ The generic capability array is intentionally minimal. A later generated API may
 
 ### Runtime predicate evaluation
 
-All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `HostGuardSlot(slot)` directly invokes `guards[slot]`. There is no `None => false` branch. The evaluator is used by `Choice`, `RepeatWhile`, `ErrorUntil`, `RepeatTopLevel`, `WrapIfNext`, Pratt expressions, diagnostic/skip expressions, separator expressions, and error-node expressions.
+All predicate-bearing expression nodes call one evaluator over `CompiledPred`. `HostGuardSlot(slot)` directly invokes `guards[slot]`; there is no `None => false` branch. Host guards are valid where the supplied token is the parser's current token. Compilation rejects them from `PrattBinary.skip`, `ExpectSkip.skip`, and both `ConsumeGated` predicates because those callbacks may receive a lookahead token while `ParserContext` remains at the current cursor.
 
 ### Progress invariant
 
@@ -185,9 +185,10 @@ an opaque `Native` node.
 
 This is a semantic acceptance invariant, not an optimization. It is tested with
 adversarial direct `GrammarIr` cases, generated grammar corpus audits, and
-malformed-input recovery cases. The current compile/bind migration establishes
-the layer boundaries; progress analysis and dynamic enforcement are the next
-implementation required to make this invariant executable.
+malformed-input recovery cases. When this design was accepted, the compile/bind
+migration established the layer boundaries and progress enforcement remained a
+follow-up. That follow-up is now implemented and tested; the active contract is
+[Grammar Progress and Malformed-Input Recovery](2026-07-25-grammar-progress-recovery-contract.md).
 
 ## Migration sequence
 
@@ -225,10 +226,11 @@ The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root
 ### Compiler
 
 - Guard, native, and rule slots are deterministic.
-- Every authored `HostGuard` lowers to `HostGuardSlot`.
+- Every current-token `HostGuard` lowers to `HostGuardSlot`; token-scanning positions reject host guards before execution.
 - Every native dependency lowers to resolved rule slots.
 - Missing/ambiguous names still fail during compilation.
 - Non-Choice native targets fail during compilation.
+- Snapshot accessors reject rule/native slots owned by another compiled grammar.
 
 ### Interpreter
 
@@ -237,7 +239,7 @@ The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root
 - A native factory calling `NativeCapabilities::require` with an undeclared target raises `GrammarBindError` before parsing.
 - Native factories receive only declared target capabilities.
 - A valid nonmatching Choice capability returns `false`. Foreign-binding and cross-native capabilities are rejected by runtime identity and allow-list assertions; those abort paths are implementation invariants rather than parser-diagnostic test seams.
-- Snapshot accessors return fresh arrays and deep-copy nested compiled arrays without claiming to clone arbitrary generic `T`/`K` payload internals. Compiler tests exercise the accessors and opaque slots without claiming mutation-based proof.
+- Snapshot accessors return fresh arrays and deep-copy nested compiled arrays without claiming to clone arbitrary generic `T`/`K` payload internals.
 - Runtime no-progress tests cover `RepeatWhile`, `RepeatTopLevel`, and Pratt application.
 - The lambda spike migrates name resolution from `compiled.names.search(name)` to `slot_for_name(name)` and passes the returned opaque slots through its probe environment.
 - Native capability calls preserve the old successful and failing Choice behavior without runtime registry diagnostics.
