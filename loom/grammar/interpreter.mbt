@@ -370,14 +370,24 @@ fn[
         delim_kind,
       )
       while !ctx.at_eof() && eval_compiled_pred(starts, ctx.peek(), ctx, guards) {
+        let before = ctx.cursor_position()
         if ctx.try_reuse_repeat_group() {
+          // Backstop, not a live fix. `ReuseCursor` cannot currently offer a
+          // zero-width group: its child scan requires `source_offset <
+          // child_end`, which a zero-width child never satisfies. This keeps
+          // the loop from silently depending on that invariant holding in
+          // another module.
+          if ctx.cursor_position() <= before {
+            ctx.error("grammar: RepeatTopLevel body made no progress")
+            ctx.emit_error_placeholder()
+            break
+          }
           ctx.consume_while_emit(
             t => eval_compiled_pred(delim, t, ctx, guards),
             delim_kind,
           )
           continue
         }
-        let before = ctx.cursor_position()
         run_rule(ctx, grammar, natives, guards, brands, stack, slot)
         if ctx.cursor_position() <= before {
           ctx.error("grammar: RepeatTopLevel body made no progress")
