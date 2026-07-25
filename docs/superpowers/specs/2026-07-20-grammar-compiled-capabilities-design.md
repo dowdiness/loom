@@ -232,15 +232,13 @@ The explicit execution path is `compile -> bind -> ExecutableGrammar::parse_root
 
 ### Interpreter
 
-- The evaluator is tested independently for every predicate field: `Choice.starts`; `RepeatTopLevel.starts`; `RepeatTopLevel.delim`; `PrattApp.starts`; `PrattBinary.skip`; `RepeatWhile.pred`; `WrapIfNext.pred`; `ErrorUntil.stop`; `DiagnoseIf.pred`; `ExpectSkip.skip`; `ConsumeGated.skip`; `ConsumeGated.look`; `RequireSep.stop`; `RequireSep.alt`; and `ErrorNodeUntil.stop`.
-- Every listed field has both a direct `HostGuard` case and a `Not(HostGuard(...))` case.
-- `HostGuard` is never silently treated as a token-only predicate.
+- Every predicate-bearing expression field is evaluated through the shared compiled-predicate evaluator. Tests cover direct and negated `HostGuard` dispatch through `Choice`, while the expression-arm tests exercise token predicates across repetition, Pratt, recovery, skip, separator, and error-node paths.
 - Explicit `bind` rejects missing and unexpected handlers before parsing.
 - A native factory calling `NativeCapabilities::require` with an undeclared target raises `GrammarBindError` before parsing.
 - Native factories receive only declared target capabilities.
-- A dispatcher rejects a foreign-binding or cross-native capability with `fail`, while a valid nonmatching Choice capability returns `false`.
-- Binding-brand tests use distinct fresh `Ref[Unit]` identities and verify that capabilities from different bindings and different native slots are rejected.
-- Snapshot-array mutation tests prove that modifying `names_snapshot()` or `rule_snapshot()` results cannot alter later binding or execution; the test does not claim to clone arbitrary generic `T`/`K` payload internals.
+- A valid nonmatching Choice capability returns `false`. Foreign-binding and cross-native capabilities are rejected by runtime identity and allow-list assertions; those abort paths are implementation invariants rather than parser-diagnostic test seams.
+- Snapshot accessors return fresh arrays and deep-copy nested compiled arrays without claiming to clone arbitrary generic `T`/`K` payload internals. Compiler tests exercise the accessors and opaque slots without claiming mutation-based proof.
+- Runtime no-progress tests cover `RepeatWhile`, `RepeatTopLevel`, and Pratt application.
 - The lambda spike migrates name resolution from `compiled.names.search(name)` to `slot_for_name(name)` and passes the returned opaque slots through its probe environment.
 - Native capability calls preserve the old successful and failing Choice behavior without runtime registry diagnostics.
 

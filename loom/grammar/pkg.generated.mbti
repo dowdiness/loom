@@ -146,10 +146,6 @@ pub struct NativeCapabilities[T, K] {
 }
 pub fn[T, K] NativeCapabilities::require(Self[T, K], String) -> RuleCapability[T, K] raise GrammarBindError
 
-pub struct NativeCapabilityBrand {
-  // private fields
-}
-
 pub struct NativeDispatcher[T, K] {
   // private fields
 }

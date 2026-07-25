@@ -378,6 +378,68 @@ test "compile rejects structurally zero-progress repetition" {
 }
 
 ///|
+test "compile rejects ErrorUntil with an always-true stop in repetition" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::RepeatWhile(
+      Pred::Any,
+      Expr::ErrorUntil(Pred::Any, "unexpected input"),
+    ),
+  }
+  let caught = try {
+    let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(GrammarCompileError::ZeroProgressRepeat("source")) => ()
+    _ => fail("expected always-stopping ErrorUntil to be rejected")
+  }
+}
+
+///|
+test "compile rejects ErrorNodeUntil with an always-true stop in repetition" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::RepeatWhile(
+      Pred::Any,
+      Expr::ErrorNodeUntil(1, Pred::Any, "unexpected input"),
+    ),
+  }
+  let caught = try {
+    let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+    None
+  } catch {
+    e => Some(e)
+  }
+  match caught {
+    Some(GrammarCompileError::ZeroProgressRepeat("source")) => ()
+    _ => fail("expected always-stopping ErrorNodeUntil to be rejected")
+  }
+}
+
+///|
+test "compile accepts ErrorUntil repetition with a conditional stop" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::RepeatWhile(
+      Pred::Any,
+      Expr::ErrorUntil(Pred::IsToken(1), "unexpected input"),
+    ),
+  }
+  let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+}
+
+///|
+test "compile accepts ErrorNodeUntil repetition with a conditional stop" {
+  let rules : Map[RuleName, Expr[Int, Int]] = {
+    "source": Expr::RepeatWhile(
+      Pred::Any,
+      Expr::ErrorNodeUntil(1, Pred::IsToken(1), "unexpected input"),
+    ),
+  }
+  let _ = compile(GrammarIr::GrammarIr(rules, root="source"))
+}
+
+///|
 test "compile ignores unreachable zero-progress repetition" {
   let rules : Map[RuleName, Expr[Int, Int]] = {
     "source": Expr::RepeatWhile(

@@ -501,11 +501,16 @@ fn[T, K] progress_of(
       }
     RepeatWhile(_, _) => Never
     WrapIfNext(_, _, body) => progress_of(body, rules, visiting)
-    ErrorUntil(_, _) => Unknown
+    ErrorUntil(stop, _) => if definitely_true(stop) { Never } else { Unknown }
     ExpectSkip(_, _, _, _) => Unknown
     ConsumeGated(_, _, _) => Unknown
     RequireSep(_, _, _, ..) => Unknown
-    ErrorNodeUntil(_, _, _) => Unknown
+    ErrorNodeUntil(_, stop, _) =>
+      if definitely_true(stop) {
+        Never
+      } else {
+        Unknown
+      }
     ManualNewlineAppExpr => Unknown
   }
 }

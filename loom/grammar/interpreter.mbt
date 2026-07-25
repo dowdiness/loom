@@ -24,8 +24,8 @@ pub suberror GrammarBuildError {
 
 ///|
 /// Fresh identity brand private to one native in one executable binding.
-pub struct NativeCapabilityBrand {
-  priv token : Ref[Unit]
+priv struct NativeCapabilityBrand {
+  token : Ref[Unit]
 }
 
 ///|

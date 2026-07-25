@@ -403,6 +403,43 @@ test "RepeatWhile runtime guard reports an opaque native with no progress" {
 }
 
 ///|
+test "RepeatTopLevel runtime guard reports an opaque native with no progress" {
+  let ir : GrammarIr[TestToken, TestKind] = GrammarIr::GrammarIr(
+    {
+      "source": Expr::RepeatTopLevel(
+        "item",
+        starts=Pred::Any,
+        delim=Pred::Not(Pred::Any),
+        delim_kind=TestKind::SkipKind,
+        between_msg="expected separator",
+        after_msg="unexpected item",
+      ),
+      "item": Expr::Native("noop"),
+    },
+    root="source",
+  )
+  let factories : Map[RuleName, NativeFactory[TestToken, TestKind]] = {
+    "noop": _caps => fn(_ctx, _dispatcher) {  },
+  }
+  let parse_root = interpret(ir, natives=factories)
+  let tokens = [
+    @core.TokenInfo::new(TestToken::Int, 1),
+    @core.TokenInfo::new(TestToken::EOF, 0),
+  ]
+  let (_, diagnostics) = @core.parse_with(
+    "1",
+    test_spec(parse_root),
+    _src => tokens,
+    parse_root,
+  )
+  inspect(diagnostics.length(), content="1")
+  inspect(
+    diagnostics.items()[0].message,
+    content="grammar: RepeatTopLevel body made no progress",
+  )
+}
+
+///|
 test "runtime cycle guard stops unknown recursive re-entry" {
   let ir : GrammarIr[TestToken, TestKind] = GrammarIr::GrammarIr(
     { "source": Expr::Seq([Expr::Native("noop"), Expr::Ref("source")]) },
