@@ -29,57 +29,40 @@ let compiled_html_grammar : @grammar.CompiledGrammar[
 }
 
 ///|
-/// Open-element nesting for the in-flight parse.
-///
-/// Shared by every parse rather than allocated per call. Two things make that
-/// sound, and both are load-bearing:
-///
-/// - the parser unwinds its own pushes, so the stack is already empty when
-///   `parse_html_root` returns — pinned by `tag_stack_wbtest.mbt`;
-/// - the grammar's root *is* the single Native, so `parse_html_root` runs once
-///   per parse and is never re-entered. Adding a second native, or reaching
-///   `Native("parse_html_root")` from anywhere but the root, breaks this and
-///   requires going back to per-parse state.
-///
-/// The `clear()` on entry is a backstop for the first point, not the mechanism
-/// behind it: it costs nothing and keeps a future recovery path that returns
-/// without unwinding from corrupting the *next* parse instead of its own.
-let html_tag_stack : Array[String] = []
-
-///|
-/// Bound once: `compile` and `bind` do not depend on the input, so repeating
-/// them per parse only rebuilt the same capability and guard tables.
-let executable_html_grammar : @grammar.ExecutableGrammar[
-  @token.Token,
-  @syntax.SyntaxKind,
-] = @grammar.bind(
-  compiled_html_grammar,
-  natives={
-    "parse_html_root": capabilities => {
-      let close_boundary = capabilities.require("close_boundary")
-      (inner, dispatcher) => {
-        html_tag_stack.clear()
-        let close_boundary_query = () => {
-          dispatcher.try_rule(inner, close_boundary)
-        }
-        parse_html_root(inner, html_tag_stack, close_boundary_query)
-      }
-    },
-  },
-  guards={
-    "html_tag_stack_valid": inner => {
-      match (inner.peek(), html_tag_stack.last()) {
-        (@token.CloseTag(name), Some(expected)) =>
-          ascii_lower_tag_name(name) == ascii_lower_tag_name(expected)
-        _ => false
-      }
-    },
-  },
-) catch {
-  e => abort("HTML grammar binding failed: \{@debug.to_string(e)}")
-}
-
-///|
 pub fn make_html_parse_root() -> HtmlParseRoot {
-  executable_html_grammar.parse_root()
+  ctx => {
+    // Keep parser state local to this invocation. Binding below also captures
+    // this stack, so separate parses cannot observe one another's nesting.
+    let tag_stack : Array[String] = []
+    let natives : Map[
+      String,
+      @grammar.NativeFactory[@token.Token, @syntax.SyntaxKind],
+    ] = {
+      "parse_html_root": capabilities => {
+        let close_boundary = capabilities.require("close_boundary")
+        (inner, dispatcher) => {
+          let close_boundary_query = () => {
+            dispatcher.try_rule(inner, close_boundary)
+          }
+          parse_html_root(inner, tag_stack, close_boundary_query)
+        }
+      },
+    }
+    let guards : Map[
+      String,
+      @grammar.HostGuard[@token.Token, @syntax.SyntaxKind],
+    ] = {
+      "html_tag_stack_valid": fn(inner) {
+        match (inner.peek(), tag_stack.last()) {
+          (@token.CloseTag(name), Some(expected)) =>
+            ascii_lower_tag_name(name) == ascii_lower_tag_name(expected)
+          _ => false
+        }
+      },
+    }
+    let executable = @grammar.bind(compiled_html_grammar, natives~, guards~) catch {
+      e => abort("HTML grammar binding failed: \{@debug.to_string(e)}")
+    }
+    executable.parse_root()(ctx)
+  }
 }
