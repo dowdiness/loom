@@ -296,6 +296,7 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawK
 pub fn[T, K] ParserContext::current_node_kind(Self[T, K]) -> K?
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_range(Self[T, K]) -> Range
 pub fn[T : @seam.IsTrivia, K] ParserContext::current_token_text(Self[T, K]) -> StringView
+pub fn[T, K] ParserContext::cursor_position(Self[T, K]) -> Int
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::emit_current_token(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_error_placeholder(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::emit_incomplete_placeholder(Self[T, K]) -> Unit

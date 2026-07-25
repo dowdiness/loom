@@ -171,7 +171,7 @@ fn e3_grammar_ir() -> @grammar.GrammarIr[@token.Token, @syntax.SyntaxKind] {
 }
 
 ///|
-fn build_e3_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarCompileError {
+fn build_e3_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] raise @grammar.GrammarBuildError {
   let parse_root = @grammar.interpret(e3_grammar_ir())
   let spec = @core.LanguageSpec::new(
     @syntax.WhitespaceToken,

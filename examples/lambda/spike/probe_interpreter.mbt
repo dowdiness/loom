@@ -25,8 +25,8 @@
 priv struct ProbeEnv {
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind]
   cripple_reuse : Bool
-  atom_slot : Int
-  binary_slot : Int
+  atom_slot : @grammar.RuleSlot
+  binary_slot : @grammar.RuleSlot
 }
 
 ///|
@@ -35,10 +35,30 @@ priv struct ProbeEnv {
 fn slot(
   compiled : @grammar.CompiledGrammar[@token.Token, @syntax.SyntaxKind],
   name : String,
-) -> Int {
-  match compiled.names.search(name) {
+) -> @grammar.RuleSlot {
+  match compiled.slot_for_name(name) {
     Some(s) => s
     None => abort("lambda grammar IR must define a '" + name + "' rule")
+  }
+}
+
+///|
+/// Spike-local token-only matcher for compiled predicates. Lambda IR has no
+/// host guards; encountering one is a contract violation, not a non-match.
+fn pred_matches(
+  pred : @grammar.CompiledPred[@token.Token],
+  token : @token.Token,
+) -> Bool {
+  match pred {
+    Any => true
+    IsToken(expected) => token == expected
+    OneOf(tokens) => tokens.iter().any(t => t == token)
+    Not(inner) => !pred_matches(inner, token)
+    All(left, right) => pred_matches(left, token) && pred_matches(right, token)
+    HostGuardSlot(_) =>
+      abort(
+        "lambda probe: HostGuardSlot is not supported by token-only matcher",
+      )
   }
 }
 
@@ -55,7 +75,7 @@ pub fn b_parse_root(
     atom_slot: slot(compiled, "atom"),
     binary_slot: slot(compiled, "binary"),
   }
-  let root = compiled.rule(compiled.root_slot())
+  let root = compiled.rule_snapshot(compiled.root_slot())
   ctx => env.run(ctx, root)
 }
 
@@ -75,7 +95,7 @@ fn ProbeEnv::run(
     // path; discard the bool so the path produces exactly one diagnostic.
     Expect(token, kind) => ctx.expect(token, kind) |> ignore
     Node(kind, body) => ctx.node(kind, () => self.run(ctx, body))
-    RefSlot(slot) => self.run(ctx, self.compiled.rule(slot))
+    RefSlot(slot) => self.run(ctx, self.compiled.rule_snapshot(slot))
     Seq(exprs) =>
       for e in exprs {
         self.run(ctx, e)
@@ -83,14 +103,14 @@ fn ProbeEnv::run(
     Choice(alts) => {
       let token = ctx.peek()
       for alt in alts {
-        if alt.starts.matches(token) {
+        if pred_matches(alt.starts, token) {
           self.run(ctx, alt.body)
           break
         }
       }
     }
     RepeatWhile(pred, body) =>
-      while !ctx.at_eof() && pred.matches(ctx.peek()) {
+      while !ctx.at_eof() && pred_matches(pred, ctx.peek()) {
         self.run(ctx, body)
       }
     EmitError(msg) => ctx.error(msg)
@@ -103,28 +123,28 @@ fn ProbeEnv::run(
     // carries no kind), so this stays probe-local.
     ErrorUntil(stop, msg) => {
       ctx.error(msg)
-      if stop.matches(ctx.peek()) {
+      if pred_matches(stop, ctx.peek()) {
         ctx.start_node(@syntax.ErrorNode)
         ctx.emit_error_placeholder()
         ctx.finish_node()
       } else {
-        let _ = ctx.skip_until(t => stop.matches(t))
+        let _ = ctx.skip_until(t => pred_matches(stop, t))
       }
     }
     // Delimited top-level repeat. Identical to `@grammar`'s node EXCEPT the
     // reuse fast-path is gated by `!cripple_reuse` (the positive control).
     RepeatTopLevel(slot, starts~, delim~, delim_kind~, between_msg~, after_msg~) => {
-      ctx.consume_while_emit(t => delim.matches(t), delim_kind)
-      while !ctx.at_eof() && starts.matches(ctx.peek()) {
+      ctx.consume_while_emit(t => pred_matches(delim, t), delim_kind)
+      while !ctx.at_eof() && pred_matches(starts, ctx.peek()) {
         if !self.cripple_reuse && ctx.try_reuse_repeat_group() {
-          ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+          ctx.consume_while_emit(t => pred_matches(delim, t), delim_kind)
           continue
         }
-        self.run(ctx, self.compiled.rule(slot))
-        let had = delim.matches(ctx.peek())
-        ctx.consume_while_emit(t => delim.matches(t), delim_kind)
+        self.run(ctx, self.compiled.rule_snapshot(slot))
+        let had = pred_matches(delim, ctx.peek())
+        ctx.consume_while_emit(t => pred_matches(delim, t), delim_kind)
         if !had && !ctx.at_eof() {
-          if starts.matches(ctx.peek()) {
+          if pred_matches(starts, ctx.peek()) {
             ctx.error(between_msg)
           } else {
             ctx.error(after_msg)
@@ -134,7 +154,7 @@ fn ProbeEnv::run(
     }
     WrapIfNext(kind, pred, body) => {
       let mark = ctx.mark()
-      if pred.matches(ctx.peek()) {
+      if pred_matches(pred, ctx.peek()) {
         ctx.wrap_at(mark, kind, () => self.run(ctx, body))
       } else {
         self.run(ctx, body)
@@ -146,9 +166,9 @@ fn ProbeEnv::run(
       } else {
         let mark = ctx.mark()
         self.run_atom(ctx, false)
-        if starts.matches(ctx.peek()) {
+        if pred_matches(starts, ctx.peek()) {
           ctx.wrap_at(mark, kind, () => {
-            while starts.matches(ctx.peek()) {
+            while pred_matches(starts, ctx.peek()) {
               self.run_atom(ctx, false)
             }
           })
@@ -159,14 +179,14 @@ fn ProbeEnv::run(
         ()
       } else {
         let mark = ctx.mark()
-        self.run(ctx, self.compiled.rule(slot))
+        self.run(ctx, self.compiled.rule_snapshot(slot))
         // Mirrors @grammar's PrattBinary arm: gated soft-separator consume before
         // each operator (lookahead = the op table), matching A's
         // consume_soft_newlines_before_binary_operator.
         let skip_to_op = () => {
           match skip {
             Some((sep, sep_kind)) =>
-              ctx.consume_while_emit_if(t => sep.matches(t), sep_kind, t => {
+              ctx.consume_while_emit_if(t => pred_matches(sep, t), sep_kind, t => {
                 ops.iter().any(pair => pair.0 == t)
               })
               |> ignore
@@ -182,7 +202,7 @@ fn ProbeEnv::run(
                 None => break
                 Some(pair) => {
                   ctx.emit_token(pair.1)
-                  self.run(ctx, self.compiled.rule(slot))
+                  self.run(ctx, self.compiled.rule_snapshot(slot))
                 }
               }
             }
@@ -200,24 +220,27 @@ fn ProbeEnv::run(
         ctx.error(msg)
         ctx.emit_error_placeholder()
       }
-    DiagnoseIf(pred, msg) => if pred.matches(ctx.peek()) { ctx.error(msg) }
+    DiagnoseIf(pred, msg) =>
+      if pred_matches(pred, ctx.peek()) {
+        ctx.error(msg)
+      }
     ExpectSkip(skip, skip_kind, expected, kind) => {
       let _ = ctx.expect_after_skip(
-        t => skip.matches(t),
+        t => pred_matches(skip, t),
         skip_kind,
         expected,
         kind,
       )
     }
     ConsumeGated(skip, skip_kind, look) => {
-      let _ = ctx.consume_while_emit_if(t => skip.matches(t), skip_kind, t => {
-        look.matches(t)
+      let _ = ctx.consume_while_emit_if(t => pred_matches(skip, t), skip_kind, t => {
+        pred_matches(look, t)
       })
     }
     RequireSep(delims, stop, alt, msg_alt~, msg_else~) => {
       let had = ctx.consume_while_emit_mapped(delims) > 0
-      if !had && !stop.matches(ctx.peek()) {
-        if alt.matches(ctx.peek()) {
+      if !had && !pred_matches(stop, ctx.peek()) {
+        if pred_matches(alt, ctx.peek()) {
           ctx.error(msg_alt)
         } else {
           ctx.error(msg_else)
@@ -227,21 +250,18 @@ fn ProbeEnv::run(
     ErrorNodeUntil(error_kind, stop, msg) => {
       ctx.error(msg)
       ctx.start_node(error_kind)
-      while !ctx.at_eof() && !stop.matches(ctx.peek()) {
+      while !ctx.at_eof() && !pred_matches(stop, ctx.peek()) {
         ctx.bump_error()
       }
       ctx.finish_node()
     }
     // Residue: recursive newline-application mode (spec §5.1).
     ManualNewlineAppExpr => self.parse_newline_app(ctx)
-    // The lambda grammar does not use `Native` — degrade defensively rather
-    // than abort, mirroring `@grammar`'s own registry-miss diagnostic
-    // (loom/grammar/interpreter.mbt), so an accidental `Native(...)` node here
-    // fails loudly in the CST instead of crashing the probe.
-    NativeRef(name) => {
-      ctx.error(
-        "lambda probe: native rule \"" + name + "\" is not supported here",
-      )
+    // The lambda grammar does not use `Native` — retain the probe-local
+    // diagnostic residue for an accidental compiled native slot.
+    NativeSlot(slot) => {
+      ignore(slot)
+      ctx.error("lambda probe: native slot is not supported here")
       ctx.emit_error_placeholder()
     }
   }
@@ -317,7 +337,7 @@ fn ProbeEnv::parse_arrow_lambda(
       ctx.node(@syntax.LambdaBody, fn() {
         // Match A: only special-case { when immediately after => (no soft newlines).
         if ctx.peek() == @token.LBrace {
-          self.run(ctx, self.compiled.rule(self.atom_slot))
+          self.run(ctx, self.compiled.rule_snapshot(self.atom_slot))
         } else {
           let expr_starts = lambda_expression_starts()
           let _ = ctx.consume_while_emit_if(
@@ -328,7 +348,7 @@ fn ProbeEnv::parse_arrow_lambda(
           if allow_newline_application {
             self.parse_newline_app(ctx)
           } else {
-            self.run(ctx, self.compiled.rule(self.binary_slot))
+            self.run(ctx, self.compiled.rule_snapshot(self.binary_slot))
           }
         }
       })
@@ -441,7 +461,7 @@ fn ProbeEnv::run_atom(
   if ctx.peek() == @token.LeftParen && is_arrow_lambda(ctx) {
     self.parse_arrow_lambda(ctx, allow_newline_application)
   } else {
-    self.run(ctx, self.compiled.rule(self.atom_slot))
+    self.run(ctx, self.compiled.rule_snapshot(self.atom_slot))
   }
 }
 

@@ -668,7 +668,7 @@ fn[
     }
     EmitError(msg) => ctx.error(msg)
     ErrorUntil(stop, msg) =>
-      if !stop.matches(ctx.peek()) {
+      if !ctx.at_eof() && !stop.matches(ctx.peek()) {
         ctx.error(msg)
         let _ = ctx.skip_until(t => stop.matches(t))
       }
@@ -751,7 +751,7 @@ fn prop_interpret_no_crash(ir : GrammarIr[QcToken, QcKind]) -> Bool {
 }
 
 ///|
-/// Property: `interpret(ir)` and `interpret_compiled(compile(ir))` produce
+/// Property: convenience interpret and explicit compile -> bind produce
 /// structurally equal CSTs for any grammar with a fixed token stream.
 fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let tokens = [
@@ -768,9 +768,10 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
     fn(_src) { tokens },
     parse_root,
   )
-  // Second parse: via interpret_compiled(compile(ir))
+  // Second parse: via explicit compile -> bind -> parse_root.
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
-  let parse_root2 = interpret_compiled(compiled)
+  let executable = bind(compiled) catch { _ => return @qc.property(true) }
+  let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
     "ab",
@@ -783,14 +784,14 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let diags_match = diags1 == diags2
   @qc.counterexample(
     diffs.length() == 0 && diags_match,
-    "ir = \{@debug.to_string(ir)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
+    "ir = \{@debug.to_string(ir)}\n  interpret vs compile -> bind diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
 ///|
 /// Property: the reference interpreter (Expr-direct walk) and the real
-/// interpreter (compile + interpret_compiled) produce structurally equal
-/// CSTs for any grammar with a fixed token stream.
+/// interpreter (compile + bind) produce structurally equal CSTs for any grammar
+/// with a fixed token stream.
 fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let tokens = [
     @core.TokenInfo::new(QcToken::A, 1),
@@ -869,7 +870,7 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
 }
 
 ///|
-/// Property: `interpret(ir)` and `interpret_compiled(compile(ir))` produce
+/// Property: convenience interpret and explicit compile -> bind produce
 /// structurally equal CSTs for a GrammarWithTokens on its random stream.
 fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let tokens = gwt.tokens
@@ -883,9 +884,10 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
     fn(_src) { tokens },
     parse_root,
   )
-  // Second parse: via interpret_compiled(compile(ir))
+  // Second parse: via explicit compile -> bind -> parse_root.
   let compiled = compile(ir) catch { _ => return @qc.property(true) }
-  let parse_root2 = interpret_compiled(compiled)
+  let executable = bind(compiled) catch { _ => return @qc.property(true) }
+  let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
     "src",
@@ -898,7 +900,7 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let diags_match = diags1 == diags2
   @qc.counterexample(
     diffs.length() == 0 && diags_match,
-    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs interpret_compiled diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
+    "ir = \{@debug.to_string(ir)}\n  tokens = \{@debug.to_string(tokens)}\n  interpret vs compile -> bind diffs = \{@debug.to_string(diffs)}\n  diags match = \{diags_match}",
   )
 }
 
@@ -915,7 +917,7 @@ test "property: interpreting grammar IR on empty context never crashes" {
 }
 
 ///|
-test "property: interpret matches interpret_compiled(compile(ir)) CST" {
+test "property: interpret matches compile -> bind CST" {
   @qc.quick_check_fn(prop_cst_equivalence, max_success=15, max_size=3)
 }
 
@@ -935,7 +937,7 @@ test "property: GrammarWithTokens reference matches real on random stream" {
 }
 
 ///|
-test "property: GrammarWithTokens interpret matches interpret_compiled on random stream" {
+test "property: GrammarWithTokens interpret matches compile -> bind on random stream" {
   @qc.quick_check_fn(prop_cst_equivalence_tokens, max_success=15, max_size=4)
 }
 

@@ -198,6 +198,16 @@ pub fn[T : @seam.IsTrivia + @seam.IsEof, K] ParserContext::at_eof(
 }
 
 ///|
+/// Return the raw token cursor used by the parser.
+///
+/// Grammar runtimes may compare this value before and after an opaque callback
+/// or repetition body to enforce a progress contract. It is intentionally a
+/// read-only accessor; grammar code must not mutate parser position directly.
+pub fn[T, K] ParserContext::cursor_position(self : ParserContext[T, K]) -> Int {
+  self.position
+}
+
+///|
 /// Return true once parser diagnostics have reached `max`.
 ///
 /// Intended for bounded recovery loops: `while !ctx.too_many_errors(max) { ... }`.

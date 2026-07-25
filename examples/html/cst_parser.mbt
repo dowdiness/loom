@@ -15,7 +15,7 @@ const MAX_DEPTH : Int = 512
 fn parse_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_stack : Array[String],
-  try_parse_rule : (String) -> Bool,
+  close_boundary : () -> Bool,
   depth~ : Int,
 ) -> Unit {
   if depth > MAX_DEPTH {
@@ -59,7 +59,7 @@ fn parse_element(
           }
           _ => ()
         }
-        finish_element(ctx, tag_stack, try_parse_rule, tag_name)
+        finish_element(ctx, tag_stack, close_boundary, tag_name)
         while tag_stack.length() > base {
           ignore(tag_stack.pop())
         }
@@ -67,7 +67,7 @@ fn parse_element(
         return
       }
 
-      parse_content(ctx, tag_stack, try_parse_rule, tag_name, depth=depth + 1)
+      parse_content(ctx, tag_stack, close_boundary, tag_name, depth=depth + 1)
       while tag_stack.length() > base {
         ignore(tag_stack.pop())
       }
@@ -84,14 +84,14 @@ fn parse_element(
 fn parse_content(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_stack : Array[String],
-  try_parse_rule : (String) -> Bool,
+  close_boundary : () -> Bool,
   tag_name : String,
   depth~ : Int,
 ) -> Unit {
   while !ctx.at_eof() {
     match ctx.peek() {
       @token.CloseTag(name) => {
-        if try_parse_rule("close_boundary") {
+        if close_boundary() {
           ctx.emit_token(@syntax.CloseTagToken)
           return
         }
@@ -110,7 +110,7 @@ fn parse_content(
         ctx.emit_error_placeholder()
         return
       }
-      @token.OpenTag(_) => parse_element(ctx, tag_stack, try_parse_rule, depth~)
+      @token.OpenTag(_) => parse_element(ctx, tag_stack, close_boundary, depth~)
       @token.Text => {
         ctx.start_node(@syntax.TextLeaf)
         ctx.emit_token(@syntax.TextToken)
@@ -129,12 +129,12 @@ fn parse_content(
 fn finish_element(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_stack : Array[String],
-  try_parse_rule : (String) -> Bool,
+  close_boundary : () -> Bool,
   tag_name : String,
 ) -> Unit {
   match ctx.peek() {
     @token.CloseTag(name) =>
-      if try_parse_rule("close_boundary") {
+      if close_boundary() {
         ctx.emit_token(@syntax.CloseTagToken)
       } else {
         let expected = tag_stack.last()
@@ -162,7 +162,7 @@ fn finish_element(
 fn parse_html_root(
   ctx : @core.ParserContext[@token.Token, @syntax.SyntaxKind],
   tag_stack : Array[String],
-  try_parse_rule : (String) -> Bool,
+  close_boundary : () -> Bool,
 ) -> Unit {
   if ctx.peek() == @token.EOF {
     ctx.error("Empty HTML input")
@@ -172,7 +172,7 @@ fn parse_html_root(
   while !ctx.at_eof() {
     match ctx.peek() {
       @token.OpenTag(_) =>
-        parse_element(ctx, tag_stack, try_parse_rule, depth=0)
+        parse_element(ctx, tag_stack, close_boundary, depth=0)
       @token.Comment => {
         ctx.start_node(@syntax.CommentNode)
         ctx.emit_token(@syntax.CommentToken)

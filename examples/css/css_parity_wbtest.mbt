@@ -16,6 +16,14 @@ fn tok(t : @token.Token) -> @core.TokenInfo[@token.Token] {
 }
 
 ///|
+fn css_diagnostic_start(diag : @core.Diagnostic) -> Int {
+  match diag.primary {
+    Some(range) => range.start().value()
+    None => abort("expected CSS diagnostic range")
+  }
+}
+
+///|
 /// Acceptance: Ident! (EmitOr) at start of declaration recovers a missing
 /// property name, and Colon! recovers a missing colon, producing appropriate
 /// diagnostics without aborting the parse.
@@ -49,6 +57,7 @@ test "acceptance: missing-property-name recovers via EmitOr" {
 
   // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
   inspect(diags.length(), content="1")
+  inspect(diags.items()[0].message, content="expected 'RBrace'")
 }
 
 ///|
@@ -93,6 +102,7 @@ test "acceptance: @until recovers from garbage after declarations" {
 
   // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
   inspect(diags.length(), content="1")
+  inspect(diags.items()[0].message, content="expected 'RBrace'")
 }
 
 ///|
@@ -366,6 +376,18 @@ fn css_lex(source : String) -> Array[@core.TokenInfo[@token.Token]] {
   }
   toks.push(@core.TokenInfo::new(@token.EOF, 0))
   toks
+}
+
+///|
+test "real-css: @until diagnostic range excludes the closing brace" {
+  let parse = @grammar.interpret(css_grammar_ir)
+  let spec = make_css_spec(parse)
+  let source = "x { color: red; 1 2 3 }"
+  let toks = css_lex(source)
+  let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
+  inspect(diags.length(), content="1")
+  inspect(diags.items()[0].message, content="expected 'RBrace'")
+  inspect(css_diagnostic_start(diags.items()[0]), content="16")
 }
 
 ///|

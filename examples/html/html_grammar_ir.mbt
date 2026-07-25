@@ -30,14 +30,22 @@ let compiled_html_grammar : @grammar.CompiledGrammar[
 
 ///|
 pub fn make_html_parse_root() -> HtmlParseRoot {
-  fn(ctx) {
+  ctx => {
+    // Keep parser state local to this invocation. Binding below also captures
+    // this stack, so separate parses cannot observe one another's nesting.
     let tag_stack : Array[String] = []
     let natives : Map[
       String,
-      @grammar.NativeRule[@token.Token, @syntax.SyntaxKind],
+      @grammar.NativeFactory[@token.Token, @syntax.SyntaxKind],
     ] = {
-      "parse_html_root": fn(inner, try_parse_rule) {
-        parse_html_root(inner, tag_stack, try_parse_rule)
+      "parse_html_root": capabilities => {
+        let close_boundary = capabilities.require("close_boundary")
+        (inner, dispatcher) => {
+          let close_boundary_query = () => {
+            dispatcher.try_rule(inner, close_boundary)
+          }
+          parse_html_root(inner, tag_stack, close_boundary_query)
+        }
       },
     }
     let guards : Map[
@@ -52,6 +60,9 @@ pub fn make_html_parse_root() -> HtmlParseRoot {
         }
       },
     }
-    @grammar.interpret_compiled(compiled_html_grammar, natives~, guards~)(ctx)
+    let executable = @grammar.bind(compiled_html_grammar, natives~, guards~) catch {
+      _ => abort("HTML grammar binding failed")
+    }
+    executable.parse_root()(ctx)
   }
 }

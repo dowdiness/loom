@@ -9,13 +9,26 @@ import {
 }
 
 // Values
+pub fn[T, K] bind(CompiledGrammar[T, K], natives? : Map[String, (NativeCapabilities[T, K]) -> ((@core.ParserContext[T, K], NativeDispatcher[T, K]) -> Unit) raise GrammarBindError], guards? : Map[String, (@core.ParserContext[T, K]) -> Bool]) -> ExecutableGrammar[T, K] raise GrammarBindError
+
 pub fn[T, K] compile(GrammarIr[T, K], native_names? : @set.Set[String], guard_names? : @set.Set[String], native_rule_refs? : Map[String, @set.Set[String]]) -> CompiledGrammar[T, K] raise GrammarCompileError
 
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret(GrammarIr[T, K], natives? : Map[String, (@core.ParserContext[T, K], (String) -> Bool) -> Unit], guards? : Map[String, (@core.ParserContext[T, K]) -> Bool], native_rule_refs? : Map[String, @set.Set[String]]) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarCompileError
-
-pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret_compiled(CompiledGrammar[T, K], natives? : Map[String, (@core.ParserContext[T, K], (String) -> Bool) -> Unit], guards? : Map[String, (@core.ParserContext[T, K]) -> Bool]) -> (@core.ParserContext[T, K]) -> Unit
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] interpret(GrammarIr[T, K], natives? : Map[String, (NativeCapabilities[T, K]) -> ((@core.ParserContext[T, K], NativeDispatcher[T, K]) -> Unit) raise GrammarBindError], guards? : Map[String, (@core.ParserContext[T, K]) -> Bool], native_rule_refs? : Map[String, @set.Set[String]]) -> ((@core.ParserContext[T, K]) -> Unit) raise GrammarBuildError
 
 // Errors
+pub suberror GrammarBindError {
+  MissingNative(String)
+  UnexpectedNative(String)
+  MissingGuard(String)
+  UnexpectedGuard(String)
+  CapabilityRejected(String)
+} derive(Eq, @debug.Debug)
+
+pub suberror GrammarBuildError {
+  Compile(GrammarCompileError)
+  Bind(GrammarBindError)
+} derive(Eq, @debug.Debug)
+
 pub suberror GrammarCompileError {
   MissingRoot(String)
   MissingRef(String)
@@ -26,6 +39,8 @@ pub suberror GrammarCompileError {
   AmbiguousRule(String)
   MissingHostGuard(String)
   AmbiguousGuard(String)
+  LeftRecursiveRule(String)
+  ZeroProgressRepeat(String)
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -35,7 +50,7 @@ pub(all) struct Alt[T, K] {
 } derive(Eq, @debug.Debug)
 
 pub struct CompiledAlt[T, K] {
-  starts : Pred[T]
+  starts : CompiledPred[T]
   body : CompiledExpr[T, K]
 } derive(Eq, @debug.Debug)
 
@@ -43,36 +58,52 @@ pub enum CompiledExpr[T, K] {
   Node(K, CompiledExpr[T, K])
   Emit(T, K)
   Expect(T, K)
-  RefSlot(Int)
-  NativeRef(String)
+  RefSlot(RuleSlot)
+  NativeSlot(NativeSlot)
   Choice(Array[CompiledAlt[T, K]])
-  RepeatTopLevel(Int, starts~ : Pred[T], delim~ : Pred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
+  RepeatTopLevel(RuleSlot, starts~ : CompiledPred[T], delim~ : CompiledPred[T], delim_kind~ : K, between_msg~ : String, after_msg~ : String)
   Seq(Array[CompiledExpr[T, K]])
-  PrattApp(Int, K, Pred[T])
-  PrattBinary(Int, K, Array[(T, K)], skip~ : (Pred[T], K)?)
-  RepeatWhile(Pred[T], CompiledExpr[T, K])
-  WrapIfNext(K, Pred[T], CompiledExpr[T, K])
+  PrattApp(RuleSlot, K, CompiledPred[T])
+  PrattBinary(RuleSlot, K, Array[(T, K)], skip~ : (CompiledPred[T], K)?)
+  RepeatWhile(CompiledPred[T], CompiledExpr[T, K])
+  WrapIfNext(K, CompiledPred[T], CompiledExpr[T, K])
   EmitError(String)
-  ErrorUntil(Pred[T], String)
+  ErrorUntil(CompiledPred[T], String)
   Fail(String)
   EmitOr(T, K, String)
-  DiagnoseIf(Pred[T], String)
-  ExpectSkip(Pred[T], K, T, K)
-  ConsumeGated(Pred[T], K, Pred[T])
-  RequireSep(Array[(T, K)], Pred[T], Pred[T], msg_alt~ : String, msg_else~ : String)
-  ErrorNodeUntil(K, Pred[T], String)
+  DiagnoseIf(CompiledPred[T], String)
+  ExpectSkip(CompiledPred[T], K, T, K)
+  ConsumeGated(CompiledPred[T], K, CompiledPred[T])
+  RequireSep(Array[(T, K)], CompiledPred[T], CompiledPred[T], msg_alt~ : String, msg_else~ : String)
+  ErrorNodeUntil(K, CompiledPred[T], String)
   ManualNewlineAppExpr
   Empty
 } derive(Eq, @debug.Debug)
 
 pub struct CompiledGrammar[T, K] {
-  names : Array[String]
-  rules : Array[CompiledExpr[T, K]]
-  root : Int
-  native_rule_refs : Map[String, @set.Set[String]]
+  // private fields
+}
+pub fn[T, K] CompiledGrammar::guard_names_snapshot(Self[T, K]) -> Array[String]
+pub fn[T, K] CompiledGrammar::names_snapshot(Self[T, K]) -> Array[String]
+pub fn[T, K] CompiledGrammar::native_dispatch_snapshot(Self[T, K], NativeSlot) -> Array[RuleSlot]
+pub fn[T, K] CompiledGrammar::native_names_snapshot(Self[T, K]) -> Array[String]
+pub fn[T, K] CompiledGrammar::root_slot(Self[T, K]) -> RuleSlot
+pub fn[T, K] CompiledGrammar::rule_snapshot(Self[T, K], RuleSlot) -> CompiledExpr[T, K]
+pub fn[T, K] CompiledGrammar::slot_for_name(Self[T, K], String) -> RuleSlot?
+
+pub enum CompiledPred[T] {
+  Any
+  IsToken(T)
+  OneOf(Array[T])
+  Not(CompiledPred[T])
+  All(CompiledPred[T], CompiledPred[T])
+  HostGuardSlot(GuardSlot)
 } derive(Eq, @debug.Debug)
-pub fn[T, K] CompiledGrammar::root_slot(Self[T, K]) -> Int
-pub fn[T, K] CompiledGrammar::rule(Self[T, K], Int) -> CompiledExpr[T, K]
+
+pub struct ExecutableGrammar[T, K] {
+  // private fields
+}
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ExecutableGrammar::parse_root(Self[T, K]) -> (@core.ParserContext[T, K]) -> Unit
 
 pub(all) enum Expr[T, K] {
   Node(K, Expr[T, K])
@@ -106,6 +137,28 @@ pub(all) struct GrammarIr[T, K] {
 } derive(Eq, @debug.Debug)
 pub fn[T, K] GrammarIr::GrammarIr(Map[String, Expr[T, K]], root~ : String) -> Self[T, K]
 
+pub struct GuardSlot {
+  // private fields
+} derive(Compare, Eq, @debug.Debug)
+
+pub struct NativeCapabilities[T, K] {
+  // private fields
+}
+pub fn[T, K] NativeCapabilities::require(Self[T, K], String) -> RuleCapability[T, K] raise GrammarBindError
+
+pub struct NativeCapabilityBrand {
+  // private fields
+}
+
+pub struct NativeDispatcher[T, K] {
+  // private fields
+}
+pub fn[T : Eq + Show + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] NativeDispatcher::try_rule(Self[T, K], @core.ParserContext[T, K], RuleCapability[T, K]) -> Bool
+
+pub struct NativeSlot {
+  // private fields
+} derive(Compare, Eq, @debug.Debug)
+
 pub(all) enum Pred[T] {
   Any
   IsToken(T)
@@ -116,10 +169,20 @@ pub(all) enum Pred[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T : Eq] Pred::matches(Self[T], T) -> Bool
 
+pub struct RuleCapability[T, K] {
+  // private fields
+}
+
+pub struct RuleSlot {
+  // private fields
+} derive(Compare, Eq, @debug.Debug)
+
 // Type aliases
 pub type HostGuard[T, K] = (@core.ParserContext[T, K]) -> Bool
 
-pub type NativeRule[T, K] = (@core.ParserContext[T, K], (String) -> Bool) -> Unit
+pub type NativeFactory[T, K] = (NativeCapabilities[T, K]) -> ((@core.ParserContext[T, K], NativeDispatcher[T, K]) -> Unit) raise GrammarBindError
+
+pub type NativeRule[T, K] = (@core.ParserContext[T, K], NativeDispatcher[T, K]) -> Unit
 
 pub type RuleName = String
 
