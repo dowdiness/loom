@@ -25,6 +25,53 @@ doing so can split non-BMP characters such as emoji.
   external lexer intentionally omits trivia; keep non-blank gaps diagnostic by
   default unless the external lexer has already reported the same error.
 
+## Mode-aware opaque string contexts
+
+When one delimiter has two lexical meanings, a quote-only prefix step cannot
+choose the right tokenization. For example, `s("bd sd")` may need notation
+words while `section("verse: 1")` must preserve the spaces and colon as one
+opaque token. Splitting punctuation after tokenization or slicing source text
+in the parser is a workaround: it loses the lexical span contract and makes
+incremental convergence harder to prove.
+
+Keep the choice in a small lexical state machine. The normal state recognizes
+the head (`s` or `section`) and carries that fact through the ASCII `(` step;
+the next state assigns the shared `"` delimiter to notation or opaque content.
+Notation emits its word and punctuation pieces, opaque scans through spaces and
+punctuation until the closing quote, and the closing quote returns to normal.
+Every `Produced` step must advance; EOF returns `Done` without inventing a
+quote or changing parser state.
+
+Wire the state machine through the existing mode-lexer boundary:
+
+```mbt nocheck
+let mode_lexer : @core.ModeLexer[Token, LexMode] = {
+  initial_mode: Normal,
+  lex_step: lex_step,
+}
+let mode_relex = @core.erase_mode_lexer(
+  mode_lexer,
+  Eof,
+  error_token=Error,
+)
+let grammar = @loom.Grammar::new(
+  spec~, lex~, fold_node~, mode_relex=Some(mode_relex),
+)
+```
+
+`erase_mode_lexer` provides detached tokenization and a factory. Each
+`TokenBuffer` owns its `ModeRelexState` session; edits re-lex from the damage
+frontier until both source position and lexical mode converge, then reuse the
+unchanged suffix. Do not use the parser-local
+`@core.ParserContext::set_lex_mode` for this wiring: it preserves a parser
+callback's scalar state but does not configure `TokenBuffer`, `ModeLexer`, or
+already-produced tokens.
+
+The checked mixed-context recipe is in the [mode lexer fixture](../../loom/core/mode_lexer_wbtest.mbt)
+and its [incremental re-lex test](../../loom/core/mode_relex_wbtest.mbt).
+Related in-repository recipes cover [Markdown code fences](../../examples/markdown/lexer.mbt),
+[HTML raw text](../../examples/html/lexer.mbt), and [JSX opaque braces](../../examples/jsx/lexer.mbt).
+
 ## Recovery And Progress
 
 Core step-lexer recovery paths use Unicode-safe progress for malformed lexer
