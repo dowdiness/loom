@@ -167,7 +167,7 @@ pub fn[T, K] ParserContext::mark(self : ParserContext[T, K]) -> Int {
 
 ///|
 /// Save checkpointed parser execution state: position, events, diagnostic
-/// additions, open-node count/stack, reuse cursor/count, and lex mode.
+/// additions, open-node count/stack, and reuse cursor/count.
 pub fn[T, K] ParserContext::checkpoint(
   self : ParserContext[T, K],
 ) -> Checkpoint[T, K] {
@@ -184,7 +184,6 @@ pub fn[T, K] ParserContext::checkpoint(
     open_nodes: self.open_nodes,
     reuse_cursor,
     reuse_count: self.reuse_count,
-    lex_mode: self.lex_mode,
   }
 }
 
@@ -205,7 +204,6 @@ pub fn[T, K] ParserContext::restore(
     self.node_stack.push(k)
   }
   self.reuse_cursor = cp.reuse_cursor.map(cursor => cursor.snapshot())
-  self.lex_mode = cp.lex_mode
   self.reuse_count = cp.reuse_count
 }
 
@@ -214,8 +212,7 @@ pub fn[T, K] ParserContext::restore(
 /// state and return the body's result.
 ///
 /// Use for pure lookahead whose effects are limited to token consumption,
-/// events, diagnostic additions, open-node count/stack, reuse cursor/count,
-/// and lex mode.
+/// events, diagnostic additions, open-node count/stack, and reuse cursor/count.
 /// It does not roll back in-place diagnostic mutation or parser configuration
 /// such as goal sources, goal subsumption checks, or reuse diagnostics.
 ///

@@ -25,7 +25,6 @@ pub fn[T, K] ParserContext::new(
     reuse_cursor: None,
     reuse_diagnostics: None,
     reuse_count: 0,
-    lex_mode: 0,
     goal_source: None,
     goal_subsumption_check: None,
   }
@@ -59,7 +58,6 @@ pub fn[T, K] ParserContext::new_indexed(
     reuse_cursor: None,
     reuse_diagnostics: None,
     reuse_count: 0,
-    lex_mode: 0,
     goal_source: None,
     goal_subsumption_check: None,
   }
