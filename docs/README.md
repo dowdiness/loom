@@ -85,6 +85,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Proposed** lifecycle for the parser-local `ParserContext` lex-mode API
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Accepted** #607 decision for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](archive/completed-phases/2026-07-19-loomgen-html-element-properties.md) — **Complete** implementation plan for #607, including generated classifier, atomic HostGuard dispatch, source-span fidelity, and parse-local stack ownership
