@@ -281,24 +281,21 @@ fn markdown_role_spans_iter_with_error(
 ) -> Iter[MarkdownRoleSpan] {
   let parent_kind = SyntaxKind::from_raw(node.kind())
   let current_error = error_context || parent_kind == ErrorNode
-  node
-  .direct_elements_iter()
-  .flat_map(element => {
-    match element {
-      Node(child) => {
-        let child_kind = SyntaxKind::from_raw(child.kind())
-        if child_kind == LinkNode {
-          markdown_link_role_spans_iter(child, current_error)
-        } else {
-          markdown_role_spans_iter_with_error(child, current_error)
-        }
+  if parent_kind == LinkNode {
+    markdown_link_role_spans_iter(node, current_error)
+  } else {
+    node
+    .direct_elements_iter()
+    .flat_map(element => {
+      match element {
+        Node(child) => markdown_role_spans_iter_with_error(child, current_error)
+        Token(token) =>
+          markdown_role_span_for_token(parent_kind, token, current_error)
+          .map(Iter::singleton)
+          .unwrap_or(Iter::empty())
       }
-      Token(token) =>
-        markdown_role_span_for_token(parent_kind, token, current_error)
-        .map(Iter::singleton)
-        .unwrap_or(Iter::empty())
-    }
-  })
+    })
+  }
 }
 
 ///|

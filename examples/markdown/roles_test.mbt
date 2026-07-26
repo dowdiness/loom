@@ -8,6 +8,24 @@ fn markdown_test_roles(source : String) -> Array[MarkdownRoleSpan] {
 }
 
 ///|
+fn markdown_test_find_link_node(node : @seam.SyntaxNode) -> @seam.SyntaxNode? {
+  if SyntaxKind::from_raw(node.kind()) == LinkNode {
+    return Some(node)
+  }
+  for element in node.direct_elements_iter() {
+    match element {
+      Node(child) =>
+        match markdown_test_find_link_node(child) {
+          Some(link_node) => return Some(link_node)
+          None => ()
+        }
+      Token(_) => ()
+    }
+  }
+  None
+}
+
+///|
 test "markdown roles heading marker and UTF-16 text" {
   let roles = markdown_test_roles("## café 😀\n")
   let expected : Array[MarkdownRoleSpan] = [
@@ -98,6 +116,35 @@ test "markdown roles link punctuation label and balanced destination" {
   ]
   guard roles == expected else {
     fail("expected link label, punctuation, and balanced destination spans")
+  }
+}
+
+///|
+test "markdown roles project a LinkNode directly like its document root" {
+  let parser = @loom.new_syntax_parser(
+    "[text](page_(C).html)\n",
+    markdown_grammar.to_syntax_grammar(),
+  )
+  let root = parser.syntax_tree().read_or_abort()
+  let root_roles = project_markdown_roles(root)
+  guard markdown_test_find_link_node(root) is Some(link_node) else {
+    fail("expected parsed link subtree")
+  }
+  let direct_roles = project_markdown_roles(link_node)
+  let expected : Array[MarkdownRoleSpan] = [
+    MarkdownRoleSpan(role=Punctuation, start=0, end=1),
+    MarkdownRoleSpan(role=LinkText, start=1, end=5),
+    MarkdownRoleSpan(role=Punctuation, start=5, end=6),
+    MarkdownRoleSpan(role=Punctuation, start=6, end=7),
+    MarkdownRoleSpan(role=LinkDestination, start=7, end=12),
+    MarkdownRoleSpan(role=LinkDestination, start=12, end=13),
+    MarkdownRoleSpan(role=LinkDestination, start=13, end=14),
+    MarkdownRoleSpan(role=LinkDestination, start=14, end=15),
+    MarkdownRoleSpan(role=LinkDestination, start=15, end=20),
+    MarkdownRoleSpan(role=Punctuation, start=20, end=21),
+  ]
+  guard direct_roles == root_roles && direct_roles == expected else {
+    fail("expected direct LinkNode projection to match the complete root spans")
   }
 }
 
