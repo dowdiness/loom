@@ -144,26 +144,10 @@ matrix rather than being applied unilaterally.
 
 ## Migration guidance
 
-For a lexically decidable mode change, follow Plan 002's checked recipe:
-
-```mbt nocheck
-let mode_lexer : @core.ModeLexer[Token, LexMode] = {
-  initial_mode: Normal,
-  lex_step: lex_step,
-}
-let mode_relex = @core.erase_mode_lexer(
-  mode_lexer,
-  Eof,
-  error_token=Error,
-)
-let grammar = @loom.Grammar::new(
-  spec~, lex~, fold_node~, mode_relex=Some(mode_relex),
-)
-```
-
-Use [the lexer guidelines](../architecture/lexer-guidelines.md), the checked
-[ModeLexer fixture](../../loom/core/mode_lexer_wbtest.mbt), and the checked
-[incremental re-lex test](../../loom/core/mode_relex_wbtest.mbt). For explicit
+For persistent lexical modes and other lexically decidable mode changes, use the
+[canonical checked ModeLexer recipe](../architecture/lexer-guidelines.md#mode-aware-opaque-string-contexts).
+That guide owns the exact `ModeLexer` / `erase_mode_lexer` /
+`Grammar::new(mode_relex=...)` wiring and the checked fixture links. For explicit
 parser-directed goals, use the opt-in interfaces described by the
 [GoalTokenSource architecture note](../architecture/goal-token-source.md), not
 `lex_mode` as an implicit bridge. The parser-local scalar has no replacement
