@@ -150,30 +150,6 @@ test "ParserContext can be constructed" {
 }
 
 ///|
-test "private checkpoint restores parser lex mode" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  ctx.lex_mode = 7
-  let cp = ctx.checkpoint()
-  ctx.lex_mode = 42
-  ctx.restore(cp)
-  inspect(ctx.lex_mode, content="7")
-}
-
-///|
-test "private lookahead restores parser lex mode and preserves callback result" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  ctx.lex_mode = 7
-  let result = ctx.lookahead(() => {
-    ctx.lex_mode = 42
-    "observed"
-  })
-  inspect(result, content="observed")
-  inspect(ctx.lex_mode, content="7")
-}
-
-///|
 test "peek returns current token" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)

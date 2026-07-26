@@ -9,7 +9,8 @@ Notable user-facing changes to Loom and its sibling modules.
 - **Breaking `@core` API removal:** `ParserContext::lex_mode()` and
   `ParserContext::set_lex_mode(Int)` are removed. Persistent lexer-decided modes
   should use `ModeLexer`/`ModeRelexFactory`; explicit parser-directed goals
-  should use `GoalTokenSource`. The private checkpoint state is unchanged.
+  should use `GoalTokenSource`. The unused private checkpoint state was
+  also removed.
 
 ### Changed
 

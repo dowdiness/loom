@@ -137,10 +137,6 @@ pub struct ParserContext[T, K] {
   // replay matching diagnostics by code-unit span to preserve exact messages.
   priv mut reuse_diagnostics : DiagnosticSet?
   priv mut reuse_count : Int
-  // Parser-local opaque mode state. 0 = initial/default.
-  // Checkpoints preserve this value, and the grammar assigns its meaning.
-  // It does not configure TokenBuffer, ModeLexer, or already-produced tokens.
-  priv mut lex_mode : Int
   // Goal-directed token source. None by default; set via set_goal_source().
   // Closure: (offset: Int, goal: Int) -> (token: T, end_exclusive: Int)
   // Supplied explicitly by the caller; standard factories do not install it.
@@ -163,7 +159,6 @@ pub(all) struct Checkpoint[T, K] {
   priv error_count : Int
   priv open_nodes : Int
   priv reuse_cursor : ReuseCursor[T, K]?
-  priv lex_mode : Int
   priv reuse_count : Int
 }
 

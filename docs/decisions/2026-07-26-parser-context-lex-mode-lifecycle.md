@@ -3,6 +3,7 @@
 **Date:** 2026-07-26
 **Status:** Accepted
 **Implementation plan:** [Remove the public ParserContext lex-mode API](../archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md)
+**Follow-up plan:** [Remove private ParserContext lex-mode state](../archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md)
 
 ## Context
 
@@ -165,6 +166,28 @@ The private `lex_mode` fields and checkpoint save/restore wiring are not removed
 by this decision. They may remain useful as parser-internal state or may be
 reconsidered independently once concrete evidence exists. The ModeLexer,
 goal-token, Grammar IR, and TokenBuffer APIs are unchanged.
+
+## Follow-up decision: remove private state
+
+On 2026-07-26, the Loom maintainer approved the follow-up after the
+post-public-removal local audit. The audit found no production reader or writer
+of the retained private scalar: only initialization, `Checkpoint` save/restore
+plumbing, and two white-box tests that manufacture reads and writes for that
+same plumbing remain. The accepted deletion boundary is therefore the private
+`ParserContext.lex_mode` and `Checkpoint.lex_mode` fields, both initializers,
+the checkpoint copies, the two self-referential tests, and the stale
+lex-mode-restoration comments.
+
+This follow-up does not alter `ModeLexer`, `ModeRelexFactory`,
+`GoalTokenSource`, `TokenBuffer`, the public `checkpoint`, `restore`, or
+`lookahead` methods, or any public interface. The original public-removal
+decision, evidence, migration guidance, and historical statement that private
+state was retained remain valid for their respective decisions and revisions.
+
+The planning commit was `c5521da`; the implementation commit was `8948df5`.
+Validation passed with 331/331 core tests and 3474/3474 workspace tests, plus
+targeted/full checks, formatting, interface no-drift, docs health, and diff
+checks.
 
 ## Revisit/approval gate
 
