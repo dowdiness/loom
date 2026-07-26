@@ -3,7 +3,7 @@
 **Date:** 2026-07-26
 **Status:** Accepted
 **Implementation plan:** [Remove the public ParserContext lex-mode API](../archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md)
-**Follow-up plan:** [Remove private ParserContext lex-mode state](../plans/2026-07-26-remove-private-parser-context-lex-mode-state.md)
+**Follow-up plan:** [Remove private ParserContext lex-mode state](../archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md)
 
 ## Context
 
@@ -183,6 +183,11 @@ This follow-up does not alter `ModeLexer`, `ModeRelexFactory`,
 `lookahead` methods, or any public interface. The original public-removal
 decision, evidence, migration guidance, and historical statement that private
 state was retained remain valid for their respective decisions and revisions.
+
+The planning commit was `c5521da`; the implementation commit was `8948df5`.
+Validation passed with 331/331 core tests and 3474/3474 workspace tests, plus
+targeted/full checks, formatting, interface no-drift, docs health, and diff
+checks.
 
 ## Revisit/approval gate
 

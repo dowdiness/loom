@@ -1,6 +1,6 @@
 # Remove private ParserContext lex-mode state
 
-**Status:** In Progress
+**Status:** Complete
 
 ## Context
 
@@ -14,9 +14,9 @@ test that plumbing. This plan removes that dead state without adding
 replacement scratch state.
 
 The accepted lifecycle ADR is
-[ParserContext lex-mode API lifecycle](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).
+[ParserContext lex-mode API lifecycle](../../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).
 The completed public-removal plan is preserved in
-[Plan 006](../archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md).
+[Plan 006](2026-07-26-remove-parser-context-lex-mode-api.md).
 
 ## Decision boundary
 
@@ -49,17 +49,24 @@ semantic drift, public-interface change, changed non-lex-mode test, unexpected
 test delta, failed validation twice, second dependency-download failure,
 submodule/parent change, or required out-of-scope edit is a STOP condition.
 
-## Completion and archival
+## Completion
 
-On successful validation, record exact planning and implementation commit
-hashes, mark this plan Complete, and move it to
-`../archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md`.
-Update the lifecycle ADR link and completion evidence, and update the index in
-the same archival commit. Preserve the ADR's original evidence and decision;
-it remains Accepted and is additively qualified by the follow-up.
+Planning commit: `c5521da` (`docs(core): plan private ParserContext lex-mode cleanup`).
+Implementation commit: `8948df5` (`refactor(core): remove dead private ParserContext lex-mode state`).
+
+Validation completed successfully: 331/331 `dowdiness/loom/core` tests and
+3474/3474 workspace tests passed; targeted and full `moon check`, `moon fmt`,
+`moon info -p dowdiness/loom/core`, interface no-drift, `bash check-docs.sh`,
+and `git diff --check` all passed. The core code audit has no `lex_mode`
+references and `loom/core/pkg.generated.mbti` has no diff.
+
+This completed plan is archived at
+`docs/archive/completed-phases/2026-07-26-remove-private-parser-context-lex-mode-state.md`.
+The lifecycle ADR remains Accepted and is additively qualified by this
+follow-up; its original evidence and decision are preserved.
 
 Decision record:
-[ParserContext lex-mode API lifecycle](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md)
+[ParserContext lex-mode API lifecycle](../../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md)
 
 Plan 006 history and the supported `ModeLexer`/`ModeRelexFactory` and
 `GoalTokenSource` mechanisms are explicitly preserved.
