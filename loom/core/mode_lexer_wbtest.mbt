@@ -238,3 +238,216 @@ test "property: tokenize_with_modes consistent with step replay" {
     tokens[i].token == MockToken::EOF
   })
 }
+
+///|
+/// A separate vocabulary exercises two meanings of the same quote delimiter.
+priv enum MixedMode {
+  Normal
+  AfterNotationHead
+  AfterOpaqueHead
+  ExpectNotationQuote
+  ExpectOpaqueQuote
+  NotationString
+  OpaqueString
+} derive(Eq, Debug)
+
+///|
+impl Show for MixedMode with fn output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+priv enum MixedToken {
+  HeadS
+  HeadSection
+  OpenParen
+  CloseParen
+  Space(String)
+  Quote
+  NotationWord(String)
+  NotationSpace
+  NotationColon
+  OpaqueRaw(String)
+  EOF
+} derive(Eq, Debug)
+
+///|
+impl Show for MixedToken with fn output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+fn mixed_source() -> String {
+  "s(\"bd sd\") section(\"verse: 1\")"
+}
+
+///|
+/// Choose the next quote context from lexical facts already consumed.
+fn mixed_lex_step(
+  input : String,
+  pos : Int,
+  mode : MixedMode,
+) -> (LexStep[MixedToken], MixedMode) {
+  if pos >= input.length() {
+    return (Done, mode)
+  }
+  let cursor = LexCursor::new(input, pos)
+  match mode {
+    Normal => {
+      if cursor.starts_with("section") {
+        ignore(cursor.consume_string("section"))
+        return (cursor.produced(HeadSection), AfterOpaqueHead)
+      }
+      if cursor.starts_with("s") {
+        ignore(cursor.consume_string("s"))
+        return (cursor.produced(HeadS), AfterNotationHead)
+      }
+      match cursor.peek() {
+        Some(' ') => {
+          ignore(cursor.take_while(fn(ch) { ch == ' ' }))
+          let text = input
+            .view(start_offset=pos, end_offset=cursor.position())
+            .to_owned()
+          (cursor.produced(Space(text)), Normal)
+        }
+        Some(')') => {
+          ignore(cursor.advance_char())
+          (cursor.produced(CloseParen), Normal)
+        }
+        _ => (cursor.invalid("unexpected normal token"), Normal)
+      }
+    }
+    AfterNotationHead =>
+      if cursor.consume_char('(') {
+        (cursor.produced(OpenParen), ExpectNotationQuote)
+      } else {
+        (cursor.invalid("expected notation opener"), Normal)
+      }
+    AfterOpaqueHead =>
+      if cursor.consume_char('(') {
+        (cursor.produced(OpenParen), ExpectOpaqueQuote)
+      } else {
+        (cursor.invalid("expected opaque opener"), Normal)
+      }
+    ExpectNotationQuote =>
+      if cursor.consume_char('"') {
+        (cursor.produced(Quote), NotationString)
+      } else {
+        (cursor.invalid("expected notation quote"), Normal)
+      }
+    ExpectOpaqueQuote =>
+      if cursor.consume_char('"') {
+        (cursor.produced(Quote), OpaqueString)
+      } else {
+        (cursor.invalid("expected opaque quote"), Normal)
+      }
+    NotationString =>
+      match cursor.peek() {
+        Some('"') => {
+          ignore(cursor.advance_char())
+          (cursor.produced(Quote), Normal)
+        }
+        Some(' ') => {
+          ignore(cursor.take_while(fn(ch) { ch == ' ' }))
+          (cursor.produced(NotationSpace), NotationString)
+        }
+        Some(':') => {
+          ignore(cursor.advance_char())
+          (cursor.produced(NotationColon), NotationString)
+        }
+        Some(_) => {
+          ignore(
+            cursor.take_while(fn(ch) { ch != ' ' && ch != '"' && ch != ':' }),
+          )
+          let text = input
+            .view(start_offset=pos, end_offset=cursor.position())
+            .to_owned()
+          (cursor.produced(NotationWord(text)), NotationString)
+        }
+        None => (Done, NotationString)
+      }
+    OpaqueString =>
+      match cursor.peek() {
+        Some('"') => {
+          ignore(cursor.advance_char())
+          (cursor.produced(Quote), Normal)
+        }
+        Some(_) => {
+          ignore(cursor.take_while(fn(ch) { ch != '"' }))
+          let text = input
+            .view(start_offset=pos, end_offset=cursor.position())
+            .to_owned()
+          (cursor.produced(OpaqueRaw(text)), OpaqueString)
+        }
+        None => (Done, OpaqueString)
+      }
+  }
+}
+
+///|
+test "mixed contexts use the same quote with distinct content modes" {
+  let lexer : ModeLexer[MixedToken, MixedMode] = {
+    lex_step: mixed_lex_step,
+    initial_mode: Normal,
+  }
+  let (tokens, modes) = tokenize_with_modes(lexer, mixed_source(), EOF)
+  inspect(tokens.length(), content="16")
+  inspect(tokens[0].token, content="HeadS")
+  inspect(tokens[1].token, content="OpenParen")
+  inspect(tokens[2].token, content="Quote")
+  inspect(tokens[3].token, content="NotationWord(\"bd\")")
+  inspect(tokens[4].token, content="NotationSpace")
+  inspect(tokens[5].token, content="NotationWord(\"sd\")")
+  inspect(tokens[6].token, content="Quote")
+  inspect(tokens[7].token, content="CloseParen")
+  inspect(tokens[8].token, content="Space(\" \")")
+  inspect(tokens[9].token, content="HeadSection")
+  inspect(tokens[10].token, content="OpenParen")
+  inspect(tokens[11].token, content="Quote")
+  inspect(tokens[12].token, content="OpaqueRaw(\"verse: 1\")")
+  inspect(tokens[13].token, content="Quote")
+  inspect(tokens[14].token, content="CloseParen")
+  inspect(tokens[15].token, content="EOF")
+  inspect(modes[2], content="ExpectNotationQuote")
+  inspect(modes[3], content="NotationString")
+  inspect(modes[5], content="NotationString")
+  inspect(modes[6], content="NotationString")
+  inspect(modes[11], content="ExpectOpaqueQuote")
+  inspect(modes[12], content="OpaqueString")
+  inspect(modes[13], content="OpaqueString")
+  inspect(modes[15], content="Normal")
+}
+
+///|
+test "mixed contexts detached tokenization preserves snapshots and spans" {
+  let lexer : ModeLexer[MixedToken, MixedMode] = {
+    lex_step: mixed_lex_step,
+    initial_mode: Normal,
+  }
+  let (typed_tokens, _typed_modes) = tokenize_with_modes(
+    lexer,
+    mixed_source(),
+    EOF,
+  )
+  let factory = erase_mode_lexer(lexer, EOF, error_token=OpaqueRaw("error"))
+  let result = (factory.tokenize)(mixed_source())
+  inspect(result.tokens() == typed_tokens, content="true")
+  inspect(result.starts()[0], content="0")
+  inspect(result.starts()[1], content="1")
+  inspect(result.starts()[2], content="2")
+  inspect(result.starts()[3], content="3")
+  inspect(result.starts()[4], content="5")
+  inspect(result.starts()[5], content="6")
+  inspect(result.starts()[6], content="8")
+  inspect(result.starts()[7], content="9")
+  inspect(result.starts()[8], content="10")
+  inspect(result.starts()[9], content="11")
+  inspect(result.starts()[10], content="18")
+  inspect(result.starts()[11], content="19")
+  inspect(result.starts()[12], content="20")
+  inspect(result.starts()[13], content="28")
+  inspect(result.starts()[14], content="29")
+  inspect(result.starts()[15], content="30")
+  inspect(result.tokens()[12].token, content="OpaqueRaw(\"verse: 1\")")
+  inspect(result.tokens()[12].len, content="8")
+}

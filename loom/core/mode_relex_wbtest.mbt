@@ -26,6 +26,81 @@ fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] {
 }
 
 ///|
+fn create_mixed_buffer(source : String) -> TokenBuffer[MixedToken] {
+  let lexer : ModeLexer[MixedToken, MixedMode] = {
+    lex_step: mixed_lex_step,
+    initial_mode: Normal,
+  }
+  let factory = erase_mode_lexer(
+    lexer,
+    MixedToken::EOF,
+    error_token=OpaqueRaw("error"),
+  )
+  let state = (factory.new_session)()
+  let result = (state.tokenize)(source)
+  TokenBuffer::new_with_mode_relex(
+    source,
+    result.tokens(),
+    result.starts(),
+    MixedToken::EOF,
+    state,
+  )
+}
+
+///|
+test "mode relex: head edit propagates opaque to notation context" {
+  let buffer = create_mixed_buffer(mixed_source())
+  let edit = Edit::new(11, 7, 1)
+  let new_source = "s(\"bd sd\") s(\"verse: 1\")"
+  buffer.update(edit, new_source)
+  inspect(buffer.get_token(9), content="HeadS")
+  inspect(buffer.get_token(12), content="NotationWord(\"verse\")")
+  inspect(buffer.get_token(13), content="NotationColon")
+  inspect(buffer.get_token(14), content="NotationSpace")
+  inspect(buffer.get_token(15), content="NotationWord(\"1\")")
+  inspect(buffer.get_token(16), content="Quote")
+  inspect(buffer.get_token(17), content="CloseParen")
+  inspect(buffer.get_token(18), content="EOF")
+  inspect(buffer.get_start(12), content="14")
+  inspect(buffer.get_start(13), content="19")
+  inspect(buffer.get_start(14), content="20")
+  inspect(buffer.get_start(15), content="21")
+  inspect(buffer.get_start(16), content="22")
+  inspect(buffer.get_start(17), content="23")
+  inspect(buffer.get_start(18), content="24")
+}
+
+///|
+test "mode relex: same-cardinality edit converges before close paren" {
+  let lexer : ModeLexer[MixedToken, MixedMode] = {
+    lex_step: mixed_lex_step,
+    initial_mode: Normal,
+  }
+  let factory = erase_mode_lexer(
+    lexer,
+    MixedToken::EOF,
+    error_token=OpaqueRaw("error"),
+  )
+  let state = (factory.new_session)()
+  let old_source = "section(\"verse\") s(\"tail\")"
+  let new_source = "s(\"verse\") s(\"tail\")"
+  let old_result = (state.tokenize)(old_source)
+  let result = (state.relex_from)(
+    new_source,
+    0,
+    0,
+    old_result.tokens().length(),
+    old_result.starts(),
+    -6,
+    1,
+  )
+  inspect(result.converged_at_old_token, content="5")
+  inspect(result.tokens.length(), content="5")
+  debug_inspect(result.starts, content="[0, 1, 2, 3, 8]")
+  inspect(result.tokens[3].token, content="NotationWord(\"verse\")")
+}
+
+///|
 test "mode relex: edit inside normal region converges immediately" {
   let buffer = create_mock_buffer("hello\"world\"end")
   // Edit: change "hello" to "hi" (replace 5 chars with 2)
