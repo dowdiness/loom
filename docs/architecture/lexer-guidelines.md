@@ -62,10 +62,9 @@ let grammar = @loom.Grammar::new(
 `erase_mode_lexer` provides detached tokenization and a factory. Each
 `TokenBuffer` owns its `ModeRelexState` session; edits re-lex from the damage
 frontier until both source position and lexical mode converge, then reuse the
-unchanged suffix. Do not use the parser-local
-`@core.ParserContext::set_lex_mode` for this wiring: it preserves a parser
-callback's scalar state but does not configure `TokenBuffer`, `ModeLexer`, or
-already-produced tokens.
+unchanged suffix. There is no parser-local mode setter: use this
+`ModeLexer`/`ModeRelexFactory` boundary for persistent lexical modes. For the
+rationale, see the [accepted lex-mode lifecycle decision](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md).
 
 The checked mixed-context recipe is in the [mode lexer fixture](../../loom/core/mode_lexer_wbtest.mbt)
 and its [incremental re-lex test](../../loom/core/mode_relex_wbtest.mbt).

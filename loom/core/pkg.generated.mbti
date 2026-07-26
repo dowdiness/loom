@@ -312,7 +312,6 @@ pub fn[T, K] ParserContext::finish_node(Self[T, K]) -> Unit
 pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until(Self[T, K], K) -> Bool
 pub fn[T, K : @seam.ToRawKind] ParserContext::finish_nodes_until_inclusive(Self[T, K], K) -> Bool
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::flush_trivia(Self[T, K]) -> Unit
-pub fn[T, K] ParserContext::lex_mode(Self[T, K]) -> Int
 pub fn[T, K, R] ParserContext::lookahead(Self[T, K], () -> R) -> R
 pub fn[T, K] ParserContext::mark(Self[T, K]) -> Int
 pub fn[T, K] ParserContext::new(Array[TokenInfo[T]], String, LanguageSpec[T, K]) -> Self[T, K]
@@ -331,7 +330,6 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_expected(S
 pub fn[T, K] ParserContext::restore(Self[T, K], Checkpoint[T, K]) -> Unit
 pub fn[T : Eq + @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::separated_list(Self[T, K], K, T, () -> Bool, element_start? : () -> Bool, wrap_element? : Bool) -> Int
 pub fn[T, K] ParserContext::set_goal_source(Self[T, K], (Int, Int) -> (T, Int), subsumption_check? : (Int, Int) -> Bool) -> Unit
-pub fn[T, K] ParserContext::set_lex_mode(Self[T, K], Int) -> Unit
 pub fn[T, K] ParserContext::set_reuse_cursor(Self[T, K], ReuseCursor[T, K]) -> Unit
 pub fn[T, K] ParserContext::set_reuse_diagnostics(Self[T, K], DiagnosticSet) -> Unit
 pub fn[T : @seam.IsTrivia + @seam.IsEof + @seam.ToRawKind, K : @seam.ToRawKind] ParserContext::skip_until(Self[T, K], (T) -> Bool) -> Int

@@ -86,7 +86,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
-- [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Proposed** lifecycle for the parser-local `ParserContext` lex-mode API
+- [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Accepted** removal of the public parser-local `ParserContext` lex-mode API
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Accepted** #607 decision for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](archive/completed-phases/2026-07-19-loomgen-html-element-properties.md) — **Complete** implementation plan for #607, including generated classifier, atomic HostGuard dispatch, source-span fidelity, and parse-local stack ownership
@@ -244,6 +244,7 @@ _Shipped: Canonical companion trait shipped 2026-05-17 (see [ADR](decisions/2026
 > **Do not read files in this section unless you need historical context.** These documents describe past design iterations, completed work, and point-in-time analyses. The code is the source of truth; where archive material and current docs disagree, trust the code and the current docs.
 
 - [archive/completed-phases/](archive/completed-phases/) — completed phase plans and implementation notes (SyntaxNode-first layer, NodeInterner, docs hierarchy, dead-code audit, loom extraction, parser API simplification, typed SyntaxNode views, CRDT exploration, loom/core simplification, seam trait cleanup, AstNode removal, multi-expression files, step-lexing redesign, flat grammar unification, error recovery, ambiguity resilience, memoized CST fold, grammar extensions, block reparse, JSON parser, Egglog typechecker, EGraph evaluator, StringView threading, unified `Parser[Ast]`, line-index source locations, structured parser diagnostics, post-112 follow-ups, lambda rename consumer, callers `visible_from`, and more)
+- [archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md](archive/completed-phases/2026-07-26-remove-parser-context-lex-mode-api.md) — **Complete** accepted breaking-boundary removal; retain private checkpoint state and migrate users to supported lexical mechanisms.
 - [archive/](archive/) — research notes and retired design snapshots:
   - [archive/lezer.md](archive/lezer.md), [archive/LEZER_IMPLEMENTATION.md](archive/LEZER_IMPLEMENTATION.md), [archive/LEZER_FRAGMENT_REUSE.md](archive/LEZER_FRAGMENT_REUSE.md) — Lezer parser framework investigation
   - [archive/green-tree-extraction.md](archive/green-tree-extraction.md) — Green Tree / Red Tree research

@@ -297,25 +297,6 @@ fn[T, K] ParserContext::text_at(
 }
 
 ///|
-/// Return the parser-local opaque mode state. 0 = initial/default mode.
-/// Checkpoints preserve this value, and the grammar assigns its meaning.
-/// It does not configure TokenBuffer, ModeLexer, or already-produced tokens.
-pub fn[T, K] ParserContext::lex_mode(self : ParserContext[T, K]) -> Int {
-  self.lex_mode
-}
-
-///|
-/// Set the parser-local opaque mode state.
-/// Checkpoints preserve this value, and the grammar assigns its meaning.
-/// It does not configure TokenBuffer, ModeLexer, or already-produced tokens.
-pub fn[T, K] ParserContext::set_lex_mode(
-  self : ParserContext[T, K],
-  mode : Int,
-) -> Unit {
-  self.lex_mode = mode
-}
-
-///|
 
 ///| Return the token at absolute buffer position `self.position + n`,
 

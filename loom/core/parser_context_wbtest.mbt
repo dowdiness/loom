@@ -150,42 +150,27 @@ test "ParserContext can be constructed" {
 }
 
 ///|
-test "lex_mode defaults to 0" {
+test "private checkpoint restores parser lex mode" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
-  inspect(ctx.lex_mode(), content="0")
-}
-
-///|
-test "set_lex_mode updates the current lex mode" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  ctx.set_lex_mode(3)
-  inspect(ctx.lex_mode(), content="3")
-}
-
-///|
-test "checkpoint/restore preserves lex mode" {
-  let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
-  ctx.set_lex_mode(7)
+  ctx.lex_mode = 7
   let cp = ctx.checkpoint()
-  ctx.set_lex_mode(42)
+  ctx.lex_mode = 42
   ctx.restore(cp)
-  inspect(ctx.lex_mode(), content="7")
+  inspect(ctx.lex_mode, content="7")
 }
 
 ///|
-test "lookahead: restores lex mode and preserves callback result" {
+test "private lookahead restores parser lex mode and preserves callback result" {
   let (spec, tokens) = make_test_fixtures()
   let ctx = ParserContext::new(tokens, "ab", spec)
-  ctx.set_lex_mode(7)
+  ctx.lex_mode = 7
   let result = ctx.lookahead(() => {
-    ctx.set_lex_mode(42)
+    ctx.lex_mode = 42
     "observed"
   })
   inspect(result, content="observed")
-  inspect(ctx.lex_mode(), content="7")
+  inspect(ctx.lex_mode, content="7")
 }
 
 ///|
