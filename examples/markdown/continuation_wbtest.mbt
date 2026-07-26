@@ -44,7 +44,6 @@ fn assert_decision_public_state_pure(
 ) -> Unit raise {
   let before_range = ctx.current_token_range()
   let before_node = ctx.current_node_kind()
-  let before_mode = ctx.lex_mode()
   let before_mark = ctx.mark()
   decision()
   let after_mark = ctx.mark()
@@ -53,7 +52,6 @@ fn assert_decision_public_state_pure(
     @debug.to_string(ctx.current_node_kind()),
     content=@debug.to_string(before_node),
   )
-  inspect(ctx.lex_mode(), content=before_mode.to_string())
   inspect(after_mark, content=(before_mark + 1).to_string())
 }
 

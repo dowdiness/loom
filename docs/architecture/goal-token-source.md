@@ -13,7 +13,7 @@ loom's baseline token path is:
 
 - `TokenBuffer[T]` — linear `Array[TokenInfo[T]]` indexed by position
 - Token identity depends only on source content and lexer state
-- No mechanism for the parser to say "tokenize this offset under a different lexical goal"
+- No mechanism for the parser to say "tokenize this offset under a different lexical goal" without opting into the explicit goal-query path described here
 
 This fails for languages like ECMAScript where the same `/` at the same source offset
 must produce `Slash` (division) or `Regex(pattern, flags)` depending on whether the
@@ -54,8 +54,8 @@ baseline path:
   caller must opt in explicitly.
 - When wired through `TokenBuffer`, the paths share source and edit lifecycle
   but keep separate token results and query semantics. The goal step is
-  explicitly supplied; Loom does not derive it from the baseline lexer,
-  `ModeLexer`, or `lex_mode`.
+  explicitly supplied; Loom does not derive it from the baseline lexer or
+  `ModeLexer`.
 
 This means the same offset can produce different tokens depending on which
 path the parser uses — that is the intended behavior.
@@ -168,16 +168,17 @@ is cleared on the next edit.
 
 ### ModeLexer / ModeRelexState
 
-These mechanisms have separate state and trigger semantics:
+These are the two supported lexical mechanisms, with separate state and
+trigger semantics:
 
 - `ModeLexer` chooses its next native mode while lexing and stores mode snapshots
-  for incremental re-lex.
-- GoalTokenSource accepts an explicit opaque goal at each query.
-- `ParserContext::lex_mode` is checkpointed parser-local state and does not
-  configure either path.
+  for incremental re-lex. Use `ModeLexer`/`ModeRelexFactory` for persistent
+  lexer-decided modes.
+- GoalTokenSource accepts an explicit opaque goal at each query. Use its
+  explicit query APIs for parser-directed lexical goals.
 
 Mode re-lex and goal queries can coexist on one `TokenBuffer`, but there is no
-automatic bridge between them.
+automatic parser-to-lexer mode bridge.
 
 ### ParserContext
 
@@ -204,8 +205,8 @@ body tokens). This means:
 
 ### Checkpoint / restore
 
-Checkpoints restore parser-owned state, including the cursor and `lex_mode`.
-They do not snapshot or roll back `GoalCache`; entries are shared across
+Checkpoints restore parser-owned state, including the cursor and other
+parser-owned checkpoint fields. They do not snapshot or roll back `GoalCache`; entries are shared across
 speculative branches. The goal-step contract must return stable results for a
 given source, offset, and goal, and source edits invalidate the cache.
 
@@ -217,8 +218,9 @@ peek_nth is used for lookahead decisions (FIRST sets, token classification), not
 for tokenizing goal-ambiguous positions.
 
 A caller that needs goal-directed lookahead must supply both the source offset
-and goal to `token_at`. Loom does not infer either value from `lex_mode`.
-Keeping this path explicit leaves `peek_nth` cheap and baseline-only.
+and goal to `token_at`. Loom does not infer either value from unrelated
+parser-owned state. Keeping this path explicit leaves `peek_nth` cheap and
+baseline-only.
 
 ## 7. Implemented boundary
 
@@ -238,5 +240,5 @@ Keeping this path explicit leaves `peek_nth` cheap and baseline-only.
 | Explicit goal queries by source offset | Standard `Grammar`/factory auto-wiring |
 | Memoized results with full invalidation on edit | Unified goal-aware `peek_nth` |
 | Offset-based cursor advancement | Parser-driven mode switching |
-| Reuse suppression for goal-subsumed spans | Automatic `lex_mode` integration |
-| Coexistence with `ModeRelexState` | A goal-transition trace |
+| Reuse suppression for goal-subsumed spans | Automatic parser-to-lexer mode bridge |
+| Coexistence with `ModeRelexState` | Parser-local mode setter |

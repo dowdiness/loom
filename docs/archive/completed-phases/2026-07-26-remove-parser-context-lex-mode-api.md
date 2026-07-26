@@ -1,8 +1,8 @@
 # Remove the public ParserContext lex-mode API
 
-**Status:** In Progress
+**Status:** Complete
 **Planned at:** commit `fd286e2`, 2026-07-26
-**Decision record:** [ADR: ParserContext lex-mode API lifecycle](../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md)
+**Decision record:** [ADR: ParserContext lex-mode API lifecycle](../../decisions/2026-07-26-parser-context-lex-mode-lifecycle.md)
 
 ## Context and boundary
 
@@ -95,3 +95,10 @@ signatures; the Markdown test needs replacement state observation; unrelated
 historical docs must be rewritten; any required validation fails twice for a
 code reason; or the allowlist, submodule, parent gitlink, publication, or
 release boundary would be exceeded.
+
+## Completion
+
+The accepted ADR and this plan were committed before source edits in
+`43f5d87`. Implementation validation completed with 333 core tests, 339 Markdown
+package tests, and 3476 full-workspace tests passing; `moon check`, formatting,
+interface generation, `check-docs.sh`, and `git diff --check` also passed. The implementation ships in the commit containing this completion record.

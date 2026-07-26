@@ -178,9 +178,11 @@ moon test examples/html/lexer_test.mbt examples/html/parser_test.mbt
   HTML example.** The current mode-aware lexer handles raw-text `<script>` and
   `<style>` content, with parser tests covering that behavior.
 
-  `ParserContext.set_lex_mode()` only updates a parser-side scalar. The eager
-  tokenization pipeline does not consume that value, so parser-directed mode
-  switching would require a separate tokenization contract.
+  Parser-driven mode switching is not exposed through `ParserContext`. Use
+  `ModeLexer`/`ModeRelexFactory` for persistent lexer-decided modes, as in the
+  [mode-aware Markdown example](../markdown/); use the explicit goal-query
+  interfaces in [GoalTokenSource](../../docs/architecture/goal-token-source.md)
+  when the parser must choose a lexical goal per query.
 
 ## See Also
 
