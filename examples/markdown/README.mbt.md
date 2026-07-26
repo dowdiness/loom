@@ -29,6 +29,12 @@ pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
 
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
+// ── Parser-backed editor role spans ───────────────────────────────────────────
+
+pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
+pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Array[MarkdownRoleSpanExport]
+pub fn attach_markdown_role_spans(@loom.SyntaxParser) -> MarkdownRoleSpansAttachment
+
 // ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
 
 pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
@@ -180,6 +186,55 @@ test "grammar example: reactive parser + set_source" {
   }
 }
 ```
+
+## Parser-backed editor role spans
+
+`project_markdown_roles` is a pure `SyntaxNode` projector over the current
+recovered CST. Its spans use the parser's source-backed UTF-16 token ranges;
+synthetic zero-width recovery tokens are omitted. For a stateful editor
+session, `attach_markdown_role_spans` shares the parser runtime and keeps the
+projection reachable through a persistent `Scope`/`Watch` attachment.
+
+The current supported role shapes are heading markers and text, unordered and
+ordered list markers and plain list content, fenced-code delimiters and code
+content, inline-code delimiters and content, bold/italic delimiters and
+content, link label text, link punctuation, balanced link destinations, and
+source-backed parser recovery errors. Nested inline nodes take precedence over
+their enclosing heading, list, or link context. Link destination classification
+uses ordered CST elements, so balanced inner parentheses remain destinations
+while only the outer parentheses are punctuation.
+
+Trivia, EOF, ordinary unclassified paragraph text, and unsupported HTML,
+block-quote, and thematic-break constructs are omitted. This prototype does
+not infer or create diagnostics: the current Markdown grammar preserves some
+recovered forms without reporting them, and parser diagnostics remain a
+separate current-state view on `parser.diagnostics()`. Diagnostic policy is a
+separate CommonMark-aware task.
+
+```mbt check
+///|
+test "quick start: parser-backed Markdown role spans" {
+  let parser = @loom.new_syntax_parser(
+    "[text](page_(C).html)\n",
+    markdown_grammar.to_syntax_grammar(),
+  )
+  let roles = attach_markdown_role_spans(parser)
+  inspect(roles.spans().length() > 0, content="true")
+  inspect(roles.export_spans()[0].role(), content="punctuation")
+  inspect(
+    roles.export_spans().to_json().stringify().contains("\"role\""),
+    content="true",
+  )
+  roles.dispose()
+}
+```
+
+Keep `MarkdownRole`, `project_markdown_roles`, and
+`MarkdownRoleSpansAttachment` local for another iteration. JSON validates
+parent context; Markdown additionally needs ordered links and nested
+precedence. `{start,end,role}` and `Scope`/`Watch` are promising, but sharing
+now would freeze policy before a third consumer or editor adapter exists. Do
+not introduce a shared role or role-span API yet.
 
 Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
 
