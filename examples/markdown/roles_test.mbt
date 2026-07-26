@@ -180,3 +180,55 @@ test "markdown role spans after edit match fresh parser" {
     fail("expected edited Markdown role spans to match a fresh parser")
   }
 }
+
+///|
+test "markdown roles use node-local precedence in heading text" {
+  let roles = markdown_test_roles("## café **bold** 😀\n")
+  let expected : Array[MarkdownRoleSpan] = [
+    MarkdownRoleSpan(role=HeadingMarker, start=0, end=3),
+    MarkdownRoleSpan(role=HeadingText, start=3, end=8),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=8, end=10),
+    MarkdownRoleSpan(role=EmphasisContent, start=10, end=14),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=14, end=16),
+    MarkdownRoleSpan(role=HeadingText, start=16, end=19),
+  ]
+  guard roles == expected else {
+    fail("expected nested emphasis roles to override heading text locally")
+  }
+}
+
+///|
+test "markdown roles use node-local precedence in list content" {
+  let roles = markdown_test_roles("- café **bold** 😀\n")
+  let expected : Array[MarkdownRoleSpan] = [
+    MarkdownRoleSpan(role=ListMarker, start=0, end=2),
+    MarkdownRoleSpan(role=ListContent, start=2, end=7),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=7, end=9),
+    MarkdownRoleSpan(role=EmphasisContent, start=9, end=13),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=13, end=15),
+    MarkdownRoleSpan(role=ListContent, start=15, end=18),
+  ]
+  guard roles == expected else {
+    fail("expected nested emphasis roles to override list content locally")
+  }
+}
+
+///|
+test "markdown roles use node-local precedence in link label text" {
+  let roles = markdown_test_roles("[café **bold** 😀](dest)\n")
+  let expected : Array[MarkdownRoleSpan] = [
+    MarkdownRoleSpan(role=Punctuation, start=0, end=1),
+    MarkdownRoleSpan(role=LinkText, start=1, end=6),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=6, end=8),
+    MarkdownRoleSpan(role=EmphasisContent, start=8, end=12),
+    MarkdownRoleSpan(role=EmphasisDelimiter, start=12, end=14),
+    MarkdownRoleSpan(role=LinkText, start=14, end=17),
+    MarkdownRoleSpan(role=Punctuation, start=17, end=18),
+    MarkdownRoleSpan(role=Punctuation, start=18, end=19),
+    MarkdownRoleSpan(role=LinkDestination, start=19, end=23),
+    MarkdownRoleSpan(role=Punctuation, start=23, end=24),
+  ]
+  guard roles == expected else {
+    fail("expected nested emphasis roles to override link text locally")
+  }
+}

@@ -147,8 +147,13 @@ fn markdown_role_for_token(
     (BoldNode | ItalicNode, StarToken | StarStarToken) =>
       Some(EmphasisDelimiter)
     (BoldNode | ItalicNode, _) => Some(EmphasisContent)
-    (_, LeftBracketToken | RightBracketToken | LeftParenToken | RightParenToken) =>
-      Some(Punctuation)
+    (
+      LinkNode,
+      LeftBracketToken
+      | RightBracketToken
+      | LeftParenToken
+      | RightParenToken,
+    ) => Some(Punctuation)
     _ => None
   }
 }
