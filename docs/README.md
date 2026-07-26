@@ -86,7 +86,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
-- [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Accepted** removal of the public parser-local `ParserContext` lex-mode API
+- [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Accepted** removal of the public parser-local `ParserContext` lex-mode API and follow-up removal of its dead private state
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
 - [decisions/2026-07-19-loomgen-html-element-properties.md](decisions/2026-07-19-loomgen-html-element-properties.md) — **Accepted** #607 decision for shared tag classification, generated element properties, parse-local tag stacks, and HostGuard dispatch
 - [archive/completed-phases/2026-07-19-loomgen-html-element-properties.md](archive/completed-phases/2026-07-19-loomgen-html-element-properties.md) — **Complete** implementation plan for #607, including generated classifier, atomic HostGuard dispatch, source-span fidelity, and parse-local stack ownership
@@ -221,6 +221,8 @@ Each example demonstrates a different `@loom.Grammar` feature axis:
 - [../moji/README.md](../moji/README.md) — UAX #29 grapheme cluster + word boundary segmentation, UTF-16 indexed (migrated from canopy 2026-05, #147)
 
 ### Active Plans
+
+- [Remove private ParserContext lex-mode state](plans/2026-07-26-remove-private-parser-context-lex-mode-state.md) — accepted follow-up to remove dead private checkpoint state while preserving the public checkpoint API and supported lexical mechanisms.
 
 - _Shipped: #529 fail-closed pattern allowlist tokenizer. See [archived plan](archive/completed-phases/2026-07-17-pattern-allowlist-tokenizer.md) and [ADR](decisions/2026-07-17-pattern-allowlist-tokenizer.md)._
 - [parse_patternリファクタリング計画](archive/completed-phases/2026-07-17-parse-pattern-refactoring.md) — #529後のprivate pattern parser責務分割を完了。受理範囲・診断優先順位・生成出力を維持。
