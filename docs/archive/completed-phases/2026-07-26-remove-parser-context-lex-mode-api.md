@@ -101,4 +101,5 @@ release boundary would be exceeded.
 The accepted ADR and this plan were committed before source edits in
 `43f5d87`. Implementation validation completed with 333 core tests, 339 Markdown
 package tests, and 3476 full-workspace tests passing; `moon check`, formatting,
-interface generation, `check-docs.sh`, and `git diff --check` also passed. The implementation ships in the commit containing this completion record.
+interface generation, `check-docs.sh`, and `git diff --check` also passed. The
+implementation was committed in `9a0abfd`.
