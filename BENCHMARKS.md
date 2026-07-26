@@ -25,6 +25,22 @@ The 105 event-graph-walker benchmark rows that were present in the July 5
 baseline were retired when that module was removed from `moon.work` in
 `f56e497`; they are intentionally not part of the current inventory.
 
+## Authoring Pipeline Benchmarks
+
+The `json-settings` authoring benchmarks expose parallel parser-only and
+complete-pipeline rows. Parser-only rows include the unified parser update and
+parser-view reads. Successful pipeline rows additionally include pure projection,
+`Watch` read, semantic lowering, identity realignment, and settle. Parser and
+projection failure rows include their applicable short-circuit and
+failure-retention paths. Edit rows report the forward operation plus restore
+cycle, so their timings are not subtractable into independent phase costs.
+
+The cold-construction row measures construction, initial settle, and the required
+disposal of the attachment in each timed iteration. These comparisons indicate
+where to investigate, but do not justify finer-grained caching without repeated
+measurements and a concrete downstream budget. `NEW` rows remain warning-only
+until a separately reviewed baseline update.
+
 ## Regression Guard
 
 `bench-check.sh` compares a live benchmark run against the saved baseline.

@@ -6,4 +6,5 @@ import {
   "dowdiness/incr",
   "moonbitlang/core/debug",
   "moonbitlang/core/string",
+  "moonbitlang/core/bench",
 }
