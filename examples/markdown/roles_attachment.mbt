@@ -45,14 +45,6 @@ pub fn MarkdownRoleSpansAttachment::spans(
 }
 
 ///|
-/// Read the latest parser-backed role spans in editor-neutral form.
-pub fn MarkdownRoleSpansAttachment::export_spans(
-  self : MarkdownRoleSpansAttachment,
-) -> Array[MarkdownRoleSpanExport] {
-  export_markdown_role_spans(self.spans())
-}
-
-///|
 /// Dispose this attachment. It does not dispose the parser and is idempotent.
 pub fn MarkdownRoleSpansAttachment::dispose(
   self : MarkdownRoleSpansAttachment,

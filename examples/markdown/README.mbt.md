@@ -32,7 +32,7 @@ pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Bloc
 // ── Parser-backed editor role spans ───────────────────────────────────────────
 
 pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
-pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Array[MarkdownRoleSpanExport]
+pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
 pub fn attach_markdown_role_spans(@loom.SyntaxParser) -> MarkdownRoleSpansAttachment
 
 // ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
@@ -190,10 +190,13 @@ test "grammar example: reactive parser + set_source" {
 ## Parser-backed editor role spans
 
 `project_markdown_roles` is a pure `SyntaxNode` projector over the current
-recovered CST. Its spans use the parser's source-backed UTF-16 token ranges;
-synthetic zero-width recovery tokens are omitted. For a stateful editor
-session, `attach_markdown_role_spans` shares the parser runtime and keeps the
-projection reachable through a persistent `Scope`/`Watch` attachment.
+recovered CST. Its typed spans expose `role()`, `start()`, and `end()` readers
+and use the parser's source-backed UTF-16 token ranges; synthetic zero-width
+recovery tokens are omitted. For a stateful editor session,
+`attach_markdown_role_spans` shares the parser runtime and keeps the projection
+reachable through a persistent `Scope`/`Watch` attachment. `spans()` returns a
+defensive copy; callers can pass that typed view to
+`export_markdown_role_spans(spans)` when JSON is needed.
 
 The current supported role shapes are heading markers and text, unordered and
 ordered list markers and plain list content, fenced-code delimiters and code
@@ -218,23 +221,25 @@ test "quick start: parser-backed Markdown role spans" {
     "[text](page_(C).html)\n",
     markdown_grammar.to_syntax_grammar(),
   )
-  let roles = attach_markdown_role_spans(parser)
-  inspect(roles.spans().length() > 0, content="true")
-  inspect(roles.export_spans()[0].role(), content="punctuation")
+  let attachment = attach_markdown_role_spans(parser)
+  let spans = attachment.spans()
+  inspect(spans.length() > 0, content="true")
+  inspect(spans[0].role() == Punctuation, content="true")
   inspect(
-    roles.export_spans().to_json().stringify().contains("\"role\""),
+    export_markdown_role_spans(spans).stringify().contains("\"role\""),
     content="true",
   )
-  roles.dispose()
+  attachment.dispose()
 }
 ```
 
 Keep `MarkdownRole`, `project_markdown_roles`, and
-`MarkdownRoleSpansAttachment` local for another iteration. JSON validates
-parent context; Markdown additionally needs ordered links and nested
-precedence. `{start,end,role}` and `Scope`/`Watch` are promising, but sharing
-now would freeze policy before a third consumer or editor adapter exists. Do
-not introduce a shared role or role-span API yet.
+`MarkdownRoleSpansAttachment` local to this example. Consumers observe typed
+spans through the projector or attachment and cannot construct them; JSON is
+an explicit one-way export via `export_markdown_role_spans(spans)`. The
+`{start,end,role}` shape validates parent context; Markdown additionally needs
+ordered links and nested precedence. Do not introduce a shared role or
+role-span API yet.
 
 Mode-aware lexing is wired via `mode_relex` on `Grammar::new`:
 

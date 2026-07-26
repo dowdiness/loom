@@ -22,7 +22,7 @@ pub(all) enum MarkdownRole {
 
 ///|
 /// Stable lower-kebab role name used by editor-neutral exports.
-pub fn MarkdownRole::export_name(self : MarkdownRole) -> String {
+fn MarkdownRole::export_name(self : MarkdownRole) -> String {
   match self {
     HeadingMarker => "heading-marker"
     HeadingText => "heading-text"
@@ -50,7 +50,7 @@ pub struct MarkdownRoleSpan {
 } derive(Eq, Debug)
 
 ///|
-pub fn MarkdownRoleSpan::MarkdownRoleSpan(
+fn MarkdownRoleSpan::MarkdownRoleSpan(
   role~ : MarkdownRole,
   start~ : Int,
   end~ : Int,
@@ -74,59 +74,18 @@ pub fn MarkdownRoleSpan::end(self : MarkdownRoleSpan) -> Int {
 }
 
 ///|
-/// Editor-neutral Markdown role span with stable lower-kebab role names.
-pub struct MarkdownRoleSpanExport {
-  priv start : Int
-  priv end : Int
-  priv role : String
-} derive(Eq, Debug)
-
-///|
-fn MarkdownRoleSpanExport::MarkdownRoleSpanExport(
-  start~ : Int,
-  end~ : Int,
-  role~ : String,
-) -> MarkdownRoleSpanExport {
-  { start, end, role }
+fn markdown_role_span_to_json(span : MarkdownRoleSpan) -> Json {
+  {
+    "start": (span.start : Int),
+    "end": (span.end : Int),
+    "role": span.role.export_name(),
+  }
 }
 
 ///|
-pub fn MarkdownRoleSpanExport::start(self : MarkdownRoleSpanExport) -> Int {
-  self.start
-}
-
-///|
-pub fn MarkdownRoleSpanExport::end(self : MarkdownRoleSpanExport) -> Int {
-  self.end
-}
-
-///|
-pub fn MarkdownRoleSpanExport::role(self : MarkdownRoleSpanExport) -> String {
-  self.role
-}
-
-///|
-pub impl ToJson for MarkdownRoleSpanExport with fn to_json(self) -> Json {
-  { "start": (self.start : Int), "end": (self.end : Int), "role": self.role }
-}
-
-///|
-fn MarkdownRoleSpan::to_export(
-  self : MarkdownRoleSpan,
-) -> MarkdownRoleSpanExport {
-  MarkdownRoleSpanExport(
-    start=self.start,
-    end=self.end,
-    role=self.role.export_name(),
-  )
-}
-
-///|
-/// Convert typed Markdown role spans to the editor-neutral export shape.
-pub fn export_markdown_role_spans(
-  spans : Array[MarkdownRoleSpan],
-) -> Array[MarkdownRoleSpanExport] {
-  spans.map(fn(span) { span.to_export() })
+/// Convert typed Markdown role spans to an ordered JSON array.
+pub fn export_markdown_role_spans(spans : Array[MarkdownRoleSpan]) -> Json {
+  Json::array(spans.map(fn(span) { markdown_role_span_to_json(span) }))
 }
 
 ///|

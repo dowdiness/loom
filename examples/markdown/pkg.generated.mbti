@@ -30,7 +30,7 @@ pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
 
 pub fn experimental_markdown_ir_to_mdast_json_with_positions(MarkdownIR, String) -> Json
 
-pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Array[MarkdownRoleSpanExport]
+pub fn export_markdown_role_spans(Array[MarkdownRoleSpan]) -> Json
 
 pub fn markdown_fold_node(@seam.SyntaxNode, (@seam.SyntaxNode) -> Block) -> Block
 
@@ -133,29 +133,18 @@ pub(all) enum MarkdownRole {
   Punctuation
   Error
 } derive(Eq, @debug.Debug)
-pub fn MarkdownRole::export_name(Self) -> String
 
 pub struct MarkdownRoleSpan {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn MarkdownRoleSpan::MarkdownRoleSpan(role~ : MarkdownRole, start~ : Int, end~ : Int) -> Self
 pub fn MarkdownRoleSpan::end(Self) -> Int
 pub fn MarkdownRoleSpan::role(Self) -> MarkdownRole
 pub fn MarkdownRoleSpan::start(Self) -> Int
-
-pub struct MarkdownRoleSpanExport {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn MarkdownRoleSpanExport::end(Self) -> Int
-pub fn MarkdownRoleSpanExport::role(Self) -> String
-pub fn MarkdownRoleSpanExport::start(Self) -> Int
-pub impl ToJson for MarkdownRoleSpanExport
 
 pub struct MarkdownRoleSpansAttachment {
   // private fields
 }
 pub fn MarkdownRoleSpansAttachment::dispose(Self) -> Unit
-pub fn MarkdownRoleSpansAttachment::export_spans(Self) -> Array[MarkdownRoleSpanExport]
 pub fn MarkdownRoleSpansAttachment::spans(Self) -> Array[MarkdownRoleSpan]
 
 pub(all) enum OrderedListDelimiter {

@@ -63,7 +63,7 @@ test "markdown role attachment exports pure spans" {
   let expected = export_markdown_role_spans(
     project_markdown_roles(parser.syntax_tree().read_or_abort()),
   )
-  guard attachment.export_spans() == expected else {
+  guard export_markdown_role_spans(attachment.spans()) == expected else {
     fail("expected attachment exports to match pure projection")
   }
   attachment.dispose()
@@ -77,10 +77,8 @@ test "markdown role attachment exposes unclosed emphasis as error" {
     markdown_grammar.to_syntax_grammar(),
   )
   let attachment = attach_markdown_role_spans(parser)
-  let expected : Array[MarkdownRoleSpan] = [
-    MarkdownRoleSpan(role=MarkdownRole::Error, start=0, end=2),
-  ]
-  guard attachment.spans() == expected else {
+  let expected : Array[(MarkdownRole, Int, Int)] = [(MarkdownRole::Error, 0, 2)]
+  guard markdown_test_observations(attachment.spans()) == expected else {
     fail("expected attached source-backed recovery error")
   }
   attachment.dispose()
@@ -97,7 +95,7 @@ test "markdown role attachment leaves diagnostics parser-owned" {
   let before = parser.diagnostics().read_or_abort().format()
   let attachment = attach_markdown_role_spans(parser)
   ignore(attachment.spans())
-  ignore(attachment.export_spans())
+  ignore(export_markdown_role_spans(attachment.spans()))
   let after_attach = parser.diagnostics().read_or_abort().format()
   guard before == after_attach else {
     fail("expected role attachment reads not to change diagnostics")
@@ -124,7 +122,7 @@ test "markdown role attachment returns defensive span copies" {
   )
   let attachment = attach_markdown_role_spans(parser)
   let copy = attachment.spans()
-  copy[0] = MarkdownRoleSpan(role=MarkdownRole::Error, start=0, end=1)
+  ignore(copy.pop())
   let expected = project_markdown_roles(parser.syntax_tree().read_or_abort())
   guard attachment.spans() == expected else {
     fail("expected attachment spans to be defensive copies")
