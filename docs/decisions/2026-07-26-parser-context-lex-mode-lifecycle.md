@@ -1,8 +1,8 @@
 # ADR: ParserContext lex-mode API lifecycle
 
 **Date:** 2026-07-26
-**Status:** Proposed
-**Implementation plan:** N/A — decision-only ADR; a separate implementation plan is required before source changes.
+**Status:** Accepted
+**Implementation plan:** [Remove the public ParserContext lex-mode API](../plans/2026-07-26-remove-parser-context-lex-mode-api.md)
 
 ## Context
 
@@ -115,16 +115,14 @@ maintainer approval.
 
 ## Decision
 
-**Proposed: clean removal of the public `ParserContext::lex_mode()` and
+**Accepted: clean removal of the public `ParserContext::lex_mode()` and
 `ParserContext::set_lex_mode(Int)` methods at the next maintainer-approved
 breaking boundary.**
 
-This proposal is selected because the audited Loom, Canopy, and js_engine
-production sources contain no caller, the indexed GitHub results contain no
-external production caller, no consumer was found that treats the scalar as
-lexical control, and no mandatory deprecation window was identified. This is a
-proposal only; it authorizes no source, test, interface, changelog, or release
-change.
+The Loom maintainer approved this decision on 2026-07-26. Implementation remains
+bounded by the repeat live consumer audit in the linked plan: any production or
+external caller, tokenization-control assumption, or required compatibility
+window stops the implementation and returns it to review.
 
 ## Rationale
 
@@ -158,10 +156,10 @@ updates.
 
 ## Consequences
 
-No implementation is included. A later implementation plan must own public API
-removal, core and downstream test changes, generated-interface verification,
-changelog/release communication, and any compatibility decision required by a
-new consumer discovery.
+The linked implementation plan owns public API removal, core and downstream
+test changes, generated-interface verification, changelog communication, and
+any compatibility decision required by a new consumer discovery. The plan must
+be completed before this decision is considered landed in code.
 
 The private `lex_mode` fields and checkpoint save/restore wiring are not removed
 by this decision. They may remain useful as parser-internal state or may be
@@ -170,10 +168,8 @@ goal-token, Grammar IR, and TokenBuffer APIs are unchanged.
 
 ## Revisit/approval gate
 
-This ADR remains **Proposed** until a Loom maintainer approves the lifecycle
-choice and a separate implementation plan is written. Before any source edit,
-repeat the consumer audit against live code, re-check the public contract and
-checkpoint behavior, and stop if any production or external caller is found,
-if a caller assumes tokenization control, or if compatibility policy requires a
-path not covered by this matrix. No breaking removal may be marked Accepted in
-this decision-only record without maintainer approval.
+Before any source edit, repeat the consumer audit against live code, re-check
+the public contract and checkpoint behavior, and stop if any production or
+external caller is found, if a caller assumes tokenization control, or if
+compatibility policy requires a path not covered by this matrix. Acceptance of
+this decision does not waive that implementation gate.
