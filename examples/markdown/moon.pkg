@@ -3,6 +3,7 @@ import {
   "dowdiness/seam",
   "dowdiness/loom",
   "dowdiness/loom/projection",
+  "dowdiness/incr",
   "dowdiness/markdown/payload_lexer",
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
