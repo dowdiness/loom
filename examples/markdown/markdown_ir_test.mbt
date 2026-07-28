@@ -268,6 +268,47 @@ test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
 }
 
 ///|
+test "experimental MarkdownIR: child syntax lowering keeps document-relative escape origins" {
+  let source = "😀 prefix\n\n\\*literal*\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let paragraphs : Array[@seam.SyntaxNode] = syntax
+    .children()
+    .iter()
+    .filter(child => {
+      let kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+      kind == ParagraphNode
+    })
+    .collect()
+  match paragraphs {
+    [_, second] => {
+      inspect(second.start(), content="11")
+      let ir = experimental_markdown_ir_from_syntax(second)
+      inspect(ir.kind_tag(), content="Paragraph")
+      inspect(ir.origin().start(), content="11")
+      inspect(ir.origin().end(), content="22")
+      match ir.children() {
+        [text] => {
+          inspect(text.kind_tag(), content="Text")
+          match text.text_value() {
+            Some(value) => inspect(value, content="*literal*")
+            None => inspect("missing", content="escaped literal text")
+          }
+          inspect(text.origin().start(), content="11")
+          inspect(text.origin().end(), content="21")
+          inspect(origin_source(source, text.origin()), content="\\*literal*")
+          inspect(text.diagnostics().length(), content="0")
+        }
+        _ => inspect("unexpected paragraph children", content="one text")
+      }
+    }
+    _ => inspect(paragraphs.length(), content="two paragraphs")
+  }
+}
+
+///|
 test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
   let paragraph_source = "   Foo\n"
   let paragraph_ir = markdown_ir_from_source(paragraph_source)
