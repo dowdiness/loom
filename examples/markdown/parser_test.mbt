@@ -1,4 +1,60 @@
 ///|
+fn heading_form_token_kinds(source : String) -> String {
+  let (cst, _) = try! parse_cst(source)
+  let kinds : Array[String] = []
+  fn walk(node : @seam.SyntaxNode) -> Unit {
+    let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    if node_kind is HeadingNode {
+      let atx_kind : SyntaxKind = AtxHeadingMarkerToken
+      let setext_kind : SyntaxKind = SetextHeadingUnderlineToken
+      match node.direct_token_of_kind(atx_kind.to_raw()) {
+        Some(_) => kinds.push(@debug.to_string(atx_kind))
+        None => ()
+      }
+      match node.direct_token_of_kind(setext_kind.to_raw()) {
+        Some(_) => kinds.push(@debug.to_string(setext_kind))
+        None => ()
+      }
+    }
+    for child in node.children() {
+      walk(child)
+    }
+  }
+  walk(@seam.SyntaxNode::from_cst(cst))
+  kinds.join(",")
+}
+
+///|
+test "parse cst: heading forms have distinct marker token kinds" {
+  let cases : Array[(String, String)] = [
+    ("# Plain\n", "AtxHeadingMarkerToken"),
+    ("Plain\n---\n", "SetextHeadingUnderlineToken"),
+    ("   # Indented\n", "AtxHeadingMarkerToken"),
+    ("   Indented\n   ---\n", "SetextHeadingUnderlineToken"),
+    ("> # Quoted\n", "AtxHeadingMarkerToken"),
+    ("> Quoted\n> ---\n", "SetextHeadingUnderlineToken"),
+    ("- item\n  # Listed\n", "AtxHeadingMarkerToken"),
+    ("- Listed\n  ---\n", "SetextHeadingUnderlineToken"),
+  ]
+  for case in cases {
+    let (source, expected) = case
+    inspect(heading_form_token_kinds(source), content=expected)
+  }
+}
+
+///|
+test "syntax kind: heading marker raw kinds remain stable and distinct" {
+  let atx_kind : SyntaxKind = AtxHeadingMarkerToken
+  let setext_kind : SyntaxKind = SetextHeadingUnderlineToken
+  inspect(atx_kind.to_raw().0, content="0")
+  inspect(setext_kind.to_raw().0, content="38")
+  let atx : SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(0))
+  let setext : SyntaxKind = @seam.FromRawKind::from_raw(@seam.RawKind(38))
+  inspect(atx, content="AtxHeadingMarkerToken")
+  inspect(setext, content="SetextHeadingUnderlineToken")
+}
+
+///|
 test "parse: heading" {
   let block = parse("# Hello\n")
   inspect(block, content="Document([Heading(1, [Text(\"Hello\")])])")

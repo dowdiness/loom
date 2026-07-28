@@ -330,7 +330,8 @@ fn lower_inline_children_skip_with_diags(
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
           }
-          HeadingMarkerToken
+          AtxHeadingMarkerToken
+          | SetextHeadingUnderlineToken
           | ListMarkerToken
           | OrderedListMarkerToken
           | BlockQuoteMarkerToken
@@ -406,7 +407,8 @@ fn lower_direct_inline_token_with_diags(
       let origin = origin_from_token(token)
       Some(MarkdownIR::raw(token.text(), origin, diagnostics_in_origin(origin)))
     }
-    HeadingMarkerToken
+    AtxHeadingMarkerToken
+    | SetextHeadingUnderlineToken
     | ListMarkerToken
     | OrderedListMarkerToken
     | BlockQuoteMarkerToken
@@ -857,13 +859,7 @@ fn lower_inline_node_with_diags(
 
 ///|
 fn is_setext_heading(node : @seam.SyntaxNode) -> Bool {
-  match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
-    Some(marker) => {
-      let marker_start = skip_leading_spaces(marker.text(), 0)
-      count_hashes(marker.text(), marker_start) == 0
-    }
-    None => false
-  }
+  node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) is Some(_)
 }
 
 ///|
@@ -921,7 +917,7 @@ fn trim_setext_heading_children(
 
 ///|
 fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
-  match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
+  match node.direct_token_of_kind(AtxHeadingMarkerToken.to_raw()) {
     Some(marker) => {
       let marker_start = skip_leading_spaces(marker.text(), 0)
       let n = count_hashes(marker.text(), marker_start)
@@ -929,10 +925,14 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
       if n >= 1 {
         Some(n)
       } else {
-        parse_setext_underline_depth(marker.text().view())
+        None
       }
     }
-    None => None
+    None =>
+      match node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) {
+        Some(underline) => parse_setext_underline_depth(underline.text().view())
+        None => None
+      }
   }
 }
 

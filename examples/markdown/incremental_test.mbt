@@ -127,6 +127,18 @@ test "incremental: heading boundary edits match full parse" {
 }
 
 ///|
+test "incremental: ATX to setext heading edit matches full parse" {
+  let source = "# title\nTail\n"
+  let replacement = "title\n---"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ATX heading becomes setext heading",
+    source,
+    @core.Edit::new(0, "# title".length(), replacement.length()),
+    replacement + "\nTail\n",
+  )
+}
+
+///|
 test "incremental: list item text edit uses block reparse" {
   let prefix = "- item "
   let source = prefix + "one\n- item two\n"

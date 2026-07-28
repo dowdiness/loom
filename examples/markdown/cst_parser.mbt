@@ -234,7 +234,8 @@ fn emit_setext_underline_line(
         ctx.peek() != EOF {
     match ctx.peek() {
       Indentation(_) => ctx.emit_token(IndentationToken)
-      Text(_) | ThematicBreak | ListMarker => ctx.emit_token(HeadingMarkerToken)
+      Text(_) | ThematicBreak | ListMarker =>
+        ctx.emit_token(SetextHeadingUnderlineToken)
       _ => ctx.bump_error()
     }
   }
@@ -251,7 +252,7 @@ fn parse_heading_with_prefix(
       Some(_) => ctx.emit_token(IndentationToken)
       None => ()
     }
-    ctx.emit_token(HeadingMarkerToken)
+    ctx.emit_token(AtxHeadingMarkerToken)
     parse_indexed_inline_container_without_continuation(
       ctx,
       InlineParsePolicy::line_bound(),

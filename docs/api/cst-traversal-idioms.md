@@ -25,11 +25,18 @@ whenever you need *where* something is in the source, or want to match on typed
 syntax kinds — i.e. AST construction, diagnostics, rename, projection.
 
 ```moonbit
-match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
-  Some(marker) => ...   // positioned, typed
+match node.direct_token_of_kind(AtxHeadingMarkerToken.to_raw()) {
+  Some(prefix) => ...   // positioned ATX `#` prefix
+  None => ...
+}
+match node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) {
+  Some(underline) => ... // positioned `=` / `-` underline
   None => ...
 }
 ```
+
+Heading form is encoded by these distinct token kinds; consumers do not need
+to infer it from token text or source position.
 
 ## 2. `CstFold` — memoized positioned catamorphism
 

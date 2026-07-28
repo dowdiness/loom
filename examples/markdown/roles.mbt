@@ -94,7 +94,8 @@ fn markdown_role_for_token(
   token_kind : SyntaxKind,
 ) -> MarkdownRole? {
   match (parent_kind, token_kind) {
-    (HeadingNode, HeadingMarkerToken) => Some(HeadingMarker)
+    (HeadingNode, AtxHeadingMarkerToken | SetextHeadingUnderlineToken) =>
+      Some(HeadingMarker)
     (HeadingNode, TextToken) => Some(HeadingText)
     (ListItemNode, ListMarkerToken | OrderedListMarkerToken) => Some(ListMarker)
     (ListItemNode, TextToken) => Some(ListContent)

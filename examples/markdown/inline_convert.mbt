@@ -197,7 +197,8 @@ fn convert_inline_children_skip(
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
           }
-          HeadingMarkerToken
+          AtxHeadingMarkerToken
+          | SetextHeadingUnderlineToken
           | ListMarkerToken
           | OrderedListMarkerToken
           | BlankLineToken

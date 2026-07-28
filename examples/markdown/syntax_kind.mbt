@@ -1,7 +1,7 @@
 ///|
 pub(all) enum SyntaxKind {
   // Token kinds
-  HeadingMarkerToken
+  AtxHeadingMarkerToken
   ListMarkerToken
   CodeFenceOpenToken
   CodeFenceCloseToken
@@ -24,6 +24,7 @@ pub(all) enum SyntaxKind {
   ThematicBreakToken
   HtmlBlockOpenToken
   HtmlTextToken
+  SetextHeadingUnderlineToken
   // Node kinds
   DocumentNode
   HeadingNode
@@ -50,7 +51,7 @@ pub impl Show for SyntaxKind with fn output(self, logger) {
 ///|
 pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
   match self {
-    HeadingMarkerToken
+    AtxHeadingMarkerToken
     | ListMarkerToken
     | CodeFenceOpenToken
     | CodeFenceCloseToken
@@ -72,7 +73,8 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | BlockQuoteMarkerToken
     | ThematicBreakToken
     | HtmlBlockOpenToken
-    | HtmlTextToken => true
+    | HtmlTextToken
+    | SetextHeadingUnderlineToken => true
     _ => false
   }
 }
@@ -81,7 +83,7 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
 pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
   @seam.RawKind(
     match self {
-      HeadingMarkerToken => 0
+      AtxHeadingMarkerToken => 0
       ListMarkerToken => 1
       CodeFenceOpenToken => 2
       CodeFenceCloseToken => 3
@@ -119,6 +121,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       HtmlBlockOpenToken => 35
       HtmlTextToken => 36
       HtmlBlockNode => 37
+      SetextHeadingUnderlineToken => 38
     },
   )
 }
@@ -126,7 +129,7 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
 ///|
 pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
   match raw.0 {
-    0 => HeadingMarkerToken
+    0 => AtxHeadingMarkerToken
     1 => ListMarkerToken
     2 => CodeFenceOpenToken
     3 => CodeFenceCloseToken
@@ -164,6 +167,7 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     35 => HtmlBlockOpenToken
     36 => HtmlTextToken
     37 => HtmlBlockNode
+    38 => SetextHeadingUnderlineToken
     _ => ErrorNode
   }
 }

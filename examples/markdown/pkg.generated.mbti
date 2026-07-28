@@ -161,7 +161,7 @@ pub fn OrderedListMarker::start(Self) -> Int
 pub fn OrderedListMarker::text(Self) -> String
 
 pub(all) enum SyntaxKind {
-  HeadingMarkerToken
+  AtxHeadingMarkerToken
   ListMarkerToken
   CodeFenceOpenToken
   CodeFenceCloseToken
@@ -184,6 +184,7 @@ pub(all) enum SyntaxKind {
   ThematicBreakToken
   HtmlBlockOpenToken
   HtmlTextToken
+  SetextHeadingUnderlineToken
   DocumentNode
   HeadingNode
   ParagraphNode
