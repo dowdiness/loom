@@ -58,12 +58,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: perf-base
+          persist-credentials: false
           submodules: recursive
       - name: Checkout head
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: perf-head
+          persist-credentials: false
           submodules: recursive
       - name: Install MoonBit
         env:
