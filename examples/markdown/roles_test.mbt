@@ -164,6 +164,27 @@ test "markdown roles expose source-backed recovery without diagnostics" {
 }
 
 ///|
+test "markdown roles omit block quote wrapper but project supported descendants" {
+  let roles = markdown_test_roles("> # heading\n")
+  let expected : Array[(MarkdownRole, Int, Int)] = [
+    (HeadingMarker, 2, 4),
+    (HeadingText, 4, 11),
+  ]
+  guard markdown_test_observations(roles) == expected else {
+    fail("expected block quote marker omission with nested heading roles")
+  }
+}
+
+///|
+test "markdown roles omit unsupported thematic break and HTML wrappers" {
+  let thematic_break = markdown_test_roles("---\n")
+  let html = markdown_test_roles("<div>\ntext\n</div>\n")
+  guard thematic_break.is_empty() && html.is_empty() else {
+    fail("expected unsupported wrapper constructs to produce no roles")
+  }
+}
+
+///|
 test "markdown role exports use stable lower-kebab names" {
   let sources = [
     "## text\n", "- item\n", "```js\ncode\n```\n", "`code`\n", "**bold**\n", "[text](page)\n",

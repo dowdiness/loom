@@ -207,12 +207,14 @@ their enclosing heading, list, or link context. Link destination classification
 uses ordered CST elements, so balanced inner parentheses remain destinations
 while only the outer parentheses are punctuation.
 
-Trivia, EOF, ordinary unclassified paragraph text, and unsupported HTML,
-block-quote, and thematic-break constructs are omitted. This prototype does
-not infer or create diagnostics: the current Markdown grammar preserves some
-recovered forms without reporting them, and parser diagnostics remain a
-separate current-state view on `parser.diagnostics()`. Diagnostic policy is a
-separate CommonMark-aware task.
+Trivia, EOF, and ordinary unclassified paragraph text are omitted. The
+projector assigns no roles to HTML blocks, thematic breaks, or block-quote
+markers. Block quotes remain transparent containers: supported descendants,
+such as a nested heading, still produce their normal roles without acquiring a
+block-quote role. This prototype does not infer or create diagnostics: the
+current Markdown grammar preserves some recovered forms without reporting
+them, and parser diagnostics remain a separate current-state view on
+`parser.diagnostics()`. Diagnostic policy is a separate CommonMark-aware task.
 
 ```mbt check
 ///|
