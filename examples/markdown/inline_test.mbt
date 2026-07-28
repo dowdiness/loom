@@ -55,6 +55,46 @@ test "inline: escaped emphasis recovery handles non-BMP flanking text" {
 }
 
 ///|
+test "inline: escaped emphasis recovery preserves state transitions" {
+  inspect(
+    parse("\\*a b**\n"),
+    content="Document([Paragraph([Text(\"*a b\"), Error(\"**\")])])",
+  )
+  inspect(
+    parse("\\*\\*literal**\n"),
+    content="Document([Paragraph([Text(\"**literal**\")])])",
+  )
+  inspect(
+    parse("\\*a \\*b***\n"),
+    content="Document([Paragraph([Text(\"*a *b**\"), Error(\"*\")])])",
+  )
+  inspect(
+    parse("\\*a \\*b\nc**\n"),
+    content="Document([Paragraph([Text(\"*a *b\"), Text(\" \"), Text(\"c\"), Error(\"**\")])])",
+  )
+  inspect(
+    parse("\\*a [oops tail*\n"),
+    content="Document([Paragraph([Text(\"*a \"), Error(\"[\"), Text(\"oops tail\"), Error(\"*\")])])",
+  )
+}
+
+///|
+test "inline: escaped emphasis recovery stays container-local" {
+  inspect(
+    parse("\\*a [x**](/) b*\n"),
+    content="Document([Paragraph([Text(\"*a \"), Link([Text(\"x\"), Error(\"**\")], \"/\"), Text(\" b*\")])])",
+  )
+  inspect(
+    parse("[\\*\\*😈**](/)\n"),
+    content="Document([Paragraph([Link([Text(\"**😈**\")], \"/\")])])",
+  )
+  inspect(
+    parse("- \\*a \\*b**\n"),
+    content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b\"), Text(\"**\")])])])",
+  )
+}
+
+///|
 test "inline: italic can contain bold" {
   let block = parse("*foo **bar** baz*\n")
   inspect(

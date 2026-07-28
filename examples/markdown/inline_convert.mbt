@@ -37,55 +37,83 @@ fn emphasis_recovery_can_close(source : String, start : Int, end : Int) -> Bool 
 }
 
 ///|
-/// True when an unmatched emphasis recovery node closes a literal run whose
-/// opener was backslash-escaped on the same inline line. The CST keeps the
-/// ErrorNode for lossless recovery; the semantic Inline projection emits text.
-fn recovery_closes_escaped_emphasis(node : @seam.SyntaxNode) -> Bool {
-  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
-  guard kind == ErrorNode && (node.text() == "*" || node.text() == "**") else {
-    return false
-  }
-  let source = syntax_root(node).text()
-  guard emphasis_recovery_can_close(source, node.start(), node.end()) else {
-    return false
-  }
-  guard node.parent() is Some(parent) else { return false }
-  let mut escaped_openers = 0
-  for element in parent.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) => {
-        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
-        if token_kind == TextToken {
-          let mut offset = token.start()
-          while offset < token.end() {
-            match char_at(source, offset) {
-              Some('\n') | Some('\r') => escaped_openers = 0
-              Some('*') if preceded_by_odd_backslashes(source, offset) =>
-                escaped_openers = escaped_openers + 1
-              _ => ()
-            }
-            offset = offset + 1
+/// State for one left-to-right pass over an inline parent's direct elements.
+/// `source` is populated lazily only when an eligible recovery node needs
+/// flanking-character classification.
+priv struct EscapedEmphasisRecoveryState {
+  escaped_openers : Int
+  trailing_backslashes : Int
+  source : String?
+}
+
+///|
+fn escaped_emphasis_recovery_start() -> EscapedEmphasisRecoveryState {
+  { escaped_openers: 0, trailing_backslashes: 0, source: None }
+}
+
+///|
+fn escaped_emphasis_recovery_after_token(
+  state : EscapedEmphasisRecoveryState,
+  kind : SyntaxKind,
+  text : String,
+) -> EscapedEmphasisRecoveryState {
+  if kind == TextToken {
+    let mut escaped_openers = state.escaped_openers
+    let mut trailing_backslashes = state.trailing_backslashes
+    for offset = 0; offset < text.length(); offset = offset + 1 {
+      match text.code_unit_at(offset).to_int() {
+        0x5C => trailing_backslashes = trailing_backslashes + 1
+        0x2A => {
+          if trailing_backslashes % 2 == 1 {
+            escaped_openers = escaped_openers + 1
           }
-        } else if token_kind == NewlineToken ||
-          token_kind == ErrorToken ||
-          token_kind == ErrorNode {
+          trailing_backslashes = 0
+        }
+        0x0A | 0x0D => {
           escaped_openers = 0
+          trailing_backslashes = 0
         }
-      }
-      @seam.SyntaxElement::Node(child) => {
-        let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
-        if child_kind == ErrorNode &&
-          child.start() == node.start() &&
-          child.end() == node.end() {
-          return escaped_openers >= node.text().length()
-        }
-        if child_kind == ErrorNode {
-          escaped_openers = 0
-        }
+        _ => trailing_backslashes = 0
       }
     }
+    { escaped_openers, trailing_backslashes, source: state.source }
+  } else if kind == NewlineToken || kind == ErrorToken || kind == ErrorNode {
+    { escaped_openers: 0, trailing_backslashes: 0, source: state.source }
+  } else {
+    { ..state, trailing_backslashes: 0 }
   }
-  false
+}
+
+///|
+/// Classify an ErrorNode using the state accumulated before it, then reset the
+/// opener count exactly as the former sibling rescan did after any ErrorNode.
+fn escaped_emphasis_recovery_after_node(
+  state : EscapedEmphasisRecoveryState,
+  parent : @seam.SyntaxNode,
+  node : @seam.SyntaxNode,
+) -> (EscapedEmphasisRecoveryState, Bool) {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  if kind != ErrorNode {
+    return ({ ..state, trailing_backslashes: 0 }, false)
+  }
+  let text = node.text()
+  let candidate = (text == "*" || text == "**") &&
+    state.escaped_openers >= text.length()
+  let (source, literal) = if candidate {
+    let source = state.source.unwrap_or_else(fn() { parent.text() })
+    let base = parent.start()
+    (
+      Some(source),
+      emphasis_recovery_can_close(
+        source,
+        node.start() - base,
+        node.end() - base,
+      ),
+    )
+  } else {
+    (state.source, false)
+  }
+  ({ escaped_openers: 0, trailing_backslashes: 0, source }, literal)
 }
 
 ///|
@@ -145,6 +173,7 @@ fn convert_inline_children_skip(
   let mut pending_newline = false
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
+  let mut emphasis_recovery = escaped_emphasis_recovery_start()
   fn push_inline(item : Inline) -> Unit {
     let was_pending = pending_newline
     if pending_newline {
@@ -182,10 +211,14 @@ fn convert_inline_children_skip(
     }
     inlines.push(item)
   }
-  for elem in node.all_children() {
+  for elem in node.direct_elements_iter() {
     match elem {
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
+        let tok_text = tok.text()
+        emphasis_recovery = escaped_emphasis_recovery_after_token(
+          emphasis_recovery, tok_kind, tok_text,
+        )
         if skip_kind is Some(k) && tok_kind == k {
           preceding_text_ends_escaped = false
           previous_was_escaped_backtick = false
@@ -193,23 +226,23 @@ fn convert_inline_children_skip(
         }
         match tok_kind {
           TextToken => {
-            let text = strip_backslash_escapes(tok.text())
+            let text = strip_backslash_escapes(tok_text)
             if previous_was_escaped_backtick {
               append_inline_text(inlines, text)
             } else {
               push_inline(Inline::Text(text))
             }
             preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-              tok.text(),
+              tok_text,
             )
             previous_was_escaped_backtick = false
           }
           BacktickToken => {
             let escaped = preceding_text_ends_escaped
             if escaped {
-              append_literal_backtick_text(inlines, tok.text(), true)
+              append_literal_backtick_text(inlines, tok_text, true)
             } else {
-              push_inline(Inline::Text(tok.text()))
+              push_inline(Inline::Text(tok_text))
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
@@ -232,7 +265,7 @@ fn convert_inline_children_skip(
             previous_was_escaped_backtick = false
           }
           _ => {
-            match inline_text_from_token_kind(tok_kind, tok.text()) {
+            match inline_text_from_token_kind(tok_kind, tok_text) {
               Some(text) => push_inline(Inline::Text(text))
               None => ()
             }
@@ -242,6 +275,10 @@ fn convert_inline_children_skip(
         }
       }
       @seam.SyntaxElement::Node(child) => {
+        let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
+          emphasis_recovery, node, child,
+        )
+        emphasis_recovery = next_recovery
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         let was_pending = pending_newline
@@ -263,7 +300,7 @@ fn convert_inline_children_skip(
           pending_newline = false
         }
         let before = inlines.length()
-        if recovery_closes_escaped_emphasis(child) {
+        if recovered_literal {
           append_inline_text(inlines, child.text())
         } else {
           convert_inline_node(child, inlines)
@@ -319,6 +356,7 @@ fn convert_direct_inline_children_with_newline(
   let mut pending_newline = false
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
+  let mut emphasis_recovery = escaped_emphasis_recovery_start()
   fn flush_newline() -> Unit {
     if pending_newline {
       // Trim trailing spaces from line before soft break
@@ -339,6 +377,10 @@ fn convert_direct_inline_children_with_newline(
     match elem {
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
+        let tok_text = tok.text()
+        emphasis_recovery = escaped_emphasis_recovery_after_token(
+          emphasis_recovery, tok_kind, tok_text,
+        )
         match tok_kind {
           NewlineToken => {
             pending_newline = true
@@ -348,7 +390,7 @@ fn convert_direct_inline_children_with_newline(
           TextToken => {
             let was_pending = pending_newline
             flush_newline()
-            let text = strip_backslash_escapes(tok.text())
+            let text = strip_backslash_escapes(tok_text)
             let text = if was_pending {
               text.trim_start(chars=" ".view()).to_owned()
             } else {
@@ -360,19 +402,19 @@ fn convert_direct_inline_children_with_newline(
               inlines.push(Inline::Text(text))
             }
             preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-              tok.text(),
+              tok_text,
             )
             previous_was_escaped_backtick = false
           }
           BacktickToken => {
             flush_newline()
             let escaped = preceding_text_ends_escaped
-            append_literal_backtick_text(inlines, tok.text(), escaped)
+            append_literal_backtick_text(inlines, tok_text, escaped)
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
           }
           _ => {
-            match inline_text_from_token_kind(tok_kind, tok.text()) {
+            match inline_text_from_token_kind(tok_kind, tok_text) {
               Some(text) => {
                 let was_pending = pending_newline
                 flush_newline()
@@ -391,10 +433,14 @@ fn convert_direct_inline_children_with_newline(
         }
       }
       @seam.SyntaxElement::Node(child) => {
+        let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
+          emphasis_recovery, node, child,
+        )
+        emphasis_recovery = next_recovery
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         let converted : Array[Inline] = []
-        if recovery_closes_escaped_emphasis(child) {
+        if recovered_literal {
           converted.push(Inline::Text(child.text()))
         } else {
           convert_inline_node(child, converted)
@@ -452,10 +498,15 @@ fn convert_inline_node(
       let mut past_bracket = false
       let mut preceding_text_ends_escaped = false
       let mut previous_was_escaped_backtick = false
-      for inner_elem in child.all_children() {
+      let mut emphasis_recovery = escaped_emphasis_recovery_start()
+      for inner_elem in child.direct_elements_iter() {
         match inner_elem {
           @seam.SyntaxElement::Token(t) => {
             let k : SyntaxKind = @seam.FromRawKind::from_raw(t.kind())
+            let text = t.text()
+            emphasis_recovery = escaped_emphasis_recovery_after_token(
+              emphasis_recovery, k, text,
+            )
             match k {
               LeftBracketToken if !past_bracket && url_depth == 0 => {
                 preceding_text_ends_escaped = false
@@ -469,34 +520,34 @@ fn convert_inline_node(
               LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
               LeftParenToken if past_bracket => {
                 url_depth = url_depth + 1
-                url_buf.write_string(t.text())
+                url_buf.write_string(text)
               }
               RightParenToken if url_depth > 1 => {
                 url_depth = url_depth - 1
-                url_buf.write_string(t.text())
+                url_buf.write_string(text)
               }
               RightParenToken if url_depth == 1 => url_depth = 0
-              _ if url_depth > 0 => url_buf.write_string(t.text())
+              _ if url_depth > 0 => url_buf.write_string(text)
               TextToken if !past_bracket => {
-                let text = strip_backslash_escapes(t.text())
+                let unescaped = strip_backslash_escapes(text)
                 if previous_was_escaped_backtick {
-                  append_inline_text(display, text)
+                  append_inline_text(display, unescaped)
                 } else {
-                  display.push(Inline::Text(text))
+                  display.push(Inline::Text(unescaped))
                 }
                 preceding_text_ends_escaped = text_ends_with_odd_backslashes(
-                  t.text(),
+                  text,
                 )
                 previous_was_escaped_backtick = false
               }
               BacktickToken if !past_bracket => {
                 let escaped = preceding_text_ends_escaped
-                append_literal_backtick_text(display, t.text(), escaped)
+                append_literal_backtick_text(display, text, escaped)
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = escaped
               }
               ErrorToken | ErrorNode if !past_bracket => {
-                display.push(Inline::Text(t.text()))
+                display.push(Inline::Text(text))
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = false
               }
@@ -507,11 +558,15 @@ fn convert_inline_node(
             }
           }
           @seam.SyntaxElement::Node(inner_node) => {
+            let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
+              emphasis_recovery, child, inner_node,
+            )
+            emphasis_recovery = next_recovery
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
             if !past_bracket && url_depth == 0 {
               // Inline markup inside link display text
-              if recovery_closes_escaped_emphasis(inner_node) {
+              if recovered_literal {
                 append_inline_text(display, inner_node.text())
               } else {
                 convert_inline_node(inner_node, display)

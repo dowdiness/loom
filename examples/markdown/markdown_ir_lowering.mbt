@@ -589,25 +589,14 @@ fn normalize_inline_code_value(value : String) -> String {
 ///|
 fn lower_code_span_with_source(
   node : @seam.SyntaxNode,
-  source : String,
+  source : String?,
 ) -> (String, MarkdownIROrigin?) {
-  let mut delimiter_count = 0
-  for element in node.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) =>
-        if @seam.FromRawKind::from_raw(token.kind()) is BacktickToken {
-          delimiter_count = delimiter_count + 1
-        }
-      _ => ()
-    }
-  }
-  let mut seen_delimiters = 0
   let mut crosses_structural_prefix = false
   let buf = StringBuilder::new()
   let content_tokens : Array[MarkdownIROrigin] = []
   let mut continuation_source : String? = None
   let mut continuation_content_column = 0
-  for element in node.all_children() {
+  for element in node.direct_elements_iter() {
     match element {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
@@ -618,6 +607,9 @@ fn lower_code_span_with_source(
             let source = match continuation_source {
               Some(source) => source
               None => {
+                let source = source.unwrap_or_else(fn() {
+                  syntax_root(node).text()
+                })
                 continuation_content_column = nearest_container_content_column(
                   node, source,
                 )
@@ -636,13 +628,11 @@ fn lower_code_span_with_source(
             }
             buf.write_string(stripped)
           }
-          BacktickToken => {
-            seen_delimiters = seen_delimiters + 1
-            if seen_delimiters != 1 && seen_delimiters != delimiter_count {
+          BacktickToken =>
+            if token.start() != node.start() && token.end() != node.end() {
               buf.write_string(token.text())
               content_tokens.push(origin_from_token(token))
             }
-          }
           _ => {
             buf.write_string(token.text())
             content_tokens.push(origin_from_token(token))
@@ -662,7 +652,7 @@ fn lower_code_span_with_source(
 
 ///|
 fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
-  lower_code_span_with_source(node, syntax_root(node).text())
+  lower_code_span_with_source(node, None)
 }
 
 ///|
@@ -846,7 +836,7 @@ fn lower_inline_node_with_diags(
     InlineCodeNode => {
       let (value, content_origin) = lower_code_span_with_source(
         node,
-        context.source,
+        Some(context.source),
       )
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }

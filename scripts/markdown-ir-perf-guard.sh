@@ -5,14 +5,17 @@
 # both the MarkdownIR wall time and its within-run ratio to the direct Block
 # control to regress beyond the configured threshold. An independent raw-time
 # hard ceiling catches large shared-path slowdowns even when that ratio is flat.
-# A case blocks a PR only when a bad signal persists in all three trials. The
-# weekly detector keeps the more sensitive absolute-baseline check.
+# Direct Block lowering has its own raw-time threshold so a slow control cannot
+# make the normalized MarkdownIR signal look healthier. A case blocks a PR only
+# when a bad signal persists in all three trials. The weekly detector keeps the
+# more sensitive absolute-baseline check.
 
 set -euo pipefail
 
 readonly trial_pairs=3
 readonly threshold_percent="${MARKDOWN_IR_PERF_THRESHOLD_PERCENT:-50}"
 readonly hard_ceiling_percent="${MARKDOWN_IR_PERF_HARD_CEILING_PERCENT:-100}"
+readonly direct_threshold_percent="${MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT:-50}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
 readonly scaled_direct='markdown: 50x doc - lowering SyntaxNode -> Block'
@@ -28,6 +31,8 @@ means the comparison input or verifier is invalid.
 
 MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100 is the default inclusive raw-slowdown
 ceiling. Override it with a positive percentage when runner policy requires it.
+MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=50 is the default persistent direct
+Block-lowering slowdown threshold.
 EOF
 }
 
@@ -46,6 +51,9 @@ fi
 if [[ ! "$hard_ceiling_percent" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
   ! awk -v value="$hard_ceiling_percent" 'BEGIN { exit !(value > 0) }'; then
   infra_fail "MARKDOWN_IR_PERF_HARD_CEILING_PERCENT must be a positive number"
+fi
+if [[ ! "$direct_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  infra_fail "MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
 
 work_dir=$(mktemp -d)
@@ -132,10 +140,14 @@ read_value() {
 
 bad_realistic=0
 bad_scaled=0
+bad_direct_realistic=0
+bad_direct_scaled=0
 case_bad=0
+case_direct_bad=0
 
-printf 'MarkdownIR PR performance guard (threshold: +%s%% raw+normalized; hard ceiling: >=+%s%% raw; persistence: %s/%s)\n' \
-  "$threshold_percent" "$hard_ceiling_percent" "$trial_pairs" "$trial_pairs"
+printf 'Markdown lowering PR performance guard (IR threshold: +%s%% raw+normalized; IR hard ceiling: >=+%s%% raw; direct threshold: +%s%% raw; persistence: %s/%s)\n' \
+  "$threshold_percent" "$hard_ceiling_percent" "$direct_threshold_percent" \
+  "$trial_pairs" "$trial_pairs"
 
 check_case() {
   local trial="$1" label="$2" direct_name="$3" ir_name="$4"
@@ -150,51 +162,74 @@ check_case() {
     -v bd="$base_direct_value" -v bi="$base_ir_value" \
     -v hd="$head_direct_value" -v hi="$head_ir_value" \
     -v threshold="$threshold_percent" \
-    -v hard_ceiling="$hard_ceiling_percent" '
+    -v hard_ceiling="$hard_ceiling_percent" \
+    -v direct_threshold="$direct_threshold_percent" '
       BEGIN {
         if (bd <= 0 || bi <= 0 || hd <= 0 || hi <= 0) exit 2
         raw = (hi / bi - 1) * 100
         normalized = ((hi / hd) / (bi / bd) - 1) * 100
+        direct = (hd / bd - 1) * 100
         relative_bad = raw > threshold && normalized > threshold
         hard_bad = raw >= hard_ceiling
+        direct_bad = direct > direct_threshold
         bad = relative_bad || hard_bad
-        printf "%.1f\t%.1f\t%d\t%d", raw, normalized, bad, hard_bad
+        printf "%.1f\t%.1f\t%d\t%d\t%.1f\t%d", raw, normalized, bad, hard_bad, direct, direct_bad
       }
     ') || \
     infra_fail "non-positive or invalid measurement in trial $trial ($label)"
 
-  local raw_percent normalized_percent bad hard_bad status
-  IFS=$'\t' read -r raw_percent normalized_percent bad hard_bad <<< "$metrics"
+  local raw_percent normalized_percent bad hard_bad direct_percent direct_bad status
+  IFS=$'\t' read -r raw_percent normalized_percent bad hard_bad direct_percent direct_bad <<< "$metrics"
   status=ok
   if [[ "$hard_bad" == 1 ]]; then
     status='BAD (hard ceiling)'
   elif [[ "$bad" == 1 ]]; then
     status=BAD
+  elif [[ "$direct_bad" == 1 ]]; then
+    status='BAD (direct)'
   fi
-  printf '  trial %s %-9s IR base/head %s/%s ns (%+.1f%%); normalized %+.1f%%; %s\n' \
-    "$trial" "$label" "$base_ir_value" "$head_ir_value" \
-    "$raw_percent" "$normalized_percent" "$status"
+  printf '  trial %s %-9s direct base/head %s/%s ns (%+.1f%%); IR %s/%s ns (%+.1f%%); normalized %+.1f%%; %s\n' \
+    "$trial" "$label" "$base_direct_value" "$head_direct_value" \
+    "$direct_percent" "$base_ir_value" "$head_ir_value" "$raw_percent" \
+    "$normalized_percent" "$status"
   case_bad="$bad"
+  case_direct_bad="$direct_bad"
 }
 
 for trial in 1 2 3; do
   check_case "$trial" realistic "$realistic_direct" "$realistic_ir"
   bad_realistic=$((bad_realistic + case_bad))
+  bad_direct_realistic=$((bad_direct_realistic + case_direct_bad))
   check_case "$trial" 50x "$scaled_direct" "$scaled_ir"
   bad_scaled=$((bad_scaled + case_bad))
+  bad_direct_scaled=$((bad_direct_scaled + case_direct_bad))
 done
 
+failed=0
 if [[ "$bad_realistic" -eq "$trial_pairs" || "$bad_scaled" -eq "$trial_pairs" ]]; then
   printf 'FAIL: persistent MarkdownIR lowering regression'
   [[ "$bad_realistic" -eq "$trial_pairs" ]] && printf ' [realistic]'
   [[ "$bad_scaled" -eq "$trial_pairs" ]] && printf ' [50x]'
   printf '\n'
+  failed=1
+fi
+if [[ "$bad_direct_realistic" -eq "$trial_pairs" ||
+      "$bad_direct_scaled" -eq "$trial_pairs" ]]; then
+  printf 'FAIL: persistent direct Block lowering regression'
+  [[ "$bad_direct_realistic" -eq "$trial_pairs" ]] && printf ' [realistic]'
+  [[ "$bad_direct_scaled" -eq "$trial_pairs" ]] && printf ' [50x]'
+  printf '\n'
+  failed=1
+fi
+if [[ "$failed" -eq 1 ]]; then
   exit 1
 fi
 
-printf 'PASS: no persistent MarkdownIR lowering regression'
-if [[ "$bad_realistic" -gt 0 || "$bad_scaled" -gt 0 ]]; then
-  printf ' (non-persistent observations: realistic=%s/%s, 50x=%s/%s)' \
-    "$bad_realistic" "$trial_pairs" "$bad_scaled" "$trial_pairs"
+printf 'PASS: no persistent Markdown lowering regression'
+if [[ "$bad_realistic" -gt 0 || "$bad_scaled" -gt 0 ||
+      "$bad_direct_realistic" -gt 0 || "$bad_direct_scaled" -gt 0 ]]; then
+  printf ' (non-persistent observations: IR realistic=%s/%s, IR 50x=%s/%s, direct realistic=%s/%s, direct 50x=%s/%s)' \
+    "$bad_realistic" "$trial_pairs" "$bad_scaled" "$trial_pairs" \
+    "$bad_direct_realistic" "$trial_pairs" "$bad_direct_scaled" "$trial_pairs"
 fi
 printf '\n'

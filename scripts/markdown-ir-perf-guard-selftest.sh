@@ -61,6 +61,8 @@ for trial in 1 2 3; do
     "100 us" "200 us" "1 ms" "1.3 ms"
   write_output "$fixture/scaled-regression-$trial" \
     "100 us" "130 us" "1 ms" "2 ms"
+  write_output "$fixture/direct-regression-$trial" \
+    "160 us" "100 us" "1.6 ms" "1 ms"
   write_output "$fixture/drift-$trial" "200 us" "200 us" "2 ms" "2 ms"
   write_output "$fixture/control-noise-$trial" "50 us" "100 us" "0.5 ms" "1 ms"
 done
@@ -69,7 +71,7 @@ run_case 0 \
   "$fixture/base-1" "$fixture/green-1" \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
-assert_stdout_contains 'PASS: no persistent MarkdownIR lowering regression'
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 
 run_case 1 \
   "$fixture/base-1" "$fixture/regression-1" \
@@ -91,12 +93,33 @@ run_case 1 \
   "$fixture/base-3" "$fixture/scaled-regression-3"
 assert_stdout_contains 'FAIL: persistent MarkdownIR lowering regression [50x]'
 
+# A persistent direct-only slowdown is independently actionable. Otherwise it
+# improves the normalized MarkdownIR ratio and can hide the regressed control.
+run_case 1 \
+  "$fixture/base-1" "$fixture/direct-regression-1" \
+  "$fixture/base-2" "$fixture/direct-regression-2" \
+  "$fixture/base-3" "$fixture/direct-regression-3"
+assert_stdout_contains 'FAIL: persistent direct Block lowering regression'
+assert_stdout_contains 'realistic'
+assert_stdout_contains '50x'
+
+# Direct regressions must also persist in all three trials.
+run_case 0 \
+  "$fixture/base-1" "$fixture/direct-regression-1" \
+  "$fixture/base-2" "$fixture/direct-regression-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
+assert_stdout_contains 'direct realistic=2/3'
+assert_stdout_contains 'direct 50x=2/3'
+
 # Two bad trials and one healthy trial are noise, not a persistent regression.
 run_case 0 \
   "$fixture/base-1" "$fixture/regression-1" \
   "$fixture/base-2" "$fixture/regression-2" \
   "$fixture/base-3" "$fixture/green-3"
-assert_stdout_contains 'PASS: no persistent MarkdownIR lowering regression'
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
+assert_stdout_contains 'IR realistic=2/3'
+assert_stdout_contains 'IR 50x=2/3'
 
 # A persistent 2x shared-path slowdown must trip the independent hard ceiling,
 # even though the within-run MarkdownIR/direct ratio stays flat.
@@ -109,11 +132,12 @@ assert_stdout_contains 'hard ceiling'
 
 # The ceiling is inclusive: 2x is exactly +100% and fails above, while a
 # configured +100.1% ceiling permits the same measurements.
-MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100.1 run_case 0 \
+MARKDOWN_IR_PERF_HARD_CEILING_PERCENT=100.1 \
+MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=100.1 run_case 0 \
   "$fixture/base-1" "$fixture/drift-1" \
   "$fixture/base-2" "$fixture/drift-2" \
   "$fixture/base-3" "$fixture/drift-3"
-assert_stdout_contains 'PASS: no persistent MarkdownIR lowering regression'
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 assert_stdout_contains 'hard ceiling: >=+100.1% raw'
 
 # A noisy direct control alone cannot fail the guard: absolute IR regression is
@@ -122,7 +146,7 @@ run_case 0 \
   "$fixture/base-1" "$fixture/control-noise-1" \
   "$fixture/base-2" "$fixture/control-noise-2" \
   "$fixture/base-3" "$fixture/control-noise-3"
-assert_stdout_contains 'PASS: no persistent MarkdownIR lowering regression'
+assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
 
 cp "$fixture/base-1" "$fixture/missing"
 sed -i '/50x doc - lowering SyntaxNode -> MarkdownIR/,+1d' "$fixture/missing"
@@ -147,6 +171,12 @@ for invalid_hard_ceiling in not-a-number 0; do
     "$fixture/base-3" "$fixture/green-3"
   assert_stderr_contains 'MARKDOWN_IR_PERF_HARD_CEILING_PERCENT must be a positive number'
 done
+
+MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT must be a non-negative number'
 
 run_case 2 "$fixture/base-1" "$fixture/green-1"
 assert_stderr_contains 'exactly 3 base/head trial pairs'
