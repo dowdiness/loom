@@ -85,6 +85,7 @@ Understanding how the layers fit together. Principles only — no specific types
 
 Short records of the *why* behind significant design choices. Most recent first.
 
+- [decisions/2026-07-26-agent-readiness-certification.md](decisions/2026-07-26-agent-readiness-certification.md) — **Accepted** fail-closed, revocable implementation certification and paginated audit policy
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
 - [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Accepted** removal of the public parser-local `ParserContext` lex-mode API and follow-up removal of its dead private state
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
@@ -196,6 +197,7 @@ Point-in-time diagnoses. Dated snapshots — verify against current code before 
 
 - [development/managing-modules.md](development/managing-modules.md) — multi-module workflow, per-module development, publishing to mooncakes.io
 - [development/agent-docs-protocol.md](development/agent-docs-protocol.md) — coding-agent workflow for completing plans, deciding when ADRs are required, and keeping the docs index consistent
+- [development/agent-readiness.md](development/agent-readiness.md) — two-step `ready-for-agent` certification policy, validator, audit workflow, and manual/security guidance
 - [../loomgen/README.md](../loomgen/README.md) — code generator for loom language plumbing (`#loom.*` annotated Token → `syntax_kind.g.mbt`)
 - [../loomgen/HANDOFF.md](../loomgen/HANDOFF.md) — session handoff context for loomgen Phase 1 implementation
 - [decisions-needed.md](decisions-needed.md) — triage items flagged `needs-human-review`
