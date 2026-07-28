@@ -34,8 +34,89 @@ jobs:
         uses: actions/checkout@v5
       - name: Detector policy self-test
         run: bash scripts/bench-check-selftest.sh
+      - name: MarkdownIR performance guard self-test
+        run: bash scripts/markdown-ir-perf-guard-selftest.sh
       - name: Validate checked-in detector policy
         run: bash bench-check.sh --validate
+
+  markdown-ir-perf-guard:
+    name: MarkdownIR Performance Guard (${{ matrix.target }})
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [wasm-gc, js]
+    env:
+      BENCH_TARGET: ${{ matrix.target }}
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: perf-base
+          persist-credentials: false
+          submodules: recursive
+      - name: Checkout head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: perf-head
+          persist-credentials: false
+          submodules: recursive
+      - name: Install MoonBit
+        env:
+          MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify MoonBit
+        run: moon version --all
+      - name: Resolve base and head dependencies
+        run: |
+          (cd perf-base && moon update)
+          (cd perf-head && moon update)
+      # Compare base/head on one runner for each backend matrix leg. Alternate
+      # execution order to cancel thermal and host-load drift. The checker
+      # blocks persistent MarkdownIR-specific slowdowns and catastrophic
+      # common-path slowdowns; the weekly detector remains the more sensitive
+      # absolute-baseline alert.
+      - name: Compare MarkdownIR lowering performance
+        run: |
+          output_dir="$RUNNER_TEMP/markdown-ir-perf-guard/$BENCH_TARGET"
+          mkdir -p "$output_dir"
+
+          run_trial() {
+            label="$1"
+            checkout="$2"
+            output="$3"
+            echo "Running $label"
+            if ! (cd "$checkout" && moon bench --release --target "$BENCH_TARGET" \
+              -p dowdiness/markdown -f benchmark_test.mbt) \
+              > "$output" 2>&1; then
+              cat "$output"
+              return 1
+            fi
+          }
+
+          for trial in 1 2 3; do
+            if (( trial % 2 == 1 )); then
+              run_trial "$BENCH_TARGET base trial $trial" perf-base "$output_dir/base-$trial.txt"
+              run_trial "$BENCH_TARGET head trial $trial" perf-head "$output_dir/head-$trial.txt"
+            else
+              run_trial "$BENCH_TARGET head trial $trial" perf-head "$output_dir/head-$trial.txt"
+              run_trial "$BENCH_TARGET base trial $trial" perf-base "$output_dir/base-$trial.txt"
+            fi
+          done
+
+          echo "Checking $BENCH_TARGET MarkdownIR lowering performance"
+          bash perf-head/scripts/markdown-ir-perf-guard.sh \
+            "$output_dir/base-1.txt" "$output_dir/head-1.txt" \
+            "$output_dir/base-2.txt" "$output_dir/head-2.txt" \
+            "$output_dir/base-3.txt" "$output_dir/head-3.txt"
 
   docs-check:
     name: Docs Health Check
@@ -564,6 +645,7 @@ jobs:
     needs:
       - agent-readiness-selftest
       - bench-detector-selftest
+      - markdown-ir-perf-guard
       - dep-check
       - docs-check
       - mbti-check
@@ -583,6 +665,11 @@ jobs:
           fi
           if [[ "${{ needs.bench-detector-selftest.result }}" != "success" ]]; then
             echo "bench-detector-selftest job failed"
+            exit 1
+          fi
+          if [[ "${{ needs.markdown-ir-perf-guard.result }}" != "success" && \
+                "${{ needs.markdown-ir-perf-guard.result }}" != "skipped" ]]; then
+            echo "markdown-ir-perf-guard job failed"
             exit 1
           fi
           if [[ "${{ needs.dep-check.result }}" != "success" ]]; then

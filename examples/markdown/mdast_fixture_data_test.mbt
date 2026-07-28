@@ -2,16 +2,40 @@
 // Do not edit expected JSON by hand; edit fixture metadata in the generator,
 // then regenerate. The embedded data keeps `moon test` hermetic: no Node/npm or
 // network access is needed during normal MoonBit CI.
-// Baseline: pass=14, xfail=0, skip=0.
+// Baseline: pass=18, xfail=0, skip=0.
 
 ///|
 fn mdast_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (14, 0, 0)
+  (18, 0, 0)
 }
 
 ///|
 fn mdast_fixture_cases() -> Array[MdastFixture] {
   [
+    {
+      name: "backslash-escapes-012",
+      source: "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"!\\\"#$%&'()*+,-./:;<=>?@[\\\\]^_`{|}~\"}]}]}",
+      status: Pass,
+    },
+    {
+      name: "backslash-escapes-013",
+      source: "\\\t\\A\\a\\ \\3\\φ\\«\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"\\\\\\t\\\\A\\\\a\\\\ \\\\3\\\\φ\\\\«\"}]}]}",
+      status: Pass,
+    },
+    {
+      name: "backslash-escapes-014",
+      source: "\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"*not emphasized*\\n<br/> not a tag\\n[not a link](/foo)\\n`not code`\\n1. not a list\\n* not a list\\n# not a heading\\n[foo]: /url \\\"not a reference\\\"\\n&ouml; not a character entity\"}]}]}",
+      status: Pass,
+    },
+    {
+      name: "backslash-escapes-015",
+      source: "\\\\*emphasis*\n",
+      expected: "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"\\\\\"},{\"type\":\"emphasis\",\"children\":[{\"type\":\"text\",\"value\":\"emphasis\"}]}]}]}",
+      status: Pass,
+    },
     {
       name: "heading",
       source: "# Title\n",

@@ -352,7 +352,7 @@ pub impl @seam.IsEof for Token with fn is_eof(self) {
 pub impl @seam.ToRawKind for Token with fn to_raw(self) {
   @seam.RawKind(
     match self {
-      HeadingMarker(_) => 0 // HeadingMarkerToken
+      HeadingMarker(_) => 0 // AtxHeadingMarkerToken
       ListMarker => 1 // ListMarkerToken
       OrderedListMarker(_) => 29 // OrderedListMarkerToken
       BlockQuoteMarker => 31 // BlockQuoteMarkerToken
@@ -382,7 +382,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
 ///|
 test "tokens map to their corresponding syntax raw kind" {
   let cases : Array[(Token, SyntaxKind)] = [
-    (HeadingMarker(1), HeadingMarkerToken),
+    (HeadingMarker(1), AtxHeadingMarkerToken),
     (ListMarker, ListMarkerToken),
     (
       OrderedListMarker(OrderedListMarker(start=1, delimiter=Period)),

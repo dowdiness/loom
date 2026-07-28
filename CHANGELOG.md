@@ -14,6 +14,15 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Breaking `examples/markdown` CST API:** `SyntaxKind::HeadingMarkerToken`
+  has been split into `AtxHeadingMarkerToken` and
+  `SetextHeadingUnderlineToken`. Consumers that match the old variant or query
+  `direct_token_of_kind(HeadingMarkerToken.to_raw())` must query the
+  form-specific kind: use `AtxHeadingMarkerToken` for `#` prefixes and
+  `SetextHeadingUnderlineToken` for `=`/`-` underline lines.
+  `Token::HeadingMarker(Int)`, `HeadingNode`, and
+  `MarkdownRole::HeadingMarker` are unchanged.
+
 - `examples/markdown`: improved CommonMark tab handling for list and
   blockquote indentation, including tab-expanded nested list markers and
   container-relative indented code blocks.

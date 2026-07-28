@@ -116,11 +116,156 @@ fn append_inline_text_ir(
 }
 
 ///|
+/// Context for parser-recovery delimiters that remain literal because their
+/// opener was backslash-escaped. CST recovery stays lossless; this state only
+/// controls the semantic MarkdownIR projection.
+priv enum EscapedInlineRecoveryState {
+  NoEscapedInlineRecovery
+  EscapedEmphasisRecovery
+  EscapedBracketRecovery(Int)
+  AfterEscapedBracketRecovery(Int)
+  EscapedParenthesisRecovery(Int)
+}
+
+///|
+/// Immutable inputs shared by one MarkdownIR lowering pass.
+///
+/// `source` is reconstructed once at the public boundary so nested inline
+/// recovery normalization never walks and joins the entire syntax root again.
+priv struct MarkdownIRLoweringContext {
+  source : String
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
+}
+
+///|
+fn escaped_inline_recovery_after_text(
+  state : EscapedInlineRecoveryState,
+  source : String,
+  origin : MarkdownIROrigin,
+) -> EscapedInlineRecoveryState {
+  let mut next = match state {
+    AfterEscapedBracketRecovery(_) => NoEscapedInlineRecovery
+    _ => state
+  }
+  let mut offset = origin.start()
+  while offset < origin.end() {
+    match char_at(source, offset) {
+      Some('\n') | Some('\r') => next = NoEscapedInlineRecovery
+      Some('*') if preceded_by_odd_backslashes(source, offset) =>
+        match next {
+          EscapedBracketRecovery(_) | EscapedParenthesisRecovery(_) => ()
+          _ => next = EscapedEmphasisRecovery
+        }
+      Some('[') if preceded_by_odd_backslashes(source, offset) =>
+        match next {
+          EscapedBracketRecovery(depth) =>
+            next = EscapedBracketRecovery(depth + 1)
+          EscapedParenthesisRecovery(_) => ()
+          _ => next = EscapedBracketRecovery(1)
+        }
+      _ => ()
+    }
+    offset = offset + 1
+  }
+  next
+}
+
+///|
+fn escaped_inline_recovery_after_inline(
+  state : EscapedInlineRecoveryState,
+) -> EscapedInlineRecoveryState {
+  match state {
+    AfterEscapedBracketRecovery(_) => NoEscapedInlineRecovery
+    _ => state
+  }
+}
+
+///|
+fn escaped_inline_recovery_transition(
+  state : EscapedInlineRecoveryState,
+  source : String,
+  text : String,
+  origin : MarkdownIROrigin,
+) -> (EscapedInlineRecoveryState, Bool) {
+  match state {
+    EscapedEmphasisRecovery if (text == "*" || text == "**") &&
+      emphasis_recovery_can_close(source, origin.start(), origin.end()) =>
+      (NoEscapedInlineRecovery, true)
+    EscapedBracketRecovery(depth) if text == "]" =>
+      if depth == 1 {
+        (AfterEscapedBracketRecovery(origin.end()), true)
+      } else {
+        (EscapedBracketRecovery(depth - 1), true)
+      }
+    AfterEscapedBracketRecovery(previous_end) if text == "(" &&
+      origin.start() == previous_end => (EscapedParenthesisRecovery(1), true)
+    EscapedParenthesisRecovery(depth) if text == "(" =>
+      (EscapedParenthesisRecovery(depth + 1), true)
+    EscapedParenthesisRecovery(depth) if text == ")" =>
+      if depth == 1 {
+        (NoEscapedInlineRecovery, true)
+      } else {
+        (EscapedParenthesisRecovery(depth - 1), true)
+      }
+    _ => (NoEscapedInlineRecovery, false)
+  }
+}
+
+///|
+/// Reclassify only recovery artifacts proven to continue an escaped opener.
+/// Incoming diagnostics win over the contextual literal classification so
+/// callers never lose externally supplied recovery information.
+fn normalize_escaped_inline_recoveries(
+  children : Array[MarkdownIR],
+  source : String,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  let normalized : Array[MarkdownIR] = []
+  let mut state = NoEscapedInlineRecovery
+  for child in children {
+    let origin = child.origin()
+    match child.node {
+      Text(value) => {
+        let continues_escaped_parentheses = state
+          is EscapedParenthesisRecovery(_)
+        if continues_escaped_parentheses {
+          append_inline_text_ir(normalized, value, origin)
+        } else {
+          normalized.push(child)
+        }
+        state = escaped_inline_recovery_after_text(state, source, origin)
+      }
+      Raw(value, _) | Recovered(value, _) => {
+        let (next, literal) = escaped_inline_recovery_transition(
+          state, source, value, origin,
+        )
+        if literal && diagnostics_in_origin(origin).length() == 0 {
+          state = next
+          append_inline_text_ir(normalized, value, origin)
+        } else {
+          state = if literal { NoEscapedInlineRecovery } else { next }
+          normalized.push(child)
+        }
+      }
+      HardBreak(_) => {
+        state = NoEscapedInlineRecovery
+        normalized.push(child)
+      }
+      _ => {
+        state = escaped_inline_recovery_after_inline(state)
+        normalized.push(child)
+      }
+    }
+  }
+  normalized
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
   newline_text : String?,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
@@ -184,7 +329,7 @@ fn lower_inline_children_skip_with_diags(
               MarkdownIR::raw(
                 token.text(),
                 origin,
-                diagnostics_in_origin(origin),
+                (context.diagnostics_in_origin)(origin),
               ),
             )
             preceding_text_ends_escaped = false
@@ -195,7 +340,8 @@ fn lower_inline_children_skip_with_diags(
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
           }
-          HeadingMarkerToken
+          AtxHeadingMarkerToken
+          | SetextHeadingUnderlineToken
           | ListMarkerToken
           | OrderedListMarkerToken
           | BlockQuoteMarkerToken
@@ -223,34 +369,31 @@ fn lower_inline_children_skip_with_diags(
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         push_child(
-          lower_inline_node_with_diags(
-            child_node, newline_text, diagnostics_in_origin,
-          ),
+          lower_inline_node_with_diags(child_node, newline_text, context),
         )
       }
     }
   }
-  children
+  normalize_escaped_inline_recoveries(
+    children,
+    context.source,
+    context.diagnostics_in_origin,
+  )
 }
 
 ///|
 fn lower_inline_children_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
-  lower_inline_children_skip_with_diags(
-    node,
-    None,
-    Some(newline_text),
-    diagnostics_in_origin,
-  )
+  lower_inline_children_skip_with_diags(node, None, Some(newline_text), context)
 }
 
 ///|
 fn lower_direct_inline_token_with_diags(
   token : @seam.SyntaxToken,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR? {
   let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
   match token_kind {
@@ -265,9 +408,16 @@ fn lower_direct_inline_token_with_diags(
       Some(MarkdownIR::text(token.text(), origin_from_token(token)))
     ErrorToken | ErrorNode => {
       let origin = origin_from_token(token)
-      Some(MarkdownIR::raw(token.text(), origin, diagnostics_in_origin(origin)))
+      Some(
+        MarkdownIR::raw(
+          token.text(),
+          origin,
+          (context.diagnostics_in_origin)(origin),
+        ),
+      )
     }
-    HeadingMarkerToken
+    AtxHeadingMarkerToken
+    | SetextHeadingUnderlineToken
     | ListMarkerToken
     | OrderedListMarkerToken
     | BlockQuoteMarkerToken
@@ -289,7 +439,7 @@ fn lower_direct_inline_token_with_diags(
 fn lower_direct_inline_node_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR? {
   let node_kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match node_kind {
@@ -301,10 +451,7 @@ fn lower_direct_inline_node_with_diags(
     | ThematicBreakNode
     | CodeBlockNode
     | BlockQuoteNode => None
-    _ =>
-      Some(
-        lower_inline_node_with_diags(node, newline_text, diagnostics_in_origin),
-      )
+    _ => Some(lower_inline_node_with_diags(node, newline_text, context))
   }
 }
 
@@ -312,7 +459,7 @@ fn lower_direct_inline_node_with_diags(
 fn lower_direct_inline_children_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
   let children : Array[MarkdownIR] = []
   let mut pending_newline : MarkdownIROrigin? = None
@@ -364,10 +511,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
               previous_was_escaped_backtick = escaped
             }
             _ => {
-              match
-                lower_direct_inline_token_with_diags(
-                  token, diagnostics_in_origin,
-                ) {
+              match lower_direct_inline_token_with_diags(token, context) {
                 Some(child) => push_child(child)
                 None => ()
               }
@@ -381,18 +525,18 @@ fn lower_direct_inline_children_with_newline_and_diags(
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         match
-          lower_direct_inline_node_with_diags(
-            node,
-            Some(newline_text),
-            diagnostics_in_origin,
-          ) {
+          lower_direct_inline_node_with_diags(node, Some(newline_text), context) {
           Some(child) => push_child(child)
           None => ()
         }
       }
     }
   }
-  children
+  normalize_escaped_inline_recoveries(
+    children,
+    context.source,
+    context.diagnostics_in_origin,
+  )
 }
 
 ///|
@@ -443,24 +587,16 @@ fn normalize_inline_code_value(value : String) -> String {
 }
 
 ///|
-fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
-  let mut delimiter_count = 0
-  for element in node.all_children() {
-    match element {
-      @seam.SyntaxElement::Token(token) =>
-        if @seam.FromRawKind::from_raw(token.kind()) is BacktickToken {
-          delimiter_count = delimiter_count + 1
-        }
-      _ => ()
-    }
-  }
-  let mut seen_delimiters = 0
+fn lower_code_span_with_source(
+  node : @seam.SyntaxNode,
+  source : String?,
+) -> (String, MarkdownIROrigin?) {
   let mut crosses_structural_prefix = false
   let buf = StringBuilder::new()
   let content_tokens : Array[MarkdownIROrigin] = []
   let mut continuation_source : String? = None
   let mut continuation_content_column = 0
-  for element in node.all_children() {
+  for element in node.direct_elements_iter() {
     match element {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
@@ -471,7 +607,9 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
             let source = match continuation_source {
               Some(source) => source
               None => {
-                let source = syntax_root(node).text()
+                let source = source.unwrap_or_else(fn() {
+                  syntax_root(node).text()
+                })
                 continuation_content_column = nearest_container_content_column(
                   node, source,
                 )
@@ -490,13 +628,11 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
             }
             buf.write_string(stripped)
           }
-          BacktickToken => {
-            seen_delimiters = seen_delimiters + 1
-            if seen_delimiters != 1 && seen_delimiters != delimiter_count {
+          BacktickToken =>
+            if token.start() != node.start() && token.end() != node.end() {
               buf.write_string(token.text())
               content_tokens.push(origin_from_token(token))
             }
-          }
           _ => {
             buf.write_string(token.text())
             content_tokens.push(origin_from_token(token))
@@ -512,6 +648,11 @@ fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
     span_token_origins(content_tokens)
   }
   (normalize_inline_code_value(buf.to_string()), content_origin)
+}
+
+///|
+fn lower_code_span(node : @seam.SyntaxNode) -> (String, MarkdownIROrigin?) {
+  lower_code_span_with_source(node, None)
 }
 
 ///|
@@ -548,7 +689,7 @@ fn contiguous_label_origin(
 fn lower_link_node_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
   let display : Array[MarkdownIR] = []
   let destination_buf = StringBuilder::new()
@@ -616,7 +757,7 @@ fn lower_link_node_with_diags(
               MarkdownIR::raw(
                 token.text(),
                 origin,
-                diagnostics_in_origin(origin),
+                (context.diagnostics_in_origin)(origin),
               ),
             )
             preceding_text_ends_escaped = false
@@ -631,9 +772,7 @@ fn lower_link_node_with_diags(
       @seam.SyntaxElement::Node(child_node) => {
         if !past_bracket && url_depth == 0 {
           display.push(
-            lower_inline_node_with_diags(
-              child_node, newline_text, diagnostics_in_origin,
-            ),
+            lower_inline_node_with_diags(child_node, newline_text, context),
           )
         }
         preceding_text_ends_escaped = false
@@ -641,13 +780,18 @@ fn lower_link_node_with_diags(
       }
     }
   }
+  let normalized_display = normalize_escaped_inline_recoveries(
+    display,
+    context.source,
+    context.diagnostics_in_origin,
+  )
   let label_origin = match (label_start, label_end) {
     (Some(start), Some(end)) if start <= end =>
-      contiguous_label_origin(display, start, end)
+      contiguous_label_origin(normalized_display, start, end)
     _ => None
   }
   MarkdownIR::link(
-    display,
+    normalized_display,
     destination_buf.to_string(),
     origin_from_node(node),
     label_origin,
@@ -659,7 +803,7 @@ fn lower_link_node_with_diags(
 fn lower_inline_node_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
@@ -668,7 +812,7 @@ fn lower_inline_node_with_diags(
         node,
         Some(StarStarToken),
         newline_text,
-        diagnostics_in_origin,
+        context,
       )
       MarkdownIR::bold(
         children,
@@ -681,7 +825,7 @@ fn lower_inline_node_with_diags(
         node,
         Some(StarToken),
         newline_text,
-        diagnostics_in_origin,
+        context,
       )
       MarkdownIR::italic(
         children,
@@ -690,14 +834,20 @@ fn lower_inline_node_with_diags(
       )
     }
     InlineCodeNode => {
-      let (value, content_origin) = lower_code_span(node)
+      let (value, content_origin) = lower_code_span_with_source(
+        node,
+        Some(context.source),
+      )
       MarkdownIR::inline_code(value, origin_from_node(node), content_origin)
     }
-    LinkNode =>
-      lower_link_node_with_diags(node, newline_text, diagnostics_in_origin)
+    LinkNode => lower_link_node_with_diags(node, newline_text, context)
     ErrorNode => {
       let origin = origin_from_node(node)
-      MarkdownIR::recovered(node.text(), origin, diagnostics_in_origin(origin))
+      MarkdownIR::recovered(
+        node.text(),
+        origin,
+        (context.diagnostics_in_origin)(origin),
+      )
     }
     _ =>
       MarkdownIR::unsupported(
@@ -709,13 +859,7 @@ fn lower_inline_node_with_diags(
 
 ///|
 fn is_setext_heading(node : @seam.SyntaxNode) -> Bool {
-  match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
-    Some(marker) => {
-      let marker_start = skip_leading_spaces(marker.text(), 0)
-      count_hashes(marker.text(), marker_start) == 0
-    }
-    None => false
-  }
+  node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) is Some(_)
 }
 
 ///|
@@ -773,7 +917,7 @@ fn trim_setext_heading_children(
 
 ///|
 fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
-  match node.direct_token_of_kind(HeadingMarkerToken.to_raw()) {
+  match node.direct_token_of_kind(AtxHeadingMarkerToken.to_raw()) {
     Some(marker) => {
       let marker_start = skip_leading_spaces(marker.text(), 0)
       let n = count_hashes(marker.text(), marker_start)
@@ -781,10 +925,14 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
       if n >= 1 {
         Some(n)
       } else {
-        parse_setext_underline_depth(marker.text().view())
+        None
       }
     }
-    None => None
+    None =>
+      match node.direct_token_of_kind(SetextHeadingUnderlineToken.to_raw()) {
+        Some(underline) => parse_setext_underline_depth(underline.text().view())
+        None => None
+      }
   }
 }
 
@@ -792,12 +940,10 @@ fn heading_depth_from_marker(node : @seam.SyntaxNode) -> Int? {
 fn lower_paragraph_with_newline_and_diags(
   node : @seam.SyntaxNode,
   newline_text : String,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
   let children = normalize_paragraph_boundary_spaces(
-    lower_inline_children_with_newline_and_diags(
-      node, newline_text, diagnostics_in_origin,
-    ),
+    lower_inline_children_with_newline_and_diags(node, newline_text, context),
   )
   MarkdownIR::paragraph(
     children,
@@ -811,14 +957,14 @@ fn lower_container_child_with_diags(
   child : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
   paragraph_newline_text : String,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR? {
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
     ParagraphNode =>
       Some(
         lower_paragraph_with_newline_and_diags(
-          child, paragraph_newline_text, diagnostics_in_origin,
+          child, paragraph_newline_text, context,
         ),
       )
     HeadingNode
@@ -834,7 +980,7 @@ fn lower_container_child_with_diags(
         MarkdownIR::recovered(
           RECOVERED_PARSE_ERROR,
           origin,
-          diagnostics_in_origin(origin),
+          (context.diagnostics_in_origin)(origin),
         ),
       )
     }
@@ -958,12 +1104,10 @@ fn markdown_ir_has_non_blank_inline_content(ir : MarkdownIR) -> Bool {
 fn lower_list_item_flow_children_with_diags(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> (Array[MarkdownIR], MarkdownIROrigin?) {
   let lowered_inline_children = normalize_paragraph_boundary_spaces(
-    lower_direct_inline_children_with_newline_and_diags(
-      node, "\n", diagnostics_in_origin,
-    ),
+    lower_direct_inline_children_with_newline_and_diags(node, "\n", context),
   )
   let inline_children = retain_direct_list_item_inline_children(
     lowered_inline_children, markdown_ir_has_non_blank_inline_content,
@@ -1384,16 +1528,13 @@ fn lower_list_children(
 fn lower_block_quote_children(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> Array[MarkdownIR] {
   node
   .children()
   .iter()
   .filter_map(child => {
-    match
-      lower_container_child_with_diags(
-        child, recurse, "\n", diagnostics_in_origin,
-      ) {
+    match lower_container_child_with_diags(child, recurse, "\n", context) {
       Some(ir) => Some(trim_container_child_paragraph(ir))
       None => None
     }
@@ -1418,7 +1559,7 @@ fn list_spread_from_node(
 fn experimental_markdown_ir_fold_node_with_diags(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
-  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
   let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
@@ -1427,9 +1568,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
         .children()
         .iter()
         .filter_map(child => {
-          lower_container_child_with_diags(
-            child, recurse, "\n", diagnostics_in_origin,
-          )
+          lower_container_child_with_diags(child, recurse, "\n", context)
         })
         .collect()
       MarkdownIR::document(children, origin_from_node(node))
@@ -1437,9 +1576,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
     HeadingNode => {
       let setext = is_setext_heading(node)
       let children = normalize_heading_whitespace(
-        lower_inline_children_with_newline_and_diags(
-          node, "\n", diagnostics_in_origin,
-        ),
+        lower_inline_children_with_newline_and_diags(node, "\n", context),
         node.text(),
         node.start(),
         trim_all_leading=!setext,
@@ -1465,11 +1602,10 @@ fn experimental_markdown_ir_fold_node_with_diags(
           )
       }
     }
-    ParagraphNode =>
-      lower_paragraph_with_newline_and_diags(node, "\n", diagnostics_in_origin)
+    ParagraphNode => lower_paragraph_with_newline_and_diags(node, "\n", context)
     BlockQuoteNode =>
       MarkdownIR::block_quote(
-        lower_block_quote_children(node, recurse, diagnostics_in_origin),
+        lower_block_quote_children(node, recurse, context),
         origin_from_node(node),
       )
     UnorderedListNode => {
@@ -1500,7 +1636,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
     }
     ListItemNode => {
       let (children, content_origin) = lower_list_item_flow_children_with_diags(
-        node, recurse, diagnostics_in_origin,
+        node, recurse, context,
       )
       let spread = node.direct_token_of_kind(BlankLineToken.to_raw()) is Some(_)
       match ordered_list_marker_from_node(node) {
@@ -1541,7 +1677,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
       MarkdownIR::recovered(
         RECOVERED_PARSE_ERROR,
         origin,
-        diagnostics_in_origin(origin),
+        (context.diagnostics_in_origin)(origin),
       )
     }
     _ =>
@@ -1556,8 +1692,9 @@ fn experimental_markdown_ir_fold_node_with_diags(
 fn experimental_markdown_ir_fold_node(
   node : @seam.SyntaxNode,
   recurse : (@seam.SyntaxNode) -> MarkdownIR,
+  context : MarkdownIRLoweringContext,
 ) -> MarkdownIR {
-  experimental_markdown_ir_fold_node_with_diags(node, recurse, _ => [])
+  experimental_markdown_ir_fold_node_with_diags(node, recurse, context)
 }
 
 ///|
@@ -1597,8 +1734,12 @@ fn diagnostics_in_origin(
 pub fn experimental_markdown_ir_from_syntax(
   root : @seam.SyntaxNode,
 ) -> MarkdownIR {
+  let context : MarkdownIRLoweringContext = {
+    source: syntax_root(root).text(),
+    diagnostics_in_origin: _ => [],
+  }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
-    experimental_markdown_ir_fold_node(node, lower)
+    experimental_markdown_ir_fold_node(node, lower, context)
   }
   lower(root)
 }
@@ -1608,10 +1749,12 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   root : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
 ) -> MarkdownIR {
+  let context : MarkdownIRLoweringContext = {
+    source: syntax_root(root).text(),
+    diagnostics_in_origin: origin => diagnostics_in_origin(diagnostics, origin),
+  }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
-    experimental_markdown_ir_fold_node_with_diags(node, lower, origin => {
-      diagnostics_in_origin(diagnostics, origin)
-    })
+    experimental_markdown_ir_fold_node_with_diags(node, lower, context)
   }
   lower(root)
 }

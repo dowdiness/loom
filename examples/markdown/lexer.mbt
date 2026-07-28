@@ -66,7 +66,7 @@ fn preceded_by_odd_backslashes(input : String, pos : Int) -> Bool {
       _ => break count % 2 == 1
     }
   } nobreak {
-    false
+    count % 2 == 1
   }
 }
 

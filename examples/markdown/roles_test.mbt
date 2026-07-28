@@ -45,6 +45,18 @@ test "markdown roles heading marker and UTF-16 text" {
 }
 
 ///|
+test "markdown roles preserve the shared role for setext underlines" {
+  let roles = markdown_test_roles("Title\n---\n")
+  let expected : Array[(MarkdownRole, Int, Int)] = [
+    (HeadingText, 0, 5),
+    (HeadingMarker, 6, 9),
+  ]
+  guard markdown_test_observations(roles) == expected else {
+    fail("expected setext underline to retain the heading marker role")
+  }
+}
+
+///|
 test "markdown roles unordered and ordered list marker and content" {
   let unordered = markdown_test_roles("- item\n")
   let ordered = markdown_test_roles("1. item\n")

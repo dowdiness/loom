@@ -38,9 +38,8 @@ pub fn markdown_fold_node(
       Block::Document(blocks)
     }
     HeadingNode => {
-      // Re-parse heading level from CST token text because Token payloads
-      // (HeadingMarker(Int), setext underline depth) are lost across the CST
-      // boundary — CST stores raw text only.
+      // Heading form is preserved by its CST token kind. Re-parse only the
+      // level payload from delimiter text because CST tokens store raw text.
       let level = heading_depth_from_marker(node).unwrap_or(1)
       let inlines = convert_inline_children(node)
       Block::Heading(level, inlines)

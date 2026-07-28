@@ -38,6 +38,61 @@ test "incremental: paragraph text edit matches full parse" {
 }
 
 ///|
+test "incremental: backslash escape boundary edits match full parse" {
+  let slash = "\\"
+  let escaped_opener = slash + "*em*\n"
+  let even_run_opener = slash + slash + "*em*\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown escaped emphasis opener gains an even backslash run",
+    escaped_opener,
+    @core.Edit::insert(0, slash.length()),
+    even_run_opener,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown even backslash run before emphasis becomes odd",
+    even_run_opener,
+    @core.Edit::delete(0, slash.length()),
+    escaped_opener,
+  )
+  let escaped_link_opener = slash + "[x](/u)\n"
+  let link_opener = "[x](/u)\n"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown escaped link opener becomes structural",
+    escaped_link_opener,
+    @core.Edit::delete(0, slash.length()),
+    link_opener,
+  )
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown link opener becomes escaped text",
+    link_opener,
+    @core.Edit::insert(0, slash.length()),
+    escaped_link_opener,
+  )
+  let escaped_punctuation_prefix = slash + "!"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown edit adjacent to escaped punctuation",
+    escaped_punctuation_prefix + " tail\n",
+    @core.Edit::delete(
+      escaped_punctuation_prefix.length(),
+      escaped_punctuation_prefix.length() + " ".length(),
+    ),
+    escaped_punctuation_prefix + "tail\n",
+  )
+}
+
+///|
+test "incremental: escaped emphasis recovery handles non-BMP flanking text" {
+  let source = "\\*a*\n"
+  let updated = "\\*😈*\n"
+  let parser = @loom.new_parser(source, markdown_grammar)
+  parser.apply_edit(@core.Edit::new(2, "a".length(), "😈".length()), updated)
+  inspect(
+    parser.ast().read_or_abort(),
+    content="Document([Paragraph([Text(\"*😈*\")])])",
+  )
+}
+
+///|
 test "incremental: paragraph diagnostic text edit matches full parse" {
   let source = ")bad\n\n)tail\n"
   let new_source = ")good\n\n)tail\n"
@@ -81,6 +136,18 @@ test "incremental: heading boundary edits match full parse" {
     prefix + "\n beta\nTail\n",
   )
   inspect(newline_reuse_count != 1, content="true")
+}
+
+///|
+test "incremental: ATX to setext heading edit matches full parse" {
+  let source = "# title\nTail\n"
+  let replacement = "title\n---"
+  assert_markdown_incremental_edit_matches_full_parse(
+    "markdown ATX heading becomes setext heading",
+    source,
+    @core.Edit::new(0, "# title".length(), replacement.length()),
+    replacement + "\nTail\n",
+  )
 }
 
 ///|
