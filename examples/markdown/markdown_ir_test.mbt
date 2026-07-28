@@ -178,6 +178,96 @@ test "experimental MarkdownIR: paragraph lowers with text origin and Block adapt
 }
 
 ///|
+test "experimental MarkdownIR: text escapes decode semantically and retain raw origin" {
+  let source = "\\!\\A\\φ\\\\z\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="!\\A\\φ\\z")
+            None => inspect("missing", content="decoded text value")
+          }
+          inspect(
+            origin_source(source, text.origin()),
+            content="\\!\\A\\φ\\\\z",
+          )
+        }
+        _ => inspect("unexpected paragraph children", content="one text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+  let trailing_source = "\\"
+  let trailing_ir = markdown_ir_from_source(trailing_source)
+  match trailing_ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text] => {
+          match text.text_value() {
+            Some(value) => inspect(value, content="\\")
+            None => inspect("missing", content="trailing backslash text")
+          }
+          inspect(
+            origin_source(trailing_source, text.origin()),
+            content=trailing_source,
+          )
+        }
+        _ => inspect("unexpected paragraph children", content="one text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
+  let source = "\\*not emphasized*\n\\[not a link](/foo)\n\\[\\[x]]\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] => {
+      for child in paragraph.children() {
+        inspect(child.kind_tag(), content="Text")
+        inspect(child.diagnostics().length(), content="0")
+      }
+      match
+        paragraph
+        .children()
+        .search_by(child => child.text_value() == Some("*not emphasized*")) {
+        Some(index) =>
+          inspect(
+            origin_source(source, paragraph.children()[index].origin()),
+            content="\\*not emphasized*",
+          )
+        None => inspect("missing", content="escaped emphasis literal")
+      }
+      match
+        paragraph
+        .children()
+        .search_by(child => child.text_value() == Some("[not a link](/foo)")) {
+        Some(index) =>
+          inspect(
+            origin_source(source, paragraph.children()[index].origin()),
+            content="\\[not a link](/foo)",
+          )
+        None => inspect("missing", content="escaped link literal")
+      }
+      match
+        paragraph
+        .children()
+        .search_by(child => child.text_value() == Some("[[x]]")) {
+        Some(index) =>
+          inspect(
+            origin_source(source, paragraph.children()[index].origin()),
+            content="\\[\\[x]]",
+          )
+        None => inspect("missing", content="nested escaped bracket literal")
+      }
+    }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
   let paragraph_source = "   Foo\n"
   let paragraph_ir = markdown_ir_from_source(paragraph_source)
@@ -650,11 +740,22 @@ test "experimental MarkdownIR: Block adapter matches direct parse for inline for
   assert_markdown_ir_block_matches_direct_parse(
     "Hello **world** and *moon* with `code` plus [link](u(1))\n",
   )
+  assert_markdown_ir_block_matches_direct_parse("\\*a **b** c*\n")
+  assert_markdown_ir_block_matches_direct_parse("[\\*literal*](/)\n")
 }
 
 ///|
 test "experimental MarkdownIR: recovered inline ErrorNodes stay explicit" {
   assert_recovered_markdown_ir_block_matches_direct_parse("Hello *\n", "*")
+  assert_recovered_markdown_ir_block_matches_direct_parse(
+    "\\* literal *unclosed\n", "*",
+  )
+  assert_recovered_markdown_ir_block_matches_direct_parse(
+    "\\* literal!*unclosed\n", "*",
+  )
+  assert_recovered_markdown_ir_block_matches_direct_parse(
+    "[x](\\*u) tail*\n", "*",
+  )
   assert_recovered_markdown_ir_block_matches_direct_parse(
     "Hello **unclosed\n", "**",
   )
@@ -716,6 +817,37 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
             content="synthetic recovery diagnostic [6,7]",
           )
         None => inspect("missing", content="recovered child")
+      }
+    _ => inspect("unexpected", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: incoming diagnostics override escaped literal recovery" {
+  let source = "\\*literal*\n"
+  let (cst, _) = parse_cst(source) catch {
+    _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
+  }
+  let trailing_start = source.length() - 2
+  let diagnostic = @core.Diagnostic::lexer_error_at(
+    "synthetic escaped recovery diagnostic",
+    trailing_start,
+    trailing_start + 1,
+    "synthetic-escaped-recovery",
+  )
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    cst,
+    @core.DiagnosticSet::single(diagnostic),
+  )
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children().search_by(child => child.is_recovered()) {
+        Some(index) =>
+          inspect(
+            paragraph.children()[index].diagnostics()[0].format(),
+            content="synthetic escaped recovery diagnostic [9,10]",
+          )
+        None => inspect("missing", content="diagnostic recovery child")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -1019,6 +1151,7 @@ test "experimental MarkdownIR: adjacent malformed links preserve raw delimiters"
   assert_malformed_link_raws_preserved("[text](url\n", "](")
   assert_malformed_link_raws_preserved("[text](\nnext\n", "](")
   assert_malformed_link_raws_preserved("[*x](url\n", "](")
+  assert_malformed_link_raws_preserved("\\[prefix [text](\n", "](")
 }
 
 ///|
@@ -1669,12 +1802,20 @@ test "experimental MarkdownIR: local transform preserves inline container siblin
 
 ///|
 test "experimental MarkdownIR: local transform preserves escaped text sibling" {
-  let source = "\\# **old**\n"
+  let source = "\\*literal* and **old**\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [_, bold] =>
+        [escaped, _, bold] => {
+          match escaped.text_value() {
+            Some(value) => inspect(value, content="*literal*")
+            None => inspect("missing", content="decoded escaped sibling")
+          }
+          inspect(
+            origin_source(source, escaped.origin()),
+            content="\\*literal*",
+          )
           match bold.children() {
             [old_text] => {
               let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
@@ -1683,11 +1824,12 @@ test "experimental MarkdownIR: local transform preserves escaped text sibling" {
                 target_origin=old_text.origin(),
                 replacement_text="new",
               )
-              inspect(local_rewrite, content="\\# **new**\n")
+              inspect(local_rewrite, content="\\*literal* and **new**\n")
             }
             _ => inspect("unexpected bold children", content="one text")
           }
-        _ => inspect("unexpected paragraph children", content="text plus bold")
+        }
+        _ => inspect("unexpected paragraph children", content="text text bold")
       }
     _ => inspect("unexpected child count", content="one paragraph")
   }

@@ -116,6 +116,141 @@ fn append_inline_text_ir(
 }
 
 ///|
+/// Context for parser-recovery delimiters that remain literal because their
+/// opener was backslash-escaped. CST recovery stays lossless; this state only
+/// controls the semantic MarkdownIR projection.
+priv enum EscapedInlineRecoveryState {
+  NoEscapedInlineRecovery
+  EscapedEmphasisRecovery
+  EscapedBracketRecovery(Int)
+  AfterEscapedBracketRecovery(Int)
+  EscapedParenthesisRecovery(Int)
+}
+
+///|
+fn escaped_inline_recovery_after_text(
+  state : EscapedInlineRecoveryState,
+  source : String,
+  origin : MarkdownIROrigin,
+) -> EscapedInlineRecoveryState {
+  let mut next = match state {
+    AfterEscapedBracketRecovery(_) => NoEscapedInlineRecovery
+    _ => state
+  }
+  let mut offset = origin.start()
+  while offset < origin.end() {
+    match char_at(source, offset) {
+      Some('\n') | Some('\r') => next = NoEscapedInlineRecovery
+      Some('*') if preceded_by_odd_backslashes(source, offset) =>
+        match next {
+          EscapedBracketRecovery(_) | EscapedParenthesisRecovery(_) => ()
+          _ => next = EscapedEmphasisRecovery
+        }
+      Some('[') if preceded_by_odd_backslashes(source, offset) =>
+        match next {
+          EscapedBracketRecovery(depth) =>
+            next = EscapedBracketRecovery(depth + 1)
+          EscapedParenthesisRecovery(_) => ()
+          _ => next = EscapedBracketRecovery(1)
+        }
+      _ => ()
+    }
+    offset = offset + 1
+  }
+  next
+}
+
+///|
+fn escaped_inline_recovery_after_inline(
+  state : EscapedInlineRecoveryState,
+) -> EscapedInlineRecoveryState {
+  match state {
+    AfterEscapedBracketRecovery(_) => NoEscapedInlineRecovery
+    _ => state
+  }
+}
+
+///|
+fn escaped_inline_recovery_transition(
+  state : EscapedInlineRecoveryState,
+  source : String,
+  text : String,
+  origin : MarkdownIROrigin,
+) -> (EscapedInlineRecoveryState, Bool) {
+  match state {
+    EscapedEmphasisRecovery if (text == "*" || text == "**") &&
+      emphasis_recovery_can_close(source, origin.start(), origin.end()) =>
+      (NoEscapedInlineRecovery, true)
+    EscapedBracketRecovery(depth) if text == "]" =>
+      if depth == 1 {
+        (AfterEscapedBracketRecovery(origin.end()), true)
+      } else {
+        (EscapedBracketRecovery(depth - 1), true)
+      }
+    AfterEscapedBracketRecovery(previous_end) if text == "(" &&
+      origin.start() == previous_end => (EscapedParenthesisRecovery(1), true)
+    EscapedParenthesisRecovery(depth) if text == "(" =>
+      (EscapedParenthesisRecovery(depth + 1), true)
+    EscapedParenthesisRecovery(depth) if text == ")" =>
+      if depth == 1 {
+        (NoEscapedInlineRecovery, true)
+      } else {
+        (EscapedParenthesisRecovery(depth - 1), true)
+      }
+    _ => (NoEscapedInlineRecovery, false)
+  }
+}
+
+///|
+/// Reclassify only recovery artifacts proven to continue an escaped opener.
+/// Incoming diagnostics win over the contextual literal classification so
+/// callers never lose externally supplied recovery information.
+fn normalize_escaped_inline_recoveries(
+  children : Array[MarkdownIR],
+  source : String,
+  diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic],
+) -> Array[MarkdownIR] {
+  let normalized : Array[MarkdownIR] = []
+  let mut state = NoEscapedInlineRecovery
+  for child in children {
+    let origin = child.origin()
+    match child.node {
+      Text(value) => {
+        let continues_escaped_parentheses = state
+          is EscapedParenthesisRecovery(_)
+        if continues_escaped_parentheses {
+          append_inline_text_ir(normalized, value, origin)
+        } else {
+          normalized.push(child)
+        }
+        state = escaped_inline_recovery_after_text(state, source, origin)
+      }
+      Raw(value, _) | Recovered(value, _) => {
+        let (next, literal) = escaped_inline_recovery_transition(
+          state, source, value, origin,
+        )
+        if literal && diagnostics_in_origin(origin).length() == 0 {
+          state = next
+          append_inline_text_ir(normalized, value, origin)
+        } else {
+          state = if literal { NoEscapedInlineRecovery } else { next }
+          normalized.push(child)
+        }
+      }
+      HardBreak(_) => {
+        state = NoEscapedInlineRecovery
+        normalized.push(child)
+      }
+      _ => {
+        state = escaped_inline_recovery_after_inline(state)
+        normalized.push(child)
+      }
+    }
+  }
+  normalized
+}
+
+///|
 fn lower_inline_children_skip_with_diags(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -230,7 +365,11 @@ fn lower_inline_children_skip_with_diags(
       }
     }
   }
-  children
+  normalize_escaped_inline_recoveries(
+    children,
+    syntax_root(node).text(),
+    diagnostics_in_origin,
+  )
 }
 
 ///|
@@ -392,7 +531,11 @@ fn lower_direct_inline_children_with_newline_and_diags(
       }
     }
   }
-  children
+  normalize_escaped_inline_recoveries(
+    children,
+    syntax_root(node).text(),
+    diagnostics_in_origin,
+  )
 }
 
 ///|
@@ -641,13 +784,18 @@ fn lower_link_node_with_diags(
       }
     }
   }
+  let normalized_display = normalize_escaped_inline_recoveries(
+    display,
+    syntax_root(node).text(),
+    diagnostics_in_origin,
+  )
   let label_origin = match (label_start, label_end) {
     (Some(start), Some(end)) if start <= end =>
-      contiguous_label_origin(display, start, end)
+      contiguous_label_origin(normalized_display, start, end)
     _ => None
   }
   MarkdownIR::link(
-    display,
+    normalized_display,
     destination_buf.to_string(),
     origin_from_node(node),
     label_origin,

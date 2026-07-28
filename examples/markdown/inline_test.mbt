@@ -22,7 +22,27 @@ test "inline: emphasis honors preceding backslash parity" {
   )
   inspect(
     parse("\\" + "\\" + "\\" + "*em*\n"),
-    content="Document([Paragraph([Text(\"\\\\*em\"), Error(\"*\")])])",
+    content="Document([Paragraph([Text(\"\\\\*em*\")])])",
+  )
+  inspect(
+    parse("\\* literal *unclosed\n"),
+    content="Document([Paragraph([Text(\"* literal \"), Error(\"*\"), Text(\"unclosed\")])])",
+  )
+  inspect(
+    parse("\\* literal!*unclosed\n"),
+    content="Document([Paragraph([Text(\"* literal!\"), Error(\"*\"), Text(\"unclosed\")])])",
+  )
+  inspect(
+    parse("[x](\\*u) tail*\n"),
+    content="Document([Paragraph([Link([Text(\"x\")], \"\\\\*u\"), Text(\" tail\"), Error(\"*\")])])",
+  )
+  inspect(
+    parse("\\*a **b** c*\n"),
+    content="Document([Paragraph([Text(\"*a \"), Bold([Text(\"b\")]), Text(\" c*\")])])",
+  )
+  inspect(
+    parse("[\\*literal*](/)\n"),
+    content="Document([Paragraph([Link([Text(\"*literal*\")], \"/\")])])",
   )
 }
 

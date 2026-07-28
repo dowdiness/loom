@@ -1,4 +1,77 @@
 ///|
+fn inline_flanking_whitespace(ch : Char?) -> Bool {
+  match ch {
+    Some(ch) => ch.is_whitespace()
+    None => true
+  }
+}
+
+///|
+fn emphasis_recovery_can_close(source : String, start : Int, end : Int) -> Bool {
+  guard start > 0 else { return false }
+  let before = char_at(source, start - 1)
+  let after = char_at(source, end)
+  !inline_flanking_whitespace(before) &&
+  (
+    inline_flanking_whitespace(after) ||
+    after.map_or(false, ch => ch.is_ascii_punctuation()) ||
+    !before.map_or(false, ch => ch.is_ascii_punctuation())
+  )
+}
+
+///|
+/// True when an unmatched emphasis recovery node closes a literal run whose
+/// opener was backslash-escaped on the same inline line. The CST keeps the
+/// ErrorNode for lossless recovery; the semantic Inline projection emits text.
+fn recovery_closes_escaped_emphasis(node : @seam.SyntaxNode) -> Bool {
+  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+  guard kind == ErrorNode && (node.text() == "*" || node.text() == "**") else {
+    return false
+  }
+  let source = syntax_root(node).text()
+  guard emphasis_recovery_can_close(source, node.start(), node.end()) else {
+    return false
+  }
+  guard node.parent() is Some(parent) else { return false }
+  let mut escaped_openers = 0
+  for element in parent.all_children() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if token_kind == TextToken {
+          let mut offset = token.start()
+          while offset < token.end() {
+            match char_at(source, offset) {
+              Some('\n') | Some('\r') => escaped_openers = 0
+              Some('*') if preceded_by_odd_backslashes(source, offset) =>
+                escaped_openers = escaped_openers + 1
+              _ => ()
+            }
+            offset = offset + 1
+          }
+        } else if token_kind == NewlineToken ||
+          token_kind == ErrorToken ||
+          token_kind == ErrorNode {
+          escaped_openers = 0
+        }
+      }
+      @seam.SyntaxElement::Node(child) => {
+        let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
+        if child_kind == ErrorNode &&
+          child.start() == node.start() &&
+          child.end() == node.end() {
+          return escaped_openers >= node.text().length()
+        }
+        if child_kind == ErrorNode {
+          escaped_openers = 0
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
 fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
   match kind {
     TextToken => Some(strip_backslash_escapes(text))
@@ -172,7 +245,11 @@ fn convert_inline_children_skip(
           pending_newline = false
         }
         let before = inlines.length()
-        convert_inline_node(child, inlines)
+        if recovery_closes_escaped_emphasis(child) {
+          append_inline_text(inlines, child.text())
+        } else {
+          convert_inline_node(child, inlines)
+        }
         // Trim leading spaces from first child after soft break
         if was_pending && inlines.length() > before {
           match inlines[before] {
@@ -299,7 +376,11 @@ fn convert_direct_inline_children_with_newline(
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
         let converted : Array[Inline] = []
-        convert_inline_node(child, converted)
+        if recovery_closes_escaped_emphasis(child) {
+          converted.push(Inline::Text(child.text()))
+        } else {
+          convert_inline_node(child, converted)
+        }
         if converted.length() > 0 {
           let was_pending = pending_newline
           flush_newline()
@@ -412,7 +493,11 @@ fn convert_inline_node(
             previous_was_escaped_backtick = false
             if !past_bracket && url_depth == 0 {
               // Inline markup inside link display text
-              convert_inline_node(inner_node, display)
+              if recovery_closes_escaped_emphasis(inner_node) {
+                append_inline_text(display, inner_node.text())
+              } else {
+                convert_inline_node(inner_node, display)
+              }
             }
           }
         }

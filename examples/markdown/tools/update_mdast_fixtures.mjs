@@ -5,12 +5,28 @@
 // Node environment that can resolve mdast-util-from-markdown, for example:
 //   npm exec --package=mdast-util-from-markdown -- node tools/update_mdast_fixtures.mjs
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const commonmarkExamples = JSON.parse(
+  readFileSync(join(__dirname, 'commonmark-0.31.2-spec.json'), 'utf8'),
+)
+
+function commonmarkFixture(example) {
+  const fixture = commonmarkExamples.find(candidate => candidate.example === example)
+  if (!fixture) throw new Error(`missing CommonMark example ${example}`)
+  return {
+    name: `backslash-escapes-${String(example).padStart(3, '0')}`,
+    source: fixture.markdown,
+    status: 'pass',
+  }
+}
+
 const fixtures = [
+  ...[12, 13, 14, 15].map(commonmarkFixture),
   { name: 'heading', source: '# Title\n', status: 'pass' },
   { name: 'paragraph-plain-text', source: 'Hello world\n', status: 'pass' },
   { name: 'unordered-list', source: '- one\n- two\n', status: 'pass' },
@@ -47,8 +63,7 @@ const fixtures = [
   { name: 'link', source: '[link](https://example.com/a)\n', status: 'pass' },
 ]
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const output = join(__dirname, '..', 'src', 'mdast_fixture_data_test.mbt')
+const output = join(__dirname, '..', 'mdast_fixture_data_test.mbt')
 
 async function loadFromMarkdown() {
   try {

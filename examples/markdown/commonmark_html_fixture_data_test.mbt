@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=217, xfail=6, skip=0.
+// Baseline: pass=220, xfail=6, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (217, 6, 0)
+  (220, 6, 0)
 }
 
 ///|
@@ -775,6 +775,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       ),
     },
     {
+      example: 12,
+      section: "Backslash escapes",
+      name: "backslash-escapes-012",
+      source: "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n",
+      expected_html: "<p>!&quot;#$%&amp;'()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 13,
       section: "Backslash escapes",
       name: "backslash-escapes-013",
@@ -782,6 +790,25 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       expected_html: "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n",
       status: CommonMarkHtmlPass,
     },
+    {
+      example: 14,
+      section: "Backslash escapes",
+      name: "backslash-escapes-014",
+      source: "\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n\\&ouml; not a character entity\n",
+      expected_html: "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;\n&amp;ouml; not a character entity</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 15,
+      section: "Backslash escapes",
+      name: "backslash-escapes-015",
+      source: "\\\\*emphasis*\n",
+      expected_html: "<p>\\<em>emphasis</em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    // Remaining CommonMark §6.1 ownership is explicit rather than implicit:
+    // #16 -> #485; #17 -> #484; #18 -> #392; #19/#24 -> #479;
+    // #20/#21 -> #487; #22 -> #486; #23 -> #482 and #486.
     {
       example: 29,
       section: "Entity and numeric character references",
