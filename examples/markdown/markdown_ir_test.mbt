@@ -268,6 +268,28 @@ test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
 }
 
 ///|
+test "experimental MarkdownIR: escaped emphasis recovery handles non-BMP flanking text" {
+  let source = "\\*😈*\n"
+  let ir = markdown_ir_from_source(source)
+  match ir.children() {
+    [paragraph] =>
+      match paragraph.children() {
+        [text] => {
+          inspect(text.kind_tag(), content="Text")
+          match text.text_value() {
+            Some(value) => inspect(value, content="*😈*")
+            None => inspect("missing", content="escaped literal text")
+          }
+          inspect(origin_source(source, text.origin()), content="\\*😈*")
+          inspect(text.diagnostics().length(), content="0")
+        }
+        _ => inspect("unexpected paragraph children", content="one text")
+      }
+    _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
 test "experimental MarkdownIR: child syntax lowering keeps document-relative escape origins" {
   let source = "😀 prefix\n\n\\*literal*\n"
   let (cst, _) = parse_cst(source) catch {

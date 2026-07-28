@@ -7,9 +7,26 @@ fn inline_flanking_whitespace(ch : Char?) -> Bool {
 }
 
 ///|
+/// Return the Unicode scalar immediately before a UTF-16 code-unit offset.
+/// The offset must be a Unicode-scalar boundary.
+fn char_before(source : String, offset : Int) -> Char? {
+  guard offset > 0 && offset <= source.length() else { return None }
+  let previous = offset - 1
+  let previous_unit = source.code_unit_at(previous).to_int()
+  if previous_unit >= 0xDC00 && previous_unit <= 0xDFFF && previous > 0 {
+    let leading = previous - 1
+    let leading_unit = source.code_unit_at(leading).to_int()
+    if leading_unit >= 0xD800 && leading_unit <= 0xDBFF {
+      return char_at(source, leading)
+    }
+  }
+  char_at(source, previous)
+}
+
+///|
 fn emphasis_recovery_can_close(source : String, start : Int, end : Int) -> Bool {
   guard start > 0 else { return false }
-  let before = char_at(source, start - 1)
+  let before = char_before(source, start)
   let after = char_at(source, end)
   !inline_flanking_whitespace(before) &&
   (

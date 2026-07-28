@@ -81,6 +81,18 @@ test "incremental: backslash escape boundary edits match full parse" {
 }
 
 ///|
+test "incremental: escaped emphasis recovery handles non-BMP flanking text" {
+  let source = "\\*a*\n"
+  let updated = "\\*😈*\n"
+  let parser = @loom.new_parser(source, markdown_grammar)
+  parser.apply_edit(@core.Edit::new(2, "a".length(), "😈".length()), updated)
+  inspect(
+    parser.ast().read_or_abort(),
+    content="Document([Paragraph([Text(\"*😈*\")])])",
+  )
+}
+
+///|
 test "incremental: paragraph diagnostic text edit matches full parse" {
   let source = ")bad\n\n)tail\n"
   let new_source = ")good\n\n)tail\n"

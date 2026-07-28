@@ -47,6 +47,14 @@ test "inline: emphasis honors preceding backslash parity" {
 }
 
 ///|
+test "inline: escaped emphasis recovery handles non-BMP flanking text" {
+  inspect(
+    parse("\\*😈*\n"),
+    content="Document([Paragraph([Text(\"*😈*\")])])",
+  )
+}
+
+///|
 test "inline: italic can contain bold" {
   let block = parse("*foo **bar** baz*\n")
   inspect(
