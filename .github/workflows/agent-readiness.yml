@@ -1,0 +1,154 @@
+name: Agent readiness
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled, closed]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  audit:
+    name: Audit agent-readiness certification
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      EVENT_NAME: ${{ github.event_name }}
+      EVENT_ISSUE_NUMBER: ${{ github.event.issue.number || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate and reconcile
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          marker='<!-- agent-readiness-bot -->'
+          validator="scripts/validate-agent-ready-issue.py"
+          mkdir -p "$work/issues" "$work/reports"
+
+          validate_file() {
+            local issue_file="$1" report_file="$2"
+            set +e
+            python "$validator" --issue-json "$issue_file" --repo "$REPO" --report-file "$report_file"
+            local status=$?
+            set -e
+            case "$status" in
+              0|2) return "$status" ;;
+              *) echo "Validator operational failure for $issue_file" >&2; exit 1 ;;
+            esac
+          }
+
+          add_triage_if_missing() {
+            local issue_file="$1" number="$2"
+            if ! jq -e '[.labels[]?.name] | index("needs-triage") != null' "$issue_file" >/dev/null; then
+              jq -n '{labels: ["needs-triage"]}' > "$work/labels.json"
+              gh api --method POST "repos/$REPO/issues/$number/labels" --input "$work/labels.json" >/dev/null
+            fi
+          }
+
+          remove_certification_if_present() {
+            local issue_file="$1" number="$2"
+            if jq -e '[.labels[]?.name] | index("ready-for-agent") != null' "$issue_file" >/dev/null; then
+              gh api --method DELETE "repos/$REPO/issues/$number/labels/ready-for-agent" >/dev/null
+            fi
+          }
+
+          update_marker_comment() {
+            local report_file="$1" number="$2"
+            jq -Rs --arg marker "$marker" '{body: ($marker + "\n\n" + .)}' "$report_file" > "$work/comment.json"
+            gh api --paginate "repos/$REPO/issues/$number/comments?per_page=100" | jq -s 'add // []' > "$work/comments.json"
+            local comment_id
+            comment_id="$(jq -r --arg marker "$marker" '[.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith($marker)))][0].id // empty' "$work/comments.json")"
+            if [[ -n "$comment_id" ]]; then
+              gh api --method PATCH "repos/$REPO/issues/comments/$comment_id" --input "$work/comment.json" >/dev/null
+            else
+              gh api --method POST "repos/$REPO/issues/$number/comments" --input "$work/comment.json" >/dev/null
+            fi
+          }
+
+          issue_numbers=()
+          if [[ "$EVENT_NAME" == "issues" ]]; then
+            number="$EVENT_ISSUE_NUMBER"
+            gh api "repos/$REPO/issues/$number" > "$work/issues/$number.json"
+            # Issue events outside the certified queue are intentionally inert.
+            # In particular, creating an issue from the template or removing
+            # ready-for-agent must not add labels or bot comments.
+            if ! jq -e '[.labels[]?.name] | index("ready-for-agent") != null' "$work/issues/$number.json" >/dev/null; then
+              exit 0
+            fi
+            issue_numbers+=("$number")
+          else
+            page=1
+            while :; do
+              page_file="$work/page-$page.json"
+              gh api "repos/$REPO/issues?state=all&labels=ready-for-agent&per_page=100&page=$page" > "$page_file"
+              count="$(jq -er 'if type == "array" then length else error("GitHub response is not an array") end' "$page_file")"
+              jq -c '.[]' "$page_file" | while IFS= read -r item; do
+                item_number="$(jq -er '.number' <<<"$item")"
+                printf '%s\n' "$item" > "$work/issues/$item_number.json"
+                printf '%s\n' "$item_number" >> "$work/numbers"
+              done
+              if (( count < 100 )); then break; fi
+              ((page += 1))
+            done
+            if [[ -f "$work/numbers" ]]; then
+              mapfile -t issue_numbers < <(sort -n -u "$work/numbers")
+            fi
+          fi
+
+          # Preflight every candidate. An operational failure exits before any
+          # label or comment mutation is attempted.
+          for number in "${issue_numbers[@]}"; do
+            report="$work/reports/$number.md"
+            if validate_file "$work/issues/$number.json" "$report"; then
+              :
+            else
+              status=$?
+              if [[ "$status" != 2 ]]; then exit 1; fi
+            fi
+          done
+
+          # Re-fetch and re-validate every candidate after preflight. Finish
+          # this fresh pass before mutating anything, so an operational failure
+          # cannot leave a partially reconciled audit batch.
+          for number in "${issue_numbers[@]}"; do
+            current="$work/issues/$number.json"
+            report="$work/reports/$number.md"
+            gh api "repos/$REPO/issues/$number" > "$current"
+            if validate_file "$current" "$report"; then
+              status=0
+            else
+              status=$?
+              if [[ "$status" != 2 ]]; then exit 1; fi
+            fi
+            printf '%s\n' "$status" > "$work/reports/$number.status"
+          done
+
+          # Reconcile only snapshots accepted by both validation passes.
+          for number in "${issue_numbers[@]}"; do
+            current="$work/issues/$number.json"
+            report="$work/reports/$number.md"
+            status="$(<"$work/reports/$number.status")"
+            if [[ "$status" == 0 ]]; then
+              update_marker_comment "$report" "$number"
+            elif [[ "$(jq -r '.state' "$current")" == "open" ]]; then
+              update_marker_comment "$report" "$number"
+              remove_certification_if_present "$current" "$number"
+              add_triage_if_missing "$current" "$number"
+            else
+              remove_certification_if_present "$current" "$number"
+            fi
+          done

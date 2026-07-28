@@ -1,0 +1,106 @@
+name: Agent implementation task
+description: Propose a bounded implementation task for agent-readiness certification
+title: "[Agent task] "
+labels:
+  - kind:implementation
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Complete every section. `ready-for-agent` is a separate, revocable certification label;
+        it is not applied automatically. Dependencies must be closed same-repository issues.
+
+  - type: textarea
+    id: deliverable
+    attributes:
+      label: Deliverable
+      description: State the concrete implementation outcome.
+      placeholder: Describe the shippable result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Name the files, packages, symbols, and boundaries included.
+      placeholder: List the bounded implementation scope.
+    validations:
+      required: true
+
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: State what this task explicitly will not change.
+      placeholder: List explicit exclusions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Enter exactly None, or bullets containing same-repository #N references to closed issues.
+      placeholder: |
+        None
+        or:
+        - #123 — prerequisite issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use checkboxes; leave at least one unchecked for the implementing agent.
+      placeholder: |
+        - [ ] Observable criterion
+        - [x] Already verified prerequisite
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Include a fenced block with the exact validation commands. Commands are documentation only; the validator never executes issue text.
+      placeholder: |
+        ```sh
+        python -m unittest discover -s scripts/tests
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-candidates
+    attributes:
+      label: Existing API candidates
+      description: Name at least two existing project or core APIs and explain whether each is reused.
+      placeholder: |
+        - `ExistingApi.one` — covers ...; reuse because ...
+        - `ExistingApi.two` — checked, not used because ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: api-impact
+    attributes:
+      label: API and documentation impact
+      options:
+        - None — no public API or documentation change
+        - Documentation only
+        - Public API or generated .mbti
+    validations:
+      required: true
+
+  - type: textarea
+    id: stop-escalate
+    attributes:
+      label: Stop and escalate if
+      description: List conditions that require human review before implementation continues.
+      placeholder: |
+        - Stop if the public API or package boundary must change.
+    validations:
+      required: true
