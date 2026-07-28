@@ -11,6 +11,22 @@ test "inline: italic" {
 }
 
 ///|
+test "inline: emphasis honors preceding backslash parity" {
+  inspect(
+    parse("\\" + "\\" + "*em*\n"),
+    content="Document([Paragraph([Text(\"\\\\\"), Italic([Text(\"em\")])])])",
+  )
+  inspect(
+    parse("\\" + "\\" + "\\" + "\\" + "*em*\n"),
+    content="Document([Paragraph([Text(\"\\\\\\\\\"), Italic([Text(\"em\")])])])",
+  )
+  inspect(
+    parse("\\" + "\\" + "\\" + "*em*\n"),
+    content="Document([Paragraph([Text(\"\\\\*em\"), Error(\"*\")])])",
+  )
+}
+
+///|
 test "inline: italic can contain bold" {
   let block = parse("*foo **bar** baz*\n")
   inspect(
