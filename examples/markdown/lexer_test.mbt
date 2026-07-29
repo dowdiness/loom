@@ -77,13 +77,24 @@ test "lexer: code fence info and text keep non-BMP characters" {
 ///|
 test "lexer: inline markers" {
   let tokens = tokenize("**bold** and *italic*\n")
-  inspect(@debug.to_string(tokens[0].token), content="StarStar")
-  inspect(@debug.to_string(tokens[1].token), content="Text(\"bold\")")
-  inspect(@debug.to_string(tokens[2].token), content="StarStar")
-  inspect(@debug.to_string(tokens[3].token), content="Text(\" and \")")
+  inspect(@debug.to_string(tokens[0].token), content="Star")
+  inspect(@debug.to_string(tokens[1].token), content="Star")
+  inspect(@debug.to_string(tokens[2].token), content="Text(\"bold\")")
+  inspect(@debug.to_string(tokens[3].token), content="Star")
   inspect(@debug.to_string(tokens[4].token), content="Star")
-  inspect(@debug.to_string(tokens[5].token), content="Text(\"italic\")")
+  inspect(@debug.to_string(tokens[5].token), content="Text(\" and \")")
   inspect(@debug.to_string(tokens[6].token), content="Star")
+  inspect(@debug.to_string(tokens[7].token), content="Text(\"italic\")")
+  inspect(@debug.to_string(tokens[8].token), content="Star")
+}
+
+///|
+test "lexer: underscore markers are one-character public facts" {
+  let tokens = tokenize("__bold__ and _italic_\n")
+  inspect(
+    tokens.map(token => @debug.to_string(token.token)).join("|"),
+    content="Underscore|Underscore|Text(\"bold\")|Underscore|Underscore|Text(\" and \")|Underscore|Text(\"italic\")|Underscore|Newline|EOF",
+  )
 }
 
 ///|

@@ -25,6 +25,144 @@ fn heading_form_token_kinds(source : String) -> String {
 }
 
 ///|
+fn inline_node_texts_of_kind(
+  source : String,
+  expected_kind : SyntaxKind,
+) -> Array[String] {
+  let (cst, _) = try! parse_cst(source)
+  let texts : Array[String] = []
+  fn walk(node : @seam.SyntaxNode) -> Unit {
+    let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
+    if kind == expected_kind {
+      texts.push(node.text())
+    }
+    for child in node.children() {
+      walk(child)
+    }
+  }
+  walk(@seam.SyntaxNode::from_cst(cst))
+  texts
+}
+
+///|
+fn markdown_leaf_kind_signature(source : String) -> Array[String] {
+  let (cst, _) = try! parse_cst(source)
+  let signature : Array[String] = []
+  fn walk(node : @seam.SyntaxNode) -> Unit {
+    for element in node.direct_elements_iter() {
+      match element {
+        @seam.SyntaxElement::Node(child) => walk(child)
+        @seam.SyntaxElement::Token(token) => {
+          let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+          signature.push(
+            @debug.to_string(kind) + ":" + @debug.to_string(token.text()),
+          )
+        }
+      }
+    }
+  }
+  walk(@seam.SyntaxNode::from_cst(cst))
+  signature
+}
+
+///|
+test "parse cst: underscore delimiter run emits italic node" {
+  debug_inspect(
+    inline_node_texts_of_kind("_italic_\n", ItalicNode),
+    content="[\"_italic_\"]",
+  )
+}
+
+///|
+test "parse cst: non-CommonMark whitespace does not enable punctuation flanking" {
+  for ch in ['\u{000B}', '\u{0085}', '\u{2028}', '\u{2029}'] {
+    let source = "a" + ch.to_string() + "*!x*\n"
+    debug_inspect(inline_node_texts_of_kind(source, ItalicNode), content="[]")
+  }
+  let form_feed = "a\u{000C}*!x*\n"
+  debug_inspect(
+    inline_node_texts_of_kind(form_feed, ItalicNode),
+    content="[\"*!x*\"]",
+  )
+}
+
+///|
+test "parse cst: delimiter link scopes stay balanced across soft lines" {
+  let slash = "\\"
+  let source = slash +
+    "* literal *unclosed\n[" +
+    slash +
+    "*literal*](/) " +
+    slash +
+    "*a " +
+    slash +
+    "*b***\n\n"
+  let (cst, diagnostics) = try! parse_cst(source)
+  inspect(@seam.SyntaxNode::from_cst(cst).text(), content=source)
+  inspect(diagnostics.is_empty(), content="true")
+}
+
+///|
+test "parse cst: unconfirmed links cannot corrupt delimiter cursor stack" {
+  let cases : Array[(String, SyntaxKind, String)] = [
+    ("*[x*\n", ItalicNode, "*[x*"),
+    ("**[x**\n", BoldNode, "**[x**"),
+    ("_[x_\n", ItalicNode, "_[x_"),
+  ]
+  for case in cases {
+    let (source, kind, expected) = case
+    debug_inspect(
+      inline_node_texts_of_kind(source, kind),
+      content="[\"" + expected + "\"]",
+    )
+  }
+}
+
+///|
+test "parse cst: CommonMark 512 uses the indexed nested-label closer" {
+  debug_inspect(
+    inline_node_texts_of_kind("[link [foo [bar]]](/uri)\n", LinkNode),
+    content="[\"[link [foo [bar]]](/uri)\"]",
+  )
+}
+
+///|
+test "parse cst: indexed link labels preserve soft line continuations" {
+  debug_inspect(
+    inline_node_texts_of_kind("[link\ntext](target)\n", LinkNode),
+    content="[\"[link\\ntext](target)\"]",
+  )
+  let emphasized = "[a *b\nc*](u)\n"
+  debug_inspect(
+    inline_node_texts_of_kind(emphasized, LinkNode),
+    content="[\"[a *b\\nc*](u)\"]",
+  )
+  debug_inspect(
+    inline_node_texts_of_kind(emphasized, ItalicNode),
+    content="[\"*b\\nc*\"]",
+  )
+}
+
+///|
+test "parse cst: backticks do not hide unbalanced destination parentheses" {
+  let source = "[x](`(`)\n"
+  let (cst, _) = try! parse_cst(source)
+  inspect(@seam.SyntaxNode::from_cst(cst).text(), content=source)
+  debug_inspect(inline_node_texts_of_kind(source, LinkNode), content="[]")
+
+  let followed_by_emphasis = "[x](`(`)*a*)*b*\n"
+  let (followed_cst, _) = try! parse_cst(followed_by_emphasis)
+  inspect(
+    @seam.SyntaxNode::from_cst(followed_cst).text(),
+    content=followed_by_emphasis,
+  )
+  debug_inspect(
+    inline_node_texts_of_kind(followed_by_emphasis, ItalicNode),
+    content="[\"*b*\"]",
+  )
+}
+
+///|
 test "parse cst: heading forms have distinct marker token kinds" {
   let cases : Array[(String, String)] = [
     ("# Plain\n", "AtxHeadingMarkerToken"),
@@ -55,23 +193,41 @@ test "syntax kind: heading marker raw kinds remain stable and distinct" {
 }
 
 ///|
+test "syntax kind: emphasis CST shape uses append-only raw kinds" {
+  let star : SyntaxKind = StarToken
+  let star_star : SyntaxKind = StarStarToken
+  let underscore : SyntaxKind = UnderscoreToken
+  let delimiter : SyntaxKind = EmphasisDelimiterToken
+  inspect(star.to_raw().0, content="5")
+  inspect(star_star.to_raw().0, content="6")
+  inspect(underscore.to_raw().0, content="39")
+  inspect(delimiter.to_raw().0, content="40")
+  inspect(SyntaxKind::from_raw(@seam.RawKind(39)), content="UnderscoreToken")
+  inspect(
+    SyntaxKind::from_raw(@seam.RawKind(40)),
+    content="EmphasisDelimiterToken",
+  )
+  inspect(
+    markdown_leaf_kind_signature("**bold**\n").join("|"),
+    content="EmphasisDelimiterToken:\"*\"|EmphasisDelimiterToken:\"*\"|TextToken:\"bold\"|EmphasisDelimiterToken:\"*\"|EmphasisDelimiterToken:\"*\"|NewlineToken:\"\\n\"",
+  )
+  inspect(
+    markdown_leaf_kind_signature("_italic_\n").join("|"),
+    content="EmphasisDelimiterToken:\"_\"|TextToken:\"italic\"|EmphasisDelimiterToken:\"_\"|NewlineToken:\"\\n\"",
+  )
+}
+
+///|
 test "parse: heading" {
   let block = parse("# Hello\n")
   inspect(block, content="Document([Heading(1, [Text(\"Hello\")])])")
 }
 
 ///|
-test "parse: ATX heading inline recovery stops at line ending" {
+test "parse: ATX heading keeps unmatched emphasis literal at line ending" {
   inspect(
     parse("# *foo\nbar*\n"),
-    content=(
-      #|Document(
-      #|  [
-      #|    Heading(1, [Error("*"), Text("foo")]),
-      #|    Paragraph([Text("bar"), Error("*")]),
-      #|  ],
-      #|)
-    ),
+    content="Document([Heading(1, [Text(\"*foo\")]), Paragraph([Text(\"bar*\")])])",
   )
 }
 
@@ -97,29 +253,22 @@ test "parse: setext heading preserves legacy heading depth" {
 }
 
 ///|
-test "parse: setext underline stops multiline emphasis recovery" {
+test "parse: setext underline bounds literal unmatched emphasis" {
   inspect(
     parse("Foo *bar\n====\nbaz*\n"),
-    content=(
-      #|Document(
-      #|  [
-      #|    Heading(1, [Text("Foo "), Error("*"), Text("bar")]),
-      #|    Paragraph([Text("baz"), Error("*")]),
-      #|  ],
-      #|)
-    ),
+    content="Document([Heading(1, [Text(\"Foo *bar\")]), Paragraph([Text(\"baz*\")])])",
   )
 }
 
 ///|
-test "parse: setext continuation stops multiline emphasis recovery" {
+test "parse: setext continuation bounds literal unmatched emphasis" {
   inspect(
     parse("Foo\nbar *baz\n====\nqux*\n"),
     content=(
       #|Document(
       #|  [
-      #|    Heading(1, [Text("Foo"), Text("bar "), Error("*"), Text("baz")]),
-      #|    Paragraph([Text("qux"), Error("*")]),
+      #|    Heading(1, [Text("Foo"), Text("bar *baz")]),
+      #|    Paragraph([Text("qux*")]),
       #|  ],
       #|)
     ),

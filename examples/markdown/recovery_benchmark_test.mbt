@@ -1,7 +1,7 @@
-// Ungated characterization rows for #483/#772. This separate file keeps them
-// out of the PR base/head guard, which selects benchmark_test.mbt explicitly.
-// Promote them only after the workload exists on both compared revisions and
-// #396 fixes the target delimiter semantics.
+// Release characterization rows for #396/#772. This separate file keeps them
+// available on both compared revisions without silently widening the existing
+// PR base/head guard. Promotion can set workload-specific thresholds in a
+// dedicated performance-policy change.
 
 ///|
 fn recovery_parity_heavy_markdown_doc(repeats : Int) -> String {

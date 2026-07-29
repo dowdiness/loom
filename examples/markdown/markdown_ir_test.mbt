@@ -808,23 +808,9 @@ test "experimental MarkdownIR: Block adapter matches direct parse for inline for
 }
 
 ///|
-test "experimental MarkdownIR: recovered inline ErrorNodes stay explicit" {
-  assert_recovered_markdown_ir_block_matches_direct_parse("Hello *\n", "*")
-  assert_recovered_markdown_ir_block_matches_direct_parse(
-    "\\* literal *unclosed\n", "*",
-  )
-  assert_recovered_markdown_ir_block_matches_direct_parse(
-    "\\* literal!*unclosed\n", "*",
-  )
-  assert_recovered_markdown_ir_block_matches_direct_parse(
-    "[x](\\*u) tail*\n", "*",
-  )
-  assert_recovered_markdown_ir_block_matches_direct_parse(
-    "Hello **unclosed\n", "**",
-  )
+test "experimental MarkdownIR: genuine inline ErrorNodes stay explicit" {
   assert_recovered_markdown_ir_block_matches_direct_parse("[unclosed\n", "[")
   assert_recovered_markdown_ir_block_matches_direct_parse("[text\n", "[")
-  assert_recovered_markdown_ir_block_matches_direct_parse("**a *b** c*\n", "**")
 }
 
 ///|
@@ -839,7 +825,7 @@ test "experimental MarkdownIR: lex-valid malformed heading/list recovery matches
 
 ///|
 test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics" {
-  let source = "Hello *\n"
+  let source = "[unclosed\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
     [paragraph] =>
@@ -849,7 +835,7 @@ test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics
           inspect(recovered.diagnostics().length(), content="1")
           inspect(
             recovered.diagnostics()[0].format(),
-            content="recovered malformed Markdown: * [6,7]",
+            content="recovered malformed Markdown: [ [0,1]",
           )
         }
         None => inspect("missing", content="recovered child")
@@ -860,12 +846,12 @@ test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics
 
 ///|
 test "experimental MarkdownIR: incoming diagnostics are attached to recovered nodes" {
-  let source = "Hello *\n"
+  let source = "[unclosed\n"
   let (cst, _) = parse_cst(source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "synthetic recovery diagnostic", 6, 7, "synthetic-recovery",
+    "synthetic recovery diagnostic", 0, 1, "synthetic-recovery",
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
     cst,
@@ -877,7 +863,7 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
         Some(index) =>
           inspect(
             paragraph.children()[index].diagnostics()[0].format(),
-            content="synthetic recovery diagnostic [6,7]",
+            content="synthetic recovery diagnostic [0,1]",
           )
         None => inspect("missing", content="recovered child")
       }
@@ -886,17 +872,13 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
 }
 
 ///|
-test "experimental MarkdownIR: incoming diagnostics override escaped literal recovery" {
+test "experimental MarkdownIR: diagnostics do not reclassify literal emphasis" {
   let source = "\\*literal*\n"
   let (cst, _) = parse_cst(source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  let trailing_start = source.length() - 2
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "synthetic escaped recovery diagnostic",
-    trailing_start,
-    trailing_start + 1,
-    "synthetic-escaped-recovery",
+    "synthetic literal diagnostic", 9, 10, "synthetic-literal",
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
     cst,
@@ -904,13 +886,16 @@ test "experimental MarkdownIR: incoming diagnostics override escaped literal rec
   )
   match ir.children() {
     [paragraph] =>
-      match paragraph.children().search_by(child => child.is_recovered()) {
-        Some(index) =>
-          inspect(
-            paragraph.children()[index].diagnostics()[0].format(),
-            content="synthetic escaped recovery diagnostic [9,10]",
-          )
-        None => inspect("missing", content="diagnostic recovery child")
+      match paragraph.children() {
+        [text] => {
+          inspect(text.kind_tag(), content="Text")
+          match text.text_value() {
+            Some(value) => inspect(value, content="*literal*")
+            None => inspect("missing", content="literal text value")
+          }
+          inspect(text.diagnostics().length(), content="0")
+        }
+        _ => inspect("unexpected", content="one literal text child")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -918,24 +903,24 @@ test "experimental MarkdownIR: incoming diagnostics override escaped literal rec
 
 ///|
 test "experimental MarkdownIR: zero-width incoming diagnostics attach only with positive overlap" {
-  let source = "Hello **unclosed\n"
+  let source = "[unclosed\n"
   let (cst, _) = parse_cst(source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "zero-width at recovered start", 6, 6, "synthetic-zero",
+      "zero-width at recovered start", 0, 0, "synthetic-zero",
     ),
   )
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "zero-width inside recovered", 7, 7, "synthetic-zero",
+      "positive recovered overlap", 0, 1, "synthetic-positive",
     ),
   )
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "zero-width at recovered end", 8, 8, "synthetic-zero",
+      "zero-width at recovered end", 1, 1, "synthetic-zero",
     ),
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(cst, diagnostics)
@@ -944,7 +929,7 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
       match paragraph.children().search_by(child => child.is_recovered()) {
         Some(index) => {
           let recovered = paragraph.children()[index]
-          inspect(origin_source(source, recovered.origin()), content="**")
+          inspect(origin_source(source, recovered.origin()), content="[")
           inspect(
             recovered
             .diagnostics()
@@ -952,7 +937,7 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
             .map(diagnostic => diagnostic.format())
             .collect()
             .join("|"),
-            content="zero-width inside recovered [7,7]",
+            content="positive recovered overlap [0,1]",
           )
         }
         None => inspect("missing", content="recovered child")
@@ -1515,23 +1500,20 @@ test "experimental MarkdownIR: local transform sibling preserves code block" {
 }
 
 ///|
-test "experimental MarkdownIR: recovered inline delimiters adapt to explicit error" {
+test "experimental MarkdownIR: unmatched inline delimiters adapt to text" {
   let source = "Hello *\n"
   let ir = markdown_ir_from_source(source)
   let block = experimental_markdown_ir_to_block(ir)
-  inspect(
-    block,
-    content="Document([Paragraph([Text(\"Hello \"), Error(\"*\")])])",
-  )
+  inspect(block, content="Document([Paragraph([Text(\"Hello *\")])])")
   inspect(block, content=@debug.to_string(parse(source)))
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [_, recovered] => {
-          inspect(recovered.kind_tag(), content="Recovered")
-          inspect(origin_source(source, recovered.origin()), content="*")
+        [text] => {
+          inspect(text.kind_tag(), content="Text")
+          inspect(origin_source(source, text.origin()), content="Hello *")
         }
-        _ => inspect("unexpected", content="text plus recovered")
+        _ => inspect("unexpected", content="one literal text child")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -1605,26 +1587,26 @@ test "experimental MarkdownIR: canonical format preserves hard breaks" {
 
 ///|
 test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
-  let strong_hard = markdown_ir_from_source("**foo  \n**\n")
+  let strong_hard = markdown_ir_from_source("**foo  \nbar**\n")
   inspect(
     experimental_markdown_ir_to_commonmark_html(strong_hard),
-    content="<p><strong>foo<br />\n</strong></p>\n",
+    content="<p><strong>foo<br />\nbar</strong></p>\n",
   )
   inspect(
     experimental_markdown_ir_canonical_format(strong_hard),
-    content="**foo  \n**",
+    content="**foo  \nbar**",
   )
   inspect(
     experimental_markdown_ir_to_block(strong_hard),
     content=(
-      #|Document([Paragraph([Bold([Text("foo"), Text("\n")])])])
+      #|Document([Paragraph([Bold([Text("foo"), Text("\n"), Text("bar")])])])
     ),
   )
   inspect(
     experimental_markdown_ir_to_commonmark_html(
-      markdown_ir_from_source("**foo\n**\n"),
+      markdown_ir_from_source("**foo\nbar**\n"),
     ),
-    content="<p><strong>foo\n</strong></p>\n",
+    content="<p><strong>foo\nbar</strong></p>\n",
   )
 }
 
@@ -1870,14 +1852,14 @@ test "experimental MarkdownIR: local transform preserves escaped text sibling" {
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [escaped, _, bold] => {
+        [escaped, bold] => {
           match escaped.text_value() {
-            Some(value) => inspect(value, content="*literal*")
+            Some(value) => inspect(value, content="*literal* and ")
             None => inspect("missing", content="decoded escaped sibling")
           }
           inspect(
             origin_source(source, escaped.origin()),
-            content="\\*literal*",
+            content="\\*literal* and ",
           )
           match bold.children() {
             [old_text] => {
@@ -1892,9 +1874,37 @@ test "experimental MarkdownIR: local transform preserves escaped text sibling" {
             _ => inspect("unexpected bold children", content="one text")
           }
         }
-        _ => inspect("unexpected paragraph children", content="text text bold")
+        _ => inspect("unexpected paragraph children", content="text then bold")
       }
     _ => inspect("unexpected child count", content="one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: local transform preserves underscore emphasis delimiters" {
+  for case in [("_old_\n", "_new_\n"), ("__old__\n", "__new__\n")] {
+    let (source, expected) = case
+    let ir = markdown_ir_from_source(source)
+    match ir.children() {
+      [paragraph] =>
+        match paragraph.children() {
+          [emphasis] =>
+            match emphasis.children() {
+              [old_text] => {
+                let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
+                  ir,
+                  source,
+                  target_origin=old_text.origin(),
+                  replacement_text="new",
+                )
+                inspect(local_rewrite, content=expected)
+              }
+              _ => inspect("unexpected emphasis children", content="one text")
+            }
+          _ => inspect("unexpected paragraph children", content="one emphasis")
+        }
+      _ => inspect("unexpected child count", content="one paragraph")
+    }
   }
 }
 
@@ -2074,15 +2084,15 @@ test "experimental MarkdownIR: canonical formatter passes raw text through" {
 
 ///|
 test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
-  let source = "Hello *\n"
+  let source = "[unclosed\n"
   let ir = markdown_ir_from_source(source)
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [_, recovered] if recovered.is_recovered() =>
-          inspect(origin_source(source, recovered.origin()), content="*")
-        _ => inspect("unexpected", content="text plus recovered")
+        [recovered, _] if recovered.is_recovered() =>
+          inspect(origin_source(source, recovered.origin()), content="[")
+        _ => inspect("unexpected", content="recovered opener plus text")
       }
     _ => inspect("unexpected", content="one paragraph")
   }
@@ -2090,21 +2100,21 @@ test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
 
 ///|
 test "experimental MarkdownIR: local transform replaces recovered text" {
-  let source = "Hello *\n"
+  let source = "[unclosed\n"
   let ir = markdown_ir_from_source(source)
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
-        [_, recovered] if recovered.is_recovered() => {
+        [recovered, _] if recovered.is_recovered() => {
           let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
             ir,
             source,
             target_origin=recovered.origin(),
             replacement_text="world",
           )
-          inspect(local_rewrite, content="Hello world\n")
+          inspect(local_rewrite, content="worldunclosed\n")
         }
-        _ => inspect("unexpected", content="text plus recovered")
+        _ => inspect("unexpected", content="recovered opener plus text")
       }
     _ => inspect("unexpected", content="one paragraph")
   }

@@ -523,9 +523,10 @@ test "delimiter resolver: omitted code-span facts leave outer state intact" {
 }
 
 ///|
-test "delimiter resolver: failed opener searches stay linear" {
+fn delimiter_failed_opener_search_events(
+  run_count : Int,
+) -> Array[DelimiterResolverEvent] {
   let events : Array[DelimiterResolverEvent] = []
-  let run_count = 256
   for i = 0; i < run_count; i = i + 1 {
     events.push(
       delimiter_test_run(
@@ -548,6 +549,13 @@ test "delimiter resolver: failed opener searches stay linear" {
       ),
     )
   }
+  events
+}
+
+///|
+test "delimiter resolver: failed opener searches stay linear" {
+  let run_count = 256
+  let events = delimiter_failed_opener_search_events(run_count)
   let plan = resolve_delimiter_events(events)
   assert_eq(plan.events.length(), run_count * 2)
   assert_true(
@@ -562,6 +570,30 @@ test "delimiter resolver: failed opener searches stay linear" {
   )
   assert_eq(plan.stats.run_count, run_count * 2)
   inspect(plan.stats.opener_checks, content="256")
+}
+
+///|
+fn benchmark_delimiter_failed_opener_search(
+  b : @bench.T,
+  run_count : Int,
+) -> Unit {
+  let events = delimiter_failed_opener_search_events(run_count)
+  b.bench(fn() { b.keep(resolve_delimiter_events(events)) })
+}
+
+///|
+test "bench: delimiter resolver failed opener search R=512" (b : @bench.T) {
+  benchmark_delimiter_failed_opener_search(b, 512)
+}
+
+///|
+test "bench: delimiter resolver failed opener search R=1024" (b : @bench.T) {
+  benchmark_delimiter_failed_opener_search(b, 1024)
+}
+
+///|
+test "bench: delimiter resolver failed opener search R=2048" (b : @bench.T) {
+  benchmark_delimiter_failed_opener_search(b, 2048)
 }
 
 ///|

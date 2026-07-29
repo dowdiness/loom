@@ -104,8 +104,7 @@ fn markdown_role_for_token(
     (CodeBlockNode, CodeTextToken) => Some(CodeFenceContent)
     (InlineCodeNode, BacktickToken) => Some(InlineCodeDelimiter)
     (InlineCodeNode, _) => Some(InlineCodeContent)
-    (BoldNode | ItalicNode, StarToken | StarStarToken) =>
-      Some(EmphasisDelimiter)
+    (BoldNode | ItalicNode, EmphasisDelimiterToken) => Some(EmphasisDelimiter)
     (BoldNode | ItalicNode, _) => Some(EmphasisContent)
     (
       LinkNode,
@@ -170,13 +169,16 @@ fn markdown_link_role_spans_iter(
   // parenthesis, and balanced destination parentheses have distinct roles.
   let mut phase = MarkdownLinkPhase::Label
   let mut depth = 0
+  let mut previous_direct_token_kind : SyntaxKind? = None
   let spans : Array[MarkdownRoleSpan] = []
   for element in node.direct_elements_iter() {
     match element {
-      Node(child) =>
+      Node(child) => {
         for span in markdown_role_spans_iter_with_error(child, error_context) {
           spans.push(span)
         }
+        previous_direct_token_kind = None
+      }
       Token(token) => {
         let kind = SyntaxKind::from_raw(token.kind())
         let role = if error_context || kind == ErrorToken {
@@ -222,9 +224,29 @@ fn markdown_link_role_spans_iter(
           }
         }
         match role {
-          Some(span) => spans.push(span)
+          Some(span) => {
+            let merge_text_destination = span.role == LinkDestination &&
+              kind == TextToken &&
+              previous_direct_token_kind == Some(TextToken) &&
+              (match spans.last() {
+                Some(previous) =>
+                  previous.role == LinkDestination && previous.end == span.start
+                None => false
+              })
+            if merge_text_destination {
+              let previous = spans[spans.length() - 1]
+              spans[spans.length() - 1] = MarkdownRoleSpan(
+                role=LinkDestination,
+                start=previous.start,
+                end=span.end,
+              )
+            } else {
+              spans.push(span)
+            }
+          }
           None => ()
         }
+        previous_direct_token_kind = Some(kind)
         if phase == MarkdownLinkPhase::Label && kind == RightBracketToken {
           phase = MarkdownLinkPhase::AfterLabel
         }
@@ -264,6 +286,27 @@ fn markdown_role_spans_iter(node : @seam.SyntaxNode) -> Iter[MarkdownRoleSpan] {
 }
 
 ///|
+fn coalesce_emphasis_delimiter_spans(
+  spans : Array[MarkdownRoleSpan],
+) -> Array[MarkdownRoleSpan] {
+  let result : Array[MarkdownRoleSpan] = []
+  for span in spans {
+    match result.last() {
+      Some(previous) if previous.role == EmphasisDelimiter &&
+        span.role == EmphasisDelimiter &&
+        previous.end == span.start =>
+        result[result.length() - 1] = MarkdownRoleSpan(
+          role=EmphasisDelimiter,
+          start=previous.start,
+          end=span.end,
+        )
+      _ => result.push(span)
+    }
+  }
+  result
+}
+
+///|
 /// Project a Markdown syntax tree to ordered editor role spans.
 ///
 /// Spans use the source-backed UTF-16 token ranges. Trivia and synthetic
@@ -272,5 +315,5 @@ fn markdown_role_spans_iter(node : @seam.SyntaxNode) -> Iter[MarkdownRoleSpan] {
 pub fn project_markdown_roles(
   syntax : @seam.SyntaxNode,
 ) -> Array[MarkdownRoleSpan] {
-  markdown_role_spans_iter(syntax).to_array()
+  coalesce_emphasis_delimiter_spans(markdown_role_spans_iter(syntax).to_array())
 }

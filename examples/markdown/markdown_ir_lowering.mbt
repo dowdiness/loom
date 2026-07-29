@@ -104,7 +104,7 @@ fn append_inline_text_ir(
   match children.last() {
     Some(previous) =>
       match previous.node {
-        Text(value) =>
+        Text(value) if previous.origin().end() == origin.start() =>
           children[children.length() - 1] = MarkdownIR::text(
             value + text,
             MarkdownIROrigin(start=previous.origin().start(), end=origin.end()),
@@ -121,7 +121,6 @@ fn append_inline_text_ir(
 /// controls the semantic MarkdownIR projection.
 priv enum EscapedInlineRecoveryState {
   NoEscapedInlineRecovery
-  EscapedEmphasisRecovery
   EscapedBracketRecovery(Int)
   AfterEscapedBracketRecovery(Int)
   EscapedParenthesisRecovery(Int)
@@ -151,11 +150,6 @@ fn escaped_inline_recovery_after_text(
   while offset < origin.end() {
     match char_at(source, offset) {
       Some('\n') | Some('\r') => next = NoEscapedInlineRecovery
-      Some('*') if preceded_by_odd_backslashes(source, offset) =>
-        match next {
-          EscapedBracketRecovery(_) | EscapedParenthesisRecovery(_) => ()
-          _ => next = EscapedEmphasisRecovery
-        }
       Some('[') if preceded_by_odd_backslashes(source, offset) =>
         match next {
           EscapedBracketRecovery(depth) =>
@@ -183,14 +177,10 @@ fn escaped_inline_recovery_after_inline(
 ///|
 fn escaped_inline_recovery_transition(
   state : EscapedInlineRecoveryState,
-  source : String,
   text : String,
   origin : MarkdownIROrigin,
 ) -> (EscapedInlineRecoveryState, Bool) {
   match state {
-    EscapedEmphasisRecovery if (text == "*" || text == "**") &&
-      emphasis_recovery_can_close(source, origin.start(), origin.end()) =>
-      (NoEscapedInlineRecovery, true)
     EscapedBracketRecovery(depth) if text == "]" =>
       if depth == 1 {
         (AfterEscapedBracketRecovery(origin.end()), true)
@@ -237,7 +227,7 @@ fn normalize_escaped_inline_recoveries(
       }
       Raw(value, _) | Recovered(value, _) => {
         let (next, literal) = escaped_inline_recovery_transition(
-          state, source, value, origin,
+          state, value, origin,
         )
         if literal && diagnostics_in_origin(origin).length() == 0 {
           state = next
@@ -271,6 +261,7 @@ fn lower_inline_children_skip_with_diags(
   let mut pending_newline : MarkdownIROrigin? = None
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
+  let mut previous_was_literal_emphasis_marker = false
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
@@ -296,13 +287,20 @@ fn lower_inline_children_skip_with_diags(
           }
           preceding_text_ends_escaped = false
           previous_was_escaped_backtick = false
+          previous_was_literal_emphasis_marker = false
           continue
         }
         match token_kind {
           TextToken => {
             let origin = origin_from_token(token)
             let text = strip_backslash_escapes(token.text())
-            if previous_was_escaped_backtick {
+            let literal_marker = is_literal_emphasis_marker_text(token.text())
+            if pending_newline is None &&
+              (
+                previous_was_escaped_backtick ||
+                previous_was_literal_emphasis_marker ||
+                literal_marker
+              ) {
               append_inline_text_ir(children, text, origin)
             } else {
               push_child(MarkdownIR::text(text, origin))
@@ -311,6 +309,7 @@ fn lower_inline_children_skip_with_diags(
               token.text(),
             )
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = literal_marker
           }
           BacktickToken => {
             let origin = origin_from_token(token)
@@ -322,6 +321,7 @@ fn lower_inline_children_skip_with_diags(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
+            previous_was_literal_emphasis_marker = false
           }
           ErrorToken | ErrorNode => {
             let origin = origin_from_token(token)
@@ -334,11 +334,13 @@ fn lower_inline_children_skip_with_diags(
             )
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
           NewlineToken => {
             pending_newline = Some(origin_from_token(token))
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
           AtxHeadingMarkerToken
           | SetextHeadingUnderlineToken
@@ -353,6 +355,7 @@ fn lower_inline_children_skip_with_diags(
           | CodeTextToken => {
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
           _ => {
             match delimiter_text(token_kind) {
@@ -362,12 +365,14 @@ fn lower_inline_children_skip_with_diags(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
         }
       }
       @seam.SyntaxElement::Node(child_node) => {
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
+        previous_was_literal_emphasis_marker = false
         push_child(
           lower_inline_node_with_diags(child_node, newline_text, context),
         )
@@ -465,6 +470,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
   let mut pending_newline : MarkdownIROrigin? = None
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
+  let mut previous_was_literal_emphasis_marker = false
   fn push_child(child : MarkdownIR) -> Unit {
     let child = match pending_newline {
       Some(origin) => {
@@ -484,12 +490,19 @@ fn lower_direct_inline_children_with_newline_and_diags(
           pending_newline = Some(origin_from_token(token))
           preceding_text_ends_escaped = false
           previous_was_escaped_backtick = false
+          previous_was_literal_emphasis_marker = false
         } else {
           match token_kind {
             TextToken => {
               let origin = origin_from_token(token)
               let text = strip_backslash_escapes(token.text())
-              if previous_was_escaped_backtick {
+              let literal_marker = is_literal_emphasis_marker_text(token.text())
+              if pending_newline is None &&
+                (
+                  previous_was_escaped_backtick ||
+                  previous_was_literal_emphasis_marker ||
+                  literal_marker
+                ) {
                 append_inline_text_ir(children, text, origin)
               } else {
                 push_child(MarkdownIR::text(text, origin))
@@ -498,6 +511,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
                 token.text(),
               )
               previous_was_escaped_backtick = false
+              previous_was_literal_emphasis_marker = literal_marker
             }
             BacktickToken => {
               let origin = origin_from_token(token)
@@ -509,6 +523,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
               }
               preceding_text_ends_escaped = false
               previous_was_escaped_backtick = escaped
+              previous_was_literal_emphasis_marker = false
             }
             _ => {
               match lower_direct_inline_token_with_diags(token, context) {
@@ -517,6 +532,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
               }
               preceding_text_ends_escaped = false
               previous_was_escaped_backtick = false
+              previous_was_literal_emphasis_marker = false
             }
           }
         }
@@ -524,6 +540,7 @@ fn lower_direct_inline_children_with_newline_and_diags(
       @seam.SyntaxElement::Node(node) => {
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
+        previous_was_literal_emphasis_marker = false
         match
           lower_direct_inline_node_with_diags(node, Some(newline_text), context) {
           Some(child) => push_child(child)
@@ -700,16 +717,20 @@ fn lower_link_node_with_diags(
   let mut past_bracket = false
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
+  let mut previous_was_literal_emphasis_marker = false
   for element in node.all_children() {
     match element {
       @seam.SyntaxElement::Token(token) => {
         let token_kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
         match token_kind {
-          LeftBracketToken if !past_bracket && url_depth == 0 =>
+          LeftBracketToken if !past_bracket && url_depth == 0 => {
             label_start = Some(origin_from_token(token).end())
+            previous_was_literal_emphasis_marker = false
+          }
           RightBracketToken if url_depth == 0 => {
             label_end = Some(origin_from_token(token).start())
             past_bracket = true
+            previous_was_literal_emphasis_marker = false
           }
           LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
           LeftParenToken if past_bracket => {
@@ -730,7 +751,10 @@ fn lower_link_node_with_diags(
           TextToken if !past_bracket => {
             let origin = origin_from_token(token)
             let text = strip_backslash_escapes(token.text())
-            if previous_was_escaped_backtick {
+            let literal_marker = is_literal_emphasis_marker_text(token.text())
+            if previous_was_escaped_backtick ||
+              previous_was_literal_emphasis_marker ||
+              literal_marker {
               append_inline_text_ir(display, text, origin)
             } else {
               display.push(MarkdownIR::text(text, origin))
@@ -739,6 +763,7 @@ fn lower_link_node_with_diags(
               token.text(),
             )
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = literal_marker
           }
           BacktickToken if !past_bracket => {
             let origin = origin_from_token(token)
@@ -750,6 +775,7 @@ fn lower_link_node_with_diags(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
+            previous_was_literal_emphasis_marker = false
           }
           ErrorToken | ErrorNode if !past_bracket => {
             let origin = origin_from_token(token)
@@ -762,10 +788,12 @@ fn lower_link_node_with_diags(
             )
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
           _ => {
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
           }
         }
       }
@@ -777,6 +805,7 @@ fn lower_link_node_with_diags(
         }
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
+        previous_was_literal_emphasis_marker = false
       }
     }
   }
@@ -800,6 +829,34 @@ fn lower_link_node_with_diags(
 }
 
 ///|
+fn emphasis_content_origin_from_boundaries(
+  node : @seam.SyntaxNode,
+  boundary_width : Int,
+) -> MarkdownIROrigin? {
+  let boundaries : Array[MarkdownIROrigin] = []
+  for element in node.direct_elements_iter() {
+    match element {
+      @seam.SyntaxElement::Token(token) => {
+        let kind : SyntaxKind = @seam.FromRawKind::from_raw(token.kind())
+        if kind == EmphasisDelimiterToken {
+          boundaries.push(origin_from_token(token))
+        }
+      }
+      @seam.SyntaxElement::Node(_) => ()
+    }
+  }
+  guard boundary_width > 0 && boundaries.length() == boundary_width * 2 else {
+    return None
+  }
+  Some(
+    MarkdownIROrigin(
+      start=boundaries[boundary_width - 1].end(),
+      end=boundaries[boundary_width].start(),
+    ),
+  )
+}
+
+///|
 fn lower_inline_node_with_diags(
   node : @seam.SyntaxNode,
   newline_text : String?,
@@ -810,27 +867,27 @@ fn lower_inline_node_with_diags(
     BoldNode => {
       let children = lower_inline_children_skip_with_diags(
         node,
-        Some(StarStarToken),
+        Some(EmphasisDelimiterToken),
         newline_text,
         context,
       )
       MarkdownIR::bold(
         children,
         origin_from_node(node),
-        span_origin_of_children(children),
+        emphasis_content_origin_from_boundaries(node, 2),
       )
     }
     ItalicNode => {
       let children = lower_inline_children_skip_with_diags(
         node,
-        Some(StarToken),
+        Some(EmphasisDelimiterToken),
         newline_text,
         context,
       )
       MarkdownIR::italic(
         children,
         origin_from_node(node),
-        span_origin_of_children(children),
+        emphasis_content_origin_from_boundaries(node, 1),
       )
     }
     InlineCodeNode => {

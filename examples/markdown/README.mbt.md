@@ -64,6 +64,23 @@ Note that `parse` is **not** `raise` — lexing failures fold into
 `Block::Error`, while parser recovery may preserve malformed inline source as
 text or error-shaped IR. If you need diagnostics, use `parse_markdown` instead.
 
+### Emphasis token and CST compatibility
+
+CommonMark delimiter runs are resolved by the native inline parser. The public
+`Star` / `StarStar` token variants and their existing syntax-kind raw IDs remain
+available, but inline-text lexing now emits one `Star` fact for each unescaped
+`*` and an append-only `Underscore` fact for each unescaped `_`; it no longer
+emits `StarStar` for inline `**`. `UnderscoreToken` (raw kind 39) and
+`EmphasisDelimiterToken` (raw kind 40) are append-only syntax kinds.
+
+This intentionally changes the observable `tokenize` and `parse_cst` shape.
+Characters consumed as bold or italic boundaries are
+`EmphasisDelimiterToken` leaves, while unmatched, escaped, or unused run
+portions are ordinary `TextToken` leaves. Existing variants and raw IDs were
+not removed or reused. Consumers that inspect Markdown CST should classify
+editable delimiter roles by the boundary token kind, not by marker spelling or
+by the enclosing `BoldNode` / `ItalicNode` alone.
+
 ## Experimental MarkdownIR
 
 The M1 MarkdownIR API is explicitly experimental. It covers the current parser
@@ -206,6 +223,10 @@ source-backed parser recovery errors. Nested inline nodes take precedence over
 their enclosing heading, list, or link context. Link destination classification
 uses ordered CST elements, so balanced inner parentheses remain destinations
 while only the outer parentheses are punctuation.
+
+Unmatched emphasis markers are valid literal text and therefore do not receive
+an error role; genuine parser recovery such as an unclosed link remains
+error-shaped.
 
 Trivia, EOF, and ordinary unclassified paragraph text are omitted. The
 projector assigns no roles to HTML blocks, thematic breaks, or block-quote

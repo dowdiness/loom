@@ -1,122 +1,4 @@
 ///|
-fn inline_flanking_whitespace(ch : Char?) -> Bool {
-  match ch {
-    Some(ch) => ch.is_whitespace()
-    None => true
-  }
-}
-
-///|
-/// Return the Unicode scalar immediately before a UTF-16 code-unit offset.
-/// The offset must be a Unicode-scalar boundary.
-fn char_before(source : String, offset : Int) -> Char? {
-  guard offset > 0 && offset <= source.length() else { return None }
-  let previous = offset - 1
-  let previous_unit = source.code_unit_at(previous).to_int()
-  if previous_unit >= 0xDC00 && previous_unit <= 0xDFFF && previous > 0 {
-    let leading = previous - 1
-    let leading_unit = source.code_unit_at(leading).to_int()
-    if leading_unit >= 0xD800 && leading_unit <= 0xDBFF {
-      return char_at(source, leading)
-    }
-  }
-  char_at(source, previous)
-}
-
-///|
-fn emphasis_recovery_can_close(source : String, start : Int, end : Int) -> Bool {
-  guard start > 0 else { return false }
-  let before = char_before(source, start)
-  let after = char_at(source, end)
-  !inline_flanking_whitespace(before) &&
-  (
-    inline_flanking_whitespace(after) ||
-    after.map_or(false, ch => ch.is_ascii_punctuation()) ||
-    !before.map_or(false, ch => ch.is_ascii_punctuation())
-  )
-}
-
-///|
-/// State for one left-to-right pass over an inline parent's direct elements.
-/// `source` is populated lazily only when an eligible recovery node needs
-/// flanking-character classification.
-priv struct EscapedEmphasisRecoveryState {
-  escaped_openers : Int
-  trailing_backslashes : Int
-  source : String?
-}
-
-///|
-fn escaped_emphasis_recovery_start() -> EscapedEmphasisRecoveryState {
-  { escaped_openers: 0, trailing_backslashes: 0, source: None }
-}
-
-///|
-fn escaped_emphasis_recovery_after_token(
-  state : EscapedEmphasisRecoveryState,
-  kind : SyntaxKind,
-  text : String,
-) -> EscapedEmphasisRecoveryState {
-  if kind == TextToken {
-    let mut escaped_openers = state.escaped_openers
-    let mut trailing_backslashes = state.trailing_backslashes
-    for offset = 0; offset < text.length(); offset = offset + 1 {
-      match text.code_unit_at(offset).to_int() {
-        0x5C => trailing_backslashes = trailing_backslashes + 1
-        0x2A => {
-          if trailing_backslashes % 2 == 1 {
-            escaped_openers = escaped_openers + 1
-          }
-          trailing_backslashes = 0
-        }
-        0x0A | 0x0D => {
-          escaped_openers = 0
-          trailing_backslashes = 0
-        }
-        _ => trailing_backslashes = 0
-      }
-    }
-    { escaped_openers, trailing_backslashes, source: state.source }
-  } else if kind == NewlineToken || kind == ErrorToken || kind == ErrorNode {
-    { escaped_openers: 0, trailing_backslashes: 0, source: state.source }
-  } else {
-    { ..state, trailing_backslashes: 0 }
-  }
-}
-
-///|
-/// Classify an ErrorNode using the state accumulated before it, then reset the
-/// opener count exactly as the former sibling rescan did after any ErrorNode.
-fn escaped_emphasis_recovery_after_node(
-  state : EscapedEmphasisRecoveryState,
-  parent : @seam.SyntaxNode,
-  node : @seam.SyntaxNode,
-) -> (EscapedEmphasisRecoveryState, Bool) {
-  let kind : SyntaxKind = @seam.FromRawKind::from_raw(node.kind())
-  if kind != ErrorNode {
-    return ({ ..state, trailing_backslashes: 0 }, false)
-  }
-  let text = node.text()
-  let candidate = (text == "*" || text == "**") &&
-    state.escaped_openers >= text.length()
-  let (source, literal) = if candidate {
-    let source = state.source.unwrap_or_else(fn() { parent.text() })
-    let base = parent.start()
-    (
-      Some(source),
-      emphasis_recovery_can_close(
-        source,
-        node.start() - base,
-        node.end() - base,
-      ),
-    )
-  } else {
-    (state.source, false)
-  }
-  ({ escaped_openers: 0, trailing_backslashes: 0, source }, literal)
-}
-
-///|
 fn inline_text_from_token_kind(kind : SyntaxKind, text : String) -> String? {
   match kind {
     TextToken => Some(strip_backslash_escapes(text))
@@ -161,9 +43,13 @@ fn append_inline_text(inlines : Array[Inline], text : String) -> Unit {
 }
 
 ///|
+fn is_literal_emphasis_marker_text(text : String) -> Bool {
+  text == "*" || text == "_"
+}
+
+///|
 /// Convert the inline children of a node to an Array[Inline].
-/// `skip_kind` optionally specifies a delimiter token kind to skip
-/// (e.g., StarStarToken inside BoldNode, StarToken inside ItalicNode).
+/// `skip_kind` optionally specifies a delimiter token kind to skip.
 fn convert_inline_children_skip(
   node : @seam.SyntaxNode,
   skip_kind : SyntaxKind?,
@@ -173,7 +59,8 @@ fn convert_inline_children_skip(
   let mut pending_newline = false
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
-  let mut emphasis_recovery = escaped_emphasis_recovery_start()
+  let mut previous_was_literal_emphasis_marker = false
+  let mut previous_was_text_token = false
   fn push_inline(item : Inline) -> Unit {
     let was_pending = pending_newline
     if pending_newline {
@@ -216,18 +103,23 @@ fn convert_inline_children_skip(
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
         let tok_text = tok.text()
-        emphasis_recovery = escaped_emphasis_recovery_after_token(
-          emphasis_recovery, tok_kind, tok_text,
-        )
         if skip_kind is Some(k) && tok_kind == k {
           preceding_text_ends_escaped = false
           previous_was_escaped_backtick = false
+          previous_was_literal_emphasis_marker = false
+          previous_was_text_token = false
           continue
         }
         match tok_kind {
           TextToken => {
             let text = strip_backslash_escapes(tok_text)
-            if previous_was_escaped_backtick {
+            let literal_marker = is_literal_emphasis_marker_text(tok_text)
+            if !pending_newline &&
+              (
+                previous_was_escaped_backtick ||
+                previous_was_literal_emphasis_marker ||
+                (literal_marker && previous_was_text_token)
+              ) {
               append_inline_text(inlines, text)
             } else {
               push_inline(Inline::Text(text))
@@ -236,6 +128,8 @@ fn convert_inline_children_skip(
               tok_text,
             )
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = literal_marker
+            previous_was_text_token = true
           }
           BacktickToken => {
             let escaped = preceding_text_ends_escaped
@@ -246,6 +140,8 @@ fn convert_inline_children_skip(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = !escaped
           }
           AtxHeadingMarkerToken
           | SetextHeadingUnderlineToken
@@ -258,11 +154,15 @@ fn convert_inline_children_skip(
           | CodeTextToken => {
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
           }
           NewlineToken => {
             pending_newline = newline_text is Some(_)
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
           }
           _ => {
             match inline_text_from_token_kind(tok_kind, tok_text) {
@@ -271,16 +171,16 @@ fn convert_inline_children_skip(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
           }
         }
       }
       @seam.SyntaxElement::Node(child) => {
-        let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
-          emphasis_recovery, node, child,
-        )
-        emphasis_recovery = next_recovery
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
+        previous_was_literal_emphasis_marker = false
+        previous_was_text_token = false
         let was_pending = pending_newline
         if pending_newline {
           // Trim trailing spaces from line before soft break
@@ -300,11 +200,7 @@ fn convert_inline_children_skip(
           pending_newline = false
         }
         let before = inlines.length()
-        if recovered_literal {
-          append_inline_text(inlines, child.text())
-        } else {
-          convert_inline_node(child, inlines)
-        }
+        convert_inline_node(child, inlines)
         // Trim leading spaces from first child after soft break
         if was_pending && inlines.length() > before {
           match inlines[before] {
@@ -356,7 +252,8 @@ fn convert_direct_inline_children_with_newline(
   let mut pending_newline = false
   let mut preceding_text_ends_escaped = false
   let mut previous_was_escaped_backtick = false
-  let mut emphasis_recovery = escaped_emphasis_recovery_start()
+  let mut previous_was_literal_emphasis_marker = false
+  let mut previous_was_text_token = false
   fn flush_newline() -> Unit {
     if pending_newline {
       // Trim trailing spaces from line before soft break
@@ -378,14 +275,13 @@ fn convert_direct_inline_children_with_newline(
       @seam.SyntaxElement::Token(tok) => {
         let tok_kind : SyntaxKind = @seam.FromRawKind::from_raw(tok.kind())
         let tok_text = tok.text()
-        emphasis_recovery = escaped_emphasis_recovery_after_token(
-          emphasis_recovery, tok_kind, tok_text,
-        )
         match tok_kind {
           NewlineToken => {
             pending_newline = true
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
           }
           TextToken => {
             let was_pending = pending_newline
@@ -396,7 +292,13 @@ fn convert_direct_inline_children_with_newline(
             } else {
               text
             }
-            if previous_was_escaped_backtick {
+            let literal_marker = is_literal_emphasis_marker_text(tok_text)
+            if !was_pending &&
+              (
+                previous_was_escaped_backtick ||
+                previous_was_literal_emphasis_marker ||
+                (literal_marker && previous_was_text_token)
+              ) {
               append_inline_text(inlines, text)
             } else {
               inlines.push(Inline::Text(text))
@@ -405,6 +307,8 @@ fn convert_direct_inline_children_with_newline(
               tok_text,
             )
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = literal_marker
+            previous_was_text_token = true
           }
           BacktickToken => {
             flush_newline()
@@ -412,6 +316,8 @@ fn convert_direct_inline_children_with_newline(
             append_literal_backtick_text(inlines, tok_text, escaped)
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = escaped
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = !escaped
           }
           _ => {
             match inline_text_from_token_kind(tok_kind, tok_text) {
@@ -429,22 +335,18 @@ fn convert_direct_inline_children_with_newline(
             }
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
           }
         }
       }
       @seam.SyntaxElement::Node(child) => {
-        let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
-          emphasis_recovery, node, child,
-        )
-        emphasis_recovery = next_recovery
         preceding_text_ends_escaped = false
         previous_was_escaped_backtick = false
+        previous_was_literal_emphasis_marker = false
+        previous_was_text_token = false
         let converted : Array[Inline] = []
-        if recovered_literal {
-          converted.push(Inline::Text(child.text()))
-        } else {
-          convert_inline_node(child, converted)
-        }
+        convert_inline_node(child, converted)
         if converted.length() > 0 {
           let was_pending = pending_newline
           flush_newline()
@@ -477,13 +379,19 @@ fn convert_inline_node(
   let child_kind : SyntaxKind = @seam.FromRawKind::from_raw(child.kind())
   match child_kind {
     BoldNode => {
-      // Skip StarStarToken delimiters
-      let inner = convert_inline_children_skip(child, Some(StarStarToken), None)
+      let inner = convert_inline_children_skip(
+        child,
+        Some(EmphasisDelimiterToken),
+        None,
+      )
       inlines.push(Inline::Bold(inner))
     }
     ItalicNode => {
-      // Skip StarToken delimiters
-      let inner = convert_inline_children_skip(child, Some(StarToken), None)
+      let inner = convert_inline_children_skip(
+        child,
+        Some(EmphasisDelimiterToken),
+        None,
+      )
       inlines.push(Inline::Italic(inner))
     }
     InlineCodeNode => {
@@ -498,24 +406,26 @@ fn convert_inline_node(
       let mut past_bracket = false
       let mut preceding_text_ends_escaped = false
       let mut previous_was_escaped_backtick = false
-      let mut emphasis_recovery = escaped_emphasis_recovery_start()
+      let mut previous_was_literal_emphasis_marker = false
+      let mut previous_was_text_token = false
       for inner_elem in child.direct_elements_iter() {
         match inner_elem {
           @seam.SyntaxElement::Token(t) => {
             let k : SyntaxKind = @seam.FromRawKind::from_raw(t.kind())
             let text = t.text()
-            emphasis_recovery = escaped_emphasis_recovery_after_token(
-              emphasis_recovery, k, text,
-            )
             match k {
               LeftBracketToken if !past_bracket && url_depth == 0 => {
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = false
+                previous_was_text_token = false
               }
               RightBracketToken if url_depth == 0 => {
                 past_bracket = true
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = false
+                previous_was_text_token = false
               }
               LeftParenToken if past_bracket && url_depth == 0 => url_depth = 1
               LeftParenToken if past_bracket => {
@@ -530,7 +440,10 @@ fn convert_inline_node(
               _ if url_depth > 0 => url_buf.write_string(text)
               TextToken if !past_bracket => {
                 let unescaped = strip_backslash_escapes(text)
-                if previous_was_escaped_backtick {
+                let literal_marker = is_literal_emphasis_marker_text(text)
+                if previous_was_escaped_backtick ||
+                  previous_was_literal_emphasis_marker ||
+                  (literal_marker && previous_was_text_token) {
                   append_inline_text(display, unescaped)
                 } else {
                   display.push(Inline::Text(unescaped))
@@ -539,38 +452,40 @@ fn convert_inline_node(
                   text,
                 )
                 previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = literal_marker
+                previous_was_text_token = true
               }
               BacktickToken if !past_bracket => {
                 let escaped = preceding_text_ends_escaped
                 append_literal_backtick_text(display, text, escaped)
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = escaped
+                previous_was_literal_emphasis_marker = false
+                previous_was_text_token = !escaped
               }
               ErrorToken | ErrorNode if !past_bracket => {
                 display.push(Inline::Text(text))
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = false
+                previous_was_text_token = false
               }
               _ => {
                 preceding_text_ends_escaped = false
                 previous_was_escaped_backtick = false
+                previous_was_literal_emphasis_marker = false
+                previous_was_text_token = false
               }
             }
           }
           @seam.SyntaxElement::Node(inner_node) => {
-            let (next_recovery, recovered_literal) = escaped_emphasis_recovery_after_node(
-              emphasis_recovery, child, inner_node,
-            )
-            emphasis_recovery = next_recovery
             preceding_text_ends_escaped = false
             previous_was_escaped_backtick = false
+            previous_was_literal_emphasis_marker = false
+            previous_was_text_token = false
             if !past_bracket && url_depth == 0 {
               // Inline markup inside link display text
-              if recovered_literal {
-                append_inline_text(display, inner_node.text())
-              } else {
-                convert_inline_node(inner_node, display)
-              }
+              convert_inline_node(inner_node, display)
             }
           }
         }
