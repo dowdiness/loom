@@ -36,6 +36,9 @@ fn recovery_parity_heavy_markdown_doc(repeats : Int) -> String {
 }
 
 ///|
+/// Parse diagnostics are intentionally excluded: these rows isolate the
+/// syntax-only lowering work shared by the direct and MarkdownIR lanes.
+/// Diagnostic attachment is covered separately by MarkdownIR recovery tests.
 fn recovery_benchmark_parse_to_syntax(source : String) -> @seam.SyntaxNode {
   let (cst, _) = parse_cst(source) catch { _ => abort("parse failed") }
   @seam.SyntaxNode::from_cst(cst)
