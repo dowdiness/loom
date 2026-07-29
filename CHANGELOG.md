@@ -14,6 +14,18 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- **Breaking `examples/markdown` token/CST shape change:** CommonMark emphasis
+  is now resolved by a private parser-owned delimiter-run pass for `*` and `_`,
+  including Unicode-aware flanking and unmatched/partial runs. Inline lexing
+  emits one `Token::Star` per unescaped `*` (and no longer emits
+  `Token::StarStar` for inline `**`) and adds `Token::Underscore`. Matched
+  emphasis boundaries are emitted as `EmphasisDelimiterToken`; unmatched,
+  escaped, and unused marker portions are ordinary `TextToken`s rather than
+  recovery errors. `UnderscoreToken` and `EmphasisDelimiterToken` use append-only
+  raw kinds 39 and 40; existing variants and raw IDs remain available. CST/role
+  consumers should identify editable emphasis boundaries by token kind, not by
+  marker spelling.
+
 - **Breaking `examples/markdown` CST API:** `SyntaxKind::HeadingMarkerToken`
   has been split into `AtxHeadingMarkerToken` and
   `SetextHeadingUnderlineToken`. Consumers that match the old variant or query

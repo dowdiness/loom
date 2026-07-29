@@ -1,7 +1,7 @@
-// AUTO-GENERATED interval data from Unicode 16.0.0 UCD UnicodeData.txt.
+// AUTO-GENERATED interval data from Unicode 16.0.0 UCD DerivedGeneralCategory.txt.
 // DO NOT EDIT BY HAND.
-// Source: https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt
-// Unicode data terms: https://www.unicode.org/license.txt
+// Source: https://www.unicode.org/Public/16.0.0/ucd/extracted/DerivedGeneralCategory.txt
+// Unicode data license: tools/UNICODE-LICENSE.txt
 // Includes General_Category P* or S*: 9,369 code points in 349 inclusive ranges.
 // Categories: Pc, Pd, Pe, Pf, Pi, Po, Ps, Sc, Sk, Sm, So.
 // Ranges are sorted, non-overlapping `[start, end, ...]` code-point pairs.

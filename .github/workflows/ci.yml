@@ -276,6 +276,15 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: moon fmt --check
 
+      - name: Verify Markdown Unicode data regenerated
+        if: matrix.name == 'examples-markdown'
+        working-directory: examples/markdown
+        run: |
+          python3 tools/gen_unicode_punctuation_symbol.py
+          moon fmt unicode_punctuation_symbol.mbt
+          git ls-files --error-unmatch unicode_punctuation_symbol.mbt
+          git diff --exit-code -- unicode_punctuation_symbol.mbt
+
   fmt-check-submodules:
     name: Format Check ${{ matrix.name }}
     runs-on: ubuntu-latest

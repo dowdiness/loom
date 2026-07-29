@@ -125,6 +125,23 @@ parent receive fresh IDs rather than retaining a generic preview ID.
 compatibility PR must rebuild that mapping from the current projection rather
 than persist a path or `ProjNode` ID in the identity baseline.
 
+### Unicode punctuation and symbol data
+
+`unicode_punctuation_symbol.mbt` is generated from the checked-in Unicode
+16.0.0 `DerivedGeneralCategory` data. The generator verifies the pinned input
+SHA-256 before selecting the CommonMark `P*` and `S*` general categories and
+merging adjacent ranges. Normal tests consume only the generated MoonBit table
+and remain hermetic. The Unicode copyright and permission notice is checked in
+as `tools/UNICODE-LICENSE.txt` alongside the source data.
+
+To regenerate the table from `examples/markdown`:
+
+```bash
+python3 tools/gen_unicode_punctuation_symbol.py
+NEW_MOON_MOD=0 moon fmt
+git diff --exit-code -- unicode_punctuation_symbol.mbt
+```
+
 ### mdast fixture parity
 
 `mdast_fixture_parity_test.mbt` compares MarkdownIR mdast export against checked-in

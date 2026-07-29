@@ -415,7 +415,12 @@ fn try_emit_planned_delimiter(
   guard cursor.event_index < cursor.events.length() else { return false }
   let event = cursor.events[cursor.event_index]
   let DelimiterSourceRange(start, _) = delimiter_event_range(event)
-  guard ctx.current_token_range().start == start else { return false }
+  guard delimiter_event_is_ready(
+    current_start=ctx.current_token_range().start,
+    event_start=start,
+  ) else {
+    return false
+  }
   match event {
     OpenEmphasisDelimiter(kind, range) => {
       cursor.emphasis_stack.push(kind)
@@ -439,6 +444,28 @@ fn try_emit_planned_delimiter(
   }
   cursor.event_index = cursor.event_index + 1
   true
+}
+
+///|
+fn delimiter_event_is_ready(current_start~ : Int, event_start~ : Int) -> Bool {
+  guard event_start >= current_start else {
+    abort("delimiter plan event was skipped by parser emission")
+  }
+  event_start == current_start
+}
+
+///|
+fn validate_delimiter_cursor_completion(
+  event_index~ : Int,
+  event_count~ : Int,
+  emphasis_depth~ : Int,
+) -> Unit {
+  guard event_index == event_count else {
+    abort("inline container ended with unconsumed delimiter plan events")
+  }
+  guard emphasis_depth == 0 else {
+    abort("inline container ended with unclosed emphasis nodes")
+  }
 }
 
 ///|
@@ -553,6 +580,11 @@ fn parse_indexed_inline_container_with_continue_line(
     }
     guard ctx.peek() is Newline && continue_line() else { break }
   }
+  validate_delimiter_cursor_completion(
+    event_index=delimiter_cursor.event_index,
+    event_count=delimiter_cursor.events.length(),
+    emphasis_depth=delimiter_cursor.emphasis_stack.length(),
+  )
 }
 
 ///|

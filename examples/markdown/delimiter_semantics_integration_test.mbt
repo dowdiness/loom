@@ -71,6 +71,26 @@ test "delimiter integration: official examples keep direct and MarkdownIR Block 
 }
 
 ///|
+test "delimiter integration: CommonMark 0.31.2 rule of three uses original run lengths" {
+  let cases = [
+    ("*a***a*\n", "<p><em>a</em>*<em>a</em></p>\n"),
+    ("***a*a*a*\n", "<p><em><em><em>a</em>a</em>a</em></p>\n"),
+    ("***a*a*b*\n", "<p><em><em><em>a</em>a</em>b</em></p>\n"),
+    ("_**a*a*a_\n", "<p><em>**a<em>a</em>a</em></p>\n"),
+    ("**a****a***a*\n", "<p>**a<em><em><strong>a</strong></em>a</em></p>\n"),
+  ]
+  for case in cases {
+    let (source, expected_html) = case
+    inspect(
+      experimental_markdown_ir_to_commonmark_html(
+        delimiter_integration_ir_from_source(source),
+      ),
+      content=expected_html,
+    )
+  }
+}
+
+///|
 test "delimiter integration: underscore emphasis and strong origins retain spelling" {
   let cases = [
     ("_foo bar_\n", "Italic", "_foo bar_", "foo bar"),
