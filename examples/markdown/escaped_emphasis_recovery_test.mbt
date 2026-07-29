@@ -28,27 +28,6 @@ fn escaped_emphasis_origin_source(
 
 ///|
 test "escaped emphasis recovery: direct and MarkdownIR lowering parity matrix" {
-  let slash = "\\"
-  let recovery_parity_benchmark_row = "case 0: " +
-    slash +
-    "*literal* " +
-    slash +
-    "*" +
-    slash +
-    "*literal** " +
-    slash +
-    slash +
-    "*em* " +
-    slash +
-    "*😈* " +
-    slash +
-    "* literal *unclosed\n[" +
-    slash +
-    "*literal*](/) " +
-    slash +
-    "*a " +
-    slash +
-    "*b***\n\n"
   let sources = [
     "\\*literal*\n",
     "\\*\\*literal**\n",
@@ -61,7 +40,6 @@ test "escaped emphasis recovery: direct and MarkdownIR lowering parity matrix" {
     "\\*a [oops tail*\n",
     "\\*a [x**](/) b*\n",
     "[\\*\\*😈**](/)\n",
-    recovery_parity_benchmark_row,
   ]
   for source in sources {
     inspect(

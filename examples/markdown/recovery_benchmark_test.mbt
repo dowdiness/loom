@@ -42,17 +42,35 @@ fn recovery_benchmark_parse_to_syntax(source : String) -> @seam.SyntaxNode {
 }
 
 ///|
+fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> Block {
+  let fold = @core.CstFold::new(markdown_fold_node)
+  fold.fold(syntax)
+}
+
+///|
+fn recovery_benchmark_ir_block(syntax : @seam.SyntaxNode) -> Block {
+  experimental_markdown_ir_to_block(
+    experimental_markdown_ir_from_syntax(syntax),
+  )
+}
+
+///|
+test "recovery benchmark workload is output-equivalent" {
+  let syntax = recovery_benchmark_parse_to_syntax(
+    recovery_parity_heavy_markdown_doc(128),
+  )
+  let direct = recovery_benchmark_direct_block(syntax)
+  inspect(recovery_benchmark_ir_block(syntax), content=@debug.to_string(direct))
+}
+
+///|
 test "markdown: recovery-parity-heavy doc - lowering SyntaxNode -> Block" (
   b : @bench.T,
 ) {
   let syntax = recovery_benchmark_parse_to_syntax(
     recovery_parity_heavy_markdown_doc(128),
   )
-  b.bench(fn() {
-    let fold = @core.CstFold::new(markdown_fold_node)
-    let block = fold.fold(syntax)
-    b.keep(block)
-  })
+  b.bench(fn() { b.keep(recovery_benchmark_direct_block(syntax)) })
 }
 
 ///|
@@ -62,9 +80,5 @@ test "markdown: recovery-parity-heavy doc - lowering SyntaxNode -> MarkdownIR ->
   let syntax = recovery_benchmark_parse_to_syntax(
     recovery_parity_heavy_markdown_doc(128),
   )
-  b.bench(fn() {
-    let ir = experimental_markdown_ir_from_syntax(syntax)
-    let block = experimental_markdown_ir_to_block(ir)
-    b.keep(block)
-  })
+  b.bench(fn() { b.keep(recovery_benchmark_ir_block(syntax)) })
 }
