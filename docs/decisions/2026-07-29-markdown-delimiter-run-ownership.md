@@ -3,7 +3,7 @@
 **Date:** 2026-07-29
 **Status:** Proposed
 **Issue:** #483
-**Related issues:** #329, #396, #772
+**Related issues:** #329, #332, #396, #772
 **Implementation plan:** Issue [#396](https://github.com/dowdiness/loom/issues/396); sequencing is tracked in the [Markdown execution roadmap](../architecture/markdown-execution-roadmap.md)
 **Related decisions:** [native-only Markdown inline parsing](2026-07-06-markdown-inline-native-only.md); [MarkdownIR target contract](2026-06-15-markdown-ir-target-contract.md); [MarkdownIR recovery adapter contract](2026-06-17-markdown-ir-recovery-adapter-contract.md); [MarkdownIR performance policy](2026-06-16-markdown-ir-performance-policy.md)
 
@@ -168,21 +168,33 @@ deferred delimiter-frontier investigation is not an integration-ready API.
 
 ### Migration and issue #772
 
-The preferred order remains #483, then #396:
+The preferred delimiter-work order remains #483, then #396:
 
 1. keep the current direct and MarkdownIR differences as named
    characterization evidence;
 2. implement parser-local delimiter resolution in #396, promoting official
    CommonMark fixtures by rule cluster;
 3. make direct and MarkdownIR lowering mechanical projections of the same CST;
-4. remove the two escaped-emphasis lowering state machines; and
-5. re-audit #772 after the parser migration.
+4. remove the escaped-emphasis lowering state machines made obsolete by that
+   parser-owned resolution.
 
-Do not implement #772's shared lowering reducer before #396. If a genuine
-recovery artifact still requires the same transition policy in both lowerings
-after #396, extract the smallest private reducer then. If it has no callers,
-#772 should be closed as superseded rather than preserving a transitional
-abstraction.
+That work order does not make the number or landing order of an issue the
+trigger for #772. Re-audit #772 at the first merged change that materially
+alters its caller topology:
+
+- #332, if it retires the active direct <code>SyntaxNode -&gt; Block</code>
+  adapter; or
+- #396, if parser-owned delimiter resolution removes lowering-owned recovery
+  policy.
+
+Landing either issue without the corresponding topology change does not settle
+#772. At the re-audit, inventory the active adapters. Extract the smallest
+private reducer only if at least two independent active adapters still require
+the same transition policy. If fewer than two callers remain, close #772 as
+superseded instead of preserving a transitional abstraction.
+
+Until that topology changes, keep the recovery differences as named
+characterization evidence and do not introduce #772's shared lowering reducer.
 
 In particular, the current direct path's escaped-opener count is
 characterization evidence, not the CommonMark oracle. A backslash-escaped
@@ -277,8 +289,9 @@ semantics are accepted.
   making delimiter runs semantic IR nodes.
 - Direct <code>Block</code> lowering remains a temporary compatibility adapter
   until #332 derives it from MarkdownIR.
-- #772 stays open during the proposal and is re-audited after #396; this ADR
-  does not close or silently redefine it.
+- #772 stays open during the proposal and is re-audited when #332 or #396
+  materially changes its caller topology; issue landing order alone is not the
+  trigger. This ADR does not close or silently redefine it.
 
 ## Approval requested
 
@@ -288,7 +301,8 @@ Maintainers must explicitly decide:
    semantic-only;
 2. whether full origin plus exact content origin is sufficient without public
    delimiter metadata;
-3. whether #772 is deferred until the #396 migration, as recommended; and
+3. whether #772 is re-audited on a material caller-topology change and a shared
+   reducer requires at least two independent active adapters, as recommended;
 4. whether #396 may intentionally change the exported Markdown token or CST
    behavior needed for partial delimiter-run consumption and exact
    delimiter-versus-literal roles.
