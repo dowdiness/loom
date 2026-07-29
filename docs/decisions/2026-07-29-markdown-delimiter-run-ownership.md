@@ -269,11 +269,11 @@ must include:
 - paired release benchmarks for direct and MarkdownIR lowering on both normal
   and recovery-heavy documents, plus a linear-scaling delimiter workload.
 
-The characterization surface for this proposal lives in
+The characterization surface for this decision lives in
 [escaped_emphasis_recovery_test.mbt](../../examples/markdown/escaped_emphasis_recovery_test.mbt).
 The paired recovery-heavy lowering rows live in
 [recovery_benchmark_test.mbt](../../examples/markdown/recovery_benchmark_test.mbt).
-They are ungated characterization rows in this proposal, not yet frozen
+They are ungated characterization rows in this decision, not yet frozen
 baseline or PR-guard inputs. #396 may promote them to the base/head guard only
 after the same workload exists on both comparison revisions and its target
 semantics are accepted.
