@@ -1,7 +1,7 @@
 # ADR: Keep Markdown Delimiter-Run Resolution Parser-Owned
 
 **Date:** 2026-07-29
-**Status:** Proposed
+**Status:** Accepted
 **Issue:** #483
 **Related issues:** #329, #332, #396, #772
 **Implementation plan:** Issue [#396](https://github.com/dowdiness/loom/issues/396); sequencing is tracked in the [Markdown execution roadmap](../architecture/markdown-execution-roadmap.md)
@@ -50,8 +50,8 @@ This decision must preserve the accepted architecture:
 
 ## Decision
 
-If accepted, CommonMark delimiter-run resolution belongs to a private,
-Markdown parser-local module. A deterministic core computes a resolution plan
+CommonMark delimiter-run resolution belongs to a private, Markdown parser-local
+module. A deterministic core computes a resolution plan
 from one inline container, and the parser shell emits that plan as lossless
 CST. Lowerings consume the resulting CST; they do not classify flanking,
 maintain a delimiter stack, or reinterpret valid unmatched delimiters.
@@ -105,7 +105,7 @@ The resolver and parser must produce source-ordered, non-crossing CST:
 
 The Markdown package's <code>Token</code> and <code>SyntaxKind</code> variants
 are exported, so their variants and observed token or CST shape are not private
-implementation details. This proposal does not authorize changing that
+implementation details. This decision does not authorize changing that
 surface. #396 must include an explicit compatibility review before changing
 it. That review must also cover how both <code>*</code> and <code>_</code>
 receive exact editable roles without classifying every marker-shaped token
@@ -280,8 +280,9 @@ semantics are accepted.
 
 ## Consequences
 
-- #483 requires maintainer approval before #396 changes production CST.
-- This proposal adds no public code API. #396 separately reviews any change to
+- This decision unblocks #396, which separately reviews any production CST
+  compatibility change.
+- This decision adds no public code API. #396 separately reviews any change to
   the exported Markdown token stream or CST shape.
 - #396 will intentionally change valid unmatched delimiter output from error
   recovery to literal text where the current subset is non-conforming.
@@ -289,20 +290,19 @@ semantics are accepted.
   making delimiter runs semantic IR nodes.
 - Direct <code>Block</code> lowering remains a temporary compatibility adapter
   until #332 derives it from MarkdownIR.
-- #772 stays open during the proposal and is re-audited when #332 or #396
+- #772 remains open and is re-audited when #332 or #396
   materially changes its caller topology; issue landing order alone is not the
   trigger. This ADR does not close or silently redefine it.
 
-## Approval requested
+## Accepted decisions
 
-Maintainers must explicitly decide:
+Maintainers accept that:
 
-1. whether delimiter resolution is parser-owned and MarkdownIR remains
-   semantic-only;
-2. whether full origin plus exact content origin is sufficient without public
-   delimiter metadata;
-3. whether #772 is re-audited on a material caller-topology change and a shared
-   reducer requires at least two independent active adapters, as recommended;
-4. whether #396 may intentionally change the exported Markdown token or CST
-   behavior needed for partial delimiter-run consumption and exact
-   delimiter-versus-literal roles.
+1. delimiter resolution is parser-owned and MarkdownIR remains semantic-only;
+2. full origin plus exact content origin is sufficient without public delimiter
+   metadata;
+3. #772 is re-audited on a material caller-topology change, and a shared reducer
+   requires at least two independent active adapters; and
+4. #396 may intentionally change exported Markdown token or CST behavior needed
+   for partial delimiter-run consumption and exact delimiter-versus-literal
+   roles, subject to the compatibility review above.
