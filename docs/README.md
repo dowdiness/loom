@@ -86,7 +86,7 @@ Understanding how the layers fit together. Principles only — no specific types
 Short records of the *why* behind significant design choices. Most recent first.
 
 - [decisions/2026-07-30-error-node-ebnf-syntax.md](decisions/2026-07-30-error-node-ebnf-syntax.md) — **Accepted** `@error_node(Kind, Token)` EBNF syntax for error recovery (#605, PR #663)
-- [decisions/2026-07-29-markdown-delimiter-run-ownership.md](decisions/2026-07-29-markdown-delimiter-run-ownership.md) — **Proposed** parser-owned CommonMark delimiter resolution with semantic-only MarkdownIR origins and a post-#396 re-audit of #772 (#483)
+- [decisions/2026-07-29-markdown-delimiter-run-ownership.md](decisions/2026-07-29-markdown-delimiter-run-ownership.md) — **Proposed** parser-owned CommonMark delimiter resolution with semantic-only MarkdownIR origins and a caller-topology-driven re-audit of #772 (#332, #396, #483)
 - [decisions/2026-07-26-agent-readiness-certification.md](decisions/2026-07-26-agent-readiness-certification.md) — **Accepted** fail-closed, revocable implementation certification and paginated audit policy
 - [decisions/2026-07-26-parser-context-lex-mode-lifecycle.md](decisions/2026-07-26-parser-context-lex-mode-lifecycle.md) — **Accepted** removal of the public parser-local `ParserContext` lex-mode API and follow-up removal of its dead private state
 - [decisions/2026-07-20-markdown-delimiter-frontier.md](decisions/2026-07-20-markdown-delimiter-frontier.md) — **Accepted** deferral of production Markdown delimiter frontier integration pending boundary, invalidation, and benchmark evidence (#719)
