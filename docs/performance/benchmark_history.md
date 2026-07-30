@@ -7,7 +7,8 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
 - Run: [GitHub Actions 30536758914](https://github.com/dowdiness/loom/actions/runs/30536758914)
 - Compared refs: `c425bcbe986b1948666ebb27544bedc53ec9cc57` → the same SHA
 - Benchmark harness SHA-256: `9b5bf484e0692bc47b0378a2e12d3f5798eea7d543884337c2f28bad57e52251`
-- Runner: GitHub-hosted `ubuntu-24.04`, image `20260726.254`, runner `2.336.0`
+- Runner: GitHub-hosted `ubuntu-24.04`, image release `20260726.254`
+  (version `20260726.254.1`), runner `2.336.0`
 - Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15)
 - Targets: wasm-gc and JS, release mode
 - Order: three alternating pairs, base/head then head/base then base/head
