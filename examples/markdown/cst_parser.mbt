@@ -866,8 +866,19 @@ fn consume_block_quote_child_separator(
 }
 
 ///|
-fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+fn parse_block_quote_with_prefix(
+  ctx : @core.ParserContext[Token, SyntaxKind],
+  prefix : LinePrefix?,
+) -> Unit {
   ctx.node(BlockQuoteNode, fn() {
+    // A list item owns its content indentation, which can exceed the root
+    // blockquote limit of three columns. Consume that structural prefix inside
+    // the quote before entering the marker loop; otherwise this parser returns
+    // successfully without advancing and its caller repeats forever.
+    match prefix {
+      Some(_) => ctx.emit_token(IndentationToken)
+      None => ()
+    }
     while ctx.peek() is BlockQuoteMarker || prefixed_block_quote_marker(ctx) {
       if prefixed_block_quote_marker(ctx) {
         ctx.emit_token(IndentationToken)
@@ -880,6 +891,11 @@ fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
       consume_block_quote_child_separator(ctx)
     }
   })
+}
+
+///|
+fn parse_block_quote(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
+  parse_block_quote_with_prefix(ctx, None)
 }
 
 ///|
@@ -1567,7 +1583,7 @@ fn parse_list_item_prefixed_block(
   match ctx.peek_nth(1) {
     ThematicBreak => parse_thematic_break_with_prefix(ctx, Some(prefix))
     HeadingMarker(_) => parse_heading_with_prefix(ctx, Some(prefix))
-    BlockQuoteMarker => parse_block_quote(ctx)
+    BlockQuoteMarker => parse_block_quote_with_prefix(ctx, Some(prefix))
     CodeFenceOpen(_, _) => parse_code_block_with_prefix(ctx, Some(prefix))
     HtmlBlockOpen(_) => parse_html_block(ctx, Some(prefix))
     _ => parse_paragraph_with_prefix(ctx, Some(prefix))
