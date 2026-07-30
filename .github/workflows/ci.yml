@@ -422,6 +422,11 @@ jobs:
           fi
           moon test "${args[@]}"
 
+      - name: Native Markdown CST safety regression
+        if: matrix.name == 'examples-markdown'
+        working-directory: examples/markdown
+        run: moon test native_regression_test.mbt --target native
+
   test-modules-submodules:
     name: Check + Test ${{ matrix.name }}
     runs-on: ubuntu-latest
