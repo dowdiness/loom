@@ -196,10 +196,24 @@ jobs:
             command_status=0
             (
               cd "$checkout"
-              moon bench --release --target "$BENCH_TARGET" \
-                -p dowdiness/markdown -f benchmark_test.mbt || exit $?
-              moon bench --release --target "$BENCH_TARGET" \
-                -p dowdiness/markdown -f delimiter_performance_wbtest.mbt || exit $?
+              if ! moon bench --release --target "$BENCH_TARGET" \
+                -p dowdiness/markdown -f benchmark_test.mbt; then
+                printf 'standard Markdown benchmark failed for %s\n' "$label" >&2
+                exit 1
+              fi
+              # The shared white-box harness requires these private resolver
+              # symbols on both revisions: DelimiterResolverEvent,
+              # EmphasisDelimiterMarker, AsteriskDelimiter,
+              # UnderscoreDelimiter, PushLinkLabelScope,
+              # ResolveLinkLabelScope, OpaqueInlineEvent, and
+              # DelimiterSourceRange.
+              if ! moon bench --release --target "$BENCH_TARGET" \
+                -p dowdiness/markdown -f delimiter_performance_wbtest.mbt; then
+                printf '%s\n' \
+                  "shared delimiter benchmark failed for $label" \
+                  'keep the overlaid harness compatible with the private resolver API on both base and head' >&2
+                exit 1
+              fi
             ) > "$output" 2>&1 || command_status=$?
 
             hash_status=0

@@ -353,7 +353,8 @@ if [[ "$bad_direct_realistic" -eq "$trial_pairs" ||
   failed=1
 fi
 delimiter_failed=0
-for ((case_index = 2; case_index < case_count; case_index++)); do
+for ((case_index = 0; case_index < case_count; case_index++)); do
+  [[ "${case_policies[$case_index]}" == delimiter ]] || continue
   if [[ "${case_bad_counts[$case_index]}" -eq "$trial_pairs" ]]; then
     if [[ "$delimiter_failed" -eq 0 ]]; then
       printf 'FAIL: persistent delimiter-heavy regression'
@@ -367,7 +368,8 @@ if [[ "$delimiter_failed" -eq 1 ]]; then
   failed=1
 fi
 delimiter_control_failed=0
-for ((case_index = 2; case_index < case_count; case_index++)); do
+for ((case_index = 0; case_index < case_count; case_index++)); do
+  [[ "${case_policies[$case_index]}" == delimiter ]] || continue
   if [[ "${case_control_bad_counts[$case_index]}" -eq "$trial_pairs" ]]; then
     if [[ "$delimiter_control_failed" -eq 0 ]]; then
       printf 'FAIL: persistent delimiter plain-control regression'
@@ -390,7 +392,8 @@ if [[ "$bad_realistic" -gt 0 || "$bad_scaled" -gt 0 ||
       "$bad_direct_realistic" -gt 0 || "$bad_direct_scaled" -gt 0 ]]; then
   has_non_persistent=1
 fi
-for ((case_index = 2; case_index < case_count; case_index++)); do
+for ((case_index = 0; case_index < case_count; case_index++)); do
+  [[ "${case_policies[$case_index]}" == delimiter ]] || continue
   if [[ "${case_bad_counts[$case_index]}" -gt 0 ||
         "${case_control_bad_counts[$case_index]}" -gt 0 ]]; then
     has_non_persistent=1
@@ -400,7 +403,8 @@ if [[ "$has_non_persistent" -eq 1 ]]; then
   printf ' (non-persistent observations: IR realistic=%s/%s, IR 50x=%s/%s, direct realistic=%s/%s, direct 50x=%s/%s' \
     "$bad_realistic" "$trial_pairs" "$bad_scaled" "$trial_pairs" \
     "$bad_direct_realistic" "$trial_pairs" "$bad_direct_scaled" "$trial_pairs"
-  for ((case_index = 2; case_index < case_count; case_index++)); do
+  for ((case_index = 0; case_index < case_count; case_index++)); do
+    [[ "${case_policies[$case_index]}" == delimiter ]] || continue
     if [[ "${case_bad_counts[$case_index]}" -gt 0 ]]; then
       printf ', %s=%s/%s' "${case_labels[$case_index]}" \
         "${case_bad_counts[$case_index]}" "$trial_pairs"
