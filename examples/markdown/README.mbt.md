@@ -49,6 +49,8 @@ pub fn experimental_markdown_ir_local_transform_rewrite(
   MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
 ) -> String
 pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
+pub fn experimental_markdown_ir_canonical_format_checked(MarkdownIR)
+  -> Result[String, MarkdownIRCanonicalFormatFailure]
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
@@ -95,12 +97,40 @@ IR, then adapt with `experimental_markdown_ir_to_block`, export with
 `experimental_markdown_ir_to_mdast_json_with_positions`, or smoke-test rewriting
 with `experimental_markdown_ir_preserve_rewrite`,
 `experimental_markdown_ir_local_transform_rewrite`,
-`experimental_markdown_ir_canonical_format`, or render CommonMark-style HTML with
+`experimental_markdown_ir_canonical_format`, its checked counterpart
+`experimental_markdown_ir_canonical_format_checked`, or render CommonMark-style HTML with
 `experimental_markdown_ir_to_commonmark_html`. The position-aware mdast export
 must receive the exact source string that produced the IR. The established parser
 surfaces (`parse`, `parse_markdown`, `parse_cst`, `markdown_grammar`, and
 `markdown_fold_node`) remain the compatibility path for the editor-facing
 `Block` / `Inline` model.
+
+### Checked canonical formatting
+
+Use `experimental_markdown_ir_canonical_format_checked` when the caller needs a
+semantic guarantee rather than compatibility output. It accepts only a
+`MarkdownIR::Document` containing semantic nodes. Before returning `Ok`, it
+reparses each finite, deterministically ordered candidate with `parse_cst`,
+lowers it with diagnostics, and compares the whole document while ignoring
+origins, surface spellings, and adjacent `Text` segmentation. Meaning-bearing
+fields such as heading depth, list start/spread, emphasis structure, code
+payload, and link destination remain part of the comparison.
+
+The checked API returns `ExpectedDocument`, `OpaqueNode`, `Unrepresentable`, or
+`SearchLimitExceeded` instead of emitting an unverified string. `Raw`,
+`Recovered`, and `Unsupported` are rejected before search; when several occur,
+the first preorder node is reported. Candidate spelling is stable: lower UTF-16
+growth first, then literal/backslash/numeric-reference text encoding, `*` before
+`_` emphasis markers, and finally lexical order. Search is bounded per inline
+container and by a document limit scaled by container count.
+
+`experimental_markdown_ir_canonical_format` remains the compatibility API. A
+semantic document delegates to the checked implementation and fails fast if it
+cannot be proven. Non-document roots and documents containing opaque nodes keep
+their previous unchecked output: `Raw(value, _)` emits `value`, parse-error
+`Recovered` emits `<!-- recovered MarkdownIR: parse error -->`, any other
+`Recovered(message, _)` emits `message`, and `Unsupported(message)` emits
+`<!-- unsupported MarkdownIR: message -->`.
 
 ### Projection identity policy
 

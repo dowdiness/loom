@@ -2,6 +2,66 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-07-30 (MarkdownIR checked canonical formatter baseline)
+
+- Issue: [#777](https://github.com/dowdiness/loom/issues/777)
+- Environment: local WSL2, Linux 6.6.114.1, x86_64
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
+  `0.1.20260713`
+- Commands:
+  - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f markdown_ir_format_benchmark_wbtest.mbt`
+  - `rtk moon bench --release --target js -p dowdiness/markdown -f markdown_ir_format_benchmark_wbtest.mbt`
+- Result: 8/8 formatter benchmarks passed on each target; the normal
+  operation-count guard and all 470 Markdown package tests passed on both the
+  default and native test targets.
+
+The checked formatter closes one bounded primary-cost layer at a time, sorts and
+globally deduplicates that layer, then validates candidates with the normal
+parser and diagnostic-aware MarkdownIR lowering. The normal white-box test
+freezes the deterministic work signature:
+
+| Motif | Container candidates | Container expansions | Document candidates | Document expansions | Reparses | Result |
+|---|---:|---:|---:|---:|---:|---|
+| first-candidate success | 0 | 0 | 1 | 1 | 1 | success |
+| late success | 3 | 2 | 2 | 3 | 2 | success |
+| bounded failure | 3 | 2 | 2 | 3 | 1 | candidate limit, observed 2 / limit 1 |
+| flat adjacency | 4 | 3 | 3 | 4 | 2 | success |
+| recursive nesting | 4 | 1 | 1 | 4 | 1 | success |
+| marker-backslash-heavy text | 3 | 2 | 2 | 3 | 2 | success |
+| link-code opacity | 3 | 2 | 2 | 3 | 2 | success |
+| Unicode punctuation | 3 | 1 | 1 | 3 | 1 | success |
+
+The deterministic source-free corpus uses seed `39777`, 128 shallow cases and
+128 recursive cases, maximum depth 3 and width 4, all ASCII punctuation, and
+selected Unicode characters. Two complete runs produced the same 18,466-code-
+unit transcript, replay-key sequence, and digest `2101345741`. Its maxima were
+49 deduplicated candidates and 20 expanded states within one container, 20
+deduplicated document candidates, 49 document search states, and 19 reparses.
+The default per-container limits of 256 candidates and 512 expansions therefore
+exceed twice their observed maxima (98 and 40 respectively). The independent
+document limits of 256 candidates and 512 expansions per container also exceed
+twice their observed one-container maxima (40 and 98 respectively), then scale
+by inline-container count.
+
+One local release measurement was:
+
+| Motif | wasm-gc mean | JavaScript mean |
+|---|---:|---:|
+| first-candidate success | 7.22 µs | 10.31 µs |
+| late success | 17.42 µs | 24.92 µs |
+| bounded failure | 13.67 µs | 16.62 µs |
+| flat adjacency | 31.76 µs | 40.04 µs |
+| recursive nesting | 34.10 µs | 58.66 µs |
+| marker-backslash-heavy text | 41.59 µs | 51.52 µs |
+| link-code opacity | 51.02 µs | 76.02 µs |
+| Unicode punctuation | 23.05 µs | 37.48 µs |
+
+These wall times are informational. The base revision has neither the checked
+API nor the same serializer workload, so #777 cannot supply a meaningful
+base/head comparison or A/A-calibrated timing threshold. Deterministic operation
+counts are the blocking regression guard; the existing Markdown parser/lowering
+PR guard remains unchanged.
+
 ## 2026-07-30 (Markdown delimiter PR guard A/A calibration)
 
 - Run: [GitHub Actions 30536758914](https://github.com/dowdiness/loom/actions/runs/30536758914)

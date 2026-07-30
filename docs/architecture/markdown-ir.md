@@ -305,7 +305,9 @@ Use these terms consistently:
   from the original source.
 - **Canonical formatter mode:** a target backend that intentionally ignores
   existing surface style and emits normalized Markdown. Canonical formatting is
-  not the definition of MarkdownIR.
+  not the definition of MarkdownIR. The checked formatter accepts output only
+  after reparsing and diagnostic-aware lowering prove whole-document semantic
+  equality; it never treats its renderer as its own oracle.
 
 ### Canonicalization examples
 
@@ -364,6 +366,17 @@ Rules:
 - If a changed node lacks enough surface metadata for a local rewrite, the
   rewrite backend chooses a canonical or target-specific spelling for that node;
   it must not require generic CST token arrays on the IR node.
+- Checked canonical formatting compares position- and surface-independent
+  semantic documents. It coalesces adjacent sibling `Text` nodes, but preserves
+  every meaning-bearing container, field, and child order. It rejects
+  `Raw`, `Recovered`, and `Unsupported` before candidate search.
+- Candidate generation is finite and deterministic. Text tries literal,
+  backslash-escaped ASCII punctuation, and numeric references only for the
+  delimiter/bracket-sensitive ``* _ ` [ ] ( ) !``, backslash, ampersand, and
+  angle-bracket characters; italic tries `*` then `_`; bold tries `**` then
+  `__`. Whole-document candidates are ordered by added UTF-16 code units, text-
+  encoding preference, marker preference, and lexical spelling, and are bounded
+  both per inline container and by a container-count-scaled document cap.
 
 ### Rewrite and formatter mode naming
 
@@ -438,7 +451,8 @@ semantic MarkdownIR.
 | Block (editor) | `Block::Error("expected block MarkdownIR, got raw: " + value)` | `Block::Error(message)` | Inline raw becomes `Inline::Text`; block-position raw is a defensive error. Recovered content is always an editor error. |
 | Inline (editor) | `Inline::Text(value)` passthrough | `Inline::Error(message)` | Raw inline text renders as visible text. Recovered malformed delimiters become explicit error markers. |
 | mdast JSON (export) | `mdastRaw` + origin + diagnostics | `mdastRecovered` + origin + diagnostics | Preserves full diagnostic/recovery fidelity for downstream tools. |
-| Canonical format | value passthrough | `<!-- recovered MarkdownIR: msg -->` | Raw content transcludes literally. Recovery becomes an HTML comment. |
+| Checked canonical format | reject with `OpaqueNode(Raw, origin)` | reject with `OpaqueNode(Recovered, origin)` | A successful checked result is reserved for semantic documents whose full reparse/lowering result was proven equal. `Unsupported` is rejected by the same rule. |
+| Compatibility canonical format | value passthrough | parse-error recovery becomes `<!-- recovered MarkdownIR: msg -->`; other recovered messages are emitted literally | Preserves the established unchecked subtree/opaque behavior. Semantic documents delegate to the checked formatter and fail fast on a structured failure. |
 | Preserve/local (rewrite) | origin-slice passthrough | origin-slice / replacement_text passthrough | Preserve-mode reproduces exact source bytes via origin slicing. Local transform splices replacement text into recovered regions rather than silently losing edits. |
 
 Policy rules:
@@ -460,6 +474,9 @@ Policy rules:
    styled error spans, not unescaped markup injection.
 6. **No guessing**: Target adapters must never infer malformed input from missing
    required semantic fields; they consume explicit `Recovered` / `Raw` nodes.
+7. **Proof boundary**: The checked canonical formatter accepts only a document
+   root, rejects the first preorder opaque node before search, and returns a
+   structured error when finite search cannot prove a semantic round trip.
 
 This contract is the adapter-level counterpart to the tree-shape invariant that
 "Diagnostics and recovery are explicit nodes" and that target adapters must not

@@ -65,3 +65,19 @@ and an initial performance/memoization policy.
 Future CommonMark, mdast, rewrite, and incremental work should cite the target
 contract when deciding whether a field belongs in MarkdownIR, remains in the
 CST/source, or is target-adapter-only.
+
+## 2026-07-30 addendum: checked canonical target
+
+Issue #777 makes the canonical target's correctness boundary explicit. The
+checked backend accepts only semantic `Document` roots and returns a candidate
+only after the normal parser and diagnostic-aware MarkdownIR lowering reproduce
+the same whole-document meaning. Origins, transform-only surface metadata, and
+adjacent `Text` segmentation are excluded from that comparison; semantic node
+structure and meaning-bearing fields are not.
+
+This is a target-adapter proof, not a new IR responsibility. Candidate spelling,
+bounded search state, and validation reparses remain private to the formatter.
+`Raw`, `Recovered`, and `Unsupported` are rejected by the checked target rather
+than promoted into semantic MarkdownIR. The pre-existing string formatter stays
+as an explicitly unchecked compatibility surface for opaque documents and
+subtree inputs.

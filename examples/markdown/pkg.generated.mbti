@@ -14,6 +14,8 @@ pub fn attach_markdown_role_spans(@pipeline.SyntaxParser) -> MarkdownRoleSpansAt
 
 pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
 
+pub fn experimental_markdown_ir_canonical_format_checked(MarkdownIR) -> Result[String, MarkdownIRCanonicalFormatFailure]
+
 pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
 
 pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
@@ -100,6 +102,19 @@ pub fn MarkdownIR::list_marker(Self) -> UnorderedListMarker?
 pub fn MarkdownIR::origin(Self) -> MarkdownIROrigin
 pub fn MarkdownIR::spread(Self) -> Bool?
 pub fn MarkdownIR::text_value(Self) -> String?
+
+pub(all) enum MarkdownIRCanonicalFormatFailure {
+  ExpectedDocument
+  OpaqueNode(MarkdownIRCanonicalOpaqueKind, MarkdownIROrigin?)
+  Unrepresentable
+  SearchLimitExceeded(observed~ : Int, limit~ : Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MarkdownIRCanonicalOpaqueKind {
+  Raw
+  Recovered
+  Unsupported
+} derive(Eq, @debug.Debug)
 
 pub struct MarkdownIROrigin {
   // private fields

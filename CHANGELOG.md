@@ -14,6 +14,17 @@ Notable user-facing changes to Loom and its sibling modules.
 
 ### Changed
 
+- `examples/markdown` adds
+  `experimental_markdown_ir_canonical_format_checked`, which formats a
+  semantic `MarkdownIR::Document` through a finite, deterministic candidate
+  search and accepts output only after `parse_cst` plus diagnostic-aware
+  MarkdownIR lowering reproduces the same position- and surface-independent
+  document semantics. It returns structured failures for non-document roots,
+  opaque recovery/unsupported nodes, unrepresentable input, and exhausted
+  search limits. The existing string-returning formatter delegates to this
+  checked path for semantic documents while preserving its legacy unchecked
+  behavior for subtree and opaque compatibility inputs.
+
 - **Breaking `examples/markdown` token/CST shape change:** CommonMark emphasis
   is now resolved by a private parser-owned delimiter-run pass for `*` and `_`,
   including Unicode-aware flanking and unmatched/partial runs. Inline lexing
