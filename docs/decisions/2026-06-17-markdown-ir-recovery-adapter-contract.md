@@ -14,7 +14,10 @@ The existing implementation already had concrete behavior for current targets:
 - block/editor conversion maps recovered block content to errors and treats block-position raw as defensive errors;
 - inline/editor conversion degrades raw inline content to text and recovered content to inline errors;
 - mdast JSON preserves raw/recovered nodes with origin and diagnostics;
-- canonical formatting passes raw text through and emits recovered comments;
+- the compatibility canonical formatter passes raw text through, emits a
+  comment for parse-error recovery, and preserves the established literal
+  fallback for other recovered messages;
+- checked canonical formatting rejects raw, recovered, and unsupported nodes;
 - preserve/local rewrite modes retain source slices or splice explicit replacement text.
 
 The decision needed for this slice was whether to introduce a broader HTML renderer or new public diagnostic APIs. Current evidence does not require either. The safest step is to document the adapter contract and pin existing behavior with tests.
@@ -28,7 +31,12 @@ Current target policy is:
 - block/editor: block-position raw is an error; recovered content is an error;
 - inline/editor: raw inline content becomes text; recovered content is an error;
 - mdast JSON: raw/recovered nodes preserve origin and diagnostics;
-- canonical formatter: raw content is emitted literally; recovered content is represented as an HTML comment;
+- compatibility canonical formatter: raw content is emitted literally;
+  parse-error recovery is represented as an HTML comment, other recovered
+  messages are emitted literally, and unsupported content uses an unsupported
+  HTML comment;
+- checked canonical formatter: the first preorder raw, recovered, or unsupported
+  node is rejected as a structured `OpaqueNode` failure before candidate search;
 - preserve/local rewrite: preserve mode keeps source slices; local transform splices replacement text into recovered/raw ranges.
 
 Future HTML adapters must define their own `Recovered` / `Raw` behavior explicitly. Recovery-node content should default to escaped/sanitized presentation, comments, or styled error spans. Unescaped passthrough is opt-in only and is distinct from the separate CommonMark raw HTML policy.
@@ -45,3 +53,5 @@ Avoiding a broad HTML renderer keeps this #334 slice focused and does not preemp
 - Current behavior is locked by example tests without changing parser signatures or public Loom-core APIs.
 - Future adapters must add visible `Recovered` / `Raw` match arms and tests before claiming the M4 adapter exit criterion.
 - Raw CommonMark HTML policy remains separate from malformed recovery-node `Raw` handling.
+- A successful checked canonical result never contains compatibility passthrough;
+  only the explicitly unchecked compatibility surface retains that behavior.

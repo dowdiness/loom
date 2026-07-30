@@ -3,6 +3,7 @@
 **Date:** 2026-06-16
 **Status:** Accepted
 **Issue:** [#339](https://github.com/dowdiness/loom/issues/339)
+**Updated by:** [#777](https://github.com/dowdiness/loom/issues/777)
 **Implementation plan:** N/A — issue-scoped benchmark and policy note.
 
 ## Context
@@ -89,6 +90,39 @@ that IR coverage afterward without changing the lazy/non-memoized policy. The
 benchmark result shows that a fresh, non-memoized MarkdownIR lowering is not a
 performance regression and therefore does not justify the complexity of a
 position-aware memo layer at M1.
+
+### Checked canonical formatter policy
+
+Issue #777 adds a separate cost boundary for checked canonical formatting. Its
+functional core explores the finite Cartesian grammar lazily in complete
+primary-cost layers, sorting lexically and globally deduplicating each proven
+layer before the imperative validation shell reparses candidates through
+`parse_cst` and diagnostic-aware MarkdownIR lowering. This is an explicitly
+requested formatter operation, not part of parser snapshots or MarkdownIR
+lowering, so it does not change the lazy/non-memoized policy above.
+
+The blocking regression signal is deterministic work, not wall time:
+
+- every benchmark motif snapshots generated candidates, search expansions, and
+  validation reparses in a normal white-box test;
+- a deterministic 256-case source-free corpus is run twice and snapshots its
+  replay transcript, digest, and maximum work;
+- the calibrated defaults allow 256 candidates and 512 expansions per inline
+  container, with document caps of 256 candidates and 512 expansions multiplied
+  by the number of containers; and
+- the calibration corpus observed per-container maxima of 49 deduplicated
+  candidates and 20 expanded states, plus document maxima of 20 deduplicated
+  candidates and 49 search states. The corresponding two-times margins are 98,
+  40, 40, and 98 against defaults of 256, 512, 256, and 512 respectively.
+
+Release benchmarks cover first-candidate success, late success, bounded
+failure, flat adjacency, recursive nesting, marker/backslash-heavy text,
+link/code opacity, and Unicode punctuation on wasm-gc and JavaScript. They are
+informational for #777: the base revision cannot compile the new checked API,
+so there is no equivalent base/head A/B workload or defensible A/A-derived
+wall-clock threshold. The existing parser/lowering performance guard is not
+reused for this distinct operation. A future wall-time gate requires a stable
+cross-revision harness and successful A/A calibration first.
 
 ## Rationale
 

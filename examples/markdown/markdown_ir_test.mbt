@@ -1940,6 +1940,93 @@ test "experimental MarkdownIR: canonical formatter renders inline containers" {
 }
 
 ///|
+test "experimental MarkdownIR: checked canonical formatter preserves literal marker semantics" {
+  let ir = markdown_ir_from_source("\\*a\\*\n")
+  match experimental_markdown_ir_canonical_format_checked(ir) {
+    Ok(formatted) => {
+      assert_eq(formatted, "\\*a\\*")
+      let reparsed = markdown_ir_from_source(formatted)
+      assert_eq(
+        experimental_markdown_ir_to_mdast_json(reparsed).stringify(),
+        experimental_markdown_ir_to_mdast_json(ir).stringify(),
+      )
+    }
+    Err(_) => fail("expected literal marker text to have a checked encoding")
+  }
+}
+
+///|
+fn assert_checked_canonical_round_trip(source : String) -> String raise {
+  let intended = markdown_ir_from_source(source)
+  match experimental_markdown_ir_canonical_format_checked(intended) {
+    Ok(formatted) => {
+      let reparsed = markdown_ir_from_source(formatted)
+      assert_eq(
+        experimental_markdown_ir_to_commonmark_html(reparsed),
+        experimental_markdown_ir_to_commonmark_html(intended),
+      )
+      assert_eq(
+        experimental_markdown_ir_canonical_format_checked(reparsed),
+        Ok(formatted),
+      )
+      formatted
+    }
+    Err(failure) =>
+      fail(
+        "checked canonical round trip failed for " +
+        @debug.to_string(source) +
+        ": " +
+        @debug.to_string(failure),
+      )
+  }
+}
+
+///|
+test "experimental MarkdownIR: checked canonical formatter covers delimiter interactions" {
+  let sources = [
+    "x*_a_*\n", "_a_*b*\n", "***a*** and __b *c*__\n", "*foo**bar*\n", "\\*odd\\* and \\\\*even*\n",
+    "[\\*literal\\*](u) and `*code*`\n", "。_a_→*b*😈\n",
+  ]
+  for source in sources {
+    ignore(assert_checked_canonical_round_trip(source))
+  }
+}
+
+///|
+test "experimental MarkdownIR: checked canonical formatter validates block context" {
+  let formatted = assert_checked_canonical_round_trip("\\-\\-\\-\n")
+  assert_eq(formatted, "\\-\\-\\-")
+  assert_eq(parse(formatted), Document([Paragraph([Text("---")])]))
+}
+
+///|
+test "experimental MarkdownIR: checked and compatibility roots stay distinct" {
+  let document = markdown_ir_from_source("plain\n")
+  match document.children() {
+    [paragraph] => {
+      assert_eq(
+        experimental_markdown_ir_canonical_format_checked(paragraph),
+        Err(ExpectedDocument),
+      )
+      assert_eq(experimental_markdown_ir_canonical_format(paragraph), "plain")
+    }
+    _ => fail("expected one paragraph")
+  }
+}
+
+///|
+test "experimental MarkdownIR: checked formatter rejects opaque compatibility input" {
+  let document = markdown_ir_from_source("[text](url\n")
+  match experimental_markdown_ir_canonical_format_checked(document) {
+    Err(OpaqueNode(kind, Some(_))) =>
+      assert_eq(kind, MarkdownIRCanonicalOpaqueKind::Recovered)
+    other =>
+      fail("expected checked opaque rejection, got " + @debug.to_string(other))
+  }
+  assert_eq(experimental_markdown_ir_canonical_format(document), "[text](url")
+}
+
+///|
 test "experimental MarkdownIR: canonical code fence exceeds content backtick run" {
   let formatted = experimental_markdown_ir_canonical_format(
     markdown_ir_from_source("````\n```\n````\n"),

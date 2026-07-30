@@ -142,6 +142,13 @@ MarkdownIR. Canonical formatting may choose canonical <code>*</code> or
 <code>**</code> spelling; preserve and local rewrite modes use the source and
 origins when spelling fidelity matters.
 
+The checked canonical formatter introduced by #777 treats that freedom as a
+finite choice, not an assumption. It tries <code>*</code> before
+<code>_</code> for italic and <code>**</code> before <code>__</code> for bold,
+combines those choices with finite text encodings, and returns a spelling only
+after a full parse and diagnostic-aware MarkdownIR lowering preserves the
+position- and surface-independent semantic document.
+
 Adjacent <code>Text</code> segmentation is not delimiter semantics. Exact
 editable delimiter roles continue to come from CST token spans, but only when
 the concrete shape identifies consumed boundary characters separately from
@@ -306,3 +313,6 @@ Maintainers accept that:
 4. #396 may intentionally change exported Markdown token or CST behavior needed
    for partial delimiter-run consumption and exact delimiter-versus-literal
    roles, subject to the compatibility review above.
+5. Canonical emphasis spelling is a private formatter choice and must be
+   validated through the parser-owned delimiter resolver; it does not justify
+   public delimiter metadata in MarkdownIR.
