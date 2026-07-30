@@ -1,0 +1,27 @@
+[
+  {
+    "example": 475,
+    "status": "xfail",
+    "reason": "Inline raw HTML is not yet supported by the Markdown inline renderer."
+  },
+  {
+    "example": 476,
+    "status": "xfail",
+    "reason": "Inline raw HTML is not yet supported by the Markdown inline renderer."
+  },
+  {
+    "example": 477,
+    "status": "xfail",
+    "reason": "Inline raw HTML is not yet supported by the Markdown inline renderer."
+  },
+  {
+    "example": 480,
+    "status": "xfail",
+    "reason": "URI autolinks are not yet supported by the Markdown inline renderer."
+  },
+  {
+    "example": 481,
+    "status": "xfail",
+    "reason": "URI autolinks are not yet supported by the Markdown inline renderer."
+  }
+]

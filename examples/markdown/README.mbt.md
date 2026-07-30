@@ -168,21 +168,44 @@ surface rather than unist position export or later CommonMark/container work.
 
 ### CommonMark HTML fixture parity
 
-`commonmark_html_fixture_test.mbt` compares MarkdownIR HTML rendering against a
-checked-in subset of official CommonMark 0.31.2 examples embedded in
-`commonmark_html_fixture_data_test.mbt`. The harness parses Markdown to
+`commonmark_html_fixture_test.mbt` compares MarkdownIR HTML rendering against
+checked-in official CommonMark 0.31.2 examples. The harness parses Markdown to
 MarkdownIR and calls `experimental_markdown_ir_to_commonmark_html`; it does not
 route through mdast. mdast fixture parity proves adapter tree shape, while
 CommonMark HTML parity proves rendered behavior and escaping.
 
-Fixture metadata records CommonMark section, example number, source, expected
-HTML, and `CommonMarkHtmlPass` / `CommonMarkHtmlXfail(reason)` /
-`CommonMarkHtmlSkip(reason)` status. The generated data header summarizes the
-current pass/xfail/skip baseline. Normal MoonBit CI remains hermetic: `moon test`
-uses checked-in fixture data only and requires no Node, npm, or network access.
+For numbered CommonMark fixtures, the pinned
+`tools/commonmark-0.31.2-spec.json` file is the sole normative oracle for source
+and expected HTML. Its SHA-256 is
+`d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20`.
+For emphasis examples 350 through 481,
+`tools/commonmark_html_fixture_overrides.json` may only classify a non-pass case
+and give its reason; it never replaces or duplicates the official expected
+HTML. `tools/update_commonmark_emphasis_fixtures.mjs` combines those two pinned
+inputs into `commonmark_emphasis_html_fixture_data_test.mbt`.
 
-To inspect the full CommonMark 0.31.2 corpus without turning it into a CI gate,
-run the optional audit command from `examples/markdown`:
+The emphasis baseline is 127 pass, 5 xfail, and 0 skip. The optional MoonBit
+audit uses a separate diagnostic taxonomy and currently reports those five
+cases (475–477 and 480–481) as `mismatch`, not `unsupported-ir`. Pass fixtures
+must continue matching the official HTML, while an xfail that starts matching
+must be promoted to pass. Fixture metadata records the CommonMark section,
+example number, source, expected HTML, and `CommonMarkHtmlPass` /
+`CommonMarkHtmlXfail(reason)` / `CommonMarkHtmlSkip(reason)` status.
+
+To regenerate the emphasis fixtures from `examples/markdown`:
+
+```bash
+node tools/update_commonmark_emphasis_fixtures.mjs
+NEW_MOON_MOD=0 moon fmt commonmark_emphasis_html_fixture_data_test.mbt
+NEW_MOON_MOD=0 moon test commonmark_html_fixture_test.mbt
+```
+
+Node is needed only for deliberate regeneration. Normal MoonBit checks consume
+the checked-in fixture data and require no Node, npm, or network access.
+
+The repository-owned audit is a comparison signal, not another oracle. To
+inspect the full CommonMark 0.31.2 corpus without turning it into a CI gate, run
+this optional command from `examples/markdown`:
 
 ```bash
 NEW_MOON_MOD=0 moon run src/tools/commonmark_html_audit --target native
@@ -191,6 +214,9 @@ NEW_MOON_MOD=0 moon run src/tools/commonmark_html_audit --target native
 The command reads the pinned `tools/commonmark-0.31.2-spec.json` corpus and
 prints pass/fail/skip counts by section plus each example number and category.
 Use `-- --spec path/to/spec.json` to audit another local CommonMark spec file.
+Third-party parsers are optional comparison signals only: they cannot override
+the pinned official source or HTML, and any comparison tool added to this
+workflow must use an exact version pin.
 
 ## Grammar
 
