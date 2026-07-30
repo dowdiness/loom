@@ -16,7 +16,9 @@ empty or partially parsed benchmark run as hundreds of missing benchmarks.
 Markdown lowering later needed a change-local guard as well. Its purpose is
 different from the scheduled detector: compare a pull request's base and head
 on the same runner, without treating a moving absolute baseline as a merge
-gate.
+gate. #781 extends that same guard to delimiter-heavy end-to-end parsing and
+incremental delimiter edits; it does not move those rows into the scheduled
+absolute-baseline detector.
 
 ## Decision
 
@@ -35,14 +37,30 @@ the committed baseline and policy without running benchmarks, and PR CI runs it
 alongside the fixture-driven self-test.
 
 Pull-request CI also runs `scripts/markdown-ir-perf-guard.sh` as a narrow
-base/head comparison guard for the realistic and 50x Markdown direct and
-MarkdownIR lowering benchmarks on wasm-gc and JS. It alternates base/head order
-across three trial pairs on one runner. Direct raw slowdowns over 50% fail when
-present in all three trials. A MarkdownIR trial is bad when both its raw and
-direct-normalized slowdowns exceed 50%, or when its raw slowdown reaches the
-inclusive 100% hard ceiling; the case fails when all three trials are bad.
-These thresholds belong to the PR guard; the 15% threshold and eligibility
-policy belong to the scheduled detector.
+base/head comparison guard on wasm-gc and JS. It alternates base/head order
+across three trial pairs on one runner. The original realistic and 50x direct
+and MarkdownIR lowering pairs remain required. Direct raw slowdowns over 50%
+fail when present in all three trials. A MarkdownIR trial is bad when both its
+raw and direct-normalized slowdowns exceed 50%, or when its raw slowdown
+reaches the inclusive 100% hard ceiling; the case fails when all three trials
+are bad.
+
+The guard also requires delimiter-heavy and length-matched plain-control rows
+at 64x and 256x for both full CST parsing and one incremental edit-and-restore
+cycle. A delimiter trial is bad when both its raw and plain-control-normalized
+slowdowns exceed 50%, or when its raw slowdown reaches the inclusive 100% hard
+ceiling. A plain-control slowdown over 50% is tracked independently. As with
+lowering, a case blocks only when the same signal is bad in all three trials.
+Missing or duplicate required rows, malformed measurements, and unknown units
+remain infrastructure failures in normal and calibration modes.
+
+To bootstrap a newly required benchmark without exempting the base revision,
+CI snapshots the tracked head benchmark harness, records its SHA-256, and
+overlays that exact file on both base and head before each trial. A manual
+calibration mode checks out the same commit on both sides and disables only the
+delimiter performance verdict; all legacy verdicts and input validation stay
+active. These PR-guard thresholds are separate from the scheduled detector's
+15% threshold and eligibility policy.
 
 ## Rationale
 
@@ -58,6 +76,16 @@ Same-run alternation reduces host variance, while the scheduled detector keeps
 the more sensitive long-lived baseline. Passing the PR guard therefore means
 that no configured coarse regression persisted; it does not mean that base and
 head have identical performance.
+
+The delimiter thresholds are supported by the exact same-SHA, three-pair
+wasm-gc and JS calibration recorded in
+[`benchmark_history.md`](../performance/benchmark_history.md#2026-07-30-markdown-delimiter-pr-guard-aa-calibration).
+The largest positive subject and normalized drifts were 4.3% and 5.0%. The
+largest positive plain-control drift was a single JS observation of 31.3%; its
+other two trials were -2.3% and -10.2%. The 50% relative/control thresholds
+therefore remain above observed A/A noise, while three-of-three persistence
+prevents a single control outlier from blocking. The 100% hard ceiling remains
+an independent catastrophic-slowdown backstop.
 
 No universal absolute nanosecond floor was added because #644 did not establish
 one safe across all benchmark scales. The policy can evolve through reviewed
@@ -75,4 +103,6 @@ The PR guard catches catastrophic or persistent change-local regressions before
 merge but may allow smaller slowdowns that the scheduled detector later flags.
 Changes to either detector's scope or thresholds must update its self-test and
 this decision record so that a green PR check is not mistaken for proof of zero
-regression.
+regression. Delimiter-heavy rows use the shared head harness for base/head
+comparability; changing that harness changes the measured contract and requires
+fresh A/A evidence before threshold policy is revised.

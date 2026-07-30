@@ -16,9 +16,9 @@ readonly trial_pairs=3
 readonly threshold_percent="${MARKDOWN_IR_PERF_THRESHOLD_PERCENT:-50}"
 readonly hard_ceiling_percent="${MARKDOWN_IR_PERF_HARD_CEILING_PERCENT:-100}"
 readonly direct_threshold_percent="${MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT:-50}"
-readonly delimiter_threshold_percent="${MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT:-}"
-readonly delimiter_hard_ceiling_percent="${MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT:-}"
-readonly delimiter_control_threshold_percent="${MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT:-}"
+readonly delimiter_threshold_percent="${MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT:-50}"
+readonly delimiter_hard_ceiling_percent="${MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT:-100}"
+readonly delimiter_control_threshold_percent="${MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT:-50}"
 readonly delimiter_calibration="${MARKDOWN_DELIMITER_PERF_CALIBRATION:-0}"
 readonly realistic_direct='markdown: realistic doc - lowering SyntaxNode -> Block'
 readonly realistic_ir='markdown: realistic doc - lowering SyntaxNode -> MarkdownIR -> Block'
@@ -96,12 +96,9 @@ ceiling. Override it with a positive percentage when runner policy requires it.
 MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=50 is the default persistent direct
 Block-lowering slowdown threshold.
 
-Delimiter thresholds have no defaults until A/A calibration is recorded. Set
-MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT,
-MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT, and
-MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT together to enable delimiter
-gating. When all three are unset, delimiter rows remain required and their
-deltas are printed in calibration mode without a performance verdict.
+MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT=50 is the default delimiter subject
+raw-and-normalized threshold. The inclusive delimiter raw hard ceiling defaults
+to 100%, and the independent plain-control threshold defaults to 50%.
 MARKDOWN_DELIMITER_PERF_CALIBRATION=1 explicitly disables only the delimiter
 performance verdict so exact A/A trials can be repeated after defaults exist.
 EOF
@@ -129,28 +126,17 @@ fi
 if [[ "$delimiter_calibration" != 0 && "$delimiter_calibration" != 1 ]]; then
   infra_fail "MARKDOWN_DELIMITER_PERF_CALIBRATION must be 0 or 1"
 fi
-delimiter_gated=0
-if [[ -z "$delimiter_threshold_percent" &&
-      -z "$delimiter_hard_ceiling_percent" &&
-      -z "$delimiter_control_threshold_percent" ]]; then
-  delimiter_gated=0
-elif [[ -z "$delimiter_threshold_percent" ||
-        -z "$delimiter_hard_ceiling_percent" ||
-        -z "$delimiter_control_threshold_percent" ]]; then
-  infra_fail "set all three MARKDOWN_DELIMITER_*_PERCENT variables together, or leave all three unset for calibration"
-else
-  if [[ ! "$delimiter_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-    infra_fail "MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT must be a non-negative number"
-  fi
-  if [[ ! "$delimiter_hard_ceiling_percent" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
-    ! awk -v value="$delimiter_hard_ceiling_percent" 'BEGIN { exit !(value > 0) }'; then
-    infra_fail "MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT must be a positive number"
-  fi
-  if [[ ! "$delimiter_control_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-    infra_fail "MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number"
-  fi
-  delimiter_gated=1
+if [[ ! "$delimiter_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  infra_fail "MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT must be a non-negative number"
 fi
+if [[ ! "$delimiter_hard_ceiling_percent" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+  ! awk -v value="$delimiter_hard_ceiling_percent" 'BEGIN { exit !(value > 0) }'; then
+  infra_fail "MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT must be a positive number"
+fi
+if [[ ! "$delimiter_control_threshold_percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  infra_fail "MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number"
+fi
+delimiter_gated=1
 if [[ "$delimiter_calibration" == 1 ]]; then
   delimiter_gated=0
 fi
@@ -255,8 +241,6 @@ if [[ "$delimiter_gated" -eq 1 ]]; then
     "$delimiter_control_threshold_percent" "$trial_pairs" "$trial_pairs"
 elif [[ "$delimiter_calibration" == 1 ]]; then
   printf 'CALIBRATION: delimiter verdict disabled explicitly; recording deltas only\n'
-else
-  printf 'CALIBRATION: delimiter thresholds unset; recording deltas without a delimiter performance verdict\n'
 fi
 
 check_case() {

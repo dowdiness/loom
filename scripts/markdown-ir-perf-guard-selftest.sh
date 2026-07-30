@@ -114,14 +114,15 @@ run_case 0 \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
 assert_stdout_contains 'PASS: no persistent Markdown lowering regression'
+assert_stdout_contains 'Delimiter performance gate (subject threshold: +50% raw+normalized; hard ceiling: >=+100% raw; plain-control threshold: +50% raw'
 
-# Until A/A calibration provides explicit thresholds, delimiter rows are
-# required and their deltas are recorded without making a performance verdict.
-run_case 0 \
+# Explicit A/A calibration keeps delimiter rows required and records their
+# deltas without making a delimiter performance verdict.
+MARKDOWN_DELIMITER_PERF_CALIBRATION=1 run_case 0 \
   "$fixture/base-1" "$fixture/delimiter-calibration-1" \
   "$fixture/base-2" "$fixture/delimiter-calibration-2" \
   "$fixture/base-3" "$fixture/delimiter-calibration-3"
-assert_stdout_contains 'CALIBRATION: delimiter thresholds unset'
+assert_stdout_contains 'CALIBRATION: delimiter verdict disabled explicitly'
 assert_stdout_contains 'delimiter 64x full parse'
 assert_stdout_contains 'subject 100000.00/160000.00 ns (+60.0%); normalized +60.0%; CALIBRATION'
 
@@ -347,6 +348,26 @@ MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
   "$fixture/base-2" "$fixture/green-2" \
   "$fixture/base-3" "$fixture/green-3"
 assert_stderr_contains 'MARKDOWN_DIRECT_PERF_THRESHOLD_PERCENT must be a non-negative number'
+
+MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_DELIMITER_PERF_THRESHOLD_PERCENT must be a non-negative number'
+
+for invalid_delimiter_hard_ceiling in not-a-number 0; do
+  MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT="$invalid_delimiter_hard_ceiling" run_case 2 \
+    "$fixture/base-1" "$fixture/green-1" \
+    "$fixture/base-2" "$fixture/green-2" \
+    "$fixture/base-3" "$fixture/green-3"
+  assert_stderr_contains 'MARKDOWN_DELIMITER_PERF_HARD_CEILING_PERCENT must be a positive number'
+done
+
+MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT=not-a-number run_case 2 \
+  "$fixture/base-1" "$fixture/green-1" \
+  "$fixture/base-2" "$fixture/green-2" \
+  "$fixture/base-3" "$fixture/green-3"
+assert_stderr_contains 'MARKDOWN_DELIMITER_CONTROL_PERF_THRESHOLD_PERCENT must be a non-negative number'
 
 MARKDOWN_DELIMITER_PERF_CALIBRATION=2 run_case 2 \
   "$fixture/base-1" "$fixture/green-1" \
