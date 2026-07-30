@@ -12,7 +12,7 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
   - `rtk moon bench --release --target wasm-gc -p dowdiness/markdown -f markdown_ir_format_benchmark_wbtest.mbt`
   - `rtk moon bench --release --target js -p dowdiness/markdown -f markdown_ir_format_benchmark_wbtest.mbt`
 - Result: 8/8 formatter benchmarks passed on each target; the normal
-  operation-count guard and all 469 Markdown package tests passed on both the
+  operation-count guard and all 470 Markdown package tests passed on both the
   default and native test targets.
 
 The checked formatter closes one bounded primary-cost layer at a time, sorts and

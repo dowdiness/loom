@@ -478,6 +478,16 @@ test "checked canonical formatting distinguishes complete exhaustion" {
 }
 
 ///|
+test "panic compatibility canonical formatting fails fast for unrepresentable semantic documents" {
+  let origin = markdown_ir_canonical_test_origin(0, 1)
+  let invalid_document = MarkdownIR::document(
+    [MarkdownIR::text("x", origin)],
+    origin,
+  )
+  ignore(experimental_markdown_ir_canonical_format(invalid_document))
+}
+
+///|
 test "checked canonical formatting reports deterministic injected search limits" {
   let document = markdown_ir_canonical_test_document_with_text("*a*")
   let candidate_limited = markdown_ir_canonical_format_attempt(
