@@ -2,6 +2,71 @@
 
 Historical snapshots from project benchmark runs (full suite and focused runs).
 
+## 2026-07-30 (Markdown delimiter PR guard A/A calibration)
+
+- Run: [GitHub Actions 30536758914](https://github.com/dowdiness/loom/actions/runs/30536758914)
+- Compared refs: `c425bcbe986b1948666ebb27544bedc53ec9cc57` → the same SHA
+- Benchmark harness SHA-256: `9b5bf484e0692bc47b0378a2e12d3f5798eea7d543884337c2f28bad57e52251`
+- Runner: GitHub-hosted `ubuntu-24.04`, image release `20260726.254`
+  (version `20260726.254.1`), runner `2.336.0`
+- Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15)
+- Targets: wasm-gc and JS, release mode
+- Order: three alternating pairs, base/head then head/base then base/head
+- Workloads: delimiter-heavy and length-matched plain control at 64x and 256x;
+  full `parse_cst` and syntax-only incremental edit-and-restore cycle
+
+Every value below is the benchmark mean parsed by the guard. `Raw` is the
+subject head/base change. `Normalized` is the change in the subject/control
+ratio. `Control` is the plain-control head/base change.
+
+| Target | Case | Trial | Subject base → head (ns) | Control base → head (ns) | Raw | Normalized | Control |
+|---|---|---:|---:|---:|---:|---:|---:|
+| wasm-gc | 64x full parse | 1 | 5,050,000 → 5,080,000 | 560,650 → 566,490 | +0.6% | -0.4% | +1.0% |
+| wasm-gc | 64x full parse | 2 | 5,100,000 → 5,210,000 | 559,680 → 560,090 | +2.2% | +2.1% | +0.1% |
+| wasm-gc | 64x full parse | 3 | 5,150,000 → 5,040,000 | 561,890 → 559,720 | -2.1% | -1.8% | -0.4% |
+| wasm-gc | 64x incremental edit+restore | 1 | 11,010,000 → 11,160,000 | 1,620,000 → 1,630,000 | +1.4% | +0.7% | +0.6% |
+| wasm-gc | 64x incremental edit+restore | 2 | 11,040,000 → 11,050,000 | 1,630,000 → 1,620,000 | +0.1% | +0.7% | -0.6% |
+| wasm-gc | 64x incremental edit+restore | 3 | 10,920,000 → 10,910,000 | 1,620,000 → 1,620,000 | -0.1% | -0.1% | +0.0% |
+| wasm-gc | 256x full parse | 1 | 30,510,000 → 29,860,000 | 2,220,000 → 2,230,000 | -2.1% | -2.6% | +0.5% |
+| wasm-gc | 256x full parse | 2 | 30,330,000 → 30,130,000 | 2,230,000 → 2,230,000 | -0.7% | -0.7% | +0.0% |
+| wasm-gc | 256x full parse | 3 | 30,200,000 → 30,180,000 | 2,230,000 → 2,230,000 | -0.1% | -0.1% | +0.0% |
+| wasm-gc | 256x incremental edit+restore | 1 | 60,360,000 → 62,460,000 | 6,630,000 → 6,640,000 | +3.5% | +3.3% | +0.2% |
+| wasm-gc | 256x incremental edit+restore | 2 | 62,450,000 → 62,730,000 | 6,630,000 → 6,630,000 | +0.4% | +0.4% | +0.0% |
+| wasm-gc | 256x incremental edit+restore | 3 | 62,380,000 → 61,560,000 | 6,640,000 → 6,620,000 | -1.3% | -1.0% | -0.3% |
+| JS | 64x full parse | 1 | 7,990,000 → 7,890,000 | 556,150 → 551,960 | -1.3% | -0.5% | -0.8% |
+| JS | 64x full parse | 2 | 7,780,000 → 7,870,000 | 552,110 → 559,500 | +1.2% | -0.2% | +1.3% |
+| JS | 64x full parse | 3 | 7,980,000 → 7,690,000 | 597,480 → 560,900 | -3.6% | +2.7% | -6.1% |
+| JS | 64x incremental edit+restore | 1 | 17,120,000 → 17,860,000 | 1,600,000 → 1,590,000 | +4.3% | +5.0% | -0.6% |
+| JS | 64x incremental edit+restore | 2 | 18,240,000 → 16,830,000 | 1,520,000 → 1,570,000 | -7.7% | -10.7% | +3.3% |
+| JS | 64x incremental edit+restore | 3 | 16,950,000 → 17,020,000 | 1,530,000 → 1,640,000 | +0.4% | -6.3% | +7.2% |
+| JS | 256x full parse | 1 | 39,820,000 → 39,040,000 | 2,170,000 → 2,850,000 | -2.0% | -25.4% | +31.3% |
+| JS | 256x full parse | 2 | 39,470,000 → 39,430,000 | 2,610,000 → 2,550,000 | -0.1% | +2.2% | -2.3% |
+| JS | 256x full parse | 3 | 40,030,000 → 37,750,000 | 2,850,000 → 2,560,000 | -5.7% | +5.0% | -10.2% |
+| JS | 256x incremental edit+restore | 1 | 84,190,000 → 85,990,000 | 5,790,000 → 5,800,000 | +2.1% | +2.0% | +0.2% |
+| JS | 256x incremental edit+restore | 2 | 85,740,000 → 85,720,000 | 6,230,000 → 6,220,000 | -0.0% | +0.1% | -0.2% |
+| JS | 256x incremental edit+restore | 3 | 86,260,000 → 85,030,000 | 6,460,000 → 6,260,000 | -1.4% | +1.7% | -3.1% |
+
+Observed ranges were:
+
+| Target | Raw | Normalized | Control |
+|---|---:|---:|---:|
+| wasm-gc | -2.1% … +3.5% | -2.6% … +3.3% | -0.6% … +1.0% |
+| JS | -7.7% … +4.3% | -25.4% … +5.0% | -10.2% … +31.3% |
+
+The JS 256x full-parse control produced one +31.3% observation, followed by
+-2.3% and -10.2%; it was not persistent. The adopted delimiter policy is:
+
+- subject raw **and** control-normalized slowdown: greater than 50%;
+- inclusive subject raw hard ceiling: 100%;
+- independent plain-control slowdown: greater than 50%; and
+- blocking persistence: all three trials for the same case.
+
+The positive A/A maxima leave 45.7 percentage points of raw-subject margin,
+45.0 points of normalized margin, 18.7 points of control margin, and 95.7
+points to the hard ceiling. These thresholds deliberately match the existing
+coarse PR-guard policy; the weekly absolute detector remains responsible for
+more sensitive long-lived regression detection.
+
 ## 2026-03-15 (Flat grammar unification)
 
 - Command: `cd examples/lambda && moon bench --release`

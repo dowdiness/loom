@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      markdown_delimiter_aa_calibration:
+        description: Run the Markdown delimiter performance guard as an exact same-SHA A/A calibration
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,7 +47,10 @@ jobs:
 
   markdown-ir-perf-guard:
     name: MarkdownIR Performance Guard (${{ matrix.target }})
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.markdown_delimiter_aa_calibration)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -52,21 +61,60 @@ jobs:
         target: [wasm-gc, js]
     env:
       BENCH_TARGET: ${{ matrix.target }}
+      DELIMITER_PERF_HARNESS_PATH: examples/markdown/delimiter_performance_wbtest.mbt
     steps:
       - name: Checkout base
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
           path: perf-base
           persist-credentials: false
           submodules: recursive
       - name: Checkout head
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           path: perf-head
           persist-credentials: false
           submodules: recursive
+      - name: Snapshot shared delimiter benchmark harness
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha=$(git -C perf-base rev-parse HEAD)
+          head_sha=$(git -C perf-head rev-parse HEAD)
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" &&
+                ("$base_sha" != "$GITHUB_SHA" || "$head_sha" != "$GITHUB_SHA") ]]; then
+            echo "A/A calibration must compare github.sha with itself" >&2
+            echo "github.sha=$GITHUB_SHA base=$base_sha head=$head_sha" >&2
+            exit 1
+          fi
+
+          source_path="perf-head/$DELIMITER_PERF_HARNESS_PATH"
+          snapshot_dir="$RUNNER_TEMP/markdown-delimiter-perf-harness"
+          snapshot_path="$snapshot_dir/delimiter_performance_wbtest.mbt"
+          hash_path="$snapshot_path.sha256"
+
+          git -C perf-head ls-files --error-unmatch -- \
+            "$DELIMITER_PERF_HARNESS_PATH" >/dev/null
+          if [[ ! -f "$source_path" || -L "$source_path" ]]; then
+            echo "delimiter benchmark harness must be a tracked regular file: $source_path" >&2
+            exit 1
+          fi
+
+          install -d -m 0755 "$snapshot_dir"
+          install -m 0644 "$source_path" "$snapshot_path"
+          harness_sha256=$(sha256sum "$snapshot_path" | awk '{print $1}')
+          printf '%s  %s\n' "$harness_sha256" "$(basename "$snapshot_path")" > "$hash_path"
+          (cd "$snapshot_dir" && sha256sum --check "$(basename "$hash_path")")
+
+          echo "Markdown delimiter benchmark harness SHA-256: $harness_sha256"
+          echo "Benchmark refs: base=$base_sha head=$head_sha"
+          {
+            echo "DELIMITER_PERF_HARNESS_SNAPSHOT=$snapshot_path"
+            echo "DELIMITER_PERF_HARNESS_SHA256=$harness_sha256"
+          } >> "$GITHUB_ENV"
       - name: Install MoonBit
         env:
           MOONBIT_INSTALL_VERSION: 0.10.4+2cc641edf
@@ -80,25 +128,106 @@ jobs:
           (cd perf-base && moon update)
           (cd perf-head && moon update)
       # Compare base/head on one runner for each backend matrix leg. Alternate
-      # execution order to cancel thermal and host-load drift. The checker
-      # blocks persistent MarkdownIR-specific slowdowns and catastrophic
-      # common-path slowdowns; the weekly detector remains the more sensitive
-      # absolute-baseline alert.
-      - name: Compare MarkdownIR lowering performance
+      # execution order to cancel thermal and host-load drift. The delimiter
+      # benchmark harness is snapshotted from head and overlaid identically on
+      # each checkout so a PR can introduce fail-closed rows without making its
+      # base output structurally incomparable. The checker blocks persistent
+      # regressions; the weekly detector remains the more sensitive absolute-
+      # baseline alert.
+      - name: Compare Markdown performance
         run: |
+          set -euo pipefail
+
           output_dir="$RUNNER_TEMP/markdown-ir-perf-guard/$BENCH_TARGET"
           mkdir -p "$output_dir"
+
+          remove_overlay() {
+            local checkout="$1"
+            rm -f "$checkout/$DELIMITER_PERF_HARNESS_PATH"
+          }
+
+          remove_all_overlays() {
+            remove_overlay perf-base
+            remove_overlay perf-head
+          }
+
+          verify_snapshot() {
+            local actual
+            actual=$(sha256sum "$DELIMITER_PERF_HARNESS_SNAPSHOT" | awk '{print $1}')
+            if [[ "$actual" != "$DELIMITER_PERF_HARNESS_SHA256" ]]; then
+              echo "delimiter benchmark snapshot hash changed: expected $DELIMITER_PERF_HARNESS_SHA256, got $actual" >&2
+              return 1
+            fi
+          }
+
+          verify_overlay() {
+            local checkout="$1"
+            local target="$checkout/$DELIMITER_PERF_HARNESS_PATH"
+            local actual
+            if [[ ! -f "$target" || -L "$target" ]]; then
+              echo "delimiter benchmark overlay is not a regular file: $target" >&2
+              return 1
+            fi
+            actual=$(sha256sum "$target" | awk '{print $1}')
+            if [[ "$actual" != "$DELIMITER_PERF_HARNESS_SHA256" ]]; then
+              echo "delimiter benchmark overlay hash mismatch in $checkout: expected $DELIMITER_PERF_HARNESS_SHA256, got $actual" >&2
+              return 1
+            fi
+          }
+
+          install_overlay() {
+            local checkout="$1"
+            remove_overlay "$checkout"
+            verify_snapshot
+            install -m 0644 "$DELIMITER_PERF_HARNESS_SNAPSHOT" \
+              "$checkout/$DELIMITER_PERF_HARNESS_PATH"
+            verify_overlay "$checkout"
+          }
+
+          trap remove_all_overlays EXIT
 
           run_trial() {
             label="$1"
             checkout="$2"
             output="$3"
+            remove_all_overlays
+            install_overlay "$checkout"
             echo "Running $label"
-            if ! (cd "$checkout" && moon bench --release --target "$BENCH_TARGET" \
-              -p dowdiness/markdown -f benchmark_test.mbt) \
-              > "$output" 2>&1; then
+            command_status=0
+            (
+              cd "$checkout"
+              if ! moon bench --release --target "$BENCH_TARGET" \
+                -p dowdiness/markdown -f benchmark_test.mbt; then
+                printf 'standard Markdown benchmark failed for %s\n' "$label" >&2
+                exit 1
+              fi
+              # The shared white-box harness requires these private resolver
+              # symbols on both revisions: DelimiterResolverEvent,
+              # EmphasisDelimiterMarker, AsteriskDelimiter,
+              # UnderscoreDelimiter, PushLinkLabelScope,
+              # ResolveLinkLabelScope, OpaqueInlineEvent, and
+              # DelimiterSourceRange.
+              if ! moon bench --release --target "$BENCH_TARGET" \
+                -p dowdiness/markdown -f delimiter_performance_wbtest.mbt; then
+                printf '%s\n' \
+                  "shared delimiter benchmark failed for $label" \
+                  'keep the overlaid harness compatible with the private resolver API on both base and head' >&2
+                exit 1
+              fi
+            ) > "$output" 2>&1 || command_status=$?
+
+            hash_status=0
+            verify_snapshot || hash_status=$?
+            verify_overlay "$checkout" || hash_status=$?
+            remove_overlay "$checkout"
+
+            if [[ "$hash_status" -ne 0 ]]; then
               cat "$output"
-              return 1
+              return "$hash_status"
+            fi
+            if [[ "$command_status" -ne 0 ]]; then
+              cat "$output"
+              return "$command_status"
             fi
           }
 
@@ -112,7 +241,10 @@ jobs:
             fi
           done
 
-          echo "Checking $BENCH_TARGET MarkdownIR lowering performance"
+          echo "Checking $BENCH_TARGET Markdown performance"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            export MARKDOWN_DELIMITER_PERF_CALIBRATION=1
+          fi
           bash perf-head/scripts/markdown-ir-perf-guard.sh \
             "$output_dir/base-1.txt" "$output_dir/head-1.txt" \
             "$output_dir/base-2.txt" "$output_dir/head-2.txt" \
