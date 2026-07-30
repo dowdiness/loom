@@ -1,8 +1,8 @@
 ///|
-test "error recovery: unclosed bold" {
+test "literal fallback: unclosed bold delimiter" {
   inspect(
     parse("**unclosed\n"),
-    content="Document([Paragraph([Error(\"**\"), Text(\"unclosed\")])])",
+    content="Document([Paragraph([Text(\"**unclosed\")])])",
   )
 }
 

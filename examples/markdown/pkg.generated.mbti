@@ -185,6 +185,8 @@ pub(all) enum SyntaxKind {
   HtmlBlockOpenToken
   HtmlTextToken
   SetextHeadingUnderlineToken
+  UnderscoreToken
+  EmphasisDelimiterToken
   DocumentNode
   HeadingNode
   ParagraphNode
@@ -219,6 +221,7 @@ pub(all) enum Token {
   BlankLine
   Star
   StarStar
+  Underscore
   Backtick
   LeftBracket
   RightBracket

@@ -26,15 +26,15 @@ test "inline: emphasis honors preceding backslash parity" {
   )
   inspect(
     parse("\\* literal *unclosed\n"),
-    content="Document([Paragraph([Text(\"* literal \"), Error(\"*\"), Text(\"unclosed\")])])",
+    content="Document([Paragraph([Text(\"* literal *unclosed\")])])",
   )
   inspect(
     parse("\\* literal!*unclosed\n"),
-    content="Document([Paragraph([Text(\"* literal!\"), Error(\"*\"), Text(\"unclosed\")])])",
+    content="Document([Paragraph([Text(\"* literal!*unclosed\")])])",
   )
   inspect(
     parse("[x](\\*u) tail*\n"),
-    content="Document([Paragraph([Link([Text(\"x\")], \"\\\\*u\"), Text(\" tail\"), Error(\"*\")])])",
+    content="Document([Paragraph([Link([Text(\"x\")], \"\\\\*u\"), Text(\" tail*\")])])",
   )
   inspect(
     parse("\\*a **b** c*\n"),
@@ -47,7 +47,7 @@ test "inline: emphasis honors preceding backslash parity" {
 }
 
 ///|
-test "inline: escaped emphasis recovery handles non-BMP flanking text" {
+test "inline: escaped emphasis stays literal beside non-BMP text" {
   inspect(
     parse("\\*😈*\n"),
     content="Document([Paragraph([Text(\"*😈*\")])])",
@@ -55,10 +55,10 @@ test "inline: escaped emphasis recovery handles non-BMP flanking text" {
 }
 
 ///|
-test "inline: escaped emphasis recovery preserves state transitions" {
+test "inline: escaped and unmatched emphasis stays literal" {
   inspect(
     parse("\\*a b**\n"),
-    content="Document([Paragraph([Text(\"*a b\"), Error(\"**\")])])",
+    content="Document([Paragraph([Text(\"*a b**\")])])",
   )
   inspect(
     parse("\\*\\*literal**\n"),
@@ -66,23 +66,23 @@ test "inline: escaped emphasis recovery preserves state transitions" {
   )
   inspect(
     parse("\\*a \\*b***\n"),
-    content="Document([Paragraph([Text(\"*a *b**\"), Error(\"*\")])])",
+    content="Document([Paragraph([Text(\"*a *b***\")])])",
   )
   inspect(
     parse("\\*a \\*b\nc**\n"),
-    content="Document([Paragraph([Text(\"*a *b\"), Text(\" \"), Text(\"c\"), Error(\"**\")])])",
+    content="Document([Paragraph([Text(\"*a *b\"), Text(\" \"), Text(\"c**\")])])",
   )
   inspect(
     parse("\\*a [oops tail*\n"),
-    content="Document([Paragraph([Text(\"*a \"), Error(\"[\"), Text(\"oops tail\"), Error(\"*\")])])",
+    content="Document([Paragraph([Text(\"*a \"), Error(\"[\"), Text(\"oops tail*\")])])",
   )
 }
 
 ///|
-test "inline: escaped emphasis recovery stays container-local" {
+test "inline: literal emphasis markers stay container-local" {
   inspect(
     parse("\\*a [x**](/) b*\n"),
-    content="Document([Paragraph([Text(\"*a \"), Link([Text(\"x\"), Error(\"**\")], \"/\"), Text(\" b*\")])])",
+    content="Document([Paragraph([Text(\"*a \"), Link([Text(\"x**\")], \"/\"), Text(\" b*\")])])",
   )
   inspect(
     parse("[\\*\\*😈**](/)\n"),
@@ -90,7 +90,7 @@ test "inline: escaped emphasis recovery stays container-local" {
   )
   inspect(
     parse("- \\*a \\*b**\n"),
-    content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b\"), Text(\"**\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b**\")])])])",
   )
 }
 
@@ -113,7 +113,7 @@ test "inline: ordered marker can remain paragraph text inside multiline emphasis
 }
 
 ///|
-test "inline: multiline emphasis stops at ordered list item boundary" {
+test "inline: unmatched emphasis stays literal at ordered list boundaries" {
   let block = parse("1. *foo\n2. bar*\n")
   inspect(
     block,
@@ -122,14 +122,8 @@ test "inline: multiline emphasis stops at ordered list item boundary" {
       #|  [
       #|    OrderedList(
       #|      [
-      #|        OrderedListItem(
-      #|          [Error("*"), Text("foo")],
-      #|          Some({ start: 1, delimiter: Period }),
-      #|        ),
-      #|        OrderedListItem(
-      #|          [Text("bar"), Error("*")],
-      #|          Some({ start: 2, delimiter: Period }),
-      #|        ),
+      #|        OrderedListItem([Text("*foo")], Some({ start: 1, delimiter: Period })),
+      #|        OrderedListItem([Text("bar*")], Some({ start: 2, delimiter: Period })),
       #|      ],
       #|      Some({ start: 1, delimiter: Period }),
       #|    ),

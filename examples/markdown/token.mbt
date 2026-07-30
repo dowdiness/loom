@@ -291,6 +291,7 @@ pub(all) enum Token {
   BlankLine // empty or whitespace-only line
   Star // *
   StarStar // **
+  Underscore // _
   Backtick // `
   LeftBracket // [
   RightBracket // ]
@@ -320,6 +321,7 @@ pub impl Show for Token with fn output(self, logger) {
       BlankLine => ""
       Star => "*"
       StarStar => "**"
+      Underscore => "_"
       Backtick => "`"
       LeftBracket => "["
       RightBracket => "]"
@@ -364,6 +366,7 @@ pub impl @seam.ToRawKind for Token with fn to_raw(self) {
       BlankLine => 4 // BlankLineToken
       Star => 5 // StarToken
       StarStar => 6 // StarStarToken
+      Underscore => 39 // UnderscoreToken
       Backtick => 7 // BacktickToken
       LeftBracket => 8 // LeftBracketToken
       RightBracket => 9 // RightBracketToken
@@ -397,6 +400,7 @@ test "tokens map to their corresponding syntax raw kind" {
     (BlankLine, BlankLineToken),
     (Star, StarToken),
     (StarStar, StarStarToken),
+    (Underscore, UnderscoreToken),
     (Backtick, BacktickToken),
     (LeftBracket, LeftBracketToken),
     (RightBracket, RightBracketToken),

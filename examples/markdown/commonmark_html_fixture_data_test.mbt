@@ -3,11 +3,11 @@
 // needed during normal MoonBit CI. Each fixture records the CommonMark section
 // and example number so later work can filter or promote the baseline. Example
 // 0 denotes a CommonMark prose-rule guard without a minimal numbered fixture.
-// Baseline: pass=220, xfail=6, skip=0.
+// Baseline: pass=229, xfail=6, skip=0.
 
 ///|
 fn commonmark_html_fixture_expected_status_counts() -> (Int, Int, Int) {
-  (220, 6, 0)
+  (229, 6, 0)
 }
 
 ///|
@@ -1426,6 +1426,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 357,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-357",
+      source: "_foo bar_\n",
+      expected_html: "<p><em>foo bar</em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 358,
       section: "Emphasis and strong emphasis",
       name: "emphasis-and-strong-emphasis-358",
@@ -1530,6 +1538,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 382,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-382",
+      source: "__foo bar__\n",
+      expected_html: "<p><strong>foo bar</strong></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 383,
       section: "Emphasis and strong emphasis",
       name: "emphasis-and-strong-emphasis-383",
@@ -1626,6 +1642,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 412,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-412",
+      source: "*foo**bar*\n",
+      expected_html: "<p><em>foo**bar</em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 419,
       section: "Emphasis and strong emphasis",
       name: "emphasis-and-strong-emphasis-419",
@@ -1706,6 +1730,22 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 444,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-444",
+      source: "***foo**\n",
+      expected_html: "<p>*<strong>foo</strong></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 446,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-446",
+      source: "**foo***\n",
+      expected_html: "<p><strong>foo</strong>*</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 448,
       section: "Emphasis and strong emphasis",
       name: "emphasis-and-strong-emphasis-448",
@@ -1730,11 +1770,27 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       status: CommonMarkHtmlPass,
     },
     {
+      example: 467,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-467",
+      source: "***foo***\n",
+      expected_html: "<p><em><strong>foo</strong></em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
       example: 469,
       section: "Emphasis and strong emphasis",
       name: "emphasis-and-strong-emphasis-469",
       source: "*foo _bar* baz_\n",
       expected_html: "<p><em>foo _bar</em> baz_</p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 473,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-473",
+      source: "*[bar*](/url)\n",
+      expected_html: "<p>*<a href=\"/url\">bar*</a></p>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -1751,6 +1807,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "emphasis-and-strong-emphasis-478",
       source: "*a `*`*\n",
       expected_html: "<p><em>a <code>*</code></em></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 479,
+      section: "Emphasis and strong emphasis",
+      name: "emphasis-and-strong-emphasis-479",
+      source: "_a `_`_\n",
+      expected_html: "<p><em>a <code>_</code></em></p>\n",
       status: CommonMarkHtmlPass,
     },
     {
@@ -1791,6 +1855,14 @@ fn commonmark_html_fixture_cases() -> Array[CommonMarkHtmlFixture] {
       name: "links-501",
       source: "[link](#fragment)\n\n[link](https://example.com#fragment)\n\n[link](https://example.com?foo=3#frag)\n",
       expected_html: "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"https://example.com#fragment\">link</a></p>\n<p><a href=\"https://example.com?foo=3#frag\">link</a></p>\n",
+      status: CommonMarkHtmlPass,
+    },
+    {
+      example: 512,
+      section: "Links",
+      name: "links-512",
+      source: "[link [foo [bar]]](/uri)\n",
+      expected_html: "<p><a href=\"/uri\">link [foo [bar]]</a></p>\n",
       status: CommonMarkHtmlPass,
     },
     {

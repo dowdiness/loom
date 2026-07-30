@@ -80,7 +80,7 @@ fn canonical_nested_flow_children(
   children : ArrayView[MarkdownIR],
   list_marker : UnorderedListMarker,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder::StringBuilder()
   for child in children; previous_nested_marker = None {
     let (rendered, next_previous) = canonical_nested_flow_child(
       child, list_marker, previous_nested_marker,
@@ -126,7 +126,7 @@ fn boundary_preserving_list_marker(
 
 ///|
 fn canonical_document_format(children : Array[MarkdownIR]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder::StringBuilder()
   let mut previous_list_marker : UnorderedListMarker? = None
   for i, child in children {
     if i > 0 {

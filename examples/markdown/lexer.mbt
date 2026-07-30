@@ -600,7 +600,7 @@ fn lex_block_quote_line_start(
 /// Special characters that terminate a Text run in Inline mode.
 fn is_inline_special(ch : Char) -> Bool {
   match ch {
-    '*' | '`' | '[' | ']' | '(' | ')' | '\r' | '\n' => true
+    '*' | '_' | '`' | '[' | ']' | '(' | ')' | '\r' | '\n' => true
     _ => false
   }
 }
@@ -617,8 +617,8 @@ fn lex_inline(
   match input.view(start_offset=pos) {
     ['\r', '\n', .. rest] | ['\r', .. rest] | ['\n', .. rest] =>
       produced_until(Newline, pos, rest, LineStart)
-    [.. "**", .. rest] => produced_until(StarStar, pos, rest, Inline)
     ['*', .. rest] => produced_until(Star, pos, rest, Inline)
+    ['_', .. rest] => produced_until(Underscore, pos, rest, Inline)
     ['`', ..] => {
       let run_len = count_backticks(input, pos)
       (

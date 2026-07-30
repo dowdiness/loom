@@ -50,12 +50,9 @@ test "escaped emphasis recovery: direct and MarkdownIR lowering parity matrix" {
 }
 
 ///|
-test "escaped emphasis recovery: current opener-capacity divergence stays explicit" {
+test "delimiter lowering: unmatched closer capacity is literal text" {
   let source = "\\*a b**\n"
-  inspect(
-    parse(source),
-    content="Document([Paragraph([Text(\"*a b\"), Error(\"**\")])])",
-  )
+  inspect(parse(source), content="Document([Paragraph([Text(\"*a b**\")])])")
   inspect(
     escaped_emphasis_ir_block(source),
     content="Document([Paragraph([Text(\"*a b**\")])])",
@@ -63,11 +60,11 @@ test "escaped emphasis recovery: current opener-capacity divergence stays explic
 }
 
 ///|
-test "escaped emphasis recovery: current list-item text coalescing difference stays explicit" {
+test "delimiter lowering: list-item literal markers stay coalesced" {
   let source = "- \\*a \\*b**\n"
   inspect(
     parse(source),
-    content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b\"), Text(\"**\")])])])",
+    content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b**\")])])])",
   )
   inspect(
     escaped_emphasis_ir_block(source),

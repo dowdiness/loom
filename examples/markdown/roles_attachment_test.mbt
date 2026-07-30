@@ -70,16 +70,16 @@ test "markdown role attachment exports pure spans" {
 }
 
 ///|
-test "markdown role attachment exposes unclosed emphasis as error" {
+test "markdown role attachment leaves unmatched emphasis as ordinary text" {
   let source = "**unclosed\n"
   let parser = @loom.new_syntax_parser(
     source,
     markdown_grammar.to_syntax_grammar(),
   )
   let attachment = attach_markdown_role_spans(parser)
-  let expected : Array[(MarkdownRole, Int, Int)] = [(MarkdownRole::Error, 0, 2)]
+  let expected : Array[(MarkdownRole, Int, Int)] = []
   guard markdown_test_observations(attachment.spans()) == expected else {
-    fail("expected attached source-backed recovery error")
+    fail("expected no attached recovery role for literal unmatched emphasis")
   }
   attachment.dispose()
 }

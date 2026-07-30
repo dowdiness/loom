@@ -338,7 +338,13 @@ fn local_transform_render(
           children, source, target_origin, replacement_text,
         )
       }
-      "**" + rendered + "**"
+      match content_origin {
+        Some(origin) =>
+          source_slice_between(source, ir.origin().start(), origin.start()) +
+          rendered +
+          source_slice_between(source, origin.end(), ir.origin().end())
+        None => "**" + rendered + "**"
+      }
     }
     Italic(children, content_origin) => {
       let rendered = if content_origin == Some(target_origin) {
@@ -348,7 +354,13 @@ fn local_transform_render(
           children, source, target_origin, replacement_text,
         )
       }
-      "*" + rendered + "*"
+      match content_origin {
+        Some(origin) =>
+          source_slice_between(source, ir.origin().start(), origin.start()) +
+          rendered +
+          source_slice_between(source, origin.end(), ir.origin().end())
+        None => "*" + rendered + "*"
+      }
     }
     InlineCode(value, content_origin) =>
       if content_origin == Some(target_origin) {

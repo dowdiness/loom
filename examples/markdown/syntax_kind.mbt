@@ -25,6 +25,8 @@ pub(all) enum SyntaxKind {
   HtmlBlockOpenToken
   HtmlTextToken
   SetextHeadingUnderlineToken
+  UnderscoreToken
+  EmphasisDelimiterToken
   // Node kinds
   DocumentNode
   HeadingNode
@@ -74,7 +76,9 @@ pub fn SyntaxKind::is_token(self : SyntaxKind) -> Bool {
     | ThematicBreakToken
     | HtmlBlockOpenToken
     | HtmlTextToken
-    | SetextHeadingUnderlineToken => true
+    | SetextHeadingUnderlineToken
+    | UnderscoreToken
+    | EmphasisDelimiterToken => true
     _ => false
   }
 }
@@ -122,6 +126,8 @@ pub impl @seam.ToRawKind for SyntaxKind with fn to_raw(self) {
       HtmlTextToken => 36
       HtmlBlockNode => 37
       SetextHeadingUnderlineToken => 38
+      UnderscoreToken => 39
+      EmphasisDelimiterToken => 40
     },
   )
 }
@@ -168,6 +174,8 @@ pub impl @seam.FromRawKind for SyntaxKind with fn from_raw(raw) {
     36 => HtmlTextToken
     37 => HtmlBlockNode
     38 => SetextHeadingUnderlineToken
+    39 => UnderscoreToken
+    40 => EmphasisDelimiterToken
     _ => ErrorNode
   }
 }

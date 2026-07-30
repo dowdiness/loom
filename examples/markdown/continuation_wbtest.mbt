@@ -457,10 +457,10 @@ test "continuation decisions: list-item setext Stop" {
 }
 
 ///|
-/// The delimiter-indexing lookahead and the actual inline pass must invoke the
+/// The combined code/delimiter analysis and actual inline pass must invoke the
 /// same typed continuation action. External counters observe both passes even
-/// though ParserContext restores its own state after the speculative pass.
-test "continuation driver: speculative and actual passes consume same action" {
+/// though ParserContext restores its own state after the lookahead.
+test "continuation driver: analysis and actual passes consume same action" {
   let ctx = continuation_context("para\nchild\n")
   let consume_calls = [0]
   let no_prefix_calls = [0]

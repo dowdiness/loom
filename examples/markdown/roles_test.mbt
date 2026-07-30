@@ -113,6 +113,70 @@ test "markdown roles bold and italic delimiters and content" {
 }
 
 ///|
+test "markdown roles classify underscore delimiters with exact spans" {
+  let cases : Array[(String, Array[(MarkdownRole, Int, Int)])] = [
+    (
+      "_foo_\n",
+      [
+        (EmphasisDelimiter, 0, 1),
+        (EmphasisContent, 1, 4),
+        (EmphasisDelimiter, 4, 5),
+      ],
+    ),
+    (
+      "__foo__\n",
+      [
+        (EmphasisDelimiter, 0, 2),
+        (EmphasisContent, 2, 5),
+        (EmphasisDelimiter, 5, 7),
+      ],
+    ),
+  ]
+  for case in cases {
+    let (source, expected) = case
+    guard markdown_test_observations(markdown_test_roles(source)) == expected else {
+      fail("expected exact underscore emphasis role spans")
+    }
+  }
+}
+
+///|
+test "markdown roles distinguish literal and consumed run portions" {
+  let commonmark_412 : Array[(MarkdownRole, Int, Int)] = [
+    (EmphasisDelimiter, 0, 1),
+    (EmphasisContent, 1, 4),
+    (EmphasisContent, 4, 5),
+    (EmphasisContent, 5, 6),
+    (EmphasisContent, 6, 9),
+    (EmphasisDelimiter, 9, 10),
+  ]
+  guard markdown_test_observations(markdown_test_roles("*foo**bar*\n")) ==
+    commonmark_412 else {
+    fail("expected CommonMark 412 interior stars to have content roles")
+  }
+
+  let partial_opener : Array[(MarkdownRole, Int, Int)] = [
+    (EmphasisDelimiter, 1, 3),
+    (EmphasisContent, 3, 6),
+    (EmphasisDelimiter, 6, 8),
+  ]
+  guard markdown_test_observations(markdown_test_roles("***foo**\n")) ==
+    partial_opener else {
+    fail("expected CommonMark 444 residual opener star to stay unclassified")
+  }
+
+  let partial_closer : Array[(MarkdownRole, Int, Int)] = [
+    (EmphasisDelimiter, 0, 2),
+    (EmphasisContent, 2, 5),
+    (EmphasisDelimiter, 5, 7),
+  ]
+  guard markdown_test_observations(markdown_test_roles("**foo***\n")) ==
+    partial_closer else {
+    fail("expected CommonMark 446 residual closer star to stay unclassified")
+  }
+}
+
+///|
 test "markdown roles link punctuation label and balanced destination" {
   let roles = markdown_test_roles("[text](page_(C).html)\n")
   let expected : Array[(MarkdownRole, Int, Int)] = [
@@ -163,15 +227,15 @@ test "markdown roles project a LinkNode directly like its document root" {
 }
 
 ///|
-test "markdown roles expose source-backed recovery without diagnostics" {
+test "markdown roles leave unmatched emphasis as ordinary text" {
   let parser = @loom.new_syntax_parser(
     "**unclosed\n",
     markdown_grammar.to_syntax_grammar(),
   )
   let roles = project_markdown_roles(parser.syntax_tree().read_or_abort())
-  let expected : Array[(MarkdownRole, Int, Int)] = [(MarkdownRole::Error, 0, 2)]
+  let expected : Array[(MarkdownRole, Int, Int)] = []
   guard markdown_test_observations(roles) == expected else {
-    fail("expected source-backed error span for unclosed emphasis")
+    fail("expected no recovery role for literal unmatched emphasis")
   }
 }
 
@@ -212,7 +276,7 @@ test "markdown role exports use stable lower-kebab names" {
     "[{\"start\":0,\"end\":1,\"role\":\"inline-code-delimiter\"},{\"start\":1,\"end\":5,\"role\":\"inline-code-content\"},{\"start\":5,\"end\":6,\"role\":\"inline-code-delimiter\"}]",
     "[{\"start\":0,\"end\":2,\"role\":\"emphasis-delimiter\"},{\"start\":2,\"end\":6,\"role\":\"emphasis-content\"},{\"start\":6,\"end\":8,\"role\":\"emphasis-delimiter\"}]",
     "[{\"start\":0,\"end\":1,\"role\":\"punctuation\"},{\"start\":1,\"end\":5,\"role\":\"link-text\"},{\"start\":5,\"end\":6,\"role\":\"punctuation\"},{\"start\":6,\"end\":7,\"role\":\"punctuation\"},{\"start\":7,\"end\":11,\"role\":\"link-destination\"},{\"start\":11,\"end\":12,\"role\":\"punctuation\"}]",
-    "[{\"start\":0,\"end\":2,\"role\":\"error\"}]",
+    "[]",
   ]
   guard actual == expected else {
     fail("expected stable lower-kebab names from projected JSON fixtures")
