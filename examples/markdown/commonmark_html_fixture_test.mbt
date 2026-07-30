@@ -122,6 +122,72 @@ test "experimental MarkdownIR: CommonMark HTML fixture status metadata supports 
 }
 
 ///|
+test "experimental MarkdownIR: CommonMark HTML fixture non-pass reasons stay explicit" {
+  for fixture in commonmark_html_fixture_cases() {
+    match fixture.status {
+      CommonMarkHtmlXfail(reason) =>
+        if reason.trim().is_empty() {
+          fail("expected a nonempty xfail reason for " + fixture.label())
+        }
+      CommonMarkHtmlSkip(reason) =>
+        if reason.trim().is_empty() {
+          fail("expected a nonempty skip reason for " + fixture.label())
+        }
+      CommonMarkHtmlPass => ()
+    }
+  }
+}
+
+///|
+test "experimental MarkdownIR: CommonMark emphasis fixture corpus is complete" {
+  let fixtures = commonmark_html_fixture_cases_for_section(
+    "Emphasis and strong emphasis",
+  )
+  guard fixtures.length() == 132 else {
+    fail(
+      "expected all 132 CommonMark emphasis examples, got " +
+      fixtures.length().to_string(),
+    )
+  }
+  for index, fixture in fixtures {
+    let expected_example = 350 + index
+    guard fixture.example == expected_example else {
+      fail(
+        "expected CommonMark emphasis example " +
+        expected_example.to_string() +
+        ", got " +
+        fixture.example.to_string(),
+      )
+    }
+  }
+  let actual = for fixture in fixtures; pass = 0, xfail = 0, skip = 0 {
+    match fixture.status {
+      CommonMarkHtmlPass => continue pass + 1, xfail, skip
+      CommonMarkHtmlXfail(_) => continue pass, xfail + 1, skip
+      CommonMarkHtmlSkip(_) => continue pass, xfail, skip + 1
+    }
+  } nobreak {
+    (pass, xfail, skip)
+  }
+  let expected = commonmark_emphasis_html_fixture_expected_status_counts()
+  guard expected == (127, 5, 0) else {
+    fail(
+      "expected the generated CommonMark emphasis baseline to stay " +
+      "(127, 5, 0), got " +
+      @debug.to_string(expected),
+    )
+  }
+  guard actual == expected else {
+    fail(
+      "expected CommonMark emphasis fixture counts " +
+      @debug.to_string(expected) +
+      ", got " +
+      @debug.to_string(actual),
+    )
+  }
+}
+
+///|
 test "experimental MarkdownIR: CommonMark HTML fixture filters use CommonMark metadata" {
   debug_inspect(
     commonmark_html_fixture_cases_for_section("ATX headings").map(fixture => {

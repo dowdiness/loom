@@ -20,7 +20,6 @@ fn assert_delimiter_incremental_projection_parity(
   let reuse_count = markdown_incremental_edit_reuse_count(
     label, source, edit, updated,
   )
-  inspect(reuse_count, content="1")
 
   let incremental = @loom.new_parser(source, markdown_grammar)
   incremental.apply_edit(edit, updated)
@@ -41,18 +40,32 @@ fn assert_delimiter_incremental_projection_parity(
   let fresh_roles = project_markdown_roles(fresh_syntax)
 
   inspect(incremental_block, content=@debug.to_string(fresh_block))
-  assert_eq(incremental_ir, fresh_ir)
+  guard incremental_ir == fresh_ir else {
+    fail(
+      "expected incremental MarkdownIR to match a fresh projection: " + label,
+    )
+  }
   guard incremental_roles == fresh_roles else {
-    fail("expected incremental delimiter roles to match a fresh projection")
+    fail(
+      "expected incremental delimiter roles to match a fresh projection: " +
+      label,
+    )
   }
   inspect(
     experimental_markdown_ir_to_block(incremental_ir),
     content=@debug.to_string(incremental_block),
   )
-  inspect(
-    experimental_markdown_ir_to_commonmark_html(incremental_ir),
-    content=expected_html,
-  )
+  let actual_html = experimental_markdown_ir_to_commonmark_html(incremental_ir)
+  guard actual_html == expected_html else {
+    fail(
+      "unexpected incremental CommonMark HTML: " +
+      label +
+      "\nexpected: " +
+      @debug.to_string(expected_html) +
+      "\nactual:   " +
+      @debug.to_string(actual_html),
+    )
+  }
 
   let role_parser = @loom.new_syntax_parser(
     source,
@@ -62,9 +75,12 @@ fn assert_delimiter_incremental_projection_parity(
   role_parser.apply_edit(edit, updated)
   guard role_attachment.spans() == fresh_roles else {
     role_attachment.dispose()
-    fail("expected attached delimiter roles to match a fresh projection")
+    fail(
+      "expected attached delimiter roles to match a fresh projection: " + label,
+    )
   }
   role_attachment.dispose()
+  inspect(reuse_count, content="1")
 }
 
 ///|
@@ -90,6 +106,53 @@ test "incremental delimiter run-length and flanking edits match fresh projection
       @core.Edit::new(0, 1, 1),
       "._b_.\n\nTail\n",
       "<p>.<em>b</em>.</p>\n<p>Tail</p>\n",
+    ),
+  ]
+  for case in cases {
+    let (label, source, edit, updated, expected_html) = case
+    assert_delimiter_incremental_projection_parity(
+      label, source, edit, updated, expected_html,
+    )
+  }
+}
+
+///|
+test "incremental delimiter semantic-boundary edits match fresh projections" {
+  let cases : Array[(String, String, @core.Edit, String, String)] = [
+    (
+      "markdown rule-of-three middle run gains a marker",
+      "*a**a*\n\nTail\n",
+      @core.Edit::insert("*a**".length(), "*".length()),
+      "*a***a*\n\nTail\n",
+      "<p><em>a</em>*<em>a</em></p>\n<p>Tail</p>\n",
+    ),
+    (
+      "markdown adjacent nested strong closer gains a marker",
+      "*foo**bar*baz*\n\nTail\n",
+      @core.Edit::insert("*foo**bar*".length(), "*".length()),
+      "*foo**bar**baz*\n\nTail\n",
+      "<p><em>foo<strong>bar</strong>baz</em></p>\n<p>Tail</p>\n",
+    ),
+    (
+      "markdown link label gains a scoped delimiter marker",
+      "*[bar](/url)\n\nTail\n",
+      @core.Edit::insert("*[bar".length(), "*".length()),
+      "*[bar*](/url)\n\nTail\n",
+      "<p>*<a href=\"/url\">bar*</a></p>\n<p>Tail</p>\n",
+    ),
+    (
+      "markdown code span content becomes an opaque delimiter marker",
+      "_a `x`_\n\nTail\n",
+      @core.Edit::new("_a `".length(), "x".length(), "_".length()),
+      "_a `_`_\n\nTail\n",
+      "<p><em>a <code>_</code></em></p>\n<p>Tail</p>\n",
+    ),
+    (
+      "markdown CommonMark Unicode punctuation adjacency gains a marker",
+      "*£bravo.\n\nTail\n",
+      @core.Edit::insert("*£".length(), "*".length()),
+      "*£*bravo.\n\nTail\n",
+      "<p>*£*bravo.</p>\n<p>Tail</p>\n",
     ),
   ]
   for case in cases {
