@@ -16,7 +16,7 @@
 /// spike slice.
 pub fn normalized_syntax_grammar(
   spec : @core.LanguageSpec[@token.Token, @syntax.SyntaxKind],
-  lex : (String) -> @core.LexResult[@token.Token],
+  lex : (@core.SourceId, String) -> @core.LexResult[@token.Token],
 ) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] {
   @loom.SyntaxGrammar::new(
     spec~,

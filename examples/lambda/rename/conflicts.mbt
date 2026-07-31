@@ -2,6 +2,7 @@
 /// Sibling-def collision check: returns Some(diagnostic) iff another
 /// def shares target's scope and has the proposed new name.
 pub fn check_sibling_collision(
+  source_id : @core.SourceId,
   target : @callers.Def,
   new_name : String,
   defs : Array[@callers.Def],
@@ -15,7 +16,7 @@ pub fn check_sibling_collision(
       let (collider_start, collider_end) = name_range_of(d, syntax)
       return Some(
         make_sibling_diagnostic(
-          target_start, target_end, collider_start, collider_end, new_name,
+          source_id, target_start, target_end, collider_start, collider_end, new_name,
         ),
       )
     }
@@ -87,6 +88,7 @@ fn is_ancestor_from_parent(
 /// Forward-capture check: references edited from target.name to
 /// `new_name` must still resolve to the renamed target.
 pub fn check_forward_capture(
+  source_id : @core.SourceId,
   target : @callers.Def,
   new_name : String,
   defs : Array[@callers.Def],
@@ -108,7 +110,8 @@ pub fn check_forward_capture(
               let (capture_start, capture_end) = name_range_of(capturer, syntax)
               return Some(
                 make_forward_capture_diagnostic(
-                  target_start, target_end, capture_start, capture_end, new_name,
+                  source_id, target_start, target_end, capture_start, capture_end,
+                  new_name,
                 ),
               )
             }
@@ -227,6 +230,7 @@ fn binding_matches_renamed_name(
 /// Converse-capture check: if an existing call to `new_name` resolves at
 /// an ancestor-or-equal scope, the renamed target may intercept it.
 pub fn check_converse_capture(
+  source_id : @core.SourceId,
   target : @callers.Def,
   new_name : String,
   calls : Array[@callers.Call],
@@ -243,7 +247,7 @@ pub fn check_converse_capture(
         let (target_start, target_end) = name_range_of(target, syntax)
         return Some(
           make_converse_capture_diagnostic(
-            call_start, call_end, target_start, target_end, new_name,
+            source_id, call_start, call_end, target_start, target_end, new_name,
           ),
         )
       }
@@ -269,6 +273,7 @@ fn target_visible_at_source_position(
 /// Shadow check: renaming to an outer visible binding name is legal but
 /// changes readability and should be surfaced as a warning.
 pub fn check_shadow(
+  source_id : @core.SourceId,
   target : @callers.Def,
   new_name : String,
   defs : Array[@callers.Def],
@@ -290,7 +295,7 @@ pub fn check_shadow(
             let (outer_start, outer_end) = name_range_of(outer, syntax)
             Some(
               make_shadow_diagnostic(
-                target_start, target_end, outer_start, outer_end, new_name,
+                source_id, target_start, target_end, outer_start, outer_end, new_name,
               ),
             )
           }
@@ -315,23 +320,35 @@ fn shadow_lookup_scope(
 
 ///|
 fn make_sibling_diagnostic(
+  source_id : @core.SourceId,
   target_start : Int,
   target_end : Int,
   collider_start : Int,
   collider_end : Int,
   new_name : String,
 ) -> @core.Diagnostic {
-  let primary = text_range_or_abort(target_start, target_end)
-  let collider_range = text_range_or_abort(collider_start, collider_end)
+  let primary_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(target_start, target_end),
+  )
+  let collider_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(collider_start, collider_end),
+  )
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::DiagnosticSource("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': another binding with that name already exists in the same scope",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.sibling_collision")),
-    primary=Some(primary),
     labels=[
       @core.DiagnosticLabel::DiagnosticLabel(
-        collider_range,
+        @core.LabelStyle::Primary,
+        primary_span,
+        None,
+      ),
+      @core.DiagnosticLabel::DiagnosticLabel(
+        @core.LabelStyle::Secondary,
+        collider_span,
         Some("existing binding"),
       ),
     ],
@@ -340,23 +357,35 @@ fn make_sibling_diagnostic(
 
 ///|
 fn make_forward_capture_diagnostic(
+  source_id : @core.SourceId,
   target_start : Int,
   target_end : Int,
   capture_start : Int,
   capture_end : Int,
   new_name : String,
 ) -> @core.Diagnostic {
-  let primary = text_range_or_abort(target_start, target_end)
-  let capture_range = text_range_or_abort(capture_start, capture_end)
+  let primary_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(target_start, target_end),
+  )
+  let capture_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(capture_start, capture_end),
+  )
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::DiagnosticSource("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': an existing binding with that name would capture references",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
-    primary=Some(primary),
     labels=[
       @core.DiagnosticLabel::DiagnosticLabel(
-        capture_range,
+        @core.LabelStyle::Primary,
+        primary_span,
+        None,
+      ),
+      @core.DiagnosticLabel::DiagnosticLabel(
+        @core.LabelStyle::Secondary,
+        capture_span,
         Some("capturing binding"),
       ),
     ],
@@ -365,23 +394,35 @@ fn make_forward_capture_diagnostic(
 
 ///|
 fn make_converse_capture_diagnostic(
+  source_id : @core.SourceId,
   call_start : Int,
   call_end : Int,
   target_start : Int,
   target_end : Int,
   new_name : String,
 ) -> @core.Diagnostic {
-  let primary = text_range_or_abort(call_start, call_end)
-  let target_range = text_range_or_abort(target_start, target_end)
+  let primary_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(call_start, call_end),
+  )
+  let target_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(target_start, target_end),
+  )
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::DiagnosticSource("rename"),
     severity=severity_error(),
     message="Cannot rename to '\{new_name}': an existing reference to that name may be captured",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.capture")),
-    primary=Some(primary),
     labels=[
       @core.DiagnosticLabel::DiagnosticLabel(
-        target_range,
+        @core.LabelStyle::Primary,
+        primary_span,
+        None,
+      ),
+      @core.DiagnosticLabel::DiagnosticLabel(
+        @core.LabelStyle::Secondary,
+        target_span,
         Some("renamed binding would intercept"),
       ),
     ],
@@ -393,23 +434,35 @@ fn make_converse_capture_diagnostic(
 
 ///|
 fn make_shadow_diagnostic(
+  source_id : @core.SourceId,
   target_start : Int,
   target_end : Int,
   shadowed_start : Int,
   shadowed_end : Int,
   new_name : String,
 ) -> @core.Diagnostic {
-  let primary = text_range_or_abort(target_start, target_end)
-  let shadowed_range = text_range_or_abort(shadowed_start, shadowed_end)
+  let primary_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(target_start, target_end),
+  )
+  let shadowed_span = @core.SourceSpan::SourceSpan(
+    source_id,
+    text_range_or_abort(shadowed_start, shadowed_end),
+  )
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::DiagnosticSource("rename"),
     severity=severity_warning(),
     message="Renaming to '\{new_name}' shadows an outer binding",
     code=Some(@core.DiagnosticCode::DiagnosticCode("rename.shadow")),
-    primary=Some(primary),
     labels=[
       @core.DiagnosticLabel::DiagnosticLabel(
-        shadowed_range,
+        @core.LabelStyle::Primary,
+        primary_span,
+        None,
+      ),
+      @core.DiagnosticLabel::DiagnosticLabel(
+        @core.LabelStyle::Secondary,
+        shadowed_span,
         Some("shadowed binding"),
       ),
     ],

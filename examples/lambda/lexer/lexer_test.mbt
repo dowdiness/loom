@@ -106,11 +106,27 @@ test "tokenize error - invalid character" {
 }
 
 ///|
+test "structured lex error preserves caller source and lexer producer" {
+  let source_id = @core.SourceId::SourceId("lambda-lexer-test")
+  let diagnostics = lex(source_id, "@").diagnostics().items()
+  inspect(diagnostics.length(), content="1")
+  let diagnostic = diagnostics[0]
+  inspect(diagnostic.source().name(), content="lexer")
+  let labels = diagnostic.labels()
+  inspect(labels.length(), content="1")
+  inspect(labels[0].style() is @core.LabelStyle::Primary, content="true")
+  inspect(labels[0].span().source_id() == source_id, content="true")
+  inspect(labels[0].span().range().start().value(), content="0")
+  inspect(labels[0].span().range().end().value(), content="1")
+}
+
+///|
 test "token_buffer update insertion matches full tokenize" {
   let source = "x"
   let new_source = "x + 1"
   let edit = @core.Edit::insert(1, 4)
   let buffer = @core.TokenBuffer::new(
+    @core.SourceId::SourceId("lambda-lexer-test"),
     source,
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
@@ -130,6 +146,7 @@ test "token_buffer update deletion merges identifiers" {
   let new_source = "xy"
   let edit = @core.Edit::delete(1, 2)
   let buffer = @core.TokenBuffer::new(
+    @core.SourceId::SourceId("lambda-lexer-test"),
     source,
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
@@ -149,6 +166,7 @@ test "token_buffer update replacement matches full tokenize" {
   let new_source = "x + 42"
   let edit = @core.Edit::replace(4, 5, 6)
   let buffer = @core.TokenBuffer::new(
+    @core.SourceId::SourceId("lambda-lexer-test"),
     source,
     tokenize_fn=tokenize,
     eof_token=@token.EOF,
@@ -168,6 +186,7 @@ test "token_buffer update insertion creates keyword" {
   let new_source = "if"
   let edit = @core.Edit::insert(1, 1)
   let buffer = @core.TokenBuffer::new(
+    @core.SourceId::SourceId("lambda-lexer-test"),
     source,
     tokenize_fn=tokenize,
     eof_token=@token.EOF,

@@ -1,6 +1,6 @@
 // Rename + conflict-detection consumer of `CallersPipeline`.
 //
-// `plan_rename(pipeline, source, syntax, offset, new_name)` returns a
+// `plan_rename(source_id, pipeline, source, syntax, offset, new_name)` returns a
 // `RenamePlan` carrying source edits and `@core.Diagnostic` conflicts.
 // Three conflict classes are detected: sibling-def collision, capture
 // (two-pass: forward + converse), and shadow.
@@ -12,8 +12,8 @@
 // See docs/plans/2026-05-19-rename-consumer-design.md.
 
 ///|
-/// Source-text edit produced by a rename. `(start, end)` is a half-open
-/// byte range into the source; `new_text` is the replacement.
+/// Source-text edit produced by a rename. `(start, end)` is a half-open UTF-16
+/// code-unit range into the source; `new_text` is the replacement.
 pub struct TextEdit {
   start : Int
   end : Int
@@ -42,6 +42,7 @@ pub struct RenamePlan {
 /// Plan a rename from a source offset: locate the target binding, compute
 /// edits, and collect conservative conflict diagnostics.
 pub fn plan_rename(
+  source_id : @core.SourceId,
   pipeline : @callers.CallersPipeline,
   _source : String,
   syntax : @seam.SyntaxNode,
@@ -68,23 +69,27 @@ pub fn plan_rename(
           target, defs, calls, enclosing, syntax, new_name,
         )
         let diagnostics : Array[@core.Diagnostic] = []
-        match check_sibling_collision(target, new_name, defs, syntax) {
+        match
+          check_sibling_collision(source_id, target, new_name, defs, syntax) {
           Some(d) => diagnostics.push(d)
           None => ()
         }
         match
           check_forward_capture(
-            target, new_name, defs, calls, enclosing, syntax,
+            source_id, target, new_name, defs, calls, enclosing, syntax,
           ) {
           Some(d) => diagnostics.push(d)
           None => ()
         }
         match
-          check_converse_capture(target, new_name, calls, enclosing, syntax) {
+          check_converse_capture(
+            source_id, target, new_name, calls, enclosing, syntax,
+          ) {
           Some(d) => diagnostics.push(d)
           None => ()
         }
-        match check_shadow(target, new_name, defs, enclosing, syntax) {
+        match
+          check_shadow(source_id, target, new_name, defs, enclosing, syntax) {
           Some(d) => diagnostics.push(d)
           None => ()
         }

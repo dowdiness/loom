@@ -20,10 +20,12 @@ pub using @incremental {type ImperativeParser}
 
 ///|
 /// Create a lambda calculus ImperativeParser, pre-configured with the lambda
-/// grammar. The grammar is baked in — pass only the initial source string.
+/// grammar. The grammar is baked in — pass the source identity and initial
+/// source string.
 /// The parser returns Term directly via memoized CST fold.
 pub fn new_imperative_parser(
+  source_id : @core.SourceId,
   source : String,
 ) -> @incremental.ImperativeParser[@ast.Term] {
-  @loom.new_imperative_parser(source, lambda_grammar)
+  @loom.new_imperative_parser(source_id, source, lambda_grammar)
 }
