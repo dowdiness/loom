@@ -129,7 +129,45 @@ fn lambda_expect(
       true
     }
     _ => {
-      ctx.error("Expected " + @token.print_token(expected))
+      if expected == @token.Else {
+        let current = ctx.current_token_range()
+        let replacement = if ctx.peek() == @token.EOF {
+          " else _"
+        } else {
+          " else _ "
+        }
+        let range = try! @core.TextRange::from_offsets(
+          current.start,
+          current.start,
+        )
+        let span = @core.SourceSpan::SourceSpan(ctx.source_id(), range)
+        let fix = try! @core.DiagnosticFix::DiagnosticFix(
+          "Insert missing else branch",
+          @core.FixApplicability::Always,
+          [@core.TextReplacement::TextReplacement(span, replacement)],
+        )
+        ctx.report(
+          @core.Diagnostic::Diagnostic(
+            source=@core.DiagnosticSource::parser(),
+            severity=@core.DiagnosticSeverity::all()[0],
+            code=Some(
+              @core.DiagnosticCode::DiagnosticCode("loom.lambda.expected_else"),
+            ),
+            message="Expected else",
+            labels=[
+              @core.DiagnosticLabel::DiagnosticLabel(
+                @core.LabelStyle::Primary,
+                span,
+                None,
+              ),
+            ],
+            notes=["An if expression requires an else branch"],
+            fixes=[fix],
+          ),
+        )
+      } else {
+        ctx.error("Expected " + @token.print_token(expected))
+      }
       ctx.emit_error_placeholder()
       false
     }

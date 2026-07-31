@@ -42,22 +42,75 @@ test "parse_cst no errors on valid input" {
 }
 
 ///|
-test "parse_cst EOF diagnostics point to end of source" {
-  // "if x then y" is missing "else" — the diagnostic for the missing
-  // "else" keyword fires at EOF which should be at the end of the source.
+test "parse_cst missing else offers a valid insertion fix" {
   let source = "if x then y"
   let (_, diagnostics) = parse_cst_or_fail_recovery(source)
-  inspect(diagnostics.length() > 0, content="true")
-  // Find the diagnostic about the missing "else"
-  let mut found = false
-  for diag in diagnostics.items() {
-    if diag.message().contains("else") {
-      // Position must be at EOF.
-      inspect(diagnostic_start(diag) == source.length(), content="true")
-      found = true
-    }
+  guard diagnostics
+    .items()
+    .iter()
+    .find_first(diagnostic => diagnostic.message().contains("else"))
+    is Some(diagnostic) else {
+    fail("expected missing-else diagnostic")
   }
-  inspect(found, content="true")
+  guard diagnostic.code() is Some(code) else {
+    fail("expected stable missing-else diagnostic code")
+  }
+  inspect(code.value(), content="loom.lambda.expected_else")
+  inspect(diagnostic_start(diagnostic), content=source.length().to_string())
+  debug_inspect(
+    diagnostic.notes(),
+    content="[\"An if expression requires an else branch\"]",
+  )
+  let fixes = diagnostic.fixes()
+  inspect(fixes.length(), content="1")
+  inspect(fixes[0].title(), content="Insert missing else branch")
+  inspect(
+    fixes[0].applicability() == @core.FixApplicability::Always,
+    content="true",
+  )
+  let fixed = fixes[0].apply(recovery_test_source_id(), source) catch {
+    _ => fail("expected missing-else fix to apply")
+  }
+  inspect(fixed, content="if x then y else _")
+  let (_, fixed_diagnostics) = parse_cst_or_fail_recovery(fixed)
+  inspect(
+    fixed_diagnostics
+    .items()
+    .iter()
+    .any(diagnostic => {
+      match diagnostic.code() {
+        Some(code) => code.value() == "loom.lambda.expected_else"
+        None => false
+      }
+    }),
+    content="false",
+  )
+}
+
+///|
+test "parse_cst missing else fix preserves the following token" {
+  let source = "{ if x then y }"
+  let (_, diagnostics) = parse_cst_or_fail_recovery(source)
+  guard diagnostics
+    .items()
+    .iter()
+    .find_first(diagnostic => {
+      match diagnostic.code() {
+        Some(code) => code.value() == "loom.lambda.expected_else"
+        None => false
+      }
+    })
+    is Some(diagnostic) else {
+    fail("expected missing-else diagnostic before block close")
+  }
+  let fixes = diagnostic.fixes()
+  inspect(fixes.length(), content="1")
+  let fixed = fixes[0].apply(recovery_test_source_id(), source) catch {
+    _ => fail("expected non-EOF missing-else fix to apply")
+  }
+  inspect(fixed, content="{ if x then y  else _ }")
+  let (_, fixed_diagnostics) = parse_cst_or_fail_recovery(fixed)
+  inspect(fixed_diagnostics.length(), content="0")
 }
 
 ///|
