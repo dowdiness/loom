@@ -115,7 +115,8 @@ fn DiagnosticRenderContext::resolve_source(
         Some(source) => source
         None => raise MissingSource(source_id)
       }
-      if !source.line_index.matches_source(source.text) {
+      if source.line_index.strict_offset(source.text, { line: 0, column: 0 }) !=
+        Some(0) {
         raise MismatchedLineIndex(source_id)
       }
       self.sources.push({ source_id, source })
@@ -207,7 +208,7 @@ fn render_diagnostic_source_line(
   let end = line_range.end
   let display_line = (line + 1).to_string()
   let line_start = match
-    source.line_index.strict_offset(source.text, { line, column: 0 }) {
+    source.line_index.checked_offset(source.text, { line, column: 0 }) {
     Some(offset) => offset
     None => raise MismatchedLineIndex(label.span().source_id())
   }

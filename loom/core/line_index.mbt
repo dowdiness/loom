@@ -67,10 +67,19 @@ fn LineIndex::strict_offset(
   source : String,
   position : LineCol,
 ) -> Int? {
-  let expected = LineIndex::new(source)
-  if self.source_len != expected.source_len ||
-    self.line_starts != expected.line_starts ||
-    position.column < 0 {
+  if !self.matches_source(source) {
+    return None
+  }
+  self.checked_offset(source, position)
+}
+
+///|
+fn LineIndex::checked_offset(
+  self : LineIndex,
+  source : String,
+  position : LineCol,
+) -> Int? {
+  if position.column < 0 {
     return None
   }
   match self.line_starts.get(position.line) {
