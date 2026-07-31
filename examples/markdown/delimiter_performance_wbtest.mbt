@@ -232,16 +232,12 @@ fn delimiter_performance_resolver_event_bank(
 
 ///|
 fn assert_delimiter_performance_parser_matches_fresh(
-  source_id : @core.SourceId,
+  source_identity : String,
   label : String,
   parser : @loom.SyntaxParser,
   source : String,
 ) -> Unit raise {
-  let fresh = @loom.new_syntax_parser(
-    source_id,
-    source,
-    markdown_grammar.to_syntax_grammar(),
-  )
+  let fresh = delimiter_performance_new_syntax_parser(source_identity, source)
   guard parser.source().read_or_abort() == source else {
     fail("unexpected incremental source: " + label)
   }
@@ -257,25 +253,24 @@ fn assert_delimiter_performance_parser_matches_fresh(
 
 ///|
 fn assert_delimiter_performance_incremental_parity(
-  source_id : @core.SourceId,
+  source_identity : String,
   label : String,
   fixture : DelimiterPerformanceFixture,
 ) -> Unit raise {
-  let parser = @loom.new_syntax_parser(
-    source_id,
+  let parser = delimiter_performance_new_syntax_parser(
+    source_identity,
     fixture.source,
-    markdown_grammar.to_syntax_grammar(),
   )
   parser.apply_edit(fixture.edit, fixture.edited)
   assert_delimiter_performance_parser_matches_fresh(
-    source_id,
+    source_identity,
     label + " after edit",
     parser,
     fixture.edited,
   )
   parser.apply_edit(fixture.edit, fixture.source)
   assert_delimiter_performance_parser_matches_fresh(
-    source_id,
+    source_identity,
     label + " after restore",
     parser,
     fixture.source,
@@ -328,16 +323,16 @@ test "delimiter performance workload is deterministic and length matched" {
 
 ///|
 test "delimiter performance incremental edit and restore match fresh parses" {
-  let source_id = @core.SourceId("markdown-delimiter-performance-parity")
+  let source_identity = "markdown-delimiter-performance-parity"
   for repeat_count in [64, 256] {
     let workloads = delimiter_performance_workloads(repeat_count)
     assert_delimiter_performance_incremental_parity(
-      source_id,
+      source_identity,
       "delimiter-heavy \{repeat_count}x",
       workloads.delimiter_heavy,
     )
     assert_delimiter_performance_incremental_parity(
-      source_id,
+      source_identity,
       "plain-control \{repeat_count}x",
       workloads.plain_control,
     )
@@ -361,27 +356,22 @@ test "delimiter performance resolver operation counts stay linear" {
 ///|
 fn benchmark_delimiter_performance_full_parse(
   b : @bench.T,
-  source_id : @core.SourceId,
+  source_identity : String,
   source : String,
 ) -> Unit {
-  b.bench(() => {
-    let (cst, _) = parse_cst(source_id, source) catch {
-      _ => abort("parse failed")
-    }
-    b.keep(cst)
-  })
+  let parse = delimiter_performance_full_parse_runner(source_identity, source)
+  b.bench(() => b.keep(parse()))
 }
 
 ///|
 fn benchmark_delimiter_performance_incremental_cycle(
   b : @bench.T,
-  source_id : @core.SourceId,
+  source_identity : String,
   fixture : DelimiterPerformanceFixture,
 ) -> Unit {
-  let parser = @loom.new_syntax_parser(
-    source_id,
+  let parser = delimiter_performance_new_syntax_parser(
+    source_identity,
     fixture.source,
-    markdown_grammar.to_syntax_grammar(),
   )
   b.bench(() => {
     parser.apply_edit(fixture.edit, fixture.edited)
@@ -396,7 +386,7 @@ test "markdown delimiter-heavy 64x full parse" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(64)
   benchmark_delimiter_performance_full_parse(
     b,
-    @core.SourceId("markdown-delimiter-heavy-64-full"),
+    "markdown-delimiter-heavy-64-full",
     workloads.delimiter_heavy.source,
   )
 }
@@ -406,7 +396,7 @@ test "markdown plain-control 64x full parse" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(64)
   benchmark_delimiter_performance_full_parse(
     b,
-    @core.SourceId("markdown-plain-control-64-full"),
+    "markdown-plain-control-64-full",
     workloads.plain_control.source,
   )
 }
@@ -416,7 +406,7 @@ test "markdown delimiter-heavy 256x full parse" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(256)
   benchmark_delimiter_performance_full_parse(
     b,
-    @core.SourceId("markdown-delimiter-heavy-256-full"),
+    "markdown-delimiter-heavy-256-full",
     workloads.delimiter_heavy.source,
   )
 }
@@ -426,7 +416,7 @@ test "markdown plain-control 256x full parse" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(256)
   benchmark_delimiter_performance_full_parse(
     b,
-    @core.SourceId("markdown-plain-control-256-full"),
+    "markdown-plain-control-256-full",
     workloads.plain_control.source,
   )
 }
@@ -436,7 +426,7 @@ test "markdown delimiter-heavy 64x incremental edit+restore" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(64)
   benchmark_delimiter_performance_incremental_cycle(
     b,
-    @core.SourceId("markdown-delimiter-heavy-64-incremental"),
+    "markdown-delimiter-heavy-64-incremental",
     workloads.delimiter_heavy,
   )
 }
@@ -446,7 +436,7 @@ test "markdown plain-control 64x incremental edit+restore" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(64)
   benchmark_delimiter_performance_incremental_cycle(
     b,
-    @core.SourceId("markdown-plain-control-64-incremental"),
+    "markdown-plain-control-64-incremental",
     workloads.plain_control,
   )
 }
@@ -456,7 +446,7 @@ test "markdown delimiter-heavy 256x incremental edit+restore" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(256)
   benchmark_delimiter_performance_incremental_cycle(
     b,
-    @core.SourceId("markdown-delimiter-heavy-256-incremental"),
+    "markdown-delimiter-heavy-256-incremental",
     workloads.delimiter_heavy,
   )
 }
@@ -466,7 +456,7 @@ test "markdown plain-control 256x incremental edit+restore" (b : @bench.T) {
   let workloads = delimiter_performance_workloads(256)
   benchmark_delimiter_performance_incremental_cycle(
     b,
-    @core.SourceId("markdown-plain-control-256-incremental"),
+    "markdown-plain-control-256-incremental",
     workloads.plain_control,
   )
 }
