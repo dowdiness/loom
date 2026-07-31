@@ -119,9 +119,12 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
     lexer,
     MockToken::EOF,
     error_token=Error("error"),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
-  let result = (state.tokenize)("hello\"world\"end")
+  let result = (state.tokenize)(
+    SourceId("mode-lexer-source"),
+    "hello\"world\"end",
+  )
   let tokens = result.tokens()
   let starts = result.starts()
   inspect(tokens.length(), content="6")
@@ -159,11 +162,12 @@ test "tokenize_with_modes_recovering records diagnostics and next mode" {
     initial_mode: Normal,
   }
   let (result, modes) = tokenize_with_modes_recovering(
+    SourceId("mode-lexer-recovery-source"),
     lexer,
     "!x",
     MockToken::EOF,
     Error("error"),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
   let tokens = result.tokens()
   let starts = result.starts()
@@ -184,11 +188,12 @@ test "tokenize_with_modes_recovering records incomplete diagnostic" {
     initial_mode: Normal,
   }
   let (result, _modes) = tokenize_with_modes_recovering(
+    SourceId("mode-lexer-recovery-source"),
     lexer,
     "?tail",
     MockToken::EOF,
     Error("error"),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
   let tokens = result.tokens()
   debug_inspect(
@@ -430,7 +435,10 @@ test "mixed contexts detached tokenization preserves snapshots and spans" {
     EOF,
   )
   let factory = erase_mode_lexer(lexer, EOF, error_token=OpaqueRaw("error"))
-  let result = (factory.tokenize)(mixed_source())
+  let result = (factory.tokenize)(
+    SourceId("mode-lexer-mixed-source"),
+    mixed_source(),
+  )
   inspect(result.tokens() == typed_tokens, content="true")
   inspect(result.starts()[0], content="0")
   inspect(result.starts()[1], content="1")

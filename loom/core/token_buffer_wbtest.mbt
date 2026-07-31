@@ -1,6 +1,11 @@
 ///|
 test "TokenBuffer::update updates internal state without a return value" {
-  let buf = TokenBuffer::new("ab", tokenize_fn=bad_tokenizer, eof_token="EOF")
+  let buf = TokenBuffer::new(
+    SourceId("token-buffer-source"),
+    "ab",
+    tokenize_fn=bad_tokenizer,
+    eof_token="EOF",
+  )
   buf.update(Edit::insert(1, 1), "axb")
   let stored = buf.get_tokens()
   inspect(stored[0].token, content="char")
@@ -27,7 +32,13 @@ fn explicit_start_lex(source : String) -> LexResult[String] {
         [TokenInfo::new("ERR", 1), TokenInfo::new("EOF", 0)],
         [offset, source.length()],
         diagnostics=DiagnosticSet::single(
-          Diagnostic::lexer_error_at("bad bang", offset, offset + 1, "bang"),
+          Diagnostic::lexer_error_at(
+            SourceId("token-buffer-source"),
+            "bad bang",
+            offset,
+            offset + 1,
+            "bang",
+          ),
         ),
       )
     None => {
@@ -67,6 +78,7 @@ fn invalid_range_eof_lex(source : String) -> LexResult[String] {
 ///|
 test "TokenBuffer::update preserves explicit LexResult starts from range relex" {
   let buf = TokenBuffer::new_from_lex(
+    SourceId("token-buffer-source"),
     "abc",
     lex_fn=explicit_start_lex,
     eof_token="EOF",
@@ -83,6 +95,7 @@ test "TokenBuffer::update preserves explicit LexResult starts from range relex" 
 ///|
 test "TokenBuffer::update diagnoses invalid trailing range sentinel" {
   let buf = TokenBuffer::new_from_lex(
+    SourceId("token-buffer-source"),
     "abc",
     lex_fn=invalid_range_eof_lex,
     eof_token="EOF",

@@ -30,8 +30,9 @@ pub(all) struct OracleStepResult {
 } derive(Debug, Eq)
 
 ///|
-/// Compare two DiagnosticSets structurally (source, severity, code, primary),
-/// ignoring message wording, labels, notes, and token evidence.
+/// Compare two DiagnosticSets structurally (producer, severity, code, and the
+/// ordered Primary SourceSpans), ignoring message wording, Secondary labels,
+/// notes, and token evidence.
 /// D2a only requires that cross-impl B reproduces A's structural shape —
 /// message-string differences are classified as ReplicationResidual, not D2a
 /// failures, so they are reported separately (message_strings_equal).
@@ -47,16 +48,24 @@ pub fn diagnostics_structurally_equal(
   for i = 0; i < a_items.length(); i = i + 1 {
     let ad = a_items[i]
     let bd = b_items[i]
-    if ad.source != bd.source {
+    if ad.source() != bd.source() {
       return false
     }
-    if ad.severity != bd.severity {
+    if ad.severity() != bd.severity() {
       return false
     }
-    if ad.code != bd.code {
+    if ad.code() != bd.code() {
       return false
     }
-    if ad.primary != bd.primary {
+    let a_primary_spans = ad
+      .labels()
+      .filter(label => label.style() == @core.LabelStyle::Primary)
+      .map(label => label.span())
+    let b_primary_spans = bd
+      .labels()
+      .filter(label => label.style() == @core.LabelStyle::Primary)
+      .map(label => label.span())
+    if a_primary_spans != b_primary_spans {
       return false
     }
   }
@@ -77,7 +86,7 @@ pub fn message_strings_equal(
   let a_items = a.items()
   let b_items = b.items()
   for i = 0; i < a_items.length(); i = i + 1 {
-    if a_items[i].message != b_items[i].message {
+    if a_items[i].message() != b_items[i].message() {
       return false
     }
   }
@@ -99,6 +108,7 @@ pub fn message_strings_equal(
 /// Genuine independence requires consumer-style bookkeeping with separate
 /// edit sequences — that belongs to the projectional-language follow-up (Task 13).
 pub fn run_oracle_fixture(
+  source_id : @core.SourceId,
   initial : String,
   steps : Array[EditStep],
   b : @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind],
@@ -108,8 +118,8 @@ pub fn run_oracle_fixture(
     @lambda.lambda_grammar.spec,
     @lambda.lambda_grammar.lex,
   )
-  let a_parser = @loom.new_syntax_parser(initial, a_grammar)
-  let b_parser = @loom.new_syntax_parser(initial, b)
+  let a_parser = @loom.new_syntax_parser(source_id, initial, a_grammar)
+  let b_parser = @loom.new_syntax_parser(source_id, initial, b)
 
   // Projection identity trackers — INDEPENDENT instances for A and B.
   let a_tracker : @loom.ProjectionIdentityTracker[String] = @loom.ProjectionIdentityTracker::new()
@@ -167,8 +177,8 @@ pub fn run_oracle_fixture(
     let b_snap = b_parser.snapshot().read_or_abort()
 
     // D1: incremental parse matches fresh parse for BOTH A and B independently.
-    let d1_a_ok = check_d1(step.after, a_snap, a_grammar)
-    let d1_b_ok = check_d1(step.after, b_snap, b)
+    let d1_a_ok = check_d1(source_id, step.after, a_snap, a_grammar)
+    let d1_b_ok = check_d1(source_id, step.after, b_snap, b)
     let d1_ok = d1_a_ok && d1_b_ok
 
     // D2a: A and B incremental snapshots are structurally identical.
@@ -250,13 +260,14 @@ pub fn run_oracle_fixture(
 /// D1 check: verify that the incremental snapshot matches a fresh full parse
 /// on the same source.
 fn check_d1(
+  source_id : @core.SourceId,
   source : String,
   snap : @loom.SyntaxSnapshot,
   grammar : @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind],
 ) -> Bool {
   // Fresh parse — grammar.parse_cst may raise LexError but lambda has no
   // lex errors in spike inputs; abort on lex error to surface fixture problems.
-  let (fresh_cst, fresh_diag) = grammar.parse_cst(source) catch {
+  let (fresh_cst, fresh_diag) = grammar.parse_cst(source_id, source) catch {
     _ =>
       // Lex error — spike fixtures should not trigger this; treat as D1 fail.
       return false
@@ -371,10 +382,12 @@ pub struct NewlineAppProbeResult {
 /// newline mode spike-local so `@grammar`'s contract stays minimal (Codex
 /// soundness finding — threading the mode into `@grammar` would bake lambda's
 /// paren-narrowing into the cross-language contract). See spec §5.1/§5.3.
-pub fn run_newline_application_reification_probe() -> NewlineAppProbeResult raise @grammar.GrammarCompileError {
+pub fn run_newline_application_reification_probe(
+  source_id : @core.SourceId,
+) -> NewlineAppProbeResult raise @grammar.GrammarCompileError {
   let (initial, steps) = newline_app_fixture()
   let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(initial, steps, b)
+  let results = run_oracle_fixture(source_id, initial, steps, b)
   { divergence: classify_run(results) }
 }
 
@@ -395,10 +408,12 @@ pub struct ReifiedIrOracleResult {
 /// every run), and A is lambda's normalized hand parser. The combined fixture
 /// drives LetDef + reuse + malformed/recovery + Pratt through the reified path,
 /// so every boolean below is freshly derived on the reified IR.
-pub fn run_reified_ir_oracle() -> ReifiedIrOracleResult raise @grammar.GrammarCompileError {
+pub fn run_reified_ir_oracle(
+  source_id : @core.SourceId,
+) -> ReifiedIrOracleResult raise @grammar.GrammarCompileError {
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(initial, steps, b)
+  let results = run_oracle_fixture(source_id, initial, steps, b)
   {
     d1_passed: results.all(r => r.d1_ok),
     d2a_passed: results.all(r => r.d2a_ok),

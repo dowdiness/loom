@@ -252,8 +252,14 @@ test "checked canonical semantic comparison covers every supported payload class
 ///|
 test "checked canonical formatting reports root and opaque failures before search" {
   let origin = markdown_ir_canonical_test_origin(0, 1)
-  let raw = MarkdownIR::raw("*", origin, [])
+  let raw = MarkdownIR::raw(
+    @core.SourceId("markdown-ir-format-test-document"),
+    "*",
+    origin,
+    [],
+  )
   let root_attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     raw,
     markdown_ir_canonical_default_limits(),
   )
@@ -262,7 +268,12 @@ test "checked canonical formatting reports root and opaque failures before searc
   assert_eq(root_attempt.stats.search_expansions, 0)
   assert_eq(root_attempt.stats.reparses, 0)
 
-  let recovered = MarkdownIR::recovered("broken", origin, [])
+  let recovered = MarkdownIR::recovered(
+    @core.SourceId("markdown-ir-format-test-document"),
+    "broken",
+    origin,
+    [],
+  )
   let unsupported = MarkdownIR::unsupported("extension", origin)
   let paragraph = MarkdownIR::paragraph(
     [raw, recovered, unsupported],
@@ -271,6 +282,7 @@ test "checked canonical formatting reports root and opaque failures before searc
   )
   let document = MarkdownIR::document([paragraph], origin)
   let opaque_attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_default_limits(),
   )
@@ -294,17 +306,32 @@ test "checked and compatibility formatters preserve every opaque mapping" {
   let origin = markdown_ir_canonical_test_origin(2, 7)
   let cases : Array[(MarkdownIR, MarkdownIRCanonicalOpaqueKind, String)] = [
     (
-      MarkdownIR::raw("raw", origin, []),
+      MarkdownIR::raw(
+        @core.SourceId("markdown-ir-format-test-document"),
+        "raw",
+        origin,
+        [],
+      ),
       MarkdownIRCanonicalOpaqueKind::Raw,
       "raw",
     ),
     (
-      MarkdownIR::recovered(RECOVERED_PARSE_ERROR, origin, []),
+      MarkdownIR::recovered(
+        @core.SourceId("markdown-ir-format-test-document"),
+        RECOVERED_PARSE_ERROR,
+        origin,
+        [],
+      ),
       MarkdownIRCanonicalOpaqueKind::Recovered,
       "<!-- recovered MarkdownIR: parse error -->",
     ),
     (
-      MarkdownIR::recovered("literal fallback", origin, []),
+      MarkdownIR::recovered(
+        @core.SourceId("markdown-ir-format-test-document"),
+        "literal fallback",
+        origin,
+        [],
+      ),
       MarkdownIRCanonicalOpaqueKind::Recovered,
       "literal fallback",
     ),
@@ -318,6 +345,7 @@ test "checked and compatibility formatters preserve every opaque mapping" {
     let (node, expected_kind, expected_legacy) = case
     let document = MarkdownIR::document([node], origin)
     let attempt = markdown_ir_canonical_format_attempt(
+      @core.SourceId("markdown-ir-format-test-document"),
       document,
       markdown_ir_canonical_default_limits(),
     )
@@ -333,7 +361,10 @@ test "checked and compatibility formatters preserve every opaque mapping" {
     assert_eq(attempt.stats.search_expansions, 0)
     assert_eq(attempt.stats.reparses, 0)
     assert_eq(
-      experimental_markdown_ir_canonical_format(document),
+      experimental_markdown_ir_canonical_format(
+        @core.SourceId("markdown-ir-format-test-document"),
+        document,
+      ),
       expected_legacy,
     )
   }
@@ -346,10 +377,23 @@ test "checked canonical formatting validates every returned whole document" {
     Some(expected) => expected
     None => fail("expected semantic document")
   }
-  assert_false(markdown_ir_canonical_candidate_matches(expected, "*a*"))
-  assert_true(markdown_ir_canonical_candidate_matches(expected, "\\*a\\*"))
+  assert_false(
+    markdown_ir_canonical_candidate_matches(
+      @core.SourceId("markdown-ir-format-test-document"),
+      expected,
+      "*a*",
+    ),
+  )
+  assert_true(
+    markdown_ir_canonical_candidate_matches(
+      @core.SourceId("markdown-ir-format-test-document"),
+      expected,
+      "\\*a\\*",
+    ),
+  )
 
   let attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_default_limits(),
   )
@@ -468,6 +512,7 @@ test "checked canonical formatting distinguishes complete exhaustion" {
     origin,
   )
   let attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     invalid_document,
     markdown_ir_canonical_default_limits(),
   )
@@ -484,13 +529,19 @@ test "panic compatibility canonical formatting fails fast for unrepresentable se
     [MarkdownIR::text("x", origin)],
     origin,
   )
-  ignore(experimental_markdown_ir_canonical_format(invalid_document))
+  ignore(
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-format-test-document"),
+      invalid_document,
+    ),
+  )
 }
 
 ///|
 test "checked canonical formatting reports deterministic injected search limits" {
   let document = markdown_ir_canonical_test_document_with_text("*a*")
   let candidate_limited = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_limits(
       max_container_candidates=100,
@@ -505,6 +556,7 @@ test "checked canonical formatting reports deterministic injected search limits"
   )
 
   let expansion_limited = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_limits(
       max_container_candidates=100,
@@ -535,6 +587,7 @@ test "checked canonical formatting reports deterministic injected search limits"
     origin,
   )
   let document_limited = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     two_containers,
     markdown_ir_canonical_limits(
       max_container_candidates=10,
@@ -559,6 +612,7 @@ test "checked canonical search validates early candidates before finite caps" {
   let paragraph = MarkdownIR::paragraph(stars, origin, Some(origin))
   let document = MarkdownIR::document([paragraph], origin)
   let attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_default_limits(),
   )
@@ -566,6 +620,7 @@ test "checked canonical search validates early candidates before finite caps" {
     Ok(markdown) =>
       assert_true(
         markdown_ir_canonical_candidate_matches(
+          @core.SourceId("markdown-ir-format-test-document"),
           markdown_ir_canonical_semantic(document).unwrap(),
           markdown,
         ),
@@ -598,6 +653,7 @@ test "checked canonical search keeps per-container caps independent" {
     origin,
   )
   let attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_limits(
       max_container_candidates=1,
@@ -613,6 +669,7 @@ test "checked canonical search keeps per-container caps independent" {
     origin,
   )
   let expansion_attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     unrepresentable_container,
     markdown_ir_canonical_limits(
       max_container_candidates=100,
@@ -642,10 +699,12 @@ test "checked canonical per-container candidate caps count deduplicated spelling
     origin,
   )
   let unrestricted = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_default_limits(),
   )
   let capped = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_limits(
       max_container_candidates=2,
@@ -679,6 +738,7 @@ test "checked canonical expansion cutoff validates lexical prefix of a cost laye
     origin,
   )
   let attempt = markdown_ir_canonical_format_attempt(
+    @core.SourceId("markdown-ir-format-test-document"),
     document,
     markdown_ir_canonical_limits(
       max_container_candidates=100,
@@ -890,6 +950,7 @@ fn markdown_ir_run_canonical_corpus() -> MarkdownIRCanonicalCorpusRun raise {
         width.to_string()
       replay_keys.push(key)
       let attempt = markdown_ir_canonical_format_attempt(
+        @core.SourceId("markdown-ir-format-test-document"),
         document,
         markdown_ir_canonical_default_limits(),
       )

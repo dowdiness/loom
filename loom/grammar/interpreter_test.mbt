@@ -100,7 +100,9 @@ test "interpret emits a token through LanguageSpec parse_root" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-interpret-token-source")
   let (_tree, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -136,7 +138,9 @@ test "Native runs in sequence between declarative neighbors" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-native-sequence-source")
   let (tree, diagnostics) = @core.parse_with(
+    source_id,
     "1 1",
     test_spec(parse_root),
     _src => tokens,
@@ -175,7 +179,9 @@ test "native capability dispatches a declared Choice" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-native-choice-source")
   let (tree, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -215,7 +221,9 @@ test "valid nonmatching native capability returns false without diagnostics" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-native-nonmatching-source")
   let (_tree, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -252,12 +260,14 @@ test "HostGuard lowers and evaluates both Choice outcomes" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-host-guard-source")
   let parse_kind = allow => {
     let guards : Map[RuleName, HostGuard[TestToken, TestKind]] = {
       "allow": _ctx => allow,
     }
     let parse_root = interpret(ir, guards~)
     let (tree, diagnostics) = @core.parse_with(
+      source_id,
       "1",
       test_spec(parse_root),
       _src => tokens,
@@ -300,7 +310,9 @@ test "negated HostGuard evaluates in a Choice predicate" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-negated-host-guard-source")
   let (tree, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -395,7 +407,9 @@ test "RepeatWhile runtime guard reports an opaque native with no progress" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-repeat-while-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -428,7 +442,9 @@ test "RepeatTopLevel runtime guard reports an opaque native with no progress" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-repeat-top-level-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -436,7 +452,7 @@ test "RepeatTopLevel runtime guard reports an opaque native with no progress" {
   )
   inspect(diagnostics.length(), content="1")
   inspect(
-    diagnostics.items()[0].message,
+    diagnostics.items()[0].message(),
     content="grammar: RepeatTopLevel body made no progress",
   )
 }
@@ -455,7 +471,9 @@ test "runtime cycle guard stops unknown recursive re-entry" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-runtime-cycle-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -486,7 +504,9 @@ test "runtime cycle guard permits recursive re-entry after token progress" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-runtime-cycle-progress-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -511,7 +531,9 @@ test "ErrorUntil treats the stop token as a normal boundary" {
     @core.TokenInfo::new(TestToken::Expected, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-error-until-boundary-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     ")",
     test_spec(parse_root),
     _src => tokens,
@@ -533,7 +555,9 @@ test "ErrorUntil is silent at EOF" {
   )
   let parse_root = interpret(ir)
   let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
+  let source_id = @core.SourceId("grammar-error-until-eof-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "",
     test_spec(parse_root),
     _src => tokens,
@@ -559,7 +583,9 @@ test "required EmitOr diagnoses a missing item at a stop token" {
     @core.TokenInfo::new(TestToken::Expected, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-emit-or-stop-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     ")",
     test_spec(parse_root),
     _src => tokens,
@@ -582,7 +608,9 @@ test "required EmitOr diagnoses a missing item at EOF" {
   )
   let parse_root = interpret(ir)
   let tokens = [@core.TokenInfo::new(TestToken::EOF, 0)]
+  let source_id = @core.SourceId("grammar-emit-or-eof-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "",
     test_spec(parse_root),
     _src => tokens,
@@ -615,7 +643,9 @@ test "runtime cycle guard stops recursive native dispatch" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-native-dispatch-cycle-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -638,7 +668,9 @@ test "PrattApp runtime guard reports an empty atom" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-pratt-app-empty-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -711,13 +743,16 @@ test "interpret and compile -> bind preserve native and HostGuard behavior" {
     @core.TokenInfo::new(TestToken::Word, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-bind-equivalence-source")
   let (direct_tree, direct_diags) = @core.parse_with(
+    source_id,
     "w",
     test_spec(direct),
     _src => tokens,
     direct,
   )
   let (explicit_tree, explicit_diags) = @core.parse_with(
+    source_id,
     "w",
     test_spec(explicit),
     _src => tokens,
@@ -751,13 +786,16 @@ test "compiled grammar accepts fresh native registries per parse" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-fresh-native-registry-source")
   let (first_tree, first_diags) = @core.parse_with(
+    source_id,
     "i",
     test_spec(first_parse),
     _src => tokens,
     first_parse,
   )
   let (second_tree, second_diags) = @core.parse_with(
+    source_id,
     "i",
     test_spec(second_parse),
     _src => tokens,
@@ -808,7 +846,9 @@ test "compiled execution defers native callbacks until parsing" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-deferred-native-source")
   let (_tree, diagnostics) = @core.parse_with(
+    source_id,
     "i",
     test_spec(parse_root),
     _src => tokens,
@@ -846,7 +886,9 @@ test "native dispatch reports the cycle guard as an unmatched rule" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-cycle-guard-dispatch-source")
   let (_, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -884,7 +926,9 @@ test "PrattApp runtime guard stops a repeated atom that stops consuming" {
     @core.TokenInfo::new(TestToken::Int, 1),
     @core.TokenInfo::new(TestToken::EOF, 0),
   ]
+  let source_id = @core.SourceId("grammar-pratt-app-repeat-source")
   let (tree, diagnostics) = @core.parse_with(
+    source_id,
     "1",
     test_spec(parse_root),
     _src => tokens,
@@ -899,7 +943,7 @@ test "PrattApp runtime guard stops a repeated atom that stops consuming" {
   inspect(wrapped.kind, content="RawKind(15)")
   inspect(diagnostics.length(), content="1")
   inspect(
-    diagnostics.items()[0].message,
+    diagnostics.items()[0].message(),
     content="grammar: PrattApp atom made no progress",
   )
 }

@@ -92,12 +92,13 @@ pub struct SettingsAttachment {
 /// The parser is built *outside* the reactive closure; the closure only reads
 /// its published views. A persistent `Watch` anchors the chain as a GC root.
 pub fn SettingsAttachment::SettingsAttachment(
+  source_id : @core.SourceId,
   initial_source : String,
 ) -> SettingsAttachment {
-  let parser = @loom.new_parser(initial_source, @json.json_grammar)
+  let parser = @loom.new_parser(source_id, initial_source, @json.json_grammar)
   let scope = @incr.Scope::new(parser.runtime())
   let derived = scope.derived(
-    fn() { compute_attempt(parser) },
+    () => compute_attempt(parser),
     label="settings_projection",
   )
   let watch = scope.add_watch(derived.watch())
@@ -169,7 +170,7 @@ fn SettingsAttachment::settle(
       let stable = self.tracker.realign_success_with_optional_edit(
         attempt.source,
         leaves,
-        fn(leaf) { allocator.allocate(leaf) },
+        leaf => allocator.allocate(leaf),
         edit,
       )
       let settings : Array[Setting] = []

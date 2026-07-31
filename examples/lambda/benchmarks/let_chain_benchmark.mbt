@@ -25,6 +25,11 @@
 //
 // See ADR: docs/decisions/2026-03-14-physical-equal-interner.md
 
+///|
+fn let_chain_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-let-chain")
+}
+
 // ── Source generators ───────────────────────────────────────────────
 
 ///|
@@ -48,7 +53,11 @@ fn make_let_chain_edited(n : Int) -> String {
 test "let-chain: 80 lets - initial parse" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -58,7 +67,11 @@ test "let-chain: 80 lets - initial parse" (b : @bench.T) {
 test "let-chain: 320 lets - initial parse" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -73,7 +86,11 @@ test "let-chain: 80 lets - incremental single edit at tail" (b : @bench.T) {
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let result = parser.edit(edit, edited)
     b.keep(result)
@@ -87,7 +104,11 @@ test "let-chain: 320 lets - incremental single edit at tail" (b : @bench.T) {
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let result = parser.edit(edit, edited)
     b.keep(result)
@@ -103,7 +124,11 @@ test "let-chain: 80 lets - edit-only at tail" (b : @bench.T) {
   let edited = make_let_chain_edited(80)
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   // Reset to original so each bench iteration starts from the same state
   b.bench(fn() {
@@ -123,7 +148,11 @@ test "let-chain: 320 lets - edit-only at tail" (b : @bench.T) {
   let edited = make_let_chain_edited(320)
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let _ = parser.edit(edit, edited)
@@ -141,7 +170,9 @@ test "let-chain: 320 lets - edit-only at tail" (b : @bench.T) {
 test "let-chain: 80 lets - full reparse" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(let_chain_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -150,7 +181,9 @@ test "let-chain: 80 lets - full reparse" (b : @bench.T) {
 test "let-chain: 320 lets - full reparse" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(let_chain_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -162,7 +195,11 @@ test "let-chain: 80 lets - 50-edit session incremental" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
@@ -182,7 +219,7 @@ test "let-chain: 80 lets - 50-edit session full reparse" (b : @bench.T) {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source
-    let initial = @lambda.parse(s) catch {
+    let initial = @lambda.parse(let_chain_benchmark_source_id(), s) catch {
       _ => @lambda.Term::Error("benchmark")
     }
     let mut tree = initial
@@ -190,7 +227,7 @@ test "let-chain: 80 lets - 50-edit session full reparse" (b : @bench.T) {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, _edit) = apply_char_insert(s, pos, ch)
-      let t = @lambda.parse(new_s) catch {
+      let t = @lambda.parse(let_chain_benchmark_source_id(), new_s) catch {
         _ => @lambda.Term::Error("benchmark")
       }
       tree = t
@@ -205,7 +242,11 @@ test "let-chain: 320 lets - 50-edit session incremental" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < 50; i = i + 1 {
@@ -225,7 +266,7 @@ test "let-chain: 320 lets - 50-edit session full reparse" (b : @bench.T) {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source
-    let initial = @lambda.parse(s) catch {
+    let initial = @lambda.parse(let_chain_benchmark_source_id(), s) catch {
       _ => @lambda.Term::Error("benchmark")
     }
     let mut tree = initial
@@ -233,7 +274,7 @@ test "let-chain: 320 lets - 50-edit session full reparse" (b : @bench.T) {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, _edit) = apply_char_insert(s, pos, ch)
-      let t = @lambda.parse(new_s) catch {
+      let t = @lambda.parse(let_chain_benchmark_source_id(), new_s) catch {
         _ => @lambda.Term::Error("benchmark")
       }
       tree = t
@@ -251,7 +292,11 @@ test "let-chain: 80 lets - reuse count for tail edit" {
   let edited = make_let_chain_edited(80)
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let _ = parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
@@ -266,7 +311,11 @@ test "let-chain: 320 lets - reuse count for tail edit" {
   let edited = make_let_chain_edited(320)
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let _ = parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()
@@ -294,7 +343,11 @@ fn make_lambda_let_chain(count : Int) -> String {
 test "let-chain: 20 lambda lets - initial parse" (b : @bench.T) {
   let source = make_lambda_let_chain(20)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      let_chain_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -310,7 +363,11 @@ test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
   let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let _ = parser.edit(edit, edited)
@@ -327,7 +384,9 @@ test "let-chain: 20 lambda lets - edit-only at tail" (b : @bench.T) {
 test "let-chain: 20 lambda lets - full reparse" (b : @bench.T) {
   let source = make_lambda_let_chain(20)
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(let_chain_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -341,7 +400,11 @@ test "let-chain: 20 lambda lets - reuse count" {
   let prefix = source[:source.length() - tail.length()].to_owned()
   let edited = prefix + edited_tail
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    let_chain_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let _ = parser.edit(edit, edited)
   let reuse = parser.get_last_reuse_count()

@@ -1,6 +1,9 @@
 ///|
 test "fold simple element" {
-  let result = parse_ast("<div></div>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-ast-simple-element")
+  let result = parse_ast(source_id, "<div></div>") catch {
+    _ => return fail("lex error")
+  }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   @debug.assert_eq(
@@ -11,7 +14,8 @@ test "fold simple element" {
 
 ///|
 test "fold nested elements with text" {
-  let result = parse_ast("<div><span>hi</span></div>") catch {
+  let source_id = @core.SourceId("jsx-ast-nested-elements")
+  let result = parse_ast(source_id, "<div><span>hi</span></div>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -28,7 +32,8 @@ test "fold nested elements with text" {
 
 ///|
 test "fold fragment" {
-  let result = parse_ast("<><p>x</p></>") catch {
+  let source_id = @core.SourceId("jsx-ast-fragment")
+  let result = parse_ast(source_id, "<><p>x</p></>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -45,7 +50,10 @@ test "fold fragment" {
 
 ///|
 test "fold self-closing element" {
-  let result = parse_ast("<br/>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-ast-self-closing-element")
+  let result = parse_ast(source_id, "<br/>") catch {
+    _ => return fail("lex error")
+  }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   @debug.assert_eq(
@@ -56,7 +64,8 @@ test "fold self-closing element" {
 
 ///|
 test "fold string attribute strips quotes" {
-  let result = parse_ast("<div class=\"foo\"/>") catch {
+  let source_id = @core.SourceId("jsx-ast-string-attribute")
+  let result = parse_ast(source_id, "<div class=\"foo\"/>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -77,7 +86,8 @@ test "fold string attribute strips quotes" {
 
 ///|
 test "fold expression attribute" {
-  let result = parse_ast("<div id={x}/>") catch {
+  let source_id = @core.SourceId("jsx-ast-expression-attribute")
+  let result = parse_ast(source_id, "<div id={x}/>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -98,7 +108,8 @@ test "fold expression attribute" {
 
 ///|
 test "fold bare attribute" {
-  let result = parse_ast("<div hidden/>") catch {
+  let source_id = @core.SourceId("jsx-ast-bare-attribute")
+  let result = parse_ast(source_id, "<div hidden/>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -117,7 +128,8 @@ test "fold bare attribute" {
 
 ///|
 test "fold expression child" {
-  let result = parse_ast("<p>{a + b}</p>") catch {
+  let source_id = @core.SourceId("jsx-ast-expression-child")
+  let result = parse_ast(source_id, "<p>{a + b}</p>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -134,7 +146,8 @@ test "fold expression child" {
 
 ///|
 test "fold expression containing a string with a brace" {
-  let result = parse_ast("<p>{f(\"a}b\")}</p>") catch {
+  let source_id = @core.SourceId("jsx-ast-expression-string-brace")
+  let result = parse_ast(source_id, "<p>{f(\"a}b\")}</p>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -151,7 +164,10 @@ test "fold expression containing a string with a brace" {
 
 ///|
 test "fold multiple roots from a streaming prefix" {
-  let result = parse_ast("<div/>text") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-ast-streaming-prefix")
+  let result = parse_ast(source_id, "<div/>text") catch {
+    _ => return fail("lex error")
+  }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   @debug.assert_eq(
@@ -165,7 +181,8 @@ test "fold multiple roots from a streaming prefix" {
 
 ///|
 test "fold unclosed element identically to closed shape" {
-  let result = parse_ast("<div><span>text") catch {
+  let source_id = @core.SourceId("jsx-ast-unclosed-element")
+  let result = parse_ast(source_id, "<div><span>text") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -182,7 +199,8 @@ test "fold unclosed element identically to closed shape" {
 
 ///|
 test "fold truncated attribute string keeps scanned content" {
-  let result = parse_ast("<div class=\"fo") catch {
+  let source_id = @core.SourceId("jsx-ast-truncated-attribute-string")
+  let result = parse_ast(source_id, "<div class=\"fo") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -203,7 +221,10 @@ test "fold truncated attribute string keeps scanned content" {
 
 ///|
 test "fold truncated expression keeps scanned content" {
-  let result = parse_ast("<p>{foo.bar(") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-ast-truncated-expression")
+  let result = parse_ast(source_id, "<p>{foo.bar(") catch {
+    _ => return fail("lex error")
+  }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="2")
   @debug.assert_eq(
@@ -222,7 +243,8 @@ test "fold mismatched close keeps open tag names" {
   // <div><span></div> leaves span's node holding only a zero-width error
   // placeholder while div claims the close tag — both elements must fold
   // with their OPEN tag's name (first direct TagNameToken).
-  let result = parse_ast("<div><span></div>") catch {
+  let source_id = @core.SourceId("jsx-ast-mismatched-close")
+  let result = parse_ast(source_id, "<div><span></div>") catch {
     _ => return fail("lex error")
   }
   let (ast, diagnostics) = result
@@ -242,7 +264,8 @@ test "fold minimum-length attribute strings" {
   // Codex post-implementation-review case: attr_string_content's bounds at
   // the two lexer-minimal token texts — `""` (terminated, len 2) and `"`
   // (unterminated, len 1) — both fold to the empty string.
-  let closed = parse_ast("<div a=\"\"/>") catch {
+  let source_id = @core.SourceId("jsx-ast-minimum-attribute-strings")
+  let closed = parse_ast(source_id, "<div a=\"\"/>") catch {
     _ => return fail("lex error")
   }
   let (closed_ast, closed_diags) = closed
@@ -257,7 +280,9 @@ test "fold minimum-length attribute strings" {
       ),
     ]),
   )
-  let open_ = parse_ast("<div a=\"") catch { _ => return fail("lex error") }
+  let open_ = parse_ast(source_id, "<div a=\"") catch {
+    _ => return fail("lex error")
+  }
   let (open_ast, open_diags) = open_
   inspect(open_diags.length(), content="2")
   @debug.assert_eq(
@@ -274,7 +299,10 @@ test "fold minimum-length attribute strings" {
 
 ///|
 test "fold error recovery artifacts" {
-  let result = parse_ast("</span>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-ast-error-recovery")
+  let result = parse_ast(source_id, "</span>") catch {
+    _ => return fail("lex error")
+  }
   let (ast, diagnostics) = result
   inspect(diagnostics.length(), content="1")
   @debug.assert_eq(ast, JsxNode::Root(children=[JsxNode::Error("</span>")]))

@@ -10,7 +10,7 @@
 /// diagnostics, use `SyntaxGrammar` instead so no placeholder AST is needed.
 pub struct Grammar[T, K, Ast] {
   spec : @core.LanguageSpec[T, K]
-  lex : (String) -> @core.LexResult[T]
+  lex : (@core.SourceId, String) -> @core.LexResult[T]
   fold_node : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
@@ -25,7 +25,7 @@ pub struct Grammar[T, K, Ast] {
 /// an AST fold or requiring the eventual AST type to implement `Eq`.
 pub struct SyntaxGrammar[T, K] {
   spec : @core.LanguageSpec[T, K]
-  lex : (String) -> @core.LexResult[T]
+  lex : (@core.SourceId, String) -> @core.LexResult[T]
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
   mode_relex : @core.ModeRelexFactory[T]?
@@ -35,13 +35,15 @@ pub struct SyntaxGrammar[T, K] {
 /// Shared one-shot CST parse implementation for `Grammar` and `SyntaxGrammar`.
 #warnings("-unused_error_type")
 fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_parts(
+  source_id : @core.SourceId,
   source : String,
   spec : @core.LanguageSpec[T, K],
-  lex : (String) -> @core.LexResult[T],
+  lex : (@core.SourceId, String) -> @core.LexResult[T],
   incremental_relex_enabled : Bool,
   mode_relex : @core.ModeRelexFactory[T]?,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   let buffer = create_buffer(
+    source_id,
     source,
     lex,
     spec.eof_token,
@@ -49,6 +51,7 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_par
     mode_relex~,
   )
   let (cst, parse_diagnostics, _) = @core.parse_tokens_indexed(
+    source_id,
     source,
     buffer.token_count(),
     fn(i) { buffer.get_token(i) },
@@ -68,9 +71,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_cst_from_par
 #warnings("-unused_error_type")
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::parse_cst(
   self : Grammar[T, K, Ast],
+  source_id : @core.SourceId,
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   parse_cst_from_parts(
+    source_id,
     source,
     self.spec,
     self.lex,
@@ -84,9 +89,11 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] Grammar::
 #warnings("-unused_error_type")
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar::parse_cst(
   self : SyntaxGrammar[T, K],
+  source_id : @core.SourceId,
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
   parse_cst_from_parts(
+    source_id,
     source,
     self.spec,
     self.lex,
@@ -98,7 +105,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] SyntaxGrammar:
 ///|
 pub fn[T, K, Ast] Grammar::new(
   spec~ : @core.LanguageSpec[T, K],
-  lex~ : (String) -> @core.LexResult[T],
+  lex~ : (@core.SourceId, String) -> @core.LexResult[T],
   fold_node~ : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast,
   incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
@@ -117,7 +124,7 @@ pub fn[T, K, Ast] Grammar::new(
 ///|
 pub fn[T, K] SyntaxGrammar::new(
   spec~ : @core.LanguageSpec[T, K],
-  lex~ : (String) -> @core.LexResult[T],
+  lex~ : (@core.SourceId, String) -> @core.LexResult[T],
   incremental_relex_enabled? : Bool = true,
   block_reparse_spec? : @core.BlockReparseSpec[T, K]? = None,
   mode_relex? : @core.ModeRelexFactory[T]? = None,

@@ -11,6 +11,11 @@
 // Run with: moon bench --release -f profiling_benchmark.mbt
 
 ///|
+fn profiling_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-profiling")
+}
+
+///|
 fn make_profile_source(n : Int, tail : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < n - 1; i = i + 1 {
@@ -36,7 +41,9 @@ test "profile: 80 lets - tokenize only" (b : @bench.T) {
 test "profile: 80 lets - full reparse" (b : @bench.T) {
   let source = make_profile_source(80, "1")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -46,7 +53,11 @@ test "profile: 80 lets - full reparse" (b : @bench.T) {
 test "profile: 80 lets - incremental (edit tail)" (b : @bench.T) {
   let source = make_profile_source(80, "0")
   let edited = make_profile_source(80, "1")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit_pos = source.length() - "0\nx79".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
@@ -68,7 +79,11 @@ test "profile: 80 lets - incremental (edit head)" (b : @bench.T) {
     edited = edited + "\nlet x\{i} = 0"
   }
   edited = edited + "\nlet x79 = 0\nx79"
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit = @core.Edit::replace(9, 10, 10) // Replace "0" with "1" in x0's init
   b.bench(fn() {
@@ -92,7 +107,9 @@ test "profile: 320 lets - tokenize only" (b : @bench.T) {
 test "profile: 320 lets - full reparse" (b : @bench.T) {
   let source = make_profile_source(320, "1")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -101,7 +118,11 @@ test "profile: 320 lets - full reparse" (b : @bench.T) {
 test "profile: 320 lets - incremental (edit tail)" (b : @bench.T) {
   let source = make_profile_source(320, "0")
   let edited = make_profile_source(320, "1")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit_pos = source.length() - "0\nx319".length()
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
@@ -120,7 +141,11 @@ test "profile: 320 lets - incremental (edit head)" (b : @bench.T) {
     edited = edited + "\nlet x\{i} = 0"
   }
   edited = edited + "\nlet x319 = 0\nx319"
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit = @core.Edit::replace(9, 10, 10)
   b.bench(fn() {
@@ -152,7 +177,9 @@ fn serialize_node(node : @seam.CstNode, out : Array[@seam.ParseEvent]) -> Unit {
 /// Tree build with normal events (no ReuseNode) — baseline tree-build cost.
 test "profile: 80 lets - tree build (normal events)" (b : @bench.T) {
   let source = make_profile_source(80, "1")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   // Serialize CST into normal events
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
@@ -173,7 +200,9 @@ test "profile: 80 lets - tree build (normal events)" (b : @bench.T) {
 /// Tree build with ReuseNode events — measures rebuild_subtree overhead.
 test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
   let source = make_profile_source(80, "1")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
     match child {
@@ -192,7 +221,9 @@ test "profile: 80 lets - tree build (ReuseNode events)" (b : @bench.T) {
 ///|
 test "profile: 320 lets - tree build (normal events)" (b : @bench.T) {
   let source = make_profile_source(320, "1")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
     match child {
@@ -211,7 +242,9 @@ test "profile: 320 lets - tree build (normal events)" (b : @bench.T) {
 ///|
 test "profile: 320 lets - tree build (ReuseNode events)" (b : @bench.T) {
   let source = make_profile_source(320, "1")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
     match child {
@@ -251,7 +284,9 @@ fn make_deep_let_chain(n : Int, depth : Int, tail : String) -> String {
 test "profile: 20 deep lets - full reparse" (b : @bench.T) {
   let source = make_deep_let_chain(20, 10, "x0")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -260,7 +295,11 @@ test "profile: 20 deep lets - full reparse" (b : @bench.T) {
 test "profile: 20 deep lets - incremental (edit tail)" (b : @bench.T) {
   let source = make_deep_let_chain(20, 10, "x0")
   let edited = make_deep_let_chain(20, 10, "x1")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit_pos = source.length() - 2 // change "x0" to "x1"
   let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
@@ -276,7 +315,9 @@ test "profile: 20 deep lets - incremental (edit tail)" (b : @bench.T) {
 test "profile: 20 very deep lets - full reparse" (b : @bench.T) {
   let source = make_deep_let_chain(20, 20, "x0")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -285,7 +326,11 @@ test "profile: 20 very deep lets - full reparse" (b : @bench.T) {
 test "profile: 20 very deep lets - incremental (edit tail)" (b : @bench.T) {
   let source = make_deep_let_chain(20, 20, "x0")
   let edited = make_deep_let_chain(20, 20, "x1")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    profiling_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edit_pos = source.length() - 2
   let edit = @core.Edit::replace(edit_pos, edit_pos + 2, edit_pos + 2)
@@ -302,7 +347,9 @@ test "profile: 20 very deep lets - incremental (edit tail)" (b : @bench.T) {
 /// Tree build with build_tree (no interning) — baseline.
 test "profile: 20 deep lets - build_tree (ReuseNode)" (b : @bench.T) {
   let source = make_deep_let_chain(20, 10, "x0")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
     match child {
@@ -324,7 +371,9 @@ test "profile: 20 deep lets - build_tree_fully_interned (ReuseNode)" (
   b : @bench.T,
 ) {
   let source = make_deep_let_chain(20, 10, "x0")
-  let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+  let (cst, _) = @lambda.parse_cst(profiling_benchmark_source_id(), source) catch {
+    _ => abort("failed")
+  }
   let events : Array[@seam.ParseEvent] = []
   for child in cst.children {
     match child {

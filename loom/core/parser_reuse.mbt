@@ -344,8 +344,17 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
         // itself owns a zero-width error at that boundary (structural check),
         // OR when the node ends at EOF and no error-bearing sibling follows
         // (handles ctx.error at EOF without emit_error_placeholder).
-        match d.primary {
-          Some(range) => {
+        let primary_labels = d
+          .labels()
+          .filter(label => {
+            label.style() == Primary &&
+            label.span().source_id() == self.source_id
+          })
+        if primary_labels.length() > 0 &&
+          primary_labels
+          .iter()
+          .all(label => {
+            let range = label.span().range()
             let start = range.start().value()
             let end = range.end().value()
             let keep_right_boundary = start == node_end &&
@@ -354,15 +363,13 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
                 owns_right_boundary_zero_width_error ||
                 (allow_eof_boundary && node_end >= self.source.length())
               )
-            if start >= node_start &&
-              end <= node_end &&
-              (start < node_end || keep_right_boundary) {
-              if self.push_diagnostic_unique(d) {
-                replayed_any = true
-              }
-            }
+            start >= node_start &&
+            end <= node_end &&
+            (start < node_end || keep_right_boundary)
+          }) {
+          if self.push_diagnostic_unique(d) {
+            replayed_any = true
           }
-          None => ()
         }
       }
   }
@@ -380,6 +387,7 @@ fn[T : @seam.ToRawKind, K] ParserContext::synthesize_reused_diagnostics(
     let info = self.token_info_at_or_after(self.position, span.start)
     let _ = self.push_diagnostic_unique(
       make_parser_diagnostic(
+        self.source_id,
         "reused syntax error",
         span.start,
         span.end,

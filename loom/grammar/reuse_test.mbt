@@ -19,7 +19,8 @@ test "WrapIfNext wraps a matching prefix without spurious diagnostics" {
       @core.TokenInfo::new(TestToken::EOF, 0),
     ]
   }
-  let (_, diagnostics) = @core.parse_with("1", spec, lex, parse_root)
+  let source_id = @core.SourceId("grammar-wrap-if-next-source")
+  let (_, diagnostics) = @core.parse_with(source_id, "1", spec, lex, parse_root)
   inspect(diagnostics.is_empty(), content="true")
 }
 
@@ -75,6 +76,7 @@ fn pratt_reuse_spec(
 
 ///|
 fn pratt_parse(
+  source_id : @core.SourceId,
   source : String,
   tokens : Array[@core.TokenInfo[TestToken]],
   starts : Array[Int],
@@ -83,6 +85,7 @@ fn pratt_parse(
   prev_diagnostics? : @core.DiagnosticSet? = None,
 ) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
   @core.parse_tokens_indexed(
+    source_id,
     source,
     tokens.length(),
     i => tokens[i].token,
@@ -177,7 +180,9 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
   let starts = pratt_reuse_starts()
   let old_source = "1+2 3+4"
   let new_source = "1+2 3+5"
+  let source_id = @core.SourceId("grammar-pratt-reuse-source")
   let (old_tree, old_diags, _) = @core.parse_tokens_indexed(
+    source_id,
     old_source,
     tokens.length(),
     i => tokens[i].token,
@@ -221,6 +226,7 @@ test "PrattBinary reuses unchanged retroactive wrapper before later edit" {
     content="None",
   )
   let (_, new_diags, reuse_count) = @core.parse_tokens_indexed(
+    source_id,
     new_source,
     tokens.length(),
     i => tokens[i].token,
@@ -251,8 +257,9 @@ test "PrattBinary growth matches fresh full parse after suffix append" {
   let new_tokens = binary_growth_tokens()
   let new_starts = binary_growth_starts()
   let new_source = "1+2+3"
+  let source_id = @core.SourceId("grammar-pratt-binary-growth-source")
   let (old_tree, old_diags, _) = pratt_parse(
-    old_source, old_tokens, old_starts, spec,
+    source_id, old_source, old_tokens, old_starts, spec,
   )
   inspect(old_diags.is_empty(), content="true")
   let edit = @core.Edit::insert(3, 2)
@@ -272,6 +279,7 @@ test "PrattBinary growth matches fresh full parse after suffix append" {
     reuse_size_threshold=0,
   )
   let (incremental_tree, incremental_diags, incremental_reuse) = pratt_parse(
+    source_id,
     new_source,
     new_tokens,
     new_starts,
@@ -280,7 +288,7 @@ test "PrattBinary growth matches fresh full parse after suffix append" {
     prev_diagnostics=Some(old_diags),
   )
   let (full_tree, full_diags, _) = pratt_parse(
-    new_source, new_tokens, new_starts, spec,
+    source_id, new_source, new_tokens, new_starts, spec,
   )
   inspect(incremental_diags == full_diags, content="true")
   inspect(@core.tree_diff(incremental_tree, full_tree).length(), content="0")
@@ -300,8 +308,9 @@ test "PrattApp growth matches fresh full parse after suffix append" {
   let new_tokens = app_growth_tokens()
   let new_starts = app_growth_starts()
   let new_source = "123"
+  let source_id = @core.SourceId("grammar-pratt-app-growth-source")
   let (old_tree, old_diags, _) = pratt_parse(
-    old_source, old_tokens, old_starts, spec,
+    source_id, old_source, old_tokens, old_starts, spec,
   )
   inspect(old_diags.is_empty(), content="true")
   let edit = @core.Edit::insert(2, 1)
@@ -321,6 +330,7 @@ test "PrattApp growth matches fresh full parse after suffix append" {
     reuse_size_threshold=0,
   )
   let (incremental_tree, incremental_diags, incremental_reuse) = pratt_parse(
+    source_id,
     new_source,
     new_tokens,
     new_starts,
@@ -329,7 +339,7 @@ test "PrattApp growth matches fresh full parse after suffix append" {
     prev_diagnostics=Some(old_diags),
   )
   let (full_tree, full_diags, _) = pratt_parse(
-    new_source, new_tokens, new_starts, spec,
+    source_id, new_source, new_tokens, new_starts, spec,
   )
   inspect(incremental_diags == full_diags, content="true")
   inspect(@core.tree_diff(incremental_tree, full_tree).length(), content="0")

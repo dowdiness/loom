@@ -9,9 +9,10 @@ test "ParserContext reuse: zero-width error leaf does not over-advance position"
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_placeholder,
+    source_id, src, test_spec, test_tokenize, grammar_with_placeholder,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -25,7 +26,7 @@ test "ParserContext reuse: zero-width error leaf does not over-advance position"
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -113,10 +114,11 @@ test "ParserContext reuse: zero-width lexer leaf at reused boundary advances pos
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_zero_width_boundary,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_zero_width_boundary,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -130,7 +132,7 @@ test "ParserContext reuse: zero-width lexer leaf at reused boundary advances pos
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -155,9 +157,10 @@ test "ParserContext reuse: interned zero-width lexer boundary advances position"
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
-  let old_ctx = ParserContext::new(toks, src, test_spec)
+  let old_ctx = ParserContext::new(source_id, toks, src, test_spec)
   grammar_with_zero_width_boundary(old_ctx)
   old_ctx.flush_trivia()
   let old_tree = old_ctx.events.build_tree_interned(
@@ -181,7 +184,7 @@ test "ParserContext reuse: interned zero-width lexer boundary advances position"
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -206,9 +209,10 @@ test "ParserContext reuse: custom synthetic zero-width leaf is not a lexer bound
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_custom_placeholder,
+    source_id, src, test_spec, test_tokenize, grammar_with_custom_placeholder,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -222,7 +226,7 @@ test "ParserContext reuse: custom synthetic zero-width leaf is not a lexer bound
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -248,10 +252,11 @@ test "ParserContext reuse: custom synthetic zero-width leaf does not consume lex
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_custom_placeholder,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_custom_placeholder,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -265,7 +270,7 @@ test "ParserContext reuse: custom synthetic zero-width leaf does not consume lex
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -287,9 +292,10 @@ test "ParserContext reuse: EOF recovery token is synthetic lexer context" {
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_eof_recovery,
+    source_id, src, test_spec, test_tokenize, grammar_with_eof_recovery,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -303,7 +309,7 @@ test "ParserContext reuse: EOF recovery token is synthetic lexer context" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -331,10 +337,11 @@ test "ParserContext reuse: extra zero-width token after empty owned boundary rej
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_conditional_boundary_token,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_conditional_boundary_token,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -348,7 +355,7 @@ test "ParserContext reuse: extra zero-width token after empty owned boundary rej
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     ctx.emit_token(KNum)
@@ -375,10 +382,11 @@ test "ParserContext reuse: partial zero-width boundary match rejects reuse" {
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_two_zero_width_boundaries, old_grammar_with_two_boundary_tokens,
+    source_id, src, test_spec, test_tokenize_with_two_zero_width_boundaries, old_grammar_with_two_boundary_tokens,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -392,7 +400,7 @@ test "ParserContext reuse: partial zero-width boundary match rejects reuse" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     ctx.emit_token(KNum)
@@ -418,10 +426,11 @@ test "ParserContext reuse: extra zero-width boundary token rejects reuse" {
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_consumes_boundary_tokens,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_consumes_boundary_tokens,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -435,7 +444,7 @@ test "ParserContext reuse: extra zero-width boundary token rejects reuse" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     ctx.emit_token(KNum)
@@ -464,10 +473,12 @@ test "ParserContext reuse: partial zero-width RepeatGroup boundary match rejects
   }
 
   let src = "1 1 1 1 1 1 1 1 1"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_numbers_with_one_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_numbers_with_two_zero_width_boundaries, grammar_repeated_boundary_nodes,
+    source_id, src, test_spec, test_tokenize_numbers_with_two_zero_width_boundaries,
+    grammar_repeated_boundary_nodes,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -481,7 +492,7 @@ test "ParserContext reuse: partial zero-width RepeatGroup boundary match rejects
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   inspect(ctx.try_reuse_repeat_group(), content="false")
   inspect(ctx.reuse_count, content="0")
@@ -504,10 +515,12 @@ test "ParserContext reuse: extra zero-width RepeatGroup boundary token rejects r
   }
 
   let src = "1 1 1 1 1 1 1 1 1"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_numbers_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_numbers_with_one_zero_width_boundary, grammar_repeated_boundary_nodes,
+    source_id, src, test_spec, test_tokenize_numbers_with_one_zero_width_boundary,
+    grammar_repeated_boundary_nodes,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -521,7 +534,7 @@ test "ParserContext reuse: extra zero-width RepeatGroup boundary token rejects r
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   inspect(ctx.try_reuse_repeat_group(), content="false")
   inspect(ctx.reuse_count, content="0")
@@ -539,10 +552,11 @@ test "ParserContext reuse: zero-width lexer leaf owned by following subtree is n
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_following_boundary_token,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_following_boundary_token,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -556,7 +570,7 @@ test "ParserContext reuse: zero-width lexer leaf owned by following subtree is n
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     // Must not run on reuse hit.
@@ -579,9 +593,10 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
   }
 
   let src = "1 +"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_error,
+    source_id, src, test_spec, test_tokenize, grammar_with_error,
   )
   inspect(old_errors.length(), content="1")
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -596,7 +611,7 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   ctx.node(KExpr, fn() {
@@ -607,7 +622,10 @@ test "ParserContext reuse: replays prior diagnostics for reused error subtree" {
   })
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="expected number after +")
+  inspect(
+    ctx.diagnostics.items()[0].message(),
+    content="expected number after +",
+  )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="3")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="3")
 }
@@ -624,9 +642,10 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
   }
 
   let src = "1 +"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_error,
+    source_id, src, test_spec, test_tokenize, grammar_with_error,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -640,7 +659,7 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.node(KExpr, fn() {
     ctx.emit_token(KNum)
@@ -650,7 +669,7 @@ test "ParserContext reuse: synthesizes diagnostics when prior list is unavailabl
   })
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="reused syntax error")
+  inspect(ctx.diagnostics.items()[0].message(), content="reused syntax error")
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="3")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="3")
 }
@@ -669,9 +688,10 @@ test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_incomplete_node,
+    source_id, src, test_spec, test_tokenize, grammar_with_incomplete_node,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -685,13 +705,13 @@ test "ParserContext reuse: synthesizes diagnostics for incomplete-kind node" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   // Intentionally omit set_reuse_diagnostics(...): force synthesis path.
   grammar_with_incomplete_node(ctx)
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="reused syntax error")
+  inspect(ctx.diagnostics.items()[0].message(), content="reused syntax error")
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
@@ -704,9 +724,10 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_two_nodes,
+    source_id, src, test_spec, test_tokenize, grammar_two_nodes,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -727,13 +748,61 @@ test "ParserContext reuse: excludes boundary diagnostics at reused node end" {
   old_diags.push(
     test_parser_diagnostic("boundary-next-sibling", 1, 1, TestTok::Ws),
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_diags)
   ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="inside-first-node")
+  inspect(ctx.diagnostics.items()[0].message(), content="inside-first-node")
+}
+
+///|
+test "ParserContext replay keeps other-source labels unchanged after a source-scoped shift" {
+  let source_a = test_source("a")
+  let source_b = test_source("b")
+  let primary = test_span(source_a, 2, 3)
+  let old_diagnostics = DiagnosticSet::single(
+    Diagnostic(
+      source=DiagnosticSource::parser(),
+      severity=Error,
+      code=Some(DiagnosticCode("parse.replay")),
+      message="replay two sources",
+      labels=[
+        DiagnosticLabel(LabelStyle::Primary, primary, Some("current")),
+        test_label(
+          LabelStyle::Secondary,
+          source_b,
+          2,
+          3,
+          message=Some("related"),
+        ),
+      ],
+      token=Some(TokenEvidence(@seam.RawKind(1), primary)),
+    ),
+  )
+  let shifted = old_diagnostics.after_relex(
+    SourceEdit(source_a, Edit::insert(2, 2)),
+    failure_context="parser replay test",
+  )
+  let src = "1 + 2"
+  let (tokens, _starts) = test_tokenize_with_starts(src)
+  let ctx = ParserContext::new(source_a, tokens, src, test_spec)
+  ctx.set_reuse_diagnostics(shifted)
+
+  inspect(ctx.replay_reused_diagnostics(4, 5, false, false), content="true")
+  inspect(ctx.diagnostics.length(), content="1")
+  let labels = ctx.diagnostics.items()[0].labels()
+  debug_inspect(labels[0].style(), content="Primary")
+  debug_inspect(labels[0].message(), content="Some(\"current\")")
+  inspect(labels[0].span().source_id().value(), content="a")
+  inspect(labels[0].span().range().start().value(), content="4")
+  inspect(labels[0].span().range().end().value(), content="5")
+  debug_inspect(labels[1].style(), content="Secondary")
+  debug_inspect(labels[1].message(), content="Some(\"related\")")
+  inspect(labels[1].span().source_id().value(), content="b")
+  inspect(labels[1].span().range().start().value(), content="2")
+  inspect(labels[1].span().range().end().value(), content="3")
 }
 
 ///|
@@ -749,9 +818,10 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_eof_error_no_placeholder,
+    source_id, src, test_spec, test_tokenize, grammar_eof_error_no_placeholder,
   )
   inspect(old_errors.length(), content="1")
   inspect(diagnostic_start(old_errors.items()[0]), content="1")
@@ -768,13 +838,16 @@ test "ParserContext reuse: preserves EOF ctx.error without placeholder" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   grammar_eof_error_no_placeholder(ctx)
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message, content="expected trailing token")
+  inspect(
+    ctx.diagnostics.items()[0].message(),
+    content="expected trailing token",
+  )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
   inspect(diagnostic_end(ctx.diagnostics.items()[0]), content="1")
 }
@@ -793,9 +866,10 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_trailing_eof_error,
+    source_id, src, test_spec, test_tokenize, grammar_with_trailing_eof_error,
   )
   inspect(old_errors.length(), content="1")
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -811,7 +885,7 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
     test_spec,
   )
 
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   // First node should reuse; second node is at EOF and executes body.
@@ -820,7 +894,7 @@ test "ParserContext reuse: does not duplicate EOF boundary diagnostics from late
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(
-    ctx.diagnostics.items()[0].message,
+    ctx.diagnostics.items()[0].message(),
     content="missing trailing expression",
   )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
@@ -841,9 +915,10 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_incomplete_sibling,
+    source_id, src, test_spec, test_tokenize, grammar_with_incomplete_sibling,
   )
   inspect(old_errors.length(), content="1")
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -858,7 +933,7 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   // First node must not claim sibling-owned boundary error.
@@ -873,7 +948,7 @@ test "ParserContext reuse: incomplete-kind sibling owns EOF boundary diagnostic"
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(
-    ctx.diagnostics.items()[0].message,
+    ctx.diagnostics.items()[0].message(),
     content="missing trailing expression",
   )
   inspect(diagnostic_start(ctx.diagnostics.items()[0]), content="1")
@@ -893,9 +968,10 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_with_trailing_eof_error,
+    source_id, src, test_spec, test_tokenize, grammar_with_trailing_eof_error,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -914,7 +990,7 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
     test_parser_diagnostic("missing trailing expression", 1, 1, TestTok::Ws),
   )
 
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(stale_diags)
   grammar_with_trailing_eof_error(ctx)
@@ -922,7 +998,7 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(
-    ctx.diagnostics.items()[0].message,
+    ctx.diagnostics.items()[0].message(),
     content="missing trailing expression",
   )
   inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
@@ -931,8 +1007,9 @@ test "ParserContext reuse: later EOF emission replaces replayed stale got_token"
 ///|
 test "ParserContext push_diagnostic_unique deduplicates by parser message and span" {
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, _starts) = test_tokenize_with_starts(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   let added = ctx.push_diagnostic_unique(
     test_parser_diagnostic("same logical error", 1, 1, TestTok::Ws),
   )
@@ -944,6 +1021,31 @@ test "ParserContext push_diagnostic_unique deduplicates by parser message and sp
   inspect(ctx.diagnostics.length(), content="1")
   inspect(diagnostic_token_raw(ctx.diagnostics.items()[0]), content="7")
   inspect(ctx.too_many_errors(1), content="true")
+}
+
+///|
+test "ParserContext parser diagnostic key includes source identity" {
+  let source_a = test_source("a")
+  let source_b = test_source("b")
+  let src = "1"
+  let (tokens, _starts) = test_tokenize_with_starts(src)
+  let ctx = ParserContext::new(source_a, tokens, src, test_spec)
+  let diagnostic_for = source_id => {
+    let span = test_span(source_id, 1, 1)
+    Diagnostic(
+      source=DiagnosticSource::parser(),
+      severity=Error,
+      code=Some(DiagnosticCode("parse.same")),
+      message="same logical error",
+      labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
+      token=Some(TokenEvidence(@seam.RawKind(7), span)),
+    )
+  }
+  let added_a = ctx.push_diagnostic_unique(diagnostic_for(source_a))
+  let added_b = ctx.push_diagnostic_unique(diagnostic_for(source_b))
+  inspect(added_a, content="true")
+  inspect(added_b, content="true")
+  inspect(ctx.diagnostics.length(), content="2")
 }
 
 ///|
@@ -965,8 +1067,9 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source shrinks
 
   let old_src = "123 4"
   let new_src = "1 4"
+  let source_id = SourceId("parser-context-source")
   let (old_tree, _) = parse_with(
-    old_src, test_spec, test_tokenize, grammar_two_numbers,
+    source_id, old_src, test_spec, test_tokenize, grammar_two_numbers,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -1010,8 +1113,9 @@ test "ReuseCursor::try_reuse: post-damage node is not reused when source grows" 
 
   let old_src = "1 4"
   let new_src = "123 4"
+  let source_id = SourceId("parser-context-source")
   let (old_tree, _) = parse_with(
-    old_src, test_spec, test_tokenize, grammar_two_numbers,
+    source_id, old_src, test_spec, test_tokenize, grammar_two_numbers,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -1067,8 +1171,9 @@ test "ReuseCursor::try_reuse: reuses multiple undamaged post-damage nodes" {
 
   let old_src = "1 2 3 4"
   let new_src = "9 2 3 4"
+  let source_id = SourceId("parser-context-source")
   let (old_tree, _) = parse_with(
-    old_src, test_spec, test_tokenize, grammar_four_numbers,
+    source_id, old_src, test_spec, test_tokenize, grammar_four_numbers,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -1119,8 +1224,9 @@ test "ReuseCursor::try_reuse: rejects integer boundary merge by follow-token che
 
   let old_src = "12 34"
   let new_src = "12 3"
+  let source_id = SourceId("parser-context-source")
   let (old_tree, _) = parse_with(
-    old_src, test_spec, test_tokenize, grammar_two_numbers,
+    source_id, old_src, test_spec, test_tokenize, grammar_two_numbers,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -1156,9 +1262,10 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_incomplete_at_eof,
+    source_id, src, test_spec, test_tokenize, grammar_incomplete_at_eof,
   )
   inspect(old_errors.length(), content="1")
 
@@ -1174,14 +1281,14 @@ test "ParserContext reuse: replays diagnostics for incomplete subtree at EOF" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   grammar_incomplete_at_eof(ctx)
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(
-    ctx.diagnostics.items()[0].message,
+    ctx.diagnostics.items()[0].message(),
     content="expected Plus, got TokEof",
   )
 }
@@ -1200,9 +1307,10 @@ test "ParserContext reuse: replays structured diagnostic code and token evidence
   }
 
   let src = "1"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, old_errors) = parse_with(
-    src, test_spec, test_tokenize, grammar_structured_eof,
+    source_id, src, test_spec, test_tokenize, grammar_structured_eof,
   )
   inspect(old_errors.length(), content="1")
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -1217,7 +1325,7 @@ test "ParserContext reuse: replays structured diagnostic code and token evidence
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   ctx.set_reuse_diagnostics(old_errors)
   grammar_structured_eof(ctx)
@@ -1225,7 +1333,7 @@ test "ParserContext reuse: replays structured diagnostic code and token evidence
   inspect(ctx.reuse_count, content="1")
   inspect(ctx.diagnostics.length(), content="1")
   let diagnostic = ctx.diagnostics.items()[0]
-  inspect(diagnostic.message, content="missing plus")
+  inspect(diagnostic.message(), content="missing plus")
   inspect(diagnostic_code_value(diagnostic), content="parse.expected.plus")
   inspect(diagnostic_start(diagnostic), content="1")
   inspect(diagnostic_end(diagnostic), content="1")
@@ -1250,9 +1358,10 @@ test "ParserContext reuse: incomplete node followed by reusable sibling" {
   }
 
   let src = "1 2"
+  let source_id = SourceId("parser-context-source")
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_two_nodes_incomplete,
+    source_id, src, test_spec, test_tokenize, grammar_two_nodes_incomplete,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -1266,7 +1375,7 @@ test "ParserContext reuse: incomplete node followed by reusable sibling" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(source_id, toks, src, test_spec)
   ctx.set_reuse_cursor(cursor)
   // First node has incomplete → reused
   ctx.node(KExpr, fn() {

@@ -11,7 +11,8 @@ fn text_at(
 
 ///|
 test "lex empty input" {
-  let tokens = lex("").tokens()
+  let source_id = @core.SourceId("jsx-lexer-empty-input")
+  let tokens = lex(source_id, "").tokens()
   inspect(tokens.length(), content="1")
   match tokens[0].token {
     @token.EOF => ()
@@ -21,7 +22,8 @@ test "lex empty input" {
 
 ///|
 test "lex plain text" {
-  let result = lex("hello")
+  let source_id = @core.SourceId("jsx-lexer-plain-text")
+  let result = lex(source_id, "hello")
   let tokens = result.tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
@@ -32,7 +34,8 @@ test "lex plain text" {
 
 ///|
 test "lex simple open tag" {
-  let result = lex("<div>")
+  let source_id = @core.SourceId("jsx-lexer-simple-open-tag")
+  let result = lex(source_id, "<div>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="4")
   match tokens[0].token {
@@ -51,7 +54,8 @@ test "lex simple open tag" {
 
 ///|
 test "lex self-closing tag" {
-  let result = lex("<br/>")
+  let source_id = @core.SourceId("jsx-lexer-self-closing-tag")
+  let result = lex(source_id, "<br/>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="4")
   match tokens[1].token {
@@ -66,7 +70,8 @@ test "lex self-closing tag" {
 
 ///|
 test "lex close tag" {
-  let result = lex("</div>")
+  let source_id = @core.SourceId("jsx-lexer-close-tag")
+  let result = lex(source_id, "</div>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="5")
   match tokens[0].token {
@@ -89,7 +94,8 @@ test "lex close tag" {
 
 ///|
 test "lex fragment open and close" {
-  let tokens = lex("<></>").tokens()
+  let source_id = @core.SourceId("jsx-lexer-fragment")
+  let tokens = lex(source_id, "<></>").tokens()
   inspect(tokens.length(), content="3")
   match tokens[0].token {
     @token.FragmentOpen => ()
@@ -103,7 +109,8 @@ test "lex fragment open and close" {
 
 ///|
 test "lex attribute with double-quoted string value" {
-  let result = lex("<div class=\"foo\">")
+  let source_id = @core.SourceId("jsx-lexer-double-quoted-attribute")
+  let result = lex(source_id, "<div class=\"foo\">")
   let tokens = result.tokens()
   inspect(tokens.length(), content="8")
   match tokens[3].token {
@@ -128,7 +135,8 @@ test "lex attribute with double-quoted string value" {
 
 ///|
 test "lex attribute with single-quoted string value" {
-  let tokens = lex("<div class='foo'>").tokens()
+  let source_id = @core.SourceId("jsx-lexer-single-quoted-attribute")
+  let tokens = lex(source_id, "<div class='foo'>").tokens()
   inspect(tokens.length(), content="8")
   match tokens[5].token {
     @token.AttrStringLit => ()
@@ -138,7 +146,8 @@ test "lex attribute with single-quoted string value" {
 
 ///|
 test "lex unterminated attribute string value" {
-  let result = lex("<div class=\"foo")
+  let source_id = @core.SourceId("jsx-lexer-unterminated-attribute")
+  let result = lex(source_id, "<div class=\"foo")
   let tokens = result.tokens()
   inspect(tokens.length(), content="7")
   match tokens[5].token {
@@ -149,8 +158,36 @@ test "lex unterminated attribute string value" {
 }
 
 ///|
+test "malformed tag diagnostics retain caller source identity" {
+  let source_id = @core.SourceId("jsx-lexer-malformed-tag-source")
+  let diagnostics = lex(source_id, "<div @>").diagnostics()
+  guard !diagnostics.is_empty() else {
+    fail("expected malformed JSX tag to produce lexer diagnostics")
+  }
+  let items = diagnostics.items()
+  guard items.any(diagnostic => {
+    diagnostic.labels().any(label => label.style() is @core.LabelStyle::Primary)
+  }) else {
+    fail("expected malformed JSX lexer diagnostics to include a primary label")
+  }
+  guard items.all(diagnostic => {
+    diagnostic
+    .labels()
+    .all(label => {
+      !(label.style() is @core.LabelStyle::Primary) ||
+      label.span().source_id() == source_id
+    })
+  }) else {
+    fail(
+      "expected every primary JSX lexer label to retain the caller source id",
+    )
+  }
+}
+
+///|
 test "lex attribute with embedded expression value" {
-  let result = lex("<div id={x}>")
+  let source_id = @core.SourceId("jsx-lexer-expression-attribute")
+  let result = lex(source_id, "<div id={x}>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="10")
   match tokens[5].token {
@@ -174,7 +211,8 @@ test "lex attribute with embedded expression value" {
 
 ///|
 test "lex text child" {
-  let result = lex("<p>hello</p>")
+  let source_id = @core.SourceId("jsx-lexer-text-child")
+  let result = lex(source_id, "<p>hello</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="9")
   match tokens[3].token {
@@ -185,7 +223,8 @@ test "lex text child" {
 
 ///|
 test "lex expression child" {
-  let result = lex("<p>{x}</p>")
+  let source_id = @core.SourceId("jsx-lexer-expression-child")
+  let result = lex(source_id, "<p>{x}</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="11")
   match tokens[3].token {
@@ -207,7 +246,8 @@ test "lex nested braces inside expression are not separately tokenized" {
   // Codex round-1-verified case: {foo({bar: 1})} — the inner object-literal
   // braces are ordinary characters within the ExprRawText run, not their
   // own BraceOpen/BraceClose tokens; only the outermost pair is.
-  let result = lex("<p>{foo({bar: 1})}</p>")
+  let source_id = @core.SourceId("jsx-lexer-nested-expression-braces")
+  let result = lex(source_id, "<p>{foo({bar: 1})}</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="11")
   match tokens[4].token {
@@ -228,7 +268,8 @@ test "lex nested braces inside expression are not separately tokenized" {
 test "lex brace inside a string literal does not close the expression" {
   // Design A / Codex round-1-verified case: {"a}b"} — the `}` inside the
   // string must not be mistaken for the expression's closing brace.
-  let result = lex("<p>{\"a}b\"}</p>")
+  let source_id = @core.SourceId("jsx-lexer-string-brace")
+  let result = lex(source_id, "<p>{\"a}b\"}</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="11")
   match tokens[4].token {
@@ -247,7 +288,8 @@ test "lex non-nested template literal inside expression" {
   // Design A's accepted case: a single (non-nested) backtick pair with a
   // ${...} interpolation works even though ${} is not specially tracked,
   // because there is exactly one open/close backtick pair to find.
-  let result = lex("<p>{`btn ${x}`}</p>")
+  let source_id = @core.SourceId("jsx-lexer-template-literal")
+  let result = lex(source_id, "<p>{`btn ${x}`}</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="11")
   match tokens[4].token {
@@ -265,7 +307,8 @@ test "lex non-nested template literal inside expression" {
 test "lex expression truncated before closing brace" {
   // Design B case 4: EOF while depth > 0 — no BraceClose token, no
   // synthetic error token; the parser is responsible for the diagnostic.
-  let result = lex("<p>{foo.bar(")
+  let source_id = @core.SourceId("jsx-lexer-truncated-expression")
+  let result = lex(source_id, "<p>{foo.bar(")
   let tokens = result.tokens()
   inspect(tokens.length(), content="6")
   match tokens[4].token {
@@ -284,7 +327,8 @@ test "lex expression truncated inside a string literal" {
   // Design B case 4 / Codex round-2 gap fix: EOF inside a string gets the
   // distinct ExprStringUnterminated token, not a plain ExprRawText, so the
   // parser can push an additive "missing quote" diagnostic.
-  let result = lex("<p>{\"x")
+  let source_id = @core.SourceId("jsx-lexer-truncated-expression-string")
+  let result = lex(source_id, "<p>{\"x")
   let tokens = result.tokens()
   inspect(tokens.length(), content="6")
   match tokens[4].token {
@@ -296,7 +340,8 @@ test "lex expression truncated inside a string literal" {
 
 ///|
 test "lex whitespace between attributes is trivia" {
-  let result = lex("<div  a=\"1\"  b=\"2\">")
+  let source_id = @core.SourceId("jsx-lexer-attribute-whitespace")
+  let result = lex(source_id, "<div  a=\"1\"  b=\"2\">")
   let tokens = result.tokens()
   match tokens[2].token {
     @token.Whitespace => ()
@@ -309,7 +354,8 @@ test "lex two levels of nested braces inside expression" {
   // Codex round-2 post-implementation-review case: confirms local_depth
   // increments/decrements correctly through two nesting levels and stops
   // only at the true outermost closing brace.
-  let result = lex("<p>{a({b: {c: 1}})}</p>")
+  let source_id = @core.SourceId("jsx-lexer-two-level-braces")
+  let result = lex(source_id, "<p>{a({b: {c: 1}})}</p>")
   let tokens = result.tokens()
   inspect(tokens.length(), content="11")
   match tokens[4].token {
@@ -333,7 +379,8 @@ test "lex close tag does not misclassify a following attribute-like token" {
   // identifier after OpenTagStart+Slash) and `attr` as AttrName (not a
   // second TagName) — expects_tag_name only applies to the first
   // identifier, never resets for a later one.
-  let result = lex("</div attr>")
+  let source_id = @core.SourceId("jsx-lexer-close-tag-attribute")
+  let result = lex(source_id, "</div attr>")
   let tokens = result.tokens()
   match tokens[2].token {
     @token.TagName => inspect(text_at("</div attr>", result, 2), content="div")

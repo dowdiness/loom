@@ -66,7 +66,7 @@ Use when:
 ```moonbit
 pub struct Grammar[T, K, Ast] {
   spec         : @core.LanguageSpec[T, K]
-  lex          : (String) -> @core.LexResult[T]
+  lex          : (@core.SourceId, String) -> @core.LexResult[T]
   fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   // plus incremental_relex_enabled, block_reparse_spec, mode_relex
 }
@@ -87,8 +87,9 @@ pub let lambda_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, @ast.Te
   )
 
 // Call sites — token type never mentioned again
-let parser = @loom.new_imperative_parser(source, lambda_grammar)
-let p      = @loom.new_parser(source, lambda_grammar)
+let source_id = @loom.SourceId("lambda-document")
+let parser = @loom.new_imperative_parser(source_id, source, lambda_grammar)
+let p      = @loom.new_parser(source_id, source, lambda_grammar)
 ```
 
 **Escape hatch — `ImperativeLanguage[Ast]` / `Language[Ast]`:**
@@ -96,8 +97,8 @@ let p      = @loom.new_parser(source, lambda_grammar)
 ```moonbit
 // src/incremental/incremental_language.mbt
 pub struct ImperativeLanguage[Ast] {
-  priv full_parse        : (String) -> (SyntaxNode, DiagnosticSet, Int)
-  priv incremental_parse : (String, SyntaxNode, Edit) -> (SyntaxNode, DiagnosticSet, Int)
+  priv full_parse        : (SourceId, String) -> (SyntaxNode, DiagnosticSet, Int)
+  priv incremental_parse : (SourceId, String, SyntaxNode, Edit) -> (SyntaxNode, DiagnosticSet, Int)
   priv to_ast            : (@seam.SyntaxNode) -> Ast
 }
 ```

@@ -87,7 +87,13 @@ test "format_diagnostic_with_line_col uses line range" {
     source=DiagnosticSource::parser(),
     severity=Error,
     message="expected token",
-    primary=Some(range),
+    labels=[
+      DiagnosticLabel(
+        LabelStyle::Primary,
+        SourceSpan(SourceId("line-index-source"), range),
+        None,
+      ),
+    ],
   )
   inspect(
     diagnostic.format_with_line_col(index),

@@ -4,6 +4,7 @@
 /// Construct a ParserContext from an Array[TokenInfo[T]].
 /// Convenience wrapper — internally creates indexed accessors over the array.
 pub fn[T, K] ParserContext::new(
+  source_id : SourceId,
   tokens : Array[TokenInfo[T]],
   source : String,
   spec : LanguageSpec[T, K],
@@ -11,10 +12,11 @@ pub fn[T, K] ParserContext::new(
   let starts = build_starts(tokens)
   {
     spec,
+    source_id,
     token_count: tokens.length(),
-    get_token: fn(i) { tokens[i].token },
-    get_start: fn(i) { starts[i] },
-    get_end: fn(i) { starts[i] + tokens[i].len },
+    get_token: i => tokens[i].token,
+    get_start: i => starts[i],
+    get_end: i => starts[i] + tokens[i].len,
     source,
     position: 0,
     events: @seam.EventBuffer::new(),
@@ -35,6 +37,7 @@ pub fn[T, K] ParserContext::new(
 /// Use this to avoid allocating a wrapper Array[TokenInfo[T]] when the
 /// caller already has tokens in a different layout (e.g. @token.TokenInfo).
 pub fn[T, K] ParserContext::new_indexed(
+  source_id : SourceId,
   token_count : Int,
   get_token : (Int) -> T,
   get_start : (Int) -> Int,
@@ -44,6 +47,7 @@ pub fn[T, K] ParserContext::new_indexed(
 ) -> ParserContext[T, K] {
   {
     spec,
+    source_id,
     token_count,
     get_token,
     get_start,
@@ -61,6 +65,13 @@ pub fn[T, K] ParserContext::new_indexed(
     goal_source: None,
     goal_subsumption_check: None,
   }
+}
+
+///|
+/// Return the caller-owned source identity for the current parse.
+/// Grammar callbacks use this when constructing source-aware diagnostics.
+pub fn[T, K] ParserContext::source_id(self : ParserContext[T, K]) -> SourceId {
+  self.source_id
 }
 
 ///|

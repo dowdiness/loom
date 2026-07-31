@@ -72,7 +72,12 @@ fn parse_wrapped_num_element(
 ///|
 test "separated_list parses a,b,c shape with wrapped elements" {
   let src = "1+2+3"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="3")
   inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ n2(t0:2) t1:+ n2(t0:3)")
@@ -82,7 +87,12 @@ test "separated_list parses a,b,c shape with wrapped elements" {
 ///|
 test "separated_list trailing separator emits empty error element" {
   let src = "1+2+"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="3")
   inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ n2(t0:2) t1:+ n2(t5ø)")
@@ -95,7 +105,12 @@ test "separated_list trailing separator emits empty error element" {
 ///|
 test "separated_list leading separator emits empty error element in slot 0" {
   let src = "+1"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="2")
   inspect(render_list_tree(ctx), content="n2(t5ø) t1:+ n2(t0:1)")
@@ -108,7 +123,12 @@ test "separated_list leading separator emits empty error element in slot 0" {
 ///|
 test "separated_list doubled separator emits empty error element in middle slot" {
   let src = "1++2"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="3")
   inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ n2(t5ø) t1:+ n2(t0:2)")
@@ -120,7 +140,12 @@ test "separated_list doubled separator emits empty error element in middle slot"
 
 ///|
 test "separated_list on empty input emits nothing and returns 0" {
-  let ctx = ParserContext::new([], "", test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    [],
+    "",
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="0")
   inspect(render_list_tree(ctx), content="")
@@ -130,7 +155,12 @@ test "separated_list on empty input emits nothing and returns 0" {
 ///|
 test "separated_list does not consume past the list end" {
   let src = "1+2 9"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="2")
   // Next non-trivia token (9) is still available to the caller.
@@ -140,7 +170,12 @@ test "separated_list does not consume past the list end" {
 ///|
 test "separated_list missing separator recovers element start as next slot" {
   let src = "1 2"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(
     KExpr,
     TestTok::Plus,
@@ -158,7 +193,12 @@ test "separated_list missing separator recovers element start as next slot" {
 ///|
 test "separated_list wrapper-free mode keeps parser-owned element nodes" {
   let src = "1 2"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(
     KExpr,
     TestTok::Plus,
@@ -177,7 +217,12 @@ test "separated_list wrapper-free mode keeps parser-owned element nodes" {
 ///|
 test "separated_list wrapper-free trailing separator emits direct placeholder" {
   let src = "1+"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(
     KExpr,
     TestTok::Plus,
@@ -195,7 +240,12 @@ test "separated_list wrapper-free trailing separator emits direct placeholder" {
 ///|
 test "separated_list element wrap includes leading trivia like node()" {
   let src = "1+ 2"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="2")
   inspect(render_list_tree(ctx), content="n2(t0:1) t1:+ n2(t4:  t0:2)")
@@ -204,7 +254,12 @@ test "separated_list element wrap includes leading trivia like node()" {
 ///|
 test "separated_list no-progress success terminates without counting" {
   let src = "1"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   // Contract violation on purpose: claims success, never consumes.
   let count = ctx.separated_list(KExpr, TestTok::Plus, () => true)
   inspect(count, content="0")
@@ -215,7 +270,12 @@ test "separated_list no-progress success terminates without counting" {
 test "separated_list element slots hit incremental reuse like node()" {
   let src = "1+2+3"
   let (toks, starts) = test_tokenize_with_starts(src)
-  let old_ctx = ParserContext::new(toks, src, test_spec)
+  let old_ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
+  )
   let old_count = old_ctx.separated_list(
     KExpr,
     TestTok::Plus,
@@ -244,7 +304,12 @@ test "separated_list element slots hit incremental reuse like node()" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.set_reuse_cursor(cursor)
   let count = ctx.separated_list(KExpr, TestTok::Plus, () => {
     abort("element body must not run on reuse hit")
@@ -258,7 +323,12 @@ test "separated_list element slots hit incremental reuse like node()" {
 test "separated_list missing separator still recovers after element reuse" {
   let src = "1 2"
   let (toks, starts) = test_tokenize_with_starts(src)
-  let old_ctx = ParserContext::new(toks, src, test_spec)
+  let old_ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
+  )
   let old_count = old_ctx.separated_list(
     KExpr,
     TestTok::Plus,
@@ -288,7 +358,12 @@ test "separated_list missing separator still recovers after element reuse" {
     },
     test_spec,
   )
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.set_reuse_cursor(cursor)
   let count = ctx.separated_list(
     KExpr,
@@ -304,7 +379,12 @@ test "separated_list missing separator still recovers after element reuse" {
 ///|
 test "separated_list lone separator emits leading and trailing empty elements" {
   let src = "+"
-  let ctx = ParserContext::new(test_tokenize(src), src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-separated-list-source"),
+    test_tokenize(src),
+    src,
+    test_spec,
+  )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   // One separator, two slots: both empty error elements.
   inspect(count, content="2")

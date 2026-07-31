@@ -185,6 +185,7 @@ pub fn splice_tree(
 /// Returns the reparsed CstNode and any new diagnostics, or None
 /// if parsing produces no node child.
 fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolated(
+  source_id : SourceId,
   block_text : String,
   block_kind : @seam.RawKind,
   tokens : Array[TokenInfo[T]],
@@ -197,10 +198,11 @@ fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_block_isolat
   }
   // Create a parser context for the isolated block
   let ctx = ParserContext::new_indexed(
+    source_id,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + tokens[i].len },
+    i => tokens[i].token,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     block_text,
     spec,
   )
@@ -273,11 +275,12 @@ fn diagnostic_offset_failure(
 fn push_offset_diagnostic(
   result : DiagnosticSet,
   diagnostic : Diagnostic,
+  source_id : SourceId,
   delta : Int,
   after : TextOffset,
   context : String,
 ) -> Unit {
-  try diagnostic.offset_by(delta, after) catch {
+  try diagnostic.offset_by(source_id, delta, after) catch {
     error => result.push(diagnostic_offset_failure(context, error))
   } noraise {
     diagnostic => result.push(diagnostic)
@@ -286,21 +289,18 @@ fn push_offset_diagnostic(
 
 ///|
 fn merge_diagnostics(
+  source_id : SourceId,
   old_diagnostics : DiagnosticSet,
   block_start : Int,
   block_old_end : Int,
   new_diagnostics : DiagnosticSet,
   delta : Int,
 ) -> DiagnosticSet {
-  let result = DiagnosticSet::empty()
-  let old_after = try TextOffset(block_old_end) catch {
-    error => {
-      result.push(diagnostic_offset_failure("block old end", error))
-      return result
-    }
-  } noraise {
-    offset => offset
-  }
+  let old_len = block_old_end - block_start
+  let result = old_diagnostics.after_relex(
+    SourceEdit(source_id, Edit::new(block_start, old_len, old_len + delta)),
+    failure_context="block reparse",
+  )
   let block_zero = try TextOffset(0) catch {
     error => {
       result.push(diagnostic_offset_failure("block zero offset", error))
@@ -309,29 +309,10 @@ fn merge_diagnostics(
   } noraise {
     offset => offset
   }
-  // Single pass: partition old diagnostics into before/inside/after
-  for d in old_diagnostics.items() {
-    match d.primary {
-      None => result.push(d)
-      Some(range) => {
-        let start = range.start().value()
-        let end = range.end().value()
-        if end <= block_start {
-          result.push(d) // before: keep as-is
-        } else if start >= block_old_end {
-          // after: shift by delta
-          push_offset_diagnostic(
-            result, d, delta, old_after, "old diagnostic after block",
-          )
-        }
-      }
-    }
-    // inside: discard
-  }
   // Append offset-adjusted new diagnostics
   for d in new_diagnostics.items() {
     push_offset_diagnostic(
-      result, d, block_start, block_zero, "new block diagnostic",
+      result, d, source_id, block_start, block_zero, "new block diagnostic",
     )
   }
   result
@@ -350,10 +331,11 @@ fn merge_diagnostics(
 /// Returns the new root CstNode and merged diagnostics, or None if
 /// block reparse is not applicable (falls back to full reparse).
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
+  source_id : SourceId,
   tree : @seam.SyntaxNode,
   new_source : String,
   edit : Edit,
-  lex : (String) -> LexResult[T],
+  lex : (SourceId, String) -> LexResult[T],
   spec : LanguageSpec[T, K],
   block_spec : BlockReparseSpec[T, K],
   old_diagnostics : DiagnosticSet,
@@ -377,7 +359,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
     }
     let block_text_view : StringView = new_source[block_start:block_new_end]
     let block_text = block_text_view.to_owned()
-    let block_lex = lex(block_text)
+    let block_lex = lex(source_id, block_text)
     let block_tokens = block_lex.tokens
     let block_starts = block_lex.starts
     let block_lex_diags = block_lex.diagnostics
@@ -389,7 +371,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
       Some(reparse_fn) => {
         let (new_block, parse_diags) = match
           parse_block_isolated(
-            block_text, block_kind, block_tokens, block_starts, reparse_fn, spec,
+            source_id, block_text, block_kind, block_tokens, block_starts, reparse_fn,
+            spec,
           ) {
           Some(result) => result
           None => return None
@@ -408,6 +391,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
           incomplete_kind=Some(inc_raw),
         )
         let merged = merge_diagnostics(
+          source_id,
           old_diagnostics,
           block_start,
           block_old_end,

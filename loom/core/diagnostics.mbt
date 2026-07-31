@@ -66,6 +66,7 @@ pub fn[T] LexResult::with_starts(
 /// gaps are skipped unless `gap_token` is supplied. Non-blank gaps emit a lexer
 /// diagnostic by default and can also be represented by `gap_error_token`.
 pub fn[T] LexResult::from_located_tokens(
+  source_id : SourceId,
   source : String,
   located_tokens : Array[LocatedToken[T]],
   gap_token? : (StringView, Int, Int) -> T,
@@ -91,8 +92,8 @@ pub fn[T] LexResult::from_located_tokens(
     let end = if clamped_end < start { start } else { clamped_end }
     if start > cursor {
       push_located_gap(
-        source, tokens, starts, cursor, start, diagnostics, gap_token, gap_error_token,
-        gap_error_code, diagnose_nonblank_gaps,
+        source_id, source, tokens, starts, cursor, start, diagnostics, gap_token,
+        gap_error_token, gap_error_code, diagnose_nonblank_gaps,
       )
     }
     starts.push(start)
@@ -103,8 +104,8 @@ pub fn[T] LexResult::from_located_tokens(
   }
   if cursor < source_len {
     push_located_gap(
-      source, tokens, starts, cursor, source_len, diagnostics, gap_token, gap_error_token,
-      gap_error_code, diagnose_nonblank_gaps,
+      source_id, source, tokens, starts, cursor, source_len, diagnostics, gap_token,
+      gap_error_token, gap_error_code, diagnose_nonblank_gaps,
     )
   }
   LexResult::with_starts(tokens, starts, diagnostics~)
@@ -127,6 +128,7 @@ pub fn[T] LexResult::diagnostics(self : LexResult[T]) -> DiagnosticSet {
 
 ///|
 fn[T] push_located_gap(
+  source_id : SourceId,
   source : String,
   tokens : Array[TokenInfo[T]],
   starts : Array[Int],
@@ -153,7 +155,7 @@ fn[T] push_located_gap(
     if diagnose_nonblank_gaps {
       diagnostics.push(
         Diagnostic::lexer_error_at(
-          "unlexed source gap", start, end, gap_error_code,
+          source_id, "unlexed source gap", start, end, gap_error_code,
         ),
       )
     }
@@ -425,54 +427,177 @@ pub fn DiagnosticCode::value(self : DiagnosticCode) -> String {
 }
 
 ///|
-pub struct TokenEvidence {
-  kind : @seam.RawKind
-  range : TextRange
+/// Stable identity of source text within a diagnostic/provider snapshot.
+pub struct SourceId {
+  priv value : String
+} derive(Eq, Debug, Hash)
+
+///|
+pub fn SourceId::SourceId(value : String) -> SourceId {
+  { value, }
+}
+
+///|
+pub fn SourceId::value(self : SourceId) -> String {
+  self.value
+}
+
+///|
+/// Source-qualified half-open UTF-16 code-unit range.
+pub struct SourceSpan {
+  priv source_id : SourceId
+  priv range : TextRange
+} derive(Eq, Debug, Hash)
+
+///|
+pub fn SourceSpan::SourceSpan(
+  source_id : SourceId,
+  range : TextRange,
+) -> SourceSpan {
+  { source_id, range }
+}
+
+///|
+pub fn SourceSpan::source_id(self : SourceSpan) -> SourceId {
+  self.source_id
+}
+
+///|
+pub fn SourceSpan::range(self : SourceSpan) -> TextRange {
+  self.range
+}
+
+///|
+fn SourceSpan::offset_by(
+  self : SourceSpan,
+  edited_source : SourceId,
+  delta : Int,
+  after : TextOffset,
+) -> SourceSpan raise DiagnosticBuildError {
+  if self.source_id != edited_source || delta == 0 {
+    self
+  } else {
+    SourceSpan(self.source_id, self.range.offset_by(delta, after))
+  }
+}
+
+///|
+/// Source-qualified parser edit used by diagnostic invalidation and replay.
+pub struct SourceEdit {
+  priv source_id : SourceId
+  priv edit : Edit
 } derive(Eq, Debug)
 
 ///|
-pub fn TokenEvidence::offset_by(
+pub fn SourceEdit::SourceEdit(source_id : SourceId, edit : Edit) -> SourceEdit {
+  { source_id, edit }
+}
+
+///|
+pub fn SourceEdit::source_id(self : SourceEdit) -> SourceId {
+  self.source_id
+}
+
+///|
+pub fn SourceEdit::edit(self : SourceEdit) -> Edit {
+  self.edit
+}
+
+///|
+pub(all) enum LabelStyle {
+  Primary
+  Secondary
+} derive(Eq, Debug, Hash)
+
+///|
+pub struct TokenEvidence {
+  priv kind : @seam.RawKind
+  priv span : SourceSpan
+} derive(Eq, Debug)
+
+///|
+pub fn TokenEvidence::TokenEvidence(
+  kind : @seam.RawKind,
+  span : SourceSpan,
+) -> TokenEvidence {
+  { kind, span }
+}
+
+///|
+pub fn TokenEvidence::kind(self : TokenEvidence) -> @seam.RawKind {
+  self.kind
+}
+
+///|
+pub fn TokenEvidence::span(self : TokenEvidence) -> SourceSpan {
+  self.span
+}
+
+///|
+fn TokenEvidence::offset_by(
   self : TokenEvidence,
+  edited_source : SourceId,
   delta : Int,
   after : TextOffset,
 ) -> TokenEvidence raise DiagnosticBuildError {
-  { kind: self.kind, range: self.range.offset_by(delta, after) }
+  TokenEvidence(self.kind, self.span.offset_by(edited_source, delta, after))
 }
 
 ///|
 pub struct DiagnosticLabel {
-  range : TextRange
-  message : String?
+  priv style : LabelStyle
+  priv span : SourceSpan
+  priv message : String?
 } derive(Eq, Debug)
 
 ///|
 pub fn DiagnosticLabel::DiagnosticLabel(
-  range : TextRange,
+  style : LabelStyle,
+  span : SourceSpan,
   message : String?,
 ) -> DiagnosticLabel {
-  { range, message }
+  { style, span, message }
 }
 
 ///|
-pub fn DiagnosticLabel::offset_by(
+pub fn DiagnosticLabel::style(self : DiagnosticLabel) -> LabelStyle {
+  self.style
+}
+
+///|
+pub fn DiagnosticLabel::span(self : DiagnosticLabel) -> SourceSpan {
+  self.span
+}
+
+///|
+pub fn DiagnosticLabel::message(self : DiagnosticLabel) -> String? {
+  self.message
+}
+
+///|
+fn DiagnosticLabel::offset_by(
   self : DiagnosticLabel,
+  edited_source : SourceId,
   delta : Int,
   after : TextOffset,
 ) -> DiagnosticLabel raise DiagnosticBuildError {
-  { range: self.range.offset_by(delta, after), message: self.message }
+  DiagnosticLabel(
+    self.style,
+    self.span.offset_by(edited_source, delta, after),
+    self.message,
+  )
 }
 
 ///|
 /// Token-erased diagnostic record for parser, lexer, and editor consumers.
 pub struct Diagnostic {
-  source : DiagnosticSource
-  severity : DiagnosticSeverity
-  code : DiagnosticCode?
-  message : String
-  primary : TextRange?
-  labels : Array[DiagnosticLabel]
-  notes : Array[String]
-  token : TokenEvidence?
+  priv source : DiagnosticSource
+  priv severity : DiagnosticSeverity
+  priv code : DiagnosticCode?
+  priv message : String
+  priv labels : Array[DiagnosticLabel]
+  priv notes : Array[String]
+  priv token : TokenEvidence?
 } derive(Eq, Debug)
 
 ///|
@@ -481,12 +606,54 @@ pub fn Diagnostic::Diagnostic(
   severity~ : DiagnosticSeverity,
   message~ : String,
   code? : DiagnosticCode? = None,
-  primary? : TextRange? = None,
   labels? : Array[DiagnosticLabel] = [],
   notes? : Array[String] = [],
   token? : TokenEvidence? = None,
 ) -> Diagnostic {
-  { source, severity, code, message, primary, labels, notes, token }
+  {
+    source,
+    severity,
+    code,
+    message,
+    labels: labels.copy(),
+    notes: notes.copy(),
+    token,
+  }
+}
+
+///|
+pub fn Diagnostic::source(self : Diagnostic) -> DiagnosticSource {
+  self.source
+}
+
+///|
+pub fn Diagnostic::severity(self : Diagnostic) -> DiagnosticSeverity {
+  self.severity
+}
+
+///|
+pub fn Diagnostic::code(self : Diagnostic) -> DiagnosticCode? {
+  self.code
+}
+
+///|
+pub fn Diagnostic::message(self : Diagnostic) -> String {
+  self.message
+}
+
+///|
+pub fn Diagnostic::labels(self : Diagnostic) -> Array[DiagnosticLabel] {
+  self.labels.copy()
+}
+
+///|
+pub fn Diagnostic::notes(self : Diagnostic) -> Array[String] {
+  self.notes.copy()
+}
+
+///|
+pub fn Diagnostic::token(self : Diagnostic) -> TokenEvidence? {
+  self.token
 }
 
 ///|
@@ -501,17 +668,18 @@ pub fn Diagnostic::lexer_error(message : String) -> Diagnostic {
 
 ///|
 pub fn Diagnostic::lexer_error_at(
+  source_id : SourceId,
   message : String,
   start : Int,
   end : Int,
   code : String,
 ) -> Diagnostic {
-  let (range, notes) : (TextRange?, Array[String]) = try
+  let (labels, notes) : (Array[DiagnosticLabel], Array[String]) = try
     TextRange::from_offsets(start, end)
   catch {
     err =>
       (
-        None,
+        [],
         [
           "invalid lexer diagnostic range [" +
           start.to_string() +
@@ -522,16 +690,36 @@ pub fn Diagnostic::lexer_error_at(
         ],
       )
   } noraise {
-    range => (Some(range), [])
+    range =>
+      (
+        [
+          DiagnosticLabel(
+            LabelStyle::Primary,
+            SourceSpan(source_id, range),
+            None,
+          ),
+        ],
+        [],
+      )
   }
   Diagnostic(
     source=DiagnosticSource::lexer(),
     severity=DiagnosticSeverity::Error,
     code=Some(DiagnosticCode(code)),
     message~,
-    primary=range,
+    labels~,
     notes~,
   )
+}
+
+///|
+fn Diagnostic::single_primary_span(self : Diagnostic) -> SourceSpan? {
+  let primary = self.labels.filter(label => label.style == LabelStyle::Primary)
+  if primary.length() == 1 {
+    Some(primary[0].span)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -539,21 +727,22 @@ pub fn Diagnostic::line_range(
   self : Diagnostic,
   index : LineIndex,
 ) -> LineRange? {
-  match self.primary {
-    Some(range) => Some(index.line_range(range.start.value, range.end.value))
+  match self.single_primary_span() {
+    Some(span) =>
+      Some(index.line_range(span.range.start.value, span.range.end.value))
     None => None
   }
 }
 
 ///|
 pub fn Diagnostic::format(self : Diagnostic) -> String {
-  match self.primary {
-    Some(range) =>
+  match self.single_primary_span() {
+    Some(span) =>
       self.message +
       " [" +
-      range.start.value.to_string() +
+      span.range.start.value.to_string() +
       "," +
-      range.end.value.to_string() +
+      span.range.end.value.to_string() +
       "]"
     None => self.message
   }
@@ -579,34 +768,33 @@ pub fn Diagnostic::format_with_line_col(
 ///|
 pub fn Diagnostic::offset_by(
   self : Diagnostic,
+  edited_source : SourceId,
   delta : Int,
   after : TextOffset,
 ) -> Diagnostic raise DiagnosticBuildError {
   if delta == 0 {
     return self
   }
-  let primary = match self.primary {
-    Some(range) => Some(range.offset_by(delta, after))
-    None => None
+  let labels = self.labels.map(label => {
+    label.offset_by(edited_source, delta, after)
+  })
+  let token = if labels == self.labels {
+    self.token
+  } else {
+    match self.token {
+      Some(token) => Some(token.offset_by(edited_source, delta, after))
+      None => None
+    }
   }
-  let labels : Array[DiagnosticLabel] = []
-  for label in self.labels {
-    labels.push(label.offset_by(delta, after))
-  }
-  let token = match self.token {
-    Some(token) => Some(token.offset_by(delta, after))
-    None => None
-  }
-  {
-    source: self.source,
-    severity: self.severity,
-    code: self.code,
-    message: self.message,
-    primary,
-    labels,
-    notes: self.notes.copy(),
-    token,
-  }
+  Diagnostic(
+    source=self.source,
+    severity=self.severity,
+    code=self.code,
+    message=self.message,
+    labels~,
+    notes=self.notes,
+    token~,
+  )
 }
 
 ///|
@@ -621,7 +809,7 @@ fn parser_diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
   a.severity == b.severity &&
   a.code == b.code &&
   a.message == b.message &&
-  a.primary == b.primary
+  a.labels == b.labels
 }
 
 ///|
@@ -731,17 +919,18 @@ pub fn DiagnosticSet::format_with_line_col(
 ///|
 pub fn DiagnosticSet::offset_by(
   self : DiagnosticSet,
+  edited_source : SourceId,
   delta : Int,
   after : TextOffset,
 ) -> DiagnosticSet raise DiagnosticBuildError {
   if delta == 0 {
     return self.copy()
   }
-  let result = DiagnosticSet::empty()
-  for diagnostic in self.items {
-    result.push(diagnostic.offset_by(delta, after))
+  {
+    items: self.items.map(diagnostic => {
+      diagnostic.offset_by(edited_source, delta, after)
+    }),
   }
-  result
 }
 
 ///|
@@ -770,9 +959,10 @@ fn combine_relex_disposition(
 ///|
 fn TextRange::relex_disposition(
   self : TextRange,
-  old_start : Int,
-  old_end : Int,
+  edit : Edit,
 ) -> RelexDiagnosticDisposition {
+  let old_start = edit.start
+  let old_end = edit.old_end()
   if old_start == old_end &&
     (self.start.value >= old_end || self.end.value > old_end) {
     RelexShift
@@ -790,51 +980,35 @@ fn TextRange::relex_disposition(
 ///|
 fn Diagnostic::relex_disposition(
   self : Diagnostic,
-  old_start : Int,
-  old_end : Int,
+  source_edit : SourceEdit,
 ) -> RelexDiagnosticDisposition {
-  let mut disposition = RelexPreserve
-  match self.primary {
-    Some(range) =>
-      disposition = combine_relex_disposition(
+  self.labels.fold(init=RelexPreserve, (disposition, label) => {
+    if label.span.source_id == source_edit.source_id {
+      combine_relex_disposition(
         disposition,
-        range.relex_disposition(old_start, old_end),
+        label.span.range.relex_disposition(source_edit.edit),
       )
-    None => ()
-  }
-  for label in self.labels {
-    disposition = combine_relex_disposition(
-      disposition,
-      label.range.relex_disposition(old_start, old_end),
-    )
-  }
-  match self.token {
-    Some(token) =>
-      disposition = combine_relex_disposition(
-        disposition,
-        token.range.relex_disposition(old_start, old_end),
-      )
-    None => ()
-  }
-  disposition
+    } else {
+      disposition
+    }
+  })
 }
 
 ///|
 /// Preserve diagnostics outside a successfully re-lexed old range.
-/// Diagnostics inside the old range are stale and dropped; diagnostics after
-/// the old range are shifted by `delta`. Primary ranges, labels, and token
-/// evidence are considered together. For insertion ranges, zero-width evidence
-/// at the insertion point and ranges crossing it are treated as post-edit
-/// evidence; ranges ending at the insertion point remain before the edit.
+/// Diagnostics with an edited-source label inside the old range are stale and
+/// dropped; diagnostics with edited-source labels after the old range are
+/// shifted. Other-source labels never affect disposition and remain unchanged.
+/// For insertion ranges, zero-width labels at the insertion point and ranges
+/// crossing it are treated as post-edit evidence; ranges ending at the
+/// insertion point remain before the edit.
 pub fn DiagnosticSet::after_relex(
   self : DiagnosticSet,
-  old_start : Int,
-  old_end : Int,
-  delta : Int,
+  source_edit : SourceEdit,
   failure_context~ : String,
 ) -> DiagnosticSet {
   let result = DiagnosticSet::empty()
-  try TextOffset(old_end) catch {
+  try TextOffset(source_edit.edit.old_end()) catch {
     err => {
       result.push(
         Diagnostic::lexer_error(
@@ -849,11 +1023,11 @@ pub fn DiagnosticSet::after_relex(
   } noraise {
     after => {
       for diagnostic in self.items {
-        match diagnostic.relex_disposition(old_start, old_end) {
+        match diagnostic.relex_disposition(source_edit) {
           RelexPreserve => result.push(diagnostic)
           RelexShift =>
             result.push_shifted_after_relex(
-              diagnostic, delta, after, failure_context,
+              diagnostic, source_edit, after, failure_context,
             )
           RelexDrop => ()
         }
@@ -867,11 +1041,13 @@ pub fn DiagnosticSet::after_relex(
 fn DiagnosticSet::push_shifted_after_relex(
   self : DiagnosticSet,
   diagnostic : Diagnostic,
-  delta : Int,
+  source_edit : SourceEdit,
   after : TextOffset,
   failure_context : String,
 ) -> Unit {
-  try diagnostic.offset_by(delta, after) catch {
+  try
+    diagnostic.offset_by(source_edit.source_id, source_edit.edit.delta(), after)
+  catch {
     err =>
       self.push(
         Diagnostic::lexer_error(

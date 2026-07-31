@@ -185,10 +185,11 @@ fn zero_width_bench_parse_events(
     repeat_group_hits=Some(repeat_group_hits),
   )
   let ctx = ParserContext::new_indexed(
+    SourceId("zero-width-boundary-source"),
     fixture.tokens.length(),
-    fn(i) { fixture.tokens[i].token },
-    fn(i) { fixture.starts[i] },
-    fn(i) { fixture.starts[i] + fixture.tokens[i].len },
+    i => fixture.tokens[i].token,
+    i => fixture.starts[i],
+    i => fixture.starts[i] + fixture.tokens[i].len,
     fixture.source,
     spec,
   )

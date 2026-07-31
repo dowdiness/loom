@@ -4,10 +4,15 @@
 // unchanged first.
 
 ///|
+fn repeat_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-repeat")
+}
+
+///|
 test "task5: two let defs get repeat-group reuse after editing second def" {
   let source = "let x = 1\nlet y = 2"
   let b_grammar = build_b_syntax_grammar()
-  let parser = @loom.new_syntax_parser(source, b_grammar)
+  let parser = @loom.new_syntax_parser(repeat_source_id(), source, b_grammar)
   // Edit: change "2" at position 18 to "3": "let x = 1\nlet y = 3"
   let edit = @core.Edit::new(18, 1, 1)
   let new_source = "let x = 1\nlet y = 3"

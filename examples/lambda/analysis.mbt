@@ -69,8 +69,11 @@ pub(all) struct LambdaAnalysis {
 
 ///|
 /// Create a lambda analysis facade with a fresh parser for `source`.
-pub fn LambdaAnalysis::LambdaAnalysis(source : String) -> LambdaAnalysis {
-  attach_lambda_analysis(@loom.new_parser(source, lambda_grammar))
+pub fn LambdaAnalysis::LambdaAnalysis(
+  source_id : @core.SourceId,
+  source : String,
+) -> LambdaAnalysis {
+  attach_lambda_analysis(@loom.new_parser(source_id, source, lambda_grammar))
 }
 
 ///|

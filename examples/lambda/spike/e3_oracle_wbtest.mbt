@@ -33,6 +33,11 @@
 /// JSON carries no lambda keywords, so recovery must NOT sync on
 /// `lambda_sync_points()` — this keeps the E3 demonstration grammar self-
 /// consistent with the JSON token mapping above.
+fn e3_oracle_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-e3-oracle")
+}
+
+///|
 fn json_sync_points() -> @grammar.Pred[@token.Token] {
   @grammar.Pred::OneOf([
     @token.RightParen,
@@ -193,6 +198,7 @@ fn build_e3_grammar() -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind] r
 /// Apply one edit to an E3 grammar parser and check D1:
 /// incremental result == fresh parse of the new source.
 fn e3_check_step(
+  source_id : @core.SourceId,
   parser : @loom.SyntaxParser,
   grammar : @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind],
   edit : @core.Edit,
@@ -200,7 +206,7 @@ fn e3_check_step(
 ) -> Bool {
   parser.apply_edit(edit, after)
   let snap = parser.snapshot().read_or_abort()
-  check_d1(after, snap, grammar)
+  check_d1(source_id, after, snap, grammar)
 }
 
 ///|
@@ -209,20 +215,39 @@ fn e3_check_step(
 test "e3: array literal D1 parity across element edits" {
   let grammar = build_e3_grammar()
   let initial = "(1, foo, 3)"
-  let parser = @loom.new_syntax_parser(initial, grammar)
+  let source_id = e3_oracle_source_id()
+  let parser = @loom.new_syntax_parser(source_id, initial, grammar)
   // Edit 1: change integer element 1→42.
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(1, 1, 2), "(42, foo, 3)"),
+    e3_check_step(
+      source_id,
+      parser,
+      grammar,
+      @core.Edit::new(1, 1, 2),
+      "(42, foo, 3)",
+    ),
     content="true",
   )
   // Edit 2: remove "42, " (4 chars) at offset 1 → "(foo, 3)".
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(1, 4, 0), "(foo, 3)"),
+    e3_check_step(
+      source_id,
+      parser,
+      grammar,
+      @core.Edit::new(1, 4, 0),
+      "(foo, 3)",
+    ),
     content="true",
   )
   // Edit 3: insert ", 99" (4 chars) before ')' at offset 7 → "(foo, 3, 99)".
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(7, 0, 4), "(foo, 3, 99)"),
+    e3_check_step(
+      source_id,
+      parser,
+      grammar,
+      @core.Edit::new(7, 0, 4),
+      "(foo, 3, 99)",
+    ),
     content="true",
   )
 }
@@ -232,15 +257,28 @@ test "e3: array literal D1 parity across element edits" {
 test "e3: object literal D1 parity across member value edits" {
   let grammar = build_e3_grammar()
   let initial = "{x = 1}"
-  let parser = @loom.new_syntax_parser(initial, grammar)
+  let source_id = e3_oracle_source_id()
+  let parser = @loom.new_syntax_parser(source_id, initial, grammar)
   // Edit 1: change value 1→42.
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(5, 1, 2), "{x = 42}"),
+    e3_check_step(
+      source_id,
+      parser,
+      grammar,
+      @core.Edit::new(5, 1, 2),
+      "{x = 42}",
+    ),
     content="true",
   )
   // Edit 2: add a second member.
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(7, 0, 7), "{x = 42, y = 0}"),
+    e3_check_step(
+      source_id,
+      parser,
+      grammar,
+      @core.Edit::new(7, 0, 7),
+      "{x = 42, y = 0}",
+    ),
     content="true",
   )
 }
@@ -250,10 +288,12 @@ test "e3: object literal D1 parity across member value edits" {
 test "e3: nested array-of-objects D1 parity" {
   let grammar = build_e3_grammar()
   let initial = "({a = 1}, {b = 2})"
-  let parser = @loom.new_syntax_parser(initial, grammar)
+  let source_id = e3_oracle_source_id()
+  let parser = @loom.new_syntax_parser(source_id, initial, grammar)
   // Edit: change inner value 1→99. '1' is at offset 6 in "({a = 1}, {b = 2})".
   inspect(
     e3_check_step(
+      source_id,
       parser,
       grammar,
       @core.Edit::new(6, 1, 2),
@@ -274,10 +314,11 @@ test "e3: nested array-of-objects D1 parity" {
 test "e3: missing member key emits exactly one diagnostic — D1 parity" {
   let grammar = build_e3_grammar()
   let initial = "{= 1}"
-  let parser = @loom.new_syntax_parser(initial, grammar)
+  let source_id = e3_oracle_source_id()
+  let parser = @loom.new_syntax_parser(source_id, initial, grammar)
   let snap = parser.snapshot().read_or_abort()
   // D1: incremental == fresh (check_d1 does tree_diff + diag equality).
-  inspect(check_d1(initial, snap, grammar), content="true")
+  inspect(check_d1(source_id, initial, snap, grammar), content="true")
   // Exactly one diagnostic on the missing-token path (no double-report).
   inspect(snap.diagnostics.length() == 1, content="true")
 }
@@ -287,11 +328,12 @@ test "e3: missing member key emits exactly one diagnostic — D1 parity" {
 test "e3: trailing token rejected — D1 parity" {
   let grammar = build_e3_grammar()
   let initial = "(1)"
-  let parser = @loom.new_syntax_parser(initial, grammar)
+  let source_id = e3_oracle_source_id()
+  let parser = @loom.new_syntax_parser(source_id, initial, grammar)
   // Append " 2" after the array: trailing Integer token should produce a
   // diagnostic; both incremental and fresh parse must agree (D1).
   inspect(
-    e3_check_step(parser, grammar, @core.Edit::new(3, 0, 2), "(1) 2"),
+    e3_check_step(source_id, parser, grammar, @core.Edit::new(3, 0, 2), "(1) 2"),
     content="true",
   )
 }

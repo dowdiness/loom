@@ -41,7 +41,7 @@ pub fn DamageTracker::stats(Self) -> String
 pub struct ImperativeLanguage[Ast] {
   // private fields
 }
-pub fn[Ast] ImperativeLanguage::new(full_parse~ : (String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
+pub fn[Ast] ImperativeLanguage::new(full_parse~ : (@core.SourceId, String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), incremental_parse~ : (@core.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int), to_ast~ : (@seam.SyntaxNode) -> Ast, get_fold_stats? : (() -> @core.FoldStats)?) -> Self[Ast]
 
 pub struct ImperativeParser[Ast] {
   // private fields
@@ -52,9 +52,10 @@ pub fn[Ast] ImperativeParser::edit(Self[Ast], @core.Edit, String) -> ParseSnapsh
 pub fn[Ast] ImperativeParser::get_fold_stats(Self[Ast]) -> @core.FoldStats?
 pub fn[Ast] ImperativeParser::get_last_reuse_count(Self[Ast]) -> Int
 pub fn[Ast] ImperativeParser::get_source(Self[Ast]) -> String
+pub fn[Ast] ImperativeParser::get_source_id(Self[Ast]) -> @core.SourceId
 pub fn[Ast] ImperativeParser::get_syntax_tree(Self[Ast]) -> @seam.SyntaxNode?
 pub fn[Ast] ImperativeParser::get_tree(Self[Ast]) -> Ast?
-pub fn[Ast] ImperativeParser::new(String, ImperativeLanguage[Ast]) -> Self[Ast]
+pub fn[Ast] ImperativeParser::new(@core.SourceId, String, ImperativeLanguage[Ast]) -> Self[Ast]
 pub fn[Ast] ImperativeParser::parse(Self[Ast]) -> ParseSnapshot[Ast]
 pub fn[Ast] ImperativeParser::reset(Self[Ast], String) -> ParseSnapshot[Ast]
 

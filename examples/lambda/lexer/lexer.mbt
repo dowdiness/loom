@@ -223,13 +223,17 @@ pub fn tokenize(
 
 ///|
 /// Total structured lexer used by the high-level Grammar boundary.
-pub fn lex(input : String) -> @core.LexResult[@token.Token] {
+pub fn lex(
+  source_id : @core.SourceId,
+  input : String,
+) -> @core.LexResult[@token.Token] {
   let buffer = @core.TokenBuffer::new_from_steps(
+    source_id,
     input,
     @core.PrefixLexer::new(lex_step=lambda_step_lexer),
     eof_token=@token.EOF,
     error_token=@token.Error(""),
-    error_token_from_message=Some(fn(msg) { @token.Error(msg) }),
+    error_token_from_message=Some(msg => @token.Error(msg)),
   )
   @core.LexResult::with_starts(
     buffer.get_tokens(),

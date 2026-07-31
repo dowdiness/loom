@@ -16,40 +16,59 @@ fn collect_leaf_texts(node : @seam.SyntaxNode) -> String {
 }
 
 ///|
-fn assert_source_fidelity(source : String) -> Unit raise {
-  let (cst, _) = parse_cst(source)
+fn assert_source_fidelity(
+  source_id : @core.SourceId,
+  source : String,
+) -> Unit raise {
+  let (cst, _) = parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   inspect(collect_leaf_texts(syntax) == source, content="true")
 }
 
 ///|
 test "source fidelity: heading" {
-  assert_source_fidelity("# Hello\n")
+  assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-heading"),
+    "# Hello\n",
+  )
 }
 
 ///|
 test "source fidelity: paragraph with bold" {
-  assert_source_fidelity("Hello **bold** world\n")
+  assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-bold-paragraph"),
+    "Hello **bold** world\n",
+  )
 }
 
 ///|
 test "source fidelity: code block" {
-  assert_source_fidelity("```python\nx = 1\n```\n")
+  assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-code-block"),
+    "```python\nx = 1\n```\n",
+  )
 }
 
 ///|
 test "source fidelity: mixed document" {
   assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-mixed-document"),
     "# Title\n\nText here\n\n- item one\n- item two\n\n```\ncode\n```\n",
   )
 }
 
 ///|
 test "source fidelity: list" {
-  assert_source_fidelity("- one\n- two\n")
+  assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-list"),
+    "- one\n- two\n",
+  )
 }
 
 ///|
 test "source fidelity: link with balanced parentheses" {
-  assert_source_fidelity("[wiki](page_(C).html)\n")
+  assert_source_fidelity(
+    @core.SourceId("markdown-source-fidelity-balanced-link"),
+    "[wiki](page_(C).html)\n",
+  )
 }

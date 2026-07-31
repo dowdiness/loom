@@ -7,8 +7,8 @@ pub suberror ParseError {
 
 ///|
 /// Parse the input string into a Term (without position information).
-pub fn parse(input : String) -> @ast.Term raise {
-  let (term, diags) = parse_term(input) catch {
+pub fn parse(source_id : @core.SourceId, input : String) -> @ast.Term raise {
+  let (term, diags) = parse_term(source_id, input) catch {
     @core.LexError(msg) => raise ParseError(msg)
   }
   if diags.length() > 0 {
@@ -24,9 +24,10 @@ pub fn parse(input : String) -> @ast.Term raise {
 /// Definitions are right-folded into nested Let terms with Unit as terminal
 /// when no final expression is present.
 pub fn parse_term(
+  source_id : @core.SourceId,
   source : String,
 ) -> (@ast.Term, @core.DiagnosticSet) raise @core.LexError {
-  let (cst, diags) = parse_cst(source)
+  let (cst, diags) = parse_cst(source_id, source)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   (syntax_node_to_term(syntax), diags)
 }

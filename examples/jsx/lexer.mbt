@@ -317,6 +317,9 @@ let jsx_mode_relex_factory : @core.ModeRelexFactory[@token.Token] = @core.erase_
 )
 
 ///|
-pub fn lex(input : String) -> @core.LexResult[@token.Token] {
-  (jsx_mode_relex_factory.tokenize)(input)
+pub fn lex(
+  source_id : @core.SourceId,
+  input : String,
+) -> @core.LexResult[@token.Token] {
+  (jsx_mode_relex_factory.tokenize)(source_id, input)
 }

@@ -1,4 +1,13 @@
 # Parser-Generation De-Risk Spike — Implementation Plan
+
+> **Historical API note (2026-07-31):** This completed spike plan records the
+> pre-`SourceId` parser and source-less diagnostic surface that existed when it
+> was executed. Signatures and snippets below are preserved as execution
+> history, not current API guidance. Current parser/grammar entry points receive
+> a caller-owned stable `SourceId`, and diagnostic locations are styled
+> `DiagnosticLabel` values carrying `SourceSpan`s. See the current generated
+> interfaces and [`docs/api/reference.md`](../../api/reference.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
 **Goal:** Prove whether a grammar-as-data parser can replace lambda's hand-written recursive-descent parser as a drop-in, and whether doing so is materially cheaper to author and reuse.

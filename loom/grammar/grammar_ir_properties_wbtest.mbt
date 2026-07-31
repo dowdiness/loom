@@ -778,7 +778,8 @@ fn prop_interpret_no_crash(ir : GrammarIr[QcToken, QcKind]) -> Bool {
   let parse_root = interpret(ir) catch { _ => return true }
   let spec = qc_spec(parse_root)
   let tokens = [@core.TokenInfo::new(QcToken::Eof, 0)]
-  let ctx = @core.ParserContext::new(tokens, "", spec)
+  let source_id = @core.SourceId("grammar-property-no-crash-source")
+  let ctx = @core.ParserContext::new(source_id, tokens, "", spec)
   parse_root(ctx)
   true
 }
@@ -795,10 +796,12 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // First parse: via interpret
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
+  let source_id = @core.SourceId("grammar-property-compile-equivalence-source")
   let (tree1, diags1) = @core.parse_with(
+    source_id,
     "ab",
     spec,
-    fn(_src) { tokens },
+    _src => tokens,
     parse_root,
   )
   // Second parse: via explicit compile -> bind -> parse_root.
@@ -807,9 +810,10 @@ fn prop_cst_equivalence(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
+    source_id,
     "ab",
     spec2,
-    fn(_src) { tokens },
+    _src => tokens,
     parse_root2,
   )
   // Trees and diagnostics must be structurally equal
@@ -834,19 +838,22 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
   // Reference parse
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
+  let source_id = @core.SourceId("grammar-property-reference-source")
   let (ref_tree, ref_diags) = @core.parse_with(
+    source_id,
     "ab",
     ref_spec,
-    fn(_src) { tokens },
+    _src => tokens,
     ref_parse,
   )
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
   let (real_tree, real_diags) = @core.parse_with(
+    source_id,
     "ab",
     real_spec,
-    fn(_src) { tokens },
+    _src => tokens,
     real_parse,
   )
   // Trees and diagnostics must be structurally equal
@@ -864,7 +871,8 @@ fn prop_reference_matches(ir : GrammarIr[QcToken, QcKind]) -> @qc.Property {
 fn prop_interpret_no_crash_tokens(gwt : GrammarWithTokens) -> Bool {
   let parse_root = interpret(gwt.ir) catch { _ => return true }
   let spec = qc_spec(parse_root)
-  let ctx = @core.ParserContext::new(gwt.tokens, "", spec)
+  let source_id = @core.SourceId("grammar-property-token-no-crash-source")
+  let ctx = @core.ParserContext::new(source_id, gwt.tokens, "", spec)
   parse_root(ctx)
   true
 }
@@ -878,19 +886,22 @@ fn prop_reference_matches_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // Reference parse
   let ref_parse = reference_interpret(ir)
   let ref_spec = qc_spec(ref_parse)
+  let source_id = @core.SourceId("grammar-property-token-reference-source")
   let (ref_tree, ref_diags) = @core.parse_with(
+    source_id,
     "src",
     ref_spec,
-    fn(_src) { tokens },
+    _src => tokens,
     ref_parse,
   )
   // Real parse
   let real_parse = interpret(ir) catch { _ => return @qc.property(true) }
   let real_spec = qc_spec(real_parse)
   let (real_tree, real_diags) = @core.parse_with(
+    source_id,
     "src",
     real_spec,
-    fn(_src) { tokens },
+    _src => tokens,
     real_parse,
   )
   // Trees and diagnostics must be structurally equal
@@ -911,10 +922,12 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   // First parse: via interpret
   let parse_root = interpret(ir) catch { _ => return @qc.property(true) }
   let spec = qc_spec(parse_root)
+  let source_id = @core.SourceId("grammar-property-token-compile-source")
   let (tree1, diags1) = @core.parse_with(
+    source_id,
     "src",
     spec,
-    fn(_src) { tokens },
+    _src => tokens,
     parse_root,
   )
   // Second parse: via explicit compile -> bind -> parse_root.
@@ -923,9 +936,10 @@ fn prop_cst_equivalence_tokens(gwt : GrammarWithTokens) -> @qc.Property {
   let parse_root2 = executable.parse_root()
   let spec2 = qc_spec(parse_root2)
   let (tree2, diags2) = @core.parse_with(
+    source_id,
     "src",
     spec2,
-    fn(_src) { tokens },
+    _src => tokens,
     parse_root2,
   )
   // Trees and diagnostics must be structurally equal
@@ -993,10 +1007,12 @@ fn check_equiv(
   label : String,
 ) -> Unit raise Failure {
   let ref_parse = reference_interpret(ir)
+  let source_id = @core.SourceId("grammar-deterministic-equivalence-source")
   let (ref_tree, ref_diags) = @core.parse_with(
+    source_id,
     "src",
     qc_spec(ref_parse),
-    fn(_) { tokens },
+    _src => tokens,
     ref_parse,
   )
   let real_parse = try_interpret(ir)
@@ -1005,9 +1021,10 @@ fn check_equiv(
     None => fail(label + ": interpret failed")
   }
   let (real_tree, real_diags) = @core.parse_with(
+    source_id,
     "src",
     qc_spec(real_parse),
-    fn(_) { tokens },
+    _src => tokens,
     real_parse,
   )
   // Trees must be structurally equal
@@ -1226,7 +1243,14 @@ fn ref_diags(
 ) -> @core.DiagnosticSet {
   let parse_root = reference_interpret(ir)
   let spec = qc_spec(parse_root)
-  let (_, diags) = @core.parse_with("src", spec, fn(_) { tokens }, parse_root)
+  let source_id = @core.SourceId("grammar-diagnostic-source")
+  let (_, diags) = @core.parse_with(
+    source_id,
+    "src",
+    spec,
+    _src => tokens,
+    parse_root,
+  )
   diags
 }
 
@@ -1244,14 +1268,9 @@ fn check_diag_message(
       ": expected 1 diagnostic, got \{items.length()}:\n  \{@debug.to_string(diags)}",
     )
   }
-  if !items[0].message.contains(expected) {
-    fail(
-      label +
-      ": message should contain '" +
-      expected +
-      "', got: " +
-      items[0].message,
-    )
+  let actual = items[0].message()
+  if !actual.contains(expected) {
+    fail(label + ": message should contain '" + expected + "', got: " + actual)
   }
 }
 

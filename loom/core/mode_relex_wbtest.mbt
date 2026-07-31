@@ -12,11 +12,13 @@ fn create_mock_buffer(source : String) -> TokenBuffer[MockToken] {
     lexer,
     MockToken::EOF,
     error_token=Error("error"),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
-  let state = (factory.new_session)()
+  let source_id = SourceId("mode-relex-mock-source")
+  let state = (factory.new_session)(source_id)
   let result = (state.tokenize)(source)
   TokenBuffer::new_with_mode_relex(
+    source_id,
     source,
     result.tokens(),
     result.starts(),
@@ -36,9 +38,11 @@ fn create_mixed_buffer(source : String) -> TokenBuffer[MixedToken] {
     MixedToken::EOF,
     error_token=OpaqueRaw("error"),
   )
-  let state = (factory.new_session)()
+  let source_id = SourceId("mode-relex-mixed-source")
+  let state = (factory.new_session)(source_id)
   let result = (state.tokenize)(source)
   TokenBuffer::new_with_mode_relex(
+    source_id,
     source,
     result.tokens(),
     result.starts(),
@@ -81,7 +85,7 @@ test "mode relex: same-cardinality edit converges before close paren" {
     MixedToken::EOF,
     error_token=OpaqueRaw("error"),
   )
-  let state = (factory.new_session)()
+  let state = (factory.new_session)(SourceId("mode-relex-convergence-source"))
   let old_source = "section(\"verse\") s(\"tail\")"
   let new_source = "s(\"verse\") s(\"tail\")"
   let old_result = (state.tokenize)(old_source)
@@ -148,7 +152,8 @@ test "mode relex: sessions retain independent mode snapshots" {
     error_token=Error("error"),
   )
   let source = "hello\"world\"end"
-  let control = (factory.new_session)()
+  let source_id = SourceId("mode-relex-session-source")
+  let control = (factory.new_session)(source_id)
   let control_initial = (control.tokenize)(source)
   let expected = (control.relex_from)(
     source,
@@ -159,8 +164,8 @@ test "mode relex: sessions retain independent mode snapshots" {
     0,
     source.length(),
   )
-  let first = (factory.new_session)()
-  let second = (factory.new_session)()
+  let first = (factory.new_session)(source_id)
+  let second = (factory.new_session)(source_id)
   let initial = (first.tokenize)(source)
   ignore((second.tokenize)("x"))
   let result = (first.relex_from)(
@@ -210,6 +215,7 @@ test "mode relex validates initial token stream" {
     },
   }
   let buffer = TokenBuffer::new_with_mode_relex(
+    SourceId("mode-relex-invalid-source"),
     "a",
     [TokenInfo::new(Text("a"), 2), TokenInfo::new(EOF, 0)],
     [0, 1],
@@ -233,7 +239,12 @@ test "backward compat: TokenBuffer::new still works without mode_relex" {
     let (tokens, _modes) = tokenize_with_modes(lexer, s, MockToken::EOF)
     tokens
   }
-  let buffer = TokenBuffer::new("hello", tokenize_fn~, eof_token=MockToken::EOF)
+  let buffer = TokenBuffer::new(
+    SourceId("mode-relex-backward-source"),
+    "hello",
+    tokenize_fn~,
+    eof_token=MockToken::EOF,
+  )
   inspect(buffer.token_count(), content="2")
   inspect(buffer.get_token(0), content="Text(\"hello\")")
 }

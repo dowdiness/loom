@@ -56,7 +56,13 @@ remain infrastructure failures in normal and calibration modes.
 
 To bootstrap a newly required benchmark without exempting the base revision,
 CI snapshots the tracked head benchmark harness, records its SHA-256, and
-overlays that exact file on both base and head before each trial. A manual
+overlays that exact file on both base and head before each trial. Parser API
+cutovers are isolated behind a private white-box adapter so the shared harness,
+workloads, timed boundary, and benchmark rows remain identical. CI snapshots
+and verifies both the current adapter and a fixed legacy adapter; it selects the
+legacy adapter only when the base revision predates the current adapter, and
+otherwise overlays the current adapter on both revisions. This compatibility
+boundary does not restore a source-less production parser API. A manual
 calibration mode checks out the same commit on both sides and disables only the
 delimiter performance verdict; all legacy verdicts and input validation stay
 active. These PR-guard thresholds are separate from the scheduled detector's
@@ -104,5 +110,7 @@ merge but may allow smaller slowdowns that the scheduled detector later flags.
 Changes to either detector's scope or thresholds must update its self-test and
 this decision record so that a green PR check is not mistaken for proof of zero
 regression. Delimiter-heavy rows use the shared head harness for base/head
-comparability; changing that harness changes the measured contract and requires
-fresh A/A evidence before threshold policy is revised.
+comparability; the API adapter may vary only to bridge an otherwise
+uncompilable parser API cutover. Changing the harness or its timed adapter
+boundary changes the measured contract and requires fresh A/A evidence before
+threshold policy is revised.

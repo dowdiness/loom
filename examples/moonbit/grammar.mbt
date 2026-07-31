@@ -20,7 +20,7 @@ pub let moonbit_syntax_grammar : @loom.SyntaxGrammar[
   MoonbitSyntaxKind,
 ] = @loom.SyntaxGrammar::new(
   spec=moonbit_spec,
-  lex=fn(source) { lex_moonbit(source) },
+  lex=(source_id, source) => lex_moonbit(source_id, source),
   incremental_relex_enabled=false,
 )
 
@@ -36,7 +36,7 @@ pub let moonbit_grammar : @loom.Grammar[
   MoonbitParseShell,
 ] = @loom.Grammar::new(
   spec=moonbit_spec,
-  lex=fn(source) { lex_moonbit(source) },
+  lex=(source_id, source) => lex_moonbit(source_id, source),
   fold_node=moonbit_fold_node,
   incremental_relex_enabled=false,
 )

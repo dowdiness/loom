@@ -8,6 +8,11 @@
 //
 // Run with: cd examples/lambda && moon bench --release -p dowdiness/lambda/benchmarks -f block_reparse_benchmark.mbt
 
+///|
+fn block_reparse_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-block-reparse")
+}
+
 // ── Source generator ───────────────────────────────────────────────
 
 ///|
@@ -75,7 +80,11 @@ fn digit_len(n : Int) -> Int {
 test "block-reparse: 80 blocks - edit inside block" (b : @bench.T) {
   let n = 80
   let source = make_block_let_chain(n)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    block_reparse_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   // Find position of the number inside the last block's "x + N"
   let num_pos = find_block_number_pos(source, n - 1)
@@ -100,7 +109,11 @@ test "block-reparse: 80 blocks - edit inside block" (b : @bench.T) {
 test "block-reparse: 320 blocks - edit inside block" (b : @bench.T) {
   let n = 320
   let source = make_block_let_chain(n)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    block_reparse_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let num_pos = find_block_number_pos(source, n - 1)
   let num_len = digit_len(n - 1)
@@ -126,7 +139,9 @@ test "block-reparse: 320 blocks - edit inside block" (b : @bench.T) {
 test "block-reparse: 80 blocks - full reparse (baseline)" (b : @bench.T) {
   let source = make_block_let_chain(80)
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(block_reparse_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -135,7 +150,9 @@ test "block-reparse: 80 blocks - full reparse (baseline)" (b : @bench.T) {
 test "block-reparse: 320 blocks - full reparse (baseline)" (b : @bench.T) {
   let source = make_block_let_chain(320)
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(block_reparse_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -150,7 +167,11 @@ test "block-reparse: 80 blocks - 50-edit session" (b : @bench.T) {
   let n = 80
   let base = make_block_let_chain(n)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      block_reparse_benchmark_source_id(),
+      base,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut source = base
     for i = 0; i < 50; i = i + 1 {
@@ -178,7 +199,11 @@ test "block-reparse: 320 blocks - 50-edit session" (b : @bench.T) {
   let n = 320
   let base = make_block_let_chain(n)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      block_reparse_benchmark_source_id(),
+      base,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut source = base
     for i = 0; i < 50; i = i + 1 {

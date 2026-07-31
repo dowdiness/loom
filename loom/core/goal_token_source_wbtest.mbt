@@ -177,6 +177,7 @@ fn goal_step_fn(source : String, pos : Int, goal : Int) -> LexStep[GoalTestTok] 
 /// Setup a TokenBuffer with goal-aware lexing for a given source.
 fn make_goal_buffer(source : String) -> TokenBuffer[GoalTestTok] {
   let buf = TokenBuffer::new_from_lex(
+    SourceId("goal-token-source"),
     source,
     lex_fn=baseline_tokenize,
     eof_token=GTEof,
@@ -285,6 +286,7 @@ test "goal_token_at: update invalidates cache" {
 ///|
 test "goal_token_at: no goal_step falls back to baseline" {
   let buf = TokenBuffer::new_from_lex(
+    SourceId("goal-token-source"),
     "/x/",
     lex_fn=baseline_tokenize,
     eof_token=GTEof,
@@ -302,14 +304,15 @@ test "ParserContext::token_at with goal_source set" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) })
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal))
 
   // RegExpGoal at offset 0
   let (tok, end) = ctx.token_at(0, 1)
@@ -327,10 +330,11 @@ test "ParserContext::token_at without goal_source falls back to baseline" {
   let toks = result.tokens
   let starts = result.starts
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     toks.length(),
-    fn(i) { toks[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + toks[i].len },
+    i => toks[i].token,
+    i => starts[i],
+    i => starts[i] + toks[i].len,
     "/x/",
     spec,
   )
@@ -345,14 +349,15 @@ test "minimal emit_token_with_goal produces CST with goal span" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) })
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal))
 
   // Emit with RegExpGoal: should span 3 chars "/x/"
   ctx.emit_token_with_goal(1, GTKRegex)
@@ -365,14 +370,15 @@ test "advance_with_goal returns goal-directed token" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) })
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal))
 
   // advance_with_goal(1) = RegExpGoal
   let tok = ctx.advance_with_goal(1)
@@ -388,14 +394,15 @@ test "advance_with_goal at eof returns eof" {
   let buf = make_goal_buffer("")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) })
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal))
 
   let tok = ctx.advance_with_goal(0)
   inspect(tok, content="GTEof")
@@ -407,19 +414,18 @@ test "advance_with_goal skips reuse for subsumed regions" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) }, subsumption_check=fn(
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal), subsumption_check=(
     offset,
     baseline_len,
-  ) {
-    buf.goal_span_exceeds(offset, baseline_len)
-  })
+  ) => buf.goal_span_exceeds(offset, baseline_len))
 
   // Populate cache with RegExpGoal at offset 0 — spans 0..3 (len=3)
   let (_tok, _end) = ctx.token_at(0, 1)
@@ -435,19 +441,18 @@ test "goal_span_exceeds: DivGoal does not false-positive" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
+    SourceId("goal-token-source"),
     buf.token_count(),
-    fn(i) { buf.get_token(i) },
-    fn(i) { buf.get_start(i) },
-    fn(i) { buf.get_end(i) },
+    i => buf.get_token(i),
+    i => buf.get_start(i),
+    i => buf.get_end(i),
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(fn(offset, goal) { buf.goal_token_at(offset, goal) }, subsumption_check=fn(
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal), subsumption_check=(
     offset,
     baseline_len,
-  ) {
-    buf.goal_span_exceeds(offset, baseline_len)
-  })
+  ) => buf.goal_span_exceeds(offset, baseline_len))
 
   // Populate cache with DivGoal at offset 0 — Slash spans 0..1 (len=1)
   let (_tok, _end) = ctx.token_at(0, 0)

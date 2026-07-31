@@ -39,8 +39,13 @@ fn recovery_parity_heavy_markdown_doc(repeats : Int) -> String {
 /// Parse diagnostics are intentionally excluded: these rows isolate the
 /// syntax-only lowering work shared by the direct and MarkdownIR lanes.
 /// Diagnostic attachment is covered separately by MarkdownIR recovery tests.
-fn recovery_benchmark_parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(source) catch { _ => abort("parse failed") }
+fn recovery_benchmark_parse_to_syntax(
+  source_id : @core.SourceId,
+  source : String,
+) -> @seam.SyntaxNode {
+  let (cst, _) = parse_cst(source_id, source) catch {
+    _ => abort("parse failed")
+  }
   @seam.SyntaxNode::from_cst(cst)
 }
 
@@ -51,37 +56,49 @@ fn recovery_benchmark_direct_block(syntax : @seam.SyntaxNode) -> Block {
 }
 
 ///|
-fn recovery_benchmark_ir_block(syntax : @seam.SyntaxNode) -> Block {
+fn recovery_benchmark_ir_block(
+  source_id : @core.SourceId,
+  syntax : @seam.SyntaxNode,
+) -> Block {
   experimental_markdown_ir_to_block(
-    experimental_markdown_ir_from_syntax(syntax),
+    experimental_markdown_ir_from_syntax(source_id, syntax),
   )
 }
 
 ///|
 test "recovery benchmark workload is output-equivalent" {
+  let source_id = @core.SourceId("markdown-recovery-benchmark:equivalence")
   let syntax = recovery_benchmark_parse_to_syntax(
+    source_id,
     recovery_parity_heavy_markdown_doc(128),
   )
   let direct = recovery_benchmark_direct_block(syntax)
-  inspect(recovery_benchmark_ir_block(syntax), content=@debug.to_string(direct))
+  inspect(
+    recovery_benchmark_ir_block(source_id, syntax),
+    content=@debug.to_string(direct),
+  )
 }
 
 ///|
 test "markdown: recovery-parity-heavy doc - lowering SyntaxNode -> Block" (
   b : @bench.T,
 ) {
+  let source_id = @core.SourceId("markdown-recovery-benchmark:direct")
   let syntax = recovery_benchmark_parse_to_syntax(
+    source_id,
     recovery_parity_heavy_markdown_doc(128),
   )
-  b.bench(fn() { b.keep(recovery_benchmark_direct_block(syntax)) })
+  b.bench(() => b.keep(recovery_benchmark_direct_block(syntax)))
 }
 
 ///|
 test "markdown: recovery-parity-heavy doc - lowering SyntaxNode -> MarkdownIR -> Block" (
   b : @bench.T,
 ) {
+  let source_id = @core.SourceId("markdown-recovery-benchmark:ir")
   let syntax = recovery_benchmark_parse_to_syntax(
+    source_id,
     recovery_parity_heavy_markdown_doc(128),
   )
-  b.bench(fn() { b.keep(recovery_benchmark_ir_block(syntax)) })
+  b.bench(() => b.keep(recovery_benchmark_ir_block(source_id, syntax)))
 }

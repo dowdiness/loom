@@ -1,17 +1,24 @@
 ///|
-fn markdown_ir_from_source(source : String) -> MarkdownIR {
-  let (cst, diagnostics) = parse_cst(source) catch {
+fn markdown_ir_from_source(
+  source_id : @core.SourceId,
+  source : String,
+) -> MarkdownIR {
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
-  experimental_markdown_ir_from_cst_with_diagnostics(cst, diagnostics)
+  experimental_markdown_ir_from_cst_with_diagnostics(
+    source_id, cst, diagnostics,
+  )
 }
 
 ///|
 fn experimental_markdown_ir_from_cst_with_diagnostics(
+  source_id : @core.SourceId,
   cst : @seam.CstNode,
   diagnostics : @core.DiagnosticSet,
 ) -> MarkdownIR {
   experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
@@ -20,9 +27,9 @@ fn experimental_markdown_ir_from_cst_with_diagnostics(
 ///|
 /// Compare the two Block adapter paths for lex-valid current-subset fixtures.
 fn assert_markdown_ir_block_matches_direct_parse(source : String) -> Unit raise {
-  let direct = parse(source)
+  let direct = parse(@core.SourceId("markdown-ir-test-document"), source)
   let via_ir = experimental_markdown_ir_to_block(
-    markdown_ir_from_source(source),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(via_ir, content=@debug.to_string(direct))
 }
@@ -32,10 +39,15 @@ fn assert_recovered_markdown_ir_block_matches_direct_parse(
   source : String,
   recovered_text : String,
 ) -> Unit raise {
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_block(ir),
-    content=@debug.to_string(parse(source)),
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
   )
   match ir.children() {
     [paragraph] =>
@@ -59,10 +71,15 @@ fn assert_malformed_link_raws_preserved(
   source : String,
   expected_raw_text : String,
 ) -> Unit raise {
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_block(ir),
-    content=@debug.to_string(parse(source)),
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
   )
   match ir.children() {
     [paragraph] => {
@@ -102,16 +119,18 @@ fn origin_source(source : String, origin : MarkdownIROrigin) -> String {
 }
 
 ///|
-fn malformed_link_raw_diagnostics() -> @core.DiagnosticSet {
+fn malformed_link_raw_diagnostics(
+  source_id : @core.SourceId,
+) -> @core.DiagnosticSet {
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
+      source_id, "synthetic raw bracket diagnostic", 5, 6, "synthetic-raw",
     ),
   )
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
+      source_id, "synthetic raw paren diagnostic", 6, 7, "synthetic-raw",
     ),
   )
   diagnostics
@@ -120,7 +139,10 @@ fn malformed_link_raw_diagnostics() -> @core.DiagnosticSet {
 ///|
 test "experimental MarkdownIR: heading lowers with origin and Block adapter" {
   let source = "# Title\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(ir.kind_tag(), content="Document")
   inspect(ir.origin().start(), content="0")
   inspect(ir.origin().end(), content="8")
@@ -148,7 +170,10 @@ test "experimental MarkdownIR: heading lowers with origin and Block adapter" {
 ///|
 test "experimental MarkdownIR: paragraph lowers with text origin and Block adapter" {
   let source = "Hello world\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] => {
       inspect(paragraph.kind_tag(), content="Paragraph")
@@ -180,7 +205,10 @@ test "experimental MarkdownIR: paragraph lowers with text origin and Block adapt
 ///|
 test "experimental MarkdownIR: text escapes decode semantically and retain raw origin" {
   let source = "\\!\\A\\φ\\\\z\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -199,7 +227,10 @@ test "experimental MarkdownIR: text escapes decode semantically and retain raw o
     _ => inspect("unexpected child count", content="one paragraph")
   }
   let trailing_source = "\\"
-  let trailing_ir = markdown_ir_from_source(trailing_source)
+  let trailing_ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    trailing_source,
+  )
   match trailing_ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -222,7 +253,10 @@ test "experimental MarkdownIR: text escapes decode semantically and retain raw o
 ///|
 test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
   let source = "\\*not emphasized*\n\\[not a link](/foo)\n\\[\\[x]]\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] => {
       for child in paragraph.children() {
@@ -270,7 +304,10 @@ test "experimental MarkdownIR: escaped delimiter tails stay semantic text" {
 ///|
 test "experimental MarkdownIR: escaped emphasis recovery handles non-BMP flanking text" {
   let source = "\\*😈*\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -292,7 +329,7 @@ test "experimental MarkdownIR: escaped emphasis recovery handles non-BMP flankin
 ///|
 test "experimental MarkdownIR: child syntax lowering keeps document-relative escape origins" {
   let source = "😀 prefix\n\n\\*literal*\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let syntax = @seam.SyntaxNode::from_cst(cst)
@@ -307,7 +344,10 @@ test "experimental MarkdownIR: child syntax lowering keeps document-relative esc
   match paragraphs {
     [_, second] => {
       inspect(second.start(), content="11")
-      let ir = experimental_markdown_ir_from_syntax(second)
+      let ir = experimental_markdown_ir_from_syntax(
+        @core.SourceId("markdown-ir-test-document"),
+        second,
+      )
       inspect(ir.kind_tag(), content="Paragraph")
       inspect(ir.origin().start(), content="11")
       inspect(ir.origin().end(), content="22")
@@ -333,7 +373,10 @@ test "experimental MarkdownIR: child syntax lowering keeps document-relative esc
 ///|
 test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
   let paragraph_source = "   Foo\n"
-  let paragraph_ir = markdown_ir_from_source(paragraph_source)
+  let paragraph_ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    paragraph_source,
+  )
   match paragraph_ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -353,7 +396,10 @@ test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
     _ => inspect("unexpected paragraph count", content="one paragraph")
   }
   let leading_heading_source = "   Foo\n---\n"
-  let leading_heading_ir = markdown_ir_from_source(leading_heading_source)
+  let leading_heading_ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    leading_heading_source,
+  )
   match leading_heading_ir.children() {
     [heading] =>
       match heading.children() {
@@ -378,7 +424,10 @@ test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
     _ => inspect("unexpected heading count", content="one heading")
   }
   let trailing_heading_source = "Foo  \n---\n"
-  let trailing_heading_ir = markdown_ir_from_source(trailing_heading_source)
+  let trailing_heading_ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    trailing_heading_source,
+  )
   match trailing_heading_ir.children() {
     [heading] =>
       match heading.children() {
@@ -407,7 +456,10 @@ test "experimental MarkdownIR: normalized whitespace adjusts text origins" {
 ///|
 test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
   let source = current_parser_subset_source()
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -418,7 +470,10 @@ test "experimental MarkdownIR: mdast JSON snapshots for current parser subset" {
 
 ///|
 test "experimental MarkdownIR: mdast JSON includes recovery metadata" {
-  let ir = markdown_ir_from_source("[text](\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[text](\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -449,7 +504,10 @@ test "experimental MarkdownIR: Block adapter matches direct parse for unordered 
 
 ///|
 test "experimental MarkdownIR: list items expose flow-content paragraphs" {
-  let ir = markdown_ir_from_source("- one\n- two\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "- one\n- two\n",
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -476,7 +534,10 @@ test "experimental MarkdownIR: list items expose flow-content paragraphs" {
 ///|
 test "experimental MarkdownIR: nested list item lowers as flow child" {
   let source = "- parent\n  - child\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -504,7 +565,10 @@ test "experimental MarkdownIR: nested list item lowers as flow child" {
 ///|
 test "experimental MarkdownIR: adjacent nested marker boundary stays in list item flow" {
   let source = "- parent\n  - child\n  + child2\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -514,7 +578,10 @@ test "experimental MarkdownIR: adjacent nested marker boundary stays in list ite
             content="[\"Paragraph\", \"UnorderedList\", \"UnorderedList\"]",
           )
           inspect(
-            experimental_markdown_ir_canonical_format(ir),
+            experimental_markdown_ir_canonical_format(
+              @core.SourceId("markdown-ir-test-document"),
+              ir,
+            ),
             content="- parent\n  - child\n  + child2",
           )
           assert_markdown_ir_block_matches_direct_parse(source)
@@ -528,7 +595,10 @@ test "experimental MarkdownIR: adjacent nested marker boundary stays in list ite
 ///|
 test "experimental MarkdownIR: multi-item nested list lowers as one flow child" {
   let source = "- a\n  - b\n  - c\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -547,7 +617,10 @@ test "experimental MarkdownIR: multi-item nested list lowers as one flow child" 
                 ),
               )
               inspect(
-                experimental_markdown_ir_canonical_format(ir),
+                experimental_markdown_ir_canonical_format(
+                  @core.SourceId("markdown-ir-test-document"),
+                  ir,
+                ),
                 content="- a\n  - b\n  - c",
               )
               assert_markdown_ir_block_matches_direct_parse(source)
@@ -568,7 +641,10 @@ test "experimental MarkdownIR: multi-item nested list lowers as one flow child" 
 ///|
 test "experimental MarkdownIR: outdented marker resumes top-level list after nested flow" {
   let source = "- a\n  - b\n- c\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -588,7 +664,10 @@ test "experimental MarkdownIR: outdented marker resumes top-level list after nes
             ),
           )
           inspect(
-            experimental_markdown_ir_canonical_format(ir),
+            experimental_markdown_ir_canonical_format(
+              @core.SourceId("markdown-ir-test-document"),
+              ir,
+            ),
             content="- a\n  - b\n- c",
           )
           assert_markdown_ir_block_matches_direct_parse(source)
@@ -602,7 +681,10 @@ test "experimental MarkdownIR: outdented marker resumes top-level list after nes
 ///|
 test "experimental MarkdownIR: list item lazy continuation stays in item paragraph" {
   let source = "- a\nb\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -628,7 +710,10 @@ test "experimental MarkdownIR: list item lazy continuation stays in item paragra
 ///|
 test "experimental MarkdownIR: non-one ordered marker lazy continuation stays in item paragraph" {
   let source = "- a\n2. b\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -641,7 +726,10 @@ test "experimental MarkdownIR: non-one ordered marker lazy continuation stays in
 ///|
 test "experimental MarkdownIR: indented non-one ordered marker starts nested ordered list" {
   let source = "- a\n  2. b\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -654,7 +742,10 @@ test "experimental MarkdownIR: indented non-one ordered marker starts nested ord
 ///|
 test "experimental MarkdownIR: list item preserves whitespace-only inline syntax" {
   let source = "- ` `\n- [](/)\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -678,7 +769,10 @@ test "experimental MarkdownIR: direct list-item inline filtering matches Block a
 ///|
 test "experimental MarkdownIR: loose list separator sets list spread" {
   let source = "- one\n\n- two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -703,7 +797,10 @@ test "experimental MarkdownIR: loose list separator sets list spread" {
 ///|
 test "experimental MarkdownIR: same-marker loose list carries marker metadata" {
   let source = "- one\n\n- two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] => {
       debug_inspect(list.list_marker(), content="Some(Dash)")
@@ -722,7 +819,10 @@ test "experimental MarkdownIR: same-marker loose list carries marker metadata" {
 ///|
 test "experimental MarkdownIR: marker-change boundary carries marker metadata" {
   let source = "- one\n\n+ two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [first, second] => {
       debug_inspect(first.list_marker(), content="Some(Dash)")
@@ -735,7 +835,10 @@ test "experimental MarkdownIR: marker-change boundary carries marker metadata" {
 ///|
 test "experimental MarkdownIR: ordered list delimiter boundary carries start metadata" {
   let source = "1. one\n2. two\n3) three\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [first, second] => {
       inspect(first.kind_tag(), content="OrderedList")
@@ -775,7 +878,10 @@ test "experimental MarkdownIR: ordered list delimiter boundary carries start met
 ///|
 test "experimental MarkdownIR: blank-line-separated marker change stays separate lists" {
   let source = "- one\n\n+ two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [first, second] => {
       debug_inspect(first.spread(), content="Some(false)")
@@ -826,7 +932,10 @@ test "experimental MarkdownIR: lex-valid malformed heading/list recovery matches
 ///|
 test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics" {
   let source = "[unclosed\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children().search_by(child => child.is_recovered()) {
@@ -847,13 +956,18 @@ test "experimental MarkdownIR: recovered nodes carry parser recovery diagnostics
 ///|
 test "experimental MarkdownIR: incoming diagnostics are attached to recovered nodes" {
   let source = "[unclosed\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "synthetic recovery diagnostic", 0, 1, "synthetic-recovery",
+    @core.SourceId("markdown-ir-test-document"),
+    "synthetic recovery diagnostic",
+    0,
+    1,
+    "synthetic-recovery",
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     cst,
     @core.DiagnosticSet::single(diagnostic),
   )
@@ -874,13 +988,18 @@ test "experimental MarkdownIR: incoming diagnostics are attached to recovered no
 ///|
 test "experimental MarkdownIR: diagnostics do not reclassify literal emphasis" {
   let source = "\\*literal*\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "synthetic literal diagnostic", 9, 10, "synthetic-literal",
+    @core.SourceId("markdown-ir-test-document"),
+    "synthetic literal diagnostic",
+    9,
+    10,
+    "synthetic-literal",
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     cst,
     @core.DiagnosticSet::single(diagnostic),
   )
@@ -904,26 +1023,42 @@ test "experimental MarkdownIR: diagnostics do not reclassify literal emphasis" {
 ///|
 test "experimental MarkdownIR: zero-width incoming diagnostics attach only with positive overlap" {
   let source = "[unclosed\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostics = @core.DiagnosticSet::empty()
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "zero-width at recovered start", 0, 0, "synthetic-zero",
+      @core.SourceId("markdown-ir-test-document"),
+      "zero-width at recovered start",
+      0,
+      0,
+      "synthetic-zero",
     ),
   )
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "positive recovered overlap", 0, 1, "synthetic-positive",
+      @core.SourceId("markdown-ir-test-document"),
+      "positive recovered overlap",
+      0,
+      1,
+      "synthetic-positive",
     ),
   )
   diagnostics.push(
     @core.Diagnostic::lexer_error_at(
-      "zero-width at recovered end", 1, 1, "synthetic-zero",
+      @core.SourceId("markdown-ir-test-document"),
+      "zero-width at recovered end",
+      1,
+      1,
+      "synthetic-zero",
     ),
   )
-  let ir = experimental_markdown_ir_from_cst_with_diagnostics(cst, diagnostics)
+  let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
+    cst,
+    diagnostics,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children().search_by(child => child.is_recovered()) {
@@ -949,12 +1084,13 @@ test "experimental MarkdownIR: zero-width incoming diagnostics attach only with 
 ///|
 test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
   let source = "[text](\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     cst,
-    malformed_link_raw_diagnostics(),
+    malformed_link_raw_diagnostics(@core.SourceId("markdown-ir-test-document")),
   )
   match ir.children() {
     [paragraph] =>
@@ -989,9 +1125,17 @@ test "experimental MarkdownIR: incoming diagnostics are attached to raw nodes" {
 ///|
 test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as raw" {
   let source = "[text](\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let via_ir = experimental_markdown_ir_to_block(ir)
-  inspect(via_ir, content=@debug.to_string(parse(source)))
+  inspect(
+    via_ir,
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1017,12 +1161,13 @@ test "experimental MarkdownIR: unclosed link parens preserve orphan tokens as ra
 ///|
 test "experimental MarkdownIR: mdastRaw export carries injected diagnostics" {
   let source = "[text](\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     cst,
-    malformed_link_raw_diagnostics(),
+    malformed_link_raw_diagnostics(@core.SourceId("markdown-ir-test-document")),
   )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
@@ -1035,13 +1180,18 @@ test "experimental MarkdownIR: mdastRaw export carries injected diagnostics" {
 ///|
 test "experimental MarkdownIR: mdastRecovered export carries injected diagnostics" {
   let source = "[text](\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "synthetic recovered diagnostic", 0, 1, "synthetic-recovery",
+    @core.SourceId("markdown-ir-test-document"),
+    "synthetic recovered diagnostic",
+    0,
+    1,
+    "synthetic-recovery",
   )
   let ir = experimental_markdown_ir_from_cst_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     cst,
     @core.DiagnosticSet::single(diagnostic),
   )
@@ -1056,13 +1206,18 @@ test "experimental MarkdownIR: mdastRecovered export carries injected diagnostic
 ///|
 test "experimental MarkdownIR: direct syntax entry point attaches injected diagnostics to mdast recovered node" {
   let source = "[text](\n"
-  let (cst, _) = parse_cst(source) catch {
+  let (cst, _) = parse_cst(@core.SourceId("markdown-ir-test-document"), source) catch {
     _ => abort("Markdown parse failed for source: " + @debug.to_string(source))
   }
   let diagnostic = @core.Diagnostic::lexer_error_at(
-    "direct syntax recovered diagnostic", 0, 1, "synthetic-recovery",
+    @core.SourceId("markdown-ir-test-document"),
+    "direct syntax recovered diagnostic",
+    0,
+    1,
+    "synthetic-recovery",
   )
   let ir = experimental_markdown_ir_from_syntax_with_diagnostics(
+    @core.SourceId("markdown-ir-test-document"),
     @seam.SyntaxNode::from_cst(cst),
     @core.DiagnosticSet::single(diagnostic),
   )
@@ -1077,7 +1232,10 @@ test "experimental MarkdownIR: direct syntax entry point attaches injected diagn
 ///|
 test "experimental MarkdownIR: mdast position export converts UTF-16 origins to unist points" {
   let source = "# T\n\n😀a"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1089,7 +1247,10 @@ test "experimental MarkdownIR: mdast position export converts UTF-16 origins to 
 ///|
 test "experimental MarkdownIR: mdast position export covers raw and recovered nodes" {
   let source = "[text](\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1101,7 +1262,10 @@ test "experimental MarkdownIR: mdast position export covers raw and recovered no
 ///|
 test "experimental MarkdownIR: mdast position export trims code block separator blank lines" {
   let source = "```\nx\n```\n\nnext"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1113,7 +1277,10 @@ test "experimental MarkdownIR: mdast position export trims code block separator 
 ///|
 test "experimental MarkdownIR: mdast position export trims tilde code block separator blank lines" {
   let source = "~~~\nx\n~~~\n\nnext"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1125,7 +1292,10 @@ test "experimental MarkdownIR: mdast position export trims tilde code block sepa
 ///|
 test "experimental MarkdownIR: mdast position export finds indented tilde close fence" {
   let source = "~~~\nx\n  ~~~\n\nnext"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1137,7 +1307,10 @@ test "experimental MarkdownIR: mdast position export finds indented tilde close 
 ///|
 test "experimental MarkdownIR: mdast position export handles CRLF code fences" {
   let source = "```\r\nx\r\n```\r\n\r\nnext"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1149,7 +1322,10 @@ test "experimental MarkdownIR: mdast position export handles CRLF code fences" {
 ///|
 test "experimental MarkdownIR: mdast position export includes closing fence trailing spaces" {
   let source = "```\nx\n```  \nnext"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1161,7 +1337,10 @@ test "experimental MarkdownIR: mdast position export includes closing fence trai
 ///|
 test "experimental MarkdownIR: mdast position export preserves unclosed CRLF code fence" {
   let source = "```\r\ncode\r\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1173,7 +1352,10 @@ test "experimental MarkdownIR: mdast position export preserves unclosed CRLF cod
 ///|
 test "experimental MarkdownIR: mdast position export treats CRLF as paragraph newline" {
   let source = "Hello\r\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1185,7 +1367,10 @@ test "experimental MarkdownIR: mdast position export treats CRLF as paragraph ne
 ///|
 test "experimental MarkdownIR: mdast position export uses empty list item content range" {
   let source = "- \n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json_with_positions(ir, source).stringify(),
     content=(
@@ -1205,10 +1390,15 @@ test "experimental MarkdownIR: adjacent malformed links preserve raw delimiters"
 ///|
 test "experimental MarkdownIR: unclosed code fence remains a code block" {
   let source = "```\ncode without close\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_block(ir),
-    content=@debug.to_string(parse(source)),
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
   )
   match ir.children() {
     [code_block] => {
@@ -1233,7 +1423,10 @@ test "experimental MarkdownIR: Block adapter matches direct parse for current su
 ///|
 test "experimental MarkdownIR: preserve rewrite keeps source slices" {
   let source = "# Title\nParagraph text\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [heading, paragraph] => {
@@ -1253,7 +1446,10 @@ test "experimental MarkdownIR: preserve rewrite keeps source slices" {
 ///|
 test "experimental MarkdownIR: preserve rewrite round-trips code block" {
   let source = "```moonbit\nlet x = 1\n```\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
 }
 
@@ -1262,7 +1458,10 @@ fn local_code_block_content_rewrite(
   source : String,
   replacement_text : String,
 ) -> String raise {
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [code_block, ..] =>
       match code_block.content_origin() {
@@ -1330,7 +1529,7 @@ test "experimental MarkdownIR: local transform widens code fence for backticks" 
     "```\nold code\n```\n", "line\n```\nline", "````\nline\n```\nline\n````\n",
   )
   inspect(
-    parse(result),
+    parse(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
   )
 }
@@ -1340,7 +1539,10 @@ test "experimental MarkdownIR: local transform preserves unclosed code fence" {
   let result = assert_local_code_block_content_rewrite(
     "```\nold\n", "new", "```\nnew\n",
   )
-  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+  inspect(
+    parse(@core.SourceId("markdown-ir-test-document"), result),
+    content="Document([CodeBlock(\"\", \"new\")])",
+  )
 }
 
 ///|
@@ -1349,7 +1551,7 @@ test "experimental MarkdownIR: local transform widens unclosed code fence" {
     "```\nold\n", "line\n```\nline", "````\nline\n```\nline\n",
   )
   inspect(
-    parse(result),
+    parse(@core.SourceId("markdown-ir-test-document"), result),
     content="Document([CodeBlock(\"\", \"line\\n```\\nline\")])",
   )
 }
@@ -1371,7 +1573,10 @@ test "experimental MarkdownIR: local transform preserves CRLF code fence" {
 ///|
 test "experimental MarkdownIR: local transform rewrites empty closed code fence" {
   let source = "```\n```\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [code_block] =>
       match code_block.content_origin() {
@@ -1385,7 +1590,10 @@ test "experimental MarkdownIR: local transform rewrites empty closed code fence"
             replacement_text="new",
           )
           inspect(result, content="```\nnew\n```\n")
-          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+          inspect(
+            parse(@core.SourceId("markdown-ir-test-document"), result),
+            content="Document([CodeBlock(\"\", \"new\")])",
+          )
         }
         None => inspect("missing", content="code block content origin")
       }
@@ -1396,7 +1604,10 @@ test "experimental MarkdownIR: local transform rewrites empty closed code fence"
 ///|
 test "experimental MarkdownIR: local transform rewrites empty unclosed code fence" {
   let source = "```\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [code_block] =>
       match code_block.content_origin() {
@@ -1410,7 +1621,10 @@ test "experimental MarkdownIR: local transform rewrites empty unclosed code fenc
             replacement_text="new",
           )
           inspect(result, content="```\nnew\n")
-          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+          inspect(
+            parse(@core.SourceId("markdown-ir-test-document"), result),
+            content="Document([CodeBlock(\"\", \"new\")])",
+          )
         }
         None => inspect("missing", content="code block content origin")
       }
@@ -1421,7 +1635,10 @@ test "experimental MarkdownIR: local transform rewrites empty unclosed code fenc
 ///|
 test "experimental MarkdownIR: local transform rewrites empty EOF code fence" {
   let source = "```"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [code_block] =>
       match code_block.content_origin() {
@@ -1435,7 +1652,10 @@ test "experimental MarkdownIR: local transform rewrites empty EOF code fence" {
             replacement_text="new",
           )
           inspect(result, content="```\nnew\n")
-          inspect(parse(result), content="Document([CodeBlock(\"\", \"new\")])")
+          inspect(
+            parse(@core.SourceId("markdown-ir-test-document"), result),
+            content="Document([CodeBlock(\"\", \"new\")])",
+          )
         }
         None => inspect("missing", content="code block content origin")
       }
@@ -1448,7 +1668,10 @@ test "experimental MarkdownIR: empty code fence rewrite preserves replacement tr
   let result = assert_local_code_block_content_rewrite(
     "```\n```\n", "new\n", "```\nnew\n\n```\n",
   )
-  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\\n\")])")
+  inspect(
+    parse(@core.SourceId("markdown-ir-test-document"), result),
+    content="Document([CodeBlock(\"\", \"new\\n\")])",
+  )
 }
 
 ///|
@@ -1456,13 +1679,19 @@ test "experimental MarkdownIR: unclosed EOF code fence preserves replacement tra
   let result = assert_local_code_block_content_rewrite(
     "```\nold", "new\n", "```\nnew\n\n",
   )
-  inspect(parse(result), content="Document([CodeBlock(\"\", \"new\\n\")])")
+  inspect(
+    parse(@core.SourceId("markdown-ir-test-document"), result),
+    content="Document([CodeBlock(\"\", \"new\\n\")])",
+  )
 }
 
 ///|
 test "experimental MarkdownIR: local transform rewrites code block full origin" {
   let source = "```\nold code\n```\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [code_block] => {
       let result = experimental_markdown_ir_local_transform_rewrite(
@@ -1480,7 +1709,10 @@ test "experimental MarkdownIR: local transform rewrites code block full origin" 
 ///|
 test "experimental MarkdownIR: local transform sibling preserves code block" {
   let source = "Para.\n\n```\ncode here\n```\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph, _] =>
       match paragraph.content_origin() {
@@ -1502,10 +1734,18 @@ test "experimental MarkdownIR: local transform sibling preserves code block" {
 ///|
 test "experimental MarkdownIR: unmatched inline delimiters adapt to text" {
   let source = "Hello *\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let block = experimental_markdown_ir_to_block(ir)
   inspect(block, content="Document([Paragraph([Text(\"Hello *\")])])")
-  inspect(block, content=@debug.to_string(parse(source)))
+  inspect(
+    block,
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1522,7 +1762,10 @@ test "experimental MarkdownIR: unmatched inline delimiters adapt to text" {
 ///|
 test "experimental MarkdownIR: local transform splices changed text" {
   let source = "# Title\nParagraph text\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [_, paragraph] =>
       match paragraph.children() {
@@ -1556,8 +1799,14 @@ test "experimental MarkdownIR: Block adapter matches nested inline soft breaks" 
 ///|
 test "experimental MarkdownIR: canonical format preserves hard breaks" {
   let source = "aaa     \nbbb     \n"
-  let ir = markdown_ir_from_source(source)
-  let canonical = experimental_markdown_ir_canonical_format(ir)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
+  let canonical = experimental_markdown_ir_canonical_format(
+    @core.SourceId("markdown-ir-test-document"),
+    ir,
+  )
   inspect(canonical, content="aaa  \nbbb")
   inspect(
     experimental_markdown_ir_to_block(ir),
@@ -1574,26 +1823,38 @@ test "experimental MarkdownIR: canonical format preserves hard breaks" {
       }
     _ => inspect("unexpected child count", content="one paragraph")
   }
-  let reparsed = markdown_ir_from_source(canonical)
+  let reparsed = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    canonical,
+  )
   inspect(
     experimental_markdown_ir_to_commonmark_html(reparsed),
     content="<p>aaa<br />\nbbb</p>\n",
   )
   inspect(
-    experimental_markdown_ir_canonical_format(reparsed),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      reparsed,
+    ),
     content=canonical,
   )
 }
 
 ///|
 test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
-  let strong_hard = markdown_ir_from_source("**foo  \nbar**\n")
+  let strong_hard = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "**foo  \nbar**\n",
+  )
   inspect(
     experimental_markdown_ir_to_commonmark_html(strong_hard),
     content="<p><strong>foo<br />\nbar</strong></p>\n",
   )
   inspect(
-    experimental_markdown_ir_canonical_format(strong_hard),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      strong_hard,
+    ),
     content="**foo  \nbar**",
   )
   inspect(
@@ -1604,7 +1865,10 @@ test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
   )
   inspect(
     experimental_markdown_ir_to_commonmark_html(
-      markdown_ir_from_source("**foo\nbar**\n"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        "**foo\nbar**\n",
+      ),
     ),
     content="<p><strong>foo\nbar</strong></p>\n",
   )
@@ -1613,7 +1877,10 @@ test "experimental MarkdownIR: inline delimiter close flushes pending breaks" {
 ///|
 test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
   let source = "line one\nline two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1636,7 +1903,10 @@ test "experimental MarkdownIR: local transform renders paragraph soft breaks" {
 ///|
 test "experimental MarkdownIR: local transform rewrites link destination origin" {
   let source = "[label](old)\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1661,7 +1931,10 @@ test "experimental MarkdownIR: local transform rewrites link destination origin"
 
 ///|
 test "experimental MarkdownIR: link label origin excludes brackets" {
-  let ir = markdown_ir_from_source("[label](old)\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[label](old)\n",
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1681,7 +1954,10 @@ test "experimental MarkdownIR: link label origin excludes brackets" {
 
 ///|
 test "experimental MarkdownIR: formatted link label origin includes delimiters" {
-  let ir = markdown_ir_from_source("[**label**](old)\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[**label**](old)\n",
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1702,7 +1978,10 @@ test "experimental MarkdownIR: formatted link label origin includes delimiters" 
 ///|
 test "experimental MarkdownIR: local transform rewrites inline code content origin" {
   let source = "`code`\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1737,7 +2016,10 @@ test "experimental MarkdownIR: local transform rewrites inline code content orig
 ///|
 test "experimental MarkdownIR: local transform preserves noncanonical inline code sibling" {
   let source = "`` foo ` bar ``old\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1751,10 +2033,16 @@ test "experimental MarkdownIR: local transform preserves noncanonical inline cod
           inspect(local_rewrite, content="`` foo ` bar ``new\n")
           inspect(
             experimental_markdown_ir_to_mdast_json(
-              markdown_ir_from_source(local_rewrite),
+              markdown_ir_from_source(
+                @core.SourceId("markdown-ir-test-document"),
+                local_rewrite,
+              ),
             ).stringify(),
             content=experimental_markdown_ir_to_mdast_json(
-              markdown_ir_from_source("`` foo ` bar ``new\n"),
+              markdown_ir_from_source(
+                @core.SourceId("markdown-ir-test-document"),
+                "`` foo ` bar ``new\n",
+              ),
             ).stringify(),
           )
         }
@@ -1771,7 +2059,10 @@ test "experimental MarkdownIR: local transform preserves noncanonical inline cod
 ///|
 test "experimental MarkdownIR: local transform rewrites container content origins" {
   let source = "# Old\n\nHello **world**\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [heading, paragraph] => {
       match heading.content_origin() {
@@ -1808,7 +2099,10 @@ test "experimental MarkdownIR: local transform rewrites container content origin
 ///|
 test "experimental MarkdownIR: local transform rewrites full node origins" {
   let source = "# Old\n\nParagraph\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [heading, _] => {
       let local_rewrite = experimental_markdown_ir_local_transform_rewrite(
@@ -1826,7 +2120,10 @@ test "experimental MarkdownIR: local transform rewrites full node origins" {
 ///|
 test "experimental MarkdownIR: local transform preserves inline container siblings" {
   let source = "Hello **world** tail\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1848,7 +2145,10 @@ test "experimental MarkdownIR: local transform preserves inline container siblin
 ///|
 test "experimental MarkdownIR: local transform preserves escaped text sibling" {
   let source = "\\*literal* and **old**\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -1884,7 +2184,10 @@ test "experimental MarkdownIR: local transform preserves escaped text sibling" {
 test "experimental MarkdownIR: local transform preserves underscore emphasis delimiters" {
   for case in [("_old_\n", "_new_\n"), ("__old__\n", "__new__\n")] {
     let (source, expected) = case
-    let ir = markdown_ir_from_source(source)
+    let ir = markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      source,
+    )
     match ir.children() {
       [paragraph] =>
         match paragraph.children() {
@@ -1911,7 +2214,10 @@ test "experimental MarkdownIR: local transform preserves underscore emphasis del
 ///|
 test "experimental MarkdownIR: local transform preserves CRLF block ending" {
   let source = "# Old\r\nParagraph\r\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [_, paragraph] =>
       match paragraph.content_origin() {
@@ -1932,20 +2238,36 @@ test "experimental MarkdownIR: local transform preserves CRLF block ending" {
 
 ///|
 test "experimental MarkdownIR: canonical formatter renders inline containers" {
-  let ir = markdown_ir_from_source("Hello **world** and [link](u(1))\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "Hello **world** and [link](u(1))\n",
+  )
   inspect(
-    experimental_markdown_ir_canonical_format(ir),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      ir,
+    ),
     content="Hello **world** and [link](u(1))",
   )
 }
 
 ///|
 test "experimental MarkdownIR: checked canonical formatter preserves literal marker semantics" {
-  let ir = markdown_ir_from_source("\\*a\\*\n")
-  match experimental_markdown_ir_canonical_format_checked(ir) {
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "\\*a\\*\n",
+  )
+  match
+    experimental_markdown_ir_canonical_format_checked(
+      @core.SourceId("markdown-ir-test-document"),
+      ir,
+    ) {
     Ok(formatted) => {
       assert_eq(formatted, "\\*a\\*")
-      let reparsed = markdown_ir_from_source(formatted)
+      let reparsed = markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        formatted,
+      )
       assert_eq(
         experimental_markdown_ir_to_mdast_json(reparsed).stringify(),
         experimental_markdown_ir_to_mdast_json(ir).stringify(),
@@ -1957,16 +2279,29 @@ test "experimental MarkdownIR: checked canonical formatter preserves literal mar
 
 ///|
 fn assert_checked_canonical_round_trip(source : String) -> String raise {
-  let intended = markdown_ir_from_source(source)
-  match experimental_markdown_ir_canonical_format_checked(intended) {
+  let intended = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
+  match
+    experimental_markdown_ir_canonical_format_checked(
+      @core.SourceId("markdown-ir-test-document"),
+      intended,
+    ) {
     Ok(formatted) => {
-      let reparsed = markdown_ir_from_source(formatted)
+      let reparsed = markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        formatted,
+      )
       assert_eq(
         experimental_markdown_ir_to_commonmark_html(reparsed),
         experimental_markdown_ir_to_commonmark_html(intended),
       )
       assert_eq(
-        experimental_markdown_ir_canonical_format_checked(reparsed),
+        experimental_markdown_ir_canonical_format_checked(
+          @core.SourceId("markdown-ir-test-document"),
+          reparsed,
+        ),
         Ok(formatted),
       )
       formatted
@@ -1996,19 +2331,34 @@ test "experimental MarkdownIR: checked canonical formatter covers delimiter inte
 test "experimental MarkdownIR: checked canonical formatter validates block context" {
   let formatted = assert_checked_canonical_round_trip("\\-\\-\\-\n")
   assert_eq(formatted, "\\-\\-\\-")
-  assert_eq(parse(formatted), Document([Paragraph([Text("---")])]))
+  assert_eq(
+    parse(@core.SourceId("markdown-ir-test-document"), formatted),
+    Document([Paragraph([Text("---")])]),
+  )
 }
 
 ///|
 test "experimental MarkdownIR: checked and compatibility roots stay distinct" {
-  let document = markdown_ir_from_source("plain\n")
+  let document = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "plain\n",
+  )
   match document.children() {
     [paragraph] => {
       assert_eq(
-        experimental_markdown_ir_canonical_format_checked(paragraph),
+        experimental_markdown_ir_canonical_format_checked(
+          @core.SourceId("markdown-ir-test-document"),
+          paragraph,
+        ),
         Err(ExpectedDocument),
       )
-      assert_eq(experimental_markdown_ir_canonical_format(paragraph), "plain")
+      assert_eq(
+        experimental_markdown_ir_canonical_format(
+          @core.SourceId("markdown-ir-test-document"),
+          paragraph,
+        ),
+        "plain",
+      )
     }
     _ => fail("expected one paragraph")
   }
@@ -2016,36 +2366,65 @@ test "experimental MarkdownIR: checked and compatibility roots stay distinct" {
 
 ///|
 test "experimental MarkdownIR: checked formatter rejects opaque compatibility input" {
-  let document = markdown_ir_from_source("[text](url\n")
-  match experimental_markdown_ir_canonical_format_checked(document) {
+  let document = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[text](url\n",
+  )
+  match
+    experimental_markdown_ir_canonical_format_checked(
+      @core.SourceId("markdown-ir-test-document"),
+      document,
+    ) {
     Err(OpaqueNode(kind, Some(_))) =>
       assert_eq(kind, MarkdownIRCanonicalOpaqueKind::Recovered)
     other =>
       fail("expected checked opaque rejection, got " + @debug.to_string(other))
   }
-  assert_eq(experimental_markdown_ir_canonical_format(document), "[text](url")
+  assert_eq(
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      document,
+    ),
+    "[text](url",
+  )
 }
 
 ///|
 test "experimental MarkdownIR: canonical code fence exceeds content backtick run" {
   let formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("````\n```\n````\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "````\n```\n````\n",
+    ),
   )
   inspect(formatted, content="````\n```\n````")
-  inspect(parse(formatted), content="Document([CodeBlock(\"\", \"```\")])")
+  inspect(
+    parse(@core.SourceId("markdown-ir-test-document"), formatted),
+    content="Document([CodeBlock(\"\", \"```\")])",
+  )
 }
 
 ///|
 test "experimental MarkdownIR: canonical inline code protects interior backticks" {
   let source = "``foo ` bar``\n"
   let canonical = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(canonical, content="``foo ` bar``")
   inspect(
-    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        canonical,
+      ),
+    ).stringify(),
     content=experimental_markdown_ir_to_mdast_json(
-      markdown_ir_from_source(source),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        source,
+      ),
     ).stringify(),
   )
 }
@@ -2054,13 +2433,22 @@ test "experimental MarkdownIR: canonical inline code protects interior backticks
 test "experimental MarkdownIR: canonical inline code preserves boundary spaces around backticks" {
   let source = "``  `  ``\n"
   let canonical = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(canonical, content="``  `  ``")
   inspect(
-    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        canonical,
+      ),
+    ).stringify(),
     content=experimental_markdown_ir_to_mdast_json(
-      markdown_ir_from_source(source),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        source,
+      ),
     ).stringify(),
   )
 }
@@ -2069,13 +2457,22 @@ test "experimental MarkdownIR: canonical inline code preserves boundary spaces a
 test "experimental MarkdownIR: canonical inline code keeps all and one-sided spaces" {
   let source = "`  ` ``  foo `` `` foo  ``\n"
   let canonical = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(canonical, content="`  ` ` foo` `foo `")
   inspect(
-    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        canonical,
+      ),
+    ).stringify(),
     content=experimental_markdown_ir_to_mdast_json(
-      markdown_ir_from_source(source),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        source,
+      ),
     ).stringify(),
   )
 }
@@ -2084,13 +2481,22 @@ test "experimental MarkdownIR: canonical inline code keeps all and one-sided spa
 test "experimental MarkdownIR: canonical inline code protects edge and maximal runs" {
   let source = "`` `foo `` `` foo` `` ```foo `` bar```\n"
   let canonical = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(canonical, content="`` `foo `` `` foo` `` ```foo `` bar```")
   inspect(
-    experimental_markdown_ir_to_mdast_json(markdown_ir_from_source(canonical)).stringify(),
+    experimental_markdown_ir_to_mdast_json(
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        canonical,
+      ),
+    ).stringify(),
     content=experimental_markdown_ir_to_mdast_json(
-      markdown_ir_from_source(source),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        source,
+      ),
     ).stringify(),
   )
 }
@@ -2098,11 +2504,15 @@ test "experimental MarkdownIR: canonical inline code protects edge and maximal r
 ///|
 test "experimental MarkdownIR: canonical format preserves code block info string" {
   let formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("```moonbit\nlet x = 1\n```\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "```moonbit\nlet x = 1\n```\n",
+    ),
   )
   inspect(formatted, content="```moonbit\nlet x = 1\n```")
   inspect(
-    parse(formatted),
+    parse(@core.SourceId("markdown-ir-test-document"), formatted),
     content="Document([CodeBlock(\"moonbit\", \"let x = 1\")])",
   )
 }
@@ -2110,9 +2520,15 @@ test "experimental MarkdownIR: canonical format preserves code block info string
 ///|
 test "experimental MarkdownIR: rewrite modes are distinguishable" {
   let source = "# Title\nParagraph text\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let preserve = experimental_markdown_ir_preserve_rewrite(ir, source)
-  let canonical = experimental_markdown_ir_canonical_format(ir)
+  let canonical = experimental_markdown_ir_canonical_format(
+    @core.SourceId("markdown-ir-test-document"),
+    ir,
+  )
   match ir.children() {
     [_, paragraph] =>
       match paragraph.children() {
@@ -2138,9 +2554,17 @@ test "experimental MarkdownIR: rewrite modes are distinguishable" {
 ///|
 test "experimental MarkdownIR: Inline adapter renders raw children as text" {
   let source = "[text](url\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let block = experimental_markdown_ir_to_block(ir)
-  inspect(block, content=@debug.to_string(parse(source)))
+  inspect(
+    block,
+    content=@debug.to_string(
+      parse(@core.SourceId("markdown-ir-test-document"), source),
+    ),
+  )
   match block {
     Document([Paragraph(inlines)]) =>
       match inlines {
@@ -2155,7 +2579,8 @@ test "experimental MarkdownIR: Inline adapter renders raw children as text" {
 test "experimental MarkdownIR: canonical formatter preserves recovered source text" {
   let source = "Hello *\n"
   let formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(formatted, content="Hello *")
 }
@@ -2164,7 +2589,8 @@ test "experimental MarkdownIR: canonical formatter preserves recovered source te
 test "experimental MarkdownIR: canonical formatter passes raw text through" {
   let source = "[text](url\n"
   let formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source(source),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(@core.SourceId("markdown-ir-test-document"), source),
   )
   inspect(formatted, content="[text](url")
 }
@@ -2172,7 +2598,10 @@ test "experimental MarkdownIR: canonical formatter passes raw text through" {
 ///|
 test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
   let source = "[unclosed\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [paragraph] =>
@@ -2188,7 +2617,10 @@ test "experimental MarkdownIR: preserve rewrite keeps recovered source slice" {
 ///|
 test "experimental MarkdownIR: local transform replaces recovered text" {
   let source = "[unclosed\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2210,7 +2642,10 @@ test "experimental MarkdownIR: local transform replaces recovered text" {
 ///|
 test "experimental MarkdownIR: preserve rewrite round-trips valid link" {
   let source = "[text](url)\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [paragraph] =>
@@ -2229,7 +2664,10 @@ test "experimental MarkdownIR: preserve rewrite round-trips valid link" {
 ///|
 test "experimental MarkdownIR: local transform rewrites link label" {
   let source = "[old](url)\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2255,7 +2693,10 @@ test "experimental MarkdownIR: local transform rewrites link label" {
 ///|
 test "experimental MarkdownIR: local transform preserves sibling link" {
   let source = "Hello [link](url) world\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2278,7 +2719,10 @@ test "experimental MarkdownIR: local transform preserves sibling link" {
 ///|
 test "experimental MarkdownIR: local transform replaces raw delimiter in malformed link" {
   let source = "[text](\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2304,7 +2748,10 @@ test "experimental MarkdownIR: local transform replaces raw delimiter in malform
 ///|
 test "experimental MarkdownIR: local transform replaces recovered opener in malformed link" {
   let source = "[text](\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2329,7 +2776,10 @@ test "experimental MarkdownIR: local transform replaces recovered opener in malf
 
 ///|
 test "experimental MarkdownIR: canonical formatter renders rich and multiple links" {
-  let bold_link = markdown_ir_from_source("[**bold** text](url)")
+  let bold_link = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[**bold** text](url)",
+  )
   match bold_link.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2351,11 +2801,17 @@ test "experimental MarkdownIR: canonical formatter renders rich and multiple lin
     _ => inspect("unexpected child count", content="one paragraph")
   }
   inspect(
-    experimental_markdown_ir_canonical_format(bold_link),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      bold_link,
+    ),
     content="[**bold** text](url)",
   )
 
-  let code_link = markdown_ir_from_source("[`code` here](url)")
+  let code_link = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[`code` here](url)",
+  )
   match code_link.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2377,11 +2833,17 @@ test "experimental MarkdownIR: canonical formatter renders rich and multiple lin
     _ => inspect("unexpected child count", content="one paragraph")
   }
   inspect(
-    experimental_markdown_ir_canonical_format(code_link),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      code_link,
+    ),
     content="[`code` here](url)",
   )
 
-  let multiple_links = markdown_ir_from_source("[a](u1) and [b](u2)\n")
+  let multiple_links = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[a](u1) and [b](u2)\n",
+  )
   match multiple_links.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2398,7 +2860,10 @@ test "experimental MarkdownIR: canonical formatter renders rich and multiple lin
     _ => inspect("unexpected child count", content="one paragraph")
   }
   inspect(
-    experimental_markdown_ir_canonical_format(multiple_links),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      multiple_links,
+    ),
     content="[a](u1) and [b](u2)",
   )
 }
@@ -2406,7 +2871,10 @@ test "experimental MarkdownIR: canonical formatter renders rich and multiple lin
 ///|
 test "experimental MarkdownIR: heading preserve rewrite keeps source slices" {
   let source = "### Deep\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [heading] =>
@@ -2422,13 +2890,21 @@ test "experimental MarkdownIR: heading preserve rewrite keeps source slices" {
 test "experimental MarkdownIR: heading canonical format keeps ATX depth" {
   inspect(
     experimental_markdown_ir_canonical_format(
-      markdown_ir_from_source("### Deep\n"),
+      @core.SourceId("markdown-ir-test-document"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        "### Deep\n",
+      ),
     ),
     content="### Deep",
   )
   inspect(
     experimental_markdown_ir_canonical_format(
-      markdown_ir_from_source("# Shallow\n"),
+      @core.SourceId("markdown-ir-test-document"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        "# Shallow\n",
+      ),
     ),
     content="# Shallow",
   )
@@ -2437,7 +2913,10 @@ test "experimental MarkdownIR: heading canonical format keeps ATX depth" {
 ///|
 test "experimental MarkdownIR: heading local transform rewrites content origin" {
   let source = "### Old\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [heading] =>
       match heading.content_origin() {
@@ -2460,9 +2939,15 @@ test "experimental MarkdownIR: heading local transform rewrites content origin" 
 ///|
 test "experimental MarkdownIR: heading rewrite modes are distinguishable" {
   let source = "# Title\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let preserve = experimental_markdown_ir_preserve_rewrite(ir, source)
-  let canonical = experimental_markdown_ir_canonical_format(ir)
+  let canonical = experimental_markdown_ir_canonical_format(
+    @core.SourceId("markdown-ir-test-document"),
+    ir,
+  )
   match ir.children() {
     [heading] =>
       match heading.content_origin() {
@@ -2489,7 +2974,10 @@ test "experimental MarkdownIR: heading rewrite modes are distinguishable" {
 ///|
 test "experimental MarkdownIR: unordered list preserve rewrite keeps source slices" {
   let source = "- one\n- two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   match ir.children() {
     [list] => {
@@ -2518,32 +3006,56 @@ test "experimental MarkdownIR: unordered list preserve rewrite keeps source slic
 ///|
 test "experimental MarkdownIR: unordered list canonical format keeps items" {
   let formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("- one\n- two\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "- one\n- two\n",
+    ),
   )
   inspect(formatted, content="- one\n- two")
   let normalized_marker_formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("* one\n* two\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "* one\n* two\n",
+    ),
   )
   inspect(normalized_marker_formatted, content="- one\n- two")
   inspect(
     experimental_markdown_ir_canonical_format(
-      markdown_ir_from_source(formatted),
+      @core.SourceId("markdown-ir-test-document"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        formatted,
+      ),
     ),
     content=formatted,
   )
 
   let boundary_formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("* one\n+ two\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "* one\n+ two\n",
+    ),
   )
   inspect(boundary_formatted, content="- one\n\n+ two")
 
   let rich_formatted = experimental_markdown_ir_canonical_format(
-    markdown_ir_from_source("- **bold** item\n- `code`\n"),
+    @core.SourceId("markdown-ir-test-document"),
+    markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      "- **bold** item\n- `code`\n",
+    ),
   )
   inspect(rich_formatted, content="- **bold** item\n- `code`")
   inspect(
     experimental_markdown_ir_canonical_format(
-      markdown_ir_from_source(rich_formatted),
+      @core.SourceId("markdown-ir-test-document"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-test-document"),
+        rich_formatted,
+      ),
     ),
     content=rich_formatted,
   )
@@ -2552,9 +3064,15 @@ test "experimental MarkdownIR: unordered list canonical format keeps items" {
 ///|
 test "experimental MarkdownIR: unordered list local transform and modes are distinguishable" {
   let source = "- old\n- two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   let preserve = experimental_markdown_ir_preserve_rewrite(ir, source)
-  let canonical = experimental_markdown_ir_canonical_format(ir)
+  let canonical = experimental_markdown_ir_canonical_format(
+    @core.SourceId("markdown-ir-test-document"),
+    ir,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -2585,10 +3103,16 @@ test "experimental MarkdownIR: unordered list local transform and modes are dist
 ///|
 test "experimental MarkdownIR: nested unordered list rewrites preserve flow children" {
   let source = "- parent\n  - child\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   inspect(
-    experimental_markdown_ir_canonical_format(ir),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-test-document"),
+      ir,
+    ),
     content="- parent\n  - child",
   )
   match ir.children() {
@@ -2636,7 +3160,10 @@ test "experimental MarkdownIR: nested unordered list rewrites preserve flow chil
 ///|
 test "experimental MarkdownIR: ordered list local transform preserves marker source" {
   let source = "01. old\n02. two\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -2661,7 +3188,10 @@ test "experimental MarkdownIR: ordered list local transform preserves marker sou
 
 ///|
 test "experimental MarkdownIR: unmatched maximal backtick run remains literal text" {
-  let ir = markdown_ir_from_source("``unclosed\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "``unclosed\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -2672,7 +3202,10 @@ test "experimental MarkdownIR: unmatched maximal backtick run remains literal te
 
 ///|
 test "experimental MarkdownIR: escaped literal backtick spans token boundaries" {
-  let ir = markdown_ir_from_source("\\`\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "\\`\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -2684,7 +3217,10 @@ test "experimental MarkdownIR: escaped literal backtick spans token boundaries" 
 ///|
 test "experimental MarkdownIR: escaped literal backtick joins adjacent text" {
   let source = "\\`literal\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   match ir.children() {
     [paragraph] =>
       match paragraph.children() {
@@ -2703,7 +3239,10 @@ test "experimental MarkdownIR: escaped literal backtick joins adjacent text" {
 
 ///|
 test "experimental MarkdownIR: code spans normalize line endings and boundaries" {
-  let ir = markdown_ir_from_source("` a\nb `\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "` a\nb `\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -2715,7 +3254,10 @@ test "experimental MarkdownIR: code spans normalize line endings and boundaries"
 ///|
 test "experimental MarkdownIR: code spans normalize CRLF and carriage returns" {
   for source in ["`a\r\nb`\n", "`a\rb`\n"] {
-    let ir = markdown_ir_from_source(source)
+    let ir = markdown_ir_from_source(
+      @core.SourceId("markdown-ir-test-document"),
+      source,
+    )
     inspect(
       experimental_markdown_ir_to_mdast_json(ir).stringify(),
       content=(
@@ -2728,7 +3270,10 @@ test "experimental MarkdownIR: code spans normalize CRLF and carriage returns" {
 ///|
 test "experimental MarkdownIR: code spans retain root indentation and content origin" {
   let source = "`a\n  b`\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    source,
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -2752,7 +3297,10 @@ test "experimental MarkdownIR: code spans retain root indentation and content or
 
 ///|
 test "experimental MarkdownIR: code spans retain excess list continuation indentation" {
-  let ir = markdown_ir_from_source("- `a\n    b`\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "- `a\n    b`\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(
@@ -2763,7 +3311,10 @@ test "experimental MarkdownIR: code spans retain excess list continuation indent
 
 ///|
 test "experimental MarkdownIR: code spans crossing a block quote have no content origin" {
-  let ir = markdown_ir_from_source("> `a\n> b`\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "> `a\n> b`\n",
+  )
   match ir.children() {
     [quote] =>
       match quote.children() {
@@ -2781,7 +3332,10 @@ test "experimental MarkdownIR: code spans crossing a block quote have no content
 
 ///|
 test "experimental MarkdownIR: code spans crossing a list continuation have no content origin" {
-  let ir = markdown_ir_from_source("- `a\n  b`\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "- `a\n  b`\n",
+  )
   match ir.children() {
     [list] =>
       match list.children() {
@@ -2807,7 +3361,10 @@ test "experimental MarkdownIR: code spans crossing a list continuation have no c
 
 ///|
 test "experimental MarkdownIR: link label retains escaped literal backtick" {
-  let ir = markdown_ir_from_source("[\\`literal](/)\n")
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-test-document"),
+    "[\\`literal](/)\n",
+  )
   inspect(
     experimental_markdown_ir_to_mdast_json(ir).stringify(),
     content=(

@@ -268,25 +268,33 @@ pub fn json_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 }
 
 ///|
-fn tokenize_recoverable(input : String) -> Array[@core.TokenInfo[Token]] {
+fn tokenize_recoverable(
+  source_id : @core.SourceId,
+  input : String,
+) -> Array[@core.TokenInfo[Token]] {
   @core.TokenBuffer::new_from_steps(
+    source_id,
     input,
     @core.PrefixLexer::new(lex_step=json_step_lexer),
     eof_token=EOF,
     error_token=Error(""),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   ).get_tokens()
 }
 
 ///|
 /// Total structured lexer used by the high-level Grammar boundary.
-pub fn lex(input : String) -> @core.LexResult[Token] {
+pub fn lex(
+  source_id : @core.SourceId,
+  input : String,
+) -> @core.LexResult[Token] {
   let buffer = @core.TokenBuffer::new_from_steps(
+    source_id,
     input,
     @core.PrefixLexer::new(lex_step=json_step_lexer),
     eof_token=EOF,
     error_token=Error(""),
-    error_token_from_message=Some(fn(msg) { Error(msg) }),
+    error_token_from_message=Some(msg => Error(msg)),
   )
   @core.LexResult::with_starts(
     buffer.get_tokens(),
@@ -299,9 +307,10 @@ pub fn lex(input : String) -> @core.LexResult[Token] {
 /// Batch tokenize: loop step_lex until Done, appending EOF.
 #warnings("-unused_error_type")
 pub fn tokenize(
+  source_id : @core.SourceId,
   input : String,
 ) -> Array[@core.TokenInfo[Token]] raise @core.LexError {
-  tokenize_recoverable(input)
+  tokenize_recoverable(source_id, input)
 }
 
 ///|

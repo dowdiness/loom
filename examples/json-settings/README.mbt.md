@@ -37,7 +37,7 @@ three rules the grammar cannot —
 ## Public API
 
 ```mbt nocheck
-pub fn SettingsAttachment::SettingsAttachment(String) -> SettingsAttachment
+pub fn SettingsAttachment::SettingsAttachment(@core.SourceId, String) -> SettingsAttachment
 pub fn SettingsAttachment::state(Self) -> SettingsState
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::last_good(Self) -> SettingsDoc?
@@ -52,13 +52,17 @@ pub struct SettingsDoc { /* settings() -> Array[Setting] */ }
 
 Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 
+`SourceId` is a stable identity owned by the caller for the source being parsed.
+It is distinct from both source text and diagnostic-producer identity.
+
 ## Valid input projects to `Current`
 
 ```mbt check
 ///|
 test "valid settings object is Current" {
+  let source_id = @core.SourceId("json-settings-readme-valid")
   let settings = SettingsAttachment::SettingsAttachment(
-    "{\"gain\":1,\"cutoff\":2}",
+    source_id, "{\"gain\":1,\"cutoff\":2}",
   )
   inspect(settings.state(), content="Current")
   let doc = match settings.current_result() {
@@ -74,7 +78,10 @@ test "valid settings object is Current" {
 ```mbt check
 ///|
 test "malformed input retains the last good document" {
-  let settings = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-readme-parser-retention")
+  let settings = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   settings.set_source("{\"gain\":}") // syntactically broken
   inspect(settings.state(), content="ParserBlocked")
   inspect(settings.current_result() is Err(_), content="true")
@@ -87,7 +94,10 @@ test "malformed input retains the last good document" {
 ```mbt check
 ///|
 test "projection-invalid input retains the last good document" {
-  let settings = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-readme-projection-retention")
+  let settings = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   settings.set_source("{\"gain\":\"loud\"}") // parses, but value is not a number
   inspect(settings.state(), content="ProjectionBlocked")
   inspect(settings.last_good() is Some(_), content="true")
@@ -99,7 +109,10 @@ test "projection-invalid input retains the last good document" {
 ```mbt check
 ///|
 test "recovery after a failure returns to Current" {
-  let settings = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-readme-recovery")
+  let settings = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1}",
+  )
   settings.set_source("{\"gain\":}") // fail
   settings.set_source("{\"gain\":5}") // recover
   inspect(settings.state(), content="Current")

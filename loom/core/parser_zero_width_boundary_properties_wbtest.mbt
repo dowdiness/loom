@@ -265,7 +265,12 @@ fn zero_width_parse_old_tree(
   mode : ZeroWidthOldTreeMode,
 ) -> @seam.CstNode {
   let tokens = zero_width_tokenize_with_boundaries(source, boundary_counts)
-  let ctx = ParserContext::new(tokens, source, spec)
+  let ctx = ParserContext::new(
+    SourceId("zero-width-boundary-source"),
+    tokens,
+    source,
+    spec,
+  )
   (spec.parse_root)(ctx)
   zero_width_build_tree_from_events(ctx, spec, mode)
 }
@@ -280,11 +285,12 @@ fn zero_width_parse_indexed(
   let tokens = zero_width_tokenize_with_boundaries(source, boundary_counts)
   let starts = build_starts(tokens)
   parse_tokens_indexed(
+    SourceId("zero-width-boundary-source"),
     source,
     tokens.length(),
-    fn(i) { tokens[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + tokens[i].len },
+    i => tokens[i].token,
+    i => starts[i],
+    i => starts[i] + tokens[i].len,
     spec,
     cursor~,
   )

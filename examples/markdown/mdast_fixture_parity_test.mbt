@@ -15,7 +15,8 @@ enum MdastFixtureStatus {
 
 ///|
 fn MdastFixture::ir(self : MdastFixture) -> MarkdownIR {
-  let (cst, diagnostics) = parse_cst(self.source) catch {
+  let source_id = @core.SourceId("markdown-mdast-fixture:" + self.name)
+  let (cst, diagnostics) = parse_cst(source_id, self.source) catch {
     _ =>
       abort(
         "Markdown mdast fixture parse failed for " +
@@ -25,6 +26,7 @@ fn MdastFixture::ir(self : MdastFixture) -> MarkdownIR {
       )
   }
   experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )

@@ -56,7 +56,12 @@ fn prop_token_buffer_insert(input : (Int, Int, Int, Int)) -> Bool {
       let new_source = l + insert + r
       let edit = @core.Edit::insert(pos, insert.length())
       try
-        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+        @core.TokenBuffer::new(
+          @core.SourceId::SourceId("lambda-lexer-property"),
+          base,
+          tokenize_fn=tokenize,
+          eof_token=@token.EOF,
+        )
       catch {
         _ => true
       } noraise {
@@ -95,7 +100,12 @@ fn prop_token_buffer_delete(input : (Int, Int, Int)) -> Bool {
       let new_source = l + r
       let edit = @core.Edit::delete(from, to)
       try
-        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+        @core.TokenBuffer::new(
+          @core.SourceId::SourceId("lambda-lexer-property"),
+          base,
+          tokenize_fn=tokenize,
+          eof_token=@token.EOF,
+        )
       catch {
         _ => true
       } noraise {
@@ -135,7 +145,12 @@ fn prop_token_buffer_replace(input : (Int, Int, Int, Int)) -> Bool {
       let new_source = l + insert + r
       let edit = @core.Edit::replace(from, to, from + insert.length())
       try
-        @core.TokenBuffer::new(base, tokenize_fn=tokenize, eof_token=@token.EOF)
+        @core.TokenBuffer::new(
+          @core.SourceId::SourceId("lambda-lexer-property"),
+          base,
+          tokenize_fn=tokenize,
+          eof_token=@token.EOF,
+        )
       catch {
         _ => true
       } noraise {

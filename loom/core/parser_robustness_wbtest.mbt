@@ -2,19 +2,29 @@
 test "emit_token: at EOF emits zero-width token and diagnostic instead of abort" {
   let src = ""
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.finish_node()
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message.contains("EOF"), content="true")
+  inspect(ctx.diagnostics.items()[0].message().contains("EOF"), content="true")
 }
 
 ///|
 test "emit_token: at EOF after consuming all tokens emits diagnostic" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.emit_token(KPlus)
@@ -27,7 +37,12 @@ test "emit_token: at EOF after consuming all tokens emits diagnostic" {
 test "finish_node: unbalanced close does not abort" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.finish_node()
   inspect(ctx.open_nodes, content="0")
 }
@@ -36,7 +51,12 @@ test "finish_node: unbalanced close does not abort" {
 test "finish_node: double close does not abort" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.finish_node()
@@ -46,15 +66,21 @@ test "finish_node: double close does not abort" {
 
 ///|
 test "parse_with: unclosed node is auto-closed with diagnostic" {
-  let (tree, errors) = parse_with("1", test_spec, test_tokenize, fn(ctx) {
-    ctx.start_node(KExpr)
-    ctx.emit_token(KNum)
-  })
+  let (tree, errors) = parse_with(
+    SourceId("parser-context-source"),
+    "1",
+    test_spec,
+    test_tokenize,
+    ctx => {
+      ctx.start_node(KExpr)
+      ctx.emit_token(KNum)
+    },
+  )
   inspect(tree.text_len, content="1")
   let has_unclosed = errors
     .items()
     .iter()
-    .any(fn(e) { e.message.contains("unclosed") })
+    .any(e => e.message().contains("unclosed"))
   inspect(has_unclosed, content="true")
 }
 
@@ -74,17 +100,18 @@ test "parse_tokens_indexed: unclosed node is auto-closed with diagnostic" {
     },
   )
   let (_, errors, _) = parse_tokens_indexed(
+    SourceId("parser-context-source"),
     src,
     toks.length(),
-    fn(i) { toks[i].token },
-    fn(i) { starts[i] },
-    fn(i) { starts[i] + toks[i].len },
+    i => toks[i].token,
+    i => starts[i],
+    i => starts[i] + toks[i].len,
     spec,
   )
   let has_unclosed = errors
     .items()
     .iter()
-    .any(fn(e) { e.message.contains("unclosed") })
+    .any(e => e.message().contains("unclosed"))
   inspect(has_unclosed, content="true")
 }
 
@@ -130,7 +157,13 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
 
   let old_src = "0 1 + 2"
   let new_src = "0 1    2"
-  let (old_tree, _) = parse_with(old_src, test_spec, test_tokenize, grammar)
+  let (old_tree, _) = parse_with(
+    SourceId("parser-context-source"),
+    old_src,
+    test_spec,
+    test_tokenize,
+    grammar,
+  )
   let old_syntax = @seam.SyntaxNode::from_cst(old_tree)
   let old_diagnostics = DiagnosticSet::empty()
   old_diagnostics.push(
@@ -153,11 +186,12 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
     },
     is_balanced: _ => true,
   }
-  let lex = fn(source : String) -> LexResult[TestTok] {
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
   }
   let result = reparse_block(
+    SourceId("parser-context-source"),
     old_syntax,
     new_src,
     Edit::new(4, 1, 2),
@@ -198,7 +232,12 @@ test "reparse_block offsets new structured diagnostics and drops stale block dia
 test "peek_nth: 0 equals peek" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.peek_nth(0) == ctx.peek(), content="true")
 }
 
@@ -206,7 +245,12 @@ test "peek_nth: 0 equals peek" {
 test "peek_nth: returns second non-trivia token" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.peek_nth(0), content="Num(1)")
   inspect(ctx.peek_nth(1), content="Plus")
   inspect(ctx.peek_nth(2), content="Num(2)")
@@ -216,7 +260,12 @@ test "peek_nth: returns second non-trivia token" {
 test "peek_nth: past end returns eof" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.peek_nth(5), content="TokEof")
 }
 
@@ -224,7 +273,12 @@ test "peek_nth: past end returns eof" {
 test "peek_nth: skips trivia between tokens" {
   let src = "1   +   2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.peek_nth(0), content="Num(1)")
   inspect(ctx.peek_nth(1), content="Plus")
   inspect(ctx.peek_nth(2), content="Num(2)")
@@ -234,7 +288,12 @@ test "peek_nth: skips trivia between tokens" {
 test "checkpoint/restore: rewinds position and events" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   let cp = ctx.checkpoint()
   ctx.emit_token(KNum)
@@ -251,7 +310,12 @@ test "checkpoint/restore: rewinds position and events" {
 test "checkpoint/restore: removes diagnostics added after checkpoint" {
   let src = "+"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   let cp = ctx.checkpoint()
   ctx.error("speculative error")
@@ -265,7 +329,12 @@ test "checkpoint/restore: removes diagnostics added after checkpoint" {
 test "lookahead: rewinds position, events, and diagnostics" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   let result = ctx.lookahead(() => {
     ctx.emit_token(KNum)
@@ -284,7 +353,12 @@ test "lookahead: rewinds position, events, and diagnostics" {
 test "checkpoint/restore: speculative parse picks successful branch" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   let cp = ctx.checkpoint()
   ctx.emit_token(KNum)
@@ -302,9 +376,13 @@ test "checkpoint/restore: speculative parse picks successful branch" {
 
 ///|
 test "emit_token: EOF placeholder is emitted after trailing trivia" {
-  let (tree, _) = parse_with("   ", test_spec, test_tokenize, fn(ctx) {
-    ctx.emit_token(KNum)
-  })
+  let (tree, _) = parse_with(
+    SourceId("parser-context-source"),
+    "   ",
+    test_spec,
+    test_tokenize,
+    ctx => ctx.emit_token(KNum),
+  )
   inspect(tree.children.length(), content="2")
   match tree.children[0] {
     @seam.CstElement::Token(t) =>
@@ -329,22 +407,31 @@ test "checkpoint/restore: restores reuse cursor and reuse_count" {
   let src = "1"
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_one_expr,
+    SourceId("parser-context-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    grammar_one_expr,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     99,
     99,
     toks.length(),
-    fn(i) { toks[i].token },
-    fn(i) { starts[i] },
+    i => toks[i].token,
+    i => starts[i],
     fn(i) {
       src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
     },
     test_spec,
   )
 
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.set_reuse_cursor(cursor)
   let cp = ctx.checkpoint()
 
@@ -369,22 +456,31 @@ test "lookahead: restores reuse cursor and reuse count" {
   let src = "1"
   let (toks, starts) = test_tokenize_with_starts(src)
   let (old_tree, _) = parse_with(
-    src, test_spec, test_tokenize, grammar_one_expr,
+    SourceId("parser-context-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    grammar_one_expr,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
     99,
     99,
     toks.length(),
-    fn(i) { toks[i].token },
-    fn(i) { starts[i] },
+    i => toks[i].token,
+    i => starts[i],
     fn(i) {
       src.view(start_offset=starts[i], end_offset=starts[i] + toks[i].len)
     },
     test_spec,
   )
 
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.set_reuse_cursor(cursor)
   let reused = ctx.lookahead(() => {
     ctx.node(KExpr, fn() { ctx.emit_token(KNum) })
@@ -405,7 +501,12 @@ test "lookahead: restores reuse cursor and reuse count" {
 test "at_adjacent: true when next token is contiguous with consumed prefix" {
   let src = "1+ 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   inspect(ctx.at_adjacent(TestTok::Plus), content="true")
@@ -416,7 +517,12 @@ test "at_adjacent: true when next token is contiguous with consumed prefix" {
 test "at_adjacent: false when trivia separates next token" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   // Trivia-insensitive at() still sees the Plus, but adjacency is broken.
@@ -429,7 +535,12 @@ test "at_adjacent: false when trivia separates next token" {
 test "at_adjacent: false when next token differs even if contiguous" {
   let src = "1+2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   inspect(ctx.at_adjacent(TestTok::Num(2)), content="false")
@@ -440,7 +551,12 @@ test "at_adjacent: false when next token differs even if contiguous" {
 test "at_adjacent: false at EOF" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   inspect(ctx.at_adjacent(TestTok::Plus), content="false")
@@ -451,7 +567,12 @@ test "at_adjacent: false at EOF" {
 test "at_adjacent: start of input counts as adjacent" {
   let src = "+1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.at_adjacent(TestTok::Plus), content="true")
 }
 
@@ -459,7 +580,12 @@ test "at_adjacent: start of input counts as adjacent" {
 test "at_adjacent: leading trivia at start of input breaks adjacency" {
   let src = " +1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.at_adjacent(TestTok::Plus), content="false")
 }
 
@@ -472,6 +598,7 @@ test "at_adjacent: false across unrepresented source gap (located tokens)" {
   let starts = [0, 2]
   let ends = [1, 3]
   let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    SourceId("parser-context-source"),
     2,
     i => toks[i],
     i => starts[i],
@@ -490,6 +617,7 @@ test "at_adjacent: false on leading unrepresented gap at start of input" {
   let src = " +"
   let toks = [TestTok::Plus]
   let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    SourceId("parser-context-source"),
     1,
     i => toks[i],
     _ => 1,
@@ -507,7 +635,12 @@ test "at_adjacent: flushed trivia still breaks adjacency" {
   // as separation.
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.flush_trivia()
@@ -519,7 +652,12 @@ test "at_adjacent: flushed trivia still breaks adjacency" {
 test "at_adjacent: flush_trivia with no trivia keeps adjacency" {
   let src = "1+ 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   ctx.flush_trivia()
@@ -538,6 +676,7 @@ test "at_adjacent: flushed zero-width trivia still breaks adjacency" {
   let starts = [0, 1, 1]
   let ends = [1, 1, 2]
   let ctx : ParserContext[TestTok, TestKind] = ParserContext::new_indexed(
+    SourceId("parser-context-source"),
     3,
     i => toks[i],
     i => starts[i],
@@ -559,7 +698,12 @@ test "at_adjacent: leading trivia consumed by emit_token keeps adjacency" {
   // trivia sits before the previous token, not between it and the next.
   let src = " 1+2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   inspect(ctx.at_adjacent(TestTok::Plus), content="true")
@@ -583,7 +727,11 @@ test "reparse_block selector decline widens to parent" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+    SourceId("parser-context-source"),
+    "1+2+3+4",
+    test_spec,
+    test_tokenize,
+    parse_nested_expr,
   )
   let seen : Array[Int] = []
   let seen_texts : Array[String] = []
@@ -602,11 +750,12 @@ test "reparse_block selector decline widens to parent" {
     },
     is_balanced: _ => true,
   }
-  let lex = fn(source : String) -> LexResult[TestTok] {
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
   }
   let result = reparse_block(
+    SourceId("parser-context-source"),
     @seam.SyntaxNode::from_cst(old_tree),
     "1+2+9+4",
     Edit::new(4, 1, 1),
@@ -641,7 +790,11 @@ test "reparse_block selected failure does not widen" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+    SourceId("parser-context-source"),
+    "1+2+3+4",
+    test_spec,
+    test_tokenize,
+    parse_nested_expr,
   )
   let seen : Array[Int] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
@@ -656,11 +809,12 @@ test "reparse_block selected failure does not widen" {
     },
     is_balanced: _ => true,
   }
-  let lex = fn(source : String) -> LexResult[TestTok] {
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
   }
   let result = reparse_block(
+    SourceId("parser-context-source"),
     @seam.SyntaxNode::from_cst(old_tree),
     "1+2+3+4",
     Edit::new(3, 1, 1),
@@ -691,7 +845,11 @@ test "reparse_block balance failure does not widen" {
   }
 
   let (old_tree, _) = parse_with(
-    "1+2+3+4", test_spec, test_tokenize, parse_nested_expr,
+    SourceId("parser-context-source"),
+    "1+2+3+4",
+    test_spec,
+    test_tokenize,
+    parse_nested_expr,
   )
   let selector_calls : Array[Int] = []
   let block_spec : BlockReparseSpec[TestTok, TestKind] = {
@@ -707,11 +865,12 @@ test "reparse_block balance failure does not widen" {
       }
     },
   }
-  let lex = fn(source : String) -> LexResult[TestTok] {
+  let lex : (SourceId, String) -> LexResult[TestTok] = (_source_id, source) => {
     let (tokens, starts) = test_tokenize_with_starts(source)
     LexResult::with_starts(tokens, starts, diagnostics=DiagnosticSet::empty())
   }
   let result = reparse_block(
+    SourceId("parser-context-source"),
     @seam.SyntaxNode::from_cst(old_tree),
     "1+2+9+4",
     Edit::new(4, 1, 1),

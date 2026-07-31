@@ -1,6 +1,7 @@
 ///|
 test "error recovery: trailing comma in object" {
-  let (cst, diagnostics) = try! parse_cst("{\"a\": 1,}")
+  let source_id = @core.SourceId("json-error-trailing-object")
+  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\": 1,}")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"a\": 1,}".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -8,7 +9,8 @@ test "error recovery: trailing comma in object" {
 
 ///|
 test "error recovery: trailing comma in array" {
-  let (cst, diagnostics) = try! parse_cst("[1,]")
+  let source_id = @core.SourceId("json-error-trailing-array")
+  let (cst, diagnostics) = try! parse_cst(source_id, "[1,]")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "[1,]".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -16,7 +18,8 @@ test "error recovery: trailing comma in array" {
 
 ///|
 test "error recovery: missing colon" {
-  let (cst, diagnostics) = try! parse_cst("{\"key\" 42}")
+  let source_id = @core.SourceId("json-error-missing-colon")
+  let (cst, diagnostics) = try! parse_cst(source_id, "{\"key\" 42}")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"key\" 42}".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -24,7 +27,8 @@ test "error recovery: missing colon" {
 
 ///|
 test "error recovery: missing closing brace" {
-  let (cst, diagnostics) = try! parse_cst("{\"a\": 1")
+  let source_id = @core.SourceId("json-error-missing-object-close")
+  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\": 1")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "{\"a\": 1".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -32,7 +36,8 @@ test "error recovery: missing closing brace" {
 
 ///|
 test "error recovery: empty input" {
-  let (cst, diagnostics) = try! parse_cst("")
+  let source_id = @core.SourceId("json-error-empty")
+  let (cst, diagnostics) = try! parse_cst(source_id, "")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end(), content="0")
   inspect(diagnostics.length() > 0, content="true")
@@ -40,7 +45,8 @@ test "error recovery: empty input" {
 
 ///|
 test "error recovery: missing closing bracket" {
-  let (cst, diagnostics) = try! parse_cst("[1, 2")
+  let source_id = @core.SourceId("json-error-missing-array-close")
+  let (cst, diagnostics) = try! parse_cst(source_id, "[1, 2")
   let tree = @seam.SyntaxNode::from_cst(cst)
   inspect(tree.end() == "[1, 2".length(), content="true")
   inspect(diagnostics.length() > 0, content="true")
@@ -52,7 +58,8 @@ test "error recovery: missing closing bracket" {
 // distinct second array element with a diagnostic, NOT truncate the list and
 // drop `2` as an unexpected trailing token. See loom #291.
 test "error recovery: missing comma between array elements" {
-  let (value, diagnostics) = try! parse_json("[1 2]")
+  let source_id = @core.SourceId("json-error-missing-array-comma")
+  let (value, diagnostics) = try! parse_json(source_id, "[1 2]")
   // The missing separator must surface as a diagnostic.
   inspect(diagnostics.length() > 0, content="true")
   match value {
@@ -66,7 +73,8 @@ test "error recovery: missing comma between array elements" {
 
 ///|
 test "error recovery: missing comma array CST shape stays wrapper-free" {
-  let (cst, diagnostics) = try! parse_cst("[1 2]")
+  let source_id = @core.SourceId("json-error-missing-array-comma-cst")
+  let (cst, diagnostics) = try! parse_cst(source_id, "[1 2]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
@@ -91,7 +99,8 @@ test "error recovery: missing comma array CST shape stays wrapper-free" {
 
 ///|
 test "error recovery: trailing comma array CST shape stays wrapper-free" {
-  let (cst, diagnostics) = try! parse_cst("[1,]")
+  let source_id = @core.SourceId("json-error-trailing-array-cst")
+  let (cst, diagnostics) = try! parse_cst(source_id, "[1,]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
@@ -113,7 +122,8 @@ test "error recovery: trailing comma array CST shape stays wrapper-free" {
 
 ///|
 test "error recovery: non-sync array element stays an error child" {
-  let (cst, diagnostics) = try! parse_cst("[1, @, 2]")
+  let source_id = @core.SourceId("json-error-non-sync-array-element")
+  let (cst, diagnostics) = try! parse_cst(source_id, "[1, @, 2]")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
@@ -131,7 +141,8 @@ test "error recovery: non-sync array element stays an error child" {
 // Object counterpart of the array missing-comma guard above: `{"a":1 "b":2}`
 // omits the separator between members; the second member must be recovered.
 test "error recovery: missing comma between object members" {
-  let (value, diagnostics) = try! parse_json("{\"a\":1 \"b\":2}")
+  let source_id = @core.SourceId("json-error-missing-object-comma")
+  let (value, diagnostics) = try! parse_json(source_id, "{\"a\":1 \"b\":2}")
   inspect(diagnostics.length() > 0, content="true")
   match value {
     Object(members) => {
@@ -146,7 +157,8 @@ test "error recovery: missing comma between object members" {
 
 ///|
 test "error recovery: missing comma object CST shape stays wrapper-free" {
-  let (cst, diagnostics) = try! parse_cst("{\"a\":1 \"b\":2}")
+  let source_id = @core.SourceId("json-error-missing-object-comma-cst")
+  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\":1 \"b\":2}")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
@@ -169,7 +181,8 @@ test "error recovery: missing comma object CST shape stays wrapper-free" {
 
 ///|
 test "error recovery: trailing comma object CST shape stays wrapper-free" {
-  let (cst, diagnostics) = try! parse_cst("{\"a\":1,}")
+  let source_id = @core.SourceId("json-error-trailing-object-cst")
+  let (cst, diagnostics) = try! parse_cst(source_id, "{\"a\":1,}")
   inspect(diagnostics.length() > 0, content="true")
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {

@@ -2,8 +2,17 @@
 // each implementation task lands. See plan file for the fixture list.
 
 ///|
+fn rename_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-rename-test")
+}
+
+///|
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    rename_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   parser.syntax_tree().read_or_abort()
 }
 
@@ -40,7 +49,11 @@ fn facts_for_test(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    rename_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let syntax = parser.syntax_tree().read_or_abort()
   let pipeline = @callers.CallersPipeline::from_parser(parser)
   let (defs, calls, enclosing) = pipeline.facts()
@@ -52,7 +65,11 @@ fn facts_for_test(
 fn setup_pipeline(
   source : String,
 ) -> (@callers.CallersPipeline, @seam.SyntaxNode) {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    rename_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let pipeline = @callers.CallersPipeline::from_parser(parser)
   let syntax = parser.syntax_tree().read_or_abort()
   (pipeline, syntax)
@@ -64,12 +81,46 @@ fn diagnostics_have_code(
   code : String,
 ) -> Bool {
   for d in diagnostics {
-    match d.code {
+    match d.code() {
       Some(c) => if c.value() == code { return true }
       None => ()
     }
   }
   false
+}
+
+///|
+fn assert_rename_diagnostic_labels(
+  diagnostic : @core.Diagnostic,
+  primary_start : Int,
+  primary_end : Int,
+  secondary_start : Int,
+  secondary_end : Int,
+  secondary_message : String,
+) -> Unit raise {
+  let source_id = rename_test_source_id()
+  inspect(diagnostic.source().name(), content="rename")
+  let labels = diagnostic.labels()
+  inspect(labels.length(), content="2")
+  inspect(labels[0].style() is @core.LabelStyle::Primary, content="true")
+  inspect(labels[0].message() is None, content="true")
+  inspect(labels[0].span().source_id() == source_id, content="true")
+  inspect(
+    labels[0].span().range().start().value() == primary_start,
+    content="true",
+  )
+  inspect(labels[0].span().range().end().value() == primary_end, content="true")
+  inspect(labels[1].style() is @core.LabelStyle::Secondary, content="true")
+  inspect(labels[1].message() == Some(secondary_message), content="true")
+  inspect(labels[1].span().source_id() == source_id, content="true")
+  inspect(
+    labels[1].span().range().start().value() == secondary_start,
+    content="true",
+  )
+  inspect(
+    labels[1].span().range().end().value() == secondary_end,
+    content="true",
+  )
 }
 
 ///|
@@ -234,10 +285,17 @@ test "check_sibling_collision: same-scope name match fires" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let f_def = def_named(defs, "f")
-  let result = check_sibling_collision(f_def, "g", defs, syntax)
+  let result = check_sibling_collision(
+    rename_test_source_id(),
+    f_def,
+    "g",
+    defs,
+    syntax,
+  )
   inspect(result is Some(_), content="true")
   let diag = result.unwrap()
-  inspect(diag.severity is @core.DiagnosticSeverity::Error, content="true")
+  inspect(diag.severity() is @core.DiagnosticSeverity::Error, content="true")
+  assert_rename_diagnostic_labels(diag, 4, 5, 14, 15, "existing binding")
 }
 
 ///|
@@ -246,7 +304,13 @@ test "check_sibling_collision: no collision returns None" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let f_def = def_named(defs, "f")
-  let result = check_sibling_collision(f_def, "totally_new", defs, syntax)
+  let result = check_sibling_collision(
+    rename_test_source_id(),
+    f_def,
+    "totally_new",
+    defs,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -256,7 +320,13 @@ test "check_sibling_collision: block let may shadow enclosing parameter" {
   let syntax = parse_to_syntax(src)
   let (defs, _) = @callers.extract_facts(syntax)
   let block_y = locate_target(defs, syntax, 21).unwrap()
-  let result = check_sibling_collision(block_y, "x", defs, syntax)
+  let result = check_sibling_collision(
+    rename_test_source_id(),
+    block_y,
+    "x",
+    defs,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -301,12 +371,26 @@ test "check_forward_capture: descendant binding fires" {
   let h_def = def_named(defs, "h")
   let outer_f = def_named_outside_scope(defs, "f", h_def.scope)
   let result = check_forward_capture(
-    outer_f, "g", defs, calls, enclosing, syntax,
+    rename_test_source_id(),
+    outer_f,
+    "g",
+    defs,
+    calls,
+    enclosing,
+    syntax,
   )
   inspect(result is Some(_), content="true")
   inspect(
-    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    result.unwrap().severity() is @core.DiagnosticSeverity::Error,
     content="true",
+  )
+  assert_rename_diagnostic_labels(
+    result.unwrap(),
+    9,
+    10,
+    12,
+    13,
+    "capturing binding",
   )
 }
 
@@ -316,7 +400,13 @@ test "check_forward_capture: no descendant with new_name returns None" {
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
   let result = check_forward_capture(
-    f_def, "totally_new", defs, calls, enclosing, syntax,
+    rename_test_source_id(),
+    f_def,
+    "totally_new",
+    defs,
+    calls,
+    enclosing,
+    syntax,
   )
   inspect(result is None, content="true")
 }
@@ -326,7 +416,15 @@ test "check_forward_capture: earlier descendant cannot capture later target" {
   let src = "let h = (g) => g\nlet f = a\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_forward_capture(f_def, "g", defs, calls, enclosing, syntax)
+  let result = check_forward_capture(
+    rename_test_source_id(),
+    f_def,
+    "g",
+    defs,
+    calls,
+    enclosing,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -336,11 +434,17 @@ test "check_forward_capture: block-local let can capture edited reference" {
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
   let result = check_forward_capture(
-    f_param, "g", defs, calls, enclosing, syntax,
+    rename_test_source_id(),
+    f_param,
+    "g",
+    defs,
+    calls,
+    enclosing,
+    syntax,
   )
   inspect(result is Some(_), content="true")
   inspect(
-    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    result.unwrap().severity() is @core.DiagnosticSeverity::Error,
     content="true",
   )
 }
@@ -351,7 +455,13 @@ test "check_forward_capture: outer binding does not capture renamed inner refere
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
   let result = check_forward_capture(
-    f_param, "g", defs, calls, enclosing, syntax,
+    rename_test_source_id(),
+    f_param,
+    "g",
+    defs,
+    calls,
+    enclosing,
+    syntax,
   )
   inspect(result is None, content="true")
 }
@@ -361,11 +471,26 @@ test "check_converse_capture: existing call to new_name with target as descendan
   let src = "let g = a\nlet h = (f) => f g\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_converse_capture(f_param, "g", calls, enclosing, syntax)
+  let result = check_converse_capture(
+    rename_test_source_id(),
+    f_param,
+    "g",
+    calls,
+    enclosing,
+    syntax,
+  )
   inspect(result is Some(_), content="true")
   inspect(
-    result.unwrap().severity is @core.DiagnosticSeverity::Error,
+    result.unwrap().severity() is @core.DiagnosticSeverity::Error,
     content="true",
+  )
+  assert_rename_diagnostic_labels(
+    result.unwrap(),
+    27,
+    28,
+    19,
+    20,
+    "renamed binding would intercept",
   )
 }
 
@@ -375,7 +500,12 @@ test "check_converse_capture: no matching calls returns None" {
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
   let result = check_converse_capture(
-    f_def, "totally_new", calls, enclosing, syntax,
+    rename_test_source_id(),
+    f_def,
+    "totally_new",
+    calls,
+    enclosing,
+    syntax,
   )
   inspect(result is None, content="true")
 }
@@ -385,7 +515,14 @@ test "check_converse_capture: earlier top-level reference is not captured" {
   let src = "let h = g\nlet f = a\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_converse_capture(f_def, "g", calls, enclosing, syntax)
+  let result = check_converse_capture(
+    rename_test_source_id(),
+    f_def,
+    "g",
+    calls,
+    enclosing,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -394,7 +531,14 @@ test "check_converse_capture: later top-level reference can be captured" {
   let src = "let f = a\nlet h = g\n"
   let (syntax, defs, calls, enclosing) = facts_for_test(src)
   let f_def = def_named(defs, "f")
-  let result = check_converse_capture(f_def, "g", calls, enclosing, syntax)
+  let result = check_converse_capture(
+    rename_test_source_id(),
+    f_def,
+    "g",
+    calls,
+    enclosing,
+    syntax,
+  )
   inspect(result is Some(_), content="true")
 }
 
@@ -403,11 +547,26 @@ test "check_shadow: param shadows outer let binding" {
   let src = "let g = a\nlet h = (f) => f\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  let result = check_shadow(
+    rename_test_source_id(),
+    f_param,
+    "g",
+    defs,
+    enclosing,
+    syntax,
+  )
   inspect(result is Some(_), content="true")
   inspect(
-    result.unwrap().severity is @core.DiagnosticSeverity::Warning,
+    result.unwrap().severity() is @core.DiagnosticSeverity::Warning,
     content="true",
+  )
+  assert_rename_diagnostic_labels(
+    result.unwrap(),
+    19,
+    20,
+    4,
+    5,
+    "shadowed binding",
   )
 }
 
@@ -416,7 +575,14 @@ test "check_shadow: no outer binding returns None" {
   let src = "let h = (f) => f\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  let result = check_shadow(
+    rename_test_source_id(),
+    f_param,
+    "g",
+    defs,
+    enclosing,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -425,7 +591,14 @@ test "check_shadow: later top-level binding is not visible" {
   let src = "let h = (f) => f\nlet g = a\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let f_param = def_named(defs, "f")
-  let result = check_shadow(f_param, "g", defs, enclosing, syntax)
+  let result = check_shadow(
+    rename_test_source_id(),
+    f_param,
+    "g",
+    defs,
+    enclosing,
+    syntax,
+  )
   inspect(result is None, content="true")
 }
 
@@ -434,10 +607,17 @@ test "check_shadow: block let shadows enclosing parameter" {
   let src = "let h = (x) => { let y = a; y }\n"
   let (syntax, defs, _, enclosing) = facts_for_test(src)
   let block_y = locate_target(defs, syntax, 21).unwrap()
-  let result = check_shadow(block_y, "x", defs, enclosing, syntax)
+  let result = check_shadow(
+    rename_test_source_id(),
+    block_y,
+    "x",
+    defs,
+    enclosing,
+    syntax,
+  )
   inspect(result is Some(_), content="true")
   inspect(
-    result.unwrap().severity is @core.DiagnosticSeverity::Warning,
+    result.unwrap().severity() is @core.DiagnosticSeverity::Warning,
     content="true",
   )
 }
@@ -446,7 +626,14 @@ test "check_shadow: block let shadows enclosing parameter" {
 test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
   let src = "let f = (x) => x\nlet r = f (f y)\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "fff",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="3")
@@ -461,7 +648,7 @@ test "fixture 1 (smoke): top-level let rename, three edits, no diagnostics" {
 test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" {
   let src = "let f = a\nlet g = b\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 4, "g")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length() >= 1, content="true")
   inspect(
@@ -472,24 +659,45 @@ test "fixture 2 (sibling collision): rename f -> g when g exists at same scope" 
 }
 
 ///|
-test "fixture 10 (name-range correctness): edit byte ranges are identifier-token, not node, ranges" {
+test "fixture 10 (name-range correctness): edit UTF-16 ranges cover identifiers, not nodes" {
   let src1 = "let foo = bar\n"
   let (pipeline1, syntax1) = setup_pipeline(src1)
-  let plan1 = plan_rename(pipeline1, src1, syntax1, 5, "renamed")
+  let plan1 = plan_rename(
+    rename_test_source_id(),
+    pipeline1,
+    src1,
+    syntax1,
+    5,
+    "renamed",
+  )
   let def_edit1 = edit_starting_at(plan1.edits, 4)
   inspect(def_edit1.end, content="7")
   pipeline1.dispose()
 
   let src2 = "let id = (x) => x\n"
   let (pipeline2, syntax2) = setup_pipeline(src2)
-  let plan2 = plan_rename(pipeline2, src2, syntax2, 10, "y")
+  let plan2 = plan_rename(
+    rename_test_source_id(),
+    pipeline2,
+    src2,
+    syntax2,
+    10,
+    "y",
+  )
   let def_edit2 = edit_starting_at(plan2.edits, 10)
   inspect(def_edit2.end, content="11")
   pipeline2.dispose()
 
   let src3 = "fn f(x) { x }\n"
   let (pipeline3, syntax3) = setup_pipeline(src3)
-  let plan3 = plan_rename(pipeline3, src3, syntax3, 5, "y")
+  let plan3 = plan_rename(
+    rename_test_source_id(),
+    pipeline3,
+    src3,
+    syntax3,
+    5,
+    "y",
+  )
   let def_edit3 = edit_starting_at(plan3.edits, 5)
   inspect(def_edit3.end, content="6")
   pipeline3.dispose()
@@ -499,7 +707,7 @@ test "fixture 10 (name-range correctness): edit byte ranges are identifier-token
 test "fixture 11 (fn repeated name): parameter rename does not edit function name" {
   let src = "fn f(f) { f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 5, "g")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="2")
@@ -514,7 +722,14 @@ test "fixture 11 (fn repeated name): parameter rename does not edit function nam
 test "fixture 12 (top-level source order): forward free reference is not rewritten" {
   let src = "let a = f\nlet f = z\nlet b = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 14, "g")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    14,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="2")
@@ -528,7 +743,14 @@ test "fixture 12 (top-level source order): forward free reference is not rewritt
 test "fixture 13 (sequential top-level): self-reference is not rewritten" {
   let src = "let f = f\nlet g = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "fff",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="2")
@@ -543,14 +765,28 @@ test "fixture 13 (sequential top-level): self-reference is not rewritten" {
 test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
   let src = "let f = a\nlet f = f\nlet g = f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let first_plan = plan_rename(pipeline, src, syntax, 4, "first")
+  let first_plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "first",
+  )
   inspect(first_plan.target is Some(_), content="true")
   inspect(first_plan.edits.length(), content="2")
   inspect(edits_cover_offset(first_plan.edits, 4), content="true")
   inspect(edits_cover_offset(first_plan.edits, 14), content="false")
   inspect(edits_cover_offset(first_plan.edits, 18), content="true")
   inspect(edits_cover_offset(first_plan.edits, 28), content="false")
-  let second_plan = plan_rename(pipeline, src, syntax, 14, "second")
+  let second_plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    14,
+    "second",
+  )
   inspect(second_plan.target is Some(_), content="true")
   inspect(second_plan.edits.length(), content="2")
   inspect(edits_cover_offset(second_plan.edits, 4), content="false")
@@ -564,7 +800,14 @@ test "fixture 14 (sequential top-level): duplicate name sees previous binding" {
 test "fixture 15 (block let): local binding does not edit initializer" {
   let src = "let h = (x) => { let x = x; x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 21, "y")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    21,
+    "y",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 9), content="false")
@@ -579,7 +822,14 @@ test "fixture 15 (block let): local binding does not edit initializer" {
 test "fixture 16 (block let): unique local binding edits body reference" {
   let src = "let h = (x) => { let y = x; y }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 21, "z")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    21,
+    "z",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 21), content="true")
@@ -592,7 +842,14 @@ test "fixture 16 (block let): unique local binding edits body reference" {
 test "fixture 17 (block let): local binding does not leak after block" {
   let src = "let h = { let x = a; x } x\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 14, "y")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    14,
+    "y",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 14), content="true")
@@ -606,14 +863,21 @@ test "fixture 17 (block let): local binding does not leak after block" {
 test "fixture 18 (fn duplicate params): second parameter is targetable" {
   let src = "fn f(x, x) { x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let first_plan = plan_rename(pipeline, src, syntax, 5, "y")
+  let first_plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    5,
+    "y",
+  )
   inspect(first_plan.target is Some(_), content="true")
   inspect(first_plan.edits.length(), content="1")
   inspect(edits_cover_offset(first_plan.edits, 5), content="true")
   inspect(edits_cover_offset(first_plan.edits, 8), content="false")
   inspect(edits_cover_offset(first_plan.edits, 13), content="false")
   inspect(first_plan.diagnostics.length(), content="0")
-  let plan = plan_rename(pipeline, src, syntax, 8, "y")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 8, "y")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(edits_cover_offset(plan.edits, 5), content="false")
@@ -627,7 +891,7 @@ test "fixture 18 (fn duplicate params): second parameter is targetable" {
 test "fixture 19 (shadow source order): later top-level binding does not warn" {
   let src = "let h = (f) => f\nlet g = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -641,7 +905,14 @@ test "fixture 19 (shadow source order): later top-level binding does not warn" {
 test "fixture 20 (converse source order): earlier top ref does not block" {
   let src = "let h = g\nlet f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 14, "g")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    14,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="1")
   inspect(
@@ -655,7 +926,14 @@ test "fixture 20 (converse source order): earlier top ref does not block" {
 test "fixture 21 (block let shadow): local rename to parameter name is legal" {
   let src = "let h = (x) => { let y = a; y }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 21, "x")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    21,
+    "x",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -673,7 +951,14 @@ test "fixture 21 (block let shadow): local rename to parameter name is legal" {
 test "fixture 22 (forward source order): earlier lambda param does not block" {
   let src = "let h = (g) => g\nlet f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 21, "g")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    21,
+    "g",
+  )
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="1")
   inspect(
@@ -687,7 +972,7 @@ test "fixture 22 (forward source order): earlier lambda param does not block" {
 test "fixture 23 (block-local forward capture): block let blocks rename" {
   let src = "let h = (f) => { let g = a; f }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target is Some(_), content="true")
   inspect(plan.edits.length(), content="2")
   inspect(
@@ -704,7 +989,8 @@ test "check_sibling_collision: target is not its own sibling" {
   let (defs, _) = @callers.extract_facts(syntax)
   let target = def_named(defs, "f")
   inspect(
-    check_sibling_collision(target, "f", defs, syntax) is None,
+    check_sibling_collision(rename_test_source_id(), target, "f", defs, syntax)
+    is None,
     content="true",
   )
 }
@@ -713,7 +999,7 @@ test "check_sibling_collision: target is not its own sibling" {
 test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
   let src = "let h = (f, g) => f g\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 9, "g")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 9, "g")
   inspect(plan.target.unwrap().name, content="f")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
@@ -726,7 +1012,14 @@ test "fixture 3 (forward capture): outer f rename to g, inner g intercepts" {
 test "fixture 4 (converse capture + shadow): rename param f -> g where outer g exists" {
   let src = "let g = a\nlet h = (f) => f g\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 19, "g")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    19,
+    "g",
+  )
   inspect(plan.target.unwrap().name, content="f")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.capture"),
@@ -743,7 +1036,14 @@ test "fixture 4 (converse capture + shadow): rename param f -> g where outer g e
 test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
   let src = "let g = a\nlet h = (f) => f\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 19, "g")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    19,
+    "g",
+  )
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.shadow"),
     content="true",
@@ -759,7 +1059,14 @@ test "fixture 5 (shadow only): rename param f -> g, no body reference to g" {
 test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
   let src = "let f = (x) => f x\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 4, "fff")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    4,
+    "fff",
+  )
   inspect(plan.target.unwrap().name, content="f")
   inspect(plan.edits.length(), content="1")
   inspect(edits_cover_offset(plan.edits, 4), content="true")
@@ -772,7 +1079,7 @@ test "fixture 6 (sequential top-level): rename f -> fff, self-ref untouched" {
 test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
   let src = "fn f(x) { x }\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 5, "y")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 5, "y")
   inspect(plan.target.unwrap().name, content="x")
   inspect(plan.edits.length(), content="2")
   inspect(plan.diagnostics.length(), content="0")
@@ -783,7 +1090,7 @@ test "fixture 7 (fn parameter): rename x -> y in fn f(x) { x }" {
 test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
   let src = "let f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 4, "f")
+  let plan = plan_rename(rename_test_source_id(), pipeline, src, syntax, 4, "f")
   inspect(plan.edits.length(), content="0")
   inspect(plan.diagnostics.length(), content="1")
   inspect(
@@ -791,9 +1098,10 @@ test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
     content="true",
   )
   inspect(
-    plan.diagnostics[0].severity is @core.DiagnosticSeverity::Info,
+    plan.diagnostics[0].severity() is @core.DiagnosticSeverity::Info,
     content="true",
   )
+  inspect(plan.diagnostics[0].labels().length(), content="0")
   pipeline.dispose()
 }
 
@@ -801,12 +1109,20 @@ test "fixture 8 (no-op): rename f -> f produces single Info diagnostic" {
 test "fixture 9 (offset miss): whitespace offset returns no_target diagnostic" {
   let src = "let f = a\n"
   let (pipeline, syntax) = setup_pipeline(src)
-  let plan = plan_rename(pipeline, src, syntax, 3, "fff")
+  let plan = plan_rename(
+    rename_test_source_id(),
+    pipeline,
+    src,
+    syntax,
+    3,
+    "fff",
+  )
   inspect(plan.target is None, content="true")
   inspect(plan.edits.length(), content="0")
   inspect(
     diagnostics_have_code(plan.diagnostics, "rename.no_target_at_offset"),
     content="true",
   )
+  inspect(plan.diagnostics[0].labels().length(), content="0")
   pipeline.dispose()
 }

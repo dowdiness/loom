@@ -12,13 +12,14 @@ test "TokenInfo stores token with length" {
 ///|
 test "Diagnostic stores message and primary range" {
   let range = test_range_or_abort(3, 7)
+  let span = SourceSpan(SourceId("parser-context-source"), range)
   let d = Diagnostic(
     source=DiagnosticSource::parser(),
     severity=Error,
     message="unexpected token",
-    primary=Some(range),
+    labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
   )
-  inspect(d.message, content="unexpected token")
+  inspect(d.message(), content="unexpected token")
   inspect(d.format(), content="unexpected token [3,7]")
 }
 
@@ -39,36 +40,43 @@ fn test_parser_diagnostic(
   token : TestTok,
 ) -> Diagnostic {
   let range = test_range_or_abort(start, end)
+  let span = SourceSpan(SourceId("parser-context-source"), range)
   Diagnostic(
     source=DiagnosticSource::parser(),
     severity=Error,
     message~,
-    primary=Some(range),
-    token=Some({ kind: @seam.ToRawKind::to_raw(token), range }),
+    labels=[DiagnosticLabel(LabelStyle::Primary, span, None)],
+    token=Some(TokenEvidence(@seam.ToRawKind::to_raw(token), span)),
   )
 }
 
 ///|
 fn diagnostic_start(diagnostic : Diagnostic) -> Int {
-  match diagnostic.primary {
-    Some(range) => range.start().value()
-    None => abort("expected diagnostic primary range")
+  let primary = diagnostic
+    .labels()
+    .filter(label => label.style() == LabelStyle::Primary)
+  match primary {
+    [label] => label.span().range().start().value()
+    _ => abort("expected exactly one diagnostic primary range")
   }
 }
 
 ///|
 fn diagnostic_end(diagnostic : Diagnostic) -> Int {
-  match diagnostic.primary {
-    Some(range) => range.end().value()
-    None => abort("expected diagnostic primary range")
+  let primary = diagnostic
+    .labels()
+    .filter(label => label.style() == LabelStyle::Primary)
+  match primary {
+    [label] => label.span().range().end().value()
+    _ => abort("expected exactly one diagnostic primary range")
   }
 }
 
 ///|
 fn diagnostic_token_raw(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token {
+  match diagnostic.token() {
     Some(evidence) => {
-      let @seam.RawKind(kind) = evidence.kind
+      let @seam.RawKind(kind) = evidence.kind()
       kind
     }
     None => abort("expected diagnostic token evidence")
@@ -77,23 +85,23 @@ fn diagnostic_token_raw(diagnostic : Diagnostic) -> Int {
 
 ///|
 fn diagnostic_token_start(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token {
-    Some(evidence) => evidence.range.start().value()
+  match diagnostic.token() {
+    Some(evidence) => evidence.span().range().start().value()
     None => abort("expected diagnostic token evidence")
   }
 }
 
 ///|
 fn diagnostic_token_end(diagnostic : Diagnostic) -> Int {
-  match diagnostic.token {
-    Some(evidence) => evidence.range.end().value()
+  match diagnostic.token() {
+    Some(evidence) => evidence.span().range().end().value()
     None => abort("expected diagnostic token evidence")
   }
 }
 
 ///|
 fn diagnostic_code_value(diagnostic : Diagnostic) -> String {
-  match diagnostic.code {
+  match diagnostic.code() {
     Some(code) => code.value()
     None => abort("expected diagnostic code")
   }
@@ -105,7 +113,7 @@ fn find_diagnostic_by_message(
   message : String,
 ) -> Diagnostic {
   for diagnostic in diagnostics.items() {
-    if diagnostic.message == message {
+    if diagnostic.message() == message {
       return diagnostic
     }
   }
@@ -117,7 +125,7 @@ fn has_diagnostic_message(
   diagnostics : DiagnosticSet,
   message : String,
 ) -> Bool {
-  diagnostics.items().iter().any(diagnostic => diagnostic.message == message)
+  diagnostics.items().iter().any(diagnostic => diagnostic.message() == message)
 }
 
 ///|
@@ -145,21 +153,31 @@ fn make_test_fixtures() -> (
 ///|
 test "ParserContext can be constructed" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "ab",
+    spec,
+  )
   inspect(ctx.position, content="0")
 }
 
 ///|
 test "peek returns current token" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "ab", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "ab",
+    spec,
+  )
   inspect(ctx.peek(), content="Plus")
 }
 
 ///|
 test "peek returns eof when past end" {
   let (spec, _) = make_test_fixtures()
-  let ctx = ParserContext::new([], "", spec)
+  let ctx = ParserContext::new(SourceId("parser-context-source"), [], "", spec)
   inspect(ctx.peek(), content="TokEof")
 }
 
@@ -168,7 +186,7 @@ test "peek returns eof when past end" {
 // underflow guard via the private open_nodes counter, so it belongs to core.
 test "finish_node without matching start_node is ignored" {
   let (spec, _) = make_test_fixtures()
-  let ctx = ParserContext::new([], "", spec)
+  let ctx = ParserContext::new(SourceId("parser-context-source"), [], "", spec)
   ctx.finish_node()
   inspect(ctx.open_nodes, content="0")
 }
@@ -176,7 +194,12 @@ test "finish_node without matching start_node is ignored" {
 ///|
 test "token_text_at returns token text and empty string for invalid index" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   inspect(ctx.token_text_at(0), content="+")
   inspect(ctx.token_text_at(1), content="42")
   inspect(ctx.token_text_at(-1), content="")
@@ -194,7 +217,12 @@ test "token_text_at handles lone surrogate without crash" {
     { token: TestTok::Plus, len: 1 }, // surrogate
     { token: TestTok::Plus, len: 1 }, // "b"
   ]
-  let ctx = ParserContext::new(tokens, source, spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    source,
+    spec,
+  )
   // Must not crash — preserves the exact code unit round-trip
   inspect(ctx.token_text_at(0), content="a")
   let surrogate_text = ctx.token_text_at(1)
@@ -212,7 +240,12 @@ test "token_text_at handles token spans that split surrogate pairs" {
     { token: TestTok::Plus, len: 1 },
     { token: TestTok::Plus, len: 1 },
   ]
-  let ctx = ParserContext::new(tokens, source, spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    source,
+    spec,
+  )
   let high = ctx.token_text_at(0)
   let low = ctx.token_text_at(1)
   inspect(high.length(), content="1")
@@ -225,7 +258,12 @@ test "token_text_at handles token spans that split surrogate pairs" {
 test "current_token_text and current_token_range skip trivia" {
   let src = "  42"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.current_token_text(), content="42")
   let range = ctx.current_token_range()
   inspect(range.start, content="2")
@@ -241,7 +279,12 @@ test "current_token_text and current_token_range skip trivia" {
 test "ParserContext::too_many_errors tracks parser diagnostics" {
   let src = "+"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   inspect(ctx.too_many_errors(1), content="false")
   ctx.report_expected(expected="number")
   inspect(ctx.too_many_errors(1), content="true")
@@ -250,9 +293,13 @@ test "ParserContext::too_many_errors tracks parser diagnostics" {
 
 ///|
 test "emit_current_token uses token raw kind" {
-  let (tree, errors) = parse_with(" +", test_spec, test_tokenize, fn(ctx) {
-    ctx.emit_current_token()
-  })
+  let (tree, errors) = parse_with(
+    SourceId("parser-context-source"),
+    " +",
+    test_spec,
+    test_tokenize,
+    ctx => ctx.emit_current_token(),
+  )
   inspect(errors.length(), content="0")
   let root = @seam.SyntaxNode::from_cst(tree)
   guard root.find_token(@seam.RawKind(1)) is Some(token) else {
@@ -265,7 +312,12 @@ test "emit_current_token uses token raw kind" {
 test "ParserContext::report records explicit structured diagnostic" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.report_error(
     message="manual parser diagnostic",
     code=Some(DiagnosticCode("parse.manual")),
@@ -273,25 +325,30 @@ test "ParserContext::report records explicit structured diagnostic" {
   )
   inspect(ctx.diagnostics.length(), content="1")
   let diagnostic = ctx.diagnostics.items()[0]
-  inspect(diagnostic.message, content="manual parser diagnostic")
+  inspect(diagnostic.message(), content="manual parser diagnostic")
   inspect(diagnostic_code_value(diagnostic), content="parse.manual")
   inspect(diagnostic_start(diagnostic), content="0")
   inspect(diagnostic_end(diagnostic), content="1")
-  inspect(diagnostic.token is None, content="true")
+  inspect(diagnostic.token() is None, content="true")
 }
 
 ///|
 test "ParserContext::report_at_current attaches current token evidence" {
   let src = "  +"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.report_at_current(
     message="current token diagnostic",
     code=Some(DiagnosticCode("parse.current")),
   )
   inspect(ctx.diagnostics.length(), content="1")
   let diagnostic = ctx.diagnostics.items()[0]
-  inspect(diagnostic.message, content="current token diagnostic")
+  inspect(diagnostic.message(), content="current token diagnostic")
   inspect(diagnostic_code_value(diagnostic), content="parse.current")
   inspect(diagnostic_start(diagnostic), content="2")
   inspect(diagnostic_end(diagnostic), content="3")
@@ -304,7 +361,12 @@ test "ParserContext::report_at_current attaches current token evidence" {
 test "ParserContext::report_at_current attaches EOF token evidence" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.emit_token(KNum)
   ctx.report_at_current(
     message="missing trailing expression",
@@ -324,14 +386,19 @@ test "ParserContext::report_at_current attaches EOF token evidence" {
 test "ParserContext::report_expected uses current token evidence" {
   let src = "+"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    toks,
+    src,
+    test_spec,
+  )
   ctx.report_expected(
     expected="number",
     code=Some(DiagnosticCode("parse.expected.number")),
   )
   inspect(ctx.diagnostics.length(), content="1")
   let diagnostic = ctx.diagnostics.items()[0]
-  inspect(diagnostic.message, content="expected number")
+  inspect(diagnostic.message(), content="expected number")
   inspect(diagnostic_code_value(diagnostic), content="parse.expected.number")
   inspect(diagnostic_start(diagnostic), content="0")
   inspect(diagnostic_end(diagnostic), content="1")
@@ -346,14 +413,24 @@ test "peek skips trivia tokens" {
     { token: TestTok::Ws, len: 1 },
     { token: TestTok::Plus, len: 1 },
   ]
-  let ctx = ParserContext::new(tokens, "  +", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "  +",
+    spec,
+  )
   inspect(ctx.peek(), content="Plus")
 }
 
 ///|
 test "at matches current token" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   inspect(ctx.at(TestTok::Plus), content="true")
   inspect(ctx.at(TestTok::Num(42)), content="false")
 }
@@ -402,14 +479,24 @@ fn assert_no_current_kind(ctx : ParserContext[TestTok, TestKind]) -> Unit {
 ///|
 test "current_node_kind: returns None when no nodes open" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   assert_no_current_kind(ctx)
 }
 
 ///|
 test "current_node_kind: returns Some(kind) after start_node" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KExpr)
   assert_current_kind(ctx, KExpr)
 }
@@ -417,7 +504,12 @@ test "current_node_kind: returns Some(kind) after start_node" {
 ///|
 test "current_node_kind: returns innermost node kind with nesting" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -427,7 +519,12 @@ test "current_node_kind: returns innermost node kind with nesting" {
 ///|
 test "current_node_kind: returns parent kind after finish_node" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.finish_node()
@@ -437,7 +534,12 @@ test "current_node_kind: returns parent kind after finish_node" {
 ///|
 test "current_node_kind: returns None after all nodes finished" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.finish_node()
   assert_no_current_kind(ctx)
@@ -446,7 +548,12 @@ test "current_node_kind: returns None after all nodes finished" {
 ///|
 test "current_node_kind: preserves full stack after checkpoint/restore" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   let cp = ctx.checkpoint()
@@ -468,7 +575,12 @@ test "peek_index(0): returns current raw token including trivia" {
     { token: TestTok::Plus, len: 1 },
   ]
   // peek() skips trivia, peek_index(0) doesn't
-  let ctx = ParserContext::new(tokens, " +", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    " +",
+    spec,
+  )
   inspect(ctx.peek(), content="Plus")
   inspect(ctx.peek_index(0), content="Ws")
 }
@@ -481,7 +593,12 @@ test "peek_index(1): returns next raw token" {
     { token: TestTok::Plus, len: 1 },
     { token: TestTok::Num(42), len: 2 },
   ]
-  let ctx = ParserContext::new(tokens, " +42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    " +42",
+    spec,
+  )
   inspect(ctx.peek_index(1), content="Plus")
   inspect(ctx.peek_index(2), content="Num(42)")
 }
@@ -489,7 +606,12 @@ test "peek_index(1): returns next raw token" {
 ///|
 test "peek_index(3) past end returns eof_token" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   inspect(ctx.peek_index(3), content="TokEof")
 }
 
@@ -500,7 +622,12 @@ test "peek_index(-1): negative n returns token at current position" {
     { token: TestTok::Ws, len: 1 },
     { token: TestTok::Plus, len: 1 },
   ]
-  let ctx = ParserContext::new(tokens, " +", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    " +",
+    spec,
+  )
   // Negative n is clamped to 0, so peek_index(-1) == peek_index(0)
   inspect(ctx.peek_index(-1), content="Ws")
   inspect(ctx.peek_index(0), content="Ws")
@@ -509,7 +636,12 @@ test "peek_index(-1): negative n returns token at current position" {
 ///|
 test "peek_index(0) same as peek for non-trivia current token" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   // When current raw token is non-trivia, peek and peek_index(0) agree
   inspect(ctx.peek(), content="Plus")
   inspect(ctx.peek_index(0), content="Plus")
@@ -525,7 +657,12 @@ test "peek_index returns trivia tokens that peek skips" {
     { token: TestTok::Ws, len: 1 },
     { token: TestTok::Num(42), len: 2 },
   ]
-  let ctx = ParserContext::new(tokens, "  + 42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "  + 42",
+    spec,
+  )
   // peek_index shows raw positions: [Ws, Ws, Plus, Ws, Num(42)]
   // peek skips trivia and is at Plus immediately
   inspect(ctx.peek(), content="Plus")
@@ -541,7 +678,12 @@ test "peek_index returns trivia tokens that peek skips" {
 ///|
 test "finish_nodes_until: returns true when current node matches" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   // Current node is KExpr — finish_nodes_until(KExpr) should match it
@@ -557,7 +699,12 @@ test "finish_nodes_until: returns true when current node matches" {
 ///|
 test "finish_nodes_until: returns true when ancestor matches" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -571,7 +718,12 @@ test "finish_nodes_until: returns true when ancestor matches" {
 ///|
 test "finish_nodes_until: returns false when kind not in ancestor chain" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -586,7 +738,12 @@ test "finish_nodes_until: returns false when kind not in ancestor chain" {
 ///|
 test "finish_nodes_until: returns false when no nodes open" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   let found = ctx.finish_nodes_until(KRoot)
   inspect(found, content="false")
   inspect(ctx.open_nodes, content="0")
@@ -598,7 +755,12 @@ test "finish_nodes_until: closes all nodes above match, preserves matching" {
   // finish_nodes_until(KExpr) should close KWs, KPlus, KNum
   // and leave KExpr and KRoot open
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -613,7 +775,12 @@ test "finish_nodes_until: closes all nodes above match, preserves matching" {
 ///|
 test "finish_nodes_until: combined with checkpoint restores node stack" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   let cp = ctx.checkpoint()
@@ -632,7 +799,12 @@ test "finish_nodes_until: combined with checkpoint restores node stack" {
 ///|
 test "finish_nodes_until: lookahead restores node stack" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   let found = ctx.lookahead(() => {
@@ -652,7 +824,12 @@ test "finish_nodes_until: lookahead restores node stack" {
 ///|
 test "finish_nodes_until_inclusive: closes current matching node" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   // KExpr matches — finish_nodes_until_inclusive should close it
@@ -667,7 +844,12 @@ test "finish_nodes_until_inclusive: closes current matching node" {
 ///|
 test "finish_nodes_until_inclusive: closes ancestor and all nodes above" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -682,7 +864,12 @@ test "finish_nodes_until_inclusive: closes ancestor and all nodes above" {
 ///|
 test "finish_nodes_until_inclusive: closes root node when it matches" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -696,7 +883,12 @@ test "finish_nodes_until_inclusive: closes root node when it matches" {
 ///|
 test "finish_nodes_until_inclusive: returns false when kind not found" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   ctx.start_node(KRoot)
   ctx.start_node(KExpr)
   ctx.start_node(KNum)
@@ -710,7 +902,12 @@ test "finish_nodes_until_inclusive: returns false when kind not found" {
 ///|
 test "finish_nodes_until_inclusive: returns false when no nodes open" {
   let (spec, tokens) = make_test_fixtures()
-  let ctx = ParserContext::new(tokens, "+42", spec)
+  let ctx = ParserContext::new(
+    SourceId("parser-context-source"),
+    tokens,
+    "+42",
+    spec,
+  )
   let found = ctx.finish_nodes_until_inclusive(KRoot)
   inspect(found, content="false")
   inspect(ctx.open_nodes, content="0")

@@ -2,10 +2,17 @@
 // Run with: moon bench --package dowdiness/loom/benchmarks --release
 
 ///|
+fn benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-core")
+}
+
+///|
 /// Benchmark: Full parse of simple expression
 test "full parse - simple" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("42") catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(benchmark_source_id(), "42") catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -14,7 +21,7 @@ test "full parse - simple" (b : @bench.T) {
 /// Benchmark: Full parse of lambda expression
 test "full parse - lambda" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("(x) => x") catch {
+    let result = @lambda.parse(benchmark_source_id(), "(x) => x") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -25,7 +32,7 @@ test "full parse - lambda" (b : @bench.T) {
 /// Benchmark: Full parse of nested lambdas
 test "full parse - nested lambdas" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("(f, x) => f (f x)") catch {
+    let result = @lambda.parse(benchmark_source_id(), "(f, x) => f (f x)") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -36,7 +43,7 @@ test "full parse - nested lambdas" (b : @bench.T) {
 /// Benchmark: Full parse of arithmetic expression
 test "full parse - arithmetic" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("1 + 2 - 3 + 4") catch {
+    let result = @lambda.parse(benchmark_source_id(), "1 + 2 - 3 + 4") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -47,7 +54,10 @@ test "full parse - arithmetic" (b : @bench.T) {
 /// Benchmark: Full parse of complex expression
 test "full parse - complex" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("(f, x) => if f x then x + 1 else x - 1") catch {
+    let result = @lambda.parse(
+      benchmark_source_id(),
+      "(f, x) => if f x then x + 1 else x - 1",
+    ) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -69,7 +79,11 @@ test "tokenization" (b : @bench.T) {
 /// Benchmark: Incremental parser - initial parse
 test "incremental - initial parse" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      benchmark_source_id(),
+      "x",
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -79,7 +93,11 @@ test "incremental - initial parse" (b : @bench.T) {
 /// Benchmark: Incremental parser - small edit
 test "incremental - small edit" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      benchmark_source_id(),
+      "x",
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let edit = @core.Edit::insert(1, 4)
     let result = parser.edit(edit, "x + 1")
@@ -91,7 +109,11 @@ test "incremental - small edit" (b : @bench.T) {
 /// Benchmark: Incremental parser - multiple edits
 test "incremental - multiple edits" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      benchmark_source_id(),
+      "x",
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let edit1 = @core.Edit::insert(1, 4)
     let _ = parser.edit(edit1, "x + 1")
@@ -105,7 +127,11 @@ test "incremental - multiple edits" (b : @bench.T) {
 /// Benchmark: Incremental parser - replacement edit
 test "incremental - replacement" (b : @bench.T) {
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser("(x) => x", @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      benchmark_source_id(),
+      "(x) => x",
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let edit = @core.Edit::replace(0, 1, 1)
     let result = parser.edit(edit, "(x) => x")
@@ -127,7 +153,7 @@ test "damage tracking" (b : @bench.T) {
 /// Benchmark: Error recovery - valid input
 test "error recovery - valid" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("(x) => x") catch {
+    let result = @lambda.parse(benchmark_source_id(), "(x) => x") catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -138,7 +164,7 @@ test "error recovery - valid" (b : @bench.T) {
 /// Benchmark: Error recovery - error input
 test "error recovery - error" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse("(,) => x") catch {
+    let result = @lambda.parse(benchmark_source_id(), "(,) => x") catch {
       _ => @lambda.Term::Error("benchmark")
     }
     b.keep(result)
@@ -149,7 +175,7 @@ test "error recovery - error" (b : @bench.T) {
 /// Benchmark: Full parse of let definition + expression.
 test "full parse - let" (b : @bench.T) {
   b.bench(fn() {
-    let (term, _) = @lambda.parse_term("let x = 1\nx") catch {
+    let (term, _) = @lambda.parse_term(benchmark_source_id(), "let x = 1\nx") catch {
       _ => abort("benchmark failed")
     }
     b.keep(term)
@@ -160,7 +186,10 @@ test "full parse - let" (b : @bench.T) {
 /// Benchmark: Full parse of nested let definitions.
 test "full parse - nested let" (b : @bench.T) {
   b.bench(fn() {
-    let (term, _) = @lambda.parse_term("let x = 1\nlet y = x + 1\ny") catch {
+    let (term, _) = @lambda.parse_term(
+      benchmark_source_id(),
+      "let x = 1\nlet y = x + 1\ny",
+    ) catch {
       _ => abort("benchmark failed")
     }
     b.keep(term)
@@ -173,7 +202,9 @@ test "full parse - nested let" (b : @bench.T) {
 test "incremental - let body edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1\ny", @lambda.lambda_grammar,
+      benchmark_source_id(),
+      "let x = 1\ny",
+      @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(10, 11, 11)
@@ -188,7 +219,9 @@ test "incremental - let body edit" (b : @bench.T) {
 test "incremental - let init edit" (b : @bench.T) {
   b.bench(fn() {
     let parser = @loom.new_imperative_parser(
-      "let x = 1\ny", @lambda.lambda_grammar,
+      benchmark_source_id(),
+      "let x = 1\ny",
+      @lambda.lambda_grammar,
     )
     let _ = parser.parse()
     let edit = @core.Edit::replace(8, 9, 9)

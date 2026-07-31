@@ -4,32 +4,42 @@
 /// Build a parser diagnostic for a known token span. The token payload is
 /// erased immediately so consumers never need to re-tokenize for evidence.
 fn[T : @seam.ToRawKind] make_parser_diagnostic(
+  source_id : SourceId,
   msg : String,
   start : Int,
   end : Int,
   token : T,
   code? : DiagnosticCode? = None,
 ) -> Diagnostic {
-  let (primary, notes) : (TextRange?, Array[String]) = try
-    TextRange::from_offsets(start, end)
-  catch {
+  let (labels, token, notes) : (
+    Array[DiagnosticLabel],
+    TokenEvidence?,
+    Array[String],
+  ) = try TextRange::from_offsets(start, end) catch {
     error =>
       (
+        [],
         None,
         ["invalid diagnostic range preserved as " + @debug.to_string(error)],
       )
   } noraise {
-    range => (Some(range), [])
+    range => {
+      let span = SourceSpan(source_id, range)
+      (
+        [DiagnosticLabel(LabelStyle::Primary, span, None)],
+        Some(TokenEvidence(token.to_raw(), span)),
+        [],
+      )
+    }
   }
-  let evidence = primary.map(range => { kind: token.to_raw(), range })
   Diagnostic(
     source=DiagnosticSource::parser(),
     severity=Error,
     code~,
     message=msg,
-    primary~,
+    labels~,
     notes~,
-    token=evidence,
+    token~,
   )
 }
 
@@ -52,13 +62,22 @@ pub fn[T, K] ParserContext::report_error(
   code? : DiagnosticCode? = None,
   range? : TextRange? = None,
 ) -> Unit {
+  let labels = range.map_or([], range => {
+    [
+      DiagnosticLabel(
+        LabelStyle::Primary,
+        SourceSpan(self.source_id, range),
+        None,
+      ),
+    ]
+  })
   self.report(
     Diagnostic(
       source=DiagnosticSource::parser(),
       severity=Error,
       code~,
       message~,
-      primary=range,
+      labels~,
     ),
   )
 }
@@ -76,10 +95,18 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K] ParserContext::report_at_current
     .map_or_else(
       () => {
         let eof = self.source.length()
-        make_parser_diagnostic(message, eof, eof, self.spec.eof_token, code~)
+        make_parser_diagnostic(
+          self.source_id,
+          message,
+          eof,
+          eof,
+          self.spec.eof_token,
+          code~,
+        )
       },
       pos => {
         make_parser_diagnostic(
+          self.source_id,
           message,
           (self.get_start)(pos),
           (self.get_end)(pos),

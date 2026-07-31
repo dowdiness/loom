@@ -17,9 +17,9 @@ fn tok(t : @token.Token) -> @core.TokenInfo[@token.Token] {
 
 ///|
 fn css_diagnostic_start(diag : @core.Diagnostic) -> Int {
-  match diag.primary {
-    Some(range) => range.start().value()
-    None => abort("expected CSS diagnostic range")
+  match diag.labels() {
+    [label, ..] => label.span().range().start().value()
+    [] => abort("expected CSS diagnostic range")
   }
 }
 
@@ -49,6 +49,7 @@ test "acceptance: missing-property-name recovers via EmitOr" {
   ]
 
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-missing-property-name"),
     "x { ; }",
     spec,
     _source => tokens,
@@ -57,7 +58,7 @@ test "acceptance: missing-property-name recovers via EmitOr" {
 
   // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
   inspect(diags.length(), content="1")
-  inspect(diags.items()[0].message, content="expected 'RBrace'")
+  inspect(diags.items()[0].message(), content="expected 'RBrace'")
 }
 
 ///|
@@ -94,6 +95,7 @@ test "acceptance: @until recovers from garbage after declarations" {
   ]
 
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-garbage-after-declarations"),
     "x { color: red; 1 2 3 }",
     spec,
     _source => tokens,
@@ -102,7 +104,7 @@ test "acceptance: @until recovers from garbage after declarations" {
 
   // 1 from @until's ctx.error (skip_until's ErrorNode is structural, no diagnostic)
   inspect(diags.length(), content="1")
-  inspect(diags.items()[0].message, content="expected 'RBrace'")
+  inspect(diags.items()[0].message(), content="expected 'RBrace'")
 }
 
 ///|
@@ -143,6 +145,7 @@ test "acceptance: missing-semicolon-recovery continues to next declaration" {
   ]
 
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-missing-semicolon"),
     "x { color: red font: bold; }",
     spec,
     _source => tokens,
@@ -183,6 +186,7 @@ test "demo: single rule, single declaration" {
     tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-single-rule"),
     "div { color: red; }",
     spec,
     _source => tokens,
@@ -214,6 +218,7 @@ test "demo: single rule, two declarations" {
     tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-two-declarations"),
     "div { color: red; margin: 0; }",
     spec,
     _source => tokens,
@@ -248,6 +253,7 @@ test "demo: two rules" {
     tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-two-rules"),
     "div { color: red; } span { margin: 0; }",
     spec,
     _source => tokens,
@@ -271,6 +277,7 @@ test "demo: empty rule body" {
     tok(@token.EOF),
   ]
   let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-empty-rule"),
     "div { }",
     spec,
     _source => tokens,
@@ -384,9 +391,15 @@ test "real-css: @until diagnostic range excludes the closing brace" {
   let spec = make_css_spec(parse)
   let source = "x { color: red; 1 2 3 }"
   let toks = css_lex(source)
-  let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
+  let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-real-until-range"),
+    source,
+    spec,
+    _source => toks,
+    parse,
+  )
   inspect(diags.length(), content="1")
-  inspect(diags.items()[0].message, content="expected 'RBrace'")
+  inspect(diags.items()[0].message(), content="expected 'RBrace'")
   inspect(css_diagnostic_start(diags.items()[0]), content="16")
 }
 
@@ -400,7 +413,13 @@ test "real-css: multi-rule style block" {
   let spec = make_css_spec(parse)
   let source = "body { color: red; margin: 0; }\nh1 { font-size: 16; }"
   let toks = css_lex(source)
-  let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
+  let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-real-multi-rule"),
+    source,
+    spec,
+    _source => toks,
+    parse,
+  )
   inspect(diags.is_empty(), content="true")
 }
 
@@ -412,6 +431,12 @@ test "real-css: empty rule" {
   let spec = make_css_spec(parse)
   let source = "div { }"
   let toks = css_lex(source)
-  let (_tree, diags) = @core.parse_with(source, spec, _source => toks, parse)
+  let (_tree, diags) = @core.parse_with(
+    @core.SourceId::SourceId("css-real-empty-rule"),
+    source,
+    spec,
+    _source => toks,
+    parse,
+  )
   inspect(diags.is_empty(), content="true")
 }

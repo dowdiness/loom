@@ -3,6 +3,11 @@
 // Run with: moon bench --package dowdiness/loom/benchmarks --release
 
 ///|
+fn cst_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-cst")
+}
+
+///|
 fn make_ident_token(text : String) -> @seam.CstToken {
   @seam.CstToken::CstToken(@seam.RawKind(9), text)
 }
@@ -322,7 +327,10 @@ test "node_interner - intern_node warm hit" (b : @bench.T) {
 /// Benchmark: Full parse_cst end-to-end (global interning always active).
 test "parse_cst - end-to-end" (b : @bench.T) {
   b.bench(fn() {
-    let result = @lambda.parse_cst("(f, x) => f (f x)") catch {
+    let result = @lambda.parse_cst(
+      cst_benchmark_source_id(),
+      "(f, x) => f (f x)",
+    ) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)

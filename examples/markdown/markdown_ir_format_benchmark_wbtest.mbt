@@ -1,11 +1,13 @@
 ///|
 fn markdown_ir_canonical_benchmark_ir_from_source(
+  source_id : @core.SourceId,
   source : String,
 ) -> MarkdownIR {
-  let (cst, diagnostics) = parse_cst(source) catch {
+  let (cst, diagnostics) = parse_cst(source_id, source) catch {
     _ => abort("canonical benchmark source failed to parse")
   }
   experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
@@ -44,6 +46,7 @@ fn markdown_ir_canonical_bounded_failure_limits() -> MarkdownIRCanonicalFormatLi
 ///|
 priv struct MarkdownIRCanonicalBenchmarkCase {
   label : String
+  source_id : @core.SourceId
   ir : MarkdownIR
   limits : MarkdownIRCanonicalFormatLimits
 }
@@ -55,48 +58,73 @@ fn markdown_ir_canonical_benchmark_cases() -> Array[
   [
     {
       label: "first-candidate success",
-      ir: markdown_ir_canonical_benchmark_ir_from_source("plain text\n"),
+      source_id: @core.SourceId("markdown-canonical-benchmark:first-candidate"),
+      ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:first-candidate"),
+        "plain text\n",
+      ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "late success",
-      ir: markdown_ir_canonical_benchmark_ir_from_source("\\*a\\*\n"),
+      source_id: @core.SourceId("markdown-canonical-benchmark:late-success"),
+      ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:late-success"),
+        "\\*a\\*\n",
+      ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "bounded failure",
+      source_id: @core.SourceId("markdown-canonical-benchmark:bounded-failure"),
       ir: markdown_ir_canonical_bounded_failure_ir(),
       limits: markdown_ir_canonical_bounded_failure_limits(),
     },
     {
       label: "flat adjacency",
-      ir: markdown_ir_canonical_benchmark_ir_from_source("_a_*b*\n"),
+      source_id: @core.SourceId("markdown-canonical-benchmark:flat-adjacency"),
+      ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:flat-adjacency"),
+        "_a_*b*\n",
+      ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "recursive nesting",
+      source_id: @core.SourceId(
+        "markdown-canonical-benchmark:recursive-nesting",
+      ),
       ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:recursive-nesting"),
         "**x *y **z** y* x**\n",
       ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "marker-backslash-heavy text",
+      source_id: @core.SourceId("markdown-canonical-benchmark:marker-heavy"),
       ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:marker-heavy"),
         "\\*\\_\\[\\]\\(\\)\\&\\<\\>\\`\\\\\n",
       ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "link-code opacity",
+      source_id: @core.SourceId("markdown-canonical-benchmark:link-code"),
       ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:link-code"),
         "[\\*literal\\* and `code * _`](u)\n",
       ),
       limits: markdown_ir_canonical_default_limits(),
     },
     {
       label: "Unicode punctuation",
-      ir: markdown_ir_canonical_benchmark_ir_from_source("。_a_→*b*😈\n"),
+      source_id: @core.SourceId("markdown-canonical-benchmark:unicode"),
+      ir: markdown_ir_canonical_benchmark_ir_from_source(
+        @core.SourceId("markdown-canonical-benchmark:unicode"),
+        "。_a_→*b*😈\n",
+      ),
       limits: markdown_ir_canonical_default_limits(),
     },
   ]
@@ -120,7 +148,11 @@ fn markdown_ir_canonical_benchmark_result_tag(
 fn markdown_ir_canonical_benchmark_signature(
   case : MarkdownIRCanonicalBenchmarkCase,
 ) -> String {
-  let attempt = markdown_ir_canonical_format_attempt(case.ir, case.limits)
+  let attempt = markdown_ir_canonical_format_attempt(
+    case.source_id,
+    case.ir,
+    case.limits,
+  )
   let buf = StringBuilder::StringBuilder()
   buf.write_string(case.label)
   buf.write_char(':')
@@ -163,8 +195,10 @@ fn benchmark_markdown_ir_canonical_checked(
   b : @bench.T,
   case : MarkdownIRCanonicalBenchmarkCase,
 ) -> Unit {
-  b.bench(fn() {
-    b.keep(markdown_ir_canonical_format_attempt(case.ir, case.limits).result)
+  b.bench(() => {
+    b.keep(
+      markdown_ir_canonical_format_attempt(case.source_id, case.ir, case.limits).result,
+    )
   })
 }
 

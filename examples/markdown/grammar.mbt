@@ -3,12 +3,15 @@ let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
   markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
-  error_token_from_message=Some(fn(msg) { Error(msg) }),
+  error_token_from_message=Some(msg => Error(msg)),
 )
 
 ///|
-fn lex_for_grammar(source : String) -> @core.LexResult[Token] {
-  (mode_factory.tokenize)(source)
+fn lex_for_grammar(
+  source_id : @core.SourceId,
+  source : String,
+) -> @core.LexResult[Token] {
+  (mode_factory.tokenize)(source_id, source)
 }
 
 ///|

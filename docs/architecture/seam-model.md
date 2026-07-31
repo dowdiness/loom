@@ -106,7 +106,8 @@ let cst = build_tree(buf.to_events(), SourceFile)
 ## Traversal Example
 
 ```moonbit
-let cst = parse_cst("(x) => x + 1")
+let source_id = @loom.SourceId("seam-model-document")
+let (cst, diagnostics) = parse_cst(source_id, "(x) => x + 1")
 let syntax = @seam.SyntaxNode::from_cst(cst)
 inspect(syntax.start())  // 0
 inspect(syntax.end())    // 12

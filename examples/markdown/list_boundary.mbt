@@ -59,8 +59,8 @@ fn list_marker_matches_at_min_indent(
 }
 
 ///|
-fn first_unordered_list_marker(text : String) -> UnorderedListMarker? {
-  first_token_text(text).bind(unordered_list_marker_from_text)
+fn first_unordered_list_marker(node : @seam.SyntaxNode) -> UnorderedListMarker? {
+  first_token_text(node).bind(unordered_list_marker_from_text)
 }
 
 ///|

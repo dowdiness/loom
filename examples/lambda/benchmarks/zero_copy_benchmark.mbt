@@ -4,6 +4,11 @@
 //
 // Run with: moon bench --release -p dowdiness/lambda/benchmarks -f zero_copy_benchmark.mbt
 
+///|
+fn zero_copy_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-zero-copy")
+}
+
 // --- Input generators ---
 // All three produce 55 values + 54 "+" operators = 109 tokens + EOF.
 // make_token_source() from performance_benchmark.mbt produces integers: "1 + 2 + 3 + ... + 55"
@@ -68,7 +73,7 @@ test "zero-copy: tokenize - long identifiers" (b : @bench.T) {
 test "zero-copy: full parse - integers (baseline)" (b : @bench.T) {
   let source = make_token_source()
   b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst(source) catch {
+    let (tree, _) = @lambda.parse_cst(zero_copy_benchmark_source_id(), source) catch {
       _ => abort("bench failed")
     }
     b.keep(tree)
@@ -79,7 +84,7 @@ test "zero-copy: full parse - integers (baseline)" (b : @bench.T) {
 test "zero-copy: full parse - short identifiers" (b : @bench.T) {
   let source = make_short_id_source()
   b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst(source) catch {
+    let (tree, _) = @lambda.parse_cst(zero_copy_benchmark_source_id(), source) catch {
       _ => abort("bench failed")
     }
     b.keep(tree)
@@ -90,7 +95,7 @@ test "zero-copy: full parse - short identifiers" (b : @bench.T) {
 test "zero-copy: full parse - long identifiers" (b : @bench.T) {
   let source = make_long_id_source()
   b.bench(fn() {
-    let (tree, _) = @lambda.parse_cst(source) catch {
+    let (tree, _) = @lambda.parse_cst(zero_copy_benchmark_source_id(), source) catch {
       _ => abort("bench failed")
     }
     b.keep(tree)

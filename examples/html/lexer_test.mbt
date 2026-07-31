@@ -1,6 +1,7 @@
 ///|
 test "lex simple open tag" {
-  let tokens = lex("<div>").tokens()
+  let source_id = @core.SourceId("html-lexer-simple-open-tag")
+  let tokens = lex(source_id, "<div>").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.OpenTag(name) => inspect(name, content="div")
@@ -10,7 +11,8 @@ test "lex simple open tag" {
 
 ///|
 test "lex close tag" {
-  let tokens = lex("</div>").tokens()
+  let source_id = @core.SourceId("html-lexer-close-tag")
+  let tokens = lex(source_id, "</div>").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.CloseTag(name) => inspect(name, content="div")
@@ -20,13 +22,15 @@ test "lex close tag" {
 
 ///|
 test "lex element with text content" {
-  let tokens = lex("<p>hello</p>").tokens()
+  let source_id = @core.SourceId("html-lexer-text-content")
+  let tokens = lex(source_id, "<p>hello</p>").tokens()
   inspect(tokens.length(), content="4")
 }
 
 ///|
 test "lex void element" {
-  let tokens = lex("<br>").tokens()
+  let source_id = @core.SourceId("html-lexer-void-element")
+  let tokens = lex(source_id, "<br>").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.OpenTag(name) => inspect(name, content="br")
@@ -36,7 +40,8 @@ test "lex void element" {
 
 ///|
 test "lex self-closing element" {
-  let tokens = lex("<br/>").tokens()
+  let source_id = @core.SourceId("html-lexer-self-closing-element")
+  let tokens = lex(source_id, "<br/>").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.OpenTag(name) => inspect(name, content="br")
@@ -46,13 +51,15 @@ test "lex self-closing element" {
 
 ///|
 test "lex empty input" {
-  let tokens = lex("").tokens()
+  let source_id = @core.SourceId("html-lexer-empty-input")
+  let tokens = lex(source_id, "").tokens()
   inspect(tokens.length(), content="1")
 }
 
 ///|
 test "lex attribute with double quotes" {
-  let tokens = lex("<div class=\"foo\">").tokens()
+  let source_id = @core.SourceId("html-lexer-double-quoted-attribute")
+  let tokens = lex(source_id, "<div class=\"foo\">").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.OpenTag(name) => inspect(name, content="div")
@@ -62,7 +69,8 @@ test "lex attribute with double quotes" {
 
 ///|
 test "lex comment" {
-  let tokens = lex("<!-- comment -->").tokens()
+  let source_id = @core.SourceId("html-lexer-comment")
+  let tokens = lex(source_id, "<!-- comment -->").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.Comment => ()
@@ -72,7 +80,8 @@ test "lex comment" {
 
 ///|
 test "lex doctype" {
-  let tokens = lex("<!DOCTYPE html>").tokens()
+  let source_id = @core.SourceId("html-lexer-doctype")
+  let tokens = lex(source_id, "<!DOCTYPE html>").tokens()
   inspect(tokens.length(), content="2")
   match tokens[0].token {
     @token.Doctype => ()
@@ -82,19 +91,22 @@ test "lex doctype" {
 
 ///|
 test "lex multiple elements" {
-  let tokens = lex("<ul><li>a</li><li>b</li></ul>").tokens()
+  let source_id = @core.SourceId("html-lexer-multiple-elements")
+  let tokens = lex(source_id, "<ul><li>a</li><li>b</li></ul>").tokens()
   inspect(tokens.length(), content="9")
 }
 
 ///|
 test "lex with whitespace" {
-  let tokens = lex("<p>\n  text\n</p>").tokens()
+  let source_id = @core.SourceId("html-lexer-whitespace")
+  let tokens = lex(source_id, "<p>\n  text\n</p>").tokens()
   inspect(tokens.length(), content="5")
 }
 
 ///|
 test "lex input with whitespace before tag" {
-  let tokens = lex("  <div>").tokens()
+  let source_id = @core.SourceId("html-lexer-leading-whitespace")
+  let tokens = lex(source_id, "  <div>").tokens()
   inspect(tokens.length(), content="3")
   match tokens[1].token {
     @token.OpenTag(name) => inspect(name, content="div")
@@ -105,7 +117,8 @@ test "lex input with whitespace before tag" {
 ///|
 test "lex script content as raw text, not text" {
   // Regression for loom #626.
-  let result = lex("<script>var x = 1;</script>")
+  let source_id = @core.SourceId("html-lexer-script-raw-text")
+  let result = lex(source_id, "<script>var x = 1;</script>")
   let tokens = result.tokens()
   let starts = result.starts()
   inspect(tokens.length(), content="4")
@@ -126,13 +139,14 @@ test "lex script content as raw text, not text" {
 test "lex script raw text is case-insensitive and empty-safe" {
   // Regression for loom #626 — mixed-case tag names and an immediately
   // closed raw-text element (no zero-width RawText token, no hang).
-  let mixed_case = lex("<SCRIPT>a</SCRIPT>").tokens()
+  let source_id = @core.SourceId("html-lexer-script-case-and-empty")
+  let mixed_case = lex(source_id, "<SCRIPT>a</SCRIPT>").tokens()
   inspect(mixed_case.length(), content="4")
   match mixed_case[1].token {
     @token.RawText => ()
     _ => fail("Expected RawText for mixed-case script tag")
   }
-  let empty = lex("<script></script>").tokens()
+  let empty = lex(source_id, "<script></script>").tokens()
   inspect(empty.length(), content="3")
   match empty[1].token {
     @token.CloseTag(name) => inspect(name, content="script")
@@ -150,7 +164,8 @@ test "generated element classifier is case insensitive and custom safe" {
 ///|
 test "open tag preserves complete source span while payload stays name only" {
   let source = "<div class=\"foo\">"
-  let result = lex(source)
+  let source_id = @core.SourceId("html-lexer-open-tag-span")
+  let result = lex(source_id, source)
   let tokens = result.tokens()
   inspect(tokens[0].len, content="17")
   inspect(result.starts()[0], content="0")

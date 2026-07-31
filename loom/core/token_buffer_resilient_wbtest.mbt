@@ -26,6 +26,7 @@ fn bad_tokenizer(s : String) -> Array[TokenInfo[String]] raise LexError {
 ///|
 test "TokenBuffer::new_resilient: clean input produces normal tokens" {
   let buf = TokenBuffer::new_resilient(
+    SourceId("token-buffer-resilient-source"),
     "abc",
     tokenize_fn=bad_tokenizer,
     eof_token="EOF",
@@ -37,6 +38,7 @@ test "TokenBuffer::new_resilient: clean input produces normal tokens" {
 ///|
 test "TokenBuffer::new_resilient: bad char produces error token and continues" {
   let buf = TokenBuffer::new_resilient(
+    SourceId("token-buffer-resilient-source"),
     "a@b",
     tokenize_fn=bad_tokenizer,
     eof_token="EOF",
@@ -63,6 +65,7 @@ test "TokenBuffer::new_resilient: bad char produces error token and continues" {
 ///|
 test "TokenBuffer::update clears diagnostics for repaired resilient error" {
   let buf = TokenBuffer::new_resilient(
+    SourceId("token-buffer-resilient-source"),
     "a@b",
     tokenize_fn=bad_tokenizer,
     eof_token="EOF",
@@ -107,6 +110,7 @@ fn reject_non_bmp_tokenizer(
 ///|
 test "TokenBuffer::new_resilient: fallback keeps non-BMP error token whole" {
   let buf = TokenBuffer::new_resilient(
+    SourceId("token-buffer-resilient-source"),
     "a\u{1F600}b",
     tokenize_fn=reject_non_bmp_tokenizer,
     eof_token="EOF",
@@ -156,6 +160,7 @@ test "TokenBuffer::new_resilient: preserves valid prefix for non-monotonic token
   //   "\"a\"" -> Ok
   //   "\"a\"@" -> LexError (bad char @)
   let buf = TokenBuffer::new_resilient(
+    SourceId("token-buffer-resilient-source"),
     "\"a\"@",
     tokenize_fn=quote_sensitive_tokenizer,
     eof_token="EOF",

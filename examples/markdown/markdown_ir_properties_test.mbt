@@ -58,10 +58,16 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
   let text = markdown_property_safe_text("Title", seed)
   let marker = "#".repeat(depth)
   let source = marker + " " + text + "\n"
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-property-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
   inspect(
-    experimental_markdown_ir_canonical_format(ir),
+    experimental_markdown_ir_canonical_format(
+      @core.SourceId("markdown-ir-property-document"),
+      ir,
+    ),
     content=marker + " " + text,
   )
   match ir.children() {
@@ -78,7 +84,11 @@ fn assert_markdown_property_heading_case(depth : Int, seed : Int) -> Unit raise 
           inspect(local_rewrite, content=marker + " " + replacement + "\n")
           inspect(local_rewrite != source, content="true")
           inspect(
-            local_rewrite != experimental_markdown_ir_canonical_format(ir),
+            local_rewrite !=
+            experimental_markdown_ir_canonical_format(
+              @core.SourceId("markdown-ir-property-document"),
+              ir,
+            ),
             content="true",
           )
         }
@@ -99,13 +109,23 @@ fn assert_markdown_property_list_case(
     seed,
     trailing_newline=false,
   )
-  let ir = markdown_ir_from_source(source)
+  let ir = markdown_ir_from_source(
+    @core.SourceId("markdown-ir-property-document"),
+    source,
+  )
   inspect(experimental_markdown_ir_preserve_rewrite(ir, source), content=source)
-  let canonical = experimental_markdown_ir_canonical_format(ir)
+  let canonical = experimental_markdown_ir_canonical_format(
+    @core.SourceId("markdown-ir-property-document"),
+    ir,
+  )
   inspect(canonical, content=canonical_source)
   inspect(
     experimental_markdown_ir_canonical_format(
-      markdown_ir_from_source(canonical),
+      @core.SourceId("markdown-ir-property-document"),
+      markdown_ir_from_source(
+        @core.SourceId("markdown-ir-property-document"),
+        canonical,
+      ),
     ),
     content=canonical,
   )

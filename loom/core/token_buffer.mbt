@@ -7,6 +7,7 @@
 
 ///|
 pub struct TokenBuffer[T] {
+  priv source_id : SourceId
   priv retokenize_full : (String) -> LexResult[T] raise LexError
   priv incremental_relex_enabled : Bool
   priv eof_token : T
@@ -91,6 +92,7 @@ pub fn[T] tokenize_via_steps_result(
 
 ///|
 pub fn[T] TokenBuffer::new(
+  source_id : SourceId,
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
   eof_token~ : T,
@@ -102,6 +104,7 @@ pub fn[T] TokenBuffer::new(
     LexResult(tokens)
   }
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -119,6 +122,7 @@ pub fn[T] TokenBuffer::new(
 ///|
 /// Construct a TokenBuffer from a total structured lexer.
 pub fn[T] TokenBuffer::new_from_lex(
+  source_id : SourceId,
   source : String,
   lex_fn~ : (String) -> LexResult[T],
   eof_token~ : T,
@@ -128,6 +132,7 @@ pub fn[T] TokenBuffer::new_from_lex(
   let result = lex_fn(source)
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => lex_fn(s)
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled,
     eof_token,
@@ -148,18 +153,20 @@ pub fn[T] TokenBuffer::new_from_lex(
 /// the next position.
 #deprecated("Use new_from_steps with a PrefixLexer for explicit error recovery", skip_current_package=true)
 pub fn[T] TokenBuffer::new_resilient(
+  source_id : SourceId,
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
   eof_token~ : T,
   error_token~ : T,
 ) -> TokenBuffer[T] {
   let result = tokenize_resilient_result(
-    source, tokenize_fn, eof_token, error_token,
+    source_id, source, tokenize_fn, eof_token, error_token,
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    tokenize_resilient_result(s, tokenize_fn, eof_token, error_token)
+    tokenize_resilient_result(source_id, s, tokenize_fn, eof_token, error_token)
   }
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -179,12 +186,19 @@ pub fn[T] TokenBuffer::new_resilient(
 /// Keeps legacy resilient probing behavior without exporting the deprecated
 /// constructor at higher layers.
 pub fn[T] TokenBuffer::new_resilient_compat(
+  source_id : SourceId,
   source : String,
   tokenize_fn~ : (String) -> Array[TokenInfo[T]] raise LexError,
   eof_token~ : T,
   error_token~ : T,
 ) -> TokenBuffer[T] {
-  TokenBuffer::new_resilient(source, tokenize_fn~, eof_token~, error_token~)
+  TokenBuffer::new_resilient(
+    source_id,
+    source,
+    tokenize_fn~,
+    eof_token~,
+    error_token~,
+  )
 }
 
 ///|
@@ -193,6 +207,7 @@ pub fn[T] TokenBuffer::new_resilient_compat(
 /// Uses exact starts from the step stream; updates currently full re-lex so
 /// late error offsets remain representable.
 pub fn[T] TokenBuffer::new_from_steps(
+  source_id : SourceId,
   source : String,
   lexer : PrefixLexer[T],
   eof_token~ : T,
@@ -200,6 +215,7 @@ pub fn[T] TokenBuffer::new_from_steps(
   error_token_from_message? : ((String) -> T)? = None,
 ) -> TokenBuffer[T] {
   let result = tokenize_from_steps_result(
+    source_id,
     source,
     lexer,
     eof_token,
@@ -208,6 +224,7 @@ pub fn[T] TokenBuffer::new_from_steps(
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
     tokenize_from_steps_result(
+      source_id,
       s,
       lexer,
       eof_token,
@@ -216,6 +233,7 @@ pub fn[T] TokenBuffer::new_from_steps(
     )
   }
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled: false,
     eof_token,
@@ -235,6 +253,7 @@ pub fn[T] TokenBuffer::new_from_steps(
 /// Raises LexError when the step lexer reports Invalid/Incomplete.
 /// Updates currently full re-lex to preserve step-lexer offset semantics.
 pub fn[T] TokenBuffer::new_from_steps_strict(
+  source_id : SourceId,
   source : String,
   lexer : PrefixLexer[T],
   eof_token~ : T,
@@ -244,6 +263,7 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
     tokenize_from_steps_strict_result(s, lexer, eof_token)
   }
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled: false,
     eof_token,
@@ -263,6 +283,7 @@ pub fn[T] TokenBuffer::new_from_steps_strict(
 /// Uses convergence-based partial re-lex: only re-lexes the damaged region
 /// and stops when the lexer mode converges with the old mode array.
 pub fn[T] TokenBuffer::new_with_mode_relex(
+  source_id : SourceId,
   source : String,
   tokens : Array[TokenInfo[T]],
   starts : Array[Int],
@@ -279,6 +300,7 @@ pub fn[T] TokenBuffer::new_with_mode_relex(
     mode_tokenize(s)
   }
   {
+    source_id,
     retokenize_full,
     incremental_relex_enabled: true,
     eof_token,
@@ -562,9 +584,14 @@ pub fn[T : Eq] TokenBuffer::update(
         self.source.length()
       }
       let shifted_diagnostics = self.diagnostics.after_relex(
-        old_starts[left_tok_idx],
-        old_relex_end,
-        delta,
+        SourceEdit(
+          self.source_id,
+          Edit::new(
+            old_starts[left_tok_idx],
+            old_relex_end - old_starts[left_tok_idx],
+            old_relex_end - old_starts[left_tok_idx] + delta,
+          ),
+        ),
         failure_context="incremental relex",
       )
       shifted_diagnostics.add_all(replacement_diagnostics)
@@ -622,9 +649,14 @@ pub fn[T : Eq] TokenBuffer::update(
   self.tokens = new_tokens
   self.starts = new_starts
   let updated_diagnostics = self.diagnostics.after_relex(
-    left_old_offset,
-    right_old_offset,
-    delta,
+    SourceEdit(
+      self.source_id,
+      Edit::new(
+        left_old_offset,
+        right_old_offset - left_old_offset,
+        right_old_offset - left_old_offset + delta,
+      ),
+    ),
     failure_context="incremental relex",
   )
   updated_diagnostics.add_all(replacement_diagnostics)
@@ -638,6 +670,7 @@ pub fn[T : Eq] TokenBuffer::update(
 /// into the full source. Skips the trailing EOF that lex helpers append by
 /// contract.
 fn offset_lex_diagnostics(
+  source_id : SourceId,
   diagnostics : DiagnosticSet,
   offset : Int,
   context : String,
@@ -654,7 +687,7 @@ fn offset_lex_diagnostics(
       )
   } noraise {
     zero =>
-      diagnostics.offset_by(offset, zero) catch {
+      diagnostics.offset_by(source_id, offset, zero) catch {
         err =>
           DiagnosticSet::single(
             Diagnostic::lexer_error(
@@ -694,6 +727,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
   }
   if slice_result.starts.length() != slice_result.tokens.length() {
     let diagnostics = offset_lex_diagnostics(
+      self.source_id,
       slice_result.diagnostics,
       start,
       "incremental relex range",
@@ -711,6 +745,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
     eof_info.len != 0 ||
     slice_result.starts[eof_index] != slice.length() {
     let diagnostics = offset_lex_diagnostics(
+      self.source_id,
       slice_result.diagnostics,
       start,
       "incremental relex range",
@@ -730,6 +765,7 @@ fn[T : Eq] TokenBuffer::lex_range_impl(
     result_tokens,
     result_starts,
     offset_lex_diagnostics(
+      self.source_id,
       slice_result.diagnostics,
       start,
       "incremental relex range",
@@ -834,6 +870,7 @@ fn clamp_offset(pos : Int, length : Int) -> Int {
 /// an error token for the next Unicode scalar and preserve the lexer message
 /// as a diagnostic at that range.
 fn[T] tokenize_resilient_result(
+  source_id : SourceId,
   source : String,
   tokenize_fn : (String) -> Array[TokenInfo[T]] raise LexError,
   eof_token : T,
@@ -878,7 +915,7 @@ fn[T] tokenize_resilient_result(
           }
           diagnostics.push(
             Diagnostic::lexer_error_at(
-              diagnostic_message, pos, end, "lex-error",
+              source_id, diagnostic_message, pos, end, "lex-error",
             ),
           )
           result.push(TokenInfo::new(error_token, end - pos))
@@ -898,6 +935,7 @@ fn[T] tokenize_resilient_result(
 /// offsets remain representable even when a step reports an error after a
 /// valid prefix.
 fn[T] tokenize_from_steps_result(
+  source_id : SourceId,
   source : String,
   lexer : PrefixLexer[T],
   eof_token : T,
@@ -919,6 +957,7 @@ fn[T] tokenize_from_steps_result(
           let end = next_char_offset(source, pos)
           diagnostics.push(
             Diagnostic::lexer_error_at(
+              source_id,
               "step lexer made no progress at position " + pos.to_string(),
               pos,
               end,
@@ -938,7 +977,9 @@ fn[T] tokenize_from_steps_result(
         let end = lex_step_recovery_offset(source, pos, at, width)
         starts.push(error_start)
         diagnostics.push(
-          Diagnostic::lexer_error_at(message, error_start, end, "lex-invalid"),
+          Diagnostic::lexer_error_at(
+            source_id, message, error_start, end, "lex-invalid",
+          ),
         )
         let token = recoverable_error_token(
           error_token, error_token_from_message, message,
@@ -952,6 +993,7 @@ fn[T] tokenize_from_steps_result(
         starts.push(error_start)
         diagnostics.push(
           Diagnostic::lexer_error_at(
+            source_id,
             "incomplete token; expected " + expected,
             error_start,
             len,

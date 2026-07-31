@@ -3,6 +3,7 @@
 
 ///|
 pub struct ImperativeParser[Ast] {
+  priv source_id : @core.SourceId
   priv lang : ImperativeLanguage[Ast]
   priv mut source : String
   priv mut snapshot : ParseSnapshot[Ast]?
@@ -11,10 +12,11 @@ pub struct ImperativeParser[Ast] {
 
 ///|
 pub fn[Ast] ImperativeParser::new(
+  source_id : @core.SourceId,
   source : String,
   lang : ImperativeLanguage[Ast],
 ) -> ImperativeParser[Ast] {
-  { lang, source, snapshot: None, prev_cst: None }
+  { source_id, lang, source, snapshot: None, prev_cst: None }
 }
 
 ///|
@@ -46,7 +48,10 @@ fn[Ast] ImperativeParser::accept_tree(
 pub fn[Ast] ImperativeParser::parse(
   self : ImperativeParser[Ast],
 ) -> ParseSnapshot[Ast] {
-  let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(self.source)
+  let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(
+    self.source_id,
+    self.source,
+  )
   self.accept_tree(self.source, syntax, diagnostics, reuse_count)
 }
 
@@ -63,6 +68,7 @@ pub fn[Ast] ImperativeParser::edit(
   match self.snapshot {
     Some(old_snapshot) => {
       let (syntax, diagnostics, reuse_count) = (self.lang.incremental_parse)(
+        self.source_id,
         new_source,
         old_snapshot.syntax,
         edit,
@@ -91,12 +97,19 @@ pub fn[Ast] ImperativeParser::reset(
 pub fn[Ast] ImperativeParser::current(
   self : ImperativeParser[Ast],
 ) -> ParseSnapshot[Ast]? {
-  self.snapshot.map(fn(snapshot) { snapshot.copy() })
+  self.snapshot.map(snapshot => snapshot.copy())
 }
 
 ///|
 pub fn[Ast] ImperativeParser::get_tree(self : ImperativeParser[Ast]) -> Ast? {
-  self.snapshot.map(fn(snapshot) { snapshot.ast })
+  self.snapshot.map(snapshot => snapshot.ast)
+}
+
+///|
+pub fn[Ast] ImperativeParser::get_source_id(
+  self : ImperativeParser[Ast],
+) -> @core.SourceId {
+  self.source_id
 }
 
 ///|
@@ -139,5 +152,5 @@ pub fn[Ast] ImperativeParser::get_fold_stats(
 pub fn[Ast] ImperativeParser::get_syntax_tree(
   self : ImperativeParser[Ast],
 ) -> @seam.SyntaxNode? {
-  self.snapshot.map(fn(snapshot) { snapshot.syntax })
+  self.snapshot.map(snapshot => snapshot.syntax)
 }

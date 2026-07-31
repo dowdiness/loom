@@ -17,9 +17,9 @@ pub let lambda_grammar_no_threshold : @loom.Grammar[...]   // reuse size thresho
 
 // ── High-level parsing ────────────────────────────────────────────────────────
 
-pub fn parse(String) -> @ast.Term raise
-pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
-pub fn new_imperative_parser(String) -> @incremental.ImperativeParser[@ast.Term]
+pub fn parse(@core.SourceId, String) -> @ast.Term raise
+pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn new_imperative_parser(@core.SourceId, String) -> @incremental.ImperativeParser[@ast.Term]
 
 // ── Visualization ─────────────────────────────────────────────────────────────
 
@@ -37,14 +37,16 @@ unified reactive `Parser[@ast.Term]`:
 ```mbt check
 ///|
 test "grammar example: imperative parser" {
-  let imp = @loom.new_imperative_parser("42", lambda_grammar)
+  let source_id = @core.SourceId::SourceId("lambda-readme-imperative")
+  let imp = @loom.new_imperative_parser(source_id, "42", lambda_grammar)
   let term = imp.parse().ast
   inspect(@ast.print_term(term), content="42")
 }
 
 ///|
 test "grammar example: reactive parser + set_source" {
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let source_id = @core.SourceId::SourceId("lambda-readme-reactive")
+  let parser = @loom.new_parser(source_id, "1 + 2", lambda_grammar)
   parser.set_source("42")
   inspect(@ast.print_term(parser.ast().read_or_abort()), content="42")
 }

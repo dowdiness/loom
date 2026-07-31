@@ -123,6 +123,7 @@ fn fmode_step_lexer(
 
 ///|
 fn flex_from_tokenize(
+  source_id : @core.SourceId,
   s : String,
   tokenize : (String) -> Array[@core.TokenInfo[FTok]] raise @core.LexError,
   error_token : FTok,
@@ -135,7 +136,13 @@ fn flex_from_tokenize(
           @core.TokenInfo::new(Eof, 0),
         ],
         diagnostics=@core.DiagnosticSet::single(
-          @core.Diagnostic::lexer_error_at(msg, 0, s.length(), "lex-error"),
+          @core.Diagnostic::lexer_error_at(
+            source_id,
+            msg,
+            0,
+            s.length(),
+            "lex-error",
+          ),
         ),
       )
   } noraise {
@@ -144,13 +151,17 @@ fn flex_from_tokenize(
 }
 
 ///|
-fn flex(s : String) -> @core.LexResult[FTok] {
-  flex_from_tokenize(s, ftokenize, Err)
+fn flex(source_id : @core.SourceId, s : String) -> @core.LexResult[FTok] {
+  flex_from_tokenize(source_id, s, ftokenize, Err)
 }
 
 ///|
-fn flex_recoverable_steps(s : String) -> @core.LexResult[FTok] {
+fn flex_recoverable_steps(
+  source_id : @core.SourceId,
+  s : String,
+) -> @core.LexResult[FTok] {
   let buffer = @core.TokenBuffer::new_from_steps(
+    source_id,
     s,
     @core.PrefixLexer::new(lex_step=fstep_lexer),
     eof_token=Eof,
@@ -174,7 +185,10 @@ fn fbang_offset(source : String) -> Int? {
 }
 
 ///|
-fn flex_late_error(s : String) -> @core.LexResult[FTok] {
+fn flex_late_error(
+  source_id : @core.SourceId,
+  s : String,
+) -> @core.LexResult[FTok] {
   match fbang_offset(s) {
     Some(offset) =>
       @core.LexResult::with_starts(
@@ -182,6 +196,7 @@ fn flex_late_error(s : String) -> @core.LexResult[FTok] {
         [offset, s.length()],
         diagnostics=@core.DiagnosticSet::single(
           @core.Diagnostic::lexer_error_at(
+            source_id,
             "unexpected char",
             offset,
             offset + 1,
@@ -189,7 +204,7 @@ fn flex_late_error(s : String) -> @core.LexResult[FTok] {
           ),
         ),
       )
-    None => flex_recoverable_steps(s)
+    None => flex_recoverable_steps(source_id, s)
   }
 }
 
@@ -209,7 +224,7 @@ fn frender_tokens(tokens : Array[@core.TokenInfo[FTok]]) -> String {
 ///|
 fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
   while !ctx.at_eof() {
-    ctx.node(KExpr, fn() {
+    ctx.node(KExpr, () => {
       if ctx.at(A) {
         ctx.emit_token(KChar)
       } else {
@@ -224,7 +239,7 @@ fn froot(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
 
 ///|
 fn fblock_root(ctx : @core.ParserContext[FTok, FKind]) -> Unit {
-  ctx.node(KExpr, fn() {
+  ctx.node(KExpr, () => {
     while !ctx.at_eof() {
       if ctx.at(A) {
         ctx.emit_token(KChar)
@@ -248,7 +263,7 @@ fn fgrammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] {
     parse_root=froot,
     reuse_size_threshold=0,
   )
-  Grammar::new(spec~, lex=flex, fold_node=fn(s, _recurse) { s })
+  Grammar::new(spec~, lex=flex, fold_node=(s, _recurse) => s)
 }
 
 ///|
@@ -284,9 +299,9 @@ fn fnon_eq_ast_grammar(fold_count : Ref[Int]) -> Grammar[FTok, FKind, NonEqAst] 
     parse_root=froot,
     reuse_size_threshold=0,
   )
-  Grammar::new(spec~, lex=flex, fold_node=fn(_s, _recurse) {
+  Grammar::new(spec~, lex=flex, fold_node=(_s, _recurse) => {
     fold_count.val = fold_count.val + 1
-    { payload: fn(x) { x } }
+    { payload: x => x }
   })
 }
 
@@ -304,8 +319,8 @@ fn fterminator_grammar_with_tokenize(
   )
   Grammar::new(
     spec~,
-    lex=fn(s) { flex_from_tokenize(s, tokenize, Err) },
-    fold_node=fn(s, _recurse) { s },
+    lex=(source_id, s) => flex_from_tokenize(source_id, s, tokenize, Err),
+    fold_node=(s, _recurse) => s,
     incremental_relex_enabled=false,
   )
 }
@@ -324,18 +339,18 @@ fn frecoverable_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode]
   Grammar::new(
     spec~,
     lex=flex_recoverable_steps,
-    fold_node=fn(s, _recurse) { s },
+    fold_node=(s, _recurse) => s,
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
-      is_reparseable: fn(kind) { kind == root_kind },
-      get_reparser: fn(node, _, _) {
+      is_reparseable: kind => kind == root_kind,
+      get_reparser: (node, _, _) => {
         if node.kind() == root_kind {
           Some(froot)
         } else {
           None
         }
       },
-      is_balanced: fn(_tokens) { true },
+      is_balanced: _tokens => true,
     }),
   )
 }
@@ -354,18 +369,18 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
   Grammar::new(
     spec~,
     lex=flex_late_error,
-    fold_node=fn(s, _recurse) { s },
+    fold_node=(s, _recurse) => s,
     incremental_relex_enabled=false,
     block_reparse_spec=Some({
-      is_reparseable: fn(kind) { kind == block_kind },
-      get_reparser: fn(node, _, _) {
+      is_reparseable: kind => kind == block_kind,
+      get_reparser: (node, _, _) => {
         if node.kind() == block_kind {
           Some(fblock_root)
         } else {
           None
         }
       },
-      is_balanced: fn(_tokens) { true },
+      is_balanced: _tokens => true,
     }),
   )
 }
@@ -373,7 +388,9 @@ fn flate_error_root_reparse_grammar() -> Grammar[FTok, FKind, @seam.SyntaxNode] 
 ///|
 test "incremental diff helper: shrink edit uses old_end damage coordinates" {
   let syntax_grammar = fgrammar().to_syntax_grammar()
+  let source_id = @core.SourceId("factory-shrink-source")
   let reuse_count = assert_incremental_edit_matches_full_parse(
+    source_id,
     "factory shrink edit old_end damage coordinates",
     "aaaaa",
     @core.Edit::delete(2, 3),
@@ -387,7 +404,8 @@ test "incremental diff helper: shrink edit uses old_end damage coordinates" {
 
 ///|
 test "create_buffer: total recoverable lex preserves error token diagnostics" {
-  let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
+  let source_id = @core.SourceId("factory-recoverable-buffer-source")
+  let buffer = create_buffer(source_id, "a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
   debug_inspect(
@@ -398,7 +416,8 @@ test "create_buffer: total recoverable lex preserves error token diagnostics" {
 
 ///|
 test "create_buffer: clean total lex has no diagnostics" {
-  let buffer = create_buffer("aaa", flex_recoverable_steps, Eof)
+  let source_id = @core.SourceId("factory-clean-buffer-source")
+  let buffer = create_buffer(source_id, "aaa", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,A@1-2,A@2-3,Eof@3-3")
   debug_inspect(buffer.get_diagnostics().format(), content="[]")
@@ -406,7 +425,8 @@ test "create_buffer: clean total lex has no diagnostics" {
 
 ///|
 test "create_buffer: total lex keeps invalid message in diagnostics" {
-  let buffer = create_buffer("a!a", flex_recoverable_steps, Eof)
+  let source_id = @core.SourceId("factory-invalid-buffer-source")
+  let buffer = create_buffer(source_id, "a!a", flex_recoverable_steps, Eof)
   let rendered = frender_tokens(buffer.get_tokens())
   inspect(rendered, content="A@0-1,Err@1-2,A@2-3,Eof@3-3")
   debug_inspect(
@@ -418,7 +438,9 @@ test "create_buffer: total lex keeps invalid message in diagnostics" {
 ///|
 test "incremental diff helper: reuse path matches full reparse" {
   let syntax_grammar = fgrammar().to_syntax_grammar()
+  let source_id = @core.SourceId("factory-reuse-parity-source")
   let reuse_count = assert_incremental_edit_matches_full_parse(
+    source_id,
     "factory delete shrink edit",
     "aaaaa",
     @core.Edit::delete(2, 3),
@@ -438,7 +460,8 @@ test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
     }
     ftokenize_requires_terminator(s)
   })
-  let parser = new_imperative_parser("aaaa.", grammar)
+  let source_id = @core.SourceId("factory-full-only-source")
+  let parser = new_imperative_parser(source_id, "aaaa.", grammar)
   ignore(parser.parse())
   ignore(parser.edit(@core.Edit::insert(1, 1), "aaaaa."))
   inspect(saw_edit_full_lex.val, content="true")
@@ -448,7 +471,8 @@ test "new_imperative_parser: full-only lex rebuild is not a diagnostic" {
 ///|
 test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
   let grammar = frecoverable_root_reparse_grammar()
-  let parser = new_imperative_parser("aaa", grammar)
+  let source_id = @core.SourceId("factory-block-reparse-source")
+  let parser = new_imperative_parser(source_id, "aaa", grammar)
   ignore(parser.parse())
   ignore(parser.edit(@core.Edit::new(1, 1, 1), "a!a"))
   inspect(parser.get_last_reuse_count(), content="1")
@@ -464,23 +488,25 @@ test "new_imperative_parser: block reparse recomputes lexer diagnostics" {
 ///|
 test "reparse_block preserves block lexer diagnostics" {
   let grammar = frecoverable_root_reparse_grammar()
-  let parser = new_imperative_parser("aaa", grammar)
+  let source_id = @core.SourceId("factory-direct-block-source")
+  let parser = new_imperative_parser(source_id, "aaa", grammar)
   let old_syntax = parser.parse()
   let block_spec = match grammar.block_reparse_spec {
     Some(spec) => spec
     None => abort("expected block reparse spec")
   }
-  let lex = fn(source : String) -> @core.LexResult[FTok] {
-    let result = flex_recoverable_steps(source)
-    let diagnostics = result.diagnostics.copy()
+  let lex = (lex_source_id : @core.SourceId, source : String) => {
+    let result = flex_recoverable_steps(lex_source_id, source)
+    let diagnostics = result.diagnostics()
     diagnostics.push(
       @core.Diagnostic::lexer_error_at(
-        "block-only lexer diagnostic", 0, 1, "block-lex",
+        lex_source_id, "block-only lexer diagnostic", 0, 1, "block-lex",
       ),
     )
-    @core.LexResult::with_starts(result.tokens, result.starts, diagnostics~)
+    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let result = @core.reparse_block(
+    source_id,
     old_syntax.syntax,
     "a!a",
     @core.Edit::new(1, 1, 1),
@@ -505,11 +531,12 @@ test "reparse_block preserves block lexer diagnostics" {
 ///|
 test "new_imperative_parser: block reparse preserves explicit LexResult starts" {
   let grammar = flate_error_root_reparse_grammar()
-  let parser = new_imperative_parser("aaa", grammar)
+  let source_id = @core.SourceId("factory-block-starts-source")
+  let parser = new_imperative_parser(source_id, "aaa", grammar)
   ignore(parser.parse())
   let incr = parser.edit(@core.Edit::insert(1, 1), "a!aa")
   inspect(parser.get_last_reuse_count(), content="1")
-  let full_parser = new_imperative_parser("a!aa", grammar)
+  let full_parser = new_imperative_parser(source_id, "a!aa", grammar)
   let full = full_parser.parse()
   inspect(
     @core.tree_diff(incr.syntax.cst_node(), full.syntax.cst_node()).length(),
@@ -524,7 +551,8 @@ test "new_imperative_parser: block reparse preserves explicit LexResult starts" 
 /// input. Recovery on a subsequent clean source clears the lexer diagnostic.
 test "new_parser: lexer diagnostic surfaces and clears on recovery" {
   let grammar = fgrammar()
-  let parser = new_parser("!", grammar)
+  let source_id = @core.SourceId("factory-parser-diagnostic-source")
+  let parser = new_parser(source_id, "!", grammar)
   ignore(parser.syntax_tree().read_or_abort())
   let diags = parser.diagnostics().read_or_abort()
   let mut saw_lex_diagnostic = false
@@ -542,7 +570,8 @@ test "new_parser: lexer diagnostic surfaces and clears on recovery" {
 ///|
 test "new_syntax_parser: lexer diagnostic surfaces and clears on recovery" {
   let grammar = fsyntax_grammar()
-  let parser = new_syntax_parser("!", grammar)
+  let source_id = @core.SourceId("factory-syntax-diagnostic-source")
+  let parser = new_syntax_parser(source_id, "!", grammar)
   ignore(parser.syntax_tree().read_or_abort())
   let diags = parser.diagnostics().read_or_abort()
   let mut saw_lex_diagnostic = false
@@ -559,10 +588,11 @@ test "new_syntax_parser: lexer diagnostic surfaces and clears on recovery" {
 
 ///|
 test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without folding" {
-  inspect(({ payload: fn(x) { x + 1 } } : NonEqAst).apply(1), content="2")
+  inspect(({ payload: x => x + 1 } : NonEqAst).apply(1), content="2")
   let fold_count : Ref[Int] = Ref(0)
   let grammar = fnon_eq_ast_grammar(fold_count).to_syntax_grammar()
-  let parser = new_syntax_parser("aaa", grammar)
+  let source_id = @core.SourceId("factory-non-eq-syntax-source")
+  let parser = new_syntax_parser(source_id, "aaa", grammar)
   inspect(parser.source().read_or_abort(), content="aaa")
   ignore(parser.syntax_tree().read_or_abort())
   inspect(fold_count.val, content="0")
@@ -573,7 +603,8 @@ test "new_syntax_parser: accepts syntax facade from non-Eq AST grammar without f
 
 ///|
 test "create_buffer: strict-wrapper total lex keeps diagnostic" {
-  let buffer = create_buffer("a!a", flex, Eof)
+  let source_id = @core.SourceId("factory-strict-buffer-source")
+  let buffer = create_buffer(source_id, "a!a", flex, Eof)
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"unexpected char [0,3]\"]",
@@ -587,15 +618,18 @@ test "create_buffer: mode lex keeps total diagnostics" {
     Eof,
     error_token=Err,
   )
-  let lex = fn(source : String) -> @core.LexResult[FTok] {
-    let result = (state.tokenize)(source)
+  let lex = (source_id : @core.SourceId, source : String) => {
+    let result = (state.tokenize)(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
-      @core.Diagnostic::lexer_error_at("soft mode note", 0, 1, "lex-note"),
+      @core.Diagnostic::lexer_error_at(
+        source_id, "soft mode note", 0, 1, "lex-note",
+      ),
     )
     @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
-  let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
+  let source_id = @core.SourceId("factory-mode-buffer-source")
+  let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"soft mode note [0,1]\"]",
@@ -610,12 +644,13 @@ test "create_buffer: mode update skips total lex on incremental path" {
     error_token=Err,
   )
   let lex_calls : Ref[Int] = Ref(0)
-  let lex = fn(source : String) -> @core.LexResult[FTok] {
+  let lex = (source_id : @core.SourceId, source : String) => {
     lex_calls.val = lex_calls.val + 1
-    let result = (state.tokenize)(source)
+    let result = (state.tokenize)(source_id, source)
     let diagnostics = result.diagnostics()
     diagnostics.push(
       @core.Diagnostic::lexer_error_at(
+        source_id,
         "mode source length " + source.length().to_string(),
         0,
         source.length(),
@@ -624,7 +659,8 @@ test "create_buffer: mode update skips total lex on incremental path" {
     )
     @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
-  let buffer = create_buffer("a", lex, Eof, mode_relex=Some(state))
+  let source_id = @core.SourceId("factory-mode-update-source")
+  let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"mode source length 1 [0,1]\"]",
@@ -644,10 +680,12 @@ test "create_buffer: mode lex respects incremental opt out" {
     Eof,
     error_token=Err,
   )
-  let lex = fn(source : String) -> @core.LexResult[FTok] {
-    (state.tokenize)(source)
+  let lex = (source_id : @core.SourceId, source : String) => {
+    (state.tokenize)(source_id, source)
   }
+  let source_id = @core.SourceId("factory-mode-opt-out-source")
   let buffer = create_buffer(
+    source_id,
     "a",
     lex,
     Eof,
@@ -674,10 +712,11 @@ test "create_buffer: recovered mode lex updates incrementally" {
     Eof,
     error_token=Err,
   )
-  let lex = fn(source : String) -> @core.LexResult[FTok] {
-    (state.tokenize)(source)
+  let lex = (source_id : @core.SourceId, source : String) => {
+    (state.tokenize)(source_id, source)
   }
-  let buffer = create_buffer("!", lex, Eof, mode_relex=Some(state))
+  let source_id = @core.SourceId("factory-mode-recovery-source")
+  let buffer = create_buffer(source_id, "!", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"bad mode [0,1]\"]",

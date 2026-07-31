@@ -2,11 +2,18 @@
 /// Property-based and hand-written tests for generated *Proj accessor structs
 /// in the syntax package.
 
+///|
+fn view_parity_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-view-parity")
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 ///|
 fn parse_to_syn(input : String) -> @seam.SyntaxNode {
-  let (cst, _) = parse_cst(input) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(view_parity_source_id(), input) catch {
+    _ => abort("lex error")
+  }
   @seam.SyntaxNode::from_cst(cst)
 }
 
@@ -64,7 +71,9 @@ test "property: ifexpr_proj accessors match raw projections" {
       continue
     }
     let input = @pretty.pretty_print(term)
-    let (cst, _diags) = parse_cst(input) catch { _ => continue }
+    let (cst, _diags) = parse_cst(view_parity_source_id(), input) catch {
+      _ => continue
+    }
     let syn = @seam.SyntaxNode::from_cst(cst)
     let ifexpr_child = match find_ifexpr_node(syn) {
       Some(n) => n
@@ -124,7 +133,9 @@ test "property: ifexpr_proj stress (seed-free)" {
       continue
     }
     let input = @pretty.pretty_print(term)
-    let (cst, _diags) = parse_cst(input) catch { _ => continue }
+    let (cst, _diags) = parse_cst(view_parity_source_id(), input) catch {
+      _ => continue
+    }
     let syn = @seam.SyntaxNode::from_cst(cst)
     let ifexpr_child = match find_ifexpr_node(syn) {
       Some(n) => n
@@ -290,7 +301,11 @@ test "astview_identity" {
 ///|
 /// Verify that *Proj accessors work through the reactive SyntaxParser pipeline.
 test "reactive_pipeline: syntax_tree() exposes castable nodes" {
-  let parser = @loom.new_parser("if 1 then 2 else 3", lambda_grammar)
+  let parser = @loom.new_parser(
+    view_parity_source_id(),
+    "if 1 then 2 else 3",
+    lambda_grammar,
+  )
   let syn = parser.syntax_tree().read_or_abort()
   let if_child = find_ifexpr_node(syn)
   inspect(if_child is Some(_), content="true")

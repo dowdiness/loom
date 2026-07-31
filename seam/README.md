@@ -133,7 +133,8 @@ semantic slot unless the projection names that recursion explicitly.
 
 A typical projection pipeline is:
 
-1. create a parser with `@loom.new_parser(source, grammar)`,
+1. allocate or receive a stable document `SourceId`, then create a parser with
+   `@loom.new_parser(source_id, source, grammar)`,
 2. share `parser.runtime()` for downstream reactive cells,
 3. stop semantic projection when parser diagnostics are present,
 4. validate direct CST shape into a private projection IR, and

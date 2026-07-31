@@ -3,6 +3,11 @@
 // parse_cst_to_ast_node output. Covers both update paths: `set_source`
 // (full reparse) and `apply_edit` (CST-node-level reuse).
 
+///|
+fn unified_parser_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-unified-parser-test")
+}
+
 // ── Step-based error recovery ────────────────────────────────────────────────
 
 ///|
@@ -10,7 +15,11 @@
 /// as an error token. `syntax_tree()` is always the recovered tree because tokenization
 /// recovered; the error surfaces through diagnostics.
 test "Parser: step-based lexer recovers invalid chars without lex error" {
-  let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "@invalid",
+    @lambda.lambda_grammar,
+  )
   ignore(parser.syntax_tree().read_or_abort())
 }
 
@@ -19,7 +28,11 @@ test "Parser: step-based lexer recovers invalid chars without lex error" {
 /// The Ast should not be a fatal-tokenization Term — the parser got tokens and
 /// produced a tree.
 test "Parser: step-based recovery produces parse tree not ErrorNode" {
-  let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "@invalid",
+    @lambda.lambda_grammar,
+  )
   let term = parser.ast().read_or_abort()
   inspect(
     match term {
@@ -33,7 +46,11 @@ test "Parser: step-based recovery produces parse tree not ErrorNode" {
 ///|
 /// Diagnostics from step-based recovery are not fatal tokenization errors.
 test "Parser: step-based recovery diagnostics are not fatal lex errors" {
-  let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "@invalid",
+    @lambda.lambda_grammar,
+  )
   let diags = parser.diagnostics().read_or_abort().format()
   inspect(diags.length() > 0, content="true")
   // No "tokenization:" prefix — recovery produced a tree instead.
@@ -44,13 +61,21 @@ test "Parser: step-based recovery diagnostics are not fatal lex errors" {
 
 ///|
 test "Parser: parse error still publishes syntax_tree" {
-  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(x) =>",
+    @lambda.lambda_grammar,
+  )
   ignore(parser.syntax_tree().read_or_abort())
 }
 
 ///|
 test "Parser: parse error produces non-empty diagnostics" {
-  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(x) =>",
+    @lambda.lambda_grammar,
+  )
   assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
 }
 
@@ -58,7 +83,11 @@ test "Parser: parse error produces non-empty diagnostics" {
 
 ///|
 test "Parser: valid input - integer addition" {
-  let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "1 + 2",
+    @lambda.lambda_grammar,
+  )
   inspect(
     @ast.print_term(parser.ast().read_or_abort()),
     content=(
@@ -69,7 +98,11 @@ test "Parser: valid input - integer addition" {
 
 ///|
 test "Parser: valid input - lambda expression" {
-  let parser = @loom.new_parser("(x) => x", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(x) => x",
+    @lambda.lambda_grammar,
+  )
   match parser.ast().read_or_abort() {
     @ast.Term::Lam("x", _) => ()
     other => abort("expected Lam(x,...), got: " + other.to_string())
@@ -78,7 +111,11 @@ test "Parser: valid input - lambda expression" {
 
 ///|
 test "Parser: valid input - syntax_tree exists" {
-  let parser = @loom.new_parser("(f, x) => f x", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(f, x) => f x",
+    @lambda.lambda_grammar,
+  )
   ignore(parser.syntax_tree().read_or_abort())
 }
 
@@ -86,7 +123,11 @@ test "Parser: valid input - syntax_tree exists" {
 
 ///|
 test "Parser: set_source updates ast" {
-  let parser = @loom.new_parser("1", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "1",
+    @lambda.lambda_grammar,
+  )
   let t1 = parser.ast().read_or_abort()
   parser.set_source("2")
   let t2 = parser.ast().read_or_abort()
@@ -97,7 +138,11 @@ test "Parser: set_source updates ast" {
 ///|
 test "Parser: set_source same value preserves ast (Eq)" {
   let source = "(f, x) => f x"
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let t1 = parser.ast().read_or_abort()
   parser.set_source(source)
   let t2 = parser.ast().read_or_abort()
@@ -108,7 +153,11 @@ test "Parser: set_source same value preserves ast (Eq)" {
 
 ///|
 test "Parser: set_source from error-recovery input to valid" {
-  let parser = @loom.new_parser("@invalid", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "@invalid",
+    @lambda.lambda_grammar,
+  )
   ignore(parser.syntax_tree().read_or_abort())
   parser.set_source("1 + 2")
   ignore(parser.syntax_tree().read_or_abort())
@@ -127,7 +176,11 @@ test "Parser: set_source from error-recovery input to valid" {
 /// apply_edit is the CST-reuse path (engine.edit). End-to-end coverage that
 /// an edit flows through all four published views in one batch.
 test "Parser: apply_edit updates source, ast, diagnostics" {
-  let parser = @loom.new_parser("1 + 2", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "1 + 2",
+    @lambda.lambda_grammar,
+  )
   inspect(
     @ast.print_term(parser.ast().read_or_abort()),
     content=(
@@ -151,7 +204,11 @@ test "Parser: apply_edit updates source, ast, diagnostics" {
 /// apply_edit recovering from an error state — exercises the incremental
 /// path even when the previous tree has error nodes.
 test "Parser: apply_edit from error state to valid" {
-  let parser = @loom.new_parser("(x) =>", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(x) =>",
+    @lambda.lambda_grammar,
+  )
   assert_eq(parser.diagnostics().read_or_abort().length() > 0, true)
   // Append " x" — "(x) =>" (length 6) → "(x) => x".
   parser.apply_edit(@core.Edit::new(6, 0, 2), "(x) => x")
@@ -176,8 +233,9 @@ test "Parser: parity with parse" {
     "(a, b, c) => if c then a b else 124321 - 31 + a c", "10 - 3 + 1",
   ]
   for source in sources {
-    let parser = @loom.new_parser(source, @lambda.lambda_grammar)
-    let direct = parse(source) catch {
+    let source_id = unified_parser_test_source_id()
+    let parser = @loom.new_parser(source_id, source, @lambda.lambda_grammar)
+    let direct = parse(source_id, source) catch {
       _ => abort("unexpected parse error in valid source: " + source)
     }
     inspect(
@@ -194,7 +252,11 @@ test "Parser: parity with parse" {
 /// This verifies that Derived backdating + the node interner correctly
 /// identify unchanged trees across computation epochs.
 test "Parser: Term Eq holds after round-trip source change" {
-  let parser = @loom.new_parser("(x) => x", lambda_grammar)
+  let parser = @loom.new_parser(
+    unified_parser_test_source_id(),
+    "(x) => x",
+    lambda_grammar,
+  )
   let t1 = parser.ast().read_or_abort()
   parser.set_source("y") // change — triggers recomputation
   let _ = parser.ast().read_or_abort() // force the new computation epoch

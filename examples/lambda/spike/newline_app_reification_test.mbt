@@ -1,4 +1,9 @@
 ///|
+fn newline_app_reification_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-newline-app-reification")
+}
+
+///|
 /// Task 8: evidence-gate the `ManualNewlineAppExpr` residue.
 ///
 /// The plan accepts any DivergenceClass arm — the point is to *classify with
@@ -10,7 +15,9 @@
 /// recursive-mode mechanism" — exactly the §5/§8 signal that informs whether the
 /// migration is a target-(i) drop-in or a target-(ii) re-baseline.
 test "newline application reification attempt is evidence gated" {
-  let result = run_newline_application_reification_probe()
+  let result = run_newline_application_reification_probe(
+    newline_app_reification_source_id(),
+  )
   match result.divergence {
     DivergenceClass::NoDivergence => ()
     DivergenceClass::ReplicationResidual(_) => ()
@@ -23,6 +30,8 @@ test "newline application reification attempt is evidence gated" {
 /// newline-application parity (e.g. dropping the probe's `parse_newline_app`)
 /// surfaces here rather than hiding behind the permissive match above.
 test "newline application residue holds A-vs-B parity via the spike probe" {
-  let result = run_newline_application_reification_probe()
+  let result = run_newline_application_reification_probe(
+    newline_app_reification_source_id(),
+  )
   inspect(result.divergence, content="NoDivergence")
 }

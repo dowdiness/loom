@@ -9,16 +9,19 @@
 /// value is the incremental reuse count so tests can opt in to optimization-path
 /// assertions separately.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] assert_incremental_edit_matches_full_parse(
+  source_id : @core.SourceId,
   label : String,
   old_source : String,
   edit : @core.Edit,
   new_source : String,
   grammar : SyntaxGrammar[T, K],
 ) -> Int {
-  let parser = new_syntax_parser(old_source, grammar)
+  let parser = new_syntax_parser(source_id, old_source, grammar)
   parser.apply_edit(edit, new_source)
   let incremental = parser.snapshot().read_or_abort()
-  let (full_cst, full_diagnostics) = try! grammar.parse_cst(new_source)
+  let (full_cst, full_diagnostics) = try! grammar.parse_cst(
+    source_id, new_source,
+  )
   let diffs = @core.tree_diff(incremental.syntax.cst_node(), full_cst)
   if diffs.length() != 0 {
     abort(

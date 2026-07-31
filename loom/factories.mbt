@@ -13,27 +13,31 @@
 /// The grammar owns lexing and returns a total `LexResult`; the factory only
 /// chooses whether TokenBuffer may use range relex for incremental edits.
 fn[T] create_buffer(
+  source_id : @core.SourceId,
   source : String,
-  lex : (String) -> @core.LexResult[T],
+  lex : (@core.SourceId, String) -> @core.LexResult[T],
   eof_token : T,
   incremental_relex_enabled? : Bool = true,
   mode_relex? : @core.ModeRelexFactory[T]? = None,
 ) -> @core.TokenBuffer[T] {
+  let lex_current = source => lex(source_id, source)
   if !incremental_relex_enabled {
     return @core.TokenBuffer::new_from_lex(
+      source_id,
       source,
-      lex_fn=lex,
+      lex_fn=lex_current,
       eof_token~,
       incremental_relex_enabled=false,
     )
   }
   match mode_relex {
     Some(factory) => {
-      let state = (factory.new_session)()
+      let state = (factory.new_session)(source_id)
       ignore((state.tokenize)(source))
       @core.TokenBuffer::new_from_lex(
+        source_id,
         source,
-        lex_fn=lex,
+        lex_fn=lex_current,
         eof_token~,
         incremental_relex_enabled~,
         mode_relex=Some(state),
@@ -41,8 +45,9 @@ fn[T] create_buffer(
     }
     None =>
       @core.TokenBuffer::new_from_lex(
+        source_id,
         source,
-        lex_fn=lex,
+        lex_fn=lex_current,
         eof_token~,
         incremental_relex_enabled~,
       )
@@ -82,8 +87,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
     @core.OldTokenCache::empty(),
   )
   @incremental.ImperativeLanguage::new(
-    full_parse=source => {
+    full_parse=(source_id, source) => {
       let buffer = create_buffer(
+        source_id,
         source,
         lex,
         spec.eof_token,
@@ -92,11 +98,12 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       )
       token_buf.val = Some(buffer)
       let (cst, diagnostics, _) = @core.parse_tokens_indexed(
+        source_id,
         source,
         buffer.token_count(),
-        fn(i) { buffer.get_token(i) },
-        fn(i) { buffer.get_start(i) },
-        fn(i) { buffer.get_end(i) },
+        i => buffer.get_token(i),
+        i => buffer.get_start(i),
+        i => buffer.get_end(i),
         spec,
       )
       let lex_diagnostics = buffer.get_diagnostics()
@@ -107,7 +114,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
       old_token_cache.val = @core.OldTokenCache::empty() // new tree — old cache invalid
       (syntax, all_diagnostics, 0)
     },
-    incremental_parse=(source, old_syntax, edit) => {
+    incremental_parse=(source_id, source, old_syntax, edit) => {
       // Block reparse pre-check: attempt narrow subtree reparse before
       // updating the TokenBuffer. If the edit is strictly interior to a
       // reparseable block and the re-lexed tokens are balanced, we can
@@ -116,6 +123,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
         Some(block_spec) =>
           match
             @core.reparse_block(
+              source_id,
               old_syntax,
               source,
               edit,
@@ -126,6 +134,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
             ) {
             Some((new_cst, new_diagnostics)) => {
               let buffer = create_buffer(
+                source_id,
                 source,
                 lex,
                 spec.eof_token,
@@ -149,6 +158,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           buffer.update(edit, source) catch {
             @core.LexError(_) => {
               let rebuilt = create_buffer(
+                source_id,
                 source,
                 lex,
                 spec.eof_token,
@@ -160,6 +170,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           }
         None => {
           let buffer = create_buffer(
+            source_id,
             source,
             lex,
             spec.eof_token,
@@ -179,9 +190,9 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
           old_syntax.cst_node(),
           edit,
           buffer.token_count(),
-          fn(i) { buffer.get_token(i) },
-          fn(i) { buffer.get_start(i) },
-          fn(i) { buffer.get_view(i) },
+          i => buffer.get_token(i),
+          i => buffer.get_start(i),
+          i => buffer.get_view(i),
           spec,
           reuse_size_threshold=spec.reuse_size_threshold,
           old_token_cache=old_token_cache.val,
@@ -189,11 +200,12 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
         ),
       )
       let (new_cst, diagnostics, reuse_count) = @core.parse_tokens_indexed(
+        source_id,
         source,
         buffer.token_count(),
-        fn(i) { buffer.get_token(i) },
-        fn(i) { buffer.get_start(i) },
-        fn(i) { buffer.get_end(i) },
+        i => buffer.get_token(i),
+        i => buffer.get_start(i),
+        i => buffer.get_end(i),
         spec,
         cursor~,
         prev_diagnostics=Some(last_parse_diags.val),
@@ -218,8 +230,8 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
   let cst_fold = @core.CstFold::new(grammar.fold_node)
   build_imperative_language_from_syntax_grammar(
     grammar.to_syntax_grammar(),
-    fn(syntax) { cst_fold.fold(syntax) },
-    get_fold_stats=Some(fn() { cst_fold.get_stats() }),
+    syntax => cst_fold.fold(syntax),
+    get_fold_stats=Some(() => cst_fold.get_stats()),
   )
 }
 
@@ -228,7 +240,7 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] build_im
 fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] build_syntax_imperative_language(
   grammar : SyntaxGrammar[T, K],
 ) -> @incremental.ImperativeLanguage[Unit] {
-  build_imperative_language_from_syntax_grammar(grammar, fn(_syntax) { () })
+  build_imperative_language_from_syntax_grammar(grammar, _syntax => ())
 }
 
 ///|
@@ -239,10 +251,15 @@ fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] build_syntax_
 /// shared through incremental `ReuseNode` splicing rather than process-global
 /// token/node interners.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_imperative_parser(
+  source_id : @core.SourceId,
   source : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
-  @incremental.ImperativeParser::new(source, build_imperative_language(grammar))
+  @incremental.ImperativeParser::new(
+    source_id,
+    source,
+    build_imperative_language(grammar),
+  )
 }
 
 ///|
@@ -258,11 +275,17 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
 /// `parser.runtime()`; using a second runtime for cells that read parser views
 /// disconnects the dependency graph.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq] new_parser(
+  source_id : @core.SourceId,
   source : String,
   grammar : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,
 ) -> @pipeline.Parser[Ast] {
-  @pipeline.Parser::new(source, build_imperative_language(grammar), runtime?)
+  @pipeline.Parser::new(
+    source_id,
+    source,
+    build_imperative_language(grammar),
+    runtime?,
+  )
 }
 
 ///|
@@ -272,11 +295,13 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
 /// without constructing or backdating an AST. Use it when a language's AST is
 /// not naturally `Eq`, or when consumers only need CST/diagnostics.
 pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] new_syntax_parser(
+  source_id : @core.SourceId,
   source : String,
   grammar : SyntaxGrammar[T, K],
   runtime? : @incr.Runtime,
 ) -> @pipeline.SyntaxParser {
   @pipeline.SyntaxParser::new(
+    source_id,
     source,
     build_syntax_imperative_language(grammar),
     runtime?,

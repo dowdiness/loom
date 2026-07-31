@@ -1,5 +1,10 @@
 // fold_benchmark.mbt — CstFold cache hit rate and wall-time benchmarks.
 
+///|
+fn fold_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-fold")
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
 
 ///|
@@ -29,7 +34,11 @@ fn tail_literal_offset(source : String) -> Int {
 ///|
 test "CstFold stats: 80-let incremental edit reuses most subtrees" {
   let source = make_let_chain(80, "0")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    fold_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edited = make_let_chain_edited(80)
   let edit_start = tail_literal_offset(source)
@@ -47,7 +56,11 @@ test "CstFold stats: 80-let incremental edit reuses most subtrees" {
 test "fold benchmark: 80 lets - initial parse+fold" (b : @bench.T) {
   let source = make_let_chain(80, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      fold_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -58,7 +71,11 @@ test "fold benchmark: 80 lets - incremental fold after single edit" (
   b : @bench.T,
 ) {
   let source = make_let_chain(80, "0")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    fold_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edited = make_let_chain_edited(80)
   let edit_start = tail_literal_offset(source)
@@ -75,7 +92,11 @@ test "fold benchmark: 80 lets - incremental fold after single edit" (
 test "fold benchmark: 320 lets - initial parse+fold" (b : @bench.T) {
   let source = make_let_chain(320, "0")
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      fold_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -86,7 +107,11 @@ test "fold benchmark: 320 lets - incremental fold after single edit" (
   b : @bench.T,
 ) {
   let source = make_let_chain(320, "0")
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    fold_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let edited = make_let_chain_edited(320)
   let edit_start = tail_literal_offset(source)

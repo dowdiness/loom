@@ -4,11 +4,16 @@
 // PrattApp/PrattBinary rules, so the CST parity assertion is unchanged.
 
 ///|
+fn pratt_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-pratt")
+}
+
+///|
 test "pratt: application produces AppExpr matching A" {
   let source = "f y"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(pratt_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(pratt_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
@@ -16,9 +21,9 @@ test "pratt: application produces AppExpr matching A" {
 ///|
 test "pratt: binary produces BinaryExpr matching A" {
   let source = "a + b - c"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(pratt_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(pratt_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
@@ -30,9 +35,9 @@ test "pratt: binary produces BinaryExpr matching A" {
 /// B's PrattBinary must match it for D2a parity.
 test "pratt: binary spans a soft newline before the operator matching A" {
   let source = "let x = 1\n+ 2"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(pratt_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(pratt_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }

@@ -4,11 +4,16 @@
 // reproduces from A's parse_atom `_` fallthrough.
 
 ///|
+fn error_recovery_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-error-recovery")
+}
+
+///|
 test "task7: missing name 'let = 1' CST matches A" {
   let source = "let = 1"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(error_recovery_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(error_recovery_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
@@ -16,9 +21,9 @@ test "task7: missing name 'let = 1' CST matches A" {
 ///|
 test "task7: missing value 'let x =' CST matches A" {
   let source = "let x ="
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(error_recovery_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(error_recovery_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }
@@ -26,9 +31,9 @@ test "task7: missing value 'let x =' CST matches A" {
 ///|
 test "task7: incomplete binary 'let x = 1 +' CST matches A" {
   let source = "let x = 1 +"
-  let (a_cst, _) = @lambda.parse_cst(source)
+  let (a_cst, _) = @lambda.parse_cst(error_recovery_source_id(), source)
   let b_grammar = build_b_syntax_grammar()
-  let (b_cst, _) = b_grammar.parse_cst(source)
+  let (b_cst, _) = b_grammar.parse_cst(error_recovery_source_id(), source)
   let diff = @core.tree_diff(a_cst, b_cst)
   inspect(diff.length() == 0, content="true")
 }

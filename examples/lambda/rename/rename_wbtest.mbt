@@ -7,7 +7,11 @@ fn wb_facts(
   Array[@callers.Call],
   Array[(@callers.ScopeId, @callers.ScopeId)],
 ) {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    @core.SourceId::SourceId("lambda-rename-wbtest"),
+    source,
+    @lambda.lambda_grammar,
+  )
   let pipeline = @callers.CallersPipeline::from_parser(parser)
   let syntax = parser.syntax_tree().read_or_abort()
   let (defs, calls, enclosing) = pipeline.facts()

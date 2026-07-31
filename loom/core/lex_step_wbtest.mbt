@@ -259,6 +259,7 @@ fn render_buffer_spans(buf : TokenBuffer[String]) -> String {
 test "new_from_steps: clean input produces normal tokens + EOF" {
   let lexer : PrefixLexer[String] = { lex_step: char_step_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "abc",
     lexer,
     eof_token="EOF",
@@ -274,6 +275,7 @@ test "new_from_steps: clean input produces normal tokens + EOF" {
 test "new_from_steps: empty source produces only EOF" {
   let lexer : PrefixLexer[String] = { lex_step: char_step_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "",
     lexer,
     eof_token="EOF",
@@ -288,6 +290,7 @@ test "new_from_steps: empty source produces only EOF" {
 test "new_from_steps: error token for Invalid" {
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "a@b",
     lexer,
     eof_token="EOF",
@@ -306,11 +309,12 @@ test "new_from_steps: error token for Invalid" {
 test "new_from_steps: Invalid message can build error token" {
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "a@b",
     lexer,
     eof_token="EOF",
     error_token="ERR",
-    error_token_from_message=Some(fn(msg) { "ERR(" + msg + ")" }),
+    error_token_from_message=Some(msg => "ERR(" + msg + ")"),
   )
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="char@0-1,ERR(bad char @)@1-2,char@2-3,EOF@3-3")
@@ -320,6 +324,7 @@ test "new_from_steps: Invalid message can build error token" {
 test "new_from_steps: multi-error input" {
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "@a@@b",
     lexer,
     eof_token="EOF",
@@ -334,6 +339,7 @@ test "new_from_steps: multi-error input" {
 test "new_from_steps: Incomplete emits error token to EOF" {
   let lexer : PrefixLexer[String] = { lex_step: incomplete_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "ab\"cd",
     lexer,
     eof_token="EOF",
@@ -353,6 +359,7 @@ test "new_from_steps: Incomplete emits error token to EOF" {
 test "new_from_steps: zero-width Invalid corrected to width 1" {
   let lexer : PrefixLexer[String] = { lex_step: zero_width_invalid_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "a@b",
     lexer,
     eof_token="EOF",
@@ -368,6 +375,7 @@ test "new_from_steps: zero-width Invalid corrected to width 1" {
 test "new_from_steps: no-progress Produced is corrected" {
   let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "ab",
     lexer,
     eof_token="EOF",
@@ -391,6 +399,7 @@ test "new_from_steps: no-progress Produced is corrected" {
 test "new_from_steps: no-progress Produced keeps non-BMP scalar whole" {
   let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "😈x",
     lexer,
     eof_token="EOF",
@@ -404,6 +413,7 @@ test "new_from_steps: no-progress Produced keeps non-BMP scalar whole" {
 test "new_from_steps: zero-width Invalid keeps non-BMP scalar whole" {
   let lexer : PrefixLexer[String] = { lex_step: zero_width_invalid_all_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "😈x",
     lexer,
     eof_token="EOF",
@@ -417,6 +427,7 @@ test "new_from_steps: zero-width Invalid keeps non-BMP scalar whole" {
 test "new_from_steps: width-one Invalid keeps non-BMP scalar whole" {
   let lexer : PrefixLexer[String] = { lex_step: width_one_invalid_all_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "😈x",
     lexer,
     eof_token="EOF",
@@ -434,6 +445,7 @@ test "new_from_steps: width-one Invalid keeps non-BMP scalar whole" {
 test "new_from_steps: Produced token len is normalized from consumed span" {
   let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "abc",
     lexer,
     eof_token="EOF",
@@ -446,7 +458,12 @@ test "new_from_steps: Produced token len is normalized from consumed span" {
 ///|
 test "new_from_steps_strict: Produced token len is normalized from consumed span" {
   let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
-  let buf = TokenBuffer::new_from_steps_strict("abc", lexer, eof_token="EOF")
+  let buf = TokenBuffer::new_from_steps_strict(
+    SourceId("lex-step-source"),
+    "abc",
+    lexer,
+    eof_token="EOF",
+  )
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
 }
@@ -455,7 +472,14 @@ test "new_from_steps_strict: Produced token len is normalized from consumed span
 test "new_from_steps_strict: no-progress Produced raises LexError" {
   let lexer : PrefixLexer[String] = { lex_step: no_progress_lexer }
   let raised = try {
-    ignore(TokenBuffer::new_from_steps_strict("😈x", lexer, eof_token="EOF"))
+    ignore(
+      TokenBuffer::new_from_steps_strict(
+        SourceId("lex-step-source"),
+        "😈x",
+        lexer,
+        eof_token="EOF",
+      ),
+    )
     false
   } catch {
     LexError(msg) => msg == "step lexer made no progress at position 0"
@@ -467,6 +491,7 @@ test "new_from_steps_strict: no-progress Produced raises LexError" {
 test "new_from_steps: late Invalid preserves exact error offset" {
   let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "ab!c",
     lexer,
     eof_token="EOF",
@@ -480,6 +505,7 @@ test "new_from_steps: late Invalid preserves exact error offset" {
 test "new_from_steps: update preserves late Invalid offsets" {
   let lexer : PrefixLexer[String] = { lex_step: late_invalid_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     "ab!c",
     lexer,
     eof_token="EOF",
@@ -544,6 +570,7 @@ fn prop_step_terminates_with_eof(seed : Int) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     source,
     lexer,
     eof_token="EOF",
@@ -562,6 +589,7 @@ fn prop_step_tokens_cover_source(seed : Int) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     source,
     lexer,
     eof_token="EOF",
@@ -600,6 +628,7 @@ fn prop_step_matches_full_for_clean(seed : Int) -> Bool {
   }
   let lexer : PrefixLexer[String] = { lex_step: char_step_lexer }
   let buf = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     clean,
     lexer,
     eof_token="EOF",
@@ -616,12 +645,14 @@ fn prop_step_deterministic(seed : Int) -> Bool {
   let source = build_lex_source(seed)
   let lexer : PrefixLexer[String] = { lex_step: char_with_error_lexer }
   let buf1 = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     source,
     lexer,
     eof_token="EOF",
     error_token="ERR",
   )
   let buf2 = TokenBuffer::new_from_steps(
+    SourceId("lex-step-source"),
     source,
     lexer,
     eof_token="EOF",

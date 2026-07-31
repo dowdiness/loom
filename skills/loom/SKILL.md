@@ -49,12 +49,17 @@ and only the engine's *output* flows through the reactive graph.
 // ❌ Allocates a new ImperativeParser on every recompute.
 //    Full parse each time. No incremental reuse possible.
 let bad = scope.derived(fn() {
-  let p = @incremental.ImperativeParser::new(source_input.get(), lang)
+  let p = @incremental.ImperativeParser::new(
+    source_id,
+    source_input.get(),
+    lang,
+  )
   p.parse().syntax
 })
 
 // ✅ Engine lives outside the reactive graph; views are Derived cells.
-let parser = @loom.new_parser(initial_source, grammar)
+let source_id = @loom.SourceId("workspace-document")
+let parser = @loom.new_parser(source_id, initial_source, grammar)
 let syntax = parser.syntax_tree()    // -> @incr.Derived[@seam.SyntaxNode]
 let derived = scope.derived(
   fn() { extract_facts(syntax.get_or_abort()) },
@@ -67,12 +72,12 @@ let derived = scope.derived(
 **Don't call `@incremental.ImperativeParser::new` directly in user code.** The
 two sanctioned entry points are:
 
-- `@loom.new_parser(source, grammar, runtime?)` — the default. Use this for every
-  reactive / attached pipeline AND for one-shot tests where you would otherwise
-  want a throwaway parser. The reactive wrapping cost is not interesting in a
-  test, and the call site stays liftable into a real reactive context without
-  rewiring.
-- `@loom.new_imperative_parser(source, grammar)` — use only when you
+- `@loom.new_parser(source_id, source, grammar, runtime?)` — the default. Use
+  this for every reactive / attached pipeline AND for one-shot tests where you
+  would otherwise want a throwaway parser. The reactive wrapping cost is not
+  interesting in a test, and the call site stays liftable into a real reactive
+  context without rewiring.
+- `@loom.new_imperative_parser(source_id, source, grammar)` — use only when you
   intentionally need the non-reactive engine without the input/derived layer:
   engine fuzz tests, differential tests against the unified parser, performance
   probes targeting the engine, one-shot batch tools, or subsystems that own
@@ -82,8 +87,9 @@ two sanctioned entry points are:
 
 | Goal | Call | Notes |
 |------|------|-------|
-| Build a unified, incr-integrated parser | `@loom.new_parser(source, grammar, runtime?)` | Returns `@loom.Parser[Ast]`. `Ast : Eq`; grammar tokens must satisfy the factory bounds. Pass `runtime~` to join an existing graph; omit for a fresh `Runtime` owned by the parser. |
-| Build the raw engine (rarely needed in user code) | `@loom.new_imperative_parser(source, grammar)` | Intentional non-reactive engine cases only: engine tests/probes, batch tools, or runtime-lifecycle constraints — not a general "skip the wrapper" escape hatch. |
+| Build a unified, incr-integrated parser | `@loom.new_parser(source_id, source, grammar, runtime?)` | Returns `@loom.Parser[Ast]`. `Ast : Eq`; grammar tokens must satisfy the factory bounds. Pass `runtime~` to join an existing graph; omit for a fresh `Runtime` owned by the parser. |
+| Build the raw engine (rarely needed in user code) | `@loom.new_imperative_parser(source_id, source, grammar)` | Intentional non-reactive engine cases only: engine tests/probes, batch tools, or runtime-lifecycle constraints — not a general "skip the wrapper" escape hatch. |
+| Get the parser's stable source identity | `parser.source_id()` | `-> @loom.SourceId`; unchanged by `apply_edit` and `set_source`. |
 | Get the reactive source text view | `parser.source()` | `-> @incr.Derived[String]` |
 | Get the reactive syntax tree view | `parser.syntax_tree()` | `-> @incr.Derived[@seam.SyntaxNode]` |
 | Get the reactive AST view | `parser.ast()` | `-> @incr.Derived[Ast]`; current recovered AST, not a last-good semantic document. |
@@ -92,14 +98,15 @@ two sanctioned entry points are:
 | Advance the parser incrementally | `parser.apply_edit(edit, new_source)` | Uses CST-node-level reuse through the engine; publishes one coherent snapshot inside `Runtime::batch`. |
 | Replace source wholesale | `parser.set_source(new_source)` | Full reparse, discards incremental state; identical source is a no-op. |
 | Reach the underlying `Runtime` | `parser.runtime()` | Use to root a `Scope` for downstream attachments. |
-| One-shot parse in a test | `let p = @loom.new_parser(s, g); p.syntax_tree().read_or_abort()` | Throwaway parser is fine when you don't need to advance it. Prefer direct `Derived::read_or_abort()` over legacy `rt.read(...)`. |
+| One-shot parse in a test | `let p = @loom.new_parser(source_id, s, g); p.syntax_tree().read_or_abort()` | Throwaway parser is fine when you don't need to advance it. Prefer direct `Derived::read_or_abort()` over legacy `rt.read(...)`. |
 
 ## Grammar Reference (Lambda Example)
 
 The lambda example exposes a public grammar handle:
 
 ```moonbit
-let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+let source_id = @loom.SourceId("lambda-document")
+let parser = @loom.new_parser(source_id, source, @lambda.lambda_grammar)
 let typed = attach_typecheck(parser)
 let callers = CallersPipeline::CallersPipeline(
   parser.runtime(),
@@ -176,7 +183,8 @@ don't have to construct an `ImperativeParser` manually.
 
 ```moonbit
 test "extract callers from snippet" {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let source_id = @loom.SourceId("callers-test-document")
+  let parser = @loom.new_parser(source_id, source, @lambda.lambda_grammar)
   let syntax = parser.syntax_tree().read_or_abort()
   let (defs, calls) = extract_facts(syntax)
   // ... assertions
@@ -285,6 +293,22 @@ If current input is parser-invalid or projection-invalid, publish diagnostics fo
 the current text, retain the last-good semantic document/baseline, and only
 advance identity state on a later successful projection.
 
+## Source Identity and Diagnostic Labels
+
+Every parser is constructed with a caller-owned `SourceId`. Allocate or receive
+that identity at the document/provider boundary, keep it stable across edits to
+the same source, and use a different identity for a different source. Never
+derive it from source text, a diagnostic message, a list position, or another
+presentation artifact.
+
+`DiagnosticSource` is producer identity (parser, lexer, rename, and so on), not
+source-file identity. Locations live on `DiagnosticLabel` values: each label has
+a `LabelStyle` (`Primary` or `Secondary`), a `SourceSpan`, and an optional label
+message. `SourceSpan` combines a `SourceId` with a validated, half-open UTF-16
+code-unit `TextRange`. A diagnostic can carry multiple labels from multiple
+sources; consumers must select by source identity and style rather than infer a
+location from ordering or message text.
+
 ## Common Mistakes
 
 | Mistake | Symptom | Fix |
@@ -323,9 +347,8 @@ advance identity state on a later successful projection.
 
 - `loom/src/pipeline/parser.mbt` — `Parser[Ast]` definition; public parser
   methods return `@incr.Derived` views and updates batch one coherent snapshot.
-- `loom/src/factories.mbt:231` — `new_parser` signature.
-  `new_imperative_parser` is just above.
-- `loom/src/factories.mbt:213` — `new_imperative_parser` signature.
+- `loom/src/factories.mbt` — source-aware `new_parser`, `new_syntax_parser`, and
+  `new_imperative_parser` signatures.
 - `loom/src/core/parser.mbt` — `ParserContext::separated_list` contract,
   including missing-separator recovery and wrapper-free mode.
 - `loom/src/core/parser_wbtest.mbt` — whitebox coverage for separated-list

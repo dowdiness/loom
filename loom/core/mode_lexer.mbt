@@ -52,8 +52,8 @@ pub fn[T, M] tokenize_with_modes(
 /// `tokenize` is detached and never retains a snapshot. `new_session` creates
 /// the mutable state owned by one TokenBuffer.
 pub struct ModeRelexFactory[T] {
-  tokenize : (String) -> LexResult[T]
-  new_session : () -> ModeRelexState[T]
+  tokenize : (SourceId, String) -> LexResult[T]
+  new_session : (SourceId) -> ModeRelexState[T]
 }
 
 ///|
@@ -93,6 +93,7 @@ priv struct ModeRecoveredStep[M] {
 
 ///|
 fn[T, M] push_recovered_mode_step(
+  source_id : SourceId,
   source : String,
   pos : Int,
   mode : M,
@@ -114,6 +115,7 @@ fn[T, M] push_recovered_mode_step(
         let end = next_char_offset(source, pos)
         diagnostics.push(
           Diagnostic::lexer_error_at(
+            source_id,
             "mode lexer made no progress at position " + pos.to_string(),
             pos,
             end,
@@ -133,7 +135,9 @@ fn[T, M] push_recovered_mode_step(
       starts.push(error_start)
       modes.push(mode)
       diagnostics.push(
-        Diagnostic::lexer_error_at(message, error_start, end, "lex-invalid"),
+        Diagnostic::lexer_error_at(
+          source_id, message, error_start, end, "lex-invalid",
+        ),
       )
       tokens.push(
         TokenInfo::new(
@@ -151,6 +155,7 @@ fn[T, M] push_recovered_mode_step(
       modes.push(mode)
       diagnostics.push(
         Diagnostic::lexer_error_at(
+          source_id,
           "incomplete token; expected " + expected,
           error_start,
           len,
@@ -178,6 +183,7 @@ fn[T, M] push_recovered_mode_step(
 /// Unicode-safe recovery law as PrefixLexer, and continue with the step's
 /// returned next mode.
 fn[T, M] tokenize_with_modes_recovering(
+  source_id : SourceId,
   lexer : ModeLexer[T, M],
   input : String,
   eof_token : T,
@@ -193,8 +199,8 @@ fn[T, M] tokenize_with_modes_recovering(
   while true {
     let (step, next_mode) = (lexer.lex_step)(input, pos, mode)
     let recovered = push_recovered_mode_step(
-      input, pos, mode, step, next_mode, error_token, error_token_from_message, tokens,
-      starts, modes, diagnostics,
+      source_id, input, pos, mode, step, next_mode, error_token, error_token_from_message,
+      tokens, starts, modes, diagnostics,
     )
     pos = recovered.pos
     mode = recovered.mode
@@ -214,6 +220,7 @@ fn[T, M] tokenize_with_modes_recovering(
 /// Use this for detached work such as isolated block reparsing. Incremental
 /// mode snapshots belong to the `ModeRelexState` installed in a TokenBuffer.
 pub fn[T, M] tokenize_mode_lexer_recovering(
+  source_id : SourceId,
   lexer : ModeLexer[T, M],
   input : String,
   eof_token : T,
@@ -221,6 +228,7 @@ pub fn[T, M] tokenize_mode_lexer_recovering(
   error_token_from_message? : ((String) -> T)? = None,
 ) -> LexResult[T] {
   let (result, _) = tokenize_with_modes_recovering(
+    source_id,
     lexer,
     input,
     eof_token,
@@ -249,6 +257,7 @@ fn[M : Eq] mode_relex_converged(
 
 ///|
 fn[T, M : Eq] mode_relex_recovering(
+  source_id : SourceId,
   lexer : ModeLexer[T, M],
   source : String,
   start_offset : Int,
@@ -275,7 +284,7 @@ fn[T, M : Eq] mode_relex_recovering(
   while true {
     let (step, next_mode) = (lexer.lex_step)(source, pos, mode)
     let recovered = push_recovered_mode_step(
-      source, pos, mode, step, next_mode, error_token, error_token_from_message,
+      source_id, source, pos, mode, step, next_mode, error_token, error_token_from_message,
       tokens, starts, modes, diagnostics,
     )
     pos = recovered.pos
@@ -303,6 +312,7 @@ fn[T, M : Eq] mode_relex_recovering(
 
 ///|
 fn[T, M : Eq] new_mode_relex_session(
+  source_id : SourceId,
   lexer : ModeLexer[T, M],
   eof_token : T,
   error_token : T,
@@ -313,6 +323,7 @@ fn[T, M : Eq] new_mode_relex_session(
   let modes_ref : Ref[Array[M]] = Ref([])
   let tokenize = fn(source : String) -> LexResult[T] {
     let (result, modes) = tokenize_with_modes_recovering(
+      source_id,
       lexer,
       source,
       eof_token,
@@ -333,8 +344,8 @@ fn[T, M : Eq] new_mode_relex_session(
   ) -> ModeRelexResult[T] {
     let old_modes = modes_ref.val
     let internal = mode_relex_recovering(
-      lexer, source, start_offset, start_tok_idx, old_token_count, old_starts, edit_delta,
-      new_damage_end, old_modes, error_token, error_token_from_message,
+      source_id, lexer, source, start_offset, start_tok_idx, old_token_count, old_starts,
+      edit_delta, new_damage_end, old_modes, error_token, error_token_from_message,
     )
     let chunk = internal.chunk
     let old_idx = chunk.converged_at_old_token
@@ -368,8 +379,9 @@ pub fn[T, M : Eq] erase_mode_lexer(
   error_token~ : T,
   error_token_from_message? : ((String) -> T)? = None,
 ) -> ModeRelexFactory[T] {
-  let tokenize = fn(source : String) {
+  let tokenize = fn(source_id : SourceId, source : String) {
     tokenize_mode_lexer_recovering(
+      source_id,
       lexer,
       source,
       eof_token,
@@ -377,9 +389,9 @@ pub fn[T, M : Eq] erase_mode_lexer(
       error_token_from_message~,
     )
   }
-  let new_session = fn() {
+  let new_session = fn(source_id : SourceId) {
     new_mode_relex_session(
-      lexer, eof_token, error_token, error_token_from_message,
+      source_id, lexer, eof_token, error_token, error_token_from_message,
     )
   }
   { tokenize, new_session }

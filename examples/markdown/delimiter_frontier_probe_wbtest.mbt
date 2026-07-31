@@ -343,9 +343,10 @@ test "delimiter frontier: third run remains unmatched" {
 
 ///|
 test "parser context baseline token_at scans delimiter facts without moving" {
+  let source_id = @core.SourceId("markdown-delimiter-frontier-parser-context")
   let source = "`a\n`b`"
   let tokens = tokenize(source) catch { _ => abort("lexer failed") }
-  let ctx = @core.ParserContext::new(tokens, source, markdown_spec)
+  let ctx = @core.ParserContext::new(source_id, tokens, source, markdown_spec)
   let before = ctx.peek_index(0)
   let before_third = ctx.peek_index(2)
   let (first, first_end) = ctx.token_at(0, 0)

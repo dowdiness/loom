@@ -29,15 +29,20 @@ fn dump_element(elem : @seam.CstElement) -> String? {
 
 ///|
 fn html_diagnostic_start(diag : @core.Diagnostic) -> Int {
-  match diag.primary {
-    Some(range) => range.start().value()
-    None => abort("expected HTML diagnostic range")
+  match
+    diag
+    .labels()
+    .iter()
+    .find_first(label => label.style() is @core.LabelStyle::Primary) {
+    Some(label) => label.span().range().start().value()
+    None => abort("expected primary HTML diagnostic label")
   }
 }
 
 ///|
 test "root directly contains ElementNode (no double-wrap)" {
-  let result = html_grammar.parse_cst("<p>hello</p>") catch {
+  let source_id = @core.SourceId("html-parser-root-element")
+  let result = parse_cst(source_id, "<p>hello</p>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -52,7 +57,8 @@ test "root directly contains ElementNode (no double-wrap)" {
 
 ///|
 test "parse void element" {
-  let result = html_grammar.parse_cst("<br>") catch {
+  let source_id = @core.SourceId("html-parser-void-element")
+  let result = html_grammar.parse_cst(source_id, "<br>") catch {
     _ => return fail("void element parse raised")
   }
   let (_, diagnostics) = result
@@ -61,7 +67,8 @@ test "parse void element" {
 
 ///|
 test "parse element with text" {
-  let result = html_grammar.parse_cst("<p>hello</p>") catch {
+  let source_id = @core.SourceId("html-parser-text-content")
+  let result = html_grammar.parse_cst(source_id, "<p>hello</p>") catch {
     _ => return fail("element-with-text parse raised")
   }
   let (_, diagnostics) = result
@@ -70,7 +77,8 @@ test "parse element with text" {
 
 ///|
 test "parse nested elements" {
-  let result = html_grammar.parse_cst("<div><p>text</p></div>") catch {
+  let source_id = @core.SourceId("html-parser-nested-elements")
+  let result = html_grammar.parse_cst(source_id, "<div><p>text</p></div>") catch {
     _ => return fail("nested element parse raised")
   }
   let (_, diagnostics) = result
@@ -79,7 +87,8 @@ test "parse nested elements" {
 
 ///|
 test "parse self-closing element" {
-  let result = html_grammar.parse_cst("<br/>") catch {
+  let source_id = @core.SourceId("html-parser-self-closing-element")
+  let result = html_grammar.parse_cst(source_id, "<br/>") catch {
     _ => return fail("self-closing element parse raised")
   }
   let (_, diagnostics) = result
@@ -88,7 +97,8 @@ test "parse self-closing element" {
 
 ///|
 test "parse empty input" {
-  let result = html_grammar.parse_cst("") catch {
+  let source_id = @core.SourceId("html-parser-empty-input")
+  let result = html_grammar.parse_cst(source_id, "") catch {
     _ => return fail("empty-input parse raised")
   }
   let (_, diagnostics) = result
@@ -99,18 +109,36 @@ test "parse empty input" {
 test "recover from mismatched close tag at root" {
   // Regression for loom #646: a stray CloseTag at the root must not spin
   // parse_html_root's recovery loop (skip_until on a sync point).
-  let result = html_grammar.parse_cst("<div></span>") catch {
+  let source_id = @core.SourceId("html-parser-mismatched-close-source")
+  let result = html_grammar.parse_cst(source_id, "<div></span>") catch {
     _ => return fail("root mismatch recovery raised")
   }
   let (_, diagnostics) = result
   inspect(diagnostics.length() >= 1, content="true")
+  let items = diagnostics.items()
+  guard items.any(diagnostic => {
+    diagnostic.labels().any(label => label.style() is @core.LabelStyle::Primary)
+  }) else {
+    fail("expected malformed HTML diagnostics to include a primary label")
+  }
+  guard items.all(diagnostic => {
+    diagnostic
+    .labels()
+    .all(label => {
+      !(label.style() is @core.LabelStyle::Primary) ||
+      label.span().source_id() == source_id
+    })
+  }) else {
+    fail("expected every primary HTML label to retain the caller source id")
+  }
 }
 
 ///|
 test "script content is raw text" {
   // Regression for loom #626: <script>/<style> content must lex as
   // @token.RawText (RawTextLeaf in the tree), not @token.Text (TextLeaf).
-  let result = html_grammar.parse_cst("<script>var x = 1;</script>") catch {
+  let source_id = @core.SourceId("html-parser-script-raw-text")
+  let result = html_grammar.parse_cst(source_id, "<script>var x = 1;</script>") catch {
     _ => return fail("raw-text parse raised")
   }
   let (tree, diagnostics) = result
@@ -132,12 +160,14 @@ test "script content is raw text" {
 
 ///|
 test "compiled HTML root isolates parse-local native state" {
-  let first = html_grammar.parse_cst("<div>open") catch {
+  let first_source_id = @core.SourceId("html-parser-isolated-malformed")
+  let first = html_grammar.parse_cst(first_source_id, "<div>open") catch {
     _ => return fail("first isolated parse raised")
   }
   let (_, first_diagnostics) = first
   inspect(first_diagnostics.length() >= 1, content="true")
-  let second = html_grammar.parse_cst("<div>ok</div>") catch {
+  let second_source_id = @core.SourceId("html-parser-isolated-valid")
+  let second = html_grammar.parse_cst(second_source_id, "<div>ok</div>") catch {
     _ => return fail("second isolated parse raised")
   }
   let (_, second_diagnostics) = second
@@ -164,7 +194,8 @@ test "HTML IR compile rejects an unregistered guard" {
 
 ///|
 test "mismatched close tags report diagnostics through close boundary" {
-  let result = html_grammar.parse_cst("<div><span></div></span>") catch {
+  let source_id = @core.SourceId("html-parser-close-boundary")
+  let result = html_grammar.parse_cst(source_id, "<div><span></div></span>") catch {
     _ => return fail("close-boundary mismatch parse raised")
   }
   let (_, diagnostics) = result
@@ -173,12 +204,13 @@ test "mismatched close tags report diagnostics through close boundary" {
 
 ///|
 test "mismatched close diagnostics preserve original tag spelling" {
-  let result = html_grammar.parse_cst("<DIV></span>") catch {
+  let source_id = @core.SourceId("html-parser-original-tag-spelling")
+  let result = html_grammar.parse_cst(source_id, "<DIV></span>") catch {
     _ => fail("mismatched close diagnostic parse raised")
   }
   let (_, diagnostics) = result
   inspect(
-    diagnostics.items()[0].message,
+    diagnostics.items()[0].message(),
     content="Mismatched close tag: expected </DIV>, got </span>",
   )
   inspect(html_diagnostic_start(diagnostics.items()[0]), content="5")
@@ -186,7 +218,8 @@ test "mismatched close diagnostics preserve original tag spelling" {
 
 ///|
 test "mixed-case close tags match case-insensitively" {
-  let result = html_grammar.parse_cst("<DIV></div>") catch {
+  let source_id = @core.SourceId("html-parser-mixed-case-close")
+  let result = html_grammar.parse_cst(source_id, "<DIV></div>") catch {
     _ => fail("mixed-case HTML parse raised")
   }
   let (_, diagnostics) = result
@@ -195,7 +228,8 @@ test "mixed-case close tags match case-insensitively" {
 
 ///|
 test "unclosed tags report diagnostics after stack remains nonempty" {
-  let result = html_grammar.parse_cst("<div><span>text") catch {
+  let source_id = @core.SourceId("html-parser-unclosed-stack")
+  let result = html_grammar.parse_cst(source_id, "<div><span>text") catch {
     _ => return fail("unclosed-tag parse raised")
   }
   let (_, diagnostics) = result
@@ -203,7 +237,7 @@ test "unclosed tags report diagnostics after stack remains nonempty" {
   let unclosed = diagnostics
     .items()
     .iter()
-    .find_first(d => d.message == "Unclosed element: span")
+    .find_first(d => d.message() == "Unclosed element: span")
   match unclosed {
     Some(diag) => inspect(html_diagnostic_start(diag), content="15")
     None => fail("expected span unclosed diagnostic")
@@ -212,7 +246,10 @@ test "unclosed tags report diagnostics after stack remains nonempty" {
 
 ///|
 test "nested tags and void elements preserve sibling structure" {
-  let result = html_grammar.parse_cst("<div><br><span>ok</span></div>") catch {
+  let source_id = @core.SourceId("html-parser-nested-void-siblings")
+  let result = html_grammar.parse_cst(
+    source_id, "<div><br><span>ok</span></div>",
+  ) catch {
     _ => return fail("nested void-element parse raised")
   }
   let (tree, diagnostics) = result
@@ -227,7 +264,8 @@ test "nested tags and void elements preserve sibling structure" {
 
 ///|
 test "mismatched nesting preserves a valid sibling" {
-  let result = html_grammar.parse_cst("<div><span></div><p>ok</p>") catch {
+  let source_id = @core.SourceId("html-parser-mismatched-valid-sibling")
+  let result = html_grammar.parse_cst(source_id, "<div><span></div><p>ok</p>") catch {
     _ => return fail("mismatched parse raised")
   }
   let (tree, diagnostics) = result
@@ -240,7 +278,10 @@ test "mismatched nesting preserves a valid sibling" {
 
 ///|
 test "extra mismatched close does not prevent the following sibling" {
-  let result = html_grammar.parse_cst("<div><span></div></span><p>ok</p>") catch {
+  let source_id = @core.SourceId("html-parser-extra-close-sibling")
+  let result = html_grammar.parse_cst(
+    source_id, "<div><span></div></span><p>ok</p>",
+  ) catch {
     _ => return fail("extra-close parse raised")
   }
   let (tree, diagnostics) = result
@@ -253,7 +294,8 @@ test "extra mismatched close does not prevent the following sibling" {
 
 ///|
 test "unclosed element reports a diagnostic" {
-  let result = html_grammar.parse_cst("<div>open") catch {
+  let source_id = @core.SourceId("html-parser-unclosed-element")
+  let result = html_grammar.parse_cst(source_id, "<div>open") catch {
     _ => return fail("unclosed parse raised")
   }
   let (_, diagnostics) = result
@@ -267,7 +309,8 @@ test "MAX_DEPTH recovery reports an error without stack overflow" {
     source.write_string("<div>")
   }
   let input = source.to_string()
-  let result = html_grammar.parse_cst(input) catch {
+  let source_id = @core.SourceId("html-parser-max-depth")
+  let result = html_grammar.parse_cst(source_id, input) catch {
     _ => return fail("MAX_DEPTH parse raised")
   }
   let (tree, diagnostics) = result
@@ -283,7 +326,8 @@ test "MAX_ERRORS recovery reaches EOF without retrying sentinel" {
   }
   source.write_string("<p>ok</p>")
   let input = source.to_string()
-  let result = html_grammar.parse_cst(input) catch {
+  let source_id = @core.SourceId("html-parser-max-errors")
+  let result = html_grammar.parse_cst(source_id, input) catch {
     _ => return fail("MAX_ERRORS parse raised")
   }
   let (tree, diagnostics) = result
@@ -293,12 +337,14 @@ test "MAX_ERRORS recovery reaches EOF without retrying sentinel" {
 
 ///|
 test "malformed parse does not leak stack into the next parse" {
-  let first = html_grammar.parse_cst("<div><span></div>") catch {
+  let first_source_id = @core.SourceId("html-parser-stack-leak-malformed")
+  let first = html_grammar.parse_cst(first_source_id, "<div><span></div>") catch {
     _ => return fail("malformed parse raised")
   }
   let (_, first_diags) = first
   inspect(first_diags.length() >= 1, content="true")
-  let second = html_grammar.parse_cst("<div>ok</div>") catch {
+  let second_source_id = @core.SourceId("html-parser-stack-leak-valid")
+  let second = html_grammar.parse_cst(second_source_id, "<div>ok</div>") catch {
     _ => return fail("isolated parse raised")
   }
   let (tree, second_diags) = second
@@ -315,12 +361,14 @@ test "MAX_DEPTH recovery does not poison a later parse" {
   for _ in 0..<520 {
     deep.write_string("<div>")
   }
-  let first = html_grammar.parse_cst(deep.to_string()) catch {
+  let first_source_id = @core.SourceId("html-parser-depth-poison-malformed")
+  let first = html_grammar.parse_cst(first_source_id, deep.to_string()) catch {
     _ => return fail("MAX_DEPTH parse raised")
   }
   let (_, first_diags) = first
   inspect(first_diags.length() >= 1, content="true")
-  let second = html_grammar.parse_cst("<div>ok</div>") catch {
+  let second_source_id = @core.SourceId("html-parser-depth-poison-valid")
+  let second = html_grammar.parse_cst(second_source_id, "<div>ok</div>") catch {
     _ => return fail("post-depth parse raised")
   }
   let (_, second_diags) = second
