@@ -91,6 +91,10 @@ pub using @core {type DiagnosticBuildError}
 
 pub using @core {type DiagnosticCode}
 
+pub using @core {type DiagnosticFix}
+
+pub using @core {type DiagnosticFixError}
+
 pub using @core {type DiagnosticLabel}
 
 pub using @core {type DiagnosticRenderError}
@@ -104,6 +108,8 @@ pub using @core {type DiagnosticSource}
 pub using @core {type DiagnosticSourceFile}
 
 pub using @core {type Edit}
+
+pub using @core {type FixApplicability}
 
 pub using @core {type FoldStats}
 
@@ -190,6 +196,8 @@ pub using @core {type TextDelta}
 pub using @core {type TextOffset}
 
 pub using @core {type TextRange}
+
+pub using @core {type TextReplacement}
 
 pub using @core {type TokenBuffer}
 
