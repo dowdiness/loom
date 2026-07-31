@@ -55,7 +55,7 @@ pub fn message_strings_equal(@core.DiagnosticSet, @core.DiagnosticSet) -> Bool
 
 pub fn newline_app_fixture() -> (String, Array[EditStep])
 
-pub fn normalized_syntax_grammar(@core.LanguageSpec[@token.Token, @syntax.SyntaxKind], (String) -> @core.LexResult[@token.Token]) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
+pub fn normalized_syntax_grammar(@core.LanguageSpec[@token.Token, @syntax.SyntaxKind], (@core.SourceId, String) -> @core.LexResult[@token.Token]) -> @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]
 
 pub fn param_list_churn_fixture() -> (String, Array[EditStep])
 
@@ -63,11 +63,11 @@ pub fn project_lambda_leaves(@seam.SyntaxNode) -> Array[@projection.ProjectionLe
 
 pub fn rhs_newline_fixture() -> (String, Array[EditStep])
 
-pub fn run_newline_application_reification_probe() -> NewlineAppProbeResult raise @grammar.GrammarCompileError
+pub fn run_newline_application_reification_probe(@core.SourceId) -> NewlineAppProbeResult raise @grammar.GrammarCompileError
 
-pub fn run_oracle_fixture(String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
+pub fn run_oracle_fixture(@core.SourceId, String, Array[EditStep], @loom.SyntaxGrammar[@token.Token, @syntax.SyntaxKind]) -> Array[OracleStepResult]
 
-pub fn run_reified_ir_oracle() -> ReifiedIrOracleResult raise @grammar.GrammarCompileError
+pub fn run_reified_ir_oracle(@core.SourceId) -> ReifiedIrOracleResult raise @grammar.GrammarCompileError
 
 pub fn soft_newline_fixture() -> (String, Array[EditStep])
 

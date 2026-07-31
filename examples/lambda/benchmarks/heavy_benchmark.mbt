@@ -4,6 +4,11 @@
 //
 // Run with: moon bench --package dowdiness/loom/benchmarks --release
 
+///|
+fn heavy_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-heavy")
+}
+
 // ─── Source generators ───────────────────────────────────────────────────────
 
 ///|
@@ -144,7 +149,11 @@ fn find_safe_insert_pos(source : String, near : Int) -> Int {
 test "heavy: large document - initial parse" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -155,7 +164,11 @@ test "heavy: large document - initial parse" (b : @bench.T) {
 test "heavy: wide arithmetic 100 terms - initial parse" (b : @bench.T) {
   let source = make_wide_arithmetic(100)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -166,7 +179,11 @@ test "heavy: wide arithmetic 100 terms - initial parse" (b : @bench.T) {
 test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
   let source = make_nested_application(50)
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let result = parser.parse()
     b.keep(result)
   })
@@ -177,7 +194,7 @@ test "heavy: nested application depth 50 - initial parse" (b : @bench.T) {
 test "heavy: large document - cst parse only" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let result = @lambda.parse_cst(source) catch {
+    let result = @lambda.parse_cst(heavy_benchmark_source_id(), source) catch {
       _ => abort("benchmark failed")
     }
     b.keep(result)
@@ -196,7 +213,11 @@ test "heavy: typing session - 100 edits at end" (b : @bench.T) {
     " ", "+", " ", "2",
   ]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      base,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut source = base
     for i = 0; i < 100; i = i + 1 {
@@ -221,7 +242,11 @@ test "heavy: typing session - 100 edits in middle" (b : @bench.T) {
     "z", " ", "+", " ",
   ]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      base,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut source = base
     let mut insert_pos = mid
@@ -245,7 +270,11 @@ test "heavy: refactoring session - 100 scattered replacements" (b : @bench.T) {
   let base = make_large_source()
   let replacements = ["x", "y", "z", "a", "b", "c", "d", "e"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      base,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut source = base
     let mut seed = 42
@@ -281,7 +310,7 @@ test "heavy: FULL REPARSE - 100 edits at end" (b : @bench.T) {
   ]
   b.bench(fn() {
     let mut source = base
-    let initial = @lambda.parse(source) catch {
+    let initial = @lambda.parse(heavy_benchmark_source_id(), source) catch {
       _ => @lambda.Term::Error("benchmark")
     }
     let mut tree = initial
@@ -290,7 +319,7 @@ test "heavy: FULL REPARSE - 100 edits at end" (b : @bench.T) {
       let pos = source.length()
       let (new_source, _edit) = apply_char_insert(source, pos, ch)
       // Full reparse — no incremental state, no interning
-      let t = @lambda.parse(new_source) catch {
+      let t = @lambda.parse(heavy_benchmark_source_id(), new_source) catch {
         _ => @lambda.Term::Error("benchmark")
       }
       tree = t
@@ -312,13 +341,17 @@ test "heavy: FULL REPARSE - 100 edits in middle" (b : @bench.T) {
   ]
   b.bench(fn() {
     let mut source = base
-    let initial = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let initial = @lambda.parse(heavy_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     let mut tree = initial
     let mut insert_pos = safe_pos
     for i = 0; i < 100; i = i + 1 {
       let ch = chars[i % chars.length()]
       let (new_source, _edit) = apply_char_insert(source, insert_pos, ch)
-      let t = @lambda.parse(new_source) catch { _ => abort("benchmark failed") }
+      let t = @lambda.parse(heavy_benchmark_source_id(), new_source) catch {
+        _ => abort("benchmark failed")
+      }
       tree = t
       source = new_source
       insert_pos = insert_pos + ch.length()
@@ -334,7 +367,7 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
   let replacements = ["x", "y", "z", "a", "b", "c", "d", "e"]
   b.bench(fn() {
     let mut source = base
-    let initial = @lambda.parse(source) catch {
+    let initial = @lambda.parse(heavy_benchmark_source_id(), source) catch {
       _ => @lambda.Term::Error("benchmark")
     }
     let mut tree = initial
@@ -348,7 +381,7 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
       let pos = seed.abs() % (len - 1)
       let ch = replacements[i % replacements.length()]
       let (new_source, _edit) = apply_char_replace(source, pos, ch)
-      let t = @lambda.parse(new_source) catch {
+      let t = @lambda.parse(heavy_benchmark_source_id(), new_source) catch {
         _ => @lambda.Term::Error("benchmark")
       }
       tree = t
@@ -363,7 +396,9 @@ test "heavy: FULL REPARSE - 100 scattered replacements" (b : @bench.T) {
 test "heavy: FULL REPARSE - large document initial parse" (b : @bench.T) {
   let source = make_large_source()
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(heavy_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -373,7 +408,11 @@ test "heavy: FULL REPARSE - large document initial parse" (b : @bench.T) {
 /// Local edits at end should reuse most of the tree.
 test "heavy: reuse ratio over 50 edits at end" {
   let base = make_large_source()
-  let parser = @loom.new_imperative_parser(base, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    heavy_benchmark_source_id(),
+    base,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   let chars = [" ", "+", " ", "1"]
   let mut source = base
@@ -408,7 +447,11 @@ fn bench_incremental_single_edit(source : String, b : @bench.T) -> Unit {
   let replacement = if last == "0" { "1" } else { "0" }
   let (new_source, edit) = apply_char_replace(source, len - 1, replacement)
   b.bench(fn() {
-    let p = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let p = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = p.parse()
     let result = p.edit(edit, new_source)
     b.keep(result)
@@ -418,7 +461,9 @@ fn bench_incremental_single_edit(source : String, b : @bench.T) -> Unit {
 ///|
 fn bench_full_reparse(source : String, b : @bench.T) -> Unit {
   b.bench(fn() {
-    let result = @lambda.parse(source) catch { _ => abort("benchmark failed") }
+    let result = @lambda.parse(heavy_benchmark_source_id(), source) catch {
+      _ => abort("benchmark failed")
+    }
     b.keep(result)
   })
 }
@@ -427,7 +472,11 @@ fn bench_full_reparse(source : String, b : @bench.T) -> Unit {
 fn bench_session_incremental(source : String, n : Int, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
-    let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      heavy_benchmark_source_id(),
+      source,
+      @lambda.lambda_grammar,
+    )
     let _ = parser.parse()
     let mut s = source
     for i = 0; i < n; i = i + 1 {
@@ -446,7 +495,7 @@ fn bench_session_full_reparse(source : String, n : Int, b : @bench.T) -> Unit {
   let chars = [" ", "+", " ", "1"]
   b.bench(fn() {
     let mut s = source
-    let initial = @lambda.parse(s) catch {
+    let initial = @lambda.parse(heavy_benchmark_source_id(), s) catch {
       _ => @lambda.Term::Error("benchmark")
     }
     let mut tree = initial
@@ -454,7 +503,7 @@ fn bench_session_full_reparse(source : String, n : Int, b : @bench.T) -> Unit {
       let ch = chars[i % chars.length()]
       let pos = s.length()
       let (new_s, _edit) = apply_char_insert(s, pos, ch)
-      let t = @lambda.parse(new_s) catch {
+      let t = @lambda.parse(heavy_benchmark_source_id(), new_s) catch {
         _ => @lambda.Term::Error("benchmark")
       }
       tree = t

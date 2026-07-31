@@ -38,9 +38,12 @@ struct EgwPeer {
 }
 
 ///|
-fn EgwPeer::new(agent_id : String) -> EgwPeer raise @egw.TextError {
+fn EgwPeer::new(
+  source_id : @core.SourceId,
+  agent_id : String,
+) -> EgwPeer raise @egw.TextError {
   let doc = @egw.TextState::new(agent_id)
-  let parser = new_imperative_parser("")
+  let parser = new_imperative_parser(source_id, "")
   let _ = parser.parse().ast
   { doc, parser }
 }
@@ -69,9 +72,10 @@ fn EgwPeer::bridge_sync(self : EgwPeer, message : @egw.SyncMessage) -> Unit {
 
 ///|
 test "egw two peers converge: same text and parse tree after sync" {
+  let source_id = @core.SourceId::SourceId("lambda-crdt-egw-test")
   // Peer A types "42" locally — both doc and parser are updated.
-  let peer_a = EgwPeer::new("a")
-  let peer_b = EgwPeer::new("b")
+  let peer_a = EgwPeer::new(source_id, "a")
+  let peer_b = EgwPeer::new(source_id, "b")
   peer_a.local_insert(@egw.Pos::at(0), "42")
   // Export peer A's ops and sync to peer B.
   let msg_a = peer_a.doc.sync().export_all() catch {

@@ -1,4 +1,9 @@
 ///|
+fn divergence_classifier_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-divergence-classifier")
+}
+
+///|
 /// Helper: build a synthetic OracleStepResult for classifier tests.
 /// OracleStepResult is pub(all) so construction works from blackbox tests.
 fn make_result(
@@ -146,7 +151,12 @@ test "classify_run: ReplicationResidual beats NoDivergence" {
 test "is_go_verdict: combined fixture → true (no WrongModelStop)" {
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(initial, steps, b)
+  let results = run_oracle_fixture(
+    divergence_classifier_source_id(),
+    initial,
+    steps,
+    b,
+  )
   inspect(is_go_verdict(results), content="true")
 }
 
@@ -157,7 +167,12 @@ test "classify_run: combined fixture → ReplicationResidual (message wording)" 
   // finding, not a WrongModelStop — D1 and D2a structural checks still pass.
   let (initial, steps) = combined_fixture()
   let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(initial, steps, b)
+  let results = run_oracle_fixture(
+    divergence_classifier_source_id(),
+    initial,
+    steps,
+    b,
+  )
   match classify_run(results) {
     DivergenceClass::ReplicationResidual(_) => inspect(true, content="true")
     other => inspect(other, content="expected ReplicationResidual")

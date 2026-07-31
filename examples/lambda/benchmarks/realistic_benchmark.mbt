@@ -13,6 +13,11 @@
 // Run with: moon bench --release
 
 ///|
+fn realistic_benchmark_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-benchmarks-realistic")
+}
+
+///|
 /// Generate a realistic definition with all grammar features.
 /// Each definition has ~20-40 tokens (vs ~4 for `let x = 0`).
 fn make_realistic_def(i : Int) -> String {
@@ -94,7 +99,9 @@ fn replace_char_at(source : String, pos : Int, replacement : String) -> String {
 test "realistic: 40 defs - full reparse" (b : @bench.T) {
   let source = make_realistic_source(40, "0")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(realistic_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -105,7 +112,11 @@ test "realistic: 40 defs - incremental (edit tail)" (b : @bench.T) {
   let pos = find_tail_edit_pos(source)
   let edited = replace_char_at(source, pos, "1")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -120,7 +131,11 @@ test "realistic: 40 defs - incremental (edit head block)" (b : @bench.T) {
   let pos = find_head_edit_pos(source)
   let edited = replace_char_at(source, pos, "2")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -135,7 +150,11 @@ test "realistic: 40 defs - incremental (edit middle block)" (b : @bench.T) {
   let pos = find_middle_block_edit_pos(source, 40)
   let edited = replace_char_at(source, pos, "2")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -150,7 +169,9 @@ test "realistic: 40 defs - incremental (edit middle block)" (b : @bench.T) {
 test "realistic: 80 defs - full reparse" (b : @bench.T) {
   let source = make_realistic_source(80, "0")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(realistic_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -161,7 +182,11 @@ test "realistic: 80 defs - incremental (edit tail)" (b : @bench.T) {
   let pos = find_tail_edit_pos(source)
   let edited = replace_char_at(source, pos, "1")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -176,7 +201,11 @@ test "realistic: 80 defs - incremental (edit middle block)" (b : @bench.T) {
   let pos = find_middle_block_edit_pos(source, 80)
   let edited = replace_char_at(source, pos, "2")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -191,7 +220,9 @@ test "realistic: 80 defs - incremental (edit middle block)" (b : @bench.T) {
 test "realistic: 160 defs - full reparse" (b : @bench.T) {
   let source = make_realistic_source(160, "0")
   b.bench(fn() {
-    let (cst, _) = @lambda.parse_cst(source) catch { _ => abort("failed") }
+    let (cst, _) = @lambda.parse_cst(realistic_benchmark_source_id(), source) catch {
+      _ => abort("failed")
+    }
     b.keep(cst)
   })
 }
@@ -202,7 +233,11 @@ test "realistic: 160 defs - incremental (edit tail)" (b : @bench.T) {
   let pos = find_tail_edit_pos(source)
   let edited = replace_char_at(source, pos, "1")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)
@@ -217,7 +252,11 @@ test "realistic: 160 defs - incremental (edit middle block)" (b : @bench.T) {
   let pos = find_middle_block_edit_pos(source, 160)
   let edited = replace_char_at(source, pos, "2")
   let edit = @core.Edit::replace(pos, pos + 1, pos + 1)
-  let parser = @loom.new_imperative_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    realistic_benchmark_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   let _ = parser.parse()
   b.bench(fn() {
     let tree = parser.edit(edit, edited)

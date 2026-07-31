@@ -9,8 +9,8 @@ struct Peer {
 }
 
 ///|
-fn Peer::new(source : String) -> Peer {
-  let parser = new_imperative_parser(source)
+fn Peer::new(source_id : @core.SourceId, source : String) -> Peer {
+  let parser = new_imperative_parser(source_id, source)
   let _ = parser.parse().ast
   { text: source, parser }
 }
@@ -57,9 +57,10 @@ fn apply_peer_delta(peer : Peer, delta : Array[@core.TextDelta]) -> Unit {
 
 ///|
 test "two peers converge after sequential sync" {
+  let source_id = @core.SourceId::SourceId("lambda-crdt-peer-sequential")
   // Both peers start empty
-  let peer_a = Peer::new("")
-  let peer_b = Peer::new("")
+  let peer_a = Peer::new(source_id, "")
+  let peer_b = Peer::new(source_id, "")
   // Peer A types "(x) => x"
   let delta_a = [@core.TextDelta::Insert("(x) => x")]
   apply_peer_delta(peer_a, delta_a)
@@ -75,8 +76,9 @@ test "two peers converge after sequential sync" {
 
 ///|
 test "two peers converge after two rounds of sync" {
-  let peer_a = Peer::new("")
-  let peer_b = Peer::new("")
+  let source_id = @core.SourceId::SourceId("lambda-crdt-peer-two-rounds")
+  let peer_a = Peer::new(source_id, "")
+  let peer_b = Peer::new(source_id, "")
   // Round 1: A types initial expression, B gets it
   let delta1 = [@core.TextDelta::Insert("42")]
   apply_peer_delta(peer_a, delta1)
@@ -95,13 +97,14 @@ test "two peers converge after two rounds of sync" {
 
 ///|
 test "tree_diff confirms incremental parse matches full reparse after sync" {
+  let source_id = @core.SourceId::SourceId("lambda-crdt-peer-tree-diff")
   // After applying a delta, the incremental parse and a fresh full parse
   // should produce identical Terms.
-  let peer = Peer::new("42")
+  let peer = Peer::new(source_id, "42")
   let delta = [@core.TextDelta::Retain(2), @core.TextDelta::Insert(" + 1")]
   apply_peer_delta(peer, delta)
   // Full reparse of final text using parse (public API) — both return Term now
-  let full_term = try! parse(peer.text)
+  let full_term = try! parse(source_id, peer.text)
   let incremental_term = peer.parser.get_tree().unwrap()
   inspect(incremental_term == full_term, content="true")
 }

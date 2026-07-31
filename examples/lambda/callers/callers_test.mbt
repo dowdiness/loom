@@ -17,11 +17,20 @@
 //     (scope=LambdaScope). Consumers filter on `.scope` if needed.
 
 ///|
+fn callers_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-callers-test")
+}
+
+///|
 /// Build a one-shot Parser and extract its current SyntaxNode. Used by
 /// the pure-extraction tests below, which don't care about incremental
 /// re-derivation.
 fn parse_to_syntax(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   parser.syntax_tree().read_or_abort()
 }
 
@@ -104,7 +113,9 @@ test "pipeline: apply_edit re-derives index incrementally" {
   //                   012345678901234567890123
   //                             1111111111222
   let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
+    callers_test_source_id(),
+    "let f = 1\nlet g = f x\n",
+    @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
 
@@ -139,7 +150,11 @@ test "pipeline: set_source forces full reparse" {
   // set_source discards incremental state — exercised once here to
   // confirm the pipeline still re-derives correctly through that path
   // (e.g., file-open or a non-edit-shaped source change).
-  let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_test_source_id(),
+    "let f = 1\n",
+    @lambda.lambda_grammar,
+  )
   let pipe = CallersPipeline::from_parser(parser)
   inspect(pipe.callers_of("f").length(), content="0")
   parser.set_source("let f = 1\nlet g = f x\nlet h = f x\n")
@@ -162,7 +177,9 @@ test "pipeline: survives rt.gc() between queries" {
   // facts/index cells (they have no other reachability path) and
   // subsequent reads would abort instead of returning empty arrays.
   let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\nlet h = f x\n", @lambda.lambda_grammar,
+    callers_test_source_id(),
+    "let f = 1\nlet g = f x\nlet h = f x\n",
+    @lambda.lambda_grammar,
   )
   let pipe = CallersPipeline::from_parser(parser)
   let rt = parser.runtime()
@@ -386,7 +403,11 @@ test "extract_facts wrapper: backward-compat 2-tuple shape preserved" {
 /// for tests that need to mutate via parser (apply_edit, set_source, gc),
 /// construct parser and pipeline separately.
 fn build_test_pipeline(source : String) -> CallersPipeline {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_test_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   CallersPipeline::from_parser(parser)
 }
 

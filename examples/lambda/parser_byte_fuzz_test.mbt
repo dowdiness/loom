@@ -9,6 +9,11 @@
 // parser robustness issue.
 
 ///|
+fn parser_byte_fuzz_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-parser-byte-fuzz")
+}
+
+///|
 /// Deterministic PRNG (same LCG as imperative_differential_fuzz_test.mbt).
 fn bf_next_seed(seed : Int) -> Int {
   let a = 1103515245
@@ -89,7 +94,7 @@ test "fuzz: parse handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     try {
-      let _term = parse(input)
+      let _term = parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => () // Parse error is expected, abort is not
     }
@@ -104,7 +109,7 @@ test "fuzz: parse_term handles raw byte streams" {
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
     try {
-      let (_term, _diags) = parse_term(input)
+      let (_term, _diags) = parse_term(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -118,7 +123,11 @@ test "fuzz: imperative parser handles raw byte streams" {
     let seed = 31 + case_i * 67
     let len = seed.abs() % 50 + 1
     let (input, _) = bf_make_raw_string(seed, len)
-    let parser = @loom.new_imperative_parser(input, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      parser_byte_fuzz_source_id(),
+      input,
+      lambda_grammar,
+    )
     let _term = parser.parse().ast
   }
 }
@@ -132,7 +141,11 @@ test "fuzz: incremental edit with raw byte streams" {
     let len = seed.abs() % 30 + 5
     let (source, next_seed) = bf_make_raw_string(seed, len)
     seed = next_seed
-    let parser = @loom.new_imperative_parser(source, lambda_grammar)
+    let parser = @loom.new_imperative_parser(
+      parser_byte_fuzz_source_id(),
+      source,
+      lambda_grammar,
+    )
     let _ = parser.parse().ast
     let mut current_source = source
     for _edit_i = 0; _edit_i < 8; _edit_i = _edit_i + 1 {
@@ -192,7 +205,7 @@ test "fuzz: parse handles mixed syntax and raw bytes" {
     let len = seed.abs() % 40 + 5
     let (input, _) = bf_make_mixed_string(seed, len)
     try {
-      let _term = parse(input)
+      let _term = parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -214,7 +227,7 @@ test "fuzz: parse handles control characters" {
     }
     let input = buf.to_string()
     try {
-      let _term = parse(input)
+      let _term = parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }
@@ -230,7 +243,7 @@ test "fuzz: parse handles high unicode" {
   ]
   for input in inputs {
     try {
-      let _term = parse(input)
+      let _term = parse(parser_byte_fuzz_source_id(), input)
     } catch {
       _ => ()
     }

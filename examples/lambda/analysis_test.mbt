@@ -26,21 +26,35 @@ fn first_lambda_message(
 }
 
 ///|
+fn lambda_analysis_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-analysis-test")
+}
+
+///|
 test "LambdaAnalysis: clean source has no diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("1 + 2")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "1 + 2",
+  )
   inspect(analysis.diagnostics().length(), content="0")
 }
 
 ///|
 test "LambdaAnalysis: parse error includes parser diagnostic" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "(x) =>",
+  )
   let diagnostics = analysis.diagnostics()
   inspect(count_lambda_diagnostics(diagnostics, ParsePhase) > 0, content="true")
 }
 
 ///|
 test "LambdaAnalysis: parse diagnostic preserves structured payload" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "(x) =>",
+  )
   let diagnostics = analysis.diagnostics()
   let mut saw_parser_diagnostic = false
   for diagnostic in diagnostics {
@@ -55,7 +69,10 @@ test "LambdaAnalysis: parse diagnostic preserves structured payload" {
 
 ///|
 test "LambdaAnalysis: type error includes typecheck diagnostic" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("x + 1")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "x + 1",
+  )
   let diagnostics = analysis.diagnostics()
   inspect(count_lambda_diagnostics(diagnostics, TypecheckPhase), content="1")
   inspect(
@@ -66,7 +83,10 @@ test "LambdaAnalysis: type error includes typecheck diagnostic" {
 
 ///|
 test "LambdaAnalysis: edit-to-clean recomputes diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("x + 1")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "x + 1",
+  )
   inspect(analysis.diagnostics().length(), content="1")
   analysis.set_source("1 + 2")
   inspect(analysis.diagnostics().length(), content="0")
@@ -74,7 +94,10 @@ test "LambdaAnalysis: edit-to-clean recomputes diagnostics" {
 
 ///|
 test "LambdaAnalysis: apply_edit recomputes diagnostics" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("x + 1")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "x + 1",
+  )
   inspect(analysis.diagnostics().length(), content="1")
   analysis.apply_edit(@core.Edit::new(0, 5, 5), "1 + 2")
   inspect(analysis.diagnostics().length(), content="0")
@@ -82,7 +105,10 @@ test "LambdaAnalysis: apply_edit recomputes diagnostics" {
 
 ///|
 test "LambdaAnalysis: diagnostics survive Runtime::gc" {
-  let analysis = LambdaAnalysis::LambdaAnalysis("(x) =>")
+  let analysis = LambdaAnalysis::LambdaAnalysis(
+    lambda_analysis_test_source_id(),
+    "(x) =>",
+  )
   inspect(
     count_lambda_diagnostics(analysis.diagnostics(), ParsePhase) > 0,
     content="true",
@@ -94,7 +120,11 @@ test "LambdaAnalysis: diagnostics survive Runtime::gc" {
 
 ///|
 test "LambdaAnalysis: dispose does not dispose parser" {
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    lambda_analysis_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let analysis = attach_lambda_analysis(parser)
   ignore(analysis.diagnostics())
   analysis.dispose()

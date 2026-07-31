@@ -40,6 +40,11 @@ enum Seg {
 }
 
 ///|
+fn separator_fuzz_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-separator-fuzz")
+}
+
+///|
 /// Fan a skeleton out into every concrete program: the cartesian product over
 /// its `Sep` slots, with `Lit` text fixed. A skeleton with no `Sep` slots yields
 /// exactly one program.
@@ -107,8 +112,11 @@ test "separator fuzz: A-vs-B parity over delimiter/whitespace variations" {
   }
   let b_grammar = build_b_syntax_grammar()
   for source in programs {
-    let (a_cst, a_diag) = @lambda.parse_cst(source)
-    let (b_cst, b_diag) = b_grammar.parse_cst(source)
+    let (a_cst, a_diag) = @lambda.parse_cst(separator_fuzz_source_id(), source)
+    let (b_cst, b_diag) = b_grammar.parse_cst(
+      separator_fuzz_source_id(),
+      source,
+    )
     let cst_diff = @core.tree_diff(a_cst, b_cst)
     guard cst_diff.is_empty() else {
       fail(

@@ -13,13 +13,23 @@
 /// because they parse the same source), not that the repeat-group optimization
 /// was applied. The relevant question — whether B achieves the same throughput
 /// as A — belongs to Task 13 (E3 benchmarking), not to the reuse_count oracle.
+fn reuse_positive_control_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-reuse-positive-control")
+}
+
+///|
 test "positive control: crippled B passes ALL oracles including reuse-parity" {
   // Crippled B disables try_reuse_repeat_group but the engine still reuses
   // unchanged subtrees via ctx.node(). Both A and B end up with reuse_count = 1
   // for an edit to the second of two definitions.
   let (initial, steps) = top_level_reuse_fixture()
   let b_crippled = build_b_syntax_grammar(cripple_reuse=true)
-  let results = run_oracle_fixture(initial, steps, b_crippled)
+  let results = run_oracle_fixture(
+    reuse_positive_control_source_id(),
+    initial,
+    steps,
+    b_crippled,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")
@@ -37,8 +47,18 @@ test "positive control: counts in detail for first edit step" {
   let (initial, steps) = top_level_reuse_fixture()
   let b = build_b_syntax_grammar()
   let b_crippled = build_b_syntax_grammar(cripple_reuse=true)
-  let normal_results = run_oracle_fixture(initial, steps, b)
-  let crippled_results = run_oracle_fixture(initial, steps, b_crippled)
+  let normal_results = run_oracle_fixture(
+    reuse_positive_control_source_id(),
+    initial,
+    steps,
+    b,
+  )
+  let crippled_results = run_oracle_fixture(
+    reuse_positive_control_source_id(),
+    initial,
+    steps,
+    b_crippled,
+  )
   let step0_normal = normal_results[0]
   let step0_crippled = crippled_results[0]
   // Both normal and crippled B get reuse_count = 1 on the first edit step
@@ -57,7 +77,12 @@ test "positive control: normal B passes all checks" {
   // Verify un-crippled B also satisfies all oracles (baseline sanity).
   let (initial, steps) = top_level_reuse_fixture()
   let b = build_b_syntax_grammar()
-  let results = run_oracle_fixture(initial, steps, b)
+  let results = run_oracle_fixture(
+    reuse_positive_control_source_id(),
+    initial,
+    steps,
+    b,
+  )
   for result in results {
     inspect(result.d1_ok, content="true")
     inspect(result.d2a_ok, content="true")

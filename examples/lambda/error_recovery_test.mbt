@@ -1,20 +1,29 @@
 // Tests for error recovery — migrated to parse_cst API.
 
 ///|
+fn recovery_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-error-recovery-test")
+}
+
+///|
 fn parse_cst_or_fail_recovery(
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise {
-  parse_cst(source) catch {
+  parse_cst(recovery_test_source_id(), source) catch {
     _ => fail("lex error on " + source)
   }
 }
 
 ///|
 fn diagnostic_start(diag : @core.Diagnostic) -> Int {
-  match diag.primary {
-    Some(range) => range.start().value()
-    None => abort("expected diagnostic primary range")
+  guard diag
+    .labels()
+    .iter()
+    .find_first(label => label.style() == @core.LabelStyle::Primary)
+    is Some(label) else {
+    abort("expected diagnostic primary label")
   }
+  label.span().range().start().value()
 }
 
 ///|
@@ -42,7 +51,7 @@ test "parse_cst EOF diagnostics point to end of source" {
   // Find the diagnostic about the missing "else"
   let mut found = false
   for diag in diagnostics.items() {
-    if diag.message.contains("else") {
+    if diag.message().contains("else") {
       // Position must be at EOF.
       inspect(diagnostic_start(diag) == source.length(), content="true")
       found = true
@@ -68,7 +77,7 @@ test "real grammar recovery: missing item before comma" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Expected )")
+  inspect(diagnostics.items()[0].message(), content="Expected )")
   inspect(diagnostic_start(diagnostics.items()[0]), content="2")
 }
 
@@ -78,7 +87,7 @@ test "real grammar recovery: missing let initializer before block close" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Unexpected token")
+  inspect(diagnostics.items()[0].message(), content="Unexpected token")
   inspect(diagnostic_start(diagnostics.items()[0]), content="10")
 }
 
@@ -130,7 +139,7 @@ test "lambda_expect: missing '=' in let" {
   // Should report missing '='
   let mut found_eq = false
   for diag in diagnostics.items() {
-    if diag.message.contains("=") {
+    if diag.message().contains("=") {
       found_eq = true
     }
   }
@@ -143,7 +152,7 @@ test "lambda_expect: missing closing paren" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Expected )")
+  inspect(diagnostics.items()[0].message(), content="Expected )")
   assert_first_child_kind(cst, @syntax.ParenExpr)
 }
 
@@ -159,7 +168,7 @@ test "lambda_expect: missing ')' in if condition keeps then/else" {
   )
   let mut found_paren = false
   for diag in diagnostics.items() {
-    if diag.message.contains(")") {
+    if diag.message().contains(")") {
       found_paren = true
     }
   }
@@ -231,7 +240,7 @@ test "balanced: missing close paren at EOF" {
   let (cst, diagnostics) = parse_cst_or_fail_recovery(source)
   assert_cst_complete(source, cst)
   inspect(diagnostics.length(), content="1")
-  inspect(diagnostics.items()[0].message, content="Expected )")
+  inspect(diagnostics.items()[0].message(), content="Expected )")
 }
 
 // ============================================================================
@@ -274,7 +283,11 @@ test "node_with_recovery: malformed lambda missing body" {
 ///|
 test "incremental: fix missing lambda body by editing" {
   // 1. Parse broken input: "(x) =>" (missing body)
-  let parser = @loom.new_imperative_parser("(x) =>", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    recovery_test_source_id(),
+    "(x) =>",
+    lambda_grammar,
+  )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
@@ -289,7 +302,11 @@ test "incremental: fix missing lambda body by editing" {
 ///|
 test "incremental: introduce error by deleting lambda body" {
   // 1. Parse valid input: "(x) => x"
-  let parser = @loom.new_imperative_parser("(x) => x", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    recovery_test_source_id(),
+    "(x) => x",
+    lambda_grammar,
+  )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length(), content="0")
 
@@ -302,7 +319,11 @@ test "incremental: introduce error by deleting lambda body" {
 ///|
 test "incremental: fix missing paren by appending" {
   // 1. Parse broken input: "((x) => x" (missing closing paren)
-  let parser = @loom.new_imperative_parser("((x) => x", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    recovery_test_source_id(),
+    "((x) => x",
+    lambda_grammar,
+  )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 
@@ -316,7 +337,11 @@ test "incremental: fix missing paren by appending" {
 ///|
 test "incremental: error to error edit" {
   // 1. Parse broken input with a missing parameter.
-  let parser = @loom.new_imperative_parser("(,) => x", lambda_grammar)
+  let parser = @loom.new_imperative_parser(
+    recovery_test_source_id(),
+    "(,) => x",
+    lambda_grammar,
+  )
   let _ = parser.parse().ast
   inspect(parser.diagnostics().length() > 0, content="true")
 

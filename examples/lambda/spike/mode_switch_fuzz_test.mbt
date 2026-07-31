@@ -17,6 +17,11 @@ enum ModeSeg {
 }
 
 ///|
+fn mode_switch_fuzz_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-spike-mode-switch-fuzz")
+}
+
+///|
 fn mode_expand(segs : Array[ModeSeg]) -> Array[String] {
   segs.fold(init=[""], (acc, seg) => {
     match seg {
@@ -59,13 +64,14 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
     @lambda.lambda_grammar.lex,
   )
   let b_grammar = build_b_syntax_grammar()
+  let source_id = mode_switch_fuzz_source_id()
 
   for initial in programs {
     let after = "let a = " + initial
     let edit = @core.Edit::insert(0, "let a = ".length())
 
-    let (a_seed, a_seed_diag) = @lambda.parse_cst(initial)
-    let (b_seed, b_seed_diag) = b_grammar.parse_cst(initial)
+    let (a_seed, a_seed_diag) = @lambda.parse_cst(source_id, initial)
+    let (b_seed, b_seed_diag) = b_grammar.parse_cst(source_id, initial)
     guard @core.tree_diff(a_seed, b_seed).is_empty() else {
       fail("seed CST divergence on source [\{mode_show_source(initial)}]")
     }
@@ -75,14 +81,14 @@ test "mode-switch fuzz: prefix let insert preserves B D1 and A/B parity" {
       )
     }
 
-    let a_parser = @loom.new_syntax_parser(initial, a_grammar)
-    let b_parser = @loom.new_syntax_parser(initial, b_grammar)
+    let a_parser = @loom.new_syntax_parser(source_id, initial, a_grammar)
+    let b_parser = @loom.new_syntax_parser(source_id, initial, b_grammar)
     a_parser.apply_edit(edit, after)
     b_parser.apply_edit(edit, after)
     let a_snap = a_parser.snapshot().read_or_abort()
     let b_snap = b_parser.snapshot().read_or_abort()
 
-    let (fresh_b_cst, fresh_b_diag) = b_grammar.parse_cst(after)
+    let (fresh_b_cst, fresh_b_diag) = b_grammar.parse_cst(source_id, after)
     guard @core.tree_diff(b_snap.syntax.cst_node(), fresh_b_cst).is_empty() else {
       fail(
         "B D1 CST divergence after prefix insert on source [\{mode_show_source(initial)}]",

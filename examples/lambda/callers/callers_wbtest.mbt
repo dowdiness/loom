@@ -9,11 +9,20 @@
 // 3-tuple shape directly live here too.
 
 ///|
+fn callers_wbtest_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-callers-wbtest")
+}
+
+///|
 /// Build a one-shot Parser and extract its current SyntaxNode. Mirrors
 /// the helper in callers_test.mbt for whitebox tests that need to invoke
 /// package-private extract_facts_full.
 fn parse_to_syntax_wb(source : String) -> @seam.SyntaxNode {
-  let parser = @loom.new_parser(source, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_wbtest_source_id(),
+    source,
+    @lambda.lambda_grammar,
+  )
   parser.syntax_tree().read_or_abort()
 }
 
@@ -57,7 +66,11 @@ test "visible_from: malformed lambda still sees enclosing bindings" {
   // binding `f`. Whitebox because identifying the malformed scope reuses
   // extract_facts_full to read its byte-range id.
   let src = "let f = 1\nlet g = () => f\n"
-  let parser = @loom.new_parser(src, @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_wbtest_source_id(),
+    src,
+    @lambda.lambda_grammar,
+  )
   let p = CallersPipeline::from_parser(parser)
   let (_, _, enclosing) = extract_facts_full(parse_to_syntax_wb(src))
   inspect(enclosing.length(), content="1")
@@ -81,7 +94,9 @@ test "from_parser: uses parser runtime and survives rt.gc() before first read" {
   // `let _ = facts_watch.read_or_abort()` materializes the
   // `facts -> syntax_tree` edge before returning, so gc finds it.
   let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
+    callers_wbtest_source_id(),
+    "let f = 1\nlet g = f x\n",
+    @lambda.lambda_grammar,
   )
   let p = CallersPipeline::from_parser(parser)
   let rt = parser.runtime()
@@ -97,7 +112,9 @@ test "from_parser: uses parser runtime and survives rt.gc() before first read" {
 ///|
 test "from_parser: parser apply_edit updates first callers query" {
   let parser = @loom.new_parser(
-    "let f = 1\nlet g = f x\n", @lambda.lambda_grammar,
+    callers_wbtest_source_id(),
+    "let f = 1\nlet g = f x\n",
+    @lambda.lambda_grammar,
   )
   let p = CallersPipeline::from_parser(parser)
   // No public pipeline read before this edit: constructor priming must be
@@ -113,7 +130,11 @@ test "from_parser: parser apply_edit updates first callers query" {
 
 ///|
 test "pipeline: dispose does not dispose parser runtime cells" {
-  let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_wbtest_source_id(),
+    "let f = 1\n",
+    @lambda.lambda_grammar,
+  )
   let p = CallersPipeline::from_parser(parser)
   inspect(p.defs_of("f").length(), content="1")
   p.dispose()
@@ -129,7 +150,11 @@ test "panic pipeline: wrong-runtime syntax pairing aborts through incr guard" {
   // test only pins CallersPipeline's precondition at the attachment boundary:
   // constructor priming must touch the foreign syntax read and fail fast.
   let pipeline_rt = @incr.Runtime()
-  let parser = @loom.new_parser("let f = 1\n", @lambda.lambda_grammar)
+  let parser = @loom.new_parser(
+    callers_wbtest_source_id(),
+    "let f = 1\n",
+    @lambda.lambda_grammar,
+  )
   let _ = CallersPipeline::CallersPipeline(pipeline_rt, parser.syntax_tree())
 }
 

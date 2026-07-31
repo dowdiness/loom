@@ -2,8 +2,17 @@
 // to the bidirectional type checker and verifies end-to-end flow on edit.
 
 ///|
+fn typed_parser_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-typed-parser-test")
+}
+
+///|
 test "attach_typecheck: clean program has zero diagnostics" {
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.typ, content="Int")
@@ -13,7 +22,11 @@ test "attach_typecheck: clean program has zero diagnostics" {
 
 ///|
 test "attach_typecheck: unbound variable surfaces diagnostic" {
-  let parser = @loom.new_parser("x + 1", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "x + 1",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
@@ -23,7 +36,11 @@ test "attach_typecheck: unbound variable surfaces diagnostic" {
 
 ///|
 test "attach_typecheck: unannotated lambda surfaces diagnostic" {
-  let parser = @loom.new_parser("(x) => x", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "(x) => x",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let result = typed.get()
   inspect(result.body_type.had_error, content="true")
@@ -33,7 +50,11 @@ test "attach_typecheck: unannotated lambda surfaces diagnostic" {
 
 ///|
 test "attach_typecheck: edit flows through set_source (clean → error)" {
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="0")
   parser.set_source("x + 1")
@@ -44,7 +65,11 @@ test "attach_typecheck: edit flows through set_source (clean → error)" {
 
 ///|
 test "attach_typecheck: edit flows through set_source (error → clean)" {
-  let parser = @loom.new_parser("x + 1", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "x + 1",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="1")
   parser.set_source("1 + 2")
@@ -57,7 +82,11 @@ test "attach_typecheck: edit flows through set_source (error → clean)" {
 test "attach_typecheck: edit flows through apply_edit (clean → error)" {
   // apply_edit is the CST-reuse path — covers the same publication contract
   // as set_source but exercises the incremental engine underneath.
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   inspect(typed.get().all_diagnostics.length(), content="0")
   parser.apply_edit(@core.Edit::new(0, 5, 5), "x + 1")
@@ -71,7 +100,11 @@ test "attach_typecheck: parse error does not abort the pipeline" {
   // "(x) =>" is a parse error — the grammar cannot complete the lambda body.
   // Pipeline must still produce a ModuleTypeResult; reading it must not
   // abort. Recovery on a subsequent edit is also exercised.
-  let parser = @loom.new_parser("(x) =>", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "(x) =>",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   parser.set_source("1 + 2")
@@ -88,7 +121,11 @@ test "attach_typecheck: unrecognized source produces a diagnostic, recovers on e
   // arm and emits a `TypedTerm::Error` the typechecker surfaces as a
   // diagnostic. Covers the CST-error branch of the bridge and recovery on
   // a subsequent clean edit.
-  let parser = @loom.new_parser("@invalid", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "@invalid",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let initial = typed.get()
   inspect(initial.body_type.had_error, content="true")
@@ -102,7 +139,11 @@ test "attach_typecheck: unrecognized source produces a diagnostic, recovers on e
 
 ///|
 test "attach_typecheck: dispose cleans up without affecting parser" {
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   typed.dispose()
@@ -117,7 +158,11 @@ test "attach_typecheck: chain survives Runtime::gc()" {
   // reactive chain reachable — bridge Derived, parser syntax-tree Derived,
   // internal inputs. Without it, `rt.gc()` would dispose all interior
   // cells and the next read would abort.
-  let parser = @loom.new_parser("1 + 2", lambda_grammar)
+  let parser = @loom.new_parser(
+    typed_parser_test_source_id(),
+    "1 + 2",
+    lambda_grammar,
+  )
   let typed = attach_typecheck(parser)
   let _ = typed.get()
   parser.runtime().gc()

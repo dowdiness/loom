@@ -1,9 +1,16 @@
 // Test for function application parsing bug
 
 ///|
+fn regression_test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("lambda-regression-test")
+}
+
+///|
 test "parse function application ((x) => x) 5" {
   let input = "((x) => x) 5"
-  let result = parse(input) catch { e => abort("parse failed: \{e}") }
+  let result = parse(regression_test_source_id(), input) catch {
+    e => abort("parse failed: \{e}")
+  }
   // The AST should be an App node with Lam and Int children
   match result {
     @ast.Term::App(_, _) => ()
@@ -19,7 +26,9 @@ test "parse function application ((x) => x) 5" {
 ///|
 test "parse simple application x 5" {
   let input = "x 5"
-  let result = parse(input) catch { e => abort("parse failed: \{e}") }
+  let result = parse(regression_test_source_id(), input) catch {
+    e => abort("parse failed: \{e}")
+  }
   // The AST should be an App node
   match result {
     @ast.Term::App(_, _) => ()
@@ -30,7 +39,9 @@ test "parse simple application x 5" {
 ///|
 test "parse parenthesized lambda ((x) => x)" {
   let input = "((x) => x)"
-  let result = parse(input) catch { e => abort("parse failed: \{e}") }
+  let result = parse(regression_test_source_id(), input) catch {
+    e => abort("parse failed: \{e}")
+  }
   // Should be a Lam term
   match result {
     @ast.Term::Lam(_, _) => ()
