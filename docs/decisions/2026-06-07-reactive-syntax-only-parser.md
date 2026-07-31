@@ -36,7 +36,9 @@ Add a syntax-only reactive parser path alongside `Parser[Ast]`:
   publishes `source`, `syntax_tree`, `diagnostics`, and a `SyntaxSnapshot` view.
 - `SyntaxSnapshot` keeps source, recovered syntax tree, diagnostics, and reuse
   count coherent, but has no AST field.
-- `new_syntax_parser(source, syntax_grammar, runtime?)` is the public factory.
+- `new_syntax_parser(source_id, source, syntax_grammar, runtime?)` is the public
+  factory. The caller-supplied source ID remains stable across edits and
+  whole-source resets of that parser.
 - `Grammar::to_syntax_grammar()` projects an AST grammar to its syntax-only
   facade, reusing the same lexer/spec/reparse configuration while intentionally
   dropping the fold.
@@ -48,6 +50,11 @@ do not need an AST view.
 
 The token type bound remains `T : Eq` for syntax-only parsing because the
 incremental buffer and reuse code compare token sequences.
+
+Source identity is orthogonal to diagnostic producer identity. A `SourceId`
+names the parsed document within the caller's provider snapshot;
+`DiagnosticSource` names the parser, lexer, or another producer. Neither is
+derived from source contents or diagnostic presentation.
 
 For external lexers with rich non-`Eq` payloads, adapt them at the Loom boundary.
 Use a lightweight stable wrapper that keeps the official kind or class required

@@ -34,14 +34,25 @@ pub struct AuthoringSnapshot {
   outline : Array[OutlineItem]
 }
 
-pub fn analyze_for_editor(source : String) -> AuthoringSnapshot {
-  let parser = @loom.new_parser(source, my_language_grammar)
+pub fn analyze_for_editor(
+  source_id : @loom.SourceId,
+  source : String,
+) -> AuthoringSnapshot {
+  let parser = @loom.new_parser(source_id, source, my_language_grammar)
   let diagnostics = lower_diagnostics(parser.diagnostics().read_or_abort())
   let syntax = parser.syntax_tree().read_or_abort()
   let outline = project_outline(syntax)
   { diagnostics, outline }
 }
 ```
+
+The authoring session allocates or receives `source_id` at its document/provider
+boundary and reuses it across edits to that source. Do not derive a source ID
+from source text, diagnostic wording, or a producer name. If the facade lowers
+Loom diagnostics into language-owned values, preserve each label's source ID,
+half-open UTF-16 range, `Primary`/`Secondary` style, and optional message.
+`DiagnosticSource` remains producer identity and must not be substituted for
+the document identity.
 
 For stateful editor sessions, keep current diagnostics separate from semantic
 document lifetime. Parser diagnostics should update for every edit, while a
@@ -117,16 +128,19 @@ runtime side outward:
    as `AuthoringSnapshot`, `AuthoringDiagnostic`, or private projection results;
    Loom `Parser`, `SyntaxNode`, and raw diagnostics remain behind the facade
    unless the authoring API intentionally exposes them.
-4. **State separation** — stateful authoring facades expose current parser
+4. **Source identity** — the authoring boundary supplies stable source IDs and
+   preserves source-aware styled labels when lowering diagnostics; it does not
+   infer locations from message text or collection position.
+5. **State separation** — stateful authoring facades expose current parser
    diagnostics immediately but only replace last-good semantic documents after
    parser and projection success.
-5. **Publishability** — if any published package depends on Loom or Seam, run
+6. **Publishability** — if any published package depends on Loom or Seam, run
    the same packaging/publish checks used for release and confirm local path
    dependencies are not required.
-6. **Browser or wasm-gc reachability** — if Loom enters a package reachable from
+7. **Browser or wasm-gc reachability** — if Loom enters a package reachable from
    browser, audio worklet, or other wasm-gc targets, run that downstream build
    before treating the integration as production-ready.
-7. **Runtime parity** — existing one-shot runtime parsing tests still exercise
+8. **Runtime parity** — existing one-shot runtime parsing tests still exercise
    the runtime parser, not the authoring facade, unless the project explicitly
    chose to move runtime parsing to Loom.
 

@@ -24,26 +24,28 @@ observe source, syntax, AST, and diagnostics from different parse passes.
 
 ```moonbit
 pub struct Parser[Ast] { /* private */ }
-pub fn[Ast : Eq] Parser::new(String, @incremental.ImperativeLanguage[Ast], runtime?) -> Self
+pub fn[Ast : Eq] Parser::new(@core.SourceId, String, @incremental.ImperativeLanguage[Ast], runtime?) -> Self
 pub fn[Ast : Eq] Parser::set_source(Self, String)                        -> Unit
 pub fn[Ast : Eq] Parser::apply_edit(Self, @core.Edit, String)            -> Unit
-pub fn[Ast]      Parser::snapshot(Self)                                  -> @cells.Derived[@incremental.ParseSnapshot[Ast]]
-pub fn[Ast]      Parser::source(Self)                                    -> @cells.Derived[String]
-pub fn[Ast]      Parser::syntax_tree(Self)                               -> @cells.Derived[@seam.SyntaxNode]
-pub fn[Ast]      Parser::ast(Self)                                       -> @cells.Derived[Ast]
-pub fn[Ast]      Parser::diagnostics(Self)                               -> @cells.Derived[@core.DiagnosticSet]
-pub fn[Ast]      Parser::runtime(Self)                                   -> @cells.Runtime
+pub fn[Ast]      Parser::source_id(Self)                                 -> @core.SourceId
+pub fn[Ast]      Parser::snapshot(Self)                                  -> @incr.Derived[@incremental.ParseSnapshot[Ast]]
+pub fn[Ast]      Parser::source(Self)                                    -> @incr.Derived[String]
+pub fn[Ast]      Parser::syntax_tree(Self)                               -> @incr.Derived[@seam.SyntaxNode]
+pub fn[Ast]      Parser::ast(Self)                                       -> @incr.Derived[Ast]
+pub fn[Ast]      Parser::diagnostics(Self)                               -> @incr.Derived[@core.DiagnosticSet]
+pub fn[Ast]      Parser::runtime(Self)                                   -> @incr.Runtime
 
 pub struct SyntaxSnapshot { source; syntax; diagnostics; reuse_count }
 pub struct SyntaxParser { /* private */ }
-pub fn SyntaxParser::new(String, @incremental.ImperativeLanguage[Unit], runtime?) -> Self
+pub fn SyntaxParser::new(@core.SourceId, String, @incremental.ImperativeLanguage[Unit], runtime?) -> Self
 pub fn SyntaxParser::set_source(Self, String)                        -> Unit
 pub fn SyntaxParser::apply_edit(Self, @core.Edit, String)            -> Unit
-pub fn SyntaxParser::snapshot(Self)                                  -> @cells.Derived[SyntaxSnapshot]
-pub fn SyntaxParser::source(Self)                                    -> @cells.Derived[String]
-pub fn SyntaxParser::syntax_tree(Self)                               -> @cells.Derived[@seam.SyntaxNode]
-pub fn SyntaxParser::diagnostics(Self)                               -> @cells.Derived[@core.DiagnosticSet]
-pub fn SyntaxParser::runtime(Self)                                   -> @cells.Runtime
+pub fn SyntaxParser::source_id(Self)                                 -> @core.SourceId
+pub fn SyntaxParser::snapshot(Self)                                  -> @incr.Derived[SyntaxSnapshot]
+pub fn SyntaxParser::source(Self)                                    -> @incr.Derived[String]
+pub fn SyntaxParser::syntax_tree(Self)                               -> @incr.Derived[@seam.SyntaxNode]
+pub fn SyntaxParser::diagnostics(Self)                               -> @incr.Derived[@core.DiagnosticSet]
+pub fn SyntaxParser::runtime(Self)                                   -> @incr.Runtime
 ```
 
 Outside a tracked compute closure, read these views with `.read()` /
@@ -70,14 +72,19 @@ for the full pattern and example.
 ## Implementing a new language
 
 Grammar authors don't construct these handles directly. Define a
-`Grammar[T, K, Ast]` and call `new_parser(source, grammar)` when you have an
-AST fold and `Ast : Eq`; the factory builds the `ImperativeLanguage[Ast]`
+`Grammar[T, K, Ast]` and call `new_parser(source_id, source, grammar)` when you
+have an AST fold and `Ast : Eq`; the factory builds the `ImperativeLanguage[Ast]`
 vtable and wraps it in a `Parser`.
 
 For CST/diagnostics-only integrations, define `SyntaxGrammar[T, K]` and call
-`new_syntax_parser(source, grammar)`. If you already have a `Grammar` whose AST
-is not `Eq`, use `grammar.to_syntax_grammar()` to reuse its lexer/spec without
-running the AST fold.
+`new_syntax_parser(source_id, source, grammar)`. If you already have a `Grammar`
+whose AST is not `Eq`, use `grammar.to_syntax_grammar()` to reuse its lexer/spec
+without running the AST fold.
+
+The source ID is fixed for the parser's lifetime and remains stable across
+`apply_edit` and `set_source`. It names source text within the caller's
+document/provider snapshot; it is not the diagnostic producer identity and is
+never inferred from source contents or diagnostic presentation.
 
 ## Error Handling
 

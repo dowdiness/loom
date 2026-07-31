@@ -1,4 +1,13 @@
 # loomgen IR Contract Implementation Plan
+
+> **Historical API note (2026-07-31):** This completed plan's verified API
+> inventory predates caller-supplied `SourceId` values and source-aware styled
+> diagnostic labels. Preserve the signatures below as execution history, not
+> current integration guidance. Current parser/grammar entry points receive a
+> stable source identity, while diagnostic locations use `DiagnosticLabel` and
+> `SourceSpan`. See the current generated interfaces and
+> [`docs/api/reference.md`](../../api/reference.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
 **Status:** Complete — all 10 tasks implemented on branch `feat/loomgen-ir-contract` (commits `999d555`..`a4ec9ba`), pending PR. The `dowdiness/loom/grammar` package ships the generic `[T,K]` IR + `Pred[T]` + tree-walking interpreter; the lambda spike drives B through the reified IR + a spike-local probe; D1/D2a/D2b re-validated on the reified IR (lambda spike 67/67, @grammar 17/17).

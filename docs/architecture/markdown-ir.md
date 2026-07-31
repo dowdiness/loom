@@ -168,6 +168,11 @@ fixtures.
   surface spellings, but it must not reorder author content.
 - Diagnostics and recovery are explicit nodes or side records. Target adapters
   must never infer malformed input from missing required semantic fields.
+- Diagnostic attachment is source-aware: an IR origin is owned only by a
+  `Primary` label for that document's `SourceId` whose half-open range overlaps
+  the origin under the language-local range policy. Foreign-source and
+  `Secondary` labels do not claim the origin, and attaching a match preserves
+  the complete diagnostic and all of its labels.
 
 ### Semantic-node invariants
 
@@ -242,16 +247,19 @@ Migration is additive until an explicit compatibility PR says otherwise.
 
 Compatibility floor:
 
-- `parse(source) -> Block` remains the tolerant high-level parser. Lex failures
-  still fold to `Block::Error`, and recovered parser structure still lowers to
-  the current editor model.
-- `parse_markdown(source) -> (Block, @core.DiagnosticSet) raise @core.LexError`
-  remains the diagnostics-returning high-level path over the current
-  `Block` / `Inline` projection. Lexical-error inputs still raise; parser
-  recovery diagnostics stay in the returned diagnostic set.
-- `parse_cst(source) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError`
-  remains the CST entry point. Lexical-error inputs still raise. It must not
-  start returning MarkdownIR or hiding parser diagnostics.
+- `parse(source_id, source) -> Block` remains the tolerant high-level parser.
+  Lex failures still fold to `Block::Error`, and recovered parser structure
+  still lowers to the current editor model.
+- `parse_markdown(source_id, source)` remains the diagnostics-returning
+  high-level path over the current `Block` / `Inline` projection. It returns
+  `(Block, @core.DiagnosticSet)` and may raise `@core.LexError`; parser recovery
+  diagnostics stay in the returned diagnostic set.
+- `parse_cst(source_id, source)` remains the CST entry point, returning
+  `(@seam.CstNode, @core.DiagnosticSet)` and possibly raising `@core.LexError`.
+  It must not start returning MarkdownIR or hiding parser diagnostics.
+- The caller supplies a stable `SourceId` for the document. Markdown does not
+  derive one from source text or diagnostics, and `DiagnosticSource` remains
+  the separate producer identity.
 - `markdown_spec` remains the Markdown `LanguageSpec`; `LanguageSpec`,
   lexer/recovery choices, and block-reparse configuration stay parser-side.
 - `markdown_grammar` remains `Grammar[Token, SyntaxKind, Block]` initially, so
@@ -270,10 +278,10 @@ New MarkdownIR surfaces:
 - First IR lowering, parser, export, render, rewrite, or formatter entry points
   must be additive and explicitly labeled experimental or stable in docs and
   generated interfaces.
-- Compatibility tests must pin the existing `parse` / `parse_markdown` /
-  `parse_cst` / `markdown_grammar` behavior, including the LexError-raising
-  signatures for `parse_markdown` and `parse_cst`, before any migration changes
-  those surfaces.
+- Compatibility tests must pin the existing source-aware `parse` /
+  `parse_markdown` / `parse_cst` / `markdown_grammar` behavior, including the
+  LexError-raising signatures for `parse_markdown` and `parse_cst`, before any
+  migration changes those surfaces.
 - Canopy integration stays `SyncEditor[@markdown.Block]` through
   `lang/markdown/companion` and `ProjNode[@markdown.Block]` / `SourceMap`
   projection memos until a compatibility PR deliberately changes that contract.
@@ -547,8 +555,8 @@ Generated-interface review gate:
 
 When this contract turns into code, reviewers should first verify that the PR:
 
-- preserves existing parser signatures and compatibility tests, including
-  LexError-raising `parse_markdown` and `parse_cst` behavior;
+- preserves existing source-aware parser signatures and compatibility tests,
+  including LexError-raising `parse_markdown` and `parse_cst` behavior;
 - lowers from `SyntaxNode`/CST plus source origins into typed IR, without generic
   token or trivia arrays on semantic nodes;
 - models raw HTML, unsupported extensions, and recovery explicitly, with target

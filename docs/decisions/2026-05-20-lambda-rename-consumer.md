@@ -19,7 +19,7 @@ Ship the lambda rename consumer as a new `examples/lambda/src/rename/` package
 with a one-shot public entry point:
 
 ```moonbit
-plan_rename(pipeline, source, syntax, offset, new_name) -> RenamePlan
+plan_rename(source_id, pipeline, source, syntax, offset, new_name) -> RenamePlan
 ```
 
 Extend `CallersPipeline` with one accessor, `facts()`, returning defensive
@@ -35,9 +35,15 @@ multiple bindings share one `LetDef` node.
 The rename package does not add new `@incr` cells. It consumes the existing
 callers pipeline state as a single-revision query.
 
-Expose `DiagnosticLabel::DiagnosticLabel(range, message)` from
-`dowdiness/loom/core` so external packages can construct labeled structured
-diagnostics without relying on private record construction.
+Expose named, private-field diagnostic construction from `dowdiness/loom/core`
+so external packages can construct styled labels without relying on record
+construction. Each `DiagnosticLabel` carries `LabelStyle`, `SourceSpan`, and an
+optional message; rename conflict diagnostics mark the rename target as
+`Primary` and the conflicting or shadowed binding as `Secondary`.
+
+The rename entry point receives the parser's `SourceId` and uses it for both
+spans. That ID names source text and stays distinct from the `"rename"`
+`DiagnosticSource`, which names the producer.
 
 ## Rationale
 
@@ -61,7 +67,8 @@ visible inside earlier definitions, and converse-capture diagnostics skip
 references that appear before the renamed top-level binding becomes visible.
 
 Structured diagnostics keep editor integration data-rich: consumers can inspect
-codes, severity, primary ranges, and labels rather than parsing strings.
+codes, severity, source-aware styled labels, and label messages rather than
+parsing strings or inferring a location from label order.
 
 ## Consequences
 

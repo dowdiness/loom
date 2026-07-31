@@ -9,7 +9,8 @@ query language; it is to make the safe, reviewable projection shape explicit.
 1. Parse with the unified parser:
 
    ```mbt nocheck
-   let parser = @loom.new_parser(source, my_grammar)
+   let source_id = @loom.SourceId("projection-document")
+   let parser = @loom.new_parser(source_id, source, my_grammar)
    // Share parser.runtime() with downstream reactive cells.
    let syntax = parser.syntax_tree().read_or_abort()
    let diagnostics = parser.diagnostics().read_or_abort()
@@ -21,6 +22,9 @@ query language; it is to make the safe, reviewable projection shape explicit.
    parser diagnostics for the current text immediately while retaining the last
    successful semantic document until projection succeeds again; see the
    [last-good semantic attachment guide](last-good-semantic-attachment.md).
+   When attaching a diagnostic to a projected origin, inspect its styled labels
+   and select `Primary` spans for the origin's `SourceId`; do not infer a
+   location from the diagnostic message or label position.
 
 3. Validate direct CST shape and lower into a private IR owned by the language
    package.
@@ -49,7 +53,8 @@ pub impl @seam.AstView for IfExprProj with fn syntax_node(self) { self.node }
 With `ImperativeParser`, parse, find the target child, cast, and access:
 
 ```mbt nocheck
-let parser = @loom.new_imperative_parser(source, my_grammar)
+let source_id = @loom.SourceId("imperative-projection-document")
+let parser = @loom.new_imperative_parser(source_id, source, my_grammar)
 let snapshot = parser.parse()
 let root = snapshot.syntax
 // Pick a specific child by position — exact index depends on your grammar.
@@ -84,7 +89,8 @@ that casts the parsed `SyntaxNode` to your `*Proj` type. The cell recomputes
 whenever the parse snapshot changes:
 
 ```mbt nocheck
-let parser = @loom.new_syntax_parser(source, my_language_spec)
+let source_id = @loom.SourceId("reactive-projection-document")
+let parser = @loom.new_syntax_parser(source_id, source, my_syntax_grammar)
 
 let if_view : @incr.Derived[IfExprProj?] = @incr.Derived(
   parser.runtime(),

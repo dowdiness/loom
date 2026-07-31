@@ -22,6 +22,7 @@ reactive handles update their input/derived graph atomically.
 |---|---|
 | Edit-driven update | `parser.apply_edit(edit, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
+| Stable source identity | `parser.source_id()` — the caller-supplied `SourceId` |
 | Validated CST subtree reuse | via the underlying `ImperativeParser` engine |
 | Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.ast()`, `parser.diagnostics()` — all `@incr.Derived` views |
 | Shared runtime | downstream derived cells (projection, typecheck, eval) join `parser.runtime()` directly — no second runtime and no second parse |
@@ -35,9 +36,9 @@ consumers never observe a half-updated graph.
 
 Runtime ownership:
 
-- `new_parser(source, grammar)` creates a fresh `@incr.Runtime` and stores it
-  inside the parser. Treat that runtime as parser-owned.
-- `new_parser(source, grammar, runtime=rt)` makes the parser join a
+- `new_parser(source_id, source, grammar)` creates a fresh `@incr.Runtime` and
+  stores it inside the parser. Treat that runtime as parser-owned.
+- `new_parser(source_id, source, grammar, runtime=rt)` makes the parser join a
   caller-owned runtime graph. The caller keeps responsibility for that runtime's
   wider lifecycle.
 - In both cases, downstream cells that read parser views should use
@@ -113,6 +114,7 @@ lifecycle.
 |---|---|
 | Edit-driven update | `parser.apply_edit(edit, new_source)` |
 | Whole-source reset | `parser.set_source(new_source)` |
+| Stable source identity | `parser.source_id()` — the caller-supplied `SourceId` |
 | Validated CST subtree reuse | via the underlying `ImperativeParser[Unit]` engine |
 | Reactive composition | `parser.runtime()`, `parser.snapshot()`, `parser.source()`, `parser.syntax_tree()`, `parser.diagnostics()` — all `@incr.Derived` views |
 | Diagnostics | `parser.diagnostics().read_or_abort()` — `DiagnosticSet`; format only at presentation boundaries |
@@ -129,13 +131,29 @@ promise stable parser-owned token or subtree identity across arbitrary edits.
 
 ```moonbit
 // From @loom:
-let p = new_parser(initial_source, grammar)          // → Parser[Ast]
-let s = new_syntax_parser(initial_source, syntax_grammar) // → SyntaxParser
+let source_id = @loom.SourceId("workspace-document")
+let p = @loom.new_parser(source_id, initial_source, grammar) // → Parser[Ast]
+let s = @loom.new_syntax_parser(
+  source_id,
+  initial_source,
+  syntax_grammar,
+) // → SyntaxParser
 
 // Or attach to an existing runtime:
-let p = new_parser(initial_source, grammar, runtime=rt)
-let s = new_syntax_parser(initial_source, syntax_grammar, runtime=rt)
+let p = @loom.new_parser(source_id, initial_source, grammar, runtime=rt)
+let s = @loom.new_syntax_parser(
+  source_id,
+  initial_source,
+  syntax_grammar,
+  runtime=rt,
+)
 ```
+
+The caller allocates or receives `source_id` at its document/provider boundary.
+Keep it stable for edits and whole-source resets of that document, and use a
+different ID for a different source. Do not derive it from text, diagnostic
+messages, list positions, or producer names. `DiagnosticSource` names the
+producer; it is deliberately separate from source-file identity.
 
 `new_parser` requires `T : IsTrivia + Eq` and `Ast : Eq` because the underlying
 derived graph does structural-equality backdating at the snapshot and

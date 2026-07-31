@@ -32,7 +32,12 @@ publishes into. All three ship together.
 ```mbt nocheck
 // Any grammar value works — the lambda example is a complete reference
 // implementation of Grammar[T, K, Ast].
-let parser = @loom.new_parser("λx.x + 1", @lambda.lambda_grammar)
+let source_id = @loom.SourceId("quick-start-document")
+let parser = @loom.new_parser(
+  source_id,
+  "λx.x + 1",
+  @lambda.lambda_grammar,
+)
 
 // Read the parsed AST outside the reactive graph.
 let term = parser.ast().read_or_abort()
@@ -52,10 +57,19 @@ For CST/diagnostics-only integrations, use `SyntaxGrammar` and
 `new_syntax_parser`:
 
 ```mbt nocheck
-let parser = @loom.new_syntax_parser(source, syntax_grammar)
+let source_id = @loom.SourceId("syntax-only-document")
+let parser = @loom.new_syntax_parser(source_id, source, syntax_grammar)
 let syntax = parser.syntax_tree().read_or_abort()
 let diagnostics = parser.diagnostics().read_or_abort()
 ```
+
+Allocate or receive a `SourceId` at the document/provider boundary and keep it
+stable across edits to that source. Do not derive it from the source text or a
+diagnostic message. `DiagnosticSource` identifies the producer (for example,
+the parser or lexer); it is not a source-file identity. Diagnostic locations
+are styled labels whose `SourceSpan` pairs a source ID with a half-open UTF-16
+code-unit range. Diagnostics do not own source text; the caller's source
+provider resolves spans against the matching source ID.
 
 See [`examples/lambda`](../examples/lambda/) for the full grammar used above.
 For smaller references, see [`examples/json`](../examples/json/),
@@ -75,6 +89,11 @@ For smaller references, see [`examples/json`](../examples/json/),
 @loom.new_imperative_parser
 @loom.Edit                // edit descriptor (start, old_len, new_len)
 @loom.Diagnostic
+@loom.DiagnosticLabel
+@loom.DiagnosticSource    // producer identity, distinct from SourceId
+@loom.LabelStyle          // Primary or Secondary
+@loom.SourceId            // stable source identity
+@loom.SourceSpan          // SourceId + half-open UTF-16 TextRange
 
 // Grammar authors
 @loom.Grammar             // grammar description with AST fold
@@ -123,6 +142,7 @@ incremental reuse count for optional optimization assertions:
 
 ```mbt nocheck
 let reuse_count = @loom.assert_incremental_edit_matches_full_parse(
+  source_id,
   "case label for failure messages",
   old_source,
   edit,

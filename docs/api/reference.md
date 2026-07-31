@@ -7,15 +7,20 @@ Lambda calculus parser — user-facing API for tokenizing, parsing, pretty print
 ### `parse`
 
 ```moonbit
-pub fn parse(String) -> Term raise
+pub fn parse(@core.SourceId, String) -> Term raise ParseError
 ```
 
-Parses an input string directly into a `Term` AST. Raises errors if tokenization fails or if the input contains syntax errors. The simplest entry point when only the semantic AST is needed.
+Parses an identified source string directly into a `Term` AST. Raises
+`ParseError` if tokenization fails or the input contains syntax errors. The
+simplest entry point when only the semantic AST is needed.
 
-### `parse_source_file_term`
+### `parse_term`
 
 ```moonbit
-pub fn parse_source_file_term(String) -> (Term, Array[Diagnostic]) raise @core.LexError
+pub fn parse_term(
+  @core.SourceId,
+  String,
+) -> (Term, @core.DiagnosticSet) raise @core.LexError
 ```
 
 Parses a multi-expression source file — a sequence of top-level `let` value declarations or `fn` definitions optionally followed by a final expression — and converts to `Term`. Function parameters lower to nested `Lam` terms. Returns both the term and any parse diagnostics (does not raise on parse errors). Use this for file-level input.
@@ -28,18 +33,28 @@ fn const(x, y) { x }
 ### `parse_cst`
 
 ```moonbit
-pub fn parse_cst(String) -> @seam.CstNode raise
+pub fn parse_cst(
+  @core.SourceId,
+  String,
+) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 ```
 
-Parses a string into an immutable `CstNode` tree — a lossless CST with structural hashing. Raises on tokenization failure. All whitespace is preserved as trivia nodes.
+Parses a string into an immutable `CstNode` tree — a lossless CST with
+structural hashing — and returns its structured diagnostics. Parser recovery
+produces error nodes instead of raising; lexical infrastructure failures may
+still raise `LexError`. All whitespace is preserved as trivia nodes.
 
-### `parse_cst_recover`
+The `SourceId` passed to all parsing functions is caller-owned source identity.
+Keep it stable across revisions of the same source and distinct across different
+sources. It is not `DiagnosticSource`, which identifies the diagnostic
+producer, and it must not be derived from text or diagnostic presentation.
 
-```moonbit
-pub fn parse_cst_recover(String) -> (@seam.CstNode, Array[Diagnostic]) raise
-```
-
-Like `parse_cst` but returns error nodes instead of raising, paired with a diagnostic list. Prefer this when the caller needs to continue despite syntax errors (e.g., editors, IDEs, incremental pipelines).
+Structured locations are carried by `DiagnosticLabel` values, not by a
+source-less primary range. A label preserves its `Primary` or `Secondary`
+`LabelStyle`, `SourceSpan`, and optional message. A `SourceSpan` combines a
+`SourceId` with a validated half-open UTF-16 code-unit `TextRange`; one
+diagnostic may therefore describe multiple sources. Diagnostic fields are
+private, and collection accessors return defensive copies.
 
 ---
 
@@ -73,7 +88,8 @@ Converts a `Term` AST back into a human-readable string representation. May add 
 **Example:**
 
 ```moonbit
-let ast = parse("(x) => x + 1")
+let source_id = @loom.SourceId("pretty-print-document")
+let ast = parse(source_id, "(x) => x + 1")
 let output = print_term(ast)
 // "(x) => (x + 1)"
 ```
@@ -89,7 +105,8 @@ Renders a `Term` AST as a GraphViz DOT string. Produces the same format as `@loo
 **Example:**
 
 ```moonbit
-let term = parse("(x) => x + 1")
+let source_id = @loom.SourceId("dot-document")
+let term = parse(source_id, "(x) => x + 1")
 let dot = term_to_dot(term)
 // "digraph {\n  bgcolor=\"transparent\";\n  ..."
 ```
@@ -152,19 +169,19 @@ try {
 Raised when the parser encounters unexpected tokens or malformed syntax.
 
 ```moonbit
-pub suberror ParseError (String, Token)
+pub suberror ParseError {
+  ParseError(String)
+}
 ```
 
 **Example:**
 
 ```moonbit
 try {
-  let result = parse("() => x")  // Missing parameter name
+  let source_id = @loom.SourceId("parse-error-document")
+  let result = parse(source_id, "() => x") // Missing parameter name
 } catch {
-  ParseError((msg, token)) => {
-    println("Parse error: " + msg)
-    println("At token: " + print_token(token))
-  }
+  ParseError(msg) => println("Parse error: " + msg)
 }
 ```
 
@@ -182,11 +199,12 @@ All CST types come from the `seam` package (`seam/`).
 **Example:**
 
 ```moonbit
-let cst = parse_cst("(x) => x + 1")
+let source_id = @loom.SourceId("cst-document")
+let (cst, diagnostics) = parse_cst(source_id, "(x) => x + 1")
 let syntax = @seam.SyntaxNode::from_cst(cst)
 // syntax.start() == 0, syntax.end() == 12
 
-let term = parse("(x) => x + 1")
+let term = parse(source_id, "(x) => x + 1")
 // Term::Lam("x", Term::Bop(Plus, Term::Var("x"), Term::Int(1)))
 
 for child in syntax.children() {
@@ -207,11 +225,11 @@ See [choosing-a-parser.md](choosing-a-parser.md) to decide which parser to use.
 ```moonbit
 pub struct Grammar[T, K, Ast] {
   spec         : @core.LanguageSpec[T, K]
-  lex          : (String) -> @core.LexResult[T]
+  lex          : (@core.SourceId, String) -> @core.LexResult[T]
   fold_node    : (@seam.SyntaxNode, (@seam.SyntaxNode) -> Ast) -> Ast
   incremental_relex_enabled : Bool
   block_reparse_spec : @core.BlockReparseSpec[T, K]?
-  mode_relex   : @core.ModeRelexState[T]?
+  mode_relex   : @core.ModeRelexFactory[T]?
 }
 ```
 
@@ -234,6 +252,7 @@ diagnostics plus recoverable error tokens.
 
 ```moonbit
 pub fn[T, K, Ast] new_imperative_parser(
+  source_id : @core.SourceId,
   source  : String,
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast]
@@ -247,6 +266,7 @@ Creates an `ImperativeParser` for the given source and grammar. Supports
 
 ```moonbit
 pub fn[T : @seam.IsTrivia, K : @seam.ToRawKind, Ast : Eq] new_parser(
+  source_id : @core.SourceId,
   source   : String,
   grammar  : Grammar[T, K, Ast],
   runtime? : @incr.Runtime,
@@ -273,7 +293,12 @@ backdating at the AST boundary, so equality is part of the public contract.
 **Example:**
 
 ```moonbit
-let p = @loom.new_parser("(x) => x + 1", @lambda.lambda_grammar)
+let source_id = @loom.SourceId("reactive-lambda-document")
+let p = @loom.new_parser(
+  source_id,
+  "(x) => x + 1",
+  @lambda.lambda_grammar,
+)
 let term = p.ast().read_or_abort()            // Ast type parameter of the Grammar
 p.set_source("(x) => x + 2")
 let updated = p.ast().read_or_abort()         // re-runs syntax + AST stages only if source changed
@@ -293,7 +318,8 @@ for when to reach for `ImperativeParser` directly.
 ### Identity Function
 
 ```moonbit
-let identity = parse("(x) => x")
+let source_id = @loom.SourceId("identity-document")
+let identity = parse(source_id, "(x) => x")
 print_term(identity)
 // "(x) => x"
 ```
@@ -301,7 +327,8 @@ print_term(identity)
 ### Function Application
 
 ```moonbit
-let apply = parse("((x) => x) 42")
+let source_id = @loom.SourceId("application-document")
+let apply = parse(source_id, "((x) => x) 42")
 print_term(apply)
 // "(((x) => x) 42)"
 ```
@@ -309,7 +336,8 @@ print_term(apply)
 ### Arithmetic Operations
 
 ```moonbit
-let arithmetic = parse("10 - 5 + 2")
+let source_id = @loom.SourceId("arithmetic-document")
+let arithmetic = parse(source_id, "10 - 5 + 2")
 print_term(arithmetic)
 // "((10 - 5) + 2)"
 ```
@@ -317,7 +345,8 @@ print_term(arithmetic)
 ### Conditional Expressions
 
 ```moonbit
-let conditional = parse("if x then y else z")
+let source_id = @loom.SourceId("conditional-document")
+let conditional = parse(source_id, "if x then y else z")
 print_term(conditional)
 // "if x then y else z"
 ```
@@ -325,7 +354,8 @@ print_term(conditional)
 ### Complex Nested Expression
 
 ```moonbit
-let complex = parse("(f, x) => if f x then x + 1 else x - 1")
+let source_id = @loom.SourceId("nested-document")
+let complex = parse(source_id, "(f, x) => if f x then x + 1 else x - 1")
 print_term(complex)
 // "(f, x) => (if (f x) then (x + 1) else (x - 1))"
 ```
@@ -334,7 +364,8 @@ print_term(complex)
 
 ```moonbit
 // Church encoding of number 2
-let two = parse("(f, x) => f (f x)")
+let source_id = @loom.SourceId("church-document")
+let two = parse(source_id, "(f, x) => f (f x)")
 print_term(two)
 // "(f, x) => (f (f x))"
 ```
