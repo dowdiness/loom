@@ -122,7 +122,8 @@ test "erase_mode_lexer tokenize matches tokenize_with_modes" {
     error_token_from_message=Some(msg => Error(msg)),
   )
   let result = (state.tokenize)(
-    SourceId("mode-lexer-source"), "hello\"world\"end",
+    SourceId("mode-lexer-source"),
+    "hello\"world\"end",
   )
   let tokens = result.tokens()
   let starts = result.starts()
@@ -435,7 +436,8 @@ test "mixed contexts detached tokenization preserves snapshots and spans" {
   )
   let factory = erase_mode_lexer(lexer, EOF, error_token=OpaqueRaw("error"))
   let result = (factory.tokenize)(
-    SourceId("mode-lexer-mixed-source"), mixed_source(),
+    SourceId("mode-lexer-mixed-source"),
+    mixed_source(),
   )
   inspect(result.tokens() == typed_tokens, content="true")
   inspect(result.starts()[0], content="0")

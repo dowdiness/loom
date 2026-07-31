@@ -422,11 +422,10 @@ test "advance_with_goal skips reuse for subsumed regions" {
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(
-    (offset, goal) => buf.goal_token_at(offset, goal),
-    subsumption_check=(offset, baseline_len) =>
-      buf.goal_span_exceeds(offset, baseline_len),
-  )
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal), subsumption_check=(
+    offset,
+    baseline_len,
+  ) => buf.goal_span_exceeds(offset, baseline_len))
 
   // Populate cache with RegExpGoal at offset 0 — spans 0..3 (len=3)
   let (_tok, _end) = ctx.token_at(0, 1)
@@ -450,11 +449,10 @@ test "goal_span_exceeds: DivGoal does not false-positive" {
     buf.get_source(),
     spec,
   )
-  ctx.set_goal_source(
-    (offset, goal) => buf.goal_token_at(offset, goal),
-    subsumption_check=(offset, baseline_len) =>
-      buf.goal_span_exceeds(offset, baseline_len),
-  )
+  ctx.set_goal_source((offset, goal) => buf.goal_token_at(offset, goal), subsumption_check=(
+    offset,
+    baseline_len,
+  ) => buf.goal_span_exceeds(offset, baseline_len))
 
   // Populate cache with DivGoal at offset 0 — Slash spans 0..1 (len=1)
   let (_tok, _end) = ctx.token_at(0, 0)

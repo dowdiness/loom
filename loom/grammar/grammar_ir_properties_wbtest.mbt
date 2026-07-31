@@ -1245,7 +1245,11 @@ fn ref_diags(
   let spec = qc_spec(parse_root)
   let source_id = @core.SourceId("grammar-diagnostic-source")
   let (_, diags) = @core.parse_with(
-    source_id, "src", spec, _src => tokens, parse_root,
+    source_id,
+    "src",
+    spec,
+    _src => tokens,
+    parse_root,
   )
   diags
 }
@@ -1266,13 +1270,7 @@ fn check_diag_message(
   }
   let actual = items[0].message()
   if !actual.contains(expected) {
-    fail(
-      label +
-      ": message should contain '" +
-      expected +
-      "', got: " +
-      actual,
-    )
+    fail(label + ": message should contain '" + expected + "', got: " + actual)
   }
 }
 

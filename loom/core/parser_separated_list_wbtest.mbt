@@ -141,7 +141,10 @@ test "separated_list doubled separator emits empty error element in middle slot"
 ///|
 test "separated_list on empty input emits nothing and returns 0" {
   let ctx = ParserContext::new(
-    SourceId("parser-separated-list-source"), [], "", test_spec,
+    SourceId("parser-separated-list-source"),
+    [],
+    "",
+    test_spec,
   )
   let count = ctx.separated_list(KExpr, TestTok::Plus, parse_num_element(ctx))
   inspect(count, content="0")
@@ -268,7 +271,10 @@ test "separated_list element slots hit incremental reuse like node()" {
   let src = "1+2+3"
   let (toks, starts) = test_tokenize_with_starts(src)
   let old_ctx = ParserContext::new(
-    SourceId("parser-separated-list-source"), toks, src, test_spec,
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
   )
   let old_count = old_ctx.separated_list(
     KExpr,
@@ -299,7 +305,10 @@ test "separated_list element slots hit incremental reuse like node()" {
     test_spec,
   )
   let ctx = ParserContext::new(
-    SourceId("parser-separated-list-source"), toks, src, test_spec,
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
   )
   ctx.set_reuse_cursor(cursor)
   let count = ctx.separated_list(KExpr, TestTok::Plus, () => {
@@ -315,7 +324,10 @@ test "separated_list missing separator still recovers after element reuse" {
   let src = "1 2"
   let (toks, starts) = test_tokenize_with_starts(src)
   let old_ctx = ParserContext::new(
-    SourceId("parser-separated-list-source"), toks, src, test_spec,
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
   )
   let old_count = old_ctx.separated_list(
     KExpr,
@@ -347,7 +359,10 @@ test "separated_list missing separator still recovers after element reuse" {
     test_spec,
   )
   let ctx = ParserContext::new(
-    SourceId("parser-separated-list-source"), toks, src, test_spec,
+    SourceId("parser-separated-list-source"),
+    toks,
+    src,
+    test_spec,
   )
   ctx.set_reuse_cursor(cursor)
   let count = ctx.separated_list(

@@ -284,7 +284,10 @@ fn tokenize_recoverable(
 
 ///|
 /// Total structured lexer used by the high-level Grammar boundary.
-pub fn lex(source_id : @core.SourceId, input : String) -> @core.LexResult[Token] {
+pub fn lex(
+  source_id : @core.SourceId,
+  input : String,
+) -> @core.LexResult[Token] {
   let buffer = @core.TokenBuffer::new_from_steps(
     source_id,
     input,

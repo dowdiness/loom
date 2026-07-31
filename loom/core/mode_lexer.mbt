@@ -199,8 +199,8 @@ fn[T, M] tokenize_with_modes_recovering(
   while true {
     let (step, next_mode) = (lexer.lex_step)(input, pos, mode)
     let recovered = push_recovered_mode_step(
-      source_id, input, pos, mode, step, next_mode, error_token,
-      error_token_from_message, tokens, starts, modes, diagnostics,
+      source_id, input, pos, mode, step, next_mode, error_token, error_token_from_message,
+      tokens, starts, modes, diagnostics,
     )
     pos = recovered.pos
     mode = recovered.mode
@@ -284,8 +284,8 @@ fn[T, M : Eq] mode_relex_recovering(
   while true {
     let (step, next_mode) = (lexer.lex_step)(source, pos, mode)
     let recovered = push_recovered_mode_step(
-      source_id, source, pos, mode, step, next_mode, error_token,
-      error_token_from_message, tokens, starts, modes, diagnostics,
+      source_id, source, pos, mode, step, next_mode, error_token, error_token_from_message,
+      tokens, starts, modes, diagnostics,
     )
     pos = recovered.pos
     mode = recovered.mode
@@ -344,9 +344,8 @@ fn[T, M : Eq] new_mode_relex_session(
   ) -> ModeRelexResult[T] {
     let old_modes = modes_ref.val
     let internal = mode_relex_recovering(
-      source_id, lexer, source, start_offset, start_tok_idx, old_token_count,
-      old_starts, edit_delta, new_damage_end, old_modes, error_token,
-      error_token_from_message,
+      source_id, lexer, source, start_offset, start_tok_idx, old_token_count, old_starts,
+      edit_delta, new_damage_end, old_modes, error_token, error_token_from_message,
     )
     let chunk = internal.chunk
     let old_idx = chunk.converged_at_old_token

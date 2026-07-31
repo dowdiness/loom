@@ -1767,13 +1767,15 @@ fn diagnostic_primary_overlaps_origin(
   source_id : @core.SourceId,
   origin : MarkdownIROrigin,
 ) -> Bool {
-  diagnostic.labels().any(label => {
+  diagnostic
+  .labels()
+  .any(label => {
     let span = label.span()
     label.style() == @core.LabelStyle::Primary &&
     span.source_id() == source_id &&
-    @core.Range::new(
-      span.range().start().value(), span.range().end().value(),
-    ).overlaps(@core.Range::new(origin.start(), origin.end()))
+    @core.Range::new(span.range().start().value(), span.range().end().value()).overlaps(
+      @core.Range::new(origin.start(), origin.end()),
+    )
   })
 }
 
@@ -1786,9 +1788,9 @@ fn diagnostics_in_origin(
   diagnostics
   .items()
   .iter()
-  .filter(diagnostic =>
+  .filter(diagnostic => {
     diagnostic_primary_overlaps_origin(diagnostic, source_id, origin)
-  )
+  })
   .collect()
 }
 
@@ -1824,8 +1826,9 @@ pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
   let context : MarkdownIRLoweringContext = {
     source_id,
     source: syntax_root(root).text(),
-    diagnostics_in_origin: origin =>
-      diagnostics_in_origin(source_id, diagnostics, origin),
+    diagnostics_in_origin: origin => {
+      diagnostics_in_origin(source_id, diagnostics, origin)
+    },
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)

@@ -256,7 +256,9 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast] new_
   grammar : Grammar[T, K, Ast],
 ) -> @incremental.ImperativeParser[Ast] {
   @incremental.ImperativeParser::new(
-    source_id, source, build_imperative_language(grammar),
+    source_id,
+    source,
+    build_imperative_language(grammar),
   )
 }
 
@@ -279,7 +281,10 @@ pub fn[T : Eq + @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind, Ast : Eq]
   runtime? : @incr.Runtime,
 ) -> @pipeline.Parser[Ast] {
   @pipeline.Parser::new(
-    source_id, source, build_imperative_language(grammar), runtime?,
+    source_id,
+    source,
+    build_imperative_language(grammar),
+    runtime?,
   )
 }
 

@@ -23,7 +23,11 @@ fn vocab_diags(
   let spec = test_spec(parse_root)
   let source_id = @core.SourceId("grammar-vocab-source")
   let (_, diags) = @core.parse_with(
-    source_id, src, spec, _s => tokens, parse_root,
+    source_id,
+    src,
+    spec,
+    _s => tokens,
+    parse_root,
   )
   diags
 }

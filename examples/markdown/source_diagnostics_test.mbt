@@ -34,11 +34,17 @@ test "MarkdownIR recovery ignores foreign primary and local secondary labels" {
         Some(index) => {
           let attached = paragraph.children()[index].diagnostics()
           inspect(attached.length(), content="1")
-          inspect(attached[0].message(), content="recovered malformed Markdown: [")
+          inspect(
+            attached[0].message(),
+            content="recovered malformed Markdown: [",
+          )
           inspect(attached[0].source().name(), content="parser")
           match attached[0].labels() {
             [label] => {
-              inspect(label.style() is @core.LabelStyle::Primary, content="true")
+              inspect(
+                label.style() is @core.LabelStyle::Primary,
+                content="true",
+              )
               inspect(label.span().source_id() == source_a, content="true")
             }
             _ => fail("expected one fallback primary label")
@@ -146,7 +152,8 @@ test "MarkdownIR recovery uses positive half-open overlap in the current source"
       match paragraph.children().search_by(child => child.is_recovered()) {
         Some(index) =>
           match paragraph.children()[index].diagnostics() {
-            [diagnostic] => inspect(diagnostic.message(), content="positive local overlap")
+            [diagnostic] =>
+              inspect(diagnostic.message(), content="positive local overlap")
             _ => fail("expected only the positive current-source diagnostic")
           }
         None => fail("expected recovered MarkdownIR child")

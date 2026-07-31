@@ -25,12 +25,7 @@ test "push_offset_diagnostic reports invalid shifted diagnostic" {
   }
   let merged = DiagnosticSet::empty()
   push_offset_diagnostic(
-    merged,
-    diagnostic,
-    source_id,
-    -10,
-    after,
-    "old diagnostic after block",
+    merged, diagnostic, source_id, -10, after, "old diagnostic after block",
   )
   inspect(merged.length(), content="1")
   let diagnostic = merged.items()[0]

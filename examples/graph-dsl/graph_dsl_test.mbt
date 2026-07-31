@@ -180,7 +180,8 @@ fn assert_remove_connection_source(
 test "remove connection lowers first input-reference parameter deletion" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-first-connection"),
-    "osc = sine()\ntarget = blend(input: osc, gain: 1, mode: warm)", "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
+    "osc = sine()\ntarget = blend(input: osc, gain: 1, mode: warm)",
+    "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
   )
 }
 
@@ -188,7 +189,8 @@ test "remove connection lowers first input-reference parameter deletion" {
 test "remove connection lowers middle input-reference parameter deletion" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-middle-connection"),
-    "osc = sine()\ntarget = blend(gain: 1, input: osc, mode: warm)", "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
+    "osc = sine()\ntarget = blend(gain: 1, input: osc, mode: warm)",
+    "osc = sine()\ntarget = blend(gain: 1, mode: warm)",
   )
 }
 
@@ -196,7 +198,8 @@ test "remove connection lowers middle input-reference parameter deletion" {
 test "remove connection lowers trailing input-reference parameter deletion" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-trailing-connection"),
-    "osc = sine()\ntarget = blend(gain: 1, input: osc)", "osc = sine()\ntarget = blend(gain: 1)",
+    "osc = sine()\ntarget = blend(gain: 1, input: osc)",
+    "osc = sine()\ntarget = blend(gain: 1)",
   )
 }
 
@@ -204,7 +207,8 @@ test "remove connection lowers trailing input-reference parameter deletion" {
 test "remove connection lowers sole input-reference parameter deletion" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-sole-connection"),
-    "osc = sine()\ntarget = blend( input: osc )", "osc = sine()\ntarget = blend()",
+    "osc = sine()\ntarget = blend( input: osc )",
+    "osc = sine()\ntarget = blend()",
   )
 }
 
@@ -212,7 +216,8 @@ test "remove connection lowers sole input-reference parameter deletion" {
 test "remove connection consumes sole parameter trailing comma" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-sole-trailing-comma"),
-    "osc = sine()\ntarget = blend(input: osc,)", "osc = sine()\ntarget = blend()",
+    "osc = sine()\ntarget = blend(input: osc,)",
+    "osc = sine()\ntarget = blend()",
   )
 }
 
@@ -220,7 +225,8 @@ test "remove connection consumes sole parameter trailing comma" {
 test "remove connection consumes trailing parameter trailing comma" {
   assert_remove_connection_source(
     @core.SourceId("graph-remove-trailing-comma"),
-    "osc = sine()\ntarget = blend(gain: 1, input: osc,)", "osc = sine()\ntarget = blend(gain: 1)",
+    "osc = sine()\ntarget = blend(gain: 1, input: osc,)",
+    "osc = sine()\ntarget = blend(gain: 1)",
   )
 }
 
@@ -343,25 +349,30 @@ test "attachment apply_edit preserves node identity for unchanged graph nodes" {
 test "parser diagnostics preserve caller source identity" {
   let source_id = @core.SourceId("graph-parser-diagnostics")
   let (_, diagnostics) = try! graph_grammar.parse_cst(
-    source_id,
-    "osc = sine(freq: )",
+    source_id, "osc = sine(freq: )",
   )
   guard !diagnostics.is_empty() else {
     fail("expected malformed graph source to produce diagnostics")
   }
-  guard diagnostics.items().any(diagnostic =>
-    diagnostic.labels().any(label =>
-      label.style() is @core.LabelStyle::Primary
-    )
-  ) else {
+  guard diagnostics
+    .items()
+    .any(diagnostic => {
+      diagnostic
+      .labels()
+      .any(label => label.style() is @core.LabelStyle::Primary)
+    }) else {
     fail("expected graph parser diagnostics to include a primary label")
   }
-  guard diagnostics.items().all(diagnostic =>
-    diagnostic.labels().all(label =>
-      !(label.style() is @core.LabelStyle::Primary) ||
-      label.span().source_id() == source_id
-    )
-  ) else {
+  guard diagnostics
+    .items()
+    .all(diagnostic => {
+      diagnostic
+      .labels()
+      .all(label => {
+        !(label.style() is @core.LabelStyle::Primary) ||
+        label.span().source_id() == source_id
+      })
+    }) else {
     fail("expected every primary label to retain the caller source id")
   }
 }

@@ -344,12 +344,16 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
         // itself owns a zero-width error at that boundary (structural check),
         // OR when the node ends at EOF and no error-bearing sibling follows
         // (handles ctx.error at EOF without emit_error_placeholder).
-        let primary_labels = d.labels().filter(label =>
-          label.style() == Primary &&
-          label.span().source_id() == self.source_id
-        )
+        let primary_labels = d
+          .labels()
+          .filter(label => {
+            label.style() == Primary &&
+            label.span().source_id() == self.source_id
+          })
         if primary_labels.length() > 0 &&
-          primary_labels.iter().all(label => {
+          primary_labels
+          .iter()
+          .all(label => {
             let range = label.span().range()
             let start = range.start().value()
             let end = range.end().value()
@@ -360,8 +364,8 @@ fn[T, K] ParserContext::replay_reused_diagnostics(
                 (allow_eof_boundary && node_end >= self.source.length())
               )
             start >= node_start &&
-              end <= node_end &&
-              (start < node_end || keep_right_boundary)
+            end <= node_end &&
+            (start < node_end || keep_right_boundary)
           }) {
           if self.push_diagnostic_unique(d) {
             replayed_any = true

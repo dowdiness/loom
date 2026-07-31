@@ -690,16 +690,17 @@ pub fn Diagnostic::lexer_error_at(
         ],
       )
   } noraise {
-    range => (
-      [
-        DiagnosticLabel(
-          LabelStyle::Primary,
-          SourceSpan(source_id, range),
-          None,
-        ),
-      ],
-      [],
-    )
+    range =>
+      (
+        [
+          DiagnosticLabel(
+            LabelStyle::Primary,
+            SourceSpan(source_id, range),
+            None,
+          ),
+        ],
+        [],
+      )
   }
   Diagnostic(
     source=DiagnosticSource::lexer(),
@@ -1044,11 +1045,9 @@ fn DiagnosticSet::push_shifted_after_relex(
   after : TextOffset,
   failure_context : String,
 ) -> Unit {
-  try diagnostic.offset_by(
-    source_edit.source_id,
-    source_edit.edit.delta(),
-    after,
-  ) catch {
+  try
+    diagnostic.offset_by(source_edit.source_id, source_edit.edit.delta(), after)
+  catch {
     err =>
       self.push(
         Diagnostic::lexer_error(

@@ -13,8 +13,12 @@ fn test_parse_item_nodes(ctx : ParserContext[TestTok, TestKind]) -> Unit {
 
 ///|
 fn test_parse_item_tree(src : String) -> @seam.CstNode {
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"),
-    src, test_spec, test_tokenize, test_parse_item_nodes,
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_parse_item_nodes,
   )
   tree
 }
@@ -53,7 +57,13 @@ fn test_reuse_cursor(
 ///|
 test "ReuseCursor::new: globally disabled when damage covers root" {
   let src = "42"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -73,7 +83,13 @@ test "ReuseCursor::new: globally disabled when damage covers root" {
 ///|
 test "ReuseCursor::new: not globally disabled with partial damage" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -169,7 +185,13 @@ test "ReuseCursor::explain_reuse_rejection: returns None for accepted reuse" {
 ///|
 test "ReuseCursor::try_reuse: returns Some for undamaged node" {
   let src = "1 + 2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -190,7 +212,13 @@ test "ReuseCursor::try_reuse: returns Some for undamaged node" {
 ///|
 test "ReuseCursor::try_reuse: returns None when globally disabled" {
   let src = "1 + 2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -211,7 +239,13 @@ test "ReuseCursor::try_reuse: returns None when globally disabled" {
 ///|
 test "ReuseCursor::try_reuse: returns None when node overlaps damage" {
   let src = "1 + 2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -241,8 +275,12 @@ test "ReuseCursor::try_reuse: keeps left-adjacent node conservative for insertio
   }
   let src = "1+2"
   let edited = "1 +2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    src, test_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(edited)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -279,8 +317,12 @@ test "ReuseCursor::try_reuse: can opt into left-adjacent reuse for safe deletion
   }
   let old_src = "1 +2"
   let new_src = "1+2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, test_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    test_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let edit = Edit::delete(1, 2)
@@ -337,8 +379,12 @@ test "ReuseCursor::try_reuse: rejects token merge with left-adjacent deletion op
   }
   let old_src = "1+2"
   let new_src = "12"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, test_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    test_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let edit = Edit::delete(1, 2)
@@ -376,8 +422,12 @@ test "ReuseCursor::try_reuse: allows right-adjacent node for insertion" {
   }
   let src = "1+2"
   let edited = "1+ 2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    src, test_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(edited)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -414,8 +464,12 @@ test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node
   }
   let old_src = "1+2+3"
   let new_src = "1+3"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, test_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    test_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -443,7 +497,13 @@ test "ReuseCursor::new_with_edit: maps delete edit back to reusable shifted node
 ///|
 test "ReuseCursor::advance_past: updates current_offset" {
   let src = "1 + 2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -464,7 +524,13 @@ test "ReuseCursor::advance_past: updates current_offset" {
 ///|
 test "new_follow_token_with_pos: finds first non-trivia token at or after offset" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -485,7 +551,13 @@ test "new_follow_token_with_pos: finds first non-trivia token at or after offset
 ///|
 test "new_follow_token_with_pos: skips leading trivia" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -506,7 +578,13 @@ test "new_follow_token_with_pos: skips leading trivia" {
 ///|
 test "new_follow_token_with_pos: returns None past end of tokens" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -527,7 +605,13 @@ test "new_follow_token_with_pos: returns None past end of tokens" {
 ///|
 test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -551,7 +635,13 @@ test "old_follow_token_lazy: finds first non-trivia token at or after offset" {
 ///|
 test "old_follow_token_lazy: returns None past end of tree" {
   let src = "42"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -572,7 +662,13 @@ test "old_follow_token_lazy: returns None past end of tree" {
 ///|
 test "old_follow_token_lazy: cache is shared across snapshots" {
   let src = "1 + 2"
-  let (tree, _) = parse_with(SourceId("parser-reuse-source"), src, test_spec, test_tokenize, test_grammar)
+  let (tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    src,
+    test_spec,
+    test_tokenize,
+    test_grammar,
+  )
   let (toks, starts) = test_tokenize_with_starts(src)
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     tree,
@@ -619,8 +715,12 @@ test "ReuseCursor::try_reuse: reuses unaffected nodes across middle deletion" {
   }
   let old_src = "1+2+3"
   let new_src = "1+3"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, item_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    item_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -670,8 +770,12 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
   }
   let old_src = "1 + 2 + 3"
   let new_src = "2 + 3"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, item_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    item_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -694,7 +798,8 @@ test "parse_tokens_indexed: parse with middle deletion can still reuse shifted n
     old_token_cache=cache,
     new_damage_end=0,
   )
-  let (tree, _, reuse_count) = parse_tokens_indexed(SourceId("parser-reuse-source"),
+  let (tree, _, reuse_count) = parse_tokens_indexed(
+    SourceId("parser-reuse-source"),
     new_src,
     new_toks.length(),
     i => new_toks[i].token,
@@ -739,8 +844,12 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
   }
   let old_src = "1+2+3"
   let new_src = "2+3"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, item_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    item_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -763,7 +872,8 @@ test "parse_tokens_indexed: parse with prefix deletion reuses shifted descendant
     old_token_cache=cache,
     new_damage_end=0,
   )
-  let (_, _, reuse_count) = parse_tokens_indexed(SourceId("parser-reuse-source"),
+  let (_, _, reuse_count) = parse_tokens_indexed(
+    SourceId("parser-reuse-source"),
     new_src,
     new_toks.length(),
     i => new_toks[i].token,
@@ -799,8 +909,12 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
   }
   let old_src = "1+2+3"
   let new_src = "1+2"
-  let (old_tree, _) = parse_with(SourceId("parser-reuse-source"),
-    old_src, item_spec, test_tokenize, grammar_item_nodes,
+  let (old_tree, _) = parse_with(
+    SourceId("parser-reuse-source"),
+    old_src,
+    item_spec,
+    test_tokenize,
+    grammar_item_nodes,
   )
   let (new_toks, new_starts) = test_tokenize_with_starts(new_src)
   let cache = OldTokenCache::empty()
@@ -823,7 +937,8 @@ test "parse_tokens_indexed: parse with suffix deletion reuses unaffected prefix 
     old_token_cache=cache,
     new_damage_end=3,
   )
-  let (_, _, reuse_count) = parse_tokens_indexed(SourceId("parser-reuse-source"),
+  let (_, _, reuse_count) = parse_tokens_indexed(
+    SourceId("parser-reuse-source"),
     new_src,
     new_toks.length(),
     i => new_toks[i].token,
@@ -941,8 +1056,14 @@ test "flush_trivia: emits trivia tokens with their actual raw kind" {
       _ => 0
     }
   }
-  let (tree, _, _) = parse_tokens_indexed(SourceId("parser-reuse-source"),
-    source, token_count, get_token, get_start, get_end, multi_spec,
+  let (tree, _, _) = parse_tokens_indexed(
+    SourceId("parser-reuse-source"),
+    source,
+    token_count,
+    get_token,
+    get_start,
+    get_end,
+    multi_spec,
   )
   // Walk the CST looking for trivia leaf tokens. Should find both RawKind(4)=Ws
   // and RawKind(8)=Comment. If flush_trivia still rewrites to whitespace_kind,

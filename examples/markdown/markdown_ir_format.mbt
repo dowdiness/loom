@@ -211,9 +211,8 @@ pub fn experimental_markdown_ir_canonical_format(
       match markdown_ir_first_canonical_opaque(ir) {
         Some(_) => canonical_format_with_list_marker(ir, Dash)
         None =>
-          match experimental_markdown_ir_canonical_format_checked(
-            source_id, ir,
-          ) {
+          match
+            experimental_markdown_ir_canonical_format_checked(source_id, ir) {
             Ok(markdown) => markdown
             Err(failure) =>
               abort(

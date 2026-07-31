@@ -371,8 +371,8 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] reparse_block(
       Some(reparse_fn) => {
         let (new_block, parse_diags) = match
           parse_block_isolated(
-            source_id, block_text, block_kind, block_tokens, block_starts,
-            reparse_fn, spec,
+            source_id, block_text, block_kind, block_tokens, block_starts, reparse_fn,
+            spec,
           ) {
           Some(result) => result
           None => return None

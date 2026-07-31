@@ -118,11 +118,7 @@ test "ParserContext reuse: zero-width lexer leaf at reused boundary advances pos
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_zero_width_boundary,
-    grammar_with_zero_width_boundary,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_zero_width_boundary,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -260,11 +256,7 @@ test "ParserContext reuse: custom synthetic zero-width leaf does not consume lex
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_zero_width_boundary,
-    grammar_with_custom_placeholder,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_custom_placeholder,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -349,11 +341,7 @@ test "ParserContext reuse: extra zero-width token after empty owned boundary rej
   let toks = test_tokenize_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_zero_width_boundary,
-    grammar_with_conditional_boundary_token,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_conditional_boundary_token,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -398,11 +386,7 @@ test "ParserContext reuse: partial zero-width boundary match rejects reuse" {
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_two_zero_width_boundaries,
-    old_grammar_with_two_boundary_tokens,
+    source_id, src, test_spec, test_tokenize_with_two_zero_width_boundaries, old_grammar_with_two_boundary_tokens,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -446,11 +430,7 @@ test "ParserContext reuse: extra zero-width boundary token rejects reuse" {
   let toks = test_tokenize_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_zero_width_boundary,
-    grammar_consumes_boundary_tokens,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_consumes_boundary_tokens,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -497,10 +477,7 @@ test "ParserContext reuse: partial zero-width RepeatGroup boundary match rejects
   let toks = test_tokenize_numbers_with_one_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_numbers_with_two_zero_width_boundaries,
+    source_id, src, test_spec, test_tokenize_numbers_with_two_zero_width_boundaries,
     grammar_repeated_boundary_nodes,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -542,10 +519,7 @@ test "ParserContext reuse: extra zero-width RepeatGroup boundary token rejects r
   let toks = test_tokenize_numbers_with_two_zero_width_boundaries(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_numbers_with_one_zero_width_boundary,
+    source_id, src, test_spec, test_tokenize_numbers_with_one_zero_width_boundary,
     grammar_repeated_boundary_nodes,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
@@ -582,11 +556,7 @@ test "ParserContext reuse: zero-width lexer leaf owned by following subtree is n
   let toks = test_tokenize_with_zero_width_boundary(src)
   let starts = build_starts(toks)
   let (old_tree, _) = parse_with(
-    source_id,
-    src,
-    test_spec,
-    test_tokenize_with_zero_width_boundary,
-    grammar_with_following_boundary_token,
+    source_id, src, test_spec, test_tokenize_with_zero_width_boundary, grammar_with_following_boundary_token,
   )
   let cursor : ReuseCursor[TestTok, TestKind] = ReuseCursor::new(
     old_tree,
@@ -820,10 +790,7 @@ test "ParserContext replay keeps other-source labels unchanged after a source-sc
   let ctx = ParserContext::new(source_a, tokens, src, test_spec)
   ctx.set_reuse_diagnostics(shifted)
 
-  inspect(
-    ctx.replay_reused_diagnostics(4, 5, false, false),
-    content="true",
-  )
+  inspect(ctx.replay_reused_diagnostics(4, 5, false, false), content="true")
   inspect(ctx.diagnostics.length(), content="1")
   let labels = ctx.diagnostics.items()[0].labels()
   debug_inspect(labels[0].style(), content="Primary")

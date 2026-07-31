@@ -163,9 +163,7 @@ pub fn[T] TokenBuffer::new_resilient(
     source_id, source, tokenize_fn, eof_token, error_token,
   )
   let retokenize_full : (String) -> LexResult[T] raise LexError = s => {
-    tokenize_resilient_result(
-      source_id, s, tokenize_fn, eof_token, error_token,
-    )
+    tokenize_resilient_result(source_id, s, tokenize_fn, eof_token, error_token)
   }
   {
     source_id,
@@ -195,7 +193,11 @@ pub fn[T] TokenBuffer::new_resilient_compat(
   error_token~ : T,
 ) -> TokenBuffer[T] {
   TokenBuffer::new_resilient(
-    source_id, source, tokenize_fn~, eof_token~, error_token~,
+    source_id,
+    source,
+    tokenize_fn~,
+    eof_token~,
+    error_token~,
   )
 }
 

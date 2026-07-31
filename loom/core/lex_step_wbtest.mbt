@@ -459,7 +459,10 @@ test "new_from_steps: Produced token len is normalized from consumed span" {
 test "new_from_steps_strict: Produced token len is normalized from consumed span" {
   let lexer : PrefixLexer[String] = { lex_step: stale_len_lexer }
   let buf = TokenBuffer::new_from_steps_strict(
-    SourceId("lex-step-source"), "abc", lexer, eof_token="EOF",
+    SourceId("lex-step-source"),
+    "abc",
+    lexer,
+    eof_token="EOF",
   )
   let rendered = render_tokens(buf.get_tokens())
   inspect(rendered, content="char@0-1,char@1-2,char@2-3,EOF@3-3")
@@ -471,7 +474,10 @@ test "new_from_steps_strict: no-progress Produced raises LexError" {
   let raised = try {
     ignore(
       TokenBuffer::new_from_steps_strict(
-        SourceId("lex-step-source"), "😈x", lexer, eof_token="EOF",
+        SourceId("lex-step-source"),
+        "😈x",
+        lexer,
+        eof_token="EOF",
       ),
     )
     false

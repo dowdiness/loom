@@ -49,7 +49,8 @@ pub fn[Ast] ImperativeParser::parse(
   self : ImperativeParser[Ast],
 ) -> ParseSnapshot[Ast] {
   let (syntax, diagnostics, reuse_count) = (self.lang.full_parse)(
-    self.source_id, self.source,
+    self.source_id,
+    self.source,
   )
   self.accept_tree(self.source, syntax, diagnostics, reuse_count)
 }

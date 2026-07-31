@@ -15,10 +15,7 @@
 
 ///|
 fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
-  let full_parse = (
-    _source_id : @core.SourceId,
-    s : String,
-  ) => {
+  let full_parse = (_source_id : @core.SourceId, s : String) => {
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
@@ -40,9 +37,7 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
     s : String,
     _old : @seam.SyntaxNode,
     _edit : @core.Edit,
-  ) => {
-    full_parse(source_id, s)
-  }
+  ) => full_parse(source_id, s)
   let to_ast = (n : @seam.SyntaxNode) => {
     match n.tokens() {
       [t, ..] => t.text()
@@ -152,10 +147,7 @@ test "Parser exposes its runtime for downstream derived cells" {
 fn test_imperative_language_with_counter(
   parse_count : Ref[Int],
 ) -> @incremental.ImperativeLanguage[String] {
-  let full_parse = (
-    _source_id : @core.SourceId,
-    s : String,
-  ) => {
+  let full_parse = (_source_id : @core.SourceId, s : String) => {
     parse_count.val = parse_count.val + 1
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
@@ -167,8 +159,7 @@ fn test_imperative_language_with_counter(
   }
   @incremental.ImperativeLanguage::new(
     full_parse~,
-    incremental_parse=(source_id, s, _old, _edit) =>
-      full_parse(source_id, s),
+    incremental_parse=(source_id, s, _old, _edit) => full_parse(source_id, s),
     to_ast=n => {
       match n.tokens() {
         [t, ..] => t.text()

@@ -266,13 +266,7 @@ test "DiagnosticSet after_relex shifts secondary positional evidence" {
     message="secondary",
     labels=[
       DiagnosticLabel(LabelStyle::Primary, primary, None),
-      test_label(
-        LabelStyle::Secondary,
-        source,
-        4,
-        5,
-        message=Some("label"),
-      ),
+      test_label(LabelStyle::Secondary, source, 4, 5, message=Some("label")),
     ],
     token=Some(TokenEvidence(@seam.RawKind(9), test_span(source, 6, 7))),
   )
@@ -298,13 +292,7 @@ test "DiagnosticSet after_relex drops diagnostics with secondary stale evidence"
     message="secondary",
     labels=[
       test_label(LabelStyle::Primary, source, 0, 1),
-      test_label(
-        LabelStyle::Secondary,
-        source,
-        3,
-        4,
-        message=Some("label"),
-      ),
+      test_label(LabelStyle::Secondary, source, 3, 4, message=Some("label")),
     ],
   )
   let shifted = DiagnosticSet::single(diagnostic).after_relex(
@@ -436,15 +424,11 @@ test "LexResult from_located_tokens reports nonblank gaps" {
 
 ///|
 test "LexResult from_located_tokens preserves zero-width tokens" {
-  let result = LexResult::from_located_tokens(
-    test_source("test"),
-    "ab",
-    [
-      LocatedToken("A", start=0, end=1),
-      LocatedToken("ASI", start=1, end=1),
-      LocatedToken("B", start=1, end=2),
-    ],
-  )
+  let result = LexResult::from_located_tokens(test_source("test"), "ab", [
+    LocatedToken("A", start=0, end=1),
+    LocatedToken("ASI", start=1, end=1),
+    LocatedToken("B", start=1, end=2),
+  ])
   let summary = result
     .tokens()
     .map(fn(info) { info.token + ":" + info.len.to_string() })
@@ -538,11 +522,7 @@ test "source-scoped offset shifts only labels in the edited source" {
     ],
   )
   let shifted = try
-    DiagnosticSet::single(diagnostic).offset_by(
-      source_a,
-      3,
-      test_offset(4),
-    )
+    DiagnosticSet::single(diagnostic).offset_by(source_a, 3, test_offset(4))
   catch {
     _ => abort("expected valid source-scoped shift")
   } noraise {
@@ -566,16 +546,10 @@ test "source-scoped offset preserves token evidence when no edited-source label 
       test_label(LabelStyle::Primary, source_b, 4, 5),
       test_label(LabelStyle::Secondary, source_c, 7, 8),
     ],
-    token=Some(
-      TokenEvidence(@seam.RawKind(5), test_span(source_a, 4, 5)),
-    ),
+    token=Some(TokenEvidence(@seam.RawKind(5), test_span(source_a, 4, 5))),
   )
   let shifted = try
-    DiagnosticSet::single(diagnostic).offset_by(
-      source_a,
-      3,
-      test_offset(4),
-    )
+    DiagnosticSet::single(diagnostic).offset_by(source_a, 3, test_offset(4))
   catch {
     _ => abort("expected valid source-scoped offset")
   } noraise {
@@ -614,11 +588,7 @@ test "same-source relex shifts labels and preserves style messages and token evi
     severity=Error,
     message="shift",
     labels=[
-      DiagnosticLabel(
-        LabelStyle::Primary,
-        primary,
-        Some("primary message"),
-      ),
+      DiagnosticLabel(LabelStyle::Primary, primary, Some("primary message")),
       test_label(
         LabelStyle::Secondary,
         source_a,
@@ -684,9 +654,18 @@ test "source-scoped relex keeps half-open insertion boundaries" {
     SourceEdit(source_a, Edit::insert(2, 3)),
     failure_context="test",
   )
-  inspect(updated.items()[0].labels()[0].span().range().end().value(), content="2")
-  inspect(updated.items()[1].labels()[0].span().range().start().value(), content="5")
-  inspect(updated.items()[2].labels()[0].span().range().end().value(), content="6")
+  inspect(
+    updated.items()[0].labels()[0].span().range().end().value(),
+    content="2",
+  )
+  inspect(
+    updated.items()[1].labels()[0].span().range().start().value(),
+    content="5",
+  )
+  inspect(
+    updated.items()[2].labels()[0].span().range().end().value(),
+    content="6",
+  )
 }
 
 ///|
@@ -694,20 +673,8 @@ test "multiple primary labels and sources remain explicit and distinct" {
   let source_a = test_source("a")
   let source_b = test_source("b")
   let labels = [
-    test_label(
-      LabelStyle::Primary,
-      source_a,
-      1,
-      2,
-      message=Some("a primary"),
-    ),
-    test_label(
-      LabelStyle::Primary,
-      source_b,
-      1,
-      2,
-      message=Some("b primary"),
-    ),
+    test_label(LabelStyle::Primary, source_a, 1, 2, message=Some("a primary")),
+    test_label(LabelStyle::Primary, source_b, 1, 2, message=Some("b primary")),
   ]
   let diagnostic = Diagnostic(
     source=DiagnosticSource::parser(),
@@ -808,13 +775,7 @@ test "diagnostics with only B and C labels remain exactly unchanged by an A edit
     message="no labels in a",
     labels=[
       test_label(LabelStyle::Primary, source_b, 3, 4),
-      test_label(
-        LabelStyle::Secondary,
-        source_c,
-        7,
-        8,
-        message=Some("context"),
-      ),
+      test_label(LabelStyle::Secondary, source_c, 7, 8, message=Some("context")),
     ],
     notes=["keep"],
     token=Some(TokenEvidence(@seam.RawKind(5), token_span)),
@@ -832,14 +793,17 @@ test "property: edits affect only the selected source among two to four sources"
   for seed in seeds {
     let magnitude = if seed < 0 { -(seed + 1) } else { seed }
     let source_count = 2 + magnitude % 3
-    let edited_index = (magnitude / 3) % source_count
-    let sources = Array::makei(
-      source_count,
-      i => test_source("source-" + i.to_string()),
-    )
+    let edited_index = magnitude / 3 % source_count
+    let sources = Array::makei(source_count, i => {
+      test_source("source-" + i.to_string())
+    })
     let labels = Array::makei(source_count, i => {
       test_label(
-        if i == 0 { LabelStyle::Primary } else { LabelStyle::Secondary },
+        if i == 0 {
+          LabelStyle::Primary
+        } else {
+          LabelStyle::Secondary
+        },
         sources[i],
         6 + i,
         7 + i,

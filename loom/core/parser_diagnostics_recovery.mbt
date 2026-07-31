@@ -15,9 +15,7 @@ fn[T : @seam.ToRawKind] make_parser_diagnostic(
     Array[DiagnosticLabel],
     TokenEvidence?,
     Array[String],
-  ) = try
-    TextRange::from_offsets(start, end)
-  catch {
+  ) = try TextRange::from_offsets(start, end) catch {
     error =>
       (
         [],

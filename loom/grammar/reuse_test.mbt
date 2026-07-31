@@ -20,9 +20,7 @@ test "WrapIfNext wraps a matching prefix without spurious diagnostics" {
     ]
   }
   let source_id = @core.SourceId("grammar-wrap-if-next-source")
-  let (_, diagnostics) = @core.parse_with(
-    source_id, "1", spec, lex, parse_root,
-  )
+  let (_, diagnostics) = @core.parse_with(source_id, "1", spec, lex, parse_root)
   inspect(diagnostics.is_empty(), content="true")
 }
 

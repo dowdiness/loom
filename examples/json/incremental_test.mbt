@@ -110,18 +110,18 @@ test "block reparse: carries absolute nesting depth" {
   let depth = 512
   let source = nested_array_source(depth, "0")
   let syntax_grammar = json_grammar.to_syntax_grammar()
-  let (_, initial_diagnostics) = try! syntax_grammar.parse_cst(source_id, source)
+  let (_, initial_diagnostics) = try! syntax_grammar.parse_cst(
+    source_id, source,
+  )
   inspect(initial_diagnostics.length(), content="0")
   let new_source = nested_array_source(depth, "[0]")
   let edit = @core.Edit::new(depth, 1, 3)
-  let (_, full_diagnostics) = try! syntax_grammar.parse_cst(source_id, new_source)
+  let (_, full_diagnostics) = try! syntax_grammar.parse_cst(
+    source_id, new_source,
+  )
   inspect(full_diagnostics.length() > 0, content="true")
   let reuse_count = @loom.assert_incremental_edit_matches_full_parse(
-    source_id,
-    "json block reparse absolute nesting depth",
-    source,
-    edit,
-    new_source,
+    source_id, "json block reparse absolute nesting depth", source, edit, new_source,
     syntax_grammar,
   )
   inspect(reuse_count, content="1")

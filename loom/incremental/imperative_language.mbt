@@ -52,11 +52,7 @@ pub struct ImperativeLanguage[Ast] {
     String,
     @seam.SyntaxNode,
     @core.Edit,
-  ) -> (
-    @seam.SyntaxNode,
-    @core.DiagnosticSet,
-    Int,
-  )
+  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)
   priv to_ast : (@seam.SyntaxNode) -> Ast
   priv get_fold_stats : (() -> @core.FoldStats)?
 }
@@ -69,12 +65,7 @@ pub fn[Ast] ImperativeLanguage::new(
     @core.DiagnosticSet,
     Int,
   ),
-  incremental_parse~ : (
-    @core.SourceId,
-    String,
-    @seam.SyntaxNode,
-    @core.Edit,
-  ) -> (
+  incremental_parse~ : (@core.SourceId, String, @seam.SyntaxNode, @core.Edit) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,

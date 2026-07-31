@@ -20,11 +20,12 @@ pub struct Parser[Ast] {
 pub fn[Ast : Eq] Parser::apply_edit(Self[Ast], @core.Edit, String) -> Unit
 pub fn[Ast] Parser::ast(Self[Ast]) -> @cells.Derived[Ast]
 pub fn[Ast] Parser::diagnostics(Self[Ast]) -> @cells.Derived[@core.DiagnosticSet]
-pub fn[Ast : Eq] Parser::new(String, @incremental.ImperativeLanguage[Ast], runtime? : @cells.Runtime) -> Self[Ast]
+pub fn[Ast : Eq] Parser::new(@core.SourceId, String, @incremental.ImperativeLanguage[Ast], runtime? : @cells.Runtime) -> Self[Ast]
 pub fn[Ast] Parser::runtime(Self[Ast]) -> @cells.Runtime
 pub fn[Ast : Eq] Parser::set_source(Self[Ast], String) -> Unit
 pub fn[Ast] Parser::snapshot(Self[Ast]) -> @cells.Derived[@incremental.ParseSnapshot[Ast]]
 pub fn[Ast] Parser::source(Self[Ast]) -> @cells.Derived[String]
+pub fn[Ast] Parser::source_id(Self[Ast]) -> @core.SourceId
 pub fn[Ast] Parser::syntax_tree(Self[Ast]) -> @cells.Derived[@seam.SyntaxNode]
 
 pub struct SyntaxParser {
@@ -32,11 +33,12 @@ pub struct SyntaxParser {
 }
 pub fn SyntaxParser::apply_edit(Self, @core.Edit, String) -> Unit
 pub fn SyntaxParser::diagnostics(Self) -> @cells.Derived[@core.DiagnosticSet]
-pub fn SyntaxParser::new(String, @incremental.ImperativeLanguage[Unit], runtime? : @cells.Runtime) -> Self
+pub fn SyntaxParser::new(@core.SourceId, String, @incremental.ImperativeLanguage[Unit], runtime? : @cells.Runtime) -> Self
 pub fn SyntaxParser::runtime(Self) -> @cells.Runtime
 pub fn SyntaxParser::set_source(Self, String) -> Unit
 pub fn SyntaxParser::snapshot(Self) -> @cells.Derived[SyntaxSnapshot]
 pub fn SyntaxParser::source(Self) -> @cells.Derived[String]
+pub fn SyntaxParser::source_id(Self) -> @core.SourceId
 pub fn SyntaxParser::syntax_tree(Self) -> @cells.Derived[@seam.SyntaxNode]
 
 pub struct SyntaxSnapshot {

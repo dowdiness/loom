@@ -137,7 +137,11 @@ fn flex_from_tokenize(
         ],
         diagnostics=@core.DiagnosticSet::single(
           @core.Diagnostic::lexer_error_at(
-            source_id, msg, 0, s.length(), "lex-error",
+            source_id,
+            msg,
+            0,
+            s.length(),
+            "lex-error",
           ),
         ),
       )
@@ -496,16 +500,10 @@ test "reparse_block preserves block lexer diagnostics" {
     let diagnostics = result.diagnostics()
     diagnostics.push(
       @core.Diagnostic::lexer_error_at(
-        lex_source_id,
-        "block-only lexer diagnostic",
-        0,
-        1,
-        "block-lex",
+        lex_source_id, "block-only lexer diagnostic", 0, 1, "block-lex",
       ),
     )
-    @core.LexResult::with_starts(
-      result.tokens(), result.starts(), diagnostics~,
-    )
+    @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let result = @core.reparse_block(
     source_id,
@@ -631,9 +629,7 @@ test "create_buffer: mode lex keeps total diagnostics" {
     @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let source_id = @core.SourceId("factory-mode-buffer-source")
-  let buffer = create_buffer(
-    source_id, "a", lex, Eof, mode_relex=Some(state),
-  )
+  let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"soft mode note [0,1]\"]",
@@ -664,9 +660,7 @@ test "create_buffer: mode update skips total lex on incremental path" {
     @core.LexResult::with_starts(result.tokens(), result.starts(), diagnostics~)
   }
   let source_id = @core.SourceId("factory-mode-update-source")
-  let buffer = create_buffer(
-    source_id, "a", lex, Eof, mode_relex=Some(state),
-  )
+  let buffer = create_buffer(source_id, "a", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"mode source length 1 [0,1]\"]",
@@ -686,8 +680,9 @@ test "create_buffer: mode lex respects incremental opt out" {
     Eof,
     error_token=Err,
   )
-  let lex = (source_id : @core.SourceId, source : String) =>
+  let lex = (source_id : @core.SourceId, source : String) => {
     (state.tokenize)(source_id, source)
+  }
   let source_id = @core.SourceId("factory-mode-opt-out-source")
   let buffer = create_buffer(
     source_id,
@@ -717,12 +712,11 @@ test "create_buffer: recovered mode lex updates incrementally" {
     Eof,
     error_token=Err,
   )
-  let lex = (source_id : @core.SourceId, source : String) =>
+  let lex = (source_id : @core.SourceId, source : String) => {
     (state.tokenize)(source_id, source)
+  }
   let source_id = @core.SourceId("factory-mode-recovery-source")
-  let buffer = create_buffer(
-    source_id, "!", lex, Eof, mode_relex=Some(state),
-  )
+  let buffer = create_buffer(source_id, "!", lex, Eof, mode_relex=Some(state))
   debug_inspect(
     buffer.get_diagnostics().format(),
     content="[\"bad mode [0,1]\"]",
