@@ -68,6 +68,13 @@ pub fn[T, K] ParserContext::new_indexed(
 }
 
 ///|
+/// Return the caller-owned source identity for the current parse.
+/// Grammar callbacks use this when constructing source-aware diagnostics.
+pub fn[T, K] ParserContext::source_id(self : ParserContext[T, K]) -> SourceId {
+  self.source_id
+}
+
+///|
 /// Return the next non-trivia token without consuming it.
 pub fn[T : @seam.IsTrivia, K] ParserContext::peek(
   self : ParserContext[T, K],
