@@ -504,7 +504,7 @@ pub fn SourceEdit::edit(self : SourceEdit) -> Edit {
 }
 
 ///|
-pub enum LabelStyle {
+pub(all) enum LabelStyle {
   Primary
   Secondary
 } derive(Eq, Debug, Hash)
