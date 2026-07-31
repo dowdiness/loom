@@ -100,3 +100,78 @@ test "format_diagnostic_with_line_col uses line range" {
     content="expected token [0:1,1:2]",
   )
 }
+
+///|
+test "LineIndex strict inverse round-trips only valid UTF-16 boundaries" {
+  let source = "a😈\r\nb"
+  let index = LineIndex::new(source)
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 0 }),
+    content="Some(0)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 1 }),
+    content="Some(1)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 2 }),
+    content="None",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 3 }),
+    content="Some(3)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 4 }),
+    content="Some(4)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 1, column: 0 }),
+    content="Some(5)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 1, column: 1 }),
+    content="Some(6)",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 0, column: 5 }),
+    content="None",
+  )
+  debug_inspect(
+    index.strict_offset(source, { line: 2, column: 0 }),
+    content="None",
+  )
+}
+
+///|
+test "property: valid UTF-16 offsets round-trip and line columns are monotonic" {
+  let sources : Array[String] = @quickcheck.samples(64)
+  sources.each(source => {
+    let index = LineIndex::new(source)
+    let valid_offsets = Array::makei(source.length() + 1, offset => offset).filter(offset => {
+        match source.get_view(start=offset, end=offset) {
+          Some(_) => true
+          None => false
+        }
+      },
+    )
+    valid_offsets.each(offset => {
+      guard index.strict_offset(source, index.line_col(offset)) == Some(offset) else {
+        abort("valid UTF-16 offset did not round-trip: " + offset.to_string())
+      }
+    })
+    valid_offsets
+    .windows(2)
+    .each(pair => {
+      let before = index.line_col(pair[0])
+      let after = index.line_col(pair[1])
+      guard after.line > before.line ||
+        (after.line == before.line && after.column > before.column) else {
+        abort(
+          "line/column mapping was not monotonic at offset " +
+          pair[0].to_string(),
+        )
+      }
+    })
+  })
+}

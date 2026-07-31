@@ -44,6 +44,17 @@ Make the public parser boundary structured and total:
 - Example fail-fast `ParseError` types carry formatted messages only; structured
   consumers should use parser snapshots or `parse_*` functions that return
   `DiagnosticSet`.
+- Source-aware presentation resolves source text by opaque source identity at
+  the rendering boundary. The caller supplies one coherent snapshot containing
+  the display name, text, and matching line index; diagnostics do not own source
+  text.
+- Rendering validates source-backed spans before producing output. Missing or
+  inconsistent snapshots, out-of-bounds ranges, and offsets inside UTF-16
+  surrogate pairs are rejected rather than clamped or inferred from diagnostic
+  messages, producer identity, or presentation order.
+- Source groups and labels retain diagnostic order, style, and messages so plain
+  rendering is deterministic without becoming the authoritative diagnostic
+  model.
 
 ## Rationale
 
@@ -85,3 +96,8 @@ that return `DiagnosticSet`.
 
 Line/column coordinates remain presentation-only, following
 [ADR: Derive Line/Column Source Locations From Canonical Offsets](2026-05-11-derived-source-locations.md).
+
+Source-file identity remains distinct from diagnostic producer identity.
+Consumers that need source excerpts provide the current provider-owned snapshot
+at the rendering boundary; legacy message formatting remains available for
+callers that do not need source-backed labels.
