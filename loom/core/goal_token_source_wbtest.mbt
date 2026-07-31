@@ -304,7 +304,7 @@ test "ParserContext::token_at with goal_source set" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),
@@ -349,7 +349,7 @@ test "minimal emit_token_with_goal produces CST with goal span" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),
@@ -370,7 +370,7 @@ test "advance_with_goal returns goal-directed token" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),
@@ -394,7 +394,7 @@ test "advance_with_goal at eof returns eof" {
   let buf = make_goal_buffer("")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),
@@ -414,7 +414,7 @@ test "advance_with_goal skips reuse for subsumed regions" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),
@@ -442,7 +442,7 @@ test "goal_span_exceeds: DivGoal does not false-positive" {
   let buf = make_goal_buffer("/x/")
   let spec = make_goal_spec()
   let ctx = ParserContext::new_indexed(
-    buf.get_source_id(),
+    SourceId("goal-token-source"),
     buf.token_count(),
     i => buf.get_token(i),
     i => buf.get_start(i),

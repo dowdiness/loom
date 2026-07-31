@@ -371,11 +371,6 @@ pub fn[T] TokenBuffer::get_source(self : TokenBuffer[T]) -> String {
 }
 
 ///|
-pub fn[T] TokenBuffer::get_source_id(self : TokenBuffer[T]) -> SourceId {
-  self.source_id
-}
-
-///|
 pub fn[T] TokenBuffer::get_version(self : TokenBuffer[T]) -> Int {
   self.version
 }
