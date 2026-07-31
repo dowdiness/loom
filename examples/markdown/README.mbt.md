@@ -19,10 +19,10 @@ pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
 // ── High-level parsing ────────────────────────────────────────────────────────
 
-pub fn parse(String) -> Block                                              // lex errors fold into Block::Error
-pub fn parse_markdown(String) -> (Block, @core.DiagnosticSet)   // returns diagnostics
+pub fn parse(@core.SourceId, String) -> Block                              // lex errors fold into Block::Error
+pub fn parse_markdown(@core.SourceId, String) -> (Block, @core.DiagnosticSet) // returns diagnostics
   raise @core.LexError
-pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
+pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────
@@ -37,9 +37,11 @@ pub fn attach_markdown_role_spans(@loom.SyntaxParser) -> MarkdownRoleSpansAttach
 
 // ── Experimental MarkdownIR M1 slice ──────────────────────────────────────────
 
-pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax(
+  @core.SourceId, @seam.SyntaxNode
+) -> MarkdownIR
 pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
-  @seam.SyntaxNode, @core.DiagnosticSet
+  @core.SourceId, @seam.SyntaxNode, @core.DiagnosticSet
 ) -> MarkdownIR
 pub fn experimental_markdown_ir_to_block(MarkdownIR) -> Block
 pub fn experimental_markdown_ir_to_mdast_json(MarkdownIR) -> Json
@@ -48,8 +50,12 @@ pub fn experimental_markdown_ir_preserve_rewrite(MarkdownIR, String) -> String
 pub fn experimental_markdown_ir_local_transform_rewrite(
   MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String
 ) -> String
-pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
-pub fn experimental_markdown_ir_canonical_format_checked(MarkdownIR)
+pub fn experimental_markdown_ir_canonical_format(
+  @core.SourceId, MarkdownIR
+) -> String
+pub fn experimental_markdown_ir_canonical_format_checked(
+  @core.SourceId, MarkdownIR
+)
   -> Result[String, MarkdownIRCanonicalFormatFailure]
 pub fn experimental_markdown_ir_to_commonmark_html(MarkdownIR) -> String
 
@@ -65,6 +71,10 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 Note that `parse` is **not** `raise` — lexing failures fold into
 `Block::Error`, while parser recovery may preserve malformed inline source as
 text or error-shaped IR. If you need diagnostics, use `parse_markdown` instead.
+Pass the same stable `SourceId` through parsing, diagnostic-aware lowering, and
+canonical-format verification for one source snapshot. A producer name is not
+a source identity, and `tokenize(String)` remains the source-agnostic raw lexer
+entry point.
 
 ### Emphasis token and CST compatibility
 
@@ -256,7 +266,10 @@ workflow must use an exact version pin.
 ```mbt check
 ///|
 test "grammar example: imperative parser returns a Block" {
-  let imp = @loom.new_imperative_parser("# Hello\n", markdown_grammar)
+  let source_id = @core.SourceId("markdown-readme-imperative")
+  let imp = @loom.new_imperative_parser(
+    source_id, "# Hello\n", markdown_grammar,
+  )
   let doc = imp.parse().ast
   // The top-level Block is always a Document containing the parsed blocks.
   match doc {
@@ -267,7 +280,8 @@ test "grammar example: imperative parser returns a Block" {
 
 ///|
 test "grammar example: reactive parser + set_source" {
-  let parser = @loom.new_parser("# Hello\n", markdown_grammar)
+  let source_id = @core.SourceId("markdown-readme-reactive")
+  let parser = @loom.new_parser(source_id, "# Hello\n", markdown_grammar)
   parser.set_source("## World\n")
   let doc : Block = parser.ast().read_or_abort()
   match doc {
@@ -313,7 +327,9 @@ them, and parser diagnostics remain a separate current-state view on
 ```mbt check
 ///|
 test "quick start: parser-backed Markdown role spans" {
+  let source_id = @core.SourceId("markdown-readme-role-spans")
   let parser = @loom.new_syntax_parser(
+    source_id,
     "[text](page_(C).html)\n",
     markdown_grammar.to_syntax_grammar(),
   )
@@ -345,7 +361,7 @@ let mode_factory : @core.ModeRelexFactory[Token] = @core.erase_mode_lexer(
   markdown_mode_lexer,
   EOF,
   error_token=Error("lex error"),
-  error_token_from_message=Some(fn(msg) { Error(msg) }),
+  error_token_from_message=Some(msg => Error(msg)),
 )
 
 ///|

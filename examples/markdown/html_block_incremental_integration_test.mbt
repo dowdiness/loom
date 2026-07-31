@@ -1,5 +1,6 @@
 ///|
 fn assert_html_block_incremental_projection_parity(
+  source_id : @core.SourceId,
   label : String,
   source : String,
   edit : @core.Edit,
@@ -8,20 +9,20 @@ fn assert_html_block_incremental_projection_parity(
 ) -> Int raise {
   // Check CST and diagnostics before making any claim about reuse.
   let reuse_count = markdown_incremental_edit_reuse_count(
-    label, source, edit, updated,
+    source_id, label, source, edit, updated,
   )
-  let incremental = @loom.new_parser(source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
   let fresh_diagnostics = fresh.diagnostics().read_or_abort()
   let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    incremental_syntax, incremental_diagnostics,
+    source_id, incremental_syntax, incremental_diagnostics,
   )
   let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    fresh_syntax, fresh_diagnostics,
+    source_id, fresh_syntax, fresh_diagnostics,
   )
   assert_eq(incremental_ir, fresh_ir)
   let incremental_html = experimental_markdown_ir_to_commonmark_html(
@@ -35,6 +36,7 @@ fn assert_html_block_incremental_projection_parity(
 
 ///|
 fn assert_html_closing_character_edit_falls_back(
+  source_id : @core.SourceId,
   label : String,
   prefix : String,
   original : String,
@@ -44,6 +46,7 @@ fn assert_html_closing_character_edit_falls_back(
   let source = prefix + original + suffix
   let updated = prefix + replacement + suffix
   let reuse_count = assert_html_block_incremental_projection_parity(
+    source_id,
     label,
     source,
     @core.Edit::new(prefix.length(), original.length(), replacement.length()),
@@ -56,6 +59,7 @@ fn assert_html_closing_character_edit_falls_back(
 
 ///|
 test "incremental HTML type-1 terminator edits fall back after projection parity" {
+  let source_id = @core.SourceId("markdown-html-incremental-type-1-terminators")
   let cases : Array[(String, String, String, String, String)] = [
     (
       "markdown pre closing angle edit falls back", "<pre>\nbody\n</pre", ">", "x",
@@ -81,13 +85,14 @@ test "incremental HTML type-1 terminator edits fall back after projection parity
   for case in cases {
     let (label, prefix, original, replacement, suffix) = case
     assert_html_closing_character_edit_falls_back(
-      label, prefix, original, replacement, suffix,
+      source_id, label, prefix, original, replacement, suffix,
     )
   }
 }
 
 ///|
 test "incremental HTML type-2 terminator edits fall back after projection parity" {
+  let source_id = @core.SourceId("markdown-html-incremental-type-2-terminators")
   let cases : Array[(String, String, String, String, String)] = [
     (
       "markdown comment terminator edit falls back", "<!--\nbody\n--", ">", "x",
@@ -109,13 +114,14 @@ test "incremental HTML type-2 terminator edits fall back after projection parity
   for case in cases {
     let (label, prefix, original, replacement, suffix) = case
     assert_html_closing_character_edit_falls_back(
-      label, prefix, original, replacement, suffix,
+      source_id, label, prefix, original, replacement, suffix,
     )
   }
 }
 
 ///|
 test "incremental HTML body edits retain safe block reuse after projection parity" {
+  let source_id = @core.SourceId("markdown-html-incremental-body-edits")
   let cases : Array[(String, String, String, String, String, String)] = [
     (
       "markdown pre body edit retains safe block reuse", "<pre>\n", "body", "BODY",
@@ -131,6 +137,7 @@ test "incremental HTML body edits retain safe block reuse after projection parit
     let source = prefix + original + suffix
     let updated = prefix + replacement + suffix
     let reuse_count = assert_html_block_incremental_projection_parity(
+      source_id,
       label,
       source,
       @core.Edit::new(prefix.length(), original.length(), replacement.length()),

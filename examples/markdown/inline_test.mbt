@@ -1,47 +1,68 @@
 ///|
 test "inline: bold" {
-  let block = parse("**bold**\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "**bold**\n",
+  )
   inspect(block, content="Document([Paragraph([Bold([Text(\"bold\")])])])")
 }
 
 ///|
 test "inline: italic" {
-  let block = parse("*italic*\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "*italic*\n",
+  )
   inspect(block, content="Document([Paragraph([Italic([Text(\"italic\")])])])")
 }
 
 ///|
 test "inline: emphasis honors preceding backslash parity" {
   inspect(
-    parse("\\" + "\\" + "*em*\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\" + "\\" + "*em*\n",
+    ),
     content="Document([Paragraph([Text(\"\\\\\"), Italic([Text(\"em\")])])])",
   )
   inspect(
-    parse("\\" + "\\" + "\\" + "\\" + "*em*\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\" + "\\" + "\\" + "\\" + "*em*\n",
+    ),
     content="Document([Paragraph([Text(\"\\\\\\\\\"), Italic([Text(\"em\")])])])",
   )
   inspect(
-    parse("\\" + "\\" + "\\" + "*em*\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\" + "\\" + "\\" + "*em*\n",
+    ),
     content="Document([Paragraph([Text(\"\\\\*em*\")])])",
   )
   inspect(
-    parse("\\* literal *unclosed\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\* literal *unclosed\n",
+    ),
     content="Document([Paragraph([Text(\"* literal *unclosed\")])])",
   )
   inspect(
-    parse("\\* literal!*unclosed\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\* literal!*unclosed\n",
+    ),
     content="Document([Paragraph([Text(\"* literal!*unclosed\")])])",
   )
   inspect(
-    parse("[x](\\*u) tail*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "[x](\\*u) tail*\n"),
     content="Document([Paragraph([Link([Text(\"x\")], \"\\\\*u\"), Text(\" tail*\")])])",
   )
   inspect(
-    parse("\\*a **b** c*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a **b** c*\n"),
     content="Document([Paragraph([Text(\"*a \"), Bold([Text(\"b\")]), Text(\" c*\")])])",
   )
   inspect(
-    parse("[\\*literal*](/)\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "[\\*literal*](/)\n"),
     content="Document([Paragraph([Link([Text(\"*literal*\")], \"/\")])])",
   )
 }
@@ -49,7 +70,7 @@ test "inline: emphasis honors preceding backslash parity" {
 ///|
 test "inline: escaped emphasis stays literal beside non-BMP text" {
   inspect(
-    parse("\\*😈*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*😈*\n"),
     content="Document([Paragraph([Text(\"*😈*\")])])",
   )
 }
@@ -57,23 +78,23 @@ test "inline: escaped emphasis stays literal beside non-BMP text" {
 ///|
 test "inline: escaped and unmatched emphasis stays literal" {
   inspect(
-    parse("\\*a b**\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a b**\n"),
     content="Document([Paragraph([Text(\"*a b**\")])])",
   )
   inspect(
-    parse("\\*\\*literal**\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*\\*literal**\n"),
     content="Document([Paragraph([Text(\"**literal**\")])])",
   )
   inspect(
-    parse("\\*a \\*b***\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a \\*b***\n"),
     content="Document([Paragraph([Text(\"*a *b***\")])])",
   )
   inspect(
-    parse("\\*a \\*b\nc**\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a \\*b\nc**\n"),
     content="Document([Paragraph([Text(\"*a *b\"), Text(\" \"), Text(\"c**\")])])",
   )
   inspect(
-    parse("\\*a [oops tail*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a [oops tail*\n"),
     content="Document([Paragraph([Text(\"*a \"), Error(\"[\"), Text(\"oops tail*\")])])",
   )
 }
@@ -81,22 +102,28 @@ test "inline: escaped and unmatched emphasis stays literal" {
 ///|
 test "inline: literal emphasis markers stay container-local" {
   inspect(
-    parse("\\*a [x**](/) b*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "\\*a [x**](/) b*\n"),
     content="Document([Paragraph([Text(\"*a \"), Link([Text(\"x**\")], \"/\"), Text(\" b*\")])])",
   )
   inspect(
-    parse("[\\*\\*😈**](/)\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "[\\*\\*😈**](/)\n",
+    ),
     content="Document([Paragraph([Link([Text(\"**😈**\")], \"/\")])])",
   )
   inspect(
-    parse("- \\*a \\*b**\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "- \\*a \\*b**\n"),
     content="Document([UnorderedList([UnorderedListItem([Text(\"*a *b**\")])])])",
   )
 }
 
 ///|
 test "inline: italic can contain bold" {
-  let block = parse("*foo **bar** baz*\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "*foo **bar** baz*\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Italic([Text(\"foo \"), Bold([Text(\"bar\")]), Text(\" baz\")])])])",
@@ -105,7 +132,10 @@ test "inline: italic can contain bold" {
 
 ///|
 test "inline: ordered marker can remain paragraph text inside multiline emphasis" {
-  let block = parse("*foo\n2. bar*\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "*foo\n2. bar*\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Italic([Text(\"foo\"), Text(\"2. \"), Text(\"bar\")])])])",
@@ -114,7 +144,10 @@ test "inline: ordered marker can remain paragraph text inside multiline emphasis
 
 ///|
 test "inline: unmatched emphasis stays literal at ordered list boundaries" {
-  let block = parse("1. *foo\n2. bar*\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "1. *foo\n2. bar*\n",
+  )
   inspect(
     block,
     content=(
@@ -135,13 +168,16 @@ test "inline: unmatched emphasis stays literal at ordered list boundaries" {
 
 ///|
 test "inline: inline code" {
-  let block = parse("`code`\n")
+  let block = parse(@core.SourceId("markdown-inline-test-document"), "`code`\n")
   inspect(block, content="Document([Paragraph([InlineCode(\"code\")])])")
 }
 
 ///|
 test "inline: link" {
-  let block = parse("[click](http://example.com)\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "[click](http://example.com)\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Link([Text(\"click\")], \"http://example.com\")])])",
@@ -150,7 +186,10 @@ test "inline: link" {
 
 ///|
 test "inline: link destination preserves balanced parentheses" {
-  let block = parse("[wiki](page_(C).html)\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "[wiki](page_(C).html)\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Link([Text(\"wiki\")], \"page_(C).html\")])])",
@@ -159,7 +198,10 @@ test "inline: link destination preserves balanced parentheses" {
 
 ///|
 test "inline: link destination preserves delimiter characters" {
-  let block = parse("[api](docs/*items*`v1`)\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "[api](docs/*items*`v1`)\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Link([Text(\"api\")], \"docs/*items*`v1`\")])])",
@@ -168,7 +210,10 @@ test "inline: link destination preserves delimiter characters" {
 
 ///|
 test "inline: bold inside paragraph" {
-  let block = parse("Hello **world** end\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "Hello **world** end\n",
+  )
   inspect(
     block,
     content="Document([Paragraph([Text(\"Hello \"), Bold([Text(\"world\")]), Text(\" end\")])])",
@@ -177,7 +222,10 @@ test "inline: bold inside paragraph" {
 
 ///|
 test "inline: bold in heading" {
-  let block = parse("# **Bold** title\n")
+  let block = parse(
+    @core.SourceId("markdown-inline-test-document"),
+    "# **Bold** title\n",
+  )
   inspect(
     block,
     content="Document([Heading(1, [Bold([Text(\"Bold\")]), Text(\" title\")])])",
@@ -187,7 +235,7 @@ test "inline: bold in heading" {
 ///|
 test "inline: equal-length code span preserves unequal interior delimiter run" {
   inspect(
-    parse("`a``b`\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "`a``b`\n"),
     content="Document([Paragraph([InlineCode(\"a``b\")])])",
   )
 }
@@ -195,7 +243,10 @@ test "inline: equal-length code span preserves unequal interior delimiter run" {
 ///|
 test "inline: unmatched code-span run preserves following inline syntax" {
   inspect(
-    parse("``unclosed *em* [link](/)\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "``unclosed *em* [link](/)\n",
+    ),
     content=(
       #|Document(
       #|  [
@@ -217,7 +268,10 @@ test "inline: unmatched code-span run preserves following inline syntax" {
 ///|
 test "inline: escaped outer run stays literal before a later code span" {
   inspect(
-    parse("\\`literal `code`\n"),
+    parse(
+      @core.SourceId("markdown-inline-test-document"),
+      "\\`literal `code`\n",
+    ),
     content="Document([Paragraph([Text(\"`literal \"), InlineCode(\"code\")])])",
   )
 }
@@ -225,14 +279,15 @@ test "inline: escaped outer run stays literal before a later code span" {
 ///|
 test "inline: escaped literal backtick joins text in link display" {
   inspect(
-    parse("[\\`literal](/)\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "[\\`literal](/)\n"),
     content="Document([Paragraph([Link([Text(\"`literal\")], \"/\")])])",
   )
 }
 
 ///|
 test "inline: even backslash parity permits a code span" {
-  match parse("\\\\``code``\n") {
+  match
+    parse(@core.SourceId("markdown-inline-test-document"), "\\\\``code``\n") {
     Document([Paragraph([Text(prefix), InlineCode(value)])]) => {
       inspect(prefix, content="\\")
       inspect(value, content="code")
@@ -243,7 +298,7 @@ test "inline: even backslash parity permits a code span" {
 
 ///|
 test "inline: backslash before code-span closer remains raw content" {
-  match parse("`a\\`\n") {
+  match parse(@core.SourceId("markdown-inline-test-document"), "`a\\`\n") {
     Document([Paragraph([InlineCode(value)])]) => inspect(value, content="a\\")
     _ => inspect(false, content="backslash before closer remains code content")
   }
@@ -252,7 +307,7 @@ test "inline: backslash before code-span closer remains raw content" {
 ///|
 test "inline: emphasis delegates maximal code spans to the container index" {
   inspect(
-    parse("*`a``b`*\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "*`a``b`*\n"),
     content="Document([Paragraph([Italic([InlineCode(\"a``b\")])])])",
   )
 }
@@ -260,7 +315,7 @@ test "inline: emphasis delegates maximal code spans to the container index" {
 ///|
 test "inline: link text delegates maximal code spans to the container index" {
   inspect(
-    parse("[`a``b`](/)\n"),
+    parse(@core.SourceId("markdown-inline-test-document"), "[`a``b`](/)\n"),
     content="Document([Paragraph([Link([InlineCode(\"a``b\")], \"/\")])])",
   )
 }

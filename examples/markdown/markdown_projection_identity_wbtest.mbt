@@ -1,9 +1,13 @@
 ///|
 fn parsed_markdown_identity_leaves(
+  source_id : @core.SourceId,
   source : String,
 ) -> Array[MarkdownIdentityLeaf] raise {
-  let (cst, _) = parse_cst(source)
-  let ir = experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
+  let (cst, _) = parse_cst(source_id, source)
+  let ir = experimental_markdown_ir_from_syntax(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+  )
   markdown_ir_identity_leaves(ir)
 }
 
@@ -53,11 +57,12 @@ test "MarkdownIR identity leaves: emit semantic anchors in preorder" {
 
 ///|
 test "MarkdownIR identity leaves: omit unsafe and non-semantic nodes" {
+  let source_id = @core.SourceId("markdown-identity-unsafe-nodes")
   let origin = MarkdownIROrigin(start=0, end=1)
   let ir = MarkdownIR::document(
     [
-      MarkdownIR::raw("?", origin, []),
-      MarkdownIR::recovered(RECOVERED_PARSE_ERROR, origin, []),
+      MarkdownIR::raw(source_id, "?", origin, []),
+      MarkdownIR::recovered(source_id, RECOVERED_PARSE_ERROR, origin, []),
       MarkdownIR::unsupported("unsupported", origin),
       MarkdownIR::block_quote([], origin),
     ],
@@ -134,9 +139,13 @@ test "MarkdownIR identity keys: link label fingerprint retains child boundaries"
 
 ///|
 test "MarkdownIR identity leaves: preserve parsed semantic anchor order" {
+  let source_id = @core.SourceId("markdown-identity-parsed-anchor-order")
   let source = "# [*plain*](u)\n"
-  let (cst, _) = parse_cst(source)
-  let ir = experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
+  let (cst, _) = parse_cst(source_id, source)
+  let ir = experimental_markdown_ir_from_syntax(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+  )
   inspect(
     @debug.to_string(markdown_ir_identity_leaves(ir)),
     content=@debug.to_string([
@@ -162,8 +171,9 @@ test "MarkdownIR identity leaves: preserve parsed semantic anchor order" {
 
 ///|
 test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads" {
+  let source_id = @core.SourceId("markdown-identity-paragraph-list-payloads")
   inspect(
-    @debug.to_string(parsed_markdown_identity_leaves("text\n")),
+    @debug.to_string(parsed_markdown_identity_leaves(source_id, "text\n")),
     content=@debug.to_string([
       MarkdownIdentityLeaf::new(
         MarkdownIROrigin(start=0, end=4),
@@ -176,7 +186,7 @@ test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads
     ]),
   )
   inspect(
-    @debug.to_string(parsed_markdown_identity_leaves("- text\n")),
+    @debug.to_string(parsed_markdown_identity_leaves(source_id, "- text\n")),
     content=@debug.to_string([
       MarkdownIdentityLeaf::new(
         MarkdownIROrigin(start=2, end=6),
@@ -193,7 +203,7 @@ test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads
     ]),
   )
   inspect(
-    @debug.to_string(parsed_markdown_identity_leaves("1. text\n")),
+    @debug.to_string(parsed_markdown_identity_leaves(source_id, "1. text\n")),
     content=@debug.to_string([
       MarkdownIdentityLeaf::new(
         MarkdownIROrigin(start=3, end=7),
@@ -213,8 +223,11 @@ test "MarkdownIR identity leaves: anchor parsed paragraph and list item payloads
 
 ///|
 test "MarkdownIR identity leaves: anchor parsed code payloads" {
+  let source_id = @core.SourceId("markdown-identity-code-payloads")
   inspect(
-    @debug.to_string(parsed_markdown_identity_leaves("```rust\ncode\n```\n")),
+    @debug.to_string(
+      parsed_markdown_identity_leaves(source_id, "```rust\ncode\n```\n"),
+    ),
     content=@debug.to_string([
       MarkdownIdentityLeaf::new(
         MarkdownIROrigin(start=8, end=12),
@@ -223,7 +236,7 @@ test "MarkdownIR identity leaves: anchor parsed code payloads" {
     ]),
   )
   inspect(
-    @debug.to_string(parsed_markdown_identity_leaves("`span`\n")),
+    @debug.to_string(parsed_markdown_identity_leaves(source_id, "`span`\n")),
     content=@debug.to_string([
       MarkdownIdentityLeaf::new(
         MarkdownIROrigin(start=0, end=6),
@@ -238,9 +251,15 @@ test "MarkdownIR identity leaves: anchor parsed code payloads" {
 }
 
 ///|
-fn parsed_markdown_ir(source : String) -> MarkdownIR raise {
-  let (cst, _) = parse_cst(source)
-  experimental_markdown_ir_from_syntax(@seam.SyntaxNode::from_cst(cst))
+fn parsed_markdown_ir(
+  source_id : @core.SourceId,
+  source : String,
+) -> MarkdownIR raise {
+  let (cst, _) = parse_cst(source_id, source)
+  experimental_markdown_ir_from_syntax(
+    source_id,
+    @seam.SyntaxNode::from_cst(cst),
+  )
 }
 
 ///|
@@ -252,6 +271,7 @@ fn stable_markdown_identity_ids(
 
 ///|
 fn successful_identity_transition(
+  source_id : @core.SourceId,
   initial_source : String,
   next_source : String,
   edit : @core.Edit?,
@@ -259,13 +279,13 @@ fn successful_identity_transition(
   let tracker = MarkdownProjectionIdentityTracker::new()
   let initial = tracker.realign_success(
     initial_source,
-    parsed_markdown_ir(initial_source),
+    parsed_markdown_ir(source_id, initial_source),
     None,
   )
   tracker.commit_success(initial_source, initial)
   let next = tracker.realign_success(
     next_source,
-    parsed_markdown_ir(next_source),
+    parsed_markdown_ir(source_id, next_source),
     edit,
   )
   (stable_markdown_identity_ids(initial), stable_markdown_identity_ids(next))
@@ -273,18 +293,19 @@ fn successful_identity_transition(
 
 ///|
 test "MarkdownIR identity tracker: formatting a link label preserves semantic identities" {
+  let source_id = @core.SourceId("markdown-identity-format-link-label")
   let tracker = MarkdownProjectionIdentityTracker::new()
   let plain_source = "[plain](u)\n"
   let plain = tracker.realign_success(
     plain_source,
-    parsed_markdown_ir(plain_source),
+    parsed_markdown_ir(source_id, plain_source),
     None,
   )
   tracker.commit_success(plain_source, plain)
   let formatted_source = "[**plain**](u)\n"
   let formatted = tracker.realign_success(
     formatted_source,
-    parsed_markdown_ir(formatted_source),
+    parsed_markdown_ir(source_id, formatted_source),
     None,
   )
   debug_inspect(
@@ -295,18 +316,19 @@ test "MarkdownIR identity tracker: formatting a link label preserves semantic id
 
 ///|
 test "MarkdownIR identity tracker: changed link label receives a fresh id" {
+  let source_id = @core.SourceId("markdown-identity-changed-link-label")
   let tracker = MarkdownProjectionIdentityTracker::new()
   let plain_source = "[plain](u)\n"
   let plain = tracker.realign_success(
     plain_source,
-    parsed_markdown_ir(plain_source),
+    parsed_markdown_ir(source_id, plain_source),
     None,
   )
   tracker.commit_success(plain_source, plain)
   let changed_source = "[changed](u)\n"
   let changed = tracker.realign_success(
     changed_source,
-    parsed_markdown_ir(changed_source),
+    parsed_markdown_ir(source_id, changed_source),
     None,
   )
   inspect(changed[1].id.value == "markdown#1", content="false")
@@ -314,19 +336,23 @@ test "MarkdownIR identity tracker: changed link label receives a fresh id" {
 
 ///|
 test "MarkdownIR identity tracker: surface rewrites preserve unchanged payload ids" {
+  let source_id = @core.SourceId("markdown-identity-surface-rewrites")
   let (atx, setext) = successful_identity_transition(
+    source_id,
     "# Title\n",
     "Title\n=====\n",
     Some(@core.Edit::new(0, 8, 12)),
   )
   inspect(atx == setext, content="true")
   let (dash, star) = successful_identity_transition(
+    source_id,
     "- item\n",
     "* item\n",
     Some(@core.Edit::new(0, 1, 1)),
   )
   inspect(dash == star, content="true")
   let (backtick, tilde) = successful_identity_transition(
+    source_id,
     "```\ncode\n```\n",
     "~~~\ncode\n~~~\n",
     None,
@@ -337,7 +363,9 @@ test "MarkdownIR identity tracker: surface rewrites preserve unchanged payload i
 
 ///|
 test "MarkdownIR identity tracker: distinct list payloads survive a surface rewrite" {
+  let source_id = @core.SourceId("markdown-identity-distinct-list-payloads")
   let (dash, star) = successful_identity_transition(
+    source_id,
     "- first\n- second\n",
     "* first\n* second\n",
     None,
@@ -347,7 +375,9 @@ test "MarkdownIR identity tracker: distinct list payloads survive a surface rewr
 
 ///|
 test "MarkdownIR identity tracker: sibling reorders reallocate moved payload ids" {
+  let source_id = @core.SourceId("markdown-identity-sibling-reorder")
   let (before, after) = successful_identity_transition(
+    source_id,
     "- first\n- second\n",
     "- second\n- first\n",
     None,
@@ -360,7 +390,9 @@ test "MarkdownIR identity tracker: sibling reorders reallocate moved payload ids
 
 ///|
 test "MarkdownIR identity tracker: duplicate list siblings remain ambiguous" {
+  let source_id = @core.SourceId("markdown-identity-duplicate-siblings")
   let (dash, star) = successful_identity_transition(
+    source_id,
     "- same\n* same\n",
     "* same\n- same\n",
     None,
@@ -405,25 +437,30 @@ test "MarkdownIR identity matching: duplicate payloads remain ambiguous" {
 
 ///|
 test "MarkdownIR identity tracker: semantic changes reset their owner" {
+  let source_id = @core.SourceId("markdown-identity-semantic-changes")
   let (heading, deeper_heading) = successful_identity_transition(
+    source_id,
     "# Title\n",
     "## Title\n",
     Some(@core.Edit::new(1, 0, 1)),
   )
   inspect(heading[0] == deeper_heading[0], content="false")
   let (named_code, other_code) = successful_identity_transition(
+    source_id,
     "```rust\ncode\n```\n",
     "```moonbit\ncode\n```\n",
     None,
   )
   inspect(named_code[0] == other_code[0], content="false")
   let (title, renamed) = successful_identity_transition(
+    source_id,
     "# Title\n",
     "# Renamed\n",
     Some(@core.Edit::new(2, 5, 7)),
   )
   inspect(title[0] == renamed[0], content="false")
   let (link_before, link_after) = successful_identity_transition(
+    source_id,
     "[label](one)\n",
     "[label](two)\n",
     Some(@core.Edit::new(8, 3, 3)),
@@ -434,11 +471,12 @@ test "MarkdownIR identity tracker: semantic changes reset their owner" {
 
 ///|
 test "MarkdownIR identity tracker: failed input retains the last-good baseline" {
+  let source_id = @core.SourceId("markdown-identity-failed-input-baseline")
   let tracker = MarkdownProjectionIdentityTracker::new()
   let source = "# Title\n"
   let initial = tracker.realign_success(
     source,
-    parsed_markdown_ir(source),
+    parsed_markdown_ir(source_id, source),
     None,
   )
   tracker.commit_success(source, initial)
@@ -450,7 +488,7 @@ test "MarkdownIR identity tracker: failed input retains the last-good baseline" 
   )
   let recovered = tracker.realign_success(
     source,
-    parsed_markdown_ir(source),
+    parsed_markdown_ir(source_id, source),
     None,
   )
   inspect(

@@ -12,13 +12,13 @@ import {
 // Values
 pub fn attach_markdown_role_spans(@pipeline.SyntaxParser) -> MarkdownRoleSpansAttachment
 
-pub fn experimental_markdown_ir_canonical_format(MarkdownIR) -> String
+pub fn experimental_markdown_ir_canonical_format(@core.SourceId, MarkdownIR) -> String
 
-pub fn experimental_markdown_ir_canonical_format_checked(MarkdownIR) -> Result[String, MarkdownIRCanonicalFormatFailure]
+pub fn experimental_markdown_ir_canonical_format_checked(@core.SourceId, MarkdownIR) -> Result[String, MarkdownIRCanonicalFormatFailure]
 
-pub fn experimental_markdown_ir_from_syntax(@seam.SyntaxNode) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax(@core.SourceId, @seam.SyntaxNode) -> MarkdownIR
 
-pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
+pub fn experimental_markdown_ir_from_syntax_with_diagnostics(@core.SourceId, @seam.SyntaxNode, @core.DiagnosticSet) -> MarkdownIR
 
 pub fn experimental_markdown_ir_local_transform_rewrite(MarkdownIR, String, target_origin~ : MarkdownIROrigin, replacement_text~ : String) -> String
 
@@ -44,11 +44,11 @@ pub let markdown_mode_lexer : @core.ModeLexer[Token, MarkdownLexMode]
 
 pub let markdown_spec : @core.LanguageSpec[Token, SyntaxKind]
 
-pub fn parse(String) -> Block
+pub fn parse(@core.SourceId, String) -> Block
 
-pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError
 
-pub fn parse_markdown(String) -> (Block, @core.DiagnosticSet) raise @core.LexError
+pub fn parse_markdown(@core.SourceId, String) -> (Block, @core.DiagnosticSet) raise @core.LexError
 
 pub fn project_markdown_roles(@seam.SyntaxNode) -> Array[MarkdownRoleSpan]
 

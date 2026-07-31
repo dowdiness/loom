@@ -1,16 +1,18 @@
 ///|
 test "incremental delimiter edit uses block reparse and matches fresh projections" {
+  let source_id = @core.SourceId("markdown-delimiter-incremental-opener-change")
   let source = "Before *alpha* after\n\nTail paragraph\n"
   let updated = "Before _alpha* after\n\nTail paragraph\n"
   let edit = @core.Edit::new("Before ".length(), 1, 1)
   assert_delimiter_incremental_projection_parity(
-    "markdown emphasis opener changes from asterisk to underscore", source, edit,
-    updated, "<p>Before _alpha* after</p>\n<p>Tail paragraph</p>\n",
+    source_id, "markdown emphasis opener changes from asterisk to underscore", source,
+    edit, updated, "<p>Before _alpha* after</p>\n<p>Tail paragraph</p>\n",
   )
 }
 
 ///|
 fn assert_delimiter_incremental_projection_parity(
+  source_id : @core.SourceId,
   label : String,
   source : String,
   edit : @core.Edit,
@@ -18,12 +20,12 @@ fn assert_delimiter_incremental_projection_parity(
   expected_html : String,
 ) -> Unit raise {
   let reuse_count = markdown_incremental_edit_reuse_count(
-    label, source, edit, updated,
+    source_id, label, source, edit, updated,
   )
 
-  let incremental = @loom.new_parser(source, markdown_grammar)
+  let incremental = @loom.new_parser(source_id, source, markdown_grammar)
   incremental.apply_edit(edit, updated)
-  let fresh = @loom.new_parser(updated, markdown_grammar)
+  let fresh = @loom.new_parser(source_id, updated, markdown_grammar)
   let incremental_syntax = incremental.syntax_tree().read_or_abort()
   let fresh_syntax = fresh.syntax_tree().read_or_abort()
   let incremental_diagnostics = incremental.diagnostics().read_or_abort()
@@ -31,10 +33,10 @@ fn assert_delimiter_incremental_projection_parity(
   let incremental_block = incremental.ast().read_or_abort()
   let fresh_block = fresh.ast().read_or_abort()
   let incremental_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    incremental_syntax, incremental_diagnostics,
+    source_id, incremental_syntax, incremental_diagnostics,
   )
   let fresh_ir = experimental_markdown_ir_from_syntax_with_diagnostics(
-    fresh_syntax, fresh_diagnostics,
+    source_id, fresh_syntax, fresh_diagnostics,
   )
   let incremental_roles = project_markdown_roles(incremental_syntax)
   let fresh_roles = project_markdown_roles(fresh_syntax)
@@ -68,6 +70,7 @@ fn assert_delimiter_incremental_projection_parity(
   }
 
   let role_parser = @loom.new_syntax_parser(
+    source_id,
     source,
     markdown_grammar.to_syntax_grammar(),
   )
@@ -85,6 +88,9 @@ fn assert_delimiter_incremental_projection_parity(
 
 ///|
 test "incremental delimiter run-length and flanking edits match fresh projections" {
+  let source_id = @core.SourceId(
+    "markdown-delimiter-incremental-flanking-matrix",
+  )
   let cases : Array[(String, String, @core.Edit, String, String)] = [
     (
       "markdown partial triple opener becomes a strong opener",
@@ -111,13 +117,16 @@ test "incremental delimiter run-length and flanking edits match fresh projection
   for case in cases {
     let (label, source, edit, updated, expected_html) = case
     assert_delimiter_incremental_projection_parity(
-      label, source, edit, updated, expected_html,
+      source_id, label, source, edit, updated, expected_html,
     )
   }
 }
 
 ///|
 test "incremental delimiter semantic-boundary edits match fresh projections" {
+  let source_id = @core.SourceId(
+    "markdown-delimiter-incremental-boundary-matrix",
+  )
   let cases : Array[(String, String, @core.Edit, String, String)] = [
     (
       "markdown rule-of-three middle run gains a marker",
@@ -158,7 +167,7 @@ test "incremental delimiter semantic-boundary edits match fresh projections" {
   for case in cases {
     let (label, source, edit, updated, expected_html) = case
     assert_delimiter_incremental_projection_parity(
-      label, source, edit, updated, expected_html,
+      source_id, label, source, edit, updated, expected_html,
     )
   }
 }
