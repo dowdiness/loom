@@ -178,7 +178,10 @@ test "unparse picks a safe quote for attribute strings" {
   // Codex post-implementation-review case: re-quoting with `"` unescaped
   // breaks a parsed single-quoted value containing a double quote.
   let source = "<div a='x\"y'/>"
-  let result = parse_ast(source) catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-projection-safe-attribute-quote")
+  let result = parse_ast(source_id, source) catch {
+    _ => return fail("lex error")
+  }
   let (ast, _diagnostics) = result
   inspect(@core.Renderable::unparse(ast), content="<div a='x\"y'/>")
   // Both quote kinds present: double-quote and backslash-escape the
@@ -206,7 +209,10 @@ test "label truncation preserves surrogate pairs" {
 ///|
 test "unparse round-trips a parsed fixture" {
   let source = "<div class=\"foo\"><p>hi{x}</p></div>"
-  let result = parse_ast(source) catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-projection-round-trip")
+  let result = parse_ast(source_id, source) catch {
+    _ => return fail("lex error")
+  }
   let (ast, _diagnostics) = result
   inspect(@core.Renderable::unparse(ast), content=source)
   inspect(

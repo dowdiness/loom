@@ -106,8 +106,9 @@ pub let jsx_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, JsxNode] =
 
 ///|
 pub fn parse_ast(
+  source_id : @core.SourceId,
   source : String,
 ) -> (JsxNode, @core.DiagnosticSet) raise @core.LexError {
-  let (cst, diagnostics) = jsx_grammar.parse_cst(source)
+  let (cst, diagnostics) = jsx_grammar.parse_cst(source_id, source)
   (jsx_fold(@seam.SyntaxNode::from_cst(cst)), diagnostics)
 }

@@ -35,46 +35,56 @@ pub let html_grammar : @loom.Grammar[@token.Token, @syntax.SyntaxKind, Unit]
 
 // ── Parsing ────────────────────────────────────────────────────────────────────
 
-pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
+pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── Lexing ─────────────────────────────────────────────────────────────────────
 
-pub fn lex(String) -> @core.LexResult[@token.Token]
+pub fn lex(@core.SourceId, String) -> @core.LexResult[@token.Token]
 ```
 
 Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
+
+`SourceId` is a stable identity supplied by the caller for the logical source.
+It is separate from both source text and diagnostic-producer identity.
 
 ## Quick Start
 
 ```mbt check
 ///|
 test "parse a simple HTML document" {
-  let (tree, _) = html_grammar.parse_cst("<p>hello</p>")
+  let source_id = @core.SourceId("html-readme-simple-document")
+  let (tree, _) = parse_cst(source_id, "<p>hello</p>")
   inspect(@syntax.SyntaxKind::from_raw(tree.kind()), content="RootNode")
 }
 
 ///|
 test "parse nested elements with diagnostics" {
-  let (_, diagnostics) = html_grammar.parse_cst("<ul><li>a</li><li>b</li></ul>")
+  let source_id = @core.SourceId("html-readme-nested-elements")
+  let (_, diagnostics) = html_grammar.parse_cst(
+    source_id, "<ul><li>a</li><li>b</li></ul>",
+  )
   inspect(diagnostics.length(), content="0")
 }
 
 ///|
 test "parse void element" {
-  let (_, diagnostics) = html_grammar.parse_cst("<br>")
+  let source_id = @core.SourceId("html-readme-void-element")
+  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<br>")
   inspect(diagnostics.length(), content="0")
 }
 
 ///|
 test "report mismatched close tag" {
-  let (_, diagnostics) = html_grammar.parse_cst("<div></span>")
+  let source_id = @core.SourceId("html-readme-mismatched-close")
+  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<div></span>")
   inspect(diagnostics.length() >= 1, content="true")
 }
 
 ///|
 test "report unclosed element" {
-  let (_, diagnostics) = html_grammar.parse_cst("<div><p>text")
+  let source_id = @core.SourceId("html-readme-unclosed-element")
+  let (_, diagnostics) = html_grammar.parse_cst(source_id, "<div><p>text")
   inspect(diagnostics.length() >= 1, content="true")
 }
 ```

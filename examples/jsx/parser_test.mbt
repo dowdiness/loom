@@ -31,7 +31,10 @@ fn dump_element(elem : @seam.CstElement) -> String? {
 
 ///|
 test "parse simple element" {
-  let result = parse_cst("<div></div>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-simple-element")
+  let result = parse_cst(source_id, "<div></div>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   inspect(
@@ -44,7 +47,8 @@ test "parse simple element" {
 
 ///|
 test "parse nested elements" {
-  let result = parse_cst("<div><span>hi</span></div>") catch {
+  let source_id = @core.SourceId("jsx-parser-nested-elements")
+  let result = parse_cst(source_id, "<div><span>hi</span></div>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -59,7 +63,8 @@ test "parse nested elements" {
 
 ///|
 test "parse fragment" {
-  let result = parse_cst("<><p>x</p></>") catch {
+  let source_id = @core.SourceId("jsx-parser-fragment")
+  let result = parse_cst(source_id, "<><p>x</p></>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -74,7 +79,10 @@ test "parse fragment" {
 
 ///|
 test "parse self-closing tag" {
-  let result = parse_cst("<br/>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-self-closing-tag")
+  let result = parse_cst(source_id, "<br/>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   inspect(
@@ -87,7 +95,8 @@ test "parse self-closing tag" {
 
 ///|
 test "parse attribute with string value" {
-  let result = parse_cst("<div class=\"foo\"></div>") catch {
+  let source_id = @core.SourceId("jsx-parser-string-attribute")
+  let result = parse_cst(source_id, "<div class=\"foo\"></div>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -102,7 +111,8 @@ test "parse attribute with string value" {
 
 ///|
 test "parse attribute with expression value" {
-  let result = parse_cst("<div id={x}/>") catch {
+  let source_id = @core.SourceId("jsx-parser-expression-attribute")
+  let result = parse_cst(source_id, "<div id={x}/>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -117,7 +127,10 @@ test "parse attribute with expression value" {
 
 ///|
 test "parse text child" {
-  let result = parse_cst("<p>hello</p>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-text-child")
+  let result = parse_cst(source_id, "<p>hello</p>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   inspect(
@@ -130,7 +143,10 @@ test "parse text child" {
 
 ///|
 test "parse expression child" {
-  let result = parse_cst("<p>{x}</p>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-expression-child")
+  let result = parse_cst(source_id, "<p>{x}</p>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   inspect(
@@ -143,7 +159,8 @@ test "parse expression child" {
 
 ///|
 test "attribute expression exit resumes tag body" {
-  let result = parse_cst("<div a={f()} b=\"c\"></div>") catch {
+  let source_id = @core.SourceId("jsx-parser-attribute-expression-resume")
+  let result = parse_cst(source_id, "<div a={f()} b=\"c\"></div>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
@@ -158,7 +175,10 @@ test "attribute expression exit resumes tag body" {
 
 ///|
 test "stray closing brace in children is literal text" {
-  let result = parse_cst("<p>}x</p>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-stray-closing-brace")
+  let result = parse_cst(source_id, "<p>}x</p>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(diagnostics.length(), content="0")
   inspect(
@@ -171,12 +191,13 @@ test "stray closing brace in children is literal text" {
 
 ///|
 test "unclosed element keeps already-parsed children" {
-  let result = parse_cst("<div><span>text") catch {
+  let source_id = @core.SourceId("jsx-parser-unclosed-element-children")
+  let result = parse_cst(source_id, "<div><span>text") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unclosed JSX element: <span> | Unclosed JSX element: <div>
     ),
@@ -191,10 +212,13 @@ test "unclosed element keeps already-parsed children" {
 
 ///|
 test "truncated tag mid tag name" {
-  let result = parse_cst("<di") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-truncated-tag-name")
+  let result = parse_cst(source_id, "<di") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Truncated tag: <di>
     ),
@@ -209,10 +233,13 @@ test "truncated tag mid tag name" {
 
 ///|
 test "truncated tag after attribute name" {
-  let result = parse_cst("<div cla") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-truncated-attribute-name")
+  let result = parse_cst(source_id, "<div cla") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Truncated tag: <div>
     ),
@@ -227,12 +254,13 @@ test "truncated tag after attribute name" {
 
 ///|
 test "truncated quoted attribute value" {
-  let result = parse_cst("<div class=\"foo") catch {
+  let source_id = @core.SourceId("jsx-parser-truncated-attribute-string")
+  let result = parse_cst(source_id, "<div class=\"foo") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unterminated attribute string literal | Truncated tag: <div>
     ),
@@ -247,10 +275,13 @@ test "truncated quoted attribute value" {
 
 ///|
 test "truncated expression missing closing brace" {
-  let result = parse_cst("<p>{foo.bar(") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-truncated-expression")
+  let result = parse_cst(source_id, "<p>{foo.bar(") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unclosed expression: missing '}' | Unclosed JSX element: <p>
     ),
@@ -265,10 +296,13 @@ test "truncated expression missing closing brace" {
 
 ///|
 test "truncated expression inside string emits both diagnostics" {
-  let result = parse_cst("<p>{\"x") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-truncated-expression-string")
+  let result = parse_cst(source_id, "<p>{\"x") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unterminated string literal in expression | Unclosed expression: missing '}' | Unclosed JSX element: <p>
     ),
@@ -283,10 +317,13 @@ test "truncated expression inside string emits both diagnostics" {
 
 ///|
 test "expression string truncated at trailing backslash" {
-  let result = parse_cst("<p>{\"x\\") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-expression-trailing-backslash")
+  let result = parse_cst(source_id, "<p>{\"x\\") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unterminated string literal in expression | Unclosed expression: missing '}' | Unclosed JSX element: <p>
     ),
@@ -301,12 +338,13 @@ test "expression string truncated at trailing backslash" {
 
 ///|
 test "mismatched close tag unwinds to matching ancestor" {
-  let result = parse_cst("<div><span></div>") catch {
+  let source_id = @core.SourceId("jsx-parser-mismatched-close-source")
+  let result = parse_cst(source_id, "<div><span></div>") catch {
     _ => return fail("lex error")
   }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Mismatched close tag: expected </span>, got </div>
     ),
@@ -317,14 +355,35 @@ test "mismatched close tag unwinds to matching ancestor" {
       #|(RootNode (ElementNode "<" "div" ">" (ElementNode "<" "span" ">" ERR:"") "<" "/" "div" ">"))
     ),
   )
+  let items = diagnostics.items()
+  guard items.any(diagnostic => {
+    diagnostic.labels().any(label => label.style() is @core.LabelStyle::Primary)
+  }) else {
+    fail("expected malformed JSX diagnostics to include a primary label")
+  }
+  guard items.all(diagnostic => {
+    diagnostic
+    .labels()
+    .all(label => {
+      !(label.style() is @core.LabelStyle::Primary) ||
+      label.span().source_id() == source_id
+    })
+  }) else {
+    fail(
+      "expected every primary JSX parser label to retain the caller source id",
+    )
+  }
 }
 
 ///|
 test "stray close tag at root" {
-  let result = parse_cst("</span>") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-stray-close-tag")
+  let result = parse_cst(source_id, "</span>") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unexpected close tag
     ),
@@ -339,10 +398,11 @@ test "stray close tag at root" {
 
 ///|
 test "empty input" {
-  let result = parse_cst("") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-empty-input")
+  let result = parse_cst(source_id, "") catch { _ => return fail("lex error") }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Empty JSX input
     ),
@@ -361,7 +421,10 @@ test "error-limit circuit breaker terminates on pathological input" {
   // MAX_ERRORS; the breaker must degrade to error tokens and terminate,
   // never spin. The assertion is completion plus the error volume.
   let source = "</x>".repeat(51) + "<div></div>"
-  let result = parse_cst(source) catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-error-limit")
+  let result = parse_cst(source_id, source) catch {
+    _ => return fail("lex error")
+  }
   let (_, diagnostics) = result
   inspect(diagnostics.length() >= 50, content="true")
 }
@@ -371,23 +434,29 @@ test "depth-limit circuit breaker terminates on deep nesting" {
   // Codex post-implementation-review case: nesting beyond MAX_DEPTH must
   // diagnose and keep making progress to EOF, never spin.
   let source = "<a>".repeat(520)
-  let result = parse_cst(source) catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-depth-limit")
+  let result = parse_cst(source_id, source) catch {
+    _ => return fail("lex error")
+  }
   let (_, diagnostics) = result
   inspect(
     diagnostics
     .items()
     .iter()
-    .any(d => d.message == "Maximum JSX nesting depth exceeded"),
+    .any(d => d.message() == "Maximum JSX nesting depth exceeded"),
     content="true",
   )
 }
 
 ///|
 test "unclosed fragment keeps children" {
-  let result = parse_cst("<>text") catch { _ => return fail("lex error") }
+  let source_id = @core.SourceId("jsx-parser-unclosed-fragment")
+  let result = parse_cst(source_id, "<>text") catch {
+    _ => return fail("lex error")
+  }
   let (tree, diagnostics) = result
   inspect(
-    diagnostics.items().map(d => d.message).join(" | "),
+    diagnostics.items().map(d => d.message()).join(" | "),
     content=(
       #|Unclosed JSX fragment
     ),
