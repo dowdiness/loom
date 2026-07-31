@@ -244,6 +244,7 @@ fn MarkdownIR::unsupported(
 
 ///|
 fn MarkdownIR::raw(
+  source_id : @core.SourceId,
   value : String,
   origin : MarkdownIROrigin,
   diagnostics : Array[@core.Diagnostic],
@@ -251,7 +252,9 @@ fn MarkdownIR::raw(
   {
     node: Raw(
       value,
-      recovery_diagnostics("raw recovered Markdown", origin, diagnostics),
+      recovery_diagnostics(
+        source_id, "raw recovered Markdown", origin, diagnostics,
+      ),
     ),
     origin,
   }
@@ -259,6 +262,7 @@ fn MarkdownIR::raw(
 
 ///|
 fn MarkdownIR::recovered(
+  source_id : @core.SourceId,
   message : String,
   origin : MarkdownIROrigin,
   diagnostics : Array[@core.Diagnostic],
@@ -267,6 +271,7 @@ fn MarkdownIR::recovered(
     node: Recovered(
       message,
       recovery_diagnostics(
+        source_id,
         "recovered malformed Markdown: " + message,
         origin,
         diagnostics,
@@ -435,27 +440,29 @@ pub fn MarkdownIR::diagnostics(self : MarkdownIR) -> Array[@core.Diagnostic] {
 
 ///|
 fn recovery_diagnostic(
+  source_id : @core.SourceId,
   message : String,
   origin : MarkdownIROrigin,
 ) -> @core.Diagnostic {
-  let primary = try
-    @core.TextRange::from_offsets(origin.start(), origin.end())
-  catch {
-    _ => None
-  } noraise {
-    range => Some(range)
-  }
+  let range = try! @core.TextRange::from_offsets(origin.start(), origin.end())
   @core.Diagnostic::Diagnostic(
     source=@core.DiagnosticSource::parser(),
     severity=@core.DiagnosticSeverity::all()[0],
     code=Some(@core.DiagnosticCode("markdown-ir.recovery")),
     message~,
-    primary~,
+    labels=[
+      @core.DiagnosticLabel::DiagnosticLabel(
+        @core.LabelStyle::Primary,
+        @core.SourceSpan::SourceSpan(source_id, range),
+        None,
+      ),
+    ],
   )
 }
 
 ///|
 fn recovery_diagnostics(
+  source_id : @core.SourceId,
   message : String,
   origin : MarkdownIROrigin,
   diagnostics : Array[@core.Diagnostic],
@@ -463,7 +470,7 @@ fn recovery_diagnostics(
   if diagnostics.length() > 0 {
     diagnostics.copy()
   } else {
-    [recovery_diagnostic(message, origin)]
+    [recovery_diagnostic(source_id, message, origin)]
   }
 }
 

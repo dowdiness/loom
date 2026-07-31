@@ -202,13 +202,18 @@ fn canonical_format_with_list_marker(
 }
 
 ///|
-pub fn experimental_markdown_ir_canonical_format(ir : MarkdownIR) -> String {
+pub fn experimental_markdown_ir_canonical_format(
+  source_id : @core.SourceId,
+  ir : MarkdownIR,
+) -> String {
   match ir.node {
     Document(_) =>
       match markdown_ir_first_canonical_opaque(ir) {
         Some(_) => canonical_format_with_list_marker(ir, Dash)
         None =>
-          match experimental_markdown_ir_canonical_format_checked(ir) {
+          match experimental_markdown_ir_canonical_format_checked(
+            source_id, ir,
+          ) {
             Ok(markdown) => markdown
             Err(failure) =>
               abort(

@@ -132,6 +132,7 @@ priv enum EscapedInlineRecoveryState {
 /// `source` is reconstructed once at the public boundary so nested inline
 /// recovery normalization never walks and joins the entire syntax root again.
 priv struct MarkdownIRLoweringContext {
+  source_id : @core.SourceId
   source : String
   diagnostics_in_origin : (MarkdownIROrigin) -> Array[@core.Diagnostic]
 }
@@ -327,6 +328,7 @@ fn lower_inline_children_skip_with_diags(
             let origin = origin_from_token(token)
             push_child(
               MarkdownIR::raw(
+                context.source_id,
                 token.text(),
                 origin,
                 (context.diagnostics_in_origin)(origin),
@@ -415,6 +417,7 @@ fn lower_direct_inline_token_with_diags(
       let origin = origin_from_token(token)
       Some(
         MarkdownIR::raw(
+          context.source_id,
           token.text(),
           origin,
           (context.diagnostics_in_origin)(origin),
@@ -781,6 +784,7 @@ fn lower_link_node_with_diags(
             let origin = origin_from_token(token)
             display.push(
               MarkdownIR::raw(
+                context.source_id,
                 token.text(),
                 origin,
                 (context.diagnostics_in_origin)(origin),
@@ -901,6 +905,7 @@ fn lower_inline_node_with_diags(
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
+        context.source_id,
         node.text(),
         origin,
         (context.diagnostics_in_origin)(origin),
@@ -1035,6 +1040,7 @@ fn lower_container_child_with_diags(
       let origin = origin_from_node(child)
       Some(
         MarkdownIR::recovered(
+          context.source_id,
           RECOVERED_PARSE_ERROR,
           origin,
           (context.diagnostics_in_origin)(origin),
@@ -1732,6 +1738,7 @@ fn experimental_markdown_ir_fold_node_with_diags(
     ErrorNode => {
       let origin = origin_from_node(node)
       MarkdownIR::recovered(
+        context.source_id,
         RECOVERED_PARSE_ERROR,
         origin,
         (context.diagnostics_in_origin)(origin),
@@ -1757,26 +1764,31 @@ fn experimental_markdown_ir_fold_node(
 ///|
 fn diagnostic_primary_overlaps_origin(
   diagnostic : @core.Diagnostic,
+  source_id : @core.SourceId,
   origin : MarkdownIROrigin,
 ) -> Bool {
-  match diagnostic.primary {
-    Some(range) =>
-      @core.Range::new(range.start().value(), range.end().value()).overlaps(
-        @core.Range::new(origin.start(), origin.end()),
-      )
-    None => false
-  }
+  diagnostic.labels().any(label => {
+    let span = label.span()
+    label.style() == @core.LabelStyle::Primary &&
+    span.source_id() == source_id &&
+    @core.Range::new(
+      span.range().start().value(), span.range().end().value(),
+    ).overlaps(@core.Range::new(origin.start(), origin.end()))
+  })
 }
 
 ///|
 fn diagnostics_in_origin(
+  source_id : @core.SourceId,
   diagnostics : @core.DiagnosticSet,
   origin : MarkdownIROrigin,
 ) -> Array[@core.Diagnostic] {
   diagnostics
   .items()
   .iter()
-  .filter(diagnostic => diagnostic_primary_overlaps_origin(diagnostic, origin))
+  .filter(diagnostic =>
+    diagnostic_primary_overlaps_origin(diagnostic, source_id, origin)
+  )
   .collect()
 }
 
@@ -1789,9 +1801,11 @@ fn diagnostics_in_origin(
 /// would return stale origins after position-shifting edits. See
 /// `docs/decisions/2026-06-16-markdown-ir-performance-policy.md`.
 pub fn experimental_markdown_ir_from_syntax(
+  source_id : @core.SourceId,
   root : @seam.SyntaxNode,
 ) -> MarkdownIR {
   let context : MarkdownIRLoweringContext = {
+    source_id,
     source: syntax_root(root).text(),
     diagnostics_in_origin: _ => [],
   }
@@ -1803,12 +1817,15 @@ pub fn experimental_markdown_ir_from_syntax(
 
 ///|
 pub fn experimental_markdown_ir_from_syntax_with_diagnostics(
+  source_id : @core.SourceId,
   root : @seam.SyntaxNode,
   diagnostics : @core.DiagnosticSet,
 ) -> MarkdownIR {
   let context : MarkdownIRLoweringContext = {
+    source_id,
     source: syntax_root(root).text(),
-    diagnostics_in_origin: origin => diagnostics_in_origin(diagnostics, origin),
+    diagnostics_in_origin: origin =>
+      diagnostics_in_origin(source_id, diagnostics, origin),
   }
   fn lower(node : @seam.SyntaxNode) -> MarkdownIR {
     experimental_markdown_ir_fold_node_with_diags(node, lower, context)

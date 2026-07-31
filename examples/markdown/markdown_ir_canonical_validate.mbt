@@ -80,11 +80,15 @@ fn MarkdownIRCanonicalFormatAttempt::into_result(
 
 ///|
 fn markdown_ir_canonical_candidate_matches(
+  source_id : @core.SourceId,
   expected : MarkdownIRCanonicalSemantic,
   markdown : String,
 ) -> Bool {
-  let (cst, diagnostics) = parse_cst(markdown) catch { _ => return false }
+  let (cst, diagnostics) = parse_cst(source_id, markdown) catch {
+    _ => return false
+  }
   let reparsed = experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
@@ -96,6 +100,7 @@ fn markdown_ir_canonical_candidate_matches(
 
 ///|
 fn markdown_ir_canonical_format_attempt(
+  source_id : @core.SourceId,
   ir : MarkdownIR,
   limits : MarkdownIRCanonicalFormatLimits,
 ) -> MarkdownIRCanonicalFormatAttempt {
@@ -147,6 +152,7 @@ fn markdown_ir_canonical_format_attempt(
           }
           reparses = reparses + 1
           if markdown_ir_canonical_candidate_matches(
+              source_id,
               expected,
               candidate.markdown,
             ) {
@@ -181,9 +187,11 @@ fn markdown_ir_canonical_format_attempt(
 /// semantics. Non-document roots, opaque nodes, unrepresentable trees, and
 /// bounded-search exhaustion return structured failures.
 pub fn experimental_markdown_ir_canonical_format_checked(
+  source_id : @core.SourceId,
   ir : MarkdownIR,
 ) -> Result[String, MarkdownIRCanonicalFormatFailure] {
   markdown_ir_canonical_format_attempt(
+    source_id,
     ir,
     markdown_ir_canonical_default_limits(),
   ).into_result()

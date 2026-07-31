@@ -350,19 +350,8 @@ fn markdown_tokens_safe_for_block_reparse(
 }
 
 ///|
-fn first_token_text(text : String) -> String? {
-  let lex = lex_for_grammar(text)
-  match (lex.tokens, lex.starts) {
-    ([first, ..], [start, ..]) => {
-      let end = start + first.len
-      if start < 0 || end < start || end > text.length() {
-        None
-      } else {
-        Some(text[start:end].to_owned())
-      }
-    }
-    _ => None
-  }
+fn first_token_text(node : @seam.SyntaxNode) -> String? {
+  node.first_token().map(token => token.text())
 }
 
 ///|
@@ -404,7 +393,7 @@ fn marker_block_reparser(
   is_marker : (Token) -> Bool,
   parse_block : (@core.ParserContext[Token, SyntaxKind]) -> Unit,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  first_token_text(node.text()).map(marker_text => {
+  first_token_text(node).map(marker_text => {
     ctx => {
       parse_marker_block_if_unchanged(ctx, marker_text, is_marker, parse_block)
     }
@@ -520,7 +509,7 @@ fn parse_unordered_list_if_unchanged(
 fn unordered_list_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  guard first_token_text(node.text()) is Some(marker_text) else { return None }
+  guard first_token_text(node) is Some(marker_text) else { return None }
   guard unordered_list_marker_from_text(marker_text) is Some(marker) else {
     return None
   }
