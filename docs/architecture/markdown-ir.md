@@ -191,6 +191,17 @@ fixtures.
 - Raw HTML, unsupported extensions, and malformed regions use explicit raw or
   recovered nodes with origins and diagnostics. They must not be represented as
   token arrays attached to otherwise semantic nodes.
+- Valid raw HTML uses distinct `HtmlBlock` and `InlineHtml` semantic nodes.
+  Malformed recovery `Raw` remains a separate opaque node. HTML adapters require
+  an explicit raw-HTML policy: product-facing output defaults to `Escape`, while
+  the CommonMark conformance harness explicitly selects `Passthrough`.
+- Soft breaks, hard breaks, URI/email autolinks, links, and images remain typed
+  semantic distinctions. Hard breaks retain a typed trailing-space or backslash
+  surface; reference links/images retain inline/full/collapsed/shortcut form.
+- Link-reference definitions are recognized as block CST nodes, collected in a
+  first document-lowering pass with normalized first-definition-wins semantics,
+  then consumed from an immutable table by inline lowering. Target adapters do
+  not perform reference lookup.
 
 ### Surface-metadata invariants
 
