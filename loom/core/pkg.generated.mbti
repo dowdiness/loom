@@ -48,6 +48,16 @@ pub(all) suberror DiagnosticBuildError {
   InvalidTextRange(Int, Int)
 } derive(@debug.Debug)
 
+pub suberror DiagnosticFixError {
+  EmptyDiagnosticFix
+  MultiSourceDiagnosticFix(SourceId, SourceId)
+  OverlappingDiagnosticFixEdits(SourceSpan, SourceSpan)
+  DuplicateDiagnosticFixInsertion(SourceSpan, SourceSpan)
+  DiagnosticFixSourceMismatch(SourceId, SourceId)
+  DiagnosticFixRangeOutOfBounds(SourceSpan, Int)
+  DiagnosticFixInvalidUtf16Boundary(SourceSpan)
+} derive(Eq, @debug.Debug)
+
 pub suberror DiagnosticRenderError {
   MissingSource(SourceId)
   MismatchedLineIndex(SourceId)
@@ -84,8 +94,9 @@ type CursorFrame
 pub struct Diagnostic {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, labels? : Array[DiagnosticLabel], notes? : Array[String], token? : TokenEvidence?) -> Self
+pub fn Diagnostic::Diagnostic(source~ : DiagnosticSource, severity~ : DiagnosticSeverity, message~ : String, code? : DiagnosticCode?, labels? : Array[DiagnosticLabel], notes? : Array[String], fixes? : Array[DiagnosticFix], token? : TokenEvidence?) -> Self
 pub fn Diagnostic::code(Self) -> DiagnosticCode?
+pub fn Diagnostic::fixes(Self) -> Array[DiagnosticFix]
 pub fn Diagnostic::format(Self) -> String
 pub fn Diagnostic::format_with_line_col(Self, LineIndex) -> String
 pub fn Diagnostic::labels(Self) -> Array[DiagnosticLabel]
@@ -105,6 +116,15 @@ pub struct DiagnosticCode {
 } derive(Eq, Hash, @debug.Debug)
 pub fn DiagnosticCode::DiagnosticCode(String) -> Self
 pub fn DiagnosticCode::value(Self) -> String
+
+pub struct DiagnosticFix {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticFix::DiagnosticFix(String, FixApplicability, Array[TextReplacement]) -> Self raise DiagnosticFixError
+pub fn DiagnosticFix::applicability(Self) -> FixApplicability
+pub fn DiagnosticFix::apply(Self, SourceId, String) -> String raise DiagnosticFixError
+pub fn DiagnosticFix::edits(Self) -> Array[TextReplacement]
+pub fn DiagnosticFix::title(Self) -> String
 
 pub struct DiagnosticLabel {
   // private fields
@@ -173,6 +193,11 @@ pub fn Edit::overlaps_range(Self, Int, Int) -> Bool
 pub fn Edit::replace(Int, Int, Int) -> Self
 pub fn Edit::to_string(Self) -> String
 pub impl Editable for Edit
+
+pub(all) enum FixApplicability {
+  Always
+  MaybeIncorrect
+} derive(Eq, @debug.Debug)
 
 pub struct FoldStats {
   mut reused : Int
@@ -464,6 +489,13 @@ pub fn TextRange::from_offsets(Int, Int) -> Self raise DiagnosticBuildError
 pub fn TextRange::length(Self) -> Int
 pub fn TextRange::offset_by(Self, Int, TextOffset) -> Self raise DiagnosticBuildError
 pub fn TextRange::start(Self) -> TextOffset
+
+pub struct TextReplacement {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TextReplacement::TextReplacement(SourceSpan, String) -> Self
+pub fn TextReplacement::replacement(Self) -> String
+pub fn TextReplacement::span(Self) -> SourceSpan
 
 pub struct TokenBuffer[T] {
   mut source : String

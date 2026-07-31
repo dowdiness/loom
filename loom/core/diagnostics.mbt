@@ -597,6 +597,7 @@ pub struct Diagnostic {
   priv message : String
   priv labels : Array[DiagnosticLabel]
   priv notes : Array[String]
+  priv fixes : Array[DiagnosticFix]
   priv token : TokenEvidence?
 } derive(Eq, Debug)
 
@@ -608,6 +609,7 @@ pub fn Diagnostic::Diagnostic(
   code? : DiagnosticCode? = None,
   labels? : Array[DiagnosticLabel] = [],
   notes? : Array[String] = [],
+  fixes? : Array[DiagnosticFix] = [],
   token? : TokenEvidence? = None,
 ) -> Diagnostic {
   {
@@ -617,6 +619,7 @@ pub fn Diagnostic::Diagnostic(
     message,
     labels: labels.copy(),
     notes: notes.copy(),
+    fixes: fixes.copy(),
     token,
   }
 }
@@ -649,6 +652,11 @@ pub fn Diagnostic::labels(self : Diagnostic) -> Array[DiagnosticLabel] {
 ///|
 pub fn Diagnostic::notes(self : Diagnostic) -> Array[String] {
   self.notes.copy()
+}
+
+///|
+pub fn Diagnostic::fixes(self : Diagnostic) -> Array[DiagnosticFix] {
+  self.fixes.copy()
 }
 
 ///|
@@ -793,6 +801,7 @@ pub fn Diagnostic::offset_by(
     message=self.message,
     labels~,
     notes=self.notes,
+    fixes=self.fixes,
     token~,
   )
 }
@@ -809,7 +818,8 @@ fn parser_diagnostic_same_key(a : Diagnostic, b : Diagnostic) -> Bool {
   a.severity == b.severity &&
   a.code == b.code &&
   a.message == b.message &&
-  a.labels == b.labels
+  a.labels == b.labels &&
+  a.fixes == b.fixes
 }
 
 ///|
