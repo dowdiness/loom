@@ -433,7 +433,7 @@ fn parse_list_item_if_unchanged(
 fn list_item_reparser(
   node : @seam.SyntaxNode,
 ) -> ((@core.ParserContext[Token, SyntaxKind]) -> Unit)? {
-  first_unordered_list_marker(node.text()).map(marker => {
+  first_unordered_list_marker(node).map(marker => {
     ctx => parse_list_item_if_unchanged(ctx, marker)
   })
 }
