@@ -46,7 +46,7 @@ test "finish_node: double close does not abort" {
 
 ///|
 test "parse_with: unclosed node is auto-closed with diagnostic" {
-  let (tree, errors) = parse_with(SourceId("parser-context-source"), "1", test_spec, test_tokenize, fn(ctx) {
+  let (tree, errors) = parse_with(SourceId("parser-context-source"), "1", test_spec, test_tokenize, ctx => {
     ctx.start_node(KExpr)
     ctx.emit_token(KNum)
   })
@@ -302,7 +302,7 @@ test "checkpoint/restore: speculative parse picks successful branch" {
 
 ///|
 test "emit_token: EOF placeholder is emitted after trailing trivia" {
-  let (tree, _) = parse_with(SourceId("parser-context-source"), "   ", test_spec, test_tokenize, fn(ctx) {
+  let (tree, _) = parse_with(SourceId("parser-context-source"), "   ", test_spec, test_tokenize, ctx => {
     ctx.emit_token(KNum)
   })
   inspect(tree.children.length(), content="2")
