@@ -1,6 +1,13 @@
 ///|
+fn test_source_id() -> @core.SourceId {
+  @core.SourceId::SourceId("moonbit-parser-test")
+}
+
+///|
 fn top_level_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   root
   .children()
@@ -20,13 +27,17 @@ fn syntax_token_kind_names(tokens : Array[@seam.SyntaxToken]) -> Array[String] {
 
 ///|
 fn root_token_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   @seam.SyntaxNode::from_cst(cst).tokens() |> syntax_token_kind_names
 }
 
 ///|
 fn first_item_token_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] => item.tokens() |> syntax_token_kind_names
@@ -36,7 +47,9 @@ fn first_item_token_kind_names(source : String) -> Array[String] {
 
 ///|
 fn top_level_header_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   root
   .children()
@@ -55,7 +68,9 @@ fn top_level_header_kind_names(source : String) -> Array[String] {
 
 ///|
 fn first_item_header_token_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -349,7 +364,11 @@ test "skeleton grammar does not count layout against modifier lookahead" {
 
 ///|
 test "skeleton grammar marks unclosed delimiter item incomplete" {
-  let parser = @loom.new_parser("fn broken(\n", moonbit_grammar)
+  let parser = @loom.new_parser(
+    test_source_id(),
+    "fn broken(\n",
+    moonbit_grammar,
+  )
   let ast = parser.ast().read_or_abort()
   inspect(ast.contains_errors, content="true")
   inspect(parser.diagnostics().read_or_abort().length() > 0, content="true")
@@ -357,7 +376,11 @@ test "skeleton grammar marks unclosed delimiter item incomplete" {
 
 ///|
 test "skeleton grammar works with reactive parser" {
-  let parser = @loom.new_parser("let x = 1\nlet y = 2\n", moonbit_grammar)
+  let parser = @loom.new_parser(
+    test_source_id(),
+    "let x = 1\nlet y = 2\n",
+    moonbit_grammar,
+  )
   let ast = parser.ast().read_or_abort()
   inspect(ast.item_count, content="2")
   inspect(ast.contains_errors, content="false")
@@ -366,7 +389,9 @@ test "skeleton grammar works with reactive parser" {
 ///|
 test "skeleton syntax grammar works with reactive syntax parser" {
   let parser = @loom.new_syntax_parser(
-    "let x = 1\nlet y = 2\n", moonbit_syntax_grammar,
+    test_source_id(),
+    "let x = 1\nlet y = 2\n",
+    moonbit_syntax_grammar,
   )
   inspect(parser.source().read_or_abort(), content="let x = 1\nlet y = 2\n")
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
@@ -375,7 +400,7 @@ test "skeleton syntax grammar works with reactive syntax parser" {
 
 ///|
 test "placeholder AST reports lexer error tokens" {
-  let (ast, diagnostics) = parse_moonbit("let x = `")
+  let (ast, diagnostics) = parse_moonbit(test_source_id(), "let x = `")
   inspect(ast.contains_errors, content="true")
   inspect(diagnostics.length(), content="1")
 }
@@ -383,7 +408,11 @@ test "placeholder AST reports lexer error tokens" {
 ///|
 test "skeleton grammar reuses CST nodes after edits" {
   let source = "let x = 1\nlet y = 2\n"
-  let parser = @loom.new_imperative_parser(source, moonbit_grammar)
+  let parser = @loom.new_imperative_parser(
+    test_source_id(),
+    source,
+    moonbit_grammar,
+  )
   ignore(parser.parse())
   let next_source = "let x = 10\nlet y = 2\n"
   let edit = @core.Edit::replace(8, 9, 10)
@@ -393,9 +422,25 @@ test "skeleton grammar reuses CST nodes after edits" {
 }
 
 ///|
+test "imperative parser retains its source ID across edits" {
+  let source_id = @core.SourceId::SourceId("moonbit-parser-id-stability")
+  let parser = @loom.new_imperative_parser(
+    source_id, "let x = 1\n", moonbit_grammar,
+  )
+  ignore(parser.parse())
+  inspect(parser.get_source_id().value(), content="moonbit-parser-id-stability")
+  ignore(parser.edit(@core.Edit::replace(8, 9, 10), "let x = 10\n"))
+  inspect(parser.get_source_id().value(), content="moonbit-parser-id-stability")
+}
+
+///|
 test "skeleton grammar reuses sibling top-level items after function edit" {
   let source = "fn f() { 1 }\nstruct S {}\n"
-  let parser = @loom.new_imperative_parser(source, moonbit_grammar)
+  let parser = @loom.new_imperative_parser(
+    test_source_id(),
+    source,
+    moonbit_grammar,
+  )
   ignore(parser.parse())
   let next_source = "fn f() { 10 }\nstruct S {}\n"
   let edit = @core.Edit::replace(9, 10, 11)
@@ -408,7 +453,9 @@ test "skeleton grammar reuses sibling top-level items after function edit" {
 /// Extract the kind names of all non-header children of the first item node
 /// (used to inspect function body children at the top level).
 fn first_child_of_first_item_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -440,7 +487,9 @@ test "skeleton grammar parses if expression inside function body" {
     #|  if x > 0 { 1 } else { 0 }
     #|}
     #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   // FunctionItemNode contains [header, if_expr]
   match root.children() {
@@ -482,7 +531,9 @@ test "skeleton grammar parses if without else" {
     #|  x
     #|}
     #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -513,7 +564,9 @@ test "skeleton grammar parses if without else" {
 ///|
 test "skeleton grammar tracks errors in if expression" {
   let parser = @loom.new_parser(
-    "fn f() { if true { 1 } else { } }\n", moonbit_grammar,
+    test_source_id(),
+    "fn f() { if true { 1 } else { } }\n",
+    moonbit_grammar,
   )
   let ast = parser.ast().read_or_abort()
   inspect(ast.item_count, content="1")
@@ -543,7 +596,9 @@ test "skeleton grammar parses nested if expressions" {
     #|  } else { 3 }
     #|}
     #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -594,7 +649,9 @@ test "skeleton grammar parses while expression" {
     #|  while true { 1 }
     #|}
     #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -638,7 +695,9 @@ test "skeleton grammar parses while and if together" {
 ///|
 /// Extract the kind names of block (first body child of first item) children.
 fn block_child_kind_names(source : String) -> Array[String] {
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>
@@ -673,7 +732,7 @@ test "skeleton grammar parses multiple expressions separated by semicolons" {
 
 ///|
 test "skeleton grammar correctly folds binary expression token count" {
-  let (ast, _) = parse_moonbit("fn f() { 1 + 2 }\n")
+  let (ast, _) = parse_moonbit(test_source_id(), "fn f() { 1 + 2 }\n")
   inspect(ast.item_count, content="1")
   inspect(ast.contains_errors, content="false")
   // BinExprNode tokens include operator and operands
@@ -682,7 +741,7 @@ test "skeleton grammar correctly folds binary expression token count" {
 
 ///|
 test "skeleton grammar creates nested BinExprNode for operator precedence" {
-  let (cst, _) = parse_cst("fn f() { 1 + 2 * 3 }\n") catch {
+  let (cst, _) = parse_cst(test_source_id(), "fn f() { 1 + 2 * 3 }\n") catch {
     _ => abort("lex error")
   }
   let root = @seam.SyntaxNode::from_cst(cst)
@@ -755,7 +814,9 @@ test "skeleton grammar parses condition as BinExprNode in if expression" {
     #|  if x > 0 { 1 } else { 0 }
     #|}
     #|
-  let (cst, _) = parse_cst(source) catch { _ => abort("lex error") }
+  let (cst, _) = parse_cst(test_source_id(), source) catch {
+    _ => abort("lex error")
+  }
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [item, ..] =>

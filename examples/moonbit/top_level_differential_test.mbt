@@ -8,6 +8,7 @@
 /// a full official-AST fold exists.
 struct TopLevelDifferentialFixture {
   name : String
+  source_id : @core.SourceId
   source : String
   expected_official_accepts : Bool
   expected_skeleton_errors : Bool
@@ -57,6 +58,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
   [
     {
       name: "let declarations",
+      source_id: @core.SourceId::SourceId("moonbit-differential-let"),
       source: (
         #|let x = 1
         #|let y = 2
@@ -67,6 +69,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "pub all struct with layout payload",
+      source_id: @core.SourceId::SourceId("moonbit-differential-pub-struct"),
       source: (
         #|pub // keep payload pending
         #|(all) struct S {}
@@ -77,6 +80,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "extern c imported function",
+      source_id: @core.SourceId::SourceId("moonbit-differential-extern"),
       source: (
         #|extern "c" fn native(x : Int) -> Int = "native"
         #|
@@ -86,6 +90,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "function brace and equals bodies",
+      source_id: @core.SourceId::SourceId("moonbit-differential-functions"),
       source: (
         #|fn f() { 1 }
         #|fn wasm() -> Int = "mod" "func"
@@ -96,6 +101,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "tuple and record structs",
+      source_id: @core.SourceId::SourceId("moonbit-differential-structs"),
       source: (
         #|struct UserName(String)
         #|struct Point { x : Int }
@@ -106,6 +112,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "enum declaration",
+      source_id: @core.SourceId::SourceId("moonbit-differential-enum"),
       source: (
         #|enum Color {
         #|  Red
@@ -118,6 +125,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "equals type alias",
+      source_id: @core.SourceId::SourceId("moonbit-differential-type-alias"),
       source: (
         #|type Other = String
         #|
@@ -129,6 +137,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     // Keep it here because PR #241 taught the skeleton where that body starts.
     {
       name: "legacy type body boundary",
+      source_id: @core.SourceId::SourceId("moonbit-differential-legacy-type"),
       source: (
         #|type Name String
         #|
@@ -138,6 +147,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "attribute before function",
+      source_id: @core.SourceId::SourceId("moonbit-differential-attribute"),
       source: (
         #|#alias("native")
         #|fn aliased() -> Unit { () }
@@ -148,6 +158,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "comments around asi boundaries",
+      source_id: @core.SourceId::SourceId("moonbit-differential-comments"),
       source: (
         #|// leading
         #|let x = 1
@@ -160,6 +171,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "comment inside function header group",
+      source_id: @core.SourceId::SourceId("moonbit-differential-header-comment"),
       source: (
         #|fn f(
         #|  x : Int, // argument
@@ -171,6 +183,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "parser rejects unclosed function header",
+      source_id: @core.SourceId::SourceId("moonbit-differential-unclosed"),
       source: (
         #|fn broken(
         #|
@@ -180,6 +193,7 @@ fn top_level_differential_fixtures() -> Array[TopLevelDifferentialFixture] {
     },
     {
       name: "lexer rejects invalid token",
+      source_id: @core.SourceId::SourceId("moonbit-differential-invalid-token"),
       source: "let broken = `",
       expected_official_accepts: false,
       expected_skeleton_errors: true,
@@ -310,8 +324,11 @@ fn top_level_item_boundary_snapshot(
 }
 
 ///|
-fn skeleton_top_level_summary(source : String) -> SkeletonTopLevelSummary {
-  let parser = @loom.new_parser(source, moonbit_grammar)
+fn skeleton_top_level_summary(
+  source_id : @core.SourceId,
+  source : String,
+) -> SkeletonTopLevelSummary {
+  let parser = @loom.new_parser(source_id, source, moonbit_grammar)
   let root = parser.syntax_tree().read_or_abort()
   let ast = parser.ast().read_or_abort()
   let diagnostics = parser.diagnostics().read_or_abort()
@@ -332,7 +349,7 @@ fn top_level_differential_snapshot(
   {
     name: fixture.name,
     official: official_parse_snapshot(fixture.source),
-    skeleton: skeleton_top_level_summary(fixture.source),
+    skeleton: skeleton_top_level_summary(fixture.source_id, fixture.source),
   }
 }
 
@@ -340,7 +357,7 @@ fn top_level_differential_snapshot(
 fn top_level_boundary_snapshot(
   fixture : TopLevelDifferentialFixture,
 ) -> TopLevelBoundarySnapshot {
-  let skeleton = skeleton_top_level_summary(fixture.source)
+  let skeleton = skeleton_top_level_summary(fixture.source_id, fixture.source)
   {
     name: fixture.name,
     item_boundaries: skeleton.item_boundaries,

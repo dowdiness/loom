@@ -41,7 +41,12 @@ first porting step for the real MoonBit grammar.
 ## Quick check
 
 ```mbt nocheck
-let parser = @loom.new_syntax_parser("let x = 1\n", moonbit_syntax_grammar)
+let source_id = @core.SourceId::SourceId("moonbit-readme-example")
+let parser = @loom.new_syntax_parser(
+  source_id,
+  "let x = 1\n",
+  moonbit_syntax_grammar,
+)
 let syntax = parser.syntax_tree().read_or_abort()
 inspect(parser.diagnostics().read_or_abort().length(), content="0")
 ```

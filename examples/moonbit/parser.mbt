@@ -1,9 +1,10 @@
 ///|
 /// Parse to the placeholder AST and diagnostics.
 pub fn parse_moonbit(
+  source_id : @core.SourceId,
   source : String,
 ) -> (MoonbitParseShell, @core.DiagnosticSet) {
-  let parser = @loom.new_imperative_parser(source, moonbit_grammar)
+  let parser = @loom.new_imperative_parser(source_id, source, moonbit_grammar)
   let snapshot = parser.parse()
   (snapshot.ast, snapshot.diagnostics)
 }
@@ -12,7 +13,8 @@ pub fn parse_moonbit(
 /// Parse to a CST and diagnostics through the syntax-only grammar boundary.
 #warnings("-unused_error_type")
 pub fn parse_cst(
+  source_id : @core.SourceId,
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
-  moonbit_syntax_grammar.parse_cst(source)
+  moonbit_syntax_grammar.parse_cst(source_id, source)
 }

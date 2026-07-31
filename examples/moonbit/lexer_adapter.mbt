@@ -6,6 +6,7 @@
 /// tokenization/ASI behavior, then incrementally replace the parser layer with
 /// Loom CST rules.
 pub fn lex_moonbit(
+  source_id : @core.SourceId,
   source : String,
   name? : String = "",
 ) -> @core.LexResult[MoonToken] {
@@ -20,6 +21,7 @@ pub fn lex_moonbit(
     let (start_pos, end_pos, err) = error
     diagnostics.push(
       @core.Diagnostic::lexer_error_at(
+        source_id,
         err.to_string(),
         start_pos.cnum,
         end_pos.cnum,
@@ -38,6 +40,7 @@ pub fn lex_moonbit(
     )
   }
   @core.LexResult::from_located_tokens(
+    source_id,
     source,
     located_tokens,
     gap_token=fn(_text, _start, _end) { Whitespace },
@@ -48,6 +51,9 @@ pub fn lex_moonbit(
 }
 
 ///|
-pub fn tokenize(source : String) -> Array[@core.TokenInfo[MoonToken]] {
-  lex_moonbit(source).tokens()
+pub fn tokenize(
+  source_id : @core.SourceId,
+  source : String,
+) -> Array[@core.TokenInfo[MoonToken]] {
+  lex_moonbit(source_id, source).tokens()
 }
