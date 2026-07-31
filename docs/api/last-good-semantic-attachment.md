@@ -152,16 +152,17 @@ pub(all) struct SemanticAttachment[Ast, Doc, Reuse, Id] {
 }
 
 pub fn SemanticAttachment::SemanticAttachment(
+  source_id : @core.SourceId,
   initial_source : String,
   grammar : @loom.Grammar[Token, Kind, Ast],
 ) -> SemanticAttachment[Ast, SemanticDoc, ReuseState, PublicId] {
-  let parser = @loom.new_parser(initial_source, grammar)
+  let parser = @loom.new_parser(source_id, initial_source, grammar)
   let rt = parser.runtime()
   let scope = @incr.Scope::new(rt)
   let last_good : Ref[LastGood[SemanticDoc, ReuseState, PublicId]?] = Ref(None)
   let pending_change = Ref(PendingSemanticChange::NoChange)
   let state = scope.derived(
-    fn() {
+    () => {
       let source = parser.source().get_or_abort()
       let parse_diags = parser.diagnostics().get_or_abort()
       if !parse_diags.is_empty() {

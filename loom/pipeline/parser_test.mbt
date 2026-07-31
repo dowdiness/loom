@@ -15,9 +15,10 @@
 
 ///|
 fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
-  let full_parse = fn(
+  let full_parse = (
+    _source_id : @core.SourceId,
     s : String,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
+  ) => {
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
       @seam.RawKind(0),
@@ -34,14 +35,15 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
     (@seam.SyntaxNode::from_cst(cst), diagnostics, 0)
   }
   // Tests don't exercise incremental reuse — fall through to full_parse.
-  let incremental_parse = fn(
+  let incremental_parse = (
+    source_id : @core.SourceId,
     s : String,
     _old : @seam.SyntaxNode,
     _edit : @core.Edit,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
-    full_parse(s)
+  ) => {
+    full_parse(source_id, s)
   }
-  let to_ast = fn(n : @seam.SyntaxNode) -> String {
+  let to_ast = (n : @seam.SyntaxNode) => {
     match n.tokens() {
       [t, ..] => t.text()
       [] => ""
@@ -52,7 +54,8 @@ fn test_imperative_language() -> @incremental.ImperativeLanguage[String] {
 
 ///|
 test "Parser::new publishes initial source / ast / diagnostics" {
-  let parser = Parser::new("hello", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-initial-source")
+  let parser = Parser::new(source_id, "hello", test_imperative_language())
   inspect(parser.source().read_or_abort(), content="hello")
   inspect(parser.ast().read_or_abort(), content="5")
   debug_inspect(parser.diagnostics().read_or_abort().format(), content="[]")
@@ -62,7 +65,8 @@ test "Parser::new publishes initial source / ast / diagnostics" {
 
 ///|
 test "Parser::set_source updates all four views atomically" {
-  let parser = Parser::new("hi", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-atomic-source")
+  let parser = Parser::new(source_id, "hi", test_imperative_language())
   inspect(parser.ast().read_or_abort(), content="2")
   parser.set_source("world!")
   inspect(parser.source().read_or_abort(), content="world!")
@@ -72,7 +76,8 @@ test "Parser::set_source updates all four views atomically" {
 
 ///|
 test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
-  let parser = Parser::new("ok", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-diagnostic-source")
+  let parser = Parser::new(source_id, "ok", test_imperative_language())
   parser.set_source("@bad")
   inspect(parser.source().read_or_abort(), content="@bad")
   inspect(parser.ast().read_or_abort(), content="4")
@@ -87,7 +92,8 @@ test "Parser::set_source publishes lexer diagnostics with recovered syntax" {
 
 ///|
 test "Parser recovers diagnostics on subsequent set_source" {
-  let parser = Parser::new("ok", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-recovery-source")
+  let parser = Parser::new(source_id, "ok", test_imperative_language())
   parser.set_source("@bad")
   debug_inspect(
     parser.diagnostics().read_or_abort().format(),
@@ -103,7 +109,8 @@ test "Parser recovers diagnostics on subsequent set_source" {
 
 ///|
 test "Parser::apply_edit advances source and ast" {
-  let parser = Parser::new("abc", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-edit-source")
+  let parser = Parser::new(source_id, "abc", test_imperative_language())
   inspect(parser.ast().read_or_abort(), content="3")
   // Replace the whole document via an Edit covering the full range.
   parser.apply_edit(@core.Edit::new(0, 3, 6), "abcdef")
@@ -113,7 +120,8 @@ test "Parser::apply_edit advances source and ast" {
 
 ///|
 test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
-  let parser = Parser::new("abc", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-defensive-source")
+  let parser = Parser::new(source_id, "abc", test_imperative_language())
   let snapshot = parser.snapshot().read_or_abort()
   snapshot.diagnostics.push(@core.Diagnostic::lexer_error("external mutation"))
   inspect(parser.diagnostics().read_or_abort().length(), content="0")
@@ -121,13 +129,14 @@ test "Parser::diagnostics is isolated from snapshot diagnostic mutation" {
 
 ///|
 test "Parser exposes its runtime for downstream derived cells" {
-  let parser = Parser::new("xy", test_imperative_language())
+  let source_id = @core.SourceId("pipeline-parser-runtime-source")
+  let parser = Parser::new(source_id, "xy", test_imperative_language())
   let rt = parser.runtime()
   // A downstream derived cell reads parser.source() inside its closure and
   // establishes a dependency edge through the pass-through Derived view.
   let echo_derived : @incr.Derived[Int] = @incr.Derived(
     rt,
-    fn() { parser.source().get_or_abort().length() },
+    () => parser.source().get_or_abort().length(),
     label="echo-length",
   )
   inspect(echo_derived.read_or_abort(), content="2")
@@ -143,9 +152,10 @@ test "Parser exposes its runtime for downstream derived cells" {
 fn test_imperative_language_with_counter(
   parse_count : Ref[Int],
 ) -> @incremental.ImperativeLanguage[String] {
-  let full_parse = fn(
+  let full_parse = (
+    _source_id : @core.SourceId,
     s : String,
-  ) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int) {
+  ) => {
     parse_count.val = parse_count.val + 1
     let cst = @seam.build_tree(
       [@seam.ParseEvent::Token(@seam.RawKind(1), s.length().to_string())],
@@ -157,8 +167,9 @@ fn test_imperative_language_with_counter(
   }
   @incremental.ImperativeLanguage::new(
     full_parse~,
-    incremental_parse=(s, _old, _edit) => full_parse(s),
-    to_ast=fn(n) {
+    incremental_parse=(source_id, s, _old, _edit) =>
+      full_parse(source_id, s),
+    to_ast=n => {
       match n.tokens() {
         [t, ..] => t.text()
         [] => ""
@@ -174,7 +185,9 @@ test "Parser::set_source is a no-op when source is unchanged" {
   // holds the most recent tree, and tearing it down to reparse the same
   // text burns CPU and throws away incremental state for no gain.
   let parse_count : Ref[Int] = Ref(0)
+  let source_id = @core.SourceId("pipeline-parser-noop-source")
   let parser = Parser::new(
+    source_id,
     "abc",
     test_imperative_language_with_counter(parse_count),
   )

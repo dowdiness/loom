@@ -7,7 +7,9 @@
 test "expect: consumes matching token and returns true" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect(TestTok::Num(1), KNum)
   ctx.finish_node()
@@ -19,7 +21,9 @@ test "expect: consumes matching token and returns true" {
 test "expect: emits placeholder and diagnostic on mismatch" {
   let src = "+ 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect(TestTok::Num(1), KNum)
   // Token should NOT be consumed — still at "+"
@@ -27,8 +31,8 @@ test "expect: emits placeholder and diagnostic on mismatch" {
   inspect(ctx.diagnostics.length(), content="1")
   // Auto-generated message includes Show of both tokens
   inspect(
-    ctx.diagnostics.items()[0].message.contains("expected") &&
-    ctx.diagnostics.items()[0].message.contains("Plus"),
+    ctx.diagnostics.items()[0].message().contains("expected") &&
+    ctx.diagnostics.items()[0].message().contains("Plus"),
     content="true",
   )
   // Position unchanged — "+" is still the current token
@@ -40,20 +44,24 @@ test "expect: emits placeholder and diagnostic on mismatch" {
 test "expect: at EOF emits placeholder with eof in message" {
   let src = ""
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect(TestTok::Num(1), KNum)
   inspect(ok, content="false")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message.contains("TokEof"), content="true")
+  inspect(ctx.diagnostics.items()[0].message().contains("TokEof"), content="true")
   ctx.finish_node()
 }
 
 ///|
 test "expect: at EOF emits incomplete_kind placeholder, not error_kind" {
-  let (tree, errors) = parse_with("", test_spec, test_tokenize, fn(ctx) {
-    let _ = ctx.expect(TestTok::Num(1), KNum)
-  })
+  let (tree, errors) = parse_with(
+    SourceId("recovery-source"), "", test_spec, test_tokenize, ctx => {
+      let _ = ctx.expect(TestTok::Num(1), KNum)
+    },
+  )
   inspect(errors.length(), content="1")
   // The placeholder token should be KIncomplete, not KErr
   let mut found_incomplete = false
@@ -71,9 +79,11 @@ test "expect: at EOF emits incomplete_kind placeholder, not error_kind" {
 
 ///|
 test "expect: non-EOF mismatch emits error_kind placeholder, not incomplete" {
-  let (tree, errors) = parse_with("+ 2", test_spec, test_tokenize, fn(ctx) {
-    let _ = ctx.expect(TestTok::Num(1), KNum)
-  })
+  let (tree, errors) = parse_with(
+    SourceId("recovery-source"), "+ 2", test_spec, test_tokenize, ctx => {
+      let _ = ctx.expect(TestTok::Num(1), KNum)
+    },
+  )
   inspect(errors.length(), content="1")
   // The placeholder token should be KErr, not KIncomplete
   let mut found_error = false
@@ -96,7 +106,9 @@ test "skip_until: skips to sync token" {
   // "1 + 2" — skip until we see Num(2)
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until(t => {
     match t {
@@ -113,7 +125,9 @@ test "skip_until: skips to sync token" {
 test "skip_until: returns 0 when already at sync point" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until(t => {
     match t {
@@ -130,7 +144,9 @@ test "skip_until: returns 0 when already at sync point" {
 test "skip_until: skips to EOF when no sync found" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until(_t => false) // nothing is sync
   inspect(skipped, content="3") // Num(1), Plus, Num(2)
@@ -142,7 +158,9 @@ test "skip_until: skips to EOF when no sync found" {
 test "skip_until: returns 0 on empty input" {
   let src = ""
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until(_t => false)
   inspect(skipped, content="0")
@@ -156,7 +174,9 @@ test "skip_until_balanced: stops at close at depth 0" {
   // "1 + 2" — treat Plus as close, no open tokens
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_balanced(
     _t => false, // no open
@@ -177,7 +197,9 @@ test "skip_until_balanced: respects nesting depth" {
   //   → skipped 2, now at second Plus
   let src = "1 + + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_balanced(
     t => {
@@ -199,7 +221,9 @@ test "skip_until_balanced: respects nesting depth" {
 test "node_with_recovery: success path — no recovery" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.node_with_recovery(
     KExpr,
@@ -219,7 +243,9 @@ test "node_with_recovery: failure triggers skip_until" {
   // "1 + + 2" — parse Num, then fail, recover at second Num
   let src = "1 + + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.node_with_recovery(
     KExpr,
@@ -247,7 +273,9 @@ test "node_with_recovery: failure triggers skip_until" {
 test "expect_and_recover: immediate match" {
   let src = "+ 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
@@ -266,7 +294,9 @@ test "expect_and_recover: skips garbage then finds expected" {
   // "1 + 2" — expect Plus, but Num(1) is first. Skip Num(1), find Plus.
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
@@ -285,7 +315,9 @@ test "expect_and_recover: gives up when expected not found" {
   // "1 2" — expect Plus, skip Num(1), reach Num(2) = sync. Plus not found.
   let src = "1 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let ok = ctx.expect_and_recover(TestTok::Plus, KPlus, t => {
     match t {
@@ -302,9 +334,11 @@ test "expect_and_recover: gives up when expected not found" {
 
 ///|
 test "expect_and_recover: at EOF emits incomplete_kind placeholder" {
-  let (tree, errors) = parse_with("", test_spec, test_tokenize, fn(ctx) {
-    let _ = ctx.expect_and_recover(TestTok::Plus, KPlus, _t => false)
-  })
+  let (tree, errors) = parse_with(
+    SourceId("recovery-source"), "", test_spec, test_tokenize, ctx => {
+      let _ = ctx.expect_and_recover(TestTok::Plus, KPlus, _t => false)
+    },
+  )
   inspect(errors.length(), content="1")
   let mut found_incomplete = false
   for child in tree.children {
@@ -323,9 +357,11 @@ test "expect_and_recover: at EOF emits incomplete_kind placeholder" {
 
 ///|
 test "emit_incomplete_placeholder: emits incomplete_kind, not error_kind" {
-  let (tree, _) = parse_with("", test_spec, test_tokenize, fn(ctx) {
-    ctx.emit_incomplete_placeholder()
-  })
+  let (tree, _) = parse_with(
+    SourceId("recovery-source"), "", test_spec, test_tokenize, ctx => {
+      ctx.emit_incomplete_placeholder()
+    },
+  )
   // parse_with wraps in KRoot; the incomplete token is a direct child
   let mut found_incomplete = false
   for child in tree.children {
@@ -346,7 +382,9 @@ test "emit_incomplete_placeholder: emits incomplete_kind, not error_kind" {
 test "skip_until_progress: consumes one token when already at sync point" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_progress(t => {
     match t {
@@ -363,7 +401,9 @@ test "skip_until_progress: consumes one token when already at sync point" {
 test "skip_until_progress: returns 0 at EOF" {
   let src = ""
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_progress(_t => false)
   inspect(skipped, content="0")
@@ -374,7 +414,9 @@ test "skip_until_progress: returns 0 at EOF" {
 test "skip_until_progress: normal skip when not at sync" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   let skipped = ctx.skip_until_progress(t => {
     match t {
@@ -393,7 +435,9 @@ test "skip_until_progress: normal skip when not at sync" {
 test "expect_adjacent: consumes contiguous matching token" {
   let src = "1+ 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
@@ -408,7 +452,9 @@ test "expect_adjacent: consumes contiguous matching token" {
 test "expect_adjacent: rejects trivia-separated token without consuming" {
   let src = "1 + 2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
@@ -423,15 +469,17 @@ test "expect_adjacent: rejects trivia-separated token without consuming" {
 test "expect_adjacent: wrong token reports expect-style mismatch" {
   let src = "1+2"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   let ok = ctx.expect_adjacent(TestTok::Num(9), KNum)
   inspect(ok, content="false")
   inspect(ctx.diagnostics.length(), content="1")
   inspect(
-    ctx.diagnostics.items()[0].message.contains("expected") &&
-    ctx.diagnostics.items()[0].message.contains("Plus"),
+    ctx.diagnostics.items()[0].message().contains("expected") &&
+    ctx.diagnostics.items()[0].message().contains("Plus"),
     content="true",
   )
   ctx.finish_node()
@@ -441,13 +489,15 @@ test "expect_adjacent: wrong token reports expect-style mismatch" {
 test "expect_adjacent: at EOF emits diagnostic" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   let ok = ctx.expect_adjacent(TestTok::Plus, KPlus)
   inspect(ok, content="false")
   inspect(ctx.diagnostics.length(), content="1")
-  inspect(ctx.diagnostics.items()[0].message.contains("TokEof"), content="true")
+  inspect(ctx.diagnostics.items()[0].message().contains("TokEof"), content="true")
   ctx.finish_node()
 }
 
@@ -458,11 +508,15 @@ test "expect_adjacent: at EOF emits diagnostic" {
 test "expect_adjacent: eof_token as expected succeeds with no diagnostic at EOF" {
   let src = "1"
   let toks = test_tokenize(src)
-  let ctx = ParserContext::new(toks, src, test_spec)
+  let ctx = ParserContext::new(
+    SourceId("recovery-source"), toks, src, test_spec,
+  )
   ctx.start_node(KRoot)
   ctx.emit_token(KNum)
   let ok = ctx.expect_adjacent(TestTok::TokEof, KErr)
-  let reference = ParserContext::new(test_tokenize(src), src, test_spec)
+  let reference = ParserContext::new(
+    SourceId("recovery-source"), test_tokenize(src), src, test_spec,
+  )
   reference.start_node(KRoot)
   reference.emit_token(KNum)
   let ok_expect = reference.expect(TestTok::TokEof, KErr)

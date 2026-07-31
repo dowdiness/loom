@@ -86,11 +86,11 @@ fn parse_value(
   match ctx.peek() {
     LBrace => parse_object_at_depth(ctx, depth~)
     LBracket => parse_array_at_depth(ctx, depth~)
-    StringLit => ctx.node(StringValue, fn() { ctx.emit_token(StringToken) })
-    NumberLit => ctx.node(NumberValue, fn() { ctx.emit_token(NumberToken) })
-    True => ctx.node(BoolValue, fn() { ctx.emit_token(TrueKeyword) })
-    False => ctx.node(BoolValue, fn() { ctx.emit_token(FalseKeyword) })
-    Null => ctx.node(NullValue, fn() { ctx.emit_token(NullKeyword) })
+    StringLit => ctx.node(StringValue, () => ctx.emit_token(StringToken))
+    NumberLit => ctx.node(NumberValue, () => ctx.emit_token(NumberToken))
+    True => ctx.node(BoolValue, () => ctx.emit_token(TrueKeyword))
+    False => ctx.node(BoolValue, () => ctx.emit_token(FalseKeyword))
+    Null => ctx.node(NullValue, () => ctx.emit_token(NullKeyword))
     _ => {
       ctx.error("Expected JSON value")
       if is_sync_point(ctx.peek()) {
@@ -110,14 +110,14 @@ fn parse_object_at_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
   depth~ : Int,
 ) -> Unit {
-  ctx.node(ObjectNode, fn() {
+  ctx.node(ObjectNode, () => {
     ctx.emit_token(LBraceToken) // {
     if ctx.peek() != RBrace && ctx.peek() != EOF {
       let _ = ctx.separated_list(
         ErrorNode,
         Comma,
-        fn() { parse_member_list_element(ctx, value_depth=depth + 1) },
-        element_start=fn() { ctx.peek() is StringLit },
+        () => parse_member_list_element(ctx, value_depth=depth + 1),
+        element_start=() => ctx.peek() is StringLit,
         wrap_element=false,
       )
     }
@@ -131,14 +131,14 @@ fn parse_array_at_depth(
   ctx : @core.ParserContext[Token, SyntaxKind],
   depth~ : Int,
 ) -> Unit {
-  ctx.node(ArrayNode, fn() {
+  ctx.node(ArrayNode, () => {
     ctx.emit_token(LBracketToken) // [
     if ctx.peek() != RBracket && ctx.peek() != EOF {
       let _ = ctx.separated_list(
         ErrorNode,
         Comma,
-        fn() { parse_value_list_element(ctx, depth=depth + 1) },
-        element_start=fn() { is_value_start(ctx.peek()) },
+        () => parse_value_list_element(ctx, depth=depth + 1),
+        element_start=() => is_value_start(ctx.peek()),
         wrap_element=false,
       )
     }
@@ -170,7 +170,7 @@ fn parse_member(
   ctx : @core.ParserContext[Token, SyntaxKind],
   value_depth~ : Int,
 ) -> Unit {
-  ctx.node(MemberNode, fn() {
+  ctx.node(MemberNode, () => {
     match ctx.peek() {
       StringLit => ctx.emit_token(StringToken)
       _ => {
@@ -194,7 +194,7 @@ fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
   parse_value(ctx, depth=0)
   if ctx.peek() != EOF {
     ctx.error("Unexpected tokens after JSON value")
-    let _ = ctx.skip_until(fn(t) { t == EOF })
+    let _ = ctx.skip_until(t => t == EOF)
   }
 }
 
@@ -203,14 +203,16 @@ fn parse_json_root(ctx : @core.ParserContext[Token, SyntaxKind]) -> Unit {
 ///|
 /// Parse a source string into a CST with error recovery.
 pub fn parse_cst(
+  source_id : @core.SourceId,
   source : String,
 ) -> (@seam.CstNode, @core.DiagnosticSet) raise @core.LexError {
-  json_grammar.parse_cst(source)
+  json_grammar.parse_cst(source_id, source)
 }
 
 ///|
 /// Parse with pre-tokenized input and optional reuse cursor (for incremental use).
 pub fn parse_cst_recover_with_tokens(
+  source_id : @core.SourceId,
   source : String,
   tokens : Array[@core.TokenInfo[Token]],
   cursor : @core.ReuseCursor[Token, SyntaxKind]?,
@@ -218,6 +220,7 @@ pub fn parse_cst_recover_with_tokens(
 ) -> (@seam.CstNode, @core.DiagnosticSet, Int) {
   let starts = @core.build_starts(tokens)
   @core.parse_tokens_indexed(
+    source_id,
     source,
     tokens.length(),
     i => tokens[i].token,
@@ -279,7 +282,7 @@ pub fn make_reuse_cursor_with_edit(
     tokens.length(),
     i => tokens[i].token,
     i => starts[i],
-    fn(i) {
+    i => {
       source.view(start_offset=starts[i], end_offset=starts[i] + tokens[i].len)
     },
     json_spec,

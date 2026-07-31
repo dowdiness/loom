@@ -24,21 +24,27 @@ fn ok_doc(result : Result[SettingsDoc, String]) -> SettingsDoc {
 
 ///|
 test "initial valid object projects to Current with two settings" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"cutoff\":2}")
+  let source_id = @core.SourceId("json-settings-initial-valid")
+  let a = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1,\"cutoff\":2}",
+  )
   inspect(a.state(), content="Current")
   let doc = ok_doc(a.current_result())
-  let keys = doc.settings().map(fn(s) { s.key })
+  let keys = doc.settings().map(s => s.key)
   @debug.assert_eq(keys, ["gain", "cutoff"])
-  let values = doc.settings().map(fn(s) { s.value })
+  let values = doc.settings().map(s => s.value)
   @debug.assert_eq(values, [1.0, 2.0])
   // Opaque, allocation-order ids (the public schema downstream copies).
-  let ids = doc.settings().map(fn(s) { s.id })
+  let ids = doc.settings().map(s => s.id)
   @debug.assert_eq(ids, ["setting#0", "setting#1"])
 }
 
 ///|
 test "malformed source blocks at parser, retains last good" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"cutoff\":2}")
+  let source_id = @core.SourceId("json-settings-parser-blocked-last-good")
+  let a = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1,\"cutoff\":2}",
+  )
   let good = ok_doc(a.current_result())
   a.set_source("{\"gain\":}")
   inspect(a.state(), content="ParserBlocked")
@@ -49,7 +55,8 @@ test "malformed source blocks at parser, retains last good" {
 
 ///|
 test "projection-invalid value blocks at projection, retains last good" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-projection-blocked-last-good")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
   let good = ok_doc(a.current_result())
   a.set_source("{\"gain\":\"loud\"}")
   inspect(a.state(), content="ProjectionBlocked")
@@ -59,7 +66,8 @@ test "projection-invalid value blocks at projection, retains last good" {
 
 ///|
 test "recovery after failure returns Current and keeps unchanged-key id" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-recovery")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
   let id_before = doc_id_of(ok_doc(a.current_result()), "gain")
   a.set_source("{\"gain\":}") // malformed — retains baseline
   inspect(a.state(), content="ParserBlocked")
@@ -73,7 +81,10 @@ test "recovery after failure returns Current and keeps unchanged-key id" {
 
 ///|
 test "apply_edit preserves ids through the edited value" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"cutoff\":2}")
+  let source_id = @core.SourceId("json-settings-apply-edit-value")
+  let a = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1,\"cutoff\":2}",
+  )
   let before = ok_doc(a.current_result())
   let gain_before = doc_id_of(before, "gain")
   let cutoff_before = doc_id_of(before, "cutoff")
@@ -90,7 +101,8 @@ test "apply_edit preserves ids through the edited value" {
 test "apply_edit insertion preserves trailing settings' ids" {
   // The biting identity test: inserting a member shifts the existing ones, so
   // freshly recomputed ids would renumber them. Stable identity must keep them.
-  let a = SettingsAttachment::SettingsAttachment("{\"a\":1,\"b\":2}")
+  let source_id = @core.SourceId("json-settings-apply-edit-insertion")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"a\":1,\"b\":2}")
   let before = ok_doc(a.current_result())
   let a_id = doc_id_of(before, "a")
   let b_id = doc_id_of(before, "b")
@@ -108,7 +120,10 @@ test "apply_edit insertion preserves trailing settings' ids" {
 
 ///|
 test "set_source full replace preserves unchanged-key ids" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"cutoff\":2}")
+  let source_id = @core.SourceId("json-settings-set-source-replace")
+  let a = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1,\"cutoff\":2}",
+  )
   let before = ok_doc(a.current_result())
   let gain_before = doc_id_of(before, "gain")
   let cutoff_before = doc_id_of(before, "cutoff")
@@ -121,7 +136,8 @@ test "set_source full replace preserves unchanged-key ids" {
 
 ///|
 test "first snapshot malformed has no last good and blocks at parser" {
-  let a = SettingsAttachment::SettingsAttachment("{")
+  let source_id = @core.SourceId("json-settings-initial-malformed")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{")
   inspect(a.state(), content="ParserBlocked")
   assert_true(a.last_good() is None)
   assert_true(a.current_result() is Err(_))
@@ -129,25 +145,31 @@ test "first snapshot malformed has no last good and blocks at parser" {
 
 ///|
 test "non-object root blocks at projection" {
-  let a = SettingsAttachment::SettingsAttachment("[1, 2]")
+  let source_id = @core.SourceId("json-settings-non-object")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "[1, 2]")
   inspect(a.state(), content="ProjectionBlocked")
 }
 
 ///|
 test "non-number value blocks at projection" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":true}")
+  let source_id = @core.SourceId("json-settings-non-number")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":true}")
   inspect(a.state(), content="ProjectionBlocked")
 }
 
 ///|
 test "duplicate key blocks at projection" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1,\"gain\":2}")
+  let source_id = @core.SourceId("json-settings-duplicate-key")
+  let a = SettingsAttachment::SettingsAttachment(
+    source_id, "{\"gain\":1,\"gain\":2}",
+  )
   inspect(a.state(), content="ProjectionBlocked")
 }
 
 ///|
 test "dispose is idempotent and leaves cached state readable" {
-  let a = SettingsAttachment::SettingsAttachment("{\"gain\":1}")
+  let source_id = @core.SourceId("json-settings-dispose")
+  let a = SettingsAttachment::SettingsAttachment(source_id, "{\"gain\":1}")
   inspect(a.state(), content="Current")
   a.dispose()
   a.dispose() // second dispose must not crash

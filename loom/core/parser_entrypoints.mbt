@@ -9,13 +9,14 @@
 /// tokenize — converts source to a flat token array (including trivia tokens)
 /// grammar  — the entry-point parse function; calls ctx methods to build the tree
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_with(
+  source_id : SourceId,
   source : String,
   spec : LanguageSpec[T, K],
   tokenize : (String) -> Array[TokenInfo[T]],
   grammar : (ParserContext[T, K]) -> Unit,
 ) -> (@seam.CstNode, DiagnosticSet) {
   let tokens = tokenize(source)
-  let ctx = ParserContext::new(tokens, source, spec)
+  let ctx = ParserContext::new(source_id, tokens, source, spec)
   grammar(ctx)
   ctx.flush_trivia()
   // node_stack intentionally NOT modified here — terminal auto-close before tree build.
@@ -89,6 +90,7 @@ fn[T, K : @seam.ToRawKind] build_tree_generic(
 /// Returns `(CstNode, diagnostics, reuse_count)`.
 /// reuse_count is 0 for non-incremental calls (cursor=None).
 pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_indexed(
+  source_id : SourceId,
   source : String,
   token_count : Int,
   get_token : (Int) -> T,
@@ -99,7 +101,7 @@ pub fn[T : @seam.IsTrivia + @seam.ToRawKind, K : @seam.ToRawKind] parse_tokens_i
   prev_diagnostics? : DiagnosticSet? = None,
 ) -> (@seam.CstNode, DiagnosticSet, Int) {
   let ctx = ParserContext::new_indexed(
-    token_count, get_token, get_start, get_end, source, spec,
+    source_id, token_count, get_token, get_start, get_end, source, spec,
   )
   match cursor {
     Some(c) => {

@@ -57,17 +57,19 @@ fn json_replace_at(source : String, pos : Int, replacement : String) -> String {
 
 ///|
 test "json: 20-member object - full reparse" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-20-full")
   let source = make_json_object(20)
-  b.bench(fn() {
-    let (cst, _) = parse_cst(source) catch { _ => abort("failed") }
+  b.bench(() => {
+    let (cst, _) = parse_cst(source_id, source) catch { _ => abort("failed") }
     b.keep(cst)
   })
 }
 
 ///|
 test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-20-incremental")
   let source = make_json_object(20)
-  let parser = @loom.new_imperative_parser(source, json_grammar)
+  let parser = @loom.new_imperative_parser(source_id, source, json_grammar)
   let _ = parser.parse().ast
   // Find "342" (from i=3: 3*100+42=342) and change "3" to "4"
   let edit_target = "342"
@@ -82,7 +84,7 @@ test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
   guard edit_pos >= 0 else { abort("edit target not found") }
   let edited = json_replace_at(source, edit_pos, "4")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  b.bench(fn() {
+  b.bench(() => {
     let tree = parser.edit(edit, edited).ast
     b.keep(tree)
     let _ = parser.edit(edit, source).ast
@@ -91,17 +93,19 @@ test "json: 20-member object - incremental (edit last value)" (b : @bench.T) {
 
 ///|
 test "json: 50-member object - full reparse" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-50-full")
   let source = make_json_object(50)
-  b.bench(fn() {
-    let (cst, _) = parse_cst(source) catch { _ => abort("failed") }
+  b.bench(() => {
+    let (cst, _) = parse_cst(source_id, source) catch { _ => abort("failed") }
     b.keep(cst)
   })
 }
 
 ///|
 test "json: 50-member object - incremental (edit inner object)" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-50-incremental")
   let source = make_json_object(50)
-  let parser = @loom.new_imperative_parser(source, json_grammar)
+  let parser = @loom.new_imperative_parser(source_id, source, json_grammar)
   let _ = parser.parse().ast
   // Edit inside the first nested object (i=0): change "0" to "1" in "inner_a": 0
   let target = "\"inner_a\": 0"
@@ -116,7 +120,7 @@ test "json: 50-member object - incremental (edit inner object)" (b : @bench.T) {
   guard edit_pos >= 0 else { abort("edit target not found") }
   let edited = json_replace_at(source, edit_pos, "1")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  b.bench(fn() {
+  b.bench(() => {
     let tree = parser.edit(edit, edited).ast
     b.keep(tree)
     let _ = parser.edit(edit, source).ast
@@ -125,17 +129,19 @@ test "json: 50-member object - incremental (edit inner object)" (b : @bench.T) {
 
 ///|
 test "json: 100-member object - full reparse" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-100-full")
   let source = make_json_object(100)
-  b.bench(fn() {
-    let (cst, _) = parse_cst(source) catch { _ => abort("failed") }
+  b.bench(() => {
+    let (cst, _) = parse_cst(source_id, source) catch { _ => abort("failed") }
     b.keep(cst)
   })
 }
 
 ///|
 test "json: 100-member object - incremental (edit inner object)" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-object-100-incremental")
   let source = make_json_object(100)
-  let parser = @loom.new_imperative_parser(source, json_grammar)
+  let parser = @loom.new_imperative_parser(source_id, source, json_grammar)
   let _ = parser.parse().ast
   let target = "\"inner_a\": 0"
   let mut edit_pos = -1
@@ -149,7 +155,7 @@ test "json: 100-member object - incremental (edit inner object)" (b : @bench.T) 
   guard edit_pos >= 0 else { abort("edit target not found") }
   let edited = json_replace_at(source, edit_pos, "1")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  b.bench(fn() {
+  b.bench(() => {
     let tree = parser.edit(edit, edited).ast
     b.keep(tree)
     let _ = parser.edit(edit, source).ast
@@ -160,17 +166,19 @@ test "json: 100-member object - incremental (edit inner object)" (b : @bench.T) 
 
 ///|
 test "json: 50-element array - full reparse" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-array-50-full")
   let source = make_json_array(50)
-  b.bench(fn() {
-    let (cst, _) = parse_cst(source) catch { _ => abort("failed") }
+  b.bench(() => {
+    let (cst, _) = parse_cst(source_id, source) catch { _ => abort("failed") }
     b.keep(cst)
   })
 }
 
 ///|
 test "json: 50-element array - incremental (edit nested object)" (b : @bench.T) {
+  let source_id = @core.SourceId("json-benchmark-array-50-incremental")
   let source = make_json_array(50)
-  let parser = @loom.new_imperative_parser(source, json_grammar)
+  let parser = @loom.new_imperative_parser(source_id, source, json_grammar)
   let _ = parser.parse().ast
   // Edit "id": 0 → "id": 1 in the first object element
   let target = "\"id\": 0"
@@ -185,7 +193,7 @@ test "json: 50-element array - incremental (edit nested object)" (b : @bench.T) 
   guard edit_pos >= 0 else { abort("edit target not found") }
   let edited = json_replace_at(source, edit_pos, "1")
   let edit = @core.Edit::replace(edit_pos, edit_pos + 1, edit_pos + 1)
-  b.bench(fn() {
+  b.bench(() => {
     let tree = parser.edit(edit, edited).ast
     b.keep(tree)
     let _ = parser.edit(edit, source).ast

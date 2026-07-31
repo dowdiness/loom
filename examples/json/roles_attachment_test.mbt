@@ -1,7 +1,12 @@
 ///|
 test "json role spans attachment matches pure initial projection" {
+  let source_id = @core.SourceId("json-role-attachment-initial")
   let source = "{ \"name\": \"Alice\" }"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let attachment = attach_json_role_spans(parser)
   let expected = project_json_roles(parser.syntax_tree().read_or_abort())
   guard attachment.spans() == expected else {
@@ -12,12 +17,18 @@ test "json role spans attachment matches pure initial projection" {
 
 ///|
 test "json role spans attachment updates after syntax parser edit" {
+  let source_id = @core.SourceId("json-role-attachment-edit")
   let source = "{ \"name\": \"Alice\" }"
   let updated = "{ \"name\": \"Bob\" }"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let attachment = attach_json_role_spans(parser)
   parser.apply_edit(@core.Edit::new(11, 5, 3), updated)
   let fresh_parser = @loom.new_syntax_parser(
+    source_id,
     updated,
     json_grammar.to_syntax_grammar(),
   )
@@ -30,11 +41,17 @@ test "json role spans attachment updates after syntax parser edit" {
 
 ///|
 test "json role spans attachment survives parser runtime gc" {
+  let source_id = @core.SourceId("json-role-attachment-gc")
   let source = "{ \"name\": \"Alice\" }"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let attachment = attach_json_role_spans(parser)
   parser.runtime().gc()
   let fresh_parser = @loom.new_syntax_parser(
+    source_id,
     source,
     json_grammar.to_syntax_grammar(),
   )
@@ -47,8 +64,13 @@ test "json role spans attachment survives parser runtime gc" {
 
 ///|
 test "json role spans attachment exports editor-neutral spans" {
+  let source_id = @core.SourceId("json-role-attachment-export")
   let source = "{\"a\": [\"x\", 1]}"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let attachment = attach_json_role_spans(parser)
   let expected = export_json_role_spans(
     project_json_roles(parser.syntax_tree().read_or_abort()),
@@ -62,8 +84,13 @@ test "json role spans attachment exports editor-neutral spans" {
 
 ///|
 test "json role spans attachment keeps diagnostics parser-owned" {
+  let source_id = @core.SourceId("json-role-attachment-diagnostics")
   let source = "{\"a\" 1}"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let attachment = attach_json_role_spans(parser)
   let spans = attachment.spans()
   let exported = attachment.export_spans()

@@ -404,8 +404,11 @@ fn project_graph_raw(
 }
 
 ///|
-pub fn project_graph_source(source : String) -> Result[GraphDoc, Array[String]] {
-  let parser = @loom.new_parser(source, graph_grammar)
+pub fn project_graph_source(
+  source_id : @core.SourceId,
+  source : String,
+) -> Result[GraphDoc, Array[String]] {
+  let parser = @loom.new_parser(source_id, source, graph_grammar)
   let diagnostics = parser.diagnostics().read_or_abort()
   if !diagnostics.is_empty() {
     return Err(diagnostics.format())

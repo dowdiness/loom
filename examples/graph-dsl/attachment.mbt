@@ -70,12 +70,13 @@ pub struct GraphAttachment {
 
 ///|
 pub fn GraphAttachment::GraphAttachment(
+  source_id : @core.SourceId,
   initial_source : String,
 ) -> GraphAttachment {
-  let parser = @loom.new_parser(initial_source, graph_grammar)
+  let parser = @loom.new_parser(source_id, initial_source, graph_grammar)
   let scope = @incr.Scope::new(parser.runtime())
   let derived = scope.derived(
-    fn() { compute_graph_attempt(parser) },
+    () => compute_graph_attempt(parser),
     label="graph_projection",
   )
   let watch = scope.add_watch(derived.watch())
@@ -145,7 +146,7 @@ fn GraphAttachment::settle(
           let stable = self.tracker.realign_success_with_optional_edit(
             attempt.source,
             leaves,
-            fn(leaf) { allocator.allocate(leaf) },
+            leaf => allocator.allocate(leaf),
             edit,
           )
           let doc = build_doc_from_stable(raw, stable)
@@ -248,7 +249,7 @@ pub struct GraphAttachmentSubscription {
 pub fn GraphAttachmentSubscription::unsubscribe(
   self : GraphAttachmentSubscription,
 ) -> Unit {
-  self.attachment.listeners = self.attachment.listeners.filter(fn(listener) {
+  self.attachment.listeners = self.attachment.listeners.filter(listener => {
     listener.id != self.id
   })
 }

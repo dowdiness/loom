@@ -16,10 +16,10 @@ pub let json_block_reparse_spec : @core.BlockReparseSpec[Token, SyntaxKind]
 
 // ── High-level parsing ────────────────────────────────────────────────────────
 
-pub fn parse(String) -> JsonValue raise                                   // strict: raises on any diagnostic
-pub fn parse_json(String) -> (JsonValue, @core.DiagnosticSet)  // returns diagnostics
+pub fn parse(@core.SourceId, String) -> JsonValue raise                   // strict: raises on any diagnostic
+pub fn parse_json(@core.SourceId, String) -> (JsonValue, @core.DiagnosticSet)  // returns diagnostics
   raise @core.LexError
-pub fn parse_cst(String) -> (@seam.CstNode, @core.DiagnosticSet)
+pub fn parse_cst(@core.SourceId, String) -> (@seam.CstNode, @core.DiagnosticSet)
   raise @core.LexError
 
 // ── CST → AST ─────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ pub fn JsonRoleSpansAttachment::dispose(JsonRoleSpansAttachment) -> Unit
 
 // ── Lexing ────────────────────────────────────────────────────────────────────
 
-pub fn tokenize(String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
+pub fn tokenize(@core.SourceId, String) -> Array[@core.TokenInfo[Token]] raise @core.LexError
 pub fn json_step_lexer(String, Int) -> @core.LexStep[Token]
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -85,7 +85,8 @@ Full signatures: [`pkg.generated.mbti`](pkg.generated.mbti).
 ```mbt check
 ///|
 test "quick start: reactive parser on a JSON object" {
-  let parser = @loom.new_parser("{\"x\": 1}", json_grammar)
+  let source_id = @core.SourceId("json-readme-reactive-object")
+  let parser = @loom.new_parser(source_id, "{\"x\": 1}", json_grammar)
   let value : JsonValue = parser.ast().read_or_abort()
   inspect(
     value,
@@ -97,7 +98,8 @@ test "quick start: reactive parser on a JSON object" {
 
 ///|
 test "quick start: set_source re-runs the reactive graph" {
-  let parser = @loom.new_parser("[1]", json_grammar)
+  let source_id = @core.SourceId("json-readme-reactive-update")
+  let parser = @loom.new_parser(source_id, "[1]", json_grammar)
   parser.set_source("[2, 3]")
   inspect(
     parser.ast().read_or_abort(),
@@ -109,10 +111,11 @@ test "quick start: set_source re-runs the reactive graph" {
 
 ///|
 test "quick start: strict parse raises nothing for valid JSON" {
-  inspect(try! parse("null"), content="Null")
-  inspect(try! parse("true"), content="Bool(true)")
+  let source_id = @core.SourceId("json-readme-strict-parse")
+  inspect(try! parse(source_id, "null"), content="Null")
+  inspect(try! parse(source_id, "true"), content="Bool(true)")
   inspect(
-    try! parse("42"),
+    try! parse(source_id, "42"),
     content=(
       #|Number(42)
     ),
@@ -139,7 +142,8 @@ pub let json_grammar : @loom.Grammar[Token, SyntaxKind, JsonValue] = @loom.Gramm
 of fatal. It preserves messages in emitted `Error(message)` tokens while
 `TokenBuffer` records the same messages as structured lexer diagnostics.
 Strict `tokenize` remains available for tests and batch consumers that want
-fail-fast lexing.
+fail-fast lexing. Parsing and tokenization entry points take an explicit
+`SourceId`; source content remains owned by the caller.
 
 ## `JsonValue`
 
@@ -194,7 +198,9 @@ map these role names to its own tags.
 ```mbt check
 ///|
 test "quick start: parser-backed JSON role spans" {
+  let source_id = @core.SourceId("json-readme-role-spans")
   let parser = @loom.new_syntax_parser(
+    source_id,
     "{\"x\": 1}",
     json_grammar.to_syntax_grammar(),
   )
@@ -229,7 +235,8 @@ for the strict parser API:
 - `i_*.json` fixtures are implementation-defined by JSONTestSuite; they are
   listed in the generated file but not asserted.
 - non-UTF-8 fixtures are outside this parser's current public API boundary
-  because `parse(...)` accepts MoonBit `String`, not raw `Bytes`.
+  because `parse(...)` consumes source content as MoonBit `String`, not raw
+  `Bytes`; its `SourceId` identifies that source but does not own its text.
 
 This supports the precise claim that strict `parse(...)` passes the pinned
 JSONTestSuite required cases representable as MoonBit `String`. It is not a

@@ -13,6 +13,17 @@ The source text remains canonical. UI graph operations lower to text
 replacements, the parser reparses, and projection returns explicit token roles so
 callers do not need to match parser-internal token names.
 
+`SourceId` is caller-owned identity for the logical source and remains stable
+across its lifetime. It is separate from both source text and graph projection
+ids.
+
+## Public entry points
+
+```mbt nocheck
+pub fn project_graph_source(@core.SourceId, String) -> Result[GraphDoc, Array[String]]
+pub fn GraphAttachment::GraphAttachment(@core.SourceId, String) -> GraphAttachment
+```
+
 ## Token roles
 
 `GraphTokenRole` distinguishes node binding names, constructor names, parameter
@@ -23,7 +34,8 @@ string fields, and enum fields.
 ///|
 test "README token roles preserve source ranges" {
   let source = "osc = sine(freq: 440Hz, wave: \"saw\") -> audio"
-  let doc = match project_graph_source(source) {
+  let source_id = @core.SourceId("graph-dsl-readme-token-roles")
+  let doc = match project_graph_source(source_id, source) {
     Ok(doc) => doc
     Err(messages) => abort(messages.join("; "))
   }
@@ -50,7 +62,11 @@ or duplicate node bindings.
 ```mbt check
 ///|
 test "README lower numeric parameter" {
-  let doc = match project_graph_source("osc = sine(freq: 440Hz)") {
+  let source_id = @core.SourceId("graph-dsl-readme-lowering")
+  let doc = match project_graph_source(
+    source_id,
+    "osc = sine(freq: 440Hz)",
+  ) {
     Ok(doc) => doc
     Err(messages) => abort(messages.join("; "))
   }
@@ -80,7 +96,11 @@ projection success.
 ```mbt check
 ///|
 test "README last-good graph projection" {
-  let attachment = GraphAttachment::GraphAttachment("osc = sine(freq: 440Hz)")
+  let source_id = @core.SourceId("graph-dsl-readme-last-good")
+  let attachment = GraphAttachment::GraphAttachment(
+    source_id,
+    "osc = sine(freq: 440Hz)",
+  )
   inspect(attachment.state(), content="Current")
   attachment.set_source("osc = sine(freq: )")
   inspect(attachment.state(), content="ParserBlocked")

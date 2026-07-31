@@ -158,13 +158,14 @@ fn graph_step_lexer(source : String, start : Int) -> @core.LexStep[Token] {
 }
 
 ///|
-fn lex(input : String) -> @core.LexResult[Token] {
+fn lex(source_id : @core.SourceId, input : String) -> @core.LexResult[Token] {
   let buffer = @core.TokenBuffer::new_from_steps(
+    source_id,
     input,
     @core.PrefixLexer::new(lex_step=graph_step_lexer),
     eof_token=EOF,
     error_token=Error(""),
-    error_token_from_message=Some(fn(message) { Error(message) }),
+    error_token_from_message=Some(message => Error(message)),
   )
   @core.LexResult::with_starts(
     buffer.get_tokens(),

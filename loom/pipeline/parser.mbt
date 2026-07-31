@@ -40,11 +40,12 @@ pub struct Parser[Ast] {
 /// the same runtime as their own derived cells. The parser does not own or
 /// dispose caller-supplied runtimes.
 pub fn[Ast : Eq] Parser::new(
+  source_id : @core.SourceId,
   source : String,
   lang : @incremental.ImperativeLanguage[Ast],
   runtime? : @incr.Runtime,
 ) -> Parser[Ast] {
-  let engine = @incremental.ImperativeParser::new(source, lang)
+  let engine = @incremental.ImperativeParser::new(source_id, source, lang)
   let initial_snapshot = engine.parse()
   let rt = match runtime {
     Some(r) => r
@@ -57,27 +58,27 @@ pub fn[Ast : Eq] Parser::new(
   )
   let snapshot_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().copy() },
+    () => snapshot_input.get().copy(),
     label="parser_snapshot_view",
   )
   let source_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().source },
+    () => snapshot_input.get().source,
     label="parser_source_view",
   )
   let syntax_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().syntax },
+    () => snapshot_input.get().syntax,
     label="parser_syntax_view",
   )
   let ast_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().ast },
+    () => snapshot_input.get().ast,
     label="parser_ast_view",
   )
   let diagnostics_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().diagnostics.copy() },
+    () => snapshot_input.get().diagnostics.copy(),
     label="parser_diagnostics_view",
   )
   {
@@ -109,7 +110,7 @@ pub fn[Ast : Eq] Parser::set_source(
   if source == self.engine.get_source() {
     return
   }
-  self.rt.batch(fn() { self.snapshot_input.set(self.engine.reset(source)) })
+  self.rt.batch(() => self.snapshot_input.set(self.engine.reset(source)))
 }
 
 ///|
@@ -120,9 +121,14 @@ pub fn[Ast : Eq] Parser::apply_edit(
   edit : @core.Edit,
   new_source : String,
 ) -> Unit {
-  self.rt.batch(fn() {
+  self.rt.batch(() => {
     self.snapshot_input.set(self.engine.edit(edit, new_source))
   })
+}
+
+///|
+pub fn[Ast] Parser::source_id(self : Parser[Ast]) -> @core.SourceId {
+  self.engine.get_source_id()
 }
 
 ///|

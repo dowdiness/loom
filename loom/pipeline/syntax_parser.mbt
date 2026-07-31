@@ -59,11 +59,12 @@ pub struct SyntaxParser {
 /// caller-owned graph, while omitting it creates a fresh parser-owned runtime.
 /// Downstream syntax-only attachments should still use `parser.runtime()`.
 pub fn SyntaxParser::new(
+  source_id : @core.SourceId,
   source : String,
   lang : @incremental.ImperativeLanguage[Unit],
   runtime? : @incr.Runtime,
 ) -> SyntaxParser {
-  let engine = @incremental.ImperativeParser::new(source, lang)
+  let engine = @incremental.ImperativeParser::new(source_id, source, lang)
   let initial_snapshot = syntax_snapshot_from_parse(engine.parse())
   let rt = match runtime {
     Some(r) => r
@@ -76,22 +77,22 @@ pub fn SyntaxParser::new(
   )
   let snapshot_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().copy() },
+    () => snapshot_input.get().copy(),
     label="syntax_parser_snapshot_view",
   )
   let source_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().source },
+    () => snapshot_input.get().source,
     label="syntax_parser_source_view",
   )
   let syntax_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().syntax },
+    () => snapshot_input.get().syntax,
     label="syntax_parser_syntax_view",
   )
   let diagnostics_view = @incr.Derived(
     rt,
-    fn() { snapshot_input.get().diagnostics.copy() },
+    () => snapshot_input.get().diagnostics.copy(),
     label="syntax_parser_diagnostics_view",
   )
   {
@@ -112,7 +113,7 @@ pub fn SyntaxParser::set_source(self : SyntaxParser, source : String) -> Unit {
   if source == self.engine.get_source() {
     return
   }
-  self.rt.batch(fn() {
+  self.rt.batch(() => {
     self.snapshot_input.set(
       syntax_snapshot_from_parse(self.engine.reset(source)),
     )
@@ -127,11 +128,16 @@ pub fn SyntaxParser::apply_edit(
   edit : @core.Edit,
   new_source : String,
 ) -> Unit {
-  self.rt.batch(fn() {
+  self.rt.batch(() => {
     self.snapshot_input.set(
       syntax_snapshot_from_parse(self.engine.edit(edit, new_source)),
     )
   })
+}
+
+///|
+pub fn SyntaxParser::source_id(self : SyntaxParser) -> @core.SourceId {
+  self.engine.get_source_id()
 }
 
 ///|

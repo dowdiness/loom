@@ -21,7 +21,7 @@ pub fn Setting::Setting(id~ : String, key~ : String, value~ : Double) -> Self
 pub struct SettingsAttachment {
   // private fields
 }
-pub fn SettingsAttachment::SettingsAttachment(String) -> Self
+pub fn SettingsAttachment::SettingsAttachment(@core.SourceId, String) -> Self
 pub fn SettingsAttachment::apply_edit(Self, @core.Edit, String) -> Unit
 pub fn SettingsAttachment::current_result(Self) -> Result[SettingsDoc, String]
 pub fn SettingsAttachment::dispose(Self) -> Unit
@@ -46,4 +46,3 @@ pub impl Show for SettingsState
 // Type aliases
 
 // Traits
-

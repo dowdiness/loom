@@ -118,6 +118,7 @@ pub fn[T, K] LanguageSpec::new(
 /// with explicit semantics rather than re-exposing a field.
 pub struct ParserContext[T, K] {
   priv spec : LanguageSpec[T, K]
+  priv source_id : SourceId
   priv token_count : Int
   priv get_token : (Int) -> T
   priv get_start : (Int) -> Int

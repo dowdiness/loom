@@ -42,8 +42,17 @@ pub fn[Ast] ParseSnapshot::copy(
 ///
 /// `to_ast` — convert a syntax tree to Ast.
 pub struct ImperativeLanguage[Ast] {
-  priv full_parse : (String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int)
-  priv incremental_parse : (String, @seam.SyntaxNode, @core.Edit) -> (
+  priv full_parse : (@core.SourceId, String) -> (
+    @seam.SyntaxNode,
+    @core.DiagnosticSet,
+    Int,
+  )
+  priv incremental_parse : (
+    @core.SourceId,
+    String,
+    @seam.SyntaxNode,
+    @core.Edit,
+  ) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,
@@ -55,8 +64,17 @@ pub struct ImperativeLanguage[Ast] {
 ///|
 /// Constructor for ImperativeLanguage vtable.
 pub fn[Ast] ImperativeLanguage::new(
-  full_parse~ : (String) -> (@seam.SyntaxNode, @core.DiagnosticSet, Int),
-  incremental_parse~ : (String, @seam.SyntaxNode, @core.Edit) -> (
+  full_parse~ : (@core.SourceId, String) -> (
+    @seam.SyntaxNode,
+    @core.DiagnosticSet,
+    Int,
+  ),
+  incremental_parse~ : (
+    @core.SourceId,
+    String,
+    @seam.SyntaxNode,
+    @core.Edit,
+  ) -> (
     @seam.SyntaxNode,
     @core.DiagnosticSet,
     Int,

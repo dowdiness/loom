@@ -63,8 +63,8 @@
 // - n_structure_single_eacute.json
 
 ///|
-fn json_testsuite_accepts(source : String) -> Bool {
-  try parse(source) catch {
+fn json_testsuite_accepts(source_id : @core.SourceId, source : String) -> Bool {
+  try parse(source_id, source) catch {
     _ => false
   } noraise {
     _ => true
@@ -182,7 +182,8 @@ test "JSONTestSuite: required valid cases" {
   ]
   for case in cases {
     let (name, source) = case
-    guard json_testsuite_accepts(source) else {
+    let source_id = @core.SourceId(name)
+    guard json_testsuite_accepts(source_id, source) else {
       fail("JSONTestSuite valid case rejected: " + name)
     }
   }
@@ -727,7 +728,8 @@ test "JSONTestSuite: required invalid cases" {
   ]
   for case in cases {
     let (name, source) = case
-    guard !json_testsuite_accepts(source) else {
+    let source_id = @core.SourceId(name)
+    guard !json_testsuite_accepts(source_id, source) else {
       fail("JSONTestSuite invalid case accepted: " + name)
     }
   }

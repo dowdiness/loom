@@ -1,7 +1,12 @@
 ///|
 test "json roles distinguish property key strings from string values" {
+  let source_id = @core.SourceId("json-roles-property-key")
   let source = "{ \"name\": \"Alice\" }"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let roles = project_json_roles(parser.syntax_tree().read_or_abort())
   let expected : Array[JsonRoleSpan] = [
     JsonRoleSpan(role=Punctuation, start=0, end=1),
@@ -26,7 +31,7 @@ test "json role export names are stable" {
     Punctuation,
     Error,
   ]
-  let names = roles.map(fn(role) { role.export_name() })
+  let names = roles.map(role => role.export_name())
   let expected = [
     "property-key", "string-value", "number-literal", "boolean-literal", "null-literal",
     "punctuation", "error",
@@ -38,8 +43,13 @@ test "json role export names are stable" {
 
 ///|
 test "json role spans export editor-neutral JSON shape" {
+  let source_id = @core.SourceId("json-roles-export-shape")
   let source = "{\"a\": [\"x\", 1, true, null]}"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   let exported = export_json_role_spans(
     project_json_roles(parser.syntax_tree().read_or_abort()),
   )
@@ -57,7 +67,12 @@ test "json role spans export editor-neutral JSON shape" {
 
 ///|
 test "json roles expose recovered syntax errors and diagnostics" {
-  let parser = @loom.new_syntax_parser("]", json_grammar.to_syntax_grammar())
+  let source_id = @core.SourceId("json-roles-recovered-syntax")
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    "]",
+    json_grammar.to_syntax_grammar(),
+  )
   let roles = project_json_roles(parser.syntax_tree().read_or_abort())
   let diagnostics = parser.diagnostics().read_or_abort()
   guard diagnostics.length() > 0 else {
@@ -70,8 +85,10 @@ test "json roles expose recovered syntax errors and diagnostics" {
 
 ///|
 test "json roles surface diagnostic-only recoveries as error spans" {
+  let source_id = @core.SourceId("json-roles-diagnostic-recoveries")
   for source in ["{\"a\" 1}", "{\"a\":1,}", "[1,]", "[1 2]", ""] {
     let parser = @loom.new_syntax_parser(
+      source_id,
       source,
       json_grammar.to_syntax_grammar(),
     )
@@ -88,14 +105,20 @@ test "json roles surface diagnostic-only recoveries as error spans" {
 
 ///|
 test "json roles after syntax parser edit match fresh parse" {
+  let source_id = @core.SourceId("json-roles-edit-comparison")
   let source = "{ \"name\": \"Alice\" }"
   let updated = "{ \"name\": \"Bob\" }"
-  let parser = @loom.new_syntax_parser(source, json_grammar.to_syntax_grammar())
+  let parser = @loom.new_syntax_parser(
+    source_id,
+    source,
+    json_grammar.to_syntax_grammar(),
+  )
   parser.apply_edit(@core.Edit::new(11, 5, 3), updated)
   let incremental_roles = project_json_roles(
     parser.syntax_tree().read_or_abort(),
   )
   let fresh_parser = @loom.new_syntax_parser(
+    source_id,
     updated,
     json_grammar.to_syntax_grammar(),
   )
