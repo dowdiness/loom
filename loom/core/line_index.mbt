@@ -62,6 +62,31 @@ pub fn LineIndex::line_range(
 }
 
 ///|
+fn LineIndex::strict_offset(
+  self : LineIndex,
+  source : String,
+  position : LineCol,
+) -> Int? {
+  let expected = LineIndex::new(source)
+  if self.source_len != expected.source_len ||
+    self.line_starts != expected.line_starts ||
+    position.column < 0 {
+    return None
+  }
+  match self.line_starts.get(position.line) {
+    None => None
+    Some(line_start) => {
+      let candidate = line_start + position.column
+      if self.line_col(candidate) != position {
+        None
+      } else {
+        source.get_view(start=candidate, end=candidate).map(_ => candidate)
+      }
+    }
+  }
+}
+
+///|
 fn line_index_clamp_offset(offset : Int, source_len : Int) -> Int {
   if offset < 0 {
     0

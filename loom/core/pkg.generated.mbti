@@ -48,6 +48,13 @@ pub(all) suberror DiagnosticBuildError {
   InvalidTextRange(Int, Int)
 } derive(@debug.Debug)
 
+pub suberror DiagnosticRenderError {
+  MissingSource(SourceId)
+  MismatchedLineIndex(SourceId)
+  RangeOutOfBounds(SourceSpan, Int)
+  InvalidUtf16Boundary(SourceSpan)
+} derive(Eq, @debug.Debug)
+
 pub(all) suberror LexError {
   LexError(String)
 }
@@ -88,6 +95,7 @@ pub fn Diagnostic::line_range(Self, LineIndex) -> LineRange?
 pub fn Diagnostic::message(Self) -> String
 pub fn Diagnostic::notes(Self) -> Array[String]
 pub fn Diagnostic::offset_by(Self, SourceId, Int, TextOffset) -> Self raise DiagnosticBuildError
+pub fn Diagnostic::render_plain(Self, SourceProvider) -> String raise DiagnosticRenderError
 pub fn Diagnostic::severity(Self) -> DiagnosticSeverity
 pub fn Diagnostic::source(Self) -> DiagnosticSource
 pub fn Diagnostic::token(Self) -> TokenEvidence?
@@ -121,6 +129,7 @@ pub fn DiagnosticSet::length(Self) -> Int
 pub fn[A] DiagnosticSet::map(Self, (Diagnostic) -> A) -> Array[A]
 pub fn DiagnosticSet::offset_by(Self, SourceId, Int, TextOffset) -> Self raise DiagnosticBuildError
 pub fn DiagnosticSet::push(Self, Diagnostic) -> Unit
+pub fn DiagnosticSet::render_plain(Self, SourceProvider) -> String raise DiagnosticRenderError
 pub fn DiagnosticSet::single(Diagnostic) -> Self
 pub fn DiagnosticSet::truncate(Self, Int) -> Unit
 
@@ -139,6 +148,11 @@ pub fn DiagnosticSource::DiagnosticSource(String) -> Self
 pub fn DiagnosticSource::lexer() -> Self
 pub fn DiagnosticSource::name(Self) -> String
 pub fn DiagnosticSource::parser() -> Self
+
+pub struct DiagnosticSourceFile {
+  // private fields
+}
+pub fn DiagnosticSourceFile::DiagnosticSourceFile(String, String, LineIndex) -> Self
 
 pub(all) struct Edit {
   start : Int
@@ -414,6 +428,11 @@ pub struct SourceId {
 } derive(Eq, Hash, @debug.Debug)
 pub fn SourceId::SourceId(String) -> Self
 pub fn SourceId::value(Self) -> String
+
+pub struct SourceProvider {
+  // private fields
+}
+pub fn SourceProvider::SourceProvider((SourceId) -> DiagnosticSourceFile?) -> Self
 
 pub struct SourceSpan {
   // private fields

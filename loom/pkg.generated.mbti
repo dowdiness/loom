@@ -93,11 +93,15 @@ pub using @core {type DiagnosticCode}
 
 pub using @core {type DiagnosticLabel}
 
+pub using @core {type DiagnosticRenderError}
+
 pub using @core {type DiagnosticSet}
 
 pub using @core {type DiagnosticSeverity}
 
 pub using @core {type DiagnosticSource}
+
+pub using @core {type DiagnosticSourceFile}
 
 pub using @core {type Edit}
 
@@ -164,6 +168,8 @@ pub using @core {type ReuseCursor}
 pub using @core {type SourceEdit}
 
 pub using @core {type SourceId}
+
+pub using @core {type SourceProvider}
 
 pub using @core {type SourceSpan}
 
