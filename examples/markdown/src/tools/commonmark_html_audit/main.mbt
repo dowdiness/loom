@@ -119,7 +119,7 @@ fn audit_command() -> @argparse.Command {
 
 ///|
 fn parse_spec_path(args : ArrayView[String]) -> String {
-  let matches = audit_command().parse(argv=args, env={}) catch {
+  let matches = audit_command().parse(argv=args, env=Map([])) catch {
     err => {
       println(err.to_string())
       @sys.exit(2)
@@ -148,10 +148,14 @@ fn markdown_ir_contains_unsupported_or_recovered(
 
 ///|
 fn CommonMarkSpecExample::outcome(self : CommonMarkSpecExample) -> AuditOutcome {
-  let (cst, diagnostics) = @markdown.parse_cst(self.markdown) catch {
+  let source_id = @core.SourceId(
+    "markdown-commonmark-html-audit:" + self.example.to_string(),
+  )
+  let (cst, diagnostics) = @markdown.parse_cst(source_id, self.markdown) catch {
     @core.LexError(_) => return LexError
   }
   let ir = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+    source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
   )
