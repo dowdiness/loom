@@ -6,7 +6,7 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
 
 - Issue: [#838](https://github.com/dowdiness/loom/issues/838)
 - Implementation under test: `a1af356a0e98f0b5fa835f6033d2de1830be747d`
-  plus the checked-in benchmark harness from this change
+- Benchmark harness: `d4ab2f0f5537ec57dbd1df130c43b108e37f604b`
 - Environment: local WSL2, Linux 6.6.114.1, x86_64
 - Toolchain: MoonBit `0.10.4+2cc641edf` (2026-07-15), Moon
   `0.1.20260713`
@@ -19,33 +19,34 @@ Historical snapshots from project benchmark runs (full suite and focused runs).
 
 The stage corpus contains a title followed by independent paragraphs with
 emphasis and strong emphasis. Each incremental row is a same-length edit and
-restore cycle near the middle of the document. Moon Bench selected the repeat
-count per row and reported ten sample means with their standard deviation.
+restore cycle near the middle of the document. Every row below reports ten
+samples as `mean ± σ`; Moon Bench selected an adaptive inner iteration count
+for each sample.
 
-| Stage | Scale | wasm-gc mean | JavaScript mean |
+| Stage | Scale | wasm-gc mean ± σ | JavaScript mean ± σ |
 |---|---:|---:|---:|
-| tokenize | 10 paragraphs | 47.31 µs | 35.27 µs |
-| tokenize | 100 paragraphs | 383.44 µs | 348.93 µs |
-| tokenize | 500 paragraphs | 3.21 ms | 1.78 ms |
-| CST | 10 paragraphs | 222.30 µs | 203.66 µs |
-| CST | 100 paragraphs | 1.84 ms | 2.08 ms |
-| CST | 500 paragraphs | 9.57 ms | 10.83 ms |
-| CST + AST | 10 paragraphs | 207.91 µs | 251.71 µs |
-| CST + AST | 100 paragraphs | 2.19 ms | 2.51 ms |
-| CST + AST | 500 paragraphs | 11.01 ms | 13.66 ms |
-| isolated cold AST fold | 100 paragraphs | 258.43 µs | 400.01 µs |
-| isolated cold AST fold | 500 paragraphs | 1.42 ms | 2.36 ms |
-| isolated MarkdownIR | 100 paragraphs | 901.71 µs | 1.31 ms |
-| isolated MarkdownIR | 500 paragraphs | 5.88 ms | 7.23 ms |
-| imperative AST edit cycle | 10 paragraphs | 156.11 µs | 145.28 µs |
-| imperative AST edit cycle | 100 paragraphs | 907.42 µs | 1.12 ms |
-| imperative AST edit cycle | 500 paragraphs | 4.83 ms | 8.55 ms |
-| reactive syntax edit cycle | 10 paragraphs | 130.79 µs | 193.85 µs |
-| reactive syntax edit cycle | 100 paragraphs | 817.63 µs | 1.16 ms |
-| reactive syntax edit cycle | 500 paragraphs | 3.76 ms | 6.14 ms |
-| reactive AST edit cycle | 10 paragraphs | 110.67 µs | 143.62 µs |
-| reactive AST edit cycle | 100 paragraphs | 883.94 µs | 998.46 µs |
-| reactive AST edit cycle | 500 paragraphs | 5.30 ms | 5.10 ms |
+| tokenize | 10 paragraphs | 30.45 µs ± 0.93 µs | 28.58 µs ± 0.29 µs |
+| tokenize | 100 paragraphs | 300.91 µs ± 7.50 µs | 314.42 µs ± 18.81 µs |
+| tokenize | 500 paragraphs | 1.56 ms ± 0.02 ms | 1.57 ms ± 0.23 ms |
+| CST | 10 paragraphs | 137.73 µs ± 1.28 µs | 173.62 µs ± 4.47 µs |
+| CST | 100 paragraphs | 1.50 ms ± 0.02 ms | 1.71 ms ± 0.04 ms |
+| CST | 500 paragraphs | 8.60 ms ± 0.18 ms | 9.53 ms ± 0.17 ms |
+| CST + AST | 10 paragraphs | 169.54 µs ± 2.47 µs | 220.45 µs ± 10.06 µs |
+| CST + AST | 100 paragraphs | 1.88 ms ± 0.04 ms | 2.17 ms ± 0.08 ms |
+| CST + AST | 500 paragraphs | 10.30 ms ± 0.20 ms | 10.99 ms ± 0.10 ms |
+| isolated cold AST fold | 100 paragraphs | 247.70 µs ± 9.00 µs | 328.81 µs ± 6.54 µs |
+| isolated cold AST fold | 500 paragraphs | 1.39 ms ± 0.04 ms | 1.69 ms ± 0.03 ms |
+| isolated MarkdownIR | 100 paragraphs | 882.68 µs ± 18.13 µs | 972.84 µs ± 23.61 µs |
+| isolated MarkdownIR | 500 paragraphs | 5.27 ms ± 0.19 ms | 5.19 ms ± 0.05 ms |
+| imperative AST edit cycle | 10 paragraphs | 97.09 µs ± 1.80 µs | 114.57 µs ± 2.81 µs |
+| imperative AST edit cycle | 100 paragraphs | 752.41 µs ± 34.27 µs | 840.21 µs ± 17.25 µs |
+| imperative AST edit cycle | 500 paragraphs | 3.50 ms ± 0.09 ms | 3.98 ms ± 0.04 ms |
+| reactive syntax edit cycle | 10 paragraphs | 101.04 µs ± 4.61 µs | 117.71 µs ± 3.10 µs |
+| reactive syntax edit cycle | 100 paragraphs | 747.76 µs ± 23.96 µs | 847.04 µs ± 9.78 µs |
+| reactive syntax edit cycle | 500 paragraphs | 3.67 ms ± 0.14 ms | 4.15 ms ± 0.28 ms |
+| reactive AST edit cycle | 10 paragraphs | 103.72 µs ± 4.14 µs | 142.63 µs ± 17.03 µs |
+| reactive AST edit cycle | 100 paragraphs | 833.19 µs ± 84.15 µs | 1.08 ms ± 0.17 ms |
+| reactive AST edit cycle | 500 paragraphs | 4.49 ms ± 0.74 ms | 4.34 ms ± 0.08 ms |
 
 The simple paragraph corpus scales approximately linearly through CST, cold AST
 folding, and MarkdownIR lowering. It does not reproduce the much steeper full-
@@ -54,21 +55,29 @@ shape-sensitive rather than attributable to one universal parser stage. The
 isolated fold and reactive syntax/AST rows also show that downstream AST
 publication is not the source of the edit-time size slope.
 
-The deterministic `FoldStats` guard confirms this interpretation: localized
-edits at 10, 100, and 500 paragraphs all reuse nodes, while recomputed and
-unvisited AST work remain within four nodes of the 10-paragraph result. This is
-the blocking regression signal; the wall times remain informational.
+The deterministic `FoldStats` guard confirms this interpretation. Its
+`(reparse reuse, fold reused, fold recomputed, fold unvisited)` signatures are
+`(1, 11, 3, 2)`, `(1, 101, 3, 2)`, and `(1, 501, 3, 2)` at 10, 100, and 500
+paragraphs. The checked signatures make three recomputed and two unvisited
+nodes the absolute budgets, so both size-dependent and uniform work regressions
+fail the guard. Wall times remain informational.
 
 ### Reproduced incremental bottleneck
 
 A private `TokenBuffer` probe compared the work performed after an accepted
 block splice:
 
-| JavaScript edit + restore cycle | 100 paragraphs | 500 paragraphs |
+| Target and edit + restore cycle | 100 paragraphs | 500 paragraphs |
 |---|---:|---:|
-| construct two replacement token buffers | 786.56 µs | 3.64 ms |
-| update one persistent token buffer twice | 106.81 µs | 446.52 µs |
-| rebuild / update ratio | 7.4x | 8.2x |
+| JS: construct two replacement buffers | 2.29 ms ± 0.60 ms | 8.17 ms ± 2.45 ms |
+| JS: update one persistent buffer twice | 191.81 µs ± 58.42 µs | 719.19 µs ± 254.86 µs |
+| JS: rebuild / update ratio | 11.9x | 11.4x |
+| wasm-gc: construct two replacement buffers | 726.57 µs ± 78.83 µs | 3.68 ms ± 0.17 ms |
+| wasm-gc: update one persistent buffer twice | 35.55 µs ± 0.77 µs | 145.31 µs ± 1.33 µs |
+| wasm-gc: rebuild / update ratio | 20.4x | 25.3x |
+
+The larger relative variance on the JavaScript probe is visible rather than
+hidden; even the mean-level comparison remains above 11x at both scales.
 
 The block-reparse fast path rebuilt the full token buffer after it had already
 accepted a localized subtree splice. This isolated probe reproduces a
